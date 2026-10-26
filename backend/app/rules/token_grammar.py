@@ -179,6 +179,7 @@ def _with(part: str | None, vehicle: bool = False) -> tuple[list[str], str | Non
     if any(k not in SUPPORTED_KEYWORDS and not re.fullmatch(r"toxic \d+", k) and not keyword_triggers.supported(k, k)
            and not (re.fullmatch(r"[a-z]+ \d+", k) and (keyword_triggers.supported(k.split()[0], k) or k.startswith("firebending ")))  # (wave 46C: "with annihilator 1", "with firebending 1": numbered keywords the engine reads, 702.189a)
            and not (k.startswith("protection from ") and protection.supported(k))
+           and not re.fullmatch(r"ward \{\d+\}", k)  # -- ward token (wave 110G) -- 702.21a: "with ward {2}", read from the token's keyword line like a card's
            and not (vehicle and re.fullmatch(r"crew \d+", k)) for k in kws):  # (wave 38B: a Vehicle token's "crew N", 702.122a)
         return None
     if quoted is not None:
@@ -366,6 +367,12 @@ def _named_noncreature(m: re.Match[str], *, n_word: str | None, plain: bool) -> 
     lines = [k.capitalize() for k in keywords[0]]
     for q in quotes:
         q = q.rstrip(",")
+        nested = re.fullmatch(r"(Equipped creature has) '([^'\"]+)'", q) if "Equipment" in subs else None
+        if nested:  # -- trigger other (wave 110B) -- Toggo's Rock: 'Equipped creature has '{1}, {T}, Sacrifice Rock: …'' is the Equipment's own granted ability ("Sacrifice Rock" is the token)
+            if _quoted_text(f'{nested[1]} "{nested[2].replace(f"Sacrifice {name}", "Sacrifice this Equipment")}."') is None:
+                return None  # (read with the token's own name as "this Equipment"; the token's text keeps its name, which the token's card text turns into its granter, 607.1a)
+            lines.append(f'{nested[1]} "{nested[2]}."')
+            continue
         line = _quoted_text(q.replace("this token", f"this {kind}")) if "this token" in q else _quoted_text(q)
         if line is None or ('"' in line):
             return None
@@ -479,6 +486,11 @@ def _attack_with(plan: Plan, cards: list[str], target: str, actor: str) -> None:
         return  # 508.4a: that player left the game
     if cards:
         plan.do({"type": "attack", "card_ids": cards, "target": {"kind": kind, "id": target}}, actor=actor)
+        from app.rules import (
+            triggers,  # -- enters attacking (wave 110C) -- 508.4: they never "attacked", but "enters attacking" triggers (Arni Metalbrow)
+        )
+
+        triggers.generic_combat(plan, "enter_attacking", [plan.state.cards[c] for c in cards])
 
 
 def resume_token_attack(plan: Plan, d: Any, chosen: list[str]) -> None:

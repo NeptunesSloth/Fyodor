@@ -173,6 +173,48 @@ def exile_hands(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.exile_cards(plan, ctx, e, [c for p in plan.live() for c in plan.state.zones.get(zone_key(p, "hand"), [])])
 
 
+def counter_opponents(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """701.6a: counter every spell and ability an opponent controls on the stack (not this spell); then ``make``'s n tokens, one for each
+    that was really countered (a spell that can't be countered stays, 101.2): "for each spell and ability countered this way" (608.2c)."""
+    from app.rules import effects
+
+    sids = [c for c in plan.state.zones.get("stack", []) if c != ctx.get("stack_id") and plan.state.cards[c].controller != ctx["controller"]]
+    for sid in sids:
+        effects.counter_object(plan, sid, ctx["controller"], by=ctx["controller"])
+    return effects.PRIMITIVES["create_token"](plan, ctx, {**e["make"], "n": sum(c not in plan.rules.stack for c in sids)})
+
+
+def _answer() -> Parsed:
+    """Glen Elendra's Answer: one Faerie token for each spell and ability that was countered."""
+    return [{"do": "counter_opponents110a", "make": _p("Create a 1/1 blue and black Faerie creature token with flying.")[0][0]}], None, False
+
+
+SPLENDOR = ("At the beginning of your upkeep, draw a card if your life total is greater than or equal to the last noted life total for ~. "
+            "Then note your life total.")
+
+
+def noted_draw(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Draw if the controller's life total is at least the one last noted for the source, then note it again (the source's own choice)."""
+    from app.rules import effects, wave110a_enter
+
+    card = plan.state.cards[ctx["source_card"]]
+    noted = card.choices.get(wave110a_enter.NOTE, "")
+    if noted and plan.state.players[ctx["controller"]].life >= int(noted):
+        effects.PRIMITIVES["draw"](plan, ctx, e["draw"])
+    if card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object"):
+        wave110a_enter.note(plan, card)
+    return True
+
+
+def _memories() -> Parsed:
+    """Memories Returning: the five revealed cards are split by turns, you taking one, then a chosen opponent putting one on the bottom (608.2c)."""
+    first = _p("Reveal the top five cards of your library. Put one of them into your hand.")[0]
+    pick = first[1]
+    bottom = {**pick, "to": "bottom", "chooser": "ref:opp110a"}
+    last = {**pick, "which": "all"}
+    return [*first, {"do": "choose_value", "who": "you", "what": "opponent", "as": "opp110a"}, bottom, copy.deepcopy(pick), copy.deepcopy(bottom), last], None, False
+
+
 def _decree() -> Parsed:
     """Decree of Annihilation: the three exiles in order (608.2c); "all cards from all hands" is every card in every hand (the hand zones, 400.1)."""
     first = _p("Exile all artifacts, creatures, and lands. Exile all cards from all graveyards.")[0]
@@ -287,7 +329,89 @@ def _beheld_power(text: str) -> Callable[[], Parsed]:
     return build
 
 
+def _vats() -> Parsed:
+    """V.A.T.S.: any number of target creatures whose toughnesses are all equal (601.2c; targets.relation_ok ``same_toughness110a``), destroyed."""
+    effects, targets, optional = _p("Destroy any number of target creatures.")
+    targets[0]["same_toughness110a"] = True
+    return effects, targets, optional
+
+
+def gambit(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Illusionist's Gambit: the attackers leave combat (506.4) and untap (701.26b); in the additional combat (500.8) each of them attacks if able
+    and can't attack the caster or their planeswalkers: continuous attack effects that begin with the next combat (attack_destinations.begin_window)."""
+    from app.rules import effects, layers
+
+    who = 'sel:{"attacking":true,"types":["Creature"]}'
+    cards = effects._cards(plan, ctx, who)
+    effects.PRIMITIVES["remove_from_combat"](plan, ctx, {"do": "remove_from_combat", "who": who})
+    if cards:
+        effects.PRIMITIVES["untap"](plan, ctx, {"do": "untap", "who": "union:" + "+".join("object:" + plan.oid(c) for c in cards)})
+    for cid in cards:
+        card = plan.state.cards[cid]
+        if card.zone.endswith(":battlefield"):
+            layers.add_effect(plan, affected=[plan.oid(cid)], layer="6", source=ctx.get("source_object"), controller=ctx["controller"], duration="permanent",
+                              imposes=("must_attack", f"cant_attack_player_pw:{ctx['controller']}"), declaration_window="next_combat",
+                              declaration_player=card.controller)
+    return effects.PRIMITIVES["extra_phases"](plan, ctx, {"do": "extra_phases", "after": "phase", "main": False})
+
+
+def wheel(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Wheel of Potential: each player in turn order may exile their hand and draw as many cards as the {E} paid (101.4: all answer first,
+    then it happens); if seven or more were paid, the controller may play the cards they own exiled this way until the end of their next turn."""
+    from app.rules import context
+
+    n = context.amount(ctx, next((k for k in context.refs(ctx) if k.endswith("energy_paid")), "energy_paid"))
+    me, at = ctx["controller"], ctx["next"]
+    players = list(plan.apnap())
+    added: list[dict[str, Any]] = [{"do": "tempt_ask", "player": p, "bind": f"w110a_{i}", "text": "exile your hand and draw cards"}
+                                   for i, p in enumerate(players)]
+    hand = 'sel:{"card":true,"zone_owner":"you","zones":["hand"]}'
+    for i, p in enumerate(players):
+        added += [{"do": "only_if", "cond": {"flag": f"w110a_{i}"}, "skip": 4}, {"do": "as_player", "player": p},
+                  {"do": "exile", "who": hand, "as": f"w110a_x{i}"}, {"do": "draw", "who": "you", "n": n}, {"do": "as_player_end"}]
+    if n >= 7:
+        added.append({"do": "grant_owned110a", "from": f"w110a_x{players.index(me)}"})
+    ctx["effects"][at:at] = added
+    return True
+
+
+def grant_owned(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The controller may play the exiled cards they own (the others stay exiled) until the end of their next turn."""
+    from app.rules import context, effects
+
+    if e["from"] not in context.refs(ctx):  # (the controller declined: nothing was exiled)
+        return True
+    context.bind_objects(plan, ctx, "w110a_own", [c for c in context.objects(plan, ctx, e["from"]) if plan.state.cards[c].owner == ctx["controller"]])
+    return effects.PRIMITIVES["grant_play"](plan, ctx, {"do": "grant_play", "who": "ref:w110a_own", "play": True, "cast": True,
+                                                         "until": "end_of_next_turn", "optional": True})
+
+
+def _wheel() -> Parsed:
+    return [{"do": "wheel110a"}], None, False
+
+
+def _interrogation() -> Parsed:
+    """Officious Interrogation: X is summed over the chosen players that are still legal targets (608.2b, target_player_counts)."""
+    chosen = _p("Choose any number of target players.")
+    inv = _p("Investigate X times, where X is the number of creatures you control.")
+    return [{**inv[0][0], "n": {"sum_for_players": "target:0", "of": inv[0][0]["n"]}}, *inv[0][1:]], chosen[1], False
+
+
+def _gambit() -> Parsed:
+    return [{"do": "gambit110a"}], None, False
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Choose any number of target players. Investigate X times, where X is the total number of creatures those players control.": _interrogation,
+    "Each player may exile their hand and draw a number of cards equal to the amount of {E} paid this way. If seven or more {E} was paid this way, "
+    "you may play cards you own exiled this way until the end of your next turn.": _wheel,
+    "Remove all attacking creatures from combat and untap them. After this phase, there is an additional combat phase. Each of those creatures attacks that "
+    "combat if able. They can't attack you or planeswalkers you control that combat.": _gambit,
+    "Choose any number of target creatures with equal toughness. Destroy the chosen creatures.": _vats,
+    "Reveal the top five cards of your library. Put one of them into your hand. Then choose an opponent. They put one on the bottom of your library. "
+    "Then you put one into your hand. Then they put one on the bottom of your library. Put the other into your hand.": _memories,
+    "Counter all spells your opponents control and all abilities your opponents control. Create a 1/1 blue and black Faerie creature token with "
+    "flying for each spell and ability countered this way.": _answer,
     "Create three 1/1 white Ninja Turtle Spirit creature tokens. If this spell's sneak cost was paid, they enter tapped and attacking.": _ronin,
     "~ deals damage equal to the power of the creature you chose or the card you revealed to target creature.":
         _beheld_power("~ deals damage equal to the power of the sacrificed creature to target creature."),
@@ -452,6 +576,9 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if old == "Each opponent who controls more creatures than you can't cast creature spells. The same is true for artifacts and enchantments.":
         return {"kind": "static", "static": "cast_limit", "who": "opponents", "when": None, "filter": None, "from": None, "act": None, "max": None,
                 "more110a": ["Creature", "Artifact", "Enchantment"], "effects": []}  # Ward of Bones: 601.3, per type the opponent has more of
+    if old == SPLENDOR:  # Sigarda's Splendor: the upkeep trigger reads the life total noted as it entered (wave110a_enter), then notes again
+        d = scripts.define(replace(ability, text="At the beginning of your upkeep, draw a card."), ch)
+        return None if d is None else {**d, "effects": [{"do": "noted_draw110a", "draw": d["effects"][0]}]}
     if old == "Each opponent who controls more lands than you can't play lands.":  # Ward of Bones: 305.1, read by engine.play_land_problem
         return {"kind": "static", "static": "cant_play_lands", "effects": [], "more110a": ["Land"]}
     if old == "Each opponent who attacked with a creature this turn can't cast spells.":  # Angelic Arbiter: 601.3, an opponent who declared attackers this turn
@@ -464,9 +591,6 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if d is None or "if" not in d:
             return None
         d.pop("if")
-        for e in d["effects"]:
-            if e["do"] == "reflexive":
-                e["keep_event"] = True  # "that player" is still the one dealt the damage (603.12)
         return d
     new = ABILITY_REWRITES.get(old)
     d = None if new is None else scripts.define(replace(ability, text=new), ch)
@@ -498,5 +622,5 @@ def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
-              "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands}
+PRIMITIVES = {"wheel110a": wheel, "grant_owned110a": grant_owned, "gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
+              "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents, "noted_draw110a": noted_draw}

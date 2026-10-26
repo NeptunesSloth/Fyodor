@@ -1,0 +1,224 @@
+[
+{
+"name": "Bullseye, Death Dealer",
+"layout": "normal",
+"mana_cost": "{2}{B/R}",
+"cmc": 3.0,
+"type_line": "Legendary Creature — Human Assassin Villain",
+"oracle_text": "When Bullseye enters, you may sacrifice an artifact or discard a nonland card. When you do, Bullseye deals 2 damage to any target.\n{3}, {T}, Sacrifice an artifact or discard a nonland card: Bullseye deals 2 damage to any target.",
+"power": "2",
+"toughness": "3",
+"colors": [
+"B",
+"R"
+],
+"color_identity": [
+"B",
+"R"
+],
+"keywords": []
+},
+{
+"name": "Grizzly Bears",
+"layout": "normal",
+"mana_cost": "{1}{G}",
+"cmc": 2.0,
+"type_line": "Creature — Bear",
+"oracle_text": "",
+"power": "2",
+"toughness": "2",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": []
+},
+{
+"name": "Library of Lat-Nam",
+"layout": "normal",
+"mana_cost": "{4}{U}",
+"cmc": 5.0,
+"type_line": "Sorcery",
+"oracle_text": "An opponent chooses one —\n• You draw three cards at the beginning of the next turn's upkeep.\n• You search your library for a card, put that card into your hand, then shuffle.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
+},
+{
+"name": "Sol Ring",
+"layout": "normal",
+"mana_cost": "{1}",
+"cmc": 1.0,
+"type_line": "Artifact",
+"oracle_text": "{T}: Add {C}{C}.",
+"colors": [],
+"color_identity": [],
+"keywords": [],
+"produced_mana": [
+"C"
+]
+},
+{
+"name": "Twisted Sewer-Witch",
+"layout": "normal",
+"mana_cost": "{3}{B}{B}",
+"cmc": 5.0,
+"type_line": "Creature — Human Warlock",
+"oracle_text": "When this creature enters, create a 1/1 black Rat creature token with \"This creature can't block.\" Then for each Rat you control, create a Wicked Role token attached to that Rat. (If you control another Role on it, put that one into the graveyard. Enchanted creature gets +1/+1. When this token is put into a graveyard, each opponent loses 1 life.)",
+"power": "3",
+"toughness": "4",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Role token"
+]
+},
+{
+"name": "Transforming Flourish",
+"layout": "normal",
+"mana_cost": "{2}{R}",
+"cmc": 3.0,
+"type_line": "Instant",
+"oracle_text": "Demonstrate (When you cast this spell, you may copy it. If you do, choose an opponent to also copy it. Players may choose new targets for their copies.)\nDestroy target artifact or creature you don't control. If that permanent is destroyed this way, its controller exiles cards from the top of their library until they exile a nonland card, then they may cast that card without paying its mana cost.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [
+"Demonstrate"
+]
+},
+{
+"name": "Darksteel Colossus",
+"layout": "normal",
+"mana_cost": "{11}",
+"cmc": 11.0,
+"type_line": "Artifact Creature — Golem",
+"oracle_text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nIndestructible (Damage and effects that say \"destroy\" don't destroy this creature.)\nIf Darksteel Colossus would be put into a graveyard from anywhere, reveal Darksteel Colossus and shuffle it into its owner's library instead.",
+"power": "11",
+"toughness": "11",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Indestructible",
+"Trample"
+]
+},
+{
+"name": "Teferi, Timeless Voyager",
+"layout": "normal",
+"mana_cost": "{4}{U}{U}",
+"cmc": 6.0,
+"type_line": "Legendary Planeswalker — Teferi",
+"oracle_text": "+1: Draw a card.\n−3: Put target creature on top of its owner's library.\n−8: Each creature target opponent controls phases out. Until the end of your next turn, they can't phase in. (Treat them and anything attached to them as though they don't exist.)",
+"loyalty": "4",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
+},
+{
+"name": "Break the Ice",
+"layout": "normal",
+"mana_cost": "{B}{B}",
+"cmc": 2.0,
+"type_line": "Sorcery",
+"oracle_text": "Destroy target land that is snow or could produce {C}.\nOverload {4}{B}{B} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Overload"
+]
+},
+{
+"name": "Ancient Ziggurat",
+"layout": "normal",
+"mana_cost": "",
+"cmc": 0.0,
+"type_line": "Land",
+"oracle_text": "{T}: Add one mana of any color. Spend this mana only to cast a creature spell.",
+"colors": [],
+"color_identity": [],
+"keywords": [],
+"produced_mana": [
+"B",
+"G",
+"R",
+"U",
+"W"
+]
+},
+{
+"name": "Snow-Covered Island",
+"layout": "normal",
+"mana_cost": "",
+"cmc": 0.0,
+"type_line": "Basic Snow Land — Island",
+"oracle_text": "({T}: Add {U}.)",
+"colors": [],
+"color_identity": [
+"U"
+],
+"keywords": [],
+"produced_mana": [
+"U"
+]
+},
+{
+"name": "Bone Shaman",
+"layout": "normal",
+"mana_cost": "{2}{R}{R}",
+"cmc": 4.0,
+"type_line": "Creature — Giant Shaman",
+"oracle_text": "{B}: Until end of turn, this creature gains \"Creatures dealt damage by this creature this turn can't be regenerated this turn.\"",
+"power": "3",
+"toughness": "3",
+"colors": [
+"R"
+],
+"color_identity": [
+"B",
+"R"
+],
+"keywords": []
+},
+{
+"name": "Drudge Skeletons",
+"layout": "normal",
+"mana_cost": "{1}{B}",
+"cmc": 2.0,
+"type_line": "Creature — Skeleton",
+"oracle_text": "{B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+"power": "1",
+"toughness": "1",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Heal",
+"Regenerate"
+]
+}
+]

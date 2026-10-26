@@ -224,7 +224,56 @@ def _sparkshaper() -> Parsed:
     return [{**e, "who": "target:0"} for e in effects], [{"what": sel, "min": 0, "max": 250}], optional
 
 
+def _remove_sets(plan: Any, me: str) -> tuple[list[str], list[str]]:
+    """Remove Enchantments: (returned, other) -- the first group, then the "other" ones the destroy half takes (608.2c, 303.4)."""
+    ret: list[str] = []
+    other: list[str] = []
+    for c in plan.state.cards.values():
+        if not c.zone.endswith(":battlefield") or not plan.in_game(c):
+            continue
+        ch = plan.ch(c)
+        host = plan.state.cards.get(c.attached_to or "")
+        hosted = host is not None and host.zone.endswith(":battlefield")
+        aura = "Aura" in ch.subtypes and hosted
+        mine = aura and host.controller == me
+        hit_attacker = aura and host.controller != me and host.attacking is not None
+        if "Enchantment" in ch.types or aura:
+            if c.owner == me and ((c.controller == me and "Enchantment" in ch.types) or mine or hit_attacker):
+                ret.append(c.id)
+            elif (c.controller == me and "Enchantment" in ch.types) or mine or hit_attacker:
+                other.append(c.id)
+    return ret, other
+
+
+def barrier_direction(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Mystic Barrier: the last chosen direction replaces the earlier one (the restriction is combat_teyo66's, 508.1d) for as long as it stays."""
+    from app.rules import combat_teyo66, layers, selectors
+
+    value = (ctx.get("refs") or {}).get("direction110f", {}).get("value")
+    if value not in ("left", "right"):
+        return True
+    r = plan.rules
+    r.effects = [x for x in r.effects if not (x.source == ctx.get("source_object") and any(i.startswith(combat_teyo66.FIXED) for i in x.imposes))]
+    layers.add_effect(plan, affected=[], layer="6", source=ctx.get("source_object"), controller=ctx["controller"],
+                      who=selectors.Selector(types=("Creature",)).key(), source_card=ctx.get("source_card"),
+                      imposes=(combat_teyo66.FIXED + value,), duration="source_on_battlefield", label="Attacks only " + value)  # type: ignore[arg-type]
+    return True
+
+
+def remove_enchantments(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    ret, other = _remove_sets(plan, ctx["controller"])
+    if e["step"] == "return":
+        if ret:
+            plan.do({"type": "move", "card_ids": ret, "to": {"zone": "hand"}}, actor=ctx["controller"])
+        return True
+    return effects._destroy_cards(plan, ctx, {"do": "destroy"}, other)
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Return to your hand all enchantments you both own and control, all Auras you own attached to permanents you control, and all Auras you own attached to attacking creatures your opponents control. Then destroy all other enchantments you control, all other Auras attached to permanents you control, and all other Auras attached to attacking creatures your opponents control.":
+        lambda: ([{"do": "remove_enchantments110f", "step": "return"}, {"do": "remove_enchantments110f", "step": "destroy"}], None, False),
     'choose any number of target planeswalkers you control. Until end of turn, they become 3/3 blue Bird creatures with flying, hexproof, and "Whenever ~ deals combat damage to a player, scry 1."': _sparkshaper,
     "exile another target nonland permanent. If you controlled it, return it to the battlefield tapped. Otherwise, its controller creates a 2/2 white and blue Detective creature token.": _gatekeeper,
     "Choose target creature. Its owner shuffles it into their library, then investigates.": _blink,
@@ -255,7 +304,7 @@ REWRITES = {
         "Gain control of target nonartifact, nonblack creature that attacked you this turn, then put a -1/-0 counter on it.",
     "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
-PRIMITIVES: dict[str, Any] = {"same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock}
+PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remove_enchantments110f": remove_enchantments, "same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock}
 RESUME: dict[str, Any] = {"turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
 
 
@@ -272,10 +321,26 @@ COPY_ENTRY = "copy_entry110f"
 _COPY_ENTRY_TEXT = "Creatures you control enter as a copy of this creature."
 
 
+_STICKER_BACK = "Whenever you put {k} sticker on a creature, you may return this card from your graveyard to your hand."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     """Essence of the Wild: the static is read at entry (copying.entering -> :func:`copy_on_entry`), it has no effect of its own."""
+    from dataclasses import replace
+
     from app.rules import scripts
 
+    text = scripts.self_text(ability.text, ch.name)
+    if ability.kind == "triggered" and text == "When ~ enters and at the beginning of your upkeep, choose left or right.":
+        native = scripts.define(replace(ability, text="When ~ enters and at the beginning of your upkeep, draw a card."), ch)
+        if native is not None:  # Mystic Barrier: both triggers, the same choice
+            return {**native, "effects": [{"do": "choose_value", "who": "you", "what": "direction", "as": "direction110f"}, {"do": "barrier_direction110f"}]}
+    if ability.kind == "static" and text == "Each player may attack only the nearest opponent in the last chosen direction and planeswalkers controlled by that opponent.":
+        return {"kind": "static", "static": "barrier_direction110f", "effects": []}  # (the effect is added by the choice)
+    # Unlawful Entry, A Good Day to Pie: a graveyard trigger (603.4 intervening "if", gy_watch) on the sticker event (events.py)
+    for k in ("an art", "a name"):
+        if ability.kind == "triggered" and ability.text.strip() == _STICKER_BACK.format(k=k):
+            return scripts.define(replace(ability, text=_STICKER_BACK.format(k=k).replace("sticker on a creature,", "sticker on a creature, if this card is in your graveyard,")), ch)
     if ability.kind == "static" and scripts.self_text(ability.text, ch.name).replace("~", "this creature") == _COPY_ENTRY_TEXT:
         return {"kind": "static", "static": COPY_ENTRY, "effects": []}
     return None

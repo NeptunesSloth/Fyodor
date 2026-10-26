@@ -1844,7 +1844,7 @@ def counterable(plan: Plan, stack_id: str) -> bool:
 
 
 def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None, *, exile: bool = False,
-                   by: str | None = None, types: list[str] | None = None) -> None:
+                   by: str | None = None, types: list[str] | None = None, source: str | None = None) -> None:
     """701.6: a countered spell goes to its owner's graveyard (a flashback spell into exile); a
     countered ability simply stops existing. ``exile``: "If that spell is countered this way, exile
     it instead of putting it into its owner's graveyard" (608.2c; wave 4C).
@@ -1854,7 +1854,9 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
     card = plan.state.cards.get(stack_id)
     if card is None or card.zone != "stack":
         return
-    if not counterable(plan, stack_id):
+    from app.rules import wave110b_cards
+
+    if not counterable(plan, stack_id) or source and wave110b_cards.shielded(plan, card, source):  # (-- Autumn's Veil (wave 110B) --)
         plan.note(f"{card.name} can't be countered", [stack_id])
         return
     r = plan.rules
@@ -1881,7 +1883,7 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
     if oid in r.flashback or exile:
         r.flashback = [o for o in r.flashback if o != oid]
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
-    elif to == "exile":  # (wave 4A)
+    elif to == "exile" and (not types or any(t in plan.ch(card).types for t in types)):  # (wave 4A; 110I: "if a permanent spell is countered this way")
         plan.do({"type": "move", "card_ids": [stack_id], "to": {"player": card.owner, "zone": "exile"}}, actor=actor)
     elif to == "battlefield_you" and by is not None and types and any(t in plan.ch(card).types for t in types):
         # -- counter outcomes (wave 110C) -- Desertion: an artifact or creature spell is put onto the battlefield under the counterer's control (608.2c, 701.6a)
@@ -1944,7 +1946,7 @@ def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     before = _remember(plan, ctx, e, sids)  # -- stack interaction (wave 5B) -- "its controller": 608.2h
     perms = _ability_sources(plan, sids, e) if e.get("perm_as") else {}
     for sid in sids:
-        counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")), by=ctx["controller"], types=e.get("types"))  # (exile: 4C; to: 4A)
+        counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")), by=ctx["controller"], types=e.get("types"), source=ctx.get("source_card"))  # (exile: 4C; to: 4A)
     if e.get("perm_as"):  # -- stack interaction (wave 23B) -- "If a permanent's ability is countered this way, … that permanent": the sources
         context.bind_objects(plan, ctx, e["perm_as"], [c for sid, c in perms.items() if sid not in plan.rules.stack])  # of the abilities that were
     _moved(plan, ctx, e, before)  # (wave 5B)
@@ -1980,7 +1982,7 @@ def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     if not cost.is_free and not casting.can_pay(plan.state, payer, cost, plan.info) and not reveal_mana.available(plan, payer):
         plan.note(f"{plan.name(payer)} can't pay {cost.text()}")
-        counter_object(plan, sid, payer, by=ctx["controller"])
+        counter_object(plan, sid, payer, by=ctx["controller"], source=ctx.get("source_card"))
         return True
     # -- end review (wave 4R) --
     options = [DecisionOption(id="pay", label=f"Pay {cost.text()}"),  # (tap your mana first)
@@ -2710,7 +2712,11 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
     e = {"as": binding}
     before = _remember(plan, ctx, e, cards)
     if cards:  # each to its owner's graveyard (701.9a); -- hand disruption (wave 11D) -- or exiled, which is no discard (701.9a)
-        plan.do({"type": "move", "card_ids": cards, "to": {"zone": dest}, **({"face_down": True, "blind": blind} if dest == "exile" and face_down else {})}, actor=ctx["controller"])
+        plan.discarding = dest == "graveyard"  # -- optional replacements (wave 110C) -- an effect's discard (Library of Leng)
+        try:
+            plan.do({"type": "move", "card_ids": cards, "to": {"zone": dest}, **({"face_down": True, "blind": blind} if dest == "exile" and face_down else {})}, actor=ctx["controller"])
+        finally:
+            plan.discarding = False
     if dest == 'exile' and link:
         from app.rules import exiled_with
 
@@ -2994,7 +3000,7 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
                                        then={"do": "continue", "ctx": ctx})
             return
         else:
-            counter_object(plan, sid, d.player, by=ctx["controller"])
+            counter_object(plan, sid, d.player, by=ctx["controller"], source=ctx.get("source_card"))
         continue_effects(plan, ctx)
         return
     src = _cards(plan, ctx, "self")
@@ -4265,6 +4271,9 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
 
             context.refs(ctx)["gcost"] = {"kind": "objects", **this_way.cost_objects(plan, ctx, this_way.COST, "sacrificed")}
             shared = {t for _, ch in context.infos(plan, ctx, "gcost") for t in ch.types}
+            mine = [c for c in mine if plan.ch(plan.state.cards[c]).types & shared]
+        if e.get("shares_type_with") == "event":  # -- group choices (wave 110B) -- Martyr's Bond: the card types of the permanent that left, as it last existed (603.10a, 608.2h)
+            shared = {t for _, ch in context.infos(plan, ctx, context.EVENT) for t in ch.types}
             mine = [c for c in mine if plan.ch(plan.state.cards[c]).types & shared]
         if e.get("distinct"):  # -- group choices (wave 53D) -- "a creature card in your graveyard that hasn't been chosen" (Rejoin the Fight): no object twice
             mine = [c for c in mine if c not in picked]
@@ -7140,3 +7149,23 @@ RESUME.update(_wave110g_cards.RESUME)
 from app.rules import wave110j_cards as _wave110j  # noqa: E402, I001  -- wave 110J --
 
 PRIMITIVES.update(_wave110j.PRIMITIVES)
+from app.rules import wave110k_cards as _wave110k  # noqa: E402, I001  -- wave 110K --
+
+PRIMITIVES.update(_wave110k.PRIMITIVES)
+RESUME.update(_wave110k.RESUME)
+from app.rules import wave110l_cards as _wave110l  # noqa: E402, I001  -- wave 110L --
+
+PRIMITIVES.update(_wave110l.PRIMITIVES)
+RESUME.update(_wave110l.RESUME)
+from app.rules import wave110m_cards as _wave110m  # noqa: E402, I001  -- wave 110M --
+
+PRIMITIVES.update(_wave110m.PRIMITIVES)
+RESUME.update(_wave110m.RESUME)
+from app.rules import wave110n_cards as _wave110n  # noqa: E402, I001  -- wave 110N --
+
+PRIMITIVES.update(_wave110n.PRIMITIVES)
+RESUME.update(_wave110n.RESUME)
+from app.rules import wave110o_cards as _wave110o  # noqa: E402, I001  -- (wave 110O) --
+
+PRIMITIVES.update(_wave110o.PRIMITIVES)
+RESUME.update(_wave110o.RESUME)

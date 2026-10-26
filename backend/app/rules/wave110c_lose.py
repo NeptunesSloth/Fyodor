@@ -46,6 +46,12 @@ def _sources(plan: Plan, pid: str) -> list[tuple[Any, dict[str, Any]]]:
         ch = plan.ch(c)
         skip = conditional_lines(ch)
         found += [(c, d) for i, d in scripts.definitions(ch).items() if i not in skip and d.get("static") == STATIC]
+    from app.rules import history
+
+    for w in history.log_for(plan).lose_shield110b:  # -- wave 110B -- Stunning Reversal: a one-shot "next time this turn" replacement (614.1a, 614.5)
+        who, _, cid = w.partition("|")
+        if who == pid and cid in plan.state.cards:
+            found.append((plan.state.cards[cid], {"static": STATIC, "life": "reversal", "shield": w}))
     return found
 
 
@@ -53,11 +59,19 @@ def _apply(plan: Plan, pid: str, c: Any, d: dict[str, Any]) -> None:
     from app.rules import effects
 
     life = d["life"]
+    if life == "reversal":  # used up once, whether or not the player loses later (614.5)
+        from app.game.rules_state import turn_log_now
+
+        log = turn_log_now(plan.state)
+        if log is not None:
+            log.lose_shield110b.remove(d["shield"])
     if life == "mirror":  # 701.24a: every card of the player's in those zones, tokens cease to exist (704.5d)
         owned = [x.id for x in plan.state.cards.values() if x.owner == pid and x.zone.endswith(":battlefield")]
         plan.do({"type": "move", "card_ids": owned, "to": {"player": pid, "zone": "library"}}, actor=pid)
         body: list[dict[str, Any]] = [{"do": "shuffle_library", "who": "you", "zones": ["hand", "graveyard"]},
                                       {"do": "draw", "who": "you", "n": 7}, {"do": "set_life", "who": "you", "n": 20}]
+    elif life == "reversal":
+        body = [{"do": "draw", "who": "you", "n": 7}, {"do": "set_life", "who": "you", "n": 1}]
     else:
         body = [{"do": "exile", "who": "self"}, {"do": "set_life", "who": "you", "n": life}]
     plan.note(f"{plan.name(pid)} would lose the game, but {c.name} replaces it")

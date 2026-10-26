@@ -120,6 +120,10 @@ def jump_start(state: GameState, player: str, card: CardInstance, ch: Characteri
     from app.rules.plan import Plan
 
     view = None
+    r = state.rules  # -- (wave 110O) -- granted until end of turn by a resolved effect (Filigree Racer): graveyard_grants.grant_flashback
+    if r is not None and card.zone == f"{player}:graveyard" and card.owner == player and any(
+            g.get("jump_start") and g.get("oid") == r.object_id(card.id) and g.get("turn") == state.turn.number for g in r.graveyard_grants):
+        return True
     for src, d in _statics(state, info, "zone_grant"):
         if d["keyword"] != "jump-start" or src.controller != player or card.zone != f"{player}:graveyard" or card.owner != player:
             continue

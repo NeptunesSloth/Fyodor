@@ -5,6 +5,10 @@
 * Golgari Brownscale: 603.6 / 400.7 the card put into its owner's hand from the graveyard (dredge, 702.52a) triggers from the hand.
 * Invasion of the Giants: 603.12 'Then you may reveal a Giant card. When you do' is a reflexive trigger after the draw.
 * Distended Mindbender: 701.9 / 701.20a one discard per size class from the revealed hand, chosen by the caster.
+* Fugitive of the Judoon: 702.21a a token created with ward {2}; 118.3 the Human and the artifact are exiled together, then a Doctor is searched out.
+* Foul Emissary: 702.119a / 701.21a the Eldrazi Horror comes only when it was sacrificed as the emerge cost, not by an effect.
+* Blade of the Swarm: 702.185a the second mode puts an exiled card that has warp (any player's) on the bottom of its owner's library; a card without warp is no target.
+* Thought Prison: 607.2a / 105.2 / 202.3 imprint; a spell sharing a color or mana value with the exiled card hurts its caster for 2 (a spell with neither does not).
 * Total War: 508.1 / 302.6 untapped non-Wall creatures that did not attack and were controlled since the turn began are destroyed.
 * Gemini Engine: 508.4 / 111.1 an attacking token with the attacker's power and toughness, sacrificed at end of combat.
 * Vizkopa Confessor: 119.4 the life paid sizes the reveal (701.20a); paying 0 reveals nothing.
@@ -29,6 +33,7 @@ import pytest
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -62,6 +67,17 @@ EXTRA = [
          '(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Scry 2.\nII — Draw a card. Then you may reveal a Giant card from your hand. When you do, this Saga deals 2 damage to target opponent or planeswalker.\nIII — The next Giant spell you cast this turn costs {2} less to cast.', None, 'RU'),
     real('Distended Mindbender', '{8}', 8, 'Creature — Eldrazi Insect',
          "Emerge {5}{B}{B} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, target opponent reveals their hand. You choose from it a nonland card with mana value 3 or less and a card with mana value 4 or greater. That player discards those cards.", ('5', '5'), ''),
+    real('Fugitive of the Judoon', '{4}{G}', 5, 'Enchantment \u2014 Saga',
+         '(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI \u2014 Create a 1/1 white Human creature token with ward {2} and a 4/4 white Alien Rhino creature token.\nII \u2014 Investigate.\nIII \u2014 You may exile a Human you control and an artifact you control. If you do, search your library for a Doctor card, put it onto the battlefield, then shuffle.', None, 'G'),
+    real('Test Doctor', '{G}', 1, 'Creature \u2014 Time Lord Doctor', '', ('1', '1'), 'G'),
+    real('Foul Emissary', '{2}{G}', 3, 'Creature \u2014 Human Horror',
+         'When this creature enters, look at the top four cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in any order.\nWhen you sacrifice this creature while casting a spell with emerge, create a 3/2 colorless Eldrazi Horror creature token.', ('1', '1'), 'G'),
+    real('Blade of the Swarm', '{3}{B}', 4, 'Creature \u2014 Insect Assassin',
+         "When this creature enters, choose one \u2014\n\u2022 Put two +1/+1 counters on this creature.\n\u2022 Put target exiled card with warp on the bottom of its owner's library.", ('3', '1'), 'B'),
+    real('Test Warper', '{2}{R}', 3, 'Creature \u2014 Human', 'Warp {1}{R} (You may cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)', ('3', '2'), 'R'),
+    real('Thought Prison', '{5}', 5, 'Artifact',
+         'Imprint \u2014 When this artifact enters, you may have target player reveal their hand. If you do, choose a nonland card from it and exile that card.\nWhenever a player casts a spell that shares a color or mana value with the exiled card, this artifact deals 2 damage to that player.', None),
+    real('Test Red Two', '{1}{R}', 2, 'Creature \u2014 Goblin', '', ('2', '2'), 'R'),
     real('Total War', '{3}{R}', 4, 'Enchantment',
          "Whenever a player attacks with one or more creatures, destroy all untapped non-Wall creatures that player controls that didn't attack, except for creatures the player hasn't controlled continuously since the beginning of the turn.", None, 'R'),
     real('Gemini Engine', '{6}', 6, 'Artifact Creature — Construct',
@@ -100,6 +116,24 @@ EXTRA = [
     real('Mindstorm Crown', '{3}', 3, 'Artifact', 'At the beginning of your upkeep, draw a card if you had no cards in hand at the beginning of this turn. If you had a card in hand, this artifact deals 1 damage to you.', None, ''),
     real('Archaic\'s Agony', '{4}{R}', 5, 'Sorcery', 'Converge \u2014 Archaic\'s Agony deals X damage to target creature, where X is the number of colors of mana spent to cast this spell. Exile cards from the top of your library equal to the excess damage dealt to that creature this way. You may play those cards until the end of your next turn.', None, 'R'),
     real('Kill-Suit Cultist', '{B}', 1, 'Creature \u2014 Human Cleric', 'This creature attacks each combat if able.\n{B}, Sacrifice this creature: The next time damage would be dealt to target creature this turn, destroy that creature instead.', ('1', '1'), 'B'),
+    real('Touch of Moonglove', '{B}', 1, 'Instant',
+         "Target creature you control gets +1/+0 and gains deathtouch until end of turn. Whenever a creature dealt damage by that creature dies this turn, its controller loses 2 life. (Any amount of damage a creature with deathtouch deals to a creature is enough to destroy it.)", None, 'B'),
+    real('Eye for an Eye', '{W}{W}', 2, 'Instant',
+         "The next time a source of your choice would deal damage to you this turn, instead that source deals that much damage to you and Eye for an Eye deals that much damage to that source's controller.", None, 'W'),
+    real('Phyrexian Ingester', '{6}{U}', 7, 'Creature \u2014 Phyrexian Beast',
+         "Imprint \u2014 When this creature enters, you may exile target nontoken creature.\nThis creature gets +X/+Y, where X is the exiled creature card's power and Y is its toughness.", ('3', '3'), 'U'),
+    real('The Fallen', '{1}{B}{B}{B}', 4, 'Creature \u2014 Zombie',
+         'At the beginning of your upkeep, this creature deals 1 damage to each opponent and planeswalker it has dealt damage to this game.', ('2', '3'), 'B'),
+    real('Gelatinous Cube', '{2}{B}{B}', 4, 'Creature \u2014 Ooze',
+         "Engulf \u2014 When this creature enters, exile target non-Ooze creature an opponent controls until this creature leaves the battlefield.\nDissolve \u2014 {X}{B}: Put target creature card with mana value X exiled with this creature into its owner's graveyard.", ('4', '3'), 'B'),
+    real('Suncleanser', '{1}{W}', 2, 'Creature \u2014 Human Cleric',
+         "When this creature enters, choose one \u2014\n\u2022 Remove all counters from target creature. It can't have counters put on it for as long as this creature remains on the battlefield.\n\u2022 Target opponent loses all counters. That player can't get counters for as long as this creature remains on the battlefield.", ('1', '4'), 'W'),
+    real('Test Grow', '{G}', 1, 'Instant', 'Put a +1/+1 counter on target creature.', None, 'G'),
+    real('Test Venom', '{B}', 1, 'Instant', 'Target player gets two poison counters.', None, 'B'),
+    real('Elkin Lair', '{3}{R}', 4, 'World Enchantment',
+         "At the beginning of each player's upkeep, that player exiles a card at random from their hand. The player may play that card this turn. At the beginning of the next end step, if the player hasn't played the card, they put it into their graveyard.", None, 'R'),
+    real("Ertai's Familiar", '{1}{U}', 2, 'Creature \u2014 Illusion',
+         "Phasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nWhen this creature phases out or leaves the battlefield, mill three cards.\n{U}: Until your next upkeep, this creature can't phase out.", ('2', '2'), 'U'),
     real('Test Zap', '{R}', 1, 'Instant', 'Test Zap deals 1 damage to target creature.', None, 'R'),
     real('Beamsplitter Mage', '{1}{R}', 2, 'Creature \u2014 Human Wizard', 'Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of those creatures. Copy that spell. The copy targets the chosen creature.', ('1', '3'), 'R'),
     real('Biblioplex Tomekeeper', '{4}', 4, 'Artifact Creature \u2014 Construct', 'When this creature enters, choose up to one \u2014\n\u2022 Target creature becomes prepared.\n\u2022 Target creature becomes unprepared.', ('3', '4'), ''),
@@ -828,4 +862,330 @@ def test_beamsplitter_mage_rechecks_if_on_resolution(cards):
     assert s.state.cards[bears.id].zone == "p1:graveyard"
     assert s.state.rules.decision is None and not s.state.zones["stack"]
     assert s.state.cards[mage.id].damage == 1
+    check(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_fugitive_of_the_judoon_token_has_ward_and_chapter_three_exiles_both(cards, pay):
+    """Fugitive of the Judoon (702.21a, 118.3): the Human token has ward {2}; chapter III exiles the Human and a Clue together to fetch a Doctor."""
+    s = build(cards, ["Fugitive of the Judoon", *["Forest"] * 20, "Test Doctor"], [], forests=0, islands=40)  # (the Doctor stays deep in the library)
+    mana(s, "p1", G=1, C=4)
+    saga = to_hand(s, "Fugitive of the Judoon")
+    act(s, "p1", type="cast_spell", card_id=saga.id)
+    seen = False
+    for _ in range(400):
+        d = s.state.rules.decision
+        human = next((c for c in s.state.cards.values() if c.name == "Human" and c.zone == "p1:battlefield"), None)
+        if human is not None and not seen:
+            seen = True
+            assert any("ward" in k for k in ch(s, human).keywords)
+        if s.state.cards[saga.id].zone == "p1:graveyard" and d is None and not s.state.zones.get("stack"):
+            break  # sacrificed after chapter III
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            ids = [o.id for o in d.options]
+            yes = "pay" if pay else "decline"
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((i for i in ids if i in (yes, "p2")), ids[0])])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert seen
+    on = lambda n, z: [c for c in s.state.cards.values() if c.name == n and c.zone == z]  # noqa: E731
+    assert bool(on("Test Doctor", "p1:battlefield")) == pay
+    assert len(on("Human", "p1:battlefield")) == (0 if pay else 1) and len(on("Clue", "p1:battlefield")) == (0 if pay else 1)
+    check(s)
+
+
+@pytest.mark.parametrize("emerge", [True, False])
+def test_foul_emissary_makes_a_horror_only_when_sacrificed_to_emerge(cards, emerge):
+    """Foul Emissary (702.119a): sacrificed to cast a spell with emerge it makes a 3/2 Eldrazi Horror; sacrificed by an effect it does not."""
+    s = build(cards, ["Foul Emissary", "Distended Mindbender" if emerge else "Infernal Offering"], ["Goblin"])
+    put(s, "Foul Emissary")
+    mana(s, "p1", B=2, C=8)
+    if emerge:
+        mind = to_hand(s, "Distended Mindbender")
+        emissary = card_named(s, "Foul Emissary")
+        act(s, "p1", type="cast_spell", card_id=mind.id, alt_cost=f"{mind.id}:0", cost_choices=[{"component": 0, "cards": [emissary.id]}], targets=["p2"])
+    else:
+        cast(s, "Infernal Offering")
+    drive(s)
+    horrors = [c for c in s.state.cards.values() if c.name == "Eldrazi Horror" and c.zone == "p1:battlefield"]
+    assert len(horrors) == (1 if emerge else 0)
+    assert emerge or card_named(s, "Infernal Offering").zone == "p1:graveyard"  # it resolved: the Emissary was sacrificed there (and came back with mode 2)
+    check(s)
+
+
+@pytest.mark.parametrize("target", ["Test Warper", "Grizzly Bears"])
+def test_blade_of_the_swarm_bottoms_only_an_exiled_card_with_warp(cards, target):
+    """Blade of the Swarm (702.185a): mode two targets an exiled card with warp and puts it on the bottom of its owner's library."""
+    s = build(cards, ["Blade of the Swarm", target], [])
+    foe = card_named(s, target)
+    act(s, "p1", type="move", card_ids=[foe.id], to={"player": "p1", "zone": "exile"})
+    mana(s, "p1", B=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Blade of the Swarm").id)
+    _modes(s, "bottom")
+    zone = s.state.cards[foe.id].zone
+    assert zone == ("p1:library" if target == "Test Warper" else "p1:exile")
+    if target == "Test Warper":
+        assert s.state.zones["p1:library"][-1] == foe.id
+    check(s)
+
+
+@pytest.mark.parametrize("spell,hurt", [("Llanowar Elves", 2), ("Test Red Two", 2), ("Hill Giant", 0)])
+def test_thought_prison_hurts_casters_of_spells_sharing_color_or_mana_value(cards, spell, hurt):
+    """Thought Prison: the exiled Grizzly Bears (green, mana value 2) is shared by a green spell (Llanowar Elves) and by a mana value 2 one (Test Red Two), not by a red 4."""
+    s = build(cards, ["Thought Prison", spell], ["Grizzly Bears"])
+    mana(s, "p1", C=5)
+    bears = to_hand(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Thought Prison").id)
+    drive(s, lambda d: "p2" if "p2" in [o.id for o in d.options] else bears.id if bears.id in [o.id for o in d.options] else "yes" if "yes" in [o.id for o in d.options] else None)
+    assert s.state.cards[bears.id].zone == "p2:exile"
+    life = s.state.players["p1"].life
+    mana(s, "p1", C=4, R=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, spell).id)
+    drive(s)
+    assert s.state.players["p1"].life == life - hurt
+    check(s)
+
+
+def test_thought_prison_declined_reveal_exiles_nothing_and_never_hurts(cards):
+    """Thought Prison: "you may have target player reveal" declined (603.5): nothing exiled, so no spell shares anything with it."""
+    s = build(cards, ["Thought Prison", "Llanowar Elves"], ["Grizzly Bears"])
+    mana(s, "p1", C=5)
+    bears = to_hand(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Thought Prison").id)
+    drive(s, lambda d: "p2" if "p2" in [o.id for o in d.options] else "no" if "no" in [o.id for o in d.options] else None)
+    assert s.state.cards[bears.id].zone == "p2:hand"
+    life = s.state.players["p1"].life
+    mana(s, "p1", G=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Llanowar Elves").id)
+    drive(s)
+    assert s.state.players["p1"].life == life
+    check(s)
+
+
+def test_touch_of_moonglove_blocker_dies_and_controller_loses_2(cards):
+    """Touch of Moonglove (120.3, 603.7c): the blocker Bears hit with deathtouch dies, its controller loses 2; a creature Bears never damaged does not."""
+    s = build(cards, ["Grizzly Bears", "Touch of Moonglove", "Test Zap"], ["Hill Giant", "Goblin"])
+    bears = put(s, "Grizzly Bears")
+    giant = put(s, "Hill Giant", "p2")
+    goblin = put(s, "Goblin", "p2")
+    mana(s, "p1", B=1)
+    cast(s, "Touch of Moonglove", [bears.id])
+    life = s.state.players["p2"].life
+    mana(s, "p1", R=1)
+    cast(s, "Test Zap", [goblin.id])
+    assert s.state.cards[goblin.id].zone == "p2:graveyard" and s.state.players["p2"].life == life
+    attack(s, bears)
+    through_combat(s, [(giant, bears)])
+    assert s.state.cards[giant.id].zone == "p2:graveyard"
+    assert s.state.players["p2"].life == life - 2
+    check(s)
+
+
+def test_eye_for_an_eye_deals_the_same_damage_to_the_sources_controller(cards):
+    """Eye for an Eye (609.7a, 614.1): Bob's Bolt is the chosen source; its 3 damage to Alice is still dealt and Eye deals 3 to Bob. A second Bolt is a different source."""
+    from tests.test_rules_wave35a_one_shot_shields import (
+        bobs_turn,
+        bolt,
+        choose,
+        stops,
+        until_asked,
+    )
+
+    s = build(cards, ["Eye for an Eye"], ["Lightning Bolt", "Lightning Bolt"])
+    stops(s)
+    bobs_turn(s)
+    bolt(s, "p1")
+    mana(s, "p1", W=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Eye for an Eye").id)
+    until_asked(s)
+    choose(s, "Lightning Bolt")
+    for _ in range(12):
+        if not s.state.zones.get("stack") and s.state.rules.decision is None:
+            break
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1]) if d else act(s, s.state.rules.priority, type="pass_priority")
+    assert (s.state.players["p1"].life, s.state.players["p2"].life) == (37, 37)
+    assert not s.state.rules.replacements
+    bolt(s, "p1")  # the shield is used up (615.8): the second Bolt hurts Alice alone
+    for _ in range(6):
+        if s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert (s.state.players["p1"].life, s.state.players["p2"].life) == (34, 37)
+    check(s)
+
+
+@pytest.mark.parametrize("exile", [True, False])
+def test_phyrexian_ingester_gets_the_imprinted_creatures_power_and_toughness(cards, exile):
+    """Phyrexian Ingester (607.2a, 613.4c): 3/3 plus the exiled Hill Giant's 3/3; with nothing exiled it stays 3/3."""
+    s = build(cards, ["Phyrexian Ingester"], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    mana(s, "p1", U=1, C=6)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Phyrexian Ingester").id)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            labels = {o.label: o.id for o in d.options}
+            want = "Hill Giant" if "Hill Giant" in labels else "Yes" if exile else "No"
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[labels.get(want, d.options[0].id)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    ing = next(c for c in s.state.cards.values() if c.name == "Phyrexian Ingester")
+    assert (s.state.cards[giant.id].zone == "p2:exile") is exile
+    assert ch(s, ing).pt == ((6, 6) if exile else (3, 3))
+    check(s)
+
+
+@pytest.mark.parametrize("target, p2_life, walker_loyalty", [("p2", 37, None), ("walker", 40, 3), ("blocked", 40, None)])
+def test_the_fallen_pings_only_what_it_has_dealt_damage_to_this_game(cards, target, p2_life, walker_loyalty):
+    """The Fallen (120.3, 400.7): hit Bob -> pinged on every later upkeep; hit a planeswalker -> that walker pinged (2 combat + 1 = loyalty 0 from 3); blocked by a creature -> nobody pinged."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["The Fallen"], ["Hill Giant", "Test Walker Card"])
+    fallen = put(s, "The Fallen")
+    walker = put(s, "Test Walker Card", "p2") if target == "walker" else None
+    if walker is not None:
+        act(s, "p2", type="counter", card_ids=[walker.id], kind="loyalty", delta=3)
+    giant = put(s, "Hill Giant", "p2") if target == "blocked" else None
+    attack(s, fallen, target=walker.id if walker is not None else "p2")
+    through_combat(s, [(giant, fallen)] if giant is not None else None)
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    assert s.state.players["p2"].life == p2_life
+    if walker is not None:
+        assert s.state.cards[walker.id].zone == "p2:graveyard"  # 3 - 2 combat - 1 from the upkeep ping = 0
+    check(s)
+
+
+@pytest.mark.parametrize("x, ok", [(4, True), (3, False)])
+def test_gelatinous_cube_dissolve_needs_the_exiled_creature_with_mana_value_x(cards, x, ok):
+    """Gelatinous Cube (607.2a): Hill Giant (mana value 4) exiled by the Engulf is a legal Dissolve target only for X=4; it goes to its owner's graveyard."""
+    s = build(cards, ["Gelatinous Cube"], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    mana(s, "p1", B=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Gelatinous Cube").id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((o.id for o in d.options if o.label == "Hill Giant"), d.options[0].id)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[giant.id].zone == "p2:exile"
+    cube = next(c for c in s.state.cards.values() if c.name == "Gelatinous Cube")
+    mana(s, "p1", B=1, C=x)
+    if not ok:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=cube.id, ability=1, x_value=x, targets=[giant.id], target_counts=[1])
+        return
+    act(s, "p1", type="activate_ability", card_id=cube.id, ability=1, x_value=x, targets=[giant.id], target_counts=[1])
+    for _ in range(4):
+        if s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[giant.id].zone == "p2:graveyard"
+    check(s)
+
+
+def test_suncleanser_creature_mode_strips_counters_and_bars_new_ones_until_it_leaves(cards):
+    """Suncleanser (122.1, 614.17): Bears lose their counters and cannot get one while Suncleanser stays; once it dies they can; another creature is unaffected."""
+    s = build(cards, ["Suncleanser", "Grizzly Bears", "Llanowar Elves", "Test Grow", "Test Shatter Charm"], [])
+    bears = put(s, "Grizzly Bears")
+    elves = put(s, "Llanowar Elves")
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=2)
+    mana(s, "p1", W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Suncleanser").id)
+    for _ in range(16):
+        d = s.state.rules.decision
+        if d is not None:
+            labels = {(o.label or "").lower(): o.id for o in d.options}
+            pick = next((i for t, i in labels.items() if "remove all" in t), None) or next((i for t, i in labels.items() if "bears" in t), d.options[0].id)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[bears.id].counters.get("+1/+1", 0) == 0
+    for target, grown in ((bears, 0), (elves, 1)):
+        mana(s, "p1", G=1)
+        cast(s, "Test Grow", [target.id])
+        assert s.state.cards[target.id].counters.get("+1/+1", 0) == grown
+    sun = next(c for c in s.state.cards.values() if c.name == "Suncleanser")
+    act(s, "p1", type="move", card_ids=[sun.id], to={"zone": "graveyard"})  # it leaves: the bar ends (a new object, 400.7)
+    mana(s, "p1", G=1)
+    cast(s, "Test Grow", [bears.id])
+    assert s.state.cards[bears.id].counters.get("+1/+1", 0) == 1
+    check(s)
+
+
+def test_suncleanser_opponent_mode_clears_their_counters_and_bars_new_ones(cards):
+    """Suncleanser (122.1, 614.17): Bob's poison counters go; he cannot get more while it stays; Alice still can."""
+    s = build(cards, ["Suncleanser", "Test Venom"], [])
+    act(s, "p2", type="set_resource", key="poison", value=3)
+    mana(s, "p1", W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Suncleanser").id)
+    for _ in range(16):
+        d = s.state.rules.decision
+        if d is not None:
+            pick = next((o.id for o in d.options if "opponent" in (o.label or "").lower()), d.options[0].id)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.players["p2"].resources.get("poison", 0) == 0
+    for who, got in (("p2", 0), ("p1", 2)):
+        mana(s, "p1", B=1)
+        cast(s, "Test Venom", [who])
+        assert s.state.players[who].resources.get("poison", 0) == got
+    check(s)
+
+
+@pytest.mark.parametrize("play", [True, False])
+def test_elkin_lair_exiles_the_upkeeping_players_card_and_buries_it_unless_played(cards, play):
+    """Elkin Lair (400.3, 601.2a): Bob's only hand card is exiled at his upkeep and he may play it; at the next end step it goes to his graveyard unless played."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Elkin Lair"], ["Grizzly Bears"])
+    put(s, "Elkin Lair")
+    bears = to_hand(s, "Grizzly Bears", "p2")
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    assert s.state.cards[bears.id].zone == "p2:exile"
+    if play:
+        mana(s, "p2", C=1, G=1)
+        act(s, "p2", type="cast_spell", card_id=bears.id)
+        until(s, lambda s: not s.state.zones.get("stack"))
+    until(s, lambda s: s.state.turn.number == 3)
+    assert s.state.cards[bears.id].zone == ("p2:battlefield" if play else "p2:graveyard")
+    check(s)
+
+
+@pytest.mark.parametrize("held", [False, True])
+def test_ertais_familiar_mills_when_it_phases_out_unless_held_in(cards, held):
+    """Ertai's Familiar (702.26b, 702.26d): it phases out in its controller's next untap step and mills three; {U} first (until their next upkeep) stops that."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Ertai's Familiar"], [], forests=40)
+    fam = put(s, "Ertai's Familiar")
+    if held:
+        mana(s, "p1", U=1)
+        act(s, "p1", type="activate_ability", card_id=fam.id, ability=3)
+        until(s, lambda s: not s.state.zones.get("stack"))
+    before = len(s.state.zones["p1:graveyard"])
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    assert s.state.cards[fam.id].zone == ("p1:battlefield" if held else "p1:phased")
+    assert len(s.state.zones["p1:graveyard"]) == before + (0 if held else 3)
+    check(s)
+
+
+def test_ertais_familiar_mills_when_it_leaves_the_battlefield(cards):
+    """Ertai's Familiar (603.10a): dying mills three cards."""
+    s = build(cards, ["Ertai's Familiar", "Test Doom"], [], forests=40)
+    fam = put(s, "Ertai's Familiar")
+    before = len(s.state.zones["p1:graveyard"])
+    mana(s, "p1", C=1)
+    cast(s, "Test Doom", [fam.id])
+    assert len(s.state.zones["p1:graveyard"]) == before + 1 + 1 + 3  # the Familiar, Test Doom, three milled
     check(s)

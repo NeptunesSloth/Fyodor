@@ -18,7 +18,9 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 WHAT = "pick110a"
-TEXTS = {"As ~ enters, choose another creature you control.": "other creature you control"}
+TEXTS = {"As ~ enters, choose another creature you control.": "other creature you control",
+         # -- enters attached (wave 110I) -- 303.4f / 301.5: chosen as it enters, so it enters attached to it
+         "As ~ enters, choose a creature you control it could be attached to. If you do, it enters attached to that creature.": "creature you control"}
 LABEL = "Chosen creature"
 
 
@@ -30,13 +32,17 @@ def definition(text: str) -> dict[str, Any] | None:
     sel = selectors.parse(phrase)
     assert sel is not None, phrase
     return {"kind": "replacement", "replacement": "enters_choice",
-            "effects": [{"do": "choose_value", "who": "you", "what": WHAT, "pick110a": sel.key()}]}
+            "effects": [{"do": "choose_value", "who": "you", "what": WHAT, "pick110a": sel.key(), **({"attach110i": True} if "attached" in text else {})}]}
 
 
 def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]]:
     from app.rules import selectors
 
     ids = selectors.candidates(plan, selectors.from_key(choice["pick110a"]), controller, card.id)
+    if choice.get("attach110i"):  # "it could be attached to": a legal host (protection, Equipment rules)
+        from app.rules import attachments
+
+        ids = [c for c in ids if attachments.host_problem(plan, card, c) is None]
     return (f"{plan.ch(card).name or card.name}: as it enters, choose another creature you control",
             [DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in ids])
 
@@ -49,6 +55,10 @@ def record(plan: Plan, card_id: str, choices: dict[str, str] | None) -> None:
     if value in plan.state.cards:
         rules.chosen_objects[card_id] = plan.oid(plan.state.cards[value])
         plan.do({"type": "set_choice", "card_id": card_id, "key": LABEL, "value": plan.state.cards[value].name}, actor=plan.state.cards[card_id].controller)
+        if any("it enters attached to that creature" in ab.text for ab in plan.ch(plan.state.cards[card_id]).abilities):  # -- wave 110I --
+            from app.rules import attachments
+
+            attachments.attach(plan, card_id, value, plan.state.cards[card_id].controller)  # 303.4f
     else:
         rules.chosen_objects.pop(card_id, None)
 
