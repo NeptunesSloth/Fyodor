@@ -347,6 +347,7 @@ def entered_transformed(plan: Any, info: dict[str, Any]) -> bool:
     entry = next((x for x in reversed(log.entered) if x.object_id == oid), None) if oid and log is not None else None
     card = plan.state.cards.get(entry.card) if entry is not None else None
     return (card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == oid and card.face == 1
+            and (plan.info.get(card.card_id) or {}).get("layout") == "transform"  # 712.14a: a modal DFC's back face (712.4) never "transforms"
             and not any(e.kind == "designation" and e.counter == "transformed" and e.object_id == oid for e in plan.rules.events))
 
 

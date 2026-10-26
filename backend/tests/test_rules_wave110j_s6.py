@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from app.game.errors import ActionError
+from tests.fixtures.cards import card
 from tests.game_helpers import act
 from tests.wave9c_kit import build
 from tests.wave110j_kit import (  # noqa: F401
@@ -194,6 +195,26 @@ def test_towashi_ignores_a_permanent_that_enters_front_face_up(cards):
     act(s, "p1", type="cast_spell", card_id=c.id)
     settle(s)
     assert now(s, c).face == 0 and _draws(s) == before - 1
+    check(s)
+
+
+MDFC = "Twin Test // Twin Test Giant"
+EXTRA.append(card(MDFC, set_code="w110j", number="D990", layout="modal_dfc", mana_cost="{G}", cmc=1.0, type_line="Creature — Elf // Creature — Giant",
+                  colors=["G"], color_identity=["G"],
+                  card_faces=[{"object": "card_face", "name": "Twin Test", "mana_cost": "{G}", "type_line": "Creature — Elf", "oracle_text": "", "power": "1", "toughness": "1"},
+                              {"object": "card_face", "name": "Twin Test Giant", "mana_cost": "{G}", "type_line": "Creature — Giant", "oracle_text": "", "power": "4", "toughness": "4"}]))
+
+
+def test_towashi_ignores_a_modal_dfc_cast_back_face_up(cards):
+    """712.14a, 701.28: only transforming DFCs transform; a modal DFC's back face entering (712.4) is not "entering transformed"."""
+    s = build(cards, [TOWASHI, MDFC, "Forest", "Forest", "Forest"], ["Grizzly Bears"])
+    put_new(s, TOWASHI)
+    c = to_hand(s, MDFC)
+    before = _draws(s)
+    mana(s, G=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, face=1)
+    settle(s)
+    assert now(s, c).face == 1 and now(s, c).zone == "p1:battlefield" and _draws(s) == before - 1
     check(s)
 
 
