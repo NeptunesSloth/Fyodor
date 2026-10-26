@@ -36,3 +36,14 @@
 - s11: Mangara's Equity / Noxious Vapors / Null Chamber / Worms / Peace Talks: still open (see s9-s10 notes).
 - s13: Noxious Vapors multicolored cards: no CR rule or ruling in the local data on one card serving several colors; a hand holding one goes to manual_resolution (tested). Drought/Brutal Suppression: activated-ability tax not automated (mana abilities, cycling, unearth, equip have own cost routes); cards PARTIAL, activations never refused (s15).
 - Zevlor, Camouflage, Glyph of Reincarnation: not done wave 110F s15 (see handoff_f.md next).
+
+## Final pass (wave 110F, 20 cards not FULL on the lead branch)
+
+Promoted (each with a scenario test on real Oracle text, tests/test_rules_wave110f_fin.py and test_rules_wave110f_fin_piles.py): Idris, Soul of the TARDIS; The Book of Vile Darkness; Diabolic Servitude; Mimeoplasm,
+Revered One; Tahngarth, First Mate; Riku of Many Paths; Indominus Rex, Alpha; Animate Artifact; The Master, Gallifrey's End; Retriever Phoenix; The Seventh Doctor; Land Equilibrium; Stand or Fall (802.2: every
+opponent is a defending player as the combat phase starts); General Jarkeld; Kylox's Voltstrider; Taster of Wares; Gather Specimens; North Star; Arcum's Sleigh (802.2a / 508.5a: with several defending players
+the controller chooses one, so any opponent of the active player controlling a snow land satisfies it). The older notes above for these cards are superseded.
+
+- Ertai's Meddling: final pass: unsettled because "puts it onto the stack as a copy of the original spell" has no CR rule (no "delay counter", no card put onto the stack as a copy), and the rulings disagree: 2004-10-04 (a copy
+  of a morph spell is a face-up 2/2; a copy with no card ceases to exist when exiled) read it as a copy spell, 2011-01-22 (the card still remembers the flashback cost and is exiled when it resolves) as the physical card on
+  the stack; whether a permanent spell then makes a token or the card is not settled.
