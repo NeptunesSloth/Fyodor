@@ -3,6 +3,7 @@
 * Arcee: "that many" counters = the cast spell's targets that are creatures or Vehicles you control (115.9b, 603.2).
 * Shifty Doppelganger: the creature put onto the battlefield is sacrificed at the next end step; if it was, this card returns from exile (118.12).
 * Evershrike: returns from the graveyard; an Aura (mana value X or less) from hand enters attached to it (303.4f), else it is exiled (118.12).
+* Raiding Party: each player (turn order, 101.4) taps white creatures and chooses up to two Plains per creature; unchosen Plains are destroyed.
 * Arsenal Thresher: reveals other artifact cards from hand as it enters (701.20a), a +1/+1 counter for each (614.12); the cards stay in hand.
 """
 
@@ -25,7 +26,14 @@ SHIFTY = ("{3}{U}, Exile this creature: You may put a creature card from your ha
           "At the beginning of the next end step, sacrifice that creature. If you do, return this card to the battlefield.")
 EVER = ("Flying\nThis creature gets +2/+2 for each Aura attached to it.\n{X}{W/B}{W/B}: Return this card from your graveyard to the battlefield. "
         "You may put an Aura card with mana value X or less from your hand onto the battlefield attached to it. If you don't, exile this creature.")
-EXTRA = [real("Evershrike", "{3}{W/B}{W/B}", 5, "Creature \u2014 Elemental Spirit", EVER, ("2", "2"), "WB"),
+PARTY = ("This enchantment can't be the target of white spells or abilities from white sources.\n"
+         "Sacrifice an Orc: Each player may tap any number of untapped white creatures they control. For each creature tapped this way, that player chooses up to two Plains. "
+         "Then destroy all Plains that weren't chosen this way by any player.")
+EXTRA = [real("Plains", "", 0, "Basic Land \u2014 Plains", "({T}: Add {W}.)", None, ""),
+         real("Raiding Party", "{2}{R}", 3, "Enchantment", PARTY, None, "R"),
+         real("Probe Orc", "{1}{R}", 2, "Creature \u2014 Orc", "", ("2", "2"), "R"),
+         real("Probe Knight", "{1}{W}", 2, "Creature \u2014 Human Knight", "", ("2", "2"), "W"),
+         real("Evershrike", "{3}{W/B}{W/B}", 5, "Creature \u2014 Elemental Spirit", EVER, ("2", "2"), "WB"),
          real("Probe Aura", "{1}{W}", 2, "Enchantment \u2014 Aura", "Enchant creature", None, "W"),
          real("Probe Landaura", "{W}", 1, "Enchantment \u2014 Aura", "Enchant land", None, "W"),
          real("Shifty Doppelganger", "{2}{U}", 3, "Creature \u2014 Shapeshifter", SHIFTY, ("1", "1"), "U"),
@@ -44,7 +52,7 @@ def card_db(settings):
     return make_db(settings, EXTRA)
 
 
-@pytest.mark.parametrize("name", ["Arsenal Thresher", "Arcee", "Probe Pair", "Shifty Doppelganger", "Evershrike"])
+@pytest.mark.parametrize("name", ["Arsenal Thresher", "Arcee", "Probe Pair", "Shifty Doppelganger", "Evershrike", "Raiding Party"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -147,3 +155,44 @@ def test_evershrike_returns_with_an_aura_or_is_exiled(cards, aura, x, attached):
         assert a is None or s.state.cards[a.id].zone == "p1:hand"
     check(s)
 
+
+
+def _put_new(s, name, pid):
+    c = next(c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone == f"{pid}:library")
+    act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "battlefield"})
+    return c
+
+
+def _party(cards, mine, theirs, picks):
+    s = build(cards, ["Raiding Party", "Probe Orc", *["Probe Knight"] * 2, *["Plains"] * 3], ["Probe Knight", "Plains", "Plains"])
+    party = put(s, "Raiding Party")
+    orc = put(s, "Probe Orc")
+    ids = {}
+    for who, names in (("p1", mine), ("p2", theirs)):
+        for tag, name in names:
+            ids[tag] = _put_new(s, name, who)
+    activate(s, "p1", party, "Sacrifice")
+    for pick in picks:
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[ids[t].id for t in pick])
+    answer(s)
+    return s, ids, orc, party
+
+
+def test_raiding_party_destroys_unchosen_plains(cards):
+    s, ids, orc, party = _party(cards, [("k1", "Probe Knight"), ("k2", "Probe Knight"), ("a", "Plains"), ("b", "Plains"), ("c", "Plains")],
+                                [("k3", "Probe Knight"), ("d", "Plains"), ("e", "Plains")],
+                                [["k1"], ["a", "b"], ["k3"], ["e"]])  # p1 taps one Knight, keeps two Plains; p2 taps its Knight, keeps one
+    zone = {t: s.state.cards[c.id].zone for t, c in ids.items()}
+    assert s.state.cards[orc.id].zone == "p1:graveyard"
+    assert zone["a"] == zone["b"] == "p1:battlefield" and zone["e"] == "p2:battlefield"
+    assert zone["c"] == "p1:graveyard" and zone["d"] == "p2:graveyard"
+    assert s.state.cards[ids["k1"].id].tapped and s.state.cards[ids["k3"].id].tapped and not s.state.cards[ids["k2"].id].tapped
+    check(s)
+
+
+def test_raiding_party_nobody_taps_destroys_every_plains(cards):
+    s, ids, orc, party = _party(cards, [("k1", "Probe Knight"), ("a", "Plains")], [("d", "Plains")], [[]])  # (the opponent has no white creature: asked nothing)
+    assert s.state.cards[ids["a"].id].zone == "p1:graveyard" and s.state.cards[ids["d"].id].zone == "p2:graveyard"
+    assert not s.state.cards[ids["k1"].id].tapped
+    check(s)

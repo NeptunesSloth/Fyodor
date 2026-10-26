@@ -178,6 +178,64 @@ def _evershrike(d: Def) -> Def:
                              {"do": "only_if", "cond": {"succeeded": "aura110i", "negate": True}, "skip": 1}, {"do": "exile", "who": "ref:ever110i"}]}
 
 
+def _raiding(d: Def) -> Def:
+    """Raiding Party: the whole effect is one primitive (``raiding``): each player's tap choice, then their Plains choice, then the destruction."""
+    return {**d, "effects": [{"do": "raiding110i"}]}
+
+
+def raiding(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Raiding Party: in turn order (101.4) each player may tap any number of their untapped white creatures and, for each, chooses up to two Plains; then every
+    Plains no player chose is destroyed (701.8) at once. The players choose knowing the earlier choices (all public)."""
+    return _raiding_next(plan, ctx, [p for p in plan.apnap() if p in plan.live()], [])
+
+
+def _raiding_next(plan: Plan, ctx: Context, players: list[str], chosen: list[str]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    for i, pid in enumerate(players):
+        whites = [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if not plan.state.cards[c].tapped and "W" in plan.ch(plan.state.cards[c]).colors
+                  and plan.ch(plan.state.cards[c]).is_creature]
+        if whites:
+            decide(plan, player=pid, kind="choose_cards", prompt="Tap any number of untapped white creatures you control", min_choices=0, max_choices=len(whites),
+                   options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in whites],
+                   resume={"step": "raiding_tap110i", "ctx": ctx, "rest": players[i + 1:], "chosen": chosen, "pid": pid})
+            return False
+    from app.rules import context, effects
+
+    plains = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and "Plains" in plan.ch(c).subtypes and c.id not in chosen]
+    context.bind_objects(plan, ctx, "plains110i", plains)
+    effects.PRIMITIVES["destroy"](plan, ctx, {"do": "destroy", "who": "ref:plains110i"})
+    return True
+
+
+def resume_raiding_tap(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    r = d.resume
+    ctx = r["ctx"]
+    if chosen:
+        plan.do({"type": "tap", "card_ids": chosen, "tapped": True}, actor=r["pid"])
+        plains = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and "Plains" in plan.ch(c).subtypes]
+        if plains:
+            decide(plan, player=r["pid"], kind="choose_cards", prompt=f"Choose up to {2 * len(chosen)} Plains", min_choices=0, max_choices=min(2 * len(chosen), len(plains)),
+                   options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name} ({plan.name(plan.state.cards[c].controller)})", card_id=c) for c in plains],
+                   resume={"step": "raiding_plains110i", "ctx": ctx, "rest": r["rest"], "chosen": r["chosen"], "pid": r["pid"]})
+            return
+    if _raiding_next(plan, ctx, r["rest"], r["chosen"]):
+        effects.continue_effects(plan, ctx)
+
+
+def resume_raiding_plains(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    if _raiding_next(plan, r["ctx"], r["rest"], [*r["chosen"], *chosen]):
+        effects.continue_effects(plan, r["ctx"])
+
+
 def _shifty(d: Def) -> Def:
     """Shifty Doppelganger: the sacrifice is bound ("did", 118.12); only if that creature left does this card return from exile (a new object, 400.7)."""
     es = [{**x, "did": "sac110i"} if x.get("do") == "deferred:sacrifice" else {**x, "n": 3} if x.get("do") == "delayed" else {**x, "skip": x["skip"] + 2} if x.get("do") == "only_if" else x for x in d["effects"]]
@@ -254,6 +312,8 @@ _BAUBLE = ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land 
 _VAT = ("{1}, {T}, Sacrifice another artifact: Reveal the top eight cards of your library. Put up to two noncreature artifact cards with total mana value "
         "less than or equal to the sacrificed artifact's mana value from among them onto the battlefield and the rest on the bottom of your library in a random order.")
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Sacrifice an Orc: Each player may tap any number of untapped white creatures they control. For each creature tapped this way, that player chooses up to two Plains. "
+    "Then destroy all Plains that weren't chosen this way by any player.": ("Sacrifice an Orc: Destroy all Plains.", _raiding),
     "{X}{W/B}{W/B}: Return this card from your graveyard to the battlefield. You may put an Aura card with mana value X or less from your hand onto the battlefield "
     "attached to it. If you don't, exile this creature.":
         ("{X}{W/B}{W/B}: Return this card from your graveyard to the battlefield. You may put an Aura card with mana value X or less from your hand onto the battlefield.", _evershrike),
@@ -442,7 +502,7 @@ def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"bind_self110i": bind_self, "bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+PRIMITIVES = {"raiding110i": raiding, "bind_self110i": bind_self, "bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 
 
 def ask_skip(plan: Plan, done: list[str]) -> bool:
@@ -480,7 +540,7 @@ def resume_skip(plan: Plan, d: Any, chosen: list[str]) -> None:
     engine.on_step_start(plan)
 
 
-RESUME = {"skip_may110i": resume_skip}
+RESUME = {"skip_may110i": resume_skip, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
