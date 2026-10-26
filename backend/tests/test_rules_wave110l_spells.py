@@ -203,8 +203,6 @@ def jadzi_table(cards, top, extra_hand=()):
     s = build(cards, [JADZI, "Lightning Bolt", "Grizzly Bears", *extra_hand], ["Island"])
     put(s, JADZI)
     clear_hand(s, "p1")
-    for n in ("Grizzly Bears",):
-        pass
     c = next(c for c in s.state.cards.values() if c.name == top and c.owner == "p1" and c.zone == "p1:library")
     act(s, "p1", type="move", card_ids=[c.id], to={"zone": "library"}, position="top")
     return s
@@ -235,10 +233,10 @@ def test_jadzi_magecraft_may_decline_and_the_card_stays_on_top(cards):
 
 def test_jadzi_magecraft_puts_a_land_onto_the_battlefield(cards):
     s = jadzi_table(cards, "Forest")
-    lands = len([c for c in s.state.zones["p1:battlefield"] if "Forest" == s.state.cards[c].name])
+    lands = len([c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Forest"])
     cast(s, "Lightning Bolt", ["p2"])
     answer(s)
-    assert len([c for c in s.state.zones["p1:battlefield"] if "Forest" == s.state.cards[c].name]) == lands + 1
+    assert len([c for c in s.state.zones["p1:battlefield"] if s.state.cards[c].name == "Forest"]) == lands + 1
     check(s)
 
 
