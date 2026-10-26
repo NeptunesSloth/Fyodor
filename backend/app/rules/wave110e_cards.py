@@ -256,6 +256,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (imp := wave110e_imps.definition(ability, ch)) is not None:  # Nettling Imp, Norritt
         return imp
+    if text == "Creatures can't attack a player unless that player cast a spell or put a nontoken permanent onto the battlefield during their last turn.":  # 508.1c, combat._defender_fact
+        native = scripts.define(replace(ability, text="Creatures can't attack."), ch)
+        return None if native is None or native.get("rules") != ["cant_attack"] else {**native, "rules": ["cant_attack_unless_def:acted110e"]}
     if text == "Creatures played by your opponents enter tapped.":  # 305.1/601.2: "played" creature = cast, so only a spell entering from the stack (others_enter_tapped)
         native = scripts.define(replace(ability, text="Creatures your opponents control enter tapped."), ch)
         return None if native is None else {**native, "cast110e": True}

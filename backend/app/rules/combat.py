@@ -688,6 +688,9 @@ def _defender_fact(plan: Plan, arg: str, defender: str) -> bool:
     state = plan.state
     if kind == "controls":
         return _defender_controls(state, plan.info, rest, defender)
+    if kind == "acted110e":  # -- wave 110E -- Arboria: the defender's last completed turn (none yet: no)
+        summary = state.rules.completed_own_turns.get(defender) if state.rules is not None else None
+        return summary is not None and summary.acted110e
     if kind == "poisoned":
         return int(state.players[defender].resources.get("poison", 0)) > 0
     if kind == "monarch":

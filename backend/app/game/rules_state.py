@@ -544,6 +544,7 @@ class Entry(BaseModel):
     # -- trigger other (wave 51E) -- the object whose effect put it onto the battlefield (Kodama of the East Tree: "if it wasn't put onto the battlefield with
     # this ability"); None: nobody's, or an older save
     via: str | None = Field(default=None, max_length=80)
+    token110e: bool = False  # -- history (wave 110E) -- a token (111.1): "put a nontoken permanent onto the battlefield" (Arboria)
     face_down110b: bool = False  # -- history (wave 110B) -- it entered face down (708.2: "entered the battlefield face down this turn", Oblivious Bookworm)
 # -- end refused modal/conditional (wave 3R1) --
 
@@ -615,6 +616,7 @@ class CompletedOwnTurn(BaseModel):
     turn: int
     attackers: list[str] = Field(default_factory=list)
     attacked_players: list[str] = Field(default_factory=list)
+    acted110e: bool = False  # -- (wave 110E) -- cast a spell or put a nontoken permanent onto the battlefield that turn (Arboria); an older save: False
 
 
 class TurnLog(BaseModel):
@@ -2010,7 +2012,8 @@ def complete_own_turn(state: GameState) -> None:
         return
     objects = list(dict.fromkeys(o for ids in log.attackers.values() for o in ids))
     targets = list(dict.fromkeys(p for o in log.attackers.get(player, ()) for p in log.attacked_who.get(o, ())))
-    rules.completed_own_turns[player] = CompletedOwnTurn(turn=log.turn, attackers=objects, attacked_players=targets)
+    acted = any(c.player == player for c in log.casts) or any(e.controller == player and not e.token110e for e in log.entered)
+    rules.completed_own_turns[player] = CompletedOwnTurn(turn=log.turn, attackers=objects, attacked_players=targets, acted110e=acted)
     if player not in rules.own_turn_history_known:
         rules.own_turn_history_known.append(player)
 
@@ -2290,7 +2293,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
             if not manual:
                 rules.entry_life_origins.append(new_oid)
             log.entered.append(Entry(card=card_id, object_id=new_oid, controller=card.controller,
-                                     tapped=card.tapped, from_zone=old_zone, face_down110b=bool(card.face_down)))  # (-- entry forms (wave 5F) --; wave 22E: from_zone)
+                                     tapped=card.tapped, from_zone=old_zone, face_down110b=bool(card.face_down), token110e=card.is_token))  # (-- entry forms (wave 5F) --; wave 22E: from_zone)
         if old_name == "battlefield" and snap is not None and (snap.attached_to or snap.attached_player):
             _attach_event(state, "unattached", card_id, old_oid, snap.attached_to, snap.attached_player, before.snaps)  # -- attachment events (wave 30S) -- 701.3d
         emit(state, "zone_change", object_id=old_oid, new_object_id=new_oid, card=card_id,
@@ -2314,7 +2317,7 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                 if not manual:
                     rules.entry_life_origins.append(rules.object_id(card_id))
                 log.entered.append(Entry(card=card_id, object_id=rules.object_id(card_id), controller=card.controller,
-                                         tapped=card.tapped, face_down110b=bool(card.face_down)))  # (-- entry forms (wave 5F) --)
+                                         tapped=card.tapped, face_down110b=bool(card.face_down), token110e=card.is_token))  # (-- entry forms (wave 5F) --)
     for card_id, snap in before.snaps.items():
         card = state.cards.get(card_id)
         if card is None or card.zone != snap.zone:
