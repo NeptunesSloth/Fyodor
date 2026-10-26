@@ -12,24 +12,30 @@ from tests.fixtures.cards import card
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave110e_cards import answer, card_db, cast  # noqa: F401  (the fixture)
-from tests.wave9c_kit import build, check, mana, pt, put, to_hand
+from tests.wave9c_kit import build, card_named, check, mana, pt, put, to_hand
 
 THROWDOWN = real("Lethal Throwdown", "{1}{B}", 2, "Instant",
                  "As an additional cost to cast this spell, sacrifice a creature or sacrifice a modified creature. (Equipment, Auras you control, and counters are modifications.)\n"
                  "Destroy target creature or planeswalker. If the modified creature was sacrificed, draw a card.", None, "B")
 BEAR = real("Test Bear", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G")
 BOON = real("Test Boon", "{1}{G}", 2, "Enchantment — Aura", "Enchant creature\nEnchanted creature gets +2/+2.", None, "G")
+STORY = real("Storyweave", "{2}{G}", 3, "Instant", "Choose one \u2014\n\u2022 Put two +1/+1 counters on target creature you control.\n"
+             "\u2022 Put two lore counters on target Saga you control. The next time one or more enchantment creatures you control enter this turn, "
+             "each enters with two additional +1/+1 counters on it.", None, "G")
+SAGA = real("Test Saga", "{1}{G}", 2, "Enchantment \u2014 Saga", "I \u2014 You gain 1 life.\nII \u2014 You gain 1 life.\nIII \u2014 You gain 1 life.", None, "G")
+RALLY = real("Test Rally", "{W}", 1, "Sorcery", "Return all creature cards from your graveyard to the battlefield.", None, "W")
+SPIRIT = real("Test Spirit", "{1}{W}", 2, "Enchantment Creature \u2014 Spirit", "", ("1", "1"), "W")
 GIANT = real("Test Giant", "{4}{G}", 5, "Creature — Giant", "", ("0", "9"), "G")
 RAPTOR = real("Test Raptor", "{2}{R}", 3, "Creature — Dinosaur", "", ("3", "2"), "R")
 _REAL = json.loads((Path(__file__).parent / "fixtures" / "wave110e_cards.json").read_text("utf-8"))  # real Oracle text, from data/cards.sqlite
 FEUD = real("Bitter Feud", "{4}{R}", 5, "Enchantment", "As this enchantment enters, choose two players.\nIf a source controlled by one of the chosen players would deal "
             "damage to the other chosen player or a permanent that player controls, that source deals double that damage to that player or permanent instead.", None, "R")
 BOLT = real("Test Bolt", "{R}", 1, "Instant", "Test Bolt deals 3 damage to any target.", None, "R")
-base.EXTRA.extend([THROWDOWN, BEAR, BOON, RAPTOR, GIANT, FEUD, BOLT, *(card(c["name"], set_code="w110e", number=f"E{i:03d}", **{k: v for k, v in c.items() if k != "name"})
+base.EXTRA.extend([THROWDOWN, BEAR, BOON, RAPTOR, GIANT, STORY, SAGA, SPIRIT, RALLY, FEUD, BOLT, *(card(c["name"], set_code="w110e", number=f"E{i:03d}", **{k: v for k, v in c.items() if k != "name"})
                                                     for i, c in enumerate(_REAL))])
 
 
-@pytest.mark.parametrize("name", ["Lethal Throwdown", "Bitter Feud", "Saheeli's Lattice // Mastercraft Raptor"])
+@pytest.mark.parametrize("name", ["Lethal Throwdown", "Bitter Feud", "Storyweave", "Saheeli's Lattice // Mastercraft Raptor"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -120,4 +126,34 @@ def test_bitter_feud_the_other_chosen_player_and_an_unchosen_source(cards):
         act(s, pid, type="cast_spell", card_id=bolt.id, targets=["p1"])
         answer(s)
         assert before - s.state.players["p1"].life == (6 if doubled else 3)
+    check(s)
+
+
+def _counters(s, card):
+    return s.state.cards[card.id].counters.get("+1/+1", 0)
+
+
+def test_storyweave_second_mode_arms_one_batch_of_enchantment_creatures(cards):
+    """614.1c, 614.12: the first entry event with enchantment creatures gives each +2 counters (a plain creature entering first does not use it up); a later one gets none."""
+    s = build(cards, ["Storyweave", "Test Saga", "Test Rally", "Test Spirit", "Test Spirit", "Test Spirit", "Test Bear"])
+    saga = put(s, "Test Saga")
+    spirits = [c for c in s.state.cards.values() if c.name == "Test Spirit" and c.owner == "p1"]
+    bear = card_named(s, "Test Bear")
+    mana(s, G=1, C=2)
+    cast(s, "Storyweave", [saga.id], modes=[1])
+    answer(s)
+    assert s.state.cards[saga.id].counters.get("lore", 0) >= 2
+    mana(s, G=1, C=1)
+    cast(s, "Test Bear")  # a plain creature enters first: the shot stays armed
+    answer(s)
+    assert _counters(s, bear) == 0 and s.state.rules.effects
+    act(s, "p1", type="move", card_ids=[c.id for c in spirits[:2]], to={"player": "p1", "zone": "graveyard"})
+    mana(s, W=1)
+    cast(s, "Test Rally")
+    answer(s)
+    assert [_counters(s, c) for c in spirits[:2]] == [2, 2]
+    mana(s, W=1, C=1)
+    cast(s, "Test Spirit")
+    answer(s)
+    assert _counters(s, spirits[2]) == 0
     check(s)

@@ -731,6 +731,7 @@ class ContinuousEffect(BaseModel):
     declaration_window: Literal["next_turn", "next_combat"] | None = None
     declaration_player: str | None = None  # fixed when a resolved requirement names its controller’s next phase/turn
     entry_counters: dict[str, int] = Field(default_factory=dict)  # Rule-modifying additional entry counters, including future entrants.
+    entry_once110e: bool = False  # (wave 110E) used up by the first entry event it applies to (wave110e_once)
     hand_limit: HandLimitModifier | None = None  # 402.2/613.10: player rule, independent of card layers
     layer: Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
     source: str | None = None  # source object id

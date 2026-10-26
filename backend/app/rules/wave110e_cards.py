@@ -35,6 +35,8 @@ _REWRITE: dict[str, str] = {
 }
 _EMBIGGEN = ("Embiggen Fist — Whenever you cast a spell that targets a creature you control, draw a card. "
              "Until end of turn, Ms. Marvel gains \"Ms. Marvel's base power is equal to the number of cards in your hand.\"")
+_STORYWEAVE = ("Put two lore counters on target Saga you control. The next time one or more enchantment creatures you control enter this turn, "
+               "each enters with two additional +1/+1 counters on it.")
 _CULPRIT = "Exile any number of face-up creatures you control with disguise in a face-down pile, shuffle that pile, then cloak them."
 _AMBUSH = ("Target player searches their library and/or graveyard for a card named Ezio, Blade of Vengeance, reveals it, and puts it into their hand. "
            "If they search their library this way, they shuffle.")
@@ -381,6 +383,12 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
         if put is None or put[0][0].get("do") != "put_from_hand":
             return None
         return [{"do": "aura_swap_gate110e", "skip": 2}, {**put[0][0], "optional": True, "as": "sw110e"}, {"do": "aura_swap_return110e", "of": "ref:sw110e"}], None, False
+    if body.strip() == _STORYWEAVE:  # 614.1c: the lore counters natively, then a one-shot entry rider
+        from app.rules import scripts
+
+        first = scripts.parse_effects(_STORYWEAVE.split(" The next")[0])
+        sel = '{"controller":"you","extras":["all_types"],"types":["Creature","Enchantment"]}'
+        return None if first is None else ([*first[0], {"do": "next_entry_counters110e", "sel": "sel:" + sel, "kind": "+1/+1", "n": 2}], first[1], first[2])
     return None
 
 

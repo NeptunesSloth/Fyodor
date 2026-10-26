@@ -7241,3 +7241,6 @@ RESUME.update(_wave110e_pets.RESUME)
 from app.rules import wave110b_mirror as _wave110b_mirror  # noqa: E402, I001  -- (wave 110B) --
 
 PRIMITIVES.update(_wave110b_mirror.PRIMITIVES)
+from app.rules import wave110e_once as _wave110e_once  # noqa: E402, I001  -- Storyweave (wave 110E) --
+
+PRIMITIVES.update(_wave110e_once.PRIMITIVES)
