@@ -458,7 +458,7 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False,
     # -- tutor (wave 26D) -- "Sacrifice a red creature, a green creature, and a white creature" (the Heralds): one part, three objects
     cost = re.sub(r"(Sacrifice (?:an?|another) [^,{}:]+?), ((?:an?|another) [^,{}:]+?), and ((?:an?|another) [^,{}:]+?)(?=,|$)",
                   r"\1 and \2 and \3", cost)
-    cost = re.sub(r"(Sacrifice (?:this \w+|~)) and (any number of other [^,{}:]+)", r"\1, Sacrifice \2", cost)  # -- any number as an additional cost (wave 48B) -- Emrakul's Evangel: two parts
+    cost = re.sub(r"(Sacrifice (?:this \w+|~)) and (any number of (?:other )?[^,{}:]+)", r"\1, Sacrifice \2", cost)  # -- any number as an additional cost (wave 48B) -- Emrakul's Evangel: two parts
     if card_name and "," in card_name:  # (wave 4H) "Discard another card named Korlash, Heir to Blackblade": one part
         cost = cost.replace(card_name, "~")
     # -- static_other (wave 36B) -- "Tap three untapped Advisors, Artificers, and/or Monks you control" (The Archimandrite): one part naming three kinds

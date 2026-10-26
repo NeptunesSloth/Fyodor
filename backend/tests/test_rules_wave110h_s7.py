@@ -3,6 +3,7 @@
 * Unleash the Inferno: the excess damage (120.10) triggers a destroy whose target (chosen when the trigger goes on the stack, 603.3d) has mana value at most that excess.
 * Revival Experiment: up to one graveyard card per permanent type, a matching of cards to types (205.2a); 3 life each; the spell is exiled.
 * Memory Vessel: both players exile seven; until the activator's next turn each may play their own exiled cards and none may play cards from hand (305.1, 601.3).
+* Sword of the Ages: the sacrificed artifact and creatures pay the cost (601.2h), X is their total power, and what is still in the graveyard afterwards is exiled.
 * Stitcher Geralf: each player mills three (701.17); up to two creature cards among those milled are exiled; the Zombie is as big as their total power (608.2c, 107.1b).
 """
 from __future__ import annotations
@@ -35,6 +36,9 @@ EXTRA = [
     real("Memory Vessel", "{4}", 4, "Artifact",
          "{T}, Exile this artifact: Each player exiles the top seven cards of their library. Until your next turn, players may play cards they exiled this way, and they can't "
          "play cards from their hand. Activate only as a sorcery.", None, ""),
+    real("Sword of the Ages", "{4}", 4, "Artifact",
+         "This artifact enters tapped.\n{T}, Sacrifice this artifact and any number of creatures you control: This artifact deals X damage to any target, where X is "
+         "the total power of the creatures sacrificed this way, then exile this artifact and those creature cards.", None, ""),
     real("Sol Ring", "{1}", 1, "Artifact", "{T}: Add {C}{C}.", None, ""),
 ]
 NAMES = [c["name"] for c in EXTRA]
@@ -220,3 +224,23 @@ def test_memory_vessel_hand_locked_exile_playable_until_your_next_turn(cards):
     act(s, "p1", type="cast_spell", card_id=bears.id)  # the hand lock ended too
     answer(s)
     assert s.state.cards[bears.id].zone == "p1:battlefield"
+
+
+@pytest.mark.parametrize("chosen,damage", [(("Hill Giant", "Grizzly Bears"), 5), ((), 0), (("Hill Giant",), 3)])
+def test_sword_of_the_ages_exiles_what_it_sacrificed(cards, chosen, damage):
+    """X is the total power of the creatures sacrificed (0 for none); the Sword and those creature cards end in exile, an unsacrificed creature stays."""
+    s = build(cards, ["Sword of the Ages", "Hill Giant", "Grizzly Bears"])
+    sword = put(s, "Sword of the Ages")
+    for n in ("Hill Giant", "Grizzly Bears"):
+        put(s, n)
+    to_phase(s, "main1", 3)
+    act(s, "p1", type="activate_ability", card_id=sword.id, ability=1, targets=["p2"])
+    d = s.state.rules.decision
+    assert d is not None and d.min_choices == 0
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[card_named(s, n).id for n in chosen])
+    answer(s)
+    assert life(s, "p2") == 40 - damage
+    assert s.state.cards[sword.id].zone == "p1:exile"
+    for n in ("Hill Giant", "Grizzly Bears"):
+        assert card_named(s, n).zone == ("p1:exile" if n in chosen else "p1:battlefield")
+    check(s)

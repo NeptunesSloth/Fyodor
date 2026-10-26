@@ -52,6 +52,9 @@ _LIMO = ("Whenever this Vehicle enters or attacks, exile up to one other target 
 # Stitcher Geralf: the controller picks up to two creature cards among the milled ones (any graveyard), exiles them, and the token is as big as their total power.
 _GERALF = ("{2}{U}, {T}: Each player mills three cards. Exile up to two creature cards put into graveyards this way. Create an X/X blue Zombie creature "
            "token, where X is the total power of the cards exiled this way.")
+# Sword of the Ages: the sacrificed artifact and creatures are cost objects (601.2h); afterwards those still in the graveyard (the same objects, 400.7) are exiled.
+_SWORD = ("{T}, Sacrifice this artifact and any number of creatures you control: This artifact deals X damage to any target, where X is the total power of "
+          "the creatures sacrificed this way, then exile this artifact and those creature cards.")
 _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this creature is suspected, you may suspect one of the other creatures. "
               "If you do, this creature is no longer suspected.")
 
@@ -169,6 +172,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         pick["as"], pick["prompt"] = "geralf_pick", "Stitcher Geralf: exile up to two creature cards put into graveyards this way"
         return {**native, "effects": [{**native["effects"][0], "as": "geralf_milled"}, pick,
                                       {"do": "exile", "who": "ref:geralf_pick", "as": "geralf"}, made]}
+    if text == _SWORD.replace("This artifact", "~").replace("this artifact", "~"):
+        native = scripts.define(replace(ability, text="{T}, Sacrifice ~, Sacrifice any number of creatures you control: ~ deals X damage to any target, where X is the total power of "
+                                        "the creatures sacrificed this way.", cost="{T}, Sacrifice ~, Sacrifice any number of creatures you control"), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["damage"]:
+            return None
+        return {**native, "effects": [*native["effects"], {"do": "sword110h"}]}
     if text == _LEECH:  # the grant definition the staged untap model reads (tests/test_rules_untap_attempts45.py), marked: untap_hold carries it out
         return {"kind": "static", "static": "grant", "effects": [], "who": "attached", "attached_kind": "creature", "conditions": [], "p": 0, "t": 0,
                 "base": None, "keywords": [], "grants": [text.split('"')[1]], "rules": [], "untap_counter110h": True}
@@ -300,6 +309,16 @@ def _revival() -> Any:
     lose = got[0][1]
     lose = {**lose, "n": {"times": [3, {**lose["n"]["times"][1], "this_way": "battlefield_put"}]}}  # (the grammar counts cards returned to a hand; these went to the battlefield)
     return [{**got[0][0], "n": 6, "label": "card of each permanent type", "party": kinds}, lose, *got[0][2:]], got[1], got[2]
+
+
+def sword(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Sword of the Ages: exile what was sacrificed to pay for the ability (this artifact and the creatures), if it is still in the graveyard."""
+    from app.rules import effects, this_way
+
+    got = this_way.cost_objects(plan, ctx, this_way.COST, "sacrificed")
+    # ponytail: a card that left the graveyard and came back before this resolves (a new object, 400.7) is still exiled; object ids are a global counter, so no cheap check
+    ids = [o["card"] for o in got.get("objects") or [] if (c := plan.state.cards.get(o["card"])) is not None and c.zone.endswith(":graveyard")]
+    return effects.exile_cards(plan, ctx, {}, ids)
 
 
 def excess_reflex(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
@@ -458,5 +477,5 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex}
+PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword}
 RESUME = {"episode110h": resume_episode, "scapegoat110h": resume_scapegoat}
