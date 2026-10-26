@@ -370,3 +370,45 @@ def resolve_to_decision_or_none(s):
         else:
             return None
     return None
+
+
+EYE, CONSIDER = "Eye of Duskmantle", "Consider"
+test_full_eye = full_test([EYE, CONSIDER])
+
+
+def eye_table(cards, top):
+    s = build(cards, [EYE, CONSIDER, "Lightning Bolt", "Giant Growth"])
+    put(s, EYE)
+    c = card_named(s, "Giant Growth")
+    act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})  # in the graveyard, not surveilled
+    top_of_library(s, *top)
+    cast(s, CONSIDER)
+    answer(s, top[0])  # surveil 1: put it into the graveyard
+    return s
+
+
+def test_eye_of_duskmantle_casts_a_surveilled_spell_for_life(cards):
+    s = eye_table(cards, ["Lightning Bolt", "Forest"])
+    assert zone_of(s, "Lightning Bolt") == "p1:graveyard"
+    life_before = life(s, "p1")
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=["p2"], free=True)  # the alternative cost: life (118.9)
+    answer(s)
+    assert life(s, "p2") == 37 and life(s, "p1") == life_before - 1  # life equal to its mana value (1), no mana
+    check(s)
+
+
+def test_eye_of_duskmantle_cant_cast_a_graveyard_card_that_was_not_surveilled(cards):
+    from app.game.errors import ActionError
+
+    s = eye_table(cards, ["Lightning Bolt", "Forest"])
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Giant Growth").id, targets=[card_named(s, EYE).id], free=True)
+
+
+def test_eye_of_duskmantle_plays_a_surveilled_land(cards):
+    s = eye_table(cards, ["Forest", "Lightning Bolt"])
+    forests = [c for c in s.state.zones["p1:graveyard"] if s.state.cards[c].name == "Forest"]
+    assert forests
+    act(s, "p1", type="play_land", card_id=forests[0])
+    assert s.state.cards[forests[0]].zone == "p1:battlefield"
+    check(s)

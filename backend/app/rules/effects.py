@@ -3088,6 +3088,7 @@ def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
         if chosen:
             if r["where"] == "graveyard":
                 plan.do({"type": "move", "card_ids": chosen, "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
+                _wave110l.note_surveilled(plan, pid, chosen)  # -- (wave 110L) -- 701.25a: the cards a surveil put into the graveyard (Eye of Duskmantle)
             else:
                 plan.do({"type": "move", "card_ids": chosen, "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
     finally:

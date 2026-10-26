@@ -40,8 +40,16 @@ def _copy_attached(what: str, optional: bool) -> Def:
             "effects": [{"do": "become_copy", "duration": "while_attached110l", "who": "event", "with": what}]}
 
 
+_EYE = ("You may play lands and cast spells from among cards in your graveyard you've surveilled this turn. "
+        "If you cast a spell this way, you pay life equal to its mana value rather than paying its mana cost.")
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
+
+    if ability.text.strip() == _EYE:  # 118.9, 119.4: the alternative cost is always paid; the pool is the turn log's surveilled graveyard objects (400.7)
+        return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": False, "play": True, "cast": True,
+                "filter": None, "effects": [], "put_there": "surveilled110l", "free": True, "life_mv": True}
 
     if (copy := _COPY_ATTACHED.get(ability.text.strip())) is not None:
         return _copy_attached(*copy)
@@ -383,6 +391,19 @@ def resume_winter(plan: Plan, d: Any, chosen: list[str]) -> None:
         if not attachments.enter(plan, [entry], ctx):
             return  # (an Aura chooses what it enchants; the resolution goes on from there)
     continue_effects(plan, ctx)
+
+
+def note_surveilled(plan: Plan, player: str, cards: list[str]) -> None:
+    """The cards a surveil put into ``player``'s graveyard, as the objects they became there (turn log facts, read by selectors.put_there_state)."""
+    from app.game.rules_state import TurnFact, turn_log_now
+
+    log = turn_log_now(plan.state)
+    if log is None:
+        return
+    for cid in cards:
+        card = plan.state.cards.get(cid)
+        if card is not None and card.zone == f"{player}:graveyard":
+            log.facts.append(TurnFact(kind="surveil_gy110l", player=player, object_id=plan.oid(card)))
 
 
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

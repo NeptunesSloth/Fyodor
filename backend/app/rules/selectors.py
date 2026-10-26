@@ -1283,6 +1283,8 @@ def put_there_state(state: GameState, card: CardInstance, spec: str) -> bool:
         return arrival.from_zone == spec
     if spec == "not_battlefield":
         return arrival.from_zone is not None and arrival.from_zone != "battlefield"
+    if spec == "surveilled110l":  # -- (wave 110L) -- 701.25a: put there by a surveil instruction (Eye of Duskmantle: "cards in your graveyard you've surveilled this turn")
+        return arrival.from_zone == "library" and any(f.kind == "surveil_gy110l" and f.object_id == oid for f in r.turn_log.facts)
     if spec == "milled":
         return arrival.from_zone == "library" and any(f.kind == "mill" and f.object_id == oid for f in r.turn_log.facts)
     # discarded (701.9a: from a hand to the graveyard, recorded as a discard of this object) or put there from a library
