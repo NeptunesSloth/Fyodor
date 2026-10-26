@@ -966,9 +966,12 @@ def _leave(plan: Any, ctx: Any, card: Any) -> None:
 def _block(plan: Any, ctx: Any, blocker: Any, attacker_id: str) -> None:
     from app.rules import combat_rules
 
-    combat_rules.enter_blocking(plan, ctx, {"who": f"object:{plan.oid(blocker)}", "blocked": f"object:{plan.oid(plan.state.cards[attacker_id])}"})
+    combat_rules.enter_blocking(plan, ctx, {"who": f"object:{plan.oid(blocker)}", "blocked": f"object:{plan.oid(plan.state.cards[attacker_id])}", "effect": True})
 
 
+# Rules check (wave 110 J): the brief said a creature made to block by an effect does not trigger "whenever ~ blocks". CR 509.3a/b say it DOES (once per combat if it
+# was not already a blocking creature; per attacker for "blocks a creature"); only a creature put onto the battlefield blocking (509.4, Brimaz tokens) never triggers.
+# So the effect-made blocks here pass "effect": True to combat_rules.enter_blocking, which fires the block triggers.
 def warlord(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     from app.game.rules_state import DecisionOption
     from app.rules import effects, history

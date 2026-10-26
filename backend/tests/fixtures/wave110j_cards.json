@@ -1511,5 +1511,22 @@
   "keywords": [
    "Flying"
   ]
+ },
+ {
+  "name": "Giant Badger",
+  "layout": "normal",
+  "mana_cost": "{1}{G}{G}",
+  "cmc": 3.0,
+  "type_line": "Creature — Badger",
+  "oracle_text": "Whenever this creature blocks, it gets +2/+2 until end of turn.",
+  "power": "2",
+  "toughness": "2",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
  }
 ]

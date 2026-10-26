@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from tests.game_helpers import act
-from tests.wave9c_kit import build, life
+from tests.wave9c_kit import build, life, pt
 from tests.wave110j_kit import EXTRA, card_db, check, now, put_new, settle, to_phase  # noqa: F401
 
 WARLORD, PATH = "Balduvian Warlord", "Sorrow's Path"
@@ -159,4 +159,21 @@ def test_web_all_magnet_creatures_attack_and_must_be_blocked_by_all_magnet_creat
         act(s, "p2", type="declare_blockers", blocks=[])  # the magnet creature blocks if able
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": d.id, "attacker_id": giant.id}])
     assert now(s, d).zone.endswith(":graveyard") and life(s, "p2") == 38  # it blocked the Giant (and died); the Bears were unblocked
+    check(s)
+
+
+def test_warlord_re_block_triggers_whenever_blocks(cards):
+    """509.3a: removed from combat then made to block by an effect, the creature was not blocking at that time, so "whenever this creature blocks" triggers again."""
+    s = build(cards, [WARLORD, "Hill Giant", "Hill Giant"], ["Giant Badger"], forests=30, islands=30)
+    w = put_new(s, WARLORD)
+    g1, g2 = [c for c in s.state.cards.values() if c.name == "Hill Giant" and c.owner == "p1" and c.zone.endswith(":library")][:2]
+    for g in (g1, g2):
+        act(s, "p1", type="move", card_ids=[g.id], to={"player": "p1", "zone": "battlefield"})
+    b = put_new(s, "Giant Badger", "p2")
+    _blocked(s, [g1, g2], [(b, g1)], w)
+    settle(s)
+    assert pt(s, "Giant Badger", "p2") == (4, 4)  # declared as a blocker: +2/+2 (509.3a)
+    act(s, "p1", type="activate_ability", card_id=w.id, ability=0, targets=[b.id])
+    settle(s, answers=[g2.id])
+    assert now(s, b).blocks(g2.id) and pt(s, "Giant Badger", "p2") == (6, 6)  # blocks again by an effect: triggers again
     check(s)
