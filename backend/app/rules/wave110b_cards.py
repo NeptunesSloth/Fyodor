@@ -330,7 +330,39 @@ def _had_to(d: Def) -> Def:
     return {**d, "if": swap(d["if"]), "effects": [{**e, "cond": swap(e["cond"])} if "cond" in e else e for e in d["effects"]]}
 
 
+def _slicer(d: Def) -> Def:
+    from app.rules import scripts
+
+    more = scripts.parse_effects("Untap this creature. Goad it.")
+    bar = scripts.parse_effects('This creature gains "This creature can\'t be sacrificed" until end of turn.')
+    back = scripts.parse_effects("Transform this creature.")
+    assert more and bar and back
+    return {**d, "optional": False, "effects": [{"do": "slicer110b", "yes": [*d["effects"], *more[0], *bar[0]], "no": back[0]}]}
+
+
+def slicer(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Slicer: "you may have that player gain control of Slicer ... If you don't, convert it" - 603.5 the choice is made as it resolves; both branches are fixed effects."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    decide(plan, player=ctx["controller"], kind="confirm", prompt=f"Have that player gain control of {ctx.get('name') or 'it'} until end of turn? (If not, convert it.)",
+           options=[DecisionOption(id="yes", label="Yes, they gain control"), DecisionOption(id="no", label="No, convert it")], resume={"step": "slicer110b", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_slicer(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+    from app.rules.exile_packet_continuations import insert
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    insert(ctx, list(e["yes"] if chosen == ["yes"] else e["no"]))
+    effects.continue_effects(plan, ctx)
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Slicer, Hired Muscle: 613.1b/e control until end of turn, 701.39 goad, 701.21 sacrifice barred, 701.28 convert (a transform); the "may" is asked first, then one of two branches
+    "At the beginning of each opponent's upkeep, you may have that player gain control of Slicer until end of turn. If you do, untap Slicer, goad it, and it can't be sacrificed this turn. If you don't, convert it.":
+        ("At the beginning of each opponent's upkeep, that player gains control of this creature until end of turn.", lambda d: _slicer(d)),
     # Summon: Brynhildr chapter I: the exiled card is playable in turns you put a lore counter on this Saga (the permission's "when", read at play time as Robber of the Rich's)
     "I \u2014 Chain \u2014 Exile the top card of your library. During any turn you put a lore counter on this Saga, you may play that card.":
         ("I \u2014 Exile the top card of your library. You may play that card for as long as it remains exiled.",
@@ -871,7 +903,7 @@ def lose_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-RESUME: dict[str, Any] = {"kaito110b": resume_kaito, "exile_own110b": resume_exile_own, "rebound_hand110b": resume_rebound_hand}
+RESUME: dict[str, Any] = {"slicer110b": resume_slicer, "kaito110b": resume_kaito, "exile_own110b": resume_exile_own, "rebound_hand110b": resume_rebound_hand}
 def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """702.174c: the gift was given (its instant or sorcery resolved, or its permanent's gift trigger resolved): "Whenever you give a gift"."""
     from app.game.rules_state import emit
@@ -951,4 +983,4 @@ def resume_avacyn_out(plan: Any, d: Any, chosen: list[str]) -> None:
 RESUME["avacyn_out110b"] = resume_avacyn_out
 
 
-PRIMITIVES: dict[str, Any] = {"avacyn_up110b": avacyn_up, "avacyn_out110b": avacyn_out, "destroy_created110b": destroy_created, "adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+PRIMITIVES: dict[str, Any] = {"slicer110b": slicer, "avacyn_up110b": avacyn_up, "avacyn_out110b": avacyn_out, "destroy_created110b": destroy_created, "adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}

@@ -61,3 +61,44 @@ def test_brynhildr_card_is_playable_in_turns_a_lore_counter_is_put(cards, turn, 
         with pytest.raises(ActionError):
             act(s, "p1", type="play_land", card_id=exiled[0].id)
     check(s)
+
+
+SLICER = "Slicer, Hired Muscle // Slicer, High-Speed Antagonist"
+
+
+@pytest.mark.parametrize("give", [True, False])
+def test_slicer_opponent_upkeep_give_control_or_convert(cards, give):
+    """613.1b, 701.39a, 701.21, 701.28: you may have the upkeep's player gain control of Slicer until end of turn; if you do it is untapped, goaded and can't be
+    sacrificed this turn; if you don't it converts. Control returns at cleanup (514.2) and the goad lasts until your next turn."""
+    from app.rules import keyword_actions, prohibitions
+    from app.rules.plan import Plan
+
+    s = build(cards, [SLICER], [], forests=30, islands=40)
+    slicer = card_named(s, SLICER)
+    act(s, "p1", type="move", card_ids=[slicer.id], to={"player": "p1", "zone": "battlefield"})
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "confirm":
+            break
+        if d is not None:
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1" and d.kind == "confirm" and s.state.turn.number == 2 and s.state.turn.phase == "upkeep"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes" if give else "no"])
+    drive(s)
+    c = s.state.cards[slicer.id]
+    plan = Plan(s.state, "p2", s.cards, None)
+    if give:
+        assert c.controller == "p2" and not c.tapped and c.face == 0
+        assert "p1" in keyword_actions.goaded_by(plan.ch(c)) and prohibitions.sacrifice_forbidden(plan, c)
+        while not (d := s.state.rules.decision) or d.kind != "declare_attackers":
+            act(s, s.state.rules.priority, type="pass_priority")
+        with pytest.raises(ActionError, match="goaded"):  # 701.15b: it attacks each combat if able
+            act(s, "p2", type="declare_attackers", attackers=[])
+        act(s, "p2", type="declare_attackers", attackers=[{"card_id": slicer.id, "target": "p1"}])
+        to_phase(s, "main1", turn=3)
+        assert s.state.cards[slicer.id].controller == "p1" and not prohibitions.sacrifice_forbidden(Plan(s.state, "p1", s.cards, None), s.state.cards[slicer.id])
+    else:
+        assert c.controller == "p1" and c.face == 1  # (701.28: converted = transformed)
+    check(s)

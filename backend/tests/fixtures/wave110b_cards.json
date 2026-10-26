@@ -2328,7 +2328,32 @@
    "Deathtouch"
   ],
   "power": null,
-  "toughness": null
+  "toughness": null,
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Invasion of Fiora",
+    "mana_cost": "{4}{B}{B}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, choose one or both —\n• Destroy all legendary creatures.\n• Destroy all nonlegendary creatures.",
+    "defense": "4",
+    "colors": [
+     "B"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Marchesa, Resolute Monarch",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Human Noble",
+    "oracle_text": "Menace, deathtouch\nWhenever Marchesa attacks, remove all counters from up to one target permanent.\nAt the beginning of your upkeep, if you haven't been dealt combat damage since your last turn, you draw a card and you lose 1 life.",
+    "power": "3",
+    "toughness": "6",
+    "colors": [
+     "B"
+    ]
+   }
+  ]
  },
  {
   "name": "Behemoth of Vault 0",
@@ -2658,5 +2683,120 @@
   "keywords": [],
   "power": "2",
   "toughness": "1"
+ },
+ {
+  "name": "The Rise of Sozin // Fire Lord Sozin",
+  "layout": "transform",
+  "mana_cost": "{4}{B}{B} // ",
+  "cmc": 6.0,
+  "type_line": "Enchantment — Saga // Legendary Creature — Human Noble",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — Destroy all creatures.\nII — Choose a card name. Search target opponent's graveyard, hand, and library for up to four cards with that name and exile them. Then that player shuffles.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.\n//\nMenace, firebending 3 (Whenever this creature attacks, add {R}{R}{R}. This mana lasts until end of combat.)\nWhenever Fire Lord Sozin deals combat damage to a player, you may pay {X}. When you do, put any number of target creature cards with total mana value X or less from that player's graveyard onto the battlefield under your control.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Transform",
+   "Firebending",
+   "Menace"
+  ],
+  "power": null,
+  "toughness": null,
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "The Rise of Sozin",
+    "mana_cost": "{4}{B}{B}",
+    "type_line": "Enchantment — Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — Destroy all creatures.\nII — Choose a card name. Search target opponent's graveyard, hand, and library for up to four cards with that name and exile them. Then that player shuffles.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.",
+    "colors": [
+     "B"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Fire Lord Sozin",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Human Noble",
+    "oracle_text": "Menace, firebending 3 (Whenever this creature attacks, add {R}{R}{R}. This mana lasts until end of combat.)\nWhenever Fire Lord Sozin deals combat damage to a player, you may pay {X}. When you do, put any number of target creature cards with total mana value X or less from that player's graveyard onto the battlefield under your control.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+     "B"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Havengul Lich",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{B}",
+  "cmc": 5.0,
+  "type_line": "Creature — Zombie Wizard",
+  "oracle_text": "{1}: You may cast target creature card in a graveyard this turn. When you cast it this turn, this creature gains all activated abilities of that card until end of turn.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Slicer, Hired Muscle // Slicer, High-Speed Antagonist",
+  "layout": "transform",
+  "mana_cost": "{4}{R} // ",
+  "cmc": 5.0,
+  "type_line": "Legendary Artifact Creature — Robot // Legendary Artifact — Vehicle",
+  "oracle_text": "More Than Meets the Eye {2}{R} (You may cast this card converted for {2}{R}.)\nDouble strike, haste\nAt the beginning of each opponent's upkeep, you may have that player gain control of Slicer until end of turn. If you do, untap Slicer, goad it, and it can't be sacrificed this turn. If you don't, convert it.\n//\nLiving metal (During your turn, this Vehicle is also a creature.)\nFirst strike, haste\nWhenever Slicer deals combat damage to a player, convert it at end of combat.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Goad",
+   "Living metal",
+   "First strike",
+   "Haste",
+   "Convert",
+   "More Than Meets the Eye",
+   "Double strike"
+  ],
+  "power": "3",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Slicer, Hired Muscle",
+    "mana_cost": "{4}{R}",
+    "type_line": "Legendary Artifact Creature — Robot",
+    "oracle_text": "More Than Meets the Eye {2}{R} (You may cast this card converted for {2}{R}.)\nDouble strike, haste\nAt the beginning of each opponent's upkeep, you may have that player gain control of Slicer until end of turn. If you do, untap Slicer, goad it, and it can't be sacrificed this turn. If you don't, convert it.",
+    "power": "3",
+    "toughness": "4",
+    "colors": [
+     "R"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Slicer, High-Speed Antagonist",
+    "mana_cost": "",
+    "type_line": "Legendary Artifact — Vehicle",
+    "oracle_text": "Living metal (During your turn, this Vehicle is also a creature.)\nFirst strike, haste\nWhenever Slicer deals combat damage to a player, convert it at end of combat.",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+     "R"
+    ]
+   }
+  ]
  }
 ]
