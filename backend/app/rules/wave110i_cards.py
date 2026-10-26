@@ -920,6 +920,27 @@ def wolf(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 PRIMITIVES["wolf110i"] = wolf
 
 
+_CATALYST = ("{1}{R}, {T}: Choose an exiled card used to craft this artifact at random. You may cast that card without paying its mana cost.")
+
+
+def catalyst(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Cosmium Catalyst (702.167a, random pick as random_choice.choose_random_object): one of the exiled cards used to craft it (still those objects, still in exile)."""
+    import secrets
+
+    from app.rules import context
+
+    refs = plan.rules.crafted_materials.get(ctx.get("source_object") or "", [])
+    found = sorted(r.card for r in refs if (c := plan.state.cards.get(r.card)) is not None and plan.oid(c) == r.object_id and c.zone.endswith(":exile"))
+    pick = (plan.rng or secrets.SystemRandom()).choice(found) if found else None
+    if pick is not None:
+        plan.note(f"{ctx.get('name') or 'It'}: chosen at random \u2192", [pick], actor=ctx["controller"])
+    context.bind_objects(plan, ctx, "crafted110i", [pick] if pick is not None else [])
+    return True
+
+
+PRIMITIVES["catalyst110i"] = catalyst
+
+
 def whistle(ability: Any, ch: Any) -> Def | None:
     """Arcum's Whistle (118.12a, 508.1d, 603.4): Nettling Imp's targeted forced attack plus end-step destroy (wave110e_imps), all behind the active player's optional {X}
     payment (X the creature's mana value); paid, nothing happens."""
@@ -947,6 +968,10 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {"kind": "static", "static": "no_assemble110i", "effects": []}
     if text == _WHISTLE:
         return whistle(ability, ch)
+    if text == _CATALYST:
+        base = scripts.define(replace(ability, text="{1}{R}, {T}: Draw a card."), ch)
+        return None if base is None else {**base, "effects": [{"do": "catalyst110i"},
+                                                              {"do": "free_cast", "zone": "that", "who": "ref:crafted110i", "filter": None, "mv": None, "optional": True}]}
     if text == _WOLF:
         native = scripts.define(replace(ability, text="When this creature enters, draw a card."), ch)
         assert native is not None
