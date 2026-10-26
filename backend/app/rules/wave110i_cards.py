@@ -522,7 +522,29 @@ def parse(body: str) -> Any:
         return [{"do": "tunnel110i"}], None, False
     if body.strip() == _DAWN:
         return [{"do": "false_dawn110i"}], None, False
+    if body.strip() == _MEDOMAI:  # 603.7: chapter III creates a delayed trigger for this turn (Scryfall ruling 2018-04-27: with no name chosen it can never trigger)
+        parsed = scripts.parse_effects("Whenever you cast a spell with the chosen name this turn, draw two cards.")
+        assert parsed is not None
+        effects, target, optional = parsed
+        effects[0]["when"]["cond"]["first_named110i"] = True
+        effects[0]["once"] = True
+        return effects, target, optional
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
+
+
+_MEDOMAI = "When you cast a spell with the chosen name for the first time this turn, draw two cards."
+
+
+def first_named(plan: Plan, source: str, player: str) -> bool:
+    """The spell just cast is the only one by ``player`` this turn with the Saga's chosen name (601.2i: the log already holds it)."""
+    from app.cards.names import normalize_name
+    from app.rules import card_names, history
+
+    name = card_names.chosen(plan, source)
+    if not name:
+        return False
+    want = normalize_name(name)
+    return sum(1 for n in history.log_for(plan).casts if n.player == player and want in {normalize_name(x) for x in n.names or []}) == 1
 
 
 def lose_rad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:

@@ -1258,6 +1258,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             if sum(1 for n in history.log_for(plan).casts if n.player == player
                    and history.note_matches(kind, n.types, n.subtypes, n.supertypes, n.colors, n.mv, x_cost=n.x_cost)) != 1:
                 return False
+        if cond.get("first_named110i"):  # -- cards (wave 110I) -- Medomai's Prophecy: no earlier spell with the chosen name cast by this player this turn
+            from app.rules import wave110i_cards
+
+            if not wave110i_cards.first_named(plan, watcher.id, player):
+                return False
         if cond.get("alania110b") and not alania_first(plan, watcher, player, info):  # -- wave 110B -- Alania: the first instant, sorcery or Otter (other than it) cast this turn
             return False
         if cond.get("nth_note"):  # -- triggers (wave 30J) -- 601.2i: this spell is the Nth of its kind (and place) this player cast this turn

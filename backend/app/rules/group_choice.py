@@ -1144,6 +1144,7 @@ def _linked_graveyard(text: str, parse: Any, split_sentences: Any) -> tuple[list
 
 _EMISSARY_USE = "Choose new targets for target spell or ability if it's controlled by the chosen player and if it targets you or a permanent you control."
 _LEONIN_USE = "Exile target creature that's attacking you if it's controlled by the chosen player."
+_ARCHON_USE = "You and target permanent you control each gain protection from the chosen player until end of turn."
 _KILLER_TOKENS = "Create a 1/1 white Human creature token, a 1/1 blue Merfolk creature token, and a 1/1 red Goblin creature token."
 _KILLER_USE = "If target attacking creature token is the chosen type, put three +1/+1 counters on it and it gains deathtouch until end of turn."
 
@@ -1162,6 +1163,8 @@ def _secret_ability(text: str, parse: Any, split_sentences: Any) -> tuple[list[d
         return [{"do": "only_if", "cond": {"secret": {"is": "controller"}}, "skip": 1}, found[0][0]], found[1], False
     if sentences == [_EMISSARY_USE] and (found := parse("Choose new targets for target spell or ability.")) is not None and len(found[0]) == 1:  # (wave 110E)
         return [{"do": "only_if", "cond": {"secret": {"is": "controller"}}, "skip": 2}, {"do": "only_if", "cond": {"targets_mine110e": True}, "skip": 1}, found[0][0]], found[1], False
+    if sentences == [_ARCHON_USE] and (found := parse("Target permanent you control gains hexproof until end of turn.")) is not None and len(found[0]) == 1:  # (wave 110I) 702.16k
+        return [{"do": "player_protection_grant", "players": "secret110i", "player_shield": True, "who": "target"}], found[1], False
     if sentences == [_KILLER_USE] and (found := parse("Put three +1/+1 counters on target attacking creature token. It gains deathtouch until end of turn.")) is not None:
         return [{"do": "only_if", "cond": {"secret": {"is": "type"}}, "skip": len(found[0])}, *found[0]], found[1], False
     return None
