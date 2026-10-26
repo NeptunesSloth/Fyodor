@@ -32,3 +32,5 @@
 - Savior of Ollenbock (s9): "trains" (702.149c, counters put by a resolving training ability) has no event; plus exile from battlefield or graveyard with return of mixed cards. Foundation, not unsettled.
 - Sacred Ground, Whippoorwill, Halfdane, Tatsumasa, Thijarian Witness, Season of the Witch (s9): promoted (cause stamp, redirect prohibition, end-of-upkeep duration, linked bind, alone-in-combat fact, could-attack record).
 - Wicker Picker, Done for the Day, Ambassador Blorpityblorpboop (s10): need a sticker/ticket system (kicker {TK}, put a sticker, sticker stats); foundation not built yet, work not refusal.
+- Stand or Fall (s12): "each defending player" at beginning of combat, before attackers are declared, has no settled meaning (no CR rule or ruling found); pile split plus per-player pile choice also unbuilt.
+- Wicker Picker (s12): a creature with its own kicker also gets the sticker kicker (702.33c/d, two kicker abilities); the engine models one kicker per spell, so the cast logs that the second kicker is manual play.

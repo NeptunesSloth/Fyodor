@@ -2,6 +2,7 @@
 
 * Glamer Spinners: 701.3b / 303.4 all Auras enchanting the target move to another permanent (not a target) with the same controller; an Aura that can't enchant it stays.
 * Skophos Maze-Warden: 603.2 / 701.14 "another creature becomes the target of an ability of a land you control named Labyrinth of Skophos": may fight that creature.
+* Stangg: 603.7 / 400.7 the delayed triggers made by its enter ability exile the token when Stangg leaves and sacrifice that same Stangg when the token leaves.
 * Equipoise: 702.26 for lands, then artifacts, then creatures, as many of target player's as they control more than you phase out (counts retaken each time).
 """
 from __future__ import annotations
@@ -25,13 +26,16 @@ EXTRA = [
     real("Labyrinth of Skophos", "", 0, "Land", LABY, None, ""),
     real("Labyrinth of Sophos", "", 0, "Land", LABY, None, ""),
     real("Equipoise", "{2}{W}", 3, "Enchantment", "At the beginning of your upkeep, for each land target player controls in excess of the number you control, choose a land that player controls, then the chosen permanents phase out. Repeat this process for artifacts and creatures. (While they're phased out, they're treated as though they don't exist. They phase in before that player untaps during their next untap step.)", None, "W"),
+    real("Stangg", "{4}{R}{G}", 6, "Legendary Creature \u2014 Human Warrior", "When Stangg enters, create Stangg Twin, a legendary 3/4 red and green Human Warrior creature token. Exile that token when Stangg leaves the battlefield. Sacrifice Stangg when that token leaves the battlefield.", ("3", "4"), "GR"),
+    real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
+    real("Unsummon", "{U}", 1, "Instant", "Return target creature to its owner's hand.", None, "U"),
     real("Squire", "{W}", 1, "Creature — Human", "", ("1", "1"), "W"),
     real("Bear Cub", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
     real("Land Aura", "{1}{G}", 2, "Enchantment — Aura", "Enchant land", None, "G"),
     real("Test Rock", "{1}", 1, "Artifact", "", None, ""),
     real("Dryad Arbor", "", 0, "Land Creature — Forest Dryad", "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")", ("1", "1"), "G"),
 ]
-NAMES = ["Glamer Spinners", "Skophos Maze-Warden", "Equipoise"]
+NAMES = ["Glamer Spinners", "Skophos Maze-Warden", "Equipoise", "Stangg"]
 
 
 @pytest.fixture()
@@ -231,3 +235,56 @@ def test_equipoise_does_nothing_without_an_excess(cards, mine, theirs):
     for i in [c.id for c in s.state.cards.values() if c.name == "Island" and c.owner == "p2"][:theirs]:
         act(s, "p2", type="move", card_ids=[i], to={"player": "p2", "zone": "battlefield"})
     assert _upkeep(s) == [] and _phased(s) == []
+
+
+def _stangg_in_play(cards):
+    s = build(cards, ["Stangg", "Murder", "Unsummon"], ["Murder", "Island"])
+    mana(s, "p1", R=1, G=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=_hand(s, "Stangg").id)
+    answer(s)
+    return s
+
+
+def _twin(s):
+    return next((c for c in s.state.cards.values() if c.name == "Stangg Twin" and c.zone == "p1:battlefield"), None)
+
+
+def test_stangg_makes_a_legendary_twin(cards):
+    s = _stangg_in_play(cards)
+    twin = _twin(s)
+    assert twin is not None and card_named(s, "Stangg").zone == "p1:battlefield"
+    from tests.wave110b_kit import ch
+
+    c = ch(s, twin)
+    assert (c.pt, sorted(c.colors), "Legendary" in c.supertypes) == ((3, 4), ["G", "R"], True)
+    check(s)
+
+
+@pytest.mark.parametrize("spell, victim", [("Murder", "Stangg"), ("Unsummon", "Stangg")])
+def test_stangg_leaving_exiles_the_twin(cards, spell, victim):
+    s = _stangg_in_play(cards)
+    twin = _twin(s)
+    mana(s, "p1", B=2, C=1, U=1)
+    cast(s, spell, [card_named(s, victim).id])
+    assert _twin(s) is None and (twin.id not in s.state.cards or s.state.cards[twin.id].zone not in ("p1:battlefield", "p1:graveyard"))
+    check(s)
+
+
+def test_stangg_is_sacrificed_when_its_twin_leaves(cards):
+    s = _stangg_in_play(cards)
+    mana(s, "p1", B=2, C=1)
+    cast(s, "Murder", [_twin(s).id])
+    assert card_named(s, "Stangg").zone == "p1:graveyard" and _twin(s) is None
+    check(s)
+
+
+def test_a_recast_stangg_is_not_sacrificed_for_the_old_twin(cards):
+    """400.7: the first Stangg left (its twin was exiled); the new Stangg is a new object, and its own twin keeps it."""
+    s = _stangg_in_play(cards)
+    mana(s, "p1", U=1)
+    cast(s, "Unsummon", [card_named(s, "Stangg").id])
+    mana(s, "p1", R=1, G=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=_hand(s, "Stangg").id)
+    answer(s)
+    assert card_named(s, "Stangg").zone == "p1:battlefield" and _twin(s) is not None
+    check(s)

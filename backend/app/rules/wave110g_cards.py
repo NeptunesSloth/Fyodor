@@ -351,6 +351,17 @@ def _alone(d: Def) -> Def:  # Thijarian Witness: the plain "if it was attacking"
     return {**d, "if": test, "effects": [{**x, "cond": test} if x.get("do") == "only_if" else x for x in d["effects"]]}
 
 
+def _stangg(d: Def) -> Def:
+    """Stangg: 603.7 two delayed triggers made as the enter ability resolves (one per sentence), each watching one object: Stangg leaving exiles that token,
+    the token leaving sacrifices Stangg (the same object: a new Stangg isn't affected, 400.7). Not limited to this turn (``open``)."""
+    make = d["effects"][0]
+    token = {**make["token"], "name": "Stangg Twin", "type_line": "Legendary Token Creature \u2014 Human Warrior"}
+    leaves = {"kind": "event", "event": "leave", "open": True}
+    return {**d, "effects": [{**make, "token": token, "as": "e0"},
+                             {"do": "delayed", "when": dict(leaves), "n": 1, "who": "self"}, {"do": "deferred:exile", "who": "ref:e0"},
+                             {"do": "delayed", "when": dict(leaves), "n": 1, "who": "ref:e0"}, {"do": "deferred:sacrifice", "who": "self"}]}
+
+
 def _halfdane(d: Def) -> Def:
     return {**d, "effects": [{"do": "halfdane110g"}]}
 
@@ -736,6 +747,8 @@ def resume_reattach(plan: Any, d: Any, chosen: list[str]) -> None:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "When Stangg enters, create Stangg Twin, a legendary 3/4 red and green Human Warrior creature token. Exile that token when Stangg leaves the battlefield. Sacrifice Stangg when that token leaves the battlefield.":
+        ("When this creature enters, create a 3/4 red and green Human Warrior creature token.", _stangg),
     "At the beginning of your upkeep, for each land target player controls in excess of the number you control, choose a land that player controls, then the chosen permanents phase out. Repeat this process for artifacts and creatures.":
         ("At the beginning of your upkeep, target player loses 1 life.", lambda d: {**d, "effects": [{"do": "equipoise110g", "who": "target"}]}),
     "When this creature enters, attach all Auras enchanting target permanent to another permanent with the same controller.":
