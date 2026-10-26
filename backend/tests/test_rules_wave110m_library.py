@@ -415,3 +415,59 @@ def test_nethergoyf_escape_exiles_any_number_of_cards_with_four_or_more_types_am
     left = {t for n in ids if n != GOYF and s.state.cards[ids[n]].zone == "p1:graveyard" for t in ch(s, s.state.cards[ids[n]]).types}
     assert ch(s, s.state.cards[ids[GOYF]]).pt == (len(left), len(left) + 1)
     check(s)
+
+
+# -- Ashiok, Nightmare Weaver ------------------------------------------------------------------------------------------------------------------
+ASHIOK = "Ashiok, Nightmare Weaver"
+test_ashiok_full = full_test([ASHIOK])
+
+
+def ashiok_table(cards):
+    from tests.test_rules_wave36a_trigger_words import loyal
+
+    s = build(cards, [ASHIOK], ["Grizzly Bears", "Llanowar Elves", "Hill Giant", "Mother of Runes"], forests=20)
+    walker = loyal(s, ASHIOK, loyalty=3)
+    for n in ("Hill Giant", "Llanowar Elves", "Grizzly Bears"):  # the top three of Bob's library, topmost last put
+        act(s, "p2", type="move", card_ids=[card_named(s, n, "p2").id], to={"player": "p2", "zone": "library"}, position="top")
+    return s, walker
+
+
+def test_ashiok_plus_two_exiles_three_and_minus_x_puts_one_with_that_mana_value_under_your_control(cards):
+    s, walker = ashiok_table(cards)
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=0, targets=["p2"])
+    answer(s)
+    exiled = [card_named(s, n, "p2") for n in ("Grizzly Bears", "Llanowar Elves", "Hill Giant")]
+    assert all(s.state.cards[c.id].zone == "p2:exile" for c in exiled)
+    next_turn(s)
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=1, x_value=2)
+    answer(s)
+    bears = card_named(s, "Grizzly Bears", "p2")
+    got = ch(s, s.state.cards[bears.id])
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[bears.id].controller == "p1" and "Nightmare" in got.subtypes and "Bear" in got.subtypes
+    assert s.state.cards[card_named(s, "Hill Giant", "p2").id].zone == "p2:exile"  # (mana value 4: stays)
+    check(s)
+
+
+def test_ashiok_minus_x_finds_nothing_for_a_mana_value_no_exiled_creature_has(cards):
+    s, walker = ashiok_table(cards)
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=0, targets=["p2"])
+    answer(s)
+    next_turn(s)
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=1, x_value=3)
+    answer(s)
+    assert all(s.state.cards[card_named(s, n, "p2").id].zone == "p2:exile" for n in ("Grizzly Bears", "Llanowar Elves", "Hill Giant"))
+    check(s)
+
+
+def test_ashiok_minus_ten_exiles_every_card_in_opponents_hands_and_graveyards(cards):
+    from tests.test_rules_wave36a_trigger_words import loyal
+
+    s = build(cards, [ASHIOK], ["Grizzly Bears", "Llanowar Elves", "Hill Giant"], forests=20)
+    walker = loyal(s, ASHIOK, loyalty=12)
+    hand, gy_card = to_hand(s, "Grizzly Bears", "p2"), card_named(s, "Llanowar Elves", "p2")
+    act(s, "p2", type="move", card_ids=[gy_card.id], to={"player": "p2", "zone": "graveyard"})
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=2)
+    answer(s)
+    assert not s.state.zones["p2:hand"] and not s.state.zones["p2:graveyard"]
+    assert s.state.cards[hand.id].zone == "p2:exile" and s.state.cards[gy_card.id].zone == "p2:exile"
+    check(s)

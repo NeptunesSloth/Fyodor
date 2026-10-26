@@ -5,6 +5,7 @@ Each entry matches one whole ability's Oracle text exactly and nothing else; any
 from __future__ import annotations
 
 import json
+import threading
 from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
@@ -20,6 +21,14 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
 }
 
 
+class _Reading(threading.local):
+    texts: set[str]
+
+    def __init__(self) -> None:
+        self.texts = set()
+
+
+_READING = _Reading()  # the whole-ability texts being read natively right now, per thread
 ATK_TAX = "block_tax_atk110m"
 _PRESENCE = "Enchanted creature can't be blocked unless defending player pays {3} for each creature they control that's blocking it."
 
@@ -69,9 +78,13 @@ def definition(ability: Any, ch: Any) -> Def | None:
         first = scripts.define(replace(ability, text="As this artifact enters, choose an opponent."), ch)
         second = scripts.define(replace(ability, text="As this artifact enters, choose a card name other than a basic land card name."), ch)
         return None if first is None or second is None else {**first, "effects": [*first["effects"], *second["effects"]]}
-    if (built := _BUILD.get(ability.text.strip())) is None:
-        return None
-    native = scripts.define(replace(ability, text=built[0]), ch)
+    if (built := _BUILD.get(ability.text.strip())) is None or ability.text.strip() in _READING.texts:
+        return None  # (an entry whose native wording is its own: the grammar reads it plainly, then the change is applied)
+    _READING.texts.add(ability.text.strip())
+    try:
+        native = scripts.define(replace(ability, text=built[0]), ch)
+    finally:
+        _READING.texts.discard(ability.text.strip())
     return None if native is None else built[1](native)
 
 
@@ -420,6 +433,61 @@ def _adversary_definition(ability: Any, ch: Any) -> Def | None:
     return {**lands, "effects": [merged if e is second else e for e in lands["effects"]]}
 
 
+_ASHIOK_PLUS = "+2: Exile the top three cards of target opponent's library."
+_ASHIOK_X = ("−X: Put a creature card with mana value X exiled with Ashiok onto the battlefield under your control. That creature is a Nightmare in addition to its other types.")
+_ASHIOK_ULT = "−10: Exile all cards from all opponents' hands and graveyards."
+
+
+def _ashiok_plus(d: Def) -> Def:
+    """607.2a: the cards it exiles are the ones the −X ability refers to."""
+    return {**d, "effects": [{**x, "link": True} if x.get("do") == "exile_top" else x for x in d["effects"]]}
+
+
+def _ashiok_x(d: Def) -> Def:
+    return {**d, "effects": [{"do": "ashiok110m", "as": "e0"}, d["effects"][1]], "target": None}
+
+
+_BUILD[_ASHIOK_PLUS] = (_ASHIOK_PLUS, _ashiok_plus)
+_BUILD[_ASHIOK_X] = ("−1: Return a creature card from your graveyard to the battlefield. That creature is a Nightmare in addition to its other types.", _ashiok_x)
+_BUILD[_ASHIOK_ULT] = ("−10: You gain 1 life.", lambda d: {**d, "effects": [{"do": "ashiok_ult110m"}], "target": None})
+
+
+def ashiok(plan: Any, ctx: Def, e: Def) -> bool:
+    """−X: one creature card with mana value X exiled with Ashiok (607.2a; it is a card in exile, a public zone when exiled face up) onto the battlefield under your control."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects, exiled_with
+    from app.rules.plan import decide
+
+    x = int(ctx.get("x") or 0)
+    pool = [c for c in exiled_with.cards(plan, ctx) if "Creature" in plan.ch(plan.state.cards[c]).types and int(plan.ch(plan.state.cards[c]).mana_value) == x]
+    back = {"to": "battlefield", "tapped": False, "under": "you", "as": e.get("as")}
+    if len(pool) <= 1:
+        return effects._return_cards(plan, ctx, back, pool)
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name', '')}: put a creature card with mana value {x} exiled with it onto the battlefield",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool], min_choices=1, max_choices=1,
+           resume={"step": "ashiok110m", "ctx": ctx, "e": back, "pool": pool})
+    return False
+
+
+def resume_ashiok(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if effects._return_cards(plan, ctx, d.resume["e"], [c for c in chosen if c in d.resume["pool"]][:1]):
+        effects.continue_effects(plan, ctx)
+
+
+def ashiok_ult(plan: Any, ctx: Def, e: Def) -> bool:
+    """−10: every card in each opponent's hand and graveyard goes to exile, face up (406.3), all at once for each owner."""
+    for pid in plan.live():
+        if pid == ctx["controller"]:
+            continue
+        ids = [*plan.state.zones.get(f"{pid}:hand", []), *plan.state.zones.get(f"{pid}:graveyard", [])]
+        if ids:
+            plan.do({"type": "move", "card_ids": ids, "to": {"player": pid, "zone": "exile"}}, actor=ctx["controller"])
+    return True
+
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 
@@ -528,6 +596,6 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+RESUME: dict[str, Any] = {"ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

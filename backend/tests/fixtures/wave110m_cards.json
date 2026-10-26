@@ -693,5 +693,23 @@
 "R"
 ],
 "keywords": []
+},
+{
+"name": "Ashiok, Nightmare Weaver",
+"layout": "normal",
+"mana_cost": "{1}{U}{B}",
+"cmc": 3.0,
+"type_line": "Legendary Planeswalker — Ashiok",
+"oracle_text": "+2: Exile the top three cards of target opponent's library.\n−X: Put a creature card with mana value X exiled with Ashiok onto the battlefield under your control. That creature is a Nightmare in addition to its other types.\n−10: Exile all cards from all opponents' hands and graveyards.",
+"colors": [
+"B",
+"U"
+],
+"color_identity": [
+"B",
+"U"
+],
+"keywords": [],
+"loyalty": "3"
 }
 ]
