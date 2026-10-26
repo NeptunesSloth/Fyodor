@@ -1,6 +1,7 @@
 """-- wave 110G -- exact Oracle wordings of single cards, read as a wording the grammar reads or built from parts of it (as wave110b_cards)."""
 from __future__ import annotations
 
+import collections
 import re
 from collections.abc import Callable
 from dataclasses import replace
@@ -177,9 +178,18 @@ _AGONY = re.compile(r"(~ deals X damage to target creature, where X is the numbe
                     r"of your library equal to the excess damage dealt to that creature this way\. You may play those cards until the end of your next turn\.")
 
 
+_DRAIN = "Target player activates a mana ability of each land they control. Then that player loses all unspent mana and you add the mana lost this way."
+
+
 def parse(body: str) -> Any:
     """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
     from app.rules import scripts
+
+    if body.strip() == _DRAIN:  # Drain Power: the Pygmy Hippo machinery on a target player, the lost mana added at once (605.3a, 106.4)
+        from app.rules import language
+
+        group = language.target_group("target player")
+        return None if group is None else ([{"do": "hippo110g", "who": "target", "add_now": True}], [group], False)
 
     if body.strip() == _WARP_BOTTOM:  # Blade of the Swarm: an exiled card that has warp (702.185a), any exile
         return scripts.parse_effects(_WARP_BOTTOM.replace("exiled card with warp", "card with warp in exile"))
@@ -1334,10 +1344,10 @@ def hippo(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     (a private or object-choosing cost) makes this a hand-played instruction: nothing happens."""
     from app.rules import effects
 
-    pid = next(iter(effects._players(plan, ctx, "defending_player")), None)
+    pid = next(iter(effects._players(plan, ctx, e.get("who", "defending_player"))), None)
     if pid is None:
         return True
-    st: dict[str, Any] = {"pid": pid, "done": [], "before": 0}
+    st: dict[str, Any] = {"pid": pid, "done": [], "before": 0, "add": bool(e.get("add_now"))}
     if _land_combos(plan, pid, [])[1]:
         plan.note("Pygmy Hippo: a land has a mana ability to activate by hand (not automated)", [])
         ctx["next"] = len(ctx["effects"])
@@ -1365,13 +1375,16 @@ def _hippo_step(plan: Any, ctx: dict[str, Any], st: dict[str, Any]) -> bool:
             return False
         st["done"].append(pick[0])
         _activate_land(plan, pid, *pick)
-    def pool() -> int:  # every unspent mana, restricted or not
-        return sum(plan.state.players[pid].mana.values()) + len(plan.state.players[pid].mana_units)
+    def pool() -> collections.Counter[str]:  # every unspent mana, restricted or not
+        p = plan.state.players[pid]
+        return collections.Counter(p.mana) + collections.Counter(u.sym for u in p.mana_units)
 
     before = pool()
     group_choice.lose_mana(plan, ctx, {"who": f"player:{pid}"})
-    lost = before - pool()
-    ctx.setdefault("refs", {})["lost110g"] = {"n": lost}
+    gone = before - pool()
+    ctx.setdefault("refs", {})["lost110g"] = {"n": sum(gone.values())}
+    if st.get("add"):  # Drain Power: "you add the mana lost this way" (106.3), same types, no restriction carried
+        return effects._put_mana(plan, ctx, ctx["controller"], list(gone.elements()))
     return True
 
 
