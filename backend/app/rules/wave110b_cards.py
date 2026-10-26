@@ -232,6 +232,11 @@ def _towershell(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Linvala, Shield of Sea Gate: 611.2a, 113.3: restricted until her controller's next turn, both rules on the one target
+    "At the beginning of combat on your turn, if you have a full party, choose target nonland permanent an opponent controls. Until your next turn, it can't "
+    "attack or block, and its activated abilities can't be activated.":
+        ("At the beginning of combat on your turn, if you have a full party, until your next turn, target nonland permanent an opponent controls can't attack or block.",
+         lambda d: {**d, "effects": [{**e, "n": 2} if e["do"] == "until" else e for e in d["effects"]] + [{"do": "restrict", "who": "target", "rules": ["cant_activate"]}]}),
     # Nissa of Shadowed Boughs: "you may have it become" asks before the become + "still a land" pair (unless_pays.may_rest skip 2), 205.1b
     "+1: Untap target land you control. You may have it become a 3/3 Elemental creature with haste and menace until end of turn. It's still a land.":
         ("+1: Untap target land you control. It becomes a 3/3 Elemental creature with haste and menace until end of turn. It's still a land.",
@@ -353,10 +358,24 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
 }
 
 
+_LINVALA = "Sacrifice Linvala: Choose hexproof or indestructible. Creatures you control gain that ability until end of turn."
+
+
+def _linvala(ability: Any, ch: Any) -> Def | None:
+    """700.2: "Choose hexproof or indestructible" is a choice of one of two modes, read as the modal ability it equals (header and two bullets in a scratch card)."""
+    from app.rules import modal_abilities
+
+    rows = [replace(ability, index=ability.index + i, kind="static", text=f"• Creatures you control gain {k} until end of turn.") for i, k in ((1, "hexproof"), (2, "indestructible"))]
+    head = replace(ability, text="Sacrifice Linvala: Choose one \u2014")
+    return modal_abilities.definitions(head, replace(ch, abilities=(head, *rows))).get(ability.index)
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _LINVALA:
+        return _linvala(ability, ch)
     if (same := _AS.get(text)) is not None:
         return scripts.define(replace(ability, text=same), ch)
     if (built := _BUILD.get(text)) is not None:
