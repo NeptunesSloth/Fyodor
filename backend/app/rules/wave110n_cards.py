@@ -140,6 +140,50 @@ def rewrite_lines(lines: list[str]) -> None:
             lines[i:i + 4] = _GENKU_MODAL
 
 
+_GRIP = "Counter target spell unless its controller exiles all cards from their graveyard."
+
+
+def _grip_parse() -> Any:
+    from app.rules import scripts
+
+    found = scripts.parse_effects("Counter target spell unless its controller pays {1}.")
+    if found is None or found[0][0].get("do") != "counter_unless":
+        return None
+    return [{**found[0][0], "do": "grip110n"}], found[1], found[2]
+
+
+def grip(plan: Any, ctx: Any, e: Def) -> bool:
+    """Grip of Amnesia (118.12a): the spell's controller may exile their whole graveyard; if they don't, it is countered. An empty graveyard can still be "exiled" (as a
+    hand can be discarded with no cards: the Bomat Courier ruling of 2016-09-20), so the choice is always offered and nothing about the hidden-free zone is leaked."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    targets = effects._stack_targets(plan, ctx, e)
+    if not targets:
+        return True
+    sid = targets[0]
+    payer = plan.state.cards[sid].controller
+    decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name', '')}: exile your graveyard or {plan.state.cards[sid].name or 'your spell'} is countered",
+           options=[DecisionOption(id="pay", label="Exile all cards from your graveyard"), DecisionOption(id="decline", label="Don't (it's countered)")],
+           resume={"step": "grip110n", "ctx": ctx, "sid": sid, "oid": plan.oid(sid)}, source=plan.state.cards[sid])
+    return False
+
+
+def resume_grip(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx, sid = d.resume["ctx"], d.resume["sid"]
+    card = plan.state.cards.get(sid)
+    if chosen[0] == "pay":
+        gy = list(plan.state.zones.get(f"{d.player}:graveyard", []))
+        if gy:
+            plan.do({"type": "move", "card_ids": gy, "to": {"player": d.player, "zone": "exile"}}, actor=d.player)
+    elif card is not None and card.zone == "stack" and plan.oid(card) == d.resume["oid"]:
+        effects.counter_object(plan, sid, d.player, by=ctx["controller"])
+    effects.continue_effects(plan, ctx)
+
+
 _REAP = ("Return up to X target cards from your graveyard to your hand, where X is the number of black permanents target opponent controls as you cast this spell.")
 
 
@@ -199,6 +243,8 @@ def parse(body: str) -> Any:
         return [{"do": "siren_attack110n"}], None, False
     if body.strip() == _SIREN_DESTROY:
         return [{"do": "siren_destroy110n"}], None, False
+    if body.strip() == _GRIP:
+        return _grip_parse()
     if body.strip() == _REAP:
         return _reap()
     if body.strip() == _DECREE:
@@ -961,6 +1007,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "queen110n": queen, "flicker110n": flicker, "flicker_host110n": flicker_host, "flicker_auras110n": flicker_auras, "jace_library110n": jace_library, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "grip110n": grip, "queen110n": queen, "flicker110n": flicker, "flicker_host110n": flicker_host, "flicker_auras110n": flicker_auras, "jace_library110n": jace_library, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
-RESUME: dict[str, Any] = {"vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}
+RESUME: dict[str, Any] = {"grip110n": resume_grip, "vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}

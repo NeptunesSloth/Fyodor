@@ -263,5 +263,20 @@
    "U"
   ],
   "keywords": []
+ },
+ {
+  "name": "Grip of Amnesia",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Counter target spell unless its controller exiles all cards from their graveyard.\nDraw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
  }
 ]
