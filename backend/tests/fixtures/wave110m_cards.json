@@ -1289,5 +1289,41 @@
 "R"
 ],
 "keywords": []
+},
+{
+"name": "Timothar, Baron of Bats",
+"layout": "normal",
+"mana_cost": "{4}{B}{B}",
+"cmc": 6.0,
+"type_line": "Legendary Creature — Vampire Noble",
+"oracle_text": "Ward—Discard a card.\nWhenever another nontoken Vampire you control dies, you may pay {1} and exile it. If you do, create a 1/1 black Bat creature token with flying. It gains \"When this token deals combat damage to a player, sacrifice it and return the exiled card to the battlefield tapped.\"",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Ward"
+],
+"power": "4",
+"toughness": "4"
+},
+{
+"name": "Test Vampire",
+"layout": "normal",
+"mana_cost": "{1}{B}",
+"cmc": 2.0,
+"type_line": "Creature — Vampire",
+"oracle_text": "",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [],
+"power": "2",
+"toughness": "2"
 }
 ]

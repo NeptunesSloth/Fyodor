@@ -568,6 +568,44 @@ def resume_rocket(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+_TIMOTHAR = ("Whenever another nontoken Vampire you control dies, you may pay {1} and exile it. If you do, create a 1/1 black Bat creature token with flying. It gains \"When this token deals "
+             "combat damage to a player, sacrifice it and return the exiled card to the battlefield tapped.\"")
+_BAT = "When this token deals combat damage to a player, sacrifice it and return the exiled card to the battlefield tapped."
+
+
+def _timothar(d: Def) -> Def:
+    """Timothar: pay {1} and exile it as one payment (only while the card is still there to exile), then make the Bat that carries the way back ("if you do"): the Bat's trigger finds the card by the link."""
+    pay, _, token = d["effects"]
+    token = {**token, "token": {**token["token"], "text": f"Flying\n{_BAT}"}, "as": "bat110m"}
+    return {**d, "effects": [{**pay, "needs": "event.new"}, {"do": "only_if", "cond": {"succeeded": pay["bind"]}, "skip": 2}, token,
+                             {"do": "bat_link110m", "paid": pay["bind"] + "x"}]}  # (the payment itself exiles the card: ``needs``, and binds it as <bind>x)
+
+
+_BUILD[_TIMOTHAR] = ("Whenever another nontoken Vampire you control dies, you may pay {1}. If you do, create a 1/1 black Bat creature token with flying.", _timothar)
+_BUILD[_BAT] = ("When this creature deals combat damage to a player, you gain 1 life.", lambda d: {**d, "effects": [{"do": "sacrifice", "who": "self"}, {"do": "bat_return110m"}]})
+
+
+def bat_link(plan: Any, ctx: Def, e: Def) -> bool:
+    """The Bats made and the card exiled with them: each Bat remembers that exiled object (400.7: a card that has since left exile is not the one to return)."""
+    from app.rules import context
+
+    exiled = [plan.oid(c) for c in context.objects(plan, ctx, e["paid"]) if plan.state.cards[c].zone.endswith(":exile")]
+    if exiled:
+        for token in context.objects(plan, ctx, "bat110m"):
+            plan.rules.bat_links110m[plan.oid(token)] = exiled[0]
+    return True
+
+
+def bat_return(plan: Any, ctx: Def, e: Def) -> bool:
+    """The Bat dealt combat damage: the exiled card it was linked to returns tapped under its owner's control, if it is still that object in exile (it can't if it already left)."""
+    from app.rules import effects
+
+    oid = plan.rules.bat_links110m.get(ctx.get("source_object") or "")
+    if oid is None:
+        return True
+    return effects.PRIMITIVES["return_card"](plan, ctx, {"do": "return_card", "who": f"exiled_card:{oid}", "to": "battlefield", "tapped": True, "under": "owner"})
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -1225,4 +1263,4 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
 
 RESUME: dict[str, Any] = {"rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

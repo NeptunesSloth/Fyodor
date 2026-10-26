@@ -1416,6 +1416,7 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
+    bat_links110m: dict[str, str] = Field(default_factory=dict)  # (wave 110M) Timothar: a Bat token's rules object -> the exiled card's rules object it returns
     stack_seen110m: list[str] = Field(default_factory=list)  # (wave 110M) stack objects already looked at for "whenever a spell or ability is put onto the stack"
     stored_dice110m: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110M) object id -> the d6 results stored on it (706.8a: Centaur of Attention)
     began_lands110c: dict[str, int] = Field(default_factory=dict)  # (wave 110C) player -> untapped lands they controlled as their turn began (Power Surge)
