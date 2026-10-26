@@ -2945,6 +2945,18 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
                     plan.note(f"{t.name}'s ability has no defending player to choose its target and is removed")
                     return True
                 choice_player = t.event.defended
+            if t.ability.get("target_choice") == "opponent110d":  # -- delegated (wave 110D) -- "of an opponent's choice": the controller picks the opponent (one: no question), who picks the target
+                opponents = [pid for pid in plan.live() if pid != t.controller]
+                if not opponents:
+                    r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+                    plan.note(f"{t.name}'s ability has no opponent to choose its target and is removed")
+                    return True
+                if (picked := (picks or {}).get("opp110d")) is None and len(opponents) > 1:
+                    decide(plan, player=t.controller, kind="choose_one", prompt=f"{t.name}: choose an opponent to select the target",
+                           options=[DecisionOption(id=pid, label=plan.name(pid)) for pid in opponents],
+                           resume={"step": "trigger_opp110d", "trigger": t.id})
+                    return False
+                choice_player = picked or opponents[0]
             decide(plan, player=choice_player, kind="choose_one", prompt=f"{t.name}: choose a target",
                    options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
                    resume={"step": "trigger_target", "trigger": t.id})
@@ -3081,6 +3093,14 @@ def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
     t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
     if t is not None:
         put(plan, t, target=chosen[0])
+    flush(plan)
+
+
+def resume_opponent(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """-- delegated (wave 110D) -- the controller named the opponent who picks the target of "of an opponent's choice"."""
+    t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
+    if t is not None and chosen[0] in plan.live() and chosen[0] != t.controller:
+        put(plan, t, picks={"opp110d": chosen[0]})
     flush(plan)
 
 

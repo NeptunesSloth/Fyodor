@@ -1803,6 +1803,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "piles_down_pick": looking.resume_down_pick,
     "order_triggers": triggers.resume_order,
     "trigger_target": triggers.resume_target,
+    "trigger_opp110d": triggers.resume_opponent,
     "trigger_confirm": triggers.resume_confirm,
     "cast_target": casting.resume_target,
     "payment_sources": casting.resume_payment_sources,

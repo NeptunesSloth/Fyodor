@@ -82,8 +82,39 @@ def phase_hold(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+GIFT_UP = "turned_up_attach110d"
+
+
+def attach_up(plan: Any, card: Any) -> None:
+    """Gift of Doom: 702.37e, 303.4f "As this Aura is turned face up, you may attach it to a creature": its controller picks any creature it can
+    legally enchant (protection counts, targeting does not: 303.4d) before state-based actions would put the unattached Aura into the graveyard (704.5m)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import attachments, effects, scripts
+    from app.rules.targets import label
+
+    if plan.manual(card) or not any(d.get("replacement") == GIFT_UP for d in scripts.definitions(plan.ch(card)).values()):
+        return
+    hosts = [c.id for c in plan.state.cards.values()
+             if c.zone.endswith(":battlefield") and plan.ch(c).is_creature and c.id != card.id and attachments.host_problem(plan, card, c.id) is None]
+    if hosts:
+        effects.decide(plan, player=card.controller, kind="choose_one", prompt=f"{card.name}: attach it to a creature?",
+                       options=[DecisionOption(id=c, label=label(plan, c), card_id=c) for c in hosts] + [DecisionOption(id="none", label="Don't attach")],
+                       resume={"step": GIFT_UP, "card": card.id})
+
+
+def resume_attach(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import attachments
+
+    if len(chosen) != 1 or (chosen[0] != "none" and chosen[0] not in plan.state.cards):
+        raise ActionError("Choose a creature or decline")
+    card = plan.state.cards.get(d.resume["card"])
+    if chosen[0] != "none" and card is not None and card.zone.endswith(":battlefield") and attachments.host_problem(plan, card, chosen[0]) is None:
+        attachments.attach(plan, card.id, chosen[0], d.player)
+
+
 PRIMITIVES: dict[str, Any] = {"phase_hold110d": phase_hold, "may_hit110d": may_hit, "spell_permanents110d": spell_permanents}
-RESUME: dict[str, Any] = {"may_hit110d": resume}
+RESUME: dict[str, Any] = {"may_hit110d": resume, GIFT_UP: resume_attach}
 
 
 CALL = "Choose up to two. Return those cards from your graveyard to your hand."

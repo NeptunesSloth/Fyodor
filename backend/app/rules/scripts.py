@@ -8573,7 +8573,7 @@ def _merge_instead_lines(ch: Characteristics, out: dict[int, Definition]) -> Non
 def definitions(ch: Characteristics) -> dict[int, Definition]:
     """Engine definitions for a card's abilities, by ability index (see ``app.rules.oracle``).
     Hand-written scripts (``app.rules.cards``) are consulted by the caller first."""
-    if ch.is_ability or ch.face_down:
+    if ch.is_ability or (ch.face_down and not ch.abilities):  # -- face-down abilities (wave 110D) -- 708.2: none of its own, but an effect may grant some (Etrata)
         return {}
     from app.rules import cards  # hand-written scripts (a leaf package)
 
@@ -9005,8 +9005,12 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     as_cast = {defs[ab.index]['x_as_cast'] for ab in lines if defs[ab.index].get('x_as_cast') is not None}
     if as_cast - {'greatest_own_power'} or len(as_cast) > 1:
         return None
+    delegated = [defs[ab.index] for ab in lines if defs[ab.index].get("delegated_target")]  # -- delegated (wave 110D) -- "of an opponent's choice" (Evangelize): a lone line
+    if delegated and len(lines) != 1:
+        return None
     return {"kind": "spell", "effects": effects, **target_fields(target), **({"x_min": minimum_x} if minimum_x else {}),
-            **({'x_as_cast': next(iter(as_cast))} if as_cast else {})}
+            **({'x_as_cast': next(iter(as_cast))} if as_cast else {}),
+            **({k: delegated[0][k] for k in ("delegated_target", "delegated_controls110d")} if delegated else {})}
 
 
 # =====================================================================================================
