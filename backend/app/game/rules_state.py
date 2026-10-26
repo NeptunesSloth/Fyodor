@@ -688,6 +688,9 @@ class TurnLog(BaseModel):
         if self._cast_ids is None:
             self._cast_ids = {n.became for n in self.casts if n.became}
         return self._cast_ids
+
+    def __eq__(self, other: object) -> bool:  # the cast-id cache is derived, so a loaded save equals the live log
+        return type(other) is type(self) and self.__dict__ == other.__dict__
     facts: list[TurnFact] = Field(default_factory=list)  # tokens created, discards, sacrifices, damage to players …
     attackers: dict[str, list[str]] = Field(default_factory=dict)  # player -> creatures (objects) declared as attackers
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)

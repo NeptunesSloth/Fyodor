@@ -19,6 +19,7 @@ import pytest
 from app.cards.importer import build_database
 from app.config import Settings
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave5i_top_escape import move
@@ -90,7 +91,7 @@ def test_selvala_explorer_returned_adds_green_and_gains_life_per_nonland(cards):
         if not s.state.zones.get("stack"):
             break
         act(s, s.state.rules.priority, type="pass_priority")
-    assert s.state.players["p1"].mana.get("G") == 2 and life(s) == before + 2
+    assert visible_pool(s.state, "p1").get("G") == 2 and life(s) == before + 2
     assert card_named(s, "Plain Idol").zone == "p1:hand" and card_named(s, "Second Idol", "p2").zone == "p2:hand"
     check(s)
 

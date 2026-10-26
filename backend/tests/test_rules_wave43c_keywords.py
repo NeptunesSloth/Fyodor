@@ -31,6 +31,7 @@ from app.cards.repository import CardRepository
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_wave34b_activated import settle, stops, to_phase
@@ -252,13 +253,13 @@ def test_cumulative_upkeep_add_mana_is_paid_by_adding_it(cards):
     put(s, BRAID)
     d = prompt(s, BRAID)
     answer(s, d, "pay")
-    assert zone_of(s, BRAID) == "p1:battlefield" and s.state.players["p1"].mana.get("R", 0) == 1
+    assert zone_of(s, BRAID) == "p1:battlefield" and visible_pool(s.state, "p1").get("R", 0) == 1
     to_phase(s, "main1", turn=s.state.turn.number)
-    assert not s.state.players["p1"].mana
+    assert not visible_pool(s.state, "p1") and not s.state.players["p1"].mana_units
     d = prompt(s, BRAID)
     assert age(s, BRAID) == 2
     answer(s, d, "pay")
-    assert s.state.players["p1"].mana.get("R", 0) == 2
+    assert visible_pool(s.state, "p1").get("R", 0) == 2
     to_phase(s, "main1", turn=s.state.turn.number)
     d = prompt(s, BRAID)
     answer(s, d, "decline")
