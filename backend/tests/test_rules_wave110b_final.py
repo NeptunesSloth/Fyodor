@@ -73,7 +73,7 @@ def test_chameleon_ignores_its_own_and_others_unaffected(cards):
 BRINK = "Back from the Brink"
 
 
-@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain", "Thief of Blood", "Torrent of Lava"])
+@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain", "Thief of Blood", "Torrent of Lava", "River Song"])
 def test_brink_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -385,4 +385,49 @@ def test_torrent_of_lava_grants_the_shield_ability_only_while_on_the_stack(cards
     assert s.state.cards[bears.id].tapped
     assert s.state.cards[bears.id].damage == 1 and s.state.cards[giant.id].damage == 2 and s.state.cards[angel.id].damage == 0  # (2 each, 1 prevented for the Bears; the Angel flies)
     assert not any("Torrent" in a.text for a in ch(s, bears).abilities)
+    check(s)
+
+
+RIVER = "River Song"
+
+
+def test_river_song_draws_from_the_bottom_while_it_is_on_the_battlefield(cards):
+    """121.1, 614.1 (ruling 2023-10-13): every card its controller draws comes from the bottom of their library, the bottom card first; without River Song from the top."""
+    s = build(cards, [RIVER, "Divination", "Grizzly Bears", "Hill Giant"], [])
+    for n in ("Hill Giant", "Grizzly Bears"):
+        act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"zone": "library"}, position="bottom")
+    to_hand(s, "Divination")
+    lib = list(s.state.zones["p1:library"])
+    mana(s, U=1, C=2)
+    cast(s, "Divination")  # (no River Song yet: the top two)
+    assert set(lib[:2]) <= set(s.state.zones["p1:hand"]) and not {lib[-1], lib[-2]} & set(s.state.zones["p1:hand"])
+    put(s, RIVER)
+    act(s, "p1", type="move", card_ids=[card_named(s, "Divination").id], to={"zone": "hand"})
+    mana(s, U=1, C=2)
+    cast(s, "Divination")
+    assert {lib[-1], lib[-2]} <= set(s.state.zones["p1:hand"])  # (the two bottom cards, Bears and Giant)
+    check(s)
+
+
+@pytest.mark.parametrize("spell,extra", [("Opt", {}), ("Consider", {}), ("Rampant Growth", {})])
+def test_river_song_spoilers_counter_and_damage_when_an_opponent_scries_surveils_or_searches(cards, spell, extra):
+    """603.2, 701.22, 701.25, 701.23: Bob's scry / surveil / own-library search puts a +1/+1 counter on River Song, then it deals damage equal to its power (2+1) to Bob."""
+    from tests.wave100c_kit import to_phase
+
+    s = build(cards, [RIVER], [spell, "Forest", "Island"], forests=3, islands=3)
+    put(s, RIVER)
+    to_phase(s, "main1", 2)
+    mana(s, "p2", U=1, G=1, C=1)
+    cast_p2 = to_hand(s, spell, "p2")
+    act(s, "p2", type="cast_spell", card_id=cast_p2.id)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    song = card_named(s, RIVER)
+    assert s.state.cards[song.id].counters.get("+1/+1") == 1 and life(s, "p2") == 40 - 3
     check(s)

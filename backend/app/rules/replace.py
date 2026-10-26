@@ -1559,11 +1559,16 @@ def do_draws(plan: Plan, actions: list[tuple[Event, list[Event]]], after: dict[s
         library = plan.state.zones.get(zone_key(pid, "library"), [])
         drawn = min(k, len(library))
         if drawn:
-            top = list(library[:drawn])
+            from app.rules import (
+                wave110b_final,  # -- (wave 110B) -- River Song: drawn from the bottom of the library
+            )
+
+            bottom = wave110b_final.draws_from_bottom(plan, pid)
+            top = list(reversed(library[-drawn:])) if bottom else list(library[:drawn])
             # A table Draw action carries at most100 cards; the rules instruction
             # remains one planned sequence with no intervening priority or SBA.
             for start in range(0, drawn, 100):
-                plan.do({"type": "draw", "player": pid, "count": min(100, drawn - start)}, actor=pid)
+                plan.do({"type": "draw", "player": pid, "count": min(100, drawn - start), **({"from_bottom": True} if bottom else {})}, actor=pid)
             if (draw_log := turn_log_now(plan.state)) is not None:
                 for c, applied in zip(top, ancestry, strict=False):
                     draw_log.drawn_applied[plan.rules.object_id(c)] = applied

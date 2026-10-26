@@ -43,6 +43,24 @@ _BUILD: dict[str, tuple[str, Any]] = {
 }
 
 
+_RIVER_DRAW = "Meet in Reverse \u2014 You draw cards from the bottom of your library rather than the top."
+_RIVER_SPOILERS = ("Spoilers \u2014 Whenever an opponent scries, surveils, or searches their library, put a +1/+1 counter on River Song. "
+                   "Then River Song deals damage to that player equal to its power.")
+
+
+def draws_from_bottom(plan: Any, pid: str) -> bool:
+    """River Song (121.1, 614.1): while its controller controls it, they draw from the bottom of their library; several such effects change nothing more."""
+    return any(c.zone.endswith(":battlefield") and c.controller == pid and any(a.text.strip() == _RIVER_DRAW for a in plan.ch(c).abilities)
+               for c in plan.state.cards.values() if c.name == "River Song")
+
+
+def _river_spoilers(d: Def) -> Def:
+    one = {"subject": "player", "player": "opponent"}
+    return {**d, "cond": {"event": "either", **one, "conds": [{"event": k, **one} for k in ("scry", "surveil", "search_library")]}}
+
+
+_BUILD[_RIVER_SPOILERS] = ("Whenever an opponent searches their library, put a +1/+1 counter on this creature. Then this creature deals damage to that player equal to its power.", _river_spoilers)
+
 _THIEF = ("As this creature enters, remove all counters from all permanents. This creature enters with a +1/+1 counter on it for each counter removed this way.")
 
 
@@ -106,6 +124,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         native = scripts.define(replace(ability, text="{T}: You gain 1 life."), ch)
         return None if native is None else {**native, "effects": [{"do": "torrent_prevent110b"}]}
 
+    if ability.text.strip() == _RIVER_DRAW:
+        return {"kind": "static", "static": "draw_bottom110b", "effects": []}  # carried out where draws happen (replace.do_draws: draws_from_bottom)
     if ability.text.strip() == _THIEF:
         return {"kind": "static", "static": "thief110b", "effects": []}  # carried out where permanents enter (replacements.entered: thief_remove)
     if (built := _BUILD.get(ability.text.strip())) is None:

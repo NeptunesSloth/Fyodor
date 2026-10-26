@@ -76,6 +76,7 @@ class Draw(Base):
     type: Literal["draw"] = "draw"
     player: Id | None = None
     count: int = Field(default=1, ge=1, le=100)
+    from_bottom: bool = False  # -- (wave 110B) -- River Song: "You draw cards from the bottom of your library rather than the top." (121.1: the bottom card first)
 
 
 class Move(Base):
