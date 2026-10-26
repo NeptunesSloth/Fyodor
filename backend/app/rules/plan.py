@@ -353,14 +353,14 @@ class Plan:
 
     def apnap(self) -> list[str]:
         """Live players in APNAP order (101.4): the active player, then the others in turn order."""
-        order = self.state.seat_order
+        order = self.state.turn_order()
         live = set(self.live())
         start = order.index(self.active) if self.active in order else 0
         return [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in live]
 
     def after(self, player: str) -> str:
         """The next live player after ``player`` in turn order."""
-        order = self.state.seat_order
+        order = self.state.turn_order()
         live = set(self.live())
         start = order.index(player) if player in order else -1
         for i in range(1, len(order) + 1):

@@ -780,7 +780,7 @@ class ContinuousEffect(BaseModel):
     counter_since_batch: int = 0  # while-counter durations ignore earlier zero-counter events
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
                       "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast", "while_enchanted",
-                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "two_turns110f", "source_tapped_power110k", "while_attached110l", "creature_cast110m", "roll1_110f"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
+                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "two_turns110f", "source_tapped_power110k", "while_attached110l", "creature_cast110m", "roll1_110f", "object_tapped110m"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
@@ -1251,6 +1251,7 @@ class Permission(BaseModel):
     cast: bool = False  # spells
     zone: Literal["hand", "graveyard", "exile", "library_top", "any"] = "any"  # where the card must be
     zone_owner: Literal["you", "any"] = "you"  # A broad graveyard permission may include other players' cards.
+    hand_of110m: str | None = None  # (wave 110M) zone "hand": the cards of THIS player's hand (Sen Triplets: "from that player's hand"), not the holder's own
     # A specific object ("you may play that card this turn"): the permission follows the object,
     # not the card (400.7h/i): once it changes zones it is a new object and the permission is spent
     object_id: str | None = None
@@ -1321,6 +1322,7 @@ class CostModifier(BaseModel):
     # "permanent" (a static, read from the table), "end_of_turn" ("… you cast this turn cost …": ends in
     # cleanup, 514.2) or "next_turn" ("Until your next turn, …": ends as its controller's next turn begins)
     until: Literal["end_of_turn", "permanent", "next_turn"] = "end_of_turn"
+    card_id: str | None = None  # (wave 110M) applies only to this one spell card (Kefnet: "that copy costs {2} less to cast")
     until_player: str | None = None  # Captured duration owner when different from the beneficiary.
     turn: int = 0  # the turn it was created
     source: str | None = None
@@ -1466,6 +1468,14 @@ class WorldInterval80(BaseModel):
 class RulesState(BaseModel):
     pin_collection110i: bool = False  # (wave 110I) a Pin Collection has had a sticker put on it: stickers101.continuous then looks for equipped creatures
     began_untapped110j: list[str] = Field(default_factory=list)  # (wave 110J) objects untapped on the battlefield as the turn began (Rasputin Dreamweaver)
+    hand_reveal_turn110m: dict[str, int] = Field(default_factory=dict)  # (wave 110M) player -> the turn through which they play with their hand revealed
+    reveal_ask110m: list[list[str]] = Field(default_factory=list)  # (wave 110M) [player, card, object] first draws of a turn whose "you may reveal" is still to be asked
+    turn_reversed110m: bool = False  # (wave 110M) Aeon Engine: the turn order runs against the seat order
+    coffin_counters110m: dict[str, dict[str, int]] = Field(default_factory=dict)  # (wave 110M) Tawnos's Coffin: exiled creature rules object -> the counters noted on it
+    alaundo110m: list[str] = Field(default_factory=list)  # (wave 110M) rules objects of exiled cards carrying Alaundo's granted "last time counter" trigger
+    eot_haste110m: list[str] = Field(default_factory=list)  # (wave 110M) creature spells cast from exile that gain haste until end of turn as they enter
+    bat_links110m: dict[str, str] = Field(default_factory=dict)  # (wave 110M) Timothar: a Bat token's rules object -> the exiled card's rules object it returns
+    stack_seen110m: list[str] = Field(default_factory=list)  # (wave 110M) stack objects already looked at for "whenever a spell or ability is put onto the stack"
     stored_dice110m: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110M) object id -> the d6 results stored on it (706.8a: Centaur of Attention)
     tap_paid110n: list[list[str]] = Field(default_factory=list)  # (wave 110N) [turn, ability source object, creature tapped for its cost] this turn (Vodalian War Machine)
     began_lands110c: dict[str, int] = Field(default_factory=dict)  # (wave 110C) player -> untapped lands they controlled as their turn began (Power Surge)
@@ -2221,7 +2231,7 @@ def _entry_order(state: GameState, before: Capture) -> list[tuple[str, str]]:
     they enter a zone). 613.7m: objects entering the battlefield simultaneously are timestamped in
     APNAP order — the active player's first (among them, in the order the step lists them), then
     each other player's in turn order; everything else keeps the table's order."""
-    seats = state.seat_order
+    seats = state.turn_order()
     start = seats.index(state.turn.active_player) if state.turn.active_player in seats else 0
     apnap = {p: (i - start) % len(seats) for i, p in enumerate(seats)} if seats else {}
 

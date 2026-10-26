@@ -286,6 +286,8 @@ def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source:
         on_field = card.zone.endswith(":battlefield") or card.zone == "stack"
         if on_field and not can_target(plan, chooser, card, plan.ch(card), source):  # hexproof / shroud / protection
             continue
+        if on_field and sel.subtypes == ("Wall",) and not sel.either and "wall_shadow110m" in plan.ch(card).imposed:  # (wave 110M) Wall of Shadows: only by what could target nothing but Walls
+            continue
         if not on_field and prohibitions.untargetable(plan, chooser, card):  # -- cant restrictions (wave 50G) -- "Cards in graveyards can't be the targets of spells or abilities"
             continue
         out.append(cid)

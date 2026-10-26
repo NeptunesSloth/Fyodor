@@ -347,10 +347,11 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
     # Limit discovery to native layer-6 keyword/rule statics; introducing layer-4
     # dependencies here would require solving those grants as dependency nodes.
     if state.rules is not None:
-        from app.rules import stickers101
+        from app.rules import entry_characteristics, stickers101
 
         sticker_effects101 = [e for cid, _controller in field for e in stickers101.continuous(state, state.cards[cid])]
-        for effect in [*state.rules.effects, *sticker_effects101]:
+        entry_effects110m = [e for cid, _controller in field for e in entry_characteristics.effects(state, state.cards[cid])]  # (wave 110M) abilities an entry form gives (611.2e)
+        for effect in [*state.rules.effects, *sticker_effects101, *entry_effects110m]:
             if effect.layer != "6" or not effect.add_abilities:
                 continue
             key = (effect.object_seq, 1, effect.timestamp)
@@ -371,6 +372,9 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
                     if inner is not None and inner.get("static") == "grant" and inner.get("who") == "attached" and (inner.get("p") or inner.get("t")) \
                             and not any(inner.get(k) for k in ("layer4", "base", "grants", "keywords", "rules", "each", "also", "conditions")):  # -- Everflame (wave 110C) -- 613.7, 301.5: a gained "Equipped creature gets +N/+N" works for what it is attached to
                         out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
+                        continue
+                    if effect.id.startswith("entry:") and inner is not None and inner.get("who") == "attached" and inner.get("grants") and not inner.get("layer4") and not inner.get("base"):
+                        out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))  # (wave 110M) "Enchanted land has …" on an Aura that entered as one
                         continue
                     if inner is None or (inner.get("who") != "self" and not damage_retention83.resolved_static(inner)) or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
                         continue

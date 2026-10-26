@@ -340,7 +340,7 @@ class CopyCard(Base):
     modifications: str = Field(default="", max_length=300)
     # -- cast a copy (wave 13C) -- 707.12: the copy is made in the card's own zone (exile / graveyard); 722.3c: a prepared
     # permanent's copy is made in exile with the face of its prepare spell
-    zone: Literal["exile", "graveyard"] | None = None
+    zone: Literal["exile", "graveyard", "hand"] | None = None  # (wave 110M: "hand" — a revealed card copied where it is, Kefnet)
     face: int | None = None
     printing: str | None = Field(default=None, max_length=64)  # the copied card's printing when the source is itself a copy (722.2b)
     # -- spell copies (wave 31D) -- 707.10, 608.2h: a copy of a spell that has left the stack is made from how it last existed there (the object id

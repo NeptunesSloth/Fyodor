@@ -1590,7 +1590,7 @@ def suspend_cast(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- granted casts (wave 29B) -- any half / face (709.3, 712.11b, 715.3)
     from app.rules import granted_casts
 
-    return granted_casts.ask(plan, ctx, player=card.owner, cid=card.id, head="The last time counter was removed", no="Leave it exiled", play=True)
+    return granted_casts.ask(plan, ctx, player=card.owner, cid=card.id, head="The last time counter was removed", no="Leave it exiled", play=not e.get("cast110m"))  # (110M: Alaundo says "cast")
 
 
 def leave_uncast(plan: Plan, player: str, cid: str, how: str | None, group: Any = ()) -> None:

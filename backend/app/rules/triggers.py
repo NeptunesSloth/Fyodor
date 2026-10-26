@@ -360,6 +360,11 @@ def collect(plan: Plan) -> None:
             if suspended_card is not None and suspend_grants.has_suspend(plan, suspended_card) \
                     and plan.oid(suspended_card) == e.object_id and e.counter_remaining == 0:
                 suspend_last(plan, suspended_card)
+            elif suspended_card is not None and e.object_id in plan.rules.alaundo110m and plan.oid(suspended_card) == e.object_id and e.counter_remaining == 0 \
+                    and suspended_card.zone.endswith(":exile"):  # (wave 110M) Alaundo the Seer's grant: the same trigger, cast only
+                _add(plan, controller=suspended_card.owner, source_card=suspended_card.id, source_object=plan.oid(suspended_card), name=suspended_card.name, index=5001,
+                     definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
+                                 "effects": [{"do": "suspend_cast", "card": suspended_card.id, "object": plan.oid(suspended_card), "cast110m": True}]})
         if e.kind == "counters" and e.counter == "defense" and e.amount < 0 and not e.manual:
             from app.rules import battles  # 310.12b: "When the last defense counter is removed …"
 
@@ -2851,6 +2856,11 @@ def apnap(plan: Plan) -> list[str]:
 def flush(plan: Plan) -> bool:
     """Put waiting triggers on the stack (603.3). True if the stack changed or a decision opened."""
     collect(plan)
+    from app.rules import wave110m_cards
+
+    if wave110m_cards.reveal_ask(plan):  # (wave 110M) "you may reveal the first card you draw each turn as you draw it": asked before anyone gets priority
+        return True
+    wave110m_cards.stack_scan(plan)  # (wave 110M) "whenever a spell or ability is put onto the stack"
     from app.rules import combat_player_scope43
 
     if combat_player_scope43.ask_pending(plan):
@@ -2882,6 +2892,8 @@ def flush(plan: Plan) -> bool:
         for t in mine:
             if not put(plan, t):
                 return True  # waiting for a target choice
+    if wave110m_cards.stack_scan(plan):  # (wave 110M) the triggers just put there are objects put onto the stack too
+        return flush(plan) or True
     r.passed = []
     # -- core review -- 117.3c / 603.3: the player who was about to receive priority gets it once the triggers are on the
     # stack — the caster after a cast or activation, the active player after a resolution or at a step's start

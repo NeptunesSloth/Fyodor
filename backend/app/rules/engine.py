@@ -738,7 +738,7 @@ def extra_untap_step(plan: Plan) -> None:
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep]) if stay is None else []
     keep = list(dict.fromkeys([*keep, *stunned]))
     keep += wave110h_cards.untap_hold(plan, pid, keep) if stay is None else []  # -- untap hold (wave 110H) --
-    previous = plan.rules.previous_turn or (plan.state.seat_order[(plan.state.seat_order.index(pid) - 1) % len(plan.state.seat_order)], max(0, plan.state.turn.number - 1))
+    previous = plan.rules.previous_turn or (plan.state.turn_order()[(plan.state.turn_order().index(pid) - 1) % len(plan.state.seat_order)], max(0, plan.state.turn.number - 1))
     finish = {"stunned": stunned, "previous": list(previous), "skipped": [], "plain": stay is None, "keep": keep, "same_turn": True}
     if untap_choice.ask(plan, asked, finish, limited):
         return
@@ -1277,6 +1277,12 @@ def resolve_top_of_stack(plan: Plan) -> None:
         from app.rules import ninjutsu
 
         ninjutsu.attack_returned(plan, top_id, rec, controller)
+    if top_id in plan.rules.eot_haste110m:  # (wave 110M) Alaundo the Seer: "it gains haste until end of turn"
+        plan.rules.eot_haste110m = [c for c in plan.rules.eot_haste110m if c != top_id]
+        entered_now = plan.state.cards.get(top_id)
+        if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            layers.add_effect(plan, affected=[plan.oid(top_id)], layer="6", source=None, controller=controller,
+                              add_keywords=("haste",), duration="end_of_turn", label="Haste (Alaundo the Seer)")
     if top_id in plan.rules.suspend_haste:  # 702.62e: a suspended creature has haste
         plan.rules.suspend_haste = [c for c in plan.rules.suspend_haste if c != top_id]
         entered_now = plan.state.cards.get(top_id)

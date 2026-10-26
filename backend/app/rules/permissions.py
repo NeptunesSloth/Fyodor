@@ -1454,7 +1454,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             if p.object_id != oid or (p.top110j and where != "library_top"):  # (-- wave 110J -- Temporal Aperture: only while it is the top card)
                 continue  # a new object since (400.7): the permission was for the one it was
         elif p.zone != "any" and p.zone != where and not (
-                p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)):
+                p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)) and not (
+                p.hand_of110m and p.zone == "hand" and card.zone == zone_key(p.hand_of110m, "hand")):  # (wave 110M) another player's hand
             continue
         # (wave 110L: no local import of selectors here: it made the name local to all of grants(), unbound for the put_there read below)
         if p.card_filter and not selectors.matches(_view(state, player, info), selectors.from_key(p.card_filter), card, ch, player):
@@ -1791,6 +1792,8 @@ def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteris
         if m.caster == "you" and m.controller != player:
             continue
         if m.caster == "opponent" and m.controller == player:
+            continue
+        if m.card_id is not None and m.card_id != card.id:  # (wave 110M) a reduction for one particular card
             continue
         if m.filter and not spell_matches(state, player, card, ch, m.filter, info):
             continue

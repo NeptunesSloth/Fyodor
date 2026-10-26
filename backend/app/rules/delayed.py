@@ -476,10 +476,20 @@ def on_events(plan: Plan, events: list[Event]) -> None:
                 if e.object_id in {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []} and (obj := plan.state.cards.get(e.card or "")) is not None:
                     fired.append(t)
                     _fire(plan, t, TriggerEvent(kind="untapped", batch=e.batch, count=1, objects=[ObjectRef(card=obj.id, object_id=e.object_id or "", zone=obj.zone)]))
+        if e.kind == "designation" and e.counter == "visit":  # -- (wave 110M) -- Myra the Magnificent: "whenever you visit it", for as long as that Attraction is on the battlefield
+            for t in [t for t in watching if t.when["event"] == "visit110m" and t.controller == e.player]:
+                if e.object_id in {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []}:
+                    _fire(plan, t, TriggerEvent(kind="visit_attraction", batch=e.batch, count=1, players=[e.player or ""],
+                                                objects=[ObjectRef(card=e.card or "", object_id=e.object_id or "", zone=plan.state.cards[e.card].zone if e.card in plan.state.cards else "")]))
+            continue
         if e.kind == "untapped":
             continue
         if e.kind != "zone_change" or e.manual or _zone(e.from_zone) != "battlefield" or _zone(e.to_zone) == "battlefield":
             continue
+        gone110m = {t.id for t in watching if t.when["event"] == "visit110m" and e.object_id in {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []}}
+        if gone110m:  # (wave 110M) the watched Attraction left: "for as long as it is on the battlefield" is over
+            r.delayed = [t for t in r.delayed if t.id not in gone110m]
+            watching = [t for t in watching if t.id not in gone110m]
         snap = r.lki.get(e.object_id or "")
         if snap is None:
             continue
@@ -733,6 +743,8 @@ def expire(plan: Plan) -> None:
     )
 
     ended += [e for e in r.effects if e.duration == "attached110n" and not wave110n_cards.still_attached(plan, e)]
+    ended += [e for e in r.effects if e.duration == "object_tapped110m" and not any(  # (wave 110M) Zygon Infiltrator: "for as long as that creature remains tapped" (611.2b): that object, on the battlefield, tapped
+        plan.oid(c) == e.until_object and c.zone.endswith(":battlefield") and c.tapped for c in plan.state.cards.values())]
     for e in r.effects:  # -- quoted grants (wave 2D) -- "for as long as it has a … counter on it": per object
         if e.duration == "while_counter":
             lost_last = {ev.object_id for ev in r.events if ev.kind == "counters" and ev.counter == e.counter

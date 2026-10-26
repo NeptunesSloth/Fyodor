@@ -299,6 +299,9 @@ def _component(part: str, card_name: str) -> CostComponent | None:
     if part == "Exile any number of other cards from your graveyard with four or more card types among them":  # -- (wave 110M) -- Nethergoyf: 601.2h, 205.2a
         return CostComponent(EXILE_FROM_GRAVEYARD, amount=4, more=True, anyn=True, names="types4_110m", text=part,
                              selector=selectors.Selector(card=True, other=True, zone_owner="you", zones=("graveyard",)).key())
+    if part == "Exile any number of black cards from your graveyard with fifteen or more black mana symbols among their mana costs":  # -- (wave 110M) -- Baron Helmut Zemo's boast: 601.2h
+        return CostComponent(EXILE_FROM_GRAVEYARD, amount=1, more=True, anyn=True, names="black15_110m", text=part,
+                             selector=selectors.Selector(card=True, colors=("B",), zone_owner="you", zones=("graveyard",)).key())
     if m := re.fullmatch(r"Sacrifice all (?P<what>.+)", part):
         key = _selector(m["what"], zone="battlefield")
         return CostComponent(SACRIFICE, selector=key, all_objects=True, text=part) if key else None
