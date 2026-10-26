@@ -1143,5 +1143,58 @@
 "keywords": [
 "Treasure"
 ]
+},
+{
+"name": "Wall of Shadows",
+"layout": "normal",
+"mana_cost": "{1}{B}{B}",
+"cmc": 3.0,
+"type_line": "Creature — Wall",
+"oracle_text": "Defender (This creature can't attack.)\nPrevent all damage that would be dealt to this creature by creatures it's blocking.\nThis creature can't be the target of spells that can target only Walls or of abilities that can target only Walls.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Defender"
+],
+"power": "0",
+"toughness": "1"
+},
+{
+"name": "Test Wall Pump",
+"layout": "normal",
+"mana_cost": "{G}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "Target Wall gets +2/+2 until end of turn.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": []
+},
+{
+"name": "Test Wall",
+"layout": "normal",
+"mana_cost": "{1}{W}",
+"cmc": 2.0,
+"type_line": "Creature — Wall",
+"oracle_text": "Defender",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": [
+"Defender"
+],
+"power": "0",
+"toughness": "4"
 }
 ]

@@ -74,6 +74,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return statics._definition("attached", "creature", [], rules=[f"{ATK_TAX}:{{3}}"])
     if ability.text.strip() == _TEFERI:
         return _teferi_definition(ability, ch)
+    if ability.kind == "static" and ability.text.strip() == _WALL_SHADOWS:
+        return statics._definition("self", None, [], rules=["wall_shadow110m"])
     if ability.kind == "static" and ability.text.strip() == _CENTAUR_STATIC:
         return statics._definition("self", None, [], each={"p": 1, "t": 1, "value": {"stored_same110m": 1}})
     if ability.text.strip() == _ADVERSARY:
@@ -253,6 +255,7 @@ def resume_march(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+_WALL_SHADOWS = "This creature can't be the target of spells that can target only Walls or of abilities that can target only Walls."
 _CENTAUR_ETB = "When this creature enters, roll five six-sided dice and store those results on it."
 _CENTAUR_COMBAT = "At the beginning of combat on your turn, you may reroll any number of this creature's stored results."
 _CENTAUR_STATIC = "This creature gets +X/+X, where X is the greatest number of stored results on it of the same value."
