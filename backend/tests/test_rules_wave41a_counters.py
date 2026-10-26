@@ -99,7 +99,7 @@ def test_the_promoted_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in MANUAL if c["name"] not in ("Sensei Golden-Tail", "Kalain, Reclusive Painter", "Brawn, Amadeus Cho", "Gluntch, the Bestower", "Super-Adaptoid")])  # (wave 110D: Brawn, Gluntch, Super-Adaptoid are FULL now)  # (wave 50J: Sensei's bushido is given as the ability it is, test_rules_wave50j_small.py)
+@pytest.mark.parametrize("name", [c["name"] for c in MANUAL if c["name"] not in ("Sensei Golden-Tail", "Kalain, Reclusive Painter", "Brawn, Amadeus Cho", "Gluntch, the Bestower", "Super-Adaptoid", "Rinoa, Angel Wing", "Agent Maria Hill")])  # (Rinoa: test_rules_wave110o_a.py; Maria Hill: test_rules_wave110j_s7.py)  # (wave 110D: Brawn, Gluntch, Super-Adaptoid are FULL now)  # (wave 50J: Sensei's bushido is given as the ability it is, test_rules_wave50j_small.py)
 def test_the_counters_cards_that_are_not_read_stay_manual(cards, name):
     """Rinoa ("one of them" from a batch of deaths), Tyvar (a mana ability resolving), Maria Hill (a teamwork cost) are refused."""
     assert coverage.of_card_data(cards.resolve(name)).level != "FULL", name

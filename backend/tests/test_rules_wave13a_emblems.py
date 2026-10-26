@@ -261,7 +261,7 @@ def planeswalker(name, text):
     ("Tamiyo, the Moon Sage", '−8: You get an emblem with "You have no maximum hand size" and "Whenever a card is put into your graveyard from '
      'anywhere, you may return it to your hand."', "FULL"),
     ("Two-Ability Refusal", '−8: You get an emblem with "You have no maximum hand size" and "Tap an untapped artifact you control: Draw a card."',
-     "PARTIAL"),
+     "FULL"),  # (an emblem's activated ability is read since wave 110A, 114.4: casting.activatable from the command zone)
     ("Ob Nixilis of the Black Oath", "−8: You get an emblem with \"{1}{B}, Sacrifice a creature: You gain X life and draw X cards, where X is "
      "the sacrificed creature's power.\"", "PARTIAL"),
     ("Mordenkainen", '−7: You get an emblem with "You have no maximum hand size."', "FULL"),  # (wave 20C: the command zone is read for it)

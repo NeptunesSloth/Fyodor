@@ -173,8 +173,8 @@ def test_unclear_wordings_stay_manual():
     are not read."""
     from tests.test_rules_scripts import ch as characteristics
 
-    assert coverage.of_characteristics(characteristics(
-        "Hit the Mother Lode", "Sorcery", next(c for c in EXTRA if c["name"] == "Hit the Mother Lode")["oracle_text"])).level != "FULL"
+    assert coverage.of_characteristics(characteristics(  # (read since: the discover's follow-up, tests/test_rules_discover_followup.py)
+        "Hit the Mother Lode", "Sorcery", next(c for c in EXTRA if c["name"] == "Hit the Mother Lode")["oracle_text"])).level == "FULL"
     for kind, text in (("Creature — Bear", "When this creature enters, discover 3. Draw a card."),
                        ("Creature — Bear", "When this creature enters, discover X."),
                        ("Sorcery", "Bolster X."),

@@ -514,12 +514,9 @@ def test_fire_lord_azula_copies_a_spell_cast_while_she_is_attacking(cards, attac
     ("Creature — Human", "Whenever a creature enters, draw a card for each other instant and sorcery spell you've cast before it this turn."),
     # "it" in a spell outside a cast trigger names nothing (no earlier target)
     ("Instant", "Draw a card. Copy that spell."),
-    # a delayed trigger that must flip, then judge the flip, then give an opponent (their choice) the creature (Fickle Efreet)
-    ("Creature — Efreet", "Whenever this creature attacks or blocks, flip a coin at end of combat. If you lose the flip, an opponent gains control of "
-                          "this creature."),
-    # two objects returned to different owners (Contempt); (Basalt Golem's delayed sacrifice answered by "If the player does": read since wave 53C,
+    # (Fickle Efreet's delayed flip is read since: tests/test_rules_coin_outcomes.py; Contempt's two objects since wave 100F:
+    # tests/test_rules_wave100f_auras.py; Basalt Golem's delayed sacrifice answered by "If the player does": read since wave 53C,
     # tests/test_rules_wave53c_block_events.py)
-    ("Enchantment — Aura", "Enchant creature\nWhen enchanted creature attacks, return it and this Aura to their owners' hands at end of combat."),
 ])
 def test_unread_wordings_stay_manual(type_line, text):
     ch_ = characteristics("Probe", type_line, text, spell="Instant" in type_line)

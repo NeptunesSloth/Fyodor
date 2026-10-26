@@ -12,10 +12,10 @@ def card(name, type_line, *, text="", cost="{1}", layout="normal", faces=None, p
             "oracle_id": oid or name, "id": f"id-{name}"}
 
 
-def test_categories():
+def test_categories():  # ("you visit an Attraction" is an event since wave 100L: an invented one stands for a missing trigger event)
     assert K.classify("keyword:banding", "Banding", "keyword", "X") == (K.MECHANIC, "banding")
-    assert K.classify("text:0", "Whenever you visit an Attraction, draw a card.", "triggered", "X") == \
-        (K.TRIGGER, "Whenever you visit an Attraction")
+    assert K.classify("text:0", "Whenever you foo a bar, draw a card.", "triggered", "X") == \
+        (K.TRIGGER, "Whenever you foo a bar")
     cat, key = K.classify("text:0", "When Foo enters, destroy target creature with flying.", "triggered", "Foo")
     assert cat == K.SELECTOR and key.startswith("target creature with flying")
     cat, _ = K.classify("text:0", "When Foo enters, you draw two cards and lose 2 life.", "triggered", "Foo")
@@ -34,9 +34,9 @@ def test_supported_selectors_are_not_missing():
 
 def test_report_clusters_and_quality():
     rep = pool.analyse([
-        card("Combat A", "Creature — Test", text="Whenever you visit an Attraction, put a +1/+1 counter on "
+        card("Combat A", "Creature — Test", text="Whenever you foo a bar, put a +1/+1 counter on "
              "target creature you control.", power="1", toughness="1"),
-        card("Combat B", "Creature — Test", text="Whenever you visit an Attraction, draw a card.", power="1",
+        card("Combat B", "Creature — Test", text="Whenever you foo a bar, draw a card.", power="1",
              toughness="1"),
         card("Bear", "Creature — Bear", power="2", toughness="2"),
     ])

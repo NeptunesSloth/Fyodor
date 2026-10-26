@@ -34,8 +34,10 @@ EXTRA = [card(c["name"], set_code="w35b", number=f"B{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 FULL = ["Rushed Rebirth", "Burn Away", "Fatal Fissure", "Adarkar Valkyrie", "Fight for the Throne", "Devouring Tendrils",
         "Skeletonize", "Reckless Blaze", "Ghired's Belligerence"]
-MANUAL = ["Touch of Moonglove", "Whippoorwill", "Heroic Sacrifice", "End-Blaze Epiphany", "Runesword",
-          "Kjeldoran Guard"]
+# (read since wave 110, each played in its own test: Touch of Moonglove (test_rules_wave110g_cards.py), Whippoorwill (test_rules_wave110g_s9.py),
+# Heroic Sacrifice (test_rules_wave110b_s13k.py), End-Blaze Epiphany and Runesword (test_rules_wave110k_cards.py))
+LIFTED_110 = ["Touch of Moonglove", "Whippoorwill", "Heroic Sacrifice", "End-Blaze Epiphany", "Runesword"]
+MANUAL = ["Kjeldoran Guard"]
 
 
 @pytest.fixture()
@@ -490,6 +492,14 @@ def test_unclear_shapes_are_not_read(text):
 
     assert scripts.parse_effects(text) is None
 
+
+
+@pytest.mark.parametrize("name", LIFTED_110)
+def test_the_shapes_read_since_are_full(name):
+    from tests.test_rules_scripts import ch as characteristics
+
+    c = next(c for c in DATA if c["name"] == name)
+    assert coverage.of_characteristics(characteristics(c["name"], c["type_line"], c["oracle_text"])).level == "FULL"
 
 
 @pytest.mark.parametrize("name", MANUAL)

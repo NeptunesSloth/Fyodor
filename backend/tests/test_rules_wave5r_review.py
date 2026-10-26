@@ -72,7 +72,7 @@ def roundtrip(s):
 def test_reflexive_target_in_a_spell_no_longer_crashes_coverage(cards):
     # (an IndexError: the reflexive ability's "target" was renumbered as one of the spell's own target groups)
     assert coverage.of_card_data(cards.resolve("Probe Reflexive Spell")).level == "FULL"
-    assert coverage.of_card_data(cards.resolve("Hypothesizzle")).level != "FULL"
+    assert coverage.of_card_data(cards.resolve("Hypothesizzle")).level == "FULL"  # (read since wave 100C: tests/test_rules_wave100c_spell_sequences.py)
 
 
 def test_reflexive_target_in_a_spell_chooses_its_target_when_it_triggers(cards):

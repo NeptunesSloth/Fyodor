@@ -37,7 +37,8 @@ def cards(settings) -> Iterator[CardRepository]:
      "Activate only as a sorcery.", True),
     ("Relentless Dead", "{B}{B}", "Creature — Zombie",
      "Menace\nWhen this creature dies, you may pay {B}. If you do, return it to its owner's hand.\nWhen this creature dies, you "
-     "may pay {X}. If you do, return another target Zombie creature card with mana value X from your graveyard to the battlefield.", False),
+     "may pay {X}. If you do, return another target Zombie creature card with mana value X from your graveyard to the battlefield.", True),
+    # (Relentless Dead is read since wave 110C: the target is chosen first and X as it resolves, 107.3f: test_rules_wave110c_hellion.py)
     # ("mana value X" exactly is read for permanents too since wave 17B: test_rules_wave17b_activated.py, Disembowel)
     # a comparison with the source is read for graveyard cards only
 ])

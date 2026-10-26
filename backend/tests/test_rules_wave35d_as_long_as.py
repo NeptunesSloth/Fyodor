@@ -54,7 +54,9 @@ FULL = ["Sting, the Glinting Dagger", "Frodo Baggins", "Balan, Wandering Knight"
 #   "enter untapped" is (wave 45A): the permanent's controller takes untapped: test_rules_wave49b_commanders.py)
 # * (Sting - "blocking or blocked by a Goblin or Orc", a relation between the equipped creature and the creature it fights - is read since wave 45A: test_rules_wave45a_attacked.py)
 # Bronze Horse now has canonical spell-target/other-creature gameplay in test_rules_conditional_prevention.py.
-MANUAL = ["Croakid Amphibonaut", "Manor Gargoyle", "Warmonger's Chariot", "Grond, the Gatebreaker"]
+# (all four read since, each played in its own test: Croakid Amphibonaut (test_rules_stickers101.py), Manor Gargoyle (test_rules_wave110j_s7.py),
+# Warmonger's Chariot (test_rules_combat_defender_aliases66.py), Grond, the Gatebreaker (test_rules_conditional_statics91.py))
+LIFTED = ["Croakid Amphibonaut", "Manor Gargoyle", "Warmonger's Chariot", "Grond, the Gatebreaker"]
 
 
 @pytest.fixture()
@@ -129,9 +131,9 @@ def test_the_conditional_statics_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
-@pytest.mark.parametrize("name", MANUAL)
-def test_the_refused_conditional_statics_stay_manual(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level != "FULL", name
+@pytest.mark.parametrize("name", LIFTED)
+def test_the_once_refused_conditional_statics_are_read_now(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
 # -- 701.54e: the Ring-bearer ---------------------------------------------------------------------------------------

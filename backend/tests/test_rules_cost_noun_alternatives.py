@@ -127,7 +127,7 @@ def test_cost_alternatives_remain_conservative():
     text = 'Discard a Mountain card or a red card'
     c = costs.parse_ability_cost(text)
     assert not c.unsupported and c.activation_only
-    assert optional_payment.parse(text) is None
+    assert optional_payment.parse(text) is not None  # (paid as it resolves since wave 110F: a discard of either description, Steamcore Scholar)
     for text in ['Discard a Mountain card or a red card at random',
                  'Discard two Mountain cards or two red cards',
                  'Remove a counter from an artifact, mystery, land, or planeswalker you control']:

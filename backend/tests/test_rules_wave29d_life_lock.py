@@ -403,8 +403,8 @@ def test_teferis_protection_locks_the_life_total_until_your_next_turn(cards):
     check(s)
 
 
-def test_perch_protection_stays_partial_because_the_gift_of_an_extra_turn_is_manual(cards):
-    assert coverage.of_card_data(cards.resolve("Perch Protection")).level != "FULL"  # 702.174g: "Gift an extra turn" is still manual (app/rules/gift.py)
+def test_perch_protection_is_full_since_the_gift_of_an_extra_turn_is_read(cards):
+    assert coverage.of_card_data(cards.resolve("Perch Protection")).level == "FULL"  # 702.174g: read since wave 110B (test_rules_wave110b_gift_clash.py)
 
 
 # -- the costs of the cards that pay life as they work (119.8) ------------------------------------------------------------------------------------------

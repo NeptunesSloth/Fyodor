@@ -58,10 +58,10 @@ def bob_casts(s, name, **m):
     cast(s, name, "p2")
 
 
-def test_the_cards_are_full_and_the_crocodile_is_not(cards):
+def test_the_cards_are_full_and_the_crocodile_too(cards):
     for name in FULL:
         assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
-    assert coverage.of_card_data(cards.resolve("Veiled Crocodile")).level != "FULL"
+    assert coverage.of_card_data(cards.resolve("Veiled Crocodile")).level == "FULL"  # (read since wave 110M: test_rules_wave110m_library.py)
 
 
 def test_opal_guardian_becomes_a_creature_when_an_opponent_casts_a_creature_spell(cards):

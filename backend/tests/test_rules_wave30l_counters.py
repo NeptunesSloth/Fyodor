@@ -68,7 +68,7 @@ def heartless(s, target):
     act(s, "p1", type="cast_spell", card_id=c.id, modes=[1], targets=[target.id])
 
 
-STILL_PARTIAL = {"Homarid"}  # "Whenever there are four or more tide counters on this creature, …" is a state trigger (603.8): read by hand
+STILL_PARTIAL: set[str] = set()  # (Homarid's state trigger, 603.8, is read since: test_rules_counter_state_thresholds50.py)
 
 
 @pytest.mark.parametrize("name", [c["name"] for c in DATA])

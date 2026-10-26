@@ -166,9 +166,9 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-@pytest.mark.parametrize("name", ["Chainer's Torment"])
-def test_coverage_refused(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level != "FULL"
+@pytest.mark.parametrize("name", ["Chainer's Torment"])  # (read since: test_rules_damage_snapshot_sequences38.py)
+def test_coverage_once_refused_is_full_now(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
 @pytest.mark.parametrize("text", [
