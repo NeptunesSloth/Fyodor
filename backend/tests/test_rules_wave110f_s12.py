@@ -265,15 +265,15 @@ def test_equity_entering_choice_offers_only_black_or_red(cards):
 _ADD4 = [
     real('Peace Talks', '{1}{W}', 2, 'Sorcery',
          "This turn and next turn, creatures can't attack, and players and permanents can't be the targets of spells or activated abilities.", None, 'W'),
-    real('Test Bolt 110F', '{R}', 1, 'Instant', "Test Bolt 110F deals 1 damage to any target.", None, 'R'),
-    real('Test Pinger 110F', '{1}{R}', 2, 'Creature — Human', "When this creature enters, it deals 1 damage to any target.", ('1', '1'), 'R'),
-    real('Test Tapper 110F', '{1}', 1, 'Artifact', "{T}: Test Tapper 110F deals 1 damage to any target.", None, ''),
+    real('Test Bolt 12F', '{R}', 1, 'Instant', "Test Bolt 12F deals 1 damage to any target.", None, 'R'),
+    real('Test Pinger 12F', '{1}{R}', 2, 'Creature — Human', "When this creature enters, it deals 1 damage to any target.", ('1', '1'), 'R'),
+    real('Test Tapper 12F', '{1}', 1, 'Artifact', "{T}: Test Tapper 12F deals 1 damage to any target.", None, ''),
 ]
 _BASE.extend(_ADD4)
 
 
 def _talks(cards, mine=(), theirs=()):
-    s = build(cards, ["Peace Talks", "Test Bolt 110F", "Test Pinger 110F", "Test Tapper 110F", "Grizzly Bears", *mine], ["Grizzly Bears", *theirs])
+    s = build(cards, ["Peace Talks", "Test Bolt 12F", "Test Pinger 12F", "Test Tapper 12F", "Grizzly Bears", *mine], ["Grizzly Bears", *theirs])
     mana(s, "p1", W=1, C=1)
     cast(s, "Peace Talks")
     answer(s)
@@ -288,16 +288,16 @@ def test_peace_talks_spells_and_activated_abilities_cannot_target_but_triggers_c
     """115.2: no spell or activated ability may target a player or permanent (this turn and the next); a triggered ability still can."""
     s = _talks(cards)
     bears = put(s, "Grizzly Bears", "p2")
-    to_hand(s, "Test Bolt 110F")
+    to_hand(s, "Test Bolt 12F")
     mana(s, "p1", R=3, C=1)
     for target in ("p2", bears.id):
         with pytest.raises(ActionError):
-            cast(s, "Test Bolt 110F", [target])
-    tapper = put(s, "Test Tapper 110F")
-    ready(s, "Test Tapper 110F")
+            cast(s, "Test Bolt 12F", [target])
+    tapper = put(s, "Test Tapper 12F")
+    ready(s, "Test Tapper 12F")
     with pytest.raises(ActionError):
         activate(s, "p1", tapper, "", targets=["p2"])
-    cast(s, "Test Pinger 110F")
+    cast(s, "Test Pinger 12F")
     answer(s, "p2")
     assert life(s, "p2") == 39  # the enters trigger chose its target (603.3d)
     check(s)

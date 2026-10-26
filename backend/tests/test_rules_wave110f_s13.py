@@ -32,15 +32,15 @@ _PING = "{T}: This creature deals 1 damage to any target."
 _ADD = [
     real('Brutal Suppression', '{R}', 1, 'Enchantment', _BRUTAL, None, 'R'),
     real('Drought', '{2}{W}{W}', 4, 'Enchantment', _DROUGHT, None, 'W'),
-    real('Test Rebel 110F', '{1}', 1, 'Creature — Rebel', _PING, ('1', '1'), ''),
-    real('Test Human 110F', '{1}', 1, 'Creature — Human', _PING, ('1', '1'), ''),
-    real('Test Land 110F', '', 0, 'Land', '{T}: Add {C}.', None, ''),
-    real('Test Dark 110F', '{1}{B}{B}', 3, 'Sorcery', 'You gain 3 life.', None, 'B'),
-    real('Test Hybrid 110F', '{B/G}{B/G}', 2, 'Sorcery', 'You gain 3 life.', None, 'BG'),
-    real('Test Red 110F', '{R}', 1, 'Sorcery', 'You gain 3 life.', None, 'R'),
-    real('Test Dark Pinger 110F', '{1}', 1, 'Artifact', "{B}, {T}: This artifact deals 1 damage to any target.", None, ''),
-    real('Test Cycler 110F', '{2}{B}', 3, 'Sorcery', "Cycling {B}\nYou gain 3 life.", None, 'B'),
-    real('Test Swamp Mana 110F', '{1}', 1, 'Artifact', "{B}, {T}: Add {B}{B}.", None, ''),
+    real('Test Rebel 13F', '{1}', 1, 'Creature — Rebel', _PING, ('1', '1'), ''),
+    real('Test Human 13F', '{1}', 1, 'Creature — Human', _PING, ('1', '1'), ''),
+    real('Test Land 13F', '', 0, 'Land', '{T}: Add {C}.', None, ''),
+    real('Test Dark 13F', '{1}{B}{B}', 3, 'Sorcery', 'You gain 3 life.', None, 'B'),
+    real('Test Hybrid 13F', '{B/G}{B/G}', 2, 'Sorcery', 'You gain 3 life.', None, 'BG'),
+    real('Test Red 13F', '{R}', 1, 'Sorcery', 'You gain 3 life.', None, 'R'),
+    real('Test Dark Pinger 13F', '{1}', 1, 'Artifact', "{B}, {T}: This artifact deals 1 damage to any target.", None, ''),
+    real('Test Cycler 13F', '{2}{B}', 3, 'Sorcery', "Cycling {B}\nYou gain 3 life.", None, 'B'),
+    real('Test Swamp Mana 13F', '{1}', 1, 'Artifact', "{B}, {T}: Add {B}{B}.", None, ''),
 ]
 _BASE.extend(_ADD)
 _DESECRATOR = ("Menace\nWhen this creature enters or dies, exile another card from a graveyard. When you do, choose one \u2014\n"
@@ -48,9 +48,9 @@ _DESECRATOR = ("Menace\nWhen this creature enters or dies, exile another card fr
                "\u2022 Target creature an opponent controls gets -X/-X until end of turn, where X is the mana value of the exiled card.")
 _BASE.extend([
     real('Cemetery Desecrator', '{4}{B}{B}', 6, 'Creature \u2014 Zombie', _DESECRATOR, ('4', '4'), 'B'),
-    real('Test Three 110F', '{2}{G}', 3, 'Creature \u2014 Elf', '', ('1', '1'), 'G'),
-    real('Test Doom 110F', '{B}', 1, 'Instant', 'Destroy target creature.', None, 'B'),
-    real('Test Big 110F', '{3}', 3, 'Creature \u2014 Golem', '', ('5', '5'), ''),
+    real('Test Three 13F', '{2}{G}', 3, 'Creature \u2014 Elf', '', ('1', '1'), 'G'),
+    real('Test Doom 13F', '{B}', 1, 'Instant', 'Destroy target creature.', None, 'B'),
+    real('Test Big 13F', '{3}', 3, 'Creature \u2014 Golem', '', ('5', '5'), ''),
 ])
 NAMES = ["Brutal Suppression", "Drought", "Cemetery Desecrator"]
 
@@ -68,7 +68,7 @@ def _many(s, name, n):
 
 
 def _lands(s, n):
-    return _many(s, "Test Land 110F", n)
+    return _many(s, "Test Land 13F", n)
 
 
 def _zone(s, card):
@@ -77,11 +77,11 @@ def _zone(s, card):
 
 def test_brutal_suppression_taxes_a_rebel_only(cards):
     """118.8: the Rebel's activation sacrifices a land (its controller's choice); a Human is not taxed; without a land it cannot be activated."""
-    s = build(cards, ["Brutal Suppression", "Test Rebel 110F", "Test Human 110F", "Test Land 110F", "Test Land 110F", "Test Land 110F"])
+    s = build(cards, ["Brutal Suppression", "Test Rebel 13F", "Test Human 13F", "Test Land 13F", "Test Land 13F", "Test Land 13F"])
     put(s, "Brutal Suppression")
-    rebel, human = put(s, "Test Rebel 110F"), put(s, "Test Human 110F")
-    ready(s, "Test Rebel 110F")
-    ready(s, "Test Human 110F")
+    rebel, human = put(s, "Test Rebel 13F"), put(s, "Test Human 13F")
+    ready(s, "Test Rebel 13F")
+    ready(s, "Test Human 13F")
     activate(s, "p1", human, "", targets=["p2"])
     answer(s)
     assert life(s, "p2") == 39 and not any(c.zone == "p1:graveyard" for c in s.state.cards.values())
@@ -97,10 +97,10 @@ def test_brutal_suppression_taxes_a_rebel_only(cards):
 
 def test_brutal_suppression_leaves_other_abilities(cards):
     """Without it on the table the Rebel pays no land."""
-    s = build(cards, ["Test Rebel 110F", "Test Land 110F"])
-    rebel = put(s, "Test Rebel 110F")
+    s = build(cards, ["Test Rebel 13F", "Test Land 13F"])
+    rebel = put(s, "Test Rebel 13F")
     land, = _lands(s, 1)
-    ready(s, "Test Rebel 110F")
+    ready(s, "Test Rebel 13F")
     activate(s, "p1", rebel, "", targets=["p2"])
     answer(s)
     assert life(s, "p2") == 39 and _zone(s, land) == "p1:battlefield"
@@ -114,7 +114,7 @@ def _drought(cards, deck, swamps):
     return s, got
 
 
-@pytest.mark.parametrize(("spell", "need"), [("Test Dark 110F", 2), ("Test Hybrid 110F", 2), ("Test Red 110F", 0)])
+@pytest.mark.parametrize(("spell", "need"), [("Test Dark 13F", 2), ("Test Hybrid 13F", 2), ("Test Red 13F", 0)])
 def test_drought_spell_one_swamp_per_black_symbol(cards, spell, need):
     """107.4e: a hybrid {B/G} is a black mana symbol; {R} is none. Too few Swamps: the spell cannot be cast; else they are sacrificed."""
     s, swamps = _drought(cards, [spell], need - 1 if need else 0)
@@ -133,9 +133,9 @@ def test_drought_spell_one_swamp_per_black_symbol(cards, spell, need):
 
 
 def test_drought_taxes_an_activated_ability_by_its_black_symbols(cards):
-    s, (swamp,) = _drought(cards, ["Test Dark Pinger 110F"], 1)
-    pinger = put(s, "Test Dark Pinger 110F")
-    ready(s, "Test Dark Pinger 110F")
+    s, (swamp,) = _drought(cards, ["Test Dark Pinger 13F"], 1)
+    pinger = put(s, "Test Dark Pinger 13F")
+    ready(s, "Test Dark Pinger 13F")
     mana(s, B=1)
     activate(s, "p1", pinger, "", targets=["p2"])
     answer(s)
@@ -145,13 +145,13 @@ def test_drought_taxes_an_activated_ability_by_its_black_symbols(cards):
 
 def test_drought_mana_ability_and_cycling_with_black_symbols_are_refused(cards):
     """Not automated: the tax is not paid for them, so they are not offered / refused."""
-    s, _ = _drought(cards, ["Test Swamp Mana 110F", "Test Cycler 110F"], 1)
-    src = put(s, "Test Swamp Mana 110F")
-    ready(s, "Test Swamp Mana 110F")
+    s, _ = _drought(cards, ["Test Swamp Mana 13F", "Test Cycler 13F"], 1)
+    src = put(s, "Test Swamp Mana 13F")
+    ready(s, "Test Swamp Mana 13F")
     mana(s, B=1)
     with pytest.raises(ActionError):
         activate(s, "p1", src, "")
-    cyc = to_hand(s, "Test Cycler 110F")
+    cyc = to_hand(s, "Test Cycler 13F")
     with pytest.raises(ActionError, match="Drought"):
         act(s, "p1", type="activate_ability", card_id=cyc.id, ability=ability_index(s, cyc, "Cycling"))
     assert _zone(s, cyc) == "p1:hand"
@@ -159,7 +159,7 @@ def test_drought_mana_ability_and_cycling_with_black_symbols_are_refused(cards):
 
 
 def _desecrate(cards, mine=(), theirs=()):
-    s = build(cards, ["Cemetery Desecrator", "Test Three 110F", *mine], ["Test Three 110F", "Test Big 110F", *theirs])
+    s = build(cards, ["Cemetery Desecrator", "Test Three 13F", *mine], ["Test Three 13F", "Test Big 13F", *theirs])
     mana(s, B=2, C=4)
     return s
 
@@ -193,8 +193,8 @@ def _power(s, c):
 def test_desecrator_enters_exile_then_minus_x(cards):
     """603.12, 608.2h: X is the exiled card's mana value (3): the chosen opposing creature gets -3/-3; the exiled card is in exile."""
     s = _desecrate(cards)
-    gone = _gy(s, "Test Three 110F", "p2")
-    big = put(s, "Test Big 110F", "p2")
+    gone = _gy(s, "Test Three 13F", "p2")
+    big = put(s, "Test Big 13F", "p2")
     cast(s, "Cemetery Desecrator")
     _pick(s, "-X/-X")
     _pick(s, card=big.id)
@@ -205,9 +205,9 @@ def test_desecrator_enters_exile_then_minus_x(cards):
 
 def test_desecrator_remove_x_counters_and_the_pick_among_graveyards(cards):
     """Two cards in graveyards: the controller picks (608.2d); X = 3 counters come off the chosen permanent (two of five stay), the other card stays."""
-    s = _desecrate(cards, mine=("Test Big 110F",))
-    three, big_gy = _gy(s, "Test Three 110F", "p1"), _gy(s, "Test Big 110F", "p2")
-    stay = put(s, "Test Big 110F", "p1")
+    s = _desecrate(cards, mine=("Test Big 13F",))
+    three, big_gy = _gy(s, "Test Three 13F", "p1"), _gy(s, "Test Big 13F", "p2")
+    stay = put(s, "Test Big 13F", "p1")
     act(s, "p1", type="set_counter", card_id=stay.id, kind="+1/+1", value=5)
     cast(s, "Cemetery Desecrator")
     _pick(s, card=three.id)  # which graveyard card
@@ -228,13 +228,13 @@ def test_desecrator_nothing_to_exile_means_no_reflexive_trigger(cards):
 
 
 def test_desecrator_dies_exiles_another_card_never_itself(cards):
-    s = build(cards, ["Cemetery Desecrator", "Test Three 110F", "Test Doom 110F"], ["Test Three 110F", "Test Big 110F"])
+    s = build(cards, ["Cemetery Desecrator", "Test Three 13F", "Test Doom 13F"], ["Test Three 13F", "Test Big 13F"])
     mana(s, B=4, C=4)
-    big = put(s, "Test Big 110F", "p2")
+    big = put(s, "Test Big 13F", "p2")
     des = put(s, "Cemetery Desecrator")
     answer(s)  # its enters trigger finds no other card
-    gone = _gy(s, "Test Three 110F", "p2")
-    cast(s, "Test Doom 110F", [des.id])
+    gone = _gy(s, "Test Three 13F", "p2")
+    cast(s, "Test Doom 13F", [des.id])
     _pick(s, card=gone.id)  # the Doom is in a graveyard too; the Desecrator itself is no choice (it is "another card")
     _pick(s, "-X/-X")
     _pick(s, card=big.id)
