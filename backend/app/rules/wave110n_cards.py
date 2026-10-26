@@ -73,6 +73,25 @@ _SWORD = ("Reveal the top three cards of your library. For each of those cards, 
           "Then exile the rest.")
 
 
+_HEW = ("Sacrifice any number of lands. Reveal the top X cards of your library, where X is the number of lands sacrificed this way. Choose any number of artifact and/or "
+        "land cards revealed this way. Put all nonland cards chosen this way onto the battlefield, then put all land cards chosen this way onto the battlefield tapped, "
+        "then put the rest on the bottom of your library in a random order.")
+
+
+def _hew() -> Any:
+    """Hew the Entwood: the revealed cards are public, so choosing the nonland artifacts and then the lands (each any number, 700.2) is the one choice made in two
+    asks; they enter in that order (the artifacts, then the lands tapped) and the rest go to the bottom in a random order (401.4)."""
+    from app.rules import scripts, selectors
+
+    parsed = scripts.parse_effects("Sacrifice any number of lands. Reveal the top X cards of your library, where X is the number of lands sacrificed this way.")
+    arts, lands = selectors.parse("nonland artifact card"), selectors.parse("land card")
+    if parsed is None or arts is None or lands is None or [e["do"] for e in parsed[0]] != ["sacrifice_choice", "look_top"]:
+        return None
+    return [*parsed[0], {"do": "pick_looked", "n": 99, "optional": True, "sel": arts.key(), "to": "battlefield", "reveal": False},
+            {"do": "pick_looked", "n": 99, "optional": True, "sel": lands.key(), "to": "battlefield_tapped", "reveal": False},
+            {"do": "rest_looked", "to": "bottom_random"}], None, False
+
+
 def parse(body: str) -> Any:
     """Exact spell bodies: the parts the grammar reads, joined with the card's own step."""
     from app.rules import scripts
@@ -83,6 +102,8 @@ def parse(body: str) -> Any:
         if parsed is not None and len(parsed[0]) == 2 and parsed[0][0].get("do") == "counter":
             effects, target, optional = parsed
             return [{**effects[0], "do": "decree110n"}, effects[1]], target, optional
+    if body.strip() == _HEW:
+        return _hew()
     if body.strip() == _SWORD:
         return [{"do": "look_top", "n": 3, "player": "you", "reveal": True, "as": "e0"}, {"do": "sword110n", "who": "ref:e0"}], None, False
     return None
