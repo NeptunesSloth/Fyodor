@@ -89,6 +89,7 @@ _LIEGE = ("As long as ~ isn't attacking, its power and toughness are each equal 
 _LIEGE_LAND = "{T}: Target land becomes a Forest until ~ leaves the battlefield."
 _PROFANER = ("When ~ exploits a creature, return to their owners' hands all creatures your opponents control with toughness less than the exploited creature's "
              "toughness.")
+_VINDICATOR = ("When ~ is turned face up, exile up to X other target creatures from the battlefield and/or creature cards from graveyards.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -108,6 +109,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "triggered" and text == _VINDICATOR:  # 107.3a: X is the X paid to turn it face up; 607.2a: the exile is the link the leave trigger returns
+        by_x = scripts.define(replace(ability, text=_VINDICATOR.split(" from the battlefield")[0] + "."), ch)
+        by_two = scripts.define(replace(ability, text=_VINDICATOR.replace("up to X", "up to two")), ch)
+        if by_x is None or by_two is None or len(by_x.get("targets") or []) != 1 or len(by_two.get("targets") or []) != 1 \
+                or [e["do"] for e in by_x["effects"]] != ["exile"] or by_x["targets"][0].get("x_count") != "upto":
+            return None
+        return {**by_x, "targets": [{**by_x["targets"][0], "what": by_two["targets"][0]["what"]}], "effects": [{**by_x["effects"][0], "link": True}]}
     if ability.kind == "triggered" and text == _PROFANER:  # 702.110b, 608.2h: the exploited creature's toughness as it last existed
         native = scripts.define(replace(ability, text="When ~ exploits a creature, draw a card."), ch)
         return None if native is None else {**native, "effects": [{"do": "profaner110o"}]}

@@ -520,7 +520,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import disguise_costs
 
         spec = disguise_costs.parse(line)
-        return spec is not None and "{X}" not in spec[0].upper()
+        return spec is not None  # (X: -- wave 110O -- announced as it is turned face up, like morph's, 107.3a: casting.turn_face_up, triggers.x_source "faceup")
     if kw == "toxic":  # -- counters & designations (wave 3E) -- combat.py reads "toxic N" anywhere in a keyword line ("Menace, toxic 1")
         return re.search(r"(?:^|, )toxic \d+(?:,|$)", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()) is not None
     if kw == "escalate":  # -- static_other sweep (wave 16B) -- casting.escalate_parts

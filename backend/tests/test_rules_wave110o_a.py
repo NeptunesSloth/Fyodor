@@ -24,6 +24,7 @@
   ability; its tap ability turns a land into a Forest for as long as it stays on the battlefield.
 * 506.3, 509.1b: Become the Pilot's creature can be blocked only while it attacks its owner (or a planeswalker / battle its owner controls).
 * 702.110b, 608.2h: Profaner of the Dead bounces the opponents' creatures with toughness below the exploited creature's (as it last existed).
+* 107.3a, 607.2a, 702.168d: Aurelia's Vindicator turned face up for X exiles up to X other creatures and/or creature cards in graveyards, and gives them back when it leaves.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -61,10 +62,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Gaea's Liege", "Become the Pilot", "Profaner of the Dead", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, VINDICATOR, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Gaea's Liege", "Become the Pilot", "Profaner of the Dead", "Aurelia's Vindicator", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, VINDICATOR, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -1238,4 +1239,42 @@ def test_profaner_of_the_dead_returns_the_smaller_creatures_of_opponents(cards, 
     for name, c in theirs.items():
         assert now(s, c).zone == ("p2:hand" if name in bounced else "p2:battlefield"), name
     assert (mine is None) or now(s, mine).zone == "p1:graveyard"
+    check(s)
+
+
+def vindicator_up(s, x, picks):
+    """Alice's Vindicator (cast face down for {3}) is turned face up for X; the face-up trigger's targets are ``picks`` (card ids)."""
+    c = to_hand(s, VINDICATOR)
+    mana(s, "p1", C=3)
+    act(s, "p1", type="cast_spell", card_id=c.id, face_down=True)
+    settle(s)
+    assert now(s, c).face_down
+    mana(s, "p1", W=1, C=3 + x)
+    act(s, "p1", type="turn_face_up", card_id=c.id, x_value=x)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[p for p in picks if p in {o.id for o in d.options}][:x])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    return c
+
+
+@pytest.mark.parametrize("x", [0, 1, 2])
+def test_aurelias_vindicator_exiles_up_to_x_from_the_battlefield_and_graveyards_and_returns_them(cards, x):
+    s = build(cards, [VINDICATOR, "Lightning Bolt"], ["Grizzly Bears", "Benalish Hero", "Mesa Pegasus"])
+    bears, hero = put(s, "Grizzly Bears", "p2"), put(s, "Benalish Hero", "p2")
+    pegasus = grave_new(s, "Mesa Pegasus", "p2")
+    wanted = [bears.id, pegasus.id, hero.id]
+    c = vindicator_up(s, x, wanted)
+    gone = [w for w in wanted[:x]]
+    for cid in wanted:
+        assert (now(s, s.state.cards[cid]).zone == "p2:exile") == (cid in gone)
+    assert not now(s, c).face_down
+    cast_on(s, "Lightning Bolt", c)  # (it leaves the battlefield: the exiled cards go to their owners' hands)
+    assert now(s, c).zone == "p1:graveyard"
+    for cid in gone:
+        assert now(s, s.state.cards[cid]).zone == "p2:hand"
     check(s)
