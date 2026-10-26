@@ -585,8 +585,12 @@ def resume_succession(plan: Plan, d: Decision, chosen: list[str]) -> None:
 def lose_mana(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Each player loses all unspent mana." (Worldpurge): every pool is emptied (106.4); a player with "If you would lose unspent mana, that mana becomes colorless
     instead" keeps it as colorless mana (614.1a, kept_mana)."""
-    from app.rules import kept_mana
+    from app.rules import (
+        kept_mana,
+        wave110j_cards,  # -- Yurlok (wave 110J) --
+    )
 
+    lost = wave110j_cards.pools(plan)
     colorless = kept_mana._colorless(plan)
     from app.rules import effects
     players=effects._players(plan,ctx,e['who']) if e.get('who') else list(plan.state.players)
@@ -597,6 +601,7 @@ def lose_mana(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         elif any(player.mana.values()) or player.mana_units:
             plan.do({'type':'clear_mana','player':pid},actor=plan.active)
     kept_mana.clamp(plan.state)
+    wave110j_cards.mana_lost(plan, {pid: n for pid, n in lost.items() if pid in players})
     return True
 
 

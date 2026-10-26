@@ -45,7 +45,6 @@ import secrets
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from app.cards.names import normalize_name
 from app.game.state import COMBAT_PHASES, CardInstance, GameState, zone_key
 from app.rules import selectors
 from app.rules.characteristics import CardInfo, Characteristics
@@ -732,7 +731,7 @@ _KINDS = ("cant_cycle", "hexproof_targeting", "cast_limit", "activate_as_haste",
           "cant_enter", "cant_counters", "cant_remove_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap", "cant_target", "cant_play_gy_lands",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
-          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a", "chorus110c", "counter_cap110j", "trigger_token_shield110a")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
+          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a", "chorus110c", "counter_cap110j", "mana_life110j", "trigger_token_shield110a")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
 
 _KINDS = (*_KINDS, "power_lethal110a")  # -- wave 110A -- Zilortha (wave110a_zilortha)
 
@@ -893,8 +892,7 @@ def _same_name_as_exiled(state: GameState, info: CardInfo, source: str, ch: Char
     src = state.cards[source]
     plan = Plan.view(state, src.controller, info)
     ctx = {"controller": src.controller, "source_card": source, "source_object": plan.oid(src)}
-    names = {normalize_name(n) for c in exiled_with.cards(plan, ctx) if not state.cards[c].face_down for n in card_names.names_of(plan.ch(state.cards[c]))}
-    return bool(names & {normalize_name(n) for n in card_names.names_of(ch)})
+    return any(card_names.share(plan.ch(state.cards[c]), ch) for c in exiled_with.cards(plan, ctx) if not state.cards[c].face_down)  # (Spy Kit, wave 110J: share() is name_test-aware)
 
 
 def _cast_this_turn(state: GameState, player: str, key: str | None) -> int:

@@ -297,6 +297,8 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
 
     if (each := EACH_COLOR_LINE.match(line)) is not None and not _moves_library(line):
         return "mana", (), each["cost"]
+    if line == "{1}, {T}: Each player adds {B}{R}{G}.":  # -- Yurlok (wave 110J) -- 605.1a: no target, adds mana
+        return "mana", (), "{1}, {T}"
     from app.rules.immediate_mana_resolutions import beneficiary_spec
 
     if (benefit := beneficiary_spec(line)) is not None and _COST_START.match(benefit[0]) and not _moves_library(line) and not _LOYALTY.match(line):

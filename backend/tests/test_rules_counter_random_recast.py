@@ -258,3 +258,19 @@ def test_free_cast_x_is_zero_and_zero_toughness_creature_dies(cards, monkeypatch
     assert not s.state.zones.get('p1:library')
     assert not s.state.rules.lost
     roundtrip(s)
+
+
+def test_rule_named_spell_skips_every_nonlegendary_creature_card(cards, monkeypatch):
+    """Spy Kit (201.2a): a spell whose names come from a rule shares a name with any nonlegendary creature card (card_names.ANY_CREATURE)."""
+    from app.rules import card_names
+    from tests.game_helpers import act
+    from tests.test_rules_conditionals import settle
+
+    monkeypatch.setattr(card_names, 'reference_names', lambda ch: [card_names.ANY_CREATURE])
+    s, spell, trick, selected = setup(cards, monkeypatch, rest=('Grizzly Bears', 'Lightning Bolt'))
+    cast(s, spell, trick)
+    d = offer(s)
+    assert d.resume['card'] == selected[-1] and s.state.cards[selected[1]].zone == 'p1:exile'
+    act(s, 'p1', type='choose', decision_id=d.id, option_ids=['no'])
+    settle(s)
+    assert set(s.state.zones['p1:library']) == set(selected[1:])

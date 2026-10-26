@@ -26,6 +26,19 @@ def _aspect(d: Def) -> Def:
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Bludgeon Brawl: layer 4 adds Equipment (205.1b); the two grants are layer 6 and name each artifact's own mana value: layers.py puts the recipient's mana value
+    # where "‹mv›" stands (only the artifact's own, printed value matters: an X in its cost is 0 on the battlefield, 107.3m)
+    'Each noncreature, non-Equipment artifact is an Equipment with equip {X} and "Equipped creature gets +X/+0," where X is that artifact\'s mana value.':
+        ("Each noncreature, non-Equipment artifact is an Equipment in addition to its other types.", lambda d: {**d, "grants": ["Equip {‹mv›}", "Equipped creature gets +‹mv›/+0."]}),
+    # Spy Kit: the extra names are a rule on the equipped creature (card_names.has_name asks wave110j_cards.nonlegendary_creature_name; the name list itself is never built)
+    "Equipped creature gets +1/+1 and has all names of nonlegendary creature cards in addition to its name.":
+        ("Equipped creature gets +1/+1.", lambda d: {**d, "rules": ["all_names110j"]}),
+    # Guardian Beast: 101.2 "can't" beats "can" (no Aura attaches, no other player gains control: attachments.host_problem, targets, effects._control_effect); the Auras
+    # already attached stay (its last sentence: host_problem skips state-based checks) and indestructible is the plain grant
+    "As long as this creature is untapped, noncreature artifacts you control can't be enchanted, they have indestructible, and other players can't gain control of them. "
+    "This effect doesn't remove Auras already attached to those artifacts.":
+        ("As long as ~ is untapped, noncreature artifacts you control have indestructible.",
+         lambda d: {**d, "rules": ["cant_be_enchanted110j", "cant_gain_control110j"]}),
     "Enchanted creature gets +X/+Y, where X is half the number of Forests you control, rounded down, and Y is half the number of Forests you control, rounded up.":
         (f"Enchanted creature gets +X/+0, where X is {_FORESTS}, rounded down.", _aspect),
 }
@@ -89,6 +102,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (cap := _CAP.fullmatch(ability.text.strip())) is not None and ch.name.startswith(cap["name"]):  # (the short name)
         return {"kind": "static", "static": "counter_cap110j", "counter": cap["kind"], "n": _NUMS[cap["n"]], "effects": []}
+    if ability.text.strip() == _YURLOK_LIFE:
+        return {"kind": "static", "static": "mana_life110j", "effects": []}
     if ability.text.strip() == _WEB1:  # Magnetic Web: a source-less conditional attack requirement (508.1d), score in combat_conditional_requirements67
         from app.rules import combat_conditional_requirements67, selectors, statics
 
@@ -96,11 +111,13 @@ def definition(ability: Any, ch: Any) -> Def | None:
                                    rules=[combat_conditional_requirements67.PREFIX + "@src:magnet110j"])
     if ability.text.strip() == _TAKKLE_GAIN:  # Takklemaggot's granted ability: the chosen player is the one recorded as it returned (read by triggers._whose_step)
         return {"kind": "triggered", "trigger": "step:upkeep:chosen_player", "effects": [{"do": "damage", "who": "event_player", "n": 1}], "optional": False, "target": None}
+    if ability.text.strip().startswith(_VS_START):  # its effect is derived in copying.layer1 (full_text); the ability itself changes nothing else
+        return {"kind": "static", "static": "full_text110j", "effects": []}
     if ability.text.strip() == _EQUINOX:
         return {"kind": "activated", "cost": "{T}", "effects": [{"do": "equinox110j"}], "target": {"what": "spell"}}
-    if ability.text.strip() == _CURSE_IGNORE:
+    if (curse := _CURSE_RE.fullmatch(ability.text.strip())) is not None:
         native = scripts.define(replace(ability, text="Sacrifice a permanent: Draw a card."), ch)
-        return None if native is None else {**native, "effects": [{"do": "ignore110j"}]}
+        return None if native is None else {**native, "effects": [{"do": "ignore110j", "curse": curse["oid"] or ""}]}
     if ability.text.strip() == _SPLICER:
         return _splicer(ability, ch)
     if ability.text.strip() == _ES:
@@ -1138,17 +1155,18 @@ RESUME["takkle110j"] = resume_takkle
 
 # -- Volrath's Curse (wave 110J) -- "That creature's controller may sacrifice a permanent of their choice for that player to ignore this effect until end of turn."
 # The creature gets "Sacrifice a permanent: ..." (its controller pays; ceilings: it uses the stack and needs priority, so it must be done before attackers/blockers are
-# declared, and two Curses on one creature are ignored together) which is exempt from the Curse's own "activated abilities can't be activated" (casting.py); while it
+# declared, and each Curse is ignored on its own: keyed by the Curse) which is exempt from the Curse's own "activated abilities can't be activated" (casting.py); while it
 # has been paid this turn (statics.holds "ignored110j") the whole static, "can't attack or block" included, does not apply (611.3a).
 _CURSE = ("Enchanted creature can't attack or block, and its activated abilities can't be activated. That creature's controller may sacrifice a permanent of their choice "
           "for that player to ignore this effect until end of turn.")
-_CURSE_IGNORE = "Sacrifice a permanent: Ignore Volrath's Curse until end of turn."
+_CURSE_IGNORE = "Sacrifice a permanent: Ignore ‹granter› until end of turn."  # layers.py binds ‹granter#oid› to the granting Curse (607.1a)
+_CURSE_RE = re.compile(r"Sacrifice a permanent: Ignore ‹granter(?:#(?P<oid>[^›]*))?› until end of turn\.")
 _BUILD[_CURSE] = ("Enchanted creature can't attack or block, and its activated abilities can't be activated.",
                   lambda d: {**d, "grants": [_CURSE_IGNORE], "conditions": [{"static": "not", "cond": {"static": "ignored110j"}}]})
 
 
 def ignore(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
-    plan.rules.once_per_turn[f"ignore110j:{ctx['source_object']}"] = plan.state.turn.number
+    plan.rules.once_per_turn[f"ignore110j:{e['curse']}"] = plan.state.turn.number
     plan.note("Volrath's Curse is ignored until end of turn", actor=ctx["controller"])
     return True
 
@@ -1184,7 +1202,7 @@ def short_stickers(plan: Any, ctx: Any) -> int:
 # -- Equinox (wave 110J) -- "{T}: Counter target spell if it would destroy a land you control." Rulings: 2013-09-20 checked as the ability resolves, by what the spell would do
 # right then; 2004-10-04 / 2008-10-01 only a spell that destroys the land directly (not damage, sacrifice, or a result of a choice or chance); any spell can be targeted.
 # Read: the spell's own unconditional "destroy" instructions (a target, a selector) and "destroy all"; a spell with modes, or any other instruction that mentions destroying,
-# is not guessed: the ability's controller says whether it would (the same call a player makes at the table).
+# is not guessed: the ability goes to manual resolution (the players settle it at the table).
 _EQUINOX = "{T}: Counter target spell if it would destroy a land you control."
 
 
@@ -1223,8 +1241,8 @@ def equinox(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     sid = sids[0]
     verdict = _destroys_my_land(plan, plan.rules.stack.get(sid), sid, ctx)
     if verdict is None:
-        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Would {plan.state.cards[sid].name} destroy a land you control if it resolved right now?",
-               options=[DecisionOption(id="yes", label="Yes, counter it"), DecisionOption(id="no", label="No")], resume={"step": "equinox110j", "ctx": ctx, "sid": sid})
+        decide(plan, player=ctx["controller"], kind="manual_resolution", options=[DecisionOption(id="done", label="Done")], resume={"step": "equinox110j", "ctx": ctx},
+               prompt=f"Equinox: would {plan.state.cards[sid].name} destroy a land you control? The engine can't tell. Counter it by hand if so, then press Done")  # (no one player rules on a fact)
         return False
     return effects.counter(plan, ctx, {"do": "counter", "who": "target"}) if verdict else True
 
@@ -1233,11 +1251,119 @@ def resume_equinox(plan: Any, d: Any, chosen_ids: list[str]) -> None:
     from app.rules import effects
 
     ctx = d.resume["ctx"]
-    if chosen_ids[0] == "yes" and d.resume["sid"] in plan.state.zones.get("stack", []):
-        effects.counter(plan, ctx, {"do": "counter", "who": "target"})
     effects.continue_effects(plan, ctx)
 
 
 PRIMITIVES["equinox110j"] = equinox
 RESUME["equinox110j"] = resume_equinox
 _BUILD["Enchanted land has \"" + _EQUINOX + "\""] = ("Enchanted land has \"{T}: Counter target spell.\"", lambda d: {**d, "grants": [_EQUINOX]})
+
+
+def nonlegendary_creature_name(info: Any, name: str | None) -> bool:
+    """Spy Kit (201.2, 201.4): is ``name`` the Oracle name of a nonlegendary creature card (a token is no card; a double-faced card has each face's name, 709.4a)?"""
+    from app.rules.card_names import normalize_name
+
+    card = info.resolve(name or "") if name and hasattr(info, "resolve") else None
+    if card is None or card.get("layout") in ("token", "emblem"):
+        return False
+    norm = normalize_name(name or "")
+    faces = card.get("faces") or []
+    face = next((f for f in faces if normalize_name(str(f.get("name") or "")) == norm), None) if len(faces) > 1 else card
+    if face is None or normalize_name(str(face.get("name") or "")) != norm:
+        return False
+    types = str(face.get("type_line") or "").replace("\u2014", " ").split()
+    return "Creature" in types and "Legendary" not in types
+
+
+# -- Volrath's Shapeshifter (wave 110J) -- 612.6: "the full text" of the top creature card of its controller's graveyard (404.2: the last one) replaces the object's name, mana cost,
+# color, types, power, toughness and abilities (layer 3, 613.1c; read here with the copiable values so its triggers and statics follow); it also has "{2}: Discard a card."
+# (which is how its player changes the top card). The effect is worked out afresh whenever characteristics are (611.3a), so it follows the graveyard (the statics cache
+# is keyed by the graveyards); a Clone copying it copies the printed card (612.6 is not a copy effect).
+_VS_START = "As long as the top card of your graveyard is a creature card, this creature has the full text"
+_VS_DISCARD = "{2}: Discard a card."
+
+
+def full_text(state: Any, card: Any, ch: Any, info: Any) -> Any:
+    from app.rules import characteristics as chars
+    from app.rules.scripts import granted_ability
+
+    pile = state.zones.get(f"{card.controller}:graveyard") or []
+    top = state.cards.get(pile[-1]) if pile and info is not None else None
+    if top is None or top.token is not None:
+        return ch
+    theirs = chars.of(top, info)
+    extra = granted_ability(_VS_DISCARD)
+    if not theirs.is_creature or extra is None:
+        return ch
+    return replace(ch, name=theirs.name, supertypes=theirs.supertypes, types=theirs.types, subtypes=theirs.subtypes, mana_cost=theirs.mana_cost, mana_value=theirs.mana_value,
+                   colors=theirs.colors, power=theirs.power, toughness=theirs.toughness, loyalty=theirs.loyalty, defense=theirs.defense, oracle_id=theirs.oracle_id,
+                   oracle_text=theirs.oracle_text + "\n" + _VS_DISCARD, abilities=(*theirs.abilities, replace(extra, index=98)))
+
+
+# Custodi Peacekeeper: nothing is drafted in Commander (905.2), so no number was noted; the 2016-08-23 ruling makes the highest number noted 0 (draft_only.py reads the draft line)
+_BUILD["{W}, {T}: Tap target creature with power less than or equal to the highest number you noted for cards named Custodi Peacekeeper."] = (
+    "{W}, {T}: Tap target creature with power 0 or less.", lambda d: d)
+
+
+# Yurlok of Scorch Thrash: 500.4 / 106.4: mana lost (a step or phase ends, or an effect empties the pool) costs that much life at the same moment (2020-11-10 ruling:
+# no stack, several Yurloks do not stack). The pools are compared before and after (kept and colorless-kept mana is not lost).
+_YURLOK_LIFE = "A player losing unspent mana causes that player to lose that much life."
+_YURLOK_MANA = "{1}, {T}: Each player adds {B}{R}{G}."
+
+
+def pools(plan: Any) -> dict[str, int]:
+    return {pid: sum(p.mana.values()) + len(p.mana_units) for pid, p in plan.state.players.items()}  # (restricted mana is held as units beside the plain pool, wave 18B)
+
+
+def mana_lost(plan: Any, before: dict[str, int]) -> None:
+    from app.rules import cast_limits, replace
+
+    if not any(before.values()) or not cast_limits._statics(plan.state, plan.info, "mana_life110j"):
+        return
+    after = pools(plan)
+    losses = [(pid, n - after[pid]) for pid, n in before.items() if n > after[pid]]
+    if replace.candidates(plan, "life_loss") and isinstance(replace.plan_loss(plan, losses, answers={}, ask=True), replace.Ask):
+        # 616.1: the step ends with no priority to pause for a choice between two life-loss replacements whose order matters: apply nothing, the players do it by hand
+        plan.note("Yurlok: lost mana costs that much life, but two replacement effects apply and the order matters; the engine can't ask here, apply them by hand (616.1)")
+        return
+    replace.lose_life(plan, losses, actor=plan.active)
+
+
+def yurlok_mana(plan: Any, ctx: Def, e: Def) -> bool:
+    """The other players add {B}{R}{G} (605.1a: the ability is a mana ability; its controller's mana is the base ability's)."""
+    at = ctx["next"]
+    ctx["effects"][at:at] = [{"do": "immediate_mana_production", "who": "player:" + pid, "mana": ["B", "R", "G"]}
+                             for pid in plan.apnap() if pid != ctx["controller"] and pid in plan.live()]
+    return True
+
+
+PRIMITIVES["yurlok110j"] = yurlok_mana
+
+
+# The Great Aurora: every player's hand and owned permanents (tokens too: a token put into a library counts as a card for "that many", 2015-06-22 ruling, then ceases to
+# exist, 111.7) go into their owner's library together (101.4 APNAP is moot: one simultaneous move), each library is shuffled (701.24), then each player draws as many as
+# they put in. A commander its owner sends to the command zone instead (903.9b, a replacement effect: replacements.MOVERS_903_9B asks first) still counts
+# (Scryfall ruling 2019-05-03, as for Warp World); a card that never left its zone would not. Land drops and the exile are native.
+_AURORA = ("Each player shuffles all cards from their hand and all permanents they own into their library, then draws that many cards. Each player may put any number of "
+           "land cards from their hand onto the battlefield. Exile The Great Aurora.")
+
+
+def aurora(plan: Any, ctx: Def, e: Def) -> bool:
+    players = [p for p in plan.apnap() if p in plan.live()]
+    mine = {p: [c.id for c in plan.state.cards.values() if (c.zone == f"{p}:hand" or (c.zone.endswith(":battlefield") and c.owner == p)) and c.owner == p] for p in players}
+    for p, ids in mine.items():
+        if ids:
+            plan.do({"type": "move", "card_ids": ids, "to": {"player": p, "zone": "library"}}, actor=p)
+    draws = []
+    for p, ids in mine.items():
+        n = sum(c not in plan.state.cards or plan.state.cards[c].zone not in (f"{p}:hand", f"{p}:battlefield") for c in ids)  # left its zone (library, a token gone, or the command zone)
+        plan.do({"type": "shuffle", "player": p, "zone": "library"}, actor=p)
+        draws.append({"do": "draw", "who": "player:" + p, "n": n})
+    at = ctx["next"]
+    ctx["effects"][at:at] = draws
+    return True
+
+
+PRIMITIVES["aurora110j"] = aurora
+_BUILD[_AURORA] = ("Each player may put any number of land cards from their hand onto the battlefield. Exile ~.",
+                   lambda d: {**d, "effects": [{"do": "aurora110j"}, *d["effects"]]})

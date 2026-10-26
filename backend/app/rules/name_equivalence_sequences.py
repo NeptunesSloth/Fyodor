@@ -115,7 +115,7 @@ def execute(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         if not players:
             return True
         controller = players[0]
-        groups = [card_names.names_of(plan.ch(c)) for c in plan.state.cards.values()
+        groups = [card_names.reference_names(plan.ch(c)) for c in plan.state.cards.values()
                   if c.controller == controller and c.zone.endswith(':battlefield') and c.tapped and 'Land' not in plan.ch(c).types]
         context.bind_players(ctx, 'name_controller', [controller])
         if not groups:
@@ -192,14 +192,14 @@ def execute(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
         context.bind_players(ctx, 'name_controller', [original.controller])
         instructions = [{'do': 'search', 'who': 'you', 'library': 'ref:name_controller',
-                         'sel': qualified_search_packets.key('card'), 'name_in': card_names.names_of(characteristics),
+                         'sel': qualified_search_packets.key('card'), 'name_in': card_names.reference_names(characteristics),
                          'max': 1, 'to': 'battlefield', 'under': 'you', 'shuffle': True, 'label': 'card with the same name'}]
     elif kind == 'bounce_ban':
         from app.rules import selectors
 
         context.bind_players(ctx, 'name_owner', [original.owner])
         instructions = [{'do': 'bounce', 'who': 'ref:name_subject'}]
-        for name in card_names.names_of(characteristics):
+        for name in card_names.reference_names(characteristics):  # (Spy Kit, wave 110J: also ANY_CREATURE)
             selector = selectors.Selector(zones=('stack',), extras=('name:' + name,)).key()
             instructions.append({'do': 'cast_limit', 'who': 'ref:name_owner', 'until': 'next_turn', 'filter': selector})
     elif kind in ('god_hand', 'legion'):

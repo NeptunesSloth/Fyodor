@@ -551,6 +551,14 @@ def _mark_step(plan: Plan) -> None:
 
 def empty_pools(plan: Plan) -> None:
     """Mana empties from every pool at the end of each step and phase (rule 500.4)."""
+    from app.rules import wave110j_cards  # -- Yurlok (wave 110J) --
+
+    before = wave110j_cards.pools(plan)
+    _empty_pools(plan)
+    wave110j_cards.mana_lost(plan, before)
+
+
+def _empty_pools(plan: Plan) -> None:
     kept = effects.keyword_actions.combat_mana_kept(plan)  # -- wave 3F -- firebending: kept until end of combat
     from app.rules import kept_mana  # -- refused copy/mana (wave 3R3): 106.4 "you don't lose this mana" --
 

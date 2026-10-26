@@ -260,6 +260,8 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     if card is None or (host_face is None and not card.zone.endswith(":battlefield")):
         return "it's not on the battlefield"
     hch = host_face or plan.ch(card)
+    if kind == "aura" and not sba and "cant_be_enchanted110j" in hch.imposed:  # -- Guardian Beast (wave 110J) -- an Aura already there stays (its text)
+        return f"{hch.name} can't be enchanted"
     if kind == "aura" and any(rule.startswith("only_aura106:") and rule.partition(":")[2] != source.id for rule in hch.imposed):
         return f"{hch.name} can't be enchanted by another Aura"
     if kind == "aura" and "no_aura110h" in hch.imposed:  # -- cards (wave 110H) -- Tetravite: "This token can't be enchanted." (303.4d, 303.4j)

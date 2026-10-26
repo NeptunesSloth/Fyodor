@@ -283,7 +283,12 @@ def layer1(state: GameState, card: CardInstance, ch: Characteristics, info: Card
     """613.2a: the copy effect that applies to the object gives its copiable values (the latest
     by timestamp, 613.7); 613.2b: a face-down object keeps its face-down characteristics (708.2),
     which ``characteristics.of`` already gave. ``ch`` is the object's printed (or defined) values."""
-    return with_level(state, card, _layer1(state, card, ch, info), info)
+    out = with_level(state, card, _layer1(state, card, ch, info), info)
+    if out.oracle_text.startswith("As long as the top card of your graveyard is a creature card, this creature has the full text") and card.zone.endswith(":battlefield") and not card.face_down:
+        from app.rules import wave110j_cards  # -- Volrath's Shapeshifter (wave 110J) -- 612.6
+
+        out = wave110j_cards.full_text(state, card, out, info)
+    return out
 
 
 def with_level(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None,

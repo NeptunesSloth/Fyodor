@@ -5368,6 +5368,7 @@ RESUME["return_choice"] = resume_return_choice
 # the permanent goes back to the owner (or to the player of the next-latest effect). Only permanents
 # still on the battlefield as the same object are affected.
 def _control_effect(plan: Plan, ctx: Context, cards: list[str], player: str, duration: str) -> None:
+    cards = [c for c in cards if plan.state.cards[c].controller == player or "cant_gain_control110j" not in plan.ch(plan.state.cards[c]).imposed]  # -- Guardian Beast (wave 110J) -- 101.2
     if not cards:
         return
     name = ctx.get("name") or ""
@@ -5433,6 +5434,8 @@ def exchange_control(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     first, second = (plan.state.cards[c] for c in cards)
     if first.controller == second.controller or not (plan.in_game(first) and plan.in_game(second)):
         return True
+    if any("cant_gain_control110j" in plan.ch(c).imposed for c in (first, second)):
+        return True  # -- Guardian Beast (wave 110J) -- 701.12a: an exchange that can't be completed does nothing
     _remember(plan, ctx, e, cards)
     duration = e.get("duration", "permanent")
     _control_effect(plan, ctx, [first.id], second.controller, duration)

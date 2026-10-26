@@ -328,7 +328,6 @@ def black_symbols110m(plan: Plan, ids: list[str]) -> int:
 
 def _names_fit(plan: Plan, comp: CostComponent, ids: list[str]) -> bool:
     """201.2a–b: nameless objects never qualify; split cards can have several names."""
-    from app.rules.card_names import names_of
 
     if not comp.names:
         return True
@@ -342,19 +341,20 @@ def _names_fit(plan: Plan, comp: CostComponent, ids: list[str]) -> bool:
         return black_symbols110m(plan, ids) >= 15
     if comp.names in wave110d_costs.GROUPS:
         return wave110d_costs.fit(plan, comp, ids)
-    groups = [set(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
-    if not groups or any(not g for g in groups):
+    from app.rules.card_names import has_name, split_wild  # -- Spy Kit (wave 110J) --
+
+    groups, wild = split_wild([plan.ch(plan.state.cards[c]) for c in ids])
+    if not (groups or wild) or any(not g for g in groups):
         return False
     if comp.names == "same":
-        return bool(set.intersection(*groups))
-    return sum(map(len, groups)) == len(set.union(*groups))
+        return not groups or any(all(has_name(w, n) for w in wild) for n in set.intersection(*groups))
+    return sum(map(len, groups)) == len(set.union(*groups)) if groups else True
 
 
 def _names_payable(plan: Plan, comp: CostComponent, ids: list[str], need: int) -> bool:
     """118.3: test availability before offering an activation or paying any component."""
     from collections import Counter
 
-    from app.rules.card_names import names_of
 
     if not comp.names:
         return len(ids) >= need
@@ -366,10 +366,14 @@ def _names_payable(plan: Plan, comp: CostComponent, ids: list[str], need: int) -
         return len(ids) >= need and black_symbols110m(plan, ids) >= 15
     if comp.names in wave110d_costs.GROUPS:
         return wave110d_costs.payable(plan, comp, ids, need)
-    groups = [frozenset(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
+    from app.rules.card_names import has_name, split_wild  # -- Spy Kit (wave 110J) --
+
+    plain, wild = split_wild([plan.ch(plan.state.cards[c]) for c in ids])
+    groups = [frozenset(g) for g in plain]
     if comp.names == "same":
         counts = Counter(n for g in groups for n in g)
-        return any(n >= need for n in counts.values())
+        return any(n + sum(has_name(w, name) for w in wild) >= need for name, n in counts.items()) or len(wild) >= need
+    groups += [frozenset({f"\0wild{i}"}) for i in range(len(wild))]  # a rule-named object differs from every other name (201.2a)
     # Equal name sets cannot both occur in a different-names group. Deduplicate them
     # before the bounded search, including when a player owns many identical tokens.
     distinct = list(dict.fromkeys(g for g in groups if g))

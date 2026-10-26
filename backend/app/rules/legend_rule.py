@@ -63,6 +63,7 @@ def exempt_cards(plan: Plan, group: list[CardInstance]) -> set[str]:
             if i in skip or d.get("kind") != "static" or d.get("static") != KIND:
                 continue
             if d["scope"] == "named_two":  # (wave 42A) exactly two permanents with the source's name on the battlefield: those two
+                # Spy Kit (wave 110J) needs no name_test here: it adds names only of nonlegendary creature cards, and the legend rule (704.5j) needs legendary permanents.
                 name = d.get('name', ch.name)
                 same = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c)
                         and name in card_names.names_of(plan.ch(c))]
