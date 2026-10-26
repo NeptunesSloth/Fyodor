@@ -1254,6 +1254,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         )
 
         ch = zone_grants.apply(state, card, ch, info)
+        if state.rules.guardian110b and card.zone.endswith(":graveyard"):  # -- (wave 110B) -- Guardian Angel: this turn's payment offered from its owner's graveyard
+            from app.rules import wave110b_final
+
+            ch = wave110b_final.guardian_overlay(state, card, ch)
         from app.rules import dynamic_zone_keyword_costs56
 
         ch = dynamic_zone_keyword_costs56.apply(state, card, ch, info)

@@ -1704,6 +1704,8 @@ def _life_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
         return [{**ev, "n": int(op["n"])}]
     if op["do"] == "lose":  # "that player loses that much life instead" (a new kind of event, 616.2)
         return [{"kind": "life_loss", "player": ev["player"], "n": ev["n"]}]
+    if op["do"] == "draw_instead110b":  # -- (wave 110B) -- Nefarious Lich: "draw that many cards instead" (a new kind of event, 616.2; the callers of plan_life draw them)
+        return [{"kind": "draw_n110b", "player": ev["player"], "n": ev["n"]}]
     return [ev]
 
 
@@ -1768,6 +1770,8 @@ def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dic
 
                 for pid, n in life_lock.keep(plan, [(ev["player"], ev["n"])], actor=actor):
                     plan.do({"type": "life", "player": pid, "delta": -n, "group": operation}, actor=actor)
+            elif ev["kind"] == "draw_n110b" and ev["n"] > 0:  # -- (wave 110B) -- Nefarious Lich: drawn instead (through the draw choke point: its replacements apply)
+                draw_cards(plan, [ev["player"]], int(ev["n"]))
     return True
 
 
@@ -2492,6 +2496,7 @@ class DamageOutcome:
     lifelink: dict[str, int] = field(default_factory=dict)  # life gained per source (702.15e), after its replacements
     lifelink_cause110m: dict[str, str] = field(default_factory=dict)  # (wave 110M) lifelink key -> the spell whose damage it is
     losses: list[tuple[str, int]] = field(default_factory=list)  # a lifelink gain replaced by a loss (Tainted Remedy)
+    draws: list[tuple[str, int]] = field(default_factory=list)  # (wave 110B) a lifelink gain replaced by drawing cards (Nefarious Lich)
     deathtouched: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     shields: dict[str, int] = field(default_factory=dict)
@@ -2635,6 +2640,8 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
                     out.lifelink[before["key"]] = out.lifelink.get(before["key"], 0) + f["n"]
                 elif f["kind"] == "life_loss" and f["n"] > 0:
                     out.losses.append((f["player"], f["n"]))
+                elif f["kind"] == "draw_n110b" and f["n"] > 0:  # -- (wave 110B) -- Nefarious Lich: a lifelink gain replaced by drawing, once the damage is dealt
+                    out.draws.append((f["player"], int(f["n"])))
     from app.rules import (
         damage_life_results42,
         life_lock,  # -- can't lose life (wave 29D) -- 120.3a: the damage is still dealt (its events stay); the life loss that can't happen is no event
@@ -2727,6 +2734,8 @@ def _commit_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, 
 
     for pid, n in life_lock.keep(plan, out.losses, actor=actor):  # (after the damage: its own step, UNVERIFIED batching)
         plan.do({"type": "life", "player": pid, "delta": -n}, actor=actor)
+    for pid, n in out.draws:  # -- (wave 110B) -- Nefarious Lich: the cards drawn instead of the lifelink gain
+        draw_cards(plan, [pid], n)
     plan.rules.deathtouched = list(dict.fromkeys([*plan.rules.deathtouched, *out.deathtouched]))
     shield_counters.remove(plan, out.shield_counters, actor)
 

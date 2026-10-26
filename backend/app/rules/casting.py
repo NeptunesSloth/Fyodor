@@ -5604,6 +5604,7 @@ def resume_crew(plan: Plan, d: Any, chosen: list[str]) -> None:
     activate_ability(plan, intent)  # type: ignore[arg-type]
 
 
+GUARDIAN_PAY110B = "{1}: Prevent the next 1 damage that would be dealt to that permanent or player this turn."  # wave110b_final (special action marker line)
 VULTURES = "Discard this card: You gain 0 life."  # oracle.py wave 110F rewrite of Circling Vultures' line (116.2e)
 
 
@@ -5679,6 +5680,11 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         if unearth_cost is None and (gk := graveyard_keywords.ability(ch, a.ability)) is not None and not plan.manual(card):
             _activation_limit(plan, card, ch)  # -- keywords (wave 15E) -- embalm / eternalize: activated from the graveyard
             activate_to_stack(plan, card, ch, gk, a, definition=scripts.define(gk, ch))
+            return
+        if unearth_cost is None and ability is not None and ability.text == GUARDIAN_PAY110B:  # -- (wave 110B) -- Guardian Angel: a special action, no stack
+            from app.rules import wave110b_final
+
+            wave110b_final.guardian_action(plan, card, ch, a)
             return
         if unearth_cost is None:
             raise ActionError("That card has no ability to use from your graveyard")

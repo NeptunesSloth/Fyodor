@@ -192,6 +192,7 @@ SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra", "r
 SUPPORTED_REPLACE_OPS["counters"] = SUPPORTED_REPLACE_OPS["counters"] | {"half"}
 # -- replacements: draws and life (wave 28B) -- a draw replaced by its own instructions (app/rules/draw_bodies.py)
 SUPPORTED_REPLACE_OPS["draw"] = SUPPORTED_REPLACE_OPS["draw"] | {"body"}
+SUPPORTED_REPLACE_OPS["life"] = SUPPORTED_REPLACE_OPS["life"] | {"draw_instead110b"}  # -- (wave 110B) -- Nefarious Lich: "draw that many cards instead" (replace._life_apply; its callers draw them)
 SUPPORTED_REPLACE_OPS["mill"] = frozenset({"mul", "add"})  # 701.17a: Bruvac the Grandiloquent, The Water Crystal (replace.mill_counts)
 SUPPORTED_REPLACE_OPS["draw_count"] = frozenset({"add", "each_one"})  # 121.2a: Quantum Riddler, Alms Collector (replace.draw_cards)
 SUPPORTED_REPLACE_OPS["life_loss"] = frozenset({"mul", "floor"})  # 119.3: Bloodletter of Aclazotz (app/rules/replace.py lose_life); floor: wave 35C

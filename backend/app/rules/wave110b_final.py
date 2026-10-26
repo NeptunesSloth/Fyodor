@@ -103,6 +103,8 @@ def spell(ch: Any, lines: list[Any]) -> Def | None:
     """Awaken the Maelstrom as one definition (its "is all colors" line is a characteristic, characteristics.all_colors; whole110k: both lines read as this one)."""
     from app.rules import scripts
 
+    if (guardian := guardian_spell(ch, lines)) is not None:
+        return guardian
     if [x.text for x in lines] != [_ALL_COLORS, _AWAKEN]:
         return None
     parsed = scripts.parse_effects("Target player draws two cards. You may put an artifact card from your hand onto the battlefield. Destroy target permanent an opponent controls.")
@@ -237,6 +239,167 @@ def resume_distribute(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
+_LICH_DAMAGE = "If damage would be dealt to you, exile that many cards from your graveyard instead. If you can't, you lose the game."
+
+
+def lich_graveyard(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
+    """Nefarious Lich (614.1a, 614.6, 609.3): the damage is never dealt; its controller exiles that many cards from their graveyard (their choice); if they have fewer, they exile
+    what they have ("as much as possible") and lose the game."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    n = max(0, int(effects._amount(plan, ctx, e["n"])))
+    yard = [c for c in plan.state.zones.get(f"{pid}:graveyard", [])]
+    if n == 0:
+        return True
+    if len(yard) <= n:
+        effects.exile_cards(plan, ctx, {}, yard)
+        if len(yard) < n:
+            return effects.PRIMITIVES["lose_game"](plan, ctx, {"do": "lose_game", "who": "you"})
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'Exile'}: exile {n} cards from your graveyard instead of the damage",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in yard], min_choices=n, max_choices=n,
+           resume={"step": "lich_gy110b", "ctx": ctx})
+    return False
+
+
+def resume_lich_graveyard(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    ok = {o.id for o in d.options}
+    if len(set(chosen)) != d.max_choices or any(c not in ok for c in chosen):
+        raise ActionError(f"Choose {d.max_choices} of the cards offered")
+    effects.exile_cards(plan, d.resume["ctx"], {}, list(chosen))
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
+_GUARDIAN = ("Prevent the next X damage that would be dealt to any target this turn. Until end of turn, you may pay {1} any time you could cast an instant. If you do, prevent the "
+             "next 1 damage that would be dealt to that permanent or player this turn.")
+GUARDIAN_PAY = "{1}: Prevent the next 1 damage that would be dealt to that permanent or player this turn."  # the special action's marker line (never a stack ability)
+
+
+def guardian_spell(ch: Any, lines: list[Any]) -> Def | None:
+    from app.rules import scripts
+
+    if [x.text for x in lines] != [_GUARDIAN]:
+        return None
+    parsed = scripts.parse_effects("Prevent the next X damage that would be dealt to any target this turn.")
+    assert parsed is not None
+    effects, targets, _ = parsed
+    return {"kind": "spell", "whole110k": True, "effects": [*effects, {"do": "guardian110b"}], **scripts.target_fields(targets)}
+
+
+def guardian_note(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
+    """The permission to pay {1}, for this turn: its card, controller and the target it names (the permanent as that object, 400.7, or the player)."""
+    t = (ctx.get("targets") or [{}])[0].get("id")
+    if t is None or ctx.get("source_card") is None:
+        return True
+    card = plan.state.cards.get(t)
+    plan.rules.guardian110b.append({"card": ctx["source_card"], "player": ctx["controller"], "turn": plan.state.turn.number, "target": t,
+                                    "oid": plan.oid(card) if card is not None else None})
+    return True
+
+
+def _guardian_open(state: Any, card: Any, player: str) -> dict[str, Any] | None:
+    r = state.rules
+    if r is None or card.zone != f"{player}:graveyard" or card.owner != player:
+        return None
+    return next((g for g in r.guardian110b if g["card"] == card.id and g["player"] == player and g["turn"] == state.turn.number), None)
+
+
+def guardian_overlay(state: Any, card: Any, ch: Any) -> Any:
+    """113.6m-like: while this turn's permission lasts, the Angel in its owner's graveyard offers the payment ("{1}: Prevent the next 1 damage …") as a special action."""
+    from dataclasses import replace as _replace
+
+    from app.rules.oracle import AbilityText
+
+    if card.name != "Guardian Angel" or _guardian_open(state, card, card.owner) is None:
+        return ch
+    return _replace(ch, abilities=ch.abilities + (AbilityText(index=193, text=GUARDIAN_PAY, kind="activated", cost="{1}"),))
+
+
+def guardian_action(plan: Any, card: Any, ch: Any, a: Any) -> None:
+    """The special action (it uses no stack and can't be responded to): pay {1}; then the next 1 damage to the target this turn is prevented (615.7). 118.1: paid like any cost."""
+    from app.game.errors import ActionError
+    from app.rules import casting, special_payment_tails
+    from app.rules import mana as M
+
+    g = _guardian_open(plan.state, card, plan.actor)
+    if g is None:
+        raise ActionError("That payment is no longer open this turn")
+    target = plan.state.cards.get(g["target"])
+    if target is None and g["target"] not in plan.live() or target is not None and (not target.zone.endswith(":battlefield") or plan.oid(target) != g["oid"]):
+        raise ActionError("The permanent or player it names is gone")
+    cost = M.parse_cost("{1}")
+    purpose = casting.Purpose()
+    if casting.payment_step(plan, a, cost, f"paying {{1}} for {ch.name}", purpose=purpose):
+        return
+    special_payment_tails.pay(plan, "guardian110b", card, ch, cost, f"paid {{1}} for {ch.name}", sources=a.sources, purpose=purpose, effects=[{"target": g["target"], "oid": g["oid"]}])
+
+
+def guardian_paid(plan: Any, card: Any, effects: list[Def]) -> None:
+    """Paid: the shield (prevent the next 1 damage that would be dealt to that permanent or player this turn); more payments make more shields."""
+    import secrets
+
+    from app.rules import replace
+
+    spec = effects[0]
+    target = plan.state.cards.get(spec["target"])
+    if target is not None and (not target.zone.endswith(":battlefield") or plan.oid(target) != spec["oid"]):
+        return  # (it left while the payment was made: nothing to protect)
+    key = "scoped:" + secrets.token_hex(8)
+    plan.rules.prevention[key] = 1
+    replace.add_record(plan, event="damage", match={"source": {}, "to": {"objects": {"oids": [spec["oid"]]}} if target is not None else {"pids": [spec["target"]]}},
+                       op={"do": "scoped_shield", "key": key, "prevention": True}, controller=plan.actor, source=None, source_card=card.id, label=card.name or "Guardian Angel")
+    plan.note(f"{plan.name(plan.actor)}: the next 1 damage that would be dealt to {target.name if target is not None else plan.name(spec['target'])} this turn is prevented", actor=plan.actor)
+    plan.rules.passed = []
+
+
+_MAIRSIL_ETB = "When Mairsil enters, you may exile an artifact or creature card from your hand or graveyard and put a cage counter on it."
+_MAIRSIL_STATIC = ("Mairsil has all activated abilities of all cards you own in exile with cage counters on them. You may activate each of those abilities only once each turn.")
+
+
+def _mairsil_static(d: Def) -> Def:
+    """The lending of abilities_of.py (113.10, 613.1f), each lent ability "Activate only once each turn" (602.5b: ``once``)."""
+    return {**d, "abilities_of": {**d["abilities_of"], "once": True}}
+
+
+_BUILD[_MAIRSIL_STATIC] = ("This creature has all activated abilities of all cards you own in exile with cage counters on them.", _mairsil_static)
+_BUILD[_MAIRSIL_ETB] = ("When this creature enters, draw a card.", lambda d: {**d, "effects": [{"do": "mairsil_cage110b"}]})
+
+
+def mairsil_cage(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
+    """"You may exile an artifact or creature card from your hand or graveyard and put a cage counter on it" (608.2d: chosen as it resolves)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    pool = [c.id for c in plan.state.cards.values() if (c.zone == f"{pid}:hand" or c.zone == f"{pid}:graveyard" and c.owner == pid)
+            and {"Artifact", "Creature"} & set(plan.ch(c).types)]
+    if not pool:
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'Mairsil'}: you may exile an artifact or creature card from your hand or graveyard and put a cage counter on it",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool], min_choices=0, max_choices=1, resume={"step": "mairsil_cage110b", "ctx": ctx})
+    return False
+
+
+def resume_mairsil_cage(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    if len(chosen) > 1 or any(c not in {o.id for o in d.options} for c in chosen):
+        raise ActionError("Choose one of the cards offered, or none")
+    ctx = d.resume["ctx"]
+    if chosen:
+        plan.do({"type": "move", "card_ids": chosen, "to": {"player": plan.state.cards[chosen[0]].owner, "zone": "exile"}}, actor=d.player)
+        if plan.state.cards[chosen[0]].zone.endswith(":exile"):
+            plan.do({"type": "counter", "card_ids": chosen, "kind": "cage", "delta": 1}, actor=d.player)
+    effects.continue_effects(plan, ctx)
+
+
 _RIVER_DRAW = "Meet in Reverse \u2014 You draw cards from the bottom of your library rather than the top."
 _RIVER_SPOILERS = ("Spoilers \u2014 Whenever an opponent scries, surveils, or searches their library, put a +1/+1 counter on River Song. "
                    "Then River Song deals damage to that player equal to its power.")
@@ -312,6 +475,9 @@ def torrent_prevent(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
+    if ability.text.strip() == _LICH_DAMAGE:  # the damage body of replace_grammar (damage bodies, wave 35C) with this instruction
+        return {"kind": "static", "static": "replace", "event": "damage", "match": {"source": {}, "to": {"players": "you"}},
+                "op": {"do": "body", "rider": {"effects": [{"do": "lich_gy110b", "n": {"ref_amount": "that_damage"}}], "if": False}}, "effects": []}
     if ability.text.strip() == _TORRENT_STATIC:
         return {"kind": "static", "static": "stack_grant110b", "effects": []}
     if ability.text.strip() == _TORRENT_GRANT:
@@ -394,6 +560,6 @@ def resume_crafted_put(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-PRIMITIVES: dict[str, Any] = {"siege_exile110b": siege_exile, "siege_hand110b": siege_hand, "siege_rest110b": siege_rest, "copy_choice110b": copy_choice,
+PRIMITIVES: dict[str, Any] = {"mairsil_cage110b": mairsil_cage, "guardian110b": guardian_note, "lich_gy110b": lich_graveyard, "siege_exile110b": siege_exile, "siege_hand110b": siege_hand, "siege_rest110b": siege_rest, "copy_choice110b": copy_choice,
                               "distribute110b": distribute, "torrent_prevent110b": torrent_prevent, "greater_dig110b": greater_dig, "crafted_put110b": crafted_put}
-RESUME: dict[str, Any] = {"crafted_put110b": resume_crafted_put, "siege_hand110b": resume_siege_hand, "copy_choice110b": resume_copy_choice, "distribute110b": resume_distribute}
+RESUME: dict[str, Any] = {"mairsil_cage110b": resume_mairsil_cage, "lich_gy110b": resume_lich_graveyard, "crafted_put110b": resume_crafted_put, "siege_hand110b": resume_siege_hand, "copy_choice110b": resume_copy_choice, "distribute110b": resume_distribute}

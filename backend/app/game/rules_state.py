@@ -1770,6 +1770,7 @@ class RulesState(BaseModel):
     # physical card keeps its id; its rules object is "<card id>.<n>".
     objects: dict[str, int] = Field(default_factory=dict)
     next_life_operation: int = 0  # Reserved before a life vector can pause for replacements.
+    guardian110b: list[dict[str, Any]] = Field(default_factory=list)  # (wave 110B) Guardian Angel: "until end of turn, you may pay {1} any time you could cast an instant" (card, player, turn, target)
     next_object: int = 0
     # A permanent's later timestamp, when it got one after entering (613.7e: an Aura, Equipment or
     # Fortification each time it becomes attached; 613.7g: a double-faced permanent each time it

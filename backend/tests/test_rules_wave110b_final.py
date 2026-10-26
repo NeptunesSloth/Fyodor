@@ -23,6 +23,7 @@ from tests.wave110b_kit import (
     drive,
     life,
     mana,
+    pt,
     put,
     repository,
     settle,
@@ -73,7 +74,7 @@ def test_chameleon_ignores_its_own_and_others_unaffected(cards):
 BRINK = "Back from the Brink"
 
 
-@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain", "Thief of Blood", "Torrent of Lava", "River Song", "Sanar, Innovative First-Year", "The Dragon-Kami Reborn // Dragon-Kami's Egg", "Invasion of Alara // Awaken the Maelstrom"])
+@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain", "Thief of Blood", "Torrent of Lava", "River Song", "Sanar, Innovative First-Year", "The Dragon-Kami Reborn // Dragon-Kami's Egg", "Invasion of Alara // Awaken the Maelstrom", "Nefarious Lich", "Guardian Angel", "Mairsil, the Pretender"])
 def test_brink_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -631,4 +632,133 @@ def test_awaken_the_maelstrom_resolves_every_part_in_order(cards):
     assert sum(1 for c in s.state.cards.values() if c.is_token and c.name == "Mind Stone") == 1
     assert s.state.cards[bears.id].counters == {"+1/+1": 3}
     assert sum("+1/+1 counter" in p[1] for p in seen if isinstance(p, tuple)) == 3
+    check(s)
+
+
+LICH = "Nefarious Lich"
+
+
+def test_nefarious_lich_draws_that_many_cards_instead_of_gaining_life(cards):
+    """614.1a, 614.6: "If you would gain life, draw that many cards instead": Lightning Helix's gain of 3 never happens, three cards are drawn; the damage half of Helix is dealt as usual."""
+    s = build(cards, [LICH, "Lightning Helix"], [])
+    put(s, LICH)
+    mana(s, R=1, W=1)
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Helix").id, targets=["p2"])
+    drive_exact(s, lambda d: None)
+    assert life(s) == 40 and life(s, "p2") == 37 and len(s.state.zones["p1:hand"]) == hand + 3
+    check(s)
+
+
+def test_nefarious_lich_lifelink_gain_becomes_a_draw(cards):
+    """702.15e through 614.6: the lifelink gain of a creature that deals combat damage is replaced by drawing that many cards."""
+    s = build(cards, [LICH, "Vampire Nighthawk"], [])
+    put(s, LICH)
+    hawk = put(s, "Vampire Nighthawk")
+    hand = len(s.state.zones["p1:hand"])
+    attack(s, hawk)
+    drive_exact(s, lambda d: None)
+    assert life(s, "p2") == 38 and life(s) == 40 and len(s.state.zones["p1:hand"]) == hand + 2
+    check(s)
+
+
+@pytest.mark.parametrize("yard,loses", [(4, False), (2, True)])
+def test_nefarious_lich_exiles_graveyard_cards_instead_of_damage_or_loses(cards, yard, loses):
+    """614.1a, 614.6, 609.3: Lightning Bolt at yourself: the 3 damage is replaced by exiling 3 cards from your graveyard (no life lost, no damage dealt); with fewer you exile what you
+    have and lose the game."""
+    s = build(cards, [LICH, "Lightning Bolt", "Grizzly Bears", "Hill Giant", "Divination", "Serra Angel"], [])
+    put(s, LICH)
+    for n in ("Grizzly Bears", "Hill Giant", "Divination", "Serra Angel")[:yard]:
+        at(s, n, "graveyard", "p1")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=["p1"])
+    drive_exact(s, lambda d: None)
+    assert life(s) == 40
+    exiled = [c for c in s.state.cards.values() if c.owner == "p1" and c.zone == "p1:exile"]
+    assert len(exiled) == min(3, yard)
+    assert ("p1" in s.state.rules.lost) is loses
+    check(s)
+
+
+ANGEL = "Guardian Angel"
+
+
+@pytest.mark.parametrize("pays,life_after", [(0, 39), (1, 40)])
+def test_guardian_angel_shield_and_the_extra_one_damage_payment(cards, pays, life_after):
+    """615.7, 116.2 (a special action: no stack): Guardian Angel (X=2) prevents the next 2 damage to Alice; each {1} paid from its graveyard card this turn prevents 1 more; Bolt deals 3."""
+    s = build(cards, [ANGEL, "Lightning Bolt"], [])
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, ANGEL).id, targets=["p1"], x_value=2)
+    drive_exact(s, lambda d: None)
+    angel = card_named(s, ANGEL)
+    assert s.state.cards[angel.id].zone == "p1:graveyard"
+    for _ in range(pays):
+        mana(s, C=1)
+        act(s, "p1", type="activate_ability", card_id=angel.id, ability=find_ab(s, angel, "{1}: Prevent the next 1 damage"))
+        assert not s.state.zones.get("stack")  # (a special action: nothing goes on the stack)
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=["p1"])
+    drive_exact(s, lambda d: None)
+    assert life(s) == life_after
+    check(s)
+
+
+def test_guardian_angel_payment_needs_the_mana_and_is_for_its_owner_this_turn_only(cards):
+    s = build(cards, [ANGEL], [])
+    mana(s, W=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, ANGEL).id, targets=["p1"], x_value=2)
+    drive_exact(s, lambda d: None)
+    angel = card_named(s, ANGEL)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=angel.id, ability=find_ab(s, angel, "{1}: Prevent the next 1 damage"))  # (no mana)
+    from tests.wave100c_kit import to_phase
+
+    to_phase(s, "main1", 3)
+    assert not any("Prevent the next 1 damage" in a.text for a in ch(s, angel).abilities)  # (a turn later the permission is over)
+
+
+MAIRSIL = "Mairsil, the Pretender"
+
+
+def test_mairsil_exiles_a_card_with_a_cage_counter_and_borrows_its_activated_abilities_once_a_turn(cards):
+    """113.10, 613.1f, 602.5b: the card exiled with a cage counter lends its activated ability ("{R}: this permanent gets +1/+0 until end of turn"), usable once each turn; a card with no
+    cage counter lends nothing; the ability is gone when the card leaves exile."""
+    s = build(cards, [MAIRSIL, "Shivan Dragon", "Mind Stone"], [])
+    stone = to_hand(s, "Mind Stone")
+    dragon = to_hand(s, "Shivan Dragon")
+    mana(s, U=1, B=1, R=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, MAIRSIL).id)
+    drive_exact(s, lambda d: [dragon.id] if "cage counter" in d.prompt else None)
+    mair = card_named(s, MAIRSIL)
+    assert s.state.cards[dragon.id].zone == "p1:exile" and s.state.cards[dragon.id].counters == {"cage": 1} and s.state.cards[stone.id].zone == "p1:hand"
+    pump = [a for a in ch(s, mair).abilities if "+1/+0" in a.text]
+    assert len(pump) == 1 and "only once each turn" in pump[0].text
+    before = pt(s, MAIRSIL)
+    mana(s, R=2)
+    act(s, "p1", type="activate_ability", card_id=mair.id, ability=pump[0].index)
+    settle(s)
+    assert pt(s, MAIRSIL)[0] == before[0] + 1
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=mair.id, ability=pump[0].index)  # (once each turn)
+    act(s, "p1", type="move", card_ids=[dragon.id], to={"player": "p1", "zone": "graveyard"})
+    assert not any("+1/+0" in a.text for a in ch(s, mair).abilities)
+    check(s)
+
+
+def test_mairsil_borrows_a_mana_ability_and_only_from_cards_its_controller_owns(cards):
+    """A mana ability is an activated ability (113.10): the exiled Mind Stone with a cage counter gives Mairsil "{T}: Add {C}."; Bob's exiled card with a cage counter gives nothing (you own)."""
+    s = build(cards, [MAIRSIL, "Mind Stone", "Sol Ring"], ["Shivan Dragon"])
+    mair = put(s, MAIRSIL)
+    s.state.rules.controlled_since[mair.id].turn = 0
+    stone = card_named(s, "Mind Stone")
+    theirs = card_named(s, "Shivan Dragon", "p2")
+    for c, pid in ((stone, "p1"), (theirs, "p2")):
+        act(s, pid, type="move", card_ids=[c.id], to={"player": pid, "zone": "exile"})
+        act(s, "p1", type="set_counter", card_id=c.id, kind="cage", value=1)
+    abilities = [a.text for a in ch(s, mair).abilities]
+    assert any(t.startswith("{T}: Add {C}") for t in abilities) and not any("+1/+0" in t for t in abilities)
+    mana_line = next(a for a in ch(s, mair).abilities if a.text.startswith("{T}: Add {C}"))
+    assert mana_line.kind == "mana"
+    cast(s, "Sol Ring")  # (the only mana source of Alice is Mairsil's borrowed ability: {C} pays for it)
+    assert s.state.cards[card_named(s, "Sol Ring").id].zone == "p1:battlefield" and s.state.cards[mair.id].tapped
     check(s)
