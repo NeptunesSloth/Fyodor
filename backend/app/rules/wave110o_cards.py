@@ -145,6 +145,7 @@ _VOLO_DRAW = "{2}, {T}: Draw a card for each creature type noted for target perm
 _TOMB_ACTIVATED = ("{2}, {T}: Put a mire counter on target non-Swamp land. That land is a Swamp for as long as it has a mire counter on it. Activate only during your upkeep.")
 _TOMB_TRIGGER = ("When ~ is put into a graveyard from the battlefield, at the beginning of each of your upkeeps for the rest of the game, remove all mire counters from a land "
                  "that a mire counter was put onto with ~ but that a mire counter has not been removed from with ~.")
+_ALTERATION = "Attach target Aura attached to a creature or land to another permanent of that type."
 _ARMOR_PREVENT = "Prevent all damage that would be dealt to enchanted creature by sources of the last chosen color."
 _ARMOR_COUNTER = "{X}: Put a sleight counter on ~ and choose a color. X is the number of sleight counters on ~."
 _PYRAMIDS_MODE = "• The next time target land would be destroyed this turn, remove all damage marked on it instead."
@@ -302,6 +303,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or [e["do"] for e in native["effects"]] != ["gain_life"]:
             return None
         return {**native, "effects": [{"do": "tomb_delay110o"}]}
+    if ability.kind == "spell" and text == _ALTERATION:  # 701.3, 115.1: the Aura is the one target; the permanent it goes to is chosen as this resolves (not targeted)
+        from app.rules import selectors
+
+        mine = [selectors.Selector(subtypes=("Aura",), extras=(x,)).key() for x in ("attached_creature", "attached_land")]
+        return {"kind": "spell", "effects": [{"do": "alter_aura110o", "who": "target"}], "target": {"what": selectors.Selector(zones=("battlefield",), either=tuple(mine)).key()}}
     if ability.kind == "activated" and text == _KALDRA:  # 603.4-style "if" judged as it resolves (608.2c); every Equipment so named is attached
         from app.rules import conditions, selectors
 
@@ -1009,6 +1015,54 @@ def resume_tomb_remove(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+def alter_aura(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Enchantment Alteration: "that type" is the type of the permanent the Aura is attached to as this resolves (a creature, a land, or both); the caster picks the
+    other permanent of it that the Aura can enchant (701.3b), nothing if there is none."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import attachments, effects
+    from app.rules.plan import decide
+    from app.rules.targets import label
+
+    found = effects._cards(plan, ctx, e["who"])
+    aura = plan.state.cards[found[0]] if found else None
+    host = plan.state.cards.get(aura.attached_to or "") if aura is not None else None
+    if aura is None or host is None or not host.zone.endswith(":battlefield"):
+        return True
+    types = plan.ch(host).types & {"Creature", "Land"}
+    options = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.id != host.id and types & plan.ch(c).types
+               and attachments.host_problem(plan, aura, c.id) is None]
+    if not options:
+        return True
+    if len(options) == 1:
+        attachments.attach(plan, aura.id, options[0], ctx["controller"])
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: attach {aura.name} to which permanent?",
+           options=[DecisionOption(id=c, label=label(plan, c), card_id=c) for c in options], resume={"step": "alter_aura110o", "ctx": ctx, "aura": aura.id})
+    return False
+
+
+def resume_alter_aura(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import attachments, effects
+
+    if len(chosen) != 1 or chosen[0] not in {o.id for o in d.options}:
+        raise ActionError("Choose one of the permanents")
+    attachments.attach(plan, d.resume["aura"], chosen[0], d.player)
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
+def divide_x_to_event(target: Any) -> Any:
+    """A reflexive ability's divided group whose total is X: the total becomes the amount of its event (the X paid), read as it goes on the stack (targets.divide_x);
+    any other X in the target definition is not read (None)."""
+    groups = target if isinstance(target, list) else [target]
+    out = []
+    for g in groups:
+        if not isinstance(g, dict) or (g.get("divide") or {}).get("total") != {"x": 1} or "value" in g["divide"]:
+            return None
+        out.append({**g, **({"min": 0} if g["max"] >= 250 else {}), "divide": {**g["divide"], "value": {"event_amount": 1}}})  # (115.6: "any number of" allows none)
+    return out if isinstance(target, list) else out[0]
+
+
 def wipe_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """614.1a: a shield for this turn on each target land (the object, 400.7): the next time it would be destroyed, the damage marked on it is removed instead."""
     from app.rules import effects
@@ -1055,7 +1109,7 @@ def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES: dict[str, Any] = {"tomb_put110o": tomb_put, "tomb_delay110o": tomb_delay, "tomb_remove110o": tomb_remove, "note110o": note, "arn_sacrifice110o": arn_sacrifice, "collect110o": collect, "lore_bind110o": lore_bind, "secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
+PRIMITIVES: dict[str, Any] = {"alter_aura110o": alter_aura, "tomb_put110o": tomb_put, "tomb_delay110o": tomb_delay, "tomb_remove110o": tomb_remove, "note110o": note, "arn_sacrifice110o": arn_sacrifice, "collect110o": collect, "lore_bind110o": lore_bind, "secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
               "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
-RESUME: dict[str, Any] = {"tomb_remove110o": resume_tomb_remove, "note110o": resume_note, "echo_offer110o": resume_echo_offer, "type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
+RESUME: dict[str, Any] = {"alter_aura110o": resume_alter_aura, "tomb_remove110o": resume_tomb_remove, "note110o": resume_note, "echo_offer110o": resume_echo_offer, "type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}

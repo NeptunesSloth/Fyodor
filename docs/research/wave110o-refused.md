@@ -13,9 +13,7 @@
 - Exchange of Words: exchanging text boxes (layer 3) is not modelled.
 - Eye of Ojer Taq: craft, a card type shared by the exiled materials, and "next spell of the chosen type is free".
 - Piracy: tapping lands you don't control for mana has no foundation.
-- Enchantment Alteration: the destination "another permanent of that type" depends on the type of the first target.
 - False Orders: removes a blocker from combat and inserts a new block.
 - Gather Specimens: a turn-long "enters under your control instead" replacement.
-- Numa, Joraga Chieftain: paying {X}{X} and distributing X counters among any number of targets are both missing.
 - Disciple of Caelus Nin: phasing out everything not chosen, and "permanents can't phase in".
 - Custodi Peacekeeper: depends on a number noted while drafting (905.2b); no rule for a game that was not drafted.

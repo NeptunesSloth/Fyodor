@@ -20,6 +20,8 @@
 * 101.2, 305.1, 603.8: City in a Bottle stops spells and lands with Arabian Nights names, and their controllers sacrifice the other such permanents.
 * 603.7, 122.1, 611.2b: Cyclopean Tomb makes Swamps with mire counters and, once gone, takes the counters back one land each upkeep.
 * Volo, Itinerant Scholar: Volo's Journal notes a creature type of each creature spell cast (one not yet noted for it), and Volo draws a card for each.
+* 701.3b, 115.1: Enchantment Alteration attaches the targeted Aura to another permanent of the type it is on (chosen as it resolves).
+* 107.3a, 107.3f, 601.2d: Numa pays {X}{X} (two mana for each X) and divides X +1/+1 counters among any number of target Elves.
 """
 
 from __future__ import annotations
@@ -59,7 +61,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero", "Living Lore", "Evelyn, the Covetous", "Kjeldoran Guard", "City in a Bottle", "Volo, Itinerant Scholar", "Cyclopean Tomb"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero", "Living Lore", "Evelyn, the Covetous", "Kjeldoran Guard", "City in a Bottle", "Volo, Itinerant Scholar", "Cyclopean Tomb", "Enchantment Alteration", "Numa, Joraga Chieftain"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -957,4 +959,70 @@ def test_cyclopean_tomb_makes_swamps_and_after_it_is_gone_takes_the_counters_bac
     assert swamps(s, lands) == [False, False] and now(s, lands[0]).counters.get("mire", 0) == 0
     to_phase(s, "upkeep", turn=11)
     settle(s)  # (nothing left to take counters from: the delayed ability goes on without effect)
+    check(s)
+
+
+ALTERATION = "Enchantment Alteration"
+
+
+def test_enchantment_alteration_moves_an_aura_to_another_permanent_of_the_type_it_is_on(cards):
+    s = build(cards, [ALTERATION, "Pacifism", "Llanowar Elves", "Wild Growth", "Forest"], ["Grizzly Bears"])
+    bears, elves = put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves")
+    pacifism = cast_on(s, "Pacifism", bears)
+    assert now(s, pacifism).attached_to == bears.id
+    cast_on(s, ALTERATION, pacifism)  # (the only other creature is the Elves: no question)
+    assert now(s, pacifism).attached_to == elves.id
+    forest = put_new(s, "Forest")
+    growth = cast_on(s, "Wild Growth", forest)
+    assert now(s, growth).attached_to == forest.id
+    other, third = put_new(s, "Forest"), put_new(s, "Forest")
+    spell = to_hand(s, ALTERATION)
+    mana(s, "p1", U=1)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[growth.id])
+    settle(s, answers=[other.id])  # (two lands to choose from: the caster picks)
+    assert now(s, growth).attached_to == other.id and third.id != other.id
+    assert now(s, pacifism).attached_to == elves.id  # (the creature Aura was not touched)
+    check(s)
+
+
+NUMA = "Numa, Joraga Chieftain"
+
+
+def numa_table(cards):
+    s = build(cards, [NUMA, "Llanowar Elves"], [])
+    numa, elves = put(s, NUMA), put(s, "Llanowar Elves")
+    stops(s)
+    to_phase(s, "begin_combat", turn=1)
+    return s, numa, elves
+
+
+def numa_pay(s, x, targets=(), division=None):
+    mana(s, "p1", C=2 * max(x, 1))
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                return
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "choose_one":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[f"x:{x}" if x >= 0 else "decline"])
+        elif d.kind == "choose_cards":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[t.id for t in targets])
+        elif d.kind == "divide":
+            act(s, d.player, type="choose", decision_id=d.id, amounts=list(division))
+        else:
+            raise AssertionError(d.kind)
+
+
+def test_numa_pays_two_mana_for_each_x_and_divides_x_counters_among_elves(cards):
+    s, numa, elves = numa_table(cards)
+    numa_pay(s, 3, targets=[numa, elves], division=[2, 1])
+    assert now(s, numa).counters.get("+1/+1") == 2 and now(s, elves).counters.get("+1/+1") == 1  # (X = 3, paid {6})
+    check(s)
+
+
+def test_numa_with_x_zero_or_declined_puts_no_counters(cards):
+    s, numa, elves = numa_table(cards)
+    numa_pay(s, -1)
+    assert not now(s, numa).counters and not now(s, elves).counters
     check(s)
