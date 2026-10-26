@@ -415,7 +415,13 @@ def _letters(letter: str) -> Callable[[Def], Def]:
     return fix
 
 
+def _flipped(d: Def) -> Def:
+    """Homura: 710.2, 110.5 the returned object enters flipped (``flipped`` on the return; it enters under the trigger controller's control, 110.2a)."""
+    return {**d, "effects": [{**e, "flipped": True} if e.get("do") == "return_card" else e for e in d["effects"]]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "When Homura dies, return it to the battlefield flipped.": ("When ~ dies, return this card to the battlefield under your control.", _flipped),
     "Whenever you put a sticker on this enchantment, it deals damage equal to the number of o's in name stickers on this enchantment to any target.":
         ("Whenever you put a sticker on this enchantment, this enchantment deals 2 damage to any target.", _letters("o")),
     "Whenever you put a sticker on this enchantment, tap up to X target creatures, where X is the number of u's in name stickers on this enchantment.":

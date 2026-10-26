@@ -906,6 +906,8 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
     back = [c.id for e, c, _ in planned if e.get("transformed") or e.get("modal_back")]  # (modal_back: wave 28A, 712.12)
     if back:
         payload["back_ids"] = back
+    if flipped := [c.id for e, c, _ in planned if e.get("flipped")]:  # (-- flip (wave 110I) -- 710: enters flipped)
+        payload["flipped_ids"] = flipped
     if any(e["player"] != first["player"] for e, _, _ in planned):
         payload["controllers"] = {c.id: e["player"] for e, c, _ in planned}
     plan.put_via = first.get("via")  # (-- trigger other (wave 51E) -- Entry.via)

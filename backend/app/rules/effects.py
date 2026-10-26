@@ -2940,6 +2940,7 @@ def _return_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str])
                 **({"tapped_if_land": True} if e.get("tapped_if_land") else {}),
                 **({"host_choice": e["host_choice"]} if e.get("host_choice") else {}),
                 **({"transformed": True} if e.get("transformed") else {}),  # (-- transform, wave 11A -- 712.14a)
+                **({"flipped": True} if e.get("flipped") else {}),  # (wave 110I: 710)
                 **({"counter": e["counter"], **({"counter_if": e["counter_if"]} if e.get("counter_if") else {})} if e.get("counter") and entry_counter_applies else {}),
                 **({"conditional_counters": e["conditional_counters"]} if e.get("conditional_counters") else {}),
                 **({"counter_n": e["counter_n"]} if e.get("counter_n") else {})} for cid in cards]  # (counters it enters with, 122.6; n: wave 4M; counter_if: wave 44A)

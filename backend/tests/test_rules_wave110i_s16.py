@@ -4,6 +4,8 @@
   four legendary creature cards with different names are revealed (701.20a), an opponent chooses two (they go to hand), the rest stay in the library, shuffled (701.24).
 * Battlefield Scrounger: the cost puts three cards from your graveyard on the bottom of your library, in the order chosen (401.4); the Threshold gate is checked before activating, so
   paying down to six cards still resolves (ruling 2022-12-08); only once each turn (602.5b).
+* Homura, Human Ascendant: "return it to the battlefield flipped" (710.2, 110.5): the new object enters already flipped (a legendary enchantment, not a creature: "whenever a creature enters"
+  does not see it) and its alternative static ability applies.
 """
 from __future__ import annotations
 
@@ -12,11 +14,12 @@ import pytest
 import tests.test_rules_wave110e_cards as base
 from app.game.errors import ActionError
 from app.rules import coverage
+from tests.fixtures.cards import card
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave110e_cards import answer, card_db  # noqa: F401  (the fixture)
 from tests.test_rules_wave110e_cards import cast as cast_card
-from tests.wave9c_kit import build, check, mana, put
+from tests.wave9c_kit import build, card_named, check, mana, put
 
 TURTLES = real("Turtles Forever", "{3}{W}", 4, "Instant",
                "Search your library and/or outside the game for exactly four legendary creature cards you own with different names, then reveal those cards. "
@@ -128,4 +131,46 @@ def test_scrounger_puts_the_chosen_cards_on_the_bottom_in_order_and_pumps_once(c
     assert len([c for c in s.state.cards.values() if c.zone == "p1:graveyard"]) == 7
     with pytest.raises(ActionError):  # once each turn: seven cards are still there
         act(s, "p1", type="activate_ability", card_id=scr.id, ability=0, cost_choices=[{"component": 0, "cards": [c for c in s.state.zones["p1:graveyard"][:3]]}])
+    check(s)
+
+
+_HFRONT = "Homura can't block.\nWhen Homura dies, return it to the battlefield flipped."
+_HBACK = 'Creatures you control get +2/+2 and have flying and "{R}: This creature gets +1/+0 until end of turn."'
+HOMURA = card("Homura, Human Ascendant // Homura's Essence", set_code="t110i", number="H1", mana_cost="{4}{R}{R}", cmc=6.0, layout="flip",
+              type_line="Legendary Creature — Human Monk // Legendary Enchantment", power="4", toughness="4", colors=["R"], color_identity=["R"],
+              oracle_text=_HFRONT + "\n//\n" + _HBACK,
+              card_faces=[{"name": "Homura, Human Ascendant", "mana_cost": "{4}{R}{R}", "type_line": "Legendary Creature — Human Monk", "power": "4", "toughness": "4", "oracle_text": _HFRONT},
+                          {"name": "Homura's Essence", "mana_cost": "", "type_line": "Legendary Enchantment", "oracle_text": _HBACK}])
+WATCHER = real("Entry Watcher", "{1}{W}", 2, "Enchantment", "Whenever a creature enters, you gain 1 life.", None, "W")
+BEAR = real("Bear Cub110I", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G")
+KILL = real("Doom Blade110I", "{1}{B}", 2, "Instant", "Destroy target nonblack creature.", None, "B")
+base.EXTRA.extend([HOMURA, WATCHER, BEAR, KILL])
+
+
+def test_homura_full(cards):
+    assert coverage.of_card_data({**HOMURA, "faces": HOMURA["card_faces"]}).level == "FULL"
+
+
+def test_homura_returns_flipped_and_pumps_the_team(cards):
+    from app.rules import characteristics as chars
+    from app.rules.plan import Plan
+    from tests.wave9c_kit import life, pt
+
+    s = build(cards, [HOMURA["name"], "Entry Watcher", "Bear Cub110I", "Doom Blade110I"])
+    put(s, "Entry Watcher")
+    homura = put(s, HOMURA["name"])
+    mana(s, G=1, C=1)
+    bear = cast_card(s, "Bear Cub110I")
+    answer(s)
+    before = life(s, "p1")
+    assert before == 41  # control: the Watcher sees a creature enter
+    mana(s, B=1, C=1)
+    cast_card(s, "Doom Blade110I", [homura.id])
+    answer(s)
+    new = card_named(s, HOMURA["name"])
+    assert new.zone == "p1:battlefield" and new.flipped
+    ch = Plan(s.state, "p1", s.cards, None).ch(new)
+    assert ch.name == "Homura's Essence" and "Creature" not in ch.types and "Enchantment" in ch.types
+    assert life(s, "p1") == before  # it never entered as a creature
+    assert pt(s, "Bear Cub110I") == (4, 4) and chars.of(s.state.cards[bear.id], s.cards)
     check(s)
