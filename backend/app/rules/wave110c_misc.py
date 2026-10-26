@@ -53,6 +53,11 @@ PROCTOR = "Whenever a permanent entering causes a triggered ability to trigger, 
 
 
 SIN_DIES = "When ~ dies, put its counters on target creature you control, then shuffle this card into its owner's library."
+TORALF = "Whenever a creature or planeswalker an opponent controls is dealt excess noncombat damage, ~ deals damage equal to the excess to any target other than that permanent."
+ABADDON = ("Mark of Chaos Ascendant — During your turn, spells you cast from your hand with mana value X or less have cascade, where X is the total amount of life your opponents have lost "
+           "this turn.")
+HAMMER = 'Equipped creature has "{1}{R}, {T}, Unattach Toralf\'s Hammer: It deals 3 damage to any target. Return Toralf\'s Hammer to its owner\'s hand."'
+TORALF_NATIVE = TORALF.replace("deals damage equal to the excess to any target other than that permanent", "deals X damage to any target, where X is that excess damage")
 YIDARO = ("When you cycle this card, shuffle it into your library from your graveyard. If you've cycled a card named Yidaro, Wandering Monster four or more times "
           "this game, put it onto the battlefield from your graveyard instead.")
 
@@ -67,6 +72,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         d = scripts.define(replace(ability, text="When you cycle this card, draw a card."), ch)
         return None if d is None else {**d, "effects": [{"do": "yidaro110c"}]}
 
+    if ability.text == HAMMER:  # like Razor Boomerang (wave 110J): "It" is the Equipment, which deals the damage (120.3); the grant binds the name to its granter
+        return scripts.define(replace(ability, text=HAMMER.replace("It deals 3", "Toralf's Hammer deals 3")), ch)
+    if ability.kind == "static" and ability.text == ABADDON:  # 702.85a: the spell has cascade as it is cast (cast_limits.granted_instances: "during110c", "mv_le110c")
+        d = scripts.define(replace(ability, text="Spells you cast from your hand have cascade."), ch)
+        return None if d is None or d.get("static") != "spell_keyword" else {**d, "during110c": "your_turn", "mv_le110c": {"turn_history": "opp_lost"}}
+    if scripts.self_text(ability.text, ch.name) == TORALF:  # 120.10: the event's amount is the excess; "that permanent" is the one dealt it (selector not_event)
+        d = scripts.define(replace(ability, text=TORALF_NATIVE), ch)
+        return None if d is None or d.get("target") != {"what": "any"} else {**d, "target": {"what": "any_but_hurt110c"}}
     if ability.kind == "triggered" and scripts.self_text(ability.text, ch.name) == PROCTOR:  # read by :func:`proctor_triggers`, not by an event pass
         return {"kind": "static", "static": "proctor110c", "effects": []}
     text = ability.text.replace(ch.name or "~", "this creature")

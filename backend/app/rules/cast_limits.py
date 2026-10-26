@@ -1154,6 +1154,13 @@ def granted_instances(plan: Plan, spell_card: str, spell: Characteristics, cast_
             continue
         if d.get("filter") is not None and not spell_matches(plan.state, player, card, spell, d["filter"], plan.info):
             continue
+        if d.get("during110c") == "your_turn" and plan.state.turn.active_player != player:  # -- Abaddon (wave 110C) -- "During your turn, … with mana value X or less"
+            continue
+        if d.get("mv_le110c") is not None:
+            from app.rules import values
+
+            if spell.mana_value > values.evaluate(plan, {"controller": player, "source_card": src.id, "source_object": plan.oid(src)}, d["mv_le110c"]):
+                continue
         if d.get("first") == "kind" and not first_ok(plan.state, plan.info, player, d["filter"]):
             continue  # -- spell grants (wave 30T) -- "The first instant or sorcery spell you cast each turn has casualty 2." (601.2i: this one isn't counted yet)
         total += [d] * int(d.get("count", 1))

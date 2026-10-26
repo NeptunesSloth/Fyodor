@@ -2249,7 +2249,7 @@ def attacker_of(event: Any) -> str | None:
     if event is None:
         return None
     kind = event.get("kind") if isinstance(event, dict) else getattr(event, "kind", None)
-    if kind not in ("attack", "unblocked", "targeted"):  # (wave 23B: the object that became a target, for "other than that creature")
+    if kind not in ("attack", "unblocked", "targeted", "dealt_damage"):  # (wave 110C: dealt_damage, Toralf: the permanent dealt the damage)  # (wave 23B: the object that became a target, for "other than that creature")
         return None
     objects = event.get("objects") if isinstance(event, dict) else getattr(event, "objects", None)
     if not objects:
