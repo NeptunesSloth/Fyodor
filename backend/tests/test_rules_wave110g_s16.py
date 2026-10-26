@@ -25,6 +25,8 @@ EXTRA = [real("The Eleventh Hour", "{3}{W}", 4, "Enchantment — Saga", ELEVENTH
          real("Test Boon", "{U}", 1, "Instant", "You gain 5 life.", None, "U"),
          real("Curse of Inertia", "{2}{U}", 3, "Enchantment \u2014 Aura Curse", "Enchant player\nWhenever a player attacks enchanted player with one or more creatures, that attacking player may tap or untap target permanent of their choice.", None, "U"),
          real("Extraordinary Journey", "{X}{G}{W}", 2, "Enchantment", "When this enchantment enters, exile up to X target creatures. For each of those cards, its owner may play it for as long as it remains exiled.\nWhenever one or more nontoken creatures enter, if one or more of them entered from exile or was cast from exile, you draw a card. This ability triggers only once each turn.", None, "GW"),
+         real("Urianger Augurelt", "{2}{U}", 3, "Legendary Creature \u2014 Human Wizard", "Whenever you play a land from exile or cast a spell from exile, you gain 2 life.\nDraw Arcanum \u2014 {T}: Look at the top card of your library. You may exile it face down.\nPlay Arcanum \u2014 {T}: Until end of turn, you may play cards exiled with Urianger Augurelt. Spells you cast this way cost {2} less to cast.", ("1", "4"), "U"),
+         real("Test Relic", "{3}", 3, "Artifact", "", None, ""),
          real("Test Elf", "{1}{G}", 2, "Creature — Elf Warrior", "Vigilance", ("2", "3"), "G")]
 
 
@@ -47,7 +49,7 @@ def answer(s, limit=40):
             return
 
 
-@pytest.mark.parametrize("name", ["The Eleventh Hour", "Guile", "Curse of Inertia", "Extraordinary Journey"])
+@pytest.mark.parametrize("name", ["The Eleventh Hour", "Guile", "Curse of Inertia", "Extraordinary Journey", "Urianger Augurelt"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -215,4 +217,33 @@ def test_extraordinary_journey_opponent_plays_theirs_and_you_draw(cards):
         if s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.cards[theirs.id].zone == "p2:battlefield" and _hand(s) == before + 1
+    check(s)
+
+
+@pytest.mark.parametrize("play_arcanum", [True, False])
+def test_urianger_play_arcanum_takes_two_generic_off(cards, play_arcanum):
+    """Urianger Augurelt (607.2a, 601.2f, 118.7a, ruling 2025-06-06): the card exiled with it can be cast this turn for {2} less (generic only) and casting from exile gains 2 life;
+    without the activation {3} is needed."""
+    s = build(cards, ["Urianger Augurelt", *["Test Relic"] * 5], [], forests=0, islands=20)
+    uri = put(s, "Urianger Augurelt")
+    next_turn(s)
+    next_turn(s)
+    act(s, "p1", type="activate_ability", card_id=uri.id, ability=1)
+    answer(s)
+    exiled = [c for c in s.state.cards.values() if c.zone == "p1:exile"]
+    assert len(exiled) == 1
+    next_turn(s)
+    next_turn(s)
+    if play_arcanum:
+        act(s, "p1", type="activate_ability", card_id=uri.id, ability=2)
+        answer(s)
+    mana(s, C=1)
+    if not play_arcanum:
+        with pytest.raises(Exception):
+            act(s, "p1", type="cast_spell", card_id=exiled[0].id)
+        return
+    life = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=exiled[0].id)
+    answer(s)
+    assert s.state.cards[exiled[0].id].zone == "p1:battlefield" and s.state.players["p1"].life == life + 2
     check(s)

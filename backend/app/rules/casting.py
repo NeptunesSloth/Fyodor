@@ -3245,7 +3245,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
                 selected_costs: list[bool | None] = []
                 cost_ways = spell_cost_ways(state, card, ch, info=info, player=player, free=grant is not None and grant.free,
                                                     alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None,
-                                                    flashback_choice=fb_index, targets=_hint_targets(ch),
+                                                    flashback_choice=fb_index, targets=_hint_targets(ch), reduce=grant.generic_less if grant is not None else 0,  # (wave 110G)
                                                     additional=tuple(([mode_cost] if mode_cost is not None else []) +
                                                                      ([M.ManaCost(generic=grant.generic_extra)] if grant is not None and grant.generic_extra else [])), finalize=finish,
                                                     selected_costs=selected_costs)
@@ -3330,6 +3330,7 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
         selected_costs: list[bool | None] = []
         ways = spell_cost_ways(state, card, ch, info=info, player=player, alternative=alt_costs.bind_template(offer, x=0).alt.mana_cost,
                                additional=(M.ManaCost(generic=grant.generic_extra),) if grant is not None and grant.generic_extra else (),
+                               reduce=grant.generic_less if grant is not None else 0,  # (wave 110G)
                                targets=_hint_targets(ch), selected_costs=selected_costs)
         if any(can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
                                                                 spell_object=_spell_reference(state, card),
@@ -3376,7 +3377,8 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
                                    additional=(M.ManaCost(generic=grant.generic_extra),) if grant is not None and grant.generic_extra else (),
                                    reduce=part.reduces * (min(1, len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
                                                           if offer.kind in ("bargain", "evidence") else len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
-                                   if part is not None else 0, finalize=finish, selected_costs=selected_costs)
+                                   + (grant.generic_less if grant is not None else 0) if part is not None else (grant.generic_less if grant is not None else 0),  # (wave 110G: Urianger)
+                                   finalize=finish, selected_costs=selected_costs)
         except ActionError:
             continue
         if any(can_pay(state, player, way, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
@@ -3885,7 +3887,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     prepared: list[Any] = []
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=(alternative if alternative is not None else M.parse_cost(ch.mana_cost) if grant is not None and grant.how == "resolving" else None),
                       free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen),
-                      reduce=emerge_reduction + (cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0),
+                      reduce=emerge_reduction + (cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0) + (grant.generic_less if grant is not None else 0),  # (wave 110G: Urianger)
                       flashback_choice=a.flashback_choice, mana_symbols=a.mana_symbols, capture=prepared, announced_kicker77=True)  # (wave 47C: "you may sacrifice any number of …")
     if alt_offer is not None and alt_offer.template_mana_has_x is not None:
         prepared[-1] = replace(prepared[-1], selected_cost_has_x=bool(alt_offer.template_mana_has_x or prepared[-1].selected_cost_has_x))

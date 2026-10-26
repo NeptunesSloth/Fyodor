@@ -1277,6 +1277,7 @@ class Permission(BaseModel):
     # cost, 118.9), for as long as it remains exiled (the permission follows the object, 400.7h)
     alt_mana: str = ""
     generic_extra: int = 0  # Generic mana increase for casting with this permission.
+    generic_less: int = 0  # (wave 110G) generic mana reduction for casting with it (Urianger Augurelt)
     extra: str = ""  # Mandatory additional nonmana cost of this permission.
     # -- cost reductions paid with objects (wave 47C) -- "You may play up to two of those cards": the permissions of one instruction share ``group``, and ``left`` more
     # of them may be used (consume ends the others when the last is)

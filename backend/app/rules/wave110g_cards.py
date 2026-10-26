@@ -966,6 +966,7 @@ _DISSOLVE = "{X}{B}: Put target creature card with mana value X exiled with this
 
 _GUILE = "If a spell or ability you control would counter a spell, instead exile that spell and you may play that card without paying its mana cost."
 _INERTIA = "Whenever a player attacks enchanted player with one or more creatures, that attacking player may tap or untap target permanent of their choice."
+_ARCANUM = "Until end of turn, you may play cards exiled with ~. Spells you cast this way cost {2} less to cast."
 _MAZE = ("Whenever another creature becomes the target of an ability of a land you control named Labyrinth of Skophos, "
          "you may have this creature fight that creature.")
 
@@ -985,6 +986,10 @@ def definition(ability: Any, ch: Any) -> Def | None:
         sel = selectors.Selector(card=True, zones=("exile",), types=("Creature",), compare=(("mv", "==", selectors.X_VALUE),)).key()
         return {"kind": "activated", "cost": ability.cost, "effects": [{"do": "return_card", "who": "target", "to": "graveyard", "under": "owner"}],
                 "target": {"what": "exiled_with:" + sel}}
+    if ability.text.strip().split(": ", 1)[-1].replace("Urianger Augurelt", "~") == _ARCANUM and ability.cost:  # Urianger Augurelt: a permission over the linked exile that takes {2} off (601.2f)
+        return {"kind": "activated", "cost": ability.cost, "effects": [
+            {"do": "bind_linked110g", "as": "arcanum"},
+            {"do": "grant_play", "who": "ref:arcanum", "play": True, "cast": True, "until": "end_of_turn", "generic_less": 2, "from_exile": True}]}
     if ability.text.strip() == _GUILE:  # Guile: read by effects.counter_object (guile_has) and offered by guile_offer
         return {"kind": "static", "static": "guile110g", "effects": []}
     if ability.text.strip() == _INERTIA:  # Curse of Inertia: the attacking player announces the target (115.1, ruling 2013-10-17) and makes the may / tap-or-untap choice
@@ -1565,9 +1570,17 @@ _BUILD[_HIPPO] = ("Whenever this creature attacks and isn't blocked, you may dra
     {"do": "deferred:add_mana", "sym": "C", "n": {"ref_amount": "lost110g"}}]})
 
 
+def bind_linked(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The cards exiled with this source, as they are now in exile (607.2a, 400.7), for a grant that follows."""
+    from app.rules import context, exiled_with
+
+    context.bind_objects(plan, ctx, e["as"], exiled_with.cards(plan, ctx))
+    return True
+
+
 PRIMITIVES: dict[str, Any] = {"return_self110g": return_self, "keep_entered110g": keep_entered, "boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
-                              "unattach_enchanted110g": unattach_enchanted}
+                              "unattach_enchanted110g": unattach_enchanted, "bind_linked110g": bind_linked}
 RESUME: dict[str, Any] = {"boe110g": resume_boe, "hippo110g": resume_hippo, "river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
 
 

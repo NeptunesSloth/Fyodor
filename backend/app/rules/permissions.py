@@ -1291,6 +1291,7 @@ class Grant:
     once_key: str | None = None  # a static "once during each of your turns" ability's key
     sorcery: bool = False  # -- keywords (wave 15E) -- plot 702.170d: only in your main phase with an empty stack, whatever it is
     generic_extra: int = 0  # Additional generic mana charged by this permission.
+    generic_less: int = 0  # (wave 110G) generic mana this permission takes off the total cost (Urianger Augurelt), a cost reduction (601.2f, 118.7a)
     extra: str = ""  # -- cost alt (wave 16F) -- an additional cost the permission names ("discard a card"), paid with the rest (601.2b)
     graveyard_destination: str = ""  # Selected cast authority: library_bottom replaces this spell going to any graveyard.
     exile_gy: str = ""  # -- cast from graveyard (wave 19C) -- 614.1a: "all" | "is" (instants and sorceries only): "If a spell cast this way would be put into your graveyard, exile it instead"
@@ -1453,7 +1454,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue  # -- chosen filters (wave 53B) -- "the next spell of the kind": a spell of the kind was cast since (601.2i)
         zone_ok = p.object_id is not None or p.zone != "any"  # (a flash-only permission grants no zone)
         out.append(Grant("permission", p.label, zone_ok=zone_ok, free=p.free, life_mv=p.life_mv, spell_keywords=tuple(p.spell_keywords), flash=p.flash, permission=p.id, spend=p.spend, use_trigger=p.use_trigger, graveyard_destination=p.graveyard_destination,
-                         choice_key=p.id, generic_extra=p.generic_extra,
+                         choice_key=p.id, generic_extra=p.generic_extra, generic_less=p.generic_less,
                          sorcery=p.sorcery, alt_mana=p.alt_mana, enters=p.enters, extra=p.extra,  # (wave 51D: "If you do, it enters tapped", Jorn)
                          exile_gy=p.exile_gy if not p.exile_own or card.owner == player else ""))  # (wave 25C)
     if verb == "cast" and where in ("graveyard", "exile") and card.owner == player and not card.face_down:
@@ -2033,7 +2034,7 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 continue  # (-- Marvel keywords (wave 25A) -- "for as long as it remains exiled": a spell that wasn't countered, a card replaced elsewhere: no permission)
             holder = card.owner if e.get("owner") else pid  # ("its owner may cast it")
             r.permissions.append(Permission(id=secrets.token_hex(4), player=holder, play=e["play"], cast=e["cast"], zone="any",
-                                            object_id=plan.oid(card), card=cid, generic_extra=int(e.get("generic_extra", 0)) + (int(e.get("generic_extra_opponents", 0)) if holder != pid else 0), until=e["until"], turn=turn, granted_step=r.step_serial, stop_on_linked_exile=stop_on_linked_exile, free=bool(e.get("free")), life_mv=bool(e.get("life_mv")), spend=e.get("spend", ""),
+                                            object_id=plan.oid(card), card=cid, generic_less=int(e.get("generic_less", 0)), generic_extra=int(e.get("generic_extra", 0)) + (int(e.get("generic_extra_opponents", 0)) if holder != pid else 0), until=e["until"], turn=turn, granted_step=r.step_serial, stop_on_linked_exile=stop_on_linked_exile, free=bool(e.get("free")), life_mv=bool(e.get("life_mv")), spend=e.get("spend", ""),
                                             filter=e.get("filter"), spell_keywords=e.get('spell_keywords', []), until_player=e.get("until_player"), after_turn=int(e.get("after_turn", 0)),
                                             exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")), graveyard_destination=e.get("graveyard_destination", ""), enters=e.get("enters"),  # (wave 25C; wave 51D: enters)
                                             use_trigger=permission_use_triggers43.stored_receipt(plan, ctx, e.get("use_trigger")),
