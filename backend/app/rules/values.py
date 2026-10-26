@@ -1238,6 +1238,8 @@ def _distinct(plan: Plan, ctx: dict[str, Any], kind: str, key: str) -> int:
         elif kind == "names":  # -- token & pump wordings (wave 6C) -- "lands with different names" (201.2, 708.2a)
             if ch.name and not ch.face_down:
                 found.add(ch.name)
+        elif kind == "door_names110d":  # -- (wave 110D) -- 709.5: a Room's name is its unlocked doors' names; each unlocked door is one name (Promising Stairs)
+            found |= {n for n in (ch.name or "").split(" // ") if n}
         elif kind == "planeswalker_types":  # -- value grammar (wave 23C) -- 205.3j: the planeswalker subtypes of the planeswalkers
             if "Planeswalker" in ch.types:
                 found |= ch.subtypes & selectors.PLANESWALKER_TYPES

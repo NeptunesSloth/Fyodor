@@ -569,8 +569,8 @@ def _exile_to_gy(part: str) -> CostComponent | None:
     """-- if you do (wave 15C) -- the processors' cost; only cards a player can look at: face-up exile (406.3)."""
     from app.rules import selectors
 
-    if part == "Put a card exiled with ~ into its owner's graveyard":
-        key = selectors.Selector(card=True, zones=('exile',), extras=('source_linked',)).key()
+    if part in ("Put a card exiled with ~ into its owner's graveyard", "Put a creature card exiled with ~ into its owner's graveyard"):  # (wave 110D: Shelob, Dread Weaver)
+        key = selectors.Selector(card=True, zones=('exile',), extras=('source_linked',), types=("Creature",) if " creature " in part else ()).key()
         return CostComponent(EXILE_TO_GY, amount=1, selector=key, text=part)
     m = _EXILE_TO_GY.match(part)
     if m is None:

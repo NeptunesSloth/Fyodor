@@ -447,6 +447,14 @@ def _parse(c: str) -> Condition | None:
         if inner is None or inner.get("event") != "die" or inner.get("subject") != "sel" or inner.get("aggregate"):
             return None
         return {**inner, "damaged_by_self": True}
+    # -- trigger damage (wave 110D) -- Shelob, Child of Ungoliant: "Whenever another creature dealt damage this turn by a Spider you controlled dies": the
+    # turn's log kept who dealt it, as what (subtypes) and under whose control (triggers._cond_matches)
+    m = re.fullmatch(r"(?P<s>another creature) dealt damage this turn by an? (?P<t>[A-Z][a-z]+) you controlled dies", c)
+    if m:
+        inner = _parse(f"{m['s']} dies")
+        if inner is None or inner.get("event") != "die" or inner.get("subject") != "sel" or inner.get("aggregate"):
+            return None
+        return {**inner, "damaged_by_kind110d": m["t"]}
     # -- trigger tail (wave 16C) -- "When this creature dies during combat" (Mongrel Pack): it dies while a combat phase is going
     # on (506.1: beginning of combat through end of combat); read as the event happens (triggers._details_ok)
     # (-- spell grants (wave 30T) -- "Whenever a nontoken creature you control enters during combat" (The Blue Spirit, Noctis): the same look at the phase)

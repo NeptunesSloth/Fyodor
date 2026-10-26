@@ -154,6 +154,7 @@ _NUM = r"(\d+|one|two|three|four|five|six|seven|eight|nine|ten|x)"
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
 
 
+X_PLUS_1 = -3  # "mana value X plus 1" (Sidisi, Regent of the Mire): the announced X + 1
 X_VALUE = -1  # a comparison with X: the X of the spell (or ability) the selector is read for (107.3f, 202.3e)
 
 
@@ -800,11 +801,13 @@ def _compare_strict(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, (what, ">" if m["dir"] == "greater" else "<", n)))
 
 
-@_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM.replace("|x)", "|[xX])"))
+@_suffix(r"with (?P<what>mana value|power|toughness) " + _NUM.replace("|x)", "|[xX])") + r"(?P<plus> plus 1)?")
 def _equal(s: Selector, m: re.Match[str]) -> Selector:
     n = _n(m.group(2))
+    if m["plus"] and (m["what"] != "mana value" or m.group(2).lower() != "x"):
+        raise ValueError("only X plus 1")
     if n is None and m.group(2).lower() == "x":
-        n = X_VALUE  # -- reanimation (wave 10A) -- "target creature card with mana value X" (Postmortem Lunge): the spell's X (wave 19F: or power)
+        n = X_PLUS_1 if m["plus"] else X_VALUE  # -- reanimation (wave 10A) -- "target creature card with mana value X" (Postmortem Lunge): the spell's X (wave 19F: or power)
     if n is None:
         raise ValueError("X comparisons need a value")
     what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
@@ -1130,7 +1133,7 @@ def _named_self(s: Selector, m: re.Match[str]) -> Selector:
 # "creature that doesn't have the same name as a token you control" (The Apprentice's Folly). 201.2a: two objects have the same name if they
 # have a name in common; an object with no name (face down, 708.2a) has the same name as nothing, so "doesn't have the same name" holds of it
 # (201.2c's "different name" would not: that wording isn't read). Names are the objects' own, layers applied (a copy has the copied name).
-_SN_REF = r"(?:(?:another|a) (?:permanent|creature|token) you control|a (?:creature )?card in (?:your|their) graveyard)"
+_SN_REF = r"(?:(?:another|a) (?:permanent|creature|token|Room) you control|a (?:creature )?card in (?:your|their) graveyard)"
 
 
 @_suffix(r"(?:with|(?:that |which )?(?:(?P<no>doesn't|don't|does not|do not) have|has|have)) the same name as "
@@ -2070,7 +2073,7 @@ def _parse(phrase: str) -> Selector | None:
             (s.zones != ("graveyard",) or not s.card) and (s.zones != ("battlefield",) or s.card)):
         return None  # -- reanimation (wave 10A) -- (only cards in a graveyard are compared with the source; -- keywords
         # (wave 15E) -- or permanents: mentor's "target attacking creature with power less than this creature's power")
-    if any(c[1] == "==" and c[2] == X_VALUE for c in s.compare) and not ((s.zones == ("graveyard",) and s.card) or (s.zones == ("battlefield",) and not s.card
+    if any(c[1] == "==" and c[2] in (X_VALUE, X_PLUS_1) for c in s.compare) and not ((s.zones == ("graveyard",) and s.card) or (s.zones == ("battlefield",) and not s.card
                                                                                   and not re.search(r"\bspells?\b", text)) or re.search(r"\bspells?\b", text)):
         return None  # -- reanimation (wave 10A) -- ("mana value X" exactly: read for a card in a graveyard, or -- wave 17B -- a permanent;
         # not a spell: the X in its cost counts on the stack (202.3e), which the selector's mana value doesn't read — wave 19F: it does,
@@ -2598,13 +2601,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if got is None or not got.isdigit():
                 return False
             n = int(got)
-        elif n == X_VALUE:  # (107.3f: X is the one chosen for the spell; none known: nothing matches)
+        elif n in (X_VALUE, X_PLUS_1):  # (107.3f: X is the one chosen for the spell; none known: nothing matches)
             src = plan.state.cards.get(source or "")
             x = src.stack_info.x if src is not None and src.stack_info is not None and src.stack_info.x is not None \
                 else getattr(plan, "x_choice", None)  # (not on the stack yet: the X announced for it)
             if x is None:
                 return False
-            n = x
+            n = x + 1 if n == X_PLUS_1 else x
         value = _stat(ch, what)
         if what == "mv" and value is not None and zone == "stack" and card.stack_info is not None and card.stack_info.x:
             value += card.stack_info.x * ch.mana_cost.count("{X}")  # 202.3e: X on the stack is the value chosen

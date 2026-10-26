@@ -828,7 +828,7 @@ def ability_supported(ch: Characteristics, index: int) -> bool:
     return d is not None and definition_supported(d) and x_selector_ok(ch, d)
 
 
-_X_SELECTOR = re.compile(r'\["mv","==",-1\]')  # (selectors.X_VALUE; "or less" wordings predate this check)
+_X_SELECTOR = re.compile(r'\["mv","==",-[13]\]')  # (selectors.X_VALUE; "or less" wordings predate this check)
 
 
 def x_selector_ok(ch: Characteristics, d: dict[str, Any]) -> bool:
