@@ -414,6 +414,7 @@ EventKind = Literal[
     "drew",  # a player drew a card (121.2: one event per card)
     "crewed",
     "crew_tapped",  # -- crew & saddle (wave 23D) -- 702.122b: a creature (``object_id``) tapped to pay the crew cost of ``by_card`` (``source``)
+    "teamwork_tapped110j",  # -- (wave 110J) -- 702.194a: a creature (``object_id``) tapped to pay a teamwork cost (Agent Maria Hill)
     "saddle_tapped",  # 702.171c: likewise for a saddle ability
     "saddled",  # 702.171b: ``card`` became saddled
     "exploited",  # -- keyword triggers (wave 23D) -- 702.110b: ``card`` (object ``object_id``) was sacrificed to exploit ``by_card`` (``source``: its object)

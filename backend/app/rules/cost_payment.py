@@ -872,6 +872,11 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
                 plan.do({"type": "tap", "card_ids": ids, "tapped": True})
             record.tapped_for_cost += ids
             record.tapped_objects += [plan.oid(c) for c in ids]  # (review 26C: last known information, 608.2h)
+            if comp.kind == "TAP_POWER":  # -- (wave 110J) -- "becomes tapped to pay a teamwork cost"
+                from app.game.rules_state import emit
+
+                for cid in ids:
+                    emit(plan.state, "teamwork_tapped110j", object_id=plan.oid(cid), card=cid, player=player)
         elif comp.kind == C.UNTAP_OTHER:  # -- activated sweep (wave 17B) -- 701.26b
             from app.rules import keyword_actions
 

@@ -109,6 +109,9 @@ def _cycle(d: Def) -> Def:
 
 _BUILD["Return this enchantment to its owner's hand: Target creature you cast this turn has base power and toughness 0/1 until your next upkeep. At the beginning of your next upkeep, put a +1/+1 counter on that creature."] = (
     "Return this enchantment to its owner's hand: Target creature you control has base power and toughness 0/1 until your next upkeep. At the beginning of your next upkeep, put a +1/+1 counter on that creature.", _cycle)
+_BUILD["Whenever Agent Maria Hill becomes tapped to pay a teamwork cost, put a +1/+1 counter on her and draw a card."] = (
+    "Whenever this creature becomes tapped, put a +1/+1 counter on this creature and draw a card.",
+    lambda d: {**d, "cond": {"event": "teamwork_tapped110j", "subject": "self"}})
 _BUILD["At the beginning of your upkeep, if Rasputin started the turn untapped, put a dream counter on it."] = (
     "At the beginning of your upkeep, put a dream counter on this creature.", lambda d: {**d, "if": {"w110j": "began_untapped"}})
 _BUILD["{T}: Target land becomes a Swamp until its controller's next untap step."] = (

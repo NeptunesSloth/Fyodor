@@ -192,3 +192,26 @@ def test_cycle_of_life_targets_only_a_creature_you_cast_this_turn(cards):
     to_phase(s, "main1", turn=3)
     assert now(s, cast).counters == {"+1/+1": 1} and ch(s, cast).pt == (3, 3)
     check(s)
+
+
+def test_maria_hill_is_full():
+    assert full("Agent Maria Hill")
+
+
+@pytest.mark.parametrize("hill_taps", [True, False])
+def test_maria_hill_grows_and_draws_when_tapped_for_a_teamwork_cost(cards, hill_taps):
+    """702.194a: Teamwork taps creatures as a cost; Hill triggers only when she is one of them (603.2)."""
+    s = build(cards, ["Agent Maria Hill", "Cruel Alliance", "Grizzly Bears", "Grizzly Bears"], ["Grizzly Bears"])
+    hill, bears = put_new(s, "Agent Maria Hill"), put_new(s, "Grizzly Bears")
+    victim = put_new(s, "Grizzly Bears", "p2")
+    spell = to_hand(s, "Cruel Alliance")
+    mana(s, B=1, C=2)
+    hand = len(s.state.zones["p1:hand"])
+    helpers = [hill, bears] if hill_taps else [bears]
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[victim.id], target_counts=[0, 1],
+        optional_costs=[f"{spell.id}:teamwork"], cost_choices=[{"component": 0, "cards": [h.id for h in helpers]}])
+    settle(s)
+    assert now(s, victim).zone == "p2:exile"
+    assert now(s, hill).tapped == hill_taps and now(s, hill).counters == ({"+1/+1": 1} if hill_taps else {})
+    assert len(s.state.zones["p1:hand"]) == hand - 1 + (1 if hill_taps else 0)
+    check(s)
