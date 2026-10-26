@@ -70,6 +70,9 @@ _HEART = "You may remove a loyalty counter from a planeswalker you control rathe
 # at trigger time (the cond's selector) and again as it resolves (squall_check)
 _SQUALL = ("Whenever one or more creatures attack one of your opponents, if any of those creatures have power or toughness equal to the chosen number, "
            "~ deals damage equal to its power to defending player.")
+# Liar's Pendulum: the name is chosen publicly (201.4), the target opponent answers yes/no, then its controller may reveal their hand (701.20a); revealing after a wrong guess draws.
+_PENDULUM = ("{2}, {T}: Choose a card name. Target opponent guesses whether a card with that name is in your hand. You may reveal your hand. "
+             "If you do and your opponent guessed wrong, draw a card.")
 _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this creature is suspected, you may suspect one of the other creatures. "
               "If you do, this creature is no longer suspected.")
 
@@ -124,6 +127,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or sel is None or native.get("cond", {}).get("sel") is None:
             return None
         return {**native, "cond": {**native["cond"], "sel": sel.key()}, "effects": [{"do": "squall_check110h"}, *native["effects"]]}
+    if text == _PENDULUM:
+        native = scripts.define(replace(ability, text="{2}, {T}: Target opponent gains 1 life."), ch)
+        if native is None or native.get("target") != {"what": "opponent"}:
+            return None
+        return {**native, "effects": [{"do": "choose_value", "who": "you", "what": "card name", "as": "pendulum110h"}, {"do": "pendulum110h", "who": "target"}]}
     if text in (_DARI_DIES, _DARI_DIES.replace("~", "Darigaaz")):  # Darigaaz Reincarnated: the replacement (614.1a) exiles it, then the rider puts the counters on the exiled object (122.1, 400.7)
         return {"kind": "replacement", "replacement": "exile_instead", "from": "battlefield", "effects": [],
                 "rider": {"effects": [{"do": "exile_counters110h", "kind": "egg", "n": 3}], "reflexive": False}}
@@ -432,6 +440,49 @@ def resume_zimone(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+def pendulum(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Liar's Pendulum: the target opponent guesses whether a card with the chosen name is in the controller's hand."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import context, effects
+    from app.rules.plan import decide
+
+    guessers = effects._players(plan, ctx, e["who"])
+    name = (context.refs(ctx).get("pendulum110h") or {}).get("value")
+    if not guessers or not name:  # (a target that left the game guesses nothing, 800.4)
+        return True
+    decide(plan, player=guessers[0], kind="choose_one", prompt=f"{ctx.get('name', '')}: is a card named {name} in {plan.name(ctx['controller'])}'s hand?",
+           options=[DecisionOption(id="yes", label="Yes"), DecisionOption(id="no", label="No")],
+           resume={"step": "pendulum110h", "ctx": ctx, "name": name})
+    return False
+
+
+def resume_pendulum(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.rules_state import DecisionOption
+    from app.rules import card_names
+    from app.rules.plan import decide
+
+    ctx, name = d.resume["ctx"], d.resume["name"]
+    hand = plan.state.zones.get(f"{ctx['controller']}:hand", [])
+    right = (chosen[0] == "yes") == any(card_names.has_name(plan.ch(plan.state.cards[c]), name) for c in hand)
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt="Reveal your hand?",
+           options=[DecisionOption(id="yes", label="Reveal your hand"), DecisionOption(id="no", label="Don't reveal")],
+           resume={"step": "pendulum_reveal110h", "ctx": ctx, "wrong": not right})
+    return None
+
+
+def resume_pendulum_reveal(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if chosen[0] == "yes":
+        hand = list(plan.state.zones.get(f"{ctx['controller']}:hand", []))
+        if hand:
+            plan.do({"type": "reveal", "card_ids": hand}, actor=ctx["controller"])
+        if d.resume["wrong"]:
+            effects.PRIMITIVES["draw"](plan, ctx, {"do": "draw", "who": f"player:{ctx['controller']}", "n": 1})
+    effects.continue_effects(plan, ctx)
+
+
 def egg_tick(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """Darigaaz Reincarnated: still the same exiled object with an egg counter? Remove one; at zero return it to the battlefield under its owner's control."""
     from app.rules import effects
@@ -603,5 +654,5 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "exile_counters110h": exile_counters}
-RESUME = {"zimone110h": resume_zimone, "episode110h": resume_episode, "scapegoat110h": resume_scapegoat}
+PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "pendulum110h": pendulum, "exile_counters110h": exile_counters}
+RESUME = {"pendulum110h": resume_pendulum, "pendulum_reveal110h": resume_pendulum_reveal, "zimone110h": resume_zimone, "episode110h": resume_episode, "scapegoat110h": resume_scapegoat}

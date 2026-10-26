@@ -2,6 +2,7 @@
 
 * Squall, Gunblade Duelist: an attack on an opponent by a creature whose power or toughness equals the chosen number deals Squall's power to the defending player (603.4).
 * Zimone's Experiment: reveal up to two creature and/or land cards of the top five; lands enter tapped, creatures go to hand, the rest go to the bottom (701.20a).
+* Liar's Pendulum: the opponent guesses whether the chosen name is in your hand; revealing your hand after a wrong guess draws a card (201.4).
 * Heart of Kiran: one loyalty counter from a planeswalker you control may pay the crew cost instead of tapping creatures (702.122a, 122.1); no creature is tapped.
 * Darigaaz Reincarnated: dying is replaced by exile with three egg counters (614.1a, 122.1); at each of its owner's upkeeps one comes off (603.4), and with none left it returns (400.7).
 """
@@ -32,6 +33,9 @@ EXTRA = [
          "random order. Put all land cards revealed this way onto the battlefield tapped and put all creature cards revealed this way into your hand.", None, "G"),
     real("Grizzly Bears", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
     real("Sol Ring", "{1}", 1, "Artifact", "{T}: Add {C}{C}.", None, ""),
+    real("Liar's Pendulum", "{2}", 2, "Artifact",
+         "{2}, {T}: Choose a card name. Target opponent guesses whether a card with that name is in your hand. You may reveal your hand. If you do and your opponent guessed "
+         "wrong, draw a card.", None, ""),
     real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
 ]
 NAMES = [c["name"] for c in EXTRA]
@@ -152,4 +156,31 @@ def test_zimone_lands_enter_tapped_creatures_go_to_hand_the_rest_to_the_bottom(c
     assert giant.zone == ring.zone == "p1:library"  # (never picked here: in the library at the bottom)
     lib = s.state.zones["p1:library"]
     assert all(c in lib[-5:] for c in (giant.id, ring.id))  # on the bottom with the other unrevealed cards
+    check(s)
+
+
+@pytest.mark.parametrize("in_hand", [True, False])
+@pytest.mark.parametrize("guess", ["yes", "no"])
+@pytest.mark.parametrize("reveal", ["yes", "no"])
+def test_liars_pendulum_draws_only_when_you_reveal_after_a_wrong_guess(cards, in_hand, guess, reveal):
+    s = build(cards, ["Liar's Pendulum", "Grizzly Bears"])
+    pend = put(s, "Liar's Pendulum")
+    bears = card_named(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "hand" if in_hand else "library"}, **({} if in_hand else {"position": "bottom"}))
+    mana(s, C=2)
+    hand = len(s.state.zones["p1:hand"])
+    act(s, "p1", type="activate_ability", card_id=pend.id, ability=ability(s, pend, "{2}"), targets=["p2"])
+    while s.state.rules.decision is None:  # (the ability resolves: both pass)
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, name="Grizzly Bears")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2"  # the guess is the opponent's
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[guess])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[reveal])
+    answer(s)
+    wrong = (guess == "yes") != in_hand
+    assert len(s.state.zones["p1:hand"]) == hand + (1 if reveal == "yes" and wrong else 0)
     check(s)
