@@ -245,9 +245,9 @@ def build_view(
         if not own and state.settings.deck_privacy == "private":
             exclude.add("deck_name")
         data = p.model_dump(exclude=exclude)
-        for unit in data['mana_units']:
-            unit.pop('production_zone', None)
-        if viewer != OMNISCIENT:  # -- review 18B -- whether a source's mana is remembered depends on every card of the game, hidden
+        if viewer != OMNISCIENT:
+            for unit in data['mana_units']:  # (where a source was when it made mana can name a hidden zone)
+                unit.pop('production_zone', None)  # -- review 18B -- whether a source's mana is remembered depends on every card of the game, hidden
             # ones too (mana_units.tracking): mana with no restriction and no rider shows as plain mana, units renumbered, no counter
             data.pop("mana_seq", None)
             visible_units: list[dict[str, Any]] = []

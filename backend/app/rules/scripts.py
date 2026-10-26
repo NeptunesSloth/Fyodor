@@ -2680,8 +2680,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
-    from app.rules import wave110e_cards  # -- exact wordings (wave 110E) --
+    from app.rules import wave110e_cards, wave110e_kaya  # -- exact wordings (wave 110E) --
 
+    if (join110e := wave110e_kaya.join(body)) is not None:  # -- one instruction exiling two targets (wave 110E) --
+        return join110e
     if (body110e := wave110e_cards.parse(body)) is not None:
         return body110e
     from app.rules import wave110k_cards  # -- exact wordings (wave 110K) --
@@ -3534,6 +3536,14 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
         return creator_change
     if (protected_airbend := airbend.complement(body)) is not None:
         return protected_airbend
+    if (spell_airbend := airbend.spell_target(body)) is not None:  # -- airbend (wave 110B) --
+        return spell_airbend
+    from app.rules import wave110b_dack, wave110b_hama, wave110b_lich
+
+    if (hama := wave110b_hama.parse(body) or wave110b_dack.parse(body)) is not None:  # -- Hama, Dack Fayden (wave 110B) --
+        return hama
+    if (lich := wave110b_lich.parse(body)) is not None:  # -- Havengul Lich (wave 110B) --
+        return lich
     if (attached_copy := attached_copy_fallback.parse(body)) is not None:
         return attached_copy
     if (after_discover := discover_followup.parse(body)) is not None:
@@ -4240,6 +4250,10 @@ _EXCESS = re.compile(r"(?P<trample>if the creature you control has trample, )?ex
                      r"creature's controller instead")
 
 
+# -- Megatron (wave 110I) -- 120.4a / 120.10: the redirect plus "and you convert ~" (convert is read as transform, 701.28): converts exactly when excess damage was redirected
+_EXCESS_XFORM = re.compile(r"if excess damage would be dealt to that creature this way, instead that damage is dealt to that creature's controller and you transform ~")
+
+
 def _excess_redirect(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """-- refused zones/sized (wave 3R4) -- "[If the creature you control has trample,] excess damage is dealt to that
     creature's controller instead" (Flame Spill, Ram Through): the damage instruction right before it, to one target
@@ -4258,7 +4272,9 @@ def _excess_redirect(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tu
             return None
         if e["if_trample"] and not str(prev.get("src") or "").startswith("target"):
             return None  # ("the creature you control": the creature dealing the damage, a target)
-        effects[-1] = {**prev, "excess": "trample" if e["if_trample"] else "always"}
+        effects[-1] = {**prev, "excess": "trample" if e["if_trample"] else "always", **({"excess_flag": "xs110i"} if e.get("then_transform110i") else {})}
+        if e.get("then_transform110i"):  # -- Megatron (wave 110I) -- the flag effects.damage records when it redirected some excess
+            effects += [{"do": "only_if", "cond": {"flag": "xs110i"}, "skip": 1}, {"do": "transform", "who": "self"}]
     return effects, found[1], found[2]
 
 
@@ -4799,6 +4815,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         excess = _EXCESS.fullmatch(text)  # -- refused zones/sized (wave 3R4) -- 120.4a (_excess_redirect)
         if excess is not None:
             effects.append({"do": "excess_redirect", "if_trample": bool(excess["trample"])})
+            continue
+        if _EXCESS_XFORM.fullmatch(text):  # -- Megatron (wave 110I) --
+            effects.append({"do": "excess_redirect", "if_trample": False, "then_transform110i": True})
             continue
         if (kicked := _KICKED.match(text)) is not None:
             with_kicker = _kicked_sentence(kicked, effects, prev_start, groups, prev_groups)
@@ -5998,10 +6017,18 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (war110e := wave110e_opp.war_definition(ability, ch)) is not None:
         return war110e
+    from app.rules import wave110e_uvilda  # -- refine counters (wave 110E) --
+
+    if (uvilda110e := wave110e_uvilda.definition(ability, ch)) is not None:
+        return uvilda110e
     from app.rules import wave110e_clara  # -- pregame color (wave 110E) --
 
     if (clara110e := wave110e_clara.definition(ability.text)) is not None:
         return clara110e
+    from app.rules import wave110g_spires  # -- wave 110G --
+
+    if (spires110g := wave110g_spires.definition(ability.text)) is not None:
+        return spires110g
     if ability.text.strip() == "Note the mana value of each card as it's put into exile.":  # -- noted values (wave 110E) -- see wave110e_note
         return {"kind": "static", "static": "note110e", "effects": []}
     if ability.text.strip() == "Bell Borca's power is equal to the greatest number noted for it this turn.":
@@ -8367,7 +8394,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 _AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "pay_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "counters_removed", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
                   "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library", "exiled_perm110i",
-                  "roll_die", "discover", "mana_resolved110d"}  # (wave 110D: the mana a mana ability produced) # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
+                  "roll_die", "discover", "scry_bottom110b", "bend110b", "mana_resolved110d"}  # (wave 110B: The Temporal Anchor; wave 110D: the mana a mana ability produced)  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
@@ -8972,6 +8999,8 @@ def graveyard_only_ability(d: Definition | None) -> bool:
 
 def own_graveyard_activation(d: Definition | None) -> bool:
     """113.6m: a parsed graveyard-only activation is not a resolving spell instruction."""
+    if d is not None and d.get("stack110g"):  # -- wave 110G -- Lightning Storm: an ability that works while the spell is on the stack, not part of what it does
+        return True
     if d is not None and d.get('kind') == 'activated':
         cost = parse_ability_cost(d.get('cost') or '')
         if not cost.unsupported and cost.from_graveyard:
@@ -9014,6 +9043,10 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
 
     if (spell110k := wave110k_cards.spell(ch, text_lines)) is not None:
         return spell110k
+    from app.rules import wave110i_cards  # -- cards (wave 110I) --
+
+    if (spell110i := wave110i_cards.spell(ch, text_lines)) is not None:
+        return spell110i
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
@@ -11341,8 +11374,13 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     if sized_x:
         # -- if you do (wave 25C) -- "you may pay {X}. When you do, ~ deals X damage to target player.": the X paid (107.3f, paid_x) is the
         # reflexive ability's amount (its event's); an X in the target's own definition is chosen before X could be known: not read
-        if re.search(r'"x"|\bX\b', json.dumps(b_target, default=str)):
-            return None
+        total_x = isinstance(b_target, list) and any((g.get("total") or [0, 0])[1] == "X" for g in b_target)  # -- (wave 110B) -- "total mana value X or less" (Fire Lord Sozin): the X paid
+        if re.search(r'"x"|\bX\b', json.dumps([{k: v for k, v in g.items() if k != "total"} for g in b_target] if total_x else b_target, default=str)):
+            from app.rules import wave110o_cards  # -- (wave 110O) --
+
+            b_target = wave110o_cards.divide_x_to_event(b_target)  # -- (wave 110O) -- 601.2d, 107.3f: "distribute X …" of the reflexive ability: its division is made as it goes on the stack, knowing the X paid
+            if b_target is None:
+                return None
         b_effects = _x_to_event(b_effects)
         x_bind = base[0]["bind"]
     if x_bind is None and not keep and "event_amount" in json.dumps([b_effects, b_target], default=str):
@@ -11350,8 +11388,10 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     # -- cast-permission riders (wave 38C) -- 603.12, 107.3f: "you may pay {X}. When you do, … target creature card with mana value X …" (Halo Forager, Isareth the
     # Awakener): the reflexive ability goes on the stack after the payment, so its target is chosen knowing the X paid (the event's amount: triggers.event_x)
     x_event = x_bind is not None and bool(re.search(rf',{selectors.X_VALUE}\]', json.dumps(b_target, default=str)))
+    x_event = x_event or (x_bind is not None and '"event_amount"' in json.dumps(b_target, default=str))  # (wave 110O: a divided group's total is the X paid)
     # -- cost-sized reflexive targets (wave 110I) -- 603.12, 107.3f: "up to that many other target creatures" of a reflexive ability: chosen as it goes on the stack, knowing the X paid
     x_event = x_event or (x_bind is not None and isinstance(b_target, list) and any(g.get("x_count") == "upto" for g in b_target))
+    x_event = x_event or (x_bind is not None and isinstance(b_target, list) and any((g.get("total") or [0, 0])[1] == "X" for g in b_target))  # (wave 110B)
     out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
                                                         "optional": b_optional, **target_fields(b_target), **({"x_event": True} if x_event else {})},
            **({"x_from": x_bind} if x_bind else {}), **({"keep_event": True} if keep else {})}
@@ -11407,6 +11447,7 @@ def _x_to_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # creature was a Giant", "return it") stays manual.
 _SAC_ONE = re.compile(r"^sacrifice (?:a|an|another) [a-z ,]+$", re.I)
 _LKI_STAT = re.compile(r"\b(?:that|the sacrificed) (?:creature|artifact|permanent)'s (power|toughness|mana value)\b")
+_EXCESS_THAT = re.compile(r"[Ii]f excess damage would be dealt to that creature this way, instead that damage is dealt to that creature's controller")  # -- Megatron (wave 110I) -- "that creature" there is the damaged one, not the sacrificed object
 _LKI_OTHER = re.compile(r"\b(?:it|its|itself|they|them|that creature|that artifact|that permanent|the sacrificed)\b")
 
 
@@ -11428,7 +11469,7 @@ def _reflexive_lki(base: list[dict[str, Any]], name: str, body: str) -> str | No
             and _SAC_ONE.fullmatch(str(base[0].get("cost") or ""))):
         return None  # (a mandatory "Sacrifice a creature. When you do, …" — Tip the Scales — isn't read yet)
     out = _LKI_STAT.sub(lambda m: f"that permanent's {m[1]}", body)
-    if _LKI_OTHER.search(_LKI_STAT.sub("", out)):
+    if _LKI_OTHER.search(_EXCESS_THAT.sub("", _LKI_STAT.sub("", out))):
         return None
     return out
 # -- end reflexive LKI (wave 4J) ---------------------------------------------------------------------------------------

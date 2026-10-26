@@ -33,8 +33,9 @@ EXTRA = [card(c["name"], set_code="w35b", number=f"B{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 FULL = ["Rushed Rebirth", "Burn Away", "Fatal Fissure", "Adarkar Valkyrie", "Fight for the Throne", "Devouring Tendrils",
         "Skeletonize", "Reckless Blaze", "Ghired's Belligerence"]
-MANUAL = ["Touch of Moonglove", "Whippoorwill", "Heroic Sacrifice", "End-Blaze Epiphany", "Runesword",
-          "Kjeldoran Guard"]
+# (wave 110D: the other five are FULL now - Touch of Moonglove 110G, Whippoorwill 110G, Heroic Sacrifice 110B, End-Blaze Epiphany and
+# Runesword 110K - checked in test_rules_wave110d_dies_manual.py / test_rules_wave110d_runesword.py)
+MANUAL = ["Kjeldoran Guard"]
 
 
 @pytest.fixture()

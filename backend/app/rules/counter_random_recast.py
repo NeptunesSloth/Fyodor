@@ -10,7 +10,6 @@ from __future__ import annotations
 import secrets
 from typing import TYPE_CHECKING, Any
 
-from app.cards.names import normalize_name
 from app.game.state import zone_key
 
 if TYPE_CHECKING:
@@ -40,7 +39,7 @@ def prepare(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if card is None:
         return True
     pid = entry.controller if entry is not None else card.controller
-    names = [normalize_name(n) for n in card_names.names_of(plan.ch(card))]
+    names = card_names.reference_names(plan.ch(card))  # (Spy Kit, wave 110J: a rule-named spell also carries the ANY_CREATURE sentinel)
     n = (plan.rng or secrets.SystemRandom()).randint(1, 3)
     ctx[_KEY] = {'player': pid, 'names': names, 'exiled': []}
     context.bind_players(ctx, _KEY, [pid])
@@ -61,7 +60,6 @@ def scan(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if data is None or data['player'] not in plan.live():
         return True
     pid = data['player']
-    names = set(data['names'])
     for _ in range(len(plan.state.zones.get(zone_key(pid, 'library'), []))):
         library = plan.state.zones.get(zone_key(pid, 'library'), [])
         if not library:
@@ -73,7 +71,7 @@ def scan(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             continue
         data['exiled'].append({'card': cid, 'object': plan.oid(card)})
         ch = chars.of(card, plan.info)
-        if not ch.is_land and not names.intersection(normalize_name(n) for n in card_names.names_of(ch)):
+        if not ch.is_land and not any(card_names.has_name(ch, n) for n in data['names']):
             # "ripple" means leave the declined card exiled and continue this resolution
             # after casting, declining, or abandoning the optional cast (608.2g).
             return granted_casts.ask(plan, ctx, player=pid, cid=cid, head="A differently named nonland card",

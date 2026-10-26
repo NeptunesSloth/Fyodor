@@ -235,7 +235,7 @@ def meld(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         return True  # (-- review (wave 18D) -- 701.42b-c: a card that only copied the other half isn't of the pair: both stay in exile)
     ch = chars.printed_from_data(pair[0])
     plan.do({"type": "meld", "card_id": src.id, "other_id": partner.id, "result_id": pair[0]["id"], "result_name": pair[0]["name"],
-             "row": "land" if ch.is_land and not ch.is_creature else "creature" if ch.is_creature else "other"}, actor=ctx["controller"])
+             "row": "land" if ch.is_land and not ch.is_creature else "creature" if ch.is_creature else "other", "tapped": bool(e.get("tapped"))}, actor=ctx["controller"])
     return attachments.enter(plan, [{"card": src.id, "player": owner, "actor": ctx["controller"]}], ctx)
 
 

@@ -382,6 +382,7 @@ class Meld(Base):
     result_name: str = Field(max_length=200)
     row: Literal["land", "creature", "other"] = "creature"  # where it lands on the battlefield (its combined face's type)
     r: NewIds | None = None
+    tapped: bool = False  # (wave 110D) "It enters tapped" (Mishra, Claimed by Gix): it enters the battlefield tapped, never "becomes tapped"
 
 
 class SetFace(Base):

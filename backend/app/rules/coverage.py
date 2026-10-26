@@ -111,7 +111,7 @@ def modal_supported(d: dict[str, Any]) -> bool:
 
 def definition_supported(d: dict[str, Any]) -> bool:
     """A replacement / prevention definition is automated only when its kind is listed above."""
-    if d.get("kind") == "static" and d.get("static") in ("exert_attack", "crew_loyalty110h", "ashiok110h") and not d.get("effects"):  # (wave 110H: casting.crew reads the second)
+    if d.get("kind") == "static" and d.get("static") in ("exert_attack", "crew_loyalty110h", "ashiok110h", "cyclone110h") and not d.get("effects"):  # (wave 110H: casting.crew reads the second; casting.cycle the third: wave110h_cards.cycling_effects)
         return True
     if any(isinstance(g, dict) and g.get("random") for g in d.get("targets") or []) and len(d["targets"]) != 1:
         return False  # -- random choices (wave 47B) -- "target … chosen at random" is read as the ability's only target group (the pick is made as the targets are chosen, not between questions)
@@ -350,7 +350,7 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
 # -- keyword actions & face-down (wave 3F) -- refused on purpose, with the missing piece named
 REFUSED += (
     # (-- trigger other (wave 25B) -- airbending a permanent is read now: app/rules/airbend.py; a spell's exile from the stack isn't)
-    (re.compile(r"\bairbend[^.]*\bspells?\b", re.I), "airbending a spell: exiling it from the stack with that permission isn't modelled"),
+    (re.compile(r"\bairbend(?! up to one other target creature or spell\.)[^.]*\bspells?\b", re.I), "airbending a spell: exiling it from the stack with that permission isn't modelled"),
     # (review 25B: "Choose up to one target creature, then airbend all other creatures": "other" is other than the chosen one, not the source;
     # scripts._clause refuses it)
     (re.compile(r"\bchoose [^.]*\btargets?\b[^.]*, then \w+ all other\b", re.I),
@@ -755,7 +755,11 @@ def features_of(ch: Characteristics) -> list[Feature]:
                     for n in range(len(keyword_triggers.pieces("backup", ab.text)))) and bool(
                         keyword_triggers.pieces("backup", ab.text)))  # (wave 15E: the abilities below it, 702.165a)
         elif ab.kind == "mana":
-            add("mana:ability", ab.text, "mana:ability" in SUPPORTED and parse_mana_ability(ab.text, card_name=ch.name) is not None)
+            from app.rules import (
+                wave110g_spires,  # -- wave 110G -- Cryptic Spires (wave110g_spires.apply reads the circled colors)
+            )
+
+            add("mana:ability", ab.text, "mana:ability" in SUPPORTED and (parse_mana_ability(ab.text, card_name=ch.name) is not None or wave110g_spires.mana_ok(ab.text)))
         else:
             add(f"text:{ab.index}", ab.text, ab.index in templated)
     # -- counters & designations (wave 3E) -- the dungeon rooms a venture may lead into (automated or not)
@@ -765,10 +769,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
         gaps |= {g for g in [counters_designations_gap(whole)] if g is not None}
     for gap in sorted(gaps):
         add("engine:dungeon", gap[0].upper() + gap[1:], False)
-    if any(d.get("kind") == "static" and d.get("static") == "roll_adjust" and d.get("life", True) for d in defs.values()):  # (wave 110H: a counter cost has no life to pay)
-        # Night Shift's numeric rules are complete. Its accepted-use life payment
-        # on a symbolic planar die still requires the native planar-roll model.
-        add("engine:planar_roll_payment", "Planar-die life payment and accepted-use accounting", False)
+    # Night Shift of the Living Dead: a planar-die roll happens only in Planechase (706.7, 901.3); Fractured Powerstone rolls nothing in Commander (ruling 2012-06-01)
     return out
 
 
@@ -816,7 +817,11 @@ def ability_supported(ch: Characteristics, index: int) -> bool:
     if ab.kind == "keywords":
         return all(k in SUPPORTED_KEYWORDS for k in ab.keywords)
     if ab.kind == "mana":
-        return "mana:ability" in SUPPORTED and parse_mana_ability(ab.text, card_name=ch.name) is not None
+        from app.rules import (
+            wave110g_spires,  # -- wave 110G -- Cryptic Spires: the circled colors make the ability readable (wave110g_spires.apply)
+        )
+
+        return "mana:ability" in SUPPORTED and (parse_mana_ability(ab.text, card_name=ch.name) is not None or wave110g_spires.mana_ok(ab.text))
     if ch.is_instant_or_sorcery:
         whole = templates.spell_definition(ch)
         own = templates.definitions(ch).get(index)

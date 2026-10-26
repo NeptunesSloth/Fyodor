@@ -7,9 +7,21 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
+from tests.fixtures.cards import card
 from tests.game_helpers import act
 from tests.wave9c_kit import build, life
-from tests.wave110j_kit import EXTRA, ability, card_db, cast_on, check, now, put_new, settle, to_phase  # noqa: F401
+from tests.wave110j_kit import (  # noqa: F401
+    EXTRA,
+    ability,
+    card_db,
+    cast_on,
+    check,
+    now,
+    put_new,
+    settle,
+    to_phase,
+)
 
 PALIANO = "Paliano, the High City"
 
@@ -160,4 +172,279 @@ def test_equinox_counters_only_a_spell_that_would_destroy_a_land_you_control(car
     s, c, mine, theirs = _equinox(cards, spell, own)
     assert now(s, c).zone == "p1:graveyard"
     assert now(s, mine).zone.endswith(":battlefield") and now(s, theirs).zone.endswith(":battlefield") == countered  # the spell resolved (and destroyed theirs) unless Equinox countered it
+    check(s)
+
+
+def test_volrath_curse_two_curses_each_need_their_own_sacrifice(cards):
+    """113.10 / 611.3a: each Curse is its own effect; sacrificing for one ignores only that Curse, the other still stops attacks."""
+    s = build(cards, [CURSE, CURSE], ["Grizzly Bears", "Grizzly Bears", "Grizzly Bears"], forests=30, islands=30)
+    bears = put_new(s, "Grizzly Bears", "p2")
+    fodder = [put_new(s, "Grizzly Bears", "p2") for _ in range(2)]
+    cast_on(s, CURSE, bears)
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import hand_new
+
+    second = hand_new(s, CURSE)  # (cast_on takes the first copy by name: that is the one already on the battlefield)
+    mana(s, "p1", U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=second.id, targets=[bears.id])
+    settle(s)
+    act(s, "p2", type="set_stops", own=["declare_attackers"])
+    to_phase(s, "main1", turn=2)
+    ignores = [a.index for a in ch_abilities(s, bears) if a.text.startswith("Sacrifice a permanent: Ignore")]
+    assert len(ignores) == 2
+    act(s, "p2", type="activate_ability", card_id=bears.id, ability=ignores[0])
+    settle(s, answers=[fodder[0].id])
+    while s.state.rules.decision is None or s.state.rules.decision.kind != "declare_attackers":
+        act(s, s.state.rules.priority, type="pass_priority")
+    with pytest.raises(ActionError):
+        _attack(s, bears)  # one Curse paid, the other still restricts
+    check(s)
+
+
+def ch_abilities(s, c):
+    from tests.wave110j_kit import ch
+
+    return ch(s, c).abilities
+
+
+def test_equinox_unclear_spell_goes_to_manual_resolution(cards):
+    """Equinox can't tell whether a modal spell would destroy a land: no player rules on it; the ability is resolved by hand."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import hand_new
+
+    s = build(cards, [EQ, "Abrade"], ["Grizzly Bears"], forests=30, islands=30)
+    mine, bears = put_new(s, "Forest"), put_new(s, "Grizzly Bears", "p2")
+    cast_on(s, EQ, mine)
+    c = hand_new(s, "Abrade")
+    act(s, "p1", type="set_stops", hold_priority=True, smart_pass=False)
+    mana(s, "p1", R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, modes=[0], targets=[bears.id])
+    act(s, "p1", type="activate_ability", card_id=mine.id, ability=ability(s, mine, "{T}: Counter"), targets=[c.id])
+    for _ in range(10):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "manual_resolution" and "Equinox" in d.prompt
+    settle(s)
+    check(s)
+
+
+BEAST = "Guardian Beast"
+
+
+def _beast(cards, tapped):
+    """p1 has Guardian Beast (tapped or not) and a Sol Ring; p2 has a Sol Ring, Steal Artifact and Shifting Loyalties and is in its precombat main."""
+    s = build(cards, [BEAST, "Sol Ring"], ["Sol Ring", "Steal Artifact", "Shifting Loyalties"], forests=30, islands=30)
+    beast, ring = put_new(s, BEAST), put_new(s, "Sol Ring")
+    mine = put_new(s, "Sol Ring", "p2")
+    from tests.wave110j_kit import hand_new
+
+    for name in ("Steal Artifact", "Shifting Loyalties"):
+        hand_new(s, name, "p2")  # (before turn 2's draw empties the small library)
+    if tapped:
+        act(s, "p1", type="tap", card_ids=[beast.id], tapped=True)
+    to_phase(s, "main1", turn=2)
+    return s, ring, mine
+
+
+def test_guardian_beast_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(BEAST)).level == "FULL"
+
+
+@pytest.mark.parametrize("tapped", [False, True])
+def test_guardian_beast_untapped_artifacts_are_indestructible_and_cant_be_enchanted(cards, tapped):
+    """101.2 / 303.4: while untapped no Aura spell can target its controller's noncreature artifact; tapped, nothing is protected."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import ch
+
+    s, ring, _ = _beast(cards, tapped)
+    assert ("indestructible" in ch(s, now(s, ring)).keywords) == (not tapped)
+    aura = next(c for c in s.state.cards.values() if c.name == "Steal Artifact")
+    mana(s, "p2", U=2, C=2)
+    if tapped:
+        act(s, "p2", type="cast_spell", card_id=aura.id, targets=[ring.id])
+        settle(s)
+        assert now(s, ring).controller == "p2"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p2", type="cast_spell", card_id=aura.id, targets=[ring.id])
+    check(s)
+
+
+@pytest.mark.parametrize("tapped", [False, True])
+def test_guardian_beast_blocks_exchange_of_control(cards, tapped):
+    """101.2 + 701.12a: other players can't gain control of the protected artifact, so the exchange does nothing; tapped, it happens."""
+    from tests.wave9c_kit import mana
+
+    s, ring, mine = _beast(cards, tapped)
+    spell = next(c for c in s.state.cards.values() if c.name == "Shifting Loyalties")
+    mana(s, "p2", U=1, C=5)
+    act(s, "p2", type="cast_spell", card_id=spell.id, targets=[ring.id, mine.id], target_counts=[2])
+    settle(s)
+    assert (now(s, ring).controller, now(s, mine).controller) == (("p2", "p1") if tapped else ("p1", "p2"))
+    check(s)
+
+
+KIT = "Spy Kit"
+
+
+def test_spy_kit_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(KIT)).level == "FULL"
+
+
+def test_spy_kit_gives_the_equipped_creature_every_nonlegendary_creature_name(cards):
+    """201.2 / 201.4: Pithing Needle naming "Grizzly Bears" stops the equipped Sorcerer's tap ability (it has that name too), not an unequipped one."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import activate, hand_new
+
+    s = build(cards, [KIT, "Pithing Needle", "Prodigal Sorcerer"], [], forests=30, islands=30)
+    sorc, kit = put_new(s, "Prodigal Sorcerer"), put_new(s, KIT)
+    mana(s, "p1", C=2)
+    activate(s, kit, "Equip {2}", targets=[sorc.id])
+    assert now(s, kit).attached_to == sorc.id
+    needle = hand_new(s, "Pithing Needle")
+    mana(s, "p1", C=1)
+    act(s, "p1", type="cast_spell", card_id=needle.id)
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, name="Grizzly Bears")
+    settle(s)
+    to_phase(s, "main1", turn=3)  # (no summoning sickness)
+    with pytest.raises(ActionError, match="can't be activated"):
+        act(s, "p1", type="activate_ability", card_id=sorc.id, ability=ability(s, sorc, "{T}"), targets=["p2"])
+    act(s, "p1", type="move", card_ids=[kit.id], to={"zone": "graveyard"})  # unequipped: the Sorcerer has only its own name
+    act(s, "p1", type="activate_ability", card_id=sorc.id, ability=ability(s, sorc, "{T}"), targets=["p2"])
+    settle(s)
+    check(s)
+
+
+BRAWL = "Bludgeon Brawl"
+
+
+def test_bludgeon_brawl_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(BRAWL)).level == "FULL"
+
+
+def test_bludgeon_brawl_makes_each_artifact_an_equipment_with_its_own_mana_value(cards):
+    """205.1b, 613.1d/f: a noncreature artifact is an Equipment with equip {X} and +X/+0, X its own mana value (Thran Dynamo 4, Sol Ring 1); a creature isn't."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import activate, ch
+
+    s = build(cards, [BRAWL, "Thran Dynamo", "Sol Ring", "Grizzly Bears"], [], forests=30, islands=30)
+    brawl, dyn, ring, bears = (put_new(s, n) for n in (BRAWL, "Thran Dynamo", "Sol Ring", "Grizzly Bears"))
+    assert "Equipment" in ch(s, now(s, dyn)).subtypes and "Equipment" in ch(s, now(s, ring)).subtypes
+    mana(s, "p1", C=4)
+    activate(s, dyn, "Equip {4}", targets=[bears.id])
+    assert now(s, dyn).attached_to == bears.id and ch(s, now(s, bears)).pt == (6, 2)
+    mana(s, "p1", C=1)
+    activate(s, ring, "Equip {1}", targets=[bears.id])
+    assert ch(s, now(s, bears)).pt == (7, 2)
+    check(s)
+    act(s, "p1", type="move", card_ids=[brawl.id], to={"zone": "graveyard"})  # it leaves: no more Equipment, the +X/+0 ends
+    assert "Equipment" not in ch(s, now(s, dyn)).subtypes and ch(s, now(s, bears)).pt == (2, 2)
+
+
+VS = "Volrath's Shapeshifter"
+
+
+def test_volrath_shapeshifter_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(VS)).level == "FULL"
+
+
+def test_volrath_shapeshifter_takes_the_full_text_of_the_top_creature_card(cards):
+    """612.6 + 613.1c: name, mana cost, color, types, P/T and abilities of the top creature card (and {2}: Discard a card); a noncreature on top, or none, leaves it as printed."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import activate, ch, grave_new, hand_new
+
+    s = build(cards, [VS, "Prodigal Sorcerer", "Sol Ring", "Grizzly Bears"], [], forests=30, islands=30)
+    vs = put_new(s, VS)
+    assert (ch(s, now(s, vs)).name, ch(s, now(s, vs)).pt) == (VS, (0, 1))
+    grave_new(s, "Prodigal Sorcerer")
+    now_ch = ch(s, now(s, vs))
+    assert (now_ch.name, now_ch.pt, now_ch.mana_cost) == ("Prodigal Sorcerer", (1, 1), "{2}{U}") and {"Human", "Wizard"} <= set(now_ch.subtypes)
+    assert any(a.text.startswith("{T}: ") for a in now_ch.abilities) and any(a.text == "{2}: Discard a card." for a in now_ch.abilities)
+    hand_new(s, "Grizzly Bears")  # "{2}: Discard a card." puts the card it discards on top, so the Shapeshifter follows it
+    mana(s, "p1", C=2)
+    activate(s, vs, "{2}: Discard a card.")
+    assert (ch(s, now(s, vs)).name, ch(s, now(s, vs)).pt) == ("Grizzly Bears", (2, 2))
+    grave_new(s, "Sol Ring")  # a noncreature card is now on top: as printed
+    assert ch(s, now(s, vs)).name == VS
+    check(s)
+
+
+def test_spy_kit_equipped_creature_has_the_same_name_as_a_nonlegendary_creature(cards):
+    """201.2a: Echoing Truth on a Grizzly Bears also bounces the Kit-equipped Sorcerer (it has that name), and a Kit-less Sorcerer stays."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import activate
+
+    s = build(cards, [KIT, "Echoing Truth", "Prodigal Sorcerer", "Prodigal Sorcerer", "Grizzly Bears"], [], forests=30, islands=30)
+    bears, sorc, plain, kit = (put_new(s, n) for n in ("Grizzly Bears", "Prodigal Sorcerer", "Prodigal Sorcerer", KIT))
+    mana(s, "p1", C=2)
+    activate(s, kit, "Equip {2}", targets=[sorc.id])
+    mana(s, "p1", U=1, C=1)
+    cast_on(s, "Echoing Truth", bears)
+    assert [now(s, c).zone for c in (bears, sorc, plain)] == ["p1:hand", "p1:hand", "p1:battlefield"]
+    check(s)
+
+
+EXTRA.append(card("Pack Hunt", set_code="tst", number="W17", mana_cost="{3}{G}", cmc=4.0, type_line="Sorcery", colors=["G"], color_identity=["G"], keywords=[], layout="normal",
+                  oracle_text="Search your library for up to three cards with the same name as target creature, reveal them, put them into your hand, then shuffle."))
+
+
+def test_spy_kit_tutor_same_name_as_equipped_creature_finds_nonlegendary_creature_cards(cards):
+    """201.2a: Pack Hunt targeting the Kit-equipped Sorcerer may fetch any nonlegendary creature card (it has that name), not a land."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import activate, hand_new
+
+    s = build(cards, [KIT, "Pack Hunt", "Prodigal Sorcerer", "Grizzly Bears"], [], forests=30, islands=30)
+    sorc, kit = put_new(s, "Prodigal Sorcerer"), put_new(s, KIT)
+    mana(s, "p1", C=2)
+    activate(s, kit, "Equip {2}", targets=[sorc.id])
+    spell = hand_new(s, "Pack Hunt")
+    mana(s, "p1", G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[sorc.id], target_counts=[1])
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    offered = {s.state.cards[o.id].name for o in d.options}
+    assert offered == {"Grizzly Bears"}  # a nonlegendary creature card; not the Forests, the Kit or Pack Hunt
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+    settle(s)
+    check(s)
+
+
+EXTRA.append(card("Reflector Mage", set_code="tst", number="W18", mana_cost="{1}{W}{U}", cmc=3.0, type_line="Creature — Human Wizard", colors=["W", "U"], color_identity=["W", "U"], keywords=[], layout="normal",
+                  power="2", toughness="3", oracle_text="When this creature enters, return target creature an opponent controls to its owner's hand. That creature's owner can't cast spells with the same name as that creature until your next turn."))
+
+
+def test_spy_kit_bounced_creature_bans_every_nonlegendary_creature_name(cards):
+    """201.2a: Reflector Mage bounces the Kit-equipped Sorcerer; its owner can't cast Grizzly Bears (a name the Sorcerer had) until the Mage's controller's next turn."""
+    from tests.wave9c_kit import mana, to_hand
+    from tests.wave110j_kit import activate
+
+    s = build(cards, ["Reflector Mage"], [KIT, "Prodigal Sorcerer", "Grizzly Bears"], forests=30, islands=30)
+    sorc, kit = put_new(s, "Prodigal Sorcerer", "p2"), put_new(s, KIT, "p2")
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", C=2)
+    activate(s, kit, "Equip {2}", pid="p2", targets=[sorc.id])
+    to_phase(s, "main1", turn=3)
+    mana(s, "p1", W=1, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Reflector Mage").id)
+    settle(s)
+    assert now(s, sorc).zone == "p2:hand"
+    to_phase(s, "main1", turn=4)
+    bears = to_hand(s, "Grizzly Bears", "p2")
+    mana(s, "p2", G=1, C=1)
+    with pytest.raises(ActionError, match="can't cast"):
+        act(s, "p2", type="cast_spell", card_id=bears.id)
     check(s)

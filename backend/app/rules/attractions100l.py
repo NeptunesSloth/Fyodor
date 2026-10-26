@@ -112,6 +112,9 @@ def visit(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             if log is not None:
                 log.facts.append(TurnFact(kind="visit", player=pid, object_id=plan.oid(c)))
             emit(plan.state, "designation", counter="visit", player=pid, card=c.id, object_id=plan.oid(c))
+    from app.rules import phase_lifetimes43
+
+    phase_lifetimes43.roll_visit(plan, pid, result)  # -- wave 110F -- Ferris Wheel: the creatures it phased out phase in on a low roll (702.26c)
     emit(plan.state, "designation", counter="roll_visit", player=pid, amount=result)
     track(plan.state)
     return True

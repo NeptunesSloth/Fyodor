@@ -10,12 +10,15 @@ _NIGHT = 'After you roll a die, you may pay 1 life. If you do, increase or decre
 _XENO = 'After you roll a die, you may remove a +1/+1 counter from this creature. If you do, increase or decrease the result by 1.'
 # -- Monitor Monitor (wave 110E) -- 706.2a-b: an optional modifier with a cost that rerolls dice; rerolls are applied before any increase or decrease
 _MONITOR = 'Once each turn, you may pay {1} to reroll one or more dice you rolled.'
+# -- Vedalken Squirrel-Whacker (wave 110E) -- 614.1a: "instead roll them and you may exchange one result with this creature's base power or base toughness"
+# (six-sided dice only); no cost, once per roll; the result takes the old base value and the base takes the result (a layer 7b effect for this object)
+_SQUIRREL = "If you would roll one or more six-sided dice, instead roll them and you may exchange one result with this creature's base power or base toughness."
 _COST = {_NIGHT: ('Pay 1 life', True), _XENO: ('Remove a +1/+1 counter from it', False),
-         _MONITOR: ('{1}', True)}  # text -> (cost, once each turn)
+         _MONITOR: ('{1}', True), _SQUIRREL: ('', False)}  # text -> (cost, once each turn)
 
 
 def definition(text: str) -> dict[str, Any] | None:
-    return {'kind': 'static', 'static': 'roll_adjust', 'effects': [], 'life': text == _NIGHT} if text in _COST else None  # (wave 110H) 'life': planar-die gap
+    return {'kind': 'static', 'static': 'roll_adjust', 'effects': []} if text in _COST else None
 
 
 class Adjustment(BaseModel):
@@ -62,6 +65,10 @@ def valid_source(plan: Any, source: Adjustment, controller: str) -> bool:
 
 def _is_reroll(plan: Any, source: Adjustment) -> bool:
     return any(ab.index == source.ability and ab.text == _MONITOR for ab in plan.ch(plan.state.cards[source.card]).abilities)
+
+
+def _is_exchange(plan: Any, source: Adjustment) -> bool:
+    return any(ab.index == source.ability and ab.text == _SQUIRREL for ab in plan.ch(plan.state.cards[source.card]).abilities)
 
 
 def _cost(plan: Any, source: Adjustment) -> tuple[str, bool]:
@@ -128,9 +135,12 @@ def offer(plan: Any, frame: NumericFrame) -> bool:
                  and source.key() not in frame.skipped
                  and plan.rules.once_per_turn.get(source.key()) != plan.state.turn.number
                  and len(frame.used.get(source.key(), [])) < len(frame.results)
-                 and (not _is_reroll(plan, source) or (not frame.printed_done and not any(frame.used.values())))]  # 706.2b: rerolls come first
+                 and (not _is_reroll(plan, source) or (not frame.printed_done and not any(frame.used.values())))  # 706.2b: rerolls come first
+                 and (not _is_exchange(plan, source) or (frame.effect.get('sides') == 6 and not frame.used.get(source.key())
+                                                         and plan.ch(plan.state.cards[source.card]).base_pt is not None))]
     if available:
-        options = [DecisionOption(id=source.key(), label=f"{_cost(plan, source)[0] if not _is_reroll(plan, source) else 'Pay {1}'} to {'reroll dice' if _is_reroll(plan, source) else 'adjust one result'} ({plan.state.cards[source.card].name})")
+        options = [DecisionOption(id=source.key(), label=f"Exchange one result with its base power or toughness ({plan.state.cards[source.card].name})" if _is_exchange(plan, source)
+                                  else f"{_cost(plan, source)[0] if not _is_reroll(plan, source) else 'Pay {1}'} to {'reroll dice' if _is_reroll(plan, source) else 'adjust one result'} ({plan.state.cards[source.card].name})")
                    for source in available]
         if frame.effect.get('mod') and not frame.printed_done:
             options.append(DecisionOption(id='printed', label='Apply the printed die modifier'))
@@ -176,6 +186,11 @@ def resume(plan: Any, decision: Any, chosen: list[str]) -> None:
                 _after(plan, frame)
                 return
             frame.selected = source
+            if _is_exchange(plan, source):  # no payment: the die, then base power or toughness
+                decide(plan, player=frame.ctx['controller'], kind='choose_one', prompt='Choose the die result to exchange',
+                       options=[DecisionOption(id=str(i), label=f'Die {i + 1}: {n}') for i, n in enumerate(frame.results)],
+                       resume={'step': 'numeric_roll42', 'phase': 'xdie', 'frame': frame.model_dump()})
+                return
             payment_ctx = {**frame.ctx, 'source_card': source.card, 'source_object': source.oid,
                            'name': plan.state.cards[source.card].name, 'refs': {}, 'next': 0,
                            'body_done': {'do': 'noop'},
@@ -189,6 +204,34 @@ def resume(plan: Any, decision: Any, chosen: list[str]) -> None:
         for c, new in zip(chosen, done.r.results, strict=True):
             frame.naturals[int(c)] = frame.results[int(c)] = new
         plan.note(f"{plan.name(frame.ctx['controller'])} rerolls {len(chosen)} {'die' if len(chosen) == 1 else 'dice'}")
+        _after(plan, frame)
+    elif phase == 'xdie':
+        if frame.selected is None or not valid_source(plan, frame.selected, frame.ctx['controller']) or not chosen or not chosen[0].isdigit() or int(chosen[0]) >= len(frame.results):
+            _after(plan, frame)
+            return
+        frame.die_index = int(chosen[0])
+        frame.used.setdefault(frame.selected.key(), []).append(frame.die_index)
+        power, toughness = plan.ch(plan.state.cards[frame.selected.card]).base_pt or (0, 0)
+        decide(plan, player=frame.ctx['controller'], kind='choose_one', prompt='Exchange the result with its base power or base toughness?',
+               options=[DecisionOption(id='power', label=f'Base power ({power})'), DecisionOption(id='toughness', label=f'Base toughness ({toughness})')],
+               resume={'step': 'numeric_roll42', 'phase': 'xstat', 'frame': frame.model_dump()})
+    elif phase == 'xstat':
+        from app.rules import layers
+
+        if frame.selected is None or not valid_source(plan, frame.selected, frame.ctx['controller']) or frame.die_index is None or chosen not in (['power'], ['toughness']):
+            _after(plan, frame)
+            return
+        card = plan.state.cards[frame.selected.card]
+        base = plan.ch(card).base_pt
+        if base is None:
+            _after(plan, frame)
+            return
+        i = 0 if chosen == ['power'] else 1
+        old, new = base[i], frame.results[frame.die_index]
+        frame.results[frame.die_index] = old
+        layers.add_effect(plan, affected=[plan.oid(card)], layer='7b', source=plan.oid(card), controller=card.controller, duration='permanent',
+                          power=new if i == 0 else None, toughness=new if i == 1 else None, label=f'{card.name}: exchanged a die result with its base {chosen[0]}')
+        plan.note(f"{plan.name(frame.ctx['controller'])} exchanges a result of {new} with {card.name}'s base {chosen[0]} of {old}", [card.id])
         _after(plan, frame)
     elif phase == 'die':
         if frame.selected is None or not valid_source(plan, frame.selected, frame.ctx['controller']):

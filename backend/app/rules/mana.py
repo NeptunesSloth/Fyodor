@@ -689,6 +689,8 @@ class Payment:
     allocation: list[SpentClass] | None = None  # Exact consumed unit classes, absent in legacy/unrestricted payments.
     selected_options: list[tuple[str, int]] = field(default_factory=list)
     ability_options: list[tuple[str, int]] = field(default_factory=list)
+    # -- mana ability resolves (wave 110D) -- set by ``mana_units.settle``: the mana each tapped source really produced (605.3b)
+    made110d: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def delta(self) -> dict[str, int]:
         out = dict(self.produced)

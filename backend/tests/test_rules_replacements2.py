@@ -67,8 +67,9 @@ def rules(s):
 
 
 def permanent(s, pid, name, kind, text, colors=()):
+    pt = {"power": "2", "toughness": "2"} if "Creature" in kind else {}  # (a creature with no toughness is a 0/0, 208.5)
     act(s, pid, type="create_token", player=pid, token={"name": name, "type_line": f"Token {kind} — Test", "text": text,
-                                                       "colors": list(colors)})
+                                                       "colors": list(colors), **pt})
     return next(c for c in s.state.cards.values() if c.name == name and c.owner == pid)
 
 
@@ -715,6 +716,7 @@ _ALLOWED = {
     # outside wave 2E's ownership, to be rerouted at integration (UNVERIFIED how the lead reroutes them):
     ("casting.py", "_activation_announced"): "a loyalty ability's cost (606.4: a cost, not an effect; agent A's region)",
     ("recursion.py", "spell_self_move"): "wave 7C: a spell's time counters as it exiles itself (a card in exile, as above)",
+    ("wave110j_cards.py", "scream_exile"): "wave 110J: All Hallow's Eve's scream counters as it exiles itself (a card in exile, as above)",
     ("replacements.py", "move_instead"): "wave 50J: the counter an exiling replacement puts on the card it exiled (Rayami: a card in exile, not a permanent)",
     ("replacements.py", "replace_move"): "wave 50J: the same, for the batch path",
     ("designations.py", "emblem"): "wave 13A: an emblem is not a token (114.1, 111.7): no token-creation replacement applies",
@@ -798,10 +800,8 @@ def test_wordings_that_stay_manual():
 
     for text in [
         # ("you would put" is automated since wave 22C: tests/test_rules_wave22c_replacements.py)
-        # "may instead" (Jinnie Fay) — (wave 3R2: a different token added, Chatterfang, and redirection, Pariah, are
-        # automated: tests/test_rules_refused_grants.py)
-        "If you would create one or more tokens, you may instead create that many 2/2 green Cat creature tokens with haste "
-        "or that many 3/1 green Dog creature tokens with vigilance.",
+        # ("may instead", Jinnie Fay, is automated: tests/test_rules_token_creation_replacements.py; wave 3R2: a different token added,
+        # Chatterfang, and redirection, Pariah, are automated: tests/test_rules_refused_grants.py)
         # (a rider after prevention, 615.5, is automated since wave 17A: tests/test_rules_wave17a_prevention.py)
         # ("would lose life" doubling is automated since wave 28B: tests/test_rules_wave28b_replace.py) / "can't" (614.17, 119.8) /
         # Abundance's optional land/nonland replacement is automated: tests/test_rules_abundance.py.

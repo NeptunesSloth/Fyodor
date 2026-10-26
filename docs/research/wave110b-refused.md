@@ -1,7 +1,6 @@
 - Rigo, Streetwise Mentor: "attack a player or planeswalker" triggers once per attacked player or planeswalker (see wave100 Rigo, Oath of Kaya); not settled.
 - Spinneret and Spiderling: "deals 4 or more damage" with no recipient: one event or the total over recipients is unsettled (exile_damage_choices49 held).
 - Don & Leo: one trigger with two optional targets and a joint flicker; splitting into two abilities changes the trigger count.
-- Flameblade Angel: "damage to you or a permanent you control" needs a new recipient class; single card.
 - Mysterio: "Exile those tokens when Mysterio leaves the battlefield" has no linked-token leave machinery yet.
 - Firkraag, Cunning Instigator: "if that creature had to attack this combat" needs a requirement record at declaration (goad/must-attack source tracking); not built.
 - Kaust, Eyes of the Glade: needs a per-turn "turned face up this turn" record for the controlled face-down creatures; not built.
@@ -23,7 +22,6 @@
 - Curator of Sun's Creation: no "you discover" event or discover-value record.
 - Dragon Broodmother: a token with "devour 2" needs devour's entry choice in the token path (replace.token_choices), not just a token keyword; foundation not built.
 - Linvala, Shield of Sea Gate: temporary "its activated abilities can't be activated until your next turn" on a target has no effect primitive; "choose hexproof or indestructible" needs its own chooser.
-- Flameblade Angel: one trigger for damage to you or a permanent you control; batch granularity (one source damaging several recipients at once) unsettled.
 - Equal Treatment: "it deals 2 damage instead" sets damage to a fixed amount (also lowers bigger damage); no set-damage replacement.
 - Cards seen with "a player or planeswalker" attack triggers (once per attacked planeswalker, 508.3e) need per-planeswalker events: engine only has per-player.
 - Meandering Towershell: "at the beginning of the declare attackers step" delayed return tapped and attacking has no step hook (attackers are declared as a turn-based action; delayed.at_step has no declare_attackers phase).

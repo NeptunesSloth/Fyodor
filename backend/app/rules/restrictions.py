@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.state import COMBAT_PHASES, PHASES, STACK
 from app.rules import activation_words
-from app.rules.activation_words import ANY_PLAYER, ANY_PLAYER_BUT, OPPONENTS_BUT, OPPONENTS_ONLY
+from app.rules.activation_words import ANY_PLAYER, ANY_PLAYER_BUT, DEFENDERS, OPPONENTS_BUT, OPPONENTS_ONLY
 
 if TYPE_CHECKING:
     from app.game.rules_state import RulesState
@@ -96,7 +96,7 @@ def split(body: str) -> tuple[str, str | None]:
     None). The restriction sentences are the trailing ones that start with "Activate only …"."""
     sentences = _sentences(body)
     found: list[str] = []
-    while sentences and (_RESTRICTION_SENTENCE.match(sentences[-1]) or sentences[-1] in (ANY_PLAYER, OPPONENTS_ONLY)
+    while sentences and (_RESTRICTION_SENTENCE.match(sentences[-1]) or sentences[-1] in (ANY_PLAYER, OPPONENTS_ONLY, *DEFENDERS)
                          or ANY_PLAYER_BUT.match(sentences[-1]) or OPPONENTS_BUT.match(sentences[-1]) or _COUNTED_LIMIT.match(sentences[-1])):  # (ANY_PLAYER: wave 7B; ANY_PLAYER_BUT: wave 17B; wave 100I)
         found.insert(0, sentences.pop())
     if not found:
@@ -147,6 +147,9 @@ def parse(text: str) -> list[Restriction] | None:
     for sentence in _sentences(found):
         if sentence == OPPONENTS_ONLY:
             out.append({"kind": "any_player", "opponents_only": True})
+            continue
+        if sentence in DEFENDERS:  # -- defending player (wave 110D) -- 602.2: any player may activate it, but only the one the creature attacks (checked in ``problem``)
+            out += [{"kind": "any_player"}, {"kind": "defender110d"}, {"kind": "step", "phases": ["declare_attackers"], "whose": None}]
             continue
         if sentence == ANY_PLAYER:  # -- activation wordings (wave 7B) -- 602.2
             out.append({"kind": "any_player"})
@@ -292,6 +295,10 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
         elif kind == "your_turn":
             if turn.active_player != player:
                 return "That can only be activated during your turn"
+        elif kind == "defender110d":  # -- defending player (wave 110D) -- the player (not a planeswalker's controller) the source is attacking
+            target = card.attacking
+            if target is None or target.kind != "player" or target.id != player:
+                return "Only the player this creature is attacking can activate that"
         elif kind == "opponents_turn":
             if turn.active_player == player:
                 return "That can only be activated during an opponent's turn"

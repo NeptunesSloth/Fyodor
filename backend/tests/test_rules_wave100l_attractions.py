@@ -29,7 +29,7 @@ from tests.wave9c_kit import card_named, check, mana, put, to_hand
 DATA = json.loads((Path(__file__).parent / "fixtures" / "wave100l_cards.json").read_text("utf-8"))
 EXTRA = [card(c["name"], set_code=c.get("set", "w100l"), number=c.get("collector_number", f"L{i:03d}"),
               **{k: v for k, v in c.items() if k not in ("name", "set", "collector_number")}) for i, c in enumerate(DATA)]
-REFUSED = ["Ferris Wheel", "Rest in Peace"]  # (Rest in Peace: a support card; the other two stay manual: see the module)
+REFUSED = ["Rest in Peace"]  # (a support card; Ferris Wheel is FULL since wave 110F, tests/test_rules_wave110f_s16.py)
 
 
 @pytest.fixture()
@@ -44,11 +44,6 @@ def card_db(settings):
 @pytest.mark.parametrize("name", [c["name"] for c in DATA if c["name"] not in REFUSED])
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
-
-
-@pytest.mark.parametrize("name", ["Ferris Wheel"])
-def test_phasing_until_a_roll_stays_manual(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL"
 
 
 def game(cards, mine=(), attractions=(), theirs=(), their_attractions=()):

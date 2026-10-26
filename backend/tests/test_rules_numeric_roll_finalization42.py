@@ -378,8 +378,8 @@ def test_ignored_natural_six_never_qualifies_as_a_kept_six(cards, monkeypatch):
     roundtrip(s)
 
 
-def test_night_shift_stays_partial_until_native_planar_payment_is_implemented(cards):
+def test_night_shift_is_full_because_commander_has_no_planar_die(cards):
+    """CR 901 (Planechase) owns the planar die; a Commander game has none, so every die Night Shift can adjust is a numeric one (wave 110B; the accepted-use rule is tested above)."""
     from app.rules import coverage
     got = coverage.of_card_data(cards.resolve('Night Shift of the Living Dead'))
-    assert got.level == 'PARTIAL'
-    assert got.manual_parts == ['Planar-die life payment and accepted-use accounting']
+    assert got.level == 'FULL'

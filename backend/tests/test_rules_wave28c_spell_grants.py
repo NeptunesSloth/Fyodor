@@ -81,8 +81,9 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
-def test_firesong_stays_partial_for_its_trigger(cards):
-    assert coverage.of_card_data(cards.resolve("Firesong and Sunspeaker")).level == "PARTIAL"
+def test_firesong_is_full_since_its_trigger_is_read(cards):
+    # (its "a white instant or sorcery spell causes you to gain life" trigger is read since wave 110M: tests/test_rules_wave110m_lifegain.py)
+    assert coverage.of_card_data(cards.resolve("Firesong and Sunspeaker")).level == "FULL"
 
 
 def build(cards, p1=(), p2=()):

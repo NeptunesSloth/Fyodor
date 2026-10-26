@@ -41,6 +41,23 @@ def complement(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
     return [{'do': 'airbend', 'who': sel.key(), 'exclude_target': 'target:0'}, *rest[0]], [group], False
 
 
+def spell_target(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """-- (wave 110B) -- "Airbend up to one other target creature or spell." (Aang, Swift Savior): other than the source, a creature or a spell (701.65a)."""
+    from dataclasses import replace
+
+    from app.rules import language, selectors
+
+    if body.lower() != "airbend up to one other target creature or spell.":
+        return None
+    creature = selectors.parse("another creature")
+    spell = selectors.parse("spell")
+    group = language.target_group("up to one target spell or creature")
+    if creature is None or spell is None or group is None or spell.zones != ("stack",):
+        return None
+    sel = replace(selectors.Selector(), either=(spell.key(), creature.key()), zones=("stack", "battlefield"))
+    return [{"do": "airbend", "who": "target:0"}], [{**group, "what": sel.key()}], False
+
+
 def airbend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.effects import _cards, exile_cards
 
@@ -48,9 +65,18 @@ def airbend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     plan.rules.permissions = [p for p in plan.rules.permissions if not p.alt_mana or (
         p.card in plan.state.cards and plan.oid(plan.state.cards[p.card]) == p.object_id)]
     excluded = set(_cards(plan, ctx, e['exclude_target'])) if e.get('exclude_target') else set()
-    cards = [c for c in _cards(plan, ctx, e["who"]) if c not in excluded and plan.state.cards[c].zone.endswith(":battlefield")]
+    cards = [c for c in _cards(plan, ctx, e["who"]) if c not in excluded and (plan.state.cards[c].zone.endswith(":battlefield")
+             or plan.state.cards[c].zone == "stack" and plan.state.cards[c].ability is None)]
     if not cards:
         return True
+    r = plan.rules
+    for cid in cards:  # -- (wave 110B) -- a spell leaves the stack exiled, not countered (701.65a); it is no longer a spell, so it never resolves
+        if plan.state.cards[cid].zone == "stack":
+            oid = plan.oid(cid)
+            r.stack.pop(cid, None)
+            r.buyback = [o for o in r.buyback if o != oid]
+            r.flashback = [o for o in r.flashback if o != oid]
+            r.exile_resolves.pop(oid, None)
     exile_cards(plan, ctx, e, cards)
     for cid in cards:
         card = plan.state.cards.get(cid)
@@ -61,6 +87,9 @@ def airbend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             until="permanent", turn=plan.state.turn.number, alt_mana=ALT_COST, source=ctx.get("source_object"),
             label=f"{card.name}: cast it from exile for {ALT_COST} (airbend)"))
         plan.note(f"{card.name} is airbent: {plan.name(card.owner)} may cast it from exile for {ALT_COST}", [card.id])
+    from app.rules import wave110b_bend
+
+    wave110b_bend.note(plan, ctx["controller"], "air")  # 701.65b
     return True
 
 

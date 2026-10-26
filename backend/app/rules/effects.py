@@ -812,7 +812,11 @@ def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Sou
     if e.get("dealt_as"):  # -- replacement effects stage 2 (wave 2E): "dealt damage this way" --
         ctx.setdefault(DEALT_KEY, {})[e["dealt_as"]] = []
     if e.get("excess"):  # -- refused zones/sized (wave 3R4) -- "excess damage is dealt to that creature's controller instead"
-        return _excess_hits(plan, src, [(src, key, amount(key)) for key in [*cards, *players]], e["excess"])
+        base = [(src, key, amount(key)) for key in [*cards, *players]]
+        hits = _excess_hits(plan, src, base, e["excess"])
+        if e.get("excess_flag"):  # -- Megatron (wave 110I) -- 120.4a: whether the damage event was modified (some of it redirected), for "and you convert ~"
+            context.bind_flag(ctx, e["excess_flag"], [(k, n) for _, k, n in hits] != [(k, n) for _, k, n in base])
+        return hits
     return [(src, key, amount(key)) for key in [*cards, *players]]
 
 
@@ -1714,10 +1718,12 @@ def bottom_at_random(plan: Plan, pid: str, cards: list[str], actor: str | None =
     order = list(cards)
     (plan.rng or secrets.SystemRandom()).shuffle(order)
     for at in range(0, len(order), 250):  # (a move names at most 250 cards)
-        # Same-library moves retain reveals; randomized positions must become private.
-        plan.do({"type": "hide", "card_ids": order[at:at + 250]}, actor=actor or pid)
         plan.do({"type": "move", "card_ids": order[at:at + 250], "to": {"player": pid, "zone": "library"}, "position": "bottom"},
                 actor=actor or pid)
+        # Same-library moves retain reveals; randomized positions must become private (after the move, whose log names the revealed cards)
+        still = [c for c in order[at:at + 250] if c in plan.state.cards and plan.state.cards[c].revealed_to]
+        if still:
+            plan.do({"type": "hide", "card_ids": still}, actor=actor or pid)
     return order
 
 
@@ -1886,18 +1892,24 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
         plan.note(f"{card.name} can't be countered", [stack_id])
         return
     r = plan.rules
+    from app.rules.wave110g_cards import guile_has
+
+    guile = by is not None and card.ability is None and guile_has(plan, by)  # -- (wave 110G) -- Guile (614.1a): exiled, not countered; its cast is offered after
+    if guile:
+        exile = True
+        r.guile110g.append(stack_id)
     remember_stack(plan.state, stack_id)  # -- spell copies (wave 31D) -- a copy of it can still be made (608.2h, 707.10)
     entry = r.stack.pop(stack_id, None)
     oid = plan.oid(stack_id)
-    if card.ability is None and (entry is None or entry.copy_of is None):  # -- spell countered (wave 110B) -- 701.6a, 707.10: a cast spell (not a copy) was countered; its caster is told
+    if card.ability is None and (entry is None or entry.copy_of is None) and not guile:  # -- spell countered (wave 110B) -- 701.6a, 707.10: a cast spell (not a copy) was countered; its caster is told
         from app.game.rules_state import emit
 
         emit(plan.state, "designation", counter="spell_countered110b", player=card.controller)
     r.buyback = [o for o in r.buyback if o != oid]
     r.rebound_cast = [o for o in r.rebound_cast if o != oid]
     r.exile_resolves.pop(oid, None)  # -- cast riders (wave 38C) -- a countered spell doesn't resolve (701.6a): "as it resolves" never applies to it
-    plan.note(f"{card.name or 'It'} is countered", [stack_id])
-    if card.ability is None and by is not None:  # -- counter events (wave 19C) -- "Whenever a spell or ability you control counters a spell":
+    plan.note(f"{card.name or 'It'} is exiled instead of countered (Guile)" if guile else f"{card.name or 'It'} is countered", [stack_id])
+    if card.ability is None and by is not None and not guile:  # -- counter events (wave 19C) -- "Whenever a spell or ability you control counters a spell":
         from app.game.rules_state import (
             emit,  # ``by`` is the controller of the spell or ability that countered it (701.6a)
         )
@@ -3145,6 +3157,7 @@ def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
                 _wave110l.note_surveilled(plan, pid, chosen)  # -- (wave 110L) -- 701.25a: the cards a surveil put into the graveyard (Eye of Duskmantle)
             else:
                 plan.do({"type": "move", "card_ids": chosen, "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+                _wave110b_cards.note_scry_bottom(plan, pid, chosen)  # -- (wave 110B) -- The Temporal Anchor: "Whenever you choose to put one or more cards on the bottom of your library while scrying"
     finally:
         plan.shuffle_retained = saved_retained
         plan.shuffle_after = saved_after
@@ -3162,17 +3175,17 @@ def resume_order_library(plan: Plan, d: Any, chosen: list[str]) -> None:
         chosen = [c for c in chosen if c in plan.state.cards
                   and plan.state.cards[c].zone == zone_key(owner, "library")
                   and plan.oid(plan.state.cards[c]) == r["looked_objects"].get(c)]
-    # Same-library moves retain reveal rights. End them before committing a
-    # private order, just as bottom_at_random does for randomized placement.
-    hidden = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].revealed_to]
-    for at in range(0, len(hidden), 250):
-        plan.do({"type": "hide", "card_ids": hidden[at:at + 250]}, actor=pid)
     # -- review 30 -- one move (401.4: the cards go in at the same time and their order isn't revealed; one move per card logged it)
     if r["place"] == "top":  # the first chosen card goes on top (a move to the top puts its cards in their order)
         plan.do({"type": "move", "card_ids": list(chosen), "to": {"player": owner, "zone": "library"}, "position": "top"}, actor=pid)
     elif chosen:  # the first chosen ends at the very bottom
         plan.do({"type": "move", "card_ids": list(reversed(chosen)), "to": {"player": owner, "zone": "library"}, "position": "bottom"},
                 actor=pid)
+    # Same-library moves retain reveal rights: end them once the private order is committed (the move's log line still names the revealed
+    # cards, in no particular order), just as bottom_at_random does for randomized placement.
+    hidden = [c for c in chosen if c in plan.state.cards and plan.state.cards[c].revealed_to]
+    for at in range(0, len(hidden), 250):
+        plan.do({"type": "hide", "card_ids": hidden[at:at + 250]}, actor=pid)
     if r.get('as_kept') and r['place'] == 'top':
         r['ctx'].setdefault('surveil_kept', {})[r['as_kept']] = sum(
             c in plan.state.cards and plan.state.cards[c].zone == zone_key(owner, 'library')
@@ -4023,6 +4036,11 @@ def reading_x(plan: Plan, x: int | None) -> Iterator[None]:
 
 
 def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
+    from app.rules import (
+        wave110e_word,  # -- Word of Command (wave 110E) -- 723.1: control while the cast spell resolves
+    )
+
+    wave110e_word.resolving(plan, stack_id)
     from app.rules import text_spell_refresh71
 
     refreshed71 = text_spell_refresh71.refresh(plan, stack_id, entry)
@@ -4090,6 +4108,8 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     if spec and entry.targets:
         src = source_of(plan, entry.source_card, entry.kind == "spell", object_id=entry.source_object)  # (wave 49C: 115.2)
         legal = [t for t in entry.targets if still_legal(plan, spec["what"], entry.controller, t, src, entry.source_card, attacker, source_object=entry.source_object)]
+        if entry.chooser110i:  # -- cards (wave 110I) -- Necrotic Plague: "creature one of their opponents controls" is the chooser's (608.2b)
+            legal = [t for t in legal if t.id not in plan.state.cards or plan.state.cards[t.id].controller != entry.chooser110i]
         if not legal:
             plan.note(f"{entry.name or 'It'} does nothing: its target is no longer legal")
             finish(plan, ctx, countered=True)
@@ -4171,6 +4191,8 @@ def _run_body(plan: Plan, ctx: Context) -> bool:
 
 
 def _run_effects(plan: Plan, ctx: Context) -> bool:
+    from app.rules import wave110g_cards
+
     while ctx["next"] < len(ctx["effects"]):  # (wave 19F: re-read each time: effects.repeat replaces the list)
         e = ctx["effects"][ctx["next"]]
         from app.rules import stickers101
@@ -4180,6 +4202,10 @@ def _run_effects(plan: Plan, ctx: Context) -> bool:
         if replacements.ask_903_9b_first(plan, ctx, e):
             return False  # 903.9b: a commander's owner chooses before it would be put into a hand or library
         ctx["next"] += 1
+        if ctx["next"] < len(ctx["effects"]) and ctx["effects"][ctx["next"]].get("join110e"):
+            ctx["join110e"] = plan.rules.batch  # -- one instruction, two steps (wave 110E) -- the next effect's events join this one's batch (603.2c)
+        elif e.get("join110e") and "join110e" in ctx:
+            e = {**e, "after110e": ctx.pop("join110e")}
         if e.get("that"):  # -- player-relative selectors (wave 53A) -- "cards that player owns in exile": that player, as the instruction before left it
             e = player_relative.bind_effect(plan, ctx, e)
         if e.get("note_group"):  # -- counters (wave 5H) -- the permanents a count reads, for a later "those creatures"
@@ -4187,6 +4213,10 @@ def _run_effects(plan: Plan, ctx: Context) -> bool:
         e = block_events.bind(plan, ctx, e)  # -- block events (wave 53C) -- "creatures blocking it", "Auras attached to that creature": the object bound now
         if not PRIMITIVES[e["do"]](plan, ctx, e):
             return False  # waiting for a choice; the decision's resume continues from ctx["next"]
+        if "after110e" in e:
+            replace._one_batch(plan, e["after110e"])
+        if plan.rules.guile110g and not wave110g_cards.guile_offer(plan, ctx):  # -- (wave 110G) -- Guile: cast the spell it exiled instead of countering
+            return False
     return True
 
 
@@ -4266,7 +4296,7 @@ def describe(effects: list[dict[str, Any]]) -> str:
     parts = [("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
               else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
              else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest", "vislor110n", "rinoa_pick110o", "cleansing110o", "heroic110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest", "vislor110n", "rinoa_pick110o", "cleansing110o", "heroic110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o", "note110o", "tomb_put110o", "tomb_delay110o", "tomb_remove110o", "alter_aura110o", "lion110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
     return (", ".join(parts) or "do it").capitalize()
 
 
@@ -4401,7 +4431,11 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         from app.rules import nontarget_creature_choices
 
         rest = nontarget_creature_choices.rest(plan, e, rest, picked)
-        if e["rest"] == "sacrifice":
+        if e["rest"] == "phase_out110o":  # -- (wave 110O) -- Disciple of Caelus Nin: all the permanents not chosen, other than the source, phase out at once (702.26)
+            from app.rules import phasing
+
+            phasing.phase_out_cards(plan, ctx, [c for c in rest if c != ctx.get("source_card")])
+        elif e["rest"] == "sacrifice":
             _sacrifice_cards(plan, rest, ctx["controller"], ctx, e.get("as"))
         elif e["rest"] == "exile":  # -- group choices (wave 53D) -- "chooses two cards in their graveyard and exiles the rest" (Watchers of the Dead)
             exile_cards(plan, ctx, {}, rest)
@@ -5340,6 +5374,7 @@ RESUME["return_choice"] = resume_return_choice
 # the permanent goes back to the owner (or to the player of the next-latest effect). Only permanents
 # still on the battlefield as the same object are affected.
 def _control_effect(plan: Plan, ctx: Context, cards: list[str], player: str, duration: str) -> None:
+    cards = [c for c in cards if plan.state.cards[c].controller == player or "cant_gain_control110j" not in plan.ch(plan.state.cards[c]).imposed]  # -- Guardian Beast (wave 110J) -- 101.2
     if not cards:
         return
     name = ctx.get("name") or ""
@@ -5405,6 +5440,8 @@ def exchange_control(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     first, second = (plan.state.cards[c] for c in cards)
     if first.controller == second.controller or not (plan.in_game(first) and plan.in_game(second)):
         return True
+    if any("cant_gain_control110j" in plan.ch(c).imposed for c in (first, second)):
+        return True  # -- Guardian Beast (wave 110J) -- 701.12a: an exchange that can't be completed does nothing
     _remember(plan, ctx, e, cards)
     duration = e.get("duration", "permanent")
     _control_effect(plan, ctx, [first.id], second.controller, duration)
@@ -5710,6 +5747,7 @@ PRIMITIVES.update(_dice.PRIMITIVES)
 RESUME[_dice.STEP] = _dice.resume
 RESUME["roll_group_continue"] = _dice.resume_group
 RESUME["roll_ignore110g"] = _dice.resume_ignore
+RESUME["roll_order110g"] = _dice.resume_order
 from app.rules import counter_moves as _counter_moves  # noqa: E402, I001  -- moving counters (wave 12A)
 
 PRIMITIVES.update(_counter_moves.PRIMITIVES)
@@ -7281,3 +7319,44 @@ PRIMITIVES.update(_wave110e_once.PRIMITIVES)
 from app.rules import wave110e_blade as _wave110e_blade  # noqa: E402, I001  -- Sanctuary Blade (wave 110E) --
 
 RESUME.update(_wave110e_blade.RESUME)
+from app.rules import wave110e_kaya as _wave110e_kaya  # noqa: E402, I001  -- Kaya, Spirits' Justice (wave 110E) --
+
+PRIMITIVES.update(_wave110e_kaya.PRIMITIVES)
+RESUME.update(_wave110e_kaya.RESUME)
+from app.rules import wave110e_uvilda as _wave110e_uvilda  # noqa: E402, I001  -- Uvilda, Dean of Perfection (wave 110E) --
+
+PRIMITIVES.update(_wave110e_uvilda.PRIMITIVES)
+from app.rules import wave110e_word as _wave110e_word  # noqa: E402, I001  -- Word of Command (wave 110E) --
+PRIMITIVES.update(_wave110e_word.PRIMITIVES)
+from app.rules import wave110e_adapt as _wave110e_adapt  # noqa: E402, I001  -- Selective Adaptation (wave 110E) --
+PRIMITIVES.update(_wave110e_adapt.PRIMITIVES)
+
+# -- Havengul Lich (wave 110B) --
+from app.rules import wave110b_lich as _wave110b_lich  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_lich.PRIMITIVES)
+
+# -- Hama, the Bloodbender (wave 110B) --
+from app.rules import wave110b_hama as _wave110b_hama  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_hama.PRIMITIVES)
+RESUME.update(_wave110b_hama.RESUME)
+from app.rules import wave110b_dack as _wave110b_dack  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_dack.PRIMITIVES)
+RESUME.update(_wave110b_dack.RESUME)
+from app.rules import wave110c_xanathar as _wave110c_xanathar  # noqa: E402, I001  -- (wave 110C) --
+
+PRIMITIVES.update(_wave110c_xanathar.PRIMITIVES)
+from app.rules import wave110c_valki as _wave110c_valki  # noqa: E402, I001  -- (wave 110C) --
+
+PRIMITIVES.update(_wave110c_valki.PRIMITIVES)
+RESUME.update(_wave110c_valki.RESUME)
+from app.rules import wave110c_cosima as _wave110c_cosima  # noqa: E402, I001  -- (wave 110C) --
+
+PRIMITIVES.update(_wave110c_cosima.PRIMITIVES)
+RESUME.update(_wave110c_cosima.RESUME)
+from app.rules import wave110c_koh as _wave110c_koh  # noqa: E402, I001  -- (wave 110C) --
+
+PRIMITIVES.update(_wave110c_koh.PRIMITIVES)
+RESUME.update(_wave110c_koh.RESUME)

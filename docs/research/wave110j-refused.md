@@ -35,3 +35,15 @@
 - Paliano, the High City (s11): no draft precedes a game so no color is chosen (905.2b) and the mana ability adds nothing, but coverage needs mana.parse_mana_ability to return a ManaAbility; options=() is not handled by auto-payment. Foundation: zero-option ManaAbility. Not refused on rules.
 - Volrath's Shapeshifter (s11): "full text of that card" needs borrowing triggered/static abilities too (abilities_of lends activated only). Foundation work, not a rules gap.
 - Bludgeon Brawl (s11): needs per-object granted Equipment type + "equip {X}" + "+X/+0" with X = the artifact's own mana value (layers grants are static text). Foundation work.
+
+## Session 12 (promoted: Paliano, Takklemaggot, Volrath's Curse, Last Voyage of the _____, Equinox; earlier lines about them are stale)
+- Spy Kit: "all names of nonlegendary creature cards" needs an index of every such card name (the engine's CardInfo only has get(card_id)); card_names.has_name/share would need that index (ruling 2016-08-23: Oracle reference incl. back faces, no tokens).
+- Bludgeon Brawl: per-artifact layer-4 Equipment subtype plus a per-artifact "Equip {X}" and "Equipped creature gets +X/+0" grant with X = that artifact's mana value; statics grant fixed texts, no per-object grant foundation; dependency with "becomes a creature" (2011-06-01 ruling).
+- Volrath's Shapeshifter: dynamic text-changing effect (2008-08-01 ruling) following the top card of the graveyard; copy recipes are stored per object, not derived from a changing zone.
+- Guardian Beast: unchanged (see above).
+
+## Session 13 (promoted: Guardian Beast, Spy Kit, Bludgeon Brawl, Volrath's Shapeshifter; the earlier lines about them are stale)
+- Spy Kit: CR 612.7 settles it ("all names of nonlegendary creature cards", Oracle reference). Built as a name_test on Characteristics (card_names.has_name asks the card DB); `names_of`/`share` (201.2 comparisons) do not see the extra names, only legendary-rule-irrelevant name checks matter (named-card effects).
+- Volrath's Shapeshifter: CR 612.6 settles it (layer 3 full text); derived in copying.layer1, followed live by the graveyard.
+- Bludgeon Brawl: per-recipient "‹mv›" placeholder in grants (layers.py).
+- Guardian Beast: rules cant_be_enchanted110j / cant_gain_control110j (attachments, targets, effects._control_effect).

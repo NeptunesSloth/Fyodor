@@ -185,9 +185,69 @@ _HERALD = ("Return any number of Aura cards from your graveyard to the battlefie
 _DRAIN = "Target player activates a mana ability of each land they control. Then that player loses all unspent mana and you add the mana lost this way."
 
 
+_JUDGMENT = ("~ deals 2 damage divided as you choose among any number of targets. If this spell's madness cost was paid, it deals X damage divided as you "
+             "choose among those permanents and/or players instead.")
+
+
+def _judgment() -> Any:
+    """Avacyn's Judgment: the targets and the total divided depend on the madness cost (601.2c-d, 702.35): one group per case, the other has no targets
+    (kicked_instead.applicable reads a madness cast as the "kicked" case)."""
+    from app.rules import scripts
+
+    a, b = scripts.parse_effects("~ deals 2 damage divided as you choose among any number of targets."), scripts.parse_effects("~ deals X damage divided as you choose among any number of targets.")
+    if a is None or b is None:
+        return None
+    madness = {"object": "self", "cast": {"alt": "madness"}}
+    big = {**b[0][0], "who": "target:1", "n": {"divided": 1}}
+    return ([{"do": "only_if", "cond": {"not": madness}, "skip": 1}, a[0][0], {"do": "only_if", "cond": madness, "skip": 1}, big],
+            [{**a[1][0], "kicked": False}, {**b[1][0], "kicked": True}], False)
+
+
+_JACE = "Until end of turn, you may activate loyalty abilities of Jace planeswalkers you control on any player's turn any time you could cast an instant."
+
+
+def jace_instant(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Jace's Machinations: a turn mark, read by cast_limits.loyalty_rule (606.3 timing lifted for the controller's Jace planeswalkers)."""
+    plan.rules.once_per_turn[f"loyalty_jace110g:{ctx['controller']}"] = plan.state.turn.number
+    return True
+
+
+_JUSTICE = ("Destroy target artifact. For each additional {1}{R} you paid, destroy another target artifact. For each additional {1}{G} you paid, destroy another "
+            "target artifact, and you gain 1 life.")
+
+
+def _justice() -> Any:
+    """Primitive Justice: one artifact plus one more per payment of either cost (601.2c, multikicker_targets' per_kick_targets); the ruling: the same artifact can't be chosen twice
+    (a group's targets are distinct); 1 life for each payment of the second cost (casting.kick_mask counts them)."""
+    from app.rules import language
+
+    group = language.target_group("target artifact")
+    if group is None:
+        return None
+    return ([{"do": "destroy", "who": "target:0"}, {"do": "gain_life", "who": "you", "n": {"pair_second110g": 1}}],
+            [{**group, "min": 1, "max": 1, "per_kick_targets": 1}], False)
+
+
+def storm_retarget(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Lightning Storm: "You may choose a new target for it" (115.7d): the spell itself, if it is still that object on the stack (the ruling: with no other legal target it keeps the one it has)."""
+    from app.rules import stack_interaction
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if src is None or src.zone != "stack" or plan.oid(src) != ctx.get("source_object"):
+        return True
+    return stack_interaction._ask_new_targets(plan, ctx, src.id, [])
+
+
 def parse(body: str) -> Any:
     """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
     from app.rules import scripts
+
+    if body.strip() == _JUSTICE:
+        return _justice()
+    if body.strip() == _JACE:
+        return [{"do": "jace_instant110g"}], None, False
+    if body.strip() == _JUDGMENT:
+        return _judgment()
 
     if body.strip()[:1].upper() + body.strip()[1:] == _HERALD:  # Storm Herald: chosen as it resolves (608.2d, not targets); each Aura picks its own creature (303.4f), the exile rider is the grammar's
         got = scripts.parse_effects("Return target Aura card from your graveyard to the battlefield attached to a creature you control. Exile it at the beginning of your next end step. "
@@ -205,6 +265,15 @@ def parse(body: str) -> Any:
         group = language.target_group("target player")
         return None if group is None else ([{"do": "hippo110g", "who": "target", "add_now": True}], [group], False)
 
+    if body.strip() == _FOOD_HUMAN:  # The Eleventh Hour II: the two tokens as two instructions (the grammar reads one token with a quoted ability)
+        food, human = (scripts.parse_effects(x) for x in ("Create a Food token.", _FOOD_HUMAN.replace("Create a Food token and a", "Create a")))
+        return None if food is None or human is None else ([*food[0], *human[0]], None, False)
+    if body.strip() == _PRISONER:  # The Eleventh Hour III: 707.9b "it's a legendary Alien" replaces the copied creature types (copying.parse_excepts)
+        got = scripts.parse_effects(_PRISONER.replace(" named Prisoner Zero", ""))
+        if got is None or got[0][0].get("do") != "token_copy":
+            return None
+        got[0][0]["excepts"][0]["name"] = "Prisoner Zero"  # 707.9b: a modified name is a copiable value
+        return got
     if body.strip() == _NOTE:  # Long List of the Ents: "note" = choose, and write it on the Saga (607.2e); the Saga offers only types not yet noted
         got = scripts.parse_effects(_NOTE.replace("Note a creature type that hasn't been noted for ~.", "Choose a creature type.").replace("of that type", "of the chosen type"))
         if got is None or got[0][0].get("do") != "choose_value":
@@ -306,6 +375,8 @@ def _lowest_life_control(d: Def) -> Def:
     return {**d, "effects": [{"do": "lowest_life_control110g"}]}
 
 
+_FOOD_HUMAN = 'Create a Food token and a 1/1 white Human creature token with "Doctor spells you cast cost {1} less to cast."'
+_PRISONER = "Create a token that's a copy of target creature, except it's a legendary Alien named Prisoner Zero."
 _NOTE = ("Note a creature type that hasn't been noted for ~. When you next cast a creature spell of that type this turn, "
          "that creature enters with an additional +1/+1 counter on it.")
 NOTED = "Noted creature types"
@@ -953,13 +1024,52 @@ _ENGULF = "When this creature enters, exile target non-Ooze creature an opponent
 _DISSOLVE = "{X}{B}: Put target creature card with mana value X exiled with this creature into its owner's graveyard."
 
 
+_GUILE = "If a spell or ability you control would counter a spell, instead exile that spell and you may play that card without paying its mana cost."
+_INERTIA = "Whenever a player attacks enchanted player with one or more creatures, that attacking player may tap or untap target permanent of their choice."
+_ARCANUM = "Until end of turn, you may play cards exiled with ~. Spells you cast this way cost {2} less to cast."
 _MAZE = ("Whenever another creature becomes the target of an ability of a land you control named Labyrinth of Skophos, "
          "you may have this creature fight that creature.")
+
+
+_STORM = ("Discard a land card: Put two charge counters on Lightning Storm. You may choose a new target for it. "
+          "Any player may activate this ability but only if Lightning Storm is on the stack.")
+_ROBBER = ('This creature escapes with "Whenever this creature deals combat damage to a player, you may cast an artifact, instant, or sorcery spell from among cards '
+           'exiled with this creature without paying its mana cost."')
+
+
+def robber_bind(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Skyway Robber: the cards exiled by the escape cost of this very escape (607.2a link by the ruling of 2022-04-29; 400.7j the objects they became), still in exile."""
+    from app.rules import context
+
+    record = plan.rules.payments.get(ctx.get("source_object") or "")
+    found = [oid.rsplit(".", 1)[0] for oid in (record.exiled_objects if record is not None else [])
+             if oid.rsplit(".", 1)[0] in plan.state.cards and plan.state.cards[oid.rsplit(".", 1)[0]].zone.endswith(":exile")
+             and plan.oid(oid.rsplit(".", 1)[0]) == oid]
+    context.bind_objects(plan, ctx, e["as"], found)
+    return True
+
+
+def _robber(ch: Any, ability: Any) -> Def | None:
+    """702.138c: "escapes with" a quoted ability: the permanent has the trigger only if it escaped (cond "it escaped"); the free cast is from the cards its escape cost exiled."""
+    from app.rules import permissions, scripts
+
+    native = scripts.define(replace(ability, kind="triggered", text="Whenever this creature deals combat damage to a player, you may draw a card."), ch)
+    key = permissions.spell_filter("artifact, instant, or sorcery")
+    cond = {"object": "self", "cast": {"escaped": True}}  # = conditions "~ escaped" (702.138b)
+    if native is None or key is None:
+        return None
+    return {**native, "optional": False, "if": cond, "effects": [{"do": "robber_bind110g", "as": "robber110g"},
+                                              {"do": "free_cast", "zone": "ref", "who": "ref:robber110g", "filter": key, "optional": True, "mv": None, "n": 1}]}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts, selectors
 
+    if ability.kind == "activated" and ability.text.strip() == _STORM:  # Lightning Storm: counters on the spell, then a new target for it (115.7d)
+        return {"kind": "activated", "stack110g": True, "cost": ability.cost, "effects": [{"do": "add_counters", "who": "self_stack", "kind": "charge", "n": 2},
+                                                                       {"do": "storm_retarget110g"}]}
+    if ability.text.strip() == _ROBBER:
+        return _robber(ch, ability)
     if ability.text.strip() == _STICKER_KICKER:  # Wicker Picker: the grant itself is read by sticker_kicker via cast_limits' spell_helper table
         from app.rules import cast_limits
 
@@ -972,6 +1082,17 @@ def definition(ability: Any, ch: Any) -> Def | None:
         sel = selectors.Selector(card=True, zones=("exile",), types=("Creature",), compare=(("mv", "==", selectors.X_VALUE),)).key()
         return {"kind": "activated", "cost": ability.cost, "effects": [{"do": "return_card", "who": "target", "to": "graveyard", "under": "owner"}],
                 "target": {"what": "exiled_with:" + sel}}
+    if ability.text.strip().split(": ", 1)[-1].replace("Urianger Augurelt", "~") == _ARCANUM and ability.cost:  # Urianger Augurelt: a permission over the linked exile that takes {2} off (601.2f)
+        return {"kind": "activated", "cost": ability.cost, "effects": [
+            {"do": "bind_linked110g", "as": "arcanum"},
+            {"do": "grant_play", "who": "ref:arcanum", "play": True, "cast": True, "until": "end_of_turn", "generic_less": 2, "from_exile": True}]}
+    if ability.text.strip() == _GUILE:  # Guile: read by effects.counter_object (guile_has) and offered by guile_offer
+        return {"kind": "static", "static": "guile110g", "effects": []}
+    if ability.text.strip() == _INERTIA:  # Curse of Inertia: the attacking player announces the target (115.1, ruling 2013-10-17) and makes the may / tap-or-untap choice
+        native = scripts.define(replace(ability, text="Whenever a player attacks enchanted player with one or more creatures, tap or untap target permanent."), ch)
+        if native is None or native["effects"][0].get("do") != "tap_or_untap":
+            return None
+        return {**native, "target_choice": "event_player", "effects": [{**native["effects"][0], "optional": True, "chooser110g": "event_player"}]}
     if ability.text.strip() == _MAZE:  # Skophos Maze-Warden: the targeted-event trigger with a source filter, then a may-fight with the targeted creature (701.14)
         native = scripts.define(replace(ability, text="Whenever a creature becomes the target of an ability, tap that creature."), ch)
         if native is None:
@@ -1545,7 +1666,38 @@ _BUILD[_HIPPO] = ("Whenever this creature attacks and isn't blocked, you may dra
     {"do": "deferred:add_mana", "sym": "C", "n": {"ref_amount": "lost110g"}}]})
 
 
-PRIMITIVES: dict[str, Any] = {"return_self110g": return_self, "keep_entered110g": keep_entered, "boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+def bind_linked(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The cards exiled with this source, as they are now in exile (607.2a, 400.7), for a grant that follows."""
+    from app.rules import context, exiled_with
+
+    context.bind_objects(plan, ctx, e["as"], exiled_with.cards(plan, ctx))
+    return True
+
+
+PRIMITIVES: dict[str, Any] = {"storm_retarget110g": storm_retarget, "jace_instant110g": jace_instant, "robber_bind110g": robber_bind, "return_self110g": return_self, "keep_entered110g": keep_entered, "boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
-                              "unattach_enchanted110g": unattach_enchanted}
+                              "unattach_enchanted110g": unattach_enchanted, "bind_linked110g": bind_linked}
 RESUME: dict[str, Any] = {"boe110g": resume_boe, "hippo110g": resume_hippo, "river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
+
+
+def guile_has(plan: Any, pid: str) -> bool:
+    """Guile (614.1a, ruling 2007-10-01): does ``pid`` control a permanent whose counters exile the spell instead?"""
+    from app.rules import scripts
+
+    return any(c.controller == pid and c.zone.endswith(":battlefield") and plan.in_game(c) and not plan.manual(c)
+               and any(d.get("static") == "guile110g" for d in scripts.definitions(plan.ch(c)).values())
+               for c in plan.state.cards.values())
+
+
+def guile_offer(plan: Any, ctx: Any) -> bool:
+    """Guile: the spell exiled instead of countered may be cast now without paying its mana cost, once, and the countering effect goes on (ruling 2007-10-01)."""
+    from app.rules import granted_casts
+
+    r = plan.rules
+    while r.guile110g:
+        cid = r.guile110g.pop(0)
+        card = plan.state.cards.get(cid)
+        if card is not None and card.zone.endswith(":exile") and not granted_casts.ask(
+                plan, ctx, player=ctx["controller"], cid=cid, head="Guile", no="Leave it exiled", decline="ripple", play=True):
+            return False
+    return True

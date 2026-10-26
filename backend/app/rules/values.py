@@ -689,10 +689,19 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import sticker_riders102
 
         return sticker_riders102.vowels(ctx, v)
+    if isinstance(v, dict) and v.get('name_stickers110c'):  # -- (wave 110C) -- "for each name sticker on it" (Trespasser): the source's own name stickers
+        src = plan.state.cards.get(ctx.get('source_card') or '')
+        return sum(p.sticker.kind == 'name' for p in src.stickers101) if src is not None else 0
     if isinstance(v, dict) and v.get('sticker_art_count101'):
         me = ctx['controller']
         return sum(any(p.sticker.kind == 'art' for p in c.stickers101) for c in plan.state.cards.values()
                    if (c.zone.endswith(':battlefield') and c.controller == me) or c.zone == f'{me}:graveyard')
+    if isinstance(v, dict) and v.get('pair_second110g'):  # -- wave 110G -- Primitive Justice: how many times the second cost was paid
+        from app.rules.costs import pair_counts
+
+        entry = plan.rules.stack.get(ctx.get('stack_id') or '')
+        record = plan.rules.payments.get(ctx.get('source_object') or '')
+        return pair_counts(entry.kicked_mask if entry is not None and entry.kind == 'spell' else record.kicked_mask if record is not None else 0)[1]
     if isinstance(v, dict) and v.get('sticker_pt110g'):  # -- stickers (wave 110G) -- Ambassador: total power / toughness of the stickers on permanents you control
         return sum(getattr(p.sticker, v['sticker_pt110g']) or 0 for c in plan.state.cards.values()
                    if c.zone.endswith(':battlefield') and c.controller == ctx['controller'] for p in c.stickers101)
@@ -1075,6 +1084,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return plan.state.players[card.owner].commander_casts.get(card.commander_key, 0)
     if "commander_casts" in v:  # -- triggers (wave 19B) --
         return sum(plan.state.players[you].commander_casts.values())
+    if "noted110o" in v:  # -- (wave 110O) -- Volo: the number of creature types noted for the targeted permanent
+        from app.rules import wave110o_cards
+
+        return wave110o_cards.noted_count(plan, ctx, v["noted110o"])
     if "exiled_mv110o" in v:  # -- (wave 110O) -- Living Lore: the mana value of the card exiled with it (607.2a), 0 with none
         from app.rules import wave110o_cards
 

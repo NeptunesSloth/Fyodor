@@ -160,6 +160,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"(?P<p>you) place a sticker"), "place_sticker110i"),  # -- cards (wave 110I) -- Wee Champion: any sticker on any card (designations.facts)
     (re.compile(r"(?P<p>you) put an art sticker on a creature"), "put_art_sticker110f"),  # -- stickers (wave 110F) -- 123.2
     (re.compile(r"(?P<p>you) put a name sticker on a creature"), "put_name_sticker110f"),
+    (re.compile(r"(?P<p>you) put an ability sticker on a creature"), "put_ability_sticker110f"),  # -- (wave 110C) -- Tusk and Whiskers
     (re.compile(r"(?P<p>you) proliferate"), "proliferate"),  # -- trigger tail (wave 15B) -- 701.34a
     (re.compile(r"(?P<p>you) clash"), "clash"),  # -- trigger lines (wave 100A) -- 701.30: also a clash another player's effect made (the rulings)
     (re.compile(r"(?P<p>you) fully unlock a room", re.IGNORECASE), "fully_unlock"),  # -- ability words (wave 20C) -- 709.5i (rooms.unlock)
@@ -169,6 +170,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
     (re.compile(r"players finish voting"), "voted"),  # -- voting (wave 48D) -- 701.38 (triggers.voted)
+    (re.compile(r"(?P<p>you) waterbend, earthbend, firebend, or airbend"), "bend110b"),  # -- (wave 110B) -- wave110b_bend.py
     (re.compile(r"(?P<p>you) waterbend"), "waterbend"),
     (re.compile(r"(?P<p>you) forage"), "forage"),  # -- if you do (wave 26C) -- 701.61: the cost was paid (cost_payment.pay)
     (re.compile(r"(?P<p>you) collect evidence"), "collect_evidence"),  # 701.59

@@ -92,6 +92,10 @@ class PlayerControl(BaseModel):
     combat: bool = False  # -- wave 110A -- Secret of Bloodbending: only the controlled player's next combat phase (723.1 "phase"); "done" once it ended
     extra_after: int = 0  # Emrakul: "After that turn, that player takes an extra turn" (kept when 723.1a overwrites)
     label: str = ""
+    # -- Word of Command (wave 110E) -- 723.1: control that lasts while the stack object ``obj`` resolves instead of a turn (pending until it starts to);
+    # ``lands_only``: the controlled player may activate mana abilities of lands only
+    obj: str = ""
+    lands_only: bool = False
 
 
 class TurnCount(BaseModel):
@@ -685,6 +689,7 @@ class TurnLog(BaseModel):
     facts: list[TurnFact] = Field(default_factory=list)  # tokens created, discards, sacrifices, damage to players …
     attackers: dict[str, list[str]] = Field(default_factory=dict)  # player -> creatures (objects) declared as attackers
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
+    block_ctrl110f: dict[str, str] = Field(default_factory=dict)  # -- wave 110F -- "blocker>attacker" objects -> the attacker's controller the last time it became blocked by that blocker (Glyph of Reincarnation)
     blocks: dict[str, list[str]] = Field(default_factory=dict)  # -- combat history (wave 31D) -- blocker (object) -> the attackers (objects) it blocked this turn
     attacked_at110c: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110C -- defending player (or a planeswalker's controller) -> players who attacked them this turn
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
@@ -782,7 +787,8 @@ class ContinuousEffect(BaseModel):
     counter_since_batch: int = 0  # while-counter durations ignore earlier zero-counter events
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
                       "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast", "while_enchanted",
-                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "two_turns110f", "source_tapped_power110k", "while_attached110l", "creature_cast110m", "roll1_110f", "object_tapped110m"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
+                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "two_turns110f", "source_tapped_power110k", "while_attached110l", "creature_cast110m", "roll1_110f", "object_tapped110m", "next_end_step110d"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
+    created_step110d: int = 0  # -- (wave 110D) -- next_end_step110d: the step counter when it began (an end step already begun does not end it)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
@@ -882,6 +888,8 @@ class PhaseLifetime(BaseModel):
     tap_on_return: bool = False  # Oubliette: tapped as it phases in
     control: str | None = None  # -- wave 110D -- "for as long as you control this Saga": the player who must control the source
     while_tapped: bool = False  # -- wave 110I -- The Pandorica: held only while the source remains tapped
+    roll_max110f: int | None = None  # -- wave 110F -- Ferris Wheel: held until ``roller110f`` rolls this or less while rolling to visit (the source does not matter)
+    roller110f: str | None = None
 
 
 class PhaseHold110K(BaseModel):
@@ -1075,6 +1083,7 @@ class StackEntry(BaseModel):
     # -- copy system (wave 2F): a copy of a spell or ability (707.10): the object id of what it
     # copies. A copy isn't cast (or activated); its cost-paying objects are the original's.
     copy_of: str | None = None
+    chooser110i: str | None = None  # -- cards (wave 110I) -- 608.2b: a target chosen by this player (Necrotic Plague) must still be a creature they don't control
 
 
 class StackMemory(BaseModel):
@@ -1258,6 +1267,7 @@ class Permission(BaseModel):
     # not the card (400.7h/i): once it changes zones it is a new object and the permission is spent
     object_id: str | None = None
     card: str | None = None
+    library_of: str | None = None  # (wave 110C) zone library_top of this player's library instead of the holder's (Xanathar)
     look_top: bool = False  # Source-independent private top look for this stored library-top authority.
     top110j: bool = False  # -- wave 110J -- Temporal Aperture: only while ``card`` stays on top of its library, which is then revealed to everyone (401.5)
     stop_on_linked_exile: str | None = None  # Source-object/link scope: expires when this permission holder next exiles a card with it.
@@ -1297,6 +1307,7 @@ class Permission(BaseModel):
     # cost, 118.9), for as long as it remains exiled (the permission follows the object, 400.7h)
     alt_mana: str = ""
     generic_extra: int = 0  # Generic mana increase for casting with this permission.
+    generic_less: int = 0  # (wave 110G) generic mana reduction for casting with it (Urianger Augurelt)
     extra: str = ""  # Mandatory additional nonmana cost of this permission.
     # -- cost reductions paid with objects (wave 47C) -- "You may play up to two of those cards": the permissions of one instruction share ``group``, and ``left`` more
     # of them may be used (consume ends the others when the last is)
@@ -1703,13 +1714,19 @@ class RulesState(BaseModel):
     # "hasn't dealt damage yet" (120.3: a source that dealt more than 0 damage: its oid, and "<oid>+combat" for combat damage)
     dealt_damage: list[str] = Field(default_factory=list)
     prepared: dict[str, str] = Field(default_factory=dict)  # -- prepared (wave 13C, 722.3) -- permanent's rules object -> its copy in exile
+    tomb110o: dict[str, dict[str, list[str]]] = Field(default_factory=dict)  # -- (wave 110O) -- Cyclopean Tomb's object id -> {"put": lands (object ids) it put a mire counter onto, "removed": those it removed from}
+    notes110o: dict[str, list[str]] = Field(default_factory=dict)  # -- (wave 110O) -- object id -> the creature types noted for it (Volo's Journal)
     collection110o: dict[str, str] = Field(default_factory=dict)  # -- (wave 110O) -- object id of a card exiled with a collection counter -> the controller of the ability that exiled it (Evelyn)
     wipe_shields110o: dict[str, int] = Field(default_factory=dict)  # -- (wave 110O) -- 614.1a: object id -> "next time it would be destroyed this turn, remove all damage marked on it instead" (Pyramids)
     prepare_spells110o: list[str] = Field(default_factory=list)  # -- (wave 110O) -- 722.3d: the exiled copies that were cast ("a prepared spell")
     phase_lifetimes: list[PhaseLifetime] = Field(default_factory=list)
+    camouflage_turn110f: int = 0  # -- wave 110F -- the turn Camouflage resolved (blockers are replaced by piles)
+    camouflage110f: dict[str, list[list[str]]] = Field(default_factory=dict)  # -- wave 110F -- defending player -> their piles (creature ids), until every player has divided
+    ferris110f: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110F -- Ferris Wheel (rules object) -> the creatures (rules objects) it has phased out
     phase_holds110k: list[PhaseHold110K] = Field(default_factory=list)  # -- wave 110K --
     no_regen_sources110k: list[str] = Field(default_factory=list)  # -- wave 110K -- Runesword: the objects whose damage this turn makes a creature unable to regenerate
     damaged_players110k: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110K -- source object -> the players it has dealt damage to (Diseased Vermin)
+    guile110g: list[str] = Field(default_factory=list)  # (wave 110G) Guile: spells exiled instead of countered, whose controller's cast offer is still to be made
     roll_shields110g: list[dict[str, Any]] = Field(default_factory=list)  # (wave 110G) Bamboozling Beeble: {"player", "by", "turn"} one-shot roll replacements
     poison_once110g: dict[str, int] = Field(default_factory=dict)  # player -> turn they got a poison counter under Melira (wave 110G): no more that turn
     damaged: dict[str, int] = Field(default_factory=dict)  # player -> last turn they were dealt damage (bloodthirst)
@@ -1809,6 +1826,7 @@ class RulesState(BaseModel):
     modes110f: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110F) card id -> the modes an opponent chose for the spell being cast (700.2e)
     # -- wave 110A -- player -> ``next_object`` when their last turn ended ("entered since your last turn ended", selectors)
     noted110e: dict[str, list[int]] = Field(default_factory=dict)  # -- wave 110E -- Bell Borca: rules object -> [turn, event batch] it arrived at (wave110e_note)
+    circled110g: dict[str, str] = Field(default_factory=dict)  # -- wave 110G -- Cryptic Spires: card id -> the two colors circled before the game (wave110g_spires)
     commander_color110e: dict[str, str] = Field(default_factory=dict)  # -- wave 110E -- Clara Oswald: commander card id -> the color chosen before the game (wave110e_clara)
     chosen_objects: dict[str, str] = Field(default_factory=dict)  # -- wave 110A -- source card id -> the object it chose as it entered (wave110a_pick)
     turn_end_objects: dict[str, int] = Field(default_factory=dict)
@@ -2061,6 +2079,8 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
         up_log110f.turned_up_by110b = list(dict.fromkeys([*up_log110f.turned_up_by110b, fields.get("actor") or ""]))
     if kind == "turned_face_up" and (up_log110l := turn_log_now(state)) is not None and fields.get("actor"):  # -- (wave 110L) -- who turned it face up (702.37e)
         up_log110l.facts.append(TurnFact(kind="turned_up110l", player=fields["actor"], object_id=fields.get("object_id")))
+    if kind == "designation" and str(fields.get("counter") or "").startswith("bend110b:") and (bend_log := turn_log_now(state)) is not None:
+        bend_log.facts.append(TurnFact(kind=fields["counter"].replace(":", "_"), player=fields["player"]))  # -- (wave 110B) -- wave110b_bend.py
     if kind == "fought" and (fight_log90 := turn_log_now(state)) is not None:
         fight_log90.fought90 = list(dict.fromkeys([*fight_log90.fought90, *(snap.object_id for snap in fields.get("fighters90", []))]))
     # CR 107.14, 608.2i: count removals during this turn, including costs; gains never offset them.
@@ -2175,6 +2195,8 @@ def note_block(state: GameState, blockers: list[str], pairs: list[tuple[str, str
             seen = log.blocks.setdefault(blocker, [])
             if attacker not in seen:
                 seen.append(attacker)
+            if state.rules is not None and (att := next((c for c in state.cards.values() if state.rules.object_id(c.id) == attacker), None)) is not None:
+                log.block_ctrl110f[f"{blocker}>{attacker}"] = att.controller  # -- wave 110F -- the controller each time it becomes blocked: the last one stays
 
 
 def wither_put_by(action: Any) -> dict[tuple[str, str], dict[str, int]] | None:

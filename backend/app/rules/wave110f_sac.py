@@ -1,27 +1,30 @@
 """Brutal Suppression, Drought (wave 110F): a static additional cost of "Sacrifice a land / a Swamp" on spells and activated abilities.
 
 118.8: an additional cost is paid with the rest (601.2f-h, 602.2b). 107.4e / 107.4f: a hybrid or Phyrexian symbol with a B half is a black mana symbol.
-Only the spell tax is automated. The taxes on activated abilities (Brutal Suppression, Drought's second line) stay unsupported (PARTIAL): mana
-abilities, cycling, unearth, equip ... each have their own cost route, and refusing a legal activation would forbid a legal play, so the table pays."""
+Every activation route pays it: the generic one (casting.ability_cost, which equip, unearth, fortify, ninjutsu, channel and a non-mana-only cycling use),
+cycling and transmute with a taxed cost (routed through it), and mana abilities (the tax joins their extra cost). Suspend, plot, foretell are special actions
+(116.2), not activated abilities, so they pay no tax; crew and saddle have no mana symbol (and no Rebel Vehicle exists)."""
 from __future__ import annotations
 
 import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from app.game.state import GameState
+    from app.game.state import CardInstance, GameState
     from app.rules.characteristics import CardInfo, Characteristics
     from app.rules.costs import AbilityCost
 
+BRUTAL = 'Activated abilities of nontoken Rebels cost an additional "Sacrifice a land" to activate.'
 DROUGHT_SPELL = 'Spells cost an additional "Sacrifice a Swamp" to cast for each black mana symbol in their mana costs.'
+DROUGHT_ABILITY = 'Activated abilities cost an additional "Sacrifice a Swamp" to activate for each black mana symbol in their activation costs.'
+_KINDS = {BRUTAL: "brutal", DROUGHT_SPELL: "spell", DROUGHT_ABILITY: "ability"}
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
-    if ability.kind == "static" and scripts.self_text(ability.text, ch.name) == DROUGHT_SPELL:
-        return {"kind": "static", "static": "sac_tax110f", "tax": "spell", "effects": []}
-    return None
+    kind = _KINDS.get(scripts.self_text(ability.text, ch.name)) if ability.kind == "static" else None
+    return {"kind": "static", "static": "sac_tax110f", "tax": kind, "effects": []} if kind else None
 
 
 def black_symbols(text: str) -> int:
@@ -48,3 +51,21 @@ def spell_tax(state: GameState, info: CardInfo, ch: Characteristics) -> AbilityC
     """Drought, spells: one Swamp for each black symbol in the spell's mana cost, for each Drought."""
     n = black_symbols(ch.mana_cost or "") * len(_taxes(state, info, "spell"))
     return _sac("Swamp", n) if n else None
+
+
+def ability_tax(state: GameState, info: CardInfo, card: CardInstance, ch: Characteristics, cost_text: str) -> AbilityCost | None:
+    """Brutal Suppression (a land if the source is a nontoken Rebel) and Drought (a Swamp per black symbol of the activation cost)."""
+    from app.rules import costs
+
+    parts = []
+    if "Rebel" in ch.subtypes and not card.is_token and (n := len(_taxes(state, info, "brutal"))):
+        parts.append(_sac("land", n))
+    if (n := black_symbols(cost_text) * len(_taxes(state, info, "ability"))):
+        parts.append(_sac("Swamp", n))
+    return costs.AbilityCost(components=tuple(c for p in parts for c in p.components)) if parts else None
+
+
+def tax_text(state: GameState, info: CardInfo, card: CardInstance, ch: Characteristics, cost_text: str) -> str:
+    """The tax as cost text ("Sacrifice a land, Sacrifice a Swamp") for the routes that read an activation cost as text (mana abilities)."""
+    t = ability_tax(state, info, card, ch, cost_text)
+    return ", ".join(f"Sacrifice a {'Swamp' if 'Swamp' in c.text else 'land'}" for c in t.components for _ in range(c.amount)) if t else ""

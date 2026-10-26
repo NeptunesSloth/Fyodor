@@ -430,6 +430,13 @@ def at_step(plan: Plan, phase: str) -> None:
             from app.rules import layers
 
             layers.control_sync(plan)
+    if phase == "end":  # -- wave 110D -- "until the next end step" ends as it begins (611.2a); one made during an end step already begun waits for the next
+        ended = [e for e in r.effects if e.duration == "next_end_step110d" and (plan.state.turn.number > e.turn or r.step_serial > e.created_step110d)]
+        if ended:
+            _end(plan, ended)
+            from app.rules import layers
+
+            layers.control_sync(plan)
     over = [e for e in r.effects if e.duration == "end_of_next_upkeep110g" and e.until_player == plan.active and plan.state.turn.number > e.turn]
     if phase == "draw" and over:  # -- wave 110G -- Halfdane: "until the end of your next upkeep" ends as the draw step begins (611.2a, 501.1)
         _end(plan, over)
@@ -452,6 +459,13 @@ def on_events(plan: Plan, events: list[Event]) -> None:
 
     r = plan.rules
     watching = [t for t in r.delayed if t.when.get("kind") == "event"]
+    if not watching:
+        return
+    from app.rules import wave110h_cards
+
+    entered = wave110h_cards.exiled_enter(plan, events)  # -- exiled cards entering (wave 110H) -- Lagrella
+    r.delayed = [t for t in r.delayed if t.id not in entered]
+    watching = [t for t in watching if t.when["event"] != "enter_exiled110h"]
     if not watching:
         return
     fired: list[DelayedTrigger] = []

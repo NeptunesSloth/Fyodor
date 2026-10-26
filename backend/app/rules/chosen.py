@@ -98,10 +98,13 @@ def _uses(node: Any, key: str = "") -> list[tuple[str, str]]:
 NAME_TRIGGER = re.compile(r"^When ~ enters, choose (?:a|an) (?P<what>(?:non)?(?:land|artifact|creature|enchantment|instant|sorcery|planeswalker|basic)? ?card name)\.$")
 
 
+SAGA_NAME = "II — Choose a card name."  # -- cards (wave 110I) -- Medomai's Prophecy: the chapter's answer stays on the Saga for chapter III
+
+
 def remember_name(d: dict[str, Any] | None, text: str) -> dict[str, Any] | None:
     """The definition of a lone "When ~ enters, choose a … card name." trigger with the answer recorded on the permanent (effects.resume_choose_value ``remember``)."""
     effects = d.get("effects") if d is not None else None
-    if d is None or d.get("kind") != "triggered" or NAME_TRIGGER.match(text) is None or not effects or len(effects) != 1 or effects[0].get("do") != "choose_value":
+    if d is None or d.get("kind") != "triggered" or (NAME_TRIGGER.match(text) is None and text != SAGA_NAME) or not effects or len(effects) != 1 or effects[0].get("do") != "choose_value":
         return d
     return {**d, "effects": [{**effects[0], "remember": True}]}
 
@@ -115,6 +118,7 @@ def _enters_choices(ch: Characteristics) -> list[str]:
 
     texts = [choice_head(self_text(ab.text, ch.name)) for ab in ch.abilities]  # (wave 53B: a line that also puts counters on it)
     named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"]) and e["what"] != card_names.SECOND]  # (wave 110F: Null Chamber's two names are one "card name" choice)
+    named += ["card name" for t in texts if t == SAGA_NAME]  # (wave 110I: Medomai's Prophecy)
     named += [m["what"] for t in texts if (m := NAME_TRIGGER.match(t)) is not None]  # (wave 53B: "When ~ enters, choose a land card name." — recorded on the permanent as the trigger resolves, Petrified Hamlet)
     pairs = [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and re.fullmatch(PAIRS, m["what"]) for k in ("color", "creature type")]  # (wave 53B: Sarpadian Empires)
     pairs += [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "two basic land types" for k in ("basic land type", "second basic land type")]  # (Illusionary Terrain)

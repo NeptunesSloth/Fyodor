@@ -989,6 +989,11 @@ def _with_nonmana_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "nonmana_ability"))
 
 
+@_suffix(r"with activated abilities")  # -- cards (wave 110D) -- 602.1, 605.1a: The Enigma Jewel's craft ("nonlands with activated abilities"; mana abilities count)
+def _with_any_activated(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "any_activated110d"))
+
+
 @_suffix(r"(?:that )?has an activated ability with \{T\} in its cost")  # -- activated other (wave 52D) -- Magewright's Stone: 602.1, a mana ability is an activated ability too (605.1a)
 def _with_tap_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "tap_ability"))
@@ -1689,6 +1694,9 @@ _SUFFIXES.insert(0, (re.compile(r" that targets (?P<w>(?!only\b).+)$"), _targets
 
 # -- retarget (wave 100O) -- 115.9c: "… that targets only this creature / only a single creature / only a player" (Torchling, Muck Drubb, Rebound): one
 # different object or player was chosen (however many times), and it is that now (115.9b). Extra "targets_only:<self|player|selector key>".
+ACTIVATED_KEYWORDS = frozenset({"equip", "crew", "saddle", "outlast", "fortify", "reconfigure", "cycling", "typecycling", "landcycling", "unearth", "embalm", "eternalize", "scavenge", "ninjutsu", "transmute", "channel"})  # 602.1: keyword abilities that are activated (wave 110D)
+
+
 def _targets_only_suffix(s: Selector, m: re.Match[str]) -> Selector:
     w = m["w"]
     sub = parse(w[len("a single "):]) if w.startswith("a single ") else None
@@ -2420,6 +2428,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if top_card is None or not set(plan.ch(top_card).colors) & set(ch.colors):
                 return False
             continue
+        if extra.startswith("basic_or_sub110c:"):  # -- (wave 110C) -- "basic, Sphere, or Locus lands" (Monument to Perfection): a basic land, or one with one of those subtypes
+            if "Basic" not in ch.supertypes and not set(extra.split(":", 1)[1].split("|")) & ch.subtypes:
+                return False
+            continue
         if extra == 'enchant_creature_exact':
             from app.rules import attachments
 
@@ -2545,6 +2557,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if "nonmana_ability" in sel.extras and not any(a.kind == "activated" for a in ch.abilities):  # (wave 110F)
         return False
     if "tap_ability" in sel.extras and not any(a.kind in ("activated", "mana") and "{T}" in (a.cost or "") for a in ch.abilities):  # (wave 52D)
+        return False
+    if "any_activated110d" in sel.extras and not any(a.kind in ("activated", "mana", "loyalty") or (a.kind == "keywords" and ACTIVATED_KEYWORDS & set(a.keywords)) for a in ch.abilities):  # (wave 110D)
         return False
     if set(sel.without_keywords) & ch.keywords:
         return False
@@ -2775,6 +2789,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             if wave110a_pick.is_picked(plan, card, source):
                 return False
+        if extra == "not_phased_by_source110f" and (src_f := plan.state.cards.get(source or "")) is not None \
+                and plan.oid(card) in plan.rules.ferris110f.get(plan.oid(src_f), []):
+            return False  # -- wave 110F -- Ferris Wheel: "that hasn't been phased out with this Attraction": a history of this object, not its status (702.26b-c define only phased in / out; 702.26d the
+            # object stays the same through phasing, so it stays excluded after phasing in; 400.7: a creature that left and returned is a new object and is eligible again)
         if extra == "made_by_source110f" and (source is None or card.token_source is None or card.token_source.source_id != source):
             return False  # -- wave 110F -- 111.2: a token created by the source's own ability (Dance of Many: "the token")
         if extra == "attached_source" and (source is None or card.attached_to != source):  # -- activated other (wave 34B) -- attached to the source itself

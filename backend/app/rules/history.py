@@ -819,10 +819,9 @@ def _departed(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: TurnLo
         _, ch = _snapshot_card(plan, snap)
         types = d.types if d.types is not None else ch.types
         if cond.get('not_name'):
-            from app.cards.names import normalize_name
             from app.rules import card_names
 
-            if normalize_name(cond['not_name']) in {normalize_name(name) for name in card_names.names_of(ch)}:
+            if card_names.has_name(ch, cond['not_name']):  # (Spy Kit, wave 110J: has_name is name_test-aware)
                 continue
         if cond.get("not_named") and named_like(plan, ctx, ch):
             continue
@@ -902,6 +901,8 @@ _WAVE_4D: dict[str, Any] = {
     "unhit110b": lambda plan, ctx, cond, log: ctx["controller"] not in plan.rules.hit110b,  # (wave 110B)
     "attacked_by110b": lambda plan, ctx, cond, log: _attacked_by(plan, ctx, cond, log),  # (wave 110B)
     "attacked_with": lambda plan, ctx, cond, log: _attacked_with(plan, ctx, cond, log),  # (wave 51E)
+    "lore_put110b": lambda plan, ctx, cond, log: any(f.kind == "counters" and f.counter == "lore" and f.amount > 0 and f.object_id == ctx.get("source_object")
+                                                       for f in log.facts),  # (wave 110B) 122.1: a lore counter was put on the permission's source this turn
     "cast": _cast,
     "facts": _facts_holds,
     "damage": _damage,

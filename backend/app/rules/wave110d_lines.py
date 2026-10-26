@@ -5,6 +5,8 @@ import json
 from dataclasses import replace
 from typing import Any
 
+from app.rules import wave110d_chef, wave110d_fire, wave110d_mech, wave110d_meld
+
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
     # Liege of the Tangle: "Each of those lands" = each of them (the targets); 613.1d/613.1f, 205.1b the lands stay lands
@@ -155,6 +157,10 @@ def attack_me_next_turn(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 _KYTHEON = "At end of combat, if ~ and at least two other creatures attacked this combat, exile ~, then return it to the battlefield transformed under its owner's control."
 _CANT_DRAW = " If you can't, draw a card."
+_NIKO = ("{2}, {T}: Exile target nonlegendary creature you control. Shards you control become copies of it until the next end step. "
+         "Return it to the battlefield under its owner's control at the beginning of the next end step.")
+_CAPRI = ("{2}: Put a +1/+1 counter on ~, then you may reselect which player ~ is attacking. "
+          "Only the player ~ is attacking may activate this ability and only during the declare attackers step.")
 
 
 def draw_if_none(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
@@ -164,10 +170,36 @@ def draw_if_none(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return bool(effects._cards(plan, ctx, "ref:" + e["ref"])) or effects.draw(plan, ctx, {"do": "draw", "who": "you", "n": 1})
 
 
+_HORDE = "{3}{R/W}{R/W}: Creatures your opponents control block this turn if able, and you choose how those creatures block."
+def return_or_draw(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Return the card, or draw a card when there is no card to return ("If you can't, draw a card")."""
+    from app.rules import selectors
+
+    effect = e["effect"]
+    found = selectors.candidates(plan, selectors.from_key(effect["sel"]), ctx["controller"], ctx.get("source_card"))
+    ctx["effects"][ctx["next"]:ctx["next"]] = [effect] if found else [{"do": "draw", "who": "you", "n": 1}]
+    return True
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == wave110d_meld.LINE:
+        return wave110d_meld.definition(ability, ch)
+    if text == wave110d_mech.LOCUS:  # The Enigma Jewel's back face
+        return wave110d_mech.locus(ability, ch)
+    if text == wave110d_mech.LINE:  # Mechtitan Core
+        return wave110d_mech.definition(ability, ch)
+    if text == wave110d_chef.LINE:
+        return wave110d_chef.definition(ability, ch)
+    if text == wave110d_fire.LINE:  # Firebender Ascension: read by wave110d_fire.triggers, not by an event pass
+        return {"kind": "static", "static": "firebender110d", "effects": []}
+    if text == _HORDE:  # Brutal Hordechief: "block if able" changes no characteristic, so it is not locked (611.2c): it binds every creature opponents control at blocks, so the whole declaration (509.1a) is yours
+        d = scripts.define(replace(ability, text="{3}{R/W}{R/W}: Creatures your opponents control block this turn if able."), ch)
+        if d is not None:
+            d["effects"].append({"do": "declare_chooser110a", "kind": "block", "combat": False})
+        return d
     if text == WARD_XP:
         return {"kind": "static", "static": "ward_xp110d", "effects": []}
     native = _AS.get(text)
@@ -201,6 +233,20 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             d["effects"] = [{"do": "only_if", "cond": c, "skip": 4 - i} for i, c in enumerate(conds)] + [{**d["effects"][0], "as": "kaldra110d"}]
             d["effects"].append({"do": "attach_to", "src": allk, "who": "ref:kaldra110d"})
         return d
+    if text == _NIKO:  # Niko, Light of Hope: 707.9 the Shards copy the exiled creature as it last existed (608.2h), until the end step begins (611.2a)
+        d = scripts.define(replace(ability, text=text.replace(" Shards you control become copies of it until the next end step.", "")), ch)
+        if d is not None and d["effects"][0].get("do") == "exile":
+            from app.rules import selectors
+
+            shards = selectors.Selector(subtypes=("Shard",), controller="you").key()
+            d["effects"].insert(1, {"do": "become_copy", "who": shards, "with": "ref:" + d["effects"][0]["as"], "last_known": True, "duration": "next_end_step110d"})
+            return d
+        return None
+    if text == _CAPRI:  # Capricopian: 602.2 the defending player activates it (so "you" is them), 508.7c they may reselect whom it attacks
+        d = scripts.define(replace(ability, text=text.replace(", then you may reselect which player ~ is attacking", "")), ch)
+        if d is not None:
+            d["effects"].append({"do": "attacker_reselect73", "mode": "self_player110d"})
+        return d
     if text == _PYXIS:  # Pyxis of Pandemonium: 406.3 the cards turn face up in exile (public), then each permanent card enters under its owner's control (400.3)
         d = scripts.define(replace(ability, text="{7}, {T}, Sacrifice ~: Each player returns to the battlefield all cards they own exiled with ~."), ch)
         if d is not None:
@@ -224,9 +270,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return d
     if text.endswith(_CANT_DRAW):  # Inventive Iteration: the graveyard pick is not a target, so "can't" = no artifact card to return (701.21, 608.2c)
         d = scripts.define(replace(ability, text=text[: -len(_CANT_DRAW)]), ch)
-        if d is not None:
-            d["effects"][0]["as"] = "back110d"
-            d["effects"].append({"do": "draw_if_none110d", "ref": "back110d"})
+        back = [i for i, x in enumerate(d["effects"]) if x.get("do") == "return_choice" and x.get("sel")] if d is not None else []
+        if d is None or not back:
+            return None
+        # (the last return is what "can't" is about: Roots of Wisdom mills first; whether a card could be returned is read as it would be, not
+        # from where the card ends up, so a commander put into the command zone instead (903.9b) still was returned)
+        d["effects"][back[-1]] = {"do": "return_or_draw110d", "effect": d["effects"][back[-1]]}
         return d
     d = None if native is None else scripts.define(replace(ability, text=native), ch)
     if d is not None and text.startswith("−6: Gain control of target creature. It becomes a Vampire"):
@@ -355,7 +404,7 @@ def turn_up_or_not(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"turn_up_or_not110d": turn_up_or_not, "attack_me110d": attack_me_next_turn, "draw_per_curse110d": draw_per_curse, "same_mv_limit110d": same_mv_limit, "draw_if_none110d": draw_if_none, "attach_event_player110d": attach_event_player, "share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
+PRIMITIVES = {"turn_up_or_not110d": turn_up_or_not, "attack_me110d": attack_me_next_turn, "draw_per_curse110d": draw_per_curse, "same_mv_limit110d": same_mv_limit, "draw_if_none110d": draw_if_none, "return_or_draw110d": return_or_draw, "attach_event_player110d": attach_event_player, "share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
 
 
 def holds(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:

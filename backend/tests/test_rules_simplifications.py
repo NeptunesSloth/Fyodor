@@ -294,7 +294,7 @@ def test_returns_after_a_board_wipe_are_one_simultaneous_entry(cards, monkeypatc
 # -- 701.21a: "sacrifice ~ unless you pay" checks who controls it ------------------------------------------
 def test_sacrifice_unless_you_pay_does_nothing_after_a_control_change(cards):
     # Phantasmal Forces: "At the beginning of your upkeep, sacrifice this creature unless you pay
-    # {U}." Bob steals it in response: Alice can't sacrifice what she doesn't control (701.21a).
+    # {U}." Bob steals it in response: Alice can't sacrifice what she doesn't control (701.21a); she may still pay (118.12).
     s = two_player(cards, alice_cards=("Phantasmal Forces",))
     forces = on_battlefield(s, "Phantasmal Forces")
     act(s, "p1", type="set_prefs", full_control=True)
@@ -315,7 +315,10 @@ def test_sacrifice_unless_you_pay_does_nothing_after_a_control_change(cards):
         if not s.state.zones.get("stack"):
             break
         d = rules(s).decision
-        assert d is None or (d.resume or {}).get("step") != "pay_or_sacrifice"  # nothing to choose
+        if d is not None and (d.resume or {}).get("step") == "pay_or_sacrifice":  # 118.12: Alice may still pay; nothing is sacrificed either way
+            assert d.player == "p1" and [o.label for o in d.options][1] == "Don't pay"
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=["sacrifice"])
+            continue
         act(s, rules(s).priority, type="pass_priority")
     assert s.state.cards[forces.id].zone == "p2:battlefield"
     replay_matches(s)

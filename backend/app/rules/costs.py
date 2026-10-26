@@ -31,12 +31,13 @@ if TYPE_CHECKING:
 _MANA_ONLY = re.compile(r"^(\{(?:\d+|[WUBRGCXS]|[WUBRG2]/[WUBRGP]|[WUBRG]/[WUBRG]/P)\})+$")
 _SELF = r"(?:this \w+|it|~)"
 _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it|~|(?P<name>.+))$")
-_GRANTER_COST = re.compile(rf"^(?P<verb>Sacrifice|Unattach|Tap) (?P<g>{selectors.GRANTER})$")  # (wave 18F) the object a quoted grant came from
+_GRANTER_COST = re.compile(rf"^(?P<verb>Sacrifice|Unattach|Tap|Exile) (?P<g>{selectors.GRANTER})$")  # (wave 18F) the object a quoted grant came from
 _LIFE = re.compile(r"^Pay (?P<n>\d+) life$")
 _ENERGY = re.compile(r"^Pay (?:(?P<symbols>(?:\{E\})+)|(?P<n>\w+) \{E\})$")
 _REMOVE = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|four|five|six|seven|eight|fifty|\d+) (?P<kind>[\w+/\-]+) counters? from (this \w+|it|~|(?P<name>.+))$"
 )
+_REMOVE_ALL_GRANTER = re.compile(rf"^Remove all (?P<kind>[\w+/\-]+) counters from (?P<g>{selectors.GRANTER})$")  # (wave 110H) Hankyu: the granting Equipment's
 _REMOVE_ALL = re.compile(rf"^Remove all (?P<kind>[\w+/\-]+) counters from {_SELF}$")  # (the source's own: ~ / this permanent)
 _N = r"(?P<n>a|an|another|one|two|three|four|five|six|seven|eight|nine|ten|thirteen|fifteen|\d+)"  # (seven …: wave 4H; fifteen: 17B)
 _SAC_CHOSEN = re.compile(rf"^Sacrifice {_N} (?P<what>.+)$")
@@ -182,6 +183,7 @@ class AbilityCost:
     components: tuple[CostComponent, ...] = ()
     graveyard_only: bool = False  # -- reanimation (wave 3R) -- its effect moves this card out of your graveyard (113.6m)
     exile_too: bool = False  # -- activated other (wave 42C) -- "Return this card from your graveyard or from exile …" (Mister Immortal): graveyard_only, and the exile zone too (113.6m)
+    exile_only110c: bool = False  # -- wave 110C -- exile_too, but not the graveyard: "Put this card from exile onto the battlefield tapped" (Torrent Elemental, 113.6m)
     battlefield_too110k: bool = False  # -- wave 110K -- graveyard_only, and the battlefield too: "Activate only if ~ is on the battlefield or in your graveyard" (Skyblade's Boon)
     hand_only: bool = False  # -- activated from hand / command zone (wave 27D) -- its effect moves this card out of your hand (113.6m)
     command_only: bool = False  # (…or out of the command zone)
@@ -264,6 +266,9 @@ def _selector(phrase: str, *, zone: str, other: bool = False) -> str | None:
             compare = (*branch.compare, ("mv", "==", selectors.X_VALUE)) if mv_x is not None else branch.compare
             keys.append(replace(branch, controller="you", other=other, zones=("battlefield",), compare=compare).key())
         return selectors.Selector(zones=("battlefield",), either=tuple(keys)).key()
+    if (union := re.fullmatch(r"(other )?artifact creatures and/or Vehicles( you control)?", phrase)) and zone == "battlefield":  # -- (wave 110D) -- Mechtitan Core: either kind counts
+        keys = [replace(selectors.parse(p), controller="you", other=other or bool(union[1]), zones=("battlefield",)).key() for p in ("artifact creature", "Vehicle")]  # type: ignore[type-var, union-attr]
+        return selectors.Selector(zones=("battlefield",), either=tuple(keys)).key()
     sel = selectors.parse(phrase)
     if mv_x is not None and sel is not None:
         sel = replace(sel, compare=(*sel.compare, ("mv", "==", selectors.X_VALUE)))
@@ -329,6 +334,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         assert sel is not None
         if m["verb"] == "Tap":  # (an untapped one: 118.3)
             return CostComponent(TAP_OTHER, selector=replace(sel, tapped=False).key(), text=part)
+        if m["verb"] == "Exile":  # -- granted from object (wave 110I) -- The Dominion Bracelet: "Exile <granter>" exiles the Equipment from the battlefield (118.3)
+            return CostComponent(EXILE, selector=replace(sel, zones=("battlefield",)).key(), text=part)
         return CostComponent(SACRIFICE if m["verb"] == "Sacrifice" else UNATTACH, selector=sel.key(), text=part)
     if m := _HOST_COST.match(part):  # (the verb's own rules: only an untapped permanent is tapped, 701.26a; only your own is sacrificed, 701.21a: cost_payment)
         sel = selectors.Selector(extras=("host_of_source",), tapped=False if m["verb"] == "Tap" else None)
@@ -348,6 +355,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(REMOVE_COUNTER, amount=1, counter=ANY_COUNTER,
                              selector=_selector("permanent you control", zone="battlefield"),
                              counter_options=("+1/+1", "charge"), text=part)
+    if m := _REMOVE_ALL_GRANTER.match(part):  # -- granter counters (wave 110H) -- 602.2b: all of them, the granter being the one choice made for you (as _GRANTER_COST)
+        return CostComponent(REMOVE_COUNTER, amount=0, counter=m["kind"], selector=selectors.parse(m["g"]).key(), x=True, every=True, text=part)  # type: ignore[union-attr]
     if m := _REMOVE_ALL.match(part):  # -- activated sweep (wave 26C) -- 602.2b: not announced, it's all of them (casting sets X to that many)
         return CostComponent(REMOVE_COUNTER, amount=0, counter=m["kind"], x=True, every=True, text=part)
     if (m := _REMOVE.match(part)) and (not m.group("name") or m.group("name") == card_name):
@@ -589,6 +598,9 @@ def _craft_part(m: re.Match[str], part: str) -> CostComponent | None:
     card in your graveyard of that type; with the word "card" (109.2) only a graveyard card. "one or more" alone: any object."""
     what = re.sub(r"\b(\w+?)s\b$", r"\1", m["what"] or "", count=1) if m["what"] and not m["what"].endswith("Merfolk") else m["what"] or ""
     n = _n(m["n"]) if m["n"].isdigit() or m["n"] in _WORDS else None
+    if m["what"] == "nonlands with activated abilities" and n is not None:  # -- (wave 110D) -- The Enigma Jewel: a nonland permanent you control or nonland card in your graveyard
+        return CostComponent(CRAFT, amount=n, selector=_selector("nonland permanent with activated abilities you control", zone="battlefield"),
+                             alt=_selector("nonland card with activated abilities from your graveyard", zone="graveyard"), more=bool(m["more"]), text=part)
     if n is None or " with " in what or what.endswith("nonland") or "share" in what:
         return None  # (conditions on the objects, "that share a card type": not read)
     if not what:
@@ -749,7 +761,7 @@ def _self_text(part: str, card_name: str) -> str:
 _KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)|(?P<entwine>entwine)) (?P<cost>(?:\{[^}]+\})+)(?P<anytimes> any number of times)?$",
                      re.IGNORECASE)
 # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}" is "Kicker {A}, kicker {B}": two kicker costs, each paid at most once (Invasion's Battlemages)
-_KICKER2 = re.compile(r"^kicker (?P<a>(?:\{[^}]+\})+) and/or (?P<b>(?:\{[^}]+\})+)$", re.IGNORECASE)
+_KICKER2 = re.compile(r"^kicker (?P<a>(?:\{[^}]+\})+) and/or (?P<b>(?:\{[^}]+\})+)(?P<any> any number of times)?$", re.IGNORECASE)
 
 
 # -- casting extras (wave 18E) -- 702.42a: an entwine cost that isn't mana ("Entwine—Sacrifice three lands.") is paid as additional costs are
@@ -844,12 +856,19 @@ class Kicker:
 
     def paid(self, times: int) -> int:
         """-- keywords (wave 50H) -- how many kicker costs the cast's ``kicker`` pays (702.33d): the bits of the mask of two costs, else the count."""
+        if self.second and self.multi:  # -- wave 110G -- Primitive Justice: ``times`` is first count + 32 * second count (each 0..30)
+            return pair_counts(times)[0] + pair_counts(times)[1]
         return bin(times).count("1") if self.second else times
 
     @property
     def x(self) -> bool:
         """-- cast keywords (wave 43D) -- 107.3a: "Kicker {X}": the value of X is announced with the kicker cost."""
         return "{X}" in self.cost.upper()
+
+
+def pair_counts(times: int) -> tuple[int, int]:
+    """-- wave 110G -- the two payment counts of "you may pay {A} and/or {B} any number of times" in the cast's ``kicker`` number."""
+    return times & 31, times >> 5
 
 
 _OPTIONAL_EXTRA = re.compile(r"As an additional cost to cast this spell, you may pay (?P<cost>\{2\}\{R\})\.")  # -- (wave 110O) -- Undergrowth, the one printed wording
@@ -879,7 +898,7 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
             found.append(Kicker("", multi=non_mana[0], extra=non_mana[1], text=ab.text.strip().rstrip(".")))
             continue
         if (two := _KICKER2.fullmatch(ab.text.strip().rstrip("."))) is not None and kicker_line(ab.text):  # (wave 50H)
-            found.append(Kicker(two["a"], second=two["b"], text=ab.text.strip().rstrip(".")))
+            found.append(Kicker(two["a"], second=two["b"], multi=bool(two["any"]), anytimes=bool(two["any"]), text=ab.text.strip().rstrip(".")))  # (wave 110G: "any number of times", Primitive Justice)
             continue
         m = _KICKER.fullmatch(ab.text.strip().rstrip("."))
         if m is None or not kicker_line(ab.text):

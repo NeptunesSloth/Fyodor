@@ -116,12 +116,19 @@ def finale_copy(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return copying.run(plan, copying.new_job(ctx, controller=ctx["controller"], objects=objects, retarget=True, label="Finale of Promise")) if objects else True
 
 
+VESUVAN = ('As ~ enters or is turned face up, you may choose another creature on the battlefield. If you do, until ~ is turned face down, it becomes a copy of '
+           'that creature, except it has "At the beginning of your upkeep, you may turn ~ face down."')
 PANDEMONIUM = "Whenever a creature enters, that creature's controller may have it deal damage equal to its power to any target of their choice."
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
+    if scripts.self_text(ability.text, ch.name) == VESUVAN:  # the entering half is the enter_as_copy replacement (copying.entering); the turned-up half is copying.turned_up_copy
+        from app.rules import copying
+
+        d = copying.define_static('You may have ~ enter as a copy of any creature on the battlefield, except it has "At the beginning of your upkeep, you may turn this creature face down."')
+        return None if d is None else {**d, "vesuvan110c": True}
     if ability.kind == "triggered" and scripts.self_text(ability.text, ch.name) == PANDEMONIUM:  # Pandemonium ruling 2006-09-25: its controller controls the ability, the entering creature's controller chooses the target (target_choice) and whether it deals the damage
         d = scripts.define(replace(ability, text="Whenever a creature enters, that creature deals damage equal to its power to any target."), ch)
         return None if d is None else {**d, "target_choice": "entering110c", "effects": [{"do": "pandemonium110c"}, *d["effects"]]}
