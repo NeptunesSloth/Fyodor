@@ -27,3 +27,4 @@
 - Echo Chamber, Magus of the Arena, Keeper of the Dead: "an opponent chooses target ..." / "as you activate" target conditions; no foundation in this branch.
 - Apocalypse Chime, Golgothian Sylex: "name originally printed in the X expansion" needs set membership data.
 - Bomb Squad: state trigger "a creature has four or more fuse counters" with "that creature"; no CR rule or ruling found for several creatures reaching four at once (603.8 covers one state, not one per object). Needs the ruling before building a per-object state trigger.
+- Paliano, the High City: "chosen as you drafted cards named Paliano" depends on draft history that a Commander game does not have; stays manual (no CR rule, no ruling).
