@@ -95,7 +95,7 @@ def _spawn(cards, creature, yes, targets=None):
 @pytest.mark.parametrize("yes", [True, False])
 def test_aboleth_spawn_copies_an_opponents_enters_trigger(cards, yes):  # 603.2d, 707.10: p1's Elvish Visionary draws for p1; the copy (p2 controls it) draws for p2
     s, hand = _spawn(cards, "Elvish Visionary", yes)
-    assert (len(s.state.zones["p1:hand"]) - hand["p1"], len(s.state.zones["p2:hand"]) - hand["p2"]) == (0, 1 if yes else 0)  # p1: -1 (cast) +1 (draw)
+    assert (len(s.state.zones["p1:hand"]) - hand["p1"], len(s.state.zones["p2:hand"]) - hand["p2"]) == (1, 1 if yes else 0)  # p1: +1 (card to hand) -1 (cast) +1 (draw)
     check(s)
 
 
@@ -105,5 +105,5 @@ def test_aboleth_spawn_ignores_its_controllers_own_creatures(cards):
     n = len(s.state.zones["p1:hand"])
     cast(s, "Elvish Visionary")
     answer(s)
-    assert len(s.state.zones["p1:hand"]) == n  # cast -1, draw +1, no copy
+    assert len(s.state.zones["p1:hand"]) == n + 1  # card to hand +1, cast -1, draw +1, no copy
     check(s)
