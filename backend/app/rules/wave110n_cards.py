@@ -606,6 +606,22 @@ def queen(plan: Any, ctx: Any, e: Def) -> bool:
     return True
 
 
+_OVERBURDEN = "Whenever a player puts a nontoken creature onto the battlefield, that player returns a land they control to its owner's hand."
+
+
+def _overburden(d: Def) -> Def:
+    """Overburden: a nontoken creature entering (603.6a; a resolving creature spell puts it there, 608.3a, like an effect does) makes the player it entered under return a
+    land they control. The player who "puts" it and the one it enters under are the same in every ordinary case; when an effect puts a creature under another player's
+    control, "that player" is read as the creature's new controller (its owner is not asked)."""
+    if [e.get("do") for e in d["effects"]] != ["sacrifice_choice"]:
+        return d
+    return {**d, "effects": [{"do": "player_chooses", "who": "ref:event.controller", "sel": d["effects"][0]["sel"], "n": 1, "label": "land", "as": "ov110n"},
+                             {"do": "bounce", "who": "ref:ov110n"}]}
+
+
+_BUILD[_OVERBURDEN] = ("Whenever a nontoken creature enters, its controller sacrifices a land.", _overburden)
+
+
 def _thief(d: Def) -> Def:
     """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
     from app.rules import scripts
