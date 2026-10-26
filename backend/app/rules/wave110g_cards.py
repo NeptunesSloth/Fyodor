@@ -1365,6 +1365,18 @@ def keep_entered(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def return_self(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Next of Kin: "return this card to the battlefield attached to that creature" -- the source Aura, if it is still in the graveyard, enchants the creature
+    put onto the battlefield (a ref kept by the delayed trigger, 603.7c); one that can't (it left, or protection) stays (303.4g)."""
+    from app.rules import effects
+
+    cid = ctx.get("source_card")
+    card = plan.state.cards.get(cid or "")
+    if card is None or card.zone != f"{card.owner}:graveyard":
+        return True
+    return effects._return_cards(plan, ctx, {"do": "return_card", "to": "battlefield", "tapped": False, "under": "you", "host": "ref:e0"}, [card.id])
+
+
 def _suspend_costs(plan: Any, pid: str) -> dict[str, str]:
     """The cards in the player's hand with a suspend ability, each with its suspend cost (the first instance, 702.62a)."""
     from app.rules import casting
@@ -1475,13 +1487,24 @@ def resume_hippo(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, r["ctx"])
 
 
+def _kin(d: Def) -> Def:
+    """Next of Kin: the creature card may also come from the command zone (put_from_hand cmd110g); "if you do" the Aura (this card, in the graveyard) returns
+    attached to that creature (303.4f: an Aura that can't enchant it stays) at the next end step."""
+    put = {**d["effects"][0], "cmd110g": True, "did": "did0", "as": "e0"}
+    return {**d, "effects": [put, {"do": "only_if", "cond": {"succeeded": "did0"}, "skip": 2}, {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1},
+                             {"do": "deferred:return_self110g"}]}
+
+
+_BUILD["When enchanted creature dies, you may put a creature card you own with lesser mana value from your hand or from the command zone onto the battlefield. "
+       "If you do, return this card to the battlefield attached to that creature at the beginning of the next end step."] = (
+    "When enchanted creature dies, you may put a creature card with mana value less than that creature's mana value from your hand onto the battlefield.", _kin)
 _BUILD[_HIPPO] = ("Whenever this creature attacks and isn't blocked, you may draw a card.", lambda d: {**d, "effects": [
     {"do": "hippo110g"}, {"do": "restrict", "who": "self", "rules": ["assign_none"]},
     {"do": "delayed", "when": {"kind": "step", "step": "main", "whose": "you"}, "n": 1},
     {"do": "deferred:add_mana", "sym": "C", "n": {"ref_amount": "lost110g"}}]})
 
 
-PRIMITIVES: dict[str, Any] = {"keep_entered110g": keep_entered, "boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"return_self110g": return_self, "keep_entered110g": keep_entered, "boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"boe110g": resume_boe, "hippo110g": resume_hippo, "river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

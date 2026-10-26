@@ -22,6 +22,11 @@ SEA = ("(As this Saga enters and after your draw step, add a lore counter. Sacri
        "(It can't be blocked as long as defending player controls an Island.)\nIII — Until end of turn, whenever a Salamander deals combat damage to a player, "
        "it deals that much damage to target creature that player controls.")
 EXTRA = [
+    real("Next of Kin", "{2}{G}", 3, "Enchantment \u2014 Aura", "Enchant creature\nWhen enchanted creature dies, you may put a creature card you own with lesser mana value from your hand or from the command zone onto the battlefield. If you do, return this card to the battlefield attached to that creature at the beginning of the next end step.", None, "G"),
+    real("Test Big", "{4}{G}", 5, "Creature \u2014 Beast", "", ("1", "1"), "G"),
+    real("Test Elf", "{G}", 1, "Creature \u2014 Elf", "", ("1", "1"), "G"),
+    real("Test Giant", "{2}{G}", 3, "Creature \u2014 Giant", "", ("3", "3"), "G"),
+    real("Test Small", "{G}", 1, "Creature \u2014 Beast", "", ("1", "1"), "G"),
     real("Storm Herald", "{2}{R}", 3, "Creature \u2014 Human Shaman", "Haste\nWhen this creature enters, return any number of Aura cards from your graveyard to the battlefield attached to creatures you control. Exile those Auras at the beginning of your next end step. If those Auras would leave the battlefield, exile them instead of putting them anywhere else.", ("3", "2"), "R"),
     real("Test Boon", "{G}", 1, "Enchantment \u2014 Aura", "Enchant creature\nEnchanted creature gets +1/+1.", None, "G"),
     real("Test Fertile", "{G}", 1, "Enchantment \u2014 Aura", "Enchant land\nEnchanted land has \"{T}: Add {G}.\"", None, "G"),
@@ -264,3 +269,60 @@ def test_storm_herald_aura_that_would_leave_is_exiled_instead_and_none_is_fine(c
     check(s)
     s2, _ = _herald(cards, set())
     assert s2.state.cards[card_named(s2, "Test Boon").id].zone == "p1:graveyard"
+
+
+def _kin(cards, big=True):
+    """Alice's Next of Kin enchants her 1/1 (mana value 5, or 1) and Test Shock kills it; returns the table after the "may" and the creature choice."""
+    s = build(cards, ["Next of Kin", "Test Big" if big else "Test Small", "Test Shock", "Test Elf", "Test Giant"], [])
+    victim = put(s, "Test Big" if big else "Test Small")
+    kin = to_hand(s, "Next of Kin")
+    mana(s, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=kin.id, targets=[victim.id])
+    _drain(s)
+    to_hand(s, "Test Elf"), to_hand(s, "Test Giant")
+    shock = to_hand(s, "Test Shock")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=shock.id, targets=[victim.id])
+    return s, kin, victim
+
+
+def test_next_of_kin_offers_hand_and_command_zone_and_returns_attached_at_end_step(cards):
+    """Lesser mana value (5): Elves, Test Giant and the commander (Krenko, 4) are offered; Krenko is put in from the command zone and at the end step the Aura returns on it."""
+    s, kin, victim = _kin(cards)
+    seen = []
+    for _ in range(200):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_cards":
+            seen = [s.state.cards[o.id].name for o in d.options]
+            krenko = next(o.id for o in d.options if s.state.cards[o.id].name == "Krenko, Mob Boss")
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[krenko])
+        elif d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"] if "yes" in [o.id for o in d.options] else [d.options[0].id])
+        elif s.state.cards[kin.id].zone == "p1:battlefield" and seen:
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert sorted(seen) == ["Krenko, Mob Boss", "Test Elf", "Test Giant"]
+    krenko = card_named(s, "Krenko, Mob Boss")
+    assert s.state.cards[krenko.id].zone == "p1:battlefield" and s.state.cards[kin.id].attached_to == krenko.id
+    check(s)
+
+
+def test_next_of_kin_nothing_cheaper_means_no_card_and_no_aura_return(cards):
+    """Mana value 1: nothing in hand or the command zone is lesser: nothing is put, so the Aura stays in the graveyard."""
+    s, kin, victim = _kin(cards, big=False)
+    for _ in range(120):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["no"] if "no" in [o.id for o in d.options] else [])  # (the hand holds cards: asked, nothing to pick)
+        elif s.state.turn.number >= 2:
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[kin.id].zone == "p1:graveyard"
+    assert s.state.cards[card_named(s, "Krenko, Mob Boss").id].zone != "p1:battlefield"
+    check(s)
