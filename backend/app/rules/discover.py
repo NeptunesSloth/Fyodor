@@ -54,6 +54,9 @@ def discover(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
         context.bind_objects(plan, ctx, e["as"], [])
     n = effects._amount(plan, ctx, e["n"])
+    from app.game.rules_state import emit
+
+    emit(plan.state, "designation", counter="discover", player=pid, amount=n)  # -- discover (wave 110B) -- "Whenever you discover" (701.57)
     missed: list[str] = []
     hit: str | None = None
     for _ in range(len(plan.state.zones.get(zone_key(pid, "library"), []))):

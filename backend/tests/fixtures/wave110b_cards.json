@@ -2087,5 +2087,96 @@
   ],
   "power": "2",
   "toughness": "2"
+ },
+ {
+  "name": "Kaito, Dancing Shadow",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Planeswalker — Kaito",
+  "oracle_text": "Whenever one or more creatures you control deal combat damage to a player, you may return one of them to its owner's hand. If you do, you may activate loyalty abilities of Kaito twice this turn rather than only once.\n+1: Up to one target creature can't attack or block until your next turn.\n0: Draw a card.\n−2: Create a 2/2 colorless Drone artifact creature token with deathtouch and \"When this token leaves the battlefield, each opponent loses 2 life and you gain 2 life.\"",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [],
+  "loyalty": "3"
+ },
+ {
+  "name": "Overencumbered",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant opponent\nWhen this Aura enters, enchanted opponent creates a Clue token, a Food token, and a Junk token.\nAt the beginning of combat on enchanted opponent's turn, that player may pay {1} for each artifact they control. If they don't, creatures can't attack this combat.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Food",
+   "Enchant"
+  ]
+ },
+ {
+  "name": "Heroic Sacrifice",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Choose target creature you control. Until end of turn, all damage that would be dealt to you and creatures you control is dealt to the chosen creature instead (if it's still on the battlefield). When that creature dies this turn, put its counters on up to one target creature you control and draw a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Faramir, Prince of Ithilien",
+  "layout": "normal",
+  "mana_cost": "{2}{W}{U}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Noble",
+  "oracle_text": "At the beginning of your end step, choose an opponent. At the beginning of that player's next end step, you draw a card if they didn't attack you that turn. Otherwise, create three 1/1 white Human Soldier creature tokens.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Lathiel, the Bounteous Dawn",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{W}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Unicorn",
+  "oracle_text": "Lifelink\nAt the beginning of each end step, if you gained life this turn, distribute up to that many +1/+1 counters among any number of other target creatures.",
+  "colors": [
+   "G",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "W"
+  ],
+  "keywords": [
+   "Lifelink"
+  ],
+  "power": "2",
+  "toughness": "2"
  }
 ]

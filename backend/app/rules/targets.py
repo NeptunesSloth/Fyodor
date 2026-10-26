@@ -461,14 +461,15 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
             out.division.append([])
             continue
         n = len(out.groups[g])
-        if n == 1:
+        upto = bool((spec.get("divide") or {}).get("upto110b"))  # -- one-card wordings (wave 110B) -- "distribute up to that many" (Lathiel): fewer than the total may be divided
+        if n == 1 and not (upto and total > 1):
             out.division.append([total])  # one target: all of it (601.2d)
             continue
         if not given:
             out.ask = ("divide", g, total)
             return out
         amounts, given = given[:n], given[n:]
-        if len(amounts) != n or any(a < 1 for a in amounts) or sum(amounts) != total:
+        if len(amounts) != n or any(a < 1 for a in amounts) or sum(amounts) > total or (sum(amounts) != total and not upto):
             raise BadPick(f"Divide {total} among the {n} targets: at least 1 each, {total} in all")
         out.division.append(amounts)
     if given:

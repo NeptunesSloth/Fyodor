@@ -848,11 +848,12 @@ def ask_targets(plan: Plan, player: str, found: Any, specs: list[dict[str, Any]]
     _, g, total = found.ask
     chosen = found.groups[g]
     noun = "damage" if specs[g]["divide"]["what"] == "damage" else "counters"
-    decide(plan, player=player, kind="divide", prompt=f"Divide {total} {noun} among the targets of {what} (at least 1 each)",
+    upto = bool(specs[g]["divide"].get("upto110b"))  # -- one-card wordings (wave 110B) -- "distribute up to that many" (Lathiel): 115.6, 601.2d the total may be smaller
+    decide(plan, player=player, kind="divide", prompt=f"Divide {'up to ' if upto else ''}{total} {noun} among the targets of {what} (at least 1 each)",
            options=[DecisionOption(id=x, label=target_label(plan, x), card_id=x if x in plan.state.cards else None)
                     for x in chosen],
-           min_choices=len(chosen), max_choices=len(chosen), display={"kind": "divide", "total": total, "what": noun},
-           resume={**resume, "step": resume["step"].replace("group", "divide"), "total": total})
+           min_choices=len(chosen), max_choices=len(chosen), display={"kind": "divide", "total": total, "what": noun, **({"upto": True} if upto else {})},
+           resume={**resume, "step": resume["step"].replace("group", "divide"), "total": total, "upto": upto})
 
 
 def resume_cast_group(plan: Plan, d: Any, chosen: list[str]) -> None:
