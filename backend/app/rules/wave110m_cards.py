@@ -814,11 +814,11 @@ def myra_choose(plan: Any, ctx: Def, e: Def) -> bool:
 
 
 def _myra_mark(plan: Any, ctx: Def, found: list[str]) -> bool:
-    from app.rules import context
+    from app.rules import context, replace
 
     context.bind_objects(plan, ctx, "myra_att110m", found)
     if found:
-        plan.do({"type": "counter", "card_ids": found, "kind": "midway", "delta": 1}, actor=ctx["controller"])
+        replace.put_counters(plan, [(c, "midway", 1) for c in found], by=ctx["controller"])  # (122.6: a counter put on a permanent goes through the replacement choke point)
         plan.note(f"{plan.state.cards[found[0]].name} gets a midway counter", found)
     return True
 
