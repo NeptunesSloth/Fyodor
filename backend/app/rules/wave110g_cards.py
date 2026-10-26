@@ -1162,7 +1162,84 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+_RIVER = "Whenever one or more creatures you control attack, each defending player divides all creatures without flying they control into a \"left\" pile and a \"right\" pile. Then, for each attacking creature you control, choose \"left\" or \"right.\" That creature can't be blocked this combat except by creatures with flying and creatures in a pile with the chosen label."
+
+_BUILD[_RIVER] = ("Whenever one or more creatures you control attack, you gain 1 life.", lambda d: {**d, "effects": [{"do": "river110g"}]})
+
+
+def _river_defender(plan: Any, c: Any) -> str | None:
+    from app.rules import battles, selectors
+
+    target = plan.state.cards.get(c.attacking.id) if c.attacking.kind != "player" else None
+    if target is not None and "Battle" in plan.ch(target).types:  # 310.9d: a battle's defending player is its protector
+        return battles.protector(plan.state, target)
+    return selectors._defender(plan, c.attacking)
+
+
+def river(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Raging River (508.5, 509.1b): each defending player splits their non-flying creatures into two piles (a pile may be empty), then the controller
+    labels each attacker left or right; that attacker can't be blocked this combat except by fliers and creatures of a pile with its label."""
+    me = ctx["controller"]
+    atk = [c for c in plan.state.cards.values() if c.controller == me and c.attacking is not None and c.zone.endswith(":battlefield")]
+    defs = {d for c in atk if (d := _river_defender(plan, c))}
+    st = {"atk": [c.id for c in atk], "defs": [p for p in plan.apnap() if p in defs], "i": 0, "left": [], "right": [], "j": 0}
+    return _river_step(plan, ctx, st)
+
+
+def _river_step(plan: Any, ctx: dict[str, Any], st: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    while st["i"] < len(st["defs"]):  # the piles: the defending player chooses the left one; the rest are the right (a creature without flying only)
+        pid = st["defs"][st["i"]]
+        mine = [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if plan.ch(plan.state.cards[c]).is_creature and "flying" not in plan.ch(plan.state.cards[c]).keywords]
+        if len(mine) > 0:
+            effects.decide(plan, player=pid, kind="choose_cards", prompt="Choose the creatures for the \"left\" pile (the rest form the \"right\" pile)",
+                           min_choices=0, max_choices=len(mine), options=[effects.DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in mine],
+                           resume={"step": "river110g", "ctx": ctx, "st": st, "mine": mine})
+            return False
+        st["i"] += 1
+    while st["j"] < len(st["atk"]):
+        a = plan.state.cards.get(st["atk"][st["j"]])
+        if a is not None and a.attacking is not None and st["left"] != st["right"]:
+            effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Choose \"left\" or \"right\" for {a.name}",
+                           options=[effects.DecisionOption(id="left", label="left"), effects.DecisionOption(id="right", label="right")],
+                           resume={"step": "river_label110g", "ctx": ctx, "st": st})
+            return False
+        st["j"] += 1
+    return True
+
+
+def resume_river(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    if len(set(chosen)) != len(chosen) or any(c not in r["mine"] for c in chosen):
+        raise ValueError("not a candidate")
+    st = r["st"]
+    st["left"] += [plan.oid(c) for c in chosen]
+    st["right"] += [plan.oid(c) for c in r["mine"] if c not in chosen]
+    st["i"] += 1
+    if _river_step(plan, r["ctx"], st):
+        effects.continue_effects(plan, r["ctx"])
+
+
+def resume_river_label(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects, selectors
+
+    r = d.resume
+    st = r["st"]
+    if chosen[0] not in ("left", "right"):
+        raise ValueError("left or right")
+    a = plan.state.cards[st["atk"][st["j"]]]
+    keys = "|".join((selectors.Selector(types=("Creature",), with_keywords=("flying",)).key(),
+                     selectors.Selector(types=("Creature",), extras=("pile110g:" + ",".join(st[chosen[0]]),)).key()))
+    effects.restrict(plan, r["ctx"], {"do": "restrict", "who": f"object:{plan.oid(a)}", "rules": [f"cant_be_blocked_except_by:{keys}"], "duration": "end_of_combat"})
+    st["j"] += 1
+    if _river_step(plan, r["ctx"], st):
+        effects.continue_effects(plan, r["ctx"])
+
+
+PRIMITIVES: dict[str, Any] = {"river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
-RESUME: dict[str, Any] = {"equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
+RESUME: dict[str, Any] = {"river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

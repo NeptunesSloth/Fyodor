@@ -2883,6 +2883,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "could_attack110g" and not (plan.rules.could_attack_turn110g == plan.state.turn.number and plan.oid(card) in plan.rules.could_attack110g):
             return False  # -- (wave 110G) -- Season of the Witch: the creature could have been declared as an attacker this turn
+        if extra.startswith("pile110g:") and plan.oid(card) not in extra[9:].split(","):  # -- (wave 110G) -- Raging River: a creature of the chosen pile (objects, 400.7)
+            return False
         if extra == "protected_by_opp110g" and __import__("app.rules.battles", fromlist=["x"]).protector(plan.state, card) in (None, you):  # -- (wave 110G) -- 310.8: a battle an opponent protects
             return False
         if extra == "didnt_attack_combat110g" and card.is_attacking:  # -- (wave 110G) -- 508.1: not among this combat's declared attackers (Total War)

@@ -288,3 +288,26 @@ def test_a_recast_stangg_is_not_sacrificed_for_the_old_twin(cards):
     answer(s)
     assert card_named(s, "Stangg").zone == "p1:battlefield" and _twin(s) is not None
     check(s)
+
+
+@pytest.fixture()
+def cards_sac(settings):
+    """Same pool, but the named land's ability sacrifices the land as a cost (it is gone when the trigger checks it)."""
+    settings.ensure_dirs()
+    extra = [real("Labyrinth of Skophos", "", 0, "Land", "{T}, Sacrifice this land: Remove target attacking or blocking creature from combat.", None, "") if c["name"] == "Labyrinth of Skophos" else c for c in EXTRA]
+    build_database([*fixture_cards(), *extra], settings.cards_db_path, meta={"bulk_type": "test"})
+    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
+    yield repo
+    repo.close()
+
+
+def test_maze_warden_uses_last_known_land_when_it_was_sacrificed(cards_sac):
+    """608.2h / 603.10a: the named land left the battlefield as a cost; its ability still counts as that land's."""
+    s = build(cards_sac, ["Skophos Maze-Warden", "Bear Cub", "Labyrinth of Skophos"], ["Island"])
+    warden, cub, lab = put(s, "Skophos Maze-Warden"), put(s, "Bear Cub"), put(s, "Labyrinth of Skophos")
+    _attack_and_hold(s, cub)
+    act(s, "p1", type="activate_ability", card_id=lab.id, ability=0, targets=[cub.id], target_counts=[1])
+    answer(s)
+    assert s.state.cards[lab.id].zone == "p1:graveyard"
+    assert s.state.cards[cub.id].zone == "p1:graveyard" and s.state.cards[warden.id].damage == 2
+    check(s)
