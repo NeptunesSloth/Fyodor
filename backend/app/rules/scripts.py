@@ -2681,6 +2681,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (body110k := wave110k_cards.parse(body)) is not None:
         return body110k
+    from app.rules import wave110b_cards as _w110b_parse  # -- exact wordings (wave 110B) --
+
+    if (body110b := _w110b_parse.parse(body)) is not None:
+        return body110b
     from app.rules import wave110g_cards  # -- exact wordings (wave 110G) --
 
     if (body110g := wave110g_cards.parse(body)) is not None:
@@ -4154,7 +4158,7 @@ def _x_target_counts(found: tuple[list[dict[str, Any]], Any, bool], value: Any) 
     return found[0], out, found[2]
 
 
-_DIVIDE_VALUES = frozenset({"count", "counters", "on", "devotion", "hand", "plus", "times", "max", "of", "event_amount", "mana_spent", "kicked"})
+_DIVIDE_VALUES = frozenset({"turn_history", "count", "counters", "on", "devotion", "hand", "plus", "times", "max", "of", "event_amount", "mana_spent", "kicked"})
 
 
 def _x_divide_totals(found: tuple[list[dict[str, Any]], Any, bool], value: Any) -> tuple[tuple[list[dict[str, Any]], Any, bool] | None, bool]:
@@ -8331,7 +8335,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 _AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "pay_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "counters_removed", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
                   "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library",
-                  "roll_die"}  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
+                  "roll_die", "discover"}  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage

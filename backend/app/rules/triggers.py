@@ -1207,6 +1207,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             if sum(1 for n in history.log_for(plan).casts if n.player == player
                    and history.note_matches(kind, n.types, n.subtypes, n.supertypes, n.colors, n.mv, x_cost=n.x_cost)) != 1:
                 return False
+        if cond.get("alania110b") and not alania_first(plan, watcher, player, info):  # -- wave 110B -- Alania: the first instant, sorcery or Otter (other than it) cast this turn
+            return False
         if cond.get("nth_note"):  # -- triggers (wave 30J) -- 601.2i: this spell is the Nth of its kind (and place) this player cast this turn
             from app.rules import history
 
@@ -1929,7 +1931,7 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
             if trigger == "event" and plan.in_game(card) and not plan.manual(card):
                 ch = plan.ch(card)
                 out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger)
-                        if ((d.get("cond") or {}).get("subject") == "haunted" and plan.oid(card) in plan.rules.haunting) or (d.get("cond") or {}).get("exiled")]
+                        if ((d.get("cond") or {}).get("subject") == "haunted" and plan.oid(card) in plan.rules.haunting) or (d.get("cond") or {}).get("exiled") or d.get("ex110b")]  # (wave 110B: Senu works from exile, 113.6k)
             continue
         if card.zone.endswith(":phased"):  # -- phase out (wave 110B) -- 702.26d: a phased-out permanent's "Whenever ~ phases out" still triggers (looks back at the shift)
             if trigger == "event" and plan.in_game(card) and not plan.manual(card):
@@ -3064,6 +3066,24 @@ def event_spell_x(plan: Plan, event: TriggerEvent | None) -> int | None:
         return snap.x
     record = plan.rules.payments.get(ref.object_id)
     return record.x if record is not None else None
+
+
+def alania_first(plan: Plan, watcher: CardInstance, player: str | None, info: dict[str, Any]) -> bool:
+    """601.2i: "it's the first instant spell, the first sorcery spell, or the first Otter spell other than Alania you've cast this turn" -- read from the
+    turn's cast log, as each spell was cast (the spell itself and the ones before it)."""
+    from app.rules import history
+
+    notes = [n for n in history.log_for(plan).casts if n.player == player]
+    at = next((i for i, n in enumerate(notes) if n.object_id == info.get("oid")), None)
+    if at is None:
+        return False
+    cur, before = notes[at], notes[:at]
+    me = plan.ch(watcher).name
+
+    def otter(n: Any) -> bool:
+        return "Otter" in n.subtypes and me not in (n.names or [])
+    return any(kind in cur.types and not any(kind in n.types for n in before) for kind in ("Instant", "Sorcery")) \
+        or (otter(cur) and not any(otter(n) for n in before))
 
 
 def event_x(plan: Plan, t: PendingTrigger) -> int | None:

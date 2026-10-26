@@ -170,6 +170,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"(?P<p>you) waterbend"), "waterbend"),
     (re.compile(r"(?P<p>you) forage"), "forage"),  # -- if you do (wave 26C) -- 701.61: the cost was paid (cost_payment.pay)
     (re.compile(r"(?P<p>you) collect evidence"), "collect_evidence"),  # 701.59
+    (re.compile(r"(?P<p>you) discover"), "discover"),  # -- discover (wave 110B) -- 701.57 (discover.discover emits it with the value N)
     (re.compile(r"(?P<p>you) manifest dread"), "manifest_dread"),  # -- manifest dread (wave 110C) -- 701.62a (facedown.finish_dread)
     # -- most-played cards (wave 43B) -- 701.23: "Whenever an opponent searches their library" (Archivist of Oghma, Wan Shi Tong, Ob Nixilis, Unshackled): a search of
     # the searcher's OWN library (the rulings: not one of your search of an opponent's library, nor an opponent's of another player's)
@@ -1379,6 +1380,9 @@ def _object_event(c: str) -> Condition | None:
     # tapped them (an untapped permanent is the only one that can become tapped), once for the batch (603.2c)
     m = re.fullmatch(r"you tap (?P<o>one or more) (?:untapped )?(?P<rest>.+)", c)
     if m and (base := _subject(f"{m['o']} {m['rest']}", many=True)) is not None and base["subject"] == "sel":
+        return {**base, "event": "tapped", "tapper": "you"}
+    m = re.fullmatch(r"you tap an untapped (?P<rest>creature an opponent controls)", c)  # -- tap events (wave 110B) -- Hylda: one event per creature tapped (701.26a)
+    if m and (base := _subject(f"a {m['rest']}")) is not None and base["subject"] == "sel":
         return {**base, "event": "tapped", "tapper": "you"}
     # -- control events (wave 45C) -- 603.10d: "Whenever an opponent gains control of a permanent from you" (Zidane): looks back in time (the permanent,
     # itself too, as it was under its old controller); the other control-change wordings stay manual

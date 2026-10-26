@@ -1485,7 +1485,7 @@ def choose(plan: Plan, a: A.Choose) -> None:
     if d.kind == "divide":  # 601.2d: an amount per option (target), at least 1 each, adding up to the total
         total = int((d.resume or {}).get("total", 0))
         least = int((d.resume or {}).get("least", 1))  # (-- multiple blocks (wave 13B) -- 510.1d: a share may be 0)
-        if chosen or len(a.amounts) != len(d.options) or any(n < least for n in a.amounts) or sum(a.amounts) != total:
+        if chosen or len(a.amounts) != len(d.options) or any(n < least for n in a.amounts) or (sum(a.amounts) != total and not ((d.resume or {}).get("upto") and sum(a.amounts) < total)):
             raise ActionError(f"Divide {total} among the {len(d.options)} targets: at least {least} each, {total} in all")
         need, free = (d.resume or {}).get("lethal") or [], (d.resume or {}).get("free")
         if free is not None and a.amounts[free] > 0 and any(a.amounts[i] < k for i, k in enumerate(need)):

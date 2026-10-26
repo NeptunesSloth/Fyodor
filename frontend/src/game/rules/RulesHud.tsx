@@ -574,6 +574,7 @@ function Divide({ d, view }: { d: DecisionView; view: GameView }) {
     lethal.length ? options.map((_, i) => (i < lethal.length ? (lethal[i] ?? 0) : total - lethal.reduce((a, b) => a + b, 0)))
       : options.map((_, i) => (i === 0 ? total - (options.length - 1) * least : least)));
   const sum = amounts.reduce((a, b) => a + b, 0);
+  const upto = d.display?.upto === true; // 115.6: "distribute up to N" may divide fewer than N
   const set = (i: number, v: number) => setAmounts((xs) => xs.map((x, k) => (k === i ? Math.max(least, v) : x)));
   return (
     <div className="decision-options">
@@ -584,7 +585,7 @@ function Divide({ d, view }: { d: DecisionView; view: GameView }) {
             onChange={(e) => set(i, Number(e.target.value) || least)} />
         </label>
       ))}
-      <button className="tt-btn brass" data-testid="decision-done" disabled={sum !== total} onClick={() => void divide(d.id, amounts)}>
+      <button className="tt-btn brass" data-testid="decision-done" disabled={upto ? sum > total : sum !== total} onClick={() => void divide(d.id, amounts)}>
         Done ({sum}/{total})
       </button>
     </div>
