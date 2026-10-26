@@ -49,6 +49,9 @@ def parse(body: str) -> Any:
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
 
 
+_HELM = ("{X}, {T}: Target opponent mills a card, then repeats this process until a creature card or X cards have been put into their graveyard this way, "
+         "whichever comes first. If one or more creature cards were put into that graveyard this way, sacrifice ~ and put one of them onto the "
+         "battlefield under your control. X can't be 0.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -68,6 +71,16 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "activated" and text == _HELM:
+        native = scripts.define(replace(ability, text="{X}, {T}: Target opponent mills a card. X can't be 0."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["mill"] or native.get("x_min") != 1:
+            return None
+        mill = {**native["effects"][0], "as": "helm110o"}
+        # 701.17a, 608.2c: one card at a time, each its own mill (616.1 replacements ask as usual); the process stops with a creature card or X cards
+        # in the graveyard (the total counts cards that really went there)
+        return {**native, "effects": [mill, {"do": "helm_test110o"}, {"do": "helm_again110o", "rewind": 3},
+                                      {"do": "only_if", "cond": {"w110o": "helm_creature"}, "skip": 2}, {"do": "sacrifice", "who": "self"},
+                                      {"do": "helm_pick110o"}]}
     return None
 
 
@@ -100,6 +113,8 @@ def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
     """Evil's Thrall: you control a Villain whose mana value is greater than the target creature's (the target as it is now, 608.2b)."""
     from app.rules import effects, stack_interaction
 
+    if cond["w110o"] == "helm_creature":
+        return bool(ctx.get("helm_creatures110o"))
     assert cond["w110o"] == "villain_bigger"
     target = [stack_interaction.mana_value(plan.state.cards[c], plan.ch(plan.state.cards[c])) for c in effects._cards(plan, ctx, "target")]
     return bool(target) and any(
@@ -193,6 +208,58 @@ def _finish(plan: Plan, ctx: Context, players: list[str], totals: dict[str, int]
         effects.continue_effects(plan, ctx)
 
 
-PRIMITIVES: dict[str, Any] = {"type_emblem110o": type_emblem, "redistribute110o": redistribute}
+# -- Helm of Obedience ------------------------------------------------------------------------------------------------------------------------
+def helm_test(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """After each mill: the cards that really reached the graveyard count (a replacement may have sent it elsewhere); stop (skip the "repeat") with a
+    creature card among them, with X cards in all, or when nothing could be milled (an empty library: the process can't go on)."""
+    from app.rules import context
+
+    milled = [c for c in context.objects(plan, ctx, "helm110o") if plan.state.cards[c].zone.endswith(":graveyard")]
+    ctx["helm_total110o"] = int(ctx.get("helm_total110o", 0)) + len(milled)
+    ctx["helm_creatures110o"] = [*ctx.get("helm_creatures110o", []), *(c for c in milled if "Creature" in plan.ch(plan.state.cards[c]).types)]
+    if ctx["helm_creatures110o"] or ctx["helm_total110o"] >= int(ctx.get("x") or 0) or not context.objects(plan, ctx, "helm110o"):
+        ctx["next"] += 1
+    return True
+
+
+def helm_again(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    ctx["next"] -= e["rewind"]
+    return True
+
+
+def helm_pick(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Put one of them onto the battlefield under your control": the only creature card, else the controller picks one (608.2d)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    found = [c for c in ctx.get("helm_creatures110o", []) if plan.state.cards[c].zone.endswith(":graveyard")]
+    if len(found) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a creature card to put onto the battlefield",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "a card", card_id=c) for c in found],
+               resume={"step": "helm_pick110o", "ctx": ctx})
+        return False
+    return _put_onto_battlefield(plan, ctx, found[0]) if found else True
+
+
+def _put_onto_battlefield(plan: Plan, ctx: Context, cid: str) -> bool:
+    from app.rules import context, effects
+
+    context.bind_objects(plan, ctx, "helm_pick110o", [cid])
+    return bool(effects.PRIMITIVES["return_card"](plan, ctx, {"do": "return_card", "who": "ref:helm_pick110o", "to": "battlefield", "tapped": False, "under": "you"}))
+
+
+def resume_helm_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in ctx.get("helm_creatures110o", []):
+        raise ActionError("Choose one of the creature cards offered")
+    if _put_onto_battlefield(plan, ctx, chosen[0]):
+        effects.continue_effects(plan, ctx)
+
+
+PRIMITIVES: dict[str, Any] = {"type_emblem110o": type_emblem, "redistribute110o": redistribute,
+              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick}
 RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
-                          "redistribute_give110o": resume_redistribute_give}
+                          "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick}

@@ -6,6 +6,7 @@
   gain or lose life can't get a higher or lower one).
 * 702.133a, 611.2a: Filigree Racer, paying {E}{E} as it attacks, gives an instant or sorcery card in the graveyard jump-start for the turn.
 * 702.138a, 611.2a, 611.2c: The Grim Captain's Locker gives each creature card in the graveyard (as it resolves) "Escape—{3}{B}, Exile four other cards" for the turn.
+* 701.17a, 608.2c: Helm of Obedience mills one card at a time until a creature card or X cards reached the graveyard, then a creature is stolen.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -41,10 +42,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -378,4 +379,59 @@ def test_grim_captains_locker_grants_only_to_the_creature_cards_there_then_and_t
     mana(s, "p1", C=3, B=1)
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=target.id, **({"targets": ["p2"]} if target is bolt else {}))
+    check(s)
+
+
+def library_top(s, *names, pid="p2"):
+    """Bob's library starts with ``names`` (in order); the rest is his Islands."""
+    used: set[str] = set()
+    picks = []
+    for name in names:
+        c = next(c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.id not in used)
+        used.add(c.id)
+        picks.append(c)
+    for c in reversed(picks):
+        act(s, pid, type="move", card_ids=[c.id], to={"zone": "library"}, position="top")
+
+
+def helm(s, x):
+    h = put(s, HELM)
+    mana(s, "p1", C=x)
+    act(s, "p1", type="activate_ability", card_id=h.id, ability=ability(s, h, "{X}"), x_value=x, targets=["p2"])
+    settle(s)
+    return h
+
+
+@pytest.mark.parametrize(("top", "x", "milled", "stolen"), [
+    (["Island", "Island", "Island", "Grizzly Bears"], 3, 3, False),   # X cards, the creature is the 4th: stays in the library
+    (["Island", "Grizzly Bears", "Island"], 5, 2, True),             # a creature card ends it
+    (["Grizzly Bears", "Island"], 2, 1, True),
+    (["Island", "Island"], 1, 1, False),
+])
+def test_helm_of_obedience_mills_until_a_creature_or_x_cards(cards, top, x, milled, stolen):
+    s = build(cards, [HELM], ["Grizzly Bears"])
+    library_top(s, *top)
+    lib = len(s.state.zones["p2:library"])
+    h = helm(s, x)
+    assert len(s.state.zones["p2:library"]) == lib - milled
+    bears = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2")
+    assert (now(s, bears).zone, now(s, bears).controller) == (("p1:battlefield", "p1") if stolen else (now(s, bears).zone, "p2"))
+    assert (now(s, h).zone == "p1:graveyard") == stolen
+    assert len(s.state.zones["p2:graveyard"]) == milled - (1 if stolen else 0)
+    check(s)
+
+
+def test_helm_of_obedience_x_cant_be_zero(cards):
+    s = build(cards, [HELM], ["Grizzly Bears"])
+    h = put(s, HELM)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=h.id, ability=ability(s, h, "{X}"), x_value=0, targets=["p2"])
+
+
+def test_helm_of_obedience_stops_when_the_library_runs_out(cards):
+    s = build(cards, [HELM], [])
+    for cid in list(s.state.zones["p2:library"])[1:]:
+        act(s, "p2", type="move", card_ids=[cid], to={"zone": "exile"})
+    helm(s, 4)
+    assert len(s.state.zones["p2:library"]) == 0 and len(s.state.zones["p2:graveyard"]) == 1
     check(s)
