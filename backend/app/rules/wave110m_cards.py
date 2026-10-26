@@ -467,10 +467,6 @@ def smoke(plan: Any, ctx: Def, e: Def) -> bool:
     return True
 
 
-_ESTRID_MASK = "−1: Create a white Aura enchantment token named Mask attached to another target permanent. The token has enchant permanent and umbra armor."
-_ESTRID_ULT = "−7: Mill seven cards. Return all non-Aura enchantment cards from your graveyard to the battlefield, then do the same for Aura cards."
-_BUILD[_ESTRID_MASK] = ("−1: Create a Mask Aura token attached to another target permanent.", lambda d: d)
-_BUILD[_ESTRID_ULT] = ("−7: Mill seven cards. Return all non-Aura enchantment cards from your graveyard to the battlefield. Return all Aura cards from your graveyard to the battlefield.", lambda d: d)
 
 
 _GRIP = "Whenever a spell or ability is put onto the stack, if it has a single target, reselect its target at random."
