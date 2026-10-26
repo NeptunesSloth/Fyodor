@@ -276,7 +276,9 @@ def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source:
         other_dropped = True
     out = []
     for cid in selectors.candidates(plan, sel, chooser, source_card, attacker):
-        if cid == source_card and other_dropped:  # (wave 110C) "another" still excludes the source card after it changed zones (Relentless Dead, LKI identity)
+        if cid == source_card and other_dropped and not plan.state.cards[cid].zone.endswith(":battlefield"):
+            # (wave 110C) "another" still excludes the card the source became after it died (Relentless Dead, LKI identity); a source that left and
+            # came back (Ephemerate) is a new permanent the old ability may target (400.7)
             continue
         card = plan.state.cards[cid]
         on_field = card.zone.endswith(":battlefield") or card.zone == "stack"

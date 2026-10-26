@@ -12,6 +12,8 @@ from tests.test_rules_combat import table
 
 
 def token(s, pid, name, type_line, text="", **extra):
+    if "Creature" in type_line:  # (a creature with no toughness is a 0/0 and dies, 208.5, 704.5f)
+        extra = {"power": "1", "toughness": "1", **extra}
     act(s, pid, type="create_token", player=pid, token={"name": name, "type_line": type_line, "text": text, **extra})
     return find(s.state, name, pid)
 
