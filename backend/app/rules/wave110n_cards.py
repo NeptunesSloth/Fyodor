@@ -576,6 +576,36 @@ def _plague(d: Def) -> Def:
 _BUILD[_PLAGUE] = ("When enchanted creature dies, return this card from your graveyard to the battlefield attached to target creature.", _plague)
 
 
+_QUEEN = ("{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control. When this creature becomes untapped or you lose control of "
+          "this creature, exile that creature.")
+
+
+def _queen(d: Def) -> Def:
+    ret = d["effects"][0]
+    return {**d, "effects": [{**ret, "as": "cq110n"}, {"do": "queen110n"}]}
+
+
+_BUILD[_QUEEN] = ("{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control.", _queen)
+
+
+def queen(plan: Any, ctx: Any, e: Def) -> bool:
+    """Coffin Queen: one delayed triggered ability (603.7) with two events -- the Queen becoming untapped, or her controller losing control of her -- made as two
+    watches of the same effect (exile that creature, the object that came back, 400.7); either one finishing the job leaves nothing for the other (it is gone)."""
+    from app.rules import context, delayed
+
+    src = plan.state.cards.get(ctx.get("source_card", ""))
+    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object") or not context.objects(plan, ctx, "cq110n"):
+        return True
+    def inner() -> Def:  # (delayed.create consumes ctx["next"]: one context for each)
+        return {**ctx, "next": 0, "effects": [{"do": "exile", "who": "ref:cq110n"}]}
+
+    untap = {"kind": "watch", "bound": True, "cond": {"event": "untapped", "subject": "sel", "sel": "sel:{}", "aggregate": False}, "text": "this creature becomes untapped"}
+    delayed.create(plan, inner(), {"do": "delayed", "when": untap, "who": "self", "n": 1, "once": True})
+    delayed.create(plan, inner(), {"do": "delayed", "when": {"kind": "event", "event": "lose_control", "open": True}, "who": "self", "n": 1, "once": True,
+                                 "watch_foreign105": False})
+    return True
+
+
 def _thief(d: Def) -> Def:
     """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
     from app.rules import scripts
@@ -915,6 +945,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "flicker110n": flicker, "flicker_host110n": flicker_host, "flicker_auras110n": flicker_auras, "jace_library110n": jace_library, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "queen110n": queen, "flicker110n": flicker, "flicker_host110n": flicker_host, "flicker_auras110n": flicker_auras, "jace_library110n": jace_library, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {"vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}
