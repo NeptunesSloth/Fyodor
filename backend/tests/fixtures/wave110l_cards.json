@@ -489,5 +489,57 @@
   ],
   "power": "3",
   "toughness": "2"
+ },
+ {
+  "name": "Blade of Shared Souls",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "For Mirrodin! (When this Equipment enters, create a 2/2 red Rebel creature token, then attach this to it.)\nWhenever this Equipment becomes attached to a creature, for as long as this Equipment remains attached to it, you may have that creature become a copy of another target creature you control.\nEquip {2}",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "For Mirrodin!",
+   "Equip"
+  ]
+ },
+ {
+  "name": "Assimilation Aegis",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "When this Equipment enters, exile up to one target creature until this Equipment leaves the battlefield.\nWhenever this Equipment becomes attached to a creature, for as long as this Equipment remains attached to it, that creature becomes a copy of a creature card exiled with this Equipment.\nEquip {2}",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Shatter",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target artifact.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
  }
 ]

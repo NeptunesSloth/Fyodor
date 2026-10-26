@@ -24,8 +24,27 @@ _VALEYARD = "If an opponent would face a villainous choice, they face that choic
 _EXTRA_FACE = "villain_extra110l"
 
 
+_ATTACHED = "Whenever this Equipment becomes attached to a creature, for as long as this Equipment remains attached to it, "
+_COPY_ATTACHED: dict[str, tuple[str, bool]] = {  # ability text -> (what it becomes a copy of, "you may")
+    _ATTACHED + "you may have that creature become a copy of another target creature you control.": ("target", True),
+    _ATTACHED + "that creature becomes a copy of a creature card exiled with this Equipment.": ("exiled_with", False),
+}
+
+
+def _copy_attached(what: str, optional: bool) -> Def:
+    """Blade of Shared Souls / Assimilation Aegis: the layer-1 copy effect (707.4) on the creature the Equipment became attached to, lasting while that
+    same Equipment stays attached to it (611.2b; delayed.expire "while_attached110l")."""
+    return {"kind": "triggered", "trigger": "event", "optional": optional,
+            "cond": {"event": "attached", "other": 'sel:{"types":["Creature"]}', "subject": "self"},
+            "target": {"what": 'sel:{"controller":"you","extras":["not_event"],"types":["Creature"]}'} if what == "target" else None,  # "another": not that creature
+            "effects": [{"do": "become_copy", "duration": "while_attached110l", "who": "event", "with": what}]}
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
+
+    if (copy := _COPY_ATTACHED.get(ability.text.strip())) is not None:
+        return _copy_attached(*copy)
 
     if ability.text.strip() == _VALEYARD:  # a static replacement (701.55c) read by villainous.villain through faces_extra
         return {"kind": "static", "static": _EXTRA_FACE, "effects": []}

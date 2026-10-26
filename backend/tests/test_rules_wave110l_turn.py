@@ -262,3 +262,74 @@ def test_flamewar_returns_only_my_exiled_cards_with_intel_counters(cards):
     assert where["Grizzly Bears"] == where["Llanowar Elves"] == "p1:hand" and where["Young Wolf"] == "p1:exile"  # the one without an intel counter stays
     assert zone_of(s, "Giant Growth", "p2") == "p2:exile"  # not mine
     check(s)
+
+
+BLADE, AEGIS = "Blade of Shared Souls", "Assimilation Aegis"
+test_full_equipment = full_test([BLADE, AEGIS])
+
+
+def token_named(s, prefix="Rebel", pid="p1"):
+    return next(c for c in s.state.cards.values() if c.is_token and c.owner == pid and c.zone == f"{pid}:battlefield")
+
+
+def test_blade_of_shared_souls_copy_lasts_only_while_attached(cards):
+    s = build(cards, [BLADE, "Grizzly Bears"])
+    bears = put(s, "Grizzly Bears")
+    cast(s, BLADE)
+    answer(s, bears.id, "Yes")  # For Mirrodin! makes and attaches to a Rebel (never itself the target: "another"); it may become a copy of the Bears makes and attaches to a Rebel: it may become a copy of the Bears
+    rebel = token_named(s)
+    assert ch(s, rebel).name == "Grizzly Bears"
+    blade = card_named(s, BLADE)
+    fund(s, "{2}")
+    act(s, "p1", type="activate_ability", card_id=blade.id, ability=2, targets=[bears.id])  # equip {2} onto the Bears
+    answer(s, rebel.id, "No")  # its trigger: another creature than the Bears, and it may decline
+    assert ch(s, rebel).name == "Rebel"  # unattached: 611.2b, the copy ends
+    check(s)
+
+
+def test_blade_of_shared_souls_may_decline(cards):
+    s = build(cards, [BLADE, "Grizzly Bears"])
+    put(s, "Grizzly Bears")
+    cast(s, BLADE)
+    answer(s, "Grizzly Bears", "No")
+    assert ch(s, token_named(s)).name == "Rebel"
+    check(s)
+
+
+def test_assimilation_aegis_makes_the_equipped_creature_a_copy_of_the_exiled_card(cards):
+    s = build(cards, [AEGIS, "Grizzly Bears", "Young Wolf"], ["Llanowar Elves"])  # (the Elves are exiled by the Equipment and never come back here)
+    elves = put(s, "Llanowar Elves", "p2")
+    wolf = put(s, "Young Wolf")
+    cast(s, AEGIS)
+    answer(s, elves.id)  # exile up to one target creature until the Equipment leaves
+    assert zone_of(s, "Llanowar Elves", "p2") == "p2:exile"
+    aegis = card_named(s, AEGIS)
+    fund(s, "{2}")
+    act(s, "p1", type="activate_ability", card_id=aegis.id, ability=2, targets=[wolf.id])
+    answer(s)
+    assert ch(s, wolf).name == "Llanowar Elves"
+    fund(s, "{2}")
+    bears = put(s, "Grizzly Bears")
+    act(s, "p1", type="activate_ability", card_id=aegis.id, ability=2, targets=[bears.id])  # moved to the Bears: the Wolf is no longer equipped
+    answer(s)
+    assert ch(s, wolf).name == "Young Wolf" and ch(s, bears).name == "Llanowar Elves"
+    check(s)
+
+
+def test_assimilation_aegis_copy_ends_when_the_equipment_is_destroyed(cards):
+    s = build(cards, [AEGIS, "Young Wolf", "Shatter"], ["Llanowar Elves"])
+    elves = put(s, "Llanowar Elves", "p2")
+    wolf = put(s, "Young Wolf")
+    cast(s, AEGIS)
+    answer(s, elves.id)
+    aegis = card_named(s, AEGIS)
+    fund(s, "{2}")
+    act(s, "p1", type="activate_ability", card_id=aegis.id, ability=2, targets=[wolf.id])
+    answer(s)
+    assert ch(s, wolf).name == "Llanowar Elves"
+    cast(s, "Shatter", [aegis.id])
+    answer(s)
+    assert zone_of(s, AEGIS) == "p1:graveyard"
+    assert ch(s, wolf).name == "Young Wolf"
+    assert zone_of(s, "Llanowar Elves", "p2") == "p2:battlefield"  # exiled "until this Equipment leaves the battlefield"
+    check(s)
