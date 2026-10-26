@@ -316,7 +316,7 @@ def _revival() -> Any:
         return None
     # one card for each permanent type (205.2a): the answer is checked as a matching of cards to types (effects.check_total_power, "party"), an artifact
     # creature standing for one of its types only
-    kinds = [selectors.parse(f"{t} card in your graveyard").key() for t in ("artifact", "battle", "creature", "enchantment", "land", "planeswalker")]
+    kinds = [k.key() for t in ("artifact", "battle", "creature", "enchantment", "land", "planeswalker") if (k := selectors.parse(f"{t} card in your graveyard"))]
     lose = got[0][1]
     lose = {**lose, "n": {"times": [3, {**lose["n"]["times"][1], "this_way": "battlefield_put"}]}}  # (the grammar counts cards returned to a hand; these went to the battlefield)
     return [{**got[0][0], "n": 6, "label": "card of each permanent type", "party": kinds}, lose, *got[0][2:]], got[1], got[2]

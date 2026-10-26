@@ -27,3 +27,6 @@
 - Magma Pummeler: foundation needed, not unsettled: a targeted reflexive trigger "when counters are removed this way" attached to a damage-prevention rider (rider_body rejects targets).
 - Don't Blink: foundation needed: entry replacement keyed on the origin zone / cast-from-exile over every entry path (resolve, return_card, put onto battlefield).
 - Stitcher Geralf: foundation needed: choose up to two creature cards among the cards each player milled (mill binding feeding pick_looked).
+- Tetravus: foundation needed: quoted "This token can't be enchanted" (no can't-be-enchanted static for a token's own grant) and an any-number counter-removal choice feeding "that many" tokens; two upkeep triggers.
+- Don't Blink (s7): entry-origin replacement (from exile / cast from exile) can reuse creature_entry_redirect, but with Containment Priest-style exile also applying the owner chooses (616.1) and the shuffle-into-library destination needs the choice built; not dominated.
+- Freyalise's Winds + stun: resolved, not refused (stun first dominates, see wave110h_cards.untap_hold).
