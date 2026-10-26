@@ -19,8 +19,8 @@ from app.rules import (
 )
 
 TEMPLATES: list[Any] = [*wave110d_rules.TEMPLATES]
-PRIMITIVES: dict[str, Any] = {**wave110d_enter.PRIMITIVES, **wave110d_aura.PRIMITIVES, **wave110d_granter.PRIMITIVES, **wave110d_hit.PRIMITIVES, **wave110d_crown.PRIMITIVES, **wave110d_lines.PRIMITIVES, **wave110d_rooms.PRIMITIVES, **wave110d_misc.PRIMITIVES, **wave110d_noted.PRIMITIVES, "note_actual_mana": mana_noted_profiles.note_payment}
-RESUME: dict[str, Any] = {**wave110d_crown.RESUME, **wave110d_rooms.RESUME, **wave110d_misc.RESUME, "unknown_noted_mana": mana_noted_profiles.resume_unknown}
+PRIMITIVES: dict[str, Any] = {**wave110d_enter.PRIMITIVES, **wave110d_aura.PRIMITIVES, **wave110d_granter.PRIMITIVES, **wave110d_hit.PRIMITIVES, **wave110d_crown.PRIMITIVES, **wave110d_lines.PRIMITIVES, **wave110d_rooms.PRIMITIVES, **wave110d_misc.PRIMITIVES, **wave110d_noted.PRIMITIVES, **mana_noted_profiles.PRIMITIVES}
+RESUME: dict[str, Any] = {**wave110d_crown.RESUME, **wave110d_rooms.RESUME, **wave110d_misc.RESUME, **mana_noted_profiles.RESUME}
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:

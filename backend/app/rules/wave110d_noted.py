@@ -18,8 +18,10 @@ OUT = "{T}, Remove a charge counter from ~: Add one mana of ~'s last noted type.
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
-    from app.rules import scripts
+    from app.rules import mana_noted_profiles, scripts
 
+    if (ice := mana_noted_profiles.definition(ability, ch)) is not None:  # Ice Cauldron: the staged exile + note profile (607.2e)
+        return ice
     if ability.kind != "activated" or scripts.self_text(ability.text, ch.name) != IN:
         return None
     base = scripts.define(replace(ability, text="{1}, {T}: Put a charge counter on this artifact. Activate only if there are no charge counters on this artifact."), ch)
@@ -28,8 +30,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
 def parse_mana(text: str, identity: tuple[str, ...], name: str) -> Any:
     from app.rules import mana as M
-    from app.rules import scripts
+    from app.rules import mana_noted_profiles, scripts
 
+    if (ice := mana_noted_profiles.parse_mana(text, identity, name)) is not None:
+        return ice
     if scripts.self_text(text, name) == OUT:
         return M.ManaAbility(tap=True, sacrifice_self=False, options=((),), extra_cost="Remove a charge counter from ~", chooses=True, native_body=True,
                              immediate_effects=({"do": "noted_type110d"},))
