@@ -437,6 +437,10 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                     n = _counter_amount(plan, card.id, controller, part, x, newcomers)
                     if n > 0:
                         counters[part["counter"]] = counters.get(part["counter"], 0) + n
+        from app.rules import wave110j_final  # -- Gluttonous Hellkite (wave 110J) --
+
+        if n := wave110j_final.entry_counters(plan, card, ch):
+            counters["+1/+1"] = counters.get("+1/+1", 0) + n
         for d in scripts.definitions(ch).values():  # -- chosen filters (wave 53B) -- "As ~ enters, choose a creature type. ~ enters with a counter for each creature you control of the chosen type." (614.12a, 614.1c)
             if d.get("replacement") == "enters_choice" and d.get("counters") and (picked := (choices or {}).get(d["counters_choice"])):
                 from app.rules import chosen as _chosen

@@ -3198,6 +3198,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return bound_redirection
     if (conditional_prevention := conditional_prevention_effects.parse(body)) is not None:
         return conditional_prevention
+    from app.rules import wave110j_final  # -- Silhouette (wave 110J) --
+
+    if (silhouette := wave110j_final.parse(body)) is not None:
+        return silhouette
     if (scoped_prevention := scoped_prevention_effects.parse(body)) is not None:
         return scoped_prevention
     if (bound_subset := bound_subset_choices.parse(body)) is not None:
@@ -7122,6 +7126,12 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return delegated_target
     if (prevention_outcome := prevention_outcomes.definition(ability, ch)) is not None:
         return prevention_outcome
+    from app.rules import wave110j_final  # -- Defensive Formation (wave 110J) --
+
+    if ability.kind == "static" and (formation := wave110j_final.definition(ability.text)) is not None:
+        return formation
+    if (hellkite := wave110j_final.hellkite(ability, ch)) is not None:
+        return hellkite
     if (conditional_prevention := conditional_prevention_effects.definition(ability, ch)) is not None:
         return conditional_prevention
 

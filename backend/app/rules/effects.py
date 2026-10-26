@@ -662,6 +662,12 @@ def _card_source(plan: Plan, cid: str) -> _Source:
 _DAMAGE_KEYWORDS = frozenset({"lifelink", "deathtouch", "wither", "infect"})
 
 
+def _wave110j_cause_oids(ctx: Context) -> list[str]:  # -- Silhouette (wave 110J) -- the objects the resolving spell or ability targets
+    from app.rules import wave110j_final
+
+    return wave110j_final.cause_oids(ctx)
+
+
 def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dict[str, Any] | None = None,
           *, before: tuple[tuple[str, list[str]], ...] = (), completed_next: int | None = None) -> bool:
     """Deal the damage of ``hits`` (source, a player or permanent, amount) all at once: one damage
@@ -680,7 +686,7 @@ def _deal(plan: Plan, ctx: Context, hits: list[tuple[_Source, str, int]], e: dic
     for src, key, want in hits:
         if want <= 0:
             continue
-        ev = {"source_card": src.card, "source_oid": src.oid, "target": key, "amount": want, "combat": False,
+        ev = {"source_card": src.card, "source_oid": src.oid, "target": key, "amount": want, "combat": False, "cause_oids": _wave110j_cause_oids(ctx),
               "src": replace.source_info(plan, src.card, src.oid, src.ch, ctx["controller"]),
               "kw": sorted(src.keywords & _DAMAGE_KEYWORDS), "lkey": src.key,
               # -- refused grants/replacements (wave 3R2) -- "The damage can't be prevented." (615.12)

@@ -75,6 +75,12 @@ def expand_blocks(plan: Plan, blocks: list[A.BlockDeclaration]) -> list[A.BlockD
 
 def damage_chooser(plan: Plan, source: CardInstance, opposing: list[CardInstance]) -> str:
     """702.22j-k: current banding changes the chooser, independently of declared bands."""
+    from app.rules import (
+        wave110j_final,  # -- Defensive Formation (wave 110J) -- the defender assigns everything
+    )
+
+    if (formation := wave110j_final.assigner(plan, source)) is not None:
+        return formation
     bander = next((c for c in opposing if "banding" in plan.ch(c).keywords), None)
     if bander is not None:
         return bander.controller

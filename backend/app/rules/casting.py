@@ -75,6 +75,8 @@ MAIN_PHASES = ("main1", "main2")
 
 
 # -- facts about permanents -------------------------------------------------------------
+IGNORE_WAYS = ("Sacrifice a permanent: Ignore ‹granter", "Exile three cards from your graveyard: Ignore ‹granter")  # -- wave 110J -- Volrath's Curse, Lost in Thought: the one ability the Aura leaves
+
 def commander_identity(state: GameState, player: str, info: CardInfo) -> tuple[str, ...]:
     def work() -> tuple[str, ...]:
         commanders = [info.get(c.card_id) for c in state.cards.values() if c.owner == player and c.commander_key and c.card_id]
@@ -5739,7 +5741,7 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
             raise ActionError("Only your opponents may activate this ability")
         raise ActionError("You can only activate abilities of permanents you control")
     ability = _find_ability(ch, a.ability)
-    if "cant_activate" in ch.imposed and not (ability is not None and ability.text.startswith("Sacrifice a permanent: Ignore ‹granter")):  # an Aura: "its activated abilities can't be activated" (crew, equip too; -- wave 110J -- except Volrath's Curse's own way out)
+    if "cant_activate" in ch.imposed and not (ability is not None and ability.text.startswith(IGNORE_WAYS)):  # an Aura: "its activated abilities can't be activated" (crew, equip too; -- wave 110J -- except Volrath's Curse's own way out)
         raise ActionError(f"{ch.name}’s activated abilities can't be activated")
     if "cant_activate_nonmana" in ch.imposed and ability.kind != "mana":  # -- attached events (wave 16F) -- Faith's Fetters (605.1a)
         raise ActionError(f"{ch.name}’s activated abilities can't be activated unless they're mana abilities")
@@ -6151,7 +6153,7 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
         return "You can only activate abilities of permanents you control"
     if cost.unsupported:
         return f"Pay “{', '.join(cost.unsupported)}” by hand with the table tools"
-    if ("cant_activate" in ch.imposed and not ability.text.startswith("Sacrifice a permanent: Ignore ‹granter")) or ("cant_activate_nonmana" in ch.imposed and ability.kind != "mana") or ("cant_activate_tap" in ch.imposed and cost.tap):  # (wave 100F: {T})
+    if ("cant_activate" in ch.imposed and not ability.text.startswith(IGNORE_WAYS)) or ("cant_activate_nonmana" in ch.imposed and ability.kind != "mana") or ("cant_activate_tap" in ch.imposed and cost.tap):  # (wave 100F: {T})
         return f"{ch.name}’s activated abilities can't be activated"
     # -- cast limits (wave 5E) -- (602.5)
     from app.rules import cast_limits

@@ -622,6 +622,7 @@ def _defenders(plan: Any, att: Any, mode: str) -> list[Any]:
 def ask_divide(plan: Any, att: Any, rnd: str, then: str, deals: bool, power: int | None) -> bool:
     """Ask (once per combat damage round) whether to use the card's assignment and how; True: a decision is open. Called from combat.ask_split."""
     from app.game.rules_state import DecisionOption
+    from app.rules import wave110j_final
     from app.rules.plan import decide
 
     r = plan.rules
@@ -636,7 +637,7 @@ def ask_divide(plan: Any, att: Any, rnd: str, then: str, deals: bool, power: int
     if not options:
         return False
     if att.id not in r.assign_unblocked:
-        decide(plan, player=att.controller, kind="confirm", prompt=f"Assign {att.name}'s combat damage with its ability?",
+        decide(plan, player=wave110j_final.assigner(plan, att) or att.controller, kind="confirm", prompt=f"Assign {att.name}'s combat damage with its ability?",
                options=[DecisionOption(id="yes", label="Choose where it goes"), DecisionOption(id="no", label="Assign it normally")],
                resume={"step": "assign_unblocked", "round": rnd, "then": then, "creature": att.id})
         return True
@@ -644,11 +645,11 @@ def ask_divide(plan: Any, att: Any, rnd: str, then: str, deals: bool, power: int
         return False
     resume = {"round": rnd, "then": then, "creature": att.id, "total": power, "least": 0}
     if mode == DIVIDE:
-        decide(plan, player=att.controller, kind="divide", prompt=f"Divide {att.name}'s {power} combat damage among the defending player and their creatures",
+        decide(plan, player=wave110j_final.assigner(plan, att) or att.controller, kind="divide", prompt=f"Divide {att.name}'s {power} combat damage among the defending player and their creatures",
                options=options, min_choices=len(options), max_choices=len(options), display={"kind": "divide", "total": power, "what": "damage", "least": 0},
                resume={**resume, "step": "block_split"})
     else:
-        decide(plan, player=att.controller, kind="choose_one", prompt=f"Choose the creature {att.name} assigns its {power} combat damage to", options=options,
+        decide(plan, player=wave110j_final.assigner(plan, att) or att.controller, kind="choose_one", prompt=f"Choose the creature {att.name} assigns its {power} combat damage to", options=options,
                resume={**resume, "step": "giant110f"})
     return True
 
