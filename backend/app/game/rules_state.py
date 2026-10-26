@@ -92,6 +92,10 @@ class PlayerControl(BaseModel):
     combat: bool = False  # -- wave 110A -- Secret of Bloodbending: only the controlled player's next combat phase (723.1 "phase"); "done" once it ended
     extra_after: int = 0  # Emrakul: "After that turn, that player takes an extra turn" (kept when 723.1a overwrites)
     label: str = ""
+    # -- Word of Command (wave 110E) -- 723.1: control that lasts while the stack object ``obj`` resolves instead of a turn (pending until it starts to);
+    # ``lands_only``: the controlled player may activate mana abilities of lands only
+    obj: str = ""
+    lands_only: bool = False
 
 
 class TurnCount(BaseModel):

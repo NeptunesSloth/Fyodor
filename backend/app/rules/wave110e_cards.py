@@ -23,9 +23,16 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
         ("Put target creature on top of its owner's library.", _FATESEAL2),
     # 701.31a: a player may planeswalk only during a Planechase game (never in Commander), so "you may planeswalk" does nothing
     "Surveil 2, then draw a card. You may planeswalk.": ("Surveil 2, then draw a card.", []),
+    # 608.2d: not a target, any graveyard (linked_aggregates.graveyard_choice)
+    "+2: Surveil 2, then exile a card from a graveyard.": ("+2: Surveil 2.", [{"do": "linked_graveyard_choice"}]),
 }
 
 _REWRITE: dict[str, str] = {
+    # 613.1f: "nontoken" applies to both kinds (a Vehicle token is not meant); modular is granted whole (702.43a: its entering half reads the object as it would exist, riot's way)
+    "Other nontoken artifact creatures and Vehicles you control have modular 1.": "Other nontoken artifact creatures and nontoken Vehicles you control have modular 1.",
+    # "each other player" is each opponent here (Commander has no teams); the exile of "up to one target creature that player controls" per opponent (per_opponent, wave 12C)
+    "−2: Exile target creature you control. For each other player, exile up to one target creature that player controls.":
+        "−2: Exile target creature you control. For each opponent, exile up to one target creature that player controls.",
     # 700.9: the sacrificed creature is read as it last existed (608.2h); the cost is plain "sacrifice a creature" (costs._THROWDOWN_COST)
     "Destroy target creature or planeswalker. If the modified creature was sacrificed, draw a card.":
         "Destroy target creature or planeswalker. If a modified creature was sacrificed this way, draw a card.",
@@ -267,8 +274,12 @@ _BLAZE = ("Target creature defending player controls can block any number of cre
 _STORM = "Whenever you cast a spell that targets one or more creatures, those creatures gain flying until end of turn."
 
 
+_BLASTER_MOVE = ("{X}, {T}: Move X +1/+1 counters from ~ onto another target artifact. That artifact gains haste until end of turn. "
+                 "If ~ has no +1/+1 counters on it, convert it. Activate only as a sorcery.")
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts
+    from app.rules import scripts, wave110e_kaya
 
     text = ability.text.strip()
     if text == _EMBIGGEN:  # 613.4b: until end of turn Ms. Marvel's base power is the number of cards in your hand, counted continuously (611.3a)
@@ -348,6 +359,16 @@ def definition(ability: Any, ch: Any) -> Def | None:
                 "As this Equipment becomes attached to a creature, choose an exiled creature card used to craft this Equipment.",
                 "Equipped creature is a copy of the last chosen card."):  # 701.3a (wave110e_blade)
         return {"kind": "static", "static": "attach_choice110e", "effects": []}
+    if text.replace("Blaster", "~") == _BLASTER_MOVE:  # 122.5: X counters, as many as it has (counter_moves reads the amount as the move is made)
+        native = scripts.define(replace(ability, text=_BLASTER_MOVE.replace("~", "this creature").replace("Move X", "Move a")), ch)
+        if native is None or native["effects"][0].get("do") != "move_counters" or native["effects"][0].get("n") != 1:
+            return None
+        if native["effects"][-1] != {"do": "transform", "who": "target"}:
+            return None
+        # (the parse binds "convert it" to the target artifact: it is Blaster, 701.28a)
+        return {**native, "effects": [{**native["effects"][0], "n": {"x": 1}}, *native["effects"][1:-1], {"do": "transform", "who": "self"}]}
+    if (kaya := wave110e_kaya.definition(text)) is not None:  # 603.2c, 707.4 (wave110e_kaya)
+        return kaya
     if (alt := _REWRITE.get(text)) is not None:  # an exact Oracle sentence read as the wording the grammar already knows (pattern: multi100n)
         return scripts.define(replace(ability, text=alt), ch)
     if text == _REFLECT_ETB:  # 707.9 / 707.2: the other nontoken creatures become copies of the enchanted creature, fixed as the trigger resolves (611.2c)
@@ -380,6 +401,13 @@ PRIMITIVES["dyn_base_power110e"] = dyn_base_power
 
 def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """Exact wordings read as spell effects (scripts.parse_effects hook)."""
+    from app.rules import (  # -- Word of Command, Selective Adaptation (wave 110E) --
+        wave110e_adapt,
+        wave110e_word,
+    )
+
+    if (word := wave110e_word.parse(body) or wave110e_adapt.parse(body)) is not None:
+        return word
     if body.strip() == _CULPRIT:  # 701.58: the creatures are chosen as it resolves (608.2d, not targeted), then exiled face down, shuffled, cloaked (facedown.manifest_pile)
         sel = '{"controller":"you","extras":["face_up"],"types":["Creature"],"with_keywords":["disguise"]}'
         return [{"do": "player_chooses", "who": "you", "sel": "sel:" + sel, "n": 1, "label": "creature", "any": True, "upto": True, "optional": True, "as": "cul110e"},

@@ -1865,6 +1865,9 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
             else:
                 reduction -= m.delta
         reduction += self_reduction(state, player, card, ch, info)
+        from app.rules import wave110e_uvilda
+
+        reduction += wave110e_uvilda.less(state, card)  # -- wave 110E -- a resolving cast "costs {4} less to cast this way" (Uvilda)
         own = cost_changes.own_changes(state, player, card, ch, info, _definitions(ch), targets)
         increase += own.increase
         reduction += own.reduction
@@ -2233,6 +2236,10 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         from app.rules import wave110j_cards
 
         pid = wave110j_cards.caster(plan, ctx, e)
+        if e["caster"] == "target110e":  # -- Word of Command (wave 110E) -- the targeted opponent plays the card
+            from app.rules import wave110e_word
+
+            pid = wave110e_word.caster(ctx)
     done = ctx.setdefault("free_cast_done", [])
     if not e.get("all") and sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
         return _free_cast_over(ctx, e)
@@ -2297,6 +2304,11 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             prospective71 = text_global_word71.prospective(plan.state, card, chars.as_cast(card, plan.info, face), plan.info)
             if casting.free_cast_problem(plan, pid, card, prospective71, paid=bool(e.get("paid")), x=0 if e.get("effect_mana_cost") is not None else None) is not None:  # (the half cast_spell casts)
                 continue
+            if e.get("caster") == "target110e":  # -- Word of Command (wave 110E) -- "if able": a card the lands can't pay for isn't played
+                from app.rules import wave110e_word
+
+                if not wave110e_word.payable(plan, pid, card, ch):
+                    continue
             if e.get('effect_alternative'):
                 from app.rules import effect_cast_costs
 
@@ -2366,14 +2378,14 @@ def play_faces(plan: Plan, card: CardInstance) -> list[tuple[int | None, Charact
     return out
 
 
-def play_land_now(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], cid: str, face: int | None) -> None:
+def play_land_now(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], cid: str, face: int | None, player: str | None = None) -> None:
     """305.1 / 608.2g: the card is played as a land by the effect (not cast: it never uses the stack). It counts against the land plays of the
     turn (305.2a) from the moment it is played; the entering choices (a shock land's life, "as it enters, choose …": 614.12a) are asked as
     for any permanent put onto the battlefield, then the resolution goes on (replacements.resume_entry_choice)."""
     from app.game.rules_state import TurnCount
     from app.rules import attachments, effects
 
-    pid = ctx["controller"]
+    pid = player or ctx["controller"]
     card = plan.state.cards[cid]
     r, turn = plan.rules, plan.state.turn.number
     r.lands_played[pid] = TurnCount(turn=turn, count=r.lands_this_turn(pid, turn) + 1)
@@ -2500,7 +2512,7 @@ def resume_free_cast(plan: Plan, d: Any, chosen: list[str]) -> None:
             effects.continue_effects(plan, ctx)
         return
     if e.get("play") and chars.as_cast(plan.state.cards[cid], plan.info, face).is_land:
-        play_land_now(plan, ctx, e, cid, face)
+        play_land_now(plan, ctx, e, cid, face, d.player)
         return
     r.free_casts.append(cid)
     r.free_cast_then = {"card": cid, "ctx": ctx, "e": e, "suspend_object": None, **({"face": face} if face else {})}  # (face: review 28A, casting.cast_free checks it)

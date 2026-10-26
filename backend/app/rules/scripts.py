@@ -2680,8 +2680,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
-    from app.rules import wave110e_cards  # -- exact wordings (wave 110E) --
+    from app.rules import wave110e_cards, wave110e_kaya  # -- exact wordings (wave 110E) --
 
+    if (join110e := wave110e_kaya.join(body)) is not None:  # -- one instruction exiling two targets (wave 110E) --
+        return join110e
     if (body110e := wave110e_cards.parse(body)) is not None:
         return body110e
     from app.rules import wave110k_cards  # -- exact wordings (wave 110K) --
@@ -6006,6 +6008,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (war110e := wave110e_opp.war_definition(ability, ch)) is not None:
         return war110e
+    from app.rules import wave110e_uvilda  # -- refine counters (wave 110E) --
+
+    if (uvilda110e := wave110e_uvilda.definition(ability, ch)) is not None:
+        return uvilda110e
     from app.rules import wave110e_clara  # -- pregame color (wave 110E) --
 
     if (clara110e := wave110e_clara.definition(ability.text)) is not None:
