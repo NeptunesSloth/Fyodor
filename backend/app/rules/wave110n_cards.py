@@ -157,10 +157,46 @@ def _reap() -> Any:
     return [{**gy[0][0], "who": "target:1"}], [{"what": "opponent", "min": 1, "max": 1}, group], False
 
 
+_SIREN_ATTACK = "Creatures the active player controls attack this turn if able."
+_SIREN_DESTROY = ("At the beginning of the next end step, destroy all non-Wall creatures that player controls that didn't attack this turn. Ignore this effect for each "
+                  "creature the player didn't control continuously since the beginning of the turn.")
+
+
+def siren_attack(plan: Any, ctx: Any, e: Def) -> bool:
+    """Siren's Call, first line: the active player is fixed as it resolves (611.2c), the creatures they control are a group read through them (508.1d)."""
+    from app.rules import effects, selectors
+
+    pid = plan.state.turn.active_player
+    if pid in plan.live():
+        creature = selectors.from_key('sel:{"types":["Creature"]}')
+        effects.PRIMITIVES["restrict"](plan, ctx, {"do": "restrict", "who": f"controlled:player:{pid}|{creature.key()}", "rules": ["must_attack"]})
+    return True
+
+
+def siren_destroy(plan: Any, ctx: Any, e: Def) -> bool:
+    """Siren's Call, last line: "that player" is the active player of the first line. At the next end step (603.7) the non-Wall creatures they control and have
+    controlled continuously since the turn began (the "ignore this effect" sentence), that did not attack this turn, are destroyed."""
+    from dataclasses import replace as _replace
+
+    from app.rules import controller_turn_history69, delayed, selectors
+
+    pid = plan.state.turn.active_player
+    if pid in plan.live():
+        doomed = _replace(selectors.from_key('sel:{"extras":["didnt_attack_this_turn"],"not_subtypes":["Wall"],"types":["Creature"]}'),
+                          extras=("didnt_attack_this_turn", controller_turn_history69.EXTRA)).key()
+        delayed.create(plan, {**ctx, "next": 0, "effects": [{"do": "destroy", "who": f"controlled:player:{pid}|{doomed}"}]},
+                       {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1})
+    return True
+
+
 def parse(body: str) -> Any:
     """Exact spell bodies: the parts the grammar reads, joined with the card's own step."""
     from app.rules import scripts
 
+    if body.strip() == _SIREN_ATTACK:
+        return [{"do": "siren_attack110n"}], None, False
+    if body.strip() == _SIREN_DESTROY:
+        return [{"do": "siren_destroy110n"}], None, False
     if body.strip() == _REAP:
         return _reap()
     if body.strip() == _DECREE:
@@ -717,6 +753,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {"vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}
