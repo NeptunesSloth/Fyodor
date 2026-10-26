@@ -31,6 +31,8 @@ DEIF_LOYALTY = ("As long as you control a creature, if damage dealt to a planesw
                 "instead all but one of those counters are removed.")
 PW_LABEL = "Chosen planeswalker type"
 VISIONARY = "When you play a card exiled with ~, transform ~."
+PROWL_ATTACK = "Whenever ~ attacks, exile up to one other target tapped creature or Vehicle. For as long as that card remains exiled, its owner may play it."
+PROWL_PLAY = "Whenever a player plays a card exiled with ~, you draw a card and transform ~."  # (self_text reads "convert" as "transform", the same action: ruling 2022-10-14)
 ICE_CAVE = "Whenever a player casts a spell, any other player may pay that spell's mana cost. If a player does, counter the spell."
 
 
@@ -38,6 +40,16 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == PROWL_ATTACK:  # 607.2a: the exile is Prowl's linked one; 305.1 / 601.3: the card's owner (not Prowl's controller) may play it while it stays exiled (grant_play "owner")
+        d = scripts.define(replace(ability, text="Whenever ~ attacks, exile up to one other target tapped creature or Vehicle."), ch)
+        if d is None or [e["do"] for e in d["effects"]] != ["exile"]:
+            return None
+        return {**d, "effects": [{**d["effects"][0], "as": "prowl_exiled110a"}, {"do": "grant_play", "who": "ref:prowl_exiled110a", "play": True, "cast": True, "until": "permanent", "owner": True}]}
+    if text == PROWL_PLAY:
+        d = scripts.define(replace(ability, text="Whenever a player plays a land or casts a spell, you draw a card and transform ~."), ch)
+        if d is None or d["cond"].get("event") != "either" or len(d["cond"]["conds"]) != 2:
+            return None
+        return {**d, "cond": {**d["cond"], "conds": [{**c, "exiled_with110a": True} for c in d["cond"]["conds"]]}}
     if text == VISIONARY:  # a play is a land play or a cast (305.1, 601.1), of a card exiled with it: the played card's previous object is in its link record (triggers.py)
         d = scripts.define(replace(ability, text="Whenever you play a land or cast a spell, transform this creature."), ch)
         if d is None or d["cond"].get("event") != "either" or len(d["cond"]["conds"]) != 2:

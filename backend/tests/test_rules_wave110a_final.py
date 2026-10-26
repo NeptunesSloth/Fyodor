@@ -7,10 +7,11 @@ import pytest
 
 from app.game.errors import ActionError
 from app.rules.plan import Plan
-from tests.test_rules_wave30p_combat import three
+from tests.test_rules_wave30p_combat import three, to_phase
 from tests.wave110a_kit import *
 
-NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations", "Exterminator Magmarch", "Threefold Signal", "Deification", "Voltaic Visionary // Volt-Charged Berserker"]
+NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations", "Exterminator Magmarch", "Threefold Signal", "Deification", "Voltaic Visionary // Volt-Charged Berserker",
+         "Prowl, Stoic Strategist // Prowl, Pursuit Vehicle"]
 
 
 @pytest.fixture()
@@ -491,4 +492,46 @@ def test_voltaic_visionary_does_not_transform_for_a_card_not_exiled_with_it(card
     act(s, "p1", type="cast_spell", card_id=other.id)
     answer(s)
     assert not _is_back(s, v)
+    check(s)
+
+
+PROWL = "Prowl, Stoic Strategist // Prowl, Pursuit Vehicle"
+
+
+def _prowl_attack(cards, creature="Llanowar Elves"):
+    s = build(cards, [PROWL], [creature])
+    prowl = put(s, PROWL)
+    victim = put(s, creature, "p2")
+    next_turn(s)
+    act(s, "p2", type="tap", card_ids=[victim.id])
+    act(s, "p1", type="set_stops", own=STEPS, others=STEPS, smart_pass=False)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": prowl.id, "target": "p2"}])
+    answer(s, victim.id)
+    return s, prowl, victim
+
+
+def test_prowl_exiles_a_tapped_creature_and_its_owner_may_play_it_then_prowl_converts_and_controller_draws(cards):
+    """Prowl: Elves (tapped) exiled; Bob, its owner, casts it from exile on his turn (607.2a play of a card exiled with Prowl): Alice draws and Prowl converts (ruling 2022-10-14)."""
+    s, prowl, elves = _prowl_attack(cards)
+    assert s.state.cards[elves.id].zone == "p2:exile"
+    hand = len(s.state.zones["p1:hand"])
+    to_phase(s, "main1", turn=s.state.turn.number + 1)
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[prowl.id]).name == "Prowl, Stoic Strategist"
+    fund(s, "{G}", "p2")
+    act(s, "p2", type="cast_spell", card_id=elves.id)
+    answer(s)
+    assert s.state.cards[elves.id].zone == "p2:battlefield"
+    assert len(s.state.zones["p1:hand"]) == hand + 1
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[prowl.id]).name == "Prowl, Pursuit Vehicle"
+    check(s)
+
+
+def test_prowl_a_card_not_exiled_with_it_does_nothing(cards):
+    s, prowl, elves = _prowl_attack(cards)
+    to_phase(s, "main1", turn=s.state.turn.number + 1)
+    other = to_hand(s, "Island", "p2")
+    act(s, "p2", type="play_land", card_id=other.id)
+    answer(s)
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[prowl.id]).name == "Prowl, Stoic Strategist"
     check(s)

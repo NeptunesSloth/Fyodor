@@ -2828,5 +2828,62 @@
     }
    }
   ]
+ },
+ {
+  "name": "Prowl, Stoic Strategist // Prowl, Pursuit Vehicle",
+  "layout": "transform",
+  "mana_cost": "{3}{W} // ",
+  "cmc": 4.0,
+  "type_line": "Legendary Artifact Creature — Robot // Legendary Artifact — Vehicle",
+  "oracle_text": "More Than Meets the Eye {2}{W} (You may cast this card converted for {2}{W}.)\nWhenever Prowl attacks, exile up to one other target tapped creature or Vehicle. For as long as that card remains exiled, its owner may play it.\nWhenever a player plays a card exiled with Prowl, you draw a card and convert Prowl.\n//\nLiving metal (During your turn, this Vehicle is also a creature.)\nWhenever another creature or Vehicle you control enters, put a +1/+1 counter on Prowl. If this is the second time this ability has resolved this turn, convert Prowl.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Living metal",
+   "Convert",
+   "More Than Meets the Eye"
+  ],
+  "power": "3",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "name": "Prowl, Stoic Strategist",
+    "mana_cost": "{3}{W}",
+    "type_line": "Legendary Artifact Creature — Robot",
+    "oracle_text": "More Than Meets the Eye {2}{W} (You may cast this card converted for {2}{W}.)\nWhenever Prowl attacks, exile up to one other target tapped creature or Vehicle. For as long as that card remains exiled, its owner may play it.\nWhenever a player plays a card exiled with Prowl, you draw a card and convert Prowl.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/f/0/f0a3dc50-a5c4-4073-8fec-2f68544bc2a1.jpg?1783919909",
+     "normal": "https://cards.scryfall.io/normal/front/f/0/f0a3dc50-a5c4-4073-8fec-2f68544bc2a1.jpg?1783919909",
+     "large": "https://cards.scryfall.io/large/front/f/0/f0a3dc50-a5c4-4073-8fec-2f68544bc2a1.jpg?1783919909",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/f/0/f0a3dc50-a5c4-4073-8fec-2f68544bc2a1.jpg?1783919909"
+    }
+   },
+   {
+    "name": "Prowl, Pursuit Vehicle",
+    "mana_cost": "",
+    "type_line": "Legendary Artifact — Vehicle",
+    "oracle_text": "Living metal (During your turn, this Vehicle is also a creature.)\nWhenever another creature or Vehicle you control enters, put a +1/+1 counter on Prowl. If this is the second time this ability has resolved this turn, convert Prowl.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+     "W"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/f/0/f0a3dc50-a5c4-4073-8fec-2f68544bc2a1.jpg?1783919909",
+     "normal": "https://cards.scryfall.io/normal/back/f/0/f0a3dc50-a5c4-4073-8fec-2f68544bc2a1.jpg?1783919909",
+     "large": "https://cards.scryfall.io/large/back/f/0/f0a3dc50-a5c4-4073-8fec-2f68544bc2a1.jpg?1783919909",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/f/0/f0a3dc50-a5c4-4073-8fec-2f68544bc2a1.jpg?1783919909"
+    }
+   }
+  ]
  }
 ]
