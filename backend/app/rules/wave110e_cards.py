@@ -28,6 +28,8 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
 }
 
 _REWRITE: dict[str, str] = {
+    # 613.1f: "nontoken" applies to both kinds (a Vehicle token is not meant); modular is granted whole (702.43a: its entering half reads the object as it would exist, riot's way)
+    "Other nontoken artifact creatures and Vehicles you control have modular 1.": "Other nontoken artifact creatures and nontoken Vehicles you control have modular 1.",
     # "each other player" is each opponent here (Commander has no teams); the exile of "up to one target creature that player controls" per opponent (per_opponent, wave 12C)
     "−2: Exile target creature you control. For each other player, exile up to one target creature that player controls.":
         "−2: Exile target creature you control. For each opponent, exile up to one target creature that player controls.",
@@ -272,6 +274,10 @@ _BLAZE = ("Target creature defending player controls can block any number of cre
 _STORM = "Whenever you cast a spell that targets one or more creatures, those creatures gain flying until end of turn."
 
 
+_BLASTER_MOVE = ("{X}, {T}: Move X +1/+1 counters from ~ onto another target artifact. That artifact gains haste until end of turn. "
+                 "If ~ has no +1/+1 counters on it, convert it. Activate only as a sorcery.")
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts, wave110e_kaya
 
@@ -353,6 +359,14 @@ def definition(ability: Any, ch: Any) -> Def | None:
                 "As this Equipment becomes attached to a creature, choose an exiled creature card used to craft this Equipment.",
                 "Equipped creature is a copy of the last chosen card."):  # 701.3a (wave110e_blade)
         return {"kind": "static", "static": "attach_choice110e", "effects": []}
+    if text.replace("Blaster", "~") == _BLASTER_MOVE:  # 122.5: X counters, as many as it has (counter_moves reads the amount as the move is made)
+        native = scripts.define(replace(ability, text=_BLASTER_MOVE.replace("~", "this creature").replace("Move X", "Move a")), ch)
+        if native is None or native["effects"][0].get("do") != "move_counters" or native["effects"][0].get("n") != 1:
+            return None
+        if native["effects"][-1] != {"do": "transform", "who": "target"}:
+            return None
+        # (the parse binds "convert it" to the target artifact: it is Blaster, 701.28a)
+        return {**native, "effects": [{**native["effects"][0], "n": {"x": 1}}, *native["effects"][1:-1], {"do": "transform", "who": "self"}]}
     if (kaya := wave110e_kaya.definition(text)) is not None:  # 603.2c, 707.4 (wave110e_kaya)
         return kaya
     if (alt := _REWRITE.get(text)) is not None:  # an exact Oracle sentence read as the wording the grammar already knows (pattern: multi100n)

@@ -1,6 +1,8 @@
 """Wave 110E session 13: Paleontologist's Pick-Axe // Dinosaur Headdress (701.3a attach-time choice of a crafted exiled card; 707.2 copy while attached, 611.2b)."""
 from __future__ import annotations
 
+import pytest
+
 import tests.test_rules_wave110e_cards as base
 from app.rules import coverage
 from app.rules.plan import Plan
@@ -234,4 +236,118 @@ def test_kaya_plus_two_surveils_then_exiles_a_card_from_any_graveyard(cards):
         pick = [o.id for o in d.options if o.label == "Zed Bear"] or [o.id for o in d.options][: max(1, d.min_choices)]
         act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
     assert s.state.cards[bear.id].zone == "p1:exile" and s.state.cards[kaya.id].counters["loyalty"] == 7
+    check(s)
+
+
+# -- Blaster, Combat DJ // Blaster, Morale Booster -------------------------------------------------------------------------------------------------------
+from app.rules import alt_costs  # noqa: E402
+
+_BLASTER_FRONT = ("More Than Meets the Eye {1}{R}{G} (You may cast this card converted for {1}{R}{G}.)\nOther nontoken artifact creatures and Vehicles you control have modular 1. "
+                  "(They enter with an additional +1/+1 counter on them. When they die, you may put their +1/+1 counters on target artifact creature.)\n"
+                  "Whenever you put one or more +1/+1 counters on Blaster, convert it.")
+_BLASTER_BACK = ("Modular 3\n{X}, {T}: Move X +1/+1 counters from Blaster onto another target artifact. That artifact gains haste until end of turn. "
+                 "If Blaster has no +1/+1 counters on it, convert it. Activate only as a sorcery.")
+BLASTER = card("Blaster, Combat DJ // Blaster, Morale Booster", set_code="tst", number="13-blaster", layout="transform", mana_cost="{3}{R}{G} // ", cmc=5.0,
+               type_line="Legendary Artifact Creature — Robot // Legendary Artifact", oracle_text=f"{_BLASTER_FRONT}\n//\n{_BLASTER_BACK}", power="3", toughness="3",
+               colors=["G", "R"], color_identity=["G", "R"], keywords=["Modular", "Convert", "More Than Meets the Eye"],
+               card_faces=[{"name": "Blaster, Combat DJ", "mana_cost": "{3}{R}{G}", "type_line": "Legendary Artifact Creature — Robot", "oracle_text": _BLASTER_FRONT,
+                            "power": "3", "toughness": "3", "colors": ["G", "R"]},
+                           {"name": "Blaster, Morale Booster", "mana_cost": "", "type_line": "Legendary Artifact", "oracle_text": _BLASTER_BACK, "colors": ["G", "R"]}])
+GOLEM = real("Zed Golem", "{2}", 2, "Artifact Creature — Golem", "", ("2", "2"))
+DRONE = real("Zed Drone", "{2}", 2, "Artifact Creature — Construct", "", ("1", "1"))
+CRUISER = real("Zed Cruiser", "{2}", 2, "Artifact — Vehicle", "Crew 1", ("3", "3"))
+ELF = real("Zed Elf", "{G}", 1, "Creature — Elf", "", ("1", "1"), "G")
+ROCK = real("Zed Rock", "{1}", 1, "Artifact", "", None)
+MAKER = real("Zed Maker", "{1}", 1, "Sorcery", "Create a 1/1 colorless Construct artifact creature token.", None)
+SMITE = real("Zed Smite", "{B}", 1, "Instant", "Destroy target creature.", None, "B")
+base.EXTRA.extend([BLASTER, GOLEM, DRONE, CRUISER, ELF, ROCK, SMITE, MAKER])
+BNAME = "Blaster, Combat DJ // Blaster, Morale Booster"
+
+
+def _plus(s, name, pid="p1"):
+    return card_named(s, name, pid).counters.get("+1/+1", 0)
+
+
+def _blaster_table(cards, extra=()):
+    s = build(cards, [BNAME, "Zed Golem", "Zed Drone", "Zed Cruiser", "Zed Elf", "Zed Rock", "Zed Smite", "Zed Maker", *extra], forests=30, islands=30)
+    return s, put(s, BNAME)
+
+
+def test_blaster_full(cards):
+    assert coverage.of_card_data(cards.resolve(BNAME)).level == "FULL"
+
+
+@pytest.mark.parametrize(("name", "cost", "counters"), [("Zed Golem", {"C": 2}, 1), ("Zed Cruiser", {"C": 2}, 1), ("Zed Elf", {"G": 1}, 0), ("Zed Rock", {"C": 1}, 0)])
+def test_blaster_gives_modular_one_to_artifact_creatures_and_vehicles_entering(cards, name, cost, counters):
+    """702.43a: the granted modular is an "enters with" replacement of the entering permanent: artifact creatures and Vehicles get a counter, others don't."""
+    s, blaster = _blaster_table(cards)
+    mana(s, **cost)
+    cast(s, name)
+    answer_all(s)
+    assert _plus(s, name) == counters
+    check(s)
+
+
+def answer_all(s, prefer=None, limit=30):
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.label == prefer][:1] or [i for i in ids if i in ("yes", "pay")][:1] or ids[: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_blaster_granted_modular_moves_counters_when_it_dies(cards):
+    """702.43a: when the permanent with modular is put into a graveyard, its +1/+1 counters go on target artifact creature (last known information)."""
+    s, blaster = _blaster_table(cards)
+    mana(s, C=4)
+    cast(s, "Zed Golem")
+    answer_all(s)
+    cast(s, "Zed Drone")
+    answer_all(s)
+    assert (_plus(s, "Zed Golem"), _plus(s, "Zed Drone")) == (1, 1)
+    mana(s, B=1)
+    cast(s, "Zed Smite", [card_named(s, "Zed Golem").id])
+    answer_all(s, prefer="Zed Drone")
+    assert card_named(s, "Zed Golem").zone == "p1:graveyard" and _plus(s, "Zed Drone") == 2
+    check(s)
+
+
+def _converted(cards):
+    s, blaster = _blaster_table(cards)
+    act(s, "p1", type="move", card_ids=[blaster.id], to={"zone": "hand"})
+    hand = s.state.cards[blaster.id]
+    offers = alt_costs.converted_offers(s.state, "p1", hand, s.cards)
+    mana(s, R=1, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=hand.id, alt_cost=offers[0].key)
+    answer_all(s)
+    assert s.state.cards[blaster.id].face == 1 and s.state.cards[blaster.id].counters.get("+1/+1") == 3  # modular 3
+    rock = put(s, "Zed Rock")
+    return s, blaster, rock
+
+
+@pytest.mark.parametrize(("x", "moved", "left", "face"), [(2, 2, 1, 1), (3, 3, 0, 0), (5, 3, 0, 0)])
+def test_blaster_back_moves_x_counters_and_converts_when_none_are_left(cards, x, moved, left, face):
+    """122.5: as many as X (fewer there: those); 701.28a: with none left it converts back to the front face; the target artifact gains haste."""
+    s, blaster, rock = _converted(cards)
+    mana(s, C=x)
+    act(s, "p1", type="activate_ability", card_id=blaster.id, ability=1, targets=[rock.id], x_value=x)
+    answer_all(s)
+    assert s.state.cards[rock.id].counters.get("+1/+1", 0) == moved and s.state.cards[blaster.id].counters.get("+1/+1", 0) == left
+    assert s.state.cards[blaster.id].face == face
+    assert "haste" in {k.lower() for k in _ch(s, rock.id).keywords}
+    check(s)
+
+
+def test_blaster_modular_is_for_nontoken_permanents_only(cards):
+    """"nontoken": an artifact creature token enters without the counter."""
+    s, blaster = _blaster_table(cards)
+    mana(s, C=1)
+    cast(s, "Zed Maker")
+    answer_all(s)
+    token = next(c for c in s.state.cards.values() if c.is_token and c.controller == "p1" and c.zone == "p1:battlefield")
+    assert token.counters.get("+1/+1", 0) == 0
     check(s)
