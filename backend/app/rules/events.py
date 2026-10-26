@@ -588,7 +588,7 @@ def _parse(c: str) -> Condition | None:
     # -- triggers (wave 5D) -- "Whenever another creature you control enters or dies" (Daxos): either event of the
     # same objects (603.2), each read on its own ("~ enters or dies" is the "multi" form above)
     m = re.fullmatch(r"(?P<s>(?!~ (?:enters|dies|attacks|blocks|leaves))(?!one or more ).+?) (?P<a>enters|dies|attacks|blocks|leaves the battlefield) or "
-                     r"(?P<b>enters|dies|attacks|blocks|leaves the battlefield|deals combat damage to a player)", c)
+                     r"(?P<b>enters attacking|enters|dies|attacks|blocks|leaves the battlefield|deals combat damage to a player)", c)
     if m:
         a, b = _parse(f"{m['s']} {m['a']}"), _parse(f"{m['s']} {m['b']}")
         if a is None or b is None or a.get("aggregate") or b.get("aggregate") or a.get("subject") != b.get("subject") \
@@ -981,6 +981,13 @@ def _combat(c: str) -> Condition | None:
             raise _Refuse
         return {"event": "you_attack", "subject": "player", "player": "any", "min_attackers": _count(m["n"]),
                 "sel": sel.key(), **_defender(m["d"])}
+    # -- enters attacking (wave 110C) -- 508.4: "a creature you control enters attacking" (Arni Metalbrow): put onto the battlefield attacking, never declared as an attacker
+    m = re.fullmatch(r"(?P<s>.+?) enters attacking", c)
+    if m and not re.search(r"\bor\b", m["s"]):
+        base = _subject(m["s"])
+        if base is None:
+            raise _Refuse
+        return {**base, "event": "enter_attacking"}
     # 509.3g: "~ attacks and isn't blocked", "a creature you control attacks a player and isn't blocked"
     m = re.fullmatch(rf"(?P<s>.+?) attacks?(?: (?P<d>{_DEFENDER_RE}))? and (?:isn't|aren't) blocked", c)
     if m:
