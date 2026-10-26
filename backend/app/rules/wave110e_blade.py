@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 STATIC = "attach_choice110e"
 LINE = "As this Equipment becomes attached to a creature, choose a color."
 CRAFT_LINE = "As this Equipment becomes attached to a creature, choose an exiled creature card used to craft this Equipment."  # Dinosaur Headdress
-COPY_LINE = "Equipped creature is a copy of the last chosen card."  # read at choice time (see resume): a copy effect that lasts while attached
 LINES = (LINE, CRAFT_LINE)
 
 

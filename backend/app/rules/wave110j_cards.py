@@ -1324,7 +1324,6 @@ _BUILD["{W}, {T}: Tap target creature with power less than or equal to the highe
 # Yurlok of Scorch Thrash: 500.4 / 106.4: mana lost (a step or phase ends, or an effect empties the pool) costs that much life at the same moment (2020-11-10 ruling:
 # no stack, several Yurloks do not stack). The pools are compared before and after (kept and colorless-kept mana is not lost).
 _YURLOK_LIFE = "A player losing unspent mana causes that player to lose that much life."
-_YURLOK_MANA = "{1}, {T}: Each player adds {B}{R}{G}."
 
 
 def pools(plan: Any) -> dict[str, int]:

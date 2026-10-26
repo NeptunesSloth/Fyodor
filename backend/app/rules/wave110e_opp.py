@@ -38,7 +38,6 @@ def prompt(plan: Plan, card: Any, controller: str) -> tuple[str, list[DecisionOp
 # chosen type (its count is then 0).
 TYPE_LINE = "As an additional cost to cast this spell, choose a creature type."
 OBJECT_LINE = "As an additional cost to cast this spell, choose a creature you control or a warped creature card you own in exile."
-CAST_LINE = TYPE_LINE
 WAITING = object()
 
 

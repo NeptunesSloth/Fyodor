@@ -1155,11 +1155,6 @@ def resume_gurzigost(plan: Any, d: Any, chosen: list[str]) -> None:
            resume={"step": "gurzigost110m", "ctx": ctx, "order": chosen})
 
 
-def unblocked_rule(ch: Any) -> bool:
-    """Gurzigost: the creature may assign its combat damage this turn as though it weren't blocked (510.1c; asked in combat.ask_split)."""
-    return UNBLOCKED in ch.imposed
-
-
 _BUILD["Fortified land has indestructible."] = ("Enchanted land has indestructible.", lambda d: d)
 _BUILD["Whenever fortified land becomes tapped, target creature gets +1/+1 until end of turn."] = (
     "Whenever enchanted land becomes tapped, target creature gets +1/+1 until end of turn.", lambda d: d)
