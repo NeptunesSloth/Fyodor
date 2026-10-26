@@ -269,6 +269,10 @@ def _lowest_life_control(d: Def) -> Def:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Elemental Expressionist: one clause granting two quoted abilities is two grants of the same target; "is put into exile" of a granted ability is
+    # exile from the battlefield (the grant ends when the creature leaves, 400.7; the replacement exiles it from there)
+    "Magecraft \u2014 Whenever you cast or copy an instant or sorcery spell, choose target creature you control. Until end of turn, it gains \"If this creature would leave the battlefield, exile it instead of putting it anywhere else\" and \"When this creature is put into exile, create a 4/4 blue and red Elemental creature token.\"":
+        "Magecraft \u2014 Whenever you cast or copy an instant or sorcery spell, choose target creature you control. Until end of turn, it gains \"If this creature would leave the battlefield, exile it instead of putting it anywhere else.\" Until end of turn, it gains \"When this creature is put into exile from the battlefield, create a 4/4 blue and red Elemental creature token.\"",
     # Savior of Ollenbock: a creature on the battlefield or a creature card in a graveyard is "creature or creature card in a graveyard";
     # "the exiled cards" return to the battlefield (607.2a link, 610.3)
     "When this creature leaves the battlefield, put the exiled cards onto the battlefield under their owners' control.":

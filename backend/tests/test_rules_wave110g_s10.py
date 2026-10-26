@@ -4,6 +4,7 @@
 * Cloak and Dagger, Entwined: 610.3 / 701.20a the hand is revealed, one nonland card OR the chosen creature is exiled and comes back (hand / battlefield) when it leaves.
 * Nature's Wrath: 603.2 / 701.21a each player entering an Island or blue (Swamp or black) permanent sacrifices one of their own such permanents of their choice.
 * Spikeshell Harrier: 702.179f / 608.2h the bounced creature's controller loses 1 speed only when strictly above every other player, never below 1.
+* Elemental Expressionist: 614.1a / 603.10a the chosen creature is exiled instead of leaving this turn and its exile makes a 4/4 Elemental; next turn it dies normally.
 * Savior of Ollenbock: 702.149c it trains only when a resolving training ability puts counters on it; its exile is returned when it leaves (607.2a, 610.3).
 """
 from __future__ import annotations
@@ -37,9 +38,12 @@ EXTRA = [
     real("Azure Drake", "{U}", 1, "Creature \u2014 Drake", "", ("1", "1"), "U"),
     real("Spikeshell Harrier", "{4}{U}", 5, "Artifact Creature \u2014 Robot Turtle", "When this creature enters, return target creature or Vehicle an opponent controls to its owner's hand. "
          "If that opponent's speed is greater than each other player's speed, reduce that opponent's speed by 1. This effect can't reduce their speed below 1.", ("4", "4"), "U"),
+    real("Elemental Expressionist", "{U/R}{U/R}{U/R}{U/R}", 4, "Creature \u2014 Orc Wizard", "Magecraft \u2014 Whenever you cast or copy an instant or sorcery spell, choose target creature you control. "
+         "Until end of turn, it gains \"If this creature would leave the battlefield, exile it instead of putting it anywhere else\" and \"When this creature is put into exile, create a 4/4 blue and red "
+         "Elemental creature token.\" (Each instance of that ability triggers separately.)", ("4", "4"), "RU"),
     real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
 ]
-NAMES = ["Savior of Ollenbock", "Light Up the Night", "Cloak and Dagger, Entwined", "Nature's Wrath", "Spikeshell Harrier"]
+NAMES = ["Savior of Ollenbock", "Light Up the Night", "Cloak and Dagger, Entwined", "Nature's Wrath", "Spikeshell Harrier", "Elemental Expressionist"]
 
 
 def drive(s, pick=None, limit=80):
@@ -203,3 +207,33 @@ def test_spikeshell_harrier_reduces_the_speed_of_a_faster_opponent_but_not_below
     assert s.state.cards[bears.id].zone == "p2:hand"
     assert s.state.players["p2"].resources.get("speed") == after
     check(s)
+
+
+def test_elemental_expressionist_exiles_the_chosen_creature_for_a_token_until_end_of_turn(cards):
+    """Expressionist: Murder on my own Giant -> magecraft target Giant; it is exiled (no graveyard) and I get a 4/4 blue and red Elemental."""
+    s = build(cards, ["Elemental Expressionist", "Hill Giant", "Murder"])
+    put(s, "Elemental Expressionist")
+    giant = put(s, "Hill Giant")
+    mana(s, "p1", C=1, B=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Murder").id, targets=[giant.id])
+    drive(s, lambda i: giant.id in i)
+    assert s.state.cards[giant.id].zone == "p1:exile"
+    tokens = [c for c in s.state.cards.values() if c.name == "Elemental" and c.zone == "p1:battlefield"]
+    assert len(tokens) == 1 and pt(s, "Elemental") == (4, 4)
+    check(s)
+
+
+def test_elemental_expressionist_grants_end_with_the_turn(cards):
+    """Expressionist: on a later turn the same Giant dies normally (no exile, no token)."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Elemental Expressionist", "Hill Giant", "Murder"])
+    put(s, "Elemental Expressionist")
+    giant = put(s, "Hill Giant")
+    mana(s, "p1", C=1, B=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Murder").id, targets=[card_named(s, "Elemental Expressionist").id])
+    drive(s, lambda i: giant.id in i)  # the trigger gives the Giant the grants, then Murder kills the Expressionist
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    mana(s, "p1", C=1, B=2)
+    cast(s, "Murder", [giant.id])
+    assert s.state.cards[giant.id].zone == "p1:graveyard" and not [c for c in s.state.cards.values() if c.name == "Elemental"]
