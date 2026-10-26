@@ -269,6 +269,11 @@ def settle(plan: Plan) -> None:
     if plan.rules.draw_reason is not None:
         return
     permissions.free_cast_abandoned(plan)  # -- refused look/cast-free (wave 3R5) -- a cancelled mid-resolution cast (608.2g)
+    if r0 := plan.rules.attach_asks110e:  # -- becomes attached, choose (wave 110E) --
+        from app.rules import wave110e_blade
+
+        if plan.rules.decision is None:
+            wave110e_blade.ask(plan, r0)
     layers.control_sync(plan)  # -- control (wave 3K) -- continuous effects first (613.1b), then state-based actions
     combat.sync_attacking(plan)
     sba.check(plan)

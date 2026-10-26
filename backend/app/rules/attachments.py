@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.rules_state import DecisionOption
 from app.game.state import CardInstance, zone_key
-from app.rules import protection
+from app.rules import protection, wave110e_blade
 from app.rules.characteristics import Characteristics
 
 if TYPE_CHECKING:
@@ -327,6 +327,7 @@ def attach(plan: Plan, source: str, host: str, actor: str) -> bool:
     if card.attached_to == host or card.attached_player == host:
         return True  # already there: nothing happens (701.3b)
     plan.do({"type": "attach", "card_ids": [source], "to": host}, actor=actor)
+    wave110e_blade.queue(plan, source)  # -- becomes attached, choose (wave 110E) -- asked at the next settle
     return True
 
 

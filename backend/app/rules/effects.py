@@ -7244,3 +7244,6 @@ PRIMITIVES.update(_wave110b_mirror.PRIMITIVES)
 from app.rules import wave110e_once as _wave110e_once  # noqa: E402, I001  -- Storyweave (wave 110E) --
 
 PRIMITIVES.update(_wave110e_once.PRIMITIVES)
+from app.rules import wave110e_blade as _wave110e_blade  # noqa: E402, I001  -- Sanctuary Blade (wave 110E) --
+
+RESUME.update(_wave110e_blade.RESUME)

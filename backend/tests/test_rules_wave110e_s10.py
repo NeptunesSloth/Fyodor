@@ -36,10 +36,11 @@ MARVEL = real("Ms. Marvel, Kamala Khan", "{2}{U}", 3, "Legendary Creature — Mu
               "Embiggen Fist — Whenever you cast a spell that targets a creature you control, draw a card. "
               "Until end of turn, Ms. Marvel gains \"Ms. Marvel's base power is equal to the number of cards in your hand.\"", ("1", "4"), "U")
 PUMP = real("Test Pump", "{G}", 1, "Instant", "Target creature gets +1/+1 until end of turn.", None, "G")
-base.EXTRA.extend([MARVEL, PUMP, REPROACH, BEAR, DRAIN, BLADE, MONITOR, ROLL, IMP, WALL, VEC, SLOTH])
+RIGGER = real("Test Rigger", "{1}", 1, "Creature — Human Artificer", "{0}: Attach target Equipment you control to target creature you control.", ("1", "1"), "")
+base.EXTRA.extend([MARVEL, PUMP, REPROACH, BEAR, DRAIN, BLADE, MONITOR, ROLL, IMP, WALL, VEC, SLOTH, RIGGER])
 
 
-@pytest.mark.parametrize("name", ["Teferi's Reproach", "Monitor Monitor", "Maddening Imp", "Oracle en-Vec", "Ms. Marvel, Kamala Khan"])
+@pytest.mark.parametrize("name", ["Teferi's Reproach", "Sanctuary Blade", "Monitor Monitor", "Maddening Imp", "Oracle en-Vec", "Ms. Marvel, Kamala Khan"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -63,15 +64,34 @@ def test_teferis_reproach_shields_the_opponent_until_their_next_turn(cards):
     check(s)
 
 
-def test_sanctuary_blade_is_manual_and_attaches_by_any_path(cards):
-    """701.3a: "as it becomes attached, choose a color" applies to every way of attaching, so the card stays PARTIAL; no attach path is refused."""
-    assert coverage.of_card_data(cards.resolve("Sanctuary Blade")).level != "FULL"
-    s = build(cards, ["Sanctuary Blade", "Test Bear"])
-    blade, bear = put(s, "Sanctuary Blade"), put(s, "Test Bear")
+def _keywords(s, card):
+    from app.rules.plan import Plan
+
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card.id])
+    return {k.lower() for k in ch.keywords} | {a.text.lower() for a in ch.abilities}
+
+
+def _equip(s, blade, bear, color):
     mana(s, C=3)
     act(s, "p1", type="activate_ability", card_id=blade.id, ability=2, targets=[bear.id])
-    answer(s)
-    assert s.state.cards[blade.id].attached_to == bear.id
+    answer(s, *([color] if color else []))
+
+
+def test_sanctuary_blade_chooses_a_color_each_time_it_becomes_attached(cards):
+    """701.3a: the controller chooses as it becomes attached (equip); the grant uses the last chosen color: +2/+0 and protection from it."""
+    s = build(cards, ["Sanctuary Blade", "Test Bear", "Test Bear"])
+    blade, bear = put(s, "Sanctuary Blade"), put(s, "Test Bear")
+    _equip(s, blade, bear, "Red")
+    assert s.state.cards[bear.id].attached_to is None and s.state.cards[blade.id].attached_to == bear.id
+    assert pt(s, "Test Bear") == (4, 2) and "protection from red" in _keywords(s, bear)
+    check(s)
+    bear2 = card_named(s, "Test Bear")
+    other = next(c for c in s.state.cards.values() if c.name == "Test Bear" and c.id != bear.id and c.owner == "p1")
+    put_bear = act(s, "p1", type="move", card_ids=[other.id], to={"player": "p1", "zone": "battlefield"})  # noqa: F841
+    _equip(s, blade, other, "Green")
+    assert s.state.cards[blade.id].attached_to == other.id
+    assert "protection from green" in _keywords(s, other) and "protection from red" not in _keywords(s, other)
+    assert "protection from red" not in _keywords(s, bear2) or bear2.id == other.id
     check(s)
 
 
@@ -226,3 +246,17 @@ def test_ms_marvel_base_power_is_the_hand_size_all_turn_and_only_for_a_creature_
 
     to_phase(s, "main1", 3)
     assert pt(s, "Ms. Marvel, Kamala Khan") == (1, 4)
+
+
+def test_sanctuary_blade_asks_when_another_effect_attaches_it(cards):
+    """701.3a: not only equip: any effect that attaches it makes its controller choose a color (the question comes before anyone gets priority)."""
+    s = build(cards, ["Sanctuary Blade", "Test Bear", "Test Rigger"])
+    blade, bear, rigger = put(s, "Sanctuary Blade"), put(s, "Test Bear"), put(s, "Test Rigger")
+    act(s, "p1", type="activate_ability", card_id=rigger.id, ability=0, targets=[blade.id, bear.id], target_counts=[1, 1])
+    for _ in range(3):
+        if s.state.rules.decision is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert "choose a color" in s.state.rules.decision.prompt
+    answer(s, "Blue")
+    assert s.state.cards[blade.id].attached_to == bear.id and "protection from blue" in _keywords(s, bear)
+    check(s)

@@ -319,7 +319,7 @@ def _views(s, viewers):
         text = re.sub(r'"ts": [0-9.]+', '"ts": 0', json.dumps(s.view(v), default=str))
         ids = re.findall(r"\b[0-9a-f]{12}\b|\b[0-9a-f]{16}\b", text)  # random ids differ per game: rename by first appearance
         names = {x: f"#{i}" for i, x in enumerate(dict.fromkeys(ids))}
-        out[v] = re.sub(r"\b[0-9a-f]{12}\b|\b[0-9a-f]{16}\b", lambda m: names[m.group()], text)
+        out[v] = re.sub(r"\b[0-9a-f]{12}\b|\b[0-9a-f]{16}\b", lambda m, names=names: names[m.group()], text)
     return out
 
 
