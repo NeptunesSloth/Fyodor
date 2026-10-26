@@ -52,8 +52,16 @@ CHAPTERS = {
 PROCTOR = "Whenever a permanent entering causes a triggered ability to trigger, counter that ability unless its controller pays {2}."
 
 
+YIDARO = ("When you cycle this card, shuffle it into your library from your graveyard. If you've cycled a card named Yidaro, Wandering Monster four or more times "
+          "this game, put it onto the battlefield from your graveyard instead.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
+
+    if ability.text == YIDARO:  # 702.29a-c: the card is in the graveyard when the trigger resolves; the count includes this cycling
+        d = scripts.define(replace(ability, text="When you cycle this card, draw a card."), ch)
+        return None if d is None else {**d, "effects": [{"do": "yidaro110c"}]}
 
     if ability.kind == "triggered" and scripts.self_text(ability.text, ch.name) == PROCTOR:  # read by :func:`proctor_triggers`, not by an event pass
         return {"kind": "static", "static": "proctor110c", "effects": []}
@@ -357,6 +365,16 @@ def proctor(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True if not sid else effects.counter_unless(plan, ctx, {"object": sid, "cost": "{2}"})
 
 
+def yidaro(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Yidaro: back to the battlefield from the graveyard after its fourth cycling this game (the count is of the player's cycled cards by that name), else shuffled in."""
+    from app.cards.names import normalize_name
+
+    n = plan.rules.named_cycles110c.get(ctx["controller"], {}).get(normalize_name("Yidaro, Wandering Monster"), 0)
+    back = {"do": "return_card", "to": "battlefield", "tapped": False, "under": "you", "who": "self_gy"}
+    ctx["effects"][ctx["next"]:ctx["next"]] = [back] if n >= 4 else [{"do": "return_card", "to": "library_top", "who": "self_gy"}, {"do": "shuffle_library", "who": "you"}]
+    return True
+
+
 def prodder_done(plan: Plan, d: Any, chosen: list[str]) -> None:
     from app.rules import effects
 
@@ -372,4 +390,4 @@ def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 RESUME = {"prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
-PRIMITIVES = {"proctor110c": proctor, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+PRIMITIVES = {"yidaro110c": yidaro, "proctor110c": proctor, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}

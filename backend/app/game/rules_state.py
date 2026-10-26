@@ -1778,6 +1778,7 @@ class RulesState(BaseModel):
     replace_step_draws: dict[str, int] = Field(default_factory=dict)
     # -- draws (wave 110C) -- "The first time you would draw a card each turn": draw events seen per player in the turn ``would_draw_turn`` (121.6, 614.11)
     proctor_links110c: dict[str, str] = Field(default_factory=dict)  # (wave 110C) Strict Proctor: a trigger's id (as it triggered) -> its stack object, once put
+    named_cycles110c: dict[str, dict[str, int]] = Field(default_factory=dict)  # (wave 110C) Yidaro: cards cycled this game, by player and normalized name
     would_draw_turn: int = -1
     would_draw: dict[str, int] = Field(default_factory=dict)
     # -- counters & designations (wave 3E; app/rules/designations.py) --
