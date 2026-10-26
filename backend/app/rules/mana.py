@@ -108,7 +108,7 @@ def spend_as(cost: ManaCost, mode: str) -> ManaCost:
     from app.rules import mana_allocation_masks
 
     transformed = _spend_as(cost, mode)
-    if mode not in ('type', 'color', 'colorless_color', 'white_red'):
+    if mode not in ('type', 'color', 'colorless_color', 'white_red', 'white_color'):
         return transformed
     return replace(transformed, allocation=mana_allocation_masks.requirements(cost, mode))
 
@@ -120,6 +120,12 @@ def _spend_as(cost: ManaCost, mode: str) -> ManaCost:
                         tuple(tuple(dict.fromkeys((*h, 'W'))) if 'R' in h else h for h in cost.hybrid),
                         tuple('/'.join(dict.fromkeys((*c.split('/'), 'W'))) if 'R' in c.split('/') else c
                               for c in cost.phyrexian), cost.x, cost.unsupported)
+    if mode == 'white_color':  # -- cards (wave 110I) -- False Dawn, 609.4b: white mana pays any colored symbol (colorless stays colorless)
+        other = tuple(c for c in cost.colored if c in COLORS and c != 'W')
+        return ManaCost(cost.generic, tuple(c for c in cost.colored if c not in other),
+                        tuple((c, 'W') for c in other) + tuple(tuple(dict.fromkeys((*h, 'W'))) if any(c in COLORS for c in h) else h for h in cost.hybrid),
+                        tuple('/'.join(dict.fromkeys((*c.split('/'), 'W'))) if any(k in COLORS for k in c.split('/')) else c for c in cost.phyrexian),
+                        cost.x, cost.unsupported)
     if mode == 'colorless_color':
         # Only actual C may substitute for a colored requirement. Allocation and
         # provenance retain the actual mana type, including restricted units.

@@ -28,6 +28,8 @@ NAME = EXTRA[0]["name"]
 HERO = ("Whenever one or more cards are put into exile from your hand or a spell or ability you control exiles one or more permanents from the battlefield, "
         "put that many +1/+1 counters on this creature.\nAs long as this creature has five or more counters on it, it has flying and is an Angel in addition to its "
         "other types.\nAs long as this creature has ten or more counters on it, it has indestructible and is a God in addition to its other types.")
+DAWN = ("Until end of turn, spells and abilities you control that would add colored mana instead add that much white mana. Until end of turn, you may spend "
+        "white mana as though it were mana of any color.\nDraw a card.")
 PHOENIX = ("Flying\nIf this creature would die, return it to its owner's hand instead. Until that player's next turn, that player plays with that card revealed in "
            "their hand and can't play it.")
 EXTRA += [real("Hero of Bretagard", "{2}{W}", 3, "Creature \u2014 Human Warrior", HERO, ("1", "1"), "W"),
@@ -35,6 +37,9 @@ EXTRA += [real("Hero of Bretagard", "{2}{W}", 3, "Creature \u2014 Human Warrior"
           real("Ignorant Bliss", "{1}{R}", 2, "Instant", "Exile all cards from your hand face down. At the beginning of the next end step, return those cards to your hand, then draw a card.", None, "R"),
           real("Firestorm Phoenix", "{4}{R}{R}", 6, "Creature \u2014 Phoenix", PHOENIX, ("3", "2"), "R"),
           real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
+          real("False Dawn", "{1}{W}", 2, "Sorcery", DAWN, None, "W"),
+          real("Dark Ritual", "{B}", 1, "Instant", "Add {B}{B}{B}.", None, "B"),
+          real("Lightning Bolt", "{R}", 1, "Instant", "Lightning Bolt deals 3 damage to any target.", None, "R"),
           real("Probe Bear", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G")]
 
 
@@ -143,3 +148,40 @@ def test_firestorm_phoenix(cards):
     assert s.state.cards[phoenix.id].revealed_to == []
     kit_mana(s, R=2, C=4)
     act(s, "p1", type="cast_spell", card_id=phoenix.id)
+
+
+@pytest.mark.parametrize("dawn", [True, False])
+def test_false_dawn(cards, dawn):
+    """106.12b, 609.4b: under False Dawn a Forest and Dark Ritual add white instead of green/black, and white mana pays {R}; without it neither happens."""
+    from app.game.errors import ActionError
+    from tests.wave9c_kit import build as kit_build
+    from tests.wave9c_kit import card_named, check, life
+    from tests.wave9c_kit import cast as kit_cast
+    from tests.wave9c_kit import mana as kit_mana
+    from tests.wave9c_kit import put as kit_put
+    from tests.wave9c_kit import to_hand as kit_to_hand
+    from tests.wave110a_kit import answer
+
+    s = kit_build(cards, ["False Dawn", "Dark Ritual", "Lightning Bolt"])
+    if dawn:
+        kit_to_hand(s, "False Dawn")
+        kit_mana(s, W=1, C=1)
+        kit_cast(s, "False Dawn")
+        answer(s)
+    forest = kit_put(s, "Forest")
+    act(s, "p1", type="activate_ability", card_id=forest.id, ability=0)
+    kit_to_hand(s, "Dark Ritual")
+    kit_mana(s, B=1)
+    kit_cast(s, "Dark Ritual")
+    answer(s)
+    units = [u.sym for u in s.state.players["p1"].mana_units]
+    assert sorted(units) == (["W"] * 4 if dawn else ["B", "B", "B", "G"])
+    kit_to_hand(s, "Lightning Bolt")
+    if dawn:
+        kit_cast(s, "Lightning Bolt", targets=[card_named(s, "Forest", "p2").id] if False else ["p2"])
+        answer(s)
+        assert life(s, "p2") == 37
+        check(s)
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=["p2"])

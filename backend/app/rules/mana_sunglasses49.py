@@ -20,6 +20,10 @@ def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | No
 def present(state: GameState, player: str, info: CardInfo | None) -> bool:
     if info is None or state.rules is None:
         return False
+    from app.rules import wave110i_cards
+
+    if wave110i_cards.spending_active(state, player):  # -- cards (wave 110I) -- False Dawn
+        return True
     from app.rules import read_pass
     from app.rules.plan import Plan
 
@@ -38,5 +42,8 @@ def present(state: GameState, player: str, info: CardInfo | None) -> bool:
 
 def spending_cost(state: GameState, player: str, info: CardInfo | None, cost: M.ManaCost) -> M.ManaCost:
     from app.rules import mana as M
+    from app.rules import wave110i_cards
 
+    if wave110i_cards.spending_active(state, player):  # -- cards (wave 110I) -- False Dawn: white mana pays any color
+        return M.spend_as(cost, 'white_color')
     return M.spend_as(cost, 'white_red') if present(state, player, info) else cost

@@ -460,6 +460,8 @@ def parse(body: str) -> Any:
         assert parsed is not None
         effects, targets, optional = parsed
         return effects, [{**targets[0], "shares": "creature_type", "typed110i": True}], optional
+    if body.strip() == _DAWN:
+        return [{"do": "false_dawn110i"}], None, False
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
 
 
@@ -633,6 +635,41 @@ def resume_bauble(plan: Plan, decision: Any, chosen: list[str]) -> None:
 
 _PHOENIX = ("If this creature would die, return it to its owner's hand instead. Until that player's next turn, that player plays with that card revealed in "
             "their hand and can't play it.")
+
+
+_DAWN = ("Until end of turn, spells and abilities you control that would add colored mana instead add that much white mana. Until end of turn, you may spend "
+        "white mana as though it were mana of any color.")
+
+
+def false_dawn(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """False Dawn (106.12b, 609.4b): this turn the controller's colored mana becomes white (``mana_replace`` for permanents tapped or sacrificed for mana,
+    ``dawn_mana`` for what spells and other abilities add) and white mana may be spent as any color (``spending_active``)."""
+    from app.rules import selectors, tap_mana
+
+    sel = selectors.parse("permanent")
+    assert sel is not None
+    tap_mana.until_eot(plan, ctx, {"def": {"kind": "static", "static": "mana_replace", "who": "you", "sel": sel.key(), "all110i": True,
+                                           "op": {"do": "colored_recolor86", "to": "W"}, "effects": []}})
+    return tap_mana.until_eot(plan, ctx, {"def": {"kind": "static", "static": "spend_white110i", "effects": []}})
+
+
+PRIMITIVES["false_dawn110i"] = false_dawn
+
+
+def _dawn(state: Any, controller: str, kind: str) -> bool:
+    r = state.rules
+    return r is not None and any(x["def"].get("static") == kind and x["controller"] == controller and x.get("turn") == state.turn.number for x in r.tap_mana)
+
+
+def dawn_mana(plan: Plan, controller: str, mana: list[str]) -> list[str]:
+    """Mana an effect of ``controller`` adds: colored becomes white under False Dawn."""
+    if not _dawn(plan.state, controller, "mana_replace"):
+        return mana
+    return ["W" if c in "WUBRG" else c for c in mana]
+
+
+def spending_active(state: Any, player: str) -> bool:
+    return _dawn(state, player, "spend_white110i")
 
 
 def reveal_ban(plan: Plan, card: Any) -> None:
