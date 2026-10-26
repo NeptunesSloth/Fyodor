@@ -72,6 +72,18 @@ async function board(page: Page, perSeat: number, extras: boolean) {
 
 async function shoot(page: Page, name: string) {
   await page.screenshot({ path: `${OUT}/${PREFIX}-${name}.png` });
+  // no seat plaque may sit under the turn dial, the camera strip or a stack panel
+  const overlaps = await page.evaluate(() => {
+    const box = (n: Element) => n.getBoundingClientRect();
+    const panels = [...document.querySelectorAll(".t3d-cams, .turn-dial-wrap, .stack-widget.open, .rules-stack-wrap")].map(box);
+    return [...document.querySelectorAll(".t3d-seat")].flatMap((n) => {
+      const r = box(n);
+      if ((n.closest(".t3d-plate-anchor") as HTMLElement | null)?.style.visibility === "hidden") return [];
+      return panels.filter((p) => r.left < p.right && r.right > p.left && r.top < p.bottom && r.bottom > p.top)
+        .map((p) => `${n.getAttribute("data-player-id")} [${r.top | 0}-${r.bottom | 0}] under [${p.top | 0}-${p.bottom | 0}]`);
+    });
+  });
+  expect(overlaps, name).toEqual([]);
 }
 
 async function camera(page: Page, name: "Seat" | "Table") {

@@ -336,7 +336,8 @@ export class TableScene {
   }
 
   /**
-   * Screen boxes (CSS px, relative to the canvas) of the cards on the battlefields, so DOM overlays
+   * Screen boxes (CSS px, relative to the canvas) of the cards on the battlefields and of the piles
+   * beside them (ids are card ids or "player:zone"), so DOM overlays
    * (seat plaques) can step out from over them.
    */
   battlefieldRects(width: number, height: number): ScreenRect[] {
@@ -347,14 +348,19 @@ export class TableScene {
       const r = this.cardRect(c.id, width, height);
       if (r) out.push(r);
     }
+    // the piles beside each mat (library, graveyard, exile, command zone) count too
+    for (const [key, p] of this.piles) out.push(this.rectOf(key, p.slot, width, height));
     return out;
   }
 
   /** One card's screen box (CSS px, relative to the canvas). */
   cardRect(id: string, width: number, height: number): ScreenRect | null {
     const c = this.cards.get(id);
-    if (!c) return null;
-    const box = this.tmpBox.setFromObject(c.face);
+    return c ? this.rectOf(id, c.face, width, height) : null;
+  }
+
+  private rectOf(id: string, obj: THREE.Object3D, width: number, height: number): ScreenRect {
+    const box = this.tmpBox.setFromObject(obj);
     const v = this.tmpV;
     let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
     for (let i = 0; i < 8; i++) {
@@ -1100,7 +1106,7 @@ export class TableScene {
       const [x0, x1] = [Math.min(m.x0, e.clientX) - r.left, Math.max(m.x0, e.clientX) - r.left];
       const [y0, y1] = [Math.min(m.y0, e.clientY) - r.top, Math.max(m.y0, e.clientY) - r.top];
       if (x1 - x0 < 4 && y1 - y0 < 4) return;
-      const ids = this.battlefieldRects(r.width, r.height).filter((b) => b.left < x1 && b.right > x0 && b.top < y1 && b.bottom > y0).map((b) => b.id);
+      const ids = this.battlefieldRects(r.width, r.height).filter((b) => this.cards.has(b.id) && b.left < x1 && b.right > x0 && b.top < y1 && b.bottom > y0).map((b) => b.id);
       useGame.getState().select(ids, m.add ? "add" : "replace");
       return;
     }
