@@ -396,7 +396,9 @@ def resume_mairsil_cage(plan: Any, d: Any, chosen: list[str]) -> None:
     if chosen:
         plan.do({"type": "move", "card_ids": chosen, "to": {"player": plan.state.cards[chosen[0]].owner, "zone": "exile"}}, actor=d.player)
         if plan.state.cards[chosen[0]].zone.endswith(":exile"):
-            plan.do({"type": "counter", "card_ids": chosen, "kind": "cage", "delta": 1}, actor=d.player)
+            from app.rules import replace
+
+            replace.put_counters(plan, [(chosen[0], "cage", 1)], by=d.player, effect=True)  # (122.6: through the counter choke point)
     effects.continue_effects(plan, ctx)
 
 
