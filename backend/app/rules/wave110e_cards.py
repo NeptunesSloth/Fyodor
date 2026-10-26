@@ -26,6 +26,9 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
 }
 
 _REWRITE: dict[str, str] = {
+    # 700.9: the sacrificed creature is read as it last existed (608.2h); the cost is plain "sacrifice a creature" (costs._THROWDOWN_COST)
+    "Destroy target creature or planeswalker. If the modified creature was sacrificed, draw a card.":
+        "Destroy target creature or planeswalker. If a modified creature was sacrificed this way, draw a card.",
     # 701.39a goad, 701.21? tap: both act on the creatures each opponent chose (608.2c)
     "Each opponent chooses a creature they control. Tap and goad the chosen creatures.":
         "Each opponent chooses a creature they control. Tap those creatures. Goad those creatures.",

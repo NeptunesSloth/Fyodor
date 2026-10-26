@@ -897,6 +897,12 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if (ctx.get('source_object') or '') not in plan.rules.crafted_materials:
             raise NoChosenPlayer
         return mana_crafted_profiles.mana_value(plan, ctx)
+    if 'crafted_power' in v:  # -- craft materials (wave 110E) -- Mastercraft Raptor
+        from app.rules import mana_crafted_profiles
+
+        if (ctx.get('source_object') or '') not in plan.rules.crafted_materials:
+            raise NoChosenPlayer
+        return mana_crafted_profiles.total_power(plan, ctx)
     if 'crafted_colors' in v:
         from app.rules import mana_crafted_profiles
 
