@@ -85,12 +85,18 @@ def static_definition(text: str) -> Definition | None:
     if (destination := attack_destinations.static_definition(text)) is not None:
         return destination
 
+    from app.rules import wave110f_cards  # -- (wave 110F) -- Heat Wave: a life payment to block
+
+    if (life := wave110f_cards.block_life_definition(text)) is not None:
+        return life
     if (nonmana := nonmana_combat_costs.parse(text)) is not None:
         return nonmana
 
     if (own_cost := creature_combat_costs.parse(text)) is not None:
         return own_cost
     t = text.strip()
+    if t in ("~ can't block creatures with power 3 or greater unless you pay {1}.", "This creature can't block creatures with power 3 or greater unless you pay {1}."):
+        return statics._definition("self", None, [], rules=["block_tax_power:3:{1}"])  # -- block tax by power (wave 110I) -- 509.1d
     blocked = re.fullmatch(r"(?P<sub>.+?) can't block unless their controller pays (?P<cost>(?:\{[^}]+\})+) for each of those creatures\.", t)
     if blocked:
         from app.rules import mana as M
@@ -249,17 +255,29 @@ def block_taxes(ch: Characteristics) -> set[tuple[str, str]]:
     return {(p[1], p[2]) for r in ch.imposed if len(p := r.split(':')) == 3 and p[0] == BLOCK_TAX}
 
 
-def block_cost(plan: Plan, blockers: set[str]) -> str:
+def pair_tax(plan: Plan, blocks: list[Any]) -> str:
+    """-- block tax by power (wave 110I) -- 509.1d: "can't block creatures with power N or greater unless you pay {C}" costs once per such block."""
+    from app.rules import combat, scripts
+
+    out = ""
+    for b in blocks:
+        for rule in scripts.statics(plan.ch(plan.state.cards[b.blocker_id])):
+            if rule.startswith("block_tax_power:") and combat._power(plan.ch(plan.state.cards[b.attacker_id])) >= int(rule.split(":")[1]):
+                out += rule.split(":", 2)[2]
+    return out
+
+
+def block_cost(plan: Plan, blockers: set[str], blocks: list[Any] | None = None) -> str:
     from app.rules import creature_combat_costs
     from app.rules import mana as M
 
-    fixed = "".join(cost for cid in sorted(blockers) for cost, _ in sorted(block_taxes(plan.ch(plan.state.cards[cid]))))
+    fixed = pair_tax(plan, blocks or []) + "".join(cost for cid in sorted(blockers) for cost, _ in sorted(block_taxes(plan.ch(plan.state.cards[cid]))))
     return M.parse_cost(fixed + creature_combat_costs.total(plan, list(blockers), mode="block").text()).text()
 
 
 def has_block_cost(plan: Plan, card_id: str, ch: Characteristics) -> bool:
-    from app.rules import creature_combat_costs, nonmana_combat_costs
-    return bool(block_taxes(ch)) or not creature_combat_costs.total(plan, [card_id], mode="block").is_free or nonmana_combat_costs.has_cost(plan, card_id, 'block')
+    from app.rules import creature_combat_costs, nonmana_combat_costs, scripts
+    return bool(block_taxes(ch)) or any(r.startswith("block_tax_power:") for r in scripts.statics(ch)) or not creature_combat_costs.total(plan, [card_id], mode="block").is_free or nonmana_combat_costs.has_cost(plan, card_id, 'block')
 
 
 # -- attack limits (508.1c) ------------------------------------------------------------------------------------------

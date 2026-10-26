@@ -33,6 +33,7 @@ SELECTORS: dict[str, tuple[bool, Check | None]] = {
     "any": (True, _types("Creature", "Planeswalker", "Battle")),
     "creature_planeswalker_or_player": (True, _types("Creature", "Planeswalker")),
     "creature": (False, _types("Creature")),
+    "creature_or_player": (True, _types("Creature")),  # (wave 110M)
     "creature_you_control": (False, lambda plan, who, card, ch: ch.is_creature and card.controller == who),
     "creature_opponent_controls": (False, lambda plan, who, card, ch: ch.is_creature and card.controller != who),
     "creature_or_planeswalker": (False, _types("Creature", "Planeswalker")),
@@ -174,8 +175,15 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
             return []
         return [cid for cid in exiled_with.cards(plan, {"source_object": oid, "source_card": source_card, "controller": chooser, "borrowed_link_scope": borrowed_scope}, selector)
                 if plan.in_game(plan.state.cards[cid]) and not prohibitions.untargetable(plan, chooser, plan.state.cards[cid])]
+    if selector == "opponent_active110n":  # -- (wave 110N) -- "target opponent whose turn it is" (The Beamtown Bullies): 500.1, the active player, if they are an opponent
+        return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker) if p == plan.state.turn.active_player]
     if selector.startswith("opponent_as:"):  # -- activated other (wave 21E) -- "target opponent who has more life than you do as you activate this ability" (601.2c)
         cond = selector.split(":", 1)[1]
+        if cond == "gy2_110j":  # -- cards (wave 110J) -- Keeper of the Dead: "at least two fewer creature cards in their graveyard than you do"
+            def _gy(p: str) -> int:
+                return sum(1 for c in plan.state.zones.get(f"{p}:graveyard", []) if plan.ch(plan.state.cards[c]).is_creature)
+
+            return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker) if _gy(p) <= _gy(chooser) - 2]
         margin = 2 if cond == "hand2" else 1
         return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker)
                 if _more(plan, cond, p) >= _more(plan, cond, chooser) + margin]
@@ -188,6 +196,11 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         hurt = {f.player for f in history.log_for(plan, False).facts if f.kind == "damage" and f.amount > 0 and f.player}
         return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object)
                 if t in hurt or (t in plan.state.cards and damage_history.matches(plan, plan.state.cards[t], damage_history.WAS_DEALT, chooser))]
+    if selector == "cast_creature110j":  # -- cards (wave 110J) -- Cycle of Life: "target creature you cast this turn" (the permanent its spell became, 608.3)
+        from app.rules import history
+
+        became = {n.became for n in history.log_for(plan).casts if n.player == chooser and n.became}
+        return [c for c in legal_targets(plan, "creature", chooser, source, source_card, attacker, source_object=source_object) if plan.oid(c) in became]
     if selector == "opponent_or_other_battle110f":  # -- cards (wave 110F) -- "another target battle or opponent" (Invasion of Regatha): not the battle itself
         return [t for t in legal_targets(plan, "opponent_or_battle", chooser, source, source_card, attacker, source_object=source_object) if t != source_card]
     if selector == "opponent_or_other_permanent110l":  # -- (wave 110L) -- "another target permanent or opponent" (Etched Slith): not the source itself
@@ -257,10 +270,14 @@ def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source:
 
     if source_object is not None:
         sel = crew_saddle_readers81.bound_target(sel, source_object)
+    other_dropped = False
     if sel.other and source_card is not None and source_object is not None and (source_card not in plan.state.cards or plan.oid(source_card) != source_object):
         sel = selectors.replace(sel, other=False)
+        other_dropped = True
     out = []
     for cid in selectors.candidates(plan, sel, chooser, source_card, attacker):
+        if cid == source_card and other_dropped:  # (wave 110C) "another" still excludes the source card after it changed zones (Relentless Dead, LKI identity)
+            continue
         card = plan.state.cards[cid]
         on_field = card.zone.endswith(":battlefield") or card.zone == "stack"
         if on_field and not can_target(plan, chooser, card, plan.ch(card), source):  # hexproof / shroud / protection
@@ -324,7 +341,7 @@ def divide_total(spec: dict[str, Any], x: int | None) -> int | None:
 
 
 def where_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | None, source_object: str | None,
-            event: dict[str, Any] | None = None) -> int:
+            event: dict[str, Any] | None = None, groups: list[list[str]] | None = None) -> int:
     """-- X target counts (wave 27C) -- "up to X target …, where X is <a count>" (107.3c: the text defines X; 601.2c: the number of
     targets is what that count is as the targets are chosen, and doesn't change after)."""
     from app.rules import values
@@ -332,6 +349,9 @@ def where_x(plan: Plan, spec: dict[str, Any], chooser: str, source_card: str | N
     card = plan.state.cards.get(source_card) if source_card else None
     ctx: dict[str, Any] = {"controller": chooser, "source_card": source_card, "source_object": source_object or (plan.oid(card) if card else None),
                            "targets": [], "event": event}  # (wave 28D: a trigger's event is known as it is put on the stack, 603.3d)
+    if groups:  # -- (wave 110N) -- Reap: "up to X target cards …, where X is the number of black permanents target opponent controls": the earlier groups, as chosen
+        ctx["groups"] = [[ref(plan, t).model_dump() for t in g] for g in groups]
+        ctx["targets"] = ctx["groups"][0]
     return values.evaluate(plan, ctx, spec["x_value"])
 
 
@@ -409,7 +429,7 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
         options = permanent_exchanges.viable_first(plan, specs, g, options,
             lambda w: legal_targets(plan, w, chooser, source, source_card, attacker, source_object=source_object))
         shaped = {**spec, "x_count": "upto"} if "x_value" in spec else spec
-        counted = where_x(plan, spec, chooser, source_card, source_object, event) if "x_value" in spec else divide_x(
+        counted = where_x(plan, spec, chooser, source_card, source_object, event, out.groups) if "x_value" in spec else divide_x(
             plan, spec, chooser, source_card, source_object, event, x)
         lo, hi = group_limits(shaped, counted)
         allowed = free_limits(shaped, counted)[1]
@@ -461,14 +481,15 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
             out.division.append([])
             continue
         n = len(out.groups[g])
-        if n == 1:
+        upto = bool((spec.get("divide") or {}).get("upto110b"))  # -- one-card wordings (wave 110B) -- "distribute up to that many" (Lathiel): fewer than the total may be divided
+        if n == 1 and not (upto and total > 1):
             out.division.append([total])  # one target: all of it (601.2d)
             continue
         if not given:
             out.ask = ("divide", g, total)
             return out
         amounts, given = given[:n], given[n:]
-        if len(amounts) != n or any(a < 1 for a in amounts) or sum(amounts) != total:
+        if len(amounts) != n or any(a < 1 for a in amounts) or sum(amounts) > total or (sum(amounts) != total and not upto):
             raise BadPick(f"Divide {total} among the {n} targets: at least 1 each, {total} in all")
         out.division.append(amounts)
     if given:
@@ -503,6 +524,8 @@ def relation_ok(plan: Plan, spec: dict[str, Any], refs: list[TargetRef]) -> bool
         kinds = [_kinds(ch, spec["shares_none"]) for ch, _ in facts]
         if sum(map(len, kinds)) != len(frozenset().union(*kinds)):
             return False
+    if spec.get("typed110i") and any(not _kinds(ch, spec["shares"]) for ch, _ in facts):  # -- cards (wave 110I) -- Aphetto Dredging: a creature type must be chosen (it has one)
+        return False
     if spec.get("same_controller") and len({c for _, c in facts}) > 1:
         return False
     if spec.get("same_toughness110a") and len({ch.pt[1] if ch.pt else None for ch, _ in facts}) > 1:  # -- cards (wave 110A) -- V.A.T.S.

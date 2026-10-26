@@ -372,6 +372,8 @@ MASTER_CHEF = ('Commander creatures you own have "This creature enters with an a
                '"Other creatures you control enter with an additional +1/+1 counter on them."')
 
 
+HEIRLOOM_EPIC = ("{4}, {T}: Draw a card. For each mana in this ability's activation cost, you may tap an untapped creature you control rather than pay that mana. "
+                 "Activate only as a sorcery.")
 STAFF_ROOM = "Whenever a creature you control deals combat damage to a player, turn that creature face up or put a +1/+1 counter on it."
 DOG_UMBRA = "As long as another player controls enchanted creature, it can't attack or block. Otherwise, this Aura has umbra armor."
 EARTHBIND = "When this Aura enters, if enchanted creature has flying, this Aura deals 2 damage to that creature and this Aura gains \"Enchanted creature loses flying.\""
@@ -402,12 +404,20 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
             lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
                               "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
                               "its owner's control."]
+    from app.rules import wave110n_cards  # -- lines (wave 110N) -- Genku, Future Shaper
+
+    wave110n_cards.rewrite_lines(lines)
     # -- lines (wave 110D) -- Master Chef: 614.12 a commander creature entering is checked with the abilities it would have there (its own and Chef's
     # grants), so the granted "This creature enters with ..." is "commander creatures you own enter with ...", then the second grant as its own ability
     for i, line in enumerate(lines):
         if line == MASTER_CHEF:
             lines[i:i + 1] = ["Commander creatures you own enter with an additional +1/+1 counter on them.",
                               'Commander creatures you own have "Other creatures you control enter with an additional +1/+1 counter on them."']
+    # -- lines (wave 110C) -- Heirloom Epic: each mana of the cost may be paid by tapping an untapped creature (waterbend's payment, 701.67a, creatures only and not a
+    # waterbend): the cost word "Tapbend" stands for that sentence
+    for i, line in enumerate(lines):
+        if line == HEIRLOOM_EPIC:
+            lines[i] = "Tapbend {4}, {T}: Draw a card. Activate only as a sorcery."
     # -- lines (wave 110D) -- Dog Umbra: 608.2c "Otherwise" = the enchanted creature is not controlled by another player, so you control it (an Aura's
     # controller can't be attached to nothing); two conditional statics
     for i, line in enumerate(lines):
@@ -423,10 +433,25 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     for i, line in enumerate(lines):
         if line == EARTHBIND:
             lines[i:i + 1] = [line, "As long as this Aura gained that ability, enchanted creature loses flying."]
+    # -- keywords (wave 110E) -- 702.65a: "Aura swap [cost]" means "[Cost]: You may exchange this permanent with an Aura card in your hand."
+    for i, line in enumerate(lines):
+        if (m := re.fullmatch(r"Aura swap ((?:\{[^}]+\})+)(?: \(.*\))?", line)) is not None:
+            lines[i] = f"{m[1]}: You may exchange this permanent with an Aura card in your hand."
     # -- lines (wave 110G) -- Ertai's Familiar: phasing out is not leaving (702.26d), so "phases out or leaves the battlefield" is two triggers that never share an event
     for i, line in enumerate(lines):
         if line == "When this creature phases out or leaves the battlefield, mill three cards.":
             lines[i:i + 1] = ["When this creature phases out, mill three cards.", "When this creature leaves the battlefield, mill three cards."]
+    # -- (wave 110M) -- Pharika's Spawn: "This creature escapes with ... When it enters this way, ..." is the escape counters and a trigger of the creature that escaped (702.138c)
+    for i, line in enumerate(lines):
+        if line == ("This creature escapes with two +1/+1 counters on it. When it enters this way, each opponent sacrifices a non-Gorgon creature of their choice."):
+            lines[i:i + 1] = ["This creature escapes with two +1/+1 counters on it.",
+                              "When this creature enters, if it escaped, each opponent sacrifices a non-Gorgon creature of their choice."]
+    # -- (wave 110M) -- Tidal Control: "Pay 2 life or {2}: ..." is one ability whose cost the activating player picks (602.2b); the two costs read as two abilities with
+    # the same effect, so choosing one is activating that one (nothing else of the ability depends on which was paid)
+    for i, line in enumerate(lines):
+        if line == "Pay 2 life or {2}: Counter target red or green spell. Any player may activate this ability.":
+            lines[i:i + 1] = ["Pay 2 life: Counter target red or green spell. Any player may activate this ability.",
+                              "{2}: Counter target red or green spell. Any player may activate this ability."]
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):
@@ -521,6 +546,9 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         # -- wave 110F -- Circling Vultures: 116.2e special action (casting.VULTURES handles it: no stack); the line is only a marker so the card reads as an ability
         if line == "You may discard this card any time you could cast an instant.":
             line = "Discard this card: You gain 0 life."
+        # -- wave 110F -- Taste of Paradise: "you may pay {1}{G} any number of times" repeats like multikicker (702.33c) but is not kicker: the keyword line is flagged "any number of times"
+        if m := re.fullmatch(r"As an additional cost to cast this spell, you may pay ((?:\{[^}]+\})+) any number of times\.", line):
+            line = f"Multikicker {m[1]} any number of times"
         # -- static_other sweep (wave 19A) -- "Traxos enters tapped and doesn't untap during your untap step.": two abilities, "enters tapped"
         # (614.1d) and the static "doesn't untap" (502.3), the second one added after the printed lines as Reconfigure's are
         if (um := re.fullmatch(r"(.+?) enters tapped and (doesn't untap during your untap step)\.", line)) and not spell:

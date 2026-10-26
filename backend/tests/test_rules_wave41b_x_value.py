@@ -72,6 +72,12 @@ def declare(s, pid, *attackers, turn=1):
     act(s, pid, type="declare_attackers", attackers=[{"card_id": a.id, "target": "p2" if pid == "p1" else "p1"} for a in attackers])
 
 
+def held(s, color, pid="p1"):
+    """Mana of a color in the pool: plain pool plus provenance units (every source is remembered as a unit, mana_units.needs_unit)."""
+    p = s.state.players[pid]
+    return p.mana.get(color, 0) + sum(1 for u in p.mana_units if u.sym == color)
+
+
 def resolve(s):
     """Resolve the stack, stopping at a decision (the blockers')."""
     while s.state.zones.get("stack") and s.state.rules.decision is None:
@@ -133,7 +139,7 @@ def test_zuko_firebending_adds_red_mana_equal_to_his_power(cards):
     creature(s, "p2", "Ogre", "3/3")  # (Bob may block: combat waits for his declaration, with the firebending mana still there)
     declare(s, "p1", zuko, turn=3)
     resolve(s)
-    assert s.state.players["p1"].mana.get("R", 0) == 2  # 702.189a: X = Zuko's power (2)
+    assert held(s, "R") == 2  # 702.189a: X = Zuko's power (2)
     check(s)
 
 
@@ -146,7 +152,7 @@ def test_zuko_firebending_reads_his_power_as_the_trigger_resolves(cards):
     assert s.state.zones.get("stack")
     act(s, "p1", type="counter", card_ids=[zuko.id], kind="+1/+1", delta=2)  # it grows while the trigger waits
     resolve(s)
-    assert s.state.players["p1"].mana.get("R", 0) == 4  # 608.2h: the power when it resolves
+    assert held(s, "R") == 4  # 608.2h: the power when it resolves
     check(s)
 
 
@@ -157,7 +163,7 @@ def test_zuko_with_no_power_adds_nothing(cards):
     creature(s, "p2", "Ogre", "3/3")  # (Bob may block: combat waits for his declaration, with the firebending mana still there)
     declare(s, "p1", zuko, turn=3)
     resolve(s)
-    assert s.state.players["p1"].mana.get("R", 0) == 0  # X = 0
+    assert held(s, "R") == 0  # X = 0
     check(s)
 
 
@@ -172,7 +178,7 @@ def test_sun_warriors_firebending_counts_the_creatures_you_control_as_the_trigge
     creature(s, "p1", "Pal B", "1/1")
     creature(s, "p1", "Pal C", "1/1")
     resolve(s)
-    assert s.state.players["p1"].mana.get("R", 0) == 3  # X = 3 creatures (Sun Warriors, Pal B, Pal C) when it resolves
+    assert held(s, "R") == 3  # X = 3 creatures (Sun Warriors, Pal B, Pal C) when it resolves
     check(s)
 
 
@@ -182,7 +188,7 @@ def test_firebending_student_adds_red_mana_equal_to_its_power(cards):
     creature(s, "p2", "Ogre", "3/3")
     declare(s, "p1", student, turn=3)
     resolve(s)
-    assert s.state.players["p1"].mana.get("R", 0) == 1  # X = its power (1)
+    assert held(s, "R") == 1  # X = its power (1)
     check(s)
 
 
@@ -640,7 +646,7 @@ def test_brigid_adds_one_color_for_each_other_creature(cards):
     d = s.state.rules.decision
     if d is not None:  # the color: green or white
         act(s, d.player, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if "G" in o.label)])
-    assert s.state.players["p1"].mana == {"G": 3}  # X = 3 (Brigid herself is not an "other" creature)
+    assert held(s, "G") == 3 and held(s, "W") == 0  # X = 3 (Brigid herself is not an "other" creature)
     check(s)
 
 

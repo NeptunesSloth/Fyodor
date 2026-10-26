@@ -223,6 +223,7 @@ def move_card(
         c.embalmed = False
         c.effects = []
         c.damage = 0
+        c.damage_by = {}
         c.choices = {}
         if src_zone == STACK or dst_zone == STACK:
             c.stack_info = None

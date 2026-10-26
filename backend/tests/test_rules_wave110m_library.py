@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
+from tests.wave36a_kit import ready, to_turn_of
 from tests.wave110m_kit import *
 
 CROWN = "Crown of Convergence"
@@ -95,4 +97,531 @@ def test_faces_of_the_past_with_a_dying_changeling_reaches_every_creature_with_a
     cast(s, "Murder", [outcast.id])
     answer(s, "tap")
     assert s.state.cards[card_named(s, "Mother of Runes").id].tapped and s.state.cards[card_named(s, "Llanowar Elves").id].tapped
+    check(s)
+
+
+# -- Lucius the Eternal ----------------------------------------------------------------------------------------------------------------------
+LUCIUS = "Lucius the Eternal"
+test_lucius_full = full_test([LUCIUS])
+
+
+def lucius_table(cards, theirs=("Grizzly Bears",)):
+    s = build(cards, [LUCIUS, "Murder", "Doom Blade"], list(theirs), forests=20)
+    lucius = put(s, LUCIUS)
+    for n in theirs:
+        put(s, n, "p2")
+    return s, lucius
+
+
+@pytest.mark.parametrize("dies,returns", [("Elite Vanguard", True), ("Grizzly Bears", False)])
+def test_lucius_exiles_itself_and_returns_when_the_chosen_creature_leaves(cards, dies, returns):
+    s, lucius = lucius_table(cards, ("Grizzly Bears", "Elite Vanguard"))
+    cast(s, "Murder", [lucius.id])
+    answer(s, card_named(s, "Elite Vanguard", "p2").id)  # (the chosen creature: Elite Vanguard)
+    assert s.state.cards[lucius.id].zone == "p1:exile"
+    check(s)
+    cast(s, "Doom Blade", [card_named(s, dies, "p2").id])
+    answer(s)
+    assert zone_of(s, dies, "p2") == "p2:graveyard"
+    assert (s.state.cards[lucius.id].zone, s.state.cards[lucius.id].controller) == (("p1:battlefield", "p1") if returns else ("p1:exile", "p1"))
+    check(s)
+
+
+def test_lucius_with_no_opponent_creature_to_choose_stays_in_the_graveyard(cards):
+    s, lucius = lucius_table(cards, ())
+    cast(s, "Murder", [lucius.id])
+    answer(s)
+    assert s.state.cards[lucius.id].zone == "p1:graveyard"
+    check(s)
+
+
+# -- Soul Sculptor ---------------------------------------------------------------------------------------------------------------------------
+SCULPTOR = "Soul Sculptor"
+test_sculptor_full = full_test([SCULPTOR])
+
+
+def sculpted(cards):
+    s = build(cards, [SCULPTOR, "Llanowar Elves", "Lightning Bolt"], ["Birds of Paradise", "Elite Vanguard"], forests=20)
+    sculptor = put(s, SCULPTOR)
+    birds = put(s, "Birds of Paradise", "p2")
+    ready(s, SCULPTOR)
+    mana(s, W=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=sculptor.id, ability=0, targets=[birds.id])
+    answer(s)
+    return s, birds
+
+
+def test_soul_sculptor_makes_the_creature_an_enchantment_without_abilities(cards):
+    s, birds = sculpted(cards)
+    got = ch(s, birds)
+    assert "Creature" not in got.types and "Enchantment" in got.types and "flying" not in got.keywords
+    check(s)
+
+
+def test_soul_sculptor_lasts_through_other_spells_and_across_turns(cards):
+    s, birds = sculpted(cards)
+    cast(s, "Lightning Bolt", ["p2"])
+    answer(s)
+    to_turn_of(s, "p2")
+    got = ch(s, birds)
+    assert "Creature" not in got.types and "flying" not in got.keywords
+    check(s)
+
+
+@pytest.mark.parametrize("caster", ["p1", "p2"])
+def test_soul_sculptor_ends_when_any_player_casts_a_creature_spell(cards, caster):
+    s, birds = sculpted(cards)
+    if caster == "p2":
+        to_turn_of(s, "p2")
+        cast(s, "Elite Vanguard", pid="p2")
+    else:
+        cast(s, "Llanowar Elves")
+    answer(s)
+    got = ch(s, birds)
+    assert "Creature" in got.types and "Enchantment" not in got.types and "flying" in got.keywords
+    check(s)
+
+
+# -- Merieke Ri Berit ------------------------------------------------------------------------------------------------------------------------
+MERIEKE = "Merieke Ri Berit"
+test_merieke_full = full_test([MERIEKE])
+
+
+def merieke_table(cards):
+    s = build(cards, [MERIEKE, "Twiddle", "Murder"], ["Grizzly Bears"], forests=20)
+    merieke = put(s, MERIEKE)
+    bears = put(s, "Grizzly Bears", "p2")
+    ready(s, MERIEKE)
+    act(s, "p1", type="activate_ability", card_id=merieke.id, ability=1, targets=[bears.id])
+    answer(s)
+    assert s.state.cards[bears.id].controller == "p1" and s.state.cards[merieke.id].tapped
+    return s, merieke, bears
+
+
+def test_merieke_steals_the_creature_while_she_stays_tapped_and_controlled(cards):
+    s, merieke, bears = merieke_table(cards)
+    to_turn_of(s, "p2")
+    assert s.state.cards[bears.id].controller == "p1" and s.state.cards[merieke.id].tapped  # (she doesn't untap, and no destroy yet)
+    check(s)
+
+
+def test_merieke_untapping_destroys_the_creature(cards):
+    s, merieke, bears = merieke_table(cards)
+    cast(s, "Twiddle", [merieke.id])
+    answer(s, "untap")
+    assert not s.state.cards[merieke.id].tapped and zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard"
+    check(s)
+
+
+def test_merieke_leaving_the_battlefield_destroys_the_creature(cards):
+    s, merieke, bears = merieke_table(cards)
+    cast(s, "Murder", [merieke.id])
+    answer(s)
+    assert s.state.cards[merieke.id].zone == "p1:graveyard" and zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard"
+    check(s)
+
+
+# -- Darksteel Garrison (Fortify) --------------------------------------------------------------------------------------------------------------
+GARRISON = "Darksteel Garrison"
+test_garrison_full = full_test([GARRISON])
+
+
+def garrison_table(cards):
+    s = build(cards, [GARRISON, "Grizzly Bears"], ["Forest"], forests=9)
+    garrison = put(s, GARRISON)
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"player": "p1", "zone": "battlefield"})
+    bears = put(s, "Grizzly Bears")
+    return s, garrison, s.state.cards[forest.id], bears
+
+
+def fortify(s, garrison, land):
+    fund(s, "{3}")
+    act(s, "p1", type="activate_ability", card_id=garrison.id, ability=2, targets=[land.id])
+    answer(s)
+
+
+def test_fortify_attaches_to_a_land_that_then_has_indestructible_and_pumps_a_creature_when_tapped(cards):
+    s, garrison, forest, bears = garrison_table(cards)
+    fortify(s, garrison, forest)
+    assert s.state.cards[garrison.id].attached_to == forest.id and "indestructible" in ch(s, forest).keywords
+    act(s, "p1", type="activate_ability", card_id=forest.id, ability=0)  # tapped for mana: it becomes tapped (603.2)
+    answer(s)
+    assert pt(s, "Grizzly Bears") == (3, 3)
+    check(s)
+
+
+def test_fortify_is_sorcery_speed_and_needs_a_land_you_control(cards):
+    from app.game.errors import ActionError
+
+    s, garrison, forest, bears = garrison_table(cards)
+    with pytest.raises(ActionError):
+        fund(s, "{3}")
+        act(s, "p1", type="activate_ability", card_id=garrison.id, ability=2, targets=[bears.id])  # a creature isn't a land
+    to_turn_of(s, "p2")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=garrison.id, ability=2, targets=[forest.id])
+
+
+# -- Booby Trap ------------------------------------------------------------------------------------------------------------------------------
+TRAP = "Booby Trap"
+test_trap_full = full_test([TRAP])
+
+
+def trap_table(cards, drawn="Llanowar Elves"):
+    from app.rules import card_names
+
+    s = build(cards, [TRAP, "Llanowar Elves"], ["Llanowar Elves", "Grizzly Bears"], forests=20)
+    trap = to_hand(s, TRAP)
+    fund(s, "{6}")
+    act(s, "p1", type="cast_spell", card_id=trap.id)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif card_names.is_free_text(d):
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[], name="Llanowar Elves")
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert s.state.cards[trap.id].zone == "p1:battlefield" and s.state.cards[trap.id].choices
+    top = card_named(s, drawn, "p2")
+    act(s, "p2", type="move", card_ids=[top.id], to={"player": "p2", "zone": "library"}, position="top")
+    return s, trap, top
+
+
+@pytest.mark.parametrize("drawn,explodes", [("Llanowar Elves", True), ("Grizzly Bears", False)])
+def test_booby_trap_reveals_each_card_the_chosen_player_draws_and_blows_up_on_the_named_one(cards, drawn, explodes):
+    s, trap, top = trap_table(cards, drawn)
+    before = life(s, "p2")
+    to_turn_of(s, "p2")
+    answer(s)
+    assert top.id in s.state.zones["p2:hand"]
+    assert any("reveals" in "".join(str(getattr(p, "t", p)) for p in e.parts) for e in s.state.log[-40:])
+    assert (s.state.cards[trap.id].zone == "p1:graveyard", life(s, "p2")) == ((True, before - 10) if explodes else (False, before))
+    check(s)
+
+
+def test_booby_trap_ignores_the_named_card_drawn_by_a_player_who_was_not_chosen(cards):
+    s, trap, top = trap_table(cards)
+    mine = card_named(s, "Llanowar Elves", "p1")
+    act(s, "p1", type="move", card_ids=[mine.id], to={"player": "p1", "zone": "library"}, position="top")
+    act(s, "p1", type="draw", player="p1", count=1)
+    answer(s)
+    assert mine.id in s.state.zones["p1:hand"] and s.state.cards[trap.id].zone == "p1:battlefield" and life(s, "p1") == 40
+    check(s)
+
+
+# -- Queen Kayla bin-Kroog -------------------------------------------------------------------------------------------------------------------
+KAYLA = "Queen Kayla bin-Kroog"
+test_kayla_full = full_test([KAYLA])
+
+
+def kayla_table(cards):
+    names = ["Llanowar Elves", "Mother of Runes", "Grizzly Bears", "Hill Giant", "Sol Ring", "Mind Stone"]
+    s = build(cards, [KAYLA, *names], forests=20)
+    kayla = put(s, KAYLA)
+    ready(s, KAYLA)
+    hand = [to_hand(s, n) for n in names]
+    fund(s, "{4}")
+    act(s, "p1", type="activate_ability", card_id=kayla.id, ability=0)
+    return s, kayla, {c.name: c.id for c in hand}
+
+
+def test_kayla_discards_the_hand_draws_that_many_and_returns_one_card_for_each_mana_value(cards):
+    s, kayla, ids = kayla_table(cards)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and {o.id for o in d.options} == {ids[n] for n in ("Llanowar Elves", "Mother of Runes", "Grizzly Bears", "Sol Ring", "Mind Stone")}  # (not Hill Giant: mana value 4)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Llanowar Elves"], ids["Mother of Runes"]])  # two with mana value 1
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Llanowar Elves"], ids["Grizzly Bears"]])
+    answer(s)
+    assert s.state.cards[ids["Llanowar Elves"]].zone == "p1:battlefield" and s.state.cards[ids["Grizzly Bears"]].zone == "p1:battlefield"
+    assert all(s.state.cards[ids[n]].zone == "p1:graveyard" for n in ("Mother of Runes", "Hill Giant", "Sol Ring", "Mind Stone"))
+    assert len(s.state.zones["p1:hand"]) == 6  # (drew as many as were discarded)
+    check(s)
+
+
+# -- Primal Adversary ------------------------------------------------------------------------------------------------------------------------
+ADVERSARY = "Primal Adversary"
+test_adversary_full = full_test([ADVERSARY])
+
+
+@pytest.mark.parametrize("times", [0, 1, 2])
+def test_primal_adversary_pays_n_times_for_n_counters_and_n_wolf_lands(cards, times):
+    """603.12, 107.3f: the counters and the "up to that many" lands (chosen as the reflexive ability goes on the stack) follow the times paid."""
+    s = build(cards, [ADVERSARY], forests=20)
+    lands = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library"][:3]  # (three different Forests)
+    act(s, "p1", type="move", card_ids=[c.id for c in lands], to={"player": "p1", "zone": "battlefield"})
+    mana(s, G=14)
+    adv = cast(s, ADVERSARY, pay=False)
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert "how many times" in d.prompt
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[f"x:{times}" if times else "decline"])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options if o.card_id in {x.id for x in lands}][:times]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids or [d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[adv.id].counters.get("+1/+1", 0) == times
+    wolves = [x for x in lands if "Creature" in ch(s, x).types]
+    assert len(wolves) == times and all(ch(s, x).pt == (3, 3) and "Land" in ch(s, x).types and "haste" in ch(s, x).keywords and "Wolf" in ch(s, x).subtypes for x in wolves)
+    check(s)
+
+
+# -- Nethergoyf ------------------------------------------------------------------------------------------------------------------------------
+GOYF = "Nethergoyf"
+test_goyf_full = full_test([GOYF])
+
+
+def goyf_table(cards):
+    names = [GOYF, "Grizzly Bears", "Llanowar Elves", "Sol Ring", "Mind Stone", "Lightning Bolt", "Forest"]
+    s = build(cards, names, forests=1)
+    for n in names:
+        act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"player": "p1", "zone": "graveyard"})
+    return s, {n: card_named(s, n).id for n in names}
+
+
+@pytest.mark.parametrize("pick,ok", [
+    (("Grizzly Bears", "Sol Ring", "Lightning Bolt", "Forest"), True),                    # creature, artifact, instant, land: four types
+    (("Grizzly Bears", "Llanowar Elves", "Sol Ring", "Mind Stone", "Lightning Bolt", "Forest"), True),   # more cards, still four or more types
+    (("Grizzly Bears", "Sol Ring", "Lightning Bolt"), False),                              # three types
+    (("Grizzly Bears", "Llanowar Elves", "Sol Ring", "Mind Stone"), False),                # four cards, two types
+])
+def test_nethergoyf_escape_exiles_any_number_of_cards_with_four_or_more_types_among_them(cards, pick, ok):
+    s, ids = goyf_table(cards)
+    fund(s, "{2}{B}")
+    cast = lambda: act(s, "p1", type="cast_spell", card_id=ids[GOYF], alt_cost=f"{ids[GOYF]}:1",  # noqa: E731
+                       cost_choices=[{"component": 0, "cards": [ids[n] for n in pick]}])
+    if not ok:
+        with pytest.raises(ActionError):
+            cast()
+        assert s.state.cards[ids[GOYF]].zone == "p1:graveyard"
+        return
+    cast()
+    answer(s)
+    assert s.state.cards[ids[GOYF]].zone == "p1:battlefield" and all(s.state.cards[ids[n]].zone == "p1:exile" for n in pick)
+    left = {t for n in ids if n != GOYF and s.state.cards[ids[n]].zone == "p1:graveyard" for t in ch(s, s.state.cards[ids[n]]).types}
+    assert ch(s, s.state.cards[ids[GOYF]]).pt == (len(left), len(left) + 1)
+    check(s)
+
+
+# -- Ashiok, Nightmare Weaver ------------------------------------------------------------------------------------------------------------------
+ASHIOK = "Ashiok, Nightmare Weaver"
+test_ashiok_full = full_test([ASHIOK])
+
+
+def ashiok_table(cards):
+    from tests.test_rules_wave36a_trigger_words import loyal
+
+    s = build(cards, [ASHIOK], ["Grizzly Bears", "Llanowar Elves", "Hill Giant", "Mother of Runes"], forests=20)
+    walker = loyal(s, ASHIOK, loyalty=3)
+    for n in ("Hill Giant", "Llanowar Elves", "Grizzly Bears"):  # the top three of Bob's library, topmost last put
+        act(s, "p2", type="move", card_ids=[card_named(s, n, "p2").id], to={"player": "p2", "zone": "library"}, position="top")
+    return s, walker
+
+
+def test_ashiok_plus_two_exiles_three_and_minus_x_puts_one_with_that_mana_value_under_your_control(cards):
+    s, walker = ashiok_table(cards)
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=0, targets=["p2"])
+    answer(s)
+    exiled = [card_named(s, n, "p2") for n in ("Grizzly Bears", "Llanowar Elves", "Hill Giant")]
+    assert all(s.state.cards[c.id].zone == "p2:exile" for c in exiled)
+    next_turn(s)
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=1, x_value=2)
+    answer(s)
+    bears = card_named(s, "Grizzly Bears", "p2")
+    got = ch(s, s.state.cards[bears.id])
+    assert s.state.cards[bears.id].zone == "p1:battlefield" and s.state.cards[bears.id].controller == "p1" and "Nightmare" in got.subtypes and "Bear" in got.subtypes
+    assert s.state.cards[card_named(s, "Hill Giant", "p2").id].zone == "p2:exile"  # (mana value 4: stays)
+    check(s)
+
+
+def test_ashiok_minus_x_finds_nothing_for_a_mana_value_no_exiled_creature_has(cards):
+    s, walker = ashiok_table(cards)
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=0, targets=["p2"])
+    answer(s)
+    next_turn(s)
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=1, x_value=3)
+    answer(s)
+    assert all(s.state.cards[card_named(s, n, "p2").id].zone == "p2:exile" for n in ("Grizzly Bears", "Llanowar Elves", "Hill Giant"))
+    check(s)
+
+
+def test_ashiok_minus_ten_exiles_every_card_in_opponents_hands_and_graveyards(cards):
+    from tests.test_rules_wave36a_trigger_words import loyal
+
+    s = build(cards, [ASHIOK], ["Grizzly Bears", "Llanowar Elves", "Hill Giant"], forests=20)
+    walker = loyal(s, ASHIOK, loyalty=12)
+    hand, gy_card = to_hand(s, "Grizzly Bears", "p2"), card_named(s, "Llanowar Elves", "p2")
+    act(s, "p2", type="move", card_ids=[gy_card.id], to={"player": "p2", "zone": "graveyard"})
+    act(s, "p1", type="activate_ability", card_id=walker.id, ability=2)
+    answer(s)
+    assert not s.state.zones["p2:hand"] and not s.state.zones["p2:graveyard"]
+    assert s.state.cards[hand.id].zone == "p2:exile" and s.state.cards[gy_card.id].zone == "p2:exile"
+    check(s)
+
+
+# -- Endless Whispers ------------------------------------------------------------------------------------------------------------------------
+WHISPERS = "Endless Whispers"
+test_whispers_full = full_test([WHISPERS])
+
+
+@pytest.mark.parametrize("owner,thief", [("p1", "p2"), ("p2", "p1")])
+def test_endless_whispers_gives_a_dead_creature_to_the_chosen_opponent_at_the_next_end_step(cards, owner, thief):
+    """Each creature has the trigger: its controller's opponent puts the card from its owner's graveyard onto the battlefield under their control at the next end step."""
+    from tests.test_rules_wave34b_activated import to_phase
+
+    s = build(cards, [WHISPERS, "Murder", "Grizzly Bears"], ["Llanowar Elves"], forests=20)
+    stops(s)
+    put(s, WHISPERS)
+    victim = put(s, "Grizzly Bears" if owner == "p1" else "Llanowar Elves", owner)
+    cast(s, "Murder", [victim.id])
+    answer(s)
+    assert s.state.cards[victim.id].zone == f"{owner}:graveyard"
+    to_phase(s, "end")
+    answer(s)
+    assert s.state.cards[victim.id].zone == f"{thief}:battlefield" and s.state.cards[victim.id].controller == thief and s.state.cards[victim.id].owner == owner
+    check(s)
+
+
+# -- Gandalf, Westward Voyager ---------------------------------------------------------------------------------------------------------------
+GANDALF = "Gandalf, Westward Voyager"
+test_gandalf_full = full_test([GANDALF])
+
+
+@pytest.mark.parametrize("top,shares", [("Sol Ring", True), ("Forest", False)])
+def test_gandalf_compares_each_opponents_revealed_top_card_with_the_big_spell(cards, top, shares):
+    """Gilded Lotus is an artifact spell with mana value 5: a revealed artifact copies it and the opponent draws; otherwise Alice draws."""
+    s = build(cards, [GANDALF, "Gilded Lotus"], ["Sol Ring", "Forest"], forests=20)
+    put(s, GANDALF)
+    mine, theirs = len(s.state.zones["p1:hand"]), len(s.state.zones["p2:hand"])
+    card = next(c for c in s.state.cards.values() if c.name == top and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[card.id], to={"player": "p2", "zone": "library"}, position="top")
+    cast(s, "Gilded Lotus")
+    answer(s)
+    lotuses = [c for c in s.state.cards.values() if c.name == "Gilded Lotus" and c.zone == "p1:battlefield"]
+    assert len(lotuses) == (2 if shares else 1)  # (the copy of a permanent spell becomes a token)
+    assert len(s.state.zones["p2:hand"]) == theirs + (1 if shares else 0)
+    assert len(s.state.zones["p1:hand"]) == mine + (0 if shares else 1)
+    check(s)
+
+
+# -- Veiled Crocodile ------------------------------------------------------------------------------------------------------------------------
+CROC = "Veiled Crocodile"
+test_croc_full = full_test([CROC])
+
+
+@pytest.mark.parametrize("empty,becomes", [(None, False), ("p1", True), ("p2", True)])
+def test_veiled_crocodile_becomes_a_creature_when_any_player_has_no_cards_in_hand(cards, empty, becomes):
+    s = build(cards, [CROC, "Lightning Bolt"], forests=20)
+    if empty != "p1":
+        to_hand(s, "Forest")  # (the table starts with empty hands)
+    if empty != "p2":
+        to_hand(s, "Island", "p2")
+    croc = put(s, CROC)
+    cast(s, "Lightning Bolt", ["p2"])  # (any event: state triggers are looked at after the table changes, 603.8)
+    answer(s)
+    got = ch(s, croc)
+    assert (got.pt, set(got.types), set(got.subtypes)) == (((4, 4), {"Creature"}, {"Crocodile"}) if becomes else (None, {"Enchantment"}, set()))
+    check(s)
+
+
+# -- Rip, Spawn Hunter -----------------------------------------------------------------------------------------------------------------------
+RIP = "Rip, Spawn Hunter"
+test_rip_full = full_test([RIP])
+
+
+def rip_table(cards, tapped=True):
+    from tests.test_rules_wave34b_activated import next_turn as next_main
+
+    names = ["Grizzly Bears", "Savannah Lions", "Elite Vanguard", "Hill Giant", "Mother of Runes"]
+    s = build(cards, [RIP, *names, "Forest"], forests=1)
+    rip = put(s, RIP)
+    ready(s, RIP)
+    ids = {n: card_named(s, n).id for n in names}
+    # top of the library, top first: Bears 2, Lions 2, Vanguard 2, Giant 3 (Rip's power is 4: the fifth card stays unseen)
+    for n in ("Mother of Runes", "Hill Giant", "Elite Vanguard", "Savannah Lions", "Grizzly Bears"):
+        act(s, "p1", type="move", card_ids=[ids[n]], to={"player": "p1", "zone": "library"}, position="top")
+    act(s, "p1", type="move", card_ids=[card_named(s, "Forest").id], to={"player": "p1", "zone": "library"}, position="top")  # (the turn's draw)
+    stops(s)
+    next_main(s)
+    if tapped:
+        act(s, "p1", type="tap", card_ids=[rip.id], tapped=True)
+    return s, rip, ids
+
+
+def test_rip_reveals_x_cards_and_takes_creatures_with_different_powers(cards):
+    s, rip, ids = rip_table(cards)
+    power = ch(s, rip).pt[0]
+    until(s, lambda s: s.state.turn.phase == "main2" and s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    revealed = s.state.zones["p1:library"][:power]
+    assert {o.id for o in d.options} == set(revealed)
+    same = [ids["Grizzly Bears"], ids["Savannah Lions"]]  # both power 2
+    if all(c in revealed for c in same):
+        with pytest.raises(ActionError):
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=same)
+    pick = [ids["Grizzly Bears"], ids["Hill Giant"]]  # powers 2 and 3
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[c for c in pick if c in revealed])
+    answer(s)
+    assert all(s.state.cards[c].zone == "p1:hand" for c in pick if c in revealed)
+    assert all(c in s.state.zones["p1:library"][-power:] or s.state.cards[c].zone == "p1:hand" for c in revealed)  # (the rest: the bottom)
+    check(s)
+
+
+# -- Hurkyl, Master Wizard -------------------------------------------------------------------------------------------------------------------
+HURKYL = "Hurkyl, Master Wizard"
+test_hurkyl_full = full_test([HURKYL])
+
+
+def hurkyl_table(cards, cast_spells):
+    from tests.test_rules_wave34b_activated import to_phase
+
+    names = ["Lightning Bolt", "Sol Ring", "Opt", "Murder", "Mind Stone", "Hill Giant"]
+    s = build(cards, [HURKYL, *names], forests=20)
+    put(s, HURKYL)
+    stops(s)
+    for n in cast_spells:
+        cast(s, n, ["p2"] if n == "Lightning Bolt" else ())
+        answer(s)
+    ids = {n: card_named(s, n).id for n in names}
+    top = ["Hill Giant", "Mind Stone", "Murder", "Opt"]  # top first after the Forest
+    for n in reversed(top):
+        act(s, "p1", type="move", card_ids=[ids[n]], to={"player": "p1", "zone": "library"}, position="top")
+    forest = next(c for c in s.state.zones["p1:library"] if s.state.cards[c].name == "Forest")
+    act(s, "p1", type="move", card_ids=[forest], to={"player": "p1", "zone": "library"}, position="top")
+    to_phase(s, "end")
+    return s, ids
+
+
+def test_hurkyl_takes_at_most_one_card_for_each_noncreature_type_cast_this_turn(cards):
+    s, ids = hurkyl_table(cards, ["Lightning Bolt", "Sol Ring"])  # an instant and an artifact
+    until(s, lambda s: s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    assert {o.id for o in d.options} == {ids["Mind Stone"], ids["Murder"], ids["Opt"]}  # no creature, no land (Hurkyl reveals five: Forest, Giant, Stone, Murder, Opt)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Murder"], ids["Opt"]])  # two instants
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Murder"], ids["Mind Stone"]])
+    answer(s)
+    assert s.state.cards[ids["Murder"]].zone == "p1:hand" and s.state.cards[ids["Mind Stone"]].zone == "p1:hand"
+    assert {s.state.cards[ids[n]].zone for n in ("Opt", "Hill Giant")} == {"p1:library"}
+    check(s)
+
+
+def test_hurkyl_does_nothing_without_a_noncreature_spell_cast(cards):
+    s, ids = hurkyl_table(cards, [])
+    answer(s)
+    assert s.state.cards[ids["Murder"]].zone == "p1:library"
     check(s)

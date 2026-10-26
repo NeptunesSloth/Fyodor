@@ -28,3 +28,7 @@
 - Ice Cave (s8): "any other player may pay that spell's mana cost" has no ordering ruling for several payers; needs each-may over non-casters plus cost = the spell's own mana cost (X as 0).
 - Sacred Ground (s8, still): zone_change actor is the effect's controller for effects but the owner for SBA/sacrifice, so "caused by a spell or ability an opponent controls" is not decidable for sacrifice effects; needs a cause stamp on every move.
 - Whippoorwill (s8): "can't be dealt instead to another permanent or player" (redirection prohibition) has no primitive.
+- Light Up the Night (s9): flashback cost "Remove X loyalty counters from among planeswalkers you control, X not 0" needs an X-sized multi-permanent loyalty cost with distribution; foundation not built.
+- Savior of Ollenbock (s9): "trains" (702.149c, counters put by a resolving training ability) has no event; plus exile from battlefield or graveyard with return of mixed cards. Foundation, not unsettled.
+- Sacred Ground, Whippoorwill, Halfdane, Tatsumasa, Thijarian Witness, Season of the Witch (s9): promoted (cause stamp, redirect prohibition, end-of-upkeep duration, linked bind, alone-in-combat fact, could-attack record).
+- Wicker Picker, Done for the Day, Ambassador Blorpityblorpboop (s10): need a sticker/ticket system (kicker {TK}, put a sticker, sticker stats); foundation not built yet, work not refusal.

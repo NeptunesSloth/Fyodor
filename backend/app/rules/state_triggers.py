@@ -56,6 +56,9 @@ def check(plan: Plan) -> None:
     waiting = _waiting(plan)
     for card, ch, i, d in watching:
         oid = plan.oid(card)
+        if (each := d["state"].get("each110j")) is not None:  # -- Bomb Squad (wave 110J) -- one state (and one trigger) per creature at the threshold
+            _each(plan, waiting, card, ch, i, d, each)
+            continue
         key = _key(oid, i)
         if key in waiting or card.controller not in plan.live():
             continue
@@ -63,6 +66,23 @@ def check(plan: Plan) -> None:
                                 d["state"]):
             continue
         triggers._add(plan, controller=card.controller, source_card=card.id, source_object=oid, name=ch.name, index=i,
+                      definition={**d, "effects": [{"do": "state_trigger", "key": key}, *d["effects"]]})
+
+
+def _each(plan: Plan, waiting: set[str], card: Any, ch: Any, i: int, d: dict[str, Any], each: list[Any]) -> None:
+    """603.8 for "Whenever a creature has N or more X counters on it": each such creature is its own state, bound as the event object ("that creature")."""
+    from app.game.rules_state import ObjectRef, TriggerEvent
+    from app.rules import triggers
+
+    oid = plan.oid(card)
+    for c in list(plan.state.cards.values()):
+        if not c.zone.endswith(":battlefield") or "Creature" not in plan.ch(c).types or c.counters.get(each[0], 0) < each[1]:
+            continue
+        key = f"{_key(oid, i)}:{plan.oid(c)}"
+        if key in waiting or card.controller not in plan.live():
+            continue
+        triggers._add(plan, controller=card.controller, source_card=card.id, source_object=oid, name=ch.name, index=i,
+                      event=TriggerEvent(kind="state110j", objects=[ObjectRef(card=c.id, object_id=plan.oid(c), zone=c.zone)], count=1),
                       definition={**d, "effects": [{"do": "state_trigger", "key": key}, *d["effects"]]})
 
 

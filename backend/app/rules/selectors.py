@@ -207,6 +207,11 @@ def _you_control(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="you")
 
 
+@_suffix(r"the opponent to your left controls")
+def _left_control(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, controller="left")  # -- left opponent (wave 110E) -- turn order goes to the left (the next live player: Plan.after)
+
+
 @_suffix(r"(?:that )?(?:an opponent controls|your opponents control|you don't control|you don’t control)")
 def _opp_control(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="opponent")
@@ -862,6 +867,12 @@ def _compare_event_counters(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, compare=(*s.compare, ("mv", _REF_OPS[m["op"]], EVENT_STAT + "counters")))
 
 
+@_suffix(r"with mana value less than or equal to that amount of excess damage")
+def _compare_event_excess(s: Selector, m: re.Match[str]) -> Selector:
+    # -- one-card wordings (wave 110H) -- Unleash the Inferno: the excess damage (120.10) its reflexive trigger carries as its amount (triggers.bind_event_stat)
+    return replace(s, compare=(*s.compare, ("mv", "<=", EVENT_STAT + "amount")))
+
+
 @_suffix(r"with that spell's mana value")  # (-- event spells (wave 36A) -- the same comparison, worded short: Infernal Kirin, Celestial Kirin)
 @_suffix(r"with mana value equal to that spell's mana value")
 def _compare_event_spell(s: Selector, m: re.Match[str]) -> Selector:
@@ -1292,6 +1303,8 @@ def put_there_state(state: GameState, card: CardInstance, spec: str) -> bool:
         return arrival.from_zone == spec
     if spec == "not_battlefield":
         return arrival.from_zone is not None and arrival.from_zone != "battlefield"
+    if spec == "surveilled110l":  # -- (wave 110L) -- 701.25a: put there by a surveil instruction (Eye of Duskmantle: "cards in your graveyard you've surveilled this turn")
+        return arrival.from_zone == "library" and any(f.kind == "surveil_gy110l" and f.object_id == oid for f in r.turn_log.facts)
     if spec == "milled":
         return arrival.from_zone == "library" and any(f.kind == "mill" and f.object_id == oid for f in r.turn_log.facts)
     # discarded (701.9a: from a hand to the graveyard, recorded as a discard of this object) or put there from a library
@@ -2252,7 +2265,7 @@ def attacker_of(event: Any) -> str | None:
     if event is None:
         return None
     kind = event.get("kind") if isinstance(event, dict) else getattr(event, "kind", None)
-    if kind not in ("attack", "unblocked", "targeted"):  # (wave 23B: the object that became a target, for "other than that creature")
+    if kind not in ("attack", "unblocked", "targeted", "attached"):  # (wave 110L: attached, the creature a "becomes attached to a creature" trigger is about, "another target creature")  # (wave 23B: the object that became a target, for "other than that creature")
         return None
     objects = event.get("objects") if isinstance(event, dict) else getattr(event, "objects", None)
     if not objects:
@@ -2300,6 +2313,8 @@ def matches_player(plan: Plan, sel: Selector, pid: str, you: str, *, source_obje
 
         if log_for(plan).lost.get(pid, 0) <= 0:
             return False
+    if "previously_damaged110k" in sel.extras and pid not in plan.rules.damaged_players110k.get(source_object or "", []):
+        return False  # -- (wave 110K) -- "target opponent previously dealt damage by it" (Diseased Vermin)
     if sel.damaged_by_source_this_turn:
         from app.rules.history import log_for
 
@@ -2368,6 +2383,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
         return False
     for extra in sel.extras:
+        if extra.startswith("not_controlled_by110a:"):  # -- wave 110A -- "creatures your opponents control" read for a caster other than the rule's holder (Tarrasque lure)
+            if card.controller == extra.partition(":")[2]:
+                return False
+            continue
         if extra.startswith(("protected_by:", "controlled_by:")):  # (wave 110H) 310.8: the player protecting the battle / controlling the permanent; unbound "that_player" matches nothing
             from app.rules import battles
 
@@ -2440,6 +2459,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if sel.controller == "you" and card.controller != you:
         return False
     if sel.controller == "opponent" and card.controller == you:
+        return False
+    if sel.controller == "left" and card.controller != plan.after(you):
         return False
     if sel.controller == "active" and card.controller != plan.active:
         return False
@@ -2889,6 +2910,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "didnt_attack_this_turn" and _attacked_this_turn_now(plan, card):  # -- damage sized by a count (wave 34D) --
             return False
+        if extra == "could_attack110g" and not (plan.rules.could_attack_turn110g == plan.state.turn.number and plan.oid(card) in plan.rules.could_attack110g):
+            return False  # -- (wave 110G) -- Season of the Witch: the creature could have been declared as an attacker this turn
         if extra == "protected_by_opp110g" and __import__("app.rules.battles", fromlist=["x"]).protector(plan.state, card) in (None, you):  # -- (wave 110G) -- 310.8: a battle an opponent protects
             return False
         if extra == "didnt_attack_combat110g" and card.is_attacking:  # -- (wave 110G) -- 508.1: not among this combat's declared attackers (Total War)
@@ -2953,6 +2976,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             # CR 712.1 includes meld cards. Image availability is not a card characteristic.
             if card.face_down or not data or data.get('layout') not in DOUBLE_FACED_LAYOUTS:
                 return False
+        if extra == "top_graveyard110o" and (not card.zone.endswith(":graveyard") or plan.state.zones[card.zone][-1:] != [card.id]):  # -- (wave 110O) -- 404.1: the last card put there
+            return False
         if extra == "has_adventure":  # (wave 25B) the printing is an adventurer card, whichever half it is as it is cast
             data = plan.info.get(card.card_id) if card.card_id else None
             faces = (data or {}).get("faces") or []  # (review 25B: an omen card shares the layout but has an Omen, 720.2a, not an Adventure)

@@ -1199,6 +1199,11 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         from app.rules import dynamic_zone_keyword_costs56
 
         ch = dynamic_zone_keyword_costs56.apply(state, card, ch, info)
+        if card.zone.endswith(":graveyard"):  # -- wave 110F -- 613.1f: "Cards in graveyards lose all abilities." (Yixlid Jailer)
+            from app.rules import group_layers
+
+            if group_layers.graveyard_wiped(state, card, ch, info):
+                ch = replace(ch, abilities=())
     if info is not None and _T.depth == 0 and state.rules is not None and card.zone == "stack" and card.ability is None:
         from app.rules import (
             kicked_spell_outcomes59,
@@ -1232,6 +1237,9 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
             setters.append(((st.seq, 0, 0), st.definition["base"][0], st.definition["base"][1]))
         elif st.definition.get("base_mv"):  # -- layers (wave 22A) -- "base power and toughness each equal to its mana value" (Opalescence)
             setters.append(((st.seq, 0, 0), int(ch.mana_value), int(ch.mana_value)))
+        elif st.definition.get("base_counters110j"):  # -- (wave 110J) -- Spark Rupture: "power and toughness each equal to the number of loyalty counters on it" (613.4b)
+            n110j = card.counters.get(st.definition["base_counters110j"], 0)
+            setters.append(((st.seq, 0, 0), n110j, n110j))
         elif (st.definition.get("each") or {}).get("set"):  # -- most-played cards II (wave 45A) -- "base power and toughness X/X, where X is …" (Aettir and Priwen, Dollmaker's Shop)
             setters.append(((st.seq, 0, 0), each_amounts.get(id(st), 0), each_amounts.get(id(st), 0)))
     for e in effects:  # 7b: resolved setting effects, interleaved by timestamp (613.7)
@@ -1359,7 +1367,7 @@ def _own_layer4_statics(state: GameState, card: CardInstance, info: CardInfo | N
     _T.l4.add(card.id)
     try:
         # (wave 11E: "is the chosen type in addition to its other types" adds the type chosen as it entered, 614.12a)
-        return [(st.seq, {**st.definition, "add_subtypes": [t for t in [card.choices.get("Chosen creature type", "").strip()] if t]}
+        return [(st.seq, {**st.definition, "add_subtypes": [t for t in [(card.choices.get("Chosen creature type") or card.choices.get("Chosen basic land type") or "").strip()] if t]}
                  if st.definition.get("chosen_type") else st.definition) for st in table
                 if grammar.conditions_hold(view, st.definition, source=card, controller=st.controller)]
     finally:
@@ -1396,7 +1404,7 @@ def _own_layer5(state: GameState, card: CardInstance, info: CardInfo | None,
 def _grants(d: dict[str, Any]) -> bool:
     """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
     opponents control can't block.") is applied by ``_with_rules`` instead."""
-    return bool(d["p"] or d["t"] or d.get("base") or d.get("base_mv") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of") or d.get("linked_traits")
+    return bool(d["p"] or d["t"] or d.get("base") or d.get("base_mv") or d.get("base_counters110j") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of") or d.get("linked_traits")
                 or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords") or d.get("chosen_keywords"))  # -- attached events (wave 4L) -- (wave 49B: the chosen abilities)
 
 
@@ -1511,6 +1519,9 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
     steps.", an Aura's "Enchanted creature … attacks each combat if able."). Statics are read after
     layer 7, so a subject like "creatures with power 4 or greater" sees the current power
     (613.8-style dependency, as far as this engine models it)."""
+    from app.rules import wave110a_portal  # -- mana ability life (wave 110A) --
+
+    ch = wave110a_portal.apply(ch)
     if info is not None and card.zone.endswith(":battlefield") and state.rules is not None and _T.depth == 0:
         from app.rules import attack_requirements
         from app.rules import statics as grammar
@@ -1601,7 +1612,7 @@ def _group_imposed(state: GameState, card: CardInstance, ch: Characteristics, in
 
 
 Layer = Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
-Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
+Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn", "end_of_next_upkeep110g"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
 
 
 @world_native80

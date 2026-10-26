@@ -47,6 +47,22 @@ EXTRA = [
     real("Lamplight Phoenix", "{2}{R}{R}", 4, "Creature \u2014 Phoenix Spirit",
          "Flying\nWhen this creature dies, you may exile it and collect evidence 4. If you do, return this card to the battlefield tapped. "
          "(To collect evidence 4, exile cards with total mana value 4 or greater from your graveyard.)", ("4", "3"), "R"),
+    real("Wolverine, Fierce Fighter", "{2}{R}{G}", 4, "Legendary Creature \u2014 Mutant Berserker Hero",
+         "Haste\nWhen Wolverine enters, he fights up to one other target creature.\nIf damage would be dealt to Wolverine, instead that damage is dealt, "
+         "but all other damage already dealt to him is healed.", ("3", "5"), "RG"),
+    real("Freyalise's Winds", "{2}{G}{G}", 4, "Enchantment",
+         "Whenever a permanent becomes tapped, put a wind counter on it.\nIf a permanent with a wind counter on it would untap during its controller's untap step, "
+         "remove all wind counters from it instead.", None, "G"),
+    real("Saproling Burst", "{3}{G}{G}", 5, "Enchantment",
+         "Fading 7 (This enchantment enters with seven fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\n"
+         "Remove a fade counter from this enchantment: Create a green Saproling creature token. It has \"This token's power and toughness are each equal to the number of "
+         "fade counters on Saproling Burst.\"\nWhen this enchantment leaves the battlefield, destroy all tokens created with this enchantment. They can't be regenerated.",
+         None, "G"),
+    real("Disenchant", "{1}{W}", 2, "Instant", "Destroy target artifact or enchantment.", None, "W"),
+    real("Outmaneuver", "{X}{R}", 1, "Instant", "X target blocked creatures assign their combat damage this turn as though they weren't blocked.", None, "R"),
+    real("Ulamog's Despoiler", "{6}", 6, "Creature \u2014 Eldrazi Processor",
+         "As this creature enters, you may put two cards your opponents own from exile into their owners' graveyards. If you do, this creature enters with four +1/+1 counters on it.",
+         ("5", "5"), ""),
     real("Doom Blade", "{1}{B}", 2, "Instant", "Destroy target nonblack creature.", None, "B"),
     real("Hill Giant", "{3}{R}", 4, "Creature \u2014 Giant", "", ("3", "3"), "R"),
     real("Grizzly Bears", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
@@ -179,6 +195,28 @@ def test_the_spot_returns_the_exiled_cards_when_it_dies(cards):
     check(s)
 
 
+def test_the_spot_exiled_in_response_returns_nothing(cards):
+    """608.2c: if The Spot is exiled with its dies trigger on the stack, it never reaches the library, so "If you do" is false and the exiled cards stay."""
+    s = build(cards, ["The Spot, Living Portal", "Murder", "Hill Giant"], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    mana(s, W=1, U=1, B=1, C=2)
+    spot = cast(s, "The Spot, Living Portal", [giant.id], target_counts=[1, 0])
+    answer(s)
+    assert s.state.cards[giant.id].zone == "p2:exile"
+    mana(s, B=2, C=1)
+    act(s, "p1", type="configure", automation_options={"auto_priority_pass": False})
+    cast(s, "Murder", [spot.id])
+    for _ in range(10):  # resolve Murder (both pass), stop with the dies trigger on the stack
+        if s.state.cards[spot.id].zone == "p1:graveyard" and s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[spot.id].zone == "p1:graveyard"
+    act(s, "p1", type="move", card_ids=[spot.id], to={"player": "p1", "zone": "exile"})
+    answer(s)
+    assert s.state.cards[spot.id].zone == "p1:exile" and s.state.cards[giant.id].zone == "p2:exile"
+    check(s)
+
+
 def _raptor(cards, siege_owner, walker=False):
     s = build(cards, ["Rampaging Raptor", SIEGE], ["Test Walker", SIEGE])
     raptor = put(s, "Rampaging Raptor")
@@ -276,4 +314,135 @@ def test_mysterious_limousine_returns_the_older_exile(cards, second_target):
             act(s, s.state.rules.priority, type="pass_priority")
     assert (s.state.cards[b.id].zone == "p2:exile") == second_target
     assert (s.state.cards[a.id].zone == "p2:battlefield") == second_target
+    check(s)
+
+
+@pytest.mark.parametrize("bolts,alive", [(2, True), (1, True)])
+def test_wolverine_heals_earlier_damage(cards, bolts, alive):
+    """Two Bolts (3 + 3) would kill a 3/5, but the second deals its damage and heals the first: 3 damage stays (the new damage is still dealt)."""
+    s = build(cards, ["Wolverine, Fierce Fighter", "Lightning Bolt"])
+    wolf = put(s, "Wolverine, Fierce Fighter")
+    for _ in range(bolts):
+        mana(s, R=1)
+        cast(s, "Lightning Bolt", [wolf.id])
+        answer(s)
+    assert (s.state.cards[wolf.id].zone == "p1:battlefield") == alive and s.state.cards[wolf.id].damage == 3
+    check(s)
+
+
+def test_freyalises_winds_holds_one_untap(cards):
+    """614.1a: tapped (wind counter by the trigger), the permanent loses all wind counters instead of untapping once; the next untap is normal."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Freyalise's Winds", "Sol Ring"])
+    bears = put(s, "Sol Ring")
+    mana(s, G=2, C=2)
+    cast(s, "Freyalise's Winds")
+    answer(s)
+    act(s, "p1", type="activate_ability", card_id=bears.id, ability=0)
+    answer(s)
+    assert s.state.cards[bears.id].counters.get("wind", 0) == 1 and s.state.cards[bears.id].tapped
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    got = s.state.cards[bears.id]
+    assert (got.tapped, got.counters.get("wind", 0)) == (True, 0)
+    until(s, lambda s: s.state.turn.number == 5 and s.state.turn.phase == "main1")
+    assert not s.state.cards[bears.id].tapped
+    check(s)
+
+
+def test_freyalises_winds_with_stun_uses_stun_first(cards):
+    """616.1 dominance: stunned + wind counter, one untap held either way; stun first keeps the wind counter (inert without the Winds), so it is the free pick."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Freyalise's Winds", "Sol Ring"])
+    ring = put(s, "Sol Ring")
+    mana(s, G=2, C=2)
+    cast(s, "Freyalise's Winds")
+    answer(s)
+    act(s, "p1", type="activate_ability", card_id=ring.id, ability=0)
+    answer(s)
+    s.state.cards[ring.id].counters["stun"] = 1
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    got = s.state.cards[ring.id]
+    assert (got.tapped, got.counters.get("stun", 0), got.counters.get("wind", 0)) == (True, 0, 1)
+    until(s, lambda s: s.state.turn.number == 5 and s.state.turn.phase == "main1")
+    got = s.state.cards[ring.id]
+    assert (got.tapped, got.counters.get("wind", 0)) == (True, 0)
+    check(s)
+
+
+def test_saproling_burst(cards):
+    """111.2: every Saproling is as big as the fade counters left; when the enchantment leaves, the tokens it made are destroyed (701.8), not other tokens."""
+    s = build(cards, ["Saproling Burst", "Disenchant"])
+    mana(s, G=2, C=3)
+    burst = cast(s, "Saproling Burst")
+    answer(s)
+    from app.rules.plan import Plan
+    for made, left in ((1, 6), (2, 5)):
+        act(s, "p1", type="activate_ability", card_id=burst.id, ability=1)
+        answer(s)
+        tokens = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+        assert len(tokens) == made and s.state.cards[burst.id].counters["fade"] == left
+        assert all(Plan(s.state, "p1", s.cards, None).ch(t).pt == (left, left) for t in tokens)
+    mana(s, W=1, C=1)
+    cast(s, "Disenchant", [burst.id])
+    answer(s)
+    assert s.state.cards[burst.id].zone == "p1:graveyard"
+    assert not [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    check(s)
+
+
+@pytest.mark.parametrize("cast", [True, False])
+def test_outmaneuver(cards, cast):
+    """510.1c exception: the blocked 3/3 assigns its damage as though unblocked: all to the player, none to the blocker; without the spell the blocker takes it."""
+    from tests.test_rules_conditionals import creature, sandbox
+    from tests.wave53c_kit import combat_step, swing, to_postcombat
+
+    s = sandbox(cards, "Outmaneuver")
+    atk = creature(s, "p1", "Brute", "3/3")
+    blk = creature(s, "p2", "Wall", "1/9")
+    combat_step(s)
+    swing(s, [atk], [(blk, atk)])
+    if cast:
+        spell = next(c for c in s.state.cards.values() if c.name == "Outmaneuver")
+        act(s, "p1", type="move", card_ids=[spell.id], to={"zone": "hand"})
+        act(s, "p1", type="add_mana", player="p1", mana={"R": 1, "C": 1})
+        act(s, "p1", type="cast_spell", card_id=spell.id, targets=[atk.id], x_value=1, target_counts=[1])
+    to_postcombat(s)
+    assert s.state.cards[blk.id].damage == (0 if cast else 3) and life(s, "p2") == (37 if cast else 40)
+    check(s)
+
+
+def _despoiler(cards, exiled):
+    s = build(cards, ["Ulamog's Despoiler", "Grizzly Bears", "Hill Giant"], ["Grizzly Bears", "Hill Giant"])
+    gone = []
+    for n in exiled:
+        c = to_hand(s, n, "p2")
+        act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "exile"})
+        gone.append(c)
+    mana(s, C=6)
+    return s, cast(s, "Ulamog's Despoiler"), gone
+
+
+def test_ulamogs_despoiler_two_cards(cards):
+    """Exactly two of the opponents' exiled cards go to their owners' graveyards; then it enters with four +1/+1 counters."""
+    s, d, (a, b) = _despoiler(cards, ["Grizzly Bears", "Hill Giant"])
+    answer(s, [a.id], [b.id])
+    assert s.state.cards[a.id].zone == s.state.cards[b.id].zone == "p2:graveyard"
+    assert s.state.cards[d.id].counters.get("+1/+1") == 4
+    check(s)
+
+
+def test_ulamogs_despoiler_declined(cards):
+    s, d, (a, b) = _despoiler(cards, ["Grizzly Bears", "Hill Giant"])
+    answer(s, ["done"])
+    assert s.state.cards[a.id].zone == s.state.cards[b.id].zone == "p2:exile" and not s.state.cards[d.id].counters.get("+1/+1")
+    check(s)
+
+
+def test_ulamogs_despoiler_one_card_is_not_enough(cards):
+    """"If you do" needs both cards (608.2c): one card picked, then stopping, leaves the card in exile and no counters; the Despoiler is not offered cards it cannot take."""
+    s, d, (a,) = _despoiler(cards, ["Grizzly Bears"])
+    answer(s, [a.id], ["done"])
+    assert s.state.cards[a.id].zone == "p2:exile" and not s.state.cards[d.id].counters.get("+1/+1")
     check(s)
