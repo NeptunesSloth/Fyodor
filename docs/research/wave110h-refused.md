@@ -19,3 +19,7 @@
 - Ertai's Meddling: delay counters + exile-until-upkeep + cast copy (suspend-like) foundation missing.
 - Spinning Darkness (top three black cards of graveyard as alt cost: needs graveyard_order machinery for a multi-card top cost)
 - Hankyu: granted quote names its Equipment; counter cost "Remove all aim counters from <granter>" needs a cost on the granter object, and "This creature deals" fails _granter_view (_OTHER_SELF).
+- The Sea Devils (III): watch target "creature that player controls" needs event-player-relative own_target (watches.build requires {"what"} only); "a Salamander" is any controller's.
+- Darigaaz Reincarnated: die-exile with egg counters plus an upkeep trigger working from exile has no foundation (no from-exile ability hook).
+- Kodama of the Center Tree: soulshift X with X counted when the ability resolves vs on death unsettled; Bargaining Table: "an opponent's hand" with several opponents unsettled.
+- Heart of Kiran: alt crew cost needs a new crew action field (casting.crew). Stitcher Geralf / Ulamog's Despoiler: base wordings ("mills ... exile ... this way" total power; enters-as optional cost) not read.

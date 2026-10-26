@@ -2357,8 +2357,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
         if extra.startswith(("protected_by:", "controlled_by:")):  # (wave 110H) 310.8: the player protecting the battle / controlling the permanent; unbound "that_player" matches nothing
             from app.rules import battles
 
-            kind, _, who = extra.partition(":")
-            if (battles.protector(plan.state, card) if kind == "protected_by" else card.controller) != who[len("player:"):] or THAT_PLAYER in who:
+            kind, _, bound = extra.partition(":")
+            if (battles.protector(plan.state, card) if kind == "protected_by" else card.controller) != bound[len("player:"):] or THAT_PLAYER in bound:
                 return False
             continue
         if extra == 'combat_pirate_player95':
