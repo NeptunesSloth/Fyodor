@@ -4,6 +4,7 @@
 * 704.3, 701.8a, 603.7c: "deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to that creature." + "{2}{R}: Exile the top card of your library. You may play that card this turn. When you play a card this way, ~ deals 2 damage to each player." (Fires of Mount Doom).
 * 120.1, 603.4, 603.2: "Whenever combat damage is dealt to you or a planeswalker you control, if this card is in your graveyard, destroy target attacking creature, then put this card on top of your library." (Vengeful Pharaoh).
 * 101.4, 701.21a: "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice." (Release of Catch // Release): one permanent fills one kind only; a player fills as many kinds as they can.
+* 509.1c-d, 118.3, 119.4: "Nonblue creatures can't block creatures you control unless their controller pays 1 life for each blocking creature they control." (Heat Wave).
 * 601.2, 609.4b: "you may cast a creature spell from that player's graveyard this turn, and you may spend mana as though it were mana of any color" (Whispersteel Dagger).
 """
 
@@ -15,17 +16,17 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.test_rules_wave34b_activated import attack
+from tests.test_rules_wave34b_activated import activate, attack, block
+from tests.test_rules_wave36a_trigger_words import loyal
+from tests.test_rules_wave100f_attached import to_phase
 from tests.test_rules_wave100n_multi import EXTRA as _BASE
 from tests.test_rules_wave100n_multi import (
     answer,
     card_db,  # noqa: F401  (fixture DB with EXTRA)
+    cast,
 )
-from tests.test_rules_wave100n_multi import cast
-from tests.test_rules_wave34b_activated import activate
-from tests.test_rules_wave36a_trigger_words import loyal
-from tests.test_rules_wave100f_attached import to_phase
 from tests.wave9c_kit import build, check, life, mana, put
+from tests.wave36a_kit import ready
 
 EXTRA = [
     real('Whispersteel Dagger', '{2}', 2, 'Artifact — Equipment',
@@ -46,11 +47,13 @@ EXTRA = [
          "oracle_text": "Gain control of target permanent until end of turn. Untap it. It gains haste until end of turn.\nFuse (You may cast one or both halves of this card from your hand)."},
         {"name": "Release", "mana_cost": "{4}{R}{W}", "type_line": "Sorcery",
          "oracle_text": "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice.\nFuse (You may cast one or both halves of this card from your hand)."}]},
+    real('Heat Wave', '{1}{R}{R}', 3, 'Enchantment',
+         "Cumulative upkeep {R} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nBlue creatures can't block creatures you control.\nNonblue creatures can't block creatures you control unless their controller pays 1 life for each blocking creature they control.", None, 'R'),
 ]
 _BASE.extend(EXTRA)
 
 
-@pytest.mark.parametrize("name", ["Whispersteel Dagger", "Taste of Paradise", "Fires of Mount Doom", "Vengeful Pharaoh", "Catch // Release"])
+@pytest.mark.parametrize("name", ["Whispersteel Dagger", "Taste of Paradise", "Fires of Mount Doom", "Vengeful Pharaoh", "Catch // Release", "Heat Wave"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -183,4 +186,25 @@ def test_release_lone_artifact_creature_is_sacrificed_once(cards):
     golem, bear = put(s, "Test Golem 110F", "p2"), put(s, "Grizzly Bears", "p2")
     _release(s)
     assert (s.state.cards[golem.id].zone, s.state.cards[bear.id].zone) == ("p2:graveyard", "p2:graveyard")
+    check(s)
+
+
+@pytest.mark.parametrize("wave,blockers", [(False, 2), (True, 1), (True, 2)])
+def test_heat_wave_makes_each_nonblue_blocker_cost_one_life(cards, wave, blockers):
+    """509.1d: the blocking player pays 1 life for each creature blocking Heat Wave's controller's creature; without Heat Wave nothing is paid."""
+    s = build(cards, ["Heat Wave", "Test Golem 110F"], ["Grizzly Bears", "Grizzly Bears"])
+    if wave:
+        put(s, "Heat Wave")
+    golem = put(s, "Test Golem 110F")
+    ready(s, "Test Golem 110F")
+    first = put(s, "Grizzly Bears", "p2")
+    second = next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2" and c.zone == "p2:library")
+    act(s, "p2", type="move", card_ids=[second.id], to={"player": "p2", "zone": "battlefield"})
+    attack(s, golem)
+    block(s, *[(b, golem) for b in (first, second)[:blockers]])
+    d = s.state.rules.decision
+    if d is not None and d.kind == "divide":  # 510.1c: the Golem's 2 damage split over two blockers
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[], amounts=[1, 1])
+    answer(s)
+    assert life(s, "p2") == 40 - (blockers if wave else 0)
     check(s)

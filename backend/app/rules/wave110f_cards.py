@@ -90,6 +90,48 @@ def matching(plan: Any, ctx: Any, e: dict[str, Any], pid: str, mine: list[str], 
     return [c for c in mine if c in now and 1 + _most([s - {c} for s in after]) == best]
 
 
+BLOCK_LIFE = "block_life110f"
+_BLOCK_LIFE_TEXT = "Nonblue creatures can't block creatures you control unless their controller pays 1 life for each blocking creature they control."
+
+
+def block_life_definition(text: str) -> dict[str, Any] | None:
+    return {"kind": "static", "static": BLOCK_LIFE, "effects": []} if text.strip() == _BLOCK_LIFE_TEXT else None
+
+
+def block_life_due(plan: Any, blocks: Any) -> int:
+    """Heat Wave (509.1c-d, 118.3): 1 life from the blocking player for each nonblue creature they control that blocks a creature its controller controls
+    (a creature blocking several of them is one blocking creature)."""
+    from app.rules import scripts
+
+    due = 0
+    for source in plan.state.cards.values():
+        if not source.zone.endswith(":battlefield") or not plan.in_game(source) or plan.manual(source):
+            continue
+        if not any(d.get("static") == BLOCK_LIFE for d in scripts.definitions(plan.ch(source)).values()):
+            continue
+        due += len({b.blocker_id for b in blocks if (att := plan.state.cards.get(b.attacker_id)) is not None and att.controller == source.controller
+                    and "U" not in plan.ch(plan.state.cards[b.blocker_id]).colors})
+    return due
+
+
+def block_life_problem(plan: Any, blocks: Any) -> str | None:
+    due = block_life_due(plan, blocks)
+    if not due:
+        return None
+    from app.rules import life_lock
+
+    if plan.state.players[plan.actor].life < due:
+        return f"Blocking costs {due} life (509.1d): {plan.name(plan.actor)} can't pay it"  # 119.4
+    return life_lock.pay_problem(plan.state, plan.info, plan.actor, due)
+
+
+def pay_block_life(plan: Any, blocks: Any) -> None:
+    if due := block_life_due(plan, blocks):
+        from app.rules import replace
+
+        replace.lose_life(plan, [(plan.actor, due)], paid=True)
+
+
 def _taunt() -> Parsed:
     """Taunt: for the target player's next turn (611.2a, restrict ``their_turn``), their creatures, those arriving later too (611.2c), attack the
     controller if able (508.1d; ``attack_player``, as encore's tokens)."""

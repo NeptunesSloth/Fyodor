@@ -888,6 +888,10 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
     problem = block_requirements(plan, a, blockers, attackers, used, effective_counts)
     if problem:
         raise ActionError(problem)
+    from app.rules import wave110f_cards  # -- (wave 110F) -- Heat Wave: the life to block (509.1d)
+
+    if (why := wave110f_cards.block_life_problem(plan, expanded)) is not None:
+        raise ActionError(why)
     from app.game.rules_state import DeclarationCostReservation
     from app.rules import nonmana_combat_costs
 
@@ -942,6 +946,9 @@ def _finish_blockers(plan: Plan, frame: PaidBlockers, payment: M.Payment | None)
               and plan.oid(attacker) == frame.attackers.get(b.attacker_id)]
     per_attacker = dict.fromkeys(b.attacker_id for b in blocks)
     r.decision = None
+    from app.rules import wave110f_cards  # -- (wave 110F) -- Heat Wave
+
+    wave110f_cards.pay_block_life(plan, blocks)
     if r.blockers_pending and r.blockers_pending[0] == plan.actor:
         r.blockers_pending.pop(0)
     done: set[str] = set()

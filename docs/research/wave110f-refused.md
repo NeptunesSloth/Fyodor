@@ -5,7 +5,7 @@
 - Peace Talks: two-turn global duration plus player targeting prohibition (activated only, not triggered).
 - Ogre Enforcer: damage is not tracked per source.
 - Circling Vultures: discard is a special action, not an activated ability.
-- Medomai's Prophecy, Vengeful Pharaoh, Homura (flip), Faces of the Past: multi-piece foundations.
+- Medomai's Prophecy, Homura (flip), Faces of the Past: multi-piece foundations.
 - Steamcore Scholar: 'unless you discard an instant or sorcery card or a creature card with flying': optional_payment.parse refuses CostComponent.alt (activation_only); needs alt-aware optional discard.
 - Profaner of the Dead: 'toughness less than the exploited creature's toughness': exploit event objects = exploiter, evt: stat binds wrong object.
 - Fires of Mount Doom: 2nd ability 'When you play a card this way' reflexive on play of exiled card.
@@ -15,7 +15,6 @@
 - Oath of Kaya, Rigo: trigger once per attacked planeswalker/defender, not once per attack declaration (existing your_pw fires once); ruling unverified locally.
 - Taste of Paradise: multikicker rewrite would make it a "kicked" spell for other cards (wrong); needs a plain pay-N-times additional cost.
 - Fblthp (Impossibly Lost), Worms of the Earth, Overblaze, Melira, Parnesse, Mangara's Equity: batch-opponent damage trigger / second upkeep ability / doubling / poison cap / copy-by-opponent / chosen-color recipient: each a new foundation.
-- Vengeful Pharaoh: "dealt to you or a planeswalker you control" union event count unsettled; graveyard trigger plus "put on top of library".
 - Thunderblade Charge: graveyard trigger "if this card is in your graveyard, you may pay ... cast it without paying" needs graveyard batch-damage trigger and free cast from graveyard.
 - Gather Specimens: replaces every creature entry (reanimation, put-onto, tokens) under an opponent; no single entry hook.
 - Dance of Many: "the token" link needs a trigger on a specific linked object leaving (no created-with leave watcher).
@@ -25,7 +24,12 @@
 - Glyph of Reincarnation, Camouflage, Noxious Vapors (multicolor choice ruling unchecked), Malik (secret choices), Zevlor: not attempted.
 - s8: Vengeful Pharaoh: trigger "combat damage is dealt to you or a planeswalker you control" needs a two-subject damage event (only Pharaoh has it). Fires of Mount Doom: "When you play a card this way" reflexive trigger on a played exiled card (no machinery). Dance of Many: token<->enchantment linked leave triggers. Liquid Fire: number chosen as additional cost (cast-time number choice; pick110e is creature-type only). Brutal Suppression/Drought: extra non-mana cost on activated abilities. Fatal Lore/Misfortune: opponent picks the mode at resolution with targets.
 - s9: Peace Talks: "this turn and next turn" two-turn duration plus a global "players and permanents can't be targeted" prohibition; neither exists.
-- s9: Heat Wave: block tax paid in life per blocker (nonmana_combat_costs only pays tap/sacrifice/return), only against creatures its controller controls.
-- s9: Whispersteel Dagger: a this-turn permission to cast any creature card from another player's graveyard (no target chosen); grant_play only reads your own graveyard.
 - s9: Extrapolate the Impossible: cards from outside the game (no sideboard in Commander); left PARTIAL, not decided.
 - s9: Drought / Brutal Suppression: "cost an additional 'Sacrifice a Swamp'" per symbol / per activation needs sacrifice components in the cost-change table.
+- s10: Peace Talks: needs a "this turn and next turn" duration plus a global "can't be the target of spells or activated abilities" prohibition that spares triggered abilities; Characteristics.is_ability does not tell triggered from activated (about 10 source_of call sites).
+- s10: Dance of Many: "the token leaves the battlefield" needs a look-back selector on the token created with this permanent (rules.created_with oids) in leave events.
+- s10: Cemetery Desecrator: "When you do, choose one -" reflexive modal trigger with bullet modes and X from the exiled card's mana value; nothing parses it.
+- s10: Worms of the Earth: "any player may sacrifice two lands or have it deal 5 damage to that player" order and simultaneity across players is unspecified in the rules text; left manual.
+- s10: Noxious Vapors: "chooses one card of each color" for a multicolored card (counts for several colors?) has no ruling in the local data.
+- s10: Mangara's Equity: "choose black or red" two-color choice, chosen-color source filter and "or a white creature you control" recipient are three missing pieces for one card.
+- s10: Drought / Brutal Suppression: unchanged (sacrifice components in the cost-change table).
