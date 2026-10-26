@@ -688,6 +688,8 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
         got = wave110j_cards.engaged_since_upkeep(plan, ctx, ids)
     elif what == "attacked":  # -- attached (wave 100F) -- 508.1: declared as an attacker this turn (TurnLog.attackers)
         got = any(a in ids for attacking in log.attackers.values() for a in attacking)
+    elif what == "had_to_attack110b":  # -- (wave 110B) -- 508.1d: it was declared as an attacker in this combat with an attack requirement on it (Firkraag)
+        got = any(f"{i}|{plan.rules.combats}" in log.required110b for i in ids)
     elif what == "damaged":
         got = total("damaged", lambda f: f.object_id in ids) >= n
     elif what == "damaged_by":  # -- trigger damage (wave 39B) -- a Giant, Wizard or spell you controlled dealt it damage (the source as it was, 608.2i)

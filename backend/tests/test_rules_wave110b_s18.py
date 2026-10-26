@@ -4,6 +4,7 @@
   last turn ended (kept across the opponents' turns; damage in the turn before that does not count).
 * Tombstone Stairwell: 603.2, 608.2h each upkeep every player makes a Tombspawn per creature card in their own graveyard (all counted first); those tokens die at
   the end step, or when the Stairwell leaves the battlefield, and nothing else does.
+* Firkraag, Cunning Instigator: 508.1d a creature declared as an attacker with a requirement on it (goaded) "had to attack this combat"; one that was free to stay home did not.
 * Behemoth of Vault 0: 107.14, 118.12 the energy paid equals the target's mana value; paid in full (or not at all), the target is destroyed.
 """
 
@@ -15,6 +16,7 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
 from tests.wave110b_kit import (
+    attack,
     build,
     card_named,
     cast,
@@ -23,6 +25,7 @@ from tests.wave110b_kit import (
     drive,
     life,
     mana,
+    pt,
     put,
     repository,
     through_combat,
@@ -116,4 +119,23 @@ def test_tombstone_stairwell_destroys_its_tokens_when_it_leaves(cards):
     act(s, "p2", type="activate_ability", card_id=kami.id, ability=0, targets=[card_named(s, "Tombstone Stairwell").id])
     drive(s)
     assert zone_of(s, "Tombstone Stairwell") == "p1:graveyard" and tombspawns(s) == []
+    check(s)
+
+
+@pytest.mark.parametrize(("goaded", "counters"), [(True, 2), (False, 0)])
+def test_firkraag_counts_creatures_that_had_to_attack(cards, goaded, counters):
+    s = build(cards, ["Firkraag, Cunning Instigator", "Grizzly Bears"], ["Disrupt Decorum"], forests=30)
+    firkraag = put(s, "Firkraag, Cunning Instigator")
+    bears = put(s, "Grizzly Bears")
+    if goaded:  # Bob goads all of Alice's creatures on his turn: they attack Bob on hers
+        to_phase(s, "main1", turn=2)
+        mana(s, "p2", R=2, C=2)
+        cast(s, "Disrupt Decorum", pid="p2")
+        drive(s)
+    to_phase(s, "main1", turn=3)
+    base = pt(s, "Firkraag, Cunning Instigator")
+    attack(s, firkraag, bears)
+    through_combat(s)
+    drive(s)
+    assert pt(s, "Firkraag, Cunning Instigator")[0] - base[0] == counters
     check(s)

@@ -320,7 +320,16 @@ def destroy_created(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def _had_to(d: Def) -> Def:
+    def swap(c: Any) -> Any:
+        return {**c, "what": "had_to_attack110b"} if isinstance(c, dict) and c.get("what") == "attacked" else c
+
+    return {**d, "if": swap(d["if"]), "effects": [{**e, "cond": swap(e["cond"])} if "cond" in e else e for e in d["effects"]]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever a creature deals combat damage to one of your opponents, if that creature had to attack this combat, you put a +1/+1 counter on Firkraag and you draw a card.":
+        ("Whenever a creature deals combat damage to one of your opponents, if that creature attacked this turn, you put a +1/+1 counter on Firkraag and you draw a card.", _had_to),
     "At the beginning of each upkeep, if this enchantment is on the battlefield, each player creates a 2/2 black Zombie creature token with haste named Tombspawn for each "
     "creature card in their graveyard.":
         ("At the beginning of each upkeep, each player creates a 2/2 black Zombie creature token with haste named Tombspawn.", _tombspawn),
@@ -542,6 +551,19 @@ def _angel() -> Def:
             "match": {"combat": True, "source": {"self": True}, "to": {"objects": {"sel": selectors.Selector(types=("Creature",)).key()}}},
             "op": {"do": "prevent_all", "prevention": True, "rider": {"aggregation": "batch", "effects": [{"do": "to_library", "who": "ref:to", "place": "shuffle"}]}},
             "effects": []}
+
+
+def note_required(plan: Any, attackers: Any) -> None:
+    """508.1d: remember the declared attackers a requirement (goad, "attacks each combat if able", ...) was on, for this combat (Firkraag: "had to attack this combat")."""
+    from app.game.rules_state import turn_log_now
+    from app.rules import attack_requirements, combat_rules
+    from app.rules.keyword_actions import goaded_by
+
+    log = turn_log_now(plan.state)
+    for x in attackers if log is not None else ():
+        ch = plan.ch(plan.state.cards[x.card_id])
+        if attack_requirements.counts(ch) or goaded_by(ch) or combat_rules.other_than(ch) or combat_rules.attack_players(ch):
+            log.required110b.append(f"{plan.oid(plan.state.cards[x.card_id])}|{plan.rules.combats}")  # type: ignore[union-attr]
 
 
 def note_hits(plan: Any) -> None:

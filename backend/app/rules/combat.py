@@ -564,6 +564,9 @@ def _finish_attackers(plan: Plan, payload: PaidAttackers, payment: M.Payment | N
         )
 
         wave110j_cards.note_battle_attacks(plan, a.attackers)
+        from app.rules import wave110b_cards  # -- attack requirements (wave 110B) --
+
+        wave110b_cards.note_required(plan, a.attackers)
         wave110j_cards.note_engaged(plan, [x.card_id for x in a.attackers])
         # -- static wordings (wave 6E) -- 508.1g / 701.43d: "You may exert this creature as it attacks" (app/rules/exert.py)
         from app.rules import exert

@@ -629,6 +629,7 @@ class TurnLog(BaseModel):
     fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
     fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
     adapt_free110b: list[str] = Field(default_factory=list)  # Objects whose next adapt this turn ignores their +1/+1 counters (Biomancer's Familiar).
+    required110b: list[str] = Field(default_factory=list)  # "<attacker object>|<combat number>" of attackers that had to attack (508.1d; Firkraag, Cunning Instigator).
     mirror110b: list[str] = Field(default_factory=list)  # Chosen creatures of Mystic Reflection waiting for "the next time one or more creatures or planeswalkers enter this turn".
     mirror_open110b: str = ""  # "<rules.batch>|<chosen id>": the effect being used by the entry event of that batch (previews of each card see the same one).
     mirror_late110b: list[str] = Field(default_factory=list)  # "card id|chosen id": used up, applied after the card's own "may enter as a copy" declined.
