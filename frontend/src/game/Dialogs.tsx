@@ -33,7 +33,7 @@ export function GameDialogs({ me }: { me: string }) {
       {dialog === "dice" && <DiceDialog onClose={close} />}
       {dialog === "ability" && <AbilityDialog sourceId={arg} onClose={close} />}
       {dialog === "save" && <SaveDialog onClose={close} />}
-      {dialog === "help" && <HelpDialog onClose={close} />}
+      {dialog === "help" && <HelpDialog onClose={close} initial={arg ?? ""} />}
       {dialog === "host" && <HostToolsDialog onClose={close} />}
       {dialog === "endgame" && <EndGameDialog onClose={close} />}
       {dialog === "appearance" && <AppearanceDialog onClose={close} />}
@@ -320,8 +320,8 @@ const TABLE_LEGEND: [string, string][] = [
 ];
 
 /** Help, task first: how to do things, what the table's marks mean, then every shortcut — all searchable. */
-function HelpDialog({ onClose }: { onClose: () => void }) {
-  const [q, setQ] = useState("");
+function HelpDialog({ onClose, initial }: { onClose: () => void; initial: string }) {
+  const [q, setQ] = useState(initial);
   const match = ([k, v]: [string, string]) => !q.trim() || `${k} ${v}`.toLowerCase().includes(q.trim().toLowerCase());
   const keys = [...SHORTCUTS, ...HOTKEYS.map((h): [string, string] => [h.keys.map(keyLabel).join("  /  "), h.label])].filter(match);
   const how = HOW_TO.filter(match);

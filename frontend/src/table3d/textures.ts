@@ -589,13 +589,13 @@ export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
     }
   }
   if (o.damage) {
-    const w = 300;
-    const h = 120;
+    const w = 380;
+    const h = 150;
     const x = W - w - 14;
     const y = H - (o.pt ? 170 + 14 : 0) - h - 24;
     plate(g, x, y, w, h, "#e0574a");
     g.fillStyle = "#ffb3a8";
-    g.font = "800 74px Inter, Arial, sans-serif";
+    g.font = "800 100px Inter, Arial, sans-serif";
     g.fillText(`${o.damage} dmg`, x + w / 2, y + h / 2 + 2);
   }
   // keyword badges, bottom left (at most 4 + an overflow chip, clear of the P/T plate)
@@ -623,10 +623,10 @@ export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
     }
     g.restore();
     if (n > 1) {
-      plate(g, cx + R * 0.35, cy - R - 10, 54, 36);
+      plate(g, cx + R * 0.2, cy - R - 18, 74, 50);
       g.fillStyle = "#f4ead6";
-      g.font = "800 24px Inter, Arial, sans-serif";
-      g.fillText(`×${n}`, cx + R * 0.35 + 27, cy - R + 9);
+      g.font = "800 36px Inter, Arial, sans-serif";
+      g.fillText(`×${n}`, cx + R * 0.2 + 37, cy - R + 8);
     }
   });
   if (o.keywords.length > shown.length) {

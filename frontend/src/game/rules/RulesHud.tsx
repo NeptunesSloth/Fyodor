@@ -211,6 +211,9 @@ export function TurnDial() {
   } else if (mine) status = rules!.acting_as ? `Your priority (controlling ${playerName(view, rules!.acting_as)})` : "Your priority";
   else status = rules!.priority ? `Waiting for ${playerName(view, rules!.priority)}` : "Waiting";
   const verb = stack ? "Resolve" : NEXT_VERB[step] ?? "Next";
+  // passing is refused while my own decision is open: grey the buttons out instead of erroring
+  const deciding = auto && rules!.decision?.player === me;
+  const blocked = deciding ? "Answer your decision first" : undefined;
   return (
     <div className="turn-dial-wrap plaque-wrap">
       <section className={`turn-dial plaque ${mine ? "mine" : ""}`} data-testid={auto ? "priority-bar" : "turn-dial"} aria-label="Turn and priority">
@@ -219,7 +222,7 @@ export function TurnDial() {
           <span className="td-turn">Turn {turn.number} · {active?.id === me ? "your turn" : active?.name}</span>
           {!auto && !watching && (
             <span className="td-steps">
-              <button className="tt-btn ghost td-step" title="Back one step" onClick={() => void send({ type: "phase", to: "prev" })}>‹ Back</button>
+              <button className="tt-btn ghost td-step" title="Go back one step" onClick={() => void send({ type: "phase", to: "prev" })}>‹ Previous step</button>
             </span>
           )}
         </header>
@@ -241,14 +244,14 @@ export function TurnDial() {
         <p className="td-status" data-testid="priority-holder" aria-live="polite">{status}</p>
         {auto && mine && (
           <>
-            <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title="Pass priority (P)" onClick={() => void passPriority()}>
+            <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title={blocked ?? "Pass priority (P)"} disabled={deciding} onClick={() => void passPriority()}>
               {verb}
             </button>
-            {stack && <p className="td-hint">{topName} resolves once everyone passes</p>}
+            {deciding ? <p className="td-hint" role="status">Answer your decision first</p> : stack && <p className="td-hint">{topName} resolves once everyone passes</p>}
             <div className="td-more">
-              {stack && <button className="tt-btn ghost" data-testid="resolve-one" onClick={() => void passPriority("stack_changes")}>Resolve one</button>}
-              {stack && <button className="tt-btn ghost" data-testid="resolve-all" onClick={() => void passPriority("stack_empty")}>Resolve all</button>}
-              {!stack && <button className="tt-btn ghost" data-testid="pass-turn" onClick={() => void passPriority("next_turn")}>End turn</button>}
+              {stack && <button className="tt-btn ghost" data-testid="resolve-one" disabled={deciding} title={blocked} onClick={() => void passPriority("stack_changes")}>Resolve one</button>}
+              {stack && <button className="tt-btn ghost" data-testid="resolve-all" disabled={deciding} title={blocked} onClick={() => void passPriority("stack_empty")}>Resolve all</button>}
+              {!stack && <button className="tt-btn ghost" data-testid="pass-turn" disabled={deciding} title={blocked} onClick={() => void passPriority("next_turn")}>End turn</button>}
             </div>
           </>
         )}
@@ -257,11 +260,11 @@ export function TurnDial() {
             {stack ? (
               // something is on the stack: resolving it comes first, stepping on is secondary
               <>
-                <button className="td-pass" onClick={() => void send({ type: "resolve_top" })} title="Resolve the top of the stack">Resolve top</button>
+                <button className="td-pass" onClick={() => void send({ type: "resolve_top" })} title="Resolve the top of the stack (P)">Resolve top</button>
                 <p className="td-hint">{topName} resolves next</p>
               </>
             ) : (
-              <button className="td-pass" onClick={() => void send({ type: "phase", to: "next" })} title="Next step (N)">{NEXT_VERB[step] ?? "Next step"}</button>
+              <button className="td-pass" onClick={() => void send({ type: "phase", to: "next" })} title="Next step (P or N)">{NEXT_VERB[step] ?? "Next step"}</button>
             )}
             <div className="td-more">
               {stack && <button className="tt-btn ghost" title="Next step (N)" onClick={() => void send({ type: "phase", to: "next" })}>{NEXT_VERB[step] ?? "Next step"}</button>}

@@ -24,7 +24,8 @@ export type HotkeyId =
   | "cam_player"
   | "cam_table"
   | "cam_focus"
-  | "cam_reset";
+  | "cam_reset"
+  | "cam_names";
 
 export interface Hotkey {
   id: HotkeyId;
@@ -45,14 +46,15 @@ export const HOTKEYS: Hotkey[] = [
   { id: "cancel", keys: ["escape"], label: "Clear selection / close views" },
   { id: "help", keys: ["shift+?", "?"], label: "Show shortcuts" },
   { id: "respond", keys: ["r"], label: "Respond (keep priority)" },
-  { id: "pass", keys: ["p"], label: "Pass priority" },
+  { id: "pass", keys: ["p"], label: "Pass priority (manual play: the dial's main button)" },
   { id: "auto_pass", keys: ["shift+p"], label: "Auto-pass for the rest of this turn" },
-  { id: "hud", keys: ["h"], label: "Minimal / full HUD" },
+  { id: "hud", keys: ["h"], label: "Hide / show player counters & tools" },
   { id: "cam_seat", keys: ["1"], label: "3D table: look from your seat" },
   { id: "cam_player", keys: ["2", "3", "4", "5", "6"], label: "3D table: look at the next players' sides, in seat order" },
   { id: "cam_table", keys: ["0"], label: "3D table: look down on the whole table" },
   { id: "cam_focus", keys: ["c"], label: "3D table: zoom to the hovered card (C or Esc to return)" },
   { id: "cam_reset", keys: ["home"], label: "3D table: back to your seat" },
+  { id: "cam_names", keys: ["v"], label: "3D table: show / hide the names of all cards on the table" },
 ];
 
 export function comboOf(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">): string {

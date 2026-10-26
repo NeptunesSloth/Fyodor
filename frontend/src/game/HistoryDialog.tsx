@@ -9,9 +9,19 @@ import { isVisible, PHASE_LABEL, type GameView, type LogPartView, type PhaseName
 import { useIsHost } from "./HostTools";
 
 interface Snapshot { id: string; name: string; seq: number; turn: number; created_at: number; by: string }
-interface HistoryItem { position: number; seq: number; type: string; actor: string | null; log: LogPartView[][]; undone: boolean }
+export interface HistoryItem { position: number; seq: number; type: string; actor: string | null; log: LogPartView[][]; undone: boolean }
 
 const partText = (p: LogPartView) => ("t" in p ? p.t : "card" in p ? p.card.name : [...p.group.map((g) => g.card.name), ...(p.hidden ? [`${p.hidden} hidden`] : [])].join(", "));
+
+/** The event history, newest first (the same request the History tab makes). */
+export async function fetchHistory(view: GameView): Promise<HistoryItem[]> {
+  const q = view.game.mode === "local" ? `?viewer=${view.viewer === "__omniscient__" ? "all" : view.viewer}` : "";
+  const t = seatToken(view.game.id);
+  const h = await api.get<{ items: HistoryItem[] }>(`/games/${view.game.id}/history${q}`, t ? { "X-Seat-Token": t } : {});
+  return [...h.items].reverse();
+}
+
+export const historyText = (it: HistoryItem): string => it.log.map((line) => line.map(partText).join("")).join(" ") || it.type.replace(/_/g, " ");
 
 /**
  * Snapshots (“Before board wipe”) and the event history — for testing lines, replaying a turn,

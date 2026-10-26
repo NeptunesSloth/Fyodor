@@ -165,6 +165,9 @@ function useShortcuts() {
         }
         case "to_graveyard":
           if (targets.length && targets.every((cid) => splitZone(view.cards[cid]?.zone ?? "").zone !== "graveyard")) {
+            // one ordinary card goes at once (Undo covers it); several cards or a commander ask first
+            const cmdr = targets.some((cid) => { const c = view.cards[cid]; return isVisible(c) && !!c.commander_key; });
+            if ((targets.length > 1 || cmdr) && !window.confirm(`Put ${targets.length > 1 ? `${targets.length} cards` : "a commander"} into the graveyard? Undo (Ctrl+Z) brings ${targets.length > 1 ? "them" : "it"} back.`)) break;
             void moveCards(targets, "graveyard"); // each card goes to its owner's graveyard
           }
           break;
@@ -179,6 +182,8 @@ function useShortcuts() {
         case "pass":
           if (view.rules && !view.rules.controlled_by && (view.rules.priority === me || (!!view.rules.acting_as && view.rules.priority === view.rules.acting_as)) && !view.rules.decision) void passPriority();
           else if (w?.waiting.includes(me)) void send({ type: "response_pass" });
+          // manual play: P does what the dial's big button says
+          else if (!view.rules) void send(view.stack.length ? { type: "resolve_top" } : { type: "phase", to: "next" });
           break;
         case "respond":
           if (w && w.opener !== me) void send({ type: "response_respond" });
