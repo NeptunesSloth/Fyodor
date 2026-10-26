@@ -11,7 +11,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import coverage
-from tests.fixtures.cards import card, fixture_cards
+from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_designations import put
 from tests.test_rules_shared_damage_choices import table

@@ -167,6 +167,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"a spell (?P<p>you)'ve cast is countered"), "spell_countered110b"),  # -- spell countered (wave 110B) -- 701.6a (effects.counter_object)
     (re.compile(r"a spell or ability (?P<p>you) control counters a spell"), "counters_spell"),  # -- counter events (wave 19C) -- 701.6a
     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
+    (re.compile(r"(?P<p>a player) chooses? one or more targets"), "chose_targets110h"),  # -- targets chosen (wave 110H) -- 601.2c / 603.3d (triggers.targeted)
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
     (re.compile(r"players finish voting"), "voted"),  # -- voting (wave 48D) -- 701.38 (triggers.voted)
     (re.compile(r"(?P<p>you) waterbend"), "waterbend"),

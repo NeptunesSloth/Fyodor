@@ -148,10 +148,18 @@ _TAHNGARTH = ("Whenever an opponent attacks with one or more creatures, if ~ is 
               "If you do, choose a player or planeswalker that opponent is attacking. ~ is attacking that player or planeswalker.")
 
 
+_PSYCHIC = ("Whenever a player chooses one or more targets, each player reveals the top card of their library. The player who reveals the card with the greatest mana value may "
+            "change the target or targets. If two or more cards are tied for greatest, the target or targets remain unchanged. Changing targets this way doesn't trigger "
+            "abilities of permanents named Psychic Battle.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == _PSYCHIC:
+        native = scripts.define(replace(ability, text="Whenever a player chooses one or more targets, you gain 1 life."), ch)
+        return None if native is None else {**native, "effects": [{"do": "psychic110h"}]}
     if text == _TAHNGARTH:
         native = scripts.define(replace(ability, text="Whenever an opponent attacks with one or more creatures, if ~ is tapped, you may have that player gain control of ~."), ch)
         if native is None or [e["do"] for e in native["effects"]] != ["only_if", "gain_control"]:
@@ -995,6 +1003,35 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
+def psychic(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Psychic Battle: each player (APNAP, 101.4) reveals their top card (701.20a; none for an empty library, the ruling); the one revealing the greatest mana value (202.3,
+    alone) may change the targets of the spell or ability that chose them (115.7a: each to another legal target, or none; its controller judges legality). Changes don't
+    re-trigger: targeted(crime=False)."""
+    from app.game.state import zone_key
+    from app.rules import stack_interaction
+
+    shown: dict[str, int] = {}
+    for p in plan.apnap():
+        library = plan.state.zones.get(zone_key(p, "library"), [])
+        if library:
+            plan.do({"type": "reveal_top", "player": p, "count": 1}, actor=p)
+            shown[p] = stack_interaction.mana_value(plan.state.cards[library[0]], plan.ch(plan.state.cards[library[0]]))
+    top = max(shown.values(), default=None)
+    winners = [p for p, v in shown.items() if v == top]
+    if len(winners) != 1:
+        plan.note("Psychic Battle: no single greatest mana value, the targets remain unchanged", actor=ctx["controller"])
+        return True
+    plan.note(f"Psychic Battle: {plan.name(winners[0])} reveals the greatest mana value", actor=ctx["controller"])
+    sids = effects_stack_targets(plan, ctx)
+    return not sids or stack_interaction._ask_new_targets(plan, ctx, sids[0], [], winners[0], each="may")
+
+
+def effects_stack_targets(plan: Any, ctx: Any) -> list[str]:
+    from app.rules import effects
+
+    return effects._stack_targets(plan, ctx, {"who": "event_source"})
+
+
 def tahngarth(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """Tahngarth, First Mate: its former controller chooses a player or planeswalker the new controller's attackers attack (508.4: it never was declared as an
     attacker, so no attack triggers; 506.3b: the new controller is the attacking player)."""
@@ -1035,5 +1072,5 @@ def resume_tahngarth(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, r["ctx"])
 
 
-PRIMITIVES = {"tahngarth110h": tahngarth, "cyclone110h": cyclone, "lagrella110h": lagrella, "pummel110h": pummel, "assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "glimpse110h": glimpse, "pendulum110h": pendulum, "exile_counters110h": exile_counters}
+PRIMITIVES = {"psychic110h": psychic, "tahngarth110h": tahngarth, "cyclone110h": cyclone, "lagrella110h": lagrella, "pummel110h": pummel, "assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "glimpse110h": glimpse, "pendulum110h": pendulum, "exile_counters110h": exile_counters}
 RESUME = {"tahngarth110h": resume_tahngarth, "feather110h": resume_feather, "pendulum110h": resume_pendulum, "pendulum_reveal110h": resume_pendulum_reveal, "zimone110h": resume_zimone, "episode110h": resume_episode, "scapegoat110h": resume_scapegoat}
