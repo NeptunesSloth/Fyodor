@@ -456,7 +456,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import commander
 
         return commander.companion_condition(line) in commander.COMPANION_RESTRICTIONS
-    if kw in ("enchant", "equip"):  # app/rules/attachments.py: the wordings it maps
+    if kw in ("enchant", "equip", "fortify"):  # app/rules/attachments.py: the wordings it maps
         from app.rules import attachments
 
         return attachments.supported_keyword(kw, line)

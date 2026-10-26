@@ -15,6 +15,7 @@ from tests.game_helpers import act
 from tests.test_rules_designations import REAL, build, put, resolve, roundtrip
 from tests.test_rules_effects import mana, run_until
 from tests.test_rules_wave12a_counters_keywords import real
+from tests.wave110a_kit import answer
 
 CURSE = ("Enchant player\nAs this permanent transforms into Curse of Leeches, attach it to a player.\nAt the beginning of enchanted player's upkeep, "
          "they lose 1 life and you gain 1 life.\nDaybound (If a player casts no spells during their own turn, it becomes night next turn.)")
@@ -30,6 +31,12 @@ HERO = ("Whenever one or more cards are put into exile from your hand or a spell
         "other types.\nAs long as this creature has ten or more counters on it, it has indestructible and is a God in addition to its other types.")
 MIRROR = ("{X}, {T}: Change the target of target spell with a single target if that target is you. The new target must be a player. "
           "X is twice the mana value of that spell.")
+CAMP = ("Whenever fortified land is tapped for mana, put a +1/+1 counter on target creature you control. If that creature shares a color with the mana that land "
+        "produced, create a Junk token. (It's an artifact with \"{T}, Sacrifice this token: Exile the top card of your library. You may play that card this turn. "
+        "Activate only as a sorcery.\")\nFortify {3} ({3}: Attach to target land you control. Fortify only as a sorcery. This card enters unattached and stays on the "
+        "battlefield if the land leaves.)")
+GARRISON = ("Fortified land has indestructible.\nWhenever fortified land becomes tapped, target creature gets +1/+1 until end of turn.\n"
+            "Fortify {3} ({3}: Attach to target land you control. Fortify only as a sorcery. This card enters unattached and stays on the battlefield if the land leaves.)")
 DAWN = ("Until end of turn, spells and abilities you control that would add colored mana instead add that much white mana. Until end of turn, you may spend "
         "white mana as though it were mana of any color.\nDraw a card.")
 PHOENIX = ("Flying\nIf this creature would die, return it to its owner's hand instead. Until that player's next turn, that player plays with that card revealed in "
@@ -43,6 +50,10 @@ EXTRA += [real("Hero of Bretagard", "{2}{W}", 3, "Creature \u2014 Human Warrior"
           real("Dark Ritual", "{B}", 1, "Instant", "Add {B}{B}{B}.", None, "B"),
           real("Lightning Bolt", "{R}", 1, "Instant", "Lightning Bolt deals 3 damage to any target.", None, "R"),
           real("Reflecting Mirror", "{4}", 4, "Artifact", MIRROR, None, ""),
+          real("C.A.M.P.", "{3}", 3, "Artifact \u2014 Fortification", CAMP, None, ""),
+          real("Darksteel Garrison", "{3}", 3, "Artifact \u2014 Fortification", GARRISON, None, ""),
+          real("Stone Rain", "{2}{R}", 3, "Sorcery", "Destroy target land.", None, "R"),
+          real("Probe Goblin", "{R}", 1, "Creature \u2014 Goblin", "", ("1", "1"), "R"),
           real("Probe Bear", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G")]
 
 
@@ -214,3 +225,86 @@ def test_reflecting_mirror(cards, aim):
     else:
         assert s.state.players["p1"].life == 40 and s.state.players["p2"].life == 40 and s.state.cards[bear.id].zone.endswith(":graveyard")
     roundtrip5b(s)
+
+
+def _fortify(s, name, land_owner="p1"):
+    from tests.wave9c_kit import mana as kit_mana
+    from tests.wave9c_kit import put as kit_put
+
+    fort = kit_put(s, name)
+    land = next(c for c in s.state.zones[f"{land_owner}:library"] if s.state.cards[c].name in ("Forest", "Island"))
+    act(s, land_owner, type="move", card_ids=[land], to={"player": land_owner, "zone": "battlefield"})
+    kit_mana(s, C=3)
+    return fort, land
+
+
+def test_fortify_activation(cards):
+    """702.67a, 301.6: Fortify {3} attaches the Fortification to a land you control, at sorcery speed only; not to an opponent's land."""
+    from app.game.errors import ActionError
+    from tests.wave9c_kit import build as kit_build
+    from tests.wave9c_kit import check
+
+    s = kit_build(cards, ["Darksteel Garrison"], ["Probe Bear"])
+    fort, land = _fortify(s, "Darksteel Garrison")
+    theirs = next(c for c in s.state.zones["p2:library"] if s.state.cards[c].name == "Island")
+    act(s, "p2", type="move", card_ids=[theirs], to={"player": "p2", "zone": "battlefield"})
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=fort.id, ability=2, targets=[theirs])
+    act(s, "p1", type="activate_ability", card_id=fort.id, ability=2, targets=[land])
+    answer(s)
+    assert s.state.cards[fort.id].attached_to == land
+    check(s)
+
+
+@pytest.mark.parametrize("fortified", [True, False])
+def test_darksteel_garrison(cards, fortified):
+    """Fortified land has indestructible (702.12); it becoming tapped pumps a target creature until end of turn (603.2)."""
+    from tests.wave9c_kit import build as kit_build
+    from tests.wave9c_kit import cast as kit_cast
+    from tests.wave9c_kit import check
+    from tests.wave9c_kit import mana as kit_mana
+    from tests.wave9c_kit import put as kit_put
+    from tests.wave9c_kit import to_hand as kit_to_hand
+
+    s = kit_build(cards, ["Darksteel Garrison", "Probe Bear", "Stone Rain"])
+    fort, land = _fortify(s, "Darksteel Garrison")
+    bear = kit_put(s, "Probe Bear")
+    if fortified:
+        act(s, "p1", type="activate_ability", card_id=fort.id, ability=2, targets=[land])
+        answer(s)
+        assert s.state.cards[fort.id].attached_to == land
+    kit_to_hand(s, "Stone Rain")
+    kit_mana(s, R=1, C=2)
+    kit_cast(s, "Stone Rain", targets=[land])
+    answer(s)
+    assert s.state.cards[land].zone == ("p1:battlefield" if fortified else "p1:graveyard")  # indestructible only while fortified
+    if not fortified:
+        return
+    act(s, "p1", type="activate_ability", card_id=land, ability=0)
+    answer(s, bear.id)
+    assert s.state.cards[bear.id].zone == "p1:battlefield"
+    from tests.wave110c_kit import ch
+
+    assert ch(s, s.state.cards[bear.id]).pt == (3, 3)
+    check(s)
+
+
+@pytest.mark.parametrize("creature", ["Probe Bear", "Probe Goblin"])
+def test_camp(cards, creature):
+    """106.12a: a tapped fortified Forest produced {G}: the counter goes on the target creature; a Junk token only if that creature is green."""
+    from tests.wave9c_kit import build as kit_build
+    from tests.wave9c_kit import check
+    from tests.wave9c_kit import put as kit_put
+
+    s = kit_build(cards, ["C.A.M.P.", creature])
+    fort, land = _fortify(s, "C.A.M.P.")
+    c = kit_put(s, creature)
+    act(s, "p1", type="activate_ability", card_id=fort.id, ability=1, targets=[land])
+    answer(s)
+    assert s.state.cards[fort.id].attached_to == land
+    act(s, "p1", type="activate_ability", card_id=land, ability=0)
+    answer(s, c.id)
+    assert s.state.cards[c.id].counters.get("+1/+1") == 1
+    junk = [x for x in s.state.cards.values() if x.name == "Junk" and x.zone == "p1:battlefield"]
+    assert len(junk) == (1 if creature == "Probe Bear" else 0)
+    check(s)

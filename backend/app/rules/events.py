@@ -180,7 +180,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"(?P<p>you) claim the prize of an Attraction"), "claim_prize"),
 ]
 # "enchanted creature", "equipped creature" …: the permanent the source is attached to (303.4, 301.5)
-_HOSTS = ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact")
+_HOSTS = ("enchanted creature", "equipped creature", "enchanted permanent", "enchanted land", "enchanted artifact", "fortified land")  # (wave 110I: fortified land)
 _SELF_OR_HOST = ("~ or equipped creature", "~ or enchanted creature")
 
 
@@ -205,6 +205,8 @@ def parse_condition(cond: str) -> Condition | None:
     if (paired := re.fullmatch(r"~ or a creature it's paired with (is dealt damage)", cond)) is not None:  # -- soulbond (wave 110C) -- Donna Noble: 702.95b
         base = parse_condition(f"~ {paired[1]}")
         return {**base, "subject": "self_or_paired110c"} if base is not None and base.get("subject") == "self" else None
+    if cond == "fortified land is tapped for mana":  # -- cards (wave 110I) -- C.A.M.P.: an ordinary trigger (not a mana ability: it adds no mana), 106.12a
+        return {"event": "tapped_for_mana", "subject": "host"}
     if cond == "~ becomes untapped during your untap step":
         return {"event": "untapped", "subject": "self", "own_untap": True}
     cond = re.sub(r"\benchanted (?:Plains|Island|Swamp|Mountain|Forest)\b", "enchanted land", cond)

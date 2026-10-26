@@ -103,7 +103,7 @@ TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "
 MEANING_GRANTS = r"provoke|absorb \d+|extort|ingest|melee|myriad|exploit|(?:poisonous|frenzy|afterlife|annihilator|afflict|fabricate|rampage) \d+"  # (wave 42A: fabricate N, 702.123a: one enters trigger; -- trigger lines (wave 100A) -- rampage N, 702.23a: one "becomes blocked" trigger)
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
-                     "enchanted permanent": "permanent", "enchanted artifact": "artifact", "enchanted planeswalker": "planeswalker",
+                     "enchanted permanent": "permanent", "fortified land": "land", "enchanted artifact": "artifact", "enchanted planeswalker": "planeswalker",
                      "enchanted creatures": None}  # (plural: not a template)
 _PT = re.compile(r"^(?P<p>[+−-]\d+)/(?P<t>[+−-]\d+)$")
 _BASE = re.compile(r"^base power and toughness (?P<p>\d+)/(?P<t>\d+)$")

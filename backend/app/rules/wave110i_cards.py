@@ -372,7 +372,23 @@ def _reflect(d: Def) -> Def:
     return {**d, "effects": [{**e, "you110i": True} for e in d["effects"]]}
 
 
+def _camp(d: Def) -> Def:
+    """C.A.M.P.: the Junk token is made only if the counter's creature shares a color with the mana the land produced (``camp_holds``)."""
+    *head, last = d["effects"]
+    return {**d, "effects": [*head, {"do": "only_if", "cond": {"camp110i": True}, "skip": 1}, last]}
+
+
+def camp_holds(plan: Plan, ctx: Context) -> bool:
+    event = ctx.get("event") or {}
+    mask = int(event.get("amount") or 0)
+    target = next((plan.state.cards.get(t["id"]) for t in ctx.get("targets") or [] if t and t["id"] in plan.state.cards), None)
+    return target is not None and any(mask >> "WUBRG".index(c) & 1 for c in plan.ch(target).colors)
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever fortified land is tapped for mana, put a +1/+1 counter on target creature you control. If that creature shares a color with the mana that land produced, "
+    "create a Junk token.":
+        ("Whenever fortified land is tapped for mana, put a +1/+1 counter on target creature you control. Create a Junk token.", _camp),
     "{X}, {T}: Change the target of target spell with a single target if that target is you. The new target must be a player. X is twice the mana value of that spell.":
         ("{X}, {T}: Change the target of target spell with a single target. The new target must be a player.", _reflect),
     "{1}{B}{B}, {T}: Target player discards a card unless they put a card from their hand on top of their library. If that player discards a card this way, "

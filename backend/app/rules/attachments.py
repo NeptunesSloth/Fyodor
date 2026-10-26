@@ -183,7 +183,20 @@ def equip_cost(ch: Characteristics, index: int) -> tuple[str, str, str] | None:
     return None
 
 
+FORTIFY = re.compile(r"^fortify (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def fortify_cost(ch: Characteristics, index: int) -> str | None:
+    """-- cards (wave 110I) -- 702.67a: "Fortify [cost]" = "[Cost]: Attach this permanent to target land you control. Fortify only as a sorcery." (mana costs only)."""
+    for ab in ch.abilities:
+        if ab.index == index and ab.kind == "keywords" and "fortify" in ab.keywords and (m := FORTIFY.match(re.sub(r"\s*\(.*?\)", "", ab.text).strip())):
+            return m["cost"]
+    return None
+
+
 def supported_keyword(kw: str, line: str) -> bool:
+    if kw == "fortify":
+        return FORTIFY.match(re.sub(r"\s*\(.*?\)", "", line).strip()) is not None
     if kw == "enchant":
         return enchant_selector_of(line) is not None
     if kw == "equip":
