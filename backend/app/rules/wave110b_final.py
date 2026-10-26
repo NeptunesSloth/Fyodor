@@ -65,4 +65,39 @@ def greater_dig(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"greater_dig110b": greater_dig}
+_GRIM = ("Whenever The Grim Captain attacks, each opponent sacrifices a nonland permanent of their choice. Then you may put an exiled creature card used to craft The Grim Captain "
+         "onto the battlefield under your control tapped and attacking.")
+_BUILD[_GRIM] = ("Whenever this creature attacks, each opponent sacrifices a nonland permanent of their choice.", lambda d: {**d, "effects": [*d["effects"], {"do": "crafted_put110b"}]})
+
+
+def crafted_put(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
+    """The Grim Captain (702.167c, 508.4): you may put one of the exiled creature cards used to craft it (still those objects, still in exile) onto the battlefield under your
+    control tapped and attacking; what it attacks is chosen as it enters (the 2023-11-10 ruling), and it was never declared as an attacker."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    refs = plan.rules.crafted_materials.get(ctx.get("source_object") or "", [])
+    pool = [c for r in refs if (c := plan.state.cards.get(r.card)) is not None and plan.oid(c) == r.object_id and c.zone.endswith(":exile") and plan.ch(c).is_creature]
+    if not pool:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name') or 'The Grim Captain'}: put an exiled creature card used to craft it onto the battlefield tapped and attacking?",
+           options=[DecisionOption(id=c.id, label=c.name or "Card", card_id=c.id) for c in pool], min_choices=0, max_choices=1, resume={"step": "crafted_put110b", "ctx": ctx})
+    return False
+
+
+def resume_crafted_put(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import context, effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) > 1 or any(c not in {o.id for o in d.options} for c in chosen):
+        raise ActionError("Choose one of the cards offered, or none")
+    if chosen:
+        context.bind_objects(plan, ctx, "crafted_put110b", chosen)
+        if not effects.PRIMITIVES["return_card"](plan, ctx, {"do": "return_card", "who": "ref:crafted_put110b", "to": "battlefield", "tapped": True, "under": "you", "attacking": True}):
+            return  # (asked whom it attacks: that answer carries on)
+    effects.continue_effects(plan, ctx)
+
+
+PRIMITIVES: dict[str, Any] = {"greater_dig110b": greater_dig, "crafted_put110b": crafted_put}
+RESUME: dict[str, Any] = {"crafted_put110b": resume_crafted_put}

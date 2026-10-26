@@ -11,7 +11,21 @@ from app.game.errors import ActionError
 from app.game.state import StickerDefinition101, StickerPlacement101
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110b_kit import build, card_named, cast, ch, check, drive, mana, put, repository, settle, top
+from tests.wave110b_kit import (
+    attack,
+    build,
+    card_named,
+    cast,
+    ch,
+    check,
+    drive,
+    life,
+    mana,
+    put,
+    repository,
+    settle,
+    top,
+)
 
 
 @pytest.fixture()
@@ -56,7 +70,7 @@ def test_chameleon_ignores_its_own_and_others_unaffected(cards):
 BRINK = "Back from the Brink"
 
 
-@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast"])
+@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain"])
 def test_brink_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -215,4 +229,48 @@ def test_lukka_minus_reveals_until_greater_mana_value(cards, gone, expect):
     assert s.state.cards[card_named(s, other).id].zone == "p1:library"  # (not revealed, or revealed but too small: bottom of the library)
     if expect == "Shivan Dragon":
         assert s.state.zones["p1:library"].index(card_named(s, "Hill Giant").id) >= len(s.state.zones["p1:library"]) - 2
+    check(s)
+
+
+THRONE = "Throne of the Grim Captain // The Grim Captain"
+MATERIALS = ("Orazca Frillback", "Merfolk of the Pearl Trident", "Swab Goblin", "Vampire Noble")
+
+
+def crafted(cards):
+    """Alice crafts the Throne: the Dinosaur and Merfolk from the battlefield, the Pirate and Vampire from the graveyard."""
+    s = build(cards, [THRONE, *MATERIALS, "Grizzly Bears"], ["Grizzly Bears", "Hill Giant"])
+    throne = put(s, THRONE)
+    dino, fish = put(s, MATERIALS[0]), put(s, MATERIALS[1])
+    pirate, vamp = at(s, MATERIALS[2], "graveyard", "p1"), at(s, MATERIALS[3], "graveyard", "p1")
+    mana(s, C=4)
+    act(s, "p1", type="activate_ability", card_id=throne.id, ability=1)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    settle(s)
+    return s, throne, (dino, fish, pirate, vamp)
+
+
+@pytest.mark.parametrize("pick", [0, 3, None])
+def test_grim_captain_attack_trigger(cards, pick):
+    """702.167c, 508.4, 701.21: each opponent sacrifices a nonland permanent; then you may put one exiled creature card used to craft it onto the battlefield tapped and
+    attacking (not declared as an attacker; none if you decline)."""
+    s, throne, mats = crafted(cards)
+    assert s.state.cards[throne.id].face == 1 and all(s.state.cards[c.id].zone == "p1:exile" for c in mats)
+    bears = put(s, "Grizzly Bears", "p2")
+    attack(s, s.state.cards[throne.id])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        crafted_q = "used to craft" in d.prompt
+        ids = ([mats[pick].id] if pick is not None else []) if crafted_q else [o.id for o in d.options][: max(1, d.min_choices)]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+    assert s.state.cards[bears.id].zone == "p2:graveyard"
+    entered = [i for i, c in enumerate(mats) if s.state.cards[c.id].zone == "p1:battlefield"]
+    assert entered == ([] if pick is None else [pick])
+    power = 0 if pick is None else int(ch(s, mats[pick]).pt[0])
+    assert life(s, "p2") == 40 - 7 - power and (pick is None or s.state.cards[mats[pick].id].tapped)  # (it attacked: its damage was dealt; the Captain's 7 unblocked)
     check(s)

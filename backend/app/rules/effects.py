@@ -7372,3 +7372,4 @@ RESUME.update(_wave110c_koh.RESUME)
 from app.rules import wave110b_final as _wave110b_final  # noqa: E402, I001
 
 PRIMITIVES.update(_wave110b_final.PRIMITIVES)
+RESUME.update(_wave110b_final.RESUME)
