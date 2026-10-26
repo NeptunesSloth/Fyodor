@@ -608,6 +608,18 @@ def resume_sphinx_put(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+_CROC = "When a player has no cards in hand, if this permanent is an enchantment, it becomes a 4/4 Crocodile creature."
+
+
+def _croc(d: Def) -> Def:
+    """Veiled Crocodile (603.8, 603.4): the state is "a player has no cards in hand" while the permanent is an enchantment; once it becomes a creature (not "in addition", so no
+    longer an enchantment, 205.1a) the state no longer matches and the trigger does not come back."""
+    state = {"all": [{"as": "any", "cond": {"value": {"hand": "you"}, "op": "==", "n": 0}}, {"object": "self", "is": 'sel:{"types":["Enchantment"]}'}]}
+    return {**d, "state": state}
+
+
+_BUILD[_CROC] = ("When you control no Islands, this permanent becomes a 4/4 Crocodile creature.", _croc)
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 

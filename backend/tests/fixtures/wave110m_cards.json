@@ -764,5 +764,20 @@
 ],
 "power": "5",
 "toughness": "5"
+},
+{
+"name": "Veiled Crocodile",
+"layout": "normal",
+"mana_cost": "{2}{U}",
+"cmc": 3.0,
+"type_line": "Enchantment",
+"oracle_text": "When a player has no cards in hand, if this permanent is an enchantment, it becomes a 4/4 Crocodile creature.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
 }
 ]

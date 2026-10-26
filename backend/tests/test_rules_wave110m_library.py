@@ -516,3 +516,23 @@ def test_gandalf_compares_each_opponents_revealed_top_card_with_the_big_spell(ca
     assert len(s.state.zones["p2:hand"]) == theirs + (1 if shares else 0)
     assert len(s.state.zones["p1:hand"]) == mine + (0 if shares else 1)
     check(s)
+
+
+# -- Veiled Crocodile ------------------------------------------------------------------------------------------------------------------------
+CROC = "Veiled Crocodile"
+test_croc_full = full_test([CROC])
+
+
+@pytest.mark.parametrize("empty,becomes", [(None, False), ("p1", True), ("p2", True)])
+def test_veiled_crocodile_becomes_a_creature_when_any_player_has_no_cards_in_hand(cards, empty, becomes):
+    s = build(cards, [CROC, "Lightning Bolt"], forests=20)
+    if empty != "p1":
+        to_hand(s, "Forest")  # (the table starts with empty hands)
+    if empty != "p2":
+        to_hand(s, "Island", "p2")
+    croc = put(s, CROC)
+    cast(s, "Lightning Bolt", ["p2"])  # (any event: state triggers are looked at after the table changes, 603.8)
+    answer(s)
+    got = ch(s, croc)
+    assert (got.pt, set(got.types), set(got.subtypes)) == (((4, 4), {"Creature"}, {"Crocodile"}) if becomes else (None, {"Enchantment"}, set()))
+    check(s)
