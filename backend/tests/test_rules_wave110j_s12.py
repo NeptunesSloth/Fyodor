@@ -8,9 +8,20 @@ from __future__ import annotations
 import pytest
 
 from app.game.errors import ActionError
+from tests.fixtures.cards import card
 from tests.game_helpers import act
 from tests.wave9c_kit import build, life
-from tests.wave110j_kit import EXTRA, ability, card_db, cast_on, check, now, put_new, settle, to_phase  # noqa: F401
+from tests.wave110j_kit import (  # noqa: F401
+    EXTRA,
+    ability,
+    card_db,
+    cast_on,
+    check,
+    now,
+    put_new,
+    settle,
+    to_phase,
+)
 
 PALIANO = "Paliano, the High City"
 
@@ -383,4 +394,30 @@ def test_spy_kit_equipped_creature_has_the_same_name_as_a_nonlegendary_creature(
     mana(s, "p1", U=1, C=1)
     cast_on(s, "Echoing Truth", bears)
     assert [now(s, c).zone for c in (bears, sorc, plain)] == ["p1:hand", "p1:hand", "p1:battlefield"]
+    check(s)
+
+
+EXTRA.append(card("Pack Hunt", set_code="tst", number="W17", mana_cost="{3}{G}", cmc=4.0, type_line="Sorcery", colors=["G"], color_identity=["G"], keywords=[], layout="normal",
+                  oracle_text="Search your library for up to three cards with the same name as target creature, reveal them, put them into your hand, then shuffle."))
+
+
+def test_spy_kit_tutor_same_name_as_equipped_creature_finds_nonlegendary_creature_cards(cards):
+    """201.2a: Pack Hunt targeting the Kit-equipped Sorcerer may fetch any nonlegendary creature card (it has that name), not a land."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import activate, hand_new
+
+    s = build(cards, [KIT, "Pack Hunt", "Prodigal Sorcerer", "Grizzly Bears"], [], forests=30, islands=30)
+    sorc, kit = put_new(s, "Prodigal Sorcerer"), put_new(s, KIT)
+    mana(s, "p1", C=2)
+    activate(s, kit, "Equip {2}", targets=[sorc.id])
+    spell = hand_new(s, "Pack Hunt")
+    mana(s, "p1", G=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[sorc.id], target_counts=[1])
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    offered = {s.state.cards[o.id].name for o in d.options}
+    assert offered == {"Grizzly Bears"}  # a nonlegendary creature card; not the Forests, the Kit or Pack Hunt
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+    settle(s)
     check(s)

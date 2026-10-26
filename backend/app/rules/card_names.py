@@ -123,6 +123,13 @@ def share(a: Characteristics, b: Characteristics) -> bool:
             or any(has_name(x, n) for x, y in ((a, b), (b, a)) if x.name_test is not None for n in names_of(y)))  # -- Spy Kit (wave 110J): rule-given names
 
 
+def split_wild(chs: list[Characteristics]) -> tuple[list[set[str]], list[Characteristics]]:
+    """Spy Kit (wave 110J): name sets of the objects with a fixed name list, and the objects whose names come from a rule (``name_test``: they
+    have every name it accepts, so in a "different names" group each is distinct from all others, and in a "same name" group it needs a
+    name the others all have that its test accepts)."""
+    return [set(names_of(c)) for c in chs if c.name_test is None], [c for c in chs if c.name_test is not None]
+
+
 def chosen(plan: Plan, source: str | None) -> str | None:
     """The name the source permanent recorded as it entered (its public ``choices`` entry), or None."""
     card = plan.state.cards.get(source or "")
@@ -130,8 +137,18 @@ def chosen(plan: Plan, source: str | None) -> str | None:
     return value.strip() if value else None
 
 
+ANY_CREATURE = "\0any nonlegendary creature card name"  # Spy Kit (wave 110J): stands for every name a nonlegendary creature card has
+
+
+def reference_names(ch: Characteristics) -> list[str]:
+    """``names_of`` for a name a search or comparison is matched against: a rule-named object (Spy Kit) also carries ``ANY_CREATURE``."""
+    return [*names_of(ch), *([ANY_CREATURE] if ch.name_test is not None else [])]
+
+
 def has_name(ch: Characteristics, name: str | None) -> bool:
     """709.4a: the object has the chosen name if one of its names is it."""
+    if name == ANY_CREATURE:  # (201.2a: a card sharing one of the names the reference has; for a card, its own name is that of a nonlegendary creature)
+        return "Creature" in ch.types and "Legendary" not in ch.supertypes and bool(names_of(ch))
     return bool(name) and (normalize_name(name or "") in {normalize_name(n) for n in names_of(ch)} or (ch.name_test is not None and bool(ch.name_test(name))))
 
 

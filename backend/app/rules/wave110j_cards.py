@@ -102,6 +102,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (cap := _CAP.fullmatch(ability.text.strip())) is not None and ch.name.startswith(cap["name"]):  # (the short name)
         return {"kind": "static", "static": "counter_cap110j", "counter": cap["kind"], "n": _NUMS[cap["n"]], "effects": []}
+    if ability.text.strip() == _YURLOK_LIFE:
+        return {"kind": "static", "static": "mana_life110j", "effects": []}
     if ability.text.strip() == _WEB1:  # Magnetic Web: a source-less conditional attack requirement (508.1d), score in combat_conditional_requirements67
         from app.rules import combat_conditional_requirements67, selectors, statics
 
@@ -1296,3 +1298,66 @@ def full_text(state: Any, card: Any, ch: Any, info: Any) -> Any:
     return replace(ch, name=theirs.name, supertypes=theirs.supertypes, types=theirs.types, subtypes=theirs.subtypes, mana_cost=theirs.mana_cost, mana_value=theirs.mana_value,
                    colors=theirs.colors, power=theirs.power, toughness=theirs.toughness, loyalty=theirs.loyalty, defense=theirs.defense, oracle_id=theirs.oracle_id,
                    oracle_text=theirs.oracle_text + "\n" + _VS_DISCARD, abilities=(*theirs.abilities, replace(extra, index=98)))
+
+
+# Custodi Peacekeeper: nothing is drafted in Commander (905.2), so no number was noted; the 2016-08-23 ruling makes the highest number noted 0 (draft_only.py reads the draft line)
+_BUILD["{W}, {T}: Tap target creature with power less than or equal to the highest number you noted for cards named Custodi Peacekeeper."] = (
+    "{W}, {T}: Tap target creature with power 0 or less.", lambda d: d)
+
+
+# Yurlok of Scorch Thrash: 500.4 / 106.4: mana lost (a step or phase ends, or an effect empties the pool) costs that much life at the same moment (2020-11-10 ruling:
+# no stack, several Yurloks do not stack). The pools are compared before and after (kept and colorless-kept mana is not lost).
+_YURLOK_LIFE = "A player losing unspent mana causes that player to lose that much life."
+_YURLOK_MANA = "{1}, {T}: Each player adds {B}{R}{G}."
+
+
+def pools(plan: Any) -> dict[str, int]:
+    return {pid: sum(p.mana.values()) for pid, p in plan.state.players.items()}
+
+
+def mana_lost(plan: Any, before: dict[str, int]) -> None:
+    from app.rules import cast_limits, replace
+
+    if not any(before.values()) or not cast_limits._statics(plan.state, plan.info, "mana_life110j"):
+        return
+    after = pools(plan)
+    replace.lose_life(plan, [(pid, n - after[pid]) for pid, n in before.items() if n > after[pid]], actor=plan.active)  # (a life-loss choice can't pause here: ponytail, rare)
+
+
+def yurlok_mana(plan: Any, ctx: Def, e: Def) -> bool:
+    """The other players add {B}{R}{G} (605.1a: the ability is a mana ability; its controller's mana is the base ability's)."""
+    at = ctx["next"]
+    ctx["effects"][at:at] = [{"do": "immediate_mana_production", "who": "player:" + pid, "mana": ["B", "R", "G"]}
+                             for pid in plan.apnap() if pid != ctx["controller"] and pid in plan.live()]
+    return True
+
+
+PRIMITIVES["yurlok110j"] = yurlok_mana
+
+
+# The Great Aurora: every player's hand and owned permanents (tokens too: a token put into a library counts as a card for "that many", 2015-06-22 ruling, then ceases to
+# exist, 111.7) go into their owner's library together (101.4 APNAP is moot: one simultaneous move), each library is shuffled (701.24), then each player draws as many as
+# they put in (the cards a replacement kept elsewhere, e.g. a commander sent to the command zone, 903.9b, are not counted). Land drops and the exile are native.
+_AURORA = ("Each player shuffles all cards from their hand and all permanents they own into their library, then draws that many cards. Each player may put any number of "
+           "land cards from their hand onto the battlefield. Exile The Great Aurora.")
+
+
+def aurora(plan: Any, ctx: Def, e: Def) -> bool:
+    players = [p for p in plan.apnap() if p in plan.live()]
+    mine = {p: [c.id for c in plan.state.cards.values() if (c.zone == f"{p}:hand" or (c.zone.endswith(":battlefield") and c.owner == p)) and c.owner == p] for p in players}
+    for p, ids in mine.items():
+        if ids:
+            plan.do({"type": "move", "card_ids": ids, "to": {"player": p, "zone": "library"}}, actor=p)
+    draws = []
+    for p, ids in mine.items():
+        n = sum(c not in plan.state.cards or plan.state.cards[c].zone == f"{p}:library" for c in ids)
+        plan.do({"type": "shuffle", "player": p, "zone": "library"}, actor=p)
+        draws.append({"do": "draw", "who": "player:" + p, "n": n})
+    at = ctx["next"]
+    ctx["effects"][at:at] = draws
+    return True
+
+
+PRIMITIVES["aurora110j"] = aurora
+_BUILD[_AURORA] = ("Each player may put any number of land cards from their hand onto the battlefield. Exile ~.",
+                   lambda d: {**d, "effects": [{"do": "aurora110j"}, *d["effects"]]})
