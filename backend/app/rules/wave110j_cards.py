@@ -35,14 +35,13 @@ _CAP = re.compile(r"(?P<name>\w+) can't have more than (?P<n>one|two|three|four|
 _NUMS = {w: i for i, w in enumerate(["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"])}
 
 
-def capped(plan: Any, card_id: str, kind: str, n: int) -> int:
-    """614.17-style limit: "~ can't have more than N X counters on it" (Rasputin Dreamweaver) — only as many as fit are put, however they were replaced."""
+def excess(plan: Any) -> list[tuple[Any, str, int]]:
+    """704.5r: "~ can't have more than N X counters on it" (Rasputin Dreamweaver) is a state-based action, so every way
+    counters arrive (proliferate, enters with, moved, put) is trimmed to N the same way."""
     from app.rules import cast_limits
 
-    for src, d in cast_limits._statics(plan.state, plan.info, "counter_cap110j"):
-        if src.id == card_id and d["counter"] == kind:
-            n = max(0, min(n, d["n"] - plan.state.cards[card_id].counters.get(kind, 0)))
-    return n
+    return [(src, d["counter"], over) for src, d in cast_limits._statics(plan.state, plan.info, "counter_cap110j")
+            if src.zone.endswith(":battlefield") and (over := src.counters.get(d["counter"], 0) - d["n"]) > 0]
 
 
 def counter_key(c: Any, ev: dict[str, Any]) -> str:

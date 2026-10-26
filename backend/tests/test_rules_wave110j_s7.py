@@ -1,7 +1,7 @@
 """Wave 110J session 7: single-card wordings, real Oracle text (tests/fixtures/wave110j_cards.json). Every scenario ends with replay + save/load.
 
 * 500.1, 603.4, 122.1: Rasputin Dreamweaver gets a dream counter at the upkeep only if it was untapped as the turn began (before the untap step).
-* 614.17: Rasputin Dreamweaver can't have more than seven dream counters, however many are put.
+* 704.5r: Rasputin Dreamweaver can't have more than seven dream counters, however they arrive (put, proliferate, moved, enters with).
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from tests.wave9c_kit import build
 from tests.wave110j_kit import (  # noqa: F401
     EXTRA,
     ability,
+    cost,
     card_db,
     ch,
     check,
@@ -48,6 +49,35 @@ def test_rasputin_upkeep_counter(cards, before, tap_on_turn_2, after):
     assert now(s, r).counters.get("dream", 0) == after and not now(s, r).tapped
     check(s)
 
+
+
+def _rasputin_with(cards, extra=()):
+    s = build(cards, [RASPUTIN, *extra])
+    return s, put_new(s, RASPUTIN)
+
+
+def test_rasputin_cap_trims_proliferate(cards):
+    """704.5r: Proliferate cannot lift Rasputin over seven; a kind that is not capped still grows."""
+    s, r = _rasputin_with(cards, ["Contentious Plan"])
+    act(s, "p1", type="counter", card_ids=[r.id], kind="dream", delta=7)
+    act(s, "p1", type="counter", card_ids=[r.id], kind="charge", delta=1)
+    mana(s, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Contentious Plan").id)
+    settle(s, answers=[[r.id]])
+    assert now(s, r).counters.get("dream", 0) == 7 and now(s, r).counters.get("charge", 0) == 2
+    check(s)
+
+
+def test_rasputin_cap_trims_a_doubled_enters_with(cards):
+    """614.1c + 704.5r: Doubling Season doubles "enters with seven" to fourteen; seven stay."""
+    s = build(cards, [RASPUTIN, "Doubling Season"])
+    put_new(s, "Doubling Season")
+    mana(s, **cost(RASPUTIN))
+    c = to_hand(s, RASPUTIN)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    assert now(s, c).counters.get("dream", 0) == 7
+    check(s)
 
 
 HYDRA = "Rock Hydra"

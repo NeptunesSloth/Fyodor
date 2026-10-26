@@ -59,22 +59,24 @@ class Found:
         self.losers: list[tuple[str, str]] = []
         self.vanishing: list[CardInstance] = []  # tokens outside the battlefield (704.5d)
         self.annihilate: list[tuple[CardInstance, int]] = []
+        self.trim: list[tuple[CardInstance, str, int]] = []  # 704.5r: counters above "can't have more than N" (wave 110J)
         self.dying: list[tuple[CardInstance, str]] = []
         self.unattach: list[tuple[CardInstance, str]] = []
         self.protect: list[tuple[CardInstance, list[str]]] = []  # 310.11: battles needing a new protector
         self.unbestow: list[CardInstance] = []  # -- keywords (wave 15E) -- 702.103f
 
     def visible(self) -> bool:
-        return bool(self.losers or self.annihilate or self.dying or self.unattach or self.unbestow)
+        return bool(self.losers or self.annihilate or self.trim or self.dying or self.unattach or self.unbestow)
 
     def fingerprint(self) -> str:
         return "|".join([*(f"L{p}" for p, _ in self.losers), *(f"D{c.id}:{why}" for c, why in self.dying),
-                         *(f"A{c.id}:{n}" for c, n in self.annihilate), *(f"U{c.id}" for c, _ in self.unattach)])
+                         *(f"A{c.id}:{n}" for c, n in self.annihilate), *(f"T{c.id}:{k}{n}" for c, k, n in self.trim), *(f"U{c.id}" for c, _ in self.unattach)])
 
     def summary(self, plan: Plan) -> str:
         parts = [f"{plan.name(p)} loses ({why})" for p, why in self.losers]
         parts += [f"{c.name} dies ({why})" for c, why in self.dying]
         parts += [f"{c.name}: +1/+1 and -1/-1 counters cancel" for c, _ in self.annihilate]
+        parts += [f"{c.name}: excess {k} counters removed" for c, k, _ in self.trim]
         parts += [f"{c.name} becomes unattached ({why})" for c, why in self.unattach]
         return "; ".join(parts)
 
@@ -154,6 +156,9 @@ def find(plan: Plan) -> Found:
 
             if sagas.must_sacrifice(plan, card, ch):
                 out.dying.append((card, sagas.SACRIFICE_REASON))
+    from app.rules import wave110j_cards  # -- (wave 110J) -- 704.5r
+
+    out.trim = wave110j_cards.excess(plan)
     # -- token & pump wordings (wave 6C) -- 704.5z: of one player's Roles on a permanent, only the newest stays
     from app.rules import roles, world_durations80
 
@@ -284,6 +289,9 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
     for card, n in found.annihilate:
         plan.do({"type": "counter", "card_ids": [card.id], "kind": "+1/+1", "delta": -n}, actor=card.controller)
         plan.do({"type": "counter", "card_ids": [card.id], "kind": "-1/-1", "delta": -n}, actor=card.controller)
+        happened = True
+    for card, kind, n in found.trim:
+        plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n}, actor=card.controller)
         happened = True
     if found.unattach:
         plan.do({"type": "detach", "card_ids": [c.id for c, _ in found.unattach]}, actor=found.unattach[0][0].controller)
