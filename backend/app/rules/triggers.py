@@ -1258,6 +1258,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
 
         if entry_forms.entered_tapped(plan, info) != cond["entered_tapped"]:
             return False
+    if event == "enter" and cond.get("entered_transformed110j"):  # -- wave 110J -- 712.14a
+        from app.rules import wave110j_cards
+
+        if not wave110j_cards.entered_transformed(plan, info):
+            return False
     if event == "counters_put" and cond.get("counter") and info.get("counter") != cond["counter"]:
         return False
     if event == "counters_put" and cond.get("nth") and not (info.get("total", 0) - info.get("amount", 0) < cond["nth"] <= info.get("total", 0)):

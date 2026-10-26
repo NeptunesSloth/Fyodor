@@ -538,6 +538,9 @@ def _parse(c: str) -> Condition | None:
         if inner is None or inner.get("event") != "enter" or inner.get("aggregate"):
             return None
         return {**inner, "entered_tapped": m["t"] == "tapped"}
+    m = re.fullmatch(r"(?P<s>(?:a|another) [^,]+? you control) enters transformed", c)  # -- wave 110J -- 712.14a: it came onto the battlefield back face up
+    if m and (inner := _parse(f"{m['s']} enters")) is not None and inner.get("event") == "enter" and not inner.get("aggregate"):
+        return {**inner, "entered_transformed110j": True}
     found = _combat(c)
     if found is not None:
         return found

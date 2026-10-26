@@ -866,6 +866,7 @@ _WAVE_4D: dict[str, Any] = {
         f"{cond['key']}:t{plan.state.turn.number}", 0) >= int(cond["n"]),
     "attackers_power": lambda plan, ctx, cond, log: plan.rules.attack_power.get(ctx["controller"], 0) >= int(cond["n"]),
     "self_attacked": lambda plan, ctx, cond, log: _self_attacked(plan, ctx, cond, log),
+    "counter110j": lambda plan, ctx, cond, log: f"{ctx['controller']}:{cond['kind']}" in log.counters_removed110j or cond["kind"] in log.gy_counters110j,  # (wave 110J) Churning Reservoir
     "self_attacked_battle110j": lambda plan, ctx, cond, log: _source_object(plan, ctx) in log.attacked_battle110j,  # (wave 110J) 310.5
     "graveyard_cards": lambda plan, ctx, cond, log: _graveyard_cards(plan, ctx, cond, log),
     "rolled_result": _rolled_result,
