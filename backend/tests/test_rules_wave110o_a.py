@@ -10,6 +10,7 @@
 * 701.20a, 608.2c: Portent of Calamity exiles at most one card of each card type from among the top X, casts one free with four or more,
   and takes the rest of what it exiled.
 * 607.2a, 406.3b: Scarlet Witch exiles two cards face down on each hit and may cast a Hero or noncreature spell from all the cards exiled with her.
+* 700.4, 603.10a, 603.2h: Rinoa returns one of the attacking creatures that died together, tapped with a flying counter; only once each turn.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -19,8 +20,10 @@ import pytest
 
 from app.game.errors import ActionError
 from tests.game_helpers import act
+from tests.test_rules_wave34b_activated import stops
 from tests.wave9c_kit import build
 from tests.wave53d_kit import table
+from tests.wave110b_kit import attack
 from tests.wave110o_kit import (  # noqa: F401
     EXTRA,
     ability,
@@ -45,10 +48,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -553,4 +556,95 @@ def test_scarlet_witch_can_cast_a_card_exiled_by_an_earlier_hit(cards):
     act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=[bolt.id])
     settle(s, answers=[["p2"]])
     assert now(s, bolt).zone == "p1:graveyard"
+    check(s)
+
+
+def combat(s, blocks, pick=None, yes=True):
+    """Play through combat; Bob declares ``blocks`` ((blocker, attacker) pairs); Rinoa's "may" is answered ``yes``, the creature chosen is ``pick``."""
+    seen = []
+    for _ in range(80):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[{"blocker_id": b.id, "attacker_id": a.id} for b, a in blocks])
+        elif d is not None:
+            seen.append(d.prompt)
+            if "creature to return" in d.prompt:
+                ids = [next(o.id for o in d.options if o.card_id == pick.id)]
+            else:
+                ids = [next(o.id for o in d.options if (o.id == "yes") == yes or yes is None)]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            return seen
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("combat never ended")
+
+
+def rinoa_table(cards, mine, theirs):
+    s = build(cards, [RINOA, *mine], theirs)
+    put(s, RINOA)
+    return s
+
+
+@pytest.mark.parametrize("yes", [True, False])
+def test_rinoa_returns_the_attacking_creature_that_died_tapped_with_a_flying_counter(cards, yes):
+    s = rinoa_table(cards, ["Grizzly Bears"], ["Grizzly Bears"])
+    bears, theirs = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2")
+    attack(s, bears)
+    combat(s, [(theirs, bears)], yes=yes)
+    c = now(s, bears)
+    if yes:
+        assert c.zone == "p1:battlefield" and c.tapped and c.counters.get("flying") == 1 and "flying" in ch(s, bears).keywords
+    else:
+        assert c.zone == "p1:graveyard"
+    check(s)
+
+
+def test_rinoa_picks_one_of_the_attackers_that_died_together(cards):
+    s = rinoa_table(cards, ["Grizzly Bears", "Llanowar Elves"], ["Grizzly Bears", "Benalish Hero"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    b1, b2 = put(s, "Grizzly Bears", "p2"), put(s, "Benalish Hero", "p2")
+    attack(s, bears, elves)
+    seen = combat(s, [(b1, bears), (b2, elves)], pick=elves)
+    assert "110o" not in seen[0]  # (the question reads as words, not as a primitive's name)
+    assert any("creature to return" in p for p in seen)
+    assert now(s, elves).zone == "p1:battlefield" and now(s, bears).zone == "p1:graveyard"
+    check(s)
+
+
+def test_rinoa_ignores_a_creature_that_was_not_attacking(cards):
+    s = rinoa_table(cards, ["Grizzly Bears", "Lightning Bolt"], [])
+    bears = put(s, "Grizzly Bears")
+    cast_on(s, "Lightning Bolt", bears)
+    assert now(s, bears).zone == "p1:graveyard" and not s.state.zones.get("stack") and s.state.rules.decision is None
+    check(s)
+
+
+def test_rinoa_returns_only_once_each_turn(cards):
+    """603.2h: the first death (a Bolt on an attacker after blockers) returned one; the next one the same turn does not trigger."""
+    s = rinoa_table(cards, ["Grizzly Bears", "Llanowar Elves", "Lightning Bolt"], ["Grizzly Bears"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    b1 = put(s, "Grizzly Bears", "p2")
+    stops(s)
+    for c in (bears, elves):
+        s.state.rules.controlled_since[c.id].turn = 0
+    for want in ("declare_attackers", "declare_blockers"):
+        while s.state.rules.decision is None or s.state.rules.decision.kind != want:
+            act(s, s.state.rules.priority, type="pass_priority")
+        if want == "declare_attackers":
+            act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in (bears, elves)])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": b1.id, "attacker_id": bears.id}])
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[elves.id])
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"])
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    settle(s)
+    assert now(s, elves).zone == "p1:battlefield" and now(s, elves).counters.get("flying") == 1
+    seen = combat(s, [])
+    assert not seen and now(s, bears).zone == "p1:graveyard"  # (Bears died in combat: no second return, no question)
     check(s)

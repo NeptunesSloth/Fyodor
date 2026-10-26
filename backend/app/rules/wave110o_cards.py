@@ -68,6 +68,8 @@ _HELM = ("{X}, {T}: Target opponent mills a card, then repeats this process unti
          "battlefield under your control. X can't be 0.")
 _WITCH = ("Whenever ~ deals combat damage to a player, look at the top two cards of your library, then exile them face down. Then you may cast a Hero or "
           "noncreature spell from among cards exiled with ~ without paying its mana cost.")
+_RINOA = ("Whenever one or more attacking creatures you control die, you may return one of them to the battlefield tapped under its owner's control with a "
+          "flying counter on it. Do this only once each turn.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -87,6 +89,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "triggered" and text == _RINOA:
+        # 700.4: "dies" is the batch that went to the graveyard together; 603.10a looks back at which were attacking (the base trigger); 603.2h the "once"
+        base = scripts.define(replace(ability, text=_RINOA.replace(" return one of them to the battlefield tapped under its owner's control with a flying "
+                                                                   "counter on it.", " draw a card.")), ch)
+        back = scripts.parse_effects("Return target creature card from a graveyard to the battlefield tapped under its owner's control with a flying counter on it.")
+        if base is None or back is None or len(back[0]) != 1 or [e["do"] for e in base["effects"]] != ["draw"]:
+            return None
+        return {**base, "effects": [{"do": "rinoa_pick110o"}, {**back[0][0], "who": "ref:rinoa110o"}]}
     if ability.kind == "triggered" and text == _WITCH:
         # 607.2a: the cards exiled with it by every resolution so far (accumulating link), this resolution's two among them; 406.3b: a face-down card is
         # cast only by a player allowed to look at it (she looked at these two as she exiled them, 406.3)
@@ -303,7 +313,35 @@ def portent_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+# -- Rinoa, Angel Wing -------------------------------------------------------------------------------------------------------------------------
+def rinoa_pick(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Return one of them": the controller picks one of the creature cards that died together and are still in a graveyard (608.2d)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+
+    found = [c for c in context.objects(plan, ctx, context.EVENT_NEW) if plan.state.cards[c].zone.endswith(":graveyard")]
+    if len(found) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a creature to return",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "a card", card_id=c) for c in found],
+               resume={"step": "rinoa_pick110o", "ctx": ctx})
+        return False
+    context.bind_objects(plan, ctx, "rinoa110o", found)
+    return True
+
+
+def resume_rinoa_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import context, effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in context.objects(plan, ctx, context.EVENT_NEW):
+        raise ActionError("Choose one of the creatures that died")
+    context.bind_objects(plan, ctx, "rinoa110o", chosen)
+    effects.continue_effects(plan, ctx)
+
+
 PRIMITIVES: dict[str, Any] = {"type_emblem110o": type_emblem, "redistribute110o": redistribute,
-              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand}
+              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick}
 RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
-                          "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick}
+                          "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick}
