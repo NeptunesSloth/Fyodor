@@ -162,6 +162,44 @@ _BUILD["Whenever this creature deals combat damage to a player, put a +1/+1 coun
     "Whenever this creature deals combat damage to a player, put a +1/+1 counter on it. When you do, you may remove a counter from another target permanent.", _slith)
 
 
+_NAMES = "Chosen card names"
+
+
+def _day_of_the_moon(d: Def) -> Def:
+    """Day of the Moon: every chapter chooses one more name; all creatures with any name chosen for this Saga are goaded (701.15a)."""
+    effs = d["effects"]
+    if [e.get("do") for e in effs] != ["choose_value", "goad"]:
+        return d
+    return {**d, "effects": [{**effs[0], "as": "named110l"}, {"do": "goad_names110l"}]}
+
+
+_BUILD["I, II, III — Choose a creature card name, then goad all creatures with a name chosen for this enchantment."] = (
+    "I, II, III — Choose a creature card name, then goad all creatures with the chosen name.", _day_of_the_moon)
+
+
+def goad_names(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """The Saga's public record of its chosen names grows by this chapter's (614.12a style, 400.7: a new object has none); if the Saga has left, its
+    last-known record is read (603.10a)."""
+    from app.cards.names import normalize_name
+    from app.rules import card_names, context, keyword_actions
+
+    new = context.refs(ctx).get("named110l", {}).get("value")
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    live = src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object")
+    snap = plan.rules.lki.get(ctx.get("source_object") or "")
+    prior = (src.choices if live and src is not None else snap.choices if snap is not None else {}).get(_NAMES, "")
+    names = [n for n in prior.split("\n") if n]
+    if new:
+        names.append(str(new))
+    if live and src is not None and new:
+        plan.do({"type": "set_choice", "card_id": src.id, "key": _NAMES, "value": "\n".join(names)}, actor=ctx["controller"])
+    want = {normalize_name(n) for n in names}
+    hit = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and plan.ch(c).is_creature
+           and want & {normalize_name(n) for n in card_names.names_of(plan.ch(c))}]
+    context.bind_objects(plan, ctx, "_day110l", hit)
+    return keyword_actions.goad(plan, ctx, {"who": "ref:_day110l"})
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key
@@ -204,5 +242,5 @@ def resume_pick_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES = {"pick_discard110l": pick_discard, "exile_mixed110l": exile_mixed}
+PRIMITIVES = {"goad_names110l": goad_names, "pick_discard110l": pick_discard, "exile_mixed110l": exile_mixed}
 RESUME = {"pick_discard110l": resume_pick_discard, "exile_mixed110l": resume_exile_mixed}

@@ -6,6 +6,7 @@
 # ruff: noqa: F403, F405
 from __future__ import annotations
 
+from app.rules.plan import Plan
 from tests.wave110l_kit import *
 
 BOOK, SUMMONS = "Oblivious Bookworm", "Soul Summons"
@@ -92,4 +93,60 @@ def test_first_tyrannic_war_counters_only_for_a_mana_cost_with_x(cards, creature
     answer(s, "Yes", creature)  # "you may", then the card
     assert zone_of(s, creature) == "p1:battlefield"
     assert counters(s, creature) == expect
+    check(s)
+
+
+MOON = "Day of the Moon"
+test_full_moon = full_test([MOON])
+
+
+def name_it(s, text):
+    d = resolve_decision(s)
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[], name=text)
+
+
+def resolve_decision(s):
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s.state.rules.decision
+
+
+def through_bobs_turn(s):
+    """To Alice's next main phase; Bob's goaded creatures attack her as they must (701.15b), she blocks nothing."""
+    turn = s.state.turn.number + (2 if s.state.turn.active_player == "p1" else 1)
+    for _ in range(200):
+        if s.state.turn.phase == "main1" and s.state.turn.number == turn:
+            return
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers" and d.player == "p2":
+            mine = [c.id for c in s.state.cards.values() if c.owner == "p2" and c.zone == "p2:battlefield"]
+            act(s, "p2", type="declare_attackers", attackers=[{"card_id": c, "target": "p1"} for c in mine])
+        elif d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never reached Alice's main phase")
+
+
+def goaded(s, name, pid="p2"):
+    from app.rules.keyword_actions import goaded_by
+
+    c = card_named(s, name, pid)
+    return bool(goaded_by(Plan(s.state, "p1", s.cards, None).ch(c)))
+
+
+def test_day_of_the_moon_goads_every_name_chosen_so_far(cards):
+    s = build(cards, [MOON], ["Grizzly Bears", "Young Wolf", "Mesa Pegasus"])
+    for n in ("Grizzly Bears", "Young Wolf", "Mesa Pegasus"):
+        put(s, n, "p2")
+    cast(s, MOON)
+    name_it(s, "Grizzly Bears")
+    answer(s)
+    assert goaded(s, "Grizzly Bears") and not goaded(s, "Young Wolf") and not goaded(s, "Mesa Pegasus")
+    through_bobs_turn(s)  # chapter II: the goad of chapter I has ended (until your next turn), the name chosen then still counts
+    name_it(s, "Young Wolf")
+    answer(s)
+    assert goaded(s, "Grizzly Bears") and goaded(s, "Young Wolf") and not goaded(s, "Mesa Pegasus")
     check(s)
