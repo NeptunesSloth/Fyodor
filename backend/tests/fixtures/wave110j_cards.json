@@ -1781,5 +1781,22 @@
   "keywords": [],
   "power": "0",
   "toughness": "1"
+ },
+ {
+  "name": "Echoing Truth",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Return target nonland permanent and all other permanents with the same name as that permanent to their owners' hands.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [],
+  "power": null,
+  "toughness": null
  }
 ]

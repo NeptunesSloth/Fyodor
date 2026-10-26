@@ -119,7 +119,8 @@ def names_of(ch: Characteristics) -> list[str]:
 def share(a: Characteristics, b: Characteristics) -> bool:
     """201.2a: two objects have the same name if they have at least one name in common; an object with no name (face down, 708.2a) has the
     same name as no other object, another nameless one included."""
-    return bool({normalize_name(n) for n in names_of(a)} & {normalize_name(n) for n in names_of(b)})
+    return (bool({normalize_name(n) for n in names_of(a)} & {normalize_name(n) for n in names_of(b)})
+            or any(has_name(x, n) for x, y in ((a, b), (b, a)) if x.name_test is not None for n in names_of(y)))  # -- Spy Kit (wave 110J): rule-given names
 
 
 def chosen(plan: Plan, source: str | None) -> str | None:

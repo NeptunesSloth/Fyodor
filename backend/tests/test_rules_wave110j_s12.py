@@ -369,3 +369,18 @@ def test_volrath_shapeshifter_takes_the_full_text_of_the_top_creature_card(cards
     grave_new(s, "Sol Ring")  # a noncreature card is now on top: as printed
     assert ch(s, now(s, vs)).name == VS
     check(s)
+
+
+def test_spy_kit_equipped_creature_has_the_same_name_as_a_nonlegendary_creature(cards):
+    """201.2a: Echoing Truth on a Grizzly Bears also bounces the Kit-equipped Sorcerer (it has that name), and a Kit-less Sorcerer stays."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import activate
+
+    s = build(cards, [KIT, "Echoing Truth", "Prodigal Sorcerer", "Prodigal Sorcerer", "Grizzly Bears"], [], forests=30, islands=30)
+    bears, sorc, plain, kit = (put_new(s, n) for n in ("Grizzly Bears", "Prodigal Sorcerer", "Prodigal Sorcerer", KIT))
+    mana(s, "p1", C=2)
+    activate(s, kit, "Equip {2}", targets=[sorc.id])
+    mana(s, "p1", U=1, C=1)
+    cast_on(s, "Echoing Truth", bears)
+    assert [now(s, c).zone for c in (bears, sorc, plain)] == ["p1:hand", "p1:hand", "p1:battlefield"]
+    check(s)
