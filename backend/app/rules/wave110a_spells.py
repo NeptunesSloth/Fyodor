@@ -607,6 +607,7 @@ ABILITY_REWRITES = {
 _ANY_NUMBER = {"\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield."}
 
 
+XANTCHA = "{3}: ~'s controller loses 2 life and you draw a card. Any player may activate this ability."
 ZARA = ("Whenever ~ attacks, look at defending player's hand. You may put a creature card from it onto the battlefield under your control tapped and attacking "
         "that player or a planeswalker they control. Return that creature to its owner's hand at the beginning of the next end step.")
 BOUNCE_CHAMBER = ("Whenever you roll to visit your Attractions, return a creature you don't control with the lowest toughness among creatures you don't control to its owner's hand.")
@@ -628,6 +629,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         pick.update(optional=True, **{"as": "zara110a"})
         return {**d, "effects": [{**look, "private": True}, pick, {"do": "enter_chosen110a", "who": "ref:zara110a"},
                                  {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1}, {"do": "deferred:bounce", "who": "ref:zara110a"}]}
+    if old == XANTCHA:  # Xantcha: the loss is for the source's controller, not "each opponent" (the activator is "you", 602.2)
+        d = scripts.define(replace(ability, text="{3}: Each opponent loses 2 life and you draw a card. Any player may activate this ability."), ch)
+        if d is None or d["effects"][0].get("do") != "lose_life":
+            return None
+        return {**d, "effects": [{**d["effects"][0], "who": "source_controller110a"}, *d["effects"][1:]]}
     if old == BOUNCE_CHAMBER:  # Bounce Chamber: the visitor (not each opponent) chooses among the tied lowest-toughness creatures it doesn't control
         from app.rules import selectors
 
