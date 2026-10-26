@@ -30,33 +30,6 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     return {**d, "cost": COST, "effects": [{"do": "mech_link110d"}, *d["effects"][:-1], back]}
 
 
-QUICKSILVER = "{U}: ~ gains all activated abilities of target creature until end of turn."
-
-
-def quicksilver(ability: Any, ch: Any) -> dict[str, Any] | None:
-    """Quicksilver Elemental: 113.10, 613.1f, a layer 6 effect that lasts until end of turn and has the abilities of the object chosen as it resolves (611.2c fixes the
-    object; UNCERTAIN: whether abilities that object gains later are gained too, here they are, as for a static). 607.5: each activation links its abilities only to one another."""
-    from app.rules import scripts
-
-    d = scripts.define(replace(ability, text="{U}: Target creature gains haste until end of turn."), ch)
-    if d is None or not d.get("target"):
-        return None
-    return {**d, "effects": [{"do": "lend110d", "who": "target"}]}
-
-
-def lend(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    from app.rules import layers
-    from app.rules.effects import target_refs
-
-    me = plan.state.cards.get(ctx.get("source_card") or "")
-    ref = next((t for t in target_refs(ctx, "target") if t and t["id"] in plan.state.cards and plan.state.cards[t["id"]].zone.endswith(":battlefield")), None)
-    if me is None or not me.zone.endswith(":battlefield") or plan.oid(me) != ctx.get("source_object") or ref is None or ref.get("object_id") != plan.oid(ref["id"]):
-        return True  # 608.2b: the source or the target is gone (or another object now): nothing happens
-    layers.add_effect(plan, affected=[plan.oid(me)], layer="6", source=ctx.get("source_object"), controller=ctx["controller"], duration="end_of_turn",
-                      label=f"{me.name} has the activated abilities of {plan.state.cards[ref['id']].name}", lend110d=plan.oid(ref["id"]))
-    return True
-
-
 LOCUS = "~ has each activated ability of the exiled cards used to craft it. You may activate each of those abilities only once each turn."
 
 
@@ -79,4 +52,4 @@ def link(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"mech_link110d": link, "lend110d": lend}
+PRIMITIVES = {"mech_link110d": link}
