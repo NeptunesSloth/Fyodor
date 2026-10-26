@@ -635,6 +635,8 @@ ABILITY_REWRITES = {
 _ANY_NUMBER = {"\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield."}
 
 
+MIND_SWAP = ("You may have ~ enter as a copy of any creature card in a graveyard, except ~'s name is ~ and he's a 4/4 Spider Human Hero "
+             "in addition to his other types. When you do, exile that card.")
 GHYRSON = ("Whenever another source you control deals exactly 1 damage to a permanent or player, ~ deals 2 damage to that permanent or player.")
 BETRAYER = "If damage would be dealt to ~, prevent that damage and an opponent of your choice gains control of it."
 XANTCHA = "{3}: ~'s controller loses 2 life and you draw a card. Any player may activate this ability."
@@ -659,6 +661,9 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         pick.update(optional=True, **{"as": "zara110a"})
         return {**d, "effects": [{**look, "private": True}, pick, {"do": "enter_chosen110a", "who": "ref:zara110a"},
                                  {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1}, {"do": "deferred:bounce", "who": "ref:zara110a"}]}
+    if old == MIND_SWAP:  # Superior Spider-Man: the copy replacement (707.9b) + the reflexive exile of the copied card (603.12, wave110a_enter.apply)
+        d = scripts.define(replace(ability, text=MIND_SWAP.split(" When you do")[0].replace("~'s name is ~", f"his name is {ch.name}")), ch)
+        return None if d is None or d.get("replacement") != "enter_as_copy" else {**d, "exile_copied110a": True}
     if old == GHYRSON:  # Ghyrson Starn: 120.3, the amount of this one damage event is exactly 1 (read by triggers.cond_ok); "another" = not Ghyrson itself
         d = scripts.define(replace(ability, text="Whenever a source you control deals damage to a creature, ~ deals 2 damage to that creature."), ch)
         if d is None or [e["do"] for e in d["effects"]] != ["damage"]:

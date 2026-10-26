@@ -1748,5 +1748,26 @@
   "keywords": [],
   "power": "4",
   "toughness": "2"
+ },
+ {
+  "name": "Superior Spider-Man",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Spider Human Hero",
+  "oracle_text": "Mind Swap — You may have Superior Spider-Man enter as a copy of any creature card in a graveyard, except his name is Superior Spider-Man and he's a 4/4 Spider Human Hero in addition to his other types. When you do, exile that card.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Mind Swap"
+  ],
+  "power": "4",
+  "toughness": "4"
  }
 ]

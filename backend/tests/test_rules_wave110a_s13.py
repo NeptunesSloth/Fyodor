@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from tests.wave110a_kit import *
 
-NAMES = ["Ghyrson Starn, Kelermorph", "Averna, the Chaos Bloom"]
+NAMES = ["Ghyrson Starn, Kelermorph", "Averna, the Chaos Bloom", "Superior Spider-Man"]
 
 
 @pytest.fixture()
@@ -75,4 +75,35 @@ def test_averna_land_is_optional(cards):
     s, forest, bears = _cascade_table(cards)
     answer(s, [], "yes")
     assert s.state.cards[forest.id].zone == "p1:library"  # no land: exiled lands go on the bottom with the rest
+    check(s)
+
+
+def _spider(cards, copy):
+    s = build(cards, ["Superior Spider-Man", "Prodigal Sorcerer"])
+    sorc = to_hand(s, "Prodigal Sorcerer")
+    act(s, "p1", type="move", card_ids=[sorc.id], to={"player": "p1", "zone": "graveyard"})
+    c = cast(s, "Superior Spider-Man", extra="")
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[sorc.id] if copy else [o.id for o in d.options if o.id != sorc.id][:1])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    return s, c, sorc
+
+
+def test_spider_man_copies_a_graveyard_creature_then_exiles_it(cards):  # 707.9b exceptions, 603.12 reflexive "When you do"
+    s, c, sorc = _spider(cards, True)
+    out = ch(s, c)
+    assert out.name == "Superior Spider-Man" and out.pt == (4, 4) and {"Spider", "Human", "Hero", "Wizard"} <= set(out.subtypes)
+    assert any(a.kind == "activated" for a in out.abilities)  # Prodigal Sorcerer's ping
+    assert s.state.cards[sorc.id].zone == "p1:exile"
+    check(s)
+
+
+def test_spider_man_declined_leaves_the_card_in_the_graveyard(cards):
+    s, c, sorc = _spider(cards, False)
+    assert ch(s, c).name == "Superior Spider-Man" and s.state.cards[sorc.id].zone == "p1:graveyard"
     check(s)
