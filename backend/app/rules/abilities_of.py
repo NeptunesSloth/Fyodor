@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 BORROWED = 2_000_000  # above every other number an ability of an object is known by (granted.py INDEX_BASE …); bound: ActivateAbility.ability
 STRIDE = 32  # legacy direct slots; additional/recursive abilities use provenance IDs
 
-_SOURCE = re.compile(r"^all activated abilities of (?P<src>.+?)(?P<nomana> except mana abilities)?$")
+_SOURCE = re.compile(r"^all activated abilities of (?P<src>.+?)(?P<nomana> except mana abilities)?(?: except for loyalty abilities)?$")  # (loyalty abilities are never lent by ``_lent`` unless asked)
 LOYALTY_ALL = "all loyalty abilities of all other planeswalkers on the battlefield"  # -- wave 110A -- Nicol Bolas, Dragon-God
 _LINKED = re.compile(r"^(?:all |the )?(?P<what>(?:[\w\-]+ )*cards?) exiled with (?:it|this \w+|~)$")
 _EXILED_CARD = re.compile(r"^the exiled card$")
@@ -86,7 +86,7 @@ def parse(rest: str) -> dict[str, Any] | None:
         out.update(linked=True, sel=None if linked["what"] in ("cards", "card") else replace(sel, zones=("exile",)).key())
         return out
     zone = "graveyard" if src.endswith(" in all graveyards") else None
-    phrase = re.sub(r"^(?:all|each) ", "", re.sub(r" in all graveyards$| on the battlefield$", "", src))
+    phrase = re.sub(r"^(?:all|each|the) ", "", re.sub(r" in all graveyards$| on the battlefield$", "", src))
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or sel.either or sel.ability or sel.attacking or sel.blocking:
         return None

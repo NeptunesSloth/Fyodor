@@ -330,7 +330,91 @@ def _had_to(d: Def) -> Def:
     return {**d, "if": swap(d["if"]), "effects": [{**e, "cond": swap(e["cond"])} if "cond" in e else e for e in d["effects"]]}
 
 
+def _slicer(d: Def) -> Def:
+    from app.rules import scripts
+
+    more = scripts.parse_effects("Untap this creature. Goad it.")
+    bar = scripts.parse_effects('This creature gains "This creature can\'t be sacrificed" until end of turn.')
+    back = scripts.parse_effects("Transform this creature.")
+    assert more and bar and back
+    return {**d, "optional": False, "effects": [{"do": "slicer110b", "yes": [*d["effects"], *more[0], *bar[0]], "no": back[0]}]}
+
+
+def slicer(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Slicer: "you may have that player gain control of Slicer ... If you don't, convert it" - 603.5 the choice is made as it resolves; both branches are fixed effects."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    decide(plan, player=ctx["controller"], kind="confirm", prompt=f"Have that player gain control of {ctx.get('name') or 'it'} until end of turn? (If not, convert it.)",
+           options=[DecisionOption(id="yes", label="Yes, they gain control"), DecisionOption(id="no", label="No, convert it")], resume={"step": "slicer110b", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_slicer(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+    from app.rules.exile_packet_continuations import insert
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    insert(ctx, list(e["yes"] if chosen == ["yes"] else e["no"]))
+    effects.continue_effects(plan, ctx)
+
+
+def _niv(d: Def) -> Def:
+    """Niv-Mizzet Reborn: one pick per color pair, a card of exactly those two colors (105.2) among the revealed cards; no card of a pair, no pick (608.2d)."""
+    from itertools import combinations
+
+    from app.rules import selectors
+
+    two = selectors.parse("card that's exactly two colors")
+    assert two is not None
+    pick = next(e for e in d["effects"] if e.get("do") == "pick_looked")
+    picks = [{**pick, "sel": selectors.replace(two, not_colors=tuple(c for c in "WUBRG" if c not in pair)).key()}
+             for pair in combinations("WUBRG", 2)]
+    return {**d, "effects": [x for e in d["effects"] for x in (picks if e is pick else [e])]}
+
+
+def _anchor(d: Def) -> Def:
+    return {**d, "cond": {**d["cond"], "event": "scry_bottom110b"}, "effects": [{"do": "exile_bottom110b", "n": {"event_amount": 1}}]}
+
+
+def note_scry_bottom(plan: Any, pid: str, chosen: list[str]) -> None:
+    """701.22a: the cards a scry put on the bottom of its library (those that got there), as one event."""
+    from app.game.rules_state import emit
+
+    n = sum(1 for c in chosen if plan.state.cards[c].zone == f"{pid}:library")
+    if n:
+        emit(plan.state, "designation", counter="scry_bottom110b", player=pid, amount=n)
+
+
+def exile_bottom(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The Temporal Anchor: exile that many cards from the bottom of your library (400.1), linked to the source for "cards exiled with" (607.2a)."""
+    from app.rules import effects, exiled_with
+
+    pid = ctx["controller"]
+    n = max(0, int(effects._amount(plan, ctx, e["n"])))
+    cards = list(plan.state.zones.get(f"{pid}:library", []))[::-1][:n] if n else []
+    if cards:
+        plan.do({"type": "move", "card_ids": cards, "to": {"player": pid, "zone": "exile"}}, actor=pid)
+        exiled_with.record(plan, ctx, [c for c in cards if plan.state.cards[c].zone.endswith(":exile")])
+    return True
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Fractured Powerstone: 901.3 the planar die is Planechase game material and 706.7 only a Planechase game rolls it; ruling 2012-06-01: in other games the
+    # roll "will have no effect" (no die is rolled, so no roll trigger, no Night Shift payment: ruling 2022-10-07 speaks only of a Planechase game)
+    "{T}: Roll the planar die. Activate only as a sorcery.":
+        ("{T}: Draw a card. Activate only as a sorcery.", lambda d: {**d, "effects": [{"do": "planechase_only"}]}),
+    "Whenever you choose to put one or more cards on the bottom of your library while scrying, exile that many cards from the bottom of your library.":
+        ("Whenever you scry, draw a card.", _anchor),
+    "When Niv-Mizzet enters, reveal the top ten cards of your library. For each color pair, choose a card that's exactly those colors from among them. Put the chosen cards into your hand and the rest on the bottom of your library in a random order.":
+        ("When Niv-Mizzet enters, reveal the top ten cards of your library. Put a creature card from among them into your hand and the rest on the bottom of your library in a random order.", _niv),
+    # Slicer, Hired Muscle: 613.1b/e control until end of turn, 701.39 goad, 701.21 sacrifice barred, 701.28 convert (a transform); the "may" is asked first, then one of two branches
+    "At the beginning of each opponent's upkeep, you may have that player gain control of Slicer until end of turn. If you do, untap Slicer, goad it, and it can't be sacrificed this turn. If you don't, convert it.":
+        ("At the beginning of each opponent's upkeep, that player gains control of this creature until end of turn.", lambda d: _slicer(d)),
+    # Summon: Brynhildr chapter I: the exiled card is playable in turns you put a lore counter on this Saga (the permission's "when", read at play time as Robber of the Rich's)
+    "I \u2014 Chain \u2014 Exile the top card of your library. During any turn you put a lore counter on this Saga, you may play that card.":
+        ("I \u2014 Exile the top card of your library. You may play that card for as long as it remains exiled.",
+         lambda d: {**d, "effects": [{**e, "when": {"history": "lore_put110b"}} if e.get("do") == "grant_play" else e for e in d["effects"]]}),
     # Bladegriff Prototype: the damaged player picks the target (the trigger's controller still controls the ability, 115.1, 603.3d: "target_choice")
     "Whenever this creature deals combat damage to a player, destroy target nonland permanent of that player's choice that one of your opponents controls.":
         ("Whenever this creature deals combat damage to a player, destroy target nonland permanent an opponent controls.",
@@ -867,7 +951,7 @@ def lose_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-RESUME: dict[str, Any] = {"kaito110b": resume_kaito, "exile_own110b": resume_exile_own, "rebound_hand110b": resume_rebound_hand}
+RESUME: dict[str, Any] = {"slicer110b": resume_slicer, "kaito110b": resume_kaito, "exile_own110b": resume_exile_own, "rebound_hand110b": resume_rebound_hand}
 def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """702.174c: the gift was given (its instant or sorcery resolved, or its permanent's gift trigger resolved): "Whenever you give a gift"."""
     from app.game.rules_state import emit
@@ -947,4 +1031,4 @@ def resume_avacyn_out(plan: Any, d: Any, chosen: list[str]) -> None:
 RESUME["avacyn_out110b"] = resume_avacyn_out
 
 
-PRIMITIVES: dict[str, Any] = {"avacyn_up110b": avacyn_up, "avacyn_out110b": avacyn_out, "destroy_created110b": destroy_created, "adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+PRIMITIVES: dict[str, Any] = {"exile_bottom110b": exile_bottom, "slicer110b": slicer, "avacyn_up110b": avacyn_up, "avacyn_out110b": avacyn_out, "destroy_created110b": destroy_created, "adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}

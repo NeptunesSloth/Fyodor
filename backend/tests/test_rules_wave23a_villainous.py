@@ -64,7 +64,9 @@ def test_coverage_full(cards, name):
 def test_wording_is_two_options_for_the_one_who_faces_them():
     found = scripts.parse_effects("Each opponent faces a villainous choice — That player sacrifices a creature of their choice, or you create a 3/3 black Dalek artifact creature token with menace.")
     assert found is not None and found[0][0]["do"] == "villain" and found[0][0]["who"] == "each_opponent"
-    # an option naming a target or a chaos effect isn't read; "you may <one instruction>" is that instruction made optional (wave 110B, Dr. Eggman)
+    # an option naming a target or a chaos effect isn't read. The old assertion ("you may draw a card" -> None) only mirrored a parser gap: 701.55a says all
+    # actions of the chosen option are performed, and an option's "you may <instruction>" is an ordinary optional action whose choice is announced as it
+    # resolves (608.2d, 603.5), so reading it is correct (wave 110B, Dr. Eggman). Two instructions after "may" stay unread.
     optional = scripts.parse_effects("Each opponent faces a villainous choice — That player discards a card, or you may draw a card.")
     assert optional is not None and optional[0][0]["b"][0]["optional"] is True
     assert scripts.parse_effects("Each opponent faces a villainous choice — That player discards a card, or you may draw a card and gain 1 life.") is None

@@ -10,8 +10,8 @@ Researched against CR 2026-09-25 (723).
   player. 723.5: the controller makes every choice (``game/control.py`` routes the intents and ``rules/view.py`` the
   prompts); 723.4: they see what the controlled player sees (``game/visibility.can_see``, never a sideboard); 723.6: only
   a player concedes for themselves; 723.9: controlling yourself changes nothing.
-* Refused (manual): Word of Command, Cruel Entertainment, Secret of Bloodbending (a combat phase / waterbend) and
-  Opposition Agent are not read here.
+* Refused (manual): Word of Command, Cruel Entertainment, and Opposition Agent are not read here. Secret of Bloodbending: wave110a_bloodbend
+  (combat phase, 2025-10-02 rulings; PlayerControl.combat, game/control.py).
 """
 
 from __future__ import annotations
@@ -39,6 +39,7 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
 
 
 def control_player(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import conditions
     from app.rules.effects import _players
 
     name = ctx.get("name") or "An effect"
@@ -49,9 +50,10 @@ def control_player(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         ctx["controlled_now"].append(pid)
         old = [c for c in r.player_control if c.controlled == pid and c.status == "pending" and not c.obj]  # 723.1a: the last one works
         r.player_control = [c for c in r.player_control if c not in old]
-        r.player_control.append(PlayerControl(controlled=pid, controller=me, label=name,
+        combat = bool(e.get("combat_unless110a")) and not conditions.holds(plan, ctx, e["combat_unless110a"])  # -- wave 110A -- Secret of Bloodbending
+        r.player_control.append(PlayerControl(controlled=pid, controller=me, label=name, combat=combat,
                                               extra_after=sum(c.extra_after for c in old)))
-        plan.note(f"{plan.name(me)} will control {plan.name(pid)} during their next turn ({name}, 723.1)", actor=me)
+        plan.note(f"{plan.name(me)} will control {plan.name(pid)} during their next {'combat phase' if combat else 'turn'} ({name}, 723.1)", actor=me)
     return True
 
 
@@ -74,13 +76,20 @@ def turn_began(plan: Plan) -> None:
     live = plan.live()
     r.player_control = [c for c in r.player_control if c.status == "pending" and not c.obj and c.controlled in live]  # (wave 110E: obj windows end with their object)
     for c in r.player_control:
-        if c.controlled != plan.active:
+        if c.controlled != plan.active or c.combat:
             continue
         c.status, c.turn = "active", plan.state.turn.number
         for _ in range(c.extra_after):  # 500.7: "after that turn" (the latest created is taken first)
             r.extra_turns.append({"player": c.controlled, "label": c.label})
         if c.controller in live:
             plan.note(f"{plan.name(c.controller)} controls {plan.name(c.controlled)} this turn ({c.label}, 723.1)", actor=plan.active)
+
+
+def combat_ended(plan: Plan) -> None:
+    """-- wave 110A -- 723.1: control of "their next combat phase" ends with that phase (Secret of Bloodbending)."""
+    for c in plan.rules.player_control:
+        if c.combat and c.status == "pending" and c.controlled == plan.active:
+            c.status = "done"
 
 
 # -- Opposition Agent -- "You control your opponents while they're searching their libraries." (a static ability: the

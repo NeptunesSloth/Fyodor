@@ -169,6 +169,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
     (re.compile(r"players finish voting"), "voted"),  # -- voting (wave 48D) -- 701.38 (triggers.voted)
+    (re.compile(r"(?P<p>you) waterbend, earthbend, firebend, or airbend"), "bend110b"),  # -- (wave 110B) -- wave110b_bend.py
     (re.compile(r"(?P<p>you) waterbend"), "waterbend"),
     (re.compile(r"(?P<p>you) forage"), "forage"),  # -- if you do (wave 26C) -- 701.61: the cost was paid (cost_payment.pay)
     (re.compile(r"(?P<p>you) collect evidence"), "collect_evidence"),  # 701.59

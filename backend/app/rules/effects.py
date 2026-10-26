@@ -857,7 +857,11 @@ def _excess_hits(plan: Plan, src: _Source, hits: list[tuple[_Source, str, int]],
             continue
         amounts = []
         if ch.is_creature and ch.pt is not None:
-            left = max(0, ch.pt[1] - card.damage)
+            from app.rules import (
+                wave110a_zilortha,  # -- wave 110A -- Zilortha: the excess over lethal damage (120.10) counts power
+            )
+
+            left = max(0, (wave110a_zilortha.basis(plan, card, ch, ch.pt[1]) or 0) - card.damage)
             amounts.append(n - (min(left, 1) if "deathtouch" in s_.keywords else left))
         if "Planeswalker" in ch.types:
             amounts.append(n - card.counters.get("loyalty", 0))
@@ -3141,6 +3145,7 @@ def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
                 _wave110l.note_surveilled(plan, pid, chosen)  # -- (wave 110L) -- 701.25a: the cards a surveil put into the graveyard (Eye of Duskmantle)
             else:
                 plan.do({"type": "move", "card_ids": chosen, "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+                _wave110b_cards.note_scry_bottom(plan, pid, chosen)  # -- (wave 110B) -- The Temporal Anchor: "Whenever you choose to put one or more cards on the bottom of your library while scrying"
     finally:
         plan.shuffle_retained = saved_retained
         plan.shuffle_after = saved_after
@@ -7299,3 +7304,18 @@ from app.rules import wave110e_word as _wave110e_word  # noqa: E402, I001  -- Wo
 PRIMITIVES.update(_wave110e_word.PRIMITIVES)
 from app.rules import wave110e_adapt as _wave110e_adapt  # noqa: E402, I001  -- Selective Adaptation (wave 110E) --
 PRIMITIVES.update(_wave110e_adapt.PRIMITIVES)
+
+# -- Havengul Lich (wave 110B) --
+from app.rules import wave110b_lich as _wave110b_lich  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_lich.PRIMITIVES)
+
+# -- Hama, the Bloodbender (wave 110B) --
+from app.rules import wave110b_hama as _wave110b_hama  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_hama.PRIMITIVES)
+RESUME.update(_wave110b_hama.RESUME)
+from app.rules import wave110b_dack as _wave110b_dack  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_dack.PRIMITIVES)
+RESUME.update(_wave110b_dack.RESUME)

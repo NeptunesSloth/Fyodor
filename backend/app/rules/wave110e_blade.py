@@ -20,7 +20,9 @@ LINES = (LINE, CRAFT_LINE)
 
 def kind(plan: Plan, card: Any) -> str | None:
     texts = {ab.text for ab in plan.ch(card).abilities}
-    return "color" if LINE in texts else "craft" if CRAFT_LINE in texts else None
+    from app.rules import wave110a_paper  # -- (wave 110A) -- Psychic Paper asks for a name and a type
+
+    return "color" if LINE in texts else "craft" if CRAFT_LINE in texts else "paper" if wave110a_paper.ASK in texts else None
 
 
 def craft_options(plan: Plan, card: Any) -> list[Any]:
@@ -49,6 +51,10 @@ def ask(plan: Plan, queued: list[str]) -> None:
     if src is None or not src.zone.endswith(":battlefield") or src.attached_to is None:
         queued.pop(0)  # it left or came unattached before it was asked: nothing to choose
         return ask(plan, queued) if queued else None
+    if kind(plan, src) == "paper":
+        from app.rules import wave110a_paper
+
+        return wave110a_paper.ask(plan, src)
     if kind(plan, src) == "craft":
         found = craft_options(plan, src)
         options = [DecisionOption(id=c.id, label=c.name) for c in found]
@@ -100,4 +106,6 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 PRIMITIVES: dict[str, Any] = {}
-RESUME: dict[str, Any] = {"attach_choice110e": resume}
+from app.rules import wave110a_paper as _paper  # noqa: E402  -- wave 110A --
+
+RESUME: dict[str, Any] = {"attach_choice110e": resume, **_paper.RESUME}

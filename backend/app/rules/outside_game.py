@@ -15,6 +15,7 @@ from app.rules.plan import Plan
 
 _HAND = re.compile(r"^(?:you may )?reveal an? (?P<what>.+?) you own from outside the game and put it into your hand$")
 _PUT = re.compile(r"^(?:you may )?put a card you own from outside the game into your hand$")
+_TOP = re.compile(r"^(?:you may )?put a card you own from outside the game on top of your library$")  # (wave 110B, The Raven's Warning)
 _NAMED = re.compile(r"^(?:you may )?reveal a card you own named (?:~|[A-Z][^,.]+) from outside the game and put it into your hand$")
 _PLAY = re.compile(r"^(?:you may )?play a card you own from outside the game this turn$")
 _CAST = re.compile(r"^cast any number of (?P<type>[A-Z][A-Za-z'-]*) spells from among cards you own outside the game without paying their mana costs$")
@@ -46,7 +47,7 @@ def _permission(m: re.Match[str]) -> tuple[list[dict[str, Any]], None]:
     return [{'do':'outside_permission'}], None
 
 
-TEMPLATES = [(pattern, _permission) for pattern in (_HAND, _PUT, _NAMED, _PLAY, _CAST)]
+TEMPLATES = [(pattern, _permission) for pattern in (_HAND, _PUT, _TOP, _NAMED, _PLAY, _CAST)]
 
 
 def plain(body: str) -> str:
@@ -56,7 +57,7 @@ def plain(body: str) -> str:
         part = part.strip()
         clause = part.removesuffix(".")
         clause = clause[:1].lower() + clause[1:]
-        if clause.startswith("you may ") and any(p.fullmatch(clause) for p in (_HAND, _NAMED, _PLAY, _PUT)):
+        if clause.startswith("you may ") and any(p.fullmatch(clause) for p in (_HAND, _NAMED, _PLAY, _PUT, _TOP)):
             parts[i] = part[len("you may "):]
     return ". ".join(parts)
 

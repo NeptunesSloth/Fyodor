@@ -2328,7 +2328,32 @@
    "Deathtouch"
   ],
   "power": null,
-  "toughness": null
+  "toughness": null,
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Invasion of Fiora",
+    "mana_cost": "{4}{B}{B}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, choose one or both —\n• Destroy all legendary creatures.\n• Destroy all nonlegendary creatures.",
+    "defense": "4",
+    "colors": [
+     "B"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Marchesa, Resolute Monarch",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Human Noble",
+    "oracle_text": "Menace, deathtouch\nWhenever Marchesa attacks, remove all counters from up to one target permanent.\nAt the beginning of your upkeep, if you haven't been dealt combat damage since your last turn, you draw a card and you lose 1 life.",
+    "power": "3",
+    "toughness": "6",
+    "colors": [
+     "B"
+    ]
+   }
+  ]
  },
  {
   "name": "Behemoth of Vault 0",
@@ -2603,5 +2628,475 @@
   "keywords": [],
   "power": null,
   "toughness": null
+ },
+ {
+  "name": "The Temporal Anchor",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Legendary Artifact",
+  "oracle_text": "At the beginning of your upkeep, scry 2.\nWhenever you choose to put one or more cards on the bottom of your library while scrying, exile that many cards from the bottom of your library.\nDuring your turn, you may play cards exiled with The Temporal Anchor.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Scry"
+  ],
+  "power": null,
+  "toughness": null
+ },
+ {
+  "name": "The Raven's Warning",
+  "layout": "saga",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Create a 1/1 blue Bird creature token with flying. You gain 2 life.\nII — Whenever one or more creatures you control with flying deal combat damage to a player this turn, look at that player's hand and draw a card.\nIII — You may put a card you own from outside the game on top of your library.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": null,
+  "toughness": null
+ },
+ {
+  "name": "Summon: Brynhildr",
+  "layout": "saga",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Enchantment Creature — Saga Knight",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Chain — Exile the top card of your library. During any turn you put a lore counter on this Saga, you may play that card.\nII, III — Gestalt Mode — When you next cast a creature spell this turn, it gains haste until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "The Rise of Sozin // Fire Lord Sozin",
+  "layout": "transform",
+  "mana_cost": "{4}{B}{B} // ",
+  "cmc": 6.0,
+  "type_line": "Enchantment — Saga // Legendary Creature — Human Noble",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — Destroy all creatures.\nII — Choose a card name. Search target opponent's graveyard, hand, and library for up to four cards with that name and exile them. Then that player shuffles.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.\n//\nMenace, firebending 3 (Whenever this creature attacks, add {R}{R}{R}. This mana lasts until end of combat.)\nWhenever Fire Lord Sozin deals combat damage to a player, you may pay {X}. When you do, put any number of target creature cards with total mana value X or less from that player's graveyard onto the battlefield under your control.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Transform",
+   "Firebending",
+   "Menace"
+  ],
+  "power": null,
+  "toughness": null,
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "The Rise of Sozin",
+    "mana_cost": "{4}{B}{B}",
+    "type_line": "Enchantment — Saga",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — Destroy all creatures.\nII — Choose a card name. Search target opponent's graveyard, hand, and library for up to four cards with that name and exile them. Then that player shuffles.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.",
+    "colors": [
+     "B"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Fire Lord Sozin",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Human Noble",
+    "oracle_text": "Menace, firebending 3 (Whenever this creature attacks, add {R}{R}{R}. This mana lasts until end of combat.)\nWhenever Fire Lord Sozin deals combat damage to a player, you may pay {X}. When you do, put any number of target creature cards with total mana value X or less from that player's graveyard onto the battlefield under your control.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+     "B"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Havengul Lich",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{B}",
+  "cmc": 5.0,
+  "type_line": "Creature — Zombie Wizard",
+  "oracle_text": "{1}: You may cast target creature card in a graveyard this turn. When you cast it this turn, this creature gains all activated abilities of that card until end of turn.",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Slicer, Hired Muscle // Slicer, High-Speed Antagonist",
+  "layout": "transform",
+  "mana_cost": "{4}{R} // ",
+  "cmc": 5.0,
+  "type_line": "Legendary Artifact Creature — Robot // Legendary Artifact — Vehicle",
+  "oracle_text": "More Than Meets the Eye {2}{R} (You may cast this card converted for {2}{R}.)\nDouble strike, haste\nAt the beginning of each opponent's upkeep, you may have that player gain control of Slicer until end of turn. If you do, untap Slicer, goad it, and it can't be sacrificed this turn. If you don't, convert it.\n//\nLiving metal (During your turn, this Vehicle is also a creature.)\nFirst strike, haste\nWhenever Slicer deals combat damage to a player, convert it at end of combat.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Goad",
+   "Living metal",
+   "First strike",
+   "Haste",
+   "Convert",
+   "More Than Meets the Eye",
+   "Double strike"
+  ],
+  "power": "3",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Slicer, Hired Muscle",
+    "mana_cost": "{4}{R}",
+    "type_line": "Legendary Artifact Creature — Robot",
+    "oracle_text": "More Than Meets the Eye {2}{R} (You may cast this card converted for {2}{R}.)\nDouble strike, haste\nAt the beginning of each opponent's upkeep, you may have that player gain control of Slicer until end of turn. If you do, untap Slicer, goad it, and it can't be sacrificed this turn. If you don't, convert it.",
+    "power": "3",
+    "toughness": "4",
+    "colors": [
+     "R"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Slicer, High-Speed Antagonist",
+    "mana_cost": "",
+    "type_line": "Legendary Artifact — Vehicle",
+    "oracle_text": "Living metal (During your turn, this Vehicle is also a creature.)\nFirst strike, haste\nWhenever Slicer deals combat damage to a player, convert it at end of combat.",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+     "R"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Niv-Mizzet Reborn",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Dragon Avatar",
+  "oracle_text": "Flying\nWhen Niv-Mizzet enters, reveal the top ten cards of your library. For each color pair, choose a card that's exactly those colors from among them. Put the chosen cards into your hand and the rest on the bottom of your library in a random order.",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Night Shift of the Living Dead",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Enchantment",
+  "oracle_text": "After you roll a die, you may pay 1 life. If you do, increase or decrease the result by 1. Do this only once each turn.\nWhenever you roll a 6, create a 2/2 black Zombie Employee creature token.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": null,
+  "toughness": null
+ },
+ {
+  "name": "Aang, Swift Savior // Aang and La, Ocean's Fury",
+  "layout": "transform",
+  "mana_cost": "{1}{W}{U} // ",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Human Avatar Ally // Legendary Creature — Avatar Spirit Ally",
+  "oracle_text": "Flash\nFlying\nWhen Aang enters, airbend up to one other target creature or spell. (Exile it. While it's exiled, its owner may cast it for {2} rather than its mana cost.)\nWaterbend {8}: Transform Aang.\n//\nReach, trample\nWhenever Aang and La attack, put a +1/+1 counter on each tapped creature you control.",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Reach",
+   "Airbend",
+   "Transform",
+   "Trample",
+   "Flash",
+   "Waterbend"
+  ],
+  "power": "2",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Aang, Swift Savior",
+    "mana_cost": "{1}{W}{U}",
+    "type_line": "Legendary Creature — Human Avatar Ally",
+    "oracle_text": "Flash\nFlying\nWhen Aang enters, airbend up to one other target creature or spell. (Exile it. While it's exiled, its owner may cast it for {2} rather than its mana cost.)\nWaterbend {8}: Transform Aang.",
+    "power": "2",
+    "toughness": "3",
+    "colors": [
+     "U",
+     "W"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Aang and La, Ocean's Fury",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Avatar Spirit Ally",
+    "oracle_text": "Reach, trample\nWhenever Aang and La attack, put a +1/+1 counter on each tapped creature you control.",
+    "power": "5",
+    "toughness": "5",
+    "colors": []
+   }
+  ]
+ },
+ {
+  "name": "Earthbender Ascension",
+  "layout": "normal",
+  "mana_cost": "{2}{G}",
+  "cmc": 3.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, earthbend 2. Then search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\nLandfall — Whenever a land you control enters, put a quest counter on this enchantment. When you do, if it has four or more quest counters on it, put a +1/+1 counter on target creature you control. It gains trample until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Earthbend",
+   "Landfall"
+  ],
+  "power": null,
+  "toughness": null
+ },
+ {
+  "name": "Airbender Ascension",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Enchantment",
+  "oracle_text": "When this enchantment enters, airbend up to one target creature.\nWhenever a creature you control enters, put a quest counter on this enchantment.\nAt the beginning of your end step, if this enchantment has four or more quest counters on it, exile up to one target creature you control, then return it to the battlefield under its owner's control.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Airbend"
+  ],
+  "power": null,
+  "toughness": null
+ },
+ {
+  "name": "Ruthless Waterbender",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Creature — Human Soldier Ally",
+  "oracle_text": "Waterbend {2}: This creature gets +1/+1 until end of turn. Activate only during your turn. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Waterbend"
+  ],
+  "power": "1",
+  "toughness": "3"
+ },
+ {
+  "name": "Earthquake",
+  "layout": "normal",
+  "mana_cost": "{X}{R}",
+  "cmc": 1.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Earthquake deals X damage to each creature without flying and each player.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [],
+  "power": null,
+  "toughness": null
+ },
+ {
+  "name": "Fractured Powerstone",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add {C}.\n{T}: Roll the planar die. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": null,
+  "toughness": null
+ },
+ {
+  "name": "Hama, the Bloodbender",
+  "layout": "normal",
+  "mana_cost": "{2}{U/B}{U/B}{U/B}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Warlock",
+  "oracle_text": "When Hama enters, target opponent mills three cards. Exile up to one noncreature, nonland card from that player's graveyard. For as long as you control Hama, you may cast the exiled card during your turn by waterbending {X} rather than paying its mana cost, where X is its mana value. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Mill",
+   "Waterbend"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Ertai's Meddling",
+  "layout": "normal",
+  "mana_cost": "{X}{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "X can't be 0.\nTarget spell's controller exiles it with X delay counters on it.\nAt the beginning of each of that player's upkeeps, if that card is exiled, remove a delay counter from it. If the card has no delay counters on it, the player puts it onto the stack as a copy of the original spell.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Susan Foreman",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Time Lord",
+  "oracle_text": "If you would planeswalk, instead look at the top two cards of your planar deck, put one on the bottom of your planar deck and the other on top, then planeswalk.\n{T}: Add {G}.\nDoctor's companion (You can have two commanders if the other is the Doctor.)",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Doctor's companion"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Dack Fayden, Helping Hand",
+  "layout": "normal",
+  "mana_cost": "{4}{W}{W}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Human Advisor",
+  "oracle_text": "When Dack Fayden enters, reveal cards from the top of your library until you reveal X creature cards, where X is the number of opponents you have. Put those creature cards onto the battlefield, then shuffle. They're goaded for the rest of the game. For each of those permanents, choose a different opponent. Each opponent gains control of the permanent for which they were chosen.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "6"
+ },
+ {
+  "name": "The Fourteenth Doctor",
+  "layout": "normal",
+  "mana_cost": "{R/G}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Legendary Creature — Time Lord Doctor",
+  "oracle_text": "When you cast this spell, reveal the top fourteen cards of your library. Put all Doctor cards revealed this way into your graveyard and the rest on the bottom of your library in a random order.\nYou may have The Fourteenth Doctor enter as a copy of a Doctor card in your graveyard that was put there from your library this turn. If you do, it gains haste until end of turn.",
+  "colors": [
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "4"
+ },
+ {
+  "name": "Donald Blake, Guise of Thor",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Human Doctor",
+  "oracle_text": "Lifelink\nPower-up — {4}{W}{W}: Put two +1/+1 counters and a flying counter on Donald Blake. He becomes a God Warrior Hero. (He loses all other creature types. Activate each power-up ability only once. Reduce the cost by his mana cost if he entered this turn.)",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Power-up",
+   "Lifelink"
+  ],
+  "power": "1",
+  "toughness": "3"
  }
 ]

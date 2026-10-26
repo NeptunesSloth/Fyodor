@@ -481,7 +481,7 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     # -- static_other sweep (wave 16B) -- 706.3: a results table's rows (one per line) belong to the roll before them
     merged: list[str] = []
     for line in lines:
-        if merged and re.match(r"^\d+(?:[—–-]\d+|\+| or less)? \| ", line) and re.search(r"\broll a (?:d\d+|\w+-sided die)\b", merged[-1], re.I) \
+        if merged and re.match(r"^\d+(?:[—–-]\d+|\+| or less)? \| ", line) and re.search(r"\broll (?:a (?:d\d+|\w+-sided die)|two d20 and ignore the lower roll)\b", merged[-1], re.I) \
                 and (not re.search(r"\bactivate only\b", merged[-1], re.I)
                      or (merged[-1].endswith("Activate only as a sorcery.") and merged[-1].lower().count("activate only") == 1)):
             restriction = "Activate only as a sorcery." if merged[-1].endswith("Activate only as a sorcery.") else ""
