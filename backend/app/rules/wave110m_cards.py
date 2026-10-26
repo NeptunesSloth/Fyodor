@@ -81,6 +81,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
         inner = first_reveal100b.definition(replace(ability, text="Reveal the first card you draw each turn." + reveal["rest"]), ch)
         return None if inner is None else {**inner, "static": MAY_REVEAL}
+    if ability.text.strip() == _OLAG:
+        return {"kind": "static", "static": "olag110m", "effects": []}  # (its work is done by Ludevic's ability: ``olag``)
     if ability.kind == "static" and ability.text.strip() == _WALL_SHADOWS:
         return statics._definition("self", None, [], rules=["wall_shadow110m"])
     if ability.kind == "static" and ability.text.strip() == _CENTAUR_STATIC:
@@ -935,6 +937,49 @@ def triplets(plan: Any, ctx: Def, e: Def) -> bool:
     return True
 
 
+_LUDEVIC = "{X}{U}{U}{B}{B}, Exile X creature cards from your graveyard: Transform Ludevic. X can't be 0. Activate only as a sorcery."
+_OLAG = ("As this creature transforms into Olag, Ludevic's Hubris, it becomes a copy of a creature card exiled with it, except its name is Olag, Ludevic's Hubris, it's 4/4, and it's a legendary "
+         "blue and black Zombie in addition to its other colors and types. Put a number of +1/+1 counters on Olag equal to the number of creature cards exiled with it.")
+_BUILD[_LUDEVIC] = ("{X}{U}{U}{B}{B}, Exile X creature cards from your graveyard: Transform this creature. Activate only as a sorcery.",
+                    lambda d: {**d, "x_min": 1, "effects": [*d["effects"], {"do": "olag110m"}]})
+_BUILD[_LUDEVIC.replace("Ludevic.", "this creature.")] = _BUILD[_LUDEVIC]
+
+
+def olag(plan: Any, ctx: Def, e: Def) -> bool:
+    """Ludevic: as it transforms into Olag it becomes a copy of a creature card exiled with it (707.2, 707.9: the exceptions), its controller choosing among them, and gets a +1/+1 counter for
+    each creature card exiled with it. Done as the ability's transform happens: nothing can act between the two."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    exiled = [c for c in effects._cards(plan, ctx, "cost:exiled") if plan.state.cards[c].zone.endswith(":exile") and plan.ch(plan.state.cards[c]).is_creature]
+    ctx["olag_n110m"] = len(exiled)
+    if not exiled:
+        return True
+    if len(exiled) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name', '')}: choose a creature card exiled with it to become a copy of",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in exiled], resume={"step": "olag110m", "ctx": ctx})
+        return False
+    return _olag_copy(plan, ctx, exiled[0])
+
+
+def _olag_copy(plan: Any, ctx: Def, cid: str) -> bool:
+    from app.rules import context, effects
+
+    context.bind_objects(plan, ctx, "olag_src110m", [cid])
+    effects.PRIMITIVES["become_copy"](plan, ctx, {"do": "become_copy", "who": "self", "with": "ref:olag_src110m", "excepts": [
+        {"name": "Olag, Ludevic's Hubris", "power": "4", "toughness": "4", "add_supertypes": ["Legendary"], "add_colors": ["U", "B"], "add_subtypes": ["Zombie"]}]})
+    return effects.PRIMITIVES["add_counters"](plan, ctx, {"do": "add_counters", "who": "self", "kind": "+1/+1", "n": ctx["olag_n110m"]})
+
+
+def resume_olag(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if _olag_copy(plan, ctx, chosen[0]):
+        effects.continue_effects(plan, ctx)
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -1590,6 +1635,6 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"reveal_may110m": resume_reveal_may, "myra110m": resume_myra, "alaundo110m": resume_alaundo, "rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+RESUME: dict[str, Any] = {"olag110m": resume_olag, "reveal_may110m": resume_reveal_may, "myra110m": resume_myra, "alaundo110m": resume_alaundo, "rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"triplets110m": triplets, "myra_choose110m": myra_choose, "reverse_turn_order110m": reverse_turn_order, "coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"olag110m": olag, "triplets110m": triplets, "myra_choose110m": myra_choose, "reverse_turn_order110m": reverse_turn_order, "coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

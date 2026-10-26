@@ -1534,5 +1534,53 @@
 "keywords": [],
 "power": "3",
 "toughness": "3"
+},
+{
+"name": "Ludevic, Necrogenius // Olag, Ludevic's Hubris",
+"layout": "transform",
+"mana_cost": "{U}{B} // ",
+"cmc": 2.0,
+"type_line": "Legendary Creature — Human Wizard // Legendary Creature — Zombie",
+"oracle_text": "Whenever Ludevic enters or attacks, mill a card.\n{X}{U}{U}{B}{B}, Exile X creature cards from your graveyard: Transform Ludevic. X can't be 0. Activate only as a sorcery.\n//\nAs this creature transforms into Olag, Ludevic's Hubris, it becomes a copy of a creature card exiled with it, except its name is Olag, Ludevic's Hubris, it's 4/4, and it's a legendary blue and black Zombie in addition to its other colors and types. Put a number of +1/+1 counters on Olag equal to the number of creature cards exiled with it.",
+"power": "2",
+"toughness": "3",
+"colors": [
+"B",
+"U"
+],
+"color_identity": [
+"B",
+"U"
+],
+"keywords": [
+"Transform",
+"Mill"
+],
+"card_faces": [
+{
+"name": "Ludevic, Necrogenius",
+"mana_cost": "{U}{B}",
+"type_line": "Legendary Creature — Human Wizard",
+"oracle_text": "Whenever Ludevic enters or attacks, mill a card.\n{X}{U}{U}{B}{B}, Exile X creature cards from your graveyard: Transform Ludevic. X can't be 0. Activate only as a sorcery.",
+"power": "2",
+"toughness": "3",
+"colors": [
+"B",
+"U"
+]
+},
+{
+"name": "Olag, Ludevic's Hubris",
+"mana_cost": "",
+"type_line": "Legendary Creature — Zombie",
+"oracle_text": "As this creature transforms into Olag, Ludevic's Hubris, it becomes a copy of a creature card exiled with it, except its name is Olag, Ludevic's Hubris, it's 4/4, and it's a legendary blue and black Zombie in addition to its other colors and types. Put a number of +1/+1 counters on Olag equal to the number of creature cards exiled with it.",
+"power": "4",
+"toughness": "4",
+"colors": [
+"B",
+"U"
+]
+}
+]
 }
 ]

@@ -379,3 +379,45 @@ def test_an_enchantment_that_already_has_cumulative_upkeep_cannot_be_targeted(ca
     s.state.cards[shaman.id].tapped = False
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=shaman.id, ability=0, targets=[crusade.id])
+
+
+# -- Ludevic, Necrogenius // Olag, Ludevic's Hubris -------------------------------------------------------------------------------------------
+LUDEVIC = "Ludevic, Necrogenius // Olag, Ludevic's Hubris"
+test_ludevic_full = full_test([LUDEVIC])
+
+
+def ludevic_table(cards, x=2, extra=()):
+    s = build(cards, [LUDEVIC, "Grizzly Bears", "Hill Giant", *extra], ["Elite Vanguard"], forests=20)
+    ludevic = put(s, LUDEVIC)
+    ready(s, LUDEVIC)
+    gy = []
+    for n in ("Grizzly Bears", "Hill Giant"):
+        c = card_named(s, n)
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+        gy.append(c)
+    return s, ludevic, gy
+
+
+def olag_activate(s, ludevic, exiled, x):
+    mana(s, U=2, B=2, C=x)
+    act(s, "p1", type="activate_ability", card_id=ludevic.id, ability=1, x_value=x, cost_choices=[{"component": 1, "cards": [c.id for c in exiled]}])
+
+
+def test_ludevic_becomes_olag_a_copy_of_the_chosen_exiled_creature_with_counters(cards):
+    s, ludevic, gy = ludevic_table(cards)
+    olag_activate(s, ludevic, gy, 2)
+    d = s.state.rules.decision
+    assert d is not None and set(o.id for o in d.options) == {c.id for c in gy}  # (a choice of the creature cards exiled with it)
+    giant = next(c for c in gy if c.name == "Hill Giant")
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[giant.id])
+    answer(s)
+    olag = ch(s, s.state.cards[ludevic.id])
+    assert olag.name == "Olag, Ludevic's Hubris" and olag.pt == (6, 6)  # (4/4 and two +1/+1 counters)
+    assert "Legendary" in olag.supertypes and "Zombie" in olag.subtypes and "Giant" in olag.subtypes and {"U", "B", "R"} <= set(olag.colors)
+    check(s)
+
+
+def test_x_cannot_be_zero(cards):
+    s, ludevic, gy = ludevic_table(cards)
+    with pytest.raises(ActionError):
+        olag_activate(s, ludevic, [], 0)
