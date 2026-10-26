@@ -219,7 +219,31 @@ def return_next_end(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def _towershell(d: Def) -> Def:
+    """603.7, 508.4: the delayed return waits for the declare attackers step of its controller's next turn, and the creature enters attacking."""
+    out = []
+    for e in d["effects"]:
+        if e["do"] == "delayed":
+            e = {**e, "when": {**e["when"], "step": "declare_attackers"}}
+        elif e["do"] == "deferred:return_card":
+            e = {**e, "attacking": True}
+        out.append(e)
+    return {**d, "effects": out}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Nissa of Shadowed Boughs: "you may have it become" asks before the become + "still a land" pair (unless_pays.may_rest skip 2), 205.1b
+    "+1: Untap target land you control. You may have it become a 3/3 Elemental creature with haste and menace until end of turn. It's still a land.":
+        ("+1: Untap target land you control. It becomes a 3/3 Elemental creature with haste and menace until end of turn. It's still a land.",
+         lambda d: {**d, "effects": [d["effects"][0], {"do": "may_rest", "skip": 2, "label": "Make it a 3/3 Elemental creature"}, *d["effects"][1:]]}),
+    "\u22125: You may put a creature card with mana value less than or equal to the number of lands you control onto the battlefield from your hand or "
+    "graveyard with two +1/+1 counters on it.":
+        ("-5: Put a creature card with mana value less than or equal to the number of lands you control from your hand or graveyard onto the battlefield "
+         "with two +1/+1 counters on it.", lambda d: {**d, "effects": [{"do": "may_rest"}, *d["effects"]]}),
+    # Meandering Towershell
+    "Whenever this creature attacks, exile it. Return it to the battlefield under your control tapped and attacking at the beginning of the declare "
+    "attackers step on your next turn.":
+        ("Whenever this creature attacks, exile it. Return it to the battlefield under your control tapped at the beginning of your next end step.", _towershell),
     # Autumn's Veil: 101.2, 701.6 its controller's spells can't be countered by blue or black spells this turn (shielded), plus the targeting half
     "Spells you control can't be countered by blue or black spells this turn, and creatures you control can't be the targets of blue or black spells this turn.":
         ("Creatures you control can't be the targets of blue or black spells this turn.",

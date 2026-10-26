@@ -17,15 +17,18 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
 from tests.wave110b_kit import (
+    attack,
     build,
     card_named,
     cast,
     ch,
     check,
     drive,
+    life,
     mana,
     put,
     repository,
+    through_combat,
     to_hand,
     zone_of,
 )
@@ -263,3 +266,61 @@ def test_autumns_veil_blue_spells_cant_target_your_creatures(cards):
     with pytest.raises(ActionError):
         cast(s, "Unsummon", [bears.id], pid="p2")
     assert zone_of(s, "Grizzly Bears") == "p1:battlefield"
+
+
+def test_meandering_towershell_returns_attacking_next_turn(cards):
+    """603.7, 508.4: exiled as it attacks, it returns tapped and attacking as its controller's next declare attackers step begins."""
+    s = build(cards, ["Meandering Towershell", "Grizzly Bears"], [])
+    shell = put(s, "Meandering Towershell")
+    attack(s, shell)
+    drive(s)
+    assert s.state.cards[shell.id].zone == "p1:exile"
+    to_phase(s, "main1", turn=3)
+    attack(s, put(s, "Grizzly Bears"))
+    through_combat(s)
+    assert card_named(s, "Meandering Towershell").zone == "p1:battlefield" and card_named(s, "Meandering Towershell").tapped
+    assert life(s, "p2") == 40 - 2 - 5  # (the Bears and the returned Turtle both dealt combat damage)
+    check(s)
+
+
+def _nissa(cards, graveyard=()):
+    s = build(cards, ["Nissa of Shadowed Boughs", "Serra Angel", "Elvish Mystic", "Forest", "Forest", "Forest"], [])
+    nissa = put(s, "Nissa of Shadowed Boughs")
+    act(s, "p1", type="counter", card_ids=[nissa.id], kind="loyalty", delta=5 - s.state.cards[nissa.id].counters.get("loyalty", 0))
+    for n in graveyard:
+        act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"player": "p1", "zone": "graveyard"})
+    return s, nissa
+
+
+@pytest.mark.parametrize("answer", ["yes", "no"])
+def test_nissa_shadowed_boughs_plus_one_may_animate_the_land(cards, answer):
+    """205.1b, 608.2d: untap the land; only if you choose it becomes a 3/3 haste menace Elemental creature land until end of turn."""
+    s, nissa = _nissa(cards)
+    forest = put(s, "Forest")
+    act(s, "p1", type="tap", card_ids=[forest.id], tapped=True)
+    act(s, "p1", type="activate_ability", card_id=nissa.id, ability=1)
+    drive(s, lambda d: [forest.id] if forest.id in [o.id for o in d.options] else [answer] if answer in [o.id for o in d.options] else None)
+    c = s.state.cards[forest.id]
+    assert not c.tapped
+    ch_ = ch(s, c)
+    assert ch_.is_creature == (answer == "yes") and ch_.is_land
+    assert (ch_.pt == (3, 3) and "menace" in ch_.keywords) if answer == "yes" else True
+    check(s)
+
+
+@pytest.mark.parametrize("hand_or_yard, name, ok", [("graveyard", "Serra Angel", False), ("graveyard", "Elvish Mystic", True), ("hand", "Elvish Mystic", True)])
+def test_nissa_shadowed_boughs_minus_five_mana_value_up_to_lands(cards, hand_or_yard, name, ok):
+    """608.2c: a creature card (hand or graveyard) with mana value at most your lands (2 here) enters with two +1/+1 counters."""
+    s, nissa = _nissa(cards, graveyard=[name] if hand_or_yard == "graveyard" else ())
+    if hand_or_yard == "hand":
+        to_hand(s, name)
+    put(s, "Forest")
+    put(s, "Forest")
+    act(s, "p1", type="activate_ability", card_id=nissa.id, ability=2)
+    drive(s, lambda d: [o.id for o in d.options if o.id != "no"][:1])
+    c = card_named(s, name)
+    if ok:
+        assert c.zone == "p1:battlefield" and c.counters.get("+1/+1") == 2
+    else:
+        assert c.zone == "p1:graveyard"
+    check(s)
