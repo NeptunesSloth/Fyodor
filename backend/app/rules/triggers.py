@@ -3024,6 +3024,14 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
                     plan.note(f"{t.name}'s ability has no unique player to choose its target and is removed")
                     return True
                 choice_player = event_players[0]
+            if t.ability.get("target_choice") == "entering110c":  # -- Pandemonium (wave 110C) -- the entering permanent's controller picks the target (ruling 2006-09-25)
+                from app.rules import wave110c_misc
+
+                if (entering := wave110c_misc.entering_controller(plan, t.event)) is None:
+                    r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+                    plan.note(f"{t.name}'s ability has no player to choose its target and is removed")
+                    return True
+                choice_player = entering
             if t.ability.get("target_choice") == "defending100j":  # -- counters (wave 100J) -- "of defending player's choice" (Erithizon: 508.5)
                 if t.event is None or t.event.defended not in plan.live():
                     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]

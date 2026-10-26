@@ -368,6 +368,10 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
                         if not inner.get('layer4') and not inner.get('base'):
                             out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
                         continue
+                    if inner is not None and inner.get("static") == "grant" and inner.get("who") == "attached" and (inner.get("p") or inner.get("t")) \
+                            and not any(inner.get(k) for k in ("layer4", "base", "grants", "keywords", "rules", "each", "also", "conditions")):  # -- Everflame (wave 110C) -- 613.7, 301.5: a gained "Equipped creature gets +N/+N" works for what it is attached to
+                        out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
+                        continue
                     if inner is None or (inner.get("who") != "self" and not damage_retention83.resolved_static(inner)) or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
                         continue
                     if inner.get("keywords") or inner.get("rules") or inner.get("each"):  # (each: "gets +1/+1 for each ..." granted by a resolved effect, 613.4c; wave 110D)

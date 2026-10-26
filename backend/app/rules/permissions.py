@@ -2429,7 +2429,8 @@ def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
         card = plan.state.cards.get(found or "")
         return [found] if found is not None and card is not None and card.zone.endswith((":exile", ":library")) else []
     if zone == "target":
-        return [t["id"] for t in ctx.get("targets") or [] if t.get("id") in plan.state.cards
+        return [t["id"] for t in (ctx.get("targets") or [] if not e.get("all_groups110c") else [x for g in ctx.get("groups") or [] for x in g if x])  # -- (wave 110C) -- Finale of Promise: every target group
+                if t.get("id") in plan.state.cards
                 and plan.state.cards[t["id"]].zone.endswith(":graveyard")]
     if zone == "graveyard":  # your graveyard, or every graveyard (public zones)
         whose = [pid] if e.get("whose") == "you" else plan.live()

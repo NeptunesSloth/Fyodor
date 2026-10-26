@@ -952,6 +952,12 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
                 plan.note("The exiled cost card's types weren't saved; put its entry counter on by hand if it was an instant or sorcery", [card_id])
                 continue
             amount += bool({"Instant", "Sorcery"} & set(types))
+    elif isinstance(n, dict) and n.get("entry_returned_mv110c"):  # -- web-slinging (wave 110C) -- 702.188a, 608.2h: the returned creature's mana value as it last existed
+        from app.rules.triggers import _snapshot_card
+
+        paid = plan.rules.payments.get(plan.oid(card_id))
+        snaps = [plan.rules.lki.get(o) for o in (paid.returned_objects or [])] if paid is not None and paid.alternative == "web-slinging" else []
+        amount = sum(int(_snapshot_card(plan, s)[1].mana_value) for s in snaps if s is not None)
     elif isinstance(n, dict) and n.get("entry_discarded_mana_value"):
         paid = plan.rules.payments.get(plan.oid(card_id))
         amount = 0
@@ -1947,7 +1953,7 @@ def offer_903_9b(plan: Plan, *, only: str | None = None) -> bool:
 
 # Effect primitives that may put a card from a public zone into its owner's hand or library.
 MOVERS_903_9B = frozenset({"bounce", "return_card", "return_choice", "return_yours", "to_library", "shuffle_library",
-                           "delayed_move", "counter"})
+                           "delayed_move", "counter", "warp_shuffle110c"})  # (wave 110C: Warp World shuffles every permanent in)
 
 
 def ask_903_9b_first(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
