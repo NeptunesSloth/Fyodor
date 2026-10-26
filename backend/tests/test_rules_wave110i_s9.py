@@ -10,8 +10,8 @@ from app.game.errors import ActionError
 from tests.game_helpers import act, mana_pool
 from tests.test_rules_designations import build as designations_build
 from tests.test_rules_designations import put, roundtrip
-from tests.test_rules_wave34b_activated import attack, next_turn, stops, to_phase
 from tests.test_rules_wave12a_counters_keywords import real
+from tests.test_rules_wave34b_activated import attack, next_turn, stops, to_phase
 from tests.wave110c_kit import make_db
 
 EXTRA = [real("Awesome Presence", "{U}", 1, "Enchantment \u2014 Aura", "Enchant creature\nEnchanted creature can't be blocked unless defending player pays {3} for each creature they control that's blocking it.", None, "U"),
