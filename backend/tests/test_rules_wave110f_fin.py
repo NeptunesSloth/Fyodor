@@ -557,3 +557,73 @@ def test_riku_ignores_a_spell_that_is_not_modal(cards):
         act(s, s.state.rules.priority, type="pass_priority")
     assert life(s, "p2") == 39
     check(s)
+
+
+_IDRIS = ("Vanishing 3\nImprint — When Idris enters, exile another artifact you control until Idris leaves the battlefield.\n"
+          "Idris has all activated and triggered abilities of the exiled card and gets +X/+X, where X is the exiled card's mana value.")
+_BASE.extend([
+    real("Idris, Soul of the TARDIS", "{1}{U}{R}", 3, "Legendary Creature — Human Incarnation", _IDRIS, ("3", "3"), "RU"),
+    real("Test Relic 110FI", "{3}", 3, "Artifact", "{1}, {T}: You gain 2 life.\nWhenever you cast a spell, you gain 1 life.", None, ""),
+])
+
+
+def test_idris_full(cards):
+    assert coverage.of_card_data(cards.resolve("Idris, Soul of the TARDIS")).level == "FULL"
+
+
+def _idris(cards):
+    s = build(cards, ["Idris, Soul of the TARDIS", "Test Relic 110FI", "Test Smite 110FG"], [])
+    relic = put(s, "Test Relic 110FI")
+    mana(s, "p1", U=1, R=1, C=1)
+    cast(s, "Idris, Soul of the TARDIS")
+    answer(s)
+    return s, relic
+
+
+def test_idris_exiles_an_artifact_and_gets_its_abilities_and_mana_value(cards):
+    """113.10, 613.1f, 613.4c: +3/+3 (the exiled card's mana value), its activated and its triggered ability; leaving gives the artifact back (610.3)."""
+    from tests.test_rules_wave34b_activated import ability
+    from tests.wave9c_kit import pt
+
+    s, relic = _idris(cards)
+    assert s.state.cards[relic.id].zone == "p1:exile" and pt(s, "Idris, Soul of the TARDIS") == (6, 6)
+    idris = card_named(s, "Idris, Soul of the TARDIS")
+    from app.rules.plan import Plan
+
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[idris.id])
+    assert any(a.kind == "activated" and "gain 2 life" in a.text for a in ch.abilities) and any(a.kind == "triggered" and "cast a spell" in a.text for a in ch.abilities)
+    ready = ability(s, "Idris, Soul of the TARDIS", "p1", "gain 2 life")
+    s.state.rules.controlled_since[idris.id].turn = 0
+    mana(s, "p1", C=1)
+    act(s, "p1", type="activate_ability", card_id=idris.id, ability=ready)
+    answer(s)
+    assert life(s, "p1") == 43  # (1 from the relic's own trigger as Idris was cast, 2 from the borrowed ability)
+    check(s)
+
+
+def test_idris_leaving_returns_the_artifact_and_the_bonus_ends(cards):
+
+    s, relic = _idris(cards)
+    idris = card_named(s, "Idris, Soul of the TARDIS")
+    mana(s, "p1", B=1)
+    cast(s, "Test Smite 110FG", [idris.id])
+    answer(s)
+    assert s.state.cards[idris.id].zone == "p1:graveyard" and s.state.cards[relic.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_idris_borrowed_triggered_ability_triggers(cards):
+    """113.10: the exiled relic's "Whenever you cast a spell" now triggers for Idris (the relic itself is in exile: only Idris has it)."""
+    s = build(cards, ["Idris, Soul of the TARDIS", "Test Relic 110FI", "Test Bolt 110FF"], [])
+    put(s, "Test Relic 110FI")
+    mana(s, "p1", U=1, R=1, C=1)
+    cast(s, "Idris, Soul of the TARDIS")
+    answer(s)
+    base = life(s, "p1")
+    mana(s, "p1", R=2)
+    from tests.wave9c_kit import to_hand
+
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Bolt 110FF").id, targets=["p2"])
+    answer(s, "p2")
+    assert life(s, "p1") == base + 1 and life(s, "p2") == 37
+    check(s)

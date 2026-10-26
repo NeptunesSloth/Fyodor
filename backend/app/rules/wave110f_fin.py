@@ -45,6 +45,9 @@ _TAHNGARTH = ("Whenever an opponent attacks with one or more creatures, if ~ is 
               "If you do, choose a player or planeswalker that opponent is attacking. ~ is attacking that player or planeswalker.")
 
 
+_IDRIS = "~ has all activated and triggered abilities of the exiled card and gets +X/+X, where X is the exiled card's mana value."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -129,6 +132,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if probe is None or probe["kind"] != "triggered" or not probe.get("optional"):
             return {}
         return {**probe, "effects": [{"do": "tahngarth110f"}]}
+    if ability.kind == "static" and text == _IDRIS:  # 113.10, 613.1f the exiled card's abilities, 613.4c +X/+X, X its mana value (X in its cost is 0: 2023-10-13 ruling); none exiled: neither
+        from app.rules.statics import _definition
+
+        d = _definition("self", None, [], abilities_of={"sel": None, "linked": True, "no_mana": False, "triggered": True})
+        d["each"] = {"p": 1, "t": 1, "value": {"linked_pool": {"projection": "total_mv110f"}}}
+        return d
     return None
 
 
