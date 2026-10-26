@@ -1689,6 +1689,8 @@ def _targets_only_suffix(s: Selector, m: re.Match[str]) -> Selector:
     sub = parse(w[len("a single "):]) if w.startswith("a single ") else None
     if w in ("this creature", "~", "a player"):
         key = "player" if w == "a player" else "self"
+    elif w == "a single permanent or player":  # (wave 110D) Chef's Kiss: the one target is a permanent on the battlefield or a player
+        key = "any"
     elif sub is not None and sub.zones == ("battlefield",) and sub.player is None and not sub.extras and sub.ability is None and not sub.card:
         key = sub.key()
     else:
@@ -1711,8 +1713,10 @@ def targets_only(plan: Plan, card: CardInstance, key: str, you: str, source: str
         return False
     t = entry.targets[0]
     if t.id in plan.state.players:
-        return key == "player" and not plan.state.players[t.id].left
+        return key in ("player", "any") and not plan.state.players[t.id].left
     target = plan.state.cards.get(t.id)
+    if key == "any":
+        return target is not None and target.zone.endswith(":battlefield") and plan.oid(target) == t.object_id
     if key == "player" or target is None or not target.zone.endswith(":battlefield") or plan.oid(target) != t.object_id:
         return False
     return target.id == source if key == "self" else matches(plan, from_key(key), target, plan.ch(target), you, source)

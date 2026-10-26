@@ -8,7 +8,9 @@ from app.rules import (
     mana_noted_profiles,
     wave110d_aura,
     wave110d_crown,
+    wave110d_chef,
     wave110d_enter,
+    wave110d_fire,
     wave110d_granter,
     wave110d_hit,
     wave110d_lines,
@@ -19,7 +21,7 @@ from app.rules import (
 )
 
 TEMPLATES: list[Any] = [*wave110d_rules.TEMPLATES]
-PRIMITIVES: dict[str, Any] = {**wave110d_enter.PRIMITIVES, **wave110d_aura.PRIMITIVES, **wave110d_granter.PRIMITIVES, **wave110d_hit.PRIMITIVES, **wave110d_crown.PRIMITIVES, **wave110d_lines.PRIMITIVES, **wave110d_rooms.PRIMITIVES, **wave110d_misc.PRIMITIVES, **wave110d_noted.PRIMITIVES, **mana_noted_profiles.PRIMITIVES}
+PRIMITIVES: dict[str, Any] = {**wave110d_enter.PRIMITIVES, **wave110d_aura.PRIMITIVES, **wave110d_granter.PRIMITIVES, **wave110d_hit.PRIMITIVES, **wave110d_crown.PRIMITIVES, **wave110d_lines.PRIMITIVES, **wave110d_fire.PRIMITIVES, **wave110d_chef.PRIMITIVES, **wave110d_rooms.PRIMITIVES, **wave110d_misc.PRIMITIVES, **wave110d_noted.PRIMITIVES, **mana_noted_profiles.PRIMITIVES}
 RESUME: dict[str, Any] = {**wave110d_crown.RESUME, **wave110d_rooms.RESUME, **wave110d_misc.RESUME, **mana_noted_profiles.RESUME}
 
 

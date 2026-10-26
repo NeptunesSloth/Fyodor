@@ -5,6 +5,8 @@ import json
 from dataclasses import replace
 from typing import Any
 
+from app.rules import wave110d_chef, wave110d_fire
+
 # the Oracle line (the card's name as ~) -> the wording the grammar already reads, with the same meaning
 _AS: dict[str, str] = {
     # Liege of the Tangle: "Each of those lands" = each of them (the targets); 613.1d/613.1f, 205.1b the lands stay lands
@@ -175,6 +177,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == wave110d_chef.LINE:
+        return wave110d_chef.definition(ability, ch)
+    if text == wave110d_fire.LINE:  # Firebender Ascension: read by wave110d_fire.triggers, not by an event pass
+        return {"kind": "static", "static": "firebender110d", "effects": []}
     if text == _HORDE:  # Brutal Hordechief: "block if able" changes no characteristic, so it is not locked (611.2c): it binds every creature opponents control at blocks, so the whole declaration (509.1a) is yours
         d = scripts.define(replace(ability, text="{3}{R/W}{R/W}: Creatures your opponents control block this turn if able."), ch)
         if d is not None:
