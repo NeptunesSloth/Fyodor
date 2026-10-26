@@ -34,6 +34,9 @@ INCINERATOR = ("Whenever this creature deals combat damage to a player, you may 
 OMNATH = ("At the beginning of your first main phase, look at the top card of your library. You may reveal that card if it has three or more colored mana symbols in its mana cost. "
           "If you do, add three mana in any combination of its colors and put it into your hand. If you don't reveal it, put it into your hand.")
 
+PRODDER = ("At the beginning of your upkeep, reveal the top card of your library. Any opponent may have you put that card into your graveyard. If a player does, "
+           "this creature deals damage to that player equal to that card's mana value. Otherwise, put that card into your hand.")
+
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
@@ -45,6 +48,9 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if text == OMNATH:  # the look/reveal/mana/hand sequence is one primitive (omnath110c)
         d = scripts.define(replace(ability, text="At the beginning of your first main phase, draw a card."), ch)
         return None if d is None else {**d, "effects": [{"do": "omnath110c"}]}
+    if text == PRODDER:
+        d = scripts.define(replace(ability, text="At the beginning of your upkeep, draw a card."), ch)
+        return None if d is None else {**d, "effects": [{"do": "prodder110c"}]}
     if text == ECHO_LIFE:
         return {"kind": "static", "static": "echo_life110c", "effects": []}
     if text == RELENTLESS:
@@ -250,5 +256,47 @@ def resume_omnath(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME = {"omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
-PRIMITIVES = {"omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+def _prodder_ask(plan: Plan, ctx: dict[str, Any], cid: str, rest: list[str], yes: list[str]) -> bool:
+    """608.2d: every opponent chooses, in turn order, knowing the revealed card; then the effect happens once: the card to the graveyard and its mana value dealt to
+    each who chose so, or to the hand when nobody did."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    if rest:
+        card = plan.state.cards[cid]
+        decide(plan, player=rest[0], kind="choose_one", prompt=f"Have {plan.name(ctx['controller'])} put {card.name} into their graveyard? You take {plan.ch(card).mana_value:g} damage if so",
+               options=[DecisionOption(id="yes", label="Yes, take the damage"), DecisionOption(id="no", label="No")],
+               resume={"step": "prodder110c", "ctx": ctx, "card": cid, "rest": rest, "yes": yes}, source=plan.state.cards.get(ctx.get("source_card") or ""))
+        return False
+    pid = ctx["controller"]
+    if not yes:
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "hand"}}, actor=pid)
+        return True
+    mv = int(plan.ch(plan.state.cards[cid]).mana_value)
+    plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "graveyard"}}, actor=pid)
+    if mv > 0:
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "damage", "who": f"player:{p}", "n": mv} for p in yes]
+    return True
+
+
+def prodder(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Sin Prodder: 701.20a (reveal), 608.2d (the opponents choose in turn order), 120.3 (the damage is Sin Prodder's)."""
+    pid = ctx["controller"]
+    lib = plan.state.zones.get(f"{pid}:library", [])
+    if not lib:
+        return True
+    plan.do({"type": "reveal", "card_ids": [lib[0]]}, actor=pid)
+    return _prodder_ask(plan, ctx, lib[0], [p for p in plan.apnap() if p != pid and p in plan.live()], [])
+
+
+def resume_prodder(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    yes = [*r["yes"], d.player] if chosen[0] == "yes" else r["yes"]
+    if _prodder_ask(plan, r["ctx"], r["card"], r["rest"][1:], yes):
+        effects.continue_effects(plan, r["ctx"])
+
+
+RESUME = {"prodder110c": resume_prodder, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
+PRIMITIVES = {"prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
