@@ -31,7 +31,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", [HAMA])
+@pytest.mark.parametrize("name", [HAMA, "Susan Foreman"])  # Susan: 701.31a, 901.3 planeswalking is Planechase-only; no planar deck in Commander
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
