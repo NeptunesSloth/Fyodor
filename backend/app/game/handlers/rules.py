@@ -177,7 +177,7 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
         pid = key if key in state.players else source.controller if source is not None else ""
         if pid not in state.players or n <= 0:
             continue
-        change_life(state, pid, state.players[pid].life + n)
+        change_life(state, pid, state.players[pid].life + n, cause=a.lifelink_cause110m.get(key))  # (wave 110M) a spell's lifelink
         gained[pid] = gained.get(pid, 0) + n
     parts = [text("First-strike combat damage: " if a.first_strike else "Combat damage: " if a.combat else "Damage: ")]
     pieces: list[list[LogPart]] = [[ops.pname(state, pid), text(f" takes {n}")] for pid, n in a.players.items()]

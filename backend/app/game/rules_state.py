@@ -465,6 +465,7 @@ class Event(BaseModel):
     card: str | None = None
     player: str | None = None  # the player affected (life, player counters, damage to a player)
     source: str | None = None  # the source object's id, when known
+    cause110m: str | None = None  # (wave 110M) a life gain: the spell (card id) whose resolution or lifelink caused it
     from_zone: str | None = None
     to_zone: str | None = None
     amount: int = 0
@@ -765,7 +766,7 @@ class ContinuousEffect(BaseModel):
     counter_since_batch: int = 0  # while-counter durations ignore earlier zero-counter events
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
                       "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast", "while_enchanted",
-                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "source_tapped_power110k", "while_attached110l"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
+                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "source_tapped_power110k", "while_attached110l", "creature_cast110m"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
@@ -1445,6 +1446,7 @@ class WorldInterval80(BaseModel):
 
 class RulesState(BaseModel):
     began_untapped110j: list[str] = Field(default_factory=list)  # (wave 110J) objects untapped on the battlefield as the turn began (Rasputin Dreamweaver)
+    stored_dice110m: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110M) object id -> the d6 results stored on it (706.8a: Centaur of Attention)
     began_lands110c: dict[str, int] = Field(default_factory=dict)  # (wave 110C) player -> untapped lands they controlled as their turn began (Power Surge)
     sticker_splits101: dict[str, str] = Field(default_factory=dict)  # Original permanent OID -> chosen physical component.
 
@@ -1531,6 +1533,7 @@ class RulesState(BaseModel):
     miracle_turn: dict[str, int] = Field(default_factory=dict)
     miracled: list[str] = Field(default_factory=list)
     drew_from_empty: list[str] = Field(default_factory=list)  # loses at the next state-based check
+    escape_grants110m: list[dict[str, Any]] = Field(default_factory=list)  # -- (wave 110M) -- "gains escape until end of turn" (Desdemona): the card's object id, its owner and the turn
     lose_shields110m: list[dict[str, Any]] = Field(default_factory=list)  # -- (wave 110M) -- "the next time you would lose the game this turn, instead ...": player, turn, source card and name
     deathtouched: list[str] = Field(default_factory=list)  # creatures dealt damage by a deathtouch source
     prevention: dict[str, int] = Field(default_factory=dict)  # player / object id -> damage to prevent this turn

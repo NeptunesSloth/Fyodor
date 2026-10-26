@@ -464,6 +464,10 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     # -- combat (wave 5C) -- 508.1h-j: the total cost to attack, locked in, then paid (mana abilities allowed meanwhile);
     # creatures declared as attackers are tapped before it's paid (508.1f), so they don't tap for it
     tax = combat_rules.attack_cost(plan, declared)
+    from app.rules import (
+        wave110m_cards,  # -- (wave 110M) -- Johan: attacking doesn't cause creatures you control to tap (508.1f)
+    )
+
     life = combat_rules.attack_life(plan, declared)  # -- life attack costs (wave 49D) -- 508.1h: paid with the mana (508.1j); 119.4: only with the life to pay it
     if life:
         from app.rules import life_lock
@@ -472,12 +476,12 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
             raise ActionError(f"Attacking costs {life} life (508.1h): {plan.name(plan.actor)} can't pay it")
     frame = PaidAttackers(a, life, {x.card_id: plan.oid(plan.state.cards[x.card_id]) for x in a.attackers},
                           {x.target: plan.oid(plan.state.cards[x.target]) for x in a.attackers if x.target in plan.state.cards},
-                          [x.card_id for x in a.attackers if 'vigilance' not in plan.ch(plan.state.cards[x.card_id]).keywords])
+                          [x.card_id for x in a.attackers if 'vigilance' not in plan.ch(plan.state.cards[x.card_id]).keywords and not wave110m_cards.attack_taps_nothing(plan)])
     if tax or (locked is not None and not locked.is_free):
         from app.rules import casting
 
         cost = locked if locked is not None else M.parse_cost(tax)
-        exclude = tuple(x.card_id for x in a.attackers if "vigilance" not in plan.ch(plan.state.cards[x.card_id]).keywords)
+        exclude = tuple(x.card_id for x in a.attackers if "vigilance" not in plan.ch(plan.state.cards[x.card_id]).keywords and not wave110m_cards.attack_taps_nothing(plan))
         exclude = tuple(dict.fromkeys([*exclude, *(cid for event in additional if event.kind == 'tap' for cid in event.objects)]))
         if not casting.can_pay(plan.state, plan.actor, cost, plan.info, exclude=exclude):
             raise ActionError(f"Attacking costs {cost.text()} (508.1h): {plan.name(plan.actor)} can't pay it")

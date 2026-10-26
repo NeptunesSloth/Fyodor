@@ -122,7 +122,8 @@ LABELS = {"next_turn": "until your next turn", "end_of_next_turn": "until the en
           "until_cast": "until this card is cast from exile",
           "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
           "while_counter": "for as long as it has a counter on it", "while_enchanted": "for as long as that creature is enchanted", "next_upkeep": "until your next upkeep",
-          "monarch_player": "for as long as they're the monarch"}
+          "monarch_player": "for as long as they're the monarch",
+          "creature_cast110m": "until a player casts a creature spell"}  # -- (wave 110M) -- ends as any player casts a creature spell (601.2i): wave110m_cards.spell_cast
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
 
 
@@ -454,6 +455,13 @@ def on_events(plan: Plan, events: list[Event]) -> None:
             _fire(plan, t, TriggerEvent(kind="lose_control", batch=events[-1].batch, count=1, objects=gone[:1]))
     watching = [t for t in watching if t.when.get("event") != "lose_control"]
     for e in events:
+        if e.kind == "untapped" and not e.manual:  # -- (wave 110M) -- "When ~ leaves the battlefield or becomes untapped" (Merieke Ri Berit): the watched permanent became untapped (603.2)
+            for t in [t for t in watching if t.when["event"] == "leave_or_untap110m" and t not in fired]:
+                if e.object_id in {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []} and (obj := plan.state.cards.get(e.card or "")) is not None:
+                    fired.append(t)
+                    _fire(plan, t, TriggerEvent(kind="untapped", batch=e.batch, count=1, objects=[ObjectRef(card=obj.id, object_id=e.object_id or "", zone=obj.zone)]))
+        if e.kind == "untapped":
+            continue
         if e.kind != "zone_change" or e.manual or _zone(e.from_zone) != "battlefield" or _zone(e.to_zone) == "battlefield":
             continue
         snap = r.lki.get(e.object_id or "")

@@ -671,6 +671,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return max(0, v)
     if isinstance(v, dict) and 'began_lands110c' in v:  # (wave 110C) Power Surge: the active player's untapped lands as the turn began
         return plan.rules.began_lands110c.get(plan.active, 0)
+    if isinstance(v, dict) and 'stored_same110m' in v:  # (wave 110M) Centaur of Attention: the most stored results sharing a value (706.8)
+        from app.rules import wave110m_cards
+
+        return wave110m_cards.same_stored(plan, ctx)
     if 'sticker_vowels102' in v:
         from app.rules import sticker_riders102
 
