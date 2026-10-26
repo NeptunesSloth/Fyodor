@@ -110,6 +110,22 @@ def test_manor_gargoyle_is_indestructible_only_while_it_has_defender(cards):
     assert {"defender", "indestructible"} <= set(ch(s, g).keywords)
 
 
+def test_spark_rupture_turns_planeswalkers_with_loyalty_into_plain_creatures(cards):
+    """205.1a, 613.4b, 613.1f: a planeswalker with loyalty counters is only a creature, without abilities, as big as its loyalty."""
+    s = build(cards, ["Spark Rupture", "Gideon Jura"])
+    g = put_new(s, "Gideon Jura")
+    act(s, "p1", type="counter", card_ids=[g.id], kind="loyalty", delta=6)
+    before = ch(s, g)
+    assert "Planeswalker" in before.types and before.abilities
+    put_new(s, "Spark Rupture")
+    now_ = ch(s, g)
+    loyalty = now(s, g).counters["loyalty"]
+    assert set(now_.types) == {"Creature"} and not now_.abilities and now_.pt == (loyalty, loyalty)
+    act(s, "p1", type="counter", card_ids=[g.id], kind="loyalty", delta=-2)
+    assert ch(s, g).pt == (loyalty - 2, loyalty - 2)
+    check(s)
+
+
 HYDRA = "Rock Hydra"
 
 
