@@ -26,6 +26,7 @@ WALL = ("You may have this creature enter as a copy of any creature on the battl
         "When you do, tap the copied creature and it doesn't untap during its controller's untap step for as long as you control this creature.")
 ULTIMA = ("Whenever Ultima attacks, put a blight counter on target land. For as long as that land has a blight counter on it, it loses all land types and "
           'abilities and has "{T}: Add {C}."')
+SYMPOSIUM = "Target player creates a token that's a copy of target creature you control."
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -79,6 +80,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         d = scripts.define(replace(ability, text=ULTIMA.split(" and abilities and")[0].replace("land types", "abilities").replace("Ultima", "~") + "."), ch)
         if d is not None:
             d["effects"] = [{**x, "no_land_types110d": True, "abilities": ["{T}: Add {C}."]} if x.get("do") == "become" else x for x in d["effects"]]
+        return d
+    if ability.kind == "spell" and ability.text == SYMPOSIUM:  # 111.2 the token's creator is the target player; 707.2 it copies the creature (two target groups, 115.1)
+        d = scripts.define(replace(ability, text="Create a token that's a copy of target creature you control."), ch)
+        if d is not None:
+            d["effects"] = [{**d["effects"][0], "who": "target:1", "creator": "target:0"}]
+            d.update(target=None, targets=[{"what": "player", "min": 1, "max": 1}, {**d["target"], "min": 1, "max": 1}])
         return d
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
