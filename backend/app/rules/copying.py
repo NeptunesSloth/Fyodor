@@ -1702,6 +1702,8 @@ def become_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     duration: Literal["end_of_turn", "permanent", "next_turn"] = "end_of_turn" if e.get("duration") == "end_of_turn" \
         else "next_turn" if e.get("duration") == "next_turn" else "permanent"  # (wave 31C: 500.4 "until your next turn")
     made = add_copy_effect(plan, [plan.oid(c) for c in who], recipe, ctx["controller"], duration=duration)
+    if e.get("duration") == "next_end_step110d":  # -- (wave 110D) -- "until the next end step" (Niko, Light of Hope): ends as that end step begins (delayed.at_step)
+        made.duration, made.turn, made.created_step110d = "next_end_step110d", plan.state.turn.number, plan.rules.step_serial
     if e.get("duration") == "while_attached110l" and (src110l := plan.state.cards.get(ctx.get("source_card") or "")) is not None:
         # -- (wave 110L) -- "for as long as this Equipment remains attached to it" (611.2b): ends with the attachment (delayed.expire)
         made.duration, made.source_card, made.source = "while_attached110l", src110l.id, plan.oid(src110l)

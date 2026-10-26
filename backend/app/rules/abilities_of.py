@@ -297,6 +297,10 @@ def _lenders(plan: Plan, st: Static) -> list[CardInstance]:
         top = state.zones.get(f"{st.controller}:library", [])[:1]
         lenders = [state.cards[c] for c in top if sel is not None and
                    selectors.matches(plan, sel, state.cards[c], plan.ch(state.cards[c]), st.controller, st.source)]
+    elif d.get("crafted"):  # -- (wave 110D) -- "the exiled cards used to craft it" (702.167c, The Enigma Jewel): the materials still the exiled objects
+        found = [state.cards[ref.card] for ref in r.crafted_materials.get(r.object_id(st.source), []) if ref.card in state.cards
+                 and state.cards[ref.card].zone.endswith(":exile") and r.object_id(ref.card) == ref.object_id]
+        lenders = [c for c in found if sel is None or selectors.matches(plan, sel, c, plan.ch(c), st.controller, st.source)]
     elif d["linked"]:
         found = [state.cards[cid] for oid in r.exiled_with.get(r.object_id(st.source), []) if (cid := oid.rsplit(".", 1)[0]) in state.cards
                  and state.cards[cid].zone.endswith(":exile") and r.object_id(cid) == oid]
@@ -404,6 +408,8 @@ def _graph(plan: Plan) -> dict[tuple[str, int], list[AbilityText]]:
                     # alias another lender. Richer paths use a separate JS-safe range.
                     direct = len(ab.borrowed_origin) <= 2 and k < STRIDE
                     idx = BORROWED + STRIDE * r.objects.get(lender.id, 0) + k if direct else _provenance_index(origin)
+                    if d.get("once"):  # -- (wave 110D) -- "You may activate each of those abilities only once each turn." (602.5b: each is its own ability)
+                        ab = replace(ab, text=f"{ab.text} Activate only once each turn.")
                     lines.append(replace(ab, index=idx, borrowed_origin=origin, borrowed_scope=_saved_scope(plan, cid, origin),
                                          borrowed_color=r.object_id(cid) if d.get('spend_color') else None))
             result[(cid, id(st))] = lines

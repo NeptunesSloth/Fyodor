@@ -265,6 +265,9 @@ def _selector(phrase: str, *, zone: str, other: bool = False) -> str | None:
             compare = (*branch.compare, ("mv", "==", selectors.X_VALUE)) if mv_x is not None else branch.compare
             keys.append(replace(branch, controller="you", other=other, zones=("battlefield",), compare=compare).key())
         return selectors.Selector(zones=("battlefield",), either=tuple(keys)).key()
+    if (union := re.fullmatch(r"(other )?artifact creatures and/or Vehicles( you control)?", phrase)) and zone == "battlefield":  # -- (wave 110D) -- Mechtitan Core: either kind counts
+        keys = [replace(selectors.parse(p), controller="you", other=other or bool(union[1]), zones=("battlefield",)).key() for p in ("artifact creature", "Vehicle")]  # type: ignore[type-var, union-attr]
+        return selectors.Selector(zones=("battlefield",), either=tuple(keys)).key()
     sel = selectors.parse(phrase)
     if mv_x is not None and sel is not None:
         sel = replace(sel, compare=(*sel.compare, ("mv", "==", selectors.X_VALUE)))
@@ -590,6 +593,9 @@ def _craft_part(m: re.Match[str], part: str) -> CostComponent | None:
     card in your graveyard of that type; with the word "card" (109.2) only a graveyard card. "one or more" alone: any object."""
     what = re.sub(r"\b(\w+?)s\b$", r"\1", m["what"] or "", count=1) if m["what"] and not m["what"].endswith("Merfolk") else m["what"] or ""
     n = _n(m["n"]) if m["n"].isdigit() or m["n"] in _WORDS else None
+    if m["what"] == "nonlands with activated abilities" and n is not None:  # -- (wave 110D) -- The Enigma Jewel: a nonland permanent you control or nonland card in your graveyard
+        return CostComponent(CRAFT, amount=n, selector=_selector("nonland permanent with activated abilities you control", zone="battlefield"),
+                             alt=_selector("nonland card with activated abilities from your graveyard", zone="graveyard"), more=bool(m["more"]), text=part)
     if n is None or " with " in what or what.endswith("nonland") or "share" in what:
         return None  # (conditions on the objects, "that share a card type": not read)
     if not what:

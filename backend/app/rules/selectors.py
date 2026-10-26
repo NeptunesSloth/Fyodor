@@ -989,6 +989,11 @@ def _with_nonmana_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "nonmana_ability"))
 
 
+@_suffix(r"with activated abilities")  # -- cards (wave 110D) -- 602.1, 605.1a: The Enigma Jewel's craft ("nonlands with activated abilities"; mana abilities count)
+def _with_any_activated(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "any_activated110d"))
+
+
 @_suffix(r"(?:that )?has an activated ability with \{T\} in its cost")  # -- activated other (wave 52D) -- Magewright's Stone: 602.1, a mana ability is an activated ability too (605.1a)
 def _with_tap_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "tap_ability"))
@@ -1689,6 +1694,9 @@ _SUFFIXES.insert(0, (re.compile(r" that targets (?P<w>(?!only\b).+)$"), _targets
 
 # -- retarget (wave 100O) -- 115.9c: "… that targets only this creature / only a single creature / only a player" (Torchling, Muck Drubb, Rebound): one
 # different object or player was chosen (however many times), and it is that now (115.9b). Extra "targets_only:<self|player|selector key>".
+ACTIVATED_KEYWORDS = frozenset({"equip", "crew", "saddle", "outlast", "fortify", "reconfigure", "cycling", "typecycling", "landcycling", "unearth", "embalm", "eternalize", "scavenge", "ninjutsu", "transmute", "channel"})  # 602.1: keyword abilities that are activated (wave 110D)
+
+
 def _targets_only_suffix(s: Selector, m: re.Match[str]) -> Selector:
     w = m["w"]
     sub = parse(w[len("a single "):]) if w.startswith("a single ") else None
@@ -2549,6 +2557,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if "nonmana_ability" in sel.extras and not any(a.kind == "activated" for a in ch.abilities):  # (wave 110F)
         return False
     if "tap_ability" in sel.extras and not any(a.kind in ("activated", "mana") and "{T}" in (a.cost or "") for a in ch.abilities):  # (wave 52D)
+        return False
+    if "any_activated110d" in sel.extras and not any(a.kind in ("activated", "mana", "loyalty") or (a.kind == "keywords" and ACTIVATED_KEYWORDS & set(a.keywords)) for a in ch.abilities):  # (wave 110D)
         return False
     if set(sel.without_keywords) & ch.keywords:
         return False

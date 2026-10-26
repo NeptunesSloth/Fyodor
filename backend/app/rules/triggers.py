@@ -230,6 +230,10 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
     from app.rules import wave110c_misc  # -- Strict Proctor (wave 110C) --
 
     wave110c_misc.proctor_triggers(plan, pending, cause if cause is not None else event)
+    from app.rules import wave110d_fire  # -- Firebender Ascension (wave 110D) --
+
+    wave110d_fire.triggers(plan, pending, cause if cause is not None else event)
+
     from app.rules import wave110a_spawn  # -- Aboleth Spawn (wave 110A) --
 
     wave110a_spawn.triggers(plan, pending, cause if cause is not None else event)

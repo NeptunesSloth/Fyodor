@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from tests.game_helpers import act
 from tests.wave110d_kit import (  # noqa: F401
     activate,
     build,
@@ -51,4 +52,49 @@ def test_counters_equal_the_mana_produced(cards):
 def test_paying_a_cost_with_it_triggers_too(cards):
     s, elf, priest, bears = _board(cards, ["Lightning Bolt"])
     cast_on(s, "Lightning Bolt", "p2")  # (paid from its own mana)
+    check(s)
+
+
+def _pay_probe(cards, spell, source, *more):
+    s = build(cards, [NAME, source, spell, *more], ["Grizzly Bears"])
+    put_new(s, NAME)
+    out = [put_new(s, n) for n in (source, *more)]
+    c = hand_new(s, spell)
+    to_phase(s, "main1", turn=3)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    settle(s)
+    return s, out
+
+
+def test_cast_payment_counts_all_mana_produced(cards):
+    # 106.12a/605.3b: Llanowar Tribe makes {G}{G}{G} although the spell needs one mana; the trigger still sees three.
+    s, (tribe,) = _pay_probe(cards, "Bonesplitter", "Llanowar Tribe")
+    assert counters(s, tribe) == 3
+    check(s)
+
+
+def test_cast_payment_with_a_variable_producer(cards):
+    s, (priest, _elf) = _pay_probe(cards, "Bonesplitter", "Priest of Titania", "Llanowar Elves")
+    assert counters(s, priest) == 3 and counters(s, _elf) == 0  # only the creature that was tapped; Priest: Tyvar + 2 Elves
+    check(s)
+
+
+def test_non_creature_source_never_triggers_it(cards):
+    s, (ring,) = _pay_probe(cards, "Arcane Signet", "Sol Ring")  # (Sol Ring makes {C}{C}; Tyvar only watches its creature's own abilities)
+    assert counters(s, ring) == 0
+    assert all(c.counters.get("+1/+1", 0) == 0 for c in s.state.cards.values())
+    check(s)
+
+
+def test_two_mana_elf_in_and_out_of_casting(cards):
+    # Elvish Archdruid ({T}: Add {G} for each Elf you control) with Tyvar: two Elves, two mana, two counters (605.3b).
+    s, (druid,) = _pay_probe(cards, "Bonesplitter", "Elvish Archdruid")
+    assert counters(s, druid) == 2
+    check(s)
+    s = build(cards, [NAME, "Elvish Archdruid"], ["Grizzly Bears"])
+    put_new(s, NAME)
+    druid = put_new(s, "Elvish Archdruid")
+    to_phase(s, "main1", turn=3)
+    activate(s, druid, "{T}: Add")
+    assert counters(s, druid) == 2
     check(s)
