@@ -136,6 +136,7 @@ class CostComponent:
     source_with_choices: bool = False  # One graveyard-exile instruction includes its required source and selected others.
     counter_options: tuple[str, ...] = ()  # A bounded choice of named counter kinds, not every counter.
     half: bool = False  # -- wave 110A -- 'sacrifice half the lands you control, rounded up': the count is read from the board as the cost is paid
+    to_bottom110i: bool = False  # -- wave 110I -- EXILE_FROM_GRAVEYARD paid by putting the cards on the bottom of their owner's library instead (Battlefield Scrounger)
     counters_x: bool = False  # -- blight X (wave 110C) -- 701.68a: the announced X is the number of counters put on the one creature chosen
 
     @property
@@ -164,7 +165,7 @@ class CostComponent:
         spell's additional cost."""
         return self.amount_rule is not None or self.kind in WAVE_4H_KINDS or self.names is not None or self.selector_x or (self.x and self.kind != PAY_ENERGY) or self.counter == ANY_COUNTER or self.among \
             or self.life_rule is not None or (self.kind == EXILE and self.selector is not None) \
-            or self.alt is not None or self.named_self or self.source_with_choices
+            or self.alt is not None or self.named_self or self.source_with_choices or self.to_bottom110i
 
 
 @dataclass(frozen=True)
@@ -297,6 +298,9 @@ def _component(part: str, card_name: str) -> CostComponent | None:
 
     if (own110d := wave110d_costs.component(part, card_name)) is not None:
         return own110d
+    if part == "Put three cards from your graveyard on the bottom of your library":  # -- costs (wave 110I) -- 401.4: the payer orders them
+        return CostComponent(EXILE_FROM_GRAVEYARD, amount=3, to_bottom110i=True, text=part,
+                             selector=selectors.Selector(card=True, zones=("graveyard",), zone_owner="you").key())
     from app.rules import wave110a_activation  # -- costs (wave 110A) --
 
     if (own110a := wave110a_activation.component(part)) is not None:

@@ -979,7 +979,9 @@ def _pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, li
             if stack_exile:
                 payment_card_facts.record(plan, record, "exiled", ids)
             was = [plan.oid(c) for c in ids]  # (wave 48B)
-            if ids:  # (wave 25D: "exile X cards from your graveyard" with X = 0)
+            if ids and comp.to_bottom110i:  # -- costs (wave 110I) -- 401.4: one move, in the order chosen, to the bottom of the owner's library
+                plan.do({"type": "move", "card_ids": ids, "to": {"zone": "library"}, "position": "bottom"})
+            elif ids:  # (wave 25D: "exile X cards from your graveyard" with X = 0)
                 plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})
             record.exiled += ids
             record.exiled_was += was
