@@ -114,7 +114,7 @@ def _zone(s, name, pid):
 
 def test_vapors_each_player_keeps_one_card_of_each_color_and_all_lands(cards):
     """701.9, 105.2b: p1 keeps the picked white card, the blue card and the land; the other white card and the colorless artifact are discarded; p2 (one white card only) keeps it.
-    A multicolored card chosen for white is blue as well, so blue needs no further pick."""
+   """
     s = build(cards, ["Noxious Vapors", "Test White 110F", "Test White B 110F", "Test Blue 110F", "Test Relic 110F", "Test Land 110F"], ["Test White 110F", "Test Relic 110F"])
     for n in ("Test White 110F", "Test White B 110F", "Test Blue 110F", "Test Relic 110F", "Test Land 110F"):
         to_hand(s, n)
@@ -131,15 +131,17 @@ def test_vapors_each_player_keeps_one_card_of_each_color_and_all_lands(cards):
     check(s)
 
 
-def test_vapors_multicolored_pick_covers_both_colors(cards):
+def test_vapors_multicolored_card_goes_to_manual_play(cards):
+    """105.2b: no rule or ruling settles one multicolored card serving several colors: a hand with one is resolved by hand, nothing is discarded."""
     s = build(cards, ["Noxious Vapors", "Test White 110F", "Test Gold 110F", "Test Blue 110F"])
     for n in ("Test White 110F", "Test Gold 110F", "Test Blue 110F"):
         to_hand(s, n)
     mana(s, "p1", B=2, C=1)
     cast(s, "Noxious Vapors")
-    d = s.state.rules.decision  # white: the white creature or the gold one
-    answer(s, [next(o.id for o in d.options if s.state.cards[o.id].name == "Test Gold 110F")])
-    assert _zone(s, "Test Gold 110F", "p1") == ["hand"] and _zone(s, "Test White 110F", "p1") == ["graveyard"] and _zone(s, "Test Blue 110F", "p1") == ["graveyard"]
+    d = s.state.rules.decision
+    assert d.kind == "manual_resolution" and d.player == "p1"
+    answer(s, "done")
+    assert all(_zone(s, n, "p1") == ["hand"] for n in ("Test White 110F", "Test Gold 110F", "Test Blue 110F"))
     check(s)
 
 
@@ -320,4 +322,38 @@ def test_peace_talks_creatures_cannot_attack_this_turn_or_next_but_can_after(car
         act(s, "p2", type="declare_attackers", attackers=[{"card_id": theirs.id, "target": "p1"}])
     to_phase(s, "declare_attackers", turn=n + 2)  # then both are free again
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": mine.id, "target": "p2"}])
+    check(s)
+
+
+_ADD5 = [
+    real('Swooping Pteranodon', '{3}{R}{W}', 5, 'Creature — Dinosaur',
+         "Flying, haste\nWhenever this creature or another Dinosaur you control with flying enters, gain control of target creature an opponent controls until end of turn. "
+         "Untap that creature. It gains flying and haste until end of turn. At the beginning of the next end step, target land deals 3 damage to that creature.", ('3', '3'), 'RW'),
+    real('Test Reflexer 110F', '{1}{R}', 2, 'Creature — Human',
+         "When this creature enters, you may sacrifice a creature. When you do, this creature deals 1 damage to any target.", ('1', '1'), 'R'),
+]
+_BASE.extend(_ADD5)
+
+
+def test_peace_talks_delayed_and_reflexive_triggers_can_target(cards):
+    """115.2: only spells and activated abilities are barred; an enters trigger, its delayed trigger (603.7) and a reflexive trigger (603.12) still target."""
+    for n in ("Swooping Pteranodon", "Test Reflexer 110F"):
+        assert coverage.of_card_data(cards.resolve(n)).level == "FULL"
+    s = _talks(cards, mine=("Swooping Pteranodon",), theirs=("Forest",))
+    put(s, "Forest", "p2")
+    bears = put(s, "Grizzly Bears", "p2")
+    mana(s, "p1", R=1, W=1, C=3)
+    cast(s, "Swooping Pteranodon")
+    answer(s, bears.id)  # the enters trigger targets a creature
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
+    while s.state.rules.decision is None and s.state.turn.phase != "end":
+        act(s, s.state.rules.priority, type="pass_priority")
+    answer(s)  # the delayed trigger picks the only land
+    assert s.state.cards[bears.id].zone == "p2:graveyard"  # 3 damage from the land, chosen as the trigger was put
+    s = _talks(cards, mine=("Test Reflexer 110F",))
+    put(s, "Grizzly Bears")
+    mana(s, "p1", R=1, C=1)
+    cast(s, "Test Reflexer 110F")
+    answer(s, "pay", None, "p2")
+    assert life(s, "p2") == 39  # the reflexive trigger chose its target
     check(s)

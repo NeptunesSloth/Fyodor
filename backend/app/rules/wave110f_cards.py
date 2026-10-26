@@ -370,12 +370,18 @@ def _snitch() -> Parsed:
 
 def vapors(plan: Any, ctx: dict[str, Any], e: dict[str, Any], st: dict[str, Any] | None = None) -> bool:
     """Noxious Vapors: each player (APNAP, 101.4) reveals their hand (701.20a) and chooses one card of each color from it; every other nonland card is
-    discarded at once. 105.2b: a multicolored card is each of its colors, so a card chosen for one of its colors is the chosen card of the others too (a color with a single
-    card in hand has nothing to choose). Colorless nonland cards are of no color, so are never chosen."""
+    discarded at once (a color with a single card in hand has nothing to choose; colorless nonland cards are of no color, so never chosen). Whether one multicolored
+    card (105.2b) can serve as the chosen card of each of its colors has no CR rule or ruling in the local data: a hand with one is resolved by hand (manual_resolution)."""
     from app.game.rules_state import DecisionOption
     from app.rules import effects
     from app.rules.plan import decide
 
+    if st is None and any(len(plan.ch(plan.state.cards[x]).colors) > 1 and "Land" not in plan.ch(plan.state.cards[x]).types
+                          for p in plan.apnap() for x in plan.state.zones.get(f"{p}:hand", [])):
+        decide(plan, player=ctx["controller"], kind="manual_resolution", prompt="A hand holds a multicolored card; the rules do not settle how Noxious Vapors treats it. "
+               "Each player reveals their hand, chooses one card of each color from it and discards the other nonland cards by hand, then press Done.",
+               options=[DecisionOption(id="done", label="Done")], resume={"step": "manual110f", "ctx": ctx})
+        return False
     st = st or {"todo": list(plan.apnap()), "keep": [], "colors": None, "toss": []}
     while st["todo"]:
         pid = st["todo"][0]
@@ -387,9 +393,6 @@ def vapors(plan: Any, ctx: dict[str, Any], e: dict[str, Any], st: dict[str, Any]
         while st["colors"]:
             color = st["colors"][0]
             of_color = [x for x in hand if color in plan.ch(plan.state.cards[x]).colors]
-            if any(x in st["keep"] for x in of_color):  # already chosen as another color's card (105.2b): it is this color's card too
-                st["colors"].pop(0)
-                continue
             if len(of_color) > 1:
                 decide(plan, player=pid, kind="choose_one", prompt=f"Choose one card of color {color} from your hand",
                        options=[DecisionOption(id=x, label=plan.state.cards[x].name, card_id=x) for x in of_color],
@@ -401,6 +404,12 @@ def vapors(plan: Any, ctx: dict[str, Any], e: dict[str, Any], st: dict[str, Any]
         st["todo"].pop(0)
         st["colors"] = None
     return effects._discard_next(plan, ctx, 0, [], st["toss"], None)
+
+
+def resume_manual(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    effects.continue_effects(plan, d.resume["ctx"])
 
 
 def resume_vapors(plan: Any, d: Any, chosen: list[str]) -> None:
@@ -494,7 +503,7 @@ REWRITES = {
                 "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
 PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remove_enchantments110f": remove_enchantments, "same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock, "vapors110f": vapors, "worms110f": worms}
-RESUME: dict[str, Any] = {"vapors110f": resume_vapors, "worms110f": resume_worms, "turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
+RESUME: dict[str, Any] = {"vapors110f": resume_vapors, "manual110f": resume_manual, "worms110f": resume_worms, "turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
 
 
 # 905.2 / 103.6: nothing is drafted in Commander, so these cards never have a card, note or chosen color (app/rules/draft_only.py).
