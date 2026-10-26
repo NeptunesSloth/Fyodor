@@ -3183,5 +3183,16 @@
   "keywords": [],
   "power": "4",
   "toughness": "3"
+ },
+ {
+  "name": "Ichor Elixir",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact",
+  "oracle_text": "If you would roll one or more planar dice, instead roll that many planar dice plus one and ignore one.\n{T}: Add {C}{C}.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]

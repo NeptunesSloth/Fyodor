@@ -29,7 +29,9 @@ _DRAFT = re.compile(
     r"|(?:This creature|~) enters with X \+1/\+1 counters on it, where X is (?:the highest number you noted|the number of cards you removed from the draft) (?:for|with) cards named (?:~|[A-Z][^.]+?)\."
     r"|Other creatures you control of a type you noted for cards named (?:~|[A-Z][^.]+?) get \+1/\+1\."
     # (wave 110B) 701.31a / 901.3: a player planeswalks only in a Planechase game; Commander has no planar deck, so this replacement never applies (Susan Foreman)
-    r"|If you would planeswalk, instead look at the top two cards of your planar deck, put one on the bottom of your planar deck and the other on top, then planeswalk\.")
+    r"|If you would planeswalk, instead look at the top two cards of your planar deck, put one on the bottom of your planar deck and the other on top, then planeswalk\."
+    # (wave 110B final) 901.3, 901.9: a planar die exists only in a Planechase game; none is rolled in Commander, so this replacement never applies (Ichor Elixir)
+    r"|If you would roll one or more planar dice, instead roll that many planar dice plus one and ignore one\.")
 
 
 def definition(text: str) -> dict[str, Any] | None:

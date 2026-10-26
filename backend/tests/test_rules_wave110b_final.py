@@ -18,8 +18,9 @@ def cards(settings):
     yield from repository(settings)
 
 
-def test_full(cards):
-    assert coverage.of_card_data(cards.resolve("Clandestine Chameleon")).level == "FULL"
+@pytest.mark.parametrize("name", ["Clandestine Chameleon", "Ichor Elixir"])  # Ichor Elixir: 901.3, 901.9 planar dice are Planechase-only; none is rolled in Commander
+def test_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
 def at(s, name, zone, pid):
