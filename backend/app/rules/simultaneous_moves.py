@@ -127,6 +127,9 @@ def commit(plan: Plan, planned: list[Any], request: dict[str, Any]) -> None:
     plan.do(payload, actor=actor)
     for entry, card, ep in planned:
         replacements._after_move(plan, entry, card.id, ep, incoming, prepared=prepared[card.id])
+    from app.rules import wave110e_once  # -- one-shot entry counters (wave 110E) -- spent on this entry path too
+
+    wave110e_once.spend(plan, incoming)
     if sacrifice and outgoing is not None and cand is not None:
         replacements._record_link(plan, outgoing.id, cand)
         if cand.counter:

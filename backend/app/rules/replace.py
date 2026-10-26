@@ -936,6 +936,9 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
             extra[counter['counter']] = extra.get(counter['counter'], 0) + value
         replacements.after_entry(plan, tid, pid, newcomers=made, choices=({key: value for key, value in picks[i].items() if key not in (token_copy_entry.COPY, token_copy_entry.ENTRY)} if i < len(picks) else None) or None,
                                  extra_counters=extra or None)
+    from app.rules import wave110e_once  # -- one-shot entry counters (wave 110E) --
+
+    wave110e_once.spend(plan, made)
     recipient = ev.get("recipient_ref")
     if recipient in plan.live() and pid == plan.active and recipient != pid and plan.state.turn.phase in (
             "declare_attackers", "declare_blockers", "combat_damage", "end_combat"):

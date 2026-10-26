@@ -1001,7 +1001,17 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
     return amount
 
 
-def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None,
+def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None, **kw: Any) -> tuple[Any, Any] | None:
+    """``_after_entry``, then (-- wave 110E --, 614.1c) a lone entry (no ``newcomers`` batch: its caller spends) uses up the one-shot entry effects."""
+    result = _after_entry(plan, card_id, controller, x=x, **kw)
+    if kw.get("newcomers") is None and not kw.get("preview"):
+        from app.rules import wave110e_once
+
+        wave110e_once.spend(plan, [card_id])
+    return result
+
+
+def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None,
                 extra_counters: dict[str, int] | None = None, choices: dict[str, str] | None = None,
                 newcomers: list[str] | None = None, bare: bool = False,
                 prepared: tuple[Any, Any] | None = None, preview: bool = False) -> tuple[Any, Any] | None:

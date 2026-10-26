@@ -166,6 +166,24 @@ def test_storyweave_second_mode_arms_one_batch_of_enchantment_creatures(cards):
     check(s)
 
 
+def test_storyweave_is_spent_by_a_lone_spell_entry(cards):
+    """614.1c: a single enchantment creature spell resolving uses up the shot too (every entry path spends it)."""
+    s = build(cards, ["Storyweave", "Test Saga", "Test Spirit", "Test Spirit"])
+    saga = put(s, "Test Saga")
+    spirits = [c for c in s.state.cards.values() if c.name == "Test Spirit" and c.owner == "p1"]
+    mana(s, G=1, C=2)
+    cast(s, "Storyweave", [saga.id], modes=[1])
+    answer(s)
+    for spirit, want in zip(spirits, (2, 0)):
+        mana(s, W=1, C=1)
+        act(s, "p1", type="move", card_ids=[spirit.id], to={"zone": "hand"})
+        act(s, "p1", type="cast_spell", card_id=spirit.id, targets=[])
+        answer(s)
+        assert _counters(s, spirit) == want
+    assert not s.state.rules.effects
+    check(s)
+
+
 def test_radiate_copies_the_spell_for_each_other_permanent_or_player(cards):
     """707.10d: Bolt targets Bob; Radiate copies it for every other player and permanent it could target (Alice, Carol, both Giants): each copy hits a different one."""
     s = _three(cards, ["Test Bolt", "Radiate", "Test Giant", "Test Giant"])
@@ -240,3 +258,24 @@ def test_winters_chill_each_controller_decides_creature_by_creature(cards, first
 def test_winters_chill_x_is_capped_by_the_snow_lands(cards):
     """601.2b: X can't be greater than the number of snow lands you control (one snow land: X = 2 is refused)."""
     _chill(cards, None, None, snow=1)
+
+
+def test_winters_chill_destroys_at_end_of_combat_and_prevention_ends_with_it(cards):
+    """Winter's Chill: the unpaid creature survives combat damage and is destroyed at the beginning of the end of combat step (delayed); the {1} prevention shield lasts only this combat."""
+    s, bears, _ = _chill(cards, "pay1", "no")
+    seen = []
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_stops", own=["combat_damage", "end_combat"], others=["combat_damage", "end_combat"], smart_pass=False)
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+        seen.append((s.state.turn.phase, s.state.cards[bears[1].id].zone.endswith(":graveyard"), bool(s.state.rules.replacements)))
+    assert not any(dead for ph, dead, _ in seen if ph in ("declare_attackers", "declare_blockers", "combat_damage"))
+    assert any(dead for ph, dead, _ in seen if ph == "end_combat")
+    assert any(sh for ph, _, sh in seen if ph == "combat_damage") and not s.state.rules.replacements
+    check(s)
