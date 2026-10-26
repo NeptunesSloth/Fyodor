@@ -412,3 +412,28 @@ def test_eye_of_duskmantle_plays_a_surveilled_land(cards):
     act(s, "p1", type="play_land", card_id=forests[0])
     assert s.state.cards[forests[0]].zone == "p1:battlefield"
     check(s)
+
+
+DRACH = "Drach'Nyen"
+test_full_drach = full_test([DRACH])
+
+
+@pytest.mark.parametrize(("exile", "bonus"), [("Kitchen Finks", 3), (None, 0)])
+def test_drachnyen_equipped_creature_gets_the_exiled_cards_power_and_menace(cards, exile, bonus):
+    s = build(cards, [DRACH, "Grizzly Bears"], ["Kitchen Finks"])
+    bears = put(s, "Grizzly Bears")
+    finks = put(s, "Kitchen Finks", "p2")
+    cast(s, DRACH)
+    if exile:
+        answer(s, finks.id)
+    else:  # "up to one target": none
+        d = resolve_decision(s)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[])
+        answer(s)
+    assert (zone_of(s, "Kitchen Finks", "p2") == "p2:exile") == bool(exile)
+    drach = card_named(s, DRACH)
+    fund(s, "{2}")
+    act(s, "p1", type="activate_ability", card_id=drach.id, ability=2, targets=[bears.id])
+    answer(s)
+    assert pt(s, "Grizzly Bears") == (2 + bonus, 2) and "menace" in ch(s, bears).keywords
+    check(s)

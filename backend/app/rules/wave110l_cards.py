@@ -420,6 +420,18 @@ _BUILD["When this creature enters, each opponent exiles a card from their hand a
     "When this creature enters, each opponent exiles a card from their hand.", _inquisitor)
 
 
+def _daemon_sword(d: Def) -> Def:
+    """Drach'Nyen: X is the power of the creature card its ETB exiled (linked ability, 607.2a; the pool projection "power" reads the latest exiled creature)."""
+    each = d.get("each")
+    if not each or each.get("value") != {"linked_pool": {"projection": "count"}}:
+        return d
+    return {**d, "each": {**each, "value": {"linked_pool": {"projection": "power"}}}}
+
+
+_BUILD["Daemon Sword — Equipped creature has menace and gets +X/+0, where X is the exiled card's power."] = (
+    "Daemon Sword — Equipped creature has menace and gets +X/+0, where X is the number of cards exiled with this Equipment.", _daemon_sword)
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key
