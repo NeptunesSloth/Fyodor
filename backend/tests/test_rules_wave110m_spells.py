@@ -125,3 +125,42 @@ def test_kaervek_spite_sacrifices_every_permanent_and_discards_the_hand_as_a_cos
     answer(s)
     assert life(s, "p2") == 35 and zone_of(s, SPITE) == "p1:graveyard"
     check(s)
+
+
+# -- Rhino's Rampage -------------------------------------------------------------------------------------------------------------------------
+RAMPAGE = "Rhino's Rampage"
+test_rampage_full = full_test([RAMPAGE])
+
+
+def rampage_table(cards, victim):
+    s = build(cards, [RAMPAGE, "Grizzly Bears"], [victim, "Sol Ring", "Gilded Lotus", "Ornithopter"], forests=20)
+    bears = put(s, "Grizzly Bears")
+    for n in (victim, "Sol Ring", "Gilded Lotus", "Ornithopter"):
+        put(s, n, "p2")
+    return s, bears
+
+
+@pytest.mark.parametrize("victim,excess", [("Llanowar Elves", True), ("Hill Giant", False)])
+def test_rhino_rampage_destroys_an_artifact_only_when_excess_damage_was_dealt(cards, victim, excess):
+    """Bears get +1/+0 (3 power): a 1/1 takes 2 excess damage, a 3/3 exactly lethal damage (120.10). The artifact is chosen as the reflexive ability goes on the stack."""
+    s, bears = rampage_table(cards, victim)
+    c = to_hand(s, RAMPAGE)
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[bears.id, card_named(s, victim, "p2").id], target_counts=[1, 1])
+    if excess:
+        d = None
+        for _ in range(20):
+            d = s.state.rules.decision
+            if d is not None:
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        assert d is not None and {o.label for o in d.options} >= {"Sol Ring"} and not {o.label for o in d.options} & {"Gilded Lotus", "Ornithopter"}
+        sol = card_named(s, "Sol Ring", "p2")
+        answer(s, [sol.id])
+        assert zone_of(s, "Sol Ring", "p2") == "p2:graveyard"
+    else:
+        answer(s)
+        assert zone_of(s, "Sol Ring", "p2") == "p2:battlefield"
+    assert zone_of(s, victim, "p2") == "p2:graveyard"
+    assert zone_of(s, "Gilded Lotus", "p2") == "p2:battlefield" and zone_of(s, "Ornithopter", "p2") == "p2:battlefield"
+    check(s)

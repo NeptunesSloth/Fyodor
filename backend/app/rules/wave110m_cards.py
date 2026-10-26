@@ -45,6 +45,25 @@ def definition(ability: Any, ch: Any) -> Def | None:
     return None if native is None else built[1](native)
 
 
+_RHINO = ("Target creature you control gets +1/+0 until end of turn. It fights target creature an opponent controls. When excess damage is dealt to the creature "
+          "an opponent controls this way, destroy up to one target noncreature artifact with mana value 3 or less.")
+
+
+def _rhino() -> Any:
+    """Rhino's Rampage: the fight binds the excess damage the opponent's creature was dealt (120.10); when there was some, the reflexive ability (603.12) picks its target."""
+    from app.rules import scripts
+
+    fight = scripts.parse_effects("Target creature you control gets +1/+0 until end of turn. It fights target creature an opponent controls.")
+    reflex = scripts.parse_effects("You may sacrifice a creature. When you do, destroy up to one target noncreature artifact with mana value 3 or less.")
+    if fight is None or reflex is None:
+        return None
+    effects = [dict(x) for x in fight[0]]
+    index = next(i for i, x in enumerate(effects) if x["do"] == "fight")
+    effects[index] = {**effects[index], "bind_excess": "excess110m", "excess_on": effects[index]["with"]}
+    ability = next(x for x in reflex[0] if x["do"] == "reflexive")
+    return [*effects, {**ability, "cond": {"value": {"ref_amount": "excess110m"}, "op": ">=", "n": 1}}], fight[1], fight[2]
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -52,6 +71,8 @@ def parse(body: str) -> Any:
     """Spell bodies. Meddle: any spell may be targeted; whether it has one target and that target is a creature is judged as this resolves (115.7a, 608.2b)."""
     from app.rules import scripts
 
+    if body.strip() == _RHINO:
+        return _rhino()
     if body.strip() == _MEDDLE:
         parsed = scripts.parse_effects("Counter target spell.")
         assert parsed is not None
@@ -131,6 +152,18 @@ def attack_taps_nothing(plan: Any) -> bool:
     return any(NO_TAP in plan.ch(c).imposed for c in plan.state.cards.values()
                if c.controller == plan.actor and c.zone == f"{plan.actor}:battlefield" and not c.tapped)
 
+
+_MERIEKE = ("{T}: Gain control of target creature for as long as you control Merieke Ri Berit. When Merieke Ri Berit leaves the battlefield or becomes untapped, "
+            "destroy that creature. It can't be regenerated.")
+
+
+def _merieke(d: Def) -> Def:
+    """Merieke Ri Berit: 603.7a — the delayed trigger watches Merieke herself (leaving, or becoming untapped: delayed.on_events), destroying the creature gained."""
+    watch = {"do": "delayed", "when": {"kind": "event", "event": "leave_or_untap110m"}, "n": 2, "who": "self"}
+    return {**d, "effects": [*d["effects"], watch, {"do": "deferred:destroy", "who": "target"}, {"do": "deferred:no_regen"}]}
+
+
+_BUILD[_MERIEKE] = ("{T}: Gain control of target creature for as long as you control Merieke Ri Berit.", _merieke)
 
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})

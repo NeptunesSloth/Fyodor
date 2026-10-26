@@ -179,3 +179,42 @@ def test_soul_sculptor_ends_when_any_player_casts_a_creature_spell(cards, caster
     got = ch(s, birds)
     assert "Creature" in got.types and "Enchantment" not in got.types and "flying" in got.keywords
     check(s)
+
+
+# -- Merieke Ri Berit ------------------------------------------------------------------------------------------------------------------------
+MERIEKE = "Merieke Ri Berit"
+test_merieke_full = full_test([MERIEKE])
+
+
+def merieke_table(cards):
+    s = build(cards, [MERIEKE, "Twiddle", "Murder"], ["Grizzly Bears"], forests=20)
+    merieke = put(s, MERIEKE)
+    bears = put(s, "Grizzly Bears", "p2")
+    ready(s, MERIEKE)
+    act(s, "p1", type="activate_ability", card_id=merieke.id, ability=1, targets=[bears.id])
+    answer(s)
+    assert s.state.cards[bears.id].controller == "p1" and s.state.cards[merieke.id].tapped
+    return s, merieke, bears
+
+
+def test_merieke_steals_the_creature_while_she_stays_tapped_and_controlled(cards):
+    s, merieke, bears = merieke_table(cards)
+    to_turn_of(s, "p2")
+    assert s.state.cards[bears.id].controller == "p1" and s.state.cards[merieke.id].tapped  # (she doesn't untap, and no destroy yet)
+    check(s)
+
+
+def test_merieke_untapping_destroys_the_creature(cards):
+    s, merieke, bears = merieke_table(cards)
+    cast(s, "Twiddle", [merieke.id])
+    answer(s, "untap")
+    assert not s.state.cards[merieke.id].tapped and zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard"
+    check(s)
+
+
+def test_merieke_leaving_the_battlefield_destroys_the_creature(cards):
+    s, merieke, bears = merieke_table(cards)
+    cast(s, "Murder", [merieke.id])
+    answer(s)
+    assert s.state.cards[merieke.id].zone == "p1:graveyard" and zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard"
+    check(s)

@@ -375,5 +375,114 @@
 "keywords": [],
 "power": "5",
 "toughness": "4"
+},
+{
+"name": "Merieke Ri Berit",
+"layout": "normal",
+"mana_cost": "{W}{U}{B}",
+"cmc": 3.0,
+"type_line": "Legendary Creature — Human",
+"oracle_text": "Merieke Ri Berit doesn't untap during your untap step.\n{T}: Gain control of target creature for as long as you control Merieke Ri Berit. When Merieke Ri Berit leaves the battlefield or becomes untapped, destroy that creature. It can't be regenerated.",
+"colors": [
+"B",
+"U",
+"W"
+],
+"color_identity": [
+"B",
+"U",
+"W"
+],
+"keywords": [],
+"power": "1",
+"toughness": "1"
+},
+{
+"name": "Twiddle",
+"layout": "normal",
+"mana_cost": "{U}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "You may tap or untap target artifact, creature, or land.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
+},
+{
+"name": "Rhino's Rampage",
+"layout": "normal",
+"mana_cost": "{R/G}",
+"cmc": 1.0,
+"type_line": "Sorcery",
+"oracle_text": "Target creature you control gets +1/+0 until end of turn. It fights target creature an opponent controls. When excess damage is dealt to the creature an opponent controls this way, destroy up to one target noncreature artifact with mana value 3 or less.",
+"colors": [
+"G",
+"R"
+],
+"color_identity": [
+"G",
+"R"
+],
+"keywords": [
+"Fight"
+]
+},
+{
+"name": "Sol Ring",
+"layout": "normal",
+"mana_cost": "{1}",
+"cmc": 1.0,
+"type_line": "Artifact",
+"oracle_text": "{T}: Add {C}{C}.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Hill Giant",
+"layout": "normal",
+"mana_cost": "{3}{R}",
+"cmc": 4.0,
+"type_line": "Creature — Giant",
+"oracle_text": "",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [],
+"power": "3",
+"toughness": "3"
+},
+{
+"name": "Gilded Lotus",
+"layout": "normal",
+"mana_cost": "{5}",
+"cmc": 5.0,
+"type_line": "Artifact",
+"oracle_text": "{T}: Add three mana of any one color.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Ornithopter",
+"layout": "normal",
+"mana_cost": "{0}",
+"cmc": 0.0,
+"type_line": "Artifact Creature — Thopter",
+"oracle_text": "Flying",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Flying"
+],
+"power": "0",
+"toughness": "2"
 }
 ]
