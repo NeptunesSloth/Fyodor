@@ -2745,6 +2745,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "not_put_there_combat" and _put_there_now(plan, card, "combat"):
             return False
+        if extra.startswith("warpeace110e:"):  # (wave 110E) controlled by a player who chose that side as the source entered
+            from app.rules import wave110e_opp
+
+            if not wave110e_opp.chose(plan, card, source, extra.split(":", 1)[1]):
+                return False
         if extra == "picked110a":  # (wave 110A)
             from app.rules import wave110a_pick
 

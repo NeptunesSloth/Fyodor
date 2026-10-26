@@ -12,12 +12,15 @@ from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave110e_cards import card_db  # noqa: F401  (the fixture)
 from tests.test_rules_wave110e_cards import cast as cast_card
 from tests.test_rules_wave110e_s11 import _three
-from tests.wave9c_kit import build, card_named, check, mana, to_hand  # noqa: F401
+from tests.wave9c_kit import card_named, check, mana, pt, put, to_hand
 
 EMISSARY = real("Emissary of Grudges", "{5}{R}", 6, "Creature — Efreet",
                 "Flying, haste\nAs this creature enters, secretly choose an opponent.\nReveal the player you chose: Choose new targets for target spell or ability if it's controlled by the "
                 "chosen player and if it targets you or a permanent you control. Activate only once.", ("6", "5"), "R")
-base.EXTRA.append(EMISSARY)
+ARCH = real("Archangel of Strife", "{5}{W}{W}", 7, "Creature — Angel",
+            "Flying\nAs this creature enters, each player chooses war or peace.\nCreatures controlled by players who chose war get +3/+0.\nCreatures controlled by players who chose peace get +0/+3.",
+            ("6", "6"), "W")
+base.EXTRA.extend([EMISSARY, ARCH])
 
 
 def test_emissary_full(cards):
@@ -98,4 +101,37 @@ def test_emissary_retargets_only_a_chosen_players_spell_aimed_at_you(cards, chos
     _reveal(s, bolt)
     _finish(s, new)
     assert _lost(s) == lost
+    check(s)
+
+
+def test_archangel_full(cards):
+    assert coverage.of_card_data(cards.resolve("Archangel of Strife")).level == "FULL"
+
+
+def _war(cards, sides):
+    """Alice casts Archangel of Strife; Alice, Bob, Carol answer in turn order (``sides``); Bob has a 0/9 Giant, Alice a 2/2 Bear."""
+    s = _three(cards, ["Archangel of Strife", "Test Bear"])
+    bear, giant = put(s, "Test Bear"), put(s, "Test Giant", "p2")
+    mana(s, W=2, C=5)
+    cast_card(s, "Archangel of Strife")
+    for pid, side in zip(("p1", "p2", "p3"), sides, strict=True):
+        for _ in range(4):
+            d = s.state.rules.decision
+            if d is not None and "war or peace" in d.prompt:
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        assert d.player == pid and {o.label for o in d.options} == {"War", "Peace"}
+        act(s, pid, type="choose", decision_id=d.id, option_ids=[side])
+    return s, bear, giant
+
+
+@pytest.mark.parametrize("sides", [("war", "peace", "war"), ("peace", "peace", "war"), ("war", "war", "war")])
+def test_archangel_war_gives_plus_three_power_peace_plus_three_toughness(cards, sides):
+    """613.4c: creatures of players who chose war get +3/+0, of players who chose peace +0/+3 (the Archangel itself included)."""
+    s, bear, giant = _war(cards, sides)
+    angel = card_named(s, "Archangel of Strife")
+    assert angel.zone == "p1:battlefield"
+    for card, pid, base_pt in ((angel, "p1", (6, 6)), (bear, "p1", (2, 2)), (giant, "p2", (0, 9))):
+        want = (base_pt[0] + 3, base_pt[1]) if dict(zip(("p1", "p2", "p3"), sides, strict=True))[pid] == "war" else (base_pt[0], base_pt[1] + 3)
+        assert pt(s, card.name, pid) == want, (card.name, pt(s, card.name, pid))
     check(s)
