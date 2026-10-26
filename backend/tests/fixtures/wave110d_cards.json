@@ -6732,5 +6732,6 @@
  "keywords": [
   "Equip"
  ]
-}
+},
+{"name": "Aphetto Runecaster", "layout": "normal", "mana_cost": "{3}{U}", "cmc": 4.0, "type_line": "Creature — Human Wizard", "oracle_text": "Whenever a permanent is turned face up, you may draw a card.", "power": "2", "toughness": "3", "colors": ["U"], "color_identity": ["U"], "keywords": []}
 ]
