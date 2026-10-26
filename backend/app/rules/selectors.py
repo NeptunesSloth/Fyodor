@@ -2410,6 +2410,10 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if top_card is None or not set(plan.ch(top_card).colors) & set(ch.colors):
                 return False
             continue
+        if extra.startswith("basic_or_sub110c:"):  # -- (wave 110C) -- "basic, Sphere, or Locus lands" (Monument to Perfection): a basic land, or one with one of those subtypes
+            if "Basic" not in ch.supertypes and not set(extra.split(":", 1)[1].split("|")) & ch.subtypes:
+                return False
+            continue
         if extra == 'enchant_creature_exact':
             from app.rules import attachments
 
