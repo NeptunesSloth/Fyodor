@@ -7247,3 +7247,7 @@ PRIMITIVES.update(_wave110e_once.PRIMITIVES)
 from app.rules import wave110e_blade as _wave110e_blade  # noqa: E402, I001  -- Sanctuary Blade (wave 110E) --
 
 RESUME.update(_wave110e_blade.RESUME)
+from app.rules import wave110e_kaya as _wave110e_kaya  # noqa: E402, I001  -- Kaya, Spirits' Justice (wave 110E) --
+
+PRIMITIVES.update(_wave110e_kaya.PRIMITIVES)
+RESUME.update(_wave110e_kaya.RESUME)

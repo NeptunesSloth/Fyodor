@@ -48,12 +48,20 @@ def parse(body: str, read: Callable[[str], Parsed | None]) -> Parsed | None:
     if sel is None or (sel.controller != "opponent" and not (sel.zone_owner == "opponent" and sel.controller is None)) or group["max"] != 1 or group["min"] > 1 or set(group) - {"what", "min", "max"}:
         return None
     before: list[dict[str, Any]] = []
-    if m["pre"]:  # (once, not per opponent: an untargeted sentence of no choice and no payment of its own)
+    own: list[dict[str, Any]] = []
+    if m["pre"]:  # (once, not per opponent: a sentence of no choice and no payment of its own; -- wave 110E -- it may have its one plain target, a group before the flagged one: Kaya, Spirits' Justice)
         pre = read(m["pre"].strip())
-        if pre is None or pre[1] is not None or pre[2] or re.search(r'"(?:target|optional|bind|skip)', json.dumps(pre[0], default=str)):
+        if pre is None or pre[2] or re.search(r'"(?:optional|bind|skip)', json.dumps(pre[0], default=str)):
+            return None
+        own = [] if pre[1] is None else [{"what": pre[1], "min": 1, "max": 1}] if isinstance(pre[1], str) else pre[1]
+        if len(own) > 1 or (not own and '"target' in json.dumps(pre[0], default=str)) or (own and set(own[0]) - {"what", "min", "max"}):
             return None
         before = pre[0]
-    return before + found[0], [{**group, FLAG: True if m["who"] == "opponent" else m["who"], **({"from": len(before)} if before else {})}], found[2]
+    if own:
+        from app.rules.scripts import _renumber
+
+        found = (_renumber(found[0], [len(own)]), found[1], found[2])  # (its "target" is the ability's second group)
+    return before + found[0], [*own, {**group, FLAG: True if m["who"] == "opponent" else m["who"], **({"from": len(before)} if before else {})}], found[2]
 
 
 def flagged(definition: dict[str, Any]) -> bool:
@@ -67,7 +75,7 @@ def allowed(definition: dict[str, Any]) -> bool:
     # (-- if you do (wave 50F) -- "you may exile it. When you do, for each opponent, …" (The Balrog of Moria): 603.12 the reflexive ability is put on the stack, and
     # expanded, like any trigger — the flag is its own single group)
     return FLAG not in raw or (definition.get("kind") in ("triggered", "activated", "spell") and flagged(definition)
-                               and raw.count(f'"{FLAG}"') == len(definition["targets"]) == 1) \
+                               and raw.count(f'"{FLAG}"') == 1 and len(definition["targets"]) <= 2 and definition["targets"][-1].get(FLAG)) \
         or (raw.count(f'"{FLAG}"') == 1 and any(e.get("do") == "reflexive" and allowed(e["ability"]) for e in definition.get("effects") or []))
 
 
@@ -90,7 +98,8 @@ def expanded(plan: Plan, controller: str, source_card: str | None, ab: dict[str,
 
     if not flagged(ab):
         return ab
-    group = ab["targets"][0]
+    fi = next(i for i, g in enumerate(ab["targets"]) if g.get(FLAG))  # (-- wave 110E -- groups before it: the one plain target of the sentence before "For each …")
+    group = ab["targets"][fi]
     order = plan.state.seat_order
     start = order.index(controller) if controller in order else 0
     opponents = [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in plan.live() and (p != controller or group[FLAG] == "player")]
@@ -104,7 +113,7 @@ def expanded(plan: Plan, controller: str, source_card: str | None, ab: dict[str,
             continue
         if not group.get('required_present') and group["min"] and not legal_targets(plan, key, controller, source_of(plan, source_card, ab.get("kind") == "spell"), source_card):
             continue
-        effects += _renumber([e for e in ab["effects"][first:] if not e.get("opponent_aggregate")], [len(groups)])
+        effects += _renumber([e for e in ab["effects"][first:] if not e.get("opponent_aggregate")], [*range(fi), fi + len(groups)])
         groups.append({k: v for k, v in group.items() if k not in (FLAG, "from", "required_present")} | {"what": key})
     aggregate = [{k: v for k, v in e.items() if k != "opponent_aggregate"} for e in ab["effects"][first:] if e.get("opponent_aggregate")]
-    return {**ab, "effects": [*ab["effects"][:first], *effects, *aggregate], "targets": groups}
+    return {**ab, "effects": [*ab["effects"][:first], *effects, *aggregate], "targets": [*ab["targets"][:fi], *groups]}

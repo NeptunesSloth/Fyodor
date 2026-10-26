@@ -23,9 +23,14 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
         ("Put target creature on top of its owner's library.", _FATESEAL2),
     # 701.31a: a player may planeswalk only during a Planechase game (never in Commander), so "you may planeswalk" does nothing
     "Surveil 2, then draw a card. You may planeswalk.": ("Surveil 2, then draw a card.", []),
+    # 608.2d: not a target, any graveyard (linked_aggregates.graveyard_choice)
+    "+2: Surveil 2, then exile a card from a graveyard.": ("+2: Surveil 2.", [{"do": "linked_graveyard_choice"}]),
 }
 
 _REWRITE: dict[str, str] = {
+    # "each other player" is each opponent here (Commander has no teams); the exile of "up to one target creature that player controls" per opponent (per_opponent, wave 12C)
+    "−2: Exile target creature you control. For each other player, exile up to one target creature that player controls.":
+        "−2: Exile target creature you control. For each opponent, exile up to one target creature that player controls.",
     # 700.9: the sacrificed creature is read as it last existed (608.2h); the cost is plain "sacrifice a creature" (costs._THROWDOWN_COST)
     "Destroy target creature or planeswalker. If the modified creature was sacrificed, draw a card.":
         "Destroy target creature or planeswalker. If a modified creature was sacrificed this way, draw a card.",
@@ -268,7 +273,7 @@ _STORM = "Whenever you cast a spell that targets one or more creatures, those cr
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts
+    from app.rules import scripts, wave110e_kaya
 
     text = ability.text.strip()
     if text == _EMBIGGEN:  # 613.4b: until end of turn Ms. Marvel's base power is the number of cards in your hand, counted continuously (611.3a)
@@ -348,6 +353,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
                 "As this Equipment becomes attached to a creature, choose an exiled creature card used to craft this Equipment.",
                 "Equipped creature is a copy of the last chosen card."):  # 701.3a (wave110e_blade)
         return {"kind": "static", "static": "attach_choice110e", "effects": []}
+    if (kaya := wave110e_kaya.definition(text)) is not None:  # 603.2c, 707.4 (wave110e_kaya)
+        return kaya
     if (alt := _REWRITE.get(text)) is not None:  # an exact Oracle sentence read as the wording the grammar already knows (pattern: multi100n)
         return scripts.define(replace(ability, text=alt), ch)
     if text == _REFLECT_ETB:  # 707.9 / 707.2: the other nontoken creatures become copies of the enchanted creature, fixed as the trigger resolves (611.2c)

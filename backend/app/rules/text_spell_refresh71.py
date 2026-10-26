@@ -64,6 +64,8 @@ def fixed_scopes(d: dict[str, Any], entry: StackEntry) -> dict[str, Any]:
 
     if not per_opponent.flagged(d):
         return d
+    if not d['targets'][0].get(per_opponent.FLAG):
+        raise ActionError('A changed spell text with a target before its per-player clause is not automated')
     group = d['targets'][0]
     base = selectors.from_key(group['what'])
     first = group.get('from', 0)

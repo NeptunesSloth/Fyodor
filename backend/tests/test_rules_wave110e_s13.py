@@ -90,3 +90,148 @@ def test_pick_axe_equip_chooses_again(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[bear.id])
     assert _ch(s, other.id).name == "Zed Bear" and _ch(s, host.id).name == "Zed Host"
     check(s)
+
+
+# -- Kaya, Spirits' Justice ------------------------------------------------------------------------------------------------------------------------------
+from tests.test_rules_wave110e_cards import cast  # noqa: E402
+from tests.test_rules_wave110e_s11 import _three  # noqa: E402
+
+KAYA = card("Kaya, Spirits' Justice", set_code="tst", number="13-kaya", mana_cost="{2}{W}{B}", cmc=4.0, type_line="Legendary Planeswalker — Kaya", loyalty="3",
+            colors=["W", "B"], color_identity=["W", "B"], keywords=[],
+            oracle_text="Whenever one or more creatures you control and/or creature cards in your graveyard are put into exile, you may choose a creature card from among them. "
+                        "Until end of turn, target token you control becomes a copy of it, except it has flying.\n+2: Surveil 2, then exile a card from a graveyard.\n"
+                        "+1: Create a 1/1 white and black Spirit creature token with flying.\n−2: Exile target creature you control. For each other player, exile up to one target creature that player controls.")
+BANISH = real("Zed Banish", "{1}{W}", 2, "Instant", "Exile target creature.", None, "W")
+SCOUR = real("Zed Scour", "{W}", 1, "Instant", "Exile target card from a graveyard.", None, "W")
+PURGE = real("Zed Purge", "{2}{W}", 3, "Instant", "Exile target creature and target creature card in a graveyard.", None, "W")
+base.EXTRA.extend([KAYA, BANISH, SCOUR, PURGE])
+GIANT = "Test Giant"
+
+
+def _drive(s, pick=None, limit=40):
+    """Resolve everything; the Kaya question is answered with the card named ``pick`` (None: decline), other decisions with their first option."""
+    asked = []
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            if "from among the exiled cards" in d.prompt:
+                asked.append(sorted(o.label for o in d.options))
+                ids = [o.id for o in d.options if o.label == pick][:1]
+            else:
+                ids = [o.id for o in d.options][: max(1, d.min_choices)]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return asked
+    raise AssertionError("never settled")
+
+
+def _kaya(cards, deck_extra=()):
+    s = _three(cards, ["Kaya, Spirits' Justice", "Zed Banish", "Zed Scour", "Zed Purge", "Zed Hawk", "Zed Bear", *deck_extra], carols=(GIANT,))
+    kaya = put(s, "Kaya, Spirits' Justice")
+    act(s, "p1", type="set_counter", card_id=kaya.id, kind="loyalty", value=5)
+    return s, kaya
+
+
+def _spirit(s, kaya):
+    act(s, "p1", type="activate_ability", card_id=kaya.id, ability=2)  # +1
+    _drive(s)
+    return next(c for c in s.state.cards.values() if c.is_token and c.controller == "p1" and c.zone == "p1:battlefield")
+
+
+def test_kaya_full(cards):
+    assert coverage.of_card_data(cards.resolve("Kaya, Spirits' Justice")).level == "FULL"
+
+
+def test_kaya_token_copies_an_exiled_creature_of_yours(cards):
+    """603.2 / 707.4: the creature you control put into exile; the token you target becomes a copy of that card, with flying, until end of turn."""
+    s, kaya = _kaya(cards)
+    spirit = _spirit(s, kaya)
+    hawk = put(s, "Zed Hawk")
+    mana(s, W=1, C=1)
+    cast(s, "Zed Banish", [hawk.id])
+    assert _drive(s, "Zed Hawk") == [["Zed Hawk"]]
+    ch = _ch(s, spirit.id)
+    assert ch.name == "Zed Hawk" and ch.pt == (2, 1) and "flying" in {k.lower() for k in ch.keywords}
+    check(s)
+
+
+def test_kaya_graveyard_half_and_decline(cards):
+    """The creature card of your graveyard put into exile also triggers it; "you may" choose: declining leaves the token as it is."""
+    s, kaya = _kaya(cards)
+    spirit = _spirit(s, kaya)
+    bear = card_named(s, "Zed Bear")
+    act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, W=1)
+    cast(s, "Zed Scour", [bear.id])
+    assert _drive(s, None) == [["Zed Bear"]]
+    assert _ch(s, spirit.id).name == "Spirit"
+    mana(s, W=1)
+    other = card_named(s, "Zed Hawk")
+    act(s, "p1", type="move", card_ids=[other.id], to={"player": "p1", "zone": "graveyard"})
+    cast(s, "Zed Scour", [other.id])
+    assert _drive(s, "Zed Hawk") == [["Zed Hawk"]] and _ch(s, spirit.id).name == "Zed Hawk"
+    check(s)
+
+
+def test_kaya_an_opponents_card_in_their_graveyard_does_not_trigger(cards):
+    """Only creature cards in YOUR graveyard (and your creatures): an opponent's creature or graveyard exiled does nothing."""
+    s, kaya = _kaya(cards)
+    _spirit(s, kaya)
+    giant = put(s, GIANT, "p3")
+    mana(s, W=1, C=1)
+    cast(s, "Zed Banish", [giant.id])
+    assert _drive(s, "Test Giant") == []
+    check(s)
+
+
+def test_kaya_each_exile_event_is_its_own_trigger(cards):
+    """603.2: two instructions exile one object each (two events): two triggers, each offering its own exiled cards; the later copy replaces the earlier (613.7)."""
+    s, kaya = _kaya(cards)
+    spirit = _spirit(s, kaya)
+    hawk = put(s, "Zed Hawk")
+    bear = card_named(s, "Zed Bear")
+    act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, W=1, C=2)
+    cast(s, "Zed Purge", [hawk.id, bear.id], target_counts=[1, 1])
+    asked = _drive(s, "Zed Bear")
+    assert sorted(a for q in asked for a in q) == ["Zed Bear", "Zed Hawk"]
+    assert _ch(s, spirit.id).name in ("Zed Bear", "Zed Hawk")
+    check(s)
+
+
+def test_kaya_minus_two_exiles_yours_and_up_to_one_per_other_player(cards):
+    """-2: your creature, then for each other player up to one of that player's creatures (their own target group each)."""
+    s, kaya = _kaya(cards)
+    mine, bobs, carols = put(s, "Zed Hawk"), put(s, GIANT, "p2"), put(s, GIANT, "p3")
+    act(s, "p1", type="activate_ability", card_id=kaya.id, ability=3, targets=[mine.id, bobs.id, carols.id], target_counts=[1, 1, 1])
+    _drive(s)
+    assert [s.state.cards[c.id].zone for c in (mine, bobs, carols)] == ["p1:exile", "p2:exile", "p3:exile"]
+    assert s.state.cards[kaya.id].counters["loyalty"] == 3
+    check(s)
+
+
+def test_kaya_minus_two_up_to_one_may_skip_an_opponent(cards):
+    s, kaya = _kaya(cards)
+    mine, carols = put(s, "Zed Hawk"), put(s, GIANT, "p3")
+    bobs = put(s, GIANT, "p2")
+    act(s, "p1", type="activate_ability", card_id=kaya.id, ability=3, targets=[mine.id, carols.id], target_counts=[1, 0, 1])
+    _drive(s)
+    assert s.state.cards[bobs.id].zone == "p2:battlefield" and s.state.cards[carols.id].zone == "p3:exile"
+    check(s)
+
+
+def test_kaya_plus_two_surveils_then_exiles_a_card_from_any_graveyard(cards):
+    s, kaya = _kaya(cards)
+    bear = card_named(s, "Zed Bear", "p1")
+    act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="activate_ability", card_id=kaya.id, ability=1)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        pick = [o.id for o in d.options if o.label == "Zed Bear"] or [o.id for o in d.options][: max(1, d.min_choices)]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+    assert s.state.cards[bear.id].zone == "p1:exile" and s.state.cards[kaya.id].counters["loyalty"] == 7
+    check(s)
