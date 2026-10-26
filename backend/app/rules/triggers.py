@@ -1924,7 +1924,7 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
             if trigger == "event" and plan.in_game(card) and not plan.manual(card):
                 ch = plan.ch(card)
                 out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger)
-                        if ((d.get("cond") or {}).get("subject") == "haunted" and plan.oid(card) in plan.rules.haunting) or (d.get("cond") or {}).get("exiled")]
+                        if ((d.get("cond") or {}).get("subject") == "haunted" and plan.oid(card) in plan.rules.haunting) or (d.get("cond") or {}).get("exiled") or d.get("ex110b")]  # (wave 110B: Senu works from exile, 113.6k)
             continue
         if card.zone.endswith(":phased"):  # -- phase out (wave 110B) -- 702.26d: a phased-out permanent's "Whenever ~ phases out" still triggers (looks back at the shift)
             if trigger == "event" and plan.in_game(card) and not plan.manual(card):

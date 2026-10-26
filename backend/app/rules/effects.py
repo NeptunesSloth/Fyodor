@@ -304,7 +304,7 @@ def _cards(plan: Plan, ctx: Context, who: str) -> list[str]:
         if src is not None and src.zone.endswith((":graveyard", ":exile") if who == "self_gy_exile" else ":graveyard") and plan.oid(src) == ctx.get("source_object"):
             return [src.id]
         return []
-    if who in ("self_hand", "self_command"):  # -- activated from hand / command zone (wave 27D) -- 113.6m: the source, only while it
+    if who in ("self_hand", "self_command", "self_exile"):  # -- activated from hand / command zone (wave 27D; wave 110B: exile, Senu) -- 113.6m: the source, only while it
         src = plan.state.cards.get(ctx.get("source_card") or "")  # is still the same object in that zone (400.7)
         if src is not None and src.zone.endswith(":" + who[5:]) and plan.oid(src) == ctx.get("source_object"):
             return [src.id]

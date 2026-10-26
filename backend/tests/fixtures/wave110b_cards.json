@@ -2240,5 +2240,26 @@
   ],
   "power": "4",
   "toughness": "4"
+ },
+ {
+  "name": "Senu, Keen-Eyed Protector",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Legendary Creature — Bird Scout",
+  "oracle_text": "Flying, vigilance\n{T}, Exile Senu: You gain 2 life and scry 2.\nWhen a legendary creature you control attacks and isn't blocked, if this card is exiled, put it onto the battlefield attacking.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Scry",
+   "Flying",
+   "Vigilance"
+  ],
+  "power": "2",
+  "toughness": "1"
  }
 ]

@@ -232,6 +232,11 @@ def _towershell(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Senu: works only from exile (113.6k); "put it onto the battlefield attacking" (508.4: its controller chooses whom it attacks), untapped
+    "When a legendary creature you control attacks and isn't blocked, if this card is exiled, put it onto the battlefield attacking.":
+        ("When a legendary creature you control attacks and isn't blocked, you gain 1 life.",
+         lambda d: {**d, "ex110b": True, "if": {"object": "self", "test": "in_exile110b"},
+                    "effects": [{"do": "return_card", "who": "self_exile", "to": "battlefield", "attacking": True}]}),
     # Lathiel: "up to that many" = life gained this turn (the value is read as the trigger goes on the stack, 601.2d/608.2d); any number of targets (115.6) may be none
     "At the beginning of each end step, if you gained life this turn, distribute up to that many +1/+1 counters among any number of other target creatures.":
         ("At the beginning of each end step, if you gained life this turn, distribute X +1/+1 counters among any number of other target creatures, where X is the "

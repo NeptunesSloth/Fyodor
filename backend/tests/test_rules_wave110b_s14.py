@@ -115,3 +115,32 @@ def test_dragon_broodmother_token_devours(cards, sacrifice):
     assert (sba.power(t, ch(s, t)), sba.toughness(t, ch(s, t))) == ((3, 3) if sacrifice else (1, 1))
     assert s.state.cards[bears.id].zone.endswith("graveyard") == sacrifice
     check(s)
+
+
+def senu_game(cards, zone, legend="Krenko, Mob Boss", blocker=False):
+    from tests.wave110b_kit import attack, through_combat
+
+    s = build(cards, ["Senu, Keen-Eyed Protector", legend, "Grizzly Bears"], ["Grizzly Bears"], forests=30)
+    senu = card_named(s, "Senu, Keen-Eyed Protector")
+    act(s, "p1", type="move", card_ids=[senu.id], to={"player": "p1", "zone": zone})
+    lord = put(s, legend)
+    bears = put(s, "Grizzly Bears", "p2") if blocker else None
+    attack(s, lord)
+    through_combat(s, blocks=[(bears, lord)] if blocker else None)
+    return s, senu
+
+
+def test_senu_enters_attacking_from_exile_when_unblocked(cards):
+    """603.2 / 509.3g / 508.4: Krenko attacks unblocked; Senu (exiled) joins the attack, so both connect: 3 + 2 damage."""
+    assert coverage.of_card_data(cards.resolve("Senu, Keen-Eyed Protector")).level == "FULL"
+    s, senu = senu_game(cards, "exile")
+    assert s.state.cards[senu.id].zone.endswith("battlefield") and life(s, "p2") == 35
+    check(s)
+
+
+@pytest.mark.parametrize("zone,blocker", [("hand", False), ("graveyard", False), ("exile", True)])
+def test_senu_stays_put_elsewhere_or_when_blocked(cards, zone, blocker):
+    """113.6k: the ability works only from exile; a blocked legendary creature doesn't trigger it (509.3g)."""
+    s, senu = senu_game(cards, zone, blocker=blocker)
+    assert not s.state.cards[senu.id].zone.endswith("battlefield")
+    check(s)
