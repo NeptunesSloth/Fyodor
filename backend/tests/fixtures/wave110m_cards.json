@@ -1,0 +1,223 @@
+[
+{
+"name": "Rigo, Streetwise Mentor",
+"layout": "normal",
+"mana_cost": "{G/W}{W}{W/U}",
+"cmc": 3.0,
+"type_line": "Legendary Creature — Cat Citizen",
+"oracle_text": "Rigo enters with a shield counter on it. (If it would be dealt damage or destroyed, remove a shield counter from it instead.)\nWhenever you attack a player or planeswalker with one or more creatures with power 1 or less, draw a card.",
+"colors": [
+"G",
+"U",
+"W"
+],
+"color_identity": [
+"G",
+"U",
+"W"
+],
+"keywords": [],
+"power": "2",
+"toughness": "2"
+},
+{
+"name": "Llanowar Elves",
+"layout": "normal",
+"mana_cost": "{G}",
+"cmc": 1.0,
+"type_line": "Creature — Elf Druid",
+"oracle_text": "{T}: Add {G}.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [],
+"power": "1",
+"toughness": "1"
+},
+{
+"name": "Gideon Jura",
+"layout": "normal",
+"mana_cost": "{3}{W}{W}",
+"cmc": 5.0,
+"type_line": "Legendary Planeswalker — Gideon",
+"oracle_text": "+2: During target opponent's next turn, creatures that player controls attack Gideon Jura if able.\n−2: Destroy target tapped creature.\n0: Until end of turn, Gideon Jura becomes a 6/6 Human Soldier creature that's still a planeswalker. Prevent all damage that would be dealt to him this turn.",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": [],
+"loyalty": "6"
+},
+{
+"name": "Birds of Paradise",
+"layout": "normal",
+"mana_cost": "{G}",
+"cmc": 1.0,
+"type_line": "Creature — Bird",
+"oracle_text": "Flying\n{T}: Add one mana of any color.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [
+"Flying"
+],
+"power": "0",
+"toughness": "1"
+},
+{
+"name": "Fblthp, Impossibly Lost",
+"layout": "normal",
+"mana_cost": "{1}{U}",
+"cmc": 2.0,
+"type_line": "Legendary Creature — Homunculus",
+"oracle_text": "When one or more of your opponents are dealt combat damage during your turn, draw two cards. If your library has no cards in it, you win the game. Fblthp's owner shuffles him into their library. (If you draw from an empty library this way, you still win the game.)",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [],
+"power": "1",
+"toughness": "1"
+},
+{
+"name": "Grizzly Bears",
+"layout": "normal",
+"mana_cost": "{1}{G}",
+"cmc": 2.0,
+"type_line": "Creature — Bear",
+"oracle_text": "",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [],
+"power": "2",
+"toughness": "2"
+},
+{
+"name": "Crown of Convergence",
+"layout": "normal",
+"mana_cost": "{2}",
+"cmc": 2.0,
+"type_line": "Artifact",
+"oracle_text": "Play with the top card of your library revealed.\nAs long as the top card of your library is a creature card, creatures you control that share a color with that card get +1/+1.\n{G}{W}: Put the top card of your library on the bottom of your library.",
+"colors": [],
+"color_identity": [
+"G",
+"W"
+],
+"keywords": []
+},
+{
+"name": "Savannah Lions",
+"layout": "normal",
+"mana_cost": "{W}",
+"cmc": 1.0,
+"type_line": "Creature — Cat",
+"oracle_text": "",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": [],
+"power": "2",
+"toughness": "1"
+},
+{
+"name": "Elite Vanguard",
+"layout": "normal",
+"mana_cost": "{W}",
+"cmc": 1.0,
+"type_line": "Creature — Human Soldier",
+"oracle_text": "",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": [],
+"power": "2",
+"toughness": "1"
+},
+{
+"name": "Faces of the Past",
+"layout": "normal",
+"mana_cost": "{2}{U}",
+"cmc": 3.0,
+"type_line": "Enchantment",
+"oracle_text": "Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
+},
+{
+"name": "Mother of Runes",
+"layout": "normal",
+"mana_cost": "{W}",
+"cmc": 1.0,
+"type_line": "Creature — Human Cleric",
+"oracle_text": "{T}: Target creature you control gains protection from the color of your choice until end of turn.",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": [],
+"power": "1",
+"toughness": "1"
+},
+{
+"name": "Changeling Outcast",
+"layout": "normal",
+"mana_cost": "{B}",
+"cmc": 1.0,
+"type_line": "Creature — Shapeshifter",
+"oracle_text": "Changeling (This card is every creature type.)\nThis creature can't block and can't be blocked.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Changeling"
+],
+"power": "1",
+"toughness": "1"
+},
+{
+"name": "Murder",
+"layout": "normal",
+"mana_cost": "{1}{B}{B}",
+"cmc": 3.0,
+"type_line": "Instant",
+"oracle_text": "Destroy target creature.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
+}
+]
