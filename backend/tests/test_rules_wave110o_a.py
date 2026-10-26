@@ -26,6 +26,7 @@
 * 702.110b, 608.2h: Profaner of the Dead bounces the opponents' creatures with toughness below the exploited creature's (as it last existed).
 * 107.3a, 607.2a, 702.168d: Aurelia's Vindicator turned face up for X exiles up to X other creatures and/or creature cards in graveyards, and gives them back when it leaves.
 * 702.24a, 118.3, 108.3: Herald of Leshrac takes a land from an opponent for each age counter (or is sacrificed if it cannot), and gives every land back when it leaves.
+* 608.2c, 701.3a: Helm of Kaldra makes Kaldra and attaches Helm, Sword and Shield of Kaldra to it, only if you control all three.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -63,10 +64,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, VINDICATOR, HERALD, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Gaea's Liege", "Become the Pilot", "Profaner of the Dead", "Aurelia's Vindicator", "Herald of Leshrac", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, VINDICATOR, HERALD, KALDRA, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Gaea's Liege", "Become the Pilot", "Profaner of the Dead", "Aurelia's Vindicator", "Herald of Leshrac", "Helm of Kaldra", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, VINDICATOR, HERALD, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, VINDICATOR, HERALD, KALDRA, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -1329,4 +1330,21 @@ def test_herald_of_leshrac_leaving_returns_every_land_to_its_owner(cards):
     cast_on(s, "Murder", herald)
     assert now(s, herald).zone == "p1:graveyard"
     assert now(s, theirs[0]).controller == "p2" and now(s, mine).controller == "p1"
+    check(s)
+
+
+@pytest.mark.parametrize("have", [("Sword of Kaldra", "Shield of Kaldra"), ("Sword of Kaldra",), ("Shield of Kaldra",), ()])
+def test_helm_of_kaldra_makes_kaldra_only_with_all_three_equipment(cards, have):
+    s = build(cards, [KALDRA, "Sword of Kaldra", "Shield of Kaldra"])
+    helm = put(s, KALDRA)
+    pieces = [put(s, n) for n in have]
+    mana(s, "p1", C=1)
+    act(s, "p1", type="activate_ability", card_id=helm.id, ability=ability(s, helm, "{1}"))
+    settle(s)
+    tokens = [c for c in s.state.cards.values() if c.name == "Kaldra" and c.zone == "p1:battlefield"]
+    if len(have) == 2:
+        assert len(tokens) == 1 and ch(s, tokens[0]).pt == (9, 9) and "Legendary" in ch(s, tokens[0]).supertypes  # (4/4 and the Sword's +5/+5)
+        assert all(now(s, c).attached_to == tokens[0].id for c in (helm, *pieces))
+    else:
+        assert not tokens and now(s, helm).attached_to is None
     check(s)

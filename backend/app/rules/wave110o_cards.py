@@ -91,6 +91,8 @@ _PROFANER = ("When ~ exploits a creature, return to their owners' hands all crea
              "toughness.")
 _VINDICATOR = ("When ~ is turned face up, exile up to X other target creatures from the battlefield and/or creature cards from graveyards.")
 _HERALD = "When ~ leaves the battlefield, each player gains control of each land they own that you control."
+_KALDRA = ("{1}: If you control Equipment named Helm of Kaldra, Sword of Kaldra, and Shield of Kaldra, create Kaldra, a legendary 4/4 colorless Avatar "
+           "creature token. Attach those Equipment to it.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -110,6 +112,20 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "activated" and text == _KALDRA:  # 603.4-style "if" judged as it resolves (608.2c); every Equipment so named is attached
+        from app.rules import conditions, selectors
+
+        native = scripts.define(replace(ability, text="{1}: Create Kaldra, a legendary 4/4 colorless Avatar creature token."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["create_token"]:
+            return None
+        names = ("Helm of Kaldra", "Sword of Kaldra", "Shield of Kaldra")
+        keys = [selectors.parse(f"Equipment named {n} you control").key() for n in names]  # type: ignore[union-attr]
+        conds = [conditions.parse(f"you control an Equipment named {n}") for n in names]
+        if any(c is None for c in conds):
+            return None
+        make = {**native["effects"][0], "as": "kaldra110o"}
+        return {**native, "effects": [{"do": "only_if", "cond": {"all": conds}, "skip": 4}, make,
+                                      *({"do": "attach_to", "src": k, "who": "ref:kaldra110o"} for k in keys)]}
     if ability.kind == "triggered" and text == _HERALD:  # 108.3: each owner takes back their lands; the ones its controller owns stay (nothing to give back)
         from app.rules import selectors
 
