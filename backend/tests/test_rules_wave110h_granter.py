@@ -94,6 +94,7 @@ def test_lagrella_counters_only_on_the_card_that_returns_under_your_control(card
     answer(s)
     assert s.state.cards[mine.id].zone == "p1:battlefield" and s.state.cards[mine.id].counters.get("+1/+1", 0) == 2
     assert s.state.cards[theirs.id].zone == "p2:battlefield" and not s.state.cards[theirs.id].counters.get("+1/+1")
+    assert not [t for t in s.state.rules.delayed if t.when.get("event") == "enter_exiled110h"]  # 400.7: the opponent's returned card dropped its trigger unfired
     roundtrip(s)
 
 
