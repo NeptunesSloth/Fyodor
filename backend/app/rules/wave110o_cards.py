@@ -84,6 +84,9 @@ _WORM = ("Whenever you attack with creatures with total power 12 or greater for 
          "there is an additional combat phase.")
 _PHANTASM = "When ~ enters, if you guessed correctly for a card named Spire Phantasm, draw a card."
 _CODIE = "{W}{U}{B}{R}{G}, {T}: Each creature you control becomes prepared."
+_LIEGE = ("As long as ~ isn't attacking, its power and toughness are each equal to the number of Forests you control. As long as ~ is attacking, its power and "
+          "toughness are each equal to the number of Forests defending player controls.")
+_LIEGE_LAND = "{T}: Target land becomes a Forest until ~ leaves the battlefield."
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -103,6 +106,15 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "static" and text == _LIEGE:
+        # 604.3a(5): each sentence sets power and toughness only if its condition holds, so neither is a characteristic-defining ability: two ordinary statics
+        # (611.3a, 613.4b layer 7b) that exclude each other; "defending player" is the player it attacks (506.2)
+        first, second = _LIEGE.split(" As long as ")
+        a = scripts.define(replace(ability, text=first.replace("its power and toughness are each equal to", "it has base power and toughness X/X, where X is")), ch)
+        b = scripts.define(replace(ability, text="As long as " + second.replace("its power and toughness are each equal to", "it has base power and toughness X/X, where X is")), ch)
+        return None if a is None or b is None or a.get("also") or b.get("also") else {**a, "also": [b]}
+    if ability.kind == "activated" and text == _LIEGE_LAND:  # 611.2b: for as long as the creature remains on the battlefield
+        return scripts.define(replace(ability, text=_LIEGE_LAND.replace("until ~ leaves the battlefield", "for as long as ~ remains on the battlefield")), ch)
     if ability.kind == "activated" and text == _CODIE:  # 722.3a: each creature that has a prepare spell gains the designation (the effect skips the others)
         from app.rules import selectors
 

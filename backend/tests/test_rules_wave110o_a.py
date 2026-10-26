@@ -20,6 +20,8 @@
 * 905.2b: Spire Phantasm's "if you guessed correctly" can never hold in a game that had no draft: entering draws nothing.
 * 702.43a: Zabaz, the Glimmerwasp adds one to the +1/+1 counters a modular triggered ability puts on a creature its controller controls, and to nothing else.
 * 722.3, 722.3d, 707.10: Codie prepares every creature it can, and copies each prepared spell (one cast from the exiled prepare copy) as it is cast.
+* 604.3a(5), 613.4b, 611.2b: Gaea's Liege's power and toughness (Forests you control, or defending player's while it attacks) are no characteristic-defining
+  ability; its tap ability turns a land into a Forest for as long as it stays on the battlefield.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -57,10 +59,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Gaea's Liege", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -1141,4 +1143,38 @@ def test_a_prepared_spell_is_not_copied_by_an_opponents_codie(cards):
     act(s, "p1", type="cast_spell", card_id=copy.id)
     answer_all(s)
     assert len([c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Forest"]) == lands + 1
+    check(s)
+
+
+def test_gaeas_liege_is_as_big_as_the_forests_you_control_while_not_attacking(cards):
+    s = build(cards, [LIEGE], ["Breeding Pool"])
+    liege = put(s, LIEGE)
+    put(s, "Breeding Pool", "p2")  # (a Forest, but Bob's)
+    for _ in range(3):
+        put_new(s, "Forest")
+    assert ch(s, liege).pt == (3, 3)
+    put_new(s, "Forest")
+    assert ch(s, liege).pt == (4, 4)
+    check(s)
+
+
+def test_gaeas_liege_makes_a_land_a_forest_while_it_stays_and_counts_the_defenders_forests_when_it_attacks(cards):
+    s = build(cards, [LIEGE, "Lightning Bolt"], ["Breeding Pool"])
+    liege = ready(s, put(s, LIEGE))
+    pool = put(s, "Breeding Pool", "p2")
+    island = put_new(s, "Island", "p2")
+    put_new(s, "Forest")
+    activate(s, liege, "{T}", targets=[island.id], target_counts=[1])
+    assert "Forest" in ch(s, island).subtypes and ch(s, liege).pt == (1, 1)  # (my one Forest)
+    stops(s)
+    to_phase(s, "declare_attackers", turn=3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": liege.id, "target": "p2"}])
+    assert ch(s, liege).pt == (2, 2)  # (Bob's Breeding Pool and the Island that became a Forest)
+    for _ in range(8):  # (through combat to the second main phase, where a Bolt ends the Liege and with it the land's Forest type)
+        if s.state.turn.phase == "main2":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    cast_on(s, "Lightning Bolt", liege)
+    assert now(s, liege).zone == "p1:graveyard"
+    assert "Forest" not in ch(s, island).subtypes and "Forest" in ch(s, pool).subtypes
     check(s)

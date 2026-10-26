@@ -1873,5 +1873,19 @@
     "oracle_text": "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle."
    }
   ]
+ },
+ {
+  "name": "Breeding Pool",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land — Forest Island",
+  "oracle_text": "({T}: Add {G} or {U}.)\nAs this land enters, you may pay 2 life. If you don't, it enters tapped.",
+  "colors": [],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": []
  }
 ]
