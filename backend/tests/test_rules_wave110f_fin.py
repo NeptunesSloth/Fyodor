@@ -627,3 +627,60 @@ def test_idris_borrowed_triggered_ability_triggers(cards):
     answer(s, "p2")
     assert life(s, "p1") == base + 1 and life(s, "p2") == 37
     check(s)
+
+
+_BOOK = ("At the beginning of your end step, if you lost 2 or more life this turn, create a 2/2 black Zombie creature token.\n"
+         "{T}, Exile The Book of Vile Darkness and artifacts you control named Eye of Vecna and Hand of Vecna: Create Vecna, a legendary 8/8 black Zombie God creature token "
+         "with indestructible and all triggered abilities of the exiled cards.")
+_EYE = ("When Eye of Vecna enters, you draw a card and you lose 2 life.\n"
+        "At the beginning of your upkeep, you may pay {2}. If you do, you draw a card and you lose 2 life.")
+_HAND = ("At the beginning of combat on your turn, equipped creature or a creature you control named Vecna gets +X/+X until end of turn, where X is the number of cards in your hand.\n"
+         "Equip—Pay 1 life for each card in your hand.\nEquip {2}")
+_BASE.extend([
+    real("The Book of Vile Darkness", "{B}{B}{B}", 3, "Legendary Artifact — Book", _BOOK, None, "B"),
+    real("Eye of Vecna", "{2}", 2, "Legendary Artifact", _EYE, None, ""),
+    real("Hand of Vecna", "{3}", 3, "Legendary Artifact — Equipment", _HAND, None, ""),
+])
+
+
+def test_book_full(cards):
+    assert coverage.of_card_data(cards.resolve("The Book of Vile Darkness")).level == "FULL"
+
+
+def _book(cards, names=("The Book of Vile Darkness", "Eye of Vecna", "Hand of Vecna")):
+    from tests.wave36a_kit import ready
+
+    s = build(cards, list(names), [])
+    for n in names:
+        put(s, n)
+    ready(s, *names)
+    return s
+
+
+def test_book_makes_vecna_with_the_exiled_cards_triggered_abilities(cards):
+    """The three cards are exiled as the cost; Vecna (a legendary 8/8, indestructible) has the triggered abilities printed on them; the Eye's enters trigger triggers (2021-07-23 ruling)."""
+    from app.rules.plan import Plan
+    from tests.test_rules_wave34b_activated import ability
+
+    s = _book(cards)
+    book = card_named(s, "The Book of Vile Darkness")
+    act(s, "p1", type="activate_ability", card_id=book.id, ability=ability(s, book.name, "p1", "Exile"))
+    answer(s)
+    vecna = next(c for c in s.state.cards.values() if c.is_token and c.name == "Vecna")
+    assert all(s.state.cards[card_named(s, n).id].zone == "p1:exile" for n in ("The Book of Vile Darkness", "Eye of Vecna", "Hand of Vecna"))
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[vecna.id])
+    assert "Legendary" in ch.supertypes and "indestructible" in ch.keywords
+    texts = [a.text for a in ch.abilities if a.kind == "triggered"]
+    assert any("draw a card and you lose 2 life" in t for t in texts) and any("pay {2}" in t for t in texts) and any("named Vecna" in t for t in texts) and any("lost 2 or more life" in t for t in texts)
+    assert life(s, "p1") == 38  # (the Eye's enters trigger: draw and lose 2 life as Vecna entered)
+    check(s)
+
+
+def test_book_needs_all_three(cards):
+    from app.game.errors import ActionError
+    from tests.test_rules_wave34b_activated import ability
+
+    s = _book(cards, ("The Book of Vile Darkness", "Eye of Vecna"))
+    book = card_named(s, "The Book of Vile Darkness")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=book.id, ability=ability(s, book.name, "p1", "Exile"))

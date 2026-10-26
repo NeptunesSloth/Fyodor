@@ -48,6 +48,10 @@ _TAHNGARTH = ("Whenever an opponent attacks with one or more creatures, if ~ is 
 _IDRIS = "~ has all activated and triggered abilities of the exiled card and gets +X/+X, where X is the exiled card's mana value."
 
 
+_BOOK = ("{T}, Exile ~ and artifacts you control named Eye of Vecna and Hand of Vecna: Create Vecna, a legendary 8/8 black Zombie God creature token with indestructible and all "
+         "triggered abilities of the exiled cards.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -138,7 +142,28 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         d = _definition("self", None, [], abilities_of={"sel": None, "linked": True, "no_mana": False, "triggered": True})
         d["each"] = {"p": 1, "t": 1, "value": {"linked_pool": {"projection": "total_mv110f"}}}
         return d
+    if ability.kind == "activated" and scripts.self_text(ability.text, ch.name) == _BOOK:
+        native = scripts.define(replace(ability, text=ability.text.replace(" and all triggered abilities of the exiled cards", "")), ch)
+        if native is None or [x["do"] for x in native["effects"]] != ["create_token"]:
+            return {}
+        return {**native, "effects": [{"do": "vecna110f", "token": native["effects"][0]["token"]}]}
     return None
+
+
+def vecna(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The Book of Vile Darkness (2021-07-23 rulings): the token's triggered abilities are those printed on the exiled cards (their text as exiled, not the permanents' as they were),
+    part of its copiable values, so an enters trigger of the Eye triggers as Vecna arrives. The lenders' names are the token's own (113.10: "this creature")."""
+    from app.rules import characteristics as chars
+    from app.rules import effects
+
+    cards = [*effects._cards(plan, ctx, "cost:exiled"), *effects._cards(plan, ctx, "cost_exiled_self")]
+    lines = []
+    for cid in dict.fromkeys(cards):
+        card = plan.state.cards[cid]
+        ch = chars.of(card, plan.info)
+        lines += [a.text.replace(ch.name, e["token"]["name"]) for a in ch.abilities if a.kind == "triggered"]
+    token = {**e["token"], "text": "\n".join([e["token"].get("text") or "", *lines]).strip()}
+    return effects.PRIMITIVES["create_token"](plan, ctx, {"do": "create_token", "who": "you", "n": 1, "token": token})
 
 
 def tahngarth(plan: Any, ctx: dict[str, Any], e: dict[str, Any], pick: str | None = None) -> bool:
@@ -335,7 +360,7 @@ def resume_master(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh, "link_put110f": link_put, "servitude110f": servitude, "jarkeld110f": jarkeld, "tahngarth110f": tahngarth}
+PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh, "link_put110f": link_put, "servitude110f": servitude, "jarkeld110f": jarkeld, "tahngarth110f": tahngarth, "vecna110f": vecna}
 RESUME = {"master110f": resume_master, "seventh110f": resume_seventh, "seventh110f_guess": resume_seventh_guess, "tahngarth110f": resume_tahngarth}
 
 
