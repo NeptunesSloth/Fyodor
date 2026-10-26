@@ -3064,13 +3064,19 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
         spec = None
     elif spec:
         legal = legal_targets(plan, spec["what"], t.controller, source_of(plan, t.source_card, object_id=t.source_object), t.source_card, attacker, source_object=t.source_object)
+        if t.ability.get("target_choice") == "event_player_pov110n" and t.event is not None and len(t.event.players) == 1:
+            # -- (wave 110N) -- Necrotic Plague: "its controller chooses target creature one of their opponents controls": legal for the ability's controller (protection,
+            # 115.2), and an opponent of the player who chooses (that player's point of view for "opponent")
+            chooser = t.event.players[0]
+            pov = legal_targets(plan, t.ability["pov_what110n"], chooser, source_of(plan, t.source_card, object_id=t.source_object), t.source_card, attacker, source_object=t.source_object)
+            legal = [x for x in legal if x in pov]
         if target is None:
             if not legal:
                 r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
                 plan.note(f"{t.name}'s ability has no legal target and is removed")
                 return True
             choice_player = t.controller
-            if t.ability.get("target_choice") == "event_player":
+            if t.ability.get("target_choice") in ("event_player", "event_player_pov110n"):
                 event_players = list(t.event.players) if t.event is not None else []
                 if len(event_players) != 1 or event_players[0] not in plan.live():
                     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
