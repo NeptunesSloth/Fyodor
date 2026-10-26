@@ -26,6 +26,8 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
 }
 
 _REWRITE: dict[str, str] = {
+    # the Equipment's "Chosen color" is the last choice made as it became attached (wave110e_blade)
+    "Equipped creature gets +2/+0 and has protection from the last chosen color.": "Equipped creature gets +2/+0 and has protection from the chosen color.",
     # 701.39a goad, 701.21? tap: both act on the creatures each opponent chose (608.2c)
     "Each opponent chooses a creature they control. Tap and goad the chosen creatures.":
         "Each opponent chooses a creature they control. Tap those creatures. Goad those creatures.",
@@ -324,6 +326,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         if native is None or native["effects"][-1]["do"] != "draw":
             return None
         return {**native, "effects": [*native["effects"][:-1], {"do": "trigger_leaf51_djinn_draws", "all": True, "n": 7}]}
+    if text == "As this Equipment becomes attached to a creature, choose a color.":  # 701.3a (wave110e_blade)
+        return {"kind": "static", "static": "attach_choice110e", "effects": []}
     if (alt := _REWRITE.get(text)) is not None:  # an exact Oracle sentence read as the wording the grammar already knows (pattern: multi100n)
         return scripts.define(replace(ability, text=alt), ch)
     if text == _REFLECT_ETB:  # 707.9 / 707.2: the other nontoken creatures become copies of the enchanted creature, fixed as the trigger resolves (611.2c)

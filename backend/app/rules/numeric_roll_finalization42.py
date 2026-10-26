@@ -8,7 +8,10 @@ from pydantic import BaseModel, Field
 _NIGHT = 'After you roll a die, you may pay 1 life. If you do, increase or decrease the result by 1. Do this only once each turn.'
 # -- Xenosquirrels (wave 110H) -- the same adjustment paid with a counter and offered once per die rolled (no once-a-turn limit)
 _XENO = 'After you roll a die, you may remove a +1/+1 counter from this creature. If you do, increase or decrease the result by 1.'
-_COST = {_NIGHT: ('Pay 1 life', True), _XENO: ('Remove a +1/+1 counter from it', False)}  # text -> (cost, once each turn)
+# -- Monitor Monitor (wave 110E) -- 706.2a-b: an optional modifier with a cost that rerolls dice; rerolls are applied before any increase or decrease
+_MONITOR = 'Once each turn, you may pay {1} to reroll one or more dice you rolled.'
+_COST = {_NIGHT: ('Pay 1 life', True), _XENO: ('Remove a +1/+1 counter from it', False),
+         _MONITOR: ('{1}', True)}  # text -> (cost, once each turn)
 
 
 def definition(text: str) -> dict[str, Any] | None:
@@ -57,6 +60,10 @@ def valid_source(plan: Any, source: Adjustment, controller: str) -> bool:
                for ab in ch.abilities)
 
 
+def _is_reroll(plan: Any, source: Adjustment) -> bool:
+    return any(ab.index == source.ability and ab.text == _MONITOR for ab in plan.ch(plan.state.cards[source.card]).abilities)
+
+
 def _cost(plan: Any, source: Adjustment) -> tuple[str, bool]:
     return next(_COST[ab.text] for ab in plan.ch(plan.state.cards[source.card]).abilities if ab.index == source.ability)
 
@@ -94,7 +101,10 @@ def start(plan: Any, ctx: dict[str, Any], effect: dict[str, Any], naturals: list
     log = turn_log_now(plan.state)
     frame = NumericFrame(ctx=ctx, effect=effect, naturals=list(naturals), results=list(naturals),
                          base=log.rolled.get(ctx['controller'], 0) if log else 0, sources=sources)
-    return offer(plan, frame)
+    done = offer(plan, frame)
+    if done:  # (wave 110E) nothing was offered (a once-each-turn source already used): the frame's context is a copy, hand the die results back
+        ctx.update(frame.ctx)
+    return done
 
 
 def _printed(plan: Any, frame: NumericFrame) -> None:
@@ -117,9 +127,11 @@ def offer(plan: Any, frame: NumericFrame) -> bool:
     available = [source for source in frame.sources if valid_source(plan, source, frame.ctx['controller'])
                  and source.key() not in frame.skipped
                  and plan.rules.once_per_turn.get(source.key()) != plan.state.turn.number
-                 and len(frame.used.get(source.key(), [])) < len(frame.results)]
+                 and len(frame.used.get(source.key(), [])) < len(frame.results)
+                 and (not _is_reroll(plan, source) or (not frame.printed_done and not any(frame.used.values())))]  # 706.2b: rerolls come first
     if available:
-        options = [DecisionOption(id=source.key(), label=f'{_cost(plan, source)[0]} to adjust one result ({plan.state.cards[source.card].name})') for source in available]
+        options = [DecisionOption(id=source.key(), label=f"{_cost(plan, source)[0] if not _is_reroll(plan, source) else 'Pay {1}'} to {'reroll dice' if _is_reroll(plan, source) else 'adjust one result'} ({plan.state.cards[source.card].name})")
+                   for source in available]
         if frame.effect.get('mod') and not frame.printed_done:
             options.append(DecisionOption(id='printed', label='Apply the printed die modifier'))
         options.append(DecisionOption(id='done', label='Finish without further optional adjustments'))
@@ -143,6 +155,7 @@ def _after(plan: Any, frame: NumericFrame) -> None:
 
 
 def resume(plan: Any, decision: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
     from app.game.rules_state import DecisionOption
     from app.rules import effects
     from app.rules.plan import decide
@@ -169,6 +182,14 @@ def resume(plan: Any, decision: Any, chosen: list[str]) -> None:
                            'effects': [{'do': 'optional_payment', 'who': 'you', 'cost': _cost(plan, source)[0], 'bind': 'roll42_paid'},
                                        {'do': 'numeric_roll42_paid', 'frame': frame.model_dump()}]}
             effects.continue_effects(plan, payment_ctx)
+    elif phase == 'reroll':  # 706.2b: roll a new die for each chosen die; its natural result replaces the old one
+        if frame.selected is None or not chosen or any(not c.isdigit() or int(c) >= len(frame.results) for c in chosen) or len(set(chosen)) != len(chosen):
+            raise ActionError('Choose one or more dice')
+        done = plan.do({'type': 'roll', 'sides': frame.effect['sides'], 'count': len(chosen)}, actor=frame.ctx['controller'])
+        for c, new in zip(chosen, done.r.results, strict=True):  # type: ignore[union-attr]
+            frame.naturals[int(c)] = frame.results[int(c)] = new
+        plan.note(f"{plan.name(frame.ctx['controller'])} rerolls {len(chosen)} {'die' if len(chosen) == 1 else 'dice'}")
+        _after(plan, frame)
     elif phase == 'die':
         if frame.selected is None or not valid_source(plan, frame.selected, frame.ctx['controller']):
             _after(plan, frame)
@@ -201,6 +222,11 @@ def paid(plan: Any, payment_ctx: dict[str, Any], effect: dict[str, Any]) -> bool
         return True
     if _cost(plan, frame.selected)[1]:
         plan.rules.once_per_turn[frame.selected.key()] = plan.state.turn.number
+    if _is_reroll(plan, frame.selected):
+        decide(plan, player=frame.ctx['controller'], kind='choose_cards', prompt='Choose the dice to reroll', min_choices=1, max_choices=len(frame.results),
+               options=[DecisionOption(id=str(i), label=f'Die {i + 1}: {n}') for i, n in enumerate(frame.results)],
+               resume={'step': 'numeric_roll42', 'phase': 'reroll', 'frame': frame.model_dump()})
+        return True
     decide(plan, player=frame.ctx['controller'], kind='choose_one', prompt='Choose the die result to adjust',
            options=[DecisionOption(id=str(i), label=f'Die {i + 1}: {n}') for i, n in enumerate(frame.results)
                     if i not in frame.used.get(frame.selected.key(), [])],
