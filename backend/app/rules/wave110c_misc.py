@@ -370,9 +370,9 @@ def resume_prodder(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, r["ctx"])
 
 
-def proctor_triggers(plan: Plan, pending: Any, cause: Any) -> None:
+def proctor_triggers(plan: Plan, pending: Any, cause: Any, only: list[Any] | None = None) -> None:
     """Strict Proctor: an entering permanent caused ``pending`` (and its 603.2d copies) to trigger; each Proctor on the battlefield triggers at the same time for
-    each (603.2, 603.3b: all go on the stack together, their controllers order them; a Proctor's ability put below the one it counters finds nothing to counter)."""
+    each (``only``: just these instances, the extras a later join of the batch added; 603.2, 603.3b: all go on the stack together, their controllers order them; a Proctor's ability put below the one it counters finds nothing to counter)."""
     from app.game.rules_state import PendingTrigger
     from app.rules import scripts, trigger_multipliers
 
@@ -383,7 +383,7 @@ def proctor_triggers(plan: Plan, pending: Any, cause: Any) -> None:
             continue
         if not any(d.get("static") == "proctor110c" for d in scripts.definitions(plan.ch(c)).values()):
             continue
-        for p in [pending, *trigger_multipliers._extras(plan).get(pending.id, ([], 0))[0]]:
+        for p in only if only is not None else [pending, *trigger_multipliers._extras(plan).get(pending.id, ([], 0))[0]]:
             plan.rules.proctor_links110c.setdefault(p.id, "")
             plan.rules.pending_triggers.append(PendingTrigger(
                 id=secrets.token_hex(4), controller=c.controller, source_card=c.id, source_object=plan.oid(c), name=c.name,

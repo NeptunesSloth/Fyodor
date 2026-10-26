@@ -426,7 +426,11 @@ def joined(plan: Plan, t: PendingTrigger) -> None:
     for extra in extras:
         extra.event = t.event.model_copy(deep=True) if t.event is not None else None
     if index >= 0:
+        before = len(_extras(plan).get(t.id, ([], index))[0])
         multiply(plan, t, index, t.event)
+        from app.rules import wave110c_misc  # -- Strict Proctor (wave 110C) -- the extra instances this join added are caused by the entering permanent too (603.2)
+
+        wave110c_misc.proctor_triggers(plan, t, t.event, _extras(plan).get(t.id, ([], index))[0][before:])
 
 
 def entering(plan: Plan, card_id: str) -> TriggerEvent | None:
