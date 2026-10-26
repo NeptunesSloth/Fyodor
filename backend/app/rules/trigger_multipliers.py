@@ -428,7 +428,9 @@ def joined(plan: Plan, t: PendingTrigger) -> None:
     if index >= 0:
         before = len(_extras(plan).get(t.id, ([], index))[0])
         multiply(plan, t, index, t.event)
-        from app.rules import wave110c_misc  # -- Strict Proctor (wave 110C) -- the extra instances this join added are caused by the entering permanent too (603.2)
+        from app.rules import (
+            wave110c_misc,  # -- Strict Proctor (wave 110C) -- the extra instances this join added are caused by the entering permanent too (603.2)
+        )
 
         wave110c_misc.proctor_triggers(plan, t, t.event, _extras(plan).get(t.id, ([], index))[0][before:])
 

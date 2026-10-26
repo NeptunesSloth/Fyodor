@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from tests.test_rules_wave110c_proctor import PROCTOR, settle_asking
 from tests.game_helpers import act
+from tests.test_rules_wave110c_proctor import PROCTOR, settle_asking
 from tests.wave9c_kit import build
 from tests.wave110c_kit import cast, check, make_db, mana, put, real
 
