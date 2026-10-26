@@ -703,7 +703,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
             only_gy = [ab for ab in ch.abilities if ab.kind != "keywords"]
             templated = {i for i in templated if templates.graveyard_only_ability(defs.get(i))} \
                 if only_gy and all(templates.graveyard_only_ability(defs.get(ab.index)) for ab in only_gy) else set()
-        elif whole.get("modes"):
+        elif whole.get("modes") or whole.get("whole110k"):  # (-- wave 110K -- whole110k: the resolution-time mode choice of "An opponent chooses one —", whose bullets are read with its header)
             templated = {ab.index for ab in ch.abilities if ab.kind != "keywords"}  # a modal spell (700.2)
     out: list[Feature] = []
 

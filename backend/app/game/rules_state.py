@@ -857,6 +857,14 @@ class PhaseLifetime(BaseModel):
     while_tapped: bool = False  # -- wave 110I -- The Pandorica: held only while the source remains tapped
 
 
+class PhaseHold110K(BaseModel):
+    """-- wave 110K -- Teferi, Timeless Voyager: these objects can't phase in until the cleanup step of ``player``'s next turn (a later turn than ``turn``)."""
+
+    objects: list[str] = Field(default_factory=list)
+    player: str
+    turn: int
+
+
 class CostReveal(BaseModel):
     object: ObjectRef
     prior: list[str] = Field(default_factory=list)
@@ -1641,6 +1649,7 @@ class RulesState(BaseModel):
     dealt_damage: list[str] = Field(default_factory=list)
     prepared: dict[str, str] = Field(default_factory=dict)  # -- prepared (wave 13C, 722.3) -- permanent's rules object -> its copy in exile
     phase_lifetimes: list[PhaseLifetime] = Field(default_factory=list)
+    phase_holds110k: list[PhaseHold110K] = Field(default_factory=list)  # -- wave 110K --
     damaged: dict[str, int] = Field(default_factory=dict)  # player -> last turn they were dealt damage (bloodthirst)
     echo_done: list[str] = Field(default_factory=list)  # "<object>:<controller>" whose echo upkeep came
     flashback: list[str] = Field(default_factory=list)  # stack objects cast with flashback (exiled as they leave)

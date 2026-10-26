@@ -2677,6 +2677,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import wave110k_cards  # -- exact wordings (wave 110K) --
+
+    if (body110k := wave110k_cards.parse(body)) is not None:
+        return body110k
     from app.rules import wave110g_cards  # -- exact wordings (wave 110G) --
 
     if (body110g := wave110g_cards.parse(body)) is not None:
@@ -6084,6 +6088,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (card110j := wave110j_cards.definition(ability, ch)) is not None:
         return card110j
+    from app.rules import wave110k_cards  # -- (wave 110K) --
+
+    if (card110k := wave110k_cards.definition(ability, ch)) is not None:
+        return card110k
     from app.rules import retarget100o  # -- retarget (wave 100O) --
 
     if (lines100o := retarget100o.definition(ability, ch)) is not None:
@@ -8923,6 +8931,10 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     from app.rules import contextual_mana_outcomes
     if (contextual := contextual_mana_outcomes.spell(ch, text_lines)) is not None:
         return contextual
+    from app.rules import wave110k_cards  # -- (wave 110K) --
+
+    if (spell110k := wave110k_cards.spell(ch, text_lines)) is not None:
+        return spell110k
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
