@@ -158,6 +158,12 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         players = [player for player in (ctx.get('event') or {}).get('players') or [] if player in plan.live() and player != you]
         packets.top_packet(plan, ctx, e, list(dict.fromkeys(players)))
         return packets.insert(ctx, [packets.grant(e, play=True, spend='color')])
+    if mode == 'amped110c':  # -- Amped Raptor (wave 110C) -- "if you cast it from your hand": its own cast record (the permanent keeps the spell's object id)
+        record = plan.rules.payments.get(ctx.get('source_object') or '')
+        if record is None or record.cast_from != 'hand':
+            return True
+        packets.until_packet(plan, ctx, e, you, packets.selector('nonland card', zones=('library',)))
+        return packets.insert(ctx, [packets.offer(e, '_found', effect_alternative='energy_mv')])
     if mode in ('bismuth', 'cruelclaw'):
         damaged = [player for player in (ctx.get('event') or {}).get('players') or [] if player in plan.live()]
         if mode == 'bismuth' and not damaged:
