@@ -513,7 +513,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         kicked = bool(kicks and not (paid is not None and (paid.gift_to or paid.alternative == "awaken" or any(  # (30E: bargain)
             x.endswith(":bargain") or x == "anytimes" for x in paid.additional))))
         info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),  # 702.33d, 702.174k)
-                "opponent_turn": plan.active != e.player, "kicked": kicked, "prepared": spell.id in r.prepare_spells110o,  # (-- wave 110O -- 722.3d)
+                "opponent_turn": plan.active != e.player, "kicked": kicked, "kicks": kicks if kicked else 0, "prepared": spell.id in r.prepare_spells110o,  # (-- wave 110O -- 722.3d)
                 "teamwork": paid is not None and any(x.endswith(":teamwork") for x in paid.additional),  # -- (wave 110G) -- 702.194b
                 "snow_spent": dict(paid.snow_spent) if paid is not None and paid.snow_spent is not None else None,
                 "mana_tags": [list(tags) for tags in paid.mana_tags] if paid is not None and paid.mana_known else None,
@@ -1734,7 +1734,7 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             source_object = (left or {}).get(id(watcher)) or plan.oid(watcher)
             d = _aura_card_bound(plan, d, (left or {}).get(id(watcher)))
             added = None
-            repetitions = event.amount if cond.get("per_counter") else 1
+            repetitions = event.amount if cond.get("per_counter") else max(1, int(info.get("kicks") or 0)) if cond.get("per_kicker") else 1
             for _ in range(repetitions):
                 added = _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=source_object,
                              name=ch.name, index=i, definition=d,
