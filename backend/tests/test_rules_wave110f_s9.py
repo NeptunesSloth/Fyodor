@@ -26,6 +26,7 @@ EXTRA = [
     real('Liquid Fire', '{2}{R}{R}', 4, 'Instant',
          "As an additional cost to cast this spell, choose a number between 0 and 5.\nLiquid Fire deals X damage to target creature and 5 minus X damage to that creature's controller, where X is the chosen number.", None, 'R'),
     real('Ghostly Flame', '{B/R}', 1, 'Enchantment', 'Black and/or red permanents and spells are colorless sources of damage.', None, 'B'),
+    real('Reverberate', '{R}{R}', 2, 'Instant', 'Copy target spell. You may choose new targets for the copy.', None, 'R'),
     real('Test Pro-Red 110F', '{1}{W}', 2, 'Creature — Knight', 'Protection from red', ('2', '2'), 'W'),
     real('Test Sweep 110F', '{1}{R}', 2, 'Sorcery', 'Test Sweep 110F deals 2 damage to each creature.', None, 'R'),
     real('Fatal Lore', '{4}{B}{B}', 6, 'Sorcery',
@@ -147,3 +148,18 @@ def test_the_caster_cannot_choose_the_opponents_mode(cards):
     mana(s, "p1", R=2, C=2)
     cast(s, "Misfortune", modes=[0], chooser110f="p2")
     assert s.state.rules.decision.player == "p2"
+
+
+@pytest.mark.parametrize("mode,expect", [(0, (48, 40)), (1, (40, 32))])
+def test_copy_of_misfortune_keeps_the_chosen_opponent(cards, mode, expect):
+    """707.10, 700.2e: Reverberate copies Misfortune; the copy has the same mode and the same chosen opponent ("that player"), so it resolves a second time against Bob."""
+    s = table(cards, ["Misfortune", "Reverberate"], carol=None)
+    mana(s, "p1", R=4, C=2)
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    orig = cast(s, "Misfortune")
+    answer_one = s.state.rules.decision
+    act(s, "p2", type="choose", decision_id=answer_one.id, option_ids=[f"{mode}:0"])
+    cast(s, "Reverberate", [orig.id])
+    answer(s)
+    assert (life(s, "p1"), life(s, "p2")) == expect
+    check(s)
