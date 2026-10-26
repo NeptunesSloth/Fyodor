@@ -13,6 +13,7 @@ import pytest
 
 from app.game.errors import ActionError
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, settle, stops, to_phase
@@ -342,7 +343,7 @@ def test_fire_nation_attacks_makes_soldiers_that_add_red_mana_when_they_attack(c
         if not s.state.zones.get("stack"):
             break
         act(s, s.state.rules.priority, type="pass_priority")
-    assert s.state.players["p1"].mana.get("R", 0) == 2  # one {R} for each attacking Soldier
+    assert visible_pool(s.state, "p1").get("R", 0) == 2  # one {R} for each attacking Soldier
     check(s)
 
 

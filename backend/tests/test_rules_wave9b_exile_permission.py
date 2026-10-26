@@ -10,6 +10,7 @@ Every scenario checks the replay and a save/load round trip.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -124,7 +125,9 @@ def test_spend_as_rewrites_only_how_the_cost_is_paid():
     assert M.spend_as(M.parse_cost("{W/U}{U/B}"), "type").text() == "{2}"
     assert M.spend_as(M.parse_cost("{2/B}"), "type").text() == "{1}"
     assert M.spend_as(M.parse_cost("{B/P}"), "type").phyrexian == (M.ANY_PHYREXIAN,)  # any mana or two life
-    assert M.parse_cost(M.spend_as(c, "color").text()) == M.spend_as(c, "color")  # (a payment prompt can be resumed from its text)
+    # (a payment prompt is resumed from its text; the requirement origins, which the text doesn't carry, ride along in the payment
+    # context: casting._locked)
+    assert M.parse_cost(M.spend_as(c, "color").text()) == replace(M.spend_as(c, "color"), allocation=None)
 
 
 def test_gonti_exiles_face_down_and_any_type_of_mana_casts_it(cards):
