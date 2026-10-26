@@ -1048,7 +1048,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 return False
         elif event == "you_attack" and bool(want) != ("defended" in info):
             return False
-        if event == "you_attack" and ("pw" in info) != (want == "each_pw"):  # -- trigger lines (wave 110F) -- 508.3a: one fact per planeswalker attacked
+        if event == "you_attack" and ("pw" in info) != (want == "each_pw") and not (want == "player_or_pw" and "pw" in info):  # (wave 110M)  # -- trigger lines (wave 110F) -- 508.3a: one fact per planeswalker attacked
             return False
         if want and want != "opponent_any" and not _defender_ok(want, watcher, info, plan):
             return False
@@ -1348,6 +1348,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return False  # (-- review 34 -- 310.5, 508.5: a creature attacking a battle attacks no player and no planeswalker, Gahiji / Frontier Warmonger)
     if want == "each_pw":
         return defended == you
+    if want == "player_or_pw":  # -- (wave 110M) -- 508.3a: a player attacked directly, or a planeswalker (its own fact)
+        return bool(info.get("pw")) or bool(info.get("direct"))
     if want == "your_pw":
         if plan is None or defended != you:
             return False
@@ -1484,6 +1486,7 @@ def _counted_attackers(plan: Plan, cond: dict[str, Any], watcher: CardInstance, 
     from app.rules import selectors
 
     direct = cond.get("defender") not in (None, "you_or_pw", "each_pw")  # (only the creatures attacking that player; wave 110F: each_pw counts the creatures at that planeswalker)
+    direct = direct and not (cond.get("defender") == "player_or_pw" and "pw" in info)  # (wave 110M) a planeswalker's own fact counts its attackers
     attackers = [plan.state.cards[c] for c in info.get("attacking_direct" if direct and "attacking_direct" in info
                                                        else "attacking") or [] if c in plan.state.cards]
     if cond.get("others_only"):  # (wave 11C) "~ and at least one other Warrior attack": not counting ~
@@ -1640,6 +1643,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 per = (info.get("oid") or "") if cond.get("subject") == "source" else ""  # (wave 39B: "a source …": each source of the batch, 603.2c)
             if cond["event"] == "mill" and cond.get("aggregate") and cond.get("player") == "any":
                 per = ""  # -- triggers (wave 17D) -- "one or more cards are milled": every player's cards of the batch are one event (603.2c)
+            if cond.get("batch110m"):
+                per = ""  # -- (wave 110M) -- "one or more of your opponents are dealt combat damage": all of the batch's recipients are one event (603.2c)
             if cond.get("all_players"):
                 per = ""  # -- trigger other (wave 36A) -- "one or more players sacrifice one or more creatures": every player's part of the batch is one event (603.2c)
             if cond["event"] == "lose_life" and cond.get("aggregate"):

@@ -105,7 +105,8 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
 _ONE_OR_MORE_TO = (" to one or more players", " to your opponents", " to one or more of your opponents")  # (wave 39B)
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
-_DEFENDERS = {"one or more planeswalkers you control": "your_pw", "a planeswalker you control": "each_pw",  # (wave 110F: Oath of Kaya, once per planeswalker attacked, 508.3a) "you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",
+_DEFENDERS = {"one or more planeswalkers you control": "your_pw", "a planeswalker you control": "each_pw",  # (wave 110F: Oath of Kaya, once per planeswalker attacked, 508.3a)
+              "you": "you", "you or a planeswalker you control": "you_or_pw", "a player": "player",  # (-- wave 110M -- restored: these were swallowed by the comment above)
               "you and/or one or more planeswalkers you control": "you_or_pw",  # (-- as long as (wave 37A) -- 508.3e: Cunning Rhetoric; once per player attacked)
               "one of your opponents": "opponent", "an opponent": "opponent",  # -- trigger other (wave 110B) -- "attack an opponent" = one of your opponents (508.3a)
               "one or more of your opponents": "opponent_any",
@@ -116,7 +117,8 @@ _DEFENDERS = {"one or more planeswalkers you control": "your_pw", "a planeswalke
               "one of your opponents or a planeswalker an opponent controls": "opponent_or_pw",
               "one of your opponents or a planeswalker they control": "opponent_or_pw",
               "the monarch": "monarch",  # -- this-turn state (wave 42B) -- 725.1, 508.3a: the player who is the monarch, attacked directly (Okoye, The Spear of Bashenga)
-              "the player who has the initiative": "initiative"}  # -- initiative (wave 45B) -- 726.1, 508.3a: Loot Dispute
+              "the player who has the initiative": "initiative",
+              "a player or planeswalker": "player_or_pw"}  # -- (wave 110M) -- 508.3a: once per player or planeswalker attacked (Rigo)  # -- initiative (wave 45B) -- 726.1, 508.3a: Loot Dispute
 _DEFENDER_RE = "|".join(re.escape(k) for k in sorted(_DEFENDERS, key=len, reverse=True))
 _PLAYER_VERBS = [
     (r"gains? life", "gain_life"),
@@ -931,6 +933,8 @@ def _subject(s: str, *, host: bool = False, many: bool = False) -> Condition | N
 def _defender(d: str | None, player_attack: bool = False) -> Condition:
     if d and _DEFENDERS[d] in ("opponent_any", "other_opponent") and not player_attack:
         raise _Refuse  # (review 27B) only "<a player> attacks …" reads these (a creature's attack, a count of attackers: not read)
+    if d and _DEFENDERS[d] == "player_or_pw" and not player_attack:  # -- (wave 110M) --
+        raise _Refuse
     if d and _DEFENDERS[d] == "opponent_or_pw" and player_attack:
         raise _Refuse  # (wave 36A) a creature's attack only
     return {"defender": _DEFENDERS[d]} if d else {}
@@ -1504,6 +1508,8 @@ def _object_event(c: str) -> Condition | None:
         return {**base, **extra}
     # "~ is dealt combat damage" (a creature dealt lethal damage was still dealt it: 510.3a, 603.10a);
     # "you're dealt combat damage", "an opponent is dealt noncombat damage": the player dealt it
+    if c == "one or more of your opponents are dealt combat damage":  # -- (wave 110M) -- 603.2c: every opponent hit by one combat damage step is one event (Fblthp)
+        return {"subject": "player", "player": "opponent", "event": "dealt_damage", "combat": True, "batch110m": True}
     m = re.fullmatch(r"(?P<s>.+?)(?: is|'re| are) dealt (?P<c>combat |noncombat )?damage", c)
     if m and (m["c"] or m["s"] in ("you", "an opponent", "a player", "enchanted player")):  # (wave 25D: a Curse's "enchanted player")
         if m["s"] in ("you", "an opponent", "a player", "enchanted player"):

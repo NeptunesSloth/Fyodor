@@ -2379,6 +2379,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             if not controller_turn_history69.continuous(plan, card):
                 return False
+        if extra == "top_color110m":  # -- (wave 110M) -- "that share a color with that card" (Crown of Convergence): the top card of ``you``'s library now
+            top_library = plan.state.zones.get(f"{you}:library", [])
+            top_card = plan.state.cards.get(top_library[0]) if top_library else None
+            if top_card is None or not set(plan.ch(top_card).colors) & set(ch.colors):
+                return False
+            continue
         if extra == 'enchant_creature_exact':
             from app.rules import attachments
 
