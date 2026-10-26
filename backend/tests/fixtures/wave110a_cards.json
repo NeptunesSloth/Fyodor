@@ -2344,5 +2344,60 @@
    "U"
   ],
   "keywords": []
+ },
+ {
+  "name": "Leonin Arbiter",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Creature — Cat Cleric",
+  "oracle_text": "Players can't search libraries. Any player may pay {2} for that player to ignore this effect until end of turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Zilortha, Strength Incarnate",
+  "layout": "normal",
+  "mana_cost": "{3}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Dinosaur",
+  "oracle_text": "Trample\nLethal damage dealt to creatures you control is determined by their power rather than their toughness.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "7",
+  "toughness": "3"
+ },
+ {
+  "name": "See the Unwritten",
+  "layout": "normal",
+  "mana_cost": "{4}{G}{G}",
+  "cmc": 6.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Reveal the top eight cards of your library. You may put a creature card from among them onto the battlefield. Put the rest into your graveyard.\nFerocious — If you control a creature with power 4 or greater, you may put two creature cards onto the battlefield instead of one.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Ferocious"
+  ]
  }
 ]
