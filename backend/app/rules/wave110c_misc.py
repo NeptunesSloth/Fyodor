@@ -24,6 +24,10 @@ GLYPH = ("When this artifact enters, if you cast it, for each player, choose a c
          "Then destroy all creatures except creatures chosen this way.")
 
 
+SIEGE = ("When this Siege enters, reveal any number of Dragon cards from your hand. When you do, this Siege deals X plus 2 damage to any other target, where X is the "
+         "number of cards revealed this way.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
@@ -61,6 +65,15 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or [e.get("do") for e in native["effects"]] != ["only_if", "destroy_all"]:
             return None
         return {**native, "effects": [native["effects"][0], {"do": "glyph110c"}]}
+    if text == SIEGE:
+        # 701.20a, 603.12: reveal first; the reflexive ability then chooses its target (X can be 0, so it always triggers): the payment-X reflexive, fed by the count
+        native = scripts.define(replace(ability, text="When this Siege enters, you may pay {X}. When you do, this Siege deals X plus 2 damage to any other target."), ch)
+        reveal = scripts.parse_effects("Reveal any number of Dragon cards in your hand. Draw X cards, where X is the number of cards revealed this way.")
+        fx = (native or {}).get("effects") or []
+        if native is None or reveal is None or [e.get("do") for e in fx] != ["optional_payment", "reflexive"] or len(reveal[0]) != 2:
+            return None
+        count = {"do": "revealed_x110c", "bind": fx[0]["bind"], "n": reveal[0][1]["n"]}
+        return {**native, "effects": [reveal[0][0], count, {**fx[1], "cond": {"succeeded": fx[0]["bind"]}}]}
     if text != HELLION:
         return None
     native = scripts.define(replace(ability, text="When this creature enters, ~ deals 3 damage to you and target creature. The damage can't be prevented."), ch)
@@ -120,4 +133,12 @@ def glyph(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+def revealed_x(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The number of cards the reveal before it showed, as the X of the reflexive ability that follows (608.2h: counted once, now)."""
+    from app.rules import paid_x, this_way
+
+    paid_x._record(ctx, e["bind"], True, this_way.count(plan, ctx, e["n"]))
+    return True
+
+
+PRIMITIVES = {"revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}

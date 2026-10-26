@@ -13,12 +13,18 @@ SHUTTLE = ("Midnight Entity — Whenever this Vehicle attacks, defending player 
            "control of a creature of your choice that player controls until end of turn. If you gain control of a creature this way, tap it, and it's attacking that player.\nCrew 2")
 GLYPH = ("When this artifact enters, if you cast it, for each player, choose a creature with power 2 or less that player controls. Then destroy all creatures except creatures "
          "chosen this way.")
+SIEGE = ("When this Siege enters, reveal any number of Dragon cards from your hand. When you do, this Siege deals X plus 2 damage to any other target, where X is the "
+         "number of cards revealed this way. (X can be 0.)")
 SAND = ("Flying\nWhenever an opponent casts a spell during their turn, they can't attack you or planeswalkers you control this turn.\n"
         "Each opponent who attacked you or a planeswalker you control this turn can't cast spells.")
 EXTRA = [real("Midnight Crusader Shuttle", "{4}", 4, "Artifact — Vehicle", SHUTTLE, ("3", "4"), ""),
          real("Unstable Glyphbridge", "{3}{W}{W}", 5, "Artifact", GLYPH, None, "W"),
          real("Sandswirl Wanderglyph", "{3}{W}{W}", 5, "Artifact Creature — Golem", SAND, ("5", "5"), "W"),
          real("Hill Giant", "{3}{R}", 4, "Creature — Giant", "", ("3", "3"), "R"),
+         real("Spark", "{R}", 1, "Instant", "Spark deals 1 damage to target player.", None, "R"),
+         real("Invasion of Tarkir", "{2}{R}", 3, "Battle — Siege", SIEGE, None, "R"),
+         real("Test Dragon", "{4}{R}", 5, "Creature — Dragon", "Flying", ("4", "4"), "R"),
+         real("Other Dragon", "{4}{R}", 5, "Creature — Dragon", "Flying", ("4", "4"), "R"),
          real("Lone Wolf", "{G}", 1, "Creature — Wolf", "", ("1", "1"), "G")]
 
 
@@ -58,16 +64,16 @@ def test_shuttle_villainous_choice(cards, option):
         d = s.state.rules.decision
         assert d.player == "p1"
         act(s, "p1", type="choose", decision_id=d.id, option_ids=[giant.id])
-        _no_blocks(s)
-        g = s.state.cards[giant.id]
-        assert g.controller == "p1" and g.tapped and g.is_attacking and shuttle.id in s.state.cards
+        g = s.state.cards[giant.id]  # (before blockers: it is in this combat, tapped, attacking p2, and never "attacked": no attack trigger)
+        assert g.controller == "p1" and g.tapped and g.attacking is not None and g.attacking.id == "p2"
         assert s.state.cards[bear.id].controller == "p2"
+        _no_blocks(s)
     else:
         d = s.state.rules.decision
         assert d.player == "p2"
         act(s, "p2", type="choose", decision_id=d.id, option_ids=[bear.id])
-        _no_blocks(s)
         assert s.state.cards[bear.id].zone == "p2:graveyard" and s.state.cards[giant.id].controller == "p2"
+        _no_blocks(s)
     check(s)
 
 
@@ -97,7 +103,7 @@ def test_glyphbridge_destroys_all_but_one_small_creature_per_player(cards):
 
 
 def _sandswirl(cards):
-    s = build(cards, ["Sandswirl Wanderglyph"], ["Lone Wolf", "Lone Wolf"])
+    s = build(cards, ["Sandswirl Wanderglyph", *["Forest"] * 12], ["Lone Wolf", "Spark", *["Forest"] * 12])
     put(s, "Sandswirl Wanderglyph")
     wolf = put(s, "Lone Wolf", "p2")
     to_phase(s, "main1", 2)
@@ -106,26 +112,53 @@ def _sandswirl(cards):
 
 def test_sandswirl_casting_a_spell_stops_the_opponents_attack_on_you(cards):
     s, wolf = _sandswirl(cards)
-    cast(s, "Lone Wolf", pid="p2") if False else None
-    mana(s, "p2", G=1)
-    c = to_hand(s, "Lone Wolf", "p2")
-    act(s, "p2", type="cast_spell", card_id=c.id)
+    mana(s, "p2", R=1)
+    c = to_hand(s, "Spark", "p2")
+    act(s, "p2", type="cast_spell", card_id=c.id, targets=["p1"])
     answer(s)
     to_phase(s, "declare_attackers", 2)
     d = s.state.rules.decision
     if d is not None and d.kind == "declare_attackers":
         with pytest.raises(ActionError):
             act(s, "p2", type="declare_attackers", attackers=[{"card_id": wolf.id, "target": "p1"}])
-    assert not s.state.cards[wolf.id].is_attacking
+    assert s.state.cards[wolf.id].attacking is None
+    check(s)
 
 
 def test_sandswirl_attacking_you_stops_the_opponents_spells(cards):
     s, wolf = _sandswirl(cards)
     to_phase(s, "declare_attackers", 2)
     act(s, "p2", type="declare_attackers", attackers=[{"card_id": wolf.id, "target": "p1"}])
-    answer(s)
-    mana(s, "p2", G=1)
-    c = to_hand(s, "Lone Wolf", "p2")
+    assert s.state.rules.turn_log.attacked_at110c == {"p1": ["p2"]}  # recorded against the player attacked (or a planeswalker's controller)
+    _no_blocks(s)
+    mana(s, "p2", R=1)
+    c = to_hand(s, "Spark", "p2")
     with pytest.raises(ActionError):
-        act(s, "p2", type="cast_spell", card_id=c.id)
+        act(s, "p2", type="cast_spell", card_id=c.id, targets=["p1"])
+    check(s)
+
+
+@pytest.mark.parametrize("n", [0, 1, 2])
+def test_siege_reveals_dragons_then_deals_x_plus_2(cards, n):
+    """701.20a / 603.12: the reveal comes first, the reflexive ability then picks its target; X counts the cards shown (and can be 0)."""
+    s = build(cards, ["Invasion of Tarkir", "Test Dragon", "Other Dragon", "Grizzly Bears", *["Forest"] * 10], ["Forest"] * 12)
+    dragons = [to_hand(s, "Test Dragon"), to_hand(s, "Other Dragon")]
+    mana(s, R=1, C=2)
+    to_hand(s, "Grizzly Bears")
+    siege = to_hand(s, "Invasion of Tarkir")
+    act(s, "p1", type="cast_spell", card_id=siege.id)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "choose_cards" and d.options[0].card_id in {x.id for x in dragons}:
+            ids = [d_.id for d_ in dragons][:n]
+            assert {o.id for o in d.options} == {x.id for x in dragons}  # only Dragon cards can be shown
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=ids)
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["p2" if "p2" in [o.id for o in d.options] else d.options[0].id])
+    assert s.state.players["p2"].life == 40 - (n + 2)
+    assert all(s.state.cards[x.id].zone == "p1:hand" for x in dragons)  # revealing doesn't move a card
     check(s)
