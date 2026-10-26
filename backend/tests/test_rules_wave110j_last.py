@@ -171,3 +171,64 @@ def test_grell_upkeep_trigger_lends_again_and_the_grant_ends_with_the_turn(cards
     to_step(s, "upkeep", 2 + len(s.state.players))
     assert not _abilities(s, grell, "Draw a card")  # until end of turn (514.2)
     check(s)
+
+
+# -- Contractual Safeguard --
+SAFEGUARD = real("Contractual Safeguard", "{2}{W}", 3, "Instant",
+                 "Addendum — If you cast this spell during your main phase, put a shield counter on a creature you control. (If it would be dealt damage or destroyed, remove a shield counter from it instead.)\n"
+                 "Choose a kind of counter on a creature you control. Put a counter of that kind on each other creature you control.", None, "W")
+BEARS = [real(f"Bear{n}", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G") for n in "ABC"]
+base.EXTRA.extend([SAFEGUARD, *BEARS])
+
+
+def test_safeguard_full(cards):
+    assert coverage.of_card_data(cards.resolve("Contractual Safeguard")).level == "FULL"
+
+
+def _bears(cards):
+    s = build(cards, ["Contractual Safeguard", "BearA", "BearB", "BearC"])
+    return s, [put(s, f"Bear{n}") for n in "ABC"]
+
+
+def test_safeguard_main_phase_shield_may_be_the_chosen_kind(cards):
+    s, (a, b, c) = _bears(cards)
+    mana(s, W=1, C=2)
+    cast_card(s, "Contractual Safeguard")
+    answer(s, a.id, f"{a.id}|shield")  # the addendum's shield counter on A, then that shield counter is chosen (ruling 2022-04-29)
+    assert [s.state.cards[x.id].counters.get("shield", 0) for x in (a, b, c)] == [1, 1, 1]
+    check(s)
+
+
+def test_safeguard_outside_a_main_phase_no_shield_and_other_than_the_chosen_creature(cards):
+    from tests.wave110a_kit import goto
+
+    s, (a, b, c) = _bears(cards)
+    act(s, "p1", type="set_counter", card_id=a.id, kind="+1/+1", value=2)
+    act(s, "p1", type="set_counter", card_id=b.id, kind="+1/+1", value=1)
+    goto(s, "begin_combat")
+    mana(s, W=1, C=2)
+    cast_card(s, "Contractual Safeguard")
+    d = None
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and {o.id for o in d.options} == {f"{a.id}|+1/+1", f"{b.id}|+1/+1"}  # no shield counter was put (not a main phase)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[f"{b.id}|+1/+1"])
+    answer(s)
+    assert [s.state.cards[x.id].counters.get("+1/+1", 0) for x in (a, b, c)] == [3, 1, 1]  # each other creature than B
+    assert not any(s.state.cards[x.id].counters.get("shield") for x in (a, b, c))
+    check(s)
+
+
+def test_safeguard_without_counters_does_nothing(cards):
+    from tests.wave110a_kit import goto
+
+    s, bears = _bears(cards)
+    goto(s, "begin_combat")
+    mana(s, W=1, C=2)
+    cast_card(s, "Contractual Safeguard")
+    answer(s)
+    assert not any(s.state.cards[x.id].counters for x in bears) and s.state.rules.decision is None
+    check(s)

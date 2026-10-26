@@ -5,7 +5,7 @@ One line each. "Refused" = a rules question is unsettled or the foundation would
 - Thief of Blood: refused — "as it enters, remove all counters from all permanents" must change other permanents inside the entry-counter computation, which the engine also runs as a look-ahead.
 - Scrap Welder, Fabrication Foundry: refused — X comes from a cost chosen after targets (601.2c vs 601.2h), but it limits which card may be targeted.
 - Arcum's Sleigh: refused — "defending player" outside an attack trigger is undefined in multiplayer (506.2); no ruling found.
-- Contractual Safeguard: refused — "each other creature you control" after "a kind of counter on a creature you control": which creature it is "other" than is unsettled.
+- Contractual Safeguard: built in wave 110J (last cards): the player picks a creature and a kind of counter on it, each other creature gets one; the addendum's shield counter may be chosen (ruling 2022-04-29).
 - The Great Aurora: refused — whether tokens count toward "that many" (they cease to exist in the library) is unsettled.
 - Grime Gorger: refused — "up to one card of each card type": a multi-type card filling two types is unsettled.
 - Alpine Moon, Threefold Signal, Turtles Forever: refused — chosen-name land rewriting, granted replicate, a search outside the game (see waves 100 and 110F).

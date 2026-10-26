@@ -3210,6 +3210,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return silhouette
     if (piracy := wave110j_final.piracy_parse(body)) is not None:
         return piracy
+    from app.rules import wave110j_last  # -- last cards (wave 110J) --
+
+    if (last := wave110j_last.parse(body)) is not None:
+        return last
     if (scoped_prevention := scoped_prevention_effects.parse(body)) is not None:
         return scoped_prevention
     if (bound_subset := bound_subset_choices.parse(body)) is not None:

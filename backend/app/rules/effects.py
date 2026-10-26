@@ -7404,3 +7404,7 @@ from app.rules import wave110j_final as _wave110j_final  # noqa: E402  (wave 110
 
 PRIMITIVES.update(_wave110j_final.PRIMITIVES)
 RESUME.update(_wave110j_final.RESUME)
+from app.rules import wave110j_last as _wave110j_last  # noqa: E402  (wave 110J last cards)
+
+PRIMITIVES.update(_wave110j_last.PRIMITIVES)
+RESUME.update(_wave110j_last.RESUME)

@@ -8,7 +8,7 @@
 - Unyielding Gatekeeper: "If you controlled it, return it tapped. Otherwise, its controller creates ..." fails only with return plus "its controller"; no safe reading yet.
 - Dragon Broodmother: a token with "devour 2" needs a devour choice at token creation (tokens skip replacements.entry_plan); foundation not built.
 - Autumn's Veil: "can't be countered by blue or black spells" needs the countering source in effects.counterable (many callers).
-- Contractual Safeguard: 'other' = other than which creature when several share the chosen counter kind is unruled; refused.
+- Contractual Safeguard: built in wave 110J (last cards): the player picks a creature and a kind of counter on it, each other creature gets one; the addendum's shield counter may be chosen (ruling 2022-04-29).
 - Oath of Kaya: unsure whether it triggers once per attacked planeswalker or per attack; engine "your_pw" is per batch.
 - Autumn's Veil: "can't be countered by blue or black spells" needs the countering spell's color in counter_object (no source color today).
 - Karplusan Minotaur, Bladegriff Prototype: a trigger's target chosen by an opponent (only activated abilities delegate targets today).
