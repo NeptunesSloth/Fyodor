@@ -30,6 +30,7 @@ EXTRA = [real("Kodama of the Center Tree", "{4}{G}", 5, "Legendary Creature — 
          real("Melira, the Living Cure", "{G}{W}", 2, "Legendary Creature \u2014 Human Cleric", "If you would get one or more poison counters, instead you get one poison counter and you can't get additional poison counters this turn.\nExile Melira: Choose another target creature or artifact. When it's put into a graveyard this turn, return that card to the battlefield under its owner's control.", ("2", "2"), "GW"),
          real("Test Venom", "{U}", 1, "Instant", "Target player gets three poison counters.", None, "U"),
          real("Test Smite", "{U}", 1, "Instant", "Destroy target artifact or creature.", None, "U"),
+         real("Long List of the Ents", "{3}{G}", 4, "Enchantment \u2014 Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after VI.)\nI, II, III, IV, V, VI \u2014 Note a creature type that hasn't been noted for this Saga. When you next cast a creature spell of that type this turn, that creature enters with an additional +1/+1 counter on it.", None, "G"),
          real("Test Giant", "{4}", 4, "Creature — Spirit", "", ("4", "4"), "")]
 
 
@@ -165,4 +166,32 @@ def test_melira_exile_returns_what_goes_to_a_graveyard(cards, artifact):
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Smite").id, targets=[target.id])
     pass_until_stack_empty(s)
     assert s.state.cards[target.id].zone == "p2:battlefield" and len(s.state.zones["p2:graveyard"]) == 0
+    check(s)
+
+
+def test_long_list_of_the_ents_notes_each_type_once(cards):
+    """Long List of the Ents (607.2e, 400.7): the noted type gives the next creature spell of it +1/+1; a later chapter can't note it again."""
+    s = build(cards, ["Long List of the Ents", "Test Wisp", "Test Kami"], [])
+    saga = put(s, "Long List of the Ents")
+    act(s, "p1", type="counter", card_ids=[saga.id], kind="lore", delta=1)
+    for _ in range(8):
+        if (d := s.state.rules.decision) is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert "Spirit" in {o.id for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Spirit"])
+    pass_until_stack_empty(s)
+    kami, wisp = to_hand(s, "Test Kami"), to_hand(s, "Test Wisp")
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=kami.id)  # (a Spirit: the Wisp and Kami are both Spirits; the first one cast gets the counter)
+    pass_until_stack_empty(s)
+    act(s, "p1", type="cast_spell", card_id=wisp.id)
+    pass_until_stack_empty(s)
+    assert s.state.cards[kami.id].counters.get("+1/+1") == 1 and not s.state.cards[wisp.id].counters.get("+1/+1")
+    act(s, "p1", type="counter", card_ids=[saga.id], kind="lore", delta=1)
+    for _ in range(8):
+        if (d := s.state.rules.decision) is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert "Spirit" not in {o.id for o in d.options} and "Elf" in {o.id for o in d.options}
     check(s)

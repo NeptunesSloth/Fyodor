@@ -205,6 +205,11 @@ def parse(body: str) -> Any:
         group = language.target_group("target player")
         return None if group is None else ([{"do": "hippo110g", "who": "target", "add_now": True}], [group], False)
 
+    if body.strip() == _NOTE:  # Long List of the Ents: "note" = choose, and write it on the Saga (607.2e); the Saga offers only types not yet noted
+        got = scripts.parse_effects(_NOTE.replace("Note a creature type that hasn't been noted for ~.", "Choose a creature type.").replace("of that type", "of the chosen type"))
+        if got is None or got[0][0].get("do") != "choose_value":
+            return None
+        return [{**got[0][0], "noted110g": True}, *got[0][1:]], got[1], got[2]
     if body.strip() == _UNIFORM:  # Stolen Uniform: the Equipment is "that Equipment" of the lose-control trigger (not the creature the grammar's pronoun picks); targets in Oracle order
         got = scripts.parse_effects("Gain control of target Equipment until end of turn. Attach it to target creature you control. When you lose control of that Equipment, unattach it.")
         if got is None:
@@ -301,6 +306,9 @@ def _lowest_life_control(d: Def) -> Def:
     return {**d, "effects": [{"do": "lowest_life_control110g"}]}
 
 
+_NOTE = ("Note a creature type that hasn't been noted for ~. When you next cast a creature spell of that type this turn, "
+         "that creature enters with an additional +1/+1 counter on it.")
+NOTED = "Noted creature types"
 _UNIFORM = ("Choose target creature you control and target Equipment. Gain control of that Equipment until end of turn. Attach it to the chosen creature. "
             "When you lose control of that Equipment this turn, if it's attached to a creature you control, unattach it.")
 # whole ability text -> the wording the grammar reads for it
