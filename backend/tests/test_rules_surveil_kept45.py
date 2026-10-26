@@ -257,8 +257,12 @@ def test_actual_surveil_two_progenitus_replacement_choices_survive_first_shuffle
     assert d and d.resume["step"] == "zone_replace_order"
     roundtrip(s)
     d = s.state.rules.decision
+    hand = list(s.state.zones["p1:hand"])
     choose(s, [next(o.id for o in d.options if o.id.startswith(second_outcome))])
-    assert sorted(c.zone for c in pair) == sorted(
+    # (Curate then draws from the library just shuffled: the drawn card may be one of the pair, by chance)
+    drawn = [x for x in s.state.zones["p1:hand"] if x not in hand]
+    assert len(drawn) == 1
+    assert sorted("p1:library" if c.id in drawn else c.zone for c in pair) == sorted(
         ["p1:library", "p1:exile" if second_outcome == "exile" else "p1:library"]
     )
     assert not s.state.rules.decision
@@ -301,9 +305,12 @@ repo=CardRepository(Path(sys.argv[2]),ImageStore(Path(sys.argv[2]).parent/'image
 s=GameSession(GameState.model_validate_json(Path(sys.argv[1]).read_text()),cards=repo)
 d=s.state.rules.decision
 assert d and d.resume['step']=='zone_replace_order'
+hand=list(s.state.zones['p1:hand'])
 choose(s,[next(o.id for o in d.options if o.id.startswith(sys.argv[3]))])
+drawn=[x for x in s.state.zones['p1:hand'] if x not in hand]
+assert len(drawn)==1
 pair=[c for c in s.state.cards.values() if c.owner=='p1' and c.name=='Progenitus']
-assert sorted(c.zone for c in pair)==sorted(['p1:library','p1:exile' if sys.argv[3]=='exile' else 'p1:library'])
+assert sorted('p1:library' if c.id in drawn else c.zone for c in pair)==sorted(['p1:library','p1:exile' if sys.argv[3]=='exile' else 'p1:library'])
 assert not s.state.rules.decision
 roundtrip(s)
 """

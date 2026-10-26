@@ -468,7 +468,7 @@ def provenance(card: CardInstance, ch: Characteristics) -> Characteristics:
 
 def of(card: CardInstance, info: CardInfo) -> Characteristics:
     """Current characteristics of a card instance (printed layer; see module docstring)."""
-    ch = provenance(card, _of_kept(card, info))
+    ch = _of_kept(card, info)
     if "Case" in ch.subtypes and card.zone.endswith(":battlefield") and "Solved" not in card.choices:  # -- Case (wave 51C) -- 719.3c: "Solved — [ability]" works only while it is solved (719.3b, the designation is not copiable)
         kept = tuple(a for a in ch.abilities if not a.text.startswith("Solved — "))
         if len(kept) != len(ch.abilities):
@@ -483,11 +483,13 @@ def _of_kept(card: CardInstance, info: CardInfo) -> Characteristics:
         if kept is not None and kept[0] is card:
             return kept[1]
         ch = _of(card, info)
-        ch = merged_of(card, info, ch) if card.merged and not ch.face_down else ch
+        # (the provenance is kept with it: the card's zone and controller cannot change during the pass, and a fresh copy per call
+        # made every look at the table cost a dataclass copy per permanent)
+        ch = provenance(card, merged_of(card, info, ch) if card.merged and not ch.face_down else ch)
         sc.printed[id(card)] = (card, ch)
         return ch
     ch = _of(card, info)
-    return merged_of(card, info, ch) if card.merged and not ch.face_down else ch
+    return provenance(card, merged_of(card, info, ch) if card.merged and not ch.face_down else ch)
 
 
 def merged_of(card: CardInstance, info: CardInfo, top: Characteristics) -> Characteristics:

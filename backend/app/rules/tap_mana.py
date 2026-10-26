@@ -119,6 +119,13 @@ def until_eot(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 def _triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any], str | None]]:
     """(controller, definition, source card) of every such trigger in play right now (wave 32A: the source, for "the exiled card" / "~")."""
+    from app.rules import read_pass
+
+    # (once per read-only pass: every mana ability of every permanent asks, and the answer depends on the table alone)
+    return read_pass.once(state, info, "tap_mana.triggers", lambda: _scan_triggers(state, info))
+
+
+def _scan_triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any], str | None]]:
     from app.rules import characteristics as chars
     from app.rules import scripts
     from app.rules.copying import copy_index
