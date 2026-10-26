@@ -24,6 +24,8 @@ RAVAGER = ("Whenever this creature transforms into Ravager of the Fells, it deal
            "target creature that player or that planeswalker's controller controls.")
 WALL = ("You may have this creature enter as a copy of any creature on the battlefield, except it's a Wall in addition to its other types and has defender. "
         "When you do, tap the copied creature and it doesn't untap during its controller's untap step for as long as you control this creature.")
+ULTIMA = ("Whenever Ultima attacks, put a blight counter on target land. For as long as that land has a blight counter on it, it loses all land types and "
+          'abilities and has "{T}: Add {C}."')
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -72,6 +74,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         parsed = scripts.parse_effects("Tap target creature. It doesn't untap during its controller's untap step for as long as you control ~.")
         if d is not None and parsed is not None:
             d["reflex110d"] = [{**x, "who": "event"} if x.get("who") == "target" else x for x in parsed[0]]
+        return d
+    if ability.text == ULTIMA:  # 305.7 (no land types), 613.1f; lasts while the land has a blight counter (611.2b-style until-wrapper)
+        d = scripts.define(replace(ability, text=ULTIMA.split(" and abilities and")[0].replace("land types", "abilities").replace("Ultima", "~") + "."), ch)
+        if d is not None:
+            d["effects"] = [{**x, "no_land_types110d": True, "abilities": ["{T}: Add {C}."]} if x.get("do") == "become" else x for x in d["effects"]]
         return d
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
