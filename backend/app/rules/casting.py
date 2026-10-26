@@ -4167,6 +4167,9 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     record.additional = (["buyback"] if a.buyback else []) + (["entwine"] if entwined else ["kicker"] + (["anytimes"] if (ak := kicker_cost(ch.abilities)) is not None and ak.anytimes else []) if a.kicker else []) \
         + [f"optional:{o.source}" for o in optional]  # (wave 4I: Defiler of Vigor's life)
     record.prototyped = a.prototype  # -- casting extras (wave 18E) -- 718.3b
+    from app.rules import wave110a_grants
+
+    record.granted_offspring110a = wave110a_grants.granted_offspring(ch)  # -- grants (wave 110A) --
     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) -- "kicked with its {R} kicker", 702.33f)
     record.kicked = kicked or int(a.awaken) or int(gift_to is not None or bargained)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as
     record.pick110e = a.pick110e  # (wave 110E)

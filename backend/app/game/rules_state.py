@@ -1194,6 +1194,7 @@ class PaymentRecord(BaseModel):
     pick110e: str | None = Field(default=None, max_length=64)  # -- cast-time choice (wave 110E) -- the creature type chosen as the spell was cast
     gift_to: str | None = Field(default=None, max_length=64)  # -- gift (wave 23D) -- 702.174a: the opponent the gift was promised to
     alternative: str | None = None  # "evoke", "dash", "flashback", "madness", "face_down", "free", …
+    granted_offspring110a: bool = False  # -- grants (wave 110A) -- Zinnia: offspring was given to the spell as it was cast (the permanent keeps it)
     prototyped: bool = False  # -- casting extras (wave 18E) -- 718.3: cast prototyped (the spell and the permanent have the alternative values)
     additional: list[str] = Field(default_factory=list)  # "buyback", "kicker", …
     waterbend_paid102: bool | None = None  # Actual paid action; None is unknown legacy data, copied independently of mana spent.
