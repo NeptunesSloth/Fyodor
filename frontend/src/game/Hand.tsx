@@ -74,7 +74,12 @@ const HandCard = memo(function HandCard({ id, index, fan, me, compact }: { id: s
         const ids = targetsFor(id);
         beginPointerDrag(e, { ids, from: card.zone, onDrop: (t) => onDrop(ids, t) });
       }}
-      onDoubleClick={() => !card.hidden && void moveCards([id], "battlefield", { player: me })}
+      onDoubleClick={() => {
+        if (card.hidden) return;
+        // with automation on this plays the land / casts the spell through the rules engine
+        if (dropAsIntent([id], { zone: `${me}:battlefield` }, me)) return;
+        void moveCards([id], "battlefield", { player: me });
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         const store = useGame.getState();

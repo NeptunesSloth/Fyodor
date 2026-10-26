@@ -1,0 +1,18 @@
+import { describe, expect, it } from "vitest";
+import { undoableSummary } from "./gameStore";
+
+describe("undoable action summaries", () => {
+  it("names cards sent to a hidden or lost zone", () => {
+    expect(undoableSummary({ type: "move", card_ids: ["a"], to: { zone: "graveyard" } })).toBe("1 card put into the graveyard");
+    expect(undoableSummary({ type: "move", card_ids: ["a", "b"], to: { zone: "exile" } })).toBe("2 cards exiled");
+    expect(undoableSummary({ type: "move", card_ids: ["a"], to: { zone: "library" } })).toBe("1 card put into a library");
+    expect(undoableSummary({ type: "delete_card", card_ids: ["a"] })).toBe("1 card removed from the game");
+    expect(undoableSummary({ type: "mill", count: 3 })).toBe("Milled 3 cards");
+  });
+
+  it("stays quiet for ordinary play", () => {
+    expect(undoableSummary({ type: "move", card_ids: ["a"], to: { zone: "battlefield" } })).toBeNull();
+    expect(undoableSummary({ type: "tap", card_ids: ["a"] })).toBeNull();
+    expect(undoableSummary({ type: "pass_priority" })).toBeNull();
+  });
+});

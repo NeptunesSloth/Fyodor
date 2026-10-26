@@ -86,6 +86,25 @@ interface GameStore {
   setPending: (positions: Record<string, [number, number]>) => void;
 }
 
+const LOST_ZONES: Record<string, string> = { graveyard: "graveyard", exile: "exile", library: "library" };
+
+/**
+ * A one-line summary for manual actions that are easy to regret (cards sent away, removed or milled),
+ * shown with an Undo button. Everything else stays quiet.
+ */
+export function undoableSummary(a: Record<string, unknown>): string | null {
+  const n = Array.isArray(a.card_ids) ? a.card_ids.length : 0;
+  const cards = (k: number) => `${k} card${k === 1 ? "" : "s"}`;
+  if (a.type === "move") {
+    const zone = (a.to as { zone?: string } | undefined)?.zone ?? "";
+    if (!LOST_ZONES[zone]) return null;
+    return zone === "exile" ? `${cards(n)} exiled` : `${cards(n)} put into ${zone === "library" ? "a library" : "the graveyard"}`;
+  }
+  if (a.type === "delete_card") return `${cards(n)} removed from the game`;
+  if (a.type === "mill") return `Milled ${cards(Number(a.count ?? 1))}`;
+  return null;
+}
+
 export const useGame = create<GameStore>((set, get) => ({
   gameId: null,
   view: null,
@@ -160,12 +179,14 @@ export const useGame = create<GameStore>((set, get) => ({
     const as = view.game.mode === "local" ? actingAs ?? undefined : undefined;
     try {
       await conn.requestAction({ type: "action", action, as });
+      const done = undoableSummary(action as Record<string, unknown>);
+      if (done && get().view?.game.can_undo) toast(done, "info", { label: "Undo", run: () => void get().undo() });
       return true;
     } catch (e) {
       set({ pendingPositions: {} });
       const message = e instanceof Error ? e.message : String(e);
       if (message.startsWith("AUTOMATION ERROR")) set({ automationError: message });
-      else toast(message, "error");
+      else toast(`${message.replace(/\.?$/, ".")} Nothing changed.`, "error");
       return false;
     }
   },

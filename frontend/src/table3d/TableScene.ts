@@ -10,6 +10,7 @@ import { tapGesture } from "../game/rules/intents";
  */
 import * as THREE from "three";
 import { openMenu } from "../components/ContextMenu";
+import { toast } from "../components/Toasts";
 import { imageUrl } from "../services/cards";
 import { requestCards, useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
@@ -860,6 +861,16 @@ export class TableScene {
     on("pointermove", (e) => this.onMove(e));
     on("pointerup", (e) => this.onUp(e));
     on("pointerleave", () => this.setHover(null));
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || !this.drag?.active) return;
+      // Esc puts dragged cards back where they were; nothing is sent
+      e.stopPropagation();
+      this.drag = null;
+      document.body.classList.remove("dragging");
+      this.syncCards();
+    };
+    window.addEventListener("keydown", onKey, true);
+    this.unsubs.push(() => window.removeEventListener("keydown", onKey, true));
     on("contextmenu", (e) => this.onContext(e));
     on("wheel", (e) => {
       e.preventDefault();
@@ -959,6 +970,7 @@ export class TableScene {
     const anchorOff = d.offsets.get(d.anchor);
     const target = this.resolveDrop(e.clientX, e.clientY, anchorOff ? anchorOff.clone().negate() : undefined);
     if (target) dropCards(d.ids, d.anchor, { ...target, manual: e.altKey });
+    else toast("Dropped off the table: nothing changed", "info");
     this.syncCards(); // snap back (or to the pending position) until the server answers
   }
 
