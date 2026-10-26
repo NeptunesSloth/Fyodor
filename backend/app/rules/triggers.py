@@ -513,7 +513,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         kicked = bool(kicks and not (paid is not None and (paid.gift_to or paid.alternative == "awaken" or any(  # (30E: bargain)
             x.endswith(":bargain") or x == "anytimes" for x in paid.additional))))
         info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),  # 702.33d, 702.174k)
-                "opponent_turn": plan.active != e.player, "kicked": kicked,
+                "opponent_turn": plan.active != e.player, "kicked": kicked, "prepared": spell.id in r.prepare_spells110o,  # (-- wave 110O -- 722.3d)
                 "teamwork": paid is not None and any(x.endswith(":teamwork") for x in paid.additional),  # -- (wave 110G) -- 702.194b
                 "snow_spent": dict(paid.snow_spent) if paid is not None and paid.snow_spent is not None else None,
                 "mana_tags": [list(tags) for tags in paid.mana_tags] if paid is not None and paid.mana_known else None,
@@ -1236,6 +1236,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         if cond.get("turn") == "opponent" and not info.get("opponent_turn"):
             return False
         if cond.get("kicked") and not info.get("kicked"):
+            return False
+        if cond.get("prepared") and not info.get("prepared"):  # -- (wave 110O) -- "a prepared spell" (722.3d)
             return False
         if cond.get("teamwork") and not info.get("teamwork"):  # -- (wave 110G) -- "a spell using teamwork" (702.194b)
             return False
@@ -2260,7 +2262,7 @@ def _whose_step(plan: Plan, card: CardInstance, whose: str, ap: str) -> bool:
 # "Cumulative upkeep—Sacrifice a creature." / "Ward—Get five poison counters.": a cost the optional payment engine pays (optional_payment.cost_text), or
 # ("do") a sentence of always-payable instructions the grammar reads ("Draw a card.", "Add {R}.", "You get five poison counters."). A cost that names a
 # choice the engine can't make for the payer (a creature of an opponent's, a graveyard) is None: the card stays manual.
-_DO_PAYABLE = frozenset({"draw", "add_mana", "player_counter"})  # (118.3: nothing to run out of; a draw from an empty library is still paid, ruling on Psychic Vortex 2008-04-01)
+_DO_PAYABLE = frozenset({"draw", "add_mana", "player_counter", "coin_flip"})  # (-- wave 110O -- "Cumulative upkeep—Flip a coin.": a flip cannot fail to happen)
 _DO_OPPONENT = frozenset({"gain_life", "create_token"})  # ("An opponent gains 1 life.", "Have an opponent create a 1/1 red Survivor creature token.": an opponent can always be given them)
 
 
@@ -2272,6 +2274,8 @@ def effect_cost(phrase: str) -> list[dict[str, Any]] | None:
     """The instructions of an always-payable cost written as a sentence ("Draw a card", "Add {R}", "Get five poison counters"; with "an opponent" it
     is chosen when the cost is paid: choose_opponent), or None."""
     sentence = _phrase(phrase.strip().rstrip("."))
+    if sentence == "gain control of a land you don't control":  # -- (wave 110O) -- Herald of Leshrac: chosen each time it is paid (wave110o_cards.gain_land); _cumulative_upkeep checks it can be paid
+        return [{"do": "gain_land110o"}]
     opponent = False
     if m := re.fullmatch(r"an opponent gains (.+)", sentence):  # (read as "you gain …" and aimed at the opponent chosen)
         sentence, opponent = f"you gain {m[1]}", True
@@ -2356,6 +2360,9 @@ def _cumulative_upkeep(plan: Plan) -> None:
             else:  # ("Draw a card.": once for each age counter, as the cost)
                 pay = pay_or_else("pay its cumulative upkeep (once for each age counter)", "you",
                                   [{"do": "repeat", "n": age, "span": len(cost)}, *cost], sacrifice)
+                if cost[0].get("do") == "gain_land110o":  # -- (wave 110O) -- 118.3: a cost that cannot be paid is not offered: with too few lands to take, it is sacrificed
+                    able = {"w110o": "land_upkeep"}
+                    pay = [{"do": "only_if", "cond": able, "skip": len(pay)}, *pay, {"do": "only_if", "cond": {"not": able}, "skip": len(sacrifice)}, *sacrifice]
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=5100 + k, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
                                              "effects": [{"do": "add_counters", "who": "self", "kind": "age", "n": 1}, *pay,

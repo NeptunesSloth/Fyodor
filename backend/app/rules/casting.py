@@ -3971,6 +3971,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         plan.do({"type": "set_stack_info", "card_id": card.id, "tags": ["Cast from exile"]})
     if grant is not None and grant.how == "prepared":  # -- prepared (wave 13C) -- 722.3c, 601.2i: it loses the designation as the copy is cast
         plan.rules.prepared = {o: c for o, c in plan.rules.prepared.items() if c != card.id}
+        plan.rules.prepare_spells110o = [*plan.rules.prepare_spells110o, card.id]  # -- (wave 110O) -- 722.3d: "a prepared spell"
     if commander_cast and not plan.state.settings.auto_commander_tax and card.commander_key:
         plan.do({"type": "commander_tax", "commander": card.commander_key, "delta": 2})
     data = _PostCast(a, add_cost, add_objects, alt_offer, aura, bargained, bestowed_cast, card, card_was_in_hand, cast_zone, ch, chosen, commander_cast, definition, entwined, escaping, flashback, foretold, free, from_oid, from_where, gift_to, grant, harmonized, jumped, kicked, mutating_cast, optional, picked, picked_targets, sac_at_cleanup, slot_specs, slots)

@@ -1019,6 +1019,8 @@ def _counters_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
     m = c.match
     if m.get("counter") and m["counter"] != ev["counter"]:
         return False
+    if m.get("modular110o") and not ev.get("modular110o"):
+        return False  # -- (wave 110O) -- "If a modular triggered ability would put …" (Zabaz)
     if m.get("bloodthirst110a") and not any(t == plan.state.turn.number for p, t in plan.rules.damaged.items() if p != c.controller):
         return False  # -- bloodthirst grant (wave 110A) -- 702.54a: an opponent was dealt damage this turn
     if not _putter_ok(c, ev):
@@ -1106,8 +1108,9 @@ def put_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effec
     isn't a replaceable "put" and passes straight through. False while a choice is open (the
     continuation ``then`` runs after the answer)."""
     answers = answers if answers is not None else _ctx_answers(ctx)
+    modular = bool(ctx and any(x.get("modular110o") for x in ctx.get("effects") or ()))  # -- (wave 110O) -- put by a modular triggered ability (Zabaz)
     planned = plan_counters(plan, puts, by=by, effect=effect, entering=entering, answers=answers, ask=then is not None,
-                            newcomers=newcomers, putters=putters)
+                            newcomers=newcomers, putters=putters, modular=modular)
     if isinstance(planned, Ask):
         request = {"puts": [list(p) for p in puts], "by": by, "effect": effect, "entering": entering,
                    "receipt_bind": receipt_bind,
@@ -1133,7 +1136,7 @@ class CounterPlan:
 def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effect: bool,
                   entering: dict[str, str] | None, answers: dict[str, str], ask: bool,
                   cands: list[Candidate] | None = None, newcomers: list[str] | None = None,
-                  putters: list[str] | None = None) -> CounterPlan | Ask:
+                  putters: list[str] | None = None, modular: bool = False) -> CounterPlan | Ask:
     from app.rules import prohibitions  # -- prohibitions (wave 22B) -- 614.17
 
     planner = Planner(plan, cands if cands is not None else candidates(plan, ("counters", "player_counters")), answers, ask=ask)
@@ -1150,7 +1153,7 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
             events.append({"kind": "player_counters", "player": target, "counter": kind, "n": int(n), "by": actor, "applied": []})
         elif target in plan.state.cards:
             ev: Event = {"kind": "counters", "card": target, "oid": plan.oid(target), "counter": kind, "n": int(n),
-                         "by": actor, "effect": bool(effect), "applied": []}
+                         "by": actor, "effect": bool(effect), "applied": [], **({"modular110o": True} if modular else {})}
             if entering and target in entering:  # given counters as it enters (122.6): asked before it enters (614.12a)
                 ev.update(controller=entering[target], entering=True, oid=None)
                 if newcomers:  # -- counters (wave 5H) -- the permanents entering with it (614.12)

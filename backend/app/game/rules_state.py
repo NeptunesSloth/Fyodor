@@ -665,6 +665,7 @@ class TurnLog(BaseModel):
     drawn_applied: dict[str, list[str]] = Field(default_factory=dict)
     left: list[Departure] = Field(default_factory=list)
     left_graveyard: list[str] = Field(default_factory=list)  # the owner of each card that left a graveyard
+    left_graveyard_creature110o: list[str] = Field(default_factory=list)  # -- (wave 110O) -- the owner of each creature card that left a graveyard
     entered_graveyard: list[Arrival] = Field(default_factory=list)
     entered: list[Entry] = Field(default_factory=list)  # -- refused modal/conditional (wave 3R1) -- onto the battlefield
     # -- this-turn history (wave 4D; app/rules/history.py) --
@@ -1667,6 +1668,7 @@ class RulesState(BaseModel):
     # "hasn't dealt damage yet" (120.3: a source that dealt more than 0 damage: its oid, and "<oid>+combat" for combat damage)
     dealt_damage: list[str] = Field(default_factory=list)
     prepared: dict[str, str] = Field(default_factory=dict)  # -- prepared (wave 13C, 722.3) -- permanent's rules object -> its copy in exile
+    prepare_spells110o: list[str] = Field(default_factory=list)  # -- (wave 110O) -- 722.3d: the exiled copies that were cast ("a prepared spell")
     phase_lifetimes: list[PhaseLifetime] = Field(default_factory=list)
     phase_holds110k: list[PhaseHold110K] = Field(default_factory=list)  # -- wave 110K --
     no_regen_sources110k: list[str] = Field(default_factory=list)  # -- wave 110K -- Runesword: the objects whose damage this turn makes a creature unable to regenerate
@@ -2323,6 +2325,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                                           types=before.types.get(card_id)))
         elif old_name == "graveyard" and (log := turn_log_now(state)) is not None:
             log.left_graveyard.append(old_zone.split(":")[0])  # (a zone key is "<owner>:graveyard")
+            if "Creature" in (before.types.get(card_id) or ()):  # -- (wave 110O) -- Plan.do records the types of a graveyard card it moves
+                log.left_graveyard_creature110o.append(old_zone.split(":")[0])
         if old_name == "battlefield" and new_name == "graveyard" and snap is not None and snap.counters and (log := turn_log_now(state)) is not None:
             log.gy_counters110j.extend(k for k, n in snap.counters.items() if n > 0)  # -- (wave 110J) -- "a permanent with an oil counter on it was put into a graveyard"
         if new_name == "graveyard" and new_zone and card is not None and card.card_id is not None \

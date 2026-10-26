@@ -88,6 +88,12 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
     blocker_rules = scripts.statics(bch)
     for rule in sorted(evasion_rules(ach)):
         name, arg = rule_arg(rule)
+        if name == "cant_be_blocked_unless_owner110o":  # -- (wave 110O) -- 506.3: it may be blocked only while it attacks its owner or a planeswalker / battle its owner controls
+            target = attacker.attacking
+            owner_target = target is not None and (target.id == attacker.owner if target.kind == "player" else
+                                                   target.id in state.cards and state.cards[target.id].controller == attacker.owner)
+            if not owner_target:
+                return f"{ach.name} can't be blocked unless it's attacking its owner or a permanent its owner controls"
         if name == "cant_be_blocked_by" and _any_selector(state, info, arg, blocker, bch, attacker):
             return f"{ach.name} can't be blocked by {_phrase(arg)}"
         if rule == KEYWORD_RULES["flying"] and "Dragon" in ach.subtypes and "block_dragons_reach" in blocker_rules:

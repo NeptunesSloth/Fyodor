@@ -134,6 +134,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         return any(log.lost.get(p, 0) >= n for p in players)
     if kind == "left_graveyard":
         return log.left_graveyard.count(me) >= n
+    if kind == "left_graveyard_creature110o":  # -- (wave 110O) -- Syrix
+        return log.left_graveyard_creature110o.count(me) >= n
     if kind == "graveyard_entries":
         players = [p for p in plan.live() if p != me] if cond.get("who") == "opponent" else [me]
         return any(graveyard_entries(plan, p, last=bool(cond.get("last"))) >= n for p in players)

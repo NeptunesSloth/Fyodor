@@ -315,6 +315,7 @@ def parse(text: str) -> Definition | None:
     body = re.sub(r"^~ must be blocked if able, and ~ (must be blocked by two or more creatures if able)$", r"~ must be blocked if able and \1", body)
     # -- commanders (wave 47A) -- 509.1b: "Tromokratis can't be blocked unless all creatures defending player controls block it." is a block restriction (the rule
     # block_by_all), not a condition; "has hexproof unless it's attacking or blocking" is "has hexproof as long as it isn't attacking or blocking" (611.3a)
+    body = body.replace(" can't be blocked unless it's attacking its owner or a permanent its owner controls", " can't be blocked unless_owner110o")  # -- (wave 110O) -- one rule, not a condition
     body = re.sub(r"^(?P<s>.+) can't be blocked unless all creatures defending player controls block (?:it|~)$", r"\g<s> can't be blocked by fewer than all creatures defending player controls", body)
     body = re.sub(r"^(?P<s>~|It) (?P<v>has|have) (?P<k>[a-z ]+?) unless it's (?P<c>attacking or blocking|attacking|blocking)$", r"\g<s> \g<v> \g<k> as long as it isn't \g<c>", body)
     # -- attached (wave 100F) -- 502.3: "Enchanted creature doesn't untap during its controller's untap step unless that player is the monarch." (Fall from Favor):
@@ -1258,6 +1259,8 @@ def _rule(piece: str) -> list[str] | None:
     if m:
         n = _num(m["n"])
         return [f"min_blockers:{n}"] if n is not None and n >= 2 else None
+    if piece == "can't be blocked unless_owner110o":  # -- (wave 110O) -- Become the Pilot; see combat.block_problem (statics.parse protects its "unless" from the condition split)
+        return ["cant_be_blocked_unless_owner110o"]
     if piece == "can't be blocked by creatures with greater power":
         return ["cant_be_blocked_by_power:greater"]
     if piece == "can't block creatures with power greater than ~'s power":

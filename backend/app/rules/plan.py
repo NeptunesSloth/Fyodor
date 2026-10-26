@@ -269,7 +269,7 @@ class Plan:
         out: dict[str, list[str]] = {}
         for cid in payload.get("card_ids") or []:
             card = self.state.cards.get(cid) if isinstance(cid, str) else None
-            if card is not None and card.zone.endswith(":battlefield"):
+            if card is not None and card.zone.endswith((":battlefield", ":graveyard")):  # (-- wave 110O -- a graveyard card's printed types: "a creature card left your graveyard")
                 out[cid] = sorted(self.ch(card).types)
         return out
 
