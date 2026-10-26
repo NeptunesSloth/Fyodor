@@ -325,6 +325,8 @@ def parse(body: str) -> Parsed | None:
     return scripts.parse_effects(REWRITES[body.strip()]) if body.strip() in REWRITES else None
 
 
+_THUNDERBLADE = ("Whenever one or more creatures you control deal combat damage to a player, if this card is in your graveyard, you may pay {2}{R}{R}{R}. "
+                 "If you do, you may cast it without paying its mana cost.")
 SPLIT_DAMAGE = "single_source_lethal110f"
 _SPLIT_TEXT = "This creature can't be destroyed by lethal damage unless lethal damage dealt by a single source is marked on it."
 
@@ -367,6 +369,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     for k in ("an art", "a name"):
         if ability.kind == "triggered" and ability.text.strip() == _STICKER_BACK.format(k=k):
             return scripts.define(replace(ability, text=_STICKER_BACK.format(k=k).replace("sticker on a creature,", "sticker on a creature, if this card is in your graveyard,")), ch)
+    if ability.kind == "triggered" and ability.text.strip() == _THUNDERBLADE:  # 603.4 intervening "if" (graveyard trigger), then the payment, then a free cast of itself (118.9, 601.2)
+        native = scripts.define(replace(ability, text=_THUNDERBLADE.replace("you may cast it without paying its mana cost", "draw a card")), ch)
+        if native is not None and native["effects"][-1].get("do") == "draw":
+            cast = {"do": "free_cast", "zone": "that", "who": "self_gy", "filter": None, "optional": True, "mv": None, "n": 1}
+            return {**native, "effects": [*native["effects"][:-1], cast]}
     if ability.kind == "static" and scripts.self_text(ability.text, ch.name).replace("~", "This creature") == _SPLIT_TEXT:
         return {"kind": "static", "static": SPLIT_DAMAGE, "effects": []}
     if ability.kind == "static" and scripts.self_text(ability.text, ch.name).replace("~", "this creature") == _COPY_ENTRY_TEXT:

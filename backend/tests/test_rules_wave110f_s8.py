@@ -2,6 +2,7 @@
 
 * 613.1f, 702.16: "Target creature loses protection from black until end of turn." (Cephalid Snitch): only the black quality goes.
 * 704.5g, 120.6: "can't be destroyed by lethal damage unless lethal damage dealt by a single source is marked on it" (Ogre Enforcer).
+* 603.4, 118.9: Thunderblade Charge's graveyard trigger pays {2}{R}{R}{R}, then casts the card without paying its mana cost.
 * 613.1f, 113.6: "Cards in graveyards lose all abilities." (Yixlid Jailer): no flashback from a graveyard; permanents on the battlefield keep theirs.
 """
 
@@ -17,7 +18,9 @@ from tests.test_rules_wave100n_multi import EXTRA as _BASE
 from tests.test_rules_wave100n_multi import card_db  # noqa: F401  (fixture DB with EXTRA)
 from tests.test_rules_wave100n_multi import answer, ch
 from tests.test_rules_wave100n_multi import cast
-from tests.wave9c_kit import build, card_named, check, mana, put
+from tests.test_rules_wave34b_activated import attack
+from tests.test_rules_wave100f_attached import to_phase
+from tests.wave9c_kit import life,  build, card_named, check, mana, put
 
 EXTRA = [
     real('Yixlid Jailer', '{1}{B}', 2, 'Creature — Zombie Wizard',
@@ -33,10 +36,12 @@ EXTRA = [
     real('Shock', '{R}', 1, 'Instant', 'Shock deals 2 damage to any target.', None, 'R'),
     real('Lightning Bolt', '{R}', 1, 'Instant', 'Lightning Bolt deals 3 damage to any target.', None, 'R'),
     real('Test Burn 4 110F', '{2}{R}', 3, 'Instant', 'Test Burn 4 110F deals 4 damage to any target.', None, 'R'),
+    real('Thunderblade Charge', '{1}{R}{R}', 3, 'Sorcery',
+         'Thunderblade Charge deals 3 damage to any target.\nWhenever one or more creatures you control deal combat damage to a player, if this card is in your graveyard, you may pay {2}{R}{R}{R}. If you do, you may cast it without paying its mana cost.', None, 'R'),
     real('Test Flyer 110F', '{1}{W}', 2, 'Creature — Bird', 'Flying', ('1', '1'), 'W'),
 ]
 _BASE.extend(EXTRA)
-NAMES = ["Yixlid Jailer", "Cephalid Snitch", "Ogre Enforcer"]
+NAMES = ["Yixlid Jailer", "Cephalid Snitch", "Ogre Enforcer", "Thunderblade Charge"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -90,4 +95,31 @@ def test_enforcer_dies_only_to_lethal_from_one_source(cards, burn, dies):
         answer(s)
     assert (s.state.cards[enforcer.id].zone == "p1:graveyard") == dies
     assert dies or s.state.cards[enforcer.id].damage >= 4
+    check(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_thunderblade_charge_recasts_itself_from_the_graveyard(cards, pay):
+    """603.4: only from the graveyard; 118.9: paying {2}{R}{R}{R} lets it be cast free, dealing 3 damage; declining leaves it there."""
+    s = build(cards, ["Thunderblade Charge", "Grizzly Bears"], forests=20, islands=20)
+    bear, charge = put(s, "Grizzly Bears"), card_named(s, "Thunderblade Charge")
+    act(s, "p1", type="move", card_ids=[charge.id], to={"player": "p1", "zone": "graveyard"})
+    to_phase(s, "main1", turn=3)
+    act(s, "p1", type="set_stops", own=["combat_damage"], smart_pass=False)
+    attack(s, bear)
+    for _ in range(40):  # to the trigger on the stack (combat damage)
+        if s.state.zones.get("stack") or s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    mana(s, "p1", R=5)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = {o.id for o in d.options}
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["pay" if pay else "decline"] if "pay" in ids else ["p2"] if "p2" in ids else [d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert life(s, "p2") == (35 if pay else 38) and s.state.cards[charge.id].zone == "p1:graveyard"
     check(s)
