@@ -324,3 +324,30 @@ def test_nissa_shadowed_boughs_minus_five_mana_value_up_to_lands(cards, hand_or_
     else:
         assert c.zone == "p1:graveyard"
     check(s)
+
+
+@pytest.mark.parametrize("full_party", [True, False])
+def test_linvala_shield_of_sea_gate_full_party_locks_down_a_permanent(cards, full_party):
+    """700.8, 611.2a: with a full party at the beginning of combat the chosen opponent permanent can't attack, block or activate until her controller's next turn."""
+    party = ["Shrine Keeper", "Krovikan Scoundrel", "Oreskos Swiftclaw"][: 3 if full_party else 2]
+    s = build(cards, ["Linvala, Shield of Sea Gate", *party], ["Grizzly Bears"])
+    for n in ["Linvala, Shield of Sea Gate", *party]:
+        put(s, n)
+    bears = put(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="pass_priority")
+    drive(s)
+    imposed = ch(s, bears).imposed
+    assert ("cant_attack_or_block" in imposed and "cant_activate" in imposed) == full_party
+    check(s)
+
+
+@pytest.mark.parametrize("mode", ["hexproof", "indestructible"])
+def test_linvala_sacrifice_chooses_hexproof_or_indestructible(cards, mode):
+    """700.2: Sacrifice Linvala, choose one of the two keywords; your creatures gain it until end of turn."""
+    s = build(cards, ["Linvala, Shield of Sea Gate", "Shrine Keeper"], [])
+    linvala, keeper = put(s, "Linvala, Shield of Sea Gate"), put(s, "Shrine Keeper")
+    act(s, "p1", type="activate_ability", card_id=linvala.id, ability=2)
+    drive(s, lambda d: [o.id for o in d.options if mode in o.label.lower()][:1] or None)
+    assert s.state.cards[linvala.id].zone == "p1:graveyard"
+    assert mode in ch(s, s.state.cards[keeper.id]).keywords
+    check(s)
