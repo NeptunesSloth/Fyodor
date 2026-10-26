@@ -51,9 +51,9 @@ def parse(body: str) -> Any:
         short = scripts.parse_effects("Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn.")
         long = scripts.parse_effects("Gain control of target creature until the end of your next turn.")
         assert short and long
-        (control, *rest), (until, long_control) = short[0], long[0]
+        (control, *others), (until, long_control) = short[0], long[0]
         bigger = {"w110o": "villain_bigger"}
-        return [{"do": "only_if", "cond": bigger, "skip": 2}, until, long_control, {"do": "only_if", "cond": {"not": bigger}, "skip": 1}, control, *rest], short[1], False
+        return [{"do": "only_if", "cond": bigger, "skip": 2}, until, long_control, {"do": "only_if", "cond": {"not": bigger}, "skip": 1}, control, *others], short[1], False
 
     if body.strip() == _REMEMBRANCE.replace("Serene Remembrance", "~"):  # 701.24a: the spell and the cards are shuffled in, each owner's library shuffled
         own = scripts.parse_effects("Shuffle ~ into its owner's library.")
