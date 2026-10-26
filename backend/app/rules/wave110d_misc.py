@@ -30,6 +30,7 @@ SYMPOSIUM = "Target player creates a token that's a copy of target creature you 
 NUKA = ("Whenever equipped creature attacks, until the end of defending player's next turn, that player gets two rad counters whenever they cast a spell.")
 DIVINER = ("Whenever one or more other creatures you control enter, if they entered or were cast from a graveyard, create a token that's a copy of one of them. "
            "This ability triggers only once each turn.")
+JIN3 = ("III — You may cast any number of spells from your hand without paying their mana costs. Exile this Saga, then return it to the battlefield.")
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -102,6 +103,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if d is not None and d["effects"][-1].get("do") == "token_copy":  # (a target stand-in: the grammar refuses "that creature" for a batch)
             d["target"] = None
             d["effects"] = [*({**x, "skip": 2} if x.get("do") == "only_if" else x for x in d["effects"][:-1]), {"do": "choose_one_of", "who": "ref:event", "n": 1, "as": "copy110d"}, {**d["effects"][-1], "who": "ref:copy110d"}]
+        return d
+    if ability.text == JIN3:  # 701.20e-style cast for free, then 400.7 the Saga returns as a new object (front face up: 712.14a, the default entry face)
+        d = scripts.define(replace(ability, text=JIN3.split(" Exile")[0]), ch)
+        d2 = scripts.define(replace(ability, text="III — Exile this Saga, then return it to the battlefield."), ch)
+        if d is not None and d2 is not None:
+            d["effects"] += d2["effects"]
         return d
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")

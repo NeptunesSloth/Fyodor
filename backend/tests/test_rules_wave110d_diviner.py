@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from tests.game_helpers import act
 from tests.wave9c_kit import build, to_hand
-from tests.wave110d_kit import card_db, check, cast_on, full, mana, now, put_new, settle, to_phase  # noqa: F401
+from tests.wave110d_kit import card_db, cast_on, check, full, mana, now, put_new, settle, to_phase  # noqa: F401
 
 
 def _bears(s):
