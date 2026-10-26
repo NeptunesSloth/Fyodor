@@ -1701,7 +1701,7 @@ def _pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list
     for card, index, ability in extras:
         # -- mana riders (wave 5A) -- counter "tap": tapped for mana (106.12a: an ability with {T} in its cost)
         emit(plan.state, "mana_added", object_id=oids[card.id], card=card.id, player=player,
-             counter="tap" if ability.tap else None)
+             counter="tap" if ability.tap else None, mana_colors110i=[c for c in dict.fromkeys(dict(payment.slots).get(card.id, ())) if c in "WUBRG"])
         after_mana_ability(plan, card, index, ability, player, source_object=oids[card.id])
     payment.life = life
     return payment
@@ -5610,6 +5610,18 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if equip is not None:
         equip_ability(plan, card, ch, a, equip)
         return
+    fortify = attachments.fortify_cost(ch, a.ability) if not plan.manual(card) else None
+    if fortify is not None:  # -- cards (wave 110I) -- 702.67a: like equip, to a land; a Fortification that is also a creature can't (301.6)
+        if "Fortification" not in ch.subtypes or ch.is_creature:
+            raise ActionError(f"{ch.name} can't fortify a land")
+        from app.rules import selectors  # (a leaf import, as elsewhere in this module)
+
+        land = selectors.parse("land you control")
+        assert land is not None
+        text = f"{fortify}: Attach {ch.name} to target land you control. Activate only as a sorcery."
+        activate_to_stack(plan, card, ch, AbilityText(index=a.ability, kind="activated", cost=fortify, text=text), a,
+                          definition={"kind": "activated", "effects": [{"do": "attach_self"}], "target": {"what": land.key()}}, exclude_targets=(card.id,))
+        return
     if ability.kind in ("activated", "loyalty"):
         activate_to_stack(plan, card, ch, ability, a)
         return
@@ -6148,7 +6160,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         return
     ability = announced
     if plan.locked_cost is None and (fixed := defined_activation_x.spec(ability, ch.name)) is not None:
-        x = defined_activation_x.evaluate(plan, card, fixed)
+        x = defined_activation_x.evaluate(plan, card, fixed, a.targets)
         if a.x_value is not None and a.x_value != x:
             raise ActionError(f"X is {x} for this ability; it isn't chosen (107.3c)")
         a.x_value = x
@@ -6693,7 +6705,7 @@ def _produce_body(plan: Plan, card: CardInstance, ability: M.ManaAbility, option
         _replace_life.lose_life(plan, [(who, extra.life)], actor=who, paid=True)
     if mana:
         emit(plan.state, "mana_added", object_id=oid, card=card.id, player=who, amount=sum(mana.values()),
-             counter="tap" if ability.tap else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
+             counter="tap" if ability.tap else None, mana_colors110i=[c for c in mana if c in "WUBRG" and mana[c]])  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
     if index is not None:
         return after_mana_ability(plan, card, index, ability, who, source_object=oid, then=then, option=option,
             mana_context={'activation_payment': PaymentRecord(card=card.id, controller=who,
@@ -6865,7 +6877,8 @@ def _add_paid_mana(plan: Plan, card: CardInstance, ability: M.ManaAbility, optio
              "life": 0, "label": f"added {M.symbols(mana)}"[:200]}, actor=plan.actor)
     if mana:
         emit(plan.state, "mana_added", object_id=oid, card=card.id, player=who, amount=sum(mana.values()),
-             counter="tap" if (mana_context.get("tap") if mana_context is not None else ability.tap) else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
+             counter="tap" if (mana_context.get("tap") if mana_context is not None else ability.tap) else None,
+             mana_colors110i=[c for c in mana if c in "WUBRG" and mana[c]])  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
     from app.rules import replace as replacements_
 
     after = _mana_terminal(plan, nested=plan.rules.payment_outer is not None)

@@ -595,12 +595,13 @@ def next_step(plan: Plan) -> None:
             _mark_step(plan)
             extra_untap_step(plan)
             return
-    elif phase == "declare_attackers" and r.no_attackers:
+    elif phase == "declare_attackers" and r.no_attackers and not combat.attackers_on(plan.state):  # (wave 110I: 508.8 creatures put onto the battlefield attacking count)
         # Nobody attacked: skip declare blockers and combat damage (rule 508.8).
         plan.do({"type": "phase", "to": "end_combat", "force": True}, actor=plan.active)
     else:
         plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
-    effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped step or combat phase
+    if effects.skips.skip_steps(plan):  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped step or combat phase (wave 110I: waits for Fasting's choice)
+        return
     if plan.state.turn.phase == "untap" and r.extra_beginning:
         _mark_step(plan)
         extra_untap_step(plan)
@@ -756,7 +757,8 @@ def finish_turn_start(plan: Plan, stunned: list[str], previous: tuple[str, int],
         effects._untap_riders.other_untap_step(plan)
     # The untap step has no priority: straight on to upkeep.
     plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
-    effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step
+    if effects.skips.skip_steps(plan):  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step
+        return
     _mark_step(plan)
     on_step_start(plan)
 
@@ -1426,6 +1428,11 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         r.priority = plan.actor
         return
     # -- end entering for a cost (wave 5G) --
+    from app.rules import (
+        devour,  # -- sacrificed as it enters (wave 110I) -- Sheltered Valley (614.1a), a land entering by being played
+    )
+
+    devour.sacrifice(plan, ep, plan.actor)
     payload: dict[str, Any] = {"type": "move", "card_ids": [card.id], "to": {"zone": "battlefield"},
                                "tapped": bool(ep["tapped"]) or bool(grant is not None and grant.enters and grant.enters.get("tapped"))}  # (wave 51D: "If you do, it enters tapped", 614.1d)
     if a.x is not None and a.y is not None:

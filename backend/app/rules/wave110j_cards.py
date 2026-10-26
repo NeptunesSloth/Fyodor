@@ -155,13 +155,13 @@ _BUILD["Whenever you pay this enchantment's cumulative upkeep, you may search yo
 def paid_cumulative(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """Last step of a cumulative upkeep trigger: the permanent is still here only if it was paid (otherwise it was sacrificed, 702.24a), so its
     "Whenever you pay this permanent's cumulative upkeep" abilities trigger now (603.2)."""
-    from app.rules import triggers
+    from app.rules import triggers, wave110i_cards
 
     src = plan.state.cards.get(ctx.get("source_card", ""))
     if src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
         for card, ch, i, d in triggers._watchers(plan, PAID_CU):
             if card.id == src.id:
-                triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=d)
+                triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=wave110i_cards.cu_fill(plan, ctx, d))  # (wave 110I: the mana spent)
     return True
 
 

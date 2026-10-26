@@ -354,7 +354,7 @@ def start_declare_attackers(plan: Plan) -> None:
         r.no_attackers = True
         from app.rules import delayed
 
-        delayed.at_step(plan, "declare_attackers")  # (wave 110B)
+        delayed.at_step(plan, "declare_attackers")  # (wave 110I) nobody can attack: the step's delayed triggers still trigger
         return
     who = wave110a_choosers.chooser(plan, "attack", ap)  # -- declaration choosers (wave 110A) --
     decide(plan, player=ap, kind="declare_attackers", prompt="Declare attackers (or attack with nothing)", decider=who, blind=who is not None,
@@ -580,6 +580,9 @@ def _finish_attackers(plan: Plan, payload: PaidAttackers, payment: M.Payment | N
         if enlist.ask(plan, [plan.state.cards[x.card_id] for x in a.attackers], []):
             return
         triggers.attacked(plan, [plan.state.cards[x.card_id] for x in a.attackers])
+    from app.rules import delayed
+
+    delayed.at_step(plan, "declare_attackers")  # -- delayed at the declare attackers step (wave 110I) -- 507.1, 603.7: after the declaration (Noctis)
     r.priority = plan.active
     r.passed = []
     advance(plan)
@@ -912,7 +915,7 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         wave110m_cards,  # -- (wave 110M) -- Awesome Presence: a cost to block that attacker, for each blocker (509.1d)
     )
 
-    cost = M.parse_cost(combat_rules.block_cost(plan, set(used)) + wave110m_cards.block_tax_for(plan, expanded))
+    cost = M.parse_cost(combat_rules.block_cost(plan, set(used), expanded) + wave110m_cards.block_tax_for(plan, expanded))
     if not cost.is_free:
         from app.rules import casting
 

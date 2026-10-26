@@ -400,6 +400,8 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
             counters["+1/+1"] = counters.get("+1/+1", 0) + tribute.counters(ch, choices)
         if devour.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + devour.counters(ch, choices)
+        for kind, n in devour.typed(ch, choices).items():  # -- (wave 110I) -- Frankenstein's Monster: the +2/+0, +1/+1 and +0/+2 counters chosen
+            counters[kind] = counters.get(kind, 0) + n
         from app.rules import reveal_lands  # (wave 100K: Dragon's Disciple)
 
         if reveal_lands.counters(ch, choices):
@@ -1424,6 +1426,8 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         rider = next(({"source": card.id, "controller": card.controller, **d["rider"]} for d in _definitions(plan, card).values()
                       if d.get("replacement") == "exile_instead" and d.get("rider")), None)
         out.append(Cand(card.name or "its own ability", "exile", False, rider))
+    if frm == "battlefield" and any(d["kind"] == "replacement" and d.get("replacement") == "hand_instead110i" for d in _definitions(plan, card).values()):
+        out.append(Cand(card.name or "its own ability", "hand", False, {"source": card.id, "controller": card.controller, "hand110i": card.id, "effects": [], "reflexive": False}))
     if (where := _self_library_instead(plan, card)) is not None:  # -- instead (wave 20B) --
         out.append(Cand(card.name or "its own ability", f"library:{where}"))
     if _self_shuffle_instead(plan, card):
@@ -1530,6 +1534,11 @@ def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
         return
     src = plan.state.cards.get(rider["source"])
     if src is None:
+        return
+    if rider.get("hand110i"):  # -- cards (wave 110I) -- Firestorm Phoenix
+        from app.rules import wave110i_cards
+
+        wave110i_cards.reveal_ban(plan, src)
         return
     if rider.get("power_counters"):  # -- (wave 110C) -- Ravenous Slime: counters on the source, only while it is still on the battlefield
         if rider["n"] and src.zone.endswith(":battlefield"):

@@ -53,6 +53,7 @@ SUPPORTED_REPLACEMENTS: set[str] = {
     "discard_battlefield",  # -- discard causes (wave 23D) -- "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it into your graveyard."
     "exile_instead",  # "If ~ would die / be put into a graveyard from anywhere, exile it instead" (own and statics)
     "hand_instead",  # -- instead (wave 100K) -- "If a creature you control that's enchanted would die, return it to its owner's hand instead." (Necromancer's Magemark)
+    "hand_instead110i",  # -- cards (wave 110I) -- Firestorm Phoenix
     "library_instead",  # "If ~ would die, put it on top of / on the bottom of its owner's library instead" (wave 20B)
     "tapped_for_rad110c",  # -- optional entering choice (wave 110C) -- "You may have this land enter tapped. If you do, you get two rad counters." (Mariposa Military Base)
     "library_may110c",  # -- optional replacements (wave 110C) -- "If this permanent would be put into a graveyard, you may put it on top of its owner's library instead." (Pulmonic Sliver grant)
@@ -456,7 +457,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import commander
 
         return commander.companion_condition(line) in commander.COMPANION_RESTRICTIONS
-    if kw in ("enchant", "equip"):  # app/rules/attachments.py: the wordings it maps
+    if kw in ("enchant", "equip", "fortify"):  # app/rules/attachments.py: the wordings it maps
         from app.rules import attachments
 
         return attachments.supported_keyword(kw, line)

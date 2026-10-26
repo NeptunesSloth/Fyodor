@@ -482,7 +482,9 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         return facts
     if e.kind == "mana_added" and e.counter == "tap":  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
         got = _object_then(plan, e.card, e.object_id)
-        return [("tapped_for_mana", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player})] if got is not None else []
+        # (wave 110I: ``amount`` carries the colors produced as a bit mask, W=1 U=2 B=4 R=8 G=16, for C.A.M.P.'s "shares a color with the mana that land produced")
+        return [("tapped_for_mana", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player,
+                                                                "amount": sum(1 << "WUBRG".index(c) for c in e.mana_colors110i)})] if got is not None else []
     if e.kind == "exerted":
         got = _object_then(plan, e.card, e.object_id)
         if got is None:

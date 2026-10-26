@@ -40,12 +40,19 @@ def _has(state: GameState, player: str, info: CardInfo | None, texts: tuple[str,
 
 
 def present(state: GameState, player: str, info: CardInfo | None) -> bool:
+    from app.rules import wave110i_cards
+
+    if info is not None and state.rules is not None and wave110i_cards.spending_active(state, player):  # -- cards (wave 110I) -- False Dawn
+        return True
     return _has(state, player, info, (TEXT, DAWN))
 
 
 def spending_cost(state: GameState, player: str, info: CardInfo | None, cost: M.ManaCost) -> M.ManaCost:
     from app.rules import mana as M
+    from app.rules import wave110i_cards
 
     if _has(state, player, info, (TEXT,)):
         cost = M.spend_as(cost, 'white_red')
-    return M.spend_as(cost, 'white_any') if _has(state, player, info, (DAWN,)) else cost
+    if _has(state, player, info, (DAWN,)):  # (Celestial Dawn's white-as-any already covers False Dawn's)
+        return M.spend_as(cost, 'white_any')
+    return M.spend_as(cost, 'white_color') if wave110i_cards.spending_active(state, player) else cost  # -- cards (wave 110I) -- False Dawn

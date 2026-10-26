@@ -1129,8 +1129,10 @@ def _from_zone(plan: Plan, e: dict[str, Any], cards: list[str]) -> list[str]:
 def exile_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
     before = _remember(plan, ctx, e, cards)
     if cards:
+        on_bf = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]  # -- cards (wave 110I) --
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"},
                  **({'face_down': True, 'blind': bool(e.get('blind'))} if e.get('face_down') else {})}, actor=ctx["controller"])
+        _wave110i_cards.note_exiled(plan, ctx, on_bf)
     if e.get("link"):  # -- exiled with (wave 6D) -- 607.2a: what the linked ability will refer to
         from app.rules import exiled_with
 
@@ -2156,7 +2158,9 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def _exile_until_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
     before = _remember(plan, ctx, e, cards)
     if cards:
+        on_bf = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
+        _wave110i_cards.note_exiled(plan, ctx, on_bf)  # -- cards (wave 110I) --
         key = ctx["source_object"]
         exiled = [plan.oid(c) for c in _merged.pieces(plan, cards)  # (review (wave 18D): each card of a merged permanent, 730.3c)
                   if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
@@ -3019,10 +3023,14 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
             echo_alternatives76.insert(ctx, [{'do': 'note_echo_paid76'}])
         cost = mana.parse_cost(d.resume["cost"])
         casting.pay_from_pool_then(plan, d.player, cost, f"paid {cost.text()} for {ctx.get('name', '')}",
-                                   then={"do": "continue", "ctx": ctx},
+                                   then={"do": "cu_paid110i" if d.resume.get("purpose_special") == "cumulative_upkeep" else "continue", "ctx": ctx},  # (wave 110I)
                                    purpose=casting.Purpose(special=d.resume.get("purpose_special")))
         return
     elif src:
+        if d.resume.get("purpose_special") == "cumulative_upkeep":  # -- cumulative upkeep not paid (wave 110I) --
+            from app.rules import wave110i_cards
+
+            wave110i_cards.cu_unpaid(plan, ctx, src[0])
         _sacrifice_cards(plan, [c for c in src if plan.state.cards[c].controller == d.player], d.player, ctx)
     continue_effects(plan, ctx)
 
@@ -3295,6 +3303,8 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     looked at), "put those cards into your hand" (``which``: "all"), "put all land cards revealed
     this way into your hand" (a selector with no choice: every match)."""
     pid = ctx["controller"]
+    if isinstance(e.get("total_mv"), dict):  # -- total mana value from a value (wave 110I) -- Smelting Vat: read once, when the choice opens (608.2d)
+        e = {**e, "total_mv": values.evaluate(plan, ctx, e["total_mv"])}
     if e.get("public_mill59"):
         from app.rules import public_mill_attachment59
 
@@ -5159,6 +5169,8 @@ def resume_add_mana(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 def _put_mana(plan: Plan, ctx: Context, pid: str, mana: list[str]) -> bool:
     from app.rules import mana as M
+
+    mana = _wave110i_cards.dawn_mana(plan, ctx["controller"], mana)  # -- cards (wave 110I) -- False Dawn
 
     ctx["_mana_added"] = {c: mana.count(c) for c in dict.fromkeys(mana)}  # (wave 3R3: "this mana", app/rules/kept_mana.py)
     ctx["_mana_added_player"] = pid  # (-- trigger other (wave 44B) -- whose pool: "that player adds {G}{G}{G}. … they don't lose this mana", Shizuko)
@@ -7158,6 +7170,8 @@ RESUME.update(_wave110h.RESUME)
 from app.rules import wave110i_cards as _wave110i_cards  # noqa: E402, I001  -- cards (wave 110I) --
 
 PRIMITIVES.update(_wave110i_cards.PRIMITIVES)
+RESUME.update(_wave110i_cards.RESUME)
+replace.THEN["cu_paid110i"] = _wave110i_cards.cu_paid_then  # -- cumulative upkeep paid (wave 110I) --
 from app.rules import wave110c_any as _wave110c_any  # noqa: E402, I001
 PRIMITIVES.update(_wave110c_any.PRIMITIVES)  # -- any opponent may (wave 110C) --
 from app.rules import wave110e_opp as _wave110e_opp  # noqa: E402, I001  -- wave 110E --

@@ -443,6 +443,7 @@ class Event(BaseModel):
     simultaneously (destroy all creatures is one batch of zone changes, not N)."""
 
     non_discard: bool = False  # This native zone change was explicitly not a discard.
+    mana_colors110i: list[str] = Field(default_factory=list)  # -- cards (wave 110I) -- a ``mana_added`` "tap" event: the colors (WUBRG) of the mana produced
     fighters90: list[ObjectSnapshot] = Field(default_factory=list)  # Exact native fight cohort before damage.
     crew_count80: int | None = None  # Native crew activation payment cardinality; unknown in old saves.
     loss_watchers: list[ObjectSnapshot] = Field(default_factory=list)

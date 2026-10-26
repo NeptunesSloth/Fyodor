@@ -508,6 +508,8 @@ def relation_ok(plan: Plan, spec: dict[str, Any], refs: list[TargetRef]) -> bool
         kinds = [_kinds(ch, spec["shares_none"]) for ch, _ in facts]
         if sum(map(len, kinds)) != len(frozenset().union(*kinds)):
             return False
+    if spec.get("typed110i") and any(not _kinds(ch, spec["shares"]) for ch, _ in facts):  # -- cards (wave 110I) -- Aphetto Dredging: a creature type must be chosen (it has one)
+        return False
     if spec.get("same_controller") and len({c for _, c in facts}) > 1:
         return False
     if spec.get("same_toughness110a") and len({ch.pt[1] if ch.pt else None for ch, _ in facts}) > 1:  # -- cards (wave 110A) -- V.A.T.S.
