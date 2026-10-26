@@ -88,6 +88,17 @@ def top_to_bottom(plan: Any, ctx: Def, e: Def) -> bool:
     return True
 
 
+def _lucius(d: Def) -> Def:
+    """Lucius the Eternal: 603.7a, 603.10a — the dying Lucius is exiled, and when the chosen creature leaves the battlefield that object (still in exile, 400.7) returns."""
+    choose, delay = d["effects"][0], d["effects"][1]
+    ret = {"do": "deferred:return_card", "who": "ref:e0", "to": "battlefield", "tapped": False, "under": "owner"}
+    return {**d, "effects": [{"do": "exile", "who": "event.new", "as": "e0"}, choose, delay, ret]}
+
+
+_LUCIUS = ("When this creature dies, exile it and choose target creature an opponent controls. When that creature leaves the battlefield, "
+           "return this card from exile to the battlefield under its owner's control.")
+_BUILD["Armour of Shrieking Souls — " + _LUCIUS.replace("this creature", "Lucius the Eternal")] = (
+    "When this creature dies, choose target creature an opponent controls. When that creature leaves the battlefield, you gain 3 life.", _lucius)
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 

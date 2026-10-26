@@ -417,6 +417,11 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     for i, line in enumerate(lines):
         if line == EARTHBIND:
             lines[i:i + 1] = [line, "As long as this Aura gained that ability, enchanted creature loses flying."]
+    # -- (wave 110M) -- Pharika's Spawn: "This creature escapes with ... When it enters this way, ..." is the escape counters and a trigger of the creature that escaped (702.138c)
+    for i, line in enumerate(lines):
+        if line == ("This creature escapes with two +1/+1 counters on it. When it enters this way, each opponent sacrifices a non-Gorgon creature of their choice."):
+            lines[i:i + 1] = ["This creature escapes with two +1/+1 counters on it.",
+                              "When this creature enters, if it escaped, each opponent sacrifices a non-Gorgon creature of their choice."]
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):

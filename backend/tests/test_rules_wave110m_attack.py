@@ -107,3 +107,36 @@ def test_fblthp_does_nothing_when_you_are_the_one_dealt_damage(cards):
     until(s, lambda s: s.state.turn.phase == "main2")
     assert life(s) == 38 and hand(s) == before and s.state.cards[fblthp.id].zone == "p1:battlefield"
     check(s)
+
+
+# -- Pharika's Spawn -------------------------------------------------------------------------------------------------------------------------
+SPAWN = "Pharika's Spawn"
+test_spawn_full = full_test([SPAWN])
+
+
+@pytest.mark.parametrize("how,theirs,counters,sacrificed", [
+    ("escape", ("Grizzly Bears", SPAWN), 2, "Grizzly Bears"),   # escaped: two counters, and the opponent sacrifices the non-Gorgon (their Spawn is a Gorgon)
+    ("escape", (SPAWN,), 2, None),                             # only Gorgons: nothing to sacrifice
+    ("hand", ("Grizzly Bears", SPAWN), 0, None),               # cast from the hand: no counters, no sacrifice
+])
+def test_pharika_spawn_escapes_with_counters_and_makes_opponents_sacrifice_a_non_gorgon(cards, how, theirs, counters, sacrificed):
+    """702.138c: only a creature that escaped is affected ("When it enters this way")."""
+    s = build(cards, [SPAWN, "Grizzly Bears", "Llanowar Elves", "Elite Vanguard", "Savannah Lions"], list(theirs), forests=20)
+    for n in theirs:
+        put(s, n, "p2")
+    spawn = card_named(s, SPAWN)
+    if how == "escape":
+        for n in ("Grizzly Bears", "Llanowar Elves", "Elite Vanguard"):
+            act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"player": "p1", "zone": "graveyard"})
+        act(s, "p1", type="move", card_ids=[spawn.id], to={"player": "p1", "zone": "graveyard"})
+        fund(s, "{5}{B}")
+        act(s, "p1", type="cast_spell", card_id=spawn.id)
+    else:
+        to_hand(s, SPAWN)
+        fund(s, "{3}{B}")
+        act(s, "p1", type="cast_spell", card_id=spawn.id)
+    answer(s)
+    assert s.state.cards[spawn.id].zone == "p1:battlefield"
+    assert sum(1 for k, v in s.state.cards[spawn.id].counters.items() if k == "+1/+1" for _ in range(v)) == counters
+    assert [n for n in ("Grizzly Bears", SPAWN) if n in theirs and zone_of(s, n, "p2") == "p2:graveyard"] == ([sacrificed] if sacrificed else [])
+    check(s)

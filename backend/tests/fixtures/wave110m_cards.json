@@ -281,5 +281,61 @@
 "keywords": [
 "Enchant"
 ]
+},
+{
+"name": "Pharika's Spawn",
+"layout": "normal",
+"mana_cost": "{3}{B}",
+"cmc": 4.0,
+"type_line": "Creature — Gorgon",
+"oracle_text": "Escape—{5}{B}, Exile three other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)\nThis creature escapes with two +1/+1 counters on it. When it enters this way, each opponent sacrifices a non-Gorgon creature of their choice.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Escape"
+],
+"power": "3",
+"toughness": "4"
+},
+{
+"name": "Lucius the Eternal",
+"layout": "normal",
+"mana_cost": "{3}{B}{R}",
+"cmc": 5.0,
+"type_line": "Legendary Creature — Astartes Warrior",
+"oracle_text": "Haste\nArmour of Shrieking Souls — When Lucius the Eternal dies, exile it and choose target creature an opponent controls. When that creature leaves the battlefield, return this card from exile to the battlefield under its owner's control.",
+"colors": [
+"B",
+"R"
+],
+"color_identity": [
+"B",
+"R"
+],
+"keywords": [
+"Armour of Shrieking Souls",
+"Haste"
+],
+"power": "5",
+"toughness": "3"
+},
+{
+"name": "Doom Blade",
+"layout": "normal",
+"mana_cost": "{1}{B}",
+"cmc": 2.0,
+"type_line": "Instant",
+"oracle_text": "Destroy target nonblack creature.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
 }
 ]

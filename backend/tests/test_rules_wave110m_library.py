@@ -96,3 +96,38 @@ def test_faces_of_the_past_with_a_dying_changeling_reaches_every_creature_with_a
     answer(s, "tap")
     assert s.state.cards[card_named(s, "Mother of Runes").id].tapped and s.state.cards[card_named(s, "Llanowar Elves").id].tapped
     check(s)
+
+
+# -- Lucius the Eternal ----------------------------------------------------------------------------------------------------------------------
+LUCIUS = "Lucius the Eternal"
+test_lucius_full = full_test([LUCIUS])
+
+
+def lucius_table(cards, theirs=("Grizzly Bears",)):
+    s = build(cards, [LUCIUS, "Murder", "Doom Blade"], list(theirs), forests=20)
+    lucius = put(s, LUCIUS)
+    for n in theirs:
+        put(s, n, "p2")
+    return s, lucius
+
+
+@pytest.mark.parametrize("dies,returns", [("Elite Vanguard", True), ("Grizzly Bears", False)])
+def test_lucius_exiles_itself_and_returns_when_the_chosen_creature_leaves(cards, dies, returns):
+    s, lucius = lucius_table(cards, ("Grizzly Bears", "Elite Vanguard"))
+    cast(s, "Murder", [lucius.id])
+    answer(s, card_named(s, "Elite Vanguard", "p2").id)  # (the chosen creature: Elite Vanguard)
+    assert s.state.cards[lucius.id].zone == "p1:exile"
+    check(s)
+    cast(s, "Doom Blade", [card_named(s, dies, "p2").id])
+    answer(s)
+    assert zone_of(s, dies, "p2") == "p2:graveyard"
+    assert (s.state.cards[lucius.id].zone, s.state.cards[lucius.id].controller) == (("p1:battlefield", "p1") if returns else ("p1:exile", "p1"))
+    check(s)
+
+
+def test_lucius_with_no_opponent_creature_to_choose_stays_in_the_graveyard(cards):
+    s, lucius = lucius_table(cards, ())
+    cast(s, "Murder", [lucius.id])
+    answer(s)
+    assert s.state.cards[lucius.id].zone == "p1:graveyard"
+    check(s)
