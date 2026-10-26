@@ -1,0 +1,1 @@
+- Paliano, the High City: "chosen as you drafted cards named Paliano" depends on draft history that a Commander game does not have; stays manual (no CR rule, no ruling).
