@@ -766,6 +766,54 @@ def _zemo(d: Def) -> Def:
 _BUILD[_ZEMO] = ("Boast — {1}: Draw a card.", _zemo)
 
 
+_MYRA = ("{X}, {T}: Exile target instant or sorcery card with mana value X from your graveyard and choose an Attraction you control that doesn't have a midway counter on it. Put a midway counter "
+         "on it. For as long as that Attraction is on the battlefield, whenever you visit it, copy the exiled card. You may cast the copy without paying its mana cost.")
+
+
+def _myra(d: Def) -> Def:
+    """Myra the Magnificent: exile the card, choose and mark an Attraction, and (603.7a) a persistent delayed trigger on visiting that Attraction copies the exiled card and offers its free cast."""
+    exile = {**d["effects"][0], "as": "myra_ex110m"}
+    watch = {"do": "delayed", "when": {"kind": "event", "event": "visit110m"}, "n": 2, "who": "ref:myra_att110m", "once": False}
+    return {**d, "effects": [exile, {"do": "myra_choose110m"}, watch,
+                             {"do": "deferred:copy_cards", "who": "ref:myra_ex110m", "as": "myra_cp110m", "source_zone": "exile"},
+                             {"do": "deferred:free_cast", "zone": "that", "who": "ref:myra_cp110m", "exact_refs": True, "optional": True, "n": 1}]}
+
+
+_BUILD[_MYRA] = ("{X}, {T}: Exile target instant or sorcery card with mana value X from your graveyard.", _myra)
+
+
+def myra_choose(plan: Any, ctx: Def, e: Def) -> bool:
+    """"Choose an Attraction you control that doesn't have a midway counter on it" (608.2d, as it resolves): the only one is chosen for them; none: nothing is chosen."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    found = [c.id for c in plan.state.cards.values() if c.zone == f"{pid}:battlefield" and c.controller == pid and "Attraction" in plan.ch(c).subtypes and not c.counters.get("midway")]
+    if len(found) > 1:
+        decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name', '')}: choose an Attraction you control without a midway counter",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Attraction", card_id=c) for c in found], resume={"step": "myra110m", "ctx": ctx})
+        return False
+    return _myra_mark(plan, ctx, found)
+
+
+def _myra_mark(plan: Any, ctx: Def, found: list[str]) -> bool:
+    from app.rules import context
+
+    context.bind_objects(plan, ctx, "myra_att110m", found)
+    if found:
+        plan.do({"type": "counter", "card_ids": found, "kind": "midway", "delta": 1}, actor=ctx["controller"])
+        plan.note(f"{plan.state.cards[found[0]].name} gets a midway counter", found)
+    return True
+
+
+def resume_myra(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if _myra_mark(plan, ctx, chosen[:1]):
+        effects.continue_effects(plan, ctx)
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -1421,6 +1469,6 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"alaundo110m": resume_alaundo, "rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+RESUME: dict[str, Any] = {"myra110m": resume_myra, "alaundo110m": resume_alaundo, "rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"reverse_turn_order110m": reverse_turn_order, "coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"myra_choose110m": myra_choose, "reverse_turn_order110m": reverse_turn_order, "coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
