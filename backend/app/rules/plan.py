@@ -63,6 +63,7 @@ class Plan:
     excluded: frozenset[str] = frozenset()
     # -- optional payments (wave 110C) -- the attacking creature of the trigger being resolved: a cost's "other than that creature" (selector not_event) excludes it
     cost_attacker: str | None = None
+    delegated110d: str | None = None  # the target an opponent picked for a spell (wave 110D, delegated_target_announcements)
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)

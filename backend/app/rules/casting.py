@@ -1678,7 +1678,7 @@ def _pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list
     if life:  # -- life modifiers (wave 28B) -- 119.4 / 118.11: the life paid is a life loss the replacements may change
         from app.rules import replace as _replace_life
 
-        _replace_life.lose_life(plan, [(player, life)], actor=player)
+        _replace_life.lose_life(plan, [(player, life)], actor=player, paid=True)
     payment.auxiliary_life += max(0, life - payment.life - life_due)
     payment.life = life
     if then is not None:
@@ -2664,7 +2664,7 @@ def pay_nonmana_cost(plan: Plan, a: A.TurnFaceUp, card: CardInstance, printed: C
         return False
     if cost.life:
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-        _replace_life.lose_life(plan, [(plan.actor, cost.life)])
+        _replace_life.lose_life(plan, [(plan.actor, cost.life)], paid=True)
     cost_payment.pay(plan, cost, card, chosen, PaymentRecord(card=card.id, controller=plan.actor, total_cost=text))
     for i, comp in enumerate(cost.components):  # "Reveal a blue card in your hand": shown to everyone as the cost is paid (701.20a)
         if comp.kind == "REVEAL_FROM_HAND" and chosen.get(i):
@@ -2685,6 +2685,9 @@ def turned_up(plan: Plan, card: CardInstance, x: int | None = None, by: str | No
     )
 
     counters52d.turned_up(plan, card)
+    from app.rules import wave110d_misc  # -- turned up (wave 110D) --
+
+    wave110d_misc.attach_up(plan, card)
     from app.rules import triggers  # (triggers imports this module)
 
     face_up = plan.ch(plan.state.cards[card.id])
@@ -4091,11 +4094,11 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     if add_cost is not None:
         if add_cost.life:
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-            _replace_life.lose_life(plan, [(plan.actor, add_cost.life)])  # 119.4: paying life is losing it
+            _replace_life.lose_life(plan, [(plan.actor, add_cost.life)], paid=True)  # 119.4: paying life is losing it
             record.life += add_cost.life
         if add_cost.life_x and a.x_value:  # -- X sized by a count (wave 4K) -- "pay X life" (119.4)
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-            _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
+            _replace_life.lose_life(plan, [(plan.actor, a.x_value)], paid=True)
             record.life += a.x_value
         from app.rules import counter_cost_order70
 
@@ -5355,11 +5358,11 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
     if add_cost is not None:  # (601.2h: with the rest of the total cost)
         if add_cost.life:
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-            _replace_life.lose_life(plan, [(plan.actor, add_cost.life)])  # 119.4
+            _replace_life.lose_life(plan, [(plan.actor, add_cost.life)], paid=True)  # 119.4
             record.life += add_cost.life
         if add_cost.life_x and a.x_value:  # -- X sized by a count (wave 4K) -- "pay X life" (119.4)
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-            _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
+            _replace_life.lose_life(plan, [(plan.actor, a.x_value)], paid=True)
             record.life += a.x_value
         waterbend102.record(plan,a,add_cost,add_objects,record)
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile …
@@ -5423,6 +5426,9 @@ def resume_crew(plan: Plan, d: Any, chosen: list[str]) -> None:
     activate_ability(plan, intent)  # type: ignore[arg-type]
 
 
+VULTURES = "Discard this card: You gain 0 life."  # oracle.py wave 110F rewrite of Circling Vultures' line (116.2e)
+
+
 def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if paying_now(plan):  # tapping mana while paying: only mana abilities
         _mana_while_paying(plan, a)
@@ -5440,6 +5446,11 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
         if suspend_info(ch, a.ability) is None:  # -- cast limits (wave 5E) -- (suspend is a special action, 116.2f)
             _activation_limit(plan, card, ch)
+        if ability is not None and ability.text.startswith(VULTURES):  # -- wave 110F -- 116.2e: a special action, no stack, no response
+            plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "graveyard"}}, actor=plan.actor)
+            plan.note(f"{plan.name(plan.actor)} discards {ch.name}", [card.id])
+            plan.rules.passed = []
+            return
         if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).from_hand:
             activate_to_stack(plan, card, ch, ability, a)  # -- ability words (wave 4F) -- channel (113.6m)
             return
@@ -6285,7 +6296,7 @@ def _activation_announced(plan: Plan, data: _PostActivation, paid: M.Payment | N
         plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n})
     if cost.life:
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-        _replace_life.lose_life(plan, [(plan.actor, cost.life)])
+        _replace_life.lose_life(plan, [(plan.actor, cost.life)], paid=True)
     data.ability_id = ability_id
     _post_activation(plan, data, paid)
 
@@ -6628,7 +6639,7 @@ def _produce_body(plan: Plan, card: CardInstance, ability: M.ManaAbility, option
     if extra and extra.life:  # -- life modifiers (wave 28B) -- 119.4 / 118.11: the life paid is a life loss the replacements may change
         from app.rules import replace as _replace_life
 
-        _replace_life.lose_life(plan, [(who, extra.life)], actor=who)
+        _replace_life.lose_life(plan, [(who, extra.life)], actor=who, paid=True)
     if mana:
         emit(plan.state, "mana_added", object_id=oid, card=card.id, player=who, amount=sum(mana.values()),
              counter="tap" if ability.tap else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
@@ -6761,7 +6772,7 @@ def _chosen_mana_paid(plan: Plan, data: _ChosenManaPayment, payment: M.Payment |
         if cost.life:  # -- life modifiers (wave 28B) -- 119.4 / 118.11
             from app.rules import replace as _replace_life
 
-            _replace_life.lose_life(plan, [(who, cost.life)], actor=who)
+            _replace_life.lose_life(plan, [(who, cost.life)], actor=who, paid=True)
     if option is None:
         decide(plan, player=plan.actor, kind="choose_one", prompt=f"Which mana should {ch.name} add?",
                options=[DecisionOption(id=str(i), label=M.symbols(_count(o))) for i, o in enumerate(options)],

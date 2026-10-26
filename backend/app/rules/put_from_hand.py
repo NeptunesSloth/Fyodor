@@ -32,7 +32,7 @@ _PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Pl
 # (-- triggers (wave 19B) -- "any number of creature cards", "a permanent card with mana value less than or equal to the number of lands you
 # control / that damage": the count is read as the card is chosen, 608.2h)
 _UPTO = r"\d+|" + "|".join(word for word in values.NUMBERS if word not in ("a", "an"))
-PATTERN = (rf"put (?P<cnt>an?|any number of|up to (?P<upto>{_UPTO})) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater)| of the chosen type)?"  # (wave 53B: "a creature card of the chosen type", Belbe's Portal)
+PATTERN = (rf"put (?P<cnt>an?|any number of|up to (?P<upto>{_UPTO})) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater)| of the chosen type| with an? morph ability)?"  # (wave 53B: "a creature card of the chosen type", Belbe's Portal)
            # -- put from hand (wave 30P) -- "with mana value 3 or less" / "X or less, where X is the number of attacking creatures you control"
            # (Kinscaer Sentry), "less than that creature's mana value" (Arni Metalbrow), "less than or equal to that creature's power" (Minn, Wily Illusionist; wave 44D), "with lesser power" (Shadowfax): the limit is read as the card is chosen
            r"(?: with (?:mana value (?:(?P<op>less than or equal to|less than|equal to) (?P<v>that damage|the number of [^.]+?|that creature's (?:mana value|power))"
@@ -45,7 +45,7 @@ def _selector(what: str, q: str) -> Any:
 
     sel = selectors.parse(f"{what} card{q} from your hand")
     if sel is None or sel.zones != ("hand",) or sel.zone_owner != "you" or sel.player is not None or sel.either \
-            or any(x not in ("historic", "all_types", "chosen_type") and not x.startswith("pts:") for x in sel.extras):  # (wave 53B: chosen_type, chosen.chosen_value_ok judges the source of the choice)  # (-- put from hand (wave 19E) -- historic: 700.6; "artifact creature")
+            or any(x not in ("historic", "all_types", "chosen_type", "morph_ability") and not x.startswith("pts:") for x in sel.extras):  # (wave 53B: chosen_type, chosen.chosen_value_ok judges the source of the choice)  # (-- put from hand (wave 19E) -- historic: 700.6; "artifact creature")
         return None
     if not sel.types and not sel.subtypes:
         return None  # ("a card": an instant or sorcery can't be put onto the battlefield)
@@ -155,6 +155,9 @@ def _mv_ok(plan: Plan, ctx: Context, e: dict[str, Any], cid: str) -> bool:
         pt = plan.ch(plan.state.cards[cid]).pt
         if pt is None or pt[0] >= effects._amount(plan, ctx, e["pw"][1]):
             return False
+    if (limit110n := e.get("tough110n")) is not None:  # -- (wave 110N) -- Bane: "with equal or lesser toughness" than the (last known) creature, 603.10a
+        pt = plan.ch(plan.state.cards[cid]).pt
+        return pt is not None and pt[1] <= effects._amount(plan, ctx, limit110n)
     if not e.get("mv"):
         return True
     op, value = e["mv"]
@@ -190,6 +193,10 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
         cards_tapped = {c for c in cards if kind in chars.of(plan.state.cards[c], plan.info).types}
         atk = bool(cards_tapped)
     entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped")) or (e.get("tap_atk110d") is not None and c in cards_tapped), "via": ctx.get("source_object")} for c in cards]  # (wave 51E: Entry.via)
+    if e.get("xlands110l"):  # -- (wave 110L) -- The First Tyrannic War: a card with {X} in its mana cost enters with +1/+1 counters, one per land you control (614.1c)
+        from app.rules import wave110l_cards
+
+        entries = wave110l_cards.x_counters(plan, entries)
     if e.get("host"):  # -- attached (wave 100F) -- "… onto the battlefield attached to it" (Holy Avenger): 303.4f, an Aura that can't enchant it stays (303.4g)
         entries = effects._attached_entries(plan, ctx, e["host"], entries)
         cards = [x["card"] for x in entries]

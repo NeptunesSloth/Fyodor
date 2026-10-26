@@ -82,8 +82,8 @@ def definition(text: str, ch: Any) -> dict[str, Any] | None:
 
     if _POWDER.fullmatch(text.strip()):  # 103.5b: carried out by the pregame (app/game/handlers/mulligan.py ``powder``)
         return {"kind": "static", "static": "mulligan_powder", "effects": []}
-    if any(re.match(r"As (?:~|this [a-z ]+) enters", scripts.self_text(a.text, ch.name)) for a in ch.abilities) or "Aura" in ch.subtypes:
-        return None  # (a choice as it enters would pause the start of the game: 103.6a)
+    if "Aura" in ch.subtypes:
+        return None  # (an Aura's host choice is not read here)
     t = text.strip()
     if (m := _BEGIN.match(t)) is not None:
         if bool(m["luck"]) != bool(m["exile"]):
@@ -179,8 +179,11 @@ def act(plan: Plan, pid: str, queue: list[str], rest: list[str]) -> None:
         plan.note(f"{plan.name(pid)} begins the game with {card.name or 'a card'} on the battlefield", [cid])
         entry = {"card": cid, "player": pid, "actor": pid, "tapped": False,
                  **({"counter": d["counter"], "counter_n": 1} if d.get("counter") else {})}
-        if not attachments.enter(plan, [entry], None):
-            raise RuntimeError("opening-hand permanent asked for a choice")  # (definition() leaves such cards manual)
+        # -- opening-hand entry choice (wave 110A) -- 614.12a: "As ~ enters, choose …" pauses; on answer the sequence goes on (103.6)
+        ctx: dict[str, Any] = {"controller": pid, "source_card": cid, "source_object": None, "name": card.name or "", "effects": [], "next": 0, "x": None,
+               "event": None, "body_done": {"do": "opening_go110a", "pid": pid, "queue": queue, "rest": rest}}
+        if not attachments.enter(plan, [entry], ctx):
+            return
         if d.get("exile"):
             hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
             if hand:
@@ -212,3 +215,12 @@ def finish(plan: Plan) -> None:
     if shown:
         plan.do({"type": "hide", "card_ids": shown})
     r.priority = None  # (settle gives the starting player priority)
+
+
+def _go(plan: Plan, then: dict[str, Any]) -> None:
+    act(plan, then["pid"], list(then["queue"]), list(then["rest"]))
+
+
+from app.rules import replace as _replace  # noqa: E402
+
+_replace.THEN["opening_go110a"] = _go

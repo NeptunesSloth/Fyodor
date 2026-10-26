@@ -12,6 +12,8 @@ if TYPE_CHECKING:
     from app.rules.oracle import AbilityText
     from app.rules.scripts import Definition
 
+_BOOKWORM = ("You may draw a card. If you do, discard a card unless a permanent entered the battlefield face down under your control this turn or you "
+             "turned a permanent face up this turn.")
 Parsed = tuple[list[dict[str, Any]], Any, bool, str]
 
 
@@ -32,6 +34,10 @@ def build(body: str) -> Parsed | None:
     if text in normalized:
         got = native(normalized[text])
         return (*got, normalized[text]) if got else None
+    if text == _BOOKWORM:  # -- history (wave 110B) -- Oblivious Bookworm
+        got = native("You may draw a card. If you do, discard a card.")
+        assert got is not None
+        return [*got[0][:-1], {"do": "discard_outcome", "mode": "facedown_history"}], got[1], got[2], "You may draw a card. If you do, discard a card."
     if text == "Draw a card and reveal it. If it isn't a land card, discard it.":
         return [{"do": "original_draw_reveal"}], None, False, "Draw a card."
     simple = {
@@ -287,6 +293,11 @@ def outcome(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         ]
         context.bind_objects(plan, ctx, "history_return", found)
         follow = [{"do": "return_card", "who": "ref:history_return", "to": "hand"}]
+    elif mode == "facedown_history":  # 708.2: a face-down entry under your control, or you turned one up (708.8), this turn
+        log = history.log_for(plan)
+        me = ctx["controller"]
+        if not any(x.face_down110b and x.controller == me for x in log.entered) and me not in log.turned_up_by110b:
+            follow = [{"do": "discard", "who": "you", "n": 1}]
     elif mode == "returned_land":
         from app.rules.layers import LAND_TYPES
 

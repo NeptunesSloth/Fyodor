@@ -96,7 +96,7 @@ def _apply(plan: Plan, me: str, option: str, life: int) -> None:
     how, _, cid = option.partition(":")
     if how == "pay":
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-        _replace_life.lose_life(plan, [(me, life)], actor=me)
+        _replace_life.lose_life(plan, [(me, life)], actor=me, paid=True)
     else:
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "library"},
                  "position": "top"}, actor=me)

@@ -72,6 +72,9 @@ def condition(text: str) -> dict[str, Any] | None:
         return {"act7b": "self_combat", "any": [x for x in (m["a"], m["b"]) if x]}
     if text == "you've been attacked this step":  # -- (wave 110J) -- 506.3, as cast_timing reads it (Kongming's Contraptions)
         return {"attacked_now": True}
+    m = re.fullmatch(r"an (?P<k>[a-z]+) counter was removed from a permanent you controlled this turn or a permanent with an (?P=k) counter on it was put into a graveyard this turn", text)
+    if m:  # -- (wave 110J) -- 122.1, 603.10a: Churning Reservoir
+        return {"history": "counter110j", "kind": m["k"]}
     if text == "you have more cards in hand than each opponent":
         return {"act7b": "hand_most"}
     m = _SAME_NAME.fullmatch(text)
