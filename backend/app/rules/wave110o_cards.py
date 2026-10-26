@@ -83,6 +83,7 @@ _MINOTAUR = "Whenever you lose a coin flip, ~ deals 1 damage to any target of an
 _WORM = ("Whenever you attack with creatures with total power 12 or greater for the first time each turn, untap all attacking creatures. After this phase, "
          "there is an additional combat phase.")
 _PHANTASM = "When ~ enters, if you guessed correctly for a card named Spire Phantasm, draw a card."
+_CODIE = "{W}{U}{B}{R}{G}, {T}: Each creature you control becomes prepared."
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -102,6 +103,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "activated" and text == _CODIE:  # 722.3a: each creature that has a prepare spell gains the designation (the effect skips the others)
+        from app.rules import selectors
+
+        native = scripts.define(replace(ability, text="{W}{U}{B}{R}{G}, {T}: Target creature becomes prepared."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["prepare"]:
+            return None
+        return {**native, "target": None, "effects": [{**native["effects"][0], "who": selectors.parse("creature you control").key()}]}  # type: ignore[union-attr]
     if ability.kind == "triggered" and text == _PHANTASM:  # 905.2: a guess is made only during a draft, and a game here has none
         native = scripts.define(replace(ability, text="When ~ enters, draw a card."), ch)
         return None if native is None else {**native, "if": {"w110o": "guessed"}}

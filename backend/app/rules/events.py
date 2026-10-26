@@ -1167,6 +1167,10 @@ def _cast(c: str) -> Condition | None:
     if k:
         out["kicked"] = True
         spell = "a " + k["rest"]
+    pr = re.fullmatch(r"an? prepared (?P<rest>.+)", spell)  # -- (wave 110O) -- 722.3d: a prepare spell as it was cast (Codie)
+    if pr and pr["rest"] == "spell":
+        out["prepared"] = True
+        spell = "a spell"
     if spell == "a spell using teamwork":  # -- (wave 110G) -- 702.194b
         out["teamwork"] = True
         spell = "a spell"

@@ -19,6 +19,7 @@
 * 603.2h, 506.1, 500.8: Desert Were-Worm untaps its attackers and adds a combat phase the first time each turn it attacks with total power 12 or more.
 * 905.2b: Spire Phantasm's "if you guessed correctly" can never hold in a game that had no draft: entering draws nothing.
 * 702.43a: Zabaz, the Glimmerwasp adds one to the +1/+1 counters a modular triggered ability puts on a creature its controller controls, and to nothing else.
+* 722.3, 722.3d, 707.10: Codie prepares every creature it can, and copies each prepared spell (one cast from the exiled prepare copy) as it is cast.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -56,10 +57,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -1073,4 +1074,71 @@ def test_zabaz_does_not_boost_a_plain_counter_effect(cards):
     bears = put(s, "Grizzly Bears")
     cast_on(s, "Battlegrowth", bears)
     assert now(s, bears).counters.get("+1/+1") == 1
+    check(s)
+
+
+EMERITUS = "Emeritus of Conflict // Lightning Bolt"
+
+
+def codie_table(cards, codie=True):
+    s = build(cards, [CODIE, EMERITUS, "Lightning Bolt"])
+    c = ready(s, put(s, CODIE)) if codie else None
+    emeritus = put(s, EMERITUS)
+    return s, c, emeritus
+
+
+def prepared_copy(s, emeritus):
+    return s.state.cards[s.state.rules.prepared[s.state.rules.object_id(emeritus.id)]]
+
+
+def answer_all(s, first="p2"):
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [first] if any(o.id == first for o in d.options) else [o.id for o in d.options][: max(1, d.min_choices)]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_codie_prepares_each_creature_and_copies_the_prepared_spell(cards):
+    s, c, emeritus = codie_table(cards)
+    mana(s, "p1", W=1, U=1, B=1, R=1, G=1)
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=ability(s, c, "{W}"))
+    settle(s)
+    assert s.state.rules.object_id(emeritus.id) in s.state.rules.prepared and now(s, c).tapped
+    copy = prepared_copy(s, emeritus)
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=copy.id, targets=["p2"])
+    answer_all(s)
+    assert life(s, "p2") == 40 - 3 - 3  # (the prepared Bolt and Codie's copy of it)
+    check(s)
+
+
+def test_codie_does_not_copy_a_spell_that_is_not_prepared(cards):
+    s, c, emeritus = codie_table(cards)
+    bolt = to_hand(s, "Lightning Bolt")
+    mana(s, "p1", R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    answer_all(s)
+    assert life(s, "p2") == 37
+    check(s)
+
+
+def test_a_prepared_spell_is_not_copied_by_an_opponents_codie(cards):
+    """"Whenever you cast": Bob's Codie sees Bob's casts only. Alice's Studious First-Year enters prepared; its Rampant Growth fetches one land."""
+    s = build(cards, ["Studious First-Year // Rampant Growth"], [CODIE])
+    put(s, CODIE, "p2")
+    first = to_hand(s, "Studious First-Year // Rampant Growth")
+    mana(s, "p1", G=1)
+    act(s, "p1", type="cast_spell", card_id=first.id)
+    answer_all(s)
+    copy = s.state.cards[next(iter(s.state.rules.prepared.values()))]
+    lands = len([c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Forest"])
+    mana(s, "p1", G=2)
+    act(s, "p1", type="cast_spell", card_id=copy.id)
+    answer_all(s)
+    assert len([c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.name == "Forest"]) == lands + 1
     check(s)
