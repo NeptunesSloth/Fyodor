@@ -98,6 +98,8 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [original[0].owner] if original is not None and original[0].owner in plan.live() else []
     if who == "you":
         return [me]
+    if who == "left110e":  # -- left opponent (wave 110E) -- "the opponent to your left"/"that player" of Barroom Brawl: the next live player in turn order
+        return [plan.after(me)]
     if who.startswith(player_relative.TP):  # -- player-relative selectors (wave 53A) -- the player (or the permanent's controller) a target group names
         return player_relative.players_in(plan, ctx, int(who[len(player_relative.TP):]))
     if who.startswith("player:"):  # -- keywords (wave 15E) -- one named player (ward: the player whose spell or ability targeted)
@@ -7180,3 +7182,7 @@ from app.rules import wave110c_misc as _wave110c_misc  # noqa: E402, I001  -- (w
 
 PRIMITIVES.update(_wave110c_misc.PRIMITIVES)
 RESUME.update(_wave110c_misc.RESUME)
+from app.rules import wave110e_pets as _wave110e_pets  # noqa: E402, I001  -- Exotic Pets (wave 110E) --
+
+PRIMITIVES.update(_wave110e_pets.PRIMITIVES)
+RESUME.update(_wave110e_pets.RESUME)

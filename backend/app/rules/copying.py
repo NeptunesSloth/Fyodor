@@ -1514,6 +1514,9 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     from app.rules import wave110f_cards
 
     wave110f_cards.copy_on_entry(plan, card, controller)
+    from app.rules import wave110e_cards  # -- Infinite Reflection (wave 110E) --
+
+    wave110e_cards.copy_on_entry_host(plan, card, controller)
     return False
 
 

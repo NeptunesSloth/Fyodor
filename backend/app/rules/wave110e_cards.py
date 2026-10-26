@@ -25,8 +25,27 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
     "Surveil 2, then draw a card. You may planeswalk.": ("Surveil 2, then draw a card.", []),
 }
 
+_REWRITE: dict[str, str] = {
+    # 701.39a goad, 701.21? tap: both act on the creatures each opponent chose (608.2c)
+    "Each opponent chooses a creature they control. Tap and goad the chosen creatures.":
+        "Each opponent chooses a creature they control. Tap those creatures. Goad those creatures.",
+}
+_CULPRIT = "Exile any number of face-up creatures you control with disguise in a face-down pile, shuffle that pile, then cloak them."
+_AMBUSH = ("Target player searches their library and/or graveyard for a card named Ezio, Blade of Vengeance, reveals it, and puts it into their hand. "
+           "If they search their library this way, they shuffle.")
+_SWAP_BODY = "You may exchange this permanent with an Aura card in your hand."
+_REFLECT_ETB = "When this Aura enters attached to a creature, each other nontoken creature you control becomes a copy of that creature."
+_REFLECT_STATIC = "Nontoken creatures you control enter as a copy of enchanted creature."
+COPY_ENTRY_HOST = "copy_entry_host110e"
+_BOLAS = 'sel:{"controller":"you","subtypes":["Bolas"],"types":["Planeswalker"]}'
 # whole ability text -> (the wording the grammar reads for the targets, the effects that replace the parsed ones; "target:0" = the first target group)
 _SWAP: dict[str, tuple[str, list[Def]]] = {
+    # 702.16j + 119.7/119.8 + 702.26: the target opponent gets the shield and life lock until their next turn, their nonland permanents phase out
+    "Choose target opponent. Until that player's next turn, they gain protection from everything and their life total can't change. All nonland permanents they control phase out.":
+        ("Target opponent loses 1 life. Nonland permanents that player controls phase out.",
+         [{"do": "life_lock", "who": "target", "until": "next_turn"},
+          {"do": "player_shield", "who": "target", "shield": "protection", "quality": "everything", "until": "next_turn"},
+          {"do": "phase_out", "who": 'controlled:target|sel:{"not_types":["Land"]}'}]),
     "For each creature attacking you or a planeswalker you control, create a token that's a copy of that creature and that's blocking that creature. Exile those tokens at end of combat.":
         ("Draw a card.", [{"do": "mirror_match110e"}]),
     # 509.4, 509.1h/509.3c: the token enters blocking the attacker (an unblocked one becomes blocked by it; combat_rules.enter_blocking, block_events.become_blocked)
@@ -53,6 +72,36 @@ _SWAP: dict[str, tuple[str, list[Def]]] = {
     "For each opponent, choose up to one target creature that player controls, then return that creature to its owner's hand unless its controller has you draw a card.":
         ("For each opponent, choose up to one target creature that player controls.",
          [{"do": "choose_targets", "who": "target:0"}, {"do": "decoy110e", "who": "target:0"}]),  # (each copied per opponent group: per_opponent.expanded)
+    # 205.1a/613.1d: they become Food artifacts and lose their other card types and subtypes, for as long as they are those permanents (400.7)
+    "Put onto the battlefield under your control all creature cards in your opponents' graveyards that were put there from the battlefield this turn. They are Food "
+    "artifacts with \"{2}, {T}, Sacrifice this artifact: You gain 3 life.\"":
+        ("Put all creature cards in your opponents' graveyards that were put there from the battlefield this turn onto the battlefield under your control.",
+         [{"do": "return_card", "to": "battlefield", "tapped": False, "under": "you", "as": "sp110e",
+           "who": 'sel:{"card":true,"extras":["put_there:battlefield"],"types":["Creature"],"zone_owner":"opponent","zones":["graveyard"]}'},
+          {"do": "become", "who": "ref:sp110e", "types": ["Artifact"], "artifact_types": ["Food"], "duration": "permanent",
+           "abilities": ["{2}, {T}, Sacrifice this artifact: You gain 3 life."]}]),
+    # 608.2c: with a Bolas planeswalker all the cards return; otherwise an opponent (chosen by you) picks two to leave (bound_subset_choices "deliver")
+    "Choose up to four target cards in your graveyard. If you control a Bolas planeswalker, return those cards to your hand. Otherwise, an opponent chooses two of them. "
+    "Leave the chosen cards in your graveyard and put the rest into your hand.":
+        ("Choose up to four target cards in your graveyard. Return those cards to your hand.",
+         [{"do": "choose_targets", "who": "target:0"},
+          {"do": "only_if", "cond": {"value": {"count": _BOLAS}, "op": ">=", "n": 1}, "skip": 1}, {"do": "bounce", "who": "target:0"},
+          {"do": "only_if", "cond": {"value": {"count": _BOLAS}, "op": "<=", "n": 0}, "skip": 2},
+          {"do": "bound_subset", "mode": "prepare", "action": "deliver", "who": "target:0"}, {"do": "bound_subset", "mode": "partition", "action": "deliver"}]),
+    # 701.24/701.23: the count is bound as the cards leave the hand (608.2c); the opponent orders them (401.4, irrelevant: the library is searched whole and shuffled)
+    "Target opponent puts the cards from their hand on top of their library. Search that player's library for that many cards. The player puts those cards into "
+    "their hand, then shuffles.":
+        ("Target opponent puts a card from their hand on top of their library.",
+         [{"do": "head_games110e", "who": "target", "as": "hg110e"},
+          {"do": "search", "who": "you", "label": "cards", "max": {"ref_amount": "hg110e"}, "to": "hand", "reveal": False, "upto": False,
+           "sel": 'sel:{"card":true,"zone_owner":"you","zones":["library"]}', "shuffle": False, "library": "target"},
+          {"do": "shuffle_library", "who": "target", "zones": []}]),
+    # 608.2c in order: the fight, then the player to the left (the one whose creature was targeted) is asked and, if yes, copies the spell and may choose new targets (707.10)
+    "Target creature you control fights target creature the opponent to your left controls. Then that player may copy this spell and may choose new targets for the copy.":
+        ("Target creature you control fights target creature the opponent to your left controls.",
+         [{"do": "fight", "who": "target:0", "with": "target:1"}, {"do": "optional_payment", "who": "left110e", "ask": "copy this spell", "cost": "", "bind": "bb110e"},
+          {"do": "only_if", "cond": {"succeeded": "bb110e"}, "skip": 2},
+          {"do": "copy_spell", "who": "this_spell", "by": "left110e"}, {"do": "copy_new_targets", "optional": True}]),
     "Permanents enter tapped this turn.": ("Draw a card.", [{"do": "enter_tapped110e"}]),
     # 509.1h/509.3c: each target becomes blocked (no-op for one no longer an unblocked attacker); then 120.3 damage to each of them
     "X target attacking creatures become blocked. Choking Vines deals 1 damage to each of those creatures.":
@@ -119,6 +168,16 @@ def modal_lines(lines: list[Any]) -> list[Any]:
                                                            f"{m[1]} {m[2]} and gains {m[3]}.") for x in lines[1:] if (m := _WILD_MODE.match(x.text)))]
 
 
+def head_games(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Head Games, step 1: the target player's whole hand goes on top of their library (they order it); how many cards that was is kept for the search."""
+    from app.rules import context, effects, put_back
+
+    pid = effects._players(plan, ctx, e["who"])[0]
+    hand = list(plan.state.zones.get(f"{pid}:hand", []))
+    context.bind_amount(ctx, e["as"], len(hand))
+    return put_back._move(plan, ctx, pid, hand)
+
+
 def decoy(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Decoy Gambit (its group's copy): for the chosen creature (still on the battlefield), its controller either has the caster draw a card or the creature is returned."""
     from app.rules import effects
@@ -132,7 +191,8 @@ def decoy(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                       {"do": "only_if", "cond": {"succeeded": f"dg{i}"}, "skip": 1},
                       {"do": "draw", "who": "you", "n": 1}, {"do": "only_if", "cond": {"succeeded": f"dg{i}", "negate": True}, "skip": 1},
                       {"do": "bounce", "who": f"object:{plan.oid(c)}"}]
-    ctx["effects"][ctx["next"]:ctx["next"]] = steps
+    at = ctx["next"]  # (a new list: the spell's own effects are copied with it, 707.10)
+    ctx["effects"] = [*ctx["effects"][:at], *steps, *ctx["effects"][at:]]
     return True
 
 
@@ -163,11 +223,30 @@ def mirror_match(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             if eff.get("do") == "token_copy":
                 block[-1:] = [{"do": "become_blocked", "who": f"ref:mm{i}"}, eff,
                               {"do": "enter_blocking", "who": f"ref:mmt{i}", "blocked": f"ref:mm{i}"}]
-    ctx["effects"][ctx["next"]:ctx["next"]] = block
+    at = ctx["next"]  # (a new list: the spell's own effects are copied with it, 707.10)
+    ctx["effects"] = [*ctx["effects"][:at], *block, *ctx["effects"][at:]]
     return True
 
 
-PRIMITIVES = {"mirror_match110e": mirror_match, "decoy110e": decoy, "spell_targets110e": bind_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
+def aura_swap_gate(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """702.65b: if either half can't be completed the ability does nothing: with the Aura gone, no Aura is put onto the battlefield."""
+    from app.rules import effects
+
+    if not effects._cards(plan, ctx, "self"):
+        ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
+    return True
+
+
+def aura_swap_return(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """702.65a: the Aura from the hand came onto the battlefield (303.4g: one with nothing to enchant stays in the hand), so this one goes to its owner's hand."""
+    from app.rules import effects
+
+    if any(plan.state.cards[c].zone.endswith(":battlefield") for c in effects._cards(plan, ctx, e["of"])):
+        effects.bounce(plan, ctx, {"who": "self"})
+    return True
+
+
+PRIMITIVES = {"aura_swap_gate110e": aura_swap_gate, "aura_swap_return110e": aura_swap_return, "mirror_match110e": mirror_match, "decoy110e": decoy, "head_games110e": head_games, "spell_targets110e": bind_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
 
 _FLYERS = "Creatures with flying can't attack you or block creatures you control."
 _BLAZE = ("Target creature defending player controls can block any number of creatures this turn. "
@@ -183,6 +262,16 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (imp := wave110e_imps.definition(ability, ch)) is not None:  # Nettling Imp, Norritt
         return imp
+    from app.rules import wave110e_pets
+
+    if (pets := wave110e_pets.definition(ability, ch)) is not None:  # Exotic Pets
+        return pets
+    if text == "Creatures can't attack a player unless that player cast a spell or put a nontoken permanent onto the battlefield during their last turn.":  # 508.1c, combat._defender_fact
+        native = scripts.define(replace(ability, text="Creatures can't attack."), ch)
+        return None if native is None or native.get("rules") != ["cant_attack"] else {**native, "rules": ["cant_attack_unless_def:acted110e"]}
+    if text == "Creatures played by your opponents enter tapped.":  # 305.1/601.2: "played" creature = cast, so only a spell entering from the stack (others_enter_tapped)
+        native = scripts.define(replace(ability, text="Creatures your opponents control enter tapped."), ch)
+        return None if native is None else {**native, "cast110e": True}
     if text == _CORRUPTED_FB:  # 702.34a: the card's own conditional flashback, read by graveyard_grants.flashback_costs while it is in a graveyard
         from app.rules import conditions
 
@@ -235,6 +324,14 @@ def definition(ability: Any, ch: Any) -> Def | None:
         if native is None or native["effects"][-1]["do"] != "draw":
             return None
         return {**native, "effects": [*native["effects"][:-1], {"do": "trigger_leaf51_djinn_draws", "all": True, "n": 7}]}
+    if (alt := _REWRITE.get(text)) is not None:  # an exact Oracle sentence read as the wording the grammar already knows (pattern: multi100n)
+        return scripts.define(replace(ability, text=alt), ch)
+    if text == _REFLECT_ETB:  # 707.9 / 707.2: the other nontoken creatures become copies of the enchanted creature, fixed as the trigger resolves (611.2c)
+        native = scripts.define(replace(ability, text="When this Aura enters, draw a card."), ch)
+        sel = '{"controller":"you","token":false,"types":["Creature"]}'
+        return None if native is None else {**native, "effects": [{"do": "become_copy", "who": "sel:" + sel, "with": "host", "others": True}]}
+    if text == _REFLECT_STATIC:  # read at entry (copy_on_entry_host)
+        return {"kind": "static", "static": COPY_ENTRY_HOST, "effects": []}
     swap = _SWAP.get(ability.text.strip())
     if swap is not None:
         native = scripts.define(replace(ability, text=swap[0]), ch)
@@ -244,3 +341,43 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return None
     native = scripts.define(replace(ability, text=got[0]), ch)
     return None if native is None else {**native, "effects": [*native["effects"], *got[1]]}
+
+
+def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """Exact wordings read as spell effects (scripts.parse_effects hook)."""
+    if body.strip() == _CULPRIT:  # 701.58: the creatures are chosen as it resolves (608.2d, not targeted), then exiled face down, shuffled, cloaked (facedown.manifest_pile)
+        sel = '{"controller":"you","extras":["face_up"],"types":["Creature"],"with_keywords":["disguise"]}'
+        return [{"do": "player_chooses", "who": "you", "sel": "sel:" + sel, "n": 1, "label": "creature", "any": True, "upto": True, "optional": True, "as": "cul110e"},
+                {"do": "manifest_pile", "kind": "cloak", "tapped": False, "who": "ref:cul110e"}], None, False
+    if body.strip() == _AMBUSH:  # 701.23: the targeted player is the searcher (effects.search: who), the same search "you" would make
+        from app.rules import scripts
+
+        own = scripts.parse_effects(_AMBUSH.replace("Target player searches their", "Search your").replace("reveals it, and puts it into their hand", "reveal it, and put it into your hand")
+                                    .replace("If they search their library this way, they shuffle", "If you search your library this way, shuffle"))
+        return None if own is None or len(own[0]) != 1 or own[0][0].get("do") != "search" else ([{**own[0][0], "who": "target"}], "player", False)
+    if body.strip() in (_SWAP_BODY, _SWAP_BODY.replace("this permanent", "~")):  # 702.65a: put the Aura card onto the battlefield (it chooses what it enchants, 303.4f), then this one returns to hand
+        from app.rules import scripts
+
+        put = scripts.parse_effects("You may put an Aura card from your hand onto the battlefield.")
+        if put is None or put[0][0].get("do") != "put_from_hand":
+            return None
+        return [{"do": "aura_swap_gate110e", "skip": 2}, {**put[0][0], "optional": True, "as": "sw110e"}, {"do": "aura_swap_return110e", "of": "ref:sw110e"}], None, False
+    return None
+
+
+def copy_on_entry_host(plan: Any, card: Any, controller: str) -> None:
+    """614.1c, 707.9: a nontoken creature entering under the controller of an Aura with the static enters as a copy of the creature it enchants (its copiable
+    values, 707.2), no choice (ponytail: like Essence of the Wild, several such statics are not ordered against other copy replacements, 616.1)."""
+    from app.game.rules_state import CopyEntrySource
+    from app.game.state import zone_key
+    from app.rules import copying, permissions
+
+    probe = card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})
+    if card.is_token or copying.entering_as_copy(plan, card) or not plan.ch(probe).is_creature:
+        return
+    for aura, _, _ in permissions._table_statics(plan.state, plan.info, {COPY_ENTRY_HOST}):
+        host = plan.state.cards.get(aura.attached_to or "")
+        if aura.controller == controller and host is not None and host.id != card.id and host.zone.endswith(":battlefield") and plan.ch(host).is_creature:
+            copying.add_copy_effect(plan, [plan.oid(card)], copying.recipe_of(plan, host), controller, source=copying.ENTERING + card.id,
+                                    entry_source=CopyEntrySource(card=host.id, object_id=plan.oid(host), controller=host.controller))
+            return

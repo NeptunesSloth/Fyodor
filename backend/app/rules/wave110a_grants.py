@@ -94,7 +94,7 @@ def could_produce(plan: Any, card: Any, ch: Any, symbol: str) -> bool:
 
 
 # 702.56a: "Each Sliver spell you cast has replicate. The replicate cost is equal to its mana cost." (Hatchery Sliver, Ian Chesterton)
-_REPLICATE = re.compile(r"^each (?P<sel>[A-Za-z]+) spells? you cast has replicate\. the replicate cost is equal to its mana cost$", re.I)
+_REPLICATE = re.compile(r"^each (?P<sel>[A-Za-z]+(?: and [A-Za-z]+)?) spells? you cast has replicate\. the replicate cost is equal to its mana cost$", re.I)
 
 
 def grant_replicate(t: str) -> dict[str, Any] | None:

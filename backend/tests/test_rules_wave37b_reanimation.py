@@ -3,8 +3,8 @@
 
 * 608.2c / 603.6a: "Return this card and target land card from your graveyard to the battlefield tapped." (Sandman, Slimefoot and Squee) is one
   instruction: both enter together, and only from the graveyard (113.6m). "… to the battlefield transformed" (Garland, 712.14a).
-* 400.7: a card returned from a graveyard is a new object. (Review 35: "the top creature card of your graveyard" — Shallow Grave, Corpse Dance, Mistmoon
-  Griffin — is manual: 404.3, the owner arranges cards put into a graveyard at the same time, which the engine doesn't ask.)
+* 400.7: a card returned from a graveyard is a new object. ("The top creature card of your graveyard" — Shallow Grave, Corpse Dance, Mistmoon
+  Griffin — is read since: tests/test_rules_wave110d_grave.py, tests/test_rules_wave40c_graveyard_order.py, tests/test_rules_wave110e_s8.py.)
 * 614.1a, 616.1, 108.2a, 111.1: "If a card would be put into your graveyard from anywhere this turn, exile that card instead." (Yawgmoth's Will, Gaea's
   Will, Magus of the Will, Walk-In Closet) applies to a card from any zone, the resolving spell included, not to a token; a commander exiled this way may go
   to the command zone (903.9a).
@@ -37,8 +37,7 @@ DATA = json.loads((Path(__file__).parent / "fixtures" / "wave37b_cards.json").re
 KNOWN = {c["name"] for c in fixture_cards()}
 EXTRA = [card(c["name"], set_code="w37b", number=f"B{i:02d}", **{k: v for k, v in c.items() if k != "name"})
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
-TOP = ("Shallow Grave", "Corpse Dance", "Mistmoon Griffin")  # (review 35: manual, 404.3)
-FULL = [c["name"] for c in DATA if c["name"] not in ("Thought Scour", "Mind Rot", *TOP)]  # (those two are only the means of milling and discarding)
+FULL = [c["name"] for c in DATA if c["name"] not in ("Thought Scour", "Mind Rot")]  # (those two are only the means of milling and discarding)
 
 
 @pytest.fixture()
@@ -427,9 +426,3 @@ def test_nurgles_conscription_exiles_the_graveyard_of_the_player_whose_card_it_t
     assert names(s, "graveyard", "p2") == [] and sorted(names(s, "exile", "p2")) == ["Llanowar Elves"]
     assert s.state.cards[finks.id].zone == "p1:graveyard"  # (Bob's graveyard, not Alice's)
     check(s)
-
-# -- review 35 -- "the top creature card of your graveyard" stays manual: 404.3, the owner arranges the cards put into a graveyard at the same time, and
-# the engine doesn't ask that (after a combat or a wrath the top creature card is the owner's pick)
-@pytest.mark.parametrize("name", TOP)
-def test_the_top_creature_card_of_your_graveyard_stays_manual(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL", name

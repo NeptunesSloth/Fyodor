@@ -9,15 +9,18 @@ if TYPE_CHECKING:
     from app.rules.characteristics import AbilityText, CardInfo, Characteristics
 
 TEXT = 'You may spend white mana as though it were red mana.'
+DAWN = "You may spend white mana as though it were mana of any color. You may spend other mana only as though it were colorless mana."  # -- wave 110E -- Celestial Dawn
 
 
 def definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any] | None:
     if ability.kind == 'static' and ability.text == TEXT:
         return {'kind': 'static', 'static': 'spend_white_red', 'effects': []}
+    if ability.kind == 'static' and ability.text == DAWN:
+        return {'kind': 'static', 'static': 'spend_white_any', 'effects': []}
     return None
 
 
-def present(state: GameState, player: str, info: CardInfo | None) -> bool:
+def _has(state: GameState, player: str, info: CardInfo | None, texts: tuple[str, ...]) -> bool:
     if info is None or state.rules is None:
         return False
     from app.rules import read_pass
@@ -30,13 +33,19 @@ def present(state: GameState, player: str, info: CardInfo | None) -> bool:
                 continue
             if state.rules is not None and state.rules.card_mode(card.id) == 'manual':
                 continue
-            if any(ability.kind == 'static' and ability.text == TEXT for ability in view.ch(card).abilities):
+            if any(ability.kind == 'static' and ability.text in texts for ability in view.ch(card).abilities):
                 return True
         return False
-    return read_pass.once(state, info, f'sunglasses49.spend:{player}', scan)
+    return read_pass.once(state, info, f'sunglasses49.spend:{player}:{texts == (TEXT,)}:{texts == (DAWN,)}', scan)
+
+
+def present(state: GameState, player: str, info: CardInfo | None) -> bool:
+    return _has(state, player, info, (TEXT, DAWN))
 
 
 def spending_cost(state: GameState, player: str, info: CardInfo | None, cost: M.ManaCost) -> M.ManaCost:
     from app.rules import mana as M
 
-    return M.spend_as(cost, 'white_red') if present(state, player, info) else cost
+    if _has(state, player, info, (TEXT,)):
+        cost = M.spend_as(cost, 'white_red')
+    return M.spend_as(cost, 'white_any') if _has(state, player, info, (DAWN,)) else cost

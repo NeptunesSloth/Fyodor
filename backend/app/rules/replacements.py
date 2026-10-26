@@ -317,6 +317,8 @@ def others_enter_tapped(plan: Plan, card: CardInstance, controller: str, static:
         for i, d in scripts.definitions(src_ch).items():
             if d["kind"] != "static" or d.get("static") != static:
                 continue
+            if d.get("cast110e") and card.zone != "stack":
+                continue  # -- wave 110E -- "Creatures played by your opponents": only a cast spell entering (Uphill Battle)
             if i in conditional_lines(src_ch) or "Room" in src_ch.subtypes:
                 continue  # (a level's or an unlocked door's ability: not tracked, never applied)
             if not statics.conditions_hold(plan, d, source=src, controller=src.controller):

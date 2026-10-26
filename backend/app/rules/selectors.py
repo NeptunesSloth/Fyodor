@@ -206,6 +206,11 @@ def _you_control(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="you")
 
 
+@_suffix(r"the opponent to your left controls")
+def _left_control(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, controller="left")  # -- left opponent (wave 110E) -- turn order goes to the left (the next live player: Plan.after)
+
+
 @_suffix(r"(?:that )?(?:an opponent controls|your opponents control|you don't control|you don’t control)")
 def _opp_control(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, controller="opponent")
@@ -2441,6 +2446,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
     if sel.controller == "you" and card.controller != you:
         return False
     if sel.controller == "opponent" and card.controller == you:
+        return False
+    if sel.controller == "left" and card.controller != plan.after(you):
         return False
     if sel.controller == "active" and card.controller != plan.active:
         return False
