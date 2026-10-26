@@ -155,6 +155,15 @@ def _stardew(d: Def) -> Def:
                              if e.get("do") == "gain_control" else e for e in d["effects"]]}
 
 
+_PLAGUE = ("When enchanted creature dies, its controller chooses target creature one of their opponents controls. "
+           "Return this card from its owner's graveyard to the battlefield attached to that creature.")
+
+
+def _plague(d: Def) -> Def:
+    """Necrotic Plague: the dying creature's controller picks the target (603.3d; ``triggers`` host_controller110i), the Aura returns under its owner's control (no "under your control")."""
+    return {**d, "target_choice": "host_controller110i", "effects": [{**x, "under": "owner"} if x.get("do") == "return_card" else x for x in d["effects"]]}
+
+
 def _fountain(d: Def) -> Def:
     """Quicksilver Fountain: the player whose upkeep it is chooses the land they control (603.3d, ``event_player``), like upkeep_target_choice65."""
     from app.rules import selectors
@@ -445,6 +454,7 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
          "That land becomes an Island for as long as it has a flood counter on it.", _fountain),
     "At the beginning of each end step, if all lands on the battlefield are Islands, remove all flood counters from them.":
         ("At the beginning of each end step, if there are no non-Island lands on the battlefield, remove all flood counters from all lands.", lambda d: d),
+    _PLAGUE: ("When enchanted creature dies, return this card from your graveyard to the battlefield attached to target creature.", _plague),
     _BAUBLE: ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land cards from your graveyard on top of your library in any order.", _bauble),
     _VAT: (_VAT.replace(" with total mana value less than or equal to the sacrificed artifact's mana value", ""), _total_sacrificed),
     "If you would begin your draw step, you may skip that step instead. If you do, you gain 2 life.": ("Skip your draw step.", _fasting),
