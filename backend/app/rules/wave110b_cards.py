@@ -300,7 +300,34 @@ def _towershell(d: Def) -> Def:
     return {**d, "effects": out}
 
 
+def _tombspawn(d: Def) -> Def:
+    """Tombstone Stairwell: each player's own count of creature cards in their graveyard (608.2h, all counted before any token is made); the tokens are remembered."""
+    make = {**d["effects"][0], "as": "tombspawn110b", "n": {"per_player": {"count": 'sel:{"card":true,"types":["Creature"],"zone_owner":"you","zones":["graveyard"]}'}}}
+    return {**d, "if": {"object": "self", "test": "on_battlefield"},
+            "effects": [make, {"do": "name_relation", "kind": "record_created_tokens", "who": "ref:tombspawn110b"}]}
+
+
+def destroy_created(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Destroy every token still on the battlefield that this source's earlier ability made (the "can't be regenerated" sentence follows, 701.8c)."""
+    from app.rules import context, exiled_with
+
+    saved = plan.rules.created_with.get(exiled_with.link_key(ctx), [])
+    ids = [oid.rsplit(".", 1)[0] for oid in saved if (card := plan.state.cards.get(oid.rsplit(".", 1)[0])) is not None
+           and card.zone.endswith(":battlefield") and plan.oid(card) == oid]
+    context.bind_objects(plan, ctx, "tombspawn_tokens", ids)
+    at = ctx["next"]
+    ctx["effects"] = [*ctx["effects"][:at], {"do": "destroy", "who": "ref:tombspawn_tokens"}, *ctx["effects"][at:]]
+    return True
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "At the beginning of each upkeep, if this enchantment is on the battlefield, each player creates a 2/2 black Zombie creature token with haste named Tombspawn for each "
+    "creature card in their graveyard.":
+        ("At the beginning of each upkeep, each player creates a 2/2 black Zombie creature token with haste named Tombspawn.", _tombspawn),
+    # 603.2 one ability, two events (the end step half is the last, as at_step_generic reads a "multi:" trigger)
+    "At the beginning of each end step and when this enchantment leaves the battlefield, destroy all tokens created with this enchantment. They can't be regenerated.":
+        ("When this enchantment leaves the battlefield, destroy all tokens. They can't be regenerated.",
+         lambda d: {**d, "trigger": "multi:ltb_self+step:end:each", "effects": [{"do": "destroy_created110b"}, {"do": "no_regen"}]}),
     # Marchesa, Resolute Monarch: 603.4 intervening "if" over Rules.hit110b (kept across turns: other players' turns come between)
     "At the beginning of your upkeep, if you haven't been dealt combat damage since your last turn, you draw a card and you lose 1 life.":
         ("At the beginning of your upkeep, you draw a card and you lose 1 life.", lambda d: {**d, "if": {"history": "unhit110b"}}),
@@ -835,4 +862,4 @@ def mana_web(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+PRIMITIVES: dict[str, Any] = {"destroy_created110b": destroy_created, "adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}

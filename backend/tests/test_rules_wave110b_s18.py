@@ -2,6 +2,8 @@
 
 * Marchesa, Resolute Monarch (Invasion of Fiora's back face): 603.4 upkeep draw and 1 life only if its controller was not dealt combat damage since their
   last turn ended (kept across the opponents' turns; damage in the turn before that does not count).
+* Tombstone Stairwell: 603.2, 608.2h each upkeep every player makes a Tombspawn per creature card in their own graveyard (all counted first); those tokens die at
+  the end step, or when the Stairwell leaves the battlefield, and nothing else does.
 * Behemoth of Vault 0: 107.14, 118.12 the energy paid equals the target's mana value; paid in full (or not at all), the target is destroyed.
 """
 
@@ -16,6 +18,7 @@ from tests.wave110b_kit import (
     build,
     card_named,
     cast,
+    ch,
     check,
     drive,
     life,
@@ -77,4 +80,40 @@ def test_marchesa_draws_unless_dealt_combat_damage_since_its_controllers_last_tu
     if hit:  # the damage was before p1's turn 3 ended: turn 5's upkeep draws again
         to_phase(s, "main1", turn=5)
         assert life(s, "p1") == 37
+    check(s)
+
+
+def tombspawns(s):
+    return sorted(c.owner for c in s.state.cards.values() if c.name == "Tombspawn" and c.zone.endswith(":battlefield"))
+
+
+def stairwell_upkeep(cards):
+    """Bob's upkeep (no cumulative upkeep for Alice): Alice has 1 creature card in her graveyard, Bob 2; a Kami waits to destroy the Stairwell."""
+    s = build(cards, ["Tombstone Stairwell", "Grizzly Bears"], ["Llanowar Elves", "Grizzly Bears", "Kami of Ancient Law"], forests=30)
+    put(s, "Tombstone Stairwell")
+    for pid, name in (("p1", "Grizzly Bears"), ("p2", "Llanowar Elves"), ("p2", "Grizzly Bears")):
+        act(s, pid, type="move", card_ids=[card_named(s, name, pid).id], to={"player": pid, "zone": "graveyard"})
+    kami = put(s, "Kami of Ancient Law", "p2")
+    to_phase(s, "main1", turn=2)
+    return s, kami
+
+
+def test_tombstone_stairwell_makes_a_zombie_per_creature_card_in_each_graveyard_and_destroys_them_at_end_step(cards):
+    s, kami = stairwell_upkeep(cards)
+    assert tombspawns(s) == ["p1", "p2", "p2"]
+    assert all(ch(s, c).pt == (2, 2) for c in s.state.cards.values() if c.name == "Tombspawn")
+    assert zone_of(s, "Kami of Ancient Law", "p2") == "p2:battlefield"  # (a real creature stays)
+    to_phase(s, "end", turn=2)
+    assert tombspawns(s) == ["p1", "p2", "p2"] and s.state.zones["stack"]  # (the end step trigger is waiting)
+    act(s, s.state.rules.priority, type="pass_priority")  # (the trigger resolves; the new turn's upkeep triggers wait before any new token)
+    assert tombspawns(s) == []
+    assert zone_of(s, "Kami of Ancient Law", "p2") == "p2:battlefield"
+    check(s)
+
+
+def test_tombstone_stairwell_destroys_its_tokens_when_it_leaves(cards):
+    s, kami = stairwell_upkeep(cards)
+    act(s, "p2", type="activate_ability", card_id=kami.id, ability=0, targets=[card_named(s, "Tombstone Stairwell").id])
+    drive(s)
+    assert zone_of(s, "Tombstone Stairwell") == "p1:graveyard" and tombspawns(s) == []
     check(s)
