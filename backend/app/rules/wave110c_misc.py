@@ -58,6 +58,8 @@ ABADDON = ("Mark of Chaos Ascendant — During your turn, spells you cast from y
            "this turn.")
 AMPED = ("When this creature enters, you get {E}{E}. Then if you cast it from your hand, exile cards from the top of your library until you exile a "
          "nonland card. You may cast that card by paying an amount of {E} equal to its mana value rather than paying its mana cost.")
+IRENCRAG = ("Whenever a legendary creature you control enters, you may have ~ become a legendary Equipment artifact named Everflame, Heroes' Legacy. If you do, it gains equip {3} "
+            "and \"Equipped creature gets +3/+3\" and loses all other abilities.")
 HAMMER = 'Equipped creature has "{1}{R}, {T}, Unattach Toralf\'s Hammer: It deals 3 damage to any target. Return Toralf\'s Hammer to its owner\'s hand."'
 TORALF_NATIVE = TORALF.replace("deals damage equal to the excess to any target other than that permanent", "deals X damage to any target, where X is that excess damage")
 YIDARO = ("When you cycle this card, shuffle it into your library from your graveyard. If you've cycled a card named Yidaro, Wandering Monster four or more times "
@@ -84,6 +86,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
         d = scripts.define(replace(ability, text="When this creature enters, you get {E}{E}."), ch)
         return None if d is None else {**d, "effects": [*d["effects"], eac.descriptor("amped110c")]}
+    if ability.kind == "triggered" and scripts.self_text(ability.text, ch.name) == IRENCRAG:  # 205.1a/b, 613.1d-f: a permanent change of types, name and abilities (it loses the mana ability)
+        d = scripts.define(replace(ability, text="Whenever a legendary creature you control enters, you may draw a card."), ch)
+        if d is None or not d.get("optional"):
+            return None
+        become = {"do": "become", "who": "self", "types": ["Artifact"], "artifact_types": ["Equipment"], "legendary": True, "duration": "permanent", "lose_abilities": True}
+        gain = {"do": "become", "who": "self", "types": [], "duration": "permanent", "abilities": ["Equip {3}", "Equipped creature gets +3/+3."]}  # (a later timestamp: kept, 613.7a)
+        return {**d, "effects": [become, gain, {"do": "named100g", "who": "self", "name": "Everflame, Heroes' Legacy"}]}
     if scripts.self_text(ability.text, ch.name) == TORALF:  # 120.10: the event's amount is the excess; "that permanent" is the one dealt it (selector not_event)
         d = scripts.define(replace(ability, text=TORALF_NATIVE), ch)
         return None if d is None or d.get("target") != {"what": "any"} else {**d, "target": {"what": "any_but_hurt110c"}}
