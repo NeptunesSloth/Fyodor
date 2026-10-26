@@ -174,7 +174,7 @@ def test_storyweave_is_spent_by_a_lone_spell_entry(cards):
     mana(s, G=1, C=2)
     cast(s, "Storyweave", [saga.id], modes=[1])
     answer(s)
-    for spirit, want in zip(spirits, (2, 0)):
+    for spirit, want in zip(spirits, (2, 0), strict=False):
         mana(s, W=1, C=1)
         act(s, "p1", type="move", card_ids=[spirit.id], to={"zone": "hand"})
         act(s, "p1", type="cast_spell", card_id=spirit.id, targets=[])
