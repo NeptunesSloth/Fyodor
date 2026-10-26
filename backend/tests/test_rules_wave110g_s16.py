@@ -7,6 +7,7 @@ import pytest
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
@@ -239,7 +240,7 @@ def test_urianger_play_arcanum_takes_two_generic_off(cards, play_arcanum):
         answer(s)
     mana(s, C=1)
     if not play_arcanum:
-        with pytest.raises(Exception):
+        with pytest.raises(ActionError):
             act(s, "p1", type="cast_spell", card_id=exiled[0].id)
         return
     life = s.state.players["p1"].life
