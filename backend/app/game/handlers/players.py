@@ -14,12 +14,12 @@ COMMANDER_DAMAGE_LETHAL = 21
 POISON_LETHAL = 10
 
 
-def change_life(state: GameState, pid: str, new_value: int, *, group: int = 0, paid: bool = False) -> int:
+def change_life(state: GameState, pid: str, new_value: int, *, group: int = 0, paid: bool = False, cause: str | None = None) -> int:
     p = state.players[pid]
     before = p.life
     p.life = new_value
     if new_value != before:  # life loss and life gain are events (damage is a separate one)
-        emit(state, "life_loss" if new_value < before else "life_gain", player=pid, amount=abs(new_value - before), **({"group": group} if group and new_value < before else {}))
+        emit(state, "life_loss" if new_value < before else "life_gain", player=pid, amount=abs(new_value - before), **({"group": group} if group and new_value < before else {}), **({"cause110m": cause} if cause and new_value > before else {}))
         if paid and new_value < before:
             emit(state, "life_paid", player=pid, amount=before - new_value)
     last = p.life_history[-1] if p.life_history else None
@@ -35,7 +35,7 @@ def change_life(state: GameState, pid: str, new_value: int, *, group: int = 0, p
 
 def life(state: GameState, a: A.Life) -> None:
     pid = ops.player(state, a.player, a.actor)
-    before = change_life(state, pid, state.players[pid].life + a.delta, group=a.group, paid=a.paid)
+    before = change_life(state, pid, state.players[pid].life + a.delta, group=a.group, paid=a.paid, cause=a.cause110m)
     verb = "gained" if a.delta > 0 else "lost"
     log(state, a.actor, a.ts, [pname(state, pid), text(f" {verb} {abs(a.delta)} life ({before} → {state.players[pid].life})")], kind="life")
 

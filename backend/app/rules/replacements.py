@@ -317,6 +317,8 @@ def others_enter_tapped(plan: Plan, card: CardInstance, controller: str, static:
         for i, d in scripts.definitions(src_ch).items():
             if d["kind"] != "static" or d.get("static") != static:
                 continue
+            if d.get("cast110e") and card.zone != "stack":
+                continue  # -- wave 110E -- "Creatures played by your opponents": only a cast spell entering (Uphill Battle)
             if i in conditional_lines(src_ch) or "Room" in src_ch.subtypes:
                 continue  # (a level's or an unlocked door's ability: not tracked, never applied)
             if not statics.conditions_hold(plan, d, source=src, controller=src.controller):
@@ -398,6 +400,8 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
             counters["+1/+1"] = counters.get("+1/+1", 0) + tribute.counters(ch, choices)
         if devour.counters(ch, choices):
             counters["+1/+1"] = counters.get("+1/+1", 0) + devour.counters(ch, choices)
+        for kind, n in devour.typed(ch, choices).items():  # -- (wave 110I) -- Frankenstein's Monster: the +2/+0, +1/+1 and +0/+2 counters chosen
+            counters[kind] = counters.get(kind, 0) + n
         from app.rules import reveal_lands  # (wave 100K: Dragon's Disciple)
 
         if reveal_lands.counters(ch, choices):
@@ -795,6 +799,11 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
     event (122.6, 306.5b). Extras recorded on the entry by the effect that puts it there — a
     persist / undying counter, unearth's haste and "exile it instead" — are applied after."""
     planned: list[tuple[Entry, CardInstance, dict[str, Any]]] = []
+    from app.rules import (
+        wave110b_mirror,  # -- Mystic Reflection (wave 110B) -- one entry event: all of it copies
+    )
+
+    wave110b_mirror.apply(plan, [(c, e["player"]) for e in entries if (c := plan.state.cards.get(e["card"])) is not None])
     for entry in entries:
         card = plan.state.cards.get(entry["card"])
         if card is None or any(card.id == c.id for _, c, _ in planned):
@@ -1181,6 +1190,13 @@ def token_choices(plan: Plan, evs: list[dict[str, Any]], answers: dict[str, str]
     for index, ev in enumerate(evs):
         pid, row = ev["player"], rows[index]
         for k in range(ev['count']):
+            from app.rules import devour, wave110b_devour  # -- devour token (wave 110B) -- 702.82a
+
+            taken = {c for r in rows for x in r for c in devour.picked(x.get(devour.WHAT))}
+            dev, ask = wave110b_devour.question(plan, pid, token_copy_entry.effective(ev, row[k]), f"{ENTER}{n + k}:devour", answers, taken)
+            if ask is not None:
+                return rows, {**ask, "source": ev.get("source")}
+            row[k] = {**row[k], **dev}
             if (one := token_entering(plan, pid, token_copy_entry.effective(ev, row[k]))) is not None:
                 probe, defs = one
                 got: dict[str, str] = {}
@@ -1321,7 +1337,12 @@ def _record_exile_instead(plan: Plan, card: CardInstance) -> tuple[str, dict[str
         if rec.get("kind") != "exile_if_dies" or rec.get("turn") != turn:
             continue
         ch = plan.ch(card)
-        if "oids" in rec:
+        if rec.get("dealt_by110k"):  # -- (wave 110K) -- Runesword: "a creature dealt damage by the targeted creature would die this turn, exile that creature instead"
+            from app.rules.history import log_for
+
+            if not any(f.kind == "damaged" and f.object_id == oid and f.source == rec["dealt_by110k"] and f.amount > 0 for f in log_for(plan).facts):
+                continue
+        elif "oids" in rec:
             if oid not in rec["oids"] or (rec.get("types") and not set(rec["types"]) & ch.types):
                 continue
         elif not rec.get("each") or not selectors.matches(plan, selectors.from_key(rec["each"]), card, ch,
@@ -1421,6 +1442,8 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
         rider = next(({"source": card.id, "controller": card.controller, **d["rider"]} for d in _definitions(plan, card).values()
                       if d.get("replacement") == "exile_instead" and d.get("rider")), None)
         out.append(Cand(card.name or "its own ability", "exile", False, rider))
+    if frm == "battlefield" and any(d["kind"] == "replacement" and d.get("replacement") == "hand_instead110i" for d in _definitions(plan, card).values()):
+        out.append(Cand(card.name or "its own ability", "hand", False, {"source": card.id, "controller": card.controller, "hand110i": card.id, "effects": [], "reflexive": False}))
     if (where := _self_library_instead(plan, card)) is not None:  # -- instead (wave 20B) --
         out.append(Cand(card.name or "its own ability", f"library:{where}"))
     if _self_shuffle_instead(plan, card):
@@ -1527,6 +1550,11 @@ def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
         return
     src = plan.state.cards.get(rider["source"])
     if src is None:
+        return
+    if rider.get("hand110i"):  # -- cards (wave 110I) -- Firestorm Phoenix
+        from app.rules import wave110i_cards
+
+        wave110i_cards.reveal_ban(plan, src)
         return
     if rider.get("power_counters"):  # -- (wave 110C) -- Ravenous Slime: counters on the source, only while it is still on the battlefield
         if rider["n"] and src.zone.endswith(":battlefield"):

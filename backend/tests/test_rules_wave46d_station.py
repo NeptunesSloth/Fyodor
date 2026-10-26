@@ -69,16 +69,28 @@ def ready(s, *names):
         s.state.rules.controlled_since[card_named(s, n).id].turn = 0
 
 
-@pytest.mark.parametrize("name", [c["name"] for c in DATA if c["name"] not in ("Doubling Season", "Tapestry Warden")])  # (wave 48D: Exploration Broodship is FULL: tests/test_rules_wave48d_broodship.py)
+@pytest.mark.parametrize("name", [c["name"] for c in DATA if c["name"] != "Doubling Season"])  # (wave 48D: Exploration Broodship is FULL: tests/test_rules_wave48d_broodship.py)
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
-@pytest.mark.parametrize("name", ["Tapestry Warden"])
-def test_what_is_not_read_stays_partial(cards, name):
-    """Tapestry Warden (702.184c): stations using toughness, checked as the ability resolves, a departed creature as it last existed."""
-    cov = coverage.of_card_data(cards.resolve(name))
-    assert cov.level == "PARTIAL" and len(cov.manual_parts) == 1
+@pytest.mark.parametrize("power,toughness,counters", [(1, 4, 4), (3, 3, 3), (4, 1, 4)])
+def test_tapestry_warden_stations_with_toughness_only_where_it_is_greater_than_power(cards, power, toughness, counters):
+    """702.184c: Tapestry Warden's static makes a creature with toughness greater than its power station using its toughness (power otherwise)."""
+    s = build(cards, ["Galvanizing Sawship", "Tapestry Warden"])
+    put(s, "Galvanizing Sawship")
+    put(s, "Tapestry Warden")
+    wall = creature(s, "p1", "Wall", pt=f"{power}/{toughness}")
+    station(s, "Galvanizing Sawship", wall)
+    assert charge(s, "Galvanizing Sawship") == counters
+    check(s)
+
+
+def test_without_tapestry_warden_the_power_counts(cards):
+    s = build(cards, ["Galvanizing Sawship"])
+    put(s, "Galvanizing Sawship")
+    station(s, "Galvanizing Sawship", creature(s, "p1", "Wall", pt="1/4"))
+    assert charge(s, "Galvanizing Sawship") == 1
 
 
 def test_station_puts_counters_equal_to_the_tapped_creatures_power(cards):

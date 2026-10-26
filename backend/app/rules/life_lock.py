@@ -87,6 +87,14 @@ def life_lock(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
     r = plan.rules
     turn = plan.state.turn.number
+    if e.get("who") == "target":  # -- target player (wave 110E) -- Teferi's Reproach: the target's life total; the lock ends with that player's turn (611.2b)
+        from app.rules.effects import _players
+
+        for t in _players(plan, ctx, "target"):
+            r.life_locks.append({"id": secrets.token_hex(4), "player": t, "controller": pid, "ends_for": t, "gain": True, "lose": True, "until": e["until"],
+                                 "turn": turn, "label": ctx.get("name") or "An effect"})
+            plan.note(f"{plan.name(t)}'s life total can't change until their next turn ({ctx.get('name') or 'An effect'})", actor=pid)
+        return True
     r.life_locks = [x for x in r.life_locks if not (x.get("until") == "turn" and x.get("turn") != turn)]
     label = ctx.get("name") or "An effect"
     if e.get("who") == "each":  # -- can't lose life (wave 51C) -- "Players can't lose life this turn.": one lock for each player, losing only
@@ -112,7 +120,7 @@ def turn_began(plan: Plan, ended: set[tuple[str, int]]) -> None:
     r = plan.rules
     turn = plan.state.turn.number
     r.life_locks = [x for x in r.life_locks if not (x.get("until") == "next_turn" and any(
-        x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
+        x.get("ends_for", x.get("controller")) == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "turn" and x.get("turn") != turn)]
 
 

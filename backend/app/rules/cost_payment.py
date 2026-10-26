@@ -227,6 +227,11 @@ def removable_counters(plan: Plan, card: CardInstance, kind: str | None, options
                and (not options or k in options) and not prohibitions.cant_remove_counters(plan, card.id, k))
 
 
+def needed(plan: Plan, comp: CostComponent, x: int | None, player: str, source: CardInstance) -> int:
+    """objects_needed, plus 'half the ... rounded up' (wave 110A): read from the board now."""
+    return (len(required_all(plan, comp, player, source)) + 1) // 2 if comp.half else objects_needed(comp, x)
+
+
 def objects_needed(comp: CostComponent, x: int | None) -> int:
     """The objects a chosen part takes: X of them for "Sacrifice X Treasures" (107.3a), else comp.objects."""
     if comp.kind == C.REMOVE_COUNTER and comp.selector is not None and not comp.among:
@@ -311,6 +316,9 @@ def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, playe
 # -- end activation costs (wave 4H) --
 
 
+_CARD_TYPES110M = frozenset({"Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"})  # 205.2a (wave 110M)
+
+
 def _names_fit(plan: Plan, comp: CostComponent, ids: list[str]) -> bool:
     """201.2a–b: nameless objects never qualify; split cards can have several names."""
     from app.rules.card_names import names_of
@@ -321,6 +329,8 @@ def _names_fit(plan: Plan, comp: CostComponent, ids: list[str]) -> bool:
         wave110d_costs,  # -- costs (wave 110D) -- groups that share a type / color / graveyard
     )
 
+    if comp.names == "types4_110m":  # -- (wave 110M) -- Nethergoyf: four or more card types among the cards exiled (205.2a)
+        return len({t for c in ids for t in plan.ch(plan.state.cards[c]).types if t in _CARD_TYPES110M}) >= 4
     if comp.names in wave110d_costs.GROUPS:
         return wave110d_costs.fit(plan, comp, ids)
     groups = [set(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
@@ -341,6 +351,8 @@ def _names_payable(plan: Plan, comp: CostComponent, ids: list[str], need: int) -
         return len(ids) >= need
     from app.rules import wave110d_costs  # -- costs (wave 110D) --
 
+    if comp.names == "types4_110m":  # -- (wave 110M) -- exiling every candidate gives the most card types
+        return len(ids) >= need and len({t for c in ids for t in plan.ch(plan.state.cards[c]).types if t in _CARD_TYPES110M}) >= 4
     if comp.names in wave110d_costs.GROUPS:
         return wave110d_costs.payable(plan, comp, ids, need)
     groups = [frozenset(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
@@ -437,7 +449,7 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
             if comp.all_objects:
                 if set(required_all(plan, comp, player, card)) - set(usable):
                     return f"You can't pay “{comp.text}”" + withheld(plan, comp, player, card)
-            elif not _names_payable(plan, comp, usable, objects_needed(comp, x)) and not comp.up_to:  # (X / one permanent for its counters: wave 4H)
+            elif not _names_payable(plan, comp, usable, needed(plan, comp, x, player, card)) and not comp.up_to:  # (X / one permanent for its counters: wave 4H)
                 return f"You can't pay “{comp.text}”" + withheld(plan, comp, player, card)
     # -- cast keywords (wave 43D) -- a part paid more than once (a kicker / squad / replicate cost paid twice, escalate's) takes its energy and its
     # objects once for each time (118.3: no partial payments); each object pays one part only (choose)
@@ -446,7 +458,7 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
         return f"You don't have {energy_total} energy to pay"
     same: dict[tuple[str, str | None], list[CostComponent]] = {}
     for comp in cost.components:
-        if comp.selector is not None and not comp.up_to and not comp.all_objects and comp.kind in (C.SACRIFICE, C.DISCARD, C.EXILE_FROM_GRAVEYARD, C.RETURN_PERMANENT,
+        if comp.selector is not None and not comp.up_to and not comp.all_objects and not comp.half and comp.kind in (C.SACRIFICE, C.DISCARD, C.EXILE_FROM_GRAVEYARD, C.RETURN_PERMANENT,
                                                                          C.TAP_OTHER):
             same.setdefault((comp.kind, comp.selector), []).append(comp)
     for group in same.values():
@@ -531,7 +543,7 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
             if counter_index is not None and comp.kind == C.REMOVE_COUNTER:
                 used |= set(found) | {token.rsplit(":", 2)[0] for token in found}
             continue
-        need = objects_needed(comp, x)
+        need = needed(plan, comp, x, plan.actor, card)
         blocked = used
         if compatible_tap:
             blocked = {cid for j, ids in out.items() for cid in ids
@@ -623,7 +635,8 @@ def _choose_any(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | 
                  if comp.counter in (C.ANY_COUNTER, kind) and t not in used}
         usable = list(shown)
     if given is not None:
-        if len(set(given)) != len(given) or any(c not in usable for c in given) or (comp.more and len(given) < comp.amount):
+        if len(set(given)) != len(given) or any(c not in usable for c in given) or (comp.more and len(given) < comp.amount) \
+                or (comp.names and not _names_fit(plan, comp, list(given))):  # (wave 110M: a constraint on the whole group)
             raise ActionError(f"Choose from what can pay “{comp.text}”")
         used |= set(given)
         return list(given)
@@ -872,6 +885,16 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
                 plan.do({"type": "tap", "card_ids": ids, "tapped": True})
             record.tapped_for_cost += ids
             record.tapped_objects += [plan.oid(c) for c in ids]  # (review 26C: last known information, 608.2h)
+            if comp.kind == "TAP_POWER":  # -- (wave 110J) -- "becomes tapped to pay a teamwork cost"
+                from app.game.rules_state import emit
+
+                for cid in ids:
+                    emit(plan.state, "teamwork_tapped110j", object_id=plan.oid(cid), card=cid, player=player)
+            from app.rules import (
+                wave110n_cards,  # -- (wave 110N) -- Vodalian War Machine: "tapped this turn to pay for its abilities"
+            )
+
+            wave110n_cards.note_tapped(plan, card, ids)
         elif comp.kind == C.UNTAP_OTHER:  # -- activated sweep (wave 17B) -- 701.26b
             from app.rules import keyword_actions
 
@@ -885,6 +908,8 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
                 if counter_removal_results.remove(plan, cid, comp.counter or "", comp.amount, by=player) != comp.amount:
                     raise ActionError("The selected counters cannot pay this cost")
         elif comp.kind == C.UNATTACH:  # -- granted from object (wave 18F) -- 701.3d: the granting Equipment stays on the battlefield
+            record.unattached_ninja110j = any(h is not None and "Ninja" in plan.ch(h).subtypes  # -- (wave 110J) -- Shuriken: what it was unattached from
+                                              for h in (plan.state.cards.get(plan.state.cards[i].attached_to or "") for i in (ids if comp.selector is not None else [card.id])))
             plan.do({"type": "detach", "card_ids": ids if comp.selector is not None else [card.id]})
         elif comp.kind == C.SACRIFICE and comp.selector is not None:
             sacrifice += ids

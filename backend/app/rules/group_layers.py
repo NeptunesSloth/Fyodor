@@ -315,6 +315,14 @@ def entries(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     return layer4, layer5
 
 
+def graveyard_wiped(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> bool:
+    """-- wave 110F -- 613.1f: a static "Cards in graveyards lose all abilities." (Yixlid Jailer) applies to this graveyard card."""
+    from app.rules.layers import statics
+
+    return info is not None and any(st.definition.get("lose_all") and st.definition.get("everywhere") and _elsewhere(st, card, ch)
+                                    for st in statics(state, info))
+
+
 def _elsewhere(st: Static, card: CardInstance, ch: Characteristics) -> bool:
     """Maskwood Nexus: "creature spells you control" (on the stack) and "creature cards you own that aren't on the battlefield"
     (every other zone, the command zone too); Mycosynth Lattice: all of them."""

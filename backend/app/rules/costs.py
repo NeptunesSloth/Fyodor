@@ -133,6 +133,7 @@ class CostComponent:
     gain_scope: Literal["each_other_player"] | None = None  # Nominal life-gain cost paid to every other live player.
     source_with_choices: bool = False  # One graveyard-exile instruction includes its required source and selected others.
     counter_options: tuple[str, ...] = ()  # A bounded choice of named counter kinds, not every counter.
+    half: bool = False  # -- wave 110A -- 'sacrifice half the lands you control, rounded up': the count is read from the board as the cost is paid
     counters_x: bool = False  # -- blight X (wave 110C) -- 701.68a: the announced X is the number of counters put on the one creature chosen
 
     @property
@@ -180,6 +181,7 @@ class AbilityCost:
     components: tuple[CostComponent, ...] = ()
     graveyard_only: bool = False  # -- reanimation (wave 3R) -- its effect moves this card out of your graveyard (113.6m)
     exile_too: bool = False  # -- activated other (wave 42C) -- "Return this card from your graveyard or from exile …" (Mister Immortal): graveyard_only, and the exile zone too (113.6m)
+    battlefield_too110k: bool = False  # -- wave 110K -- graveyard_only, and the battlefield too: "Activate only if ~ is on the battlefield or in your graveyard" (Skyblade's Boon)
     hand_only: bool = False  # -- activated from hand / command zone (wave 27D) -- its effect moves this card out of your hand (113.6m)
     command_only: bool = False  # (…or out of the command zone)
     life_x: bool = False  # -- X sized by a count (wave 4K) -- a spell's "pay X life" (107.3a: X announced as it's cast)
@@ -289,6 +291,13 @@ def _component(part: str, card_name: str) -> CostComponent | None:
 
     if (own110d := wave110d_costs.component(part, card_name)) is not None:
         return own110d
+    from app.rules import wave110a_activation  # -- costs (wave 110A) --
+
+    if (own110a := wave110a_activation.component(part)) is not None:
+        return own110a
+    if part == "Exile any number of other cards from your graveyard with four or more card types among them":  # -- (wave 110M) -- Nethergoyf: 601.2h, 205.2a
+        return CostComponent(EXILE_FROM_GRAVEYARD, amount=4, more=True, anyn=True, names="types4_110m", text=part,
+                             selector=selectors.Selector(card=True, other=True, zone_owner="you", zones=("graveyard",)).key())
     if m := re.fullmatch(r"Sacrifice all (?P<what>.+)", part):
         key = _selector(m["what"], zone="battlefield")
         return CostComponent(SACRIFICE, selector=key, all_objects=True, text=part) if key else None
@@ -458,7 +467,7 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False,
     # -- tutor (wave 26D) -- "Sacrifice a red creature, a green creature, and a white creature" (the Heralds): one part, three objects
     cost = re.sub(r"(Sacrifice (?:an?|another) [^,{}:]+?), ((?:an?|another) [^,{}:]+?), and ((?:an?|another) [^,{}:]+?)(?=,|$)",
                   r"\1 and \2 and \3", cost)
-    cost = re.sub(r"(Sacrifice (?:this \w+|~)) and (any number of other [^,{}:]+)", r"\1, Sacrifice \2", cost)  # -- any number as an additional cost (wave 48B) -- Emrakul's Evangel: two parts
+    cost = re.sub(r"(Sacrifice (?:this \w+|~)) and (any number of (?:other )?[^,{}:]+)", r"\1, Sacrifice \2", cost)  # -- any number as an additional cost (wave 48B) -- Emrakul's Evangel: two parts
     if card_name and "," in card_name:  # (wave 4H) "Discard another card named Korlash, Heir to Blackblade": one part
         cost = cost.replace(card_name, "~")
     # -- static_other (wave 36B) -- "Tap three untapped Advisors, Artificers, and/or Monks you control" (The Archimandrite): one part naming three kinds
@@ -732,7 +741,7 @@ def _self_text(part: str, card_name: str) -> str:
 # -- kicker (702.33) -------------------------------------------------------------------------
 # -- keywords (wave 15E) -- squad (702.157: "you may pay [cost] any number of times"), replicate (702.56: the same) and offspring
 # (702.175: once) are optional additional mana costs paid as kicker is (``CastSpell.kicker`` times): the engine's count is theirs
-_KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)|(?P<entwine>entwine)) (?P<cost>(?:\{[^}]+\})+)$",
+_KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)|(?P<entwine>entwine)) (?P<cost>(?:\{[^}]+\})+)(?P<anytimes> any number of times)?$",
                      re.IGNORECASE)
 # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}" is "Kicker {A}, kicker {B}": two kicker costs, each paid at most once (Invasion's Battlemages)
 _KICKER2 = re.compile(r"^kicker (?P<a>(?:\{[^}]+\})+) and/or (?P<b>(?:\{[^}]+\})+)$", re.IGNORECASE)
@@ -800,7 +809,7 @@ def positive_kicker_x(line: str) -> str | None:
         return None
     match = _KICKER.fullmatch(text[:-len(suffix)])
     return match["cost"] if match is not None and match["cost"].upper().count("{X}") == 1 and not any(
-        match[k] for k in ("multi", "many", "once", "entwine")) and _MANA_ONLY.match(match["cost"]) else None
+        match[k] for k in ("multi", "many", "once", "entwine", "anytimes")) and _MANA_ONLY.match(match["cost"]) else None
 
 
 def kicker_line(line: str) -> bool:
@@ -825,6 +834,7 @@ class Kicker:
     extra: str = ""  # (an entwine cost that isn't mana: "sacrifice two lands", paid with the additional costs)
     text: str = ""  # -- free-cast optional costs (wave 41D) -- the keyword line ("Kicker {R}", "Squad {2}"): the label of the question
     second: str = ""  # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}": B, the second kicker cost. Then the cast's ``kicker`` is a mask (1: A, 2: B, 3: both)
+    anytimes: bool = False  # -- (wave 110F) -- Taste of Paradise: "you may pay {1}{G} any number of times" repeats like multikicker but isn't kicker (702.33c): the spell is not "kicked"
     minimum_x: int = 0  # Only the actual selected keyword may constrain its announced X.
 
     def paid(self, times: int) -> int:
@@ -863,7 +873,7 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
         m = _KICKER.fullmatch(ab.text.strip().rstrip("."))
         if m is None or not kicker_line(ab.text):
             return None
-        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"]), entwine=bool(m["entwine"]), text=ab.text.strip().rstrip(".")))
+        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"]), entwine=bool(m["entwine"]), anytimes=bool(m["anytimes"]), text=ab.text.strip().rstrip(".")))
     return found[0] if len(found) == 1 else None
 
 
@@ -977,6 +987,10 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
 
     if (water := waterbend102.part(text)) is not None:
         return AbilityCost(components=(water,))
+    from app.rules import wave110a_activation  # -- costs (wave 110A) --
+
+    if (half110a := wave110a_activation.component(text)) is not None:
+        return AbilityCost(components=(half110a,))
     if text == 'put a -1/-1 counter on a creature you control':
         counter = _one_4h(text[:1].upper() + text[1:], '')
         return AbilityCost(components=(counter,)) if counter is not None and counter.selector is not None else None

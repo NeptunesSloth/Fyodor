@@ -261,6 +261,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
             ch = plan.ch(card)
             return [("transform", card, ch, card.controller, {"oid": e.object_id, "face_name": ch.name})]
         return []
+    if e.counter == "exiled110i" and e.player:  # -- cards (wave 110I) -- a spell or ability exiled permanents (effects.exile_cards)
+        return [("exiled_perm110i", None, None, e.player, {"amount": e.amount})]
     if e.counter == "destroyed" and e.card:  # -- destroy events (wave 45C) -- 701.8: the permanent as it last existed on the battlefield (603.10a)
         from app.rules import triggers
 
@@ -306,6 +308,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("clash", None, None, e.player, {"amount": e.amount})]
     if e.counter in ("roll_visit", "visit", "open_attraction", "claim_prize") and e.player:  # -- Attractions (wave 100L) -- (attractions100l.py)
         return [({"visit": "visit_attraction"}.get(e.counter, e.counter), None, None, e.player, {"amount": e.amount, "oid": e.object_id})]
+    if e.counter == "discover" and e.player:  # -- discover (wave 110B) -- 701.57: ``amount`` is the value N
+        return [("discover", None, None, e.player, {"amount": e.amount})]
     if e.counter in ("forage", "collect_evidence", "manifest_dread") and e.player:  # -- if you do (wave 26C) -- 701.61, 701.59 (cost_payment.pay)
         return [(e.counter, None, None, e.player, {})]
     if e.counter == "connive" and e.card in plan.state.cards:  # -- trigger tail (wave 15B) -- 701.50a: the conniving permanent
@@ -1067,7 +1071,7 @@ def emblem_text_ok(text: str) -> bool:
         return False
     for d in scripts.definitions(ch).values():
         if d.get("kind") == "static":
-            if d.get('static') in ('spell_keyword', 'permission', 'loyalty_rule', 'cast_limit', 'cost_modifier', 'untap_limit'):
+            if d.get('static') in ('spell_keyword', 'permission', 'loyalty_rule', 'cast_limit', 'cost_modifier', 'untap_limit', 'untap_opp110a', 'draw_opp110a'):  # (wave 110A: Teferi's emblem, wave110a_teferi)
                 continue
             if d.get("static") == "game_result":  # -- spells (wave 110A) -- Gideon of the Trials' emblem (game_result._stops reads emblems)
                 continue
@@ -1077,6 +1081,8 @@ def emblem_text_ok(text: str) -> bool:
                 continue
             if d.get("static") != "grant" or zone_static(d) or d.get("also"):
                 return False
+        elif d.get("kind") == "activated" and d.get("cost") == "Tap an untapped artifact you control":  # -- emblem (wave 110A) -- Karn, Living Legacy (casting.activate_ability)
+            continue
         elif d.get("kind") != "triggered" or not (d.get("trigger") in _EMBLEM_TRIGGERS or str(d.get("trigger")).startswith("step:")):
             return False
     return True

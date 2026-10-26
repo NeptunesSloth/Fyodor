@@ -108,7 +108,7 @@ def untap_choice(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     n = min(int(e["n"]), len(found))
     if n <= 0:
         return True
-    noun = "lands" if e.get("kind", "land") == "land" else "creatures"
+    noun = {"land": "lands", "permanent": "permanents"}.get(e.get("kind", "land"), "creatures")
     decide(plan, player=you, kind="choose_cards",
            prompt=f"{ctx.get('name', '') or 'Untap'}: untap " + (f"{n} {noun[:-1]}" if e.get("exact") else f"up to {e['n']} {noun}"),
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or noun[:-1].title(), card_id=c) for c in found],
