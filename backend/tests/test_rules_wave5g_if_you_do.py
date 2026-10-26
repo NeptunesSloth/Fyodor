@@ -145,9 +145,7 @@ def test_coverage_full(cards, name):
 
 
 def test_refused_forms(cards):
-    # an X in a target's definition: the target is chosen before X (603.3d)
-    dead = coverage.of_card_data(cards.resolve("Relentless Dead"))
-    assert [f.supported for f in dead.features if f.id == "text:2"] == [False]
+    # (Relentless Dead's X in its target's definition is read since wave 110C: tests/test_rules_wave110c_hellion.py)
     # an X the rest of the ability never reads, "If you don't" after an X, a cap with nothing to cap
     assert scripts.parse_effects("You may pay {X}. If you do, draw a card.") is None
     assert scripts.parse_effects("You may pay {X}. If you don't, draw X cards.") is None

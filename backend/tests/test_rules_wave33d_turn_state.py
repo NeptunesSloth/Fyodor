@@ -98,7 +98,8 @@ def test_the_this_turn_state_cards_are_full(name):
 
 
 @pytest.mark.parametrize("text", [
-    "At the beginning of your end step, if you didn't play a card from exile this turn, create a tapped Powerstone token.",  # (a land played from exile isn't recorded)
+    # (Visions of Phyrexia's exact "if you didn't play a card from exile this turn" is read since: exile_authority_continuations,
+    # tests/test_rules_exile_authority_continuations_staged.py; the bare condition still isn't: test_unrecorded_wordings_are_not_read)
     "At the beginning of your end step, if a creature or planeswalker an opponent controlled was dealt excess damage by a Zombie this turn, draw a card.",  # (excess damage by a kind of source isn't recorded; the plain wording is, wave 39B)
     "At the beginning of your end step, if a modified creature died under your control this turn, draw a card.",
 ])
