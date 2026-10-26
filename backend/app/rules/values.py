@@ -1062,6 +1062,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         tally = Counter(t for c in selectors.candidates(plan, selectors.from_key(v["of"]), you, _other_than(ctx))
                         for t in plan.ch(plan.state.cards[c]).subtypes & CREATURE_TYPES)
         return max(tally.values(), default=0)
+    if "union_types110n" in v:  # -- (wave 110N) --
+        from app.rules import wave110n_cards
+
+        return wave110n_cards.union_types(plan, ctx, v)
     if "distinct" in v:
         return _distinct(plan, ctx, v["distinct"], v["among"])
     if "abilities_among" in v:  # -- keyword soups (wave 50J) --

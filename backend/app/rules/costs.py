@@ -872,7 +872,8 @@ BEHOLD = "BEHOLD"
 BEHOLD_EXILE = "BEHOLD_EXILE"  # One matching controlled permanent or hand card, exiled as a single additional cost.
 _ADDITIONAL_KINDS = frozenset({SACRIFICE, DISCARD, PAY_LIFE, PAY_ENERGY, EXILE_FROM_GRAVEYARD, RETURN_PERMANENT, TAP_OTHER,
                                EXILE_TO_GY,  # (EXILE_TO_GY: wave 15C)
-                               "REVEAL_FROM_HAND", BEHOLD, BEHOLD_EXILE, PUT_COUNTER, FORAGE, EXILE})
+                               "REVEAL_FROM_HAND", BEHOLD, BEHOLD_EXILE, PUT_COUNTER, FORAGE, EXILE,
+                               "DISCARD_HAND"})  # (-- wave 110M -- 701.9a: "discard your hand", Kaervek's Spite; the spell is on the stack by then, so not in it)
 _REVEAL_HAND_COST = re.compile(r"^Reveal (?:a|an) (?P<what>.+? card) from your hand$")
 _BEHOLD_COST = re.compile(r"^Behold (?:(?P<one>a|an)|(?P<n>two|three|four|five)) (?P<q>[A-Z][a-z]+)$")  # (-- cast keywords (wave 43D) -- "Behold three Elementals")
 
@@ -1010,13 +1011,15 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
                     and not counter_part.x and not counter_part.more and counter_part.amount > 0):
                 components.append(counter_part)
                 continue
+        if found is None and part.lower() == "discard your hand":  # -- (wave 110M) -- 701.9a: every card in the hand (none is fine)
+            found = _one_4h("Discard your hand", "")
         if found is None and has_x:  # (the part sized by X, 107.3a: one only — "discard X cards and sacrifice X creatures" isn't read)
             found = _one_4h(part[:1].upper() + part[1:], "")
             if found is None or not found.x or len(parts) != 1:
                 return None
         if found is None or found.kind not in _ADDITIONAL_KINDS:
             return None
-        if found.selector is None and found.kind not in (PAY_LIFE, PAY_ENERGY, FORAGE):
+        if found.selector is None and found.kind not in (PAY_LIFE, PAY_ENERGY, FORAGE, DISCARD_HAND):
             return None
         components.append(found)
     return AbilityCost(components=tuple(components), life=sum(c.amount for c in components if c.kind == PAY_LIFE))

@@ -372,6 +372,7 @@ MASTER_CHEF = ('Commander creatures you own have "This creature enters with an a
                '"Other creatures you control enter with an additional +1/+1 counter on them."')
 
 
+STAFF_ROOM = "Whenever a creature you control deals combat damage to a player, turn that creature face up or put a +1/+1 counter on it."
 DOG_UMBRA = "As long as another player controls enchanted creature, it can't attack or block. Otherwise, this Aura has umbra armor."
 EARTHBIND = "When this Aura enters, if enchanted creature has flying, this Aura deals 2 damage to that creature and this Aura gains \"Enchanted creature loses flying.\""
 
@@ -413,6 +414,11 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if line == DOG_UMBRA:
             lines[i:i + 1] = ["As long as another player controls enchanted creature, it can't attack or block.",
                               "As long as you control enchanted creature, this Aura has umbra armor."]
+    # -- lines (wave 110D) -- Staff Room: "A or B" is a choice of one of the two (700.2), a modal trigger
+    for i, line in enumerate(lines):
+        if line == STAFF_ROOM:
+            lines[i:i + 1] = ["Whenever a creature you control deals combat damage to a player, choose one —",
+                              "• Turn that creature face up.", "• Put a +1/+1 counter on that creature."]
     # -- (wave 110J) -- Earthbind: "…and this Aura gains "Enchanted creature loses flying."" is the trigger plus a static that applies once it was gained
     for i, line in enumerate(lines):
         if line == EARTHBIND:
@@ -512,6 +518,9 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         # target creature." (an activated ability that works only from the hand)
         if m := re.fullmatch(r"Reinforce (\d+|X)—((?:\{[^}]+\})+)", line):  # (-- xdamage (wave 100E) -- X: the X paid, 107.3a)
             line = f"{m[2]}, Discard this card: Put {m[1]} +1/+1 counters on target creature."
+        # -- wave 110F -- Circling Vultures: 116.2e special action (casting.VULTURES handles it: no stack); the line is only a marker so the card reads as an ability
+        if line == "You may discard this card any time you could cast an instant.":
+            line = "Discard this card: You gain 0 life."
         # -- static_other sweep (wave 19A) -- "Traxos enters tapped and doesn't untap during your untap step.": two abilities, "enters tapped"
         # (614.1d) and the static "doesn't untap" (502.3), the second one added after the printed lines as Reconfigure's are
         if (um := re.fullmatch(r"(.+?) enters tapped and (doesn't untap during your untap step)\.", line)) and not spell:

@@ -286,6 +286,9 @@ def change_target(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                    options=options, resume={"step": "change_target", "ctx": ctx, "sid": sid, "oid": plan.oid(sid),
                                             "to": src})
             return False
+        if e.get("creature110m") and not all((c := plan.state.cards.get(x)) is not None and c.zone.endswith(":battlefield") and "Creature" in plan.ch(c).types
+                                             for x in current):
+            continue  # -- (wave 110M) -- Meddle: "if ... that target is a creature" is checked as it resolves; otherwise nothing happens
         if len(current) != 1:  # (608.2b would have left it unchanged: no longer a single target; 115.9c: one object, maybe several times)
             continue
         legal = [x for x in _legal(plan, entry, positions[0], sid) if x not in current and _fits(plan, entry, positions, x, sid, e.get("must"))]

@@ -49,3 +49,16 @@
 - Gift of Doom: "As this Aura is turned face up, you may attach it" needs a decision inside casting.turned_up and an SBA hold until attached.
 - Reap, Geth's Summons: X / per-opponent counts "as you cast this spell" need cast-time snapshots.
 - Panglacial Wurm: casting from the library mid-search has no hook in search resolution.
+
+## Session 14
+- Font of Agonies: "whenever you pay life" has no event; life is paid on many paths (costs, Phyrexian mana, effects), needs a pay-life event everywhere.
+- Scrap Welder, Fabrication Foundry: target "mana value less than X" is chosen before the sacrificed/exiled artifact (X) is known (601.2c vs 601.2h); no X-from-cost target machinery.
+- Nuka-Nuke Launcher: delayed watch bound to the defending player's cast events, ending at the end of that player's next turn; watch cond player is only the controller.
+- Vislor Turlough, Hot Pursuit: goad lasting while a given player controls it / the source stays; goad is only "until next turn" (keyword_actions.goad).
+- Braided Net: "for as long as it remains tapped" refers to the target; durations only track the source.
+- Evangelize, Mausoleum Turnkey, Arena: "of an opponent's choice" target announcement exists only for activated abilities (delegated_target_announcements); spells and triggers lack it.
+- Reap: X fixed as the spell is cast, which sets the number of targets.
+
+## Session 15
+- Fabrication Foundry: needs a variable-count exact-total exile cost ("one or more other artifacts with total mana value X", X announced). Foundation work (new cost kind beside COLLECT_EVIDENCE in cost_payment/casting/mana), not unsettled rules. Next session.
+- Volcanic Offering: four targets, two of them "of an opponent's choice" (spell with own+opponent pairs, 601.2c; per-pair opponent choice unsettled for several opponents). Extend delegated_target_announcements OWN mode to spells with groups.

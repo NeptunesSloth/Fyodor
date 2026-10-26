@@ -67,6 +67,7 @@ _IRREGULAR = {"elves": "Elf", "dwarves": "Dwarf", "wolves": "Wolf", "werewolves"
 _IRREGULAR.update({"oxen": "Ox", "armies": "Army", "spies": "Spy", "cyclopes": "Cyclops"})  # -- static wordings (wave 6E) --
 _IRREGULAR.update({"aurochs": "Aurochs"})  # -- trigger tail (wave 15B) -- (its own plural)
 _IRREGULAR.update({"urza's": "Urza's", "urza’s": "Urza's"})  # 205.3i: possessive land subtype, never a plural
+_IRREGULAR.update({"astartes": "Astartes", "custodes": "Custodes", "thalakos": "Thalakos", "cyclops": "Cyclops"})  # -- (wave 110O) -- own plurals
 _IRREGULAR.update({"heroes": "Hero"})  # -- counters (wave 21D) --
 _MARKERS = {"card", "spell", "perm", "token", "commander"}  # nouns that mark what kind of object, not its type
 ZONES = ("battlefield", "graveyard", "hand", "exile", "library", "stack", "command")
@@ -959,6 +960,11 @@ def _turned_up_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "turned_up_this_turn"))
 
 
+@_suffix(r"with two or more card types")  # -- cards (wave 110B) -- 205.2a: Rendmaw, Creaking Nest ("a card with two or more card types", an artifact creature)
+def _multitype(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "multitype110b"))
+
+
 @_suffix(r"with an activated ability that isn't a mana ability")  # -- cards (wave 110F) -- 602.1, 605.1a: Ravager Wurm
 def _with_nonmana_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "nonmana_ability"))
@@ -1543,6 +1549,10 @@ def _core(word: str) -> tuple[str, str] | None:
     cap = w[:1].upper() + w[1:]
     if cap in CREATURE_TYPES or cap in OTHER_SUBTYPES:
         return "sub", cap
+    if (curly := cap.replace("'", "’")) in CREATURE_TYPES:  # -- (wave 110O) -- C’tan, Shi’ar (statics.parse writes the apostrophe straight)
+        return "sub", curly
+    if cap == "TimeLord":  # -- (wave 110O) -- "Time Lord" is one creature type of two words (205.3m); parse() joins them
+        return "sub", "Time Lord"
     if word[:1].isupper() and word in PLANESWALKER_TYPES:  # -- kicked / instead (wave 4G) -- 205.3j
         return "sub", word
     return None
@@ -1785,9 +1795,13 @@ def _type_and(phrase: str) -> str:
 
 def parse(phrase: str) -> Selector | None:
     """A noun phrase without its determiner ("nonland permanent an opponent controls") → Selector."""
+    phrase = re.sub(r"\bTime Lords?\b", lambda m: m[0].replace(" ", ""), phrase)  # -- (wave 110O) --
     if phrase.strip() == "planeswalker that was activated this turn or tapped creature":  # -- wave 110A -- Cut Short: a different qualifier per kind;
         # "activated" = a loyalty ability of it was activated this turn (606; RulesState.loyalty_used)
         return Selector(either=(Selector(types=("Planeswalker",), extras=("loyalty_activated110a",)).key(), Selector(types=("Creature",), tapped=True).key()))
+    if phrase.strip() == "planeswalker that player controls or battle that player protects":  # -- wave 110H -- Rampaging Raptor: a planeswalker is held by its controller, a battle by its protector (310.8)
+        return Selector(either=(Selector(types=("Planeswalker",), extras=("controlled_by:" + THAT_PLAYER,)).key(),
+                                Selector(types=("Battle",), extras=("protected_by:" + THAT_PLAYER,)).key()))
     sticker = re.fullmatch(r'(?P<base>.+?) with (?:a|an) (?P<kind>name|art|ability|power and toughness) sticker(?: on (?:it|them))?', phrase.strip())
     if sticker is not None:
         base = parse(sticker['base'])
@@ -2351,6 +2365,13 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
            for x in sel.extras):  # -- copy abilities (wave 19E) -- "… from an enchantment source"
         return False
     for extra in sel.extras:
+        if extra.startswith(("protected_by:", "controlled_by:")):  # (wave 110H) 310.8: the player protecting the battle / controlling the permanent; unbound "that_player" matches nothing
+            from app.rules import battles
+
+            kind, _, bound = extra.partition(":")
+            if (battles.protector(plan.state, card) if kind == "protected_by" else card.controller) != bound[len("player:"):] or THAT_PLAYER in bound:
+                return False
+            continue
         if extra == 'combat_pirate_player95':
             from app.rules import combat_damage95
 
@@ -2364,6 +2385,12 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             if not controller_turn_history69.continuous(plan, card):
                 return False
+        if extra == "top_color110m":  # -- (wave 110M) -- "that share a color with that card" (Crown of Convergence): the top card of ``you``'s library now
+            top_library = plan.state.zones.get(f"{you}:library", [])
+            top_card = plan.state.cards.get(top_library[0]) if top_library else None
+            if top_card is None or not set(plan.ch(top_card).colors) & set(ch.colors):
+                return False
+            continue
         if extra == 'enchant_creature_exact':
             from app.rules import attachments
 
@@ -2482,6 +2509,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
         if plan.oid(card) not in log_for(plan, False).turned_up110f:
             return False
+    if "multitype110b" in sel.extras and len(ch.types) < 2:  # (wave 110B)
+        return False
     if "nonmana_ability" in sel.extras and not any(a.kind == "activated" for a in ch.abilities):  # (wave 110F)
         return False
     if "tap_ability" in sel.extras and not any(a.kind in ("activated", "mana") and "{T}" in (a.cost or "") for a in ch.abilities):  # (wave 52D)
@@ -2761,6 +2790,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             from app.rules import card_names, static_perm100d  # (wave 100D: Pardic Firecat)
 
             if not card_names.has_name(ch, extra[5:]) and not static_perm100d.counted_as(plan, source, card, ch):
+                return False
+        if extra == "first_hml110l":  # -- (wave 110L) -- "a name originally printed in the Homelands expansion" (Apocalypse Chime)
+            from app.rules import card_names, wave110l_homelands
+
+            if not any(card_names.has_name(ch, n) for n in wave110l_homelands.NAMES):
                 return False
         if extra.startswith("not_name:"):
             from app.rules import card_names

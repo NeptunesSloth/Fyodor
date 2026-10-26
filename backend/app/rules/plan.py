@@ -63,6 +63,7 @@ class Plan:
     excluded: frozenset[str] = frozenset()
     # -- optional payments (wave 110C) -- the attacking creature of the trigger being resolved: a cost's "other than that creature" (selector not_event) excludes it
     cost_attacker: str | None = None
+    delegated110d: str | None = None  # the target an opponent picked for a spell (wave 110D, delegated_target_announcements)
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)
@@ -75,6 +76,7 @@ class Plan:
         self.probe_903: list[tuple[str, str]] | None = None  # a look ahead for 903.9b (replacements.ask_903_9b_first)
         # -- review (face-down ids) -- whether each card is face down in view (as the intent began, then after each of its moves)
         self.began: dict[str, bool] | None = {cid: down_public(c) for cid, c in self.state.cards.items()}
+        self.discarding = False  # -- optional replacements (wave 110C) -- an effect's discard move is being made
         self.cycling_card: str | None = None  # CR 702.29c: the card being discarded to pay cycling
         self.put_via: str | None = None  # -- trigger other (wave 51E) -- the object whose effect is putting cards onto the battlefield now (Entry.via)
         self.cause110g: str | None = None  # -- wave 110G -- controller of the spell or ability being resolved (stamps zone changes)
