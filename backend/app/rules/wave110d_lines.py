@@ -155,6 +155,8 @@ def attack_me_next_turn(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 _KYTHEON = "At end of combat, if ~ and at least two other creatures attacked this combat, exile ~, then return it to the battlefield transformed under its owner's control."
 _CANT_DRAW = " If you can't, draw a card."
+_CAPRI = ("{2}: Put a +1/+1 counter on ~, then you may reselect which player ~ is attacking. "
+          "Only the player ~ is attacking may activate this ability and only during the declare attackers step.")
 
 
 def draw_if_none(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
@@ -200,6 +202,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             conds = [{"value": {"count": k}, "op": ">=", "n": 1} for k in one]
             d["effects"] = [{"do": "only_if", "cond": c, "skip": 4 - i} for i, c in enumerate(conds)] + [{**d["effects"][0], "as": "kaldra110d"}]
             d["effects"].append({"do": "attach_to", "src": allk, "who": "ref:kaldra110d"})
+        return d
+    if text == _CAPRI:  # Capricopian: 602.2 the defending player activates it (so "you" is them), 508.7c they may reselect whom it attacks
+        d = scripts.define(replace(ability, text=text.replace(", then you may reselect which player ~ is attacking", "")), ch)
+        if d is not None:
+            d["effects"].append({"do": "attacker_reselect73", "mode": "self_player110d"})
         return d
     if text == _PYXIS:  # Pyxis of Pandemonium: 406.3 the cards turn face up in exile (public), then each permanent card enters under its owner's control (400.3)
         d = scripts.define(replace(ability, text="{7}, {T}, Sacrifice ~: Each player returns to the battlefield all cards they own exiled with ~."), ch)

@@ -26,6 +26,7 @@ class Reselection(BaseModel):
     pending: list[ObjectRef] = Field(default_factory=list)
     current: ObjectRef | None = None
     destinations: dict[str, ObjectRef] = Field(default_factory=dict)
+    players_only: bool = False  # -- (wave 110D) -- Capricopian: "which player this creature is attacking", never a planeswalker or battle
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
@@ -108,6 +109,11 @@ def effect(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 if card.is_attacking and card.controller != players[0]:
                     _apply(plan, card, players[0])
         return True
+    if e['mode'] == 'self_player110d':
+        me = plan.state.cards.get(ctx.get('source_card') or '')
+        refs = [ref for ref in [context.ref_of(plan, me.id) if me is not None and me.is_attacking and me.zone.endswith(':battlefield')
+                                and plan.in_game(me) else None] if ref is not None]
+        return ask(plan, Reselection(ctx=ctx, pending=refs, players_only=True))
     cards = (list(plan.state.cards.values()) if e['mode'] == 'all' else [plan.state.cards[cid] for cid in effects._cards(plan, ctx, 'target')])
     refs = [ref for card in cards if card.is_attacking and card.zone.endswith(':battlefield')
             and plan.in_game(card) and (ref := context.ref_of(plan, card.id)) is not None]
@@ -123,6 +129,8 @@ def ask(plan: Plan, data: Reselection) -> bool:
         if attacker is None:
             continue
         choices = destinations(plan, attacker)
+        if data.players_only:
+            choices = {key: ref for key, ref in choices.items() if ref is None}
         data.destinations = {key: ref for key, ref in choices.items() if ref is not None}
         options = [DecisionOption(id='decline', label='Keep current attack destination')]
         options += [DecisionOption(id=key, label=plan.name(key) if ref is None else plan.state.cards[key].name,
@@ -139,7 +147,7 @@ def resume(plan: Plan, decision: Any, chosen: list[str]) -> None:
     data = Reselection.model_validate(decision.resume['data'])
     attacker = _attacker(plan, data.current)
     key = chosen[0] if chosen else 'decline'
-    if attacker is not None and key != 'decline' and key in destinations(plan, attacker):
+    if attacker is not None and key != 'decline' and key in destinations(plan, attacker) and (not data.players_only or key in plan.live()):
         ref = data.destinations.get(key)
         if ref is None and key in plan.live() or ref is not None and context._same(plan, ref) is not None:
             _apply(plan, attacker, key)

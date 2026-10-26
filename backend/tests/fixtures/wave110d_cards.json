@@ -7169,5 +7169,69 @@
 "power": "3",
 "toughness": "3",
 "produced_mana": "[\"G\"]"
+},
+{
+"name": "Emblem of the Warmind",
+"layout": "normal",
+"mana_cost": "{1}{R}",
+"cmc": 2.0,
+"type_line": "Enchantment — Aura",
+"oracle_text": "Enchant creature you control\nCreatures you control have haste.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [
+"Enchant"
+]
+},
+{
+"name": "Hill Giant",
+"layout": "normal",
+"mana_cost": "{3}{R}",
+"cmc": 4.0,
+"type_line": "Creature — Giant",
+"oracle_text": "",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [],
+"power": "3",
+"toughness": "3"
+},
+{
+"name": "Pacifism",
+"layout": "normal",
+"mana_cost": "{1}{W}",
+"cmc": 2.0,
+"type_line": "Enchantment — Aura",
+"oracle_text": "Enchant creature\nEnchanted creature can't attack or block.",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": [
+"Enchant"
+]
+},
+{
+"name": "Bonesplitter",
+"layout": "normal",
+"mana_cost": "{1}",
+"cmc": 1.0,
+"type_line": "Artifact — Equipment",
+"oracle_text": "Equipped creature gets +2/+0.\nEquip {1}",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Equip"
+]
 }
 ]

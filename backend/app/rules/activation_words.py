@@ -25,6 +25,9 @@ if TYPE_CHECKING:
 
 ANY_PLAYER = "Any player may activate this ability."
 OPPONENTS_ONLY = "Only your opponents may activate this ability."
+# -- defending player (wave 110D) -- Capricopian, 602.2: only the player the creature attacks may activate (restrictions.problem checks who)
+DEFENDER = "Only the player this creature is attacking may activate this ability and only during the declare attackers step."
+DEFENDERS = (DEFENDER, DEFENDER.replace("this creature", "~"))  # (the card's own name or "this creature" reads as ~ in a definition)
 # -- activated sweep (wave 17B) -- "Any player may activate this ability but only as a sorcery / during their draw step." (Scandalmonger,
 # Well of Knowledge): the restriction is about the player who activates it (602.5)
 ANY_PLAYER_BUT = re.compile(r"^Any player may activate this ability but only (?P<rest>.+)\.$")
@@ -40,7 +43,7 @@ def any_player(ability: Any, cost: Any) -> bool:
     """Does this activated ability say any player may activate it (and cost nothing only its controller can pay)?"""
     text = ability.text.rstrip()
     return (ability.kind in ('activated', 'mana')
-            and (text.endswith(ANY_PLAYER) or ANY_PLAYER_BUT.search(text.split('. ')[-1]) is not None)
+            and (text.endswith(ANY_PLAYER) or text.endswith(DEFENDERS) or ANY_PLAYER_BUT.search(text.split('. ')[-1]) is not None)
             and not cost.tap and not cost.sacrifice_self and not cost.untap)
 
 
