@@ -23,26 +23,27 @@ function useRules() {
   return { view, rules: view.rules ?? null, me, isHost, seated: view.viewer !== "__spectator__" };
 }
 
-/** AUTO: FULL · RESP: AUTO · MANA: ASK — click for the automation settings. */
+/** "Automation: Full", "Responses: Auto" — click for the automation settings. */
 export function AutomationHud() {
   const ctx = useRules();
   const [open, setOpen] = useState(false);
   const [conceding, setConceding] = useState(false);
   if (!ctx) return null;
   const { view, rules, seated, me } = ctx;
-  const level = rules ? (rules.paused ? "PAUSED" : rules.automation.toUpperCase()) : "OFF";
+  const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+  const level = rules ? (rules.paused ? "Paused" : cap(rules.automation)) : "Off";
   const custom = rules?.preset === "custom" ? "*" : "";
   const prefs = rules?.prefs;
   return (
     <div className="auto-hud" data-testid="automation-hud">
       <button className={`auto-pill ${rules && !rules.paused ? "on" : ""}`} data-testid="auto-level" title="Automation settings" onClick={() => setOpen(!open)}>
-        AUTO: {level}{custom}
+        Automation: {level}{custom}
       </button>
       {rules && prefs && seated && (
         <>
-          <button className="auto-pill" data-testid="resp-mode" title="RESPONSE: when the engine stops for you (click to change)"
+          <button className="auto-pill" data-testid="resp-mode" title="When the engine stops to let you respond (click to change)"
             onClick={() => void setPrefs({ response: next(RESPONSE_CYCLE, prefs.response) })}>
-            RESP: {prefs.response.toUpperCase()}
+            Responses: {cap(prefs.response)}
           </button>
         </>
       )}
@@ -376,7 +377,7 @@ function PaymentPanel({ d, view }: { d: DecisionView; view: GameView }) {
           <div className="pay-row alt">{thumbs(info.alternatives, false)}</div>
         </>
       )}
-      <label className="check pay-always"><input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} /> Always auto-pay with the best sources (MANA: AUTO)</label>
+      <label className="check pay-always"><input type="checkbox" checked={always} onChange={(e) => setAlways(e.target.checked)} /> Always auto-pay with the best sources (mana: auto)</label>
       <div className="pay-actions">
         <button className="act-btn primary" data-testid="option-pay" onClick={pay}>Auto Pay</button>
         <button className="act-btn" data-testid="option-manual" onClick={() => void choose(d.id, ["manual"])}>Edit Payment</button>

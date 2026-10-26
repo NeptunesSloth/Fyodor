@@ -83,7 +83,7 @@ export function GameScreen() {
       <LogDrawer />
       <ToolTray />
       <SelectionBar />
-      <CardPreview />
+      <CardPreview skipHand={three} />
       <GameDialogs me={me} />
       <MulliganOverlay />
       <ResponseBar />

@@ -19,14 +19,14 @@ test("Automation FULL: HUD, RESPONSE toggle, play a land through the rules, pass
   const gameId = page.url().split("/game/")[1]!;
 
   // The HUD tells the table what the engine does; RESPONSE cycles OFF → AUTO → ON.
-  await expect(page.getByTestId("auto-level")).toHaveText("AUTO: FULL");
-  await expect(page.getByTestId("resp-mode")).toHaveText("RESP: AUTO");
+  await expect(page.getByTestId("auto-level")).toHaveText("Automation: Full");
+  await expect(page.getByTestId("resp-mode")).toHaveText("Responses: Auto");
   await page.getByTestId("resp-mode").click();
-  await expect(page.getByTestId("resp-mode")).toHaveText("RESP: ON");
+  await expect(page.getByTestId("resp-mode")).toHaveText("Responses: On");
   await page.getByTestId("resp-mode").click();
-  await expect(page.getByTestId("resp-mode")).toHaveText("RESP: OFF");
+  await expect(page.getByTestId("resp-mode")).toHaveText("Responses: Off");
   await page.getByTestId("resp-mode").click(); // back to AUTO: always stop in my first main phase
-  await expect(page.getByTestId("resp-mode")).toHaveText("RESP: AUTO");
+  await expect(page.getByTestId("resp-mode")).toHaveText("Responses: Auto");
   await expect(page.getByTestId("mana-mode")).toHaveCount(0); // players always tap their own mana
 
   // Pass to the first main phase with the priority bar.

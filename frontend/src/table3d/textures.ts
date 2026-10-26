@@ -340,9 +340,11 @@ export function textCardCanvas(card: CardData | undefined, face: number, fallbac
     g.textAlign = "left";
     px -= 38;
   }
-  // art window: a soft abstract wash in the card's colours
+  // art window: a soft wash, in the colour a basic land makes
+  const basic = type.match(/\b(Plains|Island|Swamp|Mountain|Forest)\b/)?.[1];
+  const wash = basic ? { Plains: "rgba(240, 225, 170, 0.8)", Island: "rgba(70, 130, 200, 0.8)", Swamp: "rgba(60, 45, 55, 0.85)", Mountain: "rgba(200, 80, 50, 0.8)", Forest: "rgba(60, 130, 70, 0.8)" }[basic]! : "rgba(0, 0, 0, 0.55)";
   const art = g.createLinearGradient(32, 100, W - 32, 330);
-  art.addColorStop(0, "rgba(0, 0, 0, 0.55)");
+  art.addColorStop(0, wash);
   art.addColorStop(1, "rgba(0, 0, 0, 0.15)");
   g.fillStyle = art;
   roundRect(g, 32, 100, W - 64, 230, 6);

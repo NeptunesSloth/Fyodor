@@ -66,16 +66,20 @@ function TextCard({ card, custom, face, className }: { card?: CardData | undefin
   const toughness = f?.toughness ?? card?.toughness ?? custom?.toughness;
   const loyalty = f?.loyalty ?? card?.loyalty;
   const colors = f?.colors ?? card?.colors ?? custom?.colors;
+  const land = /\bLand\b/.test(type ?? "");
+  // a basic land type tints the art window with the colour it makes
+  const basic = (type ?? "").match(/\b(Plains|Island|Swamp|Mountain|Forest)\b/)?.[1];
+  const wash = basic ? { Plains: "w", Island: "u", Swamp: "b", Mountain: "r", Forest: "g" }[basic] : null;
   return (
     <div className={`card-face ${className ?? ""}`}>
-      <div className={`text-card ${colorClass(colors)}`}>
+      <div className={`text-card ${land ? "col-l" : colorClass(colors)} ${wash ? `wash-${wash}` : ""}`}>
       <div className="tc-head">
         <span className="tc-name">{name}</span>
         <span className="tc-cost">
           <ManaText text={mana} />
         </span>
       </div>
-      <div className="tc-art" />
+      <div className="tc-art" data-initial={name.slice(0, 1).toUpperCase()} aria-hidden />
       <div className="tc-type">{type}</div>
       <div className="tc-text">
         {(text ?? "").split("\n").map((line, i) => (

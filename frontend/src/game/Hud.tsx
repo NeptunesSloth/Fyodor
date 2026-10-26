@@ -13,8 +13,10 @@ import { EFFECT_PRESETS } from "./marksMenu";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
 
 /** Large card preview that floats at the edge of the table while you hover a card. */
-export function CardPreview() {
+/** skipHand: on the 3D table a hovered hand card already lifts out of the fan at full size. */
+export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   const hover = useGame((s) => s.hover);
+  const inHand = useGame((s) => !!s.hover && !!s.view?.cards[s.hover]?.zone.endsWith(":hand"));
   const side = useRef<"left" | "right">("right");
   const [pos, setPos] = useState<"left" | "right">("right");
   useEffect(() => {
@@ -29,7 +31,7 @@ export function CardPreview() {
     return () => window.removeEventListener("pointermove", onMove);
   }, []);
   const stackBusy = useGame((s) => (s.view?.stack.length ?? 0) > 0);
-  if (!hover) return null;
+  if (!hover || (skipHand && inHand)) return null;
   // keep clear of the stack widget (top-right) while something is on the stack
   const place = stackBusy ? "left" : pos;
   return (
