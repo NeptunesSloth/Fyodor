@@ -398,3 +398,25 @@ _BUILD["At the beginning of your upkeep, if this card is exiled with a scream co
     "At the beginning of your upkeep, return all creature cards from all graveyards to the battlefield under their owners' control.",
     lambda d: {**d, "trigger": "step:upkeep:you", "exiled_step": True, "if": {"value": {"counters": SCREAM, "on": "self"}, "op": ">=", "n": 1},
                "effects": [{"do": "scream_tick110j"}, *d["effects"]]})
+
+
+def _livio_exile(d: Def) -> Def:
+    """The target creature's controller decides (608.2d): a yes/no question to them, then the exile with the counter."""
+    return {**d, "effects": [{"do": "optional_payment", "who": "tp:0", "ask": "Exile it with an aegis counter on it?", "cost": "", "bind": "aegis110j"},
+                             {"do": "only_if", "cond": {"succeeded": "aegis110j"}, "skip": 2}, *d["effects"]]}
+
+
+_BUILD["{1}{W}: Choose another target creature. Its controller may exile it with an aegis counter on it."] = (
+    "{1}{W}: Exile another target creature. Put an aegis counter on it.", _livio_exile)
+
+
+def _livio_return(d: Def) -> Def:
+    from app.rules import selectors
+
+    sel = selectors.parse("card in exile with an aegis counter on it")
+    assert sel is not None
+    return {**d, "effects": [{**e, "who": sel.key()} if e.get("do") == "return_card" else e for e in d["effects"]]}
+
+
+_BUILD["{2}{W}, {T}: Return all exiled cards with aegis counters on them to the battlefield under their owners' control."] = (
+    "{2}{W}, {T}: Return all cards from exile to the battlefield under their owners' control.", _livio_return)

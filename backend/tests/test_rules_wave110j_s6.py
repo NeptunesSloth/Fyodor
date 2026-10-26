@@ -286,3 +286,51 @@ def test_churning_reservoir_ignores_a_permanent_without_an_oil_counter_dying(car
     mana(s, C=2)
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=res.id, ability=ability(s, res, "{2}, {T}"))
+
+
+LIVIO = "Livio, Oathsworn Sentinel"
+
+
+def _aegis(s, target, yes):
+    """Livio's first ability on ``target``: the creature's controller gets the question (608.2d)."""
+    livio = next(c for c in s.state.cards.values() if c.name == LIVIO)
+    mana(s, W=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=livio.id, ability=ability(s, livio, "{1}{W}"), targets=[target.id])
+    for _ in range(5):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == s.state.cards[target.id].controller
+    pick = next(o.id for o in d.options if o.id == ("yes" if yes else "no") or o.label.lower().startswith("yes" if yes else "no"))
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+    settle(s)
+
+
+@pytest.mark.parametrize("yes", [True, False])
+def test_livio_lets_the_creatures_controller_choose_to_exile_it_with_an_aegis_counter(cards, yes):
+    assert full(LIVIO)
+    s = build(cards, [LIVIO, "Grizzly Bears"], ["Grizzly Bears"])
+    put_new(s, LIVIO)
+    theirs = put_new(s, "Grizzly Bears", "p2")
+    _aegis(s, theirs, yes)
+    if yes:
+        assert now(s, theirs).zone == "p2:exile" and now(s, theirs).counters == {"aegis": 1}
+    else:
+        assert now(s, theirs).zone == "p2:battlefield" and not now(s, theirs).counters
+    check(s)
+
+
+def test_livio_returns_every_exiled_card_with_an_aegis_counter_under_its_owners_control(cards):
+    s = build(cards, [LIVIO, "Grizzly Bears", "Llanowar Elves"], ["Grizzly Bears"])
+    livio = put_new(s, LIVIO)
+    s.state.rules.controlled_since[livio.id].turn = 0
+    mine, theirs, plain = put_new(s, "Grizzly Bears", "p1"), put_new(s, "Grizzly Bears", "p2"), put_new(s, "Llanowar Elves", "p1")
+    _aegis(s, mine, True)
+    _aegis(s, theirs, True)
+    act(s, "p1", type="move", card_ids=[plain.id], to={"zone": "exile"})  # exiled, but with no aegis counter
+    mana(s, W=1, C=2)
+    activate(s, livio, "{2}{W}, {T}")
+    assert now(s, mine).zone == "p1:battlefield" and now(s, theirs).zone == "p2:battlefield" and now(s, plain).zone == "p1:exile"
+    assert not now(s, mine).counters and not now(s, theirs).counters
+    check(s)
