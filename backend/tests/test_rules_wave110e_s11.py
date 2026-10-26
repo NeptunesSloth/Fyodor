@@ -24,6 +24,8 @@ STORY = real("Storyweave", "{2}{G}", 3, "Instant", "Choose one \u2014\n\u2022 Pu
              "each enters with two additional +1/+1 counters on it.", None, "G")
 SAGA = real("Test Saga", "{1}{G}", 2, "Enchantment \u2014 Saga", "I \u2014 You gain 1 life.\nII \u2014 You gain 1 life.\nIII \u2014 You gain 1 life.", None, "G")
 RALLY = real("Test Rally", "{W}", 1, "Sorcery", "Return all creature cards from your graveyard to the battlefield.", None, "W")
+RADIATE = real("Radiate", "{3}{R}{R}", 5, "Instant", "Choose target instant or sorcery spell that targets only a single permanent or player. Copy that spell for each other permanent "
+               "or player the spell could target. Each copy targets a different one of those permanents and players.", None, "R")
 SPIRIT = real("Test Spirit", "{1}{W}", 2, "Enchantment Creature \u2014 Spirit", "", ("1", "1"), "W")
 GIANT = real("Test Giant", "{4}{G}", 5, "Creature — Giant", "", ("0", "9"), "G")
 RAPTOR = real("Test Raptor", "{2}{R}", 3, "Creature — Dinosaur", "", ("3", "2"), "R")
@@ -31,11 +33,11 @@ _REAL = json.loads((Path(__file__).parent / "fixtures" / "wave110e_cards.json").
 FEUD = real("Bitter Feud", "{4}{R}", 5, "Enchantment", "As this enchantment enters, choose two players.\nIf a source controlled by one of the chosen players would deal "
             "damage to the other chosen player or a permanent that player controls, that source deals double that damage to that player or permanent instead.", None, "R")
 BOLT = real("Test Bolt", "{R}", 1, "Instant", "Test Bolt deals 3 damage to any target.", None, "R")
-base.EXTRA.extend([THROWDOWN, BEAR, BOON, RAPTOR, GIANT, STORY, SAGA, SPIRIT, RALLY, FEUD, BOLT, *(card(c["name"], set_code="w110e", number=f"E{i:03d}", **{k: v for k, v in c.items() if k != "name"})
+base.EXTRA.extend([THROWDOWN, BEAR, BOON, RAPTOR, GIANT, STORY, SAGA, SPIRIT, RALLY, RADIATE, FEUD, BOLT, *(card(c["name"], set_code="w110e", number=f"E{i:03d}", **{k: v for k, v in c.items() if k != "name"})
                                                     for i, c in enumerate(_REAL))])
 
 
-@pytest.mark.parametrize("name", ["Lethal Throwdown", "Bitter Feud", "Storyweave", "Saheeli's Lattice // Mastercraft Raptor"])
+@pytest.mark.parametrize("name", ["Lethal Throwdown", "Bitter Feud", "Radiate", "Storyweave", "Saheeli's Lattice // Mastercraft Raptor"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -156,4 +158,23 @@ def test_storyweave_second_mode_arms_one_batch_of_enchantment_creatures(cards):
     cast(s, "Test Spirit")
     answer(s)
     assert _counters(s, spirits[2]) == 0
+    check(s)
+
+
+def test_radiate_copies_the_spell_for_each_other_permanent_or_player(cards):
+    """707.10d: Bolt targets Bob; Radiate copies it for every other player and permanent it could target (Alice, Carol, both Giants): each copy hits a different one."""
+    s = _three(cards, ["Test Bolt", "Radiate", "Test Giant", "Test Giant"])
+    mine = put(s, "Test Giant")
+    theirs = put(s, "Test Giant", "p2")
+    before = {p: s.state.players[p].life for p in ("p1", "p2", "p3")}
+    act(s, "p1", type="set_stops", own=["main1"], others=["main1"], smart_pass=False, hold_priority=True)  # (Alice keeps priority after casting, to respond)
+    radiate = to_hand(s, "Radiate")
+    mana(s, R=3, C=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Bolt").id, targets=["p2"])
+    bolt = s.state.cards[s.state.zones["stack"][-1]]
+    act(s, "p1", type="cast_spell", card_id=radiate.id, targets=[bolt.id])
+    answer(s)
+    lost = {p: before[p] - s.state.players[p].life for p in before}
+    assert lost == {"p1": 3, "p2": 3, "p3": 3}
+    assert s.state.cards[mine.id].damage == 3 and s.state.cards[theirs.id].damage == 3
     check(s)

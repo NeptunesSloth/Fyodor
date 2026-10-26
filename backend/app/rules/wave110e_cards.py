@@ -35,6 +35,8 @@ _REWRITE: dict[str, str] = {
 }
 _EMBIGGEN = ("Embiggen Fist — Whenever you cast a spell that targets a creature you control, draw a card. "
              "Until end of turn, Ms. Marvel gains \"Ms. Marvel's base power is equal to the number of cards in your hand.\"")
+_RADIATE = ("Choose target instant or sorcery spell that targets only a single permanent or player. Copy that spell for each other permanent or player "
+            "the spell could target. Each copy targets a different one of those permanents and players.")
 _STORYWEAVE = ("Put two lore counters on target Saga you control. The next time one or more enchantment creatures you control enter this turn, "
                "each enters with two additional +1/+1 counters on it.")
 _CULPRIT = "Exile any number of face-up creatures you control with disguise in a face-down pile, shuffle that pile, then cloak them."
@@ -383,6 +385,11 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
         if put is None or put[0][0].get("do") != "put_from_hand":
             return None
         return [{"do": "aura_swap_gate110e", "skip": 2}, {**put[0][0], "optional": True, "as": "sw110e"}, {"do": "aura_swap_return110e", "of": "ref:sw110e"}], None, False
+    if body.strip() == _RADIATE:  # 707.10d: the copies; the target spell's own restriction is read by selectors (targets_only)
+        from app.rules import scripts
+
+        first = scripts.parse_effects("Copy target instant or sorcery spell that targets only a single permanent or player.")
+        return None if first is None or first[0][0].get("do") != "copy_spell" else ([{"do": "radiate110e"}], first[1], first[2])
     if body.strip() == _STORYWEAVE:  # 614.1c: the lore counters natively, then a one-shot entry rider
         from app.rules import scripts
 

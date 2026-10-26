@@ -34,3 +34,39 @@ def spend(plan: Plan, entered: list[str]) -> None:
 
 
 PRIMITIVES: dict[str, Any] = {"next_entry_counters110e": arm}
+
+
+def radiate(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Radiate: 707.10d, a copy of the targeted spell for each other permanent or player it could target (every "target" legal), each copy targeting that one (the stack_extension103 spread)."""
+    from app.rules import copying, spell_copy_replacements, targets
+
+    found = next(iter(copying._copy_sources(plan, ctx, "target")), None)
+    if found is None:
+        return True  # the target spell is gone: Radiate does nothing (608.2b)
+    source, oid = found
+    card = plan.state.cards.get(source)
+    entry = copying.source_entry102(plan, card, oid) if card is not None else None
+    if card is None or entry is None or not copying.positions(entry):
+        return True
+    reason = copying.uncopyable(plan, card, object_id=oid)
+    if reason is not None:
+        return True if not reason else copying._manual_each(plan, ctx, ctx["controller"], card)
+    pos = copying.positions(entry)
+    old = {t.id for t in entry.targets}
+    caster = entry.controller
+    source_ch = targets.source_of(plan, source, True, object_id=oid)
+    victims = []
+    for cid in [*plan.live(), *(c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield"))]:
+        if cid in old or any(cid not in targets.legal_targets(plan, copying._spec(entry, p).get("what", "any"), caster, source_ch, source, source_object=oid) for p in pos):
+            continue
+        probe = copying._retargeted(entry, pos, [targets.ref(plan, cid)] * len(pos))
+        probe.controller = caster
+        if copying._problem(plan, probe) is None:
+            victims.append(cid)
+    if not victims:
+        return True
+    return copying._each_run(plan, {"ctx": ctx, "spell": source, "oid": oid, "controller": ctx["controller"], "victims": victims,
+                                    "additional": spell_copy_replacements.additional(plan, ctx["controller"])})
+
+
+PRIMITIVES["radiate110e"] = radiate
