@@ -631,6 +631,16 @@ def resume_bauble(plan: Plan, decision: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, decision.resume["ctx"])
 
 
+def note_exiled(plan: Plan, ctx: Context, cards: list[str]) -> None:
+    """Hero of Bretagard: a spell or ability ``ctx['controller']`` controls exiled these permanents from the battlefield; one event for the batch (603.2c)."""
+    from app.game.rules_state import Event
+
+    n = sum(1 for c in cards if (k := plan.state.cards.get(c)) is None or k.zone.endswith(":exile"))
+    if n:
+        r = plan.rules
+        r.events.append(Event(batch=r.batch, kind="designation", turn=plan.state.turn.number, counter="exiled110i", player=ctx["controller"], amount=n))
+
+
 def transform_attach(plan: Plan, card: Any) -> None:
     """Curse of Leeches: as it turns over into the Aura face, its controller attaches it to a player (303.4f; a replacement-like step, not a trigger).
     The decision stands before state-based actions (704.5m would put an unattached Aura into the graveyard)."""

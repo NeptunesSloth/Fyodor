@@ -261,6 +261,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
             ch = plan.ch(card)
             return [("transform", card, ch, card.controller, {"oid": e.object_id, "face_name": ch.name})]
         return []
+    if e.counter == "exiled110i" and e.player:  # -- cards (wave 110I) -- a spell or ability exiled permanents (effects.exile_cards)
+        return [("exiled_perm110i", None, None, e.player, {"amount": e.amount})]
     if e.counter == "destroyed" and e.card:  # -- destroy events (wave 45C) -- 701.8: the permanent as it last existed on the battlefield (603.10a)
         from app.rules import triggers
 

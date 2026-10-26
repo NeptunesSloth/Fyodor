@@ -793,6 +793,11 @@ def _parse(c: str) -> Condition | None:
     # -- counters (wave 21D) -- "one or more cards are put into exile [from your graveyard / your hand / your library and/or your
     # graveyard]" (Rakshasa Vizier, Laelia), "… into a library from anywhere" (Dutiful Knowledge Seeker): a card (never a token,
     # 111.7) put there, as it is there (603.6c); "during your turn" is the generic qualifier
+    # -- cards (wave 110I) -- Hero of Bretagard: "<exile from your hand> or a spell or ability you control exiles one or more permanents from the battlefield"
+    # (effects.exile_cards records the second as a ``designation`` "exiled110i": the player whose spell or ability exiled them, and how many)
+    m = re.fullmatch(r"(?P<a>one or more cards are put into exile from your hand) or a spell or ability you control exiles one or more permanents from the battlefield", c)
+    if m and (half := _parse(m["a"])) is not None:
+        return {"event": "either", "subject": "sel", "counter_union": True, "conds": [half, {"event": "exiled_perm110i", "subject": "player", "player": "you", "aggregate": True}]}
     m = re.fullmatch(r"(?P<o>one or more (?:.+? )?cards|an? .+? card|a card) (?:is|are) put into (?P<z>exile|a library)"
                      r"(?: from (?P<f>your graveyard|your hand|your library and/or your graveyard|graveyards and/or the battlefield|anywhere))?", c)
     if m and (m["z"] == "exile" or m["f"] == "anywhere"):

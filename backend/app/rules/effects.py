@@ -1121,8 +1121,10 @@ def _from_zone(plan: Plan, e: dict[str, Any], cards: list[str]) -> list[str]:
 def exile_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
     before = _remember(plan, ctx, e, cards)
     if cards:
+        on_bf = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]  # -- cards (wave 110I) --
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"},
                  **({'face_down': True, 'blind': bool(e.get('blind'))} if e.get('face_down') else {})}, actor=ctx["controller"])
+        _wave110i_cards.note_exiled(plan, ctx, on_bf)
     if e.get("link"):  # -- exiled with (wave 6D) -- 607.2a: what the linked ability will refer to
         from app.rules import exiled_with
 
@@ -2148,7 +2150,9 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 def _exile_until_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
     before = _remember(plan, ctx, e, cards)
     if cards:
+        on_bf = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
         plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=ctx["controller"])
+        _wave110i_cards.note_exiled(plan, ctx, on_bf)  # -- cards (wave 110I) --
         key = ctx["source_object"]
         exiled = [plan.oid(c) for c in _merged.pieces(plan, cards)  # (review (wave 18D): each card of a merged permanent, 730.3c)
                   if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]

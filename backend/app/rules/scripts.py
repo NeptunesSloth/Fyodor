@@ -8323,7 +8323,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # tokens created … the number of them (603.2c)
 _AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "pay_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "counters_removed", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
-                  "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library",
+                  "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library", "exiled_perm110i",
                   "roll_die"}  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
 
 

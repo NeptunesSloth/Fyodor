@@ -7,14 +7,14 @@ from __future__ import annotations
 
 import pytest
 
-from tests.fixtures.cards import card
-from tests.game_helpers import act
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
-from tests.fixtures.cards import fixture_cards
-from tests.test_rules_designations import REAL, build, find, put, resolve, roundtrip
+from tests.fixtures.cards import card, fixture_cards
+from tests.game_helpers import act
+from tests.test_rules_designations import REAL, build, put, resolve, roundtrip
 from tests.test_rules_effects import mana, run_until
+from tests.test_rules_wave12a_counters_keywords import real
 
 CURSE = ("Enchant player\nAs this permanent transforms into Curse of Leeches, attach it to a player.\nAt the beginning of enchanted player's upkeep, "
          "they lose 1 life and you gain 1 life.\nDaybound (If a player casts no spells during their own turn, it becomes night next turn.)")
@@ -25,6 +25,13 @@ EXTRA = [card("Curse of Leeches // Leeching Lurker", set_code="tst", number="L1"
                           {"object": "card_face", "name": "Leeching Lurker", "mana_cost": "", "type_line": "Creature — Leech Horror", "oracle_text": LURKER,
                            "power": "2", "toughness": "2", "colors": ["B"]}])]
 NAME = EXTRA[0]["name"]
+HERO = ("Whenever one or more cards are put into exile from your hand or a spell or ability you control exiles one or more permanents from the battlefield, "
+        "put that many +1/+1 counters on this creature.\nAs long as this creature has five or more counters on it, it has flying and is an Angel in addition to its "
+        "other types.\nAs long as this creature has ten or more counters on it, it has indestructible and is a God in addition to its other types.")
+EXTRA += [real("Hero of Bretagard", "{2}{W}", 3, "Creature \u2014 Human Warrior", HERO, ("1", "1"), "W"),
+          real("Swords to Plowshares", "{W}", 1, "Instant", "Exile target creature. Its controller gains life equal to its power.", None, "W"),
+          real("Ignorant Bliss", "{1}{R}", 2, "Instant", "Exile all cards from your hand face down. At the beginning of the next end step, return those cards to your hand, then draw a card.", None, "R"),
+          real("Probe Bear", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G")]
 
 
 @pytest.fixture()
@@ -63,4 +70,40 @@ def test_curse_of_leeches(cards, target):
     c = s.state.cards[curse.id]
     assert s.state.table.day_night == "day" and c.face == 0 and c.zone == "p1:battlefield" and c.attached_player == target
     roundtrip(s)
+    check(s)
+
+
+def test_hero_of_bretagard(cards):
+    """603.2c: one trigger per batch, that many counters: Swords to Plowshares (your spell) on any creature, Ignorant Bliss exiling your hand at once;
+    a permanent moved to exile by hand (no spell or ability of yours) adds none."""
+    from tests.wave9c_kit import build as kit_build
+    from tests.wave9c_kit import cast as kit_cast
+    from tests.wave9c_kit import check, life
+    from tests.wave9c_kit import mana as kit_mana
+    from tests.wave9c_kit import put as kit_put
+    from tests.wave9c_kit import to_hand as kit_to_hand
+    from tests.wave110a_kit import answer
+
+    s = kit_build(cards, ["Hero of Bretagard", "Swords to Plowshares", "Probe Bear", "Ignorant Bliss"], ["Probe Bear"])
+    hero = kit_put(s, "Hero of Bretagard")
+    theirs = kit_put(s, "Probe Bear", "p2")
+
+    def counters():
+        return s.state.cards[hero.id].counters.get("+1/+1", 0)
+
+    act(s, "p1", type="move", card_ids=[theirs.id], to={"player": "p2", "zone": "exile"})
+    assert counters() == 0  # moved by hand: no spell or ability
+    other = kit_put(s, "Probe Bear")
+    kit_to_hand(s, "Swords to Plowshares")
+    kit_mana(s, W=1)
+    kit_cast(s, "Swords to Plowshares", targets=[other.id])
+    answer(s)
+    assert counters() == 1 and s.state.cards[other.id].zone.endswith(":exile") and life(s, "p1") == 42
+    kit_to_hand(s, "Ignorant Bliss")
+    act(s, "p1", type="move", card_ids=s.state.zones["p1:library"][:2], to={"player": "p1", "zone": "hand"})
+    n = len(s.state.zones["p1:hand"]) - 1  # every other card in hand is exiled at once: one trigger for the batch
+    kit_mana(s, R=1, C=1)
+    kit_cast(s, "Ignorant Bliss")
+    answer(s)
+    assert n == 2 and counters() == 1 + n
     check(s)
