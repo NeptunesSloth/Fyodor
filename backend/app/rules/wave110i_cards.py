@@ -142,6 +142,12 @@ def _bauble(d: Def) -> Def:
     return {**d, "targets": [t], "effects": [{"do": "bauble110i", "who": "target:0"}, d["effects"][0]]}
 
 
+def _stardew(d: Def) -> Def:
+    """Stardew Valley: the player chosen on resolution (not a target) is asked whether to gain control of the permanent (608.2d: "may" is theirs)."""
+    return {**d, "effects": [{"do": "each_may", "who": e["to"], "act": [{"do": "gain_control", "who": "target", "to": "you"}], "text": "gain control of that permanent"}
+                             if e.get("do") == "gain_control" else e for e in d["effects"]]}
+
+
 def _arcee(d: Def) -> Def:
     """Arcee: "that many" = the spell's targets that are creatures or Vehicles you control (115.9b: as they are when the trigger checks), counted by ``cast_targets``."""
     return {**d, "effects": [{**x, "n": {"cast_targets110i": d["cond"]["targets"]}} if x.get("do") == "add_counters" else x for x in d["effects"]]}
@@ -374,6 +380,8 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
         ("At the beginning of your upkeep, this enchantment deals X damage to target player or planeswalker and each creature that player or "
          "that planeswalker's controller controls, where X is twice the number of age counters on this enchantment minus 2.", _heart),
     _WARP: ("Warp-Strike \u2014 {3}: Exile Noctis. Return it to the battlefield under its owner's control at the beginning of that player's next end step.", _warp_strike),
+    "{3}, {T}: Choose target permanent you control. Draw a card, then another player of your choice may gain control of that permanent. Activate only as a sorcery.":
+        ("{3}, {T}: Choose target permanent you control. Draw a card. Choose an opponent. That player gains control of that permanent. Activate only as a sorcery.", _stardew),
     _BAUBLE: ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land cards from your graveyard on top of your library in any order.", _bauble),
     _VAT: (_VAT.replace(" with total mana value less than or equal to the sacrificed artifact's mana value", ""), _total_sacrificed),
     "If you would begin your draw step, you may skip that step instead. If you do, you gain 2 life.": ("Skip your draw step.", _fasting),

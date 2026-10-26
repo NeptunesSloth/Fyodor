@@ -17,6 +17,7 @@ from tests.wave110c_kit import make_db
 EXTRA = [real("Awesome Presence", "{U}", 1, "Enchantment \u2014 Aura", "Enchant creature\nEnchanted creature can't be blocked unless defending player pays {3} for each creature they control that's blocking it.", None, "U"),
          real("Hill Giant", "{3}{R}", 4, "Creature \u2014 Giant", "", ("3", "3"), "R"),
          real("Providence", "{5}{W}{W}", 7, "Sorcery", "You may reveal this card from your opening hand. If you do, at the beginning of the first upkeep, your life total becomes 26.\nYour life total becomes 26.", None, "W"),
+         real("Stardew Valley", "", 0, "Land", "{T}: Add {C}.\n{2}, {T}, Tap an untapped creature you control: Create a Food token.\n{3}, {T}: Choose target permanent you control. Draw a card, then another player of your choice may gain control of that permanent. Activate only as a sorcery.", None, ""),
          real("Hipparion", "{1}{G}", 2, "Creature \u2014 Horse", "This creature can't block creatures with power 3 or greater unless you pay {1}.", ("1", "3"), "G")]
 
 
@@ -72,4 +73,31 @@ def test_providence_cast(cards):
     cast(s, "Providence")
     answer(s)
     assert life(s, "p1") == 26 and life(s, "p2") == 40
+    check(s)
+
+
+@pytest.mark.parametrize("take", [True, False])
+def test_stardew_valley(cards, take):
+    """608.2d: the chosen other player (not a target) decides whether to gain control (110.2: of the permanent, 701.12 style change of control)."""
+    from tests.test_rules_wave34b_activated import activate
+    from tests.wave9c_kit import build, check, mana
+    from tests.wave9c_kit import put as put_perm
+
+    s = build(cards, ["Stardew Valley", "Hill Giant"])
+    valley = put_perm(s, "Stardew Valley")
+    giant = put_perm(s, "Hill Giant")
+    mana(s, C=3)
+    hand = len(s.state.zones["p1:hand"])
+    activate(s, "p1", valley, "Choose target", targets=[giant.id], target_counts=[1])
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[ids[0] if (d.player == "p1" or take) else ids[-1]])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert len(s.state.zones["p1:hand"]) == hand + 1
+    assert s.state.cards[giant.id].controller == ("p2" if take else "p1")
     check(s)
