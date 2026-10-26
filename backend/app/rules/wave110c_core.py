@@ -8,7 +8,7 @@ import copy
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from app.rules import wave110c_any, wave110c_misc
+from app.rules import wave110c_any, wave110c_last, wave110c_misc
 from app.rules.wave110c_any import _FLOURISH
 
 if TYPE_CHECKING:
@@ -216,6 +216,8 @@ def corrupt_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    wave110c_last.TRESPASSER: wave110c_last.trespasser,  # -- Trespasser (wave 110C) --
+    wave110c_last.TRESPASSER.replace("This creature", "~"): wave110c_last.trespasser,
     wave110c_misc.FINALE_TEXT: wave110c_misc.finale_of_promise,  # -- Finale of Promise (wave 110C) --
     wave110c_misc.WARP_WORLD: wave110c_misc.warp_world,  # -- Warp World (wave 110C) --
     "Move all +1/+1 counters from target land you control onto target creature. If one or more +1/+1 counters are moved this way, you gain that much life and draw a card.":
@@ -324,7 +326,7 @@ _ADVENTURER = {
 
 
 def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
-    from app.rules import wave110c_kusari, wave110c_last, wave110c_lose, wave110c_tevesh
+    from app.rules import wave110c_kusari, wave110c_lose, wave110c_tevesh
 
     if (last := wave110c_last.definition(ability, ch)) is not None:  # Torrent Elemental
         return last

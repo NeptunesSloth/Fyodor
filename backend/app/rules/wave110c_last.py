@@ -13,6 +13,18 @@ if TYPE_CHECKING:
 _TORRENT = "{3}{B/G}{B/G}: Put this card from exile onto the battlefield tapped. Activate only as a sorcery."
 
 
+TRESPASSER = "This creature gets +1/+0 until end of turn for each name sticker on it. It can't be blocked this turn."
+
+
+def trespasser() -> Any:
+    """123.2: +1/+0 for each name sticker on the creature (values: ``name_stickers110c``), then the unblockable rider."""
+    from app.rules import wave110c_core
+
+    effects, target, optional = wave110c_core.read("~ gets +1/+0 until end of turn. It can't be blocked this turn.")
+    effects[0]["p"] = {"name_stickers110c": True}
+    return effects, target, optional
+
+
 _MONUMENT = "{3}: This artifact becomes a 9/9 Phyrexian Construct artifact creature, loses all abilities, and gains indestructible and toxic 9. Activate only if there are nine or more lands with different names among the basic, Sphere, and Locus lands you control."
 _NINE = "there are nine or more lands with different names among the basic, Sphere, and Locus lands you control"
 

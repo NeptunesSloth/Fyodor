@@ -679,6 +679,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import sticker_riders102
 
         return sticker_riders102.vowels(ctx, v)
+    if isinstance(v, dict) and v.get('name_stickers110c'):  # -- (wave 110C) -- "for each name sticker on it" (Trespasser): the source's own name stickers
+        src = plan.state.cards.get(ctx.get('source_card') or '')
+        return sum(p.sticker.kind == 'name' for p in src.stickers101) if src is not None else 0
     if isinstance(v, dict) and v.get('sticker_art_count101'):
         me = ctx['controller']
         return sum(any(p.sticker.kind == 'art' for p in c.stickers101) for c in plan.state.cards.values()
