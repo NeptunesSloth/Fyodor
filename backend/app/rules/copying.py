@@ -670,6 +670,8 @@ def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[C
     add_copy_effect(plan, [oid], recipe, controller)
     if entry is not None:
         r.stack[copy_id] = _entry_copy(entry, controller=controller, source=(copy_id, oid), orig=orig_oid)
+    if orig_oid in r.chosen_players:  # (wave 110F) 707.10: the copy has the same chosen player (the opponent who chose the modes, 700.2e)
+        r.chosen_players[oid] = r.chosen_players[orig_oid]
     _payment_alias(plan, orig_oid, oid, copy_id, controller, saved=saved)
     payload: dict[str, Any] = {"type": "set_stack_info", "card_id": copy_id,
                                "tags": ["Copy", *(t for t in (info.tags if info else []) if t.startswith(("Kicked", "Evoked")))]}
@@ -1511,6 +1513,10 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     the own one last, so it wins when used and otherwise the Essence copy stays (declined, or nothing to copy)."""
     if _entering(plan, card, controller, answers, out):
         return True
+    from app.rules import wave110b_mirror  # -- Mystic Reflection (wave 110B) --
+
+    wave110b_mirror.apply(plan, [(card, controller)])
+    wave110b_mirror.late(plan, card, controller)
     from app.rules import wave110f_cards
 
     wave110f_cards.copy_on_entry(plan, card, controller)
@@ -1672,6 +1678,10 @@ def become_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     duration: Literal["end_of_turn", "permanent", "next_turn"] = "end_of_turn" if e.get("duration") == "end_of_turn" \
         else "next_turn" if e.get("duration") == "next_turn" else "permanent"  # (wave 31C: 500.4 "until your next turn")
     add_copy_effect(plan, [plan.oid(c) for c in who], recipe, ctx["controller"], duration=duration)
+    if e.get("duration") == "while_attached110l" and (src110l := plan.state.cards.get(ctx.get("source_card") or "")) is not None:
+        # -- (wave 110L) -- "for as long as this Equipment remains attached to it" (611.2b): ends with the attachment (delayed.expire)
+        made = plan.rules.effects[-1]
+        made.duration, made.source_card, made.source = "while_attached110l", src110l.id, plan.oid(src110l)
     plan.note(f"{', '.join(plan.state.cards[c].name for c in who)} becomes a copy of {recipe.source or 'it'}"
               + {"end_of_turn": " until end of turn", "next_turn": " until your next turn"}.get(duration, ""), who, actor=ctx["controller"])
     return True
@@ -2191,7 +2201,10 @@ def define_static(text: str) -> dict[str, Any] | None:
     what = what.removesuffix(_MV_SPENT_TEXT).removesuffix(" on the battlefield")
     sel = selectors.parse(what)
     # (wave 24A: or a card in a graveyard — "any creature card in a graveyard", Body Double: public, its printed values, 707.2)
-    if sel is None or sel.player is not None or sel.other or sel.zones not in (("battlefield",), ("graveyard",)) \
+    master110k = what.removeprefix("a ") == "creature card in exile with a takeover counter on it"  # -- (wave 110K) -- The Master, Formed Anew: the cards its Body Thief exiled
+    if master110k and sel is not None and sel.zones == ("exile",) and sel.card:
+        pass
+    elif sel is None or sel.player is not None or sel.other or sel.zones not in (("battlefield",), ("graveyard",)) \
             or sel.card != (sel.zones == ("graveyard",)):
         return None
     # -- enter as copy (wave 5F) -- any permanent ("nonland permanent", "artifact or enchantment", "Equipment"): an Aura

@@ -16,7 +16,7 @@ from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption, note_block
 from app.game.state import CardInstance, GameState, zone_key
-from app.rules import banding, protection, replace, scripts, selectors, wave110a_choosers
+from app.rules import banding, protection, replace, scripts, selectors, wave110a_choosers, wave110f_cards
 from app.rules import characteristics as chars
 from app.rules import mana as M
 from app.rules.casting import summoning_sick
@@ -31,7 +31,7 @@ Round = Literal["only", "first", "second"]
 
 
 # -- legality -------------------------------------------------------------------------
-def attack_problem(state: GameState, card: CardInstance, ch: Characteristics) -> str | None:
+def attack_problem(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None = None) -> str | None:
     if not card.zone.endswith(":battlefield") or not ch.is_creature:
         return "Only creatures on the battlefield can attack"
     if card.controller != state.turn.active_player:
@@ -56,7 +56,12 @@ def attack_problem(state: GameState, card: CardInstance, ch: Characteristics) ->
     if state.rules is not None and any(e[0] == state.turn.number and e[1] == card.controller and state.rules.object_id(card.id) not in e[2] for e in state.rules.attack_piles):
         return f"{ch.name} is not in the pile chosen (700.3)"  # -- piles (wave 53D) -- Fight or Flight
     if "haste" not in ch.keywords and "attack_as_haste" not in rules and summoning_sick(state, card):  # (wave 100F: "can attack as though it had haste", 302.6)
-        return f"{ch.name} has summoning sickness"
+        from app.rules import (
+            wave110k_cards,  # -- (wave 110K) -- Frenzied Saddlebrute: haste against some players only (the target is checked as it is declared)
+        )
+
+        if info is None or not wave110k_cards.sick_may_attack(state, card, info):
+            return f"{ch.name} has summoning sickness"
     return None
 
 
@@ -83,6 +88,12 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
     blocker_rules = scripts.statics(bch)
     for rule in sorted(evasion_rules(ach)):
         name, arg = rule_arg(rule)
+        if name == "cant_be_blocked_unless_owner110o":  # -- (wave 110O) -- 506.3: it may be blocked only while it attacks its owner or a planeswalker / battle its owner controls
+            target = attacker.attacking
+            owner_target = target is not None and (target.id == attacker.owner if target.kind == "player" else
+                                                   target.id in state.cards and state.cards[target.id].controller == attacker.owner)
+            if not owner_target:
+                return f"{ach.name} can't be blocked unless it's attacking its owner or a permanent its owner controls"
         if name == "cant_be_blocked_by" and _any_selector(state, info, arg, blocker, bch, attacker):
             return f"{ach.name} can't be blocked by {_phrase(arg)}"
         if rule == KEYWORD_RULES["flying"] and "Dragon" in ach.subtypes and "block_dragons_reach" in blocker_rules:
@@ -345,13 +356,16 @@ def start_declare_attackers(plan: Plan) -> None:
     r.combat_round = ""
     ap = plan.active
     eligible = [cid for cid in plan.state.zones.get(zone_key(ap, "battlefield"), [])
-                if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None]
+                if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid]), plan.info) is None]
     targets = attack_targets(plan.state, ap, plan.info)
+    if r.could_attack_turn110g != plan.state.turn.number:  # -- wave 110G -- 508.1a: who could attack this turn ("creatures that couldn't attack")
+        r.could_attack110g, r.could_attack_turn110g = [], plan.state.turn.number
+    r.could_attack110g = [*r.could_attack110g, *(plan.oid(c) for c in eligible)] if targets else r.could_attack110g
     if not eligible or not targets:
         r.no_attackers = True
         from app.rules import delayed
 
-        delayed.at_step(plan, "declare_attackers")  # (wave 110B)
+        delayed.at_step(plan, "declare_attackers")  # (wave 110I) nobody can attack: the step's delayed triggers still trigger
         return
     who = wave110a_choosers.chooser(plan, "attack", ap)  # -- declaration choosers (wave 110A) --
     decide(plan, player=ap, kind="declare_attackers", prompt="Declare attackers (or attack with nothing)", decider=who, blind=who is not None,
@@ -373,7 +387,7 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         locked = M.parse_cost(plan.locked_cost or "{0}")
         plan.locked_cost = None
         eligible = {cid for cid in plan.state.zones.get(zone_key(plan.active, "battlefield"), [])
-                    if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None}
+                    if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid]), plan.info) is None}
         targets = set(attack_targets(plan.state, plan.active, plan.info))
     else:
         if d is None or d.kind != "declare_attackers":
@@ -388,13 +402,17 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         card = plan.state.cards.get(decl.card_id)
         if decl.card_id not in eligible or card is None:
             raise ActionError("That creature can't attack now")
-        problem = attack_problem(plan.state, card, plan.ch(card))
+        problem = attack_problem(plan.state, card, plan.ch(card), plan.info)
         if problem:
             raise ActionError(problem)
         if decl.target not in targets or decl.target not in current_targets:
             raise ActionError(f"{card.name} can't attack that")
         if attack_forbidden(plan, plan.ch(card), decl.target):  # -- attached events (wave 4L) -- (508.1c)
             raise ActionError(f"{card.name} can't attack {_label(plan.state, decl.target)}")
+        from app.rules import wave110k_cards  # -- (wave 110K) -- Frenzied Saddlebrute
+
+        if not wave110k_cards.sick_target_ok(plan, card, plan.ch(card), decl.target):
+            raise ActionError(f"{card.name} has summoning sickness and can't attack that")
         if "attack_needs_island" in scripts.statics(plan.ch(card)):
             defender = decl.target if decl.target in plan.state.players else \
                 defender_of(plan.state, A.AttackTarget(kind="card", id=decl.target))
@@ -434,7 +452,7 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
         for cid in eligible - seen:
             card = plan.state.cards.get(cid)
             if card is not None and "must_attack" in scripts.statics(plan.ch(card)) and \
-                    attack_problem(plan.state, card, plan.ch(card)) is None and \
+                    attack_problem(plan.state, card, plan.ch(card), plan.info) is None and \
                     any(not _closed(plan, plan.ch(card), t, card) for t in targets):  # (wave 4L: 508.1d; wave 5C: costs)
                 raise ActionError(f"{card.name} attacks each combat if able")
         goad_problem = goad_requirements(plan, eligible, targets, {x.card_id: x.target for x in a.attackers})
@@ -452,6 +470,10 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
     # -- combat (wave 5C) -- 508.1h-j: the total cost to attack, locked in, then paid (mana abilities allowed meanwhile);
     # creatures declared as attackers are tapped before it's paid (508.1f), so they don't tap for it
     tax = combat_rules.attack_cost(plan, declared)
+    from app.rules import (
+        wave110m_cards,  # -- (wave 110M) -- Johan: attacking doesn't cause creatures you control to tap (508.1f)
+    )
+
     life = combat_rules.attack_life(plan, declared)  # -- life attack costs (wave 49D) -- 508.1h: paid with the mana (508.1j); 119.4: only with the life to pay it
     if life:
         from app.rules import life_lock
@@ -460,12 +482,12 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
             raise ActionError(f"Attacking costs {life} life (508.1h): {plan.name(plan.actor)} can't pay it")
     frame = PaidAttackers(a, life, {x.card_id: plan.oid(plan.state.cards[x.card_id]) for x in a.attackers},
                           {x.target: plan.oid(plan.state.cards[x.target]) for x in a.attackers if x.target in plan.state.cards},
-                          [x.card_id for x in a.attackers if 'vigilance' not in plan.ch(plan.state.cards[x.card_id]).keywords])
+                          [x.card_id for x in a.attackers if 'vigilance' not in plan.ch(plan.state.cards[x.card_id]).keywords and not wave110m_cards.attack_taps_nothing(plan)])
     if tax or (locked is not None and not locked.is_free):
         from app.rules import casting
 
         cost = locked if locked is not None else M.parse_cost(tax)
-        exclude = tuple(x.card_id for x in a.attackers if "vigilance" not in plan.ch(plan.state.cards[x.card_id]).keywords)
+        exclude = tuple(x.card_id for x in a.attackers if "vigilance" not in plan.ch(plan.state.cards[x.card_id]).keywords and not wave110m_cards.attack_taps_nothing(plan))
         exclude = tuple(dict.fromkeys([*exclude, *(cid for event in additional if event.kind == 'tap' for cid in event.objects)]))
         if not casting.can_pay(plan.state, plan.actor, cost, plan.info, exclude=exclude):
             raise ActionError(f"Attacking costs {cost.text()} (508.1h): {plan.name(plan.actor)} can't pay it")
@@ -577,6 +599,9 @@ def _finish_attackers(plan: Plan, payload: PaidAttackers, payment: M.Payment | N
         if enlist.ask(plan, [plan.state.cards[x.card_id] for x in a.attackers], []):
             return
         triggers.attacked(plan, [plan.state.cards[x.card_id] for x in a.attackers])
+    from app.rules import delayed
+
+    delayed.at_step(plan, "declare_attackers")  # -- delayed at the declare attackers step (wave 110I) -- 507.1, 603.7: after the declaration (Noctis)
     r.priority = plan.active
     r.passed = []
     advance(plan)
@@ -617,7 +642,7 @@ def _required_places(plan: Plan, eligible: set[str], targets: set[str], declared
         from app.rules import attack_requirements
 
         if not (attack_requirements.counts(ch) or goaded_by(ch)) \
-                or attack_problem(plan.state, card, ch):
+                or attack_problem(plan.state, card, ch, plan.info):
             continue
         if "cant_attack_alone" in st and len(eligible) == 1:
             continue
@@ -651,7 +676,7 @@ def goad_requirements(plan: Plan, eligible: set[str], targets: set[str], declare
         wants = combat_rules.attack_players(ch) & live  # -- casting extras (wave 18E) -- encore: attacks that player if able
         from app.rules import attack_requirements
 
-        if not (goaders or others_only or wants or attack_requirements.counts(ch)) or attack_problem(plan.state, card, ch) is not None:
+        if not (goaders or others_only or wants or attack_requirements.counts(ch)) or attack_problem(plan.state, card, ch, plan.info) is not None:
             continue
         st = scripts.statics(ch)
         if "cant_attack_alone" in st and len(eligible) == 1:
@@ -895,6 +920,10 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
     problem = block_requirements(plan, a, blockers, attackers, used, effective_counts)
     if problem:
         raise ActionError(problem)
+    from app.rules import wave110f_cards  # -- (wave 110F) -- Heat Wave: the life to block (509.1d)
+
+    if (why := wave110f_cards.block_life_problem(plan, expanded)) is not None:
+        raise ActionError(why)
     from app.game.rules_state import DeclarationCostReservation
     from app.rules import nonmana_combat_costs
 
@@ -909,7 +938,7 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         wave110m_cards,  # -- (wave 110M) -- Awesome Presence: a cost to block that attacker, for each blocker (509.1d)
     )
 
-    cost = M.parse_cost(combat_rules.block_cost(plan, set(used)) + wave110m_cards.block_tax_for(plan, expanded))
+    cost = M.parse_cost(combat_rules.block_cost(plan, set(used), expanded) + wave110m_cards.block_tax_for(plan, expanded))
     if not cost.is_free:
         from app.rules import casting
 
@@ -949,6 +978,9 @@ def _finish_blockers(plan: Plan, frame: PaidBlockers, payment: M.Payment | None)
               and plan.oid(attacker) == frame.attackers.get(b.attacker_id)]
     per_attacker = dict.fromkeys(b.attacker_id for b in blocks)
     r.decision = None
+    from app.rules import wave110f_cards  # -- (wave 110F) -- Heat Wave
+
+    wave110f_cards.pay_block_life(plan, blocks)
     if r.blockers_pending and r.blockers_pending[0] == plan.actor:
         r.blockers_pending.pop(0)
     done: set[str] = set()
@@ -1169,7 +1201,7 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
 
     def hit_creature(source_card: CardInstance, source: Characteristics, target: CardInstance, n: int) -> int:
         """Assign ``n`` damage to a creature; returns how much is dealt (protection prevents it, 702.16e)."""
-        if protection.protected_from(plan.ch(target), source) and _protection_prevents(source_card, source, target.id):
+        if protection.protected_from(plan.ch(target), wave110f_cards.damage_colors(plan, source)) and _protection_prevents(source_card, source, target.id):
             return 0
         into = out.wither if {"wither", "infect"} & source.keywords else out.creatures
         into[target.id] = into.get(target.id, 0) + n
@@ -1182,8 +1214,8 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
         if n > 0 and "lifelink" in source.keywords:
             out.lifelink[source_card.id] = out.lifelink.get(source_card.id, 0) + n
 
-    def hit_target(att: CardInstance, ach: Characteristics, n: int) -> int:
-        tgt = att.attacking
+    def hit_target(att: CardInstance, ach: Characteristics, n: int, tgt: Any = None) -> int:
+        tgt = tgt or att.attacking  # (-- wave 110F -- ``tgt``: Butcher Orgg's defending player when it attacks a planeswalker)
         if tgt is None or n <= 0:
             return 0
         if tgt.kind == "player":
@@ -1192,7 +1224,7 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
             # -- player shields (wave 5E) -- 702.16e, 702.16j
             from app.rules import player_shields
 
-            if player_shields.protected_from(plan, tgt.id, ach) is not None and _protection_prevents(att, ach, tgt.id):
+            if player_shields.protected_from(plan, tgt.id, wave110f_cards.damage_colors(plan, ach)) is not None and _protection_prevents(att, ach, tgt.id):
                 return 0
             into = out.poison if "infect" in ach.keywords else out.players
             into[tgt.id] = into.get(tgt.id, 0) + n
@@ -1205,7 +1237,7 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
                 key = (tgt.id, att.commander_key)
                 out.commander[key] = out.commander.get(key, 0) + n
         elif tgt.id in state.cards and state.cards[tgt.id].zone.endswith(":battlefield"):
-            if protection.protected_from(plan.ch(state.cards[tgt.id]), ach) and _protection_prevents(att, ach, tgt.id):
+            if protection.protected_from(plan.ch(state.cards[tgt.id]), wave110f_cards.damage_colors(plan, ach)) and _protection_prevents(att, ach, tgt.id):
                 return 0
             out.walkers[tgt.id] = out.walkers.get(tgt.id, 0) + n
             out.dealt.append((att.id, tgt.id, n))
@@ -1228,7 +1260,15 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
             continue
         blockers = [b for b in blockers_all if b.blocks(att.id)]
         dealt = 0
-        if att.id in r.blocked and not r.assign_unblocked.get(att.id):  # (wave 19A: 510.1c "as though it weren't blocked": all to what it attacks)
+        if (shares := wave110f_cards.divided_shares(plan, att, ach)) is not None:  # -- wave 110F -- Butcher Orgg, Cunning Giant: as its controller chose
+            for tid, n in shares.items():
+                if n <= 0:
+                    continue
+                if tid in state.players:
+                    dealt += hit_target(att, ach, n, A.AttackTarget(kind="player", id=tid))
+                elif (c := state.cards.get(tid)) is not None and c.zone.endswith(":battlefield") and "Creature" in plan.ch(c).types:
+                    dealt += hit_creature(att, ach, c, n)
+        elif att.id in r.blocked and not r.assign_unblocked.get(att.id):  # (wave 19A: 510.1c "as though it weren't blocked": all to what it attacks)
             trample = "trample" in ach.keywords
             need = [lethal(b, ach, p) for b in blockers]
             shares = r.block_split.get(att.id)
@@ -1281,12 +1321,18 @@ def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
     r = plan.rules
     for att in attackers_on(plan.state):  # -- static_other sweep (wave 19A) -- 510.1c: "You may have this creature assign its combat damage as though it weren't blocked"
         ach = plan.ch(att)
+        if att.id in r.blocked and att.id not in r.assign_unblocked and r.assign_forced110h.get(att.id) == plan.state.turn.number:
+            r.assign_unblocked[att.id] = True  # -- Outmaneuver (wave 110H) -- no "may": it assigns that way, no question
+            continue
         if att.id in r.blocked and att.id not in r.assign_unblocked and group_unblocked.allows(plan, att, ach) and _deals(ach, rnd) \
                 and (_assigns(att, ach) or 0) > 0:
             decide(plan, player=att.controller, kind="confirm",
                    prompt=f"Have {att.name} assign its combat damage as though it weren't blocked?",
                    options=[DecisionOption(id="yes", label="As though it weren't blocked"), DecisionOption(id="no", label="Among its blockers")],
                    resume={"step": "assign_unblocked", "round": rnd, "then": then, "creature": att.id})
+            return True
+    for att in attackers_on(plan.state):  # -- wave 110F -- Butcher Orgg, Cunning Giant (510.1 as the card changes it)
+        if wave110f_cards.ask_divide(plan, att, rnd, then, _deals(plan.ch(att), rnd), _assigns(att, plan.ch(att))):
             return True
     todo: list[tuple[CardInstance, list[CardInstance], list[int]]] = []
     compute_combat_damage(plan, rnd, todo)

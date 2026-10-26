@@ -36,6 +36,9 @@ def applies(plan: Plan, candidate: Candidate, event: dict[str, Any]) -> bool:
     src = event.get('src') or {}
     source = targets.source_of(plan, event.get('source_card'), bool(src.get('spell')),
                                object_id=event.get('source_oid'))
+    from app.rules import wave110f_cards  # -- Ghostly Flame (wave 110F) --
+
+    source = wave110f_cards.damage_colors(plan, source)
     protected = (player_shields.protected_from(plan, target, source) is not None
                  if target in plan.state.players else source is not None and
                  protection.protected_from(plan.ch(plan.state.cards[target]), source))

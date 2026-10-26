@@ -50,7 +50,7 @@ def chooses_player(ch: Characteristics) -> bool:
     found = [m for ab in ch.abilities if (m := ENTERS_CHOICE.match(self_text(ab.text, ch.name))) is not None]
     from app.rules import keyed_player_bindings
 
-    return (len(found) == 1 and found[0]["what"] in ("opponent", "player", "color and an opponent")) or (not found and keyed_player_bindings.remembers_combat(ch))
+    return (len(found) == 1 and found[0]["what"] in ("opponent", "player", "color and an opponent")) or (not found and (keyed_player_bindings.remembers_combat(ch) or any(ab.text == "An opponent chooses one \u2014" for ab in ch.abilities)))  # (wave 110F: 700.2e, the opponent who chose the modes)
 
 
 # -- chosen type (wave 4J) ------------------------------------------------------------------------------------------
@@ -152,7 +152,7 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     if d.get("modes"):  # -- chosen filters (wave 53B) -- 700.2: each mode is its own run of instructions (a choice made in a mode serves that mode only)
         rest = {k: v for k, v in d.items() if k != "modes"}
         return chosen_value_ok(rest, ch) and all(chosen_value_ok({"kind": d.get("kind"), **m}, ch) for m in d["modes"])
-    if d.get("chosen_type") and _enters_choices(ch).count("basic land type" if d["chosen_type"] == "land" else "creature type") != 1:
+    if d.get("chosen_type") and _enters_choices(ch).count("basic land type" if d["chosen_type"] == "land" or "Land" in ch.types else "creature type") != 1:  # (wave 110A: Thran Portal)
         return False  # (wave 11E: "~ is the chosen type in addition to its other types" needs that one choice)
 
     if d.get("chosen_color") and _enters_choices(ch).count("color") != 1:
@@ -242,7 +242,7 @@ def bind_effects(effects: list[dict[str, Any]], what: str, value: str) -> list[d
 def record(plan: Plan, card_id: str, player: str) -> None:
     """Remember the player this object chose (its object id now)."""
     r = plan.rules
-    on_field = {plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")}
+    on_field = {plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield") or c.zone == "stack"}  # (wave 110F: a spell whose mode was chosen by an opponent)
     r.chosen_players = {oid: p for oid, p in r.chosen_players.items() if oid in on_field or oid in r.lki}  # (400.7)
     r.chosen_players[plan.oid(card_id)] = player
 

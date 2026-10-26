@@ -91,6 +91,10 @@ def graveyard_entries(plan: Plan, player: str, *, last: bool = False) -> int:
 def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     """Is this ``{"history": …}`` condition true for the ability's controller right now?"""
     kind = cond["history"]
+    if kind == "spelldmg110l":  # -- (wave 110L) -- Suffocation: damage to you from a red instant or sorcery spell
+        from app.rules import wave110l_cards
+
+        return wave110l_cards.dealt_by_red_spell(plan, ctx, log_for(plan, False)) is not None
     if kind.endswith("110c"):  # -- turn history (wave 110C) --
         from app.rules import wave110c_history
 
@@ -130,6 +134,8 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
         return any(log.lost.get(p, 0) >= n for p in players)
     if kind == "left_graveyard":
         return log.left_graveyard.count(me) >= n
+    if kind == "left_graveyard_creature110o":  # -- (wave 110O) -- Syrix
+        return log.left_graveyard_creature110o.count(me) >= n
     if kind == "graveyard_entries":
         players = [p for p in plan.live() if p != me] if cond.get("who") == "opponent" else [me]
         return any(graveyard_entries(plan, p, last=bool(cond.get("last"))) >= n for p in players)
@@ -249,7 +255,7 @@ def note_cast(plan: Plan, card: Any) -> None:
         key = normalize_name(name)
         totals[key] = totals.get(key, 0) + 1
     record = plan.rules.payments.get(plan.oid(card))
-    log.casts.append(CastNote(kicked77=("kicker" in record.additional and record.kicked > 0) if record is not None else None,
+    log.casts.append(CastNote(kicked77=("kicker" in record.additional and record.kicked > 0 and "anytimes" not in record.additional) if record is not None else None,
                               player=card.controller, object_id=plan.oid(card), names=card_names.names_of(ch), types=sorted(ch.types),
                               subtypes=sorted(ch.subtypes), supertypes=sorted(ch.supertypes), colors=sorted(ch.colors),
                               mv=float(_stack_mv(card, ch)), cast_from=record.cast_from if record is not None else None,
@@ -291,6 +297,12 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
         if e.kind == "cycled" and not e.manual and e.player and e.turn == plan.state.turn.number:  # -- turn state (wave 100H) -- 702.29a: one cycling
             if not any(f.kind == "cycle" and f.object_id == e.object_id for f in log.facts):  # (one fact per cycled object: a card cycled again is a new one, 400.7)
                 log.facts.append(TurnFact(kind="cycle", player=e.player, object_id=e.object_id))
+            if into is None and e.card in plan.state.cards:  # -- wave 110C -- "If you've cycled a card named … this game" (Yidaro): each event is noted once
+                from app.cards.names import normalize_name
+
+                cycles = plan.rules.named_cycles110c.setdefault(e.player, {})
+                key = normalize_name(plan.state.cards[e.card].name or "")
+                cycles[key] = cycles.get(key, 0) + 1
             continue
         if e.kind not in ("zone_change", "sacrificed", "damage", "counters", "milled", "land_played") or e.turn != plan.state.turn.number:
             continue
@@ -320,6 +332,8 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
             elif kind == "dealt_damage" and obj is None and info.get("recipient"):  # a player was dealt damage (120.3)
                 log.facts.append(TurnFact(kind="damage", player=info["recipient"], amount=int(info.get("amount") or 0),
                                           combat=bool(info.get("combat")), object_id=info.get("source_oid"), batch=e.batch))  # (wave 39B: batch)
+                if int(info.get("amount") or 0) > 0 and info.get("source_oid") and info["recipient"] not in (seen := plan.rules.damaged_players110k.setdefault(info["source_oid"], [])):
+                    seen.append(info["recipient"])  # -- (wave 110K) -- "target opponent previously dealt damage by it" (Diseased Vermin): for good, by the object
             elif kind == "dealt_damage" and obj is not None and info.get("oid") and int(info.get("amount") or 0) > 0:
                 # -- damage history (wave 6B) -- a permanent was dealt damage (120.3): "creature that was dealt damage
                 # this turn", "creature that dealt damage this turn" (app/rules/damage_history.py)
@@ -334,6 +348,7 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
                 log.facts[-1].source_subtypes = what["subtypes"]  # (wave 17C: prowl, 702.76a)
                 log.facts[-1].source_controller = info.get("actor")  # Frozen at damage commit; None is legacy unknown.
                 log.facts[-1].source_commander = obj is not None and obj.commander_key is not None  # (wave 43D: freerunning, 702.173a; 903.3)
+                log.facts[-1].source_spell = obj is not None and obj.zone == "stack" and obj.ability is None  # (wave 110L: Suffocation, 120.1)
             elif kind == "deal_damage" and info.get("other_oid") and log.facts and log.facts[-1].kind == "damaged" \
                     and log.facts[-1].object_id == info["other_oid"] and log.facts[-1].source == info.get("oid"):
                 # -- trigger damage (wave 39B) -- its source, as it was as it dealt that damage to a permanent (608.2i): "a Giant, Wizard, or spell you
@@ -693,6 +708,8 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
     elif what == "damaged_by":  # -- trigger damage (wave 39B) -- a Giant, Wizard or spell you controlled dealt it damage (the source as it was, 608.2i)
         got = any(f.kind == "damaged" and f.object_id in ids and f.amount > 0 and f.source_controller == ctx["controller"]
                   and ((cond.get("spell") and f.source_spell) or set(cond.get("subtypes", ())) & set(f.source_subtypes)) for f in log.facts)
+    elif what == "dealt_total110k":  # -- (wave 110K) -- the damage it dealt this turn to players and to objects together
+        got = total("damage", lambda f: f.object_id in ids) + total("damaged", lambda f: f.source in ids) >= n
     elif what == "dealt_creature":  # -- commanders (wave 47A) -- it dealt damage (more than 0, 120.3) to a creature other than itself, as that creature was
         got = any(f.kind == "damaged" and f.source in ids and f.amount > 0 and f.object_id not in ids and "Creature" in f.types for f in log.facts)
     elif what == "dealt_player":

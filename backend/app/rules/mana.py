@@ -108,7 +108,7 @@ def spend_as(cost: ManaCost, mode: str) -> ManaCost:
     from app.rules import mana_allocation_masks
 
     transformed = _spend_as(cost, mode)
-    if mode not in ('type', 'color', 'colorless_color', 'white_red', 'white_any'):
+    if mode not in ('type', 'color', 'colorless_color', 'white_red', 'white_any', 'white_color'):
         return transformed
     return replace(transformed, allocation=mana_allocation_masks.requirements(cost, mode))
 
@@ -127,6 +127,12 @@ def _spend_as(cost: ManaCost, mode: str) -> ManaCost:
         return ManaCost(cost.generic, tuple(white(c) for c in cost.colored if c != 'C'),
                         (('C', *others),) * cost.colored.count('C') + tuple(tuple(dict.fromkeys('W' if k in COLORS else k for k in h)) for h in cost.hybrid),
                         tuple(white(c) for c in cost.phyrexian), cost.x, cost.unsupported)
+    if mode == 'white_color':  # -- cards (wave 110I) -- False Dawn, 609.4b: white mana pays any colored symbol (colorless stays colorless)
+        other = tuple(c for c in cost.colored if c in COLORS and c != 'W')
+        return ManaCost(cost.generic, tuple(c for c in cost.colored if c not in other),
+                        tuple((c, 'W') for c in other) + tuple(tuple(dict.fromkeys((*h, 'W'))) if any(c in COLORS for c in h) else h for h in cost.hybrid),
+                        tuple('/'.join(dict.fromkeys((*c.split('/'), 'W'))) if any(k in COLORS for k in c.split('/')) else c for c in cost.phyrexian),
+                        cost.x, cost.unsupported)
     if mode == 'colorless_color':
         # Only actual C may substitute for a colored requirement. Allocation and
         # provenance retain the actual mana type, including restricted units.
@@ -407,6 +413,10 @@ def _parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS, *, card_n
 
     if (deity := mana_deity_profiles.parse_mana(text, identity, card_name)) is not None:
         return deity
+    from app.rules import wave110d_noted  # -- noted type (wave 110D) --
+
+    if (noted110d := wave110d_noted.parse_mana(text, identity, card_name)) is not None:
+        return noted110d
     from app.rules import mana_crafted_profiles
 
     if (crafted := mana_crafted_profiles.parse_mana(text, identity, card_name)) is not None:
@@ -518,6 +528,10 @@ def _parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS, *, card_n
         if not any(k.kind == _costs.SACRIFICE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
             return None
         count, options = "sacrificed_mv", ((c.group("sym"),),)
+    elif first == "Add one mana of any type the sacrificed land could produce":  # -- mana (wave 110A) -- Squandered Resources: types read at activation (casting._activate_choosing)
+        if not any(k.kind == _costs.SACRIFICE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
+            return None
+        count, options = "sacrificed_land_types", tuple((m,) for m in ALL_MANA)
     elif first == "Add X mana of any one color, where X is 1 plus the exiled creature's mana value":
         if not any(k.kind == _costs.EXILE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
             return None

@@ -671,6 +671,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return max(0, v)
     if isinstance(v, dict) and 'began_lands110c' in v:  # (wave 110C) Power Surge: the active player's untapped lands as the turn began
         return plan.rules.began_lands110c.get(plan.active, 0)
+    if isinstance(v, dict) and 'stored_same110m' in v:  # (wave 110M) Centaur of Attention: the most stored results sharing a value (706.8)
+        from app.rules import wave110m_cards
+
+        return wave110m_cards.same_stored(plan, ctx)
     if 'sticker_vowels102' in v:
         from app.rules import sticker_riders102
 
@@ -679,6 +683,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         me = ctx['controller']
         return sum(any(p.sticker.kind == 'art' for p in c.stickers101) for c in plan.state.cards.values()
                    if (c.zone.endswith(':battlefield') and c.controller == me) or c.zone == f'{me}:graveyard')
+    if isinstance(v, dict) and v.get('sticker_pt110g'):  # -- stickers (wave 110G) -- Ambassador: total power / toughness of the stickers on permanents you control
+        return sum(getattr(p.sticker, v['sticker_pt110g']) or 0 for c in plan.state.cards.values()
+                   if c.zone.endswith(':battlefield') and c.controller == ctx['controller'] for p in c.stickers101)
     if isinstance(v, dict) and "perm100d" in v:  # -- static permanents (wave 100D) -- (a CDA setting P/T may set it below 0: 107.1b)
         from app.rules import static_perm100d
 
@@ -910,6 +917,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import history
 
         return history.amount(plan, ctx, v)
+    if "cast_targets110i" in v:  # -- cards (wave 110I) -- Arcee: the cast spell's targets matching a selector
+        from app.rules import wave110i_cards
+
+        return wave110i_cards.cast_targets(plan, ctx, v["cast_targets110i"])
     if "event_amount" in v:  # "that much" / "that many": the trigger event's amount (608.2k)
         from app.rules import context  # (context → triggers → … → values)
 

@@ -232,6 +232,47 @@ def _towershell(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Alania: the intervening "if" is a fact about the turn's casts (triggers.alania_first), judged as the spell is cast (603.4); the rest reads natively
+    "Whenever you cast a spell, if it's the first instant spell, the first sorcery spell, or the first Otter spell other than Alania you've cast this turn, "
+    "you may have target opponent draw a card. If you do, copy that spell. You may choose new targets for the copy.":
+        ("Whenever you cast a spell, you may have target opponent draw a card. If you do, copy that spell and you may choose new targets for the copy.",
+         lambda d: {**d, "cond": {**d["cond"], "alania110b": True}}),
+    # Mana Web: "a land an opponent controls is tapped for mana" is an opponent tapping a land for mana (605.1a: only its controller activates it)
+    "Whenever a land an opponent controls is tapped for mana, tap all lands that player controls that could produce any type of mana that land could produce.":
+        ("Whenever an opponent taps a land for mana, tap all lands that player controls.", lambda d: {**d, "effects": [{"do": "mana_web110b"}]}),
+    # Senu: works only from exile (113.6k); "put it onto the battlefield attacking" (508.4: its controller chooses whom it attacks), untapped
+    "When a legendary creature you control attacks and isn't blocked, if this card is exiled, put it onto the battlefield attacking.":
+        ("When a legendary creature you control attacks and isn't blocked, you gain 1 life.",
+         lambda d: {**d, "ex110b": True, "if": {"object": "self", "test": "in_exile110b"},
+                    "effects": [{"do": "return_card", "who": "self_exile", "to": "battlefield", "attacking": True}]}),
+    # Lathiel: "up to that many" = life gained this turn (the value is read as the trigger goes on the stack, 601.2d/608.2d); any number of targets (115.6) may be none
+    "At the beginning of each end step, if you gained life this turn, distribute up to that many +1/+1 counters among any number of other target creatures.":
+        ("At the beginning of each end step, if you gained life this turn, distribute X +1/+1 counters among any number of other target creatures, where X is the "
+         "amount of life you gained this turn.",
+         lambda d: {**d, "targets": [{**d["targets"][0], "min": 0, "divide": {**d["targets"][0]["divide"], "upto110b": True, "allow_zero_targets": True}}]}),
+    "At the beginning of your end step, choose an opponent. At the beginning of that player's next end step, you draw a card if they didn't attack you that turn. "
+    "Otherwise, create three 1/1 white Human Soldier creature tokens.":
+        ("At the beginning of your end step, choose an opponent.",
+         lambda d: {**d, "effects": [{**d["effects"][0], "as": "faramir_opp"}, {"do": "faramir_set110b", "who": "ref:faramir_opp"}]}),
+    # Overencumbered: the enchanted opponent (702.5d) creates the tokens; 508.1d / 509.1a restrict: "creatures can't attack this combat", unless that player pays {1}
+    # for each artifact they control (601.2h-like optional payment, counted when the trigger resolves)
+    "When this Aura enters, enchanted opponent creates a Clue token, a Food token, and a Junk token.":
+        ("When this Aura enters, you create a Clue token, a Food token, and a Junk token.",
+         lambda d: {**d, "effects": [{**e, "who": "enchanted_player"} if e["do"] == "create_token" else e for e in d["effects"]]}),
+    "At the beginning of combat on enchanted opponent's turn, that player may pay {1} for each artifact they control. If they don't, creatures can't attack "
+    "this combat.":
+        ("At the beginning of enchanted player's upkeep, that player may pay {1}. If they don't, you draw a card.",
+         lambda d: {**d, "trigger": "step:begin_combat:enchanted_player", "effects": [
+             {**d["effects"][0], "cost": "", "per": "{1}", "n": {"for_player": "event", "of": {"count": 'sel:{"controller":"you","types":["Artifact"]}'}}},
+             d["effects"][1], {"do": "restrict", "who": 'sel:{"types":["Creature"]}', "rules": ["cant_attack"], "duration": "end_of_combat"}]}),
+    "Whenever one or more creatures you control deal combat damage to a player, you may return one of them to its owner's hand. If you do, you may activate "
+    "loyalty abilities of Kaito twice this turn rather than only once.":
+        ("Whenever one or more creatures you control deal combat damage to a player, you draw a card.",
+         lambda d: {**d, "effects": [{"do": "kaito110b"}]}),
+    # Curator of Sun's Creation: 701.57 the new discover uses the triggering discover's N (event amount)
+    "Whenever you discover, discover again for the same value. This ability triggers only once each turn.":
+        ("Whenever you discover, discover 3. This ability triggers only once each turn.",
+         lambda d: {**d, "effects": [{**e, "n": {"event_amount": 1}} if e["do"] == "discover" else e for e in d["effects"]]}),
     # Weeping Angel: 205.1b the Angel loses the creature type until end of turn (it stays a permanent with its other types)
     "Whenever an opponent casts a creature spell, this creature isn't a creature until end of turn.":
         ("Whenever an opponent casts a creature spell, this creature becomes an artifact until end of turn.",
@@ -457,6 +498,91 @@ def veil(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+_HEROIC = ("Choose target creature you control. Until end of turn, all damage that would be dealt to you and creatures you control is dealt to the chosen creature instead. "
+           "When that creature dies this turn, put its counters on up to one target creature you control and draw a card.")
+
+
+def parse(body: str) -> Any:
+    """Heroic Sacrifice: the chosen creature gets the death trigger until end of turn (611.2a, 603.7: the same as "when that creature dies this turn"); the damage
+    to you and your creatures is redirected to it (614.9) while it is on the battlefield."""
+    from app.rules import scripts, wave110b_mirror
+
+    if (mirror := wave110b_mirror.parse(body)) is not None:  # Mystic Reflection
+        return mirror
+    if body.strip() != _HEROIC:
+        return None
+    got = scripts.parse_effects('Target creature you control gains "When this creature dies, put its counters on up to one target creature you control and draw a card" until end of turn.')
+    if got is None:
+        return None
+    effects, target, optional = got
+    return [{"do": "redirect110b"}, *effects], target, optional
+
+
+def redirect(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Until end of turn, damage that would be dealt to you and to creatures you control is dealt to the target creature instead (614.9)."""
+    from app.rules import damage_redirection_effects as dre
+    from app.rules import source_shields
+
+    dest = source_shields._destination(plan, ctx, "target")
+    if dest is not None:
+        dre.record(plan, ctx, {"to": {"players": "you"}}, dest)
+        dre.record(plan, ctx, {"to": {"objects": {"sel": dre.key("creatures you control")}}}, dest)
+    return True
+
+
+def faramir_set(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Faramir, Prince of Ithilien: the chosen opponent's next end step (603.7) gets the delayed trigger, naming that player (603.7c)."""
+    from app.rules import delayed, effects
+
+    chosen = effects._players(plan, ctx, e["who"])
+    if len(chosen) != 1:
+        return True
+    return delayed.create(plan, {**ctx, "effects": [{"do": "deferred:faramir_end110b", "player": chosen[0]}], "next": 0},
+                          {"n": 1, "when": {"kind": "step", "step": "end", "whose": "payer", "player": chosen[0]}})
+
+
+def faramir_end(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """You draw a card if that player didn't attack you this turn (508.1: a creature they control was declared as attacking you); otherwise three Soldiers."""
+    from app.rules import effects, history, scripts
+
+    log = history.log_for(plan)
+    attacked = any(ctx["controller"] in log.attacked_who.get(a, []) for a in log.attackers.get(e["player"], []))
+    body = scripts.parse_effects("Create three 1/1 white Human Soldier creature tokens." if attacked else "You draw a card.")
+    assert body is not None
+    for x in body[0]:
+        effects.PRIMITIVES[x["do"]](plan, ctx, x)
+    return True
+
+
+def kaito(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Kaito, Dancing Shadow: you may return one of the creatures (that dealt the batch's combat damage) to its owner's hand; if you do, Kaito's loyalty
+    abilities may be activated twice this turn (606.3, 400.7)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+
+    pool = [c for c in dict.fromkeys(context.objects(plan, ctx, context.EVENT)) if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")
+            and plan.state.cards[c].controller == ctx["controller"] and plan.ch(plan.state.cards[c]).is_creature]
+    if not pool:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Return one of them to its owner's hand?",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in pool],
+           min_choices=0, max_choices=1, resume={"step": "kaito110b", "ctx": ctx, "pool": pool})
+    return False
+
+
+def resume_kaito(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    chosen = [c for c in chosen[:1] if c in d.resume["pool"]]
+    if chosen:
+        plan.do({"type": "move", "card_ids": chosen, "to": {"player": plan.state.cards[chosen[0]].owner, "zone": "hand"}}, actor=ctx["controller"])
+        if plan.state.cards[chosen[0]].zone.endswith(":hand"):  # (not when a replacement kept it: no "if you do")
+            plan.rules.once_per_turn[f"loyalty_veil110b:{ctx['source_card']}"] = plan.state.turn.number
+    effects.continue_effects(plan, ctx)
+
+
 def ungoad(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Serene Sleuth: "each creature you control is no longer goaded" - 701.15b goaded is a designation lasting until the goader's next turn; it leaves them now."""
     from app.rules import delayed, keyword_actions
@@ -578,7 +704,7 @@ def lose_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-RESUME: dict[str, Any] = {"exile_own110b": resume_exile_own, "rebound_hand110b": resume_rebound_hand}
+RESUME: dict[str, Any] = {"kaito110b": resume_kaito, "exile_own110b": resume_exile_own, "rebound_hand110b": resume_rebound_hand}
 def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """702.174c: the gift was given (its instant or sorcery resolved, or its permanent's gift trigger resolved): "Whenever you give a gift"."""
     from app.game.rules_state import emit
@@ -587,4 +713,25 @@ def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+def mana_web(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Mana Web: tap all lands that player controls that could produce any type of mana the tapped land could produce (106.7; the land as it was tapped)."""
+    from app.rules import context
+    from app.rules import mana as M
+    from app.rules.wave110a_grants import could_produce
+
+    lands = context.objects(plan, ctx, context.EVENT)
+    if not lands:
+        return True
+    tapped = plan.state.cards[lands[0]]
+    types = [m for m in M.ALL_MANA if could_produce(plan, tapped, plan.ch(tapped), m)]
+    hit = []
+    for cid in plan.state.zones.get(f"{tapped.controller}:battlefield", []):
+        c = plan.state.cards[cid]
+        if not c.tapped and plan.ch(c).is_land and any(could_produce(plan, c, plan.ch(c), m) for m in types):
+            hit.append(cid)
+    if hit:
+        plan.do({"type": "tap", "card_ids": hit, "tapped": True}, actor=ctx["controller"])
+    return True
+
+
+PRIMITIVES: dict[str, Any] = {"mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}

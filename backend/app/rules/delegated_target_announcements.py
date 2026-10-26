@@ -32,6 +32,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
         d = scripts.define(replace(ability, text="{T}: For as long as this creature remains tapped, gain control of target creature."), ch)
         return {**d, 'delegated_target': 'opponent', 'delegated_controls110d': True} if d else None
+    from app.rules import wave110d_volc
+
+    if (volc := wave110d_volc.line(ability, ch)) is not None:  # -- delegated (wave 110D) -- Volcanic Offering's lines
+        return volc
     if (own := _opp_definition(ability, ch)) is not None:  # -- delegated (wave 110D) -- spells, triggers and a mixed own + opponent pair
         return own
     if ability.kind != 'activated' or ability.text != TEXT:

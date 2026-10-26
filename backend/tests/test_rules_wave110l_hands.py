@@ -190,3 +190,117 @@ def test_slith_can_remove_a_counter_from_an_opponent(cards):
     answer(s)
     assert s.state.players["p2"].resources.get("poison") == 2
     check(s)
+
+
+WINTER = "Winter, Cynical Opportunist"
+test_full_winter = full_test([WINTER])
+
+
+def winter_table(cards):
+    s = build(cards, [WINTER, "Grizzly Bears", "Sol Ring", "Lightning Bolt", "Giant Growth"])
+    put(s, WINTER)
+    for n in ("Grizzly Bears", "Sol Ring", "Lightning Bolt", "Giant Growth"):
+        c = card_named(s, n)
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "graveyard"})
+    stops(s)
+    to_phase(s, "end")
+    d = resolve_to_decision(s)
+    assert d is not None and d.min_choices == 0
+    return s, d
+
+
+def test_winter_exiles_four_types_and_puts_a_permanent_card_back_with_a_finality_counter(cards):
+    s, d = winter_table(cards)
+    ids = {o.label: o.id for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids[n] for n in ("Grizzly Bears", "Sol Ring", "Forest", "Lightning Bolt")])
+    d = resolve_to_decision(s)
+    pick(s, d, "Sol Ring")
+    answer(s)
+    assert zone_of(s, "Sol Ring") == "p1:battlefield" and card_named(s, "Sol Ring").counters.get("finality") == 1
+    assert zone_of(s, "Grizzly Bears") == zone_of(s, "Forest") == zone_of(s, "Lightning Bolt") == "p1:exile"
+    assert zone_of(s, "Giant Growth") == "p1:graveyard"
+    check(s)
+
+
+def test_winter_refuses_fewer_than_four_card_types(cards):
+    from app.game.errors import ActionError
+
+    s, d = winter_table(cards)
+    ids = {o.label: o.id for o in d.options}
+    with pytest.raises(ActionError):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids[n] for n in ("Grizzly Bears", "Sol Ring", "Lightning Bolt", "Giant Growth")])
+
+
+def test_winter_may_exile_nothing(cards):
+    s, d = winter_table(cards)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+    answer(s)
+    assert len(s.state.zones["p1:graveyard"]) == 5 and not s.state.zones.get("p1:exile")
+    check(s)
+
+
+INQUISITOR = "Lightstall Inquisitor"
+test_full_inquisitor = full_test([INQUISITOR])
+
+
+def inquisitor_table(cards, card_name):
+    s = build(cards, [INQUISITOR], [card_name])
+    clear_hand(s, "p2", (card_name,))
+    to_hand(s, card_name, "p2")
+    cast(s, INQUISITOR)
+    answer(s)
+    assert zone_of(s, card_name, "p2") == "p2:exile"  # the one card of the hand
+    to_phase(s, "main1", turn=2)  # Bob's turn
+    return s
+
+
+def test_inquisitor_land_exiled_may_be_played_by_its_owner_and_enters_tapped(cards):
+    s = inquisitor_table(cards, "Island")
+    island = card_named(s, "Island", "p2")
+    act(s, "p2", type="play_land", card_id=island.id)
+    assert island.zone == "p2:battlefield" and island.tapped
+    check(s)
+
+
+def test_inquisitor_spell_exiled_costs_one_more_to_cast(cards):
+    from app.game.errors import ActionError
+
+    s = inquisitor_table(cards, "Opt")
+    opt = card_named(s, "Opt", "p2")
+    mana(s, "p2", U=1)
+    with pytest.raises(ActionError):
+        act(s, "p2", type="cast_spell", card_id=opt.id)  # {U} isn't enough: {1} more
+    mana(s, "p2", C=1)
+    act(s, "p2", type="cast_spell", card_id=opt.id)
+    answer(s)
+    assert zone_of(s, "Opt", "p2") == "p2:graveyard"
+    check(s)
+
+
+CAVES = "The Caves of Androzani"
+test_full_caves = full_test([CAVES])
+
+
+def test_caves_of_androzani_adds_one_counter_of_a_chosen_kind_to_the_permanents_you_pick(cards):
+    s = build(cards, [CAVES, "Grizzly Bears", "Young Wolf"], ["Llanowar Elves"])
+    caves = put(s, CAVES)
+    bears, wolf, elves = put(s, "Grizzly Bears"), put(s, "Young Wolf"), put(s, "Llanowar Elves", "p2")
+    act(s, "p1", type="counter", card_ids=[caves.id], kind="lore", delta=1)
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=1)
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="stun", delta=1)
+    act(s, "p1", type="counter", card_ids=[wolf.id], kind="+1/+1", delta=1)
+    act(s, "p2", type="counter", card_ids=[elves.id], kind="charge", delta=2)
+    next_turn(s)  # chapter II as the second lore counter is added
+    d = resolve_to_decision(s)
+    assert d is not None and {o.label for o in d.options} == {"+1/+1", "stun"}  # only the permanent with two kinds is asked
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["stun"])
+    d = resolve_to_decision(s)
+    assert {o.label for o in d.options} == {"Grizzly Bears (stun)", "Young Wolf (+1/+1)", "Llanowar Elves (charge)"}  # not the Saga itself
+    ids = {o.label: o.id for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Grizzly Bears (stun)"], ids["Llanowar Elves (charge)"]])
+    answer(s)
+    assert card_named(s, "Grizzly Bears").counters == {"+1/+1": 1, "stun": 2}
+    assert card_named(s, "Llanowar Elves", "p2").counters == {"charge": 3} and card_named(s, "Young Wolf").counters == {"+1/+1": 1}
+    check(s)

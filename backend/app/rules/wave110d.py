@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.rules import (
+    mana_noted_profiles,
     wave110d_aura,
     wave110d_crown,
     wave110d_enter,
@@ -12,13 +13,14 @@ from app.rules import (
     wave110d_hit,
     wave110d_lines,
     wave110d_misc,
+    wave110d_noted,
     wave110d_rooms,
     wave110d_rules,
 )
 
 TEMPLATES: list[Any] = [*wave110d_rules.TEMPLATES]
-PRIMITIVES: dict[str, Any] = {**wave110d_enter.PRIMITIVES, **wave110d_aura.PRIMITIVES, **wave110d_granter.PRIMITIVES, **wave110d_hit.PRIMITIVES, **wave110d_crown.PRIMITIVES, **wave110d_lines.PRIMITIVES, **wave110d_rooms.PRIMITIVES, **wave110d_misc.PRIMITIVES}
-RESUME: dict[str, Any] = {**wave110d_crown.RESUME, **wave110d_rooms.RESUME, **wave110d_misc.RESUME}
+PRIMITIVES: dict[str, Any] = {**wave110d_enter.PRIMITIVES, **wave110d_aura.PRIMITIVES, **wave110d_granter.PRIMITIVES, **wave110d_hit.PRIMITIVES, **wave110d_crown.PRIMITIVES, **wave110d_lines.PRIMITIVES, **wave110d_rooms.PRIMITIVES, **wave110d_misc.PRIMITIVES, **wave110d_noted.PRIMITIVES, **mana_noted_profiles.PRIMITIVES}
+RESUME: dict[str, Any] = {**wave110d_crown.RESUME, **wave110d_rooms.RESUME, **wave110d_misc.RESUME, **mana_noted_profiles.RESUME}
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
@@ -29,10 +31,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         wave110d_enter,
         wave110d_hit,
         wave110d_lines,
+        wave110d_noted,
         wave110d_rooms,
     )
 
-    return wave110d_lines.definition(ability, ch) or wave110d_rooms.definition(ability, ch) or wave110d_misc.definition(ability, ch) or wave110d_enter.definition(ability, ch) or wave110d_hit.definition(ability, ch) or wave110d_crown.definition(ability, ch) or wave110d_aura.definition(ability, ch)
+    return wave110d_lines.definition(ability, ch) or wave110d_rooms.definition(ability, ch) or wave110d_misc.definition(ability, ch) or wave110d_enter.definition(ability, ch) or wave110d_hit.definition(ability, ch) or wave110d_crown.definition(ability, ch) or wave110d_aura.definition(ability, ch) or wave110d_noted.definition(ability, ch)
 
 
 def parse(body: str) -> Any:

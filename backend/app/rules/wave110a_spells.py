@@ -223,6 +223,9 @@ def _decree() -> Parsed:
 
 # Sentences the grammar reads in other words with the same meaning (the rewrite must mean the same: 608.2c).
 REWRITES = {
+    # (Hellish Rebuke: the granted trigger names its caster; effects.grant binds "the player who cast this spell" to the caster's id)
+    'Until end of turn, permanents your opponents control gain "When ~ deals damage to the player who cast ‹granter›, sacrifice ~. You lose 2 life."':
+        'Until end of turn, permanents your opponents control gain "When this permanent deals damage to the player who cast this spell, sacrifice this permanent. You lose 2 life."',
     # (Threaten: control and haste both last until end of turn, 611.2a)
     "Until end of turn, you gain control of target creature and it gains haste.":
         "Gain control of target creature until end of turn. It gains haste until end of turn.",
@@ -397,11 +400,86 @@ def _interrogation() -> Parsed:
     return [{**inv[0][0], "n": {"sum_for_players": "target:0", "of": inv[0][0]["n"]}}, *inv[0][1:]], chosen[1], False
 
 
+def _new_blood() -> Parsed:
+    """New Blood: gain control, then change the creature's text (612.1, 612.2: one creature type word becomes Vampire; text_change_instructions71 does the layer-3 effect)."""
+    gain = _p("Gain control of target creature.")
+    return [*gain[0], {"do": "new_blood110a"}], gain[1], False
+
+
+def new_blood(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules.creature_types import CREATURE_TYPES
+
+    ctx["effects"][ctx["next"]:ctx["next"]] = [
+        {"do": "choose_value", "what": "word to replace", "who": "you", "as": "text71_old", "options": sorted(CREATURE_TYPES)},
+        {"do": "new_blood_apply110a"}]
+    return True
+
+
+def new_blood_apply(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, text_change_instructions71
+
+    old = context.refs(ctx).get("text71_old", {}).get("value")
+    if old == "Vampire":
+        return True  # replacing a word with itself changes nothing
+    context.refs(ctx)["text71_new"] = {"value": "Vampire"}
+    return text_change_instructions71.apply_word(plan, ctx, {"category": "creature", "old": old, "not_wall": False, "duration": "permanent"})
+
+
 def _gambit() -> Parsed:
     return [{"do": "gambit110a"}], None, False
 
 
+def _calix() -> Parsed:
+    """Calix -3: the exile lasts until the second target (an enchantment you control) leaves (610.3a, 610.3c)."""
+    _, targets, optional = _p("Exile target creature or enchantment you don't control. Untap target enchantment you control.")
+    return [{"do": "exile_until_target110a", "who": "target:0", "anchor": "target:1"}], targets, optional
+
+
+def exile_until_target(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """610.3c: nothing is exiled if the enchantment already left (Calix ruling: either target gone, no exile); the cards return when it leaves."""
+    from app.rules import effects
+
+    anchor = [c for c in effects._cards(plan, ctx, e["anchor"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    if not anchor:
+        return True
+    keep, ctx["source_object"] = ctx["source_object"], plan.oid(anchor[0])
+    try:
+        return effects._exile_until_cards(plan, ctx, e, [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")])
+    finally:
+        ctx["source_object"] = keep
+
+
+def _tarrasque() -> Parsed:
+    """You Look Upon the Tarrasque: the lure (509.1c) binds only creatures the CASTER's opponents control, whoever controls the target."""
+    got = _p("Target creature gets +5/+5 and gains indestructible until end of turn. All creatures able to block it this turn do so.")
+    *head, lure = got[0]
+    if lure.get("do") != "restrict" or lure.get("rules") != ["lure"]:
+        raise AssertionError("wave110a: the lure moved")
+    return [*head, {"do": "lure_opponents110a", "lure": lure}], got[1], got[2]
+
+
+def _reunion() -> Parsed:
+    """Celestial Reunion: the revealed card goes onto the battlefield instead when the cost was paid and it has the type chosen with it (608.2c;
+    conditional_search_destination reads the type the caster chose, kept as the spell's ``pick110e``)."""
+    got = _p("Search your library for a creature card with mana value X or less, reveal it, put it into your hand, then shuffle.")
+    got[0][0]["source_to_if"] = {"cond": {"object": "self", "cast": {"optional": "behold_type110a"}}, "to": "battlefield", "type110a": True}
+    return got
+
+
+def lure_opponents(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects, selectors
+
+    sel = selectors.Selector(types=("Creature",), extras=("not_controlled_by110a:" + ctx["controller"],))
+    return effects.PRIMITIVES["restrict"](plan, ctx, {**e["lure"], "rules": ["lure:" + sel.key()]})
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Search your library for a creature card with mana value X or less, reveal it, put it into your hand, then shuffle. If this spell's additional cost was "
+    "paid and the revealed card is the chosen type, put that card onto the battlefield instead of putting it into your hand.": _reunion,
+    "Target creature gets +5/+5 and gains indestructible until end of turn. All creatures your opponents control able to block that creature this turn do so.":
+        _tarrasque,
+    "Exile target creature or enchantment you don't control until target enchantment you control leaves the battlefield.": _calix,
+    "Gain control of target creature. Change the text of that creature by replacing all instances of one creature type with Vampire.": _new_blood,
     "Choose any number of target players. Investigate X times, where X is the total number of creatures those players control.": _interrogation,
     "Each player may exile their hand and draw a number of cards equal to the amount of {E} paid this way. If seven or more {E} was paid this way, "
     "you may play cards you own exiled this way until the end of your next turn.": _wheel,
@@ -530,6 +608,16 @@ def snow(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 # Whole abilities the grammar reads in other words (same meaning).
 ABILITY_REWRITES = {
+    # Karn, Living Legacy -1: "pay any amount of mana" (0 allowed) is the sized optional payment {X}; looking at 0 cards when none is paid changes nothing
+    "\u22121: Pay any amount of mana. Look at that many cards from the top of your library, then put one of those cards into your hand and the rest on the bottom of "
+    "your library in a random order.":
+        "\u22121: You may pay {X}. If you do, look at the top X cards of your library, then put one of those cards into your hand and the rest on the bottom of your "
+        "library in a random order.",
+    # Estrid, the Masked: the Mask Aura token (roles.NAMED), enchant permanent + umbra armor
+    "\u22121: Create a white Aura enchantment token named Mask attached to another target permanent. The token has enchant permanent and umbra armor.":
+        "\u22121: Create a Mask Aura token attached to another target permanent.",
+    "\u22127: Mill seven cards. Return all non-Aura enchantment cards from your graveyard to the battlefield, then do the same for Aura cards.":
+        "\u22127: Mill seven cards. Return all non-Aura enchantment cards from your graveyard to the battlefield. Return all Aura cards from your graveyard to the battlefield.",
     # Storm Cauldron: a land tapped for mana is tapped by a player (106.12a); a stack trigger, it adds no mana (so not a mana ability, 605.1b)
     "Whenever a land is tapped for mana, return it to its owner's hand.":
         "Whenever a player taps a land for mana, return that land to its owner's hand.",
@@ -547,6 +635,10 @@ ABILITY_REWRITES = {
 _ANY_NUMBER = {"\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield."}
 
 
+BETRAYER = "If damage would be dealt to ~, prevent that damage and an opponent of your choice gains control of it."
+XANTCHA = "{3}: ~'s controller loses 2 life and you draw a card. Any player may activate this ability."
+ZARA = ("Whenever ~ attacks, look at defending player's hand. You may put a creature card from it onto the battlefield under your control tapped and attacking "
+        "that player or a planeswalker they control. Return that creature to its owner's hand at the beginning of the next end step.")
 BOUNCE_CHAMBER = ("Whenever you roll to visit your Attractions, return a creature you don't control with the lowest toughness among creatures you don't control to its owner's hand.")
 
 
@@ -558,6 +650,21 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     old = scripts.self_text(ability.text, ch.name)
     if old == "The attacking player chooses how each creature blocks each combat.":  # Invasion Plans: 509.1a, read by wave110a_choosers.chooser
         return {"kind": "static", "static": "block_chooser110a", "effects": []}
+    if old == ZARA:  # Zara, Renegade Recruiter: look (701.20e), put under your control tapped and attacking (508.4), return it at the next end step
+        d = scripts.define(replace(ability, text="Whenever ~ attacks, defending player reveals their hand. You choose a creature card from it."), ch)
+        if d is None or [e["do"] for e in d["effects"]] != ["reveal_hand", "choose_from_hand"]:
+            return None
+        look, pick = d["effects"]
+        pick.update(optional=True, **{"as": "zara110a"})
+        return {**d, "effects": [{**look, "private": True}, pick, {"do": "enter_chosen110a", "who": "ref:zara110a"},
+                                 {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1}, {"do": "deferred:bounce", "who": "ref:zara110a"}]}
+    if old == BETRAYER:  # Khârn the Betrayer: "an opponent of your choice" = its controller chooses the opponent (615.5 rider; source_shields.RIDER_DOS)
+        return scripts.define(replace(ability, text="If damage would be dealt to ~, prevent that damage and choose an opponent. That player gains control of it."), ch)
+    if old == XANTCHA:  # Xantcha: the loss is for the source's controller, not "each opponent" (the activator is "you", 602.2)
+        d = scripts.define(replace(ability, text="{3}: Each opponent loses 2 life and you draw a card. Any player may activate this ability."), ch)
+        if d is None or d["effects"][0].get("do") != "lose_life":
+            return None
+        return {**d, "effects": [{**d["effects"][0], "who": "source_controller110a"}, *d["effects"][1:]]}
     if old == BOUNCE_CHAMBER:  # Bounce Chamber: the visitor (not each opponent) chooses among the tied lowest-toughness creatures it doesn't control
         from app.rules import selectors
 
@@ -622,5 +729,22 @@ def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"wheel110a": wheel, "grant_owned110a": grant_owned, "gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
-              "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents, "noted_draw110a": noted_draw}
+def enter_chosen(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The chosen cards of another player's hand enter under the ability's controller's control, tapped and attacking the defending player or a planeswalker
+    they control (110.2, 508.4; ``at`` reads the event's defended player). Not cast (601.1)."""
+    from app.rules import attachments, defending, effects, token_grammar
+
+    me = ctx["controller"]
+    if (dp := defending.players(plan, ctx)) and isinstance(ctx.get("event"), dict):  # 508.5: before they enter, while the attacker is still attacking
+        ctx["event"]["defended"] = dp[0]
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":hand")]
+    if not cards:
+        return True
+    if not attachments.enter(plan, [{"card": c, "player": me, "actor": me, "tapped": True, "via": ctx.get("source_object")} for c in cards], ctx):
+        return False
+    effects._remember(plan, ctx, {"as": "zara110a"}, cards)  # (the entered permanents are new objects, 400.7: "that creature" is them)
+    return token_grammar.enter_attacking(plan, ctx, cards, {"planeswalkers": True})
+
+
+PRIMITIVES = {"lure_opponents110a": lure_opponents, "enter_chosen110a": enter_chosen, "new_blood110a": new_blood, "new_blood_apply110a": new_blood_apply, "wheel110a": wheel, "grant_owned110a": grant_owned, "gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
+              "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents, "noted_draw110a": noted_draw, "exile_until_target110a": exile_until_target}
