@@ -8,7 +8,7 @@ import copy
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from app.rules import wave110c_any
+from app.rules import wave110c_any, wave110c_misc
 from app.rules.wave110c_any import _FLOURISH
 
 if TYPE_CHECKING:
@@ -216,6 +216,7 @@ def corrupt_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    wave110c_misc.WARP_WORLD: wave110c_misc.warp_world,  # -- Warp World (wave 110C) --
     "Move all +1/+1 counters from target land you control onto target creature. If one or more +1/+1 counters are moved this way, you gain that much life and draw a card.":
         _black_panther,
     "Counter target spell unless its controller pays {2}. Counter that spell instead if its controller has three or more poison counters.": _bring_the_ending,
