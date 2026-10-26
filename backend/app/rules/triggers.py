@@ -3049,6 +3049,8 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
                    resume={"step": "trigger_target", "trigger": t.id})
             return False
         targets = [ref(plan, target)]
+    if t.ability.get("target_choice") == "host_controller110i" and t.event is not None and len(t.event.objects) == 1:  # -- cards (wave 110I) -- remember the chooser for the 608.2b recheck
+        extra = {**extra, "chooser110i": t.event.objects[0].snapshot.controller}
     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
     source = t.source_card if t.source_card in plan.state.cards else None
     text = t.name + "’s ability" if t.name else "Triggered ability"

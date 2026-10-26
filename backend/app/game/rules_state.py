@@ -1060,6 +1060,7 @@ class StackEntry(BaseModel):
     # -- copy system (wave 2F): a copy of a spell or ability (707.10): the object id of what it
     # copies. A copy isn't cast (or activated); its cost-paying objects are the original's.
     copy_of: str | None = None
+    chooser110i: str | None = None  # -- cards (wave 110I) -- 608.2b: a target chosen by this player (Necrotic Plague) must still be a creature they don't control
 
 
 class StackMemory(BaseModel):

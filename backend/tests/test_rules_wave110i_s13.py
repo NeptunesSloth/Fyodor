@@ -44,7 +44,7 @@ EXTRA = [
     real("Coffin Queen", "{2}{B}{B}", 4, "Creature \u2014 Zombie Wizard",
          "You may choose not to untap this creature during your untap step.\n{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control. "
          "When this creature becomes untapped or you lose control of this creature, exile that creature.", ("2", "2"), "B"),
-    real("Steal110I", "{U}", 1, "Sorcery", "Gain control of target creature.", None, "U"),
+    real("Steal110I", "{U}", 1, "Instant", "Gain control of target creature.", None, "U"),
     real("Wolf110I", "{3}{G}", 4, "Creature \u2014 Wolf", "", ("4", "4"), "G"),
     real("Cub110I", "{1}{G}", 2, "Creature \u2014 Wolf", "", ("2", "2"), "G"),
 ]
@@ -115,6 +115,29 @@ def test_necrotic_plague_dying_creatures_controller_chooses_among_their_opponent
     answer(s)
     assert zone_of(s, "Ox110I", "p2") == "p2:graveyard" and zone_of(s, "Necrotic Plague") == "p1:battlefield"
     assert s.state.cards[c.id].attached_to == wolf.id
+    check(s)
+
+
+def test_necrotic_plague_target_the_chooser_now_controls_is_illegal_on_resolution(cards):
+    """608.2b: Bob picks Alice's Wolf, then Bob gains control of it before the trigger resolves; it is no longer "a creature one of their opponents controls", so the Aura stays in the graveyard."""
+    s = build(cards, ["Necrotic Plague", "Wolf110I"], ["Ox110I", "Steal110I"], forests=25, islands=25)
+    wolf = put(s, "Wolf110I")
+    bear = put(s, "Ox110I", "p2")
+    to_hand(s, "Steal110I", "p2")
+    c = to_hand(s, "Necrotic Plague")
+    mana(s, B=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[bear.id])
+    answer(s)
+    until(s, lambda s: s.state.rules.decision is not None and wolf.id in [o.id for o in s.state.rules.decision.options] or s.state.turn.number > 4)
+    d = s.state.rules.decision
+    mana(s, "p2", U=1)
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[wolf.id])
+    assert s.state.zones.get("stack") and s.state.rules.priority == "p2"
+    steal = card_named(s, "Steal110I", "p2")
+    act(s, "p2", type="cast_spell", card_id=steal.id, targets=[wolf.id])  # in response: Bob gains control of Alice's Wolf
+    answer(s)
+    assert zone_of(s, "Necrotic Plague") == "p1:graveyard"
+    assert s.state.cards[c.id].attached_to is None
     check(s)
 
 

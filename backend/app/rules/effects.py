@@ -4073,6 +4073,8 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
     if spec and entry.targets:
         src = source_of(plan, entry.source_card, entry.kind == "spell", object_id=entry.source_object)  # (wave 49C: 115.2)
         legal = [t for t in entry.targets if still_legal(plan, spec["what"], entry.controller, t, src, entry.source_card, attacker, source_object=entry.source_object)]
+        if entry.chooser110i:  # -- cards (wave 110I) -- Necrotic Plague: "creature one of their opponents controls" is the chooser's (608.2b)
+            legal = [t for t in legal if t.id not in plan.state.cards or plan.state.cards[t.id].controller != entry.chooser110i]
         if not legal:
             plan.note(f"{entry.name or 'It'} does nothing: its target is no longer legal")
             finish(plan, ctx, countered=True)
