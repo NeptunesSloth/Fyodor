@@ -112,6 +112,7 @@ _DOUBLING_SEASON = re.compile(r"^If an effect would put one or more counters on 
                               r"those counters on that permanent instead\.$")
 _PLAYER_COUNTERS = re.compile(r"^If you would get one or more counters, you get that many plus one of each of those "
                               r"kinds of counters instead\.$")
+_MELIRA110G = "If you would get one or more poison counters, instead you get one poison counter and you can't get additional poison counters this turn."
 _ENERGY_COUNTERS = re.compile(r"^If you would get one or more \{E\}, you get "
                              r"(?P<how>that many plus one|twice that many) \{E\} instead\.$")
 
@@ -169,6 +170,8 @@ def _counters(text: str) -> Definition | None:
     m = _PLAYER_COUNTERS.match(text)
     if m:
         return _static("player_counters", {"who": "you"}, {"do": "add", "n": 1})
+    if text == _MELIRA110G:  # -- (wave 110G) -- Melira, the Living Cure: 614.1a; the "can't get additional" half is prohibitions.cant_get_counters
+        return _static("player_counters", {"who": "you", "counter": "poison"}, {"do": "set", "n": 1, "once110g": True})
     m = _COUNTERS.match(text)
     if not m:
         return None

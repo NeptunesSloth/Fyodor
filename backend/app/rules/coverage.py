@@ -167,7 +167,7 @@ SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
     "creature_entry": frozenset({"exile"}),
     "tokens": frozenset({"mul", "add", "set_creator"}),  # 614.16: Parallel Lives, Doubling Season, Xorn
     "counters": frozenset({"mul", "add"}),  # 122.6, 614.16: Hardened Scales, Winding Constrictor, Doubling Season
-    "player_counters": frozenset({"add", "mul"}),  # Winding Constrictor; energy-specific additions/doubling (107.14)
+    "player_counters": frozenset({"add", "mul", "set"}),  # Winding Constrictor; energy-specific additions/doubling (107.14)
     "draw": frozenset({"win", "skip", "steal", "draw"}),  # 121.6, 614.11: Laboratory Maniac, Notion Thief
     "life": frozenset({"mul", "add", "set", "lose"}),  # 119.10: Boon Reflection, Sulfuric Vortex, Tainted Remedy
     "damage": frozenset({"mul", "add", "sub", "half", "prevent", "prevent_all_but", "prevent_all", "cap", "set_value", "prevent_counters110j"}),  # 614, 615.10 (cap: wave 20B)

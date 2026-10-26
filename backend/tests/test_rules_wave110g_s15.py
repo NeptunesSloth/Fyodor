@@ -27,6 +27,9 @@ EXTRA = [real("Kodama of the Center Tree", "{4}{G}", 5, "Legendary Creature — 
               "counter on it, then remove all rope counters from all creatures.", None, ""),
          real("Stolen Uniform", "{U}", 1, "Instant", "Choose target creature you control and target Equipment. Gain control of that Equipment until end of turn. Attach it to the chosen creature. When you lose control of that Equipment this turn, if it's attached to a creature you control, unattach it.", None, "U"),
          real("Bonesplitter", "{1}", 1, "Artifact \u2014 Equipment", "Equipped creature gets +2/+0.\nEquip {1}", None, ""),
+         real("Melira, the Living Cure", "{G}{W}", 2, "Legendary Creature \u2014 Human Cleric", "If you would get one or more poison counters, instead you get one poison counter and you can't get additional poison counters this turn.\nExile Melira: Choose another target creature or artifact. When it's put into a graveyard this turn, return that card to the battlefield under its owner's control.", ("2", "2"), "GW"),
+         real("Test Venom", "{U}", 1, "Instant", "Target player gets three poison counters.", None, "U"),
+         real("Test Smite", "{U}", 1, "Instant", "Destroy target artifact or creature.", None, "U"),
          real("Test Giant", "{4}", 4, "Creature — Spirit", "", ("4", "4"), "")]
 
 
@@ -129,4 +132,37 @@ def test_stolen_uniform(cards, moved):
     next_turn(s)
     back = s.state.cards[rod.id]
     assert back.controller == "p2" and back.attached_to == (bear.id if moved else None)
+    check(s)
+
+
+def test_melira_one_poison_counter_a_turn(cards):
+    """Melira, the Living Cure (614.1a, 614.17): three poison counters become one, and no more that turn - kept when Melira leaves - but the next turn gets one again."""
+    s = build(cards, ["Melira, the Living Cure", "Test Venom", "Test Venom"], [])
+    mel = put(s, "Melira, the Living Cure")
+    for _ in range(2):
+        mana(s, U=1)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Venom").id, targets=["p1"])
+        pass_until_stack_empty(s)
+    assert s.state.players["p1"].resources["poison"] == 1
+    act(s, "p1", type="move", card_ids=[mel.id], to={"zone": "graveyard"})
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Venom").id, targets=["p1"])
+    pass_until_stack_empty(s)
+    assert s.state.players["p1"].resources["poison"] == 1 + 0  # the cap outlives Melira this turn (a Venom with no Melira would otherwise add three)
+    check(s)
+
+
+@pytest.mark.parametrize("artifact", [False, True])
+def test_melira_exile_returns_what_goes_to_a_graveyard(cards, artifact):
+    """Melira, the Living Cure (603.7c): the chosen creature or artifact returns under its owner's control when put into a graveyard this turn."""
+    s = build(cards, ["Melira, the Living Cure", "Test Smite"], ["Bonesplitter" if artifact else "Test Kami"])
+    mel = put(s, "Melira, the Living Cure")
+    target = put(s, "Bonesplitter" if artifact else "Test Kami", "p2")
+    act(s, "p1", type="activate_ability", card_id=mel.id, ability=1, targets=[target.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[mel.id].zone == "p1:exile"
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Smite").id, targets=[target.id])
+    pass_until_stack_empty(s)
+    assert s.state.cards[target.id].zone == "p2:battlefield" and len(s.state.zones["p2:graveyard"]) == 0
     check(s)

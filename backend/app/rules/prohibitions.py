@@ -161,6 +161,8 @@ def cant_get_counters(plan: Plan, player: str | None = None, kind: str | None = 
 
     if player is not None and (from_sun := wave110g_cards.sun_marked(plan, f"player:{player}")):  # -- wave 110G -- Suncleanser: "That player can't get counters"
         return from_sun
+    if kind == "poison" and player is not None and plan.rules.poison_once110g.get(player) == plan.state.turn.number:
+        return "Melira, the Living Cure"  # -- (wave 110G) -- "you can't get additional poison counters this turn"
     return next((_label(src) for src, d in _statics(plan, "cant_counters") if d.get("players")
                  and (d.get("who") != "you" or src.controller == player) and d.get("counter") in (None, kind)), None)
 

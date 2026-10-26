@@ -327,6 +327,9 @@ _AS: dict[str, str] = {
     "You choose one of those cards. That player discards that card.":
         "When this creature enters, target opponent reveals a number of cards from their hand equal to the number of creatures in your party. "
         "You choose one of them. That player discards that card.",
+    # Melira, the Living Cure: "put into a graveyard" (this turn, from the battlefield: the target is a permanent) is the grammar's die event; "that card" is it
+    "Exile Melira: Choose another target creature or artifact. When it's put into a graveyard this turn, return that card to the battlefield under its owner's control.":
+        "Exile ~: Choose another target creature or artifact. When it is put into a graveyard this turn, return it to the battlefield under its owner's control.",
 }
 
 def _transformed(d: Def) -> Def:
