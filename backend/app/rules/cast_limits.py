@@ -539,7 +539,7 @@ def cycling_problem(state: GameState, info: CardInfo | None) -> str | None:
     return f"{source.name or 'A permanent'}: players can't cycle cards" if source is not None else None
 
 
-def land_problem(state: GameState, player: str, ch: Characteristics, info: CardInfo | None = None) -> str | None:
+def land_problem(state: GameState, player: str, ch: Characteristics, info: CardInfo | None = None, zone: str = '') -> str | None:
     """Why a stored limit forbids ``player`` playing this land now (305.1), or None: "lands with the chosen name can't be played" until a turn (the name is the bound ``name:`` of its spell selector)."""
     r = state.rules
     if info is not None and 'Basic' not in ch.supertypes:
@@ -548,6 +548,8 @@ def land_problem(state: GameState, player: str, ch: Characteristics, info: CardI
                 return f"{src.name}: you can't play a nonbasic land with the same name as a nontoken permanent"
     for x in r.cast_limits if r is not None else ():
         if x.get("lands") and x.get("player") == player and _record_live(state, x):
+            if x.get("from") and not any(zone.endswith(f":{z}") for z in x["from"]):  # -- one-card wordings (wave 110H) -- Memory Vessel: lands from hand only (305.1)
+                continue
             if not x.get("filter"):
                 return f"{x.get('label') or 'An effect'}: you can't play lands now"
             names = [e[5:] for e in selectors.from_key(x["filter"]).extras if e.startswith("name:")]
@@ -690,10 +692,14 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
         if x.get("until") == "their_next100a" and x.get("during") is None and x.get("player") == active and turn > int(x.get("turn") or 0):
             x["during"] = turn
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "their_next100a" and x.get("during") is not None and x["during"] != turn)]
+    old110i = r.cast_limits
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "end_of_next_turn" and any(x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in skipped or ()))  # (wave 32C)
         and not (x.get("until") == "turn" and x.get("turn") != turn)]
+    for x in old110i:  # -- cards (wave 110I) -- the reveal lasts as long as the ban (Firestorm Phoenix)
+        if x.get("reveal110i") and x not in r.cast_limits and (k := plan.state.cards.get(x["reveal110i"])) is not None and plan.oid(k) == x["obj110i"]:
+            plan.do({"type": "hide", "card_ids": [k.id]}, actor=k.owner)
     # -- durations (wave 30M) -- "Until your next turn, you may play that card / cast … as though … had flash": a permission (500.4, 800.4m)
     r.permissions = [p for p in r.permissions if not (p.until == "next_turn" and any((p.until_player or p.player) == pl and n > p.turn for pl, n in ended))]
     from app.rules import life_lock, player_shields
@@ -807,6 +813,9 @@ def _when_ok(state: GameState, when: str | None, controller: str, player: str | 
     if when == "attacked110a":  # -- wave 110A -- Angelic Arbiter: the player declared attackers this turn (508.1)
         log = state.rules.turn_log if state.rules is not None else None
         return player is not None and log is not None and log.turn == state.turn.number and player in log.attacked
+    if when == "attacked_me110c":  # -- wave 110C -- Midnight Crusader Shuttle: the player attacked the source's controller or a planeswalker they control this turn
+        log = state.rules.turn_log if state.rules is not None else None
+        return player is not None and log is not None and log.turn == state.turn.number and player in log.attacked_at110c.get(controller, [])
     return True
 
 
@@ -821,6 +830,8 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
     """Does this limit forbid ``player`` casting this card as this spell now (``resolving``: as something resolves; ``x``: the X announced)?"""
     if d.get("spells") is False:
         return False
+    if d.get("obj110i"):  # -- cards (wave 110I) -- Firestorm Phoenix: this one card (object), nothing else
+        return state.rules is not None and state.rules.object_id(card.id) == d["obj110i"]
     if d.get("more110a"):  # -- wave 110A -- Ward of Bones: only while the player controls more permanents of the cast spell's type than the source's controller
         from app.rules import wave110a_spells
 

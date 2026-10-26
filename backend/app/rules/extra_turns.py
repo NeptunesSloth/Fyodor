@@ -92,7 +92,8 @@ def extra_turn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         for _ in range(n):
             plan.rules.extra_turns.append({"player": pid, "label": name, **({"lose": True} if e.get("then_lose") else {}),
                                            **({"no_power_up": True} if e.get("no_power_up") else {}),
-                                           **({"skip_untap89": True} if e.get("skip_untap89") else {})})
+                                           **({"skip_untap89": True} if e.get("skip_untap89") else {}),
+                                           **({"no_prevent110l": ctx.get("source_object") or ""} if e.get("no_prevent110l") else {})})  # (wave 110L)
         plan.note(f"{plan.name(pid)} will take {'an' if n == 1 else n} extra turn{'s' if n > 1 else ''} after this one "
                   f"({name}, 500.7)", actor=ctx["controller"])
     return True
@@ -123,6 +124,9 @@ def take(plan: Plan) -> str | None:
                             "label": str(rec.get("label") or "an effect"), "turn": plan.state.turn.number})
         if rec.get("no_power_up"):  # (wave 50J: that turn is the next one)
             r.no_power_up_turns.append(plan.state.turn.number + 1)
+        if "no_prevent110l" in rec:  # -- (wave 110L) -- "During that turn, damage can't be prevented" (615.12): the next turn's whole length (611.2a)
+            r.replacements.append({"id": secrets.token_hex(4), "kind": "unpreventable", "turn": plan.state.turn.number + 1, "controller": pid,
+                                   "source": rec["no_prevent110l"] or None, "scope": {}})
         if rec.get("lose"):  # (created between the turns: "a later turn" is that one, delayed._step_due)
             plan.rules.delayed.append(DelayedTrigger(
                 id=secrets.token_hex(4), controller=pid, name=str(rec.get("label") or ""), when={"kind": "step", "step": "end", "whose": "next_turn"},

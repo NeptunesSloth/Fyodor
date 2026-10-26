@@ -117,10 +117,7 @@ def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
-@pytest.mark.parametrize("name", ["Call for Aid"])  # (Orzhov Advokist: FULL since wave 53A, player_choices.py - each player chooses a creature they control, CR 101.4)
-def test_still_manual(cards, name):
-    """Call for Aid ("You can't attack that player this turn", "You can't sacrifice those creatures") is not read."""
-    assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL", name
+# (Call for Aid is FULL since wave 110D: tests/test_rules_wave110d_aid.py)
 
 
 def test_the_player_is_only_read_where_a_trigger_names_one(cards):

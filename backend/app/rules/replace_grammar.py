@@ -157,6 +157,9 @@ def _counters(text: str) -> Definition | None:
     m = re.fullmatch(r"If you would put one or more (?P<k>\+1/\+1) counters on (?P<on>a creature you control), put that many plus one (?P=k) counters on it instead\.", text)
     if m and (on_obj := _object(m["on"])) is not None:  # -- instead (wave 100K) -- Prairie Dog: one kind of counter, put by you (122.6a, review 22C)
         return _static("counters", {"on": on_obj, "putter": "you", "counter": m["k"]}, {"do": "add", "n": 1})
+    m = re.fullmatch(r"If a modular triggered ability would put one or more (?P<k>\+1/\+1) counters on (?P<on>a creature you control), that many plus one (?P=k) counters are put on it instead\.", text)
+    if m and (on_obj := _object(m["on"])) is not None:  # -- (wave 110O) -- 702.43a: only the counters a modular triggered ability puts (replace.put_counters tags them); Zabaz
+        return _static("counters", {"on": on_obj, "counter": m["k"], "modular110o": True}, {"do": "add", "n": 1})
     m = _DOUBLING_SEASON.match(text)
     if m:
         on = _object(m["on"])
@@ -220,7 +223,21 @@ def _draw_body(rest: str) -> tuple[str, bool] | None:
     return (body, optional) if "instead" not in body else None
 
 
+_FIRST_TIME = "The first time you would draw a card each turn, "
+
+
 def _draw(text: str) -> Definition | None:
+    first = text.startswith(_FIRST_TIME)  # -- draws (wave 110C) -- Scion of Halaster's grant: only the first draw event each turn (121.6, 614.11)
+    if first:  # one card is left to put back, so "in any order" is vacuous (the body grammar reads "the rest ... in any order")
+        text = "If you would draw a card, " + text[len(_FIRST_TIME):]
+        text = text.replace(" and the other back on top of your library.", " and the rest back on top of your library in any order.")
+    d = _draw_plain(text)
+    if first and d is not None:
+        d["match"]["first_time_turn"] = True
+    return d
+
+
+def _draw_plain(text: str) -> Definition | None:
     m = _DRAW.match(text)
     if not m:
         return None

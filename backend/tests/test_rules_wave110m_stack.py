@@ -16,7 +16,10 @@ from tests.test_rules_wave5b_stack_interaction import EXTRA as _BASE
 from tests.test_rules_wave5b_stack_interaction import alice_casts, bob_answers, build, roundtrip
 from tests.test_rules_wave5b_stack_interaction import on_field as on_field
 
-EXTRA = [card("Meddle", set_code="tst", number="Y9M01", mana_cost="{1}{U}", cmc=2.0, type_line="Instant",
+EXTRA = [card("Tidal Control", set_code="tst", number="Y9M02", mana_cost="{1}{U}{U}", cmc=3.0, type_line="Enchantment",
+              oracle_text="Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nPay 2 life or {2}: Counter target red or green spell. Any player may activate this ability.",
+              colors=["U"], color_identity=["U"]),
+        card("Meddle", set_code="tst", number="Y9M01", mana_cost="{1}{U}", cmc=2.0, type_line="Instant",
               oracle_text="If target spell has only one target and that target is a creature, change that spell's target to another creature.",
               colors=["U"], color_identity=["U"])]
 
@@ -33,8 +36,9 @@ def cards(settings):
     repo.close()
 
 
-def test_meddle_is_full(cards):
-    assert coverage.of_card_data(cards.resolve("Meddle")).level == "FULL"
+@pytest.mark.parametrize("name", ["Meddle", "Tidal Control"])
+def test_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
 def meddled(s, spell, **pay):
@@ -92,4 +96,31 @@ def test_meddle_leaves_the_target_when_no_other_creature_is_legal(cards):
     meddled(s, murder)
     settle(s)
     assert s.state.cards[bears.id].zone == "p1:graveyard"
+    roundtrip(s)
+
+
+# -- Tidal Control ---------------------------------------------------------------------------------------------------------------------------
+def tidal_table(cards):
+    from tests.test_rules_wave5b_stack_interaction import build as stack_build
+
+    s = stack_build(cards, p1=("Lightning Bolt", "Tidal Control"), p2=())
+    return s
+
+
+@pytest.mark.parametrize("ability,pays_life", [(1, True), (2, False)])
+def test_tidal_control_any_player_pays_life_or_mana_to_counter_a_red_spell(cards, ability, pays_life):
+    """602.2: the opponent activates it — "Pay 2 life or {2}" is a choice of the cost to pay (here one ability for each)."""
+    from tests.test_rules_conditionals import on_field
+
+    s = tidal_table(cards)
+    control = on_field(s, "Tidal Control")
+    bolt = alice_casts(s, "Lightning Bolt", targets=["p2"], R=1)
+    from tests.game_helpers import act
+    from tests.test_rules_effects import mana
+
+    if not pays_life:
+        mana(s, "p2", C=2)
+    act(s, "p2", type="activate_ability", card_id=control.id, ability=ability, targets=[bolt.id])
+    settle(s)
+    assert s.state.cards[bolt.id].zone == "p1:graveyard" and s.state.players["p2"].life == (38 if pays_life else 40)
     roundtrip(s)

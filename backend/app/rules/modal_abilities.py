@@ -124,6 +124,14 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         if (md := sub.get(ab.index)) is not None and md.get("modal") is not None:
             md["modal"] = {**md["modal"], "zero_or_all": True}
         return sub
+    if ab.kind == "triggered" and ab.text.endswith("choose up to that many —") and "times. When you " in ab.text:
+        from dataclasses import (
+            replace as _r,  # -- pay N times (wave 110B) -- Tranquil Frillback: "choose up to that many" = up to the X paid (700.2b)
+        )
+
+        from app.rules import paid_x
+
+        ab = _r(ab, text=paid_x.times_text(ab.text))
     m = _HEADER.match(ab.text)
     if m is not None and ab.kind == "triggered" and (rm := _REFLEXIVE.match(m["prefix"])) is not None:
         return _reflexive_definitions(ab, ch, rm["outer"], m)  # -- refused modal/conditional (wave 3R1) --
@@ -336,7 +344,8 @@ def _reflexive_definitions(ab: AbilityText, ch: Characteristics, outer: str, m: 
     lo, top = _COUNTS[m["count"]]
     n = len(bullets)
     hi = n if top is None else min(top, n)
-    if n < 2 or lo > n or lo == 0 or (m["count"] == "one or both" and n != 2):
+    upx = m["count"] == "up to X"  # -- pay N times (wave 110B) -- "When you do, choose up to X —": X = the amount paid (the reflexive event's), read as it goes on the stack (700.2b)
+    if n < 2 or lo > n or (lo == 0 and not upx) or (m["count"] == "one or both" and n != 2):
         return {}
     after = next((x for x in ch.abilities if x.index == bullets[-1].index + 1), None)
     if after is not None and _TRAILER.match(after.text):
@@ -357,11 +366,16 @@ def _reflexive_definitions(ab: AbilityText, ch: Characteristics, outer: str, m: 
                 or one.get("limit") or not one["effects"]:
             return {}
         modes.append({"text": text, "effects": scripts.rename_bindings(one["effects"], f"m{k}_"), "target": one["target"]})
-    modal = {"min": lo, "max": hi, "repeat": False, "condition": None, "memory": None, "index": ab.index, "form": "triggered"}
+    modal = {"min": lo, "max": hi, "repeat": False, "condition": None, "memory": None, "index": ab.index, "form": "triggered",
+             **({"x_max": {"x": 1}} if upx else {})}
     ability = {"kind": "triggered", "trigger": "reflexive", "effects": [], "target": None, "optional": False,
-               "modes": modes, "modal": modal}
+               "modes": modes, "modal": modal, **({"x_event": True} if upx else {})}
     reflex = {**d["effects"][-1], "ability": ability}
     first = d["effects"][0]
+    if upx:
+        if first.get("do") != "optional_payment" or "choose_x" not in first:
+            return {}
+        reflex["x_from"] = first["bind"]
     if first.get("do") == "optional_payment" and len(d["effects"]) > 3 and d["effects"][-3].get("cond") == {"succeeded": first["bind"], "negate": True}:
         reflex["cond"] = {"succeeded": first["bind"]}  # -- Immard (wave 110H) -- "If you don't, X. When you do, …": "you do" is the payment, not X (603.12)
     out: dict[int, Definition] = {ab.index: {**d, "effects": [*d["effects"][:-1], reflex]}}
@@ -444,7 +458,8 @@ def mode_effects(definition: Definition, chosen: list[int]) -> list[dict[str, An
     """The effects of the chosen modes in printed order (608.2c), each with its own target slot
     ("use_targets"); a trigger's intervening "if" is checked again as it resolves (603.4)."""
     out = [*((definition.get("modal") or {}).get("also") or ()),  # (wave 50C: "choose one and you lose 2 life": that first)
-           *(e for k, i in enumerate(chosen) for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]])]
+           *(e for k, i in enumerate(chosen) for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]),
+           *(definition.get("after") or ())]  # -- wave 110G -- lines printed after the modes (Done for the Day)
     if definition.get("if") is not None:
         out = [{"do": "only_if", "cond": definition["if"], "skip": len(out)}, *out]
     return out

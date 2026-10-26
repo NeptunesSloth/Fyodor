@@ -138,6 +138,8 @@ def looks_at_face_down(state: GameState, card: CardInstance, viewer: str) -> boo
     if rules is None or not card.zone.endswith(":battlefield") or card.controller == viewer \
             or (card.face_down_as is not None and "creature" not in card.face_down_as):  # (review sys 18A: a face-down Forest land isn't a creature)
         return False
+    if any(g["player"] == viewer and g["turn"] == state.turn.number for g in rules.face_down_looks110l):  # -- (wave 110L) -- until end of turn (611.2a)
+        return True
     for reveal in rules.top_reveals:
         source = state.cards.get(reveal.source)
         if reveal.face_down and reveal.player == viewer and source is not None and not source.face_down \

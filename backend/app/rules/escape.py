@@ -45,6 +45,7 @@ GRANT = re.compile(r"^each (?P<sel>[A-Za-z][A-Za-z -]*?) card in your graveyard 
 GY_COST = re.compile(r"^(?:as long as you control an? (?P<need>[A-Z][A-Za-z]+), )?you may cast (?:this card|this creature|~) from your graveyard by paying (?P<pay>(?:\{[^}X]+\})+)"
                      r"(?: and (?P<rest>(?:exil|sacrific)ing .+))? rather than paying its mana cost"
                      r"(?P<exile>\. if you cast this card this way and it would be put into your graveyard, exile it instead)?$", re.IGNORECASE)
+_TYPES4 = re.compile(r"^escape—(?P<mana>(?:\{[^}]+\})+), exile any number of other cards from your graveyard with four or more card types among them$", re.IGNORECASE)  # (wave 110M)
 ESCAPED = {"object": "self", "cast": {"escaped": True}}  # 702.138b, as a condition on the source (conditions._cast_holds)
 
 
@@ -53,6 +54,9 @@ def define_static(t: str) -> Definition | None:
     from app.rules import mana as M
     from app.rules import selectors
 
+    if (nether := _TYPES4.fullmatch(t)) is not None:  # -- (wave 110M) -- Nethergoyf: the group constraint is on the cards exiled (cost_payment "types4_110m")
+        cost = M.parse_cost(nether["mana"])
+        return None if cost.x or cost.unsupported else {"kind": "static", "static": "escape", "mana": nether["mana"], "exile": 0, "types4_110m": True, "effects": []}
     m = PRINTED.fullmatch(t)
     if m:
         n = _WORDS.get(m["n"].lower())
@@ -100,6 +104,12 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
     out: list[Offer] = []
     for index, d in scripts.definitions(ch).items():
         if d.get("static") == "escape":
+            if d.get("types4_110m"):  # -- (wave 110M) -- Nethergoyf
+                alt = alt_costs.parse_cost(f"pay {d['mana']} and exile any number of other cards from your graveyard with four or more card types among them")
+                if alt is not None:
+                    out.append(alt_costs.Offer(f"{card.id}:{index}", f"{ch.name}: escape ({d['mana']}, exile any number of other cards from your graveyard with four or more card types "
+                                               "among them)", alt, escape=True))
+                continue
             alt = alt_costs.parse_cost(_cost_text(d["mana"], d["exile"], d.get("land", False)))
             if alt is not None:
                 out.append(alt_costs.Offer(f"{card.id}:{index}", f"{ch.name}: escape ({d['mana']}{', exile a land you control' if d.get('land') else ''}, exile {d['exile']} other "
@@ -134,6 +144,11 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
             alt = alt_costs.parse_cost(_cost_text(mana, int(n)))
             if alt is not None:
                 out.append(alt_costs.Offer(f"{card.id}:grant{g['id']}", f"{ch.name}: escape ({mana}, exile {n} other cards from your graveyard)", alt, escape=True))
+    from app.rules import (
+        wave110m_cards,  # -- (wave 110M) -- Desdemona: a temporary grant of escape to one card (702.138a, 611.2a)
+    )
+
+    out += wave110m_cards.escape_offers(state, player, card, ch, info)
     from app.rules import (  # -- casting extras (wave 18E) -- 702.146a: cast transformed from the graveyard; 702.180a
         disturb,
         harmonize,

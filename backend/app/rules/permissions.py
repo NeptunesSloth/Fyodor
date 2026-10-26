@@ -602,7 +602,7 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         return {**cheaper, "uncounterable": True} if cheaper is not None and cheaper.get("static") == "cost_modifier" and cheaper.get("caster") == "you" else None
     # -- costs (wave 3$) -- "As an additional cost to cast this spell, sacrifice a creature." (601.2b): paid with the
     # rest of the cost as the spell is cast (casting.cast_spell); a wording the cost grammar can't pay stays manual
-    if cost_changes.OWN_OPTIONAL.fullmatch(t) or cost_changes.ANY_COST.fullmatch(t) or cost_changes.EVIDENCE_REDUCTION.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"; (wave 47C) "you may sacrifice any number of …"
+    if cost_changes.OWN_OPTIONAL.fullmatch(t) or t.lower() == cost_changes.BEHOLD_TYPE.lower().rstrip(".") or cost_changes.ANY_COST.fullmatch(t) or cost_changes.EVIDENCE_REDUCTION.fullmatch(t):  # -- casting costs (wave 22F) -- "you may collect evidence 6" / "you may behold a Dragon"; (wave 47C) "you may sacrifice any number of …"
         return cost_changes.optional_definition(t)
     extra = costs.additional_cost_text(t)
     if extra is not None:
@@ -1252,6 +1252,11 @@ def parse_clause(text: str) -> tuple[list[dict[str, Any]], Any] | None:
                         "and is a vampire in addition to its other types"):  # -- Tarrian's Journal (wave 110C) -- one creature spell; 122.6, 205.1b
         return [{"do": "grant_play", "zone": "graveyard", "zone_owner": "you", "play": False, "cast": True, "until": "end_of_turn", "optional": True,
                  "once": True, "filter": spell_filter("creature"), "enters": {"counters": {"finality": 1}, "subtypes": ["Vampire"]}}], None
+    if text.lower() == ("you may cast a creature spell from that player's graveyard this turn, and you may spend mana as though it were mana of any "
+                        "color to cast that spell"):  # -- Whispersteel Dagger (wave 110F) -- 609.4b; one creature spell from the damaged player's graveyard (bound by triggers.bind_that_player)
+        return [{"do": "grant_play", "zone": "graveyard", "zone_owner": "any", "play": False, "cast": True, "until": "end_of_turn", "optional": True,
+                 "once": True, "filter": spell_filter("creature"), "spend": "color",
+                 "card_filter": selectors.Selector(card=True, zones=("graveyard",), zone_owner="that_player").key()}], None
     m = GRANT_ZONE.fullmatch(text)
     if m:
         if m["until"] and m["this_turn"]:
@@ -1381,7 +1386,7 @@ def _all_table_statics(state: GameState, info: CardInfo) -> list[tuple[CardInsta
         ch = derive(state, card, chars.of(card, info), info)
         for index, d in scripts.definitions(ch).items():
             if d.get("kind") == "static":
-                if emblem and d.get('static') not in ('permission', 'cost_modifier', 'untap_limit'):  # -- planeswalker statics (wave 110A) -- Dovin Baan's emblem
+                if emblem and d.get('static') not in ('permission', 'cost_modifier', 'untap_limit', 'untap_opp110a', 'draw_opp110a'):  # -- planeswalker statics (wave 110A) -- Dovin Baan's emblem
                     continue
                 if eminent and (d.get("change") or {}).get("cond") != triggers.COMMAND_OR_BATTLEFIELD:
                     continue
@@ -1439,11 +1444,9 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         elif p.zone != "any" and p.zone != where and not (
                 p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)):
             continue
-        if p.card_filter:
-            from app.rules import selectors
-
-            if not selectors.matches(_view(state, player, info), selectors.from_key(p.card_filter), card, ch, player):
-                continue
+        # (wave 110L: no local import of selectors here: it made the name local to all of grants(), unbound for the put_there read below)
+        if p.card_filter and not selectors.matches(_view(state, player, info), selectors.from_key(p.card_filter), card, ch, player):
+            continue
         if p.filter and verb == "cast" and not spell_matches(state, player, card, ch, p.filter, info):
             continue
         if p.nth is not None and cost_changes.casts_so_far(state, info, player, p.filter) != p.nth:
@@ -1894,6 +1897,11 @@ def ability_mana(state: GameState, player: str, card: CardInstance, ch: Characte
             chosen = targets if targets is not None else ((target,) if target and target != '?' else ())
             if not target_cost_conditions62.available(state, player, src, d['target_rule62'], chosen, info, preview=target == '?'):
                 continue
+        if d.get("first_artifact110a"):  # -- activation cost (wave 110A) --
+            from app.rules import wave110a_activation
+
+            if not wave110a_activation.available(state, player, _view(state, player, info).ch(card)):
+                continue
         if d.get("first_controlled_creature_target58"):
             from app.rules import first_target_activation_cost58
 
@@ -2036,7 +2044,7 @@ def grant_play(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     zone_label = "exile" if e.get("zone_owner") == "any" and e["zone"] == "exile" else "any graveyard" if e.get("zone_owner") == "any" and e["zone"] == "graveyard" else f"your {e['zone']}"
     r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=e["play"], cast=e["cast"], zone=e["zone"],
                                     zone_owner=e.get("zone_owner", "you"), card_filter=e.get("card_filter"), look_top=bool(e.get("look_top")),
-                                    free=bool(e.get("free")), life_mv=bool(e.get("life_mv")),
+                                    free=bool(e.get("free")), life_mv=bool(e.get("life_mv")), spend=e.get("spend", ""),  # (wave 110F: Whispersteel Dagger)
                                     extra=e.get("extra", ""), enters=e.get("enters"),
                                     filter=e.get("filter"), once=bool(e.get("once")),  # (-- cast permissions (wave 30Q) -- "a creature spell": one spell, of that kind)
                                     exile_gy=e.get("exile_gy", ""), exile_own=bool(e.get("exile_own")), graveyard_destination=e.get("graveyard_destination", ""),  # (wave 25C)

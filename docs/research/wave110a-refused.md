@@ -46,3 +46,10 @@
 - See the Unwritten: with ferocious, "you may put two creature cards ... instead of one": unsettled whether exactly one may be chosen (no CR rule or ruling in the repo); left manual.
 - Tectonic Split: "sacrifice half the lands you control, rounded up" as additional cost needs the amount bound at every cast site (about 8 callers of spell_additional_cost); not built this session, still work (not refused).
 - Tezzeret, Betrayer of Flesh: "first activated ability of an artifact you activate each turn" must count mana abilities too (605.1a); needs a per-turn record in the mana-ability path; not built this session.
+- Squandered Resources (wave 110A s14): needs the sacrificed land's producible mana as a cost-bound option list (mana ability reading a cost object); deferred, not refused for rules.
+- Celestial Reunion (wave 110A s14): chosen creature type + behold two of that type + conditional battlefield put; deferred.
+- Squandered Resources: now built (wave 110A s15): mana.py count "sacrificed_land_types", types read from the sacrificed land's own mana abilities at activation.
+- You Look Upon the Tarrasque: "All creatures your opponents control able to block that creature do so" needs a lure whose blockers are "not controlled by the caster"; the lure rule's selector "you" is the attacker's controller, which differs when the target is not the caster's creature.
+- Leonin Arbiter: "any player may pay {2} ... ignore this effect": no CR rule or ruling in the repo for when the payment may be made.
+- Teferi, Celestial Reunion, You Look Upon the Tarrasque: now built (wave 110A s16): Teferi emblem = turn-based statics in the engine (wave110a_teferi), Reunion = cast-time type + two-object behold, Tarrasque = lure rule with a caster-relative selector extra.
+- Psychic Paper (wave 110A s16): "As this Equipment becomes attached, choose a name and a type" needs a pause inside attachments.attach (21 callers, none resumable) and an "equipped creature's name and creature type are the last chosen" dynamic layer 3/4 static; deferred, a foundation not a ruling gap. Volcanic Offering: agent D.

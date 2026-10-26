@@ -85,6 +85,10 @@ def destination_map(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], dest: di
     option = e.get('source_to_if')
     if option is None or not conditions.holds(plan, ctx, option['cond']):
         return dest
+    if option.get('type110a'):  # -- wave 110A -- Celestial Reunion: only a found card of the creature type chosen with the additional cost
+        record = plan.rules.payments.get(ctx.get('source_object') or '')
+        kind = record.pick110e if record is not None else None
+        return {cid: option['to'] if to == e['to'] and kind and kind in plan.ch(plan.state.cards[cid]).subtypes else to for cid, to in dest.items()}
     return {cid: option['to'] if to == e['to'] else to for cid, to in dest.items()}
 
 def offer(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], pid: str, chosen: list[str], dest: dict[str, str]) -> bool:
