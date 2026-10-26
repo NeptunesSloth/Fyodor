@@ -387,5 +387,41 @@
 }
 }
 ]
+},
+{
+"name": "Dread Wight",
+"layout": "normal",
+"mana_cost": "{3}{B}{B}",
+"cmc": 5.0,
+"type_line": "Creature — Zombie",
+"oracle_text": "At end of combat, put a paralyzation counter on each creature blocking or blocked by this creature and tap those creatures. Each of those creatures doesn't untap during its controller's untap step for as long as it has a paralyzation counter on it. Each of those creatures gains \"{4}: Remove a paralyzation counter from this creature.\"",
+"power": "3",
+"toughness": "4",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
+},
+{
+"name": "Wall of Stone",
+"layout": "normal",
+"mana_cost": "{1}{R}{R}",
+"cmc": 3.0,
+"type_line": "Creature — Wall",
+"oracle_text": "Defender (This creature can't attack.)",
+"power": "0",
+"toughness": "8",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [
+"Defender"
+]
 }
 ]

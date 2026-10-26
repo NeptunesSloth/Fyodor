@@ -29,6 +29,7 @@ from tests.wave9c_kit import build, life, put
 from tests.wave47b_kit import build3
 from tests.wave110k_kit import (  # noqa: F401
     EXTRA,
+    ability,
     activate,
     card_db,
     cast_on,
@@ -756,4 +757,46 @@ def test_chandra_roaring_flame_minus_seven_gives_each_damaged_opponent_the_upkee
         settle(s)
         assert life(s, player) == before[player] - 6 - 3  # its emblem: 3 damage to its controller at their upkeep
     assert life(s, "p1") == before["p1"]
+    check(s)
+
+
+# -- Dread Wight --
+def test_dread_wight_is_full():
+    assert full("Dread Wight")
+
+
+def _wight_combat(cards, block=True):
+    from tests.wave110b_kit import attack, through_combat
+
+    s = build(cards, ["Dread Wight", "Grizzly Bears"], ["Wall of Stone"])
+    wight, wall = put_new(s, "Dread Wight"), put_new(s, "Wall of Stone", "p2")
+    attack(s, wight)
+    through_combat(s, [(wall, wight)] if block else None)
+    return s, wight, wall
+
+
+def test_dread_wight_paralyzes_what_blocked_it_and_the_creature_stays_tapped(cards):
+    s, wight, wall = _wight_combat(cards)
+    assert now(s, wall).counters.get("paralyzation") == 1 and now(s, wall).tapped
+    to_phase(s, "main1", turn=4)  # Bob's untap step (turn 2) and the next one (turn 4): still tapped
+    assert now(s, wall).tapped and now(s, wall).counters.get("paralyzation") == 1
+    check(s)
+
+
+def test_dread_wight_nothing_happens_when_unblocked(cards):
+    s, wight, wall = _wight_combat(cards, block=False)
+    assert not now(s, wall).counters and not now(s, wall).tapped
+    check(s)
+
+
+def test_the_paralyzed_creature_can_pay_four_to_lose_the_counter_and_untap(cards):
+    s, wight, wall = _wight_combat(cards)
+    to_phase(s, "main1", turn=2)  # (it stays tapped through Bob's untap step)
+    assert now(s, wall).tapped
+    mana(s, "p2", C=4)
+    act(s, "p2", type="activate_ability", card_id=wall.id, ability=ability(s, wall, "{4}"))
+    settle(s)
+    assert not now(s, wall).counters.get("paralyzation") and now(s, wall).tapped
+    to_phase(s, "main1", turn=4)  # the next untap step
+    assert not now(s, wall).tapped
     check(s)

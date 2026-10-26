@@ -375,7 +375,15 @@ def _rat_roles(d: Def) -> Def:
     return {**d, "effects": [*d["effects"], each]} if len(d["effects"]) == 1 and d["effects"][0].get("do") == "create_token" else d
 
 
+_WIGHT = ("At end of combat, put a paralyzation counter on each creature blocking or blocked by this creature and tap those creatures. Each of those creatures "
+          "doesn't untap during its controller's untap step for as long as it has a paralyzation counter on it. Each of those creatures gains \"{4}: Remove a "
+          "paralyzation counter from this creature.\"")
 _BUILD: dict[str, tuple[str, Any]] = {
+    # Dread Wight: "doesn't untap during its controller's untap step for as long as it has a paralyzation counter on it" is the creatures' own granted
+    # "This creature doesn't untap during your untap step if it has a paralyzation counter on it" (502.3, as Mindbender Spores: the counter is read when it untaps)
+    _WIGHT: ("At end of combat, put a paralyzation counter on each creature blocking or blocked by this creature and tap those creatures. Those creatures gain "
+             "\"This creature doesn't untap during your untap step if it has a paralyzation counter on it.\" Those creatures gain \"{4}: Remove a paralyzation "
+             "counter from this creature.\"", lambda d: d),
     "\u22127: Chandra deals 6 damage to each opponent. Each player dealt damage this way gets an emblem with \"At the beginning of your upkeep, this emblem "
     "deals 3 damage to you.\"":
         ("\u22127: ~ deals 6 damage to each opponent.", _chandra_emblems),
