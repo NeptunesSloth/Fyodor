@@ -367,6 +367,16 @@ def _chandra_emblems(d: Def) -> Def:
     return {**d, "effects": [{**eff[0], "bind_damage_players": "chandra110k"}, emblem]}
 
 
+def _vermin(d: Def) -> Def:
+    """Diseased Vermin: the target is an opponent this creature has dealt damage to before, on any turn (history.py records the players, by object)."""
+    from app.rules import selectors
+
+    target = d.get("target")
+    if not target or target.get("what") != "opponent":
+        return d
+    return {**d, "target": {**target, "what": selectors.Selector(player="opponent", extras=("previously_damaged110k",)).key()}}
+
+
 def _rat_roles(d: Def) -> Def:
     """Twisted Sewer-Witch: a Wicked Role token for each Rat its controller has once the token exists, each attached to its own Rat (111.1, 303.7)."""
     from app.rules import selectors
@@ -379,6 +389,9 @@ _WIGHT = ("At end of combat, put a paralyzation counter on each creature blockin
           "doesn't untap during its controller's untap step for as long as it has a paralyzation counter on it. Each of those creatures gains \"{4}: Remove a "
           "paralyzation counter from this creature.\"")
 _BUILD: dict[str, tuple[str, Any]] = {
+    "At the beginning of your upkeep, this creature deals X damage to target opponent previously dealt damage by it, where X is the number of infection "
+    "counters on it.":
+        ("At the beginning of your upkeep, this creature deals damage to target opponent equal to the number of infection counters on it.", _vermin),
     # Dread Wight: "doesn't untap during its controller's untap step for as long as it has a paralyzation counter on it" is the creatures' own granted
     # "This creature doesn't untap during your untap step if it has a paralyzation counter on it" (502.3, as Mindbender Spores: the counter is read when it untaps)
     _WIGHT: ("At end of combat, put a paralyzation counter on each creature blocking or blocked by this creature and tap those creatures. Those creatures gain "

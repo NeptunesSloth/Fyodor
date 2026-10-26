@@ -315,6 +315,8 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
             elif kind == "dealt_damage" and obj is None and info.get("recipient"):  # a player was dealt damage (120.3)
                 log.facts.append(TurnFact(kind="damage", player=info["recipient"], amount=int(info.get("amount") or 0),
                                           combat=bool(info.get("combat")), object_id=info.get("source_oid"), batch=e.batch))  # (wave 39B: batch)
+                if int(info.get("amount") or 0) > 0 and info.get("source_oid") and info["recipient"] not in (seen := plan.rules.damaged_players110k.setdefault(info["source_oid"], [])):
+                    seen.append(info["recipient"])  # -- (wave 110K) -- "target opponent previously dealt damage by it" (Diseased Vermin): for good, by the object
             elif kind == "dealt_damage" and obj is not None and info.get("oid") and int(info.get("amount") or 0) > 0:
                 # -- damage history (wave 6B) -- a permanent was dealt damage (120.3): "creature that was dealt damage
                 # this turn", "creature that dealt damage this turn" (app/rules/damage_history.py)

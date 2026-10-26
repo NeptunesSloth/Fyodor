@@ -800,3 +800,38 @@ def test_the_paralyzed_creature_can_pay_four_to_lose_the_counter_and_untap(cards
     to_phase(s, "main1", turn=4)  # the next untap step
     assert not now(s, wall).tapped
     check(s)
+
+
+# -- Diseased Vermin --
+def test_diseased_vermin_is_full():
+    assert full("Diseased Vermin")
+
+
+def _vermin(cards, hit=True):
+    from tests.wave110b_kit import attack, through_combat
+
+    s = build3(cards, ["Diseased Vermin"])
+    vermin = put(s, "Diseased Vermin")
+    if hit:
+        attack(s, vermin, target="p2")
+        through_combat(s)
+    return s, vermin
+
+
+def test_diseased_vermin_hurts_only_an_opponent_it_has_already_damaged(cards):
+    s, vermin = _vermin(cards)
+    assert now(s, vermin).counters.get("infection") == 1
+    before = {p: life(s, p) for p in ("p2", "p3")}
+    to_phase(s, "upkeep", turn=4)  # Alice's next turn
+    settle(s)
+    assert life(s, "p2") == before["p2"] - 1 and life(s, "p3") == before["p3"]
+    check(s)
+
+
+def test_diseased_vermin_has_no_target_before_it_has_damaged_anyone(cards):
+    s, vermin = _vermin(cards, hit=False)
+    before = {p: life(s, p) for p in ("p2", "p3")}
+    to_phase(s, "upkeep", turn=4)
+    settle(s)
+    assert {p: life(s, p) for p in ("p2", "p3")} == before
+    check(s)
