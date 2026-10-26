@@ -40,6 +40,12 @@ COPY_ENTRY_HOST = "copy_entry_host110e"
 _BOLAS = 'sel:{"controller":"you","subtypes":["Bolas"],"types":["Planeswalker"]}'
 # whole ability text -> (the wording the grammar reads for the targets, the effects that replace the parsed ones; "target:0" = the first target group)
 _SWAP: dict[str, tuple[str, list[Def]]] = {
+    # 702.16j + 119.7/119.8 + 702.26: the target opponent gets the shield and life lock until their next turn, their nonland permanents phase out
+    "Choose target opponent. Until that player's next turn, they gain protection from everything and their life total can't change. All nonland permanents they control phase out.":
+        ("Target opponent loses 1 life. Nonland permanents that player controls phase out.",
+         [{"do": "life_lock", "who": "target", "until": "next_turn"},
+          {"do": "player_shield", "who": "target", "shield": "protection", "quality": "everything", "until": "next_turn"},
+          {"do": "phase_out", "who": 'controlled:target|sel:{"not_types":["Land"]}'}]),
     "For each creature attacking you or a planeswalker you control, create a token that's a copy of that creature and that's blocking that creature. Exile those tokens at end of combat.":
         ("Draw a card.", [{"do": "mirror_match110e"}]),
     # 509.4, 509.1h/509.3c: the token enters blocking the attacker (an unblocked one becomes blocked by it; combat_rules.enter_blocking, block_events.become_blocked)
