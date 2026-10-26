@@ -933,6 +933,11 @@ def turn_cleanup(plan: Plan) -> None:
     damage_retention83.cleanup(plan)
     if plan.rules.effects:
         layers.end_of_turn(plan)
+    from app.rules import (
+        wave110k_cards,  # -- (wave 110K) -- Teferi, Timeless Voyager's "can't phase in" ends in the cleanup of the holder's next turn
+    )
+
+    wave110k_cards.end_of_turn(plan)
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
     plan.rules.regeneration_riders = []
     plan.rules.no_regen = []  # (wave 19E) and so does "can't be regenerated this turn"

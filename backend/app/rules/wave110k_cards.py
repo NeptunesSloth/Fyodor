@@ -80,7 +80,33 @@ def as_controller(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"opponent_mode110k": opponent_mode, "as_controller110k": as_controller}
+def cant_phase_in(plan: Any, card_id: str) -> bool:
+    """Held out of phasing in by a Teferi-style rule (phasing.untap_step)."""
+    oid = plan.oid(card_id)
+    return any(oid in h.objects for h in plan.rules.phase_holds110k)
+
+
+def end_of_turn(plan: Any) -> None:
+    """The cleanup step of the holder's next turn (a later turn than the one the hold began in) ends the holds (514.2, 611.2a)."""
+    plan.rules.phase_holds110k = [h for h in plan.rules.phase_holds110k if h.player in plan.live() and not (h.player == plan.active and plan.state.turn.number > h.turn)]  # (800.4m: a departed player's duration ends with them)
+
+
+def phase_out_hold(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """phasing.phase_out, then a rule on exactly the objects that phased out (702.26b: one that did not, e.g. "can't phase out", is not held) that they
+    can't phase in until the cleanup step of the controller's next turn (611.2a, 514.2; phasing.untap_step reads the rule)."""
+    from app.game.rules_state import PhaseHold110K
+    from app.rules import effects, phasing
+
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield") and not phasing._held(plan, c)]
+    if cards:
+        plan.do({"type": "phase_shift", "card_ids": cards, "out": True}, actor=ctx["controller"])
+    out = [plan.oid(c) for c in cards if plan.state.cards[c].zone.endswith(":phased")]
+    if out:
+        plan.rules.phase_holds110k.append(PhaseHold110K(objects=out, player=ctx["controller"], turn=plan.state.turn.number))
+    return True
+
+
+PRIMITIVES = {"opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
 RESUME = {"opponent_mode110k": resume_opponent_mode}
 
 
@@ -100,7 +126,18 @@ def _flourish(effects: list[Def]) -> list[Def] | None:
     return [effects[0], {**effects[1], "skip": len(rest)}, *rest]
 
 
+_TEFERI = "Each creature target opponent controls phases out. Until the end of your next turn, they can't phase in."
+
+
+def _teferi(effects: list[Def]) -> list[Def] | None:
+    """Teferi, Timeless Voyager -8: the creatures phase out, and those same objects (they are no longer on the battlefield to be selected) can't phase in."""
+    if len(effects) != 1 or effects[0].get("do") != "phase_out":
+        return None
+    return [{**effects[0], "do": "phase_out_hold110k"}]
+
+
 _BODIES: dict[str, tuple[str, Any]] = {
+    _TEFERI: ("Each creature target opponent controls phases out.", _teferi),
     _FLOURISH: ("Destroy target artifact or creature you don't control. If that permanent is destroyed this way, its controller gains 2 life.", _flourish),
 }
 

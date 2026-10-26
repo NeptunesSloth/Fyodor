@@ -5,6 +5,8 @@
 * 111.1, 303.7, 608.2c: Twisted Sewer-Witch makes a Rat, then one Wicked Role for each Rat its controller has, each on its own Rat.
 * 608.2d, 118.9, 702.145: Transforming Flourish destroys a permanent you don't control; only if it was destroyed does its controller exile until a nonland
   card and may cast it free.
+* 702.26a, 702.26b: Teferi, Timeless Voyager's -8 phases out the opponent's creatures; they can't phase in until the end of Teferi's controller's next turn
+  (so not in the untap step before it, nor in it), then phase in at their controller's next untap step.
 * 602.2b, 118.3: Bullseye, Death Dealer's activation cost is a choice announced with the activation: sacrifice an artifact or discard a nonland card.
 """
 
@@ -202,4 +204,28 @@ def test_flourish_does_nothing_more_when_the_permanent_survives(cards):
     _finish(s)
     assert now(s, victim).zone.endswith(":battlefield")
     assert not [c for c in s.state.cards.values() if c.zone == "p2:exile"]
+    check(s)
+
+
+def test_teferi_is_full():
+    assert full("Teferi, Timeless Voyager")
+
+
+def test_teferi_ultimate_keeps_the_creatures_out_until_after_your_next_turn(cards):
+    s = build(cards, ["Teferi, Timeless Voyager", "Grizzly Bears"], ["Grizzly Bears", "Elvish Visionary"])
+    teferi, mine = put_new(s, "Teferi, Timeless Voyager"), put_new(s, "Grizzly Bears")
+    theirs = [put_new(s, n, "p2") for n in ("Grizzly Bears", "Elvish Visionary")]
+    d = s.state.rules.decision
+    while d is not None:  # (the Visionary's draw trigger)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        d = s.state.rules.decision
+    settle(s)
+    act(s, "p1", type="counter", card_ids=[teferi.id], kind="loyalty", delta=8 - s.state.cards[teferi.id].counters.get("loyalty", 0))
+    activate(s, teferi, "\u22128", targets=["p2"])
+    assert all(now(s, c).zone == "p2:phased" for c in theirs) and now(s, mine).zone == "p1:battlefield"
+    for turn in (2, 3):  # Bob's untap step, then all of Alice's turn: still out
+        to_phase(s, "main1", turn=turn)
+        assert all(now(s, c).zone == "p2:phased" for c in theirs), turn
+    to_phase(s, "main1", turn=4)  # Bob's next untap step: back
+    assert all(now(s, c).zone == "p2:battlefield" for c in theirs)
     check(s)
