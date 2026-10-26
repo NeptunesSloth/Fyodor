@@ -471,3 +471,26 @@ def test_ashiok_minus_ten_exiles_every_card_in_opponents_hands_and_graveyards(ca
     assert not s.state.zones["p2:hand"] and not s.state.zones["p2:graveyard"]
     assert s.state.cards[hand.id].zone == "p2:exile" and s.state.cards[gy_card.id].zone == "p2:exile"
     check(s)
+
+
+# -- Endless Whispers ------------------------------------------------------------------------------------------------------------------------
+WHISPERS = "Endless Whispers"
+test_whispers_full = full_test([WHISPERS])
+
+
+@pytest.mark.parametrize("owner,thief", [("p1", "p2"), ("p2", "p1")])
+def test_endless_whispers_gives_a_dead_creature_to_the_chosen_opponent_at_the_next_end_step(cards, owner, thief):
+    """Each creature has the trigger: its controller's opponent puts the card from its owner's graveyard onto the battlefield under their control at the next end step."""
+    from tests.test_rules_wave34b_activated import to_phase
+
+    s = build(cards, [WHISPERS, "Murder", "Grizzly Bears"], ["Llanowar Elves"], forests=20)
+    stops(s)
+    put(s, WHISPERS)
+    victim = put(s, "Grizzly Bears" if owner == "p1" else "Llanowar Elves", owner)
+    cast(s, "Murder", [victim.id])
+    answer(s)
+    assert s.state.cards[victim.id].zone == f"{owner}:graveyard"
+    to_phase(s, "end")
+    answer(s)
+    assert s.state.cards[victim.id].zone == f"{thief}:battlefield" and s.state.cards[victim.id].controller == thief and s.state.cards[victim.id].owner == owner
+    check(s)

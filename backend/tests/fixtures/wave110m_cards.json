@@ -711,5 +711,20 @@
 ],
 "keywords": [],
 "loyalty": "3"
+},
+{
+"name": "Endless Whispers",
+"layout": "normal",
+"mana_cost": "{2}{B}{B}",
+"cmc": 4.0,
+"type_line": "Enchantment",
+"oracle_text": "Each creature has \"When this creature dies, choose target opponent. That player puts this card from its owner's graveyard onto the battlefield under their control at the beginning of the next end step.\"",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
 }
 ]

@@ -488,6 +488,30 @@ def ashiok_ult(plan: Any, ctx: Def, e: Def) -> bool:
     return True
 
 
+_WHISPERS = ("When this creature dies, choose target opponent. That player puts this card from its owner's graveyard onto the battlefield under their control at the "
+             "beginning of the next end step.")
+
+
+def _whispers(d: Def) -> Def:
+    """Endless Whispers: the opponent is chosen as the trigger goes on the stack (a target, 115.1); at the next end step that player puts the card (still that object in the
+    graveyard, 400.7) onto the battlefield under their control."""
+    return {**d, "effects": [{"do": "bind_target_player110m", "as": "copp"}, {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1},
+                             {"do": "deferred:return_card", "who": "event.new", "to": "battlefield", "tapped": False, "under": "ref:copp"}],
+            "target": {"what": "opponent"}}
+
+
+_BUILD[_WHISPERS] = ("When this creature dies, target opponent loses 1 life.", _whispers)
+_BUILD[_WHISPERS.replace("this creature", "~")] = ("When this creature dies, target opponent loses 1 life.", _whispers)  # (the holder as the grant machinery writes it)
+_BUILD[_WHISPERS.replace("this creature", "this permanent")] = ("When this creature dies, target opponent loses 1 life.", _whispers)  # (granted: granted.quote names the holder "this permanent")
+
+
+def bind_target_player(plan: Any, ctx: Def, e: Def) -> bool:
+    from app.rules import context, effects
+
+    context.bind_players(ctx, e["as"], effects._players(plan, ctx, "target"))
+    return True
+
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 
@@ -598,4 +622,4 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
 
 RESUME: dict[str, Any] = {"ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
