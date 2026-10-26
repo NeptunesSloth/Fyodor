@@ -45,7 +45,6 @@ import secrets
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from app.cards.names import normalize_name
 from app.game.state import COMBAT_PHASES, CardInstance, GameState, zone_key
 from app.rules import selectors
 from app.rules.characteristics import CardInfo, Characteristics
@@ -128,6 +127,7 @@ _SELF_ABILITY_SPEND = re.compile(
     r"^(?:you may spend mana as though it were mana of any color to pay the activation costs of "
     r"(?:~|this artifact|this creature|this permanent)'s abilities"
     r"|mana of any type can be spent to activate (?:~|this artifact|this creature|this permanent)'s abilities)$")
+_BLUE_SELF_SPEND = "you may spend blue mana as though it were mana of any color to pay the activation costs of this creature's abilities"  # -- wave 110D -- Quicksilver Elemental (609.4b)
 _LAND_PLAY_LIMIT = re.compile(r"^(?P<lead>until end of turn, )?(?P<who>target player|target opponent|you|players|each opponent) "
                               r"can't play lands(?P<this> this turn)?$")
 STATIC_HASTE = "you may activate abilities of creatures you control as though those creatures had haste"
@@ -260,7 +260,7 @@ def _conditional_flash(cond_text: str, rest: str) -> Definition | None:
 # -- first activation (wave 48D) -- 118.9, 602.2b: "You may pay {0} rather than pay the equip cost of the first equip ability you activate each turn." (Bruenor
 # Battlehammer; Kíli's "As long as you have an enduring story, …" is scripts._conditional_static; Forge Anew: "during each of your turns") and "You may pay {0}
 # rather than pay the cycling cost of the first card you cycle each turn." (Gavi, Nest Warden)
-FIRST_ALT = re.compile(r"you may pay \{0\} rather than pay the (?:(?P<eq>equip) cost of the first equip ability you activate|cycling cost of the first card you cycle)"
+FIRST_ALT = re.compile(r"you may pay \{0\} rather than pay the (?:(?P<eq>equip) cost of the first equip ability you activate|(?P<pu>power-up) cost of the first power-up ability you activate|cycling cost of the first card you cycle)"
                        r" (?:each turn|(?P<own>during each of your turns))")
 
 
@@ -276,6 +276,9 @@ def static_definition(text: str) -> Definition | None:
                 'act': None, 'when': None, 'max': None, 'name_permanent': True,
                 'spells': 'cast spells' in t, 'nonbasic_lands': 'nonbasic lands' in t, 'effects': []}
   # (wave 50J: counted for the caster, who is "you" to the spell selector)
+    if t == "spells with the chosen names can't be cast and lands with the chosen names can't be played":  # -- two names (wave 110F) -- Null Chamber: 601.3, 305.1; card_names.has_name reads both
+        return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "from": None, "act": None, "max": None, "effects": [], "named_lands110f": True,
+                "filter": selectors.parse("spells with the chosen name").key()}  # type: ignore[union-attr]
     if (own := HAS_FLASH_WHILE.fullmatch(t)) is not None:  # (wave 35D)
         t = f"you may cast this spell as though it had flash if {own['c']}"
     if (lead := AS_LONG_FLASH.fullmatch(t)) is not None:
@@ -297,6 +300,9 @@ def static_definition(text: str) -> Definition | None:
             return None
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": key, "from": None,
                 "act": None, "max": None, "effects": []}
+    if t == "enchanted player can't activate abilities that aren't mana abilities or loyalty abilities":  # -- cant restrictions (wave 110D) -- 602.5, 605.1a, 606 (Overwhelming Splendor)
+        return {"kind": "static", "static": "cast_limit", "who": "enchanted", "when": None, "filter": None, "from": None, "act": "nonmana_noloyalty",
+                "max": None, "spells": False, "effects": []}
     m = STATIC_NAMED.fullmatch(t)
     if m:
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": None, "from": None,
@@ -321,8 +327,8 @@ def static_definition(text: str) -> Definition | None:
                 "act": None, "max": 1, "effects": []}
     m = STATIC_ABILITIES.fullmatch(t)
     if m:  # ("of artifacts, creatures, and planeswalkers": the abilities of each of them)
-        sel = selectors.parse(re.sub(r",? and ", ", or " if "," in m["sel"] else " or ", m["sel"]))
-        if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras or sel.other:
+        sel = selectors.parse(re.sub(r",? and ", ", or " if "," in m["sel"] else " or ", m["sel"].removeprefix("the ") if m["sel"].startswith("the chosen ") else m["sel"]))
+        if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras not in ((), ("picked110a",)) or sel.other:  # (picked110a: wave 110A, Scheming Fence)
             return None
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": None, "from": None,
                 "act": "nonmana_of" if m["nm"] else "of", "of": sel.key(), "max": None, "spells": False, "effects": []}
@@ -380,7 +386,7 @@ def static_definition(text: str) -> Definition | None:
     if t == "you may pay {0} rather than pay cycling costs":
         return {"kind": "static", "static": "first_alt", "act": "cycling", "own_turn": False, "repeat": True, "effects": []}
     if (m := FIRST_ALT.fullmatch(t)) is not None:  # -- first activation (wave 48D) -- 118.9: an alternative cost for the first activation (casting.py _first_alt)
-        return {"kind": "static", "static": "first_alt", "act": "equip" if m["eq"] else "cycling", "own_turn": bool(m["own"]), "effects": []}
+        return {"kind": "static", "static": "first_alt", "act": "equip" if m["eq"] else "power_up" if m["pu"] else "cycling", "own_turn": bool(m["own"]), "effects": []}
     # -- unspent mana (wave 35C) -- 500.4, 614.1a: "If you would lose unspent mana, that mana becomes colorless instead." (Kruphix, Omnath, Horizon Stone:
     # app/rules/kept_mana.py): the mana stays in the pool, colorless, with its restrictions and riders (the Gatherer rulings)
     if t == "players don't lose unspent mana as steps and phases end":
@@ -406,6 +412,8 @@ def static_definition(text: str) -> Definition | None:
     if _SELF_ABILITY_SPEND.fullmatch(t):
         return {"kind": "static", "static": "spend_as", "mode": "type" if t.startswith("mana") else "color",
                 "abilities": "self", "filter": None, "no_spells": True, "effects": []}
+    if t.replace("~", "this creature") == _BLUE_SELF_SPEND:
+        return {"kind": "static", "static": "spend_as", "mode": "blue_color", "abilities": "self", "filter": None, "no_spells": True, "effects": []}
     m = STATIC_SPEND.fullmatch(t)
     if m:
         ok, key = _filter(m["sel"])
@@ -536,15 +544,24 @@ def cycling_problem(state: GameState, info: CardInfo | None) -> str | None:
     return f"{source.name or 'A permanent'}: players can't cycle cards" if source is not None else None
 
 
-def land_problem(state: GameState, player: str, ch: Characteristics, info: CardInfo | None = None) -> str | None:
+def land_problem(state: GameState, player: str, ch: Characteristics, info: CardInfo | None = None, zone: str = '') -> str | None:
     """Why a stored limit forbids ``player`` playing this land now (305.1), or None: "lands with the chosen name can't be played" until a turn (the name is the bound ``name:`` of its spell selector)."""
     r = state.rules
+    if r is not None and zone == zone_key(player, "graveyard") and r.gy_ban110i.get(player) == state.turn.number:  # -- wave 110I -- Shaman's Trance
+        return "Shaman's Trance: you can't play lands from your graveyard this turn"
     if info is not None and 'Basic' not in ch.supertypes:
         for src, d in _statics(state, info, 'cast_limit'):
             if d.get('nonbasic_lands') and _shares_permanent_name(state, info, ch):
                 return f"{src.name}: you can't play a nonbasic land with the same name as a nontoken permanent"
+            if d.get('arn_lands110o'):  # -- (wave 110O) -- City in a Bottle: 305.1
+                from app.rules import wave110o_cards
+
+                if wave110o_cards.named_arn(ch.name):
+                    return f"{src.name}: you can't play {ch.name}"
     for x in r.cast_limits if r is not None else ():
         if x.get("lands") and x.get("player") == player and _record_live(state, x):
+            if x.get("from") and not any(zone.endswith(f":{z}") for z in x["from"]):  # -- one-card wordings (wave 110H) -- Memory Vessel: lands from hand only (305.1)
+                continue
             if not x.get("filter"):
                 return f"{x.get('label') or 'An effect'}: you can't play lands now"
             names = [e[5:] for e in selectors.from_key(x["filter"]).extras if e.startswith("name:")]
@@ -687,10 +704,15 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
         if x.get("until") == "their_next100a" and x.get("during") is None and x.get("player") == active and turn > int(x.get("turn") or 0):
             x["during"] = turn
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "their_next100a" and x.get("during") is not None and x["during"] != turn)]
+    old110i = r.cast_limits
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "end_of_next_turn" and any(x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in skipped or ()))  # (wave 32C)
-        and not (x.get("until") == "turn" and x.get("turn") != turn)]
+        and not (x.get("until") == "turn" and x.get("turn") != turn)
+        and not (x.get("until") == "two_turns110f" and turn > int(x.get("turn") or 0) + 1)]  # (wave 110F: Peace Talks, this turn and the next one)
+    for x in old110i:  # -- cards (wave 110I) -- the reveal lasts as long as the ban (Firestorm Phoenix)
+        if x.get("reveal110i") and x not in r.cast_limits and (k := plan.state.cards.get(x["reveal110i"])) is not None and plan.oid(k) == x["obj110i"]:
+            plan.do({"type": "hide", "card_ids": [k.id]}, actor=k.owner)
     # -- durations (wave 30M) -- "Until your next turn, you may play that card / cast … as though … had flash": a permission (500.4, 800.4m)
     r.permissions = [p for p in r.permissions if not (p.until == "next_turn" and any((p.until_player or p.player) == pl and n > p.turn for pl, n in ended))]
     from app.rules import life_lock, player_shields
@@ -714,7 +736,9 @@ _KINDS = ("cant_cycle", "hexproof_targeting", "cast_limit", "activate_as_haste",
           "cant_enter", "cant_counters", "cant_remove_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap", "cant_target", "cant_play_gy_lands",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
-          "rad_gain", "venture_limit", "first_alt")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
+          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a", "chorus110c", "counter_cap110j", "mana_life110j", "trigger_token_shield110a",
+          "cant_phase_in110o",  # (wave 110O: Disciple of Caelus Nin)  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
+          "power_lethal110a")  # -- wave 110A -- Zilortha (wave110a_zilortha)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -801,6 +825,12 @@ def _when_ok(state: GameState, when: str | None, controller: str, player: str | 
         return state.turn.active_player == controller
     if when == "combat":
         return state.turn.phase in COMBAT_PHASES
+    if when == "attacked110a":  # -- wave 110A -- Angelic Arbiter: the player declared attackers this turn (508.1)
+        log = state.rules.turn_log if state.rules is not None else None
+        return player is not None and log is not None and log.turn == state.turn.number and player in log.attacked
+    if when == "attacked_me110c":  # -- wave 110C -- Midnight Crusader Shuttle: the player attacked the source's controller or a planeswalker they control this turn
+        log = state.rules.turn_log if state.rules is not None else None
+        return player is not None and log is not None and log.turn == state.turn.number and player in log.attacked_at110c.get(controller, [])
     return True
 
 
@@ -815,6 +845,16 @@ def _cast_hit(state: GameState, player: str, card: CardInstance, ch: Characteris
     """Does this limit forbid ``player`` casting this card as this spell now (``resolving``: as something resolves; ``x``: the X announced)?"""
     if d.get("spells") is False:
         return False
+    if d.get("obj110i"):  # -- cards (wave 110I) -- Firestorm Phoenix: this one card (object), nothing else
+        return state.rules is not None and state.rules.object_id(card.id) == d["obj110i"]
+    if d.get("more110a"):  # -- wave 110A -- Ward of Bones: only while the player controls more permanents of the cast spell's type than the source's controller
+        from app.rules import wave110a_spells
+
+        return source in state.cards and wave110a_spells.more_of(state, info, state.cards[source], d, player, ch.types)
+    if d.get("mostperm110a"):  # -- wave 110A -- Damping Engine: only an artifact, creature or enchantment spell of a player with the most permanents
+        from app.rules import wave110a_final
+
+        return source in state.cards and wave110a_final.cast_hit(state, state.cards[source], player, ch.types)
     if d.get('name_permanent'):
         return info is not None and _shares_permanent_name(state, info, ch)
     if d.get("exiled_with_name"):  # -- linked exile (wave 30H) --
@@ -861,8 +901,7 @@ def _same_name_as_exiled(state: GameState, info: CardInfo, source: str, ch: Char
     src = state.cards[source]
     plan = Plan.view(state, src.controller, info)
     ctx = {"controller": src.controller, "source_card": source, "source_object": plan.oid(src)}
-    names = {normalize_name(n) for c in exiled_with.cards(plan, ctx) if not state.cards[c].face_down for n in card_names.names_of(plan.ch(state.cards[c]))}
-    return bool(names & {normalize_name(n) for n in card_names.names_of(ch)})
+    return any(card_names.share(plan.ch(state.cards[c]), ch) for c in exiled_with.cards(plan, ctx) if not state.cards[c].face_down)  # (Spy Kit, wave 110J: share() is name_test-aware)
 
 
 def _cast_this_turn(state: GameState, player: str, key: str | None) -> int:
@@ -884,6 +923,8 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
     r = state.rules
     if r is None:
         return None
+    if card.zone == zone_key(player, "graveyard") and r.gy_ban110i.get(player) == state.turn.number:  # -- wave 110I -- Shaman's Trance: 101.2, "can't cast spells from their graveyards this turn"
+        return "Shaman's Trance: you can't cast spells from your graveyard this turn"
     from app.rules import source_spell_discounts64
 
     if (unknown_source := source_spell_discounts64.cast_problem(state, player, ch, info)) is not None:
@@ -892,14 +933,19 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
 
     if (why := split_second.problem(state, info, "cast other spells", card.id)) is not None:
         return why
+    from app.rules import permissions as _permissions
     from app.rules import scripts
 
-    if card.zone != zone_key(player, "graveyard") and any(d.get("only") for d in scripts.definitions(ch).values()):
+    if card.zone != zone_key(player, "graveyard") and not _permissions.gy_aliased(state, player, card) and any(d.get("only") for d in scripts.definitions(ch).values()):
         return f"{ch.name or 'It'} can be cast only from your graveyard"  # -- review 43 -- Haakon's "but not from anywhere else" (101.2) also holds as something resolves (cascade; 2006-07-15 ruling)
     from app.rules import static_perm100d  # -- static permanents (wave 100D) -- Serra Avenger
 
     if (first := static_perm100d.cast_problem(state, player, ch)) is not None:
         return first
+    from app.rules import wave110n_cards  # -- (wave 110N) -- Rock Jockey
+
+    if (rock := wave110n_cards.cast_problem(state, player, ch)) is not None:
+        return rock
     for x in r.cast_limits:
         if x.get("player") == player and _record_live(state, x) and _cast_hit(state, player, card, ch, info, x, x=announced):
             return f"{x.get('label') or 'An effect'}: you can't cast {_spells_words(x.get('filter'), x.get('from'))} now"
@@ -928,6 +974,8 @@ def _act_hit(state: GameState, player: str, card: CardInstance, ch: Characterist
         return on_field and bool({"Artifact", "Creature", "Enchantment"} & set(ch.types))
     if act == "nonmana":
         return not mana
+    if act == "nonmana_noloyalty":  # (wave 110D)
+        return not mana and not loyalty
     if act == "graveyard":
         return card.zone.endswith(":graveyard")
     if act == "loyalty":
@@ -937,7 +985,7 @@ def _act_hit(state: GameState, player: str, card: CardInstance, ch: Characterist
             return False
         from app.rules.plan import Plan
 
-        return selectors.matches(Plan.view(state, src_controller, info), selectors.from_key(d["of"]), card, ch, src_controller)
+        return selectors.matches(Plan.view(state, src_controller, info), selectors.from_key(d["of"]), card, ch, src_controller, source)
     return False
 
 
@@ -981,10 +1029,15 @@ def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, ke
     "instant" speed on any player's turn)? Its controller's "planeswalkers you control", or its own."""
     if key == "twice" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_twice100g:{card.controller}") == state.turn.number:
         return True  # -- zones (wave 100G) -- "… twice this turn rather than only once" (Urza Assembles the Titans III: zones100g.loyalty_twice)
+    if key == "twice" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_veil110b:{card.id}") == state.turn.number:
+        return True  # -- wave 110B -- The Chain Veil: one more activation of this planeswalker this turn (wave110b_cards.veil)
     if info is None:
         return False
     from app.rules.plan import Plan
 
+    if key == "instant" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_jace110g:{card.controller}") == state.turn.number \
+            and {"Planeswalker", "Jace"} <= {*Plan.view(state, card.controller, info).ch(card).types, *Plan.view(state, card.controller, info).ch(card).subtypes}:
+        return True  # -- wave 110G -- Jace's Machinations: "Jace planeswalkers you control" until end of turn
     for src, d in _statics(state, info, 'loyalty_rule'):
         if not d.get(key) or not (src.id == card.id if d['who'] == 'self' else src.controller == card.controller):
             continue
@@ -1018,6 +1071,10 @@ def spend_mode(state: GameState, player: str, card: CardInstance, ch: Characteri
 
     modes = {d["mode"] for src, d in _statics(state, info, "spend_as") if (src.controller == player or d.get("players")) and not d.get("no_spells")
              and (d["filter"] is None or spell_matches(state, player, card, ch, d["filter"], info))}
+    from app.rules import spell_grants
+
+    if spell_grants.pending(state, player, card, ch, info, "spend_any110f"):  # -- wave 110F -- North Star: "For one spell this turn, you may spend mana as though it were mana of any type" (609.4b)
+        modes.add("type")
     return "type" if "type" in modes else "color" if modes else None
 
 
@@ -1029,7 +1086,7 @@ def ability_spend_mode(state: GameState, player: str, card: CardInstance, ch: Ch
              and (d["abilities"] == "all" or d["abilities"] == "self" and card.id == src.id
                   or card.controller == src.controller and (d["abilities"] == "unowned" and card.owner != card.controller
                                                            or d["abilities"] == "creatures" and ch.is_creature))}
-    return "type" if "type" in modes else "color" if modes else None
+    return "type" if "type" in modes else "color" if modes - {"blue_color"} else "blue_color" if modes else None
 
 
 def as_though_haste(state: GameState, card: CardInstance, info: CardInfo | None) -> bool:
@@ -1133,6 +1190,13 @@ def granted_instances(plan: Plan, spell_card: str, spell: Characteristics, cast_
             continue
         if d.get("filter") is not None and not spell_matches(plan.state, player, card, spell, d["filter"], plan.info):
             continue
+        if d.get("during110c") == "your_turn" and plan.state.turn.active_player != player:  # -- Abaddon (wave 110C) -- "During your turn, … with mana value X or less"
+            continue
+        if d.get("mv_le110c") is not None:
+            from app.rules import values
+
+            if spell.mana_value > values.evaluate(plan, {"controller": player, "source_card": src.id, "source_object": plan.oid(src)}, d["mv_le110c"]):
+                continue
         if d.get("first") == "kind" and not first_ok(plan.state, plan.info, player, d["filter"]):
             continue  # -- spell grants (wave 30T) -- "The first instant or sorcery spell you cast each turn has casualty 2." (601.2i: this one isn't counted yet)
         total += [d] * int(d.get("count", 1))

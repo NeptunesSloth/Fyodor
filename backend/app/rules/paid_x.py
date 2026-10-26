@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 Context = dict[str, Any]
 CHOOSE = "x:"  # a decision option "x:<n>": pay {n}
 _MAX = 40  # (the most X offered: far beyond any real table's mana; the payer is never offered more than they can pay)
-_MANA_X = re.compile(r"^pay \{X\}(?P<extra>(?:\{[^}X]+\})*)(?:, where X is less than or equal to (?P<cap>.+))?$")  # (wave 26C: "{X}{W}{U}{B}", 118.12)
+_MANA_X = re.compile(r"^pay \{X\}(?P<xx>\{X\})?(?P<extra>(?:\{[^}X]+\})*)(?:, where X is less than or equal to (?P<cap>.+))?$")  # (wave 26C: "{X}{W}{U}{B}", 118.12)
 _LIFE_X = re.compile(r"^pay X life, where X is (?P<v>.+)$")
 _ENERGY_X = re.compile(r"^pay X \{E\}$")  # -- energy X (wave 50J) -- see ``energy_text``
 _LIFE_EQUAL = re.compile(r"^pay life equal to (?P<v>.+)$")
@@ -67,11 +67,13 @@ def payment(phrase: str) -> dict[str, Any] | None:
         return {"cost": "", "choose_x": {"color": colored[1]}, "that_many": True}
     m = _MANA_X.match(p)
     if m is not None:
+        if m["xx"] and (m["extra"] or m["cap"]):  # ("{X}{X}" only bare, as Numa pays it: the other combinations are untested)
+            return None
         cap = _value(m["cap"]) if m["cap"] else None
         if m["cap"] and cap is None:
             return None
         return {"cost": "", "cost_has_x": True,
-                "choose_x": {"max": cap, **({"extra": m["extra"]} if m["extra"] else {})}}
+                "choose_x": {"max": cap, **({"extra": m["extra"]} if m["extra"] else {}), **({"mult": 2} if m["xx"] else {})}}  # (-- wave 110O -- "{X}{X}": 2X mana, 107.3a: X is its half)
     m = _LIFE_X.match(p) or _LIFE_EQUAL.match(p)
     if m is not None:
         v = _value(m["v"])
@@ -196,6 +198,10 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
         from app.rules import tap_x_payments
 
         return tap_x_payments.start(plan, ctx, e, payer, bind)
+    if e.get("choose_x", {}).get("counters"):  # -- cards (wave 110H) -- Tetravus: "remove any number of +1/+1 counters from this creature"
+        from app.rules import wave110h_cards
+
+        return wave110h_cards.counters_start(plan, ctx, e, payer, bind)
     if "life_x" in e:
         n = values.evaluate(plan, ctx, e["life_x"])  # (608.2h: once, now)
         ctx.setdefault("paid_x", {})[bind] = n
@@ -237,9 +243,10 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
         return False
     limit = min(_MAX, values.evaluate(plan, ctx, cap)) if cap is not None else _MAX
     extra = e["choose_x"].get("extra", "")  # (wave 26C: the rest of "{X}{W}{U}{B}", paid with the X: 118.3, no partial payment)
+    mult = int(e["choose_x"].get("mult", 1))  # (wave 110O: "{X}{X}" costs two generic mana for each X)
     purpose = casting.Purpose(selected_cost_has_x=e.get('cost_has_x'))
     most = 0 if not extra or casting.can_pay(plan.state, payer, M.parse_cost(extra), plan.info, purpose=purpose) else -1
-    while most >= 0 and most < limit and casting.can_pay(plan.state, payer, M.parse_cost(f"{{{most + 1}}}{extra}"), plan.info, purpose=purpose):
+    while most >= 0 and most < limit and casting.can_pay(plan.state, payer, M.parse_cost(f"{{{(most + 1) * mult}}}{extra}"), plan.info, purpose=purpose):
         most += 1
     if most < 0:  # (118.3: the part beside X can't be paid, so nothing can: not offered)
         plan.note(f"{plan.name(payer)} can't pay {extra} for {ctx.get('name') or 'it'}")
@@ -252,14 +259,14 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
         )
 
         most = 0 if life_lock.why_not(plan, payer, "lose") else max(0, limit)
-    options = [DecisionOption(id=f"{CHOOSE}{n}", label=f"Pay {n} life (X = {n})" if life else f"Pay {{{n}}}{extra} (X = {n})")
+    options = [DecisionOption(id=f"{CHOOSE}{n}", label=f"Pay {n} life (X = {n})" if life else f"Pay {{{n * mult}}}{extra} (X = {n})")
                for n in range(most + 1)]
     options.append(DecisionOption(id=O.DECLINE, label="Don't pay"))
     hint = " (tap your mana first)" if O._self_pays(plan, payer) else ""
     source = plan.state.cards.get(ctx.get("source_card") or "")
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {{X}}? Choose X{hint}",
            options=options, source=source,
-           resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "life": life, "extra": extra,
+           resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "life": life, "extra": extra, "mult": mult,
                    "cost_has_x": e.get('cost_has_x')}, "cost": f"{{0}}{extra}"})
     return False
 
@@ -288,6 +295,13 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
         return
     n = int(chosen[0][len(CHOOSE):])
+    if info.get("counters"):  # -- cards (wave 110H) -- 118.12: the counters are removed as the cost (122.1)
+        from app.rules import counter_removal_results
+
+        counter_removal_results.remove(plan, info["source"], info["counters"], n, by=payer)
+        _record(ctx, bind, True, n)
+        effects.continue_effects(plan, ctx)
+        return
     if info.get("energy"):
         from app.rules import context
 
@@ -300,7 +314,7 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
         return
     if info.get("times"):  # (wave 51A) the copies of the cost, together (601.2h)
         extra = info["times"] * n
-    text = f"Pay {n} life" if info.get("life") else "Pay " + "{E}" * n if info.get("energy") else (extra if info.get("times") else f"{{{n}}}{extra}" if n else extra)
+    text = f"Pay {n} life" if info.get("life") else "Pay " + "{E}" * n if info.get("energy") else (extra if info.get("times") else f"{{{n * int(info.get('mult', 1))}}}{extra}" if n else extra)
     cost = O.parse(text)
     assert cost is not None
     ctx.setdefault("paid_x", {})[bind] = n

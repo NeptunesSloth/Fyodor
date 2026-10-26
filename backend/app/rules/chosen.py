@@ -50,7 +50,7 @@ def chooses_player(ch: Characteristics) -> bool:
     found = [m for ab in ch.abilities if (m := ENTERS_CHOICE.match(self_text(ab.text, ch.name))) is not None]
     from app.rules import keyed_player_bindings
 
-    return (len(found) == 1 and found[0]["what"] in ("opponent", "player", "color and an opponent")) or (not found and keyed_player_bindings.remembers_combat(ch))
+    return (len(found) == 1 and found[0]["what"] in ("opponent", "player", "color and an opponent")) or (not found and (keyed_player_bindings.remembers_combat(ch) or any(ab.text == "An opponent chooses one \u2014" for ab in ch.abilities)))  # (wave 110F: 700.2e, the opponent who chose the modes)
 
 
 # -- chosen type (wave 4J) ------------------------------------------------------------------------------------------
@@ -98,10 +98,13 @@ def _uses(node: Any, key: str = "") -> list[tuple[str, str]]:
 NAME_TRIGGER = re.compile(r"^When ~ enters, choose (?:a|an) (?P<what>(?:non)?(?:land|artifact|creature|enchantment|instant|sorcery|planeswalker|basic)? ?card name)\.$")
 
 
+SAGA_NAME = "II — Choose a card name."  # -- cards (wave 110I) -- Medomai's Prophecy: the chapter's answer stays on the Saga for chapter III
+
+
 def remember_name(d: dict[str, Any] | None, text: str) -> dict[str, Any] | None:
     """The definition of a lone "When ~ enters, choose a … card name." trigger with the answer recorded on the permanent (effects.resume_choose_value ``remember``)."""
     effects = d.get("effects") if d is not None else None
-    if d is None or d.get("kind") != "triggered" or NAME_TRIGGER.match(text) is None or not effects or len(effects) != 1 or effects[0].get("do") != "choose_value":
+    if d is None or d.get("kind") != "triggered" or (NAME_TRIGGER.match(text) is None and text != SAGA_NAME) or not effects or len(effects) != 1 or effects[0].get("do") != "choose_value":
         return d
     return {**d, "effects": [{**effects[0], "remember": True}]}
 
@@ -114,16 +117,19 @@ def _enters_choices(ch: Characteristics) -> list[str]:
     from app.rules.scripts import self_text
 
     texts = [choice_head(self_text(ab.text, ch.name)) for ab in ch.abilities]  # (wave 53B: a line that also puts counters on it)
-    named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"])]
+    named = [e["what"] for t in texts if (d := card_names.enters_choice(t)) is not None for e in d["effects"] if card_names.is_choice(e["what"]) and e["what"] != card_names.SECOND]  # (wave 110F: Null Chamber's two names are one "card name" choice)
+    named += ["card name" for t in texts if t == SAGA_NAME]  # (wave 110I: Medomai's Prophecy)
     named += [m["what"] for t in texts if (m := NAME_TRIGGER.match(t)) is not None]  # (wave 53B: "When ~ enters, choose a land card name." — recorded on the permanent as the trigger resolves, Petrified Hamlet)
     pairs = [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and re.fullmatch(PAIRS, m["what"]) for k in ("color", "creature type")]  # (wave 53B: Sarpadian Empires)
     pairs += [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "two basic land types" for k in ("basic land type", "second basic land type")]  # (Illusionary Terrain)
-    singles = ["card type" if m["what"].startswith("card type") or type_choice(m["what"]) is not None else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "basic land type" if re.fullmatch(r"\w+ or \w+", m["what"]) and m["what"][:1].isupper() else "creature type" if m["what"][:1].isupper() else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] not in ("color and a creature type", "color and an opponent", "two basic land types", "two colors") and not re.fullmatch(PAIRS, m["what"])]
+    singles = ["card type" if m["what"].startswith("card type") or type_choice(m["what"]) is not None else "number" if m["what"].startswith("number") else "abilities" if m["what"].startswith("two abilities") else "basic land type" if re.fullmatch(r"\w+ or \w+", m["what"]) and m["what"][:1].isupper() else "creature type" if m["what"][:1].isupper() else "color" if m["what"] == "black or red" else m["what"] for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] not in ("color and a creature type", "color and an opponent", "two basic land types", "two colors") and not re.fullmatch(PAIRS, m["what"])]
     both = [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "color and a creature type" for k in ("color", "creature type")]  # (wave 53B: "choose a color and a creature type")
     both += [k for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "color and an opponent" for k in ("color", "opponent")]
     typed = ["card type" for ab in ch.abilities if self_text(ab.text, ch.name) == "As ~ enters, look at an opponent's hand, then choose a card type other than creature."]  # (wave 53B: Arachne)
     color_pairs = ["color pair" for t in texts if (m := ENTERS_CHOICE.match(t)) is not None and m["what"] == "two colors"]
-    return singles + both + pairs + typed + color_pairs + ["card name" for _ in named]  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
+    return singles + both + pairs + typed + color_pairs + ["card name" for _ in named] \
+        + (["creature type"] if any(ab.text == "As an additional cost to cast this spell, choose a creature type." for ab in ch.abilities) else []) \
+        + (["color"] if any(ab.text == "As this Equipment becomes attached to a creature, choose a color." for ab in ch.abilities) else [])  # (wave 110E: Caller of the Hunt; Sanctuary Blade, wave110e_blade)  # (wave 47A: the card type choices, Umori, Stenn, Cloud Key)
 
 
 def _kind(what: str | None) -> str | None:
@@ -150,7 +156,7 @@ def chosen_value_ok(d: dict[str, Any], ch: Characteristics) -> bool:
     if d.get("modes"):  # -- chosen filters (wave 53B) -- 700.2: each mode is its own run of instructions (a choice made in a mode serves that mode only)
         rest = {k: v for k, v in d.items() if k != "modes"}
         return chosen_value_ok(rest, ch) and all(chosen_value_ok({"kind": d.get("kind"), **m}, ch) for m in d["modes"])
-    if d.get("chosen_type") and _enters_choices(ch).count("basic land type" if d["chosen_type"] == "land" else "creature type") != 1:
+    if d.get("chosen_type") and _enters_choices(ch).count("basic land type" if d["chosen_type"] == "land" or "Land" in ch.types else "creature type") != 1:  # (wave 110A: Thran Portal)
         return False  # (wave 11E: "~ is the chosen type in addition to its other types" needs that one choice)
 
     if d.get("chosen_color") and _enters_choices(ch).count("color") != 1:
@@ -240,7 +246,7 @@ def bind_effects(effects: list[dict[str, Any]], what: str, value: str) -> list[d
 def record(plan: Plan, card_id: str, player: str) -> None:
     """Remember the player this object chose (its object id now)."""
     r = plan.rules
-    on_field = {plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")}
+    on_field = {plan.oid(c) for c in plan.state.cards.values() if c.zone.endswith(":battlefield") or c.zone == "stack"}  # (wave 110F: a spell whose mode was chosen by an opponent)
     r.chosen_players = {oid: p for oid, p in r.chosen_players.items() if oid in on_field or oid in r.lki}  # (400.7)
     r.chosen_players[plan.oid(card_id)] = player
 
@@ -412,7 +418,8 @@ def rewrite(body: str) -> str:
 # grant is applied (layers; the choice is public, 614.12a). A card type is protected from by its plural name (702.16a: "protection from artifacts"), a creature type as
 # "creatures of that type" ("Elf creatures"); the line stays unwritten (no protection) when the source recorded no choice.
 PROTECTION = {"Protection from the chosen player": ("player", "Chosen player"), "Protection from the chosen color": ("color", "Chosen color"), "Protection from the chosen card type": ("card type", "Chosen card type"),
-              "Protection from creatures of the chosen type": ("creature type", "Chosen creature type")}
+              "Protection from creatures of the chosen type": ("creature type", "Chosen creature type"),
+              "Landwalk of the chosen type": ("land type", "Chosen land type")}  # (wave 110I: Traveler's Cloak, 702.14a)
 
 
 def protection_line(text: str, choices: dict[str, str], *, player_id: str | None = None) -> str | None:
@@ -428,6 +435,8 @@ def protection_line(text: str, choices: dict[str, str], *, player_id: str | None
     if kind == "card type":
         plural = next((k for k, v in protection.CARD_TYPES.items() if v == value), None)
         return f"Protection from {plural}" if plural else None
+    if kind == "land type":
+        return f"{value.lower()}walk" if value else None  # 702.14a: "Swampwalk" (combat.LANDWALK reads every land type)
     return f"Protection from {value.lower()} creatures" if value else None
 
 

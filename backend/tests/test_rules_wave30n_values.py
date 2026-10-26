@@ -362,7 +362,8 @@ def test_tomb_blade_costs_the_damaged_player_a_life_for_each_creature_they_contr
 # -- what stays manual --------------------------------------------------------------------------------------------------------------------
 
 @pytest.mark.parametrize(("text", "type_line"), [
-    ("Each player draws a card for each creature card in their graveyard.", "Sorcery"),  # an amount per recipient: damage and life loss only
+    # (Nature's Resurgence, "Each player draws a card for each creature card in their graveyard.", is FULL since wave 100C: test_rules_wave100c_spell_sequences.py)
+    ("Each player gains 1 life for each creature card in their graveyard.", "Sorcery"),  # an amount per recipient: damage, life loss, mill and that exact draw only
     # (review 52: "Each opponent mills cards equal to the number of cards in their hand." is each one's own count, Folio of Fancies; "choose an opponent. If that
     # player has more cards in hand than you, draw cards equal to the difference." is chosen as it resolves, Sandstone Oracle's ruling: both played in wave 52's tests)
     ("Whenever this creature attacks, defending player loses life equal to the number of artifacts they control.", "Creature — Human"),

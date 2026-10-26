@@ -13,8 +13,21 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 
+def among(comp: CostComponent) -> bool:
+    """-- optional payment (wave 110D) -- "you may remove three quest counters from among permanents you control" (122.1: each counter is a pick)."""
+    return (comp.kind == costs.REMOVE_COUNTER and comp.among and comp.counter not in (None, costs.ANY_COUNTER)
+            and comp.selector == 'sel:{"controller":"you"}' and not comp.x and not comp.more)
+
+
+def _tokens(plan: Plan, source: CardInstance, comp: CostComponent) -> dict[str, tuple[str, str]]:
+    if not among(comp):
+        return cost_payment.counter_tokens(plan, [source.id])
+    mine = [c.id for c in plan.state.cards.values() if c.zone.endswith(':battlefield') and c.controller == source.controller]
+    return {t: v for t, v in cost_payment.counter_tokens(plan, mine).items() if v[1] == comp.counter}
+
+
 def component(comp: CostComponent) -> bool:
-    return (comp.kind == costs.REMOVE_COUNTER and comp.counter == costs.ANY_COUNTER
+    return among(comp) or (comp.kind == costs.REMOVE_COUNTER and comp.counter == costs.ANY_COUNTER
             and comp.selector is None and comp.amount == 1 and not comp.x and not comp.among and not comp.more)
 
 
@@ -23,7 +36,7 @@ def allowed(cost: AbilityCost) -> bool:
 
 
 def validate(plan: Plan, source: CardInstance, comp: CostComponent, chosen: list[str], used: set[str]) -> bool:
-    tokens = cost_payment.counter_tokens(plan, [source.id])
+    tokens = _tokens(plan, source, comp)
     return len(chosen) == comp.amount and len(set(chosen)) == len(chosen) and all(t in tokens and t not in used for t in chosen)
 
 
@@ -33,10 +46,10 @@ def choose(plan: Plan, ctx: dict[str, Any], opt: dict[str, Any], cost: AbilityCo
 
     if source.id not in plan.state.cards or not source.zone.endswith(':battlefield') or plan.oid(source) != ctx.get('source_object'):
         return []
-    tokens = {t: v for t, v in cost_payment.counter_tokens(plan, [source.id]).items() if t not in used}
+    tokens = {t: v for t, v in _tokens(plan, source, comp).items() if t not in used}
     if len(tokens) < comp.amount:
         return []  # The ordinary final validation declines the now-unpayable cost.
-    if len(set(tokens.values())) == 1:
+    if len(set(tokens.values())) == 1 or len(tokens) == comp.amount:
         return list(tokens)[:comp.amount]
     decide(plan, player=opt['payer'], kind='choose_cards',
            prompt=f"{ctx.get('name') or 'It'}: choose a counter to remove, or none to decline",

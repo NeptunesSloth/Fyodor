@@ -31,16 +31,17 @@ if TYPE_CHECKING:
 _MANA_ONLY = re.compile(r"^(\{(?:\d+|[WUBRGCXS]|[WUBRG2]/[WUBRGP]|[WUBRG]/[WUBRG]/P)\})+$")
 _SELF = r"(?:this \w+|it|~)"
 _SAC_SELF = re.compile(r"^Sacrifice (this \w+|it|~|(?P<name>.+))$")
-_GRANTER_COST = re.compile(rf"^(?P<verb>Sacrifice|Unattach|Tap) (?P<g>{selectors.GRANTER})$")  # (wave 18F) the object a quoted grant came from
+_GRANTER_COST = re.compile(rf"^(?P<verb>Sacrifice|Unattach|Tap|Exile) (?P<g>{selectors.GRANTER})$")  # (wave 18F) the object a quoted grant came from
 _LIFE = re.compile(r"^Pay (?P<n>\d+) life$")
 _ENERGY = re.compile(r"^Pay (?:(?P<symbols>(?:\{E\})+)|(?P<n>\w+) \{E\})$")
 _REMOVE = re.compile(
     r"^Remove (?P<n>a|an|one|two|three|four|five|six|seven|eight|fifty|\d+) (?P<kind>[\w+/\-]+) counters? from (this \w+|it|~|(?P<name>.+))$"
 )
+_REMOVE_ALL_GRANTER = re.compile(rf"^Remove all (?P<kind>[\w+/\-]+) counters from (?P<g>{selectors.GRANTER})$")  # (wave 110H) Hankyu: the granting Equipment's
 _REMOVE_ALL = re.compile(rf"^Remove all (?P<kind>[\w+/\-]+) counters from {_SELF}$")  # (the source's own: ~ / this permanent)
 _N = r"(?P<n>a|an|another|one|two|three|four|five|six|seven|eight|nine|ten|thirteen|fifteen|\d+)"  # (seven …: wave 4H; fifteen: 17B)
 _SAC_CHOSEN = re.compile(rf"^Sacrifice {_N} (?P<what>.+)$")
-_COST_CARD = r"(?:[\w\-]+ )*cards?(?: with mana value X)?"
+_COST_CARD = r"(?:[\w\-]+ )*cards?(?: with (?:mana value X|flying))?"  # (wave 110F: "a creature card with flying", Steamcore Scholar)
 _DISCARD = re.compile(rf"^Discard {_N} (?P<what>{_COST_CARD})(?P<random> at random)?$")
 _DISCARD_SELF = re.compile(r"^Discard (?:this card|~)$")  # -- ability words (wave 4F) -- channel (113.6m)
 _REVEAL_SELF = re.compile(r"^Reveal (?:this (?:card|creature)|~) from your hand$")  # -- forecast (wave 24C) -- 702.57a (113.6m: from the hand)
@@ -124,6 +125,7 @@ class CostComponent:
     up_to: bool = False  # -- casting extras (wave 18E) -- "up to N" (harmonize 702.180a: "tapping up to one untapped creature"): none is a choice
     every: bool = False  # -- activated sweep (wave 26C) -- "Remove all oil counters from ~": X is every such counter there is, set as it's activated
     among: bool = False  # -- activated sweep (wave 26C) -- "Remove two +1/+1 counters from among creatures you control": any permanents, one pick per counter
+    targets_mv110g: bool = False  # -- wave 110G -- "collect evidence X, where X is the total mana value of the permanents this spell targets": casting.target_evidence fixes the amount
     reduces: int = 0  # -- cost reductions paid with objects (wave 47C) -- "you may sacrifice any number of creatures. This spell costs {2} less for each": any number, none too; each takes this much generic off the total cost
     anyn: bool = False  # (wave 48B: any number, none too, with or without a reduction: "sacrifice any number of creatures", "for each creature sacrificed this way")
     offering: bool = False  # -- offering (wave 51H) -- 702.48a: the sacrifice whose mana cost (colors included) takes that much off the spell's total cost (offering.reduce)
@@ -133,6 +135,9 @@ class CostComponent:
     gain_scope: Literal["each_other_player"] | None = None  # Nominal life-gain cost paid to every other live player.
     source_with_choices: bool = False  # One graveyard-exile instruction includes its required source and selected others.
     counter_options: tuple[str, ...] = ()  # A bounded choice of named counter kinds, not every counter.
+    half: bool = False  # -- wave 110A -- 'sacrifice half the lands you control, rounded up': the count is read from the board as the cost is paid
+    to_bottom110i: bool = False  # -- wave 110I -- EXILE_FROM_GRAVEYARD paid by putting the cards on the bottom of their owner's library instead (Battlefield Scrounger)
+    counters_x: bool = False  # -- blight X (wave 110C) -- 701.68a: the announced X is the number of counters put on the one creature chosen
 
     @property
     def chosen(self) -> bool:
@@ -160,7 +165,7 @@ class CostComponent:
         spell's additional cost."""
         return self.amount_rule is not None or self.kind in WAVE_4H_KINDS or self.names is not None or self.selector_x or (self.x and self.kind != PAY_ENERGY) or self.counter == ANY_COUNTER or self.among \
             or self.life_rule is not None or (self.kind == EXILE and self.selector is not None) \
-            or self.alt is not None or self.named_self or self.source_with_choices
+            or self.alt is not None or self.named_self or self.source_with_choices or self.to_bottom110i
 
 
 @dataclass(frozen=True)
@@ -179,6 +184,8 @@ class AbilityCost:
     components: tuple[CostComponent, ...] = ()
     graveyard_only: bool = False  # -- reanimation (wave 3R) -- its effect moves this card out of your graveyard (113.6m)
     exile_too: bool = False  # -- activated other (wave 42C) -- "Return this card from your graveyard or from exile …" (Mister Immortal): graveyard_only, and the exile zone too (113.6m)
+    exile_only110c: bool = False  # -- wave 110C -- exile_too, but not the graveyard: "Put this card from exile onto the battlefield tapped" (Torrent Elemental, 113.6m)
+    battlefield_too110k: bool = False  # -- wave 110K -- graveyard_only, and the battlefield too: "Activate only if ~ is on the battlefield or in your graveyard" (Skyblade's Boon)
     hand_only: bool = False  # -- activated from hand / command zone (wave 27D) -- its effect moves this card out of your hand (113.6m)
     command_only: bool = False  # (…or out of the command zone)
     life_x: bool = False  # -- X sized by a count (wave 4K) -- a spell's "pay X life" (107.3a: X announced as it's cast)
@@ -203,7 +210,7 @@ class AbilityCost:
     def x_chosen(self) -> bool:
         """-- activation costs (wave 4H) -- a part sized by an X announced as it's activated (107.3a, 107.3k):
         "Sacrifice X Treasures", "Remove X ki counters from this creature", "Pay X {E}"."""
-        return any((c.x or c.selector_x) and not c.every for c in self.components)
+        return any((c.x or c.selector_x or c.counters_x) and not c.every for c in self.components)
 
     @property
     def energy(self) -> int:
@@ -260,6 +267,9 @@ def _selector(phrase: str, *, zone: str, other: bool = False) -> str | None:
             compare = (*branch.compare, ("mv", "==", selectors.X_VALUE)) if mv_x is not None else branch.compare
             keys.append(replace(branch, controller="you", other=other, zones=("battlefield",), compare=compare).key())
         return selectors.Selector(zones=("battlefield",), either=tuple(keys)).key()
+    if (union := re.fullmatch(r"(other )?artifact creatures and/or Vehicles( you control)?", phrase)) and zone == "battlefield":  # -- (wave 110D) -- Mechtitan Core: either kind counts
+        keys = [replace(selectors.parse(p), controller="you", other=other or bool(union[1]), zones=("battlefield",)).key() for p in ("artifact creature", "Vehicle")]  # type: ignore[type-var, union-attr]
+        return selectors.Selector(zones=("battlefield",), either=tuple(keys)).key()
     sel = selectors.parse(phrase)
     if mv_x is not None and sel is not None:
         sel = replace(sel, compare=(*sel.compare, ("mv", "==", selectors.X_VALUE)))
@@ -284,6 +294,25 @@ def _selector(phrase: str, *, zone: str, other: bool = False) -> str | None:
 
 def _component(part: str, card_name: str) -> CostComponent | None:
     """One comma-separated part of an activation cost, or None when the engine can't pay it."""
+    from app.rules import wave110d_costs  # -- costs (wave 110D) --
+
+    if (own110d := wave110d_costs.component(part, card_name)) is not None:
+        return own110d
+    if part == "Untap a tapped land an opponent controls":  # -- costs (wave 110I) -- Benthic Explorers (ruling 2009-10-01: with no such land the ability can't be activated)
+        return CostComponent(UNTAP_OTHER, selector=selectors.parse("tapped land an opponent controls").key(), text=part)  # type: ignore[union-attr]
+    if part == "Put three cards from your graveyard on the bottom of your library":  # -- costs (wave 110I) -- 401.4: the payer orders them
+        return CostComponent(EXILE_FROM_GRAVEYARD, amount=3, to_bottom110i=True, text=part,
+                             selector=selectors.Selector(card=True, zones=("graveyard",), zone_owner="you").key())
+    from app.rules import wave110a_activation  # -- costs (wave 110A) --
+
+    if (own110a := wave110a_activation.component(part)) is not None:
+        return own110a
+    if part == "Exile any number of other cards from your graveyard with four or more card types among them":  # -- (wave 110M) -- Nethergoyf: 601.2h, 205.2a
+        return CostComponent(EXILE_FROM_GRAVEYARD, amount=4, more=True, anyn=True, names="types4_110m", text=part,
+                             selector=selectors.Selector(card=True, other=True, zone_owner="you", zones=("graveyard",)).key())
+    if part == "Exile any number of black cards from your graveyard with fifteen or more black mana symbols among their mana costs":  # -- (wave 110M) -- Baron Helmut Zemo's boast: 601.2h
+        return CostComponent(EXILE_FROM_GRAVEYARD, amount=1, more=True, anyn=True, names="black15_110m", text=part,
+                             selector=selectors.Selector(card=True, colors=("B",), zone_owner="you", zones=("graveyard",)).key())
     if m := re.fullmatch(r"Sacrifice all (?P<what>.+)", part):
         key = _selector(m["what"], zone="battlefield")
         return CostComponent(SACRIFICE, selector=key, all_objects=True, text=part) if key else None
@@ -306,11 +335,20 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(MANA, text=part)
     if re.fullmatch(r"Unattach (?:this \w+|~)", part):
         return CostComponent(UNATTACH, text=part)
+    if part == "Exile one or more other artifacts you control with total mana value X":  # -- last cards (wave 110J) -- Fabrication Foundry: X announced (601.2b), paid exactly (601.2h)
+        key = _selector("artifacts you control", zone="battlefield", other=True)
+        return CostComponent(COLLECT_EVIDENCE, amount=0, x=True, selector=key, text=part) if key else None
+    if part == "Unattach an Equipment from ~":  # -- last cards (wave 110J) -- Captain America: one Equipment attached to it (701.3d), the payer's choice (601.2h)
+        sel = selectors.parse("Equipment attached to ~")
+        assert sel is not None
+        return CostComponent(UNATTACH, selector=sel.key(), text=part)
     if m := _GRANTER_COST.match(part):  # -- granted from object (wave 18F) -- paid with that object (601.2h): the one choice, made for you
         sel = selectors.parse(m["g"])
         assert sel is not None
         if m["verb"] == "Tap":  # (an untapped one: 118.3)
             return CostComponent(TAP_OTHER, selector=replace(sel, tapped=False).key(), text=part)
+        if m["verb"] == "Exile":  # -- granted from object (wave 110I) -- The Dominion Bracelet: "Exile <granter>" exiles the Equipment from the battlefield (118.3)
+            return CostComponent(EXILE, selector=replace(sel, zones=("battlefield",)).key(), text=part)
         return CostComponent(SACRIFICE if m["verb"] == "Sacrifice" else UNATTACH, selector=sel.key(), text=part)
     if m := _HOST_COST.match(part):  # (the verb's own rules: only an untapped permanent is tapped, 701.26a; only your own is sacrificed, 701.21a: cost_payment)
         sel = selectors.Selector(extras=("host_of_source",), tapped=False if m["verb"] == "Tap" else None)
@@ -330,6 +368,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(REMOVE_COUNTER, amount=1, counter=ANY_COUNTER,
                              selector=_selector("permanent you control", zone="battlefield"),
                              counter_options=("+1/+1", "charge"), text=part)
+    if m := _REMOVE_ALL_GRANTER.match(part):  # -- granter counters (wave 110H) -- 602.2b: all of them, the granter being the one choice made for you (as _GRANTER_COST)
+        return CostComponent(REMOVE_COUNTER, amount=0, counter=m["kind"], selector=selectors.parse(m["g"]).key(), x=True, every=True, text=part)  # type: ignore[union-attr]
     if m := _REMOVE_ALL.match(part):  # -- activated sweep (wave 26C) -- 602.2b: not announced, it's all of them (casting sets X to that many)
         return CostComponent(REMOVE_COUNTER, amount=0, counter=m["kind"], x=True, every=True, text=part)
     if (m := _REMOVE.match(part)) and (not m.group("name") or m.group("name") == card_name):
@@ -383,7 +423,7 @@ def _component(part: str, card_name: str) -> CostComponent | None:
             return None
         key = _selector(m["what"], zone="hand")
         if key is None and m["n"] in ("a", "an", "one") and not m["random"] and " or " in m["what"]:
-            first, second = m["what"].split(" or ", 1)
+            first, second = re.split(r" or (?=an? )", m["what"], maxsplit=1) if re.search(r" or an? ", m["what"]) else m["what"].split(" or ", 1)  # (wave 110F: "an instant or sorcery card or a creature card with flying")
             left = _selector(first, zone="hand")
             right = _selector(re.sub(r"^an? ", "", second), zone="hand")
             # 701.9a / 602.2b: discard one card matching either complete description.
@@ -418,9 +458,17 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False,
 
     if not loyalty and (source69 := source_named_cost69.parse(cost)) is not None:
         return source69
+    if not loyalty and cost.strip() == "Pay enchanted creature's mana cost":  # -- Merseine (wave 110C) -- casting.ability_cost fills in the creature's cost; {H} alone can't be paid
+        return AbilityCost(mana="{H}", components=(CostComponent(MANA, text="{H}"),))
     if not loyalty and cost.strip() == '{6}, Roll a d8':
         return replace(parse_ability_cost('{6}', card_name=card_name, anyn=anyn), numeric_roll_sides=8)
     cost = re.sub(r'Remove twelve ([\w+/\-]+) counters from ([^,{}:]+?) and exile it', r'Remove 12 \1 counters from \2, Exile \2', cost)
+    from app.rules import wave110d_costs  # -- costs (wave 110D) --
+
+    cost = wave110d_costs.rewrite(cost)
+    cost = re.sub(r"Exile (?:The Book of Vile Darkness|~) and artifacts you control named Eye of Vecna and Hand of Vecna",  # -- wave 110F -- The Book of Vile Darkness: three exiles (a part each)
+                  "Exile ~, Exile an artifact named Eye of Vecna you control, Exile an artifact named Hand of Vecna you control", cost)
+    cost = cost.replace(", Choose flying, first strike, trample, or shadow", "")  # -- wave 110J -- Phyrexian Splicer: the choice is the ability's mode (wave110j_cards._splicer)
     if loyalty:
         raw = cost.strip().replace("−", "-")
         if raw.upper() == "-X":
@@ -450,7 +498,7 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False,
     # -- tutor (wave 26D) -- "Sacrifice a red creature, a green creature, and a white creature" (the Heralds): one part, three objects
     cost = re.sub(r"(Sacrifice (?:an?|another) [^,{}:]+?), ((?:an?|another) [^,{}:]+?), and ((?:an?|another) [^,{}:]+?)(?=,|$)",
                   r"\1 and \2 and \3", cost)
-    cost = re.sub(r"(Sacrifice (?:this \w+|~)) and (any number of other [^,{}:]+)", r"\1, Sacrifice \2", cost)  # -- any number as an additional cost (wave 48B) -- Emrakul's Evangel: two parts
+    cost = re.sub(r"(Sacrifice (?:this \w+|~)) and (any number of (?:other )?[^,{}:]+)", r"\1, Sacrifice \2", cost)  # -- any number as an additional cost (wave 48B) -- Emrakul's Evangel: two parts
     if card_name and "," in card_name:  # (wave 4H) "Discard another card named Korlash, Heir to Blackblade": one part
         cost = cost.replace(card_name, "~")
     # -- static_other (wave 36B) -- "Tap three untapped Advisors, Artificers, and/or Monks you control" (The Archimandrite): one part naming three kinds
@@ -518,7 +566,7 @@ _COUNTER_NUMBERS = "|".join(w for w in _WORDS if w != "another") + r"|\d+"
 _AMONG = re.compile(rf"^Remove (?P<n>{_COUNTER_NUMBERS}|X|any number of|one or more) (?:(?P<kind>\+1/\+1|-1/-1|[a-z]+) )?counters? from among (?P<what>.+ you control)$")
 _PUT_SELF = re.compile(rf"^Put {_N} (?P<kind>[\w+/\-]+) counters? on {_SELF}$")
 _PUT_CHOSEN = re.compile(rf"^Put {_N} (?P<kind>[+-]\d+/[+-]\d+) counters? on (?P<another>a|an|another) (?P<what>[^,]+ (?:you control|an opponent controls))$")
-_BLIGHT = re.compile(r"^Blight (?P<n>\d+)$")
+_BLIGHT = re.compile(r"^Blight (?P<n>\d+|X)$")
 _SAC_X = re.compile(r"^Sacrifice X (?P<what>.+)$")
 _TAP_X = re.compile(r"^Tap X untapped (?P<what>.+ you control)$")
 _EXILE_GY_X = re.compile(r"^Exile X (?P<what>(?:[\w\-]+ )*cards from your graveyard)$")
@@ -528,10 +576,13 @@ _EXILE_CHOSEN = re.compile(rf"^Exile {_N} (?P<what>[^,]+ you control)$")
 _EXILE_TO_GY = re.compile(r"^Put (?:(?P<one>a) card an opponent owns from exile into that player's graveyard"
                           r"|(?P<n>two|three) cards your opponents own from exile into their owners' graveyards)$")  # (wave 15C)
 _EVIDENCE = re.compile(r"^Collect evidence (?P<n>\d+)$")
+# -- exile for total mana value (wave 110C) -- "Exile any number of historic cards from your graveyard with total mana value 30 or greater" (The Capitoline Triad):
+# the collect-evidence payment (701.59a) on a kind of card, and not collecting evidence (cost_payment skips the designation)
+_EXILE_TOTAL = re.compile(r"^Exile any number of (?P<what>[a-z]+) cards from your graveyard with total mana value (?P<n>\d+) or greater$")
 # "Exile an artifact from among permanents you control and/or cards in your graveyard" / "…two creatures…" / "…one or more Dinosaurs…"
 _CRAFT = re.compile(r"^Exile (?P<n>a|an|one|two|three|four|five|six|seven|\d+)(?P<more> or more)?(?: (?P<what>[^,]+?))? from among "
                     r"permanents you control and/or cards in your graveyard$")
-_WATERBEND = re.compile(r"^Waterbend \{(?P<n>\d+|X)\}$")
+_WATERBEND = re.compile(r"^(?:Waterbend|Tapbend) \{(?P<n>\d+|X)\}$")
 _SAC_OR = re.compile(r"^Sacrifice (?P<a>a|an|another) (?P<w1>[\w\-]+) or (?P<b>a|an|another) (?P<w2>[\w\-]+)$")  # (no article: refused)
 _GRANDEUR = re.compile(r"^Discard another card named (?P<name>~|[A-Z].+)$")  # (grandeur, an ability word: 207.2c)
 _HALF_LIFE = "Pay half your life rounded up"
@@ -549,8 +600,8 @@ def _exile_to_gy(part: str) -> CostComponent | None:
     """-- if you do (wave 15C) -- the processors' cost; only cards a player can look at: face-up exile (406.3)."""
     from app.rules import selectors
 
-    if part == "Put a card exiled with ~ into its owner's graveyard":
-        key = selectors.Selector(card=True, zones=('exile',), extras=('source_linked',)).key()
+    if part in ("Put a card exiled with ~ into its owner's graveyard", "Put a creature card exiled with ~ into its owner's graveyard"):  # (wave 110D: Shelob, Dread Weaver)
+        key = selectors.Selector(card=True, zones=('exile',), extras=('source_linked',), types=("Creature",) if " creature " in part else ()).key()
         return CostComponent(EXILE_TO_GY, amount=1, selector=key, text=part)
     m = _EXILE_TO_GY.match(part)
     if m is None:
@@ -564,6 +615,12 @@ def _craft_part(m: re.Match[str], part: str) -> CostComponent | None:
     card in your graveyard of that type; with the word "card" (109.2) only a graveyard card. "one or more" alone: any object."""
     what = re.sub(r"\b(\w+?)s\b$", r"\1", m["what"] or "", count=1) if m["what"] and not m["what"].endswith("Merfolk") else m["what"] or ""
     n = _n(m["n"]) if m["n"].isdigit() or m["n"] in _WORDS else None
+    if m["what"] == "nonlands with activated abilities" and n is not None:  # -- (wave 110D) -- The Enigma Jewel: a nonland permanent you control or nonland card in your graveyard
+        return CostComponent(CRAFT, amount=n, selector=_selector("nonland permanent with activated abilities you control", zone="battlefield"),
+                             alt=_selector("nonland card with activated abilities from your graveyard", zone="graveyard"), more=bool(m["more"]), text=part)
+    if m["what"] == "that share a card type" and n == 2 and not m["more"]:  # -- wave 110A -- Eye of Ojer Taq: any two permanents / graveyard cards, checked as a group (names "share_card_type110a")
+        return CostComponent(CRAFT, amount=2, selector=_selector("permanent you control", zone="battlefield"), alt=_selector("card from your graveyard", zone="graveyard"),
+                             names="share_card_type110a", text=part)
     if n is None or " with " in what or what.endswith("nonland") or "share" in what:
         return None  # (conditions on the objects, "that share a card type": not read)
     if not what:
@@ -626,6 +683,8 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
             if key and m["n"] != "another" else None
     if m := _BLIGHT.match(part):  # 701.68a: put N -1/-1 counters on a creature you control
         key = _selector("creature you control", zone="battlefield")
+        if m["n"] == "X":  # (wave 110C: Soul Immolation; the cap on X is casting.life_x_problem)
+            return CostComponent(PUT_COUNTER, amount=0, counter="-1/-1", selector=key, text=part, counters_x=True) if key else None
         return CostComponent(PUT_COUNTER, amount=int(m["n"]), counter="-1/-1", selector=key, text=part) if key else None
     if m := _SAC_X.match(part):
         return _x_part(SACRIFICE, m["what"], "battlefield", part)
@@ -656,6 +715,9 @@ def _one_4h(part: str, card_name: str) -> CostComponent | None:
         return _craft_part(m, part)
     if m := _EVIDENCE.match(part):  # 701.59a
         key = _selector("cards from your graveyard", zone="graveyard")
+        return CostComponent(COLLECT_EVIDENCE, amount=int(m["n"]), selector=key, text=part) if key and int(m["n"]) > 0 else None
+    if m := _EXILE_TOTAL.match(part):  # (wave 110C)
+        key = _selector(f"{m['what']} cards from your graveyard", zone="graveyard")
         return CostComponent(COLLECT_EVIDENCE, amount=int(m["n"]), selector=key, text=part) if key and int(m["n"]) > 0 else None
     if part == "Forage":  # 701.61a
         return CostComponent(FORAGE, amount=3, text=part)
@@ -716,10 +778,10 @@ def _self_text(part: str, card_name: str) -> str:
 # -- kicker (702.33) -------------------------------------------------------------------------
 # -- keywords (wave 15E) -- squad (702.157: "you may pay [cost] any number of times"), replicate (702.56: the same) and offspring
 # (702.175: once) are optional additional mana costs paid as kicker is (``CastSpell.kicker`` times): the engine's count is theirs
-_KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)|(?P<entwine>entwine)) (?P<cost>(?:\{[^}]+\})+)$",
+_KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)|(?P<entwine>entwine)) (?P<cost>(?:\{[^}]+\})+)(?P<anytimes> any number of times)?$",
                      re.IGNORECASE)
 # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}" is "Kicker {A}, kicker {B}": two kicker costs, each paid at most once (Invasion's Battlemages)
-_KICKER2 = re.compile(r"^kicker (?P<a>(?:\{[^}]+\})+) and/or (?P<b>(?:\{[^}]+\})+)$", re.IGNORECASE)
+_KICKER2 = re.compile(r"^kicker (?P<a>(?:\{[^}]+\})+) and/or (?P<b>(?:\{[^}]+\})+)(?P<any> any number of times)?$", re.IGNORECASE)
 
 
 # -- casting extras (wave 18E) -- 702.42a: an entwine cost that isn't mana ("Entwine—Sacrifice three lands.") is paid as additional costs are
@@ -760,11 +822,11 @@ def kicker_extra_parts(line: str) -> tuple[bool, str] | None:
 
 # -- keywords (wave 50H) -- 702.33a: "Kicker—{2}{R}, Sacrifice a land." (Dwarven Landslide): a mana part and parts an alternative cost may have, the mana added to the total
 # cost and the rest paid with the other additional costs, once
-_KICKER_MIXED = re.compile(r"^kicker—(?P<mana>(?:\{[^}X]+\})+), (?P<rest>[^{}]+)$", re.IGNORECASE)
+_KICKER_MIXED = re.compile(r"^(?P<k>kicker|squad)—(?P<mana>(?:\{[^}X]+\})+), (?P<rest>[^{}]+)$", re.IGNORECASE)
 
 
-def kicker_mixed_parts(line: str) -> tuple[str, str] | None:
-    """(the mana, the other parts) of a "Kicker—{mana}, [parts]" line the engine pays, or None."""
+def kicker_mixed_parts(line: str) -> tuple[str, str, bool] | None:
+    """(the mana, the other parts, paid any number of times) of a "Kicker—{mana}, [parts]" / "Squad—{mana}, [parts]" (wave 110E) line the engine pays, or None."""
     from app.rules import alt_costs
 
     m = _KICKER_MIXED.fullmatch(re.sub(r"\s*\(.*?\)", "", line).strip().rstrip("."))
@@ -773,7 +835,7 @@ def kicker_mixed_parts(line: str) -> tuple[str, str] | None:
     rest = m["rest"].strip()
     rest = rest[:1].lower() + rest[1:]
     found = alt_costs.parse_cost(f"pay {m['mana']} and {rest}")
-    return (m["mana"], rest) if found is not None and found.mana == m["mana"] and found.cost.components else None
+    return (m["mana"], rest, m["k"].lower() == "squad") if found is not None and found.mana == m["mana"] and found.cost.components else None
 
 
 def positive_kicker_x(line: str) -> str | None:
@@ -784,7 +846,7 @@ def positive_kicker_x(line: str) -> str | None:
         return None
     match = _KICKER.fullmatch(text[:-len(suffix)])
     return match["cost"] if match is not None and match["cost"].upper().count("{X}") == 1 and not any(
-        match[k] for k in ("multi", "many", "once", "entwine")) and _MANA_ONLY.match(match["cost"]) else None
+        match[k] for k in ("multi", "many", "once", "entwine", "anytimes")) and _MANA_ONLY.match(match["cost"]) else None
 
 
 def kicker_line(line: str) -> bool:
@@ -809,10 +871,13 @@ class Kicker:
     extra: str = ""  # (an entwine cost that isn't mana: "sacrifice two lands", paid with the additional costs)
     text: str = ""  # -- free-cast optional costs (wave 41D) -- the keyword line ("Kicker {R}", "Squad {2}"): the label of the question
     second: str = ""  # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}": B, the second kicker cost. Then the cast's ``kicker`` is a mask (1: A, 2: B, 3: both)
+    anytimes: bool = False  # -- (wave 110F) -- Taste of Paradise: "you may pay {1}{G} any number of times" repeats like multikicker but isn't kicker (702.33c): the spell is not "kicked"
     minimum_x: int = 0  # Only the actual selected keyword may constrain its announced X.
 
     def paid(self, times: int) -> int:
         """-- keywords (wave 50H) -- how many kicker costs the cast's ``kicker`` pays (702.33d): the bits of the mask of two costs, else the count."""
+        if self.second and self.multi:  # -- wave 110G -- Primitive Justice: ``times`` is first count + 1024 * second count (each 0..1000)
+            return pair_counts(times)[0] + pair_counts(times)[1]
         return bin(times).count("1") if self.second else times
 
     @property
@@ -821,12 +886,26 @@ class Kicker:
         return "{X}" in self.cost.upper()
 
 
+PAIR_SHIFT = 1024  # (wave 110G) each of the two counts is 0..1000, the platform numeric range
+
+
+def pair_counts(times: int) -> tuple[int, int]:
+    """-- wave 110G -- the two payment counts of "you may pay {A} and/or {B} any number of times" in the cast's ``kicker`` number."""
+    return times % PAIR_SHIFT, times // PAIR_SHIFT
+
+
+_OPTIONAL_EXTRA = re.compile(r"As an additional cost to cast this spell, you may pay (?P<cost>\{2\}\{R\})\.")  # -- (wave 110O) -- Undergrowth, the one printed wording
+
+
 def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
     """702.33a / 702.33c: the card's "Kicker {cost}" or "Multikicker {cost}" line (mana only), or
     None. Two kicker costs ("Kicker {1}{U} and/or {2}{B}", 702.33b), non-mana kicker costs
     ("Kicker—Sacrifice a land") and X in the cost stay manual."""
     found: list[Kicker] = []
     for ab in abilities:
+        if (opt := _OPTIONAL_EXTRA.fullmatch(ab.text.strip())) is not None and ab.kind == "spell":  # -- (wave 110O) -- 601.2b, 118.8: "you may pay {2}{R}" is an optional additional cost, read as a kicker
+            found.append(Kicker(opt["cost"], text=ab.text.strip().rstrip(".")))
+            continue
         if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"} & set(ab.keywords)):
             continue
         if (positive := positive_kicker_x(ab.text)) is not None:
@@ -836,22 +915,23 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
             found.append(Kicker("", entwine=True, extra=extra))
             continue
         if (mixed := kicker_mixed_parts(ab.text)) is not None:  # (wave 50H)
-            found.append(Kicker(mixed[0], extra=mixed[1], text=ab.text.strip().rstrip(".")))
+            found.append(Kicker(mixed[0], multi=mixed[2], extra=mixed[1], text=ab.text.strip().rstrip(".")))
             continue
         if (non_mana := kicker_extra_parts(ab.text)) is not None:  # (wave 43D)
             found.append(Kicker("", multi=non_mana[0], extra=non_mana[1], text=ab.text.strip().rstrip(".")))
             continue
         if (two := _KICKER2.fullmatch(ab.text.strip().rstrip("."))) is not None and kicker_line(ab.text):  # (wave 50H)
-            found.append(Kicker(two["a"], second=two["b"], text=ab.text.strip().rstrip(".")))
+            found.append(Kicker(two["a"], second=two["b"], multi=bool(two["any"]), anytimes=bool(two["any"]), text=ab.text.strip().rstrip(".")))  # (wave 110G: "any number of times", Primitive Justice)
             continue
         m = _KICKER.fullmatch(ab.text.strip().rstrip("."))
         if m is None or not kicker_line(ab.text):
             return None
-        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"]), entwine=bool(m["entwine"]), text=ab.text.strip().rstrip(".")))
+        found.append(Kicker(m["cost"], multi=bool(m["multi"] or m["many"]), entwine=bool(m["entwine"]), anytimes=bool(m["anytimes"]), text=ab.text.strip().rstrip(".")))
     return found[0] if len(found) == 1 else None
 
 
 # -- costs (wave 3$) -- additional costs to cast a spell (118.8, 601.2b) ----------------------------------
+_THROWDOWN_COST = "As an additional cost to cast this spell, sacrifice a creature or sacrifice a modified creature."
 _ADDITIONAL = re.compile(r"^as an additional cost to cast (?:this spell|~), (?P<cost>[^.]+)\.?$", re.IGNORECASE)
 # What a spell's additional cost may be made of: parts with chosen objects (or life / energy). Never the
 # source itself (a spell isn't on the battlefield to be sacrificed), tapping it, mana or counters on it.
@@ -862,13 +942,16 @@ BEHOLD = "BEHOLD"
 BEHOLD_EXILE = "BEHOLD_EXILE"  # One matching controlled permanent or hand card, exiled as a single additional cost.
 _ADDITIONAL_KINDS = frozenset({SACRIFICE, DISCARD, PAY_LIFE, PAY_ENERGY, EXILE_FROM_GRAVEYARD, RETURN_PERMANENT, TAP_OTHER,
                                EXILE_TO_GY,  # (EXILE_TO_GY: wave 15C)
-                               "REVEAL_FROM_HAND", BEHOLD, BEHOLD_EXILE, PUT_COUNTER, FORAGE, EXILE})
+                               "REVEAL_FROM_HAND", BEHOLD, BEHOLD_EXILE, PUT_COUNTER, FORAGE, EXILE,
+                               "DISCARD_HAND"})  # (-- wave 110M -- 701.9a: "discard your hand", Kaervek's Spite; the spell is on the stack by then, so not in it)
 _REVEAL_HAND_COST = re.compile(r"^Reveal (?:a|an) (?P<what>.+? card) from your hand$")
 _BEHOLD_COST = re.compile(r"^Behold (?:(?P<one>a|an)|(?P<n>two|three|four|five)) (?P<q>[A-Z][a-z]+)$")  # (-- cast keywords (wave 43D) -- "Behold three Elementals")
 
 
 def _extra_part(part: str) -> CostComponent | None:
     """-- static_other sweep (wave 17C) -- one of the parts above that a spell's additional cost may also be made of."""
+    if part == "Choose a creature you control or reveal a creature card from your hand":  # 701.4a (wave 110A): Monstrous Emergence
+        return _extra_part("Behold a Creature")
     if m := _REVEAL_HAND_COST.match(part):
         key = _selector(m["what"], zone="hand")
         return CostComponent("REVEAL_FROM_HAND", selector=key, text=part) if key else None
@@ -912,7 +995,12 @@ def any_number_part(text: str, per: int) -> CostComponent | None:
 
 def additional_cost_text(line: str) -> str | None:
     """"As an additional cost to cast this spell, sacrifice a creature." → "sacrifice a creature"."""
+    if line.strip() == _THROWDOWN_COST:  # -- wave 110E -- 118.8: a modified creature is a creature, so "or a modified creature" adds no choice (Lethal Throwdown)
+        return "sacrifice a creature"
     m = _ADDITIONAL.match(line.strip())
+    if m is None and line.strip().lower().rstrip(".") == ("as an additional cost to cast this spell, blight x. x can't be greater than the greatest "
+                                                         "toughness among creatures you control"):
+        return "blight X"  # -- blight X (wave 110C) -- the cap is checked as X is announced (casting.life_x_problem)
     return m["cost"] if m else None
 
 
@@ -955,6 +1043,13 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
 
     if (water := waterbend102.part(text)) is not None:
         return AbilityCost(components=(water,))
+    from app.rules import wave110a_activation  # -- costs (wave 110A) --
+
+    if (half110a := wave110a_activation.component(text)) is not None:
+        return AbilityCost(components=(half110a,))
+    if text.lower() == "collect evidence x, where x is the total mana value of the permanents this spell targets":  # Urgent Necropsy: 701.59a, 601.2b
+        key = _selector("cards from your graveyard", zone="graveyard")
+        return AbilityCost(components=(CostComponent(COLLECT_EVIDENCE, amount=0, selector=key, text="Collect evidence X", targets_mv110g=True),)) if key else None
     if text == 'put a -1/-1 counter on a creature you control':
         counter = _one_4h(text[:1].upper() + text[1:], '')
         return AbilityCost(components=(counter,)) if counter is not None and counter.selector is not None else None
@@ -978,7 +1073,7 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
     if text.lower().startswith("you may") or "," in text:
         return None
     has_x = re.search(r"\bx\b", text, re.IGNORECASE) is not None  # -- X sized by a count (wave 25D) -- one part sized by the announced X (below)
-    if has_x and not re.match(r"^(?:sacrifice|discard|exile|return) X ", text, re.IGNORECASE):
+    if has_x and not re.match(r"^(?:(?:sacrifice|discard|exile|return) X |blight X$)", text, re.IGNORECASE) and text != "sacrifice an artifact or creature with mana value X":  # (wave 110O: Nahiri's Sacrifice)
         return None
     parts = [p.strip() for p in re.split(r" and (?=(?:sacrifice|discard|pay|exile|return|tap) )", text)]
     components: list[CostComponent] = []
@@ -995,13 +1090,15 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
                     and not counter_part.x and not counter_part.more and counter_part.amount > 0):
                 components.append(counter_part)
                 continue
+        if found is None and part.lower() == "discard your hand":  # -- (wave 110M) -- 701.9a: every card in the hand (none is fine)
+            found = _one_4h("Discard your hand", "")
         if found is None and has_x:  # (the part sized by X, 107.3a: one only — "discard X cards and sacrifice X creatures" isn't read)
             found = _one_4h(part[:1].upper() + part[1:], "")
             if found is None or not found.x or len(parts) != 1:
                 return None
         if found is None or found.kind not in _ADDITIONAL_KINDS:
             return None
-        if found.selector is None and found.kind not in (PAY_LIFE, PAY_ENERGY, FORAGE):
+        if found.selector is None and found.kind not in (PAY_LIFE, PAY_ENERGY, FORAGE, DISCARD_HAND):
             return None
         components.append(found)
     return AbilityCost(components=tuple(components), life=sum(c.amount for c in components if c.kind == PAY_LIFE))

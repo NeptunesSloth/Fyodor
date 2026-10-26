@@ -25,7 +25,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
-from app.rules import card_names, coverage, scripts, selectors
+from app.rules import card_names, coverage, mana_units, scripts, selectors
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
@@ -450,9 +450,9 @@ def test_extraplanar_lens_adds_mana_only_for_lands_with_the_exiled_lands_name(ca
     settle(s, prefer=[forests[0].id, "Yes"])
     assert s.state.cards[forests[0].id].zone == "p1:exile"
     act(s, "p1", type="activate_ability", card_id=forests[1].id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 2}  # a Forest was tapped: one more mana of the type it produced
+    assert mana_units.visible_pool(s.state, "p1") == {"G": 2}  # (land mana is a provenance unit, wave 18B) a Forest was tapped: one more mana of the type it produced
     act(s, "p1", type="activate_ability", card_id=mountain.id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 2, "R": 1}  # another name: no more
+    assert mana_units.visible_pool(s.state, "p1") == {"G": 2, "R": 1}  # another name: no more
     check(s)
 
 

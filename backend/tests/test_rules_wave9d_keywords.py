@@ -9,6 +9,7 @@ from app.game.errors import ActionError
 from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -584,5 +585,5 @@ def test_joraga_treespeaker_taps_for_mana_at_level_one_and_gives_elves_the_abili
     assert [a for a in derived(s, elves).abilities if "{G}{G}" in a.text]  # LEVEL 5+: Elves you control have it
     to_turn(s, 3)
     activate(s, elves, "{G}{G}")
-    assert s.state.players["p1"].mana.get("G", 0) == 2
+    assert visible_pool(s.state, "p1").get("G", 0) == 2
     roundtrip(s)

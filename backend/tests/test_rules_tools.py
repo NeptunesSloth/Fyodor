@@ -15,7 +15,8 @@ from tests.test_rules_combat import table
 
 
 def pool(s, pid="p1"):
-    return sum(s.state.players[pid].mana.values())
+    p = s.state.players[pid]
+    return sum(p.mana.values()) + len(p.mana_units)  # (mana remembered by source is in the pool too)
 
 
 def fountain(s):

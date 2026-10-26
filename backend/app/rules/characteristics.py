@@ -56,6 +56,7 @@ class Characteristics:
     on_battlefield: bool = False
     object_counters: frozenset[str] = frozenset()
     object_ring_bearer: bool = False  # designation, not copiable values
+    object_cast_this_turn: bool = False  # -- (wave 110B) -- a permanent that was cast this turn ("protection from permanents that were cast this turn")
     is_spell: bool = False  # -- cant (wave 49C) -- the source of a targeting is a spell (115.2: "can't be the target of spells"); set by targets.source_of(spell=True)
     # Derived by app.rules.layers (never printed): current power/toughness, keywords gained/lost.
     pt: tuple[int, int] | None = None
@@ -73,6 +74,7 @@ class Characteristics:
     doors: frozenset[int] | None = None  # -- Rooms (wave 18G) -- 709.5: the halves (1 left, 2 right) that count; a Room's abilities are sectioned by door
     word: str | None = None  # -- linked words (wave 33B) -- 607.2f: the word the object chose as it entered ("" none; None: not read, every linked ability)
     flanking_count: int | None = None  # derived: surviving instances after timestamp-ordered loss/grants
+    name_test: Any = field(default=None, compare=False)  # -- Spy Kit (wave 110J) -- "has all names of nonlegendary creature cards": name -> bool (card_names.has_name)
 
     @property
     def is_land(self) -> bool:
@@ -150,6 +152,18 @@ HALVES = ("split", "adventure", "aftermath")  # one card, two spells: you cast o
 _WARD_2 = (AbilityText(index=0, text="Ward {2}", kind="keywords", keywords=("ward",)),)
 
 
+MAGAR_SPEC = "magar110j"
+MAGAR_TEXT = ("Whenever this creature deals combat damage to a player, you may create a copy of the card with the noted name. You may cast the copy without paying its mana cost.\n"
+              "If this creature would leave the battlefield, exile it instead of putting it anywhere else.")
+_MAGAR: list[tuple[AbilityText, ...]] = []
+
+
+def _magar_abilities() -> tuple[AbilityText, ...]:
+    if not _MAGAR:
+        _MAGAR.append(tuple(parse_abilities(MAGAR_TEXT)))
+    return _MAGAR[0]
+
+
 SPEC_TYPES = {"artifact": "Artifact", "creature": "Creature", "land": "Land", "enchantment": "Enchantment"}
 
 
@@ -186,6 +200,8 @@ def face_down_characteristics(kind: str | None, spec: str | None = None) -> Char
     """708.2a: a 2/2 creature with no name, text, subtypes or mana cost — unless the effect that turned it face down says what it is
     (-- hidden exile (wave 18A) -- ``spec``, "[P/T ]<subtypes and types>": "2/2 Cyberman artifact creature", "Forest land")."""
     abilities = _WARD_2 if kind in ("disguise", "cloak") else ()
+    if spec == MAGAR_SPEC:  # -- last cards (wave 110J) -- Magar of the Magic Strings: a 3/3 creature with the two abilities its ability gives (708.2a; rulings 2022-10-07)
+        return Characteristics(name="", types=frozenset({"Creature"}), power="3", toughness="3", face_down=True, abilities=_magar_abilities())
     if not spec:
         return Characteristics(name="", types=frozenset({"Creature"}), power="2", toughness="2", face_down=True, abilities=abilities)
     pt, _, words = spec.partition(" ") if re.match(r"\d+/\d+ ", spec) else ("", "", spec)
@@ -452,7 +468,7 @@ def provenance(card: CardInstance, ch: Characteristics) -> Characteristics:
 
 def of(card: CardInstance, info: CardInfo) -> Characteristics:
     """Current characteristics of a card instance (printed layer; see module docstring)."""
-    ch = provenance(card, _of_kept(card, info))
+    ch = _of_kept(card, info)
     if "Case" in ch.subtypes and card.zone.endswith(":battlefield") and "Solved" not in card.choices:  # -- Case (wave 51C) -- 719.3c: "Solved — [ability]" works only while it is solved (719.3b, the designation is not copiable)
         kept = tuple(a for a in ch.abilities if not a.text.startswith("Solved — "))
         if len(kept) != len(ch.abilities):
@@ -467,11 +483,13 @@ def _of_kept(card: CardInstance, info: CardInfo) -> Characteristics:
         if kept is not None and kept[0] is card:
             return kept[1]
         ch = _of(card, info)
-        ch = merged_of(card, info, ch) if card.merged and not ch.face_down else ch
+        # (the provenance is kept with it: the card's zone and controller cannot change during the pass, and a fresh copy per call
+        # made every look at the table cost a dataclass copy per permanent)
+        ch = provenance(card, merged_of(card, info, ch) if card.merged and not ch.face_down else ch)
         sc.printed[id(card)] = (card, ch)
         return ch
     ch = _of(card, info)
-    return merged_of(card, info, ch) if card.merged and not ch.face_down else ch
+    return provenance(card, merged_of(card, info, ch) if card.merged and not ch.face_down else ch)
 
 
 def merged_of(card: CardInstance, info: CardInfo, top: Characteristics) -> Characteristics:

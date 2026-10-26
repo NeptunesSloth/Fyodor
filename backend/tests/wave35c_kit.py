@@ -9,6 +9,7 @@ from pathlib import Path
 from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import settle
@@ -30,7 +31,7 @@ def repository(settings):
 
 
 def pool(s, pid="p1"):
-    return dict(s.state.players[pid].mana)
+    return visible_pool(s.state, pid)
 
 
 def bolt(s, target, pid="p1"):

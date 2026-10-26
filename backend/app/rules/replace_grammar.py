@@ -10,7 +10,7 @@ Events and their ops (researched against CR 2026-09-25):
 
 * ``tokens`` (111, 614.16): ``mul`` N (Parallel Lives, Doubling Season, Ojer Taq), ``add`` 1 of the
   same token (Xorn). "those tokens plus a [different token]" (Chatterfang, Peregrin Took), "may
-  instead" (Jinnie Fay) and copies (Esix) stay manual.
+  instead" (Jinnie Fay) and copies (Esix) are read by token_creation_replacements.
 * ``counters`` on permanents (122.6, 614.16): ``mul`` / ``add`` (Hardened Scales, Winding
   Constrictor, Doubling Season: "If an effect would put …" is ``effect_only``, Vizier of Remedies:
   ``add`` -1). "If you would put …" wordings (the player putting the counters: Vorinclex, Doc
@@ -112,6 +112,7 @@ _DOUBLING_SEASON = re.compile(r"^If an effect would put one or more counters on 
                               r"those counters on that permanent instead\.$")
 _PLAYER_COUNTERS = re.compile(r"^If you would get one or more counters, you get that many plus one of each of those "
                               r"kinds of counters instead\.$")
+_MELIRA110G = "If you would get one or more poison counters, instead you get one poison counter and you can't get additional poison counters this turn."
 _ENERGY_COUNTERS = re.compile(r"^If you would get one or more \{E\}, you get "
                              r"(?P<how>that many plus one|twice that many) \{E\} instead\.$")
 
@@ -157,6 +158,9 @@ def _counters(text: str) -> Definition | None:
     m = re.fullmatch(r"If you would put one or more (?P<k>\+1/\+1) counters on (?P<on>a creature you control), put that many plus one (?P=k) counters on it instead\.", text)
     if m and (on_obj := _object(m["on"])) is not None:  # -- instead (wave 100K) -- Prairie Dog: one kind of counter, put by you (122.6a, review 22C)
         return _static("counters", {"on": on_obj, "putter": "you", "counter": m["k"]}, {"do": "add", "n": 1})
+    m = re.fullmatch(r"If a modular triggered ability would put one or more (?P<k>\+1/\+1) counters on (?P<on>a creature you control), that many plus one (?P=k) counters are put on it instead\.", text)
+    if m and (on_obj := _object(m["on"])) is not None:  # -- (wave 110O) -- 702.43a: only the counters a modular triggered ability puts (replace.put_counters tags them); Zabaz
+        return _static("counters", {"on": on_obj, "counter": m["k"], "modular110o": True}, {"do": "add", "n": 1})
     m = _DOUBLING_SEASON.match(text)
     if m:
         on = _object(m["on"])
@@ -166,6 +170,8 @@ def _counters(text: str) -> Definition | None:
     m = _PLAYER_COUNTERS.match(text)
     if m:
         return _static("player_counters", {"who": "you"}, {"do": "add", "n": 1})
+    if text == _MELIRA110G:  # -- (wave 110G) -- Melira, the Living Cure: 614.1a; the "can't get additional" half is prohibitions.cant_get_counters
+        return _static("player_counters", {"who": "you", "counter": "poison"}, {"do": "set", "n": 1, "once110g": True})
     m = _COUNTERS.match(text)
     if not m:
         return None
@@ -220,7 +226,29 @@ def _draw_body(rest: str) -> tuple[str, bool] | None:
     return (body, optional) if "instead" not in body else None
 
 
+_FIRST_TIME = "The first time you would draw a card each turn, "
+
+
+_REED = "The first time you would draw a card each turn except the first card you draw during each of your draw steps, "
+
+
 def _draw(text: str) -> Definition | None:
+    if text.startswith(_REED):  # -- Reed Richards (wave 110J) -- the draw step's first card is left out of the set, so it doesn't use up "the first time" (504.1, 614.11)
+        d = _draw_plain("If you would draw a card except the first one you draw in each of your draw steps, " + text[len(_REED):])
+        if d is not None:
+            d["match"]["first_time_turn_nostep110j"] = True
+        return d
+    first = text.startswith(_FIRST_TIME)  # -- draws (wave 110C) -- Scion of Halaster's grant: only the first draw event each turn (121.6, 614.11)
+    if first:  # one card is left to put back, so "in any order" is vacuous (the body grammar reads "the rest ... in any order")
+        text = "If you would draw a card, " + text[len(_FIRST_TIME):]
+        text = text.replace(" and the other back on top of your library.", " and the rest back on top of your library in any order.")
+    d = _draw_plain(text)
+    if first and d is not None:
+        d["match"]["first_time_turn"] = True
+    return d
+
+
+def _draw_plain(text: str) -> Definition | None:
     m = _DRAW.match(text)
     if not m:
         return None
@@ -281,6 +309,9 @@ _LIFE = re.compile(r"^If (?P<who>you|an opponent|a player) would gain life(?P<ca
 
 
 def _life(text: str) -> Definition | None:
+    if text == "If a spell or ability would cause its controller to gain life, that player loses that much life instead.":
+        # -- life gain (wave 110H) -- Rain of Gore: only a gain its source's controller gets (lifelink's source is a permanent: 702.15)
+        return _static("life", {"who": "any", "by_controller": True}, {"do": "lose"})
     m = _LIFE.match(text)
     if not m:
         return None
@@ -296,6 +327,8 @@ def _life(text: str) -> Definition | None:
             return _static("life", match, {"do": "mul", "n": 2})
         if rest == "you gain three times that much life":
             return _static("life", match, {"do": "mul", "n": 3})
+        if rest == "draw that many cards":  # -- (wave 110B) -- Nefarious Lich: the gain never happens (614.6); that many cards are drawn (replace._life_apply: a "draw_n110b" event)
+            return _static("life", match, {"do": "draw_instead110b"})
         m2 = re.fullmatch(r"you gain that much life plus (?P<n>\d+|one|two|three)", rest)
         if m2:
             n = _num(m2["n"])
@@ -327,7 +360,7 @@ def _loss(text: str) -> Definition | None:
 # Sustaining Spirit), "If you control a creature, damage that would …" (Worship, Serra the Benevolent's emblem). 120.3a: the damage dealt stays what it was;
 # only the life it makes the player lose is replaced (the Gatherer rulings: lifelink and "deals damage" triggers see all of it, "lose life" and paying life
 # bypass it, and nothing applies to a player already below 1 life). Event ``life_loss`` of damage (``damage``: True), op ``floor``.
-_FLOOR = re.compile(r"^(?:If (?P<cond>[^,]+), d|D)amage that would reduce your life total to less than 1 reduces it to 1 instead\.$")
+_FLOOR = re.compile(r"^(?:If (?P<cond>[^,]+), d|As long as you have (?P<k>[2-9]|\d\d+) or more life, d|D)amage that would reduce your life total to less than (?P<n>\d+) reduces it to (?P=n) instead\.$")
 
 
 def _floor(text: str) -> Definition | None:
@@ -335,6 +368,10 @@ def _floor(text: str) -> Definition | None:
     if not m:
         return None
     match: dict[str, Any] = {"who": "you", "damage": True}
+    if (m["k"] or m["n"] != "1") and m["k"] != m["n"]:
+        return None  # (only "As long as you have N or more life, … less than N reduces it to N" (Elderscale Wurm) beyond the floor of 1)
+    if m["k"]:
+        return _static("life_loss", match, {"do": "floor", "to": int(m["k"])})
     if m["cond"]:
         from app.rules import conditions
 
@@ -407,6 +444,8 @@ def _source(phrase: str) -> dict[str, Any] | None:
     """The damage source a static watches for (609.7c: permanents with the property, and sources
     elsewhere that have it): its colors, card types, subtypes, whether it's a spell, its controller."""
     phrase = phrase.strip()
+    if phrase == "a source controlled by one of the chosen players":  # -- wave 110E -- Bitter Feud (wave110e_pair)
+        return {"chosen_pair110e": True}
     if phrase == "~":
         return {"self": True}
     if phrase in ("equipped creature", "enchanted creature"):
@@ -510,6 +549,8 @@ def _source(phrase: str) -> dict[str, Any] | None:
 def _recipient(phrase: str | None) -> dict[str, Any] | None:
     """What the damage would be dealt to: players ("you", "an opponent", "a player") and/or
     permanents (a selector, "~", what it's attached to); None: any recipient."""
+    if phrase == "the other chosen player or a permanent that player controls":  # -- wave 110E -- Bitter Feud (wave110e_pair)
+        return {"chosen_pair110e": True}
     if phrase == "the chosen player or a permanent they control":
         return {"chosen_player_or_controlled": True}
     if phrase is None or phrase in ("a permanent or player", "a player or permanent", "any target"):
@@ -660,7 +701,7 @@ def _damage_plain(text: str) -> Definition | None:
         text = "If ~ would deal damage to a permanent or player, it deals double that damage instead."
     if (d := _damage_to(text)) is not None:
         return d
-    m = _DAMAGE.match(text)
+    m = _DAMAGE.match(text.replace("to a creature, battle, or opponent,", "to an opponent or a creature or battle,"))  # (wave 110F: Disciples of the Inferno; the comma list would split the match)
     if not m:
         return None
     src = _source(m["src"])
@@ -686,7 +727,7 @@ def _damage_plain(text: str) -> Definition | None:
             match["at_least"] = int(m["min"])
         if kind == "cap":
             cap = _num(m2["n"])
-            return _static("damage", match, {"do": "cap", "n": cap}) if cap and cap < match["at_least"] else None
+            return _static("damage", match, {"do": "cap", "n": cap}) if cap else None  # (-- one-card wordings (wave 110B) -- 614.1a: it sets the amount whenever the threshold is met; Equal Treatment "1 or more" -> 2)
         if kind == "mul":
             return _static("damage", match, {"do": "mul", "n": 2 if m2["m"] == "double" else 3})
         if kind == "mul2":
@@ -758,6 +799,11 @@ _ENTER_EXTRA = re.compile(
 
 
 def _enter_extra(text: str) -> Definition | None:
+    if text == "Each other colorless creature you control has bloodthirst 2.":  # -- bloodthirst grant (wave 110A) -- 702.54a, as counters
+        d = _enter_extra("Each other colorless creature you control enters with two additional +1/+1 counters on it.")
+        if d is not None:
+            d["match"]["bloodthirst110a"] = True  # replace._counters_applies: only if an opponent was dealt damage this turn
+        return d
     # Thunderous Velocipede: both branches describe one entry replacement,
     # whose amount uses the entering permanent's characteristics (614.12).
     threshold = re.fullmatch(

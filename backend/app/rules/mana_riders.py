@@ -65,6 +65,7 @@ _COMBO = re.compile(r"^Add (?P<n>two|three) mana in any combination of \{(?P<a>[
                     r"and/or \{(?P<c>[WUBRG])\}$")
 _DIFFERENT = re.compile(r"^Add (?P<n>two|three) mana of different colors$")
 _GAIN = re.compile(r"^You gain (?P<n>\d+|one|two|three|four|five) life$")
+_RAD = re.compile(r"^You get (?P<n>one|two|three|four|five) rad counters?$")  # (wave 110D: Harold and Bob's Forest)
 _OPP_GAIN = re.compile(r"^Each opponent gains (?P<n>\d+|one|two|three|four|five) life$")
 # -- activated other (wave 34B) -- 605.3b: "If you control another Mutant, you gain 1 life." (Black Tom Cassidy), "If you control a Nissa planeswalker, you
 # gain 2 life." (Avid Reclaimer): the condition is read as the mana is added (the ability resolves at once; 608.2c), as the activating player
@@ -196,6 +197,8 @@ def rider(sentence: str) -> tuple[str, int] | None:
         return "gain", _n(m["n"])
     if m := _OPP_GAIN.fullmatch(sentence):
         return "opp_gain", _n(m["n"])
+    if m := _RAD.fullmatch(sentence):
+        return "rad", _n(m["n"])
     if m := _GAIN_IF.fullmatch(sentence):  # (wave 34B)
         from app.rules import conditions
 
@@ -300,6 +303,8 @@ def after(plan: Plan, card: CardInstance, kind: str, n: int, who: str | None = N
 
         if conditions.holds(plan, {"controller": who, "source_card": card.id}, json.loads(kind[len("gain_if:"):])):
             replace.gain_life(plan, [(who, n)], actor=who)
+    elif kind == "rad":  # 725.1: the activating player gets rad counters (through the counter choke point, 122.6)
+        replace.put_counters(plan, [(who, "rad", n)], by=who)
     elif kind == "opp_gain":
         gains = [(p, n) for p in plan.live() if p != who]
         if gains:

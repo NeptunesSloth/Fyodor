@@ -1,0 +1,68 @@
+- Razor Boomerang: "{T}, Unattach Razor Boomerang: It deals 1 damage to any target." - who "It" is (the Equipment or the creature) is not settled by a ruling in the repo; the granter machinery would pick the Equipment. Refused until a ruling is found.
+- Smoke Spirits' Aid: "For each of up to X target creatures, create ... attached to that creature" needs a per-target fan-out for token creation (no such primitive; "up to X" targets with a Role/Aura token each).
+- Shuriken: "That creature's controller gains control of Shuriken unless it was unattached from a Ninja" needs the unattach-source history in the granted ability.
+- Font of Agonies: "you pay life" has no event; life is paid in cost parts, effects and Phyrexian mana, each would need an emit (foundation, not one card).
+- Dog Umbra: "this Aura has umbra armor" is not a grantable keyword (statics.GRANTABLE_KEYWORDS, abilities of a granted keyword not read by regeneration.umbra_armor).
+- Minthara, Merciless Soul: ward {X} dynamic needs ward_costs to know the controller's experience counters (ward_costs(ch) has no player).
+- Shallow Grave, Corpse Dance: "top creature card of your graveyard" stays refused (graveyard order not arranged by the engine, language.py ~4050).
+- Manor Gargoyle, War Historian: static condition on its own keyword/attack history reads layered keywords it also grants (613.8 dependency), not modeled.
+- Ray of Frost: conditional "loses all abilities" needs a gated wipe judged after layer 5 colors (attached_types.wipes ignores gated statics).
+- Growing Dread: "Whenever you turn a permanent face up" is not "a permanent you control is turned face up" (turning an opponent's); event has no actor.
+- Mausoleum Turnkey, Evangelize, Cuombajj Witches: "of an opponent's choice" targets (opponent announces the target) not modeled.
+- Orcish Farmer: "until its controller's next untap step" duration not modeled ("until your next turn" differs).
+- Manor Gargoyle: "has indestructible as long as it has defender" is a self-keyword dependency (613.8): the static condition would read the layer result it feeds; needs a dependency-aware layer pass.
+- Growing Dread: "Whenever you turn a permanent face up" names the turner, not the controller; no event carries the actor, a controller rewrite would guess.
+- Orcish Farmer: "until its controller's next untap step" is a new layer-effect duration; no foundation yet.
+- Aspect of Wolf: +X/+Y with two different counted values; layers.py "each" carries one value (needs a t_value field).
+- Sidisi, Regent of the Mire: X is the sacrificed creature's mana value but the target "mana value X plus 1" is chosen before the cost is paid (601.2c vs 601.2h); no announce-X-from-cost foundation.
+- Fractured Powerstone: the planar die is not part of Commander play (no planar die machinery).
+- Geth's Summons: corrupted "for each opponent ... as you cast this spell" targets a graveyard per opponent; needs per-opponent targets counted at cast time.
+- Call for Aid: already refused (wave100): player-level "can't attack that player". Evangelize/Preacher/Arena: opponent's-choice target is announcement-only for activated abilities (delegated_target_announcements); spells/triggers not modeled.
+
+## Session 10
+- Font of Agonies: "you pay life" has no event; life is paid at ~10 sites (costs, Phyrexian mana, effects). Needs one choke point first.
+- Geth's Summons: corrupted line is "for each opponent who ... as you cast" with one target group per opponent; no per-opponent target-group foundation.
+- Gutter Grime: the token's quoted CDA counts counters on its creator by name; quoted token abilities have no link to the creating permanent.
+- Scrap Welder, Sidisi, Regent of the Mire: X is the mana value of a cost-sacrificed object but the target is chosen before the cost (601.2c vs 601.2h); needs a ruling-backed X-from-cost design.
+- Nuka-Nuke Launcher: watch lasting "until the end of defending player's next turn" bound to another player; the 50G watch machinery is controller-bound only.
+- Font of Agonies: "Whenever you pay life" needs a life-paid event at ~10 cost sites (cost_payment, casting x6, optional_payment, Phyrexian mana).
+- Nuka-Nuke Launcher: per-player watch lasting through the defending player's next turn (turn-bounded "whenever they cast") not modelled.
+- Gift of Doom: "As this Aura is turned face up, you may attach it" needs a pre-SBA attach decision inside the turn-up special action.
+- Quicksilver Elemental: built in wave 110J (last cards): abilities collected at resolution (611.2c; rulings 2004-10-04 "collecting abilities" / 2022-06-10), tests/test_rules_wave110j_last.py.
+- Archnemesis: "attack enchanted player" event for an Aura on a player not modelled.
+- Geth's Summons: Corrupted adds one target per opponent with 3+ poison as cast (variable target count by cast-time state).
+- Evangelize / Mausoleum Turnkey / Arena: delegated target announcement exists only for activated abilities; spells, triggers and a mixed own+opponent-choice pair need new foundations.
+- Ghostly Dancers / Marina Vendrell: no "unlock/lock a door" effect primitive yet (rooms.unlock exists; needs door choice decision).
+
+## Session 12
+- Ultima, Origin of Oblivion: "loses all land types and abilities" for a counter-bound duration has no land-type-removal layer effect (305.7 foundation).
+- Mechtitan Core: cost "Exile this Vehicle and four other artifact creatures and/or Vehicles" plus exiled-with return of all but itself; four unread parts.
+- Welcome to . . . // Jurassic Park, Kitesail Larcenist: "for each opponent/player ... up to one target" is a variable number of target groups.
+- Jeweled Amulet: noted mana type of an activation cost needs per-source memory of the mana spent plus a mana ability reading it.
+- Tyvar the Bellicose: "whenever a mana ability of this creature resolves" has no event (mana abilities skip the stack).
+
+## Session 13
+- Font of Agonies: "Whenever you pay life" has no event; life is paid in cost_payment, Phyrexian mana, optional payments and effects (no single choke point).
+- Twilight Diviner: "one or more other creatures ... enter" + "entered or were cast from a graveyard" + copy of one of them + once per turn; base batch copy wording unread.
+- Experimental Lab // Staff Room: "turn that creature face up or put a +1/+1 counter" needs a non-modal either/or choice primitive.
+- Gift of Doom: "As this Aura is turned face up, you may attach it" needs a decision inside casting.turned_up and an SBA hold until attached.
+- Reap, Geth's Summons: X / per-opponent counts "as you cast this spell" need cast-time snapshots.
+- Panglacial Wurm: casting from the library mid-search has no hook in search resolution.
+
+## Session 14
+- Font of Agonies: "whenever you pay life" has no event; life is paid on many paths (costs, Phyrexian mana, effects), needs a pay-life event everywhere.
+- Scrap Welder: target "mana value less than X" is chosen before the sacrificed/exiled artifact (X) is known (601.2c vs 601.2h); no X-from-cost target machinery. (Fabrication Foundry: built in wave 110J, its X is announced, not read off a cost object.)
+- Nuka-Nuke Launcher: delayed watch bound to the defending player's cast events, ending at the end of that player's next turn; watch cond player is only the controller.
+- Vislor Turlough, Hot Pursuit: goad lasting while a given player controls it / the source stays; goad is only "until next turn" (keyword_actions.goad).
+- Braided Net: "for as long as it remains tapped" refers to the target; durations only track the source.
+- Evangelize, Mausoleum Turnkey, Arena: "of an opponent's choice" target announcement exists only for activated abilities (delegated_target_announcements); spells and triggers lack it.
+- Reap: X fixed as the spell is cast, which sets the number of targets.
+
+## Session 15
+- Fabrication Foundry: built in wave 110J (last cards): X announced first (601.2b/602.2b), the target checks MV X or less, the cost exiles other artifacts totaling exactly X (601.2h).
+- Volcanic Offering: four targets, two of them "of an opponent's choice" (spell with own+opponent pairs, 601.2c; per-pair opponent choice unsettled for several opponents). Extend delegated_target_announcements OWN mode to spells with groups.
+- s16 update: Volcanic Offering (own + opponent's-choice groups, wave110d_volc), Jeweled Amulet and Ice Cauldron (noted mana, wave110d_noted) are built, no longer refused. Per-group opponent choice with several opponents is read as "the caster picks the opponent for each group" (no ruling found that forces one opponent for both; same-opponent play is a subset).
+- The War Doctor: "put into exile from anywhere" has no event (only leave-battlefield exile); needs a generic any-zone exile event (foundation).
+- Wall of Stolen Identity: "enter as a copy ... When you do, tap the copied creature and it doesn't untap" needs a reflexive rider that references the copied permanent (copying.py entry has no after-copy hook).
+- Volcanic Offering re-promoted s22: 2014-11-07 ruling (opponents chosen on cast, same or different, may repeat target).
+- Quicksilver Elemental: built in wave 110J (last cards): abilities collected at resolution (611.2c; rulings 2004-10-04 "collecting abilities" / 2022-06-10), tests/test_rules_wave110j_last.py.

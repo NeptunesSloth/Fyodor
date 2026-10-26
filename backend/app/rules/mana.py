@@ -108,7 +108,7 @@ def spend_as(cost: ManaCost, mode: str) -> ManaCost:
     from app.rules import mana_allocation_masks
 
     transformed = _spend_as(cost, mode)
-    if mode not in ('type', 'color', 'colorless_color', 'white_red'):
+    if mode not in ('type', 'color', 'colorless_color', 'white_red', 'white_any', 'white_color', 'snow_color', 'blue_color'):
         return transformed
     return replace(transformed, allocation=mana_allocation_masks.requirements(cost, mode))
 
@@ -120,6 +120,25 @@ def _spend_as(cost: ManaCost, mode: str) -> ManaCost:
                         tuple(tuple(dict.fromkeys((*h, 'W'))) if 'R' in h else h for h in cost.hybrid),
                         tuple('/'.join(dict.fromkeys((*c.split('/'), 'W'))) if 'R' in c.split('/') else c
                               for c in cost.phyrexian), cost.x, cost.unsupported)
+    if mode == 'white_any':  # -- wave 110E -- Celestial Dawn: white mana pays any color; other mana is only colorless, so it can't pay a colored symbol but pays {C} (609.4b)
+        def white(sym: str) -> str:
+            return '/'.join(dict.fromkeys('W' if k in COLORS else k for k in sym.split('/')))
+        others = tuple(c for c in COLORS if c != 'W')  # (any non-white mana is colorless mana: it pays {C})
+        return ManaCost(cost.generic, tuple(white(c) for c in cost.colored if c != 'C'),
+                        (('C', *others),) * cost.colored.count('C') + tuple(tuple(dict.fromkeys('W' if k in COLORS else k for k in h)) for h in cost.hybrid),
+                        tuple(white(c) for c in cost.phyrexian), cost.x, cost.unsupported)
+    if mode in ('white_color', 'blue_color'):  # -- cards (wave 110I) -- False Dawn, 609.4b: white mana pays any colored symbol (colorless stays colorless); wave 110D: blue (Quicksilver Elemental)
+        w = 'W' if mode == 'white_color' else 'U'
+        other = tuple(c for c in cost.colored if c in COLORS and c != w)
+        return ManaCost(cost.generic, tuple(c for c in cost.colored if c not in other),
+                        tuple((c, w) for c in other) + tuple(tuple(dict.fromkeys((*h, w))) if any(c in COLORS for c in h) else h for h in cost.hybrid),
+                        tuple('/'.join(dict.fromkeys((*c.split('/'), w))) if any(k in COLORS for k in c.split('/')) else c for c in cost.phyrexian),
+                        cost.x, cost.unsupported)
+    if mode == 'snow_color':  # -- cards (wave 110I) -- Draugr Necromancer, 609.4b: mana from a snow source pays any colored symbol (an {S} payment, 107.4h; other mana is unchanged)
+        return ManaCost(cost.generic, tuple(c for c in cost.colored if c not in COLORS),
+                        tuple((c, SNOW) for c in cost.colored if c in COLORS) + tuple(tuple(dict.fromkeys((*h, SNOW))) if any(c in COLORS for c in h) else h for h in cost.hybrid),
+                        tuple('/'.join(dict.fromkeys((*c.split('/'), SNOW))) if any(k in COLORS for k in c.split('/')) else c for c in cost.phyrexian),
+                        cost.x, cost.unsupported)
     if mode == 'colorless_color':
         # Only actual C may substitute for a colored requirement. Allocation and
         # provenance retain the actual mana type, including restricted units.
@@ -358,7 +377,7 @@ def _choice_part(part: str) -> bool:
     return not found.unsupported and bool(found.components) and all(
         c.kind in (C.EXERT, C.UNTAP, C.FORAGE, C.DISCARD_HAND, C.COLLECT_EVIDENCE, C.RETURN_PERMANENT, "EXILE_FROM_HAND") or (  # (wave 26C: "Discard your hand", 701.9a: no choice, paid with the rest)
             (not c.activation_only or c.kind == C.EXILE or (c.x and c.kind in (C.TAP_OTHER, C.SACRIFICE))) and c.selector is not None  # (X: Hazel, "Tap X untapped tokens")
-            and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD, C.EXILE) and not c.random)
+            and c.kind in (C.SACRIFICE, C.DISCARD, C.TAP_OTHER, C.EXILE_FROM_GRAVEYARD, C.EXILE, C.UNTAP_OTHER) and not c.random)  # (wave 110I: Benthic Explorers)
         or (c.kind == C.EXILE_FROM_GRAVEYARD and c.selector is None)
         for c in found.components)
 
@@ -400,6 +419,14 @@ def _parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS, *, card_n
 
     if (deity := mana_deity_profiles.parse_mana(text, identity, card_name)) is not None:
         return deity
+    from app.rules import wave110j_cards  # -- Paliano (wave 110J) --
+
+    if (paliano := wave110j_cards.parse_mana(text)) is not None:
+        return paliano
+    from app.rules import wave110d_noted  # -- noted type (wave 110D) --
+
+    if (noted110d := wave110d_noted.parse_mana(text, identity, card_name)) is not None:
+        return noted110d
     from app.rules import mana_crafted_profiles
 
     if (crafted := mana_crafted_profiles.parse_mana(text, identity, card_name)) is not None:
@@ -511,6 +538,14 @@ def _parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS, *, card_n
         if not any(k.kind == _costs.SACRIFICE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
             return None
         count, options = "sacrificed_mv", ((c.group("sym"),),)
+    elif first == "Add one mana of any type the sacrificed land could produce":  # -- mana (wave 110A) -- Squandered Resources: types read at activation (casting._activate_choosing)
+        if not any(k.kind == _costs.SACRIFICE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
+            return None
+        count, options = "sacrificed_land_types", tuple((m,) for m in ALL_MANA)
+    elif first == "Add one mana of any type that land could produce":  # -- mana (wave 110I) -- Benthic Explorers: the land its cost untapped; types read at activation (casting._activate_choosing)
+        if not any(k.kind == _costs.UNTAP_OTHER and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
+            return None
+        count, options = "untapped_land_types", tuple((m,) for m in ALL_MANA)
     elif first == "Add X mana of any one color, where X is 1 plus the exiled creature's mana value":
         if not any(k.kind == _costs.EXILE and k.selector is not None for p in extra for k in _costs.parse_ability_cost(p, card_name="~").components):
             return None
@@ -664,6 +699,8 @@ class Payment:
     allocation: list[SpentClass] | None = None  # Exact consumed unit classes, absent in legacy/unrestricted payments.
     selected_options: list[tuple[str, int]] = field(default_factory=list)
     ability_options: list[tuple[str, int]] = field(default_factory=list)
+    # -- mana ability resolves (wave 110D) -- set by ``mana_units.settle``: the mana each tapped source really produced (605.3b)
+    made110d: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     def delta(self) -> dict[str, int]:
         out = dict(self.produced)
@@ -770,7 +807,7 @@ def _pay_one(units: dict[str, int], remaining: list[Source], chosen: Chosen, req
             if req == ('B', '@X') and src.abilities and src.abilities[oi] < 0:
                 continue  # A convoke contribution is not actual black mana spent on X.
             # (-- snow mana (wave 7E) -- {S}: any mana of a snow source, 107.4h)
-            wanted = opt[0] if req == (SNOW,) and src.snow and opt else next((c for c in req if c in opt), None)
+            wanted = opt[0] if SNOW in req and src.snow and opt else next((c for c in req if c in opt), None)  # (wave 110I: a hybrid with {S}, Draugr Necromancer)
             if wanted is None:
                 continue
             new = dict(units)
@@ -792,7 +829,7 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
         any(source.abilities and any(index < 0 for index in source.abilities) for source in sources))
     if (helper_matching or (mixed_snow and snow_due)
             or any(s.generic_allowed and not all(s.generic_allowed) for s in sources)
-            or (cost.allocation is not None and any(row.producer is not None
+            or (cost.allocation is not None and any(row.producer is not None or row.distinct  # (distinct: wave 110J, Emblazoned Golem)
                 for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)))):
         from app.rules import mana_allocation_masks
 

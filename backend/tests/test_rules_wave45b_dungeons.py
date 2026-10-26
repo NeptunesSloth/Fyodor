@@ -20,6 +20,7 @@ from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.game.rules_state import DungeonMark
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -289,7 +290,7 @@ def test_sarevok_tome_adds_two_with_the_initiative(cards):
     act(s, "p1", type="set_initiative", player="p1")
     assert mana_ability(s, tome)[1].options == (("C", "C"),)
     act(s, "p1", type="activate_ability", card_id=tome.id, ability=index)
-    assert dict(s.state.players["p1"].mana) == {"C": 2}
+    assert visible_pool(s.state, "p1") == {"C": 2}
     check(s)
 
 
@@ -307,7 +308,7 @@ def test_undermountain_adventurer_adds_six_once_a_dungeon_is_completed(cards):
     assert rules(s).completed_dungeons["p1"] == ["Lost Mine of Phandelver"]
     assert mana_ability(s, adventurer)[1].options == (("G",) * 6,)
     act(s, "p1", type="activate_ability", card_id=adventurer.id, ability=mana_ability(s, adventurer)[0])
-    assert dict(s.state.players["p1"].mana).get("G") == 6
+    assert visible_pool(s.state, "p1").get("G") == 6
     check(s)
 
 

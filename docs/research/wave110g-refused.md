@@ -1,0 +1,51 @@
+# Wave 110G refused / deferred (researched, not promoted)
+
+- Sacred Ground: "caused by a spell or ability" has no cause info on die events (SBA vs effect deaths indistinct); needs cause tracking.
+- Wormfang Drake, Wormfang Crab: old linked-LTB wording differs from "until" duration when the creature leaves before the ETB resolves (610.3); needs linked exile + LTB trigger.
+- Tatsumasa, Gurzigost, Rock Jockey, Spikeshell Harrier, Fugitive of the Judoon, Pure Intentions, Thijarian Witness: each needs a new primitive (return-from-exile on token death; put N gy cards on bottom as unless-cost; cast-this-turn static; exploited-creature power condition; speed reduction; token with ward + two-part exile cost; batch discard watch; "alone" LKI).
+- Mindstorm Crown: "had no cards in hand at the beginning of this turn" needs a turn-start hand snapshot (engine.start_next_turn); an intervening-if rewrite rechecks at resolution (wrong with two Crowns).
+- Nature's Wrath: "Island or blue permanent" is a subtype-or-color union, no selector form outside targets.
+- Blade of the Swarm: "exiled card with warp" has no selector/record. Thought Prison: imprint link + "shares a color or mana value with the exiled card" cast condition missing.
+- Mindstorm Crown: needs a turn-start hand snapshot (new TurnState/TurnLog field, saves, views); not worth one card.
+- Gurzigost, Battlefield Scrounger, Jotun Grunt: need a "put N graveyard cards on the bottom" cost/upkeep choice (exactly N or none) plus a until-end-of-turn grant of "assign combat damage as though unblocked".
+- Thijarian Witness: last-known "attacking or blocking alone" for a dying creature is not recorded.
+- Nature's Wrath: selector "Island or blue permanent" (type/subtype union does not take colors).
+- Rock Jockey: conditional cant_play_lands (source was cast this turn) and a per-card cast restriction; two engine hooks.
+- Kjeldoran Guard, Runesword: "defending player" in a non-attacker activation is one specific defending player the controller chooses (508.5a); no choice machinery for it.
+- Season of the Witch: "creatures that couldn't attack" needs a declare-attackers-time record of who could attack (end-step recheck is wrong for a creature that untapped or lost haste).
+- Acidic Dagger: Activate-only-before-blockers body with a bound deal-damage watch plus recipient "non-Wall" never reaches parse_effects (activation wrapper); Eye for an Eye: redirect with a second damage source (rider) not in source_shields.
+- Lich's Mirror: no "would lose the game" replacement in this branch (wave 110C has one on another branch).
+- Stangg / named linked tokens: "create Name, a legendary 3/4 ... token" has no named-token grammar.
+- Halfdane (until end of your next upkeep + base P/T equal to target), Sacred Ground (cause of land to graveyard has no event info), Season of the Witch ("couldn't attack" needs declaration-time legality).
+- Reed Richards: "first time you would draw each turn except the draw step's first" needs a per-turn count of draw attempts (not cards drawn) kept across replacement simulation; not modelled.
+- Inquisitor Eisenhorn: optional reveal while drawing (hidden info choice in on_draw) plus named legendary token (Cherubael) has no grammar.
+- Numa, Joraga Chieftain: "{X}{X}" payment and "distribute X counters among any number of target Elves" chosen after X is known; neither exists together.
+- Suncleanser: "can't have counters put on it / can't get counters for as long as this creature remains" is a prohibition scoped to a chosen object or player, not a battlefield static.
+- Elkin Lair: no "exile a card at random from hand" primitive plus owner-play-then-graveyard check.
+- North Star: "for one spell this turn" spend permission must be consumed by the first spell; no one-shot spend grant.
+- Touch of Moonglove: a spell-made "whenever a creature dealt damage by that creature dies this turn" watch needs a die watch bound to the target's damage log.
+- Thijarian Witness: "attacking or blocking alone" needs the simultaneous-death combat state (who else was attacking/blocking at the same instant); LKI cannot tell, so refused.
+- Ice Cave (s8): "any other player may pay that spell's mana cost" has no ordering ruling for several payers; needs each-may over non-casters plus cost = the spell's own mana cost (X as 0).
+- Sacred Ground (s8, still): zone_change actor is the effect's controller for effects but the owner for SBA/sacrifice, so "caused by a spell or ability an opponent controls" is not decidable for sacrifice effects; needs a cause stamp on every move.
+- Whippoorwill (s8): "can't be dealt instead to another permanent or player" (redirection prohibition) has no primitive.
+- Light Up the Night (s9): flashback cost "Remove X loyalty counters from among planeswalkers you control, X not 0" needs an X-sized multi-permanent loyalty cost with distribution; foundation not built.
+- Savior of Ollenbock (s9): "trains" (702.149c, counters put by a resolving training ability) has no event; plus exile from battlefield or graveyard with return of mixed cards. Foundation, not unsettled.
+- Sacred Ground, Whippoorwill, Halfdane, Tatsumasa, Thijarian Witness, Season of the Witch (s9): promoted (cause stamp, redirect prohibition, end-of-upkeep duration, linked bind, alone-in-combat fact, could-attack record).
+- Wicker Picker, Done for the Day, Ambassador Blorpityblorpboop (s10): need a sticker/ticket system (kicker {TK}, put a sticker, sticker stats); foundation not built yet, work not refusal.
+- Stand or Fall (s12): "each defending player" at beginning of combat, before attackers are declared, has no settled meaning (no CR rule or ruling found); pile split plus per-player pile choice also unbuilt.
+- Wicker Picker (s12): a creature with its own kicker also gets the sticker kicker (702.33c/d, two kicker abilities); the engine models one kicker per spell, so the cast logs that the second kicker is manual play.
+
+- Pygmy Hippo (s13) built after all: forced ordered mana-ability activation by the defender (wave110g_cards.hippo). Ceiling: a land mana ability with a private or object-choosing cost makes the instruction hand-played (logged, nothing happens).- Kodama of the Center Tree: soulshift X where X is the number of Spirits you control; whether X is counted as the trigger is put on the stack (Kodama gone) or at resolution is unsettled in the engine's notes and the CR gives no rule for a defined X on a keyword's trigger; stays manual.
+- Hama, the Bloodbender: needs a cast permission from exile with an alternative waterbend {X} cost (X = its mana value), for as long as you control Hama and only on your turn, plus a non-targeted choice from "that player's graveyard"; none of the three is built yet (foundation work, not a rules gap).
+
+## Session 15 (L leftovers)
+- Primitive Justice: "pay {1}{R} and/or {1}{G} any number of times" needs two separate multikicker counts (targets = 1 + both counts, life = G count); casting records one kicker count; foundation not built.
+- Avacyn's Judgment: madness {X}{R} with the divided total switching to X when the madness cost was paid; divide total fixed at cast from a paid X; foundation not built.
+- Lightning Storm: any player may activate an ability of a spell on the stack and re-choose its target; foundation not built.
+- Guardian Angel: "until end of turn, you may pay {1} any time you could cast an instant" is a temporary player-level repeatable ability; foundation not built.
+- Defensive Formation: the defending player assigns combat damage of each attacker (510.1a/510.1c change); combat assignment foundation not built.
+- Damping Engine, Lost in Thought: a player's option "to ignore this effect until end of turn" (sacrifice / exile cost, timing of the option has no rule: not a special action, not an activated ability); no ruling read, unsettled.
+- Kodama of the Center Tree: SETTLED and built (ruling 2005-02-01: soulshift X counts the state immediately before it died, Kodama included).
+- Bamboozling Beeble with Wyll-style roll-extra effects on the same roll: order (616.1) not built; logged for manual play.
+- Reed Richards, Smartest Man: built in wave 110J (last cards): per its text the draw step's first card is left out and doesn't use up "the first time" (504.1, 614.11); the first other draw each turn becomes four.
+- Cryptic Spires (s17): built (rulings 2024-11-08 agree: circled in the open before any game, copiable, only affects the mana ability). Ceiling: a copy of the Spires gets no circled colors (ruling says it should) so its ability makes no mana.

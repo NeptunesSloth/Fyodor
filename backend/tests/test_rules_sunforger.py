@@ -286,6 +286,9 @@ def test_free_x_spell_uses_zero_and_does_not_ask_to_pay_x(cards):
     resolve_search(s, source)
     choose(s, [spell.id])
     choose(s, [spell.id])
+    d = s.state.rules.decision  # (its multikicker may still be paid by a free cast, 118.9d; Alice declines)
+    assert d and 'kicker:other' in {o.id for o in d.options} and d.min_choices == 0
+    choose(s, [])
     d = s.state.rules.decision
     assert d and 'p2' in {o.id for o in d.options}
     choose(s, ['p2'])

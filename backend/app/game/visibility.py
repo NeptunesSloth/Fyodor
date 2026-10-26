@@ -75,6 +75,8 @@ def hand_revealed(state: GameState, card: CardInstance) -> bool:
     rules = state.rules
     if rules is None:
         return False
+    if rules.hand_reveal_turn110m.get(card.owner) == state.turn.number:  # (wave 110M) Sen Triplets: "this turn, that player plays with their hand revealed"
+        return True
     for grant in rules.source_hand_reveals79:
         source = state.cards.get(grant.source_card)
         if (grant.player == card.owner and source is not None and source.zone.endswith(':battlefield')
@@ -108,11 +110,13 @@ def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
         return False
     # A resolved end-of-turn authority is independent of its original source (611.2a).
     # It reveals only the current top card to its beneficiary, never to spectators.
-    if card.zone == f"{viewer}:library" and any(
-        p.look_top and p.zone == 'library_top' and p.player == viewer
+    if card.zone in (f"{viewer}:library", *(f"{p.library_of}:library" for p in rules.permissions if p.library_of)) and any(
+        p.look_top and p.zone == 'library_top' and p.player == viewer and (p.library_of or viewer) == card.zone.split(":")[0]
         and p.until == 'end_of_turn' and p.turn == state.turn.number
         for p in rules.permissions
     ):
+        return True
+    if any(p.top110j and p.card == card.id for p in rules.permissions):  # -- wave 110J -- Temporal Aperture: "play with the top card of your library revealed" (401.5)
         return True
     for reveal in rules.top_reveals:
         source = state.cards.get(reveal.source)
@@ -136,6 +140,8 @@ def looks_at_face_down(state: GameState, card: CardInstance, viewer: str) -> boo
     if rules is None or not card.zone.endswith(":battlefield") or card.controller == viewer \
             or (card.face_down_as is not None and "creature" not in card.face_down_as):  # (review sys 18A: a face-down Forest land isn't a creature)
         return False
+    if any(g["player"] == viewer and g["turn"] == state.turn.number for g in rules.face_down_looks110l):  # -- (wave 110L) -- until end of turn (611.2a)
+        return True
     for reveal in rules.top_reveals:
         source = state.cards.get(reveal.source)
         if reveal.face_down and reveal.player == viewer and source is not None and not source.face_down \

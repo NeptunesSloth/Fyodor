@@ -88,6 +88,8 @@ def move(state: GameState, a: A.Move) -> None:
             c.tapped = True
         if a.back_ids and c.id in a.back_ids and ops.zone_name(dest) == "battlefield" and c.id in state.cards:
             c.face = 1  # -- transform (wave 11A) -- 712.14a
+        if a.flipped_ids and c.id in a.flipped_ids and ops.zone_name(dest) == "battlefield" and c.id in state.cards:
+            c.flipped = True  # -- flip (wave 110I) -- 710.2: the alternative characteristics apply once it is on the battlefield
         if c.face_down and a.face_down:
             c.face_down_kind = a.face_down_kind or ("exile" if ops.zone_name(dest) == "exile" else "generic")
             c.face_down_as = a.face_down_as  # (-- hidden exile (wave 18A) -- 708.2a)
@@ -195,11 +197,11 @@ def set_position(state: GameState, a: A.SetPosition) -> None:
                 ids.insert(ids.index(c.id), child.id)
 
 
-def draw_cards(state: GameState, pid: str, count: int) -> list[CardInstance]:
+def draw_cards(state: GameState, pid: str, count: int, from_bottom: bool = False) -> list[CardInstance]:
     lib = state.zone(zone_key(pid, "library"))
     if not lib:
         raise ActionError(f"{state.players[pid].name}'s library is empty")
-    drawn = [state.cards[cid] for cid in lib[:count]]
+    drawn = [state.cards[cid] for cid in (reversed(lib[-count:]) if from_bottom else lib[:count])]
     for c in drawn:
         ops.move_card(state, c, zone_key(pid, "hand"))
         emit(state, "drew", player=pid, card=c.id)  # 121.2: each card is its own draw
@@ -208,7 +210,7 @@ def draw_cards(state: GameState, pid: str, count: int) -> list[CardInstance]:
 
 def draw(state: GameState, a: A.Draw) -> None:
     pid = ops.player(state, a.player, a.actor)
-    drawn = draw_cards(state, pid, a.count)
+    drawn = draw_cards(state, pid, a.count, a.from_bottom)
     n = len(drawn)
     parts = [pname(state, pid), text(" drew " + ("a card" if n == 1 else f"{n} cards"))]
     if n < a.count:

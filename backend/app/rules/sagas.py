@@ -46,7 +46,7 @@ CHAPTER_EVENT = "chapter"  # TriggerEvent.kind of a chapter ability (714.2b)
 _ROMAN = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6, "VII": 7, "VIII": 8, "IX": 9, "X": 10}
 _CHAPTER = re.compile(r"^(?P<n>[IVX]+(?:, [IVX]+)*) — (?P<body>.+)$", re.S)
 # a chapter's flavor name ("IV — Mega Flare — This creature deals …", 207.2c-like: no rules meaning)
-_FLAVOR = re.compile(r"^(?P<name>[A-Z][^—.:\"•]{0,40}?) — (?P<rest>.+)$", re.S)
+_FLAVOR = re.compile(r"^(?![^—]* faces a villainous choice)(?P<name>[A-Z][^—.:\"•]{0,40}?) — (?P<rest>.+)$", re.S)
 READ_AHEAD = "read ahead"
 CHAPTER_CHOICE = re.compile(r"^chapter number \(1-(?P<n>\d+)\)$")  # the read-ahead choice's ``what`` (702.155b)
 
@@ -94,6 +94,9 @@ def chapter_definition(ability: AbilityText, ch: Characteristics) -> dict[str, A
     if flavor is not None and not re.search(r"\bchoose\b", flavor["name"], re.IGNORECASE):
         body = flavor["rest"]
     body = re.sub(r"\b[Tt]his Saga\b", "~", scripts.self_text(body, ch.name))
+    from app.rules import wave110c_misc  # -- chapters read as other wordings (wave 110C) --
+
+    body = wave110c_misc.CHAPTERS.get(body, body)
     if body.rstrip().endswith("—"):
         return None  # (a modal chapter "Choose one —" with bulleted modes: not read here)
     # (-- saga (wave 20F) -- a chapter's leading "If …" is no intervening "if" (603.4: only "When/Whenever/At, if"): an instruction

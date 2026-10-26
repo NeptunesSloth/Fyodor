@@ -55,10 +55,9 @@ def test_kinzu_is_full(cards):
     assert coverage.of_card_data(cards.resolve("Kinzu of the Bleak Coven")).level == "FULL"
 
 
-def test_timothar_stays_manual(cards):
-    """Timothar's Bat is granted "... return the exiled card to the battlefield tapped": a granted ability linked to the card its creator exiled (his ruling: each
-    Bat refers only to the card exiled as it was made) needs the link carried onto the token, which the engine doesn't do, so only its payment gate is read."""
-    assert coverage.of_card_data(cards.resolve("Timothar, Baron of Bats")).level == "PARTIAL"
+def test_timothar_is_full_since_wave_110m(cards):
+    """Timothar's Bat remembers the card exiled as it was made (his ruling): FULL since wave 110M (bat_links110m), test_rules_wave110m_steal.py."""
+    assert coverage.of_card_data(cards.resolve("Timothar, Baron of Bats")).level == "FULL"
 
 
 def test_kinzu_pays_life_and_exiles_the_creature_for_a_one_one_toxic_copy(cards):

@@ -1,3 +1,17 @@
+## WAVE 110 — CARD AUTOMATION NEAR-COMPLETE
+
+**32,057 FULL / 11 PARTIAL** of 32,068 Commander-legal cards (possible commanders: 3,497 / 3,502), from `tools.commander_coverage` on `aaf0cf99`. Draft [PR #25](https://github.com/NeptunesSloth/Fyodor/pull/25).
+
+The 11 PARTIAL cards are refused because no Comprehensive Rules text or official ruling settles them (reasons in `docs/research/wave110*-refused.md`): Reed Richards, Smartest Man; Captain America, First Avenger; Magar of the Magic Strings; Titania's Song; Ertai's Meddling; Parnesse, the Subtle Brush; Quicksilver Elemental; Grell Philosopher; Fabrication Foundry; Spinneret and Spiderling; Contractual Safeguard.
+
+How wave 110 ran: 10 local agents (wave110a-j) plus 5 cloud workers (wave110k-o) on exact-wording hooks in `app/rules/wave110*_*.py`, 4 merge rounds with duplicate removal, a Scryfall rulings sweep that unblocked ~36 refused cards, and a 903.9b audit (7 commander-move bugs fixed, `replacements.MOVERS_903_9B`). Process: `.claude/skills/fyodor-card-playbook/SKILL.md`; triage tools `tools.card_check` and `tools.gap_rank --set/--since`.
+
+Open items:
+- Full backend suite on `aaf0cf99` not yet confirmed green (sharded cloud run in progress; `wave110fix` branch fixed ~60 older failures). GitHub Actions jobs fail without a runner, so CI gives no signal.
+- Fold-in pass: plan in the wave 110 lead notes (dedupe shared helpers, one `exact_ability.build` for the ~300 `_BUILD`/`_AS` rewrites, a wave-module registry, one draft-only module, one pregame commander color).
+- UI follow-ups: no client menu for library-top actions (Fblthp plot, Xanathar, Temporal Aperture), player-level abilities (Channel), `hints.chorus` (Chorus of the Conclave); Leonin Arbiter reuses the "End the effect" label.
+- Next project after the engine: 3D model overhaul (fyodor-ui-design + threejs skills).
+
 ## POST-PR21 BATCH004 VERIFIED — CONTINUING
 
 **30,824 FULL / 1,244 PARTIAL**; **100/1000 new completions verified**, 900 remain. [PR22](https://github.com/NeptunesSloth/Fyodor/pull/22), [evidence](research/after-pr21-batch004-evidence.md). Native173, related53, core54, full mypy963, Ruff and exact catalog/definition diff pass on frozen source. Six agents continue; inherited PR21 work excluded. FULL is coverage classification.

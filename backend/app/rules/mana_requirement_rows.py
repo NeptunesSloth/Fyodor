@@ -48,6 +48,7 @@ class Requirement:
     generic: bool = False
     helpers: tuple[str, ...] | None = None
     producer: ProducerRequirement | None = None
+    distinct: bool = False  # wave 110J: "no more than one mana of each color may be spent this way": the rows flagged so are paid with different colors
 
 
 @dataclass(frozen=True)

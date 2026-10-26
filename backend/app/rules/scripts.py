@@ -122,7 +122,7 @@ TRIGGERS = [
                 r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's|each player's) turn|(?P<each_combat>each combat)), "
                 r"(?P<body>.+)$"), "step"),
     # -- combat history (wave 31D) -- 511.2: "At end of combat, …" triggers as the end of combat step begins (a permanent's step trigger)
-    (re.compile(r"^At end of combat(?P<mine> on your turn)?, (?P<body>.+)$"), "end_combat_step"),
+    (re.compile(r"^At (?:the )?end of combat(?P<mine> on your turn)?, (?P<body>.+)$"), "end_combat_step"),  # (-- wave 110K -- "At the end of combat on your turn": only Sidequest: Play Blitzball has it)
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
                 r"an artifact spell|an enchantment spell), (?P<body>.+)$"), "cast_you"),
     # -- cast triggers (wave 6D) -- "When you cast this spell, …" (603.2, 601.2i: it triggers from the stack)
@@ -183,6 +183,8 @@ def _half_trigger(text: str) -> tuple[str, dict[str, Any] | None] | None:
         return "cast_self", None
     if text in ("at the beginning of your upkeep", "at the beginning of your end step"):
         return ("upkeep_you" if text.endswith("upkeep") else "end_step_you"), None
+    if text == "at the beginning of your first main phase":  # -- steps (wave 110B) -- "When ~ enters and at the beginning of your first main phase" (Crack in Time): a step half beside a self half
+        return "step:main1:you", None
     from app.rules import events as event_grammar
 
     text = re.sub(r"^it ", "~ ", re.sub(r" it$", " ~", text))  # ("~ enters and when you sacrifice it": the first half's object)
@@ -292,6 +294,8 @@ def _self_pronouns(part: str) -> str:
 def self_text(text: str, name: str) -> str:
     """The ability with the card's own name (and "this creature" etc.) written as ~, without an
     ability word (207.2c). Only immutable text is cached; no table state is read."""
+    if name.endswith(" Emblem"):  # -- spells (wave 110A) -- 114.2: an emblem has no name; "<Card> Emblem" is only its label ("a Gideon planeswalker" isn't the emblem)
+        name = ""
     out = _ABILITY_WORD.sub("", text, count=1)
     if out.startswith("Exhaust — "):  # -- ability words (wave 4F) -- 702.177a (the restriction: restrictions.parse)
         out = out[len("Exhaust — "):]
@@ -391,6 +395,7 @@ def self_text(text: str, name: str) -> str:
     # -- keywords (wave 30E) -- 702.166b: a bargained spell is read the same way (a bargain card has no kicker): casting.py records it as kicked
     out = re.sub(r"(?:^|(?<=\. ))If this spell was bargained, ", "If this spell was kicked, ", out)
     out = re.sub(r"\bif it was bargained, ", "if it was kicked, ", out)
+    out = re.sub(r", support X\b", ", put a +1/+1 counter on each of up to X other target creatures", out)  # -- support X (wave 110C) -- 701.41a, Blitzball Stadium
     # -- damage sized by a count (wave 20A) -- "Choose any target. Scry 3, then reveal the top card of your library. ~ deals damage equal to
     # that card's mana value to that permanent or player." (Riddle of Lightning): the target is declared as the spell is cast (115.1, 601.2c)
     # whatever the order of the text, so the damage sentence names "any target" itself
@@ -443,11 +448,12 @@ def _it_source(word: str) -> dict[str, str]:
 
 # Events after which the object is still where it was, so "it" can name it (not dies / leaves:
 # that's a new object in another zone, 400.7)
-_STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
+_STAYING = {"enter", "enter_attacking", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
             "deal_combat_damage_player", "deal_damage", "counters_put", "counters_removed", "targeted", "create_token"}
 _STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive", "mutate"})  # -- becomes monstrous (wave 6D) --
 _STAYING.update({"to_graveyard", "to_exile", "to_library"})  # -- into a graveyard (wave 6D; wave 21D: exile, a library) -- the card(s) there, as they are there
-_STAYING.add("phase_in")  # (wave 50G: "Whenever ~ phases in")
+_STAYING.update({"phase_in", "phase_out"})  # (wave 50G: "Whenever ~ phases in")
+_STAYING.add("mana_resolved110d")  # (wave 110D)
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 _STAYING.add("transform")  # -- transform (wave 26D) -- 701.28, 712.18: the same object turned over: "Whenever a permanent you control transforms into a Phyrexian, put a counter on it"
 _STAYING.add("exerted")  # 701.43: the exact permanent exerted
@@ -512,6 +518,8 @@ def _trigger_antecedent(name: str, cond: dict[str, Any] | None) -> str | None:
     if event == "either" and cond.get("subject") == "player" and {c["event"] for c in cond["conds"]} == {"sacrifice", "discard"} \
             and all(c.get("obj") for c in cond["conds"]):
         return "event_gone"  # -- either with two actions (wave 51C) -- Tergrid: the card in the graveyard after either (context.EVENT_NEW reads a discarded card as it is)
+    if event == "either" and cond.get("subject") == "mixed" and {c["event"] for c in cond["conds"]} == {"sacrifice", "to_graveyard"}:
+        return "event_gone"  # -- trigger other (wave 110B) -- Desert Warfare: the card in the graveyard after either (a sacrificed card, a card put there)
     if event == "either" and cond.get("subject") == "self" and all(c["event"] in _STAYING for c in cond["conds"]):
         return "self"  # -- history (wave 22E) -- "Whenever ~ attacks, blocks, or becomes the target of a spell, it deals …"
     if event == "either" and cond.get("subject") == "sel" and all(c["event"] in _STAYING and not c.get("aggregate") for c in cond["conds"]):
@@ -1217,6 +1225,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                         i.index < index and (i.do in _MOVERS or _group_of(out[i.index]) is not None) for i in intros):
                     return None  # (an explore of the target, not the source)
                 found = objects(index, 1, None) if e.get("do") == "damage" else None
+                if found is not None and found.do == "damage" and out[found.index].get("with_next"):
+                    found = None  # (wave 110D: "it deals 2 damage to X and 2 damage to Y": X is a recipient of the same sentence, never the source)
                 if found is not None:
                     # -- sized amounts (wave 3D) -- "… Then that creature deals damage equal to its power to …": the object
                     # an earlier instruction named (its target, or what it moved / chose), the damage's source
@@ -1606,6 +1616,12 @@ def _hand_pick_wheel(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None
             {"do": "draw", "who": "you", "n": {"ref_amount": "wheel"}}], None
 
 
+# -- Learn replacement (wave 110C) -- 701.48a: Learn as one instruction (app/rules/wave110c_learn.py), so "if you would learn" can replace it
+@effect(r"learn110c")
+def _learn110c(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "learn110c"}], None
+
+
 @effect(r"you gain {N} life")
 def _gain(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "gain_life", "who": "you", "n": num(m["n"])}], None
@@ -1924,6 +1940,11 @@ def _counter(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "counter", "who": "target"}], SELECTORS[m["sel"]]
 
 
+@effect(r"counter all abilities your opponents control")  # -- trigger other (wave 110B) -- Kadena's Silencer, 701.6a: the abilities on the stack, not the permanents
+def _counter_opponent_abilities(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "counter", "who": "opponent_abilities110b"}], None
+
+
 @effect(r"counter each spell (?:you don't control|your opponents control)")
 def _counter_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     # -- cast keywords (wave 43D) -- 702.96a: "Counter target spell you don't control" read with "each" (Counterflux, overloaded): every spell on the stack
@@ -2077,6 +2098,11 @@ def _meld(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 @effect(r"that player sacrifices (?:that creature|it)")
 def _that_player_sacrifices(m: re.Match[str]) -> tuple[list[dict[str, Any]], None]:
     return [{"do": "sacrifice", "who": "it", "by": "event_player"}], None
+
+
+@effect(r"sacrifice the chosen creature")  # -- chosen objects (wave 110A) -- Tyrannical Pitlord (701.21a: only if you control it)
+def _sacrifice_chosen(m: re.Match[str]) -> tuple[list[dict[str, Any]], None]:
+    return [{"do": "sacrifice", "who": selectors.parse("chosen creature").key()}], None  # type: ignore[union-attr]
 
 
 @effect(r"sacrifice (?P<who>~|it)")
@@ -2660,6 +2686,32 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import wave110e_cards, wave110e_kaya  # -- exact wordings (wave 110E) --
+
+    if (join110e := wave110e_kaya.join(body)) is not None:  # -- one instruction exiling two targets (wave 110E) --
+        return join110e
+    if (body110e := wave110e_cards.parse(body)) is not None:
+        return body110e
+    from app.rules import wave110k_cards  # -- exact wordings (wave 110K) --
+
+    if (body110k := wave110k_cards.parse(body)) is not None:
+        return body110k
+    from app.rules import wave110b_cards as _w110b_parse  # -- exact wordings (wave 110B) --
+
+    if (body110b := _w110b_parse.parse(body)) is not None:
+        return body110b
+    from app.rules import wave110g_cards  # -- exact wordings (wave 110G) --
+
+    if (body110g := wave110g_cards.parse(body)) is not None:
+        return body110g
+    from app.rules import wave110c_core  # -- exact wordings (wave 110C) --
+
+    if (body110c := wave110c_core.parse(body)) is not None:
+        return body110c
+    from app.rules import wave110h_cards as _w110h  # -- exact wordings (wave 110H) --
+
+    if (body110h := _w110h.parse(body)) is not None:
+        return body110h
     from app.rules import sticker_effects101
 
     if (sticker101 := sticker_effects101.parse(body, it)) is not None:
@@ -2684,6 +2736,38 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (other100p := otherchooser100p.parse(body)) is not None:
         return other100p
+    from app.rules import wave110a  # -- wave 110A --
+
+    if (body110a := wave110a.parse(body)) is not None:
+        return body110a
+    from app.rules import wave110f_cards  # -- wave 110F --
+
+    if (body110f := wave110f_cards.parse(body)) is not None:
+        return body110f
+    from app.rules import wave110o_cards  # -- (wave 110O) --
+
+    if (body110o := wave110o_cards.parse(body)) is not None:
+        return body110o
+    from app.rules import wave110i_cards  # -- cards (wave 110I) --
+
+    if (body110i := wave110i_cards.parse(body)) is not None:
+        return body110i
+    from app.rules import wave110j_cards as _w110j  # -- cards (wave 110J) --
+
+    if (body110j := _w110j.parse(body)) is not None:
+        return body110j
+    from app.rules import wave110l_cards  # -- wave 110L --
+
+    if (body110l := wave110l_cards.parse(body)) is not None:
+        return body110l
+    from app.rules import wave110m_cards as _w110m  # -- (wave 110M) --
+
+    if (body110m := _w110m.parse(body)) is not None:
+        return body110m
+    from app.rules import wave110n_cards  # -- (wave 110N) --
+
+    if (body110n := wave110n_cards.parse(body)) is not None:
+        return body110n
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (body100n := multi100n.parse(body)) is not None:
@@ -2845,7 +2929,9 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         x_mana_restrictions,
     )
 
-    if body.strip().lower().rstrip(".").startswith("until end of turn, you may cast creature spells from your graveyard by foraging "):
+    if body.strip().lower().rstrip(".").startswith(("until end of turn, you may cast creature spells from your graveyard by foraging ",
+                                                       "you may cast a creature spell from your graveyard this turn. if you do, it enters with a finality counter",
+                                                       "you may cast a creature spell from that player's graveyard this turn, and you may spend mana")):  # (wave 110C: Tarrian's Journal; 110F: Whispersteel Dagger)
         from app.rules import permissions
 
         if (forage_permission := permissions.parse_clause(body.strip().rstrip("."))) is not None:
@@ -3118,6 +3204,16 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return bound_redirection
     if (conditional_prevention := conditional_prevention_effects.parse(body)) is not None:
         return conditional_prevention
+    from app.rules import wave110j_final  # -- Silhouette (wave 110J) --
+
+    if (silhouette := wave110j_final.parse(body)) is not None:
+        return silhouette
+    if (piracy := wave110j_final.piracy_parse(body)) is not None:
+        return piracy
+    from app.rules import wave110j_last  # -- last cards (wave 110J) --
+
+    if (last := wave110j_last.parse(body)) is not None:
+        return last
     if (scoped_prevention := scoped_prevention_effects.parse(body)) is not None:
         return scoped_prevention
     if (bound_subset := bound_subset_choices.parse(body)) is not None:
@@ -3456,6 +3552,14 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
         return creator_change
     if (protected_airbend := airbend.complement(body)) is not None:
         return protected_airbend
+    if (spell_airbend := airbend.spell_target(body)) is not None:  # -- airbend (wave 110B) --
+        return spell_airbend
+    from app.rules import wave110b_dack, wave110b_hama, wave110b_lich, wave110b_stangg
+
+    if (hama := wave110b_hama.parse(body) or wave110b_dack.parse(body) or wave110b_stangg.parse(body)) is not None:  # -- Hama, Dack Fayden, Stangg (wave 110B) --
+        return hama
+    if (lich := wave110b_lich.parse(body)) is not None:  # -- Havengul Lich (wave 110B) --
+        return lich
     if (attached_copy := attached_copy_fallback.parse(body)) is not None:
         return attached_copy
     if (after_discover := discover_followup.parse(body)) is not None:
@@ -3721,7 +3825,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # CR 701.48a (2026-09-25): Learn offers an optional discard/draw first, then a Lesson import
     # if no card was discarded. Commander 903.11 disallows that ordinary outside-game import,
     # even when a player has imported an owned collection; only the discard/draw remains.
-    body = re.sub(r"(^\s*|\. )[Ll]earn\.", r"\1You may discard a card. If you do, draw a card.", body)  # (wave 52D: a leading space, an activated ability's body)
+    body = re.sub(r"(^\s*|\. )[Ll]earn\.", r"\1learn110c.", body)  # -- Learn replacement (wave 110C) -- wave110c_learn: Retriever Phoenix, else the plain Learn  # (wave 52D: a leading space, an activated ability's body)
     body = _extra_turns.one_sentence(body)  # -- static_other sweep (wave 19A) -- Final Fortune
     # -- tutor (wave 20D) -- the same search spelled as sentences: "Search your library for two cards[ and reveal them]. Put one into your hand
     # and the other into your graveyard. Then shuffle." (Final Parting, Fork in the Road), "… for a white card, …, and a green card. Reveal
@@ -3760,7 +3864,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # -- control change (wave 26D) -- "It gains haste and myriad until end of turn." (Firbolg Flutist), "… and annihilator 2 …" (Flayer of Loyalties):
     # a keyword with its own triggered ability is granted as the ability line it is (613.1f, 702.116a, 702.86a), the quoted-grant grammar
     body = re.sub(r"((?:\bgains? |[Uu]ntil end of turn, [^.\"]*?\bgains? ))([^.\"]+?)( until end of turn|(?<=[a-z0-9])(?=\.|$))",
-                  lambda m: m[1] + re.sub(r"\b(myriad|extort|melee|(?:annihilator|afflict|poisonous|frenzy|afterlife|firebending) \d+)\b",  # (wave 48C: Iroh, Fire Nation Palace)
+                  lambda m: m[1] + re.sub(r"\b(myriad|extort|melee|(?:annihilator|afflict|poisonous|frenzy|afterlife|firebending|rampage) \d+)\b",  # (wave 48C: Iroh, Fire Nation Palace; wave 110F: Rapid Fire)
                                           lambda k: f'"{k[1].capitalize()}"', m[2]) + m[3]
                   if ("until end of turn" in m[3] or m[1].lower().startswith("until end of turn")) else m[0], body)
     # -- look top (wave 26D) -- "Put one of those cards into your hand, one on top of your library, and one on the bottom of your library."
@@ -3907,7 +4011,7 @@ def _difference(body: str) -> str:
 
 
 def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
-    body = _difference(body)
+    body = _difference(re.sub(r"\b([Pp]ay half (?:your|their) life), rounded up", r"\1 rounded up", body))  # -- wave 110B -- 107.1a: one cost part, not a clause split at its comma
     from app.rules import random_choice  # -- random choices (wave 47B) --
 
     body, or_pw = random_choice.strip_pw(body)
@@ -4088,7 +4192,7 @@ def _x_target_counts(found: tuple[list[dict[str, Any]], Any, bool], value: Any) 
     return found[0], out, found[2]
 
 
-_DIVIDE_VALUES = frozenset({"count", "counters", "on", "devotion", "hand", "plus", "times", "max", "of", "event_amount", "mana_spent", "kicked"})
+_DIVIDE_VALUES = frozenset({"turn_history", "count", "counters", "on", "devotion", "hand", "plus", "times", "max", "of", "event_amount", "mana_spent", "kicked"})
 
 
 def _x_divide_totals(found: tuple[list[dict[str, Any]], Any, bool], value: Any) -> tuple[tuple[list[dict[str, Any]], Any, bool] | None, bool]:
@@ -4162,6 +4266,10 @@ _EXCESS = re.compile(r"(?P<trample>if the creature you control has trample, )?ex
                      r"creature's controller instead")
 
 
+# -- Megatron (wave 110I) -- 120.4a / 120.10: the redirect plus "and you convert ~" (convert is read as transform, 701.28): converts exactly when excess damage was redirected
+_EXCESS_XFORM = re.compile(r"if excess damage would be dealt to that creature this way, instead that damage is dealt to that creature's controller and you transform ~")
+
+
 def _excess_redirect(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """-- refused zones/sized (wave 3R4) -- "[If the creature you control has trample,] excess damage is dealt to that
     creature's controller instead" (Flame Spill, Ram Through): the damage instruction right before it, to one target
@@ -4180,7 +4288,9 @@ def _excess_redirect(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tu
             return None
         if e["if_trample"] and not str(prev.get("src") or "").startswith("target"):
             return None  # ("the creature you control": the creature dealing the damage, a target)
-        effects[-1] = {**prev, "excess": "trample" if e["if_trample"] else "always"}
+        effects[-1] = {**prev, "excess": "trample" if e["if_trample"] else "always", **({"excess_flag": "xs110i"} if e.get("then_transform110i") else {})}
+        if e.get("then_transform110i"):  # -- Megatron (wave 110I) -- the flag effects.damage records when it redirected some excess
+            effects += [{"do": "only_if", "cond": {"flag": "xs110i"}, "skip": 1}, {"do": "transform", "who": "self"}]
     return effects, found[1], found[2]
 
 
@@ -4606,7 +4716,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     body = block_events.rewrite(watches.join_choose(watches.join_retarget(body)))  # (-- turn-long triggers (wave 33A) --; wave 53C: "When one or more Equipment become attached …")
-    if it is None and not event_player:  # -- if you do (wave 5G) -- a spell's or an activated ability's "each other
+    if (it is None or it in ("~", "self_gone")) and not event_player:  # -- if you do (wave 5G; wave 110A: also an activated ability, whose "it" is its source) -- a spell's or an activated ability's "each other
         # player": every other player than its controller is an opponent in a free-for-all (102.2, 806.2); in a trigger
         # "other" may be relative to the event's player — not read there
         # (not where the grammar reads it already: an edict, language.EDICT_OTHERS; "during each other player's …")
@@ -4671,6 +4781,14 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             # (after anything but a plain counter: other readers, e.g. unless_pays (wave 4C), or manual)
             effects[-1] = {**effects[-1], "to": "choice_you" if dest["choice"] else "exile" if dest["exile"] else "hand" if dest["hand"] else ("top" if dest["top"] else "bottom")}
             continue
+        if text == "if an artifact or creature spell is countered this way, put that card onto the battlefield under your control instead of into its owner's graveyard" \
+                and len(effects) - prev_start == 1 and effects[-1]["do"] == "counter" and "to" not in effects[-1]:  # -- counter outcomes (wave 110C) -- Desertion
+            effects[-1] = {**effects[-1], "to": "battlefield_you", "types": ["Artifact", "Creature"]}
+            continue
+        if text == "if a permanent spell is countered this way, exile it instead of putting it into its owner's graveyard" \
+                and len(effects) - prev_start == 1 and effects[-1]["do"] == "counter" and "to" not in effects[-1]:  # -- counter outcomes (wave 110I) -- Thranduil's Decree (110.4)
+            effects[-1] = {**effects[-1], "to": "exile", "types": ["Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"]}
+            continue
         text = _for_each_this_way(text)  # -- "this way" outcomes (wave 4A) --
         from app.rules import (
             chain_spells,  # -- chain spells (wave 52C) -- "that player may pay {R}{R}. If the player does, they may copy this spell …"
@@ -4713,6 +4831,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         excess = _EXCESS.fullmatch(text)  # -- refused zones/sized (wave 3R4) -- 120.4a (_excess_redirect)
         if excess is not None:
             effects.append({"do": "excess_redirect", "if_trample": bool(excess["trample"])})
+            continue
+        if _EXCESS_XFORM.fullmatch(text):  # -- Megatron (wave 110I) --
+            effects.append({"do": "excess_redirect", "if_trample": False, "then_transform110i": True})
             continue
         if (kicked := _KICKED.match(text)) is not None:
             with_kicker = _kicked_sentence(kicked, effects, prev_start, groups, prev_groups)
@@ -4835,6 +4956,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         from app.rules import villainous as _villainous  # -- villainous choice (wave 23A) -- 701.55
 
         if (villain := _villainous.sentence(text, effects, lambda t: _plain_clause(t, it, True))) is not None:
+            if any(x.get('who') == 'target' for x in villain):  # -- (wave 110B) -- "Target opponent faces a villainous choice"
+                villain = _add_groups(groups, villain, 'opponent')
             effects += villain
             continue
         if (filtered := _player_filter.sentence(text, effects, lambda t: _plain_clause(t, it, event_player))) is not None:
@@ -4854,7 +4977,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
             effects += each[0]
             skip_to = i + each[1]  # (wave 23A: the one sentence, or it and the one after it)
             continue
-        if text.startswith("then you may ") and effects and texts[i + 1:i + 2] and texts[i + 1].startswith("If you do") \
+        if text.startswith("then you may ") and effects and texts[i + 1:i + 2] and texts[i + 1].startswith(("If you do", "When you do, ")) \
                 and _may_pay_sentence(text[5:], texts[i + 1:i + 2], it, effects) is not None:
             text = text[5:]  # ("You gain 2 life. Then you may discard two cards. If you do, …": "then" only orders, 608.2c)
         if (paid := _may_pay_sentence(text, texts[i + 1:i + 2], it, effects)) is not None:
@@ -5409,7 +5532,7 @@ _PICK_NEG = re.compile(r"^if you (don't|do) put (?:the card|that card|it|them) (
 _PICK_DIDNT = re.compile(r"^if you didn't put (?:a|the|that) card into your hand this way, ")
 _IF_YOU_DO = re.compile(r"^if you (?:(?P<neg>don't)|do), (?P<rest>.+)$")
 _UNLESS = re.compile(r"^(?P<lead>.+?) unless (?P<who>you|that player|they|its controller|that creature's controller|that ability's controller|target opponent|target player|any player|any opponent) "
-                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?|removes?|taps?|mills?) .+|has (?:~|this [a-z]+) deal \d+ damage to (?:them|you)"
+                     r"(?P<act>(?:pays?|discards?|sacrifices?|returns?|exiles?|removes?|taps?|mills?|puts?) .+|has (?:~|this [a-z]+) deal \d+ damage to (?:them|you)"
                      r"|has (?:~|this [a-z]+) deal (?:damage to (?:them|you) equal to .+|that much damage to (?:them|you)))$")  # (wave 27A: "has ~ deal 4 damage to them"; wave 1B: any cost the engine pays; wave 34D: sized)
 
 
@@ -5445,6 +5568,8 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     needs = None
     if it in ("event", "event_gone") and (gate := re.fullmatch(r"(?P<pay>pay [^,]+?) and exile it", phrase)) is not None:
         phrase, needs = gate["pay"], "event.new"
+    if it == "self_gone" and (gate := re.fullmatch(r"exile it and (?P<pay>collect evidence \d+)", phrase)) is not None:
+        phrase, needs = gate["pay"], "event.new"  # -- if you do (wave 110H) -- Lamplight Phoenix: the dying card is exiled with the cost paid (the evidence never counts it)
     if re.search(r"\bit\b", phrase) and it != "self":
         return None
     if it == "self":  # -- if you do (wave 50F) -- "you may have her deal 2 damage to you" (Elektra): the source itself
@@ -5538,9 +5663,13 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
         phrase = phrase[:-2] + "~"  # -- trigger tail (wave 15B) -- "sacrifice ~ unless you remove a +1/+1 counter from it": it is the source
     phrase = re.sub(r" or (pays?|discards?|sacrifices?|returns?|exiles?) ", lambda v: f" or {v[1].rstrip('s')} ", phrase)  # (wave 15C)
     if m["who"] != "you":
+        phrase = phrase.replace(" they control", " you control")  # (wave 110D) "put a -1/-1 counter on a creature they control"
         phrase = re.sub(r"\btheir\b(?! choice)", "your", phrase)  # (wave 26B) a cost is read as its payer's: "exiles a card from their graveyard"
     if re.search(r"\bit\b", phrase):
         return None
+    times_n = None
+    if m["lead"] == "that player loses that much life" and phrase == "sacrifice that many permanents of their choice":
+        phrase, times_n = "sacrifice a permanent", {"event_amount": 1}  # -- trigger other (wave 110B) -- Archfiend of Spite: the damage dealt, one permanent each (unless_pays.repeat_cost)
     cost = optional_payment.cost_text(phrase)
     alts = optional_payment.alternatives(phrase) if cost is None else None  # -- if you do (wave 15C) -- "sacrifice … or discard a card"
     if alts is not None:
@@ -5639,6 +5768,8 @@ def _unless_sentence(text: str, effects: list[dict[str, Any]], may: bool = False
     pay: dict[str, Any] = {"do": "optional_payment", "who": payer, "cost": cost, "bind": bind}
     if alts is not None:
         pay["alts"] = alts
+    if times_n is not None:
+        pay["times"] = times_n
     if sized is not None:  # -- unless pays (wave 4C) --
         pay.update(sized)
     if sized_damage_cost is not None:  # -- unless damage (wave 34D) -- "deal that much damage to them": the lead's own damage amount (one damage instruction)
@@ -5842,25 +5973,37 @@ def parse_anthem(text: str) -> Definition | None:
 # creature ("this creature", "it") is ambiguous to the grammar and stays unread.
 _GRANTER_RE = re.compile(selectors.GRANTER)
 _OTHER_SELF = re.compile(r"\b(?:this \w+|it|its(?! owner)|that creature|equipped creature)\b", re.IGNORECASE)
-_GRANTER_SUBJECT = {"add_counters", "bounce", "sacrifice", "tap", "untap"}
+_GRANTER_SUBJECT = {"add_counters", "bounce", "sacrifice", "tap", "untap", "remove_counters", "destroy"}  # (wave 110D: Heliod's Punishment)
 
 
 def _granter_view(ability: AbilityText) -> tuple[AbilityText, str] | None:
     head, _, effect = ability.text.partition(":")
+    from app.rules import wave110d_granter  # -- granter counters (wave 110D) --
+
     found = _GRANTER_RE.search(effect)
-    if ability.kind != "activated" or found is None or _OTHER_SELF.search(_GRANTER_RE.sub("", effect)):
+    if ability.kind == "triggered" and (m := re.fullmatch(rf"(.+, you may have it fight ){selectors.GRANTER}\.", ability.text)):
+        return replace(ability, text=f"{m[1]}target creature."), m["oid"] or ""  # -- granter fights (wave 110A) -- Grothama: bound to the granter by ``_granter_bound``
+    effect, marker = wave110d_granter.text(effect)
+    if ability.kind != "activated" or found is None or _OTHER_SELF.search(_GRANTER_RE.sub("", effect).replace(" counters on it", "")):
         return None
-    return replace(ability, text=f"{head}:{_GRANTER_RE.sub('this permanent', effect)}"), found["oid"] or ""
+    return replace(ability, text=f"{head}:{_GRANTER_RE.sub('this permanent', effect)}"), marker + (found["oid"] or "")
 
 
 def _granter_bound(d: Definition, oid: str) -> Definition | None:
+    from app.rules import wave110d_granter
+
+    if (own := wave110d_granter.bound(d, oid)) is not None:
+        return own
+    if d.get("kind") == "triggered":  # -- granter fights (wave 110A) -- "you may have it fight <granter>": the one creature to fight is the granting object, not a target
+        fights = [{**e, "with": f"obj:{oid}"} for e in d["effects"] if e.get("do") == "fight" and e.get("with") == "target"]
+        return {**{k: v for k, v in d.items() if k != "target"}, "effects": fights} if len(fights) == len(d["effects"]) else None
     effects = []
     for e in d["effects"]:
         if e.get("do") in _GRANTER_SUBJECT and e.get("who") == "self":
             e = {**e, "who": f"obj:{oid}"}
         elif e.get("do") == "damage" and not e.get("src"):
             e = {**e, "src": f"obj:{oid}"}
-        effects.append(e)
+        effects.append(wave110d_granter.cond(e, oid))  # -- granter counters (wave 110D) --
     return None if '"self"' in json.dumps(effects) else {**d, "effects": effects}
 
 
@@ -5886,6 +6029,34 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import wave110e_opp  # -- war or peace (wave 110E) --
+
+    if (war110e := wave110e_opp.war_definition(ability, ch)) is not None:
+        return war110e
+    from app.rules import wave110e_uvilda  # -- refine counters (wave 110E) --
+
+    if (uvilda110e := wave110e_uvilda.definition(ability, ch)) is not None:
+        return uvilda110e
+    from app.rules import wave110e_clara  # -- pregame color (wave 110E) --
+
+    if (clara110e := wave110e_clara.definition(ability.text)) is not None:
+        return clara110e
+    from app.rules import wave110g_spires  # -- wave 110G --
+
+    if (spires110g := wave110g_spires.definition(ability.text)) is not None:
+        return spires110g
+    if ability.text.strip() == "Note the mana value of each card as it's put into exile.":  # -- noted values (wave 110E) -- see wave110e_note
+        return {"kind": "static", "static": "note110e", "effects": []}
+    if ability.text.strip() == "Bell Borca's power is equal to the greatest number noted for it this turn.":
+        return {"kind": "static", "static": "cda", "effects": [], "p": {"noted110e": True}, "t": None}
+    from app.rules import wave110f_cards  # -- whole abilities (wave 110F) --
+
+    if (whole110f := wave110f_cards.definition(ability, ch)) is not None:
+        return whole110f
+    from app.rules import wave110c_core  # -- whole abilities (wave 110C) --
+
+    if (whole110c := wave110c_core.definition(ability, ch)) is not None:
+        return whole110c
     from app.rules import sticker_riders102
 
     if (rider102 := sticker_riders102.definition(ability, ch)) is not None:
@@ -5906,6 +6077,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (death104 := damage_death104.definition(ability, ch)) is not None:
         return death104
+    from app.rules import wave110h_cards  # -- one-card rewrites (wave 110H) --
+
+    if (found110h := wave110h_cards.definition(ability, ch)) is not None:
+        return found110h
     from app.rules import epic103
 
     if (epic := epic103.definition(ability, ch)) is not None:
@@ -5971,10 +6146,58 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (lines100j := counters100j.definition(ability, ch)) is not None:
         return lines100j
+    from app.rules import wave110a  # -- wave 110A --
+
+    if (whole110a := wave110a.definition(ability, ch)) is not None:
+        return whole110a
+    from app.rules import wave110o_cards as _w110o  # -- (wave 110O) --
+
+    if (card110o := _w110o.definition(ability, ch)) is not None:
+        return card110o
+    from app.rules import wave110b_cards  # -- wave 110B --
+
+    if (card110b := wave110b_cards.definition(ability, ch)) is not None:
+        return card110b
+    from app.rules import wave110e_cards  # -- wave 110E --
+
+    if (card110e := wave110e_cards.definition(ability, ch)) is not None:
+        return card110e
+    from app.rules import wave110g_cards  # -- wave 110G --
+
+    if (card110g := wave110g_cards.definition(ability, ch)) is not None:
+        return card110g
+    from app.rules import wave110i_cards  # -- cards (wave 110I) --
+
+    if (card110i := wave110i_cards.definition(ability, ch)) is not None:
+        return card110i
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (whole100n := multi100n.definition(ability, ch)) is not None:
         return whole100n
+    from app.rules import wave110d  # -- wave 110D --
+
+    if (whole110d := wave110d.definition(ability, ch)) is not None:
+        return whole110d
+    from app.rules import wave110j_cards  # -- wave 110J --
+
+    if (card110j := wave110j_cards.definition(ability, ch)) is not None:
+        return card110j
+    from app.rules import wave110k_cards  # -- (wave 110K) --
+
+    if (card110k := wave110k_cards.definition(ability, ch)) is not None:
+        return card110k
+    from app.rules import wave110l_cards  # -- wave 110L --
+
+    if (card110l := wave110l_cards.definition(ability, ch)) is not None:
+        return card110l
+    from app.rules import wave110m_cards  # -- (wave 110M) --
+
+    if (card110m := wave110m_cards.definition(ability, ch)) is not None:
+        return card110m
+    from app.rules import wave110n_cards  # -- (wave 110N) --
+
+    if (card110n := wave110n_cards.definition(ability, ch)) is not None:
+        return card110n
     from app.rules import retarget100o  # -- retarget (wave 100O) --
 
     if (lines100o := retarget100o.definition(ability, ch)) is not None:
@@ -6307,6 +6530,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (threshold70 := trigger_damage_threshold70.definition(ability, ch)) is not None:
         return threshold70
+    # -- last cards (wave 110J) -- Spinneret and Spiderling: one damage event's total (603.2c)
+    from app.rules import exile_damage_choices49
+
+    if (spinneret110j := exile_damage_choices49.definition(ability, ch)) is not None:
+        return spinneret110j
     from app.rules import combat_teyo66
 
     if (direction66 := combat_teyo66.definition(ability, ch)) is not None:
@@ -6590,6 +6818,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (selected_keyword := selected_keyword_costs65.definition(ability, ch)) is not None:
         return selected_keyword
+
+    from app.rules import wave110a_activation  # -- activation cost (wave 110A) --
+
+    if (first_artifact := wave110a_activation.definition(ability, ch)) is not None:
+        return first_artifact
 
     from app.rules import first_target_activation_cost58
 
@@ -6910,6 +7143,30 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return delegated_target
     if (prevention_outcome := prevention_outcomes.definition(ability, ch)) is not None:
         return prevention_outcome
+    from app.rules import wave110j_final  # -- Defensive Formation (wave 110J) --
+
+    if ability.kind == "static" and (formation := wave110j_final.definition(ability.text)) is not None:
+        return formation
+    if (hellkite := wave110j_final.hellkite(ability, ch)) is not None:
+        return hellkite
+    if (garth := wave110j_final.garth_definition(ability, ch)) is not None:
+        return garth
+    if (inniaz := wave110j_final.inniaz_definition(ability, ch)) is not None:
+        return inniaz
+    from app.rules import wave110j_last  # -- last cards (wave 110J) --
+
+    if (last := wave110j_last.definition(ability, ch)) is not None:
+        return last
+    if (bruna := wave110j_final.bruna_definition(ability, ch)) is not None:
+        return bruna
+    if (kasmina := wave110j_final.kasmina_definition(ability, ch)) is not None:
+        return kasmina
+    if (dermotaxi := wave110j_final.dermotaxi_definition(ability, ch)) is not None:
+        return dermotaxi
+    if (alpine := wave110j_final.alpine_definition(ability, ch)) is not None:
+        return alpine
+    if (beleren := wave110j_final.belerens(ability, ch)) is not None:
+        return beleren
     if (conditional_prevention := conditional_prevention_effects.definition(ability, ch)) is not None:
         return conditional_prevention
 
@@ -6957,7 +7214,13 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         d = _chosen.remember_name(_enters_self_check(_define(view[0] if view else ability, ch), ch), self_text(ability.text, ch.name))  # (-- any number as an additional cost (wave 48B) -- "creatures sacrificed this way" of a spell's own cost)  (wave 53B: a trigger's card name, kept)
     if view and d is not None:
         d = _granter_bound(d, view[1])
-    if d is not None and "additional cost was paid" in ability.text and not any(re.search(r"you may blight [1-5]\b", a.text) for a in ch.abilities):
+    from app.rules import (  # (wave 110A; wave 110O)
+        cost_changes,
+        wave110a_bloodbend,  # -- wave 110A -- Secret of Bloodbending: its own condition (waterbend paid), read by control_player
+        wave110o_cards,
+    )
+
+    if d is not None and "additional cost was paid" in ability.text and ability.text != wave110a_bloodbend.LINE and not any(re.search(r"you may blight [1-5]\b", a.text) or a.text in (cost_changes.BEHOLD_TYPE, wave110o_cards._UNDER_COST) for a in ch.abilities):  # (wave 110A: Celestial Reunion's behold; wave 110O: Undergrowth's {2}{R})
         return None  # -- blight (wave 51E) -- "this spell's additional cost was paid" is read as the blight only for a spell whose optional additional cost is one (another optional cost: manual)
     if d is not None and ability.special == 'embalm':
         d = {**d, 'effects': [{**e, 'embalmed': True} if e.get('do') == 'token_copy' else e for e in d['effects']]}
@@ -6970,7 +7233,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # -- cost reductions paid with objects (wave 47C) -- "mana value less than X" (107.3f) reads the X announced for a spell or an ability with {X} in its cost; any other X
     # (Scrap Welder's is the sacrificed artifact's) is unbound, so the ability stays manual
     if d is not None and re.search(r'\["mv","<",-1\]', json.dumps(d, default=str).replace('\\"', '"')) \
-            and not ("{X}" in (ch.mana_cost or "") if d.get("kind") == "spell" else d.get("kind") == "activated" and "{X}" in (ability.cost or "")):
+            and not ("{X}" in (ch.mana_cost or "") if d.get("kind") == "spell" else d.get("kind") == "activated" and (
+                "{X}" in (ability.cost or "") or "with mana value X" in (ability.cost or ""))):  # -- X from a cost (wave 110D) -- Scrap Welder: "Sacrifice an artifact with mana value X" announces X (costs.selector_x), then the sacrificed artifact must have it
         return None
     from app.rules import kicked_instead  # -- kicked / instead (wave 4G) -- 702.33g: a spell's targets only
 
@@ -7026,8 +7290,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
         if cost is None and d.get("kind") == "spell":  # -- costs (wave 3$) -- a spell's additional cost ("sacrifice a creature")
             cost = spell_additional_cost(ch.abilities)
-        if cost is None or not any(c.kind == SACRIFICE and c.selector is not None for c in cost.components):
-            return None
+        if cost is None or not any(c.kind == SACRIFICE and (c.selector is not None or "mana value equal to the sacrificed creature's mana value" in ability.text) for c in cost.components):
+            return None  # (-- Transfigure (wave 110I) -- 702.71a: "Sacrifice this permanent" is the sacrificed creature; its mana value is read as it last existed)
     # -- refused zones/sized (wave 3R4) -- a triggered ability's X is not the X its source was cast with
     # (107.3m isn't carried to triggers: X reads 0 there), so a search sized by X in one stays manual (Fblthp)
     # -- cast X (wave 4J) -- except an enters trigger of the object itself: 107.3m gives it the X of the spell it was
@@ -7169,7 +7433,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     counted_damage_targets = d is not None and isinstance(d.get("cond"), dict) and d["cond"].get("event") in ("deal_combat_damage_player", "gain_life") and bool(
         [g for g in d.get("targets") or [] if g.get("x_count")]) and all(
         g.get("x_value") == {"event_amount": 1} for g in d["targets"] if g.get("x_count"))
-    if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(d, default=str) and not (
+    own = None if d is None else {**d, "effects": [e for e in d.get("effects") or [] if not (  # (wave 110I: a reflexive ability's X is the payment's, above)
+        e.get("do") == "reflexive" and e.get("x_from") and (e.get("ability") or {}).get("x_event"))]}
+    if d is not None and d.get("kind") == "triggered" and '"x_count"' in json.dumps(own, default=str) and not (
             counted_damage_targets or monstrous_x or x_given or (d.get("trigger") == "enters_self" and "{X}" in (ch.mana_cost or "") and "where X is" not in ability.text)):
         return None  # ("up to X target …" in a trigger: its targets are chosen before any X is known to it; wave 19F: but the X an
         # enters trigger of a spell cast with X, or a becomes-monstrous trigger, is given: triggers.cast_x)
@@ -7217,6 +7483,8 @@ def _conditional_static(ability: AbilityText, ch: Characteristics, text: str) ->
     if inner.get("static") == "permission" and inner.get("zone") == "graveyard" and not inner.get("self") and "if" not in inner:
         return {**inner, "if": cond}  # -- station (wave 48D) -- 611.3a: "As long as this permanent has 8 or more charge counters on it, once during each of your turns, you may cast … from your graveyard" (permissions: the table statics' "if")
     if inner.get("static") == "grant" and inner.get("player_shield") and not inner.get("conditions"):
+        return {**inner, "conditions": [cond]}
+    if inner.get("static") == "game_result" and not inner.get("conditions"):  # -- spells (wave 110A) -- Gideon of the Trials' emblem (game_result._stops checks it)
         return {**inner, "conditions": [cond]}
     if inner.get("static") == "grant" and not inner.get("conditions") and all(r.startswith(("attack_tax", "block_tax")) for r in inner.get("rules") or ["-"]):
         return {**inner, "conditions": [cond]}  # (wave 45D: Dáin) the attack tax is imposed (a grant's rules) only while the condition holds, 611.3a
@@ -7508,7 +7776,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = re.sub(r"^(Whenever you cast) a spell, if that spell was kicked, ", r"\1 a kicked spell, ", text)
     # "When ~ dies, it deals damage equal to its power divided as you choose …" (Orca, Siege Demon): "it" is the creature that died, ~ (language.py reads ~'s)
     text = re.sub(r"^(When ~ dies, )it deals (damage equal to its power divided as you choose among )", r"\1~ deals \2", text)
-    if ability.kind == "static" and re.match(r"(?i:(?:~ has )?(?:bushido|firebending|mobilize|annihilator) X, where X is)", text):  # -- X keywords (wave 41B) --
+    if ability.kind == "static" and re.match(r"(?i:(?:~ has )?(?:bushido|firebending|mobilize|annihilator|soulshift) X, where X is)", text):  # -- X keywords (wave 41B; soulshift 110G) --
         from app.rules import keyword_triggers
 
         return keyword_triggers.dynamic_x(text)
@@ -7554,7 +7822,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import voting
 
         return voting.static_definition(text)
-    if ability.kind == "static" and ("opening hand" in text or text.startswith("Any time you could mulligan")):  # -- opening hand (wave 18C) -- 103.6 (app/rules/opening_hand.py)
+    if ability.kind in ("static", "spell") and ("opening hand" in text or text.startswith("Any time you could mulligan")):  # -- opening hand (wave 18C, 110I: a sorcery, Providence) -- 103.6 (app/rules/opening_hand.py)
         from app.rules import opening_hand
 
         return opening_hand.definition(text, ch)
@@ -7644,7 +7912,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         if (unblocked_group := group_unblocked.definition(text)) is not None:
             return unblocked_group
     # -- static_other sweep (wave 19A) -- 510.1c: "You may have this creature assign its combat damage as though it weren't blocked."
-    if ability.kind == "static" and re.fullmatch(r"You may have (?:~|this creature) assign (?:its|his|her|their) combat damage as though "
+    if ability.kind == "static" and re.fullmatch(r"You may have (?:~|this creature|this permanent) assign (?:its|his|her|their) combat damage as though "
                                                  r"(?:it|he|she|they|~) weren't blocked\.", text):
         return {"kind": "static", "static": "assign_unblocked", "effects": []}
     if text in COMBAT_STATICS and (ability.kind == "static" or
@@ -7654,7 +7922,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         from app.rules import permissions  # permissions, cost modifiers, "play with the top card revealed"
 
         granted = permissions.define_static(text, ability.kind, tuple(self_text(ab.text, ch.name) for ab in ch.abilities))
-        if granted is not None and granted.get("static") in ("alt_cost", "cost_modifier") and "Room" in ch.subtypes:
+        # (-- Rooms (wave 110C) -- an alt_cost table static of an unlocked door is read like any permanent's: _cached drops a locked door's text, 709.5)
+        if granted is not None and granted.get("static") in ("alt_cost", "cost_modifier") and "Room" in ch.subtypes and not (granted.get("static") == "alt_cost" and granted.get("table")):
             return None  # -- cost changers (wave 4I) -- a Room door's ability works only while it's unlocked: not modelled
         if granted is not None:
             return granted
@@ -7720,7 +7989,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
                     # -- triggers (wave 5D) -- "When ~ enters and whenever an opponent draws a card …" (Orcish
                     # Bowmasters): one ability, two trigger conditions — it triggers on each (603.2)
-                    both = re.fullmatch(r"(?P<a>.+?) and (?:(?:when|whenever) |(?=at the beginning of your (?:upkeep|end step)))(?P<b>.+)", m["cond"])
+                    both = re.fullmatch(r"(?P<a>.+?) and (?:(?:when|whenever) |(?=at the beginning of your (?:upkeep|end step|first main phase)))(?P<b>.+)", m["cond"])
                     pair = (both["a"], both["b"]) if both else None
                     if pair is None and event_grammar.parse_condition(m["cond"]) is None and (
                             either := re.fullmatch(r"(~ (?:enters|dies|attacks)) or ((?:becomes|deals|enters|dies|attacks) .+)", m["cond"])):
@@ -7734,9 +8003,11 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                         generic = [h[1] for h in halves if h and h[1] is not None]
                         # (-- cant restrictions (wave 46A) -- the same event twice with different subjects, "Whenever Giott or another Dwarf you control enters and
                         # whenever an Equipment you control enters": one object entering is one event, so one trigger however many halves it matches, 603.2c)
-                        if names == ["event", "event"] and not re.search(
-                                r"\b(?:it|its|it's|that|those|them|they)\b", re.sub(r"\bit's the \w+ time\b", "", m["body"])) and not any(
-                                g.get("aggregate") or g["event"] in ("either", "multi") for g in generic):
+                        if names == ["event", "event"] and (not re.search(
+                                r"\b(?:it|its|it's|that|those|them|they)\b", re.sub(r"\bit's the \w+ time\b", "", m["body"]))
+                                or {g["event"] for g in generic} == {"sacrifice", "to_graveyard"}) and (
+                                {g["event"] for g in generic} == {"phase_out", "to_exile"}  # (wave 110D: The War Doctor, two batches of unlike events, each its own 603.2c)
+                                or not any(g.get("aggregate") or g["event"] in ("either", "multi") for g in generic)):
                             # -- ability words (wave 20C) -- "Whenever an enchantment you control enters and whenever you fully unlock a
                             # Room" (eerie): two whole conditions, each its own event (603.2c) — the "or" form's either condition
                             cond = {"event": "either", "conds": generic,
@@ -7798,7 +8069,8 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
                 # -- trigger other (wave 39A) -- ("that player" is read when the damage is to "you" from "a source an opponent controls": it can only be that opponent, Michiko Konda)
                 if cond is not None and cond.get("subject") == "source" and re.search(r"\b(?:that player|they|them)\b", body) \
-                        and not (cond.get("ctl") == "opponent" and cond.get("to") == "you" and not re.search(r"\b(?:they|them)\b", body)):
+                        and not (cond.get("ctl") == "opponent" and cond.get("to") == "you" and not re.search(r"\b(?:they|them)\b", body)) \
+                        and not re.fullmatch(r"that source's controller [^.]+? unless they \w+ [^.]+\.?", body):  # -- trigger other (wave 110B) -- "they" is that controller (Archfiend of Spite)
                     return None  # -- source damage (wave 11F) -- the source's controller, or the player dealt damage? (not read)
                 if name == "enters_self" or cond is not None and cond.get("event") == "enter" and cond.get("subject") == "self":
                     # The entry event's subject is this object, including a qualified entry from hand.
@@ -7810,8 +8082,12 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                                   lambda m: f"{m[1] or ''}draw {'a' if m[2] == 'an' else m[2]} {m[3]}", body)  # cards. If you do, …")
                 # -- other side (wave 6D) -- "… blocks a creature, destroy that creature. You gain life equal to that
                 # creature's toughness" / "… deals damage to a creature, …": the event's object (app/rules/other_side.py)
+                from app.rules import defending as _defending110
                 from app.rules import other_side
 
+                if cond is not None and (cond.get("event") == "deal_combat_damage_player" and cond.get("combat_recipient") == "opponent"
+                                         or _defending110.per_player_attack(cond)):  # -- trigger other (wave 110B) -- "…to an opponent, … that opponent controls": the player dealt damage / attacked
+                    body = re.sub(r"\bthat opponent\b", "that player", body)
                 if cond is not None and cond.get("event") == "deal_damage" and cond.get("to") == "planeswalker":
                     body = re.sub(r"\bthat planeswalker\b", "that permanent", body)  # -- trigger other (wave 44B) -- Zagras: the planeswalker dealt damage (other_side)
                 if cond is not None and other_side.wanted(cond) and cond.get("subject") == "host" and "that creature" not in body:
@@ -7941,9 +8217,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                                else x for x in parsed[0]], *parsed[1:])
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
-                if parsed is None and cond is not None and cond.get("other") and cond.get("subject", "self") in ("self", "host") and (
-                        cond["event"] in ("block", "blocked")
-                        or (cond["event"] == "multi" and set(cond["events"]) <= {"block", "blocked"})):
+                if parsed is None and cond is not None and cond.get("subject", "self") in ("self", "host") and (
+                        cond.get("other") and (cond["event"] in ("block", "blocked")
+                                               or (cond["event"] == "multi" and set(cond["events"]) <= {"block", "blocked"}))
+                        or cond["event"] == "mentor"):  # (-- mentor (wave 110J) -- "that creature" is the mentored one, the event's ``other``)
                     from app.rules.language import OTHER_SIDE
 
                     if cond.get("subject", "self") == "self":
@@ -8160,10 +8437,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # Trigger events that come with an amount ("that much" / "that many", TriggerEvent.amount): life
 # gained / lost, damage dealt, counters put; for a "one or more" batch of sacrifices, discards,
 # tokens created … the number of them (603.2c)
-_AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
+_AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "pay_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "counters_removed", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
-                  "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library",
-                  "roll_die"}  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
+                  "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library", "exiled_perm110i",
+                  "roll_die", "discover", "scry_bottom110b", "bend110b", "mana_resolved110d"}  # (wave 110B: The Temporal Anchor; wave 110D: the mana a mana ability produced)  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
@@ -8309,12 +8586,12 @@ def _event_refs_ok(d: Definition) -> bool:
 
     # (-- reanimation (wave 51B) -- Scrap Trawler: "Whenever this creature dies or another artifact you control is put into a graveyard …, … with lesser mana value": each of the
     # events of an "or" trigger is about one object (603.2c, the ruling: it triggers for each artifact), and so is the source's own death, its last-known snapshot)
-    if '\\"evt:' in raw and d.get("trigger") not in ("attacks_self", "dies_self") and not (
+    if '\\"evt:' in raw.replace('\\"evt:damage110b\\"', '') and d.get("trigger") not in ("attacks_self", "dies_self") and not (
             one_object(ev) or (ev is not None and ev["event"] == "either" and all(one_object(c) for c in ev["conds"]))) \
-            and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if i not in (_delayed.object_deferred(d.get("effects") or []) | entry_receipt56.object_deferred(d.get("effects") or []))]}):
+            and '\\"evt:' in json.dumps({**d, "effects": [e for i, e in enumerate(d.get("effects") or []) if e.get("do") not in ("reflexive", "excess_reflex110h") and i not in (_delayed.object_deferred(d.get("effects") or []) | entry_receipt56.object_deferred(d.get("effects") or []))]}):
         # (wave 28D: the spell a cast trigger is about; -- turn-long triggers (wave 35B) -- or the one object a "When that creature dies this turn" trigger is about)
         return False  # -- reanimation (wave 16F) -- "lesser mana value": than the one object the event is about
-    if "not_event" in raw and not (ev is not None and ev["event"] in ("targeted", "unblocked")):  # -- stack interaction (wave 23B) -- "other than that creature":
+    if "not_event" in raw and not (ev is not None and ev["event"] in ("targeted", "unblocked", "attack", "attached")):  # (wave 110L: attached, selectors.attacker_of reads the creature)  # -- stack interaction (wave 23B) -- "other than that creature" (wave 110C: attack, Saw -- selectors.attacker_of reads it):
         return False  # the object a "becomes the target" event is about (selectors.attacker_of); nothing else names one here
     if '"event_attacking"' in raw and not (ev is not None and ev["event"] == "you_attack" and ev.get("min_attackers")):
         return False  # -- trailing & intervening ifs (wave 38A) -- "those creatures": the attackers an "attacks with creatures" trigger counted (its event's objects)
@@ -8333,7 +8610,9 @@ def _event_refs_ok(d: Definition) -> bool:
         if not (self_trigger or mine or shield):
             return False
     # (-- random choices (wave 47B) -- a reflexive ability that follows "Choose a player at random." binds its own: effects.reflexive ``players_from``)
-    unbound = json.dumps({**d, "effects": [e for e in d.get("effects") or [] if not e.get("players_from") and not e.get("that")],
+    unbound = json.dumps({**d, "effects": [({k: v for k, v in e.items() if k != "target"} if e.get("do") == "delayed" and (e.get("when") or {}).get("kind") == "watch"
+                                            and _has_player((e["when"]).get("cond") or {}) else e)  # -- cards (wave 110G) -- a turn watch's own target binds "that player" as it triggers
+                                           for e in d.get("effects") or [] if not e.get("players_from") and not e.get("that")],
                           **({"targets": [g for g in d["targets"] if g.get("of") is None]} if d.get("targets") else {})})  # (-- player-relative selectors (wave 53A) -- a group tied to an earlier group's player is bound as the targets are chosen)
     if '\\"controller\\":\\"that_player\\"' in unbound or '\\"zone_owner\\":\\"that_player\\"' in unbound:
         cond = d.get("cond") if d.get("trigger") == "event" else None
@@ -8377,7 +8656,7 @@ def _cached(ch: Characteristics) -> dict[int, Definition]:
         if out.get(ab.index, {}).get("kind") == "mode":
             continue  # (a mode line of the modal ability above it)
         d = define(ab, ch)
-        if d is None and ab.kind in ("triggered", "activated", "loyalty"):
+        if d is None and (ab.kind in ("triggered", "activated", "loyalty") or (ab.kind == "static" and "Saga" in ch.subtypes and ab.text.rstrip().endswith("—"))):  # (wave 110F: a modal Saga chapter)
             # -- modal triggered/activated abilities (wave 1A): "…, choose one —" and its bulleted modes,
             # read by app/rules/modal_abilities.py (the header's definition and one stub per mode line)
             from app.rules import modal_abilities
@@ -8460,7 +8739,7 @@ def _merge_instead_lines(ch: Characteristics, out: dict[int, Definition]) -> Non
 def definitions(ch: Characteristics) -> dict[int, Definition]:
     """Engine definitions for a card's abilities, by ability index (see ``app.rules.oracle``).
     Hand-written scripts (``app.rules.cards``) are consulted by the caller first."""
-    if ch.is_ability or ch.face_down:
+    if ch.is_ability or (ch.face_down and not ch.abilities):  # -- face-down abilities (wave 110D) -- 708.2: none of its own, but an effect may grant some (Etrata)
         return {}
     from app.rules import cards  # hand-written scripts (a leaf package)
 
@@ -8556,6 +8835,8 @@ def _impending_trigger() -> Definition | None:
 
 def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
     """Triggered keyword abilities of a card, with keys that can't clash with ability indexes."""
+    from app.rules import wave110b_cards  # -- wave 110B --
+
     if ch.is_ability or ch.face_down:
         return []
     out = []
@@ -8599,11 +8880,11 @@ def keyword_triggers(ch: Characteristics) -> list[tuple[int, Definition]]:
                     "kind": "triggered", "trigger": "dies_self", "optional": True,
                     "target": {"what": f"graveyard:Spirit:{ns[ab.keywords[:k].count(kw)]}"},
                     "effects": [{"do": "bounce", "who": "target"}]}))
-            fb = re.fullmatch(r"firebending (\d+)", ab.text.strip().rstrip(".").lower()) if kw == "firebending" else None
+            fb = wave110b_cards.firebending(ab.text) if kw == "firebending" else None  # (wave 110B: among other keywords of the line)
             if fb:  # -- keyword actions & face-down (wave 3F) -- 702.189a: "Whenever this creature attacks, add N {R}. …"
                 out.append((1000 + ab.index * 10 + k, {
                     "kind": "triggered", "trigger": "attacks_self", "optional": False, "target": None,
-                    "effects": [{"do": "firebend", "n": int(fb.group(1))}]}))
+                    "effects": [{"do": "firebend", "n": fb}]}))
     return out
 
 
@@ -8613,12 +8894,15 @@ _MODAL_HEADERS = {
     "Choose two —": (2, 2, False),
     "Choose one or both —": (1, 2, False),
     "Choose one or more —": (1, 99, False),
+    "An opponent chooses one —": (1, 1, False),  # -- wave 110F -- 700.2e, only Fatal Lore / Misfortune via wave110f_cards.modal_lines
+    "Choose up to two —": (0, 2, False),  # (-- wave 110D -- only Call Damage Control, via wave110d_misc.modal_lines)
 }
 # -- modal frames (wave 33B) -- 700.2d: "Choose four. You may choose the same mode more than once."; 700.2a / 601.2b: "Choose one. If [condition]
 # [as you cast this spell], [you may] choose both / two / one or more instead." (an ability word may lead: "Delirium — "), the condition checked
 # as the spell is cast (casting.choose_modes). Read: the two announced facts of a cast (kicked, teamwork 702.194b) and conditions about the table.
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
-_REPEAT_HEADER = re.compile(r"^Choose (?P<n>three|four|five)\. You may choose the same mode more than once\.$")
+X_HEADER = "Choose X. You may choose the same mode more than once."
+_REPEAT_HEADER = re.compile(r"^Choose (?P<up>up to )?(?P<n>three|four|five)\. You may choose the same mode more than once\.$")
 _INSTEAD_HEADER = re.compile(r"^(?:[A-Z][a-z]+(?: \d+)? — )?Choose one\. If (?P<c>.+?)(?: as you cast this spell)?, (?P<may>you may )?"
                              r"choose (?P<k>both|two|one or more|any number) instead\.$")
 
@@ -8628,7 +8912,11 @@ def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | No
     if text in _MODAL_HEADERS:
         return (*_MODAL_HEADERS[text], None)
     if (m := _REPEAT_HEADER.match(text)) is not None:
-        return _NUMBERS[m["n"]], _NUMBERS[m["n"]], True, None
+        # -- spells (wave 110A) -- "Choose up to four. You may choose the same mode more than once." (Moment of Reckoning): one to four modes, 700.2d.
+        # No CR rule or ruling lets a non-pawprint "up to" spell choose zero modes (700.2i is the pawprint form), so the minimum stays one.
+        return (1 if m["up"] else _NUMBERS[m["n"]]), _NUMBERS[m["n"]], True, None
+    if text == X_HEADER:  # -- choose X (wave 110C) -- 700.2d, 601.2b: casting.choose_modes makes min = max = the announced X
+        return 0, 99, True, None
     if (m := _INSTEAD_HEADER.match(text)) is None:
         return None
     from app.rules import conditions
@@ -8652,12 +8940,16 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
         return None
     lo, hi, repeat, instead = header
     modes: list[dict[str, Any]] = []
+    tail = [ab for i, ab in enumerate(lines[1:], 1) if not any(x.text.startswith("• ") for x in lines[i:])]  # -- wave 110A -- lines after the last mode (below)
+    lines = lines[:len(lines) - len(tail)]
     for ab in lines[1:]:
         if not ab.text.startswith("• "):
             return None
         # (-- most-played modal spells (wave 50I) -- a mode that is all "You may put a land card from your hand onto the battlefield." (Atarka's Command) is the
         # instruction's own choice, as for a one-line spell (_own_choice); "This spell deals X damage" is the spell itself)
-        parsed = _own_choice(parse_effects(self_text(ab.text[2:], name).replace("This spell deals ", "~ deals ")))
+        from app.rules import wave110a  # -- wave 110A -- 207.2d: "• Take the Elevator — …"
+
+        parsed = _own_choice(parse_effects(self_text(wave110a.strip_mode_label(ab.text[2:]), name).replace("This spell deals ", "~ deals ")))
         if parsed is None or parsed[2]:  # ("you may" inside a mode: not yet)
             return None
         effects, target, _ = parsed
@@ -8671,10 +8963,18 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
                       "target": {"what": target} if target else None})
     if not repeat and lo > len(modes):
         return None
-    modal: dict[str, Any] = {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": None}
+    modal: dict[str, Any] = {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": None,
+                             **({"chooser": "opponent"} if lines[0].text == "An opponent chooses one \u2014" else {}),  # -- wave 110F -- 700.2e
+                             **({"x": True} if lines[0].text == X_HEADER else {})}  # -- choose X (wave 110C) --
     if instead is not None:  # -- modal frames (wave 33B) --
         modal["instead"] = {**instead, "max": min(instead["max"], len(modes))}
-    return {"kind": "spell", "effects": [], "target": None, "modes": modes, "modal": modal}
+    after: list[dict[str, Any]] = []  # -- wave 110A -- 608.2c: a line printed after the modes is carried out after the chosen modes ("Draw a card at the beginning of the next turn's upkeep.")
+    for ab in tail:
+        got = parse_effects(self_text(ab.text, name))
+        if got is None or got[1] is not None or got[2]:
+            return None
+        after += rename_bindings(got[0], f"after{len(after)}_")
+    return {"kind": "spell", "effects": [], "target": None, "modes": modes, "modal": modal, **({"after": after} if after else {})}
 
 
 # -- keywords (wave 30E) -- 702.172a spree: "Choose one or more modes. As an additional cost to cast this spell, pay the costs associated with
@@ -8685,6 +8985,10 @@ _SPREE_MODE = re.compile(r"^(?:\+ |• (?P<label>[^—{}]+) — )(?P<cost>(?:\{[
 
 def spree_definition(ch: Characteristics, lines: list[AbilityText]) -> Definition | None:
     tiered = any(ab.keywords == ("tiered",) for ab in ch.abilities if ab.kind == "keywords")
+    from app.rules import wave110b_cards  # -- wave 110B --
+
+    if tiered and (own110b := wave110b_cards.tiered(ch, lines)) is not None:
+        return own110b
     found = [_SPREE_MODE.fullmatch(ab.text) for ab in lines]
     if any(m is None or bool(m["label"]) != tiered for m in found) or len(lines) < 2:
         return None
@@ -8738,6 +9042,8 @@ def graveyard_only_ability(d: Definition | None) -> bool:
 
 def own_graveyard_activation(d: Definition | None) -> bool:
     """113.6m: a parsed graveyard-only activation is not a resolving spell instruction."""
+    if d is not None and d.get("stack110g"):  # -- wave 110G -- Lightning Storm: an ability that works while the spell is on the stack, not part of what it does
+        return True
     if d is not None and d.get('kind') == 'activated':
         cost = parse_ability_cost(d.get('cost') or '')
         if not cost.unsupported and cost.from_graveyard:
@@ -8776,6 +9082,18 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     from app.rules import contextual_mana_outcomes
     if (contextual := contextual_mana_outcomes.spell(ch, text_lines)) is not None:
         return contextual
+    from app.rules import wave110k_cards  # -- (wave 110K) --
+
+    if (spell110k := wave110k_cards.spell(ch, text_lines)) is not None:
+        return spell110k
+    from app.rules import wave110i_cards  # -- cards (wave 110I) --
+
+    if (spell110i := wave110i_cards.spell(ch, text_lines)) is not None:
+        return spell110i
+    from app.rules import wave110b_final  # -- final pass (wave 110B) --
+
+    if (spell110b := wave110b_final.spell(ch, text_lines)) is not None:
+        return spell110b
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
@@ -8786,12 +9104,21 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
              and not own_card_event_ability(defs.get(ab.index))  # (wave 36A: cycling / discard triggers of the card itself)
              and defs.get(ab.index, {}).get("trigger") != "cast_self"  # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, …" triggers
              and defs.get(ab.index, {}).get("replacement") != "shuffle_instead"  # -- zone replacements (wave 51C) -- Nexus of Fate: where the spell card goes (614.1), not what it does
-             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap", "escape", "draft_only", "cant_be_copied", "self_uncounterable", "x_mana_restriction", "own_spell_kicked_keyword59", "color_cda100c")  # (escape: wave 52C, 702.138a; draft_only: wave 52C; x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
+             and defs.get(ab.index, {}).get("static") not in ("self_cost", "additional_cost", "alt_cost", "cast_restriction", "own_optional", "x_cap", "escape", "draft_only", "cant_be_copied", "self_uncounterable", "x_mana_restriction", "own_spell_kicked_keyword59", "color_cda100c", "gy_flashback110e", "gy_cost", "opening_hand", "stack_grant110b")  # (escape: wave 52C, 702.138a; draft_only: wave 52C; x_cap: wave 51C; own_optional: wave 22F; alt_cost: wave 4I; cast_restriction: wave 7A)
              and not (defs.get(ab.index, {}).get("static") == "permission" and defs[ab.index].get("self")
                       and (defs[ab.index].get("free") or defs[ab.index].get("zone") in ("graveyard", "exile")
                            or defs[ab.index].get("flash")))]  # (wave 17C: retrace, 702.81a; wave 22F: "cast this spell as though it had flash if …", 601.3d)
+    from app.rules import wave110e_cards  # -- wave 110E --
+
+    lines = wave110e_cards.modal_lines(lines)
     if lines and (pawed := pawprint_definition(lines, ch.name)) is not None:  # (-- most-played modal spells (wave 50I) -- the Seasons)
         return pawed if _event_refs_ok(pawed) else None
+    from app.rules import wave110d_misc  # -- modal spell (wave 110D) --
+
+    lines = wave110d_misc.modal_lines(lines)
+    from app.rules import wave110f_cards  # -- Liquid Fire (wave 110F) --
+
+    lines = wave110f_cards.modal_lines(lines)
     if lines and modal_header(lines[0].text) is not None:  # (-- modal frames (wave 33B) -- after the lines about casting it: "Cast this spell only during combat.")
         from app.rules import gift
 
@@ -8807,8 +9134,10 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     # "Destroy target creature. / Tap target creature." targets twice, not once).
     groups: list[dict[str, Any]] = []
     effects: list[dict[str, Any]] = []
+    dgroups: list[int] = []  # -- delegated (wave 110D) -- the groups an opponent chooses (wave110d_volc)
     for ab in lines:
         own = target_groups(defs[ab.index])
+        dgroups += [len(groups) + i for i in defs[ab.index].get("dgroups110d", [])]
         if groups and any('"other":true' in g["what"] for g in own):
             return None  # ("another target" on a later line: distinct from which target?)
         offset = len(groups)
@@ -8863,8 +9192,13 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     as_cast = {defs[ab.index]['x_as_cast'] for ab in lines if defs[ab.index].get('x_as_cast') is not None}
     if as_cast - {'greatest_own_power'} or len(as_cast) > 1:
         return None
+    delegated = [defs[ab.index] for ab in lines if defs[ab.index].get("delegated_target") and not dgroups]  # -- delegated (wave 110D) -- "of an opponent's choice" (Evangelize): a lone line
+    if delegated and len(lines) != 1:
+        return None
     return {"kind": "spell", "effects": effects, **target_fields(target), **({"x_min": minimum_x} if minimum_x else {}),
-            **({'x_as_cast': next(iter(as_cast))} if as_cast else {})}
+            **({'x_as_cast': next(iter(as_cast))} if as_cast else {}),
+            **({k: delegated[0][k] for k in ("delegated_target", "delegated_controls110d")} if delegated else {}),
+            **({"delegated_target": "groups110d", "dgroups110d": dgroups} if dgroups else {})}
 
 
 # =====================================================================================================
@@ -8886,7 +9220,7 @@ _UNLESS_OPPONENTS = re.compile(r"^you have (?P<n>\w+) or more opponents$")
 # The object's own "instead": "If ~ would die, exile it instead." / "… be put into a graveyard from anywhere …"
 EXILE_INSTEAD_SELF = re.compile(r"^If ~ would (?P<what>die|be put into a graveyard from anywhere), exile it instead\.$")
 _EXILE_RIDER = re.compile(r"^(?P<head>If .+? would (?:die|be put into (?:a|your|an opponent's) graveyard(?: from anywhere)?), )"
-                          r"(?:exile (?:it|that card) instead\. When you do, (?P<when>.+)|instead exile (?:it|that card) and (?P<and_>(?:create|you gain) .+))\.$")
+                          r"(?:exile (?:it|that card) instead\. When you do, (?P<when>.+)|instead exile (?:it|that card) and (?P<and_>(?:create|you gain) .+))(?:\.|(?<=\.\"))$")
 _LEAVES_EXILE_SELF = re.compile(r"^If ~ would leave the battlefield, exile it instead(?: of putting it anywhere else)?\.$")
 # -- zone replacements (wave 22C) -- "If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead." (Blightsteel Colossus)
 SHUFFLE_INSTEAD_SELF = re.compile(r"^If ~ would be put into a graveyard from anywhere, reveal ~ and shuffle it into its owner's library instead\.$")
@@ -9193,6 +9527,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return kicked_entry
     if text == 'If ~ would be destroyed, regenerate it.':
         return {'kind': 'static', 'static': 'regenerate_instead', 'effects': []}
+    from app.rules import wave110c_aura  # -- aura guard (wave 110C) --
+
+    if (guard := wave110c_aura.definition(ability)) is not None:
+        return guard
     # -- cant restrictions (wave 46A) -- "~ enters with six +1/+1 counters on it. It escapes with twelve +1/+1 counters on it instead." (Polukranos, Unchained):
     # the usual amount, and the escaped one that replaces it (614.1c, 702.138b); replacements.counter_amount reads "escaped_n"
     if (esc := re.fullmatch(r"(~ enters with (?P<n>\w+) (?P<k>[+-]\d+/[+-]\d+) counters on it)\. It escapes with (?P<e>\w+) (?P=k) counters on it instead\.", text)) is not None \
@@ -9209,6 +9547,9 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (face_up := counters52d.face_up_definition(text)) is not None:
         return face_up
+    if text.startswith("As ~ enters or is turned face up, put X +1/+1 counters on it, where X is "):  # -- counters (wave 110H) -- Crowd-Control Warden
+        base = define_replacement(ability, text.replace("As ~ enters or is turned face up, put X +1/+1 counters on it,", "~ enters with X +1/+1 counters on it,", 1))
+        return None if base is None or base.get("replacement") != "enters_with_counters" else {**base, "face_up110h": True}
     # -- refused grants/replacements (wave 3R2) -- "Damage can't be prevented." and friends (615.12)
     from app.rules import skips, source_shields
 
@@ -9269,8 +9610,25 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
     if text == "~ enters prepared.":  # -- prepared (wave 13C) -- 722.3a: applied as it enters (replacements.after_entry)
         return {"kind": "replacement", "replacement": "enters_prepared", "effects": []}
-    from app.rules import language  # (a leaf module)
+    from app.rules import (
+        language,  # (a leaf module)
+        wave110a_control,  # -- entry control (wave 110A) --
+    )
 
+    if (ctl := wave110a_control.definition(text)) is not None:
+        return ctl
+    from app.rules import wave110a_pick  # -- chosen objects (wave 110A) --
+
+    if (picked := wave110a_pick.definition(text)) is not None:
+        return picked
+    from app.rules import wave110j_angel  # -- life total replacement (wave 110J) --
+
+    if (floor := wave110j_angel.definition(text)) is not None:
+        return floor
+    from app.rules import wave110e_opp  # -- entry secret choice (wave 110E) --
+
+    if (secret := wave110e_opp.secret_definition(text)) is not None:
+        return secret
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen
@@ -9458,6 +9816,9 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if text == "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it " \
                "into your graveyard.":  # -- discard causes (wave 23D) -- 614.1a, 701.9: the discard is replaced (replacements.replace_move)
         return {"kind": "replacement", "replacement": "discard_battlefield", "effects": []}
+    if text == "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield with two +1/+1 counters on it instead of " \
+               "putting it into your graveyard.":  # -- discard causes (wave 110I) -- Dodecapod: the same replacement, 614.12 / 122.6 counters as it enters (replacements.replace_move)
+        return {"kind": "replacement", "replacement": "discard_battlefield", "effects": [], "counters110i": {"+1/+1": 2}}
     if text == "If a card that has a cycling ability would be put into your graveyard from anywhere and it wasn't cycled, exile it instead.":
         return {"kind": "static", "static": "exile_instead", "effects": [], "from": "anywhere",
                 "graveyard_of": "you", "who": "card", "cycling_not_cycled": True}
@@ -9475,8 +9836,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
                 "position": "top" if m["pos"] == "top" else "bottom"}
     rider = None
     if (mr := _EXILE_RIDER.match(text)) is not None:  # -- zone replacements (wave 22C) -- "…, instead exile that card and create a 2/2 … token." (Kalitas)
-        parsed = parse_effects((mr["when"] or mr["and_"])[:1].upper() + (mr["when"] or mr["and_"])[1:] + ".", None)  # / "…, exile it instead. When you do, …" (Nemata)
-        if parsed is None or not parsed[0] or parsed[1] is not None or parsed[2] or any(e["do"] not in ("create_token", "gain_life") for e in parsed[0]):
+        parsed = parse_effects((mr["when"] or mr["and_"])[:1].upper() + (mr["when"] or mr["and_"])[1:] + ("" if (mr["when"] or mr["and_"]).endswith('"') else "."), None)  # / "…, exile it instead. When you do, …" (Nemata)
+        if parsed is None or not parsed[0] or parsed[1] is not None or parsed[2] or any(e["do"] not in ("create_token", "gain_life", "optional_payment", "only_if") for e in parsed[0]):
             return None
         rider = {"effects": parsed[0], "reflexive": bool(mr["when"])}
         text = mr["head"] + "exile it instead."
@@ -9786,7 +10147,7 @@ def _deferred(clause: str, when: dict[str, Any], key: str = "") -> tuple[list[di
             len(inner[0]) == 1 and inner[0][0].get("do") in ("return_card", "bounce") and inner[0][0].get("who") == "it"
             and (key != "their next upkeep" or "its owner's" in clause)):
         raise _NoMatch
-    return _delayed.wrap_when(inner[0], when), inner[1]
+    return _delayed.wrap_when(inner[0], when, this_turn=bool(when.get("this_turn110e"))), inner[1]  # (wave 110E)
 
 
 # -- delayed triggers (wave 23B) -- 701.21a: "Its controller sacrifices it at the beginning of the next end step." (Celestial Sword, Cauldron
@@ -10260,7 +10621,13 @@ _RECORDING["enters_as"] = None
 @_first  # (before agent J's "until your next turn" wrapper, which only wraps pumps, grants and restrictions)
 @effect(r"(?P<text>(?:until your next turn, (?:have )?.+? becomes? (?:(?:a|an) |(?=\d+/\d+ )).+|(?:have )?.+? becomes? (?:(?:a|an) |(?=\d+/\d+ )).+ until your next turn))")
 def _become_next_turn(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
-    return _become(m)
+    try:
+        return _become(m)
+    except _NoMatch:
+        # -- wave 110J -- "Target land becomes a Swamp until your next turn.": a land type set, read as the duration over "… until end of turn"
+        if (land := re.fullmatch(rf"(?P<clause>target land becomes an? (?:{_language._BASICS})) (?P<duration>until your next turn)", m["text"], re.I)) is None:
+            raise
+        return _with_duration(land)
 
 
 @_first  # ("… until your next turn": before agent J's wrapper, as above)
@@ -11053,13 +11420,18 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
         if (now := _x_now()):  # (the stand-in of a "where X is …" sentence: _where_x swaps it in)
             now[0] = json.loads(json.dumps(now[0]).replace('"cost:exiled"', '"event"'))
     stand_in = bool(_x_now()) and "event_amount" in json.dumps(_x_now()[0]) and "event_amount" in body_json  # (wave 34C: "where X is the amount of life you gained", read in _where_x)
-    keep = (keep and '"event"' in body_json) or (stand_in and lki is None and not sized_x)  # (only when the body actually reads the trigger's event; wave 34C: or its amount, explicitly)
+    keep = (keep and '"event"' in body_json) or (stand_in and lki is None and not sized_x) or ('"event_player"' in body_json and lki is None and not sized_x)  # (only when the body actually reads the trigger's event; or its player, whatever "it" is: "that player" = who event_player, 603.12, Ezio / Biting-Palm Ninja; wave 34C: or its amount, explicitly)
     x_bind = None
     if sized_x:
         # -- if you do (wave 25C) -- "you may pay {X}. When you do, ~ deals X damage to target player.": the X paid (107.3f, paid_x) is the
         # reflexive ability's amount (its event's); an X in the target's own definition is chosen before X could be known: not read
-        if re.search(r'"x"|\bX\b', json.dumps(b_target, default=str)):
-            return None
+        total_x = isinstance(b_target, list) and any((g.get("total") or [0, 0])[1] == "X" for g in b_target)  # -- (wave 110B) -- "total mana value X or less" (Fire Lord Sozin): the X paid
+        if re.search(r'"x"|\bX\b', json.dumps([{k: v for k, v in g.items() if k != "total"} for g in b_target] if total_x else b_target, default=str)):
+            from app.rules import wave110o_cards  # -- (wave 110O) --
+
+            b_target = wave110o_cards.divide_x_to_event(b_target)  # -- (wave 110O) -- 601.2d, 107.3f: "distribute X …" of the reflexive ability: its division is made as it goes on the stack, knowing the X paid
+            if b_target is None:
+                return None
         b_effects = _x_to_event(b_effects)
         x_bind = base[0]["bind"]
     if x_bind is None and not keep and "event_amount" in json.dumps([b_effects, b_target], default=str):
@@ -11067,6 +11439,10 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     # -- cast-permission riders (wave 38C) -- 603.12, 107.3f: "you may pay {X}. When you do, … target creature card with mana value X …" (Halo Forager, Isareth the
     # Awakener): the reflexive ability goes on the stack after the payment, so its target is chosen knowing the X paid (the event's amount: triggers.event_x)
     x_event = x_bind is not None and bool(re.search(rf',{selectors.X_VALUE}\]', json.dumps(b_target, default=str)))
+    x_event = x_event or (x_bind is not None and '"event_amount"' in json.dumps(b_target, default=str))  # (wave 110O: a divided group's total is the X paid)
+    # -- cost-sized reflexive targets (wave 110I) -- 603.12, 107.3f: "up to that many other target creatures" of a reflexive ability: chosen as it goes on the stack, knowing the X paid
+    x_event = x_event or (x_bind is not None and isinstance(b_target, list) and any(g.get("x_count") == "upto" for g in b_target))
+    x_event = x_event or (x_bind is not None and isinstance(b_target, list) and any((g.get("total") or [0, 0])[1] == "X" for g in b_target))  # (wave 110B)
     out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
                                                         "optional": b_optional, **target_fields(b_target), **({"x_event": True} if x_event else {})},
            **({"x_from": x_bind} if x_bind else {}), **({"keep_event": True} if keep else {})}
@@ -11122,6 +11498,7 @@ def _x_to_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # creature was a Giant", "return it") stays manual.
 _SAC_ONE = re.compile(r"^sacrifice (?:a|an|another) [a-z ,]+$", re.I)
 _LKI_STAT = re.compile(r"\b(?:that|the sacrificed) (?:creature|artifact|permanent)'s (power|toughness|mana value)\b")
+_EXCESS_THAT = re.compile(r"[Ii]f excess damage would be dealt to that creature this way, instead that damage is dealt to that creature's controller")  # -- Megatron (wave 110I) -- "that creature" there is the damaged one, not the sacrificed object
 _LKI_OTHER = re.compile(r"\b(?:it|its|itself|they|them|that creature|that artifact|that permanent|the sacrificed)\b")
 
 
@@ -11143,7 +11520,7 @@ def _reflexive_lki(base: list[dict[str, Any]], name: str, body: str) -> str | No
             and _SAC_ONE.fullmatch(str(base[0].get("cost") or ""))):
         return None  # (a mandatory "Sacrifice a creature. When you do, …" — Tip the Scales — isn't read yet)
     out = _LKI_STAT.sub(lambda m: f"that permanent's {m[1]}", body)
-    if _LKI_OTHER.search(_LKI_STAT.sub("", out)):
+    if _LKI_OTHER.search(_EXCESS_THAT.sub("", _LKI_STAT.sub("", out))):
         return None
     return out
 # -- end reflexive LKI (wave 4J) ---------------------------------------------------------------------------------------
@@ -11681,7 +12058,7 @@ _RECORDING.update({"gain_control": None, "exchange_control": None})
 
 
 @_first
-@effect(r"(?P<t>(?!.*, then )(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?!.* unless )(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
+@effect(r"(?P<t>(?!.*, then )(?!.* if its (?:power|toughness) is \d+ or less$)(?!.* (?:for as long as|until (?:the end of )?your next turn)\b)(?!.* at end of combat$)(?!.* unless )(?!.* if the number of permanents is even$)(?:(?:untap .+? and )?(?:you )?gain control of .+|.+? gains control of .+|exchange control of .+))")
 def _control(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
@@ -12051,7 +12428,9 @@ def _event_spell_ok(d: Definition) -> bool:
     for k in uses:
         if effects[k].get('do') == 'spell_rider':
             rebound = effects[k].get('keyword') == 'rebound' and cast_riders._rebound_spell_watch(cond)
-            if not rebound and not cast_riders._creature_spell_watch(cond):
+            from app.rules import wave110c_dark  # -- Dark Intimations (wave 110C) --
+
+            if not rebound and not cast_riders._creature_spell_watch(cond) and not wave110c_dark.watch_ok(effects[k], cond):
                 return False
     # -- spell copies (wave 31D) -- 601.2i: "When you cast this spell, copy it" — the event is this very spell's casting
     if not (d.get("kind") == "triggered" and d.get("trigger") == "cast_self") and (
@@ -12237,3 +12616,7 @@ EFFECTS[:0] = _harness.TEMPLATES
 from app.rules import attached100f as _attached100f  # noqa: E402, I001
 
 EFFECTS[:0] = _attached100f.TEMPLATES
+
+from app.rules import wave110d as _wave110d  # noqa: E402, I001  -- wave 110D --
+
+EFFECTS[:0] = _wave110d.TEMPLATES

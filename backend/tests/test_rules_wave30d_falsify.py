@@ -18,6 +18,7 @@ from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
@@ -645,9 +646,9 @@ def test_crypt_ghast_adds_only_for_a_swamp(cards):
     for c in (forest, swamp):
         act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
     act(s, "p1", type="activate_ability", card_id=forest.id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 1}, s.state.players["p1"].mana
+    assert visible_pool(s.state, "p1") == {"G": 1}, visible_pool(s.state, "p1")
     act(s, "p1", type="activate_ability", card_id=swamp.id, ability=0)
-    assert s.state.players["p1"].mana == {"G": 1, "B": 2}, s.state.players["p1"].mana
+    assert visible_pool(s.state, "p1") == {"G": 1, "B": 2}, visible_pool(s.state, "p1")
     check(s)
 
 

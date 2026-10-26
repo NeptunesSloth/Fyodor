@@ -43,6 +43,12 @@ TYPE_LINE = "Token Enchantment — Aura Role"
 # opponent controls. The token has enchant creature and "…"" (read as "a Contract Aura token", block_events.rewrite): its colors and its abilities after "Enchant creature"
 NAMED: dict[str, tuple[list[str], str]] = {
     "Contract": (["W"], "Whenever enchanted creature attacks, it gets +2/+0 until end of turn if it's attacking one of your opponents. Otherwise, its controller loses 2 life."),
+    # -- named Aura tokens (wave 110D) -- The Rani, Preston Garvey (a text starting "Enchant " carries its own enchant line; wave110d_named.py reads the Oracle sentences)
+    "Mark of the Rani": (["R"], "Enchanted creature gets +2/+2 and is goaded."),
+    "Mask": (["W"], "Enchant permanent\numbra armor"),  # (wave 110A) Estrid, the Masked
+    "Settlement": (["G"], 'Enchant land\nEnchanted land has "{T}: Add one mana of any color."'),
+    # -- named Aura tokens (wave 110M) -- Smoke Spirits' Aid's Smoke Blessing
+    "Smoke Blessing": (["R"], "When enchanted creature dies, it deals 1 damage to its controller and you create a Treasure token."),
 }
 _CLAUSE = re.compile(rf"create an? (?:(?P<role>{'|'.join(ROLES)}) Role|(?P<named>{'|'.join(NAMED)}) Aura) token attached to (?P<o>.+)")
 
@@ -51,7 +57,7 @@ def token(role: str) -> dict[str, Any]:
     """The token spec of a Role (111.10j-r: named after the Role, colorless) or of a named Aura token."""
     if role in NAMED:
         colors, text = NAMED[role]
-        return {"name": role, "power": None, "toughness": None, "colors": colors, "type_line": "Token Enchantment — Aura", "text": f"Enchant creature\n{text}"}
+        return {"name": role, "power": None, "toughness": None, "colors": colors, "type_line": "Token Enchantment — Aura", "text": text if text.startswith("Enchant ") else f"Enchant creature\n{text}"}
     return {"name": role, "power": None, "toughness": None, "colors": [], "type_line": TYPE_LINE,
             "text": f"Enchant creature\n{ROLES[role]}"}
 
@@ -99,7 +105,8 @@ def _host_ok(plan: Plan, card: CardInstance, role_ch: Any) -> bool:
     if not card.zone.endswith(":battlefield") or not plan.in_game(card):
         return False
     hch = plan.ch(card)
-    return hch.is_creature and not protection.protected_from(hch, role_ch)
+    kind_ok = True if role_ch.name == "Mask" else "Land" in hch.types if role_ch.name == "Settlement" else hch.is_creature  # (wave 110D: "enchant land")
+    return kind_ok and not protection.protected_from(hch, role_ch)
 
 
 def create_role(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

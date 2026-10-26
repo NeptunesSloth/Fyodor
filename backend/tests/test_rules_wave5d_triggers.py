@@ -154,11 +154,12 @@ def test_multiplier_wordings():
                                                'sel:{"controller":"you","other":true,"subtypes":["Wizard"]}']
     assert d("If a creature attacking causes a triggered ability of a permanent you control to trigger, that ability "
              "triggers an additional time.")["cause"] == "attack"
-    # (still unread, so the card stays manual: a creature being dealt damage, a permanent turned face up, a creature that isn't "a creature you control")
+    # (still unread, so the card stays manual: a creature that isn't "a creature you control"; a permanent turned face up is read since wave 110D, Panoptic Projektor;
+    # a creature you control being dealt damage since wave 110I, Wayta: test_rules_wave110i_s14.py)
     assert d("If a creature you control being dealt damage causes a triggered ability of a permanent you control to trigger, that ability triggers an "
-             "additional time.") is None
+             "additional time.")["cause"] == "dealt"
     assert d("If turning a face-down permanent face up causes a triggered ability of a permanent you control to trigger, that ability triggers an "
-             "additional time.") is None
+             "additional time.")["cause"] == "face_up"
     assert d("If a Goblin attacking causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.") is None
 
 

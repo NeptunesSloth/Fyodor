@@ -23,7 +23,7 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption, copy_recipe_of
 from app.game.state import CardInstance, GameState, zone_key
-from app.rules import effects, facedown, replace, selectors, token_grammar
+from app.rules import context, effects, facedown, replace, selectors, token_grammar
 from app.rules.plan import Plan, decide
 
 Context = dict[str, Any]
@@ -354,15 +354,19 @@ def bolster(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     least = min(_toughness(plan.ch(c)) for c in mine)
     tied = [c for c in mine if _toughness(plan.ch(c)) == least]
     if len(tied) == 1:  # -- replacement effects stage 2 (wave 2E): the counter choke point --
+        if e.get("as"):  # -- (wave 110L) -- "The chosen creature …" after bolster is the creature it chose (701.39a)
+            context.bind_objects(plan, ctx, e["as"], [tied[0].id])
         return replace.put_counters(plan, [(tied[0].id, "+1/+1", n)], by=pid, then={"do": "continue", "ctx": ctx})
     decide(plan, player=pid, kind="choose_cards", prompt=f"Bolster {n}: choose a creature with the least toughness ({least})",
            options=[DecisionOption(id=c.id, label=c.name or "Creature", card_id=c.id) for c in tied],
-           resume={"step": "bolster_choose", "ctx": ctx, "n": n})
+           resume={"step": "bolster_choose", "ctx": ctx, "n": n, "as": e.get("as")})
     return False
 
 
 def resume_bolster(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
+    if chosen and r.get("as"):  # (wave 110L)
+        context.bind_objects(plan, r["ctx"], r["as"], [chosen[0]])
     if chosen and chosen[0] in plan.state.cards and plan.state.cards[chosen[0]].zone.endswith(":battlefield") \
             and not replace.put_counters(plan, [(chosen[0], "+1/+1", int(r["n"]))], by=d.player,
                                          then={"do": "continue", "ctx": r["ctx"]}):
@@ -390,7 +394,9 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     ``controlled``: "goad each creature target player / that player controls" (``who`` names the
     player(s))."""
     pid = ctx["controller"]
-    if e.get("controlled"):
+    if e.get("suspected"):  # (wave 110B) 701.60: "goad all suspected creatures"
+        cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) in plan.rules.suspected]
+    elif e.get("controlled"):
         players = set(effects._players(plan, ctx, e["who"]))
         cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in players
                  and plan.in_game(c) and plan.ch(c).is_creature]
@@ -399,7 +405,13 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     effects._remember(plan, ctx, e, cards)
     fresh = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")
              and pid not in goaded_by(plan.ch(plan.state.cards[c]))]
-    if fresh:
+    if fresh and e.get("forever"):  # -- goad (wave 110A) -- "goaded for the rest of the game": the effect never ends (a new object isn't goaded, 400.7)
+        from app.rules import layers
+
+        layers.add_effect(plan, affected=[plan.oid(c) for c in fresh], layer="6", source=ctx.get("source_object"), controller=pid,
+                          imposes=(GOADED + pid,), label=f"goaded by {plan.name(pid)}", duration="permanent")
+        plan.note(f"{plan.name(pid)} goads {effects._labels(plan, fresh)} for the rest of the game", fresh, actor=pid)
+    elif fresh:
         _until_next_turn(plan, ctx, fresh, (GOADED + pid,), "Goaded", "goads")
         ctx.setdefault("goaded", []).extend(plan.oid(c) for c in fresh)  # -- goad (wave 50J) -- "goaded this way" (this_way.py)
     return True
@@ -529,6 +541,9 @@ def earthbend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if not lands:
         return True
     oids = [plan.oid(c) for c in lands]
+    from app.rules import wave110b_bend
+
+    wave110b_bend.note(plan, pid, "earth")  # (wave 110B) 701.66b: when the delayed trigger is created
     name = ctx.get("name") or "Earthbend"
     layers.add_effect(plan, affected=oids, layer="4", source=ctx.get("source_object"), controller=pid, add_types=("Creature",),
                       duration="permanent", label=f"0/0 land creature with haste (earthbend, {name})")
@@ -562,6 +577,9 @@ COMBAT_STEPS = ("begin_combat", "declare_attackers", "declare_blockers", "combat
 
 def firebend(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
+    from app.rules import wave110b_bend
+
+    wave110b_bend.note(plan, pid, "fire")  # (wave 110B) 702.189b: a firebending ability resolves
     n = effects._amount(plan, ctx, e.get("n", 0))
     if n <= 0 or plan.state.turn.phase not in (*COMBAT_STEPS, "end_combat"):
         return True  # (an attack trigger resolves during combat; outside it there is nothing to keep)
@@ -625,6 +643,10 @@ def transform(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         card = plan.state.cards[cid]
         if not card.zone.endswith(":battlefield") or card.face_down:
             continue
+        from app.rules import wave110d_rules  # -- rules (wave 110D) -- 701.28f
+
+        if wave110d_rules.has_rule(plan, card, wave110d_rules.CANT_TRANSFORM):
+            continue
         if (card.token is None or card.token.back is None) and not chars.transformable(card, plan.info):
             continue
         if r.transformed.get(cid, 0) > r.objects.get(ctx.get("stack_id") or "", 1 << 60):
@@ -678,6 +700,11 @@ def lose_stun(plan: Plan, card_ids: list[str], actor: str | None) -> None:
 
 def untap_stunned(plan: Plan, card_ids: list[str], actor: str | None) -> list[str]:
     """The cards to untap after 122.1d replaced the untapping of the stunned ones."""
+    from app.rules import (
+        wave110d_rules,  # -- rules (wave 110D) -- "can't become untapped": nothing is replaced, nothing untaps
+    )
+
+    card_ids = wave110d_rules.untappable(plan, card_ids)
     stuck = stunned(plan, card_ids)
     lose_stun(plan, stuck, actor)
     return [c for c in card_ids if c not in stuck]

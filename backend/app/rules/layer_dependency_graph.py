@@ -225,8 +225,12 @@ class Solver:
         from app.rules.group_layers import with_chosen
 
         d = with_chosen(self.state, st)
+        if d.get('paper110a'):  # -- wave 110A -- Psychic Paper: the creature type its Equipment last chose
+            from app.rules import wave110a_paper
+
+            d = {**d, **wave110a_paper.layer45_definition(self.state, st.source, d)}
         if d.get('chosen_type') and not d.get('layer4'):
-            return {**d, 'add_subtypes': [v for v in [self.state.cards[st.source].choices.get('Chosen creature type', '').strip()] if v]}
+            return {**d, 'add_subtypes': [v for v in [(self.state.cards[st.source].choices.get('Chosen creature type') or self.state.cards[st.source].choices.get('Chosen basic land type') or '').strip()] if v]}
         return d
 
     def _with_position(self, pos: Position, fn: Callable[[], Any]) -> Any:
@@ -260,7 +264,7 @@ class Solver:
         if node.effect is not None or node.source not in pos.dead:
             return True
         st = node.static
-        return bool(st is not None and st.effect_key is not None and st.effect_key > pos.dead[node.source])
+        return bool(st is not None and st.effect_key is not None and st.effect_key >= pos.dead[node.source])  # (>=: an effect that loses abilities and grants some keeps what it grants, wave 110D)
 
     def signature(self, node: Node, pos: Position, *, late: bool = False) -> Signature:
         st = node.static

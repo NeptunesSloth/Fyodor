@@ -18,24 +18,44 @@ from app.rules.plan import Plan
 Context = dict[str, Any]
 
 
+def _held(plan: Plan, card: str) -> bool:
+    """-- phase-out prohibition (wave 110C) -- Spatial Binding: "target permanent can't phase out" (a rule of the permanent, 702.26)."""
+    from app.rules import scripts
+
+    return "cant_phase_out" in scripts.statics(plan.ch(plan.state.cards[card]))
+
+
 def phase_out(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.effects import _cards
 
-    cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    cards = [c for c in _cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield") and not _held(plan, c)]
     if cards:
         plan.do({"type": "phase_shift", "card_ids": cards, "out": True}, actor=ctx["controller"])
     return True
 
 
+def phase_out_cards(plan: Plan, ctx: Context, cards: list[str]) -> None:
+    """-- (wave 110O) -- these permanents phase out together (702.26a-b), those that can't phase out (``_held``) stay."""
+    out = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield") and not _held(plan, c)]
+    if out:
+        plan.do({"type": "phase_shift", "card_ids": out, "out": True}, actor=ctx["controller"])
+
+
 def untap_step(plan: Plan, player: str) -> None:
     """702.26a: before ``player`` untaps, their phased-in permanents with phasing phase out and, simultaneously, the
     permanents that phased out under their control phase in (the ones phased out indirectly come along with their host)."""
-    from app.rules import phase_lifetimes43
+    from app.rules import phase_lifetimes43, wave110k_cards
 
     state = plan.state
-    out = [c for c in state.zones.get(zone_key(player, "battlefield"), []) if "phasing" in plan.ch(state.cards[c]).keywords]
+    out = [c for c in state.zones.get(zone_key(player, "battlefield"), []) if "phasing" in plan.ch(state.cards[c]).keywords and not _held(plan, c)]
+    from app.rules import (
+        cast_limits,  # -- (wave 110O) -- "Permanents can't phase in." (Disciple of Caelus Nin)
+    )
+
+    barred = bool(cast_limits._statics(state, plan.info, "cant_phase_in110o"))
     back = [c for c in state.zones.get(zone_key(player, "phased"), [])
-            if not state.cards[c].phased_indirect and not phase_lifetimes43.held(plan, c)]
+            if not state.cards[c].phased_indirect and not phase_lifetimes43.held(plan, c) and not barred
+            and not wave110k_cards.cant_phase_in(plan, c)]  # -- (wave 110K) -- Teferi, Timeless Voyager: "they can't phase in"
     if back:
         from app.game.rules_state import emit
 

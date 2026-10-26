@@ -40,12 +40,14 @@ def automatic(plan: Plan, cid: str) -> bool:
 
 
 def options(plan: Plan, cid: str, *, can_regenerate: bool, effect: bool) -> list[Candidate]:
-    from app.rules import regeneration, regeneration_riders
+    from app.rules import regeneration, regeneration_riders, wave110a_grants
 
     card = plan.state.cards[cid]
     oid = plan.oid(card)
     out = []
-    if can_regenerate and oid not in plan.rules.no_regen:
+    from app.rules import wave110k_cards  # -- (wave 110K) -- Bone Shaman
+
+    if can_regenerate and oid not in plan.rules.no_regen and not wave110k_cards.damaged_unregenerable(plan, card):
         if automatic(plan, cid):
             out.append(Candidate('automatic', f'{card.name}: regenerate'))
         if regeneration.shielded(plan, card):
@@ -53,11 +55,12 @@ def options(plan: Plan, cid: str, *, can_regenerate: bool, effect: bool) -> list
             if plan.rules.regen_shields.get(oid, 0) > len(riders):
                 out.append(Candidate('shield', 'Use a regeneration shield'))
             out.extend(Candidate('rider:' + shield.id, f'{shield.name}: use its regeneration shield') for shield in riders)
+    if plan.rules.wipe_shields110o.get(oid, 0) > 0:  # -- (wave 110O) -- 614.1a: not a regeneration, so "can't be regenerated" doesn't stop it
+        out.append(Candidate('wipe', f'{card.name}: remove all damage marked on it instead'))
     if effect and card.counters.get('shield', 0) > 0:
         out.append(Candidate('counter', 'Remove a shield counter'))
     for aura in plan.state.cards.values():
-        if aura.zone.endswith(':battlefield') and aura.attached_to == cid and not plan.manual(aura) and any(
-                'umbra armor' in a.keywords for a in plan.ch(aura).abilities if a.kind == 'keywords'):
+        if aura.attached_to == cid and wave110a_grants.has_umbra(plan, aura, card):  # (wave 110A: Umbra Mystic grants it)
             out.append(Candidate(f'aura:{plan.oid(aura)}', f"{aura.name}: use umbra armor", aura.id, plan.oid(aura)))
     return out
 
@@ -97,10 +100,13 @@ def prepare(plan: Plan, cards: list[str], *, can_regenerate: bool, sba: bool = F
     if frame is None:
         from app.rules import regeneration_riders
 
-        auto = [cid for cid in cards if automatic(plan, cid) or regeneration_riders.shields(plan, plan.oid(cid))]
+        every = {cid: options(plan, cid, can_regenerate=can_regenerate, effect=not sba) for cid in cards if cid in plan.state.cards}
+        # (also a creature with two umbra armors and nothing else: its controller picks which applies, 616.1)
+        auto = [cid for cid in every if automatic(plan, cid) or regeneration_riders.shields(plan, plan.oid(cid))
+                or plan.rules.wipe_shields110o.get(plan.oid(cid), 0) > 0 or len(every[cid]) > 1]  # (wave 110O: Pyramids' shield)
         if not auto:
             return True
-        candidates = {cid: options(plan, cid, can_regenerate=can_regenerate, effect=not sba) for cid in auto}
+        candidates = {cid: every[cid] for cid in auto}
         saved = dict(ctx) if ctx is not None else None
         if saved is not None:
             saved['next'] = max(0, saved['next'] - 1)
@@ -142,6 +148,10 @@ def protect(plan: Plan, cards: list[str], actor: str | None) -> list[str]:
         elif key in ('automatic', 'shield') or (key or '').startswith('rider:'):
             regeneration.regenerate(plan, plan.state.cards[cid], consume=key != 'automatic',
                                     shield_id=key.removeprefix('rider:') if key and key.startswith('rider:') else None)
+        elif key == 'wipe':  # (wave 110O)
+            from app.rules import wave110o_cards
+
+            wave110o_cards.use_wipe(plan, plan.state.cards[cid])
         elif key == 'counter':
             shield_counters.remove(plan, [cid], actor)
         elif candidate.aura:

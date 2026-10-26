@@ -289,6 +289,8 @@ def test_borrowed_phyrexian_cost_preserves_life_option_and_other_color_payment(c
 
 
 def test_any_color_phyrexian_internal_choice_does_not_widen_other_colored_costs():
+    from dataclasses import replace
+
     from app.rules import mana
 
     original = mana.parse_cost('{C}{2/W}{R/P}')
@@ -296,7 +298,8 @@ def test_any_color_phyrexian_internal_choice_does_not_widen_other_colored_costs(
     assert changed.colored == ('C',)
     assert changed.hybrid == (('2', 'W'),)
     assert changed.phyrexian == (mana.ANY_PHYREXIAN,)
-    assert mana.parse_cost(changed.text()) == changed
+    assert changed.allocation is not None  # the internal requirement origin is kept beside the payment encoding
+    assert mana.parse_cost(changed.text()) == replace(changed, allocation=None)  # (the text carries no allocation)
     assert not mana.parse_cost('{C/P}').phyrexian  # no new printed Phyrexian symbol family
 
 

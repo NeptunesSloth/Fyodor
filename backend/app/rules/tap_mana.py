@@ -119,6 +119,13 @@ def until_eot(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 def _triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any], str | None]]:
     """(controller, definition, source card) of every such trigger in play right now (wave 32A: the source, for "the exiled card" / "~")."""
+    from app.rules import read_pass
+
+    # (once per read-only pass: every mana ability of every permanent asks, and the answer depends on the table alone)
+    return read_pass.once(state, info, "tap_mana.triggers", lambda: _scan_triggers(state, info))
+
+
+def _scan_triggers(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any], str | None]]:
     from app.rules import characteristics as chars
     from app.rules import scripts
     from app.rules.copying import copy_index
@@ -261,6 +268,8 @@ _CONDITION = re.compile(r"(?P<p>you|a player|an opponent) taps? (?P<o>~|an? [^,]
 def condition(c: str) -> dict[str, Any] | None:
     from app.rules import selectors
 
+    if c in ("a mana ability of this creature resolves", "a mana ability of ~ resolves"):  # -- (wave 110D) -- 605.3b, Tyvar the Bellicose
+        return {"event": "mana_resolved110d", "subject": "self"}
     m = _CONDITION.fullmatch(c)
     if m is None:
         return None

@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 _OBJECT_SUBJECTS = {"player", "sel"}  # (not "self", "host": a watch has no object of its own to look at)
 _NEXT_CAST_KEYS = {"event", "subject", "player", "spell"}
 _BOUND_EVENTS = {"dealt_damage", "deal_damage", "deal_combat_damage_player", "attack", "unblocked", "block", "blocked"}
-_ONE_OR_MORE = {"deal_damage", "deal_combat_damage_player"}  # (wave 33A: "one or more creatures you control deal combat damage to a player")
+_ONE_OR_MORE = {"deal_damage", "deal_combat_damage_player", "attack"}  # (wave 33A: "one or more creatures you control deal combat damage to a player")
 
 
 def cond_ok(cond: dict[str, Any] | None, bound: str | None = None) -> bool:
@@ -55,7 +55,8 @@ def cond_ok(cond: dict[str, Any] | None, bound: str | None = None) -> bool:
     if cond["event"] == "dealt_damage" and not bound:
         from app.rules import selectors
 
-        if cond.get("subject") != "sel" or cond.get("sel") != selectors.Selector(types=("Creature",)).key():
+        if cond.get("subject") != "sel" or cond.get("sel") not in (selectors.Selector(types=("Creature",)).key(),
+                                                                    selectors.Selector(types=("Creature",), controller="opponent").key()):  # -- watches (wave 110I) -- Green Dragon
             return False
     if cond["event"] == "you_attack":
         return not bound and cond.get("subject") == "player"
@@ -77,7 +78,8 @@ def refs_ok(cond: dict[str, Any], effects: list[dict[str, Any]]) -> bool:
         return False
     # -- turn-long triggers (wave 33A) -- "one or more …" is one trigger for the whole batch (603.2c): no one amount, object or (of
     # several players) player of it; "it" that moved (destroy / return / exile it) needs an event that moved it
-    if cond.get("aggregate") and (wants_amount or re.search(r'"(?:ref:)?event(?:\.\w+)?"', text) or (wants_player and cond.get("to") == "players")):
+    # (wave 110E: an attack batch's "those creatures" is the event's objects)
+    if cond.get("aggregate") and (wants_amount or (re.search(r'"(?:ref:)?event(?:\.\w+)?"', text) and cond["event"] != "attack") or (wants_player and cond.get("to") == "players")):
         return False
     if re.search(r'"(?:ref:)?event\.new', text) and cond["event"] not in ("die", "leave", "enter"):
         return False
@@ -110,8 +112,10 @@ def build(cond: dict[str, Any] | None, clause: str, *, once: bool, text: str, bo
         if not (isinstance(own_target, dict) and set(own_target) == {"what"}):
             return None
     # (-- turn-long triggers (wave 33A) -- "that player" is the player the event was about: who was dealt the damage, 603.7c)
-    effects = delayed.inner_for_event([{**e, "who": "event_player"} if e.get("who") == "that_player" else e for e in inner[0]])
-    if effects is not None and cond["event"] == "dealt_damage":
+    effects = delayed.inner_for_event([{**e, "who": "event_player"} if e.get("who") == "that_player" else
+                                       {**e, "src": "event"} if e.get("src") == "it" and cond["event"] in ("deal_damage", "deal_combat_damage_player") else e  # -- spells (wave 110A) -- Harsh Justice: "it deals that much damage to its controller", the dealer is the source (120.3)
+                                       for e in inner[0]])
+    if effects is not None and cond["event"] in ("dealt_damage", "tapped", "deal_damage"):  # (wave 110A: "a creature deals combat damage to ~, destroy that creature" - the dealer)  # (-- spells (wave 110A) -- tapping makes no new object either, 701.26a)
         # Damage creates no new incarnation. A following move names its recipient.
         effects = [{**e, "who": "event"} if e.get("who") == "event.new" else e for e in effects]
     if effects is None or any(e.get("do") in delayed.UNDEFERRABLE for e in effects) \
@@ -282,6 +286,14 @@ def deferred_event_effects(effects: list[dict[str, Any]]) -> set[int]:
     return out
 
 
+def _event_for(plan: Plan, cond: dict[str, Any], fact: Any, batch: int) -> Any:
+    """The trigger event of a watch's fact; with ``other_side110i`` (Acidic Dagger: "destroy that creature" = the creature dealt the damage) the creature on the other side (other_side.py)."""
+    from app.rules import other_side, triggers
+
+    event = triggers._event(plan, fact, batch)
+    return other_side.event(plan, fact[4], event) if cond.get("other_side110i") else event
+
+
 def on_facts(plan: Plan, facts: list[Any], batch: int, fired_once: dict[Any, Any] | None = None) -> None:
     """One event's facts: the watches created before it that it matches trigger (603.7). ``fired_once``: what already triggered in
     these events ("one or more" triggers once per batch, and per player dealt the damage, 603.2c)."""
@@ -304,8 +316,12 @@ def on_facts(plan: Plan, facts: list[Any], batch: int, fired_once: dict[Any, Any
         watcher = source.model_copy(update={"controller": t.controller})
         bound = {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []} if t.when.get("bound") else None
         for fact in facts:
+            if t.when.get("caster110c") and fact[4].get("actor") != t.when["caster110c"]:
+                continue  # -- opening hand (wave 110C) -- Chancellor of the Annex: this opponent's spell only
             if "recipient_players" in t.when and fact[4].get("recipient") not in t.when["recipient_players"]:
                 continue
+            if "actor_players110d" in t.when and fact[4].get("actor") not in t.when["actor_players110d"]:
+                continue  # (wave 110D: only what the named player did)
             if bound is not None and fact[4].get("oid") not in bound:
                 continue  # -- turn-long triggers (wave 33A) -- 603.7c, 400.7: the object it was bound to, not a new one
             cond = combat_player_scope43.restore(plan, t)
@@ -333,9 +349,9 @@ def on_facts(plan: Plan, facts: list[Any], batch: int, fired_once: dict[Any, Any
 
                             trigger_multipliers.joined(plan, pending)
                         continue
-                    fired_once[key] = delayed._fire(plan, t, triggers._event(plan, fact, batch))
+                    fired_once[key] = delayed._fire(plan, t, _event_for(plan, cond, fact, batch))
                 else:
-                    delayed._fire(plan, t, triggers._event(plan, fact, batch))
+                    delayed._fire(plan, t, _event_for(plan, cond, fact, batch))
                 if t.once:
                     fired.append(t)
                     break

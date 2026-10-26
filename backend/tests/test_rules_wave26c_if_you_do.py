@@ -227,7 +227,9 @@ def test_refused_forms(cards):
     from app.rules import scripts
 
     assert scripts.parse_effects("Draw a card. Otherwise, discard a card.") is None
-    assert scripts.parse_effects("You may pay {X}{X}. If you do, draw X cards.") is None
+    # ("{X}{X}" bare is read since wave 110O, Numa: test_rules_wave110o_b.py; beside other symbols or a cap, or three times, it is not)
+    assert scripts.parse_effects("You may pay {X}{X}{G}. If you do, draw X cards.") is None
+    assert scripts.parse_effects("You may pay {X}{X}{X}. If you do, draw X cards.") is None
 
 
 # -- "Remove all oil counters from ~: … the number removed this way" ------------------------------------------------

@@ -55,12 +55,16 @@ class Plan:
     # -- review 22B -- a cost paid as a spell or ability resolves (118.12: "unless …", "you may …"), not one to cast or activate: "Players can't
     # pay life or sacrifice creatures to cast spells or activate abilities" doesn't reach it (Angel of Jubilation ruling 2012-05-01)
     resolution_cost: bool = False
+    peace_exempt110f: bool = False  # -- wave 110F -- True while a triggered ability's targets are chosen or a chosen target is rechecked (Peace Talks bars only choosing targets for spells and activated abilities)
     # -- life payments (wave 29C) -- 119.4: the life a spell's additional costs ("pay X life") will also pay: Phyrexian mana can be paid with
     # life only up to what is left of the life total after it (casting.find_payment ``reserve``)
     reserved_life: int = 0
     # -- cost reductions paid with objects (wave 47C) -- "for each counter, … sacrifices a nonland permanent … or discards a card": what a player's earlier choices of one resolution already
     # take (paid together at the end), so none is chosen twice (optional_payment._taken)
     excluded: frozenset[str] = frozenset()
+    # -- optional payments (wave 110C) -- the attacking creature of the trigger being resolved: a cost's "other than that creature" (selector not_event) excludes it
+    cost_attacker: str | None = None
+    delegated110d: str | dict[int, str] | None = None  # the target an opponent picked for a spell (wave 110D, delegated_target_announcements)
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)
@@ -73,8 +77,11 @@ class Plan:
         self.probe_903: list[tuple[str, str]] | None = None  # a look ahead for 903.9b (replacements.ask_903_9b_first)
         # -- review (face-down ids) -- whether each card is face down in view (as the intent began, then after each of its moves)
         self.began: dict[str, bool] | None = {cid: down_public(c) for cid, c in self.state.cards.items()}
+        self.discarding = False  # -- optional replacements (wave 110C) -- an effect's discard move is being made
         self.cycling_card: str | None = None  # CR 702.29c: the card being discarded to pay cycling
         self.put_via: str | None = None  # -- trigger other (wave 51E) -- the object whose effect is putting cards onto the battlefield now (Entry.via)
+        self.craft110b = False  # -- wave 110B -- a craft ability's cost is being paid (stamps zone changes)
+        self.cause110g: str | None = None  # -- wave 110G -- controller of the spell or ability being resolved (stamps zone changes)
         self.moved: dict[str, bool] = {}  # card -> did one of its moves this intent make it a card others have seen (ops.seen_move)
 
     probe_stickers101: list[tuple[str, str, list[str]]] | None = None
@@ -121,6 +128,18 @@ class Plan:
 
         if len(self.steps) >= self.max_steps:
             raise ActionError("The rules engine stopped: too many steps for one action")
+        if payload.get("type") in ("tap", "rules_mana") and (payload.get("tapped") is not False or payload.get("type") == "rules_mana"):  # -- cards (wave 110I) -- Illusionary Mask: a creature it cast face down is turned face up instead of becoming tapped
+            from app.rules import wave110i_cards
+
+            wave110i_cards.mask_flip(self, payload.get("tap") or () if payload["type"] == "rules_mana" else [c for c in payload.get("card_ids") or () if c in self.state.cards and not self.state.cards[c].tapped])
+        if payload.get("type") in ("life", "rules_damage"):  # -- life total replacement (wave 110J) -- Enduring Angel (614.1a)
+            from app.rules import wave110j_angel
+
+            payload, after = wave110j_angel.rewrite(self, payload, actor)
+            if after:
+                done = self.do(payload, actor=actor, departure_before=departure_before)
+                wave110j_angel.run_after(self, after, actor)
+                return done
         if payload.get("type") in ("move", "mill"):
             # Zone-change replacement effects (614): unearth's "exile it instead", "If ~ would die,
             # exile it instead", Rest in Peace-like statics, madness, 903.9b — app/rules/replacements.py
@@ -141,6 +160,10 @@ class Plan:
         action = A.parse_action(payload)
         resolved = resolve(self.state, action, actor=actor or self.actor, cards=self.info, rng=self.rng, trusted=True, shuffle_retained=self.shuffle_retained)
         leaving = self._battlefield_lki(payload)
+        # -- last cards (wave 110J) -- Titania's Song: the set its effect continues for
+        from app.rules import wave110j_song
+
+        songs110j = wave110j_song.before(self, payload) if payload.get("type") == "move" else []
         before = capture(self.state) if resolved.type != "renumber" else None
         if before is not None:  # (the turn log: what a permanent was as it left, layers applied)
             before.types = self._battlefield_types(payload)
@@ -165,6 +188,8 @@ class Plan:
                 if (c := self.state.cards.get(cid)) is not None and zone_name(zone) != zone_name(c.zone):
                     was, self.began[cid] = self.began.get(cid, False), down_public(c)
                     self.moved[cid] = self.moved.get(cid, False) or seen_move(zone, c.zone, was)
+        self.rules.cause110g = self.cause110g
+        self.rules.craft110b = self.craft110b
         track(self.state, before, actor=resolved.actor or None, group=getattr(resolved, "group", 0),
               put_by=wither_put_by(resolved), declared=getattr(resolved, "declared", False),
               non_discard=bool(getattr(resolved, "non_discard", False)))  # (5H, 7C, 17D; 45C: the attack declaration's tap)
@@ -174,6 +199,8 @@ class Plan:
                 if frozen.object_id in self.rules.lki:
                     self.rules.lki[frozen.object_id] = frozen.model_copy(deep=True, update={'turn': self.state.turn.number})
                 leaving.pop(frozen.object_id, None)
+        if songs110j:
+            wave110j_song.after(self, songs110j)
         if world_before80 is not None:
             world_durations80.after(self, world_before80)
         if self.rules.madness_declined:
@@ -263,7 +290,7 @@ class Plan:
         out: dict[str, list[str]] = {}
         for cid in payload.get("card_ids") or []:
             card = self.state.cards.get(cid) if isinstance(cid, str) else None
-            if card is not None and card.zone.endswith(":battlefield"):
+            if card is not None and card.zone.endswith((":battlefield", ":graveyard")):  # (-- wave 110O -- a graveyard card's printed types: "a creature card left your graveyard")
                 out[cid] = sorted(self.ch(card).types)
         return out
 
@@ -344,14 +371,14 @@ class Plan:
 
     def apnap(self) -> list[str]:
         """Live players in APNAP order (101.4): the active player, then the others in turn order."""
-        order = self.state.seat_order
+        order = self.state.turn_order()
         live = set(self.live())
         start = order.index(self.active) if self.active in order else 0
         return [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in live]
 
     def after(self, player: str) -> str:
         """The next live player after ``player`` in turn order."""
-        order = self.state.seat_order
+        order = self.state.turn_order()
         live = set(self.live())
         start = order.index(player) if player in order else -1
         for i in range(1, len(order) + 1):
@@ -384,7 +411,8 @@ def require_priority(plan: Plan) -> None:
 
 def decide(plan: Plan, *, player: str, kind: str, prompt: str, options: list[DecisionOption], resume: dict[str, Any],
            min_choices: int = 1, max_choices: int = 1, source: CardInstance | None = None,
-           memory_key: str | None = None, memory_context: str = "", display: dict[str, Any] | None = None, decider: str | None = None) -> None:
+           memory_key: str | None = None, memory_context: str = "", display: dict[str, Any] | None = None, decider: str | None = None,
+           blind: bool = False) -> None:
     from app.game.ops import shown  # (review 18F: a granter is read as its name)
 
     source_id = source.id if source is not None and publicly_visible(plan.state, source) else None
@@ -395,6 +423,6 @@ def decide(plan: Plan, *, player: str, kind: str, prompt: str, options: list[Dec
         resume={**resume, **({"zero_modes_object": plan.locked_zero_modes} if plan.locked_zero_modes else {})},
         memory_key=memory_key, memory_context=memory_context, display=display,
         # -- controlling another player (wave 18H) -- 723.5: who makes this choice for ``player`` (None: they do)
-        decider=(by if (by := decider or controller_of(plan.state, player)) != player else None),
+        decider=(by if (by := decider or controller_of(plan.state, player)) != player else None), blind=blind,
     )
     plan.rules.priority = None

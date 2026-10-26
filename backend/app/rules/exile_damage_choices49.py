@@ -1,4 +1,4 @@
-"""Unregistered exact source-damage threshold recipe; native cohort prerequisite held."""
+"""Spinneret and Spiderling (registered in scripts.define, wave 110J): "deals 4 or more damage" is the total of one damage event (603.2c; triggers.source_damage_totals)."""
 from __future__ import annotations
 
 from dataclasses import replace

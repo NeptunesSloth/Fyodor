@@ -25,6 +25,10 @@ if TYPE_CHECKING:
 
 ANY_PLAYER = "Any player may activate this ability."
 OPPONENTS_ONLY = "Only your opponents may activate this ability."
+# -- defending player (wave 110D) -- Capricopian, 602.2: only the player the creature attacks may activate (restrictions.problem checks who)
+DEFENDER = "Only the player this creature is attacking may activate this ability and only during the declare attackers step."
+DEFENDERS = (DEFENDER, DEFENDER.replace("this creature", "~"))  # (the card's own name or "this creature" reads as ~ in a definition)
+HOST_ONLY = "Only the controller of the enchanted creature may activate this ability."  # -- Merseine (wave 110C) -- 602.2
 # -- activated sweep (wave 17B) -- "Any player may activate this ability but only as a sorcery / during their draw step." (Scandalmonger,
 # Well of Knowledge): the restriction is about the player who activates it (602.5)
 ANY_PLAYER_BUT = re.compile(r"^Any player may activate this ability but only (?P<rest>.+)\.$")
@@ -40,7 +44,7 @@ def any_player(ability: Any, cost: Any) -> bool:
     """Does this activated ability say any player may activate it (and cost nothing only its controller can pay)?"""
     text = ability.text.rstrip()
     return (ability.kind in ('activated', 'mana')
-            and (text.endswith(ANY_PLAYER) or ANY_PLAYER_BUT.search(text.split('. ')[-1]) is not None)
+            and (text.endswith(ANY_PLAYER) or text.endswith(DEFENDERS) or ANY_PLAYER_BUT.search(text.split('. ')[-1]) is not None)
             and not cost.tap and not cost.sacrifice_self and not cost.untap)
 
 
@@ -49,8 +53,16 @@ def opponents_only(ability: Any) -> bool:
     return ability.kind == "activated" and (ability.text.rstrip().endswith(OPPONENTS_ONLY) or OPPONENTS_BUT.search(ability.text.rstrip().split('. ')[-1]) is not None)
 
 
-def actor_allowed(ability: Any, cost: Any, controller: str, player: str, *, owner: str | None = None) -> bool:
+def host_controller(state: Any, card: Any) -> str | None:
+    """-- Merseine (wave 110C) -- the controller of the permanent ``card`` is attached to (None: not attached)."""
+    host = state.cards.get(card.attached_to or "")
+    return host.controller if host is not None and host.zone.endswith(":battlefield") else None
+
+
+def actor_allowed(ability: Any, cost: Any, controller: str, player: str, *, owner: str | None = None, host: str | None = None) -> bool:
     """602.2: actor permission is relative to the permanent's current controller."""
+    if ability.text.rstrip().endswith(HOST_ONLY):  # -- Merseine (wave 110C) -- the creature's controller activates it and pays (602.2a), never {T}/sacrifice of the Aura
+        return host is not None and player == host and not (cost.tap or cost.untap or cost.sacrifice_self)
     if (reserved := getattr(ability, "activation_player", None)) is not None:
         return player == reserved and (player == controller or not (cost.tap or cost.untap or cost.sacrifice_self))
     if re.search(r"Only (?:this (?:creature|permanent)|~)['’]s owner may activate this ability\.$", ability.text):
@@ -70,6 +82,15 @@ def condition(text: str) -> dict[str, Any] | None:
     m = _SELF_COMBAT.fullmatch(text)
     if m:
         return {"act7b": "self_combat", "any": [x for x in (m["a"], m["b"]) if x]}
+    if text == "~ is on the stack":  # -- wave 110G -- Lightning Storm: the spell itself is on the stack (113.6)
+        return {"act7b": "self_on_stack"}
+    if text == "~ has another activated ability":  # -- wave 110E -- Tazri: 602.1; this ability counts as one of them, so "another" = two or more (holds: act7b "other_activated")
+        return {"act7b": "other_activated"}
+    if text == "you've been attacked this step":  # -- (wave 110J) -- 506.3, as cast_timing reads it (Kongming's Contraptions)
+        return {"attacked_now": True}
+    m = re.fullmatch(r"an (?P<k>[a-z]+) counter was removed from a permanent you controlled this turn or a permanent with an (?P=k) counter on it was put into a graveyard this turn", text)
+    if m:  # -- (wave 110J) -- 122.1, 603.10a: Churning Reservoir
+        return {"history": "counter110j", "kind": m["k"]}
     if text == "you have more cards in hand than each opponent":
         return {"act7b": "hand_most"}
     m = _SAME_NAME.fullmatch(text)
@@ -106,6 +127,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     kind = cond["act7b"]
     if kind == "life_above_start":  # (-- trailing & intervening ifs (wave 38A) -- read as conditions.parse's life_vs_start now; kept for a definition made before)
         return plan.state.players[me].life - plan.state.settings.starting_life >= cond["n"]
+    if kind == "other_activated":  # (wave 110E) the source has an activated ability (a mana ability is one: 605.1a) besides the one being activated
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        return src is not None and sum(a.kind in ("mana", "activated", "loyalty") for a in plan.ch(src).abilities) >= 2
     if kind == "hand_most":
         mine = len(plan.state.zones.get(f"{me}:hand", []))
         return all(mine > len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live() if p != me)
@@ -118,6 +142,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
             if name:
                 names[name] = names.get(name, 0) + 1
         return max(names.values(), default=0) >= cond["n"]
+    if kind == "self_on_stack":
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        return src is not None and src.zone == "stack"
     if kind == "self_combat":
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is None or not src.zone.endswith(":battlefield"):
@@ -136,6 +163,9 @@ def step_clause(clause: str) -> dict[str, Any] | None:
     if clause == "before the combat damage step":
         return {"kind": "step", "phases": ["untap", "upkeep", "draw", "main1", *_BEFORE_DAMAGE], "whose": None,
                 "text": "before the combat damage step", "first_combat": True}  # (wave 7R: 506.8d, 506.8g)
+    if clause == "before blockers are declared":  # (wave 110I) Acidic Dagger, ruling 2013-09-20: before the declare blockers step of the turn's first combat phase (506.8d)
+        return {"kind": "step", "phases": ["untap", "upkeep", "draw", "main1", "begin_combat", "declare_attackers"], "whose": None,
+                "text": "before blockers are declared", "first_combat": True}
     if clause == "during combat after blockers are declared":
         return {"kind": "step", "phases": ["declare_blockers", "combat_damage", "end_combat"], "whose": None,
                 "text": "during combat after blockers are declared", "needs_blockers": True}  # (needs_blockers: wave 7R)
@@ -157,7 +187,8 @@ def _adapt(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     n = conditions._num(m["n"])
     if n is None:
         raise _NoMatch()
-    return [{"do": "only_if", "cond": {"not": {"object": "self", "counters": "+1/+1"}}, "skip": 1},
+    # (wave 110B: Biomancer's Familiar's one-shot "as though it had no +1/+1 counters" is looked up first, as the action is performed, so it is used up either way)
+    return [{"do": "only_if", "cond": {"any": [{"adapt_free110b": True}, {"not": {"object": "self", "counters": "+1/+1"}}]}, "skip": 1},
             {"do": "add_counters", "who": "self", "kind": "+1/+1", "n": n}], None
 
 

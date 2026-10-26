@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.rules_state import DecisionOption
 from app.game.state import CardInstance, zone_key
-from app.rules import protection
+from app.rules import protection, wave110e_blade
 from app.rules.characteristics import Characteristics
 
 if TYPE_CHECKING:
@@ -56,6 +56,7 @@ PLAYER_SELECTORS = {"player", "opponent"}
 # -- reanimation Auras (wave 51F) -- "Enchant creature card in a graveyard" (Animate Dead: the Aura spell targets that card, 303.4a, 115.1b) and, once its enters
 # trigger swaps it, "enchant creature put onto the battlefield with this Aura" (only what that Aura put there: ``RulesState.aura_links``, app/rules/reanimate_auras.py)
 GRAVE = 'sel:{"card":true,"types":["Creature"],"zones":["graveyard"]}'
+GRAVE_INSTANT = 'sel:{"card":true,"types":["Instant"],"zones":["graveyard"]}'  # -- (wave 110G) -- Spellweaver Volute: the same graveyard-card hosting for "Enchant instant card in a graveyard"
 PUT_WITH = "put_with"
 _PUT_WITH = re.compile(r"^creature put onto the battlefield with .+$", re.IGNORECASE)
 
@@ -90,6 +91,8 @@ def enchant_selector_of(line: str) -> str | None:
         return ENCHANT_SELECTORS[what.lower()]
     if what.lower() == "creature card in a graveyard":  # -- reanimation Auras (wave 51F) --
         return GRAVE
+    if what.lower() == "instant card in a graveyard":  # -- (wave 110G) --
+        return GRAVE_INSTANT
     if _PUT_WITH.match(what):
         return PUT_WITH
     # -- keywords (wave 15E) -- 702.5a: any object description the selector grammar reads ("Enchant tapped creature",
@@ -128,6 +131,8 @@ def _equip_target(q: str | None) -> str | None:
         selected = selectors.parse("planeswalker you control")
         assert selected is not None
         return selected.key()
+    if q.lower() == "worthy":  # -- equip (wave 110D) -- Mjölnir's reminder: worthy = a legendary non-Villain creature that's red and/or white
+        q = "legendary non-Villain red or white creature"
     for phrase in (f"{q} you control", f"{q} creature you control", f"creature you control that's a {q}"):
         sel = selectors.parse(phrase)
         if sel is not None and sel.player is None and not sel.card and ("Creature" in sel.types or sel.subtypes) \
@@ -181,7 +186,20 @@ def equip_cost(ch: Characteristics, index: int) -> tuple[str, str, str] | None:
     return None
 
 
+FORTIFY = re.compile(r"^fortify (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def fortify_cost(ch: Characteristics, index: int) -> str | None:
+    """-- cards (wave 110I) -- 702.67a: "Fortify [cost]" = "[Cost]: Attach this permanent to target land you control. Fortify only as a sorcery." (mana costs only)."""
+    for ab in ch.abilities:
+        if ab.index == index and ab.kind == "keywords" and "fortify" in ab.keywords and (m := FORTIFY.match(re.sub(r"\s*\(.*?\)", "", ab.text).strip())):
+            return m["cost"]
+    return None
+
+
 def supported_keyword(kw: str, line: str) -> bool:
+    if kw == "fortify":
+        return FORTIFY.match(re.sub(r"\s*\(.*?\)", "", line).strip()) is not None
     if kw == "enchant":
         return enchant_selector_of(line) is not None
     if kw == "equip":
@@ -234,16 +252,20 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
             return f"{plan.name(host)} has protection from it ({shield})"
         return None
     card = host_card or plan.state.cards.get(host)
-    if card is not None and card.zone.endswith(":graveyard") and kind == "aura" and enchant_selector(sch) == GRAVE:
+    if card is not None and card.zone.endswith(":graveyard") and kind == "aura" and (grave := enchant_selector(sch)) in (GRAVE, GRAVE_INSTANT):
         # -- reanimation Auras (wave 51F) -- 303.4a: a creature card in a graveyard; protection and hexproof don't function there (Animate Dead's ruling 2016-06-08)
         from app.rules import selectors
 
-        return None if selectors.matches(plan, selectors.from_key(GRAVE), card, plan.ch(card), you, source.id) else f"it can't enchant {card.name}"
+        return None if selectors.matches(plan, selectors.from_key(grave), card, plan.ch(card), you, source.id) else f"it can't enchant {card.name}"
     if card is None or (host_face is None and not card.zone.endswith(":battlefield")):
         return "it's not on the battlefield"
     hch = host_face or plan.ch(card)
+    if kind == "aura" and not sba and "cant_be_enchanted110j" in hch.imposed:  # -- Guardian Beast (wave 110J) -- an Aura already there stays (its text)
+        return f"{hch.name} can't be enchanted"
     if kind == "aura" and any(rule.startswith("only_aura106:") and rule.partition(":")[2] != source.id for rule in hch.imposed):
         return f"{hch.name} can't be enchanted by another Aura"
+    if kind == "aura" and "no_aura110h" in hch.imposed:  # -- cards (wave 110H) -- Tetravite: "This token can't be enchanted." (303.4d, 303.4j)
+        return f"{hch.name} can't be enchanted"
     # -- attached events (wave 25D) -- 702.16n: a protection that "doesn't remove" this Aura / Auras isn't why an Aura falls off as a
     # state-based action (``sba``); it still keeps an Aura from becoming attached (702.16c: review 25D)
     if protection.protected_from(hch, sch, (lambda k: k == f"self:{source.id}" or (k == "auras" and kind == "aura") or (k == f"yours:{source.controller}" and kind in ("aura", "equipment"))) if sba else None):  # (wave 53B: Benevolent Blessing, 702.16n)
@@ -257,7 +279,7 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
         if selector == PUT_WITH:  # -- reanimation Auras (wave 51F) -- only a creature this Aura put onto the battlefield, still that object (400.7)
             ok = hch.is_creature and plan.oid(card) in plan.rules.aura_links.get(plan.oid(source), ())
             return None if ok else f"it can only enchant a creature it put onto the battlefield, not {hch.name or 'that'}"
-        if selector == GRAVE:
+        if selector in (GRAVE, GRAVE_INSTANT):
             return f"it can't enchant {hch.name or 'that'}"  # (a creature card in a graveyard, not a permanent)
         if selector.startswith("sel:"):  # (wave 15E) a described host, judged for the Aura's controller
             from app.rules import selectors
@@ -285,11 +307,11 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     return None if hch.is_land else "a Fortification can only fortify a land"
 
 
-def legal_hosts(plan: Plan, source: CardInstance, controller: str | None = None) -> list[str]:
+def legal_hosts(plan: Plan, source: CardInstance, controller: str | None = None, face: Characteristics | None = None) -> list[str]:
     """Everything ``source`` could be attached to right now (no targeting involved)."""
-    out = [p for p in plan.live() if host_problem(plan, source, p, controller) is None]
+    out = [p for p in plan.live() if host_problem(plan, source, p, controller, face=face) is None]
     for c in plan.state.cards.values():
-        if c.zone.endswith((":battlefield", ":graveyard")) and c.id != source.id and host_problem(plan, source, c.id, controller) is None:  # (wave 51F: a graveyard)
+        if c.zone.endswith((":battlefield", ":graveyard")) and c.id != source.id and host_problem(plan, source, c.id, controller, face=face) is None:  # (wave 51F: a graveyard)
             out.append(c.id)
     return out
 
@@ -312,6 +334,7 @@ def attach(plan: Plan, source: str, host: str, actor: str) -> bool:
     if card.attached_to == host or card.attached_player == host:
         return True  # already there: nothing happens (701.3b)
     plan.do({"type": "attach", "card_ids": [source], "to": host}, actor=actor)
+    wave110e_blade.queue(plan, source)  # -- becomes attached, choose (wave 110E) -- asked at the next settle
     return True
 
 
@@ -328,9 +351,9 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
     from app.rules import copying, face_down_entries64, replacements
 
     face_down_entries64.validate(plan, entries)
-    for back in (e for e in entries if e.get("to") == "hand"):  # -- resolution memory (wave 22D) -- 610.3: exiled from a hand, returns there
-        plan.do({"type": "move", "card_ids": [back["card"]], "to": {"player": back["player"], "zone": "hand"}}, actor=back["actor"])
-    entries = [dict(e) for e in entries if e.get("to") != "hand"]
+    for back in (e for e in entries if e.get("to") in ("hand", "graveyard")):  # -- resolution memory (wave 22D) -- 610.3: exiled from a hand, returns there
+        plan.do({"type": "move", "card_ids": [back["card"]], "to": {"player": back["player"], "zone": back["to"]}}, actor=back["actor"])
+    entries = [dict(e) for e in entries if e.get("to") not in ("hand", "graveyard")]
     for i, entry in enumerate(entries):
         card = plan.state.cards.get(entry["card"])
         if card is not None:
@@ -376,11 +399,13 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
         if {"Instant", "Sorcery"}.intersection(plan.ch(probe).types):
             entry["stays"] = True
             continue
-        as_face = entering_face(plan, card, entry)
+        as_face = entering_face(plan, card, entry) or _entry_aura_face(plan, card, entry)
         kind = attach_kind(as_face or (plan.ch(card) if copying.entering_as_copy(plan, card) else chars.of(card, plan.info)))
+        if kind is None and entry.get("entry_characteristics"):  # -- aura return (wave 110D) -- 205.1a, 303.4f: "It's an Aura enchantment" as it enters
+            kind = attach_kind(plan.ch(probe))
         if (kind != "aura" and not (entry.get("host_choice") and kind == "equipment")) or entry.get("host"):
             continue
-        hosts = _entry_hosts(plan, card, entry)
+        hosts = _entry_hosts(plan, card, entry, as_face)
         if not hosts and kind == "equipment":
             continue  # 301.5e: Equipment enters unattached when no legal creature exists.
         if not hosts:
@@ -410,8 +435,24 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
     return True
 
 
-def _entry_hosts(plan: Plan, card: CardInstance, entry: dict[str, Any]) -> list[str]:
-    hosts = _hosts_on_entering(plan, card, entry["player"])
+def _entry_aura_face(plan: Plan, card: CardInstance, entry: dict[str, Any]) -> Characteristics | None:
+    """(wave 110M) It enters as an Aura by a noncopiable entry form (611.2e: Old-Growth Troll returning "as an Aura enchantment"): its characteristics as it will enter, judged and given its host so."""
+    from app.rules import entry_characteristics
+
+    if not entry.get("entry_characteristics"):
+        return None
+    probe = entry_characteristics.probe(card, entry["entry_characteristics"]).model_copy(update={"zone": zone_key(entry["player"], "battlefield"), "controller": entry["player"]})
+    face = plan.ch(probe)
+    return face if attach_kind(face) == "aura" else None
+
+
+def _entry_hosts(plan: Plan, card: CardInstance, entry: dict[str, Any], face: Characteristics | None = None) -> list[str]:
+    if face is None and entry.get("entry_characteristics"):  # -- aura return (wave 110D) -- 303.4f: judged as the Aura it enters as
+        from app.rules import entry_characteristics
+
+        face = plan.ch(entry_characteristics.probe(card, entry["entry_characteristics"]).model_copy(
+            update={"zone": zone_key(entry["player"], "battlefield"), "controller": entry["player"]}))
+    hosts = _hosts_on_entering(plan, card, entry["player"], face)
     if entry.get("host_choice"):
         from app.rules import selectors
 
@@ -420,10 +461,10 @@ def _entry_hosts(plan: Plan, card: CardInstance, entry: dict[str, Any]) -> list[
     return hosts
 
 
-def _hosts_on_entering(plan: Plan, card: CardInstance, controller: str) -> list[str]:
+def _hosts_on_entering(plan: Plan, card: CardInstance, controller: str, face: Characteristics | None = None) -> list[str]:
     """What an Aura entering under ``controller`` could enchant (the permanents already on the
     battlefield: not one entering with it)."""
-    return legal_hosts(plan, card, controller)
+    return legal_hosts(plan, card, controller, face)
 
 
 def resume_aura_enters(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -434,7 +475,7 @@ def resume_aura_enters(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, shuffle = d.resume.get("ctx"), d.resume.get("shuffle")
     card = plan.state.cards.get(entries[i]["card"])
     if card is not None:
-        if chosen[0] not in _entry_hosts(plan, card, entries[i]):
+        if chosen[0] not in _entry_hosts(plan, card, entries[i], entering_face(plan, card, entries[i]) or _entry_aura_face(plan, card, entries[i])):
             from app.game.errors import ActionError
 
             raise ActionError("It can't enchant that")

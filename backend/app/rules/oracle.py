@@ -22,7 +22,7 @@ _MANA_ABILITY = re.compile(
     rf"^\{{T\}}: Add (?:{_MANA_SYMBOL}(?:{_MANA_SYMBOL})*(?:(?:, | or |, or ){_MANA_SYMBOL})*|one mana of any color)\.$"
 )
 _LOYALTY = re.compile(r"^[+−-]?\d+: |^[+−-]X: ")
-_TRIGGER = re.compile(r"^(?:[A-Z0-9][\w'’!?,.\- ]+ — )?(When|Whenever|At) ")  # (wave 6E: "Exterminate! — When …"; wave 41A: a letter with a mark, "Pavitr's Sevā — When …")  # an ability word ("Landfall — ") may lead
+_TRIGGER = re.compile(r"^(?:(?:\.\.\. )?[A-Z0-9][\w'’!?,.\- ]+ — )?(When|Whenever|At) ")  # (wave 6E: "Exterminate! — When …"; wave 41A: a letter with a mark, "Pavitr's Sevā — When …")  # an ability word ("Landfall — ") may lead
 # (-- ability words (wave 4F) -- digits too: "Descend 4 — Whenever …", 207.2c)
 # (-- attached events (wave 4L) -- "Equipped creature has "{T}: …"" is a static granting an ability, not a cost)
 _COST_START = re.compile(
@@ -87,6 +87,7 @@ class AbilityText:
     borrowed_scope: str | None = None  # Explicit scope for an unambiguous legacy saved link, when needed.
     borrowed_color: str | None = None  # object whose particular borrowing static permits colored-mana substitutions
     activation_player: str | None = None  # A resolved grant may reserve activation to its original controller.
+    spend_blue110i: bool = False  # (wave 110I) a granted ability whose activation may spend blue mana as though it were mana of any color (Grell Philosopher)
     power_up_prepared: bool = False  # A selected native reduction branch, before other cost modifiers.
     granted_mana_cost: GrantedManaCost | None = None  # Frozen actual grant provenance; absent on legacy abilities.
 
@@ -175,6 +176,8 @@ def _keywords_line(line: str) -> tuple[str, ...] | None:
         return ("ward",)
     if re.fullmatch(r"protection from [^,;]+(?:, (?:and )?from [^,;]+)+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.16a: "Protection from blue, from black, and from red" is one keyword (app/rules/protection.py)
         return ("protection",)
+    if re.fullmatch(r"squad—(?:\{[^}]+\})+, [^;{}]+", line.strip(), re.IGNORECASE):  # -- squad (wave 110E) -- "Squad—{1}, Discard a card." is one keyword (702.157a)
+        return ("squad",)
     if re.fullmatch(r"kicker—(?:\{[^}]+\})+, [^;{}]+", line.strip(), re.IGNORECASE):  # -- keywords (wave 50H) -- 702.33a: "Kicker—{2}{R}, Sacrifice a land." is one keyword (its cost has two parts)
         return ("kicker",)
     if re.fullmatch(r"(?i:equip)—(?:\{[^}]+\})+, [^;{}]+|Equip [A-Z][a-z]+(?:, [A-Z][a-z]+)+,? or [A-Z][a-z]+ (?:\{[^}]+\})+", line.strip()):
@@ -202,7 +205,7 @@ _ADD_MANA = re.compile(r"^(?P<cost>[^:]+): (?:Choose a color(?: of (?:a permanen
 # "Corrupted —" (-- ability words (wave 4F) -- read like an ability word: scripts.ABILITY_WORDS).
 # Anything else is a flavor word only when what follows is a trigger or a cost-led activated ability; other lines are left as they were.
 # (-- counters (wave 41A) -- \w: a flavor word may carry a mark on a letter, "Pavitr's Sevā — Whenever …" (Spider-Man India); 207.2d)
-_WORD_PREFIX = re.compile(r"^(?P<w>[A-Z0-9][\w'’!?,.\- ]{0,48}?) — (?P<rest>\S.*)$")  # (-- most-played cards II (wave 45A) -- a digit may lead: "10,000 Needles — Whenever …", Jumbo Cactuar)
+_WORD_PREFIX = re.compile(r"^(?P<w>(?:\.\.\. )?[A-Z0-9][\w'’!?,.\- ]{0,48}?) — (?P<rest>\S.*)$")  # (-- most-played cards II (wave 45A) -- a digit may lead: "10,000 Needles — Whenever …", Jumbo Cactuar)
 _NOT_FLAVOR = frozenset({"max speed", "power-up", "exhaust", "boast", "forecast", "visit", "companion", "prototype",
                          "solved", "to solve", "station", "level up",
                          "prize"})  # (-- review (wave 6R) -- "Prize —" is part of an Attraction's visit ability: 702.159b)
@@ -237,7 +240,7 @@ def word_prefix(line: str) -> tuple[str, str] | None:
     return None
 
 
-_WATCH_LINE = re.compile(r"^(?:At the beginning of each combat this turn, |Whenever .+? this turn, |When you next cast .+? this turn, "
+_WATCH_LINE = re.compile(r"^(?:At the beginning of each combat this turn, |Whenever .+? this (?:turn|combat), |When you next cast .+? this turn, "
                          r"|When (?:target|that) [^,]+? (?:dies|leaves the battlefield) this turn, "
                          r"|At the beginning of (?:the next|your next|the next turn's|that player's next|its owner's next|their next) [^,]+, )")  # (wave 23B: the Pacts' own paragraph, 603.7)  # -- turn watches (wave 7D; 16D: "When target creature dies this turn,") --
 
@@ -295,6 +298,8 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
 
     if (each := EACH_COLOR_LINE.match(line)) is not None and not _moves_library(line):
         return "mana", (), each["cost"]
+    if line == "{1}, {T}: Each player adds {B}{R}{G}.":  # -- Yurlok (wave 110J) -- 605.1a: no target, adds mana
+        return "mana", (), "{1}, {T}"
     from app.rules.immediate_mana_resolutions import beneficiary_spec
 
     if (benefit := beneficiary_spec(line)) is not None and _COST_START.match(benefit[0]) and not _moves_library(line) and not _LOYALTY.match(line):
@@ -366,6 +371,17 @@ def split_sentences(body: str) -> list[str]:
     return [s for s in out if s]
 
 
+MASTER_CHEF = ('Commander creatures you own have "This creature enters with an additional +1/+1 counter on it" and '
+               '"Other creatures you control enter with an additional +1/+1 counter on them."')
+
+
+HEIRLOOM_EPIC = ("{4}, {T}: Draw a card. For each mana in this ability's activation cost, you may tap an untapped creature you control rather than pay that mana. "
+                 "Activate only as a sorcery.")
+STAFF_ROOM = "Whenever a creature you control deals combat damage to a player, turn that creature face up or put a +1/+1 counter on it."
+DOG_UMBRA = "As long as another player controls enchanted creature, it can't attack or block. Otherwise, this Aura has umbra armor."
+EARTHBIND = "When this Aura enters, if enchanted creature has flying, this Aura deals 2 damage to that creature and this Aura gains \"Enchanted creature loses flying.\""
+
+
 def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[str | None, str | None] = (None, None)) -> list[AbilityText]:
     """Split Oracle text into classified ability lines (reminder text removed).
 
@@ -391,6 +407,59 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
             lines[i:i + 1] = [f"When this permanent enters, sacrifice it unless you exile another {m[1]} you control.",
                               "When this permanent leaves the battlefield, return the exiled card to the battlefield under "
                               "its owner's control."]
+    from app.rules import wave110n_cards  # -- lines (wave 110N) -- Genku, Future Shaper
+
+    wave110n_cards.rewrite_lines(lines)
+    # -- lines (wave 110D) -- Master Chef: 614.12 a commander creature entering is checked with the abilities it would have there (its own and Chef's
+    # grants), so the granted "This creature enters with ..." is "commander creatures you own enter with ...", then the second grant as its own ability
+    for i, line in enumerate(lines):
+        if line == MASTER_CHEF:
+            lines[i:i + 1] = ["Commander creatures you own enter with an additional +1/+1 counter on them.",
+                              'Commander creatures you own have "Other creatures you control enter with an additional +1/+1 counter on them."']
+    from app.rules import (
+        wave110c_cosima,  # -- lines (wave 110C) -- Cosima: the paragraph is the upkeep ability and the ability it grants
+    )
+
+    wave110c_cosima.split(lines)
+    # -- lines (wave 110C) -- Heirloom Epic: each mana of the cost may be paid by tapping an untapped creature (waterbend's payment, 701.67a, creatures only and not a
+    # waterbend): the cost word "Tapbend" stands for that sentence
+    for i, line in enumerate(lines):
+        if line == HEIRLOOM_EPIC:
+            lines[i] = "Tapbend {4}, {T}: Draw a card. Activate only as a sorcery."
+    # -- lines (wave 110D) -- Dog Umbra: 608.2c "Otherwise" = the enchanted creature is not controlled by another player, so you control it (an Aura's
+    # controller can't be attached to nothing); two conditional statics
+    for i, line in enumerate(lines):
+        if line == DOG_UMBRA:
+            lines[i:i + 1] = ["As long as another player controls enchanted creature, it can't attack or block.",
+                              "As long as you control enchanted creature, this Aura has umbra armor."]
+    # -- lines (wave 110D) -- Staff Room: "A or B" is a choice of one of the two (700.2), a modal trigger
+    for i, line in enumerate(lines):
+        if line == STAFF_ROOM:
+            lines[i:i + 1] = ["Whenever a creature you control deals combat damage to a player, choose one —",
+                              "• Turn that creature face up.", "• Put a +1/+1 counter on that creature."]
+    # -- (wave 110J) -- Earthbind: "…and this Aura gains "Enchanted creature loses flying."" is the trigger plus a static that applies once it was gained
+    for i, line in enumerate(lines):
+        if line == EARTHBIND:
+            lines[i:i + 1] = [line, "As long as this Aura gained that ability, enchanted creature loses flying."]
+    # -- keywords (wave 110E) -- 702.65a: "Aura swap [cost]" means "[Cost]: You may exchange this permanent with an Aura card in your hand."
+    for i, line in enumerate(lines):
+        if (m := re.fullmatch(r"Aura swap ((?:\{[^}]+\})+)(?: \(.*\))?", line)) is not None:
+            lines[i] = f"{m[1]}: You may exchange this permanent with an Aura card in your hand."
+    # -- lines (wave 110G) -- Ertai's Familiar: phasing out is not leaving (702.26d), so "phases out or leaves the battlefield" is two triggers that never share an event
+    for i, line in enumerate(lines):
+        if line == "When this creature phases out or leaves the battlefield, mill three cards.":
+            lines[i:i + 1] = ["When this creature phases out, mill three cards.", "When this creature leaves the battlefield, mill three cards."]
+    # -- (wave 110M) -- Pharika's Spawn: "This creature escapes with ... When it enters this way, ..." is the escape counters and a trigger of the creature that escaped (702.138c)
+    for i, line in enumerate(lines):
+        if line == ("This creature escapes with two +1/+1 counters on it. When it enters this way, each opponent sacrifices a non-Gorgon creature of their choice."):
+            lines[i:i + 1] = ["This creature escapes with two +1/+1 counters on it.",
+                              "When this creature enters, if it escaped, each opponent sacrifices a non-Gorgon creature of their choice."]
+    # -- (wave 110M) -- Tidal Control: "Pay 2 life or {2}: ..." is one ability whose cost the activating player picks (602.2b); the two costs read as two abilities with
+    # the same effect, so choosing one is activating that one (nothing else of the ability depends on which was paid)
+    for i, line in enumerate(lines):
+        if line == "Pay 2 life or {2}: Counter target red or green spell. Any player may activate this ability.":
+            lines[i:i + 1] = ["Pay 2 life: Counter target red or green spell. Any player may activate this ability.",
+                              "{2}: Counter target red or green spell. Any player may activate this ability."]
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):
@@ -420,7 +489,7 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     # -- static_other sweep (wave 16B) -- 706.3: a results table's rows (one per line) belong to the roll before them
     merged: list[str] = []
     for line in lines:
-        if merged and re.match(r"^\d+(?:[—–-]\d+|\+| or less)? \| ", line) and re.search(r"\broll a (?:d\d+|\w+-sided die)\b", merged[-1], re.I) \
+        if merged and re.match(r"^\d+(?:[—–-]\d+|\+| or less)? \| ", line) and re.search(r"\broll (?:a (?:d\d+|\w+-sided die)|two d20 and ignore the lower roll)\b", merged[-1], re.I) \
                 and (not re.search(r"\bactivate only\b", merged[-1], re.I)
                      or (merged[-1].endswith("Activate only as a sorcery.") and merged[-1].lower().count("activate only") == 1)):
             restriction = "Activate only as a sorcery." if merged[-1].endswith("Activate only as a sorcery.") else ""
@@ -451,8 +520,9 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     for n, line in enumerate(lines):
         # -- keyword meanings (wave 11B) -- 702.107a: "Outlast [cost]" means "[Cost], {T}: Put a +1/+1 counter on this
         # creature. Activate only as a sorcery." (read as that activated ability)
+        outlast = False
         if m := re.fullmatch(r"Outlast ((?:\{[^}]+\})+)", line):
-            line = f"{m[1]}, {{T}}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
+            line, outlast = f"{m[1]}, {{T}}: Put a +1/+1 counter on this creature. Activate only as a sorcery.", True
         # -- keyword meanings (wave 17C) -- 702.81a: "Retrace" means "You may cast this card from your graveyard by discarding a land
         # card as an additional cost to cast it." (a permission with an additional cost, 601.2b: permissions.SELF_GY_BY)
         if line == "Retrace":
@@ -477,10 +547,22 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if m := re.fullmatch(r"Scavenge ((?:\{[^}]+\})+)", line):
             line = (f"{m[1]}, Exile this card from your graveyard: Put X +1/+1 counters on target creature, where X is this "
                     "creature's power. Activate only as a sorcery.")  # (X: the exiled card's power, as it last existed)
+        # -- keyword meanings (wave 110I) -- 702.71a Transfigure {cost}: "{cost}, Sacrifice this creature: Search your library for a creature card with the same mana value as this creature, put that card onto the battlefield, then shuffle. Activate only as a sorcery." (reminder text)
+        if m := re.fullmatch(r"Transfigure ((?:\{[^}]+\})+)", line):
+            line = (f"{m[1]}, Sacrifice this creature: Search your library for a creature card with mana value equal to the sacrificed creature's mana value, "
+                    "put that card onto the battlefield, then shuffle. Activate only as a sorcery.")
         # -- static_other sweep (wave 16B) -- 702.77a: "Reinforce N—[cost]" means "[Cost], Discard this card: Put N +1/+1 counters on
         # target creature." (an activated ability that works only from the hand)
         if m := re.fullmatch(r"Reinforce (\d+|X)—((?:\{[^}]+\})+)", line):  # (-- xdamage (wave 100E) -- X: the X paid, 107.3a)
             line = f"{m[2]}, Discard this card: Put {m[1]} +1/+1 counters on target creature."
+        # -- wave 110F -- Circling Vultures: 116.2e special action (casting.VULTURES handles it: no stack); the line is only a marker so the card reads as an ability
+        if line == "You may discard this card any time you could cast an instant.":
+            line = "Discard this card: You gain 0 life."
+        # -- wave 110F -- Taste of Paradise: "you may pay {1}{G} any number of times" repeats like multikicker (702.33c) but is not kicker: the keyword line is flagged "any number of times"
+        if m := re.fullmatch(r"As an additional cost to cast this spell, you may pay ((?:\{[^}]+\})+) and/or ((?:\{[^}]+\})+) any number of times\.", line):
+            line = f"Kicker {m[1]} and/or {m[2]} any number of times"  # -- wave 110G -- Primitive Justice: two costs, each paid any number of times (casting.kicker_extra)
+        elif m := re.fullmatch(r"As an additional cost to cast this spell, you may pay ((?:\{[^}]+\})+) any number of times\.", line):
+            line = f"Multikicker {m[1]} any number of times"
         # -- static_other sweep (wave 19A) -- "Traxos enters tapped and doesn't untap during your untap step.": two abilities, "enters tapped"
         # (614.1d) and the static "doesn't untap" (502.3), the second one added after the printed lines as Reconfigure's are
         if (um := re.fullmatch(r"(.+?) enters tapped and (doesn't untap during your untap step)\.", line)) and not spell:
@@ -496,7 +578,8 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
 
             line = speed.rewrite(line)
         kind, kws, cost = classify(line, spell=spell)
-        out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n], linked=linked.get(n)))
+        out.append(AbilityText(index=len(out), text=line, kind=kind, keywords=kws, cost=cost, section=sections[n], linked=linked.get(n),
+                               special="outlast" if outlast else None))  # (wave 110B: the keyword's origin, 702.107a)
         # -- keyword meanings (wave 18E) -- 702.151a: "Reconfigure [cost]" is two activated abilities, "[Cost]: Attach this permanent to another
         # target creature you control. Activate only as a sorcery." and "[Cost]: Unattach this permanent. Activate only if this permanent is
         # attached to a creature and only as a sorcery."; 702.151b: attached to a creature, it isn't a creature (a static of its own).

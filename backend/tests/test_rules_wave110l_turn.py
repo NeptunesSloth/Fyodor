@@ -1,0 +1,439 @@
+"""Wave 110L: this-turn history conditions, real Oracle text, replay and save/load checked.
+
+* Oblivious Bookworm - the discard is skipped if a permanent entered face down under your control this turn (708.2) or you turned one face up (702.37e).
+"""
+
+# ruff: noqa: F403, F405
+from __future__ import annotations
+
+from app.rules.plan import Plan
+from tests.wave110l_kit import *
+
+BOOK, SUMMONS = "Oblivious Bookworm", "Soul Summons"
+
+
+@pytest.fixture()
+def cards(settings):
+    yield from open_repo(settings)
+
+
+test_full = full_test([BOOK, SUMMONS])
+
+
+def hand_size(s, pid="p1"):
+    return len(s.state.zones.get(f"{pid}:hand", []))
+
+
+def manifest_bears(s):
+    bears = card_named(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "library"}, position="top")
+    cast(s, SUMMONS)
+    answer(s)
+
+
+def end_step(s):
+    before = hand_size(s)
+    to_phase(s, "end")
+    answer(s)
+    return hand_size(s) - before
+
+
+def test_bookworm_draws_then_discards_when_nothing_happened(cards):
+    s = build(cards, [BOOK, SUMMONS, "Grizzly Bears"])
+    put(s, BOOK)
+    next_turn(s)
+    stops(s)
+    assert end_step(s) == 0  # drew one, discarded one
+    assert zone_of(s, "Grizzly Bears") != "p1:battlefield"
+    check(s)
+
+
+def test_bookworm_keeps_the_card_when_a_permanent_entered_face_down(cards):
+    s = build(cards, [BOOK, SUMMONS, "Grizzly Bears"])
+    put(s, BOOK)
+    next_turn(s)
+    stops(s)
+    manifest_bears(s)
+    assert end_step(s) == 1
+    check(s)
+
+
+def test_bookworm_keeps_the_card_when_you_turned_a_permanent_face_up(cards):
+    s = build(cards, [BOOK, SUMMONS, "Grizzly Bears"])
+    put(s, BOOK)
+    manifest_bears(s)  # on an earlier turn: it does not count now
+    face_down = next(c for c in s.state.cards.values() if c.face_down and c.owner == "p1")
+    next_turn(s)
+    stops(s)
+    fund(s, "{1}{G}")
+    act(s, "p1", type="turn_face_up", card_id=face_down.id)
+    answer(s)
+    assert end_step(s) == 1
+    check(s)
+
+
+
+WAR = "The First Tyrannic War"
+test_full_war = full_test([WAR])
+
+
+def counters(s, name):
+    return card_named(s, name).counters.get("+1/+1", 0)
+
+
+@pytest.mark.parametrize(("creature", "expect"), [("Walking Ballista", 3), ("Grizzly Bears", 0)])
+def test_first_tyrannic_war_counters_only_for_a_mana_cost_with_x(cards, creature, expect):
+    s = build(cards, [WAR, creature], forests=9)
+    for land in [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1"][:3]:  # three lands (the rest stay in the library)
+        act(s, "p1", type="move", card_ids=[land.id], to={"player": "p1", "zone": "battlefield"})
+    to_hand(s, creature)
+    cast(s, WAR)
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    answer(s, "Yes", creature)  # "you may", then the card
+    assert zone_of(s, creature) == "p1:battlefield"
+    assert counters(s, creature) == expect
+    check(s)
+
+
+MOON = "Day of the Moon"
+test_full_moon = full_test([MOON])
+
+
+def name_it(s, text):
+    d = resolve_decision(s)
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[], name=text)
+
+
+def resolve_decision(s):
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s.state.rules.decision
+
+
+def through_bobs_turn(s):
+    """To Alice's next main phase; Bob's goaded creatures attack her as they must (701.15b), she blocks nothing."""
+    turn = s.state.turn.number + (2 if s.state.turn.active_player == "p1" else 1)
+    for _ in range(200):
+        if s.state.turn.phase == "main1" and s.state.turn.number == turn:
+            return
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers" and d.player == "p2":
+            mine = [c.id for c in s.state.cards.values() if c.owner == "p2" and c.zone == "p2:battlefield"]
+            act(s, "p2", type="declare_attackers", attackers=[{"card_id": c, "target": "p1"} for c in mine])
+        elif d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never reached Alice's main phase")
+
+
+def goaded(s, name, pid="p2"):
+    from app.rules.keyword_actions import goaded_by
+
+    c = card_named(s, name, pid)
+    return bool(goaded_by(Plan(s.state, "p1", s.cards, None).ch(c)))
+
+
+def test_day_of_the_moon_goads_every_name_chosen_so_far(cards):
+    s = build(cards, [MOON], ["Grizzly Bears", "Young Wolf", "Mesa Pegasus"])
+    for n in ("Grizzly Bears", "Young Wolf", "Mesa Pegasus"):
+        put(s, n, "p2")
+    cast(s, MOON)
+    name_it(s, "Grizzly Bears")
+    answer(s)
+    assert goaded(s, "Grizzly Bears") and not goaded(s, "Young Wolf") and not goaded(s, "Mesa Pegasus")
+    through_bobs_turn(s)  # chapter II: the goad of chapter I has ended (until your next turn), the name chosen then still counts
+    name_it(s, "Young Wolf")
+    answer(s)
+    assert goaded(s, "Grizzly Bears") and goaded(s, "Young Wolf") and not goaded(s, "Mesa Pegasus")
+    check(s)
+
+
+AVATAR = "Avatar Destiny"
+test_full_avatar = full_test([AVATAR])
+
+
+def top_of_library(s, *names):
+    for n in reversed(names):
+        c = next(c for c in s.state.cards.values() if c.name == n and c.owner == "p1" and c.zone == "p1:library")
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "library"}, position="top")
+
+
+@pytest.mark.parametrize("take", ["Llanowar Elves", None])
+def test_avatar_destiny_mills_its_power_returns_itself_and_may_reanimate_a_milled_creature(cards, take):
+    s = build(cards, [AVATAR, "Grizzly Bears", "Llanowar Elves", "Young Wolf", "Murder"])
+    bears = put(s, "Grizzly Bears")
+    cast(s, AVATAR, [bears.id])
+    answer(s)
+    top_of_library(s, "Llanowar Elves", "Young Wolf", "Forest")
+    cast(s, "Murder", [bears.id])
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    answer(s, "Yes" if take else "No", take)  # "you may", then which creature
+    assert zone_of(s, AVATAR) == "p1:hand"
+    assert zone_of(s, "Llanowar Elves") == ("p1:battlefield" if take else "p1:graveyard")
+    assert zone_of(s, "Young Wolf") == "p1:graveyard"
+    check(s)
+
+
+LAUNDRY = "Lumbering Laundry"
+test_full_laundry = full_test([LAUNDRY])
+
+
+def test_lumbering_laundry_lets_its_controller_look_at_face_down_creatures_until_end_of_turn(cards):
+    s = build(cards, [LAUNDRY], ["Grizzly Bears"])
+    laundry = put(s, LAUNDRY)
+    bears = card_named(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="move", card_ids=[bears.id], to={"zone": "battlefield"}, face_down=True, face_down_kind="manifest", x=10, y=10)
+    assert s.view("p1")["cards"][bears.id]["hidden"]  # before: Alice can't tell what it is
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=laundry.id, ability=0)
+    answer(s)
+    mine, theirs = s.view("p1")["cards"][bears.id], s.view("p2")["cards"][bears.id]
+    assert mine["name"] == "Grizzly Bears" and not mine.get("hidden")
+    assert theirs["name"] == "Grizzly Bears"  # its own controller always knows
+    to_phase(s, "main1", turn=3)
+    assert s.view("p1")["cards"][bears.id]["hidden"]  # the look ended with the turn
+    check(s)
+
+
+OPTIMUS = "Optimus Prime, Hero // Optimus Prime, Autobot Leader"
+test_full_optimus = full_test([OPTIMUS])
+
+
+def optimus_hits(cards, block):
+    s = build(cards, [OPTIMUS, "Grizzly Bears"], ["Courser of Kruphix"])
+    prime = card_named(s, OPTIMUS)
+    act(s, "p1", type="move", card_ids=[prime.id], to={"player": "p1", "zone": "battlefield"}, back_ids=[prime.id])  # the Vehicle face (712.14a)
+    bears = put(s, "Grizzly Bears")
+    if block:
+        put(s, "Courser of Kruphix", "p2")
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    return s, prime, bears
+
+
+def test_optimus_bolsters_and_converts_when_the_chosen_creature_connects(cards):
+    s, prime, bears = optimus_hits(cards, block=False)
+    answer(s)  # bolster 2 on the creature with the least toughness (Bears), trample until end of turn
+    assert card_named(s, "Grizzly Bears").counters.get("+1/+1") == 2
+    assert "trample" in ch(s, bears).keywords
+    to_phase(s, "end_combat")
+    assert ch(s, prime).name == "Optimus Prime, Hero"  # converted to the other face after the combat damage
+    check(s)
+
+
+def test_optimus_stays_put_if_the_chosen_creature_deals_no_damage_to_a_player(cards):
+    s, prime, bears = optimus_hits(cards, block=True)
+    answer(s)
+    to_phase(s, "declare_blockers")
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "declare_blockers"
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": card_named(s, "Courser of Kruphix", "p2").id, "attacker_id": bears.id}])
+    to_phase(s, "end_combat")
+    assert ch(s, prime).name == "Optimus Prime, Autobot Leader"
+    check(s)
+
+
+FLAMEWAR = "Flamewar, Brash Veteran // Flamewar, Streetwise Operative"
+test_full_flamewar = full_test([FLAMEWAR])
+
+
+def test_flamewar_returns_only_my_exiled_cards_with_intel_counters(cards):
+    s = build(cards, [FLAMEWAR, "Grizzly Bears", "Llanowar Elves", "Young Wolf"], ["Giant Growth"])
+    flame = put(s, FLAMEWAR)
+    moved = {}
+    for n, owner, intel in (("Grizzly Bears", "p1", True), ("Llanowar Elves", "p1", True), ("Young Wolf", "p1", False), ("Giant Growth", "p2", True)):
+        c = card_named(s, n, owner)
+        act(s, owner, type="move", card_ids=[c.id], to={"zone": "exile"}, face_down=True)
+        if intel:
+            act(s, owner, type="counter", card_ids=[c.id], kind="intel", delta=1)
+        moved[n] = c
+    clear_hand(s, "p1")
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=flame.id, ability=2)
+    answer(s)
+    where = {n: zone_of(s, n) for n in moved if n != "Giant Growth"}
+    assert where["Grizzly Bears"] == where["Llanowar Elves"] == "p1:hand" and where["Young Wolf"] == "p1:exile"  # the one without an intel counter stays
+    assert zone_of(s, "Giant Growth", "p2") == "p2:exile"  # not mine
+    check(s)
+
+
+BLADE, AEGIS = "Blade of Shared Souls", "Assimilation Aegis"
+test_full_equipment = full_test([BLADE, AEGIS])
+
+
+def token_named(s, prefix="Rebel", pid="p1"):
+    return next(c for c in s.state.cards.values() if c.is_token and c.owner == pid and c.zone == f"{pid}:battlefield")
+
+
+def test_blade_of_shared_souls_copy_lasts_only_while_attached(cards):
+    s = build(cards, [BLADE, "Grizzly Bears"])
+    bears = put(s, "Grizzly Bears")
+    cast(s, BLADE)
+    answer(s, bears.id, "Yes")  # For Mirrodin! makes and attaches to a Rebel (never itself the target: "another"); it may become a copy of the Bears makes and attaches to a Rebel: it may become a copy of the Bears
+    rebel = token_named(s)
+    assert ch(s, rebel).name == "Grizzly Bears"
+    blade = card_named(s, BLADE)
+    fund(s, "{2}")
+    act(s, "p1", type="activate_ability", card_id=blade.id, ability=2, targets=[bears.id])  # equip {2} onto the Bears
+    answer(s, rebel.id, "No")  # its trigger: another creature than the Bears, and it may decline
+    assert ch(s, rebel).name == "Rebel"  # unattached: 611.2b, the copy ends
+    check(s)
+
+
+def test_blade_of_shared_souls_may_decline(cards):
+    s = build(cards, [BLADE, "Grizzly Bears"])
+    put(s, "Grizzly Bears")
+    cast(s, BLADE)
+    answer(s, "Grizzly Bears", "No")
+    assert ch(s, token_named(s)).name == "Rebel"
+    check(s)
+
+
+def test_assimilation_aegis_makes_the_equipped_creature_a_copy_of_the_exiled_card(cards):
+    s = build(cards, [AEGIS, "Grizzly Bears", "Young Wolf"], ["Llanowar Elves"])  # (the Elves are exiled by the Equipment and never come back here)
+    elves = put(s, "Llanowar Elves", "p2")
+    wolf = put(s, "Young Wolf")
+    cast(s, AEGIS)
+    answer(s, elves.id)  # exile up to one target creature until the Equipment leaves
+    assert zone_of(s, "Llanowar Elves", "p2") == "p2:exile"
+    aegis = card_named(s, AEGIS)
+    fund(s, "{2}")
+    act(s, "p1", type="activate_ability", card_id=aegis.id, ability=2, targets=[wolf.id])
+    answer(s)
+    assert ch(s, wolf).name == "Llanowar Elves"
+    fund(s, "{2}")
+    bears = put(s, "Grizzly Bears")
+    act(s, "p1", type="activate_ability", card_id=aegis.id, ability=2, targets=[bears.id])  # moved to the Bears: the Wolf is no longer equipped
+    answer(s)
+    assert ch(s, wolf).name == "Young Wolf" and ch(s, bears).name == "Llanowar Elves"
+    check(s)
+
+
+def test_assimilation_aegis_copy_ends_when_the_equipment_is_destroyed(cards):
+    s = build(cards, [AEGIS, "Young Wolf", "Shatter"], ["Llanowar Elves"])
+    elves = put(s, "Llanowar Elves", "p2")
+    wolf = put(s, "Young Wolf")
+    cast(s, AEGIS)
+    answer(s, elves.id)
+    aegis = card_named(s, AEGIS)
+    fund(s, "{2}")
+    act(s, "p1", type="activate_ability", card_id=aegis.id, ability=2, targets=[wolf.id])
+    answer(s)
+    assert ch(s, wolf).name == "Llanowar Elves"
+    cast(s, "Shatter", [aegis.id])
+    answer(s)
+    assert zone_of(s, AEGIS) == "p1:graveyard"
+    assert ch(s, wolf).name == "Young Wolf"
+    assert zone_of(s, "Llanowar Elves", "p2") == "p2:battlefield"  # exiled "until this Equipment leaves the battlefield"
+    check(s)
+
+
+VAULT = "Vault 112: Sadistic Simulation"
+test_full_vault = full_test([VAULT])
+
+
+@pytest.mark.parametrize("paid", [0, 2])
+def test_vault_112_chapter_three_pays_energy_then_exiles_that_many_and_may_play_one(cards, paid):
+    s = build(cards, [VAULT, "Grizzly Bears"])
+    vault = put(s, VAULT)
+    act(s, "p1", type="counter", card_ids=[vault.id], kind="lore", delta=2)
+    act(s, "p1", type="resource", player="p1", key="energy", delta=3)
+    next_turn(s)  # chapter III triggers as the third lore counter is added after the draw step
+    d = resolve_to_decision_or_none(s)
+    assert d is not None and [o.id for o in d.options][:1] == ["3"]  # any amount of the 3 energy, 0 to 3
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[str(paid)])
+    d = resolve_to_decision_or_none(s)
+    if paid:
+        assert d is not None and d.min_choices == 0  # "you may play one of those cards": the exiled cards are the options (or none)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+        answer(s)
+    else:
+        assert d is None  # nothing paid: no shuffle, nothing exiled
+    assert s.state.players["p1"].resources.get("energy", 0) == 3 - paid
+    assert len(s.state.zones.get("p1:exile", [])) == paid
+    check(s)
+
+
+def resolve_to_decision_or_none(s):
+    for _ in range(40):
+        if s.state.rules.decision is not None:
+            return s.state.rules.decision
+        if s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return None
+    return None
+
+
+EYE, CONSIDER = "Eye of Duskmantle", "Consider"
+test_full_eye = full_test([EYE, CONSIDER])
+
+
+def eye_table(cards, top):
+    s = build(cards, [EYE, CONSIDER, "Lightning Bolt", "Giant Growth"])
+    put(s, EYE)
+    c = card_named(s, "Giant Growth")
+    act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})  # in the graveyard, not surveilled
+    top_of_library(s, *top)
+    cast(s, CONSIDER)
+    answer(s, top[0])  # surveil 1: put it into the graveyard
+    return s
+
+
+def test_eye_of_duskmantle_casts_a_surveilled_spell_for_life(cards):
+    s = eye_table(cards, ["Lightning Bolt", "Forest"])
+    assert zone_of(s, "Lightning Bolt") == "p1:graveyard"
+    life_before = life(s, "p1")
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=["p2"], free=True)  # the alternative cost: life (118.9)
+    answer(s)
+    assert life(s, "p2") == 37 and life(s, "p1") == life_before - 1  # life equal to its mana value (1), no mana
+    check(s)
+
+
+def test_eye_of_duskmantle_cant_cast_a_graveyard_card_that_was_not_surveilled(cards):
+    from app.game.errors import ActionError
+
+    s = eye_table(cards, ["Lightning Bolt", "Forest"])
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=card_named(s, "Giant Growth").id, targets=[card_named(s, EYE).id], free=True)
+
+
+def test_eye_of_duskmantle_plays_a_surveilled_land(cards):
+    s = eye_table(cards, ["Forest", "Lightning Bolt"])
+    forests = [c for c in s.state.zones["p1:graveyard"] if s.state.cards[c].name == "Forest"]
+    assert forests
+    act(s, "p1", type="play_land", card_id=forests[0])
+    assert s.state.cards[forests[0]].zone == "p1:battlefield"
+    check(s)
+
+
+DRACH = "Drach'Nyen"
+test_full_drach = full_test([DRACH])
+
+
+@pytest.mark.parametrize(("exile", "bonus"), [("Kitchen Finks", 3), (None, 0)])
+def test_drachnyen_equipped_creature_gets_the_exiled_cards_power_and_menace(cards, exile, bonus):
+    s = build(cards, [DRACH, "Grizzly Bears"], ["Kitchen Finks"])
+    bears = put(s, "Grizzly Bears")
+    finks = put(s, "Kitchen Finks", "p2")
+    cast(s, DRACH)
+    if exile:
+        answer(s, finks.id)
+    else:  # "up to one target": none
+        d = resolve_decision(s)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[])
+        answer(s)
+    assert (zone_of(s, "Kitchen Finks", "p2") == "p2:exile") == bool(exile)
+    drach = card_named(s, DRACH)
+    fund(s, "{2}")
+    act(s, "p1", type="activate_ability", card_id=drach.id, ability=2, targets=[bears.id])
+    answer(s)
+    assert pt(s, "Grizzly Bears") == (2 + bonus, 2) and "menace" in ch(s, bears).keywords
+    check(s)

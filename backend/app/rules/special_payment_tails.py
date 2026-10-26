@@ -15,7 +15,7 @@ from app.rules.plan import Plan
 if TYPE_CHECKING:
     from app.rules.casting import Purpose
 
-Kind = Literal['transmute', 'cycling', 'suspend', 'plot', 'foretell', 'companion', 'face_up']
+Kind = Literal['transmute', 'cycling', 'suspend', 'plot', 'foretell', 'companion', 'face_up', 'guardian110b']
 
 
 @dataclass
@@ -51,6 +51,11 @@ def _paid(plan: Plan, frame: SpecialPayment, payment: M.Payment | None) -> None:
 
     card = plan.state.cards.get(frame.card.id) or frame.card
     kind, ch = frame.kind, frame.ch
+    if kind == 'guardian110b':  # -- (wave 110B) -- Guardian Angel: "you may pay {1} any time you could cast an instant" (no stack)
+        from app.rules import wave110b_final
+
+        wave110b_final.guardian_paid(plan, card, frame.effects)
+        return
     if kind in ('transmute', 'cycling'):
         if kind == 'cycling':
             casting._activated(plan, 'cycling')
@@ -80,7 +85,7 @@ def _paid(plan: Plan, frame: SpecialPayment, payment: M.Payment | None) -> None:
         if chosen_forms95.prepare_up(plan, card, actor=plan.actor, kind=frame.faceup_kind):
             return
         plan.do({'type': 'face_down', 'card_ids': [card.id], 'face_down': False})
-        casting.turned_up(plan, card)
+        casting.turned_up(plan, card, x=frame.number if frame.cost_has_x else None)  # (wave 110B: "Morph {X}{B}{B}")
         plan.rules.passed = []
         if frame.faceup_kind == 'megamorph':
             replace.put_counters(plan, [(card.id, '+1/+1', 1)], by=plan.actor, then={'do': 'face_up_done'})
@@ -98,6 +103,7 @@ def _paid(plan: Plan, frame: SpecialPayment, payment: M.Payment | None) -> None:
         casting.become_plotted(plan, card.id)
     elif kind == 'foretell':
         plan.rules.foretold[card.id] = plan.state.turn.number
+        plan.rules.foretell_action_turn[plan.actor] = plan.state.turn.number  # (wave 110I: Ranar)
         if frame.granted_mana_cost is not None:
             plan.rules.foretell_templates[card.id] = ForetellCostReceipt(plan.oid(card), frame.granted_mana_cost)
         emit(plan.state, "foretold", object_id=plan.oid(card), card=card.id, player=plan.actor)

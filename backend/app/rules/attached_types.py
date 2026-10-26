@@ -44,6 +44,7 @@ import re
 _COLORS = {"white": "W", "blue": "U", "black": "B", "red": "R", "green": "G"}
 _BASICS = "Plains|Island|Swamp|Mountain|Forest"
 _LOSE_TYPES = "\u0002lose-all-types"
+_LOSE_LANDS = "\u0002lose-land-types"  # -- wave 110J -- "loses all land types and abilities" (Lithoform Blight)
 # -- layers (wave 22A) -- "Enchanted permanent is a colorless Forest land." (Song of the Dryads), "… is a colorless land with "{T}: Add {C}"
 # and loses all other card types and abilities." (Imprisoned in the Moon), "… is a colorless Food artifact with "…"" (Sugar Coat), "… is a
 # Treasure artifact with "…"" (Minimus Containment): 205.1a sets the card type (the other types, and the subtypes that go with them, are
@@ -59,7 +60,7 @@ def protect(predicate: str) -> str:
                        lambda m: m[0].replace(" and ", "\u0005"), predicate)
     predicate = re.sub(rf"\bis an? (?:{_BASICS})(?:(?:, and |, | and )(?:{_BASICS}))+",  # (wave 20A: "is a Mountain, Forest, and Plains": one piece)
                        lambda m: re.sub(r", and |, | and ", "\u0004", m[0]), predicate)
-    predicate = predicate.replace("loses all other card types and abilities", _LOSE_TYPES)  # (wave 22A: the same, without the creature types)
+    predicate = predicate.replace("loses all land types and abilities", _LOSE_LANDS).replace("loses all other card types and abilities", _LOSE_TYPES)  # (wave 22A: the same, without the creature types)
     return predicate.replace("it loses all other abilities, card types, and creature types", _LOSE_TYPES) \
         .replace("its other colors and types", "its other colors_and_types")
 
@@ -70,6 +71,11 @@ def piece(text: str, extra: dict[str, Any]) -> bool | list[int] | None:
     text = re.sub(r"^it (?=loses )", "", text).replace("\u0004", ", ").replace("\u0005", " and ")
     if (m := _SET_TYPE.fullmatch(text)) is not None:
         return _set_type(m, extra)
+    if text == _LOSE_LANDS:  # 305.7, 613.1d: no land types (so no intrinsic mana abilities), and no abilities
+        extra["lose_all"] = True
+        extra["_lose_lands"] = True
+        _layer4(extra)["set_land_types"] = []
+        return True
     if text == _LOSE_TYPES:
         extra["lose_all"] = True
         extra["_lose_types"] = True
@@ -191,6 +197,12 @@ def _desc(m: re.Match[str], extra: dict[str, Any]) -> bool | list[int]:
             extra["set_colors"] = colors
         extra["_animate"] = True
         return [int(m["p"]), int(m["t"])]
+    if m["add"] and m["p"] and creature and artifact and subs and colors is None and not legendary:
+        # -- Unable to Scream (wave 110D) -- "is a Toy artifact creature with base power and toughness 0/2 in addition to its other types": the
+        # subtype and the artifact type are added (205.1b), the base P/T is set (613.4b); a creature stays what it was
+        layer4.setdefault("add_types", []).append("Artifact")
+        layer4.setdefault("add_subtypes", []).extend(subs)
+        return [int(m["p"]), int(m["t"])]
     if m["add"]:
         # "is an Angel in addition to its other types"; "is an artifact in addition to its other types" (205.1b);
         # "is a black Zombie in addition to its other colors and types" (105.3: a color added)
@@ -218,6 +230,8 @@ def _desc(m: re.Match[str], extra: dict[str, Any]) -> bool | list[int]:
 def consistent(extra: dict[str, Any], kind: str | None) -> bool:
     """The parts make one effect the engine applies (and the private notes are resolved)."""
     lose_types = extra.pop("_lose_types", False)
+    if extra.pop("_lose_lands", False):  # (wave 110J) only an Aura's "Enchanted land loses all land types and abilities and has ..."
+        return kind == "land" and set(extra) == {"layer4", "lose_all"} and extra["layer4"] == {"set_land_types": []}
     if extra.pop("_typeset", False):  # -- layers (wave 22A) -- an Aura that sets its host's card type, whatever it is: nothing else to read
         return not set(extra) - {"layer4", "set_colors", "lose_all"}
     if kind == "permanent" and set(extra) == {"lose_all"}:  # (wave 22A) "Enchanted permanent loses all abilities" (613.1f)
@@ -256,9 +270,14 @@ def layer45(state: GameState, card: CardInstance, table: list[Static]) -> list[t
     """The type- and color-changing statics of what is attached to ``card`` (timestamp, definition): applied to it
     whatever it is right now (Frogify ruling: an Aura on a permanent that is a creature only for a while keeps it a
     creature)."""
-    return [(st.seq, st.definition) for st in table
+    from app.rules import (
+        wave110a_paper,  # -- wave 110A -- Psychic Paper: the name and creature type its Equipment last chose
+    )
+
+    return [(st.seq, wave110a_paper.layer45_definition(state, st.source, st.definition) if st.definition.get("paper110a") else st.definition) for st in table
             if st.gate is None and st.definition.get("who") == "attached"
-            and (st.definition.get("layer4") or "set_colors" in st.definition or "add_colors" in st.definition or "set_name" in st.definition)
+            and (st.definition.get("layer4") or "set_colors" in st.definition or "add_colors" in st.definition or "set_name" in st.definition
+                 or st.definition.get("paper110a"))
             and state.cards[st.source].attached_to == card.id]
 
 

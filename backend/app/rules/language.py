@@ -47,6 +47,7 @@ _LEGACY_TARGETS = {
     # -- target forms (agent T) --  a player, or any planeswalker (whoever controls it)
     "target player or planeswalker": "player_or_planeswalker", "target opponent or planeswalker": "opponent_or_planeswalker",
     "target player or battle": "player_or_battle", "target opponent or battle": "opponent_or_battle",  # (wave 42D: Onakke Javelineer, Ayara)
+    "target creature or player": "creature_or_player",  # (wave 110M) Firesong and Sunspeaker: a creature or a player, no planeswalker or battle
     "target permanent or player": "permanent_or_player",  # -- counter kinds (wave 24C) -- a permanent, or a player (115.1)
 }
 # -- activated other (wave 21E) -- "Choose target opponent who has more life than you do as you activate this ability.": the
@@ -157,8 +158,9 @@ def target_group(phrase: str) -> dict[str, Any] | None:
         rest = dm["a"] + (dm["b"] or "")
     rm = _SHARES.fullmatch(rest) or _CONTROLLERS.fullmatch(rest)  # -- group relations (wave 51A) -- "two target creatures that share a creature type" / "… controlled by different players" (601.2c)
     if rm is not None:
-        if (m["n"] or m["upto"] or m["range"]) not in ("two", "2", "one or two"):
+        if (m["n"] or m["upto"] or m["range"]) not in ("two", "2", "one or two") and not (m["any"] and "k" not in rm.groupdict()):
             raise _Fail  # ponytail: pairs only; for more targets, what a relation that stops holding on resolution makes illegal (608.2b) is unsettled
+            # (wave 110B: but "any number of target … with different controllers": each target is judged on its own on resolution, 608.2b — the relation is a limit of the announcement)
         rest = rm["a"] + (rm["b"] or "")
     what, constraints = ("any", {}) if rest == "targets" else _group_constraints(_target_key(rest))
     if total is not None:
@@ -209,7 +211,7 @@ _TOTAL = re.compile(r"(?P<a>.+?) with total (?P<stat>mana value|power) (?P<n>\d+
 _TOTAL_STATS = {"mana value": "mana_value", "power": "power"}
 _DIFFERENT = re.compile(r"(?P<a>.+?) with different (?P<k>names|mana values)(?P<b> .+)?")  # (wave 3R4)
 _SHARES = re.compile(r"(?P<a>.+?) that share an? (?P<k>creature|card|permanent) type(?P<b> .+)?")  # (wave 51A) 205.2, 205.3m
-_CONTROLLERS = re.compile(r"(?P<a>.+?) controlled by different players(?P<b> .+)?")  # (wave 51A)
+_CONTROLLERS = re.compile(r"(?P<a>.+?) (?:controlled by different players|with different controllers)(?P<b> .+)?")  # (wave 51A; 110B: Cloud's Limit Break)
 
 
 def _group_constraints(key: str) -> tuple[str, dict[str, Any]]:
@@ -330,6 +332,8 @@ def ref(phrase: str) -> tuple[str, str, dict[str, Any] | None]:
         return "self", "", None
     if p in ("it", "that creature", "that permanent", "that card", "that token", "that artifact"):  # (wave 20E: "Untap that artifact")
         return "it", "", None  # a pronoun: resolved against its antecedent (scripts.resolve_it)
+    if p == "the chosen creature":  # -- chosen objects (wave 110A) -- the creature the source chose as it entered (wave110a_pick)
+        return "each", selectors.parse("chosen creature").key(), None  # type: ignore[union-attr]
     if p == OTHER_SIDE:  # -- damage wordings (wave 6B) -- (scripts._define writes it for a block trigger's "that creature")
         return "each", "ref:event_other", None
     if p == "that land":  # -- recursion & tutors (wave 4M) -- "… put it onto the battlefield tapped, then shuffle. Then if
@@ -410,6 +414,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
         return {"plus": [_stat(m["v"], its), values.parse_amount(m["n"])]}  # -- block events (wave 53C) -- Sentinel: "1 plus the power of target creature blocking or blocked by ~"
     if (m := re.fullmatch(r"(?P<v>the (?:power|toughness|mana value) of target .+) minus (?P<n>\d+|one|two|three)", phrase)) is not None:
         return {"minus": [_stat(m["v"], its), values.parse_amount(m["n"])]}  # (Sworn Defender: "the toughness of target creature … minus 1", 107.1b: no less than 0)
+    if phrase == "the station value of the creature tapped this way":  # -- station (wave 110E) -- 702.184a: its power, or its toughness when a static says so (702.184c)
+        return {"station110e": "cost:tapped"}
     if (m := re.fullmatch(r"the (?P<stat>power|toughness|mana value) of the creature tapped this way", phrase)) is not None:
         return {_STATS[m["stat"]]: "cost:tapped"}  # -- activated sweep (wave 26C) -- the one creature a cost tapped (an activated ability only: scripts.define checks)
     if (m := re.fullmatch(r"the revealed card's (?P<stat>power|toughness|mana value)", phrase)) is not None:
@@ -592,11 +598,12 @@ RESTRICTIONS = {"block": ["cant_block"], "attack": ["cant_attack"], "attack or b
 # -- attack restrictions (wave 32B) -- 508.1c-d: restrictions on whom a creature may attack, aimed at the controller of the effect ("you"), as a one-shot
 # effect with a duration (611.2a): this turn / this combat / "during their next turn" (a player's, ``their_turn``) -- or, with "unless their controller pays
 # {2} for each of those creatures", an attack cost (508.1d, 508.1h-j: app/rules/combat_rules.py)
-_CANT_ATTACK_YOU = re.compile(r"(?P<o>.+?) can't attack (?P<t>you|you or planeswalkers you control|you or permanents you control)"
+_CANT_ATTACK_YOU = re.compile(r"(?P<o>.+?) can't attack (?P<t>you|you or planeswalkers you control|you or permanents you control|Jaces you control)"
                               r"(?: unless their controller pays (?P<cost>(?:\{[^}]+\})+|[1-9]\d* life) for each of those creatures)?"  # (wave 49D: life, Sivitri)
                               r" (?P<d>this turn|this combat|during their next turn)")
 _ATTACK_YOU = {"you": "cant_attack_player", "you or planeswalkers you control": "cant_attack_player_pw",
-               "you or permanents you control": "cant_attack_player_perm"}
+               "you or permanents you control": "cant_attack_player_perm",
+               "Jaces you control": "cant_attack_player_jace110b"}  # (-- wave 110B -- Jace, Multiverse Architect: planeswalkers with the Jace subtype)
 _TAX_YOU = {"you": "attack_tax", "you or planeswalkers you control": "attack_tax_pw"}
 _DURATION_YOU = {"this turn": {}, "this combat": {"duration": "end_of_combat"}, "during their next turn": {"duration": "their_turn"}}
 _THAT_PLAYERS_CREATURES = re.compile(r"(?:each )?creatures? (?:that player|they) controls?")
@@ -683,7 +690,7 @@ def _rider_value(phrase: str) -> Any:
     if phrase in ("of its colors", "of that spell's colors"):  # -- value grammar (wave 23C) -- "for each of its colors": how many colors the object is (105.1)
         return {"colors": "that_spell" if "spell" in phrase else "it"}
     if phrase in ("the number of colors that spell is", "the number of colors it is") or re.fullmatch(
-            r"the (?:power|toughness|mana value) of the creature that died|the (?:power|toughness) of the creature tapped this way|"
+            r"the (?:power|toughness|mana value) of the creature that died|the (?:power|toughness|station value) of the creature tapped this way|"
             r"the (?:power|toughness|mana value) of the (?:card|creature|permanent|artifact|enchantment|land|creature card) (?:exiled|returned|milled|destroyed) this way", phrase) or re.fullmatch(
             r"(?:two|three|four) times (?:its|~'s|this creature's|that creature's) (?:power|toughness|mana value)", phrase):  # -- value grammar (wave 23C) -- 105.1
         return _stat(phrase)
@@ -1990,7 +1997,7 @@ def _parse(text: str) -> tuple[Effects, Any]:
             return [{"do": "spell_self_move", "to": "exile", "counters": {"time": n}}], None
     # -- end counters (wave 7C) --
     m = re.fullmatch(r"(?P<o>.+?) phases? out", text)  # -- phasing (wave 13D) -- 702.26b: "Target creature phases out."
-    if m and not re.search(r"\b(?:until|unless|if|when|whenever|at|and|then|can't|for as long as)\b", m["o"]):
+    if m and not re.search(r"\b(?:until|unless|if|when|whenever|at|and(?!/or)|then|can't|for as long as)\b", m["o"]):
         kind, key, group = ref(m["o"])
         if kind == "players":
             raise _Fail
@@ -2053,8 +2060,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]], **for_combat}], _one(group)
     # -- multi (wave 100N) -- 115.2: "Permanents you control can't be the targets of blue or black spells your opponents control this turn." (Display of
     # Dominance): statics' rule, for the turn; a rule-changing effect, so its group isn't locked in (611.2c)
-    m = re.fullmatch(r"(?P<o>permanents you control) (?P<r>can't be the targets of (?:white|blue|black|red|green) or (?:white|blue|black|red|green) spells your "
-                     r"opponents control) this turn", text)
+    m = re.fullmatch(r"(?P<o>(?:permanents|creatures) you control) (?P<r>can't be the targets of (?:white|blue|black|red|green) or (?:white|blue|black|red|green) spells"
+                     r"(?: your opponents control)?) this turn", text)
     if m:
         from app.rules.statics import _rule
 
@@ -2336,15 +2343,15 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = re.fullmatch(rf"remove (?:(?P<up>up to) )?(?P<n>{AMT}) (?:(?P<k>[+-]\d+/[+-]\d+|[a-z]+) )?counters? from (?P<o>.+)", text)
     if m and (m["up"] or not m["k"]):
         kind, key, group = ref(m["o"])
-        if kind not in ("target", "self") or re.search(r"\b(?:players?|opponents?)\b", m["o"]) or (rider is not None and rider[0] != "x"):
+        if kind not in ("target", "self") or re.match(r"(?:(?:target|each|that|an?|your) )?(?:players?|opponents?)\b", m["o"]) or (rider is not None and rider[0] != "x"):
             raise _Fail
         return [{"do": "remove_any_counters", "who": _who(kind, key), "n": _apply(_amount(m["n"]), rider), "upto": bool(m["up"]),
                  **({"kind": m["k"]} if m["k"] else {})}], _one(group)
     m = re.fullmatch(rf"remove (?P<n>{AMT}|all) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
         kind, key, group = ref(m["o"])
-        if kind == "players" or (m["n"] == "all" and rider is not None):
-            raise _Fail
+        if kind == "players" or (m["n"] == "all" and rider is not None) or re.match(r"(?:(?:target|each|that|an?|your) )?(?:players?|opponents?)\b", m["o"]):
+            raise _Fail  # (wave 110I: remove_counters only reads cards; a player's counters would silently do nothing)
         # (wave 17D: "remove all -1/-1 counters from it" - as many as there are, 122.8)
         n = 10**6 if m["n"] == "all" else _apply(_amount(m["n"]), rider)
         return [{"do": "remove_counters", "who": _who(kind, key), "kind": m["k"], "n": n}], _one(group)
@@ -3095,7 +3102,7 @@ CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land t
 CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
 TYPE_LIST = r"[A-Z][a-z]+(?:, [A-Z][a-z]+)+, or [A-Z][a-z]+"  # -- chosen type (wave 51C) -- "choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk" (Eclipsed Realms, Dawn-Blessed Pennant)
 _BASIC_PAIR = "(?:Plains|Island|Swamp|Mountain|Forest) or (?:Plains|Island|Swamp|Mountain|Forest)"  # -- chosen filters (wave 53B) -- "choose Island or Swamp" (Roots of Life): a basic land type, only those two
-ENTERS_CHOICE = re.compile(rf"^As ~ enters, choose (?:(?:a|an) )?(?P<what>color|creature type|basic land type|land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE}|color and a creature type|color and an opponent|two basic land types|two colors|{_BASIC_PAIR}|{_chosen.PAIRS})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
+ENTERS_CHOICE = re.compile(rf"^As ~ enters, (?:choose (?:(?:a|an) )?|(?P<opp>an opponent chooses )(?:a )?(?=creature type\.$))(?P<what>color|creature type|basic land type|land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE}|color and a creature type|color and an opponent|two basic land types|two colors|{_BASIC_PAIR}|black or red|{_chosen.PAIRS})\.$")  # (wave 110F: Mangara's Equity; wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
 
 
 # -- choose own (wave 32A) -- "Then you may choose a token you control." (Brudiclad), "Choose a Giant creature you control. It deals damage equal to its
@@ -3368,6 +3375,12 @@ def enters_choice(text: str) -> dict[str, Any] | None:
     m = ENTERS_CHOICE.match(text)
     if m is None:
         return None
+    if m["opp"]:  # -- opponent chooses (wave 110E) -- 614.12a: an opponent answers "As ~ enters, an opponent chooses a creature type." (Callous Oppressor); replacements.named_choices
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "creature type", "remember": True, "opp110e": True}]}
+    if m["what"] == "black or red":  # (wave 110F: Mangara's Equity: the answer is a color; the two words are its options)
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "color", "options": ["Black", "Red"], "remember": True}]}
     if re.fullmatch(_BASIC_PAIR, m["what"]):  # (wave 53B: the answer is a basic land type; the two words are its options)
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": "basic land type", "options": m["what"].split(" or "), "remember": True}]}
@@ -4209,7 +4222,7 @@ def control_forms(text: str) -> tuple[Effects, Any] | None:
             return [{"do": "gain_control", "who": _who(kind, key), "to": "target", **dur}], pgroup
         if group is not None and set(group) == {"what", "min", "max", "another"}:  # -- if you do (wave 51D) -- "Target opponent gains control of another target permanent you control." (Stiltzkin): the first target is a player, so "another" is than the source (as reconfigure's, 702.151a), which the selector already says (``other``)
             group = {k: v for k, v in group.items() if k != "another"}
-        if group is None or not simple(group):
+        if group is None or not simple({**group, "min": 1} if (group["min"], group["max"]) == (0, 1) else group):  # (wave 110A: "up to one target creature you control", Jon Irenicus)
             return None
         return [{"do": "gain_control", "who": "target:1", "to": "target:0", **dur}], [pgroup, group]
     m = _CT_OWN.fullmatch(text)  # -- other players' choices (wave 12D) -- "Each player gains control of all creatures they own."
@@ -4365,7 +4378,7 @@ _GOAD_PLAYER = re.compile(r"goad (?:each|all) creatures? (?P<p>target player|tar
 _MANIFEST = re.compile(r"(?:(?P<p>its controller|that player|target player|target opponent|each player|each opponent) )?"
                        r"(?P<v>manifests?|cloaks?) the top (?:(?P<n>two|three|four|five|x|\d+) cards|card) of "
                        r"(?P<lib>your|their) library")
-_DREAD = re.compile(r"(?:(?P<p>its controller|that player) )?manifests? dread(?: (?P<n>twice|x times|\w+ times))?")  # (wave 17C: "Its controller manifests dread.")
+_DREAD = re.compile(r"(?:(?P<p>its controller|that player|the exiled card's owner) )?manifests? dread(?: (?P<n>twice|x times|\w+ times))?")  # (wave 17C: "Its controller manifests dread.")
 
 
 def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
@@ -4377,7 +4390,7 @@ def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
         if (m["p"] is None) != m.group(0).startswith("manifest dread"):
             return None
         return [{"do": "manifest", "dread": True, "kind": "manifest", "who": {None: "you", "its controller": "it.controller",
-                                                                              "that player": "that_player"}[m["p"]], "n": n}], None
+                                                                              "that player": "that_player", "the exiled card's owner": "it.owner"}[m["p"]], "n": n}], None  # (wave 110B: Unidentified Hovership, 607.2a)
     if (hand := re.fullmatch(r"(?P<v>manifest|cloak) a card from your hand", text)) is not None:  # -- hidden exile (wave 18A) --
         return [{"do": "manifest", "kind": hand["v"], "who": "you", "n": 1, "from": "hand"}], None  # (Scroll of Fate, Vannifar)
     other = re.fullmatch(r"(?:you )?(?P<v>manifest|cloak) the top card of (?P<lib>that player's|target opponent's|target player's|defending player's) library", text)
@@ -4401,7 +4414,7 @@ def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
 
 def keyword_forms(text: str) -> tuple[Effects, Any] | None:
     """The keyword-action wordings above; None when the sentence is not one of them."""
-    if text.startswith(("manifest", "cloak", "you manifest", "you cloak", "its controller ", "that player ", "target player ", "target opponent ",
+    if text.startswith(("manifest", "cloak", "you manifest", "you cloak", "its controller ", "the exiled card's owner manifests", "that player ", "target player ", "target opponent ",
                         "each player ", "each opponent ")):
         found = _manifest_forms(text)
         if found is not None:
@@ -4489,8 +4502,12 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         if kind not in ("target", "it", "host", "self") or (kind == "target" and not on_battlefield_only(key)):
             return None
         return [{"do": "suspect", "who": _who(kind, key)}], _one(group)
+    if text == "it's goaded for the rest of the game" and has_primitive("goad"):  # -- goad (wave 110A) -- 701.15a with no end (Jon Irenicus)
+        return [{"do": "goad", "who": "it", "forever": True}], None
     if not text.startswith("goad ") or not has_primitive("goad"):
         return None
+    if text == "goad all suspected creatures":  # -- wave 110B -- Nelly Borca: every creature with the suspected designation (701.60), whoever controls it
+        return [{"do": "goad", "who": "self", "suspected": True}], None
     m = _GOAD_PLAYER.fullmatch(text)
     if m:
         if m["p"] == "that player":

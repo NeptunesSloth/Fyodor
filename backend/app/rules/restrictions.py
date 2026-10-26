@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, Any
 
 from app.game.state import COMBAT_PHASES, PHASES, STACK
 from app.rules import activation_words
-from app.rules.activation_words import ANY_PLAYER, ANY_PLAYER_BUT, OPPONENTS_BUT, OPPONENTS_ONLY
+from app.rules.activation_words import ANY_PLAYER, ANY_PLAYER_BUT, DEFENDERS, OPPONENTS_BUT, OPPONENTS_ONLY
 
 if TYPE_CHECKING:
     from app.game.rules_state import RulesState
@@ -96,7 +96,7 @@ def split(body: str) -> tuple[str, str | None]:
     None). The restriction sentences are the trailing ones that start with "Activate only …"."""
     sentences = _sentences(body)
     found: list[str] = []
-    while sentences and (_RESTRICTION_SENTENCE.match(sentences[-1]) or sentences[-1] in (ANY_PLAYER, OPPONENTS_ONLY)
+    while sentences and (_RESTRICTION_SENTENCE.match(sentences[-1]) or sentences[-1] in (ANY_PLAYER, OPPONENTS_ONLY, *DEFENDERS, activation_words.HOST_ONLY)
                          or ANY_PLAYER_BUT.match(sentences[-1]) or OPPONENTS_BUT.match(sentences[-1]) or _COUNTED_LIMIT.match(sentences[-1])):  # (ANY_PLAYER: wave 7B; ANY_PLAYER_BUT: wave 17B; wave 100I)
         found.insert(0, sentences.pop())
     if not found:
@@ -148,6 +148,12 @@ def parse(text: str) -> list[Restriction] | None:
         if sentence == OPPONENTS_ONLY:
             out.append({"kind": "any_player", "opponents_only": True})
             continue
+        if sentence in DEFENDERS:  # -- defending player (wave 110D) -- 602.2: any player may activate it, but only the one the creature attacks (checked in ``problem``)
+            out += [{"kind": "any_player"}, {"kind": "defender110d"}, {"kind": "step", "phases": ["declare_attackers"], "whose": None}]
+            continue
+        if sentence == activation_words.HOST_ONLY:  # -- Merseine (wave 110C) -- 602.2: the enchanted creature's controller (activation_words.actor_allowed)
+            out.append({"kind": "any_player", "host110c": True})
+            continue
         if sentence == ANY_PLAYER:  # -- activation wordings (wave 7B) -- 602.2
             out.append({"kind": "any_player"})
             continue
@@ -173,7 +179,7 @@ def parse(text: str) -> list[Restriction] | None:
         if sentence.startswith("Activate no more than"):
             rest = "no more than " + rest
         # (-- activated (wave 100I) -- also a list: "during the declare blockers step, only if …, and only once each turn" (Grizzled Wolverine))
-        for clause in re.split(r",? and (?:only )?(?=if |as |once|during |before |no more than |twice|three times)|, only (?=if |as |once|during )", rest):
+        for clause in re.split(r",? and (?:only )?(?=if |as |once|during |before |no more than |twice|three times)|, only (?=if |as |once|during )|(?<=opponent's turn), (?=before attackers are declared$)", rest):  # (wave 110E: "during an opponent's turn, before attackers are declared", Nettling Imp)
             one = _clause(clause.strip())
             if one is None:
                 return None
@@ -223,9 +229,13 @@ def _condition(text: str) -> dict[str, Any] | None:
 
     if (own100i := activated100i.condition(text)) is not None:
         return own100i
-    from app.rules import conditions, selectors
+    from app.rules import conditions, selectors, wave110n_cards  # -- (wave 110N) -- Jace, Reality Sculptor
+    if (own110n := wave110n_cards.restriction_condition(text)) is not None:
+        return own110n
     if text == "you're attacking two or more opponents":  # -- zones (wave 100G) -- Nemesis Phoenix: the players creatures you control attack (506.2, values.players_attacked)
         return {'value': {'players_attacked': 1, 'by': 'you'}, 'op': '>=', 'n': 2}
+    if text == "defending player controls a snow land":  # -- wave 110F -- Arcum's Sleigh: 802.2, 508.5a (conditions.holds "defending110f")
+        return {"defending110f": selectors.Selector(types=("Land",), supertypes=("Snow",)).key()}
     if text == 'it has no time counters on it':
         text = '~ has no time counters on it'
     # -- activated other (wave 34B) -- "Activate only if this artifact or another artifact entered the battlefield under your control this turn." (Master's
@@ -290,6 +300,10 @@ def problem(state: GameState, player: str, card: CardInstance, index: int, restr
         elif kind == "your_turn":
             if turn.active_player != player:
                 return "That can only be activated during your turn"
+        elif kind == "defender110d":  # -- defending player (wave 110D) -- the player (not a planeswalker's controller) the source is attacking
+            target = card.attacking
+            if target is None or target.kind != "player" or target.id != player:
+                return "Only the player this creature is attacking can activate that"
         elif kind == "opponents_turn":
             if turn.active_player == player:
                 return "That can only be activated during an opponent's turn"

@@ -49,6 +49,8 @@ _GIFTS = re.compile(
 _EXACT_SPLIT = re.compile(
     r"Search your library for (?P<n>two|three|four|five) cards and reveal them\. "
     r"Target opponent chooses one\. Put that card into your hand and the rest into your graveyard\. Then shuffle\.")
+_TURTLES = ("Search your library and/or outside the game for exactly four legendary creature cards you own with different names, then reveal those cards. "
+            "An opponent chooses two of them. Put the chosen cards into your hand and shuffle the rest into your library.")  # (wave 110I)
 _N = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
 
 
@@ -58,6 +60,11 @@ def gifts_ability(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
 
     if (packet := search_packets.parse(body)) is not None:
         return packet
+    if body.strip() == _TURTLES:  # -- final pass (wave 110I) -- 903.11: no card can come from outside the game here, so only the library is searched; 701.23b: a hidden zone may be searched without finding (all four or none)
+        turtles_sel = selectors.parse("legendary creature card")
+        assert turtles_sel is not None
+        return [{"do": "gifts", "sel": selectors.replace(turtles_sel, zones=("library",), zone_owner="you", card=True).key(), "max": 4, "k": 2,
+                 "label": "legendary creature cards", "chooser": "opponent", "exact": True, "none_ok": True, "chosen_to": "hand", "rest": "stay"}], None, False
     if exact := _EXACT_SPLIT.fullmatch(body.strip()):
         exact_sel = selectors.parse("card")
         assert exact_sel is not None
@@ -79,6 +86,10 @@ def gifts_ability(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
 
 
 def gifts(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import (
+        wave110i_cards,  # -- cards (wave 110I) -- Panglacial Wurm: the cast window before the cards are found
+    )
+
     pid = ctx["controller"]
     library = plan.state.zones.get(zone_key(pid, "library"), [])
     from app.rules import (
@@ -99,18 +110,28 @@ def gifts(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 if selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), pid)
                 and (not e.get("excluded_name") or not card_names.has_name(plan.ch(plan.state.cards[c]), e["excluded_name"]))]
     count = min(e["max"], len(matching))
+    if e.get("none_ok"):  # different names: at most one found card per name
+        count = min(e["max"], len({(plan.state.cards[c].name or "").lower() for c in matching}))
+        e = {**e, "need": count}
     quantity = str(e["max"]) if e.get("exact") else f"up to {e['max']}"
     names = " with different names" if e.get("different_names", True) else ""
+    least = count if e.get("exact") and not e.get("none_ok") else 0
+    options = [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in matching]
+    pang = wave110i_cards.pang_options(plan, e, pid)  # -- cards (wave 110I) -- Panglacial Wurm: one extra option of this same decision (nothing extra shown to the others)
+    bounds = {"pang_least": least, "pang_greatest": count} if pang else {}
     decide(plan, player=pid, kind="choose_cards", prompt=f"Search your library ({quantity} {e['label']}{names})",
-           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in matching],
-           min_choices=count if e.get("exact") else 0, max_choices=count, resume={"step": "gifts_found", "ctx": ctx, "e": e},
+           options=[*options, *pang],
+           min_choices=0 if pang else least, max_choices=count + bool(pang), resume={"step": "gifts_found", "ctx": ctx, "e": e, **bounds},
            decider=player_control.search_controller(plan, pid))  # (wave 18H) 723.2: Opposition Agent
     return False
 
 
 def resume_gifts_found(plan: Plan, d: Any, chosen: list[str]) -> None:
-    from app.rules import effects
+    from app.rules import effects, wave110i_cards
 
+    if wave110i_cards.pang_resume(plan, d, chosen):
+        return
+    wave110i_cards.pang_forced(d, chosen)
     ctx, e = d.resume["ctx"], d.resume["e"]
     names = [(plan.state.cards[c].name or "").lower() for c in chosen]
     from app.rules import card_names
@@ -121,6 +142,10 @@ def resume_gifts_found(plan: Plan, d: Any, chosen: list[str]) -> None:
         from app.game.errors import ActionError
 
         raise ActionError("The cards you find must have different names")
+    if e.get("none_ok") and len(chosen) not in (0, e["need"]):
+        from app.game.errors import ActionError
+
+        raise ActionError(f"Find exactly {e['need']} cards (or none)")
     if e.get("different_power"):
         powers = [plan.ch(plan.state.cards[c]).pt for c in chosen]
         numbers = [pt[0] if pt is not None else 0 for pt in powers]
@@ -206,7 +231,7 @@ def _gifts_finish(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], found: lis
         at = ctx["next"]
         ctx["effects"][at:at] = [{"do": "free_cast", "zone": "that", "who": "ref:packet_casts", "n": 99,
                                   "exact_refs": True, "optional": True}]
-    elif rest:
+    elif rest and e["rest"] != "stay":  # "stay": still in the library, shuffled below
         plan.do({"type": "move", "card_ids": rest, "to": {"player": pid, "zone": e["rest"]}}, actor=pid)
     plan.do({"type": "shuffle", "player": pid, "zone": "library"}, actor=pid)
     effects.continue_effects(plan, ctx)

@@ -164,16 +164,22 @@ def _add(plan: Plan, ctx: Context, shield: str, quality: str | None, until: str,
     r.player_shields = [x for x in r.player_shields if not (x.get("until") == "turn" and x.get("turn") != turn)]
     label = ctx.get("name") or "An effect"
     r.player_shields.append({"id": secrets.token_hex(4), "player": pid, "controller": ctx["controller"], "shield": shield, "quality": quality,
-                             "until": until, "turn": turn, "label": label})
+                             "until": until, "turn": turn, "label": label, "ends_for": pid})  # 611.2b: "until that player's next turn" ends with their turn
     what = {"protection": f"protection from {quality}", "hexproof_from": f"hexproof from {quality}"}.get(shield, shield)
     plan.note(f"{plan.name(pid)} gains {what} {'until end of turn' if until == 'turn' else 'until their next turn'} ({label})",
               actor=pid)
 
 
+def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
+    from app.rules.effects import _players as players
+
+    return players(plan, ctx, who)
+
+
 def player_shield(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.plan import live_players
 
-    for pid in live_players(plan.state) if e.get("who") == "each" else [ctx["controller"]]:  # (wave 51C)
+    for pid in live_players(plan.state) if e.get("who") == "each" else _players(plan, ctx, "target") if e.get("who") == "target" else [ctx["controller"]]:  # (wave 51C; wave 110E target player: Teferi's Reproach)
         _add(plan, ctx, e["shield"], e.get("quality"), e["until"], pid)
     return True
 
@@ -217,7 +223,7 @@ def turn_began(plan: Plan, ended: set[tuple[str, int]]) -> None:
     r = plan.rules
     turn = plan.state.turn.number
     r.player_shields = [x for x in r.player_shields if not (x.get("until") == "next_turn" and any(
-        x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
+        x.get("ends_for", x.get("controller")) == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "turn" and x.get("turn") != turn)]
 
 
@@ -267,6 +273,10 @@ def _protects(quality: str | None, source: Characteristics | None) -> bool:
 
 def can_target(plan: Plan, chooser: str, player: str, source: Characteristics | None) -> bool:
     """702.11c / 702.18a / 702.16b: may ``chooser``'s spell or ability (from ``source``) target ``player``?"""
+    from app.rules import prohibitions
+
+    if prohibitions.no_targets110f(plan):  # -- wave 110F -- Peace Talks: 115.2
+        return False
     if not plan.rules.player_shields and not _any_static(plan.state, plan.info):
         return True
     from dataclasses import replace

@@ -111,6 +111,15 @@ def parse(text: str) -> dict[str, Any] | None:
 
         # The subtype CDA itself is applied in characteristics, in every zone (604.3a).
         return self_grant("self", None, [])
+    if text == "Each planeswalker with one or more loyalty counters on it loses all abilities and is a creature with power and toughness each equal to the number of loyalty counters on it.":
+        # -- (wave 110J) -- Spark Rupture: 205.1a it is only a creature now (set, not added), 613.6 it keeps the effect though it stops being a planeswalker, 613.4b
+        return _definition("Each planeswalker with one or more loyalty counters on it", {"set_types": ["Creature"]}, lose_all=True, base_counters110j="loyalty")
+    if text == ("Each noncreature artifact loses all abilities and becomes an artifact creature with power and toughness each equal to its mana value. "
+                "If ~ leaves the battlefield, this effect continues until end of turn."):
+        # -- last cards (wave 110J) -- Titania's Song: on the battlefield a static ability (611.3a: new artifacts are affected too); layer 4 type
+        # (205.1b keeps its other types), layer 6 loses all abilities, layer 7b P/T = mana value, kept for the set it began on (613.6). Its
+        # leaving is app/rules/wave110j_song.py.
+        return _definition("Each noncreature artifact", {"add_types": ["Artifact", "Creature"]}, lose_all=True, base_mv=True, song110j=True)
     if (m := _EACH_LAND.fullmatch(text)) is not None:
         return _definition("lands", {"add_subtypes": [m["t"]]})
     if (m := _EVERY_BASIC.fullmatch(text)) is not None:
@@ -180,8 +189,9 @@ def _layered(text: str) -> dict[str, Any] | None:
         found = _definition(m["s"], {"set_land_types": [_LAND_PLURALS.get(m["t"], m["t"].rstrip("s") if m["t"] != "Plains" else m["t"])]})
         return found if found is not None and _lands(found) else None
     if (m := _LOSE_ALL.fullmatch(text)) is not None:  # 613.1f
-        return _definition(m["s"], None, base=[int(m["p"]), int(m["t"])] if m["p"] else None, lose_all=True,
-                           **({"keep_mana": True} if m["mana"] else {}))  # type: ignore[arg-type]
+        gy = {"own": False, "types": [], "not_types": [], "permanent": False, "zones": ["graveyard"]} if m["s"] == "Cards in graveyards" else None  # -- wave 110F -- Yixlid Jailer
+        return _definition(m["s"], None, base=[int(m["p"]), int(m["t"])] if m["p"] else None, lose_all=True, everywhere=gy,
+                           who_key='sel:{"card":true,"zones":["graveyard"]}' if gy else None, **({"keep_mana": True} if m["mana"] else {}))  # type: ignore[arg-type]
     if (m := _HAVE_LOSE.fullmatch(text)) is not None:  # (Toxicrene) 613.1f: the abilities it grants come after it takes them away
         q = m["q"][1:-1]
         q = q if q[-1] in ".)" else q + "."

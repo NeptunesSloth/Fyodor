@@ -115,6 +115,7 @@ def apply_action(state: GameState, action: Any) -> None:
     if rules is not None:
         from app.game.rules_state import emit
 
+        rules.pin_collection110i = rules.pin_collection110i or state.cards[action.card_id].name == "Pin Collection"  # -- cards (wave 110I) --
         emit(
             state,
             "designation",
@@ -157,13 +158,21 @@ def continuous(state: GameState, card: CardInstance, *, pt: bool = False) -> lis
     from app.rules.oracle import parse_abilities
 
     out = []
-    for placement in card.stickers101:
+    # -- cards (wave 110I) -- Pin Collection (613.1f): its equipped creature has all abilities of the ability stickers on the Equipment too.
+    # ponytail: keyed by name (the only card with that text); a second card needs the text read from its static instead.
+    equipment = [c for c in state.cards.values() if c.attached_to == card.id and c.name == "Pin Collection" and c.zone.endswith(":battlefield")] \
+        if not pt and state.rules is not None and state.rules.pin_collection110i else []
+    # -- cards (wave 110B) -- Clandestine Chameleon (613.1f): all abilities of ability stickers on its owner's other permanents and cards in its owner's graveyard.
+    # ponytail: keyed by name like Pin Collection above; a second card needs the text read from its static instead.
+    if not pt and card.name == "Clandestine Chameleon" and card.zone.endswith(":battlefield"):
+        equipment += [c for c in state.cards.values() if c.id != card.id and c.owner == card.owner and c.stickers101 and c.zone in (f"{card.owner}:battlefield", f"{card.owner}:graveyard")]
+    for source, placement in [(card, p) for p in card.stickers101] + [(c, p) for c in equipment for p in c.stickers101]:
         sticker = placement.sticker
         if sticker.kind != ("pt" if pt else "ability"):
             continue
         out.append(
             ContinuousEffect(
-                id=f"sticker101:{placement.owner}:{sticker.id}",
+                id=f"sticker101:{placement.owner}:{sticker.id}" + ("" if source is card else ":equipped"),
                 affected=[state.rules.object_id(card.id) if state.rules is not None else card.id],
                 layer="7b" if pt else "6",
                 source=None,

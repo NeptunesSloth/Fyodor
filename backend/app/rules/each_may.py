@@ -55,7 +55,7 @@ _MAY = re.compile(r"^(?:then )?(?:if (?P<cond>(?!you do\b)[^,]+), )?(?P<if>if yo
 _ANY_DID = re.compile(r"^if (?P<w>a player|an opponent|no one|no player|nobody) does, (?P<rest>.+)$")
 _FOR_EACH = re.compile(r"^for each (?P<who>opponent|player) who (?:doesn't|didn't), (?P<rest>.+)$")
 _WHO_DOESNT = re.compile(r"^each (?P<who>opponent|player) who (?:doesn't|didn't) (?P<rest>.+)$")
-_TO_EACH = re.compile(r"^(?P<lead>.+) to each (?P<who>opponent|player) who (?:doesn't|didn't)(?P<this> sacrifice a permanent this way)?$")
+_TO_EACH = re.compile(r"^(?P<lead>.+) to each (?P<who>opponent|player) who (?:doesn't|didn't)(?P<this> sacrifice a permanent(?P<disc> or discard a card)? this way)?$")
 # -- each player may (wave 23A) -- "Each player may discard their hand and draw five cards." (Raphael's Technique, Ruin Grinder) and
 # "Each player who discarded a card this way draws a card." / "… who does, …": what the players who paid get, once all have paid
 _AND_DRAW = re.compile(r"^(?P<cost>discard (?:their|your) hand) and draw (?P<rest>.+)$")
@@ -196,9 +196,11 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
     elif (w := _WHO_DOESNT.match(nxt)) is not None and w["who"] == m["who"]:
         body = _third_person(w["rest"])
     elif (t := _TO_EACH.match(nxt)) is not None and t["who"] == m["who"]:
-        if t["this"] and not (entry.get("cost") or "").startswith("Sacrifice") and not all(
+        if t["this"] and not t["disc"] and not (entry.get("cost") or "").startswith("Sacrifice") and not all(
                 a.startswith("Sacrifice") for a in entry.get("alts") or ()):
             return None  # ("who didn't sacrifice a permanent this way": only after a sacrifice)
+        if t["disc"] and not (any(x.startswith("Discard") for x in entry.get("alts") or ()) and any(x.startswith("Sacrifice") for x in entry.get("alts") or ())):
+            return None  # -- wave 110B -- "who didn't sacrifice a permanent or discard a card this way" (Osseous Sticktwister): only after that choice of two
         body = f"{t['lead']} to that player"
     if body is None and not then_texts and not opp_texts and not acting:
         return None
@@ -341,6 +343,7 @@ def _shared_cost(plan: Plan, ctx: Context, bind: str) -> str | None:
 def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """One optional payment per player of the group (turn order, 101.4), then the effect for each who didn't pay."""
     from app.rules import effects, optional_payment
+    from app.rules import mana as M
 
     players = [p for p in plan.apnap() if p in effects._players(plan, ctx, e["who"])]
     cost = e.get("cost")
@@ -348,6 +351,10 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         from app.rules import unless_pays
 
         cost = unless_pays.concrete_cost(plan, ctx, e)
+    if e.get("spell_cost110a"):  # -- (wave 110A) -- Ice Cave: 107.3h the mana cost of the spell on the stack, its X as chosen; none (or no spell left): nothing can be paid
+        sids = effects._stack_targets(plan, ctx, {"who": "event_spell"})
+        mc = plan.ch(plan.state.cards[sids[0]]).mana_cost if sids else ""
+        cost = M.parse_cost(mc).with_x(plan.rules.stack[sids[0]].x or 0).text() if mc else ""
     if e.get("shares_type"):
         cost = _shared_cost(plan, ctx, e["shares_type"])
         if cost is None:  # (no card type to share: no payment can be made — every player "doesn't")
@@ -379,6 +386,8 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             pay: dict[str, Any] = {"do": "optional_payment", "who": f"player:{p}", "cost": cost if cost is not None else e["alts"][0], "bind": name}
             if 'cost_has_x' in e:
                 pay['cost_has_x'] = e['cost_has_x']
+            if e.get("for110o"):  # -- (wave 110O) -- the object this round of payments is about (shown in the question)
+                pay["for110o"] = e["for110o"]
             if e.get("alts") and cost is None:
                 pay["alts"] = list(e["alts"])
             if defer:

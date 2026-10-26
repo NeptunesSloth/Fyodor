@@ -18,13 +18,20 @@ _DRAFT = re.compile(
     r"|Immediately after the draft, .*"
     r"|As you draft (?:a|an) .*"
     r"|During the draft, .*"
+    r"|Before you shuffle your deck to start the game, you may reveal this card from your deck and exile .+? you drafted that (?:isn't|aren't) in your deck\."
     r"|Instead of drafting a card from a booster pack, .*"
     r"|As long as this card is face up during the draft, .*"
     r"|If you removed a creature card with flying from the draft with cards named (?:~|[A-Z][^.]+?), ~ has flying\. The same is true for .*"
     # what the draft noted: nothing was noted, so the ability has nothing to refer to (a player, a name, a type): it never applies
     r"|~ attacks a player you noted for cards named (?:~|[A-Z][^.]+?) each combat if able\."
     r"|As long as you control one or more creatures with a name you noted for cards named (?:~|[A-Z][^.]+?), ~ and those creatures get \+1/\+1 and have lifelink\."
-    r"|Other creatures you control of a type you noted for cards named (?:~|[A-Z][^.]+?) get \+1/\+1\.")
+    # (wave 110I) nothing was noted / removed, so X is 0: it enters with no counters
+    r"|(?:This creature|~) enters with X \+1/\+1 counters on it, where X is (?:the highest number you noted|the number of cards you removed from the draft) (?:for|with) cards named (?:~|[A-Z][^.]+?)\."
+    r"|Other creatures you control of a type you noted for cards named (?:~|[A-Z][^.]+?) get \+1/\+1\."
+    # (wave 110B) 701.31a / 901.3: a player planeswalks only in a Planechase game; Commander has no planar deck, so this replacement never applies (Susan Foreman)
+    r"|If you would planeswalk, instead look at the top two cards of your planar deck, put one on the bottom of your planar deck and the other on top, then planeswalk\."
+    # (wave 110B final) 901.3, 901.9: a planar die exists only in a Planechase game; none is rolled in Commander, so this replacement never applies (Ichor Elixir)
+    r"|If you would roll one or more planar dice, instead roll that many planar dice plus one and ignore one\.")
 
 
 def definition(text: str) -> dict[str, Any] | None:

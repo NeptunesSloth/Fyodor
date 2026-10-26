@@ -96,6 +96,10 @@ def _line(d: dict[str, Any], ch: Characteristics, card: CardInstance) -> str | N
 
     if d["keyword"] == "jump-start":
         return "Jump-start"
+    if d["keyword"] == "brink110b":  # -- Back from the Brink (wave 110B) -- the exile is part of the cost (602.2b), the token is a copy of that card (707.2); paying a mana cost is not casting
+        cost = M.parse_cost(ch.mana_cost.replace("{X}", "") or "{0}") if ch.mana_cost and "//" not in ch.mana_cost + ch.name else None  # (712.8a, 715.4: a card in a graveyard has only its front face's characteristics; a split card has both, which cost is "its" is unsettled)
+        return None if cost is None or cost.unsupported else (
+            f"{cost.text()}, Exile this card from your graveyard: Create a token that's a copy of the card exiled to activate this ability. Activate only as a sorcery.")
     if d.get("num"):
         return f"{d['keyword'].capitalize()} {d['num']}"
     if d.get("mv"):  # (wave 49B) "{X}, where X is its mana value": that much generic mana (an {X} in the card's own cost is 0 there, 107.3g); a card with two ways to read it isn't given it
@@ -120,6 +124,10 @@ def jump_start(state: GameState, player: str, card: CardInstance, ch: Characteri
     from app.rules.plan import Plan
 
     view = None
+    r = state.rules  # -- (wave 110O) -- granted until end of turn by a resolved effect (Filigree Racer): graveyard_grants.grant_flashback
+    if r is not None and card.zone == f"{player}:graveyard" and card.owner == player and any(
+            g.get("jump_start") and g.get("oid") == r.object_id(card.id) and g.get("turn") == state.turn.number for g in r.graveyard_grants):
+        return True
     for src, d in _statics(state, info, "zone_grant"):
         if d["keyword"] != "jump-start" or src.controller != player or card.zone != f"{player}:graveyard" or card.owner != player:
             continue
@@ -144,12 +152,12 @@ def apply(state: GameState, card: CardInstance, ch: Characteristics, info: CardI
     view = None
     for src, d in found:
         if (not d.get("all_players") and (card.zone != f"{src.controller}:{zone}" or card.owner != src.controller)
-                or d['keyword'] not in KEYWORDS and not d['keyword'].endswith('cycling')):
+                or d['keyword'] not in KEYWORDS and d['keyword'] != "brink110b" and not d['keyword'].endswith('cycling')):
             continue
         view = view or Plan.view(state, src.controller, info)
         if not selectors.matches(view, selectors.from_key(d["filter"]), card, ch, src.controller, src.id) or (line := _line(d, ch, card)) is None:
             continue
         parsed = parse_abilities(line)
-        if len(parsed) == 1 and (parsed[0].kind == "keywords" or d["keyword"] in ("scavenge", "jump-start")):  # (wave 44C: read as the ability they mean, 702.97a, 702.133a)
+        if len(parsed) == 1 and (parsed[0].kind == "keywords" or d["keyword"] in ("scavenge", "jump-start", "brink110b")):  # (wave 44C: read as the ability they mean, 702.97a, 702.133a)
             extra.append(replace(parsed[0], index=100 + len(extra)))
     return replace(ch, abilities=ch.abilities + tuple(extra)) if extra else ch

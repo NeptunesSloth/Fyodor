@@ -132,14 +132,6 @@ def test_temur_war_shaman_a_creature_turned_face_up_fights(cards):
     check(s)
 
 
-# -- Paroxysm: "If that card is a land card, destroy that creature. Otherwise, it gets +3/+3": "that creature" and "it" are the enchanted creature, which the grammar bound to
-# the revealed card (a card in a library is destroyed or pumped by nothing): the "Otherwise, it" of a judged card is read for a move of it only (Deadbridge Chant), so it stays manual
-def test_paroxysm_stays_manual(cards):
-    from app.rules import coverage
-
-    assert coverage.of_card_data(cards.resolve("Paroxysm")).level != "FULL"
-
-
 @pytest.mark.parametrize("text", [
     "You may reveal a sorcery card you own from outside the game and put it into your hand. Exile ~.",
     "You may reveal a noncreature, nonland card you own from outside the game and put it into your hand.",

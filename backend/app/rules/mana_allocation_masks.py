@@ -21,6 +21,12 @@ def requirements(cost: M.ManaCost, mode: str | None = None) -> RequirementPlan:
     def matches(symbols: tuple[str, ...]) -> tuple[str, ...]:
         if mode == 'white_red' and 'R' in symbols:
             return tuple(dict.fromkeys((*symbols, 'W')))
+        if mode == 'white_any':
+            return tuple(dict.fromkeys(x for c in symbols for x in (('C', 'U', 'B', 'R', 'G') if c == 'C' else ('W',) if c in M.COLORS else (c,))))
+        if mode in ('white_color', 'blue_color') and any(c in M.COLORS for c in symbols):
+            return tuple(dict.fromkeys((*symbols, 'W' if mode == 'white_color' else 'U')))
+        if mode == 'snow_color' and any(c in M.COLORS for c in symbols):
+            return tuple(dict.fromkeys((*symbols, M.SNOW)))
         if mode == 'colorless_color' and any(c in M.COLORS for c in symbols):
             return tuple(dict.fromkeys((*symbols, 'C')))
         if mode in ('type', 'color'):
@@ -128,7 +134,7 @@ class MaskedPayment:
 
 Units = dict[UnitClass, int]
 Found = tuple[Units, list[Choice]]
-State = tuple[int, Units, list[MaskedSource], list[Choice], int, tuple[Requirement, ...]]
+State = tuple[int, Units, list[MaskedSource], list[Choice], int, tuple[Requirement, ...], tuple[str, ...]]  # (the last: colors the distinct rows used)
 
 
 def _produced(units: Units, source: MaskedSource, index: int) -> Units:
@@ -139,14 +145,16 @@ def _produced(units: Units, source: MaskedSource, index: int) -> Units:
     return out
 
 
-def _pay_one(units: Units, remaining: list[MaskedSource], chosen: list[Choice], req: Requirement
-             ) -> Iterator[tuple[Units, list[MaskedSource], list[Choice]]]:
+def _pay_one(units: Units, remaining: list[MaskedSource], chosen: list[Choice], req: Requirement, used: tuple[str, ...] = ()
+             ) -> Iterator[tuple[Units, list[MaskedSource], list[Choice], str]]:
     for color in req.alternatives:
         for key in sorted(units, key=lambda k: (k.generic, k.snow, k.sym)):
+            if req.distinct and key.sym in used:
+                continue
             if units[key] > 0 and producer_allowed(key.producer, req.producer) and (not req.generic or key.generic) and (key.snow if color == M.SNOW else key.sym == color):
                 out = dict(units)
                 out[key] -= 1
-                yield out, remaining, chosen
+                yield out, remaining, chosen, key.sym
     for j, source in enumerate(remaining):
         src = source.source
         for index, option in enumerate(src.options):
@@ -159,13 +167,13 @@ def _pay_one(units: Units, remaining: list[MaskedSource], chosen: list[Choice], 
             keys = tuple(dict.fromkeys(source.unit_class(index, position)
                                        for position, _ in enumerate(option)))
             for key in keys:
-                if not (key.snow if alternatives == (M.SNOW,) else key.sym in alternatives):
+                if not (key.snow if alternatives == (M.SNOW,) else key.sym in alternatives) or (req.distinct and key.sym in used):
                     continue
                 if not helper and not producer_allowed(key.producer, req.producer):
                     continue
                 out = _produced(units, source, index)
                 out[key] -= 1
-                yield out, remaining[:j] + remaining[j + 1:], [*chosen, Choice(source, index)]
+                yield out, remaining[:j] + remaining[j + 1:], [*chosen, Choice(source, index)], key.sym
 
 
 
@@ -196,26 +204,26 @@ def _solve(reqs: list[Requirement], generic: int, pool: dict[str, int], sources:
     start = {UnitClass(sym): amount for sym, amount in pool.items() if amount > 0}
 
     def children(state: State) -> Iterator[State]:
-        i, units, remaining, chosen, extra, deferred = state
+        i, units, remaining, chosen, extra, deferred, used = state
         req = reqs[i] if i < len(reqs) else deferred[i - len(reqs)]
         if req.alternatives[0].isdigit():
-            for u, r, c in _pay_one(units, remaining, chosen, Requirement(req.alternatives[1:], req.generic, req.helpers, req.producer)):
-                yield i + 1, u, r, c, extra, deferred
+            for u, r, c, _sym in _pay_one(units, remaining, chosen, Requirement(req.alternatives[1:], req.generic, req.helpers, req.producer), used):
+                yield i + 1, u, r, c, extra, deferred, used
             amount = int(req.alternatives[0])
             if req.producer is None:
-                yield i + 1, units, remaining, chosen, extra + amount, deferred
+                yield i + 1, units, remaining, chosen, extra + amount, deferred, used
             else:
                 owed = (Requirement(M.ALL_MANA, generic=True, helpers=(*M.ALL_MANA, '1'), producer=req.producer),) * amount
-                yield i + 1, units, remaining, chosen, extra, deferred + owed
+                yield i + 1, units, remaining, chosen, extra, deferred + owed, used
         else:
-            for u, r, c in _pay_one(units, remaining, chosen, req):
-                yield i + 1, u, r, c, extra, deferred
+            for u, r, c, sym in _pay_one(units, remaining, chosen, req, used):
+                yield i + 1, u, r, c, extra, deferred, (*used, sym) if req.distinct else used
 
     def dfs(state: State) -> Found | None:
         budget[0] -= 1
         if budget[0] < 0:
             return None
-        i, units, remaining, chosen, extra, deferred = state
+        i, units, remaining, chosen, extra, deferred, used = state
         if i == len(reqs) + len(deferred):
             return _generic(units, remaining, generic + extra, chosen)
         for child in children(state):
@@ -223,7 +231,7 @@ def _solve(reqs: list[Requirement], generic: int, pool: dict[str, int], sources:
                 return found
         return None
 
-    initial: State = (0, start, sources, [], 0, ())
+    initial: State = (0, start, sources, [], 0, (), ())
     potential = len(reqs) + sum(int(req.alternatives[0]) for req in reqs
         if req.producer is not None and req.alternatives[0].isdigit())
     if not iterative and potential < 256:
@@ -237,7 +245,7 @@ def _solve(reqs: list[Requirement], generic: int, pool: dict[str, int], sources:
         budget[0] -= 1
         if budget[0] < 0:
             return None
-        i, units, remaining, chosen, extra, deferred = state
+        i, units, remaining, chosen, extra, deferred, used = state
         if i == len(reqs) + len(deferred):
             if (found := _generic(units, remaining, generic + extra, chosen)) is not None:
                 return found

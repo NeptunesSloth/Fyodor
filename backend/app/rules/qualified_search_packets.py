@@ -219,7 +219,7 @@ def _insert(plan: Plan, ctx: dict[str, Any], es: list[dict[str, Any]]) -> bool:
 
 
 def _names(plan: Plan, ids: list[str]) -> list[list[str]]:
-    return [card_names.names_of(plan.ch(plan.state.cards[c])) for c in ids]
+    return [card_names.reference_names(plan.ch(plan.state.cards[c])) for c in ids]
 
 
 def _prepared(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], groups: list[list[str]]) -> bool:
@@ -246,7 +246,7 @@ def prepare(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     pid, kind = ctx["controller"], e["kind"]
     if kind == "binding":
         infos = context.infos(plan, ctx, e["ref"].removeprefix(context.PREFIX))
-        return _prepared(plan, ctx, e, [card_names.names_of(ch) for _, ch in infos])
+        return _prepared(plan, ctx, e, [card_names.reference_names(ch) for _, ch in infos])
     if kind == "reveal" and e.get("hellbent") and not plan.state.zones.get(f"{pid}:hand"):
         return _insert(plan, ctx, [search(reveal=False, upto=False)])
     sel = selectors.parse(e["choose"])

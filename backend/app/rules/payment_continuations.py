@@ -153,8 +153,9 @@ def payment_riders(plan: Plan, frame: PaymentRiderFrame) -> bool:
 
     for i, source in enumerate(frame.sources):
         card = plan.state.cards.get(source.source['id']) or CardInstance.model_validate(source.source)
-        emit(plan.state, 'mana_added', object_id=source.object_id, card=card.id, player=frame.player,
-             counter='tap' if source.ability.tap else None)
+        made = frame.payment.made110d.get(card.id, ())  # (wave 110D: what it produced, 605.3b)
+        emit(plan.state, 'mana_added', object_id=source.object_id, card=card.id, player=frame.player, amount=len(made),
+             counter='tap' if source.ability.tap else None, mana_colors110i=[c for c in dict.fromkeys(made) if c in 'WUBRG'])
         rest = PaymentRiderFrame(frame.player, frame.payment, frame.sources[i + 1:], frame.then)
         after = {'do': 'payment_sources', 'frame': _SOURCES.dump_python(rest, mode='json')}
         if not casting.after_mana_ability(plan, card, source.index, source.ability, frame.player,

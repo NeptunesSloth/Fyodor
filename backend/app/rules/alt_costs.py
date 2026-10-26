@@ -72,6 +72,11 @@ def _part(text: str, x_ok: bool = False) -> C.CostComponent | str | None:
         if not C._MANA_ONLY.match(mana) or ("X" in mana and not x_ok):
             return None
         return mana
+    if part == "Exile the top three black cards of your graveyard":  # -- (wave 110O) -- Spinning Darkness: no choice, the top three black cards are exiled (118.9, 404.1)
+        from app.rules import selectors
+
+        return C.CostComponent(C.EXILE_FROM_GRAVEYARD, amount=3, text=text, selector=selectors.Selector(
+            card=True, zones=("graveyard",), zone_owner="you", colors=("B",), extras=("top110o:3",)).key())
     m = _EXILE_HAND.fullmatch(part)
     if m:
         key = C._selector(m["what"], zone="hand")
@@ -79,11 +84,13 @@ def _part(text: str, x_ok: bool = False) -> C.CostComponent | str | None:
     # "tap four untapped creatures you control with flying" (Sephara): the selector grammar reads "… with flying you control"
     part = re.sub(r"^(Tap \w+ untapped \w+) you control (with [a-z ]+)$", r"\1 \2 you control", part)
     found = C._component(part, "")
+    if found is None and C._EXILE_CHOSEN.match(part):  # (wave 110E) "exile a land you control" (Lunar Hatchling's escape)
+        found = C._one_4h(part, "")
     if found is None and re.fullmatch(r'Collect evidence \d+', part):
         parsed = C.parse_ability_cost(part)
         found = parsed.components[0] if not parsed.unsupported and len(parsed.components) == 1 else None
     if found is None or found.kind not in (C.PAY_LIFE, C.PAY_ENERGY, C.SACRIFICE, C.RETURN_PERMANENT, C.TAP_OTHER, C.DISCARD,
-                                           C.EXILE_FROM_GRAVEYARD, C.COLLECT_EVIDENCE):
+                                           C.EXILE_FROM_GRAVEYARD, C.COLLECT_EVIDENCE, C.EXILE):  # (EXILE: wave 110E, "exile a land you control")
         return None
     if found.kind not in (C.PAY_LIFE, C.PAY_ENERGY) and (found.selector is None or found.random):
         return None  # (never the spell itself; a random discard isn't printed on an alternative cost)
@@ -238,7 +245,7 @@ KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you'v
 # (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
 _KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|cleave|emerge|foretell|mutate|web-slinging|sneak|freerunning|more than meets the eye)(?: from (?P<q>[A-Za-z]+))? "
                            r"(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
-X_KEYWORDS = frozenset({"surge", "warp", "bestow", "overload", "cleave"})  # -- cast keywords (wave 43D) -- 107.3a: the cost may have {X} (the X announced for the spell is its too)
+X_KEYWORDS = frozenset({"surge", "warp", "bestow", "overload", "cleave", "foretell", "freerunning"})  # (freerunning X: wave 110I, Monastery Raid)  # -- cast keywords (wave 43D) -- 107.3a: the cost may have {X} (the X announced for the spell is its too)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
 # when the prowl condition holds for that spell
 GRANT_PROWL = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells you cast have prowl (?P<cost>(?:\{[^}X]+\})+)$")
@@ -343,6 +350,7 @@ class Offer:
     minimum_mana_value: int | None = None  # Validated against the selected face and announced X.
     cost_template: GrantedManaCost | None = None
     template_mana_has_x: bool | None = None  # Actual original cost, unknown in old offers.
+    exile_gy: bool = False  # -- wave 110I -- "If you cast this card this way and it would be put into your graveyard, exile it instead" (614.1a)
 
 
 def sneak_timing(state: GameState, player: str) -> bool:
@@ -438,6 +446,8 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
         key = f"{r.object_id(src.id)}:alt:{index}"  # (-- review 31 -- 400.7: a new As Foretold / Darksteel Monolith has a new use, as permissions' review 30c)
         if d["once"] and r.once_per_turn.get(key) == state.turn.number:
             continue
+        if d.get("tag") == "sneak" and not sneak_timing(state, player):
+            continue  # -- grants (wave 110A) -- 702.190a: a granted sneak cost is offered only in your declare blockers step too
         if d.get("zone") and not (where == d["zone"] and (d["zone"] != "hand" or card.zone == f"{player}:hand")):
             continue
         if d.get("filter") and not permissions.spell_matches(state, player, card, ch, d["filter"], info):
@@ -454,6 +464,9 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
         alt = parse_cost(f"pay {{{int(ch.mana_value)}}}" if d.get("mv_mana100i") else d["cost"])  # (wave 100I: Kentaro)
         if alt is not None:
             out.append(Offer(f"{src.id}:{index}", f"{src.name}: {d['cost']}", alt, once_key=key if d["once"] else None, tag=d.get("tag"), flash=bool(d.get("flash"))))
+    from app.rules import wave110m_cards  # -- (wave 110M) --
+
+    out += wave110m_cards.life_offers(state, player, card, ch, info)
     # -- escape (wave 5I) -- printed and granted escape costs (702.138a), for a card in its owner's graveyard
     from app.rules import escape
 

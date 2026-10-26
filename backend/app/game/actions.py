@@ -76,6 +76,7 @@ class Draw(Base):
     type: Literal["draw"] = "draw"
     player: Id | None = None
     count: int = Field(default=1, ge=1, le=100)
+    from_bottom: bool = False  # -- (wave 110B) -- River Song: "You draw cards from the bottom of your library rather than the top." (121.1: the bottom card first)
 
 
 class Move(Base):
@@ -104,6 +105,7 @@ class Move(Base):
     entry_characteristics: dict[Id, EntryCharacteristics] | None = None
     # -- transform (wave 11A) -- 712.14a: the double-faced cards among them that enter the battlefield transformed (back face up)
     back_ids: list[Id] | None = Field(default=None, max_length=250)
+    flipped_ids: list[Id] | None = Field(default=None, max_length=250)  # -- flip (wave 110I) -- 710: the flip cards among them that enter the battlefield flipped
     # -- merged permanents (wave 18D) -- 903.9c: a merged or melded commander put into the command zone instead of its owner's hand or
     # library: the zone ("hand" / "library") every card of it that isn't a commander goes to
     rest_zone: Literal["hand", "library"] | None = None
@@ -325,6 +327,7 @@ class CreateToken(Base):
     y: Coord | None = None
     tapped: bool = False
     source_id: Id | None = None  # optional provenance: the permanent that made these tokens
+    source_object: str | None = None  # -- cards (wave 110H) -- 400.7: the rules object (not just the card) that made them
     stacked: bool | None = None  # one logical stack instead of N objects (default: when count > 3)
     r: NewIds | None = None
     # filled by resolve from the card DB when token.card_id is given:
@@ -339,9 +342,10 @@ class CopyCard(Base):
     modifications: str = Field(default="", max_length=300)
     # -- cast a copy (wave 13C) -- 707.12: the copy is made in the card's own zone (exile / graveyard); 722.3c: a prepared
     # permanent's copy is made in exile with the face of its prepare spell
-    zone: Literal["exile", "graveyard"] | None = None
+    zone: Literal["exile", "graveyard", "hand"] | None = None  # (wave 110M: "hand" — a revealed card copied where it is, Kefnet; wave 110N: a copy of a revealed card made to be cast, 707.12)
     face: int | None = None
     printing: str | None = Field(default=None, max_length=64)  # the copied card's printing when the source is itself a copy (722.2b)
+    name: str | None = Field(default=None, max_length=200)  # -- wave 110J -- the copy's name when ``printing`` is another card's (Garth One-Eye: a copy of the card with a chosen name)
     # -- spell copies (wave 31D) -- 707.10, 608.2h: a copy of a spell that has left the stack is made from how it last existed there (the object id
     # it had): its name, printing and face are the snapshot's (public: it was a spell), whatever zone the card is in now
     last_known: str | None = Field(default=None, max_length=80)
@@ -381,6 +385,7 @@ class Meld(Base):
     result_name: str = Field(max_length=200)
     row: Literal["land", "creature", "other"] = "creature"  # where it lands on the battlefield (its combined face's type)
     r: NewIds | None = None
+    tapped: bool = False  # (wave 110D) "It enters tapped" (Mishra, Claimed by Gix): it enters the battlefield tapped, never "becomes tapped"
 
 
 class SetFace(Base):
@@ -583,6 +588,10 @@ class RestartGame(Base):
     type: Literal["restart_game"] = "restart_game"
     draw: int = Field(default=7, ge=0, le=20)
     r: dict[str, ShuffleData] | None = None
+    # -- wave 110A -- 727: Karn Liberated restarts the game through the rules engine. ``first`` is the starting player (727.1a); only the players
+    # still in the game take part; ``keep`` are cards left in exile (727.5), put onto the battlefield when the pregame is over.
+    first: Id | None = None
+    keep: list[Id] = Field(default_factory=list)
 
 
 class RestoreState(Base):
@@ -625,6 +634,8 @@ class Life(Base):
     player: Id | None = None
     delta: int = Field(ge=-100000, le=100000)
     group: int = Field(default=0, ge=0)  # Native simultaneous life-loss operation receipt.
+    paid: bool = False  # the loss is a payment of life (119.4): "whenever you pay life" (wave 110D)
+    cause110m: Id | None = None  # (wave 110M) a life gain: the spell (card id) whose resolution caused it
 
 
 class SetLife(Base):
@@ -996,6 +1007,7 @@ class CastSpell(_Intent):
     division: Division = Field(default_factory=list)
     x_value: int | None = Field(default=None, ge=0, le=1000)
     modes: list[int] = Field(default_factory=list, max_length=10)
+    chooser110f: Id | None = None  # (wave 110F) 700.2e: the opponent who chooses the modes of "An opponent chooses one" (Fatal Lore)
     # MANUAL PAY: exactly these mana sources (plus your mana pool). None: the engine pays per
     # your payment preference (AUTO pays, ASK suggests a payment first, MANUAL asks for sources).
     sources: list[Id] | None = Field(default=None, max_length=60)
@@ -1008,14 +1020,24 @@ class CastSpell(_Intent):
     splice: list[Id] = Field(default_factory=list, max_length=10)  # 702.47a: cards revealed from your hand to splice onto this spell, in order
     assist: str | None = None  # 702.132a: the player chosen to help pay generic mana ("" = no one; None = not asked yet)
     assist_amount: int | None = Field(default=None, ge=0, le=200)  # how much of it that player pays
+    pick110e: str | None = None  # -- cast-time choice (wave 110E) -- the creature type chosen as an additional cost (rules/wave110e_opp.py)
     gift_to: str | None = None  # -- gift (wave 23D) -- 702.174a: the opponent a promised gift goes to (None: asked when there is a choice)
     prototype: bool = False  # 702.160a: cast it prototyped (its alternative mana cost, power and toughness, 718.3)
     fuse: bool = False  # 702.102a: cast both halves of a split card with fuse from your hand (one fused split spell)
     # Cost contributions that aren't mana (convoke / improvise / delve): validated and applied
     # only when the rest of the total cost is paid (601.2h: no partial payments).
     contributions: list[Contribution] = Field(default_factory=list, max_length=60)
+
+    @field_validator("kicker")
+    @classmethod
+    def _kicker_range(cls, v: int) -> int:
+        if v % 1024 > 1000:  # (-- wave 110G -- either one count, or two packed counts first + 1024 * second, each 0..1000)
+            raise ValueError("kicker count out of the platform range 0..1000")
+        return v
     # 702.33: pay the kicker cost this many times (1 for kicker; any number for multikicker)
-    kicker: int = Field(default=0, ge=0, le=1000)  # platform numeric range, like x_value; not a rules maximum
+    kicker: int = Field(default=0, ge=0, le=1000 * 1025)  # platform numeric range (0..1000), like x_value; not a rules maximum; two any-number costs pack first + 1024 * second (costs.PAIR_SHIFT)
+    # -- Chorus of the Conclave (wave 110C) -- 601.2b: the {1} paid for its own additional cost (not a kicker: the spell isn't kicked); platform range
+    chorus: int = Field(default=0, ge=0, le=1000)
     # (wave 3$) the objects chosen for the parts of an additional cost ("As an additional cost to cast this spell,
     # sacrifice a creature"); anything missing is asked for as a decision
     cost_choices: list[CostChoice] = Field(default_factory=list, max_length=10)
@@ -1054,6 +1076,7 @@ class TurnFaceUp(_Intent):
     # -- keyword actions & face-down (wave 3F) -- which way, when there are several: its morph cost
     # (702.37e), its disguise cost (702.168d), or a manifested / cloaked creature card's mana cost (701.40b)
     method: Literal["morph", "disguise", "mana_cost"] | None = None
+    x_value: int | None = Field(default=None, ge=0, le=1000)  # -- face-down X (wave 110B) -- 107.3a: the X of "Morph {X}{B}{B}", announced as it is paid
     cost_choices: list[CostChoice] = Field(default_factory=list)  # -- hidden exile (wave 18A) -- what pays a non-mana morph cost (602.2b)
 
 
@@ -1325,8 +1348,10 @@ class RulesDamage(Base):
     players: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # life lost
     commander: list[CommanderHit] = Field(default_factory=list)  # combat damage by commanders (also in players)
     planeswalkers: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # loyalty removed
+    lifelink_cause110m: dict[str, str] = Field(default_factory=dict)  # (wave 110M) lifelink key -> the spell (card id) whose damage it is
     lifelink: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # life gained
     wither: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # card -> -1/-1 counters
+    heal110h: list[str] = Field(default_factory=list)  # creatures whose earlier marked damage is healed as this damage is marked (Wolverine, Fierce Fighter)
     # -- triggers (wave 17D) -- 120.3d: card -> the player who puts those counters (its source's controller) -> how many
     wither_by: dict[str, dict[str, Annotated[int, Field(ge=0, le=100000)]]] = Field(default_factory=dict)
     poison: dict[str, Annotated[int, Field(ge=0, le=100000)]] = Field(default_factory=dict)  # player -> poison counters

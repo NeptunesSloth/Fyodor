@@ -42,7 +42,8 @@ if TYPE_CHECKING:
 BORROWED = 2_000_000  # above every other number an ability of an object is known by (granted.py INDEX_BASE …); bound: ActivateAbility.ability
 STRIDE = 32  # legacy direct slots; additional/recursive abilities use provenance IDs
 
-_SOURCE = re.compile(r"^all activated abilities of (?P<src>.+?)(?P<nomana> except mana abilities)?$")
+_SOURCE = re.compile(r"^all activated abilities of (?P<src>.+?)(?P<nomana> except mana abilities)?(?: except for loyalty abilities)?$")  # (loyalty abilities are never lent by ``_lent`` unless asked)
+LOYALTY_ALL = "all loyalty abilities of all other planeswalkers on the battlefield"  # -- wave 110A -- Nicol Bolas, Dragon-God
 _LINKED = re.compile(r"^(?:all |the )?(?P<what>(?:[\w\-]+ )*cards?) exiled with (?:it|this \w+|~)$")
 _EXILED_CARD = re.compile(r"^the exiled card$")
 # a lender's ability that refers to what another of its abilities did (607.2, 607.5), or names a card: lent, but manual (``manual``)
@@ -67,6 +68,8 @@ def top_definition(text: str, ch: Characteristics) -> dict[str, Any] | None:
 
 def parse(rest: str) -> dict[str, Any] | None:
     """The predicate "all activated abilities of <objects>" → {"sel": selector key | None, "linked": bool, "no_mana": bool}."""
+    if rest == LOYALTY_ALL:  # loyalty abilities are lent like activated ones (113.10); each use counts for the borrower (606.3)
+        return {"sel": selectors.parse("planeswalker").key(), "linked": False, "no_mana": True, "loyalty": True}  # type: ignore[union-attr]
     m = _SOURCE.match(rest)
     if m is None:
         return None
@@ -83,7 +86,7 @@ def parse(rest: str) -> dict[str, Any] | None:
         out.update(linked=True, sel=None if linked["what"] in ("cards", "card") else replace(sel, zones=("exile",)).key())
         return out
     zone = "graveyard" if src.endswith(" in all graveyards") else None
-    phrase = re.sub(r"^(?:all|each) ", "", re.sub(r" in all graveyards$| on the battlefield$", "", src))
+    phrase = re.sub(r"^(?:all|each|the) ", "", re.sub(r" in all graveyards$| on the battlefield$", "", src))
     sel = selectors.parse(phrase)
     if sel is None or sel.player is not None or sel.either or sel.ability or sel.attacking or sel.blocking:
         return None
@@ -248,7 +251,7 @@ def modal_definition(ability: AbilityText, ch: Characteristics) -> dict[str, Any
     return scope_definition({**d, 'modal': {**d['modal'], 'index': ability.index}}, ability)
 
 
-def _lent(plan: Plan, lender: CardInstance, no_mana: bool) -> list[AbilityText]:
+def _lent(plan: Plan, lender: CardInstance, no_mana: bool, loyalty: bool = False, triggered: bool = False) -> list[AbilityText]:
     from app.rules import scripts
 
     ch = plan.ch(lender)
@@ -262,7 +265,7 @@ def _lent(plan: Plan, lender: CardInstance, no_mana: bool) -> list[AbilityText]:
     out: list[AbilityText] = []
     for i, ab in enumerate(ch.abilities):
         keyword = ab.kind == "keywords" and len(ab.keywords) == 1 and ab.keywords[0] in _ACTIVATED_KEYWORDS
-        if not (ab.kind == "activated" or (ab.kind == "mana" and not no_mana) or keyword):
+        if loyalty != (ab.kind == "loyalty") or not (ab.kind in ("activated", "loyalty") or (ab.kind == "mana" and not no_mana) or keyword or (triggered and ab.kind == "triggered")):  # (wave 110C: Koh, "activated and triggered")
             continue
         found = parse_abilities(ab.text if keyword else own(ab.text))
         if not found or found[0].kind != ab.kind or any(not x.text.startswith('• ') for x in found[1:]):
@@ -284,12 +287,22 @@ def _lenders(plan: Plan, st: Static) -> list[CardInstance]:
     if r is None:
         return []
     sel = selectors.from_key(d["sel"]) if d["sel"] else None
+    if d.get("chosen110c"):  # -- wave 110C -- Koh: "the last chosen card", the object recorded as Koh's choice (400.7: a card that left exile is another object)
+        from app.rules import wave110c_koh
+
+        return [state.cards[c] for c in wave110c_koh.last_chosen(state, st.source)]
     if d.get("top"):
         # Re-read after every change of top card. A library position is not an
         # object reference that can stay bound to the former card (401.5, 611.3a).
         top = state.zones.get(f"{st.controller}:library", [])[:1]
         lenders = [state.cards[c] for c in top if sel is not None and
                    selectors.matches(plan, sel, state.cards[c], plan.ch(state.cards[c]), st.controller, st.source)]
+    elif d.get("objects"):  # -- (wave 110D) -- a resolved effect's fixed lender (611.2c: the object chosen as it resolved), while it is still that battlefield object
+        lenders = [c for c in state.cards.values() if c.zone.endswith(":battlefield") and r.object_id(c.id) in d["objects"]]
+    elif d.get("crafted"):  # -- (wave 110D) -- "the exiled cards used to craft it" (702.167c, The Enigma Jewel): the materials still the exiled objects
+        found = [state.cards[ref.card] for ref in r.crafted_materials.get(r.object_id(st.source), []) if ref.card in state.cards
+                 and state.cards[ref.card].zone.endswith(":exile") and r.object_id(ref.card) == ref.object_id]
+        lenders = [c for c in found if sel is None or selectors.matches(plan, sel, c, plan.ch(c), st.controller, st.source)]
     elif d["linked"]:
         found = [state.cards[cid] for oid in r.exiled_with.get(r.object_id(st.source), []) if (cid := oid.rsplit(".", 1)[0]) in state.cards
                  and state.cards[cid].zone.endswith(":exile") and r.object_id(cid) == oid]
@@ -390,13 +403,15 @@ def _graph(plan: Plan) -> dict[tuple[str, int], list[AbilityText]]:
             d = st.definition['abilities_of']
             lines = []
             for lender in lenders:
-                lent = _keyword_lines(views, lender, d['keywords']) if d.get('keywords') else _lent(views, lender, d['no_mana'])
+                lent = _keyword_lines(views, lender, d['keywords']) if d.get('keywords') else _lent(views, lender, d['no_mana'], bool(d.get('loyalty')), bool(d.get('triggered')))
                 for k, ab in enumerate(lent):
                     origin = (_origin_oid(plan, cid), key, _origin_oid(plan, lender.id), *(ab.borrowed_origin or (str(ab.index),)))
                     # Preserve the original direct-slot representation where it cannot
                     # alias another lender. Richer paths use a separate JS-safe range.
                     direct = len(ab.borrowed_origin) <= 2 and k < STRIDE
                     idx = BORROWED + STRIDE * r.objects.get(lender.id, 0) + k if direct else _provenance_index(origin)
+                    if d.get("once"):  # -- (wave 110D) -- "You may activate each of those abilities only once each turn." (602.5b: each is its own ability)
+                        ab = replace(ab, text=f"{ab.text} Activate only once each turn.")
                     lines.append(replace(ab, index=idx, borrowed_origin=origin, borrowed_scope=_saved_scope(plan, cid, origin),
                                          borrowed_color=r.object_id(cid) if d.get('spend_color') else None))
             result[(cid, id(st))] = lines

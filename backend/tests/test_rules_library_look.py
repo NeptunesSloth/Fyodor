@@ -43,7 +43,7 @@ def settle(s):
     for _ in range(60):
         d=s.state.rules.decision
         if d is not None:
-            if d.kind == 'order' and d.resume.get('step') != 'order_library':
+            if d.kind == 'order' and d.resume.get('step') not in ('order_library', 'library_placements'):  # (a library order is the test's own answer)
                 act(s,d.player,type='choose',decision_id=d.id,option_ids=[o.id for o in d.options])
             else:
                 return

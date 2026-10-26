@@ -106,12 +106,20 @@ def modular_sunburst(line: str) -> bool:
     return strip_reminders(line).strip().rstrip(".").lower() == "modular—sunburst"
 
 
+def _squad_mixed(line: str) -> bool:
+    from app.rules import costs
+
+    return costs.kicker_mixed_parts(re.sub(r"\s*\(.*?\)", "", line).strip()) is not None
+
+
 def pieces(kw: str, line: str) -> list[str]:
     """The pieces of a keyword line that are this keyword ("Flying, battle cry" → ["battle cry"])."""
     if kw == "modular" and modular_sunburst(line):
         # Its triggered half is ordinary modular; entry computes the variable
         # count separately from mana colors (702.44c), rather than this zero.
         return ["modular 0"]
+    if kw == "squad" and _squad_mixed(line):  # -- squad (wave 110E) -- "Squad—{1}, Discard a card." is one keyword (its cost has a comma)
+        return [kw]
     out = []
     for p in re.split(r"[,;]\s*", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".")):
         p = p.strip().lower()
@@ -147,6 +155,12 @@ def _definition(piece: str) -> str | None:
             return None
         if kw == 'evolve':
             d = {**d, 'effects': [{'do': 'evolve_outcome', 'stage': 'mark'}, *d['effects'], {'do': 'evolve_outcome', 'stage': 'finish'}]}
+        if kw == "training":  # -- trains (wave 110G) -- 702.149c: "trains" = the resolving training ability put counters on it
+            d = {**d, 'effects': [{'do': 'evolve_outcome', 'stage': 'mark'}, *d['effects'], {'do': 'evolve_outcome', 'stage': 'finish', 'event': 'trained'}]}
+        if kw == "modular":  # -- (wave 110O) -- 702.43a: "a modular triggered ability" (Zabaz): its counters are tagged so a replacement can tell (replace.put_counters)
+            d = {**d, "effects": [{**x, "modular110o": True} for x in d["effects"]]}
+        if kw == "mentor":  # -- mentor (wave 110J) -- 702.134c: "mentors" = its mentor ability resolved (the target was legal)
+            d = {**d, "effects": [*d["effects"], {"do": "mentored110j"}]}
         if kw == "exploit":  # (702.110b: the sacrifice is what "exploits a creature")
             d = {**d, "effects": [{**x, "exploit": True} for x in d["effects"]]}
         if kw == "hideaway":  # -- hideaway (wave 29D) -- 607.2a: the card exiled is the one the permanent's other abilities call "the exiled card"
@@ -261,6 +275,10 @@ def dynamic_x(text: str) -> dict[str, Any] | None:
     """The triggered ability of a static line "[~ has] bushido / firebending / mobilize X, where X is …", or None (not read)."""
     from app.rules import scripts  # (scripts imports this module)
 
+    if sm := re.fullmatch(r"soulshift X, where X is the number of (\w+)s you control\.?", text.removeprefix("~ has ")):
+        # -- soulshift X (wave 110G) -- 702.46a; Kodama's ruling (2005-02-01): X is read from the state just before it died (triggers.py)
+        return {"kind": "triggered", "trigger": "dies_self", "optional": True, "soulshift_x110g": sm[1],
+                "target": {"what": "graveyard:" + sm[1] + ":0"}, "effects": [{"do": "bounce", "who": "target"}]}
     m = _DYNAMIC_X.fullmatch(text.removeprefix("~ has "))
     if m is None:
         return None

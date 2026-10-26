@@ -140,6 +140,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {"kind": "static", "static": LIFE_ENTRY, "cap": _LIFE_LINES[text], "effects": []}
     if text in _AS_ENTERS:
         return {"kind": "static", "static": AS_ENTERS, "do": _AS_ENTERS[text], "effects": []}
+    if text == "As ~ enters, put a phylactery counter on an artifact you control.":  # -- Phylactery Lich (wave 110C) --
+        return {"kind": "static", "static": AS_ENTERS, "do": "phylactery110c", "effects": []}
+    if text == "~ can be attached only to a legendary creature." and "Equipment" in ch.subtypes:  # -- wave 110A -- Konda's Banner (301.5c, 704.5n)
+        return {"kind": "static", "static": ATTACH_ONLY, "stat": "legendary", "min": 0, "effects": []}
     if (m := _ATTACH_ONLY.fullmatch(text)) is not None and "Equipment" in ch.subtypes:
         return {"kind": "static", "static": ATTACH_ONLY, "stat": m["stat"], "min": int(m["n"]), "effects": []}
     if (rule := _rule_static(text, ch)) is not None:
@@ -263,7 +267,8 @@ def life_cap(plan: Plan, ctx: dict[str, Any]) -> int:
 
 _AS_ENTERS = {"As ~ enters, discard your hand.": "discard_hand", "As ~ enters, sacrifice all lands you control.": "sacrifice_lands",
               "As ~ enters, mill three cards for each time it was kicked.": "mill_per_kick",  # (Urborg Lhurgoyf: 702.33d, rulings 2022-09-09)
-              "As ~ enters, if it was kicked, mill four cards.": "kicked_mill4"}  # (-- activated (wave 100I) -- Monstrous War-Leech: 702.33d, 701.17a)
+              "As ~ enters, if it was kicked, mill four cards.": "kicked_mill4",
+              "As ~ enters, you lose life equal to your life total.": "lose_life_total"}  # (wave 110I, Lich: 119.3, 614.12; replaceable, not a payment)  # (-- activated (wave 100I) -- Monstrous War-Leech: 702.33d, 701.17a)
 
 
 def plan_entry(plan: Plan, card: CardInstance, controller: str, out: dict[str, Any], answers: dict[str, str] | None = None) -> None:
@@ -285,6 +290,10 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, out: dict[str, A
             out.setdefault("choices", {})[LIFE_KEY] = value
             out[LIFE_ENTRY] = int(value or 0)
             found.append("pay_life")
+    if "phylactery110c" in found:  # -- Phylactery Lich (wave 110C) -- the artifact is chosen before it enters (614.12a)
+        from app.rules import wave110c_lich
+
+        wave110c_lich.plan_entry(plan, card, controller, answers, out)
     if found:
         out[AS_ENTERS] = found
 
@@ -310,10 +319,19 @@ def as_enters(plan: Plan, card_id: str, ep: dict[str, Any], controller: str) -> 
             from app.rules import replace
 
             plan.note(f"As {name} enters, {plan.name(controller)} pays {n} life", [card_id])
+            replace.lose_life(plan, [(controller, n)], paid=True)
+        elif what == "lose_life_total" and (n := plan.state.players[controller].life) > 0:
+            from app.rules import replace
+
+            plan.note(f"As {name} enters, {plan.name(controller)} loses life equal to their life total", [card_id])
             replace.lose_life(plan, [(controller, n)])
         elif what == "mill_per_kick" and (n := 3 * values.kicked_count(plan, ctx)):  # 701.17a (not cast: never kicked)
             plan.note(f"As {name} enters, {plan.name(controller)} mills {n} cards", [card_id])
             effects.PRIMITIVES["mill"](plan, ctx, {"do": "mill", "who": "you", "n": n})
+        elif what == "phylactery110c":  # -- Phylactery Lich (wave 110C) --
+            from app.rules import wave110c_lich
+
+            wave110c_lich.put(plan, card_id, ep, controller)
         elif what == "kicked_mill4":  # (the spell's own payment record, 601.2h: "if it was kicked")
             from app.rules import conditions
 
@@ -337,6 +355,10 @@ def equip_problem(plan: Plan, source: CardInstance, host: CardInstance) -> str |
         return f"{host.name or 'that creature'} can't be equipped"
     for d in _statics(plan, source, ATTACH_ONLY):
         hch = plan.ch(host)
+        if d["stat"] == "legendary":  # (-- wave 110A -- "can be attached only to a legendary creature")
+            if "Legendary" not in hch.supertypes:
+                return "it can be attached only to a legendary creature"
+            continue
         value = sba.power(host, hch) if d["stat"] == "power" else sba.toughness(host, hch)
         if value is not None and value < int(d["min"]):  # (a value the engine can't read: never moved off on a guess)
             return f"it can be attached only to a creature with {d['stat']} {d['min']} or greater"
@@ -491,6 +513,7 @@ def _single(ability: Any, ch: Any, text: str) -> dict[str, Any] | None:
 #   less {1} for each one you control, any time you have priority (rulings 2021-02-05) — casting.foretell.
 # * "Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate." (Carth the Lion): 606.4, 118.8 — one total loyalty cost
 #   ([-3] removes two counters at once; [0] becomes [+1]), +1 for each one you control (rulings 2021-06-18) — casting.ability_problem / pay.
+RANAR = "ranar110i"
 FIRST_TURNS, NO_FACE_UP, ALL_WITHER, MORE_SURVEIL, FORETELL = "first_turns100d", "no_face_up100d", "all_wither100d", "more_surveil100d", "foretell100d"
 # * "Planeswalkers you control aren't put into their owners' graveyards for having 0 loyalty." (Sanctum Lurker): the 704.5i exception (ruling
 #   2026-08-21) — sba.py.
@@ -503,6 +526,7 @@ _FLAGS = {"Instant and sorcery spells you control have rebound.": REBOUND,
           "You can't spend mana to cast this spell.": NO_MANA,
 "Planeswalkers' loyalty abilities you activate cost an additional [+1] to activate.": LOYALTY_PLUS,
 "You may look at an additional two cards each time you surveil.": MORE_SURVEIL,
+          "The first card you foretell each turn costs {0} to foretell.": RANAR,  # (wave 110I) 702.143a, ruling 2021-06-18: the first foretell special action each turn
           "Foretelling cards from your hand costs {1} less and can be done on any player's turn.": FORETELL,
           "You can't cast ~ during your first, second, or third turns of the game.": FIRST_TURNS,
           "Permanents your opponents control can't be turned face up during your turn.": NO_FACE_UP,
@@ -528,6 +552,10 @@ def any_static(plan: Plan, kind: str) -> bool:
 
 
 def face_up_barred(plan: Plan, card: CardInstance) -> str | None:
+    from app.rules import wave110d_rules  # -- rules (wave 110D) -- "can't be turned face up"
+
+    if (own := wave110d_rules.face_up_barred(plan, card)) is not None:
+        return own
     you = plan.state.turn.active_player
     src = next((c for c in _sources(plan, NO_FACE_UP) if c.controller == you != card.controller), None)
     return None if src is None else f"{src.name or 'A permanent'}: permanents its controller's opponents control can't be turned face up during their turn"

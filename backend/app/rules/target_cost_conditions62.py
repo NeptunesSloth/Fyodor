@@ -25,6 +25,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 def own_change(sentence: str) -> dict[str, Any] | None:
     if sentence == 'This ability costs {1} less to activate if it targets a creature with power 3 or less.':
         return {'dir': -1, 'n': 1, 'own_target_rule62': 'small'}
+    if sentence == 'This ability costs {2} less to activate if it targets two creatures you control.':  # (wave 110I) Wayta, Trainer Prodigy: 601.2f, read from the announced targets
+        return {'dir': -1, 'n': 2, 'own_target_rule62': 'two_mine'}
     return None
 
 
@@ -33,6 +35,8 @@ def matches(view: Any, player: str, source: Any, rule: str, targets: tuple[str, 
              and view.state.cards[cid].zone.endswith(':battlefield')]
     if rule == 'enchanted':
         return source.attached_to is not None and any(c.id == source.attached_to for c in cards)
+    if rule == 'two_mine':
+        return sum(1 for c in cards if c.controller == player and 'Creature' in view.ch(c).types) >= 2
     for card in cards:
         ch = view.ch(card)
         if rule == 'small' and 'Creature' in ch.types and ch.pt is not None and ch.pt[0] <= 3:

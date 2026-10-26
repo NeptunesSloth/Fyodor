@@ -27,9 +27,9 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 Context = dict[str, Any]
-_HEAD = re.compile(r"^(?:then )?(?P<who>each opponent|that player|defending player)(?: who (?P<pred>[^—]+?))? faces a villainous choice — (?P<opts>.+)$")
-_WHO = {"each opponent": "each_opponent", "that player": "event_player", "defending player": "defending_player"}
-_BAD = re.compile(r'"target|\bthen\b|\bmay\b|\bthis way\b|\bthat (?:card|creature|permanent|spell)\b|\bchaos\b', re.I)
+_HEAD = re.compile(r"^(?:then )?(?P<who>each opponent|that player|defending player|target opponent)(?: who (?P<pred>[^—]+?))? faces a villainous choice — (?P<opts>.+)$")
+_WHO = {"each opponent": "each_opponent", "that player": "event_player", "defending player": "defending_player", "target opponent": "target"}
+_BAD = re.compile(r'"target|\bthen\b|\bthis way\b|\bthat (?:card|creature|permanent|spell)\b|\bchaos\b', re.I)
 
 
 def _third(option: str) -> str:
@@ -37,6 +37,16 @@ def _third(option: str) -> str:
     out = re.sub(r"(?i)\bthat opponent\b", "that player", option)
     out = re.sub(r"(?i)\bthey (\w+)\b", lambda m: f"that player {m[1]}s", out)
     return out[:1].upper() + out[1:]
+
+
+def _read(read: Callable[[str], list[dict[str, Any]] | None], option: str) -> list[dict[str, Any]] | None:
+    """One option's effects; "You may <one instruction>" (wave 110B, Dr. Eggman) is that instruction made optional (the chooser's opponent decides: 603.5)."""
+    if not re.match(r"(?i)you may ", option) or re.search(r"(?i)\bmay\b", option[8:]):
+        return None if re.search(r"(?i)\bmay\b", option) else read(option + ".")
+    from app.rules import scripts
+
+    found = scripts.parse_effects(option + ".")
+    return [{**found[0][0], "optional": True}] if found is not None and found[1] is None and found[2] and len(found[0]) == 1 else None
 
 
 def sentence(text: str, effects: list[dict[str, Any]], read: Callable[[str], list[dict[str, Any]] | None]) -> list[dict[str, Any]] | None:
@@ -63,7 +73,7 @@ def sentence(text: str, effects: list[dict[str, Any]], read: Callable[[str], lis
         if not b.startswith("or "):
             continue
         a, b = _third(a), _third(b[3:])
-        ea, eb = read(a + "."), read(b + ".")
+        ea, eb = _read(read, a), _read(read, b)
         if not ea or not eb or '"target' in json.dumps([ea, eb]) or '"ref:' in json.dumps([ea, eb]):
             continue
         return [*out, {"do": "villain", "who": who, "a": ea, "b": eb, "labels": [a, b]}]
@@ -78,13 +88,14 @@ def _for(value: Any, pid: str) -> Any:
 
 def villain(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.55d: one player at a time, in APNAP order: that player chooses, the option is carried out, the next one chooses."""
-    from app.rules import effects
+    from app.rules import effects, wave110l_cards  # (wave 110L: 701.55c, an additional time, The Valeyard)
     from app.rules.plan import decide
 
     left = e.get("left")
     if left is None:
         who = effects._players(plan, ctx, e["who"])
         left = [p for p in plan.apnap() if p in who]
+        left = [q for p in left for q in [p] * (1 + wave110l_cards.extra_faces(plan, p))]
     left = [p for p in left if p in plan.live()]
     if not left:
         return True

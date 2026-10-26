@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 PLACEHOLDER = re.compile(r"rel:(\w+)@(that|target|targets)\b")
 _REFS = {"it": "pron", "that creature": "that", "that permanent": "that", "~": "src", "this creature": "src", "those creatures": "targets",
          "one of those creatures": "targets", "equipped creature": "host", "enchanted creature": "host"}
-_TARGET = r"target (?:creature|land|permanent(?: you (?:own|control))?|artifact|enchantment)"
+_TARGET = r"target (?:creature|Wall|land|permanent(?: you (?:own|control))?|artifact|enchantment)"
 _REF = "|".join([*sorted(map(re.escape, _REFS), key=len, reverse=True), _TARGET])
 
 
@@ -265,8 +265,12 @@ def rewrite(body: str) -> str:
     body = re.sub(r"^Choose (target [^.,]+)\. (At this turn's next end of combat, [^.]*?) it( this turn\.)$", r"\2 \1\3", body)
     # "create a white Aura enchantment token named Contract attached to target creature an opponent controls. The token has enchant creature and "Whenever enchanted creature attacks, …"" (Scriv,
     # the Obligator): the token roles.NAMED knows, with exactly those abilities
-    from app.rules import roles
+    from app.rules import (
+        roles,
+        wave110d_named,  # -- named Aura tokens (wave 110D) --
+    )
 
+    body = wave110d_named.rewrite(body)
     contract = roles.NAMED["Contract"][1]
     return body.replace('create a white Aura enchantment token named Contract attached to target creature an opponent controls. The token has enchant creature and "' + contract + '"',
                         "create a Contract Aura token attached to target creature an opponent controls.")

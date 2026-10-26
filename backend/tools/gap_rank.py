@@ -1,6 +1,8 @@
 """Rank the remaining rules gaps by reusable family (development tool).
 
     python -m tools.gap_rank --db ../data/cards.sqlite [--out gaps.md] [--top 25] [--family NAME]
+    python -m tools.gap_rank --set dsk --family trigger_other     # triage one (new) set
+    python -m tools.gap_rank --since 2026-09-01                    # every card first printed since a date
 
 Loads the Commander-legal cards, asks ``coverage`` which ability lines are unsupported, and buckets
 those lines into regex families. A line goes to the first family that matches. "Missing" counts
@@ -122,6 +124,23 @@ def _ngrams(detail: list[tuple[int, str, list[str]]], limit: int) -> list[tuple[
     return [(g, n, [x for _, x in sorted(where[g])[:4]]) for g, n in count.most_common(limit)]
 
 
+def _scoped(db_path: Path, set_codes: list[str], since: str | None) -> set[str]:
+    """Oracle ids printed in any of ``set_codes`` and/or first printed on or after ``since``."""
+    import sqlite3
+
+    db = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    where, params = [], []
+    if set_codes:
+        where.append(f"oracle_id IN (SELECT oracle_id FROM printings WHERE set_code IN ({','.join('?' * len(set_codes))}))")
+        params += [c.lower() for c in set_codes]
+    if since:
+        where.append("oracle_id IN (SELECT oracle_id FROM printings GROUP BY oracle_id HAVING MIN(released_at) >= ?)")
+        params.append(since)
+    ids = {r[0] for r in db.execute(f"SELECT DISTINCT oracle_id FROM printings WHERE {' AND '.join(where)}", params)}
+    db.close()
+    return ids
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", type=Path)
@@ -130,10 +149,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--family", action="append", default=[])
     ap.add_argument("--limit", type=int, default=60)
     ap.add_argument("-j", type=int, default=8)
+    ap.add_argument("--set", dest="set_codes", action="append", default=[],
+                    help="only cards printed in this set (repeatable): triage a new set")
+    ap.add_argument("--since", help="only cards first printed on or after this date (YYYY-MM-DD)")
     ap.add_argument("--ngrams", action="append", default=[],
                     help="list the most common 3-4 word phrases in this family's sole-blocker lines (repeatable)")
     args = ap.parse_args(argv)
-    cards, _ = rows(args.db or load_settings().cards_db_path)
+    db_path = args.db or load_settings().cards_db_path
+    cards, _ = rows(db_path)
+    if args.set_codes or args.since:  # -- new-set triage --
+        cards = [c for c in cards if c["oracle_id"] in _scoped(db_path, args.set_codes, args.since)]
     with ProcessPoolExecutor(args.j) as pool:
         results = [r for r in pool.map(_card, cards, chunksize=256) if r is not None]
     lines_by: Counter[str] = Counter()

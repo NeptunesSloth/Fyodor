@@ -22,9 +22,53 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         parsed = scripts.parse_effects(CRAFT_RETURN)
         if base is not None and parsed is not None and parsed[1] is None and not parsed[2]:
             return {**base, 'effects': [{'do': 'prepare_craft_materials'}, *parsed[0], {'do': 'cleanup_craft_materials'}]}
+    if ability.kind == 'triggered' and text == 'When ~ enters, you gain life equal to the mana value of the exiled card used to craft it.':  # (wave 110B)
+        base = scripts.define(replace(ability, text='When this creature enters, you gain 1 life.'), ch)
+        return None if base is None else {**base, 'effects': [{**base['effects'][0], 'n': {'crafted_mv': True}}]}
     if ability.kind == 'static' and text == "~'s power and toughness are each equal to the number of colors among the exiled cards used to craft it.":
         return {'kind': 'static', 'static': 'cda', 'p': {'crafted_colors': True}, 't': {'crafted_colors': True}, 'effects': []}
+    if ability.kind == 'static' and text == "~'s power and toughness are each equal to the total power of the exiled cards used to craft it.":  # (wave 110A: Wretched Bonemass)
+        return {'kind': 'static', 'static': 'cda', 'p': {'crafted_power': True}, 't': {'crafted_power': True}, 'effects': []}
+    if ability.kind == 'static' and ability.text == KEYWORDS_LINE:
+        return {'kind': 'static', 'static': 'crafted_keywords110a', 'effects': []}  # read by ``overlay`` (layers)
+    if ability.kind == 'static' and text == "~'s power is equal to the total power of the exiled cards used to craft it.":  # (wave 110E)
+        return {'kind': 'static', 'static': 'cda', 'p': {'crafted_power': True}, 't': None, 'effects': []}
     return None
+
+
+# 702.167a / 613.1f: the permanent has each of these keywords while a card exiled to craft it has it (Wretched Bonemass); "protection" is each protection quality.
+KEYWORDS = ("flying", "first strike", "double strike", "deathtouch", "haste", "hexproof", "indestructible", "lifelink", "menace", "protection", "reach", "trample", "vigilance")
+KEYWORDS_LINE = ("This creature has flying as long as an exiled card used to craft it has flying. The same is true for first strike, double strike, deathtouch, haste, hexproof, "
+                 "indestructible, lifelink, menace, protection, reach, trample, and vigilance.")
+
+
+def overlay(state: Any, card: Any, ch: Any, info: Any) -> Any:
+    """The keywords the exiled craft materials have (their current characteristics, as the card is now in exile), for a permanent with the line above."""
+    from app.rules import characteristics as chars
+    from app.rules import oracle
+
+    r = state.rules
+    refs = r.crafted_materials.get(r.object_id(card.id)) if r is not None else None
+    if not refs or KEYWORDS_LINE not in {a.text for a in ch.abilities}:
+        return ch
+    got: set[str] = set()
+    protections: list[Any] = []
+    for ref in refs:
+        mat = state.cards.get(ref.card)
+        if mat is None or r.object_id(mat.id) != ref.object_id or not mat.zone.endswith(':exile'):
+            continue
+        mch = chars.of(mat, info)
+        got |= {k for k in mch.keywords if k in KEYWORDS and k != 'protection'}
+        for ab in mch.abilities:
+            if ab.kind == 'keywords' and 'protection' in ab.keywords:
+                from app.rules.protection import _pieces
+
+                protections += [oracle.parse_abilities(p + '.')[0] for p in _pieces(ab.text)]
+    if protections:
+        from dataclasses import replace as rep
+
+        ch = replace(ch, abilities=(*ch.abilities, *(rep(a, index=1100 + i) for i, a in enumerate(protections))))
+    return replace(ch, granted=ch.granted | frozenset(got)) if got else ch
 
 
 def parse_mana(text: str, identity: tuple[str, ...], name: str) -> M.ManaAbility | None:
@@ -84,6 +128,25 @@ def colors(plan: Plan, ctx: dict[str, Any]) -> set[str]:
     return {color for ref in refs if (card := plan.state.cards.get(ref.card)) is not None
             and plan.oid(card) == ref.object_id and card.zone.endswith(':exile')
             for color in plan.ch(card).colors}
+
+
+def mana_value(plan: Plan, ctx: dict[str, Any]) -> int:
+    """The mana value of the exiled card(s) the permanent was crafted with (702.167a); a card's mana value in exile is its own (202.3)."""
+    refs = plan.rules.crafted_materials.get(ctx.get('source_object') or '', [])
+    return sum(int(plan.ch(card).mana_value) for ref in refs if (card := plan.state.cards.get(ref.card)) is not None
+               and plan.oid(card) == ref.object_id and card.zone.endswith(':exile'))
+
+
+def total_power(plan: Plan, ctx: dict[str, Any]) -> int:
+    """The total power of the exiled craft materials (a card in exile has its own power: a * counts as 0, 208.2a)."""
+    refs = plan.rules.crafted_materials.get(ctx.get('source_object') or '', [])
+    total = 0
+    for ref in refs:
+        card = plan.state.cards.get(ref.card)
+        if card is not None and plan.oid(card) == ref.object_id and card.zone.endswith(':exile'):
+            pt = plan.ch(card).pt
+            total += max(0, pt[0]) if pt is not None else 0
+    return total
 
 
 def production(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

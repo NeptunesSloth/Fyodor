@@ -15,6 +15,7 @@ import pytest
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_conditionals import pick, token_of, until_asked
 from tests.test_rules_wave12a_counters_keywords import answer, rolls  # noqa: I001
@@ -209,10 +210,10 @@ def test_frontier_siege_khans_adds_mana_at_each_of_your_main_phases(cards, word,
     assert zone_of(s, SIEGE) == "p1:battlefield"
     next_turn(s)  # the precombat main phase of Alice's next turn
     settle(s)
-    assert s.state.players["p1"].mana.get("G", 0) == mana_added
+    assert visible_pool(s.state, "p1").get("G", 0) == mana_added
     to_phase(s, "main2")
     settle(s)
-    assert s.state.players["p1"].mana.get("G", 0) == mana_added  # (the first main phase's mana emptied with the phase, 500.5)
+    assert visible_pool(s.state, "p1").get("G", 0) == mana_added  # (the first main phase's mana emptied with the phase, 500.5)
     check(s)
 
 
@@ -254,7 +255,7 @@ def test_mana_echoes_counts_the_creatures_sharing_a_type_with_the_one_that_enter
     mana(s, G=1)
     act(s, "p1", type="cast_spell", card_id=elves.id)
     settle(s, "yes")
-    assert s.state.players["p1"].mana.get("C", 0) == amount
+    assert visible_pool(s.state, "p1").get("C", 0) == amount
     check(s)
 
 

@@ -44,8 +44,12 @@ ALL_WHATS = ("card name", "card name other than a basic land card name", "nonlan
              "nonartifact, nonland card name", "noncreature, nonland card name", "nonbasic land card name")
 
 
+SECOND = "second card name other than a basic land card name"  # Null Chamber (wave 110F): the opponent's name, recorded after the first as "A | B"
+SEP = " | "
+
+
 def is_choice(what: str | None) -> bool:
-    return bool(what) and _WHAT.match(what or "") is not None
+    return bool(what) and (what == SECOND or _WHAT.match(what or "") is not None)
 
 
 def option(what: str) -> DecisionOption:
@@ -119,7 +123,15 @@ def names_of(ch: Characteristics) -> list[str]:
 def share(a: Characteristics, b: Characteristics) -> bool:
     """201.2a: two objects have the same name if they have at least one name in common; an object with no name (face down, 708.2a) has the
     same name as no other object, another nameless one included."""
-    return bool({normalize_name(n) for n in names_of(a)} & {normalize_name(n) for n in names_of(b)})
+    return (bool({normalize_name(n) for n in names_of(a)} & {normalize_name(n) for n in names_of(b)})
+            or any(has_name(x, n) for x, y in ((a, b), (b, a)) if x.name_test is not None for n in names_of(y)))  # -- Spy Kit (wave 110J): rule-given names
+
+
+def split_wild(chs: list[Characteristics]) -> tuple[list[set[str]], list[Characteristics]]:
+    """Spy Kit (wave 110J): name sets of the objects with a fixed name list, and the objects whose names come from a rule (``name_test``: they
+    have every name it accepts, so in a "different names" group each is distinct from all others, and in a "same name" group it needs a
+    name the others all have that its test accepts)."""
+    return [set(names_of(c)) for c in chs if c.name_test is None], [c for c in chs if c.name_test is not None]
 
 
 def chosen(plan: Plan, source: str | None) -> str | None:
@@ -129,9 +141,21 @@ def chosen(plan: Plan, source: str | None) -> str | None:
     return value.strip() if value else None
 
 
+ANY_CREATURE = "\0any nonlegendary creature card name"  # Spy Kit (wave 110J): stands for every name a nonlegendary creature card has
+
+
+def reference_names(ch: Characteristics) -> list[str]:
+    """``names_of`` for a name a search or comparison is matched against: a rule-named object (Spy Kit) also carries ``ANY_CREATURE``."""
+    return [*names_of(ch), *([ANY_CREATURE] if ch.name_test is not None else [])]
+
+
 def has_name(ch: Characteristics, name: str | None) -> bool:
-    """709.4a: the object has the chosen name if one of its names is it."""
-    return bool(name) and normalize_name(name or "") in {normalize_name(n) for n in names_of(ch)}
+    """709.4a: the object has the chosen name if one of its names is it (Null Chamber: two chosen names, ``SEP``-joined: either one)."""
+    if name == ANY_CREATURE:  # (201.2a: a card sharing one of the names the reference has; for a card, its own name is that of a nonlegendary creature)
+        return "Creature" in ch.types and "Legendary" not in ch.supertypes and bool(names_of(ch))
+    if bool(name) and ch.name_test is not None and any(ch.name_test(n) for n in (name or "").split(SEP)):
+        return True
+    return bool(name) and bool({normalize_name(n) for n in (name or "").split(SEP)} & {normalize_name(n) for n in names_of(ch)})
 
 
 def matches(plan: Plan, source: str | None, ch: Characteristics) -> bool:
@@ -149,6 +173,10 @@ def enters_choice(text: str) -> dict[str, Any] | None:
     if m is not None:
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": m["what"], "remember": True}]}
+    if text == "As ~ enters, you and an opponent each choose a card name other than a basic land card name.":  # Null Chamber (614.12a, 201.4a): both names stay public on it
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "card name other than a basic land card name", "remember": True},
+                            {"do": "choose_value", "who": "you", "what": SECOND, "remember": True, "opp110e": True}]}
     if text == "As ~ enters, look at an opponent's hand, then choose any card name.":
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": LOOK},

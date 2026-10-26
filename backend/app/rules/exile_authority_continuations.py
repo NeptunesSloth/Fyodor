@@ -33,6 +33,7 @@ _ABILITIES = {
     "at the beginning of your end step, if you didn't play a card from exile this turn, create a tapped powerstone token": ('visions', 'At the beginning of your end step, you gain 1 life.'),
     'at the beginning of each of your postcombat main phases, if you attacked this turn, exile the top card of your library. until end of combat on your next turn, you may play that card': ('cannonade', 'At the beginning of each of your postcombat main phases, if you attacked this turn, you gain 1 life.'),
     "whenever one or more pirates you control deal damage to your opponents, exile the top card of each of those opponents' libraries. you may play those cards this turn, and you may spend mana as though it were mana of any color to cast those spells": ('breeches', 'Whenever one or more Pirates you control deal damage to your opponents, you gain 1 life.'),
+    '{t}, exile ~: each player exiles the top seven cards of their library. until your next turn, players may play cards they exiled this way, and they can\'t play cards from their hand. activate only as a sorcery': ('vessel', '{T}, Exile this artifact: You gain 1 life. Activate only as a sorcery.'),
     'exile a face-down permanent you control face up: you may play that card this turn': ('mist', 'Exile a face-down permanent you control face up: You gain 1 life.'),
     'when ~ dies, exile it. if you do, exile the top card of your library. until the end of your next turn, you may play one of those cards': ('flameskull', 'When ~ dies, you gain 1 life.'),
     "whenever ~ deals combat damage to a player, that player exiles cards from the top of their library until they exile a nonland card. you may cast that card by paying life equal to the spell's mana value rather than paying its mana cost": ('bismuth', 'Whenever ~ deals combat damage to a player, you gain 1 life.'),
@@ -147,6 +148,10 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if mode == 'rocco':
         packets.top_packet(plan, ctx, e, plan.apnap())
         return packets.insert(ctx, [packets.grant(e, play=True, owner=True, until='next_end_step', until_player=you)])
+    if mode == 'vessel':  # Memory Vessel: 611.2a, 500.4 -- each player may play their own exiled cards; none may play cards from hand (305.1, 601.3) until your next turn begins
+        packets.top_packet(plan, ctx, e, plan.apnap(), 7)
+        return packets.insert(ctx, [packets.grant(e, play=True, owner=True, until='next_turn', until_player=you),
+                                    {'do': 'cast_limit', 'who': 'each_player', 'until': 'next_turn', 'filter': None, 'from': ['hand'], 'act': None, 'lands': True}])
     if mode == 'visions':
         native = scripts.parse_effects('You create a tapped Powerstone token.')
         assert native is not None
@@ -158,6 +163,12 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         players = [player for player in (ctx.get('event') or {}).get('players') or [] if player in plan.live() and player != you]
         packets.top_packet(plan, ctx, e, list(dict.fromkeys(players)))
         return packets.insert(ctx, [packets.grant(e, play=True, spend='color')])
+    if mode == 'amped110c':  # -- Amped Raptor (wave 110C) -- "if you cast it from your hand": its own cast record (the permanent keeps the spell's object id)
+        record = plan.rules.payments.get(ctx.get('source_object') or '')
+        if record is None or record.cast_from != 'hand':
+            return True
+        packets.until_packet(plan, ctx, e, you, packets.selector('nonland card', zones=('library',)))
+        return packets.insert(ctx, [packets.offer(e, '_found', effect_alternative='energy_mv')])
     if mode in ('bismuth', 'cruelclaw'):
         damaged = [player for player in (ctx.get('event') or {}).get('players') or [] if player in plan.live()]
         if mode == 'bismuth' and not damaged:

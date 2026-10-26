@@ -49,6 +49,7 @@ WHEN = {
     "your first upkeep": {"kind": "step", "step": "upkeep", "whose": "you"},
     "your first main phase of the game": {"kind": "step", "step": "main", "whose": "you"},  # 505.1
 }
+_ANNEX = "when each opponent casts their first spell of the game, counter that spell unless that player pays {1}."
 PROMPT = "Opening hand: choose the cards to use, or none (103.6)"
 
 
@@ -81,8 +82,8 @@ def definition(text: str, ch: Any) -> dict[str, Any] | None:
 
     if _POWDER.fullmatch(text.strip()):  # 103.5b: carried out by the pregame (app/game/handlers/mulligan.py ``powder``)
         return {"kind": "static", "static": "mulligan_powder", "effects": []}
-    if any(re.match(r"As (?:~|this [a-z ]+) enters", scripts.self_text(a.text, ch.name)) for a in ch.abilities) or "Aura" in ch.subtypes:
-        return None  # (a choice as it enters would pause the start of the game: 103.6a)
+    if "Aura" in ch.subtypes:
+        return None  # (an Aura's host choice is not read here)
     t = text.strip()
     if (m := _BEGIN.match(t)) is not None:
         if bool(m["luck"]) != bool(m["exile"]):
@@ -90,6 +91,11 @@ def definition(text: str, ch: Any) -> dict[str, Any] | None:
         return {"kind": "static", "static": STATIC, "action": "begin", "effects": [],
                 **({"not_starting": True} if m["ns"] else {}), **({"counter": "luck", "exile": True} if m["luck"] else {})}
     m = _REVEAL.match(t)
+    if m is not None and m["rest"] == _ANNEX:  # -- opening hand (wave 110C) -- Chancellor of the Annex: the card's own "Whenever an opponent casts a spell" ability, once per opponent
+        ab = scripts.parse_abilities("Whenever an opponent casts a spell, counter it unless that player pays {1}.")[0]
+        own = scripts.define(ab, ch)
+        return None if own is None else {"kind": "static", "static": STATIC, "action": "reveal", "effects": [], "each_opponent": True, "delayed": own["effects"],
+                                         "when": {"kind": "watch", "cond": own["cond"], "text": "an opponent casts their first spell of the game"}}
     rest = _LEAD.match(m["rest"]) if m else None
     rest = rest or (_TAIL.match(m["rest"]) if m else None)
     if rest is None:
@@ -123,10 +129,27 @@ def eligible(plan: Plan, pid: str) -> list[tuple[str, dict[str, Any]]]:
 
 def start(plan: Plan) -> None:
     """The mulligans are done: ask each player, the starting player first, in turn order (103.6)."""
+    from app.rules import wave110f_cmd
+
+    if wave110f_cmd.ask(plan):  # -- wave 110F -- "choose a color before the game begins" (Faceless One): asked first, it asks start again
+        return
     order = [plan.active]
     while (nxt := plan.after(order[-1])) != order[0]:
         order.append(nxt)
-    ask(plan, [p for p in order if p in plan.live()])
+    live = [p for p in order if p in plan.live()]
+    from app.rules import (
+        wave110g_spires,  # -- wave 110G -- "As you create your deck, circle two of the colors" (Cryptic Spires): asked before the opening-hand actions
+    )
+
+    if wave110g_spires.ask(plan, wave110g_spires.pending(plan, live)):
+        return
+    from app.rules import (
+        wave110e_clara,  # -- pregame color (wave 110E) -- "choose a color before the game begins" comes before the opening-hand actions
+    )
+
+    if wave110e_clara.ask(plan, wave110e_clara.pending(plan, live), live):
+        return
+    ask(plan, live)
 
 
 def ask(plan: Plan, order: list[str]) -> None:
@@ -161,18 +184,23 @@ def act(plan: Plan, pid: str, queue: list[str], rest: list[str]) -> None:
         if d["action"] == "reveal":
             plan.do({"type": "reveal", "card_ids": [cid]}, actor=pid)  # 103.6b
             plan.rules.opening_revealed.append(cid)
-            plan.rules.delayed.append(DelayedTrigger(
-                id=secrets.token_hex(4), controller=pid, source_card=cid, source_object=plan.oid(card), name=card.name or "",
-                when=dict(d["when"]), effects=[dict(e) for e in d["delayed"]], turn=plan.state.turn.number,
-                step=plan.state.turn.phase))
+            # (each_opponent: one watch per opponent, each used up by that player's first spell of the game, since nothing is cast before the game begins)
+            for caster in ([o for o in plan.live() if o != pid] if d.get("each_opponent") else [None]):
+                plan.rules.delayed.append(DelayedTrigger(
+                    id=secrets.token_hex(4), controller=pid, source_card=cid, source_object=plan.oid(card), name=card.name or "",
+                    when={**d["when"], **({"since": plan.rules.batch, "caster110c": caster} if caster else {})}, effects=[dict(e) for e in d["delayed"]],
+                    turn=plan.state.turn.number, step=plan.state.turn.phase))
             continue
         from app.rules import attachments
 
         plan.note(f"{plan.name(pid)} begins the game with {card.name or 'a card'} on the battlefield", [cid])
         entry = {"card": cid, "player": pid, "actor": pid, "tapped": False,
                  **({"counter": d["counter"], "counter_n": 1} if d.get("counter") else {})}
-        if not attachments.enter(plan, [entry], None):
-            raise RuntimeError("opening-hand permanent asked for a choice")  # (definition() leaves such cards manual)
+        # -- opening-hand entry choice (wave 110A) -- 614.12a: "As ~ enters, choose …" pauses; on answer the sequence goes on (103.6)
+        ctx: dict[str, Any] = {"controller": pid, "source_card": cid, "source_object": None, "name": card.name or "", "effects": [], "next": 0, "x": None,
+               "event": None, "body_done": {"do": "opening_go110a", "pid": pid, "queue": queue, "rest": rest}}
+        if not attachments.enter(plan, [entry], ctx):
+            return
         if d.get("exile"):
             hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
             if hand:
@@ -199,8 +227,22 @@ def resume_exile(plan: Plan, d: Any, chosen: list[str]) -> None:
 def finish(plan: Plan) -> None:
     """Everyone has acted: the revealed cards are hidden again (103.6b: until the first turn begins) and play starts."""
     r = plan.rules
+    if r.restart110a is not None:  # -- wave 110A -- 727.4: Karn Liberated's kept cards enter once the pregame is over
+        from app.rules import wave110a_restart
+
+        if not wave110a_restart.enter(plan):
+            return
     shown = [c for c in r.opening_revealed if c in plan.state.cards and plan.state.cards[c].zone.endswith(":hand")]
     r.opening_revealed = []
     if shown:
         plan.do({"type": "hide", "card_ids": shown})
     r.priority = None  # (settle gives the starting player priority)
+
+
+def _go(plan: Plan, then: dict[str, Any]) -> None:
+    act(plan, then["pid"], list(then["queue"]), list(then["rest"]))
+
+
+from app.rules import replace as _replace  # noqa: E402
+
+_replace.THEN["opening_go110a"] = _go

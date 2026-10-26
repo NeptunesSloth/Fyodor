@@ -108,6 +108,7 @@ class StackInfo(BaseModel):
 class TokenSource(BaseModel):
     source_id: str | None = None
     name: str
+    object_id: str | None = None  # -- cards (wave 110H) -- 400.7: the rules object that made it (a blinked source is a new object)
 
 
 class Arrow(BaseModel):
@@ -264,6 +265,7 @@ class CardInstance(BaseModel):
     # --- manual tracking (nothing here is enforced or expires on its own) ---
     effects: list[Effect] = Field(default_factory=list)
     damage: int = 0
+    damage_by: dict[str, int] = Field(default_factory=dict)  # marked damage per source object id (120.6, Ogre Enforcer); trimmed/cleared wherever damage is removed
     choices: dict[str, str] = Field(default_factory=dict)  # "Chosen color" -> "Blue", "Named card" -> …
     stack_info: StackInfo | None = None
     exile_group: str | None = None  # "Prosper", "Oblivion Ring", "Foretell" … (organisational label)
@@ -327,6 +329,7 @@ class TurnState(BaseModel):
     active_player: str
     phase: str = "untap"
     starting_life: dict[str, int] | None = None  # Actual native boundary receipt; legacy absence stays unknown.
+    starting_hand: dict[str, int] | None = None  # -- wave 110G -- hand sizes as the turn began (Mindstorm Crown); older saves: unknown
 
 
 class Playmat(BaseModel):
@@ -512,6 +515,10 @@ class GameState(BaseModel):
 
     def player_ids(self) -> list[str]:
         return list(self.seat_order)
+
+    def turn_order(self) -> list[str]:
+        """(wave 110M) The players in turn order: the seats in order, or backwards once Aeon Engine reversed the turn order (the seats themselves don't move)."""
+        return self.seat_order[::-1] if self.rules is not None and self.rules.turn_reversed110m else list(self.seat_order)
 
     def searching(self, viewer: str) -> str | None:
         """Zone key ``viewer`` is currently searching, if any."""

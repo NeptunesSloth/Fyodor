@@ -32,7 +32,7 @@ _PERMANENT_TYPES = frozenset({"Artifact", "Creature", "Enchantment", "Land", "Pl
 # (-- triggers (wave 19B) -- "any number of creature cards", "a permanent card with mana value less than or equal to the number of lands you
 # control / that damage": the count is read as the card is chosen, 608.2h)
 _UPTO = r"\d+|" + "|".join(word for word in values.NUMBERS if word not in ("a", "an"))
-PATTERN = (rf"put (?P<cnt>an?|any number of|up to (?P<upto>{_UPTO})) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater)| of the chosen type)?"  # (wave 53B: "a creature card of the chosen type", Belbe's Portal)
+PATTERN = (rf"put (?P<cnt>an?|any number of|up to (?P<upto>{_UPTO})) (?P<what>[^.]+?) cards?(?P<q> with total power and toughness \d+ or (?:less|greater)| of the chosen type| with an? morph ability)?"  # (wave 53B: "a creature card of the chosen type", Belbe's Portal)
            # -- put from hand (wave 30P) -- "with mana value 3 or less" / "X or less, where X is the number of attacking creatures you control"
            # (Kinscaer Sentry), "less than that creature's mana value" (Arni Metalbrow), "less than or equal to that creature's power" (Minn, Wily Illusionist; wave 44D), "with lesser power" (Shadowfax): the limit is read as the card is chosen
            r"(?: with (?:mana value (?:(?P<op>less than or equal to|less than|equal to) (?P<v>that damage|the number of [^.]+?|that creature's (?:mana value|power))"
@@ -45,7 +45,7 @@ def _selector(what: str, q: str) -> Any:
 
     sel = selectors.parse(f"{what} card{q} from your hand")
     if sel is None or sel.zones != ("hand",) or sel.zone_owner != "you" or sel.player is not None or sel.either \
-            or any(x not in ("historic", "all_types", "chosen_type") and not x.startswith("pts:") for x in sel.extras):  # (wave 53B: chosen_type, chosen.chosen_value_ok judges the source of the choice)  # (-- put from hand (wave 19E) -- historic: 700.6; "artifact creature")
+            or any(x not in ("historic", "all_types", "chosen_type", "morph_ability") and not x.startswith("pts:") for x in sel.extras):  # (wave 53B: chosen_type, chosen.chosen_value_ok judges the source of the choice)  # (-- put from hand (wave 19E) -- historic: 700.6; "artifact creature")
         return None
     if not sel.types and not sel.subtypes:
         return None  # ("a card": an instant or sorcery can't be put onto the battlefield)
@@ -113,6 +113,9 @@ def put_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     options = [c for k in (e["sel"], *e.get("alt", ()))
                for c in selectors.candidates(plan, selectors.from_key(k), pid, ctx.get("source_card"))
                if plan.state.cards[c].zone == f"{pid}:hand" and _permanent_card(plan, c) and _mv_ok(plan, ctx, e, c)]
+    if e.get("cmd110g"):  # -- cards (wave 110G) -- Next of Kin: "from your hand or from the command zone": the creature cards you own there (408.1)
+        options += [c for c in plan.state.zones.get(f"{pid}:command", []) if plan.state.cards[c].owner == pid and _permanent_card(plan, c) and _mv_ok(plan, ctx, e, c)
+                    and "Creature" in plan.ch(plan.state.cards[c]).types]
     options = list(dict.fromkeys(options))
     may = bool(e.get("optional")) or bool(e.get("many"))  # ("you may": none is a choice; a trigger's "you may" was asked already, 603.5)
     cap = len(options) if e.get("cap") is None else max(0, effects._amount(plan, ctx, e["cap"]))
@@ -144,10 +147,20 @@ def _mv_ok(plan: Plan, ctx: Context, e: dict[str, Any], cid: str) -> bool:
     from app.rules import effects
 
     ch = chars.of(plan.state.cards[cid], plan.info)
+    if e.get("shares_tapped110c"):  # -- (wave 110C) -- Cryptic Gateway: a creature type in common with each creature the cost tapped (205.3m)
+        from app.rules.creature_types import CREATURE_TYPES
+
+        record = plan.rules.payments.get(plan.rules.object_id(ctx.get("stack_id") or ""))
+        tapped = [plan.ch(plan.state.cards[t]).subtypes & CREATURE_TYPES for t in (record.tapped_for_cost if record else []) if t in plan.state.cards]
+        if not tapped or any(not (ch.subtypes & kinds) for kinds in tapped):
+            return False
     if e.get("pw"):  # -- put from hand (wave 30P) -- "with lesser power": the card's power is less than the source's
         pt = plan.ch(plan.state.cards[cid]).pt
         if pt is None or pt[0] >= effects._amount(plan, ctx, e["pw"][1]):
             return False
+    if (limit110n := e.get("tough110n")) is not None:  # -- (wave 110N) -- Bane: "with equal or lesser toughness" than the (last known) creature, 603.10a
+        pt = plan.ch(plan.state.cards[cid]).pt
+        return pt is not None and pt[1] <= effects._amount(plan, ctx, limit110n)
     if not e.get("mv"):
         return True
     op, value = e["mv"]
@@ -174,11 +187,20 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
         raise ActionError("Choose no more cards than the effect allows")
     for cid in chosen[: 999 if e.get("many") else 1]:
         card = plan.state.cards.get(cid)
-        if card is None or card.zone != f"{pid}:hand" or not _permanent_card(plan, cid) or not _mv_ok(plan, ctx, e, cid) \
-                or not _matches(plan, e, card, chars.of(card, plan.info), pid, ctx.get("source_card")):
+        if card is None or not _permanent_card(plan, cid) or not _mv_ok(plan, ctx, e, cid) \
+                or (card.zone != f"{pid}:hand" or not _matches(plan, e, card, chars.of(card, plan.info), pid, ctx.get("source_card"))) \
+                and not (e.get("cmd110g") and card.zone == f"{pid}:command" and card.owner == pid and "Creature" in chars.of(card, plan.info).types):
             raise ActionError("Choose a matching card from your hand")
         cards.append(cid)
-    entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped")), "via": ctx.get("source_object")} for c in cards]  # (wave 51E: Entry.via)
+    atk = e.get("attacking")
+    if kind := e.get("tap_atk110d"):  # -- (wave 110D) -- only a card of this type enters tapped and attacking (508.4, 614.12; Summoner's Grimoire)
+        cards_tapped = {c for c in cards if kind in chars.of(plan.state.cards[c], plan.info).types}
+        atk = bool(cards_tapped)
+    entries = [{"card": c, "player": pid, "actor": pid, "tapped": bool(e.get("tapped")) or (e.get("tap_atk110d") is not None and c in cards_tapped), "via": ctx.get("source_object")} for c in cards]  # (wave 51E: Entry.via)
+    if e.get("xlands110l"):  # -- (wave 110L) -- The First Tyrannic War: a card with {X} in its mana cost enters with +1/+1 counters, one per land you control (614.1c)
+        from app.rules import wave110l_cards
+
+        entries = wave110l_cards.x_counters(plan, entries)
     if e.get("host"):  # -- attached (wave 100F) -- "… onto the battlefield attached to it" (Holy Avenger): 303.4f, an Aura that can't enchant it stays (303.4g)
         entries = effects._attached_entries(plan, ctx, e["host"], entries)
         cards = [x["card"] for x in entries]
@@ -188,10 +210,13 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     if entries and not attachments.enter(plan, entries, ctx):
         return  # (an Aura chooses what it enchants; the resolution goes on from there)
     effects._moved(plan, ctx, e, before)
-    if e.get("attacking"):  # -- trigger tail (wave 15B) -- 508.4 (the choice of whom, if any, goes on from token_attack)
+    if e.get("blocking") and cards:  # -- Aetherplasm (wave 110H) -- 509.4: "… onto the battlefield blocking that creature" (the trigger's blocked creature)
+        context.bind_objects(plan, ctx, "_pfh_block", cards)
+        effects.PRIMITIVES["enter_blocking"](plan, ctx, {"who": "ref:_pfh_block", "blocked": "event"})
+    if atk:  # -- trigger tail (wave 15B) -- 508.4 (the choice of whom, if any, goes on from token_attack)
         from app.rules import looking
 
-        if not looking.attack_with_entered(plan, ctx, cards, e.get("at")):
+        if not looking.attack_with_entered(plan, ctx, [c for c in cards if not e.get("tap_atk110d") or c in cards_tapped], e.get("at")):
             return
     effects.continue_effects(plan, ctx)
 

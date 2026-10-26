@@ -51,17 +51,12 @@ FULL = ["Rottenmouth Viper", "Torment of Hailfire", "Torgaar, Famine Incarnate",
         "March of Otherworldly Light", "March of Wretched Sorrow", "March of Reckless Joy", "March of Burgeoning Life",
         "Extus, Oriq Overlord // Awaken the Blood Avatar"]
 # (kept manual: Rottenmouth Viper's cost line is read, its blight-counter choices for every opponent are not; Scrap Welder's "mana value X" is the sacrificed artifact's, no X is announced for "less than X")
-PARTIAL = ["Scrap Welder"]
+FULL.append("Scrap Welder")  # FULL since wave 110D (test_rules_wave110d_welder.py): X is announced and is the mana value of the sacrificed artifact
 
 
 @pytest.mark.parametrize("name", FULL)
 def test_every_card_is_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
-
-
-@pytest.mark.parametrize("name", PARTIAL)
-def test_the_cards_whose_other_lines_are_not_read_stay_partial(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL", name
 
 
 def cast_reduced(s, name, chosen, **kw):

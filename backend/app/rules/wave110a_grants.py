@@ -1,0 +1,178 @@
+"""Wave 110A: spells you cast from hand gain a keyword cost as you cast them (a table alternative cost, like prowl/web-slinging)."""
+from __future__ import annotations
+
+import re
+from typing import Any
+
+# 702.74a: evoke is an alternative cost; "Elemental permanent spells you cast from your hand gain evoke {4} as you cast them." (Ashling, the Limitless)
+_EVOKE = re.compile(r"^(?P<sel>[A-Za-z]+ permanent) spells you cast from your hand gain evoke (?P<cost>(?:\{[^}X]+\})+) as you cast them$")
+
+
+def grant_evoke(t: str) -> dict[str, Any] | None:
+    from app.rules import alt_costs
+    from app.rules.permissions import spell_filter
+
+    m = _EVOKE.fullmatch(t)
+    if m is None or alt_costs.parse_cost(f"pay {m['cost']}") is None or (key := spell_filter(m["sel"])) is None:
+        return None
+    return {"kind": "static", "static": "alt_cost", "cost": f"pay {m['cost']}", "table": True, "filter": key, "once": False, "zone": "hand",
+            "mv": None, "cond": None, "tag": "evoke", "effects": []}
+
+
+# 702.173a: "Assassin spells you cast have freerunning {B}{B}." (Ezio Auditore da Firenze): the freerunning alternative cost, with its condition, on those spells
+_FREERUN = re.compile(r"^(?P<sel>[A-Za-z]+) spells you cast have freerunning (?P<cost>(?:\{[^}X]+\})+)$")
+
+
+def grant_freerunning(t: str) -> dict[str, Any] | None:
+    from app.rules import alt_costs
+    from app.rules.permissions import spell_filter
+
+    m = _FREERUN.fullmatch(t)
+    if m is None or alt_costs.parse_cost(f"pay {m['cost']}") is None or (key := spell_filter(m["sel"])) is None:
+        return None
+    return {"kind": "static", "static": "alt_cost", "cost": f"pay {m['cost']}", "table": True, "filter": key, "once": False, "zone": None,
+            "mv": None, "cond": alt_costs._cond(alt_costs.FREERUN_COND), "tag": "freerunning", "effects": []}
+
+
+# 702.190a: "Creature cards in your graveyard have sneak {3}{B}." + "You may cast creature spells from your graveyard using their sneak abilities." (Ninja Teen):
+# the sneak alternative cost (returning an unblocked creature you control) for those cards in the graveyard; the second line only permits what the first
+# line's cost does, so it is an inert static beside it.
+_SNEAK = re.compile(r"^(?P<sel>[A-Za-z]+) cards in your graveyard have sneak (?P<cost>(?:\{[^}X]+\})+)$", re.I)
+SNEAK_CAST = "You may cast creature spells from your graveyard using their sneak abilities."
+
+
+def grant_sneak(t: str) -> dict[str, Any] | None:
+    from app.rules import alt_costs
+    from app.rules.permissions import spell_filter
+
+    if t.strip().rstrip(".").lower() == SNEAK_CAST.rstrip(".").lower():
+        return {"kind": "static", "static": "sneak_cast110a", "effects": []}
+    m = _SNEAK.fullmatch(t)
+    cost = f"pay {m['cost']}{alt_costs.SNEAK_RETURN}" if m else ""
+    if m is None or m["sel"].lower() != "creature" or alt_costs.parse_cost(cost) is None or (key := spell_filter(m["sel"])) is None:
+        return None
+    return {"kind": "static", "static": "alt_cost", "cost": cost, "table": True, "filter": key, "once": False, "zone": "graveyard",
+            "mv": None, "cond": None, "tag": "sneak", "effects": []}
+
+
+# 702.35a: "Each Vampire creature card you own that isn't on the battlefield has madness. The madness cost is equal to its mana cost." (Falkenrath Gorger)
+_MADNESS = re.compile(r"^each (?P<sub>[a-z]+) creature card you own that isn't on the battlefield has madness\. the madness cost is equal to its mana cost$", re.I)
+
+
+def grant_madness(t: str) -> dict[str, Any] | None:
+    m = _MADNESS.fullmatch(t.strip().rstrip("."))
+    return None if m is None else {"kind": "static", "static": "madness_grant110a", "sub": m["sub"].capitalize(), "effects": []}
+
+
+def madness(plan: Any, card: Any) -> str | None:
+    """The madness cost a static gives this card (its mana cost) while it is in a hand about to be discarded (a card you own, not on the battlefield)."""
+    from app.rules import permissions
+
+    ch = plan.ch(card)
+    if not ch.mana_cost or "{X}" in ch.mana_cost or "Creature" not in ch.types or card.zone.endswith(":battlefield"):
+        return None
+    for src, _, d in permissions._table_statics(plan.state, plan.info, {"madness_grant110a"}):
+        if src.controller == card.owner and d["sub"] in ch.subtypes:
+            return str(ch.mana_cost)
+    return None
+
+
+UMBRA = "Auras attached to permanents you control have umbra armor."
+
+
+def umbra_static(t: str) -> dict[str, Any] | None:
+    """Umbra Mystic: a table static read by ``has_umbra``."""
+    return {"kind": "static", "static": "umbra_grant110a", "effects": []} if t == UMBRA else None
+
+
+def has_umbra(plan: Any, aura: Any, host: Any) -> bool:
+    """702.89a: the Aura has umbra armor itself, or an Umbra Mystic-like static gives it to Auras on its controller's permanents."""
+    from app.rules import permissions
+
+    if not aura.zone.endswith(":battlefield") or plan.manual(aura):
+        return False
+    if any(ab.kind == "keywords" and "umbra armor" in ab.keywords for ab in plan.ch(aura).abilities):
+        return True
+    return "Aura" in plan.ch(aura).subtypes and any(
+        src.controller == host.controller for src, _, _ in permissions._table_statics(plan.state, plan.info, {"umbra_grant110a"}))
+
+
+def could_produce(plan: Any, card: Any, ch: Any, symbol: str) -> bool:
+    """Whether one of the permanent's own mana abilities can add ``symbol`` (its controller's color identity for Command Tower-like text)."""
+    from app.rules import mana as M
+    from app.rules.casting import (  # (resolved: a chosen color, "any type a land could produce")
+        _resolve_options,
+        commander_identity,
+    )
+
+    for ab in ch.abilities:
+        if ab.kind != "mana":
+            continue
+        parsed = M.parse_mana_ability(ab.text, commander_identity(plan.state, card.controller, plan.info), card_name=ch.name)
+        if parsed is not None and any(symbol in opt for opt in _resolve_options(plan.state, card, parsed, plan.info)):
+            return True
+    return False
+
+
+# 702.56a: "Each Sliver spell you cast has replicate. The replicate cost is equal to its mana cost." (Hatchery Sliver, Ian Chesterton)
+_REPLICATE = re.compile(r"^each (?P<sel>[A-Za-z]+(?: and [A-Za-z]+)?) spells? you cast has replicate\. the replicate cost is equal to its mana cost$", re.I)
+
+
+def grant_replicate(t: str) -> dict[str, Any] | None:
+    from app.rules.permissions import spell_filter
+
+    m = _REPLICATE.fullmatch(t.strip().rstrip("."))
+    if m is None or (key := spell_filter(m["sel"])) is None:
+        return None
+    return {"kind": "static", "static": "spell_replicate110a", "filter": key, "effects": []}
+
+
+# 702.175a: "Creature spells you cast gain offspring {2} as you cast them." (Zinnia, Valley's Voice) - same static, "kw" names the granted keyword.
+_OFFSPRING = re.compile(r"^(?P<sel>[A-Za-z]+) spells you cast gain offspring (?P<cost>(?:\{[^}]+\})+) as you cast them$", re.I)
+
+
+def grant_offspring(t: str) -> dict[str, Any] | None:
+    from app.rules.permissions import spell_filter
+
+    m = _OFFSPRING.fullmatch(t.strip().rstrip("."))
+    if m is None or (key := spell_filter(m["sel"])) is None:
+        return None
+    return {"kind": "static", "static": "spell_replicate110a", "filter": key, "kw": f"Offspring {m['cost']}", "effects": []}
+
+
+def with_replicate(state: Any, player: str, card: Any, ch: Any, info: Any) -> Any:
+    """The spell as cast, with the replicate ability its caster's statics give it (602.. kicker_cost then reads it like a printed one)."""
+    from dataclasses import replace
+
+    from app.rules import cast_limits
+    from app.rules.oracle import parse_abilities
+    from app.rules.permissions import spell_matches
+
+    if not ch.mana_cost or "replicate" in ch.keywords or "{X}" in ch.mana_cost:
+        return ch
+    hits = [d for src, d in cast_limits._statics(state, info, "spell_replicate110a")
+            if src.controller == player and spell_matches(state, player, card, ch, d["filter"], info, src.id)
+            and not (d.get("kw") and {"offspring", "kicker", "multikicker"} & set(ch.keywords))]  # (a printed kicker would share the one paid-cost slot: manual)
+    if not hits:
+        return ch
+    extra = parse_abilities(hits[0].get("kw", f"Replicate {ch.mana_cost}") + ".")
+    return replace(ch, abilities=(*ch.abilities, *(replace(a, index=GRANTED_AT + i) for i, a in enumerate(extra))))
+
+
+GRANTED_AT = 1000  # index of the first ability a spell was given as it was cast
+
+
+def granted_offspring(ch: Any) -> bool:
+    """Was offspring given to this spell as it was cast (Zinnia)? Then the permanent keeps it (702.175a, the reminder text of the grant)."""
+    return any(a.index >= GRANTED_AT and "offspring" in a.keywords for a in ch.abilities)
+
+
+def overlay(ch: Any) -> Any:
+    """The permanent (or spell) that was given offspring as it was cast has the offspring ability, so its enters trigger exists."""
+    from dataclasses import replace
+
+    from app.rules.oracle import parse_abilities
+
+    if granted_offspring(ch) or "offspring" in ch.keywords:
+        return ch
+    return replace(ch, abilities=(*ch.abilities, *(replace(a, index=GRANTED_AT + i) for i, a in enumerate(parse_abilities("Offspring {2}.")))))

@@ -1,0 +1,38 @@
+# Wave 110H refused
+
+- Rain of Gore: "a spell or ability would cause its controller to gain life": cause (spell/ability vs lifelink damage) not recorded on life events; no ruling in repo.
+- Reversal of Fortune: copy_cards only copies cards in exile/graveyard; copying a card in hand needs a hand-zone copy foundation.
+- Crowd-Control Warden: "As ... is turned face up" as a trigger would use the stack (observable); needs a turn-face-up replacement.
+- Darigaaz Reincarnated: three egg counters on exile replacement plus an upkeep trigger from exile; replacement counter is fixed at one.
+- Time Reaper, Grime Gorger, Specter of Mortality: already refused in wave100 notes.
+- Nefarious Lich: damage-to-you exile replacement with "if you can't, you lose the game" plus gain-life-to-draw; already refused in wave100 (damage timing / lose-game).
+- Battletide Alchemist: optional prevention ("you may prevent X") is asked of the affected player by the replacement engine, but here the Alchemist's controller decides for any player's damage.
+- Heart of Kiran: crew alternative cost (remove a loyalty counter from a planeswalker) needs an ActivateAbility intent field and UI; foundation not built.
+- Lightning Storm: "any player may activate this ability but only if it's on the stack" (stack-only activation by any player) not modelled.
+- Evil's Thrall: "Villain with greater mana value than that creature" condition + duration swap; refused in wave100.
+- Zimone's Experiment: qualified_selection_packets deliberately stubs it (land creature revealed twice: lands to battlefield, creatures to hand; cross-zone policy unverified).
+- Hankyu: granted ability cost "Remove all aim counters from <granter>" (counters of another object as a cost, with the removed count as amount) not built.
+- Ludevic: back face "becomes a copy of a creature card exiled with it" unsupported (front line alone reads).
+- Magma Pummeler: reflexive trigger from counter removal needs a target chosen mid-replacement (stack-visible).
+- Rampaging Raptor: "battle that player protects" needs a protector-aware that_player selector (controller is not protector, 310.9).
+- Freyalise's Winds: wind-counter untap replacement vs stun on one permanent gives different outcomes (616.1 choice), no untap-order prompt.
+- Ertai's Meddling: built in wave 110J (last cards): exiled with X delay counters as it resolves (2008-04-01), the card itself back on the stack uncast with the original's decisions (707.10; 2013-04-15), flashback remembered (2011-01-22), splice kept, spell copies cease to exist and face-down spells return as face-up 2/2s (2004-10-04).
+- Spinning Darkness (top three black cards of graveyard as alt cost: needs graveyard_order machinery for a multi-card top cost)
+- Hankyu: granted quote names its Equipment; counter cost "Remove all aim counters from <granter>" needs a cost on the granter object, and "This creature deals" fails _granter_view (_OTHER_SELF).
+- The Sea Devils (III): watch target "creature that player controls" needs event-player-relative own_target (watches.build requires {"what"} only); "a Salamander" is any controller's.
+- Darigaaz Reincarnated: die-exile with egg counters plus an upkeep trigger working from exile has no foundation (no from-exile ability hook).
+- Kodama of the Center Tree: soulshift X with X counted when the ability resolves vs on death unsettled; Bargaining Table: "an opponent's hand" with several opponents unsettled.
+- Heart of Kiran: alt crew cost needs a new crew action field (casting.crew). Stitcher Geralf (Despoiler done in s6): base wordings ("mills ... exile ... this way" total power; enters-as optional cost) not read.
+- Zimone's Experiment: land creature card is both "land" and "creature" in the two final instructions; CR 608.2c order + 400.7j vs 400.6 and no ruling settles it (docs/research/qualified-selection-packets.md). Unsettled.
+- Magma Pummeler: foundation needed, not unsettled: a targeted reflexive trigger "when counters are removed this way" attached to a damage-prevention rider (rider_body rejects targets).
+- Don't Blink: foundation needed: entry replacement keyed on the origin zone / cast-from-exile over every entry path (resolve, return_card, put onto battlefield).
+- Stitcher Geralf: foundation needed: choose up to two creature cards among the cards each player milled (mill binding feeding pick_looked).
+- Tetravus: foundation needed: quoted "This token can't be enchanted" (no can't-be-enchanted static for a token's own grant) and an any-number counter-removal choice feeding "that many" tokens; two upkeep triggers.
+- Don't Blink (s7): entry-origin replacement (from exile / cast from exile) can reuse creature_entry_redirect, but with Containment Priest-style exile also applying the owner chooses (616.1) and the shuffle-into-library destination needs the choice built; not dominated.
+- Freyalise's Winds + stun: resolved, not refused (stun first dominates, see wave110h_cards.untap_hold).
+- Battletide Alchemist (s8): "you may prevent X of that damage" is the Alchemist controller's choice per event, even when another player is damaged; replace.optional asks only the affected player.
+- Hankyu (s8): the granted "{T}, Remove all aim counters from Hankyu" needs a remove-all-counters cost on the granter (not the creature) whose count sizes the damage; scripts._granter_view only rewrites effects.
+- Bargaining Table (s8): "an opponent's hand" with several opponents is still unsettled (no ruling found on who is chosen or when).
+- Zimone's Experiment (partial): a revealed Dryad Arbor-like land creature card is told to enter and to go to hand by the same spell; no CR rule or ruling settles it, so it stays on top revealed for manual placement (rest automated).
+Susan Foreman: no planar deck / Planechase planeswalk in the engine; a foundation for a whole variant, not built.
+- Psychic Battle (wave 110H): copies of spells cannot be given a settled 'chooses targets' event; crime flag splits chosen/changed targets. Left for a foundation.

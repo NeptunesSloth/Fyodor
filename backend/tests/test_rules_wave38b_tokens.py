@@ -272,7 +272,9 @@ def test_mu_yanling_makes_a_vehicle_that_crews_and_has_flying(cards):
     (vehicle,) = named(s, "Vehicle")
     ch = of(s, vehicle)
     assert vehicle.is_token and "Artifact" in ch.types and "Vehicle" in ch.subtypes and not ch.is_creature  # (301.7a: no P/T-as-creature yet)
-    assert (ch.power, ch.toughness) == ("3", "2") and not ch.colors and "flying" in ch.keywords  # ("Vehicles you control have flying.")
+    # 208.3: a noncreature Vehicle has no power or toughness on the battlefield; the token's copiable 3/2 is kept for crewing (301.7b)
+    assert (ch.power, ch.toughness) == (None, None) and (vehicle.token.power, vehicle.token.toughness) == ("3", "2")
+    assert not ch.colors and "flying" in ch.keywords  # ("Vehicles you control have flying.")
     assert any(ab.text.startswith("Crew 1") for ab in ch.abilities)
     check(s)
     act(s, "p1", type="activate_ability", card_id=vehicle.id, ability=crew_index(s, vehicle), crew=[muyanling.id])
@@ -300,11 +302,12 @@ def test_lita_makes_a_zeppelin_that_needs_three_power_to_crew(cards):
     settle(s)
     (zeppelin,) = named(s, "Zeppelin")
     ch = of(s, zeppelin)
-    assert "Vehicle" in ch.subtypes and "Artifact" in ch.types and not ch.is_creature and (ch.power, ch.toughness) == ("5", "5")
+    assert "Vehicle" in ch.subtypes and "Artifact" in ch.types and not ch.is_creature and (ch.power, ch.toughness) == (None, None)  # (208.3)
+    assert (zeppelin.token.power, zeppelin.token.toughness) == ("5", "5")
     assert "flying" in ch.keywords and any(a.text.startswith("Crew 3") for a in ch.abilities)
     act(s, "p1", type="activate_ability", card_id=zeppelin.id, ability=crew_index(s, zeppelin), crew=[ogre.id])
     settle(s)
-    assert of(s, zeppelin).is_creature and s.state.cards[ogre.id].tapped
+    assert of(s, zeppelin).is_creature and of(s, zeppelin).pt == (5, 5) and s.state.cards[ogre.id].tapped
     check(s)
 
 

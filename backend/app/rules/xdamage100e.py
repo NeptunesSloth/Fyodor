@@ -868,7 +868,12 @@ def total_power(plan: Any, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     negative power subtracts, and the total is never below 0 (107.1b)."""
     from app.rules import context
 
-    return max(0, sum(ch.pt[0] for _, ch in context.infos(plan, ctx, v["total_power100e"]) if ch.pt is not None))
+    # (off the battlefield no layers ran: the printed number is the power, 208.3; a card in exile or a graveyard has no pt. ponytail: a "*" power there counts 0)
+    def power(ch: Any) -> int:
+        printed = ch.power or ""
+        return ch.pt[0] if ch.pt is not None else int(printed) if printed.lstrip("-").isdigit() else 0
+
+    return max(0, sum(power(ch) for _, ch in context.infos(plan, ctx, v["total_power100e"])))
 
 
 def effigy_damage(plan: Any, ctx: dict[str, Any], v: dict[str, Any]) -> int:
@@ -1066,6 +1071,25 @@ def resume_pick_any(plan: Any, d: Any, chosen: list[str]) -> None:
 RESUME = {"bane100e": resume_bane, "pick_any100e": resume_pick_any}
 PRIMITIVES = {"as_their100e": as_their, "pick_any100e": pick_any, "count_dealt100e": count_dealt, "with_you100e": with_you, "shortfall_damage100e": shortfall_damage, "land_gap_damage100e": land_gap_damage, "foe_hand_damage100e": foe_hand_damage, "bane100e": bane,
               "bind_controlled100e": bind_controlled, "host_bite100e": host_bite, "beneath_top100e": beneath_top, "double_times100e": double_times, "keep_keyword100e": keep_keyword, "keep_dealt100e": keep_dealt}
+
+
+# -- amass reflexive (wave 110D) --
+@_text("Amass Orcs 2. When you do, until end of turn, gain control of target nonlegendary creature an opponent controls with power less than or "
+       "equal to the amassed Army's power. Untap that creature. It gains haste until end of turn.")
+def _grishnakh() -> Parsed:
+    """Grishnakh: 701.47c the amassed Army is the reflexive ability's event object (as it last existed, 608.2h); its power caps the target's
+    power as the ability goes on the stack (115.1, selectors EVENT_STAT)."""
+    from dataclasses import replace
+
+    from app.rules import selectors
+
+    effects, target, optional = _amass_reflexive("Orc", 2, "Gain control of target nonlegendary creature an opponent controls until end of turn. "
+                                                  "Untap that creature. It gains haste until end of turn.")
+    ab = _reflexive(effects)["ability"]
+    t = ab["target"]
+    sel = selectors.from_key(t["what"])
+    t["what"] = replace(sel, compare=(*sel.compare, ("power", "<=", selectors.EVENT_STAT + "power"))).key()
+    return effects, target, optional
 
 
 def parse(body: str) -> Parsed | None:

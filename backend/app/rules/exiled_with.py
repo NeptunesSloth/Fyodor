@@ -39,7 +39,7 @@ _UNDER = (r"under (?:(?P<you>your) control|(?:its|their) owner(?:'s|s') control"
 _BATTLEFIELD = re.compile(rf"^(?:return|put) {_THE} (?:to|onto) the battlefield(?P<tapped> tapped)?(?: (?P<specified>{_UNDER}))?$")
 _HAND = re.compile(rf"^(?:return|put) {_THE} (?:to|into) (?:its|their) owner(?:'s|s') hands?$")  # (wave 20D: "Put all cards exiled with ~ into their owners' hands.")
 _GRAVEYARD = re.compile(rf"^(?:put|return) {_THE} (?:into|to) (?:its|their) owner(?:'s|s') graveyards?$")  # (Currency Converter, Valakut Exploration, Gravegouger)
-_REFERS = re.compile(r"\bthe exiled cards?\b|\bcards?(?: you own| they own)?(?: have been)? exiled with (?:it\b|~|this [A-Za-z]+)|\bthat was exiled with (?:it\b|~)")  # (wave 17D: "~" has no word boundary after it)
+_REFERS = re.compile(r"\bthe exiled (?:creature )?cards?\b|\bcards?(?: you own| they own)?(?: have been)? exiled with (?:it\b|~|this [A-Za-z]+)|\bthat was exiled with (?:it\b|~)")  # (wave 17D: "~" has no word boundary after it)
 _OWNERS_RETURN = re.compile(r"^each player returns to (?P<where>the battlefield|their hand) all cards they own exiled with (?:it|~)$")
 
 
@@ -76,6 +76,8 @@ def _who(m: re.Match[str]) -> str:
 
     if not m["spec"]:
         return WHO
+    if m["spec"] == "other":  # "each other card exiled with ~": not the card(s) this same resolution just exiled (608.2c, 607.2a)
+        return f"{WHO}:other"
     sel = selectors.parse(f"{m['spec']} card")
     if sel is None or sel.player is not None or sel.zones or sel.controller is not None:
         raise _NoMatch
@@ -278,7 +280,7 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
     if "samename_exiled_with" in json.dumps(d, default=str) and ability.kind == "activated":
         return None  # -- same name (wave 32A) -- "Counter target spell with the same name as a card exiled with this creature" (Mindreaver) sacrifices the source
         # as a cost: its target is judged on resolution against the cards of an object that is gone (selectors._same_name_now reads a source that stays)
-    others = [ab for ab in ch.abilities if ab.index != ability.index and ab.kind in ("triggered", "activated")]
+    others = [ab for ab in ch.abilities if ab.index != ability.index and ab.kind in ("triggered", "activated", "loyalty")]  # (wave 110A: loyalty abilities, Karn Liberated)
     borrowed = getattr(ability, 'borrowed_origin', ())
     if borrowed:
         others = [ab for ab in others if getattr(ab, 'borrowed_origin', ())[:-1] == borrowed[:-1]]
@@ -317,9 +319,9 @@ def _link(d: dict[str, Any], ability: Any, ch: Any) -> dict[str, Any] | None:
         if (not exiling and not printed_delve) or not all(_exiles(scripts.define(ab, ch)) for ab in exiling):  # (-- linked exile (wave 30H) -- every exiling ability feeds the set, and each must be read: Rona's ruling)
             return None
         return d
-    if ability.kind not in ("triggered", "activated", "static") or not _exiles(d):
+    if ability.kind not in ("triggered", "activated", "static", "loyalty") or not _exiles(d):
         return d
-    referring = [ab for ab in ch.abilities if ab.index != ability.index and (not borrowed or getattr(ab, "borrowed_origin", ())[:-1] == borrowed[:-1]) and (_REFERS.search(scripts.self_text(ab.text, ch.name)) or REFERS_PILE.search(ab.text) or "until you exile another card with ~" in scripts.self_text(ab.text, ch.name))]
+    referring = [ab for ab in ch.abilities if ab.index != ability.index and (not borrowed or getattr(ab, "borrowed_origin", ())[:-1] == borrowed[:-1]) and (_REFERS.search(scripts.self_text(ab.text, ch.name)) or REFERS_PILE.search(ab.text) or ab.text.endswith(" exiled with Karn. Then put those cards onto the battlefield under your control.") or "until you exile another card with ~" in scripts.self_text(ab.text, ch.name))]
     if not referring and not any(e.get("stop_on_linked_exile") for e in d.get("effects", [])):
         return d
     if d.get('static') == 'replace' and d.get('event') == 'draw' and (d.get('op') or {}).get('do') == 'body':
@@ -386,6 +388,7 @@ def record(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> None:
     now = [plan.oid(c) for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
     new_cards = [oid for oid in now if oid not in kept
                  and not plan.state.cards[oid.rsplit(".", 1)[0]].is_token]
+    ctx.setdefault("exiled_now", []).extend(o.rsplit(".", 1)[0] for o in new_cards)
     if new_cards:
         # The stated duration says "you": a later controller's exile is a different player's action.
         plan.rules.permissions = [p for p in plan.rules.permissions
@@ -403,6 +406,8 @@ def cards(plan: Plan, ctx: dict[str, Any], who: str = WHO) -> list[str]:
     """The cards the linked ability exiled, while each is still that object in exile (400.7); only those of the kind
     "exiled_with:<selector>" names ("each creature card exiled with it")."""
     found = [oid.rsplit(".", 1)[0] for oid in plan.rules.exiled_with.get(link_key(ctx), []) if _in_exile(plan, oid)]
+    if who == f"{WHO}:other":
+        return [c for c in found if c not in ctx.get("exiled_now", [])]
     if ":" not in who:
         return found
     from app.rules import selectors

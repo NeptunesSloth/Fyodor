@@ -215,7 +215,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                              if r is not None and c.zone.endswith(":battlefield")
                              and (record := r.payments.get(r.object_id(cid))) is not None
                              and record.alternative == "impending"))
-    text71 = tuple((e.id, tuple(e.affected), e.set_name,
+    text71 = tuple((e.id, tuple(e.affected), e.set_name, bool(e.text_box110a),
                     (e.text_change71.category, e.text_change71.old, e.text_change71.new) if e.text_change71 is not None else None)
                    for e in r.effects if e.layer == '3') if r else ()
     key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)), impending, text71,
@@ -224,6 +224,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                       tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else (),
                       # -- layers (wave 22A) -- the resolved effects the group layers (4-6) are solved against (613.6, 613.8)
                       tuple((e.id, tuple(e.affected)) for e in r.effects if e.layer in ("4", "5", "6")) if r else (),
+                      tuple(sorted((cid, c.entry_characteristics.timestamp) for cid, c in state.cards.items() if c.entry_characteristics is not None and c.entry_characteristics.add_abilities)),  # (wave 110D)
                       tuple(sorted(r.levels.items())) if r else (),  # -- Class (wave 16A) -- 716.2a: the levels reached
                       tuple(sorted((o, tuple(d)) for o, d in r.unlocked.items())) if r else ())  # -- Rooms (wave 18G) -- the doors unlocked
     hit = _STATIC_CACHE.get(key_all)
@@ -334,22 +335,28 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
         for text in st.definition.get("grants", ()):
             # (wave 42A) 702.98a: a granted "Unleash" brings its second half, the static "can't block as long as it has a +1/+1 counter" (the first, the counter, is
             # chosen as it enters: riot.py); the same static the printed keyword is (scripts.define)
-            inner = grammar.parse("~ can't block as long as it has a +1/+1 counter on it." if text.rstrip(".").lower() == "unleash" else scripts.self_text(text, ""))
+            inner = grammar.parse("~ can't block as long as it has a +1/+1 counter on it." if text.rstrip(".").lower() == "unleash" else scripts.self_text(text.replace("‹mv›", "1"), ""))
             if inner is None:
                 continue
             for cid, controller in field:
+                mine: dict[str, Any] | None = inner
+                if "‹mv›" in text:  # -- Bludgeon Brawl (wave 110J) -- the recipient's own mana value (the "1" above only tests the wording: "+0/+0" parses to nothing)
+                    mine = grammar.parse(scripts.self_text(text.replace("‹mv›", str(int(copiable(state, state.cards[cid], info).mana_value))), ""))
+                if mine is None:
+                    continue
                 seq = max(st.seq, timestamp(state, cid))
                 if cid in wiped and (seq, 0, 0) <= wiped[cid]:
                     continue  # -- attached events (wave 4L) -- granted before it lost all abilities (613.7)
-                out.append(Static(cid, controller, inner, seq, gate=(st.source, st.definition)))
+                out.append(Static(cid, controller, mine, seq, gate=(st.source, st.definition)))
     # Resolved quoted self statics use the granting effect's exact timestamp.
     # Limit discovery to native layer-6 keyword/rule statics; introducing layer-4
     # dependencies here would require solving those grants as dependency nodes.
     if state.rules is not None:
-        from app.rules import stickers101
+        from app.rules import entry_characteristics, stickers101
 
         sticker_effects101 = [e for cid, _controller in field for e in stickers101.continuous(state, state.cards[cid])]
-        for effect in [*state.rules.effects, *sticker_effects101]:
+        entry_effects110m = [e for cid, _controller in field for e in entry_characteristics.effects(state, state.cards[cid])]  # (wave 110M) abilities an entry form gives (611.2e)
+        for effect in [*state.rules.effects, *sticker_effects101, *entry_effects110m]:
             if effect.layer != "6" or not effect.add_abilities:
                 continue
             key = (effect.object_seq, 1, effect.timestamp)
@@ -367,9 +374,17 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
                         if not inner.get('layer4') and not inner.get('base'):
                             out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
                         continue
-                    if inner is None or (inner.get("who") != "self" and not damage_retention83.resolved_static(inner)) or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
+                    if inner is not None and inner.get("static") == "grant" and inner.get("who") == "attached" and (inner.get("p") or inner.get("t")) \
+                            and not any(inner.get(k) for k in ("layer4", "base", "grants", "keywords", "rules", "each", "also", "conditions")):  # -- Everflame (wave 110C) -- 613.7, 301.5: a gained "Equipped creature gets +N/+N" works for what it is attached to
+                        out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
                         continue
-                    if inner.get("keywords") or inner.get("rules"):
+                    if effect.id.startswith("entry:") and inner is not None and inner.get("who") == "attached" and inner.get("grants") and not inner.get("layer4") and not inner.get("base"):
+                        out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))  # (wave 110M) "Enchanted land has …" on an Aura that entered as one
+                        continue
+                    # (-- wave 110O -- Tenth District Hero's Mileva: the one group grant of a keyword a resolved effect gives, 613.1f)
+                    if inner is None or (inner.get("who") != "self" and not damage_retention83.resolved_static(inner) and text != "Other creatures you control have indestructible.") or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
+                        continue
+                    if inner.get("keywords") or inner.get("rules") or inner.get("each"):  # (each: "gets +1/+1 for each ..." granted by a resolved effect, 613.4c; wave 110D)
                         out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
     out.sort(key=lambda st: st.key)
     return out
@@ -384,7 +399,10 @@ def _resolved_mana_statics(state: GameState, field: list[tuple[str, str]]) -> li
     if state.rules is None:
         return []
     out = []
-    for effect in state.rules.effects:
+    from app.rules import entry_characteristics
+
+    entered = [e for cid, _c in field if (c := state.cards.get(cid)) is not None and c.entry_characteristics is not None for e in entry_characteristics.effects(state, c)]  # (wave 110D)
+    for effect in [*state.rules.effects, *entered]:
         if effect.layer != '6' or not effect.add_abilities:
             continue
         key = (effect.object_seq, 1, effect.timestamp)
@@ -399,7 +417,8 @@ def _resolved_mana_statics(state: GameState, field: list[tuple[str, str]]) -> li
                 if any(k in inner for k in ('layer4', 'set_colors', 'add_colors', 'set_name', 'chosen_color')) or any(
                         inner.get(k) for k in ('p', 't', 'base', 'base_mv', 'keywords', 'rules', 'lose_all', 'also')):
                     continue
-                if all(M.parse_mana_ability(ability) is not None for ability in inner['grants']):
+                if all(M.parse_mana_ability(ability) is not None or (effect.id.startswith('entry:') and scripts.granted_ability(ability) is not None)
+                       for ability in inner['grants']):  # (wave 110D: an Aura that entered with its static, enchant X has "{1}, {T}, Sacrifice …")
                     out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
     return out
 
@@ -936,7 +955,7 @@ def source_text71(state: GameState, card: CardInstance, ch: Characteristics, inf
         return ch
     oid = state.rules.object_id(card.id)
     found = [e for e in state.rules.effects if e.layer == '3' and oid in e.affected]
-    if not any(e.text_change71 is not None for e in found) and not state.rules.color_words71 and not card.stickers101:
+    if not any(e.text_change71 is not None or e.text_box110a for e in found) and not state.rules.color_words71 and not card.stickers101:
         return ch
     return name_changes(ch, found, [], info, state, card)
 
@@ -960,9 +979,18 @@ def name_changes(ch: Characteristics, effects: list[ContinuousEffect],
     if card is not None:
         ordered += [((p.object_seq, 1, p.timestamp), None, {'sticker101': p.sticker.text, 'position': p.position})
                     for p in card.stickers101 if p.sticker.kind == 'name']
+    if card is not None and state is not None and state.rules is not None:  # -- wave 110A -- 612.5: exchanged text boxes
+        oid = state.rules.object_id(card.id)
+        ordered += [((e.object_seq, 1, e.timestamp), None, {'text_box110a': e.text_box110a[oid]})
+                    for e in effects if e.layer == '3' and e.text_box110a and oid in e.text_box110a]
 
     for _, name, change in sorted(ordered, key=lambda item: item[0]):
         if change is not None:
+            if isinstance(change, dict) and 'text_box110a' in change:
+                from app.rules import wave110a_swap
+
+                ch = wave110a_swap.apply(ch, change['text_box110a'])
+                continue
             if isinstance(change, dict) and 'sticker101' in change:
                 from app.rules import stickers101
 
@@ -1016,10 +1044,25 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     from app.rules.characteristics import provenance
 
     ch = provenance(card, ch)
+    from app.rules import (
+        wave110e_clara,  # -- pregame color (wave 110E) -- the card's own color effect, before every color effect
+    )
+
+    ch = wave110e_clara.apply(state, card, ch)
+    if state.rules is not None and state.rules.circled110g:  # -- wave 110G -- Cryptic Spires: the circled colors
+        from app.rules import wave110g_spires
+
+        ch = wave110g_spires.apply(state, card, ch)
+    if state.rules is not None and state.rules.commander_color110f:  # -- wave 110F -- Faceless One: a characteristic-defining color (604.3)
+        from app.rules import wave110f_cmd
+
+        ch = wave110f_cmd.color(state, card, ch)
     ch = replace(ch, on_battlefield=card.zone.endswith(":battlefield"),
                  object_counters=frozenset(k for k, n in card.counters.items() if n > 0),
                  object_ring_bearer=bool(state.rules and card.zone.endswith(":battlefield")
-                                         and state.rules.ring_bearers.get(card.controller) == state.rules.object_id(card.id)))
+                                         and state.rules.ring_bearers.get(card.controller) == state.rules.object_id(card.id)),
+                 object_cast_this_turn=bool(state.rules and card.zone.endswith(":battlefield") and state.rules.turn_log.turn == state.turn.number
+                                            and state.rules.object_id(card.id) in state.rules.turn_log.cast_ids()))  # (-- wave 110B --)
     from app.rules import stickers101
 
     effects = affecting(state, card, info) + stickers101.continuous(state, card)
@@ -1163,6 +1206,8 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         for k, (st, ordinal, text, expansion) in enumerate(grants):
             if quoted_prevention_loss47.lost(text, ch.name, st.key, effects):
                 continue
+            if "‹mv›" in text:  # -- Bludgeon Brawl (wave 110J) -- the recipient's own mana value (a granted Equip cost)
+                text = text.replace("‹mv›", str(int(ch.mana_value)))
             if "‹granter›" in text and state.rules is not None:  # -- granted from object (wave 18F) -- 607.1a: the granting object
                 text = text.replace("‹granter›", f"‹granter#{state.rules.object_id(st.source)}›")
             if text in _chosen.PROTECTION:  # -- attached events (wave 25D) -- the granting Aura's own recorded color (wave 53B: or card type, or creature type)
@@ -1185,15 +1230,42 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     if lent:
         ch = replace(ch, abilities=ch.abilities + lent)
     ch = _granted_by_effects(ch, effects, wipe)
+    if on_field and state.zones.get("stack"):  # -- (wave 110B) -- Torrent of Lava: the ability it gives every creature while it is on the stack
+        from app.rules import wave110b_final
+
+        ch = wave110b_final.stack_grants(state, card, ch)
+    if (wipe is None or (timestamp(state, card.id), 0, 0) > wipe) and state.rules is not None and state.rules.payments:  # -- grants (wave 110A) -- offspring given to the spell as it was cast stays on the permanent (a wipe earlier than the permanent's timestamp does not remove it, a later one does, 613.7)
+        rec = state.rules.payments.get(state.rules.object_id(card.id))
+        if rec is not None and rec.granted_offspring110a:
+            from app.rules import wave110a_grants
+
+            ch = wave110a_grants.overlay(ch)
+    if on_field and wipe is None and state.rules is not None and state.rules.crafted_materials:  # -- craft materials (wave 110A) -- Wretched Bonemass's keywords
+        from app.rules import mana_crafted_profiles
+
+        ch = mana_crafted_profiles.overlay(state, card, ch, info)
+    if info is not None and not on_field and _T.depth == 0 and state.rules is not None and card.zone.endswith(":library"):  # -- plot (wave 110A) -- Fblthp: the top card has plot
+        from app.rules import wave110a_plot
+
+        ch = wave110a_plot.apply(state, card, ch, info)
     if info is not None and not on_field and _T.depth == 0 and state.rules is not None and card.zone.endswith((":hand", ":graveyard")):
         from app.rules import (
             zone_grants,  # -- zone keyword grants (wave 25A) -- "Each creature card in your hand has cycling {1}{U}."
         )
 
         ch = zone_grants.apply(state, card, ch, info)
+        if state.rules.guardian110b and card.zone.endswith(":graveyard"):  # -- (wave 110B) -- Guardian Angel: this turn's payment offered from its owner's graveyard
+            from app.rules import wave110b_final
+
+            ch = wave110b_final.guardian_overlay(state, card, ch)
         from app.rules import dynamic_zone_keyword_costs56
 
         ch = dynamic_zone_keyword_costs56.apply(state, card, ch, info)
+        if card.zone.endswith(":graveyard"):  # -- wave 110F -- 613.1f: "Cards in graveyards lose all abilities." (Yixlid Jailer)
+            from app.rules import group_layers
+
+            if group_layers.graveyard_wiped(state, card, ch, info):
+                ch = replace(ch, abilities=())
     if info is not None and _T.depth == 0 and state.rules is not None and card.zone == "stack" and card.ability is None:
         from app.rules import (
             kicked_spell_outcomes59,
@@ -1227,11 +1299,19 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
             setters.append(((st.seq, 0, 0), st.definition["base"][0], st.definition["base"][1]))
         elif st.definition.get("base_mv"):  # -- layers (wave 22A) -- "base power and toughness each equal to its mana value" (Opalescence)
             setters.append(((st.seq, 0, 0), int(ch.mana_value), int(ch.mana_value)))
+        elif st.definition.get("base_counters110j"):  # -- (wave 110J) -- Spark Rupture: "power and toughness each equal to the number of loyalty counters on it" (613.4b)
+            n110j = card.counters.get(st.definition["base_counters110j"], 0)
+            setters.append(((st.seq, 0, 0), n110j, n110j))
         elif (st.definition.get("each") or {}).get("set"):  # -- most-played cards II (wave 45A) -- "base power and toughness X/X, where X is …" (Aettir and Priwen, Dollmaker's Shop)
             setters.append(((st.seq, 0, 0), each_amounts.get(id(st), 0), each_amounts.get(id(st), 0)))
     for e in effects:  # 7b: resolved setting effects, interleaved by timestamp (613.7)
         if e.layer == "7b":
-            setters.append(((e.object_seq, 1, e.timestamp), e.power, e.toughness))
+            dyn = None
+            if e.dyn_power110e is not None and info is not None:  # -- Ms. Marvel (wave 110E) -- 613.4b: "base power is equal to the number of cards in your hand", read now (611.3a)
+                from app.rules import values
+
+                dyn = values.evaluate(_view(state, info), {"controller": card.controller, "source_card": card.id}, e.dyn_power110e)
+            setters.append(((e.object_seq, 1, e.timestamp), e.power if dyn is None else dyn, e.toughness))
     setters.sort(key=lambda x: x[0])
     power, toughness = _num(ch.power), _num(ch.toughness)
     if info is not None and (power is None or toughness is None):
@@ -1272,6 +1352,11 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         if e.layer == "7c":
             p += e.power or 0
             t += e.toughness or 0
+    for st in hits:  # -- wave 110A -- Snowblind: last of 7c, since its Y depends on the other effects' toughness (613.8a-b); several: timestamp order (a loop)
+        if st.definition.get("snowblind110a") and info is not None:
+            from app.rules import wave110a_final
+
+            p, t = wave110a_final.snowblind(state, info, card, p, t)
     for e in effects:
         if e.layer == "7d":
             p, t = t, p
@@ -1354,7 +1439,7 @@ def _own_layer4_statics(state: GameState, card: CardInstance, info: CardInfo | N
     _T.l4.add(card.id)
     try:
         # (wave 11E: "is the chosen type in addition to its other types" adds the type chosen as it entered, 614.12a)
-        return [(st.seq, {**st.definition, "add_subtypes": [t for t in [card.choices.get("Chosen creature type", "").strip()] if t]}
+        return [(st.seq, {**st.definition, "add_subtypes": [t for t in [(card.choices.get("Chosen creature type") or card.choices.get("Chosen basic land type") or "").strip()] if t]}
                  if st.definition.get("chosen_type") else st.definition) for st in table
                 if grammar.conditions_hold(view, st.definition, source=card, controller=st.controller)]
     finally:
@@ -1391,8 +1476,8 @@ def _own_layer5(state: GameState, card: CardInstance, info: CardInfo | None,
 def _grants(d: dict[str, Any]) -> bool:
     """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
     opponents control can't block.") is applied by ``_with_rules`` instead."""
-    return bool(d["p"] or d["t"] or d.get("base") or d.get("base_mv") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of") or d.get("linked_traits")
-                or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords") or d.get("chosen_keywords"))  # -- attached events (wave 4L) -- (wave 49B: the chosen abilities)
+    return bool(d["p"] or d["t"] or d.get("base") or d.get("base_mv") or d.get("base_counters110j") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of") or d.get("linked_traits")
+                or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords") or d.get("chosen_keywords") or d.get("snowblind110a"))  # -- attached events (wave 4L) -- (wave 49B: the chosen abilities)
 
 
 def _attached45(state: GameState, card: CardInstance, info: CardInfo | None,
@@ -1506,6 +1591,9 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
     steps.", an Aura's "Enchanted creature … attacks each combat if able."). Statics are read after
     layer 7, so a subject like "creatures with power 4 or greater" sees the current power
     (613.8-style dependency, as far as this engine models it)."""
+    from app.rules import wave110a_portal  # -- mana ability life (wave 110A) --
+
+    ch = wave110a_portal.apply(ch)
     if info is not None and card.zone.endswith(":battlefield") and state.rules is not None and _T.depth == 0:
         from app.rules import attack_requirements
         from app.rules import statics as grammar
@@ -1541,6 +1629,10 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
             _T.depth -= 1
     if imposed:
         ch = replace(ch, imposed=ch.imposed | frozenset(imposed))
+        if "all_names110j" in imposed and info is not None:  # -- Spy Kit (wave 110J) --
+            from app.rules import wave110j_cards
+
+            ch = replace(ch, name_test=lambda n: wave110j_cards.nonlegendary_creature_name(info, n))
     return ch
 
 
@@ -1596,7 +1688,7 @@ def _group_imposed(state: GameState, card: CardInstance, ch: Characteristics, in
 
 
 Layer = Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
-Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
+Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn", "two_turns110f", "end_of_next_upkeep110g", "roll1_110f"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
 
 
 @world_native80
@@ -1629,7 +1721,8 @@ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | N
 def end_of_turn(plan: Plan) -> None:
     """514.2: "until end of turn" effects end in the cleanup step."""
     r = plan.rules
-    r.effects = [e for e in r.effects if e.duration not in ("end_of_turn", "end_of_combat")]  # (a combat a turn ended in, 18E review)
+    r.effects = [e for e in r.effects if e.duration not in ("end_of_turn", "end_of_combat", "roll1_110f")  # (a combat a turn ended in, 18E review)
+                 and not (e.duration == "two_turns110f" and plan.state.turn.number > e.turn)]  # (wave 110F: "this turn and next turn", Peace Talks: gone in the cleanup of the next turn)
     from app.rules import delayed
 
     delayed.end_of_next_turn(plan)  # -- end of next turn (wave 32C) -- "until the end of your next turn" ends in the cleanup of that turn

@@ -35,6 +35,7 @@ _DEALS100N = re.compile(r"^(?:it|~) deals (?P<x>X plus )?(?P<n>\d+|[a-z]+) damag
                         r"(?P<u> and the damage can't be prevented)?$")  # (wave 100N)
 # "create four of those tokens" (the replaced instruction's tokens: the same token, another number)
 _THOSE_TOKENS = re.compile(r"^create (?P<n>\d+|[a-z]+) of those tokens$")
+_X_TOKENS = re.compile(r"^create X of those tokens$")  # (wave 110C: Starnheim Unleashed, "create X of those tokens instead", X of the foretell cost)
 # "that creature gets -4/-4" (no duration: the replaced pump's)
 _GETS = re.compile(r"^(?:that creature|it) gets (?P<p>[+-]\d+)/(?P<t>[+-]\d+)$")
 # "investigate twice"
@@ -113,6 +114,8 @@ def restate(rest: str, base: list[dict[str, Any]]) -> list[dict[str, Any]] | Non
         # entering attacking (508.4)
         n = _amount(m["n"])
         return [{**e, "do": "create_attacking", "n": n, "tapped": True}] if e["do"] == "create_token" and e.get("tapped") and n else None
+    elif _X_TOKENS.fullmatch(rest) is not None:
+        return [{**e, "n": {"x": 1}}] if e["do"] == "create_token" else None
     elif (m := _INVESTIGATE.fullmatch(rest)) is not None:
         if e["do"] != "create_token" or (e.get("token") or {}).get("name") != "Clue" or e.get("n") != 1:
             return None

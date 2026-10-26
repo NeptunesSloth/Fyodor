@@ -70,7 +70,20 @@ def _untap_one(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
              **({"who": "that_player"} if m["who"] == "that player" else {})}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_UNTAP_UP_TO, _template), (_DRAW_AND_UNTAP, _draw_and_untap), (_UNTAP_ONE, _untap_one)]
+# -- wave 110C -- "untap up to X lands, where X is the greatest power among those creatures" (Shriekwood Devourer): X is the attack batch's
+# greatest power (values _EVENT_GROUP, 608.2h), read when the choice opens; the lands are any lands (115.1: no target)
+_UNTAP_X = re.compile(r"^untap up to X lands, where X is (?P<v>the greatest power among those creatures)$")
+
+
+def _untap_x(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules import selectors, values
+
+    sel = selectors.parse("tapped lands")
+    assert sel is not None
+    return [{"do": "untap_choice", "n": values.parse_count(m["v"]), "sel": sel.key()}], None
+
+
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_UNTAP_X, _untap_x), (_UNTAP_UP_TO, _template), (_DRAW_AND_UNTAP, _draw_and_untap), (_UNTAP_ONE, _untap_one)]
 
 
 def untap_choice(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -88,8 +101,14 @@ def untap_choice(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
              if plan.state.cards[c].tapped and plan.state.cards[c].zone.endswith(":battlefield")]
     if not found:
         return True
+    if isinstance(e["n"], dict):  # (wave 110C: a value, fixed once so the answer needs no event)
+        from app.rules import values
+
+        e = {**e, "n": values.evaluate(plan, ctx, e["n"])}
     n = min(int(e["n"]), len(found))
-    noun = "lands" if e.get("kind", "land") == "land" else "creatures"
+    if n <= 0:
+        return True
+    noun = {"land": "lands", "permanent": "permanents"}.get(e.get("kind", "land"), "creatures")
     decide(plan, player=you, kind="choose_cards",
            prompt=f"{ctx.get('name', '') or 'Untap'}: untap " + (f"{n} {noun[:-1]}" if e.get("exact") else f"up to {e['n']} {noun}"),
            options=[DecisionOption(id=c, label=plan.state.cards[c].name or noun[:-1].title(), card_id=c) for c in found],

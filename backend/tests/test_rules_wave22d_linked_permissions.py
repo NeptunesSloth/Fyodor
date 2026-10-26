@@ -11,6 +11,7 @@ import pytest
 
 from app.rules import coverage
 from app.rules.casting import castable
+from app.rules.plan import Plan
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_effects import mana, pass_until_stack_empty, run_until
@@ -68,12 +69,16 @@ def test_theater_of_horrors_lets_you_cast_the_exiled_card_only_when_an_opponent_
 def test_unlicensed_hearse_is_as_big_as_the_number_of_cards_it_exiled(cards):
     from tests.wave9c_kit import pt
 
-    s = build(cards, p1=("Unlicensed Hearse",), p2=("Probe Rock", "Ambush Viper"))
+    s = build(cards, p1=("Unlicensed Hearse", "Grizzly Bears"), p2=("Probe Rock", "Ambush Viper"))
     hearse = put(s, "Unlicensed Hearse", "battlefield")
+    pilot = put(s, "Grizzly Bears", "battlefield")
     rock, viper = put(s, "Probe Rock", "graveyard", pid="p2"), put(s, "Ambush Viper", "graveyard", pid="p2")
-    assert pt(s, "Unlicensed Hearse") == (0, 0)  # nothing exiled with it yet
+    assert pt(s, "Unlicensed Hearse") == (None, None)  # not a creature: no power or toughness (301.7a)
     act(s, "p1", type="activate_ability", card_id=hearse.id, ability=0, targets=[rock.id, viper.id], target_counts=[2])
     pass_until_stack_empty(s)
     assert s.state.cards[rock.id].zone == "p2:exile" and s.state.cards[viper.id].zone == "p2:exile"
-    assert pt(s, "Unlicensed Hearse") == (2, 2)
+    crew = next(a.index for a in Plan(s.state, "p1", cards, None).ch(s.state.cards[hearse.id]).abilities if a.text.startswith("Crew"))
+    act(s, "p1", type="activate_ability", card_id=hearse.id, ability=crew, crew=[pilot.id])
+    pass_until_stack_empty(s)
+    assert pt(s, "Unlicensed Hearse") == (2, 2)  # (crewed, 301.7b: its characteristic-defining P/T)
     roundtrip(s)

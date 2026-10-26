@@ -147,7 +147,7 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
     if a.source_id:
         src = ops.card(state, a.source_id)
         if ops.visible_to_all_players(state, src):
-            source = TokenSource(source_id=src.id, name=src.name)
+            source = TokenSource(source_id=src.id, name=src.name, object_id=a.source_object)
     base_x = a.x if a.x is not None else 20.0
     base_y = a.y if a.y is not None else 220.0
     for i, new_id in enumerate(a.r.ids):
@@ -204,7 +204,7 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
         c = CardInstance(
             id=new_id,
             card_id=a.printing or (snap.printing if snap is not None else src.card_id if src else None),
-            name=snap.name if snap is not None else src.name if src else "",
+            name=a.name or (snap.name if snap is not None else src.name if src else ""),
             owner=pid, controller=pid, zone=key,
             x=(a.x if a.x is not None else (src.x if src else 0) + 24) + i * 18,
             y=(a.y if a.y is not None else (src.y if src else 0) + 24) + i * 18,
@@ -279,6 +279,7 @@ def meld(state: GameState, a: A.Meld) -> None:
     x, y = placement.free_spot(state, zone_key(owner, "battlefield"), a.row)
     ops.move_card(state, first, zone_key(owner, "battlefield"), x=x, y=y)
     merging.meld(state, first, second, a.result_id, a.result_name, a.r.ids[0])
+    first.tapped = a.tapped
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" melded into {a.result_name}")])
 
 
@@ -323,6 +324,9 @@ def face_down(state: GameState, a: A.FaceDown) -> None:
         # A face-down card is anonymous to everyone but its controller from now on.
         c.revealed_to = []
         (turned_down if new else turned_up).append(c)
+    if turned_down and state.rules is not None:
+        down = {c.id for c in turned_down}  # -- Vesuvan Shapeshifter (wave 110C) -- 708.2: its copy lasts "until this creature is turned face down"
+        state.rules.effects = [e for e in state.rules.effects if not (e.label == "Copy until turned face down" and any(x.split(".")[0] in down for x in e.affected))]
     if turned_down:
         log(state, a.actor, a.ts, [pname(state, a.actor), text(" turned "), group(state, turned_down, before), text(" face down")])
     if turned_up:

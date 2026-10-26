@@ -63,7 +63,7 @@ def phase(state: GameState, a: A.Phase) -> None:
 
 def next_turn(state: GameState, a: A.NextTurn) -> None:
     response.clear(state)
-    order = state.seat_order
+    order = state.turn_order()
     if a.player:
         nxt = ops.player(state, a.player, a.actor)
     else:
@@ -74,6 +74,7 @@ def next_turn(state: GameState, a: A.NextTurn) -> None:
     state.turn.active_player = nxt
     state.turn.phase = "untap"
     state.turn.starting_life = {pid: p.life for pid, p in state.players.items()}
+    state.turn.starting_hand = {pid: len(state.zones.get(f"{pid}:hand", [])) for pid in state.players}  # (wave 110G)
     if state.settings.clear_mana_on_step:
         objects.empty_mana_pools(state)
     parts = [text(f"Turn {state.turn.number}: "), pname(state, nxt)]
@@ -175,7 +176,7 @@ def resolve_top(state: GameState, a: A.ResolveTop) -> None:
     if a.r and top.id in a.r.positions:
         x, y = a.r.positions[top.id]
     # A face-down spell (morph) becomes a face-down permanent (702.37c); anything else turns up.
-    keep_down = True if top.face_down and top.face_down_kind in ("morph", "disguise") and dest.endswith(":battlefield") else None
+    keep_down = True if top.face_down and top.face_down_kind in ("morph", "disguise", "generic") and dest.endswith(":battlefield") else None
     ops.move_card(state, top, dest, x=x, y=y, face_down=keep_down)
     if a.tapped and dest.endswith(":battlefield"):
         top.tapped = True

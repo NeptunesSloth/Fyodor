@@ -53,7 +53,10 @@ SUPPORTED_REPLACEMENTS: set[str] = {
     "discard_battlefield",  # -- discard causes (wave 23D) -- "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it into your graveyard."
     "exile_instead",  # "If ~ would die / be put into a graveyard from anywhere, exile it instead" (own and statics)
     "hand_instead",  # -- instead (wave 100K) -- "If a creature you control that's enchanted would die, return it to its owner's hand instead." (Necromancer's Magemark)
+    "hand_instead110i",  # -- cards (wave 110I) -- Firestorm Phoenix
     "library_instead",  # "If ~ would die, put it on top of / on the bottom of its owner's library instead" (wave 20B)
+    "tapped_for_rad110c",  # -- optional entering choice (wave 110C) -- "You may have this land enter tapped. If you do, you get two rad counters." (Mariposa Military Base)
+    "library_may110c",  # -- optional replacements (wave 110C) -- "If this permanent would be put into a graveyard, you may put it on top of its owner's library instead." (Pulmonic Sliver grant)
     "shuffle_instead",  # -- zone replacements (wave 22C) -- "… reveal ~ and shuffle it into its owner's library instead" (Blightsteel)
     "prevent",  # "Prevent all [combat] damage that would be dealt [to …] [by …] [this turn]" (615)
 }
@@ -70,6 +73,8 @@ SUPPORTED_REPLACEMENTS.add("enters_prepared")  # -- prepared (wave 13C) -- "~ en
 # app/rules/enter_cost.py, tests/test_rules_wave5g_if_you_do.py)
 SUPPORTED_REPLACEMENTS.add("enter_cost")
 SUPPORTED_REPLACEMENTS.add("enters_exile_unpaid")  # Own prospective payment-conditioned entry diversion.
+SUPPORTED_REPLACEMENTS.add("turned_up_attach110d")  # -- turned up (wave 110D) -- "As ~ is turned face up, you may attach it to a creature." (wave110d_misc.attach_up)
+SUPPORTED_REPLACEMENTS.add("life_floor110j")  # -- life total (wave 110J) -- Enduring Angel (wave110j_angel.rewrite, called by Plan.do)
 SUPPORTED_REPLACEMENTS.add("turned_up_counters")  # -- counters (wave 52D) -- 708.11: "As ~ is turned face up, put five +1/+1 counters on it." (app/rules/counters52d.py)
 
 
@@ -107,7 +112,7 @@ def modal_supported(d: dict[str, Any]) -> bool:
 
 def definition_supported(d: dict[str, Any]) -> bool:
     """A replacement / prevention definition is automated only when its kind is listed above."""
-    if d.get("kind") == "static" and d.get("static") == "exert_attack" and not d.get("effects"):
+    if d.get("kind") == "static" and d.get("static") in ("exert_attack", "crew_loyalty110h", "ashiok110h", "cyclone110h") and not d.get("effects"):  # (wave 110H: casting.crew reads the second; casting.cycle the third: wave110h_cards.cycling_effects)
         return True
     if any(isinstance(g, dict) and g.get("random") for g in d.get("targets") or []) and len(d["targets"]) != 1:
         return False  # -- random choices (wave 47B) -- "target … chosen at random" is read as the ability's only target group (the pick is made as the targets are chosen, not between questions)
@@ -161,12 +166,13 @@ def counters_designations_gap(d: dict[str, Any]) -> str | None:
 # static with another op stays manual.
 SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
     "creature_entry": frozenset({"exile"}),
+    "creature_entry_exile110h": frozenset({"shuffle_in"}),  # -- cards (wave 110H) -- Don't Blink (creature_entry_redirect.shuffles)
     "tokens": frozenset({"mul", "add", "set_creator"}),  # 614.16: Parallel Lives, Doubling Season, Xorn
     "counters": frozenset({"mul", "add"}),  # 122.6, 614.16: Hardened Scales, Winding Constrictor, Doubling Season
-    "player_counters": frozenset({"add", "mul"}),  # Winding Constrictor; energy-specific additions/doubling (107.14)
+    "player_counters": frozenset({"add", "mul", "set"}),  # Winding Constrictor; energy-specific additions/doubling (107.14)
     "draw": frozenset({"win", "skip", "steal", "draw"}),  # 121.6, 614.11: Laboratory Maniac, Notion Thief
-    "life": frozenset({"mul", "add", "set", "lose"}),  # 119.10: Boon Reflection, Sulfuric Vortex, Tainted Remedy
-    "damage": frozenset({"mul", "add", "sub", "half", "prevent", "prevent_all_but", "prevent_all", "cap", "set_value"}),  # 614, 615.10 (cap: wave 20B)
+    "life": frozenset({"mul", "add", "set", "lose", "draw"}),  # 119.10: Boon Reflection, Sulfuric Vortex, Tainted Remedy
+    "damage": frozenset({"mul", "add", "sub", "half", "prevent", "prevent_all_but", "prevent_all", "cap", "set_value", "prevent_counters110j"}),  # 614, 615.10 (cap: wave 20B)
 }
 # -- refused grants/replacements (wave 3R2) -- 614.9 redirection statics (Pariah, Palisade Giant: app/rules/source_shields.py,
 # tests/test_rules_refused_grants.py)
@@ -187,6 +193,7 @@ SUPPORTED_REPLACE_OPS["tokens"] = SUPPORTED_REPLACE_OPS["tokens"] | {"extra", "r
 SUPPORTED_REPLACE_OPS["counters"] = SUPPORTED_REPLACE_OPS["counters"] | {"half"}
 # -- replacements: draws and life (wave 28B) -- a draw replaced by its own instructions (app/rules/draw_bodies.py)
 SUPPORTED_REPLACE_OPS["draw"] = SUPPORTED_REPLACE_OPS["draw"] | {"body"}
+SUPPORTED_REPLACE_OPS["life"] = SUPPORTED_REPLACE_OPS["life"] | {"draw_instead110b"}  # -- (wave 110B) -- Nefarious Lich: "draw that many cards instead" (replace._life_apply; its callers draw them)
 SUPPORTED_REPLACE_OPS["mill"] = frozenset({"mul", "add"})  # 701.17a: Bruvac the Grandiloquent, The Water Crystal (replace.mill_counts)
 SUPPORTED_REPLACE_OPS["draw_count"] = frozenset({"add", "each_one"})  # 121.2a: Quantum Riddler, Alms Collector (replace.draw_cards)
 SUPPORTED_REPLACE_OPS["life_loss"] = frozenset({"mul", "floor"})  # 119.3: Bloodletter of Aclazotz (app/rules/replace.py lose_life); floor: wave 35C
@@ -283,6 +290,7 @@ SUPPORTED_KEYWORDS.add("umbra armor")  # -- keywords (wave 15E) -- 702.89a (rege
 SUPPORTED_KEYWORDS.add("start your engines!")  # -- speed (wave 24B) -- 702.179 (app/rules/speed.py)
 SUPPORTED_KEYWORDS.add("phasing")  # -- phasing (wave 13D) -- 702.26 (app/rules/phasing.py)
 SUPPORTED_KEYWORDS.update(("aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate"))  # -- static_other sweep (wave 16B) -- 702.127 (casting.cast_grant)
+SUPPORTED_KEYWORDS.add("space sculptor")  # -- sectors (wave 110J) -- Space Beleren (wave110j_final.sector_sba, sector_block_problem)
 SUPPORTED_KEYWORDS.add("split second")  # -- split second (wave 8A) -- 702.61 (app/rules/split_second.py, cast_limits)
 # -- end sagas & attached-object triggers (wave 3S) --
 
@@ -345,7 +353,7 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
 # -- keyword actions & face-down (wave 3F) -- refused on purpose, with the missing piece named
 REFUSED += (
     # (-- trigger other (wave 25B) -- airbending a permanent is read now: app/rules/airbend.py; a spell's exile from the stack isn't)
-    (re.compile(r"\bairbend[^.]*\bspells?\b", re.I), "airbending a spell: exiling it from the stack with that permission isn't modelled"),
+    (re.compile(r"\bairbend(?! up to one other target creature or spell\.)[^.]*\bspells?\b", re.I), "airbending a spell: exiling it from the stack with that permission isn't modelled"),
     # (review 25B: "Choose up to one target creature, then airbend all other creatures": "other" is other than the chosen one, not the source;
     # scripts._clause refuses it)
     (re.compile(r"\bchoose [^.]*\btargets?\b[^.]*, then \w+ all other\b", re.I),
@@ -453,7 +461,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import commander
 
         return commander.companion_condition(line) in commander.COMPANION_RESTRICTIONS
-    if kw in ("enchant", "equip"):  # app/rules/attachments.py: the wordings it maps
+    if kw in ("enchant", "equip", "fortify"):  # app/rules/attachments.py: the wordings it maps
         from app.rules import attachments
 
         return attachments.supported_keyword(kw, line)
@@ -507,7 +515,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
 
         return keyword_cost(line, "echo") is not None
     if kw in ("morph", "megamorph"):  # casting.morph_cost: a mana morph cost
-        if re.fullmatch(r"(?:mega)?morph (?:\{[^}x]+\})+", line.strip().rstrip(".").lower()) is not None:  # (no X: wave 3F)
+        if re.fullmatch(r"(?:mega)?morph (?:\{[^}]+\})+", line.strip().rstrip(".").lower()) is not None:  # (X: wave 110B, 107.3a: announced as it is turned face up)
             return True
         from app.rules.casting import (  # -- hidden exile (wave 18A) -- "Morph—Discard a card."
             MORPH_COST,
@@ -520,7 +528,7 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import disguise_costs
 
         spec = disguise_costs.parse(line)
-        return spec is not None and "{X}" not in spec[0].upper()
+        return spec is not None  # (X: -- wave 110O -- announced as it is turned face up, like morph's, 107.3a: casting.turn_face_up, triggers.x_source "faceup")
     if kw == "toxic":  # -- counters & designations (wave 3E) -- combat.py reads "toxic N" anywhere in a keyword line ("Menace, toxic 1")
         return re.search(r"(?:^|, )toxic \d+(?:,|$)", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower()) is not None
     if kw == "escalate":  # -- static_other sweep (wave 16B) -- casting.escalate_parts
@@ -573,7 +581,11 @@ def _keyword_supported(kw: str, line: str) -> bool:
         pieces = [p.strip() for p in re.split(r"[,;]\s*", re.sub(r"\s*\(.*?\)", "", line).strip().rstrip(".").lower())]
         mine = [p for p in pieces if p.startswith(kw)]
         return bool(mine) and all(re.fullmatch(rf"{kw} \d+", p) for p in mine)
-    if kw in ("bloodthirst", "toxic", "fabricate", "firebending", "dredge"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
+    if kw == "firebending":  # -- wave 110B -- 702.189a: its piece of a line with other keywords
+        from app.rules import wave110b_cards
+
+        return wave110b_cards.firebending(line) is not None
+    if kw in ("bloodthirst", "toxic", "fabricate", "dredge"):  # numbered keywords (firebending: wave 3F) (triggers.py, engine.enter_with_counters)
         return re.fullmatch(rf"{kw} \d+", line.strip().rstrip(".").lower()) is not None or (  # (-- random choices (wave 47B) -- 702.54b "Bloodthirst X": replacements.entering_counters)
             kw == "bloodthirst" and line.strip().rstrip(".").lower() == "bloodthirst x")
     if kw == "plot":  # -- keywords (wave 15E) -- casting.plot: a mana plot cost
@@ -697,7 +709,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
             only_gy = [ab for ab in ch.abilities if ab.kind != "keywords"]
             templated = {i for i in templated if templates.graveyard_only_ability(defs.get(i))} \
                 if only_gy and all(templates.graveyard_only_ability(defs.get(ab.index)) for ab in only_gy) else set()
-        elif whole.get("modes"):
+        elif whole.get("modes") or whole.get("whole110k"):  # (-- wave 110K -- whole110k: the resolution-time mode choice of "An opponent chooses one —", whose bullets are read with its header)
             templated = {ab.index for ab in ch.abilities if ab.kind != "keywords"}  # a modal spell (700.2)
     out: list[Feature] = []
 
@@ -746,7 +758,11 @@ def features_of(ch: Characteristics) -> list[Feature]:
                     for n in range(len(keyword_triggers.pieces("backup", ab.text)))) and bool(
                         keyword_triggers.pieces("backup", ab.text)))  # (wave 15E: the abilities below it, 702.165a)
         elif ab.kind == "mana":
-            add("mana:ability", ab.text, "mana:ability" in SUPPORTED and parse_mana_ability(ab.text, card_name=ch.name) is not None)
+            from app.rules import (
+                wave110g_spires,  # -- wave 110G -- Cryptic Spires (wave110g_spires.apply reads the circled colors)
+            )
+
+            add("mana:ability", ab.text, "mana:ability" in SUPPORTED and (parse_mana_ability(ab.text, card_name=ch.name) is not None or wave110g_spires.mana_ok(ab.text)))
         else:
             add(f"text:{ab.index}", ab.text, ab.index in templated)
     # -- counters & designations (wave 3E) -- the dungeon rooms a venture may lead into (automated or not)
@@ -756,10 +772,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
         gaps |= {g for g in [counters_designations_gap(whole)] if g is not None}
     for gap in sorted(gaps):
         add("engine:dungeon", gap[0].upper() + gap[1:], False)
-    if any(d.get("kind") == "static" and d.get("static") == "roll_adjust" for d in defs.values()):
-        # Night Shift's numeric rules are complete. Its accepted-use life payment
-        # on a symbolic planar die still requires the native planar-roll model.
-        add("engine:planar_roll_payment", "Planar-die life payment and accepted-use accounting", False)
+    # Night Shift of the Living Dead: a planar-die roll happens only in Planechase (706.7, 901.3); Fractured Powerstone rolls nothing in Commander (ruling 2012-06-01)
     return out
 
 
@@ -807,7 +820,11 @@ def ability_supported(ch: Characteristics, index: int) -> bool:
     if ab.kind == "keywords":
         return all(k in SUPPORTED_KEYWORDS for k in ab.keywords)
     if ab.kind == "mana":
-        return "mana:ability" in SUPPORTED and parse_mana_ability(ab.text, card_name=ch.name) is not None
+        from app.rules import (
+            wave110g_spires,  # -- wave 110G -- Cryptic Spires: the circled colors make the ability readable (wave110g_spires.apply)
+        )
+
+        return "mana:ability" in SUPPORTED and (parse_mana_ability(ab.text, card_name=ch.name) is not None or wave110g_spires.mana_ok(ab.text))
     if ch.is_instant_or_sorcery:
         whole = templates.spell_definition(ch)
         own = templates.definitions(ch).get(index)
@@ -820,7 +837,7 @@ def ability_supported(ch: Characteristics, index: int) -> bool:
     return d is not None and definition_supported(d) and x_selector_ok(ch, d)
 
 
-_X_SELECTOR = re.compile(r'\["mv","==",-1\]')  # (selectors.X_VALUE; "or less" wordings predate this check)
+_X_SELECTOR = re.compile(r'\["mv","==",-[13]\]')  # (selectors.X_VALUE; "or less" wordings predate this check)
 
 
 def x_selector_ok(ch: Characteristics, d: dict[str, Any]) -> bool:
@@ -842,4 +859,8 @@ def x_selector_ok(ch: Characteristics, d: dict[str, Any]) -> bool:
         from app.rules import triggers
 
         return triggers.x_source(d, ch) is not None
-    return d.get("kind") == "spell" and "{X}" in (ch.mana_cost or "")
+    # -- additional cost X (wave 110C) -- 107.3a, 601.2b: "As an additional cost to cast this spell, pay X life." announces the X too (Fix What's Broken)
+    from app.rules.costs import spell_additional_cost
+
+    extra = spell_additional_cost(ch.abilities)
+    return d.get("kind") == "spell" and ("{X}" in (ch.mana_cost or "") or (extra is not None and (extra.life_x or any(c.counters_x for c in extra.components))))

@@ -14,6 +14,9 @@ The proof that nothing else changed:
   Mind Stone they allow from the graveyard; nothing else in the golden moved.)
   (Wave 43B: Bolas's Citadel is read, so the ``permissions`` board lists the Eternal Witness on top of the library as a free cast for p1, paying
   life; nothing else in the golden moved.)
+  (Wave 110 fix: the rules view gained ``attacking_bands`` (702.22) and ``draw_reason`` (104.4) on every table, an attackers decision
+  shows its banding ``display``, and Dream Halls' alternative cost is read, so the ``free_casts`` board and ``play_through`` list it on
+  each spell sharing a color with another card in hand, Krenko from the command zone included; nothing else in the golden moved.)
 * the same boards with the pass switched off (the old code path, still there for every engine action) must give the same views;
 * a pass is read-only by construction: the table is the same at the end, and no value is stored in it while the table differs from its start;
 * it ends with the call (nothing survives to the next action), belongs to one thread, one table object and one card info, and a probe's copy of

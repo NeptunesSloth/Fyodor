@@ -267,7 +267,8 @@ def test_temple_of_the_false_god_needs_five_lands(mcards):
 def test_everflowing_chalice_adds_one_per_charge_counter(mcards):
     s = table(mcards, ["Everflowing Chalice"])
     _to_battlefield(s, "Everflowing Chalice")
-    assert _abilities(s, mcards, "Everflowing Chalice") == {}  # no counters: nothing to add
+    (ab,) = _abilities(s, mcards, "Everflowing Chalice").values()
+    assert ab.options == ((),)  # no counters: still a mana ability (605.1a), it just adds nothing
     act(s, "p1", type="counter", card_ids=[named(s, "Everflowing Chalice").id], kind="charge", delta=2)
     (ab,) = _abilities(s, mcards, "Everflowing Chalice").values()
     assert ab.options == (("C", "C"),)

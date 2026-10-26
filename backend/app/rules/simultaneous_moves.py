@@ -122,11 +122,18 @@ def commit(plan: Plan, planned: list[Any], request: dict[str, Any]) -> None:
     back = [c.id for e, c, _ in planned if e.get('transformed') or e.get('modal_back')]
     if back:
         payload['back_ids'] = back
+    if flipped := [c.id for e, c, _ in planned if e.get('flipped')]:  # (-- flip (wave 110I) -- 710: enters flipped)
+        payload['flipped_ids'] = flipped
     if ':' in outcome:
         payload['position'] = 'bottom' if outcome.endswith(':bottom') else 'top'
     plan.do(payload, actor=actor)
     for entry, card, ep in planned:
         replacements._after_move(plan, entry, card.id, ep, incoming, prepared=prepared[card.id])
+    from app.rules import (
+        wave110e_once,  # -- one-shot entry counters (wave 110E) -- spent on this entry path too
+    )
+
+    wave110e_once.spend(plan, incoming)
     if sacrifice and outgoing is not None and cand is not None:
         replacements._record_link(plan, outgoing.id, cand)
         if cand.counter:

@@ -104,7 +104,7 @@ def attack_requirements(plan: Plan, eligible: set[str], targets: set[str], decla
 
         obeyed += score(declared.get(cid))
         places: dict[str, int] = {}
-        if combat.attack_problem(plan.state, card, ch) is None:
+        if combat.attack_problem(plan.state, card, ch, plan.info) is None:
             for target in targets:
                 if combat._closed(plan, ch, target, card, declared=cid in declared) and declared.get(cid) != target:
                     continue

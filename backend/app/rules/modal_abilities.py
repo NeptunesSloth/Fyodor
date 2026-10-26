@@ -104,8 +104,35 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     whose modes are all read: the ability itself (``modes`` and ``modal``) and a ``kind: "mode"`` stub
     for each of its bulleted lines (so they count as part of it). {} if it isn't one, or if any part
     isn't understood — the whole ability is then manual."""
-    from app.rules import scripts  # (scripts reads an ability here: a leaf module over it)
+    from app.rules import (
+        scripts,  # (scripts reads an ability here: a leaf module over it)
+        wave110h_cards,
+    )
 
+    if ab.kind == "static" and "Saga" in ch.subtypes and ab.text.rstrip().endswith("—"):  # -- sagas (wave 110F) -- 714.2b: "I, II — Choose one —" is a triggered chapter ability with modes
+        from dataclasses import replace as _replace
+
+        from app.rules import sagas
+
+        return definitions(_replace(ab, kind="triggered"), ch) if sagas.chapters_of(ab.text) else {}
+    from app.rules import wave110f_fin  # -- Riku of Many Paths (wave 110F) --
+
+    if (riku110f := wave110f_fin.modal_header(ab, ch, definitions)) is not None:
+        return riku110f
+    from app.rules import wave110f_gy  # -- Cemetery Desecrator (wave 110F) --
+
+    if (gy110f := wave110f_gy.definitions(ab, ch)) is not None:
+        return gy110f
+
+    from app.rules import wave110o_cards  # -- (wave 110O) --
+
+    if (swap110o := wave110o_cards.modal_swap(ab, ch)) is not None:
+        found110o = definitions(ab, swap110o[0])
+        head = found110o.get(ab.index)
+        if head is not None and len(head.get("modes") or []) > swap110o[1]:
+            head["modes"][swap110o[1]] = {**head["modes"][swap110o[1]], "effects": swap110o[2]}
+        return found110o
+    ab = wave110h_cards.modal_header(ab, ch)  # -- Immard (wave 110H) --
     if ab.kind == "triggered" and ", you may choose two" in ab.text:
         # -- commanders (wave 50C) -- "you may choose two" (Shadrix Silverquill ruling 2021-04-16): exactly zero modes or two modes, never one (700.2d)
         from dataclasses import replace
@@ -114,6 +141,14 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         if (md := sub.get(ab.index)) is not None and md.get("modal") is not None:
             md["modal"] = {**md["modal"], "zero_or_all": True}
         return sub
+    if ab.kind == "triggered" and ab.text.endswith("choose up to that many —") and "times. When you " in ab.text:
+        from dataclasses import (
+            replace as _r,  # -- pay N times (wave 110B) -- Tranquil Frillback: "choose up to that many" = up to the X paid (700.2b)
+        )
+
+        from app.rules import paid_x
+
+        ab = _r(ab, text=paid_x.times_text(ab.text))
     m = _HEADER.match(ab.text)
     if m is not None and ab.kind == "triggered" and (rm := _REFLEXIVE.match(m["prefix"])) is not None:
         return _reflexive_definitions(ab, ch, rm["outer"], m)  # -- refused modal/conditional (wave 3R1) --
@@ -244,7 +279,7 @@ def _plain_groups(ab: AbilityText, groups: list[Definition]) -> bool:
     support X-sized counts and totals, read from the object whose event caused the trigger.
     Activated X/total/divided groups remain unsupported until their mode preflight reads them.
     """
-    allowed = {"what", "min", "max", "same_graveyard"}  # (wave 100N: "from a single graveyard", checked by targets.choose_groups for joined groups too)
+    allowed = {"what", "min", "max", "same_graveyard", "distinct_from"}  # (wave 110J: "another target creature", numbered from the group's own mode: casting.modal_groups) # (wave 100N: "from a single graveyard", checked by targets.choose_groups for joined groups too)
     if ab.kind == "triggered":
         allowed |= {"x_count", "total"}
     elif ab.kind not in ("activated", "loyalty"):
@@ -298,7 +333,9 @@ def _header_ok(ab: AbilityText, prefix: str, end: str, rest: str) -> bool:
     one —" (an activated ability may add its "Activate only …" sentences after "Choose one.", a
     triggered ability its limit)."""
     if ab.kind == "triggered":
-        if not prefix.endswith(", ") or ". " in prefix:
+        from app.rules import sagas
+
+        if not (prefix.endswith(", ") or sagas.chapters_of(f"{prefix}x")) or ". " in prefix:
             return False  # (a line with another sentence before it is a reflexive trigger, 603.12, or the like)
         return rest == "" if end == " —" else rest == "" or rest in restrictions.TRIGGER_LIMITS
     if ab.kind in ("activated", "loyalty") and ab.cost:
@@ -324,7 +361,8 @@ def _reflexive_definitions(ab: AbilityText, ch: Characteristics, outer: str, m: 
     lo, top = _COUNTS[m["count"]]
     n = len(bullets)
     hi = n if top is None else min(top, n)
-    if n < 2 or lo > n or lo == 0 or (m["count"] == "one or both" and n != 2):
+    upx = m["count"] == "up to X"  # -- pay N times (wave 110B) -- "When you do, choose up to X —": X = the amount paid (the reflexive event's), read as it goes on the stack (700.2b)
+    if n < 2 or lo > n or (lo == 0 and not upx) or (m["count"] == "one or both" and n != 2):
         return {}
     after = next((x for x in ch.abilities if x.index == bullets[-1].index + 1), None)
     if after is not None and _TRAILER.match(after.text):
@@ -345,10 +383,19 @@ def _reflexive_definitions(ab: AbilityText, ch: Characteristics, outer: str, m: 
                 or one.get("limit") or not one["effects"]:
             return {}
         modes.append({"text": text, "effects": scripts.rename_bindings(one["effects"], f"m{k}_"), "target": one["target"]})
-    modal = {"min": lo, "max": hi, "repeat": False, "condition": None, "memory": None, "index": ab.index, "form": "triggered"}
+    modal = {"min": lo, "max": hi, "repeat": False, "condition": None, "memory": None, "index": ab.index, "form": "triggered",
+             **({"x_max": {"x": 1}} if upx else {})}
     ability = {"kind": "triggered", "trigger": "reflexive", "effects": [], "target": None, "optional": False,
-               "modes": modes, "modal": modal}
-    out: dict[int, Definition] = {ab.index: {**d, "effects": [*d["effects"][:-1], {**d["effects"][-1], "ability": ability}]}}
+               "modes": modes, "modal": modal, **({"x_event": True} if upx else {})}
+    reflex = {**d["effects"][-1], "ability": ability}
+    first = d["effects"][0]
+    if upx:
+        if first.get("do") != "optional_payment" or "choose_x" not in first:
+            return {}
+        reflex["x_from"] = first["bind"]
+    if first.get("do") == "optional_payment" and len(d["effects"]) > 3 and d["effects"][-3].get("cond") == {"succeeded": first["bind"], "negate": True}:
+        reflex["cond"] = {"succeeded": first["bind"]}  # -- Immard (wave 110H) -- "If you don't, X. When you do, …": "you do" is the payment, not X (603.12)
+    out: dict[int, Definition] = {ab.index: {**d, "effects": [*d["effects"][:-1], reflex]}}
     for bullet in bullets:
         out[bullet.index] = {"kind": "mode", "of": ab.index, "form": "triggered", "memory": None, "effects": []}
     return out
@@ -428,7 +475,8 @@ def mode_effects(definition: Definition, chosen: list[int]) -> list[dict[str, An
     """The effects of the chosen modes in printed order (608.2c), each with its own target slot
     ("use_targets"); a trigger's intervening "if" is checked again as it resolves (603.4)."""
     out = [*((definition.get("modal") or {}).get("also") or ()),  # (wave 50C: "choose one and you lose 2 life": that first)
-           *(e for k, i in enumerate(chosen) for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]])]
+           *(e for k, i in enumerate(chosen) for e in [{"do": "use_targets", "slot": k}, *definition["modes"][i]["effects"]]),
+           *(definition.get("after") or ())]  # -- wave 110G -- lines printed after the modes (Done for the Day)
     if definition.get("if") is not None:
         out = [{"do": "only_if", "cond": definition["if"], "skip": len(out)}, *out]
     return out

@@ -83,8 +83,11 @@ _CAUSES = (
     (re.compile(r"^an? (?P<sel>creature(?: you control)?) attacking$"), "attack"),
     # (wave 43A) 120.2, 510.2 (Felix Five-Boots): damage a creature you control dealt a player in combat; a planeswalker or battle isn't "a player"
     (re.compile(r"^an? (?P<sel>creature you control) dealing combat damage to a player$"), "damage"),
+    # (wave 110I) 120.2, 603.2d, Scryfall ruling 2026 (Wayta, Trainer Prodigy): only abilities whose own event is damage being dealt to that creature (it is dealt damage; a source deals damage to it)
+    (re.compile(r"^a (?P<sel>creature you control) being dealt damage$"), "dealt"),
     (re.compile(r"^you casting or copying an? (?P<sel>instant or sorcery spell)$"), "cast"),
     (re.compile(r"^a player drawing a card$"), "draw"),
+    (re.compile(r"^turning a face-down permanent face up$"), "face_up"),  # -- trigger multipliers (wave 110D) -- 701.40, 702.37e (Panoptic Projektor): the turned_face_up event
 )
 # Not multiplied: the ids of the abilities _add creates that aren't "triggered abilities the object has" (603.2d)
 DELAYED, REFLEXIVE, MADNESS = 7000, 7300, 8000
@@ -298,10 +301,16 @@ def _caused(plan: Plan, d: dict[str, Any], mult: CardInstance, event: TriggerEve
         if event.kind not in ("deal_damage", "deal_damage_opponent", "deal_combat_damage_player", "dealt_damage") or not event.combat or not event.players:
             return False
         return fits(event.source) if event.kind == "dealt_damage" else any_object()
+    if cause == "dealt":  # (wave 110I) the trigger's event is the creature being dealt damage, from either side ("is dealt damage" / "~ deals damage to a creature"); never what the damage did (life, counters)
+        if event.kind == "dealt_damage":
+            return any_object()
+        return event.kind == "deal_damage" and event.other is not None and fits(event.other)
     if cause == "cast":  # "you casting or copying": the player who cast or copied it (601.2i, 707.10)
         return event.kind in ("cast", "copy") and event.players == [mult.controller] and any_object()
     if cause == "draw":
         return event.kind == "draw"
+    if cause == "face_up":  # (wave 110D) Panoptic Projektor: a face-down permanent turned face up; "enters" abilities don't trigger then (702.37e), so only turned-face-up ones
+        return event.kind == "turned_face_up"
     return False
 
 
@@ -423,7 +432,13 @@ def joined(plan: Plan, t: PendingTrigger) -> None:
     for extra in extras:
         extra.event = t.event.model_copy(deep=True) if t.event is not None else None
     if index >= 0:
+        before = len(_extras(plan).get(t.id, ([], index))[0])
         multiply(plan, t, index, t.event)
+        from app.rules import (
+            wave110c_misc,  # -- Strict Proctor (wave 110C) -- the extra instances this join added are caused by the entering permanent too (603.2)
+        )
+
+        wave110c_misc.proctor_triggers(plan, t, t.event, _extras(plan).get(t.id, ([], index))[0][before:])
 
 
 def entering(plan: Plan, card_id: str) -> TriggerEvent | None:

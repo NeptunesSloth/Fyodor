@@ -30,14 +30,11 @@ def _loss_condition(condition: dict[str, Any]) -> bool:
         condition.get('event') == 'either' and any(_loss_condition(part) for part in condition.get('conds', [])))
 
 
-def loss_events(plan: Plan, players: list[str], *, prior_leave: bool = False) -> None:
-    """603.10f normal loss looks back;104.3a concession leaves before the loss event."""
-    from app.game.rules_state import emit, snapshot
+def loss_watchers(plan: Plan) -> list[Any]:
+    """Battlefield permanents with a "loses the game" trigger, as they are now (603.10f looks back)."""
+    from app.game.rules_state import snapshot
     from app.rules import characteristics, granted, triggers
 
-    players = list(dict.fromkeys(p for p in players if p in plan.live() or (prior_leave and p in plan.rules.conceded)))
-    if not players:
-        return
     cohort = []
     for card in list(plan.state.cards.values()):
         if not card.zone.endswith(":battlefield") or not plan.in_game(card) or plan.manual(card):
@@ -54,6 +51,21 @@ def loss_events(plan: Plan, players: list[str], *, prior_leave: bool = False) ->
         snap.name = ch.name
         snap.power, snap.toughness = ch.pt or (None, None)
         cohort.append(snap)
+    return cohort
+
+
+def loss_events(plan: Plan, players: list[str], *, prior_leave: bool = False, cohort: list[Any] | None = None) -> None:
+    """603.10f normal loss looks back;104.3a concession leaves before the loss event.
+
+    ``cohort``: the watchers captured before a concession's 800.4a departure, so a permanent the
+    loser owns but another player controls still sees the loss it left the game with (603.10f)."""
+    from app.game.rules_state import emit
+
+    players = list(dict.fromkeys(p for p in players if p in plan.live() or (prior_leave and p in plan.rules.conceded)))
+    if not players:
+        return
+    if cohort is None:
+        cohort = loss_watchers(plan)
     for player in players:
         start=plan.state.turn.starting_life
         emit(plan.state, "player_lost_game", player=player, loss_watchers=cohort,

@@ -57,6 +57,10 @@ def _facts(plan: Plan, refs: list[Any]) -> Any:
 
 
 def bind(plan: Plan, spec: dict[str, Any], groups: list[list[Any]]) -> str:
+    if spec['relative_quality']['kind'] == 'hostctl110j':  # -- wave 110J -- "another permanent with the same controller" as the permanent the Aura is attached to
+        host = _host110j(plan, groups[spec['of']] if spec['of'] < len(groups) else [])
+        sel = selectors.from_key(spec['what'])
+        return sel.key() if host is None else replace(sel, controller=f'player:{host.controller}', extras=(*sel.extras, f'not_oid:{plan.oid(host)}')).key()
     sel = selectors.from_key(spec['what'])
     at = spec['of']
     fact = _facts(plan, groups[at]) if at < len(groups) else None
@@ -71,6 +75,9 @@ def bind(plan: Plan, spec: dict[str, Any], groups: list[list[Any]]) -> str:
 
 
 def _matches(plan: Plan, spec: dict[str, Any], first: str, second: str, facts: dict[str, Any]) -> bool:
+    if spec['relative_quality']['kind'] == 'hostctl110j':
+        host = plan.state.cards.get(plan.state.cards[first].attached_to or '')
+        return host is not None and host.id != second and plan.state.cards[second].controller == host.controller
     a, b = facts[first], facts[second]
     kind = spec['relative_quality']['kind']
     if kind == 'types':
@@ -78,6 +85,15 @@ def _matches(plan: Plan, spec: dict[str, Any], first: str, second: str, facts: d
     if kind == 'mv':
         return b.mana_value <= a.mana_value
     return (b.pt[0] if b.pt is not None else 0) <= (a.pt[0] if a.pt is not None else 0)
+
+
+def _host110j(plan: Plan, refs: list[Any]) -> Any:
+    from app.rules import targets
+
+    if len(refs) != 1:
+        return None
+    card = plan.state.cards.get((refs[0] if hasattr(refs[0], 'id') else targets.ref(plan, refs[0])).id)
+    return plan.state.cards.get(card.attached_to or '') if card is not None else None
 
 
 def _pairs(plan: Plan, spec: dict[str, Any], first: list[str], second: list[str]) -> dict[str, list[str]]:
