@@ -2,6 +2,7 @@
 
 * 122.1, 406.3, 608.2d: Kianne // Imbraham exile cards and mark them with study counters; the Fractal counts different mana values.
 * 701.17, 701.59, 603.12: Memory Vampire mills the chosen players, then may collect evidence 9 to cast a nonland card of the damaged player's graveyard free.
+* 607.1a, 603.2, 701.3a, 303.4f: Nettlevine Blight's granted trigger (its permanent's controller) sacrifices the host and attaches the Aura to a creature or land they control.
 * 613.1b, 608.2d, 701.26: Turf War: the creature's controller gains control of one of the defending player's contested lands (their choice) and untaps it.
 """
 
@@ -16,6 +17,7 @@ from tests.wave110j_kit import (  # noqa: F401
     EXTRA,
     activate,
     card_db,
+    cast_on,
     ch,
     check,
     fresh,
@@ -158,4 +160,31 @@ def test_memory_vampire_mills_then_collects_evidence(cards, pay, free):
     assert len(s.state.zones["p2:library"]) == library - ch(s, v).pt[0]
     assert (now(s, bears).zone == "p1:battlefield") is free and (now(s, bears).controller == "p1" if free else True)
     assert len([c for c in s.state.cards.values() if c.name == "Wall of Stone" and c.zone == "p1:exile"]) == (3 if pay else 0)
+    check(s)
+
+
+@pytest.mark.parametrize("others", [1, 0])
+def test_nettlevine_blight_moves_on_when_its_host_is_sacrificed(cards, others):
+    """At the host controller's end step they sacrifice it and choose a creature or land they control (not the sacrificed one); with none left the Aura is put into the graveyard (704.5m)."""
+    s = build(cards, ["Nettlevine Blight"], ["Grizzly Bears", "Grizzly Bears"])
+    host = put_new(s, "Grizzly Bears", "p2")
+    spare = put_new(s, "Grizzly Bears", "p2") if others else None
+    cast_on(s, "Nettlevine Blight", host)
+    for _ in range(80):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            assert d.player == "p2" and [o.id for o in d.options] == [spare.id]
+            act(s, "p2", type="choose", decision_id=d.id, option_ids=[spare.id])
+        elif s.state.turn.number == 2 and s.state.turn.phase == "end" and not s.state.zones.get("stack") and s.state.cards[host.id].zone.endswith("graveyard") or s.state.turn.number > 2:
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert now(s, host).zone == "p2:graveyard"
+    a = next(c for c in s.state.cards.values() if c.name == "Nettlevine Blight")
+    if others:
+        assert a.zone == "p1:battlefield" and a.attached_to == spare.id
+    else:
+        assert a.zone == "p1:graveyard"
     check(s)

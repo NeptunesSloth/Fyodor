@@ -82,10 +82,13 @@ def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
+
     if (cap := _CAP.fullmatch(ability.text.strip())) is not None and ch.name.startswith(cap["name"]):  # (the short name)
         return {"kind": "static", "static": "counter_cap110j", "counter": cap["kind"], "n": _NUMS[cap["n"]], "effects": []}
     if ability.text.strip() == _ES:
         return _shapeshifter()
+    if (blight := _BLIGHT.fullmatch(ability.text.strip())) is not None:
+        return _nettlevine(blight["oid"], ability, ch)
     if (built := _BUILD.get(ability.text.strip())) is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
@@ -681,3 +684,20 @@ def _vampire(d: Def) -> Def:
 
 _BUILD["Whenever this creature deals combat damage to a player, any number of target players each mill that many cards. Then you may collect evidence 9. When you do, you may cast target nonland card from defending player's graveyard without paying its mana cost."] = (
     "Whenever this creature deals combat damage to a player, you may collect evidence 9. When you do, you may cast target nonland card from that player's graveyard without paying its mana cost.", _vampire)
+
+
+# -- Nettlevine Blight (wave 110J) -- the granted trigger names its Aura (607.1a, layers bind ‹granter#oid›): its controller (the permanent's) sacrifices the permanent,
+# then chooses (not a target, 608.2d) a creature or land they control; the Aura, still on the battlefield, is attached to it (701.3a, 303.4f)
+_BLIGHT = re.compile(r"At the beginning of your end step, sacrifice (?:this permanent|~) and attach ‹granter(?:#(?P<oid>[^›]*))?› to a creature or land you control\.")
+
+
+def _nettlevine(oid: str | None, ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts
+    from app.rules.nontarget_creature_choices import key
+
+    native = scripts.define(replace(ability, text="At the beginning of your end step, sacrifice this permanent."), ch)
+    if native is None:
+        return None
+    pick = {"do": "player_chooses", "who": "you", "sel": key("creature or land you control"), "n": 1, "label": "creature or land", "as": "nv110j"}
+    # (no object id yet while the grant is only being read: attaches nothing)
+    return {**native, "effects": [*native["effects"], pick, {"do": "attach_to", "src": f"obj:{oid or ''}", "who": "ref:nv110j"}]}
