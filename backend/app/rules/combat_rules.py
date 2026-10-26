@@ -913,6 +913,13 @@ def enter_blocking(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 target.id in plan.state.cards and plan.state.cards[target.id].controller == token.controller))  # (a planeswalker's controller; a battle's protector: not read)
             if attacker.zone.endswith(":battlefield") and token.zone.endswith(":battlefield") and protected and plan.ch(token).is_creature:
                 plan.do({"type": "block", "card_id": cid, "attacker_id": att_id, "also": token.blocking is not None}, actor=ctx["controller"])
+                # -- block triggers (wave 110E) -- 509.3c an unblocked attacker becomes blocked; 509.3d "becomes blocked by a creature" for this token (not 509.3b "blocks")
+                from app.rules import block_events, triggers
+
+                fresh = att_id not in plan.rules.blocked and block_events.blockers_declared(plan)
+                if fresh:
+                    plan.rules.blocked = [*plan.rules.blocked, att_id]
+                triggers.generic_combat(plan, "blocked", [attacker] if fresh else [], [(attacker, token)])
                 plan.note(f"{token.name} enters blocking {plan.ch(attacker).name}", [cid, att_id], actor=ctx["controller"])
     return True
 

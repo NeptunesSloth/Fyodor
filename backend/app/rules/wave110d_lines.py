@@ -113,6 +113,10 @@ _AS: dict[str, str] = {
 }
 
 
+_KALDRA = "{1}: If you control Equipment named Helm of Kaldra, Sword of Kaldra, and Shield of Kaldra, create Kaldra, a legendary 4/4 colorless Avatar creature token. Attach those Equipment to it."
+_PYXIS = "{7}, {T}, Sacrifice ~: Each player turns face up all cards they own exiled with ~, then puts all permanent cards among them onto the battlefield."
+_ETRATA = "{2}{U}{B}: Turn ~ face up. If you can't, exile it, then you may cast the exiled card without paying its mana cost."
+_GIFT = "As ~ is turned face up, you may attach it to a creature."
 _SAME_MV = "Whenever you cast a spell, your opponents can't cast spells with the same mana value as that spell until your next turn."
 
 
@@ -185,6 +189,34 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             d["targets"][0]["what"] = selectors.Selector(player="any", player_exclude=selectors.THAT_PLAYER).key()
             d["effects"] = [{"do": "draw_per_curse110d"}]
         return d
+    if text == _KALDRA:  # Helm of Kaldra: 701.3a attach each of the three named Equipment to the new token (a plain create parse, then the checks and attach by hand)
+        d = scripts.define(replace(ability, text="{1}: Create Kaldra, a legendary 4/4 colorless Avatar creature token."), ch)
+        if d is not None:
+            from app.rules import selectors
+
+            names = ("Helm of Kaldra", "Sword of Kaldra", "Shield of Kaldra")
+            one = [selectors.Selector(controller="you", subtypes=("Equipment",), extras=("name:" + n,)).key() for n in names]
+            allk = selectors.Selector(either=tuple(one)).key()
+            conds = [{"value": {"count": k}, "op": ">=", "n": 1} for k in one]
+            d["effects"] = [{"do": "only_if", "cond": c, "skip": 4 - i} for i, c in enumerate(conds)] + [{**d["effects"][0], "as": "kaldra110d"}]
+            d["effects"].append({"do": "attach_to", "src": allk, "who": "ref:kaldra110d"})
+        return d
+    if text == _PYXIS:  # Pyxis of Pandemonium: 406.3 the cards turn face up in exile (public), then each permanent card enters under its owner's control (400.3)
+        d = scripts.define(replace(ability, text="{7}, {T}, Sacrifice ~: Each player returns to the battlefield all cards they own exiled with ~."), ch)
+        if d is not None:
+            from app.rules import selectors
+
+            perm = selectors.parse("permanent card")
+            assert perm is not None
+            d["effects"] = [{"do": "turn_up_linked100g", "who": "exiled_with", "as": "pyxis110d"}, {**d["effects"][0], "who": "exiled_with:" + perm.key()}]
+        return d
+    if text == _ETRATA:  # the fallback runs only when the turn-up failed (608.2c); a chosen-form permanent (chosen_forms95) is not met here
+        d = scripts.define(replace(ability, text="{2}{U}{B}: Exile this creature, then you may cast the exiled card without paying its mana cost."), ch)
+        if d is not None:
+            d["effects"] = [{"do": "turn_up_or_not110d", "bind": "up110d"}, {"do": "only_if", "cond": {"not": {"succeeded": "up110d"}}, "skip": len(d["effects"])}, *d["effects"]]
+        return d
+    if text == _GIFT:
+        return {"kind": "replacement", "replacement": "turned_up_attach110d", "effects": []}
     if text == _SAME_MV:
         d = scripts.define(replace(ability, text="Whenever you cast a spell, you gain life equal to that spell's mana value."), ch)
         if d is not None:
@@ -307,7 +339,23 @@ def attach_event_player(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"attack_me110d": attack_me_next_turn, "draw_per_curse110d": draw_per_curse, "same_mv_limit110d": same_mv_limit, "draw_if_none110d": draw_if_none, "attach_event_player110d": attach_event_player, "share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
+def turn_up_or_not(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Etrata: "Turn this creature face up. If you can't, ..." — 701.40g/701.58g a manifested or cloaked instant or sorcery card can't be (it is only
+    revealed), nor can one an effect bars (static_perm100d.face_up_barred); the result is bound for the fallback."""
+    from app.rules import chosen_forms95, context, effects, facedown
+
+    cards = effects._cards(plan, ctx, "self")
+    card = plan.state.cards.get(cards[0]) if cards else None
+    if card is not None and card.face_down and any(
+            chosen_forms95.form(a.text.replace("this creature", "~")) for a in plan.ch(card.model_copy(update={"face_down": False})).abilities):  # (its "as it is turned face up" choice: the ordinary effect asks it)
+        context.bind_payment(ctx, e["bind"], True)
+        return facedown.turn_face_up(plan, ctx, {"who": "self"})
+    ok = bool(cards) and facedown._turn_up(plan, cards[0], ctx["controller"])
+    context.bind_payment(ctx, e["bind"], ok)
+    return True
+
+
+PRIMITIVES = {"turn_up_or_not110d": turn_up_or_not, "attack_me110d": attack_me_next_turn, "draw_per_curse110d": draw_per_curse, "same_mv_limit110d": same_mv_limit, "draw_if_none110d": draw_if_none, "attach_event_player110d": attach_event_player, "share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
 
 
 def holds(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:

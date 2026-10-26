@@ -935,6 +935,11 @@ def turn_cleanup(plan: Plan) -> None:
     damage_retention83.cleanup(plan)
     if plan.rules.effects:
         layers.end_of_turn(plan)
+    from app.rules import (
+        wave110k_cards,  # -- (wave 110K) -- Teferi, Timeless Voyager's "can't phase in" ends in the cleanup of the holder's next turn
+    )
+
+    wave110k_cards.end_of_turn(plan)
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
     plan.rules.regeneration_riders = []
     plan.rules.no_regen = []  # (wave 19E) and so does "can't be regenerated this turn"
@@ -1156,7 +1161,7 @@ def resolve_top_of_stack(plan: Plan) -> None:
         return
     if ep.get("life"):
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-        _replace_life.lose_life(plan, [(controller, int(ep["life"]))], actor=controller)
+        _replace_life.lose_life(plan, [(controller, int(ep["life"]))], actor=controller, paid=True)
     # -- entering for a cost (wave 5G) -- paid as it would enter, or it goes to its owner's graveyard instead (614.6)
     from app.rules import enter_cost
 
@@ -1336,6 +1341,10 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
     if info is not None and card.zone.endswith(":graveyard") and (barred := next(
             (src for src, _ in cast_limits._statics(state, info, "cant_play_gy_lands") if src.controller != player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play land cards from graveyards"  # -- cant restrictions (wave 50G) -- Tomik, Distinguished Advokist
+    from app.rules import wave110n_cards  # -- (wave 110N) -- Rock Jockey: 305.1
+
+    if (why := wave110n_cards.land_problem(state, player, info)) is not None:
+        return why
     if (why := cast_limits.land_problem(state, player, ch, info)) is not None:
         return why  # -- chosen filters (wave 53B) -- Conjurer's Ban: a land with the chosen name can't be played until a turn
     if check_priority and (r.priority != player or r.decision is not None):
@@ -1397,7 +1406,7 @@ def play_land(plan: Plan, a: A.PlayLand) -> None:
         played_chars.of(plan.state.cards[card.id], plan.info), plan.ch(plan.state.cards[card.id]))
     if ep.get("life"):
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-        _replace_life.lose_life(plan, [(plan.actor, int(ep["life"]))])
+        _replace_life.lose_life(plan, [(plan.actor, int(ep["life"]))], paid=True)
     # -- entering for a cost (wave 5G) -- the land was played (305.1); its entering is what the payment replaces
     from app.rules import enter_cost
 
@@ -1810,6 +1819,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "piles_down_pick": looking.resume_down_pick,
     "order_triggers": triggers.resume_order,
     "trigger_target": triggers.resume_target,
+    "trigger_opp110d": triggers.resume_opponent,
     "trigger_confirm": triggers.resume_confirm,
     "cast_target": casting.resume_target,
     "payment_sources": casting.resume_payment_sources,

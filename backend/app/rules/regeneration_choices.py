@@ -45,7 +45,9 @@ def options(plan: Plan, cid: str, *, can_regenerate: bool, effect: bool) -> list
     card = plan.state.cards[cid]
     oid = plan.oid(card)
     out = []
-    if can_regenerate and oid not in plan.rules.no_regen:
+    from app.rules import wave110k_cards  # -- (wave 110K) -- Bone Shaman
+
+    if can_regenerate and oid not in plan.rules.no_regen and not wave110k_cards.damaged_unregenerable(plan, card):
         if automatic(plan, cid):
             out.append(Candidate('automatic', f'{card.name}: regenerate'))
         if regeneration.shielded(plan, card):

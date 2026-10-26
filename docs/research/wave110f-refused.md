@@ -18,3 +18,8 @@
 - Vengeful Pharaoh: "dealt to you or a planeswalker you control" union event count unsettled; graveyard trigger plus "put on top of library".
 - Thunderblade Charge: graveyard trigger "if this card is in your graveyard, you may pay ... cast it without paying" needs graveyard batch-damage trigger and free cast from graveyard.
 - Gather Specimens: replaces every creature entry (reanimation, put-onto, tokens) under an opponent; no single entry hook.
+- Dance of Many: "the token" link needs a trigger on a specific linked object leaving (no created-with leave watcher).
+- Cemetery Desecrator: exiled card's MV bound into reflexive modes (cost:exiled reads payment records only).
+- Faceless One / The Prismatic Piper: chosen color applies in deck construction (903.4b), foundation spans deck builder and pregame.
+- Null Chamber: two chosen names, one by an opponent (card_names stores one name per source).
+- Glyph of Reincarnation, Camouflage, Noxious Vapors (multicolor choice ruling unchecked), Malik (secret choices), Zevlor: not attempted.

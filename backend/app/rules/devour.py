@@ -23,10 +23,11 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 WHAT = "devour"
+GY = "gy110f"  # (wave 110F) Sutured Ghoul: creature cards in the graveyard, exiled, totals as for Dracoplasm
 STATS = "stats110f"  # (wave 110F) the quality of Dracoplasm: creatures, totals of their power and toughness
 DONE = "done"
 _PIECE = re.compile(r"devour (?:(?P<q>land|artifact|food) )?(?P<n>\d+)")
-_QUALITY_WORD = {None: "creature", "stats110f": "creature", "land": "land", "artifact": "artifact", "food": "Food", "untapped_forest": "untapped Forest", "creature_pw": "creature or planeswalker",
+_QUALITY_WORD = {None: "creature", "stats110f": "creature", "gy110f": "creature card", "land": "land", "artifact": "artifact", "food": "Food", "untapped_forest": "untapped Forest", "creature_pw": "creature or planeswalker",
                  "nonland": "nonland permanent", "permanent": "permanent"}
 
 
@@ -56,26 +57,29 @@ _STATICS = {"As ~ enters, you may sacrifice any number of creatures and/or plane
             "As ~ enters, sacrifice any number of untapped Forests.": ("untapped_forest", 0),  # (wave 110A: Wood Elemental, no counters: its P/T read "Forests sacrificed")
             # -- stats (wave 110F) -- Dracoplasm: sacrifice any number of creatures (no counters); its base P/T become their totals, set as it enters (:func:`apply_totals`)
             "As ~ enters, sacrifice any number of creatures. ~'s power becomes the total power of those creatures and its toughness becomes their total toughness.": (STATS, 0),
+            # -- gy (wave 110F) -- Sutured Ghoul: exile creature cards from your graveyard; its P/T are their totals (the second line, _COMPANION)
+            "As ~ enters, exile any number of creature cards from your graveyard.": (GY, 0),
             # -- (wave 110J) -- Shimatsu the Bloodcloaked: any number of permanents (zero allowed), one counter each (the same choice as devour 1)
             "As ~ enters, sacrifice any number of permanents. ~ enters with that many +1/+1 counters on it.": ("permanent", 1)}
 # -- same name (wave 110I) -- Sheltered Valley: the legend-rule-like replacement sacrifices every other permanent of the same name, no choice and no counters (614.1a)
 SAME_NAME = "same_name110i"
 _STATICS["If ~ would enter, instead sacrifice each other permanent named Sheltered Valley you control, then put ~ onto the battlefield."] = (SAME_NAME, 0)
 NO_COUNTERS = {"untapped_forest", SAME_NAME}
+_COMPANION = "~'s power is equal to the total power of the exiled cards and its toughness is equal to their total toughness."  # no effect of its own: apply_totals
 RETURNS = "nonland"  # (the one quality returned to its owner's hand, at most one)
 
 
 def static100b(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
-    return {"kind": "static", "static": "devour100b", "effects": []} if ability.kind == "static" and scripts.self_text(ability.text, ch.name) in _STATICS else None
+    return {"kind": "static", "static": "devour100b", "effects": []} if ability.kind == "static" and scripts.self_text(ability.text, ch.name) in (*_STATICS, _COMPANION) else None
 
 
 def spec(ch: Any) -> tuple[str | None, int] | None:
     from app.rules import scripts
 
     found = [p for ab in ch.abilities if ab.kind == "keywords" and "devour" in ab.keywords for p in pieces(ab.text)]
-    found += [_STATICS[scripts.self_text(ab.text, ch.name)] for ab in ch.abilities if static100b(ab, ch) is not None]
+    found += [_STATICS[t] for ab in ch.abilities if static100b(ab, ch) is not None and (t := scripts.self_text(ab.text, ch.name)) in _STATICS]
     return found[0] if len(found) == 1 else None
 
 
@@ -97,14 +101,14 @@ def _matches(plan: Plan, cid: str, quality: str | None) -> bool:
 
     ch = chars.of(plan.state.cards[cid], plan.info)
     return {None: ch.is_creature, STATS: ch.is_creature, "land": ch.is_land, "artifact": "Artifact" in ch.types,
-            "food": "Food" in ch.subtypes, "creature_pw": ch.is_creature or "Planeswalker" in ch.types, "nonland": not ch.is_land,
+            "food": "Food" in ch.subtypes, GY: ch.is_creature, "creature_pw": ch.is_creature or "Planeswalker" in ch.types, "nonland": not ch.is_land,
             "untapped_forest": "Forest" in ch.subtypes and not plan.state.cards[cid].tapped, "permanent": True, SAME_NAME: True}[quality]
 
 
 def candidates(plan: Plan, card: CardInstance, controller: str, quality: str | None, taken: set[str]) -> list[str]:
     """Permanents its controller could sacrifice: matching, on the battlefield, not the one entering (614.13a) nor one
     already picked or chosen by another entering permanent (614.13b)."""
-    return [cid for cid in plan.state.zones.get(zone_key(controller, "battlefield"), [])
+    return [cid for cid in plan.state.zones.get(zone_key(controller, "graveyard" if quality == GY else "battlefield"), [])
             if cid != card.id and cid not in taken and plan.in_game(plan.state.cards[cid]) and _matches(plan, cid, quality)]
 
 
@@ -129,9 +133,11 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, answers: dict[st
         if "choice" not in out:
             out["choice"] = {"what": WHAT, "reserved": sorted(reserved), "picked": value}
         return
-    ids = [c for c in picked(value) if c in plan.state.zones.get(zone_key(controller, "battlefield"), [])]
+    ids = [c for c in picked(value) if c in plan.state.zones.get(zone_key(controller, "graveyard" if found[0] == GY else "battlefield"), [])]
     if ids:
         out["devour"] = ids
+        if found[0] == GY:
+            out["devour_exile"] = True
         if found[0] == RETURNS:
             out["devour_return"] = True
     out.setdefault("choices", {})[WHAT] = ",".join(ids) + ("," if ids else "") + DONE
@@ -148,7 +154,7 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
     quality, n = found
     already = picked(choice.get("picked"))
     word = _QUALITY_WORD[quality]
-    verb = "return" if quality == RETURNS else "sacrifice"
+    verb = "return" if quality == RETURNS else "exile" if quality == GY else "sacrifice"
     options = [DecisionOption(id=c, label=f"{verb.capitalize()} {plan.state.cards[c].name or word}", card_id=c)
                for c in candidates(plan, card, controller, quality, {*(choice.get("reserved") or ()), *already})]
     options.append(DecisionOption(id=DONE, label=f"Done: {verb} {len(already)}" if already else f"Don't {verb} any"))
@@ -156,6 +162,8 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
         return f"{card.name}: as it enters, return a {word} you control to its owner's hand?", options
     if quality in NO_COUNTERS:
         return f"{card.name}: as it enters, sacrifice any number of {word}s? ({len(already)} chosen)", options
+    if quality == GY:
+        return f"{card.name}: as it enters, exile creature cards from your graveyard? ({len(already)} chosen)", options
     if quality == STATS:
         return f"{card.name}: as it enters, sacrifice creatures? ({len(already)} chosen)", options
     return (f"{card.name}: devour {n or 'X'} — as it enters, sacrifice {word}s? ({len(already)} chosen)", options)
@@ -168,15 +176,19 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
         return
     from app.rules.effects import _sacrifice_cards
 
-    live = [c for c in ids if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")
-            and plan.state.cards[c].controller == controller]
+    exile = bool(ep.get("devour_exile"))  # (wave 110F: Sutured Ghoul, from the graveyard)
+    live = [c for c in ids if c in plan.state.cards and (plan.state.cards[c].zone == zone_key(controller, "graveyard") if exile else
+            plan.state.cards[c].zone.endswith(":battlefield") and plan.state.cards[c].controller == controller)]
     totals = [sum(int((plan.ch(plan.state.cards[c]).pt or (0, 0))[i] or 0) for c in live) for i in (0, 1)]  # (wave 110F: Dracoplasm's totals, as they were)
     was = {c: plan.oid(c) for c in live}  # (wave 48B: the answer then names the objects they were, 702.82b: "the Goblins it devoured" reads them as they last existed)
-    if ep.get("devour_return"):  # (Rescuer Sphinx: to its owner's hand, 400.3)
+    if exile:
+        plan.do({"type": "move", "card_ids": live, "to": {"zone": "exile"}}, actor=controller)
+    elif ep.get("devour_return"):  # (Rescuer Sphinx: to its owner's hand, 400.3)
         plan.do({"type": "move", "card_ids": live, "to": {"zone": "hand"}}, actor=controller)
     else:
         _sacrifice_cards(plan, live, controller)
-    gone = [was[c] for c in live if c not in plan.state.cards or not plan.state.cards[c].zone.endswith(":battlefield")]
+    gone = [was[c] for c in live if c not in plan.state.cards
+            or (plan.state.cards[c].zone.endswith(":exile") if exile else not plan.state.cards[c].zone.endswith(":battlefield"))]
     ep.setdefault("choices", {})[WHAT] = ",".join(gone) + ("," if gone else "") + DONE
     ep["choices"][TOTALS] = f"{totals[0]},{totals[1]}"
     if gone:
@@ -186,7 +198,7 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
 def counters(ch: Any, choices: dict[str, str] | None) -> int:
     found = spec(ch)
     n = len(picked((choices or {}).get(WHAT)))
-    return 0 if found is None or found[0] in NO_COUNTERS or found[0] == STATS else (found[1] or n) * n  # (Thromok: N 0, X is how many were sacrificed)
+    return 0 if found is None or found[0] in NO_COUNTERS or found[0] in (STATS, GY) else (found[1] or n) * n  # (Thromok: N 0, X is how many were sacrificed)
 
 
 TOTALS = "devour_pt110f"
@@ -196,7 +208,7 @@ def apply_totals(plan: Plan, card: CardInstance, ch: Any, choices: dict[str, str
     """Dracoplasm: "~'s power becomes the total power of those creatures and its toughness becomes their total toughness" -- a base P/T effect
     (613.4b, layer 7b) with the amounts fixed as it entered (the creatures as they were when sacrificed, 608.2h); no sacrifice: 0/0."""
     found = spec(ch)
-    if found is None or found[0] != STATS:
+    if found is None or found[0] not in (STATS, GY):
         return
     from app.rules import layers
 

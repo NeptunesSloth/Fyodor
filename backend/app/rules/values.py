@@ -1062,6 +1062,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         tally = Counter(t for c in selectors.candidates(plan, selectors.from_key(v["of"]), you, _other_than(ctx))
                         for t in plan.ch(plan.state.cards[c]).subtypes & CREATURE_TYPES)
         return max(tally.values(), default=0)
+    if "union_types110n" in v:  # -- (wave 110N) --
+        from app.rules import wave110n_cards
+
+        return wave110n_cards.union_types(plan, ctx, v)
     if "distinct" in v:
         return _distinct(plan, ctx, v["distinct"], v["among"])
     if "abilities_among" in v:  # -- keyword soups (wave 50J) --
@@ -1151,7 +1155,7 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 
 def evaluate_signed(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     """A modification's amount, with its sign ("-1/-1 for each …": ``{"neg": …}``; 613.4c)."""
-    if isinstance(v, dict) and (v.get('linked_pool') or {}).get('projection') == 'power':
+    if isinstance(v, dict) and (v.get('linked_pool') or {}).get('projection') in ('power', 'toughness'):
         from app.rules import linked_aggregates
 
         return int(linked_aggregates.aggregate(plan, ctx, v['linked_pool']))
