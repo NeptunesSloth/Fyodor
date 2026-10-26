@@ -2339,14 +2339,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = re.fullmatch(rf"remove (?:(?P<up>up to) )?(?P<n>{AMT}) (?:(?P<k>[+-]\d+/[+-]\d+|[a-z]+) )?counters? from (?P<o>.+)", text)
     if m and (m["up"] or not m["k"]):
         kind, key, group = ref(m["o"])
-        if kind not in ("target", "self") or re.search(r"\b(?:players?|opponents?)\b", m["o"]) or (rider is not None and rider[0] != "x"):
+        if kind not in ("target", "self") or re.match(r"(?:(?:target|each|that|an?|your) )?(?:players?|opponents?)\b", m["o"]) or (rider is not None and rider[0] != "x"):
             raise _Fail
         return [{"do": "remove_any_counters", "who": _who(kind, key), "n": _apply(_amount(m["n"]), rider), "upto": bool(m["up"]),
                  **({"kind": m["k"]} if m["k"] else {})}], _one(group)
     m = re.fullmatch(rf"remove (?P<n>{AMT}|all) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
         kind, key, group = ref(m["o"])
-        if kind == "players" or (m["n"] == "all" and rider is not None) or re.search(r"\b(?:players?|opponents?)\b", m["o"]):
+        if kind == "players" or (m["n"] == "all" and rider is not None) or re.match(r"(?:(?:target|each|that|an?|your) )?(?:players?|opponents?)\b", m["o"]):
             raise _Fail  # (wave 110I: remove_counters only reads cards; a player's counters would silently do nothing)
         # (wave 17D: "remove all -1/-1 counters from it" - as many as there are, 122.8)
         n = 10**6 if m["n"] == "all" else _apply(_amount(m["n"]), rider)
