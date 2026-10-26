@@ -45,16 +45,9 @@ FULL = ["Sting, the Glinting Dagger", "Frodo Baggins", "Balan, Wandering Knight"
         "Spirit of Resistance", "Aether Revolt", "Anthem of Rakdos", "Vampire Socialite", "Merfolk Trickster", "Gutter Skulker // Gutter Shortcut", "Goblin Shrine", "Deadly Wanderings", "Bronze Horse"]
 
 
-# Refused, not guessed: each stays manual until its rule is modelled.
-# * Croakid Amphibonaut: "a stickered permanent" (stickers are not modelled: no permanent is ever stickered, so the line can't be read);
-# * Manor Gargoyle, Warmonger's Chariot: a condition on the keywords of the very object it modifies (613.8: dependencies between layer-6 effects);
-# * Grond: a layer-4 type change whose condition reads other permanents' creature types (613.8, app/rules/statics.py ``_layer4_safe``);
-# * (Cloud, Midgar Mercenary - a trigger multiplier read with last known information (603.10) under a condition - is read since wave 43A: test_rules_wave43a_trigger_multipliers.py)
-# * (Archelos - "enter tapped" and "enter untapped" replacements whose order the affected permanent's controller chooses (616.1) - is read since wave 49B, as Horizon Explorer's
-#   "enter untapped" is (wave 45A): the permanent's controller takes untapped: test_rules_wave49b_commanders.py)
-# * (Sting - "blocking or blocked by a Goblin or Orc", a relation between the equipped creature and the creature it fights - is read since wave 45A: test_rules_wave45a_attacked.py)
-# Bronze Horse now has canonical spell-target/other-creature gameplay in test_rules_conditional_prevention.py.
-MANUAL = ["Croakid Amphibonaut", "Manor Gargoyle", "Warmonger's Chariot", "Grond, the Gatebreaker"]
+# FULL since wave 101 / 110J (their own scenario tests): Croakid Amphibonaut (test_rules_stickers101.py), Manor Gargoyle (test_rules_wave110j_s7.py),
+# Warmonger's Chariot (test_rules_combat_defender_aliases66.py), Grond (test_rules_conditional_statics91.py).
+FULL += ["Croakid Amphibonaut", "Manor Gargoyle", "Warmonger's Chariot", "Grond, the Gatebreaker"]
 
 
 @pytest.fixture()
@@ -127,11 +120,6 @@ def attack_and_hit(s, c):
 @pytest.mark.parametrize("name", FULL)
 def test_the_conditional_statics_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
-
-
-@pytest.mark.parametrize("name", MANUAL)
-def test_the_refused_conditional_statics_stay_manual(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level != "FULL", name
 
 
 # -- 701.54e: the Ring-bearer ---------------------------------------------------------------------------------------

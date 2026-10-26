@@ -57,7 +57,7 @@ EXTRA = [card(c["name"], set_code="w42d", number=f"D{i:02d}", **{k: v for k, v i
          for i, c in enumerate(DATA) if c["name"] not in KNOWN]
 FULL = ["Bolg of the North", "Vincent, Vengeful Atoner", "Daredevil, Fearless Fighter", "Dong Zhou, the Tyrant", "Polukranos, World Eater",
         "Ayara, Widow of the Realm // Ayara, Furnace Queen", "Onakke Javelineer", "Living Inferno"]
-MANUAL = ["Imodane, the Pyrohammer"]  # (Vial Smasher is FULL since wave 47B: a recorded random opponent; Ian the Reckless since wave 50F: "if it's modified"; Iron Fist since wave 100E: the granter is Iron Fist itself; Breeches since the exile-authority continuations: test_rules_exile_authority_continuations_*.py)
+FULL.append("Imodane, the Pyrohammer")  # FULL since wave 110C (test_rules_wave110c_imodane.py); (Vial Smasher is FULL since wave 47B: a recorded random opponent; Ian the Reckless since wave 50F: "if it's modified"; Iron Fist since wave 100E: the granter is Iron Fist itself; Breeches since the exile-authority continuations: test_rules_exile_authority_continuations_*.py)
 
 
 @pytest.fixture()
@@ -72,13 +72,6 @@ def cards(settings):
 @pytest.mark.parametrize("name", FULL)
 def test_the_cards_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
-
-
-@pytest.mark.parametrize("name", MANUAL)
-def test_the_refused_cards_stay_manual(cards, name):
-    """Kept manual on purpose (see the header): an unsettled amount, a pronoun naming a creature that isn't the source, a recipient the controller chooses, or a
-    trigger the event grammar doesn't read."""
-    assert coverage.of_card_data(cards.resolve(name)).level != "FULL", name
 
 
 def answer(s, *picks, limit=60):

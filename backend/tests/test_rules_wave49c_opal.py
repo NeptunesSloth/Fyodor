@@ -6,7 +6,7 @@ Every scenario checks the replay and a save and a load.
 * 603.8, 603.4: the same as a state trigger - "When an opponent controls a creature with power 4 or greater" (Hidden Predators), "When you have 10 or less life" (Opal Avenger),
   "When an opponent has 10 or less life" (Lurking Jackals). Once it is a creature it is no longer an enchantment, so the state does not trigger it again.
 * A quoted ability after a keyword ("flying and \\"At the beginning of your upkeep, …\\"", Veiled Apparition) is granted too.
-* Veiled Crocodile ("When a player has no cards in hand") stays manual: its ruling says the state can be met in the middle of a resolution, which is not modelled.
+* Veiled Crocodile ("When a player has no cards in hand") was manual here; FULL since wave 110M (a state trigger, 603.8).
 """
 
 from __future__ import annotations
@@ -58,10 +58,10 @@ def bob_casts(s, name, **m):
     cast(s, name, "p2")
 
 
-def test_the_cards_are_full_and_the_crocodile_is_not(cards):
-    for name in FULL:
+def test_the_cards_are_full(cards):
+    # (Veiled Crocodile is FULL too since wave 110M, as a state trigger 603.8: test_rules_wave110m_library.py)
+    for name in [*FULL, "Veiled Crocodile"]:
         assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
-    assert coverage.of_card_data(cards.resolve("Veiled Crocodile")).level != "FULL"
 
 
 def test_opal_guardian_becomes_a_creature_when_an_opponent_casts_a_creature_spell(cards):

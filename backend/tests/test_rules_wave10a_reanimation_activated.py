@@ -30,18 +30,18 @@ def cards(settings) -> Iterator[CardRepository]:
 
 
 @pytest.mark.parametrize(("name", "cost", "kind", "text", "full"), [
-    # CR 107.3a: activation-cost X is announced; resolution-payment X cannot choose an earlier target.
+    # CR 107.3a: activation-cost X is announced.
     ("Chthonian Nightmare", "{1}{B}", "Enchantment",
      "When this enchantment enters, you get {E}{E}{E} (three energy counters).\nPay X {E}, Sacrifice a creature, Return this "
      "enchantment to its owner's hand: Return target creature card with mana value X from your graveyard to the battlefield. "
      "Activate only as a sorcery.", True),
     ("Relentless Dead", "{B}{B}", "Creature — Zombie",
      "Menace\nWhen this creature dies, you may pay {B}. If you do, return it to its owner's hand.\nWhen this creature dies, you "
-     "may pay {X}. If you do, return another target Zombie creature card with mana value X from your graveyard to the battlefield.", False),
+     "may pay {X}. If you do, return another target Zombie creature card with mana value X from your graveyard to the battlefield.", True),  # FULL since wave 110C (test_rules_wave110c_hellion.py)
     # ("mana value X" exactly is read for permanents too since wave 17B: test_rules_wave17b_activated.py, Disembowel)
     # a comparison with the source is read for graveyard cards only
 ])
-def test_activation_cost_x_is_supported_but_resolution_payment_x_stays_manual(name, cost, kind, text, full):
+def test_activation_cost_x_and_resolution_payment_x_are_supported(name, cost, kind, text, full):
     data = card(name, set_code="tst", number="N1", mana_cost=cost, type_line=kind, oracle_text=text,
                 power="2" if "Creature" in kind else None, toughness="2" if "Creature" in kind else None)
     assert (coverage.of_characteristics(printed_from_data(data, 0)).level == "FULL") is full

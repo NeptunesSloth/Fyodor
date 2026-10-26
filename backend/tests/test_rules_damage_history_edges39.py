@@ -242,3 +242,24 @@ def test_catapult_x_less_than_creature_count_deals_zero(cards):
     cast(s, "Dwarven Catapult", ["p2"], x_value=2)
     assert all(s.state.cards[c.id].damage == 0 for c in targets)
     roundtrip(s)
+
+
+@pytest.mark.parametrize("gone", ["card", "creature"])
+def test_dead_reckoning_with_one_illegal_target_still_does_what_the_other_allows(cards, gone):
+    """608.2b: a spell with an illegal target still resolves for the legal one. The card gone: it is not put on top (no damage); the creature gone: the
+    card is still put on top and no damage can be dealt."""
+    from tests.game_helpers import act
+
+    s = game(cards)
+    old = put(s, "Grizzly Bears", "graveyard")
+    target = put(s, "Colossal Dreadmaw", "battlefield", "p2")
+    cast(s, "Dead Reckoning", [old.id, target.id], target_counts=[1, 1], resolve=False)
+    moved = old if gone == "card" else target
+    act(s, "p1", type="move", card_ids=[moved.id], to={"player": moved.owner, "zone": "exile"})
+    settle(s)
+    if s.state.rules.decision is not None:
+        pick(s, ["yes"])
+        settle(s)
+    assert s.state.cards[old.id].zone == ("p1:exile" if gone == "card" else "p1:library")
+    assert s.state.cards[target.id].damage == 0
+    roundtrip(s)

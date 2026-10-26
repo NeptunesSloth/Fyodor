@@ -41,6 +41,7 @@ def test_perch_protection_four_birds_and_a_promised_gift_phases_you_out_and_give
     assert s.state.cards[perch.id].zone == "p1:exile"  # "Exile Perch Protection."
     assert [r["player"] for r in s.state.rules.extra_turns] == (["p2"] if promised else [])
     assert bool(s.state.rules.life_locks) == promised
+    assert any(x["player"] == "p1" and x["shield"] == "protection" for x in s.state.rules.player_shields) == promised  # protection from everything
     check(s)
 
 

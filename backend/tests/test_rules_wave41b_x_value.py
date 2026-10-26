@@ -55,10 +55,9 @@ def test_the_cards_with_a_defined_x_are_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
 
 
-def test_soulshift_x_stays_manual(cards):
-    # Kodama of the Center Tree: its ruling (2005-02-01) reads the state "immediately before the Soulshift trigger", its own count included —
-    # not what the trigger finds as it resolves (608.2h), so the two disagree and the line is not carried out.
-    assert coverage.of_card_data(cards.resolve("Kodama of the Center Tree")).level == "PARTIAL"
+def test_soulshift_x_is_full_since_wave_110g(cards):
+    # Kodama of the Center Tree: X is read from the state just before it died (ruling 2005-02-01), its own count included: test_rules_wave110g_s15.py
+    assert coverage.of_card_data(cards.resolve("Kodama of the Center Tree")).level == "FULL"
 
 
 def hold(s):

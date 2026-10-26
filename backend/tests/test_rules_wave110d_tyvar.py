@@ -12,6 +12,7 @@ from tests.wave110d_kit import (  # noqa: F401
     build,
     card_db,
     cast_on,
+    ch,
     check,
     full,
     hand_new,
@@ -97,4 +98,15 @@ def test_two_mana_elf_in_and_out_of_casting(cards):
     to_phase(s, "main1", turn=3)
     activate(s, druid, "{T}: Add")
     assert counters(s, druid) == 2
+    check(s)
+
+
+def test_attacking_elves_gain_deathtouch_but_other_attackers_do_not(cards):
+    """Tyvar's first line: only the Elves among the attackers gain deathtouch (until end of turn); Tyvar is an Elf himself (Bears are not)."""
+    from tests.wave110b_kit import attack
+
+    s, elf, priest, bears = _board(cards)
+    attack(s, elf, bears)
+    settle(s)
+    assert "deathtouch" in ch(s, elf).keywords and "deathtouch" not in ch(s, bears).keywords and "deathtouch" not in ch(s, priest).keywords
     check(s)
