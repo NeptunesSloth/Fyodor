@@ -33,7 +33,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", [AANG, AVATAR])
+@pytest.mark.parametrize("name", [AANG, AVATAR, "Havengul Lich"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -101,4 +101,43 @@ def test_avatar_aang_draws_per_bend_and_transforms_after_all_four(cards, skip):
         through_combat(s)
     assert len(s.state.zones["p1:hand"]) - hand == bends  # one draw per bend
     assert s.state.cards[aang.id].face == (1 if skip is None else 0)
+    check(s)
+
+
+LICH = "Havengul Lich"
+
+
+@pytest.mark.parametrize("cast_it", [True, False])
+def test_havengul_lich_gains_activated_abilities_only_when_the_card_is_cast(cards, cast_it):
+    """603.7a delayed trigger on casting that card; ruling 2011-01-22: nothing is gained if it isn't cast; 613.1f the abilities last until end of turn."""
+    from tests.wave110b_kit import ch
+
+    s = build(cards, [LICH, "Ruthless Waterbender"], [], forests=30, islands=40)
+    lich = put(s, LICH)
+    waterbender = card_named(s, "Ruthless Waterbender")
+    act(s, "p1", type="move", card_ids=[waterbender.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=lich.id, ability=0, targets=[waterbender.id])
+    drive(s)
+    if cast_it:
+        mana(s, B=1, C=1)
+        act(s, "p1", type="cast_spell", card_id=waterbender.id)
+        drive(s)
+    texts = [a.text for a in ch(s, lich).abilities]
+    assert any(t.startswith("Waterbend {2}") for t in texts) is cast_it
+    if cast_it:
+        assert s.state.cards[waterbender.id].zone == "p1:battlefield"
+        mana(s, C=2)
+        index = next(a.index for a in ch(s, lich).abilities if a.text.startswith("Waterbend {2}"))
+        act(s, "p1", type="activate_ability", card_id=lich.id, ability=index)
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+        drive(s)
+        from app.rules import sba
+        assert sba.power(s.state.cards[lich.id], ch(s, lich)) == 5
+        from tests.test_rules_wave30m_durations import to_phase
+
+        to_phase(s, "main1", turn=3)
+        assert not any(a.text.startswith("Waterbend {2}") for a in ch(s, lich).abilities)  # until end of turn
     check(s)

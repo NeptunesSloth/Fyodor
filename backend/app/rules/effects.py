@@ -7250,3 +7250,8 @@ PRIMITIVES.update(_wave110b_mirror.PRIMITIVES)
 from app.rules import wave110e_blade as _wave110e_blade  # noqa: E402, I001  -- Sanctuary Blade (wave 110E) --
 
 RESUME.update(_wave110e_blade.RESUME)
+
+# -- Havengul Lich (wave 110B) --
+from app.rules import wave110b_lich as _wave110b_lich  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_lich.PRIMITIVES)
