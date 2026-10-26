@@ -3229,10 +3229,11 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
         grant = cast_grant(state, player, card, ch, info)
-        from app.rules import permission_spell_keywords, wave110a_grants, wave110g_cards
+        from app.rules import permission_spell_keywords, wave110a_grants, wave110c_chorus, wave110g_cards
 
         ch = permission_spell_keywords.apply(ch, grant)
         ch = wave110a_grants.with_replicate(state, player, card, ch, info)  # -- grants (wave 110A) --
+        ch = wave110c_chorus.grant(state, player, card, ch, info)  # -- Chorus of the Conclave (wave 110C) --
         ch = wave110g_cards.sticker_kicker(state, player, card, ch, info)  # -- sticker kicker (wave 110G) --
         grant_extra = costs.parse_additional_cost(grant.extra) if grant is not None and grant.extra else None
         if grant_extra is not None and additional_problem(permissions._view(state, player, info), grant_extra, card, player):
@@ -3610,10 +3611,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if grant is not None and len(grant.among) > 1:
         permissions.ask_use(plan, a, card, ch, grant.among, "cast")  # (-- wave 30Q, 32D -- "choose one as you cast it" (Muldrotha); which limited permission: asked before anything is paid)
         return
-    from app.rules import permission_spell_keywords, wave110a_grants, wave110g_cards
+    from app.rules import permission_spell_keywords, wave110a_grants, wave110c_chorus, wave110g_cards
 
     ch = permission_spell_keywords.apply(ch, grant)
     ch = wave110a_grants.with_replicate(plan.state, plan.actor, card, ch, plan.info)  # -- grants (wave 110A) --
+    ch = wave110c_chorus.grant(plan.state, plan.actor, card, ch, plan.info)  # -- Chorus of the Conclave (wave 110C) --
     ch = wave110g_cards.sticker_kicker(plan.state, plan.actor, card, ch, plan.info)  # -- sticker kicker (wave 110G) --
     if wave110g_cards.sticker_kicker_manual(plan.state, plan.actor, card, ch, plan.info):
         plan.note(f"{ch.name} has its own kicker and Wicker Picker's sticker kicker (702.33c): the sticker kicker is manual play; pay {{1}}, take a ticket counter and place a sticker by hand", [card.id])
@@ -4187,10 +4189,11 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     record.additional = (["buyback"] if a.buyback else []) + (["entwine"] if entwined else ["kicker"] + (["anytimes"] if (ak := kicker_cost(ch.abilities)) is not None and ak.anytimes else []) if a.kicker else []) \
         + [f"optional:{o.source}" for o in optional]  # (wave 4I: Defiler of Vigor's life)
     record.prototyped = a.prototype  # -- casting extras (wave 18E) -- 718.3b
-    from app.rules import wave110a_grants
+    from app.rules import wave110a_grants, wave110c_chorus
 
     record.granted_offspring110a = wave110a_grants.granted_offspring(ch)  # -- grants (wave 110A) --
     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) -- "kicked with its {R} kicker", 702.33f)
+    record.mana_riders = [*record.mana_riders, *wave110c_chorus.riders(ch, kick_count(ch, a.kicker))]  # -- Chorus of the Conclave (wave 110C) --
     record.kicked = kicked or int(a.awaken) or int(gift_to is not None or bargained)  # 702.33d (-- static_other sweep (wave 16B) -- awaken: the line is read as
     record.pick110e = a.pick110e  # (wave 110E)
     record.gift_to = gift_to  # "If this spell was kicked"; wave 23D: a promised gift, 702.174k, likewise)
@@ -5195,6 +5198,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
 
     global_text_prepared71 = bool(text_global_word71.global_changes(plan.state, card.model_copy(update={'zone': 'stack'}), plan.info))
     ch = text_global_word71.prospective(plan.state, card, ch, plan.info)
+    from app.rules import wave110c_chorus
+
+    ch = wave110c_chorus.grant(plan.state, plan.actor, card, ch, plan.info)  # -- Chorus of the Conclave (wave 110C) -- 118.9d: a free cast may still pay it
     r = plan.rules
     if card.id not in r.free_casts or card.zone == STACK or ch.is_land:
         raise ActionError("You can't cast that without paying its mana cost now")
@@ -5457,6 +5463,9 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
     r.alt_costs.pop(card.id, None)
     record.additional = (["kicker"] if a.kicker else []) + [f"optional:{o.source}" for o in optional]  # -- free-cast optional costs (wave 41D) --
     record.kicked_mask = kick_mask(ch, a.kicker)  # (-- keywords (wave 50H) --)
+    from app.rules import wave110c_chorus
+
+    record.mana_riders = [*record.mana_riders, *wave110c_chorus.riders(ch, kick_count(ch, a.kicker))]  # -- Chorus of the Conclave (wave 110C) --
     record.kicked = kick_count(ch, a.kicker) or int(gift_to is not None or bargained)  # (702.33d; a promised gift and a bargain read as kicked, as with the cost: 702.174k, 702.166)
     record.gift_to = gift_to
     record.pick110e = a.pick110e  # (wave 110E)

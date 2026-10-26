@@ -689,6 +689,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         found_alt = alt_costs.define(t)
         if found_alt is not None and (kind == "static" or not found_alt.get("table")):
             return found_alt
+    if kind == "static" and t.startswith("as an additional cost to cast creature spells, you may pay any amount"):  # -- Chorus of the Conclave (wave 110C) --
+        from app.rules import wave110c_chorus
+
+        return wave110c_chorus.definition(t)
     if kind == "static" and t.startswith("as an additional cost to cast "):  # Defiler of Vigor (cost_changes.py)
         return cost_changes.optional_definition(t)
     # -- end cost changers (wave 4I) --
