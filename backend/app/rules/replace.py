@@ -1043,6 +1043,8 @@ def _counters_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event
     n = ev["n"] * int(op["n"]) if op["do"] == "mul" else ev["n"] + int(op["n"]) if op["do"] == "add" else ev["n"]
     if op["do"] == "half":  # -- counter putters (wave 22C) -- "half that many … rounded down" (Vorinclex)
         n = ev["n"] // 2
+    if op["do"] == "set":  # -- (wave 110G) -- Melira: "instead you get one poison counter"; the turn's cap is recorded when it is done (melira_record)
+        return [{**ev, "n": int(op["n"]), "once110g": True}]
     return [{**ev, "n": max(0, n)}]
 
 
@@ -1182,10 +1184,19 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
     return CounterPlan(finals, planner)
 
 
+def melira_record(plan: Plan, finals: list[tuple[Event, list[Event]]]) -> None:
+    """-- (wave 110G) -- Melira, the Living Cure: a player who got the one poison counter can't get more this turn (kept when Melira leaves)."""
+    for _before, out in finals:
+        for f in out:
+            if f.get("once110g") and f.get("n", 0) > 0:
+                plan.rules.poison_once110g[f["player"]] = plan.state.turn.number
+
+
 def do_counters(plan: Plan, planned: CounterPlan, *, by: str, receipt: list[CounterPlacement] | None = None) -> None:
     """The planned counters as table actions: the same kind and number for several objects is one
     step (one event batch), as without replacement effects."""
     left_to_players(plan, planned.planner)
+    melira_record(plan, planned.finals)
     groups: dict[tuple[str, str, int], list[str]] = {}
     group = plan.rules.batch + 1
     for before, out in planned.finals:
@@ -2650,6 +2661,7 @@ def _commit_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, 
     for before, finals in [*out.counter_finals, *out.life_finals]:
         note_applied(plan, before, finals, actor=actor)
     commit_shields(plan, out.shields)
+    melira_record(plan, out.counter_finals)
     # -- counters (wave 7C) --
     from app.rules import shield_counters
 

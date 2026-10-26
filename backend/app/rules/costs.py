@@ -124,6 +124,7 @@ class CostComponent:
     up_to: bool = False  # -- casting extras (wave 18E) -- "up to N" (harmonize 702.180a: "tapping up to one untapped creature"): none is a choice
     every: bool = False  # -- activated sweep (wave 26C) -- "Remove all oil counters from ~": X is every such counter there is, set as it's activated
     among: bool = False  # -- activated sweep (wave 26C) -- "Remove two +1/+1 counters from among creatures you control": any permanents, one pick per counter
+    targets_mv110g: bool = False  # -- wave 110G -- "collect evidence X, where X is the total mana value of the permanents this spell targets": casting.target_evidence fixes the amount
     reduces: int = 0  # -- cost reductions paid with objects (wave 47C) -- "you may sacrifice any number of creatures. This spell costs {2} less for each": any number, none too; each takes this much generic off the total cost
     anyn: bool = False  # (wave 48B: any number, none too, with or without a reduction: "sacrifice any number of creatures", "for each creature sacrificed this way")
     offering: bool = False  # -- offering (wave 51H) -- 702.48a: the sacrifice whose mana cost (colors included) takes that much off the spell's total cost (offering.reduce)
@@ -994,6 +995,9 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
 
     if (half110a := wave110a_activation.component(text)) is not None:
         return AbilityCost(components=(half110a,))
+    if text.lower() == "collect evidence x, where x is the total mana value of the permanents this spell targets":  # Urgent Necropsy: 701.59a, 601.2b
+        key = _selector("cards from your graveyard", zone="graveyard")
+        return AbilityCost(components=(CostComponent(COLLECT_EVIDENCE, amount=0, selector=key, text="Collect evidence X", targets_mv110g=True),)) if key else None
     if text == 'put a -1/-1 counter on a creature you control':
         counter = _one_4h(text[:1].upper() + text[1:], '')
         return AbilityCost(components=(counter,)) if counter is not None and counter.selector is not None else None

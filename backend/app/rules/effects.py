@@ -4732,6 +4732,12 @@ def choose_value(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         options = _choice_options(plan, ctx, e["what"])
     if e.get("options"):  # -- chosen type (wave 51C) -- "choose Elemental, Elf, …": only the creature types it lists
         options = [o for o in options if o.id in e["options"]]
+    if e.get("noted110g"):  # -- (wave 110G) -- Long List of the Ents: 607.2e, only types not yet noted for this Saga (the record goes with the object, 400.7)
+        from app.rules import wave110g_cards
+
+        kept = plan.state.cards.get(ctx.get("source_card") or "")
+        taken = set((kept.choices.get(wave110g_cards.NOTED) or "").split("|")) if kept is not None else set()
+        options = [o for o in options if o.id not in taken]
     from app.rules import player_counter_instructions75
 
     options = player_counter_instructions75.remaining_players(plan, ctx, e, options)
@@ -4768,6 +4774,11 @@ def resume_choose_value(plan: Plan, d: Any, chosen: list[str]) -> None:
         cut = next((i for i, x in enumerate(rest) if x.get("do") == "choose_value" and x.get("what") == e["what"] and not x.get("remember")), len(rest))  # (wave 53B: down to the next choice of the same kind: a mode chosen twice, "Choose artifact or enchantment" in Season of Gathering, chooses twice)
         ctx["effects"] = ctx["effects"][: ctx["next"]] + picked.bind_effects(rest[:cut], what, value) + rest[cut:]
     src = plan.state.cards.get(ctx.get("source_card") or "")
+    if e.get("noted110g") and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
+        from app.rules import wave110g_cards
+
+        old = src.choices.get(wave110g_cards.NOTED)
+        plan.do({"type": "set_choice", "card_id": src.id, "key": wave110g_cards.NOTED, "value": f"{old}|{value}" if old else value}, actor=d.player)
     if e.get("remember") and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
         plan.do({"type": "set_choice", "card_id": src.id, "key": card_names.LABEL if card_names.is_choice(e["what"]) else CHOICE_LABELS[e["what"]], "value": shown}, actor=d.player)
         if e["what"] in ("opponent", "player"):  # -- chosen player (wave 4J) --
@@ -5689,6 +5700,7 @@ from app.rules import dice as _dice  # noqa: E402, I001  -- rolling dice (wave 1
 PRIMITIVES.update(_dice.PRIMITIVES)
 RESUME[_dice.STEP] = _dice.resume
 RESUME["roll_group_continue"] = _dice.resume_group
+RESUME["roll_ignore110g"] = _dice.resume_ignore
 from app.rules import counter_moves as _counter_moves  # noqa: E402, I001  -- moving counters (wave 12A)
 
 PRIMITIVES.update(_counter_moves.PRIMITIVES)
