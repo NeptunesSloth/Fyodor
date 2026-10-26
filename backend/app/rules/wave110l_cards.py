@@ -242,5 +242,164 @@ def resume_pick_discard(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES = {"goad_names110l": goad_names, "pick_discard110l": pick_discard, "exile_mixed110l": exile_mixed}
-RESUME = {"pick_discard110l": resume_pick_discard, "exile_mixed110l": resume_exile_mixed}
+_P0 = {"goad_names110l": goad_names, "pick_discard110l": pick_discard, "exile_mixed110l": exile_mixed}
+_R0 = {"pick_discard110l": resume_pick_discard, "exile_mixed110l": resume_exile_mixed}
+
+
+# -- spell bodies read whole (their parse hook is scripts.parse_effects) --
+_RITUAL = ("Sacrifice a nontoken permanent. If you do, target opponent loses 2 life unless that player sacrifices a permanent of their choice or discards a card. "
+           "You may repeat this process any number of times.")
+_STRUGGLE = ("Target opponent reveals their hand. That player exiles a card from it, then you exile a card from it. Repeat this process until all cards in that hand "
+             "have been exiled. That player returns the cards they exiled this way to their hand and puts the rest into their graveyard.")
+_BODIES: dict[str, tuple[list[Def], str]] = {
+    _RITUAL: ([{"do": "ritual110l", "who": "target"}], "opponent"),
+    _STRUGGLE: ([{"do": "struggle110l", "who": "target"}], "opponent"),
+}
+
+
+def parse(body: str) -> Any:
+    found = _BODIES.get(body.strip())
+    return None if found is None else ([dict(e) for e in found[0]], found[1], False)
+
+
+def _opponent(plan: Plan, ctx: Context, e: dict[str, Any]) -> str | None:
+    from app.rules.effects import _players
+
+    who = _players(plan, ctx, e["who"])
+    return who[0] if who and who[0] in plan.live() else None
+
+
+def _ask(plan: Plan, player: str, kind: str, prompt: str, options: list[DecisionOption], step: str, state: dict[str, Any], low: int = 1) -> bool:
+    from app.rules.effects import decide
+
+    decide(plan, player=player, kind=kind, prompt=prompt, options=options, min_choices=low, max_choices=1, resume={"step": step, **state})
+    return False
+
+
+def _cards_options(plan: Plan, cards: list[str]) -> list[DecisionOption]:
+    return [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in cards]
+
+
+def ritual(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Forbidden Ritual: each pass sacrifices one nontoken permanent of the controller's (701.21a); only if one was, the target opponent loses 2 life unless
+    they sacrifice a permanent or discard a card (their choice, 608.2d); then the controller may go again (the copy of the process, any number of times)."""
+    return _ritual_sacrifice(plan, ctx, e)
+
+
+def _ritual_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import prohibitions
+
+    mine = [c for c in plan.state.zones.get(f"{ctx['controller']}:battlefield", []) if plan.state.cards[c].controller == ctx["controller"]
+            and not plan.state.cards[c].is_token and not prohibitions.sacrifice_forbidden(plan, plan.state.cards[c])]
+    if not mine or prohibitions.cant_cause_sacrifice(plan, ctx["controller"], ctx["controller"]):
+        return True
+    return _ask(plan, ctx["controller"], "choose_cards", "Sacrifice a nontoken permanent", _cards_options(plan, mine), "ritual110l",
+                {"ctx": ctx, "e": e, "stage": "sacrifice"})
+
+
+def _ritual_opponent(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    opp = _opponent(plan, ctx, e)
+    if opp is None:
+        return _ritual_again(plan, ctx, e)
+    options = [DecisionOption(id="life", label="Lose 2 life")]
+    if any(plan.state.cards[c].controller == opp for c in plan.state.zones.get(f"{opp}:battlefield", [])):
+        options.append(DecisionOption(id="sacrifice", label="Sacrifice a permanent"))
+    if plan.state.zones.get(f"{opp}:hand"):
+        options.append(DecisionOption(id="discard", label="Discard a card"))
+    return _ask(plan, opp, "choose_one", "Forbidden Ritual: lose 2 life unless you sacrifice a permanent or discard a card", options, "ritual110l",
+                {"ctx": ctx, "e": e, "stage": "opponent", "opp": opp})
+
+
+def _ritual_again(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    return _ask(plan, ctx["controller"], "choose_one", "Repeat this process?", [DecisionOption(id="yes", label="Repeat"), DecisionOption(id="no", label="Stop")],
+                "ritual110l", {"ctx": ctx, "e": e, "stage": "again"})
+
+
+def ritual_again(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    return _ritual_again(plan, ctx, e["ritual"])
+
+
+def resume_ritual(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects, prohibitions
+
+    r = d.resume
+    ctx, e, stage = r["ctx"], r["e"], r["stage"]
+    pick = chosen[0] if chosen else ""
+    if stage == "sacrifice":
+        effects._sacrifice_cards(plan, [pick], ctx["controller"], ctx)
+        done = pick in plan.state.cards and not plan.state.cards[pick].zone.endswith(":battlefield")
+        go = _ritual_opponent(plan, ctx, e) if done else _ritual_again(plan, ctx, e)
+    elif stage == "opponent":
+        opp = r["opp"]
+        if pick == "life":  # the loss may itself wait on a replacement choice (616.1): the repeat question is the next instruction, asked after it
+            ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "ritual_again110l", "ritual": e}]
+            go = effects.PRIMITIVES["lose_life"](plan, ctx, {"who": e["who"], "n": 2})
+        else:
+            pool = [c for c in plan.state.zones.get(f"{opp}:{'battlefield' if pick == 'sacrifice' else 'hand'}", []) if plan.state.cards[c].controller == opp]
+            go = _ask(plan, opp, "choose_cards", "Sacrifice a permanent" if pick == "sacrifice" else "Discard a card", _cards_options(plan, pool), "ritual110l",
+                      {"ctx": ctx, "e": e, "stage": "pay_" + pick, "opp": opp})
+    elif stage in ("pay_sacrifice", "pay_discard"):
+        if stage == "pay_sacrifice":
+            effects._sacrifice_cards(plan, [pick], r["opp"], ctx)
+        elif prohibitions.cant_cause_discard(plan, r["opp"], ctx["controller"]) is None:
+            plan.do({"type": "move", "card_ids": [pick], "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+        go = _ritual_again(plan, ctx, e)
+    else:  # "again"
+        go = _ritual_sacrifice(plan, ctx, e) if pick == "yes" else True
+    if go:
+        effects.continue_effects(plan, ctx)
+
+
+def struggle(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Struggle for Sanity: the hand is revealed (701.20a: public, so every pick is a public choice); the opponent exiles a card, then the controller does,
+    until the hand is empty; the opponent's exiled cards go back to the hand, the controller's to the graveyard (400.7: each card is followed by its
+    id and the object it became in exile)."""
+    opp = _opponent(plan, ctx, e)
+    if opp is None:
+        return True
+    hand = list(plan.state.zones.get(f"{opp}:hand", []))
+    if hand:
+        plan.do({"type": "reveal", "card_ids": hand}, actor=opp)
+    return _struggle_next(plan, ctx, e, opp, "opp", [], [])
+
+
+def _struggle_next(plan: Plan, ctx: Context, e: dict[str, Any], opp: str, turn: str, theirs: list[tuple[str, str]], mine: list[tuple[str, str]]) -> bool:
+    while True:
+        hand = list(plan.state.zones.get(f"{opp}:hand", []))
+        if not hand:
+            break
+        chooser = opp if turn == "opp" else ctx["controller"]
+        if len(hand) > 1:
+            return _ask(plan, chooser, "choose_cards", "Exile a card from the revealed hand", _cards_options(plan, hand), "struggle110l",
+                        {"ctx": ctx, "e": e, "opp": opp, "turn": turn, "theirs": theirs, "mine": mine})
+        theirs, mine = _struggle_exile(plan, ctx, hand[0], turn, theirs, mine)
+        turn = "me" if turn == "opp" else "opp"
+    back = [c for c, oid in theirs if c in plan.state.cards and plan.oid(plan.state.cards[c]) == oid and plan.state.cards[c].zone == f"{opp}:exile"]
+    away = [c for c, oid in mine if c in plan.state.cards and plan.oid(plan.state.cards[c]) == oid and plan.state.cards[c].zone == f"{opp}:exile"]
+    if back:
+        plan.do({"type": "move", "card_ids": back, "to": {"zone": "hand"}}, actor=ctx["controller"])
+    if away:
+        plan.do({"type": "move", "card_ids": away, "to": {"zone": "graveyard"}}, actor=ctx["controller"])
+    return True
+
+
+def _struggle_exile(plan: Plan, ctx: Context, cid: str, turn: str, theirs: list[tuple[str, str]], mine: list[tuple[str, str]]) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    plan.do({"type": "move", "card_ids": [cid], "to": {"zone": "exile"}}, actor=ctx["controller"])
+    card = plan.state.cards[cid]
+    entry = (cid, plan.oid(card))
+    return ([*theirs, entry], mine) if turn == "opp" else (theirs, [*mine, entry])
+
+
+def resume_struggle(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    r = d.resume
+    ctx, opp, turn = r["ctx"], r["opp"], r["turn"]
+    theirs, mine = [tuple(x) for x in r["theirs"]], [tuple(x) for x in r["mine"]]
+    theirs, mine = _struggle_exile(plan, ctx, chosen[0], turn, theirs, mine)  # type: ignore[arg-type]
+    if _struggle_next(plan, ctx, r["e"], opp, "me" if turn == "opp" else "opp", theirs, mine):  # type: ignore[arg-type]
+        continue_effects(plan, ctx)
+
+
+PRIMITIVES = {**_P0, "ritual110l": ritual, "ritual_again110l": ritual_again, "struggle110l": struggle}
+RESUME = {**_R0, "ritual110l": resume_ritual, "struggle110l": resume_struggle}
