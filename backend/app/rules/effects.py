@@ -2994,10 +2994,14 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
             echo_alternatives76.insert(ctx, [{'do': 'note_echo_paid76'}])
         cost = mana.parse_cost(d.resume["cost"])
         casting.pay_from_pool_then(plan, d.player, cost, f"paid {cost.text()} for {ctx.get('name', '')}",
-                                   then={"do": "continue", "ctx": ctx},
+                                   then={"do": "cu_paid110i" if d.resume.get("purpose_special") == "cumulative_upkeep" else "continue", "ctx": ctx},  # (wave 110I)
                                    purpose=casting.Purpose(special=d.resume.get("purpose_special")))
         return
     elif src:
+        if d.resume.get("purpose_special") == "cumulative_upkeep":  # -- cumulative upkeep not paid (wave 110I) --
+            from app.rules import wave110i_cards
+
+            wave110i_cards.cu_unpaid(plan, ctx, src[0])
         _sacrifice_cards(plan, [c for c in src if plan.state.cards[c].controller == d.player], d.player, ctx)
     continue_effects(plan, ctx)
 
@@ -7119,6 +7123,7 @@ from app.rules import wave110i_cards as _wave110i_cards  # noqa: E402, I001  -- 
 
 PRIMITIVES.update(_wave110i_cards.PRIMITIVES)
 RESUME.update(_wave110i_cards.RESUME)
+replace.THEN["cu_paid110i"] = _wave110i_cards.cu_paid_then  # -- cumulative upkeep paid (wave 110I) --
 from app.rules import wave110c_any as _wave110c_any  # noqa: E402, I001
 PRIMITIVES.update(_wave110c_any.PRIMITIVES)  # -- any opponent may (wave 110C) --
 from app.rules import wave110e_opp as _wave110e_opp  # noqa: E402, I001  -- wave 110E --

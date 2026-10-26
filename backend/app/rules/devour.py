@@ -58,7 +58,10 @@ _STATICS = {"As ~ enters, you may sacrifice any number of creatures and/or plane
             "As ~ enters, sacrifice any number of creatures. ~'s power becomes the total power of those creatures and its toughness becomes their total toughness.": (STATS, 0),
             # -- (wave 110J) -- Shimatsu the Bloodcloaked: any number of permanents (zero allowed), one counter each (the same choice as devour 1)
             "As ~ enters, sacrifice any number of permanents. ~ enters with that many +1/+1 counters on it.": ("permanent", 1)}
-NO_COUNTERS = {"untapped_forest"}
+# -- same name (wave 110I) -- Sheltered Valley: the legend-rule-like replacement sacrifices every other permanent of the same name, no choice and no counters (614.1a)
+SAME_NAME = "same_name110i"
+_STATICS["If ~ would enter, instead sacrifice each other permanent named Sheltered Valley you control, then put ~ onto the battlefield."] = (SAME_NAME, 0)
+NO_COUNTERS = {"untapped_forest", SAME_NAME}
 RETURNS = "nonland"  # (the one quality returned to its owner's hand, at most one)
 
 
@@ -95,7 +98,7 @@ def _matches(plan: Plan, cid: str, quality: str | None) -> bool:
     ch = chars.of(plan.state.cards[cid], plan.info)
     return {None: ch.is_creature, STATS: ch.is_creature, "land": ch.is_land, "artifact": "Artifact" in ch.types,
             "food": "Food" in ch.subtypes, "creature_pw": ch.is_creature or "Planeswalker" in ch.types, "nonland": not ch.is_land,
-            "untapped_forest": "Forest" in ch.subtypes and not plan.state.cards[cid].tapped, "permanent": True}[quality]
+            "untapped_forest": "Forest" in ch.subtypes and not plan.state.cards[cid].tapped, "permanent": True, SAME_NAME: True}[quality]
 
 
 def candidates(plan: Plan, card: CardInstance, controller: str, quality: str | None, taken: set[str]) -> list[str]:
@@ -113,6 +116,12 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, answers: dict[st
     ch = plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller}))
     found = spec(ch)
     if found is None:
+        return
+    if found[0] == SAME_NAME:
+        ids = [c for c in candidates(plan, card, controller, SAME_NAME, reserved) if plan.ch(plan.state.cards[c]).name == ch.name]
+        if ids:
+            out["devour"] = ids
+        out.setdefault("choices", {})[WHAT] = ",".join(ids) + ("," if ids else "") + DONE
         return
     value = answers.get(WHAT)
     left = candidates(plan, card, controller, found[0], {*reserved, *picked(value)})

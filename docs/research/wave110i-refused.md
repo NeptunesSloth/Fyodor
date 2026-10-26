@@ -27,3 +27,7 @@
 - Quicksilver Fountain: three gaps (flood-counter-conditional Island static, "if all lands are Islands" condition, land chosen by the upkeep player).
 - Lodestone Bauble: targets in one player's graveyard plus "that player draws" (two player roles) not modelled.
 - Smelting Vat: "total mana value <= sacrificed artifact's" pick constraint not modelled. Aphetto Dredging: creature type chosen during targeting.
+
+## Session 7: foundations built, these earlier refusals are now FULL
+- Hipparion (block tax by attacker power, combat_rules.pair_tax), Fasting (optional draw-step skip, wave110i_cards.ask_skip), Smelting Vat (total_mv as a value), Lodestone Bauble (one graveyard, owner draws), Noctis (delayed trigger at declare attackers step, 507.1/508.8), Balduvian Fallen / Heart of Bogardan (cumulative upkeep paid / unpaid), Sheltered Valley (devour-style mandatory same-name sacrifice).
+- Judgement call, Lodestone Bauble: with zero targets there is no "that player", so nobody draws (no CR rule or ruling found either way).

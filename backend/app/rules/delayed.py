@@ -244,7 +244,7 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if when.get("whose") == "owner":  # the owner of the one card the deferred move acts on (parse: scripts._deferred)
         from app.rules.effects import _cards
 
-        moved = _cards(plan, ctx, deferred[0].get("who", "")) if len(deferred) == 1 else []
+        moved = _cards(plan, ctx, deferred[0].get("who", "")) if len(deferred) == 1 or deferred[0].get("owner110i") else []  # (wave 110I: Noctis' move comes with a rider)
         if len(moved) != 1:
             plan.note(f"{ctx.get('name') or 'The ability'}: nothing to return (it is gone)")
             return True

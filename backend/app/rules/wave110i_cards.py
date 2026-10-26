@@ -142,11 +142,82 @@ def _bauble(d: Def) -> Def:
     return {**d, "targets": [t], "effects": [{"do": "bauble110i", "who": "target:0"}, d["effects"][0]]}
 
 
+def _warp_strike(d: Def) -> Def:
+    """Noctis: returns at the beginning of the owner's next declare attackers step (507.1, 603.7), tapped and attacking (508.4), unblockable that combat."""
+    out: list[Def] = []
+    for x in d["effects"]:
+        if x.get("do") == "delayed":
+            x = {**x, "when": {**x["when"], "step": "declare_attackers"}, "n": 2}
+        elif x.get("do") == "deferred:return_card":
+            x = {**x, "tapped": True, "attacking": True, "as": "warp110i", "owner110i": True}
+        out.append(x)
+    return {**d, "effects": [*out, {"do": "deferred:restrict", "who": "ref:warp110i", "rules": ["cant_be_blocked"], "duration": "end_of_combat"}]}
+
+
+CU_UNPAID = "unpaid_cu110i"
+_CU_SPENT = {"cu_spent110i": "BR"}
+
+
+def _fallen(d: Def) -> Def:
+    """Balduvian Fallen: starts when its cumulative upkeep was paid (702.24a); the {B} and {R} spent on that payment size the pump (filled in by ``cu_fill``)."""
+    return {**d, "trigger": "paid_cu110j", "effects": [{**x, "p": _CU_SPENT} if x.get("do") == "pump" else x for x in d["effects"]]}
+
+
+def _heart(d: Def) -> Def:
+    """Heart of Bogardan: starts when a player doesn't pay the cumulative upkeep (702.24a), with the age counters it had just then (``cu_fill``)."""
+    return {**d, "trigger": CU_UNPAID}
+
+
+def cu_fill(plan: Plan, ctx: Context, d: Def) -> Def:
+    """Replace the age counters / spent mana markers of a cumulative upkeep follow-up trigger by the numbers the payment (or its refusal) fixed."""
+    src = plan.state.cards.get(ctx.get("source_card", ""))
+    age = src.counters.get("age", 0) if src is not None else 0
+    spent = ctx.get("cu_spent110i") or {}
+
+    def walk(x: Any) -> Any:
+        if isinstance(x, dict):
+            if "cu_spent110i" in x and len(x) == 1:
+                return sum(spent.get(c, 0) for c in x["cu_spent110i"])
+            if x == {"counters": "age", "on": "self"}:
+                return age
+            return {k: walk(v) for k, v in x.items()}
+        return [walk(v) for v in x] if isinstance(x, list) else x
+
+    return walk(d)
+
+
+def cu_unpaid(plan: Plan, ctx: Context, card_id: str) -> None:
+    """The cumulative upkeep wasn't paid: "When a player doesn't pay" abilities trigger (603.2), before the permanent is sacrificed (702.24a)."""
+    from app.rules import triggers
+
+    for card, ch, i, d in triggers._watchers(plan, CU_UNPAID):
+        if card.id == card_id:
+            triggers._add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name, index=i, definition=cu_fill(plan, ctx, d))
+
+
+def cu_paid_then(plan: Plan, then: dict[str, Any]) -> None:
+    """Pay branch of a cumulative upkeep: keep the mana spent for the "is paid" triggers, then go on."""
+    from app.rules import effects
+
+    ctx = then["ctx"]
+    ctx["cu_spent110i"] = (then.get("payment") or {}).get("spent") or {}
+    effects.continue_effects(plan, ctx)
+
+
+_WARP = ("Warp-Strike \u2014 {3}: Exile Noctis. Return it to the battlefield under its owner's control tapped and attacking at the beginning of that player's next declare "
+         "attackers step. It can't be blocked that combat.")
 _BAUBLE = ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land cards from a player's graveyard on top of their library in any order. "
            "That player draws a card at the beginning of the next turn's upkeep.")
 _VAT = ("{1}, {T}, Sacrifice another artifact: Reveal the top eight cards of your library. Put up to two noncreature artifact cards with total mana value "
         "less than or equal to the sacrificed artifact's mana value from among them onto the battlefield and the rest on the bottom of your library in a random order.")
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever this creature's cumulative upkeep is paid, it gets +1/+0 until end of turn for each {B} or {R} spent this way.":
+        ("At the beginning of your upkeep, this creature gets +1/+0 until end of turn.", _fallen),
+    "When a player doesn't pay this enchantment's cumulative upkeep, this enchantment deals X damage to target player or planeswalker and each creature that player or "
+    "that planeswalker's controller controls, where X is twice the number of age counters on this enchantment minus 2.":
+        ("At the beginning of your upkeep, this enchantment deals X damage to target player or planeswalker and each creature that player or "
+         "that planeswalker's controller controls, where X is twice the number of age counters on this enchantment minus 2.", _heart),
+    _WARP: ("Warp-Strike \u2014 {3}: Exile Noctis. Return it to the battlefield under its owner's control at the beginning of that player's next end step.", _warp_strike),
     _BAUBLE: ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land cards from your graveyard on top of your library in any order.", _bauble),
     _VAT: (_VAT.replace(" with total mana value less than or equal to the sacrificed artifact's mana value", ""), _total_sacrificed),
     "If you would begin your draw step, you may skip that step instead. If you do, you gain 2 life.": ("Skip your draw step.", _fasting),

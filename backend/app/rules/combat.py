@@ -349,6 +349,9 @@ def start_declare_attackers(plan: Plan) -> None:
     targets = attack_targets(plan.state, ap, plan.info)
     if not eligible or not targets:
         r.no_attackers = True
+        from app.rules import delayed
+
+        delayed.at_step(plan, "declare_attackers")  # (wave 110I) nobody can attack: the step's delayed triggers still trigger
         return
     who = wave110a_choosers.chooser(plan, "attack", ap)  # -- declaration choosers (wave 110A) --
     decide(plan, player=ap, kind="declare_attackers", prompt="Declare attackers (or attack with nothing)", decider=who, blind=who is not None,
@@ -571,6 +574,9 @@ def _finish_attackers(plan: Plan, payload: PaidAttackers, payment: M.Payment | N
         if enlist.ask(plan, [plan.state.cards[x.card_id] for x in a.attackers], []):
             return
         triggers.attacked(plan, [plan.state.cards[x.card_id] for x in a.attackers])
+    from app.rules import delayed
+
+    delayed.at_step(plan, "declare_attackers")  # -- delayed at the declare attackers step (wave 110I) -- 507.1, 603.7: after the declaration (Noctis)
     r.priority = plan.active
     r.passed = []
     advance(plan)
