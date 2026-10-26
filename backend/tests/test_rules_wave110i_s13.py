@@ -19,8 +19,8 @@ from tests.test_rules_wave43d_cast_keywords import alt_key, connect
 from tests.test_rules_wave100n_multi import EXTRA as _BASE
 from tests.test_rules_wave100n_multi import (
     answer,
-    cast,
     card_db,  # noqa: F401  (fixture DB with EXTRA)
+    cast,
 )
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
 
