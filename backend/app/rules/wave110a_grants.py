@@ -34,6 +34,27 @@ def grant_freerunning(t: str) -> dict[str, Any] | None:
             "mv": None, "cond": alt_costs._cond(alt_costs.FREERUN_COND), "tag": "freerunning", "effects": []}
 
 
+# 702.190a: "Creature cards in your graveyard have sneak {3}{B}." + "You may cast creature spells from your graveyard using their sneak abilities." (Ninja Teen):
+# the sneak alternative cost (returning an unblocked creature you control) for those cards in the graveyard; the second line only permits what the first
+# line's cost does, so it is an inert static beside it.
+_SNEAK = re.compile(r"^(?P<sel>[A-Za-z]+) cards in your graveyard have sneak (?P<cost>(?:\{[^}X]+\})+)$", re.I)
+SNEAK_CAST = "You may cast creature spells from your graveyard using their sneak abilities."
+
+
+def grant_sneak(t: str) -> dict[str, Any] | None:
+    from app.rules import alt_costs
+    from app.rules.permissions import spell_filter
+
+    if t.strip().rstrip(".").lower() == SNEAK_CAST.rstrip(".").lower():
+        return {"kind": "static", "static": "sneak_cast110a", "effects": []}
+    m = _SNEAK.fullmatch(t)
+    cost = f"pay {m['cost']}{alt_costs.SNEAK_RETURN}" if m else ""
+    if m is None or m["sel"].lower() != "creature" or alt_costs.parse_cost(cost) is None or (key := spell_filter(m["sel"])) is None:
+        return None
+    return {"kind": "static", "static": "alt_cost", "cost": cost, "table": True, "filter": key, "once": False, "zone": "graveyard",
+            "mv": None, "cond": None, "tag": "sneak", "effects": []}
+
+
 # 702.35a: "Each Vampire creature card you own that isn't on the battlefield has madness. The madness cost is equal to its mana cost." (Falkenrath Gorger)
 _MADNESS = re.compile(r"^each (?P<sub>[a-z]+) creature card you own that isn't on the battlefield has madness\. the madness cost is equal to its mana cost$", re.I)
 

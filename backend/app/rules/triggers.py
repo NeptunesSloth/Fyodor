@@ -1342,6 +1342,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "creatures" and not info.get("recipient_creature")) or (cond.get("blocking110b") and not info.get("recipient_blocking110b")) or \
                 (cond.get("min") and int(info.get("amount") or 0) < cond["min"]) or \
                 (cond.get("eq_toughness110b") and info.get("amount") != info.get("recipient_toughness110b")) or \
+                (cond.get("exact110a") and info.get("amount") != cond["exact110a"]) or (cond.get("other110a") and info.get("oid") == plan.oid(watcher)) or \
                 (to == "enchanted_player" and (recipient is None or recipient != watcher.attached_player)):
             return False
     return True

@@ -2804,6 +2804,9 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
     if how is None and info is not None and card.zone == zone_key(player, "graveyard") and not free \
             and not any(g.zone_ok and not g.free for g in found) and _escape_offers(state, player, card, ch, info):
         how = "escape"  # -- escape (wave 5I) -- 702.138a: cast from the graveyard for an escape cost (only that way)
+    if how is None and info is not None and card.zone == zone_key(player, "graveyard") and not free and not any(g.zone_ok and not g.free for g in found) \
+            and _sneak_offers(state, player, card, ch, info):
+        how = "sneak_gy"  # -- grants (wave 110A) -- Ninja Teen: cast from the graveyard for a granted sneak cost only (702.190a)
     if free:
         # (wave 3C) a free permission with no zone of its own ("you may cast Dragon spells without paying")
         # covers the zones a card can be cast from anyway
@@ -2822,6 +2825,12 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
     # before Serra Paragon's "it gains … exile it", Edgar's "enters tapped")
     best = min(ways, key=lambda g: (bool(g.extra), g.generic_extra, bool(g.enters), not bool(g.spell_keywords)))
     return permissions.with_choices(replace(best, flash=flash or best.flash), ways, compare_costs=free)  # (-- wave 32D -- a limited default: the other limited uses, to ask which)
+
+
+def _sneak_offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Any]:
+    from app.rules import alt_costs
+
+    return [o for o in alt_costs.offers(state, player, card, ch, info) if o.tag == "sneak" and not o.key.startswith(f"{card.id}:")]  # (a printed cost is the card's own)
 
 
 def _foretell_offers(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> list[Any]:
@@ -3197,7 +3206,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         grant_extra = costs.parse_additional_cost(grant.extra) if grant is not None and grant.extra else None
         if grant_extra is not None and additional_problem(permissions._view(state, player, info), grant_extra, card, player):
             continue  # -- cast permissions (wave 30Q) -- the permission's own additional cost ("by sacrificing a land") can't be paid: not offered
-        if grant is not None and grant.how in ("escape", "foretell"):  # -- escape (wave 5I) -- only for an escape cost (702.138a)
+        if grant is not None and grant.how in ("escape", "foretell", "sneak_gy"):  # -- escape (wave 5I) -- only for an escape cost (702.138a)
             if alt_castable(state, player, card, info, check_priority=check_priority, face=face):
                 return True
             continue
@@ -3295,6 +3304,8 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
             blocked = cast_problem(state, player, card, ch, check_priority=check_priority, info=info, alternative_key=offer.key) is not None
             if grant is None:
                 continue
+        if grant is None and offer.tag == "sneak":
+            continue  # -- grants (wave 110A) -- a printed sneak cost only from where the card can be cast at all
         if grant is not None and timing_problem(state, player, ch, grant) is not None and not offer.flash and offer.tag != "sneak":
             continue
         if blocked and offer.tag != "sneak":
@@ -3655,6 +3666,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         escapes = _escape_offers(plan.state, plan.actor, card, ch, plan.info)
         if escapes:
             a.alt_cost = escapes[0].key
+    if grant is not None and grant.how == "sneak_gy" and not free:  # -- grants (wave 110A) -- Ninja Teen: only for the granted sneak cost
+        sneaks = _sneak_offers(plan.state, plan.actor, card, ch, plan.info)
+        if a.alt_cost is None and sneaks:
+            a.alt_cost = sneaks[0].key
+        if not any(o.key == a.alt_cost for o in sneaks):
+            raise ActionError(f"{ch.name} can be cast from your graveyard only for its sneak cost (702.190a)")
     foretold = grant is not None and grant.how == "foretell"  # -- hidden exile (wave 18A) -- 702.143a: only for its foretell cost
     if foretold:
         fore = _foretell_offers(plan.state, plan.actor, card, ch, plan.info)
