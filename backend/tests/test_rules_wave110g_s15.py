@@ -10,9 +10,9 @@ from app.cards.repository import CardRepository
 from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
-from tests.test_rules_wave100f_attached import next_turn
-from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_effects import pass_until_stack_empty
+from tests.test_rules_wave12a_counters_keywords import real
+from tests.test_rules_wave100f_attached import next_turn
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 
 KODAMA = ("Kodama of the Center Tree's power and toughness are each equal to the number of Spirits you control.\n"

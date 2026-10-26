@@ -3093,13 +3093,13 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
                 choice_player = entering
             if t.ability.get("target_choice") == "host_controller110i":  # -- cards (wave 110I) -- Necrotic Plague: the dead creature's controller chooses a creature one of their opponents controls (603.3d)
                 dead = t.event.objects[0].snapshot if t.event is not None and len(t.event.objects) == 1 else None  # (603.10a: as it last existed)
-                chooser = dead.controller if dead is not None else None
-                legal = [x for x in legal if x in plan.state.cards and plan.state.cards[x].controller != chooser]
-                if chooser not in plan.live() or not legal:
+                chooser110i = dead.controller if dead is not None else None
+                legal = [x for x in legal if x in plan.state.cards and plan.state.cards[x].controller != chooser110i]
+                if chooser110i is None or chooser110i not in plan.live() or not legal:
                     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
                     plan.note(f"{t.name}'s ability has no legal target and is removed")
                     return True
-                choice_player = chooser
+                choice_player = chooser110i
             if t.ability.get("target_choice") == "defending100j":  # -- counters (wave 100J) -- "of defending player's choice" (Erithizon: 508.5)
                 if t.event is None or t.event.defended not in plan.live():
                     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
