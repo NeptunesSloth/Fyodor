@@ -7194,8 +7194,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         cost = parse_ability_cost(ability.cost, card_name=ch.name) if d.get("kind") == "activated" and ability.cost else None
         if cost is None and d.get("kind") == "spell":  # -- costs (wave 3$) -- a spell's additional cost ("sacrifice a creature")
             cost = spell_additional_cost(ch.abilities)
-        if cost is None or not any(c.kind == SACRIFICE and c.selector is not None for c in cost.components):
-            return None
+        if cost is None or not any(c.kind == SACRIFICE and (c.selector is not None or "mana value equal to the sacrificed creature's mana value" in ability.text) for c in cost.components):
+            return None  # (-- Transfigure (wave 110I) -- 702.71a: "Sacrifice this permanent" is the sacrificed creature; its mana value is read as it last existed)
     # -- refused zones/sized (wave 3R4) -- a triggered ability's X is not the X its source was cast with
     # (107.3m isn't carried to triggers: X reads 0 there), so a search sized by X in one stays manual (Fblthp)
     # -- cast X (wave 4J) -- except an enters trigger of the object itself: 107.3m gives it the X of the spell it was

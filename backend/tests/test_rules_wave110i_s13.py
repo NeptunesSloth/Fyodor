@@ -1,5 +1,6 @@
 """Wave 110I session 13.
 
+* Fleshwrither: Transfigure {2}{B}{B} (702.71a): sacrifice, search for a creature with the same mana value as the sacrificed creature (608.2h last known information).
 * Monastery Raid: freerunning {X}{R} (702.173a; X in an alternative cost, 107.3a); "if this spell's freerunning cost was paid, exile the top X cards instead".
 """
 
@@ -17,13 +18,18 @@ from tests.test_rules_wave100n_multi import (
     answer,
     card_db,  # noqa: F401  (fixture DB with EXTRA)
 )
-from tests.wave9c_kit import build, card_named, check, mana, to_hand
+from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
 
 EXTRA = [
     real("Monastery Raid", "{2}{R}", 3, "Sorcery",
          "Freerunning {X}{R} (You may cast this spell for its freerunning cost if you dealt combat damage to a player this turn with an Assassin or commander.)\n"
          "Exile the top two cards of your library. If this spell's freerunning cost was paid, exile the top X cards of your library instead. You may play the exiled cards until the end of your next turn.",
          None, "R"),
+    real("Fleshwrither", "{2}{B}{B}", 4, "Creature \u2014 Horror",
+         "Transfigure {1}{B}{B} ({1}{B}{B}, Sacrifice this creature: Search your library for a creature card with the same mana value as this creature, put that card onto the battlefield, then shuffle. Transfigure only as a sorcery.)",
+         ("3", "3"), "B"),
+    real("Wolf110I", "{3}{G}", 4, "Creature \u2014 Wolf", "", ("4", "4"), "G"),
+    real("Cub110I", "{1}{G}", 2, "Creature \u2014 Wolf", "", ("2", "2"), "G"),
 ]
 _BASE.extend(EXTRA)
 
@@ -59,4 +65,16 @@ def test_monastery_raid_freerun_exiles_x(cards):
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Monastery Raid").id, alt_cost=key, x_value=4)
     answer(s)
     assert exiled(s) == 4
+    check(s)
+
+
+def test_fleshwrither_transfigure_fetches_same_mana_value(cards):
+    """{1}{B}{B}, sacrifice it (mana value 4): only the mana value 4 creature can be found; the mana value 2 one stays."""
+    s = build(cards, ["Fleshwrither", "Cub110I", "Wolf110I"])
+    f = put(s, "Fleshwrither")
+    mana(s, B=2, C=1)
+    act(s, "p1", type="activate_ability", card_id=f.id, ability=0)
+    answer(s)
+    assert zone_of(s, "Fleshwrither") == "p1:graveyard"
+    assert zone_of(s, "Wolf110I") == "p1:battlefield" and zone_of(s, "Cub110I") == "p1:library"
     check(s)
