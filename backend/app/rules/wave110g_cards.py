@@ -425,7 +425,35 @@ def exile_split(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def _land_or_color(land: str, color: str) -> Callable[[Def], Def]:
+    """Nature's Wrath: "<Land> or <color> permanent" is a union selector, both for what enters and for what the controller sacrifices."""
+    def build(d: Def) -> Def:
+        from app.rules import selectors
+        from app.rules.conditional_copy_sources import key
+
+        sel = selectors.Selector(either=(key(land), key(f"{color} permanent"))).key()
+        return {**d, "cond": {**d["cond"], "sel": sel}, "effects": [{**x, "sel": sel} for x in d["effects"]]}
+    return build
+
+
+def speed_cut(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Spikeshell Harrier: if that opponent's speed is greater than each other player's speed, it drops by 1, never below 1 (702.179f: no speed reads as 0)."""
+    from app.rules import effects, speed
+
+    for pid in effects._players(plan, ctx, e["who"]):
+        if all(speed.of(plan, pid) > speed.of(plan, o) for o in plan.live() if o != pid) and speed.of(plan, pid) > 1:
+            plan.do({"type": "set_resource", "player": pid, "key": speed.KEY, "value": speed.of(plan, pid) - 1}, actor=ctx["controller"])
+    return True
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "When this creature enters, return target creature or Vehicle an opponent controls to its owner's hand. If that opponent's speed is greater than each other player's speed, reduce that opponent's speed by 1. This effect can't reduce their speed below 1.":
+        ("When this creature enters, return target creature or Vehicle an opponent controls to its owner's hand. Its controller loses 1 life.",
+         lambda d: {**d, "effects": [d["effects"][0], {"do": "speed_cut110g", "who": "ref:e0.controller"}]}),
+    "Whenever a player puts an Island or blue permanent onto the battlefield, that player sacrifices an Island or blue permanent of their choice.":
+        ("Whenever a blue permanent enters, its controller sacrifices a blue permanent of their choice.", _land_or_color("Island", "blue")),
+    "Whenever a player puts a Swamp or black permanent onto the battlefield, that player sacrifices a Swamp or black permanent of their choice.":
+        ("Whenever a black permanent enters, its controller sacrifices a black permanent of their choice.", _land_or_color("Swamp", "black")),
     "When Cloak and Dagger enter, choose target opponent and up to one target creature they control. They reveal their hand. You may exile a nonland card from their hand or the chosen creature until Cloak and Dagger leave the battlefield.":
         ("When this creature enters, target opponent reveals their hand. You may exile up to one target creature that player controls until this creature leaves the battlefield.", _hand_or_creature),
     "Whenever this creature trains, exile up to one other target creature from the battlefield or creature card from a graveyard.":
@@ -803,7 +831,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

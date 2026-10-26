@@ -2,6 +2,8 @@
 
 * Light Up the Night: 702.34a / 118.3 flashback removes X loyalty counters from your planeswalkers (X >= 1); 107.3a that X is the spell's.
 * Cloak and Dagger, Entwined: 610.3 / 701.20a the hand is revealed, one nonland card OR the chosen creature is exiled and comes back (hand / battlefield) when it leaves.
+* Nature's Wrath: 603.2 / 701.21a each player entering an Island or blue (Swamp or black) permanent sacrifices one of their own such permanents of their choice.
+* Spikeshell Harrier: 702.179f / 608.2h the bounced creature's controller loses 1 speed only when strictly above every other player, never below 1.
 * Savior of Ollenbock: 702.149c it trains only when a resolving training ability puts counters on it; its exile is returned when it leaves (607.2a, 610.3).
 """
 from __future__ import annotations
@@ -29,9 +31,15 @@ EXTRA = [
          "flashback cost. Then exile it.)", None, "R"),
     real("Cloak and Dagger, Entwined", "{1}{W}{B}", 3, "Legendary Creature \u2014 Human Hero", "Deathtouch, lifelink\nWhen Cloak and Dagger enter, choose target opponent and up to one target creature they control. "
          "They reveal their hand. You may exile a nonland card from their hand or the chosen creature until Cloak and Dagger leave the battlefield.", ("2", "2"), "BW"),
+    real("Nature's Wrath", "{4}{G}{G}", 6, "Enchantment", "At the beginning of your upkeep, sacrifice this enchantment unless you pay {G}.\n"
+         "Whenever a player puts an Island or blue permanent onto the battlefield, that player sacrifices an Island or blue permanent of their choice.\n"
+         "Whenever a player puts a Swamp or black permanent onto the battlefield, that player sacrifices a Swamp or black permanent of their choice.", None, "G"),
+    real("Azure Drake", "{U}", 1, "Creature \u2014 Drake", "", ("1", "1"), "U"),
+    real("Spikeshell Harrier", "{4}{U}", 5, "Artifact Creature \u2014 Robot Turtle", "When this creature enters, return target creature or Vehicle an opponent controls to its owner's hand. "
+         "If that opponent's speed is greater than each other player's speed, reduce that opponent's speed by 1. This effect can't reduce their speed below 1.", ("4", "4"), "U"),
     real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
 ]
-NAMES = ["Savior of Ollenbock", "Light Up the Night", "Cloak and Dagger, Entwined"]
+NAMES = ["Savior of Ollenbock", "Light Up the Night", "Cloak and Dagger, Entwined", "Nature's Wrath", "Spikeshell Harrier"]
 
 
 def drive(s, pick=None, limit=80):
@@ -161,4 +169,37 @@ def test_cloak_and_dagger_exiles_a_hand_card_or_the_chosen_creature_until_it_lea
     cast(s, "Murder", [cd.id])
     drive(s)
     assert (s.state.cards[giant.id].zone, s.state.cards[bears.id].zone) == ("p2:hand", "p2:battlefield")
+    check(s)
+
+
+@pytest.mark.parametrize("who, card, gone", [("p1", "Island", True), ("p1", "Swamp", True), ("p1", "Azure Drake", True), ("p1", "Forest", False), ("p1", "Mountain", False)])
+def test_natures_wrath_makes_the_entering_player_sacrifice_a_matching_permanent(cards, who, card, gone):
+    """Nature's Wrath: a land of the type or a permanent of the colour entering makes its controller sacrifice one; other cards do nothing."""
+    s = build(cards, ["Nature's Wrath", "Azure Drake", "Island", "Swamp", "Forest", "Mountain"], ["Island", "Swamp", "Forest"])
+    put(s, "Nature's Wrath")
+    theirs = put(s, "Island", "p2")  # not the entering player's: stays
+    mana(s, who, U=1)
+    c = to_hand(s, card, who)
+    if "Drake" in card:
+        act(s, who, type="cast_spell", card_id=c.id)
+    else:
+        act(s, who, type="play_land", card_id=c.id)
+    drive(s)
+    assert s.state.cards[c.id].zone == (f"{who}:graveyard" if gone else f"{who}:battlefield") and s.state.cards[theirs.id].zone == "p2:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize("mine, theirs, after", [(1, 3, 2), (3, 3, 3), (4, 3, 3), (0, 1, 1), (None, 2, 1), (None, None, None)])
+def test_spikeshell_harrier_reduces_the_speed_of_a_faster_opponent_but_not_below_one(cards, mine, theirs, after):
+    """Spikeshell Harrier: Bob's Bears returns to hand; Bob's speed drops by 1 only when greater than Alice's (no speed reads 0), and stops at 1."""
+    s = build(cards, ["Spikeshell Harrier", "Grizzly Bears"], ["Grizzly Bears"])
+    bears = put(s, "Grizzly Bears", "p2")
+    for pid, v in (("p1", mine), ("p2", theirs)):
+        if v is not None:
+            act(s, pid, type="set_resource", player=pid, key="speed", value=v)
+    mana(s, "p1", U=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Spikeshell Harrier").id)
+    drive(s, lambda i: bears.id in i)
+    assert s.state.cards[bears.id].zone == "p2:hand"
+    assert s.state.players["p2"].resources.get("speed") == after
     check(s)
