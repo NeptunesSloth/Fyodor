@@ -26,8 +26,9 @@ def apply(plan: Plan, card: CardInstance) -> None:
     can suppress the printed ability. Entering or being cast with that face up never calls here.
     The resulting permanent's controller receives the emblem, regardless of who caused the turn.
     """
-    from app.rules import designations, scripts
+    from app.rules import designations, scripts, wave110i_cards
 
+    wave110i_cards.transform_attach(plan, card)  # -- cards (wave 110I) -- Curse of Leeches
     if plan.manual(card):
         return
     effects = [d['text'] for d in scripts.definitions(plan.ch(card)).values() if d.get('static') == 'as_transform_emblem']

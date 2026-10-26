@@ -631,13 +631,36 @@ def resume_bauble(plan: Plan, decision: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, decision.resume["ctx"])
 
 
-RESUME = {"bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
+def transform_attach(plan: Plan, card: Any) -> None:
+    """Curse of Leeches: as it turns over into the Aura face, its controller attaches it to a player (303.4f; a replacement-like step, not a trigger).
+    The decision stands before state-based actions (704.5m would put an unattached Aura into the graveyard)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import attachments, scripts
+    from app.rules.plan import decide
+
+    if plan.manual(card) or not any(d.get("static") == "as_transform_attach110i" for d in scripts.definitions(plan.ch(card)).values()):
+        return
+    hosts = [p for p in plan.live() if attachments.host_problem(plan, card, p) is None]
+    if hosts:
+        decide(plan, player=card.controller, kind="choose_one", prompt=f"{card.name}: attach it to a player", source=card,
+               options=[DecisionOption(id=p, label=plan.state.players[p].name) for p in hosts], resume={"step": "transform_attach110i", "card": card.id})
+
+
+def resume_transform_attach(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import attachments
+
+    attachments.attach(plan, d.resume["card"], chosen[0], d.player)
+
+
+RESUME = {"transform_attach110i": resume_transform_attach, "bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == "As this permanent transforms into Curse of Leeches, attach it to a player.":
+        return {"kind": "static", "static": "as_transform_attach110i", "effects": []}
     if (same := _AS.get(text)) is not None:
         return scripts.define(replace(ability, text=same), ch)
     built = _BUILD.get(text)
