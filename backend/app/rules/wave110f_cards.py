@@ -271,7 +271,15 @@ def remove_enchantments(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bo
     return effects._destroy_cards(plan, ctx, {"do": "destroy"}, other)
 
 
+def _snitch() -> Parsed:
+    """Cephalid Snitch: layer-6 removal of one quality; protection.parse drops the words named in ``Characteristics.lost`` (613.1f, 702.16)."""
+    effects, targets, optional = _p("Target creature loses flying until end of turn.")
+    assert effects[0]["remove"] == ["flying"]
+    return [{**effects[0], "remove": ["protection from black"]}], targets, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Target creature loses protection from black until end of turn.": _snitch,
     "Return to your hand all enchantments you both own and control, all Auras you own attached to permanents you control, and all Auras you own attached to attacking creatures your opponents control. Then destroy all other enchantments you control, all other Auras attached to permanents you control, and all other Auras attached to attacking creatures your opponents control.":
         lambda: ([{"do": "remove_enchantments110f", "step": "return"}, {"do": "remove_enchantments110f", "step": "destroy"}], None, False),
     'choose any number of target planeswalkers you control. Until end of turn, they become 3/3 blue Bird creatures with flying, hexproof, and "Whenever ~ deals combat damage to a player, scry 1."': _sparkshaper,
@@ -317,6 +325,24 @@ def parse(body: str) -> Parsed | None:
     return scripts.parse_effects(REWRITES[body.strip()]) if body.strip() in REWRITES else None
 
 
+SPLIT_DAMAGE = "single_source_lethal110f"
+_SPLIT_TEXT = "This creature can't be destroyed by lethal damage unless lethal damage dealt by a single source is marked on it."
+
+
+def spared_by_split_damage(plan: Any, card: Any, ch: Any, toughness: int) -> bool:
+    """Ogre Enforcer: 704.5g applies only if one source dealt lethal damage (>= toughness, 120.6) to it this turn (damage wears off at cleanup, 514.2).
+    ponytail: counts damage dealt this turn from the turn log; damage removed by an effect other than cleanup is not subtracted."""
+    from app.rules import history, scripts
+
+    if not any(d.get("static") == SPLIT_DAMAGE for d in scripts.definitions(ch).values()):
+        return False
+    oid, dealt = plan.oid(card), {}
+    for f in history.log_for(plan).facts:
+        if f.kind == "damaged" and f.object_id == oid and f.amount > 0:
+            dealt[f.source] = dealt.get(f.source, 0) + f.amount
+    return max(dealt.values(), default=0) < toughness
+
+
 COPY_ENTRY = "copy_entry110f"
 _COPY_ENTRY_TEXT = "Creatures you control enter as a copy of this creature."
 
@@ -341,6 +367,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     for k in ("an art", "a name"):
         if ability.kind == "triggered" and ability.text.strip() == _STICKER_BACK.format(k=k):
             return scripts.define(replace(ability, text=_STICKER_BACK.format(k=k).replace("sticker on a creature,", "sticker on a creature, if this card is in your graveyard,")), ch)
+    if ability.kind == "static" and scripts.self_text(ability.text, ch.name).replace("~", "This creature") == _SPLIT_TEXT:
+        return {"kind": "static", "static": SPLIT_DAMAGE, "effects": []}
     if ability.kind == "static" and scripts.self_text(ability.text, ch.name).replace("~", "this creature") == _COPY_ENTRY_TEXT:
         return {"kind": "static", "static": COPY_ENTRY, "effects": []}
     return None

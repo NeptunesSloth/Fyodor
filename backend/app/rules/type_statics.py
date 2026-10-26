@@ -180,8 +180,9 @@ def _layered(text: str) -> dict[str, Any] | None:
         found = _definition(m["s"], {"set_land_types": [_LAND_PLURALS.get(m["t"], m["t"].rstrip("s") if m["t"] != "Plains" else m["t"])]})
         return found if found is not None and _lands(found) else None
     if (m := _LOSE_ALL.fullmatch(text)) is not None:  # 613.1f
-        return _definition(m["s"], None, base=[int(m["p"]), int(m["t"])] if m["p"] else None, lose_all=True,
-                           **({"keep_mana": True} if m["mana"] else {}))  # type: ignore[arg-type]
+        gy = {"own": False, "types": [], "not_types": [], "permanent": False, "zones": ["graveyard"]} if m["s"] == "Cards in graveyards" else None  # -- wave 110F -- Yixlid Jailer
+        return _definition(m["s"], None, base=[int(m["p"]), int(m["t"])] if m["p"] else None, lose_all=True, everywhere=gy,
+                           who_key='sel:{"card":true,"zones":["graveyard"]}' if gy else None, **({"keep_mana": True} if m["mana"] else {}))  # type: ignore[arg-type]
     if (m := _HAVE_LOSE.fullmatch(text)) is not None:  # (Toxicrene) 613.1f: the abilities it grants come after it takes them away
         q = m["q"][1:-1]
         q = q if q[-1] in ".)" else q + "."

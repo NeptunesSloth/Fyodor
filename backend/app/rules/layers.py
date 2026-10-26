@@ -1194,6 +1194,11 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         from app.rules import dynamic_zone_keyword_costs56
 
         ch = dynamic_zone_keyword_costs56.apply(state, card, ch, info)
+        if card.zone.endswith(":graveyard"):  # -- wave 110F -- 613.1f: "Cards in graveyards lose all abilities." (Yixlid Jailer)
+            from app.rules import group_layers
+
+            if group_layers.graveyard_wiped(state, card, ch, info):
+                ch = replace(ch, abilities=())
     if info is not None and _T.depth == 0 and state.rules is not None and card.zone == "stack" and card.ability is None:
         from app.rules import (
             kicked_spell_outcomes59,

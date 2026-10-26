@@ -113,6 +113,7 @@ def find(plan: Plan) -> Found:
                 continue
             out.losers.append((pid, reason))
     from app.rules import keyword_actions
+    from app.rules import wave110f_cards  # -- wave 110F -- Ogre Enforcer
     from app.rules.copying import ceases_to_exist
 
     for card in list(state.cards.values()):
@@ -133,7 +134,7 @@ def find(plan: Plan) -> Found:
             t = toughness(card, ch)
             if t is not None and t <= 0:
                 out.dying.append((card, "0 toughness"))  # 704.5f (indestructible doesn't help)
-            elif t is not None and card.damage >= t and "indestructible" not in ch.keywords:
+            elif t is not None and card.damage >= t and "indestructible" not in ch.keywords and not wave110f_cards.spared_by_split_damage(plan, card, ch, t):
                 out.dying.append((card, "lethal damage"))  # 704.5g
             elif card.id in r.deathtouched and (card.damage > 0 or card.counters.get("-1/-1", 0) > 0) \
                     and "indestructible" not in ch.keywords:

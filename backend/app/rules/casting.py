@@ -2554,6 +2554,10 @@ def from_graveyard(card: CardInstance, player: str, ch: Characteristics, state: 
     own, or (wave 3R2, ``state``) one an effect gave it this turn (app/rules/graveyard_grants.py)."""
     if card.zone != zone_key(player, "graveyard") or card.owner != player:
         return False
+    from app.rules import group_layers
+
+    if group_layers.graveyard_wiped(state, card, ch, info) if state is not None else False:  # -- wave 110F -- Yixlid Jailer: no flashback or aftermath from a graveyard (613.1f)
+        return False
     # -- static_other sweep (wave 16B) -- 702.127a: the aftermath half is cast from a graveyard and exiled as it leaves the stack
     return "aftermath" in ch.keywords or flashback_cost(ch) is not None or (state is not None and _granted_flashback(state, card, ch, info) is not None)
 
