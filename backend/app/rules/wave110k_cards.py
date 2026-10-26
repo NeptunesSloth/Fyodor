@@ -278,6 +278,16 @@ def _old_man(d: Def) -> Def:
     return {**d, "effects": [{**held[0][0], "duration": "source_tapped_power110k"}, held[0][1]]}
 
 
+def _stickered_target(d: Def) -> Def:
+    """Scampire: the target is a creature card "with a sticker on it" (123.4: a sticker put on a card in a graveyard stays on it, selectors "sticker101:any")."""
+    from app.rules import selectors
+
+    sel = selectors.from_key(d["target"]["what"]) if d.get("target") else None
+    if sel is None or "graveyard" not in sel.zones:
+        return d
+    return {**d, "target": {**d["target"], "what": selectors.replace(sel, extras=(*sel.extras, "sticker101:any")).key()}}
+
+
 def _rat_roles(d: Def) -> Def:
     """Twisted Sewer-Witch: a Wicked Role token for each Rat its controller has once the token exists, each attached to its own Rat (111.1, 303.7)."""
     from app.rules import selectors
@@ -287,6 +297,10 @@ def _rat_roles(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Any]] = {
+    "{3}{B}: Return target creature card with a sticker on it from your graveyard to the battlefield. That creature gains haste. Exile it at the beginning of "
+    "the next end step. Activate only as a sorcery.":
+        ("{3}{B}: Return target creature card from your graveyard to the battlefield. That creature gains haste. Exile it at the beginning of the next end "
+         "step. Activate only as a sorcery.", _stickered_target),
     "{T}: Gain control of target creature with power less than or equal to this creature's power for as long as this creature remains tapped and that "
     "creature's power remains less than or equal to this creature's power.":
         ("{T}: Gain control of target creature with power less than or equal to ~'s power.", _old_man),
