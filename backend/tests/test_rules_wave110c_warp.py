@@ -8,8 +8,8 @@ import pytest
 
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110c_kit import answer, check, make_db, mana, put, real
 from tests.wave9c_kit import build, card_named, to_hand
+from tests.wave110c_kit import answer, check, make_db, mana, put, real
 
 WARP = ("Each player shuffles all permanents they own into their library, then reveals that many cards from the top of their library. Each player puts all artifact, "
         "creature, and land cards revealed this way onto the battlefield, then does the same for enchantment cards, then puts all cards revealed this way that weren't put "
@@ -60,7 +60,7 @@ def test_commander_that_goes_to_the_command_zone_still_counts_and_an_aura_enchan
     put(s, "Grizzly Bears")
     commander = next(c for c in s.state.cards.values() if c.owner == "p2" and c.name.startswith("Atraxa"))
     act(s, "p2", type="move", card_ids=[commander.id], to={"player": "p2", "zone": "battlefield"})
-    warp(s)
+    warp(s, "yes")  # (903.9b: asked before the commander would go into the library)
     assert zones(s, "p1", "battlefield") == ["Grizzly Bears"] and zones(s, "p2", "battlefield") == ["Pacifism"]
     assert card_named(s, "Pacifism", "p2").attached_to == card_named(s, "Grizzly Bears").id
     check(s)

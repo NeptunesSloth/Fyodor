@@ -86,8 +86,15 @@ YIDARO = ("When you cycle this card, shuffle it into your library from your grav
           "this game, put it onto the battlefield from your graveyard instead.")
 
 
+PANDEMONIUM = "Whenever a creature enters, that creature's controller may have it deal damage equal to its power to any target of their choice."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
+
+    if ability.kind == "triggered" and scripts.self_text(ability.text, ch.name) == PANDEMONIUM:  # Pandemonium ruling 2006-09-25: its controller controls the ability, the entering creature's controller chooses the target (target_choice) and whether it deals the damage
+        d = scripts.define(replace(ability, text="Whenever a creature enters, that creature deals damage equal to its power to any target."), ch)
+        return None if d is None else {**d, "target_choice": "entering110c", "effects": [{"do": "pandemonium110c"}, *d["effects"]]}
 
     if scripts.self_text(ability.text, ch.name) == SIN_DIES:  # "this card" is Sin itself (400.7: the card in the graveyard), not the creature it chose; shuffled in even if gone (701.24c)
         d = scripts.define(replace(ability, text="When ~ dies, put ~'s counters on target creature you control, then shuffle ~ into its owner's library."), ch)
@@ -624,6 +631,40 @@ def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def entering_controller(plan: Plan, event: Any) -> str | None:
+    """The controller of the permanent an enter event is about: the battlefield it entered (the event object's zone)."""
+    objects = event.get("objects") if isinstance(event, dict) else getattr(event, "objects", None)
+    if not objects or len(objects) != 1:
+        return None
+    zone = str((objects[0].get("zone") if isinstance(objects[0], dict) else objects[0].zone) or "")
+    pid = zone.split(":")[0]
+    return pid if pid in plan.live() else None
+
+
+def pandemonium(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Pandemonium: the entering creature's controller (not the trigger's controller) decides whether the creature deals the damage."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    who = entering_controller(plan, ctx.get("event"))
+    if who is None:
+        ctx["next"] = len(ctx["effects"])
+        return True
+    decide(plan, player=who, kind="choose_one", prompt="Pandemonium: have the creature deal damage equal to its power to the target?",
+           options=[DecisionOption(id="yes", label="Yes"), DecisionOption(id="no", label="No")], resume={"step": "pandemonium110c", "ctx": ctx},
+           source=plan.state.cards.get(ctx.get("source_card") or ""))
+    return False
+
+
+def resume_pandemonium(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if chosen[0] != "yes":
+        ctx["next"] = len(ctx["effects"])
+    effects.continue_effects(plan, ctx)
+
+
 WARP_WORLD = ("Each player shuffles all permanents they own into their library, then reveals that many cards from the top of their library. Each player puts all artifact, "
               "creature, and land cards revealed this way onto the battlefield, then does the same for enchantment cards, then puts all cards revealed this way that weren't put "
               "onto the battlefield on the bottom of their library.")
@@ -666,7 +707,7 @@ def warp_bottom(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Warp World: the revealed cards that stayed go to the bottom of their owner's library, in an order that owner picks (401.4)."""
     from app.rules import effects
 
-    queue = []
+    queue: list[dict[str, Any]] = []
     for pid in plan.apnap():
         rest = [c for c in ctx["warp110c"].get(pid, []) if plan.state.cards[c].zone == f"{pid}:library"]
         if len(rest) == 1:
@@ -681,6 +722,6 @@ def warp_bottom(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-RESUME = {"prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x, "wildhunt110c": resume_wildhunt}
-PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "kefka_exile110c": kefka_exile, "kefka_loss110c": kefka_loss, "ulalek110c": ulalek, "wildhunt110c": wildhunt, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+RESUME = {"pandemonium110c": resume_pandemonium, "prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x, "wildhunt110c": resume_wildhunt}
+PRIMITIVES = {"pandemonium110c": pandemonium, "shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "kefka_exile110c": kefka_exile, "kefka_loss110c": kefka_loss, "ulalek110c": ulalek, "wildhunt110c": wildhunt, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
 PRIMITIVES.update({"warp_shuffle110c": warp_shuffle, "warp_enter110c": warp_enter, "warp_bottom110c": warp_bottom})
