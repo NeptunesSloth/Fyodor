@@ -812,7 +812,11 @@ def _damage_hits(plan: Plan, ctx: Context, e: dict[str, Any]) -> list[tuple[_Sou
     if e.get("dealt_as"):  # -- replacement effects stage 2 (wave 2E): "dealt damage this way" --
         ctx.setdefault(DEALT_KEY, {})[e["dealt_as"]] = []
     if e.get("excess"):  # -- refused zones/sized (wave 3R4) -- "excess damage is dealt to that creature's controller instead"
-        return _excess_hits(plan, src, [(src, key, amount(key)) for key in [*cards, *players]], e["excess"])
+        base = [(src, key, amount(key)) for key in [*cards, *players]]
+        hits = _excess_hits(plan, src, base, e["excess"])
+        if e.get("excess_flag"):  # -- Megatron (wave 110I) -- 120.4a: whether the damage event was modified (some of it redirected), for "and you convert ~"
+            context.bind_flag(ctx, e["excess_flag"], [(k, n) for _, k, n in hits] != [(k, n) for _, k, n in base])
+        return hits
     return [(src, key, amount(key)) for key in [*cards, *players]]
 
 

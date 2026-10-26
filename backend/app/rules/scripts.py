@@ -4240,6 +4240,10 @@ _EXCESS = re.compile(r"(?P<trample>if the creature you control has trample, )?ex
                      r"creature's controller instead")
 
 
+# -- Megatron (wave 110I) -- 120.4a / 120.10: the redirect plus "and you convert ~" (convert is read as transform, 701.28): converts exactly when excess damage was redirected
+_EXCESS_XFORM = re.compile(r"if excess damage would be dealt to that creature this way, instead that damage is dealt to that creature's controller and you transform ~")
+
+
 def _excess_redirect(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """-- refused zones/sized (wave 3R4) -- "[If the creature you control has trample,] excess damage is dealt to that
     creature's controller instead" (Flame Spill, Ram Through): the damage instruction right before it, to one target
@@ -4258,7 +4262,9 @@ def _excess_redirect(found: tuple[list[dict[str, Any]], Any, bool] | None) -> tu
             return None
         if e["if_trample"] and not str(prev.get("src") or "").startswith("target"):
             return None  # ("the creature you control": the creature dealing the damage, a target)
-        effects[-1] = {**prev, "excess": "trample" if e["if_trample"] else "always"}
+        effects[-1] = {**prev, "excess": "trample" if e["if_trample"] else "always", **({"excess_flag": "xs110i"} if e.get("then_transform110i") else {})}
+        if e.get("then_transform110i"):  # -- Megatron (wave 110I) -- the flag effects.damage records when it redirected some excess
+            effects += [{"do": "only_if", "cond": {"flag": "xs110i"}, "skip": 1}, {"do": "transform", "who": "self"}]
     return effects, found[1], found[2]
 
 
@@ -4799,6 +4805,9 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         excess = _EXCESS.fullmatch(text)  # -- refused zones/sized (wave 3R4) -- 120.4a (_excess_redirect)
         if excess is not None:
             effects.append({"do": "excess_redirect", "if_trample": bool(excess["trample"])})
+            continue
+        if _EXCESS_XFORM.fullmatch(text):  # -- Megatron (wave 110I) --
+            effects.append({"do": "excess_redirect", "if_trample": False, "then_transform110i": True})
             continue
         if (kicked := _KICKED.match(text)) is not None:
             with_kicker = _kicked_sentence(kicked, effects, prev_start, groups, prev_groups)
@@ -11407,6 +11416,7 @@ def _x_to_event(effects: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # creature was a Giant", "return it") stays manual.
 _SAC_ONE = re.compile(r"^sacrifice (?:a|an|another) [a-z ,]+$", re.I)
 _LKI_STAT = re.compile(r"\b(?:that|the sacrificed) (?:creature|artifact|permanent)'s (power|toughness|mana value)\b")
+_EXCESS_THAT = re.compile(r"[Ii]f excess damage would be dealt to that creature this way, instead that damage is dealt to that creature's controller")  # -- Megatron (wave 110I) -- "that creature" there is the damaged one, not the sacrificed object
 _LKI_OTHER = re.compile(r"\b(?:it|its|itself|they|them|that creature|that artifact|that permanent|the sacrificed)\b")
 
 
@@ -11428,7 +11438,7 @@ def _reflexive_lki(base: list[dict[str, Any]], name: str, body: str) -> str | No
             and _SAC_ONE.fullmatch(str(base[0].get("cost") or ""))):
         return None  # (a mandatory "Sacrifice a creature. When you do, …" — Tip the Scales — isn't read yet)
     out = _LKI_STAT.sub(lambda m: f"that permanent's {m[1]}", body)
-    if _LKI_OTHER.search(_LKI_STAT.sub("", out)):
+    if _LKI_OTHER.search(_EXCESS_THAT.sub("", _LKI_STAT.sub("", out))):
         return None
     return out
 # -- end reflexive LKI (wave 4J) ---------------------------------------------------------------------------------------

@@ -10,12 +10,14 @@ import pytest
 import tests.test_rules_wave110e_cards as base
 from app.game.errors import ActionError
 from app.rules import coverage
+from tests.fixtures.cards import card
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave110e_cards import card_db  # noqa: F401  (the fixture)
 from tests.test_rules_wave110e_s11 import _three
 from tests.test_rules_wave110i_s14 import BEAR, GIANT  # noqa: F401  (registers the helper creatures)
-from tests.wave9c_kit import check, mana, put
+from tests.wave9c_kit import build, check, life, mana, put
+from tests.wave110j_kit import now
 
 BRACELET = real("The Dominion Bracelet", "{2}", 2, "Legendary Artifact — Equipment",
                 "Equipped creature gets +1/+1 and has \"{15}, Exile The Dominion Bracelet: You control target opponent during their next turn. This ability costs {X} less to activate, where X is "
@@ -59,4 +61,62 @@ def test_bracelet_cost_drops_by_the_equipped_power_and_exiles_it(cards, creature
         act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.cards[bracelet.id].zone.endswith(":exile")
     assert [(c.controlled, c.controller) for c in s.state.rules.player_control] == [("p2", "p1")]
+    check(s)
+
+
+# -- Megatron, Tyrant // Megatron, Destructive Force --------------------------------------------------------------------------------------------------------------------------------------
+_MFRONT = ("More Than Meets the Eye {1}{R}{W}{B} (You may cast this card converted for {1}{R}{W}{B}.)\nYour opponents can't cast spells during combat.\n"
+           "At the beginning of each of your postcombat main phases, you may convert Megatron. If you do, add {C} for each 1 life your opponents have lost this turn.")
+_MBACK = ("Living metal (During your turn, this Vehicle is also a creature.)\nWhenever Megatron attacks, you may sacrifice another artifact. When you do, Megatron deals damage equal to the "
+          "sacrificed artifact's mana value to target creature. If excess damage would be dealt to that creature this way, instead that damage is dealt to that creature's controller "
+          "and you convert Megatron.")
+MEGATRON = card("Megatron, Tyrant // Megatron, Destructive Force", set_code="tst", number="110I-mt", layout="transform", mana_cost="{3}{R}{W}{B} // ", cmc=6.0,
+                type_line="Legendary Artifact Creature — Robot // Legendary Artifact — Vehicle", power="7", toughness="5", colors=["B", "R", "W"], color_identity=["B", "R", "W"],
+                keywords=["Living metal", "Convert", "More Than Meets the Eye"], oracle_text=_MFRONT + "\n//\n" + _MBACK,
+                card_faces=[{"name": "Megatron, Tyrant", "mana_cost": "{3}{R}{W}{B}", "type_line": "Legendary Artifact Creature — Robot", "oracle_text": _MFRONT, "power": "7", "toughness": "5",
+                             "colors": ["B", "R", "W"]},
+                            {"name": "Megatron, Destructive Force", "mana_cost": "", "type_line": "Legendary Artifact — Vehicle", "oracle_text": _MBACK, "power": "4", "toughness": "5",
+                             "colors": ["B", "R", "W"]}])
+MNAME = MEGATRON["name"]
+base.EXTRA.extend([MEGATRON, real("Gizmo110I", "{2}", 2, "Artifact", "", None, ""), real("Anvil110I", "{3}", 3, "Artifact", "", None, ""),
+                   real("Wolf110I", "{1}{G}", 2, "Creature — Wolf", "", ("2", "2"), "G")])
+
+
+def test_megatron_full():
+    assert coverage.of_card_data({**MEGATRON, "faces": MEGATRON["card_faces"]}).level == "FULL"
+
+
+def _swing(s, megatron, pick):
+    """Attack with the Vehicle; the may-sacrifice and the target answer as ``pick`` says (an artifact name, or None to decline)."""
+    from tests.wave110b_kit import attack
+
+    attack(s, megatron)
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            labels = {o.id: o.label for o in d.options}
+            ids = [i for i, label in labels.items() if pick is not None and pick in label] or [i for i, label in labels.items() if "Wolf110I" in label or label in ("No", "Don't pay") and (pick is None or "Transform" in d.prompt)]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=(ids or [o.id for o in d.options])[: max(1, d.min_choices)])
+        elif s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            return
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("combat never ended")
+
+
+@pytest.mark.parametrize(("artifact", "excess", "converts"), [("Anvil110I", 1, True), ("Gizmo110I", 0, False), (None, 0, False)])
+def test_megatron_redirects_the_excess_and_converts_only_then(cards, artifact, excess, converts):
+    """MV 3 into a 2/2: lethal is 2, so 1 excess goes to Bob and Megatron converts (120.4a). MV 2: exactly lethal, no excess, no convert. Declining the sacrifice: nothing."""
+    s = build(cards, [MNAME, "Anvil110I", "Gizmo110I"], ["Wolf110I"])
+    megatron = put(s, MNAME)
+    act(s, "p1", type="set_face", card_id=megatron.id, face=1)
+    put(s, "Anvil110I")
+    put(s, "Gizmo110I")
+    wolf = put(s, "Wolf110I", "p2")
+    _swing(s, megatron, artifact)
+    assert (s.state.cards[wolf.id].zone.endswith(":graveyard")) == (artifact is not None)
+    assert life(s, "p2") == 40 - excess - (7 if converts else 4)  # (then unblocked combat damage: the 7/5 front face after converting, else the 4/5 Vehicle)
+    assert (now(s, megatron).face == 0) == converts
     check(s)
