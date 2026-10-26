@@ -323,6 +323,22 @@ def same_stored(plan: Any, ctx: Def) -> int:
     return max((kept.count(v) for v in set(kept)), default=0)
 
 
+_SYLEX = "{1}, {T}: Each nontoken permanent with a name originally printed in the Antiquities expansion is sacrificed by its controller."
+# CR 206.3b lists the names this refers to.
+_ANTIQUITIES = frozenset(n.replace("\u2019", "'") for n in ["Amulet of Kroog", "Argivian Archaeologist", "Argivian Blacksmith", "Argothian Pixies", "Argothian Treefolk", "Armageddon Clock", "Artifact Blast", "", "Artifact Possession", "Artifact Ward", "Ashnod’s Altar", "Ashnod’s Battle Gear", "Ashnod’s Transmogrant", "Atog", "Battering Ram", "Bronze Tablet", "", "Candelabra of Tawnos", "Circle of Protection: Artifacts", "Citanul Druid", "Clay Statue", "Clockwork Avian", "Colossus of Sardia", "Coral Helm", "Crumble", "", "Cursed Rack", "Damping Field", "Detonate", "Drafna’s Restoration", "Dragon Engine", "Dwarven Weaponsmith", "Energy Flux", "Feldon’s Cane", "Gaea’s Avenger", "", "Gate to Phyrexia", "Goblin Artisans", "Golgothian Sylex", "Grapeshot Catapult", "Haunting Wind", "Hurkyl’s Recall", "Ivory Tower", "Jalum Tome", "Martyrs of Korlis", "", "Mightstone", "Millstone", "Mishra’s Factory", "Mishra’s War Machine", "Mishra’s Workshop", "Obelisk of Undoing", "Onulet", "Orcish Mechanics", "Ornithopter", "", "Phyrexian Gremlins", "Power Artifact", "Powerleech", "Priest of Yawgmoth", "Primal Clay", "The Rack", "Rakalite", "Reconstruction", "Reverse Polarity", "", "Rocket Launcher", "Sage of Lat-Nam", "Shapeshifter", "Shatterstorm", "Staff of Zegon", "Strip Mine", "Su-Chi", "Tablet of Epityr", "Tawnos’s Coffin", "Tawnos’s Wand", "", "Tawnos’s Weaponry", "Tetravus", "Titania’s Song", "Transmute Artifact", "Triskelion", "Urza’s Avenger", "Urza’s Chalice", "Urza’s Mine", "Urza’s Miter", "", "Urza’s Power Plant", "Urza’s Tower", "Wall of Spears", "Weakstone", "Xenic Poltergeist", "Yawgmoth Demon", "Yotian Soldier"])
+_BUILD[_SYLEX] = ("{1}, {T}: You gain 1 life.", lambda d: {**d, "effects": [{"do": "sylex110m"}]})
+
+
+def sylex(plan: Any, ctx: Def, e: Def) -> bool:
+    """Golgothian Sylex: every nontoken permanent whose name is on the CR 206.3b list is sacrificed by its controller, all at once (701.21a)."""
+    from app.rules import effects
+
+    hit = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and not c.is_token
+           and (plan.ch(c).name or "").replace("\u2019", "'") in _ANTIQUITIES]
+    effects._sacrifice_cards(plan, hit, ctx["controller"], ctx)
+    return True
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -973,4 +989,4 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
 
 RESUME: dict[str, Any] = {"reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
