@@ -245,11 +245,28 @@ def roll(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     pid = ctx["controller"]
     n = max(0, int(effects._amount(plan, ctx, e["count"])))
     extra = roll_extras(plan, pid) if n > 0 else 0  # 614.1a: "would roll one or more dice"
-    return _roll_group(plan, ctx, e, n, extra, [])
+    ignore_by = None
+    if n > 0 and (held := next((s for s in plan.rules.roll_shields110g if s["player"] == pid and s["turn"] == plan.state.turn.number), None)) is not None:
+        if extra:  # two replacements of one roll (616.1) are not ordered here: the shield stays, the players adjust by hand
+            plan.note(f"{plan.name(pid)} has two effects on this roll (Bamboozling Beeble and a roll-extra effect): apply the Beeble's by hand")
+        else:  # -- (wave 110G) -- Bamboozling Beeble: one more die, and the Beeble's controller picks one of the rolls to ignore (706.6)
+            plan.rules.roll_shields110g.remove(held)
+            ignore_by, n = held["by"], n + 1
+    return _roll_group(plan, ctx, e, n, extra, [], ignore_by)
 
 
-def _roll_group(plan: Plan, ctx: Context, e: dict[str, Any], n: int, extra: int, results: list[int]) -> bool:
-    from app.game.rules_state import turn_log_now
+def shield_effect(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """-- (wave 110G) -- "The next time target player would roll one or more dice this turn, instead they roll that many dice plus one and you
+    choose one of those rolls to ignore." (Bamboozling Beeble; 614.1a, 706.6): kept until that player's next roll of the turn."""
+    from app.rules import effects
+
+    turn = plan.state.turn.number
+    plan.rules.roll_shields110g = [s for s in plan.rules.roll_shields110g if s["turn"] == turn]
+    plan.rules.roll_shields110g += [{"player": p, "by": ctx["controller"], "turn": turn} for p in effects._players(plan, ctx, e.get("who", "target"))]
+    return True
+
+
+def _roll_group(plan: Plan, ctx: Context, e: dict[str, Any], n: int, extra: int, results: list[int], ignore_by: str | None = None) -> bool:
 
     pid = ctx["controller"]
     chunks = 0
@@ -257,7 +274,7 @@ def _roll_group(plan: Plan, ctx: Context, e: dict[str, Any], n: int, extra: int,
         if chunks >= ROLL_CHUNKS:
             decide(plan, player=pid, kind="choose_one", prompt="Continue resolving the dice group (no priority or state-based actions).",
                    options=[DecisionOption(id="continue", label="Continue resolving")],
-                   resume={"step": "roll_group_continue", "ctx": ctx, "effect": e, "n": n, "extra": extra, "results": results})
+                   resume={"step": "roll_group_continue", "ctx": ctx, "effect": e, "n": n, "extra": extra, "results": results, "ignore_by": ignore_by})
             return False
         chunks += 1
         step = min(100, n + extra - len(results))
@@ -267,6 +284,20 @@ def _roll_group(plan: Plan, ctx: Context, e: dict[str, Any], n: int, extra: int,
         results.remove(lowest)
     if extra:
         plan.note(f"{plan.name(pid)} ignores the lowest {'roll' if extra == 1 else f'{extra} rolls'}")
+    if ignore_by is not None and len(set(results)) > 1:  # (equal rolls are the same number: no choice to make)
+        decide(plan, player=ignore_by, kind="choose_one", prompt=f"{ctx.get('name') or 'Roll'}: choose one roll to ignore",
+               options=[DecisionOption(id=str(i), label=str(r)) for i, r in enumerate(results)],
+               resume={"step": "roll_ignore110g", "ctx": ctx, "effect": e, "results": results})
+        return False
+    if ignore_by is not None:
+        results.pop()
+    return _roll_tail(plan, ctx, e, results)
+
+
+def _roll_tail(plan: Plan, ctx: Context, e: dict[str, Any], results: list[int]) -> bool:
+    from app.game.rules_state import turn_log_now
+
+    pid = ctx["controller"]
     if e.get("keep_highest") and results:
         results = [max(results)]
     from app.rules import numeric_roll_finalization42
@@ -299,6 +330,10 @@ def _emit_group(plan: Plan, ctx: Context, e: dict[str, Any], results: list[int],
     for k in range(start, end):
         emit(plan.state, "designation", counter="roll_die", player=pid, amount=results[k], natural=naturals[k], sides=e["sides"],
              nth=base + k + 1)
+        if results[k] == 1:  # -- wave 110F -- Drop Tower: "until any player rolls a 1" (706.2: the result after modifiers)
+            from app.rules import delayed
+
+            delayed.roll_one110f(plan)
     # The whole physical group and retained vector are already known. Seal each
     # bounded fact batch without yielding priority or running state-based actions.
     track(plan.state)
@@ -331,6 +366,18 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+def resume_ignore(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    results = list(r["results"])
+    if len(chosen) != 1 or not chosen[0].isdigit() or int(chosen[0]) >= len(results):
+        raise ActionError("Choose one of the rolls")
+    plan.note(f"{plan.name(d.player)} ignores the roll of {results.pop(int(chosen[0]))}")
+    if _roll_tail(plan, r["ctx"], r["effect"], results):
+        effects.continue_effects(plan, r["ctx"])
+
+
 def refs_ok(effects: list[dict[str, Any]]) -> bool:
     """An amount from a roll only after a roll of the same ability."""
     rolled = False
@@ -343,7 +390,7 @@ def refs_ok(effects: list[dict[str, Any]]) -> bool:
     return True
 
 
-PRIMITIVES = {"roll": roll}
+PRIMITIVES = {"roll": roll, "roll_shield110g": shield_effect}
 
 
 def resume_group(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -355,6 +402,6 @@ def resume_group(plan: Plan, d: Any, chosen: list[str]) -> None:
     if r.get("phase") == "emit":
         done = _emit_group(plan, r["ctx"], r["effect"], r["results"], r["naturals"], r["base"], r["start"])
     else:
-        done = _roll_group(plan, r["ctx"], r["effect"], r["n"], r["extra"], r["results"])
+        done = _roll_group(plan, r["ctx"], r["effect"], r["n"], r["extra"], r["results"], r.get("ignore_by"))
     if done:
         effects.continue_effects(plan, r["ctx"])

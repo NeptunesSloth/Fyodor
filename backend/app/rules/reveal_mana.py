@@ -159,8 +159,9 @@ def resume_type(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 def _add(plan: Plan, controller: str, option: list[str] | tuple[str, ...], ctx: dict[str, Any]) -> None:
-    from app.rules import mana_units
+    from app.rules import mana_units, wave110i_cards
 
+    option = wave110i_cards.dawn_mana(plan, controller, list(option))  # -- cards (wave 110I) -- False Dawn, 609.4b: triggered mana abilities' extra mana too
     mana = {m: option.count(m) for m in set(option)}
     added = mana_units.from_context(plan, ctx, mana)
     for unit in added.get('add_units', []):

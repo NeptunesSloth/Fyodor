@@ -128,11 +128,12 @@ MANUAL = [card(c["name"], set_code="t40m", number=f"M{i:02d}", **{k: v for k, v 
 LIFTED_53C = ("Gift of Immortality", "Radiant Grace // Radiant Restraints", "Hedron Blade", "Scriv, the Obligator")
 LIFTED_100F = ("Glimmer Lens", "Observed Stasis")  # -- attached (wave 100F) -- read now (tests/test_rules_wave100f_control.py)
 
+LIFTED_110 = ("Rhuk, Hexgold Nabber", "Preston Garvey, Minuteman")  # -- wave 110I / 110D -- read now: Rhuk (tests/test_rules_wave110i_more.py: dies via last known attachments 603.10a, attacks), Preston (tests/test_rules_wave110d_auras.py: named Aura token 111.3, attack untap)
 
-@pytest.mark.parametrize("name", [c["name"] for c in json.loads((Path(__file__).parent / "fixtures" / "wave40b_manual.json").read_text("utf-8")) if c["name"] not in (*LIFTED_53C, *LIFTED_100F)])
+
+@pytest.mark.parametrize("name", [c["name"] for c in json.loads((Path(__file__).parent / "fixtures" / "wave40b_manual.json").read_text("utf-8")) if c["name"] not in (*LIFTED_53C, *LIFTED_100F, *LIFTED_110)])
 def test_these_stay_manual(name):
-    """Never faked: their attached-object wording needs more than this wave reads — Rhuk (the Equipment a creature that died had: unsettled), Preston Garvey and
-    Scriv (an Aura token with its own enchant ability), Hedron Blade
+    """Never faked: their attached-object wording needs more than this wave reads — Scriv (an Aura token with its own enchant ability), Hedron Blade
     ("becomes blocked by one or more colorless creatures" for equipped creature), Observed Stasis ("for each tapped creature its controller controls"),
     Glimmer Lens ("equipped creature and at least one other creature attack")."""
     data = next(c for c in MANUAL if c["name"] == name)

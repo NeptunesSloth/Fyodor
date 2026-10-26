@@ -89,6 +89,8 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     """Hexproof: not by opponents; shroud: by nobody; protection: not by a source with that quality."""
     from app.rules import prohibitions
 
+    if card.zone.endswith(":battlefield") and prohibitions.no_targets110f(plan):  # -- wave 110F -- Peace Talks: 115.2
+        return False
     if prohibitions.untargetable(plan, chooser, card):  # -- cant restrictions (wave 50G) -- 115.2: "Lands on the battlefield … can't be the targets of spells or abilities your opponents control"
         return False
     on_battlefield = card.zone.endswith(":battlefield")
@@ -106,7 +108,7 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     for rule in ch.imposed:  # -- cant (wave 16F) -- "can't be the target of black spells or abilities from black sources"
         if rule == "untargetable_artifact_abilities106" and source is not None and source.is_ability and "Artifact" in source.types:
             return False
-        if rule.startswith("only_aura106:") and source is not None and source.is_spell and "Aura" in source.subtypes:
+        if (rule.startswith("only_aura106:") or rule == "no_aura110h") and source is not None and source.is_spell and "Aura" in source.subtypes:  # (110H: Tetravite "can't be enchanted", 303.4)
             return False
         if rule.startswith("untargetable_by_opponents_of:") and chooser != rule.split(":", 1)[1]:
             return False  # (-- review 20A -- the Aura's controller's opponents; no teams: every other player, 102.2)
@@ -205,6 +207,8 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         return [t for t in legal_targets(plan, "opponent_or_battle", chooser, source, source_card, attacker, source_object=source_object) if t != source_card]
     if selector == "opponent_or_other_permanent110l":  # -- (wave 110L) -- "another target permanent or opponent" (Etched Slith): not the source itself
         return [t for t in legal_targets(plan, "permanent_or_opponent", chooser, source, source_card, attacker, source_object=source_object) if t != source_card]
+    if selector == "any_but_hurt110c":  # -- Toralf (wave 110C) -- 115.4: "any target other than that permanent" (the object the trigger's event is about, ``attacker``)
+        return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object) if t != attacker]
     if selector == "any_other":  # -- damage sized by a count (wave 34D) -- 115.4: "deals that much damage to any other target" (Black Panther): any target
         excluded = source_card if source_object is None or source_card in plan.state.cards and plan.oid(source_card) == source_object else None
         return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object) if t != excluded]
@@ -282,6 +286,8 @@ def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source:
         on_field = card.zone.endswith(":battlefield") or card.zone == "stack"
         if on_field and not can_target(plan, chooser, card, plan.ch(card), source):  # hexproof / shroud / protection
             continue
+        if on_field and sel.subtypes == ("Wall",) and not sel.either and "wall_shadow110m" in plan.ch(card).imposed:  # (wave 110M) Wall of Shadows: only by what could target nothing but Walls
+            continue
         if not on_field and prohibitions.untargetable(plan, chooser, card):  # -- cant restrictions (wave 50G) -- "Cards in graveyards can't be the targets of spells or abilities"
             continue
         out.append(cid)
@@ -298,12 +304,22 @@ def still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, sour
     """608.2b: is a chosen target still legal? A card that changed zones is a new object: illegal."""
     if selector.startswith("opponent_as:"):  # (wave 21E: "as you activate this ability" is only judged as it is chosen)
         selector = "opponent"
+    was, plan.peace_exempt110f = plan.peace_exempt110f, True  # -- wave 110F -- Peace Talks bars choosing, not a target chosen earlier (608.2b)
+    try:
+        return _still_legal(plan, selector, chooser, target, source, source_card, attacker, source_object)
+    finally:
+        plan.peace_exempt110f = was
+
+
+def _still_legal(plan: Plan, selector: str, chooser: str, target: TargetRef, source: Characteristics | None, source_card: str | None,
+                 attacker: str | None, source_object: str | None) -> bool:
     if target.object_id is None:
         return target.id in plan.live() and target.id in legal_targets(plan, selector, chooser, source, source_card, attacker, source_object=source_object)
     card = plan.state.cards.get(target.id)
     if card is None or plan.oid(card) != target.object_id:
         return False
     return target.id in legal_targets(plan, selector, chooser, source, source_card, attacker, source_object=source_object)
+
 
 
 class BadPick(ActionError):

@@ -28,6 +28,23 @@ ULTIMA = ("Whenever Ultima attacks, put a blight counter on target land. For as 
           'abilities and has "{T}: Add {C}."')
 SYMPOSIUM = "Target player creates a token that's a copy of target creature you control."
 NUKA = ("Whenever equipped creature attacks, until the end of defending player's next turn, that player gets two rad counters whenever they cast a spell.")
+DIVINER = ("Whenever one or more other creatures you control enter, if they entered or were cast from a graveyard, create a token that's a copy of one of them. "
+           "This ability triggers only once each turn.")
+JIN3 = ("III — You may cast any number of spells from your hand without paying their mana costs. Exile this Saga, then return it to the battlefield.")
+KITESAIL = ("When this creature enters, for each player, choose up to one other target artifact or creature that player controls. For as long as this creature "
+            'remains on the battlefield, the chosen permanents become Treasure artifacts with "{T}, Sacrifice this artifact: Add one mana of any color" and lose all other abilities.')
+SHELOB = ("Whenever another creature dealt damage this turn by a Spider you controlled dies, create a token that's a copy of that creature, except it's a Food artifact "
+          'with "{2}, {T}, Sacrifice this token: You gain 3 life," and it loses all other card types.')
+WEAVER = "{X}{1}{B}: Put target creature card with mana value X exiled with Shelob onto the battlefield tapped under your control."
+MYSTERY = "When this land transforms into Havengul Mystery, return target creature card from your graveyard to the battlefield."
+MYSTERY2 = "When the creature put onto the battlefield with Havengul Mystery leaves the battlefield, transform Havengul Mystery."
+TOVOLAR = ("At the beginning of your upkeep, if you control three or more Wolves and/or Werewolves, it becomes night. "
+           "Then transform any number of Human Werewolves you control.")
+PREDICAMENTS = ("Whenever this creature deals combat damage to a player, choose a card in your hand. That player guesses whether the card's mana value is greater than 4. "
+                "If the player guessed wrong, you may cast the card without paying its mana cost.")
+STAIRS = "At the beginning of your upkeep, surveil 1. You win the game if there are eight or more different names among unlocked doors of Rooms you control."
+TYVAR = ('Each creature you control has "Whenever a mana ability of this creature resolves, put a number of +1/+1 counters on it equal to the amount of mana this creature '
+         'produced. This ability triggers only once each turn."')
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -94,6 +111,67 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             first = {k: v for k, v in d["effects"][0].items() if k != "next_turn"}
             d["effects"][0] = {**first, "end_of_next_turn": True, "player_ref110d": "defending_player"}
         return d
+    if ability.text == DIVINER:  # 603.2c one batch; its controller picks the copied creature (707.2) from all of them; 603.4 "if" as Celes (conditions._SOME_OF_THEM)
+        d = scripts.define(replace(ability, text=DIVINER.replace("if they entered or were cast from a graveyard", "if one or more of them entered from a graveyard or "
+                                                                 "was cast from a graveyard").replace("one of them", "target creature you control")), ch)
+        if d is not None and d["effects"][-1].get("do") == "token_copy":  # (a target stand-in: the grammar refuses "that creature" for a batch)
+            d["target"] = None
+            d["effects"] = [*({**x, "skip": 2} if x.get("do") == "only_if" else x for x in d["effects"][:-1]), {"do": "choose_one_of", "who": "ref:event", "n": 1, "as": "copy110d"}, {**d["effects"][-1], "who": "ref:copy110d"}]
+        return d
+    if ability.text == JIN3:  # 701.20e-style cast for free, then 400.7 the Saga returns as a new object (front face up: 712.14a, the default entry face)
+        d = scripts.define(replace(ability, text=JIN3.split(" Exile")[0]), ch)
+        d2 = scripts.define(replace(ability, text="III — Exile this Saga, then return it to the battlefield."), ch)
+        if d is not None and d2 is not None:
+            d["effects"] += d2["effects"]
+        return d
+    if ability.text == KITESAIL:  # 205.1a Treasure artifact (creature type dropped), 613.1d-f; 611.2b until it leaves; 115.1 one group per player (per_opponent)
+        d = scripts.define(replace(ability, text="When this creature enters, for each player, up to one other target artifact or creature that player controls loses all "
+                                                  "abilities for as long as this creature remains on the battlefield."), ch)
+        if d is not None:
+            d["effects"] = [{**x, "types": ["Artifact"], "artifact_types": ["Treasure"], "abilities": ["{T}, Sacrifice this artifact: Add one mana of any color"]}
+                            if x.get("do") == "become" else x for x in d["effects"]]
+        return d
+    if ability.text == SHELOB:  # 707.9b the copy is a Food artifact only (the quoted comma belongs to the sentence, not the ability); 700.4 look back (events.py)
+        return scripts.define(replace(ability, text=SHELOB.replace("life,\"", "life\"")), ch)
+    if ability.text == WEAVER:  # 607.2a the linked exile; 107.3a X is announced first (as wave110g_cards Dissolve); 110.2 the returned card is a new object
+        from app.rules import selectors
+
+        sel = selectors.Selector(card=True, zones=("exile",), types=("Creature",), compare=(("mv", "==", selectors.X_VALUE),)).key()
+        return {"kind": "activated", "cost": ability.cost, "effects": [{"do": "return_card", "who": "target", "to": "battlefield", "tapped": True, "under": "you"}],
+                "target": {"what": "exiled_with:" + sel}}
+    if ability.text == MYSTERY:  # 603.7a the delayed trigger watches the creature this very ability returned (400.7); 712.3 the Mystery transforms back
+        return scripts.define(replace(ability, text=MYSTERY[:-1] + ". When that creature leaves the battlefield, transform this land."), ch)
+    if ability.text == MYSTERY2:  # linked to the ability above (607.2a): that one creates the delayed trigger, this line only describes it
+        return {"kind": "static", "static": "linked110d", "effects": []}
+    if ability.text == TOVOLAR:  # 731.1 night; the transform is a choice on resolution, not a target (601.2c), so hexproof Werewolves can be picked (any number: 701.28)
+        from app.rules import selectors
+
+        werewolves = selectors.parse("Human Werewolves you control")
+        assert werewolves is not None
+        d = scripts.define(replace(ability, text=TOVOLAR.split(" Then")[0]), ch)
+        if d is not None:
+            pick = {"do": "player_chooses", "who": "you", "sel": werewolves.key(), "n": 99, "upto": True, "optional": True,
+                    "label": "Human Werewolves", "as": "tovolar110d"}
+            d["effects"] = [{**d["effects"][0], "skip": 3}, *d["effects"][1:], pick, {"do": "transform", "who": "ref:tovolar110d"}]
+        return d
+    if ability.text == PREDICAMENTS:  # 608.2d the controller picks in secret, the damaged player answers; a wrong guess lets the controller cast it free (118.9)
+        d = scripts.define(replace(ability, text=PREDICAMENTS.split(",")[0] + ", draw a card."), ch)
+        if d is not None:
+            d["effects"] = [{"do": "predicaments110d"}, {"do": "only_if", "cond": {"succeeded": "wrong110d"}, "skip": 1},
+                            {"do": "free_cast", "zone": "that", "who": "ref:pred110d", "filter": None, "optional": True, "mv": None}]
+        return d
+    if ability.text == STAIRS:  # 104.2b win; 709.5c/201.2 the names of the unlocked doors (values._distinct "door_names110d")
+        from app.rules import selectors
+
+        rooms = selectors.parse("Rooms you control")
+        assert rooms is not None
+        d = scripts.define(replace(ability, text=STAIRS.split(". You")[0] + "."), ch)
+        if d is not None:
+            eight = {"value": {"distinct": "door_names110d", "among": rooms.key()}, "op": ">=", "n": 8}
+            d["effects"] += [{"do": "only_if", "cond": eight, "skip": 1}, {"do": "win_game", "who": "you"}]
+        return d
+    if ability.text == TYVAR:  # 605.3b the event carries the mana the ability produced (triggers.py "mana_resolved110d"): "that many"
+        return scripts.define(replace(ability, text=TYVAR.replace("a number of +1/+1 counters on it equal to the amount of mana this creature produced", "that many +1/+1 counters on it")), ch)
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
         assert cond is not None
@@ -183,8 +261,53 @@ def resume_attach(plan: Any, d: Any, chosen: list[str]) -> None:
         attachments.attach(plan, card.id, chosen[0], d.player)
 
 
-PRIMITIVES: dict[str, Any] = {"phase_hold110d": phase_hold, "may_hit110d": may_hit, "spell_permanents110d": spell_permanents}
-RESUME: dict[str, Any] = {"may_hit110d": resume, GIFT_UP: resume_attach}
+def predicaments(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import context, effects
+
+    me = ctx["controller"]
+    hand = list(plan.state.zones.get(f"{me}:hand", []))
+    context.bind_payment(ctx, "wrong110d", False)
+    context.bind_objects(plan, ctx, "pred110d", [])
+    if not hand or not effects._players(plan, ctx, "event_player"):
+        return True
+    effects.decide(plan, player=me, kind="choose_cards", prompt=f"{ctx.get('name') or 'Choose'}: choose a card in your hand",
+                   options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand], min_choices=1, max_choices=1,
+                   resume={"step": "predicaments110d", "ctx": ctx})
+    return False
+
+
+def resume_predicaments(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.game.rules_state import DecisionOption
+    from app.rules import context, effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in plan.state.zones.get(f"{d.player}:hand", []):
+        raise ActionError("Choose a card in your hand")
+    context.bind_objects(plan, ctx, "pred110d", chosen)
+    guesser = effects._players(plan, ctx, "event_player")[0]
+    effects.decide(plan, player=guesser, kind="choose_one", prompt=f"{ctx.get('name') or 'Guess'}: is the mana value of the chosen card greater than 4?",
+                   options=[DecisionOption(id="yes", label="Yes, greater than 4"), DecisionOption(id="no", label="No, 4 or less")],
+                   resume={"step": "predicaments110d_guess", "ctx": ctx, "card": chosen[0]})
+
+
+def resume_guess(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import characteristics as chars
+    from app.rules import context, effects
+
+    if len(chosen) != 1 or chosen[0] not in ("yes", "no"):
+        raise ActionError("Choose yes or no")
+    card = plan.state.cards[d.resume["card"]]  # (hidden until now: the guess is made without seeing it, 608.2d)
+    wrong = (chars.of(card, plan.info).mana_value > 4) != (chosen[0] == "yes")  # 202.3e: X in a hand is 0
+    plan.note(f"{plan.name(d.player)} guessed {'wrong' if wrong else 'right'}", actor=d.player)
+    context.bind_payment(d.resume["ctx"], "wrong110d", wrong)
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
+PRIMITIVES: dict[str, Any] = {"predicaments110d": predicaments, "phase_hold110d": phase_hold, "may_hit110d": may_hit, "spell_permanents110d": spell_permanents}
+RESUME: dict[str, Any] = {"predicaments110d": resume_predicaments, "predicaments110d_guess": resume_guess, "may_hit110d": resume, GIFT_UP: resume_attach}
 
 
 CALL = "Choose up to two. Return those cards from your graveyard to your hand."

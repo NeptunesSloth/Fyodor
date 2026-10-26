@@ -46,6 +46,45 @@ def parse(body: str) -> Any:
                 {"do": "portent_hand110o"}], None, False
     if body.strip() == _SANDS:
         return [{"do": "redistribute110o"}], None, False
+    if body.strip() == _PURE:  # 603.7a, 701.9, 603.2c: a turn-long trigger on the opponents' discards, one trigger for the batch; the cards, as they now are in the graveyard
+        from app.rules import delayed, events
+
+        cond = events.parse_condition("a spell or ability an opponent controls causes you to discard cards")
+        if cond is None or not cond.get("aggregate") or cond.get("cause") != "opponent":
+            return None
+        head = {"kind": "watch", "cond": cond, "text": "a spell or ability an opponent controls causes you to discard cards"}
+        wrapped = delayed.wrap_when([{"do": "bounce", "who": "event.new"}], head, this_turn=True)
+        wrapped[0]["once"] = False
+        return wrapped, None, False
+    if body.strip() == _NAHIRI.replace("Nahiri's Sacrifice", "~"):  # 115.6, 601.2d: "any number of" allows none (X may be 0, and nothing is divided then)
+        found = scripts.parse_effects("~ deals X damage divided as you choose among one, two, or three target creatures.")
+        assert found is not None and isinstance(found[1], list) and found[1][0]["divide"]["total"] == {"x": 1}
+        groups = [{**found[1][0], "min": 0, "max": 250, "divide": {**found[1][0]["divide"], "allow_zero_targets": True}}]
+        return found[0], groups, found[2]
+    if body.strip() == _HEROIC:  # 614.9, 611.2a, 603.7a: the redirection record (target 0 is the chosen creature); the delayed trigger has a target of its own (603.7d)
+        from app.rules import damage_redirection_effects, delayed
+
+        mine = damage_redirection_effects.key("creature you control")
+        watch_target = delayed.WATCH_TARGET + ":0"
+        return ([{"do": "heroic110o"},
+                 {"do": "delayed", "when": {"kind": "event", "event": "die"}, "n": 2, "who": "target", "this_turn": True,
+                  "targets": [{"what": mine, "min": 0, "max": 1}]},
+                 {"do": "deferred:lki_counters", "from": "event", "who": watch_target}, {"do": "deferred:draw", "who": "you", "n": 1}], mine, False)
+    if body.strip() == _TIDAL:
+        return [{"do": "tidal110o"}], None, False
+    if body.strip() == _CLEANSING:
+        return [{"do": "cleansing110o"}], None, False
+    if body.strip() == _UNDER_COST:  # 601.2b: the optional additional cost is announced as the spell is cast (costs.kicker_cost reads it); this line does nothing itself
+        return [], None, False
+    if body.strip() == _UNDER_PREVENT:  # 615.1, 608.2c: the exception is read when the spell resolves; the red creatures are those of that moment
+        from app.rules import selectors
+
+        non_red = selectors.parse("nonred creature").key()  # type: ignore[union-attr]
+        paid = {"object": "self", "cast": {"kicked": True}}
+        return ([{"do": "only_if", "cond": {"not": paid}, "skip": 1, "bind": "under110o"},
+                 {"do": "prevent_all", "scope": {"combat": True, "any_target": True}},
+                 {"do": "only_if", "cond": {"flag": "under110o", "negate": True}, "skip": 1},
+                 {"do": "prevent_all", "scope": {"combat": True, "any_target": True, "by_objects": non_red}}], None, False)
 
     if body.strip() == _THRALL:  # 608.2c: the "instead" duration replaces the first one, so exactly one control effect is made
         short = scripts.parse_effects("Gain control of target creature until end of turn. Untap that creature. It gains haste until end of turn.")
@@ -57,12 +96,57 @@ def parse(body: str) -> Any:
 
     if body.strip() == _REMEMBRANCE.replace("Serene Remembrance", "~"):  # 701.24a: the spell and the cards are shuffled in, each owner's library shuffled
         own = scripts.parse_effects("Shuffle ~ into its owner's library.")
-        cards = scripts.parse_effects("Shuffle up to three target cards from a single graveyard into their owner's library.")
-        assert own and cards
-        return [*own[0], *cards[0]], cards[1], False
+        pile = scripts.parse_effects("Shuffle up to three target cards from a single graveyard into their owner's library.")
+        assert own and pile
+        return [*own[0], *pile[0]], pile[1], False
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
 
 
+_PURE = ("Whenever a spell or ability an opponent controls causes you to discard cards this turn, return those cards from your graveyard to your hand.")
+_NAHIRI = "Nahiri's Sacrifice deals X damage divided as you choose among any number of target creatures."
+# (the parenthetical "(if it's still on the battlefield)" is reminder text, dropped before parsing; the redirection is anyway only to the chosen object, 614.9)
+_HEROIC = ("Choose target creature you control. Until end of turn, all damage that would be dealt to you and creatures you control is dealt to the chosen "
+           "creature instead. When that creature dies this turn, put its counters on up to one target creature you control and "
+           "draw a card.")
+_TIDAL = ("For each attacking creature without flying, its controller may pay {1}. If that player doesn't, creatures you control blocking that creature "
+          "gain first strike until end of turn.")
+_SOUL_ECHO = ("At the beginning of your upkeep, sacrifice ~ if there are no echo counters on it. Otherwise, target opponent may choose that for each 1 damage that would "
+              "be dealt to you until your next upkeep, you remove an echo counter from ~ instead.")
+_SECRET = ("When ~ enters, exile up to one target creature other than enchanted creature until ~ leaves the battlefield. Enchanted creature becomes "
+           "a copy of that creature until ~ leaves the battlefield.")
+_MILEVA = ("{2}{W}, Collect evidence 4: If ~ is a Detective, it becomes a legendary creature named Mileva, the Stalwart, it has base power and toughness 5/5, and it "
+           "gains \"Other creatures you control have indestructible.\"")
+# Names originally printed in the Arabian Nights expansion (their first printing, 1993-12-17; the card database's ARN names without Mountain, first printed in Alpha)
+ARABIAN_NIGHTS = frozenset({
+    "Abu Ja'far", 'Aladdin', "Aladdin's Lamp", "Aladdin's Ring", 'Ali Baba', 'Ali from Cairo', 'Army of Allah', 'Bazaar of Baghdad', 'Bird Maiden',
+    'Bottle of Suleiman', 'Brass Man', 'Camel', 'City in a Bottle', 'City of Brass', 'Cuombajj Witches', 'Cyclone', 'Dancing Scimitar', 'Dandân',
+    'Desert', 'Desert Nomads', 'Desert Twister', 'Diamond Valley', 'Drop of Honey', 'Ebony Horse', 'El-Hajjâj', 'Elephant Graveyard', 'Erg Raiders',
+    'Erhnam Djinn', 'Eye for an Eye', 'Fishliver Oil', 'Flying Carpet', 'Flying Men', 'Ghazbán Ogre', 'Giant Tortoise', 'Guardian Beast',
+    'Hasran Ogress', 'Hurr Jackal', 'Ifh-Bíff Efreet', 'Island Fish Jasconius', 'Island of Wak-Wak', "Jandor's Ring", "Jandor's Saddlebags",
+    'Jeweled Bird', 'Jihad', 'Junún Efreet', 'Juzám Djinn', 'Khabál Ghoul', 'King Suleiman', 'Kird Ape', 'Library of Alexandria',
+    'Magnetic Mountain', 'Merchant Ship', 'Metamorphosis', 'Mijae Djinn', 'Moorish Cavalry', 'Nafs Asp', 'Oasis', 'Old Man of the Sea', 'Oubliette',
+    'Piety', 'Pyramids', 'Repentant Blacksmith', "Ring of Ma'rûf", 'Rukh Egg', 'Sandals of Abdallah', 'Sandstorm', 'Serendib Djinn',
+    'Serendib Efreet', 'Shahrazad', 'Sindbad', 'Singing Tree', 'Sorceress Queen', 'Stone-Throwing Devils', 'Unstable Mutation', 'War Elephant',
+    'Wyluli Wolf', 'Ydwen Efreet',
+})
+
+EXILE_WHAT = "exile110o"
+_LORE_ENTER = "As ~ enters, exile an instant or sorcery card from your graveyard."
+_LORE_CDA = "~'s power and toughness are each equal to the exiled card's mana value."
+_LORE_TRIGGER = ("Whenever ~ deals combat damage, you may sacrifice it. If you do, you may cast the exiled card without paying its mana cost.")
+_EVELYN_TRIGGER = "Whenever ~ or another Vampire you control enters, exile the top card of each player's library with a collection counter on it."
+_EVELYN_PERMISSION = ("Once each turn, you may play a card from exile with a collection counter on it if it was exiled by an ability you controlled, and you may spend mana as "
+                      "though it were mana of any color to cast it.")
+_CITY_STATIC = "Players can't cast spells or play lands with a name originally printed in the Arabian Nights expansion."
+_CITY_TRIGGER = ("Whenever one or more other nontoken permanents with a name originally printed in the Arabian Nights expansion are on the battlefield, their controllers "
+                 "sacrifice them.")
+_ARMOR_PREVENT = "Prevent all damage that would be dealt to enchanted creature by sources of the last chosen color."
+_ARMOR_COUNTER = "{X}: Put a sleight counter on ~ and choose a color. X is the number of sleight counters on ~."
+_PYRAMIDS_MODE = "• The next time target land would be destroyed this turn, remove all damage marked on it instead."
+_CLEANSING = "For each land, destroy that land unless any player pays 1 life."
+_UNDER_COST = "As an additional cost to cast this spell, you may pay {2}{R}."
+_UNDER_PREVENT = ("Prevent all combat damage that would be dealt this turn. If this spell's additional cost was paid, this effect doesn't affect "
+                  "combat damage that would be dealt by red creatures.")
 _HELM = ("{X}, {T}: Target opponent mills a card, then repeats this process until a creature card or X cards have been put into their graveyard this way, "
          "whichever comes first. If one or more creature cards were put into that graveyard this way, sacrifice ~ and put one of them onto the "
          "battlefield under your control. X can't be 0.")
@@ -91,9 +175,21 @@ _VINDICATOR = ("When ~ is turned face up, exile up to X other target creatures f
 _HERALD = "When ~ leaves the battlefield, each player gains control of each land they own that you control."
 _KALDRA = ("{1}: If you control Equipment named Helm of Kaldra, Sword of Kaldra, and Shield of Kaldra, create Kaldra, a legendary 4/4 colorless Avatar "
            "creature token. Attach those Equipment to it.")
+_MYSTERIO = ("When ~ enters, create a 3/3 blue Illusion Villain creature token for each nontoken Villain you control. Exile those tokens when ~ leaves the "
+             "battlefield.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
+
+
+def modal_swap(ab: Any, ch: Any) -> tuple[Any, int, list[dict[str, Any]]] | None:
+    """Pyramids: the second mode is read as a stand-in sentence (a destroy of a land); its effect is this module's shield, 614.1a. (characteristics, the mode's index, its effects)"""
+    import dataclasses
+
+    if ab.kind != "activated" or ab.text != "{2}: Choose one —" or len(ch.abilities) <= ab.index + 2 or ch.abilities[ab.index + 2].text != _PYRAMIDS_MODE:
+        return None
+    swapped = tuple(replace(a, text="• Destroy target land.") if a.index == ab.index + 2 else a for a in ch.abilities)
+    return dataclasses.replace(ch, abilities=swapped), 1, [{"do": "wipe_shield110o", "who": "target"}]
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
@@ -110,6 +206,71 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "triggered" and text == _MYSTERIO:  # 603.7a, 603.7c: the delayed trigger watches Mysterio (if it already left, nothing is made to leave later)
+        native = scripts.define(replace(ability, text="When ~ enters, create a 3/3 blue Illusion Villain creature token for each nontoken Villain you control."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["create_token"]:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "as": "mysterio110o"},
+                                      {"do": "delayed", "when": {"kind": "event", "event": "leave", "open": True}, "n": 1, "who": "self"},
+                                      {"do": "deferred:exile", "who": "ref:mysterio110o"}]}
+    if ability.kind == "triggered" and text == _SOUL_ECHO:  # 614.1a: the opponent's choice is made as it resolves; the shield lasts until its controller's next turn begins
+        native = scripts.define(replace(ability, text="At the beginning of your upkeep, sacrifice ~ if there are no echo counters on it."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["only_if", "sacrifice"]:
+            return None
+        has_counters = {"value": {"counters": "echo", "on": "self"}, "op": ">=", "n": 1}
+        return {**native, "target": {"what": "opponent"},
+                "effects": [*native["effects"], {"do": "only_if", "cond": has_counters, "skip": 1}, {"do": "echo_offer110o"}]}
+    if ability.kind == "triggered" and text == _SECRET:  # 707.2, 611.2b: the creature enchanted becomes a copy of the exiled one for as long as this Aura stays
+        native = scripts.define(replace(ability, text="When this Aura enters, exile up to one target creature other than enchanted creature until this Aura leaves the battlefield. "
+                                                      "~ becomes a copy of that creature."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["exile_until", "become_copy"]:
+            return None
+        return {**native, "effects": [native["effects"][0], {**native["effects"][1], "do": "secret_copy110o", "who": "host"}]}
+    if ability.kind == "static" and text == _ARMOR_PREVENT:  # 614.1a: each "choose a color" replaces the one before, so the last chosen color is the color the Aura holds
+        return scripts.define(replace(ability, text=text.replace("the last chosen color", "the chosen color")), ch)
+    if ability.kind == "activated" and text == _ARMOR_COUNTER:  # one sentence, two actions in order: the same as two sentences
+        native = scripts.define(replace(ability, text=text.replace("on ~ and choose a color.", "on ~. Choose a color.")), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["add_counters", "choose_value"]:
+            return None  # (the choice is written on the Aura like the one it entered with: "the last chosen color" is what it holds)
+        return {**native, "effects": [native["effects"][0], {**native["effects"][1], "remember": True}]}
+    if ability.kind == "activated" and text == _MILEVA:  # 613.1d, 613.1c, 613.4b, 613.1f: one effect with a part in each layer, for good ("legendary creature named …")
+        native = scripts.define(replace(ability, text="{2}{W}, Collect evidence 4: If ~ is a Detective, it becomes a creature with base power and toughness 5/5 and gains vigilance."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["only_if", "become"]:
+            return None
+        become = {k: v for k, v in native["effects"][1].items() if k not in ("keywords", "types")}
+        return {**native, "effects": [{**native["effects"][0], "skip": 3}, {**become, "types": [], "legendary": True},
+                                      {"do": "named100g", "who": "self", "name": "Mileva, the Stalwart"},
+                                      {"do": "grant", "who": "self", "abilities": ["Other creatures you control have indestructible."], "duration": "permanent"}]}
+    if text == _LORE_ENTER:  # 614.12a: "as it enters" the controller picks the card (a replacement, made before it enters), after_entry exiles it linked to the new permanent
+        from app.rules import selectors
+
+        sel = selectors.parse("instant or sorcery card in your graveyard")
+        assert sel is not None
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": EXILE_WHAT, "pick110a": sel.key()}]}
+    if text == _LORE_CDA:  # 604.3, 613.4a: the exiled card's mana value, 0 while nothing is exiled with it
+        return {"kind": "static", "static": "cda", "effects": [], "p": {"exiled_mv110o": 1}, "t": {"exiled_mv110o": 1}}
+    if ability.kind == "triggered" and text == _LORE_TRIGGER:  # 603.7, 608.2d: sacrificed first (a payment), then the linked card, which stays exiled if it isn't cast
+        native = scripts.define(replace(ability, text="Whenever ~ deals combat damage, you may sacrifice it. If you do, draw a card."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["optional_payment", "only_if", "draw"]:
+            return None
+        return {**native, "effects": [native["effects"][0], {**native["effects"][1], "skip": 2}, {"do": "lore_bind110o"},
+                                      {"do": "free_cast", "zone": "ref:lore110o", "filter": None, "optional": True, "mv": None, "n": 1, "who": "ref:lore110o"}]}
+    if ability.kind == "triggered" and text == _EVELYN_TRIGGER:  # 122.1, 406.3: each exiled card gets a collection counter (a counter on a card in exile), remembering whose ability exiled it
+        native = scripts.define(replace(ability, text="Whenever ~ or another Vampire you control enters, exile the top card of each player's library."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["exile_top"]:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "as": "evelyn110o"}, {"do": "collect110o"}]}
+    if ability.kind == "static" and text == _EVELYN_PERMISSION:  # 601.3, 305.1: once each turn (any turn), one such card; mana of any color for the cast (609.4b)
+        return {"kind": "static", "static": "permission", "zone": "exile", "filter": None, "self": False, "play": True, "cast": True, "once": True, "once_any": True,
+                "flash": False, "spend": "color", "exile_counter": "collection", "exiled_by110o": True, "effects": []}
+    if ability.kind == "static" and text == _CITY_STATIC:  # 101.2: a prohibition (spells and lands) by name, for names in the fixed set
+        from app.rules import selectors
+
+        return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "from": None, "act": None, "max": None, "effects": [], "arn_lands110o": True,
+                "filter": selectors.Selector(zones=("stack",), extras=("arn_name110o",)).key()}
+    if ability.kind in ("triggered", "static") and text == _CITY_TRIGGER:  # 603.8: a state trigger; 701.21: their controllers sacrifice them
+        return {"kind": "triggered", "trigger": "state", "optional": False, "target": None, "state": {"w110o": "arn_permanents"}, "effects": [{"do": "arn_sacrifice110o"}]}
     if ability.kind == "activated" and text == _KALDRA:  # 603.4-style "if" judged as it resolves (608.2c); every Equipment so named is attached
         from app.rules import conditions, selectors
 
@@ -245,12 +406,18 @@ def resume_type_emblem(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
     """Evil's Thrall: you control a Villain whose mana value is greater than the target creature's (the target as it is now, 608.2b)."""
-    from app.rules import effects, stack_interaction
+    from app.rules import effects, selectors, stack_interaction
 
     if cond["w110o"] == "land_upkeep":  # Herald of Leshrac: a land the controller does not control for each age counter (each is gained once)
         src = plan.state.cards.get(ctx.get("source_card") or "")
         age = src.counters.get("age", 0) if src is not None else 0
         return len(_others_lands(plan, ctx["controller"])) >= age
+    if cond["w110o"] == "defender_no_snow":  # a defending player now: one an attacking creature attacks or whose planeswalker one attacks (508.5); the choice among them is the controller's (508.5a)
+        defenders = {d for c in plan.state.cards.values() if c.attacking is not None and (d := selectors._defender(plan, c.attacking))}
+        return any(not any("Snow" in plan.ch(x).supertypes and "Land" in plan.ch(x).types for x in plan.state.cards.values()
+                           if x.zone.endswith(":battlefield") and x.controller == p) for p in defenders)
+    if cond["w110o"] == "arn_permanents":
+        return bool(arn_permanents(plan, ctx))
     if cond["w110o"] == "guessed":
         return False  # Spire Phantasm: no draft, no guess, so no correct guess (905.2b: the information is noted during the draft)
     if cond["w110o"] == "portent_four":
@@ -530,7 +697,225 @@ def resume_gain_land(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
-PRIMITIVES: dict[str, Any] = {"type_emblem110o": type_emblem, "redistribute110o": redistribute,
+def heroic(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """614.9: damage to the controller and their creatures goes to the chosen creature, while it is still that creature on the battlefield (the record keeps its
+    object id, source_shields.redirect_target); damage to the chosen creature itself is not redirected."""
+    from app.rules import damage_redirection_effects, source_shields
+
+    dest = source_shields._destination(plan, ctx, "target")
+    if dest is None:
+        return True
+    damage_redirection_effects.record(plan, ctx, {"to": {"players": "you", "objects": {"sel": damage_redirection_effects.key("creatures you control")}}}, dest)
+    return True
+
+
+def tidal(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """608.2c: the attacking creatures without flying as the instruction starts, each with its controller's own optional {1} (118.12); a creature whose controller does
+    not pay is given its blockers first strike as that step is reached (the creatures I control that block it then)."""
+    from app.rules import context, effects
+
+    order = {p: i for i, p in enumerate(plan.apnap())}
+    attackers = sorted((c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.is_attacking and "flying" not in plan.ch(c).keywords),
+                       key=lambda c: order.get(c.controller, len(order)))
+    added: list[dict[str, Any]] = []
+    for i, c in enumerate(attackers):
+        context.bind_objects(plan, ctx, f"tidal{i}_110o", [c.id])
+        added += [{"do": "optional_payment", "who": f"player:{c.controller}", "cost": "{1}", "bind": f"tidal{i}_paid110o", "for110o": f"{c.name} (attacking)"},
+                  {"do": "only_if", "cond": {"succeeded": f"tidal{i}_paid110o", "negate": True}, "skip": 1},
+                  {"do": "tidal_grant110o", "attacker": f"tidal{i}_110o", "index": i}]
+    at = ctx["next"]
+    ctx["effects"] = [*ctx["effects"][:at], *added, *ctx["effects"][at:]]
+    effects.continue_effects(plan, ctx)
+    return False
+
+
+def tidal_grant(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    found = context.objects(plan, ctx, e["attacker"])
+    if not found or not plan.state.cards[found[0]].is_attacking:
+        return True
+    blockers = [c.id for c in plan.state.cards.values() if c.controller == ctx["controller"] and c.zone.endswith(":battlefield") and c.blocks(found[0])]
+    if blockers:
+        context.bind_objects(plan, ctx, f"tidal_blockers{e['index']}_110o", blockers)
+        at = ctx["next"]
+        ctx["effects"][at:at] = [{"do": "grant", "who": f"ref:tidal_blockers{e['index']}_110o", "keywords": ["first strike"]}]
+    return True
+
+
+def _echo_holder(plan: Any, op: dict[str, Any]) -> Any:
+    return next((x for x in plan.state.cards.values() if x.zone.endswith(":battlefield") and plan.oid(x) == op["oid"]), None)
+
+
+def echo_left(plan: Any, c: Any, sim: dict[str, Any]) -> int:
+    """The counters Soul Echo's replacement can still remove in this damage batch (the permanent only while it is that object on the battlefield, 400.7)."""
+    holder = _echo_holder(plan, c.op)
+    return 0 if holder is None else holder.counters.get(c.op["kind"], 0) - sim.get("shields", {}).get(f"echo110o:{c.op['oid']}:{c.op['kind']}", 0)
+
+
+def echo_apply(plan: Any, c: Any, ev: dict[str, Any], sim: dict[str, Any]) -> list[dict[str, Any]]:
+    """614.1a: "for each 1 damage that would be dealt to you … you remove an echo counter instead": that many counters are removed (as many as there are), the rest is dealt."""
+    used = min(int(ev["amount"]), max(0, echo_left(plan, c, sim)))
+    key = f"echo110o:{c.op['oid']}:{c.op['kind']}"
+    shields = sim.setdefault("shields", {})
+    shields[key] = shields.get(key, 0) + used
+    return [{**ev, "amount": int(ev["amount"]) - used}]
+
+
+def echo_commit(plan: Any, key: str, n: int) -> None:
+    _, oid, kind = key.split(":", 2)
+    holder = next((x for x in plan.state.cards.values() if x.zone.endswith(":battlefield") and plan.oid(x) == oid), None)
+    if holder is not None and holder.counters.get(kind, 0) > 0:
+        taken = min(n, holder.counters[kind])
+        plan.do({"type": "counter", "card_ids": [holder.id], "kind": kind, "delta": -taken}, actor=holder.controller)
+        plan.note(f"{holder.name}: {taken} {kind} counter(s) removed instead of damage", [holder.id], actor=holder.controller)
+
+
+def echo_offer(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Target opponent may choose that …": the opponent targeted decides, privately, as the ability resolves (608.2d)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    opponents = effects._players(plan, ctx, "target")
+    if len(opponents) != 1 or opponents[0] not in plan.live():
+        return True
+    decide(plan, player=opponents[0], kind="choose_one",
+           prompt=f"{ctx.get('name') or 'It'}: for each 1 damage that would be dealt to {plan.name(ctx['controller'])} until their next upkeep, they remove an echo counter instead?",
+           options=[DecisionOption(id="yes", label="Choose that"), DecisionOption(id="no", label="Don't")],
+           resume={"step": "echo_offer110o", "ctx": ctx})
+    return False
+
+
+def resume_echo_offer(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects, replace
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in ("yes", "no"):
+        raise ActionError("Choose yes or no")
+    if chosen[0] == "yes" and ctx.get("source_object") is not None:
+        replace.add_record(plan, event="damage", match={"to": {"players": "you"}}, op={"do": "remove_counters110o", "kind": "echo", "oid": ctx["source_object"]},
+                           controller=ctx["controller"], source=ctx.get("source_object"), source_card=ctx.get("source_card"),
+                           label=ctx.get("name") or "an effect", until="next_turn", until_player=ctx["controller"])
+    effects.continue_effects(plan, ctx)
+
+
+def secret_copy(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """611.2b: the copy effect (layer 1, made by the ordinary ``become_copy``) lasts for as long as the Aura (the source) stays on the battlefield."""
+    from app.rules import copying
+
+    before = len(plan.rules.effects)
+    done = copying.become_copy(plan, ctx, {**e, "do": "become_copy"})
+    for made in plan.rules.effects[before:]:
+        if made.layer == "1" and made.copy_recipe is not None:
+            made.duration, made.source, made.source_card, made.until_player = "source_on_battlefield", ctx.get("source_object"), ctx.get("source_card"), ctx["controller"]
+    return done
+
+
+def entered(plan: Any, card_id: str, controller: str, choices: dict[str, str] | None) -> None:
+    """614.12a: the card picked as the permanent entered is exiled (406.3) and linked to it, 607.2a (the new object's id: ``exiled_with``)."""
+    from app.rules import exiled_with
+
+    picked = (choices or {}).get(EXILE_WHAT)
+    card = plan.state.cards.get(card_id)
+    if card is None or picked is None or picked not in plan.state.cards or not plan.state.cards[picked].zone.endswith(":graveyard"):
+        return
+    plan.do({"type": "move", "card_ids": [picked], "to": {"zone": "exile"}}, actor=controller)
+    exiled_with.record(plan, {"source_object": plan.oid(card), "source_card": card_id, "controller": controller}, [picked])
+
+
+def exiled_mv(plan: Any, ctx: dict[str, Any]) -> int:
+    from app.rules import exiled_with
+
+    return sum(int(plan.ch(plan.state.cards[c]).mana_value) for c in exiled_with.cards(plan, ctx))
+
+
+def lore_bind(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context, exiled_with
+
+    context.bind_objects(plan, ctx, "lore110o", exiled_with.cards(plan, ctx))
+    return True
+
+
+def collect(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The cards the ability just exiled get a collection counter and are remembered as exiled by an ability its controller controlled."""
+    from app.rules import context
+
+    for cid in context.objects(plan, ctx, "evelyn110o"):
+        if plan.state.cards[cid].zone.endswith(":exile"):
+            plan.do({"type": "counter", "card_ids": [cid], "kind": "collection", "delta": 1}, actor=ctx["controller"])
+            plan.rules.collection110o[plan.oid(cid)] = ctx["controller"]
+    return True
+
+
+def named_arn(name: str | None) -> bool:
+    return any(part in ARABIAN_NIGHTS for part in (name or "").split(" // "))
+
+
+def arn_permanents(plan: Any, ctx: dict[str, Any]) -> list[str]:
+    return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and not c.is_token and c.id != ctx.get("source_card")
+            and plan.in_game(c) and named_arn(plan.ch(c).name)]
+
+
+def arn_sacrifice(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """701.21a: each controller sacrifices their own (they are sacrificed together)."""
+    from app.rules import context
+
+    found = arn_permanents(plan, ctx)
+    if found:
+        context.bind_objects(plan, ctx, "arn110o", found)
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "sacrifice", "who": "ref:arn110o", "by": "controller"}]
+    return True
+
+
+def wipe_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """614.1a: a shield for this turn on each target land (the object, 400.7): the next time it would be destroyed, the damage marked on it is removed instead."""
+    from app.rules import effects
+
+    for cid in effects._cards(plan, ctx, e["who"]):
+        oid = plan.oid(cid)
+        plan.rules.wipe_shields110o[oid] = plan.rules.wipe_shields110o.get(oid, 0) + 1
+        effects._mark(plan, [cid], "Damage-removal shield")
+    return True
+
+
+def use_wipe(plan: Any, card: Any) -> None:
+    """The shield is used up: all damage marked on the permanent is removed and it is not destroyed (614.1a; a deathtouch mark goes with the damage)."""
+    oid = plan.oid(card)
+    left = plan.rules.wipe_shields110o.get(oid, 0) - 1
+    if left > 0:
+        plan.rules.wipe_shields110o[oid] = left
+    else:
+        plan.rules.wipe_shields110o.pop(oid, None)
+        for marker in [m for m in card.effects if m.name == "Damage-removal shield"]:
+            plan.do({"type": "remove_effect", "card_ids": [card.id], "effect_id": marker.id}, actor=card.controller)
+    plan.note(f"{card.name}: all damage marked on it is removed instead of being destroyed", [card.id], actor=card.controller)
+    if card.damage:
+        plan.do({"type": "set_damage", "card_ids": [card.id], "value": 0}, actor=card.controller)
+    plan.rules.deathtouched = [c for c in plan.rules.deathtouched if c != card.id]
+
+
+def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """608.2c, 118.12a: "For each land, destroy that land unless any player pays 1 life": the lands there are as the instruction starts, each with its own
+    round of payments (every player decides in turn order, 101.4, then pays; a land is destroyed if nobody paid for it)."""
+    from app.rules import context, effects
+
+    lands = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and "Land" in plan.ch(c).types]
+    added: list[dict[str, Any]] = []
+    for i, cid in enumerate(lands):
+        context.bind_objects(plan, ctx, f"cleansing{i}_110o", [cid])
+        added += [{"do": "each_may", "who": "each_player", "cost": "Pay 1 life", "verdict": f"cleansing{i}_paid110o",
+                   "for110o": f"{plan.state.cards[cid].name} ({plan.name(plan.state.cards[cid].controller)}'s)"},
+                  {"do": "only_if", "cond": {"flag": f"cleansing{i}_paid110o", "negate": True}, "skip": 1},
+                  {"do": "destroy", "who": f"ref:cleansing{i}_110o"}]
+    at = ctx["next"]
+    ctx["effects"] = [*ctx["effects"][:at], *added, *ctx["effects"][at:]]
+    effects.continue_effects(plan, ctx)
+    return False
+
+
+PRIMITIVES: dict[str, Any] = {"arn_sacrifice110o": arn_sacrifice, "collect110o": collect, "lore_bind110o": lore_bind, "secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
               "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
-RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
+RESUME: dict[str, Any] = {"echo_offer110o": resume_echo_offer, "type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}

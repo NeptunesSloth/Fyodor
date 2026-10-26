@@ -196,6 +196,10 @@ def start(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool | str:
         from app.rules import tap_x_payments
 
         return tap_x_payments.start(plan, ctx, e, payer, bind)
+    if e.get("choose_x", {}).get("counters"):  # -- cards (wave 110H) -- Tetravus: "remove any number of +1/+1 counters from this creature"
+        from app.rules import wave110h_cards
+
+        return wave110h_cards.counters_start(plan, ctx, e, payer, bind)
     if "life_x" in e:
         n = values.evaluate(plan, ctx, e["life_x"])  # (608.2h: once, now)
         ctx.setdefault("paid_x", {})[bind] = n
@@ -288,6 +292,13 @@ def resume_choice(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
         return
     n = int(chosen[0][len(CHOOSE):])
+    if info.get("counters"):  # -- cards (wave 110H) -- 118.12: the counters are removed as the cost (122.1)
+        from app.rules import counter_removal_results
+
+        counter_removal_results.remove(plan, info["source"], info["counters"], n, by=payer)
+        _record(ctx, bind, True, n)
+        effects.continue_effects(plan, ctx)
+        return
     if info.get("energy"):
         from app.rules import context
 

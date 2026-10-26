@@ -72,6 +72,11 @@ def _part(text: str, x_ok: bool = False) -> C.CostComponent | str | None:
         if not C._MANA_ONLY.match(mana) or ("X" in mana and not x_ok):
             return None
         return mana
+    if part == "Exile the top three black cards of your graveyard":  # -- (wave 110O) -- Spinning Darkness: no choice, the top three black cards are exiled (118.9, 404.1)
+        from app.rules import selectors
+
+        return C.CostComponent(C.EXILE_FROM_GRAVEYARD, amount=3, text=text, selector=selectors.Selector(
+            card=True, zones=("graveyard",), zone_owner="you", colors=("B",), extras=("top110o:3",)).key())
     m = _EXILE_HAND.fullmatch(part)
     if m:
         key = C._selector(m["what"], zone="hand")
@@ -240,7 +245,7 @@ KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you'v
 # (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
 _KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|cleave|emerge|foretell|mutate|web-slinging|sneak|freerunning|more than meets the eye)(?: from (?P<q>[A-Za-z]+))? "
                            r"(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
-X_KEYWORDS = frozenset({"surge", "warp", "bestow", "overload", "cleave", "foretell"})  # -- cast keywords (wave 43D) -- 107.3a: the cost may have {X} (the X announced for the spell is its too)
+X_KEYWORDS = frozenset({"surge", "warp", "bestow", "overload", "cleave", "foretell", "freerunning"})  # (freerunning X: wave 110I, Monastery Raid)  # -- cast keywords (wave 43D) -- 107.3a: the cost may have {X} (the X announced for the spell is its too)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
 # when the prowl condition holds for that spell
 GRANT_PROWL = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells you cast have prowl (?P<cost>(?:\{[^}X]+\})+)$")

@@ -74,6 +74,9 @@ _AFTER = (
     (("Exile the pile of an opponent's choice and return the other to the battlefield.",), ("opponent", "exile", "battlefield", "creature cards")),
     (("Then each player chooses one of their piles at random and sacrifices those permanents.",), ("random", "sacrifice", None, "permanents")),
     (("Only creatures in the pile of their choice can attack this turn.",), ("owner", "limit_attack", None, "creatures")),  # (Fight or Flight)
+    # (wave 110M) Bend or Break: each player's piles, one chosen by an opponent of that player (the player names which, with several), destroyed; the others tapped
+    (("For each player, one of their piles is chosen by one of their opponents of their choice.", "Destroy all lands in the chosen piles.", "Tap all lands in the other piles."),
+     ("owner_opp", "destroy", "tap", "nontoken lands")),
 )
 # piles of cards just revealed or exiled: who separates and who chooses, then what the piles do
 _REVEAL = re.compile(r"^(?P<reveal>Reveal the top [^.]+? cards of your library(?:, where X is [^.]+?)?)(?P<sep> and separate them into two piles)?\.$")
@@ -218,6 +221,8 @@ def _permanents(sentences: list[str]) -> Found | None:
         else {"who": "you", "split": "you"} if m["who"] else {"who": "each_opponent" if m["each"] == "opponent" else "each_player", "split": "owner"}
     if (pick == "random") != (n == 3) or (pick == "owner") != (m["who"] in ("target player controls", "that player controls")) or (pick == "opponent") != (m["who"] == "in your graveyard"):
         return None
+    if pick == "owner_opp" and not m["each"]:
+        return None
     zone = "graveyard" if m["who"] == "in your graveyard" else "battlefield"
     noun = _NOUN[what]
     from app.rules import selectors
@@ -227,7 +232,7 @@ def _permanents(sentences: list[str]) -> Found | None:
         return None
     effect = {"do": "pile_deal", **group, "sel": sel.key(), "zone": zone, "pick": pick, "n": n, "chosen": chosen, "other": other, "say": what,
               **({"start": "you"} if m["start"] else {})}
-    return [effect, *([{"do": "no_regen"}] if chosen == "destroy" else [])], "player" if group["who"] == "target" else None, False
+    return [effect, *([{"do": "no_regen"}] if chosen == "destroy" and "They can't be regenerated." in sentences else [])], "player" if group["who"] == "target" else None, False
 
 
 def _cards(sentences: list[str], parse: Any) -> Found | None:
@@ -370,6 +375,33 @@ def _opponent(plan: Plan, ctx: Context, e: dict[str, Any]) -> str | None:
     return str(st["opponent"])
 
 
+def _owner_opponent(plan: Plan, ctx: Context, e: dict[str, Any], grp: dict[str, Any]) -> str | None:
+    """(wave 110M) Bend or Break: "one of their piles is chosen by one of their opponents of their choice": the player whose pile it is names the opponent who chooses it (the
+    only one, with a single opponent left). "" if they have none left (800.4a); None while that player is asked."""
+    from app.rules.plan import decide
+
+    opponents = [p for p in plan.live() if p != grp["owner"]]
+    if len(opponents) <= 1:
+        return opponents[0] if opponents else ""
+    if grp.get("chooser") is None:
+        decide(plan, player=grp["owner"], kind="choose_one", prompt=f"{ctx.get('name') or 'Piles'}: choose an opponent to choose one of your piles",
+               options=[DecisionOption(id=p, label=plan.name(p)) for p in opponents], resume={"step": "pile_owner_opp", "ctx": ctx, "e": e, "rest": [], "picked": []})
+        return None
+    return str(grp["chooser"])
+
+
+def resume_owner_opponent(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    st = ctx["pile"]
+    st["groups"][st["g"]]["chooser"] = chosen[0] if chosen else ""
+    if chosen:
+        plan.note(f"{plan.name(d.player)} chooses {plan.name(chosen[0])} to choose one of their piles", actor=d.player)
+    if _run(plan, ctx, e):
+        continue_effects(plan, ctx)
+
+
 def _run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules.effects import _players
     from app.rules.plan import decide
@@ -427,7 +459,8 @@ def _run(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                       grp["piles"][grp["pick"]] if _public(plan, grp["piles"][grp["pick"]]) else [])
             st["g"] += 1
             continue
-        chooser = ctx["controller"] if e["pick"] == "you" else grp["owner"] if e["pick"] == "owner" else _defender(plan, ctx) if e["pick"] == "defending" else _opponent(plan, ctx, e)
+        chooser = ctx["controller"] if e["pick"] == "you" else grp["owner"] if e["pick"] == "owner" else _defender(plan, ctx) if e["pick"] == "defending" \
+            else _owner_opponent(plan, ctx, e, grp) if e["pick"] == "owner_opp" else _opponent(plan, ctx, e)
         if chooser is None:
             return False  # (waiting for which opponent chooses)
         if not chooser or chooser not in plan.live():  # (nobody to choose, or the chooser left the game: 800.4a, the first pile)
@@ -702,4 +735,4 @@ def resume_turn_up(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 PRIMITIVES = {"pile_deal": pile_deal, "pile_exile": pile_exile, "pile_grouped_drain": grouped_drain, "pile_look": pile_look, "pile_shuffle": pile_shuffle, "pile_top_hand": pile_top_hand, "pile_shuffle_back": pile_shuffle_back, "pile_turn_up": pile_turn_up}
-RESUME = {"pile_split": resume_split, "pile_pick": resume_pick, "pile_opponent": resume_opponent, "pile_card": resume_card, "pile_turn_up": resume_turn_up}
+RESUME = {"pile_split": resume_split, "pile_pick": resume_pick, "pile_opponent": resume_opponent, "pile_owner_opp": resume_owner_opponent, "pile_card": resume_card, "pile_turn_up": resume_turn_up}

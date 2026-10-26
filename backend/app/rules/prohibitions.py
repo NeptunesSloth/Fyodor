@@ -72,6 +72,9 @@ def static_definition(text: str) -> Definition | None:
         if sel is None or sel.player is not None:
             return None
         return {"kind": "static", "static": "cant_enter", "sel": sel.key(), "zones": list(_ZONES[m["zones"]]), "effects": []}
+    if t == "lands can't enter the battlefield":  # -- two names (wave 110F) -- Worms of the Earth: 614.17, 305.1; a land from anywhere else stays where it is (played lands: "Players can't play lands")
+        return {"kind": "static", "static": "cant_enter", "sel": selectors.Selector(types=("Land",)).key(),
+                "zones": ["hand", "graveyard", "library", "exile", "stack", "command"], "effects": []}
     m = _COUNTERS.fullmatch(t)
     if m is not None:
         sel = selectors.parse(re.sub(r",? and ", ", or " if "," in m["sel"] else " or ", m["sel"]))
@@ -163,6 +166,8 @@ def cant_get_counters(plan: Plan, player: str | None = None, kind: str | None = 
 
     if player is not None and (from_sun := wave110g_cards.sun_marked(plan, f"player:{player}")):  # -- wave 110G -- Suncleanser: "That player can't get counters"
         return from_sun
+    if kind == "poison" and player is not None and plan.rules.poison_once110g.get(player) == plan.state.turn.number:
+        return "Melira, the Living Cure"  # -- (wave 110G) -- "you can't get additional poison counters this turn"
     return next((_label(src) for src, d in _statics(plan, "cant_counters") if d.get("players")
                  and (d.get("who") != "you" or src.controller == player) and d.get("counter") in (None, kind)), None)
 
@@ -259,6 +264,28 @@ def draw_left(plan: Plan, player: str) -> tuple[int, int] | None:
 
     log = turn_log_now(plan.state)
     return max(0, min(caps) - (log.drew.get(player, 0) if log is not None else 0)), min(caps)
+
+
+def no_targets110f(plan: Plan) -> bool:
+    """Peace Talks (wave 110F): "This turn and next turn, … players and permanents can't be the targets of spells or activated abilities." 115.2, 611.2a: a
+    record of the resolved spell; it bars choosing a player or permanent for a spell or an activated ability (also a loyalty ability, 606.1), not a triggered
+    ability's targets and not a target already chosen (608.2b: it doesn't make that one illegal): ``Plan.peace_exempt110f`` is set for both."""
+    return not plan.peace_exempt110f and any(x.get("untargetable110f") for x in plan.rules.cast_limits)
+
+
+def peace_talks(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    r, turn = plan.rules, plan.state.turn.number
+    before = len(r.effects)
+    effects.restrict(plan, ctx, {"do": "restrict", "who": selectors.Selector(types=("Creature",)).key(), "rules": ["cant_attack"],
+                                 "duration": "two_turns110f"})
+    for x in r.effects[before:]:
+        x.turn = turn
+    r.cast_limits.append({"untargetable110f": True, "controller": ctx["controller"], "until": "two_turns110f", "turn": turn, "spells": False,
+                          "label": ctx.get("name") or "Peace Talks"})
+    plan.note("This turn and next turn, creatures can't attack and players and permanents can't be the targets of spells or activated abilities", actor=ctx["controller"])
+    return True
 
 
 def untargetable(plan: Plan, chooser: str, card: CardInstance) -> bool:
@@ -359,7 +386,7 @@ def bind_next_uncounterable(plan: Plan, card: Any, player: str) -> None:
             x["what"], x["oid"] = "uncounterable", oid
 
 
-PRIMITIVES = {"cant_search_turn": cant_search_turn, "uncounterable_turn": uncounterable_turn, "uncounterable_next": uncounterable_next}
+PRIMITIVES = {"peace_talks110f": peace_talks, "cant_search_turn": cant_search_turn, "uncounterable_turn": uncounterable_turn, "uncounterable_next": uncounterable_next}
 
 
 def cant_cause_sacrifice(plan: Plan, victim: str, by: str) -> str | None:

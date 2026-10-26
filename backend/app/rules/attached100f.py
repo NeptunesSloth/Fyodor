@@ -49,12 +49,20 @@ def lost(plan: Plan, t: DelayedTrigger, events: list[Event]) -> list[ObjectRef]:
         if e.manual or e.object_id is None or e.object_id not in oids or not e.card:
             continue
         if e.kind == "designation" and e.counter == "control" and e.from_zone == t.controller and e.player != t.controller:
+            if t.when.get("yours110g") and not _on_yours(plan, plan.state.cards[e.card].attached_to, t.controller):
+                continue  # -- (wave 110G) -- Stolen Uniform's intervening "if it's attached to a creature you control" (603.4), as it triggers
             out.append(ObjectRef(card=e.card, object_id=e.object_id))
         elif e.kind == "zone_change" and _zone(e.from_zone) == "battlefield" and _zone(e.to_zone) != "battlefield":
             snap = plan.rules.lki.get(e.object_id or "")
-            if snap is not None and snap.controller == t.controller:
+            if snap is not None and snap.controller == t.controller and not (t.when.get("yours110g") and not _on_yours(plan, snap.attached_to, t.controller)):
                 out.append(ObjectRef(card=e.card, object_id=e.object_id, snapshot=snap))
     return out
+
+
+def _on_yours(plan: Plan, host: str | None, who: str) -> bool:
+    """A creature ``who`` controls is the host (Stolen Uniform, wave 110G)."""
+    card = plan.state.cards.get(host or "")
+    return card is not None and card.zone.endswith(":battlefield") and card.controller == who and plan.ch(card).is_creature
 
 
 def unattach_it(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -62,7 +70,8 @@ def unattach_it(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import effects
 
     loose = [c for c in effects._cards(plan, ctx, str(e.get("who") or "it"))
-             if plan.state.cards[c].zone.endswith(":battlefield") and plan.state.cards[c].attached_to]
+             if plan.state.cards[c].zone.endswith(":battlefield") and plan.state.cards[c].attached_to
+             and (not e.get("yours110g") or _on_yours(plan, plan.state.cards[c].attached_to, ctx["controller"]))]  # (wave 110G: resolution-time recheck, 603.4)
     if loose:
         plan.do({"type": "detach", "card_ids": loose}, actor=ctx["controller"])
     return True

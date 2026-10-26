@@ -522,6 +522,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
     the card's ability lines (a permission to cast from the top of the library is only usable
     when the card also reveals that card, or lets its owner look at it)."""
     t = _lower_first(text.strip().rstrip("."))
+    if t == "spells with the chosen names can't be cast and lands with the chosen names can't be played":  # -- two names (wave 110F) -- Null Chamber
+        from app.rules import cast_limits
+
+        return cast_limits.static_definition(text)
     t = re.sub(r"(you may) reveal an? (\w+) card from your hand or choose an? \2 you control$", r"\1 behold a \2", t)  # 701.4a (wave 110A): Dragon's Fire
     linked_spend = ""
     if "exiled with ~" in t or "the exiled card" in t:
@@ -1447,10 +1451,11 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             if not conditions.holds(layer_view(state, info), {"controller": player, "source_object": p.source, "source_card": card.id}, p.when):
                 continue
         if p.object_id is not None:
-            if p.object_id != oid:
+            if p.object_id != oid or (p.top110j and where != "library_top"):  # (-- wave 110J -- Temporal Aperture: only while it is the top card)
                 continue  # a new object since (400.7): the permission was for the one it was
         elif p.zone != "any" and p.zone != where and not (
-                p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)):
+                p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)) and not (
+                p.hand_of110m and p.zone == "hand" and card.zone == zone_key(p.hand_of110m, "hand")):  # (wave 110M) another player's hand
             continue
         # (wave 110L: no local import of selectors here: it made the name local to all of grants(), unbound for the put_there read below)
         if p.card_filter and not selectors.matches(_view(state, player, info), selectors.from_key(p.card_filter), card, ch, player):
@@ -1561,6 +1566,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             continue
         if d.get('exile_counter') and (permission_where != 'exile' or card.counters.get(d['exile_counter'], 0) <= 0):
             continue
+        if d.get('exiled_by110o') and r.collection110o.get(oid) != src.controller:
+            continue  # -- (wave 110O) -- Evelyn: only a card exiled by an ability the permission's holder controlled
         if d.get("put_there") and not selectors.put_there_state(state, card, d["put_there"]):
             continue  # -- free cast (wave 40D) -- only a card that is the object put into the graveyard this turn from there (400.7)
         # -- spell grants (wave 30T) -- 611.3a: "As long as ~ is tapped, you may cast spells as though they had flash" is read now, as its source's controller;
@@ -1787,6 +1794,8 @@ def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteris
         if m.caster == "you" and m.controller != player:
             continue
         if m.caster == "opponent" and m.controller == player:
+            continue
+        if m.card_id is not None and m.card_id != card.id:  # (wave 110M) a reduction for one particular card
             continue
         if m.filter and not spell_matches(state, player, card, ch, m.filter, info):
             continue
@@ -2104,9 +2113,15 @@ def source_holds(state: GameState, p: Permission) -> bool:
             and (p.until != "source_controlled" or card.controller == p.player))
 
 
+def _on_top(plan: Plan, p: Permission) -> bool:
+    card = plan.state.cards.get(p.card or "")
+    return card is not None and (plan.state.zones.get(card.zone) or [""])[0] == card.id and card.zone.endswith(":library")
+
+
 def expire_source(plan: Plan) -> None:
     """-- durations (wave 30M) -- the stored permissions whose "for as long as …" is over are gone (called with the other checks: delayed.expire)."""
     r = plan.rules
+    r.permissions = [p for p in r.permissions if not p.top110j or _on_top(plan, p)]  # -- wave 110J -- "for as long as that card remains on top": once it isn't, it's over for good
     if any(p.until in SOURCE_UNTIL for p in r.permissions):
         r.permissions = [p for p in r.permissions if p.until not in SOURCE_UNTIL or source_holds(plan.state, p)]
 
@@ -2429,7 +2444,8 @@ def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
         card = plan.state.cards.get(found or "")
         return [found] if found is not None and card is not None and card.zone.endswith((":exile", ":library")) else []
     if zone == "target":
-        return [t["id"] for t in ctx.get("targets") or [] if t.get("id") in plan.state.cards
+        return [t["id"] for t in (ctx.get("targets") or [] if not e.get("all_groups110c") else [x for g in ctx.get("groups") or [] for x in g if x])  # -- (wave 110C) -- Finale of Promise: every target group
+                if t.get("id") in plan.state.cards
                 and plan.state.cards[t["id"]].zone.endswith(":graveyard")]
     if zone == "graveyard":  # your graveyard, or every graveyard (public zones)
         whose = [pid] if e.get("whose") == "you" else plan.live()

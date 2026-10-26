@@ -2293,5 +2293,315 @@
   "keywords": [],
   "power": "3",
   "toughness": "5"
+ },
+ {
+  "name": "Bladegriff Prototype",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Artifact Creature — Griffin",
+  "oracle_text": "Flying\nWhenever this creature deals combat damage to a player, destroy target nonland permanent of that player's choice that one of your opponents controls.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Invasion of Fiora // Marchesa, Resolute Monarch",
+  "layout": "transform",
+  "mana_cost": "{4}{B}{B} // ",
+  "cmc": 6.0,
+  "type_line": "Battle — Siege // Legendary Creature — Human Noble",
+  "oracle_text": "(As a Siege enters, choose an opponent to protect it. You and others can attack it. When it's defeated, exile it, then cast it transformed.)\nWhen this Siege enters, choose one or both —\n• Destroy all legendary creatures.\n• Destroy all nonlegendary creatures.\n//\nMenace, deathtouch\nWhenever Marchesa attacks, remove all counters from up to one target permanent.\nAt the beginning of your upkeep, if you haven't been dealt combat damage since your last turn, you draw a card and you lose 1 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Transform",
+   "Menace",
+   "Deathtouch"
+  ],
+  "power": null,
+  "toughness": null
+ },
+ {
+  "name": "Behemoth of Vault 0",
+  "layout": "normal",
+  "mana_cost": "{6}",
+  "cmc": 6.0,
+  "type_line": "Artifact Creature — Robot",
+  "oracle_text": "Trample\nWhen this creature enters, you get {E}{E}{E}{E} (four energy counters).\nWhen this creature dies, you may pay an amount of {E} equal to target nonland permanent's mana value. When you do, destroy that permanent.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Trample"
+  ],
+  "power": "6",
+  "toughness": "6"
+ },
+ {
+  "name": "Tombstone Stairwell",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "World Enchantment",
+  "oracle_text": "Cumulative upkeep {1}{B} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAt the beginning of each upkeep, if this enchantment is on the battlefield, each player creates a 2/2 black Zombie creature token with haste named Tombspawn for each creature card in their graveyard.\nAt the beginning of each end step and when this enchantment leaves the battlefield, destroy all tokens created with this enchantment. They can't be regenerated.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Cumulative upkeep"
+  ],
+  "power": null,
+  "toughness": null
+ },
+ {
+  "name": "Marchesa, Resolute Monarch",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Legendary Creature — Human Noble",
+  "oracle_text": "Menace, deathtouch\nWhenever Marchesa attacks, remove all counters from up to one target permanent.\nAt the beginning of your upkeep, if you haven't been dealt combat damage since your last turn, you draw a card and you lose 1 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Menace",
+   "Deathtouch"
+  ],
+  "power": "4",
+  "toughness": "4"
+ },
+ {
+  "name": "Emrakul, the World Anew",
+  "layout": "normal",
+  "mana_cost": "{12}",
+  "cmc": 12.0,
+  "type_line": "Legendary Creature — Eldrazi",
+  "oracle_text": "When you cast this spell, gain control of all creatures target player controls.\nFlying, protection from spells and from permanents that were cast this turn\nWhen Emrakul leaves the battlefield, sacrifice all creatures you control.\nMadness—Pay six {C}.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying",
+   "Madness",
+   "Protection"
+  ],
+  "power": "12",
+  "toughness": "12"
+ },
+ {
+  "name": "Clive, Ifrit's Dominant // Ifrit, Warden of Inferno",
+  "layout": "transform",
+  "mana_cost": null,
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Human Noble Warrior // Legendary Enchantment Creature — Saga Demon",
+  "oracle_text": "When Clive enters, you may discard your hand, then draw cards equal to your devotion to red. (Each {R} in the mana costs of permanents you control counts toward your devotion to red.)\n{4}{R}{R}, {T}: Exile Clive, then return it to the battlefield transformed under its owner's control. Activate only as a sorcery.\n//\n(As this Saga enters and after your draw step, add a lore counter.)\nI — Lunge — Ifrit fights up to one other target creature.\nII, III — Brimstone — Add {R}{R}{R}{R}. If Ifrit has three or more lore counters on it, exile it, then return it to the battlefield (front face up).",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Transform",
+   "Fight"
+  ],
+  "power": "5",
+  "toughness": "5",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Clive, Ifrit's Dominant",
+    "mana_cost": "{4}{R}{R}",
+    "type_line": "Legendary Creature — Human Noble Warrior",
+    "oracle_text": "When Clive enters, you may discard your hand, then draw cards equal to your devotion to red. (Each {R} in the mana costs of permanents you control counts toward your devotion to red.)\n{4}{R}{R}, {T}: Exile Clive, then return it to the battlefield transformed under its owner's control. Activate only as a sorcery.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+     "R"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Ifrit, Warden of Inferno",
+    "mana_cost": "",
+    "type_line": "Legendary Enchantment Creature — Saga Demon",
+    "oracle_text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — Lunge — Ifrit fights up to one other target creature.\nII, III — Brimstone — Add {R}{R}{R}{R}. If Ifrit has three or more lore counters on it, exile it, then return it to the battlefield (front face up).",
+    "power": "9",
+    "toughness": "9",
+    "colors": [
+     "R"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Dr. Eggman",
+  "layout": "normal",
+  "mana_cost": "{2}{U}{B}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Scientist",
+  "oracle_text": "Flying\nAt the beginning of your end step, draw a card. Then each opponent faces a villainous choice — That player discards a card, or you may put a Construct, Robot, or Vehicle card from your hand onto the battlefield.",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "3",
+  "toughness": "6"
+ },
+ {
+  "name": "Market Gnome",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Artifact Creature — Gnome",
+  "oracle_text": "When this creature dies, you gain 1 life and draw a card.\nWhen this creature is exiled from the battlefield while you're activating a craft ability, you gain 1 life and draw a card.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [],
+  "power": "0",
+  "toughness": "3"
+ },
+ {
+  "name": "Genesis of the Daleks",
+  "layout": "saga",
+  "mana_cost": "{4}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after IV.)\nI, II, III — Create a 3/3 black Dalek artifact creature token with menace for each lore counter on Genesis of the Daleks.\nIV — Target opponent faces a villainous choice — Destroy all Dalek creatures and each of your opponents loses life equal to the total power of Daleks that died this turn, or destroy all non-Dalek creatures.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": null,
+  "toughness": null
+ },
+ {
+  "name": "Idol of the Deep King // Sovereign's Macuahuitl",
+  "layout": "transform",
+  "mana_cost": "{2}{R} // ",
+  "cmc": 3.0,
+  "type_line": "Artifact // Artifact — Equipment",
+  "oracle_text": "Flash\nWhen this artifact enters, it deals 2 damage to any target.\nCraft with artifact {2}{R} ({2}{R}, Exile this artifact, Exile another artifact you control or an artifact card from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)\n//\nWhen this Equipment enters, attach it to target creature you control.\nEquipped creature gets +2/+0.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Craft",
+   "Transform",
+   "Equip",
+   "Flash"
+  ],
+  "power": null,
+  "toughness": null
+ },
+ {
+  "name": "Osseous Sticktwister",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Artifact Creature — Scarecrow",
+  "oracle_text": "Lifelink\nDelirium — At the beginning of your end step, if there are four or more card types among cards in your graveyard, each opponent may sacrifice a nonland permanent of their choice or discard a card. Then this creature deals damage equal to its power to each opponent who didn't sacrifice a permanent or discard a card this way.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Delirium",
+   "Lifelink"
+  ],
+  "power": "2",
+  "toughness": "2"
+ },
+ {
+  "name": "Jace, Multiverse Architect",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}{B}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Planeswalker — Jace",
+  "oracle_text": "At the beginning of combat on each opponent's turn, they may pay {2}. If they don't, creatures they control can't attack Jaces you control this turn.\n+1: Draw two cards, then put a card from your hand on the bottom of your library.\n−3: Exile another target planeswalker or creature you control. Reveal cards from the top of your library until you reveal a creature or planeswalker card. Put that card onto the battlefield and the rest on the bottom of your library in a random order.\nJace, Multiverse Architect can be your commander.",
+  "colors": [
+   "B",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": null,
+  "toughness": null,
+  "loyalty": "4"
+ },
+ {
+  "name": "The Creation of Avacyn",
+  "layout": "saga",
+  "mana_cost": "{1}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Search your library for a card, exile it face down, then shuffle.\nII — Turn the exiled card face up. If it's a creature card, you lose life equal to its mana value.\nIII — You may put the exiled card onto the battlefield if it's a creature card. If you don't put it onto the battlefield, put it into its owner's hand.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": null,
+  "toughness": null
+ },
+ {
+  "name": "Temporal Extortion",
+  "layout": "normal",
+  "mana_cost": "{B}{B}{B}{B}",
+  "cmc": 4.0,
+  "type_line": "Sorcery",
+  "oracle_text": "When you cast this spell, any player may pay half their life, rounded up. If a player does, counter Temporal Extortion.\nTake an extra turn after this one.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [],
+  "power": null,
+  "toughness": null
  }
 ]

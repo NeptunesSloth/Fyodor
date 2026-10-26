@@ -1215,7 +1215,7 @@ RULES.update(wave110d_rules.RULES)
 # -- attached (wave 100F) -- 302.6: "Enchanted creature can attack as though it had haste." (Instill Energy): only attacking, not its {T} abilities
 # (app/rules/combat.py ``attack_problem``); 506.5: "… can only attack alone." (Errantry): the self rule of declaration_groups, imposed on what it enchants
 RULES.update({"can attack as though it had haste": ("attack_as_haste",), "can only attack alone": ("declaration_group:attack:alone",),
-              "can't become suspected": ("cant_be_suspected",),  # (701.60: keyword_actions.suspect, the one way a creature becomes suspected — Airtight Alibi)
+              "can't become suspected": ("cant_be_suspected",), "can't be enchanted": ("no_aura110h",),  # (-- cards (wave 110H) -- Tetravite)  # (701.60: keyword_actions.suspect, the one way a creature becomes suspected — Airtight Alibi)
               # 602.5: "… and its activated abilities with {T} in their costs can't be activated." (Serra Bestiary): mana abilities too (605.1a), not crew (702.122a: no {T})
               "can't attack or block, and its activated abilities with {T} in their costs can't be activated": ("cant_attack_or_block", "cant_activate_tap"),
               # -- group (wave 110F) -- the same for a group subject (Katabatic Winds)
@@ -1478,6 +1478,9 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
         return combat_soulbond_partner70.holds(plan, source)
     if kind == "marked110j":  # -- (wave 110J) -- "this Aura gains …" (Earthbind): set as that ability resolved, for this object only (400.7)
         return source.choices.get("Gained ability") == "Yes"
+    if kind == "ignored110j":  # -- Volrath's Curse (wave 110J) -- its enchanted creature's controller paid to ignore it this turn
+        host = plan.state.cards.get(source.attached_to or "")
+        return host is not None and plan.rules.once_per_turn.get(f"ignore110j:{plan.oid(host)}") == plan.state.turn.number
     if kind == "your_turn":
         return plan.state.turn.active_player == controller
     if kind == "your_end_step":  # (wave 100K)
