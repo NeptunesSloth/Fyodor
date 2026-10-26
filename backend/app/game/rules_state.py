@@ -931,6 +931,7 @@ class PendingTrigger(BaseModel):
     key: str = ""  # identical triggers share a key (AUTO ORDER IDENTICAL TRIGGERS)
     ordered: bool = False  # its controller already chose the order
     event: TriggerEvent | None = None  # what it triggered on
+    chooser110o: str | None = None  # -- (wave 110O) -- "of an opponent's choice": the opponent the controller picked to choose the target
 
 
 class DeferredPaymentWindow(BaseModel):

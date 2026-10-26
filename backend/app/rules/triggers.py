@@ -2207,7 +2207,7 @@ def _whose_step(plan: Plan, card: CardInstance, whose: str, ap: str) -> bool:
 # "Cumulative upkeep—Sacrifice a creature." / "Ward—Get five poison counters.": a cost the optional payment engine pays (optional_payment.cost_text), or
 # ("do") a sentence of always-payable instructions the grammar reads ("Draw a card.", "Add {R}.", "You get five poison counters."). A cost that names a
 # choice the engine can't make for the payer (a creature of an opponent's, a graveyard) is None: the card stays manual.
-_DO_PAYABLE = frozenset({"draw", "add_mana", "player_counter"})  # (118.3: nothing to run out of; a draw from an empty library is still paid, ruling on Psychic Vortex 2008-04-01)
+_DO_PAYABLE = frozenset({"draw", "add_mana", "player_counter", "coin_flip"})  # (-- wave 110O -- "Cumulative upkeep—Flip a coin.": a flip cannot fail to happen)
 _DO_OPPONENT = frozenset({"gain_life", "create_token"})  # ("An opponent gains 1 life.", "Have an opponent create a 1/1 red Survivor creature token.": an opponent can always be given them)
 
 
@@ -2939,6 +2939,19 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
                     plan.note(f"{t.name}'s ability has no unique player to choose its target and is removed")
                     return True
                 choice_player = event_players[0]
+            if t.ability.get("target_choice") == "opponent110o":  # -- (wave 110O) -- "any target of an opponent's choice" (Karplusan Minotaur): the controller picks the opponent
+                opponents = [p for p in plan.live() if p != t.controller]
+                if t.chooser110o is None and len(opponents) > 1:
+                    decide(plan, player=t.controller, kind="choose_one", prompt=f"{t.name}: choose an opponent to choose the target",
+                           options=[DecisionOption(id=p, label=plan.name(p)) for p in opponents], resume={"step": "trigger_chooser110o", "trigger": t.id})
+                    return False
+                if t.chooser110o is None and opponents:
+                    t.chooser110o = opponents[0]
+                if t.chooser110o not in plan.live():
+                    r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+                    plan.note(f"{t.name}'s ability has no opponent to choose its target and is removed")
+                    return True
+                choice_player = t.chooser110o
             if t.ability.get("target_choice") == "defending100j":  # -- counters (wave 100J) -- "of defending player's choice" (Erithizon: 508.5)
                 if t.event is None or t.event.defended not in plan.live():
                     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
@@ -3081,6 +3094,19 @@ def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
     t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
     if t is not None:
         put(plan, t, target=chosen[0])
+    flush(plan)
+
+
+def resume_chooser110o(plan: Plan, d: Any, chosen: list[str]) -> None:  # -- (wave 110O) --
+    from app.game.errors import ActionError
+
+    t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
+    if t is not None:
+        if len(chosen) != 1 or chosen[0] == t.controller or chosen[0] not in plan.live():
+            raise ActionError("Choose an opponent still in the game")
+        t.chooser110o = chosen[0]
+        if not put(plan, t):
+            return
     flush(plan)
 
 

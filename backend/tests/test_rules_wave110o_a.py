@@ -15,6 +15,7 @@
 * 608.2d, 707.9: Lazav, Familiar Stranger grows when its controller commits a crime, may exile any graveyard card, and may copy a creature card so exiled.
 * 404.1, 601.3, 614.1a: Bösium Strip lets its controller cast an instant or sorcery card only from the top of their graveyard, and exiles it afterwards.
 * 115.1, 608.2d: Cuombajj Witches / Magus of the Arena: the second target is chosen by an opponent (the activator's choice of which), announced before the costs.
+* 702.24a, 705.2, 115.1: Karplusan Minotaur flips a coin per age counter; a lost flip lets an opponent (the controller's choice) pick the 1 damage's target.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -52,10 +53,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -896,3 +897,95 @@ def test_cuombajj_witches_alice_cannot_name_the_opponents_target_herself(cards):
         act(s, "p1", type="activate_ability", card_id=w.id, ability=ability(s, w, "{T}"), targets=["p2", "p2"], target_counts=[1, 1])
     assert not now(s, w).tapped and not s.state.zones.get("stack")
     # (no replay check: ``ready`` set the summoning-sickness stamp by hand, which a replay of the log cannot know)
+
+
+def faces(monkeypatch, values):
+    values = iter(values)
+    monkeypatch.setattr("app.game.resolve._rng_int", lambda rng, lo, hi: next(values))
+
+
+def upkeep(s, answers=None, limit=40):
+    """Into Alice's next upkeep; the cumulative upkeep question is answered ``yes`` (pay) or not; the rest as ``answers`` (option ids) in turn."""
+    answers = list(answers or [])
+    start = s.state.turn.number
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[answers.pop(0)] if answers else [d.options[0].id])
+        elif s.state.turn.number > start + 1 and s.state.turn.phase == "main1" and not s.state.zones.get("stack"):
+            return
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never settled")
+
+
+def test_karplusan_minotaur_lost_flip_lets_the_opponent_choose_the_target(cards, monkeypatch):
+    s = build(cards, [MINOTAUR])
+    m = put(s, MINOTAUR)
+    faces(monkeypatch, [0])
+    upkeep(s, ["pay", "p1"])  # (pay the cumulative upkeep: one flip, lost; Bob aims the 1 damage at Alice)
+    assert now(s, m).zone == "p1:battlefield" and now(s, m).counters.get("age") == 1
+    assert (life(s, "p1"), life(s, "p2")) == (39, 40)
+    check(s)
+
+
+def test_karplusan_minotaur_won_flip_is_aimed_by_its_controller(cards, monkeypatch):
+    s = build(cards, [MINOTAUR])
+    put(s, MINOTAUR)
+    faces(monkeypatch, [1])
+    upkeep(s, ["pay", "p2"])
+    assert (life(s, "p1"), life(s, "p2")) == (40, 39)
+    check(s)
+
+
+def test_karplusan_minotaur_with_two_opponents_the_controller_picks_who_chooses(cards, monkeypatch):
+    s = table(cards, [MINOTAUR], [], [])
+    put(s, MINOTAUR)
+    faces(monkeypatch, [0])
+    seen = []
+    answers = ["pay", "p3", "p2"]  # pay; Alice picks Carol; Carol aims at Bob
+    start = s.state.turn.number
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            seen.append(d.player)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[answers.pop(0)])
+        elif s.state.turn.number > start + 2 and s.state.turn.phase == "main1" and not s.state.zones.get("stack"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert seen == ["p1", "p1", "p3"] and (life(s, "p1"), life(s, "p2"), life(s, "p3")) == (40, 39, 40)
+    check(s)
+
+
+def test_karplusan_minotaur_is_sacrificed_if_its_upkeep_is_not_paid_and_nothing_is_flipped(cards, monkeypatch):
+    s = build(cards, [MINOTAUR])
+    m = put(s, MINOTAUR)
+    faces(monkeypatch, [])  # (a flip here would raise StopIteration)
+    upkeep(s, ["decline"])
+    assert now(s, m).zone == "p1:graveyard" and (life(s, "p1"), life(s, "p2")) == (40, 40)
+    check(s)
+
+
+def test_karplusan_minotaur_flips_once_for_each_age_counter(cards, monkeypatch):
+    s = build(cards, [MINOTAUR])
+    m = put(s, MINOTAUR)
+    act(s, "p1", type="counter", card_ids=[m.id], kind="age", delta=1)  # (an earlier upkeep's age counter: now two)
+    faces(monkeypatch, [0, 1])
+    for _ in range(40):  # a lost flip (Bob aims at Alice) and a won one (Alice aims at Bob): whoever is asked aims at the other player
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            pick = ["pay"] if "cumulative" in d.prompt else [o.id for o in d.options] if d.prompt.startswith("Order") else ["p2" if d.player == "p1" else "p1"]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+        elif s.state.turn.number >= 3 and s.state.turn.phase == "main1" and not s.state.zones.get("stack"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert now(s, m).counters.get("age") == 2 and (life(s, "p1"), life(s, "p2")) == (39, 39)
+    check(s)
