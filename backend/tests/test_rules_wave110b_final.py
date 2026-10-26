@@ -11,7 +11,7 @@ from app.game.errors import ActionError
 from app.game.state import StickerDefinition101, StickerPlacement101
 from app.rules import coverage
 from tests.game_helpers import act
-from tests.wave110b_kit import build, card_named, cast, ch, check, mana, put, repository, settle
+from tests.wave110b_kit import build, card_named, cast, ch, check, drive, mana, put, repository, settle, top
 
 
 @pytest.fixture()
@@ -56,7 +56,7 @@ def test_chameleon_ignores_its_own_and_others_unaffected(cards):
 BRINK = "Back from the Brink"
 
 
-@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu"])
+@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast"])
 def test_brink_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -165,3 +165,54 @@ def test_braided_net_can_target_an_already_tapped_permanent(cards):
     mana(s, R=1)
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=dragon.id, ability=find_ab(s, dragon, "+1/+0"))
+
+
+LUKKA = "Lukka, Coppercoat Outcast"
+
+
+def lukka_on(s, loyalty=5):
+    lk = put(s, LUKKA)
+    act(s, "p1", type="counter", card_ids=[lk.id], kind="loyalty", delta=loyalty - s.state.cards[lk.id].counters.get("loyalty", 0))
+    return lk
+
+
+def test_lukka_plus_exiled_creatures_castable_while_a_lukka_planeswalker_is_controlled(cards):
+    """611.2b, 113.6m: creature cards exiled by +1 may be cast from exile for as long as you control a Lukka planeswalker; other cards exiled with them may not; losing the
+    planeswalker ends it (2020-04-17: any Lukka planeswalker, not just the one that exiled the card)."""
+    s = build(cards, [LUKKA, "Grizzly Bears", "Lightning Bolt", "Hill Giant"], [])
+    for n in ("Hill Giant", "Lightning Bolt", "Grizzly Bears"):
+        top(s, n)
+    lk = lukka_on(s)
+    act(s, "p1", type="activate_ability", card_id=lk.id, ability=find_ab(s, lk, "Exile the top three"))
+    settle(s)
+    bears, bolt, giant = (card_named(s, n) for n in ("Grizzly Bears", "Lightning Bolt", "Hill Giant"))
+    assert {s.state.cards[c.id].zone for c in (bears, bolt, giant)} == {"p1:exile"}
+    mana(s, G=1, R=1, C=4)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])  # (not a creature card)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    settle(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
+    act(s, "p1", type="move", card_ids=[lk.id], to={"player": "p1", "zone": "graveyard"})  # (no Lukka planeswalker any more)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=giant.id)
+    check(s)
+
+
+@pytest.mark.parametrize("gone,expect", [("Grizzly Bears", "Hill Giant"), ("Serra Angel", "Shivan Dragon")])
+def test_lukka_minus_reveals_until_greater_mana_value(cards, gone, expect):
+    """608.2h, 701.20: the exiled creature's mana value (as it last existed) is the bar: the first revealed creature card above it enters, the rest go to the bottom."""
+    s = build(cards, [LUKKA, "Grizzly Bears", "Serra Angel", "Hill Giant", "Shivan Dragon"], [])
+    for n in ("Shivan Dragon", "Hill Giant"):
+        top(s, n)
+    lk = lukka_on(s)
+    victim = put(s, gone)
+    act(s, "p1", type="activate_ability", card_id=lk.id, ability=find_ab(s, lk, "Exile target creature"), targets=[victim.id])
+    drive(s)
+    assert s.state.cards[victim.id].zone == "p1:exile"
+    assert s.state.cards[card_named(s, expect).id].zone == "p1:battlefield"
+    other = "Shivan Dragon" if expect == "Hill Giant" else "Hill Giant"
+    assert s.state.cards[card_named(s, other).id].zone == "p1:library"  # (not revealed, or revealed but too small: bottom of the library)
+    if expect == "Shivan Dragon":
+        assert s.state.zones["p1:library"].index(card_named(s, "Hill Giant").id) >= len(s.state.zones["p1:library"]) - 2
+    check(s)
