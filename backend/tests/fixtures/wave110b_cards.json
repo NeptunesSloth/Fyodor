@@ -3194,5 +3194,33 @@
   "colors": [],
   "color_identity": [],
   "keywords": []
+ },
+ {
+  "name": "Back from the Brink",
+  "layout": "normal",
+  "mana_cost": "{4}{U}{U}",
+  "cmc": 6.0,
+  "type_line": "Enchantment",
+  "oracle_text": "Exile a creature card from your graveyard and pay its mana cost: Create a token that's a copy of that card. Activate only as a sorcery.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Endless One",
+  "layout": "normal",
+  "mana_cost": "{X}",
+  "cmc": 0.0,
+  "type_line": "Creature — Eldrazi",
+  "oracle_text": "This creature enters with X +1/+1 counters on it.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [],
+  "power": "0",
+  "toughness": "0"
  }
 ]
