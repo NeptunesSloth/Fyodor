@@ -2,12 +2,14 @@
 
 * 601.2b, 118.8, 615.1: Undergrowth's optional {2}{R} (paid as it is cast) makes its combat damage prevention skip red creatures.
 * 603.7a, 701.9, 603.2c: Pure Intentions returns the cards an opponent's spell or ability made you discard (one batch), and itself at the next end step.
+* 601.2b, 107.3a, 601.2d: Nahiri's Sacrifice announces X as the mana value of the artifact or creature sacrificed, and divides X damage (none at all if X is 0).
 """
 
 from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import stops
 from tests.wave9c_kit import build
@@ -17,6 +19,7 @@ from tests.wave110o_kit import (  # noqa: F401
     card_named,
     ch,
     check,
+    cost,
     full,
     life,
     mana,
@@ -30,7 +33,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -139,4 +142,58 @@ def test_pure_intentions_discarded_by_an_opponents_spell_returns_at_the_next_end
         act(s, s.state.rules.priority, type="pass_priority")
     settle(s)
     assert now(s, pure).zone == "p1:hand" and now(s, bears).zone == "p1:graveyard"  # (only Pure Intentions itself: the other card stays)
+    check(s)
+
+
+NAHIRI = "Nahiri's Sacrifice"
+
+
+def nahiri_table(cards, mine, theirs):
+    s = build(cards, [NAHIRI, *mine], theirs)
+    return s, [put(s, n) for n in mine], [put(s, n, "p2") for n in theirs]
+
+
+def nahiri_cast(s, victim, targets, x, division=None, pid="p1"):
+    spell = to_hand(s, NAHIRI)
+    mana(s, "p1", **cost(NAHIRI))
+    kw = {"division": division} if division else {}
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=x, targets=[t.id for t in targets], target_counts=[len(targets)],
+        cost_choices=[{"component": 0, "cards": [victim.id]}], **kw)
+    settle(s)
+
+
+def test_nahiri_sacrifice_sacrifices_a_creature_of_mana_value_x_and_divides_x_damage(cards):
+    s, (bears,), (elves, wolf) = nahiri_table(cards, ["Grizzly Bears"], ["Llanowar Elves", "Grizzly Bears"])
+    nahiri_cast(s, bears, [elves, wolf], 2, division=[1, 1])
+    assert now(s, bears).zone == "p1:graveyard" and now(s, elves).zone == "p2:graveyard"  # (X is the sacrificed Bears' mana value, 2: 1 + 1)
+    assert now(s, wolf).zone == "p2:battlefield" and now(s, wolf).damage == 1
+    check(s)
+
+
+def test_nahiri_sacrifice_sacrifices_an_artifact_too(cards):
+    s, (ring,), (elves,) = nahiri_table(cards, ["Sol Ring"], ["Llanowar Elves"])
+    nahiri_cast(s, ring, [elves], 1)
+    assert now(s, ring).zone == "p1:graveyard" and now(s, elves).zone == "p2:graveyard"
+    check(s)
+
+
+def test_nahiri_sacrifice_cannot_sacrifice_a_permanent_of_another_mana_value(cards):
+    s, (bears,), (elves,) = nahiri_table(cards, ["Grizzly Bears"], ["Llanowar Elves"])
+    spell = to_hand(s, NAHIRI)
+    mana(s, "p1", **cost(NAHIRI))
+    before = s.state.model_dump(mode="json")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=spell.id, x_value=1, targets=[elves.id], target_counts=[1],
+            cost_choices=[{"component": 0, "cards": [bears.id]}])  # (Bears have mana value 2, not 1: 601.2b, 107.3a)
+    assert s.state.model_dump(mode="json") == before
+    check(s)
+
+
+def test_nahiri_sacrifice_with_a_mana_value_zero_permanent_deals_no_damage(cards):
+    s, (bird,), (elves,) = nahiri_table(cards, ["Ornithopter"], ["Llanowar Elves"])
+    spell = to_hand(s, NAHIRI)
+    mana(s, "p1", **cost(NAHIRI))
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=0, cost_choices=[{"component": 0, "cards": [bird.id]}])  # (X is 0: nothing to divide, so no target)
+    settle(s)
+    assert now(s, bird).zone == "p1:graveyard" and now(s, elves).zone == "p2:battlefield" and now(s, elves).damage == 0
     check(s)

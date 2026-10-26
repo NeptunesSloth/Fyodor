@@ -1963,5 +1963,31 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "Sol Ring",
+  "layout": "normal",
+  "mana_cost": "{1}",
+  "cmc": 1.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add {C}{C}.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Ornithopter",
+  "layout": "normal",
+  "mana_cost": "{0}",
+  "cmc": 0.0,
+  "type_line": "Artifact Creature — Thopter",
+  "oracle_text": "Flying",
+  "power": "0",
+  "toughness": "2",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying"
+  ]
  }
 ]

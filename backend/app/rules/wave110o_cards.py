@@ -56,6 +56,11 @@ def parse(body: str) -> Any:
         wrapped = delayed.wrap_when([{"do": "bounce", "who": "event.new"}], head, this_turn=True)
         wrapped[0]["once"] = False
         return wrapped, None, False
+    if body.strip() == _NAHIRI.replace("Nahiri's Sacrifice", "~"):  # 115.6, 601.2d: "any number of" allows none (X may be 0, and nothing is divided then)
+        found = scripts.parse_effects("~ deals X damage divided as you choose among one, two, or three target creatures.")
+        assert found is not None and isinstance(found[1], list) and found[1][0]["divide"]["total"] == {"x": 1}
+        groups = [{**found[1][0], "min": 0, "max": 250, "divide": {**found[1][0]["divide"], "allow_zero_targets": True}}]
+        return found[0], groups, found[2]
     if body.strip() == _UNDER_COST:  # 601.2b: the optional additional cost is announced as the spell is cast (costs.kicker_cost reads it); this line does nothing itself
         return [], None, False
     if body.strip() == _UNDER_PREVENT:  # 615.1, 608.2c: the exception is read when the spell resolves; the red creatures are those of that moment
@@ -85,6 +90,7 @@ def parse(body: str) -> Any:
 
 
 _PURE = ("Whenever a spell or ability an opponent controls causes you to discard cards this turn, return those cards from your graveyard to your hand.")
+_NAHIRI = "Nahiri's Sacrifice deals X damage divided as you choose among any number of target creatures."
 _UNDER_COST = "As an additional cost to cast this spell, you may pay {2}{R}."
 _UNDER_PREVENT = ("Prevent all combat damage that would be dealt this turn. If this spell's additional cost was paid, this effect doesn't affect "
                   "combat damage that would be dealt by red creatures.")

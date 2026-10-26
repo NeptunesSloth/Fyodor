@@ -26,7 +26,6 @@
 - Numa, Joraga Chieftain: paying {X}{X} and distributing X counters among any number of targets are both missing.
 - Disciple of Caelus Nin: phasing out everything not chosen, and "permanents can't phase in".
 - Cleansing: "unless any player pays 1 life" for each land: the order and number of payments is not settled.
-- Nahiri's Sacrifice: an additional cost "mana value X" where X is not in the mana cost.
 - Soul Echo: the opponent's choice to replace damage with echo counter removal.
 - Spinning Darkness: the alternative cost "exile the top three black cards of your graveyard" exists only as an activated-cost special case.
 - Evelyn, the Covetous: a static permission over cards with a collection counter "exiled by an ability you controlled".

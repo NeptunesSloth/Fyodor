@@ -999,7 +999,7 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
     if text.lower().startswith("you may") or "," in text:
         return None
     has_x = re.search(r"\bx\b", text, re.IGNORECASE) is not None  # -- X sized by a count (wave 25D) -- one part sized by the announced X (below)
-    if has_x and not re.match(r"^(?:(?:sacrifice|discard|exile|return) X |blight X$)", text, re.IGNORECASE):
+    if has_x and not re.match(r"^(?:(?:sacrifice|discard|exile|return) X |blight X$)", text, re.IGNORECASE) and text != "sacrifice an artifact or creature with mana value X":  # (wave 110O: Nahiri's Sacrifice)
         return None
     parts = [p.strip() for p in re.split(r" and (?=(?:sacrifice|discard|pay|exile|return|tap) )", text)]
     components: list[CostComponent] = []
