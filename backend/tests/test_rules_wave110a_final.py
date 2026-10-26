@@ -12,7 +12,7 @@ from tests.wave110a_kit import *
 
 NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations", "Exterminator Magmarch", "Threefold Signal", "Deification", "Voltaic Visionary // Volt-Charged Berserker",
          "Prowl, Stoic Strategist // Prowl, Pursuit Vehicle", "Snowblind",
-         "Eye of Ojer Taq // Apex Observatory"]
+         "Eye of Ojer Taq // Apex Observatory", "Apple of Eden, Isu Relic"]
 
 
 @pytest.fixture()
@@ -647,4 +647,43 @@ def test_apex_observatory_makes_the_next_spell_of_the_chosen_type_free_once(card
     again = to_hand(s, "Sol Ring")
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=again.id, free=True)  # only the next one
+    check(s)
+
+
+APPLE = "Apple of Eden, Isu Relic"
+
+
+def _apple(cards):
+    s = build(cards, [APPLE], ["Island", "Shock", "Llanowar Elves", "Wall of Omens"])
+    apple = put(s, APPLE)
+    next_turn(s)
+    for n in ("Island", "Shock", "Llanowar Elves"):
+        to_hand(s, n, "p2")
+    act(s, "p1", type="activate_ability", card_id=apple.id, ability=0, targets=["p2"])
+    answer(s)
+    return s, apple
+
+
+def _exiled(s, name):
+    """The face-down card of that name Alice exiled from Bob's hand (a face-down card in exile is a new object with its own id)."""
+    return next(c for c in s.state.cards.values() if c.name == name and c.zone == "p2:exile")
+
+
+def test_apple_of_eden_exiles_the_hand_face_down_and_its_cards_can_be_played_for_any_mana_and_the_owner_draws(cards):
+    """Apple of Eden: Bob's hand goes face down into exile; Alice plays the Island (Bob draws), casts Shock with colorless mana (118.14; Bob draws); the Llanowar Elves returns at the end step."""
+    s, apple = _apple(cards)
+    assert life(s, "p1") == 36 and s.state.cards[apple.id].zone == "p1:graveyard"
+    exiled = {n: _exiled(s, n) for n in ("Island", "Shock", "Llanowar Elves")}
+    assert all(c.face_down for c in exiled.values()) and not s.state.zones.get("p2:hand")
+    act(s, "p1", type="play_land", card_id=exiled["Island"].id)
+    answer(s)
+    assert len(s.state.zones["p2:hand"]) == 1  # its owner drew
+    fund(s, "{C}")
+    act(s, "p1", type="cast_spell", card_id=exiled["Shock"].id, targets=["p2"])
+    answer(s)
+    assert len(s.state.zones["p2:hand"]) == 2 and life(s, "p2") == 38
+    goto(s, "end")
+    answer(s)
+    assert any(c.name == "Llanowar Elves" and c.zone == "p2:hand" for c in s.state.cards.values())  # (still exiled: returned; the Island and Shock were played: not)
+    assert any(c.name == "Island" and c.zone == "p1:battlefield" for c in s.state.cards.values())
     check(s)

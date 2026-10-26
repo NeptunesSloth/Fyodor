@@ -1236,6 +1236,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         if any(c.id not in (info.get("attacking") or []) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")
                and c.controller == watcher.controller and _sel.matches(plan, kind, c, plan.ch(c), watcher.controller, watcher.id)):
             return False
+    if cond.get("exiled_oids110a") is not None and info.get("from_oid110a") not in cond["exiled_oids110a"]:  # -- wave 110A -- Apple of Eden: one of the cards its ability exiled (the object it was in exile)
+        return False
     if cond.get("exiled_with110a") and not exiled_with_watcher(plan, watcher, info.get("from_oid110a")):  # -- wave 110A -- "a card exiled with ~" that was just played (607.2a)
         return False
     if event == "cast":
