@@ -339,6 +339,22 @@ def sylex(plan: Any, ctx: Def, e: Def) -> bool:
     return True
 
 
+_BLOODCASTER = "{1}{B}, {T}: Rather than pay the mana cost of the next spell you cast this turn, you may pay life equal to that spell's mana value."
+_BUILD[_BLOODCASTER] = ("{1}{B}, {T}: You gain 1 life.",
+                        lambda d: {**d, "effects": [{"do": "next_spell_grant", "grants": [{"keyword": "life110m", "filter": None}]}]})
+
+
+def life_offers(state: Any, player: str, card: Any, ch: Any, info: Any) -> list[Any]:
+    """Marshland Bloodcaster: the next spell its caster casts this turn may be cast by paying life equal to its mana value rather than its mana cost (118.9, 118.9b: optional;
+    118.9c: the mana value is the printed one). A spell with {X} in its cost is not offered: its mana value while being cast depends on the X announced later (202.3e)."""
+    from app.rules import alt_costs, spell_grants
+
+    if not spell_grants.pending(state, player, card, ch, info, "life110m") or "X" in (ch.mana_cost or ""):
+        return []
+    alt = alt_costs.parse_cost(f"pay {int(ch.mana_value)} life")
+    return [] if alt is None else [alt_costs.Offer(f"{card.id}:life110m", f"{ch.name}: pay {int(ch.mana_value)} life (Marshland Bloodcaster)", alt)]
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 

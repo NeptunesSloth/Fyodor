@@ -1013,5 +1013,24 @@
 "keywords": [],
 "power": "1",
 "toughness": "2"
+},
+{
+"name": "Marshland Bloodcaster",
+"layout": "normal",
+"mana_cost": "{4}{B}",
+"cmc": 5.0,
+"type_line": "Creature — Vampire Warlock",
+"oracle_text": "Flying\n{1}{B}, {T}: Rather than pay the mana cost of the next spell you cast this turn, you may pay life equal to that spell's mana value.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Flying"
+],
+"power": "3",
+"toughness": "5"
 }
 ]
