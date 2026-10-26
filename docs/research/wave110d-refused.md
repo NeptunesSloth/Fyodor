@@ -66,3 +66,4 @@
 - Volcanic Offering: "target ... of an opponent's choice" with several opponents: no CR rule or ruling in data/rules says which opponent chooses each target (the only CR text, the example under 801.5b, covers "an opponent chooses one" modes, not targets). Demoted to PARTIAL; wave110d_volc.LINES emptied, foundation kept inert.
 - The War Doctor: "put into exile from anywhere" has no event (only leave-battlefield exile); needs a generic any-zone exile event (foundation).
 - Wall of Stolen Identity: "enter as a copy ... When you do, tap the copied creature and it doesn't untap" needs a reflexive rider that references the copied permanent (copying.py entry has no after-copy hook).
+- Brutal Hordechief: declare_chooser110a covers a player's whole block declaration, but the text covers only the creatures affected at resolution (611.2c); subset chooser not built.
