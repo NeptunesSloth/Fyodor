@@ -5,6 +5,7 @@ Each entry matches one whole ability's Oracle text exactly and nothing else; any
 from __future__ import annotations
 
 import json
+import re
 import threading
 from collections.abc import Callable
 from dataclasses import replace
@@ -39,6 +40,7 @@ def on_draw(plan: Any, pid: str, drawn: list[str]) -> None:
     from app.rules import card_names, chosen, context, scripts
     from app.rules.triggers import _add
 
+    reveal_may(plan, pid, drawn)
     traps = [(src, i, d) for src in plan.state.cards.values() if src.choices and src.zone.endswith(":battlefield") and plan.in_game(src) and not plan.manual(src)  # (it records its choices: 614.12a)
              for i, d in scripts.definitions(plan.ch(src)).items() if d.get("static") == BOOBY_RULE and chosen.player_of(plan, src.id) == pid]
     if not traps or not drawn:
@@ -74,6 +76,11 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return statics._definition("attached", "creature", [], rules=[f"{ATK_TAX}:{{3}}"])
     if ability.text.strip() == _TEFERI:
         return _teferi_definition(ability, ch)
+    if ability.kind == "static" and (reveal := _MAY_REVEAL.fullmatch(scripts.self_text(ability.text, ch.name))) is not None:
+        from app.rules import first_reveal100b
+
+        inner = first_reveal100b.definition(replace(ability, text="Reveal the first card you draw each turn." + reveal["rest"]), ch)
+        return None if inner is None else {**inner, "static": MAY_REVEAL}
     if ability.kind == "static" and ability.text.strip() == _WALL_SHADOWS:
         return statics._definition("self", None, [], rules=["wall_shadow110m"])
     if ability.kind == "static" and ability.text.strip() == _CENTAUR_STATIC:
@@ -831,6 +838,69 @@ def _shaman(d: Def) -> Def:
 _BUILD[_SHAMAN] = ("{T}: You gain 1 life.", _shaman)
 
 
+MAY_REVEAL = "may_reveal_first110m"
+_MAY_REVEAL = re.compile(r"^You may reveal the first card you draw each turn as you draw it\.(?P<rest>(?: Whenever you reveal an? [a-z ]+? card this way, [^.]+\.)+)$")
+
+
+def reveal_may(plan: Any, pid: str, drawn: list[str]) -> None:
+    """Inquisitor Eisenhorn: the first card its controller draws each turn may be revealed as it is drawn (701.20a). The question is asked before anyone gets priority (``reveal_ask``):
+    it is the same player's private choice whether they reveal, asked whatever the card is so that nothing is learned from the question."""
+    from app.game.rules_state import turn_log_now
+    from app.game.state import zone_key
+    from app.rules import scripts
+
+    log = turn_log_now(plan.state)
+    card = plan.state.cards.get(drawn[0]) if drawn else None
+    if log is None or card is None or log.drew.get(pid, 0) != len(drawn) or card.zone != zone_key(pid, "hand"):
+        return
+    if any(c.controller == pid and c.zone.endswith(":battlefield") and plan.in_game(c) and not plan.manual(c)
+           and any(d.get("static") == MAY_REVEAL for d in scripts.definitions(plan.ch(c)).values()) for c in plan.state.cards.values()):
+        plan.rules.reveal_ask110m.append([pid, card.id, plan.oid(card)])
+
+
+def reveal_ask(plan: Any) -> bool:
+    """Ask the next waiting "you may reveal" (a card that left the hand since is no longer there to reveal); True when a question is open."""
+    from app.game.rules_state import DecisionOption
+    from app.game.state import zone_key
+    from app.rules.plan import decide
+
+    r = plan.rules
+    while r.reveal_ask110m:
+        pid, cid, oid = r.reveal_ask110m[0]
+        card = plan.state.cards.get(cid)
+        if card is None or card.zone != zone_key(pid, "hand") or plan.oid(card) != oid:
+            r.reveal_ask110m.pop(0)
+            continue
+        decide(plan, player=pid, kind="confirm", prompt=f"Reveal {card.name} as the first card you drew this turn?",
+               options=[DecisionOption(id="yes", label=f"Reveal {card.name}"), DecisionOption(id="no", label="Don't reveal it")],
+               resume={"step": "reveal_may110m", "card": cid})
+        return True
+    return False
+
+
+def resume_reveal_may(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import scripts, selectors
+    from app.rules.triggers import _add
+
+    r = plan.rules
+    pid, cid, oid = r.reveal_ask110m.pop(0)
+    card = plan.state.cards.get(cid)
+    if chosen != ["yes"] or card is None or plan.oid(card) != oid:
+        return
+    plan.do({"type": "reveal", "card_ids": [cid]}, actor=pid)
+    plan.note(f"{plan.name(pid)} reveals {card.name}, the first card drawn this turn", [cid], actor=pid)
+    ch = plan.ch(card)
+    for src in [c for c in plan.state.cards.values() if c.controller == pid and c.zone.endswith(":battlefield") and plan.in_game(c)]:
+        for i, definition in scripts.definitions(plan.ch(src)).items():
+            if definition.get("static") != MAY_REVEAL:
+                continue
+            for each in definition["reveals"]:
+                if selectors.matches(plan, selectors.from_key(each["sel"]), card, ch, pid, src.id):
+                    _add(plan, controller=pid, source_card=src.id, source_object=plan.oid(src), name=src.name, index=i,
+                         definition={"kind": "triggered", "trigger": MAY_REVEAL, "optional": False, "effects": each["effects"],
+                                     **{k: each[k] for k in ("target", "targets") if k in each}})
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -1486,6 +1556,6 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"myra110m": resume_myra, "alaundo110m": resume_alaundo, "rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+RESUME: dict[str, Any] = {"reveal_may110m": resume_reveal_may, "myra110m": resume_myra, "alaundo110m": resume_alaundo, "rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
 PRIMITIVES: dict[str, Any] = {"myra_choose110m": myra_choose, "reverse_turn_order110m": reverse_turn_order, "coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

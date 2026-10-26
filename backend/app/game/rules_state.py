@@ -1416,6 +1416,7 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
+    reveal_ask110m: list[list[str]] = Field(default_factory=list)  # (wave 110M) [player, card, object] first draws of a turn whose "you may reveal" is still to be asked
     turn_reversed110m: bool = False  # (wave 110M) Aeon Engine: the turn order runs against the seat order
     coffin_counters110m: dict[str, dict[str, int]] = Field(default_factory=dict)  # (wave 110M) Tawnos's Coffin: exiled creature rules object -> the counters noted on it
     alaundo110m: list[str] = Field(default_factory=list)  # (wave 110M) rules objects of exiled cards carrying Alaundo's granted "last time counter" trigger

@@ -2763,6 +2763,8 @@ def flush(plan: Plan) -> bool:
     collect(plan)
     from app.rules import wave110m_cards
 
+    if wave110m_cards.reveal_ask(plan):  # (wave 110M) "you may reveal the first card you draw each turn as you draw it": asked before anyone gets priority
+        return True
     wave110m_cards.stack_scan(plan)  # (wave 110M) "whenever a spell or ability is put onto the stack"
     from app.rules import combat_player_scope43
 
