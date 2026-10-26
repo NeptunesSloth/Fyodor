@@ -349,6 +349,9 @@ def start_declare_attackers(plan: Plan) -> None:
     targets = attack_targets(plan.state, ap, plan.info)
     if not eligible or not targets:
         r.no_attackers = True
+        from app.rules import delayed
+
+        delayed.at_step(plan, "declare_attackers")  # (wave 110B)
         return
     who = wave110a_choosers.chooser(plan, "attack", ap)  # -- declaration choosers (wave 110A) --
     decide(plan, player=ap, kind="declare_attackers", prompt="Declare attackers (or attack with nothing)", decider=who, blind=who is not None,
@@ -528,6 +531,9 @@ def _finish_attackers(plan: Plan, payload: PaidAttackers, payment: M.Payment | N
         plan.note(f"{plan.name(plan.actor)} paid {life} life to attack")
     # -- end combat (wave 5C) --
     r.decision = None
+    from app.rules import delayed
+
+    delayed.at_step(plan, "declare_attackers")  # -- delayed triggers (wave 110B) -- 603.7: "at the beginning of the declare attackers step" (Meandering Towershell), once the declaration is made
     if not a.attackers:
         r.no_attackers = True
         plan.note(f"{plan.name(plan.actor)} doesn't attack")

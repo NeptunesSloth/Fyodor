@@ -959,6 +959,11 @@ def _turned_up_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "turned_up_this_turn"))
 
 
+@_suffix(r"with two or more card types")  # -- cards (wave 110B) -- 205.2a: Rendmaw, Creaking Nest ("a card with two or more card types", an artifact creature)
+def _multitype(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "multitype110b"))
+
+
 @_suffix(r"with an activated ability that isn't a mana ability")  # -- cards (wave 110F) -- 602.1, 605.1a: Ravager Wurm
 def _with_nonmana_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "nonmana_ability"))
@@ -2482,6 +2487,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
         if plan.oid(card) not in log_for(plan, False).turned_up110f:
             return False
+    if "multitype110b" in sel.extras and len(ch.types) < 2:  # (wave 110B)
+        return False
     if "nonmana_ability" in sel.extras and not any(a.kind == "activated" for a in ch.abilities):  # (wave 110F)
         return False
     if "tap_ability" in sel.extras and not any(a.kind in ("activated", "mana") and "{T}" in (a.cost or "") for a in ch.abilities):  # (wave 52D)

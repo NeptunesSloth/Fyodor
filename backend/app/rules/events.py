@@ -373,9 +373,12 @@ def _parse(c: str) -> Condition | None:
         return {"event": "either", "subject": "player", "player": a["player"], "conds": [a, b]}
     # -- trigger other (wave 25B) -- 701.18b: to play a card is to play it as a land or cast it as a spell, whichever is appropriate
     # (-- trigger from (wave 30F) -- "Whenever you play a card from exile" (Prosper): a land played from there or a spell cast from there)
-    m = re.fullmatch(rf"(?P<p>you|a player|an opponent) plays? a card(?P<f>{_PLAY_FROM})?", c)
+    m = re.fullmatch(rf"(?P<p>you|a player|an opponent) plays? a card(?P<q> with two or more card types)?(?P<f>{_PLAY_FROM})?", c)
     if m:
-        you, f = m["p"] == "you", m["f"] or ""
+        you, f, q = m["p"] == "you", m["f"] or "", m["q"] or ""  # (q: wave 110B, Rendmaw)
+        if q:  # the two halves read on their own (the "land … or cast …" form takes no qualifier)
+            land, spell = _parse(f"{m['p']} {'play' if you else 'plays'} a land{q}{f}"), _parse(f"{m['p']} {'cast' if you else 'casts'} a spell{q}{f}")
+            return None if land is None or spell is None else {"event": "either", "subject": "player", "player": land["player"], "conds": [land, spell]}
         return _parse(f"{m['p']} {'play' if you else 'plays'} a land{f} or {'cast' if you else 'casts'} a spell{f}")
     # -- triggers (wave 19B) -- "your commander attacks / enters / deals combat damage to a player" is "a commander you control …"
     # (903.3: a commander its owner's deck names; the selector reads it on the battlefield), "you attack with your commander" /
@@ -1206,7 +1209,7 @@ def _player_action(c: str) -> Condition | None:
     m = re.fullmatch(r"you expend (?P<n>\d+)", c)
     if m:
         return {"event": "expend", "subject": "player", "player": "you", "n": int(m["n"])}
-    m = re.fullmatch(rf"{_P} plays? (?P<o>another land|an? (?:[a-z]+ )?land)(?P<f>{_PLAY_FROM})?", c)
+    m = re.fullmatch(rf"{_P} plays? (?P<o>another land|an? (?:[a-z]+ )?land(?: with two or more card types)?)(?P<f>{_PLAY_FROM})?", c)
     if m:
         return {"event": "land_played", "subject": "player", "player": _PLAYERS[m["p"]], "obj": _object_sel(m["o"]),
                 "aggregate": False, **({"entered_from": _ENTERED_FROM[m["f"][len(" from "):]]} if m["f"] else {})}

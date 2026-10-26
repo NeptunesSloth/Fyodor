@@ -1833,7 +1833,7 @@ def counterable(plan: Plan, stack_id: str) -> bool:
 
 
 def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None, *, exile: bool = False,
-                   by: str | None = None, types: list[str] | None = None) -> None:
+                   by: str | None = None, types: list[str] | None = None, source: str | None = None) -> None:
     """701.6: a countered spell goes to its owner's graveyard (a flashback spell into exile); a
     countered ability simply stops existing. ``exile``: "If that spell is countered this way, exile
     it instead of putting it into its owner's graveyard" (608.2c; wave 4C).
@@ -1843,7 +1843,9 @@ def counter_object(plan: Plan, stack_id: str, actor: str, to: str | None = None,
     card = plan.state.cards.get(stack_id)
     if card is None or card.zone != "stack":
         return
-    if not counterable(plan, stack_id):
+    from app.rules import wave110b_cards
+
+    if not counterable(plan, stack_id) or source and wave110b_cards.shielded(plan, card, source):  # (-- Autumn's Veil (wave 110B) --)
         plan.note(f"{card.name} can't be countered", [stack_id])
         return
     r = plan.rules
@@ -1933,7 +1935,7 @@ def counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     before = _remember(plan, ctx, e, sids)  # -- stack interaction (wave 5B) -- "its controller": 608.2h
     perms = _ability_sources(plan, sids, e) if e.get("perm_as") else {}
     for sid in sids:
-        counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")), by=ctx["controller"], types=e.get("types"))  # (exile: 4C; to: 4A)
+        counter_object(plan, sid, ctx["controller"], e.get("to"), exile=bool(e.get("exile")), by=ctx["controller"], types=e.get("types"), source=ctx.get("source_card"))  # (exile: 4C; to: 4A)
     if e.get("perm_as"):  # -- stack interaction (wave 23B) -- "If a permanent's ability is countered this way, … that permanent": the sources
         context.bind_objects(plan, ctx, e["perm_as"], [c for sid, c in perms.items() if sid not in plan.rules.stack])  # of the abilities that were
     _moved(plan, ctx, e, before)  # (wave 5B)
@@ -1969,7 +1971,7 @@ def counter_unless(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
     if not cost.is_free and not casting.can_pay(plan.state, payer, cost, plan.info) and not reveal_mana.available(plan, payer):
         plan.note(f"{plan.name(payer)} can't pay {cost.text()}")
-        counter_object(plan, sid, payer, by=ctx["controller"])
+        counter_object(plan, sid, payer, by=ctx["controller"], source=ctx.get("source_card"))
         return True
     # -- end review (wave 4R) --
     options = [DecisionOption(id="pay", label=f"Pay {cost.text()}"),  # (tap your mana first)
@@ -2983,7 +2985,7 @@ def resume_pay_or_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
                                        then={"do": "continue", "ctx": ctx})
             return
         else:
-            counter_object(plan, sid, d.player, by=ctx["controller"])
+            counter_object(plan, sid, d.player, by=ctx["controller"], source=ctx.get("source_card"))
         continue_effects(plan, ctx)
         return
     src = _cards(plan, ctx, "self")
@@ -4254,6 +4256,9 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
 
             context.refs(ctx)["gcost"] = {"kind": "objects", **this_way.cost_objects(plan, ctx, this_way.COST, "sacrificed")}
             shared = {t for _, ch in context.infos(plan, ctx, "gcost") for t in ch.types}
+            mine = [c for c in mine if plan.ch(plan.state.cards[c]).types & shared]
+        if e.get("shares_type_with") == "event":  # -- group choices (wave 110B) -- Martyr's Bond: the card types of the permanent that left, as it last existed (603.10a, 608.2h)
+            shared = {t for _, ch in context.infos(plan, ctx, context.EVENT) for t in ch.types}
             mine = [c for c in mine if plan.ch(plan.state.cards[c]).types & shared]
         if e.get("distinct"):  # -- group choices (wave 53D) -- "a creature card in your graveyard that hasn't been chosen" (Rejoin the Fight): no object twice
             mine = [c for c in mine if c not in picked]
