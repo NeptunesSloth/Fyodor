@@ -24,12 +24,26 @@ _THRALL = ("Gain control of target creature until end of turn. If you control a 
            "creature until the end of your next turn instead. Untap that creature. It gains haste until end of turn.")
 
 
+_PORTENT = ("Reveal the top X cards of your library. For each card type, you may exile a card of that type from among them. Put the rest into your graveyard. "
+            "You may cast a spell from among the exiled cards without paying its mana cost if you exiled four or more cards this way. Then put the rest of "
+            "the exiled cards into your hand.")
 _SANDS = "Redistribute any number of players' life totals."
 
 
 def parse(body: str) -> Any:
     from app.rules import scripts
 
+    if body.strip() == _PORTENT:
+        # 701.20a (reveal), 608.2c: one card of each type at most (each exiled card stands for one type), the rest to the graveyard, then the free cast
+        # gated on the number exiled (603.4-style count, judged as it is read), then what is still exiled goes to the hand
+        look = scripts.parse_effects("Reveal the top X cards of your library. For each card type, you may put a card of that type from among them into your hand. "
+                                     "Put the rest into your graveyard.")
+        cast = scripts.parse_effects("Exile the top four cards of your library. You may cast a spell from among them without paying its mana cost.")
+        assert look and cast and look[0][1]["do"] == "pick_looked" and cast[0][1]["do"] == "free_cast"
+        looked, pick, rest = look[0]
+        free = {**cast[0][1], "who": "ref:portent110o"}
+        return [looked, {**pick, "to": "exile", "as": "portent110o"}, rest, {"do": "only_if", "cond": {"w110o": "portent_four"}, "skip": 1}, free,
+                {"do": "portent_hand110o"}], None, False
     if body.strip() == _SANDS:
         return [{"do": "redistribute110o"}], None, False
 
@@ -113,6 +127,9 @@ def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
     """Evil's Thrall: you control a Villain whose mana value is greater than the target creature's (the target as it is now, 608.2b)."""
     from app.rules import effects, stack_interaction
 
+    if cond["w110o"] == "portent_four":
+
+        return len(_bound(plan, ctx, "portent110o")) >= 4
     if cond["w110o"] == "helm_creature":
         return bool(ctx.get("helm_creatures110o"))
     assert cond["w110o"] == "villain_bigger"
@@ -259,7 +276,22 @@ def resume_helm_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
+def _bound(plan: Plan, ctx: Context, name: str) -> list[str]:
+    """The objects of the binding called ``name`` (a spell's lines get the line number as a prefix, scripts.rename_bindings: l0_name)."""
+    from app.rules import context
+
+    return [c for key in context.refs(ctx) if key == name or key.endswith("_" + name) for c in context.objects(plan, ctx, key)]
+
+
+def portent_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Portent of Calamity: what is still exiled of the cards exiled this way goes into the controller's hand (a cast one is on the stack, or beyond)."""
+    rest = [c for c in _bound(plan, ctx, "portent110o") if plan.state.cards[c].zone.endswith(":exile")]
+    if rest:
+        plan.do({"type": "move", "card_ids": rest, "to": {"player": ctx["controller"], "zone": "hand"}}, actor=ctx["controller"])
+    return True
+
+
 PRIMITIVES: dict[str, Any] = {"type_emblem110o": type_emblem, "redistribute110o": redistribute,
-              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick}
+              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand}
 RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick}

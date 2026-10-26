@@ -7,6 +7,8 @@
 * 702.133a, 611.2a: Filigree Racer, paying {E}{E} as it attacks, gives an instant or sorcery card in the graveyard jump-start for the turn.
 * 702.138a, 611.2a, 611.2c: The Grim Captain's Locker gives each creature card in the graveyard (as it resolves) "Escape—{3}{B}, Exile four other cards" for the turn.
 * 701.17a, 608.2c: Helm of Obedience mills one card at a time until a creature card or X cards reached the graveyard, then a creature is stolen.
+* 701.20a, 608.2c: Portent of Calamity exiles at most one card of each card type from among the top X, casts one free with four or more,
+  and takes the rest of what it exiled.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -42,10 +44,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -434,4 +436,71 @@ def test_helm_of_obedience_stops_when_the_library_runs_out(cards):
         act(s, "p2", type="move", card_ids=[cid], to={"zone": "exile"})
     helm(s, 4)
     assert len(s.state.zones["p2:library"]) == 0 and len(s.state.zones["p2:graveyard"]) == 1
+    check(s)
+
+
+TOP5 = ["Forest", "Grizzly Bears", "Lightning Bolt", "Sol Ring", "Frogmite"]
+
+
+def portent(s, x=5, top=TOP5):
+    """Cast Portent of Calamity for X, the top of Alice's library as given; the pick decision is left open."""
+    c = to_hand(s, PORTENT)
+    library_top(s, *top, pid="p1")
+    mana(s, "p1", C=x, U=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, x_value=x)
+    for _ in range(4):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    return c
+
+
+def pick(s, *names):
+    d = s.state.rules.decision
+    assert d is not None, "no decision"
+    ids = [next(o.id for o in d.options if o.label == n) for n in names]
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+
+
+def named(s, name, pid="p1"):
+    return next(c for c in s.state.cards.values() if c.name == name and c.owner == pid)
+
+
+@pytest.mark.parametrize(("exiled", "cast"), [
+    (["Forest", "Grizzly Bears", "Lightning Bolt", "Sol Ring"], "Grizzly Bears"),   # four: a free cast from them
+    (["Forest", "Grizzly Bears", "Lightning Bolt", "Sol Ring"], None),               # four, but the cast is declined
+    (["Forest", "Grizzly Bears", "Lightning Bolt"], None),                           # three: no cast offered
+    ([], None),
+])
+def test_portent_of_calamity_exiles_a_card_of_each_type_casts_one_free_with_four_and_takes_the_rest(cards, exiled, cast):
+    s = build(cards, [PORTENT, *TOP5[1:]])
+    portent(s)
+    pick(s, *exiled)
+    d = s.state.rules.decision
+    if len(exiled) >= 4:
+        assert d is not None and d.player == "p1"
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == cast)] if cast else [])
+    settle(s)
+    assert s.state.rules.decision is None
+    for name in TOP5:
+        z = now(s, named(s, name)).zone
+        if name in exiled and name == cast:
+            assert z == "p1:battlefield", (name, z)
+        elif name in exiled:
+            assert z == "p1:hand", (name, z)
+        else:
+            assert z == "p1:graveyard", (name, z)
+    check(s)
+
+
+def test_portent_of_calamity_cant_exile_two_cards_for_one_type_and_a_card_stands_for_one_type(cards):
+    s = build(cards, [PORTENT, *TOP5[1:]])
+    portent(s)
+    d = s.state.rules.decision
+    ids = {o.label: o.id for o in d.options}
+    with pytest.raises(ActionError):  # Grizzly Bears and Frogmite (an artifact creature) are creature and creature/artifact: with Sol Ring only two types fit three cards
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Grizzly Bears"], ids["Frogmite"], ids["Sol Ring"]])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Grizzly Bears"], ids["Frogmite"]])  # creature + artifact: fine
+    settle(s)
+    assert now(s, named(s, "Frogmite")).zone == "p1:hand" and now(s, named(s, "Sol Ring")).zone == "p1:graveyard"
     check(s)
