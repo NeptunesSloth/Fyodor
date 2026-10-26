@@ -1,4 +1,4 @@
-"""Fresh-process Spinneret staging; only exact leaf callbacks are registered."""
+"""Spinneret and Spiderling in a fresh process (its definition comes from scripts.define alone)."""
 import json
 import subprocess
 import sys
@@ -6,12 +6,11 @@ from pathlib import Path
 
 from app.game.session import GameSession
 from app.game.state import GameState
+from app.rules import scripts
 from tests import test_rules_spinneret_damage49 as gameplay
 from tests.test_rules_designations import put, roundtrip
 
-pytestmark=gameplay.pytestmark
 cards=gameplay.cards
-staged=gameplay.staged
 
 
 def fresh(s,cards,path,actor,payload):
@@ -24,10 +23,6 @@ from app.cards.repository import CardRepository
 from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import scripts,effects,engine
-from app.rules import exile_damage_choices49 as leaf
-native=scripts.define
-scripts.define=lambda ability,ch:leaf.definition(ability,ch) or native(ability,ch)
-scripts._cached.cache_clear()
 path=Path(sys.argv[1])
 repo=CardRepository(Path(sys.argv[2]),ImageStore(path.parent/'images'))
 s=GameSession(GameState.model_validate_json(path.read_text()),cards=repo)
@@ -38,7 +33,7 @@ path.write_text(s.state.model_dump_json())
 repo.close()
 '''
     result=subprocess.run([sys.executable,'-c',code,str(path),str(cards.db_path),actor,json.dumps(payload)],
-        cwd=Path(gameplay.scripts.__file__).resolve().parents[2],capture_output=True,text=True,timeout=60)
+        cwd=Path(scripts.__file__).resolve().parents[2],capture_output=True,text=True,timeout=60)
     assert result.returncode==0,result.stdout+result.stderr
     return GameSession(GameState.model_validate_json(path.read_text()),cards=cards)
 

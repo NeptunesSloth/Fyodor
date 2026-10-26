@@ -114,6 +114,12 @@ def parse(text: str) -> dict[str, Any] | None:
     if text == "Each planeswalker with one or more loyalty counters on it loses all abilities and is a creature with power and toughness each equal to the number of loyalty counters on it.":
         # -- (wave 110J) -- Spark Rupture: 205.1a it is only a creature now (set, not added), 613.6 it keeps the effect though it stops being a planeswalker, 613.4b
         return _definition("Each planeswalker with one or more loyalty counters on it", {"set_types": ["Creature"]}, lose_all=True, base_counters110j="loyalty")
+    if text == ("Each noncreature artifact loses all abilities and becomes an artifact creature with power and toughness each equal to its mana value. "
+                "If ~ leaves the battlefield, this effect continues until end of turn."):
+        # -- last cards (wave 110J) -- Titania's Song: on the battlefield a static ability (611.3a: new artifacts are affected too); layer 4 type
+        # (205.1b keeps its other types), layer 6 loses all abilities, layer 7b P/T = mana value, kept for the set it began on (613.6). Its
+        # leaving is app/rules/wave110j_song.py.
+        return _definition("Each noncreature artifact", {"add_types": ["Artifact", "Creature"]}, lose_all=True, base_mv=True, song110j=True)
     if (m := _EACH_LAND.fullmatch(text)) is not None:
         return _definition("lands", {"add_subtypes": [m["t"]]})
     if (m := _EVERY_BASIC.fullmatch(text)) is not None:

@@ -35,3 +35,16 @@ def matches(cond: dict[str, Any], fact: Any) -> bool:
         return False
     total = fact[4].get('simultaneous_amount')
     return total is not None and int(total) >= int(minimum)
+
+
+def source_amounts(events: list[Any]) -> dict[tuple[int, str], int]:
+    """-- last cards (wave 110J) -- "Whenever ~ deals 4 or more damage" (Spinneret and Spiderling): all the damage one source deals
+    simultaneously, to any number of recipients, is one event (603.2c, 510.2, 120.2), so it is summed whoever was dealt it (lead decision;
+    the Vampiric Link ruling of 2008-04-01 counts damage regardless of the recipient). First-strike and regular combat damage are two
+    damage steps (510.4), so two batches; prevented damage is not dealt (615.1) and has no damage event."""
+    totals: dict[tuple[int, str], int] = {}
+    for event in events:
+        if event.kind == 'damage' and not event.manual and event.source:
+            key = (event.batch, event.source)
+            totals[key] = totals.get(key, 0) + max(0, event.amount)
+    return totals

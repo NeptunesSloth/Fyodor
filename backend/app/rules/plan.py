@@ -160,6 +160,10 @@ class Plan:
         action = A.parse_action(payload)
         resolved = resolve(self.state, action, actor=actor or self.actor, cards=self.info, rng=self.rng, trusted=True, shuffle_retained=self.shuffle_retained)
         leaving = self._battlefield_lki(payload)
+        # -- last cards (wave 110J) -- Titania's Song: the set its effect continues for
+        from app.rules import wave110j_song
+
+        songs110j = wave110j_song.before(self, payload) if payload.get("type") == "move" else []
         before = capture(self.state) if resolved.type != "renumber" else None
         if before is not None:  # (the turn log: what a permanent was as it left, layers applied)
             before.types = self._battlefield_types(payload)
@@ -195,6 +199,8 @@ class Plan:
                 if frozen.object_id in self.rules.lki:
                     self.rules.lki[frozen.object_id] = frozen.model_copy(deep=True, update={'turn': self.state.turn.number})
                 leaving.pop(frozen.object_id, None)
+        if songs110j:
+            wave110j_song.after(self, songs110j)
         if world_before80 is not None:
             world_durations80.after(self, world_before80)
         if self.rules.madness_declined:

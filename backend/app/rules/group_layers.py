@@ -22,7 +22,7 @@ cards that aren't on the battlefield and on spells, 611.3: the cards and spells 
   once solved. 613.1f: a permanent that lost all abilities in layer 6 has none of its static abilities (an effect that began earlier
   keeps applying, 613.6).
 Not modelled: dependencies between per-object effects (resolved spells, Auras) and these statics beyond timestamp order (613.7); a
-characteristic-defining ability's dependency rule (613.8a (c)); the leaves-the-battlefield duration of Titania's Song.
+characteristic-defining ability's dependency rule (613.8a (c)). (Titania's Song's leaves-the-battlefield duration: wave110j_song.py.)
 """
 
 from __future__ import annotations

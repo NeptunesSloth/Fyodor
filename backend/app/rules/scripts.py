@@ -6530,6 +6530,11 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (threshold70 := trigger_damage_threshold70.definition(ability, ch)) is not None:
         return threshold70
+    # -- last cards (wave 110J) -- Spinneret and Spiderling: one damage event's total (603.2c)
+    from app.rules import exile_damage_choices49
+
+    if (spinneret110j := exile_damage_choices49.definition(ability, ch)) is not None:
+        return spinneret110j
     from app.rules import combat_teyo66
 
     if (direction66 := combat_teyo66.definition(ability, ch)) is not None:

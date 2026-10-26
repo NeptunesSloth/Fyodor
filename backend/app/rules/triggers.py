@@ -1715,6 +1715,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
 
                 if not trigger_damage_threshold70.matches(cond, fact):
                     continue
+            if cond.get('source_damage_min') and int(fact[4].get('source_total110j') or 0) < cond['source_damage_min']:
+                continue  # -- last cards (wave 110J) -- "~ deals 4 or more damage": the source's total in this damage event (603.2c)
             nth = cond.get("nth") if cond["event"] == "draw" else None
             if nth and plan.rules.draws_this_turn.get(fact[3] or "", 0) != nth:
                 continue
@@ -1836,6 +1838,7 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
 
     first_batches78: dict[str, tuple[int, bool | None]] = {}
     simultaneous_damage = trigger_damage_threshold70.amounts(events)
+    source_damage_totals = trigger_damage_threshold70.source_amounts(events)  # (wave 110J: Spinneret and Spiderling)
     if r.draws_turn != plan.state.turn.number:
         r.draws_turn, r.draws_this_turn = plan.state.turn.number, {}
     fired: Fired = {}
@@ -1931,6 +1934,8 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
         for fact in facts:
             if fact[0] == 'dealt_damage' and fact[4].get('oid'):
                 fact[4]['simultaneous_amount'] = simultaneous_damage.get((e.batch, fact[4]['oid']), 0)
+            if fact[0] == 'deal_damage' and fact[4].get('oid'):
+                fact[4]['source_total110j'] = source_damage_totals.get((e.batch, fact[4]['oid']), 0)
         for f in facts:
             if f[0] in ("discard", "dealt_damage", "deal_combat_damage_player", "counters_put"):
                 f[4]["batch"] = e.batch  # -- trigger other (wave 36A) -- the event batch, for "for the first time each turn" (_first_discard; wave 39B: _first_of)
