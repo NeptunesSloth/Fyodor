@@ -233,6 +233,33 @@ _BUILD["At the beginning of your end step, each opponent faces a villainous choi
     lambda d: d)
 
 
+_VISLOR = ("Deal with the Black Guardian \u2014 When Vislor Turlough enters, you may have an opponent gain control of it. If you do, it's goaded for as long as they control it.")
+
+
+def _vislor(d: Def) -> Def:
+    return {**d, "optional": True, "effects": [{**d["effects"][0], "say110n": "have an opponent gain control of it"}, *d["effects"][1:], {"do": "vislor110n"}]}
+
+
+def vislor(plan: Any, ctx: Any, e: Def) -> bool:
+    """701.15a: goaded by the player who controlled the ability (the old controller), not by the opponent who got it; 611.2b the designation lasts only as long as
+    that opponent controls this very permanent (the "source_controlled" duration: the effect's source is the permanent, its player the opponent)."""
+    from app.rules import delayed, layers
+
+    card = plan.state.cards.get(ctx.get("source_card", ""))
+    if card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != ctx.get("source_object") or card.controller == ctx["controller"]:
+        return True  # nobody gained control of it: "if you do" is not met
+    effect = layers.add_effect(plan, affected=[plan.oid(card)], layer="6", source=ctx["source_object"], controller=ctx["controller"],
+                               imposes=("goaded:" + ctx["controller"],), label=f"goaded by {plan.name(ctx['controller'])}")
+    effect.duration, effect.until_player, effect.turn, effect.source_card = "source_controlled", card.controller, plan.state.turn.number, card.id
+    effect.markers = delayed.marker_ids(plan.do({"type": "add_effect", "card_ids": [card.id], "name": f"Goaded by {plan.name(ctx['controller'])}"[:60],
+                                                  "value": "Goaded", "text": "for as long as they control it"}))
+    plan.note(f"{plan.name(ctx['controller'])} goads {card.name}", [card.id], actor=ctx["controller"])
+    return True
+
+
+_BUILD[_VISLOR] = ("When this creature enters, an opponent gains control of it.", _vislor)
+
+
 def _thief(d: Def) -> Def:
     """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
     from app.rules import scripts
@@ -572,6 +599,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {"vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}

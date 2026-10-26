@@ -97,5 +97,26 @@
    "U"
   ],
   "keywords": []
+ },
+ {
+  "name": "Vislor Turlough",
+  "layout": "normal",
+  "mana_cost": "{3}{B}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Rogue",
+  "oracle_text": "Deal with the Black Guardian — When Vislor Turlough enters, you may have an opponent gain control of it. If you do, it's goaded for as long as they control it.\nAt the beginning of your end step, draw a card, then you lose life equal to the number of cards in your hand.\nDoctor's companion (You can have two commanders if the other is the Doctor.)",
+  "power": "2",
+  "toughness": "5",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Deal with the Black Guardian",
+   "Goad",
+   "Doctor's companion"
+  ]
  }
 ]
