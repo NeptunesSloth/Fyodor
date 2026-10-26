@@ -3270,6 +3270,8 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     looked at), "put those cards into your hand" (``which``: "all"), "put all land cards revealed
     this way into your hand" (a selector with no choice: every match)."""
     pid = ctx["controller"]
+    if isinstance(e.get("total_mv"), dict):  # -- total mana value from a value (wave 110I) -- Smelting Vat: read once, when the choice opens (608.2d)
+        e = {**e, "total_mv": values.evaluate(plan, ctx, e["total_mv"])}
     if e.get("public_mill59"):
         from app.rules import public_mill_attachment59
 
@@ -7116,6 +7118,7 @@ RESUME.update(_wave110h.RESUME)
 from app.rules import wave110i_cards as _wave110i_cards  # noqa: E402, I001  -- cards (wave 110I) --
 
 PRIMITIVES.update(_wave110i_cards.PRIMITIVES)
+RESUME.update(_wave110i_cards.RESUME)
 from app.rules import wave110c_any as _wave110c_any  # noqa: E402, I001
 PRIMITIVES.update(_wave110c_any.PRIMITIVES)  # -- any opponent may (wave 110C) --
 from app.rules import wave110e_opp as _wave110e_opp  # noqa: E402, I001  -- wave 110E --

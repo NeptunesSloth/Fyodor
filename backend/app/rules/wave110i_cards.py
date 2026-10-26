@@ -121,7 +121,21 @@ def _goad_while_saga(d: Def) -> Def:
 _POWER_LEAK = "At the beginning of the upkeep of enchanted {0}'s controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way."
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
+def _fasting(d: Def) -> Def:
+    """Fasting: 614.10a an optional skip of the draw step; the player is asked as the step would begin (``ask_skip``)."""
+    return {**d, "static": "skip_may110i", "life": 2}
+
+
+def _total_sacrificed(d: Def) -> Def:
+    """Smelting Vat: "total mana value less than or equal to the sacrificed artifact's mana value" caps the picked cards (608.2d), read from the cost."""
+    return {**d, "effects": [{**x, "total_mv": {"mana_value": "cost:sacrificed"}} if x.get("do") == "pick_looked" else x for x in d["effects"]]}
+
+
+_VAT = ("{1}, {T}, Sacrifice another artifact: Reveal the top eight cards of your library. Put up to two noncreature artifact cards with total mana value "
+        "less than or equal to the sacrificed artifact's mana value from among them onto the battlefield and the rest on the bottom of your library in a random order.")
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    _VAT: (_VAT.replace(" with total mana value less than or equal to the sacrificed artifact's mana value", ""), _total_sacrificed),
+    "If you would begin your draw step, you may skip that step instead. If you do, you gain 2 life.": ("Skip your draw step.", _fasting),
     "When this creature enters, you may pay {2}{R} any number of times. When you pay this cost one or more times, put that many +1/+1 counters on this creature, "
     "then exile up to that many target instant and/or sorcery cards with mana value 3 or less from your graveyard and copy them. "
     "You may cast any number of the copies without paying their mana costs.":
@@ -280,6 +294,44 @@ def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+
+
+def ask_skip(plan: Plan, done: list[str]) -> bool:
+    """Fasting: ask the active player whether the draw step they would begin is skipped (614.10a, 614.1); True while the question waits."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import scripts, skips
+    from app.rules.plan import decide
+
+    if skips._static(plan, plan.active, "draw") is not None:
+        return False  # a mandatory skip replaces the step first
+    for c in plan.state.cards.values():
+        if c.id in done or c.controller != plan.active or not c.zone.endswith(":battlefield") or c.face_down:
+            continue
+        if any(d.get("static") == "skip_may110i" for d in scripts.definitions(plan.ch(c)).values()):
+            decide(plan, player=plan.active, kind="choose_one", prompt=f"{c.name}: skip your draw step instead (you gain 2 life)?",
+                   options=[DecisionOption(id="yes", label="Skip the draw step"), DecisionOption(id="no", label="Draw as usual")],
+                   resume={"step": "skip_may110i", "src": c.id, "done": done})
+            return True
+    return False
+
+
+def resume_skip(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects, engine, replace
+
+    r = d.resume
+    done = [*r["done"], r["src"]]
+    if chosen == ["yes"]:
+        plan.rules.skips.append({"player": plan.active, "what": "draw", "label": plan.state.cards[r["src"]].name or "an effect", "turn": plan.state.turn.number})
+        replace.gain_life(plan, [(plan.active, 2)], actor=plan.active)
+    elif ask_skip(plan, done):
+        return
+    if effects.skips.skip_steps(plan, ask=False):
+        return
+    engine._mark_step(plan)
+    engine.on_step_start(plan)
+
+
+RESUME = {"skip_may110i": resume_skip}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:

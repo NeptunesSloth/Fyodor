@@ -892,7 +892,7 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         r.declaration_cost_reserved = DeclarationCostReservation(payer=plan.actor, objects={cid: oid for event in additional for cid, oid in event.objects.items()})
     frame = PaidBlockers(expanded, {cid: plan.oid(plan.state.cards[cid]) for cid in used},
                          {cid: plan.oid(plan.state.cards[cid]) for cid in effective_counts})
-    cost = M.parse_cost(combat_rules.block_cost(plan, set(used)))
+    cost = M.parse_cost(combat_rules.block_cost(plan, set(used), expanded))
     if not cost.is_free:
         from app.rules import casting
 

@@ -599,7 +599,8 @@ def next_step(plan: Plan) -> None:
         plan.do({"type": "phase", "to": "end_combat", "force": True}, actor=plan.active)
     else:
         plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
-    effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped step or combat phase
+    if effects.skips.skip_steps(plan):  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped step or combat phase (wave 110I: waits for Fasting's choice)
+        return
     if plan.state.turn.phase == "untap" and r.extra_beginning:
         _mark_step(plan)
         extra_untap_step(plan)
@@ -755,7 +756,8 @@ def finish_turn_start(plan: Plan, stunned: list[str], previous: tuple[str, int],
         effects._untap_riders.other_untap_step(plan)
     # The untap step has no priority: straight on to upkeep.
     plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
-    effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step
+    if effects.skips.skip_steps(plan):  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step
+        return
     _mark_step(plan)
     on_step_start(plan)
 
