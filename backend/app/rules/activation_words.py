@@ -27,6 +27,7 @@ ANY_PLAYER = "Any player may activate this ability."
 OPPONENTS_ONLY = "Only your opponents may activate this ability."
 # -- defending player (wave 110D) -- Capricopian, 602.2: only the player the creature attacks may activate (restrictions.problem checks who)
 DEFENDER = "Only the player this creature is attacking may activate this ability and only during the declare attackers step."
+HOST_CONTROLLER = "Only the controller of the enchanted creature may activate this ability."  # -- wave 110I -- Merseine (602.2): casting._activator_of, restrictions kind host110i
 DEFENDERS = (DEFENDER, DEFENDER.replace("this creature", "~"))  # (the card's own name or "this creature" reads as ~ in a definition)
 # -- activated sweep (wave 17B) -- "Any player may activate this ability but only as a sorcery / during their draw step." (Scandalmonger,
 # Well of Knowledge): the restriction is about the player who activates it (602.5)

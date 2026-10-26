@@ -96,9 +96,10 @@ CRAFT = "CRAFT"
 UNATTACH = "UNATTACH"
 HAND_TO_TOP = 'HAND_TO_TOP'
 EXILE_TOP_OWN_GY = 'EXILE_TOP_OWN_GY'
+HOST_MANA = "HOST_MANA110I"  # -- wave 110I -- "Pay enchanted creature's mana cost" (Merseine): casting.ability_cost swaps it for the host's mana cost; unresolved it can never be paid
 LIBRARY_BOTTOM_SELF = "LIBRARY_BOTTOM_SELF"  # -- activated (wave 100I) -- the source onto the bottom of its owner's library
 WAVE_4H_KINDS = frozenset({EXILE_TOP_OWN_GY, HAND_TO_TOP, PUT_COUNTER, DISCARD_HAND, MILL, EXILE_LIBRARY, EXERT, COLLECT_EVIDENCE, FORAGE, WATERBEND, CRAFT, UNATTACH, REVEAL_SECRET, REVEAL_HAND,
-                           LIBRARY_BOTTOM_SELF})
+                           LIBRARY_BOTTOM_SELF, HOST_MANA})
 ANY_COUNTER = "*"
 OPPONENT_GAIN_LIFE = "OPPONENT_GAIN_LIFE"
 
@@ -298,6 +299,8 @@ def _component(part: str, card_name: str) -> CostComponent | None:
 
     if (own110d := wave110d_costs.component(part, card_name)) is not None:
         return own110d
+    if part == "Pay enchanted creature's mana cost":  # -- costs (wave 110I) -- Merseine
+        return CostComponent(HOST_MANA, text=part)
     if part == "Put three cards from your graveyard on the bottom of your library":  # -- costs (wave 110I) -- 401.4: the payer orders them
         return CostComponent(EXILE_FROM_GRAVEYARD, amount=3, to_bottom110i=True, text=part,
                              selector=selectors.Selector(card=True, zones=("graveyard",), zone_owner="you").key())

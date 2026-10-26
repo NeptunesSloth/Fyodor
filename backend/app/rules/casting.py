@@ -5740,7 +5740,7 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         activate_to_stack(plan, card, ch, ab, a)
         return
     if not card.zone.endswith(":battlefield") or not (
-            actor_allowed(ab, ability_cost(ch, ab, state=plan.state, card=card, info=plan.info), card.controller, plan.actor, owner=card.owner)
+            actor_allowed(ab, ability_cost(ch, ab, state=plan.state, card=card, info=plan.info), _activator_of(plan.state, card, ab), plan.actor, owner=card.owner)
             if ab is not None else card.controller == plan.actor):
         if ab is not None and opponents_only(ab) and card.controller == plan.actor:
             raise ActionError("Only your opponents may activate this ability")
@@ -5995,6 +5995,14 @@ def _free_power_up(state: GameState | None, card: CardInstance | None, ability: 
     return cast_limits.first_alt(state, who, "power_up", info, first=state.rules.once_per_turn.get(f"activated:{who}:power_up") != state.turn.number)
 
 
+def _activator_of(state: GameState, card: CardInstance, ability: AbilityText) -> str:
+    """The player whose "you" may activate the ability: its permanent's controller, or -- wave 110I, Merseine (602.2) -- "Only the controller of the enchanted creature may activate this
+    ability." that creature's controller."""
+    if ability.text.endswith("Only the controller of the enchanted creature may activate this ability.") and (host := state.cards.get(card.attached_to or "")) is not None:
+        return host.controller
+    return card.controller
+
+
 def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState | None = None,
                  card: CardInstance | None = None, info: CardInfo | None = None, target: str | None = None,
                  targets: tuple[str, ...] | None = None, actor: str | None = None) -> AbilityCost:
@@ -6008,6 +6016,13 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
         return AbilityCost(either=tuple(ability_cost(ch, activation_alternatives.with_cost(ability, side),
                            state=state, card=card, info=info, target=target, targets=targets, actor=actor) for side in sides))
     cost = parse_ability_cost("" if free_power_up else ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
+    if state is not None and card is not None and info is not None and any(c.kind == costs.HOST_MANA for c in cost.components):  # -- costs (wave 110I) -- Merseine, 202.1: the mana cost of the enchanted creature (an {X} is 0, 107.3)
+        host = state.cards.get(card.attached_to or "")
+        if host is not None:
+            from app.rules.characteristics import of as _chars_of
+
+            symbols = re.sub(r"\{X\}", "", _chars_of(host, info).mana_cost or "")
+            cost = replace(cost, components=tuple(c for c in cost.components if c.kind != costs.HOST_MANA), mana=symbols)
     if state is not None and card is not None and any(c.amount_rule == "opponents" for c in cost.components):
         from app.rules.plan import live_players
 
@@ -6152,7 +6167,7 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
             return why
     elif not (card.zone.endswith(":battlefield") or (card.zone.endswith(":command") and card.token is not None and card.token.type_line == "Emblem")
               or (card.zone == "stack" and ability.text.endswith("is on the stack."))) \
-            or not actor_allowed(ability, cost, card.controller, player, owner=card.owner):  # (wave 7B; wave 110A: an emblem, 114.4)
+            or not actor_allowed(ability, cost, _activator_of(state, card, ability), player, owner=card.owner):  # (wave 7B; wave 110A: an emblem, 114.4)
         if opponents_only(ability) and card.controller == player:
             return "Only your opponents may activate this ability"
         return "You can only activate abilities of permanents you control"

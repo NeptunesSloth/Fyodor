@@ -407,6 +407,8 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
     for kind, n in cost.remove_counters:
         if n and (why := prohibitions.cant_remove_counters(plan, card.id, kind)):
             return f"{why}: {kind} counters can't be removed from {name}"
+    if any(c.kind == C.HOST_MANA for c in cost.components):  # -- costs (wave 110I) -- Merseine: casting.ability_cost fills it in; unresolved, it is unpayable (never free)
+        return f"{name}: the enchanted creature's mana cost isn't known here"
     for comp in cost.components:
         from app.rules import counter_x_costs43
 

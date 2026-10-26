@@ -11,6 +11,8 @@
   makes you sacrifice that many nontoken permanents, and you lose the game when you can't (rulings 2004-10-04, 2010-08-15).
 * Saruman of Many Colors: ward "Discard an enchantment, instant, or sorcery card" is one cost (702.21a); the second spell each turn mills each opponent two, and only if a card was milled (603.12 reflexive
   trigger) exiles an enchantment, instant or sorcery card with mana value up to that spell's from an opponent's graveyard; its copy may be cast free (707.12, 608.2g, ruling 2023-06-16).
+* Merseine: "Pay enchanted creature's mana cost" is the enchanted creature's own mana cost, colored symbols included (ruling 2004-10-04; 202.1), activatable only by that creature's controller (602.2),
+  at instant speed, as often as they can pay (a net counter each time).
 """
 from __future__ import annotations
 
@@ -417,3 +419,61 @@ def test_saruman_nothing_milled_no_reflexive_trigger(cards):
     _drive(s, lambda d: [d.options[0].id])
     assert card_named(s, "Test Bolt", "p2").zone == "p2:graveyard"
     check(s)
+
+
+MERSEINE = real("Merseine", "{2}{U}{U}", 4, "Enchantment — Aura",
+                "Enchant creature\nThis Aura enters with three net counters on it.\nEnchanted creature doesn't untap during its controller's untap step if this Aura has a net counter on it.\n"
+                "Pay enchanted creature's mana cost: Remove a net counter from this Aura. Only the controller of the enchanted creature may activate this ability.", None, "U")
+base.EXTRA.append(MERSEINE)
+
+
+def test_merseine_full(cards):
+    assert coverage.of_card_data(cards.resolve("Merseine")).level == "FULL"
+
+
+def _merseine(cards):
+    s = build(cards, ["Merseine", "Test Bolt"], ["Test Giant"])
+    giant = to_hand(s, "Test Giant", "p2")
+    act(s, "p2", type="move", card_ids=[giant.id], to={"player": "p2", "zone": "battlefield"})
+    mana(s, U=2, C=2)
+    cast_card(s, "Merseine", [giant.id])
+    answer(s)
+    return s, giant
+
+
+def _bob_priority(s):
+    """Alice puts a Test Bolt on the stack and passes: Bob has priority with the stack not empty."""
+    act(s, "p2", type="set_prefs", full_control=True)  # Bob is stopped at every priority
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Bolt").id, targets=["p1"])
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    assert s.state.rules.priority == "p2"
+
+
+def _nets(s):
+    return card_named(s, "Merseine").counters.get("net", 0)
+
+
+def test_merseine_the_creatures_controller_pays_its_mana_cost_for_each_net_counter(cards):
+    s, giant = _merseine(cards)
+    assert _nets(s) == 3 and s.state.cards[card_named(s, "Merseine").id].attached_to == giant.id
+    _bob_priority(s)
+    ab = next(a.index for a in __import__("app.rules.plan", fromlist=["Plan"]).Plan(s.state, "p2", s.cards, None).ch(card_named(s, "Merseine")).abilities if a.kind == "activated")
+    mana(s, "p2", G=1, C=3)  # {4}{G}: one generic short
+    with pytest.raises(ActionError):
+        act(s, "p2", type="activate_ability", card_id=card_named(s, "Merseine").id, ability=ab)
+    mana(s, "p2", C=1)
+    act(s, "p2", type="activate_ability", card_id=card_named(s, "Merseine").id, ability=ab)
+    answer(s)
+    assert _nets(s) == 2
+    check(s)
+
+
+def test_merseine_its_own_controller_may_not_activate_it(cards):
+    s, giant = _merseine(cards)
+    mana(s, G=1, C=4)
+    ab = next(a.index for a in __import__("app.rules.plan", fromlist=["Plan"]).Plan(s.state, "p1", s.cards, None).ch(card_named(s, "Merseine")).abilities if a.kind == "activated")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=card_named(s, "Merseine").id, ability=ab)
+    assert _nets(s) == 3
