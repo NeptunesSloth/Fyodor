@@ -41,6 +41,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {"kind": "static", "static": flag, "effects": []}
     if ability.text.strip() == _BANE:
         return _bane(ability, ch)
+    if ability.text.strip() == _SPIRIT:
+        return _spirit(ability, ch)
     if ability.text.strip() == _SWARM:
         return _swarm(ability, ch)
     if ability.text.strip() == _ERIETTE:
@@ -253,6 +255,65 @@ def swarm_post(plan: Any, ctx: Any, e: Def) -> bool:
     return True
 
 
+_SPIRIT = ("At the beginning of your end step, choose target permanent card in your graveyard. You may sacrifice a permanent that shares a card type with the "
+           "chosen card. If you do, return the chosen card from your graveyard to the battlefield and it gains \"If this permanent would leave the battlefield, "
+           "exile it instead of putting it anywhere else.\"")
+_SPIRIT_NATIVE = ("At the beginning of your end step, you may sacrifice a creature. If you do, return target permanent card from your graveyard to the battlefield. "
+                  "It gains \"If this permanent would leave the battlefield, exile it instead of putting it anywhere else.\"")
+
+
+def _spirit(ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts
+
+    native = scripts.define(replace(ability, text=_SPIRIT_NATIVE), ch)
+    if native is None or native["effects"][0].get("do") != "optional_payment":
+        return None
+    return {**native, "effects": [{"do": "spirit110n", "bind": native["effects"][0]["bind"]}, *native["effects"][1:]]}
+
+
+def _spirit_options(plan: Any, ctx: Any) -> list[str]:
+    """The permanents the controller may sacrifice: they share a card type (205.2a) with the chosen card, as it is in the graveyard."""
+    from app.rules import effects
+    from app.rules.values import CARD_TYPES
+
+    chosen = effects._cards(plan, ctx, "target")
+    if len(chosen) != 1 or not plan.state.cards[chosen[0]].zone.endswith(":graveyard"):
+        return []
+    kinds = {"Kindred" if t == "Tribal" else t for t in plan.ch(plan.state.cards[chosen[0]]).types if t in CARD_TYPES}
+    return [c.id for c in plan.state.cards.values() if c.zone == f"{ctx['controller']}:battlefield" and plan.in_game(c)
+            and kinds & {"Kindred" if t == "Tribal" else t for t in plan.ch(c).types if t in CARD_TYPES}]
+
+
+def spirit(plan: Any, ctx: Any, e: Def) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+
+    options = _spirit_options(plan, ctx)
+    if not options:
+        context.bind_payment(ctx, e["bind"], False)  # 608.2c: no permanent to sacrifice, so "if you do" is not met
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: you may sacrifice a permanent that shares a card type with the chosen card",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in options], min_choices=0, max_choices=1,
+           resume={"step": "spirit110n", "ctx": ctx, "e": e})
+    return False
+
+
+def resume_spirit(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import context, effects
+
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if chosen and chosen[0] not in _spirit_options(plan, ctx):
+        raise ActionError("Choose a permanent that shares a card type with the chosen card")
+    done = False
+    if chosen:
+        effects._sacrifice_cards(plan, chosen[:1], ctx["controller"], ctx)
+        done = not plan.state.cards[chosen[0]].zone.endswith(":battlefield")
+    context.bind_payment(ctx, e["bind"], done)
+    effects.continue_effects(plan, ctx)
+
+
 def _willow(d: Def) -> Def:
     return {**d, "effects": [{"do": "willow110n", "who": "target"}]}
 
@@ -311,6 +372,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
-RESUME: dict[str, Any] = {}
+RESUME: dict[str, Any] = {"spirit110n": resume_spirit}
