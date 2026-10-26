@@ -48,7 +48,7 @@ def _selector(m: re.Match[str]) -> str:
     from app.rules import selectors
     from app.rules.scripts import _NoMatch
 
-    words = (m["s1"] or m["s2"] or "").replace(" and ", " or ")
+    words = (m.groupdict().get("s1") or m["s2"] or "").replace(" and ", " or ")
     sel = selectors.parse(f"{words} card in your graveyard")
     if sel is None or sel.zones != ("graveyard",) or not sel.card:
         raise _NoMatch
@@ -79,6 +79,20 @@ def _jump_start(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "grant_flashback", "who": "target", "cost": "none", "keyword": "jump_start"}], sel
 
 
+_ESCAPE = re.compile(r"^until end of turn, (?P<who>each (?P<s2>[a-z ]+?) card in your graveyard) gains \"escape—(?P<mana>(?:\{[^}]+\})+), "
+                     r"exile (?P<n>[a-z]+) other cards from your graveyard\.?\"$", re.IGNORECASE)  # -- (wave 110O) -- 702.138a (The Grim Captain's Locker)
+
+
+def _escape(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules.escape import _WORDS
+    from app.rules.scripts import _NoMatch
+
+    n = _WORDS.get(m["n"].lower())
+    if n is None:
+        raise _NoMatch
+    return [{"do": "grant_flashback", "who": _selector(m), "cost": f"{m['mana']}|{n}", "keyword": "escape110o"}], None
+
+
 def _play(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     sel = _selector(m)
     target = m["s1"] is not None
@@ -89,6 +103,7 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
     (re.compile("^" + _FLASHBACK.pattern + "$"), _flashback),
     (_HARMONIZE, _harmonize),
     (_JUMP_START, _jump_start),  # -- (wave 110O) --
+    (_ESCAPE, _escape),
     (re.compile("^" + _PLAY.pattern + "$", re.IGNORECASE), _play),
 ]
 

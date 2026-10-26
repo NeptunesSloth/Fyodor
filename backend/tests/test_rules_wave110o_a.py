@@ -5,6 +5,7 @@
 * 119.7-8, 616.1: Reverse the Sands lets its caster hand the chosen players' life totals out again, one each (an exchange; a player who can't
   gain or lose life can't get a higher or lower one).
 * 702.133a, 611.2a: Filigree Racer, paying {E}{E} as it attacks, gives an instant or sorcery card in the graveyard jump-start for the turn.
+* 702.138a, 611.2a, 611.2c: The Grim Captain's Locker gives each creature card in the graveyard (as it resolves) "Escape—{3}{B}, Exile four other cards" for the turn.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -40,10 +41,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -325,4 +326,56 @@ def test_filigree_racer_jump_start_ends_with_the_turn(cards):
     mana(s, "p1", R=1)
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    check(s)
+
+
+def locker(s, fillers=4):
+    lock = put(s, LOCKER)
+    bears, bolt = grave_new(s, "Grizzly Bears"), grave_new(s, "Lightning Bolt")
+    for _ in range(fillers):
+        grave_new(s, "Forest")
+    return lock, bears, bolt
+
+
+def escape_bears(s, bears):
+    mana(s, "p1", C=3, B=1)
+    act(s, "p1", type="cast_spell", card_id=bears.id)
+    settle(s)
+
+
+def test_grim_captains_locker_creature_cards_escape_by_exiling_four_others(cards):
+    s = build(cards, [LOCKER, "Grizzly Bears", "Lightning Bolt"])
+    lock, bears, bolt = locker(s, 3)  # (the Bolt and three Forests: four other cards)
+    activate(s, lock, "{T}: Until end of turn")
+    escape_bears(s, bears)
+    assert now(s, bears).zone == "p1:battlefield" and sum(1 for c in s.state.cards.values() if c.zone == "p1:exile") == 4
+    assert s.state.rules.payments[s.state.rules.object_id(bears.id)].alternative == "escape"
+    check(s)
+
+
+def test_grim_captains_locker_escape_needs_four_other_cards(cards):
+    s = build(cards, [LOCKER, "Grizzly Bears", "Lightning Bolt"])
+    lock, bears, bolt = locker(s, 2)
+    activate(s, lock, "{T}: Until end of turn")
+    with pytest.raises(ActionError):
+        escape_bears(s, bears)
+    check(s)
+
+
+@pytest.mark.parametrize("what", ["noncreature", "later", "next turn", "no ability"])
+def test_grim_captains_locker_grants_only_to_the_creature_cards_there_then_and_this_turn(cards, what):
+    s = build(cards, [LOCKER, "Grizzly Bears", "Lightning Bolt", "Llanowar Elves"])
+    lock, bears, bolt = locker(s, 3)
+    if what != "no ability":
+        activate(s, lock, "{T}: Until end of turn")
+    target = bears
+    if what == "noncreature":
+        target = bolt
+    if what == "later":
+        target = grave_new(s, "Llanowar Elves")
+    if what == "next turn":
+        to_phase(s, "main1", turn=3)
+    mana(s, "p1", C=3, B=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=target.id, **({"targets": ["p2"]} if target is bolt else {}))
     check(s)
