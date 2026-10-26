@@ -961,3 +961,53 @@ def test_backdraft_does_nothing_when_no_sorcery_was_cast(cards):
     settle(s)
     assert life(s, "p1") == 40 and life(s, "p2") == 40
     check(s)
+
+
+# -- End-Blaze Epiphany --
+def test_end_blaze_epiphany_is_full():
+    assert full("End-Blaze Epiphany")
+
+
+def _epiphany(cards, victim, x):
+    s = build(cards, ["End-Blaze Epiphany"], [victim])
+    target = put_new(s, victim, "p2")
+    c = to_hand(s, "End-Blaze Epiphany")
+    mana(s, R=1, C=x)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[target.id], x_value=x)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        if not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s, target
+
+
+def _exiled(s):
+    return [c for c in s.state.cards.values() if c.zone == "p1:exile" and c.name != "End-Blaze Epiphany"]
+
+
+@pytest.mark.parametrize(("victim", "power"), [("Grizzly Bears", 2), ("Twisted Abomination", 5)])
+def test_end_blaze_epiphany_exiles_cards_equal_to_the_dead_creatures_power_and_lets_you_play_one(cards, victim, power):
+    s, target = _epiphany(cards, victim, 3)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and len(d.options) == power and len(_exiled(s)) == power  # (the cards are exiled face up)
+    pick = d.options[0]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[pick.id])
+    settle(s)
+    assert now(s, target).zone == "p2:graveyard"
+    card_id = pick.card_id or pick.id
+    other = next(c for c in _exiled(s) if c.id != card_id)
+    with pytest.raises(ActionError):  # only the chosen card may be played
+        act(s, "p1", type="play_land", card_id=other.id)
+    act(s, "p1", type="play_land", card_id=card_id)  # a Forest from the top: playable until the end of Alice's next turn
+    assert s.state.cards[card_id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_end_blaze_epiphany_does_nothing_more_when_the_creature_survives(cards):
+    s, target = _epiphany(cards, "Twisted Abomination", 1)
+    settle(s)
+    assert now(s, target).zone == "p2:battlefield" and not _exiled(s)
+    check(s)

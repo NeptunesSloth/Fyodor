@@ -359,6 +359,8 @@ _CRUEL = ("Choose target player and another target player. The first player cont
           "player controls the first player during the first player's next turn.")
 _BACKDRAFT = ("Choose a player who cast one or more sorcery spells this turn. ~ deals damage to that player equal to half the damage dealt by one of those sorcery "
               "spells this turn, rounded down.")
+_EPIPHANY = ("~ deals X damage to target creature. When that creature dies this turn, exile a number of cards from the top of your library equal to its power, "
+             "then choose a card exiled this way. Until the end of your next turn, you may play that card.")
 _ICE_EACH = "Destroy each land that is snow or could produce {C}."  # (overload, 702.96a: "target" read as "each")
 _SHIP = ("After the first combat phase this turn, there's an additional combat phase. At the beginning of that combat, untap all creatures that attacked "
          "this turn.")
@@ -377,6 +379,21 @@ def _ship(effects: list[Def]) -> list[Def] | None:
     if len(effects) != 1 or effects[0].get("do") != "untap":
         return None
     return [{"do": "extra_combat_after_first110k", "then": effects}]
+
+
+def _epiphany() -> Any:
+    """End-Blaze Epiphany: the delayed trigger (603.7c) exiles as many cards as the creature's power as it last existed (603.10a, 608.2h), its controller then chooses
+    one of the exiled cards (they are public, exiled face up) and may play it until the end of their next turn."""
+    from app.rules import scripts
+
+    head = scripts.parse_effects("~ deals X damage to target creature. When that creature dies this turn, exile the top X cards of your library, where X is its power.")
+    tail = scripts.parse_effects("Exile the top two cards of your library. Choose one of them. Until the end of your next turn, you may play that card.")
+    if head is None or tail is None or [e["do"] for e in head[0]] != ["damage", "delayed", "deferred:exile_top"] \
+            or [e["do"] for e in tail[0]] != ["exile_top", "choose_one_of", "grant_play"]:
+        return None
+    exile = {**head[0][2], "as": "e0"}
+    deferred = [exile, *({**e, "do": "deferred:" + e["do"]} for e in tail[0][1:])]
+    return [head[0][0], {**head[0][1], "n": len(deferred)}, *deferred], head[1], head[2]
 
 
 def _ends(effects: list[Def]) -> list[Def] | None:
@@ -412,6 +429,9 @@ def parse(body: str) -> Any:
     from app.rules import scripts
 
     body = body.strip()
+    if body.replace("End-Blaze Epiphany", "~") in (_EPIPHANY, _EPIPHANY.replace("a number of cards from the top of your library equal to its power",
+                                                                              "the top X cards of your library, where X is its power")):  # (as define reads it)
+        return _epiphany()
     if body.replace("Backdraft", "~") == _BACKDRAFT:
         return [{"do": "backdraft110k"}], None, False
     if body[:1].upper() + body[1:] == _CRUEL:  # two different target players (115.3: "another target player")
