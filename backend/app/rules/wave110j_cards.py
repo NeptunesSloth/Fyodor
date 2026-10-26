@@ -90,6 +90,16 @@ _BUILD["For each 1 damage that would be dealt to this creature, if it has a +1/+
 _BUILD["{4}, {T}: An opponent chooses target creature they control. Create a token that's a copy of that creature. That token gains haste until end of turn. Exile the token at the beginning of the next end step. Activate only as a sorcery."] = (
     "{4}, {T}: Create a token that's a copy of target creature. That token gains haste until end of turn. Exile the token at the beginning of the next end step. Activate only as a sorcery.",
     lambda d: {**d, "delegated_target": "opponent", "delegated_controls110d": True})  # Echo Chamber: the opponent announces the target among their own creatures (wave 110D, Preacher)
+def _keeper(d: Def) -> Def:
+    """Keeper of the Dead: the opponent is chosen as the ability is activated (601.2c) among those with at least two fewer creature cards in their graveyard."""
+    groups = d.get("targets") or []
+    if not groups or groups[0].get("what") != "opponent":
+        raise ValueError("Keeper of the Dead: unexpected native shape")
+    return {**d, "targets": [{**groups[0], "what": "opponent_as:gy2_110j"}, *groups[1:]]}
+
+
+_BUILD["{B}, {T}: Choose target opponent who has at least two fewer creature cards in their graveyard than you do as you activate this ability. Destroy target nonblack creature that player controls."] = (
+    "{B}, {T}: Choose target opponent. Destroy target nonblack creature that player controls.", _keeper)
 _BUILD["At the beginning of your upkeep, if Rasputin started the turn untapped, put a dream counter on it."] = (
     "At the beginning of your upkeep, put a dream counter on this creature.", lambda d: {**d, "if": {"w110j": "began_untapped"}})
 _BUILD["{T}: Target land becomes a Swamp until its controller's next untap step."] = (

@@ -173,6 +173,11 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
                 if plan.in_game(plan.state.cards[cid]) and not prohibitions.untargetable(plan, chooser, plan.state.cards[cid])]
     if selector.startswith("opponent_as:"):  # -- activated other (wave 21E) -- "target opponent who has more life than you do as you activate this ability" (601.2c)
         cond = selector.split(":", 1)[1]
+        if cond == "gy2_110j":  # -- cards (wave 110J) -- Keeper of the Dead: "at least two fewer creature cards in their graveyard than you do"
+            def _gy(p: str) -> int:
+                return sum(1 for c in plan.state.zones.get(f"{p}:graveyard", []) if plan.ch(plan.state.cards[c]).is_creature)
+
+            return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker) if _gy(p) <= _gy(chooser) - 2]
         margin = 2 if cond == "hand2" else 1
         return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker)
                 if _more(plan, cond, p) >= _more(plan, cond, chooser) + margin]

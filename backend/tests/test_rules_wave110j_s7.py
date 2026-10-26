@@ -16,6 +16,7 @@ from tests.wave110j_kit import (  # noqa: F401
     card_db,
     ch,
     check,
+    fresh,
     full,
     mana,
     now,
@@ -135,4 +136,33 @@ def test_echo_chamber_copies_the_creature_an_opponent_picks(cards):
     assert token.name == "Templar Knight" and "haste" in ch(s, token).keywords
     to_phase(s, "main1", turn=2)
     assert not any(c.token and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    check(s)
+
+
+def test_keeper_is_full():
+    assert full("Keeper of the Dead")
+
+
+@pytest.mark.parametrize(("mine", "theirs", "legal"), [(2, 0, True), (3, 1, True), (1, 0, False), (2, 1, False)])
+def test_keeper_needs_an_opponent_with_two_fewer_creature_cards_in_graveyard(cards, mine, theirs, legal):
+    """601.2c: the opponent is a target chosen as it is activated, with at least two fewer creature cards in their graveyard than you; then a nonblack creature they control dies."""
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Keeper of the Dead", *["Grizzly Bears"] * (mine + 1)], ["Grizzly Bears"] * (theirs + 1))
+    keeper = put_new(s, "Keeper of the Dead")
+    s.state.rules.controlled_since[keeper.id].turn = 0
+    for _ in range(mine):
+        act(s, "p1", type="move", card_ids=[fresh(s, "Grizzly Bears").id], to={"zone": "graveyard"})
+    for _ in range(theirs):
+        act(s, "p2", type="move", card_ids=[fresh(s, "Grizzly Bears", "p2").id], to={"zone": "graveyard"})
+    victim = put_new(s, "Grizzly Bears", "p2")
+    mana(s, B=1)
+    pay = {"type": "activate_ability", "card_id": keeper.id, "ability": ability(s, keeper, "{B}"), "targets": ["p2", victim.id], "target_counts": [1, 1]}
+    if not legal:
+        with pytest.raises(ActionError):
+            act(s, "p1", **pay)
+        return
+    act(s, "p1", **pay)
+    settle(s)
+    assert now(s, victim).zone == "p2:graveyard"
     check(s)
