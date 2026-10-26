@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -296,7 +297,7 @@ def test_any_color_phyrexian_internal_choice_does_not_widen_other_colored_costs(
     assert changed.colored == ('C',)
     assert changed.hybrid == (('2', 'W'),)
     assert changed.phyrexian == (mana.ANY_PHYREXIAN,)
-    assert mana.parse_cost(changed.text()) == changed
+    assert mana.parse_cost(changed.text()) == replace(changed, allocation=None)  # (allocation: the solver's hint, rebuilt by spend_as)
     assert not mana.parse_cost('{C/P}').phyrexian  # no new printed Phyrexian symbol family
 
 

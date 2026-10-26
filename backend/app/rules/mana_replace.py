@@ -107,6 +107,12 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(re.compile(r"^until end of turn
 
 def _statics(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any]]]:
     """(controller, definition) of every such static in play right now."""
+    from app.rules import read_pass
+
+    return read_pass.once(state, info, "mana_replace.statics", lambda: _scan_statics(state, info))  # (once per read-only pass)
+
+
+def _scan_statics(state: GameState, info: CardInfo) -> list[tuple[str, dict[str, Any]]]:
     from app.rules import characteristics as chars
     from app.rules import scripts
     from app.rules.copying import copy_index
