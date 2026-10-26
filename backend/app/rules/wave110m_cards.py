@@ -210,6 +210,47 @@ def hunted(plan: Any, ctx: Def, e: Def) -> bool:
     return True
 
 
+_MARCH = ("Choose a nonbasic land type. Each land you control of that type becomes a copy of target creature you control until end of turn and gains haste until end of turn.")
+
+
+def _march() -> Any:
+    from app.rules import scripts
+
+    found = scripts.parse_effects("Target creature you control gains haste until end of turn.")
+    return None if found is None else ([{"do": "march110m"}], found[1], found[2])
+
+
+def march(plan: Any, ctx: Def, e: Def) -> bool:
+    """March from Velis Vel: its controller names a nonbasic land type as it resolves (608.2d, public); the lands of that type they control then are fixed (611.2c) before they stop being
+    lands, and each becomes a copy of the target creature (707.2) with haste, until end of turn."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.layers import LAND_TYPES
+    from app.rules.plan import decide
+
+    if not effects._cards(plan, ctx, "target"):
+        return True  # (an illegal target as it resolves: 608.2b)
+    basics = {"Plains", "Island", "Swamp", "Mountain", "Forest", "Urza\u2019s"}  # (the curly spelling is the same type as Urza's)
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name', '')}: choose a nonbasic land type",
+           options=[DecisionOption(id=t, label=t) for t in sorted(LAND_TYPES - basics)], resume={"step": "march110m", "ctx": ctx})
+    return False
+
+
+def resume_march(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import copying, effects, selectors
+
+    ctx = d.resume["ctx"]
+    kind = chosen[0]
+    plan.note(f"{plan.name(d.player)} chooses {kind}", actor=d.player)
+    lands = [c.id for c in plan.state.cards.values() if c.zone == f"{ctx['controller']}:battlefield" and c.controller == ctx["controller"]
+             and "Land" in plan.ch(c).types and kind in plan.ch(c).subtypes]
+    if lands:
+        group = "union:" + "+".join(f"object:{plan.oid(c)}" for c in lands)
+        copying.become_copy(plan, ctx, {"do": "become_copy", "who": group, "with": "target", "duration": "end_of_turn"})
+        effects.PRIMITIVES["grant"](plan, ctx, {"do": "grant", "who": group, "keywords": ["haste"]})
+    effects.continue_effects(plan, ctx)
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -217,6 +258,8 @@ def parse(body: str) -> Any:
     """Spell bodies. Meddle: any spell may be targeted; whether it has one target and that target is a creature is judged as this resolves (115.7a, 608.2b)."""
     from app.rules import scripts
 
+    if body.strip() == _MARCH:
+        return _march()
     if body.strip() == _HUNTED:
         return _hunted()
     if body.strip() == _COVER_UP:
@@ -772,6 +815,6 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+RESUME: dict[str, Any] = {"march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

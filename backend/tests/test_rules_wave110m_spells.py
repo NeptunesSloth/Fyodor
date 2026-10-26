@@ -357,3 +357,29 @@ def test_teferi_minus_three_with_no_creature_tapped_does_nothing_more(cards):
     answer(s)
     assert all(zone_of(s, n, "p2") == "p2:battlefield" for n in ("Sol Ring", "Mind Stone", "Gilded Lotus"))
     check(s)
+
+
+# -- March from Velis Vel --------------------------------------------------------------------------------------------------------------------
+MARCH = "March from Velis Vel"
+test_march_full = full_test([MARCH])
+
+
+def test_march_from_velis_vel_turns_every_land_of_the_chosen_type_into_a_hasty_copy_until_end_of_turn(cards):
+    s = build(cards, [MARCH, "Grizzly Bears", "Desert", "Desert"], forests=20)
+    bears = put(s, "Grizzly Bears")
+    deserts = [c for c in s.state.cards.values() if c.name == "Desert" and c.owner == "p1"]
+    act(s, "p1", type="move", card_ids=[c.id for c in deserts], to={"player": "p1", "zone": "battlefield"})
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"player": "p1", "zone": "battlefield"})
+    cast(s, MARCH, [bears.id])
+    d = next_decision(s)
+    assert "Desert" in {o.id for o in d.options} and "Forest" not in {o.id for o in d.options} and "Urza’s" not in {o.id for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Desert"])
+    answer(s)
+    for c in deserts:
+        got = ch(s, s.state.cards[c.id])
+        assert (got.name, got.pt, "Creature" in got.types, "Land" in got.types, "haste" in got.keywords) == ("Grizzly Bears", (2, 2), True, False, True)
+    assert "Land" in ch(s, s.state.cards[forest.id]).types and "Creature" not in ch(s, s.state.cards[forest.id]).types
+    check(s)
+    next_turn(s)
+    assert all("Land" in ch(s, s.state.cards[c.id]).types and ch(s, s.state.cards[c.id]).name == "Desert" for c in deserts)  # (until end of turn)

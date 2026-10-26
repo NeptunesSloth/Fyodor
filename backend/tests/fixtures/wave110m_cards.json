@@ -818,5 +818,55 @@
 ],
 "power": "4",
 "toughness": "4"
+},
+{
+"name": "March from Velis Vel",
+"layout": "normal",
+"mana_cost": "{2}{U}",
+"cmc": 3.0,
+"type_line": "Sorcery",
+"oracle_text": "Choose a nonbasic land type. Each land you control of that type becomes a copy of target creature you control until end of turn and gains haste until end of turn.\nFlashback {4}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [
+"Flashback"
+]
+},
+{
+"name": "Desert",
+"layout": "normal",
+"mana_cost": "",
+"cmc": 0.0,
+"type_line": "Land — Desert",
+"oracle_text": "{T}: Add {C}.\n{T}: This land deals 1 damage to target attacking creature. Activate only during the end of combat step.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Command Tower",
+"layout": "normal",
+"mana_cost": "",
+"cmc": 0.0,
+"type_line": "Land",
+"oracle_text": "{T}: Add one mana of any color in your commander's color identity.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Maze of Ith",
+"layout": "normal",
+"mana_cost": "",
+"cmc": 0.0,
+"type_line": "Land",
+"oracle_text": "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn.",
+"colors": [],
+"color_identity": [],
+"keywords": []
 }
 ]
