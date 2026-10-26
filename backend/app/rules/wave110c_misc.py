@@ -163,9 +163,6 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if ability.kind == "triggered" and scripts.self_text(ability.text, ch.name) == PROCTOR:  # read by :func:`proctor_triggers`, not by an event pass
         return {"kind": "static", "static": "proctor110c", "effects": []}
     text = ability.text.replace(ch.name or "~", "this creature")
-    if text == "If you would lose unspent mana, that mana becomes black instead.":  # 614.1a, 500.4: like Ozai's red (wave110b_cards)
-        d = scripts.define(replace(ability, text="If you would lose unspent mana, that mana becomes colorless instead."), ch)
-        return None if d is None else {**d, "to": "B"}
     if scripts.self_text(ability.text, ch.name) == VAEVICTIS:  # 115.1 a group per player (per_opponent), the rest once after all of them (opponent_aggregate)
         native = scripts.define(replace(ability, text="Whenever ~ attacks, for each player, choose target permanent that player controls. Destroy those permanents."), ch)
         if native is None or [e.get("do") for e in native["effects"]] != ["choose_targets", "destroy"]:

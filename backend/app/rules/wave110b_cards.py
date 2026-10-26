@@ -618,6 +618,8 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     # Ozai: the mana a player would lose stays in the pool as red mana (614.1a, 500.4)
     "If you would lose unspent mana, that mana becomes red instead.":
         ("If you would lose unspent mana, that mana becomes colorless instead.", lambda d: {**d, "to": "R"}),
+    "If you would lose unspent mana, that mana becomes black instead.":
+        ("If you would lose unspent mana, that mana becomes colorless instead.", lambda d: {**d, "to": "B"}),
     # Ozai: unspent mana of any type, in the pool and in units with restrictions (106.4)
     "Ozai has flying and indestructible as long as you have six or more unspent mana.":
         ("Ozai has flying and indestructible as long as you have six or more cards in your hand.",
