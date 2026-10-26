@@ -7249,3 +7249,6 @@ PRIMITIVES.update(_wave110b_mirror.PRIMITIVES)
 from app.rules import wave110e_blade as _wave110e_blade  # noqa: E402, I001  -- Sanctuary Blade (wave 110E) --
 
 RESUME.update(_wave110e_blade.RESUME)
+from app.rules import wave110c_xanathar as _wave110c_xanathar  # noqa: E402, I001  -- (wave 110C) --
+
+PRIMITIVES.update(_wave110c_xanathar.PRIMITIVES)

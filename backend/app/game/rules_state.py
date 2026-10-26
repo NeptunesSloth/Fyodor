@@ -1239,6 +1239,7 @@ class Permission(BaseModel):
     # not the card (400.7h/i): once it changes zones it is a new object and the permission is spent
     object_id: str | None = None
     card: str | None = None
+    library_of: str | None = None  # (wave 110C) zone library_top of this player's library instead of the holder's (Xanathar)
     look_top: bool = False  # Source-independent private top look for this stored library-top authority.
     stop_on_linked_exile: str | None = None  # Source-object/link scope: expires when this permission holder next exiles a card with it.
     filter: str | None = None  # a selector key the spell must match ("creature spells")

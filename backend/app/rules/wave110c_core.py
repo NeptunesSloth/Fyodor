@@ -355,6 +355,10 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
 
     if (anyopp := wave110c_any.definition(ability, ch)) is not None:
         return anyopp
+    from app.rules import wave110c_xanathar  # -- Xanathar (wave 110C) --
+
+    if (xan := wave110c_xanathar.definition(ability, ch)) is not None:
+        return xan
     from app.rules import wave110c_waste  # -- Eumidian Wastewaker (wave 110C) --
 
     if (waste := wave110c_waste.definition(ability, ch)) is not None:

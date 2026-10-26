@@ -1441,6 +1441,10 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if p.object_id is not None:
             if p.object_id != oid:
                 continue  # a new object since (400.7): the permission was for the one it was
+        elif p.library_of is not None:  # -- Xanathar (wave 110C) -- the top card of another player's library
+            lib = state.zones.get(zone_key(p.library_of, "library")) or []
+            if not lib or lib[0] != card.id:
+                continue
         elif p.zone != "any" and p.zone != where and not (
                 p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)):
             continue
