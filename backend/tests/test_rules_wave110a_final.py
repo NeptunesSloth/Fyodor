@@ -11,7 +11,8 @@ from tests.test_rules_wave30p_combat import three, to_phase
 from tests.wave110a_kit import *
 
 NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations", "Exterminator Magmarch", "Threefold Signal", "Deification", "Voltaic Visionary // Volt-Charged Berserker",
-         "Prowl, Stoic Strategist // Prowl, Pursuit Vehicle", "Snowblind"]
+         "Prowl, Stoic Strategist // Prowl, Pursuit Vehicle", "Snowblind",
+         "Eye of Ojer Taq // Apex Observatory"]
 
 
 @pytest.fixture()
@@ -593,4 +594,57 @@ def test_snowblind_attacking_counts_the_defending_players_snow_lands(cards):
     until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": giant.id, "target": "p2"}])
     assert pt(s, "Hill Giant") == (0, 1)
+    check(s)
+
+
+EYE = "Eye of Ojer Taq // Apex Observatory"
+
+
+def _craft_eye(cards, on_field, in_gy):
+    s = build(cards, [EYE, *on_field, *in_gy, "Arcane Signet", "Wall of Omens"])
+    eye = put(s, EYE)
+    mats = [put(s, n) for n in on_field]
+    gone = [to_hand(s, n) for n in in_gy]
+    if gone:
+        act(s, "p1", type="move", card_ids=[c.id for c in gone], to={"player": "p1", "zone": "graveyard"})
+    fund(s, "{6}")
+    ab = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[eye.id]).abilities if a.kind == "activated" and "Exile" in a.text and a.index != 0)
+    return s, eye, [*mats, *gone], ab
+
+
+def test_eye_of_ojer_taq_craft_needs_two_that_share_a_card_type_and_chooses_one_they_share(cards):
+    """Craft with two that share a card type: Sol Ring (artifact, battlefield) and Arcane Signet (artifact, graveyard) are exiled; Apex Observatory enters tapped with Artifact chosen."""
+    s, eye, mats, ab = _craft_eye(cards, ["Sol Ring"], ["Walking Ballista"])
+    act(s, "p1", type="activate_ability", card_id=eye.id, ability=ab, cost_choices=[{"component": 2, "cards": [m.id for m in mats]}])
+    answer(s)
+    assert s.state.cards[eye.id].face == 1 and all(s.state.cards[m.id].zone == "p1:exile" for m in mats)
+    assert s.state.cards[eye.id].tapped and s.state.cards[eye.id].choices.get("Chosen card type") == "Artifact"
+    check(s)
+
+
+def test_eye_of_ojer_taq_materials_that_share_no_type_cannot_be_exiled(cards):
+    s, eye, mats, ab = _craft_eye(cards, ["Sol Ring"], ["Llanowar Elves"])
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=eye.id, ability=ab, cost_choices=[{"component": 2, "cards": [m.id for m in mats]}])
+    assert s.state.cards[eye.id].face == 0
+
+
+def test_apex_observatory_makes_the_next_spell_of_the_chosen_type_free_once(cards):
+    """{T}: the next spell you cast this turn of the chosen type (artifact) is free: Arcane Signet costs nothing, a Wall of Omens (creature) still costs mana."""
+    s, eye, mats, ab = _craft_eye(cards, ["Sol Ring"], ["Walking Ballista"])
+    act(s, "p1", type="activate_ability", card_id=eye.id, ability=ab, cost_choices=[{"component": 2, "cards": [m.id for m in mats]}])
+    answer(s)
+    next_turn(s)
+    act(s, "p1", type="activate_ability", card_id=eye.id, ability=next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[eye.id]).abilities if a.kind == "activated"))
+    answer(s)
+    wall = to_hand(s, "Wall of Omens")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=wall.id, free=True)  # a creature spell is not of the chosen type: it can't be cast for free
+    signet = to_hand(s, "Arcane Signet")
+    act(s, "p1", type="cast_spell", card_id=signet.id, free=True)
+    answer(s)
+    assert s.state.cards[signet.id].zone == "p1:battlefield"
+    again = to_hand(s, "Sol Ring")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=again.id, free=True)  # only the next one
     check(s)

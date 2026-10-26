@@ -525,7 +525,7 @@ def choice_needed(plan: Plan, card: CardInstance, entry: Entry) -> dict[str, Any
     from app.rules import face_down_entries64
 
     card = face_down_entries64.probe(plan, card, entry)
-    if entry.get("modal_back"):  # -- play now (wave 28A) -- 712.12: the land face chosen enters face up, so its replacements apply
+    if entry.get("modal_back") or entry.get("transformed"):  # -- play now (wave 28A) -- 712.12: the land face chosen enters face up, so its replacements apply (wave 110A: 712.14a, a card put onto the battlefield transformed: its back face's "As it enters, choose")
         card = card.model_copy(update={"face": 1})
     return entry_plan(plan, card, entry["player"], pay_life=entry.get("pay_life"), tapped=bool(entry.get("tapped")),
                       answers=entry.get("choices"), x=entry.get("x"), extra=_extra(entry, plan), tapped_if_land=bool(entry.get("tapped_if_land")),

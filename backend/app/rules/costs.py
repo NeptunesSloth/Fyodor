@@ -601,6 +601,9 @@ def _craft_part(m: re.Match[str], part: str) -> CostComponent | None:
     if m["what"] == "nonlands with activated abilities" and n is not None:  # -- (wave 110D) -- The Enigma Jewel: a nonland permanent you control or nonland card in your graveyard
         return CostComponent(CRAFT, amount=n, selector=_selector("nonland permanent with activated abilities you control", zone="battlefield"),
                              alt=_selector("nonland card with activated abilities from your graveyard", zone="graveyard"), more=bool(m["more"]), text=part)
+    if m["what"] == "that share a card type" and n == 2 and not m["more"]:  # -- wave 110A -- Eye of Ojer Taq: any two permanents / graveyard cards, checked as a group (names "share_card_type110a")
+        return CostComponent(CRAFT, amount=2, selector=_selector("permanent you control", zone="battlefield"), alt=_selector("card from your graveyard", zone="graveyard"),
+                             names="share_card_type110a", text=part)
     if n is None or " with " in what or what.endswith("nonland") or "share" in what:
         return None  # (conditions on the objects, "that share a card type": not read)
     if not what:

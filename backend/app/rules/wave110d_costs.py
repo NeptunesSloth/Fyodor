@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from app.rules.costs import CostComponent
     from app.rules.plan import Plan
 
-GROUPS = ("single_gy", "share_type", "share_color", "top_creature110f")  # (wave 110F: Zombie Scavengers)
+GROUPS = ("single_gy", "share_type", "share_color", "top_creature110f", "share_card_type110a")  # (wave 110F: Zombie Scavengers)
 
 
 def component(part: str, card_name: str) -> CostComponent | None:
@@ -64,13 +64,15 @@ def rewrite(cost: str) -> str:
 
 
 def _sets(plan: Plan, comp: CostComponent, ids: list[str]) -> list[set[str]]:
+    from app.rules.characteristics import CARD_TYPES
     from app.rules.creature_types import CREATURE_TYPES
 
     out: list[set[str]] = []
     for cid in ids:
         card = plan.state.cards[cid]
         ch = plan.ch(card)
-        out.append({card.zone} if comp.names == "single_gy" else set(ch.subtypes & CREATURE_TYPES) if comp.names == "share_type" else set(ch.colors))
+        out.append({card.zone} if comp.names == "single_gy" else set(ch.subtypes & CREATURE_TYPES) if comp.names == "share_type"
+                   else set(ch.types & CARD_TYPES) if comp.names == "share_card_type110a" else set(ch.colors))  # (wave 110A: craft's "two that share a card type", 205.2a)
     return out
 
 

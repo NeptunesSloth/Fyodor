@@ -37,6 +37,8 @@ SNOWBLIND = ("Enchanted creature gets -X/-Y. If that creature is attacking, X is
              "controller controls. Y is equal to X or to enchanted creature's toughness minus 1, whichever is smaller.")
 FIGHT_ETB = ("When ~ enters, you may put a name sticker on it. When you do, enchanted creature fights up to one target creature you don't control.")
 FIGHT_PUMP = "Enchanted creature gets +0/+2 for each name sticker on ~ with eight or more letters."
+EYE_CHOICE = "~ enters tapped. As it enters, choose a card type shared among two exiled cards used to craft it."
+EYE_TAP = "{T}: The next spell you cast this turn of the chosen type can be cast without paying its mana cost."
 ICE_CAVE = "Whenever a player casts a spell, any other player may pay that spell's mana cost. If a player does, counter the spell."
 
 
@@ -44,6 +46,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == EYE_CHOICE:  # 614.1d / 614.12a: enters tapped and the choice made as it enters, among the types the two exiled craft materials share (``craft_type_options``)
+        return {"kind": "replacement", "replacement": "enters_choice", "tapped": True,
+                "effects": [{"do": "choose_value", "who": "you", "what": "card type shared among two exiled cards used to craft it", "remember": True}]}
+    if text == EYE_TAP and ability.kind == "activated":  # 118.9 / 601.2f: a permission for the next spell of the chosen type this turn, made as the ability resolves
+        base = scripts.define(replace(ability, text="{T}: Draw a card."), ch)
+        return None if base is None else {**base, "effects": [{"do": "next_free_chosen110a"}]}
     if text == FIGHT_ETB:  # ruling 2022-10-07: no sticker, no reflexive trigger (603.12); the fight is the reflexive ability's
         base = scripts.define(replace(ability, text="When this Aura enters, you may put a name sticker on it."), ch)
         fight = scripts.define(replace(ability, text="When this Aura enters, you may discard a card. When you do, enchanted creature fights up to one target creature you don't control."), ch)
@@ -301,6 +309,29 @@ def sticker_flag(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def craft_type_options(plan: Plan, ctx: dict[str, Any]) -> list[str]:
+    """Eye of Ojer Taq: the card types the exiled cards used to craft it have in common (all of them: the two shared one). A token material has ceased to exist (111.8): with fewer
+    than two cards left there is no shared type, and "None" is the only answer (the free cast then never applies)."""
+    from app.rules.characteristics import CARD_TYPES
+
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    refs = plan.rules.pending_crafts.get(plan.oid(card), []) if card is not None else []
+    types = [set(plan.ch(c).types & CARD_TYPES) for r in refs if (c := plan.state.cards.get(r.card)) is not None]
+    shared = set.intersection(*types) if len(types) >= 2 else set()
+    return sorted(shared) if shared else ["None"]
+
+
+def next_free_chosen(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The next spell the player casts this turn of the chosen card type is cast without paying its mana cost (conditional_free_casts68.next_free)."""
+    from app.rules import conditional_free_casts68, selectors
+
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    kind = card.choices.get("Chosen card type") if card is not None else None
+    if not kind or kind == "None":
+        return True
+    return conditional_free_casts68.next_free(plan, ctx, {"filter": selectors.Selector(zones=("stack",), types=(kind,)).key()})
+
+
 def pw_options(plan: Plan) -> list[str]:
     """205.3j: every planeswalker type (the known ones and any a planeswalker in this game has)."""
     from app.rules import selectors
@@ -409,5 +440,5 @@ def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 REWRITES = {INTIMATIONS_SPELL: INTIMATIONS_SPELL.replace("You return", "Return")}  # (the grammar has no "you return"; 101.4 / the 2017-02-09 ruling: opponents choose in turn order, all at once)
-PRIMITIVES: dict[str, Any] = {"sticker_flag110a": sticker_flag, "magmarch110a": magmarch, "loyalty_rider110a": loyalty_rider, "exile_one_per_type110a": one_per_type}
+PRIMITIVES: dict[str, Any] = {"next_free_chosen110a": next_free_chosen, "sticker_flag110a": sticker_flag, "magmarch110a": magmarch, "loyalty_rider110a": loyalty_rider, "exile_one_per_type110a": one_per_type}
 RESUME: dict[str, Any] = {"damping110a": resume_sacrifice, "chaotic_order110a": resume_order, "exile_one_per_type110a": resume_one_per_type, "magmarch110a": resume_magmarch}

@@ -2972,5 +2972,47 @@
    "Fight",
    "Enchant"
   ]
+ },
+ {
+  "name": "Eye of Ojer Taq // Apex Observatory",
+  "layout": "transform",
+  "mana_cost": "{3} // ",
+  "cmc": 3.0,
+  "type_line": "Artifact // Artifact",
+  "oracle_text": "{T}: Add one mana of any color.\nCraft with two that share a card type {6} ({6}, Exile this artifact, Exile the two from among other permanents you control and/or cards from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)\n//\nThis artifact enters tapped. As it enters, choose a card type shared among two exiled cards used to craft it.\n{T}: The next spell you cast this turn of the chosen type can be cast without paying its mana cost.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Craft",
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Eye of Ojer Taq",
+    "mana_cost": "{3}",
+    "type_line": "Artifact",
+    "oracle_text": "{T}: Add one mana of any color.\nCraft with two that share a card type {6} ({6}, Exile this artifact, Exile the two from among other permanents you control and/or cards from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)",
+    "colors": [],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/1/5/15304957-dbb5-4010-a0a6-27343d4c20a3.jpg?1783913936",
+     "normal": "https://cards.scryfall.io/normal/front/1/5/15304957-dbb5-4010-a0a6-27343d4c20a3.jpg?1783913936",
+     "large": "https://cards.scryfall.io/large/front/1/5/15304957-dbb5-4010-a0a6-27343d4c20a3.jpg?1783913936",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/1/5/15304957-dbb5-4010-a0a6-27343d4c20a3.jpg?1783913936"
+    }
+   },
+   {
+    "name": "Apex Observatory",
+    "mana_cost": "",
+    "type_line": "Artifact",
+    "oracle_text": "This artifact enters tapped. As it enters, choose a card type shared among two exiled cards used to craft it.\n{T}: The next spell you cast this turn of the chosen type can be cast without paying its mana cost.",
+    "colors": [],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/1/5/15304957-dbb5-4010-a0a6-27343d4c20a3.jpg?1783913936",
+     "normal": "https://cards.scryfall.io/normal/back/1/5/15304957-dbb5-4010-a0a6-27343d4c20a3.jpg?1783913936",
+     "large": "https://cards.scryfall.io/large/back/1/5/15304957-dbb5-4010-a0a6-27343d4c20a3.jpg?1783913936",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/1/5/15304957-dbb5-4010-a0a6-27343d4c20a3.jpg?1783913936"
+    }
+   }
+  ]
  }
 ]
