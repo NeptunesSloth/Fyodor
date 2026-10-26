@@ -5491,6 +5491,8 @@ def _may_pay_sentence(text: str, following: list[str], it: str | None,
     needs = None
     if it in ("event", "event_gone") and (gate := re.fullmatch(r"(?P<pay>pay [^,]+?) and exile it", phrase)) is not None:
         phrase, needs = gate["pay"], "event.new"
+    if it == "self_gone" and (gate := re.fullmatch(r"exile it and (?P<pay>collect evidence \d+)", phrase)) is not None:
+        phrase, needs = gate["pay"], "event.new"  # -- if you do (wave 110H) -- Lamplight Phoenix: the dying card is exiled with the cost paid (the evidence never counts it)
     if re.search(r"\bit\b", phrase) and it != "self":
         return None
     if it == "self":  # -- if you do (wave 50F) -- "you may have her deal 2 damage to you" (Elektra): the source itself

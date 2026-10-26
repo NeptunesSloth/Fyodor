@@ -21,6 +21,9 @@ EXTRA = [
          "target creatures.)\nEach creature with a +1/+1 counter on it gains trample until end of turn.", None, "G"),
     real("Rain of Gore", "{B}{B}", 2, "Enchantment",
          "If a spell or ability would cause its controller to gain life, that player loses that much life instead.", None, "B"),
+    real("Rabid Bite", "{1}{G}", 2, "Sorcery",
+         "Target creature you control deals damage equal to its power to target creature you don't control.", None, "G"),
+    real("Lifelinker", "{2}{W}", 3, "Creature \u2014 Vampire", "Lifelink", ("2", "2"), "W"),
     real("Tonic", "{W}", 1, "Instant", "Target player gains 3 life.", None, "W"),
     real("Crowd-Control Warden", "{3}{G}{W}", 5, "Creature \u2014 Centaur Soldier",
          "As this creature enters or is turned face up, put X +1/+1 counters on it, where X is the number of other creatures you control.\n"
@@ -104,6 +107,18 @@ def test_rain_of_gore(cards, target, mine, theirs):
     cast(s, "Tonic", [target])
     answer(s)
     assert (life(s, "p1"), life(s, "p2")) == (mine, theirs)
+    check(s)
+
+
+def test_rain_of_gore_ignores_lifelink(cards):
+    """702.15b: lifelink gain is a result of damage, not a spell or ability gain, so Rain of Gore leaves it alone while Tonic still turns to a loss."""
+    s = build(cards, ["Rain of Gore", "Rabid Bite", "Lifelinker"], ["Hill Giant"])
+    put(s, "Rain of Gore")
+    ll, giant = put(s, "Lifelinker"), put(s, "Hill Giant", pid="p2")
+    mana(s, G=1, C=1)
+    cast(s, "Rabid Bite", [ll.id, giant.id], target_counts=[1, 1])
+    answer(s)
+    assert life(s, "p1") == 42
     check(s)
 
 
