@@ -7893,8 +7893,9 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                         # whenever an Equipment you control enters": one object entering is one event, so one trigger however many halves it matches, 603.2c)
                         if names == ["event", "event"] and (not re.search(
                                 r"\b(?:it|its|it's|that|those|them|they)\b", re.sub(r"\bit's the \w+ time\b", "", m["body"]))
-                                or {g["event"] for g in generic} == {"sacrifice", "to_graveyard"}) and not any(  # (wave 110B: Desert Warfare, "that card" is the one in the graveyard)
-                                g.get("aggregate") or g["event"] in ("either", "multi") for g in generic):
+                                or {g["event"] for g in generic} == {"sacrifice", "to_graveyard"}) and (
+                                {g["event"] for g in generic} == {"phase_out", "to_exile"}  # (wave 110D: The War Doctor, two batches of unlike events, each its own 603.2c)
+                                or not any(g.get("aggregate") or g["event"] in ("either", "multi") for g in generic)):
                             # -- ability words (wave 20C) -- "Whenever an enchantment you control enters and whenever you fully unlock a
                             # Room" (eerie): two whole conditions, each its own event (603.2c) — the "or" form's either condition
                             cond = {"event": "either", "conds": generic,

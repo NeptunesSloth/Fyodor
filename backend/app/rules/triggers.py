@@ -907,6 +907,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         if snap is None or not _was_modified(plan, snap):
             return False
         sel = selectors.replace(sel, extras=tuple(x for x in sel.extras if x != "modified"))
+    if event == "phase_out" and obj.zone.endswith(":phased"):  # -- wave 110D -- 702.26d: the permanent that phased out is matched as the battlefield permanent it was (The War Doctor)
+        obj = obj.model_copy(update={"zone": obj.zone.replace(":phased", ":battlefield")})
     return selectors.matches(plan, sel, obj, och, you, watcher.id)
 
 
