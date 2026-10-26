@@ -2749,6 +2749,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             if not wave110a_pick.is_picked(plan, card, source):
                 return False
+        if extra == "not_phased_by_source110f" and (src_f := plan.state.cards.get(source or "")) is not None \
+                and plan.oid(card) in plan.rules.ferris110f.get(plan.oid(src_f), []):
+            return False  # -- wave 110F -- Ferris Wheel: "that hasn't been phased out with this Attraction"
         if extra == "made_by_source110f" and (source is None or card.token_source is None or card.token_source.source_id != source):
             return False  # -- wave 110F -- 111.2: a token created by the source's own ability (Dance of Many: "the token")
         if extra == "attached_source" and (source is None or card.attached_to != source):  # -- activated other (wave 34B) -- attached to the source itself

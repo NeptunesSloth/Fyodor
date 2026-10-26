@@ -661,6 +661,8 @@ _FIRES = "{2}{R}: Exile the top card of your library. You may play that card thi
 
 _MALIK = "When ~ enters, you and target opponent each secretly choose a creature that player controls. Then those choices are revealed, and that player sacrifices those creatures."
 _DROP = "Whenever you roll to visit your Attractions, target creature gains flying until end of turn, or until any player rolls a 1, whichever comes first."
+_FERRIS = ("Whenever you roll to visit your Attractions, choose target creature that hasn't been phased out with this Attraction. "
+           "That creature phases out until you roll a 3 or less while rolling to visit your Attractions.")
 _DANCE = {
     "When ~ leaves the battlefield, exile the token.": "When ~ leaves the battlefield, exile target creature.",
     "When the token leaves the battlefield, sacrifice ~.": "Whenever a creature leaves the battlefield, sacrifice ~.",
@@ -694,6 +696,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or [x["do"] for x in native["effects"]] != ["grant"]:
             return None
         return {**native, "effects": [{"do": "until", "n": 1, "duration": "roll1_110f"}, *native["effects"]]}
+    if ability.kind == "triggered" and text == _FERRIS:  # 702.26a-c, 701.52a: phased out until its controller rolls low to visit (a packet in phase_lifetimes43)
+        from app.rules import selectors
+
+        native = scripts.define(replace(ability, text="Whenever you roll to visit your Attractions, target creature phases out."), ch)
+        if native is None or [x["do"] for x in native["effects"]] != ["phase_out"]:
+            return None
+        return {**native, "effects": [{"do": "ferris110f", "who": "target"}],
+                "target": {"what": selectors.Selector(types=("Creature",), extras=("not_phased_by_source110f",)).key()}}
     if ability.kind == "triggered" and text in _DANCE:  # Dance of Many: "the token" is the token its own enters ability created (111.2, 603.10a)
         native = scripts.define(replace(ability, text=_DANCE[text]), ch)
         if native is None:
@@ -902,3 +912,17 @@ from app.rules import wave110f_gy as _wave110f_gy  # noqa: E402  -- Cemetery Des
 
 PRIMITIVES.update(_wave110f_gy.PRIMITIVES)
 RESUME.update(_wave110f_gy.RESUME)
+
+
+def ferris(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Ferris Wheel: the target phases out until its controller rolls a 3 or less to visit; this Attraction remembers it ("hasn't been phased out with this Attraction")."""
+    from app.game.rules_state import ObjectRef
+    from app.rules import effects, phase_lifetimes43
+
+    source = ObjectRef(card=ctx["source_card"], object_id=ctx["source_object"])
+    for ref in phase_lifetimes43.phase_out(plan, source, effects._cards(plan, ctx, e["who"]), ctx["controller"], roll_max=3):
+        plan.rules.ferris110f.setdefault(source.object_id, []).append(ref.object_id)
+    return True
+
+
+PRIMITIVES["ferris110f"] = ferris
