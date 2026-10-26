@@ -30,7 +30,7 @@
 
 ## Session 7: foundations built, these earlier refusals are now FULL
 - Hipparion (block tax by attacker power, combat_rules.pair_tax), Fasting (optional draw-step skip, wave110i_cards.ask_skip), Smelting Vat (total_mv as a value), Lodestone Bauble (one graveyard, owner draws), Noctis (delayed trigger at declare attackers step, 507.1/508.8), Balduvian Fallen / Heart of Bogardan (cumulative upkeep paid / unpaid), Sheltered Valley (devour-style mandatory same-name sacrifice).
-- Lodestone Bauble: zero targets leave "that player" undefined (no CR rule or ruling found): the ability needs at least one target (115.6 allows zero, so this is a deliberate restriction; the player can resolve it by hand).
+- Lodestone Bauble: zero targets (115.6) are allowed; that resolution goes to manual play (s9).
 
 ## Session 8
 Moved to FULL: Arsenal Thresher (devour.py REV), Arcee (cast_targets110i value), Shifty Doppelganger, Evershrike, Raiding Party, Tainted Specter (wave110i_cards.py).

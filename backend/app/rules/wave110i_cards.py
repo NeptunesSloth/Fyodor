@@ -138,8 +138,7 @@ def _bauble(d: Def) -> Def:
     t = d["targets"][0]
     sel = json.loads(t["what"][4:])
     sel.pop("zone_owner", None)
-    t = {**t, "what": "sel:" + json.dumps(sel, separators=(",", ":"), sort_keys=True), "same_controller": True,
-         "min": 1}  # zero targets leave "that player" undefined (no CR/ruling): not offered, the player resolves it by hand
+    t = {**t, "what": "sel:" + json.dumps(sel, separators=(",", ":"), sort_keys=True), "same_controller": True}
     return {**d, "targets": [t], "effects": [{"do": "bauble110i", "who": "target:0"}, d["effects"][0]]}
 
 
@@ -520,10 +519,18 @@ def bind_first(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def bauble(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
-    """That player (the owner of the targeted cards) draws at the next upkeep; with no target card there is no such player and nobody draws."""
+    """That player (the owner of the targeted cards) draws at the next upkeep. Zero targets are legal (115.6) but leave "that player" undefined
+    (no CR rule or ruling): that one resolution is handed to manual play."""
+    from app.game.rules_state import DecisionOption
     from app.rules import effects
+    from app.rules.plan import decide
 
     ids = effects._cards(plan, ctx, e["who"])
+    if not ids:
+        decide(plan, player=ctx["controller"], kind="manual_resolution",
+               prompt="Lodestone Bauble had no target, so \"that player\" is undefined. Resolve any draw at the next upkeep by hand, then press Done.",
+               options=[DecisionOption(id="done", label="Done")], resume={"step": "bauble110i", "ctx": ctx})
+        return False
     owner = plan.state.cards[ids[0]].owner if ids else None
     if owner in plan.live():
         ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "delayed", "when": {"kind": "step", "step": "upkeep", "whose": "next_turn"}, "n": 1},
@@ -585,7 +592,13 @@ def resume_skip(plan: Plan, d: Any, chosen: list[str]) -> None:
     engine.on_step_start(plan)
 
 
-RESUME = {"skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
+def resume_bauble(plan: Plan, decision: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    effects.continue_effects(plan, decision.resume["ctx"])
+
+
+RESUME = {"bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:

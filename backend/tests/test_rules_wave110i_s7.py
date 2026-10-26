@@ -189,11 +189,20 @@ def test_bauble_refuses_lands_from_two_graveyards(cards):
         activate(s, "p1", bauble, targets=[islands[0], forests[0]], target_counts=[2])
 
 
-def test_bauble_with_no_target_refused(cards):
-    """Zero targets leave "that player" undefined (no CR rule or ruling): the activation is not offered."""
+def test_bauble_with_no_target_goes_manual(cards):
+    """115.6 allows zero targets; "that player" is then undefined, so the resolution is handed to manual play and nobody draws."""
     s, bauble, islands, forests = _bauble(cards, None)
-    with pytest.raises(ActionError):
-        activate(s, "p1", bauble, targets=[], target_counts=[0])
+    hand = len(s.state.zones["p2:hand"])
+    activate(s, "p1", bauble, targets=[], target_counts=[0])
+    d = s.state.rules.decision
+    assert d and d.kind == "manual_resolution"
+    answer(s, ["done"])
+    assert s.state.rules.decision is None and s.state.cards[bauble.id].zone == "p1:graveyard"
+    assert all(s.state.cards[c].zone == "p2:graveyard" for c in islands)
+    from tests.wave100c_kit import to_phase
+
+    to_phase(s, "main1", turn=2)
+    assert len(s.state.zones["p2:hand"]) == hand + 1  # draw step only
     check(s)
 
 
