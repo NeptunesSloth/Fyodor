@@ -20,8 +20,15 @@ TARDIS = real("Start the TARDIS", "{1}{U}", 2, "Instant",
               "Jump-start (You may cast this card from your graveyard by discarding a card in addition to paying its other costs. Then exile this card.)", None, "U")
 GAMBIT = real("Decoy Gambit", "{1}{1}{U}", 3, "Instant",
               "For each opponent, choose up to one target creature that player controls, then return that creature to its owner's hand unless its controller has you draw a card.", None, "U")
+SUPPER = real("Supper for Spiders", "{1}{B}", 2, "Instant",
+              "Put onto the battlefield under your control all creature cards in your opponents' graveyards that were put there from the battlefield this turn. "
+              "They are Food artifacts with \"{2}, {T}, Sacrifice this artifact: You gain 3 life.\" (They lose all other types and subtypes.)", None, "B")
+DELIVER = real("Deliver Unto Evil", "{2}{B}", 3, "Sorcery",
+               "Choose up to four target cards in your graveyard. If you control a Bolas planeswalker, return those cards to your hand. Otherwise, an opponent chooses two of them. "
+               "Leave the chosen cards in your graveyard and put the rest into your hand.\nExile Deliver Unto Evil.", None, "B")
+BOLAS = real("Test Bolas", "{2}", 2, "Legendary Planeswalker — Bolas", "+1: You gain 1 life.", None, "")
 WALKER = real("Test Walker", "{2}", 2, "Planeswalker — Test", "+1: You gain 1 life.", None, "")
-base.EXTRA.extend([WALKER, TARDIS, GAMBIT])
+base.EXTRA.extend([WALKER, TARDIS, GAMBIT, SUPPER, DELIVER, BOLAS])
 
 
 def _setup(cards, mm=True):
@@ -179,4 +186,62 @@ def test_start_the_tardis_surveils_then_draws_and_planeswalking_does_nothing(car
     cast(s, "Start the TARDIS")
     answer(s)
     assert len(s.state.zones["p1:hand"]) == hand + 1  # (the card was cast from a hand it was put in: +1 -1 +1)
+    check(s)
+
+
+def test_supper_for_spiders_takes_only_creatures_that_died_this_turn_as_food_artifacts(cards):
+    """400.7 + 205.1a/613.1d: creature cards put into an opponent's graveyard from the battlefield this turn come back under your control as
+    Food artifacts that are no longer creatures (nor Bears); a creature card that was not on the battlefield stays; the granted ability works."""
+    from app.rules.plan import Plan
+    from tests.test_rules_wave110e_cards import answer, cast
+    from tests.wave9c_kit import build, check, mana, put
+
+    s = build(cards, ["Supper for Spiders"], ["Grizzly Bears", "Test Shifter"], forests=30, islands=30)
+    bears, crow = put(s, "Grizzly Bears", "p2"), next(c for c in s.state.cards.values() if c.name == "Test Shifter" and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[bears.id], to={"player": "p2", "zone": "graveyard"})
+    act(s, "p2", type="move", card_ids=[crow.id], to={"player": "p2", "zone": "graveyard"})  # (from the library: not from the battlefield)
+    mana(s, B=1, C=1)
+    cast(s, "Supper for Spiders")
+    answer(s)
+    c = s.state.cards[bears.id] if s.state.cards[bears.id].zone.endswith(":battlefield") else next(x for x in s.state.cards.values() if x.name == "Grizzly Bears" and x.zone.endswith(":battlefield"))
+    ch = Plan(s.state, "p1", s.cards, None).ch(c)
+    assert c.controller == "p1" and ch.types == {"Artifact"} and ch.subtypes == {"Food"} and not ch.is_creature
+    assert s.state.cards[crow.id].zone == "p2:graveyard"
+    life = s.state.players["p1"].life
+    mana(s, C=2)
+    ab = next(a.index for a in ch.abilities if "Sacrifice this artifact" in a.text)
+    act(s, "p1", type="activate_ability", card_id=c.id, ability=ab)
+    answer(s)
+    assert s.state.players["p1"].life == life + 3
+    check(s)
+
+
+@pytest.mark.parametrize("bolas,n", [(True, 4), (False, 4), (False, 1)])
+def test_deliver_unto_evil_all_return_with_a_bolas_otherwise_an_opponent_keeps_two_in_the_graveyard(cards, bolas, n):
+    """608.2c: Bolas planeswalker: all targeted cards go to hand; otherwise the opponent chooses two (fewer targeted: all of them) that stay;
+    the rest go to hand. The spell is exiled (it never reaches the graveyard)."""
+    from tests.test_rules_wave110e_cards import answer, cast
+    from tests.wave9c_kit import build, check, mana, put
+
+    s = build(cards, ["Deliver Unto Evil", "Test Bolas"], forests=30, islands=30)
+    if bolas:
+        w = put(s, "Test Bolas")
+        act(s, "p1", type="set_counter", card_id=w.id, kind="loyalty", value=3)
+    gy_cards = [c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library"][:4]
+    act(s, "p1", type="move", card_ids=[c.id for c in gy_cards], to={"player": "p1", "zone": "graveyard"})
+    targets = [c.id for c in gy_cards[:n]]
+    mana(s, B=1, C=2)
+    spell = cast(s, "Deliver Unto Evil", targets, target_counts=[n])
+    keep = [] if bolas else targets[:2]
+    d = None
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        assert d.player == "p2"
+        act(s, "p2", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.id in keep] or [o.id for o in d.options][: max(1, d.min_choices)])
+    answer(s)
+    where = [s.state.cards[t].zone for t in targets]
+    assert where.count("p1:graveyard") == (0 if bolas else min(2, n)) and where.count("p1:hand") == (n if bolas else n - min(2, n))
+    assert s.state.cards[spell.id].zone == "p1:exile"
     check(s)

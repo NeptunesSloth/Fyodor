@@ -25,6 +25,7 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
     "Surveil 2, then draw a card. You may planeswalk.": ("Surveil 2, then draw a card.", []),
 }
 
+_BOLAS = 'sel:{"controller":"you","subtypes":["Bolas"],"types":["Planeswalker"]}'
 # whole ability text -> (the wording the grammar reads for the targets, the effects that replace the parsed ones; "target:0" = the first target group)
 _SWAP: dict[str, tuple[str, list[Def]]] = {
     "For each creature attacking you or a planeswalker you control, create a token that's a copy of that creature and that's blocking that creature. Exile those tokens at end of combat.":
@@ -53,6 +54,22 @@ _SWAP: dict[str, tuple[str, list[Def]]] = {
     "For each opponent, choose up to one target creature that player controls, then return that creature to its owner's hand unless its controller has you draw a card.":
         ("For each opponent, choose up to one target creature that player controls.",
          [{"do": "choose_targets", "who": "target:0"}, {"do": "decoy110e", "who": "target:0"}]),  # (each copied per opponent group: per_opponent.expanded)
+    # 205.1a/613.1d: they become Food artifacts and lose their other card types and subtypes, for as long as they are those permanents (400.7)
+    "Put onto the battlefield under your control all creature cards in your opponents' graveyards that were put there from the battlefield this turn. They are Food "
+    "artifacts with \"{2}, {T}, Sacrifice this artifact: You gain 3 life.\"":
+        ("Put all creature cards in your opponents' graveyards that were put there from the battlefield this turn onto the battlefield under your control.",
+         [{"do": "return_card", "to": "battlefield", "tapped": False, "under": "you", "as": "sp110e",
+           "who": 'sel:{"card":true,"extras":["put_there:battlefield"],"types":["Creature"],"zone_owner":"opponent","zones":["graveyard"]}'},
+          {"do": "become", "who": "ref:sp110e", "types": ["Artifact"], "artifact_types": ["Food"], "duration": "permanent",
+           "abilities": ["{2}, {T}, Sacrifice this artifact: You gain 3 life."]}]),
+    # 608.2c: with a Bolas planeswalker all the cards return; otherwise an opponent (chosen by you) picks two to leave (bound_subset_choices "deliver")
+    "Choose up to four target cards in your graveyard. If you control a Bolas planeswalker, return those cards to your hand. Otherwise, an opponent chooses two of them. "
+    "Leave the chosen cards in your graveyard and put the rest into your hand.":
+        ("Choose up to four target cards in your graveyard. Return those cards to your hand.",
+         [{"do": "choose_targets", "who": "target:0"},
+          {"do": "only_if", "cond": {"value": {"count": _BOLAS}, "op": ">=", "n": 1}, "skip": 1}, {"do": "bounce", "who": "target:0"},
+          {"do": "only_if", "cond": {"value": {"count": _BOLAS}, "op": "<=", "n": 0}, "skip": 2},
+          {"do": "bound_subset", "mode": "prepare", "action": "deliver", "who": "target:0"}, {"do": "bound_subset", "mode": "partition", "action": "deliver"}]),
     "Permanents enter tapped this turn.": ("Draw a card.", [{"do": "enter_tapped110e"}]),
     # 509.1h/509.3c: each target becomes blocked (no-op for one no longer an unblocked attacker); then 120.3 damage to each of them
     "X target attacking creatures become blocked. Choking Vines deals 1 damage to each of those creatures.":
