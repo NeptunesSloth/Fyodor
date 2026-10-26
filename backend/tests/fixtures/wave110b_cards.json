@@ -2274,5 +2274,24 @@
   "keywords": [],
   "power": null,
   "toughness": null
+ },
+ {
+  "name": "Alania, Divergent Storm",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{R}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Otter Wizard",
+  "oracle_text": "Whenever you cast a spell, if it's the first instant spell, the first sorcery spell, or the first Otter spell other than Alania you've cast this turn, you may have target opponent draw a card. If you do, copy that spell. You may choose new targets for the copy.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [],
+  "power": "3",
+  "toughness": "5"
  }
 ]

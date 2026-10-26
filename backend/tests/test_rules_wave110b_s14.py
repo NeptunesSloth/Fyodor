@@ -9,12 +9,35 @@ import pytest
 from app.rules import coverage, sba
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
-from tests.wave110b_kit import build, card_named, ch, check, drive, life, mana, put, repository, settle, to_hand
+from tests.wave110b_kit import (
+    build,
+    card_named,
+    ch,
+    check,
+    drive,
+    life,
+    mana,
+    put,
+    settle,
+    to_hand,
+)
 
 
 @pytest.fixture()
 def cards(settings):
-    yield from repository(settings)
+    from app.cards.images import ImageStore
+    from app.cards.importer import build_database
+    from app.cards.repository import CardRepository
+    from tests.fixtures.cards import fixture_cards
+    from tests.test_rules_wave12a_counters_keywords import real
+    from tests.wave110b_kit import EXTRA
+
+    settings.ensure_dirs()
+    otters = [real(f"Test Otter{x}", "{1}{G}", 2, "Creature — Otter", "", ("1", "1"), "G") for x in ("", " B")]
+    build_database([*fixture_cards(), *EXTRA, *otters], settings.cards_db_path, meta={"bulk_type": "test"})
+    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
+    yield repo
+    repo.close()
 
 
 def test_full(cards):
@@ -189,4 +212,65 @@ def test_mana_web_counts_every_type_a_dual_land_could_produce(cards):
     """Shivan Reef ({C}, or {U} / {R}): tapped for {U}, the Island and the Mountain (and not the Forest or Swamp) are tapped too."""
     s, tapped = web_game(cards, "Shivan Reef", ("Shivan Reef", "Island", "Mountain", "Forest", "Swamp"), ability=1, mana_choice="U")
     assert tapped == {"Shivan Reef": True, "Island": True, "Mountain": True, "Forest": False, "Swamp": False}
+    check(s)
+
+
+def alania(cards, spells, yes=True):
+    """Alania in play, Bob with ``Grizzly Bears`` in hand to draw; Alice casts each of ``spells`` ((name, targets)) in order and every decision is answered
+    yes / no (the copy keeps its targets). Returns the table and how many cards Bob drew."""
+    s = build(cards, ["Alania, Divergent Storm", *[n for n, _ in spells]], ["Grizzly Bears"] * 5, forests=30)
+    put(s, "Alania, Divergent Storm")
+    hand = len([c for c in s.state.cards.values() if c.owner == "p2" and c.zone == "p2:hand"])
+
+    def go(d):
+        if d.kind == "confirm":
+            return ["yes" if yes else "no"]
+        return ["keep"] if "keep" in [o.id for o in d.options] else None
+    for name, targets in spells:
+        mana(s, R=6, G=2, U=2, W=2)
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, name).id, targets=list(targets))
+        drive(s, go)
+    return s, len([c for c in s.state.cards.values() if c.owner == "p2" and c.zone == "p2:hand"]) - hand
+
+
+def test_alania_first_instant_copies_and_opponent_draws(cards):
+    """603.4: the first instant spell cast this turn triggers it; the opponent draws, the copy (707.10) is a second Lightning Bolt: 3 + 3 damage."""
+    assert coverage.of_card_data(cards.resolve("Alania, Divergent Storm")).level == "FULL"
+    s, drawn = alania(cards, [("Lightning Bolt", ["p2"])])
+    assert life(s, "p2") == 34 and drawn == 1
+    check(s)
+
+
+def test_alania_declined_does_nothing(cards):
+    s, drawn = alania(cards, [("Lightning Bolt", ["p2"])], yes=False)
+    assert life(s, "p2") == 37 and drawn == 0
+    check(s)
+
+
+def test_alania_second_instant_does_not_trigger(cards):
+    """Only the first instant spell: the second Bolt is a single Bolt (3), and Bob draws only for the first."""
+    s, drawn = alania(cards, [("Lightning Bolt", ["p2"]), ("Lightning Bolt", ["p2"])])
+    assert life(s, "p2") == 31 and drawn == 1
+    check(s)
+
+
+def test_alania_first_sorcery_after_an_instant_triggers(cards):
+    """The first sorcery spell counts on its own, whatever instant came before: Bob draws for both."""
+    s, drawn = alania(cards, [("Lightning Bolt", ["p2"]), ("Pyroclasm", [])])
+    assert drawn == 2
+    check(s)
+
+
+def test_alania_first_otter_other_than_itself(cards):
+    """The first Otter spell (not Alania) triggers: the copy of the creature spell makes a second Otter; a second Otter spell doesn't."""
+    s, drawn = alania(cards, [("Test Otter", [])])
+    assert drawn == 1 and len([c for c in s.state.cards.values() if c.name == "Test Otter" and c.zone.endswith("battlefield")]) == 2
+    s, drawn = alania(cards, [("Test Otter", []), ("Test Otter B", [])])
+    assert drawn == 1 and len([c for c in s.state.cards.values() if c.name.startswith("Test Otter") and c.zone.endswith("battlefield")]) == 3
+    check(s)
+
+
+def test_alania_other_creature_spells_do_not_trigger(cards):
+    s, drawn = alania(cards, [("Grizzly Bears", [])])
+    assert drawn == 0
     check(s)

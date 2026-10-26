@@ -232,6 +232,11 @@ def _towershell(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Alania: the intervening "if" is a fact about the turn's casts (triggers.alania_first), judged as the spell is cast (603.4); the rest reads natively
+    "Whenever you cast a spell, if it's the first instant spell, the first sorcery spell, or the first Otter spell other than Alania you've cast this turn, "
+    "you may have target opponent draw a card. If you do, copy that spell. You may choose new targets for the copy.":
+        ("Whenever you cast a spell, you may have target opponent draw a card. If you do, copy that spell and you may choose new targets for the copy.",
+         lambda d: {**d, "cond": {**d["cond"], "alania110b": True}}),
     # Mana Web: "a land an opponent controls is tapped for mana" is an opponent tapping a land for mana (605.1a: only its controller activates it)
     "Whenever a land an opponent controls is tapped for mana, tap all lands that player controls that could produce any type of mana that land could produce.":
         ("Whenever an opponent taps a land for mana, tap all lands that player controls.", lambda d: {**d, "effects": [{"do": "mana_web110b"}]}),
