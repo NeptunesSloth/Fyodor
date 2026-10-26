@@ -37,6 +37,9 @@ OMNATH = ("At the beginning of your first main phase, look at the top card of yo
 PRODDER = ("At the beginning of your upkeep, reveal the top card of your library. Any opponent may have you put that card into your graveyard. If a player does, "
            "this creature deals damage to that player equal to that card's mana value. Otherwise, put that card into your hand.")
 
+BREATH = ("When enchanted creature deals combat damage to a player, sacrifice it and attach this Aura to a creature you control. If you do, untap all creatures you "
+          "control and after this phase, there is an additional combat phase.")
+
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
@@ -51,6 +54,15 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if text == PRODDER:
         d = scripts.define(replace(ability, text="At the beginning of your upkeep, draw a card."), ch)
         return None if d is None else {**d, "effects": [{"do": "prodder110c"}]}
+    if text == BREATH.replace("this Aura", "~") or ability.text == BREATH:  # 701.21a, 701.3a: the Aura goes to the chosen creature; "if you do" = it got attached
+        from app.rules.nontarget_creature_choices import key
+
+        native = scripts.define(replace(ability, text="When enchanted creature deals combat damage to a player, untap all creatures you control and after this phase, there is an additional combat phase."), ch)
+        if native is None or [e.get("do") for e in native["effects"]] != ["untap", "extra_phases"]:
+            return None
+        pick = {"do": "player_chooses", "who": "you", "sel": key("creature you control"), "n": 1, "label": "creature you control", "as": "bof110c"}
+        return {**native, "effects": [{"do": "sacrifice", "who": "host", "by": "controller"}, pick, {"do": "attach_to", "src": "self", "who": "ref:bof110c"},
+                                      {"do": "attached_if110c", "skip": 2}, *native["effects"]]}
     if text == ECHO_LIFE:
         return {"kind": "static", "static": "echo_life110c", "effects": []}
     if text == RELENTLESS:
@@ -298,5 +310,13 @@ def resume_prodder(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, r["ctx"])
 
 
+def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Skip the next ``skip`` instructions unless the source Aura is attached to a permanent (it moved there, 303.4)."""
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object") or not src.attached_to:
+        ctx["next"] += e["skip"]
+    return True
+
+
 RESUME = {"prodder110c": resume_prodder, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
-PRIMITIVES = {"prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+PRIMITIVES = {"attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
