@@ -17,6 +17,7 @@ CHORUS = ("Forestwalk (This creature can't be blocked as long as defending playe
 EXTRA = [real("Chorus of the Conclave", "{3}{G}{G}", 5, "Creature — Dryad", CHORUS, ("4", "4"), "G"),
          real("Test Bear", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
          real("Test Kicker Bear", "{1}{G}", 2, "Creature — Bear", "Kicker {1}\nWhen this creature enters, if it was kicked, you gain 1 life.", ("2", "2"), "G"),
+         real("Test X Bear", "{X}{G}", 1, "Creature — Bear", "", ("1", "1"), "G"),
          real("Test Sorcery", "{G}", 1, "Sorcery", "You gain 2 life.", None, "G")]
 
 
@@ -156,3 +157,24 @@ def test_free_cast_typed_chorus_amount(cards):
     answer(s)
     assert pt(s, "Test Bear") == (9, 9)
     check(s)
+
+
+def test_x_creature_chorus_and_x_are_separate(cards):  # 601.2b announces X and Chorus separately, 601.2f one total: {3}{G} + {2} = 6 mana
+    s = build(cards, ["Chorus of the Conclave", "Test X Bear"])
+    put(s, "Chorus of the Conclave")
+    mana(s, G=6)
+    c = to_hand(s, "Test X Bear")
+    act(s, "p1", type="cast_spell", card_id=c.id, x_value=3, chorus=2)
+    answer(s)
+    assert pt(s, "Test X Bear") == (3, 3)  # base 1/1 + 2 counters from Chorus only (X is not a counter count)
+    check(s)
+
+
+def test_chorus_amount_in_hints(cards):  # the client sees which castable cards take CastSpell.chorus (like x_cast / x_kicker)
+    s = build(cards, ["Chorus of the Conclave", "Test X Bear", "Test Bear", "Test Sorcery"])
+    mana(s, G=6)
+    ids = {n: to_hand(s, n).id for n in ("Test X Bear", "Test Bear", "Test Sorcery")}
+    assert not s.view("p1")["rules"]["hints"].get("chorus")
+    put(s, "Chorus of the Conclave")
+    got = set(s.view("p1")["rules"]["hints"]["chorus"])
+    assert got == {ids["Test X Bear"], ids["Test Bear"]}

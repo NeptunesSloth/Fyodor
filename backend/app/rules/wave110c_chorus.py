@@ -21,10 +21,10 @@ def definition(t: str) -> dict[str, Any] | None:
 
 
 def offered(state: Any, player: str, card: Any, ch: Any, info: Any) -> bool:
-    """Whether ``player`` may pay Chorus's additional cost for this creature spell (the static is on the battlefield, 113.6; {X} spells are not offered)."""
+    """Whether ``player`` may pay Chorus's additional cost for this creature spell (the static is on the battlefield, 113.6). An {X} creature may use it too: X (601.2b) and the Chorus amount are separate choices, one total cost (601.2f)."""
     from app.rules import cast_limits
 
-    return "Creature" in ch.types and "{X}" not in (ch.mana_cost or "") and state.rules is not None and bool(list(cast_limits._statics(state, info, "chorus110c")))
+    return "Creature" in ch.types and state.rules is not None and bool(list(cast_limits._statics(state, info, "chorus110c")))
 
 
 def check(state: Any, a: Any, card: Any, ch: Any, info: Any, player: str) -> None:
