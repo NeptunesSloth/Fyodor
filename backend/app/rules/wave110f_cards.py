@@ -657,8 +657,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     """Essence of the Wild: the static is read at entry (copying.entering -> :func:`copy_on_entry`), it has no effect of its own."""
     from dataclasses import replace
 
-    from app.rules import scripts
+    from app.rules import scripts, wave110f_sac
 
+    if (sac110f := wave110f_sac.definition(ability, ch)) is not None:  # Brutal Suppression, Drought
+        return sac110f
     text = scripts.self_text(ability.text, ch.name)
     if ability.kind == "triggered" and text == "When ~ enters and at the beginning of your upkeep, choose left or right.":
         native = scripts.define(replace(ability, text="When ~ enters and at the beginning of your upkeep, draw a card."), ch)
