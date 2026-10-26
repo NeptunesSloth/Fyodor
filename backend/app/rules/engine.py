@@ -1343,7 +1343,7 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
 
     if (why := wave110n_cards.land_problem(state, player, info)) is not None:
         return why
-    if (why := cast_limits.land_problem(state, player, ch, info)) is not None:
+    if (why := cast_limits.land_problem(state, player, ch, info, card.zone)) is not None:
         return why  # -- chosen filters (wave 53B) -- Conjurer's Ban: a land with the chosen name can't be played until a turn
     if check_priority and (r.priority != player or r.decision is not None):
         return "You don't have priority"

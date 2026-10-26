@@ -2,6 +2,7 @@
 
 * Unleash the Inferno: the excess damage (120.10) triggers a destroy whose target (chosen when the trigger goes on the stack, 603.3d) has mana value at most that excess.
 * Revival Experiment: up to one graveyard card per permanent type, a matching of cards to types (205.2a); 3 life each; the spell is exiled.
+* Memory Vessel: both players exile seven; until the activator's next turn each may play their own exiled cards and none may play cards from hand (305.1, 601.3).
 * Stitcher Geralf: each player mills three (701.17); up to two creature cards among those milled are exiled; the Zombie is as big as their total power (608.2c, 107.1b).
 """
 from __future__ import annotations
@@ -31,6 +32,9 @@ EXTRA = [
          "For each permanent type, return up to one card of that type from your graveyard to the battlefield. You lose 3 life for each card returned this way. "
          "Exile Revival Experiment.", None, "B"),
     real("Wayfarer's Bauble", "{1}", 1, "Artifact Creature \u2014 Golem", "", ("1", "1"), ""),
+    real("Memory Vessel", "{4}", 4, "Artifact",
+         "{T}, Exile this artifact: Each player exiles the top seven cards of their library. Until your next turn, players may play cards they exiled this way, and they can't "
+         "play cards from their hand. Activate only as a sorcery.", None, ""),
     real("Sol Ring", "{1}", 1, "Artifact", "{T}: Add {C}{C}.", None, ""),
 ]
 NAMES = [c["name"] for c in EXTRA]
@@ -177,3 +181,42 @@ def test_revival_experiment_artifact_creature_is_one_type(cards):
     answer(s)
     assert life(s) == 34 and card_named(s, "Wayfarer's Bauble").zone == "p1:battlefield"
     check(s)
+
+
+def test_memory_vessel_hand_locked_exile_playable_until_your_next_turn(cards):
+    """Until Alice's next turn: Bob plays his own exiled Island but not an Island from hand, Alice can't cast from hand; once her turn begins both are normal again."""
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Memory Vessel", "Grizzly Bears", "Sol Ring"], ["Hill Giant"])
+    vessel = put(s, "Memory Vessel")
+    to_phase(s, "main1", 3)
+    bears = to_hand(s, "Grizzly Bears")
+    top(s, "Sol Ring", "p1")
+    isl_hand = next(c for c in s.state.cards.values() if c.owner == "p2" and c.name == "Island" and c.zone == "p2:library")
+    act(s, "p2", type="move", card_ids=[isl_hand.id], to={"zone": "hand"})
+    act(s, "p1", type="activate_ability", card_id=vessel.id, ability=0)
+    answer(s)
+    assert len([c for c in s.state.cards.values() if c.owner == "p2" and c.zone == "p2:exile"]) == 7
+    ring = card_named(s, "Sol Ring")
+    assert ring.zone == "p1:exile"
+    mana(s, G=1, C=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bears.id)
+    act(s, "p1", type="cast_spell", card_id=ring.id)  # her own exiled card
+    answer(s)
+    assert s.state.cards[ring.id].zone == "p1:battlefield"
+    to_phase(s, "main1", 4)
+    exiled = next(c for c in s.state.cards.values() if c.owner == "p2" and c.zone == "p2:exile" and c.name == "Island")
+    with pytest.raises(ActionError):
+        act(s, "p2", type="play_land", card_id=isl_hand.id)
+    act(s, "p2", type="play_land", card_id=exiled.id)
+    assert s.state.cards[exiled.id].zone == "p2:battlefield"
+    check(s)
+    to_phase(s, "main1", 5)
+    rest = next(c for c in s.state.cards.values() if c.owner == "p1" and c.zone == "p1:exile" and c.name == "Forest")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="play_land", card_id=rest.id)  # the permission ended as her turn began
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=bears.id)  # the hand lock ended too
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
