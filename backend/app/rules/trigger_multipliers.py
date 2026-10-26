@@ -85,6 +85,7 @@ _CAUSES = (
     (re.compile(r"^an? (?P<sel>creature you control) dealing combat damage to a player$"), "damage"),
     (re.compile(r"^you casting or copying an? (?P<sel>instant or sorcery spell)$"), "cast"),
     (re.compile(r"^a player drawing a card$"), "draw"),
+    (re.compile(r"^turning a face-down permanent face up$"), "face_up"),  # -- trigger multipliers (wave 110D) -- 701.40, 702.37e (Panoptic Projektor): the turned_face_up event
 )
 # Not multiplied: the ids of the abilities _add creates that aren't "triggered abilities the object has" (603.2d)
 DELAYED, REFLEXIVE, MADNESS = 7000, 7300, 8000
@@ -302,6 +303,8 @@ def _caused(plan: Plan, d: dict[str, Any], mult: CardInstance, event: TriggerEve
         return event.kind in ("cast", "copy") and event.players == [mult.controller] and any_object()
     if cause == "draw":
         return event.kind == "draw"
+    if cause == "face_up":  # (wave 110D) Panoptic Projektor: a face-down permanent turned face up; "enters" abilities don't trigger then (702.37e), so only turned-face-up ones
+        return event.kind == "turned_face_up"
     return False
 
 

@@ -45,6 +45,7 @@ NAMED: dict[str, tuple[list[str], str]] = {
     "Contract": (["W"], "Whenever enchanted creature attacks, it gets +2/+0 until end of turn if it's attacking one of your opponents. Otherwise, its controller loses 2 life."),
     # -- named Aura tokens (wave 110D) -- The Rani, Preston Garvey (a text starting "Enchant " carries its own enchant line; wave110d_named.py reads the Oracle sentences)
     "Mark of the Rani": (["R"], "Enchanted creature gets +2/+2 and is goaded."),
+    "Mask": (["W"], "Enchant permanent\numbra armor"),  # (wave 110A) Estrid, the Masked
     "Settlement": (["G"], 'Enchant land\nEnchanted land has "{T}: Add one mana of any color."'),
 }
 _CLAUSE = re.compile(rf"create an? (?:(?P<role>{'|'.join(ROLES)}) Role|(?P<named>{'|'.join(NAMED)}) Aura) token attached to (?P<o>.+)")
@@ -102,7 +103,7 @@ def _host_ok(plan: Plan, card: CardInstance, role_ch: Any) -> bool:
     if not card.zone.endswith(":battlefield") or not plan.in_game(card):
         return False
     hch = plan.ch(card)
-    kind_ok = "Land" in hch.types if role_ch.name == "Settlement" else hch.is_creature  # (wave 110D: "enchant land")
+    kind_ok = True if role_ch.name == "Mask" else "Land" in hch.types if role_ch.name == "Settlement" else hch.is_creature  # (wave 110D: "enchant land")
     return kind_ok and not protection.protected_from(hch, role_ch)
 
 

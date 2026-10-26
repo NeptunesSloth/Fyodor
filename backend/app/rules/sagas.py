@@ -94,6 +94,9 @@ def chapter_definition(ability: AbilityText, ch: Characteristics) -> dict[str, A
     if flavor is not None and not re.search(r"\bchoose\b", flavor["name"], re.IGNORECASE):
         body = flavor["rest"]
     body = re.sub(r"\b[Tt]his Saga\b", "~", scripts.self_text(body, ch.name))
+    from app.rules import wave110c_misc  # -- chapters read as other wordings (wave 110C) --
+
+    body = wave110c_misc.CHAPTERS.get(body, body)
     if body.rstrip().endswith("—"):
         return None  # (a modal chapter "Choose one —" with bulleted modes: not read here)
     # (-- saga (wave 20F) -- a chapter's leading "If …" is no intervening "if" (603.4: only "When/Whenever/At, if"): an instruction

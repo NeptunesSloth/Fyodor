@@ -18,6 +18,7 @@ _DRAFT = re.compile(
     r"|Immediately after the draft, .*"
     r"|As you draft (?:a|an) .*"
     r"|During the draft, .*"
+    r"|Before you shuffle your deck to start the game, you may reveal this card from your deck and exile .+? you drafted that (?:isn't|aren't) in your deck\."
     r"|Instead of drafting a card from a booster pack, .*"
     r"|As long as this card is face up during the draft, .*"
     r"|If you removed a creature card with flying from the draft with cards named (?:~|[A-Z][^.]+?), ~ has flying\. The same is true for .*"

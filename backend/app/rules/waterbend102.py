@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-_NUMBER = re.compile(r"^waterbend \{(\d+|X)\}$", re.IGNORECASE)
+_NUMBER = re.compile(r"^(?:waterbend|tapbend) \{(\d+|X)\}$", re.IGNORECASE)
 _MANDATORY = re.compile(r"^As an additional cost to cast this spell, waterbend \{(\d+|X)\}\.", re.IGNORECASE)
 
 
@@ -19,7 +19,7 @@ def part(text: str) -> Any:
     return C.CostComponent(
         C.WATERBEND,
         amount=0 if amount.upper() == "X" else int(amount),
-        selector=C._selector("untapped artifact or creature you control", zone="battlefield"),
+        selector=C._selector("untapped creature you control" if text.lower().startswith("tapbend") else "untapped artifact or creature you control", zone="battlefield"),  # (wave 110C: "Tapbend" is Heirloom Epic's creature-only payment, not a waterbend)
         x=amount.upper() == "X",
         text=text,
     )

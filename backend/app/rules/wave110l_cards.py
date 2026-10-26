@@ -24,8 +24,35 @@ _VALEYARD = "If an opponent would face a villainous choice, they face that choic
 _EXTRA_FACE = "villain_extra110l"
 
 
+_ATTACHED = "Whenever this Equipment becomes attached to a creature, for as long as this Equipment remains attached to it, "
+_COPY_ATTACHED: dict[str, tuple[str, bool]] = {  # ability text -> (what it becomes a copy of, "you may")
+    _ATTACHED + "you may have that creature become a copy of another target creature you control.": ("target", True),
+    _ATTACHED + "that creature becomes a copy of a creature card exiled with this Equipment.": ("exiled_with", False),
+}
+
+
+def _copy_attached(what: str, optional: bool) -> Def:
+    """Blade of Shared Souls / Assimilation Aegis: the layer-1 copy effect (707.4) on the creature the Equipment became attached to, lasting while that
+    same Equipment stays attached to it (611.2b; delayed.expire "while_attached110l")."""
+    return {"kind": "triggered", "trigger": "event", "optional": optional,
+            "cond": {"event": "attached", "other": 'sel:{"types":["Creature"]}', "subject": "self"},
+            "target": {"what": 'sel:{"controller":"you","extras":["not_event"],"types":["Creature"]}'} if what == "target" else None,  # "another": not that creature
+            "effects": [{"do": "become_copy", "duration": "while_attached110l", "who": "event", "with": what}]}
+
+
+_EYE = ("You may play lands and cast spells from among cards in your graveyard you've surveilled this turn. "
+        "If you cast a spell this way, you pay life equal to its mana value rather than paying its mana cost.")
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
+
+    if ability.text.strip() == _EYE:  # 118.9, 119.4: the alternative cost is always paid; the pool is the turn log's surveilled graveyard objects (400.7)
+        return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": False, "play": True, "cast": True,
+                "filter": None, "effects": [], "put_there": "surveilled110l", "free": True, "life_mv": True}
+
+    if (copy := _COPY_ATTACHED.get(ability.text.strip())) is not None:
+        return _copy_attached(*copy)
 
     if ability.text.strip() == _VALEYARD:  # a static replacement (701.55c) read by villainous.villain through faces_extra
         return {"kind": "static", "static": _EXTRA_FACE, "effects": []}
@@ -216,6 +243,247 @@ def extra_faces(plan: Plan, pid: str) -> int:
                and any(d.get("static") == _EXTRA_FACE for d in scripts.definitions(plan.ch(s)).values()))
 
 
+def dealt_by_red_spell(plan: Plan, ctx: Context, log: Any) -> Any:
+    """The last damage fact (608.2i) dealing damage to the ability's controller from a red instant or sorcery spell, as that spell was (colors, types and
+    controller recorded as it dealt the damage, history.note_events), or None."""
+    hits = [f for f in log.facts if f.kind == "damage" and f.player == ctx["controller"] and f.amount > 0 and f.source_spell
+            and "R" in f.source_colors and {"Instant", "Sorcery"} & set(f.source_types)]
+    return hits[-1] if hits else None
+
+
+def suffocate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context, history
+    from app.rules.effects import PRIMITIVES as P
+
+    fact = dealt_by_red_spell(plan, ctx, history.log_for(plan, False))
+    if fact is None or not fact.source_controller or fact.source_controller not in plan.live():
+        return True
+    context.refs(ctx)["suffocate110l"] = {"kind": "choice", "what": "player", "value": fact.source_controller, "players": [fact.source_controller]}
+    return P["damage"](plan, ctx, {"do": "damage", "who": "ref:suffocate110l", "n": 4})
+
+
+_BUILD["When enchanted creature dies, mill cards equal to its power. Return this card to its owner's hand and up to one creature card milled this way to the battlefield under your control."] = (
+    "When enchanted creature dies, mill cards equal to its power. Return this card to its owner's hand. "
+    "You may put a creature card milled this way onto the battlefield under your control.", lambda d: d)  # one simultaneous instruction (608.2c); the two moves don't interact
+
+
+def _by_paying_one(d: Def) -> Def:
+    """Jadzi: the revealed nonland card is cast by paying {1} rather than its mana cost (118.9: an alternative cost; additional costs and increases still apply)."""
+    casts = [e for e in d["effects"] if e.get("do") == "free_cast"]
+    return {**d, "effects": [{**e, "paid": True, "effect_mana_cost": "{1}"} if e in casts else e for e in d["effects"]]} if len(casts) == 1 else d
+
+
+_MAGECRAFT = ("Whenever you cast or copy an instant or sorcery spell, reveal the top card of your library. If it's a nonland card, you may cast it {how}. "
+              "If it's a land card, put it onto the battlefield.")
+_BUILD["Magecraft — " + _MAGECRAFT.format(how="by paying {1} rather than paying its mana cost")] = (
+    "Magecraft — " + _MAGECRAFT.format(how="without paying its mana cost"), _by_paying_one)
+
+
+_BUILD["{2}: Until end of turn, you may look at face-down creatures you don't control any time."] = (
+    "{2}: You gain 1 life.", lambda d: {**d, "effects": [{"do": "face_down_look110l"}]})
+
+
+def face_down_look(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Lumbering Laundry: its controller may look at the face-down creatures they don't control until the turn ends (visibility.looks_at_face_down)."""
+    plan.rules.face_down_looks110l.append({"player": ctx["controller"], "turn": plan.state.turn.number})
+    plan.note(f"{plan.name(ctx['controller'])} may look at face-down creatures they don't control until end of turn", actor=ctx["controller"])
+    return True
+
+
+def _optimus(d: Def) -> Def:
+    """Optimus Prime: "The chosen creature" is the creature bolster chose (701.39a; the native reading, the creature chosen as a permanent entered, is another
+    thing). "When that creature deals combat damage to a player this turn, convert Optimus Prime" is one delayed trigger on it (603.7c: "when", so once),
+    reading as the "Whenever that creature …" watcher the grammar has, but spent after the first conversion."""
+    from app.rules import scripts
+
+    bolster, grant = d["effects"]
+    if bolster.get("do") != "bolster" or grant.get("do") != "grant":
+        return d
+    watch = scripts.parse_effects("Target creature gets +1/+1 until end of turn. Whenever that creature deals combat damage to a player this turn, transform ~.")
+    assert watch is not None
+    delayed, convert = watch[0][1], watch[0][2]
+    who = "ref:bolstered110l"
+    return {**d, "effects": [{**bolster, "as": "bolstered110l"}, {**grant, "who": who}, {**delayed, "once": True, "who": who}, convert]}
+
+
+_BUILD["Whenever you attack, bolster 2. The chosen creature gains trample until end of turn. When that creature deals combat damage to a player this turn, convert Optimus Prime."] = (
+    "Whenever you attack, bolster 2. The chosen creature gains trample until end of turn.", _optimus)
+
+
+def _intel(d: Def) -> Def:
+    """Flamewar: every card its controller owns in exile with an intel counter on it goes to their hand (the cards its other face exiled), all at once (400.3)."""
+    from app.rules import selectors
+
+    sel = selectors.parse("card you own in exile with an intel counter on it")
+    assert sel is not None
+    return {**d, "effects": [{"do": "bounce", "who": sel.key()}]}
+
+
+_BUILD["{1}, Discard your hand: Put all exiled cards you own with intel counters on them into your hand."] = (
+    "{1}, Discard your hand: Draw a card.", _intel)
+
+
+def _vault(d: Def) -> Def:
+    """Vault 112 chapter III: pay any amount of {E}; if one or more, shuffle, exile that many from the top, and play one of those cards for free (Experience Kernel-like
+    "that many" is the energy actually paid, 107.14)."""
+    from app.rules import scripts
+
+    pay = scripts.parse_effects("Pay any amount of {E}.")
+    play = scripts.parse_effects("Exile the top X cards of your library. You may play one of those cards without paying its mana cost.")
+    shuffle = scripts.parse_effects("Shuffle your library.")
+    assert pay and play and shuffle
+    exile, free = play[0]
+    paid = {"ref_amount": pay[0][0]["as"]}
+    gate = {"do": "only_if", "cond": {"value": paid, "op": ">=", "n": 1}, "skip": 3}
+    return {**d, "effects": [pay[0][0], gate, shuffle[0][0], {**exile, "n": paid}, free]}
+
+
+_BUILD["III — Pay any amount of {E}. If you paid one or more {E} this way, shuffle your library, then exile that many cards from the top. "
+       "You may play one of those cards without paying its mana cost."] = ("III — Draw a card.", _vault)
+
+
+_WINTER = ("Delirium — At the beginning of your end step, you may exile any number of cards from your graveyard with four or more card types among them. "
+           "If you do, put a permanent card from among them onto the battlefield with a finality counter on it.")
+_BUILD[_WINTER] = ("Delirium — At the beginning of your end step, you may draw a card.",
+                   lambda d: {**d, "optional": False, "effects": [{"do": "winter110l"}]})
+_PERMANENT_TYPES = frozenset({"Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"})
+
+
+def winter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Winter: the graveyard is public (404.2), so the choice is asked whenever there is a card in it: any number, but the chosen cards must show four or
+    more card types among them (205.2a; a wrong set is refused when answered)."""
+    from app.rules.effects import decide, zone_key
+
+    gy = list(plan.state.zones.get(zone_key(ctx["controller"], "graveyard"), []))
+    if not gy:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Exile any number of cards from your graveyard with four or more card types among them",
+           options=_cards_options(plan, gy), min_choices=0, max_choices=len(gy), resume={"step": "winter110l", "ctx": ctx, "stage": "exile"})
+    return False
+
+
+def resume_winter(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import attachments
+    from app.rules.effects import continue_effects, decide
+
+    ctx, me = d.resume["ctx"], d.player
+    if d.resume["stage"] == "exile":
+        gy = set(plan.state.zones.get(f"{me}:graveyard", []))
+        chosen = [c for c in dict.fromkeys(chosen) if c in gy]
+        if not chosen:
+            continue_effects(plan, ctx)
+            return
+        if len({t for c in chosen for t in plan.ch(plan.state.cards[c]).types}) < 4:
+            raise ActionError("Choose cards with four or more card types among them")
+        plan.do({"type": "move", "card_ids": chosen, "to": {"zone": "exile"}}, actor=me)
+        among = [c for c in chosen if plan.state.cards[c].zone == f"{me}:exile" and plan.ch(plan.state.cards[c]).types & _PERMANENT_TYPES]
+        if not among:
+            continue_effects(plan, ctx)
+            return
+        decide(plan, player=me, kind="choose_cards", prompt="Put a permanent card from among them onto the battlefield with a finality counter on it",
+               options=_cards_options(plan, among), min_choices=1, max_choices=1,
+               resume={"step": "winter110l", "ctx": ctx, "stage": "enter", "among": among})
+        return
+    pick = chosen[0] if chosen else ""
+    if pick in d.resume["among"] and plan.state.cards[pick].zone == f"{me}:exile":
+        entry = {"card": pick, "player": me, "actor": me, "tapped": False, "via": ctx.get("source_object"), "counter": "finality", "counter_n": 1}
+        if not attachments.enter(plan, [entry], ctx):
+            return  # (an Aura chooses what it enchants; the resolution goes on from there)
+    continue_effects(plan, ctx)
+
+
+def note_surveilled(plan: Plan, player: str, cards: list[str]) -> None:
+    """The cards a surveil put into ``player``'s graveyard, as the objects they became there (turn log facts, read by selectors.put_there_state)."""
+    from app.game.rules_state import TurnFact, turn_log_now
+
+    log = turn_log_now(plan.state)
+    if log is None:
+        return
+    for cid in cards:
+        card = plan.state.cards.get(cid)
+        if card is not None and card.zone == f"{player}:graveyard":
+            log.facts.append(TurnFact(kind="surveil_gy110l", player=player, object_id=plan.oid(card)))
+
+
+def _inquisitor(d: Def) -> Def:
+    """Lightstall Inquisitor: each opponent exiles a card from their hand (their choice, face up in exile, 406.3) and its owner may play it for as long as it
+    remains exiled (611.2a); a spell cast this way costs {1} more (118.8), a land played this way enters tapped (614.1d: the permission's "enters", only for a Land)."""
+    (exile,) = d["effects"]
+    play = {"do": "grant_play", "who": "ref:inquisitor110l", "play": True, "cast": True, "until": "permanent", "owner": True, "generic_extra": 1,
+            "enters": {"tapped": True, "only": "Land"}}
+    return {**d, "effects": [{**exile, "as": "inquisitor110l"}, play]}
+
+
+_BUILD["When this creature enters, each opponent exiles a card from their hand and may play that card for as long as it remains exiled. Each spell cast this way costs {1} more "
+       "to cast. Each land played this way enters tapped."] = (
+    "When this creature enters, each opponent exiles a card from their hand.", _inquisitor)
+
+
+def _daemon_sword(d: Def) -> Def:
+    """Drach'Nyen: X is the power of the creature card its ETB exiled (linked ability, 607.2a; the pool projection "power" reads the latest exiled creature)."""
+    each = d.get("each")
+    if not each or each.get("value") != {"linked_pool": {"projection": "count"}}:
+        return d
+    return {**d, "each": {**each, "value": {"linked_pool": {"projection": "power"}}}}
+
+
+_BUILD["Daemon Sword — Equipped creature has menace and gets +X/+0, where X is the exiled card's power."] = (
+    "Daemon Sword — Equipped creature has menace and gets +X/+0, where X is the number of cards exiled with this Equipment.", _daemon_sword)
+
+
+_CAVES = "II, III — For each non-Saga permanent, choose a counter on it. You may put an additional counter of that kind on that permanent."
+_BUILD[_CAVES] = ("II, III — Draw a card.", lambda d: {**d, "effects": [{"do": "caves110l"}]})
+
+
+def caves(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """The Caves of Androzani II, III: for each non-Saga permanent that has a counter, its kind is chosen (by the Saga's controller, among the kinds on it); then they
+    may put one more of that kind on each (counters are public, 122; the puts go through the counter choke point together, 616.1)."""
+    todo = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and "Saga" not in plan.ch(c).subtypes
+            and any(n > 0 for n in c.counters.values())]
+    return _caves_next(plan, ctx, [], todo)
+
+
+def _caves_next(plan: Plan, ctx: Context, picks: list[tuple[str, str]], todo: list[str]) -> bool:
+    from app.rules.effects import decide
+
+    while todo:
+        cid = todo[0]
+        card = plan.state.cards.get(cid)
+        kinds = sorted(k for k, n in card.counters.items() if n > 0) if card is not None and card.zone.endswith(":battlefield") else []
+        if len(kinds) == 1:
+            picks, todo = [*picks, (cid, kinds[0])], todo[1:]
+        elif not kinds:
+            todo = todo[1:]
+        else:
+            decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Choose a counter on {card.name if card else 'it'}",
+                   options=[DecisionOption(id=k, label=k) for k in kinds], resume={"step": "caves110l", "ctx": ctx, "stage": "kind", "picks": picks, "todo": todo})
+            return False
+    if not picks:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Put an additional counter of the chosen kind on which permanents?",
+           options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name or 'Permanent'} ({k})", card_id=c) for c, k in picks],
+           min_choices=0, max_choices=len(picks), resume={"step": "caves110l", "ctx": ctx, "stage": "put", "picks": picks})
+    return False
+
+
+def resume_caves(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import replace
+    from app.rules.effects import continue_effects
+
+    r = d.resume
+    ctx = r["ctx"]
+    picks = [(c, k) for c, k in r["picks"]]
+    if r["stage"] == "kind":
+        todo = r["todo"]
+        if _caves_next(plan, ctx, [*picks, (todo[0], chosen[0])], todo[1:]):
+            continue_effects(plan, ctx)
+        return
+    puts = [(c, k, 1) for c, k in picks if c in chosen and c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")]
+    if not puts or replace.put_counters(plan, puts, by=ctx["controller"], then={"do": "continue", "ctx": ctx}):
+        continue_effects(plan, ctx)
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key
@@ -267,13 +535,37 @@ _RITUAL = ("Sacrifice a nontoken permanent. If you do, target opponent loses 2 l
            "You may repeat this process any number of times.")
 _STRUGGLE = ("Target opponent reveals their hand. That player exiles a card from it, then you exile a card from it. Repeat this process until all cards in that hand "
              "have been exiled. That player returns the cards they exiled this way to their hand and puts the rest into their graveyard.")
-_BODIES: dict[str, tuple[list[Def], str]] = {
+_SUFFOCATION = "~ deals 4 damage to the controller of the last red instant or sorcery spell that dealt damage to you this turn."
+_GAMBIT = "Take an extra turn after this one. During that turn, damage can't be prevented."
+_BODIES: dict[str, tuple[list[Def], str | None]] = {
+    _GAMBIT: ([{"do": "extra_turn", "who": "you", "n": 1, "no_prevent110l": True}], None),
+    _GAMBIT + " At the beginning of that turn's end step, you lose the game.":
+        ([{"do": "extra_turn", "who": "you", "n": 1, "no_prevent110l": True, "then_lose": True}], None),
+    _SUFFOCATION: ([{"do": "suffocate110l"}], None),
     _RITUAL: ([{"do": "ritual110l", "who": "target"}], "opponent"),
     _STRUGGLE: ([{"do": "struggle110l", "who": "target"}], "opponent"),
 }
 
 
+_JOURNEY = ("You may put any number of land cards from your hand onto the battlefield. Then if you control eight or more lands, you may discard a card. "
+            "If you do, return {me} to its owner's hand.")
+
+
+def _journey() -> list[Def]:
+    """Journey to the Oracle: the lands, then (eight or more lands) the optional discard whose payment returns the spell instead of exiling it (715.4)."""
+    from app.rules import scripts
+
+    parsed = scripts.parse_effects("You may put any number of land cards from your hand onto the battlefield. Then if you control eight or more lands, you may discard a card.")
+    assert parsed is not None
+    *head, _may, _discard = parsed[0]
+    head[-1] = {**head[-1], "skip": 3}  # the 8-lands gate now covers the payment, its check and the return
+    return [*head, {"do": "optional_payment", "who": "you", "cost": "Discard a card", "bind": "journey110l"},
+            {"do": "only_if", "cond": {"succeeded": "journey110l"}, "skip": 1}, {"do": "bounce", "who": "self"}]
+
+
 def parse(body: str) -> Any:
+    if body.strip() in (_JOURNEY.format(me="~"), _JOURNEY.format(me="Journey to the Oracle")):
+        return _journey(), None, False
     found = _BODIES.get(body.strip())
     return None if found is None else ([dict(e) for e in found[0]], found[1], False)
 
@@ -417,5 +709,5 @@ def resume_struggle(plan: Plan, d: Any, chosen: list[str]) -> None:
         continue_effects(plan, ctx)
 
 
-PRIMITIVES = {**_P0, "ritual110l": ritual, "ritual_again110l": ritual_again, "struggle110l": struggle}
-RESUME = {**_R0, "ritual110l": resume_ritual, "struggle110l": resume_struggle}
+PRIMITIVES = {**_P0, "caves110l": caves, "winter110l": winter, "face_down_look110l": face_down_look, "suffocate110l": suffocate, "ritual110l": ritual, "ritual_again110l": ritual_again, "struggle110l": struggle}
+RESUME = {**_R0, "caves110l": resume_caves, "winter110l": resume_winter, "ritual110l": resume_ritual, "struggle110l": resume_struggle}

@@ -102,6 +102,8 @@ def parse(line: str, recipient: Characteristics | None = None) -> list[Quality] 
     if not m:
         return None
     words = [w for w in _PIECE.split(m[1]) if w.strip()]
+    if recipient is not None and recipient.lost:  # -- wave 110F -- "loses protection from black" (Cephalid Snitch): only that quality goes (613.1f)
+        words = [w for w in words if f"protection from {w.strip().rstrip('.')}" not in recipient.lost]
     out = [_one(w, recipient) for w in words]
     return [q for q in out if q is not None] if out and all(out) else None
 

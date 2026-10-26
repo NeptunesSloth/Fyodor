@@ -259,5 +259,419 @@
   ],
   "power": "4",
   "toughness": "2"
+ },
+ {
+  "name": "Suffocation",
+  "layout": "normal",
+  "mana_cost": "{1}{U}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Cast this spell only if you were dealt damage this turn by a red instant or sorcery spell.\nSuffocation deals 4 damage to the controller of the last red instant or sorcery spell that dealt damage to you this turn.\nDraw a card at the beginning of the next turn's upkeep.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Avatar Destiny",
+  "layout": "normal",
+  "mana_cost": "{2}{G}{G}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature you control\nEnchanted creature gets +1/+1 for each creature card in your graveyard and is an Avatar in addition to its other types.\nWhen enchanted creature dies, mill cards equal to its power. Return this card to its owner's hand and up to one creature card milled this way to the battlefield under your control.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Enchant",
+   "Mill"
+  ]
+ },
+ {
+  "name": "Jadzi, Oracle of Arcavios // Journey to the Oracle",
+  "layout": "modal_dfc",
+  "mana_cost": "{6}{U}{U} // {2}{G}{G}",
+  "cmc": 8.0,
+  "type_line": "Legendary Creature — Human Wizard // Sorcery",
+  "oracle_text": "Discard a card: Return Jadzi to its owner's hand.\nMagecraft — Whenever you cast or copy an instant or sorcery spell, reveal the top card of your library. If it's a nonland card, you may cast it by paying {1} rather than paying its mana cost. If it's a land card, put it onto the battlefield.\n//\nYou may put any number of land cards from your hand onto the battlefield. Then if you control eight or more lands, you may discard a card. If you do, return Journey to the Oracle to its owner's hand.",
+  "colors": [
+   "G",
+   "U"
+  ],
+  "color_identity": [
+   "G",
+   "U"
+  ],
+  "keywords": [
+   "Magecraft"
+  ],
+  "card_faces": [
+   {
+    "name": "Jadzi, Oracle of Arcavios",
+    "mana_cost": "{6}{U}{U}",
+    "type_line": "Legendary Creature — Human Wizard",
+    "oracle_text": "Discard a card: Return Jadzi to its owner's hand.\nMagecraft — Whenever you cast or copy an instant or sorcery spell, reveal the top card of your library. If it's a nonland card, you may cast it by paying {1} rather than paying its mana cost. If it's a land card, put it onto the battlefield.",
+    "power": "5",
+    "toughness": "5",
+    "colors": [
+     "U"
+    ]
+   },
+   {
+    "name": "Journey to the Oracle",
+    "mana_cost": "{2}{G}{G}",
+    "type_line": "Sorcery",
+    "oracle_text": "You may put any number of land cards from your hand onto the battlefield. Then if you control eight or more lands, you may discard a card. If you do, return Journey to the Oracle to its owner's hand.",
+    "colors": [
+     "G"
+    ]
+   }
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Alchemist's Gambit",
+  "layout": "normal",
+  "mana_cost": "{1}{R}{R}",
+  "cmc": 3.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Cleave {4}{U}{U}{R} (You may cast this spell for its cleave cost. If you do, remove the words in square brackets.)\nTake an extra turn after this one. During that turn, damage can't be prevented. [At the beginning of that turn's end step, you lose the game.]\nExile Alchemist's Gambit.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": [
+   "Cleave"
+  ]
+ },
+ {
+  "name": "Mending Hands",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Prevent the next 4 damage that would be dealt to any target this turn.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Lumbering Laundry",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Artifact Creature — Golem",
+  "oracle_text": "{2}: Until end of turn, you may look at face-down creatures you don't control any time.\nDisguise {5} (You may cast this card face down for {3} as a 2/2 creature with ward {2}. Turn it face up any time for its disguise cost.)",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Disguise"
+  ],
+  "power": "4",
+  "toughness": "5"
+ },
+ {
+  "name": "Optimus Prime, Hero // Optimus Prime, Autobot Leader",
+  "layout": "transform",
+  "mana_cost": "{3}{U}{R}{W} // ",
+  "cmc": 6.0,
+  "type_line": "Legendary Artifact Creature — Robot // Legendary Artifact — Vehicle",
+  "oracle_text": "More Than Meets the Eye {2}{U}{R}{W} (You may cast this card converted for {2}{U}{R}{W}.)\nAt the beginning of each end step, bolster 1. (Choose a creature with the least toughness among creatures you control and put a +1/+1 counter on it.)\nWhen Optimus Prime dies, return it to the battlefield converted under its owner's control.\n//\nLiving metal (During your turn, this Vehicle is also a creature.)\nTrample\nWhenever you attack, bolster 2. The chosen creature gains trample until end of turn. When that creature deals combat damage to a player this turn, convert Optimus Prime.",
+  "colors": [
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Living metal",
+   "Trample",
+   "Convert",
+   "More Than Meets the Eye",
+   "Bolster"
+  ],
+  "card_faces": [
+   {
+    "name": "Optimus Prime, Hero",
+    "mana_cost": "{3}{U}{R}{W}",
+    "type_line": "Legendary Artifact Creature — Robot",
+    "oracle_text": "More Than Meets the Eye {2}{U}{R}{W} (You may cast this card converted for {2}{U}{R}{W}.)\nAt the beginning of each end step, bolster 1. (Choose a creature with the least toughness among creatures you control and put a +1/+1 counter on it.)\nWhen Optimus Prime dies, return it to the battlefield converted under its owner's control.",
+    "power": "4",
+    "toughness": "8",
+    "colors": [
+     "R",
+     "U",
+     "W"
+    ]
+   },
+   {
+    "name": "Optimus Prime, Autobot Leader",
+    "mana_cost": "",
+    "type_line": "Legendary Artifact — Vehicle",
+    "oracle_text": "Living metal (During your turn, this Vehicle is also a creature.)\nTrample\nWhenever you attack, bolster 2. The chosen creature gains trample until end of turn. When that creature deals combat damage to a player this turn, convert Optimus Prime.",
+    "power": "6",
+    "toughness": "8",
+    "colors": [
+     "R",
+     "U",
+     "W"
+    ]
+   }
+  ],
+  "power": "4",
+  "toughness": "8"
+ },
+ {
+  "name": "Flamewar, Brash Veteran // Flamewar, Streetwise Operative",
+  "layout": "transform",
+  "mana_cost": "{1}{B}{R} // ",
+  "cmc": 3.0,
+  "type_line": "Legendary Artifact Creature — Robot // Legendary Artifact — Vehicle",
+  "oracle_text": "More Than Meets the Eye {B}{R} (You may cast this card converted for {B}{R}.)\nSacrifice another artifact: Put a +1/+1 counter on Flamewar and convert it. Activate only as a sorcery.\n{1}, Discard your hand: Put all exiled cards you own with intel counters on them into your hand.\n//\nLiving metal (During your turn, this Vehicle is also a creature.)\nMenace, deathtouch\nWhenever Flamewar deals combat damage to a player, exile that many cards from the top of your library face down. Put an intel counter on each of them. Convert Flamewar.",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Living metal",
+   "Convert",
+   "Menace",
+   "More Than Meets the Eye",
+   "Deathtouch"
+  ],
+  "card_faces": [
+   {
+    "name": "Flamewar, Brash Veteran",
+    "mana_cost": "{1}{B}{R}",
+    "type_line": "Legendary Artifact Creature — Robot",
+    "oracle_text": "More Than Meets the Eye {B}{R} (You may cast this card converted for {B}{R}.)\nSacrifice another artifact: Put a +1/+1 counter on Flamewar and convert it. Activate only as a sorcery.\n{1}, Discard your hand: Put all exiled cards you own with intel counters on them into your hand.",
+    "power": "3",
+    "toughness": "2",
+    "colors": [
+     "B",
+     "R"
+    ]
+   },
+   {
+    "name": "Flamewar, Streetwise Operative",
+    "mana_cost": "",
+    "type_line": "Legendary Artifact — Vehicle",
+    "oracle_text": "Living metal (During your turn, this Vehicle is also a creature.)\nMenace, deathtouch\nWhenever Flamewar deals combat damage to a player, exile that many cards from the top of your library face down. Put an intel counter on each of them. Convert Flamewar.",
+    "power": "2",
+    "toughness": "1",
+    "colors": [
+     "B",
+     "R"
+    ]
+   }
+  ],
+  "power": "3",
+  "toughness": "2"
+ },
+ {
+  "name": "Blade of Shared Souls",
+  "layout": "normal",
+  "mana_cost": "{2}{U}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "For Mirrodin! (When this Equipment enters, create a 2/2 red Rebel creature token, then attach this to it.)\nWhenever this Equipment becomes attached to a creature, for as long as this Equipment remains attached to it, you may have that creature become a copy of another target creature you control.\nEquip {2}",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "For Mirrodin!",
+   "Equip"
+  ]
+ },
+ {
+  "name": "Assimilation Aegis",
+  "layout": "normal",
+  "mana_cost": "{1}{W}{U}",
+  "cmc": 3.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "When this Equipment enters, exile up to one target creature until this Equipment leaves the battlefield.\nWhenever this Equipment becomes attached to a creature, for as long as this Equipment remains attached to it, that creature becomes a copy of a creature card exiled with this Equipment.\nEquip {2}",
+  "colors": [
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Shatter",
+  "layout": "normal",
+  "mana_cost": "{1}{R}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target artifact.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Vault 112: Sadistic Simulation",
+  "layout": "saga",
+  "mana_cost": "{2}{U}{R}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II — Tap up to one target creature and put a stun counter on it. You get {E}{E} (two energy counters).\nIII — Pay any amount of {E}. If you paid one or more {E} this way, shuffle your library, then exile that many cards from the top. You may play one of those cards without paying its mana cost.",
+  "colors": [
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "R",
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Winter, Cynical Opportunist",
+  "layout": "normal",
+  "mana_cost": "{2}{B}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Human Warlock",
+  "oracle_text": "Deathtouch\nWhenever Winter attacks, mill three cards.\nDelirium — At the beginning of your end step, you may exile any number of cards from your graveyard with four or more card types among them. If you do, put a permanent card from among them onto the battlefield with a finality counter on it.",
+  "colors": [
+   "B",
+   "G"
+  ],
+  "color_identity": [
+   "B",
+   "G"
+  ],
+  "keywords": [
+   "Deathtouch",
+   "Delirium",
+   "Mill"
+  ],
+  "power": "2",
+  "toughness": "5"
+ },
+ {
+  "name": "Eye of Duskmantle",
+  "layout": "normal",
+  "mana_cost": "{5}{B}{B}",
+  "cmc": 7.0,
+  "type_line": "Creature — Eye",
+  "oracle_text": "Flying, lifelink\nYou may play lands and cast spells from among cards in your graveyard you've surveilled this turn. If you cast a spell this way, you pay life equal to its mana value rather than paying its mana cost.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying",
+   "Lifelink"
+  ],
+  "power": "3",
+  "toughness": "8"
+ },
+ {
+  "name": "Consider",
+  "layout": "normal",
+  "mana_cost": "{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\nDraw a card.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": [
+   "Surveil"
+  ]
+ },
+ {
+  "name": "Lightstall Inquisitor",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Angel Wizard",
+  "oracle_text": "Vigilance\nWhen this creature enters, each opponent exiles a card from their hand and may play that card for as long as it remains exiled. Each spell cast this way costs {1} more to cast. Each land played this way enters tapped.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "2",
+  "toughness": "1"
+ },
+ {
+  "name": "Drach'Nyen",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Artifact — Equipment",
+  "oracle_text": "Echo of the First Murder — When Drach'Nyen enters, exile up to one target creature.\nDaemon Sword — Equipped creature has menace and gets +X/+0, where X is the exiled card's power.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "colors": [
+   "B",
+   "R"
+  ],
+  "color_identity": [
+   "B",
+   "R"
+  ],
+  "keywords": [
+   "Echo of the First Murder",
+   "Equip",
+   "Daemon Sword"
+  ]
+ },
+ {
+  "name": "The Caves of Androzani",
+  "layout": "saga",
+  "mana_cost": "{3}{W}",
+  "cmc": 4.0,
+  "type_line": "Enchantment — Saga",
+  "oracle_text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after IV.)\nI — Put two stun counters on each of up to two target tapped creatures.\nII, III — For each non-Saga permanent, choose a counter on it. You may put an additional counter of that kind on that permanent.\nIV — Search your library for a Doctor card, reveal it, put it into your hand, then shuffle.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
  }
 ]

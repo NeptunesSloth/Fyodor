@@ -48,6 +48,7 @@ def set_damage(state: GameState, a: A.SetDamage) -> None:
         raise ActionError("Give a value or a change")
     for c in targets:
         c.damage = max(0, a.value if a.value is not None else c.damage + (a.delta or 0))
+        c.damage_by = {k: min(v, c.damage) for k, v in c.damage_by.items()} if c.damage else {}
     shown = ", ".join(str(c.damage) for c in targets)
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" marked damage on "), group(state, targets), text(f": {shown}")],
         kind="minor")
@@ -163,6 +164,7 @@ def cleanup(state: GameState, a: A.Cleanup) -> None:
         elif what == "damage":
             for c in in_scope:
                 c.damage = 0
+                c.damage_by = {}
             done.append("damage")
         elif what == "effects":
             for c in in_scope:

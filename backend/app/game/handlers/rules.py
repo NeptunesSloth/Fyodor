@@ -138,7 +138,14 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
     hurt = []
     for cid, n in a.creatures.items():
         card = ops.card(state, cid)
+        if cid in a.heal110h:
+            card.damage = 0
         card.damage += n
+        left = n
+        for d in a.dealt:  # (wave 110F) per-source marked damage; wither/infect entries share a target, so cap at what was marked
+            if d.target == cid and d.source and left > 0:
+                card.damage_by[d.source] = card.damage_by.get(d.source, 0) + min(d.amount, left)
+                left -= min(d.amount, left)
         hurt.append(card)
     for cid, n in a.wither.items():  # wither / infect (702.80, 702.90): -1/-1 counters instead of damage
         card = ops.card(state, cid)
@@ -170,7 +177,7 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
         pid = key if key in state.players else source.controller if source is not None else ""
         if pid not in state.players or n <= 0:
             continue
-        change_life(state, pid, state.players[pid].life + n)
+        change_life(state, pid, state.players[pid].life + n, cause=a.lifelink_cause110m.get(key))  # (wave 110M) a spell's lifelink
         gained[pid] = gained.get(pid, 0) + n
     parts = [text("First-strike combat damage: " if a.first_strike else "Combat damage: " if a.combat else "Damage: ")]
     pieces: list[list[LogPart]] = [[ops.pname(state, pid), text(f" takes {n}")] for pid, n in a.players.items()]
