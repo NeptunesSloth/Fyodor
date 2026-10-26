@@ -607,6 +607,8 @@ ABILITY_REWRITES = {
 _ANY_NUMBER = {"\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield."}
 
 
+ZARA = ("Whenever ~ attacks, look at defending player's hand. You may put a creature card from it onto the battlefield under your control tapped and attacking "
+        "that player or a planeswalker they control. Return that creature to its owner's hand at the beginning of the next end step.")
 BOUNCE_CHAMBER = ("Whenever you roll to visit your Attractions, return a creature you don't control with the lowest toughness among creatures you don't control to its owner's hand.")
 
 
@@ -618,6 +620,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     old = scripts.self_text(ability.text, ch.name)
     if old == "The attacking player chooses how each creature blocks each combat.":  # Invasion Plans: 509.1a, read by wave110a_choosers.chooser
         return {"kind": "static", "static": "block_chooser110a", "effects": []}
+    if old == ZARA:  # Zara, Renegade Recruiter: look (701.20e), put under your control tapped and attacking (508.4), return it at the next end step
+        d = scripts.define(replace(ability, text="Whenever ~ attacks, defending player reveals their hand. You choose a creature card from it."), ch)
+        if d is None or [e["do"] for e in d["effects"]] != ["reveal_hand", "choose_from_hand"]:
+            return None
+        look, pick = d["effects"]
+        pick.update(optional=True, **{"as": "zara110a"})
+        return {**d, "effects": [{**look, "private": True}, pick, {"do": "enter_chosen110a", "who": "ref:zara110a"},
+                                 {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1}, {"do": "deferred:bounce", "who": "ref:zara110a"}]}
     if old == BOUNCE_CHAMBER:  # Bounce Chamber: the visitor (not each opponent) chooses among the tied lowest-toughness creatures it doesn't control
         from app.rules import selectors
 
@@ -682,5 +692,22 @@ def unblocked_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"new_blood110a": new_blood, "new_blood_apply110a": new_blood_apply, "wheel110a": wheel, "grant_owned110a": grant_owned, "gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
+def enter_chosen(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The chosen cards of another player's hand enter under the ability's controller's control, tapped and attacking the defending player or a planeswalker
+    they control (110.2, 508.4; ``at`` reads the event's defended player). Not cast (601.1)."""
+    from app.rules import attachments, defending, effects, token_grammar
+
+    me = ctx["controller"]
+    if (dp := defending.players(plan, ctx)) and isinstance(ctx.get("event"), dict):  # 508.5: before they enter, while the attacker is still attacking
+        ctx["event"]["defended"] = dp[0]
+    cards = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":hand")]
+    if not cards:
+        return True
+    if not attachments.enter(plan, [{"card": c, "player": me, "actor": me, "tapped": True, "via": ctx.get("source_object")} for c in cards], ctx):
+        return False
+    effects._remember(plan, ctx, {"as": "zara110a"}, cards)  # (the entered permanents are new objects, 400.7: "that creature" is them)
+    return token_grammar.enter_attacking(plan, ctx, cards, {"planeswalkers": True})
+
+
+PRIMITIVES = {"enter_chosen110a": enter_chosen, "new_blood110a": new_blood, "new_blood_apply110a": new_blood_apply, "wheel110a": wheel, "grant_owned110a": grant_owned, "gambit110a": gambit, "bind_sacrificed110a": bind_sacrificed, "unblocked_turn110a": unblocked_turn, "repeat_put110a": repeat_put, "note_put110a": note_put, "bind110a": bind, "end_combat_phase110a": end_combat_phase, "snow110a": snow,
               "exiled_power_damage110a": exiled_power_damage, "exile_hands110a": exile_hands, "counter_opponents110a": counter_opponents, "noted_draw110a": noted_draw, "exile_until_target110a": exile_until_target}
