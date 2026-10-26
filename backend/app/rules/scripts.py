@@ -11376,7 +11376,11 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
         # reflexive ability's amount (its event's); an X in the target's own definition is chosen before X could be known: not read
         total_x = isinstance(b_target, list) and any((g.get("total") or [0, 0])[1] == "X" for g in b_target)  # -- (wave 110B) -- "total mana value X or less" (Fire Lord Sozin): the X paid
         if re.search(r'"x"|\bX\b', json.dumps([{k: v for k, v in g.items() if k != "total"} for g in b_target] if total_x else b_target, default=str)):
-            return None
+            from app.rules import wave110o_cards  # -- (wave 110O) --
+
+            b_target = wave110o_cards.divide_x_to_event(b_target)  # -- (wave 110O) -- 601.2d, 107.3f: "distribute X …" of the reflexive ability: its division is made as it goes on the stack, knowing the X paid
+            if b_target is None:
+                return None
         b_effects = _x_to_event(b_effects)
         x_bind = base[0]["bind"]
     if x_bind is None and not keep and "event_amount" in json.dumps([b_effects, b_target], default=str):
@@ -11384,6 +11388,7 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     # -- cast-permission riders (wave 38C) -- 603.12, 107.3f: "you may pay {X}. When you do, … target creature card with mana value X …" (Halo Forager, Isareth the
     # Awakener): the reflexive ability goes on the stack after the payment, so its target is chosen knowing the X paid (the event's amount: triggers.event_x)
     x_event = x_bind is not None and bool(re.search(rf',{selectors.X_VALUE}\]', json.dumps(b_target, default=str)))
+    x_event = x_event or (x_bind is not None and '"event_amount"' in json.dumps(b_target, default=str))  # (wave 110O: a divided group's total is the X paid)
     # -- cost-sized reflexive targets (wave 110I) -- 603.12, 107.3f: "up to that many other target creatures" of a reflexive ability: chosen as it goes on the stack, knowing the X paid
     x_event = x_event or (x_bind is not None and isinstance(b_target, list) and any(g.get("x_count") == "upto" for g in b_target))
     x_event = x_event or (x_bind is not None and isinstance(b_target, list) and any((g.get("total") or [0, 0])[1] == "X" for g in b_target))  # (wave 110B)
