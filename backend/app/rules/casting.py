@@ -5251,6 +5251,9 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     from app.rules import effect_cast_costs
 
     required_effect = pending.get('e', {}) if pending is not None and pending.get('card') == card.id else {}
+    face_down110i = bool(required_effect.get("face_down110i"))  # -- wave 110I -- Illusionary Mask: "cast that card face down as a 2/2 creature spell without paying its mana cost" (708.4: only the face-down spell's characteristics count)
+    if face_down110i:
+        ch = chars.face_down_characteristics(None)
     required_alternative = effect_cast_costs.kind(required_effect)
     if required_alternative and (a.alt_cost is not None or a.evoke or a.dash or a.awaken or a.face_down):
         raise ActionError('Only one alternative cost can be applied to a spell')
@@ -5528,7 +5531,11 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
     if a.x_value is None and M.parse_cost(ch.mana_cost).x:
         a.x_value = 0  # X is 0 when a spell is cast without paying its mana cost (107.3b)
     from_oid = plan.oid(card)  # (-- as long as (wave 37A) --)
-    plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
+    if ch.face_down and (r.free_cast_then or {}).get("e", {}).get("face_down110i"):  # (wave 110I: 708.4, turned face down before it is put on the stack)
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}, "face_down": True, "face_down_kind": "generic"})
+        record.alternative = "mask110i"
+    else:
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "stack"}})
     if a.face and plan.state.cards[card.id].face != a.face:  # -- play now (wave 28A) -- 712.11b, 709.3b: the half / back face being cast
         plan.do({"type": "set_face", "card_id": card.id, "face": a.face})
     if add_cost is not None:  # (601.2h: with the rest of the total cost)

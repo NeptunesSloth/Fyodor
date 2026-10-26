@@ -128,6 +128,10 @@ class Plan:
 
         if len(self.steps) >= self.max_steps:
             raise ActionError("The rules engine stopped: too many steps for one action")
+        if payload.get("type") in ("tap", "rules_mana") and (payload.get("tapped") is not False or payload.get("type") == "rules_mana"):  # -- cards (wave 110I) -- Illusionary Mask: a creature it cast face down is turned face up instead of becoming tapped
+            from app.rules import wave110i_cards
+
+            wave110i_cards.mask_flip(self, payload.get("tap") or () if payload["type"] == "rules_mana" else [c for c in payload.get("card_ids") or () if c in self.state.cards and not self.state.cards[c].tapped])
         if payload.get("type") in ("move", "mill"):
             # Zone-change replacement effects (614): unearth's "exile it instead", "If ~ would die,
             # exile it instead", Rest in Peace-like statics, madness, 903.9b — app/rules/replacements.py

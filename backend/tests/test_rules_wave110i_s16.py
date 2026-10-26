@@ -30,6 +30,8 @@
   their own graveyard for what applies to it (rulings 2004-10-04: flashback works; abilities of those cards stay unusable).
 * Benthic Explorers: the cost untaps a tapped land an opponent controls (701.26b; without one the ability can't be activated); the mana it adds is of a type that land could produce (106.7, ruling 2009-10-01: its
   mana abilities' effects, not their costs).
+* Illusionary Mask: the creature card must be payable by (part of) the mana spent on {X}; it is cast face down as a 2/2 creature spell for free (708.4: no enters trigger when it resolves, 708.3), and while it has
+  not been turned face up it is turned face up instead of assigning or dealing damage, being dealt damage or becoming tapped.
 """
 from __future__ import annotations
 
@@ -986,3 +988,139 @@ def test_benthic_needs_a_tapped_opposing_land(cards):
     s, bx, taiga = _benthic(cards, "Taiga")  # untapped
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=bx.id, ability=_mana_ability(s, bx), mana_choice="R")
+
+
+MASK = real("Illusionary Mask", "{2}", 2, "Artifact",
+            "{X}: You may choose a creature card in your hand whose mana cost could be paid by some amount of, or all of, the mana you spent on {X}. If you do, you may cast that card face down as a 2/2 creature spell "
+            "without paying its mana cost. If the creature that spell becomes as it resolves has not been turned face up and would assign or deal damage, be dealt damage, or become tapped, instead it's turned face up "
+            "and assigns or deals damage, is dealt damage, or becomes tapped. Activate only as a sorcery.", None)
+HEALER = real("Soul Healer110I", "{1}{G}", 2, "Creature \u2014 Cleric", "When this creature enters, you gain 3 life.", ("4", "4"), "G")
+base.EXTRA.extend([MASK, HEALER])
+
+
+def test_mask_full(cards):
+    assert coverage.of_card_data(cards.resolve("Illusionary Mask")).level == "FULL"
+
+
+def _mask(cards, spend, creature="Soul Healer110I"):
+    from app.rules.plan import Plan
+
+    s = build(cards, ["Illusionary Mask", creature])
+    mask = put(s, "Illusionary Mask")
+    to_hand(s, creature)
+    mana(s, **spend)
+    ab = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[mask.id]).abilities if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=mask.id, ability=ab, x_value=sum(spend.values()))
+    return s
+
+
+def _resolve(s, take=True):
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and d.prompt.startswith("Illusionary Mask"):
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options] if take else [])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_mask_casts_a_creature_face_down_for_free_without_its_enters_trigger(cards):
+    from app.rules import characteristics as chars
+    from app.rules.plan import Plan
+    from tests.wave9c_kit import life
+
+    s = _mask(cards, {"G": 1, "C": 1})
+    _resolve(s)
+    c = card_named(s, "Soul Healer110I")
+    assert c.zone == "p1:battlefield" and c.face_down and life(s, "p1") == 40  # no "enters" trigger: it entered face down (708.3)
+    ch = Plan(s.state, "p1", s.cards, None).ch(c)
+    assert ch.name == "" and ch.power == "2" and ch.toughness == "2" and chars.of(c, s.cards)
+    check(s)
+
+
+def test_mask_offers_only_creatures_the_spent_mana_could_pay_for(cards):
+    s = _mask(cards, {"C": 2})  # two colorless mana can't pay {1}{G}
+    d = s.state.rules.decision
+    assert d is None or not d.prompt.startswith("Illusionary Mask")
+    _resolve(s)
+    assert card_named(s, "Soul Healer110I").zone == "p1:hand"
+
+
+VIGIL = real("Vigilant Bear110I", "{1}{G}", 2, "Creature \u2014 Bear", "Vigilance", ("4", "4"), "G")
+base.EXTRA.append(VIGIL)
+
+
+def _face_down_creature(cards, name):
+    s = _mask(cards, {"G": 1, "C": 1}, name)
+    _resolve(s)
+    c = card_named(s, name)
+    assert c.zone == "p1:battlefield" and c.face_down
+    s.state.rules.controlled_since[c.id].turn = 0
+    return s, c
+
+
+def test_mask_creature_is_turned_face_up_instead_of_becoming_tapped_when_it_attacks(cards):
+    from tests.wave9c_kit import life
+    from tests.wave110b_kit import attack, through_combat
+
+    s, c = _face_down_creature(cards, "Soul Healer110I")
+    attack(s, c)
+    through_combat(s)
+    assert not s.state.cards[c.id].face_down and life(s, "p2") == 40 - 4  # face up (attacking taps it), so it dealt the 4 damage of the 4/4
+    check(s)
+
+
+def test_mask_creature_is_turned_face_up_instead_of_dealing_combat_damage_as_a_blocker(cards):
+    """A blocker doesn't tap: it is turned face up when its combat damage would be assigned (and kills the 2/2 attacker with its 4 power)."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Illusionary Mask", "Soul Healer110I"], ["Bear Cub110I"])
+    mask = put(s, "Illusionary Mask")
+    to_hand(s, "Soul Healer110I")
+    mana(s, G=1, C=1)
+    from app.rules.plan import Plan
+
+    ab = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[mask.id]).abilities if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=mask.id, ability=ab, x_value=2)
+    _resolve(s)
+    c = card_named(s, "Soul Healer110I")
+    bear = put(s, "Bear Cub110I", "p2")
+    s.state.rules.controlled_since[bear.id].turn = 0
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers" and s.state.rules.decision.player == "p2")
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p1"}])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
+    assert s.state.cards[c.id].face_down
+    act(s, "p1", type="declare_blockers", blocks=[{"blocker_id": c.id, "attacker_id": bear.id}])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert not s.state.cards[c.id].tapped  # blocking doesn't tap
+    assert not s.state.cards[c.id].face_down and s.state.cards[bear.id].zone == "p2:graveyard"  # turned face up as the damage was assigned: 4 damage, the Bear is dead
+    check(s)
+
+
+def test_mask_creature_is_turned_face_up_instead_of_being_dealt_damage(cards):
+    s = build(cards, ["Illusionary Mask", "Soul Healer110I", "Test Bolt"])
+    mask = put(s, "Illusionary Mask")
+    to_hand(s, "Soul Healer110I")
+    mana(s, G=1, C=1)
+    from app.rules.plan import Plan
+
+    ab = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[mask.id]).abilities if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=mask.id, ability=ab, x_value=2)
+    _resolve(s)
+    c = card_named(s, "Soul Healer110I")
+    assert c.face_down
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Bolt").id, targets=[c.id])
+    answer(s)
+    assert s.state.cards[c.id].zone == "p1:battlefield" and not s.state.cards[c.id].face_down  # a 4/4 took 3; face down it was a 2/2 and would have died
+    check(s)
+
+
+def test_mask_may_decline_to_cast(cards):
+    s = _mask(cards, {"G": 1, "C": 1})
+    _resolve(s, take=False)
+    assert card_named(s, "Soul Healer110I").zone == "p1:hand"
+    check(s)

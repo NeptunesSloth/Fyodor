@@ -535,12 +535,83 @@ def pang_window(plan: Plan, ctx: Context, e: dict[str, Any], pid: str) -> bool:
     return True
 
 
+def _mask(d: Def) -> Def:
+    return {**d, "target": None, "effects": [{"do": "mask110i"}]}
+
+
+def mask(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Illusionary Mask: 608.2d the controller may choose a creature card in their hand whose mana cost could be paid by some amount of, or all of, the mana spent on {X} (the ability's whole payment, 107.3k),
+    then casts it face down as a 2/2 creature spell without paying its mana cost (708.4, 608.2g)."""
+    from app.game.rules_state import DecisionOption
+    from app.game.state import zone_key
+    from app.rules import mana as M
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    record = plan.rules.payments.get(plan.oid(ctx["stack_id"])) if ctx.get("stack_id") in plan.state.cards else None
+    if record is None or not record.mana_known:
+        return True
+    spent = {k: v for k, v in record.mana_spent.items() if v}
+    options = []
+    for cid in plan.state.zones.get(zone_key(pid, "hand"), []):
+        ch = plan.ch(plan.state.cards[cid])
+        if not ch.is_creature or plan.manual(plan.state.cards[cid]):
+            continue
+        try:
+            M.solve(M.parse_cost(ch.mana_cost).with_x(0), dict(spent), [])  # 107.3h: an {X} of a card's cost is 0; only mana (no life) pays
+        except M.ManaError:
+            continue
+        options.append(DecisionOption(id=cid, label=ch.name or "Card", card_id=cid))
+    if not options:
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt="Illusionary Mask: choose a creature card to cast face down (or none)", options=options, min_choices=0, max_choices=1,
+           resume={"step": "mask110i", "ctx": ctx})
+    return False
+
+
+def resume_mask(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game import actions as A
+    from app.rules import effects
+    from app.rules.casting import cast_spell
+
+    ctx = d.resume["ctx"]
+    if not chosen:
+        effects.continue_effects(plan, ctx)
+        return
+    e = {"n": 1, "face_down110i": True}
+    plan.rules.free_casts.append(chosen[0])
+    plan.rules.free_cast_then = {"card": chosen[0], "ctx": ctx, "e": e, "suspend_object": None}
+    prev, plan.actor = plan.actor, d.player
+    try:
+        cast_spell(plan, A.CastSpell(card_id=chosen[0], free=True))
+    finally:
+        plan.actor = prev
+
+
+def mask_flip(plan: Plan, card_ids: Any) -> None:
+    """Illusionary Mask (replacement, 614.1, 701.40g-style turning face up): the creature its spell became, while it hasn't been turned face up, is turned face up instead of assigning or dealing damage,
+    being dealt damage or becoming tapped -- called before those events (plan.do: tap / mana taps, replace._commit_damage, combat.deal_combat_damage)."""
+    from app.rules import facedown
+
+    for cid in dict.fromkeys(card_ids):
+        card = plan.state.cards.get(cid)
+        if card is None or not card.face_down or not card.zone.endswith(":battlefield"):
+            continue
+        record = plan.rules.payments.get(plan.oid(card))
+        if record is not None and record.alternative == "mask110i" and facedown._turn_up(plan, cid, card.controller):
+            plan.note(f"{plan.name(card.controller)}'s face-down creature is turned face up (Illusionary Mask)", [cid])
+
+
 def _taxed(d: Def) -> Def:
     """Mavinda: the permission carries the {8} increase, charged once the cast spell's targets are known."""
     return {**d, "effects": [{**e, "tax_untargeted110i": 8} if e.get("do") == "grant_play" else e for e in d["effects"]]}
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{X}: You may choose a creature card in your hand whose mana cost could be paid by some amount of, or all of, the mana you spent on {X}. If you do, you may cast that card face down as a 2/2 "
+    "creature spell without paying its mana cost. If the creature that spell becomes as it resolves has not been turned face up and would assign or deal damage, be dealt damage, or become tapped, "
+    "instead it's turned face up and assigns or deals damage, is dealt damage, or becomes tapped. Activate only as a sorcery.":
+        ("{X}: Tap target creature. Activate only as a sorcery.", _mask),
     "{U}: This creature gains all activated abilities of target creature until end of turn.": ("{U}: Tap target creature.", _borrow("self")),
     "Aberrant Tinkering \u2014 When this creature enters and at the beginning of your upkeep, each Horror you control gains all activated abilities of target artifact an opponent controls until end of turn. "
     "You may spend blue mana as though it were mana of any color to activate those abilities.":
@@ -908,6 +979,7 @@ def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES = {"specter110i": specter, "raiding110i": raiding, "bind_self110i": bind_self, "bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 PRIMITIVES["milled_any110i"] = milled_any
+PRIMITIVES["mask110i"] = mask
 PRIMITIVES["trance110i"] = trance
 PRIMITIVES["borrow110i"] = borrow
 PRIMITIVES["leori110i"] = leori
@@ -1167,7 +1239,7 @@ def resume_transform_attach(plan: Plan, d: Any, chosen: list[str]) -> None:
     attachments.attach(plan, d.resume["card"], chosen[0], d.player)
 
 
-RESUME = {"leori110i": resume_leori, "tunnel110i": resume_tunnel, "transform_attach110i": resume_transform_attach, "bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
+RESUME = {"mask110i": resume_mask, "leori110i": resume_leori, "tunnel110i": resume_tunnel, "transform_attach110i": resume_transform_attach, "bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
 
 
 _WHISTLE = ("{3}, {T}: Choose target non-Wall creature the active player has controlled continuously since the beginning of the turn. That player may pay {X}, where X is "
