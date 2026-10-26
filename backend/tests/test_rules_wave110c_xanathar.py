@@ -81,3 +81,27 @@ def test_nobody_else_sees_it_and_it_ends_with_the_turn(cards):
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     check(s)
+
+
+def test_three_players_only_controller_sees_the_top_card(cards):
+    """401.5 / 701.20: with 3 players only Xanathar's controller sees the borrowed top card (views, log, rules hints)."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    d = lambda c, n, f: deck(cards, c, [*((1, x) for x in n), (f, "Forest")])  # noqa: E731
+    players = [PlayerSetup("Alice", cards=d("Krenko, Mob Boss", ["Xanathar, Guild Kingpin"], 30)),
+               PlayerSetup("Bob", cards=d("Atraxa, Praetors' Voice", ["Lightning Bolt"] * 2, 30)),
+               PlayerSetup("Carol", cards=d("Krenko, Mob Boss", [], 30))]
+    s = GameSession(enable(new_game(players, shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    put(s, "Xanathar, Guild Kingpin")
+    to_phase(s, "upkeep", 4)
+    bolt = top_of_p2(s, "Lightning Bolt")
+    answer(s, "p2")
+    to_phase(s, "main1", 4)
+    assert s.state.zones["p2:library"][0] == bolt.id
+    assert bolt.id in s.view("p1")["cards"]
+    for viewer in ("p2", "p3", "__spectator__"):
+        v = json.dumps(s.view(viewer))
+        assert bolt.id not in v, viewer  # (no view, log or hint names that object)

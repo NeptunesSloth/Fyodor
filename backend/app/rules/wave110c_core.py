@@ -324,7 +324,10 @@ _ADVENTURER = {
 
 
 def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
-    from app.rules import wave110c_kusari, wave110c_lose, wave110c_tevesh
+    from app.rules import wave110c_kusari, wave110c_last, wave110c_lose, wave110c_tevesh
+
+    if (last := wave110c_last.definition(ability, ch)) is not None:  # Torrent Elemental
+        return last
 
     if (kusari := wave110c_kusari.definition(ability, ch)) is not None:  # Kusari-Gama
         return kusari
