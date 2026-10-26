@@ -33,7 +33,6 @@
 - Spinneret and Spiderling: "deals 4 or more damage" with no recipient; wave 39B test pins it unread (split damage among recipients unsettled).
 - Overencumbered: "can't attack this combat", "combat on enchanted player's turn", "pay {1} for each artifact" all unread (3 foundations).
 - Dragon Broodmother: devour on a created token (entering sacrifice for tokens, replacements.token_choices).
-- Bronze Bombshell: state trigger "when a player other than owner controls it" + "if the player does".
 - Lathiel: "distribute up to that many" counters; division is exact total only.
 - Karplusan Minotaur: "any target of an opponent's choice" in a trigger (delegated targets only on activation); cost "Flip a coin" not payable-listed.
 - Martyr's Bond: sacrifice a permanent sharing a card type with the event object.
@@ -43,7 +42,6 @@
 - Firesong and Sunspeaker: life gain events carry no source spell (color of the spell that caused the gain unknown).
 - Tombstone Stairwell: "for each creature card in their graveyard" per player + named tokens + "tokens created with this enchantment" destroy: three gaps.
 - Temporal Extortion: "any player may pay half their life ... counter" cast trigger not read (even "any player may pay N life, counter this spell").
-- Bronze Bombshell: "When a player other than this creature's owner controls it" is a state trigger (603.8), not a control-change event; a control_change approximation would miss entering under another player's control.
 - Faramir, Prince of Ithilien: chosen opponent bound to a delayed "that player's next end step" trigger plus a who-attacked-whom condition: three gaps.
 - Jace, Multiverse Architect: "creatures they control can't attack Jaces you control" has no per-planeswalker attack restriction.
 - Firkraag, Cunning Instigator: needs a record of "had to attack this combat" (forced-attack requirement) on the creature.
