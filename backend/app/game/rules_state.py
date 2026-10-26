@@ -944,6 +944,7 @@ class TriggerEvent(BaseModel):
     attacked: ObjectRef | None = None
     # -- voting (wave 48D) -- 701.38: "Whenever players finish voting": the [voter, choice] of every vote of the voting that finished, as cast
     ballots: list[list[str]] = Field(default_factory=list)
+    sticker: str | None = None  # -- cards (wave 110I) -- the kind of a placed sticker ("art", "name", …): Wee Champion's "if it's an art sticker"
     combat_alone110g: str | None = None  # -- wave 110G -- a permanent that left: "attacking" / "blocking" when it was the only creature doing so (506.5), else None
 
 
@@ -1462,6 +1463,7 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
+    pin_collection110i: bool = False  # (wave 110I) a Pin Collection has had a sticker put on it: stickers101.continuous then looks for equipped creatures
     began_untapped110j: list[str] = Field(default_factory=list)  # (wave 110J) objects untapped on the battlefield as the turn began (Rasputin Dreamweaver)
     stored_dice110m: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110M) object id -> the d6 results stored on it (706.8a: Centaur of Attention)
     tap_paid110n: list[list[str]] = Field(default_factory=list)  # (wave 110N) [turn, ability source object, creature tapped for its cost] this turn (Vodalian War Machine)

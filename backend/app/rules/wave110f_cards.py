@@ -517,6 +517,7 @@ RESUME: dict[str, Any] = {"cmd_color110f": resume_cmd_color, "vapors110f": resum
 DRAFT_NOTHING = {
     "copy a card you exiled with cards named Arcane Savant. You may cast the copy without paying its mana cost.",
     "Create a token that's a copy of a card you exiled with cards named Caller of the Untamed. X is the mana value of that card.",
+    "you may search your hand and/or library for a card with a name noted as you drafted cards named Aether Searcher. You may cast it without paying its mana cost. If you search your library this way, shuffle.",  # (wave 110I)
     "Choose a card at random you exiled with cards named Volatile Chimera. ~ becomes a copy of that card, except it has this ability.",
 }
 GARBAGE_FIRE = "~ deals damage to target creature equal to the highest number you noted for cards named Garbage Fire."  # target kept, nothing was noted

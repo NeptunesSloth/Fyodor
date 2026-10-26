@@ -240,7 +240,7 @@ KEYWORD_CONDS = {"spectacle": "an opponent lost life this turn", "surge": "you'v
 # (-- casting extras (wave 18E) -- "Emerge {cost}" / "Emerge from artifact {cost}": 702.119a-b, the cost and a sacrifice)
 _KEYWORD_LINE = re.compile(r"^(?P<kw>spectacle|surge|blitz|warp|bestow|prowl|overload|cleave|emerge|foretell|mutate|web-slinging|sneak|freerunning|more than meets the eye)(?: from (?P<q>[A-Za-z]+))? "
                            r"(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
-X_KEYWORDS = frozenset({"surge", "warp", "bestow", "overload", "cleave", "foretell"})  # -- cast keywords (wave 43D) -- 107.3a: the cost may have {X} (the X announced for the spell is its too)
+X_KEYWORDS = frozenset({"surge", "warp", "bestow", "overload", "cleave", "foretell", "freerunning"})  # (freerunning X: wave 110I, Monastery Raid)  # -- cast keywords (wave 43D) -- 107.3a: the cost may have {X} (the X announced for the spell is its too)
 # -- static_other sweep (wave 17C) -- "Dinosaur spells you cast have prowl {2}{R}." (Hunting Velociraptor): a table alternative cost, offered
 # when the prowl condition holds for that spell
 GRANT_PROWL = re.compile(r"^(?:(?P<sel>[A-Za-z][A-Za-z' -]*?) )?spells you cast have prowl (?P<cost>(?:\{[^}X]+\})+)$")

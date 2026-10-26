@@ -18,6 +18,7 @@ from app.rules.plan import Plan
 BINDING = 'ref:exile_packet40'
 _PARSE = {
     "exile the top two cards of your library. if this spell's additional cost was paid, exile the top three cards instead. until the end of your next turn, you may play those cards": 'burning',
+    "exile the top two cards of your library. if this spell's freerunning cost was paid, exile the top x cards of your library instead. you may play the exiled cards until the end of your next turn": 'monastery_raid',  # -- freerunning (wave 110I) --
     'exile the top ten cards of your library. you may cast spells with exactly three colors from among them this turn. add {w}{w}{u}{u}{b}{b}{r}{r}{g}{g}. spend this mana only to cast spells with exactly three colors': 'meeting',
     "destroy all artifacts you don't control, then exile the top x cards of your library, where x is the number of artifacts that were put into graveyards from the battlefield this turn. you may put a creature card exiled this way onto the battlefield. it gains haste. return it to your hand at the beginning of the next end step": 'rampage',
     'target opponent exiles cards from the top of their library until they exile a nonland card. until end of turn, you may cast that card without paying its mana cost': 'stolen',
@@ -202,6 +203,12 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
         paid = conditions.holds(plan, ctx, {'object': 'self', 'cast': {'optional': 'blight'}})
         top_packet(plan, ctx, e, [you], 3 if paid else 2)
+        return insert(ctx, [grant(e, play=True, until='end_of_next_turn')])
+    if mode == 'monastery_raid':  # 702.173a freerunning cost paid: X cards instead (107.3 X from the cast)
+        from app.rules import conditions
+
+        paid = conditions.holds(plan, ctx, {'object': 'self', 'cast': {'alt': 'freerunning'}})
+        top_packet(plan, ctx, e, [you], max(0, int(ctx.get('x') or 0)) if paid else 2)
         return insert(ctx, [grant(e, play=True, until='end_of_next_turn')])
     if mode in ('gonti_cast', 'gonti_damage', 'curse_damage'):
         event = ctx.get('event') or {}

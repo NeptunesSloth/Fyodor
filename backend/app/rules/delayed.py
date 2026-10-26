@@ -226,7 +226,7 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
         watched = dealt_cards(plan, ctx, e["dealt"], e.get("types")) if e.get("dealt") else _cards(plan, ctx, e["who"])  # (wave 35B)
         watched = [c for c in watched if plan.state.cards[c].zone.endswith(":battlefield")]
-        if when.get("event") == "lose_control" and not e.get("watch_foreign105"):  # -- attached (wave 100F) -- only what its controller controls can be lost
+        if when.get("event") in ("lose_control", "lose_or_untap110i") and not e.get("watch_foreign105"):  # -- attached (wave 100F) -- only what its controller controls can be lost
             from app.rules import attached100f
 
             watched = attached100f.watching(plan, ctx, watched)
@@ -449,15 +449,21 @@ def on_events(plan: Plan, events: list[Event]) -> None:
     # -- attached (wave 100F) -- "When you lose control of the creature, …": another player gains control of it, or it leaves (603.10d; attached100f)
     from app.rules import attached100f
 
-    for t in [t for t in watching if t.when.get("event") == "lose_control"]:
+    untappers = [t for t in watching if t.when.get("event") == "lose_or_untap110i"]  # -- cards (wave 110I) -- Coffin Queen: "becomes untapped or you lose control of it"
+    for t in [t for t in watching if t.when.get("event") in ("lose_control", "lose_or_untap110i")]:
         eligible = [e for e in events if e.batch > int(t.when.get("after_batch105", -1))]
         if (gone := attached100f.lost(plan, t, eligible)):
             fired.append(t)
             _fire(plan, t, TriggerEvent(kind="lose_control", batch=events[-1].batch, count=1, objects=gone[:1]))
-    watching = [t for t in watching if t.when.get("event") != "lose_control"]
+    watching = [t for t in watching if t.when.get("event") not in ("lose_control", "lose_or_untap110i")]
     for e in events:
         if e.kind == "untapped" and not e.manual:  # -- (wave 110M) -- "When ~ leaves the battlefield or becomes untapped" (Merieke Ri Berit): the watched permanent became untapped (603.2)
             for t in [t for t in watching if t.when["event"] == "leave_or_untap110m" and t not in fired]:
+                if e.object_id in {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []} and (obj := plan.state.cards.get(e.card or "")) is not None:
+                    fired.append(t)
+                    _fire(plan, t, TriggerEvent(kind="untapped", batch=e.batch, count=1, objects=[ObjectRef(card=obj.id, object_id=e.object_id or "", zone=obj.zone)]))
+        if e.kind == "untapped" and not e.manual:
+            for t in [t for t in untappers if t not in fired]:
                 if e.object_id in {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []} and (obj := plan.state.cards.get(e.card or "")) is not None:
                     fired.append(t)
                     _fire(plan, t, TriggerEvent(kind="untapped", batch=e.batch, count=1, objects=[ObjectRef(card=obj.id, object_id=e.object_id or "", zone=obj.zone)]))

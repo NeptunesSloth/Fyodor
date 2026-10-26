@@ -157,6 +157,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"the ring tempts (?P<p>you)", re.IGNORECASE), "ring_tempts"),
     (re.compile(r"(?P<p>you) choose a creature as your ring-bearer", re.IGNORECASE), "ring_bearer"),
     (re.compile(r"(?P<p>you) complete a dungeon"), "complete_dungeon"),
+    (re.compile(r"(?P<p>you) place a sticker"), "place_sticker110i"),  # -- cards (wave 110I) -- Wee Champion: any sticker on any card (designations.facts)
     (re.compile(r"(?P<p>you) put an art sticker on a creature"), "put_art_sticker110f"),  # -- stickers (wave 110F) -- 123.2
     (re.compile(r"(?P<p>you) put a name sticker on a creature"), "put_name_sticker110f"),
     (re.compile(r"(?P<p>you) proliferate"), "proliferate"),  # -- trigger tail (wave 15B) -- 701.34a
@@ -763,6 +764,8 @@ def _parse(c: str) -> Condition | None:
         if base is None or base.get("aggregate"):
             return None
         return {**base, "event": f"become_{m['d']}"}
+    if re.fullmatch(r"you put a sticker on (?:~|this (?:enchantment|permanent|creature|artifact))", c):  # -- cards (wave 110I) -- 123.2: a sticker put on the source itself
+        return {"subject": "self", "event": "place_sticker_on110i"}
     if c == "you unlock this door":  # -- Rooms (wave 18G) -- 709.5h: when its own door gets the unlocked designation (any way)
         return {"subject": "self", "event": "unlock_door"}
     # -- Class (wave 16A) -- "When this Class becomes level 2" (716.2a): the class level it became (designations.facts)
