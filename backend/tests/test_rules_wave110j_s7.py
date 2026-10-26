@@ -14,6 +14,7 @@ from tests.wave9c_kit import build
 from tests.wave110j_kit import (  # noqa: F401
     EXTRA,
     ability,
+    activate,
     card_db,
     ch,
     check,
@@ -93,6 +94,20 @@ def test_bomb_squad_blows_up_at_four_fuse_counters(cards, fuses, dies):
     assert (now(s, bear).zone == "p1:graveyard") is dies
     assert life(s, "p1") == (36 if dies else 40) and now(s, bear).counters.get("fuse", 0) == (0 if dies else fuses + 1)
     check(s)
+
+
+def test_manor_gargoyle_is_indestructible_only_while_it_has_defender(cards):
+    """611.3a, 613.8: indestructible while defender; {1} until end of turn removes defender (and so indestructible) and grants flying, back at the next turn."""
+    s = build(cards, ["Manor Gargoyle"])
+    g = put_new(s, "Manor Gargoyle")
+    assert {"defender", "indestructible"} <= set(ch(s, g).keywords)
+    mana(s, C=1)
+    activate(s, g, "{1}")
+    k = set(ch(s, g).keywords)
+    assert "flying" in k and not k & {"defender", "indestructible"}
+    check(s)
+    to_phase(s, "main1", turn=3)
+    assert {"defender", "indestructible"} <= set(ch(s, g).keywords)
 
 
 HYDRA = "Rock Hydra"

@@ -975,5 +975,20 @@
    "G"
   ],
   "keywords": []
+ },
+ {
+  "name": "Manor Gargoyle",
+  "layout": "normal",
+  "mana_cost": "{5}",
+  "cmc": 5.0,
+  "type_line": "Artifact Creature — Gargoyle",
+  "oracle_text": "Defender\nThis creature has indestructible as long as it has defender.\n{1}: Until end of turn, this creature loses defender and gains flying.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Defender"
+  ],
+  "power": "4",
+  "toughness": "4"
  }
 ]

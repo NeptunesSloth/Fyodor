@@ -493,3 +493,18 @@ _BUILD["{2}{W}, {T}: Return all exiled cards with aegis counters on them to the 
 
 _BUILD["Whenever a creature has four or more fuse counters on it, remove all fuse counters from it and destroy it. That creature deals 4 damage to its controller."] = (
     "Whenever one or more fuse counters are put on a creature, if it has four or more fuse counters on it, remove all fuse counters from it and destroy it. It deals 4 damage to its controller.", lambda d: d)
+
+
+_READING: set[str] = set()
+
+
+def has_keyword(plan: Any, source: Any, keyword: str) -> bool:
+    """Manor Gargoyle: "as long as it has defender" reads the permanent's own abilities while the static is being applied. Read them as if
+    that static were off (613.8: it adds indestructible, which cannot change whether it has defender); the guard stops the loop."""
+    if source.id in _READING:
+        return False
+    _READING.add(source.id)
+    try:
+        return keyword in plan.ch(source).keywords
+    finally:
+        _READING.discard(source.id)

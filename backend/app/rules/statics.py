@@ -1396,6 +1396,9 @@ def _condition(text: str) -> dict[str, Any] | None:
     m = re.fullmatch(r"(?:it|~)(?: isn't|'s not| is not) (?P<test>attacking or blocking|attacking|blocking|tapped)", c)
     if m:
         return {"static": "not", "cond": {"static": "self", "test": m["test"].replace(" ", "_")}}
+    m = re.fullmatch(r"(?:it|this creature|~) has (?P<kw>defender)", c)  # -- (wave 110J) -- Manor Gargoyle: wave110j_cards.has_keyword
+    if m:
+        return {"static": "self_keyword110j", "keyword": m["kw"]}
     if c in ("it entered this turn", "~ entered this turn"):  # -- refused modal/conditional (wave 3R1) -- (Crew Captain)
         return {"history": "entered_self"}
     if re.fullmatch(r"(?:it|this creature|~) devoured an? creature", c):  # -- keyword mechanics (wave 48B) -- 702.82b: "This creature has flying and trample if it devoured a creature." (Hellkite Hatchling)
@@ -1509,6 +1512,10 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
         kinds = [cond["counter"]] if cond["counter"] else list(source.counters)
         total = sum(source.counters.get(k, 0) for k in kinds)
         return total >= cond["n"] and (cond.get("max") is None or total <= cond["max"])  # (max: wave 9D, 711.2a)
+    if kind == "self_keyword110j":
+        from app.rules import wave110j_cards
+
+        return wave110j_cards.has_keyword(plan, source, cond["keyword"])
     if kind == "share_color110d":  # (wave 110D) every nonartifact creature on the battlefield has one color in common; a colorless one breaks it
         shared = None
         for c in plan.state.cards.values():
