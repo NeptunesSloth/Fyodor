@@ -55,7 +55,7 @@ _MAY = re.compile(r"^(?:then )?(?:if (?P<cond>(?!you do\b)[^,]+), )?(?P<if>if yo
 _ANY_DID = re.compile(r"^if (?P<w>a player|an opponent|no one|no player|nobody) does, (?P<rest>.+)$")
 _FOR_EACH = re.compile(r"^for each (?P<who>opponent|player) who (?:doesn't|didn't), (?P<rest>.+)$")
 _WHO_DOESNT = re.compile(r"^each (?P<who>opponent|player) who (?:doesn't|didn't) (?P<rest>.+)$")
-_TO_EACH = re.compile(r"^(?P<lead>.+) to each (?P<who>opponent|player) who (?:doesn't|didn't)(?P<this> sacrifice a permanent this way)?$")
+_TO_EACH = re.compile(r"^(?P<lead>.+) to each (?P<who>opponent|player) who (?:doesn't|didn't)(?P<this> sacrifice a permanent(?P<disc> or discard a card)? this way)?$")
 # -- each player may (wave 23A) -- "Each player may discard their hand and draw five cards." (Raphael's Technique, Ruin Grinder) and
 # "Each player who discarded a card this way draws a card." / "… who does, …": what the players who paid get, once all have paid
 _AND_DRAW = re.compile(r"^(?P<cost>discard (?:their|your) hand) and draw (?P<rest>.+)$")
@@ -196,9 +196,11 @@ def pair(text: str, following: str | None, effects: list[dict[str, Any]], last_p
     elif (w := _WHO_DOESNT.match(nxt)) is not None and w["who"] == m["who"]:
         body = _third_person(w["rest"])
     elif (t := _TO_EACH.match(nxt)) is not None and t["who"] == m["who"]:
-        if t["this"] and not (entry.get("cost") or "").startswith("Sacrifice") and not all(
+        if t["this"] and not t["disc"] and not (entry.get("cost") or "").startswith("Sacrifice") and not all(
                 a.startswith("Sacrifice") for a in entry.get("alts") or ()):
             return None  # ("who didn't sacrifice a permanent this way": only after a sacrifice)
+        if t["disc"] and not (any(x.startswith("Discard") for x in entry.get("alts") or ()) and any(x.startswith("Sacrifice") for x in entry.get("alts") or ())):
+            return None  # -- wave 110B -- "who didn't sacrifice a permanent or discard a card this way" (Osseous Sticktwister): only after that choice of two
         body = f"{t['lead']} to that player"
     if body is None and not then_texts and not opp_texts and not acting:
         return None

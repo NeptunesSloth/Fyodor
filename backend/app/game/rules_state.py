@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from app.game.mana_cost_templates import ForetellCostReceipt
 
@@ -485,6 +485,7 @@ class Event(BaseModel):
     sides: int = 0
     source_targets: list[str] | None = None  # -- trigger damage (wave 110C) -- a ``damage`` event: the targets of the spell dealing it (115.9c), None for any other source
     pair110c: str | None = None  # -- soulbond (wave 110C) -- a ``damage`` event: the object paired with the damaged one when it was dealt (603.2: judged as the event happens)
+    craft110b: bool = False  # -- wave 110B -- a zone change made while a craft ability's cost was paid (Market Gnome)
     cause110g: str | None = None  # -- wave 110G -- a zone change: controller of the resolving spell or ability that moved it (SBA and rules: None)
     excess: int = 0  # -- trigger damage (wave 39B) -- a ``damage`` event: the excess damage (120.10) the batch dealt to the permanent, on its first event
 
@@ -635,6 +636,8 @@ class TurnLog(BaseModel):
     combat_damage95_known: bool | None = None  # Complete native current-turn damage history; None is legacy.
     fight_history90_known: bool | None = None  # Legacy missing current-turn fight history is unknown.
     fought90: list[str] = Field(default_factory=list)  # Original objects that actually fought this turn.
+    adapt_free110b: list[str] = Field(default_factory=list)  # Objects whose next adapt this turn ignores their +1/+1 counters (Biomancer's Familiar).
+    required110b: list[str] = Field(default_factory=list)  # "<attacker object>|<combat number>" of attackers that had to attack (508.1d; Firkraag, Cunning Instigator).
     mirror110b: list[str] = Field(default_factory=list)  # Chosen creatures of Mystic Reflection waiting for "the next time one or more creatures or planeswalkers enter this turn".
     mirror_open110b: str = ""  # "<rules.batch>|<chosen id>": the effect being used by the entry event of that batch (previews of each card see the same one).
     mirror_late110b: list[str] = Field(default_factory=list)  # "card id|chosen id": used up, applied after the card's own "may enter as a copy" declined.
@@ -670,6 +673,12 @@ class TurnLog(BaseModel):
     entered: list[Entry] = Field(default_factory=list)  # -- refused modal/conditional (wave 3R1) -- onto the battlefield
     # -- this-turn history (wave 4D; app/rules/history.py) --
     casts: list[CastNote] = Field(default_factory=list)  # spells cast, as they became cast (601.2i)
+    _cast_ids: set[str] | None = PrivateAttr(default=None)  # cached ids of permanents that were cast this turn; history.py resets it
+
+    def cast_ids(self) -> set[str]:
+        if self._cast_ids is None:
+            self._cast_ids = {n.became for n in self.casts if n.became}
+        return self._cast_ids
     facts: list[TurnFact] = Field(default_factory=list)  # tokens created, discards, sacrifices, damage to players …
     attackers: dict[str, list[str]] = Field(default_factory=dict)  # player -> creatures (objects) declared as attackers
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
@@ -1773,6 +1782,7 @@ class RulesState(BaseModel):
     # -- wave 110A -- player -> ``next_object`` when their last turn ended ("entered since your last turn ended", selectors)
     chosen_objects: dict[str, str] = Field(default_factory=dict)  # -- wave 110A -- source card id -> the object it chose as it entered (wave110a_pick)
     turn_end_objects: dict[str, int] = Field(default_factory=dict)
+    hit110b: list[str] = Field(default_factory=list)  # -- wave 110B -- players dealt combat damage since their last turn ended (Marchesa, Resolute Monarch)
     # -- linked words (wave 33B) -- 607.2f: "As this enchantment enters, choose Khans or Dragons.": object id -> the word it chose (app/rules/chosen.py)
     chosen_words: dict[str, str] = Field(default_factory=dict)
     # How each spell was paid for (stack object id -> record); follows the spell onto the battlefield.
@@ -1797,6 +1807,7 @@ class RulesState(BaseModel):
     cast_history_complete: bool | None = None  # True only when automation observed the trusted fresh-game boundary.
     named_casts_game: dict[str, dict[str, int]] = Field(default_factory=dict)  # public names when actually cast, per player, across turns
     entry_life_losses: dict[str, int] = Field(default_factory=dict)  # exact source incarnation / entry ability -> actual life lost
+    craft110b: bool = False  # transient: a craft ability's cost is being paid (Plan.do sets it)
     cause110g: str | None = None  # transient: the controller of the effect whose step is being applied (Plan.do sets it)
     entry_life_origins: list[str] = Field(default_factory=list)  # automatic entries observed with entry-life bookkeeping available
     entry_life_notices: list[str] = Field(default_factory=list)  # legacy source/ability keys already reported as unknown
@@ -2011,6 +2022,8 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
         return
     if kind == "zone_change" and rules.cause110g is not None:
         fields.setdefault("cause110g", rules.cause110g)
+    if kind == "zone_change" and rules.craft110b:
+        fields.setdefault("craft110b", True)
     rules.events.append(Event(batch=rules.batch + 1, kind=kind, turn=state.turn.number, **fields))
     if kind == "turned_face_up" and (up_log110f := turn_log_now(state)) is not None and fields.get("object_id"):
         up_log110f.turned_up110f = list(dict.fromkeys([*up_log110f.turned_up110f, fields["object_id"]]))

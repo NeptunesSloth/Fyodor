@@ -1691,6 +1691,14 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import wave110b_cards
 
         return wave110b_cards.stolen_holds(plan, ctx)
+    if cond.get("adapt_free110b"):  # -- wave 110B -- 701.46a: the adapting creature has a one-shot "as though no +1/+1 counters" waiting (used up now)
+        from app.rules import wave110b_cards
+
+        return wave110b_cards.adapt_free_used(plan, ctx)
+    if cond.get("lolth110b"):  # -- wave 110B -- Lolth's emblem: the damaged player has lost less than 8 life this turn
+        from app.rules import wave110b_cards
+
+        return wave110b_cards.lolth_lost(plan, ctx) < 8
     if cond.get("camp110i"):  # -- cards (wave 110I) -- C.A.M.P.
         from app.rules import wave110i_cards
 

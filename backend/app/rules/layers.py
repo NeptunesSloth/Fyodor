@@ -1024,7 +1024,9 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     ch = replace(ch, on_battlefield=card.zone.endswith(":battlefield"),
                  object_counters=frozenset(k for k, n in card.counters.items() if n > 0),
                  object_ring_bearer=bool(state.rules and card.zone.endswith(":battlefield")
-                                         and state.rules.ring_bearers.get(card.controller) == state.rules.object_id(card.id)))
+                                         and state.rules.ring_bearers.get(card.controller) == state.rules.object_id(card.id)),
+                 object_cast_this_turn=bool(state.rules and card.zone.endswith(":battlefield") and state.rules.turn_log.turn == state.turn.number
+                                            and state.rules.object_id(card.id) in state.rules.turn_log.cast_ids()))  # (-- wave 110B --)
     from app.rules import stickers101
 
     effects = affecting(state, card, info) + stickers101.continuous(state, card)

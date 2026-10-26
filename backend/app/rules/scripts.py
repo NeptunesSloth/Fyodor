@@ -3984,7 +3984,7 @@ def _difference(body: str) -> str:
 
 
 def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
-    body = _difference(body)
+    body = _difference(re.sub(r"\b([Pp]ay half (?:your|their) life), rounded up", r"\1 rounded up", body))  # -- wave 110B -- 107.1a: one cost part, not a clause split at its comma
     from app.rules import random_choice  # -- random choices (wave 47B) --
 
     body, or_pw = random_choice.strip_pw(body)
@@ -4920,6 +4920,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         from app.rules import villainous as _villainous  # -- villainous choice (wave 23A) -- 701.55
 
         if (villain := _villainous.sentence(text, effects, lambda t: _plain_clause(t, it, True))) is not None:
+            if any(x.get('who') == 'target' for x in villain):  # -- (wave 110B) -- "Target opponent faces a villainous choice"
+                villain = _add_groups(groups, villain, 'opponent')
             effects += villain
             continue
         if (filtered := _player_filter.sentence(text, effects, lambda t: _plain_clause(t, it, event_player))) is not None:

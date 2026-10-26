@@ -646,6 +646,9 @@ def start_next_turn(plan: Plan) -> None:
     from app.game.rules_state import complete_own_turn
     complete_own_turn(plan.state)
     plan.rules.turn_end_objects[plan.active] = plan.rules.next_object  # (wave 110A: selectors "entered since your last turn ended")
+    from app.rules import wave110b_cards  # -- combat damage since your last turn (wave 110B) --
+
+    wave110b_cards.note_hits(plan)
     combat_rules.new_turn(plan)  # -- combat (wave 5C) -- added phases belong to the turn that ends
     keep = _keep_tapped(plan)
     # -- extra turns (wave 8A) -- 500.7: an extra turn comes first (the latest created first); otherwise the turn order goes

@@ -394,7 +394,9 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     ``controlled``: "goad each creature target player / that player controls" (``who`` names the
     player(s))."""
     pid = ctx["controller"]
-    if e.get("controlled"):
+    if e.get("suspected"):  # (wave 110B) 701.60: "goad all suspected creatures"
+        cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) in plan.rules.suspected]
+    elif e.get("controlled"):
         players = set(effects._players(plan, ctx, e["who"]))
         cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in players
                  and plan.in_game(c) and plan.ch(c).is_creature]
