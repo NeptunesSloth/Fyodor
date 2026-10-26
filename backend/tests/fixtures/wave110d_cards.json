@@ -6706,5 +6706,31 @@
 "R"
 ],
 "keywords": []
+},
+{
+ "name": "Sword of Kaldra",
+ "layout": "normal",
+ "mana_cost": "{4}",
+ "cmc": 4.0,
+ "type_line": "Legendary Artifact — Equipment",
+ "oracle_text": "Equipped creature gets +5/+5.\nWhenever equipped creature deals damage to a creature, exile that creature. (Exile it only if it's still on the battlefield.)\nEquip {4} ({4}: Attach to target creature you control. Equip only as a sorcery.)",
+ "colors": [],
+ "color_identity": [],
+ "keywords": [
+  "Equip"
+ ]
+},
+{
+ "name": "Shield of Kaldra",
+ "layout": "normal",
+ "mana_cost": "{4}",
+ "cmc": 4.0,
+ "type_line": "Legendary Artifact — Equipment",
+ "oracle_text": "Equipment named Sword of Kaldra, Shield of Kaldra, and Helm of Kaldra have indestructible.\nEquipped creature has indestructible. (Damage and effects that say \"destroy\" don't destroy it.)\nEquip {4}",
+ "colors": [],
+ "color_identity": [],
+ "keywords": [
+  "Equip"
+ ]
 }
 ]

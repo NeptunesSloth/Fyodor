@@ -285,6 +285,9 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
 
     first_event_receipts78.note_events(plan, events, log)
     for e in events:
+        if into is None and e.kind == "damage" and e.source and e.amount > 0 and (to := e.player or e.object_id) \
+                and to not in plan.rules.dealt_to110g.setdefault(e.source, []):  # -- wave 110G -- "has dealt damage to this game" (120.3)
+            plan.rules.dealt_to110g[e.source].append(to)
         if e.kind == "cycled" and not e.manual and e.player and e.turn == plan.state.turn.number:  # -- turn state (wave 100H) -- 702.29a: one cycling
             if not any(f.kind == "cycle" and f.object_id == e.object_id for f in log.facts):  # (one fact per cycled object: a card cycled again is a new one, 400.7)
                 log.facts.append(TurnFact(kind="cycle", player=e.player, object_id=e.object_id))
@@ -294,6 +297,8 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
         for kind, obj, ch, player, info in _facts(plan, e, {"cast_from": {}}):
             what: dict[str, Any] = {"types": sorted(ch.types), "subtypes": sorted(ch.subtypes),
                                     "supertypes": sorted(ch.supertypes)} if ch is not None else {}
+            if kind == "enter" and obj is not None and ch is not None and ch.face_down and player is not None:  # -- (wave 110L) -- 708.2: entered face down under its controller's control (Oblivious Bookworm)
+                log.facts.append(TurnFact(kind="enter_fd110l", player=player, object_id=info.get("oid")))
             if kind == "land_played" and player is not None:
                 log.facts.append(TurnFact(kind="land_play", player=player, object_id=info.get("oid"),
                                           from_zone=info.get("played_from"), **what))
@@ -863,6 +868,7 @@ _WAVE_4D: dict[str, Any] = {
         f"{cond['key']}:t{plan.state.turn.number}", 0) >= int(cond["n"]),
     "attackers_power": lambda plan, ctx, cond, log: plan.rules.attack_power.get(ctx["controller"], 0) >= int(cond["n"]),
     "self_attacked": lambda plan, ctx, cond, log: _self_attacked(plan, ctx, cond, log),
+    "counter110j": lambda plan, ctx, cond, log: f"{ctx['controller']}:{cond['kind']}" in log.counters_removed110j or cond["kind"] in log.gy_counters110j,  # (wave 110J) Churning Reservoir
     "self_attacked_battle110j": lambda plan, ctx, cond, log: _source_object(plan, ctx) in log.attacked_battle110j,  # (wave 110J) 310.5
     "graveyard_cards": lambda plan, ctx, cond, log: _graveyard_cards(plan, ctx, cond, log),
     "rolled_result": _rolled_result,

@@ -34,3 +34,5 @@
 - Ob Nixilis of the Black Oath: emblem activated ability (sacrifice cost) is not run from the command zone (designations.emblem_text_ok allows statics/triggers only).
 - Heirloom Epic: "for each mana in this ability's activation cost, tap an untapped creature" (convoke for abilities) not modeled.
 - Mariposa Military Base: optional "enter tapped, if you do get rad counters" entry choice not modeled (replacements._entry_plan has only pay-life/tapped-unless forms).
+- Library of Leng, Nephalia Academy: optional discard-to-library-top replacement. The engine cannot tell a discard caused by an effect from a discard paid as a cost (cycling, activation costs), and the optional "may" needs a decline path in zone replacements (move re-enters replace_move). Needs a cause tag on discard moves first.
+- Arni Metalbrow: "enters attacking" is not an event the trigger system has (single card).

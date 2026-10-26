@@ -646,6 +646,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import wave110a_grants
 
         return wave110a_grants.grant_evoke(t)
+    if t.startswith("as ") and ", note your life total" in t and kind == "static":  # -- entry types (wave 110A) -- Sigarda's Splendor
+        from app.rules import wave110a_enter
+
+        return wave110a_enter.static(t)
     if t.startswith("as a historic permanent you control enters, it becomes ") and kind == "static":  # -- entry types (wave 110A) -- Displaced Dinosaurs
         from app.rules import wave110a_enter
 

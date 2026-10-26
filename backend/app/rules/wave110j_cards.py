@@ -243,7 +243,25 @@ def mark(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"paid_cumulative110j": paid_cumulative, "ruin110j": ruin, "dragon110j": dragon, "mark110j": mark}
+def mask(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Jester's Mask: the target player puts their hand on top of their library (their order: the library is shuffled at the end, so it can't matter),
+    then the activator searches that library for that many cards (701.23a) and the player puts them into their hand, then shuffles (701.24)."""
+    from app.game.state import zone_key
+    from app.rules import effects, selectors
+
+    for pid in effects._players(plan, ctx, e["who"]):
+        hand = list(plan.state.zones.get(zone_key(pid, "hand"), []))
+        for cid in hand:
+            plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "library"}, "position": "top"}, actor=pid)
+        sel = selectors.parse("card in your library")
+        assert sel is not None
+        search = {"do": "search", "who": "you", "library": "target", "sel": sel.key(), "label": "cards", "max": len(hand), "to": "hand"}
+        at = ctx["next"]
+        ctx["effects"] = [*ctx["effects"][:at], search, *ctx["effects"][at:]]
+    return True
+
+
+PRIMITIVES = {"mask110j": mask, "paid_cumulative110j": paid_cumulative, "ruin110j": ruin, "dragon110j": dragon, "mark110j": mark}
 
 
 # Razor Boomerang: "It" is the Equipment (the ruling: the Equipment deals the damage, 120.3), so name it; the grant binds the name to its granter
@@ -288,3 +306,118 @@ _UP = "At the beginning of your upkeep, put a +1/+1 counter on %s if it %s since
 _NATIVE = "At the beginning of your upkeep, put a +1/+1 counter on %s if %s attacked or blocked this turn. Otherwise, remove a +1/+1 counter from %s."
 _BUILD[_UP % ("this creature", "has blocked or been blocked")] = (_NATIVE % ("~", "~", "~"), _since_upkeep)
 _BUILD[_UP % ("enchanted creature", "attacked or blocked")] = (_NATIVE % ("enchanted creature", "it", "it"), _since_upkeep)
+
+
+# -- spell/ability bodies (exact text -> a wording the grammar reads) --
+REWRITES: dict[str, str] = {
+    # Simic Guildmage: "with the same controller" = "that player" of the first target (player_relative._names_player; Bioshift)
+    "Move a +1/+1 counter from target creature onto another target creature with the same controller.":
+        "Move a +1/+1 counter from target creature onto another target creature that player controls.",
+}
+
+
+def parse(body: str) -> Any:
+    from app.rules import scripts
+
+    return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
+
+
+def _guildmage(d: Def) -> Def:
+    """Simic Guildmage: the new host is another permanent controlled by the controller of the Aura's current host (permanent_exchanges, 701.3)."""
+    first, second = d["targets"]
+    return {**d, "targets": [first, {**second, "of": 0, "relative_quality": {"kind": "hostctl110j"}}]}
+
+
+_BUILD["{1}{U}: Attach target Aura attached to a permanent to another permanent with the same controller."] = (
+    "{1}{U}: Attach target Aura attached to a permanent to target permanent.", _guildmage)
+
+
+def _mask(d: Def) -> Def:
+    return {**d, "effects": [{"do": "mask110j", "who": "target"}]}
+
+
+_BUILD["{1}, {T}, Sacrifice this artifact: Target opponent puts the cards from their hand on top of their library. Search that player's library for that many cards. That player puts those cards into their hand, then shuffles."] = (
+    "{1}, {T}, Sacrifice this artifact: Target opponent discards a card.", _mask)
+
+
+def entered_transformed(plan: Any, info: dict[str, Any]) -> bool:
+    """712.14a, 702.145b: the permanent of an "enter" fact came onto the battlefield back face up. A transformation (701.28) leaves a "transformed" event
+    on its object; a daybound permanent that was flipped as it entered (702.145b) leaves none, so it counts as entering transformed."""
+    oid, log = info.get("oid"), plan.rules.turn_log
+    entry = next((x for x in reversed(log.entered) if x.object_id == oid), None) if oid and log is not None else None
+    card = plan.state.cards.get(entry.card) if entry is not None else None
+    return (card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == oid and card.face == 1
+            and (plan.info.get(card.card_id) or {}).get("layout") == "transform"  # 712.14a: a modal DFC's back face (712.4) never "transforms"
+            and not any(e.kind == "designation" and e.counter == "transformed" and e.object_id == oid for e in plan.rules.events))
+
+
+def _towashi(d: Def) -> Def:
+    from app.rules import events
+
+    entered = events._parse("a permanent you control enters transformed")
+    assert entered is not None
+    return {**d, "cond": {"event": "either", "conds": [d["cond"], entered]}}
+
+
+_BUILD["Whenever a permanent you control transforms or a permanent you control enters transformed, you may draw a card. Do this only once each turn."] = (
+    "Whenever a permanent you control transforms, you may draw a card. Do this only once each turn.", _towashi)
+
+
+# All Hallow's Eve: the spell exiles itself with two scream counters (the instruction moves the resolving spell, so it isn't put into a graveyard, 608.2n);
+# each of its owner's upkeeps, while it is exiled with a scream counter (an ability of the exiled card, as for suspend), it loses one, and with none left
+# it goes to the graveyard and every graveyard's creatures return (the step trigger of an exiled card: triggers.at_step_generic, exiled_step)
+SCREAM = "scream"
+
+
+def scream_exile(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    card = plan.state.cards.get(ctx.get("source_card", ""))
+    if card is None or card.zone != "stack":
+        return True
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "exile"}}, actor=ctx["controller"])
+    plan.do({"type": "counter", "card_ids": [card.id], "kind": SCREAM, "delta": 2}, actor=ctx["controller"])
+    return True
+
+
+def scream_tick(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Intervening "if" (603.4): checked again as it resolves; no counter, or no longer exiled: nothing happens."""
+    card = plan.state.cards.get(ctx.get("source_card", ""))
+    if card is None or not card.zone.endswith(":exile") or plan.oid(card) != ctx.get("source_object") or card.counters.get(SCREAM, 0) < 1:
+        ctx["next"] = len(ctx["effects"])
+        return True
+    plan.do({"type": "counter", "card_ids": [card.id], "kind": SCREAM, "delta": -1}, actor=ctx["controller"])
+    if plan.state.cards[card.id].counters.get(SCREAM, 0) > 0:
+        ctx["next"] = len(ctx["effects"])
+        return True
+    plan.do({"type": "move", "card_ids": [card.id], "to": {"player": card.owner, "zone": "graveyard"}}, actor=ctx["controller"])
+    return True
+
+
+PRIMITIVES.update({"scream_exile110j": scream_exile, "scream_tick110j": scream_tick})
+
+_BUILD["Exile All Hallow's Eve with two scream counters on it."] = ("Draw a card.", lambda d: {**d, "effects": [{"do": "scream_exile110j"}]})
+_BUILD["At the beginning of your upkeep, if this card is exiled with a scream counter on it, remove a scream counter from it. If there are no more scream counters on it, put it into your graveyard and each player returns all creature cards from their graveyard to the battlefield."] = (
+    "At the beginning of your upkeep, return all creature cards from all graveyards to the battlefield under their owners' control.",
+    lambda d: {**d, "trigger": "step:upkeep:you", "exiled_step": True, "if": {"value": {"counters": SCREAM, "on": "self"}, "op": ">=", "n": 1},
+               "effects": [{"do": "scream_tick110j"}, *d["effects"]]})
+
+
+def _livio_exile(d: Def) -> Def:
+    """The target creature's controller decides (608.2d): a yes/no question to them, then the exile with the counter."""
+    return {**d, "effects": [{"do": "optional_payment", "who": "tp:0", "ask": "Exile it with an aegis counter on it?", "cost": "", "bind": "aegis110j"},
+                             {"do": "only_if", "cond": {"succeeded": "aegis110j"}, "skip": 2}, *d["effects"]]}
+
+
+_BUILD["{1}{W}: Choose another target creature. Its controller may exile it with an aegis counter on it."] = (
+    "{1}{W}: Exile another target creature. Put an aegis counter on it.", _livio_exile)
+
+
+def _livio_return(d: Def) -> Def:
+    from app.rules import selectors
+
+    sel = selectors.parse("card in exile with an aegis counter on it")
+    assert sel is not None
+    return {**d, "effects": [{**e, "who": sel.key()} if e.get("do") == "return_card" else e for e in d["effects"]]}
+
+
+_BUILD["{2}{W}, {T}: Return all exiled cards with aegis counters on them to the battlefield under their owners' control."] = (
+    "{2}{W}, {T}: Return all cards from exile to the battlefield under their owners' control.", _livio_return)

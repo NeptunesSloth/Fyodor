@@ -140,6 +140,8 @@ def quote(text: str) -> str | None:
         return t
     if d["kind"] == "static" and d.get("static") == "assign_unblocked":
         return t  # -- combat (wave 110E) -- 510.1c: combat.py reads it through scripts.statics(ch), the current abilities
+    if d.get("static") == "no_regen_damaged110k":
+        return t  # -- (wave 110K) -- Bone Shaman: regeneration.shielded / regeneration_choices.options read it from the source's current abilities
     if d.get("static") == "creature_combat_cost" and d.get("who") == "self":
         return t  # Declaration costs read the holder's completed layer-6 abilities.
     if (d.get("static") == "grant" and d.get("who") == "self" and not d.get("conditions")

@@ -17,7 +17,11 @@ def add_shield(plan: Plan, card_id: str) -> None:
 
 def shielded(plan: Plan, card: CardInstance) -> bool:
     oid = plan.oid(card)  # (-- can't regenerate (wave 19E) -- 701.19c: a shield isn't applied to an object that can't be regenerated)
-    return plan.rules.regen_shields.get(oid, 0) > 0 and oid not in plan.rules.no_regen
+    from app.rules import (
+        wave110k_cards,  # -- (wave 110K) -- Bone Shaman: dealt damage this turn by a source that makes it so
+    )
+
+    return plan.rules.regen_shields.get(oid, 0) > 0 and oid not in plan.rules.no_regen and not wave110k_cards.damaged_unregenerable(plan, card)
 
 
 def regenerate(plan: Plan, card: CardInstance, *, consume: bool = True, shield_id: str | None = None) -> None:

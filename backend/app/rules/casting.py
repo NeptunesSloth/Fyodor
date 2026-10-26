@@ -928,6 +928,8 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     modal, modes = definition["modal"], definition["modes"]
     plan.x_choice = getattr(a, "x_value", None)  # -- most-played modal spells (wave 50I) -- 601.2b: X is announced before the modes; a mode's "creature with mana value X or less" reads it
     lo, hi, repeat = modal["min"], modal["max"], modal["repeat"]
+    if modal.get("x"):  # -- choose X (wave 110C) -- 700.2d: exactly X modes, X announced first (107.3a)
+        lo = hi = int(plan.x_choice or 0)
     allowed = choosable_modes(plan, definition, a.card_id, exclude, isinstance(a, A.CastSpell), source=_target_source(plan, a))
     if (inst := modal.get("instead")) is not None and _instead_holds(plan, a, inst["cond"]):
         # -- modal frames (wave 33B) -- 700.2a, 601.2b: "If [condition] as you cast this spell, [you may] choose both instead." — judged as the
@@ -1676,7 +1678,7 @@ def _pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list
     if life:  # -- life modifiers (wave 28B) -- 119.4 / 118.11: the life paid is a life loss the replacements may change
         from app.rules import replace as _replace_life
 
-        _replace_life.lose_life(plan, [(player, life)], actor=player)
+        _replace_life.lose_life(plan, [(player, life)], actor=player, paid=True)
     payment.auxiliary_life += max(0, life - payment.life - life_due)
     payment.life = life
     if then is not None:
@@ -2666,7 +2668,7 @@ def pay_nonmana_cost(plan: Plan, a: A.TurnFaceUp, card: CardInstance, printed: C
         return False
     if cost.life:
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-        _replace_life.lose_life(plan, [(plan.actor, cost.life)])
+        _replace_life.lose_life(plan, [(plan.actor, cost.life)], paid=True)
     cost_payment.pay(plan, cost, card, chosen, PaymentRecord(card=card.id, controller=plan.actor, total_cost=text))
     for i, comp in enumerate(cost.components):  # "Reveal a blue card in your hand": shown to everyone as the cost is paid (701.20a)
         if comp.kind == "REVEAL_FROM_HAND" and chosen.get(i):
@@ -2687,6 +2689,9 @@ def turned_up(plan: Plan, card: CardInstance, x: int | None = None, by: str | No
     )
 
     counters52d.turned_up(plan, card)
+    from app.rules import wave110d_misc  # -- turned up (wave 110D) --
+
+    wave110d_misc.attach_up(plan, card)
     from app.rules import triggers  # (triggers imports this module)
 
     face_up = plan.ch(plan.state.cards[card.id])
@@ -4093,11 +4098,11 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     if add_cost is not None:
         if add_cost.life:
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-            _replace_life.lose_life(plan, [(plan.actor, add_cost.life)])  # 119.4: paying life is losing it
+            _replace_life.lose_life(plan, [(plan.actor, add_cost.life)], paid=True)  # 119.4: paying life is losing it
             record.life += add_cost.life
         if add_cost.life_x and a.x_value:  # -- X sized by a count (wave 4K) -- "pay X life" (119.4)
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-            _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
+            _replace_life.lose_life(plan, [(plan.actor, a.x_value)], paid=True)
             record.life += a.x_value
         from app.rules import counter_cost_order70
 
@@ -5357,11 +5362,11 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
     if add_cost is not None:  # (601.2h: with the rest of the total cost)
         if add_cost.life:
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-            _replace_life.lose_life(plan, [(plan.actor, add_cost.life)])  # 119.4
+            _replace_life.lose_life(plan, [(plan.actor, add_cost.life)], paid=True)  # 119.4
             record.life += add_cost.life
         if add_cost.life_x and a.x_value:  # -- X sized by a count (wave 4K) -- "pay X life" (119.4)
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-            _replace_life.lose_life(plan, [(plan.actor, a.x_value)])
+            _replace_life.lose_life(plan, [(plan.actor, a.x_value)], paid=True)
             record.life += a.x_value
         waterbend102.record(plan,a,add_cost,add_objects,record)
         cost_payment.pay(plan, add_cost, card, add_objects, record)  # sacrifice, discard, exile …
@@ -6295,7 +6300,7 @@ def _activation_announced(plan: Plan, data: _PostActivation, paid: M.Payment | N
         plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n})
     if cost.life:
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-        _replace_life.lose_life(plan, [(plan.actor, cost.life)])
+        _replace_life.lose_life(plan, [(plan.actor, cost.life)], paid=True)
     data.ability_id = ability_id
     _post_activation(plan, data, paid)
 
@@ -6638,7 +6643,7 @@ def _produce_body(plan: Plan, card: CardInstance, ability: M.ManaAbility, option
     if extra and extra.life:  # -- life modifiers (wave 28B) -- 119.4 / 118.11: the life paid is a life loss the replacements may change
         from app.rules import replace as _replace_life
 
-        _replace_life.lose_life(plan, [(who, extra.life)], actor=who)
+        _replace_life.lose_life(plan, [(who, extra.life)], actor=who, paid=True)
     if mana:
         emit(plan.state, "mana_added", object_id=oid, card=card.id, player=who, amount=sum(mana.values()),
              counter="tap" if ability.tap else None)  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
@@ -6771,7 +6776,7 @@ def _chosen_mana_paid(plan: Plan, data: _ChosenManaPayment, payment: M.Payment |
         if cost.life:  # -- life modifiers (wave 28B) -- 119.4 / 118.11
             from app.rules import replace as _replace_life
 
-            _replace_life.lose_life(plan, [(who, cost.life)], actor=who)
+            _replace_life.lose_life(plan, [(who, cost.life)], actor=who, paid=True)
     if option is None:
         decide(plan, player=plan.actor, kind="choose_one", prompt=f"Which mana should {ch.name} add?",
                options=[DecisionOption(id=str(i), label=M.symbols(_count(o))) for i, o in enumerate(options)],

@@ -20,10 +20,15 @@ _SYMBOLS = r"(?:\{(?:\d+|[WUBRGCE])\})+"
 _EITHER = re.compile(rf"^(?:Pay )?({_SYMBOLS}) or (?:[Pp]ay )?({_SYMBOLS})$")
 
 
+# -- (wave 110K) -- "{3}, {T}, Sacrifice an artifact or discard a nonland card" (Bullseye): the choice is one cost (602.2b), every other part is paid with it
+_SAC_OR_DISCARD = re.compile(r"^((?:(?:\{[\dTWUBRGC]\}|\{T\}), )*)(Sacrifice an? [a-z]+) or (discard an? [a-z ]+)$")
+
+
 def sides(text: str) -> list[str] | None:
     m = _EITHER.fullmatch(text)
     if m is None:
-        return None
+        m110k = _SAC_OR_DISCARD.fullmatch(text)
+        return None if m110k is None else [m110k[1] + m110k[2], m110k[1] + m110k[3][0].upper() + m110k[3][1:]]
     return ['Pay ' + x if '{E}' in x else x for x in m.groups()]
 
 
