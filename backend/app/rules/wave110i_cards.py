@@ -969,6 +969,17 @@ def whistle(ability: Any, ch: Any) -> Def | None:
     return {**base, "effects": effects, "target": {**base["target"], "what": sel.key()}}
 
 
+_COFFIN = ("{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control. "
+           "When this creature becomes untapped or you lose control of this creature, exile that creature.")
+
+
+def _coffin(d: Def) -> Def:
+    """Coffin Queen: 603.7a — the delayed trigger watches the Queen (untapped, or control of her lost: delayed.on_events) and exiles the creature put onto the battlefield (bound now, 603.7c)."""
+    back = {**d["effects"][0], "as": "coffin110i"}
+    watch = {"do": "delayed", "when": {"kind": "event", "event": "lose_or_untap110i"}, "n": 1, "who": "self"}
+    return {**d, "effects": [back, watch, {"do": "deferred:exile", "who": "ref:coffin110i"}]}
+
+
 _FLICKER = ("{2}{W}{W}: Exile enchanted creature and all Auras attached to it. At the beginning of the next end step, return that card to the battlefield under its owner's control. "
             "If you do, return the other cards exiled this way to the battlefield under their owners' control attached to that creature.")
 
@@ -1013,6 +1024,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _COFFIN:
+        native = scripts.define(replace(ability, text="{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control."), ch)
+        return None if native is None else _coffin(native)
     if text == _FLICKER:
         native = scripts.define(replace(ability, text="{2}{W}{W}: Draw a card."), ch)
         return None if native is None else {**native, "effects": [{"do": "flicker_exile110i"}]}

@@ -3,6 +3,7 @@
 * Fleshwrither: Transfigure {2}{B}{B} (702.71a): sacrifice, search for a creature with the same mana value as the sacrificed creature (608.2h last known information).
 * Necrotic Plague: when the enchanted creature dies, ITS controller (603.3d) chooses a creature one of their opponents controls; the Aura returns from its owner's graveyard attached to it (303.4g).
 * Flickerform: the creature and its Auras leave together (no 704.5m graveyard trip); at the next end step the creature returns under its owner's control, then (only if it did) the other cards return attached to it (303.4i).
+* Coffin Queen: the creature put onto the battlefield is exiled when the Queen becomes untapped or her controller loses control of her (603.7a, 603.10d; delayed trigger watching the Queen).
 * Monastery Raid: freerunning {X}{R} (702.173a; X in an alternative cost, 107.3a); "if this spell's freerunning cost was paid, exile the top X cards instead".
 """
 
@@ -18,6 +19,7 @@ from tests.test_rules_wave43d_cast_keywords import alt_key, connect
 from tests.test_rules_wave100n_multi import EXTRA as _BASE
 from tests.test_rules_wave100n_multi import (
     answer,
+    cast,
     card_db,  # noqa: F401  (fixture DB with EXTRA)
 )
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand, zone_of
@@ -39,6 +41,10 @@ EXTRA = [
          "Enchant creature\n{2}{W}{W}: Exile enchanted creature and all Auras attached to it. At the beginning of the next end step, return that card to the battlefield under its owner's control. "
          "If you do, return the other cards exiled this way to the battlefield under their owners' control attached to that creature.", None, "W"),
     real("Ward110I", "{W}", 1, "Enchantment \u2014 Aura", "Enchant creature\nEnchanted creature gets +1/+1.", None, "W"),
+    real("Coffin Queen", "{2}{B}{B}", 4, "Creature \u2014 Zombie Wizard",
+         "You may choose not to untap this creature during your untap step.\n{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control. "
+         "When this creature becomes untapped or you lose control of this creature, exile that creature.", ("2", "2"), "B"),
+    real("Steal110I", "{U}", 1, "Sorcery", "Gain control of target creature.", None, "U"),
     real("Wolf110I", "{3}{G}", 4, "Creature \u2014 Wolf", "", ("4", "4"), "G"),
     real("Cub110I", "{1}{G}", 2, "Creature \u2014 Wolf", "", ("2", "2"), "G"),
 ]
@@ -131,4 +137,47 @@ def test_flickerform_exiles_creature_and_auras_then_returns_them_attached(cards)
     answer(s)
     assert {zone_of(s, n) for n in ("Wolf110I", "Flickerform", "Ward110I")} == {"p1:battlefield"}
     assert {s.state.cards[card_named(s, n).id].attached_to for n in ("Flickerform", "Ward110I")} == {card_named(s, "Wolf110I").id}
+    check(s)
+
+
+def _queen_game(cards):
+    s = build(cards, ["Coffin Queen"], ["Ox110I", "Steal110I"], forests=25, islands=25)
+    queen = put(s, "Coffin Queen")
+    ox = card_named(s, "Ox110I", "p2")
+    act(s, "p2", type="move", card_ids=[ox.id], to={"player": "p2", "zone": "graveyard"})
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None and s.state.turn.active_player == "p1")
+    mana(s, B=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=queen.id, ability=1, targets=[ox.id])
+    answer(s)
+    assert zone_of(s, "Ox110I", "p2") == "p1:battlefield" and s.state.cards[ox.id].controller == "p1"
+    return s, queen, ox
+
+
+@pytest.mark.parametrize("keep_tapped", [False, True])
+def test_coffin_queen_exiles_creature_when_it_becomes_untapped(cards, keep_tapped):
+    """Her untap step: untapping her exiles the creature; choosing not to untap her leaves it (she never became untapped)."""
+    s, queen, ox = _queen_game(cards)
+    for _ in range(300):
+        d = s.state.rules.decision
+        if d is not None and d.resume.get("step") == "untap_keep":
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[queen.id] if keep_tapped else [])
+    answer(s)
+    assert s.state.cards[queen.id].tapped == keep_tapped
+    assert s.state.cards[ox.id].zone.endswith(":exile") != keep_tapped
+    check(s)
+
+
+def test_coffin_queen_exiles_creature_when_control_of_her_is_lost(cards):
+    """Bob gains control of the Queen: Alice lost control of her, so the creature is exiled (it was still tapped)."""
+    s, queen, ox = _queen_game(cards)
+    until(s, lambda s: s.state.turn.number >= 4 and s.state.turn.phase == "main1" and s.state.rules.decision is None and s.state.turn.active_player == "p2")
+    mana(s, "p2", U=1)
+    cast(s, "Steal110I", [queen.id], "p2")
+    answer(s)
+    assert s.state.cards[queen.id].controller == "p2" and s.state.cards[ox.id].zone.endswith(":exile")
     check(s)
