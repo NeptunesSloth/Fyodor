@@ -1440,8 +1440,6 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)):
             continue
         if p.card_filter:
-            from app.rules import selectors
-
             if not selectors.matches(_view(state, player, info), selectors.from_key(p.card_filter), card, ch, player):
                 continue
         if p.filter and verb == "cast" and not spell_matches(state, player, card, ch, p.filter, info):
