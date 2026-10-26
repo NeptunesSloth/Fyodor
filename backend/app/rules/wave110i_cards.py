@@ -148,6 +148,15 @@ def _arcee(d: Def) -> Def:
     return {**d, "effects": [{**x, "n": {"cast_targets110i": d["cond"]["targets"]}} if x.get("do") == "add_counters" else x for x in d["effects"]]}
 
 
+def bind_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"This card" after its own exile cost (400.7: a new object): bind the source as it is now, so a later "return this card" finds it in exile."""
+    from app.rules import context
+
+    if ctx.get("source_card") in plan.state.cards:
+        context.bind_objects(plan, ctx, e["as"], [ctx["source_card"]])
+    return True
+
+
 def cast_targets(plan: Plan, ctx: Context, key: str) -> int:
     """The number of the cast event's targets that match the selector now (115.9b), for "put that many counters"."""
     from app.rules import selectors
@@ -160,6 +169,13 @@ def cast_targets(plan: Plan, ctx: Context, key: str) -> int:
         if card is not None and plan.oid(card) == ref.get("object_id") and selectors.matches(plan, sel, card, plan.ch(card), you, ctx.get("source_card") or ""):
             n += 1
     return n
+
+
+def _shifty(d: Def) -> Def:
+    """Shifty Doppelganger: the sacrifice is bound ("did", 118.12); only if that creature left does this card return from exile (a new object, 400.7)."""
+    es = [{**x, "did": "sac110i"} if x.get("do") == "deferred:sacrifice" else {**x, "n": 3} if x.get("do") == "delayed" else {**x, "skip": x["skip"] + 2} if x.get("do") == "only_if" else x for x in d["effects"]]
+    return {**d, "effects": [{"do": "bind_self110i", "as": "self110i"}, *es, {"do": "deferred:only_if", "cond": {"succeeded": "sac110i"}, "skip": 1},
+                             {"do": "deferred:return_card", "to": "battlefield", "tapped": False, "under": "you", "who": "ref:self110i"}]}
 
 
 def _warp_strike(d: Def) -> Def:
@@ -231,6 +247,10 @@ _BAUBLE = ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land 
 _VAT = ("{1}, {T}, Sacrifice another artifact: Reveal the top eight cards of your library. Put up to two noncreature artifact cards with total mana value "
         "less than or equal to the sacrificed artifact's mana value from among them onto the battlefield and the rest on the bottom of your library in a random order.")
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{3}{U}, Exile this creature: You may put a creature card from your hand onto the battlefield. If you do, that creature gains haste until end of turn. "
+    "At the beginning of the next end step, sacrifice that creature. If you do, return this card to the battlefield.":
+        ("{3}{U}, Exile this creature: You may put a creature card from your hand onto the battlefield. If you do, that creature gains haste until end of turn. "
+         "At the beginning of the next end step, sacrifice that creature.", _shifty),
     "Whenever you cast a spell that targets one or more creatures or Vehicles you control, put that many +1/+1 counters on Arcee. Convert Arcee.":
         ("Whenever you cast a spell that targets one or more creatures or Vehicles you control, put a +1/+1 counter on Arcee. Convert Arcee.", _arcee),
     "Whenever this creature's cumulative upkeep is paid, it gets +1/+0 until end of turn for each {B} or {R} spent this way.":
@@ -412,7 +432,7 @@ def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+PRIMITIVES = {"bind_self110i": bind_self, "bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 
 
 def ask_skip(plan: Plan, done: list[str]) -> bool:

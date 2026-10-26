@@ -1,6 +1,7 @@
 """Wave 110I (session 8): real Oracle text; scenarios check replay and save/load.
 
 * Arcee: "that many" counters = the cast spell's targets that are creatures or Vehicles you control (115.9b, 603.2).
+* Shifty Doppelganger: the creature put onto the battlefield is sacrificed at the next end step; if it was, this card returns from exile (118.12).
 * Arsenal Thresher: reveals other artifact cards from hand as it enters (701.20a), a +1/+1 counter for each (614.12); the cards stay in hand.
 """
 
@@ -11,6 +12,7 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
+from tests.test_rules_wave34b_activated import activate
 from tests.wave9c_kit import build, mana, put, to_hand
 from tests.wave110a_kit import answer
 from tests.wave110c_kit import check, make_db
@@ -18,7 +20,10 @@ from tests.wave110c_kit import check, make_db
 THRESHER = ("As this creature enters, you may reveal any number of other artifact cards from your hand. "
             "This creature enters with a +1/+1 counter on it for each card revealed this way.")
 ARCEE = ("Whenever you cast a spell that targets one or more creatures or Vehicles you control, put that many +1/+1 counters on Arcee. Convert Arcee.")
-EXTRA = [real("Arcee", "{1}{R}{W}", 3, "Legendary Artifact Creature \u2014 Robot", ARCEE, ("2", "2"), "RW"),
+SHIFTY = ("{3}{U}, Exile this creature: You may put a creature card from your hand onto the battlefield. If you do, that creature gains haste until end of turn. "
+          "At the beginning of the next end step, sacrifice that creature. If you do, return this card to the battlefield.")
+EXTRA = [real("Shifty Doppelganger", "{2}{U}", 3, "Creature \u2014 Shapeshifter", SHIFTY, ("1", "1"), "U"),
+         real("Arcee", "{1}{R}{W}", 3, "Legendary Artifact Creature \u2014 Robot", ARCEE, ("2", "2"), "RW"),
          real("Probe Pair", "{R}", 1, "Instant", "Two target creatures each get +1/+1 until end of turn.", None, "R"),
          real("Probe Bears", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
          real("Probe Ride", "{2}", 2, "Artifact \u2014 Vehicle", "Crew 1", None, ""),
@@ -33,7 +38,7 @@ def card_db(settings):
     return make_db(settings, EXTRA)
 
 
-@pytest.mark.parametrize("name", ["Arsenal Thresher", "Arcee", "Probe Pair"])
+@pytest.mark.parametrize("name", ["Arsenal Thresher", "Arcee", "Probe Pair", "Shifty Doppelganger"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -89,3 +94,30 @@ def test_arcee_counts_matching_targets(cards, spell, pick, n):
 def test_arcee_ignores_spell_targeting_only_opponents(cards):
     s, arcee = _arcee(cards, "Probe Pump", lambda a, o, p: [p.id], mine=())
     assert s.state.cards[arcee.id].counters.get("+1/+1", 0) == 0
+
+
+@pytest.mark.parametrize("case", ["sacrificed", "no creature", "creature gone first"])
+def test_shifty_swaps_and_returns_after_sacrifice(cards, case):
+    s = build(cards, ["Shifty Doppelganger", "Probe Bears"])
+    shifty = put(s, "Shifty Doppelganger")
+    bears = to_hand(s, "Probe Bears") if case != "no creature" else None
+    mana(s, U=1, C=3)
+    activate(s, "p1", shifty, "Exile")
+    answer(s, bears.id if bears else None)
+    assert s.state.cards[shifty.id].zone == "p1:exile"
+    if case == "creature gone first":  # nothing left to sacrifice: no "if you do"
+        act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "hand"})
+    for _ in range(60):  # (the empty end step gives no priority: play on to the next turn)
+        d = s.state.rules.decision
+        if s.state.turn.number > 1:
+            break
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type=d.kind, attackers=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[shifty.id].zone == ("p1:battlefield" if case == "sacrificed" else "p1:exile")
+    if case == "sacrificed":
+        assert s.state.cards[bears.id].zone == "p1:graveyard"
+    check(s)
