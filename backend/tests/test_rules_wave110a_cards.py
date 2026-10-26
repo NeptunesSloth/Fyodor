@@ -28,8 +28,11 @@ EXTRA.append(real("Wheel of Potential", "{2}{R}", 3, "Sorcery",
                   "You get {E}{E}{E} (three energy counters), then you may pay any amount of {E}.\nEach player may exile their hand and draw a number of cards equal "
                   "to the amount of {E} paid this way. If seven or more {E} was paid this way, you may play cards you own exiled this way until the end of "
                   "your next turn.", None, "R"))
+EXTRA.append(real("Officious Interrogation", "{W}{U}", 2, "Sorcery",
+                  "This spell costs {W}{U} more to cast for each target beyond the first.\nChoose any number of target players. Investigate X times, where X is the "
+                  "total number of creatures those players control.", None, "WU"))
 _BASE.extend(EXTRA)
-NAMES = ["V.A.T.S.", "Wheel of Potential"]
+NAMES = ["V.A.T.S.", "Wheel of Potential", "Officious Interrogation"]
 NAMES.append("Illusionist's Gambit")
 
 
@@ -116,3 +119,24 @@ def test_wheel_of_potential(cards, paid, p2_yes):
     exiled = set(s.state.zones.get("p1:exile", []))
     assert (granted == exiled) if paid >= 7 else not granted  # 7 or more: both exiled cards may be played (until the end of your next turn)
     check(s)
+
+
+@pytest.mark.parametrize("targets,clues", [([], 0), (["p2"], 2), (["p1", "p2"], 3)])
+def test_officious_interrogation(cards, targets, clues):
+    """601.2c any number of targets, 601.2f {W}{U} per target beyond the first, 608.2b X = total creatures the chosen players control."""
+    s = build(cards, ["Officious Interrogation", "Test Two 110A"], ["Test Two 110A", "Test Three 110A"])
+    put(s, "Test Two 110A")
+    put(s, "Test Two 110A", "p2")
+    put(s, "Test Three 110A", "p2")
+    mana(s, W=3, U=3)
+    cast(s, "Officious Interrogation", targets, target_counts=[len(targets)])
+    answer(s)
+    assert sum(c.name == "Clue" for c in s.state.cards.values() if c.zone == "p1:battlefield") == clues
+    check(s)
+
+
+def test_officious_interrogation_second_target_costs_more(cards):
+    s = build(cards, ["Officious Interrogation"])
+    mana(s, W=1, U=1)
+    with pytest.raises(ActionError):
+        cast(s, "Officious Interrogation", ["p1", "p2"], target_counts=[2])

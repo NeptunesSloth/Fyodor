@@ -390,11 +390,19 @@ def _wheel() -> Parsed:
     return [{"do": "wheel110a"}], None, False
 
 
+def _interrogation() -> Parsed:
+    """Officious Interrogation: X is summed over the chosen players that are still legal targets (608.2b, target_player_counts)."""
+    chosen = _p("Choose any number of target players.")
+    inv = _p("Investigate X times, where X is the number of creatures you control.")
+    return [{**inv[0][0], "n": {"sum_for_players": "target:0", "of": inv[0][0]["n"]}}, *inv[0][1:]], chosen[1], False
+
+
 def _gambit() -> Parsed:
     return [{"do": "gambit110a"}], None, False
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Choose any number of target players. Investigate X times, where X is the total number of creatures those players control.": _interrogation,
     "Each player may exile their hand and draw a number of cards equal to the amount of {E} paid this way. If seven or more {E} was paid this way, "
     "you may play cards you own exiled this way until the end of your next turn.": _wheel,
     "Remove all attacking creatures from combat and untap them. After this phase, there is an additional combat phase. Each of those creatures attacks that "
