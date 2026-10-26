@@ -73,7 +73,7 @@ def test_chameleon_ignores_its_own_and_others_unaffected(cards):
 BRINK = "Back from the Brink"
 
 
-@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain", "Thief of Blood", "Torrent of Lava", "River Song", "Sanar, Innovative First-Year"])
+@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain", "Thief of Blood", "Torrent of Lava", "River Song", "Sanar, Innovative First-Year", "The Dragon-Kami Reborn // Dragon-Kami's Egg"])
 def test_brink_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -477,4 +477,53 @@ def test_sanar_vivid_exiles_one_revealed_card_per_color_and_lets_them_be_cast(ca
     act(s, "p1", type="cast_spell", card_id=div.id)
     settle(s)
     assert life(s, "p2") == 37 and s.state.cards[div.id].zone == "p1:graveyard"
+    check(s)
+
+
+KAMI = "The Dragon-Kami Reborn // Dragon-Kami's Egg"
+
+
+def test_dragon_kami_chapter_one_exiles_a_card_face_down_with_a_hatching_counter(cards):
+    """714.2, 122.1, 701.20: chapter I gains 2 life, looks at the top three cards, exiles one face down with a hatching counter and puts the rest on the bottom."""
+    s = build(cards, [KAMI, "Grizzly Bears", "Hill Giant", "Lightning Bolt"], [])
+    for n in ("Lightning Bolt", "Hill Giant", "Grizzly Bears"):
+        top(s, n)
+    mana(s, G=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, KAMI).id)
+
+    def answer(d):
+        if d.kind == "choose_cards" and d.min_choices == 1:
+            return [o.id for o in d.options if s.state.cards[o.card_id].name == "Hill Giant"][:1]
+        return None
+
+    drive(s, answer)
+    giant = card_named(s, "Hill Giant")
+    assert life(s) == 42 and s.state.cards[giant.id].zone == "p1:exile" and s.state.cards[giant.id].counters == {"hatching": 1} and s.state.cards[giant.id].face_down
+    lib = s.state.zones["p1:library"]
+    assert {card_named(s, "Grizzly Bears").id, card_named(s, "Lightning Bolt").id} == set(lib[-2:])
+    check(s)
+
+
+@pytest.mark.parametrize("dies,casts", [("Egg", True), ("Dragon Whelp", True), ("Grizzly Bears", False)])
+def test_dragon_kamis_egg_casts_a_hatching_creature_when_it_or_a_dragon_dies(cards, dies, casts):
+    """603.10a, 118.9a: the Egg's own death or a Dragon's lets you cast a creature spell from among your exiled cards with hatching counters free; no other death does."""
+    s = build(cards, [KAMI, "Hill Giant", "Goblin Chieftain", "Dragon Whelp", "Grizzly Bears", "Lightning Bolt"], [])
+    egg = put(s, KAMI)
+    act(s, "p1", type="set_face", card_id=egg.id, face=1)
+    victims = {"Egg": egg, "Dragon Whelp": put(s, "Dragon Whelp"), "Grizzly Bears": put(s, "Grizzly Bears")}
+    giant, chief = card_named(s, "Hill Giant"), card_named(s, "Goblin Chieftain")
+    for c in (giant, chief):
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "exile"})
+    act(s, "p1", type="set_counter", card_id=giant.id, kind="hatching", value=1)  # (the Chieftain has none: not castable this way)
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[victims[dies].id])
+    seen: list[str] = []
+
+    def answer(d):
+        seen.append(d.prompt)
+        return None
+
+    drive(s, answer)
+    assert s.state.cards[victims[dies].id].zone == "p1:graveyard"
+    assert (s.state.cards[giant.id].zone == "p1:battlefield") is casts and s.state.cards[chief.id].zone == "p1:exile"
     check(s)

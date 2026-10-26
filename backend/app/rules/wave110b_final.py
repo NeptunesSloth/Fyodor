@@ -68,6 +68,26 @@ def _sanar(d: Def) -> Def:
 _BUILD[_SANAR] = ("At the beginning of your first main phase, reveal cards from the top of your library until you reveal X nonland cards, where X is the number of colors among permanents you "
                   "control. You may exile one of them. Then shuffle. You may cast the exiled card this turn.", _sanar)
 
+_KAMI = ("I, II \u2014 You gain 2 life. Look at the top three cards of your library. Exile one of them face down with a hatching counter on it, then put the rest on the bottom of your "
+         "library in any order.")
+_BUILD[_KAMI] = ("I, II \u2014 You gain 2 life. Look at the top three cards of your library. Exile one of them face down, then put the rest on the bottom of your library in any order. "
+                 "Put a hatching counter on the exiled card.", lambda d: d)  # (the counter goes on the card as it is exiled, 122.1: the same exiled object, still face down)
+_EGG = ("Whenever this creature or a Dragon you control dies, you may cast a creature spell from among cards you own in exile with hatching counters on them without paying its mana cost.")
+
+
+def _egg(d: Def) -> Def:
+    """"this creature or a Dragon you control" (the Egg is no Dragon): itself or any Dragon of yours, the Egg's own death counted once (603.10a: its last known information)."""
+    from dataclasses import replace as _replace
+
+    from app.rules import selectors
+
+    sel = selectors.from_key(d["cond"]["sel"])
+    return {**d, "cond": {**d["cond"], "sel": _replace(sel, other=False).key()}}
+
+
+_BUILD[_EGG] = ("Whenever this creature or another Dragon you control dies, you may cast a creature spell from among cards you own in exile with hatching counters on them without paying its "
+                "mana cost.", _egg)
+
 _RIVER_DRAW = "Meet in Reverse \u2014 You draw cards from the bottom of your library rather than the top."
 _RIVER_SPOILERS = ("Spoilers \u2014 Whenever an opponent scries, surveils, or searches their library, put a +1/+1 counter on River Song. "
                    "Then River Song deals damage to that player equal to its power.")
