@@ -3416,7 +3416,15 @@ def resume_free_multikicker(plan: Plan, d: Any, chosen: list[str]) -> None:
     assert isinstance(intent, A.CastSpell)
     if plan.oid(intent.card_id) != d.resume["card_object"]:
         raise ActionError("That spell is a different object now")
-    intent.kicker = count
+    if d.resume.get("pair") is True and d.resume.get("first") is None:  # -- wave 110G -- Primitive Justice: the first cost's count, then the second's (kicker = first + PAIR_SHIFT * second)
+        kick = kicker_cost(plan.ch(plan.state.cards[intent.card_id]).abilities)
+        assert kick is not None
+        decide(plan, player=d.player, kind="choose_one", prompt=f"Choose how many times to pay {kick.second} (0–1000)",
+               options=[DecisionOption(id="__number__", label="Count: 0–1000")],
+               resume={**_announcing(plan, "free_multikicker", intent, card_object=plan.oid(intent.card_id)), "pair": True, "first": count},
+               source=plan.state.cards[intent.card_id])
+        return
+    intent.kicker = count if (first := d.resume.get("first")) is None else first + costs.PAIR_SHIFT * count
     plan.rules.priority = d.player
     plan.rules.passed = []
     INTENTS[intent.type](plan, intent)
@@ -4668,7 +4676,7 @@ DASH = re.compile(r"^dash (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
 AWAKEN = re.compile(r"^awaken (?P<n>\d+)—(?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)  # (wave 16B) 702.113a
 
 
-_PAIR_OFFERS = tuple(r + 32 * g for r in range(4) for g in range(4) if r + g)  # (wave 110G) the combinations offered for two any-number costs
+_PAIR_OFFERS = tuple(r + costs.PAIR_SHIFT * g for r in range(4) for g in range(4) if r + g)  # (wave 110G) the combinations offered for two any-number costs
 
 
 def kick_count(ch: Characteristics, times: int) -> int:
@@ -4692,8 +4700,8 @@ def kicker_extra(ch: Characteristics, times: int, *, face_down: bool = False) ->
         raise ActionError(f"{ch.name or 'That spell'} has no kicker cost Fyodor can pay: kick it by hand with the table tools")
     if kick.second and kick.multi:  # -- wave 110G -- Primitive Justice: each of the two costs paid any number of times (costs.pair_counts)
         first, second = costs.pair_counts(times)
-        if second > 30 or not first + second:
-            raise ActionError(f"{ch.name} can pay each of its two costs 0 to 30 times, at least one")
+        if first > 1000 or second > 1000 or not first + second:
+            raise ActionError(f"{ch.name} can pay each of its two costs 0 to 1000 times, at least one")
         a_cost, b_cost = M.parse_cost(kick.cost), M.parse_cost(kick.second)
         return M.ManaCost(a_cost.generic * first + b_cost.generic * second, a_cost.colored * first + b_cost.colored * second)
     if kick.second:  # -- keywords (wave 50H) -- 702.33b: ``times`` is a mask of the two costs, each paid at most once
@@ -4702,6 +4710,8 @@ def kicker_extra(ch: Characteristics, times: int, *, face_down: bool = False) ->
         return M.parse_cost("".join(c for c, bit in ((kick.cost, 1), (kick.second, 2)) if times & bit))
     if times > 1 and not kick.multi:
         raise ActionError(f"{ch.name} can be kicked only once")  # (multikicker: any number of times, 702.33c)
+    if times > 1000:
+        raise ActionError("Choose a multikicker count from 0 to 1000 (platform numeric range)")
     if not kick.cost:  # (-- casting extras (wave 18E) -- an entwine cost with no mana: paid as an additional cost)
         return M.ManaCost()
     extra = M.parse_cost(kick.cost)
@@ -5031,8 +5041,8 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
             out.append((f"kicker:{n}", (f"{kick.cost} ×{costs.pair_counts(n)[0]} and {kick.second} ×{costs.pair_counts(n)[1]}" if kick.multi
                                         else f"Kicker {(kick.cost, kick.second, kick.cost + ' and ' + kick.second)[n - 1]}") if kick.second
                         else kick.text if n == 1 else f"{kick.text}, paid {n} times"))
-    if kick is not None and kick.multi and not kick.second:
-        out.append(("kicker:other", "Multikicker: another count (0–1000)"))
+    if kick is not None and kick.multi:
+        out.append(("kicker:other", "Multikicker: another count (0–1000)" if not kick.second else f"{kick.cost} and {kick.second}: any counts (0–1000 each)"))
     for o in cost_changes.optional_offers(plan.state, plan.actor, card, ch, plan.info):
         if not o.kind or o.kind == "offering":  # (-- offering (wave 51H) -- 702.48a: a reduction of a cost that is {0} here, and no timing to change)
             continue
@@ -5179,9 +5189,11 @@ def resume_free_optional(plan: Plan, d: Any, chosen: list[str]) -> None:
             raise ActionError("That spell is a different object now")
         intent.optional_costs = [c for c in chosen if not c.startswith("kicker:")]
         intent.optional_asked = True
-        decide(plan, player=d.player, kind="choose_one", prompt="Choose a multikicker count (platform range 0–1000)",
+        pair = (kick := kicker_cost(plan.ch(plan.state.cards[intent.card_id]).abilities)) is not None and bool(kick.second and kick.multi)
+        decide(plan, player=d.player, kind="choose_one", prompt=f"Choose how many times to pay {kick.cost} (0–1000)" if pair and kick else "Choose a multikicker count (platform range 0–1000)",
                options=[DecisionOption(id="__number__", label="Multikicker count: 0–1000")],
-               resume=_announcing(plan, "free_multikicker", intent, card_object=plan.oid(intent.card_id)), source=plan.state.cards[intent.card_id])
+               resume={**_announcing(plan, "free_multikicker", intent, card_object=plan.oid(intent.card_id)), **({"pair": True} if pair else {})},
+               source=plan.state.cards[intent.card_id])
         return
     intent.kicker = int(kicks[0].split(":")[1]) if kicks else 0  # type: ignore[union-attr]
     intent.optional_costs = [c for c in chosen if not c.startswith("kicker:")]  # type: ignore[union-attr]

@@ -92,6 +92,7 @@ from app.game.rules_state import (
 )
 from app.game.state import CardInstance, TokenDef
 from app.rules import characteristics as chars
+from app.rules import wave110g_spires  # -- wave 110G --
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.oracle import parse_abilities, strip_reminders
 
@@ -138,7 +139,7 @@ def recipe_of(plan: Plan, card: CardInstance) -> CopyRecipe:
     )
 
     found = copy_recipe_of(plan.rules, plan.oid(card))
-    recipe = found.model_copy(deep=True) if found is not None else base_recipe(card)
+    recipe = found.model_copy(deep=True) if found is not None else wave110g_spires.stamp(plan.rules, base_recipe(card), card.id)
     return recipe.model_copy(update={"prototyped": True}) if prototype.is_prototyped(plan.state, card) else recipe
 
 
@@ -655,8 +656,8 @@ def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[C
         from app.game.rules_state import ObjectSnapshot
 
         snap = ObjectSnapshot.model_validate(saved["snapshot"]) if saved is not None else r.lki[orig_oid]
-        base = snap.copy_recipe.model_copy(deep=True) if snap.copy_recipe is not None else CopyRecipe(printing=snap.printing, face=snap.face,
-                                                                                                      source=snap.name[:200])
+        base = snap.copy_recipe.model_copy(deep=True) if snap.copy_recipe is not None else wave110g_spires.stamp(
+            r, CopyRecipe(printing=snap.printing, face=snap.face, source=snap.name[:200]), snap.card)
         record = r.payments.get(orig_oid)
         recipe = with_excepts(base.model_copy(update={"prototyped": True}) if record is not None and record.prototyped else base, excepts)
     else:
@@ -1336,7 +1337,7 @@ def token_copy(plan: Plan, ctx: Context, e: dict[str, Any], *, then: dict[str, A
             if problem is not None:
                 refused.append(f"a copy of {plan.ch(card).name or 'it'} ({problem})")
                 continue
-            recipe = recipe_of(plan, card) if zone == "battlefield" else base_recipe(card).model_copy(update={"face": 0})
+            recipe = recipe_of(plan, card) if zone == "battlefield" else wave110g_spires.stamp(plan.rules, base_recipe(card).model_copy(update={"face": 0}), card.id)
             # -- token copies & attach on entry (wave 5J) -- "its controller creates a token that's a copy of that creature"
             maker = creators[0] if creators else card.controller if e.get("their") else ctx["controller"]
             req = token_copy_request(plan, ctx, maker, with_excepts(recipe, excepts), count,

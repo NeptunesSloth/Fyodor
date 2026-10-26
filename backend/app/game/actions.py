@@ -1019,8 +1019,15 @@ class CastSpell(_Intent):
     # Cost contributions that aren't mana (convoke / improvise / delve): validated and applied
     # only when the rest of the total cost is paid (601.2h: no partial payments).
     contributions: list[Contribution] = Field(default_factory=list, max_length=60)
+
+    @field_validator("kicker")
+    @classmethod
+    def _kicker_range(cls, v: int) -> int:
+        if v % 1024 > 1000:  # (-- wave 110G -- either one count, or two packed counts first + 1024 * second, each 0..1000)
+            raise ValueError("kicker count out of the platform range 0..1000")
+        return v
     # 702.33: pay the kicker cost this many times (1 for kicker; any number for multikicker)
-    kicker: int = Field(default=0, ge=0, le=1000)  # platform numeric range, like x_value; not a rules maximum
+    kicker: int = Field(default=0, ge=0, le=1000 * 1025)  # platform numeric range (0..1000), like x_value; not a rules maximum; two any-number costs pack first + 1024 * second (costs.PAIR_SHIFT)
     # (wave 3$) the objects chosen for the parts of an additional cost ("As an additional cost to cast this spell,
     # sacrifice a creature"); anything missing is asked for as a decision
     cost_choices: list[CostChoice] = Field(default_factory=list, max_length=10)

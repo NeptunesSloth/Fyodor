@@ -3,8 +3,7 @@
 The Scryfall rulings (2024-11-08): the colors are circled as the card goes into the deck, before any game; they must be clear to all players (public); they are part of the
 card's copiable characteristics; they only change what the mana ability produces. Modelled like the commander color choices (wave 110E/110F): the owner chooses two colors
 right after the mulligans (103.5), before the opening-hand actions (103.6), nothing happening in between. ``RulesState.circled110g[card id]`` keeps them; the card's mana
-ability reads "Add {A} or {B}" from then on (layers._derive). A copy of the card has another id and no circled colors, so its ability makes no mana (the ruling's "gained the
-ability without becoming a copy" result; a copy should get the colors too: ponytail, left to manual play)."""
+ability reads "Add {A} or {B}" from then on (layers._derive). A copy of the card gets the colors too: they are copiable values (CopyRecipe.circled110g, stamped by ``stamp`` wherever a recipe is built from a card)."""
 from __future__ import annotations
 
 from dataclasses import replace
@@ -65,11 +64,20 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
         opening_hand.start(plan)  # (the other pregame questions, then the opening-hand actions)
 
 
+def stamp(rules: Any, recipe: Any, card_id: str) -> Any:
+    """A copy recipe of a card carries that card's circled colors (they are copiable values)."""
+    colors = rules.circled110g.get(card_id) if rules is not None else None
+    return recipe.model_copy(update={"circled110g": colors}) if colors else recipe
+
+
 def apply(state: GameState, card: Any, ch: Characteristics) -> Characteristics:
     """layers._derive: the mana ability produces one of the two circled colors."""
     rules = state.rules
-    colors = rules.circled110g.get(card.id) if rules is not None else None
-    if colors is None:
+    from app.game.rules_state import copy_recipe_of
+
+    recipe = copy_recipe_of(rules, rules.object_id(card.id)) if rules is not None else None
+    colors = (recipe.circled110g if recipe is not None else rules.circled110g.get(card.id)) if rules is not None else None
+    if not colors:
         return ch
     return replace(ch, abilities=tuple(replace(a, text=f"{{T}}: Add {{{colors[0]}}} or {{{colors[1]}}}.") if a.kind == "mana" and a.text.strip() == MANA else a
                                        for a in ch.abilities))

@@ -36,6 +36,8 @@ STORM = ("Lightning Storm deals X damage to any target, where X is 3 plus the nu
          "on Lightning Storm. You may choose a new target for it. Any player may activate this ability but only if Lightning Storm is on the stack.")
 SPIRES = ("As you create your deck, circle two of the colors below.\nThis land enters tapped.\n{T}: Add one mana of either of the circled colors.")
 EXTRA = [real("Cryptic Spires", "", 0, "Land", SPIRES, None, ""),
+         real("Test Cheater", "{1}", 1, "Creature \u2014 Elf", "When this creature enters, you may cast a spell from your hand without paying its mana cost.", ("1", "1"), ""),
+         real("Vesuva", "", 0, "Land", "You may have this land enter tapped as a copy of any land on the battlefield.", None, ""),
          real("Lightning Storm", "{1}{R}{R}", 3, "Instant", STORM, None, "R"),
          real("Primitive Justice", "{1}{R}", 2, "Sorcery", JUSTICE, None, "R"),
          *(real(f"Test Relic {i}", "{1}", 1, "Artifact", "", None, "") for i in range(5)),
@@ -233,7 +235,7 @@ def test_skyway_robber_casts_a_card_its_escape_exiled(cards, escaped):
     check(s)
 
 
-@pytest.mark.parametrize("r,g", [(0, 0), (1, 0), (1, 1), (0, 2), (2, 1)])
+@pytest.mark.parametrize("r,g", [(0, 0), (1, 0), (1, 1), (0, 2), (2, 1), (4, 0), (0, 4)])
 def test_primitive_justice_destroys_one_artifact_per_payment(cards, r, g):
     """601.2b-c, 702.33c: each payment of {1}{R} or {1}{G} adds one more target artifact; each {1}{G} also gains 1 life."""
     from tests.wave9c_kit import life
@@ -243,7 +245,7 @@ def test_primitive_justice_destroys_one_artifact_per_payment(cards, r, g):
     relics = [put(s, f"Test Relic {i}", pid="p2") for i in range(5)]
     mana(s, R=1 + r, G=g, C=1 + r + g)
     c = to_hand(s, "Primitive Justice")
-    act(s, "p1", type="cast_spell", card_id=c.id, kicker=r + 32 * g, targets=[x.id for x in relics[:n]], target_counts=[n])
+    act(s, "p1", type="cast_spell", card_id=c.id, kicker=r + 1024 * g, targets=[x.id for x in relics[:n]], target_counts=[n])
     answer(s)
     assert [s.state.cards[x.id].zone.endswith("graveyard") for x in relics] == [i < n for i in range(5)]
     assert life(s, "p1") == 40 + g
@@ -338,7 +340,7 @@ def test_lightning_storm_opponent_activates_twice(cards):
     check(s)
 
 
-def _spires_table(cards):
+def _spires_table(cards, extra=()):
     from app.game.factory import PlayerSetup, new_game
     from app.game.mulligan import COMMANDER_LONDON
     from app.game.rules_state import AUTOMATION_PRESETS, start_rules
@@ -346,7 +348,7 @@ def _spires_table(cards):
     from app.game.state import GameSettings
     from tests.game_helpers import deck, engine_pays
 
-    a = deck(cards, "Krenko, Mob Boss", [(1, "Cryptic Spires"), (20, "Forest")])
+    a = deck(cards, "Krenko, Mob Boss", [(1, "Cryptic Spires"), *extra, (20, "Forest")])
     b = deck(cards, "Atraxa, Praetors' Voice", [(1, "Cryptic Spires"), (20, "Island")])
     state = new_game([PlayerSetup("Alice", cards=a), PlayerSetup("Bob", cards=b)], settings=GameSettings(mulligan=COMMANDER_LONDON), shuffle=False)
     state.settings.automation = "full"
@@ -387,4 +389,56 @@ def test_cryptic_spires_circled_colors_before_the_game(cards):
     assert d is not None and [o.label for o in d.options] and sorted(o.label for o in d.options) == ["{B}", "{G}"], d and [o.label for o in d.options]
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["1"])
     assert s.state.players["p1"].mana.get("G") == 1 or "G" in json.dumps(s.view("p1"), default=str)
+    check(s)
+
+
+@pytest.mark.parametrize("whose,colors", [("p1", "{B} or {G}"), ("p2", "{W} or {R}")])
+def test_cryptic_spires_copy_makes_the_circled_colors(cards, whose, colors):
+    """Ruling 2024-11-08: the circled colors are copiable values: a land entering as a copy of a Spires (707.2) makes mana of that Spires' circled colors."""
+    s = _spires_table(cards, extra=[(1, "Vesuva")])
+    spires = card_named(s, "Cryptic Spires", whose)
+    act(s, "p1", type="mulligan_keep")
+    act(s, "p2", type="mulligan_keep")
+    for who, pick in (("p1", ["B", "G"]), ("p2", ["W", "R"])):
+        act(s, who, type="choose", decision_id=s.state.rules.decision.id, option_ids=pick)
+    while (d := s.state.rules.decision) is not None:
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[])
+    act(s, "p1", type="move", card_ids=[spires.id], to={"player": whose, "zone": "battlefield"})
+    next_turn(s)  # (the move counted as the land play)
+    vesuva = card_named(s, "Vesuva", "p1")
+    act(s, "p1", type="move", card_ids=[vesuva.id], to={"player": "p1", "zone": "hand"})
+    act(s, "p1", type="play_land", card_id=vesuva.id)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[spires.id])
+    assert _mana_text(s, vesuva) == [f"{{T}}: Add {colors}."]
+    check(s)
+
+
+def test_primitive_justice_free_cast_typed_counts(cards):
+    """Any count of each cost can be typed (not only up to 3): 4 of {1}{R} and 0 of {1}{G} pay {1}{R} four times for 5 artifacts."""
+    from tests.wave9c_kit import life
+
+    s = build(cards, ["Primitive Justice", "Test Cheater"], [f"Test Relic {i}" for i in range(5)])
+    relics = [put(s, f"Test Relic {i}", pid="p2") for i in range(5)]
+    mana(s, R=4, C=5)
+    to_hand(s, "Primitive Justice")
+    cheater = to_hand(s, "Test Cheater")
+    act(s, "p1", type="cast_spell", card_id=cheater.id)
+    for _ in range(3):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    d = s.state.rules.decision
+    assert "kicker:other" in [o.id for o in d.options], d.prompt
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["kicker:other"])
+    for n in (4, 0):
+        d = s.state.rules.decision
+        assert d.resume["step"] == "free_multikicker"
+        act(s, "p1", type="choose", decision_id=d.id, name=str(n))
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[x.id for x in relics]) if d is not None else None
+    answer(s)
+    assert [s.state.cards[x.id].zone.endswith("graveyard") for x in relics] == [True] * 5 and life(s, "p1") == 40
     check(s)
