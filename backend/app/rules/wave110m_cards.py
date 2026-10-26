@@ -355,6 +355,83 @@ def life_offers(state: Any, player: str, card: Any, ch: Any, info: Any) -> list[
     return [] if alt is None else [alt_costs.Offer(f"{card.id}:life110m", f"{ch.name}: pay {int(ch.mana_value)} life (Marshland Bloodcaster)", alt)]
 
 
+def life_cause(plan: Any, ctx: Def | None) -> str | None:
+    """The spell (card id) whose resolution is gaining life, if the effect is a spell's own (not an ability's): Firesong and Sunspeaker asks which spell caused a gain."""
+    if ctx is None:
+        return None
+    card = plan.state.cards.get(ctx.get("source_card", ""))
+    return card.id if card is not None and card.zone == "stack" and card.ability is None and plan.oid(card) == ctx.get("source_object") else None
+
+
+_NIHILOOR_ETB = ("When Nihiloor enters, for each opponent, tap up to one untapped creature you control. When you do, gain control of target creature that player controls with power "
+                 "less than or equal to the tapped creature's power for as long as you control Nihiloor.")
+_NIHILOOR_ATTACK = "Whenever you attack with a creature an opponent owns, you gain 2 life and that player loses 2 life."
+_NIH_ETB_NATIVE = "When this creature enters, gain control of target creature an opponent controls for as long as you control this creature."
+_BUILD[_NIHILOOR_ETB] = (_NIH_ETB_NATIVE, lambda d: {**d, "effects": [{"do": "nihiloor110m", "steal": d["effects"]}], "target": None})  # (the steal as the grammar reads it)
+_BUILD[_NIHILOOR_ETB.replace("Nihiloor", "~")] = _BUILD[_NIHILOOR_ETB]
+
+
+def _nihiloor_attack(d: Def) -> Def:
+    """Each attacking creature you control that an opponent owns (508.1, 603.2): you gain 2 life and its owner (the opponent) loses 2."""
+    from app.rules import selectors
+
+    cond = {**d["cond"], "sel": selectors.Selector(types=("Creature",), controller="you", owner="opponent").key()}
+    return {**d, "cond": cond}
+
+
+_BUILD[_NIHILOOR_ATTACK] = ("Whenever a creature you control attacks, you gain 2 life and that creature's owner loses 2 life.", _nihiloor_attack)
+
+
+def _nih_ability(natives: Any) -> Def:
+    """The reflexive ability (603.12): gain control of the target creature that player controls, power capped by the tapped creature's as the ability goes on the stack."""
+    from dataclasses import replace
+
+    from app.rules import selectors
+
+    sel = selectors.Selector(types=("Creature",), controller="that_player", compare=(("power", "<=", selectors.EVENT_STAT + "power"),))
+    return {"kind": "triggered", "trigger": "reflexive", "effects": natives, "optional": False, "target": {"what": replace(sel).key()}}
+
+
+def nihiloor(plan: Any, ctx: Def, e: Def) -> bool:
+    """Nihiloor, for each opponent (in turn order): its controller taps up to one untapped creature they control, then a reflexive ability for that opponent triggers (603.12a)."""
+    ctx["nih110m"] = [p for p in plan.apnap() if p != ctx["controller"]]
+    return _nihiloor_next(plan, ctx, e)
+
+
+def _nihiloor_next(plan: Any, ctx: Def, e: Def) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    while ctx["nih110m"]:
+        opp = ctx["nih110m"].pop(0)
+        mine = [c.id for c in plan.state.cards.values() if c.zone == f"{pid}:battlefield" and c.controller == pid and not c.tapped and plan.ch(c).is_creature]
+        if not mine:
+            continue
+        decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name', '')}: tap up to one untapped creature you control (for {plan.name(opp)})",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in mine], min_choices=0, max_choices=1,
+               resume={"step": "nihiloor110m", "ctx": ctx, "e": e, "opp": opp})
+        return False
+    return True
+
+
+def resume_nihiloor(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.rules_state import ObjectRef, TriggerEvent
+    from app.rules import context, effects
+    from app.rules.triggers import _add
+
+    ctx, opp = d.resume["ctx"], d.resume["opp"]
+    cards = [c for c in chosen if c in plan.state.cards and not plan.state.cards[c].tapped]
+    if cards:
+        plan.do({"type": "tap", "card_ids": cards, "tapped": True}, actor=ctx["controller"])
+        ref = ObjectRef(card=cards[0], object_id=plan.oid(cards[0]))
+        ref = ref.model_copy(update={"snapshot": context.snapshot(plan, ref)})
+        _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "", name=str(ctx.get("name") or ""),
+             index=7301, definition=_nih_ability(d.resume["e"]["steal"]), event=TriggerEvent(kind="reflexive", objects=[ref], count=1, players=[opp]))
+    if _nihiloor_next(plan, ctx, d.resume["e"]):
+        effects.continue_effects(plan, ctx)
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -1003,6 +1080,6 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+RESUME: dict[str, Any] = {"nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

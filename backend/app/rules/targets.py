@@ -33,6 +33,7 @@ SELECTORS: dict[str, tuple[bool, Check | None]] = {
     "any": (True, _types("Creature", "Planeswalker", "Battle")),
     "creature_planeswalker_or_player": (True, _types("Creature", "Planeswalker")),
     "creature": (False, _types("Creature")),
+    "creature_or_player": (True, _types("Creature")),  # (wave 110M)
     "creature_you_control": (False, lambda plan, who, card, ch: ch.is_creature and card.controller == who),
     "creature_opponent_controls": (False, lambda plan, who, card, ch: ch.is_creature and card.controller != who),
     "creature_or_planeswalker": (False, _types("Creature", "Planeswalker")),

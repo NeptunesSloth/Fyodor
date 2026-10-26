@@ -1692,13 +1692,17 @@ def _life_operation(plan: Plan, operation: int | None) -> int:
 
 
 def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dict[str, Any] | None = None,
-              answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None, operation: int | None = None) -> bool:
+              answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None, operation: int | None = None,
+              cause: str | None = None) -> bool:
     """THE life-gain choke point (see the module docstring). False while a choice is open."""
+    from app.rules import wave110m_cards  # -- (wave 110M) --
+
+    cause = cause or wave110m_cards.life_cause(plan, ctx)
     operation = _life_operation(plan, operation)
     answers = answers if answers is not None else _ctx_answers(ctx)
     planned = plan_life(plan, [(p, n, p) for p, n in gains], answers=answers, ask=then is not None, actor=actor)
     if isinstance(planned, Ask):
-        request = {"gains": [list(g) for g in gains], "actor": actor, "operation": operation}
+        request = {"gains": [list(g) for g in gains], "actor": actor, "operation": operation, "cause": cause}
         if _pause(plan, planned, answers, _resume_for(then, "life", request)):
             return False
         raise planned
@@ -1708,7 +1712,7 @@ def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dic
         note_applied(plan, before, out, actor=actor)
         for ev in out:
             if ev["kind"] == "life" and ev["n"] > 0:
-                plan.do({"type": "life", "player": ev["player"], "delta": ev["n"]}, actor=actor)
+                plan.do({"type": "life", "player": ev["player"], "delta": ev["n"], **({"cause110m": cause} if cause else {})}, actor=actor)
             elif ev["kind"] == "life_loss" and ev["n"] > 0:
                 from app.rules import (
                     life_lock,  # -- can't lose life (wave 29D) -- 614.17c: "loses that much life instead" of a player who can't
@@ -1720,7 +1724,7 @@ def gain_life(plan: Plan, gains: list[tuple[str, int]], *, actor: str, then: dic
 
 
 def _run_life(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
-    if gain_life(plan, [(g[0], int(g[1])) for g in request["gains"]], actor=request["actor"], then=then, answers=answers, operation=request.get("operation")):
+    if gain_life(plan, [(g[0], int(g[1])) for g in request["gains"]], actor=request["actor"], then=then, answers=answers, operation=request.get("operation"), cause=request.get("cause")):
         run_then(plan, then)
 
 
@@ -2402,6 +2406,7 @@ class DamageOutcome:
     poison: dict[str, int] = field(default_factory=dict)  # poison counters (120.3b, 702.164c), after their replacements
     poison_by: dict[str, dict[str, int]] = field(default_factory=dict)
     lifelink: dict[str, int] = field(default_factory=dict)  # life gained per source (702.15e), after its replacements
+    lifelink_cause110m: dict[str, str] = field(default_factory=dict)  # (wave 110M) lifelink key -> the spell whose damage it is
     losses: list[tuple[str, int]] = field(default_factory=list)  # a lifelink gain replaced by a loss (Tainted Remedy)
     deathtouched: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
@@ -2496,6 +2501,9 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
                 out.deathtouched.append(key)
         if "lifelink" in kw and ev.get("lkey"):
             gains[ev["lkey"]] = gains.get(ev["lkey"], 0) + n
+            spell = plan.state.cards.get(ev.get("source_card") or "")  # (wave 110M) a spell's damage: its lifelink gain is caused by the spell
+            if spell is not None and spell.zone == "stack" and spell.ability is None and not ev.get("combat"):
+                out.lifelink_cause110m[ev["lkey"]] = spell.id
     # the results' own replacement effects, in the same answers (120.4c)
     if counters:
         cands = candidates(plan, ("counters", "player_counters"))
@@ -2615,7 +2623,7 @@ def _commit_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, 
         if pid in plan.state.players:
             plan.rules.damaged[pid] = plan.state.turn.number
     plan.do({"type": "rules_damage", "creatures": out.creatures, "players": out.players, "poison": out.poison, "poison_by": out.poison_by,
-             "wither": out.wither, "wither_by": out.wither_by, "planeswalkers": out.walkers, "lifelink": out.lifelink, "combat": combat, "dealt": dealt,
+             "wither": out.wither, "wither_by": out.wither_by, "planeswalkers": out.walkers, "lifelink": out.lifelink, "lifelink_cause110m": out.lifelink_cause110m, "combat": combat, "dealt": dealt,
              **(extra or {})}, actor=actor)
     for key, n in out.battles.items():
         have = plan.state.cards[key].counters.get("defense", 0) if key in plan.state.cards else 0

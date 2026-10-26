@@ -459,6 +459,7 @@ class Event(BaseModel):
     card: str | None = None
     player: str | None = None  # the player affected (life, player counters, damage to a player)
     source: str | None = None  # the source object's id, when known
+    cause110m: str | None = None  # (wave 110M) a life gain: the spell (card id) whose resolution or lifelink caused it
     from_zone: str | None = None
     to_zone: str | None = None
     amount: int = 0

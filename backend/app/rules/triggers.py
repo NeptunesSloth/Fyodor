@@ -490,7 +490,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         got = _object_then(plan, e.card, e.object_id)
         return [(e.kind, got[0], got[1], got[0].controller, {"oid": e.object_id, "tapper": e.actor, "declared": e.combat, "step_phase": e.step_phase, "active_player": e.active_player})] if got is not None else []
     if e.kind in ("life_gain", "life_loss"):
-        return [("gain_life" if e.kind == "life_gain" else "lose_life", None, None, e.player, {"amount": e.amount, **({"life_operation": e.group} if e.kind == "life_loss" and e.group else {})})]
+        return [("gain_life" if e.kind == "life_gain" else "lose_life", None, None, e.player, {"amount": e.amount, **({"life_operation": e.group} if e.kind == "life_loss" and e.group else {}), **({"cause110m": e.cause110m} if e.cause110m else {})})]  # (wave 110M)
     if e.kind == "spell_cast":
         spell = plan.state.cards.get(e.card or "")
         if spell is None:
@@ -1071,6 +1071,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         return False
     if cond.get("first_each_turn") and event in ("dealt_damage", "deal_combat_damage_player", "counters_put") and not _first_of(plan, cond, event, info):
         return False  # (wave 39B)
+    if cond.get("cause_spell110m") and not _caused_by_spell110m(plan, cond["cause_spell110m"], info.get("cause110m")):  # (wave 110M)
+        return False
     if event in _FIRST_KINDS and cond.get("first_each_turn") and not info.get("first"):  # (wave 11C)
         return False
     if event == "tapped" and cond.get("first_each_turn") and not info.get("first"):  # (wave 42B)
@@ -1400,6 +1402,15 @@ def _first_of(plan: Plan, cond: dict[str, Any], event: str, info: dict[str, Any]
             continue
         return False
     return True
+
+
+def _caused_by_spell110m(plan: Plan, kinds: list[list[str]], cause: str | None) -> bool:
+    """(wave 110M) Firesong and Sunspeaker: the life gain was caused by a spell of one of the colors and one of the types (a copy of a spell is a spell too, 707.10)."""
+    card = plan.state.cards.get(cause or "")
+    if card is None:
+        return False
+    ch = plan.ch(card)
+    return bool(set(kinds[0]) & set(ch.colors)) and bool(set(kinds[1]) & set(ch.types))
 
 
 def _first_discard(plan: Plan, cond: dict[str, Any], player: str | None, info: dict[str, Any]) -> bool:

@@ -821,6 +821,8 @@ def _parse(c: str) -> Condition | None:
         if inner is None or inner.get("event") != "leave" or inner.get("subject") != "sel" or bool(inner.get("aggregate")) != m["s"].startswith("one or more"):
             return None
         return {**inner, "dest": "hand"}
+    if (m := re.fullmatch(r"a (?P<s>white instant or sorcery) spell causes you to gain life", c)) is not None:  # (wave 110M) Firesong and Sunspeaker
+        return {"event": "gain_life", "subject": "player", "player": "you", "cause_spell110m": [["W"], ["Instant", "Sorcery"]]}
     m = re.fullmatch(r"(?P<p>you|an opponent|a player|each opponent) gains? or loses? life", c)  # (wave 11C) each event: 603.2
     if m:
         return {"event": "either", "subject": "player", "player": _PLAYERS[m["p"]],

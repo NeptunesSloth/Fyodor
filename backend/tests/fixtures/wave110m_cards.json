@@ -1032,5 +1032,77 @@
 ],
 "power": "3",
 "toughness": "5"
+},
+{
+"name": "Firesong and Sunspeaker",
+"layout": "normal",
+"mana_cost": "{4}{R}{W}",
+"cmc": 6.0,
+"type_line": "Legendary Creature — Minotaur Cleric",
+"oracle_text": "Red instant and sorcery spells you control have lifelink.\nWhenever a white instant or sorcery spell causes you to gain life, Firesong and Sunspeaker deals 3 damage to target creature or player.",
+"colors": [
+"R",
+"W"
+],
+"color_identity": [
+"R",
+"W"
+],
+"keywords": [],
+"power": "4",
+"toughness": "6"
+},
+{
+"name": "Revitalize",
+"layout": "normal",
+"mana_cost": "{1}{W}",
+"cmc": 2.0,
+"type_line": "Instant",
+"oracle_text": "You gain 3 life.\nDraw a card.",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": []
+},
+{
+"name": "Lightning Helix",
+"layout": "normal",
+"mana_cost": "{R}{W}",
+"cmc": 2.0,
+"type_line": "Instant",
+"oracle_text": "Lightning Helix deals 3 damage to any target and you gain 3 life.",
+"colors": [
+"R",
+"W"
+],
+"color_identity": [
+"R",
+"W"
+],
+"keywords": []
+},
+{
+"name": "Nihiloor",
+"layout": "normal",
+"mana_cost": "{2}{W}{U}{B}",
+"cmc": 5.0,
+"type_line": "Legendary Creature — Horror",
+"oracle_text": "When Nihiloor enters, for each opponent, tap up to one untapped creature you control. When you do, gain control of target creature that player controls with power less than or equal to the tapped creature's power for as long as you control Nihiloor.\nWhenever you attack with a creature an opponent owns, you gain 2 life and that player loses 2 life.",
+"colors": [
+"B",
+"U",
+"W"
+],
+"color_identity": [
+"B",
+"U",
+"W"
+],
+"keywords": [],
+"power": "3",
+"toughness": "5"
 }
 ]

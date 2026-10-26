@@ -47,6 +47,7 @@ _LEGACY_TARGETS = {
     # -- target forms (agent T) --  a player, or any planeswalker (whoever controls it)
     "target player or planeswalker": "player_or_planeswalker", "target opponent or planeswalker": "opponent_or_planeswalker",
     "target player or battle": "player_or_battle", "target opponent or battle": "opponent_or_battle",  # (wave 42D: Onakke Javelineer, Ayara)
+    "target creature or player": "creature_or_player",  # (wave 110M) Firesong and Sunspeaker: a creature or a player, no planeswalker or battle
     "target permanent or player": "permanent_or_player",  # -- counter kinds (wave 24C) -- a permanent, or a player (115.1)
 }
 # -- activated other (wave 21E) -- "Choose target opponent who has more life than you do as you activate this ability.": the
