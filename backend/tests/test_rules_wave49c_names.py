@@ -69,10 +69,10 @@ def only_in_hand(s, name=None, pid="p1"):
     return keep
 
 
-def test_the_cards_are_full_and_vexing_arcanix_is_not(cards):
-    for name in FULL:
+def test_the_cards_are_full(cards):
+    # (Vexing Arcanix is FULL too: its player-named library choice is played in test_rules_resolved_library_choices.py)
+    for name in [*FULL, "Vexing Arcanix"]:
         assert coverage.of_card_data(cards.resolve(name)).level == "FULL", name
-    assert coverage.of_card_data(cards.resolve("Vexing Arcanix")).level != "FULL"
 
 
 @pytest.mark.parametrize(("named", "damage"), [("Grizzly Bears", 2), ("Lightning Bolt", 0)])

@@ -104,10 +104,11 @@ def test_the_sentences_after_if_you_do_are_read_only_when_they_depend_on_it(text
     assert bool(scripts.definitions(ch("Host", "Creature", text))) is read
 
 
-def test_a_target_of_b_beside_a_target_of_a_is_not_read():
-    """Dead Reckoning: either target may be the one that is illegal as it resolves (the 2010-03-01 rulings: the card gone, no damage) — left to the players."""
+def test_a_target_of_b_beside_a_target_of_a_is_read_natively():
+    """Dead Reckoning is read natively since wave 39 (damage_history_outcomes: "reckoning"); an illegal target on either side is tested in
+    test_rules_damage_history_edges39.py (the 2010-03-01 rulings)."""
     dead = next(c for c in DATA if c["name"] == "Dead Reckoning")
-    assert not scripts.definitions(ch("Dead Reckoning", dead["type_line"], dead["oracle_text"]))
+    assert scripts.definitions(ch("Dead Reckoning", dead["type_line"], dead["oracle_text"]))
 
 
 # -- Lagonna-Band Storyteller: a card put on top of the library, its mana value ---------------------------------------

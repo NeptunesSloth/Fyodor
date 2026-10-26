@@ -184,9 +184,13 @@ def test_reflexive_lki_wording_scope():
                                "creature's power to target creature.")
     assert ok is not None and ok[0][-1]["lki"] == "pay0"
     assert ok[0][-1]["ability"]["effects"][0]["n"] == {"power": "event"}
-    # Surtland Flinger: "If the sacrificed creature was a Giant, … instead" — not read
+    # Surtland Flinger's exact wording ("If the sacrificed creature was a Giant, … instead") is read since wave 100E (test_rules_wave100e_power.py); another
+    # creature type, or another target, is not
     assert scripts.parse_effects("You may sacrifice another creature. When you do, ~ deals damage equal to the "
                                  "sacrificed creature's power to any target. If the sacrificed creature was a Giant, ~ "
+                                 "deals twice that much damage instead.") is not None
+    assert scripts.parse_effects("You may sacrifice another creature. When you do, ~ deals damage equal to the "
+                                 "sacrificed creature's power to any target. If the sacrificed creature was a Goblin, ~ "
                                  "deals twice that much damage instead.") is None
     # several objects: not one creature's power
     assert scripts.parse_effects("You may sacrifice two creatures. When you do, ~ deals damage equal to that creature's "

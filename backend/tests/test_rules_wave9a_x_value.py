@@ -170,11 +170,11 @@ def test_definitions_of_the_full_cards():
 
 def test_unclear_wordings_stay_manual():
     """A discover that something follows (its cast ends the resolution), a bare X and a bare "it" (the spell or another)
-    are not read."""
+    are not read. (Hit the Mother Lode, whose follow-up is the difference between the values, is FULL since test_rules_discover_followup.py.)"""
     from tests.test_rules_scripts import ch as characteristics
 
     assert coverage.of_characteristics(characteristics(
-        "Hit the Mother Lode", "Sorcery", next(c for c in EXTRA if c["name"] == "Hit the Mother Lode")["oracle_text"])).level != "FULL"
+        "Hit the Mother Lode", "Sorcery", next(c for c in EXTRA if c["name"] == "Hit the Mother Lode")["oracle_text"])).level == "FULL"
     for kind, text in (("Creature — Bear", "When this creature enters, discover 3. Draw a card."),
                        ("Creature — Bear", "When this creature enters, discover X."),
                        ("Sorcery", "Bolster X."),

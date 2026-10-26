@@ -71,7 +71,8 @@ def roundtrip(s):
 def test_reflexive_target_in_a_spell_no_longer_crashes_coverage(cards):
     # (an IndexError: the reflexive ability's "target" was renumbered as one of the spell's own target groups)
     assert coverage.of_card_data(cards.resolve("Probe Reflexive Spell")).level == "FULL"
-    assert coverage.of_card_data(cards.resolve("Hypothesizzle")).level != "FULL"
+    # (Hypothesizzle, a reflexive trigger with a target in a spell, is FULL since wave 100C: test_rules_wave100c_spell_sequences.py)
+    assert coverage.of_card_data(cards.resolve("Hypothesizzle")).level == "FULL"
 
 
 def test_reflexive_target_in_a_spell_chooses_its_target_when_it_triggers(cards):

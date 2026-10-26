@@ -60,6 +60,10 @@ _MANA_ONLY = re.compile(r"^(\{[^}]+\})+$")
 # -- if you do (wave 6F) -- "You may blight 1. If you do, …" (Scuzzback Scrounger, Sourbread Auntie): 701.68a, to blight N
 # is to put N -1/-1 counters on a creature you control — paid as it resolves (118.12) through the activation-cost part
 # (cost_payment._pay_new_part: one creature, all N counters on it); 701.68b: with no creature the option isn't offered.
+# (wave 110F) the one either-or discard read as an optional payment, as Steamcore Scholar's scenario tests it
+_STEAMCORE_DISCARD = "Discard an instant or sorcery card or a creature card with flying"
+
+
 def _blight_like(comp: C.CostComponent) -> bool:
     """A "put N counters on a creature you control" part (blight): one chosen permanent of the payer's — or "discard
     your hand" (every card in it; ``paid_x`` records how many, for "draw that many cards"); -- champion (wave 12B) -- or one chosen
@@ -68,7 +72,7 @@ def _blight_like(comp: C.CostComponent) -> bool:
     return comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE, C.WATERBEND) or (comp.kind == C.PUT_COUNTER and comp.alt is None and not comp.x) \
         or comp.kind == C.DISCARD_HAND or comp.kind == C.MILL \
         or (comp.kind == C.EXILE and comp.selector is not None and comp.amount == 1) \
-        or (comp.kind == C.DISCARD and comp.alt is not None and comp.selector is not None) \
+        or (comp.kind == C.DISCARD and comp.alt is not None and comp.selector is not None and comp.text == _STEAMCORE_DISCARD) \
         or (comp.kind == C.SACRIFICE and comp.alt is not None and comp.selector is not None)  # (wave 8C: mill 701.17b; "another creature or an artifact")
 
 

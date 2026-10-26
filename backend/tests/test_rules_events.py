@@ -46,7 +46,7 @@ def test_cast_conditions_select_spells_on_the_stack():
 
 
 @pytest.mark.parametrize("cond", [
-    "you visit an Attraction",  # (an event we don't model; crimes: wave 6D)
+    "an opponent visits an Attraction",  # ("you visit an Attraction" is read since wave 110A/110M: test_rules_wave110a_attraction.py, test_rules_wave110m_attractions.py; crimes: wave 6D)
     "a foo enters",
     # ("players finish voting" is an event since wave 48D; "a historic spell" is read since wave 6D, 700.6)
 ])

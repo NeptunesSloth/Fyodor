@@ -167,9 +167,10 @@ def test_a_replacement_exiling_the_sacrificed_card_does_not_undo_the_payment(car
     roundtrip(s)
 
 
-def test_unsupported_sacrifice_conditions_and_distinct_cost_choices_remain_manual(cards):
+def test_unsupported_sacrifice_conditions_remain_manual(cards):
     from app.rules import conditions
 
     assert conditions.parse('a Saproling was sacrificed this way') is None
     # Tyrant of Discord is covered by the native random-choice receipt tests.
-    assert coverage.of_card_data(cards.resolve('Lethal Throwdown')).level == 'PARTIAL'
+    # Lethal Throwdown ("sacrifice a creature or sacrifice a modified creature") is FULL since wave 110E (test_rules_wave110e_s11.py)
+    assert coverage.of_card_data(cards.resolve('Lethal Throwdown')).level == 'FULL'

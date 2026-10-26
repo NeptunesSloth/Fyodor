@@ -149,3 +149,52 @@ def test_the_bat_trades_itself_for_the_vampire_when_it_hits_a_player(cards):
     assert life(s, "p2") == 39 and s.state.cards[vampire.id].zone == "p1:battlefield" and s.state.cards[vampire.id].tapped
     assert not any(c.name == "Bat" and c.zone == "p1:battlefield" for c in s.state.cards.values())
     check(s)
+
+
+def _hit_with(s, bat):
+    stops(s)
+    next_turn(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bat.id, "target": "p2"}])
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.turn.phase in ("declare_attackers", "declare_blockers", "combat_damage", "first_strike_damage", "end_combat") or s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+
+
+def test_a_bat_returns_only_the_card_exiled_as_it_was_made(cards):
+    """Timothar's ruling: each Bat refers only to the card exiled as that Bat was made (two Vampires, two Bats; one hits, one Vampire returns)."""
+    s = build(cards, [TIMOTHAR, "Test Vampire", "Test Vampire", "Murder", "Murder"], ["Elite Vanguard"], forests=20)
+    put(s, TIMOTHAR)
+    vampires = [c for c in s.state.cards.values() if c.name == "Test Vampire" and c.owner == "p1"]
+    assert len(vampires) == 2
+    for v in vampires:
+        act(s, "p1", type="move", card_ids=[v.id], to={"player": "p1", "zone": "battlefield"})
+        cast(s, "Murder", [v.id], extra="{1}")
+        for _ in range(12):
+            if s.state.rules.decision is not None:
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=["pay"])
+        answer(s)
+    bats = [c for c in s.state.cards.values() if c.name == "Bat" and c.is_token and c.zone == "p1:battlefield"]
+    assert len(bats) == 2 and all(s.state.cards[v.id].zone == "p1:exile" for v in vampires)
+    _hit_with(s, bats[0])
+    back = [v for v in vampires if s.state.cards[v.id].zone == "p1:battlefield"]
+    assert len(back) == 1 and len([c for c in s.state.cards.values() if c.name == "Bat" and c.zone == "p1:battlefield"]) == 1
+    check(s)
+
+
+def test_a_card_that_left_exile_is_not_returned_by_the_bat(cards):
+    """400.7: the Vampire was moved out of exile before the Bat hit, so it is a new object and the Bat's trigger finds nothing."""
+    s, vampire = vampire_dies(cards, True)
+    bat = next(c for c in s.state.cards.values() if c.name == "Bat" and c.is_token)
+    act(s, "p1", type="move", card_ids=[vampire.id], to={"player": "p1", "zone": "hand"})
+    _hit_with(s, bat)
+    assert s.state.cards[vampire.id].zone == "p1:hand"
+    check(s)

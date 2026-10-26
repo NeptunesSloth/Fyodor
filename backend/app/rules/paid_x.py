@@ -67,6 +67,8 @@ def payment(phrase: str) -> dict[str, Any] | None:
         return {"cost": "", "choose_x": {"color": colored[1]}, "that_many": True}
     m = _MANA_X.match(p)
     if m is not None:
+        if m["xx"] and (m["extra"] or m["cap"]):  # ("{X}{X}" only bare, as Numa pays it: the other combinations are untested)
+            return None
         cap = _value(m["cap"]) if m["cap"] else None
         if m["cap"] and cap is None:
             return None
