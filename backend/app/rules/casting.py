@@ -2583,8 +2583,8 @@ def flashback_extra(ch: Characteristics) -> AbilityCost | None:
 def from_graveyard(card: CardInstance, player: str, ch: Characteristics, state: GameState | None = None, info: CardInfo | None = None) -> bool:
     """Casting with flashback: from your own graveyard, when it has a (mana) flashback cost — its
     own, or (wave 3R2, ``state``) one an effect gave it this turn (app/rules/graveyard_grants.py)."""
-    if card.zone != zone_key(player, "graveyard") or card.owner != player:
-        return False
+    if (card.zone != zone_key(player, "graveyard") or card.owner != player) and not (state is not None and permissions.gy_aliased(state, player, card)):
+        return False  # (wave 110I: Shaman's Trance)
     from app.rules import group_layers
 
     if group_layers.graveyard_wiped(state, card, ch, info) if state is not None else False:  # -- wave 110F -- Yixlid Jailer: no flashback or aftermath from a graveyard (613.1f)

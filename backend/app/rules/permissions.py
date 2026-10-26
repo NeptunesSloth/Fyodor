@@ -1412,10 +1412,16 @@ def _all_table_statics(state: GameState, info: CardInfo) -> list[tuple[CardInsta
     return out
 
 
+def gy_aliased(state: GameState, player: str, card: CardInstance) -> bool:
+    """-- wave 110I -- Shaman's Trance (ruling 2004-10-04: flashback works): this turn another player's graveyard card is "in your graveyard" for what ``player`` may cast or play."""
+    r = state.rules
+    return r is not None and card.zone.endswith(":graveyard") and card.owner != player and r.gy_alias110i.get(player) == state.turn.number
+
+
 def _card_zone(state: GameState, player: str, card: CardInstance) -> str | None:
     """Which permission zone the card is in for ``player``: their graveyard, exile (their own
     card), hand, or the top of their library."""
-    if card.zone == zone_key(player, "graveyard") and card.owner == player:
+    if (card.zone == zone_key(player, "graveyard") and card.owner == player) or gy_aliased(state, player, card):
         return "graveyard"
     if card.zone == zone_key(player, "hand"):
         return "hand"
@@ -1479,7 +1485,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                          choice_key=p.id, generic_extra=p.generic_extra, generic_less=p.generic_less, tax_untargeted110i=p.tax_untargeted110i,
                          sorcery=p.sorcery, alt_mana=p.alt_mana, enters=p.enters, extra=p.extra,  # (wave 51D: "If you do, it enters tapped", Jorn)
                          exile_gy=p.exile_gy if not p.exile_own or card.owner == player else ""))  # (wave 25C)
-    if verb == "cast" and where in ("graveyard", "exile") and card.owner == player and not card.face_down:
+    own = card.owner == player or gy_aliased(state, player, card)  # (wave 110I: Shaman's Trance)
+    if verb == "cast" and where in ("graveyard", "exile") and own and not card.face_down:
         from app.rules import layers
 
         self_ch = layers.derive(state, card, ch, info) if layers.affecting(state, card) else ch
@@ -1500,12 +1507,12 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
                                                    if other.id != card.id and other.zone == zone_key(player, "graveyard")
                                                    and "Creature" in _view(state, player, info).ch(other).types)
                                  if d.get("other_creature_tax") else 0))
-    if verb == "cast" and where == "graveyard" and card.owner == player and not card.face_down:  # -- static_other (wave 44C) -- 702.133a: jump-start a static gave it (Niv-Mizzet, Supreme)
+    if verb == "cast" and where == "graveyard" and own and not card.face_down:  # -- static_other (wave 44C) -- 702.133a: jump-start a static gave it (Niv-Mizzet, Supreme)
         from app.rules import zone_grants
 
         if zone_grants.jump_start(state, player, card, ch, info):
             out.append(Grant("permission", f"{ch.name}: cast it from your graveyard (jump-start)", extra="discard a card", exile=True))
-    if verb == "play" and where == "graveyard" and card.owner == player:  # -- Marvel keywords (wave 25A) -- 702.187c: a bare "Mayhem"
+    if verb == "play" and where == "graveyard" and own:  # -- Marvel keywords (wave 25A) -- 702.187c: a bare "Mayhem"
         from app.rules import mayhem
 
         if mayhem.plays_land(state, player, card, ch):

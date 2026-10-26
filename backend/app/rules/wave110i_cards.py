@@ -647,8 +647,34 @@ _RADAWAY = "Target player loses all rad counters. Sacrifice ~."
 _DREDGING = "Return up to three target creature cards of the creature type of your choice from your graveyard to your hand."
 
 
+_TRANCE = ("Other players can't play lands or cast spells from their graveyards this turn. You may play lands and cast spells from other players' graveyards this turn "
+           "as though those cards were in your graveyard.")
+
+
+def trance(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Shaman's Trance: 101.2 the other players (at resolution) can't play lands or cast spells from their graveyards this turn; this player may play lands and cast spells from other players' graveyards this
+    turn, and what applies to their own graveyard applies to those cards (``permissions.gy_aliased``: flashback and the like work, ruling 2004-10-04)."""
+    import secrets
+
+    from app.game.rules_state import Permission
+    from app.rules import selectors
+
+    pid, r, turn = ctx["controller"], plan.rules, plan.state.turn.number
+    for other in plan.live():
+        if other != pid:
+            r.gy_ban110i[other] = turn
+    r.gy_alias110i[pid] = turn
+    sel = selectors.Selector(card=True, zones=("graveyard",), zone_owner="opponent")
+    r.permissions.append(Permission(id=secrets.token_hex(4), player=pid, play=True, cast=True, zone="graveyard", zone_owner="any", card_filter=sel.key(), until="end_of_turn", turn=turn,
+                                    label=f"{ctx.get('name') or 'An effect'}: play lands and cast spells from other players' graveyards"))
+    return True
+
+
 def parse(body: str) -> Any:
     from app.rules import scripts
+
+    if body.strip() == _TRANCE:
+        return [{"do": "trance110i"}], None, False
 
     if body.strip() == _RADAWAY:
         parsed = scripts.parse_effects("Target player gets 1 rad counters. Sacrifice ~.")
@@ -882,6 +908,7 @@ def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES = {"specter110i": specter, "raiding110i": raiding, "bind_self110i": bind_self, "bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 PRIMITIVES["milled_any110i"] = milled_any
+PRIMITIVES["trance110i"] = trance
 PRIMITIVES["borrow110i"] = borrow
 PRIMITIVES["leori110i"] = leori
 PRIMITIVES["short110i"] = short

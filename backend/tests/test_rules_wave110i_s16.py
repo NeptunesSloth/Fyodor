@@ -26,6 +26,8 @@
 * Grell Philosopher: each Horror you control gains all activated abilities of the target artifact an opponent controls; those abilities (only) may be paid with blue mana as though any color.
 * Panglacial Wurm: while you search your own library you may cast it from there, paying its mana cost (601.3, 608.2g); the cast comes before any card is found, the search then goes on and the Wurm waits on the
   stack above the search (rulings 2006-07-15); declining or a search of someone else's library offers nothing.
+* Shaman's Trance: the other players can't play lands or cast spells from their graveyards this turn (101.2); the caster may play lands and cast spells from other players' graveyards, and those cards count as in
+  their own graveyard for what applies to it (rulings 2004-10-04: flashback works; abilities of those cards stay unusable).
 """
 from __future__ import annotations
 
@@ -879,3 +881,58 @@ def test_wurm_window_also_comes_before_a_gifts_ungiven_search(cards):
             break
     assert card_named(s, "Panglacial Wurm").zone == "p1:battlefield"
     check(s)
+
+
+TRANCE = real("Shaman's Trance", "{2}{R}", 3, "Instant",
+              "Other players can't play lands or cast spells from their graveyards this turn. You may play lands and cast spells from other players' graveyards this turn as though those cards were in your graveyard.",
+              None, "R")
+THINK = {**real("Think Twice", "{1}{U}", 2, "Instant", "Draw a card.\nFlashback {2}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)", None, "U"), "keywords": ["Flashback"]}
+base.EXTRA.extend([TRANCE, THINK])
+
+
+def test_trance_full(cards):
+    assert coverage.of_card_data(cards.resolve("Shaman's Trance")).level == "FULL"
+
+
+def _trance(cards):
+    s = build(cards, ["Shaman's Trance", "Test Bolt"], ["Think Twice", "Test Bolt", "Island"])
+    act(s, "p2", type="set_prefs", full_control=True)
+    for name in ("Think Twice", "Test Bolt", "Island"):
+        act(s, "p2", type="move", card_ids=[card_named(s, name, "p2").id], to={"zone": "graveyard"})
+    mana(s, R=1, C=2)
+    cast_card(s, "Shaman's Trance")
+    answer(s)
+    return s
+
+
+def test_trance_lets_the_caster_cast_flashback_and_normal_spells_and_play_lands_from_another_graveyard(cards):
+    from tests.wave9c_kit import life
+
+    s = _trance(cards)
+    think = card_named(s, "Think Twice", "p2")
+    hand = len(s.state.zones["p1:hand"])
+    mana(s, U=1, C=2)  # flashback {2}{U}
+    act(s, "p1", type="cast_spell", card_id=think.id)
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == hand + 1 and s.state.cards[think.id].zone.endswith(":exile")  # drew a card, exiled instead of the graveyard
+    bolt = card_named(s, "Test Bolt", "p2")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    answer(s)
+    assert life(s, "p2") == 37
+    island = card_named(s, "Island", "p2")
+    act(s, "p1", type="play_land", card_id=island.id)
+    assert s.state.cards[island.id].zone == "p1:battlefield" and s.state.cards[island.id].controller == "p1"
+    check(s)
+
+
+def test_trance_stops_the_other_players_from_using_their_own_graveyards(cards):
+    s = _trance(cards)
+    mana(s, "p2", U=1, C=2)
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Bolt").id, targets=["p1"])  # Alice puts something on the stack: Bob has priority
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    assert s.state.rules.priority == "p2"
+    with pytest.raises(ActionError):  # Bob's own flashback card
+        act(s, "p2", type="cast_spell", card_id=card_named(s, "Think Twice", "p2").id)
