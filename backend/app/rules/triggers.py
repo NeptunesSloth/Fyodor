@@ -2221,6 +2221,8 @@ def effect_cost(phrase: str) -> list[dict[str, Any]] | None:
     """The instructions of an always-payable cost written as a sentence ("Draw a card", "Add {R}", "Get five poison counters"; with "an opponent" it
     is chosen when the cost is paid: choose_opponent), or None."""
     sentence = _phrase(phrase.strip().rstrip("."))
+    if sentence == "gain control of a land you don't control":  # -- (wave 110O) -- Herald of Leshrac: chosen each time it is paid (wave110o_cards.gain_land); _cumulative_upkeep checks it can be paid
+        return [{"do": "gain_land110o"}]
     opponent = False
     if m := re.fullmatch(r"an opponent gains (.+)", sentence):  # (read as "you gain …" and aimed at the opponent chosen)
         sentence, opponent = f"you gain {m[1]}", True
@@ -2295,6 +2297,9 @@ def _cumulative_upkeep(plan: Plan) -> None:
             else:  # ("Draw a card.": once for each age counter, as the cost)
                 pay = pay_or_else("pay its cumulative upkeep (once for each age counter)", "you",
                                   [{"do": "repeat", "n": age, "span": len(cost)}, *cost], sacrifice)
+                if cost[0].get("do") == "gain_land110o":  # -- (wave 110O) -- 118.3: a cost that cannot be paid is not offered: with too few lands to take, it is sacrificed
+                    able = {"w110o": "land_upkeep"}
+                    pay = [{"do": "only_if", "cond": able, "skip": len(pay)}, *pay, {"do": "only_if", "cond": {"not": able}, "skip": len(sacrifice)}, *sacrifice]
             _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=ch.name,
                  index=5100 + k, definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
                                              "effects": [{"do": "add_counters", "who": "self", "kind": "age", "n": 1}, *pay,

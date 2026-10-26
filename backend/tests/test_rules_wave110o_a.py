@@ -25,6 +25,7 @@
 * 506.3, 509.1b: Become the Pilot's creature can be blocked only while it attacks its owner (or a planeswalker / battle its owner controls).
 * 702.110b, 608.2h: Profaner of the Dead bounces the opponents' creatures with toughness below the exploited creature's (as it last existed).
 * 107.3a, 607.2a, 702.168d: Aurelia's Vindicator turned face up for X exiles up to X other creatures and/or creature cards in graveyards, and gives them back when it leaves.
+* 702.24a, 118.3, 108.3: Herald of Leshrac takes a land from an opponent for each age counter (or is sacrificed if it cannot), and gives every land back when it leaves.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -62,10 +63,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, VINDICATOR, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Gaea's Liege", "Become the Pilot", "Profaner of the Dead", "Aurelia's Vindicator", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, VINDICATOR, HERALD, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Gaea's Liege", "Become the Pilot", "Profaner of the Dead", "Aurelia's Vindicator", "Herald of Leshrac", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, VINDICATOR, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, PROFANER, VINDICATOR, HERALD, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -1277,4 +1278,55 @@ def test_aurelias_vindicator_exiles_up_to_x_from_the_battlefield_and_graveyards_
     assert now(s, c).zone == "p1:graveyard"
     for cid in gone:
         assert now(s, s.state.cards[cid]).zone == "p2:hand"
+    check(s)
+
+
+def herald_table(cards, lands=2):
+    s = build(cards, [HERALD, "Murder"], [])
+    herald = put(s, HERALD)
+    theirs = [put_new(s, "Island", "p2") for _ in range(lands)]
+    return s, herald, theirs
+
+
+def test_herald_of_leshrac_takes_a_land_each_upkeep_and_grows(cards):
+    s, herald, theirs = herald_table(cards)
+    upkeep(s, ["pay", theirs[1].id])
+    assert now(s, theirs[1]).controller == "p1" and now(s, theirs[0]).controller == "p2" and now(s, herald).counters.get("age") == 1
+    assert ch(s, herald).pt == (3, 5)  # (its 2/4, plus one for the land I control but don't own)
+    check(s)
+
+
+def test_herald_of_leshrac_declined_is_sacrificed_and_keeps_no_land(cards):
+    s, herald, theirs = herald_table(cards)
+    upkeep(s, ["decline"])
+    assert now(s, herald).zone == "p1:graveyard" and all(now(s, c).controller == "p2" for c in theirs)
+    check(s)
+
+
+def test_herald_of_leshrac_with_no_land_to_take_is_sacrificed_without_a_question(cards):
+    s, herald, _ = herald_table(cards, lands=0)
+    asked = []
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            asked.append(d.prompt)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        elif s.state.turn.number >= 3 and s.state.turn.phase == "main1" and not s.state.zones.get("stack"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert now(s, herald).zone == "p1:graveyard" and not any("cumulative" in p for p in asked)
+    check(s)
+
+
+def test_herald_of_leshrac_leaving_returns_every_land_to_its_owner(cards):
+    s, herald, theirs = herald_table(cards)
+    upkeep(s, ["pay", theirs[0].id])
+    assert now(s, theirs[0]).controller == "p1"
+    mine = put_new(s, "Forest")  # (a land I own and control stays mine)
+    cast_on(s, "Murder", herald)
+    assert now(s, herald).zone == "p1:graveyard"
+    assert now(s, theirs[0]).controller == "p2" and now(s, mine).controller == "p1"
     check(s)

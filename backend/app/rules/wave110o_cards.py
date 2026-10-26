@@ -90,6 +90,7 @@ _LIEGE_LAND = "{T}: Target land becomes a Forest until ~ leaves the battlefield.
 _PROFANER = ("When ~ exploits a creature, return to their owners' hands all creatures your opponents control with toughness less than the exploited creature's "
              "toughness.")
 _VINDICATOR = ("When ~ is turned face up, exile up to X other target creatures from the battlefield and/or creature cards from graveyards.")
+_HERALD = "When ~ leaves the battlefield, each player gains control of each land they own that you control."
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -109,6 +110,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "triggered" and text == _HERALD:  # 108.3: each owner takes back their lands; the ones its controller owns stay (nothing to give back)
+        from app.rules import selectors
+
+        native = scripts.define(replace(ability, text="When ~ leaves the battlefield, draw a card."), ch)
+        return None if native is None else {**native, "effects": [{"do": "gain_control", "to": "owner", "who": selectors.parse("land you control").key()}]}  # type: ignore[union-attr]
     if ability.kind == "triggered" and text == _VINDICATOR:  # 107.3a: X is the X paid to turn it face up; 607.2a: the exile is the link the leave trigger returns
         by_x = scripts.define(replace(ability, text=_VINDICATOR.split(" from the battlefield")[0] + "."), ch)
         by_two = scripts.define(replace(ability, text=_VINDICATOR.replace("up to X", "up to two")), ch)
@@ -238,6 +244,10 @@ def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
     """Evil's Thrall: you control a Villain whose mana value is greater than the target creature's (the target as it is now, 608.2b)."""
     from app.rules import effects, stack_interaction
 
+    if cond["w110o"] == "land_upkeep":  # Herald of Leshrac: a land the controller does not control for each age counter (each is gained once)
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        age = src.counters.get("age", 0) if src is not None else 0
+        return len(_others_lands(plan, ctx["controller"])) >= age
     if cond["w110o"] == "guessed":
         return False  # Spire Phantasm: no draft, no guess, so no correct guess (905.2b: the information is noted during the draft)
     if cond["w110o"] == "portent_four":
@@ -486,7 +496,38 @@ def profaner(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return bool(effects.PRIMITIVES["bounce"](plan, ctx, {"do": "bounce", "who": small}))
 
 
+# -- Herald of Leshrac --------------------------------------------------------------------------------------------------------------------------
+def _others_lands(plan: Plan, you: str) -> list[str]:
+    return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller != you and plan.in_game(c) and "Land" in plan.ch(c).types]
+
+
+def gain_land(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Gain control of a land you don't control" as a cost (cumulative upkeep, 702.24a): chosen as it is paid, not targeted (115.1), kept for good (no duration)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    lands = _others_lands(plan, ctx["controller"])
+    if not lands:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a land you don't control",
+           options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name} ({plan.name(plan.state.cards[c].controller)})", card_id=c) for c in lands],
+           resume={"step": "gain_land110o", "ctx": ctx})
+    return False
+
+
+def resume_gain_land(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import context, effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in _others_lands(plan, ctx["controller"]):
+        raise ActionError("Choose a land you don't control")
+    context.bind_objects(plan, ctx, "herald110o", chosen)
+    if effects.PRIMITIVES["gain_control"](plan, ctx, {"do": "gain_control", "who": "ref:herald110o"}):
+        effects.continue_effects(plan, ctx)
+
+
 PRIMITIVES: dict[str, Any] = {"type_emblem110o": type_emblem, "redistribute110o": redistribute,
-              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner}
+              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
 RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
-                          "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy}
+                          "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}
