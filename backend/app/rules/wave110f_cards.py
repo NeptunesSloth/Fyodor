@@ -5,6 +5,8 @@ import copy
 from collections.abc import Callable
 from typing import Any
 
+from app.game.errors import ActionError
+
 Parsed = tuple[list[dict[str, Any]], Any, bool]
 
 
@@ -278,7 +280,8 @@ def _snitch() -> Parsed:
     return [{**effects[0], "remove": ["protection from black"]}], targets, optional
 
 
-BUILDERS: dict[str, Callable[[], Parsed]] = {
+BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "Destroy up to two target creatures the chosen player controls. They can't be regenerated. The chosen player draws up to three cards.": lambda: _lore(),
     "Target creature loses protection from black until end of turn.": _snitch,
     "Return to your hand all enchantments you both own and control, all Auras you own attached to permanents you control, and all Auras you own attached to attacking creatures your opponents control. Then destroy all other enchantments you control, all other Auras attached to permanents you control, and all other Auras attached to attacking creatures your opponents control.":
         lambda: ([{"do": "remove_enchantments110f", "step": "return"}, {"do": "remove_enchantments110f", "step": "destroy"}], None, False),
@@ -450,6 +453,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             return {**native, "effects": [*native["effects"][:-1], cast]}
     if ability.kind == "static" and (t := scripts.self_text(ability.text, ch.name).replace("~", "this creature")) in (_DIVIDE_TEXT, _GIANT_TEXT):
         return {"kind": "static", "static": DIVIDE if t == _DIVIDE_TEXT else GIANT, "effects": []}
+    if ability.kind == "static" and ability.text == _FLAME_TEXT:
+        return {"kind": "static", "static": FLAME, "effects": []}
     if ability.kind == "static" and scripts.self_text(ability.text, ch.name).replace("~", "This creature") == _SPLIT_TEXT:
         return {"kind": "static", "static": SPLIT_DAMAGE, "effects": []}
     if ability.kind == "static" and scripts.self_text(ability.text, ch.name).replace("~", "this creature") == _COPY_ENTRY_TEXT:
@@ -473,3 +478,147 @@ def copy_on_entry(plan: Any, card: Any, controller: str) -> None:
             copying.add_copy_effect(plan, [plan.oid(card)], copying.recipe_of(plan, source), controller, source=copying.ENTERING + card.id,
                                     entry_source=CopyEntrySource(card=source.id, object_id=plan.oid(source), controller=source.controller))
             return
+
+
+# 601.2b: "As an additional cost to cast this spell, choose a number between 0 and 5." is announced with the modes and before the targets (601.2c); the
+# number only picks the damage split, so it is read as "Choose one" of six modes (Liquid Fire). Exact two-line match only.
+_LIQUID = ("As an additional cost to cast this spell, choose a number between 0 and 5.",
+           "Liquid Fire deals X damage to target creature and 5 minus X damage to that creature's controller, where X is the chosen number.")
+
+
+# 700.2e: "An opponent chooses one —" (Fatal Lore, Misfortune): the opponent picks the mode when the controller normally would (601.2b); with several
+# opponents the controller decides which one. That opponent is "that player" of the modes: recorded as the spell's chosen player (chosen.chosen_players,
+# keyed by the spell's object, so "the chosen player" and "creatures the chosen player controls" read it; copies keep it, 707.10).
+_OPP = "An opponent chooses one \u2014"
+_OPP_MODES = {
+    "\u2022 You draw three cards.": "\u2022 You draw three cards.",
+    "\u2022 You destroy up to two target creatures that player controls. They can't be regenerated. That player draws up to three cards.":
+        "\u2022 Destroy up to two target creatures the chosen player controls. They can't be regenerated. The chosen player draws up to three cards.",
+    "\u2022 You put a +1/+1 counter on each creature you control and gain 4 life.": "\u2022 Put a +1/+1 counter on each creature you control and you gain 4 life.",
+    "\u2022 You put a -1/-1 counter on each creature that player controls and Misfortune deals 4 damage to that player.":
+        "\u2022 Put a -1/-1 counter on each creature the chosen player controls. Misfortune deals 4 damage to the chosen player.",
+}
+
+
+def _lore() -> Parsed | None:
+    from app.rules import scripts
+
+    got = scripts.parse_effects("Destroy up to two target creatures the chosen player controls. They can't be regenerated.")
+    return None if got is None else ([*got[0], {"do": "draw_up_to110f", "who": "chosen_player", "n": 3}], got[1], got[2])
+
+
+def draw_up_to(plan: Any, ctx: Any, e: Any) -> bool:
+    """"[Player] draws up to N cards": that player chooses how many, 0 to N (Fatal Lore)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    pid = next(iter(effects._players(plan, ctx, e["who"])), None)
+    if pid is None:
+        return True
+    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name', '')}: draw how many cards (up to {e['n']})?",
+           options=[DecisionOption(id=str(k), label=str(k)) for k in range(e["n"], -1, -1)], resume={"step": "draw_up_to110f", "ctx": ctx, "pid": pid})
+    return False
+
+
+def resume_draw_up_to(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx, pid = d.resume["ctx"], d.resume["pid"]
+    n = int(chosen[0]) if chosen else 0
+    if n and not effects.PRIMITIVES["draw"](plan, ctx, {"do": "draw", "who": f"player:{pid}", "n": n}):
+        return
+    effects.continue_effects(plan, ctx)
+
+
+def ask_chooser(plan: Any, a: Any) -> bool:
+    """True while the caster is asked which opponent chooses (only with several). Sets ``a.chooser110f`` and records it as the spell's chosen player (so the
+    modes' targets read it, 601.2c). Modes in the action only count if that opponent chose them (``modes110f``): the caster can't pick for them."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import casting, effects
+    from app.rules.plan import decide
+
+    opps = effects._players(plan, {"controller": plan.actor}, "each_opponent")
+    if not opps:
+        raise ActionError("No opponent can choose the mode")
+    if a.chooser110f not in opps:
+        a.chooser110f = opps[0] if len(opps) == 1 else None
+    if not a.modes:
+        plan.rules.modes110f.pop(a.card_id, None)
+    elif plan.rules.modes110f.get(a.card_id) != a.modes:
+        a.modes = []
+    if a.chooser110f is None:
+        decide(plan, player=plan.actor, kind="choose_one", prompt="Choose the opponent who chooses the mode",
+               options=[DecisionOption(id=o, label=plan.name(o)) for o in opps], resume=casting._announcing(plan, "chooser110f", a))
+        return True
+    plan.rules.chosen_players[plan.oid(a.card_id)] = a.chooser110f
+    return False
+
+
+def resume_chooser(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.actions import parse_action
+    from app.rules.engine import INTENTS
+
+    intent: Any = parse_action(d.resume["intent"])
+    intent.chooser110f = chosen[0]
+    plan.rules.priority = d.player
+    plan.rules.passed = []
+    INTENTS[intent.type](plan, intent)
+
+
+def resume_modes(plan: Any, d: Any, chosen: list[str]) -> None:
+    """The opponent's mode: the cast goes on as its caster (plan.actor), who gets priority back."""
+    from app.game.actions import parse_action
+    from app.rules.engine import INTENTS
+
+    intent: Any = parse_action(d.resume["intent"])
+    intent.modes = [int(c.split(":")[0]) for c in chosen]
+    plan.rules.modes110f[intent.card_id] = list(intent.modes)
+    chooser, plan.actor = plan.actor, d.resume["caster"]
+    try:
+        plan.rules.priority = plan.actor
+        plan.rules.passed = []
+        INTENTS[intent.type](plan, intent)
+    finally:
+        plan.actor = chooser
+
+
+def stack_chooser(plan: Any, a: Any, card: Any) -> None:
+    """The spell is on the stack as a new object (400.7): its chosen player goes with it."""
+    plan.rules.modes110f.pop(card.id, None)
+    if getattr(a, "chooser110f", None) is not None:
+        plan.rules.chosen_players[plan.oid(card)] = a.chooser110f
+
+
+def modal_lines(lines: list[Any]) -> list[Any]:
+    from dataclasses import replace
+
+    if lines and lines[0].text == _OPP and all(x.text in _OPP_MODES for x in lines[1:]):
+        return [lines[0], *(replace(x, text=_OPP_MODES[x.text]) for x in lines[1:])]
+    if tuple(x.text for x in lines) != _LIQUID:
+        return lines
+    return [replace(lines[0], text="Choose one \u2014"),
+            *(replace(lines[1], text=f"\u2022 Liquid Fire deals {n} damage to target creature and {5 - n} damage to that creature's controller.") for n in range(6))]
+
+
+# Ghostly Flame: "Black and/or red permanents and spells are colorless sources of damage." Ruling (Scryfall, wotc 2004): a source with at least one of those
+# colors deals damage as a colorless source (other colors forgotten); it keeps its colors otherwise, so it still can't target "protection from red" (115.7)
+# and triggers still see its color. Read where damage looks at its source (protection 702.16e, damage-source filters 609.7c).
+FLAME = "colorless_damage110f"
+_FLAME_TEXT = "Black and/or red permanents and spells are colorless sources of damage."
+
+
+def damage_colors(plan: Any, ch: Any) -> Any:
+    """``ch`` as the source of damage: colorless if Ghostly Flame is on the battlefield and it is black and/or red."""
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    if ch is None or not ch.colors & {"B", "R"} or not any(
+            FLAME in scripts.statics(plan.ch(c)) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")):
+        return ch
+    return replace(ch, colors=frozenset())
+
+
+PRIMITIVES["draw_up_to110f"] = draw_up_to
+RESUME.update({"draw_up_to110f": resume_draw_up_to, "chooser110f": resume_chooser, "cast_modes_opp110f": resume_modes})

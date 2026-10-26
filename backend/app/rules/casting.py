@@ -926,6 +926,11 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     else asked. A mode whose target can't be chosen can't be chosen (700.2a). ``exclude``: modes that
     can't be chosen either ("choose one that hasn't been chosen"). Returns None while waiting."""
     modal, modes = definition["modal"], definition["modes"]
+    if modal.get("chooser") and isinstance(a, A.CastSpell):  # -- wave 110F -- 700.2e: another player chooses the modes (asked first: who, then which)
+        from app.rules import wave110f_cards
+
+        if wave110f_cards.ask_chooser(plan, a):
+            return None
     plan.x_choice = getattr(a, "x_value", None)  # -- most-played modal spells (wave 50I) -- 601.2b: X is announced before the modes; a mode's "creature with mana value X or less" reads it
     lo, hi, repeat = modal["min"], modal["max"], modal["repeat"]
     if modal.get("x"):  # -- choose X (wave 110C) -- 700.2d: exactly X modes, X announced first (107.3a)
@@ -952,10 +957,11 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     if not allowed or (not repeat and len(allowed) < lo):
         raise ActionError(f"{what} has no mode you can choose")
     per = hi if repeat else 1  # "You may choose the same mode more than once": each mode offered N times
-    decide(plan, player=plan.actor, kind="choose_cards",
+    opp = getattr(a, "chooser110f", None) if modal.get("chooser") else None  # -- wave 110F -- 700.2e: an opponent chooses
+    decide(plan, player=opp or plan.actor, kind="choose_cards",
            prompt=f"Choose {lo if lo == hi else f'{lo} to {hi}'} mode{'s' if hi > 1 else ''} for {what}",
            options=[DecisionOption(id=f"{i}:{k}", label=modes[i]["text"][:120]) for i in allowed for k in range(per)],
-           min_choices=lo, max_choices=hi, resume=_announcing(plan, "cast_modes", a))
+           min_choices=lo, max_choices=hi, resume=_announcing(plan, "cast_modes_opp110f" if opp else "cast_modes", a, **({"caster": plan.actor} if opp else {})))
     return None
 
 
@@ -4227,6 +4233,9 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=effect_x,
                                       **picked_targets.entry(definition), kicked=kicked or int(a.awaken) or int(gift_to is not None or bargained), kicked_mask=record.kicked_mask)
+    from app.rules import wave110f_cards  # -- wave 110F --
+
+    wave110f_cards.stack_chooser(plan, a, card)  # -- wave 110F -- 700.2e: the spell is a new object on the stack (400.7)
     r.aura_targets = {k: v for k, v in r.aura_targets.items() if k != card.id and plan.state.cards.get(k) is not None
                       and plan.state.cards[k].zone == STACK}  # (review (wave 18D): never a target this card had as an earlier spell)
     if aura is not None and chosen:
@@ -5408,6 +5417,9 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=effect_x,
                                       **picked_targets.entry(definition), kicked=record.kicked, kicked_mask=record.kicked_mask)
+    from app.rules import wave110f_cards  # -- wave 110F --
+
+    wave110f_cards.stack_chooser(plan, a, card)  # -- wave 110F -- 700.2e: the spell is a new object on the stack (400.7)
     r.aura_targets = {k: v for k, v in r.aura_targets.items() if k != card.id and plan.state.cards.get(k) is not None
                       and plan.state.cards[k].zone == STACK}  # (review (wave 18D): never a target this card had as an earlier spell)
     if aura is not None and chosen:

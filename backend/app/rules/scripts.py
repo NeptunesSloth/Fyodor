@@ -8779,6 +8779,7 @@ _MODAL_HEADERS = {
     "Choose two —": (2, 2, False),
     "Choose one or both —": (1, 2, False),
     "Choose one or more —": (1, 99, False),
+    "An opponent chooses one —": (1, 1, False),  # -- wave 110F -- 700.2e, only Fatal Lore / Misfortune via wave110f_cards.modal_lines
     "Choose up to two —": (0, 2, False),  # (-- wave 110D -- only Call Damage Control, via wave110d_misc.modal_lines)
 }
 # -- modal frames (wave 33B) -- 700.2d: "Choose four. You may choose the same mode more than once."; 700.2a / 601.2b: "Choose one. If [condition]
@@ -8848,6 +8849,7 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
     if not repeat and lo > len(modes):
         return None
     modal: dict[str, Any] = {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": None,
+                             **({"chooser": "opponent"} if lines[0].text == "An opponent chooses one \u2014" else {}),  # -- wave 110F -- 700.2e
                              **({"x": True} if lines[0].text == X_HEADER else {})}  # -- choose X (wave 110C) --
     if instead is not None:  # -- modal frames (wave 33B) --
         modal["instead"] = {**instead, "max": min(instead["max"], len(modes))}
@@ -8989,6 +8991,9 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     from app.rules import wave110d_misc  # -- modal spell (wave 110D) --
 
     lines = wave110d_misc.modal_lines(lines)
+    from app.rules import wave110f_cards  # -- Liquid Fire (wave 110F) --
+
+    lines = wave110f_cards.modal_lines(lines)
     if lines and modal_header(lines[0].text) is not None:  # (-- modal frames (wave 33B) -- after the lines about casting it: "Cast this spell only during combat.")
         from app.rules import gift
 

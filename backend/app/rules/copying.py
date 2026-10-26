@@ -670,6 +670,8 @@ def _copy_spell(plan: Plan, card: CardInstance, controller: str, excepts: list[C
     add_copy_effect(plan, [oid], recipe, controller)
     if entry is not None:
         r.stack[copy_id] = _entry_copy(entry, controller=controller, source=(copy_id, oid), orig=orig_oid)
+    if orig_oid in r.chosen_players:  # (wave 110F) 707.10: the copy has the same chosen player (the opponent who chose the modes, 700.2e)
+        r.chosen_players[oid] = r.chosen_players[orig_oid]
     _payment_alias(plan, orig_oid, oid, copy_id, controller, saved=saved)
     payload: dict[str, Any] = {"type": "set_stack_info", "card_id": copy_id,
                                "tags": ["Copy", *(t for t in (info.tags if info else []) if t.startswith(("Kicked", "Evoked")))]}

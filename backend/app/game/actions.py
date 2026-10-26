@@ -997,6 +997,7 @@ class CastSpell(_Intent):
     division: Division = Field(default_factory=list)
     x_value: int | None = Field(default=None, ge=0, le=1000)
     modes: list[int] = Field(default_factory=list, max_length=10)
+    chooser110f: Id | None = None  # (wave 110F) 700.2e: the opponent who chooses the modes of "An opponent chooses one" (Fatal Lore)
     # MANUAL PAY: exactly these mana sources (plus your mana pool). None: the engine pays per
     # your payment preference (AUTO pays, ASK suggests a payment first, MANUAL asks for sources).
     sources: list[Id] | None = Field(default=None, max_length=60)

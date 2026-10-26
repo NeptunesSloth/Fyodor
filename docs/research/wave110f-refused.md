@@ -24,3 +24,8 @@
 - Null Chamber: two chosen names, one by an opponent (card_names stores one name per source).
 - Glyph of Reincarnation, Camouflage, Noxious Vapors (multicolor choice ruling unchecked), Malik (secret choices), Zevlor: not attempted.
 - s8: Vengeful Pharaoh: trigger "combat damage is dealt to you or a planeswalker you control" needs a two-subject damage event (only Pharaoh has it). Fires of Mount Doom: "When you play a card this way" reflexive trigger on a played exiled card (no machinery). Dance of Many: token<->enchantment linked leave triggers. Liquid Fire: number chosen as additional cost (cast-time number choice; pick110e is creature-type only). Brutal Suppression/Drought: extra non-mana cost on activated abilities. Fatal Lore/Misfortune: opponent picks the mode at resolution with targets.
+- s9: Peace Talks: "this turn and next turn" two-turn duration plus a global "players and permanents can't be targeted" prohibition; neither exists.
+- s9: Heat Wave: block tax paid in life per blocker (nonmana_combat_costs only pays tap/sacrifice/return), only against creatures its controller controls.
+- s9: Whispersteel Dagger: a this-turn permission to cast any creature card from another player's graveyard (no target chosen); grant_play only reads your own graveyard.
+- s9: Extrapolate the Impossible: cards from outside the game (no sideboard in Commander); left PARTIAL, not decided.
+- s9: Drought / Brutal Suppression: "cost an additional 'Sacrifice a Swamp'" per symbol / per activation needs sacrifice components in the cost-change table.

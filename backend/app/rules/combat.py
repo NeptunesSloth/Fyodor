@@ -1162,7 +1162,7 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
 
     def hit_creature(source_card: CardInstance, source: Characteristics, target: CardInstance, n: int) -> int:
         """Assign ``n`` damage to a creature; returns how much is dealt (protection prevents it, 702.16e)."""
-        if protection.protected_from(plan.ch(target), source) and _protection_prevents(source_card, source, target.id):
+        if protection.protected_from(plan.ch(target), wave110f_cards.damage_colors(plan, source)) and _protection_prevents(source_card, source, target.id):
             return 0
         into = out.wither if {"wither", "infect"} & source.keywords else out.creatures
         into[target.id] = into.get(target.id, 0) + n
@@ -1185,7 +1185,7 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
             # -- player shields (wave 5E) -- 702.16e, 702.16j
             from app.rules import player_shields
 
-            if player_shields.protected_from(plan, tgt.id, ach) is not None and _protection_prevents(att, ach, tgt.id):
+            if player_shields.protected_from(plan, tgt.id, wave110f_cards.damage_colors(plan, ach)) is not None and _protection_prevents(att, ach, tgt.id):
                 return 0
             into = out.poison if "infect" in ach.keywords else out.players
             into[tgt.id] = into.get(tgt.id, 0) + n
@@ -1198,7 +1198,7 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
                 key = (tgt.id, att.commander_key)
                 out.commander[key] = out.commander.get(key, 0) + n
         elif tgt.id in state.cards and state.cards[tgt.id].zone.endswith(":battlefield"):
-            if protection.protected_from(plan.ch(state.cards[tgt.id]), ach) and _protection_prevents(att, ach, tgt.id):
+            if protection.protected_from(plan.ch(state.cards[tgt.id]), wave110f_cards.damage_colors(plan, ach)) and _protection_prevents(att, ach, tgt.id):
                 return 0
             out.walkers[tgt.id] = out.walkers.get(tgt.id, 0) + n
             out.dealt.append((att.id, tgt.id, n))

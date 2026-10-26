@@ -1948,6 +1948,9 @@ def source_info(plan: Plan, card_id: str | None, oid: str | None, ch: Any, contr
     )
 
     soid = oid or (plan.oid(card) if card is not None else None)
+    from app.rules import wave110f_cards  # -- Ghostly Flame (wave 110F) --
+
+    ch = wave110f_cards.damage_colors(plan, ch)
     return {"card": card_id, "controller": ctrl, "spell": spell, "entered": soid is not None and any(e.object_id == soid for e in log_for(plan, False).entered),
             "colors": sorted(ch.colors) if ch is not None else [], "types": sorted(ch.types) if ch is not None else [],
             "subtypes": sorted(ch.subtypes) if ch is not None else [],
