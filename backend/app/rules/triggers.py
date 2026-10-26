@@ -1403,6 +1403,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "opponent" and (recipient is None or recipient == you)) or \
                 (to == "creature" and not info.get("recipient_creature")) or \
                 (cond.get("to_types") and not set(cond["to_types"]) & set(info.get("recipient_subtypes") or ())) or \
+                (cond.get("to_not_types110i") and set(cond["to_not_types110i"]) & set(info.get("recipient_subtypes") or ())) or \
                 (to == "planeswalker" and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_pw" and recipient is None and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_battle" and recipient is None and not info.get("recipient_battle")) or \

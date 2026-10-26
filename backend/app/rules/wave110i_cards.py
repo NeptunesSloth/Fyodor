@@ -1019,6 +1019,8 @@ def whistle(ability: Any, ch: Any) -> Def | None:
     return {**base, "effects": effects, "target": {**base["target"], "what": sel.key()}}
 
 
+_DAGGER = ("{4}, {T}: Whenever target creature deals combat damage to a non-Wall creature this turn, destroy that non-Wall creature. "
+           "When the targeted creature leaves the battlefield this turn, sacrifice this artifact. Activate only before blockers are declared.")
 _COFFIN = ("{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control. "
            "When this creature becomes untapped or you lose control of this creature, exile that creature.")
 
@@ -1074,6 +1076,15 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _DAGGER:  # 603.7 delayed triggers on the target; the "non-Wall" recipient is a condition of the damage trigger; timing: first combat phase only (ruling 2013-09-20, 506.8d)
+        native = scripts.define(replace(ability, text=_DAGGER.replace("a non-Wall creature", "a creature").replace("that non-Wall creature", "that creature").replace(
+            "the targeted creature", "that creature").replace("this artifact", "~")), ch)
+        watch = next((e for e in (native or {}).get("effects", []) if e.get("do") == "delayed" and e["when"].get("kind") == "watch"), None)
+        if native is None or watch is None:
+            return None
+        watch["when"]["cond"]["to_not_types110i"] = ["Wall"]
+        watch["when"]["cond"]["other_side110i"] = True  # "that non-Wall creature" (the event's object) is the creature dealt the damage, not the one that dealt it
+        return native
     if text == _COFFIN:
         native = scripts.define(replace(ability, text="{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control."), ch)
         return None if native is None else _coffin(native)

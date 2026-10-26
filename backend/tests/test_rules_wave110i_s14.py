@@ -2,6 +2,7 @@
 
 * Wayta, Trainer Prodigy: "a creature you control being dealt damage" makes the triggers of that damage trigger an additional time (603.2d; the fight's cost drops by {2} when both targets are creatures you control (601.2f).
 * Spoils of War: {X}{B}; X is the number of artifact and/or creature cards in the opponent chosen as it is cast (ruling 2008-08-01): the announced X names the opponent.
+* Acidic Dagger: delayed triggers on the target (603.7): combat damage to a non-Wall creature destroys it; the Dagger is sacrificed when the target leaves; first combat phase only (ruling 2013-09-20).
 * Guardian Archon: "Reveal the player you chose" (the entry secret choice, 614.12a) gives you and a permanent you control protection from that player (702.16k) until end of turn; once only.
 """
 from __future__ import annotations
@@ -142,3 +143,59 @@ def test_spoils_counters_equal_the_chosen_opponents_cards(cards, x):
 def test_spoils_x_must_name_an_opponent(cards, x):
     with pytest.raises(ActionError):
         _spoils(cards, x)
+
+
+DAGGER = real("Acidic Dagger", "{4}", 4, "Artifact",
+              "{4}, {T}: Whenever target creature deals combat damage to a non-Wall creature this turn, destroy that non-Wall creature. When the targeted creature leaves the battlefield this turn, "
+              "sacrifice this artifact. Activate only before blockers are declared.", None)
+WALL = real("Wall110I", "{2}{W}", 3, "Creature \u2014 Wall", "", ("0", "9"), "W")
+FANG = real("Fang110I", "{2}{R}", 3, "Creature \u2014 Wolf", "", ("3", "3"), "R")
+GIANT = real("Giant110I", "{2}{G}", 3, "Creature \u2014 Giant", "", ("0", "9"), "G")
+BEAR = real("Bear110I", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G")
+base.EXTRA.extend([DAGGER, WALL, GIANT, BEAR, FANG])
+
+
+def test_dagger_full(cards):
+    assert coverage.of_card_data(cards.resolve("Acidic Dagger")).level == "FULL"
+
+
+def _dagger_game(cards, blocker):
+    from tests.test_rules_conditionals import until
+    from tests.test_rules_wave43d_cast_keywords import connect
+    from tests.wave9c_kit import build
+
+    s = build(cards, ["Acidic Dagger", "Bear110I"], ["Wall110I", "Giant110I", "Fang110I"], forests=25, islands=25)
+    dagger, bear, foe = put(s, "Acidic Dagger"), put(s, "Bear110I"), put(s, blocker, "p2")
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None and s.state.turn.active_player == "p1")
+    mana(s, C=4)
+    act(s, "p1", type="activate_ability", card_id=dagger.id, ability=0, targets=[bear.id])
+    answer(s)
+    connect(s, bear, block=(foe, bear))
+    return s, dagger, bear, foe
+
+
+@pytest.mark.parametrize(("blocker", "dies"), [("Giant110I", True), ("Wall110I", False)])
+def test_dagger_destroys_only_a_non_wall_creature_dealt_combat_damage_by_the_target(cards, blocker, dies):
+    s, dagger, bear, foe = _dagger_game(cards, blocker)
+    assert s.state.cards[foe.id].zone.endswith(":graveyard") == dies
+    assert s.state.cards[dagger.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_dagger_is_sacrificed_when_the_target_leaves_the_battlefield(cards):
+    """Bob's Fang blocks and kills the targeted Bear: when it leaves, Alice sacrifices the Dagger."""
+    s, dagger, bear, foe = _dagger_game(cards, "Fang110I")
+    assert s.state.cards[bear.id].zone == "p1:graveyard" and s.state.cards[dagger.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_dagger_not_after_combat(cards):
+    from tests.test_rules_conditionals import until
+    from tests.wave9c_kit import build
+
+    s = build(cards, ["Acidic Dagger", "Bear110I"], ["Giant110I"], forests=25, islands=25)
+    dagger, bear = put(s, "Acidic Dagger"), put(s, "Bear110I")
+    until(s, lambda s: s.state.turn.number >= 3 and s.state.turn.phase == "main2" and s.state.rules.decision is None and s.state.turn.active_player == "p1")
+    mana(s, C=4)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=dagger.id, ability=0, targets=[bear.id])
