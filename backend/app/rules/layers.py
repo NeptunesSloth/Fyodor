@@ -1044,16 +1044,11 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     from app.rules.characteristics import provenance
 
     ch = provenance(card, ch)
-    from app.rules import (
-        wave110e_clara,  # -- pregame color (wave 110E) -- the card's own color effect, before every color effect
-    )
-
-    ch = wave110e_clara.apply(state, card, ch)
     if state.rules is not None and state.rules.circled110g:  # -- wave 110G -- Cryptic Spires: the circled colors
         from app.rules import wave110g_spires
 
         ch = wave110g_spires.apply(state, card, ch)
-    if state.rules is not None and state.rules.commander_color110f:  # -- wave 110F -- Faceless One: a characteristic-defining color (604.3)
+    if state.rules is not None and (state.rules.commander_color110f or state.rules.commander_color110e):  # -- wave 110F -- Faceless One, Clara Oswald: a characteristic-defining color (604.3)
         from app.rules import wave110f_cmd
 
         ch = wave110f_cmd.color(state, card, ch)
