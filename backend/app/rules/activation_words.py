@@ -70,6 +70,8 @@ def condition(text: str) -> dict[str, Any] | None:
     m = _SELF_COMBAT.fullmatch(text)
     if m:
         return {"act7b": "self_combat", "any": [x for x in (m["a"], m["b"]) if x]}
+    if text == "~ is on the stack":  # -- wave 110G -- Lightning Storm: the spell itself is on the stack (113.6)
+        return {"act7b": "self_on_stack"}
     if text == "you've been attacked this step":  # -- (wave 110J) -- 506.3, as cast_timing reads it (Kongming's Contraptions)
         return {"attacked_now": True}
     m = re.fullmatch(r"an (?P<k>[a-z]+) counter was removed from a permanent you controlled this turn or a permanent with an (?P=k) counter on it was put into a graveyard this turn", text)
@@ -123,6 +125,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
             if name:
                 names[name] = names.get(name, 0) + 1
         return max(names.values(), default=0) >= cond["n"]
+    if kind == "self_on_stack":
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        return src is not None and src.zone == "stack"
     if kind == "self_combat":
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is None or not src.zone.endswith(":battlefield"):

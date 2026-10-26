@@ -212,10 +212,38 @@ def jace_instant(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+_JUSTICE = ("Destroy target artifact. For each additional {1}{R} you paid, destroy another target artifact. For each additional {1}{G} you paid, destroy another "
+            "target artifact, and you gain 1 life.")
+
+
+def _justice() -> Any:
+    """Primitive Justice: one artifact plus one more per payment of either cost (601.2c, multikicker_targets' per_kick_targets); the ruling: the same artifact can't be chosen twice
+    (a group's targets are distinct); 1 life for each payment of the second cost (casting.kick_mask counts them)."""
+    from app.rules import language
+
+    group = language.target_group("target artifact")
+    if group is None:
+        return None
+    return ([{"do": "destroy", "who": "target:0"}, {"do": "gain_life", "who": "you", "n": {"pair_second110g": 1}}],
+            [{**group, "min": 1, "max": 1, "per_kick_targets": 1}], False)
+
+
+def storm_retarget(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Lightning Storm: "You may choose a new target for it" (115.7d): the spell itself, if it is still that object on the stack (the ruling: with no other legal target it keeps the one it has)."""
+    from app.rules import stack_interaction
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if src is None or src.zone != "stack" or plan.oid(src) != ctx.get("source_object"):
+        return True
+    return stack_interaction._ask_new_targets(plan, ctx, src.id, [])
+
+
 def parse(body: str) -> Any:
     """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
     from app.rules import scripts
 
+    if body.strip() == _JUSTICE:
+        return _justice()
     if body.strip() == _JACE:
         return [{"do": "jace_instant110g"}], None, False
     if body.strip() == _JUDGMENT:
@@ -1003,6 +1031,8 @@ _MAZE = ("Whenever another creature becomes the target of an ability of a land y
          "you may have this creature fight that creature.")
 
 
+_STORM = ("Discard a land card: Put two charge counters on Lightning Storm. You may choose a new target for it. "
+          "Any player may activate this ability but only if Lightning Storm is on the stack.")
 _ROBBER = ('This creature escapes with "Whenever this creature deals combat damage to a player, you may cast an artifact, instant, or sorcery spell from among cards '
            'exiled with this creature without paying its mana cost."')
 
@@ -1035,6 +1065,9 @@ def _robber(ch: Any, ability: Any) -> Def | None:
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts, selectors
 
+    if ability.kind == "activated" and ability.text.strip() == _STORM:  # Lightning Storm: counters on the spell, then a new target for it (115.7d)
+        return {"kind": "activated", "stack110g": True, "cost": ability.cost, "effects": [{"do": "add_counters", "who": "self_stack", "kind": "charge", "n": 2},
+                                                                       {"do": "storm_retarget110g"}]}
     if ability.text.strip() == _ROBBER:
         return _robber(ch, ability)
     if ability.text.strip() == _STICKER_KICKER:  # Wicker Picker: the grant itself is read by sticker_kicker via cast_limits' spell_helper table
@@ -1641,7 +1674,7 @@ def bind_linked(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"jace_instant110g": jace_instant, "robber_bind110g": robber_bind, "return_self110g": return_self, "keep_entered110g": keep_entered, "boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"storm_retarget110g": storm_retarget, "jace_instant110g": jace_instant, "robber_bind110g": robber_bind, "return_self110g": return_self, "keep_entered110g": keep_entered, "boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted, "bind_linked110g": bind_linked}
 RESUME: dict[str, Any] = {"boe110g": resume_boe, "hippo110g": resume_hippo, "river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

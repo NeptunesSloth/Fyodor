@@ -28,7 +28,14 @@ MACHINATIONS = ("Until end of turn, you may activate loyalty abilities of Jace p
 ROBBER = ("Flying\nEscape\u2014{3}{U}, Exile five other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)\n"
           "This creature escapes with \"Whenever this creature deals combat damage to a player, you may cast an artifact, instant, or sorcery spell from among cards "
           "exiled with this creature without paying its mana cost.\"")
-EXTRA = [real("Skyway Robber", "{3}{U}", 4, "Creature \u2014 Bird Rogue", ROBBER, ("3", "3"), "U"),
+JUSTICE = ("As an additional cost to cast this spell, you may pay {1}{R} and/or {1}{G} any number of times.\nDestroy target artifact. For each additional {1}{R} you paid, "
+           "destroy another target artifact. For each additional {1}{G} you paid, destroy another target artifact, and you gain 1 life.")
+STORM = ("Lightning Storm deals X damage to any target, where X is 3 plus the number of charge counters on Lightning Storm.\nDiscard a land card: Put two charge counters "
+         "on Lightning Storm. You may choose a new target for it. Any player may activate this ability but only if Lightning Storm is on the stack.")
+EXTRA = [real("Lightning Storm", "{1}{R}{R}", 3, "Instant", STORM, None, "R"),
+         real("Primitive Justice", "{1}{R}", 2, "Sorcery", JUSTICE, None, "R"),
+         *(real(f"Test Relic {i}", "{1}", 1, "Artifact", "", None, "") for i in range(5)),
+         real("Skyway Robber", "{3}{U}", 4, "Creature \u2014 Bird Rogue", ROBBER, ("3", "3"), "U"),
          real("Test Gain", "{1}{W}", 2, "Sorcery", "You gain 5 life.", None, "W"),
          real("Jace's Machinations", "{2}{U}", 3, "Instant", MACHINATIONS, None, "U"),
          real("Advancing the Spirit", "{2}{W}", 3, "Enchantment", ADVANCING, None, "W"),
@@ -46,7 +53,7 @@ def cards(settings):
 
 
 def test_full(cards):
-    for name in ("Advancing the Spirit", "Avacyn's Judgment", "Jace's Machinations", "Skyway Robber"):
+    for name in ("Advancing the Spirit", "Avacyn's Judgment", "Jace's Machinations", "Skyway Robber", "Primitive Justice", "Lightning Storm"):
         assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
@@ -219,4 +226,109 @@ def test_skyway_robber_casts_a_card_its_escape_exiled(cards, escaped):
         assert life(s, "p1") == 45
     else:
         assert life(s, "p2") == 37
+    check(s)
+
+
+@pytest.mark.parametrize("r,g", [(0, 0), (1, 0), (1, 1), (0, 2), (2, 1)])
+def test_primitive_justice_destroys_one_artifact_per_payment(cards, r, g):
+    """601.2b-c, 702.33c: each payment of {1}{R} or {1}{G} adds one more target artifact; each {1}{G} also gains 1 life."""
+    from tests.wave9c_kit import life
+
+    n = 1 + r + g
+    s = build(cards, ["Primitive Justice"], [f"Test Relic {i}" for i in range(5)])
+    relics = [put(s, f"Test Relic {i}", pid="p2") for i in range(5)]
+    mana(s, R=1 + r, G=g, C=1 + r + g)
+    c = to_hand(s, "Primitive Justice")
+    act(s, "p1", type="cast_spell", card_id=c.id, kicker=r + 32 * g, targets=[x.id for x in relics[:n]], target_counts=[n])
+    answer(s)
+    assert [s.state.cards[x.id].zone.endswith("graveyard") for x in relics] == [i < n for i in range(5)]
+    assert life(s, "p1") == 40 + g
+    check(s)
+
+
+def test_primitive_justice_needs_enough_targets(cards):
+    s = build(cards, ["Primitive Justice"], [f"Test Relic {i}" for i in range(5)])
+    relic = put(s, "Test Relic 0", pid="p2")
+    mana(s, R=2, C=2)
+    c = to_hand(s, "Primitive Justice")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=c.id, kicker=1, targets=[relic.id], target_counts=[2])
+
+
+def test_primitive_justice_same_artifact_twice_is_illegal(cards):
+    """Ruling 2004-10-04: it can't target the same artifact more than once."""
+    s = build(cards, ["Primitive Justice"], [f"Test Relic {i}" for i in range(5)])
+    relic = put(s, "Test Relic 0", pid="p2")
+    mana(s, R=2, C=2)
+    c = to_hand(s, "Primitive Justice")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=c.id, kicker=1, targets=[relic.id, relic.id], target_counts=[2])
+
+
+def _storm(cards, activations):
+    """Alice casts Lightning Storm at Bob; each entry of ``activations`` is the player who discards a land to activate it (then picks the new target) before it resolves."""
+    from tests.test_rules_wave34b_activated import ability
+
+    s = build(cards, ["Lightning Storm"], [])
+    for pid in ("p1", "p2"):
+        act(s, pid, type="configure", automation_options={"auto_priority_pass": False})
+        act(s, pid, type="set_prefs", hold_priority=True)
+    mana(s, R=2, C=1)
+    storm = to_hand(s, "Lightning Storm")
+    act(s, "p1", type="cast_spell", card_id=storm.id, targets=["p2"])
+    return s, storm, ability
+
+
+def test_lightning_storm_unboosted(cards):
+    from tests.wave9c_kit import life
+
+    s, storm, _ = _storm(cards, [])
+    answer(s)
+    assert life(s, "p2") == 37
+    check(s)
+
+
+@pytest.mark.parametrize("by,new_target,loser", [("p1", None, "p2"), ("p1", "p1", "p1")])
+def test_lightning_storm_activation_adds_two_counters_and_may_retarget(cards, by, new_target, loser):
+    """113.6, 602.2, 115.7d: any player may discard a land to put two charge counters on the spell on the stack and choose a new target; it resolves for 3 + 2."""
+    from tests.wave9c_kit import life
+
+    s, storm, ability = _storm(cards, [by])
+    to_hand(s, "Forest")
+    act(s, by, type="activate_ability", card_id=storm.id, ability=ability(s, "Lightning Storm", "p1", "Discard a land card"))
+    assert s.state.cards[storm.id].zone == "stack"
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            pick = new_target if new_target in ids else ids[0]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert life(s, loser) == 35
+    check(s)
+
+
+def test_lightning_storm_opponent_activates_twice(cards):
+    """602.2: any player may activate it. Bob responds (discarding a land): 3 + 2 damage to the target he picks (Alice)."""
+    from tests.wave9c_kit import life
+
+    s, storm, ability = _storm(cards, [])
+    to_hand(s, "Island", "p2")
+    act(s, "p1", type="pass_priority")
+    assert s.state.rules.priority == "p2"
+    act(s, "p2", type="activate_ability", card_id=storm.id, ability=ability(s, "Lightning Storm", "p1", "Discard a land card"))
+    d = s.state.rules.decision
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["p1" if "p1" in ids else ids[0]])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert life(s, "p1") == 35 and life(s, "p2") == 40
     check(s)

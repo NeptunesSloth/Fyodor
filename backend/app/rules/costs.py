@@ -745,7 +745,7 @@ def _self_text(part: str, card_name: str) -> str:
 _KICKER = re.compile(r"^(?:(?P<multi>multi)?kicker|(?P<many>squad|replicate)|(?P<once>offspring)|(?P<entwine>entwine)) (?P<cost>(?:\{[^}]+\})+)(?P<anytimes> any number of times)?$",
                      re.IGNORECASE)
 # -- keywords (wave 50H) -- 702.33b: "Kicker {A} and/or {B}" is "Kicker {A}, kicker {B}": two kicker costs, each paid at most once (Invasion's Battlemages)
-_KICKER2 = re.compile(r"^kicker (?P<a>(?:\{[^}]+\})+) and/or (?P<b>(?:\{[^}]+\})+)$", re.IGNORECASE)
+_KICKER2 = re.compile(r"^kicker (?P<a>(?:\{[^}]+\})+) and/or (?P<b>(?:\{[^}]+\})+)(?P<any> any number of times)?$", re.IGNORECASE)
 
 
 # -- casting extras (wave 18E) -- 702.42a: an entwine cost that isn't mana ("Entwine—Sacrifice three lands.") is paid as additional costs are
@@ -840,12 +840,19 @@ class Kicker:
 
     def paid(self, times: int) -> int:
         """-- keywords (wave 50H) -- how many kicker costs the cast's ``kicker`` pays (702.33d): the bits of the mask of two costs, else the count."""
+        if self.second and self.multi:  # -- wave 110G -- Primitive Justice: ``times`` is first count + 32 * second count (each 0..30)
+            return pair_counts(times)[0] + pair_counts(times)[1]
         return bin(times).count("1") if self.second else times
 
     @property
     def x(self) -> bool:
         """-- cast keywords (wave 43D) -- 107.3a: "Kicker {X}": the value of X is announced with the kicker cost."""
         return "{X}" in self.cost.upper()
+
+
+def pair_counts(times: int) -> tuple[int, int]:
+    """-- wave 110G -- the two payment counts of "you may pay {A} and/or {B} any number of times" in the cast's ``kicker`` number."""
+    return times & 31, times >> 5
 
 
 def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
@@ -869,7 +876,7 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
             found.append(Kicker("", multi=non_mana[0], extra=non_mana[1], text=ab.text.strip().rstrip(".")))
             continue
         if (two := _KICKER2.fullmatch(ab.text.strip().rstrip("."))) is not None and kicker_line(ab.text):  # (wave 50H)
-            found.append(Kicker(two["a"], second=two["b"], text=ab.text.strip().rstrip(".")))
+            found.append(Kicker(two["a"], second=two["b"], multi=bool(two["any"]), anytimes=bool(two["any"]), text=ab.text.strip().rstrip(".")))  # (wave 110G: "any number of times", Primitive Justice)
             continue
         m = _KICKER.fullmatch(ab.text.strip().rstrip("."))
         if m is None or not kicker_line(ab.text):

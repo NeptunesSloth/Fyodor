@@ -8948,6 +8948,8 @@ def graveyard_only_ability(d: Definition | None) -> bool:
 
 def own_graveyard_activation(d: Definition | None) -> bool:
     """113.6m: a parsed graveyard-only activation is not a resolving spell instruction."""
+    if d is not None and d.get("stack110g"):  # -- wave 110G -- Lightning Storm: an ability that works while the spell is on the stack, not part of what it does
+        return True
     if d is not None and d.get('kind') == 'activated':
         cost = parse_ability_cost(d.get('cost') or '')
         if not cost.unsupported and cost.from_graveyard:
