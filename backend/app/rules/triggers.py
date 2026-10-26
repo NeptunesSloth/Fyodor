@@ -927,6 +927,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         return True
     if obj is None or och is None:
         return False
+    if subject == "put_with110f":  # -- wave 110F -- 607.2c: "the creature put onto the battlefield with this enchantment" (Diabolic Servitude), as it died (603.10a)
+        return event == "die" and info.get("oid") is not None and info["oid"] in plan.rules.put_with110f.get(plan.oid(watcher), ())
     if subject == "haunted":  # -- keywords (wave 50H) -- 702.55b: the object this haunt card in exile haunts, as it died
         return event == "die" and info.get("oid") is not None and info["oid"] == plan.rules.haunting.get(plan.oid(watcher))
     if subject == "host":  # "enchanted creature" / "equipped creature": what the source is attached to

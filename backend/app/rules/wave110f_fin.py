@@ -28,6 +28,11 @@ _DOCTOR = ("Whenever ~ attacks, choose a card in your hand. Defending player gue
            "If they guessed wrong, you may cast it without paying its mana cost. If you don't cast a spell this way, investigate.")
 
 
+_SERV = ("When ~ enters, return target creature card from your graveyard to the battlefield.",
+         "When the creature put onto the battlefield with ~ dies, exile it and return ~ to its owner's hand.",
+         "When ~ leaves the battlefield, exile the creature put onto the battlefield with ~.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -78,7 +83,43 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         free, gate, investigate = cast[0]
         return {**probe, "effects": [{"do": "seventh110f"}, {"do": "only_if", "cond": {"succeeded": "wrong110f"}, "skip": 1},
                                      {**free, "zone": "that", "who": "ref:seventh110f"}, gate, investigate]}
+    if ability.kind == "triggered" and text in _SERV:  # 607.2c: the creature this enchantment's enters ability put onto the battlefield, by object (400.7)
+        if text == _SERV[0]:
+            if _BUSY:
+                return None
+            _BUSY.append(1)
+            try:
+                native = scripts.define(ability, ch)
+            finally:
+                _BUSY.pop()
+            if native is None or [x["do"] for x in native["effects"]] != ["return_card"]:
+                return {}
+            return {**native, "effects": [{**native["effects"][0], "as": "e0"}, {"do": "link_put110f"}]}
+        probe = scripts.define(replace(ability, text=("Whenever a creature you control dies, exile it and return ~ to its owner's hand." if text == _SERV[1]
+                                                     else "When ~ leaves the battlefield, you gain 1 life.")), ch)
+        if probe is None:
+            return {}
+        return {**probe, "cond": {"event": "die", "subject": "put_with110f"}} if text == _SERV[1] else {**probe, "effects": [{"do": "servitude110f"}]}
     return None
+
+
+def link_put(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """607.2c: the objects this ability put onto the battlefield (the new objects, 400.7)."""
+    from app.rules import effects
+
+    new = [c for c in effects._cards(plan, ctx, "ref:e0") if plan.state.cards[c].zone.endswith(":battlefield")]
+    if new and ctx.get("source_object"):
+        plan.rules.put_with110f.setdefault(ctx["source_object"], []).extend(plan.oid(c) for c in new)
+    return True
+
+
+def servitude(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Exile the creature put onto the battlefield with this enchantment": only while it still is that object on the battlefield (400.7, 2004-10-04 ruling)."""
+    ids = [c for oid in plan.rules.put_with110f.get(ctx.get("source_object") or "", ()) if (c := oid.rsplit(".", 1)[0]) in plan.state.cards
+           and plan.state.cards[c].zone.endswith(":battlefield") and plan.oid(c) == oid]
+    if ids:
+        plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}}, actor=ctx["controller"])
+    return True
 
 
 def seventh(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -169,5 +210,5 @@ def resume_master(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh}
+PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh, "link_put110f": link_put, "servitude110f": servitude}
 RESUME = {"master110f": resume_master, "seventh110f": resume_seventh, "seventh110f_guess": resume_seventh_guess}

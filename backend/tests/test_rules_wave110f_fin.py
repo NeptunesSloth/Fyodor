@@ -340,3 +340,62 @@ def test_doctor_empty_hand_investigates(cards):
     answer(s, "p2")
     assert len(_clues(s)) == 1
     check(s)
+
+
+_SERVITUDE = ("When this enchantment enters, return target creature card from your graveyard to the battlefield.\n"
+              "When the creature put onto the battlefield with this enchantment dies, exile it and return this enchantment to its owner's hand.\n"
+              "When this enchantment leaves the battlefield, exile the creature put onto the battlefield with this enchantment.")
+_BASE.extend([
+    real("Diabolic Servitude", "{3}{B}", 4, "Enchantment", _SERVITUDE, None, "B"),
+    real("Test Smite 110FG", "{B}", 1, "Instant", "Destroy target creature.", None, "B"),
+    real("Test Disenchant 110FG", "{W}", 1, "Instant", "Destroy target enchantment.", None, "W"),
+    real("Test Other 110FG", "{1}", 1, "Creature — Bear", "", ("1", "1"), ""),
+])
+
+
+def test_servitude_full(cards):
+    assert coverage.of_card_data(cards.resolve("Diabolic Servitude")).level == "FULL"
+
+
+def _servitude(cards):
+    from tests.wave36a_kit import to_gy
+
+    s = build(cards, ["Diabolic Servitude", "Test Dead 110FF", "Test Other 110FG", "Test Smite 110FG", "Test Disenchant 110FG"], [])
+    to_gy(s, "Test Dead 110FF")
+    other = put(s, "Test Other 110FG")
+    mana(s, "p1", B=3, C=2, W=1)
+    cast(s, "Diabolic Servitude")
+    answer(s)
+    dead = card_named(s, "Test Dead 110FF")
+    return s, dead, other
+
+
+def _zone(s, name):
+    return s.state.cards[card_named(s, name).id].zone
+
+
+def test_servitude_creature_dies_enchantment_returns(cards):
+    """607.2c, 603.10a: the linked creature dies: it is exiled and the enchantment returns to its owner's hand (its leave trigger then finds nothing to exile)."""
+    s, dead, _ = _servitude(cards)
+    assert _zone(s, "Test Dead 110FF") == "p1:battlefield"
+    cast(s, "Test Smite 110FG", [dead.id])
+    answer(s)
+    assert _zone(s, "Test Dead 110FF") == "p1:exile" and _zone(s, "Diabolic Servitude") == "p1:hand"
+    check(s)
+
+
+def test_servitude_leaves_exiles_the_creature(cards):
+    s, dead, _ = _servitude(cards)
+    cast(s, "Test Disenchant 110FG", [card_named(s, "Diabolic Servitude").id])
+    answer(s)
+    assert _zone(s, "Test Dead 110FF") == "p1:exile" and _zone(s, "Diabolic Servitude") == "p1:graveyard"
+    check(s)
+
+
+def test_servitude_ignores_other_creatures(cards):
+    """Only "the creature put onto the battlefield with this enchantment": another creature dying does nothing."""
+    s, dead, other = _servitude(cards)
+    cast(s, "Test Smite 110FG", [other.id])
+    answer(s)
+    assert _zone(s, "Test Other 110FG") == "p1:graveyard" and _zone(s, "Test Dead 110FF") == "p1:battlefield" and _zone(s, "Diabolic Servitude") == "p1:battlefield"
+    check(s)
