@@ -3136,7 +3136,7 @@ def spell_cost_ways(state: GameState, card: CardInstance, ch: Characteristics, *
         for final in finalize(cost) if finalize is not None else [cost]:
             x_maximum = min(kwargs.get('x', 0), final.generic)
             final = spell_mana_floor.apply(state, info, final) if floor else final
-            final = M.spend_as(final, mode) if floor and mode else final
+            final = M.spend_as(final, mode) if mode else final  # (609.4b: Oath of Nissa, with or without a floor)
             from app.rules import cost_statics101
 
             out.append((final, life + cost_statics101.commander_life(state, card, ch)))
