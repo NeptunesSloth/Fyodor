@@ -102,12 +102,13 @@ def test_wicker_picker_kick_gives_ticket_and_sticker_that_stays(cards):
 
 
 def test_wicker_picker_adds_nothing_to_a_creature_with_its_own_kicker(cards):
-    """Documented ceiling: no second kicker is given (702.33b), so its own kicker is paid normally and no ticket comes."""
+    """702.33c: two kicker abilities are not modelled: its own kicker is paid normally, no ticket comes, and the log hands the second kicker to manual play."""
     s = setup(cards)
     put(s, "Wicker Picker", "battlefield")
     cast(s, "Kicker Bear", kicker=1)
     settle(s)
     assert tickets(s) == 0 and s.state.rules.decision is None
+    assert any("sticker kicker is manual play" in "".join(p.t or "" for p in x.parts) for x in s.state.log)
 
 
 def test_wicker_picker_unkicked_or_without_picker_nothing(cards):
@@ -130,6 +131,18 @@ def test_wicker_picker_gives_no_kicker_to_noncreature_spell(cards):
         cast(s, "Lightning Bolt", kicker=1, targets=[victim.id])
 
 
+def _choose(s, which):
+    """"You may get {TK} or create a Treasure token": which = 0 (ticket), 1 (Treasure) or None (neither); never both."""
+    for i in range(2):
+        if which is not None and which > i:
+            pick(s, ["decline"])
+        elif which == i:
+            pick(s, ["pay"])
+            return
+        else:
+            pick(s, ["decline"])
+
+
 def _end_step(s):
     to_phase(s, "end", 1)
     return question(s)
@@ -147,7 +160,7 @@ def test_done_for_the_day_needs_one_of_the_types(cards, have, shows):
         assert s.state.rules.decision is None and tickets(s) == 0
         return
     d = _end_step(s)
-    assert len(d.options) == 3  # one of: get {TK}, Treasure, neither ("you may")
+    assert [o.id for o in d.options] == ["pay", "decline"] and "{TK}" in d.prompt  # "you may A or B": ask A, then B; no invented "neither" mode
     check(s)
 
 
@@ -157,7 +170,7 @@ def test_done_for_the_day_modes(cards, opt, ticket, treasure):
     put(s, "Done for the Day", "battlefield")
     put(s, "Test Robot", "battlefield")
     d = _end_step(s)
-    pick(s, [d.options[2 if opt is None else opt].id])
+    _choose(s, opt)
     resolve(s)
     assert tickets(s) == ticket
     assert sum(c.name == "Treasure" for c in s.state.cards.values() if c.zone == "p1:battlefield") == treasure
@@ -165,7 +178,7 @@ def test_done_for_the_day_modes(cards, opt, ticket, treasure):
     check(s)
 
 
-@pytest.mark.parametrize("first, ticket", [(0, 1), (1, 0), (2, 0)])
+@pytest.mark.parametrize("first, ticket", [(0, 1), (1, 0), (None, 0)])
 def test_done_for_the_day_all_three_offers_a_sticker(cards, first, ticket):
     s = setup(cards)
     put(s, "Done for the Day", "battlefield")
@@ -173,7 +186,7 @@ def test_done_for_the_day_all_three_offers_a_sticker(cards, first, ticket):
     for n in ("Test Employee", "Test Performer"):
         put(s, n, "battlefield")
     d = _end_step(s)
-    pick(s, [d.options[first].id])
+    _choose(s, first)
     resolve(s)
     d = s.state.rules.decision
     assert d is not None
@@ -265,8 +278,11 @@ def test_jotun_grunt_pays_two_cards_from_one_graveyard_to_the_bottom(cards):
     _answer(s, ["p2"])
     gy = list(s.state.zones["p2:graveyard"])
     _answer(s, gy)
+    d = s.state.rules.decision
+    assert d.kind == "order" and d.player == "p2"  # 401.4: the cards' owner arranges them, not the payer
+    _answer(s, [gy[1], gy[0]])
     settle(s)
-    assert s.state.zones["p2:graveyard"] == [] and s.state.zones["p2:library"][-2:] and set(s.state.zones["p2:library"][-2:]) == set(gy)
+    assert s.state.zones["p2:graveyard"] == [] and s.state.zones["p2:library"][-2:] == [gy[0], gy[1]]  # first chosen is the very bottom
     assert s.state.cards[grunt.id].zone == "p1:battlefield" and s.state.cards[grunt.id].counters["age"] == 1
     check(s)
 
@@ -294,6 +310,9 @@ def test_jotun_grunt_all_or_nothing(cards, mine, theirs, age, paid):
         d = s.state.rules.decision
         assert d.max_choices == 2
         _answer(s, [o.id for o in d.options][:2])
+        d = s.state.rules.decision
+        assert d.kind == "order"
+        _answer(s, [o.id for o in d.options])
     settle(s)
     assert s.state.cards[grunt.id].zone == "p1:battlefield" and s.state.zones["p1:graveyard"] == []
     check(s)

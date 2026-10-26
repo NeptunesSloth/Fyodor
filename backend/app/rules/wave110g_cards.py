@@ -454,20 +454,29 @@ _STICKER_KICKER = "Creature spells you cast have sticker kicker {1}."
 _KICKERS = {"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"}
 
 
-def sticker_kicker(state: Any, player: str, card: Any, ch: Any, info: Any) -> Any:
-    """702.33h: a creature spell its caster casts has "Kicker {1}" (Wicker Picker); casting.py then gives the ticket and sticker.
-    ponytail: a spell with a kicker of its own is not given a second one (two kickers stay unsupported, 702.33b)."""
-    if not ch.is_creature or any(_KICKERS & set(a.keywords) for a in ch.abilities):
-        return ch
+def _granted(state: Any, player: str, card: Any, ch: Any, info: Any) -> bool:
     from app.rules import cast_limits
-    from app.rules.characteristics import AbilityText
     from app.rules.permissions import spell_matches
 
-    if not any(src.controller == player and d["keyword"] == "sticker_kicker110g" and spell_matches(state, player, card, ch, d["filter"], info, src.id)
-               for src, d in cast_limits._statics(state, info, "spell_helper")):
+    return any(src.controller == player and d["keyword"] == "sticker_kicker110g" and spell_matches(state, player, card, ch, d["filter"], info, src.id)
+               for src, d in cast_limits._statics(state, info, "spell_helper"))
+
+
+def sticker_kicker(state: Any, player: str, card: Any, ch: Any, info: Any) -> Any:
+    """702.33h: a creature spell its caster casts has "Kicker {1}" (Wicker Picker); casting.py then gives the ticket and sticker.
+    A spell with a kicker of its own would have two kicker abilities (702.33c/d); the engine models one kicker per spell, so it is not given the
+    second one: casting.py tells the caster to take the ticket and sticker by hand (sticker_kicker_manual)."""
+    if not ch.is_creature or any(_KICKERS & set(a.keywords) for a in ch.abilities) or not _granted(state, player, card, ch, info):
         return ch
+    from app.rules.characteristics import AbilityText
+
     extra = AbilityText(index=1 + max((a.index for a in ch.abilities), default=99), text="Kicker {1}", kind="keywords", keywords=("kicker",), special="sticker_kicker110g")
     return replace(ch, abilities=(*ch.abilities, extra))
+
+
+def sticker_kicker_manual(state: Any, player: str, card: Any, ch: Any, info: Any) -> bool:
+    """True for a creature spell with its own kicker that Wicker Picker also gives a sticker kicker: the second kicker is manual play."""
+    return ch.is_creature and any(_KICKERS & set(a.keywords) for a in ch.abilities) and _granted(state, player, card, ch, info)
 
 
 def sticker_kicker_effects() -> list[dict[str, Any]]:
@@ -493,11 +502,13 @@ def _done_for_the_day(d: Def) -> Def:
     treasure = {"do": "create_token", "who": "you", "n": 1, "token": {"name": "Treasure", "power": None, "toughness": None, "colors": [],
                 "type_line": "Token Artifact \u2014 Treasure", "text": "{T}, Sacrifice this token: Add one mana of any color."}}
     put = {"do": "put_sticker101", "kind": None, "n": 1, "as": "placed101", "sel": 'sel:{"not_types":["Land"],"owner":"you"}'}
-    return {**d, "optional": False, "if": {"any": [_subtype_count(k) for k in kinds]}, "effects": [], "target": None,
-            "modes": [{"text": "You get {TK}.", "effects": [get], "target": None}, {"text": "Create a Treasure token.", "effects": [treasure], "target": None},
-                      {"text": "Do neither.", "effects": [], "target": None}],  # "you may": declining still lets the next sentence happen
-            "modal": {"min": 1, "max": 1, "repeat": False, "condition": None, "memory": None, "index": 0, "form": "triggered"},
-            "after": [{"do": "only_if", "cond": {"all": [_subtype_count(k) for k in kinds]}, "skip": 1}, put]}
+    ask = lambda text, bind: {"do": "optional_payment", "who": "you", "ask": text, "cost": "", "bind": bind}  # noqa: E731
+    # "you may A or B": no mode is printed, so no modal; ask for A, and only if declined for B (never both), then the sticker sentence in any case.
+    effects = [ask("get {TK}", "dftd0"), {"do": "only_if", "cond": {"succeeded": "dftd0"}, "skip": 1}, get,
+               {"do": "only_if", "cond": {"succeeded": "dftd0", "negate": True}, "skip": 3}, ask("create a Treasure token", "dftd1"),
+               {"do": "only_if", "cond": {"succeeded": "dftd1"}, "skip": 1}, treasure,
+               {"do": "only_if", "cond": {"all": [_subtype_count(k) for k in kinds]}, "skip": 1}, put]
+    return {**d, "optional": False, "if": {"any": [_subtype_count(k) for k in kinds]}, "effects": effects, "target": None}
 
 
 def _mist(d: Def) -> Def:
@@ -580,13 +591,21 @@ def resume_gy_pairs(plan: Any, d: Any, chosen: list[str]) -> None:
         if chosen[0] not in r["owners"]:
             raise ValueError("not a graveyard with two cards")
         _pick_pair(plan, ctx, bind, left, chosen[0])
+    elif r["stage"] == "order":
+        yard = plan.state.zones.get(f"{r['owner']}:graveyard", [])
+        if len(set(chosen)) != 2 or any(c not in yard for c in chosen):
+            raise ValueError("order the two chosen cards")
+        plan.do({"type": "move", "card_ids": list(reversed(chosen)), "to": {"player": r["owner"], "zone": "library"}, "position": "bottom"}, actor=r["owner"])
+        _pair_round(plan, ctx, bind, left - 1)
     else:
         yard = plan.state.zones.get(f"{r['owner']}:graveyard", [])
         if len(set(chosen)) != 2 or any(c not in yard for c in chosen):
             raise ValueError("choose two cards from that graveyard")
-        # 401.4: the owner may arrange the two; ponytail: the engine's recorded random order (effects.bottom_at_random), not a choice
-        effects.bottom_at_random(plan, r["owner"], list(chosen), actor=ctx["controller"])
-        _pair_round(plan, ctx, bind, left - 1)
+        # 401.4: the cards' owner arranges the two (a private choice), as in resume_order_library.
+        effects.decide(plan, player=r["owner"], kind="order", prompt="Order the two cards for the bottom of your library (first chosen ends up at the very bottom)",
+                       options=[effects.DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in chosen],
+                       min_choices=2, max_choices=2,
+                       resume={"step": "gy_pairs110g", "ctx": ctx, "bind": bind, "left": left, "stage": "order", "owner": r["owner"]})
 
 
 def reattach(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
