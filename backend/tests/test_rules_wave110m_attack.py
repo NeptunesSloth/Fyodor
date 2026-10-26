@@ -26,6 +26,16 @@ def cards(settings):
 test_full = full_test([RIGO, FBLTHP])
 
 
+def put_card(s, name, pid="p1"):
+    return put(s, name, pid)
+
+
+def card_names_free(d):
+    from app.rules import card_names
+
+    return card_names.is_free_text(d)
+
+
 def hand(s):
     return len(s.state.zones["p1:hand"])
 
@@ -139,4 +149,45 @@ def test_pharika_spawn_escapes_with_counters_and_makes_opponents_sacrifice_a_non
     assert s.state.cards[spawn.id].zone == "p1:battlefield"
     assert sum(1 for k, v in s.state.cards[spawn.id].counters.items() if k == "+1/+1" for _ in range(v)) == counters
     assert [n for n in ("Grizzly Bears", SPAWN) if n in theirs and zone_of(s, n, "p2") == "p2:graveyard"] == ([sacrificed] if sacrificed else [])
+    check(s)
+
+
+# -- Sphinx Ambassador -----------------------------------------------------------------------------------------------------------------------
+SPHINX = "Sphinx Ambassador"
+test_sphinx_full = full_test([SPHINX])
+
+
+@pytest.mark.parametrize("found,named,put", [
+    ("Grizzly Bears", "Lightning Bolt", True),      # a creature card not so named: may be put onto the battlefield
+    ("Grizzly Bears", "Grizzly Bears", False),      # named: it stays
+    ("Island", "Lightning Bolt", False),            # not a creature card
+])
+def test_sphinx_ambassador_searches_then_the_victim_names_a_card(cards, found, named, put):
+    s = build(cards, [SPHINX], ["Grizzly Bears", "Lightning Bolt"], forests=20)
+    sphinx = put_card(s, SPHINX)
+    ready(s, SPHINX)
+    for n in ("Grizzly Bears", "Lightning Bolt"):  # (into the library, from Bob's opening hand)
+        act(s, "p2", type="move", card_ids=[card_named(s, n, "p2").id], to={"player": "p2", "zone": "library"})
+    stops(s)
+    next_turn(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": sphinx.id, "target": "p2"}])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack") and s.state.turn.phase in ("main2", "end_combat", "end"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.options and d.options[0].id == "__free_text__" or card_names_free(d):
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[], name=named)
+        elif d.kind == "choose_cards":
+            card = next(c for c in s.state.cards.values() if c.name == found and c.owner == "p2" and c.zone == "p2:library")
+            assert d.player == "p1" and len(d.options) == len(s.state.zones["p2:library"])
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[card.id])
+        elif d.kind == "confirm":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    taken = next(c for c in s.state.cards.values() if c.name == found and c.owner == "p2")
+    assert (taken.zone, taken.controller, taken.owner) == (("p1:battlefield", "p1", "p2") if put else ("p2:library", "p2", "p2"))
     check(s)

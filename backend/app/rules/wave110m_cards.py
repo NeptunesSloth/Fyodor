@@ -544,6 +544,70 @@ def gandalf(plan: Any, ctx: Def, e: Def) -> bool:
     return True
 
 
+_SPHINX = ("Whenever this creature deals combat damage to a player, search that player's library for a card, then that player chooses a card name. If you searched for a creature "
+           "card that doesn't have that name, you may put it onto the battlefield under your control. Then that player shuffles.")
+
+
+def _sphinx(d: Def) -> Def:
+    """Sphinx Ambassador: the controller searches the damaged player's library (701.23a; hidden), that player names a card (201.4), a creature card not so named may be put onto the
+    battlefield under the controller's control (400.3 — the card is a card in the library still), then that player shuffles (701.24)."""
+    return {**d, "effects": [{"do": "sphinx_search110m"}, {"do": "choose_value", "who": "event_player", "what": "card name", "as": "sph_name"},
+                             {"do": "sphinx_put110m"}, {"do": "shuffle_library", "who": "event_player"}]}
+
+
+_BUILD[_SPHINX] = ("Whenever this creature deals combat damage to a player, you gain 1 life.", _sphinx)
+
+
+def sphinx_search(plan: Any, ctx: Def, e: Def) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    ctx.pop("sph_card110m", None)
+    victim = next(iter(effects._players(plan, ctx, "event_player")), None)
+    ctx["sph_victim110m"] = victim
+    library = list(plan.state.zones.get(f"{victim}:library", [])) if victim in plan.live() else []
+    if not library:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name', '')}: search {plan.name(victim)}'s library for a card",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in library], min_choices=0, max_choices=1,
+           resume={"step": "sphinx_search110m", "ctx": ctx, "pool": library})
+    return False
+
+
+def resume_sphinx_search(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    ctx["sph_card110m"] = next((c for c in chosen if c in d.resume["pool"]), None)
+    effects.continue_effects(plan, ctx)
+
+
+def sphinx_put(plan: Any, ctx: Def, e: Def) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import card_names, context
+    from app.rules.plan import decide
+
+    cid, victim = ctx.get("sph_card110m"), ctx.get("sph_victim110m")
+    named = (context.refs(ctx).get("sph_name") or {}).get("value")
+    card = plan.state.cards.get(cid or "")
+    if card is None or card.zone != f"{victim}:library" or not plan.ch(card).is_creature or card_names.has_name(plan.ch(card), named):
+        return True
+    decide(plan, player=ctx["controller"], kind="confirm", prompt=f"{ctx.get('name', '')}: put the creature card you searched for onto the battlefield under your control?",
+           options=[DecisionOption(id="yes", label=f"Put {card.name} onto the battlefield"), DecisionOption(id="no", label="Leave it in the library")],
+           resume={"step": "sphinx_put110m", "ctx": ctx, "card": cid})
+    return False
+
+
+def resume_sphinx_put(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if chosen == ["yes"] and (card := plan.state.cards.get(d.resume["card"])) is not None and card.zone.endswith(":library"):
+        plan.do({"type": "move", "card_ids": [card.id], "to": {"player": ctx["controller"], "zone": "battlefield"}}, actor=ctx["controller"])
+    effects.continue_effects(plan, ctx)
+
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 
@@ -652,6 +716,6 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+RESUME: dict[str, Any] = {"sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
