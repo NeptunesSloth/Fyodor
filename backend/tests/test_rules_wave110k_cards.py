@@ -37,7 +37,6 @@ from tests.wave110k_kit import (  # noqa: F401
     full,
     hand_new,
     mana,
-    move,
     now,
     put_new,
     refused,
@@ -478,10 +477,12 @@ def test_old_man_loses_it_when_its_power_grows_past_his(cards):
 
 
 def test_old_man_loses_it_when_he_leaves(cards):
-    s, man, bears, _ = _old_man(cards)
+    s = build(cards, ["Old Man of the Sea", "Lightning Bolt"], ["Grizzly Bears"])
+    man, bears = put_new(s, "Old Man of the Sea"), put_new(s, "Grizzly Bears", "p2")
+    s.state.rules.controlled_since[man.id].turn = 0
     activate(s, man, "{T}", targets=[bears.id])
-    move(s, man, "graveyard")
-    assert now(s, bears).controller == "p2"
+    cast_on(s, "Lightning Bolt", man)  # 3 damage to the 3 toughness Old Man
+    assert now(s, man).zone == "p1:graveyard" and now(s, bears).controller == "p2"
     check(s)
 
 
