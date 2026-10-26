@@ -172,7 +172,7 @@ def act(plan: Plan, pid: str, queue: list[str], rest: list[str]) -> None:
         entry = {"card": cid, "player": pid, "actor": pid, "tapped": False,
                  **({"counter": d["counter"], "counter_n": 1} if d.get("counter") else {})}
         # -- opening-hand entry choice (wave 110A) -- 614.12a: "As ~ enters, choose …" pauses; on answer the sequence goes on (103.6)
-        ctx = {"controller": pid, "source_card": cid, "source_object": None, "name": card.name or "", "effects": [], "next": 0, "x": None,
+        ctx: dict[str, Any] = {"controller": pid, "source_card": cid, "source_object": None, "name": card.name or "", "effects": [], "next": 0, "x": None,
                "event": None, "body_done": {"do": "opening_go110a", "pid": pid, "queue": queue, "rest": rest}}
         if not attachments.enter(plan, [entry], ctx):
             return
