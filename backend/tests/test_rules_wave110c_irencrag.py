@@ -8,7 +8,7 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.wave9c_kit import build
-from tests.wave110c_kit import answer, check, ch, make_db, mana, put, real, to_hand
+from tests.wave110c_kit import ch, check, make_db, mana, put, real, to_hand
 
 IRENCRAG = ("{T}: Add {C}.\nWhenever a legendary creature you control enters, you may have The Irencrag become a legendary Equipment artifact named Everflame, Heroes' Legacy. "
             "If you do, it gains equip {3} and \"Equipped creature gets +3/+3\" and loses all other abilities.")
