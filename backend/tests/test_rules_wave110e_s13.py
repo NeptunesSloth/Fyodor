@@ -106,7 +106,8 @@ KAYA = card("Kaya, Spirits' Justice", set_code="tst", number="13-kaya", mana_cos
 BANISH = real("Zed Banish", "{1}{W}", 2, "Instant", "Exile target creature.", None, "W")
 SCOUR = real("Zed Scour", "{W}", 1, "Instant", "Exile target card from a graveyard.", None, "W")
 PURGE = real("Zed Purge", "{2}{W}", 3, "Instant", "Exile target creature and target creature card in a graveyard.", None, "W")
-base.EXTRA.extend([KAYA, BANISH, SCOUR, PURGE])
+SPLIT = real("Zed Split", "{2}{W}", 3, "Instant", "Exile target creature. Exile target creature card in a graveyard.", None, "W")
+base.EXTRA.extend([KAYA, BANISH, SCOUR, PURGE, SPLIT])
 GIANT = "Test Giant"
 
 
@@ -130,7 +131,7 @@ def _drive(s, pick=None, limit=40):
 
 
 def _kaya(cards, deck_extra=()):
-    s = _three(cards, ["Kaya, Spirits' Justice", "Zed Banish", "Zed Scour", "Zed Purge", "Zed Hawk", "Zed Bear", *deck_extra], carols=(GIANT,))
+    s = _three(cards, ["Kaya, Spirits' Justice", "Zed Banish", "Zed Scour", "Zed Purge", "Zed Split", "Zed Hawk", "Zed Bear", *deck_extra], carols=(GIANT,))
     kaya = put(s, "Kaya, Spirits' Justice")
     act(s, "p1", type="set_counter", card_id=kaya.id, kind="loyalty", value=5)
     return s, kaya
@@ -188,18 +189,29 @@ def test_kaya_an_opponents_card_in_their_graveyard_does_not_trigger(cards):
     check(s)
 
 
-def test_kaya_each_exile_event_is_its_own_trigger(cards):
-    """603.2: two instructions exile one object each (two events): two triggers, each offering its own exiled cards; the later copy replaces the earlier (613.7)."""
+def _both(cards, name):
     s, kaya = _kaya(cards)
     spirit = _spirit(s, kaya)
     hawk = put(s, "Zed Hawk")
     bear = card_named(s, "Zed Bear")
     act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "graveyard"})
     mana(s, W=1, C=2)
-    cast(s, "Zed Purge", [hawk.id, bear.id], target_counts=[1, 1])
-    asked = _drive(s, "Zed Bear")
-    assert sorted(a for q in asked for a in q) == ["Zed Bear", "Zed Hawk"]
-    assert _ch(s, spirit.id).name in ("Zed Bear", "Zed Hawk")
+    cast(s, name, [hawk.id, bear.id], target_counts=[1, 1])
+    return s, spirit
+
+
+def test_kaya_one_instruction_exiling_both_is_one_trigger(cards):
+    """603.2c / 608.2c: one instruction exiles a creature of yours and a creature card of your graveyard together: ONE trigger offering both cards."""
+    s, spirit = _both(cards, "Zed Purge")
+    assert _drive(s, "Zed Bear") == [["Zed Bear", "Zed Hawk"]]
+    assert _ch(s, spirit.id).name == "Zed Bear"
+    check(s)
+
+
+def test_kaya_two_instructions_are_two_triggers(cards):
+    """603.2: two separate instructions are two events: two triggers, each offering its own exiled card; the later copy replaces the earlier (613.7)."""
+    s, spirit = _both(cards, "Zed Split")
+    assert sorted(_drive(s, "Zed Bear")) == [["Zed Bear"], ["Zed Hawk"]]
     check(s)
 
 

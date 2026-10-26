@@ -7,6 +7,7 @@ stack (603.3d); the card is chosen as it resolves (608.2d) from the creature car
 """
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -16,6 +17,27 @@ TEXT = ("Whenever one or more creatures you control and/or creature cards in you
         "Until end of turn, target token you control becomes a copy of it, except it has flying.")
 _BATTLEFIELD = {"event": "leave", "subject": "sel", "sel": 'sel:{"controller":"you","types":["Creature"]}', "aggregate": True, "dest": "exile"}
 _GRAVEYARD = {"event": "to_exile", "subject": "sel", "aggregate": True, "sel": 'sel:{"card":true,"types":["Creature"],"zones":[]}', "froms": ["graveyard"], "from_owner": "you"}
+
+
+_BUSY = False
+
+
+def join(body: str) -> Any:
+    """608.2c / 603.2c: "Exile target X and target Y." is ONE instruction: both exiles happen at the same time (one event batch), so a "one or more ... are put
+    into exile" trigger fires once. The second exile is marked ``join110e``; the effect runner closes the batch after it (effects._run_effects)."""
+    global _BUSY
+    if _BUSY or not re.fullmatch(r"Exile target [^.,;]+ and target [^.,;]+\.?", body):
+        return None
+    from app.rules import scripts
+
+    _BUSY = True
+    try:
+        parsed = scripts.parse_effects(body)
+    finally:
+        _BUSY = False
+    if parsed is None or [e["do"] for e in parsed[0]] != ["exile", "exile"]:
+        return parsed
+    return [parsed[0][0], {**parsed[0][1], "join110e": True}], parsed[1], parsed[2]
 
 
 def definition(text: str) -> dict[str, Any] | None:

@@ -4158,6 +4158,10 @@ def _run_effects(plan: Plan, ctx: Context) -> bool:
         if replacements.ask_903_9b_first(plan, ctx, e):
             return False  # 903.9b: a commander's owner chooses before it would be put into a hand or library
         ctx["next"] += 1
+        if ctx["next"] < len(ctx["effects"]) and ctx["effects"][ctx["next"]].get("join110e"):
+            ctx["join110e"] = plan.rules.batch  # -- one instruction, two steps (wave 110E) -- the next effect's events join this one's batch (603.2c)
+        elif e.get("join110e") and "join110e" in ctx:
+            e = {**e, "after110e": ctx.pop("join110e")}
         if e.get("that"):  # -- player-relative selectors (wave 53A) -- "cards that player owns in exile": that player, as the instruction before left it
             e = player_relative.bind_effect(plan, ctx, e)
         if e.get("note_group"):  # -- counters (wave 5H) -- the permanents a count reads, for a later "those creatures"
@@ -4165,6 +4169,8 @@ def _run_effects(plan: Plan, ctx: Context) -> bool:
         e = block_events.bind(plan, ctx, e)  # -- block events (wave 53C) -- "creatures blocking it", "Auras attached to that creature": the object bound now
         if not PRIMITIVES[e["do"]](plan, ctx, e):
             return False  # waiting for a choice; the decision's resume continues from ctx["next"]
+        if "after110e" in e:
+            replace._one_batch(plan, e["after110e"])
     return True
 
 
