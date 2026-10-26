@@ -1384,6 +1384,8 @@ def _object_event(c: str) -> Condition | None:
     # itself too, as it was under its old controller); the other control-change wordings stay manual
     if c == "you gain control of ~ from another player":
         return {"subject": "self", "event": "control_change", "to": "you", "from": "other"}
+    if c == "you lose control of ~":  # -- wave 110A -- Khârn: 603.10d looks back; any other player gaining it is "losing" it
+        return {"subject": "self", "event": "control_change", "to": "other", "from": "you"}
     m = re.fullmatch(r"an opponent gains control of (?P<o>~|an? [\w ]+?) from you", c)
     if m and (base := _subject(m["o"])) is not None and base["subject"] in ("sel", "self") and not base.get("aggregate"):
         return {**base, "event": "control_change", "to": "opponent", "from": "you"}

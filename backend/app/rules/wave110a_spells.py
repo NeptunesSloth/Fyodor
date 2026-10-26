@@ -607,6 +607,7 @@ ABILITY_REWRITES = {
 _ANY_NUMBER = {"\u22126: Exile the top seven cards of your library. You may put any number of creature and/or land cards from among them onto the battlefield."}
 
 
+BETRAYER = "If damage would be dealt to ~, prevent that damage and an opponent of your choice gains control of it."
 XANTCHA = "{3}: ~'s controller loses 2 life and you draw a card. Any player may activate this ability."
 ZARA = ("Whenever ~ attacks, look at defending player's hand. You may put a creature card from it onto the battlefield under your control tapped and attacking "
         "that player or a planeswalker they control. Return that creature to its owner's hand at the beginning of the next end step.")
@@ -629,6 +630,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         pick.update(optional=True, **{"as": "zara110a"})
         return {**d, "effects": [{**look, "private": True}, pick, {"do": "enter_chosen110a", "who": "ref:zara110a"},
                                  {"do": "delayed", "when": {"kind": "step", "step": "end", "whose": "next"}, "n": 1}, {"do": "deferred:bounce", "who": "ref:zara110a"}]}
+    if old == BETRAYER:  # Khârn the Betrayer: "an opponent of your choice" = its controller chooses the opponent (615.5 rider; source_shields.RIDER_DOS)
+        return scripts.define(replace(ability, text="If damage would be dealt to ~, prevent that damage and choose an opponent. That player gains control of it."), ch)
     if old == XANTCHA:  # Xantcha: the loss is for the source's controller, not "each opponent" (the activator is "you", 602.2)
         d = scripts.define(replace(ability, text="{3}: Each opponent loses 2 life and you draw a card. Any player may activate this ability."), ch)
         if d is None or d["effects"][0].get("do") != "lose_life":
