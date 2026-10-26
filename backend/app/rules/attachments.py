@@ -186,7 +186,20 @@ def equip_cost(ch: Characteristics, index: int) -> tuple[str, str, str] | None:
     return None
 
 
+FORTIFY = re.compile(r"^fortify (?P<cost>(?:\{[^}]+\})+)$", re.IGNORECASE)
+
+
+def fortify_cost(ch: Characteristics, index: int) -> str | None:
+    """-- cards (wave 110I) -- 702.67a: "Fortify [cost]" = "[Cost]: Attach this permanent to target land you control. Fortify only as a sorcery." (mana costs only)."""
+    for ab in ch.abilities:
+        if ab.index == index and ab.kind == "keywords" and "fortify" in ab.keywords and (m := FORTIFY.match(re.sub(r"\s*\(.*?\)", "", ab.text).strip())):
+            return m["cost"]
+    return None
+
+
 def supported_keyword(kw: str, line: str) -> bool:
+    if kw == "fortify":
+        return FORTIFY.match(re.sub(r"\s*\(.*?\)", "", line).strip()) is not None
     if kw == "enchant":
         return enchant_selector_of(line) is not None
     if kw == "equip":
@@ -290,11 +303,11 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     return None if hch.is_land else "a Fortification can only fortify a land"
 
 
-def legal_hosts(plan: Plan, source: CardInstance, controller: str | None = None) -> list[str]:
+def legal_hosts(plan: Plan, source: CardInstance, controller: str | None = None, face: Characteristics | None = None) -> list[str]:
     """Everything ``source`` could be attached to right now (no targeting involved)."""
-    out = [p for p in plan.live() if host_problem(plan, source, p, controller) is None]
+    out = [p for p in plan.live() if host_problem(plan, source, p, controller, face=face) is None]
     for c in plan.state.cards.values():
-        if c.zone.endswith((":battlefield", ":graveyard")) and c.id != source.id and host_problem(plan, source, c.id, controller) is None:  # (wave 51F: a graveyard)
+        if c.zone.endswith((":battlefield", ":graveyard")) and c.id != source.id and host_problem(plan, source, c.id, controller, face=face) is None:  # (wave 51F: a graveyard)
             out.append(c.id)
     return out
 
@@ -305,10 +318,17 @@ def enchanted_cards(plan: Plan, source: CardInstance) -> list[str]:
             and plan.oid(cid) == oid and plan.state.cards[cid].zone.endswith(":graveyard")]
 
 
-def attach(plan: Plan, source: str, host: str, actor: str) -> bool:
+def attach(plan: Plan, source: str, host: str, actor: str, chosen110e: bool = False) -> bool:
     """701.3a-b: attach ``source`` to ``host`` if it can be; otherwise it doesn't move."""
     card = plan.state.cards.get(source)
     if card is None or host_problem(plan, card, host) is not None:
+        return False
+    from app.rules import (
+        wave110e_blade,  # -- becomes attached, choose (wave 110E) -- only the equip ability asks for the color (wave110e_blade)
+    )
+
+    if not chosen110e and wave110e_blade.needs(plan, source):
+        plan.note(f"{card.name} must choose a color as it becomes attached: only equip does that; move it by hand", [source])
         return False
     if host in plan.state.cards and plan.state.cards[host].zone.endswith(":graveyard"):  # -- reanimation Auras (wave 51F) -- 303.4a: it enchants a card in a graveyard
         plan.rules.aura_links[plan.oid(card)] = [plan.oid(host)]
@@ -383,6 +403,8 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
             continue
         as_face = entering_face(plan, card, entry)
         kind = attach_kind(as_face or (plan.ch(card) if copying.entering_as_copy(plan, card) else chars.of(card, plan.info)))
+        if kind is None and entry.get("entry_characteristics"):  # -- aura return (wave 110D) -- 205.1a, 303.4f: "It's an Aura enchantment" as it enters
+            kind = attach_kind(plan.ch(probe))
         if (kind != "aura" and not (entry.get("host_choice") and kind == "equipment")) or entry.get("host"):
             continue
         hosts = _entry_hosts(plan, card, entry)
@@ -416,7 +438,13 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
 
 
 def _entry_hosts(plan: Plan, card: CardInstance, entry: dict[str, Any]) -> list[str]:
-    hosts = _hosts_on_entering(plan, card, entry["player"])
+    face = None
+    if entry.get("entry_characteristics"):  # -- aura return (wave 110D) -- 303.4f: judged as the Aura it enters as
+        from app.rules import entry_characteristics
+
+        face = plan.ch(entry_characteristics.probe(card, entry["entry_characteristics"]).model_copy(
+            update={"zone": zone_key(entry["player"], "battlefield"), "controller": entry["player"]}))
+    hosts = legal_hosts(plan, card, entry["player"], face)
     if entry.get("host_choice"):
         from app.rules import selectors
 

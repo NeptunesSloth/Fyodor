@@ -790,7 +790,7 @@ def source_scope(phrase: str) -> dict[str, Any] | None:
 # prevented this way, …" (a reflexive trigger, 603.12), choices and targets in the rider ("deals that much damage to any
 # target"), riders after "of your choice" shields to several recipients.
 RIDER_DOS = frozenset({"gain_life", "damage", "add_counters", "remove_counters", "create_token", "mill", "exile_top", "lose_life",
-                       "draw", "sacrifice_choice"})
+                       "draw", "sacrifice_choice", "choose_value", "gain_control"})  # (-- wave 110A -- Khârn the Betrayer: "choose an opponent. That player gains control of it")
 PREVENTIONS = frozenset({"source_shield", "prevent", "prevent_all"})
 _RIDER_IF = re.compile(r"^if damage(?: from (?P<col>an? (?:white|blue|black|red|green) source))? is prevented this way, (?P<body>.+)$")
 _ANAPHORS = (("that source's controller", "target player", "from_ctrl"), ("the source's controller", "target player", "from_ctrl"),

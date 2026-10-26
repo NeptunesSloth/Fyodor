@@ -671,6 +671,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return max(0, v)
     if isinstance(v, dict) and 'began_lands110c' in v:  # (wave 110C) Power Surge: the active player's untapped lands as the turn began
         return plan.rules.began_lands110c.get(plan.active, 0)
+    if isinstance(v, dict) and 'stored_same110m' in v:  # (wave 110M) Centaur of Attention: the most stored results sharing a value (706.8)
+        from app.rules import wave110m_cards
+
+        return wave110m_cards.same_stored(plan, ctx)
     if 'sticker_vowels102' in v:
         from app.rules import sticker_riders102
 
@@ -913,6 +917,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import history
 
         return history.amount(plan, ctx, v)
+    if "cast_targets110i" in v:  # -- cards (wave 110I) -- Arcee: the cast spell's targets matching a selector
+        from app.rules import wave110i_cards
+
+        return wave110i_cards.cast_targets(plan, ctx, v["cast_targets110i"])
     if "event_amount" in v:  # "that much" / "that many": the trigger event's amount (608.2k)
         from app.rules import context  # (context → triggers → … → values)
 
@@ -1098,7 +1106,7 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                  for c in selectors.candidates(plan, selectors.from_key(key), you, _other_than(ctx))]
         nums = [n for n in found if n is not None]
         return max(0, sum(nums) if "sum" in v else max(nums or [0]))
-    for stat in ("power", "toughness", "base_power", "mana_value", "colors"):
+    for stat in ("power", "toughness", "base_power", "mana_value", "colors", "station110e"):
         if stat in v:
             got = _object(plan, ctx, v[stat])
             if got is None:
@@ -1181,6 +1189,8 @@ def _stat_of(ch: Any, stat: str) -> int | None:
         return ch.base_pt[0] if ch.base_pt is not None else _stat_of(ch, "power")
     if stat == "mana_value":
         return int(ch.mana_value)
+    if stat == "station110e":  # -- station (wave 110E) -- 702.184c: Tapestry Warden's static makes the number its toughness
+        return _stat_of(ch, "toughness" if "station_toughness110e" in ch.imposed else "power")
     if stat == "power_or_toughness":  # -- value grammar (wave 23C) -- "the greatest power and/or toughness among …": each object's larger number
         both = [n for n in (_stat_of(ch, "power"), _stat_of(ch, "toughness")) if n is not None]
         return max(both) if both else None

@@ -281,5 +281,828 @@
 "keywords": [
 "Enchant"
 ]
+},
+{
+"name": "Pharika's Spawn",
+"layout": "normal",
+"mana_cost": "{3}{B}",
+"cmc": 4.0,
+"type_line": "Creature — Gorgon",
+"oracle_text": "Escape—{5}{B}, Exile three other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)\nThis creature escapes with two +1/+1 counters on it. When it enters this way, each opponent sacrifices a non-Gorgon creature of their choice.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Escape"
+],
+"power": "3",
+"toughness": "4"
+},
+{
+"name": "Lucius the Eternal",
+"layout": "normal",
+"mana_cost": "{3}{B}{R}",
+"cmc": 5.0,
+"type_line": "Legendary Creature — Astartes Warrior",
+"oracle_text": "Haste\nArmour of Shrieking Souls — When Lucius the Eternal dies, exile it and choose target creature an opponent controls. When that creature leaves the battlefield, return this card from exile to the battlefield under its owner's control.",
+"colors": [
+"B",
+"R"
+],
+"color_identity": [
+"B",
+"R"
+],
+"keywords": [
+"Armour of Shrieking Souls",
+"Haste"
+],
+"power": "5",
+"toughness": "3"
+},
+{
+"name": "Doom Blade",
+"layout": "normal",
+"mana_cost": "{1}{B}",
+"cmc": 2.0,
+"type_line": "Instant",
+"oracle_text": "Destroy target nonblack creature.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
+},
+{
+"name": "Soul Sculptor",
+"layout": "normal",
+"mana_cost": "{2}{W}",
+"cmc": 3.0,
+"type_line": "Creature — Human",
+"oracle_text": "{1}{W}, {T}: Target creature becomes an enchantment and loses all abilities until a player casts a creature spell.",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": [],
+"power": "1",
+"toughness": "1"
+},
+{
+"name": "Johan",
+"layout": "normal",
+"mana_cost": "{3}{R}{G}{W}",
+"cmc": 6.0,
+"type_line": "Legendary Creature — Human Wizard",
+"oracle_text": "At the beginning of combat on your turn, you may have Johan gain \"Johan can't attack\" until end of combat. If you do, attacking doesn't cause creatures you control to tap this combat if Johan is untapped.",
+"colors": [
+"G",
+"R",
+"W"
+],
+"color_identity": [
+"G",
+"R",
+"W"
+],
+"keywords": [],
+"power": "5",
+"toughness": "4"
+},
+{
+"name": "Merieke Ri Berit",
+"layout": "normal",
+"mana_cost": "{W}{U}{B}",
+"cmc": 3.0,
+"type_line": "Legendary Creature — Human",
+"oracle_text": "Merieke Ri Berit doesn't untap during your untap step.\n{T}: Gain control of target creature for as long as you control Merieke Ri Berit. When Merieke Ri Berit leaves the battlefield or becomes untapped, destroy that creature. It can't be regenerated.",
+"colors": [
+"B",
+"U",
+"W"
+],
+"color_identity": [
+"B",
+"U",
+"W"
+],
+"keywords": [],
+"power": "1",
+"toughness": "1"
+},
+{
+"name": "Twiddle",
+"layout": "normal",
+"mana_cost": "{U}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "You may tap or untap target artifact, creature, or land.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
+},
+{
+"name": "Rhino's Rampage",
+"layout": "normal",
+"mana_cost": "{R/G}",
+"cmc": 1.0,
+"type_line": "Sorcery",
+"oracle_text": "Target creature you control gets +1/+0 until end of turn. It fights target creature an opponent controls. When excess damage is dealt to the creature an opponent controls this way, destroy up to one target noncreature artifact with mana value 3 or less.",
+"colors": [
+"G",
+"R"
+],
+"color_identity": [
+"G",
+"R"
+],
+"keywords": [
+"Fight"
+]
+},
+{
+"name": "Sol Ring",
+"layout": "normal",
+"mana_cost": "{1}",
+"cmc": 1.0,
+"type_line": "Artifact",
+"oracle_text": "{T}: Add {C}{C}.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Hill Giant",
+"layout": "normal",
+"mana_cost": "{3}{R}",
+"cmc": 4.0,
+"type_line": "Creature — Giant",
+"oracle_text": "",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [],
+"power": "3",
+"toughness": "3"
+},
+{
+"name": "Gilded Lotus",
+"layout": "normal",
+"mana_cost": "{5}",
+"cmc": 5.0,
+"type_line": "Artifact",
+"oracle_text": "{T}: Add three mana of any one color.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Ornithopter",
+"layout": "normal",
+"mana_cost": "{0}",
+"cmc": 0.0,
+"type_line": "Artifact Creature — Thopter",
+"oracle_text": "Flying",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Flying"
+],
+"power": "0",
+"toughness": "2"
+},
+{
+"name": "Brilliance Unleashed",
+"layout": "normal",
+"mana_cost": "{4}{U}{R}",
+"cmc": 6.0,
+"type_line": "Sorcery",
+"oracle_text": "Choose one or both —\n• Brilliance Unleashed deals 5 damage to target creature.\n• Choose target artifact card in your graveyard. Return it to the battlefield if it's an artifact creature card. Otherwise, return it to the battlefield and it's a 3/3 Robot artifact creature with flying.",
+"colors": [
+"R",
+"U"
+],
+"color_identity": [
+"R",
+"U"
+],
+"keywords": []
+},
+{
+"name": "Deadly Cover-Up",
+"layout": "normal",
+"mana_cost": "{3}{B}{B}",
+"cmc": 5.0,
+"type_line": "Sorcery",
+"oracle_text": "As an additional cost to cast this spell, you may collect evidence 6.\nDestroy all creatures. If evidence was collected, exile a card from an opponent's graveyard. Then search its owner's graveyard, hand, and library for any number of cards with that name and exile them. That player shuffles, then draws a card for each card exiled from their hand this way.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Collect evidence"
+]
+},
+{
+"name": "Tidal Control",
+"layout": "normal",
+"mana_cost": "{1}{U}{U}",
+"cmc": 3.0,
+"type_line": "Enchantment",
+"oracle_text": "Cumulative upkeep {2} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nPay 2 life or {2}: Counter target red or green spell. Any player may activate this ability.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [
+"Cumulative upkeep"
+]
+},
+{
+"name": "Gurzigost",
+"layout": "normal",
+"mana_cost": "{3}{G}{G}",
+"cmc": 5.0,
+"type_line": "Creature — Beast",
+"oracle_text": "At the beginning of your upkeep, sacrifice this creature unless you put two cards from your graveyard on the bottom of your library.\n{G}{G}, Discard a card: You may have this creature assign its combat damage this turn as though it weren't blocked.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [],
+"power": "6",
+"toughness": "8"
+},
+{
+"name": "Wall of Fire",
+"layout": "normal",
+"mana_cost": "{1}{R}{R}",
+"cmc": 3.0,
+"type_line": "Creature — Wall",
+"oracle_text": "Defender (This creature can't attack.)\n{R}: This creature gets +1/+0 until end of turn.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [
+"Defender"
+],
+"power": "0",
+"toughness": "5"
+},
+{
+"name": "Darksteel Garrison",
+"layout": "normal",
+"mana_cost": "{2}",
+"cmc": 2.0,
+"type_line": "Artifact — Fortification",
+"oracle_text": "Fortified land has indestructible.\nWhenever fortified land becomes tapped, target creature gets +1/+1 until end of turn.\nFortify {3} ({3}: Attach to target land you control. Fortify only as a sorcery. This card enters unattached and stays on the battlefield if the land leaves.)",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Fortify"
+]
+},
+{
+"name": "Hunted by The Family",
+"layout": "normal",
+"mana_cost": "{5}{U}{U}",
+"cmc": 7.0,
+"type_line": "Sorcery",
+"oracle_text": "Choose up to four target creatures you don't control. For each of them, that creature's controller faces a villainous choice — That creature becomes a 1/1 white Human creature and loses all abilities, or you create a token that's a copy of it.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
+},
+{
+"name": "Booby Trap",
+"layout": "normal",
+"mana_cost": "{6}",
+"cmc": 6.0,
+"type_line": "Artifact",
+"oracle_text": "As this artifact enters, choose an opponent and a card name other than a basic land card name.\nThe chosen player reveals each card they draw.\nWhen the chosen player draws a card with the chosen name, sacrifice this artifact. If you do, this artifact deals 10 damage to that player.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Queen Kayla bin-Kroog",
+"layout": "normal",
+"mana_cost": "{1}{R}{W}",
+"cmc": 3.0,
+"type_line": "Legendary Creature — Human Noble",
+"oracle_text": "{4}, {T}: Discard all the cards in your hand, then draw that many cards. You may choose an artifact or creature card with mana value 1 you discarded this way, then do the same for artifact or creature cards with mana values 2 and 3. Return those cards to the battlefield. Activate only as a sorcery.",
+"colors": [
+"R",
+"W"
+],
+"color_identity": [
+"R",
+"W"
+],
+"keywords": [],
+"power": "2",
+"toughness": "3"
+},
+{
+"name": "Mind Stone",
+"layout": "normal",
+"mana_cost": "{2}",
+"cmc": 2.0,
+"type_line": "Artifact",
+"oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Primal Adversary",
+"layout": "normal",
+"mana_cost": "{2}{G}",
+"cmc": 3.0,
+"type_line": "Creature — Wolf",
+"oracle_text": "Trample\nWhen this creature enters, you may pay {1}{G} any number of times. When you pay this cost one or more times, put that many +1/+1 counters on this creature, then up to that many target lands you control become 3/3 Wolf creatures with haste that are still lands.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [
+"Trample"
+],
+"power": "4",
+"toughness": "3"
+},
+{
+"name": "Nethergoyf",
+"layout": "normal",
+"mana_cost": "{B}",
+"cmc": 1.0,
+"type_line": "Creature — Lhurgoyf",
+"oracle_text": "Nethergoyf's power is equal to the number of card types among cards in your graveyard and its toughness is equal to that number plus 1.\nEscape—{2}{B}, Exile any number of other cards from your graveyard with four or more card types among them. (You may cast this card from your graveyard for its escape cost.)",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Escape"
+],
+"power": "*",
+"toughness": "1+*"
+},
+{
+"name": "Lightning Bolt",
+"layout": "normal",
+"mana_cost": "{R}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "Lightning Bolt deals 3 damage to any target.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
+},
+{
+"name": "Ashiok, Nightmare Weaver",
+"layout": "normal",
+"mana_cost": "{1}{U}{B}",
+"cmc": 3.0,
+"type_line": "Legendary Planeswalker — Ashiok",
+"oracle_text": "+2: Exile the top three cards of target opponent's library.\n−X: Put a creature card with mana value X exiled with Ashiok onto the battlefield under your control. That creature is a Nightmare in addition to its other types.\n−10: Exile all cards from all opponents' hands and graveyards.",
+"colors": [
+"B",
+"U"
+],
+"color_identity": [
+"B",
+"U"
+],
+"keywords": [],
+"loyalty": "3"
+},
+{
+"name": "Endless Whispers",
+"layout": "normal",
+"mana_cost": "{2}{B}{B}",
+"cmc": 4.0,
+"type_line": "Enchantment",
+"oracle_text": "Each creature has \"When this creature dies, choose target opponent. That player puts this card from its owner's graveyard onto the battlefield under their control at the beginning of the next end step.\"",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
+},
+{
+"name": "Gandalf, Westward Voyager",
+"layout": "normal",
+"mana_cost": "{3}{G}{U}",
+"cmc": 5.0,
+"type_line": "Legendary Creature — Avatar Wizard",
+"oracle_text": "Whenever you cast a spell with mana value 5 or greater, each opponent reveals the top card of their library. If any of those cards shares a card type with that spell, copy that spell, you may choose new targets for the copy, and each opponent draws a card. Otherwise, you draw a card. (A copy of a permanent spell becomes a token.)",
+"colors": [
+"G",
+"U"
+],
+"color_identity": [
+"G",
+"U"
+],
+"keywords": [],
+"power": "5",
+"toughness": "5"
+},
+{
+"name": "Sphinx Ambassador",
+"layout": "normal",
+"mana_cost": "{5}{U}{U}",
+"cmc": 7.0,
+"type_line": "Creature — Sphinx",
+"oracle_text": "Flying\nWhenever this creature deals combat damage to a player, search that player's library for a card, then that player chooses a card name. If you searched for a creature card that doesn't have that name, you may put it onto the battlefield under your control. Then that player shuffles.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [
+"Flying"
+],
+"power": "5",
+"toughness": "5"
+},
+{
+"name": "Veiled Crocodile",
+"layout": "normal",
+"mana_cost": "{2}{U}",
+"cmc": 3.0,
+"type_line": "Enchantment",
+"oracle_text": "When a player has no cards in hand, if this permanent is an enchantment, it becomes a 4/4 Crocodile creature.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
+},
+{
+"name": "Test Teferi 110M",
+"layout": "normal",
+"mana_cost": "{2}{U}",
+"cmc": 3.0,
+"type_line": "Legendary Planeswalker — Teferi",
+"oracle_text": "−3: Tap any number of untapped creatures you control. When you do, shuffle target nonland permanent an opponent controls with mana value X or less into its owner's library, where X is the number of creatures tapped this way.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [],
+"loyalty": "5"
+},
+{
+"name": "Kylox, Visionary Inventor",
+"layout": "normal",
+"mana_cost": "{5}{U}{R}",
+"cmc": 7.0,
+"type_line": "Legendary Creature — Lizard Artificer",
+"oracle_text": "Menace, ward {2}, haste\nWhenever Kylox attacks, sacrifice any number of other creatures, then exile the top X cards of your library, where X is their total power. You may cast any number of instant and/or sorcery spells from among the exiled cards without paying their mana costs.",
+"colors": [
+"R",
+"U"
+],
+"color_identity": [
+"R",
+"U"
+],
+"keywords": [
+"Haste",
+"Menace",
+"Ward"
+],
+"power": "4",
+"toughness": "4"
+},
+{
+"name": "March from Velis Vel",
+"layout": "normal",
+"mana_cost": "{2}{U}",
+"cmc": 3.0,
+"type_line": "Sorcery",
+"oracle_text": "Choose a nonbasic land type. Each land you control of that type becomes a copy of target creature you control until end of turn and gains haste until end of turn.\nFlashback {4}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [
+"Flashback"
+]
+},
+{
+"name": "Desert",
+"layout": "normal",
+"mana_cost": "",
+"cmc": 0.0,
+"type_line": "Land — Desert",
+"oracle_text": "{T}: Add {C}.\n{T}: This land deals 1 damage to target attacking creature. Activate only during the end of combat step.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Command Tower",
+"layout": "normal",
+"mana_cost": "",
+"cmc": 0.0,
+"type_line": "Land",
+"oracle_text": "{T}: Add one mana of any color in your commander's color identity.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Maze of Ith",
+"layout": "normal",
+"mana_cost": "",
+"cmc": 0.0,
+"type_line": "Land",
+"oracle_text": "{T}: Untap target attacking creature. Prevent all combat damage that would be dealt to and dealt by that creature this turn.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Desdemona, Freedom's Edge",
+"layout": "normal",
+"mana_cost": "{2}{R}{W}",
+"cmc": 4.0,
+"type_line": "Legendary Creature — Human Rogue",
+"oracle_text": "Vigilance\nWhenever Desdemona attacks, target creature card in your graveyard that's an artifact or that has mana value 3 or less gains escape until end of turn. The escape cost is equal to its mana cost plus exile two other cards from your graveyard. (You may cast it from your graveyard for its escape cost this turn.)",
+"colors": [
+"R",
+"W"
+],
+"color_identity": [
+"R",
+"W"
+],
+"keywords": [
+"Vigilance"
+],
+"power": "3",
+"toughness": "4"
+},
+{
+"name": "Solemn Simulacrum",
+"layout": "normal",
+"mana_cost": "{4}",
+"cmc": 4.0,
+"type_line": "Artifact Creature — Golem",
+"oracle_text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
+"colors": [],
+"color_identity": [],
+"keywords": [],
+"power": "2",
+"toughness": "2"
+},
+{
+"name": "Rip, Spawn Hunter",
+"layout": "normal",
+"mana_cost": "{2}{G}{W}",
+"cmc": 4.0,
+"type_line": "Legendary Creature — Human Survivor",
+"oracle_text": "Survival — At the beginning of your second main phase, if Rip is tapped, reveal the top X cards of your library, where X is its power. Put any number of creature and/or Vehicle cards with different powers from among them into your hand. Put the rest on the bottom of your library in a random order.",
+"colors": [
+"G",
+"W"
+],
+"color_identity": [
+"G",
+"W"
+],
+"keywords": [
+"Survival"
+],
+"power": "4",
+"toughness": "4"
+},
+{
+"name": "Hurkyl, Master Wizard",
+"layout": "normal",
+"mana_cost": "{1}{U}{U}",
+"cmc": 3.0,
+"type_line": "Legendary Creature — Human Wizard Advisor",
+"oracle_text": "At the beginning of your end step, if you've cast a noncreature spell this turn, reveal the top five cards of your library. For each card type among noncreature spells you've cast this turn, you may put a card of that type from among the revealed cards into your hand. Put the rest on the bottom of your library in a random order.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [],
+"power": "2",
+"toughness": "4"
+},
+{
+"name": "Opt",
+"layout": "normal",
+"mana_cost": "{U}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [
+"Scry"
+]
+},
+{
+"name": "Centaur of Attention",
+"layout": "normal",
+"mana_cost": "{3}{G}{G}",
+"cmc": 5.0,
+"type_line": "Creature — Centaur Performer",
+"oracle_text": "When this creature enters, roll five six-sided dice and store those results on it.\nAt the beginning of combat on your turn, you may reroll any number of this creature's stored results.\nThis creature gets +X/+X, where X is the greatest number of stored results on it of the same value.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [],
+"power": "3",
+"toughness": "3"
+},
+{
+"name": "Golgothian Sylex",
+"layout": "normal",
+"mana_cost": "{4}",
+"cmc": 4.0,
+"type_line": "Artifact",
+"oracle_text": "{1}, {T}: Each nontoken permanent with a name originally printed in the Antiquities expansion is sacrificed by its controller.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Millstone",
+"layout": "normal",
+"mana_cost": "{2}",
+"cmc": 2.0,
+"type_line": "Artifact",
+"oracle_text": "{2}, {T}: Target player mills two cards.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Atog",
+"layout": "normal",
+"mana_cost": "{1}{R}",
+"cmc": 2.0,
+"type_line": "Creature — Atog",
+"oracle_text": "Sacrifice an artifact: Atog gets +2/+2 until end of turn.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [],
+"power": "1",
+"toughness": "2"
+},
+{
+"name": "Marshland Bloodcaster",
+"layout": "normal",
+"mana_cost": "{4}{B}",
+"cmc": 5.0,
+"type_line": "Creature — Vampire Warlock",
+"oracle_text": "Flying\n{1}{B}, {T}: Rather than pay the mana cost of the next spell you cast this turn, you may pay life equal to that spell's mana value.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Flying"
+],
+"power": "3",
+"toughness": "5"
+},
+{
+"name": "Firesong and Sunspeaker",
+"layout": "normal",
+"mana_cost": "{4}{R}{W}",
+"cmc": 6.0,
+"type_line": "Legendary Creature — Minotaur Cleric",
+"oracle_text": "Red instant and sorcery spells you control have lifelink.\nWhenever a white instant or sorcery spell causes you to gain life, Firesong and Sunspeaker deals 3 damage to target creature or player.",
+"colors": [
+"R",
+"W"
+],
+"color_identity": [
+"R",
+"W"
+],
+"keywords": [],
+"power": "4",
+"toughness": "6"
+},
+{
+"name": "Revitalize",
+"layout": "normal",
+"mana_cost": "{1}{W}",
+"cmc": 2.0,
+"type_line": "Instant",
+"oracle_text": "You gain 3 life.\nDraw a card.",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": []
+},
+{
+"name": "Lightning Helix",
+"layout": "normal",
+"mana_cost": "{R}{W}",
+"cmc": 2.0,
+"type_line": "Instant",
+"oracle_text": "Lightning Helix deals 3 damage to any target and you gain 3 life.",
+"colors": [
+"R",
+"W"
+],
+"color_identity": [
+"R",
+"W"
+],
+"keywords": []
+},
+{
+"name": "Nihiloor",
+"layout": "normal",
+"mana_cost": "{2}{W}{U}{B}",
+"cmc": 5.0,
+"type_line": "Legendary Creature — Horror",
+"oracle_text": "When Nihiloor enters, for each opponent, tap up to one untapped creature you control. When you do, gain control of target creature that player controls with power less than or equal to the tapped creature's power for as long as you control Nihiloor.\nWhenever you attack with a creature an opponent owns, you gain 2 life and that player loses 2 life.",
+"colors": [
+"B",
+"U",
+"W"
+],
+"color_identity": [
+"B",
+"U",
+"W"
+],
+"keywords": [],
+"power": "3",
+"toughness": "5"
 }
 ]

@@ -47,6 +47,7 @@ _LEGACY_TARGETS = {
     # -- target forms (agent T) --  a player, or any planeswalker (whoever controls it)
     "target player or planeswalker": "player_or_planeswalker", "target opponent or planeswalker": "opponent_or_planeswalker",
     "target player or battle": "player_or_battle", "target opponent or battle": "opponent_or_battle",  # (wave 42D: Onakke Javelineer, Ayara)
+    "target creature or player": "creature_or_player",  # (wave 110M) Firesong and Sunspeaker: a creature or a player, no planeswalker or battle
     "target permanent or player": "permanent_or_player",  # -- counter kinds (wave 24C) -- a permanent, or a player (115.1)
 }
 # -- activated other (wave 21E) -- "Choose target opponent who has more life than you do as you activate this ability.": the
@@ -413,6 +414,8 @@ def _stat(phrase: str, its: str = "it") -> Any:
         return {"plus": [_stat(m["v"], its), values.parse_amount(m["n"])]}  # -- block events (wave 53C) -- Sentinel: "1 plus the power of target creature blocking or blocked by ~"
     if (m := re.fullmatch(r"(?P<v>the (?:power|toughness|mana value) of target .+) minus (?P<n>\d+|one|two|three)", phrase)) is not None:
         return {"minus": [_stat(m["v"], its), values.parse_amount(m["n"])]}  # (Sworn Defender: "the toughness of target creature … minus 1", 107.1b: no less than 0)
+    if phrase == "the station value of the creature tapped this way":  # -- station (wave 110E) -- 702.184a: its power, or its toughness when a static says so (702.184c)
+        return {"station110e": "cost:tapped"}
     if (m := re.fullmatch(r"the (?P<stat>power|toughness|mana value) of the creature tapped this way", phrase)) is not None:
         return {_STATS[m["stat"]]: "cost:tapped"}  # -- activated sweep (wave 26C) -- the one creature a cost tapped (an activated ability only: scripts.define checks)
     if (m := re.fullmatch(r"the revealed card's (?P<stat>power|toughness|mana value)", phrase)) is not None:
@@ -686,7 +689,7 @@ def _rider_value(phrase: str) -> Any:
     if phrase in ("of its colors", "of that spell's colors"):  # -- value grammar (wave 23C) -- "for each of its colors": how many colors the object is (105.1)
         return {"colors": "that_spell" if "spell" in phrase else "it"}
     if phrase in ("the number of colors that spell is", "the number of colors it is") or re.fullmatch(
-            r"the (?:power|toughness|mana value) of the creature that died|the (?:power|toughness) of the creature tapped this way|"
+            r"the (?:power|toughness|mana value) of the creature that died|the (?:power|toughness|station value) of the creature tapped this way|"
             r"the (?:power|toughness|mana value) of the (?:card|creature|permanent|artifact|enchantment|land|creature card) (?:exiled|returned|milled|destroyed) this way", phrase) or re.fullmatch(
             r"(?:two|three|four) times (?:its|~'s|this creature's|that creature's) (?:power|toughness|mana value)", phrase):  # -- value grammar (wave 23C) -- 105.1
         return _stat(phrase)

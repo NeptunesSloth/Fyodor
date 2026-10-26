@@ -13,16 +13,86 @@ MONOLITH = ('{T}: Until end of turn, target creature gains "Whenever this creatu
 
 
 ZHALFIR = "I, II — Another target nonland permanent phases out. It can't phase in for as long as you control this Saga."
+PARK = "I — For each opponent, up to one target noncreature artifact they control becomes a 0/4 Wall artifact creature with defender for as long as you control this Saga."
+PURSUIT = ("When this enchantment enters, suspect target creature an opponent controls. As long as this enchantment remains on the battlefield, "
+            "that creature is also goaded.")
+PURSUIT2 = ("At the beginning of combat on your turn, if two or more players have lost the game, gain control of all goaded and/or suspected "
+             "creatures until end of turn. Untap them. They gain haste until end of turn.")
+OBLIG = ("Return target creature card from an opponent's graveyard to the battlefield under their control with a duty counter on it. For as long as that "
+         "creature has a duty counter on it, it is goaded, can't attack you or a permanent you control, and can't block creatures you control.")
+RAVAGER = ("Whenever this creature transforms into Ravager of the Fells, it deals 2 damage to target opponent or planeswalker and 2 damage to up to one "
+           "target creature that player or that planeswalker's controller controls.")
+WALL = ("You may have this creature enter as a copy of any creature on the battlefield, except it's a Wall in addition to its other types and has defender. "
+        "When you do, tap the copied creature and it doesn't untap during its controller's untap step for as long as you control this creature.")
+ULTIMA = ("Whenever Ultima attacks, put a blight counter on target land. For as long as that land has a blight counter on it, it loses all land types and "
+          'abilities and has "{T}: Add {C}."')
+SYMPOSIUM = "Target player creates a token that's a copy of target creature you control."
+NUKA = ("Whenever equipped creature attacks, until the end of defending player's next turn, that player gets two rad counters whenever they cast a spell.")
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import events, scripts
 
+    if ability.text == PURSUIT:  # Hot Pursuit: 701.60a suspect, 611.2b goaded (by its controller, 701.15a) while the Enchantment stays
+        d = scripts.define(replace(ability, text=PURSUIT.split(" As long")[0]), ch)
+        if d is not None:
+            d["effects"] += [{"do": "goad_while110i", "who": "target"}]
+        return d
+    if ability.text == PURSUIT2:  # 603.4 intervening if (checked again as it resolves); 800.4a lost players are the ones out of the game
+        d = scripts.define(replace(ability, text=PURSUIT2.replace("if two or more players have lost the game, ", "").replace("goaded and/or suspected", "goaded")), ch)
+        if d is not None:
+            two_lost = {"value": {"players_lost": 1}, "op": ">=", "n": 2}
+            d["effects"] = [{"do": "only_if", "cond": two_lost, "skip": len(d["effects"])},
+                            {**d["effects"][0], "who": d["effects"][0]["who"].replace('"goaded"', '"goaded_or_suspected"')}, *d["effects"][1:]]
+            d["if"] = two_lost
+        return d
+    if ability.kind == "spell" and ability.text.split(" (")[0] == OBLIG:  # 611.2b: all three last while it has a duty counter; "you" is the spell's controller
+        from app.rules import selectors
+
+        d = scripts.define(replace(ability, text="Return target creature card from an opponent's graveyard to the battlefield under its owner's control "
+                                                 "with a duty counter on it."), ch)
+        if d is not None:
+            mine = selectors.Selector(types=("Creature",), controller="player:@you").key()
+            d["effects"][0]["as"] = "duty110d"  # (400.7: "that creature" is the new object)
+            d["effects"] += [{"do": "until", "duration": "while_counter:duty", "n": 3}, {"do": "goad", "who": "ref:duty110d"},
+                             {"do": "restrict", "who": "ref:duty110d", "rules": ["cant_attack_player_pw:@you"], "locked": True},
+                             {"do": "restrict", "who": "ref:duty110d", "rules": ["cant_block_sel:" + mine], "locked": True}]
+        return d
+    if ability.text == RAVAGER:  # 115.1, 120.3: "that player" is the opponent, or the controller of the planeswalker, the first target names (player_relative)
+        d = scripts.define(replace(ability, text=RAVAGER.replace("that player or that planeswalker's controller", "that player")), ch)
+        if d is not None:
+            d["targets"][1] = {**d["targets"][1], "of": 0}  # (as multi100n._blaze: the second group is relative to the first target's player)
+        return d
+    if ability.text == PARK:  # per_opponent.py reads "that player controls" (115.1: one group per opponent); 611.2b duration
+        return scripts.define(replace(ability, text=PARK.replace(" they control", " that player controls").replace("this Saga", "~")), ch)
     if ability.text == ZHALFIR:  # 702.26a, 610.3: phased out, held out for as long as its controller controls the Saga
         d = scripts.define(replace(ability, text="I, II — Another target nonland permanent phases out."), ch)
         if d is not None:
             d["effects"] = [{"do": "phase_hold110d", "who": "target"}]
+        return d
+    if ability.text == WALL:  # 707.5 enters as a copy; 603.12 the reflexive trigger (on the copied creature) is queued by :func:`wall_entered`
+        d = scripts.define(replace(ability, text=WALL.split(" When you do")[0]), ch)
+        parsed = scripts.parse_effects("Tap target creature. It doesn't untap during its controller's untap step for as long as you control ~.")
+        if d is not None and parsed is not None:
+            d["reflex110d"] = [{**x, "who": "event"} if x.get("who") == "target" else x for x in parsed[0]]
+        return d
+    if ability.text == ULTIMA:  # 305.7 (no land types), 613.1f; lasts while the land has a blight counter (611.2b-style until-wrapper)
+        d = scripts.define(replace(ability, text=ULTIMA.split(" and abilities and")[0].replace("land types", "abilities").replace("Ultima", "~") + "."), ch)
+        if d is not None:
+            d["effects"] = [{**x, "no_land_types110d": True, "abilities": ["{T}: Add {C}."]} if x.get("do") == "become" else x for x in d["effects"]]
+        return d
+    if ability.kind == "spell" and ability.text == SYMPOSIUM:  # 111.2 the token's creator is the target player; 707.2 it copies the creature (two target groups, 115.1)
+        d = scripts.define(replace(ability, text="Create a token that's a copy of target creature you control."), ch)
+        if d is not None:
+            d["effects"] = [{**d["effects"][0], "who": "target:1", "creator": "target:0"}]
+            d.update(target=None, targets=[{"what": "player", "min": 1, "max": 1}, {**d["target"], "min": 1, "max": 1}])
+        return d
+    if ability.text == NUKA:  # 603.7 a turn-long watch of the defending player's casts (508.5), ending in the cleanup of THEIR next turn (514.2)
+        d = scripts.define(replace(ability, text="Whenever equipped creature attacks, until your next turn, whenever an opponent casts a spell, they get two rad counters."), ch)
+        if d is not None and d["effects"][0].get("do") == "delayed":
+            first = {k: v for k, v in d["effects"][0].items() if k != "next_turn"}
+            d["effects"][0] = {**first, "end_of_next_turn": True, "player_ref110d": "defending_player"}
         return d
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
@@ -128,3 +198,20 @@ def modal_lines(lines: list[Any]) -> list[Any]:
         return lines
     return [replace(lines[0], text="Choose up to two —"),
             *(replace(x, text=x.text[:-1].replace("• Target ", "• Return target ") + " from your graveyard to your hand.") for x in lines[1:])]
+
+
+def wall_entered(plan: Any, card: Any, new_oid: str) -> None:
+    """Wall of Stolen Identity: 603.12 "When you do" (it entered as a copy of a creature): the reflexive ability is about that creature (the copy's source)."""
+    from app.game.rules_state import ObjectRef, TriggerEvent
+    from app.rules import copying, trigger_multipliers, triggers
+
+    d = copying.enter_definition(plan, card)
+    if d is None or not d.get("reflex110d"):
+        return
+    eff = copying._entering_effect(plan, card)
+    src = eff.copy_entry_source if eff is not None else None
+    if src is None or (c := plan.state.cards.get(src.card)) is None or not c.zone.endswith(":battlefield") or plan.oid(c) != src.object_id:
+        return
+    triggers._add(plan, controller=card.controller, source_card=card.id, source_object=new_oid, name=card.name, index=trigger_multipliers.REFLEXIVE,
+                  definition={"kind": "triggered", "trigger": "reflexive", "effects": d["reflex110d"], "optional": False},
+                  event=TriggerEvent(kind="reflexive", objects=[ObjectRef(card=src.card, object_id=src.object_id, zone=c.zone)], count=1))

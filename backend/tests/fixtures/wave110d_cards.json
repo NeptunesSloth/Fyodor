@@ -6708,29 +6708,163 @@
 "keywords": []
 },
 {
- "name": "Sword of Kaldra",
- "layout": "normal",
- "mana_cost": "{4}",
- "cmc": 4.0,
- "type_line": "Legendary Artifact — Equipment",
- "oracle_text": "Equipped creature gets +5/+5.\nWhenever equipped creature deals damage to a creature, exile that creature. (Exile it only if it's still on the battlefield.)\nEquip {4} ({4}: Attach to target creature you control. Equip only as a sorcery.)",
- "colors": [],
- "color_identity": [],
- "keywords": [
-  "Equip"
- ]
+"name": "Sword of Kaldra",
+"layout": "normal",
+"mana_cost": "{4}",
+"cmc": 4.0,
+"type_line": "Legendary Artifact — Equipment",
+"oracle_text": "Equipped creature gets +5/+5.\nWhenever equipped creature deals damage to a creature, exile that creature. (Exile it only if it's still on the battlefield.)\nEquip {4} ({4}: Attach to target creature you control. Equip only as a sorcery.)",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Equip"
+]
 },
 {
- "name": "Shield of Kaldra",
- "layout": "normal",
- "mana_cost": "{4}",
- "cmc": 4.0,
- "type_line": "Legendary Artifact — Equipment",
- "oracle_text": "Equipment named Sword of Kaldra, Shield of Kaldra, and Helm of Kaldra have indestructible.\nEquipped creature has indestructible. (Damage and effects that say \"destroy\" don't destroy it.)\nEquip {4}",
- "colors": [],
- "color_identity": [],
- "keywords": [
-  "Equip"
- ]
+"name": "Shield of Kaldra",
+"layout": "normal",
+"mana_cost": "{4}",
+"cmc": 4.0,
+"type_line": "Legendary Artifact — Equipment",
+"oracle_text": "Equipment named Sword of Kaldra, Shield of Kaldra, and Helm of Kaldra have indestructible.\nEquipped creature has indestructible. (Damage and effects that say \"destroy\" don't destroy it.)\nEquip {4}",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Equip"
+]
+},
+{
+"name": "Aphetto Runecaster",
+"layout": "normal",
+"mana_cost": "{3}{U}",
+"cmc": 4.0,
+"type_line": "Creature — Human Wizard",
+"oracle_text": "Whenever a permanent is turned face up, you may draw a card.",
+"power": "2",
+"toughness": "3",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
+},
+{
+"name": "Forge Devil",
+"layout": "normal",
+"mana_cost": "{R}",
+"cmc": 1.0,
+"type_line": "Creature — Devil",
+"oracle_text": "When this creature enters, it deals 1 damage to target creature and 1 damage to you.",
+"power": "1",
+"toughness": "1",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
+},
+{
+"name": "Rakdos Firewheeler",
+"layout": "normal",
+"mana_cost": "{B}{B}{R}{R}",
+"cmc": 4.0,
+"type_line": "Creature — Human Rogue",
+"oracle_text": "When this creature enters, it deals 2 damage to target opponent and 2 damage to up to one target creature or planeswalker.",
+"power": "4",
+"toughness": "3",
+"colors": [
+"B",
+"R"
+],
+"color_identity": [
+"B",
+"R"
+],
+"keywords": []
+},
+{
+"name": "The War Doctor",
+"layout": "normal",
+"mana_cost": "{2}{R}{W}",
+"cmc": 4.0,
+"type_line": "Legendary Creature — Time Lord Doctor",
+"oracle_text": "Whenever one or more other permanents phase out and whenever one or more other cards are put into exile from anywhere, put a time counter on The War Doctor.\nWhenever The War Doctor attacks, it deals damage equal to the number of time counters on it to any target. If a creature dealt damage this way would die this turn, exile it instead.",
+"power": "3",
+"toughness": "5",
+"colors": [
+"R",
+"W"
+],
+"color_identity": [
+"R",
+"W"
+],
+"keywords": []
+},
+{
+"name": "Wall of Stolen Identity",
+"layout": "normal",
+"mana_cost": "{3}{U}",
+"cmc": 4.0,
+"type_line": "Creature — Shapeshifter Wall",
+"oracle_text": "You may have this creature enter as a copy of any creature on the battlefield, except it's a Wall in addition to its other types and has defender. When you do, tap the copied creature and it doesn't untap during its controller's untap step for as long as you control this creature.",
+"power": "0",
+"toughness": "0",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
+},
+{
+"name": "Ultima, Origin of Oblivion",
+"layout": "normal",
+"mana_cost": "{5}",
+"cmc": 5.0,
+"type_line": "Legendary Creature — God",
+"oracle_text": "Flying\nWhenever Ultima attacks, put a blight counter on target land. For as long as that land has a blight counter on it, it loses all land types and abilities and has \"{T}: Add {C}.\"\nWhenever you tap a land for {C}, add an additional {C}.",
+"power": "4",
+"toughness": "4",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Flying"
+]
+},
+{
+"name": "Echocasting Symposium",
+"layout": "normal",
+"mana_cost": "{4}{U}{U}",
+"cmc": 6.0,
+"type_line": "Sorcery — Lesson",
+"oracle_text": "Target player creates a token that's a copy of target creature you control.\nParadigm (Then exile this spell. After you first resolve a spell with this name, you may cast a copy of it from exile without paying its mana cost at the beginning of each of your first main phases.)",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [
+"Paradigm"
+]
+},
+{
+"name": "Nuka-Nuke Launcher",
+"layout": "normal",
+"mana_cost": "{2}",
+"cmc": 2.0,
+"type_line": "Artifact — Equipment",
+"oracle_text": "Equipped creature gets +3/+0 and has intimidate. (It can't be blocked except by artifact creatures and/or creatures that share a color with it.)\nWhenever equipped creature attacks, until the end of defending player's next turn, that player gets two rad counters whenever they cast a spell.\nEquip {3}",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Equip"
+]
 }
 ]

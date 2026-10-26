@@ -63,7 +63,7 @@ class Plan:
     excluded: frozenset[str] = frozenset()
     # -- optional payments (wave 110C) -- the attacking creature of the trigger being resolved: a cost's "other than that creature" (selector not_event) excludes it
     cost_attacker: str | None = None
-    delegated110d: str | None = None  # the target an opponent picked for a spell (wave 110D, delegated_target_announcements)
+    delegated110d: str | dict[int, str] | None = None  # the target an opponent picked for a spell (wave 110D, delegated_target_announcements)
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
         self.state = state.model_copy(deep=True)
@@ -269,7 +269,7 @@ class Plan:
         out: dict[str, list[str]] = {}
         for cid in payload.get("card_ids") or []:
             card = self.state.cards.get(cid) if isinstance(cid, str) else None
-            if card is not None and card.zone.endswith(":battlefield"):
+            if card is not None and card.zone.endswith((":battlefield", ":graveyard")):  # (-- wave 110O -- a graveyard card's printed types: "a creature card left your graveyard")
                 out[cid] = sorted(self.ch(card).types)
         return out
 

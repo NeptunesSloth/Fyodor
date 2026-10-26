@@ -31,8 +31,14 @@ def split(body: str) -> tuple[str, dict[str, Any] | None]:
     return head, {"source_counters": m["counter"]}
 
 
+_MIRROR = "X is twice the mana value of that spell."  # -- cards (wave 110I) -- Reflecting Mirror: defined by the chosen target (107.3c)
+
+
 def spec(ability: AbilityText, name: str) -> dict[str, Any] | None:
     from app.rules import abilities_of
+
+    if ability.kind == "activated" and ability.text.endswith(_MIRROR) and ability.text.startswith("{X}"):
+        return {"twice_target_mv110i": True}
 
     if ability.kind == "activated" and (counter := counter_cost((ability.cost or "").replace(name, "~"))) is not None:
         return {"source_counters": counter}
@@ -45,7 +51,16 @@ def spec(ability: AbilityText, name: str) -> dict[str, Any] | None:
     return {**value, "borrowed_link_scope": scope} if value is not None and value.get('linked_mana_value') and scope else value
 
 
-def evaluate(plan: Plan, source: CardInstance, value: dict[str, Any]) -> int:
+def evaluate(plan: Plan, source: CardInstance, value: dict[str, Any], targets: list[str] | None = None) -> int:
+    if "twice_target_mv110i" in value:
+        from app.game.errors import ActionError
+
+        if targets is None:
+            return 0  # (can it be activated at all: the cheapest case, before a target is chosen)
+        spell = plan.state.cards.get((targets or [""])[0])
+        if spell is None or spell.zone != "stack":
+            raise ActionError("Choose the target spell first: X is twice its mana value")
+        return 2 * max(0, int(plan.ch(spell).mana_value))
     if "source_counters" in value:
         return max(0, source.counters.get(value["source_counters"], 0))
     from app.rules import exiled_with
