@@ -311,6 +311,9 @@ def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, playe
 # -- end activation costs (wave 4H) --
 
 
+_CARD_TYPES110M = frozenset({"Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"})  # 205.2a (wave 110M)
+
+
 def _names_fit(plan: Plan, comp: CostComponent, ids: list[str]) -> bool:
     """201.2a–b: nameless objects never qualify; split cards can have several names."""
     from app.rules.card_names import names_of
@@ -321,6 +324,8 @@ def _names_fit(plan: Plan, comp: CostComponent, ids: list[str]) -> bool:
         wave110d_costs,  # -- costs (wave 110D) -- groups that share a type / color / graveyard
     )
 
+    if comp.names == "types4_110m":  # -- (wave 110M) -- Nethergoyf: four or more card types among the cards exiled (205.2a)
+        return len({t for c in ids for t in plan.ch(plan.state.cards[c]).types if t in _CARD_TYPES110M}) >= 4
     if comp.names in wave110d_costs.GROUPS:
         return wave110d_costs.fit(plan, comp, ids)
     groups = [set(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
@@ -341,6 +346,8 @@ def _names_payable(plan: Plan, comp: CostComponent, ids: list[str], need: int) -
         return len(ids) >= need
     from app.rules import wave110d_costs  # -- costs (wave 110D) --
 
+    if comp.names == "types4_110m":  # -- (wave 110M) -- exiling every candidate gives the most card types
+        return len(ids) >= need and len({t for c in ids for t in plan.ch(plan.state.cards[c]).types if t in _CARD_TYPES110M}) >= 4
     if comp.names in wave110d_costs.GROUPS:
         return wave110d_costs.payable(plan, comp, ids, need)
     groups = [frozenset(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
@@ -623,7 +630,8 @@ def _choose_any(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | 
                  if comp.counter in (C.ANY_COUNTER, kind) and t not in used}
         usable = list(shown)
     if given is not None:
-        if len(set(given)) != len(given) or any(c not in usable for c in given) or (comp.more and len(given) < comp.amount):
+        if len(set(given)) != len(given) or any(c not in usable for c in given) or (comp.more and len(given) < comp.amount) \
+                or (comp.names and not _names_fit(plan, comp, list(given))):  # (wave 110M: a constraint on the whole group)
             raise ActionError(f"Choose from what can pay “{comp.text}”")
         used |= set(given)
         return list(given)

@@ -659,5 +659,39 @@
 ],
 "power": "4",
 "toughness": "3"
+},
+{
+"name": "Nethergoyf",
+"layout": "normal",
+"mana_cost": "{B}",
+"cmc": 1.0,
+"type_line": "Creature — Lhurgoyf",
+"oracle_text": "Nethergoyf's power is equal to the number of card types among cards in your graveyard and its toughness is equal to that number plus 1.\nEscape—{2}{B}, Exile any number of other cards from your graveyard with four or more card types among them. (You may cast this card from your graveyard for its escape cost.)",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Escape"
+],
+"power": "*",
+"toughness": "1+*"
+},
+{
+"name": "Lightning Bolt",
+"layout": "normal",
+"mana_cost": "{R}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "Lightning Bolt deals 3 damage to any target.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
 }
 ]

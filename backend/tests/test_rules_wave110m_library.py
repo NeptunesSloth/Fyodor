@@ -10,7 +10,6 @@ from __future__ import annotations
 import pytest
 
 from app.game.errors import ActionError
-
 from tests.wave36a_kit import ready, to_turn_of
 from tests.wave110m_kit import *
 
@@ -378,4 +377,41 @@ def test_primal_adversary_pays_n_times_for_n_counters_and_n_wolf_lands(cards, ti
     assert s.state.cards[adv.id].counters.get("+1/+1", 0) == times
     wolves = [x for x in lands if "Creature" in ch(s, x).types]
     assert len(wolves) == times and all(ch(s, x).pt == (3, 3) and "Land" in ch(s, x).types and "haste" in ch(s, x).keywords and "Wolf" in ch(s, x).subtypes for x in wolves)
+    check(s)
+
+
+# -- Nethergoyf ------------------------------------------------------------------------------------------------------------------------------
+GOYF = "Nethergoyf"
+test_goyf_full = full_test([GOYF])
+
+
+def goyf_table(cards):
+    names = [GOYF, "Grizzly Bears", "Llanowar Elves", "Sol Ring", "Mind Stone", "Lightning Bolt", "Forest"]
+    s = build(cards, names, forests=1)
+    for n in names:
+        act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"player": "p1", "zone": "graveyard"})
+    return s, {n: card_named(s, n).id for n in names}
+
+
+@pytest.mark.parametrize("pick,ok", [
+    (("Grizzly Bears", "Sol Ring", "Lightning Bolt", "Forest"), True),                    # creature, artifact, instant, land: four types
+    (("Grizzly Bears", "Llanowar Elves", "Sol Ring", "Mind Stone", "Lightning Bolt", "Forest"), True),   # more cards, still four or more types
+    (("Grizzly Bears", "Sol Ring", "Lightning Bolt"), False),                              # three types
+    (("Grizzly Bears", "Llanowar Elves", "Sol Ring", "Mind Stone"), False),                # four cards, two types
+])
+def test_nethergoyf_escape_exiles_any_number_of_cards_with_four_or_more_types_among_them(cards, pick, ok):
+    s, ids = goyf_table(cards)
+    fund(s, "{2}{B}")
+    cast = lambda: act(s, "p1", type="cast_spell", card_id=ids[GOYF], alt_cost=f"{ids[GOYF]}:1",  # noqa: E731
+                       cost_choices=[{"component": 0, "cards": [ids[n] for n in pick]}])
+    if not ok:
+        with pytest.raises(ActionError):
+            cast()
+        assert s.state.cards[ids[GOYF]].zone == "p1:graveyard"
+        return
+    cast()
+    answer(s)
+    assert s.state.cards[ids[GOYF]].zone == "p1:battlefield" and all(s.state.cards[ids[n]].zone == "p1:exile" for n in pick)
+    left = {t for n in ids if n != GOYF and s.state.cards[ids[n]].zone == "p1:graveyard" for t in ch(s, s.state.cards[ids[n]]).types}
+    assert ch(s, s.state.cards[ids[GOYF]]).pt == (len(left), len(left) + 1)
     check(s)
