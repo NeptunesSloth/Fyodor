@@ -2030,7 +2030,7 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
             snap = plan.rules.lki.get(ctx.get("source_object") or "") if cond["object"] == "self" else None
             snap = snap or next((x for x in reversed(plan.rules.lki.values()) if x.card == card.id), None)
             ids = list(snap.attached) if snap is not None else []
-        return any(plan.ch(plan.state.cards[i]).subtypes & set(cond["attached"]) for i in ids if i in plan.state.cards)
+        return sum(bool(plan.ch(plan.state.cards[i]).subtypes & set(cond["attached"])) for i in ids if i in plan.state.cards) >= cond.get("attached_n", 1)  # (wave 110G: "two or more Auras")
     if "level" in cond:  # -- Class (wave 16A) -- 716.2b, 716.2d: no level is level 1
         n = plan.rules.levels.get(plan.oid(card), 1)
         return n >= cond["level"] if cond["min"] else n == cond["level"]

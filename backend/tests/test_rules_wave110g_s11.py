@@ -31,9 +31,10 @@ EXTRA = [
     real("Test Employee", "{1}", 1, "Creature — Human Employee", "", ("1", "1")),
     real("Test Performer", "{1}", 1, "Creature — Human Performer", "", ("1", "1")),
     real("Test Robot", "{1}", 1, "Artifact Creature — Robot", "", ("1", "1")),
+    real("Mist of Stagnation", "{2}{U}{U}", 4, "Enchantment", "Permanents don't untap during their controllers' untap steps.\nAt the beginning of each player's upkeep, that player chooses a permanent for each card in their graveyard, then untaps those permanents.", None, "U"),
     real("Kicker Bear", "{1}{G}", 2, "Creature — Bear", "Kicker {1}", ("2", "2"), "G"),
 ]
-NAMES = ["Wicker Picker", "Done for the Day", "Ambassador Blorpityblorpboop"]
+NAMES = ["Wicker Picker", "Done for the Day", "Ambassador Blorpityblorpboop", "Mist of Stagnation"]
 LIST = [n["name"] for n in EXTRA] + ["Grizzly Bears", "Lightning Bolt"]
 
 
@@ -202,4 +203,29 @@ def test_ambassador_base_pt_from_sticker_totals(cards, accept):
     pick(s, ["yes" if accept else "no"])
     settle(s)
     assert chars(s, amb).pt == ((5, 1) if accept else (3, 3))
+    check(s)
+
+
+@pytest.mark.parametrize("dead", [0, 2])
+def test_mist_of_stagnation_untaps_one_permanent_per_graveyard_card(cards, dead):
+    """Permanents stay tapped (no untap step); at the owner's upkeep they untap as many chosen permanents as they have cards in their graveyard."""
+    s = setup(cards)
+    put(s, "Mist of Stagnation", "battlefield")
+    bears = [put(s, "Grizzly Bears", "battlefield") for _ in range(1)] + [put(s, "Test Employee", "battlefield"), put(s, "Test Robot", "battlefield")]
+    act(s, "p1", type="tap", card_ids=[b.id for b in bears])
+    gy = [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library"][:dead]
+    if gy:
+        act(s, "p1", type="move", card_ids=[c.id for c in gy], to={"player": "p1", "zone": "graveyard"})
+    for _ in range(80):
+        d = s.state.rules.decision
+        if d is not None or (s.state.turn.number == 3 and s.state.turn.phase == "main1"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    if not dead:
+        assert d is None and all(s.state.cards[b.id].tapped for b in bears)
+        return
+    assert d.player == "p1" and d.max_choices == 2 and "untap" in d.prompt
+    pick(s, [bears[0].id, bears[2].id])
+    settle(s)
+    assert [s.state.cards[b.id].tapped for b in bears] == [False, True, False]
     check(s)

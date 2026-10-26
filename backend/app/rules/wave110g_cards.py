@@ -500,7 +500,66 @@ def _done_for_the_day(d: Def) -> Def:
             "after": [{"do": "only_if", "cond": {"all": [_subtype_count(k) for k in kinds]}, "skip": 1}, put]}
 
 
+def _mist(d: Def) -> Def:
+    """Mist of Stagnation: choosing a permanent per graveyard card then untapping them = untapping up to that many tapped permanents (an untapped one gains nothing)."""
+    from app.rules import selectors
+
+    draw = d["effects"][0]
+    return {**d, "effects": [{"do": "untap_choice", "who": draw["who"], "n": draw["n"], "kind": "permanent", "sel": selectors.parse("permanent").key()}]}
+
+
+def _two_auras(d: Def) -> Def:
+    """Kitsune Mystic: "enchanted by two or more Auras" = two attached Auras (303.4)."""
+    cond = {**d["if"], "attached_n": 2}
+    return {**d, "if": cond, "effects": [{**e, "cond": cond} if e["do"] == "only_if" else e for e in d["effects"]]}
+
+
+def _reattach(d: Def) -> Def:
+    """Autumn-Tail: only the Aura is a target; the creature it moves to is chosen on resolution (115.1) among those it can legally enchant (701.3b)."""
+    return {**d, "effects": [{"do": "reattach110g", "src": "target:0"}], "targets": d["targets"][:1]}
+
+
+def reattach(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import attachments, effects
+
+    aura = next(iter(effects._cards(plan, ctx, e["src"])), None)
+    card = plan.state.cards.get(aura or "")
+    if card is None or not card.attached_to:
+        return True
+    old = card.attached_to
+    hosts = [h for h in attachments.legal_hosts(plan, card, ctx["controller"])
+             if h != old and h in plan.state.cards and plan.state.cards[h].zone.endswith(":battlefield") and plan.ch(plan.state.cards[h]).is_creature]
+    if len(hosts) <= 1:
+        return not hosts or _attach_to(plan, ctx, aura, hosts[0])
+    effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Aura'}: choose a creature to attach {card.name} to",
+                   options=[effects.DecisionOption(id=h, label=plan.state.cards[h].name or "Creature", card_id=h) for h in hosts],
+                   resume={"step": "reattach110g", "ctx": ctx, "aura": aura, "hosts": hosts})
+    return False
+
+
+def _attach_to(plan: Any, ctx: dict[str, Any], aura: str, host: str) -> bool:
+    from app.rules import attachments
+
+    attachments.attach(plan, aura, host, ctx["controller"])
+    return True
+
+
+def resume_reattach(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    if chosen[0] not in d.resume["hosts"]:
+        raise ValueError("not a candidate")
+    _attach_to(plan, d.resume["ctx"], d.resume["aura"], chosen[0])
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "At the beginning of the end step, if this creature is enchanted by two or more Auras, flip it.":
+        ("At the beginning of the end step, if this creature is enchanted, flip this creature.", _two_auras),
+    "{1}: Attach target Aura attached to a creature to another creature.":
+        ("{1}: Attach target Aura attached to a creature to target creature.", _reattach),
+    "At the beginning of each player's upkeep, that player chooses a permanent for each card in their graveyard, then untaps those permanents.":
+        ("At the beginning of each player's upkeep, that player draws a card for each card in their graveyard.", _mist),
     "At the beginning of your end step, if you control an Employee, a Performer, or a Robot, you may get {TK} or create a Treasure token. If you control all three, you may put a sticker on a nonland permanent you own.":
         ("At the beginning of your end step, if you control a Robot, you may get {TK}.", _done_for_the_day),
     "At the beginning of each combat, you may have Ambassador Blorpityblorpboop's base power become equal to the total power of all stickers on permanents you control and its base toughness become equal to those stickers' total toughness.":
@@ -894,7 +953,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
-RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
+RESUME: dict[str, Any] = {"reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
