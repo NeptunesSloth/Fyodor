@@ -852,6 +852,11 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
 
             if chosen.player_of(plan, watcher.id, source_oid) != player:
                 return False
+        if pw == "pair110a":  # -- chosen players (wave 110A) -- Sower of Discord: one of the two players the watcher chose as it entered
+            from app.rules import wave110a_pick
+
+            if player not in wave110a_pick.pair(plan, watcher.id):
+                return False
         if player is None or (pw == "you" and player != you) or (pw in ("opponent", "other") and player == you) \
                 or (pw == "enchanted" and player != watcher.attached_player):
             return False

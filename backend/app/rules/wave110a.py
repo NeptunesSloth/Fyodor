@@ -9,7 +9,7 @@ import re
 from collections.abc import Callable
 from typing import Any
 
-MODULES = ("wave110a_spells", "wave110a_choosers")
+MODULES = ("wave110a_spells", "wave110a_choosers", "wave110a_parade")
 Parsed = tuple[list[dict[str, Any]], Any, bool]
 
 
@@ -63,4 +63,11 @@ def primitives() -> dict[str, Any]:
     out: dict[str, Any] = {}
     for mod in _mods():
         out.update(getattr(mod, "PRIMITIVES", {}))
+    return out
+
+
+def resume() -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for mod in _mods():
+        out.update(getattr(mod, "RESUME", {}))
     return out

@@ -22,9 +22,13 @@ TEXTS = {"As ~ enters, choose another creature you control.": "other creature yo
          # -- enters attached (wave 110I) -- 303.4f / 301.5: chosen as it enters, so it enters attached to it
          "As ~ enters, choose a creature you control it could be attached to. If you do, it enters attached to that creature.": "creature you control"}
 LABEL = "Chosen creature"
+PAIR = "As ~ enters, choose two players."  # Sower of Discord: one answer "p1,p2", kept in chosen_objects[source] (public, 614.12a)
+PAIR_LABEL = "Chosen players"
 
 
 def definition(text: str) -> dict[str, Any] | None:
+    if text == PAIR:
+        return {"kind": "replacement", "replacement": "enters_choice", "effects": [{"do": "choose_value", "who": "you", "what": WHAT, "pick110a": "players2"}]}
     if (phrase := TEXTS.get(text)) is None:
         return None
     from app.rules import selectors
@@ -38,6 +42,10 @@ def definition(text: str) -> dict[str, Any] | None:
 def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]]:
     from app.rules import selectors
 
+    if choice["pick110a"] == "players2":
+        live = plan.live()
+        return (f"{plan.ch(card).name or card.name}: as it enters, choose two players",
+                [DecisionOption(id=f"{a},{b}", label=f"{plan.name(a)} and {plan.name(b)}") for i, a in enumerate(live) for b in live[i + 1:]])
     ids = selectors.candidates(plan, selectors.from_key(choice["pick110a"]), controller, card.id)
     if choice.get("attach110i"):  # "it could be attached to": a legal host (protection, Equipment rules)
         from app.rules import attachments
@@ -52,6 +60,11 @@ def record(plan: Plan, card_id: str, choices: dict[str, str] | None) -> None:
     if choices is None or WHAT not in choices:
         return
     value, rules = choices[WHAT], plan.rules
+    if "," in value:  # two players
+        rules.chosen_objects[card_id] = value
+        plan.do({"type": "set_choice", "card_id": card_id, "key": PAIR_LABEL, "value": " and ".join(plan.name(p) for p in value.split(","))},
+                actor=plan.state.cards[card_id].controller)
+        return
     if value in plan.state.cards:
         rules.chosen_objects[card_id] = plan.oid(plan.state.cards[value])
         plan.do({"type": "set_choice", "card_id": card_id, "key": LABEL, "value": plan.state.cards[value].name}, actor=plan.state.cards[card_id].controller)
@@ -66,3 +79,9 @@ def record(plan: Plan, card_id: str, choices: dict[str, str] | None) -> None:
 def is_picked(plan: Plan, card: CardInstance, source: str | None) -> bool:
     """Is ``card`` the permanent the source chose as it entered?"""
     return source is not None and card.zone.endswith(":battlefield") and plan.rules.chosen_objects.get(source) == plan.oid(card)
+
+
+def pair(plan: Plan, card_id: str) -> list[str]:
+    """The two players the source chose as it entered (none: it chose no players)."""
+    v = plan.rules.chosen_objects.get(card_id, "")
+    return v.split(",") if "," in v else []
