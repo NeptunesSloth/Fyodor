@@ -216,6 +216,23 @@ _BUILD["Whenever this creature attacks, if defending player has more cards in ha
     "remains exiled, and you may spend mana as though it were mana of any color to cast that spell.", _robber)
 
 
+def _missy_return(d: Def) -> Def:
+    """Missy: 708.2a, the creature returns face down as the 2/2 Cyberman artifact creature the effect says it is (characteristics.face_down_characteristics)."""
+    cards = [e for e in d["effects"] if e.get("do") == "return_card"]
+    if len(cards) != 1 or not (cards[0].get("tapped") and cards[0].get("under") == "you"):
+        return d
+    return {**d, "effects": [{**cards[0], "face_down": True, "spec": "2/2 Cyberman artifact creature"}]}
+
+
+_BUILD["Whenever another nonartifact creature dies, return it to the battlefield under your control face down and tapped. It's a 2/2 Cyberman artifact creature."] = (
+    "Whenever another nonartifact creature dies, return it to the battlefield under your control tapped.", _missy_return)
+# 311.7 / 701.31a: "chaos ensues" does nothing in a game without the planar die (Commander has none), as outside_game / voting treat it
+_BUILD["At the beginning of your end step, each opponent faces a villainous choice \u2014 Each artifact creature you control deals 1 damage to that opponent, or you draw a "
+       "card and chaos ensues."] = (
+    "At the beginning of your end step, each opponent faces a villainous choice \u2014 Each artifact creature you control deals 1 damage to that opponent, or you draw a card.",
+    lambda d: d)
+
+
 def _thief(d: Def) -> Def:
     """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
     from app.rules import scripts

@@ -76,5 +76,26 @@
    "Reach",
    "Haste"
   ]
+ },
+ {
+  "name": "Missy",
+  "layout": "normal",
+  "mana_cost": "{3}{U}{B}{R}",
+  "cmc": 6.0,
+  "type_line": "Legendary Creature — Time Lord Rogue",
+  "oracle_text": "Whenever another nonartifact creature dies, return it to the battlefield under your control face down and tapped. It's a 2/2 Cyberman artifact creature.\nAt the beginning of your end step, each opponent faces a villainous choice — Each artifact creature you control deals 1 damage to that opponent, or you draw a card and chaos ensues.",
+  "power": "4",
+  "toughness": "5",
+  "colors": [
+   "B",
+   "R",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "R",
+   "U"
+  ],
+  "keywords": []
  }
 ]
