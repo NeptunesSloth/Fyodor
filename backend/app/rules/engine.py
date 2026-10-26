@@ -321,7 +321,7 @@ def _until_met(plan: Plan, a: A.RepeatSequence) -> bool:
     if player is None:
         raise ActionError("Unknown player")
     if u.kind == "mana":
-        return sum(player.mana.values()) >= u.value
+        return sum(player.mana.values()) + len(player.mana_units) >= u.value  # (remembered mana is in the pool too)
     if u.kind == "tokens":
         return sum(c.quantity for c in state.cards.values()
                    if c.is_token and c.controller == pid and c.zone.endswith(":battlefield")) >= u.value

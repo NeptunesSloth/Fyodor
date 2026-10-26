@@ -12,6 +12,7 @@ import pytest
 from app.cards.importer import build_database
 from app.game.session import GameSession
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_attachments import ch
@@ -259,7 +260,7 @@ def test_omnath_reads_which_time_the_landfall_ability_resolves(cards):
     act(s, "p1", type="play_land", card_id=lands[1].id)
     settle(s)
     assert s.state.players["p1"].life == life + 4  # the second time: the mana, no life
-    assert {k: v for k, v in s.state.players["p1"].mana.items() if v} == {"R": 1, "G": 1, "W": 1, "U": 1}
+    assert {k: v for k, v in visible_pool(s.state, "p1").items() if v} == {"R": 1, "G": 1, "W": 1, "U": 1}
     act(s, "p1", type="play_land", card_id=lands[2].id)
     settle(s)
     assert s.state.players["p2"].life == opp - 4 and s.state.players["p1"].life == life + 4  # the third time: 4 damage
