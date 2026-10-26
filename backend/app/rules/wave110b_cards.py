@@ -111,6 +111,21 @@ def stolen_holds(plan: Any, ctx: dict[str, Any]) -> bool:
     return c.controller != c.owner
 
 
+def lolth_lost(plan: Any, ctx: dict[str, Any]) -> int:
+    """Life the damaged player (the event's player) has lost this turn, combat damage just dealt included (119.3)."""
+    from app.rules import history
+
+    return sum(history.log_for(plan).lost.get(p, 0) for p in ctx["event"]["players"])
+
+
+def lolth_loss(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Lolth's emblem: that player loses life equal to the difference between 8 and the life they have lost this turn (checked again as it resolves, 603.4)."""
+    from app.rules import effects
+
+    n = 8 - lolth_lost(plan, ctx)
+    return n <= 0 or effects.PRIMITIVES["lose_life"](plan, ctx, {"do": "lose_life", "who": "event_player", "n": n})
+
+
 def skyguard_holds(plan: Any, ctx: dict[str, Any]) -> bool:
     """Suppressor Skyguard: the attacking player (the active player, 508.1) has an opponent other than the Skyguard's controller who is not being
     attacked (508.3d: a player is attacked by a creature attacking them or a planeswalker or battle they control)."""
@@ -232,6 +247,10 @@ def _towershell(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Lolth's emblem (-8): 603.4 intervening "if" (conditions "lolth110b"), the loss is the difference to 8 (119.3: life lost counts all of this turn's)
+    "Whenever an opponent is dealt combat damage by one or more creatures you control, if that player lost less than 8 life this turn, they lose life equal to the difference.":
+        ("Whenever one or more creatures you control deal combat damage to an opponent, that player loses 1 life.",
+         lambda d: {**d, "if": {"lolth110b": True}, "effects": [{"do": "lolth_loss110b"}]}),
     # Ramses: 603.4 the intervening "if" is judged with the player who lost as the event player (history._attacked_by, 508.1); 104.3a / 800.4: you win
     "Whenever a player loses the game, if they were attacked this turn by an Assassin you controlled, you win the game.":
         ("Whenever a player loses the game, put five +1/+1 counters on ~.",
@@ -738,4 +757,4 @@ def mana_web(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+PRIMITIVES: dict[str, Any] = {"lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
