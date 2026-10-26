@@ -395,6 +395,10 @@ def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
         return plan.active == t.controller and (later_turn or same_turn_before)
     if whose in ("owner", "payer"):
         return plan.active == w.get("player") and (later_turn or same_turn_before)
+    if whose == "each110j":  # -- wave 110J -- Dimensional Breach: every player's upkeep, for as long as any of the exiled cards remain exiled (603.7b, 611.2b)
+        from app.rules import wave110j_cards
+
+        return (later_turn or same_turn_before) and wave110j_cards.breach_live(plan, t)
     return later_turn  # "the next turn's upkeep"
 
 

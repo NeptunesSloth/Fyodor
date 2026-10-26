@@ -89,6 +89,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (cap := _CAP.fullmatch(ability.text.strip())) is not None and ch.name.startswith(cap["name"]):  # (the short name)
         return {"kind": "static", "static": "counter_cap110j", "counter": cap["kind"], "n": _NUMS[cap["n"]], "effects": []}
+    if ability.text.strip() == _SPLICER:
+        return _splicer(ability, ch)
     if ability.text.strip() == _ES:
         return _shapeshifter()
     if (shuriken := _SHURIKEN.fullmatch(ability.text.strip())) is not None:
@@ -730,3 +732,113 @@ def _shuriken(oid: str | None, ability: Any, ch: Any) -> Def | None:
 _BUILD["Whenever a creature has four or more fuse counters on it, remove all fuse counters from it and destroy it. That creature deals 4 damage to its controller."] = (
     "Whenever a creature attacks, remove all fuse counters from it and destroy it. That creature deals 4 damage to its controller.",
     lambda d: {**d, "trigger": "state", "cond": None, "state": {"each110j": ["fuse", 4]}})
+
+
+# -- Temporal Aperture (wave 110J) -- after the shuffle and reveal: until end of turn, for as long as that card remains on top of the library (checked in
+# permissions.expire_source and grants), it is revealed to everyone (401.5, visibility.top_revealed) and its owner may play it free (118.9, X is 0: 107.3b)
+def aperture(plan: Any, ctx: Def, e: Def) -> bool:
+    import secrets
+
+    from app.game.rules_state import Permission
+    from app.game.state import zone_key
+
+    pid = ctx["controller"]
+    library = plan.state.zones.get(zone_key(pid, "library"), [])
+    if library:
+        top = library[0]
+        plan.rules.permissions.append(Permission(
+            id=secrets.token_hex(4), player=pid, play=True, cast=True, zone="library_top", object_id=plan.oid(plan.state.cards[top]), card=top, free=True,
+            top110j=True, turn=plan.state.turn.number, granted_step=plan.rules.step_serial, source=ctx.get("source_object"),
+            label=f"{ctx.get('name') or 'An effect'}: play it from the top of your library without paying its mana cost"))
+    return True
+
+
+PRIMITIVES["aperture110j"] = aperture
+_BUILD["{5}, {T}: Shuffle your library, then reveal the top card. Until end of turn, for as long as that card remains on top of your library, play with the top card of your library revealed and you may play that card without paying its mana cost."] = (
+    "{5}, {T}: Shuffle your library, then reveal the top card of your library.", lambda d: {**d, "effects": [*d["effects"], {"do": "aperture110j"}]})
+
+
+# -- Dimensional Breach (wave 110J) -- 603.7: the delayed ability at the beginning of each player's upkeep (it ends once none of the exiled cards remain exiled,
+# 611.2b); that player (the active player, 503.1) returns one of the exiled cards they own to the battlefield (their choice, 608.2d)
+_BREACH = ("Exile all permanents. For as long as any of those cards remain exiled, at the beginning of each player's upkeep, "
+           "that player returns one of the exiled cards they own to the battlefield.")
+
+
+def _breach_cards(plan: Any, cards: list[dict[str, str]]) -> list[str]:
+    return [c["card"] for c in cards if (card := plan.state.cards.get(c["card"])) is not None and card.zone.endswith(":exile") and plan.oid(card) == c["object"]]
+
+
+def breach_live(plan: Any, t: Any) -> bool:
+    return any(_breach_cards(plan, e["cards"]) for e in t.effects if e.get("do") == "breach_return110j")
+
+
+def breach_setup(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    import secrets
+
+    from app.game.rules_state import DelayedTrigger
+    from app.rules import context
+
+    name = next((k for k in (ctx.get("refs") or {}) if k.endswith("bx110j")), "")  # (the grammar prefixes binding names with their level: l0_bx110j)
+    cards = [{"card": c, "object": plan.oid(c)} for c in context.objects(plan, ctx, name) if plan.state.cards[c].zone.endswith(":exile")]
+    if cards:
+        plan.rules.delayed.append(DelayedTrigger(
+            id=secrets.token_hex(4), controller=ctx["controller"], source_card=ctx.get("source_card"), source_object=ctx.get("source_object"),
+            name=ctx.get("name") or "Dimensional Breach", when={"kind": "step", "step": "upkeep", "whose": "each110j"},
+            effects=[{"do": "breach_return110j", "cards": cards}], turn=plan.state.turn.number, step=plan.state.turn.phase,
+            created_step=plan.rules.step_serial, once=False))
+    return True
+
+
+def _breach_return(plan: Any, ctx: Any, card: str) -> None:
+    from app.rules import context, effects
+
+    context.bind_objects(plan, ctx, "pick110j", [card])
+    effects.PRIMITIVES["return_card"](plan, ctx, {"do": "return_card", "who": "ref:pick110j", "to": "battlefield", "tapped": False, "under": "owner"})
+
+
+def breach_return(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    who = plan.active
+    mine = [c for c in _breach_cards(plan, e["cards"]) if plan.state.cards[c].owner == who]
+    if len(mine) > 1:
+        decide(plan, player=who, kind="choose_cards", prompt="Return one of the exiled cards you own to the battlefield", min_choices=1, max_choices=1,
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "a card", card_id=c) for c in mine],
+               resume={"step": "breach110j", "ctx": ctx})
+        return False
+    if mine:
+        _breach_return(plan, ctx, mine[0])
+    return True
+
+
+def resume_breach(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    _breach_return(plan, d.resume["ctx"], chosen[0])
+    continue_effects(plan, d.resume["ctx"])
+
+
+PRIMITIVES.update({"breach_setup110j": breach_setup, "breach_return110j": breach_return})
+RESUME["breach110j"] = resume_breach
+_BUILD[_BREACH] = ("Exile all permanents.", lambda d: {**d, "effects": [{**d["effects"][0], "as": "bx110j"}, {"do": "breach_setup110j"}]})
+
+
+# -- Phyrexian Splicer (wave 110J) -- "Choose flying, first strike, trample, or shadow" is announced like the mode of a "choose one" ability (the choice comes before
+# the targets, which name "the chosen ability"): four modes, each with its two target groups (601.2b-c, 700.2)
+_SPLICER = ("{2}, {T}, Choose flying, first strike, trample, or shadow: Until end of turn, target creature with the chosen ability loses it and another "
+            "target creature gains it.")
+
+
+def _splicer(ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts
+
+    modes: list[Def] = []
+    for k, kw in enumerate(("flying", "first strike", "trample", "shadow")):
+        text = f"Target creature with {kw} loses {kw} until end of turn. Another target creature gains {kw} until end of turn."
+        one = scripts.define(replace(ability, text="{2}, {T}: " + text, cost="{2}, {T}"), ch)
+        if one is None or not one.get("targets"):
+            return None
+        modes.append({"text": text, "effects": scripts.rename_bindings(one["effects"], f"m{k}_"), "target": None, "groups": one["targets"]})
+    return {"kind": "activated", "cost": "{2}, {T}", "effects": [], "target": None, "optional": False, "modes": modes,
+            "modal": {"min": 1, "max": 1, "repeat": False, "condition": None, "memory": None, "index": ability.index, "form": "activated"}}

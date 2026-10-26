@@ -1434,7 +1434,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             if not conditions.holds(layer_view(state, info), {"controller": player, "source_object": p.source, "source_card": card.id}, p.when):
                 continue
         if p.object_id is not None:
-            if p.object_id != oid:
+            if p.object_id != oid or (p.top110j and where != "library_top"):  # (-- wave 110J -- Temporal Aperture: only while it is the top card)
                 continue  # a new object since (400.7): the permission was for the one it was
         elif p.zone != "any" and p.zone != where and not (
                 p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)):
@@ -2088,9 +2088,15 @@ def source_holds(state: GameState, p: Permission) -> bool:
             and (p.until != "source_controlled" or card.controller == p.player))
 
 
+def _on_top(plan: Plan, p: Permission) -> bool:
+    card = plan.state.cards.get(p.card or "")
+    return card is not None and (plan.state.zones.get(card.zone) or [""])[0] == card.id and card.zone.endswith(":library")
+
+
 def expire_source(plan: Plan) -> None:
     """-- durations (wave 30M) -- the stored permissions whose "for as long as …" is over are gone (called with the other checks: delayed.expire)."""
     r = plan.rules
+    r.permissions = [p for p in r.permissions if not p.top110j or _on_top(plan, p)]  # -- wave 110J -- "for as long as that card remains on top": once it isn't, it's over for good
     if any(p.until in SOURCE_UNTIL for p in r.permissions):
         r.permissions = [p for p in r.permissions if p.until not in SOURCE_UNTIL or source_holds(plan.state, p)]
 

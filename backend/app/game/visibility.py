@@ -114,6 +114,8 @@ def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
         for p in rules.permissions
     ):
         return True
+    if any(p.top110j and p.card == card.id for p in rules.permissions):  # -- wave 110J -- Temporal Aperture: "play with the top card of your library revealed" (401.5)
+        return True
     for reveal in rules.top_reveals:
         source = state.cards.get(reveal.source)
         if source is None or source.face_down or not source.zone.endswith(":battlefield") \

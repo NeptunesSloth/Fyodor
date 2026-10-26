@@ -1227,6 +1227,7 @@ class Permission(BaseModel):
     object_id: str | None = None
     card: str | None = None
     look_top: bool = False  # Source-independent private top look for this stored library-top authority.
+    top110j: bool = False  # -- wave 110J -- Temporal Aperture: only while ``card`` stays on top of its library, which is then revealed to everyone (401.5)
     stop_on_linked_exile: str | None = None  # Source-object/link scope: expires when this permission holder next exiles a card with it.
     filter: str | None = None  # a selector key the spell must match ("creature spells")
     card_filter: str | None = None  # Current card eligibility, applied to both land plays and spell casts.

@@ -900,7 +900,8 @@ def modal_groups(definition: dict[str, Any], picked: list[int]) -> list[dict[str
         base = len(out)  # (-- shuffle target cards (wave 46B) -- a mode's "graveyard_of" names a group of its own, numbered from its first)
         out += [{**g, "graveyard_of": g["graveyard_of"] + base} if g.get("graveyard_of") is not None else
                 {**g, "of": g["of"] + base} if g.get("of") is not None else g  # (-- player-relative selectors (wave 53A) --)
-                for g in m.get("groups") or ([{"what": m["target"]["what"]}] if m["target"] else [])]
+                for g in [{**g, "distinct_from": [d + base for d in g["distinct_from"]]} if g.get("distinct_from") else g  # (-- wave 110J -- "another target …" of a later mode)
+                          for g in m.get("groups") or ([{"what": m["target"]["what"]}] if m["target"] else [])]]
     return out
 
 
