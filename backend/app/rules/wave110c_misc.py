@@ -31,11 +31,20 @@ SIEGE = ("When this Siege enters, reveal any number of Dragon cards from your ha
 INCINERATOR = ("Whenever this creature deals combat damage to a player, you may collect evidence X. When you do, this creature deals X damage to each creature and "
                "planeswalker that player controls.")
 
+OMNATH = ("At the beginning of your first main phase, look at the top card of your library. You may reveal that card if it has three or more colored mana symbols in its mana cost. "
+          "If you do, add three mana in any combination of its colors and put it into your hand. If you don't reveal it, put it into your hand.")
+
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = ability.text.replace(ch.name or "~", "this creature")
+    if text == "If you would lose unspent mana, that mana becomes black instead.":  # 614.1a, 500.4: like Ozai's red (wave110b_cards)
+        d = scripts.define(replace(ability, text="If you would lose unspent mana, that mana becomes colorless instead."), ch)
+        return None if d is None else {**d, "to": "B"}
+    if text == OMNATH:  # the look/reveal/mana/hand sequence is one primitive (omnath110c)
+        d = scripts.define(replace(ability, text="At the beginning of your first main phase, draw a card."), ch)
+        return None if d is None else {**d, "effects": [{"do": "omnath110c"}]}
     if text == ECHO_LIFE:
         return {"kind": "static", "static": "echo_life110c", "effects": []}
     if text == RELENTLESS:
@@ -201,5 +210,45 @@ def resume_evidence_x(plan: Plan, d: Any, chosen: list[str]) -> None:
            source=plan.state.cards.get(ctx.get("source_card") or ""))
 
 
-RESUME = {"evidence_x110c": resume_evidence_x}
-PRIMITIVES = {"evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+def _omnath_hand(plan: Plan, pid: str, cid: str) -> None:
+    plan.do({"type": "move", "card_ids": [cid], "to": {"player": pid, "zone": "hand"}}, actor=pid)
+
+
+def omnath(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Omnath, Locus of All: 701.20a (reveal), 106.1 (mana in the card's colors); the card goes to its owner's hand either way."""
+    import re
+
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    lib = plan.state.zones.get(f"{pid}:library", [])
+    if not lib:
+        return True
+    cid = lib[0]
+    if len(re.findall(r"\{[^}]*[WUBRG][^}]*\}", plan.ch(plan.state.cards[cid]).mana_cost)) < 3:  # 202.1: a hybrid or Phyrexian symbol of a color counts
+        _omnath_hand(plan, pid, cid)
+        return True
+    decide(plan, player=pid, kind="choose_one", prompt=f"Reveal {plan.state.cards[cid].name} (add three mana in its colors) or put it into your hand?",
+           options=[DecisionOption(id="reveal", label="Reveal it"), DecisionOption(id="hand", label="Don't reveal it")],
+           resume={"step": "omnath110c", "ctx": ctx, "card": cid}, source=plan.state.cards.get(ctx.get("source_card") or ""))
+    return False
+
+
+def resume_omnath(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx, cid, pid = d.resume["ctx"], d.resume["card"], d.player
+    if chosen[0] == "reveal":
+        plan.do({"type": "reveal", "card_ids": [cid]}, actor=pid)
+        _omnath_hand(plan, pid, cid)
+        colors = [c for c in "WUBRG" if c in plan.ch(plan.state.cards[cid]).colors]
+        if not effects.add_mana(plan, ctx, {"of": colors, "n": 3}):
+            return
+    else:
+        _omnath_hand(plan, pid, cid)
+    effects.continue_effects(plan, ctx)
+
+
+RESUME = {"omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
+PRIMITIVES = {"omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
