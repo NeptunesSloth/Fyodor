@@ -340,10 +340,13 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         wave110c_discard,
         wave110c_learn,
         wave110c_misc,
+        wave110c_ogre,
         wave110c_rad,
         wave110c_wheel,
     )
 
+    if (ogre := wave110c_ogre.definition(ability, ch)) is not None:  # Ogre Battlecaster
+        return ogre
     if (dark := wave110c_dark.definition(ability, ch)) is not None:  # Dark Intimations
         return dark
     if (learn := wave110c_learn.definition(ability.text)) is not None:  # Retriever Phoenix

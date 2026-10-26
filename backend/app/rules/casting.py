@@ -2832,7 +2832,8 @@ def cast_grant(state: GameState, player: str, card: CardInstance, ch: Characteri
     if not free and paid_effect_costs.active(state, player, card.id):
         pending = state.rules.free_cast_then if state.rules is not None else None
         spend = (pending.get("e") or {}).get("spend", "") if pending is not None else ""
-        return permissions.Grant("resolving", spend=spend, alt_mana=((pending.get("e") or {}).get("effect_mana_cost") or "") if pending else "")  # 608.2g: the saved effect supplies any mandatory alternative.
+        return permissions.Grant("resolving", spend=spend, alt_mana=((pending.get("e") or {}).get("effect_mana_cost") or "") if pending else "",
+                                 extra_mana=((pending.get("e") or {}).get("extra_mana110c") or "") if pending else "")  # (wave 110C)  # 608.2g: the saved effect supplies any mandatory alternative.
     if how is None and info is not None and card.zone == zone_key(player, "graveyard") and not free \
             and not any(g.zone_ok and not g.free for g in found) and _escape_offers(state, player, card, ch, info):
         how = "escape"  # -- escape (wave 5I) -- 702.138a: cast from the graveyard for an escape cost (only that way)
@@ -3269,7 +3270,7 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
                                                     alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None,
                                                     flashback_choice=fb_index, targets=_hint_targets(ch),
                                                     additional=tuple(([mode_cost] if mode_cost is not None else []) +
-                                                                     ([M.ManaCost(generic=grant.generic_extra)] if grant is not None and grant.generic_extra else [])), finalize=finish,
+                                                                     grant_additional(grant)), finalize=finish,
                                                     selected_costs=selected_costs)
                 for (way, life_due), cost_x in zip(cost_ways, selected_costs, strict=True):
                     if grant is not None and grant.spend:
@@ -3353,7 +3354,7 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
             continue
         selected_costs: list[bool | None] = []
         ways = spell_cost_ways(state, card, ch, info=info, player=player, alternative=alt_costs.bind_template(offer, x=0).alt.mana_cost,
-                               additional=(M.ManaCost(generic=grant.generic_extra),) if grant is not None and grant.generic_extra else (),
+                               additional=tuple(grant_additional(grant)),
                                targets=_hint_targets(ch), selected_costs=selected_costs)
         if any(can_pay(state, player, cost, info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=player,
                                                                 spell_object=_spell_reference(state, card),
@@ -3363,6 +3364,13 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
                for (cost, life_due), cost_x in zip(ways, selected_costs, strict=True)):
             out.append({"id": offer.key, "label": offer.label, **({"x": True} if alt_costs.announces_x(offer) else {})})
     return out
+
+
+def grant_additional(grant: Any) -> list[M.ManaCost]:
+    """The mana a permission adds to the cost: generic (Rooftop Storm-like taxes) and -- wave 110C -- named symbols ("by paying {R}{R}")."""
+    if grant is None:
+        return []
+    return [*([M.ManaCost(generic=grant.generic_extra)] if grant.generic_extra else []), *([M.parse_cost(grant.extra_mana)] if grant.extra_mana else [])]
 
 
 def optional_castable(state: GameState, player: str, card: CardInstance, info: CardInfo) -> list[dict[str, str]]:
@@ -3397,7 +3405,7 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
             ways = spell_cost_ways(state, card, ch, info=info, player=player,
                                    free=grant is not None and grant.free,
                                    alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None,
-                                   additional=(M.ManaCost(generic=grant.generic_extra),) if grant is not None and grant.generic_extra else (),
+                                   additional=tuple(grant_additional(grant)),
                                    reduce=part.reduces * (min(1, len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
                                                           if offer.kind in ("bargain", "evidence") else len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
                                    if part is not None else 0, finalize=finish, selected_costs=selected_costs)
@@ -3662,7 +3670,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     if kick_x and kc is not None and (a.x_value or 0) < kc.minimum_x:
         raise ActionError(f"{ch.name}: kicker X must be at least {kc.minimum_x}")
     alternative: M.ManaCost | None = M.parse_cost("{3}") if a.face_down else None
-    additional: list[M.ManaCost] = [M.ManaCost(generic=grant.generic_extra)] if grant is not None and grant.generic_extra else []
+    additional: list[M.ManaCost] = grant_additional(grant)
     if a.buyback:
         extra = keyword_cost(ch, "buyback", BUYBACK)
         if extra is None and buyback_parts(ch) is None:  # (-- keywords (wave 30E) -- a buyback cost of other parts: merged below)
@@ -4268,6 +4276,12 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
          amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)
     delayed.spell_cast(plan, from_oid)  # -- as long as (wave 37A) -- 611.2a: "until this card is cast from exile" is over
+    from app.rules import (
+        wave110c_ogre,  # -- Ogre Battlecaster (wave 110C) -- the reflexive "when you cast that spell"
+    )
+
+    if grant is not None and grant.how == "resolving" and plan.rules.free_cast_then is not None:
+        wave110c_ogre.cast_trigger(plan, plan.rules.free_cast_then, card, ch)
     from app.rules import (
         wave110m_cards as _w110m,  # -- (wave 110M) -- "until a player casts a creature spell" is over
     )
