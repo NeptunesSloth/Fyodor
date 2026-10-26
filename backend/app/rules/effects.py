@@ -7297,3 +7297,5 @@ from app.rules import wave110e_uvilda as _wave110e_uvilda  # noqa: E402, I001  -
 PRIMITIVES.update(_wave110e_uvilda.PRIMITIVES)
 from app.rules import wave110e_word as _wave110e_word  # noqa: E402, I001  -- Word of Command (wave 110E) --
 PRIMITIVES.update(_wave110e_word.PRIMITIVES)
+from app.rules import wave110e_adapt as _wave110e_adapt  # noqa: E402, I001  -- Selective Adaptation (wave 110E) --
+PRIMITIVES.update(_wave110e_adapt.PRIMITIVES)
