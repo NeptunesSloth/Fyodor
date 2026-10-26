@@ -78,6 +78,12 @@ _SWAP: dict[str, tuple[str, list[Def]]] = {
           {"do": "search", "who": "you", "label": "cards", "max": {"ref_amount": "hg110e"}, "to": "hand", "reveal": False, "upto": False,
            "sel": 'sel:{"card":true,"zone_owner":"you","zones":["library"]}', "shuffle": False, "library": "target"},
           {"do": "shuffle_library", "who": "target", "zones": []}]),
+    # 608.2c in order: the fight, then the player to the left (the one whose creature was targeted) is asked and, if yes, copies the spell and may choose new targets (707.10)
+    "Target creature you control fights target creature the opponent to your left controls. Then that player may copy this spell and may choose new targets for the copy.":
+        ("Target creature you control fights target creature the opponent to your left controls.",
+         [{"do": "fight", "who": "target:0", "with": "target:1"}, {"do": "optional_payment", "who": "left110e", "ask": "copy this spell", "cost": "", "bind": "bb110e"},
+          {"do": "only_if", "cond": {"succeeded": "bb110e"}, "skip": 2},
+          {"do": "copy_spell", "who": "this_spell", "by": "left110e"}, {"do": "copy_new_targets", "optional": True}]),
     "Permanents enter tapped this turn.": ("Draw a card.", [{"do": "enter_tapped110e"}]),
     # 509.1h/509.3c: each target becomes blocked (no-op for one no longer an unblocked attacker); then 120.3 damage to each of them
     "X target attacking creatures become blocked. Choking Vines deals 1 damage to each of those creatures.":
@@ -167,7 +173,8 @@ def decoy(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                       {"do": "only_if", "cond": {"succeeded": f"dg{i}"}, "skip": 1},
                       {"do": "draw", "who": "you", "n": 1}, {"do": "only_if", "cond": {"succeeded": f"dg{i}", "negate": True}, "skip": 1},
                       {"do": "bounce", "who": f"object:{plan.oid(c)}"}]
-    ctx["effects"][ctx["next"]:ctx["next"]] = steps
+    at = ctx["next"]  # (a new list: the spell's own effects are copied with it, 707.10)
+    ctx["effects"] = [*ctx["effects"][:at], *steps, *ctx["effects"][at:]]
     return True
 
 
@@ -198,7 +205,8 @@ def mirror_match(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             if eff.get("do") == "token_copy":
                 block[-1:] = [{"do": "become_blocked", "who": f"ref:mm{i}"}, eff,
                               {"do": "enter_blocking", "who": f"ref:mmt{i}", "blocked": f"ref:mm{i}"}]
-    ctx["effects"][ctx["next"]:ctx["next"]] = block
+    at = ctx["next"]  # (a new list: the spell's own effects are copied with it, 707.10)
+    ctx["effects"] = [*ctx["effects"][:at], *block, *ctx["effects"][at:]]
     return True
 
 

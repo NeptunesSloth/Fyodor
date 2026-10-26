@@ -30,8 +30,10 @@ BOLAS = real("Test Bolas", "{2}", 2, "Legendary Planeswalker — Bolas", "+1: Yo
 HEAD = real("Head Games", "{3}{B}{B}", 5, "Sorcery",
             "Target opponent puts the cards from their hand on top of their library. Search that player's library for that many cards. "
             "The player puts those cards into their hand, then shuffles.", None, "B")
+BRAWL = real("Barroom Brawl", "{1}{G}", 2, "Sorcery",
+             "Target creature you control fights target creature the opponent to your left controls. Then that player may copy this spell and may choose new targets for the copy.", None, "G")
 WALKER = real("Test Walker", "{2}", 2, "Planeswalker — Test", "+1: You gain 1 life.", None, "")
-base.EXTRA.extend([WALKER, TARDIS, GAMBIT, SUPPER, DELIVER, BOLAS, HEAD])
+base.EXTRA.extend([WALKER, TARDIS, GAMBIT, SUPPER, DELIVER, BOLAS, HEAD, BRAWL])
 
 
 def _setup(cards, mm=True):
@@ -273,4 +275,50 @@ def test_head_games_the_hand_goes_on_top_and_you_choose_that_many_cards_into_the
     answer(s)
     names = sorted(s.state.cards[c].name for c in s.state.zones["p2:hand"])
     assert names == (["Grizzly Bears", "Test Shifter"] if n else []) and sum(s.state.cards[c].name == "Island" for c in s.state.zones["p2:library"]) == 30
+    check(s)
+
+
+def _brawl(cards, targets_of, copy):
+    """Alice (p1), Bob (p2, to her left), Carol (p3): Alice's Aaa 3/3 fights; ``copy`` = what Bob answers (None: declines)."""
+    from tests.game_helpers import turn_on
+    from tests.test_rules_conditionals import creature, sandbox
+    from tests.wave53c_kit import in_play, pool, priority_to
+
+    s = sandbox(cards, "Barroom Brawl", players=3)
+    turn_on(s)
+    from tests.test_rules_wave30m_durations import to_phase
+
+    to_phase(s, "main1", 1)
+    a, b, c = creature(s, "p1", "Aaa", "3/3"), creature(s, "p2", "Bbb", "1/9"), creature(s, "p3", "Ccc", "1/9")
+    g = in_play(s, "Barroom Brawl", "p1")
+    act(s, "p1", type="move", card_ids=[g.id], to={"zone": "hand"})
+    pool(s, "p1", G=1, C=1)
+    priority_to(s, "p1")
+    act(s, "p1", type="cast_spell", card_id=g.id, targets=[a.id, {"b": b.id, "c": c.id}[targets_of]], target_counts=[1, 1])
+    return s, a, b, c
+
+
+def test_barroom_brawl_only_the_creature_of_the_opponent_to_the_left_is_a_legal_second_target(cards):
+    """Turn order goes to the left: Bob follows Alice, so Carol's creature is not a legal target."""
+    with pytest.raises(ActionError):
+        _brawl(cards, "c", None)
+
+
+@pytest.mark.parametrize("copy", [False, True])
+def test_barroom_brawl_fights_then_the_player_to_the_left_may_copy_it_with_new_targets(cards, copy):
+    """701.14 fight; 707.10 the copy is Bob's: his creature fights the creature of the opponent to HIS left (Carol's); he may decline."""
+    from tests.wave9c_kit import check
+
+    s, a, b, c = _brawl(cards, "b", None)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        pick = [o.id for o in d.options if o.id == ("pay" if copy and d.player == "p2" else "decline")] or [o.id for o in d.options if o.id != "keep"]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=pick or [d.options[0].id])
+    # (Aaa deals 3 to Bbb and takes 1; the copy: Bbb deals 1 to Ccc and takes 1 from it)
+    assert (s.state.cards[b.id].damage, s.state.cards[c.id].damage, s.state.cards[a.id].damage) == ((4, 1, 1) if copy else (3, 0, 1))
     check(s)
