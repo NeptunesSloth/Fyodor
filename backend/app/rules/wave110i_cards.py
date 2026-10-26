@@ -143,6 +143,25 @@ def _bauble(d: Def) -> Def:
     return {**d, "targets": [t], "effects": [{"do": "bauble110i", "who": "target:0"}, d["effects"][0]]}
 
 
+def _arcee(d: Def) -> Def:
+    """Arcee: "that many" = the spell's targets that are creatures or Vehicles you control (115.9b: as they are when the trigger checks), counted by ``cast_targets``."""
+    return {**d, "effects": [{**x, "n": {"cast_targets110i": d["cond"]["targets"]}} if x.get("do") == "add_counters" else x for x in d["effects"]]}
+
+
+def cast_targets(plan: Plan, ctx: Context, key: str) -> int:
+    """The number of the cast event's targets that match the selector now (115.9b), for "put that many counters"."""
+    from app.rules import selectors
+
+    sel = selectors.from_key(key)
+    you = ctx.get("controller") or ""
+    n = 0
+    for ref in (ctx.get("event") or {}).get("cast_targets") or []:
+        card = plan.state.cards.get(ref.get("card", ""))
+        if card is not None and plan.oid(card) == ref.get("object_id") and selectors.matches(plan, sel, card, plan.ch(card), you, ctx.get("source_card") or ""):
+            n += 1
+    return n
+
+
 def _warp_strike(d: Def) -> Def:
     """Noctis: returns at the beginning of the owner's next declare attackers step (507.1, 603.7), tapped and attacking (508.4), unblockable that combat."""
     out: list[Def] = []
@@ -212,6 +231,8 @@ _BAUBLE = ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land 
 _VAT = ("{1}, {T}, Sacrifice another artifact: Reveal the top eight cards of your library. Put up to two noncreature artifact cards with total mana value "
         "less than or equal to the sacrificed artifact's mana value from among them onto the battlefield and the rest on the bottom of your library in a random order.")
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever you cast a spell that targets one or more creatures or Vehicles you control, put that many +1/+1 counters on Arcee. Convert Arcee.":
+        ("Whenever you cast a spell that targets one or more creatures or Vehicles you control, put a +1/+1 counter on Arcee. Convert Arcee.", _arcee),
     "Whenever this creature's cumulative upkeep is paid, it gets +1/+0 until end of turn for each {B} or {R} spent this way.":
         ("At the beginning of your upkeep, this creature gets +1/+0 until end of turn.", _fallen),
     "When a player doesn't pay this enchantment's cumulative upkeep, this enchantment deals X damage to target player or planeswalker and each creature that player or "

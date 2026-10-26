@@ -910,6 +910,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import history
 
         return history.amount(plan, ctx, v)
+    if "cast_targets110i" in v:  # -- cards (wave 110I) -- Arcee: the cast spell's targets matching a selector
+        from app.rules import wave110i_cards
+
+        return wave110i_cards.cast_targets(plan, ctx, v["cast_targets110i"])
     if "event_amount" in v:  # "that much" / "that many": the trigger event's amount (608.2k)
         from app.rules import context  # (context → triggers → … → values)
 
