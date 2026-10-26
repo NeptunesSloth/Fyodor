@@ -54,6 +54,20 @@ main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overfl
 .t3d-cams button:hover { color: var(--text); background: rgba(255, 240, 210, 0.05); }
 .t3d-cams button:focus-visible { outline: 2px solid var(--frame-hi); outline-offset: 1px; }
 .t3d-cams button.on { color: var(--accent-ink); background: var(--accent); }
+.cam-player { display: inline-flex; align-items: center; gap: 6px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cam-chip {
+  width: 16px; height: 16px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font: 700 9.5px/1 var(--font-display); font-style: normal; color: var(--text); background: #0d0a07; border: 2px solid var(--player-color, var(--frame));
+}
+.t3d-cams button.on .cam-chip { color: var(--text); }
+
+/* first-game tips, bottom left above the tool tray */
+.t3d-coach { position: absolute; left: 14px; bottom: 58px; z-index: 5; width: 300px; }
+.t3d-coach-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.t3d-coach-title { margin: 0; font: 700 14px/1.2 var(--font-display); color: var(--text); }
+.t3d-coach-count { font: 500 11.5px var(--font-ui); color: var(--text-dim); margin-left: 6px; }
+.t3d-coach-text { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-dim); }
+.t3d-coach-actions { display: flex; gap: 6px; margin-top: 2px; }
 
 /* the hand: a fanned arc rising out of the bottom edge (Arena / Moxgate); a hovered card lifts clear */
 .table.is-3d { position: relative; }

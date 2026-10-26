@@ -120,6 +120,12 @@ function useShortcuts() {
       if (!id) return;
       const targets = s.selection.length ? s.selection : s.hover && view.cards[s.hover] ? [s.hover] : [];
       const w = view.response;
+      if (id.startsWith("cam_")) {
+        // the 3D table owns its camera; the 2D table ignores these
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("fyodor:camera", { detail: { id, digit: Number(e.key) || 0, hover: s.hover } }));
+        return;
+      }
       switch (id) {
         case "undo":
           e.preventDefault();

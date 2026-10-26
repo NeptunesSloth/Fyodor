@@ -295,6 +295,19 @@ const SHORTCUTS: [string, string][] = [
   ["Right-click", "All actions for a card, pile or player"],
   ["Drag", "Move cards between zones; drag empty table to box-select"],
   ["Shift / Ctrl + click", "Add to selection"],
+  ["Alt + drop", "Place by hand, without the rules engine"],
+  ["Middle-drag / wheel", "3D table: turn the view / zoom"],
+];
+
+/** What the marks on the 3D table mean. */
+const TABLE_LEGEND: [string, string][] = [
+  ["P/T plate", "Current power/toughness; ▲ above or ▼ below the printed card"],
+  ["Round badges", "Keyword abilities from counters or effects (flying, first strike, deathtouch…); ×2 means two counters"],
+  ["Orange beam", "An attack, landing on the creature or player attacked"],
+  ["Blue beam", "A block"],
+  ["Ice beam", "A target"],
+  ["Numbered cards at the centre", "The stack: the highest number resolves next"],
+  ["Turn / Priority tabs", "On a player's plaque: whose turn it is and who may act now"],
 ];
 
 function HelpDialog({ onClose }: { onClose: () => void }) {
@@ -307,7 +320,13 @@ function HelpDialog({ onClose }: { onClose: () => void }) {
           ))}
         </tbody>
       </table>
-      <p className="hint">Fyodor doesn't enforce the rules: you decide what's legal, just like at a real table. Everything is logged and can be undone.</p>
+      <h3 className="help-section">On the 3D table</h3>
+      <table className="shortcuts">
+        <tbody>
+          {TABLE_LEGEND.map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}
+        </tbody>
+      </table>
+      <p className="hint">With automation on, the rules engine decides what's legal; with it off, you decide, as at a real table. Everything is logged and can be undone.</p>
     </Modal>
   );
 }

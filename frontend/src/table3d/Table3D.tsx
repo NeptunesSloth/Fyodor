@@ -94,6 +94,36 @@ export function Table3D({ me }: { me: string }) {
 
   useEffect(() => sceneRef.current?.setPlane(plane(planeId)), [planeId]);
   useEffect(() => sceneRef.current?.setCamera(preset), [preset]);
+  // camera keys (game/hotkeys.ts): 1 seat, 2–6 other players, 0 whole table, C focus the hovered card, Home back
+  const back = useRef<CameraPreset>("seat");
+  useEffect(() => {
+    const onCam = (e: Event) => {
+      const { id, digit, hover } = (e as CustomEvent<{ id: string; digit: number; hover: string | null }>).detail;
+      const others = players.filter((p) => p !== me);
+      setPreset((cur) => {
+        if (id === "cam_seat" || id === "cam_reset") return "seat";
+        if (id === "cam_table") return "overview";
+        if (id === "cam_player") return others[digit - 2] ? { focus: others[digit - 2]! } : cur;
+        if (id === "cam_focus") {
+          if (typeof cur === "object" && "card" in cur) return back.current;
+          if (hover && sceneRef.current?.screenOfCard(hover)) {
+            back.current = cur;
+            return { card: hover };
+          }
+        }
+        return cur;
+      });
+    };
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPreset((cur) => (typeof cur === "object" && "card" in cur ? back.current : cur));
+    };
+    window.addEventListener("fyodor:camera", onCam);
+    window.addEventListener("keydown", onEsc);
+    return () => {
+      window.removeEventListener("fyodor:camera", onCam);
+      window.removeEventListener("keydown", onEsc);
+    };
+  }, [players, me]);
   useEffect(() => {
     if (!ambienceOn || ambientVol <= 0) return;
     return startAmbience(plane(planeId).ambience, ambientVol);
@@ -111,22 +141,61 @@ export function Table3D({ me }: { me: string }) {
           </div>
         ))}
       </div>
+      <CoachTips />
       <div className="t3d-cams frame" role="toolbar" aria-label="Camera">
-        <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Look from your seat">Seat</button>
-        <button className={preset === "overview" ? "on" : ""} onClick={() => setPreset("overview")} title="Look down on the whole table">Table</button>
-        {others.map((pid) => (
-          <button key={pid} className={typeof preset === "object" && preset.focus === pid ? "on" : ""} onClick={() => setPreset({ focus: pid })} aria-label={`Look at ${nameOf(pid)}'s side`}>
-            <PlayerInitial player={pid} />
+        <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Look from your seat (1)">Seat</button>
+        {others.map((pid, i) => (
+          <button key={pid} className={typeof preset === "object" && "focus" in preset && preset.focus === pid ? "on" : ""} onClick={() => setPreset({ focus: pid })}
+            aria-label={`Look at ${nameOf(pid)}'s side`} title={`Look at ${nameOf(pid)}'s side (${i + 2})`}>
+            <PlayerChip player={pid} />
           </button>
         ))}
+        <button className={preset === "overview" ? "on" : ""} onClick={() => setPreset("overview")} title="Look down on the whole table (0)">Table</button>
       </div>
     </div>
   );
 }
 
-function PlayerInitial({ player }: { player: string }) {
-  const name = useGame((s) => s.view?.players.find((p) => p.id === player)?.name ?? "?");
-  return <span title={`Look at ${name}'s side`}>{name.slice(0, 1).toUpperCase()}</span>;
+const TIPS = [
+  { title: "Players", text: "Click a player's plaque to see their counters, commander damage and actions." },
+  { title: "Your turn", text: "The dial at the bottom right says whose turn it is and what Pass will do. P passes priority." },
+  { title: "Playing cards", text: "Drag a card from your hand onto the table to play it. Hold Alt as you drop to place it by hand." },
+];
+const COACH_KEY = "fyodor.coach3d";
+
+/** Three short tips on a player's first 3D game; dismissed for good on this device. */
+function CoachTips() {
+  const [step, setStep] = useState(() => {
+    try { return localStorage.getItem(COACH_KEY) === "done" ? -1 : 0; } catch { return -1; }
+  });
+  if (step < 0 || step >= TIPS.length) return null;
+  const done = () => {
+    try { localStorage.setItem(COACH_KEY, "done"); } catch { /* private mode: show again next time */ }
+    setStep(-1);
+  };
+  const tip = TIPS[step]!;
+  return (
+    <aside className="t3d-coach plaque-wrap" aria-label="Tip">
+      <div className="plaque t3d-coach-body">
+        <p className="t3d-coach-title">{tip.title} <span className="t3d-coach-count">{step + 1} of {TIPS.length}</span></p>
+        <p className="t3d-coach-text">{tip.text}</p>
+        <div className="t3d-coach-actions">
+          {step < TIPS.length - 1 && <button className="tt-btn" onClick={() => setStep(step + 1)}>Next tip</button>}
+          <button className="tt-btn ghost" onClick={done}>{step < TIPS.length - 1 ? "Skip tips" : "Got it"}</button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function PlayerChip({ player }: { player: string }) {
+  const p = useGame((s) => s.view?.players.find((x) => x.id === player));
+  return (
+    <span className="cam-player">
+      <i className="cam-chip" style={{ ["--player-color" as string]: p?.color }} aria-hidden>{p?.name.slice(0, 1).toUpperCase()}</i>
+      {p?.name ?? "?"}
+    </span>
+  );
 }
 
 /** Portrait, name and life on the table next to each seat; click for the full player panel. */

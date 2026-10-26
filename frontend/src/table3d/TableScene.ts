@@ -35,7 +35,7 @@ import {
 import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
 
 export type Quality = "low" | "medium" | "high";
-export type CameraPreset = "seat" | "overview" | { focus: string };
+export type CameraPreset = "seat" | "overview" | { focus: string } | { card: string };
 
 const THICK = 0.016;
 /** Cards drawn per pile at most (taller piles space them out). */
@@ -807,6 +807,12 @@ export class TableScene {
     if (preset === "overview") {
       look = new THREE.Vector3(0, 0, 0.5);
       pos = new THREE.Vector3(0, span * 1.45, span * 0.28);
+    } else if (typeof preset === "object" && "card" in preset) {
+      // close up on one card, seen from my side of the table
+      const c = this.cards.get(preset.card);
+      look = c ? c.target.clone().setY(0) : new THREE.Vector3();
+      const [dx, dz] = toWorld({ ...mine, x: 0, z: 0 }, 0, 1);
+      pos = look.clone().add(new THREE.Vector3(dx * 2.6, 5.2, dz * 2.6));
     } else if (typeof preset === "object") {
       const seat = this.seatList.find((s) => s.player === preset.focus) ?? mine;
       const [lx, lz] = toWorld(seat, 0, -0.3);

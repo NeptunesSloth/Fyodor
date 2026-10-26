@@ -19,7 +19,12 @@ export type HotkeyId =
   | "respond"
   | "pass"
   | "auto_pass"
-  | "hud";
+  | "hud"
+  | "cam_seat"
+  | "cam_player"
+  | "cam_table"
+  | "cam_focus"
+  | "cam_reset";
 
 export interface Hotkey {
   id: HotkeyId;
@@ -39,10 +44,15 @@ export const HOTKEYS: Hotkey[] = [
   { id: "to_graveyard", keys: ["delete", "backspace"], label: "Put selected into their owner's graveyard" },
   { id: "cancel", keys: ["escape"], label: "Clear selection / close views" },
   { id: "help", keys: ["shift+?", "?"], label: "Show shortcuts" },
-  { id: "respond", keys: ["r"], label: "Response check: RESPOND" },
-  { id: "pass", keys: ["p"], label: "Response check: PASS" },
-  { id: "auto_pass", keys: ["shift+p"], label: "Response check: AUTO-PASS this turn" },
+  { id: "respond", keys: ["r"], label: "Respond (keep priority)" },
+  { id: "pass", keys: ["p"], label: "Pass priority" },
+  { id: "auto_pass", keys: ["shift+p"], label: "Auto-pass for the rest of this turn" },
   { id: "hud", keys: ["h"], label: "Minimal / full HUD" },
+  { id: "cam_seat", keys: ["1"], label: "3D table: look from your seat" },
+  { id: "cam_player", keys: ["2", "3", "4", "5", "6"], label: "3D table: look at the next players' sides, in seat order" },
+  { id: "cam_table", keys: ["0"], label: "3D table: look down on the whole table" },
+  { id: "cam_focus", keys: ["c"], label: "3D table: zoom to the hovered card (C or Esc to return)" },
+  { id: "cam_reset", keys: ["home"], label: "3D table: back to your seat" },
 ];
 
 export function comboOf(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">): string {
