@@ -86,6 +86,36 @@ YIDARO = ("When you cycle this card, shuffle it into your library from your grav
           "this game, put it onto the battlefield from your graveyard instead.")
 
 
+FINALE_TEXT = ("You may cast up to one target instant card and/or up to one target sorcery card from your graveyard each with mana value X or less without paying their mana costs. "
+               "If a spell cast this way would be put into your graveyard, exile it instead. If X is 10 or more, copy each of those spells twice. You may choose new targets for the copies.")
+
+
+def finale_of_promise() -> Any:
+    """Finale of Promise: two target groups (an instant card, a sorcery card: each up to one, 115.1d) sized by X, cast free one at a time like the one-target wording
+    (608.2g), exiled instead of going to the graveyard (614.1a); the copies are made by :func:`finale_copy`."""
+    import dataclasses
+
+    from app.rules import scripts, selectors
+
+    native = scripts.parse_effects("You may cast target instant card from your graveyard with mana value X or less without paying its mana cost. If that spell would be put into "
+                                   "your graveyard, exile it instead.")
+    if native is None or len(native[0]) != 1 or native[0][0].get("do") != "free_cast" or not isinstance(native[1], str):
+        return None
+    sel = selectors.from_key(native[1])
+    groups = [{"what": dataclasses.replace(sel, types=(kind,)).key(), "min": 0, "max": 1} for kind in ("Instant", "Sorcery")]
+    return [{**native[0][0], "n": 2, "all_groups110c": True}, {"do": "finale_copy110c"}], groups, False
+
+
+def finale_copy(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Finale of Promise: if X is 10 or more, each spell cast this way (still on the stack) is copied twice; the controller may choose new targets for each copy (707.10c)."""
+    from app.rules import copying, values
+
+    if values.evaluate(plan, ctx, {"x": 1}) < 10:
+        return True
+    objects = [(cid, plan.oid(cid), 2) for cid in ctx.get("free_cast_done") or [] if cid in plan.state.cards and plan.state.cards[cid].zone == "stack"]
+    return copying.run(plan, copying.new_job(ctx, controller=ctx["controller"], objects=objects, retarget=True, label="Finale of Promise")) if objects else True
+
+
 PANDEMONIUM = "Whenever a creature enters, that creature's controller may have it deal damage equal to its power to any target of their choice."
 
 
@@ -723,5 +753,5 @@ def warp_bottom(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 RESUME = {"pandemonium110c": resume_pandemonium, "prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x, "wildhunt110c": resume_wildhunt}
-PRIMITIVES = {"pandemonium110c": pandemonium, "shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "kefka_exile110c": kefka_exile, "kefka_loss110c": kefka_loss, "ulalek110c": ulalek, "wildhunt110c": wildhunt, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+PRIMITIVES = {"finale_copy110c": finale_copy, "pandemonium110c": pandemonium, "shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "kefka_exile110c": kefka_exile, "kefka_loss110c": kefka_loss, "ulalek110c": ulalek, "wildhunt110c": wildhunt, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
 PRIMITIVES.update({"warp_shuffle110c": warp_shuffle, "warp_enter110c": warp_enter, "warp_bottom110c": warp_bottom})

@@ -216,6 +216,7 @@ def corrupt_counter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    wave110c_misc.FINALE_TEXT: wave110c_misc.finale_of_promise,  # -- Finale of Promise (wave 110C) --
     wave110c_misc.WARP_WORLD: wave110c_misc.warp_world,  # -- Warp World (wave 110C) --
     "Move all +1/+1 counters from target land you control onto target creature. If one or more +1/+1 counters are moved this way, you gain that much life and draw a card.":
         _black_panther,
