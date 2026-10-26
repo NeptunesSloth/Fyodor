@@ -838,10 +838,35 @@ def resume_transform_attach(plan: Plan, d: Any, chosen: list[str]) -> None:
 RESUME = {"tunnel110i": resume_tunnel, "transform_attach110i": resume_transform_attach, "bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
 
 
+_WHISTLE = ("{3}, {T}: Choose target non-Wall creature the active player has controlled continuously since the beginning of the turn. That player may pay {X}, where X is "
+            "that creature's mana value. If they don't pay, the creature attacks this turn if able, and at the beginning of the next end step, destroy it if it didn't attack "
+            "this turn. Activate only before attackers are declared.")
+
+
+def whistle(ability: Any, ch: Any) -> Def | None:
+    """Arcum's Whistle (118.12a, 508.1d, 603.4): Nettling Imp's targeted forced attack plus end-step destroy (wave110e_imps), all behind the active player's optional {X}
+    payment (X the creature's mana value); paid, nothing happens."""
+    from app.rules import scripts, selectors
+    from app.rules.controller_turn_history69 import EXTRA
+
+    base = scripts.define(replace(ability, text="{3}, {T}: Target non-Wall creature attacks this turn if able. Activate only before attackers are declared."), ch)
+    kill = scripts.parse_effects("Target creature attacks this turn if able. At the beginning of the next end step, destroy it.")
+    pay = scripts.parse_effects("Target creature attacks this turn if able unless its controller pays {X}, where X is its mana value.")
+    if base is None or kill is None or pay is None or len(kill[0]) != 3 or len(pay[0]) != 3:
+        return None
+    sel = selectors.from_key(base["target"]["what"])
+    sel = replace(sel, controller="active", extras=(*sel.extras, EXTRA))
+    rest = [*base["effects"], {**kill[0][1], "n": 2}, {"do": "deferred:didnt_attack110e", "who": "target"}, kill[0][2]]
+    effects = [pay[0][0], {**pay[0][1], "skip": len(rest)}, *rest]
+    return {**base, "effects": effects, "target": {**base["target"], "what": sel.key()}}
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _WHISTLE:
+        return whistle(ability, ch)
     if text == _PHOENIX:
         return {"kind": "replacement", "replacement": "hand_instead110i", "from": "battlefield", "effects": []}
     if text == "As this permanent transforms into Curse of Leeches, attach it to a player.":
