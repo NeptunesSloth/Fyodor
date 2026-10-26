@@ -31,3 +31,4 @@
 - Light Up the Night (s9): flashback cost "Remove X loyalty counters from among planeswalkers you control, X not 0" needs an X-sized multi-permanent loyalty cost with distribution; foundation not built.
 - Savior of Ollenbock (s9): "trains" (702.149c, counters put by a resolving training ability) has no event; plus exile from battlefield or graveyard with return of mixed cards. Foundation, not unsettled.
 - Sacred Ground, Whippoorwill, Halfdane, Tatsumasa, Thijarian Witness, Season of the Witch (s9): promoted (cause stamp, redirect prohibition, end-of-upkeep duration, linked bind, alone-in-combat fact, could-attack record).
+- Wicker Picker, Done for the Day, Ambassador Blorpityblorpboop (s10): need a sticker/ticket system (kicker {TK}, put a sticker, sticker stats); foundation not built yet, work not refusal.
