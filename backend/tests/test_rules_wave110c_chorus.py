@@ -40,7 +40,7 @@ def test_paying_n_gives_n_counters(cards):  # 601.2b + 614.1c
     s = build(cards, ["Chorus of the Conclave", "Test Bear"])
     put(s, "Chorus of the Conclave")
     mana(s, G=5)
-    bear = cast_paying(s, "Test Bear", 3)
+    cast_paying(s, "Test Bear", 3)
     assert pt(s, 'Test Bear') == (5, 5)
     check(s)
 
@@ -49,7 +49,7 @@ def test_paying_nothing_is_fine(cards):  # "any amount" includes none
     s = build(cards, ["Chorus of the Conclave", "Test Bear"])
     put(s, "Chorus of the Conclave")
     mana(s, G=2)
-    bear = cast_paying(s, "Test Bear", 0)
+    cast_paying(s, "Test Bear", 0)
     assert pt(s, 'Test Bear') == (2, 2)
 
 
