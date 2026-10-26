@@ -94,6 +94,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
         return statics._definition(selectors.Selector(types=("Creature",), extras=("counter:magnet",)).key(), None, [],
                                    rules=[combat_conditional_requirements67.PREFIX + "@src:magnet110j"])
+    if ability.text.strip() == _TAKKLE_GAIN:  # Takklemaggot's granted ability: the chosen player is the one recorded as it returned (read by triggers._whose_step)
+        return {"kind": "triggered", "trigger": "step:upkeep:chosen_player", "effects": [{"do": "damage", "who": "event_player", "n": 1}], "optional": False, "target": None}
     if ability.text.strip() == _SPLICER:
         return _splicer(ability, ch)
     if ability.text.strip() == _ES:
@@ -1051,3 +1053,79 @@ def parse_mana(text: str) -> Any:
     from app.rules import mana as M
 
     return M.ManaAbility(tap=True, sacrifice_self=False, options=((),)) if text.strip() == _PALIANO else None
+
+
+# -- Takklemaggot (wave 110J) -- "When enchanted creature dies, that creature's controller chooses a creature that this card could enchant. ..." Rulings 2009-10-01: the
+# trigger resolves with the Aura in the graveyard (704.5m put it there); the creature is chosen on resolution (no target), only one this card could legally enchant, and
+# the player must choose one if able; the controller of the returned card stays the Aura's controller. 303.4f: an Aura entering not being cast is attached to the chosen
+# object. With none, it returns as an Enchantment that is no Aura (205.1a, entry form), loses "enchant creature" (613.1f) and gains the damage trigger, which names the
+# player the dying creature's controller (chosen player, 614.12a style record).
+_TAKKLE = ("When enchanted creature dies, that creature's controller chooses a creature that this card could enchant. If the player does, return this card to the battlefield "
+           "under your control attached to that creature. If they don't, return this card to the battlefield under your control as a non-Aura enchantment. It loses \"enchant "
+           "creature\" and gains \"At the beginning of that player's upkeep, this enchantment deals 1 damage to that player.\"")
+_TAKKLE_GAIN = "At the beginning of the chosen player's upkeep, this enchantment deals 1 damage to that player."
+_BUILD[_TAKKLE] = ("When enchanted creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "takkle110j"}]})
+
+
+def _takkle_hosts(plan: Any, card: Any, controller: str) -> list[str]:
+    from app.rules import attachments
+
+    return [h for h in attachments.legal_hosts(plan, card, controller)
+            if h in plan.state.cards and plan.state.cards[h].zone.endswith(":battlefield") and "Creature" in plan.ch(plan.state.cards[h]).types]
+
+
+def takkle(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+    from app.rules.targets import label
+
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    who = context.players(plan, ctx, "event.controller")
+    if card is None or not card.zone.endswith(":graveyard") or not who:  # (ruling: only if it is still in that graveyard)
+        return True
+    hosts = _takkle_hosts(plan, card, ctx["controller"])
+    if hosts:
+        decide(plan, player=who[0], kind="choose_one", prompt="Choose a creature for the Aura to enchant", options=[DecisionOption(id=h, label=label(plan, h), card_id=h) for h in hosts],
+               resume={"step": "takkle110j", "ctx": ctx, "chooser": who[0]}, source=card)
+        return False
+    return _takkle_enter(plan, ctx, card, None, who[0])
+
+
+def _takkle_enter(plan: Any, ctx: Any, card: Any, host: str | None, chooser: str) -> bool:
+    from app.rules import attachments, chosen, effects
+
+    entry: dict[str, Any] = {"card": card.id, "player": ctx["controller"], "actor": ctx["controller"]}
+    if host is not None:
+        entry["host"] = host
+    if host is None:  # (attachments.enter judges the printed Aura: it would stay in the graveyard, 303.4g; it stops being an Aura at once below, 205.1a, before any state-based action, 704.5m)
+        from app.rules import replacements
+
+        replacements.move_together(plan, [entry])
+    elif not attachments.enter(plan, [entry], ctx):
+        return False
+    now = plan.state.cards[card.id]
+    if host is None and now.zone.endswith(":battlefield"):
+        plan.do({"type": "set_choice", "card_id": card.id, "key": "Chosen player", "value": plan.state.players[chooser].name}, actor=ctx["controller"])
+        chosen.record(plan, card.id, chooser)
+        gone = [a.index for a in plan.ch(now).abilities if a.kind == "keywords" and a.text.startswith("Enchant")]
+        effects.become(plan, {**ctx, "source_card": card.id, "source_object": plan.oid(now)},
+                       {"who": "self", "types": [], "remove_subtypes": ["Aura"], "abilities": [_TAKKLE_GAIN], "lose_index": gone, "duration": "permanent", "marker": "loses enchant creature"})
+    return True
+
+
+def resume_takkle(plan: Any, d: Any, chosen_ids: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx = d.resume["ctx"]
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    if card is None or not card.zone.endswith(":graveyard"):
+        return continue_effects(plan, ctx)
+    if chosen_ids[0] not in _takkle_hosts(plan, card, ctx["controller"]):
+        raise ValueError("it can't enchant that")
+    if _takkle_enter(plan, ctx, card, chosen_ids[0], d.resume["chooser"]):
+        continue_effects(plan, ctx)
+
+
+PRIMITIVES["takkle110j"] = takkle
+RESUME["takkle110j"] = resume_takkle
