@@ -315,5 +315,73 @@ def resume_inniaz(plan: Plan, d: Any, chosen: list[str]) -> None:
         continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"inniaz110j": inniaz, "piracy110j": piracy, "mentored110j": mentored, "sacrificed110j": sacrificed, "ogre_watch110j": ogre_watch, "ogre_drop110j": ogre_drop, "garth110j": garth}
-RESUME = {"garth110j": resume_garth, "inniaz110j": resume_inniaz}
+# -- Bruna, Light of Alabaster -- "Whenever Bruna attacks or blocks, you may attach to it any number of Auras on the battlefield and you may put onto the battlefield attached to
+# it any number of Aura cards that could enchant it from your graveyard and/or hand." Rulings 2007-10-01 / 2008-05-01 (Scryfall): only Auras that could legally enchant Bruna,
+# moved or put onto the battlefield; all attached before blockers are declared (this is a trigger on the declaration). 701.3a-b, 303.4f-g, 303.4i.
+BRUNA = ("Whenever this creature attacks or blocks, you may attach to it any number of Auras on the battlefield and you may put onto the battlefield attached to it any number "
+         "of Aura cards that could enchant it from your graveyard and/or hand.")
+
+
+def bruna_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    if ability.kind != "triggered" or scripts.self_text(ability.text, ch.name) != BRUNA.replace("this creature", "~"):
+        return None
+    base = scripts.define(replace(ability, text="Whenever this creature attacks or blocks, you gain 1 life."), ch)
+    attach = scripts.parse_effects("Attach any number of Auras on the battlefield to ~.")
+    if base is None or attach is None or [e.get("do") for e in base["effects"]] != ["gain_life"] or [e.get("do") for e in attach[0]] != ["attach_choose"]:
+        return None
+    return {**base, "effects": [*attach[0], {"do": "bruna_put110j"}]}
+
+
+def bruna_put(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import attachments
+    from app.rules.plan import decide
+
+    host = plan.state.cards.get(ctx.get("source_card") or "")
+    me = ctx["controller"]
+    if host is None or plan.oid(host) != ctx.get("source_object") or not host.zone.endswith(":battlefield"):
+        return True
+    pool = [c for z in ("graveyard", "hand") for c in plan.state.zones.get(f"{me}:{z}", [])
+            if "Aura" in plan.ch(plan.state.cards[c]).subtypes and attachments.host_problem(plan, plan.state.cards[c], host.id, me) is None]
+    if not pool:
+        return True
+    decide(plan, player=me, kind="choose_cards", prompt=f"{host.name}: put any number of Aura cards onto the battlefield attached to it",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Aura", card_id=c) for c in pool], min_choices=0, max_choices=len(pool),
+           resume={"step": "bruna110j", "ctx": ctx, "host": host.id})
+    return False
+
+
+def resume_bruna(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import attachments, effects
+
+    ctx = d.resume["ctx"]
+    entries = [{"card": c, "player": ctx["controller"], "actor": ctx["controller"], "host": d.resume["host"]} for c in chosen
+               if c in plan.state.cards and not plan.state.cards[c].zone.endswith(":battlefield")]
+    if not entries or attachments.enter(plan, entries, ctx):
+        effects.continue_effects(plan, ctx)
+
+
+# -- Kasmina, Enigma Sage -- "Each other planeswalker you control has the loyalty abilities of Kasmina." Ruling 2020-04-17: they gain Kasmina's loyalty abilities in addition to
+# their own and still activate only one loyalty ability per turn each (606.3); the -8 searches for a card sharing a color with the planeswalker that has the ability, never a
+# colorless card. 613.1f layer 6: a grant of Kasmina's own printed loyalty abilities, read as quoted abilities of each other planeswalker (their costs use that planeswalker's loyalty).
+KASMINA = "Each other planeswalker you control has the loyalty abilities of Kasmina."
+
+
+def kasmina_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    from app.rules import statics
+
+    if ability.kind != "static" or ability.text != KASMINA or ch.name != "Kasmina, Enigma Sage":
+        return None
+    lines = [a.text for a in ch.abilities if a.kind == "loyalty"]
+    if not lines or any('"' in t for t in lines):
+        return None
+    quoted = " and ".join(f'"{t}"' for t in lines)
+    return statics.parse(f"Each other planeswalker you control has {quoted}.")
+
+
+PRIMITIVES = {"bruna_put110j": bruna_put, "inniaz110j": inniaz, "piracy110j": piracy, "mentored110j": mentored, "sacrificed110j": sacrificed, "ogre_watch110j": ogre_watch, "ogre_drop110j": ogre_drop, "garth110j": garth}
+RESUME = {"bruna110j": resume_bruna, "garth110j": resume_garth, "inniaz110j": resume_inniaz}

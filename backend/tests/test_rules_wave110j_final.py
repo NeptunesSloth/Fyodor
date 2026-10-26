@@ -19,6 +19,10 @@
 * Piracy: 602.2 / 605.3 the lands an opponent controls may be tapped for mana (spells only, 106.6) until end of turn; not before it resolves, not the next turn.
 * Inniaz, the Gale Force: 613.1b each player gains control of a nonland permanent of Inniaz's controller's choice controlled by the player to their right, all
   chosen first (ruling 2017-04-18): a two-player game exchanges control; a player whose right neighbor has no nonland permanent gets nothing.
+* Bruna, Light of Alabaster: 701.3 / 303.4f-i any Aura on the battlefield (any player's) is attached to Bruna, and Aura cards from the graveyard and hand that could
+  enchant it enter attached; an Aura that could not enchant it (enchant land) is not offered.
+* Kasmina, Enigma Sage: 613.1f another planeswalker you control also has Kasmina's loyalty abilities, paid with its own loyalty and used once a turn (606.3); the -8 search
+  takes an instant or sorcery card sharing a color with the planeswalker that has the ability (ruling 2020-04-17).
 * Phylactery Lich: 614.12a / 614.1c the artifact is chosen as it enters (no target, ruling 2013-04-15), the counter goes on it; with no artifact
   nothing happens and the state trigger (603.8) sacrifices the Lich; another phylactery counter anywhere keeps it.
 """
@@ -692,4 +696,123 @@ def test_inniaz_in_a_three_player_game_each_takes_from_the_player_on_their_right
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[o2.id])
     settle(s)
     assert (now(s, bears).controller, now(s, giant).controller, now(s, o2).controller) == ("p1", "p3", "p2")
+    check(s)
+
+
+BRUNA, HS, SPRAWL = "Bruna, Light of Alabaster", "Holy Strength", "Utopia Sprawl"
+
+
+def test_bruna_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(BRUNA)).level == "FULL"
+
+
+def test_bruna_attack_gathers_auras_from_the_battlefield_graveyard_and_hand(cards):
+    s = build(cards, [BRUNA, HS, HS, SPRAWL], ["Hill Giant", HS], forests=30, islands=30)
+    bruna, giant = put_new(s, BRUNA), put_new(s, "Hill Giant", "p2")
+    p2_aura = card_named(s, HS, "p2")
+    act(s, "p2", type="move", card_ids=[p2_aura.id], to={"player": "p2", "zone": "battlefield"})
+    act(s, "p2", type="attach", card_ids=[p2_aura.id], to=giant.id)
+    gy, hand = [c for c in s.state.cards.values() if c.name == HS and c.owner == "p1"]
+    sprawl = card_named(s, SPRAWL)
+    act(s, "p1", type="move", card_ids=[gy.id], to={"zone": "graveyard"})
+    act(s, "p1", type="move", card_ids=[hand.id], to={"zone": "hand"})
+    act(s, "p1", type="move", card_ids=[sprawl.id], to={"zone": "hand"})
+    to_phase(s, "declare_attackers", turn=3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bruna.id, "target": "p2"}])
+    d = s.state.rules.decision
+    assert d is not None and [o.card_id for o in d.options] == [p2_aura.id]  # attach any number of Auras on the battlefield
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[p2_aura.id])
+    d = s.state.rules.decision
+    assert d is not None and {o.card_id for o in d.options} == {gy.id, hand.id}  # Utopia Sprawl (enchant Forest) could not enchant Bruna
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[gy.id, hand.id])
+    settle(s)
+    assert now(s, p2_aura).attached_to == bruna.id and now(s, gy).attached_to == bruna.id and now(s, hand).attached_to == bruna.id
+    assert now(s, sprawl).zone.endswith(":hand")
+    check(s)
+
+
+def test_bruna_blocking_attaches_the_aura_from_hand_before_damage(cards):
+    s = build(cards, [BRUNA, HS], ["Hill Giant"], forests=30, islands=30)
+    bruna, giant = put_new(s, BRUNA), put_new(s, "Hill Giant", "p2")
+    aura = card_named(s, HS)
+    act(s, "p1", type="move", card_ids=[aura.id], to={"zone": "hand"})
+    to_phase(s, "declare_attackers", turn=4)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": giant.id, "target": "p1"}])
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_blockers", blocks=[{"blocker_id": bruna.id, "attacker_id": giant.id}])
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[aura.id])
+    settle(s)
+    assert now(s, aura).attached_to == bruna.id and now(s, aura).zone.endswith(":battlefield")
+    check(s)
+
+
+KAS, JACE = "Kasmina, Enigma Sage", "Jace Beleren"
+
+
+def _kasmina(cards, deck=()):
+    s = build(cards, [KAS, JACE, *deck], [], forests=30, islands=30)
+    kas, jace = put_new(s, KAS), put_new(s, JACE)
+    for c, n in ((kas, 2), (jace, 3)):  # (a table move adds no loyalty counters: 306.5b is for a permanent entering by an effect)
+        act(s, "p1", type="counter", card_ids=[c.id], kind="loyalty", delta=n)
+    to_phase(s, "main1", turn=3)
+    return s, kas, jace
+
+
+def test_kasmina_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(KAS)).level == "FULL"
+
+
+def test_another_planeswalker_uses_kasminas_loyalty_ability_once_a_turn(cards):
+    from tests.wave110j_kit import ability, ch
+
+    s, kas, jace = _kasmina(cards)
+    assert any(a.text.startswith("+2: Scry 1") for a in ch(s, jace).abilities)
+    loyalty = now(s, jace).counters.get("loyalty")
+    act(s, "p1", type="activate_ability", card_id=jace.id, ability=ability(s, jace, "+2: Scry 1"))
+    settle(s)
+    assert now(s, jace).counters.get("loyalty") == loyalty + 2
+    with pytest.raises(ActionError):  # one loyalty ability a turn for each planeswalker (606.3), its own included
+        act(s, "p1", type="activate_ability", card_id=jace.id, ability=ability(s, jace, "−X"), x_value=1)
+    check(s)
+
+
+def test_kasmina_minus_x_on_another_planeswalker_pays_that_planeswalkers_loyalty(cards):
+    from tests.wave110j_kit import ability
+
+    s, kas, jace = _kasmina(cards)
+    loyalty = now(s, jace).counters.get("loyalty")
+    act(s, "p1", type="activate_ability", card_id=jace.id, ability=ability(s, jace, "−X"), x_value=2)
+    settle(s)
+    assert now(s, jace).counters.get("loyalty") == loyalty - 2
+    fractal = [c for c in s.state.cards.values() if c.name == "Fractal" and c.zone.endswith(":battlefield")]
+    assert len(fractal) == 1 and fractal[0].counters.get("+1/+1") == 2
+    check(s)
+
+
+def test_kasmina_minus_eight_on_jace_searches_for_a_blue_card_not_a_red_one(cards):
+    """Jace Beleren is blue: Brainstorm (blue) may be found, Lightning Bolt (red) and a colorless card may not (ruling 2020-04-17)."""
+    from tests.wave110j_kit import ability
+
+    s, kas, jace = _kasmina(cards, deck=["Brainstorm", BOLT, ORNI])
+    ids = {n: card_named(s, n).id for n in ("Brainstorm", BOLT, ORNI)}
+    for cid in ids.values():
+        act(s, "p1", type="move", card_ids=[cid], to={"zone": "library"})
+    act(s, "p1", type="counter", card_ids=[jace.id], kind="loyalty", delta=5)  # 3 + 5 = 8
+    act(s, "p1", type="activate_ability", card_id=jace.id, ability=ability(s, jace, "−8"))
+    d = s.state.rules.decision
+    assert d is not None and {o.card_id for o in d.options} == {ids["Brainstorm"]}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Brainstorm"]])
+    settle(s)
+    assert now(s, jace).zone.endswith(":graveyard")  # (8 loyalty spent: Jace is put into the graveyard, 704.5i)
+    assert now(s, s.state.cards[ids["Brainstorm"]]).zone.endswith((":graveyard", ":exile"))
     check(s)

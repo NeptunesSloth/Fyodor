@@ -792,6 +792,11 @@ def _shares_legendary_creature_color(s: Selector, m: re.Match[str]) -> Selector:
 _SUFFIXES.insert(0, _SUFFIXES.pop())  # Its inner 'you control' is not the candidate's controller.
 
 
+@_suffix(r"that shares a color with (?:this planeswalker|~)")  # -- wave 110J -- Kasmina, Enigma Sage's -8: the planeswalker that has the ability (granted: that one)
+def _shares_color_source(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "shares_color_source"))
+
+
 @_suffix(r"with total power and toughness (?P<n>\d+) or (?P<dir>less|greater)")  # -- put from hand (wave 19E) -- Meek Attack
 def _total_pt(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"pts:{'<=' if m['dir'] == 'less' else '>='}{m['n']}"))

@@ -7140,6 +7140,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return garth
     if (inniaz := wave110j_final.inniaz_definition(ability, ch)) is not None:
         return inniaz
+    if (bruna := wave110j_final.bruna_definition(ability, ch)) is not None:
+        return bruna
+    if (kasmina := wave110j_final.kasmina_definition(ability, ch)) is not None:
+        return kasmina
     if (conditional_prevention := conditional_prevention_effects.definition(ability, ch)) is not None:
         return conditional_prevention
 
