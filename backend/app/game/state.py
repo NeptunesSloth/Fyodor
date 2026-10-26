@@ -108,6 +108,7 @@ class StackInfo(BaseModel):
 class TokenSource(BaseModel):
     source_id: str | None = None
     name: str
+    object_id: str | None = None  # -- cards (wave 110H) -- 400.7: the rules object that made it (a blinked source is a new object)
 
 
 class Arrow(BaseModel):

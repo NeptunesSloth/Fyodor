@@ -106,6 +106,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [who[7:]] if who[7:] in plan.live() else []
     if who == "each_player":
         return list(plan.live())
+    if who == "tapped_land110h" or who.startswith("plains110h:"):  # -- cards (wave 110H) -- Desolation
+        from app.rules import wave110h_cards
+
+        return wave110h_cards.tappers(plan) if who == "tapped_land110h" else wave110h_cards.plains_players(plan, ctx, who[11:])
     if who == "source_controller110a":  # -- wave 110A -- "~'s controller" in an ability anyone may activate (Xantcha); last known if it left (608.2h)
         src110a = plan.state.cards.get(ctx.get("source_card") or "")
         snap110a = plan.rules.lki.get(ctx.get("source_object") or "")
@@ -4058,12 +4062,13 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         groups: list[list[dict[str, Any] | None]] = []
         for refs, gspec in zip(entry.groups, entry.group_specs, strict=False):
             # an illegal target keeps its place (None), so the division stays as announced (115.7f)
-            together = relation_ok(plan, gspec, refs)  # (wave 51A) "that share a creature type": no longer so, all of the group's targets are illegal (608.2b; Shifting Loyalties ruling)
+            kind = rec.pick110e if gspec.get("chosen110h") and (rec := plan.rules.payments.get(entry.source_object or "")) is not None else None  # -- cards (wave 110H) -- Selective Snare: each target needs THAT type (608.2b)
+            together = bool(kind) or relation_ok(plan, gspec, refs)  # (wave 51A) "that share a creature type": no longer so, all of the group's targets are illegal (608.2b; Shifting Loyalties ruling)
             what = player_relative.bind_what(plan, gspec, entry.groups)  # (-- player-relative selectors (wave 53A) -- "that player controls": the player group ``of`` names, as it last was)
             dependency = gspec.get('requires_legal_group')
             if dependency is not None:
                 together = together and 0 <= dependency < len(groups) and any(groups[dependency])
-            groups.append([t.model_dump() if together and still_legal(plan, what, entry.controller, t, src, entry.source_card, attacker, source_object=entry.source_object)
+            groups.append([t.model_dump() if together and (not kind or t.id in plan.state.cards and kind in plan.ch(plan.state.cards[t.id]).subtypes) and still_legal(plan, what, entry.controller, t, src, entry.source_card, attacker, source_object=entry.source_object)
                            else None for t in refs])
         chosen = sum(len(refs) for refs in entry.groups)
         from app.rules import exchange_conditions91

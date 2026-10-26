@@ -325,6 +325,7 @@ class CreateToken(Base):
     y: Coord | None = None
     tapped: bool = False
     source_id: Id | None = None  # optional provenance: the permanent that made these tokens
+    source_object: str | None = None  # -- cards (wave 110H) -- 400.7: the rules object (not just the card) that made them
     stacked: bool | None = None  # one logical stack instead of N objects (default: when count > 3)
     r: NewIds | None = None
     # filled by resolve from the card DB when token.card_id is given:

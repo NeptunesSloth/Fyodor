@@ -753,7 +753,7 @@ def create_token_batch(plan: Plan, requests: list[tuple[str, dict[str, Any], int
         for request_index, (pid, spec, count, source, tapped) in reqs:
             if count <= 0 or pid not in plan.live():
                 continue
-            ev: Event = {"kind": "tokens", "player": pid, "count": int(count), "token": spec, "source": source,
+            ev: Event = {"kind": "tokens", "player": pid, "count": int(count), "token": spec, "source": source, "source_object": ctx.get("source_object") if ctx and source is not None and ctx.get("source_card") == source else None,
                          "tapped": bool(tapped), "applied": [], 'embalmed': bool(spec.get('_embalmed')),
                          'effect_tapped': bool(spec.get('_effect_tapped', tapped))}
             if recipient_refs is not None and request_index < len(recipient_refs):
@@ -890,6 +890,7 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
         enters_tapped = (explicit_tapped or replacements.token_enters_tapped(plan, pid, prospective)) and not replacements.token_enters_untapped(plan, pid, prospective)
         created = plan.do({'type': 'create_token', 'player': pid, 'count': k, 'stacked': False, 'tapped': enters_tapped,
                            'source_id': ev.get('source') if ev.get('source') in plan.state.cards else None,
+                           'source_object': (ev.get('source_object') or plan.oid(ev['source'])) if ev.get('source') in plan.state.cards else None,  # -- cards (wave 110H) -- 400.7
                            'token': spec, 'embalmed': bool(ev.get('embalmed')), **({'zone': 'exile'} if diverted else {})}, actor=pid)
         new_ids = getattr(created, 'r', None)
         ids = list(new_ids.ids) if new_ids is not None else []
@@ -1802,6 +1803,10 @@ def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = 
     )
 
     losses = life_lock.keep(plan, losses, actor=actor)
+    if paid and losses:  # -- cards (wave 110H) -- Ashiok, Wicked Manipulator: paying life is replaced by exiling cards
+        from app.rules import wave110h_cards
+
+        losses = wave110h_cards.ashiok(plan, losses)
     if not losses:
         return True
     operation = _life_operation(plan, operation)

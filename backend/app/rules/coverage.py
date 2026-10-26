@@ -111,7 +111,7 @@ def modal_supported(d: dict[str, Any]) -> bool:
 
 def definition_supported(d: dict[str, Any]) -> bool:
     """A replacement / prevention definition is automated only when its kind is listed above."""
-    if d.get("kind") == "static" and d.get("static") == "exert_attack" and not d.get("effects"):
+    if d.get("kind") == "static" and d.get("static") in ("exert_attack", "crew_loyalty110h", "ashiok110h") and not d.get("effects"):  # (wave 110H: casting.crew reads the second)
         return True
     if any(isinstance(g, dict) and g.get("random") for g in d.get("targets") or []) and len(d["targets"]) != 1:
         return False  # -- random choices (wave 47B) -- "target … chosen at random" is read as the ability's only target group (the pick is made as the targets are chosen, not between questions)
@@ -165,6 +165,7 @@ def counters_designations_gap(d: dict[str, Any]) -> str | None:
 # static with another op stays manual.
 SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
     "creature_entry": frozenset({"exile"}),
+    "creature_entry_exile110h": frozenset({"shuffle_in"}),  # -- cards (wave 110H) -- Don't Blink (creature_entry_redirect.shuffles)
     "tokens": frozenset({"mul", "add", "set_creator"}),  # 614.16: Parallel Lives, Doubling Season, Xorn
     "counters": frozenset({"mul", "add"}),  # 122.6, 614.16: Hardened Scales, Winding Constrictor, Doubling Season
     "player_counters": frozenset({"add", "mul", "set"}),  # Winding Constrictor; energy-specific additions/doubling (107.14)

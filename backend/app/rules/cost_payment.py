@@ -997,6 +997,7 @@ def _pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, li
         record.sacrificed_objects += [plan.oid(c) for c in sacrifice]  # (wave 3D: "the sacrificed creature's power", 608.2h)
         plan.do({"type": "move", "card_ids": sacrifice, "to": {"zone": "graveyard"}})
         record.sacrificed += sacrifice
+        record.sacrificed_now110h += [plan.oid(c) for c in sacrifice if c in plan.state.cards]  # (a token ceased to exist, 111.7)
     for comp in library_parts:  # -- activation costs (wave 4H) -- 601.2h: last; 701.17a mill, 701.13a exile
         top = list(plan.state.zones.get(zone_key(player, "library"), [])[: comp.amount])
         if len(top) < comp.amount:

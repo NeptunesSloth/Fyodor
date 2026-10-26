@@ -262,6 +262,8 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     hch = host_face or plan.ch(card)
     if kind == "aura" and any(rule.startswith("only_aura106:") and rule.partition(":")[2] != source.id for rule in hch.imposed):
         return f"{hch.name} can't be enchanted by another Aura"
+    if kind == "aura" and "no_aura110h" in hch.imposed:  # -- cards (wave 110H) -- Tetravite: "This token can't be enchanted." (303.4d, 303.4j)
+        return f"{hch.name} can't be enchanted"
     # -- attached events (wave 25D) -- 702.16n: a protection that "doesn't remove" this Aura / Auras isn't why an Aura falls off as a
     # state-based action (``sba``); it still keeps an Aura from becoming attached (702.16c: review 25D)
     if protection.protected_from(hch, sch, (lambda k: k == f"self:{source.id}" or (k == "auras" and kind == "aura") or (k == f"yours:{source.controller}" and kind in ("aura", "equipment"))) if sba else None):  # (wave 53B: Benevolent Blessing, 702.16n)

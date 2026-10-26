@@ -259,6 +259,11 @@ def _other_than_host(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_host_of_source"))
 
 
+@_suffix(r"created with (?:this creature|~)")  # -- cards (wave 110H) -- 111.2: the tokens the source made (Tetravus; the card, as Saproling Burst's made110h)
+def _made_by_source(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "made_by_source110h"))
+
+
 @_suffix(r"other than ‹granter(?:#(?P<oid>[^›]+))?›")  # -- granter (wave 110H) -- 607.1a: "an artifact other than Dire Blunderbuss" in its grant
 def _other_than_granter(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_oid:" + (m["oid"] or "")))
@@ -1416,9 +1421,9 @@ def _of_chosen_number(s: Selector, m: re.Match[str]) -> Selector:
 _CMP_OPS = {"equal to": "==", "greater than or equal to": ">=", "less than or equal to": "<=", "greater than": ">", "less than": "<"}
 
 
-@_suffix(r"with (?P<what>mana value|power|toughness) (?:(?P<op>equal to|greater than or equal to|less than or equal to|greater than|less than) )?the chosen number")
+@_suffix(r"with (?P<what>mana value|power or toughness|power|toughness) (?:(?P<op>equal to|greater than or equal to|less than or equal to|greater than|less than) )?the chosen number")
 def _cmp_chosen_number(s: Selector, m: re.Match[str]) -> Selector:  # -- chosen filters (wave 53B) -- "Destroy all creatures with power greater than or equal to the chosen number." (Expel the Interlopers): the number chosen as the ability resolves (bind_chosen) or as the source entered (_chosen_ok)
-    what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
+    what = {"mana value": "mv", "power": "power", "toughness": "toughness", "power or toughness": "pt_either"}[m["what"]]
     return replace(s, extras=(*s.extras, "chosen_cmp"), compare=(*s.compare, (what, _CMP_OPS[m["op"] or "equal to"], "chosen_n")))
 
 
@@ -2610,6 +2615,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if x is None:
                 return False
             n = x + 1 if n == X_PLUS_1 else x
+        if what == "pt_either":  # (wave 110H) "power or toughness equal to the chosen number" (Squall): either one meets the comparison
+            if not isinstance(n, (int, float)) or not any((v := _stat(ch, w)) is not None and {"<=": v <= n, ">=": v >= n, "==": v == n, "<": v < n, ">": v > n}[op]
+                                                          for w in ("power", "toughness")):
+                return False
+            continue
         value = _stat(ch, what)
         if what == "mv" and value is not None and zone == "stack" and card.stack_info is not None and card.stack_info.x:
             value += card.stack_info.x * ch.mana_cost.count("{X}")  # 202.3e: X on the stack is the value chosen
@@ -2629,6 +2639,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 c.controller == card.controller and c.zone.endswith(':battlefield')
                 and extra[len('controller_controls_land:'):] in plan.ch(c).subtypes
                 and 'Land' in plan.ch(c).types for c in plan.state.cards.values()):
+            return False
+        if extra == "made_by_source110h" and (card.token_source is None or (card.token_source.object_id or card.token_source.source_id) != (plan.oid(source) if card.token_source.object_id else source)):  # (-- cards (wave 110H) --)
             return False
         if extra.startswith("not_oid:") and plan.oid(card) == extra[8:]:  # -- player-relative selectors (wave 53A) -- "other creatures that player controls": other than the target it follows
             return False
