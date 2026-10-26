@@ -307,6 +307,8 @@ def on_facts(plan: Plan, facts: list[Any], batch: int, fired_once: dict[Any, Any
         watcher = source.model_copy(update={"controller": t.controller})
         bound = {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []} if t.when.get("bound") else None
         for fact in facts:
+            if t.when.get("caster110c") and fact[4].get("actor") != t.when["caster110c"]:
+                continue  # -- opening hand (wave 110C) -- Chancellor of the Annex: this opponent's spell only
             if "recipient_players" in t.when and fact[4].get("recipient") not in t.when["recipient_players"]:
                 continue
             if bound is not None and fact[4].get("oid") not in bound:

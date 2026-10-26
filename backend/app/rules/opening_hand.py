@@ -49,6 +49,7 @@ WHEN = {
     "your first upkeep": {"kind": "step", "step": "upkeep", "whose": "you"},
     "your first main phase of the game": {"kind": "step", "step": "main", "whose": "you"},  # 505.1
 }
+_ANNEX = "when each opponent casts their first spell of the game, counter that spell unless that player pays {1}."
 PROMPT = "Opening hand: choose the cards to use, or none (103.6)"
 
 
@@ -90,6 +91,11 @@ def definition(text: str, ch: Any) -> dict[str, Any] | None:
         return {"kind": "static", "static": STATIC, "action": "begin", "effects": [],
                 **({"not_starting": True} if m["ns"] else {}), **({"counter": "luck", "exile": True} if m["luck"] else {})}
     m = _REVEAL.match(t)
+    if m is not None and m["rest"] == _ANNEX:  # -- opening hand (wave 110C) -- Chancellor of the Annex: the card's own "Whenever an opponent casts a spell" ability, once per opponent
+        ab = scripts.parse_abilities("Whenever an opponent casts a spell, counter it unless that player pays {1}.")[0]
+        own = scripts.define(ab, ch)
+        return None if own is None else {"kind": "static", "static": STATIC, "action": "reveal", "effects": [], "each_opponent": True, "delayed": own["effects"],
+                                         "when": {"kind": "watch", "cond": own["cond"], "text": "an opponent casts their first spell of the game"}}
     rest = _LEAD.match(m["rest"]) if m else None
     rest = rest or (_TAIL.match(m["rest"]) if m else None)
     if rest is None:
@@ -161,10 +167,12 @@ def act(plan: Plan, pid: str, queue: list[str], rest: list[str]) -> None:
         if d["action"] == "reveal":
             plan.do({"type": "reveal", "card_ids": [cid]}, actor=pid)  # 103.6b
             plan.rules.opening_revealed.append(cid)
-            plan.rules.delayed.append(DelayedTrigger(
-                id=secrets.token_hex(4), controller=pid, source_card=cid, source_object=plan.oid(card), name=card.name or "",
-                when=dict(d["when"]), effects=[dict(e) for e in d["delayed"]], turn=plan.state.turn.number,
-                step=plan.state.turn.phase))
+            # (each_opponent: one watch per opponent, each used up by that player's first spell of the game, since nothing is cast before the game begins)
+            for caster in ([o for o in plan.live() if o != pid] if d.get("each_opponent") else [None]):
+                plan.rules.delayed.append(DelayedTrigger(
+                    id=secrets.token_hex(4), controller=pid, source_card=cid, source_object=plan.oid(card), name=card.name or "",
+                    when={**d["when"], **({"since": plan.rules.batch, "caster110c": caster} if caster else {})}, effects=[dict(e) for e in d["delayed"]],
+                    turn=plan.state.turn.number, step=plan.state.turn.phase))
             continue
         from app.rules import attachments
 
