@@ -720,6 +720,9 @@ _ALLOWED = {
     ("replacements.py", "move_instead"): "wave 50J: the counter an exiling replacement puts on the card it exiled (Rayami: a card in exile, not a permanent)",
     ("replacements.py", "replace_move"): "wave 50J: the same, for the batch path",
     ("designations.py", "emblem"): "wave 13A: an emblem is not a token (114.1, 111.7): no token-creation replacement applies",
+    ("wave110c_valki.py", "apply_enter"): "wave 110C: Tibalt's emblem (an emblem is not a token, 114.1, as above)",
+    ("wave110h_cards.py", "exile_counters"): "wave 110H: counters on the source as a card in exile (as above)",
+    ("wave110o_cards.py", "collect"): "wave 110O: collection counters on cards in exile (as above)",
 }
 
 

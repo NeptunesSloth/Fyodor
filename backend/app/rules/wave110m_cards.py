@@ -814,13 +814,14 @@ def myra_choose(plan: Any, ctx: Def, e: Def) -> bool:
 
 
 def _myra_mark(plan: Any, ctx: Def, found: list[str]) -> bool:
-    from app.rules import context
+    """The midway counter goes through the counter choke point (614.1a: "counters of any kind" replacements apply); False while a replacement choice is open."""
+    from app.rules import context, replace
 
     context.bind_objects(plan, ctx, "myra_att110m", found)
-    if found:
-        plan.do({"type": "counter", "card_ids": found, "kind": "midway", "delta": 1}, actor=ctx["controller"])
-        plan.note(f"{plan.state.cards[found[0]].name} gets a midway counter", found)
-    return True
+    if not found:
+        return True
+    plan.note(f"{plan.state.cards[found[0]].name} gets a midway counter", found)
+    return replace.put_counters(plan, [(c, "midway", 1) for c in found], by=ctx["controller"], then={"do": "continue", "ctx": ctx})
 
 
 def resume_myra(plan: Any, d: Any, chosen: list[str]) -> None:
