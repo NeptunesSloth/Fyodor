@@ -70,13 +70,18 @@ _WITCH = ("Whenever ~ deals combat damage to a player, look at the top two cards
           "noncreature spell from among cards exiled with ~ without paying its mana cost.")
 _RINOA = ("Whenever one or more attacking creatures you control die, you may return one of them to the battlefield tapped under its owner's control with a "
           "flying counter on it. Do this only once each turn.")
+_SYRIX_END = ("At the beginning of each end step, if a creature card left your graveyard this turn, target Phoenix you control deals damage equal to its "
+              "power to any target.")
+_SYRIX_DIES = "Whenever another Phoenix you control dies, you may cast this card from your graveyard."
+_LAZAV = ("Whenever you commit a crime, put a +1/+1 counter on ~. Then you may exile a card from a graveyard. If a creature card was exiled this way, you may have "
+          "~ become a copy of that card until end of turn. This ability triggers only once each turn.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
-    from app.rules import scripts
+    from app.rules import conditions, scripts
 
     text = scripts.self_text(ability.text, ch.name)
     if ability.kind == "loyalty" and text == _OKO_TYPES:  # Oko: 613.1d layer 4, "(This effect doesn't end.)": a permanent effect on the object
@@ -89,6 +94,22 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "triggered" and text == _LAZAV:
+        native = scripts.define(replace(ability, text="Whenever you commit a crime, put a +1/+1 counter on ~. This ability triggers only once each turn."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["add_counters"]:
+            return None
+        return {**native, "effects": [*native["effects"], {"do": "lazav110o"}]}
+    if ability.kind == "triggered" and text == _SYRIX_DIES:  # 113.6k: it triggers from the graveyard; 601.2: a normal (paid) cast
+        native = scripts.define(replace(ability, text="Whenever another Phoenix you control dies, return this card from your graveyard to the battlefield."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["return_card"]:
+            return None
+        return {**native, "optional": False, "effects": [{"do": "free_cast", "zone": "that", "who": "self_gy", "filter": None, "optional": True, "mv": None,
+                                                           "n": 1, "paid": True}]}
+    if ability.kind == "triggered" and text == _SYRIX_END:
+        native = scripts.define(replace(ability, text=_SYRIX_END.split(", if ")[0] + ", " + _SYRIX_END.split("this turn, ")[1]), ch)
+        if native is None or native.get("if") is not None:
+            return None
+        return {**native, "if": conditions.parse("a creature card left your graveyard this turn")}
     if ability.kind == "triggered" and text == _RINOA:
         # 700.4: "dies" is the batch that went to the graveyard together; 603.10a looks back at which were attacking (the base trigger); 603.2h the "once"
         base = scripts.define(replace(ability, text=_RINOA.replace(" return one of them to the battlefield tapped under its owner's control with a flying "
@@ -341,7 +362,51 @@ def resume_rinoa_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
+# -- Lazav, Familiar Stranger --------------------------------------------------------------------------------------------------------------
+def lazav(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """"Then you may exile a card from a graveyard" (not a target: any graveyard, chosen as the ability resolves, 608.2d)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":graveyard") and plan.in_game(c)]
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: exile a card from a graveyard?",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "a card", card_id=c) for c in cards], min_choices=0, max_choices=1,
+           resume={"step": "lazav110o", "ctx": ctx})
+    return False
+
+
+def resume_lazav(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import context, effects
+    from app.rules.plan import decide
+
+    ctx = d.resume["ctx"]
+    if len(chosen) > 1 or any(not plan.state.cards[c].zone.endswith(":graveyard") for c in chosen):
+        raise ActionError("Choose at most one card from a graveyard")
+    if chosen:
+        card = plan.state.cards[chosen[0]]
+        plan.do({"type": "move", "card_ids": chosen, "to": {"player": card.owner, "zone": "exile"}}, actor=ctx["controller"])
+        context.bind_objects(plan, ctx, "lazav110o", chosen)
+        if "Creature" in plan.ch(plan.state.cards[chosen[0]]).types:
+            from app.game.rules_state import DecisionOption
+
+            decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: become a copy of {card.name}?",
+                   options=[DecisionOption(id="yes", label="Become a copy"), DecisionOption(id="no", label="Don't")],
+                   resume={"step": "lazav_copy110o", "ctx": ctx})
+            return
+    effects.continue_effects(plan, ctx)
+
+
+def resume_lazav_copy(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if chosen == ["yes"] and not effects.PRIMITIVES["become_copy"](plan, ctx, {"do": "become_copy", "who": "self", "with": "ref:lazav110o", "duration": "end_of_turn"}):
+        return
+    effects.continue_effects(plan, ctx)
+
+
 PRIMITIVES: dict[str, Any] = {"type_emblem110o": type_emblem, "redistribute110o": redistribute,
-              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick}
+              "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav}
 RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
-                          "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick}
+                          "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy}

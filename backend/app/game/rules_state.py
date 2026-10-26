@@ -649,6 +649,7 @@ class TurnLog(BaseModel):
     drawn_applied: dict[str, list[str]] = Field(default_factory=dict)
     left: list[Departure] = Field(default_factory=list)
     left_graveyard: list[str] = Field(default_factory=list)  # the owner of each card that left a graveyard
+    left_graveyard_creature110o: list[str] = Field(default_factory=list)  # -- (wave 110O) -- the owner of each creature card that left a graveyard
     entered_graveyard: list[Arrival] = Field(default_factory=list)
     entered: list[Entry] = Field(default_factory=list)  # -- refused modal/conditional (wave 3R1) -- onto the battlefield
     # -- this-turn history (wave 4D; app/rules/history.py) --
@@ -2256,6 +2257,8 @@ def _diff(state: GameState, rules: RulesState, before: Capture, manual: bool, ac
                                           types=before.types.get(card_id)))
         elif old_name == "graveyard" and (log := turn_log_now(state)) is not None:
             log.left_graveyard.append(old_zone.split(":")[0])  # (a zone key is "<owner>:graveyard")
+            if "Creature" in (before.types.get(card_id) or ()):  # -- (wave 110O) -- Plan.do records the types of a graveyard card it moves
+                log.left_graveyard_creature110o.append(old_zone.split(":")[0])
         if new_name == "graveyard" and new_zone and card is not None and card.card_id is not None \
                 and (log := turn_log_now(state)) is not None:  # (a token is no card: it never "descends")
             log.entered_graveyard.append(Arrival(card=card_id, owner=new_zone.split(":")[0], object_id=new_oid, from_zone=old_name,

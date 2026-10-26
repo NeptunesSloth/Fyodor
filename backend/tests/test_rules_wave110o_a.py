@@ -11,6 +11,8 @@
   and takes the rest of what it exiled.
 * 607.2a, 406.3b: Scarlet Witch exiles two cards face down on each hit and may cast a Hero or noncreature spell from all the cards exiled with her.
 * 700.4, 603.10a, 603.2h: Rinoa returns one of the attacking creatures that died together, tapped with a flying counter; only once each turn.
+* 603.4, 113.6k: Syrix, Carrier of the Flame fires at each end step if a creature card left its owner's graveyard, and may be cast from the graveyard when another Phoenix dies.
+* 608.2d, 707.9: Lazav, Familiar Stranger grows when its controller commits a crime, may exile any graveyard card, and may copy a creature card so exiled.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -48,10 +50,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -647,4 +649,125 @@ def test_rinoa_returns_only_once_each_turn(cards):
     assert now(s, elves).zone == "p1:battlefield" and now(s, elves).counters.get("flying") == 1
     seen = combat(s, [])
     assert not seen and now(s, bears).zone == "p1:graveyard"  # (Bears died in combat: no second return, no question)
+    check(s)
+
+
+def end_step(s, target="p2"):
+    """Play to Alice's end step, answering a target question with ``target`` (a player or a card id)."""
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            ids = [target] if any(o.id == target for o in d.options) else [d.options[0].id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.turn.phase == "end" and not s.state.zones.get("stack"):
+            return
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never reached the end step")
+
+
+@pytest.mark.parametrize(("returned", "hits"), [("Grizzly Bears", True), ("Lightning Bolt", False), (None, False)])
+def test_syrix_hits_at_the_end_step_only_if_a_creature_card_left_the_graveyard(cards, returned, hits):
+    s = build(cards, [SYRIX, "Raise Dead", "Regrowth", "Grizzly Bears", "Lightning Bolt"])
+    put(s, SYRIX)
+    stops(s)
+    if returned:
+        grave_new(s, returned)
+        cast_on(s, "Raise Dead" if returned == "Grizzly Bears" else "Regrowth", named(s, returned))
+    end_step(s)
+    assert life(s, "p2") == (37 if hits else 40)
+    check(s)
+
+
+def test_syrix_trigger_ignores_a_creature_card_that_left_someone_elses_graveyard(cards):
+    s = build(cards, [SYRIX, "Regrowth"], ["Grizzly Bears"])
+    put(s, SYRIX)
+    stops(s)
+    grave_new(s, "Grizzly Bears", "p2")
+    move(s, named(s, "Grizzly Bears", "p2"), "exile", "p2")
+    end_step(s)
+    assert life(s, "p2") == 40
+    check(s)
+
+
+def disfigure(s, victim):
+    """Cast Disfigure on ``victim`` and pass until the first question (or the stack is empty)."""
+    c = to_hand(s, "Disfigure")
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[victim.id])
+    for _ in range(10):
+        if s.state.rules.decision is not None or not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+@pytest.mark.parametrize(("phoenix_dies", "cast"), [(True, True), (True, False), (False, False)])
+def test_syrix_may_be_cast_from_the_graveyard_when_another_phoenix_you_control_dies(cards, phoenix_dies, cast):
+    s = build(cards, [SYRIX, "Phoenix Chick", "Disfigure", "Grizzly Bears"])
+    syrix = grave_new(s, SYRIX)
+    chick, bears = put(s, "Phoenix Chick"), put(s, "Grizzly Bears")
+    stops(s)
+    mana(s, "p1", C=4, R=2, B=2)  # (the Disfigure takes {B}; Syrix costs {2}{B}{R})
+    disfigure(s, chick if phoenix_dies else bears)
+    d = s.state.rules.decision
+    if phoenix_dies:
+        assert d is not None and d.player == "p1"
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.card_id == syrix.id)] if cast else [])
+        settle(s)
+    else:
+        assert d is None
+    assert now(s, syrix).zone == ("p1:battlefield" if cast else "p1:graveyard")
+    check(s)
+
+
+def crime(s, pick=None, copy=None, bolts=1):
+    """Alice casts Lightning Bolt at Bob (targeting an opponent: a crime); Lazav's trigger asks for the card to exile (``pick``) and the copy (``copy``)."""
+    asked = []
+    for _ in range(bolts):
+        bolt = to_hand(s, "Lightning Bolt")
+        mana(s, "p1", R=1)
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+        for _ in range(12):
+            d = s.state.rules.decision
+            if d is None and not s.state.zones.get("stack"):
+                break
+            if d is None:
+                act(s, s.state.rules.priority, type="pass_priority")
+            elif "exile a card" in d.prompt:
+                asked.append("exile")
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.card_id == pick.id)] if pick else [])
+            else:
+                asked.append("copy")
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes" if copy else "no"])
+    return asked
+
+
+@pytest.mark.parametrize(("pick", "copy", "name", "pt"), [
+    ("Grizzly Bears", True, "Grizzly Bears", (3, 3)),            # a copy of the Bears with the new counter
+    ("Grizzly Bears", False, "Lazav, Familiar Stranger", (2, 5)),
+    ("Disfigure", None, "Lazav, Familiar Stranger", (2, 5)),     # not a creature card: no copy question
+    (None, None, "Lazav, Familiar Stranger", (2, 5)),            # no exile
+])
+def test_lazav_crime_counter_exile_and_copy(cards, pick, copy, name, pt):
+    s = build(cards, [LAZAV, "Grizzly Bears", "Disfigure", "Lightning Bolt"])
+    lazav = put(s, LAZAV)
+    grave = {n: grave_new(s, n) for n in ("Grizzly Bears", "Disfigure")}
+    asked = crime(s, grave.get(pick), copy)
+    assert asked == (["exile"] + (["copy"] if pick == "Grizzly Bears" else []))
+    assert now(s, lazav).counters.get("+1/+1") == 1 and ch(s, lazav).name == name and ch(s, lazav).pt == pt
+    assert (now(s, grave[pick]).zone == "p1:exile") if pick else all(now(s, c).zone == "p1:graveyard" for c in grave.values())
+    to_phase(s, "main1", turn=3)  # (until end of turn: Lazav is Lazav again, the counter stays)
+    assert ch(s, lazav).name == "Lazav, Familiar Stranger" and ch(s, lazav).pt == (2, 5)
+    check(s)
+
+
+def test_lazav_exiles_from_an_opponents_graveyard_and_triggers_only_once_each_turn(cards):
+    s = build(cards, [LAZAV, "Lightning Bolt"], ["Grizzly Bears"])
+    lazav = put(s, LAZAV)
+    theirs = grave_new(s, "Grizzly Bears", "p2")
+    asked = crime(s, theirs, True, bolts=1)
+    assert asked == ["exile", "copy"] and now(s, theirs).zone == "p2:exile"
+    again = crime(s, None, None)  # (a second crime the same turn: no second trigger)
+    assert again == [] and now(s, lazav).counters.get("+1/+1") == 1
     check(s)

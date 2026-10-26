@@ -894,6 +894,11 @@ def _many_left_graveyard(m: re.Match[str]) -> Condition | None:
     return None if n is None else {"history": "left_graveyard", "n": n}
 
 
+@_history_pattern(r"a creature card left your graveyard this turn")  # -- (wave 110O) -- Syrix, Carrier of the Flame
+def _creature_left_graveyard(m: re.Match[str]) -> Condition:
+    return {"history": "left_graveyard_creature110o"}
+
+
 @_history_pattern(r"a card left your graveyard this turn")
 def _left_graveyard(m: re.Match[str]) -> Condition:
     return {"history": "left_graveyard"}
