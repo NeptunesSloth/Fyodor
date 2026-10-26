@@ -56,6 +56,9 @@ NEERA = ("Whenever you cast a spell, you may put it on the bottom of its owner's
 VAEVICTIS = ("Whenever ~ attacks, for each player, choose target permanent that player controls. Those players sacrifice those permanents. Each player who sacrificed a permanent "
              "this way reveals the top card of their library, then puts it onto the battlefield if it's a permanent card.")
 
+WILD_HUNT = ("{T}: Tap all untapped Wolf creatures you control. Each Wolf tapped this way deals damage equal to its power to target creature. That creature deals damage equal to its power "
+             "divided as its controller chooses among any number of those Wolves.")
+
 PROCTOR = "Whenever a permanent entering causes a triggered ability to trigger, counter that ability unless its controller pays {2}."
 
 
@@ -114,6 +117,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or [e.get("do") for e in native["effects"]] != ["choose_targets", "destroy"]:
             return None
         return {**native, "effects": [native["effects"][0], {"do": "vaevictis110c", "opponent_aggregate": True}]}
+    if text == WILD_HUNT:  # "each Wolf you control" is read natively; the tapped Wolves are bound ("tapped this way") and are the sources
+        native = scripts.define(replace(ability, text=WILD_HUNT.split(" That creature deals")[0].replace("Wolf tapped this way", "Wolf you control")), ch)
+        fx = (native or {}).get("effects") or []
+        if native is None or [e.get("do") for e in fx] != ["tap", "damage"] or not str(fx[1].get("src", "")).startswith("each:"):
+            return None
+        tap = {**fx[0], "as": "wild110c"}
+        hit = {**fx[1], "src": "ref:wild110c", "src_many": True}
+        return {**native, "effects": [tap, hit, {"do": "wildhunt110c", "wolves": "ref:wild110c"}]}
     if text == NEERA:  # the "you may ... if you do" gate is read as a {0} payment; the spell moves first (it is not countered, 701.6a), else nothing follows (608.2c)
         native = scripts.define(replace(ability, text=NEERA.replace("put it on the bottom of its owner's library", "pay {0}")), ch)
         event = scripts.define(replace(ability, text="Whenever you cast a spell, you may pay {0}. If you do, copy that spell. This ability triggers only once each turn."), ch)  # (the form that keeps the spell: "that spell")
@@ -454,6 +465,40 @@ def vaevictis(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return attachments.enter(plan, entries, ctx) if entries else True
 
 
+def wildhunt(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Master of the Wild Hunt: the target creature deals damage equal to its power, divided as ITS controller chooses (any number, so 0 is fine), among the Wolves tapped this way
+    that are still on the battlefield (120.3, 608.2h; the engine's "divide" answer, with 0 allowed)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    target = next(iter(effects._cards(plan, ctx, "target")), None)
+    wolves = [c for c in effects._cards(plan, ctx, e["wolves"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    if target is None or not plan.state.cards[target].zone.endswith(":battlefield") or not wolves:
+        return True
+    power = max(0, plan.ch(plan.state.cards[target]).pt[0] if plan.ch(plan.state.cards[target]).pt else 0)
+    if not power:
+        return True
+    if len(wolves) == 1:
+        return effects._deal(plan, ctx, [(effects._card_source(plan, target), wolves[0], power)])
+    decide(plan, player=plan.state.cards[target].controller, kind="divide", prompt=f"Divide {power} damage from {plan.state.cards[target].name} among the Wolves",
+           options=[DecisionOption(id=w, label=plan.state.cards[w].name or "Wolf", card_id=w) for w in wolves], min_choices=len(wolves), max_choices=len(wolves),
+           display={"kind": "divide", "total": power, "what": "damage", "least": 0},
+           resume={"step": "wildhunt110c", "ctx": ctx, "total": power, "least": 0, "target": target, "wolves": wolves})
+    return False
+
+
+def resume_wildhunt(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    src = plan.state.cards.get(r["target"])
+    hits = [(effects._card_source(plan, r["target"]), w, int(n)) for w, n in zip(r["wolves"], chosen, strict=True)
+            if src is not None and src.zone.endswith(":battlefield") and plan.state.cards[w].zone.endswith(":battlefield") and int(n) > 0]
+    if effects._deal(plan, r["ctx"], hits) if hits else True:
+        effects.continue_effects(plan, r["ctx"])
+
+
 def proctor(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Counter that ability unless its controller pays {2} (701.6a; 118.12): nothing if it already left the stack."""
     from app.rules import effects
@@ -498,5 +543,5 @@ def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-RESUME = {"prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
-PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+RESUME = {"prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x, "wildhunt110c": resume_wildhunt}
+PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "wildhunt110c": wildhunt, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
