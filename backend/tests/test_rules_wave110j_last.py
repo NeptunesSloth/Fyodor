@@ -292,3 +292,87 @@ def test_reed_opponents_turn_the_first_draw_is_four(cards):
     assert _cantrip(s) == 4
     assert _cantrip(s) == 1
     check(s)
+
+
+# -- Captain America, First Avenger --
+CAP = real("Captain America, First Avenger", "{R}{W}{U}", 3, "Legendary Creature — Human Soldier Hero",
+           "Throw ... — {3}, Unattach an Equipment from Captain America: He deals damage equal to that Equipment's mana value divided as you choose among one, two, or three targets.\n"
+           "... Catch — At the beginning of combat on your turn, attach up to one target Equipment you control to Captain America.", ("4", "4"), "RWU")
+HAMMER = real("Loxodon Warhammer", "{3}", 3, "Artifact — Equipment", "Equipped creature gets +3/+0 and has trample and lifelink.\nEquip {3}", None)
+SPLITTER = real("Bonesplitter", "{1}", 1, "Artifact — Equipment", "Equipped creature gets +2/+0.\nEquip {1}", None)
+MANTLE = real("Paradise Mantle", "{0}", 0, "Artifact — Equipment", "Equipped creature has \"{T}: Add one mana of any color.\"\nEquip {1}", None)
+base.EXTRA.extend([CAP, HAMMER, SPLITTER, MANTLE])
+
+
+def test_captain_full(cards):
+    assert coverage.of_card_data(cards.resolve("Captain America, First Avenger")).level == "FULL"
+
+
+def _captain(cards, *equipment):
+    s = build(cards, ["Captain America, First Avenger", *equipment, "Grizzly Bears"], ["Grizzly Bears", "Shivan Dragon"])
+    cap = put(s, "Captain America, First Avenger")
+    gear = [put(s, e) for e in equipment]
+    for g in gear:
+        act(s, "p1", type="attach", card_ids=[g.id], to=cap.id)
+    return s, cap, gear
+
+
+def _throw(s, cap, targets, division=(), **kw):
+    mana(s, C=3)
+    act(s, "p1", type="activate_ability", card_id=cap.id, ability=0, targets=targets, division=list(division), **kw)
+
+
+@pytest.mark.parametrize("n", [1, 2, 3])
+def test_captain_divides_the_equipment_mana_value_among_one_two_or_three_targets(cards, n):
+    s, cap, (hammer,) = _captain(cards, "Loxodon Warhammer")
+    bears, dragon = put(s, "Grizzly Bears", "p2"), put(s, "Shivan Dragon", "p2")
+    targets, division = {1: (["p2"], []), 2: (["p2", dragon.id], [1, 2]), 3: (["p2", dragon.id, bears.id], [1, 1, 1])}[n]
+    _throw(s, cap, targets, division)
+    answer(s)
+    assert s.state.cards[hammer.id].attached_to is None and s.state.cards[hammer.id].zone == "p1:battlefield"  # unattached, stays (701.3d)
+    assert life(s, "p2") == {1: 37, 2: 39, 3: 39}[n]
+    assert s.state.cards[dragon.id].damage == {1: 0, 2: 2, 3: 1}[n]
+    check(s)
+
+
+def test_captain_division_must_match_the_equipment_and_give_each_target_one(cards):
+    s, cap, _ = _captain(cards, "Loxodon Warhammer")
+    dragon = put(s, "Shivan Dragon", "p2")
+    with pytest.raises(ActionError):
+        _throw(s, cap, ["p2", dragon.id], [2, 2])  # 4 is not the Warhammer's mana value
+    with pytest.raises((ActionError, ValueError)):  # (the intent schema already refuses a 0)
+        _throw(s, cap, ["p2", dragon.id], [3, 0])  # 601.2d: at least 1 each
+    check(s)
+
+
+def test_captain_chooses_the_equipment_first_when_mana_values_differ(cards):
+    s, cap, (hammer, splitter) = _captain(cards, "Loxodon Warhammer", "Bonesplitter")
+    dragon = put(s, "Shivan Dragon", "p2")
+    _throw(s, cap, [])
+    d = s.state.rules.decision
+    assert d is not None and {o.id for o in d.options} == {hammer.id, splitter.id}  # 601.2b: before the targets
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[splitter.id])
+    answer(s, dragon.id)
+    assert s.state.cards[dragon.id].damage == 1 and s.state.cards[splitter.id].attached_to is None and s.state.cards[hammer.id].attached_to == cap.id
+    check(s)
+
+
+def test_captain_cost_choice_given_and_illegal_target_at_resolution(cards):
+    s, cap, (hammer, splitter) = _captain(cards, "Loxodon Warhammer", "Bonesplitter")
+    bears = put(s, "Grizzly Bears", "p2")
+    _throw(s, cap, ["p2", bears.id], [2, 1], cost_choices=[{"component": 1, "cards": [hammer.id]}])
+    act(s, "p1", type="move", card_ids=[bears.id], to={"player": "p2", "zone": "graveyard"})  # the Bears become an illegal target
+    answer(s)
+    assert life(s, "p2") == 38  # the original division still applies; the Bears' 1 isn't dealt (608.2b)
+    assert s.state.cards[hammer.id].attached_to is None and s.state.cards[splitter.id].attached_to == cap.id
+    check(s)
+
+
+def test_captain_needs_equipment_with_mana_value(cards):
+    s, cap, _ = _captain(cards)
+    with pytest.raises(ActionError):
+        _throw(s, cap, ["p2"])
+    s, cap, _ = _captain(cards, "Paradise Mantle")
+    with pytest.raises(ActionError):
+        _throw(s, cap, ["p2"])  # 601.2d: nothing to give one, two, or three targets
+    check(s)

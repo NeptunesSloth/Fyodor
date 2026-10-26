@@ -335,6 +335,10 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(MANA, text=part)
     if re.fullmatch(r"Unattach (?:this \w+|~)", part):
         return CostComponent(UNATTACH, text=part)
+    if part == "Unattach an Equipment from ~":  # -- last cards (wave 110J) -- Captain America: one Equipment attached to it (701.3d), the payer's choice (601.2h)
+        sel = selectors.parse("Equipment attached to ~")
+        assert sel is not None
+        return CostComponent(UNATTACH, selector=sel.key(), text=part)
     if m := _GRANTER_COST.match(part):  # -- granted from object (wave 18F) -- paid with that object (601.2h): the one choice, made for you
         sel = selectors.parse(m["g"])
         assert sel is not None

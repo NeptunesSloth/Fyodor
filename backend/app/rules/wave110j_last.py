@@ -53,3 +53,81 @@ def resume_safeguard(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES = {"safeguard110j": safeguard}
 RESUME = {"safeguard110j": resume_safeguard}
+
+
+# -- Captain America, First Avenger -- Throw: the damage equals the mana value of the Equipment unattached as a cost. 601.2b (602.2b): when a value
+# in the text is defined by a choice the player would make later in the announcement, that choice is made at this time instead, so the Equipment
+# is chosen before the targets and the division (601.2c-d, Gatherer rulings 2026-06-19: the targets and the division are chosen on activation,
+# each target gets at least 1). At resolution the division stays and damage to an illegal target isn't dealt (608.2b, the same rulings).
+CAPTAIN = ("Throw ... — {3}, Unattach an Equipment from Captain America: He deals damage equal to that Equipment's mana value divided as you "
+           "choose among one, two, or three targets.")
+_CAP_COMPONENT = 1  # the cost's parts: {3}, then the Equipment
+
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    if ability.kind != "activated" or ability.text != CAPTAIN:
+        return None
+    return {"kind": "activated", "cost": "{3}, Unattach an Equipment from ~", "effects": [{"do": "damage", "who": "target:0", "n": {"divided": 0}}],
+            "target": None, "targets": [{"what": "any", "min": 1, "max": 3, "divide": {"what": "damage", "total": {"x": 1}, "value": {"cap110j": 1}}}],
+            "delegated_target": "cap110j"}
+
+
+def _equipment(plan: Plan, source: str) -> list[str]:
+    return [c.id for c in plan.state.cards.values() if c.attached_to == source and c.zone.endswith(":battlefield") and "Equipment" in plan.ch(c).subtypes]
+
+
+def cap_total(plan: Plan, source: str | None) -> int:
+    """The total being divided: the chosen Equipment's mana value (while the ability is announced), else the largest one attached (an estimate for listings)."""
+    chosen = getattr(plan, "cap110j", None)
+    if chosen is not None:
+        return int(chosen)
+    return max((int(plan.ch(plan.state.cards[c]).mana_value) for c in _equipment(plan, source or "")), default=0)
+
+
+def cap_announce(plan: Plan, a: Any, definition: dict[str, Any], what: str) -> Any:
+    from app.game import actions as A
+    from app.rules import casting
+
+    if not isinstance(a, A.ActivateAbility):
+        raise ActionError("Unsupported delegated target announcement")
+    equips = _equipment(plan, a.card_id)
+    given = next((c.cards for c in a.cost_choices if c.component == _CAP_COMPONENT), None)
+    if given is not None and (len(given) != 1 or given[0] not in equips):
+        raise ActionError("Choose one Equipment attached to it")
+    if not equips:
+        raise ActionError("No Equipment is attached to it")  # 118.3
+    values = {int(plan.ch(plan.state.cards[c]).mana_value) for c in ([given[0]] if given else equips)}
+    if len(values) > 1:  # which Equipment fixes the amount: asked now (601.2b)
+        decide(plan, player=plan.actor, kind="choose_one", prompt=f"{what}: choose the Equipment to unattach (its mana value is the damage)",
+               options=[DecisionOption(id=c, card_id=c, label=f"{plan.ch(plan.state.cards[c]).name} (mana value {plan.ch(plan.state.cards[c]).mana_value:g})") for c in equips],
+               resume={"step": "cap110j", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}), "actor": plan.actor})
+        return None
+    total = values.pop()
+    if total < 1:  # 601.2d: each of the one to three targets must receive at least 1 of it
+        raise ActionError("That Equipment's mana value is 0: there is no damage to divide among one, two, or three targets")
+    plan.cap110j = total  # type: ignore[attr-defined]
+    try:
+        return casting.choose_targets(plan, a, {k: v for k, v in definition.items() if k != "delegated_target"}, what)
+    finally:
+        plan.cap110j = None  # type: ignore[attr-defined]
+
+
+def resume_cap(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game import actions as A
+    from app.rules.engine import INTENTS
+
+    if len(chosen) != 1 or chosen[0] not in {o.id for o in d.options}:
+        raise ActionError("Choose one Equipment")
+    raw = d.resume["intent"]
+    raw["cost_choices"] = [c for c in raw.get("cost_choices") or [] if c["component"] != _CAP_COMPONENT] + [{"component": _CAP_COMPONENT, "cards": chosen}]
+    intent = A.parse_action({**raw, "actor": d.resume["actor"]})
+    actor = plan.actor
+    plan.actor = d.resume["actor"]
+    plan.rules.priority, plan.rules.passed = d.resume["actor"], []
+    try:
+        INTENTS[intent.type](plan, intent)
+    finally:
+        plan.actor = actor
+
+
+RESUME["cap110j"] = resume_cap

@@ -7148,6 +7148,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return garth
     if (inniaz := wave110j_final.inniaz_definition(ability, ch)) is not None:
         return inniaz
+    from app.rules import wave110j_last  # -- last cards (wave 110J) --
+
+    if (last := wave110j_last.definition(ability, ch)) is not None:
+        return last
     if (bruna := wave110j_final.bruna_definition(ability, ch)) is not None:
         return bruna
     if (kasmina := wave110j_final.kasmina_definition(ability, ch)) is not None:

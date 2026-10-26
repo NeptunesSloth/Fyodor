@@ -828,6 +828,10 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
         from app.rules import wave110d_volc
 
         return wave110d_volc.announce(plan, a, definition, what)
+    if definition and definition.get("delegated_target") == "cap110j":  # -- last cards (wave 110J) -- Captain America: the Equipment is chosen first (601.2b)
+        from app.rules import wave110j_last
+
+        return wave110j_last.cap_announce(plan, a, definition, what)
     if definition and definition.get("delegated_target"):
         from app.rules import delegated_target_announcements
 
