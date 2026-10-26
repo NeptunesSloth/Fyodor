@@ -7,6 +7,7 @@
 * 603.7a, 603.7c: Mysterio's tokens are exiled when it leaves the battlefield (a delayed trigger on Mysterio, so none if it already left).
 * 614.9, 122.8, 603.10a: Heroic Sacrifice sends damage to you and your creatures to the chosen creature (only while it is on the battlefield); when it dies its counters go to a creature.
 * 118.9, 404.1, 118.3: Spinning Darkness's alternative cost exiles the top three black cards of the graveyard (no choice); with fewer it can't be paid.
+* 608.2c, 118.12: Tidal Flats asks the controller of each attacking creature without flying for {1}; blockers of the creatures whose controller didn't pay get first strike.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from tests.test_rules_wave34b_activated import stops
 from tests.wave9c_kit import build
 from tests.wave110o_kit import (  # noqa: F401
     EXTRA,
+    ability,
     card_db,
     card_named,
     cast_on,
@@ -42,7 +44,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -397,4 +399,52 @@ def test_spinning_darkness_cannot_target_a_black_creature_and_kills_a_nonblack_o
     settle(s)
     assert now(s, elves).zone == "p2:graveyard" and now(s, brutes).zone == "p2:battlefield" and life(s, "p1") == 43
     assert now(s, next(c for c in s.state.cards.values() if c.name == "Murder")).zone == "p1:graveyard"  # (paid with mana: no card exiled)
+    check(s)
+
+
+TIDAL = "Tidal Flats"
+
+
+def tidal_table(cards):
+    """Bob attacks Alice with Grizzly Bears and a Mesa Pegasus (flying); Alice blocks the Bears with hers and has priority with Tidal Flats in play."""
+    s = build(cards, [TIDAL, "Grizzly Bears"], ["Grizzly Bears", "Mesa Pegasus"])
+    flats, mine = put(s, TIDAL), put(s, "Grizzly Bears")
+    bears, bird = put(s, "Grizzly Bears", "p2"), put(s, "Mesa Pegasus", "p2")
+    stops(s)
+    for c in (bears, bird):
+        s.state.rules.controlled_since[c.id].turn = 0
+    while s.state.rules.decision is None or s.state.rules.decision.kind != "declare_attackers":
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p1"} for c in (bears, bird)])
+    while s.state.rules.decision is None or s.state.rules.decision.kind != "declare_blockers":
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_blockers", blocks=[{"blocker_id": mine.id, "attacker_id": bears.id}])
+    while s.state.rules.priority != "p1":
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s, flats, mine, bears, bird
+
+
+@pytest.mark.parametrize("answer", ["pay", "decline", "cannot"])
+def test_tidal_flats_gives_my_blockers_first_strike_unless_the_attackers_controller_pays(cards, answer):
+    pays = answer == "pay"
+    s, flats, mine, bears, bird = tidal_table(cards)
+    mana(s, "p1", U=2)
+    if answer != "cannot":
+        mana(s, "p2", C=1)
+    act(s, "p1", type="activate_ability", card_id=flats.id, ability=ability(s, flats, "{U}{U}"))
+    asked = []
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        asked.append((d.player, d.prompt))
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=["pay" if pays else "decline"])
+    if answer == "cannot":  # (118.3: no mana to pay with, so no question; the attackers' controller doesn't pay)
+        assert not asked
+    else:
+        assert [p for p, _ in asked] == ["p2"] and "Grizzly Bears (attacking)" in asked[0][1]  # (the flying Pegasus is not asked about)
+    assert ("first strike" in ch(s, mine).keywords) is (not pays)
     check(s)

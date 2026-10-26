@@ -28,7 +28,6 @@
 - Secret Invasion: exile until it leaves plus becoming a copy of the exiled creature.
 - Tenth District Hero: becoming a creature "named" something (name change) is not modelled.
 - Chromatic Armor: sleight counters set X, and a prevention keyed to "the last chosen color".
-- Tidal Flats: a payment for each attacking creature by its controller, then first strike for the blockers of those who don't pay.
 - Cyclopean Tomb: a delayed per-land cleanup tied to the lands the artifact marked.
 - Pyramids: "the next time target land would be destroyed" replacement shield.
 - Custodi Peacekeeper: depends on a number noted while drafting (905.2b); no rule for a game that was not drafted.

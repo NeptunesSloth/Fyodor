@@ -70,6 +70,8 @@ def parse(body: str) -> Any:
                  {"do": "delayed", "when": {"kind": "event", "event": "die"}, "n": 2, "who": "target", "this_turn": True,
                   "targets": [{"what": mine, "min": 0, "max": 1}]},
                  {"do": "deferred:lki_counters", "from": "event", "who": watch_target}, {"do": "deferred:draw", "who": "you", "n": 1}], mine, False)
+    if body.strip() == _TIDAL:
+        return [{"do": "tidal110o"}], None, False
     if body.strip() == _CLEANSING:
         return [{"do": "cleansing110o"}], None, False
     if body.strip() == _UNDER_COST:  # 601.2b: the optional additional cost is announced as the spell is cast (costs.kicker_cost reads it); this line does nothing itself
@@ -106,6 +108,8 @@ _NAHIRI = "Nahiri's Sacrifice deals X damage divided as you choose among any num
 _HEROIC = ("Choose target creature you control. Until end of turn, all damage that would be dealt to you and creatures you control is dealt to the chosen "
            "creature instead. When that creature dies this turn, put its counters on up to one target creature you control and "
            "draw a card.")
+_TIDAL = ("For each attacking creature without flying, its controller may pay {1}. If that player doesn't, creatures you control blocking that creature "
+          "gain first strike until end of turn.")
 _CLEANSING = "For each land, destroy that land unless any player pays 1 life."
 _UNDER_COST = "As an additional cost to cast this spell, you may pay {2}{R}."
 _UNDER_PREVENT = ("Prevent all combat damage that would be dealt this turn. If this spell's additional cost was paid, this effect doesn't affect "
@@ -611,6 +615,40 @@ def heroic(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def tidal(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """608.2c: the attacking creatures without flying as the instruction starts, each with its controller's own optional {1} (118.12); a creature whose controller does
+    not pay is given its blockers first strike as that step is reached (the creatures I control that block it then)."""
+    from app.rules import context, effects
+
+    order = {p: i for i, p in enumerate(plan.apnap())}
+    attackers = sorted((c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.is_attacking and "flying" not in plan.ch(c).keywords),
+                       key=lambda c: order.get(c.controller, len(order)))
+    added: list[dict[str, Any]] = []
+    for i, c in enumerate(attackers):
+        context.bind_objects(plan, ctx, f"tidal{i}_110o", [c.id])
+        added += [{"do": "optional_payment", "who": f"player:{c.controller}", "cost": "{1}", "bind": f"tidal{i}_paid110o", "for110o": f"{c.name} (attacking)"},
+                  {"do": "only_if", "cond": {"succeeded": f"tidal{i}_paid110o", "negate": True}, "skip": 1},
+                  {"do": "tidal_grant110o", "attacker": f"tidal{i}_110o", "index": i}]
+    at = ctx["next"]
+    ctx["effects"] = [*ctx["effects"][:at], *added, *ctx["effects"][at:]]
+    effects.continue_effects(plan, ctx)
+    return False
+
+
+def tidal_grant(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    found = context.objects(plan, ctx, e["attacker"])
+    if not found or not plan.state.cards[found[0]].is_attacking:
+        return True
+    blockers = [c.id for c in plan.state.cards.values() if c.controller == ctx["controller"] and c.zone.endswith(":battlefield") and c.blocks(found[0])]
+    if blockers:
+        context.bind_objects(plan, ctx, f"tidal_blockers{e['index']}_110o", blockers)
+        at = ctx["next"]
+        ctx["effects"][at:at] = [{"do": "grant", "who": f"ref:tidal_blockers{e['index']}_110o", "keywords": ["first strike"]}]
+    return True
+
+
 def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """608.2c, 118.12a: "For each land, destroy that land unless any player pays 1 life": the lands there are as the instruction starts, each with its own
     round of payments (every player decides in turn order, 101.4, then pays; a land is destroyed if nobody paid for it)."""
@@ -630,7 +668,7 @@ def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES: dict[str, Any] = {"heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
+PRIMITIVES: dict[str, Any] = {"tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
               "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
 RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}
