@@ -618,5 +618,24 @@
   "keywords": [
    "Surveil"
   ]
+ },
+ {
+  "name": "Lightstall Inquisitor",
+  "layout": "normal",
+  "mana_cost": "{W}",
+  "cmc": 1.0,
+  "type_line": "Creature — Angel Wizard",
+  "oracle_text": "Vigilance\nWhen this creature enters, each opponent exiles a card from their hand and may play that card for as long as it remains exiled. Each spell cast this way costs {1} more to cast. Each land played this way enters tapped.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Vigilance"
+  ],
+  "power": "2",
+  "toughness": "1"
  }
 ]

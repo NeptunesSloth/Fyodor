@@ -239,3 +239,41 @@ def test_winter_may_exile_nothing(cards):
     answer(s)
     assert len(s.state.zones["p1:graveyard"]) == 5 and not s.state.zones.get("p1:exile")
     check(s)
+
+
+INQUISITOR = "Lightstall Inquisitor"
+test_full_inquisitor = full_test([INQUISITOR])
+
+
+def inquisitor_table(cards, card_name):
+    s = build(cards, [INQUISITOR], [card_name])
+    clear_hand(s, "p2", (card_name,))
+    to_hand(s, card_name, "p2")
+    cast(s, INQUISITOR)
+    answer(s)
+    assert zone_of(s, card_name, "p2") == "p2:exile"  # the one card of the hand
+    to_phase(s, "main1", turn=2)  # Bob's turn
+    return s
+
+
+def test_inquisitor_land_exiled_may_be_played_by_its_owner_and_enters_tapped(cards):
+    s = inquisitor_table(cards, "Island")
+    island = card_named(s, "Island", "p2")
+    act(s, "p2", type="play_land", card_id=island.id)
+    assert island.zone == "p2:battlefield" and island.tapped
+    check(s)
+
+
+def test_inquisitor_spell_exiled_costs_one_more_to_cast(cards):
+    from app.game.errors import ActionError
+
+    s = inquisitor_table(cards, "Opt")
+    opt = card_named(s, "Opt", "p2")
+    mana(s, "p2", U=1)
+    with pytest.raises(ActionError):
+        act(s, "p2", type="cast_spell", card_id=opt.id)  # {U} isn't enough: {1} more
+    mana(s, "p2", C=1)
+    act(s, "p2", type="cast_spell", card_id=opt.id)
+    answer(s)
+    assert zone_of(s, "Opt", "p2") == "p2:graveyard"
+    check(s)

@@ -406,6 +406,20 @@ def note_surveilled(plan: Plan, player: str, cards: list[str]) -> None:
             log.facts.append(TurnFact(kind="surveil_gy110l", player=player, object_id=plan.oid(card)))
 
 
+def _inquisitor(d: Def) -> Def:
+    """Lightstall Inquisitor: each opponent exiles a card from their hand (their choice, face up in exile, 406.3) and its owner may play it for as long as it
+    remains exiled (611.2a); a spell cast this way costs {1} more (118.8), a land played this way enters tapped (614.1d: the permission's "enters", only for a Land)."""
+    (exile,) = d["effects"]
+    play = {"do": "grant_play", "who": "ref:inquisitor110l", "play": True, "cast": True, "until": "permanent", "owner": True, "generic_extra": 1,
+            "enters": {"tapped": True, "only": "Land"}}
+    return {**d, "effects": [{**exile, "as": "inquisitor110l"}, play]}
+
+
+_BUILD["When this creature enters, each opponent exiles a card from their hand and may play that card for as long as it remains exiled. Each spell cast this way costs {1} more "
+       "to cast. Each land played this way enters tapped."] = (
+    "When this creature enters, each opponent exiles a card from their hand.", _inquisitor)
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key
