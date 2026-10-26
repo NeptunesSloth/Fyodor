@@ -376,3 +376,66 @@ def test_captain_needs_equipment_with_mana_value(cards):
     with pytest.raises(ActionError):
         _throw(s, cap, ["p2"])  # 601.2d: nothing to give one, two, or three targets
     check(s)
+
+
+# -- Fabrication Foundry --
+FOUNDRY = real("Fabrication Foundry", "{1}{W}", 2, "Artifact",
+               "{T}: Add {W}. Spend this mana only to cast an artifact spell or activate an ability of an artifact source.\n"
+               "{2}{W}, {T}, Exile one or more other artifacts you control with total mana value X: Return target artifact card with mana value X or less from your graveyard to the battlefield. "
+               "Activate only as a sorcery.", None, "W")
+ARTS = [real(f"Gizmo{n}{k}", f"{{{n}}}", n, "Artifact", "", None) for n in (1, 2, 3, 4) for k in "ab"]
+base.EXTRA.extend([FOUNDRY, *ARTS])
+
+
+def test_foundry_full(cards):
+    assert coverage.of_card_data(cards.resolve("Fabrication Foundry")).level == "FULL"
+
+
+def _foundry(cards, mine, yard):
+    s = build(cards, ["Fabrication Foundry", *mine, *yard])
+    foundry = put(s, "Fabrication Foundry")  # (a noncreature artifact: {T} needs no wait, 302.6)
+    arts = [put(s, n) for n in mine]
+    for n in yard:
+        act(s, "p1", type="move", card_ids=[next(c.id for c in s.state.cards.values() if c.name == n)], to={"player": "p1", "zone": "graveyard"})
+    mana(s, W=1, C=2)
+    return s, foundry, arts
+
+
+def _gy_card(s, name):
+    return next(c for c in s.state.cards.values() if c.name == name)
+
+
+@pytest.mark.parametrize("given", [True, False])
+def test_foundry_x_then_target_then_exact_total(cards, given):
+    s, foundry, (a1, a2, a3) = _foundry(cards, ["Gizmo1a", "Gizmo2a", "Gizmo4a"], ["Gizmo3a"])
+    target = _gy_card(s, "Gizmo3a")
+    kw = {"cost_choices": [{"component": 2, "cards": [a1.id, a2.id]}]} if given else {}
+    act(s, "p1", type="activate_ability", card_id=foundry.id, ability=1, x_value=3, targets=[target.id], **kw)
+    if not given:
+        d = s.state.rules.decision
+        assert d is not None and {o.id for o in d.options} == {a1.id, a2.id, a3.id}  # other artifacts you control (not the Foundry)
+        with pytest.raises(ActionError):  # 4 is not exactly 3
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[a3.id])
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[a1.id, a2.id])
+    answer(s)
+    assert s.state.cards[target.id].zone == "p1:battlefield"
+    assert [s.state.cards[a.id].zone for a in (a1, a2, a3)] == ["p1:exile", "p1:exile", "p1:battlefield"]
+    check(s)
+
+
+def test_foundry_target_mana_value_above_x_is_refused(cards):
+    s, foundry, (a1, a2) = _foundry(cards, ["Gizmo1a", "Gizmo2a"], ["Gizmo4b"])
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=foundry.id, ability=1, x_value=3, targets=[_gy_card(s, "Gizmo4b").id])
+    check(s)
+
+
+def test_foundry_refused_when_no_exact_total_exists(cards):
+    s, foundry, (a, b) = _foundry(cards, ["Gizmo2a", "Gizmo2b"], ["Gizmo3a"])
+    with pytest.raises(ActionError):  # 2 and 2 make 2 or 4, never 3 (601.2h: an unpayable cost)
+        act(s, "p1", type="activate_ability", card_id=foundry.id, ability=1, x_value=3, targets=[_gy_card(s, "Gizmo3a").id])
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=foundry.id, ability=1, x_value=3, targets=[_gy_card(s, "Gizmo3a").id],
+            cost_choices=[{"component": 2, "cards": [a.id]}])
+    assert all(s.state.cards[c.id].zone == "p1:battlefield" for c in (foundry, a, b)) and s.state.cards[foundry.id].tapped is False
+    check(s)

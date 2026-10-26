@@ -51,7 +51,7 @@
 
 ## Session 14
 - Font of Agonies: "whenever you pay life" has no event; life is paid on many paths (costs, Phyrexian mana, effects), needs a pay-life event everywhere.
-- Scrap Welder, Fabrication Foundry: target "mana value less than X" is chosen before the sacrificed/exiled artifact (X) is known (601.2c vs 601.2h); no X-from-cost target machinery.
+- Scrap Welder: target "mana value less than X" is chosen before the sacrificed/exiled artifact (X) is known (601.2c vs 601.2h); no X-from-cost target machinery. (Fabrication Foundry: built in wave 110J, its X is announced, not read off a cost object.)
 - Nuka-Nuke Launcher: delayed watch bound to the defending player's cast events, ending at the end of that player's next turn; watch cond player is only the controller.
 - Vislor Turlough, Hot Pursuit: goad lasting while a given player controls it / the source stays; goad is only "until next turn" (keyword_actions.goad).
 - Braided Net: "for as long as it remains tapped" refers to the target; durations only track the source.
@@ -59,7 +59,7 @@
 - Reap: X fixed as the spell is cast, which sets the number of targets.
 
 ## Session 15
-- Fabrication Foundry: needs a variable-count exact-total exile cost ("one or more other artifacts with total mana value X", X announced). Foundation work (new cost kind beside COLLECT_EVIDENCE in cost_payment/casting/mana), not unsettled rules. Next session.
+- Fabrication Foundry: built in wave 110J (last cards): X announced first (601.2b/602.2b), the target checks MV X or less, the cost exiles other artifacts totaling exactly X (601.2h).
 - Volcanic Offering: four targets, two of them "of an opponent's choice" (spell with own+opponent pairs, 601.2c; per-pair opponent choice unsettled for several opponents). Extend delegated_target_announcements OWN mode to spells with groups.
 - s16 update: Volcanic Offering (own + opponent's-choice groups, wave110d_volc), Jeweled Amulet and Ice Cauldron (noted mana, wave110d_noted) are built, no longer refused. Per-group opponent choice with several opponents is read as "the caster picks the opponent for each group" (no ruling found that forces one opponent for both; same-opponent play is a subset).
 - The War Doctor: "put into exile from anywhere" has no event (only leave-battlefield exile); needs a generic any-zone exile event (foundation).

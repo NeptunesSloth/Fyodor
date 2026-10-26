@@ -3,7 +3,7 @@
 One line each. "Refused" = a rules question is unsettled or the foundation would be a guess; "not attempted" = needs a foundation too big for this wave.
 
 - Thief of Blood: refused — "as it enters, remove all counters from all permanents" must change other permanents inside the entry-counter computation, which the engine also runs as a look-ahead.
-- Scrap Welder, Fabrication Foundry: refused — X comes from a cost chosen after targets (601.2c vs 601.2h), but it limits which card may be targeted.
+- Scrap Welder: refused — X comes from a cost chosen after targets (601.2c vs 601.2h), but it limits which card may be targeted. (Fabrication Foundry: built in wave 110J, its X is announced, not read off a cost object.)
 - Arcum's Sleigh: refused — "defending player" outside an attack trigger is undefined in multiplayer (506.2); no ruling found.
 - Contractual Safeguard: built in wave 110J (last cards): the player picks a creature and a kind of counter on it, each other creature gets one; the addendum's shield counter may be chosen (ruling 2022-04-29).
 - The Great Aurora: refused — whether tokens count toward "that many" (they cease to exist in the library) is unsettled.

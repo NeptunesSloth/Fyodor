@@ -304,7 +304,7 @@ def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, playe
         return f"{name} isn't on the battlefield"  # (122.6; 701.43c)
     elif comp.kind in (C.MILL, C.EXILE_LIBRARY) and len(plan.state.zones.get(zone_key(player, "library"), [])) < comp.amount:
         return f"You don't have {comp.amount} card{'s' if comp.amount != 1 else ''} in your library"  # 701.17b, 118.3
-    elif comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE) and not _flexible_options(plan, comp, card, player, set())[1]:
+    elif comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE) and not _flexible_options(plan, comp, card, player, set(), x)[1]:
         return f"You can't pay “{comp.text}”"  # 701.59b; 701.61a
     elif comp.kind == C.PAY_LIFE and comp.life_rule is not None:
         amount = life_amount(plan, comp, player, card)
@@ -1046,7 +1046,7 @@ def _pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, li
 
             payment_card_facts.record(plan, record, "exiled", top)
     for comp in cost.components:  # -- if you do (wave 26C) -- "Whenever you forage / collect evidence" (701.61, 701.59): the cost was paid
-        if comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE, C.WATERBEND) and not comp.text.startswith(("Exile any number", "Tapbend")):  # (wave 110C: The Capitoline Triad exiles, it doesn't collect evidence)
+        if comp.kind in (C.FORAGE, C.COLLECT_EVIDENCE, C.WATERBEND) and not comp.text.startswith(("Exile any number", "Tapbend", "Exile one or more")):  # (wave 110C: The Capitoline Triad exiles, it doesn't collect evidence)
             from app.game.rules_state import emit
 
             emit(plan.state,"designation",counter={C.FORAGE:"forage",C.COLLECT_EVIDENCE:"collect_evidence",C.WATERBEND:"waterbend"}[comp.kind],player=player)
@@ -1055,9 +1055,18 @@ def _pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, li
 
 
 def _flexible_options(plan: Plan, comp: CostComponent, card: CardInstance, player: str,
-                      used: set[str]) -> tuple[list[str], bool]:
+                      used: set[str], x: int | None = None) -> tuple[list[str], bool]:
     """-- activation costs (wave 4H) -- the cards a collect-evidence / forage part may use, and whether it can be paid
     at all (701.59b: total mana value N or more in the graveyard; 701.61a: three graveyard cards or a Food)."""
+    if comp.x and comp.text.startswith("Exile one or more"):  # -- last cards (wave 110J) -- Fabrication Foundry: other artifacts you control, total exactly X
+        sel = selectors.from_key(comp.selector or "")
+        mine = [c for c in plan.state.zones.get(zone_key(player, "battlefield"), []) if c != card.id and c not in used
+                and (o := plan.state.cards.get(c)) is not None and o.controller == player and selectors.matches(plan, sel, o, plan.ch(o), player, card.id)]
+        reach: set[float] = set()  # the totals some nonempty set of them reaches (subset sum)
+        for c in mine:
+            mv = plan.ch(plan.state.cards[c]).mana_value
+            reach |= {mv} | {s + mv for s in reach}
+        return mine, max(0, x or 0) in reach
     gy = [c for c in plan.state.zones.get(zone_key(player, "graveyard"), []) if c != card.id and c not in used]
     if comp.kind == C.COLLECT_EVIDENCE:
         if comp.selector and comp.text.startswith("Exile any number"):  # (wave 110C) only the cards of that kind
@@ -1066,12 +1075,14 @@ def _flexible_options(plan: Plan, comp: CostComponent, card: CardInstance, playe
         return gy, sum(plan.ch(plan.state.cards[c]).mana_value for c in gy) >= comp.amount
     food = selectors.from_key(C._selector("Food", zone="battlefield") or "")
     foods = [c for c in plan.state.zones.get(zone_key(player, "battlefield"), [])
-             if c not in used and (x := plan.state.cards.get(c)) is not None and x.controller == player
-             and selectors.matches(plan, food, x, plan.ch(x), player, card.id)]
+             if c not in used and (found := plan.state.cards.get(c)) is not None and found.controller == player
+             and selectors.matches(plan, food, found, plan.ch(found), player, card.id)]
     return gy + foods, len(gy) >= 3 or bool(foods)
 
 
-def _flexible_ok(plan: Plan, comp: CostComponent, chosen: list[str]) -> bool:
+def _flexible_ok(plan: Plan, comp: CostComponent, chosen: list[str], x: int | None = None) -> bool:
+    if comp.x and comp.text.startswith("Exile one or more"):  # -- last cards (wave 110J) -- Fabrication Foundry: one or more, total exactly the X announced
+        return bool(chosen) and sum(plan.ch(plan.state.cards[c]).mana_value for c in chosen) == max(0, x or 0)
     if comp.kind == C.COLLECT_EVIDENCE:  # 701.59a: total mana value N or greater
         return bool(chosen) and sum(plan.ch(plan.state.cards[c]).mana_value for c in chosen) >= comp.amount
     zones = {plan.state.cards[c].zone.rsplit(":", 1)[-1] for c in chosen}  # 701.61a: three from the graveyard, or a Food
@@ -1082,9 +1093,10 @@ def _choose_flexible(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFace
                      card: CardInstance, what: str, given: list[str] | None, used: set[str]) -> list[str] | None:
     """-- activation costs (wave 4H) -- collect evidence N (any number of graveyard cards, total mana value N or more) /
     forage (three graveyard cards, or one Food): one choice of the cards, validated as a whole (601.2h)."""
-    options, payable = _flexible_options(plan, comp, card, plan.actor, used)
+    x = getattr(a, "x_value", None)
+    options, payable = _flexible_options(plan, comp, card, plan.actor, used, x)
     if given is not None:
-        if len(set(given)) != len(given) or any(c not in options for c in given) or not _flexible_ok(plan, comp, given):
+        if len(set(given)) != len(given) or any(c not in options for c in given) or not _flexible_ok(plan, comp, given, x):
             raise ActionError(f"Those cards don't pay “{comp.text}”")
         chosen = list(given)
     elif not payable:
@@ -1094,7 +1106,8 @@ def _choose_flexible(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFace
             if comp.kind == C.COLLECT_EVIDENCE else (lambda c: plan.state.cards[c].name or "Card")
         decide(plan, player=plan.actor, kind="choose_cards",
                prompt=f"{what}: choose the cards for “{comp.text}”" + (
-                   f" (total mana value {comp.amount} or more)" if comp.kind == C.COLLECT_EVIDENCE
+                   f" (total mana value exactly {max(0, x or 0)})" if comp.x and comp.text.startswith("Exile one or more")
+                   else f" (total mana value {comp.amount} or more)" if comp.kind == C.COLLECT_EVIDENCE
                    else " (three cards from your graveyard to exile, or a Food to sacrifice)") + ", or none to cancel",
                options=[DecisionOption(id=c, label=label(c), card_id=c) for c in options],
                min_choices=0, max_choices=len(options) if comp.kind == C.COLLECT_EVIDENCE else 3,
