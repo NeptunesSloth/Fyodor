@@ -332,22 +332,17 @@ _SPLIT_TEXT = "This creature can't be destroyed by lethal damage unless lethal d
 
 
 def spared_by_split_damage(plan: Any, card: Any, ch: Any, toughness: int) -> bool:
-    """Ogre Enforcer: 704.5g applies only if one source dealt lethal damage (>= toughness, 120.6) to it this turn (damage wears off at cleanup, 514.2).
-    ponytail: counts damage dealt this turn from the turn log; damage removed by an effect other than cleanup is not subtracted."""
-    from app.rules import history, scripts
+    """Ogre Enforcer: 704.5g applies only if lethal damage (>= toughness, 120.6) from one source is still marked on it (card.damage_by: damage removed
+    by regeneration, "remove all damage" or cleanup no longer counts)."""
+    from app.rules import scripts
 
     if not any(d.get("static") == SPLIT_DAMAGE for d in scripts.definitions(ch).values()):
         return False
-    oid = plan.oid(card)
-    dealt: dict[str, int] = {}
-    for f in history.log_for(plan).facts:
-        if f.kind == "damaged" and f.object_id == oid and f.amount > 0 and f.source:
-            dealt[f.source] = dealt.get(f.source, 0) + f.amount
-    return max(dealt.values(), default=0) < toughness
+    return max(card.damage_by.values(), default=0) < toughness
 
 
 # 510.1: the card changes how its controller assigns its combat damage. Butcher Orgg: divided as they choose among the defending player and/or any number
-# of creatures that player controls (blocked or not: the text is unconditional). Cunning Giant: all to one creature the defending player controls, if unblocked.
+# of creatures that player controls. Wizards' ruling (2004-10-04): usable even if unblocked; blocked with every blocker removed before damage it deals none (510.1c). Cunning Giant: all to one creature the defending player controls, if unblocked.
 DIVIDE, GIANT = "divide_damage110f", "giant_damage110f"
 _DIVIDE_TEXT = "You may assign this creature's combat damage divided as you choose among defending player and/or any number of creatures they control."
 _GIANT_TEXT = "If this creature is unblocked, you may have it assign its combat damage to a creature defending player controls."
@@ -384,6 +379,8 @@ def ask_divide(plan: Any, att: Any, rnd: str, then: str, deals: bool, power: int
         return False
     if mode == GIANT and att.id in r.blocked:
         return False
+    if att.id in r.blocked and not any(c.blocks(att.id) and c.zone.endswith(":battlefield") for c in plan.state.cards.values()):
+        return False  # blocked, no blocker left: 510.1c, it assigns no combat damage (and so can't use the ability)
     options = _defenders(plan, att, mode)
     if not options:
         return False

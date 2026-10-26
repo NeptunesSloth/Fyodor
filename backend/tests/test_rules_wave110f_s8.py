@@ -47,6 +47,8 @@ EXTRA = [
          'If this creature is unblocked, you may have it assign its combat damage to a creature defending player controls.', ('4', '4'), 'R'),
     real('Butcher Orgg', '{4}{R}{R}{R}', 7, 'Creature — Orgg',
          "You may assign this creature's combat damage divided as you choose among defending player and/or any number of creatures they control.", ('6', '6'), 'R'),
+    real('Test Pinger 110F', '{1}', 1, 'Artifact', '{0}: This artifact deals 2 damage to target creature.', None, ''),
+    real('Test Regen 110F', '{G}', 1, 'Instant', 'Regenerate target creature.', None, 'G'),
     real('Test Flyer 110F', '{1}{W}', 2, 'Creature — Bird', 'Flying', ('1', '1'), 'W'),
 ]
 _BASE.extend(EXTRA)
@@ -107,6 +109,29 @@ def test_enforcer_dies_only_to_lethal_from_one_source(cards, burn, dies):
     check(s)
 
 
+@pytest.mark.parametrize("regen", [False, True])
+def test_enforcer_ignores_damage_removed_by_regeneration(cards, regen):
+    """120.6, 701.19c: regeneration removes all damage. One source pings 2 + 2 (4, would kill the 4/4; the shield saves it and clears the damage), then 2 more: only 2 is marked, it lives."""
+    s = build(cards, ["Ogre Enforcer", "Test Pinger 110F", "Test Regen 110F"], forests=20, islands=20)
+    enforcer, pinger = put(s, "Ogre Enforcer"), put(s, "Test Pinger 110F")
+
+    def ping():
+        act(s, "p1", type="activate_ability", card_id=pinger.id, ability=0, targets=[enforcer.id])
+        answer(s)
+    ping()
+    if regen:
+        mana(s, "p1", G=1)
+        cast(s, "Test Regen 110F", [enforcer.id])
+        answer(s)
+    ping()
+    assert (s.state.cards[enforcer.id].zone == "p1:graveyard") == (not regen)
+    if regen:
+        assert s.state.cards[enforcer.id].damage == 0 and not s.state.cards[enforcer.id].damage_by
+        ping()
+        assert s.state.cards[enforcer.id].zone == "p1:battlefield" and s.state.cards[enforcer.id].damage_by and s.state.cards[enforcer.id].damage == 2
+    check(s)
+
+
 @pytest.mark.parametrize("pay", [True, False])
 def test_thunderblade_charge_recasts_itself_from_the_graveyard(cards, pay):
     """603.4: only from the graveyard; 118.9: paying {2}{R}{R}{R} lets it be cast free, dealing 3 damage; declining leaves it there."""
@@ -134,7 +159,7 @@ def test_thunderblade_charge_recasts_itself_from_the_graveyard(cards, pay):
     check(s)
 
 
-def _combat(s, attacker, blocker=None, use=True, split=None, target=None):
+def _combat(s, attacker, blocker=None, use=True, split=None, target=None, remove=False):
     """Attack with ``attacker``; p2 blocks with ``blocker`` (or not); the ability is used or not; the 510.1 answers: ``split`` (id -> damage) or ``target``."""
     act(s, "p1", type="set_stops", own=["end_combat"], smart_pass=False)
     attack(s, attacker)
@@ -146,6 +171,8 @@ def _combat(s, attacker, blocker=None, use=True, split=None, target=None):
             act(s, s.state.rules.priority, type="pass_priority")
         elif d.kind == "declare_blockers":
             block(s, *([(blocker, attacker)] if blocker else []))
+            if remove:  # the blocker leaves before damage
+                act(s, "p2", type="move", card_ids=[blocker.id], to={"player": "p2", "zone": "graveyard"})
         elif d.kind == "confirm":
             act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes" if use else "no"])
         elif d.kind == "divide":
@@ -157,9 +184,9 @@ def _combat(s, attacker, blocker=None, use=True, split=None, target=None):
     raise AssertionError("combat never ended")
 
 
-@pytest.mark.parametrize("case", ["split", "declined", "blocked"])
+@pytest.mark.parametrize("case", ["split", "declined", "blocked", "blocker_removed"])
 def test_butcher_orgg_divides_its_damage(cards, case):
-    """510.1 changed by the card: 3 to the player and 3 to a creature (it dies); declined = all 6 to the player; blocked it may still choose (the text is unconditional)."""
+    """510.1 changed by the card: 3 to the player and 3 to a creature (it dies); declined = all 6 to the player; blocked it may still choose (ruling 2004-10-04); blocked with the blocker gone it deals no damage and asks nothing (510.1c)."""
     s = build(cards, ["Butcher Orgg"], ["Grizzly Bears", "Grizzly Bears"], forests=20, islands=20)
     orgg = put(s, "Butcher Orgg")
     bear, other = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2"][:2]
@@ -167,9 +194,9 @@ def test_butcher_orgg_divides_its_damage(cards, case):
         act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "battlefield"})
     to_phase(s, "main1", turn=3)
     shares = {"p2": 3, bear.id: 3} if case == "split" else {"p2": 6} if case == "blocked" else None
-    _combat(s, orgg, blocker=bear if case == "blocked" else None, use=case != "declined", split=shares)
+    _combat(s, orgg, blocker=bear if case in ("blocked", "blocker_removed") else None, use=case != "declined", split=shares, remove=case == "blocker_removed")
     zone = lambda c: s.state.cards[c.id].zone  # noqa: E731
-    assert (life(s, "p2"), zone(bear)) == {"split": (37, "p2:graveyard"), "declined": (34, "p2:battlefield"), "blocked": (34, "p2:battlefield")}[case]
+    assert (life(s, "p2"), zone(bear)) == {"split": (37, "p2:graveyard"), "declined": (34, "p2:battlefield"), "blocked": (34, "p2:battlefield"), "blocker_removed": (40, "p2:graveyard")}[case]
     assert zone(other) == "p2:battlefield"
     check(s)
 
