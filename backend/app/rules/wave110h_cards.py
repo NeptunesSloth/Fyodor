@@ -288,6 +288,20 @@ def _unleash() -> Any:
         [{"what": "creature_or_planeswalker", "min": 1, "max": 1}], False
 
 
+def _revival() -> Any:
+    from app.rules import scripts, selectors
+
+    got = scripts.parse_effects("Return up to one permanent card from your graveyard to the battlefield. You lose 3 life for each card returned this way. Exile ~.")
+    if got is None or [e["do"] for e in got[0]] != ["return_choice", "lose_life", "exile"]:
+        return None
+    # one card for each permanent type (205.2a): the answer is checked as a matching of cards to types (effects.check_total_power, "party"), an artifact
+    # creature standing for one of its types only
+    kinds = [selectors.parse(f"{t} card in your graveyard").key() for t in ("artifact", "battle", "creature", "enchantment", "land", "planeswalker")]
+    lose = got[0][1]
+    lose = {**lose, "n": {"times": [3, {**lose["n"]["times"][1], "this_way": "battlefield_put"}]}}  # (the grammar counts cards returned to a hand; these went to the battlefield)
+    return [{**got[0][0], "n": 6, "label": "card of each permanent type", "party": kinds}, lose, *got[0][2:]], got[1], got[2]
+
+
 def excess_reflex(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """603.12, 120.10: "When it deals excess damage this way, ..." triggers once if there was excess; the trigger's amount is that excess, and its target
     (chosen when it goes on the stack, 603.3d) is bounded by it."""
@@ -303,6 +317,8 @@ def excess_reflex(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 
 BUILDERS = {
+    "For each permanent type, return up to one card of that type from your graveyard to the battlefield. You lose 3 life for each card returned this way. "
+    "Exile ~.": _revival,
     "~ deals 7 damage to target creature or planeswalker. When it deals excess damage this way, destroy target artifact or enchantment an opponent controls "
     "with mana value less than or equal to that amount of excess damage.": _unleash,
     "X target blocked creatures assign their combat damage this turn as though they weren't blocked.": _outmaneuver,

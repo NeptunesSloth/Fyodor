@@ -1,6 +1,7 @@
 """Wave 110H session 7: one-card builds on real Oracle text (each scenario checks replay and a save/load round trip).
 
 * Unleash the Inferno: the excess damage (120.10) triggers a destroy whose target (chosen when the trigger goes on the stack, 603.3d) has mana value at most that excess.
+* Revival Experiment: up to one graveyard card per permanent type, a matching of cards to types (205.2a); 3 life each; the spell is exiled.
 * Stitcher Geralf: each player mills three (701.17); up to two creature cards among those milled are exiled; the Zombie is as big as their total power (608.2c, 107.1b).
 """
 from __future__ import annotations
@@ -12,7 +13,7 @@ from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave110h_s5 import answer
 from tests.test_rules_wave30m_durations import to_phase
-from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
+from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
 
 EXTRA = [
     real("Stitcher Geralf", "{2}{U}", 3, "Legendary Creature — Human Wizard",
@@ -26,6 +27,10 @@ EXTRA = [
          "controls with mana value less than or equal to that amount of excess damage.", None, "R"),
     real("Gilded Lotus", "{5}", 5, "Artifact", "{T}: Add three mana of any one color.", None, ""),
     real("Colossus", "{7}", 7, "Artifact Creature \u2014 Golem", "", ("7", "7"), ""),
+    real("Revival Experiment", "{3}{B}{B}", 5, "Sorcery",
+         "For each permanent type, return up to one card of that type from your graveyard to the battlefield. You lose 3 life for each card returned this way. "
+         "Exile Revival Experiment.", None, "B"),
+    real("Wayfarer's Bauble", "{1}", 1, "Artifact Creature \u2014 Golem", "", ("1", "1"), ""),
     real("Sol Ring", "{1}", 1, "Artifact", "{T}: Add {C}{C}.", None, ""),
 ]
 NAMES = [c["name"] for c in EXTRA]
@@ -122,4 +127,53 @@ def test_unleash_no_excess_no_trigger(cards):
     answer(s)
     assert card_named(s, "Colossus", "p2").zone == "p2:graveyard"
     assert card_named(s, "Sol Ring", "p2").zone == "p2:battlefield" and card_named(s, "Gilded Lotus", "p2").zone == "p2:battlefield"
+    check(s)
+
+
+def revival(cards):
+    s = build(cards, ["Revival Experiment", "Grizzly Bears", "Runeclaw Bear", "Sol Ring", "Wayfarer's Bauble"])
+    for n in ("Grizzly Bears", "Runeclaw Bear", "Sol Ring", "Wayfarer's Bauble"):
+        act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"zone": "graveyard"})
+    mana(s, B=2, C=3)
+    c = to_hand(s, "Revival Experiment")
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    return s, c
+
+
+def test_revival_experiment_one_card_per_type(cards):
+    """Bears (creature) + Sol Ring (artifact): both return, 6 life lost, the spell is exiled; the second Bear and the Bauble stay."""
+    s, c = revival(cards)
+    d = s.state.rules.decision
+    assert d is not None and d.max_choices == 4
+    bears, ring = card_named(s, "Grizzly Bears"), card_named(s, "Sol Ring")
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id, ring.id])
+    answer(s)
+    assert s.state.cards[bears.id].zone == s.state.cards[ring.id].zone == "p1:battlefield"
+    assert card_named(s, "Runeclaw Bear").zone == "p1:graveyard" and s.state.cards[c.id].zone == "p1:exile"
+    assert life(s) == 34
+    check(s)
+
+
+def test_revival_experiment_two_creatures_refused(cards):
+    """Two creature cards are one type twice: the answer is refused (608.2d)."""
+    from app.game.errors import ActionError
+
+    s, c = revival(cards)
+    d = s.state.rules.decision
+    with pytest.raises(ActionError):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[card_named(s, "Grizzly Bears").id, card_named(s, "Runeclaw Bear").id])
+
+
+def test_revival_experiment_artifact_creature_is_one_type(cards):
+    """An artifact creature stands for one type only: Bauble + Bears + Sol Ring has no matching (the Bauble would need the creature or artifact slot Bears or
+    Sol Ring already fills) and is refused; Bauble + Sol Ring is fine."""
+    from app.game.errors import ActionError
+
+    s, c = revival(cards)
+    d = s.state.rules.decision
+    with pytest.raises(ActionError):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[card_named(s, n).id for n in ("Wayfarer's Bauble", "Grizzly Bears", "Sol Ring")])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[card_named(s, n).id for n in ("Wayfarer's Bauble", "Sol Ring")])
+    answer(s)
+    assert life(s) == 34 and card_named(s, "Wayfarer's Bauble").zone == "p1:battlefield"
     check(s)
