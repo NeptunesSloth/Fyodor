@@ -277,8 +277,6 @@ def static_definition(text: str) -> Definition | None:
                 'spells': 'cast spells' in t, 'nonbasic_lands': 'nonbasic lands' in t, 'effects': []}
   # (wave 50J: counted for the caster, who is "you" to the spell selector)
     if t == "spells with the chosen names can't be cast and lands with the chosen names can't be played":  # -- two names (wave 110F) -- Null Chamber: 601.3, 305.1; card_names.has_name reads both
-        from app.rules import selectors
-
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "from": None, "act": None, "max": None, "effects": [], "named_lands110f": True,
                 "filter": selectors.parse("spells with the chosen name").key()}  # type: ignore[union-attr]
     if (own := HAS_FLASH_WHILE.fullmatch(t)) is not None:  # (wave 35D)
@@ -698,7 +696,8 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "end_of_next_turn" and any(x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in skipped or ()))  # (wave 32C)
-        and not (x.get("until") == "turn" and x.get("turn") != turn)]
+        and not (x.get("until") == "turn" and x.get("turn") != turn)
+        and not (x.get("until") == "two_turns110f" and turn > int(x.get("turn") or 0) + 1)]  # (wave 110F: Peace Talks, this turn and the next one)
     # -- durations (wave 30M) -- "Until your next turn, you may play that card / cast … as though … had flash": a permission (500.4, 800.4m)
     r.permissions = [p for p in r.permissions if not (p.until == "next_turn" and any((p.until_player or p.player) == pl and n > p.turn for pl, n in ended))]
     from app.rules import life_lock, player_shields

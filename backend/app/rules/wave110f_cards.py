@@ -452,6 +452,7 @@ def resume_worms(plan: Any, d: Any, chosen: list[str]) -> None:
 
 
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "This turn and next turn, creatures can't attack, and players and permanents can't be the targets of spells or activated abilities.": lambda: ([{"do": "peace_talks110f"}], None, False),
     "any player may sacrifice two lands of their choice or have ~ deal 5 damage to that player. If a player does either, destroy ~.": lambda: ([{"do": "worms110f"}], None, False),
     "Each player reveals their hand, chooses one card of each color from it, then discards all other nonland cards.": lambda: ([{"do": "vapors110f"}], None, False),
     "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice.": _release,

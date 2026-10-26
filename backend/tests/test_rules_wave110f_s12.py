@@ -12,6 +12,7 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
+from tests.test_rules_wave34b_activated import activate
 from tests.test_rules_wave100n_multi import EXTRA as _BASE
 from tests.test_rules_wave100n_multi import (
     answer,
@@ -19,6 +20,7 @@ from tests.test_rules_wave100n_multi import (
     cast,
 )
 from tests.wave9c_kit import build, check, life, mana, put, to_hand
+from tests.wave36a_kit import ready
 
 EXTRA = [
     real('Serra Angel', '{3}{W}{W}', 5, 'Creature — Angel', 'Flying, vigilance', ('4', '4'), 'W'),
@@ -255,4 +257,67 @@ def test_equity_entering_choice_offers_only_black_or_red(cards):
     answer(s, "Black")
     eq = next(c for c in s.state.cards.values() if c.name == "Mangara's Equity")
     assert s.state.cards[eq.id].choices["Chosen color"] == "Black"
+    check(s)
+
+
+_ADD4 = [
+    real('Peace Talks', '{1}{W}', 2, 'Sorcery',
+         "This turn and next turn, creatures can't attack, and players and permanents can't be the targets of spells or activated abilities.", None, 'W'),
+    real('Test Bolt 110F', '{R}', 1, 'Instant', "Test Bolt 110F deals 1 damage to any target.", None, 'R'),
+    real('Test Pinger 110F', '{1}{R}', 2, 'Creature — Human', "When this creature enters, it deals 1 damage to any target.", ('1', '1'), 'R'),
+    real('Test Tapper 110F', '{1}', 1, 'Artifact', "{T}: Test Tapper 110F deals 1 damage to any target.", None, ''),
+]
+_BASE.extend(_ADD4)
+
+
+def _talks(cards, mine=(), theirs=()):
+    s = build(cards, ["Peace Talks", "Test Bolt 110F", "Test Pinger 110F", "Test Tapper 110F", "Grizzly Bears", *mine], ["Grizzly Bears", *theirs])
+    mana(s, "p1", W=1, C=1)
+    cast(s, "Peace Talks")
+    answer(s)
+    return s
+
+
+def test_peace_talks_full(cards):
+    assert coverage.of_card_data(cards.resolve("Peace Talks")).level == "FULL"
+
+
+def test_peace_talks_spells_and_activated_abilities_cannot_target_but_triggers_can(cards):
+    """115.2: no spell or activated ability may target a player or permanent (this turn and the next); a triggered ability still can."""
+    s = _talks(cards)
+    bears = put(s, "Grizzly Bears", "p2")
+    to_hand(s, "Test Bolt 110F")
+    mana(s, "p1", R=3, C=1)
+    for target in ("p2", bears.id):
+        with pytest.raises(ActionError):
+            cast(s, "Test Bolt 110F", [target])
+    tapper = put(s, "Test Tapper 110F")
+    ready(s, "Test Tapper 110F")
+    with pytest.raises(ActionError):
+        activate(s, "p1", tapper, "", targets=["p2"])
+    cast(s, "Test Pinger 110F")
+    answer(s, "p2")
+    assert life(s, "p2") == 39  # the enters trigger chose its target (603.3d)
+    check(s)
+
+
+def test_peace_talks_creatures_cannot_attack_this_turn_or_next_but_can_after(cards):
+    from tests.test_rules_wave100f_attached import to_phase
+
+    s = build(cards, ["Peace Talks", "Grizzly Bears"], ["Grizzly Bears"])
+    mana(s, "p1", W=1, C=1)
+    mine, theirs = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2")
+    ready(s, "Grizzly Bears")
+    cast(s, "Peace Talks")
+    answer(s)
+    n = s.state.turn.number
+    to_phase(s, "declare_attackers", turn=n)  # no creature can attack: the step is skipped, nothing to declare
+    assert s.state.turn.phase != "declare_attackers"
+    with pytest.raises(ActionError):
+        act(s, "p1", type="declare_attackers", attackers=[{"card_id": mine.id, "target": "p2"}])
+    to_phase(s, "declare_attackers", turn=n + 1)  # the next turn is p2's
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_attackers", attackers=[{"card_id": theirs.id, "target": "p1"}])
+    to_phase(s, "declare_attackers", turn=n + 2)  # then both are free again
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": mine.id, "target": "p2"}])
     check(s)

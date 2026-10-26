@@ -1601,7 +1601,7 @@ def _group_imposed(state: GameState, card: CardInstance, ch: Characteristics, in
 
 
 Layer = Literal["1", "2", "3", "4", "5", "6", "7a", "7b", "7c", "7d"]
-Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
+Duration = Literal["end_of_turn", "permanent", "end_of_combat", "next_turn", "end_of_next_turn", "two_turns110f"]  # (wave 31C: "next_turn" — a copy effect "until your next turn", copying.add_copy_effect)
 
 
 @world_native80
@@ -1634,7 +1634,8 @@ def add_effect(plan: Plan, *, affected: list[str], layer: Layer, source: str | N
 def end_of_turn(plan: Plan) -> None:
     """514.2: "until end of turn" effects end in the cleanup step."""
     r = plan.rules
-    r.effects = [e for e in r.effects if e.duration not in ("end_of_turn", "end_of_combat")]  # (a combat a turn ended in, 18E review)
+    r.effects = [e for e in r.effects if e.duration not in ("end_of_turn", "end_of_combat")  # (a combat a turn ended in, 18E review)
+                 and not (e.duration == "two_turns110f" and plan.state.turn.number > e.turn)]  # (wave 110F: "this turn and next turn", Peace Talks: gone in the cleanup of the next turn)
     from app.rules import delayed
 
     delayed.end_of_next_turn(plan)  # -- end of next turn (wave 32C) -- "until the end of your next turn" ends in the cleanup of that turn

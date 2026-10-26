@@ -2894,6 +2894,14 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
 
 
 def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
+    plan.peace_exempt110f = True  # -- wave 110F -- its targets are a triggered ability's (Peace Talks does not bar those)
+    try:
+        return _put_trigger(plan, t, target, picks)
+    finally:
+        plan.peace_exempt110f = False
+
+
+def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
     from app.rules import name_relation_continuations
 
     name_relation_continuations.bind_trigger_reference(plan, t)

@@ -257,6 +257,28 @@ def draw_left(plan: Plan, player: str) -> tuple[int, int] | None:
     return max(0, min(caps) - (log.drew.get(player, 0) if log is not None else 0)), min(caps)
 
 
+def no_targets110f(plan: Plan) -> bool:
+    """Peace Talks (wave 110F): "This turn and next turn, … players and permanents can't be the targets of spells or activated abilities." 115.2, 611.2a: a
+    record of the resolved spell; it bars choosing a player or permanent for a spell or an activated ability (also a loyalty ability, 606.1), not a triggered
+    ability's targets and not a target already chosen (608.2b: it doesn't make that one illegal): ``Plan.peace_exempt110f`` is set for both."""
+    return not plan.peace_exempt110f and any(x.get("untargetable110f") for x in plan.rules.cast_limits)
+
+
+def peace_talks(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    r, turn = plan.rules, plan.state.turn.number
+    before = len(r.effects)
+    effects.restrict(plan, ctx, {"do": "restrict", "who": selectors.Selector(types=("Creature",)).key(), "rules": ["cant_attack"],
+                                 "duration": "two_turns110f"})
+    for x in r.effects[before:]:
+        x.turn = turn
+    r.cast_limits.append({"untargetable110f": True, "controller": ctx["controller"], "until": "two_turns110f", "turn": turn, "spells": False,
+                          "label": ctx.get("name") or "Peace Talks"})
+    plan.note("This turn and next turn, creatures can't attack and players and permanents can't be the targets of spells or activated abilities", actor=ctx["controller"])
+    return True
+
+
 def untargetable(plan: Plan, chooser: str, card: CardInstance) -> bool:
     """-- cant restrictions (wave 50G) -- 115.2: may ``chooser`` (who controls the spell or ability that targets) not target this card or permanent because of a "can't be the
     target of spells or abilities [your opponents control]" static (Dennick, Tomik): of the player it says it for, "your opponents" being everyone but its controller."""
@@ -355,7 +377,7 @@ def bind_next_uncounterable(plan: Plan, card: Any, player: str) -> None:
             x["what"], x["oid"] = "uncounterable", oid
 
 
-PRIMITIVES = {"cant_search_turn": cant_search_turn, "uncounterable_turn": uncounterable_turn, "uncounterable_next": uncounterable_next}
+PRIMITIVES = {"peace_talks110f": peace_talks, "cant_search_turn": cant_search_turn, "uncounterable_turn": uncounterable_turn, "uncounterable_next": uncounterable_next}
 
 
 def cant_cause_sacrifice(plan: Plan, victim: str, by: str) -> str | None:

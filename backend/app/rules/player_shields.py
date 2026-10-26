@@ -267,6 +267,10 @@ def _protects(quality: str | None, source: Characteristics | None) -> bool:
 
 def can_target(plan: Plan, chooser: str, player: str, source: Characteristics | None) -> bool:
     """702.11c / 702.18a / 702.16b: may ``chooser``'s spell or ability (from ``source``) target ``player``?"""
+    from app.rules import prohibitions
+
+    if prohibitions.no_targets110f(plan):  # -- wave 110F -- Peace Talks: 115.2
+        return False
     if not plan.rules.player_shields and not _any_static(plan.state, plan.info):
         return True
     from dataclasses import replace
