@@ -148,6 +148,9 @@ _MOONGLOVE = ("Target creature you control gets +1/+0 and gains deathtouch until
               "Whenever a creature dealt damage by that creature dies this turn, its controller loses 2 life.")
 _EYE = ("The next time a source of your choice would deal damage to you this turn, instead that source deals that much damage to you and "
         "~ deals that much damage to that source's controller.")
+_SUN1 = ("Remove all counters from target creature. It can't have counters put on it for as long as this creature remains on the battlefield.")
+_SUN2 = ("Target opponent loses all counters. That player can't get counters for as long as this creature remains on the battlefield.")
+SUN_KEY = "Suncleanser110g"
 _SWING = ("Choose target battle. If an opponent protects it, remove three defense counters from it. Otherwise, put three defense counters on it.")
 
 
@@ -192,6 +195,16 @@ def parse(body: str) -> Any:
         effects, target, optional = got
         return [*effects, {"do": "delayed", "when": {"kind": "event", "event": "die", "damager110g": True}, "n": 1, "who": "target", "this_turn": True,
                            "once": False}, {"do": "deferred:lose_life", "who": "ref:event.controller", "n": 2}], target, optional
+    if (flat := body.strip().replace("~", "this creature")) in (_SUN1, _SUN2):  # Suncleanser: 122.1, 614.17; the mark lives on the source until it leaves (400.7)
+        from app.rules import language
+
+        group = language.target_group("target creature" if flat == _SUN1 else "target opponent")
+        if group is None:
+            return None
+        if flat == _SUN2:
+            return [{"do": "suncleanser110g", "who": "target", "player": True}], [group], False
+        (remove,), _, _ = scripts.parse_effects("Remove all counters from target creature.")  # type: ignore[misc]
+        return [remove, {"do": "suncleanser110g", "who": "target"}], [group], False
     if body.strip() == _EYE:  # Eye for an Eye: a chosen source (609.7a); its damage to you is still dealt, then ~ deals that much to its controller (615.5-like rider)
         return [{"do": "source_shield", "props": {}, "once": True, "to": "you", "observe110g": True,
                  "rider": {"if": False, "aggregation": "batch", "effects": [{"do": "damage", "who": "ref:from_ctrl", "src": "self",
@@ -486,6 +499,30 @@ def fallen(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def suncleanser(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Mode 2 first loses the player's counters (every resource but speed); both modes then remember the target on the source, if it is still there."""
+    from app.rules import effects
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if e.get("player"):
+        for pid in effects._players(plan, ctx, e["who"]):
+            for kind, n in list(plan.state.players[pid].resources.items()):
+                if n and kind != "speed":
+                    plan.do({"type": "set_resource", "player": pid, "key": kind, "value": 0}, actor=ctx["controller"])
+            mark = f"player:{pid}"
+    else:
+        cards = effects._cards(plan, ctx, e["who"])
+        mark = f"object:{plan.oid(cards[0])}" if cards else ""
+    if mark and src is not None and src.zone.endswith(":battlefield") and plan.oid(src) == ctx.get("source_object"):
+        plan.do({"type": "set_choice", "card_id": src.id, "key": SUN_KEY, "value": mark}, actor=ctx["controller"])
+    return True
+
+
+def sun_marked(plan: Any, mark: str) -> str | None:
+    """The name of a battlefield permanent that has marked this object ("object:<oid>") or player ("player:<id>") under Suncleanser's duration."""
+    return next((c.name or "a permanent" for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.choices.get(SUN_KEY) == mark), None)
+
+
 def lowest_life_control(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Control goes to the lowest life total (119.1); on a tie the controller chooses one of the tied players (this card's text)."""
     from app.rules import effects
@@ -558,7 +595,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

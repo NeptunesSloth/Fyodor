@@ -157,6 +157,10 @@ def cant_enter(plan: Plan, card: CardInstance, controller: str) -> tuple[str, bo
 def cant_get_counters(plan: Plan, player: str | None = None, kind: str | None = None) -> str | None:
     """The permanent saying players can't get counters (614.17), or None. -- commanders (wave 50C) -- a line about its controller only ("You can't get
     poison counters.") and one kind of counter bars ``player`` getting that kind only."""
+    from app.rules import wave110g_cards
+
+    if player is not None and (from_sun := wave110g_cards.sun_marked(plan, f"player:{player}")):  # -- wave 110G -- Suncleanser: "That player can't get counters"
+        return from_sun
     return next((_label(src) for src, d in _statics(plan, "cant_counters") if d.get("players")
                  and (d.get("who") != "you" or src.controller == player) and d.get("counter") in (None, kind)), None)
 
@@ -182,8 +186,11 @@ def cant_counters(plan: Plan, card_id: str, entering_for: str | None, counter: s
     card = plan.state.cards.get(card_id)
     from app.rules import (
         wave110d_rules,  # -- rules (wave 110D) -- an Aura's "Enchanted creature can't have counters put on it" (Blossombind)
+        wave110g_cards,
     )
 
+    if entering_for is None and card is not None and card.zone.endswith(":battlefield") and (from_sun := wave110g_cards.sun_marked(plan, f"object:{plan.oid(card)}")):
+        return from_sun  # -- wave 110G -- Suncleanser: "It can't have counters put on it for as long as this creature remains on the battlefield"
     if entering_for is None and card is not None and wave110d_rules.has_rule(plan, card, "cant_counters_host110d"):
         return "an Aura"
     if card is None or not found and entering_for is None:

@@ -125,6 +125,10 @@ EXTRA = [
          'At the beginning of your upkeep, this creature deals 1 damage to each opponent and planeswalker it has dealt damage to this game.', ('2', '3'), 'B'),
     real('Gelatinous Cube', '{2}{B}{B}', 4, 'Creature \u2014 Ooze',
          "Engulf \u2014 When this creature enters, exile target non-Ooze creature an opponent controls until this creature leaves the battlefield.\nDissolve \u2014 {X}{B}: Put target creature card with mana value X exiled with this creature into its owner's graveyard.", ('4', '3'), 'B'),
+    real('Suncleanser', '{1}{W}', 2, 'Creature \u2014 Human Cleric',
+         "When this creature enters, choose one \u2014\n\u2022 Remove all counters from target creature. It can't have counters put on it for as long as this creature remains on the battlefield.\n\u2022 Target opponent loses all counters. That player can't get counters for as long as this creature remains on the battlefield.", ('1', '4'), 'W'),
+    real('Test Grow', '{G}', 1, 'Instant', 'Put a +1/+1 counter on target creature.', None, 'G'),
+    real('Test Venom', '{B}', 1, 'Instant', 'Target player gets two poison counters.', None, 'B'),
     real('Test Zap', '{R}', 1, 'Instant', 'Test Zap deals 1 damage to target creature.', None, 'R'),
     real('Beamsplitter Mage', '{1}{R}', 2, 'Creature \u2014 Human Wizard', 'Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of those creatures. Copy that spell. The copy targets the chosen creature.', ('1', '3'), 'R'),
     real('Biblioplex Tomekeeper', '{4}', 4, 'Artifact Creature \u2014 Construct', 'When this creature enters, choose up to one \u2014\n\u2022 Target creature becomes prepared.\n\u2022 Target creature becomes unprepared.', ('3', '4'), ''),
@@ -1078,4 +1082,58 @@ def test_gelatinous_cube_dissolve_needs_the_exiled_creature_with_mana_value_x(ca
         if s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.cards[giant.id].zone == "p2:graveyard"
+    check(s)
+
+
+def test_suncleanser_creature_mode_strips_counters_and_bars_new_ones_until_it_leaves(cards):
+    """Suncleanser (122.1, 614.17): Bears lose their counters and cannot get one while Suncleanser stays; once it dies they can; another creature is unaffected."""
+    s = build(cards, ["Suncleanser", "Grizzly Bears", "Llanowar Elves", "Test Grow", "Test Shatter Charm"], [])
+    bears = put(s, "Grizzly Bears")
+    elves = put(s, "Llanowar Elves")
+    act(s, "p1", type="counter", card_ids=[bears.id], kind="+1/+1", delta=2)
+    mana(s, "p1", W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Suncleanser").id)
+    for _ in range(16):
+        d = s.state.rules.decision
+        if d is not None:
+            labels = {(o.label or "").lower(): o.id for o in d.options}
+            pick = next((i for t, i in labels.items() if "remove all" in t), None) or next((i for t, i in labels.items() if "bears" in t), d.options[0].id)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.cards[bears.id].counters.get("+1/+1", 0) == 0
+    for target, grown in ((bears, 0), (elves, 1)):
+        mana(s, "p1", G=1)
+        cast(s, "Test Grow", [target.id])
+        assert s.state.cards[target.id].counters.get("+1/+1", 0) == grown
+    sun = next(c for c in s.state.cards.values() if c.name == "Suncleanser")
+    act(s, "p1", type="move", card_ids=[sun.id], to={"zone": "graveyard"})  # it leaves: the bar ends (a new object, 400.7)
+    mana(s, "p1", G=1)
+    cast(s, "Test Grow", [bears.id])
+    assert s.state.cards[bears.id].counters.get("+1/+1", 0) == 1
+    check(s)
+
+
+def test_suncleanser_opponent_mode_clears_their_counters_and_bars_new_ones(cards):
+    """Suncleanser (122.1, 614.17): Bob's poison counters go; he cannot get more while it stays; Alice still can."""
+    s = build(cards, ["Suncleanser", "Test Venom"], [])
+    act(s, "p2", type="set_resource", key="poison", value=3)
+    mana(s, "p1", W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Suncleanser").id)
+    for _ in range(16):
+        d = s.state.rules.decision
+        if d is not None:
+            pick = next((o.id for o in d.options if "opponent" in (o.label or "").lower()), d.options[0].id)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.players["p2"].resources.get("poison", 0) == 0
+    for who, got in (("p2", 0), ("p1", 2)):
+        mana(s, "p1", B=1)
+        cast(s, "Test Venom", [who])
+        assert s.state.players[who].resources.get("poison", 0) == got
     check(s)
