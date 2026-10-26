@@ -115,7 +115,6 @@ _AS: dict[str, str] = {
 }
 
 
-_KALDRA = "{1}: If you control Equipment named Helm of Kaldra, Sword of Kaldra, and Shield of Kaldra, create Kaldra, a legendary 4/4 colorless Avatar creature token. Attach those Equipment to it."
 _PYXIS = "{7}, {T}, Sacrifice ~: Each player turns face up all cards they own exiled with ~, then puts all permanent cards among them onto the battlefield."
 _ETRATA = "{2}{U}{B}: Turn ~ face up. If you can't, exile it, then you may cast the exiled card without paying its mana cost."
 _GIFT = "As ~ is turned face up, you may attach it to a creature."
@@ -220,18 +219,6 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
             d["targets"][0]["what"] = selectors.Selector(player="any", player_exclude=selectors.THAT_PLAYER).key()
             d["effects"] = [{"do": "draw_per_curse110d"}]
-        return d
-    if text == _KALDRA:  # Helm of Kaldra: 701.3a attach each of the three named Equipment to the new token (a plain create parse, then the checks and attach by hand)
-        d = scripts.define(replace(ability, text="{1}: Create Kaldra, a legendary 4/4 colorless Avatar creature token."), ch)
-        if d is not None:
-            from app.rules import selectors
-
-            names = ("Helm of Kaldra", "Sword of Kaldra", "Shield of Kaldra")
-            one = [selectors.Selector(controller="you", subtypes=("Equipment",), extras=("name:" + n,)).key() for n in names]
-            allk = selectors.Selector(either=tuple(one)).key()
-            conds = [{"value": {"count": k}, "op": ">=", "n": 1} for k in one]
-            d["effects"] = [{"do": "only_if", "cond": c, "skip": 4 - i} for i, c in enumerate(conds)] + [{**d["effects"][0], "as": "kaldra110d"}]
-            d["effects"].append({"do": "attach_to", "src": allk, "who": "ref:kaldra110d"})
         return d
     if text == _NIKO:  # Niko, Light of Hope: 707.9 the Shards copy the exiled creature as it last existed (608.2h), until the end step begins (611.2a)
         d = scripts.define(replace(ability, text=text.replace(" Shards you control become copies of it until the next end step.", "")), ch)
