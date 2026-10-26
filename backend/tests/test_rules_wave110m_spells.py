@@ -202,7 +202,7 @@ test_cover_full = full_test([COVER])
 
 
 def cover_table(cards, theirs_in_graveyard=True):
-    s = build(cards, [COVER, "Grizzly Bears", "Grizzly Bears", "Grizzly Bears"], ["Llanowar Elves", "Llanowar Elves", "Llanowar Elves", "Elite Vanguard"], forests=20)
+    s = build(cards, [COVER, "Grizzly Bears", "Grizzly Bears", "Grizzly Bears", "Elite Vanguard"], ["Llanowar Elves", "Llanowar Elves", "Llanowar Elves"], forests=20)
     mine = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p1"]
     for c in mine:  # three mana value 2 cards: collect evidence 6
         act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
@@ -210,7 +210,7 @@ def cover_table(cards, theirs_in_graveyard=True):
     if theirs_in_graveyard:
         act(s, "p2", type="move", card_ids=[elves[0].id], to={"zone": "graveyard"})
     act(s, "p2", type="move", card_ids=[elves[1].id], to={"zone": "hand"})  # (the third stays in the library)
-    put(s, "Elite Vanguard", "p2")
+    put(s, "Elite Vanguard")  # (the creature that Cover-Up destroys: into its owner's graveyard, not an opponent's)
     return s, mine, elves
 
 
@@ -232,7 +232,7 @@ def test_deadly_cover_up_with_evidence_exiles_a_graveyard_card_and_every_copy_th
     s, mine, elves = cover_table(cards)
     hand_before = len(s.state.zones["p2:hand"])
     cover_up(s, collect=True)
-    assert zone_of(s, "Elite Vanguard", "p2") == "p2:graveyard"  # (destroy all creatures)
+    assert zone_of(s, "Elite Vanguard") == "p1:graveyard"  # (destroy all creatures)
     assert all(s.state.cards[e.id].zone == "p2:exile" for e in elves)  # the graveyard card, then the copies in hand and library
     assert len(s.state.zones["p2:hand"]) == hand_before - 1 + 1  # (the hand copy exiled, one card drawn for it)
     assert all(s.state.cards[c.id].zone == "p1:exile" for c in mine)
@@ -242,7 +242,7 @@ def test_deadly_cover_up_with_evidence_exiles_a_graveyard_card_and_every_copy_th
 def test_deadly_cover_up_without_evidence_only_destroys_creatures(cards):
     s, mine, elves = cover_table(cards)
     cover_up(s, collect=False)
-    assert zone_of(s, "Elite Vanguard", "p2") == "p2:graveyard"
+    assert zone_of(s, "Elite Vanguard") == "p1:graveyard"
     assert [s.state.cards[e.id].zone for e in elves] == ["p2:graveyard", "p2:hand", "p2:library"]
     check(s)
 
@@ -250,5 +250,5 @@ def test_deadly_cover_up_without_evidence_only_destroys_creatures(cards):
 def test_deadly_cover_up_with_evidence_but_no_card_in_an_opponents_graveyard_exiles_nothing(cards):
     s, mine, elves = cover_table(cards, theirs_in_graveyard=False)
     cover_up(s, collect=True)
-    assert all(s.state.cards[e.id].zone != "p2:exile" for e in elves) and zone_of(s, "Elite Vanguard", "p2") == "p2:graveyard"
+    assert all(s.state.cards[e.id].zone != "p2:exile" for e in elves) and zone_of(s, "Elite Vanguard") == "p1:graveyard"
     check(s)
