@@ -417,6 +417,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     for i, line in enumerate(lines):
         if line == EARTHBIND:
             lines[i:i + 1] = [line, "As long as this Aura gained that ability, enchanted creature loses flying."]
+    # -- lines (wave 110G) -- Ertai's Familiar: phasing out is not leaving (702.26d), so "phases out or leaves the battlefield" is two triggers that never share an event
+    for i, line in enumerate(lines):
+        if line == "When this creature phases out or leaves the battlefield, mill three cards.":
+            lines[i:i + 1] = ["When this creature phases out, mill three cards.", "When this creature leaves the battlefield, mill three cards."]
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):

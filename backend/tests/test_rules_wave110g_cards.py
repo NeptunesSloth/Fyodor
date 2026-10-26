@@ -132,6 +132,8 @@ EXTRA = [
     real('Test Venom', '{B}', 1, 'Instant', 'Target player gets two poison counters.', None, 'B'),
     real('Elkin Lair', '{3}{R}', 4, 'World Enchantment',
          "At the beginning of each player's upkeep, that player exiles a card at random from their hand. The player may play that card this turn. At the beginning of the next end step, if the player hasn't played the card, they put it into their graveyard.", None, 'R'),
+    real("Ertai's Familiar", '{1}{U}', 2, 'Creature \u2014 Illusion',
+         "Phasing (This phases in or out before you untap during each of your untap steps. While it's phased out, it's treated as though it doesn't exist.)\nWhen this creature phases out or leaves the battlefield, mill three cards.\n{U}: Until your next upkeep, this creature can't phase out.", ('2', '2'), 'U'),
     real('Test Zap', '{R}', 1, 'Instant', 'Test Zap deals 1 damage to target creature.', None, 'R'),
     real('Beamsplitter Mage', '{1}{R}', 2, 'Creature \u2014 Human Wizard', 'Whenever you cast an instant or sorcery spell that targets only this creature, if you control one or more other creatures that spell could target, choose one of those creatures. Copy that spell. The copy targets the chosen creature.', ('1', '3'), 'R'),
     real('Biblioplex Tomekeeper', '{4}', 4, 'Artifact Creature \u2014 Construct', 'When this creature enters, choose up to one \u2014\n\u2022 Target creature becomes prepared.\n\u2022 Target creature becomes unprepared.', ('3', '4'), ''),
@@ -1157,4 +1159,33 @@ def test_elkin_lair_exiles_the_upkeeping_players_card_and_buries_it_unless_playe
         until(s, lambda s: not s.state.zones.get("stack"))
     until(s, lambda s: s.state.turn.number == 3)
     assert s.state.cards[bears.id].zone == ("p2:battlefield" if play else "p2:graveyard")
+    check(s)
+
+
+@pytest.mark.parametrize("held", [False, True])
+def test_ertais_familiar_mills_when_it_phases_out_unless_held_in(cards, held):
+    """Ertai's Familiar (702.26b, 702.26d): it phases out in its controller's next untap step and mills three; {U} first (until their next upkeep) stops that."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Ertai's Familiar"], [], forests=40)
+    fam = put(s, "Ertai's Familiar")
+    if held:
+        mana(s, "p1", U=1)
+        act(s, "p1", type="activate_ability", card_id=fam.id, ability=3)
+        until(s, lambda s: not s.state.zones.get("stack"))
+    before = len(s.state.zones["p1:graveyard"])
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    assert s.state.cards[fam.id].zone == ("p1:battlefield" if held else "p1:phased")
+    assert len(s.state.zones["p1:graveyard"]) == before + (0 if held else 3)
+    check(s)
+
+
+def test_ertais_familiar_mills_when_it_leaves_the_battlefield(cards):
+    """Ertai's Familiar (603.10a): dying mills three cards."""
+    s = build(cards, ["Ertai's Familiar", "Test Doom"], [], forests=40)
+    fam = put(s, "Ertai's Familiar")
+    before = len(s.state.zones["p1:graveyard"])
+    mana(s, "p1", C=1)
+    cast(s, "Test Doom", [fam.id])
+    assert len(s.state.zones["p1:graveyard"]) == before + 1 + 1 + 3  # the Familiar, Test Doom, three milled
     check(s)

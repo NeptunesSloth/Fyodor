@@ -334,7 +334,14 @@ def _elkin(d: Def) -> Def:
                              {"do": "deferred:return_card", "who": "ref:e0", "to": "graveyard", "under": "owner"}]}
 
 
+def _no_phase_out(d: Def) -> Def:
+    """Ertai's Familiar: the grammar's restriction on itself, with the phase-out prohibition phasing._held reads (702.26)."""
+    return {**d, "effects": [{**x, "rules": ["cant_phase_out"]} if x.get("do") == "restrict" else x for x in d["effects"]]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Ertai's Familiar
+    "{U}: Until your next upkeep, this creature can't phase out.": ("{U}: Until your next upkeep, this creature can't attack.", _no_phase_out),
     # Elkin Lair
     "At the beginning of each player's upkeep, that player exiles a card at random from their hand. The player may play that card this turn. "
     "At the beginning of the next end step, if the player hasn't played the card, they put it into their graveyard.":
