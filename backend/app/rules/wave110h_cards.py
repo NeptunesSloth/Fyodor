@@ -144,10 +144,28 @@ _MAGNUS_PUT = "Whenever ~ attacks, you may put an artifact creature card from yo
 _MAGNUS_FORMIDABLE = "Whenever ~ attacks, attacking creatures you control gain indestructible until end of turn. If those creatures have total power 8 or greater, transform ~."
 
 
+_TAHNGARTH = ("Whenever an opponent attacks with one or more creatures, if ~ is tapped, you may have that opponent gain control of ~ until end of combat. "
+              "If you do, choose a player or planeswalker that opponent is attacking. ~ is attacking that player or planeswalker.")
+
+
+_PSYCHIC = ("Whenever a player chooses one or more targets, each player reveals the top card of their library. The player who reveals the card with the greatest mana value may "
+            "change the target or targets. If two or more cards are tied for greatest, the target or targets remain unchanged. Changing targets this way doesn't trigger "
+            "abilities of permanents named Psychic Battle.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == _PSYCHIC:
+        native = scripts.define(replace(ability, text="Whenever a player chooses one or more targets, you gain 1 life."), ch)
+        return None if native is None else {**native, "effects": [{"do": "psychic110h"}]}
+    if text == _TAHNGARTH:
+        native = scripts.define(replace(ability, text="Whenever an opponent attacks with one or more creatures, if ~ is tapped, you may have that player gain control of ~."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["only_if", "gain_control"]:
+            return None
+        gain = {**native["effects"][1], "duration": "end_of_combat", "did": "did0"}
+        return {**native, "effects": [native["effects"][0], gain, {"do": "only_if", "cond": {"succeeded": "did0"}, "skip": 1}, {"do": "tahngarth110h"}]}
     if text == _MAGNUS_PUT + " If you do, transform ~ at end of combat.":
         native = scripts.define(replace(ability, text=_MAGNUS_PUT), ch)
         delayed = scripts.parse_effects("Transform ~ at end of combat.")
@@ -986,5 +1004,83 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"cyclone110h": cyclone, "lagrella110h": lagrella, "pummel110h": pummel, "assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "glimpse110h": glimpse, "pendulum110h": pendulum, "exile_counters110h": exile_counters}
-RESUME = {"feather110h": resume_feather, "pendulum110h": resume_pendulum, "pendulum_reveal110h": resume_pendulum_reveal, "zimone110h": resume_zimone, "episode110h": resume_episode, "scapegoat110h": resume_scapegoat}
+def psychic(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Psychic Battle: each player (APNAP, 101.4) reveals their top card (701.20a; none for an empty library, the ruling); the one revealing the greatest mana value (202.3,
+    alone) may change the targets of the spell or ability that chose them (115.7a: each to another legal target, or none; its controller judges legality). Changes don't
+    re-trigger: targeted(crime=False)."""
+    from app.game.state import zone_key
+    from app.rules import stack_interaction
+
+    shown: dict[str, int] = {}
+    for p in plan.apnap():
+        library = plan.state.zones.get(zone_key(p, "library"), [])
+        if library:
+            plan.do({"type": "reveal_top", "player": p, "count": 1}, actor=p)
+            shown[p] = stack_interaction.mana_value(plan.state.cards[library[0]], plan.ch(plan.state.cards[library[0]]))
+    top = max(shown.values(), default=None)
+    winners = [p for p, v in shown.items() if v == top]
+    if len(winners) != 1:
+        plan.note("Psychic Battle: no single greatest mana value, the targets remain unchanged", actor=ctx["controller"])
+        return True
+    plan.note(f"Psychic Battle: {plan.name(winners[0])} reveals the greatest mana value", actor=ctx["controller"])
+    sids = effects_stack_targets(plan, ctx)
+    # The 2004 ruling (Scryfall): "You can change all, some, or none of the targets" - so per-target keep (115.7d's way; 115.7c's "any number"), over 115.7a's all-or-none.
+    return not sids or stack_interaction._ask_new_targets(plan, ctx, sids[0], [], winners[0])
+
+
+def unsettled_choose(plan: Any, who: str) -> None:
+    """A copy gets targets, or another effect changes them (Deflecting Swat): no CR rule or ruling says that is a player "choosing one or more targets" (601.2c is casting or
+    activating), so Psychic Battle does not trigger; a note tells the table to resolve it by hand."""
+    for c in plan.state.cards.values():
+        if c.zone.endswith(":battlefield") and "chooses one or more targets" in (plan.ch(c).oracle_text or ""):
+            plan.note(f"{c.name}: whether a copy's or a changed target counts as a player choosing targets is unsettled - resolve it manually", actor=who)
+
+
+def effects_stack_targets(plan: Any, ctx: Any) -> list[str]:
+    from app.rules import effects
+
+    return effects._stack_targets(plan, ctx, {"who": "event_source"})
+
+
+def tahngarth(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Tahngarth, First Mate: its former controller chooses a player or planeswalker the new controller's attackers attack (508.4: it never was declared as an
+    attacker, so no attack triggers; 506.3b: the new controller is the attacking player)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    card, who = plan.state.cards.get(ctx.get("source_card") or ""), effects._players(plan, ctx, "event_player")
+    if card is None or len(who) != 1 or card.controller != who[0] or not card.zone.endswith(":battlefield") or not plan.ch(card).is_creature:
+        return True
+    opts: dict[str, DecisionOption] = {}
+    for c in plan.state.cards.values():
+        t = c.attacking
+        if c.is_attacking and c.controller == who[0] and c.id != card.id and t is not None and t.id not in opts and t.id in (
+                plan.live() if t.kind == "player" else [x for x, y in plan.state.cards.items() if "Planeswalker" in plan.ch(y).types]):
+            opts[t.id] = DecisionOption(id=t.id, label=plan.name(t.id) if t.kind == "player" else plan.state.cards[t.id].name or "Planeswalker",
+                                        **({} if t.kind == "player" else {"card_id": t.id}))
+    if not opts:
+        return True
+    if len(opts) == 1:
+        resume_tahngarth_to(plan, card.id, next(iter(opts)), who[0])
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt="Tahngarth is attacking which player or planeswalker?", options=list(opts.values()),
+           resume={"step": "tahngarth110h", "ctx": ctx, "card": card.id, "by": who[0]})
+    return False
+
+
+def resume_tahngarth_to(plan: Any, card: str, target: str, by: str) -> None:
+    kind = "player" if target in plan.state.players else "card"
+    plan.do({"type": "attack", "card_ids": [card], "target": {"kind": kind, "id": target}}, actor=by)
+
+
+def resume_tahngarth(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    resume_tahngarth_to(plan, r["card"], chosen[0], r["by"])
+    effects.continue_effects(plan, r["ctx"])
+
+
+PRIMITIVES = {"psychic110h": psychic, "tahngarth110h": tahngarth, "cyclone110h": cyclone, "lagrella110h": lagrella, "pummel110h": pummel, "assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "glimpse110h": glimpse, "pendulum110h": pendulum, "exile_counters110h": exile_counters}
+RESUME = {"tahngarth110h": resume_tahngarth, "feather110h": resume_feather, "pendulum110h": resume_pendulum, "pendulum_reveal110h": resume_pendulum_reveal, "zimone110h": resume_zimone, "episode110h": resume_episode, "scapegoat110h": resume_scapegoat}

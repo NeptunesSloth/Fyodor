@@ -221,7 +221,7 @@ def bob_attacks(cards, tapped, attacks, pick=None, accept=True):
 
     def answer(d):
         asked.append((d.player, d.kind, d.prompt))
-        if d.kind == "choose_one" and "attacking for it to attack" in d.prompt:
+        if d.kind == "choose_one" and "attacking" in d.prompt:
             return [pick] if pick else None
         return None if accept else [o.id for o in d.options][-1:]
 
@@ -240,9 +240,10 @@ def bob_attacks(cards, tapped, attacks, pick=None, accept=True):
 
 @pytest.mark.parametrize("pick", ["p1", "p3"])
 def test_tahngarth_goes_to_the_attacker_and_attacks_a_chosen_defender(cards, pick):
-    """508.4: control until end of combat (613.1b); the new controller chooses among what they attack (Alice or Carol); it was never declared, and control returns."""
+    """508.4: control until end of combat (613.1b); "If you do, choose a player or planeswalker that opponent is attacking": the ability's controller (Alice) chooses among
+    what Bob attacks (Alice or Carol); it was never declared, and control returns. (Merge round 4: wave110h_cards owns the card.)"""
     s, tahn, asked = bob_attacks(cards, True, {"Grizzly Bears": "p1", "Llanowar Elves": "p3"}, pick=pick)
-    assert [a[:2] for a in asked] == [("p1", "confirm"), ("p2", "choose_one")]
+    assert [a[:2] for a in asked] == [("p1", "confirm"), ("p1", "choose_one")]
     c = s.state.cards[tahn.id]
     assert c.controller == "p2" and c.attacking is not None and c.attacking.id == pick and c.tapped
     through_combat(s)

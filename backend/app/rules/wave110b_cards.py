@@ -680,10 +680,6 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return _angel()
     if text == _LINVALA:
         return _linvala(ability, ch)
-    from app.rules import wave110b_tahngarth  # -- Tahngarth (wave 110B) --
-
-    if (tahngarth := wave110b_tahngarth.definition(ability, ch)) is not None:
-        return tahngarth
     if text == "Exile a creature card from your graveyard and pay its mana cost: Create a token that's a copy of that card. Activate only as a sorcery.":
         from app.rules import selectors
 
