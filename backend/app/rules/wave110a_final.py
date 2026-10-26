@@ -150,9 +150,8 @@ def one_per_type(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 def resume_one_per_type(plan: Plan, d: Any, chosen: list[str]) -> None:
-    from app.rules import effects
-
     from app.game.errors import ActionError
+    from app.rules import effects
 
     if not _assignable(plan, chosen):
         raise ActionError("Choose at most one card of each card type")
