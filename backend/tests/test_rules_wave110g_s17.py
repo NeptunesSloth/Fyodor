@@ -25,7 +25,12 @@ JUDGMENT = ("Madness {X}{R} (If you discard this card, discard it into exile. Wh
 MACHINATIONS = ("Until end of turn, you may activate loyalty abilities of Jace planeswalkers you control on any player's turn any time you could cast an instant.\n"
                 "Empower Jace 8. (Put eight loyalty counters on a Jace token you control. If you don't control one, first create a blue Jace planeswalker token with "
                 "\"[\u22121]: Surveil 1\" and \"[\u22123]: Draw a card.\")")
-EXTRA = [real("Jace's Machinations", "{2}{U}", 3, "Instant", MACHINATIONS, None, "U"),
+ROBBER = ("Flying\nEscape\u2014{3}{U}, Exile five other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)\n"
+          "This creature escapes with \"Whenever this creature deals combat damage to a player, you may cast an artifact, instant, or sorcery spell from among cards "
+          "exiled with this creature without paying its mana cost.\"")
+EXTRA = [real("Skyway Robber", "{3}{U}", 4, "Creature \u2014 Bird Rogue", ROBBER, ("3", "3"), "U"),
+         real("Test Gain", "{1}{W}", 2, "Sorcery", "You gain 5 life.", None, "W"),
+         real("Jace's Machinations", "{2}{U}", 3, "Instant", MACHINATIONS, None, "U"),
          real("Advancing the Spirit", "{2}{W}", 3, "Enchantment", ADVANCING, None, "W"),
          real("Avacyn's Judgment", "{1}{R}", 2, "Sorcery", JUDGMENT, None, "R"),
          real("Discard Probe", "{B}", 1, "Sorcery", "Discard a card.", None, "B")]
@@ -41,7 +46,7 @@ def cards(settings):
 
 
 def test_full(cards):
-    for name in ("Advancing the Spirit", "Avacyn's Judgment", "Jace's Machinations"):
+    for name in ("Advancing the Spirit", "Avacyn's Judgment", "Jace's Machinations", "Skyway Robber"):
         assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
@@ -164,3 +169,54 @@ def test_without_machinations_jace_is_sorcery_speed(cards):
     to_phase(s, "begin_combat")
     with pytest.raises(ActionError, match="main phase"):
         activate(s, "p1", jace, "Surveil 1")
+
+
+def _escape(cards, escaped=True):
+    """Skyway Robber (escaped from the graveyard with five other cards, a sorcery among them) or cast from the hand."""
+    from tests.test_rules_wave50j_small import settle as _settle
+
+    s = build(cards, ["Skyway Robber", "Test Gain", "Grizzly Bears", "Forest", "Island", "Swamp"], [], forests=12, islands=20)
+    names = ["Skyway Robber", "Test Gain", "Grizzly Bears", "Forest", "Island", "Swamp"]
+    for name in names if escaped else names[1:]:
+        act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "graveyard" if escaped or name != "Skyway Robber" else "hand"})
+    robber = card_named(s, "Skyway Robber")
+    if not escaped:
+        act(s, "p1", type="move", card_ids=[robber.id], to={"player": "p1", "zone": "hand"})
+    mana(s, U=1, C=3)
+    act(s, "p1", type="cast_spell", card_id=robber.id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and escaped:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+    _settle(s)
+    return s, robber
+
+
+@pytest.mark.parametrize("escaped", [True, False])
+def test_skyway_robber_casts_a_card_its_escape_exiled(cards, escaped):
+    """702.138c + ruling 2022-04-29: an escaped Robber may cast an artifact/instant/sorcery exiled by its own escape cost for free when it connects; cast from hand it has no such ability."""
+    from tests.test_rules_wave34b_activated import next_turn, to_phase
+    from tests.wave9c_kit import life
+
+    s, robber = _escape(cards, escaped)
+    assert s.state.cards[robber.id].zone == "p1:battlefield"
+    next_turn(s)
+    to_phase(s, "declare_attackers")
+    d = s.state.rules.decision
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": robber.id, "target": "p2"}])
+    for _ in range(15):
+        d = s.state.rules.decision
+        if d is not None and d.kind != "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority") if d is None else act(s, d.player, type=d.kind, blocks=[])
+    if escaped:
+        names = {o.label for o in d.options}
+        assert any("Test Gain" in n for n in names) and not any("Grizzly" in n for n in names), names
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if "Test Gain" in o.label)])
+        answer(s)
+        assert life(s, "p1") == 45
+    else:
+        assert life(s, "p2") == 37
+    check(s)

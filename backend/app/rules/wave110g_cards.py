@@ -1021,14 +1021,14 @@ def robber_bind(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 def _robber(ch: Any, ability: Any) -> Def | None:
     """702.138c: "escapes with" a quoted ability: the permanent has the trigger only if it escaped (cond "it escaped"); the free cast is from the cards its escape cost exiled."""
-    from app.rules import conditions, permissions, scripts
+    from app.rules import permissions, scripts
 
-    native = scripts.define(replace(ability, text="Whenever this creature deals combat damage to a player, you may draw a card."), ch)
+    native = scripts.define(replace(ability, kind="triggered", text="Whenever this creature deals combat damage to a player, you may draw a card."), ch)
     key = permissions.spell_filter("artifact, instant, or sorcery")
-    cond = conditions.parse("it escaped")
-    if native is None or key is None or cond is None:
+    cond = {"object": "self", "cast": {"escaped": True}}  # = conditions "~ escaped" (702.138b)
+    if native is None or key is None:
         return None
-    return {**native, "if": cond, "effects": [{"do": "robber_bind110g", "as": "robber110g"},
+    return {**native, "optional": False, "if": cond, "effects": [{"do": "robber_bind110g", "as": "robber110g"},
                                               {"do": "free_cast", "zone": "ref", "who": "ref:robber110g", "filter": key, "optional": True, "mv": None, "n": 1}]}
 
 
