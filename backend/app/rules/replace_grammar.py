@@ -10,7 +10,7 @@ Events and their ops (researched against CR 2026-09-25):
 
 * ``tokens`` (111, 614.16): ``mul`` N (Parallel Lives, Doubling Season, Ojer Taq), ``add`` 1 of the
   same token (Xorn). "those tokens plus a [different token]" (Chatterfang, Peregrin Took), "may
-  instead" (Jinnie Fay) and copies (Esix) stay manual.
+  instead" (Jinnie Fay) and copies (Esix) are read by token_creation_replacements.
 * ``counters`` on permanents (122.6, 614.16): ``mul`` / ``add`` (Hardened Scales, Winding
   Constrictor, Doubling Season: "If an effect would put …" is ``effect_only``, Vizier of Remedies:
   ``add`` -1). "If you would put …" wordings (the player putting the counters: Vorinclex, Doc
