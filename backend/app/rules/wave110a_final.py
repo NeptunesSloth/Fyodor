@@ -44,6 +44,8 @@ APPLE = ("{T}, Pay 4 life, Sacrifice ~: Look at target opponent's hand and exile
          "cards to their owner's hand. Activate only as a sorcery.")
 LUCY = ("Golden Rule — Whenever a token enters, you may have target player other than its controller create a token that's a copy of it, then you draw a card if an opponent "
         "created a token this way. Do this only once each turn.")
+FALSE_ORDERS = ("Remove target creature defending player controls from combat. Creatures it was blocking that had become blocked by only that creature this combat become unblocked. "
+                "You may have it block an attacking creature of your choice.")
 ICE_CAVE = "Whenever a player casts a spell, any other player may pay that spell's mana cost. If a player does, counter the spell."
 
 
@@ -51,6 +53,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == FALSE_ORDERS:  # Balduvian Warlord's instruction (wave110j_cards.warlord), on any creature the defending player controls, and the last step optional
+        d = scripts.define(replace(ability, text="Remove target creature defending player controls from combat."), ch)
+        if d is None or [e["do"] for e in d["effects"]] != ["remove_from_combat"]:
+            return None
+        return {**d, "effects": [{"do": "false_orders110a", "who": "target"}]}
     if text in (LUCY, LUCY.partition(" — ")[2]):  # ability word (207.2c) or not
         d = scripts.define(replace(ability, text="Whenever a token enters, target opponent creates a token that's a copy of it."), ch)
         if d is None or [e["do"] for e in d["effects"]] != ["token_copy"] or d.get("target") != {"what": "opponent"}:
@@ -329,6 +336,42 @@ def sticker_flag(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def false_orders(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """False Orders: 506.4 remove it from combat; 509.1h its blocked attackers that no other creature was declared blocking become unblocked (the sentence names them);
+    then the spell's controller may have it block an attacking creature of their choice (a block made by an effect: 509.3, restrictions of
+    the declaration don't apply, the attacker must attack that creature's controller: combat_rules.enter_blocking, as Balduvian Warlord)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects, history, wave110j_cards
+    from app.rules.plan import decide
+
+    found = [plan.state.cards[c] for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    if not found:
+        return True
+    t, blocks = found[0], history.log_for(plan).blocks
+    mine = plan.oid(t)
+    atk = wave110j_cards._blocked_by(t) if t.is_blocking else []
+    wave110j_cards._leave(plan, ctx, t)
+    for a in atk:
+        if not any(plan.oid(plan.state.cards[a]) in objs for ob, objs in blocks.items() if ob != mine):
+            plan.rules.blocked = [c for c in plan.rules.blocked if c != a]
+    opts = [c.id for c in plan.state.cards.values() if c.is_attacking and c.zone.endswith(":battlefield") and c.attacking is not None
+            and (c.attacking.id == t.controller or plan.state.cards.get(c.attacking.id) is not None and plan.state.cards[c.attacking.id].controller == t.controller)]
+    if not opts:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{t.name} blocks which attacking creature? (none: it blocks nothing)", min_choices=0, max_choices=1,
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "a creature", card_id=c) for c in opts], resume={"step": "false_orders110a", "ctx": ctx, "who": t.id})
+    return False
+
+
+def resume_false_orders(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import wave110j_cards
+    from app.rules.effects import continue_effects
+
+    if chosen:
+        wave110j_cards._block(plan, d.resume["ctx"], plan.state.cards[d.resume["who"]], chosen[0])
+    continue_effects(plan, d.resume["ctx"])
+
+
 def without_event_controller(plan: Plan, event: dict[str, Any], options: list[str]) -> list[str]:
     """Lucy MacLean: "target player other than its controller" - not the controller of the object the trigger's event is about (the token that entered, as it is or last was)."""
     objs = event.get("objects") or []
@@ -509,5 +552,5 @@ def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 REWRITES = {INTIMATIONS_SPELL: INTIMATIONS_SPELL.replace("You return", "Return")}  # (the grammar has no "you return"; 101.4 / the 2017-02-09 ruling: opponents choose in turn order, all at once)
-PRIMITIVES: dict[str, Any] = {"lucy_gate110a": lucy_gate, "lucy_draw110a": lucy_draw, "apple_watch110a": apple_watch, "next_free_chosen110a": next_free_chosen, "sticker_flag110a": sticker_flag, "magmarch110a": magmarch, "loyalty_rider110a": loyalty_rider, "exile_one_per_type110a": one_per_type}
-RESUME: dict[str, Any] = {"damping110a": resume_sacrifice, "chaotic_order110a": resume_order, "exile_one_per_type110a": resume_one_per_type, "magmarch110a": resume_magmarch}
+PRIMITIVES: dict[str, Any] = {"false_orders110a": false_orders, "lucy_gate110a": lucy_gate, "lucy_draw110a": lucy_draw, "apple_watch110a": apple_watch, "next_free_chosen110a": next_free_chosen, "sticker_flag110a": sticker_flag, "magmarch110a": magmarch, "loyalty_rider110a": loyalty_rider, "exile_one_per_type110a": one_per_type}
+RESUME: dict[str, Any] = {"damping110a": resume_sacrifice, "chaotic_order110a": resume_order, "exile_one_per_type110a": resume_one_per_type, "magmarch110a": resume_magmarch, "false_orders110a": resume_false_orders}

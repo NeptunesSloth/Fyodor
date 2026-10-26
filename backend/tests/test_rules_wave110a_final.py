@@ -12,7 +12,7 @@ from tests.wave110a_kit import *
 
 NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations", "Exterminator Magmarch", "Threefold Signal", "Deification", "Voltaic Visionary // Volt-Charged Berserker",
          "Prowl, Stoic Strategist // Prowl, Pursuit Vehicle", "Snowblind",
-         "Eye of Ojer Taq // Apex Observatory", "Apple of Eden, Isu Relic", "Lucy MacLean, Positively Armed"]
+         "Eye of Ojer Taq // Apex Observatory", "Apple of Eden, Isu Relic", "Lucy MacLean, Positively Armed", "False Orders"]
 
 
 @pytest.fixture()
@@ -761,4 +761,56 @@ def test_lucy_the_chosen_player_may_be_lucys_controller_when_an_opponents_token_
     _run(s, ["Alice", "Alice", "Alice"], ["yes", "yes", "yes"])
     assert len(_soldiers(s, "p1")) == 1 and len(_soldiers(s, "p2")) == 2
     assert len(s.state.zones["p1:hand"]) == hand  # no opponent created a token: no card
+    check(s)
+
+
+def _false_orders(cards, blocks=True):
+    """Alice attacks Bob with Grizzly Bears and Hill Giant; Bob's Wall of Omens blocks the Bears; Alice casts False Orders on the Wall in the declare blockers step."""
+    s = build(cards, ["Grizzly Bears", "Hill Giant", "False Orders"], ["Wall of Omens"])
+    bears, giant = put(s, "Grizzly Bears"), put(s, "Hill Giant")
+    wall = put(s, "Wall of Omens", "p2")
+    next_turn(s)
+    act(s, "p1", type="set_stops", own=STEPS, others=STEPS, smart_pass=False)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}, {"card_id": giant.id, "target": "p2"}])
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": bears.id}] if blocks else [])
+    until(s, lambda s: s.state.turn.phase == "declare_blockers" and s.state.rules.priority == "p1")
+    fund(s, "{R}")
+    c = to_hand(s, "False Orders")
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[wall.id], free=False)
+    return s, bears, giant, wall
+
+
+@pytest.mark.parametrize("block", [True, False])
+def test_false_orders_unblocks_what_only_it_blocked_and_it_may_block_another_attacker(cards, block):
+    """False Orders: the Wall leaves combat, the Bears (blocked only by it) become unblocked, then Alice may have the Wall block the Hill Giant."""
+    s, bears, giant, wall = _false_orders(cards)
+    d = None
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and d.player == "p1" and d.min_choices == 0 and giant.id in [o.id for o in d.options]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[giant.id] if block else [])
+    until(s, lambda s: s.state.turn.phase == "end_combat" or s.state.turn.phase == "main2")
+    assert life(s, "p2") == 40 - 2 - (0 if block else 3)  # the Bears are unblocked; the Giant is unblocked only if the Wall was not made to block it
+    assert s.state.cards[wall.id].zone == "p2:battlefield" and s.state.cards[giant.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_false_orders_on_a_creature_that_is_not_blocking_may_still_have_it_block(cards):
+    """The target need not be blocking: nothing to remove or unblock, and Alice may still have the Wall block the Bears (so the Giant alone is unblocked)."""
+    s, bears, giant, wall = _false_orders(cards, blocks=False)
+    d = None
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and {bears.id, giant.id} <= {o.id for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+    until(s, lambda s: s.state.turn.phase == "main2")
+    assert life(s, "p2") == 40 - 3
     check(s)
