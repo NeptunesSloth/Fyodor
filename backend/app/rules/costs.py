@@ -863,7 +863,7 @@ class Kicker:
 
     def paid(self, times: int) -> int:
         """-- keywords (wave 50H) -- how many kicker costs the cast's ``kicker`` pays (702.33d): the bits of the mask of two costs, else the count."""
-        if self.second and self.multi:  # -- wave 110G -- Primitive Justice: ``times`` is first count + 32 * second count (each 0..30)
+        if self.second and self.multi:  # -- wave 110G -- Primitive Justice: ``times`` is first count + 1024 * second count (each 0..1000)
             return pair_counts(times)[0] + pair_counts(times)[1]
         return bin(times).count("1") if self.second else times
 
@@ -873,9 +873,12 @@ class Kicker:
         return "{X}" in self.cost.upper()
 
 
+PAIR_SHIFT = 1024  # (wave 110G) each of the two counts is 0..1000, the platform numeric range
+
+
 def pair_counts(times: int) -> tuple[int, int]:
     """-- wave 110G -- the two payment counts of "you may pay {A} and/or {B} any number of times" in the cast's ``kicker`` number."""
-    return times & 31, times >> 5
+    return times % PAIR_SHIFT, times // PAIR_SHIFT
 
 
 _OPTIONAL_EXTRA = re.compile(r"As an additional cost to cast this spell, you may pay (?P<cost>\{2\}\{R\})\.")  # -- (wave 110O) -- Undergrowth, the one printed wording

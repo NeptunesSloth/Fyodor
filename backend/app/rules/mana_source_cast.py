@@ -4,6 +4,8 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
+from app.rules import wave110g_spires  # -- wave 110G --
+
 if TYPE_CHECKING:
     from app.rules.plan import Plan
 
@@ -43,8 +45,8 @@ def spell_recipe(plan: Plan, ctx: dict[str, Any]) -> tuple[Any, str | None]:
         from app.rules.triggers import _snapshot_card
 
         return _face_down_recipe(_snapshot_card(plan, snap)[1]), None
-    base = snap.copy_recipe.model_copy(deep=True) if snap.copy_recipe is not None else CopyRecipe(
-        printing=snap.printing, face=snap.face, source=snap.name[:200])
+    base = snap.copy_recipe.model_copy(deep=True) if snap.copy_recipe is not None else wave110g_spires.stamp(
+        plan.rules, CopyRecipe(printing=snap.printing, face=snap.face, source=snap.name[:200]), snap.card)
     record = plan.rules.payments.get(oid)
     return (base.model_copy(update={'prototyped': True}) if record is not None and record.prototyped else base), None
 

@@ -281,6 +281,7 @@ class CopyRecipe(BaseModel):
     excepts: list[CopyExcept] = Field(default_factory=list)
     source: str = Field(default="", max_length=200)  # the name of what was copied (for labels)
     prototyped: bool = False  # -- casting extras (wave 18E) -- 718.2a / 718.3c-d: the alternative cost, power and toughness are copiable
+    circled110g: str = ""  # -- wave 110G -- Cryptic Spires: the circled colors are copiable (ruling 2024-11-08), see wave110g_spires.stamp
 
 
 # -- game objects, last known information, events -------------------------------------------

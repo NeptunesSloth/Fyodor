@@ -29,6 +29,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import CopyRecipe, DecisionOption
+from app.rules import wave110g_spires  # -- wave 110G --
 
 if TYPE_CHECKING:
     from app.rules.plan import Plan
@@ -200,7 +201,7 @@ def left_battlefield(plan: Plan, ctx: Context, who: str, their: bool) -> list[tu
             continue
         recipe = snap.copy_recipe.model_copy(deep=True) if snap.copy_recipe is not None else None
         if recipe is None and snap.printing and plan.info.get(snap.printing) is not None:
-            recipe = CopyRecipe(printing=snap.printing, face=snap.face, source=name[:200])
+            recipe = wave110g_spires.stamp(plan.rules, CopyRecipe(printing=snap.printing, face=snap.face, source=name[:200]), snap.card)
         if recipe is None and snap.is_token and not snap.printing and snap.token_type_line:  # -- review 32 -- a token's copiable values:
             # what the effect that created it defined (707.2, 111.3; copying.base_recipe), as it last existed
             recipe = CopyRecipe(token={"name": snap.name, "power": snap.token_power, "toughness": snap.token_toughness,
