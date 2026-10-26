@@ -313,6 +313,17 @@ def resume_backdraft(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
+def aura_for_each(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects, selectors
+
+    sel = selectors.Selector(card=True, subtypes=("Aura",), zone_owner="you", zones=("hand", "graveyard")).key()
+    tokens = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    ctx["effects"][ctx["next"]:ctx["next"]] = [
+        {"do": "return_choice", "to": "battlefield", "tapped": False, "under": "you", "host": f"object:{plan.oid(t)}", "sel": sel, "n": 1, "upto": True,
+         "random": False, "label": "Aura card"} for t in tokens]
+    return True
+
+
 def return_self_hand(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"Return ~ to its owner's hand" from the battlefield (bounce) or from the graveyard (the same object, 400.7: if it moved since, nothing)."""
     from app.rules import effects
@@ -332,7 +343,7 @@ from app.rules import delayed as _delayed  # noqa: E402
 
 _delayed.LABELS["source_tapped_power110k"] = "for as long as ~ remains tapped and its power is at most ~'s"
 
-PRIMITIVES = {"backdraft110k": backdraft, "attach_self_choose110k": attach_self_choose, "control_swap110k": control_swap, "copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
+PRIMITIVES = {"aura_for_each110k": aura_for_each, "backdraft110k": backdraft, "attach_self_choose110k": attach_self_choose, "control_swap110k": control_swap, "copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
 RESUME = {"backdraft110k": resume_backdraft, "attach_self_choose110k": resume_attach_self_choose, "copies_of_revealed110k": resume_copies_of_revealed, "opponent_mode110k": resume_opponent_mode, "shuffle_other110k": resume_shuffle_other}
 
 
@@ -513,6 +524,15 @@ def _sidequest(d: Def) -> Def:
     return {**d, "effects": [{**eff[0], "skip": 2}, eff[1], {"do": "attach_self_choose110k"}]}
 
 
+def _livestock(d: Def) -> Def:
+    """Liberated Livestock: after the three tokens, for each of them its controller may put an Aura card from their hand and/or graveyard onto the battlefield
+    attached to it (303.4i: one that can't enchant it stays where it is)."""
+    eff = d["effects"]
+    if len(eff) != 1 or eff[0].get("do") != "create_token" or len(eff[0].get("more") or []) != 2:
+        return d
+    return {**d, "effects": [{**eff[0], "as": "e0"}, {"do": "aura_for_each110k", "who": "ref:e0"}]}
+
+
 def _rat_roles(d: Def) -> Def:
     """Twisted Sewer-Witch: a Wicked Role token for each Rat its controller has once the token exists, each attached to its own Rat (111.1, 303.7)."""
     from app.rules import selectors
@@ -525,6 +545,10 @@ _WIGHT = ("At end of combat, put a paralyzation counter on each creature blockin
           "doesn't untap during its controller's untap step for as long as it has a paralyzation counter on it. Each of those creatures gains \"{4}: Remove a "
           "paralyzation counter from this creature.\"")
 _BUILD: dict[str, tuple[str, Any]] = {
+    "When this creature dies, create a 1/1 white Cat creature token with lifelink, a 1/1 white Bird creature token with flying, and a 2/4 white Ox creature "
+    "token. For each of those tokens, you may put an Aura card from your hand and/or graveyard onto the battlefield attached to it.":
+        ("When this creature dies, create a 1/1 white Cat creature token with lifelink, a 1/1 white Bird creature token with flying, and a 2/4 white Ox "
+         "creature token.", _livestock),
     "At the end of combat on your turn, if a player was dealt 6 or more combat damage this turn, transform this enchantment, then attach it to a creature "
     "you control.":
         ("At the end of combat on your turn, if a player was dealt 6 or more combat damage this turn, transform this enchantment.", _sidequest),

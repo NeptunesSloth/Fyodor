@@ -522,5 +522,22 @@
 "R"
 ],
 "keywords": []
+},
+{
+"name": "Liberated Livestock",
+"layout": "normal",
+"mana_cost": "{5}{W}",
+"cmc": 6.0,
+"type_line": "Creature — Cat Bird Ox",
+"oracle_text": "When this creature dies, create a 1/1 white Cat creature token with lifelink, a 1/1 white Bird creature token with flying, and a 2/4 white Ox creature token. For each of those tokens, you may put an Aura card from your hand and/or graveyard onto the battlefield attached to it.",
+"power": "4",
+"toughness": "6",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": []
 }
 ]

@@ -1011,3 +1011,48 @@ def test_end_blaze_epiphany_does_nothing_more_when_the_creature_survives(cards):
     settle(s)
     assert now(s, target).zone == "p2:battlefield" and not _exiled(s)
     check(s)
+
+
+# -- Liberated Livestock --
+def test_liberated_livestock_is_full():
+    assert full("Liberated Livestock")
+
+
+def _livestock(cards):
+    s = build(cards, ["Liberated Livestock", "Murder", "Pacifism", "Holy Strength"])
+    herd = put_new(s, "Liberated Livestock")
+    to_hand(s, "Pacifism")
+    strength = to_hand(s, "Holy Strength")
+    act(s, "p1", type="move", card_ids=[strength.id], to={"zone": "graveyard"})
+    murder = to_hand(s, "Murder")
+    mana(s, B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[herd.id])
+    for _ in range(10):  # (not settle: the questions about the Auras are the test's)
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s, herd
+
+
+def _tokens(s):
+    return {c.name: c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"}
+
+
+def test_liberated_livestock_dies_into_three_tokens_each_may_get_an_aura_from_hand_or_graveyard(cards):
+    s, herd = _livestock(cards)
+    assert now(s, herd).zone == "p1:graveyard" and sorted(_tokens(s)) == ["Bird", "Cat", "Ox"]
+    asked = []
+    for _ in range(3):  # one question for each token, in turn
+        d = s.state.rules.decision
+        assert d is not None and d.player == "p1" and d.min_choices == 0
+        names = sorted(o.label for o in d.options)
+        asked.append(names)
+        pick = next((o.id for o in d.options if o.label == "Pacifism"), None) if len(asked) == 1 else \
+            next((o.id for o in d.options if o.label == "Holy Strength"), None) if len(asked) == 3 else None
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[pick] if pick else [])
+    settle(s)
+    tokens = _tokens(s)
+    attached = {name: sorted(c.name for c in s.state.cards.values() if c.attached_to == t.id) for name, t in tokens.items()}
+    assert asked[0] == ["Holy Strength", "Pacifism"]  # from the hand and the graveyard alike
+    assert sorted(a for v in attached.values() for a in v) == ["Holy Strength", "Pacifism"]
+    check(s)
