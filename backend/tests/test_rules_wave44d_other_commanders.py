@@ -58,6 +58,8 @@ def test_every_card_is_full(cards, name):
 
 
 def cast(s, name, pid="p1", **kw):
+    if name == "Fireball" and "target_counts" not in kw:  # (601.2c: "any number of targets" is one group, counted by the cast)
+        kw["target_counts"] = [len(kw.get("targets", []))]
     act(s, pid, type="cast_spell", card_id=to_hand(s, name, pid).id, **kw)
 
 
