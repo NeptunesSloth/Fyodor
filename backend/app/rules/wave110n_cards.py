@@ -338,6 +338,46 @@ def bullies(plan: Any, ctx: Any, e: Def) -> bool:
     return bool(effects.return_card(plan, ctx, {**e, "do": "return_card", "to": "battlefield", "tapped": False, "under": "ref:bullies110n"}))
 
 
+_SIFTER = ("At the beginning of each upkeep, each player exiles the top card of their library. The player who exiled the card with the greatest mana value takes an extra turn "
+           "after this one. If two or more players' cards are tied for greatest, the tied players repeat this process until the tie is broken.")
+
+
+def _sifter(d: Def) -> Def:
+    return {**d, "effects": [{"do": "timesifter110n"}]}
+
+
+_BUILD[_SIFTER] = ("At the beginning of each upkeep, each player exiles the top card of their library.", _sifter)
+
+
+def timesifter(plan: Any, ctx: Any, e: Def) -> bool:
+    """Timesifter: each round every contender exiles the top card of their library (701.13, 202.3: a land has mana value 0); the greatest mana value wins an extra
+    turn after this one (500.7). A tie sends the tied players round again, each exiling another card; a player with no card to exile has no card to tie with,
+    so they drop out (and when no card is exiled in a round, or the tied players run out of cards together, nobody takes the extra turn)."""
+    from app.rules import effects
+
+    contenders = [p for p in plan.apnap() if p in plan.live()]
+    winner = None
+    while contenders:
+        cards = {}
+        for pid in contenders:
+            library = plan.state.zones.get(f"{pid}:library", [])
+            if library:
+                cards[pid] = library[0]
+        if not cards:
+            break
+        plan.do({"type": "move", "card_ids": list(cards.values()), "to": {"zone": "exile"}}, actor=ctx["controller"])
+        best = max(plan.ch(plan.state.cards[c]).mana_value for c in cards.values())
+        tied = [p for p, c in cards.items() if plan.ch(plan.state.cards[c]).mana_value == best]
+        plan.note(f"Timesifter: {', '.join(plan.name(p) for p in tied)} exiled the card with the greatest mana value ({best:g})")
+        if len(tied) == 1:
+            winner = tied[0]
+            break
+        contenders = tied
+    if winner is not None:
+        return bool(effects.PRIMITIVES["extra_turn"](plan, ctx, {"do": "extra_turn", "who": f"player:{winner}", "n": 1}))
+    return True
+
+
 def _thief(d: Def) -> Def:
     """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
     from app.rules import scripts
@@ -677,6 +717,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {"vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}
