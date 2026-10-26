@@ -1172,6 +1172,8 @@ def do_counters(plan: Plan, planned: CounterPlan, *, by: str, receipt: list[Coun
     """The planned counters as table actions: the same kind and number for several objects is one
     step (one event batch), as without replacement effects."""
     left_to_players(plan, planned.planner)
+    from app.rules import wave110j_cards  # -- (wave 110J) -- "can't have more than N X counters" (Rasputin Dreamweaver)
+
     groups: dict[tuple[str, str, int], list[str]] = {}
     group = plan.rules.batch + 1
     for before, out in planned.finals:
@@ -1188,7 +1190,9 @@ def do_counters(plan: Plan, planned: CounterPlan, *, by: str, receipt: list[Coun
                 plan.do({"type": "resource", "player": ev["player"], "key": ev["counter"], "delta": ev["n"], "group": group}, actor=ev.get("by") or actor)
                 continue
             if ev["card"] in plan.state.cards:
-                groups.setdefault((ev.get("by") or actor, ev["counter"], ev["n"]), []).append(ev["card"])
+                if not (n := wave110j_cards.capped(plan, ev["card"], ev["counter"], ev["n"])):
+                    continue
+                groups.setdefault((ev.get("by") or actor, ev["counter"], n), []).append(ev["card"])
     # -- counters (wave 7C) -- several kinds at once are one instruction: its steps share a group (the batch the first
     # one gets), so "whenever you put one or more counters on a creature" triggers once (122.6)
     for (actor, kind, n), cards in groups.items():

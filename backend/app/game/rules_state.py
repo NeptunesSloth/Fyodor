@@ -1417,6 +1417,7 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
+    began_untapped110j: list[str] = Field(default_factory=list)  # (wave 110J) objects untapped on the battlefield as the turn began (Rasputin Dreamweaver)
     began_lands110c: dict[str, int] = Field(default_factory=dict)  # (wave 110C) player -> untapped lands they controlled as their turn began (Power Surge)
     sticker_splits101: dict[str, str] = Field(default_factory=dict)  # Original permanent OID -> chosen physical component.
 

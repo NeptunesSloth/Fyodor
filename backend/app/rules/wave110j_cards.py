@@ -4,6 +4,8 @@ Each entry matches one whole ability's Oracle text exactly and nothing else; any
 """
 from __future__ import annotations
 
+import re
+
 from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
@@ -30,9 +32,30 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
 }
 
 
+_CAP = re.compile(r"(?P<name>\w+) can't have more than (?P<n>one|two|three|four|five|six|seven|eight|nine|ten) (?P<kind>[a-z]+) counters on it\.?")
+_NUMS = {w: i for i, w in enumerate("zero one two three four five six seven eight nine ten".split())}
+
+
+def capped(plan: Any, card_id: str, kind: str, n: int) -> int:
+    """614.17-style limit: "~ can't have more than N X counters on it" (Rasputin Dreamweaver) — only as many as fit are put, however they were replaced."""
+    from app.rules import cast_limits
+
+    for src, d in cast_limits._statics(plan.state, plan.info, "counter_cap110j"):
+        if src.id == card_id and d["counter"] == kind:
+            n = max(0, min(n, d["n"] - plan.state.cards[card_id].counters.get(kind, 0)))
+    return n
+
+
+def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    """Rasputin Dreamweaver: the source was untapped on the battlefield as this turn began (500.1, before the untap step)."""
+    return ctx.get("source_object") in plan.rules.began_untapped110j
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
+    if (cap := _CAP.fullmatch(ability.text.strip())) is not None and ch.name.startswith(cap["name"]):  # (the short name)
+        return {"kind": "static", "static": "counter_cap110j", "counter": cap["kind"], "n": _NUMS[cap["n"]], "effects": []}
     if (built := _BUILD.get(ability.text.strip())) is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
@@ -45,6 +68,8 @@ def _farmer(d: Def) -> Def:
     return {**d, "effects": [{**e, "controller110j": True} if e in until else e for e in d["effects"]]} if len(until) == 1 else d
 
 
+_BUILD["At the beginning of your upkeep, if Rasputin started the turn untapped, put a dream counter on it."] = (
+    "At the beginning of your upkeep, put a dream counter on this creature.", lambda d: {**d, "if": {"w110j": "began_untapped"}})
 _BUILD["{T}: Target land becomes a Swamp until its controller's next untap step."] = (
     "{T}: Target land becomes a Swamp until your next turn.", _farmer)
 
