@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.rules import coverage
+from app.rules import coverage, sba
 from tests.game_helpers import act
-from tests.wave110b_kit import build, card_named, check, drive, life, mana, put, repository, to_hand
+from tests.wave110b_kit import build, card_named, ch, check, drive, life, mana, put, repository, to_hand
 
 
 @pytest.fixture()
@@ -78,4 +78,40 @@ def test_hawkeye_attack_pays_once_for_one_mode(cards):
     attack(s, hawk)
     drive(s, answer)
     assert life(s, "p2") == 38  # Explosive: 2 damage to target player (before combat damage)
+    check(s)
+
+
+@pytest.mark.parametrize("sacrifice", [True, False])
+def test_dragon_broodmother_token_devours(cards, sacrifice):
+    """702.82a: the Dragon token created at each upkeep has devour 2: sacrificing one creature gives it two +1/+1 counters (a 3/3 flier)."""
+    assert coverage.of_card_data(cards.resolve("Dragon Broodmother")).level == "FULL"
+    s = build(cards, ["Dragon Broodmother", *["Grizzly Bears"] * 20], ["Grizzly Bears"] * 20, forests=30)
+    put(s, "Dragon Broodmother")
+    bears = put(s, "Grizzly Bears")
+    for _ in range(80):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None and d.kind == "choose_cards" and "Discard" in d.prompt:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        elif d is not None:
+            assert "devour 2" in d.prompt and bears.id in [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[bears.id] if sacrifice else ["done"])
+            d = s.state.rules.decision  # asked again until "done" (702.82a: any number)
+            if sacrifice:
+                assert d is not None and "devour 2" in d.prompt and bears.id not in [o.id for o in d.options]
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=["done"])
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    else:
+        raise AssertionError("no devour prompt")
+    drive(s)
+    dragons = [c for c in s.state.cards.values() if c.token and c.token.name == "Dragon"]
+    assert len(dragons) == 1
+    t = dragons[0]
+    assert (sba.power(t, ch(s, t)), sba.toughness(t, ch(s, t))) == ((3, 3) if sacrifice else (1, 1))
+    assert s.state.cards[bears.id].zone.endswith("graveyard") == sacrifice
     check(s)

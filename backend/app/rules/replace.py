@@ -913,6 +913,11 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
 
             attachments.attach(plan, tid, picks[i][token_copy_entry.HOST], pid)
     for i, tid in enumerate(made):
+        if i < len(picks) and "devour" in str(ev["token"].get("text") or "").lower():  # -- devour token (wave 110B) -- 702.82a
+            from app.rules import wave110b_devour
+
+            picks[i] = wave110b_devour.sacrifice(plan, tid, pid, picks[i]) or picks[i]
+    for i, tid in enumerate(made):
         # 616.1g: created first, then it enters (its "enters with" counters; -- wave 34A -- what it chose as it entered, 614.12a)
         extra: dict[str, int] = {}
         for counter in ev['token'].get('_entry_counters') or []:

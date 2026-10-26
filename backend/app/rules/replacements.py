@@ -1165,6 +1165,13 @@ def token_choices(plan: Plan, evs: list[dict[str, Any]], answers: dict[str, str]
     for index, ev in enumerate(evs):
         pid, row = ev["player"], rows[index]
         for k in range(ev['count']):
+            from app.rules import devour, wave110b_devour  # -- devour token (wave 110B) -- 702.82a
+
+            taken = {c for r in rows for x in r for c in devour.picked(x.get(devour.WHAT))}
+            dev, ask = wave110b_devour.question(plan, pid, token_copy_entry.effective(ev, row[k]), f"{ENTER}{n + k}:devour", answers, taken)
+            if ask is not None:
+                return rows, {**ask, "source": ev.get("source")}
+            row[k] = {**row[k], **dev}
             if (one := token_entering(plan, pid, token_copy_entry.effective(ev, row[k]))) is not None:
                 probe, defs = one
                 got: dict[str, str] = {}
