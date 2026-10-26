@@ -1224,6 +1224,8 @@ def resolve_it(effects: list[dict[str, Any]], antecedent: str | None, groups: li
                         i.index < index and (i.do in _MOVERS or _group_of(out[i.index]) is not None) for i in intros):
                     return None  # (an explore of the target, not the source)
                 found = objects(index, 1, None) if e.get("do") == "damage" else None
+                if found is not None and found.do == "damage" and out[found.index].get("with_next"):
+                    found = None  # (wave 110D: "it deals 2 damage to X and 2 damage to Y": X is a recipient of the same sentence, never the source)
                 if found is not None:
                     # -- sized amounts (wave 3D) -- "… Then that creature deals damage equal to its power to …": the object
                     # an earlier instruction named (its target, or what it moved / chose), the damage's source

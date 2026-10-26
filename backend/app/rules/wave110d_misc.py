@@ -54,7 +54,7 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
                              {"do": "restrict", "who": "ref:duty110d", "rules": ["cant_block_sel:" + mine], "locked": True}]
         return d
     if ability.text == RAVAGER:  # 115.1, 120.3: "that player" is the opponent, or the controller of the planeswalker, the first target names (player_relative)
-        d = scripts.define(replace(ability, text=RAVAGER.replace("that player or that planeswalker's controller", "that player").replace("it deals", "~ deals")), ch)
+        d = scripts.define(replace(ability, text=RAVAGER.replace("that player or that planeswalker's controller", "that player")), ch)
         if d is not None:
             d["targets"][1] = {**d["targets"][1], "of": 0}  # (as multi100n._blaze: the second group is relative to the first target's player)
         return d

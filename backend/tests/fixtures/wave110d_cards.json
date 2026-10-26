@@ -6708,30 +6708,82 @@
 "keywords": []
 },
 {
- "name": "Sword of Kaldra",
- "layout": "normal",
- "mana_cost": "{4}",
- "cmc": 4.0,
- "type_line": "Legendary Artifact — Equipment",
- "oracle_text": "Equipped creature gets +5/+5.\nWhenever equipped creature deals damage to a creature, exile that creature. (Exile it only if it's still on the battlefield.)\nEquip {4} ({4}: Attach to target creature you control. Equip only as a sorcery.)",
- "colors": [],
- "color_identity": [],
- "keywords": [
-  "Equip"
- ]
+"name": "Sword of Kaldra",
+"layout": "normal",
+"mana_cost": "{4}",
+"cmc": 4.0,
+"type_line": "Legendary Artifact — Equipment",
+"oracle_text": "Equipped creature gets +5/+5.\nWhenever equipped creature deals damage to a creature, exile that creature. (Exile it only if it's still on the battlefield.)\nEquip {4} ({4}: Attach to target creature you control. Equip only as a sorcery.)",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Equip"
+]
 },
 {
- "name": "Shield of Kaldra",
- "layout": "normal",
- "mana_cost": "{4}",
- "cmc": 4.0,
- "type_line": "Legendary Artifact — Equipment",
- "oracle_text": "Equipment named Sword of Kaldra, Shield of Kaldra, and Helm of Kaldra have indestructible.\nEquipped creature has indestructible. (Damage and effects that say \"destroy\" don't destroy it.)\nEquip {4}",
- "colors": [],
- "color_identity": [],
- "keywords": [
-  "Equip"
- ]
+"name": "Shield of Kaldra",
+"layout": "normal",
+"mana_cost": "{4}",
+"cmc": 4.0,
+"type_line": "Legendary Artifact — Equipment",
+"oracle_text": "Equipment named Sword of Kaldra, Shield of Kaldra, and Helm of Kaldra have indestructible.\nEquipped creature has indestructible. (Damage and effects that say \"destroy\" don't destroy it.)\nEquip {4}",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Equip"
+]
 },
-{"name": "Aphetto Runecaster", "layout": "normal", "mana_cost": "{3}{U}", "cmc": 4.0, "type_line": "Creature — Human Wizard", "oracle_text": "Whenever a permanent is turned face up, you may draw a card.", "power": "2", "toughness": "3", "colors": ["U"], "color_identity": ["U"], "keywords": []}
+{
+"name": "Aphetto Runecaster",
+"layout": "normal",
+"mana_cost": "{3}{U}",
+"cmc": 4.0,
+"type_line": "Creature — Human Wizard",
+"oracle_text": "Whenever a permanent is turned face up, you may draw a card.",
+"power": "2",
+"toughness": "3",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
+},
+{
+"name": "Forge Devil",
+"layout": "normal",
+"mana_cost": "{R}",
+"cmc": 1.0,
+"type_line": "Creature — Devil",
+"oracle_text": "When this creature enters, it deals 1 damage to target creature and 1 damage to you.",
+"power": "1",
+"toughness": "1",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
+},
+{
+"name": "Rakdos Firewheeler",
+"layout": "normal",
+"mana_cost": "{B}{B}{R}{R}",
+"cmc": 4.0,
+"type_line": "Creature — Human Rogue",
+"oracle_text": "When this creature enters, it deals 2 damage to target opponent and 2 damage to up to one target creature or planeswalker.",
+"power": "4",
+"toughness": "3",
+"colors": [
+"B",
+"R"
+],
+"color_identity": [
+"B",
+"R"
+],
+"keywords": []
+}
 ]
