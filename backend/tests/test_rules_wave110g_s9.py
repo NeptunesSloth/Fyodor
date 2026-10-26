@@ -4,6 +4,8 @@
 * Whippoorwill: 701.19c / 615.12 / 614.9 / 700.4 the creature can't regenerate, its damage can't be prevented or dealt instead to another permanent, and it is exiled if it dies.
 * Tatsumasa, the Dragon's Fang: 610.3 / 400.7 exiled as a cost, it returns when the Dragon Spirit token dies (not when it is exiled).
 * Idol of Endurance: 610.3 creature cards with mana value 3 or less leave your graveyard until it leaves (and go back there); 118.9 one may be cast free this turn.
+* Season of the Witch: 508.1 / 502.4 at the end step untapped creatures that could attack but did not are destroyed; summoning-sick ones and the other player's are safe.
+* Thijarian Witness: 506.5 / 603.10a a creature that died attacking alone or blocking alone is exiled and investigates; not when another creature was attacking (blocking) too.
 """
 from __future__ import annotations
 
@@ -17,7 +19,7 @@ from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build, card_named
-from tests.wave110b_kit import cast, check, mana, put
+from tests.wave110b_kit import attack, cast, check, mana, put, through_combat
 
 EXTRA = [
     real("Sacred Ground", "{1}{W}", 2, "Enchantment", "Whenever a spell or ability an opponent controls causes a land to be put into your graveyard from the battlefield, return that card to the battlefield.", None, "W"),
@@ -31,6 +33,10 @@ EXTRA += [
     real("Hill Giant", "{3}{R}", 4, "Creature \u2014 Giant", "", ("3", "3"), "R"),
 ]
 EXTRA += [
+    real("Thijarian Witness", "{1}{G}", 2, "Creature \u2014 Alien Cleric", "Flash\nBear Witness \u2014 Whenever another creature dies, if it was attacking or blocking alone, exile it and investigate. "
+         "(Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")", ("0", "4"), "G"),
+    real("Season of the Witch", "{B}{B}{B}", 3, "Enchantment", "At the beginning of your upkeep, sacrifice this enchantment unless you pay 2 life.\n"
+         "At the beginning of the end step, destroy all untapped creatures that didn't attack this turn, except for creatures that couldn't attack.", None, "B"),
     real("Tatsumasa, the Dragon's Fang", "{6}", 6, "Legendary Artifact \u2014 Equipment", "Equipped creature gets +5/+5.\n{6}, Exile Tatsumasa: Create a 5/5 blue Dragon Spirit creature token "
          "with flying. Return Tatsumasa to the battlefield under its owner's control when that token dies.\nEquip {3}", None, ""),
     real("Shatter", "{1}{R}", 2, "Instant", "Destroy target artifact.", None, "R"),
@@ -170,4 +176,48 @@ def test_idol_of_endurance_leaving_returns_the_cards_to_the_graveyard(cards):
     cast(s, "Shatter", [card_named(s, "Idol of Endurance").id])
     answer(s)
     assert s.state.cards[bears.id].zone == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize("attacks", [True, False])
+def test_season_of_the_witch_destroys_only_idle_creatures_that_could_attack(cards, attacks):
+    """Season of the Witch: the idle ready Bears dies; the attacker, the summoning-sick Giant and the opponent's Bears live. Without combat damage nothing else changes."""
+    s = build(cards, ["Season of the Witch", "Grizzly Bears", "Hill Giant"], ["Grizzly Bears"])
+    put(s, "Season of the Witch")
+    bears, giant, theirs = put(s, "Grizzly Bears"), put(s, "Hill Giant"), put(s, "Grizzly Bears", "p2")
+    s.state.rules.controlled_since[bears.id].turn = 0
+    if attacks:
+        attack(s, bears)
+        through_combat(s)
+    for _ in range(40):
+        if s.state.turn.number == 2:
+            break
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    z = {n: s.state.cards[c.id].zone for n, c in (("bears", bears), ("giant", giant), ("theirs", theirs))}
+    assert z == {"bears": "p1:battlefield" if attacks else "p1:graveyard", "giant": "p1:battlefield", "theirs": "p2:battlefield"}
+    check(s)
+
+
+@pytest.mark.parametrize("attackers, blocker, exiled, clues", [
+    (["Grizzly Bears"], "Hill Giant", ["Grizzly Bears"], 1),                      # attacking alone, dies
+    (["Grizzly Bears", "Hill Giant"], "Hill Giant", [], 0),                   # one of two attackers dies
+    (["Hill Giant"], "Grizzly Bears", ["Grizzly Bears"], 1),                       # blocking alone, dies
+])
+def test_thijarian_witness_exiles_the_lone_attacker_or_blocker_that_dies(cards, attackers, blocker, exiled, clues):
+    """Thijarian Witness: only a creature that was the lone attacker or lone blocker is exiled with a Clue."""
+    s = build(cards, ["Thijarian Witness", *dict.fromkeys(attackers)], [blocker])
+    put(s, "Thijarian Witness")
+    mine = [put(s, n) for n in dict.fromkeys(attackers)]
+    blk = put(s, blocker, "p2")
+    attack(s, *mine)
+    through_combat(s, [(blk, mine[0])])
+    gone = [c.name for c in s.state.cards.values() if c.zone.endswith(":exile")]
+    assert sorted(gone) == sorted(exiled)
+    assert sum(1 for c in s.state.cards.values() if c.name == "Clue" and c.zone == "p1:battlefield") == clues
     check(s)

@@ -690,7 +690,8 @@ def _zone_facts(plan: Plan, e: Event) -> list[Fact]:
         if snap is None:  # (-- review (wave 18D) -- a card of a merged permanent that left: put there, not a permanent leaving, 730.3)
             return _to_graveyard(plan, e, frm) if e.object_id is None else []
         card, ch = _snapshot_card(plan, snap)
-        info: dict[str, Any] = {"oid": e.object_id, "snap": snap, "new_oid": e.new_object_id, "to": e.to_zone, "cause110g": e.cause110g}
+        info: dict[str, Any] = {"oid": e.object_id, "snap": snap, "new_oid": e.new_object_id, "to": e.to_zone, "cause110g": e.cause110g,
+                                "alone110g": __import__("app.rules.wave110g_cards", fromlist=["x"]).combat_alone(plan, e, snap)}
         out.append(("leave", card, ch, snap.controller, info))
         if to == "graveyard" or (e.to_zone is None and snap.is_token):  # 700.4
             out.append(("die", card, ch, snap.controller, info))
@@ -1531,7 +1532,7 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         if kind in _PAIRED.values() and info.get("other") in plan.state.cards
                         else _source_ref(plan, info.get("exploited_oid")) if kind == "exploit" else  # -- exploit (wave 110G) -- the exploited creature, as it was
                         _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None,  # (wave 19B: the Ring-bearer chosen)
-                        ballots=info.get("ballots") or [])  # (-- voting (wave 48D) --)
+                        ballots=info.get("ballots") or [], combat_alone110g=info.get("alone110g"))  # (-- voting (wave 48D) --)
 
 
 def _attack_object(plan: Plan, kind: str, obj: CardInstance | None) -> ObjectRef | None:

@@ -903,6 +903,7 @@ class TriggerEvent(BaseModel):
     attacked: ObjectRef | None = None
     # -- voting (wave 48D) -- 701.38: "Whenever players finish voting": the [voter, choice] of every vote of the voting that finished, as cast
     ballots: list[list[str]] = Field(default_factory=list)
+    combat_alone110g: str | None = None  # -- wave 110G -- a permanent that left: "attacking" / "blocking" when it was the only creature doing so (506.5), else None
 
 
 class RegenerationShield(BaseModel):
@@ -1639,6 +1640,8 @@ class RulesState(BaseModel):
     # Combat bookkeeping; the attack/block markers on the table are the visible truth.
     blocked: list[str] = Field(default_factory=list)  # attackers that became blocked (stay blocked)
     attacking_bands: list[list[str]] = Field(default_factory=list)  # CR 702.22: object IDs, fixed on declaration; pruned on leaving combat.
+    could_attack110g: list[str] = Field(default_factory=list)  # -- wave 110G -- objects that could be declared as attackers this turn (Season of the Witch), with the turn below
+    could_attack_turn110g: int = 0
     no_attackers: bool = False  # nobody attacked: skip blockers and damage (rule 508.8)
     blockers_pending: list[str] = Field(default_factory=list)  # defending players still to declare
     combat_round: Literal["", "first", "done"] = ""

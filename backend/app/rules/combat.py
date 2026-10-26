@@ -347,6 +347,9 @@ def start_declare_attackers(plan: Plan) -> None:
     eligible = [cid for cid in plan.state.zones.get(zone_key(ap, "battlefield"), [])
                 if attack_problem(plan.state, plan.state.cards[cid], plan.ch(plan.state.cards[cid])) is None]
     targets = attack_targets(plan.state, ap, plan.info)
+    if r.could_attack_turn110g != plan.state.turn.number:  # -- wave 110G -- 508.1a: who could attack this turn ("creatures that couldn't attack")
+        r.could_attack110g, r.could_attack_turn110g = [], plan.state.turn.number
+    r.could_attack110g = [*r.could_attack110g, *(plan.oid(c) for c in eligible)] if targets else r.could_attack110g
     if not eligible or not targets:
         r.no_attackers = True
         return

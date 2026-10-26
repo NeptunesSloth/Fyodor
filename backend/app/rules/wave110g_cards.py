@@ -119,9 +119,25 @@ def hand_began_empty(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return (began[you] if began is not None and you in began else len(plan.state.zones.get(f"{you}:hand", []))) == 0
 
 
+def combat_alone(plan: Any, e: Any, snap: Any) -> str | None:
+    """506.5: a creature that left was attacking (blocking) alone when no other creature, on the battlefield or leaving with it, was attacking (blocking)."""
+    for attr in ("attacking", "blocking"):
+        if getattr(snap, attr, False) and not any(
+                c.id != snap.card and c.zone.endswith(":battlefield") and (c.is_attacking if attr == "attacking" else c.is_blocking) for c in plan.state.cards.values()) \
+                and not any(x.kind == "zone_change" and x.batch == e.batch and x.object_id and x.object_id != e.object_id
+                            and getattr(plan.rules.lki.get(x.object_id), attr, False) for x in plan.rules.events):
+            return attr
+    return None
+
+
+def alone_in_combat(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    ev = ctx.get("event")
+    return (ev.get("combat_alone110g") if isinstance(ev, dict) else getattr(ev, "combat_alone110g", None)) is not None
+
+
 def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
     return bool({"walls_block": walls_block, "opp_protects": opponent_protects, "exploited_big": exploited_big,
-                   "hand_began_empty": hand_began_empty, "other_targetable": other_targetable, "emerge_sacrifice": emerge_sacrifice, "shares_with_exiled": shares_with_exiled}[cond["w110g"]](plan, ctx, cond))
+                   "hand_began_empty": hand_began_empty, "other_targetable": other_targetable, "emerge_sacrifice": emerge_sacrifice, "shares_with_exiled": shares_with_exiled, "alone_in_combat": alone_in_combat}[cond["w110g"]](plan, ctx, cond))
 
 
 def _crown(d: Def) -> Def:
@@ -318,6 +334,15 @@ def _tatsumasa(d: Def) -> Def:
     return {**d, "effects": [{"do": "bind_exiled110g", "as": "tatsumasa"}, es[0], es[1], {**es[2], "who": "ref:tatsumasa", "under": "owner"}]}
 
 
+def _could_attack(d: Def) -> Def:  # Season of the Witch: "except for creatures that couldn't attack" keeps only those that could have been declared
+    return {**d, "effects": [{**x, "who": x["who"].replace('"didnt_attack_this_turn"', '"could_attack110g","didnt_attack_this_turn"')} for x in d["effects"]]}
+
+
+def _alone(d: Def) -> Def:  # Thijarian Witness: the plain "if it was attacking" test, swapped for the 506.5 fact kept with the event
+    test = {"w110g": "alone_in_combat"}
+    return {**d, "if": test, "effects": [{**x, "cond": test} if x.get("do") == "only_if" else x for x in d["effects"]]}
+
+
 def _idol_enter(d: Def) -> Def:
     return {**d, "effects": [{"do": "exile_gy_until110g"}]}
 
@@ -361,6 +386,12 @@ def _no_phase_out(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Thijarian Witness
+    "Bear Witness \u2014 Whenever another creature dies, if it was attacking or blocking alone, exile it and investigate.":
+        ("Whenever another creature dies, if it was attacking, exile it and investigate.", _alone),
+    # Season of the Witch
+    "At the beginning of the end step, destroy all untapped creatures that didn't attack this turn, except for creatures that couldn't attack.":
+        ("At the beginning of the end step, destroy all untapped creatures that didn't attack this turn.", _could_attack),
     # Idol of Endurance
     "When this artifact enters, exile all creature cards with mana value 3 or less from your graveyard until this artifact leaves the battlefield.":
         ("When this artifact enters, draw a card.", _idol_enter),
