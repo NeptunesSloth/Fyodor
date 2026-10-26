@@ -40,8 +40,8 @@ def reselect(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     stack = plan.state.zones.get("stack", [])
     copy = stack[-1] if stack and stack[-1] != orig else None  # the copy was put on top (707.10)
     rng = plan.rng or secrets.SystemRandom()
-    for sid in (orig, copy):
-        entry = stack_interaction.target_entry(plan, sid) if sid is not None else None
+    for sid in [orig, *([copy] if copy else [])]:
+        entry = stack_interaction.target_entry(plan, sid)
         if entry is None:
             continue
         pos = copying.positions(entry)

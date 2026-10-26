@@ -7,8 +7,8 @@ from typing import Any
 from app.rules import (
     mana_noted_profiles,
     wave110d_aura,
-    wave110d_crown,
     wave110d_chef,
+    wave110d_crown,
     wave110d_enter,
     wave110d_fire,
     wave110d_granter,
