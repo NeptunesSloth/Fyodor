@@ -1507,6 +1507,17 @@ def _drop_entering(plan: Plan, card: CardInstance) -> None:
 
 
 def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str, str] | None, out: dict[str, Any]) -> bool:
+    """-- Essence of the Wild (wave 110F) -- 616.1: the card's own "may enter as a copy" and Essence's both apply; the controller applies
+    the own one last, so it wins when used and otherwise the Essence copy stays (declined, or nothing to copy)."""
+    if _entering(plan, card, controller, answers, out):
+        return True
+    from app.rules import wave110f_cards
+
+    wave110f_cards.copy_on_entry(plan, card, controller)
+    return False
+
+
+def _entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str, str] | None, out: dict[str, Any]) -> bool:
     """``replacements.entry_plan``'s hook for "You may have ~ enter as a copy of …" (707.5, a
     replacement effect: 614.1c). Its choice is made before the permanent enters (614.12a): with no
     answer yet, ``out["choice"]`` asks for it and True stops the rest of the plan (asked through
@@ -1517,10 +1528,6 @@ def entering(plan: Plan, card: CardInstance, controller: str, answers: dict[str,
     go on. Nothing to copy: no choice, it enters as itself."""
     d = enter_definition(plan, card)
     if d is None:
-        # -- Essence of the Wild (wave 110F) -- "Creatures you control enter as a copy of this creature." (614.1c)
-        from app.rules import wave110f_cards
-
-        wave110f_cards.copy_on_entry(plan, card, controller)
         return False
     if d.get("raid100h"):  # -- turn state (wave 100H) -- "If you attacked this turn, you may have ~ enter as a copy …" (Protean Raider: 508.1, 614.12)
         from app.rules import history
