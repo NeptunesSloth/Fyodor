@@ -256,6 +256,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (imp := wave110e_imps.definition(ability, ch)) is not None:  # Nettling Imp, Norritt
         return imp
+    if text == "Creatures played by your opponents enter tapped.":  # 305.1/601.2: "played" creature = cast, so only a spell entering from the stack (others_enter_tapped)
+        native = scripts.define(replace(ability, text="Creatures your opponents control enter tapped."), ch)
+        return None if native is None else {**native, "cast110e": True}
     if text == _CORRUPTED_FB:  # 702.34a: the card's own conditional flashback, read by graveyard_grants.flashback_costs while it is in a graveyard
         from app.rules import conditions
 
