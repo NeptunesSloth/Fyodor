@@ -892,6 +892,32 @@ _WEE_PARTS = ("this creature gets +1/+1 until end of turn", "Put a +1/+1 counter
 _AIR_PARTS = ("create a Treasure token", "Create two Treasure tokens")
 
 
+_WOLF = ("When this creature enters, you may put a name sticker on it. When you do, up to X target creatures each get -1/-1 until end of turn, where X is the number "
+         "of unique vowels on that sticker.")
+
+
+def wolf(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Wolf in _____ Clothing (603.12): if a name sticker was put on it, a reflexive trigger whose X (its event amount) is the unique vowels of that sticker (A, E, I, O, U, Y)."""
+    from app.game.rules_state import TriggerEvent
+    from app.rules import scripts
+    from app.rules.triggers import _add
+
+    records = (ctx.get("sticker_receipts101") or {}).get("name102") or []
+    if not records:
+        return True
+    base = scripts.parse_effects("Up to three target creatures each get -1/-1 until end of turn.")
+    assert base is not None
+    ability = {"kind": "triggered", "trigger": "reflexive", "effects": base[0], "optional": False, "target": None,
+               "targets": [{**base[1][0], "x_value": {"event_amount": 1}}]}
+    n = len(set(records[-1]["sticker"]["text"].casefold()) & set("aeiouy"))
+    _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
+         name=str(ctx.get("name") or ""), index=7300, definition=ability, event=TriggerEvent(kind="reflexive", amount=n))
+    return True
+
+
+PRIMITIVES["wolf110i"] = wolf
+
+
 def whistle(ability: Any, ch: Any) -> Def | None:
     """Arcum's Whistle (118.12a, 508.1d, 603.4): Nettling Imp's targeted forced attack plus end-step destroy (wave110e_imps), all behind the active player's optional {X}
     payment (X the creature's mana value); paid, nothing happens."""
@@ -916,6 +942,10 @@ def definition(ability: Any, ch: Any) -> Def | None:
     text = ability.text.strip()
     if text == _WHISTLE:
         return whistle(ability, ch)
+    if text == _WOLF:
+        native = scripts.define(replace(ability, text="When this creature enters, draw a card."), ch)
+        assert native is not None
+        return {**native, "effects": [{"do": "put_sticker101", "who": "self", "kind": "name", "n": 1, "as": "name102"}, {"do": "wolf110i"}], "optional": False}
     if text in (_WEE, _AIRBRUSHER):
         return sticker_instead(ability, ch)
     if text == _PHOENIX:

@@ -27,7 +27,9 @@ BALLS = ("When this enchantment enters, you may put a name sticker on it.\nWhene
          "in name stickers on this enchantment to any target.")
 SPLASH = ("Flash\nWhen this enchantment enters, you may put a name sticker on it.\nWhenever you put a sticker on this enchantment, tap up to X target creatures, where X is the "
           "number of u's in name stickers on this enchantment.")
-EXTRA = [real("_____ Balls of Fire", "{1}{R}", 2, "Enchantment", BALLS, None, "R"), real("Make a _____ Splash", "{1}{U}", 2, "Enchantment", SPLASH, None, "U"),
+WOLF = ("When this creature enters, you may put a name sticker on it. When you do, up to X target creatures each get -1/-1 until end of turn, where X is the number "
+        "of unique vowels on that sticker. (The vowels are A, E, I, O, U, and Y.)")
+EXTRA = [real("Wolf in _____ Clothing", "{2}{G}", 3, "Creature \u2014 Wolf", WOLF, ("2", "2"), "G"), real("_____ Balls of Fire", "{1}{R}", 2, "Enchantment", BALLS, None, "R"), real("Make a _____ Splash", "{1}{U}", 2, "Enchantment", SPLASH, None, "U"),
          real("Wee Champion", "{1}{R}", 2, "Creature — Goblin Warrior", WEE, ("2", "2"), "R"),
          real("Goblin Airbrusher", "{1}{R}", 2, "Creature — Goblin Artificer", AIR, ("2", "2"), "R")]
 
@@ -49,7 +51,7 @@ def cards(settings):
 
 
 def start(cards):
-    names = ["Grizzly Bears", "Ticketomaton", "Wee Champion", "Goblin Airbrusher", "_____ Balls of Fire", "Make a _____ Splash"]
+    names = ["Grizzly Bears", "Ticketomaton", "Wee Champion", "Goblin Airbrusher", "_____ Balls of Fire", "Make a _____ Splash", "Wolf in _____ Clothing"]
     mine = deck(cards, "Krenko, Mob Boss", [(30, "Forest"), *((1, n) for n in names)])
     mine += [DeckCard("stickers", 1, s["name"], s["printing_id"]) for s in list(SHEETS.values())[:10]]
     other = deck(cards, "Atraxa, Praetors' Voice", [(30, "Island"), (1, "Grizzly Bears")])
@@ -61,7 +63,7 @@ def start(cards):
     return s
 
 
-@pytest.mark.parametrize("name", ["Wee Champion", "Goblin Airbrusher", "_____ Balls of Fire", "Make a _____ Splash"])
+@pytest.mark.parametrize("name", ["Wee Champion", "Goblin Airbrusher", "_____ Balls of Fire", "Make a _____ Splash", "Wolf in _____ Clothing"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -140,4 +142,25 @@ def test_make_a_splash(cards):
     pick(s, [bear.id] if bear.id in [o.id for o in d.options] else [d.options[0].id])
     _settle(s)
     assert s.state.cards[bear.id].tapped
+    check(s)
+
+
+def test_wolf_in_clothing(cards):
+    """603.12: the reflexive trigger follows a name sticker put on it; X is that sticker's unique vowels (a, e, i, o, u, y): up to X creatures get -1/-1 until end of turn."""
+    s = start(cards)
+    bears = [put(s, "Grizzly Bears", "battlefield")]
+    cast(s, "Wolf in _____ Clothing")
+    wolf = find(s, "Wolf in _____ Clothing")
+    from app.rules import stickers101
+    from app.rules.plan import Plan
+
+    texts = [v["text"] for v in stickers101.available(Plan.view(s.state, "p1", s.cards), "p1", "name")]
+    text = max(texts, key=lambda x: len(set(x.casefold()) & set("aeiouy")))
+    place(s, wolf.id, kind="name", text=text)
+    d = question(s)
+    assert d.max_choices == min(len(set(text.casefold()) & set("aeiouy")), 2)  # (only the Bears and the Wolf are creatures)
+    pick(s, [bears[0].id])
+    _settle(s)
+    oid = s.state.rules.object_id(bears[0].id)
+    assert any(oid in e.affected and e.power == -1 and e.toughness == -1 for e in s.state.rules.effects)
     check(s)
