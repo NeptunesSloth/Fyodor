@@ -1274,6 +1274,7 @@ class CostModifier(BaseModel):
     # "permanent" (a static, read from the table), "end_of_turn" ("… you cast this turn cost …": ends in
     # cleanup, 514.2) or "next_turn" ("Until your next turn, …": ends as its controller's next turn begins)
     until: Literal["end_of_turn", "permanent", "next_turn"] = "end_of_turn"
+    card_id: str | None = None  # (wave 110M) applies only to this one spell card (Kefnet: "that copy costs {2} less to cast")
     until_player: str | None = None  # Captured duration owner when different from the beneficiary.
     turn: int = 0  # the turn it was created
     source: str | None = None

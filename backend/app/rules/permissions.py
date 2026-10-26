@@ -1774,6 +1774,8 @@ def modifiers(state: GameState, player: str, card: CardInstance, ch: Characteris
             continue
         if m.caster == "opponent" and m.controller == player:
             continue
+        if m.card_id is not None and m.card_id != card.id:  # (wave 110M) a reduction for one particular card
+            continue
         if m.filter and not spell_matches(state, player, card, ch, m.filter, info):
             continue
         out.append(m)

@@ -1017,7 +1017,7 @@ def copy_cards(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         pending = {'todo': [], 'made': [], 'by_hand': []}
         for cid in effects._cards(plan, ctx, e['who']):
             card = plan.state.cards[cid]
-            if card.zone.rsplit(':', 1)[-1] not in ('exile', 'graveyard') or card.is_token:
+            if card.zone.rsplit(':', 1)[-1] not in ('exile', 'graveyard', *(('hand',) if e.get('hand110m') else ())) or card.is_token:  # (wave 110M: Kefnet's revealed card)
                 continue
             if e.get('source_zone') and card.zone.rsplit(':', 1)[-1] != e['source_zone']:
                 continue  # The printed copied card must actually have reached that zone.

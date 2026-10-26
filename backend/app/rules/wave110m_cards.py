@@ -76,6 +76,14 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return statics._definition("attached", "creature", [], rules=[f"{ATK_TAX}:{{3}}"])
     if ability.text.strip() == _TEFERI:
         return _teferi_definition(ability, ch)
+    if ability.kind == "static" and scripts.self_text(ability.text, ch.name) == _KEFNET:
+        from app.rules import selectors
+
+        sel = selectors.parse("instant or sorcery card")
+        assert sel is not None
+        return {"kind": "static", "static": MAY_REVEAL, "yours": False, "effects": [], "reveals": [{"sel": sel.key(), "effects": [
+            {"do": "copy_cards", "who": "event", "as": "kef_cp110m", "source_zone": "hand", "hand110m": True}, {"do": "kefnet_less110m"},
+            {"do": "free_cast", "zone": "that", "who": "ref:kef_cp110m", "exact_refs": True, "optional": True, "n": 1, "paid": True}]}]}
     if ability.kind == "static" and (reveal := _MAY_REVEAL.fullmatch(scripts.self_text(ability.text, ch.name))) is not None:
         from app.rules import first_reveal100b
 
@@ -881,7 +889,8 @@ def reveal_ask(plan: Any) -> bool:
 
 
 def resume_reveal_may(plan: Any, d: Any, chosen: list[str]) -> None:
-    from app.rules import scripts, selectors
+    from app.game.rules_state import TriggerEvent
+    from app.rules import context, scripts, selectors
     from app.rules.triggers import _add
 
     r = plan.rules
@@ -900,7 +909,8 @@ def resume_reveal_may(plan: Any, d: Any, chosen: list[str]) -> None:
                 if selectors.matches(plan, selectors.from_key(each["sel"]), card, ch, pid, src.id):
                     _add(plan, controller=pid, source_card=src.id, source_object=plan.oid(src), name=src.name, index=i,
                          definition={"kind": "triggered", "trigger": MAY_REVEAL, "optional": False, "effects": each["effects"],
-                                     **{k: each[k] for k in ("target", "targets") if k in each}})
+                                     **{k: each[k] for k in ("target", "targets") if k in each}},
+                         event=TriggerEvent(kind="reflexive", objects=[ref], count=1) if (ref := context.ref_of(plan, cid)) is not None else None)
 
 
 _TRIPLETS = ("At the beginning of your upkeep, choose target opponent. This turn, that player can't cast spells or activate abilities and plays with their hand revealed. "
@@ -978,6 +988,23 @@ def resume_olag(plan: Any, d: Any, chosen: list[str]) -> None:
     ctx = d.resume["ctx"]
     if _olag_copy(plan, ctx, chosen[0]):
         effects.continue_effects(plan, ctx)
+
+
+_KEFNET = ("You may reveal the first card you draw each turn as you draw it. Whenever you reveal an instant or sorcery card this way, copy that card and you may cast the copy. "
+           "That copy costs {2} less to cast.")
+
+
+def kefnet_less(plan: Any, ctx: Def, e: Def) -> bool:
+    """Kefnet: "that copy costs {2} less to cast" (601.2f; generic mana only, 118.7a): a reduction for each copy just made, and for that card alone, until end of turn."""
+    import secrets
+
+    from app.game.rules_state import CostModifier
+    from app.rules import context
+
+    for cid in context.objects(plan, ctx, "kef_cp110m"):
+        plan.rules.cost_modifiers.append(CostModifier(id=secrets.token_hex(4), controller=ctx["controller"], delta=-2, caster="you", until="end_of_turn", turn=plan.state.turn.number,
+                                                      card_id=cid, source=ctx.get("source_object"), label=(ctx.get("name") or "An effect")[:120]))
+    return True
 
 
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
@@ -1637,4 +1664,4 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
 
 RESUME: dict[str, Any] = {"olag110m": resume_olag, "reveal_may110m": resume_reveal_may, "myra110m": resume_myra, "alaundo110m": resume_alaundo, "rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"olag110m": olag, "triplets110m": triplets, "myra_choose110m": myra_choose, "reverse_turn_order110m": reverse_turn_order, "coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"kefnet_less110m": kefnet_less, "olag110m": olag, "triplets110m": triplets, "myra_choose110m": myra_choose, "reverse_turn_order110m": reverse_turn_order, "coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

@@ -36,7 +36,9 @@ def to_question(s):
         d = s.state.rules.decision
         if d is not None and "Reveal" in d.prompt:
             return d
-        if d is not None:
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None:
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
         else:
             act(s, s.state.rules.priority, type="pass_priority")
@@ -127,4 +129,61 @@ def test_the_controller_plays_a_land_from_that_hand_and_controls_it(cards):
     forest = card_named(s, "Forest", "p2")
     act(s, "p1", type="play_land", card_id=forest.id)
     assert s.state.cards[forest.id].zone == "p1:battlefield" and s.state.cards[forest.id].controller == "p1" and s.state.cards[forest.id].owner == "p2"
+    check(s)
+
+
+# -- God-Eternal Kefnet ------------------------------------------------------------------------------------------------------------------------
+KEFNET = "God-Eternal Kefnet"
+test_kefnet_full = full_test([KEFNET])
+
+
+def kefnet_question(cards, top="Murder"):
+    s = build(cards, [KEFNET, top, "Grizzly Bears"], ["Elite Vanguard"], forests=20)
+    put(s, KEFNET)
+    put(s, "Elite Vanguard", "p2")
+    for n in (top,):
+        act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"player": "p1", "zone": "library"}, position="top")
+    act(s, "p1", type="move", card_ids=[card_named(s, "Grizzly Bears").id], to={"player": "p1", "zone": "library"}, position="top")
+    act(s, "p1", type="move", card_ids=[card_named(s, top).id], to={"player": "p1", "zone": "library"}, position="top")
+    return s, to_question(s)
+
+
+def copies_of(s, name):
+    return [c for c in s.state.cards.values() if c.name == name and c.is_token and c.owner == "p1"]
+
+
+def test_kefnet_copies_the_revealed_card_and_the_copy_costs_two_less(cards):
+    s, d = kefnet_question(cards)
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"])
+    mana(s, B=2)  # {1}{B}{B} less {2} is {B}{B}
+    vanguard = card_named(s, "Elite Vanguard", "p2")
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes" if "yes" in ids else vanguard.id if vanguard.id in ids else ids[0]])
+    assert zone_of(s, "Elite Vanguard", "p2") == "p2:graveyard"
+    assert any(c.name == "Murder" and c.zone == "p1:hand" for c in s.state.cards.values() if not c.is_token)  # (the revealed card itself stays in hand)
+    assert not copies_of(s, "Murder") or all(c.zone not in ("p1:hand",) for c in copies_of(s, "Murder"))
+    check(s)
+
+
+def test_a_copy_that_is_not_cast_ceases_to_exist(cards):
+    s, d = kefnet_question(cards)
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"])
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["no" if "no" in ids else []] if "no" in ids else [])
+    assert not copies_of(s, "Murder")
+    assert zone_of(s, "Elite Vanguard", "p2") == "p2:battlefield"
     check(s)

@@ -1582,5 +1582,24 @@
 ]
 }
 ]
+},
+{
+"name": "God-Eternal Kefnet",
+"layout": "normal",
+"mana_cost": "{2}{U}{U}",
+"cmc": 4.0,
+"type_line": "Legendary Creature — Zombie God",
+"oracle_text": "Flying\nYou may reveal the first card you draw each turn as you draw it. Whenever you reveal an instant or sorcery card this way, copy that card and you may cast the copy. That copy costs {2} less to cast.\nWhen God-Eternal Kefnet dies or is put into exile from the battlefield, you may put it into its owner's library third from the top.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [
+"Flying"
+],
+"power": "4",
+"toughness": "5"
 }
 ]
