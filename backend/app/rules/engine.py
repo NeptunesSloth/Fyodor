@@ -85,6 +85,7 @@ from app.rules import (
     spell_grants,  # -- spell grants (wave 28C) --
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
+    wave110a_teferi,  # -- wave 110A --
     wave110e_opp,  # -- cast-time choice (wave 110E) --
     wave110h_cards,  # -- untap hold (wave 110H) --
 )
@@ -753,6 +754,7 @@ def finish_turn_start(plan: Plan, stunned: list[str], previous: tuple[str, int],
         plan.do({"type": "untap_all", "player": plan.active, "keep_tapped": keep}, actor=plan.active)
     if stay is None:  # -- mana riders (wave 5A) -- 502.3: Seedborn Muse untaps the others' permanents in this untap step
         effects._untap_riders.other_untap_step(plan)
+        wave110a_teferi.untap_step(plan)  # -- wave 110A -- Teferi's emblem
     # The untap step has no priority: straight on to upkeep.
     plan.do({"type": "phase", "to": "next", "force": True}, actor=plan.active)
     effects.skips.skip_steps(plan)  # -- refused grants/replacements (wave 3R2) -- 614.10: a skipped upkeep / draw step
@@ -781,13 +783,16 @@ def on_step_start(plan: Plan) -> None:
         return
     if phase == "draw":
         first_turn_skip = state.turn.number == 1 and len(plan.live()) == 2 and plan.rules.step_counts.get("draw", 1) == 1
+        also = wave110a_teferi.extra_drawers(plan)  # -- wave 110A -- 504.1: Teferi's emblem, the holders draw in the same step
         if first_turn_skip:
             plan.note(f"{plan.name(ap)} skips the first draw (two-player game)")
-        else:
+        if also and first_turn_skip:
+            effects.replace.draw_cards(plan, also, 1, then={"do": "draw_step"})
+        elif not first_turn_skip:
             # -- replacement effects stage 2 (wave 2E): the turn-based draw (504.1) through the draw
             # choke point — replaced even from an empty library (121.6a, 614.11), else 704.5b --
             empty = not state.zones.get(zone_key(ap, "library"))
-            if not effects.replace.draw_cards(plan, [ap], 1, then={"do": "draw_step"}):
+            if not effects.replace.draw_cards(plan, [ap, *also], 1, then={"do": "draw_step"}):
                 return  # the drawing player chooses an order first (616.1); the step goes on after
             if empty and ap in plan.rules.drew_from_empty:
                 plan.note(f"{plan.name(ap)} can't draw: their library is empty")
