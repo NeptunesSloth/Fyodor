@@ -2699,7 +2699,11 @@ def _discard_next(plan: Plan, ctx: Context, want: int, players: list[str], picke
     e = {"as": binding}
     before = _remember(plan, ctx, e, cards)
     if cards:  # each to its owner's graveyard (701.9a); -- hand disruption (wave 11D) -- or exiled, which is no discard (701.9a)
-        plan.do({"type": "move", "card_ids": cards, "to": {"zone": dest}, **({"face_down": True, "blind": blind} if dest == "exile" and face_down else {})}, actor=ctx["controller"])
+        plan.discarding = dest == "graveyard"  # -- optional replacements (wave 110C) -- an effect's discard (Library of Leng)
+        try:
+            plan.do({"type": "move", "card_ids": cards, "to": {"zone": dest}, **({"face_down": True, "blind": blind} if dest == "exile" and face_down else {})}, actor=ctx["controller"])
+        finally:
+            plan.discarding = False
     if dest == 'exile' and link:
         from app.rules import exiled_with
 

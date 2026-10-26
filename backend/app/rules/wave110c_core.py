@@ -328,8 +328,10 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         return kusari
     if (tevesh := wave110c_tevesh.definition(ability, ch)) is not None:  # Tevesh Szat, Doom of Fools
         return tevesh
-    from app.rules import wave110c_wheel
+    from app.rules import wave110c_discard, wave110c_wheel
 
+    if (discard := wave110c_discard.definition(ability.text)) is not None:  # Library of Leng, Nephalia Academy, Pulmonic Sliver's grant
+        return discard
     if (wheel := wave110c_wheel.definition(ability.text)) is not None:  # Wheel of Sun and Moon
         return wheel
     if (lose := wave110c_lose.definition(ability.text)) is not None:  # "If you would lose the game, instead ..." (Exquisite Archangel, The Golden Throne, Lich's Mirror)
