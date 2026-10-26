@@ -95,34 +95,41 @@ export function Table3D({ me }: { me: string }) {
         if (!node) continue;
         const pt = scene.seatScreen(pid, w, h);
         if (!pt) continue;
-        // place by the full plaque's size (measured while it is full) so the compact switch can't flicker
-        if (!node.classList.contains("compact") && node.offsetWidth) node.dataset.full = `${node.offsetWidth},${node.offsetHeight}`;
-        const [pw, ph] = (node.dataset.full ?? "160,56").split(",").map(Number) as [number, number];
-        let { x, y } = pt;
-        const stepOff = (boxes: Box[]) => {
-          let moved = false;
-          for (const r of boxes) {
-            if (x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom) continue;
-            // to whichever edge of the obstacle is nearer, unless that leaves the screen
-            const up = r.top - ph / 2 - 6;
-            const down = r.bottom + ph / 2 + 6;
-            const fits = (v: number) => v >= ph / 2 + 8 && v <= h - ph / 2 - 8;
-            y = (y - r.top < r.bottom - y && fits(up)) || !fits(down) ? up : down;
-            moved = true;
-          }
-          return moved;
+        // sizes are measured in each form, so the compact switch doesn't flicker
+        const form = node.classList.contains("compact") ? "small" : "full";
+        if (node.offsetWidth) node.dataset[form] = `${node.offsetWidth},${node.offsetHeight}`;
+        const size = (f: string) => (node.dataset[f] ?? "160,56").split(",").map(Number) as [number, number];
+        const place = ([pw, ph]: [number, number]) => {
+          let { x, y } = pt;
+          const hits = (r: Box) => !(x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom);
+          const fits = (v: number) => v >= ph / 2 + 8 && v <= h - ph / 2 - 8;
+          const stepOff = (boxes: Box[]) => {
+            let moved = false;
+            for (const r of boxes) {
+              if (!hits(r)) continue;
+              // to whichever edge of the obstacle is nearer, unless that leaves the screen
+              const up = r.top - ph / 2 - 6;
+              const down = r.bottom + ph / 2 + 6;
+              y = (y - r.top < r.bottom - y && fits(up)) || !fits(down) ? up : down;
+              moved = true;
+            }
+            return moved;
+          };
+          // cards first (a few passes: stepping off one card can land on its neighbour); a plaque
+          // that would have to wander from its seat stays put instead; the fixed panels go last, so
+          // a plaque is never hidden under one
+          for (let pass = 0; pass < 4 && stepOff(cards); pass++);
+          const far = Math.abs(y - pt.y) > MAX_DRIFT;
+          if (far) y = pt.y;
+          x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
+          y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
+          for (let pass = 0; pass < 3 && stepOff(chrome); pass++);
+          return { x, y, covers: far || cards.some(hits) };
         };
-        // cards first (a few passes: stepping off one card can land on its neighbour), then the
-        // fixed panels last, so a plaque is never hidden under one
-        for (let pass = 0; pass < 4 && stepOff(cards); pass++);
-        for (let pass = 0; pass < 3 && stepOff(chrome); pass++);
-        x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
-        y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
-        // no free spot (a crowded table): drop to name and life; the stats come back on hover or focus
-        if (frame % 20 === 1) {
-          const covers = cards.some((r) => !(x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom));
-          node.classList.toggle("compact", covers);
-        }
+        // no free spot near the seat (a crowded table): the compact form, which keeps life and any
+        // commander damage or poison, and shows the rest on hover or focus
+        if (frame % 20 === 1) node.classList.toggle("compact", place(size("full")).covers);
+        const { x, y } = place(size(node.classList.contains("compact") ? "small" : "full"));
         node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
         node.style.visibility = pt.visible ? "visible" : "hidden";
       }
@@ -237,6 +244,8 @@ function nameTags(view: GameView | null, selection: string[], all: boolean): [st
   return out.length ? out : EMPTY_TAGS;
 }
 const EMPTY_TAGS: [string, string][] = [];
+/** How far (px) a seat plaque may move off its seat to clear cards before it goes compact instead. */
+const MAX_DRIFT = 110;
 
 const TIPS = [
   { title: "Players", text: "Click a player's plaque to see their counters, commander damage and actions." },
@@ -357,7 +366,7 @@ function SeatPlate({ player, me, open, onToggle }: { player: string; me: string;
           <span className="t3d-seat-name">{p.name}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
           <span className="t3d-seat-life" data-testid={`life3d-${player}`}>{p.life}</span>
           <span className="t3d-seat-stats">
-            {stats.map((x) => <span key={x.key} className={`t3d-stat ${x.lethal ? "lethal" : x.n ? "" : "zero"}`} title={x.title}>{x.text}{x.lethal ? " · lethal" : ""}</span>)}
+            {stats.map((x) => <span key={x.key} className={`t3d-stat t3d-stat-${x.key} ${x.lethal ? "lethal" : x.n ? "" : "zero"}`} title={x.title}>{x.text}{x.lethal ? " · lethal" : ""}</span>)}
           </span>
         </span>
       </button>

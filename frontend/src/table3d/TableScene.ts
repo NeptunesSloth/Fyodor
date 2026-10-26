@@ -330,9 +330,9 @@ export class TableScene {
   seatScreen(player: string, width: number, height: number): { x: number; y: number; visible: boolean } | null {
     const seat = this.seatList.find((s) => s.player === player);
     if (!seat) return null;
-    const [wx, wz] = toWorld(seat, -STRIP_X, -0.6);
+    const [wx, wz] = toWorld(seat, -STRIP_X, this.plaqueZ(seat.player));
     const v = new THREE.Vector3(wx, 0.3, wz).project(this.camera);
-    return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height, visible: v.z < 1 && Math.abs(v.x) < 1.3 && Math.abs(v.y) < 1.3 };
+    return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height, visible: v.z < 1 }; // off to the side: the overlay clamps it to the screen edge
   }
 
   /**
@@ -367,6 +367,14 @@ export class TableScene {
   }
   private tmpBox = new THREE.Box3();
   private tmpV = new THREE.Vector3();
+
+  /**
+   * Where along its mat a seat's plaque sits: yours on the inner side (the outer edge is under your
+   * hand), everyone else's on their outer edge, by them rather than out in the middle of the table.
+   */
+  private plaqueZ(player: string): number {
+    return player === this.me ? -0.6 : MAT_D / 2 - 0.4;
+  }
 
   /** Screen position (CSS px, relative to the canvas) of a card, or of a battlefield point of a seat. */
   screenOfCard(id: string): { x: number; y: number } | null {
@@ -777,7 +785,7 @@ export class TableScene {
       // a player: their plaque (as Arena lands on the avatar), spread a little so several
       // attackers' crystals sit side by side
       const spread = from ? Math.max(-0.7, Math.min(0.7, toLocal(seat, from.x, from.z)[0] * 0.12)) : 0;
-      const [wx, wz] = toWorld(seat, -STRIP_X + spread, -0.6);
+      const [wx, wz] = toWorld(seat, -STRIP_X + spread, this.plaqueZ(seat.player));
       const p = new THREE.Vector3(wx, 0.3, wz);
       // stop short of the plaque so the crystal stays clear of its Turn / Priority flags
       if (from) p.add(from.clone().setY(0.3).sub(p).setLength(Math.min(1.1, from.distanceTo(p) * 0.3)));
@@ -1164,9 +1172,11 @@ export class TableScene {
       m.opacity = p.count > 0 || anyDrag ? 1 : 0.35;
     }
     // while a card is dragged, the battlefields (where it can land) light up
-    for (const mat of this.mats.values()) {
+    // (with the rules engine on, only your own: the engine refuses the others)
+    const rulesOn = !!this.view?.rules;
+    for (const [pid, mat] of this.mats) {
       const m = mat.material as THREE.MeshStandardMaterial;
-      m.emissiveIntensity = anyDrag ? 0.18 : 0;
+      m.emissiveIntensity = anyDrag && (!rulesOn || pid === this.me) ? 0.18 : 0;
     }
     // the player's animation speed (Settings) scales every 3D motion
     const speed = usePrefs.getState().animationSpeed || 1;

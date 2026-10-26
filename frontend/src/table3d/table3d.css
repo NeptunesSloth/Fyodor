@@ -83,7 +83,7 @@ main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overfl
 .t3d-coach .t3d-coach-text { flex: 1; font-size: 12.5px; line-height: 1.35; }
 .t3d-coach .t3d-coach-actions { margin: 0; flex: none; }
 /* a plaque with no free spot on a crowded table: name and life only, stats on hover or focus */
-.t3d-plate-anchor.compact .t3d-seat:not(:hover):not(:focus-within) .t3d-seat-stats { display: none; }
+.t3d-plate-anchor.compact .t3d-seat:not(:hover):not(:focus-within) :is(.t3d-stat.zero, .t3d-stat-hand) { display: none; }
 .t3d-coach-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .t3d-coach-title { margin: 0; font: 700 14px/1.2 var(--font-display); color: var(--text); }
 .t3d-coach-count { font: 500 11.5px var(--font-ui); color: var(--text-dim); margin-left: 6px; }
