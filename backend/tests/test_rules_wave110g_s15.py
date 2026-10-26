@@ -226,3 +226,109 @@ def test_bamboozling_beeble_adds_a_die_and_its_controller_ignores_one(cards, mon
     pass_until_stack_empty(s)
     assert s.state.players["p1"].life == life
     check(s)
+
+
+INFECT = real("Test Infector", "{2}", 2, "Creature — Phyrexian", "Infect", ("3", "3"), "")
+TOXIC = real("Test Toxin", "{2}", 2, "Creature — Phyrexian", "Toxic 2", ("2", "2"), "")
+BOTH = real("Test Plague Knight", "{2}", 2, "Creature — Phyrexian", "Infect\nToxic 2", ("3", "3"), "")
+EXTRA += [INFECT, TOXIC, BOTH]
+
+
+def _attack(s, names):
+    cs = [put(s, n) for n in names]
+    for c in cs:
+        s.state.rules.controlled_since[c.id].turn = 0
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in cs])
+    if any(s.state.cards[c.id].zone == "p2:battlefield" for c in s.state.cards.values() if c.controller == "p2" and c.name == "Melira, the Living Cure"):
+        act(s, "p2", type="declare_blockers", blocks=[])
+    for _ in range(12):
+        if s.state.rules.priority is None or s.state.turn.phase in ("end_combat", "main2", "end"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+@pytest.mark.parametrize("attackers,melira,poison", [
+    (["Test Infector"], True, 1), (["Test Infector"], False, 3),
+    (["Test Toxin"], True, 1), (["Test Toxin"], False, 2),
+    (["Test Plague Knight"], True, 1), (["Test Plague Knight"], False, 5),
+    (["Test Infector", "Test Toxin"], True, 1), (["Test Infector", "Test Toxin"], False, 5),
+])
+def test_melira_through_infect_and_toxic_combat_damage(cards, attackers, melira, poison):
+    """Melira, the Living Cure (614.1a, 614.17; 702.90 infect, 702.164 toxic): combat poison to the controller is one counter, once; Melira gone = full amount."""
+    s = build(cards, attackers, ["Melira, the Living Cure"])
+    if melira:
+        put(s, "Melira, the Living Cure", "p2")  # the defending player controls Melira
+    _attack(s, attackers)
+    assert s.state.players["p2"].resources.get("poison", 0) == poison, s.state.players["p2"].resources
+    assert s.state.players["p2"].life == 40 - (2 if "Test Toxin" in attackers else 0)  # toxic does not replace the damage
+    check(s)
+
+
+EXTRA.append(real("Test Advantage", "{1}", 1, "Enchantment", "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll.", None, ""))
+
+
+@pytest.mark.parametrize("first, ignore, life", [("beeble", "0", 45), ("beeble", "1", 44), ("extra", "0", 44), ("extra", "1", 45)])
+def test_bamboozling_beeble_with_another_roll_effect_is_ordered_by_the_roller(cards, monkeypatch, first, ignore, life):
+    """Bamboozling Beeble + a roll-extra effect (616.1): the rolling player picks which applies first; three dice (2, 5, 4) come up for one die asked."""
+    from tests.test_rules_wave12a_counters_keywords import rolls
+
+    s = build(cards, ["Bamboozling Beeble", "Test Roll", "Test Advantage"], [])
+    beeble = put(s, "Bamboozling Beeble")
+    put(s, "Test Advantage")
+    next_turn(s)
+    next_turn(s)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=beeble.id, ability=1, targets=["p1"])
+    pass_until_stack_empty(s)
+    mana(s, U=1)
+    rolls(monkeypatch, 2, 5, 4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Roll").id)
+    seen = []
+    for _ in range(12):
+        if (d := s.state.rules.decision) is not None:
+            seen.append(d.prompt)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[first if "applies first" in d.prompt else ignore])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert len(seen) == 2 and "applies first" in seen[0]
+    assert s.state.players["p1"].life == life
+    check(s)
+
+
+EXTRA.append(real("Test Bear", "{2}", 2, "Creature \u2014 Bear", "", ("2", "2"), ""))
+EXTRA.append(real("Test Wrath", "{2}{W}{W}", 4, "Sorcery", "Destroy all creatures.", None, "W"))
+
+
+@pytest.mark.parametrize("board,legal", [
+    (["Test Wisp", "Test Kami"], {"Test Gem"}),  # X = 3: Kodama and both Spirits died together
+    (["Test Wisp", "Test Kami", "Test Bear"], {"Test Gem"}),  # a dead non-Spirit adds nothing
+    ([], {"Test Wisp"}),  # X = 1 (Kodama alone)
+])
+def test_kodama_dies_to_a_wrath_with_other_spirits(cards, board, legal):
+    """Kodama of the Center Tree (702.46a, 603.10a, ruling 2005-02-01): a wrath kills Kodama and the other Spirits at once; soulshift X counts all of them."""
+    s = build(cards, ["Kodama of the Center Tree", "Test Wrath", "Test Wisp", "Test Gem", "Test Giant", *board], [])
+    put(s, "Kodama of the Center Tree")
+    for n in board:
+        put(s, n)
+    for n in ("Test Gem", "Test Giant"):
+        act(s, "p1", type="move", card_ids=[card_named(s, n).id], to={"player": "p1", "zone": "graveyard"})
+    if "Test Wisp" not in board:
+        act(s, "p1", type="move", card_ids=[card_named(s, "Test Wisp").id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, W=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Wrath").id)
+    d = None
+    for _ in range(10):
+        if (d := s.state.rules.decision) is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and {s.state.cards[o.id].name for o in d.options} == legal
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    for _ in range(6):
+        if (d := s.state.rules.decision) is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"])
+    assert s.state.cards[card_named(s, next(iter(legal))).id].zone == "p1:hand"
+    check(s)

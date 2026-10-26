@@ -2557,6 +2557,12 @@ def damage_outcome(plan: Plan, events: list[Event], *, answers: dict[str, str], 
     # the results' own replacement effects, in the same answers (120.4c)
     if counters:
         cands = candidates(plan, ("counters", "player_counters"))
+        if any(c.op.get("once110g") for c in cands):  # -- (wave 110G) -- Melira: the poison one batch of damage gives a player (infect, toxic, several sources) is one "would get"
+            merged: dict[str, tuple[int, str]] = {}
+            for t, k, n, b in counters:
+                if k == "poison":
+                    merged[t] = (merged.get(t, (0, b))[0] + n, merged.get(t, (0, b))[1])
+            counters = [x for x in counters if x[1] != "poison"] + [(t, "poison", n, b) for t, (n, b) in merged.items()]
         for by in dict.fromkeys(b for *_, b in counters):
             puts = [(t, k, n) for t, k, n, b in counters if b == by]
             cp = plan_counters(plan, puts, by=by, effect=False, entering=None, answers=answers, ask=ask, cands=cands)

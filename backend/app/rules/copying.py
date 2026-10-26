@@ -1886,6 +1886,13 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
         if m['creature']:
             ex.set_types = ['Creature']  # 205.1a: an explicit card type replaces the copied card types.
         return True
+    # -- (wave 110G) -- "it's a legendary Alien" (The Eleventh Hour): 707.9b sets the creature type (205.1a: replaces the copied ones) and adds legendary
+    m = re.fullmatch(_SUBJECT + r"(?:is|are) an? (?P<legend>legendary )?(?P<subs>[A-Z][A-Za-z'-]*(?: [A-Z][A-Za-z'-]*)*)", c)
+    if m and ex.set_creature_types is None and all(s in CREATURE_TYPES for s in m["subs"].split()):
+        ex.set_creature_types = m["subs"].split()
+        if m["legend"]:
+            ex.add_supertypes = sorted({*ex.add_supertypes, "Legendary"})
+        return True
     # -- enter as copy (wave 5F) -- "it's a Synth artifact creature in addition to its other types" (707.9b, 707.9d)
     m = re.fullmatch(_SUBJECT + r"(?:is|are) an? (?P<subs>(?:[A-Z][A-Za-z'-]* )+)(?P<t>artifact creature|artifact|creature)s? "
                                 r"in addition to (?:its|their) other types", c)

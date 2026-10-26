@@ -205,6 +205,15 @@ def parse(body: str) -> Any:
         group = language.target_group("target player")
         return None if group is None else ([{"do": "hippo110g", "who": "target", "add_now": True}], [group], False)
 
+    if body.strip() == _FOOD_HUMAN:  # The Eleventh Hour II: the two tokens as two instructions (the grammar reads one token with a quoted ability)
+        food, human = (scripts.parse_effects(x) for x in ("Create a Food token.", _FOOD_HUMAN.replace("Create a Food token and a", "Create a")))
+        return None if food is None or human is None else ([*food[0], *human[0]], None, False)
+    if body.strip() == _PRISONER:  # The Eleventh Hour III: 707.9b "it's a legendary Alien" replaces the copied creature types (copying.parse_excepts)
+        got = scripts.parse_effects(_PRISONER.replace(" named Prisoner Zero", ""))
+        if got is None or got[0][0].get("do") != "token_copy":
+            return None
+        got[0][0]["excepts"][0]["name"] = "Prisoner Zero"  # 707.9b: a modified name is a copiable value
+        return got
     if body.strip() == _NOTE:  # Long List of the Ents: "note" = choose, and write it on the Saga (607.2e); the Saga offers only types not yet noted
         got = scripts.parse_effects(_NOTE.replace("Note a creature type that hasn't been noted for ~.", "Choose a creature type.").replace("of that type", "of the chosen type"))
         if got is None or got[0][0].get("do") != "choose_value":
@@ -306,6 +315,8 @@ def _lowest_life_control(d: Def) -> Def:
     return {**d, "effects": [{"do": "lowest_life_control110g"}]}
 
 
+_FOOD_HUMAN = 'Create a Food token and a 1/1 white Human creature token with "Doctor spells you cast cost {1} less to cast."'
+_PRISONER = "Create a token that's a copy of target creature, except it's a legendary Alien named Prisoner Zero."
 _NOTE = ("Note a creature type that hasn't been noted for ~. When you next cast a creature spell of that type this turn, "
          "that creature enters with an additional +1/+1 counter on it.")
 NOTED = "Noted creature types"
@@ -953,6 +964,7 @@ _ENGULF = "When this creature enters, exile target non-Ooze creature an opponent
 _DISSOLVE = "{X}{B}: Put target creature card with mana value X exiled with this creature into its owner's graveyard."
 
 
+_GUILE = "If a spell or ability you control would counter a spell, instead exile that spell and you may play that card without paying its mana cost."
 _MAZE = ("Whenever another creature becomes the target of an ability of a land you control named Labyrinth of Skophos, "
          "you may have this creature fight that creature.")
 
@@ -972,6 +984,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         sel = selectors.Selector(card=True, zones=("exile",), types=("Creature",), compare=(("mv", "==", selectors.X_VALUE),)).key()
         return {"kind": "activated", "cost": ability.cost, "effects": [{"do": "return_card", "who": "target", "to": "graveyard", "under": "owner"}],
                 "target": {"what": "exiled_with:" + sel}}
+    if ability.text.strip() == _GUILE:  # Guile: read by effects.counter_object (guile_has) and offered by guile_offer
+        return {"kind": "static", "static": "guile110g", "effects": []}
     if ability.text.strip() == _MAZE:  # Skophos Maze-Warden: the targeted-event trigger with a source filter, then a may-fight with the targeted creature (701.14)
         native = scripts.define(replace(ability, text="Whenever a creature becomes the target of an ability, tap that creature."), ch)
         if native is None:
@@ -1549,3 +1563,26 @@ PRIMITIVES: dict[str, Any] = {"return_self110g": return_self, "keep_entered110g"
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"boe110g": resume_boe, "hippo110g": resume_hippo, "river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
+
+
+def guile_has(plan: Any, pid: str) -> bool:
+    """Guile (614.1a, ruling 2007-10-01): does ``pid`` control a permanent whose counters exile the spell instead?"""
+    from app.rules import scripts
+
+    return any(c.controller == pid and c.zone.endswith(":battlefield") and plan.in_game(c) and not plan.manual(c)
+               and any(d.get("static") == "guile110g" for d in scripts.definitions(plan.ch(c)).values())
+               for c in plan.state.cards.values())
+
+
+def guile_offer(plan: Any, ctx: Any) -> bool:
+    """Guile: the spell exiled instead of countered may be cast now without paying its mana cost, once, and the countering effect goes on (ruling 2007-10-01)."""
+    from app.rules import granted_casts
+
+    r = plan.rules
+    while r.guile110g:
+        cid = r.guile110g.pop(0)
+        card = plan.state.cards.get(cid)
+        if card is not None and card.zone.endswith(":exile") and not granted_casts.ask(
+                plan, ctx, player=ctx["controller"], cid=cid, head="Guile", no="Leave it exiled", decline="ripple", play=True):
+            return False
+    return True
