@@ -27,7 +27,9 @@ _DRAFT = re.compile(
     r"|As long as you control one or more creatures with a name you noted for cards named (?:~|[A-Z][^.]+?), ~ and those creatures get \+1/\+1 and have lifelink\."
     # (wave 110I) nothing was noted / removed, so X is 0: it enters with no counters
     r"|(?:This creature|~) enters with X \+1/\+1 counters on it, where X is (?:the highest number you noted|the number of cards you removed from the draft) (?:for|with) cards named (?:~|[A-Z][^.]+?)\."
-    r"|Other creatures you control of a type you noted for cards named (?:~|[A-Z][^.]+?) get \+1/\+1\.")
+    r"|Other creatures you control of a type you noted for cards named (?:~|[A-Z][^.]+?) get \+1/\+1\."
+    # (wave 110B) 701.31a / 901.3: a player planeswalks only in a Planechase game; Commander has no planar deck, so this replacement never applies (Susan Foreman)
+    r"|If you would planeswalk, instead look at the top two cards of your planar deck, put one on the bottom of your planar deck and the other on top, then planeswalk\.")
 
 
 def definition(text: str) -> dict[str, Any] | None:

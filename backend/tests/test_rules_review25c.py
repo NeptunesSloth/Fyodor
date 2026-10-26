@@ -63,7 +63,7 @@ def test_chandra_with_an_x_card_exiled_reads_whether_it_was_cast_natively(cards,
     choose(s, [top] if cast else [], resolve=True)
     if cast:
         d = decision(s, "free_x")
-        assert [o.id for o in d.options] == ["x:0"]
+        assert [o.id for o in d.options] == ["x:0", "x:other"]  # (a paid cast may announce any X, 107.3a; only 0 is affordable)
         choose(s, ["x:0"], resolve=True)
     assert s.state.rules.decision is None
     assert s.state.players["p2"].life == (40 if cast else 38)  # "If you don't, Chandra deals 2 damage to each opponent"

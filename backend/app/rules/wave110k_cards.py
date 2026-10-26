@@ -202,7 +202,7 @@ def control_swap(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         return True
     name = ctx.get("name") or "An effect"
     for controller, controlled in ((first[0], second[0]), (second[0], first[0])):
-        old = [c for c in plan.rules.player_control if c.controlled == controlled and c.status == "pending"]  # 723.1a: the last one works
+        old = [c for c in plan.rules.player_control if c.controlled == controlled and c.status == "pending" and not c.obj]  # 723.1a: the last one works
         plan.rules.player_control = [c for c in plan.rules.player_control if c not in old]
         plan.rules.player_control.append(PlayerControl(controlled=controlled, controller=controller, label=name, extra_after=sum(c.extra_after for c in old)))
         plan.note(f"{plan.name(controller)} will control {plan.name(controlled)} during their next turn ({name}, 723.1)", actor=ctx["controller"])

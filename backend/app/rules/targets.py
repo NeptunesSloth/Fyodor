@@ -108,6 +108,8 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     for rule in ch.imposed:  # -- cant (wave 16F) -- "can't be the target of black spells or abilities from black sources"
         if rule == "untargetable_artifact_abilities106" and source is not None and source.is_ability and "Artifact" in source.types:
             return False
+        if rule == "cant_be_enchanted110j" and source is not None and source.is_spell and "Aura" in source.subtypes:  # -- Guardian Beast (wave 110J) --
+            return False
         if (rule.startswith("only_aura106:") or rule == "no_aura110h") and source is not None and source.is_spell and "Aura" in source.subtypes:  # (110H: Tetravite "can't be enchanted", 303.4)
             return False
         if rule.startswith("untargetable_by_opponents_of:") and chooser != rule.split(":", 1)[1]:
@@ -434,6 +436,8 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
     random_only = len(specs) == 1 and bool(specs[0].get("random"))  # -- random choices (wave 47B) -- "target … chosen at random": the table picks (601.2c; each
     if random_only:  # legal target equally likely: Scab-Clan Giant ruling 2013-04-15); nobody is asked, and a choice sent along is not read
         targets, counts = [], []
+    if not counts and targets and len(specs) == 1:
+        counts = [len(targets)]  # (one group: every target chosen is that group's)
     if len(counts) > len(specs) or sum(counts) != len(targets):
         raise ActionError(f"Those aren't the right number of targets for {what}")
     out = GroupChoice(counts=list(counts))

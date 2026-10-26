@@ -297,6 +297,8 @@ def classify(line: str, *, spell: bool) -> tuple[AbilityKind, tuple[str, ...], s
 
     if (each := EACH_COLOR_LINE.match(line)) is not None and not _moves_library(line):
         return "mana", (), each["cost"]
+    if line == "{1}, {T}: Each player adds {B}{R}{G}.":  # -- Yurlok (wave 110J) -- 605.1a: no target, adds mana
+        return "mana", (), "{1}, {T}"
     from app.rules.immediate_mana_resolutions import beneficiary_spec
 
     if (benefit := beneficiary_spec(line)) is not None and _COST_START.match(benefit[0]) and not _moves_library(line) and not _LOYALTY.match(line):
@@ -413,6 +415,11 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if line == MASTER_CHEF:
             lines[i:i + 1] = ["Commander creatures you own enter with an additional +1/+1 counter on them.",
                               'Commander creatures you own have "Other creatures you control enter with an additional +1/+1 counter on them."']
+    from app.rules import (
+        wave110c_cosima,  # -- lines (wave 110C) -- Cosima: the paragraph is the upkeep ability and the ability it grants
+    )
+
+    wave110c_cosima.split(lines)
     # -- lines (wave 110C) -- Heirloom Epic: each mana of the cost may be paid by tapping an untapped creature (waterbend's payment, 701.67a, creatures only and not a
     # waterbend): the cost word "Tapbend" stands for that sentence
     for i, line in enumerate(lines):
@@ -481,7 +488,7 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
     # -- static_other sweep (wave 16B) -- 706.3: a results table's rows (one per line) belong to the roll before them
     merged: list[str] = []
     for line in lines:
-        if merged and re.match(r"^\d+(?:[—–-]\d+|\+| or less)? \| ", line) and re.search(r"\broll a (?:d\d+|\w+-sided die)\b", merged[-1], re.I) \
+        if merged and re.match(r"^\d+(?:[—–-]\d+|\+| or less)? \| ", line) and re.search(r"\broll (?:a (?:d\d+|\w+-sided die)|two d20 and ignore the lower roll)\b", merged[-1], re.I) \
                 and (not re.search(r"\bactivate only\b", merged[-1], re.I)
                      or (merged[-1].endswith("Activate only as a sorcery.") and merged[-1].lower().count("activate only") == 1)):
             restriction = "Activate only as a sorcery." if merged[-1].endswith("Activate only as a sorcery.") else ""
@@ -551,7 +558,9 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if line == "You may discard this card any time you could cast an instant.":
             line = "Discard this card: You gain 0 life."
         # -- wave 110F -- Taste of Paradise: "you may pay {1}{G} any number of times" repeats like multikicker (702.33c) but is not kicker: the keyword line is flagged "any number of times"
-        if m := re.fullmatch(r"As an additional cost to cast this spell, you may pay ((?:\{[^}]+\})+) any number of times\.", line):
+        if m := re.fullmatch(r"As an additional cost to cast this spell, you may pay ((?:\{[^}]+\})+) and/or ((?:\{[^}]+\})+) any number of times\.", line):
+            line = f"Kicker {m[1]} and/or {m[2]} any number of times"  # -- wave 110G -- Primitive Justice: two costs, each paid any number of times (casting.kicker_extra)
+        elif m := re.fullmatch(r"As an additional cost to cast this spell, you may pay ((?:\{[^}]+\})+) any number of times\.", line):
             line = f"Multikicker {m[1]} any number of times"
         # -- static_other sweep (wave 19A) -- "Traxos enters tapped and doesn't untap during your untap step.": two abilities, "enters tapped"
         # (614.1d) and the static "doesn't untap" (502.3), the second one added after the printed lines as Reconfigure's are

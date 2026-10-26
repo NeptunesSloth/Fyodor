@@ -215,7 +215,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                              if r is not None and c.zone.endswith(":battlefield")
                              and (record := r.payments.get(r.object_id(cid))) is not None
                              and record.alternative == "impending"))
-    text71 = tuple((e.id, tuple(e.affected), e.set_name,
+    text71 = tuple((e.id, tuple(e.affected), e.set_name, bool(e.text_box110a),
                     (e.text_change71.category, e.text_change71.old, e.text_change71.new) if e.text_change71 is not None else None)
                    for e in r.effects if e.layer == '3') if r else ()
     key_all: tuple = (key, graveyards, gy_modes, hosts, emblems, tuple(sorted(live)), impending, text71,
@@ -335,14 +335,19 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
         for text in st.definition.get("grants", ()):
             # (wave 42A) 702.98a: a granted "Unleash" brings its second half, the static "can't block as long as it has a +1/+1 counter" (the first, the counter, is
             # chosen as it enters: riot.py); the same static the printed keyword is (scripts.define)
-            inner = grammar.parse("~ can't block as long as it has a +1/+1 counter on it." if text.rstrip(".").lower() == "unleash" else scripts.self_text(text, ""))
+            inner = grammar.parse("~ can't block as long as it has a +1/+1 counter on it." if text.rstrip(".").lower() == "unleash" else scripts.self_text(text.replace("‹mv›", "1"), ""))
             if inner is None:
                 continue
             for cid, controller in field:
+                mine: dict[str, Any] | None = inner
+                if "‹mv›" in text:  # -- Bludgeon Brawl (wave 110J) -- the recipient's own mana value (the "1" above only tests the wording: "+0/+0" parses to nothing)
+                    mine = grammar.parse(scripts.self_text(text.replace("‹mv›", str(int(copiable(state, state.cards[cid], info).mana_value))), ""))
+                if mine is None:
+                    continue
                 seq = max(st.seq, timestamp(state, cid))
                 if cid in wiped and (seq, 0, 0) <= wiped[cid]:
                     continue  # -- attached events (wave 4L) -- granted before it lost all abilities (613.7)
-                out.append(Static(cid, controller, inner, seq, gate=(st.source, st.definition)))
+                out.append(Static(cid, controller, mine, seq, gate=(st.source, st.definition)))
     # Resolved quoted self statics use the granting effect's exact timestamp.
     # Limit discovery to native layer-6 keyword/rule statics; introducing layer-4
     # dependencies here would require solving those grants as dependency nodes.
@@ -950,7 +955,7 @@ def source_text71(state: GameState, card: CardInstance, ch: Characteristics, inf
         return ch
     oid = state.rules.object_id(card.id)
     found = [e for e in state.rules.effects if e.layer == '3' and oid in e.affected]
-    if not any(e.text_change71 is not None for e in found) and not state.rules.color_words71 and not card.stickers101:
+    if not any(e.text_change71 is not None or e.text_box110a for e in found) and not state.rules.color_words71 and not card.stickers101:
         return ch
     return name_changes(ch, found, [], info, state, card)
 
@@ -974,9 +979,18 @@ def name_changes(ch: Characteristics, effects: list[ContinuousEffect],
     if card is not None:
         ordered += [((p.object_seq, 1, p.timestamp), None, {'sticker101': p.sticker.text, 'position': p.position})
                     for p in card.stickers101 if p.sticker.kind == 'name']
+    if card is not None and state is not None and state.rules is not None:  # -- wave 110A -- 612.5: exchanged text boxes
+        oid = state.rules.object_id(card.id)
+        ordered += [((e.object_seq, 1, e.timestamp), None, {'text_box110a': e.text_box110a[oid]})
+                    for e in effects if e.layer == '3' and e.text_box110a and oid in e.text_box110a]
 
     for _, name, change in sorted(ordered, key=lambda item: item[0]):
         if change is not None:
+            if isinstance(change, dict) and 'text_box110a' in change:
+                from app.rules import wave110a_swap
+
+                ch = wave110a_swap.apply(ch, change['text_box110a'])
+                continue
             if isinstance(change, dict) and 'sticker101' in change:
                 from app.rules import stickers101
 
@@ -1035,6 +1049,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     )
 
     ch = wave110e_clara.apply(state, card, ch)
+    if state.rules is not None and state.rules.circled110g:  # -- wave 110G -- Cryptic Spires: the circled colors
+        from app.rules import wave110g_spires
+
+        ch = wave110g_spires.apply(state, card, ch)
     if state.rules is not None and state.rules.commander_color110f:  # -- wave 110F -- Faceless One: a characteristic-defining color (604.3)
         from app.rules import wave110f_cmd
 
@@ -1188,6 +1206,8 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         for k, (st, ordinal, text, expansion) in enumerate(grants):
             if quoted_prevention_loss47.lost(text, ch.name, st.key, effects):
                 continue
+            if "‹mv›" in text:  # -- Bludgeon Brawl (wave 110J) -- the recipient's own mana value (a granted Equip cost)
+                text = text.replace("‹mv›", str(int(ch.mana_value)))
             if "‹granter›" in text and state.rules is not None:  # -- granted from object (wave 18F) -- 607.1a: the granting object
                 text = text.replace("‹granter›", f"‹granter#{state.rules.object_id(st.source)}›")
             if text in _chosen.PROTECTION:  # -- attached events (wave 25D) -- the granting Aura's own recorded color (wave 53B: or card type, or creature type)
@@ -1220,6 +1240,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         from app.rules import mana_crafted_profiles
 
         ch = mana_crafted_profiles.overlay(state, card, ch, info)
+    if info is not None and not on_field and _T.depth == 0 and state.rules is not None and card.zone.endswith(":library"):  # -- plot (wave 110A) -- Fblthp: the top card has plot
+        from app.rules import wave110a_plot
+
+        ch = wave110a_plot.apply(state, card, ch, info)
     if info is not None and not on_field and _T.depth == 0 and state.rules is not None and card.zone.endswith((":hand", ":graveyard")):
         from app.rules import (
             zone_grants,  # -- zone keyword grants (wave 25A) -- "Each creature card in your hand has cycling {1}{U}."
@@ -1592,6 +1616,10 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
             _T.depth -= 1
     if imposed:
         ch = replace(ch, imposed=ch.imposed | frozenset(imposed))
+        if "all_names110j" in imposed and info is not None:  # -- Spy Kit (wave 110J) --
+            from app.rules import wave110j_cards
+
+            ch = replace(ch, name_test=lambda n: wave110j_cards.nonlegendary_creature_name(info, n))
     return ch
 
 

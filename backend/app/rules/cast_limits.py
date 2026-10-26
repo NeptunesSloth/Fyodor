@@ -45,7 +45,6 @@ import secrets
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from app.cards.names import normalize_name
 from app.game.state import COMBAT_PHASES, CardInstance, GameState, zone_key
 from app.rules import selectors
 from app.rules.characteristics import CardInfo, Characteristics
@@ -260,7 +259,7 @@ def _conditional_flash(cond_text: str, rest: str) -> Definition | None:
 # -- first activation (wave 48D) -- 118.9, 602.2b: "You may pay {0} rather than pay the equip cost of the first equip ability you activate each turn." (Bruenor
 # Battlehammer; Kíli's "As long as you have an enduring story, …" is scripts._conditional_static; Forge Anew: "during each of your turns") and "You may pay {0}
 # rather than pay the cycling cost of the first card you cycle each turn." (Gavi, Nest Warden)
-FIRST_ALT = re.compile(r"you may pay \{0\} rather than pay the (?:(?P<eq>equip) cost of the first equip ability you activate|cycling cost of the first card you cycle)"
+FIRST_ALT = re.compile(r"you may pay \{0\} rather than pay the (?:(?P<eq>equip) cost of the first equip ability you activate|(?P<pu>power-up) cost of the first power-up ability you activate|cycling cost of the first card you cycle)"
                        r" (?:each turn|(?P<own>during each of your turns))")
 
 
@@ -327,8 +326,8 @@ def static_definition(text: str) -> Definition | None:
                 "act": None, "max": 1, "effects": []}
     m = STATIC_ABILITIES.fullmatch(t)
     if m:  # ("of artifacts, creatures, and planeswalkers": the abilities of each of them)
-        sel = selectors.parse(re.sub(r",? and ", ", or " if "," in m["sel"] else " or ", m["sel"]))
-        if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras or sel.other:
+        sel = selectors.parse(re.sub(r",? and ", ", or " if "," in m["sel"] else " or ", m["sel"].removeprefix("the ") if m["sel"].startswith("the chosen ") else m["sel"]))
+        if sel is None or sel.player is not None or sel.card or sel.zones != ("battlefield",) or sel.extras not in ((), ("picked110a",)) or sel.other:  # (picked110a: wave 110A, Scheming Fence)
             return None
         return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "filter": None, "from": None,
                 "act": "nonmana_of" if m["nm"] else "of", "of": sel.key(), "max": None, "spells": False, "effects": []}
@@ -386,7 +385,7 @@ def static_definition(text: str) -> Definition | None:
     if t == "you may pay {0} rather than pay cycling costs":
         return {"kind": "static", "static": "first_alt", "act": "cycling", "own_turn": False, "repeat": True, "effects": []}
     if (m := FIRST_ALT.fullmatch(t)) is not None:  # -- first activation (wave 48D) -- 118.9: an alternative cost for the first activation (casting.py _first_alt)
-        return {"kind": "static", "static": "first_alt", "act": "equip" if m["eq"] else "cycling", "own_turn": bool(m["own"]), "effects": []}
+        return {"kind": "static", "static": "first_alt", "act": "equip" if m["eq"] else "power_up" if m["pu"] else "cycling", "own_turn": bool(m["own"]), "effects": []}
     # -- unspent mana (wave 35C) -- 500.4, 614.1a: "If you would lose unspent mana, that mana becomes colorless instead." (Kruphix, Omnath, Horizon Stone:
     # app/rules/kept_mana.py): the mana stays in the pool, colorless, with its restrictions and riders (the Gatherer rulings)
     if t == "players don't lose unspent mana as steps and phases end":
@@ -732,7 +731,9 @@ _KINDS = ("cant_cycle", "hexproof_targeting", "cast_limit", "activate_as_haste",
           "cant_enter", "cant_counters", "cant_remove_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap", "cant_target", "cant_play_gy_lands",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
-          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a", "counter_cap110j", "trigger_token_shield110a")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
+          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a", "chorus110c", "counter_cap110j", "mana_life110j", "trigger_token_shield110a",
+          "cant_phase_in110o",  # (wave 110O: Disciple of Caelus Nin)  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
+          "power_lethal110a")  # -- wave 110A -- Zilortha (wave110a_zilortha)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -891,8 +892,7 @@ def _same_name_as_exiled(state: GameState, info: CardInfo, source: str, ch: Char
     src = state.cards[source]
     plan = Plan.view(state, src.controller, info)
     ctx = {"controller": src.controller, "source_card": source, "source_object": plan.oid(src)}
-    names = {normalize_name(n) for c in exiled_with.cards(plan, ctx) if not state.cards[c].face_down for n in card_names.names_of(plan.ch(state.cards[c]))}
-    return bool(names & {normalize_name(n) for n in card_names.names_of(ch)})
+    return any(card_names.share(plan.ch(state.cards[c]), ch) for c in exiled_with.cards(plan, ctx) if not state.cards[c].face_down)  # (Spy Kit, wave 110J: share() is name_test-aware)
 
 
 def _cast_this_turn(state: GameState, player: str, key: str | None) -> int:
@@ -973,7 +973,7 @@ def _act_hit(state: GameState, player: str, card: CardInstance, ch: Characterist
             return False
         from app.rules.plan import Plan
 
-        return selectors.matches(Plan.view(state, src_controller, info), selectors.from_key(d["of"]), card, ch, src_controller)
+        return selectors.matches(Plan.view(state, src_controller, info), selectors.from_key(d["of"]), card, ch, src_controller, source)
     return False
 
 
@@ -1023,6 +1023,9 @@ def loyalty_rule(state: GameState, card: CardInstance, info: CardInfo | None, ke
         return False
     from app.rules.plan import Plan
 
+    if key == "instant" and state.rules is not None and state.rules.once_per_turn.get(f"loyalty_jace110g:{card.controller}") == state.turn.number \
+            and {"Planeswalker", "Jace"} <= {*Plan.view(state, card.controller, info).ch(card).types, *Plan.view(state, card.controller, info).ch(card).subtypes}:
+        return True  # -- wave 110G -- Jace's Machinations: "Jace planeswalkers you control" until end of turn
     for src, d in _statics(state, info, 'loyalty_rule'):
         if not d.get(key) or not (src.id == card.id if d['who'] == 'self' else src.controller == card.controller):
             continue

@@ -46,9 +46,6 @@ def test_read(text):
 
 
 @pytest.mark.parametrize("text", [
-    # a reflexive trigger (603.12), not an additional effect of the prevention
-    "{1}: The next time a source of your choice would deal damage to you this turn, prevent that damage. When damage is "
-    "prevented this way, Palm deals that much damage to that source's controller and you draw that many cards.",
     # the rider names a target / an unbound pronoun
     "{1}: Prevent the next 3 damage that would be dealt to any target this turn. If damage is prevented this way, Palm deals "
     "that much damage to any target.",
@@ -348,13 +345,17 @@ def test_the_chosen_color_needs_the_permanents_own_choice():
 
 
 @pytest.mark.parametrize("text", [
-    # two targets, a source's controller, an opponent's choice of the target, an optional redirection
+    # read since by their own machinery: the reflexive "When damage is prevented this way" (603.12, prevention_outcomes, played in
+    # test_rules_prevention_outcomes.py), Carom's two targets (damage_redirection_effects, test_rules_wave110g_s9.py) and the opponent's
+    # choice of the target (delegated_target_announcements, test_rules_delegated_target_announcements.py)
+    "{1}: The next time a source of your choice would deal damage to you this turn, prevent that damage. When damage is "
+    "prevented this way, Palm deals that much damage to that source's controller and you draw that many cards.",
     "{1}: The next 1 damage that would be dealt to target creature this turn is dealt to another target creature instead.",
     "{3}, {T}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature "
     "of an opponent's choice instead.",
 ])
-def test_redirections_left_manual(text):
-    assert not all(supported(text)), text
+def test_read_since(text):
+    assert all(supported(text, name="Palm")), text
 
 
 def test_nomads_en_kor_redirects_only_the_next_1_damage(cards):

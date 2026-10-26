@@ -61,15 +61,6 @@ def parse(body: str) -> Any:
         assert found is not None and isinstance(found[1], list) and found[1][0]["divide"]["total"] == {"x": 1}
         groups = [{**found[1][0], "min": 0, "max": 250, "divide": {**found[1][0]["divide"], "allow_zero_targets": True}}]
         return found[0], groups, found[2]
-    if body.strip() == _HEROIC:  # 614.9, 611.2a, 603.7a: the redirection record (target 0 is the chosen creature); the delayed trigger has a target of its own (603.7d)
-        from app.rules import damage_redirection_effects, delayed
-
-        mine = damage_redirection_effects.key("creature you control")
-        watch_target = delayed.WATCH_TARGET + ":0"
-        return ([{"do": "heroic110o"},
-                 {"do": "delayed", "when": {"kind": "event", "event": "die"}, "n": 2, "who": "target", "this_turn": True,
-                  "targets": [{"what": mine, "min": 0, "max": 1}]},
-                 {"do": "deferred:lki_counters", "from": "event", "who": watch_target}, {"do": "deferred:draw", "who": "you", "n": 1}], mine, False)
     if body.strip() == _TIDAL:
         return [{"do": "tidal110o"}], None, False
     if body.strip() == _CLEANSING:
@@ -104,10 +95,6 @@ def parse(body: str) -> Any:
 
 _PURE = ("Whenever a spell or ability an opponent controls causes you to discard cards this turn, return those cards from your graveyard to your hand.")
 _NAHIRI = "Nahiri's Sacrifice deals X damage divided as you choose among any number of target creatures."
-# (the parenthetical "(if it's still on the battlefield)" is reminder text, dropped before parsing; the redirection is anyway only to the chosen object, 614.9)
-_HEROIC = ("Choose target creature you control. Until end of turn, all damage that would be dealt to you and creatures you control is dealt to the chosen "
-           "creature instead. When that creature dies this turn, put its counters on up to one target creature you control and "
-           "draw a card.")
 _TIDAL = ("For each attacking creature without flying, its controller may pay {1}. If that player doesn't, creatures you control blocking that creature "
           "gain first strike until end of turn.")
 _SOUL_ECHO = ("At the beginning of your upkeep, sacrifice ~ if there are no echo counters on it. Otherwise, target opponent may choose that for each 1 damage that would "
@@ -140,6 +127,17 @@ _EVELYN_PERMISSION = ("Once each turn, you may play a card from exile with a col
 _CITY_STATIC = "Players can't cast spells or play lands with a name originally printed in the Arabian Nights expansion."
 _CITY_TRIGGER = ("Whenever one or more other nontoken permanents with a name originally printed in the Arabian Nights expansion are on the battlefield, their controllers "
                  "sacrifice them.")
+_VOLO_NOTE = "Whenever you cast a creature spell, note one of its creature types that hasn't been noted for ~."
+_VOLO_DRAW = "{2}, {T}: Draw a card for each creature type noted for target permanent you control named Volo's Journal."
+_TOMB_ACTIVATED = ("{2}, {T}: Put a mire counter on target non-Swamp land. That land is a Swamp for as long as it has a mire counter on it. Activate only during your upkeep.")
+_TOMB_TRIGGER = ("When ~ is put into a graveyard from the battlefield, at the beginning of each of your upkeeps for the rest of the game, remove all mire counters from a land "
+                 "that a mire counter was put onto with ~ but that a mire counter has not been removed from with ~.")
+_ALTERATION = "Attach target Aura attached to a creature or land to another permanent of that type."
+_DISCIPLE_ENTER = ("When ~ enters, starting with you, each player chooses up to five permanents they control. All permanents other than ~ that weren't chosen this way phase out.")
+_LION = ("When ~ dies, return it to the battlefield. It's an Aura enchantment with enchant creature you control and \"{G}{W}: Enchanted creature gains indestructible until end of "
+         "turn,\" and it loses all other abilities.")
+_LION_FORM = {"set_types": ["Enchantment"], "add_subtypes": ["Aura"], "set_creature_types": [], "remove_abilities": True,
+              "add_abilities": ["Enchant creature you control", "{G}{W}: Enchanted creature gains indestructible until end of turn."]}
 _ARMOR_PREVENT = "Prevent all damage that would be dealt to enchanted creature by sources of the last chosen color."
 _ARMOR_COUNTER = "{X}: Put a sleight counter on ~ and choose a color. X is the number of sleight counters on ~."
 _PYRAMIDS_MODE = "• The next time target land would be destroyed this turn, remove all damage marked on it instead."
@@ -271,6 +269,47 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
                 "filter": selectors.Selector(zones=("stack",), extras=("arn_name110o",)).key()}
     if ability.kind in ("triggered", "static") and text == _CITY_TRIGGER:  # 603.8: a state trigger; 701.21: their controllers sacrifice them
         return {"kind": "triggered", "trigger": "state", "optional": False, "target": None, "state": {"w110o": "arn_permanents"}, "effects": [{"do": "arn_sacrifice110o"}]}
+    if ability.kind == "triggered" and text in (_VOLO_NOTE, _VOLO_NOTE.replace("noted for ~", "noted for Volo's Journal")):  # 700.? a note is a memory kept for the object (the token); the type is the controller's choice among the unnoted ones
+        native = scripts.define(replace(ability, text="Whenever you cast a creature spell, copy that spell."), ch)  # (the event-type trigger: it keeps the cast spell, "event_spell")
+        if native is None or [e["do"] for e in native["effects"]] != ["copy_spell"]:
+            return None
+        return {**native, "effects": [{"do": "note110o"}]}
+    if ability.kind == "activated" and text == _VOLO_DRAW:
+        from app.rules import selectors
+
+        sel = selectors.parse("permanent you control named Volo's Journal")
+        draw = scripts.define(replace(ability, text="{2}, {T}: Draw a card."), ch)
+        if sel is None or draw is None or [e["do"] for e in draw["effects"]] != ["draw"]:
+            return None
+        return {**draw, "target": {"what": sel.key()}, "effects": [{"do": "draw", "who": "you", "n": {"noted110o": "target"}}]}
+    if ability.kind == "activated" and text == _TOMB_ACTIVATED:  # 122.1, 611.2b: a counter, and the land is a Swamp for as long as it has one; the lands are remembered for the second ability (607.2a-like)
+        native = scripts.define(replace(ability, text="{2}, {T}: Put a mire counter on target non-Swamp land. Activate only during your upkeep."), ch)
+        swamp = scripts.define(replace(ability, text="{2}, {T}: Target land becomes a Swamp for as long as it has a mire counter on it."), ch)
+        if native is None or swamp is None or [e["do"] for e in native["effects"]] != ["add_counters"] or [e["do"] for e in swamp["effects"]] != ["until", "become"]:
+            return None
+        return {**native, "effects": [*native["effects"], {"do": "tomb_put110o"}, *swamp["effects"]]}
+    if ability.kind == "triggered" and text == _TOMB_TRIGGER:  # 603.7a: a delayed trigger for the rest of the game, made as this resolves
+        native = scripts.define(replace(ability, text="When ~ is put into a graveyard from the battlefield, you gain 1 life."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["gain_life"]:
+            return None
+        return {**native, "effects": [{"do": "tomb_delay110o"}]}
+    if ability.kind == "spell" and text == _ALTERATION:  # 701.3, 115.1: the Aura is the one target; the permanent it goes to is chosen as this resolves (not targeted)
+        from app.rules import selectors
+
+        mine = [selectors.Selector(subtypes=("Aura",), extras=(x,)).key() for x in ("attached_creature", "attached_land")]
+        return {"kind": "spell", "effects": [{"do": "alter_aura110o", "who": "target"}], "target": {"what": selectors.Selector(zones=("battlefield",), either=tuple(mine)).key()}}
+    if ability.kind == "triggered" and text == _DISCIPLE_ENTER:  # 101.4: starting with its controller, then turn order; the choices are all made before anything phases out (608.2e)
+        native = scripts.define(replace(ability, text="When ~ enters, each player chooses up to five permanents they control. All other permanents phase out."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["player_chooses", "phase_out"]:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "start": "you", "rest": "phase_out110o"}]}  # (the rest phase out as the last choice is made, effects._choose_next)
+    if ability.kind == "static" and text == "Permanents can't phase in.":  # 702.26a: read by phasing.untap_step (a permanent phased out stays so while this is on the battlefield)
+        return {"kind": "static", "static": "cant_phase_in110o", "effects": []}
+    if ability.kind == "triggered" and text == _LION:  # 611.2e, 303.4g: it returns as an Aura (never as a creature), its controller choosing what it enchants as it enters
+        native = scripts.define(replace(ability, text="When ~ dies, return it to the battlefield."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["return_card"]:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "do": "lion110o"}]}
     if ability.kind == "activated" and text == _KALDRA:  # 603.4-style "if" judged as it resolves (608.2c); every Equipment so named is attached
         from app.rules import conditions, selectors
 
@@ -697,18 +736,6 @@ def resume_gain_land(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
-def heroic(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    """614.9: damage to the controller and their creatures goes to the chosen creature, while it is still that creature on the battlefield (the record keeps its
-    object id, source_shields.redirect_target); damage to the chosen creature itself is not redirected."""
-    from app.rules import damage_redirection_effects, source_shields
-
-    dest = source_shields._destination(plan, ctx, "target")
-    if dest is None:
-        return True
-    damage_redirection_effects.record(plan, ctx, {"to": {"players": "you", "objects": {"sel": damage_redirection_effects.key("creatures you control")}}}, dest)
-    return True
-
-
 def tidal(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """608.2c: the attacking creatures without flying as the instruction starts, each with its controller's own optional {1} (118.12); a creature whose controller does
     not pay is given its blockers first strike as that step is reached (the creatures I control that block it then)."""
@@ -869,6 +896,198 @@ def arn_sacrifice(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def note(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Note one of its creature types that hasn't been noted for ~": the cast spell's creature types not yet kept for this object; one left is noted, several are the controller's choice."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.creature_types import CREATURE_TYPES
+    from app.rules.plan import decide
+
+    spells = effects._cards(plan, ctx, "event_spell")
+    card = plan.state.cards.get(spells[0]) if spells else None
+    if card is None or ctx.get("source_object") is None:
+        return True
+    noted = plan.rules.notes110o.get(ctx["source_object"], [])
+    options = sorted(t for t in plan.ch(card).subtypes & CREATURE_TYPES if t not in noted)
+    if len(options) == 1:
+        plan.rules.notes110o[ctx["source_object"]] = [*noted, options[0]]
+        plan.note(f"{ctx.get('name') or 'It'}: {options[0]} is noted", actor=ctx["controller"])
+    elif options:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: note one of {card.name}'s creature types",
+               options=[DecisionOption(id=t, label=t) for t in options], resume={"step": "note110o", "ctx": ctx})
+        return False
+    return True
+
+
+def resume_note(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in {o.id for o in d.options}:
+        raise ActionError("Choose one of the creature types")
+    noted = plan.rules.notes110o.get(ctx["source_object"], [])
+    plan.rules.notes110o[ctx["source_object"]] = [*noted, chosen[0]]
+    plan.note(f"{ctx.get('name') or 'It'}: {chosen[0]} is noted", actor=ctx["controller"])
+    effects.continue_effects(plan, ctx)
+
+
+def noted_count(plan: Any, ctx: dict[str, Any], who: str) -> int:
+    from app.rules import effects
+
+    return sum(len(plan.rules.notes110o.get(plan.oid(c), [])) for c in effects._cards(plan, ctx, who))
+
+
+def tomb_put(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    record = plan.rules.tomb110o.setdefault(ctx["source_object"], {"put": [], "removed": []})
+    for cid in effects._cards(plan, ctx, "target"):
+        if plan.state.cards[cid].counters.get("mire", 0) > 0 and plan.oid(cid) not in record["put"]:
+            record["put"].append(plan.oid(cid))
+    return True
+
+
+def tomb_delay(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """603.7: the delayed trigger belongs to the controller of the ability when it resolved, and goes on for the rest of the game (once: False)."""
+    from app.rules import delayed
+
+    delayed.create_plain(plan, ctx["controller"], ctx["source_card"], ctx["source_object"], ctx.get("name") or "Cyclopean Tomb",
+                         {"kind": "step", "step": "upkeep", "whose": "you"}, [{"do": "tomb_remove110o", "tomb": ctx["source_object"]}])
+    plan.rules.delayed[-1].once = False
+    return True
+
+
+def tomb_remove(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Remove all mire counters from a land the Tomb put one onto and has not removed one from (the controller picks if there are several)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    record = plan.rules.tomb110o.get(e["tomb"]) or {"put": [], "removed": []}
+    options = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) in record["put"] and plan.oid(c) not in record["removed"]]
+    if len(options) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a land to remove the mire counters from",
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Land", card_id=c) for c in options],
+               resume={"step": "tomb_remove110o", "ctx": ctx, "tomb": e["tomb"]})
+        return False
+    if options:
+        _tomb_take(plan, ctx, e["tomb"], options[0])
+    return True
+
+
+def _tomb_take(plan: Any, ctx: dict[str, Any], tomb: str, land: str) -> None:
+    card = plan.state.cards[land]
+    n = card.counters.get("mire", 0)
+    if n > 0:
+        plan.do({"type": "counter", "card_ids": [land], "kind": "mire", "delta": -n}, actor=ctx["controller"])
+        plan.rules.tomb110o.setdefault(tomb, {"put": [], "removed": []})["removed"].append(plan.oid(card))
+
+
+def resume_tomb_remove(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in {o.id for o in d.options}:
+        raise ActionError("Choose one of the lands")
+    _tomb_take(plan, ctx, d.resume["tomb"], chosen[0])
+    effects.continue_effects(plan, ctx)
+
+
+def alter_aura(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Enchantment Alteration: "that type" is the type of the permanent the Aura is attached to as this resolves (a creature, a land, or both); the caster picks the
+    other permanent of it that the Aura can enchant (701.3b), nothing if there is none."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import attachments, effects
+    from app.rules.plan import decide
+    from app.rules.targets import label
+
+    found = effects._cards(plan, ctx, e["who"])
+    aura = plan.state.cards[found[0]] if found else None
+    host = plan.state.cards.get(aura.attached_to or "") if aura is not None else None
+    if aura is None or host is None or not host.zone.endswith(":battlefield"):
+        return True
+    types = plan.ch(host).types & {"Creature", "Land"}
+    options = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.id != host.id and types & plan.ch(c).types
+               and attachments.host_problem(plan, aura, c.id) is None]
+    if not options:
+        return True
+    if len(options) == 1:
+        attachments.attach(plan, aura.id, options[0], ctx["controller"])
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: attach {aura.name} to which permanent?",
+           options=[DecisionOption(id=c, label=label(plan, c), card_id=c) for c in options], resume={"step": "alter_aura110o", "ctx": ctx, "aura": aura.id})
+    return False
+
+
+def resume_alter_aura(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import attachments, effects
+
+    if len(chosen) != 1 or chosen[0] not in {o.id for o in d.options}:
+        raise ActionError("Choose one of the permanents")
+    attachments.attach(plan, d.resume["aura"], chosen[0], d.player)
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
+def divide_x_to_event(target: Any) -> Any:
+    """A reflexive ability's divided group whose total is X: the total becomes the amount of its event (the X paid), read as it goes on the stack (targets.divide_x);
+    any other X in the target definition is not read (None)."""
+    groups = target if isinstance(target, list) else [target]
+    out = []
+    for g in groups:
+        if not isinstance(g, dict) or (g.get("divide") or {}).get("total") != {"x": 1} or "value" in g["divide"]:
+            return None
+        out.append({**g, **({"min": 0} if g["max"] >= 250 else {}), "divide": {**g["divide"], "value": {"event_amount": 1}}})  # (115.6: "any number of" allows none)
+    return out if isinstance(target, list) else out[0]
+
+
+def lion(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Bronzehide Lion: the card returns with an entry form (an Aura with the two abilities); as an Aura not cast it enchants a creature its controller controls, chosen as it
+    enters (303.4f); with none it stays in the graveyard (303.4g)."""
+    from app.game.rules_state import DecisionOption
+    from app.game.state import zone_key
+    from app.rules import attachments, effects, entry_characteristics
+    from app.rules.plan import decide
+    from app.rules.targets import label
+
+    found = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":graveyard")]
+    if not found:
+        return True
+    card = plan.state.cards[found[0]]
+    form = entry_characteristics.freeze(plan, ctx, _LION_FORM).model_dump(mode="json")
+    player = ctx["controller"] if e.get("under") == "you" else card.owner
+    probe = entry_characteristics.probe(card, form).model_copy(update={"zone": zone_key(player, "battlefield"), "controller": player})
+    face = plan.ch(probe)
+    hosts = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and attachments.host_problem(plan, card, c.id, player, face=face) is None]
+    if not hosts:
+        plan.note("The Aura has nothing it could enchant: it stays where it is", [card.id])
+        return True
+    if len(hosts) == 1:
+        return _lion_enter(plan, ctx, card.id, hosts[0], form, player)
+    decide(plan, player=player, kind="choose_one", prompt="Choose what the Aura enchants",
+           options=[DecisionOption(id=h, label=label(plan, h), card_id=h) for h in hosts],
+           resume={"step": "lion110o", "ctx": ctx, "card": card.id, "form": form, "player": player}, source=card)
+    return False
+
+
+def _lion_enter(plan: Any, ctx: dict[str, Any], card_id: str, host: str, form: dict[str, Any], player: str) -> bool:
+    from app.rules import attachments
+
+    return attachments.enter(plan, [{"card": card_id, "player": player, "actor": ctx["controller"], "tapped": False, "entry_characteristics": form, "host": host, "bare": True}], ctx)
+
+
+def resume_lion(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    r = d.resume
+    if len(chosen) != 1 or chosen[0] not in {o.id for o in d.options}:
+        raise ActionError("It can't enchant that")
+    if _lion_enter(plan, r["ctx"], r["card"], chosen[0], r["form"], r["player"]):
+        effects.continue_effects(plan, r["ctx"])
+
+
 def wipe_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """614.1a: a shield for this turn on each target land (the object, 400.7): the next time it would be destroyed, the damage marked on it is removed instead."""
     from app.rules import effects
@@ -915,7 +1134,7 @@ def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES: dict[str, Any] = {"arn_sacrifice110o": arn_sacrifice, "collect110o": collect, "lore_bind110o": lore_bind, "secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
+PRIMITIVES: dict[str, Any] = {"lion110o": lion, "alter_aura110o": alter_aura, "tomb_put110o": tomb_put, "tomb_delay110o": tomb_delay, "tomb_remove110o": tomb_remove, "note110o": note, "arn_sacrifice110o": arn_sacrifice, "collect110o": collect, "lore_bind110o": lore_bind, "secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
               "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
-RESUME: dict[str, Any] = {"echo_offer110o": resume_echo_offer, "type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
+RESUME: dict[str, Any] = {"lion110o": resume_lion, "alter_aura110o": resume_alter_aura, "tomb_remove110o": resume_tomb_remove, "note110o": resume_note, "echo_offer110o": resume_echo_offer, "type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}

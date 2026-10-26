@@ -83,6 +83,19 @@ def end_effect(plan: Plan, a: A.EndEffect) -> None:
     require_no_decision(plan)
     require_priority(plan)
     card = plan.state.cards.get(a.card_id)
+    from app.rules import (
+        wave110a_arbiter,  # -- wave 110A -- Leonin Arbiter's "pay {2} to ignore this effect" is the same kind of special action
+    )
+
+    if card is not None and wave110a_arbiter.is_arbiter(plan, card):
+        if wave110a_arbiter.ignoring(plan, plan.actor, card):
+            raise ActionError(f"You already ignore {card.name} this turn")
+        cost = M.parse_cost(wave110a_arbiter.COST)
+        if payment_step(plan, a, cost, f"ignoring {card.name}", purpose=Purpose()):
+            return
+        tail = pc.continuation(plan, "arbiter_paid110a", _Ended(card.id, card.name or "the permanent", []))
+        pay_then(plan, plan.actor, cost, f"paid {cost.text()} to ignore {card.name}", sources=a.sources, purpose=Purpose(), then=tail)
+        return
     if card is None or not card.zone.endswith(":battlefield") or not (effects := ending(plan.state, card, plan.actor)):
         raise ActionError("There is no effect of yours to end on that permanent")
     cost = M.parse_cost(effects[0].end_cost or "")
@@ -111,3 +124,13 @@ def _ended(plan: Plan, frame: _Ended, payment: M.Payment | None) -> None:
 
 
 pc.register("licid_ended", _Ended, _ended)
+
+
+def _arbiter_paid(plan: Plan, frame: _Ended, payment: M.Payment | None) -> None:
+    from app.rules import wave110a_arbiter
+
+    wave110a_arbiter.record(plan, plan.actor, plan.state.cards[frame.card])
+    plan.rules.passed = []
+
+
+pc.register("arbiter_paid110a", _Ended, _arbiter_paid)

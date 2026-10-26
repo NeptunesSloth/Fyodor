@@ -96,8 +96,10 @@ def test_wordings():
     ex = scripts.parse_effects("Create a token that's a copy of target creature you control, except it's a 2/2 black Zombie in addition "
                                "to its other colors and types.")
     assert ex is not None and ex[0][0]["excepts"][0]["add_subtypes"] == ["Zombie"] and ex[0][0]["excepts"][0]["add_colors"] == ["B"]
-    assert scripts.parse_effects("Create a token that's a copy of target creature you control, except it enters with an additional "
-                                 "+1/+1 counter on it.") is None  # (an "enters with" rider isn't a copiable value: manual)
+    # (an "enters with" rider isn't a copiable value, 707.9: read now as counters the token enters with, test_rules_token_copy_sources.py)
+    rider = scripts.parse_effects("Create a token that's a copy of target creature you control, except it enters with an additional "
+                                  "+1/+1 counter on it.")
+    assert rider is not None and rider[0][0]["excepts"] == [{"enter_counters": [{"counter": "+1/+1", "n": 1}]}]
 
 
 def test_a_dying_creature_copies_itself_unless_it_is_a_token(cards):

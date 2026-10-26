@@ -113,7 +113,7 @@ def test_planetary_annihilation_keeps_six_lands_then_deals_damage(cards):
     ("Razia's Purification", "Sorcery", PURIFICATION, "FULL"),
     ("Single Combat", "Sorcery", "Each player chooses a creature or planeswalker they control, then sacrifices the rest. Players can't "
                                   "cast creature or planeswalker spells until the end of your next turn.", "FULL"),  # (wave 32C)
-    ("Duneblast", "Instant", "Choose up to one creature. Destroy the rest.", "PARTIAL"),
+    ("Duneblast", "Sorcery", "Choose up to one creature. Destroy the rest.", "FULL"),  # (automated and played in test_rules_nontarget_creature_choices.py)
 ])
 def test_coverage_levels(name, type_line, text, level):
     assert coverage.of_characteristics(ch(name, type_line, text)).level == level

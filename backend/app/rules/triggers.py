@@ -230,6 +230,10 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
     from app.rules import wave110c_misc  # -- Strict Proctor (wave 110C) --
 
     wave110c_misc.proctor_triggers(plan, pending, cause if cause is not None else event)
+    from app.rules import wave110d_fire  # -- Firebender Ascension (wave 110D) --
+
+    wave110d_fire.triggers(plan, pending, cause if cause is not None else event)
+
     from app.rules import wave110a_spawn  # -- Aboleth Spawn (wave 110A) --
 
     wave110a_spawn.triggers(plan, pending, cause if cause is not None else event)
@@ -542,7 +546,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         kicked = bool(kicks and not (paid is not None and (paid.gift_to or paid.alternative == "awaken" or any(  # (30E: bargain)
             x.endswith(":bargain") or x == "anytimes" for x in paid.additional))))
         info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),  # 702.33d, 702.174k)
-                "opponent_turn": plan.active != e.player, "kicked": kicked, "prepared": spell.id in r.prepare_spells110o,  # (-- wave 110O -- 722.3d)
+                "opponent_turn": plan.active != e.player, "kicked": kicked, "kicks": kicks if kicked else 0, "prepared": spell.id in r.prepare_spells110o,  # (-- wave 110O -- 722.3d)
                 "teamwork": paid is not None and any(x.endswith(":teamwork") for x in paid.additional),  # -- (wave 110G) -- 702.194b
                 "snow_spent": dict(paid.snow_spent) if paid is not None and paid.snow_spent is not None else None,
                 "mana_tags": [list(tags) for tags in paid.mana_tags] if paid is not None and paid.mana_known else None,
@@ -910,6 +914,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         if event in ("dealt_damage", "targeted") and obj is not None:
             return False  # ("you're dealt damage": a player, not a permanent that player controls; wave 22E: "you become the target")
         if event == "cast":
+            if cond.get("card110b") and (obj is None or obj.id != cond["card110b"]):  # -- (wave 110B) -- Havengul Lich: that one card
+                return False
             return obj is not None and och is not None and selectors.matches(
                 plan, selectors.from_key(cond["spell"]), obj, och, you, watcher.id)
         if cond.get("obj"):  # the permanent sacrificed, the card discarded, the token created …
@@ -1526,6 +1532,10 @@ def _targets_ok(plan: Plan, want: str, watcher: CardInstance, targets: list[tupl
 
     if want.startswith("opp_or:"):  # -- counters (wave 33C) -- 115.9b: "a spell that targets an opponent or a creature an opponent controls" (Danitha)
         return any(c in plan.state.players and c != watcher.controller for c, _ in targets) or _targets_ok(plan, want[len("opp_or:"):], watcher, targets)
+    if want == "only_opp110f":  # -- wave 110F -- Zevlor: "targets only a single opponent or a single permanent an opponent controls"
+        from app.rules import wave110f_zev
+
+        return wave110f_zev.targets_ok(plan, watcher, targets)
     if want == "self_only":  # -- copied abilities (wave 18F) -- "that targets only ~": every target, and at least one, is the watcher (115.9b)
         return bool(targets) and all(c == watcher.id and (o is None or plan.oid(watcher) == o) for c, o in targets)
     if want.startswith("only_one:"):  # -- spell copies (wave 31D) -- 115.9c: exactly one different object or player chosen, and 115.9b: it matches now
@@ -1790,7 +1800,7 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
             source_object = (left or {}).get(id(watcher)) or plan.oid(watcher)
             d = _aura_card_bound(plan, d, (left or {}).get(id(watcher)))
             added = None
-            repetitions = event.amount if cond.get("per_counter") else 1
+            repetitions = event.amount if cond.get("per_counter") else max(1, int(info.get("kicks") or 0)) if cond.get("per_kicker") else 1
             for _ in range(repetitions):
                 added = _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=source_object,
                              name=ch.name, index=i, definition=d,
@@ -2013,10 +2023,10 @@ def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characterist
             out += command_zone_abilities(plan, card, trigger)
             continue
         if card.zone.endswith(":exile"):  # -- keywords (wave 50H) -- 702.55c: "When the creature it haunts dies" functions in exile
-            if trigger == "event" and plan.in_game(card) and not plan.manual(card):
+            if (trigger == "event" or trigger == "landfall") and plan.in_game(card) and not plan.manual(card):  # (wave 110C: Cosima's granted landfall trigger)
                 ch = plan.ch(card)
                 out += [(card, ch, i, d) for i, d in abilities(plan, ch, trigger)
-                        if ((d.get("cond") or {}).get("subject") == "haunted" and plan.oid(card) in plan.rules.haunting) or (d.get("cond") or {}).get("exiled") or d.get("ex110b")]  # (wave 110B: Senu works from exile, 113.6k)
+                        if (trigger == "event" and ((d.get("cond") or {}).get("subject") == "haunted" and plan.oid(card) in plan.rules.haunting) or (d.get("cond") or {}).get("exiled")) or d.get("ex110b")]  # (wave 110B: Senu works from exile, 113.6k)
             continue
         if card.zone.endswith(":phased"):  # -- phase out (wave 110B) -- 702.26d: a phased-out permanent's "Whenever ~ phases out" still triggers (looks back at the shift)
             if trigger == "event" and plan.in_game(card) and not plan.manual(card):
@@ -3075,19 +3085,13 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
         spec = None
     elif spec:
         legal = legal_targets(plan, spec["what"], t.controller, source_of(plan, t.source_card, object_id=t.source_object), t.source_card, attacker, source_object=t.source_object)
-        if t.ability.get("target_choice") == "event_player_pov110n" and t.event is not None and len(t.event.players) == 1:
-            # -- (wave 110N) -- Necrotic Plague: "its controller chooses target creature one of their opponents controls": legal for the ability's controller (protection,
-            # 115.2), and an opponent of the player who chooses (that player's point of view for "opponent")
-            chooser = t.event.players[0]
-            pov = legal_targets(plan, t.ability["pov_what110n"], chooser, source_of(plan, t.source_card, object_id=t.source_object), t.source_card, attacker, source_object=t.source_object)
-            legal = [x for x in legal if x in pov]
         if target is None:
             if not legal:
                 r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
                 plan.note(f"{t.name}'s ability has no legal target and is removed")
                 return True
             choice_player = t.controller
-            if t.ability.get("target_choice") in ("event_player", "event_player_pov110n"):
+            if t.ability.get("target_choice") == "event_player":
                 event_players = list(t.event.players) if t.event is not None else []
                 if len(event_players) != 1 or event_players[0] not in plan.live():
                     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]

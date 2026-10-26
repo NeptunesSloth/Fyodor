@@ -361,8 +361,9 @@ def test_archon_actual_native_shield_supports_arbitrary_one_plus_two_distributio
 
 @pytest.mark.parametrize('name', ['Cover of Winter', "Harm's Way", 'Shining Shoal', 'Divine Deflection',
                                   'Refraction Trap'])
-def test_unproved_cross_recipient_announcement_and_state_loop_remain_partial(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level == 'PARTIAL'
+def test_cross_recipient_announcement_and_state_loop_are_now_proved(cards, name):
+    # (proved since by the prevention frontier: tests/test_rules_prevention_frontier_full_cards.py, _cold.py, cover_winter_costs*.py)
+    assert coverage.of_card_data(cards.resolve(name)).level == 'FULL'
 
 
 def test_any_other_uses_original_source_object_across_cold_departure(cards):

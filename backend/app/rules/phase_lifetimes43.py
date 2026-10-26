@@ -78,18 +78,23 @@ def source_present(plan: Plan, ref: ObjectRef, control: str | None = None, while
             and card.zone.rsplit(':', 1)[-1] in ('battlefield', 'phased'))
 
 
+def _alive(plan: Plan, p: PhaseLifetime) -> bool:
+    return p.roll_max110f is not None or source_present(plan, p.source, p.control, p.while_tapped)  # (wave 110F: a roll packet outlasts its source)
+
+
 def held(plan: Plan, card_id: str) -> bool:
     card = plan.state.cards.get(card_id)
     if card is None:
         return False
     oid = plan.oid(card)
-    return any(source_present(plan, packet.source, packet.control, packet.while_tapped) and any(r.card == card_id and r.object_id == oid for r in packet.recipients)
+    return any(_alive(plan, packet) and any(r.card == card_id and r.object_id == oid for r in packet.recipients)
                for packet in plan.rules.phase_lifetimes)
 
 
-def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str, control: str | None = None, while_tapped: bool = False) -> list[ObjectRef]:
+def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str, control: str | None = None, while_tapped: bool = False,
+              roll_max: int | None = None) -> list[ObjectRef]:
     """610.3b: a duration already over never starts; preserve native indirect phasing."""
-    if not source_present(plan, source, control, while_tapped):
+    if roll_max is None and not source_present(plan, source, control, while_tapped):
         return []
     refs = [ObjectRef(card=cid, object_id=plan.oid(card), zone=card.zone)
             for cid in card_ids if (card := plan.state.cards.get(cid)) is not None and plan.in_game(card)
@@ -98,7 +103,8 @@ def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str, co
         return []
     # Install before the native action: a source that is itself among the
     # creatures stays present as a phased object, with precisely the same OID.
-    packet = PhaseLifetime(source=source, recipients=refs, control=control, while_tapped=while_tapped)
+    packet = PhaseLifetime(source=source, recipients=refs, control=control, while_tapped=while_tapped,
+                           roll_max110f=roll_max, roller110f=actor if roll_max is not None else None)
     plan.rules.phase_lifetimes.append(packet)
     plan.do({'type': 'phase_shift', 'card_ids': [r.card for r in refs], 'out': True}, actor=actor)
     packet.recipients = [r for r in refs if (c := plan.state.cards.get(r.card)) is not None
@@ -107,7 +113,15 @@ def phase_out(plan: Plan, source: ObjectRef, card_ids: list[str], actor: str, co
 
 
 def expire(plan: Plan) -> None:
-    ended = [p for p in plan.rules.phase_lifetimes if not source_present(plan, p.source, p.control, p.while_tapped)]
+    _release(plan, [p for p in plan.rules.phase_lifetimes if not _alive(plan, p)])
+
+
+def roll_visit(plan: Plan, pid: str, result: int) -> None:
+    """-- wave 110F -- Ferris Wheel: "phases out until you roll a 3 or less while rolling to visit your Attractions": ``pid`` rolled ``result`` to visit."""
+    _release(plan, [p for p in plan.rules.phase_lifetimes if p.roll_max110f is not None and p.roller110f == pid and result <= p.roll_max110f])
+
+
+def _release(plan: Plan, ended: list[PhaseLifetime]) -> None:
     if not ended:
         return
     # Remove before actions or characteristic queries can recursively expire.

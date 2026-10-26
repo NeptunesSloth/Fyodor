@@ -11,6 +11,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_designations import build, put, roundtrip, settle
@@ -141,7 +142,7 @@ def test_chandra_grants_one_instant_or_sorcery_across_all_five_cards(cards):
     act(s, 'p1', type='cast_spell', card_id=exiled['Dark Ritual'])
     settle(s)
     # Chandra's existing first-spell trigger copies the Ritual; copies aren't cast.
-    assert s.state.players['p1'].mana.get('B', 0) == 6
+    assert visible_pool(s.state, 'p1').get('B', 0) == 6
     before = s.state.model_dump(mode='json')
     with pytest.raises(ActionError):
         act(s, 'p1', type='cast_spell', card_id=exiled['Harmonize'])
@@ -158,7 +159,7 @@ def test_chandra_permission_lasts_through_the_next_turn_and_expires_after_it(car
     act(s, 'p1', type='add_mana', player='p1', mana={'B': 1})
     act(s, 'p1', type='cast_spell', card_id=exiled['Dark Ritual'])
     settle(s)
-    assert s.state.players['p1'].mana.get('B', 0) == 6
+    assert visible_pool(s.state, 'p1').get('B', 0) == 6
     to_phase(s, 'main1', turn=4)
     act(s, 'p1', type='add_mana', player='p1', mana={'R': 1})
     assert not casting.castable(s.state, 'p1', s.state.cards[exiled['Lightning Bolt']], cards, check_priority=False)

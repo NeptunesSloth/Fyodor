@@ -25,6 +25,9 @@ if TYPE_CHECKING:
 
 ANY_PLAYER = "Any player may activate this ability."
 OPPONENTS_ONLY = "Only your opponents may activate this ability."
+# -- defending player (wave 110D) -- Capricopian, 602.2: only the player the creature attacks may activate (restrictions.problem checks who)
+DEFENDER = "Only the player this creature is attacking may activate this ability and only during the declare attackers step."
+DEFENDERS = (DEFENDER, DEFENDER.replace("this creature", "~"))  # (the card's own name or "this creature" reads as ~ in a definition)
 # -- activated sweep (wave 17B) -- "Any player may activate this ability but only as a sorcery / during their draw step." (Scandalmonger,
 # Well of Knowledge): the restriction is about the player who activates it (602.5)
 ANY_PLAYER_BUT = re.compile(r"^Any player may activate this ability but only (?P<rest>.+)\.$")
@@ -40,7 +43,7 @@ def any_player(ability: Any, cost: Any) -> bool:
     """Does this activated ability say any player may activate it (and cost nothing only its controller can pay)?"""
     text = ability.text.rstrip()
     return (ability.kind in ('activated', 'mana')
-            and (text.endswith(ANY_PLAYER) or ANY_PLAYER_BUT.search(text.split('. ')[-1]) is not None)
+            and (text.endswith(ANY_PLAYER) or text.endswith(DEFENDERS) or ANY_PLAYER_BUT.search(text.split('. ')[-1]) is not None)
             and not cost.tap and not cost.sacrifice_self and not cost.untap)
 
 
@@ -70,6 +73,8 @@ def condition(text: str) -> dict[str, Any] | None:
     m = _SELF_COMBAT.fullmatch(text)
     if m:
         return {"act7b": "self_combat", "any": [x for x in (m["a"], m["b"]) if x]}
+    if text == "~ is on the stack":  # -- wave 110G -- Lightning Storm: the spell itself is on the stack (113.6)
+        return {"act7b": "self_on_stack"}
     if text == "~ has another activated ability":  # -- wave 110E -- Tazri: 602.1; this ability counts as one of them, so "another" = two or more (holds: act7b "other_activated")
         return {"act7b": "other_activated"}
     if text == "you've been attacked this step":  # -- (wave 110J) -- 506.3, as cast_timing reads it (Kongming's Contraptions)
@@ -128,6 +133,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
             if name:
                 names[name] = names.get(name, 0) + 1
         return max(names.values(), default=0) >= cond["n"]
+    if kind == "self_on_stack":
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        return src is not None and src.zone == "stack"
     if kind == "self_combat":
         src = plan.state.cards.get(ctx.get("source_card") or "")
         if src is None or not src.zone.endswith(":battlefield"):

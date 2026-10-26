@@ -2680,8 +2680,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
-    from app.rules import wave110e_cards  # -- exact wordings (wave 110E) --
+    from app.rules import wave110e_cards, wave110e_kaya  # -- exact wordings (wave 110E) --
 
+    if (join110e := wave110e_kaya.join(body)) is not None:  # -- one instruction exiling two targets (wave 110E) --
+        return join110e
     if (body110e := wave110e_cards.parse(body)) is not None:
         return body110e
     from app.rules import wave110k_cards  # -- exact wordings (wave 110K) --
@@ -3534,6 +3536,14 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
         return creator_change
     if (protected_airbend := airbend.complement(body)) is not None:
         return protected_airbend
+    if (spell_airbend := airbend.spell_target(body)) is not None:  # -- airbend (wave 110B) --
+        return spell_airbend
+    from app.rules import wave110b_dack, wave110b_hama, wave110b_lich
+
+    if (hama := wave110b_hama.parse(body) or wave110b_dack.parse(body)) is not None:  # -- Hama, Dack Fayden (wave 110B) --
+        return hama
+    if (lich := wave110b_lich.parse(body)) is not None:  # -- Havengul Lich (wave 110B) --
+        return lich
     if (attached_copy := attached_copy_fallback.parse(body)) is not None:
         return attached_copy
     if (after_discover := discover_followup.parse(body)) is not None:
@@ -4690,7 +4700,7 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
     from app.rules import watches  # -- turn watches (wave 7D) --
 
     body = block_events.rewrite(watches.join_choose(watches.join_retarget(body)))  # (-- turn-long triggers (wave 33A) --; wave 53C: "When one or more Equipment become attached …")
-    if it is None and not event_player:  # -- if you do (wave 5G) -- a spell's or an activated ability's "each other
+    if (it is None or it in ("~", "self_gone")) and not event_player:  # -- if you do (wave 5G; wave 110A: also an activated ability, whose "it" is its source) -- a spell's or an activated ability's "each other
         # player": every other player than its controller is an opponent in a free-for-all (102.2, 806.2); in a trigger
         # "other" may be relative to the event's player — not read there
         # (not where the grammar reads it already: an edict, language.EDICT_OTHERS; "during each other player's …")
@@ -6007,10 +6017,18 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (war110e := wave110e_opp.war_definition(ability, ch)) is not None:
         return war110e
+    from app.rules import wave110e_uvilda  # -- refine counters (wave 110E) --
+
+    if (uvilda110e := wave110e_uvilda.definition(ability, ch)) is not None:
+        return uvilda110e
     from app.rules import wave110e_clara  # -- pregame color (wave 110E) --
 
     if (clara110e := wave110e_clara.definition(ability.text)) is not None:
         return clara110e
+    from app.rules import wave110g_spires  # -- wave 110G --
+
+    if (spires110g := wave110g_spires.definition(ability.text)) is not None:
+        return spires110g
     if ability.text.strip() == "Note the mana value of each card as it's put into exile.":  # -- noted values (wave 110E) -- see wave110e_note
         return {"kind": "static", "static": "note110e", "effects": []}
     if ability.text.strip() == "Bell Borca's power is equal to the greatest number noted for it this turn.":
@@ -7151,9 +7169,13 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         d = _chosen.remember_name(_enters_self_check(_define(view[0] if view else ability, ch), ch), self_text(ability.text, ch.name))  # (-- any number as an additional cost (wave 48B) -- "creatures sacrificed this way" of a spell's own cost)  (wave 53B: a trigger's card name, kept)
     if view and d is not None:
         d = _granter_bound(d, view[1])
-    from app.rules import cost_changes, wave110o_cards  # (wave 110A; wave 110O)
+    from app.rules import (  # (wave 110A; wave 110O)
+        cost_changes,
+        wave110a_bloodbend,  # -- wave 110A -- Secret of Bloodbending: its own condition (waterbend paid), read by control_player
+        wave110o_cards,
+    )
 
-    if d is not None and "additional cost was paid" in ability.text and not any(re.search(r"you may blight [1-5]\b", a.text) or a.text in (cost_changes.BEHOLD_TYPE, wave110o_cards._UNDER_COST) for a in ch.abilities):  # (wave 110A: Celestial Reunion's behold; wave 110O: Undergrowth's {2}{R})
+    if d is not None and "additional cost was paid" in ability.text and ability.text != wave110a_bloodbend.LINE and not any(re.search(r"you may blight [1-5]\b", a.text) or a.text in (cost_changes.BEHOLD_TYPE, wave110o_cards._UNDER_COST) for a in ch.abilities):  # (wave 110A: Celestial Reunion's behold; wave 110O: Undergrowth's {2}{R})
         return None  # -- blight (wave 51E) -- "this spell's additional cost was paid" is read as the blight only for a spell whose optional additional cost is one (another optional cost: manual)
     if d is not None and ability.special == 'embalm':
         d = {**d, 'effects': [{**e, 'embalmed': True} if e.get('do') == 'token_copy' else e for e in d['effects']]}
@@ -8372,7 +8394,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 _AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "pay_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "counters_removed", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
                   "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library", "exiled_perm110i",
-                  "roll_die", "discover", "mana_resolved110d"}  # (wave 110D: the mana a mana ability produced) # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
+                  "roll_die", "discover", "scry_bottom110b", "bend110b", "mana_resolved110d"}  # (wave 110B: The Temporal Anchor; wave 110D: the mana a mana ability produced)  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
@@ -8614,9 +8636,6 @@ def _cached(ch: Characteristics) -> dict[int, Definition]:
     from app.rules import random_characteristic_choices
 
     random_characteristic_choices.merge_lines(ch, out)
-    from app.rules import wave110b_cards as _w110b  # -- wave 110B --
-
-    _w110b.merge_lines(ch, out)
     from app.rules import random_native_outcomes42
 
     random_native_outcomes42.merge_lines(ch, out)
@@ -8977,6 +8996,8 @@ def graveyard_only_ability(d: Definition | None) -> bool:
 
 def own_graveyard_activation(d: Definition | None) -> bool:
     """113.6m: a parsed graveyard-only activation is not a resolving spell instruction."""
+    if d is not None and d.get("stack110g"):  # -- wave 110G -- Lightning Storm: an ability that works while the spell is on the stack, not part of what it does
+        return True
     if d is not None and d.get('kind') == 'activated':
         cost = parse_ability_cost(d.get('cost') or '')
         if not cost.unsupported and cost.from_graveyard:
@@ -11350,8 +11371,13 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     if sized_x:
         # -- if you do (wave 25C) -- "you may pay {X}. When you do, ~ deals X damage to target player.": the X paid (107.3f, paid_x) is the
         # reflexive ability's amount (its event's); an X in the target's own definition is chosen before X could be known: not read
-        if re.search(r'"x"|\bX\b', json.dumps(b_target, default=str)):
-            return None
+        total_x = isinstance(b_target, list) and any((g.get("total") or [0, 0])[1] == "X" for g in b_target)  # -- (wave 110B) -- "total mana value X or less" (Fire Lord Sozin): the X paid
+        if re.search(r'"x"|\bX\b', json.dumps([{k: v for k, v in g.items() if k != "total"} for g in b_target] if total_x else b_target, default=str)):
+            from app.rules import wave110o_cards  # -- (wave 110O) --
+
+            b_target = wave110o_cards.divide_x_to_event(b_target)  # -- (wave 110O) -- 601.2d, 107.3f: "distribute X …" of the reflexive ability: its division is made as it goes on the stack, knowing the X paid
+            if b_target is None:
+                return None
         b_effects = _x_to_event(b_effects)
         x_bind = base[0]["bind"]
     if x_bind is None and not keep and "event_amount" in json.dumps([b_effects, b_target], default=str):
@@ -11359,8 +11385,10 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
     # -- cast-permission riders (wave 38C) -- 603.12, 107.3f: "you may pay {X}. When you do, … target creature card with mana value X …" (Halo Forager, Isareth the
     # Awakener): the reflexive ability goes on the stack after the payment, so its target is chosen knowing the X paid (the event's amount: triggers.event_x)
     x_event = x_bind is not None and bool(re.search(rf',{selectors.X_VALUE}\]', json.dumps(b_target, default=str)))
+    x_event = x_event or (x_bind is not None and '"event_amount"' in json.dumps(b_target, default=str))  # (wave 110O: a divided group's total is the X paid)
     # -- cost-sized reflexive targets (wave 110I) -- 603.12, 107.3f: "up to that many other target creatures" of a reflexive ability: chosen as it goes on the stack, knowing the X paid
     x_event = x_event or (x_bind is not None and isinstance(b_target, list) and any(g.get("x_count") == "upto" for g in b_target))
+    x_event = x_event or (x_bind is not None and isinstance(b_target, list) and any((g.get("total") or [0, 0])[1] == "X" for g in b_target))  # (wave 110B)
     out = {"do": "reflexive", "cond": cond, "ability": {"kind": "triggered", "trigger": "reflexive", "effects": b_effects,
                                                         "optional": b_optional, **target_fields(b_target), **({"x_event": True} if x_event else {})},
            **({"x_from": x_bind} if x_bind else {}), **({"keep_event": True} if keep else {})}

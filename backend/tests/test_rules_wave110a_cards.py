@@ -159,3 +159,13 @@ def test_hulking_metamorph_copy_keeps_own_power_and_toughness(cards, prototype, 
     got = ch(s, s.state.cards[meta.id])
     assert got.name == "Test Three 110A" and got.pt == pt and {"Artifact", "Creature"} <= set(got.types)
     check(s)
+
+
+def test_vats_destroys_a_single_target(cards):  # ruling 2024-03-08: one target is destroyed whatever its toughness (the equal-toughness check is on the group at resolution too, targets.relation_ok; split second leaves no window to test a change)
+    s = build(cards, ["V.A.T.S.", "Test Three 110A"])
+    a = put(s, "Test Three 110A")
+    mana(s, B=2, C=2)
+    cast(s, "V.A.T.S.", [a.id], target_counts=[1])
+    answer(s)
+    assert zone_of(s, "Test Three 110A") == "p1:graveyard"
+    check(s)

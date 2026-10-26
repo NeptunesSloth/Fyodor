@@ -246,6 +246,33 @@ def test_temporal_extortion_any_player_may_pay_half_their_life_to_counter_it(car
     check(s)
 
 
+def test_temporal_extortion_three_players_everyone_is_still_asked_once(cards):
+    """Ruling 2007-02-01 (Temporal Extortion): the active player is asked first, then turn order; once a player pays the spell is countered but the remaining
+    players still get the option (so the 2nd paying does not stop the 3rd being asked), and nobody pays twice."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    mk = lambda cmd, extra: deck(cards, cmd, [*extra, (40, "Island")])  # noqa: E731
+    setups = [PlayerSetup("A", cards=mk("Krenko, Mob Boss", [(1, "Temporal Extortion")])), PlayerSetup("B", cards=mk("Atraxa, Praetors' Voice", [])),
+              PlayerSetup("C", cards=mk("Krenko, Mob Boss", []))]
+    s = GameSession(enable(new_game(setups, shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    mana(s, B=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Temporal Extortion").id)
+    asked = []
+
+    def answer(d):
+        asked.append(d.player)
+        return ["pay" if d.player in ("p2", "p3") else "decline"]
+
+    drive(s, answer)
+    assert asked == ["p1", "p2", "p3"]
+    assert (life(s, "p1"), life(s, "p2"), life(s, "p3")) == (40, 20, 20)
+    assert zone_of(s, "Temporal Extortion") == "p1:graveyard"
+    check(s)
+
+
 def test_pay_half_life_rounds_up(cards):
     """107.1a: at 41 life half is 21 when rounded up, so the payer keeps 20."""
     s = build(cards, ["Temporal Extortion"], [], forests=30, islands=40)

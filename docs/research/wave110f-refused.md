@@ -34,4 +34,5 @@
 - s10: Mangara's Equity: "choose black or red" two-color choice, chosen-color source filter and "or a white creature you control" recipient are three missing pieces for one card.
 - s10: Drought / Brutal Suppression: unchanged (sacrifice components in the cost-change table).
 - s11: Mangara's Equity / Noxious Vapors / Null Chamber / Worms / Peace Talks: still open (see s9-s10 notes).
-- s13: Noxious Vapors multicolored cards: no CR rule or ruling in the local data on one card serving several colors; a hand holding one goes to manual_resolution (tested). Drought: tax not automated for mana abilities and cycling/unearth/equip with a black symbol (refused with a message / source not offered).
+- s13: Noxious Vapors multicolored cards: no CR rule or ruling in the local data on one card serving several colors; a hand holding one goes to manual_resolution (tested). Drought/Brutal Suppression: activated-ability tax not automated (mana abilities, cycling, unearth, equip have own cost routes); cards PARTIAL, activations never refused (s15).
+- Zevlor, Camouflage, Glyph of Reincarnation: not done wave 110F s15 (see handoff_f.md next).

@@ -100,7 +100,7 @@ TRIGGERED_GRANTS: frozenset[str] = frozenset({"prowess", "exalted", "persist", "
 # -- static grants (wave 15A) -- keywords whose whole meaning is one triggered ability (keyword_triggers.MEANINGS): granted as the
 # line itself (613.1f). Not modular / graft / living weapon / for mirrodin! / ravenous: those have a half that works as the
 # permanent enters (a granted one would miss it).
-MEANING_GRANTS = r"provoke|absorb \d+|extort|ingest|melee|myriad|exploit|(?:poisonous|frenzy|afterlife|annihilator|afflict|fabricate|rampage) \d+"  # (wave 42A: fabricate N, 702.123a: one enters trigger; -- trigger lines (wave 100A) -- rampage N, 702.23a: one "becomes blocked" trigger)
+MEANING_GRANTS = r"provoke|absorb \d+|extort|ingest|melee|myriad|exploit|(?:poisonous|frenzy|afterlife|annihilator|afflict|fabricate|rampage|modular) \d+"  # (wave 42A: fabricate N, 702.123a: one enters trigger; -- trigger lines (wave 100A) -- rampage N, 702.23a: one "becomes blocked" trigger)
 
 ATTACHED_SUBJECTS = {"enchanted creature": "creature", "equipped creature": "creature", "enchanted land": "land",
                      "enchanted permanent": "permanent", "fortified land": "land", "enchanted artifact": "artifact", "enchanted planeswalker": "planeswalker",
@@ -1479,8 +1479,7 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
     if kind == "marked110j":  # -- (wave 110J) -- "this Aura gains …" (Earthbind): set as that ability resolved, for this object only (400.7)
         return source.choices.get("Gained ability") == "Yes"
     if kind == "ignored110j":  # -- Volrath's Curse (wave 110J) -- its enchanted creature's controller paid to ignore it this turn
-        host = plan.state.cards.get(source.attached_to or "")
-        return host is not None and plan.rules.once_per_turn.get(f"ignore110j:{plan.oid(host)}") == plan.state.turn.number
+        return plan.rules.once_per_turn.get(f"ignore110j:{plan.oid(source)}") == plan.state.turn.number  # keyed by this Curse (113.10: each is its own effect)
     if kind == "your_turn":
         return plan.state.turn.active_player == controller
     if kind == "your_end_step":  # (wave 100K)

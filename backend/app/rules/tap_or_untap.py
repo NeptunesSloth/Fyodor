@@ -66,7 +66,12 @@ def tap_or_untap(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     options = [DecisionOption(id="tap", label=f"Tap {name}"), DecisionOption(id="untap", label=f"Untap {name}")]
     if e.get("optional"):  # (wave 7E) an activated ability's "you may": choosing neither
         options.append(DecisionOption(id="none", label="Do nothing"))
-    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Tap or untap'}: tap or untap {name}?",
+    chooser = ctx["controller"]
+    if e.get("chooser110g"):  # -- (wave 110G) -- Curse of Inertia: the attacking player (the event's player) chooses, though its controller controls the ability
+        from app.rules.effects import _players
+
+        chooser = (_players(plan, ctx, e["chooser110g"]) or [chooser])[0]
+    decide(plan, player=chooser, kind="choose_one", prompt=f"{ctx.get('name') or 'Tap or untap'}: tap or untap {name}?",
            options=options,
            resume={"step": "tap_or_untap", "ctx": ctx, "e": e}, source=plan.state.cards[cards[0]])
     return False

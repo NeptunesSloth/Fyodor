@@ -284,7 +284,7 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
             if what in answers:
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
-                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"attach110i": True} if e.get("attach110i") else {}), **({"decider": deciding} if deciding else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
+                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"opt110a": True} if e.get("opt110a") else {}), **({"attach110i": True} if e.get("attach110i") else {}), **({"decider": deciding} if deciding else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
                                  **({"options": e["options"]} if e.get("options") else {}), **({"random": True} if e.get("random") else {})}  # (wave 51C: "choose Elemental, Elf, …": only the creature types listed)
                 if what == "second color":
                     out["choice"]["options"] = [o for o in ("White", "Blue", "Black", "Red", "Green") if o != answers.get("color")]
@@ -848,6 +848,11 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
         from app.rules import devour
 
         devour.sacrifice(plan, ep, entry["player"])
+        from app.rules import (
+            copying as _copying,  # -- (wave 110C) -- The Mimeoplasm: both graveyard cards are exiled as it enters
+        )
+
+        _copying.exile_pair(plan, ep, entry["actor"])
         from app.rules import static_perm100d  # -- static permanents (wave 100D) -- 614.12: done as it enters
 
         static_perm100d.as_enters(plan, _card.id, ep, entry["player"])
@@ -1081,6 +1086,9 @@ def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = N
         from app.rules import wave110e_opp  # -- entry secret choice (wave 110E) --
 
         wave110e_opp.secret_record(plan, card_id, controller, choices)
+        from app.rules import numeric_entry_roll42  # -- entry dice as base power and toughness (wave 110E) --
+
+        numeric_entry_roll42.after_entry(plan, card_id, choices)
         wave110e_opp.war_record(plan, card_id, choices)
         from app.rules import wave110e_note  # -- noted values (wave 110E) --
 
@@ -1121,6 +1129,9 @@ def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = N
         from app.rules import wave110a_enter  # -- entry types (wave 110A) --
 
         wave110a_enter.apply(plan, card)
+        from app.rules import wave110c_valki  # -- Tibalt's emblem (wave 110C) --
+
+        wave110c_valki.apply_enter(plan, card)
     devour.apply_totals(plan, card, ch, choices)  # -- stats (wave 110F) -- Dracoplasm
     from app.rules import tribute  # -- keywords (wave 50H) -- 702.104b: "if tribute wasn't paid" reads this
 
@@ -1996,7 +2007,7 @@ def offer_903_9b(plan: Plan, *, only: str | None = None) -> bool:
 
 # Effect primitives that may put a card from a public zone into its owner's hand or library.
 MOVERS_903_9B = frozenset({"bounce", "return_card", "return_choice", "return_yours", "to_library", "shuffle_library",
-                           "delayed_move", "counter", "warp_shuffle110c"})  # (wave 110C: Warp World shuffles every permanent in)
+                           "delayed_move", "counter", "warp_shuffle110c", "aurora110j"})  # (wave 110C: Warp World shuffles every permanent in; 110J: The Great Aurora)
 
 
 def ask_903_9b_first(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
