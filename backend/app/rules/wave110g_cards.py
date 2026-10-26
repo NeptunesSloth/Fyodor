@@ -626,6 +626,99 @@ def reattach(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
+_EQUIPOISE = ("Land", "Artifact", "Creature")
+
+
+def equipoise(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Equipoise: for lands, then artifacts, then creatures, the controller chooses as many of target player's as they control more than the controller
+    does and those phase out (702.26). Counts are taken afresh for each kind: a phased-out permanent doesn't exist (702.26b), so a phased-out land
+    that is also a creature no longer counts."""
+    return _equipoise_step(plan, ctx, e["who"], 0)
+
+
+def _equipoise_step(plan: Any, ctx: dict[str, Any], who: str, i: int) -> bool:
+    from app.rules import effects
+
+    me = ctx["controller"]
+    other = next(iter(effects._players(plan, ctx, who)), None)
+    while other is not None and other in plan.live() and i < len(_EQUIPOISE):
+        kind = _EQUIPOISE[i]
+
+        def of(p: str, kind: str = kind) -> list[str]:
+            return [c for c in plan.state.zones.get(f"{p}:battlefield", []) if kind in plan.ch(plan.state.cards[c]).types]
+
+        theirs, n = of(other), len(of(other)) - len(of(me))
+        if n > 0 and n == len(theirs):
+            _phase(plan, me, theirs)
+        elif n > 0:
+            effects.decide(plan, player=me, kind="choose_cards", prompt=f"Choose {n} {_EQUIPOISE[i].lower()}(s) {plan.name(other)} controls to phase out",
+                           min_choices=n, max_choices=n, options=[effects.DecisionOption(id=c, label=plan.state.cards[c].name or "Permanent", card_id=c) for c in theirs],
+                           resume={"step": "equipoise110g", "ctx": ctx, "who": who, "i": i, "cands": theirs})
+            return False
+        i += 1
+    return True
+
+
+def _phase(plan: Any, me: str, cards: list[str]) -> None:
+    from app.rules import phasing
+
+    cards = [c for c in cards if not phasing._held(plan, c)]
+    if cards:
+        plan.do({"type": "phase_shift", "card_ids": cards, "out": True}, actor=me)
+
+
+def resume_equipoise(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    if len(set(chosen)) != len(chosen) or any(c not in r["cands"] for c in chosen):
+        raise ValueError("not a candidate")
+    _phase(plan, r["ctx"]["controller"], chosen)
+    if _equipoise_step(plan, r["ctx"], r["who"], r["i"] + 1):
+        effects.continue_effects(plan, r["ctx"])
+
+
+def glamer(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Glamer Spinners: "attach all Auras enchanting target permanent to another permanent with the same controller". The other permanent is chosen on
+    resolution (it is not a target); an Aura that can't enchant it stays where it is (701.3b)."""
+    from app.rules import effects
+
+    old = next(iter(effects._cards(plan, ctx, e["src"])), None)
+    t = plan.state.cards.get(old or "")
+    if t is None or not t.zone.endswith(":battlefield"):
+        return True
+    auras = [c.id for c in plan.state.cards.values() if c.attached_to == t.id and "Aura" in plan.ch(c).subtypes]
+    hosts = [c.id for c in plan.state.cards.values() if c.id != t.id and c.zone.endswith(":battlefield") and c.controller == t.controller]
+    if not auras or not hosts:
+        return True
+    if len(hosts) == 1:
+        return _glamer_move(plan, ctx, auras, hosts[0])
+    effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'Glamer Spinners'}: choose another permanent to attach the Auras to",
+                   options=[effects.DecisionOption(id=h, label=plan.state.cards[h].name or "Permanent", card_id=h) for h in hosts],
+                   resume={"step": "glamer110g", "ctx": ctx, "auras": auras, "hosts": hosts})
+    return False
+
+
+def _glamer_move(plan: Any, ctx: dict[str, Any], auras: list[str], host: str) -> bool:
+    from app.rules import attachments
+
+    for a in auras:
+        card = plan.state.cards[a]
+        if attachments.host_problem(plan, card, host, ctx["controller"]) is None:
+            attachments.attach(plan, a, host, ctx["controller"])
+    return True
+
+
+def resume_glamer(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r = d.resume
+    if chosen[0] not in r["hosts"]:
+        raise ValueError("not a candidate")
+    _glamer_move(plan, r["ctx"], r["auras"], chosen[0])
+    effects.continue_effects(plan, r["ctx"])
+
+
 def _attach_to(plan: Any, ctx: dict[str, Any], aura: str, host: str) -> bool:
     from app.rules import attachments
 
@@ -643,6 +736,10 @@ def resume_reattach(plan: Any, d: Any, chosen: list[str]) -> None:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "At the beginning of your upkeep, for each land target player controls in excess of the number you control, choose a land that player controls, then the chosen permanents phase out. Repeat this process for artifacts and creatures.":
+        ("At the beginning of your upkeep, target player loses 1 life.", lambda d: {**d, "effects": [{"do": "equipoise110g", "who": "target"}]}),
+    "When this creature enters, attach all Auras enchanting target permanent to another permanent with the same controller.":
+        ("When this creature enters, tap target permanent.", lambda d: {**d, "effects": [{"do": "glamer110g", "src": "target"}]}),
     "At the beginning of the end step, if this creature is enchanted by two or more Auras, flip it.":
         ("At the beginning of the end step, if this creature is enchanted, flip this creature.", _two_auras),
     "{1}: Attach target Aura attached to a creature to another creature.":
@@ -779,6 +876,10 @@ _ENGULF = "When this creature enters, exile target non-Ooze creature an opponent
 _DISSOLVE = "{X}{B}: Put target creature card with mana value X exiled with this creature into its owner's graveyard."
 
 
+_MAZE = ("Whenever another creature becomes the target of an ability of a land you control named Labyrinth of Skophos, "
+         "you may have this creature fight that creature.")
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts, selectors
 
@@ -794,6 +895,12 @@ def definition(ability: Any, ch: Any) -> Def | None:
         sel = selectors.Selector(card=True, zones=("exile",), types=("Creature",), compare=(("mv", "==", selectors.X_VALUE),)).key()
         return {"kind": "activated", "cost": ability.cost, "effects": [{"do": "return_card", "who": "target", "to": "graveyard", "under": "owner"}],
                 "target": {"what": "exiled_with:" + sel}}
+    if ability.text.strip() == _MAZE:  # Skophos Maze-Warden: the targeted-event trigger with a source filter, then a may-fight with the targeted creature (701.14)
+        native = scripts.define(replace(ability, text="Whenever a creature becomes the target of an ability, tap that creature."), ch)
+        if native is None:
+            return None
+        return {**native, "optional": True, "effects": [{"do": "fight", "who": "self", "with": "event"}],
+                "cond": {**native["cond"], "sel": selectors.Selector(types=("Creature",), other=True).key(), "land_named110g": "Labyrinth of Skophos"}}
     if (same := _AS.get(ability.text.strip())) is not None:
         return scripts.define(replace(ability, text=same), ch)
     if (built := _BUILD.get(ability.text.strip())) is None:
@@ -1042,7 +1149,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
-RESUME: dict[str, Any] = {"gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
+RESUME: dict[str, Any] = {"equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

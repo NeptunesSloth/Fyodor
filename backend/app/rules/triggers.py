@@ -1240,6 +1240,12 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
         if cond.get("spell_only") and not info.get("spell"):
             return False
+        if cond.get("land_named110g"):  # -- wave 110G -- "an ability of a land you control named X" (Skophos Maze-Warden): the ability's source, as it was put on the stack
+            ref = info.get("source_ref")
+            entry = plan.rules.stack.get(ref.card) if ref is not None else None
+            src = plan.state.cards.get(entry.source_card) if entry is not None else None
+            if entry is None or src is None or entry.controller != you or entry.kind == "spell" or src.name != cond["land_named110g"] or "Land" not in plan.ch(src).types:
+                return False
         if cond.get("ability_only") and info.get("spell"):  # -- stack interaction (wave 23B) -- "becomes the target of an ability"
             return False
         if cond.get("first_each_turn") and not (info.get("first") or {}).get({"you": "by", "opponent": "by_opp"}.get(by, "any")):
