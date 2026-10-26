@@ -22,6 +22,7 @@
 * 722.3, 722.3d, 707.10: Codie prepares every creature it can, and copies each prepared spell (one cast from the exiled prepare copy) as it is cast.
 * 604.3a(5), 613.4b, 611.2b: Gaea's Liege's power and toughness (Forests you control, or defending player's while it attacks) are no characteristic-defining
   ability; its tap ability turns a land into a Forest for as long as it stays on the battlefield.
+* 506.3, 509.1b: Become the Pilot's creature can be blocked only while it attacks its owner (or a planeswalker / battle its owner controls).
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -59,10 +60,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Gaea's Liege", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Cuombajj Witches", "Magus of the Arena", "Karplusan Minotaur", "Desert Were-Worm", "Spire Phantasm", "Zabaz, the Glimmerwasp", "Codie, Ravenous Codex", "Gaea's Liege", "Become the Pilot", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, WITCHES, MAGUS, MINOTAUR, WORM, PHANTASM, ZABAZ, CODIE, LIEGE, PILOT, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -1178,3 +1179,32 @@ def test_gaeas_liege_makes_a_land_a_forest_while_it_stays_and_counts_the_defende
     assert now(s, liege).zone == "p1:graveyard"
     assert "Forest" not in ch(s, island).subtypes and "Forest" in ch(s, pool).subtypes
     check(s)
+
+
+@pytest.mark.parametrize(("target", "blocker_pid", "blockable"), [("p3", "p3", False), ("p2", "p2", True)])
+def test_become_the_pilot_creature_is_blockable_only_when_attacking_its_owner(cards, target, blocker_pid, blockable):
+    s = table(cards, [PILOT], ["Grizzly Bears", "Benalish Hero"], ["Mesa Pegasus"])
+    stolen = put(s, "Grizzly Bears", "p2")
+    bob_hero, carol_pegasus = put(s, "Benalish Hero", "p2"), put(s, "Mesa Pegasus", "p3")
+    cast_on(s, PILOT, stolen)
+    assert now(s, stolen).controller == "p1" and ch(s, stolen).pt == (4, 4)
+    s.state.rules.controlled_since[stolen.id].turn = 0
+    for want in ("declare_attackers", "declare_blockers"):
+        while s.state.rules.decision is None or s.state.rules.decision.kind != want or (want == "declare_blockers" and s.state.rules.decision.player != blocker_pid):
+            d = s.state.rules.decision
+            if d is not None and d.kind == "declare_blockers":  # (the other defender declares nothing)
+                act(s, d.player, type="declare_blockers", blocks=[])
+            else:
+                act(s, s.state.rules.priority, type="pass_priority")
+        if want == "declare_attackers":
+            act(s, "p1", type="declare_attackers", attackers=[{"card_id": stolen.id, "target": target}])
+    blocker = bob_hero if blocker_pid == "p2" else carol_pegasus
+    attempt = [{"blocker_id": blocker.id, "attacker_id": stolen.id}]
+    if blockable:
+        act(s, blocker_pid, type="declare_blockers", blocks=attempt)
+        settle(s)
+        assert now(s, blocker).zone == "p2:graveyard"  # (the 1/1 Hero blocked the 4/4 and died)
+    else:
+        with pytest.raises(ActionError):
+            act(s, blocker_pid, type="declare_blockers", blocks=attempt)
+        act(s, blocker_pid, type="declare_blockers", blocks=[])
