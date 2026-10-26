@@ -1,5 +1,6 @@
 """Wave 110J session 9: single-card wordings, real Oracle text (tests/fixtures/wave110j_cards.json). Every scenario ends with replay + save/load.
 
+* 122.1, 406.3, 608.2d: Kianne // Imbraham exile cards and mark them with study counters; the Fractal counts different mana values.
 * 613.1b, 608.2d, 701.26: Turf War: the creature's controller gains control of one of the defending player's contested lands (their choice) and untaps it.
 """
 
@@ -9,12 +10,17 @@ import pytest
 
 from tests.game_helpers import act
 from tests.wave9c_kit import build
-from tests.wave110b_kit import attack
-from tests.wave110j_kit import EXTRA, card_db, check, full, now, put_new  # noqa: F401
+from tests.wave110b_kit import attack, top
+from tests.wave110j_kit import EXTRA, activate, card_db, ch, check, fresh, mana, move, now, put_new, settle  # noqa: F401
+
+KIANNE = "Kianne, Dean of Substance // Imbraham, Dean of Theory"
 
 
-def test_the_cards_are_full():
-    assert full("Turf War")
+@pytest.mark.parametrize("name", ["Turf War", KIANNE])
+def test_the_cards_are_full(cards, name):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
 @pytest.mark.parametrize(("contested", "choice", "taken"), [(0, 0, None), (1, 0, 0), (2, 1, 1)])
@@ -43,4 +49,57 @@ def test_turf_war_takes_a_contested_land(cards, contested, choice, taken):
     for i, land in enumerate(lands):
         mine = taken == i
         assert (now(s, land).controller == "p1") is mine and (not now(s, land).tapped) is mine
+    check(s)
+
+
+def _kianne(cards, extra=(), face=0):
+    s = build(cards, [KIANNE, *extra])
+    k = put_new(s, KIANNE)
+    s.state.rules.controlled_since[k.id].turn = 0
+    if face:
+        act(s, "p1", type="set_face", card_id=k.id, face=1)
+    return s, k
+
+
+@pytest.mark.parametrize(("name", "zone", "counters"), [("Forest", "p1:hand", 0), ("Grizzly Bears", "p1:exile", 1)])
+def test_kianne_exiles_the_top_card(cards, name, zone, counters):
+    """A land goes to your hand; anything else stays exiled with a study counter."""
+    s, k = _kianne(cards, ["Grizzly Bears"])
+    top(s, name)
+    top_card = next(c for c in s.state.cards.values() if c.zone == "p1:library" and c.name == name)
+    activate(s, k, "{T}: Exile")
+    assert now(s, top_card).zone == zone and now(s, top_card).counters.get("study", 0) == counters
+    check(s)
+
+
+def test_kianne_fractal_counts_different_mana_values(cards):
+    """Two nonland cards of one mana value and one of another: two +1/+1 counters; a land with a study counter does not count."""
+    s, k = _kianne(cards, ["Grizzly Bears", "Templar Knight", "Wall of Stone", "Forest"])
+    seen = []
+    for name in ("Grizzly Bears", "Templar Knight", "Wall of Stone"):
+        c = fresh(s, name)
+        move(s, c, "exile")
+        act(s, "p1", type="counter", card_ids=[c.id], kind="study", delta=1)
+        seen.append(c)
+    mana(s, G=1, C=4)
+    activate(s, k, "{4}{G}")
+    token = next(c for c in s.state.cards.values() if c.name == "Fractal" and c.zone.endswith("battlefield"))
+    assert len({ch(s, c).mana_value for c in seen}) == 2 and ch(s, token).pt == (2, 2)
+    check(s)
+
+
+@pytest.mark.parametrize("pick", [0, 1])
+def test_imbraham_exiles_x_cards_and_may_take_one(cards, pick):
+    """The top X cards get study counters, then you may put a card with one into your hand (the player's choice, up to one)."""
+    s, k = _kianne(cards, ["Grizzly Bears", "Templar Knight"], face=1)
+    top(s, "Templar Knight")
+    top(s, "Grizzly Bears")
+    mana(s, U=2, C=2)
+    act(s, "p1", type="activate_ability", card_id=k.id, ability=1, x_value=2)
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards" and len(d.options) == 2
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[pick].id] if pick == 0 else [])
+    settle(s)
+    exiled = [c for c in s.state.cards.values() if c.zone == "p1:exile" and c.counters.get("study")]
+    assert len(exiled) == (1 if pick == 0 else 2) and len([c for c in s.state.cards.values() if c.zone == "p1:hand" and c.name in ("Grizzly Bears", "Templar Knight")]) == (1 if pick == 0 else 0)
     check(s)

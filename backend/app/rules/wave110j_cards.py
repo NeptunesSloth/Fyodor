@@ -647,3 +647,27 @@ def resume_turf(plan: Any, d: Any, chosen: list[str]) -> None:
 
 PRIMITIVES["turf110j"] = turf
 RESUME: dict[str, Any] = {"turf110j": resume_turf}
+
+
+# -- Kianne, Dean of Substance // Imbraham, Dean of Theory (wave 110J) -- study counters on exiled cards (122.1: counters on a card in exile are legal)
+def _kianne(d: Def) -> Def:
+    land = d["effects"][1]["cond"]
+    return {**d, "effects": [d["effects"][0], d["effects"][1], d["effects"][2], {"do": "only_if", "cond": {"not": land}, "skip": 1},
+                             {"do": "add_counters", "who": "ref:e0", "kind": "study", "n": 1}]}
+
+
+_BUILD["{T}: Exile the top card of your library. If it's a land card, put it into your hand. Otherwise, put a study counter on it."] = (
+    "{T}: Exile the top card of your library. If it's a land card, return it to your hand.", _kianne)
+
+
+def _imbraham(d: Def) -> Def:
+    from app.rules import selectors
+
+    sel = selectors.parse("card you own in exile with a study counter on it")
+    assert sel is not None
+    return {**d, "effects": [*d["effects"], {"do": "player_chooses", "who": "you", "sel": sel.key(), "n": 1, "label": "card with a study counter", "zone": "exile",
+                                             "upto": True, "optional": True, "as": "stu"}, {"do": "bounce", "who": "ref:stu"}]}
+
+
+_BUILD["{X}{U}{U}, {T}: Exile the top X cards of your library and put a study counter on each of them. Then you may put a card you own in exile with a study counter on it into your hand."] = (
+    "{X}{U}{U}, {T}: Exile the top X cards of your library and put a study counter on each of them.", _imbraham)
