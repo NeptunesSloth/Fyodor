@@ -444,6 +444,10 @@ def choose_groups(plan: Plan, specs: list[dict[str, Any]], chooser: str, source:
                    if t not in exclude and t not in banned]  # (-- player-relative selectors (wave 53A) -- "target creature that player controls": that player from the earlier group)
         if (owner := spec.get("graveyard_of")) is not None and owner < len(out.groups):  # -- shuffle target cards (wave 46B) -- "target cards from their graveyard":
             options = [t for t in options if plan.state.cards[t].owner in out.groups[owner]]  # the graveyard of the player chosen for that group
+        if spec.get("blocked_by110i") is not None:  # -- cards (wave 110I) -- Glyph of Delusion: "target creature that target Wall blocked this turn" (509.1g block history)
+            from app.rules import wave110i_cards
+
+            options = wave110i_cards.block_options(plan, spec, options, out.groups)
         from app.rules import permanent_exchanges
 
         options = permanent_exchanges.viable_first(plan, specs, g, options,

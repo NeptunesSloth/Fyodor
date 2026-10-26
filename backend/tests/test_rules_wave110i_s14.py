@@ -3,6 +3,7 @@
 * Wayta, Trainer Prodigy: "a creature you control being dealt damage" makes the triggers of that damage trigger an additional time (603.2d; the fight's cost drops by {2} when both targets are creatures you control (601.2f).
 * Spoils of War: {X}{B}; X is the number of artifact and/or creature cards in the opponent chosen as it is cast (ruling 2008-08-01): the announced X names the opponent.
 * Acidic Dagger: delayed triggers on the target (603.7): combat damage to a non-Wall creature destroys it; the Dagger is sacrificed when the target leaves; first combat phase only (ruling 2013-09-20).
+* Glyph of Delusion: two linked targets, a Wall and a creature it blocked this turn (509.1g block history); X = the blocked creature's power (ruling 2004-10-04: castable after the block, even in the second main phase).
 * Guardian Archon: "Reveal the player you chose" (the entry secret choice, 614.12a) gives you and a permanent you control protection from that player (702.16k) until end of turn; once only.
 """
 from __future__ import annotations
@@ -199,3 +200,50 @@ def test_dagger_not_after_combat(cards):
     mana(s, C=4)
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=dagger.id, ability=0, targets=[bear.id])
+
+
+GLYPH = real("Glyph of Delusion", "{U}", 1, "Instant",
+             "Put X glyph counters on target creature that target Wall blocked this turn, where X is the power of that blocked creature. The creature gains \"This creature doesn't untap during "
+             "your untap step if it has a glyph counter on it\" and \"At the beginning of your upkeep, remove a glyph counter from this creature.\"", None, "U")
+base.EXTRA.append(GLYPH)
+
+
+def test_glyph_full(cards):
+    assert coverage.of_card_data(cards.resolve("Glyph of Delusion")).level == "FULL"
+
+
+def _glyph_game(cards, blocker):
+    from tests.test_rules_conditionals import until
+    from tests.test_rules_wave43d_cast_keywords import connect
+    from tests.wave9c_kit import build
+
+    s = build(cards, ["Glyph of Delusion", "Bear110I", "Bear110I"], ["Wall110I", "Giant110I"], forests=25, islands=25)
+    bear, foe, other = put(s, "Bear110I"), put(s, blocker, "p2"), put(s, "Giant110I" if blocker == "Wall110I" else "Wall110I", "p2")
+    connect(s, bear, block=(foe, bear))
+    return s, bear, foe, other
+
+
+def test_glyph_puts_counters_equal_to_the_blocked_creatures_power(cards):
+    s, bear, wall, _ = _glyph_game(cards, "Wall110I")
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Glyph of Delusion").id, targets=[bear.id, wall.id], target_counts=[1, 1])
+    answer(s)
+    assert s.state.cards[bear.id].counters.get("glyph") == 2
+    check(s)
+
+
+def test_glyph_second_target_must_be_a_wall(cards):
+    s, bear, giant, _ = _glyph_game(cards, "Giant110I")
+    mana(s, U=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Glyph of Delusion").id, targets=[bear.id, giant.id], target_counts=[1, 1])
+
+
+def test_glyph_creature_must_have_been_blocked_by_that_wall(cards):
+    """The Wall blocked the first Bear only: Alice's other Bear is not a creature it blocked."""
+    s, bear, wall, _ = _glyph_game(cards, "Wall110I")
+    other = next(c for c in s.state.cards.values() if c.name == "Bear110I" and c.owner == "p1" and c.id != bear.id)  # (Alice's second Bear never was blocked)
+    act(s, "p1", type="move", card_ids=[other.id], to={"player": "p1", "zone": "battlefield"})
+    mana(s, U=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Glyph of Delusion").id, targets=[other.id, wall.id], target_counts=[1, 1])

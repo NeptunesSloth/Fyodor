@@ -540,6 +540,8 @@ def spell(ch: Any, lines: list[Any]) -> Def | None:
     """Whole-spell wordings: Spoils of War's X sentence defines the divided total (107.3c) counted as it is cast (601.2d)."""
     from app.rules import scripts
 
+    if [x.text for x in lines] == [_GLYPH]:
+        return glyph(ch)
     if [x.text for x in lines] != _SPOILS:
         return None
     parsed = scripts.parse_effects("Distribute X +1/+1 counters among any number of target creatures, where X is the number of creature cards in your graveyard.")
@@ -547,6 +549,39 @@ def spell(ch: Any, lines: list[Any]) -> Def | None:
     effects, targets, _ = parsed
     targets[0]["divide"]["value"] = {"opp_gy110i": ["Artifact", "Creature"]}
     return {"kind": "spell", "whole110k": True, "effects": effects, **scripts.target_fields(targets)}  # (whole110k: coverage reads both lines as this one definition)
+
+
+_GLYPH = ("Put X glyph counters on target creature that target Wall blocked this turn, where X is the power of that blocked creature. The creature gains "
+          "\"This creature doesn't untap during your untap step if it has a glyph counter on it\" and \"At the beginning of your upkeep, remove a glyph counter from "
+          "this creature.\"")
+
+
+def glyph(ch: Any) -> Def | None:
+    """Glyph of Delusion: counters equal to the power of the blocked creature (read as it resolves, 608.2h LKI), the creature gains the two granted lines for good."""
+    from app.rules import language, scripts
+
+    parsed = scripts.parse_effects("Put a glyph counter on target creature. That creature gains \"This creature doesn't untap during your untap step if it has a glyph counter on it.\" "
+                                   "That creature gains \"At the beginning of your upkeep, remove a glyph counter from this creature.\"")
+    creature, wall = language.target_group("target creature"), language.target_group("target Wall")
+    if parsed is None or creature is None or wall is None:
+        return None
+    effects = [{**e, "n": {"power": "target"}} if e.get("do") == "add_counters" else e for e in parsed[0]]
+    groups = [{**creature, "blocked_by110i": 1, "role110i": "blocked"}, {**wall, "blocked_by110i": 0, "role110i": "wall"}]
+    return {"kind": "spell", "whole110k": True, "effects": effects, **scripts.target_fields(groups)}
+
+
+def block_options(plan: Plan, spec: dict[str, Any], options: list[str], groups: list[list[str]]) -> list[str]:
+    """Glyph of Delusion's two linked groups (``role110i`` "blocked" / "wall", ``blocked_by110i`` the other group's index): a Wall and a creature it blocked this turn
+    (509.1g; ruling 2004-10-04: any creature it was assigned to block or blocked through bands or a switched block, all in the turn's block history)."""
+    r = plan.state.rules
+    if r is None or r.turn_log.turn != plan.state.turn.number:
+        return []
+    pairs = [(blocker.rsplit(".", 1)[0], attackers) for blocker, attackers in r.turn_log.blocks.items()]
+    other = groups[spec["blocked_by110i"]][0] if spec["blocked_by110i"] < len(groups) and groups[spec["blocked_by110i"]] else None
+    if spec["role110i"] == "wall":
+        return [t for t in options if any(w == t and (other is None or r.object_id(other) in att) for w, att in pairs)]
+    walls = {w for w, att in pairs if plan.state.cards.get(w) is not None and "Wall" in plan.ch(plan.state.cards[w]).subtypes}
+    return [t for t in options if any(w in walls and (other is None or w == other) and r.object_id(t) in att for w, att in pairs)]
 
 
 def opp_gy_total(plan: Plan, you: str, types: list[str], x: int | None) -> int:
