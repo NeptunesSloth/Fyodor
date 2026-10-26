@@ -26,7 +26,7 @@ def groups(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
     pending = e.get('groups')
     if pending is None:
-        order = list(plan.state.seat_order)
+        order = plan.state.turn_order()
         active = plan.state.turn.active_player
         at = order.index(active)
         order = order[at:] + order[:at]

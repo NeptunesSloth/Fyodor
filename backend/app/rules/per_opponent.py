@@ -91,7 +91,7 @@ def expanded(plan: Plan, controller: str, source_card: str | None, ab: dict[str,
     if not flagged(ab):
         return ab
     group = ab["targets"][0]
-    order = plan.state.seat_order
+    order = plan.state.turn_order()
     start = order.index(controller) if controller in order else 0
     opponents = [p for i in range(len(order)) if (p := order[(start + i) % len(order)]) in plan.live() and (p != controller or group[FLAG] == "player")]
     sel = selectors.from_key(group["what"])

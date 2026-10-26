@@ -299,6 +299,9 @@ def _component(part: str, card_name: str) -> CostComponent | None:
     if part == "Exile any number of other cards from your graveyard with four or more card types among them":  # -- (wave 110M) -- Nethergoyf: 601.2h, 205.2a
         return CostComponent(EXILE_FROM_GRAVEYARD, amount=4, more=True, anyn=True, names="types4_110m", text=part,
                              selector=selectors.Selector(card=True, other=True, zone_owner="you", zones=("graveyard",)).key())
+    if part == "Exile any number of black cards from your graveyard with fifteen or more black mana symbols among their mana costs":  # -- (wave 110M) -- Baron Helmut Zemo's boast: 601.2h
+        return CostComponent(EXILE_FROM_GRAVEYARD, amount=1, more=True, anyn=True, names="black15_110m", text=part,
+                             selector=selectors.Selector(card=True, colors=("B",), zone_owner="you", zones=("graveyard",)).key())
     if m := re.fullmatch(r"Sacrifice all (?P<what>.+)", part):
         key = _selector(m["what"], zone="battlefield")
         return CostComponent(SACRIFICE, selector=key, all_objects=True, text=part) if key else None
@@ -439,6 +442,7 @@ def parse_ability_cost(cost: str, *, card_name: str = "", loyalty: bool = False,
     from app.rules import wave110d_costs  # -- costs (wave 110D) --
 
     cost = wave110d_costs.rewrite(cost)
+    cost = cost.replace(", Choose flying, first strike, trample, or shadow", "")  # -- wave 110J -- Phyrexian Splicer: the choice is the ability's mode (wave110j_cards._splicer)
     if loyalty:
         raw = cost.strip().replace("−", "-")
         if raw.upper() == "-X":
@@ -570,8 +574,8 @@ def _exile_to_gy(part: str) -> CostComponent | None:
     """-- if you do (wave 15C) -- the processors' cost; only cards a player can look at: face-up exile (406.3)."""
     from app.rules import selectors
 
-    if part == "Put a card exiled with ~ into its owner's graveyard":
-        key = selectors.Selector(card=True, zones=('exile',), extras=('source_linked',)).key()
+    if part in ("Put a card exiled with ~ into its owner's graveyard", "Put a creature card exiled with ~ into its owner's graveyard"):  # (wave 110D: Shelob, Dread Weaver)
+        key = selectors.Selector(card=True, zones=('exile',), extras=('source_linked',), types=("Creature",) if " creature " in part else ()).key()
         return CostComponent(EXILE_TO_GY, amount=1, selector=key, text=part)
     m = _EXILE_TO_GY.match(part)
     if m is None:
@@ -855,12 +859,18 @@ def pair_counts(times: int) -> tuple[int, int]:
     return times & 31, times >> 5
 
 
+_OPTIONAL_EXTRA = re.compile(r"As an additional cost to cast this spell, you may pay (?P<cost>\{2\}\{R\})\.")  # -- (wave 110O) -- Undergrowth, the one printed wording
+
+
 def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
     """702.33a / 702.33c: the card's "Kicker {cost}" or "Multikicker {cost}" line (mana only), or
     None. Two kicker costs ("Kicker {1}{U} and/or {2}{B}", 702.33b), non-mana kicker costs
     ("Kicker—Sacrifice a land") and X in the cost stay manual."""
     found: list[Kicker] = []
     for ab in abilities:
+        if (opt := _OPTIONAL_EXTRA.fullmatch(ab.text.strip())) is not None and ab.kind == "spell":  # -- (wave 110O) -- 601.2b, 118.8: "you may pay {2}{R}" is an optional additional cost, read as a kicker
+            found.append(Kicker(opt["cost"], text=ab.text.strip().rstrip(".")))
+            continue
         if ab.kind != "keywords" or not ({"kicker", "multikicker", "squad", "replicate", "offspring", "entwine"} & set(ab.keywords)):
             continue
         if (positive := positive_kicker_x(ab.text)) is not None:
@@ -886,6 +896,7 @@ def kicker_cost(abilities: Iterable[AbilityText]) -> Kicker | None:
 
 
 # -- costs (wave 3$) -- additional costs to cast a spell (118.8, 601.2b) ----------------------------------
+_THROWDOWN_COST = "As an additional cost to cast this spell, sacrifice a creature or sacrifice a modified creature."
 _ADDITIONAL = re.compile(r"^as an additional cost to cast (?:this spell|~), (?P<cost>[^.]+)\.?$", re.IGNORECASE)
 # What a spell's additional cost may be made of: parts with chosen objects (or life / energy). Never the
 # source itself (a spell isn't on the battlefield to be sacrificed), tapping it, mana or counters on it.
@@ -949,6 +960,8 @@ def any_number_part(text: str, per: int) -> CostComponent | None:
 
 def additional_cost_text(line: str) -> str | None:
     """"As an additional cost to cast this spell, sacrifice a creature." → "sacrifice a creature"."""
+    if line.strip() == _THROWDOWN_COST:  # -- wave 110E -- 118.8: a modified creature is a creature, so "or a modified creature" adds no choice (Lethal Throwdown)
+        return "sacrifice a creature"
     m = _ADDITIONAL.match(line.strip())
     if m is None and line.strip().lower().rstrip(".") == ("as an additional cost to cast this spell, blight x. x can't be greater than the greatest "
                                                          "toughness among creatures you control"):
@@ -1025,7 +1038,7 @@ def parse_additional_cost(text: str) -> AbilityCost | None:
     if text.lower().startswith("you may") or "," in text:
         return None
     has_x = re.search(r"\bx\b", text, re.IGNORECASE) is not None  # -- X sized by a count (wave 25D) -- one part sized by the announced X (below)
-    if has_x and not re.match(r"^(?:(?:sacrifice|discard|exile|return) X |blight X$)", text, re.IGNORECASE):
+    if has_x and not re.match(r"^(?:(?:sacrifice|discard|exile|return) X |blight X$)", text, re.IGNORECASE) and text != "sacrifice an artifact or creature with mana value X":  # (wave 110O: Nahiri's Sacrifice)
         return None
     parts = [p.strip() for p in re.split(r" and (?=(?:sacrifice|discard|pay|exile|return|tap) )", text)]
     components: list[CostComponent] = []

@@ -394,7 +394,9 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     ``controlled``: "goad each creature target player / that player controls" (``who`` names the
     player(s))."""
     pid = ctx["controller"]
-    if e.get("controlled"):
+    if e.get("suspected"):  # (wave 110B) 701.60: "goad all suspected creatures"
+        cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) in plan.rules.suspected]
+    elif e.get("controlled"):
         players = set(effects._players(plan, ctx, e["who"]))
         cards = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller in players
                  and plan.in_game(c) and plan.ch(c).is_creature]
@@ -403,7 +405,13 @@ def goad(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     effects._remember(plan, ctx, e, cards)
     fresh = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")
              and pid not in goaded_by(plan.ch(plan.state.cards[c]))]
-    if fresh:
+    if fresh and e.get("forever"):  # -- goad (wave 110A) -- "goaded for the rest of the game": the effect never ends (a new object isn't goaded, 400.7)
+        from app.rules import layers
+
+        layers.add_effect(plan, affected=[plan.oid(c) for c in fresh], layer="6", source=ctx.get("source_object"), controller=pid,
+                          imposes=(GOADED + pid,), label=f"goaded by {plan.name(pid)}", duration="permanent")
+        plan.note(f"{plan.name(pid)} goads {effects._labels(plan, fresh)} for the rest of the game", fresh, actor=pid)
+    elif fresh:
         _until_next_turn(plan, ctx, fresh, (GOADED + pid,), "Goaded", "goads")
         ctx.setdefault("goaded", []).extend(plan.oid(c) for c in fresh)  # -- goad (wave 50J) -- "goaded this way" (this_way.py)
     return True

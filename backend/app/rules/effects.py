@@ -106,6 +106,10 @@ def _players(plan: Plan, ctx: Context, who: str) -> list[str]:
         return [who[7:]] if who[7:] in plan.live() else []
     if who == "each_player":
         return list(plan.live())
+    if who == "tapped_land110h" or who.startswith("plains110h:"):  # -- cards (wave 110H) -- Desolation
+        from app.rules import wave110h_cards
+
+        return wave110h_cards.tappers(plan) if who == "tapped_land110h" else wave110h_cards.plains_players(plan, ctx, who[11:])
     if who == "source_controller110a":  # -- wave 110A -- "~'s controller" in an ability anyone may activate (Xantcha); last known if it left (608.2h)
         src110a = plan.state.cards.get(ctx.get("source_card") or "")
         snap110a = plan.rules.lki.get(ctx.get("source_object") or "")
@@ -984,7 +988,7 @@ RESTRICTION_LABELS = {"assign_toughness_if_tougher": "Assigns combat damage usin
 
 # -- attack restrictions (wave 32B) -- the marker of "can't attack you …" names the player (the rule's own text is "cant_attack_player:<id>")
 ATTACK_LABELS = {"cant_attack_player": "Can't attack {}", "cant_attack_player_pw": "Can't attack {} or their planeswalkers",
-                 "cant_attack_player_perm": "Can't attack {} or their permanents", "attack_tax": "Attacking {} costs extra",
+                 "cant_attack_player_perm": "Can't attack {} or their permanents", "cant_attack_player_jace110b": "Can't attack {}'s Jaces", "attack_tax": "Attacking {} costs extra",
                  "attack_tax_pw": "Attacking {} costs extra", "attack_player": "Attacks {} if able"}  # (attack_player: wave 47B)
 
 
@@ -1127,6 +1131,7 @@ def _from_zone(plan: Plan, e: dict[str, Any], cards: list[str]) -> list[str]:
 
 
 def exile_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
+    cards = _prohibitions.trigger_token_shield(plan, ctx, cards)  # -- prohibitions (wave 110A) --
     before = _remember(plan, ctx, e, cards)
     if cards:
         on_bf = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]  # -- cards (wave 110I) --
@@ -1585,7 +1590,7 @@ def suspend_cast(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- granted casts (wave 29B) -- any half / face (709.3, 712.11b, 715.3)
     from app.rules import granted_casts
 
-    return granted_casts.ask(plan, ctx, player=card.owner, cid=card.id, head="The last time counter was removed", no="Leave it exiled", play=True)
+    return granted_casts.ask(plan, ctx, player=card.owner, cid=card.id, head="The last time counter was removed", no="Leave it exiled", play=not e.get("cast110m"))  # (110M: Alaundo says "cast")
 
 
 def leave_uncast(plan: Plan, player: str, cid: str, how: str | None, group: Any = ()) -> None:
@@ -1731,6 +1736,15 @@ def cascade(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             hit = top
             break
         missed.append(top)
+    from app.rules import wave110a_averna
+
+    if wave110a_averna.ask(plan, ctx, e, missed, hit):  # -- Averna (wave 110A) -- "As you cascade, you may put a land card from among the exiled cards onto the battlefield tapped"
+        return False
+    return cascade_end(plan, ctx, e["mv"], missed, hit)
+
+
+def cascade_end(plan: Plan, ctx: Context, mv: int, missed: list[str], hit: str | None) -> bool:
+    pid = ctx["controller"]
     order = bottom_at_random(plan, pid, missed)
     if hit is None:
         plan.note("Cascade found nothing")
@@ -1738,7 +1752,7 @@ def cascade(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- granted casts (wave 29B) -- "if the resulting spell's mana value is less" (702.85a): each half / face
     from app.rules import granted_casts
 
-    return granted_casts.ask(plan, ctx, player=pid, cid=hit, head="Cascade", no="Put it on the bottom", decline="bottom", below=e["mv"],
+    return granted_casts.ask(plan, ctx, player=pid, cid=hit, head="Cascade", no="Put it on the bottom", decline="bottom", below=mv,
                              group=order)
 
 
@@ -2162,6 +2176,7 @@ def exile_until(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 def _exile_until_cards(plan: Plan, ctx: Context, e: dict[str, Any], cards: list[str]) -> bool:
+    cards = _prohibitions.trigger_token_shield(plan, ctx, cards)  # -- prohibitions (wave 110A) --
     before = _remember(plan, ctx, e, cards)
     if cards:
         on_bf = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield")]
@@ -2815,6 +2830,8 @@ def _sacrifice_cards(plan: Plan, cards: list[str], actor: str, ctx: Context | No
 
     cards = [c for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":battlefield")
              and not prohibitions.sacrifice_forbidden(plan, plan.state.cards[c])]
+    if ctx is not None:
+        cards = prohibitions.trigger_token_shield(plan, ctx, cards)  # -- prohibitions (wave 110A) --
     if ctx is not None:  # -- prohibitions (wave 22B) -- 614.17: "Spells and abilities your opponents control can't cause you to sacrifice permanents."
         from app.rules import prohibitions
 
@@ -3050,11 +3067,6 @@ def attach_self(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     src = _cards(plan, ctx, "self")
     targets = _cards(plan, ctx, "target")
     if src and targets:
-        from app.rules import wave110e_blade  # -- becomes attached, choose (wave 110E) --
-
-        if wave110e_blade.needs(plan, src[0]) and attachments.host_problem(plan, plan.state.cards[src[0]], targets[0]) is None \
-                and plan.state.cards[src[0]].attached_to != targets[0]:
-            return wave110e_blade.ask(plan, ctx, src[0], targets[0])
         attachments.attach(plan, src[0], targets[0], ctx["controller"])  # doesn't move if it can't (701.3b)
     return True
 
@@ -4056,12 +4068,13 @@ def _begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
         groups: list[list[dict[str, Any] | None]] = []
         for refs, gspec in zip(entry.groups, entry.group_specs, strict=False):
             # an illegal target keeps its place (None), so the division stays as announced (115.7f)
-            together = relation_ok(plan, gspec, refs)  # (wave 51A) "that share a creature type": no longer so, all of the group's targets are illegal (608.2b; Shifting Loyalties ruling)
+            kind = rec.pick110e if gspec.get("chosen110h") and (rec := plan.rules.payments.get(entry.source_object or "")) is not None else None  # -- cards (wave 110H) -- Selective Snare: each target needs THAT type (608.2b)
+            together = bool(kind) or relation_ok(plan, gspec, refs)  # (wave 51A) "that share a creature type": no longer so, all of the group's targets are illegal (608.2b; Shifting Loyalties ruling)
             what = player_relative.bind_what(plan, gspec, entry.groups)  # (-- player-relative selectors (wave 53A) -- "that player controls": the player group ``of`` names, as it last was)
             dependency = gspec.get('requires_legal_group')
             if dependency is not None:
                 together = together and 0 <= dependency < len(groups) and any(groups[dependency])
-            groups.append([t.model_dump() if together and still_legal(plan, what, entry.controller, t, src, entry.source_card, attacker, source_object=entry.source_object)
+            groups.append([t.model_dump() if together and (not kind or t.id in plan.state.cards and kind in plan.ch(plan.state.cards[t.id]).subtypes) and still_legal(plan, what, entry.controller, t, src, entry.source_card, attacker, source_object=entry.source_object)
                            else None for t in refs])
         chosen = sum(len(refs) for refs in entry.groups)
         from app.rules import exchange_conditions91
@@ -4259,7 +4272,7 @@ def describe(effects: list[dict[str, Any]]) -> str:
     parts = [("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
               else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
              else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest", "vislor110n", "rinoa_pick110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest", "vislor110n", "rinoa_pick110o", "cleansing110o", "heroic110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
     return (", ".join(parts) or "do it").capitalize()
 
 
@@ -4660,7 +4673,7 @@ CHOICE_LABELS = {"second color": "Chosen second color", "second basic land type"
 CHOICE_OPTIONS["direction"] = ["left", "right"]
 CHOICE_LABELS["direction"] = "Chosen direction"
 CHOICE_LABELS.update(entry_forms.CHOICE_LABELS)  # -- entry forms (wave 5F) -- "a color other than blue"
-CHOICE_LABELS.update({w: card_names.LABEL for w in card_names.ALL_WHATS})  # -- card names (wave 22B) -- 201.4
+CHOICE_LABELS.update({w: card_names.LABEL for w in (*card_names.ALL_WHATS, card_names.SECOND)})  # -- card names (wave 22B) -- 201.4
 
 
 def _choice_options(plan: Plan, ctx: Context, what: str) -> list[DecisionOption]:
@@ -5002,7 +5015,7 @@ def become(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 _MARKER_TEXT = {"end_of_turn": "until end of turn", "next_turn": delayed.LABELS["next_turn"], "end_of_combat": "this combat",
-                "creature_cast110m": delayed.LABELS["creature_cast110m"]}  # (wave 110M)  # (wave 49C: end_of_combat)
+                "creature_cast110m": delayed.LABELS["creature_cast110m"], "roll1_110f": delayed.LABELS["roll1_110f"]}  # (wave 110M)  # (wave 49C: end_of_combat)
 _COLOR_WORDS = {"W": "white", "U": "blue", "B": "black", "R": "red", "G": "green"}
 
 
@@ -7269,6 +7282,9 @@ RESUME.update(_wave110e_pets.RESUME)
 from app.rules import wave110b_mirror as _wave110b_mirror  # noqa: E402, I001  -- (wave 110B) --
 
 PRIMITIVES.update(_wave110b_mirror.PRIMITIVES)
+from app.rules import wave110e_once as _wave110e_once  # noqa: E402, I001  -- Storyweave (wave 110E) --
+
+PRIMITIVES.update(_wave110e_once.PRIMITIVES)
 from app.rules import wave110e_blade as _wave110e_blade  # noqa: E402, I001  -- Sanctuary Blade (wave 110E) --
 
 RESUME.update(_wave110e_blade.RESUME)

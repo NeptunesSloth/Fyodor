@@ -115,6 +115,19 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
         from app.rules import sagas
 
         return definitions(_replace(ab, kind="triggered"), ch) if sagas.chapters_of(ab.text) else {}
+    from app.rules import wave110f_gy  # -- Cemetery Desecrator (wave 110F) --
+
+    if (gy110f := wave110f_gy.definitions(ab, ch)) is not None:
+        return gy110f
+
+    from app.rules import wave110o_cards  # -- (wave 110O) --
+
+    if (swap110o := wave110o_cards.modal_swap(ab, ch)) is not None:
+        found110o = definitions(ab, swap110o[0])
+        head = found110o.get(ab.index)
+        if head is not None and len(head.get("modes") or []) > swap110o[1]:
+            head["modes"][swap110o[1]] = {**head["modes"][swap110o[1]], "effects": swap110o[2]}
+        return found110o
     ab = wave110h_cards.modal_header(ab, ch)  # -- Immard (wave 110H) --
     if ab.kind == "triggered" and ", you may choose two" in ab.text:
         # -- commanders (wave 50C) -- "you may choose two" (Shadrix Silverquill ruling 2021-04-16): exactly zero modes or two modes, never one (700.2d)
@@ -262,7 +275,7 @@ def _plain_groups(ab: AbilityText, groups: list[Definition]) -> bool:
     support X-sized counts and totals, read from the object whose event caused the trigger.
     Activated X/total/divided groups remain unsupported until their mode preflight reads them.
     """
-    allowed = {"what", "min", "max", "same_graveyard"}  # (wave 100N: "from a single graveyard", checked by targets.choose_groups for joined groups too)
+    allowed = {"what", "min", "max", "same_graveyard", "distinct_from"}  # (wave 110J: "another target creature", numbered from the group's own mode: casting.modal_groups) # (wave 100N: "from a single graveyard", checked by targets.choose_groups for joined groups too)
     if ab.kind == "triggered":
         allowed |= {"x_count", "total"}
     elif ab.kind not in ("activated", "loyalty"):

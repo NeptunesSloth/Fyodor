@@ -434,6 +434,8 @@ def _source(phrase: str) -> dict[str, Any] | None:
     """The damage source a static watches for (609.7c: permanents with the property, and sources
     elsewhere that have it): its colors, card types, subtypes, whether it's a spell, its controller."""
     phrase = phrase.strip()
+    if phrase == "a source controlled by one of the chosen players":  # -- wave 110E -- Bitter Feud (wave110e_pair)
+        return {"chosen_pair110e": True}
     if phrase == "~":
         return {"self": True}
     if phrase in ("equipped creature", "enchanted creature"):
@@ -537,6 +539,8 @@ def _source(phrase: str) -> dict[str, Any] | None:
 def _recipient(phrase: str | None) -> dict[str, Any] | None:
     """What the damage would be dealt to: players ("you", "an opponent", "a player") and/or
     permanents (a selector, "~", what it's attached to); None: any recipient."""
+    if phrase == "the other chosen player or a permanent that player controls":  # -- wave 110E -- Bitter Feud (wave110e_pair)
+        return {"chosen_pair110e": True}
     if phrase == "the chosen player or a permanent they control":
         return {"chosen_player_or_controlled": True}
     if phrase is None or phrase in ("a permanent or player", "a player or permanent", "any target"):

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 WHAT = "pick110a"
 TEXTS = {"As ~ enters, choose another creature you control.": "other creature you control",
+         "As ~ enters, choose a creature.": "creature",  # Metamorphic Alteration (wave110a_chosen)
          # -- enters attached (wave 110I) -- 303.4f / 301.5: chosen as it enters, so it enters attached to it
          "As ~ enters, choose a creature you control it could be attached to. If you do, it enters attached to that creature.": "creature you control"}
 LABEL = "Chosen creature"
@@ -50,12 +51,16 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
         live = plan.live()
         return (f"{plan.ch(card).name or card.name}: as it enters, choose two players",
                 [DecisionOption(id=f"{a},{b}", label=f"{plan.name(a)} and {plan.name(b)}") for i, a in enumerate(live) for b in live[i + 1:]])
-    ids = selectors.candidates(plan, selectors.from_key(choice["pick110a"]), controller, card.id)
+    sel = selectors.from_key(choice["pick110a"])
+    ids = selectors.candidates(plan, sel, controller, card.id)
     if choice.get("attach110i"):  # "it could be attached to": a legal host (protection, Equipment rules)
         from app.rules import attachments
 
         ids = [c for c in ids if attachments.host_problem(plan, card, c) is None]
-    return (f"{plan.ch(card).name or card.name}: as it enters, choose another creature you control",
+    if choice.get("what") == "exile110o":  # -- (wave 110O) -- Living Lore
+        return (f"{plan.ch(card).name or card.name}: as it enters, exile an instant or sorcery card from your graveyard",
+                [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in ids])
+    return (f"{plan.ch(card).name or card.name}: as it enters, choose {'another' if sel.other else 'a'} creature{' you control' if sel.controller else ''}",
             [DecisionOption(id=c, label=plan.state.cards[c].name or "Creature", card_id=c) for c in ids])
 
 

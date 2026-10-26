@@ -44,8 +44,12 @@ ALL_WHATS = ("card name", "card name other than a basic land card name", "nonlan
              "nonartifact, nonland card name", "noncreature, nonland card name", "nonbasic land card name")
 
 
+SECOND = "second card name other than a basic land card name"  # Null Chamber (wave 110F): the opponent's name, recorded after the first as "A | B"
+SEP = " | "
+
+
 def is_choice(what: str | None) -> bool:
-    return bool(what) and _WHAT.match(what or "") is not None
+    return bool(what) and (what == SECOND or _WHAT.match(what or "") is not None)
 
 
 def option(what: str) -> DecisionOption:
@@ -130,8 +134,8 @@ def chosen(plan: Plan, source: str | None) -> str | None:
 
 
 def has_name(ch: Characteristics, name: str | None) -> bool:
-    """709.4a: the object has the chosen name if one of its names is it."""
-    return bool(name) and normalize_name(name or "") in {normalize_name(n) for n in names_of(ch)}
+    """709.4a: the object has the chosen name if one of its names is it (Null Chamber: two chosen names, ``SEP``-joined: either one)."""
+    return bool(name) and bool({normalize_name(n) for n in (name or "").split(SEP)} & {normalize_name(n) for n in names_of(ch)})
 
 
 def matches(plan: Plan, source: str | None, ch: Characteristics) -> bool:
@@ -149,6 +153,10 @@ def enters_choice(text: str) -> dict[str, Any] | None:
     if m is not None:
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": m["what"], "remember": True}]}
+    if text == "As ~ enters, you and an opponent each choose a card name other than a basic land card name.":  # Null Chamber (614.12a, 201.4a): both names stay public on it
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "card name other than a basic land card name", "remember": True},
+                            {"do": "choose_value", "who": "you", "what": SECOND, "remember": True, "opp110e": True}]}
     if text == "As ~ enters, look at an opponent's hand, then choose any card name.":
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": LOOK},

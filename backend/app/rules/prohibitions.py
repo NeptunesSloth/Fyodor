@@ -72,6 +72,9 @@ def static_definition(text: str) -> Definition | None:
         if sel is None or sel.player is not None:
             return None
         return {"kind": "static", "static": "cant_enter", "sel": sel.key(), "zones": list(_ZONES[m["zones"]]), "effects": []}
+    if t == "lands can't enter the battlefield":  # -- two names (wave 110F) -- Worms of the Earth: 614.17, 305.1; a land from anywhere else stays where it is (played lands: "Players can't play lands")
+        return {"kind": "static", "static": "cant_enter", "sel": selectors.Selector(types=("Land",)).key(),
+                "zones": ["hand", "graveyard", "library", "exile", "stack", "command"], "effects": []}
     m = _COUNTERS.fullmatch(t)
     if m is not None:
         sel = selectors.parse(re.sub(r",? and ", ", or " if "," in m["sel"] else " or ", m["sel"]))
@@ -109,6 +112,8 @@ def static_definition(text: str) -> Definition | None:
         return {"kind": "static", "static": "draw_cap", "who": "each", "n": 0, "effects": []}
     if t in _SEARCH_STATICS:  # (Mindlock Orb, Stranglehold, Ashiok, Dream Render)
         return {"kind": "static", "static": "cant_search", "who": _SEARCH_STATICS[t], "effects": []}
+    if t == "triggered abilities you control can't cause you to sacrifice or exile creature tokens you control":  # -- prohibitions (wave 110A) -- The Master, Multiplied
+        return {"kind": "static", "static": "trigger_token_shield110a", "effects": []}
     if t == "spells and abilities your opponents control can't cause you to sacrifice permanents":  # (Sigarda, Tajuru Preserver)
         return {"kind": "static", "static": "cant_cause_sacrifice", "discard": False, "effects": []}
     if t == "spells and abilities your opponents control can't cause you to discard cards or sacrifice permanents":  # (Tamiyo, Collector of Tales)
@@ -256,6 +261,28 @@ def draw_left(plan: Plan, player: str) -> tuple[int, int] | None:
     return max(0, min(caps) - (log.drew.get(player, 0) if log is not None else 0)), min(caps)
 
 
+def no_targets110f(plan: Plan) -> bool:
+    """Peace Talks (wave 110F): "This turn and next turn, … players and permanents can't be the targets of spells or activated abilities." 115.2, 611.2a: a
+    record of the resolved spell; it bars choosing a player or permanent for a spell or an activated ability (also a loyalty ability, 606.1), not a triggered
+    ability's targets and not a target already chosen (608.2b: it doesn't make that one illegal): ``Plan.peace_exempt110f`` is set for both."""
+    return not plan.peace_exempt110f and any(x.get("untargetable110f") for x in plan.rules.cast_limits)
+
+
+def peace_talks(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    r, turn = plan.rules, plan.state.turn.number
+    before = len(r.effects)
+    effects.restrict(plan, ctx, {"do": "restrict", "who": selectors.Selector(types=("Creature",)).key(), "rules": ["cant_attack"],
+                                 "duration": "two_turns110f"})
+    for x in r.effects[before:]:
+        x.turn = turn
+    r.cast_limits.append({"untargetable110f": True, "controller": ctx["controller"], "until": "two_turns110f", "turn": turn, "spells": False,
+                          "label": ctx.get("name") or "Peace Talks"})
+    plan.note("This turn and next turn, creatures can't attack and players and permanents can't be the targets of spells or activated abilities", actor=ctx["controller"])
+    return True
+
+
 def untargetable(plan: Plan, chooser: str, card: CardInstance) -> bool:
     """-- cant restrictions (wave 50G) -- 115.2: may ``chooser`` (who controls the spell or ability that targets) not target this card or permanent because of a "can't be the
     target of spells or abilities [your opponents control]" static (Dennick, Tomik): of the player it says it for, "your opponents" being everyone but its controller."""
@@ -354,7 +381,7 @@ def bind_next_uncounterable(plan: Plan, card: Any, player: str) -> None:
             x["what"], x["oid"] = "uncounterable", oid
 
 
-PRIMITIVES = {"cant_search_turn": cant_search_turn, "uncounterable_turn": uncounterable_turn, "uncounterable_next": uncounterable_next}
+PRIMITIVES = {"peace_talks110f": peace_talks, "cant_search_turn": cant_search_turn, "uncounterable_turn": uncounterable_turn, "uncounterable_next": uncounterable_next}
 
 
 def cant_cause_sacrifice(plan: Plan, victim: str, by: str) -> str | None:
@@ -363,6 +390,17 @@ def cant_cause_sacrifice(plan: Plan, victim: str, by: str) -> str | None:
     if victim == by:
         return None
     return next((_label(src) for src, _ in _statics(plan, "cant_cause_sacrifice") if src.controller == victim), None)
+
+
+def trigger_token_shield(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> list[str]:
+    """614.17: a triggered ability's effect (ctx kind "trigger") can't sacrifice or exile creature tokens its controller controls while they control a
+    permanent saying so (The Master, Multiplied: myriad's end-of-combat exile does nothing to the tokens). Costs are not effects, so they are not covered."""
+    if ctx.get("kind") != "trigger" or not any(src.controller == ctx["controller"] for src, _ in _statics(plan, "trigger_token_shield110a")):
+        return cards
+    keep = [c for c in cards if not (plan.state.cards[c].token and plan.state.cards[c].controller == ctx["controller"] and plan.ch(plan.state.cards[c]).is_creature)]
+    if len(keep) < len(cards):
+        plan.note("A triggered ability can't cause its controller to sacrifice or exile their creature tokens")
+    return keep
 
 
 def cant_cause_discard(plan: Plan, victim: str, by: str) -> str | None:

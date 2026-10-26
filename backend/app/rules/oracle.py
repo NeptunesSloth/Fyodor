@@ -539,6 +539,10 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if m := re.fullmatch(r"Scavenge ((?:\{[^}]+\})+)", line):
             line = (f"{m[1]}, Exile this card from your graveyard: Put X +1/+1 counters on target creature, where X is this "
                     "creature's power. Activate only as a sorcery.")  # (X: the exiled card's power, as it last existed)
+        # -- keyword meanings (wave 110I) -- 702.71a Transfigure {cost}: "{cost}, Sacrifice this creature: Search your library for a creature card with the same mana value as this creature, put that card onto the battlefield, then shuffle. Activate only as a sorcery." (reminder text)
+        if m := re.fullmatch(r"Transfigure ((?:\{[^}]+\})+)", line):
+            line = (f"{m[1]}, Sacrifice this creature: Search your library for a creature card with mana value equal to the sacrificed creature's mana value, "
+                    "put that card onto the battlefield, then shuffle. Activate only as a sorcery.")
         # -- static_other sweep (wave 16B) -- 702.77a: "Reinforce N—[cost]" means "[Cost], Discard this card: Put N +1/+1 counters on
         # target creature." (an activated ability that works only from the hand)
         if m := re.fullmatch(r"Reinforce (\d+|X)—((?:\{[^}]+\})+)", line):  # (-- xdamage (wave 100E) -- X: the X paid, 107.3a)

@@ -26,12 +26,23 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
 }
 
 _REWRITE: dict[str, str] = {
+    # 700.9: the sacrificed creature is read as it last existed (608.2h); the cost is plain "sacrifice a creature" (costs._THROWDOWN_COST)
+    "Destroy target creature or planeswalker. If the modified creature was sacrificed, draw a card.":
+        "Destroy target creature or planeswalker. If a modified creature was sacrificed this way, draw a card.",
     # the Equipment's "Chosen color" is the last choice made as it became attached (wave110e_blade)
     "Equipped creature gets +2/+0 and has protection from the last chosen color.": "Equipped creature gets +2/+0 and has protection from the chosen color.",
     # 701.39a goad, 701.21? tap: both act on the creatures each opponent chose (608.2c)
     "Each opponent chooses a creature they control. Tap and goad the chosen creatures.":
         "Each opponent chooses a creature they control. Tap those creatures. Goad those creatures.",
 }
+_EMBIGGEN = ("Embiggen Fist — Whenever you cast a spell that targets a creature you control, draw a card. "
+             "Until end of turn, Ms. Marvel gains \"Ms. Marvel's base power is equal to the number of cards in your hand.\"")
+_CHILL = ("Choose X target attacking creatures. For each of those creatures, its controller may pay {1} or {2}. If that player doesn't, destroy that creature at end of combat. "
+          "If that player pays only {1}, prevent all combat damage that would be dealt to and dealt by that creature this combat.")
+_RADIATE = ("Choose target instant or sorcery spell that targets only a single permanent or player. Copy that spell for each other permanent or player "
+            "the spell could target. Each copy targets a different one of those permanents and players.")
+_STORYWEAVE = ("Put two lore counters on target Saga you control. The next time one or more enchantment creatures you control enter this turn, "
+               "each enters with two additional +1/+1 counters on it.")
 _CULPRIT = "Exile any number of face-up creatures you control with disguise in a face-down pile, shuffle that pile, then cloak them."
 _AMBUSH = ("Target player searches their library and/or graveyard for a card named Ezio, Blade of Vengeance, reveals it, and puts it into their hand. "
            "If they search their library this way, they shuffle.")
@@ -260,6 +271,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _EMBIGGEN:  # 613.4b: until end of turn Ms. Marvel's base power is the number of cards in your hand, counted continuously (611.3a)
+        native = scripts.define(replace(ability, text=_EMBIGGEN.split(", draw a card.")[0] + ", draw a card."), ch)
+        return None if native is None else {**native, "effects": [*native["effects"], {"do": "dyn_base_power110e", "who": "self", "value": {"hand": "you"}}]}
     from app.rules import wave110e_imps
 
     if (imp := wave110e_imps.definition(ability, ch)) is not None:  # Nettling Imp, Norritt
@@ -321,12 +335,18 @@ def definition(ability: Any, ch: Any) -> Def | None:
         if native is None:
             return None
         return {**native, "effects": [{**e, "optional": "sacrifice110e"} if e["do"] == "kicked_gate" else e for e in native["effects"]]}
+    if text == "X can't be greater than the number of snow lands you control.":  # 601.2b: the cap on the X announced as it is cast (casting.cast_spell)
+        from app.rules import selectors
+
+        return {"kind": "static", "static": "x_cap", "n": {"count": selectors.parse("snow lands you control").key()}, "effects": []}  # type: ignore[union-attr]
     if text == _RETURNS:  # 121.2c, 101.4: each player picks 0..7 first (APNAP), then draws; reuses the Indentured Djinn chooser
         native = scripts.define(replace(ability, text=_RETURNS.replace("draws up to", "draws")), ch)
         if native is None or native["effects"][-1]["do"] != "draw":
             return None
         return {**native, "effects": [*native["effects"][:-1], {"do": "trigger_leaf51_djinn_draws", "all": True, "n": 7}]}
-    if text == "As this Equipment becomes attached to a creature, choose a color.":  # 701.3a (wave110e_blade)
+    if text in ("As this Equipment becomes attached to a creature, choose a color.",
+                "As this Equipment becomes attached to a creature, choose an exiled creature card used to craft this Equipment.",
+                "Equipped creature is a copy of the last chosen card."):  # 701.3a (wave110e_blade)
         return {"kind": "static", "static": "attach_choice110e", "effects": []}
     if (alt := _REWRITE.get(text)) is not None:  # an exact Oracle sentence read as the wording the grammar already knows (pattern: multi100n)
         return scripts.define(replace(ability, text=alt), ch)
@@ -345,6 +365,17 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return None
     native = scripts.define(replace(ability, text=got[0]), ch)
     return None if native is None else {**native, "effects": [*native["effects"], *got[1]]}
+
+
+def dyn_base_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects, layers
+
+    for cid in effects._cards(plan, ctx, e["who"]):
+        layers.add_effect(plan, affected=[plan.oid(cid)], layer="7b", source=ctx.get("source_object"), controller=ctx["controller"], dyn_power110e=e["value"])
+    return True
+
+
+PRIMITIVES["dyn_base_power110e"] = dyn_base_power
 
 
 def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
@@ -366,6 +397,22 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
         if put is None or put[0][0].get("do") != "put_from_hand":
             return None
         return [{"do": "aura_swap_gate110e", "skip": 2}, {**put[0][0], "optional": True, "as": "sw110e"}, {"do": "aura_swap_return110e", "of": "ref:sw110e"}], None, False
+    if body.strip() == _CHILL:  # 601.2b X targets, then each controller decides (wave110e_once.chill)
+        from app.rules import scripts
+
+        first = scripts.parse_effects("Choose X target attacking creatures.")
+        return None if first is None or first[0] != [{"do": "choose_targets", "who": "target:0"}] else ([*first[0], {"do": "chill110e"}], first[1], first[2])
+    if body.strip() == _RADIATE:  # 707.10d: the copies; the target spell's own restriction is read by selectors (targets_only)
+        from app.rules import scripts
+
+        first = scripts.parse_effects("Copy target instant or sorcery spell that targets only a single permanent or player.")
+        return None if first is None or first[0][0].get("do") != "copy_spell" else ([{"do": "radiate110e"}], first[1], first[2])
+    if body.strip() == _STORYWEAVE:  # 614.1c: the lore counters natively, then a one-shot entry rider
+        from app.rules import scripts
+
+        first = scripts.parse_effects(_STORYWEAVE.split(" The next")[0])
+        sel = '{"controller":"you","extras":["all_types"],"types":["Creature","Enchantment"]}'
+        return None if first is None else ([*first[0], {"do": "next_entry_counters110e", "sel": "sel:" + sel, "kind": "+1/+1", "n": 2}], first[1], first[2])
     return None
 
 
