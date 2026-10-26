@@ -147,6 +147,21 @@ def x_counters(plan: Plan, entries: list[dict[str, Any]]) -> list[dict[str, Any]
     return out
 
 
+def _slith(d: Def) -> Def:
+    """Etched Slith: the reflexive trigger's "another target permanent" also takes an opponent (115.1: counters on a player, 122.1)."""
+    out = []
+    for e in d["effects"]:
+        sub = e.get("ability")
+        if e.get("do") == "reflexive" and sub and sub.get("target", {}).get("what") == 'sel:{"other":true}':
+            e = {**e, "ability": {**sub, "target": {**sub["target"], "what": "opponent_or_other_permanent110l"}}}
+        out.append(e)
+    return {**d, "effects": out} if out != d["effects"] else d
+
+
+_BUILD["Whenever this creature deals combat damage to a player, put a +1/+1 counter on it. When you do, you may remove a counter from another target permanent or opponent."] = (
+    "Whenever this creature deals combat damage to a player, put a +1/+1 counter on it. When you do, you may remove a counter from another target permanent.", _slith)
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key

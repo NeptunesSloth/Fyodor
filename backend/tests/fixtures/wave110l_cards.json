@@ -149,5 +149,24 @@
   "keywords": [],
   "power": "0",
   "toughness": "0"
+ },
+ {
+  "name": "Etched Slith",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Artifact Creature — Phyrexian Slith",
+  "oracle_text": "Menace\nWhenever this creature deals combat damage to a player, put a +1/+1 counter on it. When you do, you may remove a counter from another target permanent or opponent.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Menace"
+  ],
+  "power": "1",
+  "toughness": "1"
  }
 ]

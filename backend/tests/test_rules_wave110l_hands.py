@@ -149,3 +149,44 @@ def test_descent_into_madness_each_player_exiles_x_from_permanents_and_hand(card
     assert zone_of(s, "Grizzly Bears") == "p1:exile" and zone_of(s, "Giant Growth", "p2") == "p2:exile"
     assert zone_of(s, "Llanowar Elves") == "p1:battlefield"
     check(s)
+
+
+SLITH = "Etched Slith"
+test_full_slith = full_test([SLITH])
+
+
+def slith_hit(cards, poison=0, counters_on_bears=0):
+    s = build(cards, [SLITH, "Grizzly Bears"])
+    slith = put(s, SLITH)
+    bears = put(s, "Grizzly Bears")
+    if counters_on_bears:
+        act(s, "p1", type="counter", card_ids=[bears.id], kind="charge", delta=counters_on_bears)
+    if poison:
+        act(s, "p1", type="resource", player="p2", key="poison", delta=poison)
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": slith.id, "target": "p2"}])
+    to_phase(s, "combat_damage")
+    return s, slith, bears
+
+
+def test_slith_can_remove_a_counter_from_another_permanent(cards):
+    s, slith, bears = slith_hit(cards, counters_on_bears=2)
+    d = resolve_to_decision(s)
+    assert d is not None
+    ids = {o.label: o.id for o in d.options}
+    assert "Etched Slith" not in ids and "Grizzly Bears" in ids  # another permanent only
+    pick(s, d, "Grizzly Bears")
+    answer(s)
+    assert card_named(s, "Grizzly Bears").counters.get("charge") == 1 and card_named(s, SLITH).counters.get("+1/+1") == 1
+    check(s)
+
+
+def test_slith_can_remove_a_counter_from_an_opponent(cards):
+    s, slith, bears = slith_hit(cards, poison=3)
+    d = resolve_to_decision(s)
+    pick(s, d, "Bob")
+    answer(s)
+    assert s.state.players["p2"].resources.get("poison") == 2
+    check(s)
