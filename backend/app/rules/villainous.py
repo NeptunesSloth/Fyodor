@@ -78,15 +78,13 @@ def _for(value: Any, pid: str) -> Any:
 
 def villain(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """701.55d: one player at a time, in APNAP order: that player chooses, the option is carried out, the next one chooses."""
-    from app.rules import effects
+    from app.rules import effects, wave110l_cards  # (wave 110L: 701.55c, an additional time, The Valeyard)
     from app.rules.plan import decide
 
     left = e.get("left")
     if left is None:
         who = effects._players(plan, ctx, e["who"])
         left = [p for p in plan.apnap() if p in who]
-        from app.rules import wave110l_cards  # -- (wave 110L) -- 701.55c: an additional time (The Valeyard): the whole process again, one after another
-
         left = [q for p in left for q in [p] * (1 + wave110l_cards.extra_faces(plan, p))]
     left = [p for p in left if p in plan.live()]
     if not left:
