@@ -80,7 +80,7 @@ def _paid(plan: Plan, frame: NonmanaMorph, payment: M.Payment | None) -> None:
     if plan.state.players[plan.actor].life < frame.cost.life:
         raise ActionError("You no longer have enough life to pay the morph cost")
     if frame.cost.life:
-        replace.lose_life(plan, [(plan.actor, frame.cost.life)])
+        replace.lose_life(plan, [(plan.actor, frame.cost.life)], paid=True)
     cost_payment.pay(plan, frame.cost, card, frame.objects,
                      PaymentRecord(card=card.id, controller=plan.actor, total_cost=frame.text))
     for i, comp in enumerate(frame.cost.components):

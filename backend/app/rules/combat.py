@@ -524,7 +524,7 @@ def _finish_attackers(plan: Plan, payload: PaidAttackers, payment: M.Payment | N
     if life:
         from app.rules import replace as _replace_life
 
-        _replace_life.lose_life(plan, [(plan.actor, life)], actor=plan.actor)
+        _replace_life.lose_life(plan, [(plan.actor, life)], actor=plan.actor, paid=True)
         plan.note(f"{plan.name(plan.actor)} paid {life} life to attack")
     # -- end combat (wave 5C) --
     r.decision = None

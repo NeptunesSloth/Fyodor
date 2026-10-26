@@ -843,7 +843,7 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
     for entry, _card, ep in planned:
         if ep.get("life"):
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-            _replace_life.lose_life(plan, [(entry["player"], int(ep["life"]))], actor=entry["actor"])
+            _replace_life.lose_life(plan, [(entry["player"], int(ep["life"]))], actor=entry["actor"], paid=True)
     # CR 614.12: another permanent arriving in this same event cannot change
     # whether an entry counter condition applied. Preserve even an empty result.
     for entry, _card, _ep in planned:

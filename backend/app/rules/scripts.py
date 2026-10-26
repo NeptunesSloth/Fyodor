@@ -7069,7 +7069,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # -- cost reductions paid with objects (wave 47C) -- "mana value less than X" (107.3f) reads the X announced for a spell or an ability with {X} in its cost; any other X
     # (Scrap Welder's is the sacrificed artifact's) is unbound, so the ability stays manual
     if d is not None and re.search(r'\["mv","<",-1\]', json.dumps(d, default=str).replace('\\"', '"')) \
-            and not ("{X}" in (ch.mana_cost or "") if d.get("kind") == "spell" else d.get("kind") == "activated" and "{X}" in (ability.cost or "")):
+            and not ("{X}" in (ch.mana_cost or "") if d.get("kind") == "spell" else d.get("kind") == "activated" and (
+                "{X}" in (ability.cost or "") or "with mana value X" in (ability.cost or ""))):  # -- X from a cost (wave 110D) -- Scrap Welder: "Sacrifice an artifact with mana value X" announces X (costs.selector_x), then the sacrificed artifact must have it
         return None
     from app.rules import kicked_instead  # -- kicked / instead (wave 4G) -- 702.33g: a spell's targets only
 
@@ -8270,7 +8271,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # Trigger events that come with an amount ("that much" / "that many", TriggerEvent.amount): life
 # gained / lost, damage dealt, counters put; for a "one or more" batch of sacrifices, discards,
 # tokens created … the number of them (603.2c)
-_AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
+_AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "pay_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "counters_removed", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
                   "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library",
                   "roll_die"}  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
