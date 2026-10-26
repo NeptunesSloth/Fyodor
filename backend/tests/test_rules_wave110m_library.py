@@ -494,3 +494,25 @@ def test_endless_whispers_gives_a_dead_creature_to_the_chosen_opponent_at_the_ne
     answer(s)
     assert s.state.cards[victim.id].zone == f"{thief}:battlefield" and s.state.cards[victim.id].controller == thief and s.state.cards[victim.id].owner == owner
     check(s)
+
+
+# -- Gandalf, Westward Voyager ---------------------------------------------------------------------------------------------------------------
+GANDALF = "Gandalf, Westward Voyager"
+test_gandalf_full = full_test([GANDALF])
+
+
+@pytest.mark.parametrize("top,shares", [("Sol Ring", True), ("Forest", False)])
+def test_gandalf_compares_each_opponents_revealed_top_card_with_the_big_spell(cards, top, shares):
+    """Gilded Lotus is an artifact spell with mana value 5: a revealed artifact copies it and the opponent draws; otherwise Alice draws."""
+    s = build(cards, [GANDALF, "Gilded Lotus"], ["Sol Ring", "Forest"], forests=20)
+    put(s, GANDALF)
+    mine, theirs = len(s.state.zones["p1:hand"]), len(s.state.zones["p2:hand"])
+    card = next(c for c in s.state.cards.values() if c.name == top and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[card.id], to={"player": "p2", "zone": "library"}, position="top")
+    cast(s, "Gilded Lotus")
+    answer(s)
+    lotuses = [c for c in s.state.cards.values() if c.name == "Gilded Lotus" and c.zone == "p1:battlefield"]
+    assert len(lotuses) == (2 if shares else 1)  # (the copy of a permanent spell becomes a token)
+    assert len(s.state.zones["p2:hand"]) == theirs + (1 if shares else 0)
+    assert len(s.state.zones["p1:hand"]) == mine + (0 if shares else 1)
+    check(s)

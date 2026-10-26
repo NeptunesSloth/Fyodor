@@ -512,6 +512,38 @@ def bind_target_player(plan: Any, ctx: Def, e: Def) -> bool:
     return True
 
 
+_GANDALF = ("Whenever you cast a spell with mana value 5 or greater, each opponent reveals the top card of their library. If any of those cards shares a card type with that spell, "
+            "copy that spell, you may choose new targets for the copy, and each opponent draws a card. Otherwise, you draw a card.")
+
+
+def _gandalf(d: Def) -> Def:
+    """Gandalf, Westward Voyager: the reveal (701.20a), then one comparison with the cast spell's types as it last existed (608.2h); the copy and the opponents' draws, or yours."""
+    reveal = d["effects"][0]
+    return {**d, "effects": [reveal, {"do": "gandalf110m"},
+                             {"do": "only_if", "cond": {"flag": "gandalf110m"}, "skip": 3},
+                             {"do": "copy_spell", "who": "event_spell"}, {"do": "copy_new_targets", "optional": True}, {"do": "draw", "who": "each_opponent", "n": 1},
+                             {"do": "only_if", "cond": {"flag": "gandalf110m", "negate": True}, "skip": 1}, {"do": "draw", "who": "you", "n": 1}]}
+
+
+_BUILD[_GANDALF] = ("Whenever you cast a spell with mana value 5 or greater, each opponent reveals the top card of their library.", _gandalf)
+
+
+def gandalf(plan: Any, ctx: Def, e: Def) -> bool:
+    from app.rules import context
+
+    spell = context.info(plan, ctx, context.EVENT)
+    types = set(spell[1].types) if spell is not None else set()
+    shares = False
+    for pid in plan.live():
+        if pid == ctx["controller"]:
+            continue
+        library = plan.state.zones.get(f"{pid}:library", [])
+        if library and types & set(plan.ch(plan.state.cards[library[0]]).types):
+            shares = True
+    context.bind_flag(ctx, "gandalf110m", shares)
+    return True
+
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 
@@ -622,4 +654,4 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
 
 RESUME: dict[str, Any] = {"ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
