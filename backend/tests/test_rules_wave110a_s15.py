@@ -136,10 +136,21 @@ def test_metamorphic_alteration_enchanted_creature_becomes_a_copy_of_the_chosen_
     check(s)
 
 
-def test_metamorphic_alteration_copy_is_fixed_when_it_starts(cards):  # 707.2c: later changes to the chosen creature's copiable values are not followed
+def test_metamorphic_alteration_copy_is_fixed_when_it_starts(cards):  # Scryfall ruling 2018-07-13: values are locked as the creature is chosen; the chosen creature leaving does not change the enchanted one
     s, bears, elves = _alter(cards)
     act(s, "p1", type="move", card_ids=[elves.id], to={"player": "p1", "zone": "graveyard"})
     assert ch(s, bears).name == "Llanowar Elves"  # the copy needs no more than the values taken when it started
+    check(s)
+
+
+def test_metamorphic_alteration_ignores_later_copiable_changes_of_the_chosen_creature(cards):  # ruling 2018-07-13: the enchanted creature won't change if the chosen creature's copiable values change
+    s = build(cards, [ALTER, "Cytoshape", "Grizzly Bears", "Llanowar Elves", "Shivan Dragon"])
+    bears, elves, dragon = put(s, "Grizzly Bears"), put(s, "Llanowar Elves"), put(s, "Shivan Dragon")
+    cast(s, ALTER, [bears.id])
+    answer(s, elves.id)
+    cast(s, "Cytoshape", [elves.id])  # the chosen Elves now becomes a Shivan Dragon
+    answer(s, dragon.id)
+    assert ch(s, elves).name == "Shivan Dragon" and ch(s, bears).name == "Llanowar Elves"
     check(s)
 
 
@@ -206,6 +217,20 @@ def test_fblthp_plots_the_top_card_for_its_mana_cost(cards):  # 702.170b, 116.2k
     answer(s)
     assert s.state.cards[bolt.id].zone == "p1:exile"
     assert any(p.card == bolt.id and p.free for p in s.state.rules.permissions)  # plotted: cast without paying its mana cost on a later turn
+    check(s)
+
+
+def test_fblthp_plot_is_offered_to_the_client_and_taking_it_works(cards):  # 702.170b: the hints a client sees list the top card's plot; only the owner sees it
+    s = build(cards, [FBLTHP, "Lightning Bolt"])
+    put(s, FBLTHP)
+    bolt = _top(s, "Lightning Bolt")
+    fund(s, "{R}")
+    offered = lambda who: [a for a in s.view(who)["rules"]["hints"].get("activatable", []) if a["card_id"] == bolt.id]  # noqa: E731
+    assert [a["ability"] for a in offered("p1")] == [_plot_index(s, bolt)]
+    assert not offered("p2")
+    act(s, "p1", type="activate_ability", **{k: v for k, v in offered("p1")[0].items() if k in ("card_id", "ability")})
+    answer(s)
+    assert s.state.cards[bolt.id].zone == "p1:exile"
     check(s)
 
 
