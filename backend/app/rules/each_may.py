@@ -379,6 +379,8 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             pay: dict[str, Any] = {"do": "optional_payment", "who": f"player:{p}", "cost": cost if cost is not None else e["alts"][0], "bind": name}
             if 'cost_has_x' in e:
                 pay['cost_has_x'] = e['cost_has_x']
+            if e.get("for110o"):  # -- (wave 110O) -- the object this round of payments is about (shown in the question)
+                pay["for110o"] = e["for110o"]
             if e.get("alts") and cost is None:
                 pay["alts"] = list(e["alts"])
             if defer:

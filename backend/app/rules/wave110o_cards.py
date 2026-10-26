@@ -61,6 +61,8 @@ def parse(body: str) -> Any:
         assert found is not None and isinstance(found[1], list) and found[1][0]["divide"]["total"] == {"x": 1}
         groups = [{**found[1][0], "min": 0, "max": 250, "divide": {**found[1][0]["divide"], "allow_zero_targets": True}}]
         return found[0], groups, found[2]
+    if body.strip() == _CLEANSING:
+        return [{"do": "cleansing110o"}], None, False
     if body.strip() == _UNDER_COST:  # 601.2b: the optional additional cost is announced as the spell is cast (costs.kicker_cost reads it); this line does nothing itself
         return [], None, False
     if body.strip() == _UNDER_PREVENT:  # 615.1, 608.2c: the exception is read when the spell resolves; the red creatures are those of that moment
@@ -91,6 +93,7 @@ def parse(body: str) -> Any:
 
 _PURE = ("Whenever a spell or ability an opponent controls causes you to discard cards this turn, return those cards from your graveyard to your hand.")
 _NAHIRI = "Nahiri's Sacrifice deals X damage divided as you choose among any number of target creatures."
+_CLEANSING = "For each land, destroy that land unless any player pays 1 life."
 _UNDER_COST = "As an additional cost to cast this spell, you may pay {2}{R}."
 _UNDER_PREVENT = ("Prevent all combat damage that would be dealt this turn. If this spell's additional cost was paid, this effect doesn't affect "
                   "combat damage that would be dealt by red creatures.")
@@ -574,7 +577,26 @@ def resume_gain_land(plan: Plan, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
-PRIMITIVES: dict[str, Any] = {"type_emblem110o": type_emblem, "redistribute110o": redistribute,
+def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """608.2c, 118.12a: "For each land, destroy that land unless any player pays 1 life": the lands there are as the instruction starts, each with its own
+    round of payments (every player decides in turn order, 101.4, then pays; a land is destroyed if nobody paid for it)."""
+    from app.rules import context, effects
+
+    lands = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and "Land" in plan.ch(c).types]
+    added: list[dict[str, Any]] = []
+    for i, cid in enumerate(lands):
+        context.bind_objects(plan, ctx, f"cleansing{i}_110o", [cid])
+        added += [{"do": "each_may", "who": "each_player", "cost": "Pay 1 life", "verdict": f"cleansing{i}_paid110o",
+                   "for110o": f"{plan.state.cards[cid].name} ({plan.name(plan.state.cards[cid].controller)}'s)"},
+                  {"do": "only_if", "cond": {"flag": f"cleansing{i}_paid110o", "negate": True}, "skip": 1},
+                  {"do": "destroy", "who": f"ref:cleansing{i}_110o"}]
+    at = ctx["next"]
+    ctx["effects"] = [*ctx["effects"][:at], *added, *ctx["effects"][at:]]
+    effects.continue_effects(plan, ctx)
+    return False
+
+
+PRIMITIVES: dict[str, Any] = {"cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
               "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
 RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}

@@ -3,6 +3,7 @@
 * 601.2b, 118.8, 615.1: Undergrowth's optional {2}{R} (paid as it is cast) makes its combat damage prevention skip red creatures.
 * 603.7a, 701.9, 603.2c: Pure Intentions returns the cards an opponent's spell or ability made you discard (one batch), and itself at the next end step.
 * 601.2b, 107.3a, 601.2d: Nahiri's Sacrifice announces X as the mana value of the artifact or creature sacrificed, and divides X damage (none at all if X is 0).
+* 608.2c, 118.12a, 101.4: Cleansing gives every land its own round of payments (every player decides in turn order); a land nobody paid for is destroyed.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from tests.wave110o_kit import (  # noqa: F401
     mana,
     now,
     put,
+    put_new,
     settle,
     to_hand,
     to_phase,
@@ -33,7 +35,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -196,4 +198,51 @@ def test_nahiri_sacrifice_with_a_mana_value_zero_permanent_deals_no_damage(cards
     act(s, "p1", type="cast_spell", card_id=spell.id, x_value=0, cost_choices=[{"component": 0, "cards": [bird.id]}])  # (X is 0: nothing to divide, so no target)
     settle(s)
     assert now(s, bird).zone == "p1:graveyard" and now(s, elves).zone == "p2:battlefield" and now(s, elves).damage == 0
+    check(s)
+
+
+def cleansing_table(cards):
+    s = build(cards, ["Cleansing", "Grizzly Bears"], [])
+    for _ in range(2):
+        put_new(s, "Forest")
+    put_new(s, "Island", "p2")
+    put(s, "Grizzly Bears")
+    return s
+
+
+def cast_cleansing(s, pays):
+    """Cast it; ``pays``: the (0-based) indexes of the answers (Alice's and Bob's about each land in turn: 0 Alice-land0, 1 Bob-land0, 2 Alice-land1 …) that pay."""
+    lands = [c for c in s.state.cards.values() if c.zone.endswith(":battlefield") and c.name in ("Forest", "Island")]
+    spell = to_hand(s, "Cleansing")
+    mana(s, "p1", W=3)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    asked = []
+    for _ in range(80):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        asked.append((d.player, d.prompt))
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=["pay" if len(asked) - 1 in pays else "decline"])
+    return lands, asked
+
+
+def test_cleansing_asks_every_player_about_every_land_and_destroys_the_unpaid_ones(cards):
+    s = cleansing_table(cards)
+    lands, asked = cast_cleansing(s, pays={3, 4})  # (Bob pays for the second land; Alice for the third)
+    assert [p for p, _ in asked] == ["p1", "p2"] * 3 and all("for " in q for _, q in asked)
+    assert [now(s, c).zone.endswith(":battlefield") for c in lands] == [False, True, True]
+    assert life(s, "p1") == 39 and life(s, "p2") == 39  # (a payment made is not undone by the land being saved already: both paid)
+    assert now(s, next(c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone.endswith("battlefield"))).zone == "p1:battlefield"
+    check(s)
+
+
+def test_cleansing_with_no_payment_destroys_every_land_and_only_lands(cards):
+    s = cleansing_table(cards)
+    lands, _ = cast_cleansing(s, pays=set())
+    assert all(now(s, c).zone.endswith(":graveyard") for c in lands)
+    assert any(c.name == "Grizzly Bears" and c.zone == "p1:battlefield" for c in s.state.cards.values())
+    assert life(s, "p1") == 40 and life(s, "p2") == 40
     check(s)
