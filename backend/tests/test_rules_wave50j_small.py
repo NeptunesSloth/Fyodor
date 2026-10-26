@@ -19,6 +19,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
+from app.rules import characteristics as chars
 from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
@@ -570,7 +571,9 @@ def test_pia_nalaar_makes_a_vehicle_as_big_as_the_energy_paid(cards):
     settle(s, answer="x:3")
     assert energy(s) == 2
     (jet,) = [c for c in s.state.cards.values() if c.name == "Nalaar Aetherjet"]
-    assert pt(s, "Nalaar Aetherjet") == (3, 3) and keywords(s, "Nalaar Aetherjet") >= {"flying", "crew"}
+    printed = chars.of(s.state.cards[jet.id], s.cards)  # (208.3: an uncrewed Vehicle has no P/T; the X/X it was made as)
+    assert (printed.power, printed.toughness) == ("3", "3") and pt(s, "Nalaar Aetherjet") == (None, None)
+    assert keywords(s, "Nalaar Aetherjet") >= {"flying", "crew"}
     check(s)
 
 

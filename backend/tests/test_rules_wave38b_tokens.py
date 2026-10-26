@@ -23,6 +23,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
+from app.rules import characteristics as chars
 from app.rules import coverage
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
@@ -272,7 +273,9 @@ def test_mu_yanling_makes_a_vehicle_that_crews_and_has_flying(cards):
     (vehicle,) = named(s, "Vehicle")
     ch = of(s, vehicle)
     assert vehicle.is_token and "Artifact" in ch.types and "Vehicle" in ch.subtypes and not ch.is_creature  # (301.7a: no P/T-as-creature yet)
-    assert (ch.power, ch.toughness) == ("3", "2") and not ch.colors and "flying" in ch.keywords  # ("Vehicles you control have flying.")
+    printed = chars.of(s.state.cards[vehicle.id], s.cards)  # (208.3: a noncreature permanent has no P/T: the token's printed values)
+    assert (printed.power, printed.toughness) == ("3", "2") and (ch.power, ch.toughness) == (None, None)
+    assert not ch.colors and "flying" in ch.keywords  # ("Vehicles you control have flying.")
     assert any(ab.text.startswith("Crew 1") for ab in ch.abilities)
     check(s)
     act(s, "p1", type="activate_ability", card_id=vehicle.id, ability=crew_index(s, vehicle), crew=[muyanling.id])
@@ -300,7 +303,8 @@ def test_lita_makes_a_zeppelin_that_needs_three_power_to_crew(cards):
     settle(s)
     (zeppelin,) = named(s, "Zeppelin")
     ch = of(s, zeppelin)
-    assert "Vehicle" in ch.subtypes and "Artifact" in ch.types and not ch.is_creature and (ch.power, ch.toughness) == ("5", "5")
+    printed = chars.of(s.state.cards[zeppelin.id], s.cards)  # (208.3: no P/T until it's a creature; the token's printed 5/5)
+    assert "Vehicle" in ch.subtypes and "Artifact" in ch.types and not ch.is_creature and (printed.power, printed.toughness) == ("5", "5")
     assert "flying" in ch.keywords and any(a.text.startswith("Crew 3") for a in ch.abilities)
     act(s, "p1", type="activate_ability", card_id=zeppelin.id, ability=crew_index(s, zeppelin), crew=[ogre.id])
     settle(s)
