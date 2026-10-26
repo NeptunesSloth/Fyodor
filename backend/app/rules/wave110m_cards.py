@@ -237,6 +237,67 @@ def _merieke(d: Def) -> Def:
 
 _BUILD[_MERIEKE] = ("{T}: Gain control of target creature for as long as you control Merieke Ri Berit.", _merieke)
 
+_GURZIGOST_UPKEEP = "At the beginning of your upkeep, sacrifice this creature unless you put two cards from your graveyard on the bottom of your library."
+_GURZIGOST_ABILITY = "{G}{G}, Discard a card: You may have this creature assign its combat damage this turn as though it weren't blocked."
+UNBLOCKED = "assign_unblocked110m"
+
+
+def _gurzigost_upkeep(d: Def) -> Def:
+    """118.12a: the controller may put exactly two cards from their graveyard on the bottom of their library (none, or with fewer than two there: sacrifice)."""
+    sacrifice = d["effects"]
+    return {**d, "effects": [{"do": "gurzigost110m"}, {"do": "only_if", "cond": {"flag": "gurzigost110m", "negate": True}, "skip": len(sacrifice)}, *sacrifice]}
+
+
+_BUILD[_GURZIGOST_UPKEEP] = ("At the beginning of your upkeep, sacrifice this creature.", _gurzigost_upkeep)
+_BUILD[_GURZIGOST_ABILITY] = ("{G}{G}, Discard a card: This creature can't be blocked this turn.",
+                              lambda d: {**d, "effects": [{"do": "restrict", "who": "self", "rules": [UNBLOCKED]}]})
+
+
+def gurzigost(plan: Any, ctx: Def, e: Def) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    graveyard = list(plan.state.zones.get(f"{pid}:graveyard", []))
+    if len(graveyard) < 2:
+        context.bind_flag(ctx, "gurzigost110m", False)
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name', '')}: put two cards from your graveyard on the bottom of your library (none: sacrifice it)",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in graveyard], min_choices=0, max_choices=2,
+           resume={"step": "gurzigost110m", "ctx": ctx})
+    return False
+
+
+def resume_gurzigost(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.game.rules_state import DecisionOption
+    from app.rules import context, effects
+    from app.rules.plan import decide
+
+    ctx, pid = d.resume["ctx"], d.player
+    if d.resume.get("order"):  # (401.4: the owner puts them in the order they like: the chosen one goes on the very bottom)
+        first = [c for c in d.resume["order"] if c != chosen[0]]
+        plan.do({"type": "move", "card_ids": [*first, chosen[0]], "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+        context.bind_flag(ctx, "gurzigost110m", True)
+        effects.continue_effects(plan, ctx)
+        return
+    if len(chosen) not in (0, 2) or len(set(chosen)) != len(chosen) or any(c not in plan.state.zones.get(f"{pid}:graveyard", []) for c in chosen):
+        raise ActionError("Choose exactly two cards from your graveyard, or none")
+    if not chosen:
+        context.bind_flag(ctx, "gurzigost110m", False)
+        effects.continue_effects(plan, ctx)
+        return
+    decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name', '')}: which card goes on the very bottom of your library?",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in chosen],
+           resume={"step": "gurzigost110m", "ctx": ctx, "order": chosen})
+
+
+def unblocked_rule(ch: Any) -> bool:
+    """Gurzigost: the creature may assign its combat damage this turn as though it weren't blocked (510.1c; asked in combat.ask_split)."""
+    return UNBLOCKED in ch.imposed
+
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 
@@ -345,6 +406,6 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+RESUME: dict[str, Any] = {"gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

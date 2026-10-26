@@ -422,6 +422,12 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if line == ("This creature escapes with two +1/+1 counters on it. When it enters this way, each opponent sacrifices a non-Gorgon creature of their choice."):
             lines[i:i + 1] = ["This creature escapes with two +1/+1 counters on it.",
                               "When this creature enters, if it escaped, each opponent sacrifices a non-Gorgon creature of their choice."]
+    # -- (wave 110M) -- Tidal Control: "Pay 2 life or {2}: ..." is one ability whose cost the activating player picks (602.2b); the two costs read as two abilities with
+    # the same effect, so choosing one is activating that one (nothing else of the ability depends on which was paid)
+    for i, line in enumerate(lines):
+        if line == "Pay 2 life or {2}: Counter target red or green spell. Any player may activate this ability.":
+            lines[i:i + 1] = ["Pay 2 life: Counter target red or green spell. Any player may activate this ability.",
+                              "{2}: Counter target red or green spell. Any player may activate this ability."]
     # -- keywords (wave 50H) -- 207.2d: a flavor word before an equip cost ("Machina — Equip {4}", Final Fantasy equipment) has no rules meaning
     for i, line in enumerate(lines):
         if not spell and " — Equip" in line and (w := word_prefix(line)) is not None and w[1].startswith("Equip") and _keywords_line(w[1]) == ("equip",):
