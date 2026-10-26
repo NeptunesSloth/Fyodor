@@ -86,10 +86,10 @@ from app.rules import (
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
     wave110a_teferi,  # -- wave 110A --
-    wave110e_clara,  # -- pregame color (wave 110E) --
     wave110e_opp,  # -- cast-time choice (wave 110E) --
     wave110f_camo,  # -- Camouflage (wave 110F) --
     wave110f_cards,  # -- combat damage division (wave 110F) --
+    wave110f_cmd,  # -- pregame commander color (wave 110F) --
     wave110g_spires,  # -- wave 110G --
     wave110h_cards,  # -- untap hold (wave 110H) --
 )
@@ -1912,7 +1912,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "cost_moves": cost_moves.resume,
     "opening_hand": opening_hand.resume,  # -- opening hand (wave 18C) -- 103.6
     "opening_exile": opening_hand.resume_exile,
-    "clara110e": wave110e_clara.resume,  # -- pregame color (wave 110E)
+    "clara110e": wave110f_cmd.resume_old,  # -- pregame color (wave 110E): saved Clara Oswald questions
     "spires110g": wave110g_spires.resume,  # -- wave 110G --
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a

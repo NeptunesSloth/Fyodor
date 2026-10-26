@@ -97,7 +97,7 @@ def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts
+    from app.rules import exact_ability, scripts
 
 
     if (cap := _CAP.fullmatch(ability.text.strip())) is not None and ch.name.startswith(cap["name"]):  # (the short name)
@@ -126,10 +126,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return _shuriken(shuriken["oid"], ability, ch)
     if (blight := _BLIGHT.fullmatch(ability.text.strip())) is not None:
         return _nettlevine(blight["oid"], ability, ch)
-    if (built := _BUILD.get(ability.text.strip())) is None:
-        return None
-    native = scripts.define(replace(ability, text=built[0]), ch)
-    return None if native is None else built[1](native)
+    return exact_ability.build(ability, ch, _BUILD)
 
 
 def _farmer(d: Def) -> Def:
@@ -1066,17 +1063,6 @@ _BUILD[_WEB2] = ("Whenever a creature with a magnet counter on it attacks, you g
                  lambda d: {**d, "effects": [{"do": "restrict", "who": d["cond"]["sel"], "rules": ["must_block_obj:@it"]}]})
 
 
-# -- Paliano, the High City (wave 110J) -- ruling 2014-05-29: without a draft nothing was chosen, so the mana ability adds no mana (not even colorless). It stays a
-# mana ability (605.1a): {T} is paid, the one option adds nothing.
-_PALIANO = "{T}: Add one mana of any color chosen as you drafted cards named Paliano, the High City."
-
-
-def parse_mana(text: str) -> Any:
-    from app.rules import mana as M
-
-    return M.ManaAbility(tap=True, sacrifice_self=False, options=((),)) if text.strip() == _PALIANO else None
-
-
 # -- Takklemaggot (wave 110J) -- "When enchanted creature dies, that creature's controller chooses a creature that this card could enchant. ..." Rulings 2009-10-01: the
 # trigger resolves with the Aura in the graveyard (704.5m put it there); the creature is chosen on resolution (no target), only one this card could legally enchant, and
 # the player must choose one if able; the controller of the returned card stays the Aura's controller. 303.4f: an Aura entering not being cast is attached to the chosen
@@ -1324,7 +1310,6 @@ _BUILD["{W}, {T}: Tap target creature with power less than or equal to the highe
 # Yurlok of Scorch Thrash: 500.4 / 106.4: mana lost (a step or phase ends, or an effect empties the pool) costs that much life at the same moment (2020-11-10 ruling:
 # no stack, several Yurloks do not stack). The pools are compared before and after (kept and colorless-kept mana is not lost).
 _YURLOK_LIFE = "A player losing unspent mana causes that player to lose that much life."
-_YURLOK_MANA = "{1}, {T}: Each player adds {B}{R}{G}."
 
 
 def pools(plan: Any) -> dict[str, int]:

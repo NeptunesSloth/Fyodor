@@ -1844,7 +1844,7 @@ class RulesState(BaseModel):
     # -- wave 110A -- player -> ``next_object`` when their last turn ended ("entered since your last turn ended", selectors)
     noted110e: dict[str, list[int]] = Field(default_factory=dict)  # -- wave 110E -- Bell Borca: rules object -> [turn, event batch] it arrived at (wave110e_note)
     circled110g: dict[str, str] = Field(default_factory=dict)  # -- wave 110G -- Cryptic Spires: card id -> the two colors circled before the game (wave110g_spires)
-    commander_color110e: dict[str, str] = Field(default_factory=dict)  # -- wave 110E -- Clara Oswald: commander card id -> the color chosen before the game (wave110e_clara)
+    commander_color110e: dict[str, str] = Field(default_factory=dict)  # -- wave 110E -- Clara Oswald, older saves only: commander card id -> the color chosen before the game (read by wave110f_cmd.chosen)
     chosen_objects: dict[str, str] = Field(default_factory=dict)  # -- wave 110A -- source card id -> the object it chose as it entered (wave110a_pick)
     turn_end_objects: dict[str, int] = Field(default_factory=dict)
     hit110b: list[str] = Field(default_factory=list)  # -- wave 110B -- players dealt combat damage since their last turn ended (Marchesa, Resolute Monarch)

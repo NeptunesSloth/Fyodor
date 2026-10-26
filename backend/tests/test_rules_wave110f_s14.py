@@ -2,6 +2,8 @@
 
 * 607.2p, 604.3, 113.6a: "If ~ is your commander, choose a color before the game begins. ~ is the chosen color." (Faceless One, The Prismatic Piper): the
   choice is asked after the mulligans, the card is that color in every zone and keeps it when it changes zones; 903.4: the color joins the commander identity.
+* 903.4b: Clara Oswald's "Impossible Girl — ..." is the same ability (one module since the fold-in), so her color joins the identity too; a save made before
+  the merge (``commander_color110e``, step "clara110e") still loads and finishes.
 """
 
 from __future__ import annotations
@@ -32,6 +34,10 @@ EXTRA = [
     real("The Prismatic Piper", "{5}", 5, "Legendary Creature — Shapeshifter",
          "If The Prismatic Piper is your commander, choose a color before the game begins. The Prismatic Piper is the chosen color.\nPartner (You can have two commanders if both have partner.)",
          ("3", "3")),
+    real("Clara Oswald", "{6}", 6, "Legendary Creature — Human Advisor",
+         "Impossible Girl — If Clara Oswald is your commander, choose a color before the game begins. Clara Oswald is the chosen color.\n"
+         "If a triggered ability of a Doctor you control triggers, that ability triggers an additional time.\nDoctor's companion (You can have two commanders if the other is the Doctor.)",
+         ("2", "6")),
 ]
 
 
@@ -96,3 +102,29 @@ def test_the_color_stays_when_the_commander_changes_zones(cards):
     act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
     assert colors(s, "p1")[0] == {"G"}
     roundtrip(s)
+
+
+def test_clara_color_joins_the_identity(cards):
+    s = table(cards, "Clara Oswald", "The Prismatic Piper")
+    keep_all(s)
+    pick(s, "p1", "B")
+    pick(s, "p2", "W")
+    assert colors(s, "p1")[0] == {"B"}
+    assert casting.commander_identity(s.state, "p1", Plan(s.state, "p1", s.cards, None).info) == ("B",)  # 903.4b
+    roundtrip(s)
+
+
+def test_a_clara_choice_saved_before_the_merge_still_applies(cards):
+    s = table(cards, "Clara Oswald", "The Prismatic Piper")
+    keep_all(s)
+    d = s.state.rules.decision
+    clara = colors(s, "p1")[1]
+    d.resume = {"step": "clara110e", "queue": [clara.id], "order": ["p1", "p2"]}  # the question as the old 110E module saved it
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["R"])
+    assert colors(s, "p1")[0] == {"R"}
+    pick(s, "p2", "G")  # the rest is asked again in the new order
+    s.state.rules.commander_color110e, s.state.rules.commander_color110f = {clara.id: "U"}, {k: v for k, v in s.state.rules.commander_color110f.items() if k != clara.id}
+    assert colors(s, "p1")[0] == {"U"}  # an old save's field is read too
+    from app.game.state import GameState
+
+    assert GameState.model_validate_json(s.state.model_dump_json()).rules.commander_color110e == {clara.id: "U"}  # (the state was edited, so no replay check)

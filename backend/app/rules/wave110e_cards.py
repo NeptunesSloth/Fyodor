@@ -166,13 +166,10 @@ def bind_modified(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 def enter_tapped_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    """614.1d, 611.2c: "Permanents enter tapped this turn." = a replacement record for every permanent entering (read by others_enter_tapped)."""
-    from app.rules import replace, selectors
+    """614.1d, 611.2c: "Permanents enter tapped this turn." = the 110C record (wave110c_core.enter_tapped_turn) for every permanent."""
+    from app.rules import selectors, wave110c_core
 
-    replace.add_record(plan, event="enters_tapped", match={"selector": selectors.Selector().key()}, op={"do": "tap"},
-                       controller=ctx["controller"], source=ctx.get("source_object"), source_card=ctx.get("source_card"),
-                       label=ctx.get("name") or "Enter tapped")
-    return True
+    return wave110c_core.enter_tapped_turn(plan, ctx, {"sel": selectors.Selector().key()})
 
 
 _WILD = ("Choose one. Until end of turn, target creature you control has that base power and toughness, becomes that creature type, "
@@ -279,7 +276,7 @@ _BLASTER_MOVE = ("{X}, {T}: Move X +1/+1 counters from ~ onto another target art
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts, wave110e_kaya
+    from app.rules import scripts, wave110e_blade, wave110e_kaya, wave110e_opp
 
     text = ability.text.strip()
     if text == _EMBIGGEN:  # 613.4b: until end of turn Ms. Marvel's base power is the number of cards in your hand, counted continuously (611.3a)
@@ -309,8 +306,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
         if native is None or len(native["effects"]) != 1 or native["effects"][0].get("do") != "damage":
             return None
         return {**native, "effects": [{"do": "pick110e", "as": "pk110e"}, {**native["effects"][0], "n": {"sum": "power", "of": "ref:pk110e"}}]}
-    if text in ("As an additional cost to cast this spell, choose a creature type.",
-                "As an additional cost to cast this spell, choose a creature you control or a warped creature card you own in exile."):  # 601.2b: asked as the spell is cast (wave110e_opp.announce), kept on the permanent
+    if text in (wave110e_opp.TYPE_LINE, wave110e_opp.OBJECT_LINE):  # 601.2b: asked as the spell is cast (wave110e_opp.announce), kept on the permanent
         return {"kind": "spell", "effects": []}
     if ability.text.strip() == _STORM:
         native = scripts.define(replace(ability, text="Whenever you cast a spell that targets one or more creatures, draw a card."), ch)
@@ -355,9 +351,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
         if native is None or native["effects"][-1]["do"] != "draw":
             return None
         return {**native, "effects": [*native["effects"][:-1], {"do": "trigger_leaf51_djinn_draws", "all": True, "n": 7}]}
-    if text in ("As this Equipment becomes attached to a creature, choose a color.",
-                "As this Equipment becomes attached to a creature, choose an exiled creature card used to craft this Equipment.",
-                "Equipped creature is a copy of the last chosen card."):  # 701.3a (wave110e_blade)
+    if text in (*wave110e_blade.LINES, "Equipped creature is a copy of the last chosen card."):  # 701.3a (wave110e_blade)
         return {"kind": "static", "static": "attach_choice110e", "effects": []}
     if text.replace("Blaster", "~") == _BLASTER_MOVE:  # 122.5: X counters, as many as it has (counter_moves reads the amount as the move is made)
         native = scripts.define(replace(ability, text=_BLASTER_MOVE.replace("~", "this creature").replace("Move X", "Move a")), ch)

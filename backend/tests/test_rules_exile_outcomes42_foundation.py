@@ -1913,7 +1913,7 @@ def test_lobelia_actual_source_departure_activation_keeps_one_land_or_spell_pack
 
 @pytest.mark.parametrize('concede',[False,True])
 @pytest.mark.parametrize('borrowed',[False,True])
-def test_share_current_cr_borrowed_owner_life_zero_lookback_versus_concession_prior_leave(cards,concede,borrowed):
+def test_share_current_cr_borrowed_owner_life_zero_and_concession_both_look_back(cards,concede,borrowed):
     from tests.test_rules_refused_look import stack_library
     s=setup(cards,'Share the Spoils','Confiscate','Memnite','Lightning Bolt')
     player='p2' if borrowed else 'p1'
@@ -1939,8 +1939,10 @@ def test_share_current_cr_borrowed_owner_life_zero_lookback_versus_concession_pr
         act(s,'p1',type='cast_spell',card_id=bolt.id,targets=['p2'])
     settle(s)
     assert 'p2' in (s.state.rules.conceded if concede else s.state.rules.lost)
-    # Current603.10f/104.5 normal loss looks back;104.3a concession leaves first.
-    assert all(s.state.cards[cid].zone.endswith(':library' if concede and borrowed else ':exile') for cid in tops)
+    # 603.9: a "loses the game" trigger triggers when a player loses or leaves the game, and 603.10f looks back to just
+    # before that event, so a Share the Spoils the loser owns still triggers for its controller even when a concession
+    # takes it away as the player leaves (104.3a, 800.4a). (The 2021-07-23 ruling that it won't predates 603.10f.)
+    assert all(s.state.cards[cid].zone.endswith(':exile') for cid in tops)
     roundtrip(s)
 
 

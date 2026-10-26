@@ -6037,10 +6037,6 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (uvilda110e := wave110e_uvilda.definition(ability, ch)) is not None:
         return uvilda110e
-    from app.rules import wave110e_clara  # -- pregame color (wave 110E) --
-
-    if (clara110e := wave110e_clara.definition(ability.text)) is not None:
-        return clara110e
     from app.rules import wave110g_spires  # -- wave 110G --
 
     if (spires110g := wave110g_spires.definition(ability.text)) is not None:

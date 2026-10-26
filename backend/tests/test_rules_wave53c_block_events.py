@@ -1473,13 +1473,12 @@ def test_cass_does_nothing_for_a_creature_that_was_neither_enchanted_nor_equippe
     check(s)
 
 
-# (Galea: tests/test_rules_stack_granted_abilities84.py; Infinite Authority: tests/test_rules_wave110i_s6.py; Nacatl War-Pride: tests/test_rules_wave110a_s8.py;
-# Motion Sickness: tests/test_rules_wave100l_attractions.py - FULL since)
-@pytest.mark.parametrize("name", ["Shuriken", "General Jarkeld", "Glyph of Reincarnation", "Dread Wight", "False Orders", "Balduvian Warlord"])
-def test_the_rest_of_the_list_stays_manual(cards, name):
-    """Remaining gaps: banded-creature references, unblocking and re-blocking by an effect, one delayed ability reading what another did,
-    a creature that stops blocking one attacker and blocks another, tokens that are copies attacking, Attractions, a cast from the library: not read."""
-    assert not full(cards, name)
+# The rest of this wave's list is FULL since: Galea (tests/test_rules_stack_granted_abilities84.py), Infinite Authority
+# (tests/test_rules_wave110i_s6.py), Nacatl War-Pride (tests/test_rules_wave110a_s8.py), Motion Sickness
+# (tests/test_rules_wave100l_attractions.py), Shuriken (tests/test_rules_wave110j_s9.py), General Jarkeld
+# (tests/test_rules_wave110f_fin.py), Glyph of Reincarnation (tests/test_rules_wave110f_s18.py), Dread Wight
+# (tests/test_rules_wave110k_cards.py), False Orders (tests/test_rules_wave110a_final.py), Balduvian Warlord
+# (tests/test_rules_wave110j_blockers.py).
 
 
 @pytest.mark.parametrize("text", [

@@ -1449,7 +1449,7 @@ PRIMITIVES["collect_fetch110i"] = collect_fetch
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts
+    from app.rules import exact_ability, scripts
 
     text = ability.text.strip()
     if text == _PERFORMER:  # 707.10d/e: a copy of the spell or ability for each other permanent or player it could target (the Radiate spread, wave110e_once.radiate)
@@ -1510,10 +1510,4 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {"kind": "replacement", "replacement": "hand_instead110i", "from": "battlefield", "effects": []}
     if text == "As this permanent transforms into Curse of Leeches, attach it to a player.":
         return {"kind": "static", "static": "as_transform_attach110i", "effects": []}
-    if (same := _AS.get(text)) is not None:
-        return scripts.define(replace(ability, text=same), ch)
-    built = _BUILD.get(text)
-    if built is None:
-        return None
-    native = scripts.define(replace(ability, text=built[0]), ch)
-    return None if native is None else built[1](native)
+    return exact_ability.build(ability, ch, _BUILD, _AS)

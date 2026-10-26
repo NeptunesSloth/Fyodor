@@ -16,7 +16,7 @@ Researched against CR 2026-09-25.
 * "Target player draws X cards and loses X life, where X is …": one X for both halves (107.3c).
 * Refused: a triggered ability's bare X that nothing gives it (wave 34C: a cycling trigger's X on a card without Cycling {X} —
   with it, Shark Typhoon's trigger reads the cycling cost's X; a cast trigger's X from the spell cast: test_rules_wave34c_x_triggers),
-  a bare X beside "where X is" in the same ability (Chainer's Torment), "investigate X times" (each investigation is
+  a bare X beside "where X is" in the same ability (Chainer's Torment's exact chapter III is read since: test_rules_damage_snapshot_sequences38), "investigate X times" (each investigation is
   its own event, 701.16a), "up to X target …" in a triggered ability.
 
 Every scenario checks the replay (and the ones that resolve a spell, a save/load round trip)."""
@@ -34,6 +34,7 @@ from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import coverage, scripts
 from app.rules.characteristics import Characteristics
+from app.rules.mana_units import visible_pool
 from app.rules.oracle import parse_abilities
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, turn_on
@@ -160,14 +161,10 @@ def hand(s, pid="p1"):
                                   "Elenda's Hierophant", "Kin-Tree Invocation", "Prime Speaker Zegana", "Stag Beetle",
                                   "Meteor Swarm", "Candelabra of Tawnos", "Gelatinous Genesis", "Hatred", "Ghoulcaller Gisa",
                                   "Awaken the Woods", "Artifact Mutation", "Mirror Entity", "Sanctum Weaver", "Finale of Glory",
-                                  "Shark Typhoon"])  # (wave 34C: the cycling trigger reads the cycling cost's X, 107.3a)
+                                  "Shark Typhoon",  # (wave 34C: the cycling trigger reads the cycling cost's X, 107.3a)
+                                  "Chainer's Torment"])  # (its exact chapter III: damage_snapshot_outcomes, test_rules_damage_snapshot_sequences38)
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
-
-
-@pytest.mark.parametrize("name", ["Chainer's Torment"])
-def test_coverage_refused(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level != "FULL"
 
 
 @pytest.mark.parametrize("text", [
@@ -490,7 +487,7 @@ def test_sanctum_weaver_adds_one_color_per_enchantment(cards):
     d = s.state.rules.decision
     if d is not None:  # (the color: one choice for all of it, 605.3a)
         act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
-    pool = s.state.players["p1"].mana
+    pool = visible_pool(s.state, "p1")
     assert sum(pool.values()) == 3 and len([k for k, v in pool.items() if v]) == 1  # three of one color (not theirs)
     replay_matches(s)
 

@@ -17,8 +17,8 @@ offered only while the whole cost is payable, 118.3; 119.4: life is paid only fr
 large). Its binding records the X paid (``amount``); "X" in the instructions after it is ``{"paid_x": <bind>}``
 (values.evaluate), so the number is the one paid even when the table changes afterwards.
 
-Not read (stay manual): an X in a target's definition ("return another target Zombie creature card with mana
-value X": the target is chosen before X, 603.3d — Relentless Dead), an X in an ability that also has an X of
+Not read (stay manual): an X in a target's definition, except Relentless Dead's exact wording (the target
+is chosen before X, 603.3d; read since wave 110C), an X in an ability that also has an X of
 its own (a cost's or a spell's X, 107.3a/107.3m), "pay any amount of mana" (Chorus of the Conclave), energy X.
 """
 

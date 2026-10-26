@@ -68,13 +68,14 @@ def heartless(s, target):
     act(s, "p1", type="cast_spell", card_id=c.id, modes=[1], targets=[target.id])
 
 
-STILL_PARTIAL = {"Homarid"}  # "Whenever there are four or more tide counters on this creature, …" is a state trigger (603.8): read by hand
+# (Homarid's state trigger, "Whenever there are four or more tide counters on this creature", 603.8, is read since:
+# tests/test_rules_counter_state_thresholds50.py)
 
 
 @pytest.mark.parametrize("name", [c["name"] for c in DATA])
 def test_the_promoted_cards_are_full(name):
     c = next(c for c in EXTRA if c["name"] == name)
-    assert coverage.of_card_data({**c, "faces": c.get("card_faces") or []}).level == ("PARTIAL" if name in STILL_PARTIAL else "FULL"), name
+    assert coverage.of_card_data({**c, "faces": c.get("card_faces") or []}).level == "FULL", name
 
 
 def test_the_unread_forms_stay_manual():

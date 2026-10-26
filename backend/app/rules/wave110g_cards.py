@@ -1063,7 +1063,7 @@ def _robber(ch: Any, ability: Any) -> Def | None:
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts, selectors
+    from app.rules import exact_ability, scripts, selectors
 
     if ability.kind == "activated" and ability.text.strip() == _STORM:  # Lightning Storm: counters on the spell, then a new target for it (115.7d)
         return {"kind": "activated", "stack110g": True, "cost": ability.cost, "effects": [{"do": "add_counters", "who": "self_stack", "kind": "charge", "n": 2},
@@ -1099,12 +1099,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
             return None
         return {**native, "optional": True, "effects": [{"do": "fight", "who": "self", "with": "event"}],
                 "cond": {**native["cond"], "sel": selectors.Selector(types=("Creature",), other=True).key(), "land_named110g": "Labyrinth of Skophos"}}
-    if (same := _AS.get(ability.text.strip())) is not None:
-        return scripts.define(replace(ability, text=same), ch)
-    if (built := _BUILD.get(ability.text.strip())) is None:
-        return None
-    native = scripts.define(replace(ability, text=built[0]), ch)
-    return None if native is None else built[1](native)
+    return exact_ability.build(ability, ch, _BUILD, _AS)
 
 
 def _opponent_exiles(d: Def) -> Def:

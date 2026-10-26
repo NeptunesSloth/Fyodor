@@ -484,7 +484,7 @@ def torrent_prevent(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts
+    from app.rules import exact_ability, scripts
 
     if ability.text.strip() == _LICH_DAMAGE:  # the damage body of replace_grammar (damage bodies, wave 35C) with this instruction
         return {"kind": "static", "static": "replace", "event": "damage", "match": {"source": {}, "to": {"players": "you"}},
@@ -499,10 +499,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {"kind": "static", "static": "draw_bottom110b", "effects": []}  # carried out where draws happen (replace.do_draws: draws_from_bottom)
     if ability.text.strip() == _THIEF:
         return {"kind": "static", "static": "thief110b", "effects": []}  # carried out where permanents enter (replacements.entered: thief_remove)
-    if (built := _BUILD.get(ability.text.strip())) is None:
-        return None
-    native = scripts.define(replace(ability, text=built[0]), ch)
-    return None if native is None else built[1](native)
+    return exact_ability.build(ability, ch, _BUILD)
 
 
 def greater_dig(plan: Any, ctx: dict[str, Any], e: Def) -> bool:

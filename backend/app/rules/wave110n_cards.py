@@ -35,7 +35,7 @@ _FLAGS = {"You can't cast Rock Jockey if you've played a land this turn.": ROCK_
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts
+    from app.rules import exact_ability
 
     if (flag := _FLAGS.get(ability.text.strip())) is not None:
         return {"kind": "static", "static": flag, "effects": []}
@@ -55,10 +55,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return _swarm(ability, ch)
     if ability.text.strip() == _ERIETTE:
         return _eriette(ability, ch)
-    if (built := _BUILD.get(ability.text.strip())) is None:
-        return None
-    native = scripts.define(replace(ability, text=built[0]), ch)
-    return None if native is None else built[1](native)
+    return exact_ability.build(ability, ch, _BUILD)
 
 
 def union_types(plan: Any, ctx: Any, v: Def) -> int:

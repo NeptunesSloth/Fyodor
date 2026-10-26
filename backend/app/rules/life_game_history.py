@@ -55,7 +55,7 @@ def loss_watchers(plan: Plan) -> list[Any]:
 
 
 def loss_events(plan: Plan, players: list[str], *, prior_leave: bool = False, cohort: list[Any] | None = None) -> None:
-    """603.10f normal loss looks back;104.3a concession leaves before the loss event.
+    """603.9/603.10f: a loss (or a concession's 104.3a departure) is seen as the game was just before it.
 
     ``cohort``: the watchers captured before a concession's 800.4a departure, so a permanent the
     loser owns but another player controls still sees the loss it left the game with (603.10f)."""

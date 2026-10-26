@@ -40,10 +40,7 @@ EXTRA = [
 ]
 FULL = ["Acolyte of the Inferno", "Gorgon Recluse", "Engulfing Slagwurm", "Ohran Viper", "Kashi-Tribe Reaver", "Wall of Junk", "Shrieking Specter",
         "Thraximundar", "Slate Street Ruffian", "Jhoira, Weatherlight Captain", "Hero's Blade", "Ancestral Blade",
-        "Pestermite"]
-STILL_MANUAL = {
-    "Brutal Hordechief": "Creatures your opponents control block this turn if able",  # (its trigger is read)
-}
+        "Pestermite", "Brutal Hordechief"]  # (its block-control ability is read since wave 110D, test_rules_wave110d_hordechief)
 
 
 @pytest.fixture()
@@ -58,12 +55,6 @@ def card_db(settings):
 @pytest.mark.parametrize("name", FULL)
 def test_coverage_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL", coverage.of_card_data(cards.resolve(name)).manual_parts
-
-
-@pytest.mark.parametrize("name", list(STILL_MANUAL))
-def test_still_manual(cards, name):
-    cov = coverage.of_card_data(cards.resolve(name))
-    assert any(not f.supported and STILL_MANUAL[name] in f.label for f in cov.features)
 
 
 def defined(text, type_line="Creature — Test"):
@@ -337,8 +328,8 @@ EXTRA += [
     card('Fiend Hunter', set_code="tst", number="F01", mana_cost='{1}{W}{W}', cmc=3.0, type_line='Creature — Human Cleric', oracle_text="When this creature enters, you may exile another target creature.\nWhen this creature leaves the battlefield, return the exiled card to the battlefield under its owner's control.", power='1', toughness='3', colors=['W'], color_identity=['W']),  # noqa: E501
 ]
 FULL += ["Oblivion Ring", "Tidehollow Sculler", "Elvish Berserker", "Plague Wight", "Field of Souls", "Grim Feast",
-         "Keepsake Gorgon", "Emperor Crocodile", "Covetous Dragon", "Fiend Hunter"]
-STILL_MANUAL["Spined Sliver"] = "that Sliver gets +1/+1"  # ("blocking it": it isn't the source there)
+         "Keepsake Gorgon", "Emperor Crocodile", "Covetous Dragon", "Fiend Hunter",
+         "Spined Sliver"]  # ("that Sliver ... blocking it" is read since wave 39A: test_rules_wave39a_edicts)
 
 
 def resolve(s, *picks, limit=40):
@@ -670,3 +661,4 @@ def test_profane_memento_counts_an_opponents_creature_card(cards):
     resolve(s)
     assert s.state.players["p1"].life == life + 1
     roundtrip(s)
+

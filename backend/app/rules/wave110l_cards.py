@@ -5,7 +5,6 @@ Each entry matches one whole ability's Oracle text exactly and nothing else; any
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from app.game.rules_state import DecisionOption
@@ -45,7 +44,7 @@ _EYE = ("You may play lands and cast spells from among cards in your graveyard y
 
 
 def definition(ability: Any, ch: Any) -> Def | None:
-    from app.rules import scripts
+    from app.rules import exact_ability
 
     if ability.text.strip() == _EYE:  # 118.9, 119.4: the alternative cost is always paid; the pool is the turn log's surveilled graveyard objects (400.7)
         return {"kind": "static", "static": "permission", "zone": "graveyard", "once": False, "flash": False, "self": False, "play": True, "cast": True,
@@ -56,10 +55,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if ability.text.strip() == _VALEYARD:  # a static replacement (701.55c) read by villainous.villain through faces_extra
         return {"kind": "static", "static": _EXTRA_FACE, "effects": []}
-    if (built := _BUILD.get(ability.text.strip())) is None:
-        return None
-    native = scripts.define(replace(ability, text=built[0]), ch)
-    return None if native is None else built[1](native)
+    return exact_ability.build(ability, ch, _BUILD)
 
 
 def _swap_hands(d: Def) -> Def:

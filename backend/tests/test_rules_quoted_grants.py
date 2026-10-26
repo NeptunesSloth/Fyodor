@@ -944,25 +944,7 @@ def test_mathas_grant_ends_when_the_counter_is_gone(cards):
     assert reloaded(s).state.model_dump(mode="json") == s.state.model_dump(mode="json")
 
 
-# -- what stays manual (never guessed) ---------------------------------------------------------------------
-@pytest.mark.parametrize("name", ["Hellish Rebuke"])
-def test_unreadable_grants_stay_manual(name):
-    """The quote names the granting spell rather than the recipient.
-
-    Restless Spire's supported animation and ability-wipe behavior are covered
-    by test_rules_characteristic_recipes39.
-    """
-    text = next(c["oracle_text"] for c in EXTRA if c["name"] == name)
-    type_line = next(c["type_line"] for c in EXTRA if c["name"] == name)
-    sup, types, sub = parse_type_line(type_line)
-    c = Characteristics(name=name, supertypes=sup, types=types, subtypes=sub, oracle_text=text,
-                        abilities=tuple(oracle.parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"}))))
-    if c.is_instant_or_sorcery:
-        assert scripts.spell_definition(c) is None
-    else:
-        defs = scripts.definitions(c)
-        animate = next(a.index for a in c.abilities if a.kind == "activated")
-        assert animate not in defs
+# (Hellish Rebuke, the quote that names the granting spell, is read since wave 110A: tests/test_rules_wave110a_rebuke.py)
 
 
 @pytest.mark.parametrize("quote", [
