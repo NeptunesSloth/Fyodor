@@ -49,6 +49,10 @@ CHAPTERS = {
 }
 
 
+NEERA = ("Whenever you cast a spell, you may put it on the bottom of its owner's library. If you do, reveal cards from the top of your library until you reveal a nonland card. "
+         "You may cast that card without paying its mana cost. Then put all revealed cards not cast this way on the bottom of your library in a random order. "
+         "This ability triggers only once each turn.")
+
 PROCTOR = "Whenever a permanent entering causes a triggered ability to trigger, counter that ability unless its controller pays {2}."
 
 
@@ -102,6 +106,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if text == "If you would lose unspent mana, that mana becomes black instead.":  # 614.1a, 500.4: like Ozai's red (wave110b_cards)
         d = scripts.define(replace(ability, text="If you would lose unspent mana, that mana becomes colorless instead."), ch)
         return None if d is None else {**d, "to": "B"}
+    if text == NEERA:  # the "you may ... if you do" gate is read as a {0} payment; the spell moves first (it is not countered, 701.6a), else nothing follows (608.2c)
+        native = scripts.define(replace(ability, text=NEERA.replace("put it on the bottom of its owner's library", "pay {0}")), ch)
+        event = scripts.define(replace(ability, text="Whenever you cast a spell, you may pay {0}. If you do, copy that spell. This ability triggers only once each turn."), ch)  # (the form that keeps the spell: "that spell")
+        fx = (native or {}).get("effects") or []
+        if event is None or [e.get("do") for e in fx] != ["optional_payment", "only_if", "look_top", "free_cast", "rest_looked"]:
+            return None
+        return {**event, "effects": [fx[0], {**fx[1], "skip": 4}, {"do": "spell_bottom110c", "skip": 3}, *fx[2:]]}
     if text == OMNATH:  # the look/reveal/mana/hand sequence is one primitive (omnath110c)
         d = scripts.define(replace(ability, text="At the beginning of your first main phase, draw a card."), ch)
         return None if d is None else {**d, "effects": [{"do": "omnath110c"}]}
@@ -390,6 +401,28 @@ def proctor_triggers(plan: Plan, pending: Any, cause: Any, only: list[Any] | Non
                 ability={"kind": "triggered", "effects": [{"do": "proctor110c", "link": p.id}]}, key=f"proctor110c:{p.id}", event=cause))
 
 
+def spell_bottom(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Neera: the spell that triggered the ability goes from the stack to the bottom of its owner's library (not countered); if it already left, skip the rest (608.2c)."""
+    from app.rules import effects
+
+    sids = effects._stack_targets(plan, ctx, {"who": "event_spell"})
+    if not sids:
+        ctx["next"] += e["skip"]
+        return True
+    r = plan.rules
+    for sid in sids:
+        oid = plan.oid(sid)
+        r.stack.pop(sid, None)
+        r.buyback = [o for o in r.buyback if o != oid]
+        r.rebound_cast = [o for o in r.rebound_cast if o != oid]
+        r.exile_resolves.pop(oid, None)
+        owner = plan.state.cards[sid].owner
+        to = {"player": owner, "zone": "exile" if oid in r.flashback else "library"}  # 702.34a: a flashback spell is exiled wherever it would go
+        r.flashback = [o for o in r.flashback if o != oid]
+        plan.do({"type": "move", "card_ids": [sid], "to": to, "position": "bottom"}, actor=ctx["controller"])
+    return True
+
+
 def proctor(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Counter that ability unless its controller pays {2} (701.6a; 118.12): nothing if it already left the stack."""
     from app.rules import effects
@@ -435,4 +468,4 @@ def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 RESUME = {"prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x}
-PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
