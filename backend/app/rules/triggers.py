@@ -1820,7 +1820,7 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
     509.3a/c): one fact per creature; "you attack" once per combat for the attacking player.
     ``pairs`` (this creature, the creature on the other side): "blocks a creature" / "becomes
     blocked by a creature" trigger once for each (509.3b, 509.3d)."""
-    if not cards:
+    if not cards and not pairs:  # (110E: a creature put onto the battlefield blocking, 509.3d)
         return
     fired: Fired = {}
     attacking = [c.id for c in cards]

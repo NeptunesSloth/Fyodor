@@ -21,6 +21,8 @@ _FATESEAL2: list[Def] = [{"do": "choose_value", "who": "you", "what": "opponent"
 _APPEND: dict[str, tuple[str, list[Def]]] = {
     "Put target creature on top of its owner's library, then fateseal 2.":
         ("Put target creature on top of its owner's library.", _FATESEAL2),
+    # 701.31a: a player may planeswalk only during a Planechase game (never in Commander), so "you may planeswalk" does nothing
+    "Surveil 2, then draw a card. You may planeswalk.": ("Surveil 2, then draw a card.", []),
 }
 
 # whole ability text -> (the wording the grammar reads for the targets, the effects that replace the parsed ones; "target:0" = the first target group)
@@ -47,6 +49,10 @@ _SWAP: dict[str, tuple[str, list[Def]]] = {
           {"do": "may_rest"},
           {"do": "become_copy", "who": 'sel:{"controller":"you","subtypes":["Shapeshifter"]}', "with": "ref:abs110e", "last_known": True,
            "duration": "end_of_turn"}]),
+    # 608.2c in order: each chosen creature's controller decides whether the caster draws instead (the choice is theirs, so it is asked of them)
+    "For each opponent, choose up to one target creature that player controls, then return that creature to its owner's hand unless its controller has you draw a card.":
+        ("For each opponent, choose up to one target creature that player controls.",
+         [{"do": "choose_targets", "who": "target:0"}, {"do": "decoy110e", "who": "target:0"}]),  # (each copied per opponent group: per_opponent.expanded)
     "Permanents enter tapped this turn.": ("Draw a card.", [{"do": "enter_tapped110e"}]),
     # 509.1h/509.3c: each target becomes blocked (no-op for one no longer an unblocked attacker); then 120.3 damage to each of them
     "X target attacking creatures become blocked. Choking Vines deals 1 damage to each of those creatures.":
@@ -113,6 +119,23 @@ def modal_lines(lines: list[Any]) -> list[Any]:
                                                            f"{m[1]} {m[2]} and gains {m[3]}.") for x in lines[1:] if (m := _WILD_MODE.match(x.text)))]
 
 
+def decoy(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Decoy Gambit (its group's copy): for the chosen creature (still on the battlefield), its controller either has the caster draw a card or the creature is returned."""
+    from app.rules import effects
+
+    steps: list[dict[str, Any]] = []
+    for i, cid in enumerate(effects._cards(plan, ctx, e["who"])):
+        c = plan.state.cards[cid]
+        if c.zone.endswith(":battlefield"):
+            steps += [{"do": "optional_payment", "who": f"player:{c.controller}", "ask": "have the caster draw a card (otherwise the creature returns to its owner's hand)",
+                       "cost": "", "bind": f"dg{i}"},
+                      {"do": "only_if", "cond": {"succeeded": f"dg{i}"}, "skip": 1},
+                      {"do": "draw", "who": "you", "n": 1}, {"do": "only_if", "cond": {"succeeded": f"dg{i}", "negate": True}, "skip": 1},
+                      {"do": "bounce", "who": f"object:{plan.oid(c)}"}]
+    ctx["effects"][ctx["next"]:ctx["next"]] = steps
+    return True
+
+
 def mirror_match(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Mirror Match: for each creature attacking the caster or a planeswalker they control (as the spell resolves), a token copy of it that enters
     blocking it (509.4; an unblocked attacker becomes blocked, 509.3c) and is exiled at end of combat. Expanded into one native block per attacker."""
@@ -144,7 +167,7 @@ def mirror_match(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"mirror_match110e": mirror_match, "spell_targets110e": bind_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
+PRIMITIVES = {"mirror_match110e": mirror_match, "decoy110e": decoy, "spell_targets110e": bind_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
 
 _FLYERS = "Creatures with flying can't attack you or block creatures you control."
 _BLAZE = ("Target creature defending player controls can block any number of creatures this turn. "
