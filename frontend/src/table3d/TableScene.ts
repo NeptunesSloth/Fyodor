@@ -86,7 +86,8 @@ function angleLerp(a: number, b: number, t: number): number {
   return a + d * t;
 }
 
-export interface SceneStats { fps: number; calls: number; triangles: number; cards: number; arrows?: number }
+/** frameMs: average CPU time per frame (scene update + render submit), logged, never asserted. */
+export interface SceneStats { fps: number; calls: number; triangles: number; cards: number; arrows?: number; frameMs?: number }
 
 export class TableScene {
   readonly canvas: HTMLCanvasElement;
@@ -122,6 +123,7 @@ export class TableScene {
   private lastClick = { id: "", at: 0 };
   private frames = 0;
   private fpsAt = 0;
+  private frameTime = 0;
   stats: SceneStats = { fps: 0, calls: 0, triangles: 0, cards: 0 };
 
   private cardFaceGeo = flatCardGeometry(CARD_W, CARD_H, 0.05);
@@ -853,6 +855,7 @@ export class TableScene {
 
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
+    const started = performance.now();
     const dt = Math.min(0.5, this.clock.getDelta()); // real time: slow devices still settle quickly
     const t = this.clock.elapsedTime;
     const k = 1 - Math.exp(-dt * 14);
@@ -875,10 +878,12 @@ export class TableScene {
     this.camera.lookAt(this.camLook);
     this.env?.update(t);
     this.renderer.render(this.scene, this.camera);
+    this.frameTime += performance.now() - started;
     this.frames++;
     if (t - this.fpsAt >= 1) {
-      this.stats = { ...this.stats, fps: Math.round(this.frames / (t - this.fpsAt)), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, cards: this.cards.size };
+      this.stats = { ...this.stats, fps: Math.round(this.frames / (t - this.fpsAt)), calls: this.renderer.info.render.calls, triangles: this.renderer.info.render.triangles, cards: this.cards.size, frameMs: Math.round((this.frameTime / Math.max(1, this.frames)) * 100) / 100 };
       this.frames = 0;
+      this.frameTime = 0;
       this.fpsAt = t;
     }
   };
