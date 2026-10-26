@@ -99,3 +99,27 @@ def test_relentless_dead_returns_the_zombie_with_mana_value_x(cards, x, target, 
     assert (s.state.cards[z[target].id].zone == "p1:battlefield") == back
     assert s.state.cards[z["Two Zombie" if target == "Three Zombie" else "Three Zombie"].id].zone == "p1:graveyard"
     check(s)
+
+
+def test_relentless_dead_cannot_return_itself(cards):
+    """"Another" excludes the source card even after it changed zones (LKI identity): only the other Zombie is a target."""
+    s = build(cards, ["Relentless Dead", "Two Zombie", "Murder"])
+    dead = put(s, "Relentless Dead")
+    z = to_hand(s, "Two Zombie")
+    act(s, "p1", type="move", card_ids=[z.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, B=2, C=4)
+    murder = to_hand(s, "Murder")
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[dead.id])
+    seen = []
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        ids = [o.id for o in d.options]
+        seen.append(ids)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=ids if d.kind == "order" else [ids[-1]])
+    assert not any(dead.id in ids and z.id in ids for ids in seen)
+    check(s)

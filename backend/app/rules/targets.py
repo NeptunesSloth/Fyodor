@@ -257,10 +257,14 @@ def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source:
 
     if source_object is not None:
         sel = crew_saddle_readers81.bound_target(sel, source_object)
+    other_dropped = False
     if sel.other and source_card is not None and source_object is not None and (source_card not in plan.state.cards or plan.oid(source_card) != source_object):
         sel = selectors.replace(sel, other=False)
+        other_dropped = True
     out = []
     for cid in selectors.candidates(plan, sel, chooser, source_card, attacker):
+        if cid == source_card and other_dropped:  # (wave 110C) "another" still excludes the source card after it changed zones (Relentless Dead, LKI identity)
+            continue
         card = plan.state.cards[cid]
         on_field = card.zone.endswith(":battlefield") or card.zone == "stack"
         if on_field and not can_target(plan, chooser, card, plan.ch(card), source):  # hexproof / shroud / protection
