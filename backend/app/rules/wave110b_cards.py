@@ -23,6 +23,9 @@ def firebending(line: str) -> int | None:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Clive, Ifrit's Dominant (back face Ifrit, Warden of Inferno): the Saga is "Ifrit"; exiled and returned it comes back front face up (712.14, 712.2)
+    "II, III — Brimstone — Add {R}{R}{R}{R}. If Ifrit has three or more lore counters on it, exile it, then return it to the battlefield.":
+        "II, III — Brimstone — Add {R}{R}{R}{R}. If this Saga has three or more lore counters on it, exile this Saga, then return it to the battlefield.",
     "Exile Stunning Reversal.": "Exile ~.",
     # Desert Warfare: "that many" is the number of Deserts you control (the "five or more" test, 603.4, counts them); "They gain haste" is the tokens' own
     "At the beginning of combat on your turn, if you control five or more Deserts, create that many 1/1 red, green, and white Sand Warrior creature tokens. "

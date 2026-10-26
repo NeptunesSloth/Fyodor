@@ -8,6 +8,8 @@
 * Emrakul, the World Anew: 702.16 protection from spells (damage, targeting) and from permanents that were cast this turn (not ones put onto the battlefield);
   702.35 Madness—Pay six {C} (six colorless mana: a discard offers the cast for exactly that).
 * Bladegriff Prototype: 603.3d, 115.1 the damaged player chooses the nonland permanent (an opponent's of the ability's controller) that is destroyed; lands are not offered.
+* Clive, Ifrit's Dominant // Ifrit, Warden of Inferno: 714.2, 712.14 chapters II and III add {R}{R}{R}{R}; with three lore counters the Saga is exiled and
+  returns front face up (Clive).
 * Behemoth of Vault 0: 107.14, 118.12 the energy paid equals the target's mana value; paid in full (or not at all), the target is destroyed.
 """
 
@@ -16,7 +18,7 @@ from __future__ import annotations
 import pytest
 
 from app.rules import coverage
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_wave30m_durations import to_phase
 from tests.wave110b_kit import (
     attack,
@@ -218,4 +220,22 @@ def test_bladegriff_prototype_lets_the_damaged_player_choose_what_is_destroyed(c
             break
     assert seen[0][0] == "p2" and land.id not in seen[0][1] and {bears.id, elves.id} <= seen[0][1]
     assert zone_of(s, "Llanowar Elves", "p2") == "p2:graveyard" and zone_of(s, "Grizzly Bears", "p2") == "p2:battlefield"
+    check(s)
+
+
+def test_clive_ifrit_saga_adds_red_mana_then_returns_as_clive_on_chapter_three(cards):
+    s = build(cards, ["Clive, Ifrit's Dominant // Ifrit, Warden of Inferno"], [], forests=30)
+    clive = put(s, "Clive, Ifrit's Dominant // Ifrit, Warden of Inferno")
+    drive(s, lambda d: [o.id for o in d.options if o.id in ("no", "decline")] or None)  # (the enters trigger: nothing to discard or draw)
+    s.state.rules.controlled_since[clive.id].turn = 0
+    mana(s, R=2, C=4)
+    act(s, "p1", type="activate_ability", card_id=clive.id, ability=1)
+    drive(s)
+    assert "Saga" in ch(s, s.state.cards[clive.id]).subtypes and s.state.cards[clive.id].counters.get("lore") == 1
+    to_phase(s, "main1", turn=3)
+    assert s.state.cards[clive.id].counters.get("lore") == 2 and "Saga" in ch(s, s.state.cards[clive.id]).subtypes
+    assert mana_pool(s).get("R") == 4  # (chapter II)
+    to_phase(s, "main1", turn=5)
+    assert zone_of(s, "Clive, Ifrit's Dominant // Ifrit, Warden of Inferno") == "p1:battlefield"
+    assert "Saga" not in ch(s, s.state.cards[clive.id]).subtypes and not s.state.cards[clive.id].counters.get("lore")
     check(s)
