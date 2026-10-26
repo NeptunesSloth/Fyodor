@@ -284,7 +284,7 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
             if what in answers:
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
-                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"opt110a": True} if e.get("opt110a") else {}), **({"attach110i": True} if e.get("attach110i") else {}), **({"decider": deciding} if deciding else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
+                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"opt110a": True} if e.get("opt110a") else {}), **({"attach110i": True} if e.get("attach110i") else {}), **({"lich110j": True} if e.get("lich110j") else {}), **({"decider": deciding} if deciding else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
                                  **({"options": e["options"]} if e.get("options") else {}), **({"random": True} if e.get("random") else {})}  # (wave 51C: "choose Elemental, Elf, …": only the creature types listed)
                 if what == "second color":
                     out["choice"]["options"] = [o for o in ("White", "Blue", "Black", "Red", "Green") if o != answers.get("color")]

@@ -128,6 +128,14 @@ class Plan:
 
         if len(self.steps) >= self.max_steps:
             raise ActionError("The rules engine stopped: too many steps for one action")
+        if payload.get("type") in ("life", "rules_damage"):  # -- life total replacement (wave 110J) -- Enduring Angel (614.1a)
+            from app.rules import wave110j_angel
+
+            payload, after = wave110j_angel.rewrite(self, payload, actor)
+            if after:
+                done = self.do(payload, actor=actor, departure_before=departure_before)
+                wave110j_angel.run_after(self, after, actor)
+                return done
         if payload.get("type") in ("move", "mill"):
             # Zone-change replacement effects (614): unearth's "exile it instead", "If ~ would die,
             # exile it instead", Rest in Peace-like statics, madness, 903.9b — app/rules/replacements.py

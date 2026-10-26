@@ -18,12 +18,14 @@ if TYPE_CHECKING:
     from app.rules.plan import Plan
 
 WHAT = "pick110a"
+LICH = "As ~ enters, put a phylactery counter on an artifact you control."  # Phylactery Lich (wave 110J): a choice (no target), then the counter
 TEXTS = {"As ~ enters, choose another creature you control.": "other creature you control",
          "As ~ enters, choose a creature.": "creature",  # Metamorphic Alteration (wave110a_chosen)
          "As ~ enters, you may exchange his text box and another creature's.": "other creature",  # Deadpool, Trading Card (wave110a_swap): exchanged as it enters
          "As ~ enters, you may choose a nonland permanent.": "nonland permanent",  # Scheming Fence: the choice may be none (114/614.12a: "you may")
          # -- enters attached (wave 110I) -- 303.4f / 301.5: chosen as it enters, so it enters attached to it
-         "As ~ enters, choose a creature you control it could be attached to. If you do, it enters attached to that creature.": "creature you control"}
+         "As ~ enters, choose a creature you control it could be attached to. If you do, it enters attached to that creature.": "creature you control",
+         LICH: "artifact you control"}
 LABEL = "Chosen creature"
 PAIR = "As ~ enters, choose two players."  # Sower of Discord: one answer "p1,p2", kept in chosen_objects[source] (public, 614.12a)
 PAIR_LABEL = "Chosen players"
@@ -42,7 +44,8 @@ def definition(text: str) -> dict[str, Any] | None:
     assert sel is not None, phrase
     return {"kind": "replacement", "replacement": "enters_choice",
             "effects": [{"do": "choose_value", "who": "you", "what": WHAT, "pick110a": sel.key(), **({"attach110i": True} if "attached" in text else {}),
-                         **({"opt110a": True} if " may " in text else {})}]}
+                         **({"opt110a": True} if " may " in text else {}),
+                         **({"lich110j": True} if text == LICH else {})}]}
 
 
 def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]]:
@@ -63,6 +66,9 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
     if choice.get("what") == "exile110o":  # -- (wave 110O) -- Living Lore
         return (f"{plan.ch(card).name or card.name}: as it enters, exile an instant or sorcery card from your graveyard",
                 [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in ids])
+    if choice.get("lich110j"):
+        return (f"{plan.ch(card).name or card.name}: as it enters, put a phylactery counter on an artifact you control",
+                [DecisionOption(id=c, label=plan.state.cards[c].name or "Artifact", card_id=c) for c in ids])
     what = "nonland permanent" if sel.not_types else "creature"
     none = [DecisionOption(id="none", label="None")] if choice.get("opt110a") else []
     return (f"{plan.ch(card).name or card.name}: as it enters, {'you may ' if none else ''}choose {'another' if sel.other else 'a'} {what}{' you control' if sel.controller else ''}",
@@ -92,6 +98,13 @@ def record(plan: Plan, card_id: str, choices: dict[str, str] | None) -> None:
         from app.rules import wave110a_swap  # 612.5: exchange the text boxes now, as it enters
 
         wave110a_swap.exchange(plan, card_id, value, plan.state.cards[card_id].controller, plan.oid(card_id))
+        return
+    if value in plan.state.cards and any(ab.text == LICH.replace("~", "this creature") for ab in plan.ch(plan.state.cards[card_id]).abilities):
+        from app.rules import (
+            replace,  # 122.1: Phylactery Lich's counter, through the counter choke point (ruling: not a target)
+        )
+
+        replace.put_counters(plan, [(value, "phylactery", 1)], by=plan.state.cards[card_id].controller)
         return
     if value in plan.state.cards:
         rules.chosen_objects[card_id] = plan.oid(plan.state.cards[value])

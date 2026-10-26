@@ -1798,5 +1798,136 @@
   "keywords": [],
   "power": null,
   "toughness": null
+ },
+ {
+  "name": "Ornithopter",
+  "layout": "normal",
+  "mana_cost": "{0}",
+  "cmc": 0.0,
+  "type_line": "Artifact Creature — Thopter",
+  "oracle_text": "Flying",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "0",
+  "toughness": "2"
+ },
+ {
+  "name": "Phylactery Lich",
+  "layout": "normal",
+  "mana_cost": "{B}{B}{B}",
+  "cmc": 3.0,
+  "type_line": "Creature — Zombie",
+  "oracle_text": "Indestructible\nAs this creature enters, put a phylactery counter on an artifact you control.\nWhen you control no permanents with phylactery counters on them, sacrifice this creature.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Indestructible"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Enduring Angel // Angelic Enforcer",
+  "layout": "transform",
+  "mana_cost": "{2}{W}{W}{W} // ",
+  "cmc": 5.0,
+  "type_line": "Creature — Angel // Creature — Angel",
+  "oracle_text": "Flying, double strike\nYou have hexproof.\nIf your life total would be reduced to 0 or less, instead transform this creature and your life total becomes 3. Then if this creature didn't transform this way, you lose the game.\n//\nFlying\nYou have hexproof.\nAngelic Enforcer's power and toughness are each equal to your life total.\nWhenever this creature attacks, double your life total.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform",
+   "Double strike",
+   "Double"
+  ],
+  "power": "3",
+  "toughness": "3",
+  "card_faces": [
+   {
+    "object": "card_face",
+    "name": "Enduring Angel",
+    "mana_cost": "{2}{W}{W}{W}",
+    "type_line": "Creature — Angel",
+    "oracle_text": "Flying, double strike\nYou have hexproof.\nIf your life total would be reduced to 0 or less, instead transform this creature and your life total becomes 3. Then if this creature didn't transform this way, you lose the game.",
+    "power": "3",
+    "toughness": "3",
+    "colors": [
+     "W"
+    ]
+   },
+   {
+    "object": "card_face",
+    "name": "Angelic Enforcer",
+    "mana_cost": "",
+    "type_line": "Creature — Angel",
+    "oracle_text": "Flying\nYou have hexproof.\nAngelic Enforcer's power and toughness are each equal to your life total.\nWhenever this creature attacks, double your life total.",
+    "power": "*",
+    "toughness": "*",
+    "colors": [
+     "W"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Sign in Blood",
+  "layout": "normal",
+  "mana_cost": "{B}{B}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target player draws two cards and loses 2 life.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Aegis of the Legion",
+  "layout": "normal",
+  "mana_cost": "{R}{W}",
+  "cmc": 2.0,
+  "type_line": "Artifact — Equipment",
+  "oracle_text": "Equipped creature gets +1/+1 and has mentor. (Whenever it attacks, put a +1/+1 counter on target attacking creature with lesser power.)\nWhenever equipped creature mentors a creature, put a shield counter on that creature. (If that creature would be dealt damage or destroyed, remove a shield counter from it instead.)\nEquip {3}",
+  "colors": [
+   "R",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "W"
+  ],
+  "keywords": [
+   "Equip"
+  ]
+ },
+ {
+  "name": "Giant Growth",
+  "layout": "normal",
+  "mana_cost": "{G}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "Target creature gets +3/+3 until end of turn.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
  }
 ]

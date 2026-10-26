@@ -8172,9 +8172,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                                else x for x in parsed[0]], *parsed[1:])
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
-                if parsed is None and cond is not None and cond.get("other") and cond.get("subject", "self") in ("self", "host") and (
-                        cond["event"] in ("block", "blocked")
-                        or (cond["event"] == "multi" and set(cond["events"]) <= {"block", "blocked"})):
+                if parsed is None and cond is not None and cond.get("subject", "self") in ("self", "host") and (
+                        cond.get("other") and (cond["event"] in ("block", "blocked")
+                                               or (cond["event"] == "multi" and set(cond["events"]) <= {"block", "blocked"}))
+                        or cond["event"] == "mentor"):  # (-- mentor (wave 110J) -- "that creature" is the mentored one, the event's ``other``)
                     from app.rules.language import OTHER_SIDE
 
                     if cond.get("subject", "self") == "self":
@@ -9571,6 +9572,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (picked := wave110a_pick.definition(text)) is not None:
         return picked
+    from app.rules import wave110j_angel  # -- life total replacement (wave 110J) --
+
+    if (floor := wave110j_angel.definition(text)) is not None:
+        return floor
     from app.rules import wave110e_opp  # -- entry secret choice (wave 110E) --
 
     if (secret := wave110e_opp.secret_definition(text)) is not None:

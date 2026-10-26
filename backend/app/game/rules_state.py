@@ -428,6 +428,7 @@ EventKind = Literal[
     "saddle_tapped",  # 702.171c: likewise for a saddle ability
     "saddled",  # 702.171b: ``card`` became saddled
     "exploited",  # -- keyword triggers (wave 23D) -- 702.110b: ``card`` (object ``object_id``) was sacrificed to exploit ``by_card`` (``source``: its object)
+    "mentored",  # -- mentor (wave 110J) -- 702.134c: ``card`` (object ``object_id``) is the target of the resolved mentor ability of ``by_card`` (``source``: its object)
     "turned_face_up",  # 702.37e (morph)  # a Vehicle became crewed (702.122)
     # 701.21a: a permanent was sacrificed (emitted just before it moves, in the same batch; the
     # object is the permanent as it was — "whenever you sacrifice …" looks back in time, 603.10a)
