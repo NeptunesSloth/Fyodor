@@ -48,7 +48,7 @@ def test_wipe_later_than_the_grant_removes_the_granted_offspring(cards):  # 613.
 def test_full(cards):
     from app.rules import coverage
 
-    assert all(coverage.of_card_data(cards.resolve(n)).level == "FULL" for n in ("The Master, Multiplied", "Aboleth Spawn", "Metamorphic Alteration"))
+    assert all(coverage.of_card_data(cards.resolve(n)).level == "FULL" for n in ("The Master, Multiplied", "Aboleth Spawn", "Metamorphic Alteration", "Scheming Fence", "Fblthp, Lost on the Range", "Berserker's Frenzy"))
 
 
 def _unused_full(cards):
@@ -237,3 +237,57 @@ def test_without_fblthp_the_top_card_cannot_be_plotted(cards):
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=bolt.id, ability=100)
     assert s.state.cards[bolt.id].zone == "p1:library"
+
+
+FRENZY = "Berserker's Frenzy"
+
+
+def _frenzy(cards, monkeypatch, *dice, pick=None):
+    from tests.test_rules_wave12a_counters_keywords import rolls
+    from tests.test_rules_wave34b_activated import stops, to_phase
+
+    s = build(cards, [FRENZY, "Grizzly Bears"], ["Hill Giant"])
+    bears, wall = put(s, "Grizzly Bears"), put(s, "Hill Giant", "p2")
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    rolls(monkeypatch, *dice)
+    cast(s, FRENZY)
+    answer(s, *([[wall.id]] if pick else [[]]))
+    return s, bears, wall
+
+
+@pytest.mark.parametrize("dice", [(3, 10), (14, 2)])
+def test_berserkers_frenzy_low_result_makes_the_chosen_creatures_block_if_able(cards, monkeypatch, dice):  # 706.2: the higher die is the result (<= 14); 509.1c requirement
+    from tests.test_rules_wave34b_activated import to_phase
+
+    s, bears, wall = _frenzy(cards, monkeypatch, *dice, pick=True)
+    assert not s.state.rules.declare_choosers
+    to_phase(s, "declare_blockers")
+    with pytest.raises(Exception):  # it must block if able
+        act(s, "p2", type="declare_blockers", blocks=[])
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": bears.id}])
+    assert s.state.cards[wall.id].is_blocking
+    check(s)
+
+
+def test_berserkers_frenzy_ignores_the_lower_roll(cards, monkeypatch):  # 15-20 from the higher die although the lower (2) would be the low row
+    s, bears, wall = _frenzy(cards, monkeypatch, 2, 16)
+    assert "block" in s.state.rules.declare_choosers  # the caster chooses blocks
+    check(s)
+
+
+def test_berserkers_frenzy_cannot_be_cast_after_blockers_are_declared(cards):  # the spell's own timing line (601.3)
+    from app.game.errors import ActionError
+    from tests.test_rules_wave34b_activated import stops, to_phase
+
+    s = build(cards, [FRENZY, "Grizzly Bears"], ["Hill Giant"])
+    bears = put(s, "Grizzly Bears")
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    to_phase(s, "declare_blockers")
+    with pytest.raises(ActionError):
+        cast(s, FRENZY)
