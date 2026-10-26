@@ -482,7 +482,8 @@ def run(plan: Plan, job: Job) -> bool:
                 _manual(plan, job, refused)
                 return False
             continue
-        entry = mem.entry if saved is not None and mem is not None else source_entry102(plan, card, cur["oid"])
+        # (a departed ability's copy keeps the targets it had, 608.2h: its memory has the entry, so they may still be changed, 707.10c)
+        entry = mem.entry if mem is not None and (saved is not None or mem.ability_card is not None) else source_entry102(plan, card, cur["oid"])
         from app.rules import spell_copy_replacements
 
         spell_copy_replacements.prepare(plan, job, cur, ability=card.ability is not None)
