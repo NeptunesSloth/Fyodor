@@ -3286,6 +3286,12 @@ def pick_looked(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         from app.rules import looking
 
         options = [c for c in options if looking.kinds_of(plan, pid, c, e["sels"])]
+    if e.get("types_cast110m"):  # -- (wave 110M) -- Hurkyl: one card for each card type among the noncreature spells cast this turn
+        from app.rules import wave110m_cards
+
+        kinds = wave110m_cards.noncreature_types_cast(plan, pid)
+        options = [c for c in options if kinds & set(plan.ch(plan.state.cards[c]).types)]
+        e = {**e, "n": len(kinds)}
     which = e.get("which")
     if which == "that":
         found = ctx.get("found")
@@ -3317,6 +3323,13 @@ def resume_pick_looked(plan: Plan, d: Any, chosen: list[str]) -> None:
             from app.game.errors import ActionError
 
             raise ActionError("Choose at most one card of each kind")
+    if e.get("types_cast110m"):
+        from app.rules import wave110m_cards
+
+        if not wave110m_cards.one_per_type(plan, ctx["controller"], list(chosen)):
+            from app.game.errors import ActionError
+
+            raise ActionError("Choose at most one card for each card type among the noncreature spells you cast this turn")
     if e.get("different110m") == "power":  # -- (wave 110M) -- "cards with different powers" (Rip, Spawn Hunter): no two chosen share a power (a card with none shares nothing)
         powers = [pt[0] for c in chosen if (pt := plan.ch(plan.state.cards[c]).pt) is not None]
         if len(set(powers)) != len(powers):

@@ -923,5 +923,39 @@
 ],
 "power": "4",
 "toughness": "4"
+},
+{
+"name": "Hurkyl, Master Wizard",
+"layout": "normal",
+"mana_cost": "{1}{U}{U}",
+"cmc": 3.0,
+"type_line": "Legendary Creature — Human Wizard Advisor",
+"oracle_text": "At the beginning of your end step, if you've cast a noncreature spell this turn, reveal the top five cards of your library. For each card type among noncreature spells you've cast this turn, you may put a card of that type from among the revealed cards into your hand. Put the rest on the bottom of your library in a random order.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [],
+"power": "2",
+"toughness": "4"
+},
+{
+"name": "Opt",
+"layout": "normal",
+"mana_cost": "{U}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "Scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nDraw a card.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [
+"Scry"
+]
 }
 ]

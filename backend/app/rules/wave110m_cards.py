@@ -765,6 +765,32 @@ _RIP_NATIVE = "Survival — " + _RIP_TEXT.replace("with different powers ", "").
 for _holder in ("Rip", "~", "this creature"):
     _BUILD["Survival — " + _RIP_TEXT.replace("if Rip is tapped", f"if {_holder} is tapped")] = (_RIP_NATIVE, _rip)
 
+_HURKYL = ("At the beginning of your end step, if you've cast a noncreature spell this turn, reveal the top five cards of your library. For each card type among noncreature spells "
+           "you've cast this turn, you may put a card of that type from among the revealed cards into your hand. Put the rest on the bottom of your library in a random order.")
+
+
+def noncreature_types_cast(plan: Any, pid: str) -> set[str]:
+    """The card types among the noncreature spells ``pid`` cast this turn, as they were cast (601.2i, 608.2i)."""
+    from app.rules.history import log_for
+
+    return {t for note in log_for(plan).casts if note.player == pid and "Creature" not in note.types for t in note.types}
+
+
+def one_per_type(plan: Any, pid: str, cards: list[str]) -> bool:
+    """Can each chosen card be a card of a different type from those (a card of two types fills one of them)? A small matching, tried card by card."""
+    kinds = sorted(noncreature_types_cast(plan, pid))
+    have = [set(plan.ch(plan.state.cards[c]).types) & set(kinds) for c in cards]
+
+    def fill(i: int, used: frozenset[str]) -> bool:
+        return i == len(have) or any(fill(i + 1, used | {t}) for t in sorted(have[i] - used))
+
+    return fill(0, frozenset())
+
+
+_BUILD[_HURKYL] = ("At the beginning of your end step, if you've cast a noncreature spell this turn, reveal the top five cards of your library. Put any number of cards from among them "
+                   "into your hand. Put the rest on the bottom of your library in a random order.",
+                   lambda d: {**d, "effects": [{**x, "types_cast110m": True} if x.get("do") == "pick_looked" else x for x in d["effects"]]})
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 

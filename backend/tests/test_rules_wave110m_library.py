@@ -579,3 +579,49 @@ def test_rip_reveals_x_cards_and_takes_creatures_with_different_powers(cards):
     assert all(s.state.cards[c].zone == "p1:hand" for c in pick if c in revealed)
     assert all(c in s.state.zones["p1:library"][-power:] or s.state.cards[c].zone == "p1:hand" for c in revealed)  # (the rest: the bottom)
     check(s)
+
+
+# -- Hurkyl, Master Wizard -------------------------------------------------------------------------------------------------------------------
+HURKYL = "Hurkyl, Master Wizard"
+test_hurkyl_full = full_test([HURKYL])
+
+
+def hurkyl_table(cards, cast_spells):
+    from tests.test_rules_wave34b_activated import to_phase
+
+    names = ["Lightning Bolt", "Sol Ring", "Opt", "Murder", "Mind Stone", "Hill Giant"]
+    s = build(cards, [HURKYL, *names], forests=20)
+    put(s, HURKYL)
+    stops(s)
+    for n in cast_spells:
+        cast(s, n, ["p2"] if n == "Lightning Bolt" else ())
+        answer(s)
+    ids = {n: card_named(s, n).id for n in names}
+    top = ["Hill Giant", "Mind Stone", "Murder", "Opt"]  # top first after the Forest
+    for n in reversed(top):
+        act(s, "p1", type="move", card_ids=[ids[n]], to={"player": "p1", "zone": "library"}, position="top")
+    forest = next(c for c in s.state.zones["p1:library"] if s.state.cards[c].name == "Forest")
+    act(s, "p1", type="move", card_ids=[forest], to={"player": "p1", "zone": "library"}, position="top")
+    to_phase(s, "end")
+    return s, ids
+
+
+def test_hurkyl_takes_at_most_one_card_for_each_noncreature_type_cast_this_turn(cards):
+    s, ids = hurkyl_table(cards, ["Lightning Bolt", "Sol Ring"])  # an instant and an artifact
+    until(s, lambda s: s.state.rules.decision is not None)
+    d = s.state.rules.decision
+    assert {o.id for o in d.options} == {ids["Mind Stone"], ids["Murder"], ids["Opt"]}  # no creature, no land (Hurkyl reveals five: Forest, Giant, Stone, Murder, Opt)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Murder"], ids["Opt"]])  # two instants
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Murder"], ids["Mind Stone"]])
+    answer(s)
+    assert s.state.cards[ids["Murder"]].zone == "p1:hand" and s.state.cards[ids["Mind Stone"]].zone == "p1:hand"
+    assert {s.state.cards[ids[n]].zone for n in ("Opt", "Hill Giant")} == {"p1:library"}
+    check(s)
+
+
+def test_hurkyl_does_nothing_without_a_noncreature_spell_cast(cards):
+    s, ids = hurkyl_table(cards, [])
+    answer(s)
+    assert s.state.cards[ids["Murder"]].zone == "p1:library"
+    check(s)
