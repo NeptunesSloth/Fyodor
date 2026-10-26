@@ -239,6 +239,80 @@ def resume_attach_self_choose(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, d.resume["ctx"])
 
 
+def _sorcery_damage(plan: Any, spell_oid: str) -> int:
+    """The damage a spell dealt this turn, to players and to permanents (120.3; the facts keep what was actually dealt)."""
+    from app.rules.history import log_for
+
+    return sum(f.amount for f in log_for(plan).facts if (f.kind == "damage" and f.object_id == spell_oid) or (f.kind == "damaged" and f.source == spell_oid))
+
+
+def backdraft(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Backdraft: its controller chooses a player who cast a sorcery spell this turn, then one of that player's sorcery spells (a spell cast, 601.2i, whether or
+    not it resolved); Backdraft deals half of the damage that spell dealt, rounded down (107.1a), to that player."""
+    from app.rules.history import log_for
+
+    sorceries: dict[str, list[Any]] = {}
+    for note in log_for(plan).casts:
+        if "Sorcery" in note.types and note.player in plan.live():
+            sorceries.setdefault(note.player, []).append(note)
+    if not sorceries:
+        plan.note(f"{ctx.get('name') or 'It'}: no player has cast a sorcery spell this turn")
+        return True
+    return _pick_player(plan, ctx, sorceries)
+
+
+def _pick_player(plan: Any, ctx: dict[str, Any], sorceries: dict[str, list[Any]]) -> bool:
+    from app.rules import effects
+
+    if len(sorceries) == 1:
+        return _pick_spell(plan, ctx, next(iter(sorceries)), next(iter(sorceries.values())))
+    effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a player who cast a sorcery spell this turn",
+                   options=[effects.DecisionOption(id=p, label=plan.name(p)) for p in sorceries],
+                   resume={"step": "backdraft110k", "ctx": ctx, "stage": "player", "spells": {p: [n.object_id for n in ns] for p, ns in sorceries.items()}})
+    return False
+
+
+def _pick_spell(plan: Any, ctx: dict[str, Any], pid: str, notes: list[Any]) -> bool:
+    from app.rules import effects
+
+    oids = [n.object_id for n in notes]
+    if len(oids) == 1:
+        return _hit(plan, ctx, pid, oids[0])
+    names = {n.object_id: (n.names or ["a sorcery spell"])[0] for n in notes}
+    effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose one of {plan.name(pid)}'s sorcery spells",
+                   options=[effects.DecisionOption(id=o, label=f"{names[o]} ({_sorcery_damage(plan, o)} damage)") for o in oids],
+                   resume={"step": "backdraft110k", "ctx": ctx, "stage": "spell", "player": pid, "oids": oids})
+    return False
+
+
+def _hit(plan: Any, ctx: dict[str, Any], pid: str, spell_oid: str) -> bool:
+    from app.rules import effects
+
+    half = _sorcery_damage(plan, spell_oid) // 2
+    return effects.PRIMITIVES["damage"](plan, ctx, {"do": "damage", "who": f"player:{pid}", "n": half}) if half > 0 else True
+
+
+def resume_backdraft(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r, ctx = d.resume, d.resume["ctx"]
+    if len(chosen) != 1:
+        raise ValueError("choose one")
+    if r["stage"] == "player":
+        if chosen[0] not in r["spells"]:
+            raise ValueError("not one of the players")
+        from app.rules.history import log_for
+
+        notes = [n for n in log_for(plan).casts if n.object_id in r["spells"][chosen[0]]]
+        done = _pick_spell(plan, ctx, chosen[0], notes)
+    else:
+        if chosen[0] not in r["oids"]:
+            raise ValueError("not one of the spells")
+        done = _hit(plan, ctx, r["player"], chosen[0])
+    if done:
+        effects.continue_effects(plan, ctx)
+
+
 def return_self_hand(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"Return ~ to its owner's hand" from the battlefield (bounce) or from the graveyard (the same object, 400.7: if it moved since, nothing)."""
     from app.rules import effects
@@ -258,8 +332,8 @@ from app.rules import delayed as _delayed  # noqa: E402
 
 _delayed.LABELS["source_tapped_power110k"] = "for as long as ~ remains tapped and its power is at most ~'s"
 
-PRIMITIVES = {"attach_self_choose110k": attach_self_choose, "control_swap110k": control_swap, "copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
-RESUME = {"attach_self_choose110k": resume_attach_self_choose, "copies_of_revealed110k": resume_copies_of_revealed, "opponent_mode110k": resume_opponent_mode, "shuffle_other110k": resume_shuffle_other}
+PRIMITIVES = {"backdraft110k": backdraft, "attach_self_choose110k": attach_self_choose, "control_swap110k": control_swap, "copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
+RESUME = {"backdraft110k": resume_backdraft, "attach_self_choose110k": resume_attach_self_choose, "copies_of_revealed110k": resume_copies_of_revealed, "opponent_mode110k": resume_opponent_mode, "shuffle_other110k": resume_shuffle_other}
 
 
 # -- spell bodies: the whole body -> (the wording the grammar reads, what to do with its effects) --
@@ -283,6 +357,8 @@ _ENDS = ("Target creature's owner shuffles it into their library, then faces a v
          "own into their library.")
 _CRUEL = ("Choose target player and another target player. The first player controls the second player during the second player's next turn, and the second "
           "player controls the first player during the first player's next turn.")
+_BACKDRAFT = ("Choose a player who cast one or more sorcery spells this turn. ~ deals damage to that player equal to half the damage dealt by one of those sorcery "
+              "spells this turn, rounded down.")
 _ICE_EACH = "Destroy each land that is snow or could produce {C}."  # (overload, 702.96a: "target" read as "each")
 _SHIP = ("After the first combat phase this turn, there's an additional combat phase. At the beginning of that combat, untap all creatures that attacked "
          "this turn.")
@@ -336,6 +412,8 @@ def parse(body: str) -> Any:
     from app.rules import scripts
 
     body = body.strip()
+    if body.replace("Backdraft", "~") == _BACKDRAFT:
+        return [{"do": "backdraft110k"}], None, False
     if body[:1].upper() + body[1:] == _CRUEL:  # two different target players (115.3: "another target player")
         return [{"do": "control_swap110k"}], [{"what": "player", "min": 1, "max": 1}, {"what": "player", "min": 1, "max": 1, "distinct_from": [0]}], False
     if (built := _BODIES.get(body[:1].upper() + body[1:])) is None:  # (a trigger's effect text starts in lower case)

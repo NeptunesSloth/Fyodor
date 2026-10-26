@@ -896,3 +896,68 @@ def test_sidequest_lets_its_controller_choose_the_creature_when_there_are_severa
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[second.id])
     assert now(s, quest).face == 1 and now(s, quest).attached_to == second.id
     check(s)
+
+
+# -- Backdraft --
+def test_backdraft_is_full():
+    assert full("Backdraft")
+
+
+def _backdraft_table(cards, spells):
+    s = build(cards, ["Backdraft", "Pyroclasm", "Firebolt", "Rift Bolt"], ["Grizzly Bears", "Elvish Visionary"])
+    put_new(s, "Grizzly Bears", "p2")
+    put_new(s, "Elvish Visionary", "p2")
+    d = s.state.rules.decision
+    while d is not None:  # (the Visionary's draw)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        d = s.state.rules.decision
+    for name, target in spells:
+        cast_on(s, name, target)
+    return s
+
+
+def _cast_backdraft(s):
+    c = to_hand(s, "Backdraft")
+    mana(s, R=4, C=4)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    for _ in range(10):
+        if s.state.rules.decision is not None or not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+def test_backdraft_deals_half_the_damage_one_sorcery_dealt_rounded_down(cards):
+    s = _backdraft_table(cards, [("Pyroclasm", None)])  # 2 damage to each of Bob's two creatures and none of Alice's: 4 in all
+    _cast_backdraft(s)
+    settle(s)
+    assert life(s, "p1") == 40 - 2
+    check(s)
+
+
+def test_backdraft_rounds_odd_damage_down(cards):
+    s = _backdraft_table(cards, [("Rift Bolt", "p2")])  # 3 damage: half is 1.5, rounded down (107.1a)
+    _cast_backdraft(s)
+    settle(s)
+    assert life(s, "p2") == 37 and life(s, "p1") == 40 - 1
+    check(s)
+
+
+@pytest.mark.parametrize(("pick", "lost"), [("Pyroclasm", 2), ("Firebolt", 1)])
+def test_backdraft_its_controller_picks_which_sorcery_spell_counts(cards, pick, lost):
+    s = _backdraft_table(cards, [("Pyroclasm", None), ("Firebolt", "p2")])
+    _cast_backdraft(s)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and len(d.options) == 2
+    chosen = next(o.id for o in d.options if o.label.startswith(pick))
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[chosen])
+    settle(s)
+    assert life(s, "p1") == 40 - lost
+    check(s)
+
+
+def test_backdraft_does_nothing_when_no_sorcery_was_cast(cards):
+    s = _backdraft_table(cards, [])
+    _cast_backdraft(s)
+    settle(s)
+    assert life(s, "p1") == 40 and life(s, "p2") == 40
+    check(s)
