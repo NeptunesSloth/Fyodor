@@ -512,6 +512,29 @@ def borrow(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return effects.PRIMITIVES["grant"](plan, ctx, {"do": "grant", "who": e["to"], "abilities": texts, "spend_blue110i": e.get("spend_blue110i", False)}) if texts else True
 
 
+_PANGLACIAL = "While you're searching your library, you may cast this card from your library."
+
+
+def wurms(plan: Plan, pid: str) -> list[str]:
+    """Cards in ``pid``'s library with Panglacial Wurm's ability (rulings 2006-07-15: only while searching your own library)."""
+    from app.game.state import zone_key
+
+    return [c for c in plan.state.zones.get(zone_key(pid, "library"), []) if any(a.text == _PANGLACIAL for a in plan.ch(plan.state.cards[c]).abilities)]
+
+
+def pang_window(plan: Plan, ctx: Context, e: dict[str, Any], pid: str) -> bool:
+    """601.3, 608.2g: before the cards of a search of the searcher's own library are found, they may cast such a card from the library (paying its mana cost); the search then goes on (ruling 2006-07-15: the
+    spell waits on the stack above the resolving search). True when the cast window was queued (the caller returns; the search effect comes again, flagged)."""
+    from app.rules import effects, prohibitions
+
+    if e.get("pang110i") or not wurms(plan, pid) or prohibitions.cant_search(plan, pid, ctx["controller"]) is not None:
+        return False
+    at = ctx["next"]
+    ctx["effects"][at:at] = [{"do": "free_cast", "zone": "panglacial110i", "paid": True, "optional": True, "n": 1, "mv": None, "filter": None}, {**e, "pang110i": True}]
+    effects.continue_effects(plan, ctx)
+    return True
+
+
 def _taxed(d: Def) -> Def:
     """Mavinda: the permission carries the {8} increase, charged once the cast spell's targets are known."""
     return {**d, "effects": [{**e, "tax_untargeted110i": 8} if e.get("do") == "grant_play" else e for e in d["effects"]]}
@@ -1326,6 +1349,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return None if native is None else {**native, "effects": [{"do": "flicker_exile110i"}]}
     if text == "You may spend blue mana as though it were mana of any color to pay the activation costs of this creature's abilities.":  # Quicksilver Elemental: 609.4b, ability_spend_mode "blue_color"
         return {"kind": "static", "static": "spend_as", "mode": "blue_color", "abilities": "self", "filter": None, "no_spells": True, "effects": []}
+    if text == _PANGLACIAL:  # a static ability read at search time (pang_window), whatever the zone: only this card in the library has it
+        return {"kind": "static", "static": "panglacial110i", "effects": []}
     if text == _DRAUGR:  # 601.3 (cast from exile), 609.4b: only spells; mana from snow sources as though any color (mana.spend_as "snow_color")
         return {"kind": "static", "static": "permission", "zone": "exile", "filter": None, "self": False, "play": False, "cast": True, "once": False, "flash": False,
                 "foreign": True, "exile_counter": "ice", "spend": "snow_color", "effects": []}

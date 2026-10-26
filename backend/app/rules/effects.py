@@ -2497,6 +2497,8 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
         prohibitions.note_search(plan, pid, owner)  # -- most-played cards (wave 43B) -- "Whenever an opponent searches their library"
         if search_group is not None:
             search_group['noted'] = True
+    if part == 0 and not picked and "library" in zones and owner == pid and _wave110i_cards.pang_window(plan, ctx, e, pid):
+        return False  # -- cards (wave 110I) -- Panglacial Wurm: the cast window before the cards are found
     if e.get("sel"):  # a structured card selector (app/rules/selectors.py)
         matching = _search_matches(plan, ctx, slot, owner, slot["sel"], library)
         if "graveyard" in zones:  # (wave 3R4) the graveyard's cards are public (404.2): the same test, read there

@@ -24,6 +24,8 @@
 * Quicksilver Elemental: "gains all activated abilities of target creature until end of turn" (113.10, 611.2a: the abilities it has at resolution, written for "this permanent"), and its own abilities may
   be paid with blue mana as though it were mana of any color (609.4b).
 * Grell Philosopher: each Horror you control gains all activated abilities of the target artifact an opponent controls; those abilities (only) may be paid with blue mana as though any color.
+* Panglacial Wurm: while you search your own library you may cast it from there, paying its mana cost (601.3, 608.2g); the cast comes before any card is found, the search then goes on and the Wurm waits on the
+  stack above the search (rulings 2006-07-15); declining or a search of someone else's library offers nothing.
 """
 from __future__ import annotations
 
@@ -806,4 +808,74 @@ def test_grell_gives_horrors_the_abilities_of_an_opponents_artifact_payable_with
     act(s, "p1", type="activate_ability", card_id=grell.id, ability=ab, targets=["p2"])  # {R} paid with blue mana
     answer(s)
     assert life(s, "p2") == 38 and s.state.cards[grell.id].zone.endswith(":graveyard")  # it sacrificed itself
+    check(s)
+
+
+WURM = real("Panglacial Wurm", "{5}{G}{G}", 7, "Creature \u2014 Wurm", "Trample\nWhile you're searching your library, you may cast this card from your library.", ("9", "5"), "G")
+GROWTH = real("Rampant Growth", "{1}{G}", 2, "Sorcery", "Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.", None, "G")
+base.EXTRA.extend([WURM, GROWTH])
+
+
+def test_wurm_full(cards):
+    assert coverage.of_card_data(cards.resolve("Panglacial Wurm")).level == "FULL"
+
+
+def _wurm_search(cards, cast_it):
+    from tests.test_rules_contextual_mana_outcomes import pool
+
+    s = build(cards, ["Panglacial Wurm", "Rampant Growth"])
+    mana(s, G=3, C=6)
+    growth = to_hand(s, "Rampant Growth")
+    act(s, "p1", type="cast_spell", card_id=growth.id)
+    on_stack_while_searching = None
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None and "Panglacial Wurm" in [o.label for o in d.options]:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options] if cast_it else [])
+        elif d is not None:
+            if d.prompt.startswith("Search your library"):
+                on_stack_while_searching = card_named(s, "Panglacial Wurm").zone
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    return s, on_stack_while_searching, pool(s, "G") + pool(s, "C")
+
+
+def test_wurm_is_cast_from_the_library_during_a_search(cards):
+    s, zone_during, left = _wurm_search(cards, True)
+    assert zone_during == "stack"  # waiting above the search, which goes on after the cast
+    assert card_named(s, "Panglacial Wurm").zone == "p1:battlefield" and left == 0  # {5}{G}{G} paid with the rest of the 9 mana
+    assert sum(1 for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:battlefield") == 1  # the search still found its land
+    check(s)
+
+
+def test_wurm_stays_in_the_library_when_the_window_is_declined(cards):
+    s, zone_during, left = _wurm_search(cards, False)
+    assert zone_during == "p1:library" and card_named(s, "Panglacial Wurm").zone == "p1:library" and left == 7
+    check(s)
+
+
+GIFTS = real("Gifts Ungiven", "{3}{U}", 4, "Instant",
+             "Search your library for up to four cards with different names and reveal them. Target opponent chooses two of those cards. Put the chosen cards into your graveyard and the rest into your hand. Then shuffle.",
+             None, "U")
+base.EXTRA.append(GIFTS)
+
+
+def test_wurm_window_also_comes_before_a_gifts_ungiven_search(cards):
+    s = build(cards, ["Panglacial Wurm", "Gifts Ungiven"])
+    mana(s, U=1, G=2, C=8)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Gifts Ungiven").id, targets=["p2"])
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None and "Panglacial Wurm" in [o.label for o in d.options] and d.prompt.startswith("Choose a spell"):
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert card_named(s, "Panglacial Wurm").zone == "p1:battlefield"
     check(s)

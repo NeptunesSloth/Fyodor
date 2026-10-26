@@ -86,7 +86,13 @@ def gifts_ability(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
 
 
 def gifts(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import (
+        wave110i_cards,  # -- cards (wave 110I) -- Panglacial Wurm: the cast window before the cards are found
+    )
+
     pid = ctx["controller"]
+    if wave110i_cards.pang_window(plan, ctx, e, pid):
+        return False
     library = plan.state.zones.get(zone_key(pid, "library"), [])
     from app.rules import (
         prohibitions,  # -- prohibitions (wave 22B) -- 614.17: "Players can't search libraries." (nothing can be found)

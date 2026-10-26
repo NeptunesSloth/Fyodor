@@ -2455,6 +2455,10 @@ def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
         return [cid for place in ("hand", "graveyard") for cid in plan.state.zones.get(zone_key(pid, place), [])]
     if zone == "hand":
         return list(plan.state.zones.get(zone_key(pid, "hand"), []))
+    if zone == "panglacial110i":  # -- wave 110I -- Panglacial Wurm: 601.3 (cast while searching), the cards of the searcher's library with that ability
+        from app.rules import wave110i_cards
+
+        return wave110i_cards.wurms(plan, pid)
     if zone == "looked":  # still in the library they were looked at in
         owner = ctx.get("looked_owner") or pid
         library = plan.state.zones.get(zone_key(owner, "library"), [])
