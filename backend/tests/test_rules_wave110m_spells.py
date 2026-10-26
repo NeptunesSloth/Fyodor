@@ -285,3 +285,28 @@ def test_hunted_by_the_family_each_controller_picks_a_villainous_option_for_each
     assert sorted(c.name for c in copies) == sorted(n for n, choice in (("Birds of Paradise", birds_choice), ("Llanowar Elves", elves_choice)) if choice == "b")
     assert pt(s, "Grizzly Bears", "p2") == (2, 2)  # (not targeted)
     check(s)
+
+
+def test_kaervek_spite_can_be_paid_with_mana_from_lands_it_then_sacrifices(cards):
+    """601.2g-h: mana abilities are activated before the costs are paid, so the lands tapped for the spell's mana can be sacrificed to it; the automatic payment
+    never taps a land the cost takes, so the player taps them first."""
+    from app.game.errors import ActionError
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    alice = deck(cards, "Krenko, Mob Boss", [(1, SPITE), (10, "Swamp")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(10, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    swamps = [c for c in s.state.cards.values() if c.name == "Swamp" and c.owner == "p1" and c.zone == "p1:library"][:3]
+    act(s, "p1", type="move", card_ids=[c.id for c in swamps], to={"player": "p1", "zone": "battlefield"})
+    spite = to_hand(s, SPITE)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=spite.id, targets=["p2"])  # (every Swamp would be sacrificed: none left to pay with)
+    for c in swamps:
+        act(s, "p1", type="activate_ability", card_id=c.id, ability=0)
+    act(s, "p1", type="cast_spell", card_id=spite.id, targets=["p2"])
+    answer(s)
+    assert all(s.state.cards[c.id].zone == "p1:graveyard" for c in swamps) and life(s, "p2") == 35
+    check(s)

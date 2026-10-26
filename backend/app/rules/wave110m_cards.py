@@ -39,7 +39,7 @@ def on_draw(plan: Any, pid: str, drawn: list[str]) -> None:
     from app.rules import card_names, chosen, context, scripts
     from app.rules.triggers import _add
 
-    traps = [(src, i, d) for src in plan.state.cards.values() if src.zone.endswith(":battlefield") and plan.in_game(src) and not plan.manual(src)
+    traps = [(src, i, d) for src in plan.state.cards.values() if src.choices and src.zone.endswith(":battlefield") and plan.in_game(src) and not plan.manual(src)  # (it records its choices: 614.12a)
              for i, d in scripts.definitions(plan.ch(src)).items() if d.get("static") == BOOBY_RULE and chosen.player_of(plan, src.id) == pid]
     if not traps or not drawn:
         return
