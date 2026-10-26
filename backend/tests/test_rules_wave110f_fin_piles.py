@@ -151,3 +151,62 @@ def test_sleigh_not_outside_combat(cards):
     mana(s, "p1", C=2)
     with pytest.raises(Exception, match="combat"):
         act(s, "p1", type="activate_ability", card_id=sleigh.id, ability=0, targets=[hit.id])
+
+
+# -- Tahngarth, First Mate (rulings 2019-08-23) ------------------------------------------------------------------------------------------
+TAHNGARTH = "Tahngarth, First Mate"
+EXTRA.append(card(TAHNGARTH, set_code="w110f", number="S4", mana_cost="{2}{R}{G}", cmc=4.0, type_line="Legendary Creature — Minotaur Warrior", power="5", toughness="5",
+                  colors=["R", "G"], color_identity=["R", "G"],
+                  oracle_text="Tahngarth can't be blocked by more than one creature.\nWhenever an opponent attacks with one or more creatures, if Tahngarth is tapped, you may have that opponent "
+                              "gain control of Tahngarth until end of combat. If you do, choose a player or planeswalker that opponent is attacking. Tahngarth is attacking that player or planeswalker."))
+
+
+def test_tahngarth_is_full(cards):
+    assert coverage.of_card_data(cards.resolve(TAHNGARTH)).level == "FULL"
+
+
+def _tahngarth(cards, tapped=True):
+    s = table(cards, [TAHNGARTH], players=3)
+    t = put(s, TAHNGARTH)
+    if tapped:
+        act(s, "p1", type="tap", card_ids=[t.id], tapped=True)
+    one, two = creature(s, "p2", "Bob One"), creature(s, "p2", "Bob Two")
+    ready(s, "Bob One", "Bob Two", pid="p2")
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers" and s.state.turn.active_player == "p2", limit=400)
+    return s, t, one, two
+
+
+def _answer(s, pid, label=None):
+    for _ in range(6):  # (the trigger is on the stack: pass until its question comes up)
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == pid, (d and (d.player, d.kind), pid)
+    pick = next(o for o in d.options if label is None or o.label.startswith(label))
+    act(s, pid, type="choose", decision_id=d.id, option_ids=[pick.id])
+
+
+def test_tahngarth_attacks_the_player_the_opponent_chose_to_attack(cards):
+    """Bob attacks Alice and Carol: Alice gives him Tahngarth until end of combat and picks Carol: it attacks her (not declared: no attack trigger), then combat damage."""
+    s, t, one, two = _tahngarth(cards)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": one.id, "target": "p1"}, {"card_id": two.id, "target": "p3"}])
+    _answer(s, "p1", "Yes")
+    _answer(s, "p1", "Carol")
+    until(s, lambda s: s.state.turn.phase == "main2", limit=60)
+    assert s.state.players["p3"].life == 40 - 2 - 5 and s.state.players["p1"].life == 40 - 2  # (Tahngarth hit Carol for 5)
+    assert s.state.cards[t.id].controller == "p1" and s.state.cards[t.id].attacking is None  # (back at the end of combat)
+    check(s)
+
+
+def test_tahngarth_untapped_or_declined_does_nothing(cards):
+    s, t, one, two = _tahngarth(cards, tapped=False)  # (intervening "if": 603.4)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": one.id, "target": "p1"}])
+    assert s.state.rules.decision is None or s.state.rules.decision.kind != "confirm"
+    assert s.state.cards[t.id].controller == "p1"
+    check(s)
+    s, t, one, two = _tahngarth(cards)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": one.id, "target": "p1"}])
+    _answer(s, "p1", "No")
+    assert s.state.cards[t.id].controller == "p1" and s.state.cards[t.id].attacking is None
+    check(s)

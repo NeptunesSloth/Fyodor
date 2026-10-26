@@ -41,6 +41,10 @@ _JARKELD = ("{T}: Choose two target blocked attacking creatures. If each of thos
             "that's blocking exactly one of those attacking creatures stops blocking it and is blocking the other attacking creature. Activate only during the declare blockers step.")
 
 
+_TAHNGARTH = ("Whenever an opponent attacks with one or more creatures, if ~ is tapped, you may have that opponent gain control of ~ until end of combat. "
+              "If you do, choose a player or planeswalker that opponent is attacking. ~ is attacking that player or planeswalker.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -120,7 +124,57 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if probe is None or probe.get("kind") != "activated" or not probe.get("targets"):
             return {}
         return {**probe, "effects": [{"do": "jarkeld110f"}]}
+    if ability.kind == "triggered" and text == _TAHNGARTH:
+        probe = scripts.define(replace(ability, text="Whenever an opponent attacks with one or more creatures, if ~ is tapped, you may draw a card."), ch)
+        if probe is None or probe["kind"] != "triggered" or not probe.get("optional"):
+            return {}
+        return {**probe, "effects": [{"do": "tahngarth110f"}]}
     return None
+
+
+def tahngarth(plan: Any, ctx: dict[str, Any], e: dict[str, Any], pick: str | None = None) -> bool:
+    """Tahngarth, First Mate (rulings 2019-08-23): the opponent gains control until end of combat; its controller then chooses a player or planeswalker that opponent is
+    attacking (one of the objects their creatures still attack, 508.5) and it attacks that, though never declared as an attacker (508.4: no attack triggers; the new
+    controller's restrictions don't apply). Nothing to choose: it is not attacking."""
+    from app.rules import effects, layers
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    opponents = effects._players(plan, ctx, "event_player")
+    if src is None or not src.zone.endswith(":battlefield") or plan.oid(src) != ctx.get("source_object") or len(opponents) != 1 or opponents[0] not in plan.live():
+        return True
+    opp = opponents[0]
+    if pick is None:
+        effects._control_effect(plan, ctx, [src.id], opp, "end_of_combat")
+        layers.control_sync(plan)
+        seen: dict[str, str] = {}
+        for c in plan.state.cards.values():
+            t = c.attacking
+            if t is None or not c.zone.endswith(":battlefield") or c.controller != opp or c.id == src.id or not plan.ch(c).is_creature:
+                continue
+            if t.kind == "player" and t.id in plan.live():
+                seen[t.id] = plan.name(t.id)
+            elif t.kind == "card" and (pw := plan.state.cards.get(t.id)) is not None and pw.zone.endswith(":battlefield") and "Planeswalker" in plan.ch(pw).types:
+                seen[t.id] = f"{pw.name} ({plan.name(pw.controller)})"
+        if not seen:
+            return True
+        if len(seen) > 1:
+            from app.rules.plan import decide
+
+            decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: choose a player or planeswalker {plan.name(opp)} is attacking",
+                   options=[DecisionOption(id=k, label=v) for k, v in seen.items()], resume={"step": "tahngarth110f", "ctx": ctx, "e": e})
+            return False
+        pick = next(iter(seen))
+    src = plan.state.cards[src.id]
+    if src.zone.endswith(":battlefield") and src.controller == opp:
+        plan.do({"type": "attack", "card_ids": [src.id], "target": {"kind": "player" if pick in plan.state.players else "card", "id": pick}}, actor=opp)
+    return True
+
+
+def resume_tahngarth(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    if tahngarth(plan, d.resume["ctx"], d.resume["e"], chosen[0]):
+        effects.continue_effects(plan, d.resume["ctx"])
 
 
 def _could_be_blocked_by(plan: Any, attacker: Any, blockers: list[Any]) -> bool | None:
@@ -272,5 +326,5 @@ def resume_master(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh, "link_put110f": link_put, "servitude110f": servitude, "jarkeld110f": jarkeld}
-RESUME = {"master110f": resume_master, "seventh110f": resume_seventh, "seventh110f_guess": resume_seventh_guess}
+PRIMITIVES = {"master110f": master, "link_cost110f": link_cost, "seventh110f": seventh, "link_put110f": link_put, "servitude110f": servitude, "jarkeld110f": jarkeld, "tahngarth110f": tahngarth}
+RESUME = {"master110f": resume_master, "seventh110f": resume_seventh, "seventh110f_guess": resume_seventh_guess, "tahngarth110f": resume_tahngarth}
