@@ -311,6 +311,30 @@ def snare_type(plan: Any, a: Any, picked: Any) -> bool:
     return False
 
 
+def _glimpse() -> Any:
+    """Glimpse of Tomorrow: the shuffle and the reveal of that many cards are one primitive; the rest is the native reveal chain (non-Auras, then Auras, then the bottom)."""
+    from app.rules import scripts
+
+    native = scripts.parse_effects("Reveal the top five cards of your library. Put all non-Aura permanent cards revealed this way onto the battlefield. Put all Aura cards "
+                                   "revealed this way onto the battlefield. Put the rest on the bottom of your library in a random order.")
+    if native is None or [e["do"] for e in native[0]] != ["look_top", "pick_looked", "pick_looked", "rest_looked"]:
+        return None
+    return [{"do": "glimpse110h"}, *native[0][1:]], native[1], native[2]
+
+
+def glimpse(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """701.24a: every permanent its controller owns (tokens too: they are permanents shuffled in, then cease to exist, 704.5d) goes into the library, which is
+    shuffled; that many cards from the top are revealed."""
+    from app.rules import effects
+
+    pid = ctx["controller"]
+    owned = [c.id for c in plan.state.cards.values() if c.owner == pid and c.zone.endswith(":battlefield")]
+    if owned:
+        plan.do({"type": "move", "card_ids": owned, "to": {"player": pid, "zone": "library"}}, actor=pid)
+    effects.shuffle_library(plan, ctx, {"do": "shuffle_library", "who": "you"})
+    return effects.look_top(plan, ctx, {"do": "look_top", "n": len(owned), "player": "you", "reveal": True})
+
+
 def _episode() -> Any:
     return [{"do": "episode110h", "who": "target"}], "player", False
 
@@ -596,6 +620,8 @@ def excess_reflex(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 
 BUILDERS = {
+    "Shuffle all permanents you own into your library, then reveal that many cards from the top of your library. Put all non-Aura permanent cards revealed this way "
+    "onto the battlefield, then do the same for Aura cards, then put the rest on the bottom of your library in a random order.": lambda: _glimpse(),
     "Return X target creatures of the creature type of your choice to their owner's hand.": _snare,
     "Look at the top five cards of your library. You may reveal up to two creature and/or land cards from among them, then put the rest on the bottom of your "
     "library in a random order. Put all land cards revealed this way onto the battlefield tapped and put all creature cards revealed this way into your hand.": _zimone,
@@ -740,5 +766,5 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "pendulum110h": pendulum, "exile_counters110h": exile_counters}
+PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "glimpse110h": glimpse, "pendulum110h": pendulum, "exile_counters110h": exile_counters}
 RESUME = {"pendulum110h": resume_pendulum, "pendulum_reveal110h": resume_pendulum_reveal, "zimone110h": resume_zimone, "episode110h": resume_episode, "scapegoat110h": resume_scapegoat}

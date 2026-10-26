@@ -1,6 +1,7 @@
 """Wave 110H session 9: one-card builds on real Oracle text (each scenario checks replay and a save/load round trip).
 
 * Desolation: at each end step every player who tapped a land for mana this turn sacrifices a land; one who sacrificed a Plains is dealt 2 damage (701.21a, 608.2h).
+* Glimpse of Tomorrow: all permanents you own are shuffled into the library and that many cards revealed; permanent cards enter, Auras last, the rest go to the bottom (701.24a).
 * Ashiok, Wicked Manipulator: its controller's payment of life becomes exiling that many cards from the top of the library, if it has that many (614.1a, 119.4).
 """
 from __future__ import annotations
@@ -10,10 +11,10 @@ import pytest
 from app.rules import coverage
 from tests.fixtures.cards import card
 from tests.game_helpers import act
-from tests.test_rules_wave110h_s5 import answer
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build, check, life, put
-from tests.wave110j_kit import ability, now, to_phase
+from tests.test_rules_wave110h_s5 import answer
+from tests.wave9c_kit import build, check, life, mana, put
+from tests.wave110j_kit import ability, ch, now
 
 ASHIOK_TEXT = ("If you would pay life while your library has at least that many cards in it, exile that many cards from the top of your library instead.\n"
                "+1: Look at the top two cards of your library. Exile one of them and put the other into your hand.\n"
@@ -25,6 +26,11 @@ EXTRA = [
     card("Plains", set_code="tst", number="110H-pl", type_line="Basic Land \u2014 Plains", oracle_text="({T}: Add {W}.)", color_identity=["W"]),
     real("Desolation", "{1}{B}{B}", 3, "Enchantment", "At the beginning of each end step, each player who tapped a land for mana this turn sacrifices a land of their choice. "
          "This enchantment deals 2 damage to each player who sacrificed a Plains this way.", None, "B"),
+    real("Glimpse of Tomorrow", "", 0, "Sorcery", "Suspend 3\u2014{R}{R}\nShuffle all permanents you own into your library, then reveal that many cards from the top of your library. "
+         "Put all non-Aura permanent cards revealed this way onto the battlefield, then do the same for Aura cards, then put the rest on the bottom of your library in a random order.",
+         None, "R"),
+    real("Runeclaw Bear", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
+    real("Pacifism", "{1}{W}", 2, "Enchantment \u2014 Aura", "Enchant creature\nEnchanted creature can't attack or block.", None, "W"),
     real("Pain Pylon", "{1}", 1, "Artifact", "{T}, Pay 2 life: Draw a card.", None, ""),
 ]
 NAMES = [c["name"] for c in EXTRA]
@@ -93,4 +99,43 @@ def test_desolation_sacrifices_for_tappers_and_burns_plains_sacrificers(cards, t
     assert asked == (["p1"] if sacrificed else [])  # (nobody else tapped a land; nobody who didn't is asked)
     assert [now(s, c).zone for c in (plains, forest)] == [("p1:graveyard" if sacrificed == "Plains" else "p1:battlefield"), ("p1:graveyard" if sacrificed == "Forest" else "p1:battlefield")]
     assert life(s, "p1") == 40 - dmg and life(s, "p2") == 40
+    check(s)
+
+
+def _glimpse(cards, others, on_battlefield):
+    """Glimpse suspended (702.62: three upkeeps), then cast: ``others`` library cards besides the forests, ``on_battlefield`` extra permanents first."""
+    s = build(cards, ["Glimpse of Tomorrow", *others])
+    glimpse = next(c for c in s.state.cards.values() if c.name == "Glimpse of Tomorrow")
+    act(s, "p1", type="move", card_ids=[glimpse.id], to={"zone": "hand"})
+    for n in on_battlefield:
+        put(s, n)
+    mana(s, R=2)
+    act(s, "p1", type="activate_ability", card_id=glimpse.id, ability=next(a.index for a in ch(s, glimpse).abilities if "suspend" in a.keywords))
+    for _ in range(300):
+        d = s.state.rules.decision
+        if d is not None and (d.resume or {}).get("step") == "suspend_cast":
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: d.min_choices])
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["yes"])
+    answer(s)
+    return s
+
+
+def test_glimpse_reveals_as_many_cards_as_permanents_shuffled_and_they_enter(cards):
+    """A Forest and a Bear on the battlefield: 2 permanents shuffled in, 2 of the (all-permanent) cards revealed enter, so 2 are on the battlefield and the library is as big as before."""
+    s = _glimpse(cards, ["Runeclaw Bear"], ["Forest", "Runeclaw Bear"])
+    mine = [c for c in s.state.cards.values() if c.owner == "p1"]
+    assert len([c for c in mine if c.zone == "p1:battlefield"]) == 2 and len([c for c in mine if c.zone == "p1:library"]) == 5  # (10 cards, 3 drawn in the three turns)
+    assert len([c for c in mine if c.zone == "p1:hand"]) == 3 and next(c for c in mine if c.name == "Glimpse of Tomorrow").zone == "p1:graveyard"
+    check(s)
+
+
+def test_glimpse_with_nothing_to_shuffle_reveals_nothing(cards):
+    s = _glimpse(cards, [], [])
+    assert not [c for c in s.state.cards.values() if c.owner == "p1" and c.zone == "p1:battlefield"]
     check(s)
