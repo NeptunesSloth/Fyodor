@@ -74,6 +74,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return statics._definition("attached", "creature", [], rules=[f"{ATK_TAX}:{{3}}"])
     if ability.text.strip() == _TEFERI:
         return _teferi_definition(ability, ch)
+    if ability.kind == "static" and ability.text.strip() == _CENTAUR_STATIC:
+        return statics._definition("self", None, [], each={"p": 1, "t": 1, "value": {"stored_same110m": 1}})
     if ability.text.strip() == _ADVERSARY:
         return _adversary_definition(ability, ch)
     if ability.text.strip() == _BOOBY_ENTER:  # both choices are made as it enters (614.12a) and stay public on the permanent
@@ -249,6 +251,76 @@ def resume_march(plan: Any, d: Any, chosen: list[str]) -> None:
         copying.become_copy(plan, ctx, {"do": "become_copy", "who": group, "with": "target", "duration": "end_of_turn"})
         effects.PRIMITIVES["grant"](plan, ctx, {"do": "grant", "who": group, "keywords": ["haste"]})
     effects.continue_effects(plan, ctx)
+
+
+_CENTAUR_ETB = "When this creature enters, roll five six-sided dice and store those results on it."
+_CENTAUR_COMBAT = "At the beginning of combat on your turn, you may reroll any number of this creature's stored results."
+_CENTAUR_STATIC = "This creature gets +X/+X, where X is the greatest number of stored results on it of the same value."
+_BUILD[_CENTAUR_ETB] = ("When this creature enters, roll five six-sided dice.", lambda d: {**d, "effects": [*d["effects"], {"do": "store_dice110m"}]})
+_BUILD[_CENTAUR_ETB.replace("this creature", "Centaur of Attention")] = _BUILD[_CENTAUR_ETB]
+_BUILD[_CENTAUR_COMBAT] = ("At the beginning of combat on your turn, you may have this creature gain vigilance until end of combat.",
+                           lambda d: {**d, "optional": False, "effects": [{"do": "reroll_pick110m"}, {"do": "reroll_roll110m"}, {"do": "store_dice110m"}]})  # (the "may" is the choice of how many: none)
+
+
+def _stored(plan: Any, ctx: Def) -> list[int] | None:
+    """The stored results (706.8a, all d6 on the one card that has them) of the ability's source, if it is still that object (400.7)."""
+    key = ctx.get("source_object")
+    if key is None or plan.oid(ctx["source_card"]) != key:
+        return None
+    return plan.rules.stored_dice110m.setdefault(key, [])
+
+
+def store_dice(plan: Any, ctx: Def, e: Def) -> bool:
+    """706.8a: the results just rolled become stored results of the source permanent (gone with it if it left: a new object, 400.7)."""
+    rolled = ctx.pop("dice", [])
+    card = plan.state.cards.get(ctx.get("source_card", ""))
+    if rolled and card is not None and card.zone.endswith(":battlefield") and (kept := _stored(plan, ctx)) is not None:
+        kept.extend(rolled)
+        plan.note(f"{card.name} stores {', '.join(map(str, rolled))}")
+    return True
+
+
+def reroll_pick(plan: Any, ctx: Def, e: Def) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    kept = _stored(plan, ctx)
+    ctx["rerolled110m"] = 0
+    if not kept:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{ctx.get('name', '')}: reroll any number of the stored results",
+           options=[DecisionOption(id=str(i), label=f"Stored {v}") for i, v in enumerate(kept)], min_choices=0, max_choices=len(kept),
+           resume={"step": "reroll_pick110m", "ctx": ctx})
+    return False
+
+
+def resume_reroll_pick(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    kept = _stored(plan, ctx)
+    if kept is not None and chosen:
+        gone = {int(i) for i in chosen}
+        plan.rules.stored_dice110m[ctx["source_object"]] = [v for i, v in enumerate(kept) if i not in gone]  # 706.8b: the rerolled results stop being stored
+        ctx["rerolled110m"] = len(gone)
+        plan.note(f"{plan.name(d.player)} rerolls {len(gone)} stored result{'s' * (len(gone) != 1)}", actor=d.player)
+    effects.continue_effects(plan, ctx)
+
+
+def reroll_roll(plan: Any, ctx: Def, e: Def) -> bool:
+    """706.8b: roll one die of the noted kind (a d6) for each rerolled result; they are stored on the permanent by the next effect."""
+    from app.rules import dice
+
+    if not ctx.get("rerolled110m"):
+        ctx["dice"] = []
+        return True
+    return dice.roll(plan, ctx, {"do": "roll", "sides": 6, "count": ctx["rerolled110m"]})
+
+
+def same_stored(plan: Any, ctx: Def) -> int:
+    """The greatest number of stored results of the source that share one value (0: none stored)."""
+    kept = plan.rules.stored_dice110m.get(ctx.get("source_object") or "", [])
+    return max((kept.count(v) for v in set(kept)), default=0)
 
 
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
@@ -899,6 +971,6 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+RESUME: dict[str, Any] = {"reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

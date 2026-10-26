@@ -957,5 +957,22 @@
 "keywords": [
 "Scry"
 ]
+},
+{
+"name": "Centaur of Attention",
+"layout": "normal",
+"mana_cost": "{3}{G}{G}",
+"cmc": 5.0,
+"type_line": "Creature — Centaur Performer",
+"oracle_text": "When this creature enters, roll five six-sided dice and store those results on it.\nAt the beginning of combat on your turn, you may reroll any number of this creature's stored results.\nThis creature gets +X/+X, where X is the greatest number of stored results on it of the same value.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [],
+"power": "3",
+"toughness": "3"
 }
 ]
