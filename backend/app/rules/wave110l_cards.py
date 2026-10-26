@@ -315,6 +315,76 @@ _BUILD["{1}, Discard your hand: Put all exiled cards you own with intel counters
     "{1}, Discard your hand: Draw a card.", _intel)
 
 
+def _vault(d: Def) -> Def:
+    """Vault 112 chapter III: pay any amount of {E}; if one or more, shuffle, exile that many from the top, and play one of those cards for free (Experience Kernel-like
+    "that many" is the energy actually paid, 107.14)."""
+    from app.rules import scripts
+
+    pay = scripts.parse_effects("Pay any amount of {E}.")
+    play = scripts.parse_effects("Exile the top X cards of your library. You may play one of those cards without paying its mana cost.")
+    shuffle = scripts.parse_effects("Shuffle your library.")
+    assert pay and play and shuffle
+    exile, free = play[0]
+    paid = {"ref_amount": pay[0][0]["as"]}
+    gate = {"do": "only_if", "cond": {"value": paid, "op": ">=", "n": 1}, "skip": 3}
+    return {**d, "effects": [pay[0][0], gate, shuffle[0][0], {**exile, "n": paid}, free]}
+
+
+_BUILD["III — Pay any amount of {E}. If you paid one or more {E} this way, shuffle your library, then exile that many cards from the top. "
+       "You may play one of those cards without paying its mana cost."] = ("III — Draw a card.", _vault)
+
+
+_WINTER = ("Delirium — At the beginning of your end step, you may exile any number of cards from your graveyard with four or more card types among them. "
+           "If you do, put a permanent card from among them onto the battlefield with a finality counter on it.")
+_BUILD[_WINTER] = ("Delirium — At the beginning of your end step, you may draw a card.",
+                   lambda d: {**d, "optional": False, "effects": [{"do": "winter110l"}]})
+_PERMANENT_TYPES = frozenset({"Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"})
+
+
+def winter(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Winter: the graveyard is public (404.2), so the choice is asked whenever there is a card in it: any number, but the chosen cards must show four or
+    more card types among them (205.2a; a wrong set is refused when answered)."""
+    from app.rules.effects import decide, zone_key
+
+    gy = list(plan.state.zones.get(zone_key(ctx["controller"], "graveyard"), []))
+    if not gy:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Exile any number of cards from your graveyard with four or more card types among them",
+           options=_cards_options(plan, gy), min_choices=0, max_choices=len(gy), resume={"step": "winter110l", "ctx": ctx, "stage": "exile"})
+    return False
+
+
+def resume_winter(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import attachments
+    from app.rules.effects import continue_effects, decide
+
+    ctx, me = d.resume["ctx"], d.player
+    if d.resume["stage"] == "exile":
+        gy = set(plan.state.zones.get(f"{me}:graveyard", []))
+        chosen = [c for c in dict.fromkeys(chosen) if c in gy]
+        if not chosen:
+            continue_effects(plan, ctx)
+            return
+        if len({t for c in chosen for t in plan.ch(plan.state.cards[c]).types}) < 4:
+            raise ActionError("Choose cards with four or more card types among them")
+        plan.do({"type": "move", "card_ids": chosen, "to": {"zone": "exile"}}, actor=me)
+        among = [c for c in chosen if plan.state.cards[c].zone == f"{me}:exile" and plan.ch(plan.state.cards[c]).types & _PERMANENT_TYPES]
+        if not among:
+            continue_effects(plan, ctx)
+            return
+        decide(plan, player=me, kind="choose_cards", prompt="Put a permanent card from among them onto the battlefield with a finality counter on it",
+               options=_cards_options(plan, among), min_choices=1, max_choices=1,
+               resume={"step": "winter110l", "ctx": ctx, "stage": "enter", "among": among})
+        return
+    pick = chosen[0] if chosen else ""
+    if pick in d.resume["among"] and plan.state.cards[pick].zone == f"{me}:exile":
+        entry = {"card": pick, "player": me, "actor": me, "tapped": False, "via": ctx.get("source_object"), "counter": "finality", "counter_n": 1}
+        if not attachments.enter(plan, [entry], ctx):
+            return  # (an Aura chooses what it enchants; the resolution goes on from there)
+    continue_effects(plan, ctx)
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key
@@ -540,5 +610,5 @@ def resume_struggle(plan: Plan, d: Any, chosen: list[str]) -> None:
         continue_effects(plan, ctx)
 
 
-PRIMITIVES = {**_P0, "face_down_look110l": face_down_look, "suffocate110l": suffocate, "ritual110l": ritual, "ritual_again110l": ritual_again, "struggle110l": struggle}
-RESUME = {**_R0, "ritual110l": resume_ritual, "struggle110l": resume_struggle}
+PRIMITIVES = {**_P0, "winter110l": winter, "face_down_look110l": face_down_look, "suffocate110l": suffocate, "ritual110l": ritual, "ritual_again110l": ritual_again, "struggle110l": struggle}
+RESUME = {**_R0, "winter110l": resume_winter, "ritual110l": resume_ritual, "struggle110l": resume_struggle}

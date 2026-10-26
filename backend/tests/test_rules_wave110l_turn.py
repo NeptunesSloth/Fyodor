@@ -333,3 +333,40 @@ def test_assimilation_aegis_copy_ends_when_the_equipment_is_destroyed(cards):
     assert ch(s, wolf).name == "Young Wolf"
     assert zone_of(s, "Llanowar Elves", "p2") == "p2:battlefield"  # exiled "until this Equipment leaves the battlefield"
     check(s)
+
+
+VAULT = "Vault 112: Sadistic Simulation"
+test_full_vault = full_test([VAULT])
+
+
+@pytest.mark.parametrize("paid", [0, 2])
+def test_vault_112_chapter_three_pays_energy_then_exiles_that_many_and_may_play_one(cards, paid):
+    s = build(cards, [VAULT, "Grizzly Bears"])
+    vault = put(s, VAULT)
+    act(s, "p1", type="counter", card_ids=[vault.id], kind="lore", delta=2)
+    act(s, "p1", type="resource", player="p1", key="energy", delta=3)
+    next_turn(s)  # chapter III triggers as the third lore counter is added after the draw step
+    d = resolve_to_decision_or_none(s)
+    assert d is not None and [o.id for o in d.options][:1] == ["3"]  # any amount of the 3 energy, 0 to 3
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[str(paid)])
+    d = resolve_to_decision_or_none(s)
+    if paid:
+        assert d is not None and d.min_choices == 0  # "you may play one of those cards": the exiled cards are the options (or none)
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+        answer(s)
+    else:
+        assert d is None  # nothing paid: no shuffle, nothing exiled
+    assert s.state.players["p1"].resources.get("energy", 0) == 3 - paid
+    assert len(s.state.zones.get("p1:exile", [])) == paid
+    check(s)
+
+
+def resolve_to_decision_or_none(s):
+    for _ in range(40):
+        if s.state.rules.decision is not None:
+            return s.state.rules.decision
+        if s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return None
+    return None

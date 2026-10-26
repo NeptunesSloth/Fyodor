@@ -190,3 +190,58 @@ def test_slith_can_remove_a_counter_from_an_opponent(cards):
     answer(s)
     assert s.state.players["p2"].resources.get("poison") == 2
     check(s)
+
+
+WINTER = "Winter, Cynical Opportunist"
+test_full_winter = full_test([WINTER])
+
+
+def winter_table(cards):
+    s = build(cards, [WINTER, "Grizzly Bears", "Sol Ring", "Lightning Bolt", "Giant Growth"])
+    put(s, WINTER)
+    for n in ("Grizzly Bears", "Sol Ring", "Lightning Bolt", "Giant Growth"):
+        c = card_named(s, n)
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "graveyard"})
+    stops(s)
+    to_phase(s, "end")
+    d = resolve_to_decision(s)
+    assert d is not None and d.min_choices == 0
+    return s, d
+
+
+def resolve_to_decision(s):
+    while s.state.rules.decision is None and s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s.state.rules.decision
+
+
+def test_winter_exiles_four_types_and_puts_a_permanent_card_back_with_a_finality_counter(cards):
+    s, d = winter_table(cards)
+    ids = {o.label: o.id for o in d.options}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids[n] for n in ("Grizzly Bears", "Sol Ring", "Forest", "Lightning Bolt")])
+    d = resolve_to_decision(s)
+    pick(s, d, "Sol Ring")
+    answer(s)
+    assert zone_of(s, "Sol Ring") == "p1:battlefield" and card_named(s, "Sol Ring").counters.get("finality") == 1
+    assert zone_of(s, "Grizzly Bears") == zone_of(s, "Forest") == zone_of(s, "Lightning Bolt") == "p1:exile"
+    assert zone_of(s, "Giant Growth") == "p1:graveyard"
+    check(s)
+
+
+def test_winter_refuses_fewer_than_four_card_types(cards):
+    from app.game.errors import ActionError
+
+    s, d = winter_table(cards)
+    ids = {o.label: o.id for o in d.options}
+    with pytest.raises(ActionError):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids[n] for n in ("Grizzly Bears", "Sol Ring", "Lightning Bolt", "Giant Growth")])
+
+
+def test_winter_may_exile_nothing(cards):
+    s, d = winter_table(cards)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+    answer(s)
+    assert len(s.state.zones["p1:graveyard"]) == 5 and not s.state.zones.get("p1:exile")
+    check(s)
