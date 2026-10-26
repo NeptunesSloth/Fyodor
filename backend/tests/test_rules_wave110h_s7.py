@@ -14,8 +14,8 @@ import pytest
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.test_rules_wave110h_s5 import answer
 from tests.test_rules_wave30m_durations import to_phase
+from tests.test_rules_wave110h_s5 import answer
 from tests.wave9c_kit import build, card_named, check, life, mana, put, to_hand
 
 EXTRA = [
