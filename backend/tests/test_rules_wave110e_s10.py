@@ -4,12 +4,13 @@ from __future__ import annotations
 import pytest
 
 import tests.test_rules_wave110e_cards as base
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave30m_durations import stops, to_phase
 from tests.test_rules_wave110e_cards import answer, card_db, cast  # noqa: F401  (the fixture)
-from tests.wave9c_kit import build, card_named, check, life, mana, pt, put
+from tests.wave9c_kit import build, card_named, check, life, mana, pt, put, to_hand
 
 REPROACH = real("Teferi's Reproach", "{2}{W}{W}", 4, "Instant",
                 "Choose target opponent. Until that player's next turn, they gain protection from everything and their life total can't change. "
@@ -23,10 +24,22 @@ MONITOR = real("Monitor Monitor", "{2}{U}", 3, "Creature — Human Wizard",
                "When this creature enters, open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)\n"
                "Once each turn, you may pay {1} to reroll one or more dice you rolled.", ("1", "3"), "U")
 ROLL = real("Test Roll", "{B}", 1, "Sorcery", "Roll a six-sided die. You gain life equal to the result.", None, "B")
-base.EXTRA.extend([REPROACH, BEAR, DRAIN, BLADE, MONITOR, ROLL])
+IMP = real("Maddening Imp", "{4}{B}", 5, "Creature — Imp",
+           "Flying\n{T}: Non-Wall creatures the active player controls attack this turn if able. At the beginning of the next end step, destroy each of those creatures "
+           "that didn't attack this turn. Activate only during an opponent's turn and only before combat.", ("2", "2"), "B")
+WALL = real("Test Wall", "{1}{W}", 2, "Creature — Wall", "", ("0", "4"), "W")
+VEC = real("Oracle en-Vec", "{2}{W}", 3, "Creature — Human Wizard",
+           "{T}: Target opponent chooses any number of creatures they control. During that player's next turn, the chosen creatures attack if able, and other creatures can't "
+           "attack. At the beginning of that turn's end step, destroy each of the chosen creatures that didn't attack this turn. Activate only during your turn.", ("1", "1"), "W")
+SLOTH = real("Test Sloth", "{1}{G}", 2, "Creature — Sloth", "Defender", ("0", "3"), "G")
+MARVEL = real("Ms. Marvel, Kamala Khan", "{2}{U}", 3, "Legendary Creature — Mutant Inhuman Hero", "Reach, vigilance\nYou have no maximum hand size.\n"
+              "Embiggen Fist — Whenever you cast a spell that targets a creature you control, draw a card. "
+              "Until end of turn, Ms. Marvel gains \"Ms. Marvel's base power is equal to the number of cards in your hand.\"", ("1", "4"), "U")
+PUMP = real("Test Pump", "{G}", 1, "Instant", "Target creature gets +1/+1 until end of turn.", None, "G")
+base.EXTRA.extend([MARVEL, PUMP, REPROACH, BEAR, DRAIN, BLADE, MONITOR, ROLL, IMP, WALL, VEC, SLOTH])
 
 
-@pytest.mark.parametrize("name", ["Teferi's Reproach", "Sanctuary Blade", "Monitor Monitor"])
+@pytest.mark.parametrize("name", ["Teferi's Reproach", "Sanctuary Blade", "Monitor Monitor", "Maddening Imp", "Oracle en-Vec", "Ms. Marvel, Kamala Khan"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -118,3 +131,117 @@ def pick(s, ids):
 
 def life_of(s):
     return s.state.players["p1"].life
+
+
+def test_maddening_imp_forces_non_wall_attackers_and_destroys_the_ones_that_did_not(cards):
+    """508.1d + 603.7: the active player's non-Wall creatures must attack; at the next end step those that didn't (a summoning-sick one) are destroyed,
+    the Wall and the attacker survive."""
+    from tests.test_rules_player_protection import priority
+
+    s = build(cards, ["Maddening Imp"], ["Test Bear", "Test Bear", "Test Wall"])
+    imp, wall, bear = put(s, "Maddening Imp"), put(s, "Test Wall", "p2"), put(s, "Test Bear", "p2")
+    stops(s, "main1")
+    to_phase(s, "main1", 4)
+    sick = next(c for c in s.state.cards.values() if c.name == "Test Bear" and c.id != bear.id)
+    act(s, "p2", type="move", card_ids=[sick.id], to={"player": "p2", "zone": "battlefield"})
+    priority(s, "p1")
+    act(s, "p1", type="activate_ability", card_id=imp.id, ability=1)
+    answer(s)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_attackers", attackers=[])
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p1"}])
+    check(s)
+    stops(s, "end")
+    to_phase(s, "end", 4)
+    answer(s)
+    zone = {n: s.state.cards[i].zone for n, i in (("bear", bear.id), ("wall", wall.id), ("sick", sick.id))}
+    assert zone == {"bear": "p2:battlefield", "wall": "p2:battlefield", "sick": "p2:graveyard"}
+    check(s)
+
+
+def _vec_turn(cards, chosen_names):
+    """Alice (turn 3) taps Oracle en-Vec on Bob; Bob chooses ``chosen_names`` of his Bear, Bear, Sloth; returns the state at Bob's declare attackers (turn 4)."""
+    from tests.test_rules_player_protection import priority
+
+    s = build(cards, ["Oracle en-Vec"], ["Test Bear", "Test Bear", "Test Sloth"])
+    vec = put(s, "Oracle en-Vec")
+    bears = [c for c in s.state.cards.values() if c.name == "Test Bear" and c.owner == "p2"]
+    for c in (*bears, card_named(s, "Test Sloth", "p2")):
+        act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "battlefield"})
+    stops(s, "main1")
+    to_phase(s, "main1", 3)
+    priority(s, "p1")
+    act(s, "p1", type="activate_ability", card_id=vec.id, ability=0, targets=["p2"], target_counts=[1])
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None and d.player == "p2":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    ids = {"bear0": bears[0].id, "bear1": bears[1].id, "sloth": card_named(s, "Test Sloth", "p2").id}
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[ids[n] for n in chosen_names])
+    answer(s)
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers" and s.state.turn.number == 4:
+            break
+        if d is not None and d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    return s, ids
+
+
+def test_oracle_en_vec_chosen_attack_others_stay_home_and_unattackers_die(cards):
+    """508.1d, 508.1c, 603.7: the chosen Bear must attack and the unchosen Bear can't; the chosen Defender can't, so it is destroyed at the end step."""
+    s, ids = _vec_turn(cards, ["bear0", "sloth"])
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_attackers", attackers=[])
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_attackers", attackers=[{"card_id": ids["bear0"], "target": "p1"}, {"card_id": ids["bear1"], "target": "p1"}])
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": ids["bear0"], "target": "p1"}])
+    check(s)
+    stops(s, "end")
+    to_phase(s, "end", 4)
+    answer(s)
+    assert {n: s.state.cards[i].zone for n, i in ids.items()} == {"bear0": "p2:battlefield", "bear1": "p2:battlefield", "sloth": "p2:graveyard"}
+    check(s)
+
+
+def test_oracle_en_vec_choosing_nothing_still_stops_every_attack(cards):
+    """508.1c: with no creature chosen, no creature can attack that turn."""
+    s, ids = _vec_turn(cards, [])
+    with pytest.raises(ActionError):
+        act(s, "p2", type="declare_attackers", attackers=[{"card_id": ids["bear0"], "target": "p1"}])
+    act(s, "p2", type="declare_attackers", attackers=[])
+    check(s)
+
+
+@pytest.mark.parametrize("target", ["Test Bear", "Ms. Marvel, Kamala Khan"])
+def test_ms_marvel_base_power_is_the_hand_size_all_turn_and_only_for_a_creature_you_target(cards, target):
+    """613.4b, 611.3a: a spell targeting a creature you control draws a card and sets her base power to the cards in hand, counted continuously this turn
+    (a +1/+1 pump on her is added on top, 613.4c); the next turn she is a 1/4 again."""
+    s = build(cards, ["Ms. Marvel, Kamala Khan", "Test Bear", "Test Pump", "Test Pump"])
+    marvel, bear = put(s, "Ms. Marvel, Kamala Khan"), put(s, "Test Bear")
+    mana(s, G=1)
+    assert pt(s, "Ms. Marvel, Kamala Khan") == (1, 4)
+    cast(s, "Test Pump", [(marvel if target.startswith("Ms") else bear).id])
+    answer(s)
+    hand = len(s.state.zones["p1:hand"])
+    bonus = 1 if target.startswith("Ms") else 0
+    assert pt(s, "Ms. Marvel, Kamala Khan") == (hand + bonus, 4 + bonus)
+    to_hand(s, "Test Pump")  # one more card in hand: her base power follows
+    assert pt(s, "Ms. Marvel, Kamala Khan") == (hand + 1 + bonus, 4 + bonus)
+    check(s)
+    from tests.test_rules_wave30m_durations import to_phase
+
+    to_phase(s, "main1", 3)
+    assert pt(s, "Ms. Marvel, Kamala Khan") == (1, 4)

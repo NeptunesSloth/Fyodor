@@ -735,6 +735,10 @@ def attack_forbidden(plan: Plan, ch: Characteristics, target: str) -> bool:
                     return True
     for rule in ch.imposed:
         name, _, who = rule.partition(":")
+        if name == "cant_attack_unless_vec110e":  # -- Oracle en-Vec (wave 110E) -- 508.1c: only the creatures its chosen set carries the marker of may attack
+            if f"vec110e:{who}" not in ch.imposed:
+                return True
+            continue
         if name in ("cant_attack_unless_def", "cant_attack_if_def"):
             defender = target if target in plan.state.players else defender_of(plan.state, A.AttackTarget(kind="card", id=target))
             if defender in plan.state.players and _defender_fact(plan, who, defender) == (name == "cant_attack_if_def"):

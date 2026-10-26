@@ -186,7 +186,7 @@ def resume(plan: Any, decision: Any, chosen: list[str]) -> None:
         if frame.selected is None or not chosen or any(not c.isdigit() or int(c) >= len(frame.results) for c in chosen) or len(set(chosen)) != len(chosen):
             raise ActionError('Choose one or more dice')
         done = plan.do({'type': 'roll', 'sides': frame.effect['sides'], 'count': len(chosen)}, actor=frame.ctx['controller'])
-        for c, new in zip(chosen, done.r.results, strict=True):  # type: ignore[union-attr]
+        for c, new in zip(chosen, done.r.results, strict=True):
             frame.naturals[int(c)] = frame.results[int(c)] = new
         plan.note(f"{plan.name(frame.ctx['controller'])} rerolls {len(chosen)} {'die' if len(chosen) == 1 else 'dice'}")
         _after(plan, frame)

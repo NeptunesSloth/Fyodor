@@ -32,6 +32,8 @@ _REWRITE: dict[str, str] = {
     "Each opponent chooses a creature they control. Tap and goad the chosen creatures.":
         "Each opponent chooses a creature they control. Tap those creatures. Goad those creatures.",
 }
+_EMBIGGEN = ("Embiggen Fist — Whenever you cast a spell that targets a creature you control, draw a card. "
+             "Until end of turn, Ms. Marvel gains \"Ms. Marvel's base power is equal to the number of cards in your hand.\"")
 _CULPRIT = "Exile any number of face-up creatures you control with disguise in a face-down pile, shuffle that pile, then cloak them."
 _AMBUSH = ("Target player searches their library and/or graveyard for a card named Ezio, Blade of Vengeance, reveals it, and puts it into their hand. "
            "If they search their library this way, they shuffle.")
@@ -260,6 +262,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _EMBIGGEN:  # 613.4b: until end of turn Ms. Marvel's base power is the number of cards in your hand, counted continuously (611.3a)
+        native = scripts.define(replace(ability, text=_EMBIGGEN.split(", draw a card.")[0] + ", draw a card."), ch)
+        return None if native is None else {**native, "effects": [*native["effects"], {"do": "dyn_base_power110e", "who": "self", "value": {"hand": "you"}}]}
     from app.rules import wave110e_imps
 
     if (imp := wave110e_imps.definition(ability, ch)) is not None:  # Nettling Imp, Norritt
@@ -345,6 +350,17 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return None
     native = scripts.define(replace(ability, text=got[0]), ch)
     return None if native is None else {**native, "effects": [*native["effects"], *got[1]]}
+
+
+def dyn_base_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects, layers
+
+    for cid in effects._cards(plan, ctx, e["who"]):
+        layers.add_effect(plan, affected=[plan.oid(cid)], layer="7b", source=ctx.get("source_object"), controller=ctx["controller"], dyn_power110e=e["value"])
+    return True
+
+
+PRIMITIVES["dyn_base_power110e"] = dyn_base_power
 
 
 def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:

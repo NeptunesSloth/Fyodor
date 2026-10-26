@@ -1231,7 +1231,12 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
             setters.append(((st.seq, 0, 0), each_amounts.get(id(st), 0), each_amounts.get(id(st), 0)))
     for e in effects:  # 7b: resolved setting effects, interleaved by timestamp (613.7)
         if e.layer == "7b":
-            setters.append(((e.object_seq, 1, e.timestamp), e.power, e.toughness))
+            dyn = None
+            if e.dyn_power110e is not None and info is not None:  # -- Ms. Marvel (wave 110E) -- 613.4b: "base power is equal to the number of cards in your hand", read now (611.3a)
+                from app.rules import values
+
+                dyn = values.evaluate(_view(state, info), {"controller": card.controller, "source_card": card.id}, e.dyn_power110e)
+            setters.append(((e.object_seq, 1, e.timestamp), e.power if dyn is None else dyn, e.toughness))
     setters.sort(key=lambda x: x[0])
     power, toughness = _num(ch.power), _num(ch.toughness)
     if info is not None and (power is None or toughness is None):

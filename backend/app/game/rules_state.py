@@ -729,6 +729,7 @@ class ContinuousEffect(BaseModel):
     text_change71: TextChange71 | None = None
     power: int | None = None
     toughness: int | None = None
+    dyn_power110e: dict[str, Any] | None = None  # (wave 110E) layer 7b base power read now (611.3a): a values.evaluate amount, e.g. {'hand': 'you'}
     add_keywords: list[str] = Field(default_factory=list)
     remove_keywords: list[str] = Field(default_factory=list)
     blocked_keywords: dict[str, list[str]] = Field(default_factory=dict)  # prohibited grants at creation, per object
