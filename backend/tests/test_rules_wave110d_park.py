@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from app.rules import sba
 from tests.game_helpers import act
-from tests.wave9c_kit import to_hand
 from tests.test_rules_wave110d_three import three
+from tests.wave9c_kit import to_hand
 from tests.wave110d_kit import card_db, ch, check, cost, full, hand_new, mana, move, now, put_new, settle  # noqa: F401
 
 NAME = "Welcome to . . . // Jurassic Park"
