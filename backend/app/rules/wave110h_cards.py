@@ -38,6 +38,12 @@ _PHOENIX = "When ~ dies, you may exile it and collect evidence 4. If you do, ret
 # The Spot, Living Portal: the card is put on the bottom (401.4); "If you do" holds only if it really got to the library (608.2c), then the linked exile returns.
 # Wolverine, Fierce Fighter: a static read where damage is dealt (heal110h in replace.py): the damage marked earlier is removed as the new damage is marked.
 _WOLVERINE = "If damage would be dealt to ~, instead that damage is dealt, but all other damage already dealt to him is healed."
+_WINDS = "If a permanent with a wind counter on it would untap during its controller's untap step, remove all wind counters from it instead."
+# Saproling Burst: the token's quoted CDA counts the counters on its creator (the permanent named in the quote, 111.2); the leaves trigger destroys the tokens that
+# permanent made (its token_source), they can't be regenerated (701.19c).
+_BURST_TOKEN = ("Remove a fade counter from ~: Create a green Saproling creature token. It has \"This token's power and toughness are each equal to the number of fade "
+                "counters on ‹granter›.\"")
+_BURST_LEAVES = "When ~ leaves the battlefield, destroy all tokens created with ~. They can't be regenerated."
 _SPOT = "When ~ dies, put ~ on the bottom of ~'s owner's library. If you do, return the exiled cards to their owners' hands."
 # Mysterious Limousine, in Oracle order (608.2c): exile the target (linked, 607.2a); if a creature really is in exile, return each OTHER linked card (not the one
 # just exiled: exiled_with "other" skips cards exiled in this same resolution).
@@ -70,6 +76,13 @@ def untap_hold(plan: Any, player: str, keep: list[str]) -> list[str]:
             continue
         if not counter_removal_results.remove(plan, host.id, "+1/+1", 1, by=player):
             held.append(host.id)
+    # Freyalise's Winds (614.1a): an untapping permanent with wind counters loses them all instead and stays tapped. ponytail: a permanent that is also
+    # stunned has both replacements (616.1): the stun counter is used first (as above), the wind counters stay for the next untap step.
+    if permissions._table_statics(plan.state, plan.info, {"wind110h"}):
+        for c in plan.state.cards.values():
+            if c.tapped and c.controller == player and c.zone.endswith(":battlefield") and c.counters.get("wind") and c.id not in keep and c.id not in held:
+                counter_removal_results.remove(plan, c.id, "wind", c.counters["wind"], by=player)
+                held.append(c.id)
     return held
 
 
@@ -113,6 +126,16 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or native["effects"][-1].get("who") != "event.new":
             return None
         return {**native, "effects": [*native["effects"][:-1], {**native["effects"][-1], "who": "ref:pay0x"}]}
+    if text == _BURST_TOKEN:
+        return scripts.define(replace(ability, text="Remove a fade counter from this enchantment: Create a green Saproling creature token with \"This token's power "
+                                      "and toughness are each equal to the number of fade counters on its creator.\""), ch)
+    if text == _BURST_LEAVES:
+        native = scripts.define(replace(ability, text="When ~ leaves the battlefield, destroy all Saprolings. They can't be regenerated."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["destroy", "no_regen"]:
+            return None
+        return {**native, "effects": [{"do": "made110h", "as": "made110h"}, {**native["effects"][0], "who": "ref:made110h"}, native["effects"][1]]}
+    if text == _WINDS:
+        return {"kind": "static", "static": "wind110h", "effects": []}
     if text == _WOLVERINE:
         return {"kind": "static", "static": "heal110h", "effects": []}
     if text == _SPOT:
@@ -347,5 +370,15 @@ def limo_back(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return effects.PRIMITIVES["return_card"](plan, ctx, back) if ctx.get("exiled_now") else True
 
 
-PRIMITIVES = {"limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat}
+def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """The battlefield tokens created with the source (token_source, 111.2), bound for the next effect."""
+    from app.rules import context
+
+    src = ctx.get("source_card")
+    context.bind_objects(plan, ctx, e["as"], [c.id for c in plan.state.cards.values()
+                                              if c.is_token and c.zone.endswith(":battlefield") and c.token_source is not None and c.token_source.source_id == src])
+    return True
+
+
+PRIMITIVES = {"made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat}
 RESUME = {"episode110h": resume_episode, "scapegoat110h": resume_scapegoat}

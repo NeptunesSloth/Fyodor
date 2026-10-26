@@ -50,6 +50,15 @@ EXTRA = [
     real("Wolverine, Fierce Fighter", "{2}{R}{G}", 4, "Legendary Creature \u2014 Mutant Berserker Hero",
          "Haste\nWhen Wolverine enters, he fights up to one other target creature.\nIf damage would be dealt to Wolverine, instead that damage is dealt, "
          "but all other damage already dealt to him is healed.", ("3", "5"), "RG"),
+    real("Freyalise's Winds", "{2}{G}{G}", 4, "Enchantment",
+         "Whenever a permanent becomes tapped, put a wind counter on it.\nIf a permanent with a wind counter on it would untap during its controller's untap step, "
+         "remove all wind counters from it instead.", None, "G"),
+    real("Saproling Burst", "{3}{G}{G}", 5, "Enchantment",
+         "Fading 7 (This enchantment enters with seven fade counters on it. At the beginning of your upkeep, remove a fade counter from it. If you can't, sacrifice it.)\n"
+         "Remove a fade counter from this enchantment: Create a green Saproling creature token. It has \"This token's power and toughness are each equal to the number of "
+         "fade counters on Saproling Burst.\"\nWhen this enchantment leaves the battlefield, destroy all tokens created with this enchantment. They can't be regenerated.",
+         None, "G"),
+    real("Disenchant", "{1}{W}", 2, "Instant", "Destroy target artifact or enchantment.", None, "W"),
     real("Doom Blade", "{1}{B}", 2, "Instant", "Destroy target nonblack creature.", None, "B"),
     real("Hill Giant", "{3}{R}", 4, "Creature \u2014 Giant", "", ("3", "3"), "R"),
     real("Grizzly Bears", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
@@ -314,4 +323,45 @@ def test_wolverine_heals_earlier_damage(cards, bolts, alive):
         cast(s, "Lightning Bolt", [wolf.id])
         answer(s)
     assert (s.state.cards[wolf.id].zone == "p1:battlefield") == alive and s.state.cards[wolf.id].damage == 3
+    check(s)
+
+
+def test_freyalises_winds_holds_one_untap(cards):
+    """614.1a: tapped (wind counter by the trigger), the permanent loses all wind counters instead of untapping once; the next untap is normal."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Freyalise's Winds", "Sol Ring"])
+    bears = put(s, "Sol Ring")
+    mana(s, G=2, C=2)
+    cast(s, "Freyalise's Winds")
+    answer(s)
+    act(s, "p1", type="activate_ability", card_id=bears.id, ability=0)
+    answer(s)
+    assert s.state.cards[bears.id].counters.get("wind", 0) == 1 and s.state.cards[bears.id].tapped
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")
+    got = s.state.cards[bears.id]
+    assert (got.tapped, got.counters.get("wind", 0)) == (True, 0)
+    until(s, lambda s: s.state.turn.number == 5 and s.state.turn.phase == "main1")
+    assert not s.state.cards[bears.id].tapped
+    check(s)
+
+
+def test_saproling_burst(cards):
+    """111.2: every Saproling is as big as the fade counters left; when the enchantment leaves, the tokens it made are destroyed (701.8), not other tokens."""
+    s = build(cards, ["Saproling Burst", "Disenchant"])
+    mana(s, G=2, C=3)
+    burst = cast(s, "Saproling Burst")
+    answer(s)
+    from app.rules.plan import Plan
+    for made, left in ((1, 6), (2, 5)):
+        act(s, "p1", type="activate_ability", card_id=burst.id, ability=1)
+        answer(s)
+        tokens = [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+        assert len(tokens) == made and s.state.cards[burst.id].counters["fade"] == left
+        assert all(Plan(s.state, "p1", s.cards, None).ch(t).pt == (left, left) for t in tokens)
+    mana(s, W=1, C=1)
+    cast(s, "Disenchant", [burst.id])
+    answer(s)
+    assert s.state.cards[burst.id].zone == "p1:graveyard"
+    assert not [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
     check(s)
