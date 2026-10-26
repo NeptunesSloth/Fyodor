@@ -100,6 +100,15 @@ def _keeper(d: Def) -> Def:
 
 _BUILD["{B}, {T}: Choose target opponent who has at least two fewer creature cards in their graveyard than you do as you activate this ability. Destroy target nonblack creature that player controls."] = (
     "{B}, {T}: Choose target opponent. Destroy target nonblack creature that player controls.", _keeper)
+def _cycle(d: Def) -> Def:
+    """Cycle of Life: the target is a creature the controller cast this turn (targets.legal_targets cast_creature110j)."""
+    if not str((d.get("target") or {}).get("what")).startswith("sel:") or d.get("targets"):
+        raise ValueError("Cycle of Life: unexpected native shape")
+    return {**d, "target": {**d["target"], "what": "cast_creature110j"}}
+
+
+_BUILD["Return this enchantment to its owner's hand: Target creature you cast this turn has base power and toughness 0/1 until your next upkeep. At the beginning of your next upkeep, put a +1/+1 counter on that creature."] = (
+    "Return this enchantment to its owner's hand: Target creature you control has base power and toughness 0/1 until your next upkeep. At the beginning of your next upkeep, put a +1/+1 counter on that creature.", _cycle)
 _BUILD["At the beginning of your upkeep, if Rasputin started the turn untapped, put a dream counter on it."] = (
     "At the beginning of your upkeep, put a dream counter on this creature.", lambda d: {**d, "if": {"w110j": "began_untapped"}})
 _BUILD["{T}: Target land becomes a Swamp until its controller's next untap step."] = (

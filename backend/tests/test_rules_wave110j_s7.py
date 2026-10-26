@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.wave9c_kit import build
 from tests.wave110j_kit import (  # noqa: F401
@@ -18,6 +19,7 @@ from tests.wave110j_kit import (  # noqa: F401
     check,
     fresh,
     full,
+    hand_new,
     mana,
     now,
     put_new,
@@ -165,4 +167,28 @@ def test_keeper_needs_an_opponent_with_two_fewer_creature_cards_in_graveyard(car
     act(s, "p1", **pay)
     settle(s)
     assert now(s, victim).zone == "p2:graveyard"
+    check(s)
+
+
+def test_cycle_of_life_is_full():
+    assert full("Cycle of Life")
+
+
+def test_cycle_of_life_targets_only_a_creature_you_cast_this_turn(cards):
+    """608.3: the target is the permanent a creature spell of yours became this turn; it is 0/1 until your next upkeep, where it gets a +1/+1 counter (603.7)."""
+    s = build(cards, ["Cycle of Life", "Grizzly Bears", "Grizzly Bears"])
+    cycle = put_new(s, "Cycle of Life")
+    placed = put_new(s, "Grizzly Bears")  # (put on the battlefield, not cast)
+    cast = hand_new(s, "Grizzly Bears")
+    mana(s, G=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=cast.id)
+    settle(s)
+    assert now(s, cast).zone == "p1:battlefield" and cast.id != placed.id
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=cycle.id, ability=ability(s, cycle, "Return"), targets=[placed.id])
+    act(s, "p1", type="activate_ability", card_id=cycle.id, ability=ability(s, cycle, "Return"), targets=[cast.id])
+    settle(s)
+    assert now(s, cycle).zone == "p1:hand" and ch(s, cast).pt == (0, 1)
+    to_phase(s, "main1", turn=3)
+    assert now(s, cast).counters == {"+1/+1": 1} and ch(s, cast).pt == (3, 3)
     check(s)

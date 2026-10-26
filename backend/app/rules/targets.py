@@ -190,6 +190,11 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
         hurt = {f.player for f in history.log_for(plan, False).facts if f.kind == "damage" and f.amount > 0 and f.player}
         return [t for t in legal_targets(plan, "any", chooser, source, source_card, attacker, source_object=source_object)
                 if t in hurt or (t in plan.state.cards and damage_history.matches(plan, plan.state.cards[t], damage_history.WAS_DEALT, chooser))]
+    if selector == "cast_creature110j":  # -- cards (wave 110J) -- Cycle of Life: "target creature you cast this turn" (the permanent its spell became, 608.3)
+        from app.rules import history
+
+        became = {n.became for n in history.log_for(plan).casts if n.player == chooser and n.became}
+        return [c for c in legal_targets(plan, "creature", chooser, source, source_card, attacker, source_object=source_object) if plan.oid(c) in became]
     if selector == "opponent_or_other_battle110f":  # -- cards (wave 110F) -- "another target battle or opponent" (Invasion of Regatha): not the battle itself
         return [t for t in legal_targets(plan, "opponent_or_battle", chooser, source, source_card, attacker, source_object=source_object) if t != source_card]
     if selector == "any_other":  # -- damage sized by a count (wave 34D) -- 115.4: "deals that much damage to any other target" (Black Panther): any target
