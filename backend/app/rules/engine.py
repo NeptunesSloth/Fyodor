@@ -480,7 +480,10 @@ def advance(plan: Plan) -> None:
 
         mana_named_land_profiles.refresh_reveals(plan)
         r = plan.rules
-        if r.decision is not None or r.draw_reason is not None:
+        if r.decision is not None or r.draw_reason is not None or (plan.state.pregame is not None and not plan.state.pregame.finished):  # (wave 110A: a restarted game's mulligans first)
+            return
+        if r.restart_hold110a:  # -- wave 110A -- 727.4: the restarted game waits at its untap step like a new one
+            r.restart_hold110a = False
             return
         sba.check(plan)  # before anyone gets priority (rule 117.5)
         if r.decision is not None:
@@ -1384,6 +1387,10 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
 
     if info is not None and (barred := next((src for src, d in cast_limits._statics(state, info, "cant_play_lands") if (wave110a_spells.more_of(state, info, src, d, player) if d.get("more110a") else d.get("players") or src.controller == player)), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play lands"  # -- most-played cards III (wave 46C) -- 305.1
+    from app.rules import wave110a_final  # -- wave 110A -- Damping Engine
+
+    if info is not None and (barred := wave110a_final.land_barred(state, info, player)) is not None:
+        return f"{barred.name or 'A permanent'}: you can't play lands"  # (305.1: it controls the most permanents)
     if info is not None and card.zone == zone_key(player, "hand") and (barred := next(
             (src for src, d in cast_limits._statics(state, info, "cast_limit") if d.get("lands_from_hand") and src.controller == player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play lands from your hand"  # -- static permanents (wave 100D) -- Experimental Frenzy (305.1)

@@ -452,7 +452,8 @@ def problem(plan: Plan, cost: AbilityCost, card: CardInstance, player: str, x: i
             if sum(max(0, power(plan.state.cards[c], plan.ch(plan.state.cards[c])) or 0) for c in usable) < comp.amount:
                 return f"You can't pay “{comp.text}”"
         elif comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- enough materials (the other parts' choices are checked as a whole)
-            if len([c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]) < comp.amount:
+            usable_craft = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
+            if len(usable_craft) < comp.amount or (comp.names and not _names_payable(plan, comp, usable_craft, comp.amount)):  # (wave 110A: "two that share a card type")
                 return f"You can't pay “{comp.text}”"
         elif comp.kind == C.REMOVE_COUNTER and comp.among:  # -- activated sweep (wave 26C) -- enough counters among the permanents (118.3)
             holders = [c for c in candidates(plan, comp, player, card) if c not in _reserved(cost, comp, card)]
@@ -708,7 +709,8 @@ def _choose_craft(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp 
     options = [c for c in candidates(plan, comp, plan.actor, card) if c not in _reserved(cost, comp, card) and c not in used]
 
     def fits(ids: list[str]) -> bool:
-        return len(set(ids)) == len(ids) and all(c in options for c in ids) and (len(ids) >= comp.amount if comp.more else len(ids) == comp.amount)
+        return len(set(ids)) == len(ids) and all(c in options for c in ids) and (len(ids) >= comp.amount if comp.more else len(ids) == comp.amount) \
+            and (not comp.names or _names_fit(plan, comp, ids))  # (wave 110A: the group's constraint)
 
     if given is not None:
         if not fits(given):
@@ -716,6 +718,8 @@ def _choose_craft(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp 
         chosen = list(given)
     elif len(options) < comp.amount:
         raise ActionError(f"You can't pay “{comp.text}”")  # 118.3
+    elif comp.names and not _names_payable(plan, comp, options, comp.amount):
+        raise ActionError(f"You can't pay “{comp.text}”")  # 118.3 (wave 110A: no two that share a card type)
     elif len(options) == comp.amount:
         chosen = options  # (no choice to make)
     else:

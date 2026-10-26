@@ -146,7 +146,7 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
     elif isinstance(a, A.RestartGame):
         from app.game.handlers.solo import library_size_after_reset
 
-        a.r = {pid: shuffle_data(library_size_after_reset(state, pid), rng) for pid in state.seat_order}
+        a.r = {pid: shuffle_data(library_size_after_reset(state, pid, set(a.keep)), rng) for pid in state.seat_order}
     elif isinstance(a, A.RunMacro):
         a.r = _resolve_macro(state, a, actor, info, rng)
     elif isinstance(a, A.AddEffect):

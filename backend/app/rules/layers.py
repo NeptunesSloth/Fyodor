@@ -1344,6 +1344,11 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         if e.layer == "7c":
             p += e.power or 0
             t += e.toughness or 0
+    for st in hits:  # -- wave 110A -- Snowblind: last of 7c, since its Y depends on the other effects' toughness (613.8a-b); several: timestamp order (a loop)
+        if st.definition.get("snowblind110a") and info is not None:
+            from app.rules import wave110a_final
+
+            p, t = wave110a_final.snowblind(state, info, card, p, t)
     for e in effects:
         if e.layer == "7d":
             p, t = t, p
@@ -1464,7 +1469,7 @@ def _grants(d: dict[str, Any]) -> bool:
     """Does the static change characteristics (layers 6-7)? A rules-only static ("Creatures your
     opponents control can't block.") is applied by ``_with_rules`` instead."""
     return bool(d["p"] or d["t"] or d.get("base") or d.get("base_mv") or d.get("base_counters110j") or d["keywords"] or d["grants"] or d.get("each") or d.get("abilities_of") or d.get("linked_traits")
-                or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords") or d.get("chosen_keywords"))  # -- attached events (wave 4L) -- (wave 49B: the chosen abilities)
+                or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords") or d.get("chosen_keywords") or d.get("snowblind110a"))  # -- attached events (wave 4L) -- (wave 49B: the chosen abilities)
 
 
 def _attached45(state: GameState, card: CardInstance, info: CardInfo | None,

@@ -585,6 +585,10 @@ class RestartGame(Base):
     type: Literal["restart_game"] = "restart_game"
     draw: int = Field(default=7, ge=0, le=20)
     r: dict[str, ShuffleData] | None = None
+    # -- wave 110A -- 727: Karn Liberated restarts the game through the rules engine. ``first`` is the starting player (727.1a); only the players
+    # still in the game take part; ``keep`` are cards left in exile (727.5), put onto the battlefield when the pregame is over.
+    first: Id | None = None
+    keep: list[Id] = Field(default_factory=list)
 
 
 class RestoreState(Base):

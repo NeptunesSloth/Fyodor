@@ -343,6 +343,7 @@ def _shared_cost(plan: Plan, ctx: Context, bind: str) -> str | None:
 def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """One optional payment per player of the group (turn order, 101.4), then the effect for each who didn't pay."""
     from app.rules import effects, optional_payment
+    from app.rules import mana as M
 
     players = [p for p in plan.apnap() if p in effects._players(plan, ctx, e["who"])]
     cost = e.get("cost")
@@ -350,6 +351,10 @@ def each_may(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         from app.rules import unless_pays
 
         cost = unless_pays.concrete_cost(plan, ctx, e)
+    if e.get("spell_cost110a"):  # -- (wave 110A) -- Ice Cave: 107.3h the mana cost of the spell on the stack, its X as chosen; none (or no spell left): nothing can be paid
+        sids = effects._stack_targets(plan, ctx, {"who": "event_spell"})
+        mc = plan.ch(plan.state.cards[sids[0]]).mana_cost if sids else ""
+        cost = M.parse_cost(mc).with_x(plan.rules.stack[sids[0]].x or 0).text() if mc else ""
     if e.get("shares_type"):
         cost = _shared_cost(plan, ctx, e["shares_type"])
         if cost is None:  # (no card type to share: no payment can be made — every player "doesn't")

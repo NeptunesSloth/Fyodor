@@ -13,6 +13,9 @@ REALITY = ('Put target permanent you own on the bottom of your library. Reveal c
 CREATIVITY = ('Destroy X target artifacts and/or creatures. For each permanent destroyed this way, its controller reveals cards '
               'from the top of their library until an artifact or creature card is revealed and exiles that card. Those players '
               'put the exiled cards onto the battlefield, then shuffle.')
+CHAOTIC = ('Exile up to one target artifact, up to one target creature, up to one target enchantment, up to one target planeswalker, and/or up to one target land. '
+           'For each permanent exiled this way, its controller reveals cards from the top of their library until they reveal a card that shares a card type with it, '
+           'puts that card onto the battlefield, then shuffles.')  # (wave 110A: Chaotic Transformation, ruling 2022-09-09)
 SYNTHETIC = ('Exile all creatures you control. At the beginning of the next end step, reveal cards from the top of your library '
              'until you reveal that many creature cards, put all creature cards revealed this way onto the battlefield, then '
              'shuffle the rest of the revealed cards into your library.')
@@ -34,13 +37,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
              CHAOS: ('chaos', 'Exile any number of target creatures controlled by different players.'),
              REALITY: ('reality', 'Put target permanent you own on the bottom of your library.'),
              CREATIVITY: ('creativity', 'Destroy X target artifacts and/or creatures.'),
+             CHAOTIC: ('chaotic', CHAOTIC.partition(' For each')[0].replace('and/or', 'and')),
              SYNTHETIC: ('synthetic', 'Exile all creatures you control.')}
     if text not in table:
         return None
     mode, prefix = table[text]
     native = scripts.parse_effects(prefix)
-    assert native is not None and len(native[0]) == 1
-    mover = native[0][0]
+    assert native is not None and (len(native[0]) == 1 or mode == 'chaotic')
+    mover = native[0][0] if mode != 'chaotic' else {**native[0][0], 'who': 'all_targets'}  # (wave 110A: all five optional targets at once, 701.13a)
     effects = [{'do': 'polymorph_capture102', 'who': mover['who'], 'mode': mode}, mover,
                {'do': 'polymorph_start102'}]
     return {'kind': 'spell', **scripts.target_fields(native[1]), 'effects': effects}
@@ -51,7 +55,7 @@ def capture(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
     ctx['polymorph102'] = {'mode': e['mode'], 'originals': [
         {'card': cid, 'object': plan.oid(card), 'controller': card.controller, 'owner': card.owner,
-         'types': sorted(plan.ch(card).types)}
+         'types': sorted(plan.ch(card).types), 'name': card.name}
         for cid in effects._cards(plan, ctx, e['who'])
         if (card := plan.state.cards.get(cid)) is not None and card.zone.endswith(':battlefield')],
         'gather': [], 'next': 0}
@@ -98,13 +102,18 @@ def walk(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                 {'do': 'return_card', 'who': 'ref:creativity_hits102', 'to': 'battlefield'},
                 *[{'do': 'shuffle_library', 'who': 'player:' + p} for p in frame['players']]]
         return True
+    if frame['mode'] == 'chaotic':  # -- (wave 110A) -- ruling 2022-09-09: a player with several of the permanents chooses which one they consider next
+        from app.rules import wave110a_final
+
+        if wave110a_final.choose_order(plan, ctx, frame):
+            return False
     row = frame['rows'][frame['next']]
     frame['next'] += 1
     owner = row['owner'] if frame['mode'] == 'reality' else row['controller']
     if owner not in plan.live():
         ctx['effects'][ctx['next']:ctx['next']] = [{'do': 'polymorph_walk102'}]
         return True
-    if frame['mode'] == 'reality':
+    if frame['mode'] in ('reality', 'chaotic'):  # (chaotic: shares a card type with the permanent as it last existed, captured before it was exiled)
         kind = selectors.Selector(card=True, types=tuple(row['types']), zones=()).key()
     else:
         kind = _selector('artifact or creature card' if frame['mode'] == 'creativity' else 'creature card')

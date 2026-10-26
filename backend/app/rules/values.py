@@ -681,6 +681,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         from app.rules import wave110m_cards
 
         return wave110m_cards.same_stored(plan, ctx)
+    if isinstance(v, dict) and v.get('sticker_long110a'):  # -- wave 110A -- Fight the _____ Fight: name stickers with eight or more letters
+        from app.rules import wave110a_final
+
+        return wave110a_final.long_stickers(plan, ctx)
     if isinstance(v, dict) and v.get('sticker_short110j'):  # -- Last Voyage of the _____ (wave 110J) --
         from app.rules import wave110j_cards
 
