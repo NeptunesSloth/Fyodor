@@ -264,6 +264,8 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
             what = e.get("what")
             if e.get("do") != "choose_value" or not what:
                 continue
+            if what == "secret110e" and what not in answers and (only := card_names.sole_opponent(plan, controller)):
+                answers[what] = only  # -- entry secret choice (wave 110E) -- one opponent: no question
             if what == card_names.LOOK and what not in answers and (only := card_names.sole_opponent(plan, controller)):
                 answers[what] = only  # -- card names (wave 22B) -- one opponent: no question
             if d.get("control") and what not in answers and (only := card_names.sole_opponent(plan, controller)):
@@ -569,6 +571,8 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
 
     if what == wave110e_opp.WHO:  # (wave 110E)
         return wave110e_opp.prompt(plan, card, controller)
+    if what == wave110e_opp.SECRET:  # (wave 110E)
+        return wave110e_opp.secret_prompt(plan, card, controller)
     from app.rules import chosen_forms95
 
     if what.startswith(chosen_forms95.PREFIX):
@@ -1059,6 +1063,9 @@ def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = N
         from app.rules import wave110a_control  # -- entry control (wave 110A) --
 
         wave110a_control.give(plan, card_id, choices)
+        from app.rules import wave110e_opp  # -- entry secret choice (wave 110E) --
+
+        wave110e_opp.secret_record(plan, card_id, controller, choices)
         from app.rules import wave110c_rad  # -- optional entering choice (wave 110C) --
 
         wave110c_rad.apply(plan, card_id, controller, choices)

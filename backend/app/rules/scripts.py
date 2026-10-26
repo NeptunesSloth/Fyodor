@@ -9515,6 +9515,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (picked := wave110a_pick.definition(text)) is not None:
         return picked
+    from app.rules import wave110e_opp  # -- entry secret choice (wave 110E) --
+
+    if (secret := wave110e_opp.secret_definition(text)) is not None:
+        return secret
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen

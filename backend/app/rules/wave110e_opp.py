@@ -105,3 +105,38 @@ def bind(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES = {"pick110e": bind}
+
+
+# -- entry secret choice (wave 110E) -- "As this creature enters, secretly choose an opponent." (Emissary of Grudges)
+# 614.12a: made as it enters, by its controller, and kept like Stalking Leonin's (group_choice.secret_choices, never logged or shown); one opponent left: no question.
+SECRET = "secret110e"
+SECRET_LINE = "As this creature enters, secretly choose an opponent."
+
+
+def secret_definition(text: str) -> dict[str, Any] | None:
+    if text not in (SECRET_LINE, "As ~ enters, secretly choose an opponent."):
+        return None
+    return {"kind": "replacement", "replacement": "enters_choice", "effects": [{"do": "choose_value", "who": "you", "what": SECRET}]}
+
+
+def secret_prompt(plan: Plan, card: Any, controller: str) -> tuple[str, list[DecisionOption]]:
+    from app.game.rules_state import DecisionOption
+
+    return f"{card.name}: as it enters, secretly choose an opponent", [DecisionOption(id=p, label=plan.name(p)) for p in plan.live() if p != controller]
+
+
+def secret_record(plan: Plan, card_id: str, controller: str, choices: dict[str, str] | None) -> None:
+    if choices and choices.get(SECRET):
+        plan.rules.secret_choices = {k: v for k, v in plan.rules.secret_choices.items() if k.rsplit(".", 1)[0] in plan.state.cards and plan.oid(k.rsplit(".", 1)[0]) == k}
+        plan.rules.secret_choices[plan.oid(card_id)] = [controller, choices[SECRET]]
+
+
+def targets_mine(plan: Plan, ctx: dict[str, Any]) -> bool:
+    """"if it targets you or a permanent you control": the first target (a spell or ability on the stack) has you or one of your permanents among its targets."""
+    from app.rules import stack_interaction
+
+    sid = next((t["id"] for t in (ctx.get("targets") or []) if t["id"] in plan.state.cards), None)
+    entry = stack_interaction.target_entry(plan, sid) if sid else None
+    me = ctx["controller"]
+    return entry is not None and any(
+        t.id == me or ((c := plan.state.cards.get(t.id)) is not None and c.zone.endswith(":battlefield") and c.controller == me) for t in entry.targets)
