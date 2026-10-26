@@ -53,3 +53,7 @@
 - Leonin Arbiter: "any player may pay {2} ... ignore this effect": no CR rule or ruling in the repo for when the payment may be made.
 - Teferi, Celestial Reunion, You Look Upon the Tarrasque: now built (wave 110A s16): Teferi emblem = turn-based statics in the engine (wave110a_teferi), Reunion = cast-time type + two-object behold, Tarrasque = lure rule with a caster-relative selector extra.
 - Psychic Paper (wave 110A s16): "As this Equipment becomes attached, choose a name and a type" needs a pause inside attachments.attach (21 callers, none resumable) and an "equipped creature's name and creature type are the last chosen" dynamic layer 3/4 static; deferred, a foundation not a ruling gap. Volcanic Offering: agent D.
+- See the Unwritten: ferocious "you may put two creature cards ... instead" - unsettled whether exactly one may be put (no CR rule or ruling at hand); not automated.
+- Leonin Arbiter: "Any player may pay {2} for that player to ignore this effect": timing and per-player payment are not defined by a CR rule or ruling at hand.
+- Zinnia, Valley's Voice: offspring granted as the spell is cast needs the ETB token trigger on the resulting permanent (spell-only grant is gone once it resolves); foundation: persistent "cast with granted keyword" record. Draft patch: scratchpad/zinnia_wip_a.patch (cost half works, trigger half missing).
+- The Master, Multiplied: "triggered abilities can't cause you to sacrifice or exile creature tokens" needs a triggered-source flag in ctx at ~15 sacrifice/exile sites (prohibitions.cant_cause_sacrifice callers).
