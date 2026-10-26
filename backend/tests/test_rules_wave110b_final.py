@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from app.game.errors import ActionError
@@ -70,7 +72,7 @@ def test_chameleon_ignores_its_own_and_others_unaffected(cards):
 BRINK = "Back from the Brink"
 
 
-@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain"])
+@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain"])
 def test_brink_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -273,4 +275,60 @@ def test_grim_captain_attack_trigger(cards, pick):
     assert entered == ([] if pick is None else [pick])
     power = 0 if pick is None else int(ch(s, mats[pick]).pt[0])
     assert life(s, "p2") == 40 - 7 - power and (pick is None or s.state.cards[mats[pick].id].tapped)  # (it attacked: its damage was dealt; the Captain's 7 unblocked)
+    check(s)
+
+
+SOUND = "Soundwave, Sonic Spy // Soundwave, Superior Captain"
+
+
+def soundwave_hit(cards, power, *, cast=True):
+    """Alice's Goblin token (the given power) hits Bob, whose graveyard holds Lightning Bolt (mana value 1) and Divination (3); returns the table and the prompts asked."""
+    from tests.wave110b_kit import token_of
+
+    s = build(cards, [SOUND, "Grizzly Bears"], ["Lightning Bolt", "Divination", "Lightning Helix"])
+    wave = put(s, SOUND)
+    for n in ("Lightning Bolt", "Divination", "Lightning Helix"):
+        at(s, n, "graveyard", "p2")
+    tok = token_of(s, "p1", "Goblin", "Creature — Goblin", f"{power}/{power}")
+    asked: list[Any] = []
+
+    def answer(d):
+        asked.append((d.kind, d.prompt))
+        if "(or none)" in d.prompt:
+            return [d.options[0].id] if cast else []
+        return None
+
+    attack(s, tok)
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is None and s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        else:
+            ids = answer(d)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids if ids is not None else [o.id for o in d.options][: max(1, d.min_choices)])
+    return s, wave, asked
+
+
+@pytest.mark.parametrize("power,exiled,token", [(3, "Divination", "Ravage"), (1, "Lightning Bolt", "Ravage"), (2, "Lightning Helix", "Laserbeak")])
+def test_soundwave_exiles_the_card_with_mana_value_equal_to_the_damage_and_converts(cards, power, exiled, token):
+    """603.2c, 701.28: the batch's damage is the mana value asked for; the card is exiled, copied and cast free; casting it converts Soundwave, whose back face then triggers
+    on that very cast (odd: Ravage, even: Laserbeak) and converts it back."""
+    s, wave, _ = soundwave_hit(cards, power)
+    others = {"Divination", "Lightning Bolt", "Lightning Helix"} - {exiled}
+    assert s.state.cards[card_named(s, exiled, "p2").id].zone == "p2:exile"
+    assert all(s.state.cards[card_named(s, n, "p2").id].zone == "p2:graveyard" for n in others)
+    assert any(c.is_token and c.name == token for c in s.state.cards.values())
+    assert s.state.cards[wave.id].face == 0  # (converted by the ability, then back by the odd/even trigger)
+    check(s)
+
+
+def test_soundwave_declined_cast_does_not_convert(cards):
+    """If you do: no cast, no conversion (the card stays exiled)."""
+    s, wave, _ = soundwave_hit(cards, 3, cast=False)
+    assert s.state.cards[card_named(s, "Divination", "p2").id].zone == "p2:exile" and s.state.cards[wave.id].face == 0
+    assert not any(c.is_token and c.name in ("Ravage", "Laserbeak") for c in s.state.cards.values())
     check(s)

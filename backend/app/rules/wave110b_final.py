@@ -65,6 +65,25 @@ def greater_dig(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
     return True
 
 
+_SOUND = ("Whenever one or more creature tokens you control deal combat damage to a player, exile target instant or sorcery card with mana value equal to the damage dealt from their "
+          "graveyard. Copy it. You may cast the copy without paying its mana cost. If you do, convert Soundwave.")
+
+
+def _soundwave(d: Def) -> Def:
+    """The target's mana value is the damage the batch dealt that player, read as the trigger goes on the stack (triggers.bind_event_stat: ``evt:damage110b``)."""
+    from dataclasses import replace as _replace
+
+    from app.rules import selectors
+
+    t = d["target"]
+    sel = _replace(selectors.from_key(t["what"]), compare=(("mv", "==", selectors.EVENT_STAT + "damage110b"),))
+    return {**d, "target": {**t, "what": sel.key()}}
+
+
+# 701.28 / the 2022-10-14 ruling: converting a permanent is transforming it, so "transform this creature" is the same action
+_BUILD[_SOUND] = ("Whenever one or more creature tokens you control deal combat damage to a player, exile target instant or sorcery card from that player's graveyard. Copy it. "
+                  "You may cast the copy without paying its mana cost. If you do, transform this creature.", _soundwave)
+
 _GRIM = ("Whenever The Grim Captain attacks, each opponent sacrifices a nonland permanent of their choice. Then you may put an exiled creature card used to craft The Grim Captain "
          "onto the battlefield under your control tapped and attacking.")
 _BUILD[_GRIM] = ("Whenever this creature attacks, each opponent sacrifices a nonland permanent of their choice.", lambda d: {**d, "effects": [*d["effects"], {"do": "crafted_put110b"}]})

@@ -2972,6 +2972,9 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
     if t.event is not None and t.event.kind == "reflexive" and f'\\"{EVENT_STAT}amount\\"' in raw:  # -- one-card wordings (wave 110H) -- Unleash the Inferno: the reflexive trigger's amount
         t.ability = json.loads(raw.replace(f'\\"{EVENT_STAT}amount\\"', str(t.event.amount or 0)))
         raw = json.dumps(t.ability)
+    if t.event is not None and f'\\"{EVENT_STAT}damage110b\\"' in raw:  # -- (wave 110B) -- Soundwave: "mana value equal to the damage dealt" (the batch's total to that player)
+        t.ability = json.loads(raw.replace(f'\\"{EVENT_STAT}damage110b\\"', str(t.event.amount or 0)))
+        raw = json.dumps(t.ability)
     other_is_type = bool(t.ability.get('target_other_is_type'))
     if (f'\\"{EVENT_STAT}' not in raw and not other_is_type) or t.event is None or len(t.event.objects) != 1:
         return
