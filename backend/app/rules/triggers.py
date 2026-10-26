@@ -1521,6 +1521,10 @@ def _targets_ok(plan: Plan, want: str, watcher: CardInstance, targets: list[tupl
 
     if want.startswith("opp_or:"):  # -- counters (wave 33C) -- 115.9b: "a spell that targets an opponent or a creature an opponent controls" (Danitha)
         return any(c in plan.state.players and c != watcher.controller for c, _ in targets) or _targets_ok(plan, want[len("opp_or:"):], watcher, targets)
+    if want == "only_opp110f":  # -- wave 110F -- Zevlor: "targets only a single opponent or a single permanent an opponent controls"
+        from app.rules import wave110f_zev
+
+        return wave110f_zev.targets_ok(plan, watcher, targets)
     if want == "self_only":  # -- copied abilities (wave 18F) -- "that targets only ~": every target, and at least one, is the watcher (115.9b)
         return bool(targets) and all(c == watcher.id and (o is None or plan.oid(watcher) == o) for c, o in targets)
     if want.startswith("only_one:"):  # -- spell copies (wave 31D) -- 115.9c: exactly one different object or player chosen, and 115.9b: it matches now

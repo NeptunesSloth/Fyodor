@@ -689,6 +689,7 @@ class TurnLog(BaseModel):
     facts: list[TurnFact] = Field(default_factory=list)  # tokens created, discards, sacrifices, damage to players …
     attackers: dict[str, list[str]] = Field(default_factory=dict)  # player -> creatures (objects) declared as attackers
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
+    block_ctrl110f: dict[str, str] = Field(default_factory=dict)  # -- wave 110F -- "blocker>attacker" objects -> the attacker's controller the last time it became blocked by that blocker (Glyph of Reincarnation)
     blocks: dict[str, list[str]] = Field(default_factory=dict)  # -- combat history (wave 31D) -- blocker (object) -> the attackers (objects) it blocked this turn
     attacked_at110c: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110C -- defending player (or a planeswalker's controller) -> players who attacked them this turn
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
@@ -887,6 +888,8 @@ class PhaseLifetime(BaseModel):
     tap_on_return: bool = False  # Oubliette: tapped as it phases in
     control: str | None = None  # -- wave 110D -- "for as long as you control this Saga": the player who must control the source
     while_tapped: bool = False  # -- wave 110I -- The Pandorica: held only while the source remains tapped
+    roll_max110f: int | None = None  # -- wave 110F -- Ferris Wheel: held until ``roller110f`` rolls this or less while rolling to visit (the source does not matter)
+    roller110f: str | None = None
 
 
 class PhaseHold110K(BaseModel):
@@ -1711,6 +1714,9 @@ class RulesState(BaseModel):
     wipe_shields110o: dict[str, int] = Field(default_factory=dict)  # -- (wave 110O) -- 614.1a: object id -> "next time it would be destroyed this turn, remove all damage marked on it instead" (Pyramids)
     prepare_spells110o: list[str] = Field(default_factory=list)  # -- (wave 110O) -- 722.3d: the exiled copies that were cast ("a prepared spell")
     phase_lifetimes: list[PhaseLifetime] = Field(default_factory=list)
+    camouflage_turn110f: int = 0  # -- wave 110F -- the turn Camouflage resolved (blockers are replaced by piles)
+    camouflage110f: dict[str, list[list[str]]] = Field(default_factory=dict)  # -- wave 110F -- defending player -> their piles (creature ids), until every player has divided
+    ferris110f: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110F -- Ferris Wheel (rules object) -> the creatures (rules objects) it has phased out
     phase_holds110k: list[PhaseHold110K] = Field(default_factory=list)  # -- wave 110K --
     no_regen_sources110k: list[str] = Field(default_factory=list)  # -- wave 110K -- Runesword: the objects whose damage this turn makes a creature unable to regenerate
     damaged_players110k: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110K -- source object -> the players it has dealt damage to (Diseased Vermin)
@@ -2181,6 +2187,8 @@ def note_block(state: GameState, blockers: list[str], pairs: list[tuple[str, str
             seen = log.blocks.setdefault(blocker, [])
             if attacker not in seen:
                 seen.append(attacker)
+            if state.rules is not None and (att := next((c for c in state.cards.values() if state.rules.object_id(c.id) == attacker), None)) is not None:
+                log.block_ctrl110f[f"{blocker}>{attacker}"] = att.controller  # -- wave 110F -- the controller each time it becomes blocked: the last one stays
 
 
 def wither_put_by(action: Any) -> dict[tuple[str, str], dict[str, int]] | None:

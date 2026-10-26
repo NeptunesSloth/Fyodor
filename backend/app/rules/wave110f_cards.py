@@ -466,7 +466,24 @@ def resume_worms(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, d.resume["ctx"])
 
 
+def _glyph() -> Parsed | None:
+    """Glyph of Reincarnation: the graveyard of the creature's controller when it last became blocked by that Wall (509.1g turn log), one creature card for each
+    creature that died this way (the same "this way" count as "draw a card for each creature that died this way")."""
+    from app.rules import scripts
+
+    found = scripts.parse_effects("Destroy all creatures that were blocked by target Wall this turn. They can't be regenerated. For each creature that died this way, draw a card.")
+    if found is None:
+        return None
+    effects, target, optional = found
+    return [*effects[:-1], {"do": "glyph110f", "n": effects[-1]["n"]}], target, optional
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "This turn, instead of declaring blockers, each defending player chooses any number of creatures they control and divides them into a number of piles equal to the number of "
+    "attacking creatures for whom that player is the defending player. Creatures those players control that can block additional creatures may likewise be put into additional "
+    "piles. Assign each pile to a different one of those attacking creatures at random. Each creature in a pile that can block the creature that pile is assigned to does so.": lambda: ([{"do": "camouflage110f"}], None, False),
+    "Destroy all creatures that were blocked by target Wall this turn. They can't be regenerated. For each creature that died this way, put a creature card from the graveyard of the "
+    "player who controlled that creature the last time it became blocked by that Wall onto the battlefield under its owner's control.": _glyph,
     "This turn and next turn, creatures can't attack, and players and permanents can't be the targets of spells or activated abilities.": lambda: ([{"do": "peace_talks110f"}], None, False),
     "any player may sacrifice two lands of their choice or have ~ deal 5 damage to that player. If a player does either, destroy ~.": lambda: ([{"do": "worms110f"}], None, False),
     "Each player reveals their hand, chooses one card of each color from it, then discards all other nonland cards.": lambda: ([{"do": "vapors110f"}], None, False),
@@ -665,6 +682,8 @@ _FIRES = "{2}{R}: Exile the top card of your library. You may play that card thi
 
 _MALIK = "When ~ enters, you and target opponent each secretly choose a creature that player controls. Then those choices are revealed, and that player sacrifices those creatures."
 _DROP = "Whenever you roll to visit your Attractions, target creature gains flying until end of turn, or until any player rolls a 1, whichever comes first."
+_FERRIS = ("Whenever you roll to visit your Attractions, choose target creature that hasn't been phased out with this Attraction. "
+           "That creature phases out until you roll a 3 or less while rolling to visit your Attractions.")
 _DANCE = {
     "When ~ leaves the battlefield, exile the token.": "When ~ leaves the battlefield, exile target creature.",
     "When the token leaves the battlefield, sacrifice ~.": "Whenever a creature leaves the battlefield, sacrifice ~.",
@@ -679,6 +698,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
     if (cmd110f := wave110f_cmd.definition(ability, ch)) is not None:  # Faceless One, The Prismatic Piper
         return cmd110f
+    from app.rules import wave110f_zev
+
+    if (zev110f := wave110f_zev.definition(ability, ch)) is not None:  # Zevlor
+        return zev110f
     if (sac110f := wave110f_sac.definition(ability, ch)) is not None:  # Brutal Suppression, Drought
         return sac110f
     text = scripts.self_text(ability.text, ch.name)
@@ -698,6 +721,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or [x["do"] for x in native["effects"]] != ["grant"]:
             return None
         return {**native, "effects": [{"do": "until", "n": 1, "duration": "roll1_110f"}, *native["effects"]]}
+    if ability.kind == "triggered" and text == _FERRIS:  # 702.26a-c, 701.52a: phased out until its controller rolls low to visit (a packet in phase_lifetimes43)
+        from app.rules import selectors
+
+        native = scripts.define(replace(ability, text="Whenever you roll to visit your Attractions, target creature phases out."), ch)
+        if native is None or [x["do"] for x in native["effects"]] != ["phase_out"]:
+            return None
+        return {**native, "effects": [{"do": "ferris110f", "who": "target"}],
+                "target": {"what": selectors.Selector(types=("Creature",), extras=("not_phased_by_source110f",)).key()}}
     if ability.kind == "triggered" and text in _DANCE:  # Dance of Many: "the token" is the token its own enters ability created (111.2, 603.10a)
         native = scripts.define(replace(ability, text=_DANCE[text]), ch)
         if native is None:
@@ -902,7 +933,47 @@ PRIMITIVES["draw_up_to110f"] = draw_up_to
 PRIMITIVES["edict_match110f"] = edict_match
 RESUME.update({"draw_up_to110f": resume_draw_up_to, "chooser110f": resume_chooser, "cast_modes_opp110f": resume_modes})
 
+from app.rules import wave110f_camo as _wave110f_camo  # noqa: E402  -- Camouflage (wave 110F) --
 from app.rules import wave110f_gy as _wave110f_gy  # noqa: E402  -- Cemetery Desecrator (wave 110F) --
+from app.rules import wave110f_zev as _wave110f_zev  # noqa: E402  -- Zevlor (wave 110F) --
+
+PRIMITIVES["camouflage110f"] = _wave110f_camo.spell
+PRIMITIVES.update(_wave110f_zev.PRIMITIVES)
+RESUME.update(_wave110f_zev.RESUME)
 
 PRIMITIVES.update(_wave110f_gy.PRIMITIVES)
 RESUME.update(_wave110f_gy.RESUME)
+
+
+def ferris(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Ferris Wheel: the target phases out until its controller rolls a 3 or less to visit; this Attraction remembers it ("hasn't been phased out with this Attraction")."""
+    from app.game.rules_state import ObjectRef
+    from app.rules import effects, phase_lifetimes43
+
+    source = ObjectRef(card=ctx["source_card"], object_id=ctx["source_object"])
+    for ref in phase_lifetimes43.phase_out(plan, source, effects._cards(plan, ctx, e["who"]), ctx["controller"], roll_max=3):
+        plan.rules.ferris110f.setdefault(source.object_id, []).append(ref.object_id)
+    return True
+
+
+PRIMITIVES["ferris110f"] = ferris
+
+
+def glyph(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Glyph of Reincarnation: for each creature that died this way, its caster puts a creature card from the graveyard of the player who controlled that creature the last time
+    it became blocked by the target Wall onto the battlefield under its owner's control (a graveyard is chosen from per creature; the cards come back one after another)."""
+    from app.rules import history, this_way
+
+    wall = ((ctx.get("targets") or [{}])[0]).get("object_id")
+    ctrl = history.log_for(plan).block_ctrl110f
+    out = []
+    for _, was in this_way._matched(plan, ctx, e["n"]):
+        who = ctrl.get(f"{wall}>{was['object_id']}")
+        if who is not None:
+            out.append({"do": "return_choice", "to": "battlefield", "tapped": False, "under": "owner", "n": 1, "upto": False, "random": False, "label": "creature card",
+                        "sel": 'sel:{"card":true,"types":["Creature"],"zone_owner":"player:' + who + '","zones":["graveyard"]}'})
+    ctx["effects"][ctx["next"]:ctx["next"]] = out
+    return True
+
+
+PRIMITIVES["glyph110f"] = glyph

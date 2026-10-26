@@ -23,8 +23,14 @@ _EXILE_OR_OUTSIDE = re.compile(
     r"^You may reveal an? (?P<what>artifact|Eldrazi) card you own from outside the game or choose a face-up (?P=what) card you own in exile\. Put that card into your hand\.$")
 
 
+_EXTRAPOLATE = ("You may reveal exactly two cards you own with different names from outside the game. An opponent chooses one of them. "
+                "You put that card into your hand.")
+
+
 def combined(body: str) -> tuple[list[dict[str, Any]], None, bool] | None:
     """Karn's alternatives: CR 903.11 leaves its ordinary exile choice available."""
+    if body.strip() == _EXTRAPOLATE:  # -- wave 110F -- 903.11: no card can be revealed from outside the game, so there is nothing for the opponent to choose or for you to put into your hand
+        return [{'do': 'outside_permission'}], None, False
     m = _EXILE_OR_OUTSIDE.fullmatch(body.strip())
     if m is None:
         return None

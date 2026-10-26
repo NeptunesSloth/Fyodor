@@ -88,6 +88,7 @@ from app.rules import (
     wave110a_teferi,  # -- wave 110A --
     wave110e_clara,  # -- pregame color (wave 110E) --
     wave110e_opp,  # -- cast-time choice (wave 110E) --
+    wave110f_camo,  # -- Camouflage (wave 110F) --
     wave110f_cards,  # -- combat damage division (wave 110F) --
     wave110h_cards,  # -- untap hold (wave 110H) --
 )
@@ -1886,6 +1887,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
     "pick110e": wave110e_opp.resume,  # -- cast-time choice (wave 110E)
+    "camo110f": wave110f_camo.resume,  # -- Camouflage (wave 110F)
     "giant110f": wave110f_cards.resume_giant,  # -- combat damage division (wave 110F)
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "free_multikicker": casting.resume_free_multikicker,

@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 PLACEHOLDER = re.compile(r"rel:(\w+)@(that|target|targets)\b")
 _REFS = {"it": "pron", "that creature": "that", "that permanent": "that", "~": "src", "this creature": "src", "those creatures": "targets",
          "one of those creatures": "targets", "equipped creature": "host", "enchanted creature": "host"}
-_TARGET = r"target (?:creature|land|permanent(?: you (?:own|control))?|artifact|enchantment)"
+_TARGET = r"target (?:creature|Wall|land|permanent(?: you (?:own|control))?|artifact|enchantment)"
 _REF = "|".join([*sorted(map(re.escape, _REFS), key=len, reverse=True), _TARGET])
 
 
