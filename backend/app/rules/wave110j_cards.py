@@ -87,6 +87,9 @@ def _hydra(d: Def) -> Def:
 
 _BUILD["For each 1 damage that would be dealt to this creature, if it has a +1/+1 counter on it, remove a +1/+1 counter from it and prevent that 1 damage."] = (
     "If this creature would be dealt damage while it has a +1/+1 counter on it, prevent that damage and remove that many +1/+1 counters from it.", _hydra)
+_BUILD["{4}, {T}: An opponent chooses target creature they control. Create a token that's a copy of that creature. That token gains haste until end of turn. Exile the token at the beginning of the next end step. Activate only as a sorcery."] = (
+    "{4}, {T}: Create a token that's a copy of target creature. That token gains haste until end of turn. Exile the token at the beginning of the next end step. Activate only as a sorcery.",
+    lambda d: {**d, "delegated_target": "opponent", "delegated_controls110d": True})  # Echo Chamber: the opponent announces the target among their own creatures (wave 110D, Preacher)
 _BUILD["At the beginning of your upkeep, if Rasputin started the turn untapped, put a dream counter on it."] = (
     "At the beginning of your upkeep, put a dream counter on this creature.", lambda d: {**d, "if": {"w110j": "began_untapped"}})
 _BUILD["{T}: Target land becomes a Swamp until its controller's next untap step."] = (

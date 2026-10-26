@@ -10,7 +10,20 @@ import pytest
 
 from tests.game_helpers import act
 from tests.wave9c_kit import build
-from tests.wave110j_kit import EXTRA, card_db, check, full, mana, now, put_new, settle, to_hand, to_phase  # noqa: F401
+from tests.wave110j_kit import (  # noqa: F401
+    EXTRA,
+    ability,
+    card_db,
+    ch,
+    check,
+    full,
+    mana,
+    now,
+    put_new,
+    settle,
+    to_hand,
+    to_phase,
+)
 
 RASPUTIN = "Rasputin Dreamweaver"
 
@@ -97,4 +110,29 @@ def test_hydra_and_its_own_shield_are_ordered_by_its_controller(cards, pick, cou
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=[c.id])
     settle(s, answers=[[s.state.rules.decision.options[pick].id] if s.state.rules.decision else None])
     assert now(s, c).counters == {"+1/+1": counters} and now(s, c).damage == 0
+    check(s)
+
+
+def test_echo_chamber_is_full():
+    assert full("Echo Chamber")
+
+
+def test_echo_chamber_copies_the_creature_an_opponent_picks(cards):
+    """601.2c, 115.1: the opponent announces the target among creatures THEY control; the copy token is mine, has haste, and is exiled at the next end step (603.7)."""
+    s = build(cards, ["Echo Chamber", "Grizzly Bears"], ["Grizzly Bears", "Grizzly Bears", "Templar Knight"])
+    chamber = put_new(s, "Echo Chamber")
+    mine = put_new(s, "Grizzly Bears")
+    put_new(s, "Grizzly Bears", "p2")
+    theirs = put_new(s, "Templar Knight", "p2")
+    mana(s, C=4)
+    act(s, "p1", type="activate_ability", card_id=chamber.id, ability=ability(s, chamber, "{4}"))
+    act(s, "p1", type="choose", decision_id=s.state.rules.decision.id, option_ids=["p2"])
+    d = s.state.rules.decision
+    assert d.player == "p2" and theirs.id in {o.id for o in d.options} and mine.id not in {o.id for o in d.options}
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[theirs.id])
+    settle(s)
+    token = next(c for c in s.state.cards.values() if c.token and c.zone == "p1:battlefield")
+    assert token.name == "Templar Knight" and "haste" in ch(s, token).keywords
+    to_phase(s, "main1", turn=2)
+    assert not any(c.token and c.zone == "p1:battlefield" for c in s.state.cards.values())
     check(s)

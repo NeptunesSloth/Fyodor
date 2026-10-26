@@ -866,5 +866,16 @@
   "keywords": [],
   "power": "0",
   "toughness": "0"
+ },
+ {
+  "name": "Echo Chamber",
+  "layout": "normal",
+  "mana_cost": "{4}",
+  "cmc": 4.0,
+  "type_line": "Artifact",
+  "oracle_text": "{4}, {T}: An opponent chooses target creature they control. Create a token that's a copy of that creature. That token gains haste until end of turn. Exile the token at the beginning of the next end step. Activate only as a sorcery.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]
