@@ -96,6 +96,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
                                    rules=[combat_conditional_requirements67.PREFIX + "@src:magnet110j"])
     if ability.text.strip() == _TAKKLE_GAIN:  # Takklemaggot's granted ability: the chosen player is the one recorded as it returned (read by triggers._whose_step)
         return {"kind": "triggered", "trigger": "step:upkeep:chosen_player", "effects": [{"do": "damage", "who": "event_player", "n": 1}], "optional": False, "target": None}
+    if ability.text.strip() == _EQUINOX:
+        return {"kind": "activated", "cost": "{T}", "effects": [{"do": "equinox110j"}], "target": {"what": "spell"}}
     if ability.text.strip() == _CURSE_IGNORE:
         native = scripts.define(replace(ability, text="Sacrifice a permanent: Draw a card."), ch)
         return None if native is None else {**native, "effects": [{"do": "ignore110j"}]}
@@ -1177,3 +1179,65 @@ def short_stickers(plan: Any, ctx: Any) -> int:
     """Name stickers (kind "name") on the source whose text has seven or fewer letters (spaces and punctuation are not letters)."""
     card = plan.state.cards.get(ctx.get("source_card") or "")
     return 0 if card is None else sum(1 for p in card.stickers101 if p.sticker.kind == "name" and sum(ch.isalpha() for ch in p.sticker.text) <= 7)
+
+
+# -- Equinox (wave 110J) -- "{T}: Counter target spell if it would destroy a land you control." Rulings: 2013-09-20 checked as the ability resolves, by what the spell would do
+# right then; 2004-10-04 / 2008-10-01 only a spell that destroys the land directly (not damage, sacrifice, or a result of a choice or chance); any spell can be targeted.
+# Read: the spell's own unconditional "destroy" instructions (a target, a selector) and "destroy all"; a spell with modes, or any other instruction that mentions destroying,
+# is not guessed: the ability's controller says whether it would (the same call a player makes at the table).
+_EQUINOX = "{T}: Counter target spell if it would destroy a land you control."
+
+
+def _destroys_my_land(plan: Any, entry: Any, sid: str, ctx: Any) -> bool | None:
+    from app.rules import effects
+
+    if plan.state.cards[sid].ability is not None:
+        return False
+    if entry is None or entry.modes or entry.slots:
+        return None
+    sctx = {"controller": entry.controller, "source_card": entry.source_card, "source_object": entry.source_object, "name": entry.name,
+            "targets": [t.model_dump() for t in entry.targets], "stack_id": sid, "kind": entry.kind, "effects": entry.effects, "next": 0, "x": entry.x, "event": None}
+    hit = False
+    for e in entry.effects:
+        if e.get("do") == "destroy" and set(e) <= {"do", "who", "as"} and (e["who"] == "target" or str(e["who"]).startswith("sel:")):
+            ids = effects._cards(plan, sctx, e["who"])
+        elif e.get("do") == "destroy_all" and set(e) <= {"do", "who", "types"} and e.get("who") == "all":
+            ids = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.ch(c).types & set(e.get("types") or ["Land"])] if "Land" in (e.get("types") or []) else []
+        elif "destroy" in repr(e):
+            return None
+        else:
+            continue
+        hit = hit or any(plan.state.cards[c].zone.endswith(":battlefield") and plan.state.cards[c].controller == ctx["controller"] and "Land" in plan.ch(plan.state.cards[c]).types
+                         for c in ids if c in plan.state.cards)
+    return hit
+
+
+def equinox(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    sids = effects._stack_targets(plan, ctx, {"who": "target"})
+    if not sids:
+        return True
+    sid = sids[0]
+    verdict = _destroys_my_land(plan, plan.rules.stack.get(sid), sid, ctx)
+    if verdict is None:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Would {plan.state.cards[sid].name} destroy a land you control if it resolved right now?",
+               options=[DecisionOption(id="yes", label="Yes, counter it"), DecisionOption(id="no", label="No")], resume={"step": "equinox110j", "ctx": ctx, "sid": sid})
+        return False
+    return effects.counter(plan, ctx, {"do": "counter", "who": "target"}) if verdict else True
+
+
+def resume_equinox(plan: Any, d: Any, chosen_ids: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if chosen_ids[0] == "yes" and d.resume["sid"] in plan.state.zones.get("stack", []):
+        effects.counter(plan, ctx, {"do": "counter", "who": "target"})
+    effects.continue_effects(plan, ctx)
+
+
+PRIMITIVES["equinox110j"] = equinox
+RESUME["equinox110j"] = resume_equinox
+_BUILD["Enchanted land has \"" + _EQUINOX + "\""] = ("Enchanted land has \"{T}: Counter target spell.\"", lambda d: {**d, "grants": [_EQUINOX]})

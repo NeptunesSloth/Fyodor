@@ -5,9 +5,11 @@
 
 from __future__ import annotations
 
+import pytest
+
 from tests.game_helpers import act
 from tests.wave9c_kit import build, life
-from tests.wave110j_kit import EXTRA, card_db, cast_on, check, now, put_new, settle, to_phase  # noqa: F401
+from tests.wave110j_kit import EXTRA, ability, card_db, cast_on, check, now, put_new, settle, to_phase  # noqa: F401
 
 PALIANO = "Paliano, the High City"
 
@@ -121,4 +123,40 @@ def test_volrath_curse_is_ignored_by_sacrificing_a_permanent(cards):
     _attack(s, bears)
     settle(s)
     assert now(s, bears).attacking is not None
+    check(s)
+
+
+EQ = "Equinox"
+
+
+def _equinox(cards, spell, own_target):
+    """p1 enchants its Forest with Equinox, casts ``spell`` (Stone Rain at its own or p2's Forest, or Armageddon) and holds priority to use Equinox on it."""
+    from tests.wave9c_kit import card_named, mana
+    from tests.wave110j_kit import hand_new
+
+    s = build(cards, [EQ, spell], [], forests=30, islands=30)
+    mine, theirs = put_new(s, "Forest"), put_new(s, "Island", "p2")
+    cast_on(s, EQ, mine)
+    assert now(s, card_named(s, EQ)).attached_to == mine.id
+    c = hand_new(s, spell)
+    act(s, "p1", type="set_stops", hold_priority=True, smart_pass=False)
+    mana(s, "p1", R=3, C=3, W=2)
+    target = {} if spell == "Armageddon" else {"targets": [mine.id if own_target else theirs.id]}
+    act(s, "p1", type="cast_spell", card_id=c.id, **target)
+    act(s, "p1", type="activate_ability", card_id=mine.id, ability=ability(s, mine, "{T}: Counter"), targets=[c.id])
+    settle(s)
+    return s, c, mine, theirs
+
+
+def test_equinox_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(EQ)).level == "FULL"
+
+
+@pytest.mark.parametrize("spell,own,countered", [("Stone Rain", True, True), ("Stone Rain", False, False), ("Armageddon", True, True)])
+def test_equinox_counters_only_a_spell_that_would_destroy_a_land_you_control(cards, spell, own, countered):
+    s, c, mine, theirs = _equinox(cards, spell, own)
+    assert now(s, c).zone == "p1:graveyard"
+    assert now(s, mine).zone.endswith(":battlefield") and now(s, theirs).zone.endswith(":battlefield") == countered  # the spell resolved (and destroyed theirs) unless Equinox countered it
     check(s)
