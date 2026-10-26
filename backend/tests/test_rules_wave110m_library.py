@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from tests.wave36a_kit import ready, to_turn_of
 from tests.wave110m_kit import *
 
 CROWN = "Crown of Convergence"
@@ -130,4 +131,51 @@ def test_lucius_with_no_opponent_creature_to_choose_stays_in_the_graveyard(cards
     cast(s, "Murder", [lucius.id])
     answer(s)
     assert s.state.cards[lucius.id].zone == "p1:graveyard"
+    check(s)
+
+
+# -- Soul Sculptor ---------------------------------------------------------------------------------------------------------------------------
+SCULPTOR = "Soul Sculptor"
+test_sculptor_full = full_test([SCULPTOR])
+
+
+def sculpted(cards):
+    s = build(cards, [SCULPTOR, "Llanowar Elves", "Lightning Bolt"], ["Birds of Paradise", "Elite Vanguard"], forests=20)
+    sculptor = put(s, SCULPTOR)
+    birds = put(s, "Birds of Paradise", "p2")
+    ready(s, SCULPTOR)
+    mana(s, W=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=sculptor.id, ability=0, targets=[birds.id])
+    answer(s)
+    return s, birds
+
+
+def test_soul_sculptor_makes_the_creature_an_enchantment_without_abilities(cards):
+    s, birds = sculpted(cards)
+    got = ch(s, birds)
+    assert "Creature" not in got.types and "Enchantment" in got.types and "flying" not in got.keywords
+    check(s)
+
+
+def test_soul_sculptor_lasts_through_other_spells_and_across_turns(cards):
+    s, birds = sculpted(cards)
+    cast(s, "Lightning Bolt", ["p2"])
+    answer(s)
+    to_turn_of(s, "p2")
+    got = ch(s, birds)
+    assert "Creature" not in got.types and "flying" not in got.keywords
+    check(s)
+
+
+@pytest.mark.parametrize("caster", ["p1", "p2"])
+def test_soul_sculptor_ends_when_any_player_casts_a_creature_spell(cards, caster):
+    s, birds = sculpted(cards)
+    if caster == "p2":
+        to_turn_of(s, "p2")
+        cast(s, "Elite Vanguard", pid="p2")
+    else:
+        cast(s, "Llanowar Elves")
+    answer(s)
+    got = ch(s, birds)
+    assert "Creature" in got.types and "Enchantment" not in got.types and "flying" in got.keywords
     check(s)

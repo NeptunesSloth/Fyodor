@@ -337,5 +337,43 @@
 "B"
 ],
 "keywords": []
+},
+{
+"name": "Soul Sculptor",
+"layout": "normal",
+"mana_cost": "{2}{W}",
+"cmc": 3.0,
+"type_line": "Creature — Human",
+"oracle_text": "{1}{W}, {T}: Target creature becomes an enchantment and loses all abilities until a player casts a creature spell.",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": [],
+"power": "1",
+"toughness": "1"
+},
+{
+"name": "Johan",
+"layout": "normal",
+"mana_cost": "{3}{R}{G}{W}",
+"cmc": 6.0,
+"type_line": "Legendary Creature — Human Wizard",
+"oracle_text": "At the beginning of combat on your turn, you may have Johan gain \"Johan can't attack\" until end of combat. If you do, attacking doesn't cause creatures you control to tap this combat if Johan is untapped.",
+"colors": [
+"G",
+"R",
+"W"
+],
+"color_identity": [
+"G",
+"R",
+"W"
+],
+"keywords": [],
+"power": "5",
+"toughness": "4"
 }
 ]

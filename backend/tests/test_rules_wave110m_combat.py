@@ -82,3 +82,39 @@ def test_unpayable_cost_leaves_the_declaration_untouched(cards):
     declare(s, [])
     assert s.state.cards[elves.id].blocking is None
     roundtrip(s)
+
+
+# -- Johan -----------------------------------------------------------------------------------------------------------------------------------
+JOHAN = "Johan"
+test_johan_full = full_test([JOHAN])
+
+
+def johan_table(cards, tap_johan=False):
+    from tests.wave110m_kit import build, put
+
+    s = build(cards, [JOHAN, "Grizzly Bears", "Llanowar Elves"], forests=20)
+    johan, bears = put(s, JOHAN), put(s, "Grizzly Bears")
+    elves = put(s, "Llanowar Elves")
+    return s, johan, bears, elves
+
+
+@pytest.mark.parametrize("use,johan_tapped,bears_tapped", [(True, False, False), (False, False, True), (True, True, True)])
+def test_johan_attacks_without_tapping_only_while_he_is_untapped_and_stays_home(cards, use, johan_tapped, bears_tapped):
+    """If you do: Johan can't attack until end of combat, and attacking doesn't cause creatures you control to tap this combat if Johan is untapped (508.1f)."""
+    from tests.test_rules_wave34b_activated import next_turn, stops, to_phase
+    from tests.wave110m_kit import act, answer
+
+    s, johan, bears, elves = johan_table(cards)
+    stops(s)
+    next_turn(s)
+    if johan_tapped:
+        act(s, "p1", type="tap", card_ids=[johan.id], tapped=True)
+    to_phase(s, "begin_combat")
+    answer(s, "yes" if use else "no")
+    to_phase(s, "declare_attackers")
+    if use:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="declare_attackers", attackers=[{"card_id": johan.id, "target": "p2"}])
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}, {"card_id": elves.id, "target": "p2"}])
+    assert s.state.cards[bears.id].tapped is bears_tapped and s.state.cards[elves.id].tapped is bears_tapped
+    roundtrip(s)

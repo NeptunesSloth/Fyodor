@@ -122,7 +122,8 @@ LABELS = {"next_turn": "until your next turn", "end_of_next_turn": "until the en
           "until_cast": "until this card is cast from exile",
           "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
           "while_counter": "for as long as it has a counter on it", "while_enchanted": "for as long as that creature is enchanted", "next_upkeep": "until your next upkeep",
-          "monarch_player": "for as long as they're the monarch"}
+          "monarch_player": "for as long as they're the monarch",
+          "creature_cast110m": "until a player casts a creature spell"}  # -- (wave 110M) -- ends as any player casts a creature spell (601.2i): wave110m_cards.spell_cast
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
 
 

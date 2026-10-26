@@ -4,6 +4,7 @@ Each entry matches one whole ability's Oracle text exactly and nothing else; any
 """
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
@@ -99,6 +100,38 @@ _LUCIUS = ("When this creature dies, exile it and choose target creature an oppo
            "return this card from exile to the battlefield under its owner's control.")
 _BUILD["Armour of Shrieking Souls — " + _LUCIUS.replace("this creature", "Lucius the Eternal")] = (
     "When this creature dies, choose target creature an opponent controls. When that creature leaves the battlefield, you gain 3 life.", _lucius)
+_SCULPTOR = "{1}{W}, {T}: Target creature becomes an enchantment and loses all abilities until a player casts a creature spell."
+_BUILD[_SCULPTOR] = ("{1}{W}, {T}: Target creature becomes an enchantment until your next turn. It loses all abilities until your next turn.",
+                     lambda d: json.loads(json.dumps(d).replace('"next_turn"', '"creature_cast110m"')))
+
+
+def spell_cast(plan: Any, card: Any) -> None:
+    """Soul Sculptor: 611.2a — a creature spell cast by any player ends the effects that last until then (601.2i: it is a spell as soon as it is cast)."""
+    from app.rules import delayed
+
+    if plan.ch(card).is_creature and (ended := [e for e in plan.rules.effects if e.duration == "creature_cast110m"]):
+        delayed._end(plan, ended)
+
+
+NO_TAP = "no_tap_on_attack110m"
+_JOHAN = ("At the beginning of combat on your turn, you may have Johan gain \"Johan can't attack\" until end of combat. If you do, attacking doesn't cause "
+          "creatures you control to tap this combat if Johan is untapped.")
+
+
+def _johan(d: Def) -> Def:
+    """Johan: it can't attack until end of combat (611.2a), and its imposed rule (same duration, 514.2-style cleanup of the combat) is read where attackers tap."""
+    return {**d, "effects": [{"do": "restrict", "who": "self", "rules": ["cant_attack", NO_TAP], "duration": "end_of_combat"}]}
+
+
+_BUILD[_JOHAN] = ("At the beginning of combat on your turn, you may have Johan gain vigilance until end of combat.", _johan)
+
+
+def attack_taps_nothing(plan: Any) -> bool:
+    """508.1f: an untapped permanent of the attacking player carries Johan's rule this combat, so none of their creatures taps as it attacks."""
+    return any(NO_TAP in plan.ch(c).imposed for c in plan.state.cards.values()
+               if c.controller == plan.actor and c.zone == f"{plan.actor}:battlefield" and not c.tapped)
+
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 

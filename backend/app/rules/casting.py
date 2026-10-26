@@ -4189,6 +4189,11 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
          amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)
     delayed.spell_cast(plan, from_oid)  # -- as long as (wave 37A) -- 611.2a: "until this card is cast from exile" is over
+    from app.rules import (
+        wave110m_cards as _w110m,  # -- (wave 110M) -- "until a player casts a creature spell" is over
+    )
+
+    _w110m.spell_cast(plan, card)
     # -- granted casts (wave 29B) -- 708.2, 613.1f, 601.2a: a face-down spell has no abilities of its own, but an effect that gives its spell cascade or
     # ripple ("the next creature spell you cast this turn has cascade") gives it to this one as it is cast: they trigger (702.85a, 702.60a). Its mana
     # value is 0 and it has no name (708.2a), so cascade finds nothing and ripple nothing with its name (201.2a). Storm / conspire copy the spell:
@@ -5376,6 +5381,11 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
     emit(plan.state, "spell_cast", object_id=plan.oid(card), card=card.id, player=plan.actor,
          amount=r.spells_this_turn(plan.actor, plan.state.turn.number) + 1)  # (the Nth spell this turn)
     delayed.spell_cast(plan, from_oid)  # (-- as long as (wave 37A) --)
+    from app.rules import (
+        wave110m_cards as _w110m,  # -- (wave 110M) -- "until a player casts a creature spell" is over
+    )
+
+    _w110m.spell_cast(plan, card)
     extra = 0 if plan.manual(card) else _granted_cascade(plan, card, ch, record.cast_from)
     if extra or ("cascade" in ch.keywords and not plan.manual(card)):
         _cascade_triggers(plan, card, ch, extra)
