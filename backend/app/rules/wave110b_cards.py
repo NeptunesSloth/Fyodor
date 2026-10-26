@@ -680,6 +680,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (tahngarth := wave110b_tahngarth.definition(ability, ch)) is not None:
         return tahngarth
+    if text == "Clandestine Chameleon has all abilities of ability stickers on other permanents you own and cards in your graveyard.":
+        return {"kind": "static", "static": "sticker_abilities110b", "effects": []}  # the abilities come from stickers101.continuous (613.1f)
     if (same := _AS.get(text)) is not None:
         return scripts.define(replace(ability, text=same), ch)
     if (built := _BUILD.get(text)) is not None:

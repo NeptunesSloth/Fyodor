@@ -3166,5 +3166,22 @@
   "keywords": [
    "Enchant"
   ]
+ },
+ {
+  "name": "Clandestine Chameleon",
+  "layout": "normal",
+  "mana_cost": "{3}{G}",
+  "cmc": 4.0,
+  "type_line": "Creature — Lizard Guest",
+  "oracle_text": "When Clandestine Chameleon enters, you get {TK}{TK}, then you may put a sticker on a nonland permanent you own.\nClandestine Chameleon has all abilities of ability stickers on other permanents you own and cards in your graveyard.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [],
+  "power": "4",
+  "toughness": "3"
  }
 ]
