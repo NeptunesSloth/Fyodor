@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.wave9c_kit import build, life
 from tests.wave110j_kit import EXTRA, ability, card_db, cast_on, check, now, put_new, settle, to_phase  # noqa: F401
@@ -160,4 +161,59 @@ def test_equinox_counters_only_a_spell_that_would_destroy_a_land_you_control(car
     s, c, mine, theirs = _equinox(cards, spell, own)
     assert now(s, c).zone == "p1:graveyard"
     assert now(s, mine).zone.endswith(":battlefield") and now(s, theirs).zone.endswith(":battlefield") == countered  # the spell resolved (and destroyed theirs) unless Equinox countered it
+    check(s)
+
+
+def test_volrath_curse_two_curses_each_need_their_own_sacrifice(cards):
+    """113.10 / 611.3a: each Curse is its own effect; sacrificing for one ignores only that Curse, the other still stops attacks."""
+    s = build(cards, [CURSE, CURSE], ["Grizzly Bears", "Grizzly Bears", "Grizzly Bears"], forests=30, islands=30)
+    bears = put_new(s, "Grizzly Bears", "p2")
+    fodder = [put_new(s, "Grizzly Bears", "p2") for _ in range(2)]
+    cast_on(s, CURSE, bears)
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import hand_new
+
+    second = hand_new(s, CURSE)  # (cast_on takes the first copy by name: that is the one already on the battlefield)
+    mana(s, "p1", U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=second.id, targets=[bears.id])
+    settle(s)
+    act(s, "p2", type="set_stops", own=["declare_attackers"])
+    to_phase(s, "main1", turn=2)
+    ignores = [a.index for a in ch_abilities(s, bears) if a.text.startswith("Sacrifice a permanent: Ignore")]
+    assert len(ignores) == 2
+    act(s, "p2", type="activate_ability", card_id=bears.id, ability=ignores[0])
+    settle(s, answers=[fodder[0].id])
+    while s.state.rules.decision is None or s.state.rules.decision.kind != "declare_attackers":
+        act(s, s.state.rules.priority, type="pass_priority")
+    with pytest.raises(ActionError):
+        _attack(s, bears)  # one Curse paid, the other still restricts
+    check(s)
+
+
+def ch_abilities(s, c):
+    from tests.wave110j_kit import ch
+
+    return ch(s, c).abilities
+
+
+def test_equinox_unclear_spell_goes_to_manual_resolution(cards):
+    """Equinox can't tell whether a modal spell would destroy a land: no player rules on it; the ability is resolved by hand."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import hand_new
+
+    s = build(cards, [EQ, "Abrade"], ["Grizzly Bears"], forests=30, islands=30)
+    mine, bears = put_new(s, "Forest"), put_new(s, "Grizzly Bears", "p2")
+    cast_on(s, EQ, mine)
+    c = hand_new(s, "Abrade")
+    act(s, "p1", type="set_stops", hold_priority=True, smart_pass=False)
+    mana(s, "p1", R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=c.id, modes=[0], targets=[bears.id])
+    act(s, "p1", type="activate_ability", card_id=mine.id, ability=ability(s, mine, "{T}: Counter"), targets=[c.id])
+    for _ in range(10):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "manual_resolution" and "Equinox" in d.prompt
+    settle(s)
     check(s)

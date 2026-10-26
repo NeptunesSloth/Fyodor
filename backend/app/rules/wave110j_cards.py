@@ -98,9 +98,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {"kind": "triggered", "trigger": "step:upkeep:chosen_player", "effects": [{"do": "damage", "who": "event_player", "n": 1}], "optional": False, "target": None}
     if ability.text.strip() == _EQUINOX:
         return {"kind": "activated", "cost": "{T}", "effects": [{"do": "equinox110j"}], "target": {"what": "spell"}}
-    if ability.text.strip() == _CURSE_IGNORE:
+    if (curse := _CURSE_RE.fullmatch(ability.text.strip())) is not None:
         native = scripts.define(replace(ability, text="Sacrifice a permanent: Draw a card."), ch)
-        return None if native is None else {**native, "effects": [{"do": "ignore110j"}]}
+        return None if native is None else {**native, "effects": [{"do": "ignore110j", "curse": curse["oid"] or ""}]}
     if ability.text.strip() == _SPLICER:
         return _splicer(ability, ch)
     if ability.text.strip() == _ES:
@@ -1138,17 +1138,18 @@ RESUME["takkle110j"] = resume_takkle
 
 # -- Volrath's Curse (wave 110J) -- "That creature's controller may sacrifice a permanent of their choice for that player to ignore this effect until end of turn."
 # The creature gets "Sacrifice a permanent: ..." (its controller pays; ceilings: it uses the stack and needs priority, so it must be done before attackers/blockers are
-# declared, and two Curses on one creature are ignored together) which is exempt from the Curse's own "activated abilities can't be activated" (casting.py); while it
+# declared, and each Curse is ignored on its own: keyed by the Curse) which is exempt from the Curse's own "activated abilities can't be activated" (casting.py); while it
 # has been paid this turn (statics.holds "ignored110j") the whole static, "can't attack or block" included, does not apply (611.3a).
 _CURSE = ("Enchanted creature can't attack or block, and its activated abilities can't be activated. That creature's controller may sacrifice a permanent of their choice "
           "for that player to ignore this effect until end of turn.")
-_CURSE_IGNORE = "Sacrifice a permanent: Ignore Volrath's Curse until end of turn."
+_CURSE_IGNORE = "Sacrifice a permanent: Ignore ‹granter› until end of turn."  # layers.py binds ‹granter#oid› to the granting Curse (607.1a)
+_CURSE_RE = re.compile(r"Sacrifice a permanent: Ignore ‹granter(?:#(?P<oid>[^›]*))?› until end of turn\.")
 _BUILD[_CURSE] = ("Enchanted creature can't attack or block, and its activated abilities can't be activated.",
                   lambda d: {**d, "grants": [_CURSE_IGNORE], "conditions": [{"static": "not", "cond": {"static": "ignored110j"}}]})
 
 
 def ignore(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
-    plan.rules.once_per_turn[f"ignore110j:{ctx['source_object']}"] = plan.state.turn.number
+    plan.rules.once_per_turn[f"ignore110j:{e['curse']}"] = plan.state.turn.number
     plan.note("Volrath's Curse is ignored until end of turn", actor=ctx["controller"])
     return True
 
@@ -1184,7 +1185,7 @@ def short_stickers(plan: Any, ctx: Any) -> int:
 # -- Equinox (wave 110J) -- "{T}: Counter target spell if it would destroy a land you control." Rulings: 2013-09-20 checked as the ability resolves, by what the spell would do
 # right then; 2004-10-04 / 2008-10-01 only a spell that destroys the land directly (not damage, sacrifice, or a result of a choice or chance); any spell can be targeted.
 # Read: the spell's own unconditional "destroy" instructions (a target, a selector) and "destroy all"; a spell with modes, or any other instruction that mentions destroying,
-# is not guessed: the ability's controller says whether it would (the same call a player makes at the table).
+# is not guessed: the ability goes to manual resolution (the players settle it at the table).
 _EQUINOX = "{T}: Counter target spell if it would destroy a land you control."
 
 
@@ -1223,8 +1224,8 @@ def equinox(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     sid = sids[0]
     verdict = _destroys_my_land(plan, plan.rules.stack.get(sid), sid, ctx)
     if verdict is None:
-        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Would {plan.state.cards[sid].name} destroy a land you control if it resolved right now?",
-               options=[DecisionOption(id="yes", label="Yes, counter it"), DecisionOption(id="no", label="No")], resume={"step": "equinox110j", "ctx": ctx, "sid": sid})
+        decide(plan, player=ctx["controller"], kind="manual_resolution", options=[DecisionOption(id="done", label="Done")], resume={"step": "equinox110j", "ctx": ctx},
+               prompt=f"Equinox: would {plan.state.cards[sid].name} destroy a land you control? The engine can't tell. Counter it by hand if so, then press Done")  # (no one player rules on a fact)
         return False
     return effects.counter(plan, ctx, {"do": "counter", "who": "target"}) if verdict else True
 
@@ -1233,8 +1234,6 @@ def resume_equinox(plan: Any, d: Any, chosen_ids: list[str]) -> None:
     from app.rules import effects
 
     ctx = d.resume["ctx"]
-    if chosen_ids[0] == "yes" and d.resume["sid"] in plan.state.zones.get("stack", []):
-        effects.counter(plan, ctx, {"do": "counter", "who": "target"})
     effects.continue_effects(plan, ctx)
 
 
