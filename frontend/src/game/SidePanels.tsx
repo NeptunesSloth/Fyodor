@@ -71,8 +71,8 @@ export function StackPanel({ me, onCollapse }: { me: string; onCollapse?: () => 
         <span className="chain-title">The stack{entries.length > 0 && <span className="chain-count"> · {view.stack.length}</span>}</span>
         <span className="spacer" />
         <button className="btn small" onClick={() => openDialog("ability", null)} title="Put an ability on the stack">Add ability</button>
-        <button className="btn small primary" disabled={!view.stack.length} onClick={() => void send({ type: "resolve_top" })}>Resolve top</button>
-        {onCollapse && <button className="tt-icon" title="Collapse the stack" aria-label="Collapse the stack" onClick={onCollapse}>–</button>}
+        <button className="btn small" disabled={!view.stack.length} onClick={() => void send({ type: "resolve_top" })}>Resolve top</button>
+        {onCollapse && <button className="tt-btn ghost chain-hide" title="Hide the stack list" onClick={onCollapse}>Hide</button>}
       </div>
       {entries.length === 0 && <div className="stack-empty hint">Drag a spell here to cast it</div>}
       <ol className="chain-list">

@@ -185,7 +185,9 @@ function CoachTips() {
   const [step, setStep] = useState(() => {
     try { return localStorage.getItem(COACH_KEY) === "done" ? -1 : 0; } catch { return -1; }
   });
-  if (step < 0 || step >= TIPS.length) return null;
+  // tips are for the first turn; after that the table is the player's
+  const early = useGame((s) => (s.view?.turn.number ?? 1) <= 1);
+  if (step < 0 || step >= TIPS.length || !early) return null;
   const done = () => {
     try { localStorage.setItem(COACH_KEY, "done"); } catch { /* private mode: show again next time */ }
     setStep(-1);

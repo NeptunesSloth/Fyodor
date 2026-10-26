@@ -66,7 +66,7 @@ export function TopBar() {
         </label>
       )}
       <button className="tt-btn ghost" title="Minimal / full HUD (H)" onClick={() => usePrefs.getState().set({ hud: usePrefs.getState().hud === "full" ? "minimal" : "full" })}>
-        {hud === "full" ? "HUD" : "HUD·"}
+        {hud === "full" ? "Detail: full" : "Detail: minimal"}
       </button>
       <button className="tt-icon" onClick={() => openDialog("help")} title="Controls and shortcuts (?)" aria-label="Controls and shortcuts">?</button>
       <button className="icon-btn" data-testid="table-menu" aria-label="More" onClick={(e) => openMenu(e, tableMenu(isHost), "Table")}>⋯</button>

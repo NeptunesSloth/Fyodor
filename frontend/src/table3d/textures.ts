@@ -575,35 +575,36 @@ export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
   g.textBaseline = "middle";
   // P/T plate, bottom right; a modified value says so with ▲/▼ as well as colour
   if (o.pt) {
-    const w = 186;
-    const h = 84;
+    const w = 300;
+    const h = 132;
     const x = W - w - 14;
     const y = H - h - 14;
     plate(g, x, y, w, h);
     g.fillStyle = o.pt.dir > 0 ? "#b6f09a" : o.pt.dir < 0 ? "#ffa08f" : "#f4ead6";
-    g.font = "800 54px Inter, Arial, sans-serif";
-    g.fillText(o.pt.text, x + w / 2 + (o.pt.dir ? 12 : 0), y + h / 2 + 3);
+    g.font = "800 88px Inter, Arial, sans-serif";
+    g.fillText(o.pt.text, x + w / 2 + (o.pt.dir ? 18 : 0), y + h / 2 + 5);
     if (o.pt.dir) {
-      g.font = "800 26px Inter, Arial, sans-serif";
-      g.fillText(o.pt.dir > 0 ? "▲" : "▼", x + 26, y + h / 2 + 2);
+      g.font = "800 40px Inter, Arial, sans-serif";
+      g.fillText(o.pt.dir > 0 ? "▲" : "▼", x + 38, y + h / 2 + 3);
     }
   }
   if (o.damage) {
-    const w = 150;
-    const h = 64;
+    const w = 240;
+    const h = 100;
     const x = W - w - 14;
-    const y = H - (o.pt ? 84 + 14 : 0) - h - 24;
+    const y = H - (o.pt ? 132 + 14 : 0) - h - 24;
     plate(g, x, y, w, h, "#e0574a");
     g.fillStyle = "#ffb3a8";
-    g.font = "800 38px Inter, Arial, sans-serif";
+    g.font = "800 60px Inter, Arial, sans-serif";
     g.fillText(`${o.damage} dmg`, x + w / 2, y + h / 2 + 2);
   }
   // keyword badges, bottom left (at most 4 + an overflow chip, clear of the P/T plate)
-  const R = 40;
+  const R = 56;
+  // a row of keyword badges above the P/T plate (two per row at this size)
   const shown = o.keywords.slice(0, o.keywords.length > 4 ? 3 : 4);
   shown.forEach(({ kind, n }, i) => {
-    const cx = 14 + R + i * (R * 2 + 8);
-    const cy = H - 14 - R;
+    const cx = 14 + R + (i % 2) * (R * 2 + 10);
+    const cy = H - 14 - R - Math.floor(i / 2) * (R * 2 + 10);
     g.fillStyle = PLATE;
     g.beginPath();
     g.arc(cx, cy, R, 0, Math.PI * 2);
@@ -629,34 +630,36 @@ export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
     }
   });
   if (o.keywords.length > shown.length) {
-    const cx = 14 + R + shown.length * (R * 2 + 8);
-    const cy = H - 14 - R;
+    const cx = 14 + R + (shown.length % 2) * (R * 2 + 10);
+    const cy = H - 14 - R - Math.floor(shown.length / 2) * (R * 2 + 10);
     plate(g, cx - R, cy - R * 0.6, R * 2, R * 1.2);
     g.fillStyle = "#f4ead6";
     g.font = "800 32px Inter, Arial, sans-serif";
     g.fillText(`+${o.keywords.length - shown.length}`, cx, cy + 2);
   }
-  // chain number (top left) and the "Resolves next" plate across the top
+  // chain number (bottom left) and the "Resolves next" plate (bottom right): clear of the name
   if (o.chain) {
-    const R2 = 46;
+    const R2 = 58;
+    const cy = H - 18 - R2;
     g.fillStyle = o.chain.next ? "#d8ae62" : PLATE;
     g.beginPath();
-    g.arc(16 + R2, 16 + R2, R2, 0, Math.PI * 2);
+    g.arc(18 + R2, cy, R2, 0, Math.PI * 2);
     g.fill();
     g.strokeStyle = BRASS;
     g.lineWidth = 5;
     g.stroke();
     g.fillStyle = o.chain.next ? "#231605" : "#f4ead6";
-    g.font = "800 50px Cinzel, Georgia, serif";
-    g.fillText(String(o.chain.no), 16 + R2, 16 + R2 + 3);
+    g.font = "800 64px Cinzel, Georgia, serif";
+    g.fillText(String(o.chain.no), 18 + R2, cy + 4);
     if (o.chain.next) {
-      const w = 300;
-      const h = 64;
-      const x = W - w - 14;
-      plate(g, x, 22, w, h);
+      const w = 320;
+      const h = 84;
+      const x = W - w - 18;
+      const y = H - h - 34;
+      plate(g, x, y, w, h);
       g.fillStyle = "#f0c97d";
-      g.font = "700 34px Inter, Arial, sans-serif";
-      g.fillText("Resolves next", x + w / 2, 22 + h / 2 + 2);
+      g.font = "700 42px Inter, Arial, sans-serif";
+      g.fillText("Resolves next", x + w / 2, y + h / 2 + 3);
     }
   }
   // other counters, top right, stacked

@@ -255,8 +255,17 @@ export function TurnDial() {
         )}
         {!auto && !watching && (
           <>
-            <button className="td-pass" onClick={() => void send({ type: "phase", to: "next" })} title="Next step (N)">{NEXT_VERB[step] ?? "Next step"}</button>
+            {stack ? (
+              // something is on the stack: resolving it comes first, stepping on is secondary
+              <>
+                <button className="td-pass" onClick={() => void send({ type: "resolve_top" })} title="Resolve the top of the stack">Resolve top</button>
+                <p className="td-hint">{topName} resolves next</p>
+              </>
+            ) : (
+              <button className="td-pass" onClick={() => void send({ type: "phase", to: "next" })} title="Next step (N)">{NEXT_VERB[step] ?? "Next step"}</button>
+            )}
             <div className="td-more">
+              {stack && <button className="tt-btn ghost" title="Next step (N)" onClick={() => void send({ type: "phase", to: "next" })}>{NEXT_VERB[step] ?? "Next step"}</button>}
               <button className="tt-btn ghost next-turn" title="Next turn (Shift+N)" onClick={() => void send({ type: "next_turn" })}>Next turn</button>
             </div>
           </>
@@ -269,9 +278,9 @@ export function TurnDial() {
         {auto && prefs && (
           <div className="td-toggles">
             <button className={`td-toggle ${prefs.hold_priority ? "on" : ""}`} aria-pressed={!!prefs.hold_priority} data-testid="hold-priority" title="Keep priority after you cast"
-              onClick={() => void setPrefs({ hold_priority: !prefs.hold_priority })}>Hold</button>
-            <button className={`td-toggle ${prefs.full_control ? "on" : ""}`} aria-pressed={!!prefs.full_control} data-testid="full-control" title="No auto-passing at all"
-              onClick={() => void setPrefs({ full_control: !prefs.full_control })}>Full control</button>
+              onClick={() => void setPrefs({ hold_priority: !prefs.hold_priority })}>Hold priority</button>
+            <button className={`td-toggle ${prefs.full_control ? "on" : ""}`} aria-pressed={!!prefs.full_control} data-testid="full-control" title="Full control: the engine never passes priority for you"
+              onClick={() => void setPrefs({ full_control: !prefs.full_control })}>Stop at every step</button>
             {!mine && (
               <button className={`td-toggle ${prefs.force_stop ? "on" : ""}`} aria-pressed={!!prefs.force_stop} data-testid="force-stop" title="Stop at your next priority"
                 onClick={() => void setPrefs({ force_stop: !prefs.force_stop })}>Stop</button>

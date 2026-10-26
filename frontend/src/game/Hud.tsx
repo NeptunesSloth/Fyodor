@@ -68,7 +68,9 @@ export function LogDrawer() {
   const log = useGame((s) => s.view?.log ?? []);
   const open = useGame((s) => s.logOpen);
   const setOpen = (v: boolean) => useGame.getState().setLayout({ logOpen: v });
-  const last = log[log.length - 1];
+  // the last real entry (step dividers like "— Precombat main —" read as empty)
+  const entryText = (e: (typeof log)[number]) => e.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : p.group.map((g) => g.card.name).join(", "))).join("");
+  const last = [...log].reverse().find((e) => !entryText(e).trim().startsWith("—"));
   const text = last ? last.parts.map((p) => ("t" in p ? p.t : "card" in p ? p.card.name : p.group.map((g) => g.card.name).join(", "))).join("") : "";
   return (
     <div className={`log-drawer ${open ? "open" : ""}`} data-testid="log-drawer">

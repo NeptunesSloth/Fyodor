@@ -26,7 +26,7 @@ import { libraryMenu, pileMenu, PILE_LABEL } from "../game/ZonePile";
 import type { PlaneTheme } from "../theme/planes";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { buildEnvironment, type Environment } from "./environment";
-import { arrowTime, makeArrow } from "./arrows";
+import { arrowTime, makeArrow, type GroundBox } from "./arrows";
 import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
 import {
@@ -134,6 +134,8 @@ function overlayFor(card: GameCard, stats: CardStats | undefined): CardOverlay |
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
+/** One red for every attack beam (DESIGN.md: attack-beam). */
+const ATTACK_RED = "#ff5a2a";
 const liftTarget = new THREE.Vector3();
 const shadowPos = new THREE.Vector3();
 const shadowQ = new THREE.Quaternion();
@@ -208,6 +210,9 @@ export class TableScene {
   private shadows: THREE.InstancedMesh;
   private shadowTex = contactShadowTexture();
   private arrowKey = "";
+  /** Where the stack's standing cards are (beams route around it), and each stack card's beam anchor. */
+  private stackBox: GroundBox | null = null;
+  private stackAnchors = new Map<string, THREE.Vector3>();
   /** Soft studio reflections for metal, lacquer and card gloss (a prefiltered room, no download). */
   private envMap: THREE.Texture;
   private post: Post | null = null;
@@ -664,16 +669,33 @@ export class TableScene {
     // chain), facing me; the top one stands biggest and highest and says it resolves next
     const n = view.stack.length;
     const myRot = seatOf.get(this.me)?.rot ?? 0;
-    const step = Math.min(2.1, 9 / Math.max(1, n));
+    const step = Math.min(1.8, 8 / Math.max(1, n));
+    this.stackBox = null;
+    this.stackAnchors.clear();
+    const grow = (x: number, z: number, r: number) => {
+      const b = this.stackBox ?? { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+      this.stackBox = { minX: Math.min(b.minX, x - r), maxX: Math.max(b.maxX, x + r), minZ: Math.min(b.minZ, z - r), maxZ: Math.max(b.maxZ, z + r) };
+    };
+    // toward my side of the centre, so the standing cards don't hide the far player's front row
+    const nearMe = 1.6;
     view.stack.forEach((id, i) => {
       const c = show(id);
       if (!c) return;
       const top = i === n - 1;
       const x = (i - (n - 1) / 2) * step;
-      const z = top ? 0.15 : 0;
-      this.place(c, undefined, x * Math.cos(myRot) + z * Math.sin(myRot), -x * Math.sin(myRot) + z * Math.cos(myRot), (top ? 1.75 : 1.55) + i * 0.02, myRot);
-      c.scale = top ? 2.6 : 2.15;
-      c.tilt = 0.75; // far edge up: the face turns toward my seat
+      const z = nearMe + (top ? 0.15 : 0);
+      const wx = x * Math.cos(myRot) + z * Math.sin(myRot);
+      const wz = -x * Math.sin(myRot) + z * Math.cos(myRot);
+      const scale = top ? 2.25 : 1.85;
+      const tilt = 0.75; // far edge up: the face turns toward my seat
+      const y = (top ? 1.45 : 1.3) + i * 0.02;
+      this.place(c, undefined, wx, wz, y, myRot);
+      c.scale = scale;
+      grow(wx, wz, (CARD_H / 2) * scale + 0.45);
+      // beams to or from a stack card leave from its raised top edge, never from inside it
+      const half = (CARD_H / 2) * scale;
+      this.stackAnchors.set(id, new THREE.Vector3(wx - Math.sin(myRot) * half * Math.cos(tilt), y + half * Math.sin(tilt) + 0.08, wz - Math.cos(myRot) * half * Math.cos(tilt)));
+      c.tilt = tilt;
       this.setOverlay(c, { keywords: [], counters: [], chain: { no: i + 1, next: top } });
       this.setGlow(c, selection.has(id) ? this.plane.ui.select : top ? this.plane.ui.accent : null, top ? 0.6 : 0.5);
     });
@@ -695,15 +717,17 @@ export class TableScene {
    */
   private syncArrows(view: GameView): void {
     const at = (id: string, from?: THREE.Vector3): THREE.Vector3 | null => {
+      const anchor = this.stackAnchors.get(id);
+      if (anchor) return anchor.clone();
       const c = this.cards.get(id);
       if (c) return c.target.clone().setY(c.target.y + 0.05);
       const seat = this.seatList.find((s) => s.player === id);
       if (!seat) return null;
-      // a player: the edge of their battlefield that faces the table centre (never under the hand),
-      // opposite the source so several attackers land side by side
-      const lx = from ? Math.max(-MAT_W / 2 + 0.6, Math.min(MAT_W / 2 - 0.6, toLocal(seat, from.x, from.z)[0])) : 0;
-      const [wx, wz] = toWorld(seat, lx, -MAT_D / 2 + 0.45);
-      return new THREE.Vector3(wx, 0.05, wz);
+      // a player: their plaque (as Arena lands on the avatar), spread a little so several
+      // attackers' crystals sit side by side
+      const spread = from ? Math.max(-0.7, Math.min(0.7, toLocal(seat, from.x, from.z)[0] * 0.12)) : 0;
+      const [wx, wz] = toWorld(seat, -STRIP_X + spread, -0.6);
+      return new THREE.Vector3(wx, 0.3, wz);
     };
     const wanted: [THREE.Vector3, THREE.Vector3, string][] = [];
     const add = (from: string, to: string, color: string) => {
@@ -712,14 +736,15 @@ export class TableScene {
       if (a && b && a.distanceTo(b) >= 0.3) wanted.push([a, b, color]);
     };
     for (const c of Object.values(view.cards)) {
-      if (c.attacking) add(c.id, c.attacking.id, "#ff5a2a");
+      if (c.attacking) add(c.id, c.attacking.id, ATTACK_RED);
       if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff");
     }
     for (const ar of view.arrows ?? []) {
-      const color = ar.kind === "attack" ? "#e0463c" : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;
+      const color = ar.kind === "attack" ? ATTACK_RED : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;
       for (const t of ar.targets) add(ar.source, t, color);
     }
-    const key = wanted.map(([a, b, c]) => `${a.x.toFixed(2)},${a.y.toFixed(2)},${a.z.toFixed(2)}>${b.x.toFixed(2)},${b.z.toFixed(2)}${c}`).join("|");
+    // the stack's layout is part of the key: casting a spell reroutes beams that cross the centre
+    const key = `${view.stack.join(",")}#` + wanted.map(([a, b, c]) => `${a.x.toFixed(2)},${a.y.toFixed(2)},${a.z.toFixed(2)}>${b.x.toFixed(2)},${b.z.toFixed(2)}${c}`).join("|");
     this.stats.arrows = wanted.length;
     if (key === this.arrowKey) return;
     this.arrowKey = key;
@@ -728,7 +753,7 @@ export class TableScene {
       (child.userData.dispose as () => void)();
     }
     const flow = !document.body.classList.contains("reduced-motion");
-    for (const [a, b, color] of wanted) this.arrows.add(makeArrow(a, b, { color, flow }));
+    for (const [a, b, color] of wanted) this.arrows.add(makeArrow(a, b, { color, flow }, this.stackBox));
   }
 
   private syncHandFan(seat: Seat, count: number): void {

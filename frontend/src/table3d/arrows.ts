@@ -80,11 +80,58 @@ function beamGeometry(curve: THREE.Curve<THREE.Vector3>): THREE.BufferGeometry {
   return geo;
 }
 
+/** An axis-aligned keep-out area on the table (world x/z), e.g. around the standing stack cards. */
+export interface GroundBox { minX: number; maxX: number; minZ: number; maxZ: number }
+
+const inBox = (x: number, z: number, box: GroundBox) => x > box.minX && x < box.maxX && z > box.minZ && z < box.maxZ;
+
+/** Does the straight ground path a→b cross the box (sampled; boxes are larger than a step)? */
+function crosses(a: THREE.Vector3, b: THREE.Vector3, box: GroundBox): boolean {
+  for (let i = 1; i < 40; i++) {
+    const t = i / 40;
+    if (inBox(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, box)) return true;
+  }
+  return false;
+}
+
+/**
+ * The beam's path from a to b: a high arc, bent sideways around the keep-out box when the straight
+ * path would run through it (so beams never pass through the stack's standing cards). The bend goes
+ * to whichever side needs less.
+ */
+export function routeAround(a: THREE.Vector3, b: THREE.Vector3, box: GroundBox | null): THREE.Curve<THREE.Vector3> {
+  const dist = a.distanceTo(b);
+  const lift = Math.max(a.y, b.y) + 1.1 + dist * 0.14;
+  const at = (t: number, side: THREE.Vector3, d: number) =>
+    new THREE.Vector3(a.x + (b.x - a.x) * t + side.x * d, lift, a.z + (b.z - a.z) * t + side.z * d);
+  const straight = (side: THREE.Vector3, d: number) => new THREE.CubicBezierCurve3(a, at(1 / 3, side, d), at(2 / 3, side, d), b);
+  const flat = new THREE.Vector3();
+  if (!box || !crosses(a, b, box)) return straight(flat, 0);
+  const n = new THREE.Vector3(-(b.z - a.z), 0, b.x - a.x).normalize();
+  // check against a slightly larger box so no point between samples can clip a corner
+  const pad: GroundBox = { minX: box.minX - 0.25, maxX: box.maxX + 0.25, minZ: box.minZ - 0.25, maxZ: box.maxZ + 0.25 };
+  const clear = (c: THREE.Curve<THREE.Vector3>) => c.getPoints(64).every((p) => !inBox(p.x, p.z, pad));
+  let best: THREE.Curve<THREE.Vector3> | null = null;
+  let bestD = Infinity;
+  for (const s of [1, -1]) {
+    const side = n.clone().multiplyScalar(s);
+    for (let d = 0.6; d < 40; d *= 1.2) {
+      const c = straight(side, d);
+      if (clear(c)) {
+        if (d < bestD) {
+          best = c;
+          bestD = d;
+        }
+        break;
+      }
+    }
+  }
+  return best ?? straight(flat, 0);
+}
+
 /** A beam from a to b. userData.dispose frees what the group owns (the shared shapes stay). */
-export function makeArrow(a: THREE.Vector3, b: THREE.Vector3, style: ArrowStyle): THREE.Group {
-  const mid = a.clone().lerp(b, 0.5);
-  mid.y += 1.3 + a.distanceTo(b) * 0.16;
-  const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+export function makeArrow(a: THREE.Vector3, b: THREE.Vector3, style: ArrowStyle, avoid: GroundBox | null = null): THREE.Group {
+  const curve = routeAround(a, b, avoid);
   const color = new THREE.Color(style.color);
   const beamMat = new THREE.ShaderMaterial({
     vertexShader: beamVertex,
