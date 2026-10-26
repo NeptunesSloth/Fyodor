@@ -390,7 +390,25 @@ def camp_holds(plan: Plan, ctx: Context) -> bool:
     return target is not None and any(mask >> "WUBRG".index(c) & 1 for c in plan.ch(target).colors)
 
 
+def _letters(letter: str) -> Callable[[Def], Def]:
+    """Balls of Fire / Splash: "the number of {letter}'s in name stickers on this enchantment" (values.py ``letters110i``)."""
+    n = {"letters110i": letter}
+
+    def fix(d: Def) -> Def:
+        es = [{**e, "n": n} if e.get("do") == "damage" else e for e in d["effects"]]
+        t = d.get("target") or d.get("targets")
+        if isinstance(t, dict) and "max" in t:
+            return {**d, "effects": es, "target": {**t, "x_value": n}}
+        return {**d, "effects": es}
+
+    return fix
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever you put a sticker on this enchantment, it deals damage equal to the number of o's in name stickers on this enchantment to any target.":
+        ("Whenever you put a sticker on this enchantment, this enchantment deals 2 damage to any target.", _letters("o")),
+    "Whenever you put a sticker on this enchantment, tap up to X target creatures, where X is the number of u's in name stickers on this enchantment.":
+        ("Whenever you put a sticker on this enchantment, tap up to three target creatures.", _letters("u")),
     "Whenever fortified land is tapped for mana, put a +1/+1 counter on target creature you control. If that creature shares a color with the mana that land produced, "
     "create a Junk token.":
         ("Whenever fortified land is tapped for mana, put a +1/+1 counter on target creature you control. Create a Junk token.", _camp),
@@ -845,6 +863,12 @@ _WHISTLE = ("{3}, {T}: Choose target non-Wall creature the active player has con
 
 _WEE = ("Whenever you place a sticker, this creature gets +1/+1 until end of turn. If it's an art sticker, instead put a +1/+1 counter on this creature.")
 _AIRBRUSHER = "Whenever you place a sticker, create a Treasure token. If it's an art sticker, instead create two Treasure tokens."
+
+
+def letters(plan: Plan, ctx: Context, v: dict[str, Any]) -> int:
+    """The number of a letter in the name stickers on the source (Balls of Fire, Splash: 123.2)."""
+    c = plan.state.cards.get(ctx.get("source_card") or "")
+    return 0 if c is None else sum(p.sticker.text.casefold().count(v["letters110i"]) for p in c.stickers101 if p.sticker.kind == "name")
 
 
 def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:

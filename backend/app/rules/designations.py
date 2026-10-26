@@ -227,7 +227,9 @@ def _return_until(plan: Plan, t: Any) -> bool:
 def facts(plan: Plan, e: Event) -> list[Any]:
     """Trigger facts for app/rules/triggers.py from a ``designation`` event (app/rules/events.py)."""
     if (e.counter or "").startswith("sticker101:") and e.player:  # -- cards (wave 110I) -- Wee Champion: every placed sticker, with its kind (``w110i`` condition)
-        extra = [("place_sticker110i", None, None, e.player, {"sticker": (e.counter or "").split(":")[1]})]
+        placed = plan.state.cards.get(e.card or "")
+        extra = [("place_sticker110i", None, None, e.player, {"sticker": (e.counter or "").split(":")[1]}),
+                 *([("place_sticker_on110i", placed, plan.ch(placed), e.player, {"sticker": (e.counter or "").split(":")[1]})] if placed is not None else [])]
     else:
         extra = []
     if (e.counter or "").startswith("sticker101:") and e.player and "Creature" in (e.types or []):  # -- stickers (wave 110F) -- 123.2

@@ -751,6 +751,8 @@ def _parse(c: str) -> Condition | None:
         if base is None or base.get("aggregate"):
             return None
         return {**base, "event": f"become_{m['d']}"}
+    if re.fullmatch(r"you put a sticker on (?:~|this (?:enchantment|permanent|creature|artifact))", c):  # -- cards (wave 110I) -- 123.2: a sticker put on the source itself
+        return {"subject": "self", "event": "place_sticker_on110i"}
     if c == "you unlock this door":  # -- Rooms (wave 18G) -- 709.5h: when its own door gets the unlocked designation (any way)
         return {"subject": "self", "event": "unlock_door"}
     # -- Class (wave 16A) -- "When this Class becomes level 2" (716.2a): the class level it became (designations.facts)

@@ -14,8 +14,8 @@ from app.rules import coverage
 from app.rules.sticker_sheets101 import SHEETS
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
-from tests.test_rules_designations import put
-from tests.test_rules_sticker_effects101 import DATA, FixedSheetRng, cast, pick, place
+from tests.test_rules_designations import find, put
+from tests.test_rules_sticker_effects101 import DATA, FixedSheetRng, cast, pick, place, question
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import check
 from tests.wave100c_kit import to_phase
@@ -23,7 +23,12 @@ from tests.wave100c_kit import to_phase
 WEE = "Whenever you place a sticker, this creature gets +1/+1 until end of turn. If it's an art sticker, instead put a +1/+1 counter on this creature."
 AIR = ("Whenever you place a sticker, create a Treasure token. If it's an art sticker, instead create two Treasure tokens. "
        "(They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")")
-EXTRA = [real("Wee Champion", "{1}{R}", 2, "Creature — Goblin Warrior", WEE, ("2", "2"), "R"),
+BALLS = ("When this enchantment enters, you may put a name sticker on it.\nWhenever you put a sticker on this enchantment, it deals damage equal to the number of o's "
+         "in name stickers on this enchantment to any target.")
+SPLASH = ("Flash\nWhen this enchantment enters, you may put a name sticker on it.\nWhenever you put a sticker on this enchantment, tap up to X target creatures, where X is the "
+          "number of u's in name stickers on this enchantment.")
+EXTRA = [real("_____ Balls of Fire", "{1}{R}", 2, "Enchantment", BALLS, None, "R"), real("Make a _____ Splash", "{1}{U}", 2, "Enchantment", SPLASH, None, "U"),
+         real("Wee Champion", "{1}{R}", 2, "Creature — Goblin Warrior", WEE, ("2", "2"), "R"),
          real("Goblin Airbrusher", "{1}{R}", 2, "Creature — Goblin Artificer", AIR, ("2", "2"), "R")]
 
 
@@ -44,7 +49,7 @@ def cards(settings):
 
 
 def start(cards):
-    names = ["Grizzly Bears", "Ticketomaton", "Wee Champion", "Goblin Airbrusher"]
+    names = ["Grizzly Bears", "Ticketomaton", "Wee Champion", "Goblin Airbrusher", "_____ Balls of Fire", "Make a _____ Splash"]
     mine = deck(cards, "Krenko, Mob Boss", [(30, "Forest"), *((1, n) for n in names)])
     mine += [DeckCard("stickers", 1, s["name"], s["printing_id"]) for s in list(SHEETS.values())[:10]]
     other = deck(cards, "Atraxa, Praetors' Voice", [(30, "Island"), (1, "Grizzly Bears")])
@@ -56,7 +61,7 @@ def start(cards):
     return s
 
 
-@pytest.mark.parametrize("name", ["Wee Champion", "Goblin Airbrusher"])
+@pytest.mark.parametrize("name", ["Wee Champion", "Goblin Airbrusher", "_____ Balls of Fire", "Make a _____ Splash"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -83,4 +88,56 @@ def test_wee_champion_and_goblin_airbrusher(cards, kind):
     assert (w.counters.get("+1/+1", 0), len(treasures)) == ((1, 2) if kind == "art" else (0, 1))
     oid = s.state.rules.object_id(wee.id)
     assert any(oid in e.affected and e.power == 1 for e in s.state.rules.effects) == (kind != "art")  # (+1/+1 until end of turn only for a non-art sticker)
+    check(s)
+
+
+def _settle(s, first=True):
+    for _ in range(14):
+        d = s.state.rules.decision
+        if d is None and not s.state.zones.get("stack"):
+            return
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            pick(s, [o.id for o in d.options][: max(1, d.min_choices)] if not first else [d.options[0].id])
+
+
+def _best(s, letter):
+    """The available name sticker with the most of ``letter`` (and how many)."""
+    from app.rules import stickers101
+    from app.rules.plan import Plan
+
+    texts = [v["text"] for v in stickers101.available(Plan.view(s.state, "p1", s.cards), "p1", "name")]
+    best = max(texts, key=lambda x: x.casefold().count(letter))
+    return best, best.casefold().count(letter)
+
+
+def test_balls_of_fire(cards):
+    """123.2: the sticker put on it as it enters triggers it: damage equals the o's in its name stickers ("Cannonball": 2); a Ticketomaton sticker elsewhere does not."""
+    s = start(cards)
+    cast(s, "_____ Balls of Fire")
+    balls = find(s, "_____ Balls of Fire")
+    text, n = _best(s, "o")
+    assert n >= 1
+    place(s, balls.id, kind="name", text=text)
+    d = question(s)
+    pick(s, ["p2"] if "p2" in [o.id for o in d.options] else [d.options[0].id])
+    _settle(s)
+    assert s.state.players["p2"].life == 40 - n
+    check(s)
+
+
+def test_make_a_splash(cards):
+    """123.2: tap up to X target creatures, X the u's in its name stickers ("Circus": 1)."""
+    s = start(cards)
+    bear = put(s, "Grizzly Bears", "battlefield")
+    cast(s, "Make a _____ Splash")
+    splash = find(s, "Make a _____ Splash")
+    text, n = _best(s, "u")
+    assert n >= 1
+    place(s, splash.id, kind="name", text=text)
+    d = question(s)
+    pick(s, [bear.id] if bear.id in [o.id for o in d.options] else [d.options[0].id])
+    _settle(s)
+    assert s.state.cards[bear.id].tapped
     check(s)
