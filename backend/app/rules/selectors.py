@@ -2917,6 +2917,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             # CR 712.1 includes meld cards. Image availability is not a card characteristic.
             if card.face_down or not data or data.get('layout') not in DOUBLE_FACED_LAYOUTS:
                 return False
+        if extra == "top_graveyard110o" and (not card.zone.endswith(":graveyard") or plan.state.zones[card.zone][-1:] != [card.id]):  # -- (wave 110O) -- 404.1: the last card put there
+            return False
         if extra == "has_adventure":  # (wave 25B) the printing is an adventurer card, whichever half it is as it is cast
             data = plan.info.get(card.card_id) if card.card_id else None
             faces = (data or {}).get("faces") or []  # (review 25B: an omen card shares the layout but has an Omen, 720.2a, not an Adventure)

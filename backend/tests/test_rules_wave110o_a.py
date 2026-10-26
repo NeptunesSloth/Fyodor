@@ -13,6 +13,7 @@
 * 700.4, 603.10a, 603.2h: Rinoa returns one of the attacking creatures that died together, tapped with a flying counter; only once each turn.
 * 603.4, 113.6k: Syrix, Carrier of the Flame fires at each end step if a creature card left its owner's graveyard, and may be cast from the graveyard when another Phoenix dies.
 * 608.2d, 707.9: Lazav, Familiar Stranger grows when its controller commits a crime, may exile any graveyard card, and may copy a creature card so exiled.
+* 404.1, 601.3, 614.1a: Bösium Strip lets its controller cast an instant or sorcery card only from the top of their graveyard, and exiles it afterwards.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -50,10 +51,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "The Grim Captain's Locker", "Helm of Obedience", "Portent of Calamity", "Scarlet Witch, Chaotic Avenger", "Rinoa, Angel Wing", "Syrix, Carrier of the Flame", "Lazav, Familiar Stranger", "Bösium Strip", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, LOCKER, HELM, PORTENT, WITCH, RINOA, SYRIX, LAZAV, STRIP, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -770,4 +771,52 @@ def test_lazav_exiles_from_an_opponents_graveyard_and_triggers_only_once_each_tu
     assert asked == ["exile", "copy"] and now(s, theirs).zone == "p2:exile"
     again = crime(s, None, None)  # (a second crime the same turn: no second trigger)
     assert again == [] and now(s, lazav).counters.get("+1/+1") == 1
+    check(s)
+
+
+def strip_table(cards, order):
+    """Bösium Strip activated; ``order`` names the cards put into Alice's graveyard one after another (the last is on top)."""
+    s = build(cards, [STRIP, *dict.fromkeys(order), "Grizzly Bears", "Twisted Abomination"])
+    st = put(s, STRIP)
+    gy = {n: grave_new(s, n) for n in order}
+    mana(s, "p1", C=3)
+    act(s, "p1", type="activate_ability", card_id=st.id, ability=ability(s, st, "{3}"))
+    settle(s)
+    return s, gy
+
+
+def cast_gy(s, card, *targets):
+    mana(s, "p1", B=1, R=1)
+    act(s, "p1", type="cast_spell", card_id=card.id, targets=list(targets))
+    settle(s)
+
+
+def test_bosium_strip_casts_only_the_top_card_and_exiles_it(cards):
+    s, gy = strip_table(cards, ["Lightning Bolt", "Disfigure"])
+    big = put(s, "Twisted Abomination")  # (5/3: it survives the Disfigure, so nothing else lands on top of the graveyard)
+    with pytest.raises(ActionError):  # (the Bolt is under the Disfigure)
+        cast_gy(s, gy["Lightning Bolt"], "p2")
+    cast_gy(s, gy["Disfigure"], big.id)
+    assert now(s, gy["Disfigure"]).zone == "p1:exile" and now(s, big).zone == "p1:battlefield"  # (exiled instead of put into the graveyard, 614.1a)
+    cast_gy(s, gy["Lightning Bolt"], "p2")  # (now it is on top)
+    assert life(s, "p2") == 37 and now(s, gy["Lightning Bolt"]).zone == "p1:exile"
+    check(s)
+
+
+def test_bosium_strip_cant_cast_an_instant_under_a_creature_card_or_without_the_ability(cards):
+    s, gy = strip_table(cards, ["Lightning Bolt", "Grizzly Bears"])
+    with pytest.raises(ActionError):
+        cast_gy(s, gy["Lightning Bolt"], "p2")
+    with pytest.raises(ActionError):  # (a creature card is no instant or sorcery)
+        cast_gy(s, gy["Grizzly Bears"])
+    check(s)
+
+
+def test_bosium_strip_without_its_activation_allows_nothing(cards):
+    s = build(cards, [STRIP, "Lightning Bolt"])
+    put(s, STRIP)
+    bolt = grave_new(s, "Lightning Bolt")
+    mana(s, "p1", R=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     check(s)

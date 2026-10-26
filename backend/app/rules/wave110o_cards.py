@@ -75,6 +75,8 @@ _SYRIX_END = ("At the beginning of each end step, if a creature card left your g
 _SYRIX_DIES = "Whenever another Phoenix you control dies, you may cast this card from your graveyard."
 _LAZAV = ("Whenever you commit a crime, put a +1/+1 counter on ~. Then you may exile a card from a graveyard. If a creature card was exiled this way, you may have "
           "~ become a copy of that card until end of turn. This ability triggers only once each turn.")
+_STRIP = ("{3}, {T}: Until end of turn, you may cast instant and sorcery spells from the top of your graveyard. If a spell cast this way would be put into a "
+          "graveyard, exile it instead.")
 _OKO_TYPES = "+2: Up to one target creature gains all creature types."
 _OKO_EMBLEM = ('−6: Choose a creature type. You get an emblem with "Creatures you control of the chosen type get +3/+3 and have vigilance and '
                'hexproof."')
@@ -94,6 +96,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None:
             return None
         return {**native, "effects": [{"do": "type_emblem110o"}]}
+    if ability.kind == "activated" and text == _STRIP:  # 404.1: only the top card (the last one put there) may be cast, judged as each cast is announced
+        native = scripts.define(replace(ability, text=_STRIP.replace("from the top of your graveyard", "from your graveyard")), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["grant_play"]:
+            return None
+        from app.rules import selectors
+
+        top = selectors.Selector(zones=("graveyard",), card=True, extras=("top_graveyard110o",)).key()
+        return {**native, "effects": [{**native["effects"][0], "card_filter": top}]}
     if ability.kind == "triggered" and text == _LAZAV:
         native = scripts.define(replace(ability, text="Whenever you commit a crime, put a +1/+1 counter on ~. This ability triggers only once each turn."), ch)
         if native is None or [e["do"] for e in native["effects"]] != ["add_counters"]:
