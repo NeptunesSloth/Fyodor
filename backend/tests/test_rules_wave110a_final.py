@@ -6,10 +6,11 @@ from __future__ import annotations
 import pytest
 
 from app.game.errors import ActionError
+from app.rules.plan import Plan
 from tests.test_rules_wave30p_combat import three
 from tests.wave110a_kit import *
 
-NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations", "Exterminator Magmarch", "Threefold Signal", "Deification"]
+NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations", "Exterminator Magmarch", "Threefold Signal", "Deification", "Voltaic Visionary // Volt-Charged Berserker"]
 
 
 @pytest.fixture()
@@ -440,4 +441,54 @@ def test_deification_gives_chosen_type_planeswalkers_hexproof(cards):
     act(s, "p2", type="cast_spell", card_id=c.id, targets=[karn.id])
     answer(s)
     assert _loyalty(s, karn) == 2
+    check(s)
+
+
+VV = "Voltaic Visionary // Volt-Charged Berserker"
+
+
+def _visionary(cards, top):
+    s = build(cards, [VV, "Divination", "Sol Ring"])
+    v = put(s, VV)
+    next_turn(s)  # (no summoning sickness; the top card is chosen after the draw step)
+    top_card = card_named(s, top) if top != "Forest" else next(c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[top_card.id], to={"player": "p1", "zone": "library"}, position="top")
+    ab = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[v.id]).abilities if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=v.id, ability=ab)
+    answer(s)
+    return s, v, top_card
+
+
+def test_voltaic_visionary_land_exiled_with_it_played_transforms_it(cards):
+    """Voltaic Visionary: {T}: 2 damage to you, exile the top card, you may play it this turn. Playing that land (305.1) transforms it (607.2a link)."""
+    s, v, land = _visionary(cards, "Forest")
+    assert s.state.cards[land.id].zone == "p1:exile" and life(s, "p1") == 38
+    assert not _is_back(s, v)
+    act(s, "p1", type="play_land", card_id=land.id)
+    answer(s)
+    assert s.state.cards[land.id].zone == "p1:battlefield"
+    assert _is_back(s, v)
+    check(s)
+
+
+def _is_back(s, v):
+    return Plan(s.state, "p1", s.cards, None).ch(s.state.cards[v.id]).name == "Volt-Charged Berserker"
+
+
+def test_voltaic_visionary_spell_exiled_with_it_cast_transforms_it_before_it_resolves(cards):
+    s, v, spell = _visionary(cards, "Divination")
+    fund(s, "{2}{U}")
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    answer(s)
+    assert _is_back(s, v)
+    check(s)
+
+
+def test_voltaic_visionary_does_not_transform_for_a_card_not_exiled_with_it(cards):
+    s, v, land = _visionary(cards, "Forest")
+    other = to_hand(s, "Sol Ring")
+    fund(s, "{1}")
+    act(s, "p1", type="cast_spell", card_id=other.id)
+    answer(s)
+    assert not _is_back(s, v)
     check(s)

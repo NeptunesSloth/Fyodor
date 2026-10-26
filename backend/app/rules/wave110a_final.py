@@ -30,6 +30,7 @@ DEIF_HEXPROOF = "Planeswalkers you control of the chosen type have hexproof."
 DEIF_LOYALTY = ("As long as you control a creature, if damage dealt to a planeswalker you control of the chosen type would result in all loyalty counters on it being removed, "
                 "instead all but one of those counters are removed.")
 PW_LABEL = "Chosen planeswalker type"
+VISIONARY = "When you play a card exiled with ~, transform ~."
 ICE_CAVE = "Whenever a player casts a spell, any other player may pay that spell's mana cost. If a player does, counter the spell."
 
 
@@ -37,6 +38,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == VISIONARY:  # a play is a land play or a cast (305.1, 601.1), of a card exiled with it: the played card's previous object is in its link record (triggers.py)
+        d = scripts.define(replace(ability, text="Whenever you play a land or cast a spell, transform this creature."), ch)
+        if d is None or d["cond"].get("event") != "either" or len(d["cond"]["conds"]) != 2:
+            return None
+        return {**d, "cond": {**d["cond"], "conds": [{**c, "exiled_with110a": True} for c in d["cond"]["conds"]]}}
     if text == DEIF_CHOICE:  # 614.12a: the choice is made before it enters, recorded on it like a chosen creature type
         return {"kind": "replacement", "replacement": "enters_choice", "effects": [{"do": "choose_value", "who": "you", "what": "planeswalker type", "remember": True}]}
     if text == DEIF_HEXPROOF:  # 205.3j: the chosen planeswalker type, read by selectors.matches ("chosen_pw110a")

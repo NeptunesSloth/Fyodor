@@ -545,7 +545,7 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         kicks = entry.kicked if entry is not None else paid.kicked if paid is not None else 0
         kicked = bool(kicks and not (paid is not None and (paid.gift_to or paid.alternative == "awaken" or any(  # (30E: bargain)
             x.endswith(":bargain") or x == "anytimes" for x in paid.additional))))
-        info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id),  # 702.33d, 702.174k)
+        info = {"oid": plan.oid(spell), "actor": e.player, "nth": nth, "from": window["cast_from"].get(spell.id), "from_oid110a": window.get("from_obj110a", {}).get(spell.id),  # 702.33d, 702.174k)
                 "opponent_turn": plan.active != e.player, "kicked": kicked, "kicks": kicks if kicked else 0, "prepared": spell.id in r.prepare_spells110o,  # (-- wave 110O -- 722.3d)
                 "teamwork": paid is not None and any(x.endswith(":teamwork") for x in paid.additional),  # -- (wave 110G) -- 702.194b
                 "snow_spent": dict(paid.snow_spent) if paid is not None and paid.snow_spent is not None else None,
@@ -588,9 +588,9 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
     if e.kind == "land_played":
         if e.played_snapshot is not None:
             played_card, played_ch = _snapshot_card(plan, e.played_snapshot)
-            return [("land_played", played_card, played_ch, e.player, {"oid": e.object_id, "actor": e.player, "snap": e.played_snapshot, "played_from": e.from_zone})]
+            return [("land_played", played_card, played_ch, e.player, {"oid": e.object_id, "actor": e.player, "snap": e.played_snapshot, "played_from": e.from_zone, "from_oid110a": window.get("from_obj110a", {}).get(e.card)})]
         got = _object_then(plan, e.card, e.object_id)
-        return [("land_played", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "played_from": e.from_zone})] if got is not None else []
+        return [("land_played", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "played_from": e.from_zone, "from_oid110a": window.get("from_obj110a", {}).get(e.card)})] if got is not None else []
     if e.kind == 'investigated':
         return [('investigate', None, None, e.player, {'actor': e.actor or e.player, 'amount': 1})]
     if e.kind == "plotted":  # -- (wave 110B) -- 702.170d: the card, in exile
@@ -1236,6 +1236,8 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         if any(c.id not in (info.get("attacking") or []) for c in plan.state.cards.values() if c.zone.endswith(":battlefield")
                and c.controller == watcher.controller and _sel.matches(plan, kind, c, plan.ch(c), watcher.controller, watcher.id)):
             return False
+    if cond.get("exiled_with110a") and not exiled_with_watcher(plan, watcher, info.get("from_oid110a")):  # -- wave 110A -- "a card exiled with ~" that was just played (607.2a)
+        return False
     if event == "cast":
         if cond.get('cast_targets102') and not (info.get('targets') or []):
             return False
@@ -1529,6 +1531,11 @@ def _first_discard(plan: Plan, cond: dict[str, Any], player: str | None, info: d
         if sel is None or history.note_matches(sel, f.types, f.subtypes, f.supertypes):
             return False
     return True
+
+
+def exiled_with_watcher(plan: Plan, watcher: CardInstance, from_oid: str | None) -> bool:
+    """607.2a: the object the played card was just before it was played is among those the watcher's linked ability exiled (its record, by the watcher's object)."""
+    return bool(from_oid) and from_oid in plan.rules.exiled_with.get(plan.oid(watcher), [])
 
 
 def _targets_ok(plan: Plan, want: str, watcher: CardInstance, targets: list[tuple[str, str | None]]) -> bool:
@@ -1834,7 +1841,7 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
     entered: dict[str, int] = {}
     watchers: list[tuple[Watcher, int, int]] = []
     left: dict[int, str] = {}  # (a watcher that left: the object it was, wave 3S)
-    window: dict[str, Any] = {"cast_from": {}, "played_lands": {e.object_id for e in events if e.kind == "land_played" and not e.manual}}
+    window: dict[str, Any] = {"cast_from": {}, "from_obj110a": {}, "played_lands": {e.object_id for e in events if e.kind == "land_played" and not e.manual}}
     for e in events:
         if e.kind == "designation" and e.counter == "control" and not e.manual and e.card in plan.state.cards and e.from_zone in plan.live():
             card = plan.state.cards[e.card]  # -- control events (wave 45C) -- 603.10d: "an opponent gains control of … from you" looks back in time, so the
@@ -1872,6 +1879,8 @@ def _generic_events(plan: Plan, events: list[Event]) -> None:
             continue
         if _zone(e.to_zone) == "stack" and e.card:
             window["cast_from"][e.card] = e.from_zone  # (where a spell was cast from, 601.2a)
+        if e.card and _zone(e.to_zone) in ("stack", "battlefield"):
+            window["from_obj110a"][e.card] = e.object_id  # -- wave 110A -- the object the card was before it was played (Voltaic Visionary: exiled with, 607.2a)
         if _zone(e.to_zone) == "battlefield" and _zone(e.from_zone) != "battlefield" and e.new_object_id:
             entered[e.new_object_id] = e.batch
         if _zone(e.to_zone) == "graveyard" and e.new_object_id:  # -- refused zones/sized (wave 3R4) -- (603.10)
