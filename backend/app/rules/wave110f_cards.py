@@ -479,6 +479,9 @@ def _glyph() -> Parsed | None:
 
 
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "This turn, instead of declaring blockers, each defending player chooses any number of creatures they control and divides them into a number of piles equal to the number of "
+    "attacking creatures for whom that player is the defending player. Creatures those players control that can block additional creatures may likewise be put into additional "
+    "piles. Assign each pile to a different one of those attacking creatures at random. Each creature in a pile that can block the creature that pile is assigned to does so.": lambda: ([{"do": "camouflage110f"}], None, False),
     "Destroy all creatures that were blocked by target Wall this turn. They can't be regenerated. For each creature that died this way, put a creature card from the graveyard of the "
     "player who controlled that creature the last time it became blocked by that Wall onto the battlefield under its owner's control.": _glyph,
     "This turn and next turn, creatures can't attack, and players and permanents can't be the targets of spells or activated abilities.": lambda: ([{"do": "peace_talks110f"}], None, False),
@@ -926,9 +929,11 @@ PRIMITIVES["draw_up_to110f"] = draw_up_to
 PRIMITIVES["edict_match110f"] = edict_match
 RESUME.update({"draw_up_to110f": resume_draw_up_to, "chooser110f": resume_chooser, "cast_modes_opp110f": resume_modes})
 
+from app.rules import wave110f_camo as _wave110f_camo  # noqa: E402  -- Camouflage (wave 110F) --
 from app.rules import wave110f_gy as _wave110f_gy  # noqa: E402  -- Cemetery Desecrator (wave 110F) --
 from app.rules import wave110f_zev as _wave110f_zev  # noqa: E402  -- Zevlor (wave 110F) --
 
+PRIMITIVES["camouflage110f"] = _wave110f_camo.spell
 PRIMITIVES.update(_wave110f_zev.PRIMITIVES)
 RESUME.update(_wave110f_zev.RESUME)
 

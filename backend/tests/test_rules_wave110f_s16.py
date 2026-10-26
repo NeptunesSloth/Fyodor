@@ -1,184 +1,115 @@
 """Wave 110F session 16, on real Oracle text. Every scenario checks the replay and a save and a load.
 
-* 509.1g, 701.8, 701.19c: Glyph of Reincarnation: destroys the creatures the target Wall blocked this turn (no regeneration); for each that died, its caster puts a
-  creature card from the graveyard of the player who controlled it the last time the Wall blocked it onto the battlefield under its owner's control.
+* 702.26a-c, 701.52a: Ferris Wheel: "Choose target creature that hasn't been phased out with this Attraction. That creature phases out until you roll a 3 or less while rolling to visit
+  your Attractions." (it phases in on that roll, only the roller's, and that Attraction can't choose it again).
+* 702.159a, 611.2a, 706.2: Drop Tower: "Visit — Target creature gains flying until end of turn, or until any player rolls a 1, whichever comes first."
 """
 
 from __future__ import annotations
 
+import pytest
+
 from app.rules import coverage
+from tests.fixtures.cards import card
 from tests.game_helpers import act
-from tests.test_rules_wave12a_counters_keywords import real
-from tests.test_rules_wave30r_history import ability_index
-from tests.test_rules_wave100f_attached import to_phase
-from tests.test_rules_wave100n_multi import EXTRA as _BASE
-from tests.test_rules_wave100n_multi import (
-    answer,
-    card_db,  # noqa: F401  (fixture DB with EXTRA)
-    cast,
-)
-from tests.wave9c_kit import build, check, mana, put, zone_of
-from tests.wave36a_kit import attack, attack_as, block, ready, to_turn_of
+from tests.test_rules_wave12a_counters_keywords import real, rolls
+from tests.test_rules_wave100k_instead import keywords
+from tests.test_rules_wave100l_attractions import EXTRA, card_db, game, settle  # noqa: F401  (fixture DB with EXTRA)
+from tests.wave9c_kit import card_named, check, mana, put, to_hand
 
-_GLYPH = ("Cast this spell only after combat.\nDestroy all creatures that were blocked by target Wall this turn. They can't be regenerated. For each creature that died this way, "
-          "put a creature card from the graveyard of the player who controlled that creature the last time it became blocked by that Wall onto the battlefield under its owner's control.")
-_BASE.extend([
-    real('Glyph of Reincarnation', '{2}{G}{G}', 4, 'Instant', _GLYPH, None, 'G'),
-    real('Test Wall 16F', '{1}', 1, 'Creature — Wall', 'Defender\nThis creature can block an additional creature each combat.', ('0', '6'), ''),
-    real('Test Raider A 16F', '{1}', 1, 'Creature — Ogre', '', ('2', '2'), ''),
-    real('Test Raider B 16F', '{1}', 1, 'Creature — Orc', '', ('3', '3'), ''),
-    real('Zevlor, Elturel Exile', '{1}{U}{B}{R}', 4, 'Legendary Creature — Tiefling Warrior',
-         'Haste\n{2}, {T}: When you next cast an instant or sorcery spell that targets only a single opponent or a single permanent an opponent controls this turn, '
-         'for each other opponent, choose that player or a permanent they control, copy that spell, and the copy targets the chosen player or permanent.', ('4', '2'), 'BRU'),
-    real('Lightning Bolt', '{R}', 1, 'Instant', 'Lightning Bolt deals 3 damage to any target.', None, 'R'),
-    real('Test Pair 16F', '{R}', 1, 'Instant', 'Test Pair 16F deals 1 damage to target creature. Test Pair 16F deals 1 damage to target player.', None, 'R'),
-    real('Grizzly Bears', '{1}{G}', 2, 'Creature — Bear', '', ('2', '2'), 'G'),
-    real('Threaten', '{2}{R}', 3, 'Sorcery', 'Untap target creature and gain control of it until end of turn. That creature gains haste until end of turn.', None, 'R'),
-    real('Test Elf 16F', '{1}', 1, 'Creature — Elf', '', ('1', '1'), ''),
-])
+EXTRA.append(card("Drop Tower", set_code="unf", number="209a", mana_cost="", cmc=0.0, type_line="Artifact — Attraction",
+                  oracle_text="Visit — Target creature gains flying until end of turn, or until any player rolls a 1, whichever comes first.",
+                  colors=[], color_identity=[], keywords=[]))
+EXTRA.append(card("Ferris Wheel", set_code="unf", number="210", mana_cost="", cmc=0.0, type_line="Artifact — Attraction",
+                  oracle_text="Visit — Choose target creature that hasn't been phased out with this Attraction. That creature phases out until you roll a 3 or less while rolling to visit your Attractions.",
+                  colors=[], color_identity=[], keywords=[]))
+EXTRA.append(real("Test Roller 110F", "{1}", 1, "Sorcery", "Roll a six-sided die.", None, ""))
 
 
-def test_full(cards):
-    assert coverage.of_card_data(cards.resolve("Glyph of Reincarnation")).level == "FULL"
+@pytest.mark.parametrize("name", ["Drop Tower", "Ferris Wheel"])
+def test_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
-def _after_combat(cards, *, wall_blocks):
-    """p1 attacks with two creatures into p2's Wall; the Wall blocks ``wall_blocks`` (names); p1 holds the Glyph in its second main phase."""
-    s = build(cards, ["Glyph of Reincarnation", "Test Raider A 16F", "Test Raider B 16F", "Test Elf 16F"], ["Test Wall 16F"])
-    a, b = put(s, "Test Raider A 16F"), put(s, "Test Raider B 16F")
-    wall = put(s, "Test Wall 16F", "p2")
-    ready(s, "Test Raider A 16F", "Test Raider B 16F")
-    for pid in ("p1", "p2"):
-        act(s, pid, type="set_prefs", response="on")
-    attack(s, a, b)
-    block(s, "p2", *[(wall, x) for x in (a, b) if x.name in wall_blocks])
-    to_phase(s, "main2")
-    mana(s, G=2, C=2)
-    return s, a, b, wall
+def to_main(s, turn, pick=None, limit=400):
+    """Like the Attractions test's, but a decision offering ``pick`` takes it."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if s.state.turn.number == turn and s.state.turn.phase == "main1" and d is None and not s.state.zones.get("stack"):
+            return
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick] if pick in ids else ids[: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never reached that main phase")
 
 
-def test_glyph_destroys_what_the_wall_blocked_and_returns_a_creature_card(cards):
-    """Only the blocked creature is destroyed (the other attacker was never blocked); its controller's graveyard supplies the card, chosen by the caster."""
-    s, a, b, wall = _after_combat(cards, wall_blocks=["Test Raider A 16F"])
-    elf = next(c for c in s.state.cards.values() if c.name == "Test Elf 16F" and c.owner == "p1")
-    act(s, "p1", type="move", card_ids=[elf.id], to={"player": "p1", "zone": "graveyard"})
-    cast(s, "Glyph of Reincarnation", [wall.id])
-    answer(s, elf.id)
-    assert zone_of(s, "Test Elf 16F") == "p1:battlefield"
-    assert zone_of(s, "Test Raider A 16F") == "p1:graveyard" and zone_of(s, "Test Raider B 16F") == "p1:battlefield"
+def _tower(cards, monkeypatch, *dice):
+    rolls(monkeypatch, *dice)
+    s = game(cards, ["Grizzly Bears", "Test Roller 110F"], ["Drop Tower"])  # 209a: 2, 3 and 6 lit
+    bears = put(s, "Grizzly Bears")
+    put(s, "Drop Tower")
+    to_main(s, 3)
+    return s, bears
+
+
+def test_the_visit_grants_flying(cards, monkeypatch):
+    s, bears = _tower(cards, monkeypatch, 3)
+    assert "Flying" in keywords(s, bears) or "flying" in keywords(s, bears)
     check(s)
 
 
-def test_glyph_with_two_blocked_creatures_returns_two_cards(cards):
-    s, a, b, wall = _after_combat(cards, wall_blocks=["Test Raider A 16F", "Test Raider B 16F"])
-    cast(s, "Glyph of Reincarnation", [wall.id])
-    answer(s)
-    assert zone_of(s, "Test Raider A 16F") == "p1:battlefield" and zone_of(s, "Test Raider B 16F") == "p1:battlefield"
+@pytest.mark.parametrize(("die", "flies"), [(1, False), (2, True)])
+def test_a_roll_of_1_ends_the_flying_any_other_roll_does_not(cards, monkeypatch, die, flies):
+    s, bears = _tower(cards, monkeypatch, 3, die)
+    to_hand(s, "Test Roller 110F")
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=card_named(s, "Test Roller 110F").id)
+    settle(s)
+    assert ("flying" in {k.lower() for k in keywords(s, bears)}) is flies
     check(s)
 
 
-def test_glyph_unblocked_creature_is_not_destroyed(cards):
-    s, a, b, wall = _after_combat(cards, wall_blocks=[])
-    cast(s, "Glyph of Reincarnation", [wall.id])
-    answer(s)
-    assert zone_of(s, "Test Raider A 16F") == "p1:battlefield" and zone_of(s, "Test Raider B 16F") == "p1:battlefield"
-
-
-def test_glyph_uses_the_graveyard_of_the_player_who_controlled_the_creature_when_it_was_blocked(cards):
-    """p2 steals p1's Raider with Threaten and attacks; p1's Wall blocks it. The Raider is p1's card, but p2 controlled it when it was blocked: the card comes from p2's graveyard."""
-    s = build(cards, ["Glyph of Reincarnation", "Test Raider A 16F", "Test Wall 16F"], ["Threaten", "Test Elf 16F"])
-    raider, wall = put(s, "Test Raider A 16F"), put(s, "Test Wall 16F")
-    elf = next(c for c in s.state.cards.values() if c.name == "Test Elf 16F" and c.owner == "p2")
-    act(s, "p2", type="move", card_ids=[elf.id], to={"player": "p2", "zone": "graveyard"})
-    for pid in ("p1", "p2"):
-        act(s, pid, type="set_prefs", response="on")
-    to_turn_of(s, "p2")
-    mana(s, "p2", R=1, C=2)
-    cast(s, "Threaten", [raider.id], pid="p2")
-    answer(s)
-    attack_as(s, "p2", [raider], "p1")
-    block(s, "p1", (wall, raider))
-    to_phase(s, "main2")
-    act(s, "p2", type="pass_priority")
-    mana(s, "p1", G=2, C=2)
-    cast(s, "Glyph of Reincarnation", [wall.id])
-    answer(s)
-    assert zone_of(s, "Test Raider A 16F") == "p1:graveyard"
-    assert zone_of(s, "Test Elf 16F", "p2") == "p2:battlefield"
+def test_the_flying_ends_with_the_turn(cards, monkeypatch):
+    s, bears = _tower(cards, monkeypatch, 3)
+    to_main(s, 4)
+    assert "flying" not in {k.lower() for k in keywords(s, bears)}
     check(s)
 
 
-# -- Zevlor, Elturel Exile (603.7, 707.10, 115.9c) ---------------------------------------------------------------------------------
-def _zev(cards, p1=(), p2=(), p3=()):
-    from tests.test_rules_wave100o_retarget import build3
-
-    s = build3(cards, p1=("Zevlor, Elturel Exile", *p1), p2=p2, p3=p3)
-    zev = next(c for c in s.state.cards.values() if c.name == "Zevlor, Elturel Exile")
-    act(s, "p1", type="move", card_ids=[zev.id], to={"player": "p1", "zone": "battlefield"})
-    ready(s, "Zevlor, Elturel Exile")
-    mana(s, C=2)
-    act(s, "p1", type="activate_ability", card_id=zev.id, ability=ability_index(s, zev, "When you next cast"))
-    answer(s)
-    return s
+def _wheel(cards, monkeypatch, *dice):
+    rolls(monkeypatch, *dice)
+    s = game(cards, ["Grizzly Bears", "Llanowar Elves"], ["Ferris Wheel", "Information Booth"])  # 210: 4, 5, 6 lit; 218a: 2, 6
+    bears, elf = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    put(s, "Ferris Wheel")
+    put(s, "Information Booth")
+    return s, bears, elf
 
 
-def _bolt(s, target, **kw):
-    from tests.test_rules_conditionals import until_asked
-    from tests.test_rules_wave5b_stack_interaction import alice_casts
-
-    alice_casts(s, "Lightning Bolt", targets=[target], R=1)
-    until_asked(s)  # (Zevlor's delayed trigger goes on the stack above the spell)
+def _zone(s, c):
+    return s.state.cards[c.id].zone
 
 
-def test_zevlor_copies_for_the_other_opponent_with_only_the_player_to_choose(cards):
-    """Bolt at p2: p3 is the other opponent; the caster chooses p3 (or a permanent p3 controls) for the copy. Only the next such spell is copied."""
-    s = _zev(cards, p1=("Lightning Bolt", "Lightning Bolt"))
-    _bolt(s, "p2")  # (p3 controls nothing: the player is the only legal choice, so no question is asked)
-    answer(s)
-    assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 37 and s.state.players["p1"].life == 40
-    _bolt(s, "p2")
-    answer(s)
-    assert s.state.players["p2"].life == 34 and s.state.players["p3"].life == 37  # (the watch was used up)
+def test_the_visit_phases_a_creature_out_until_a_low_roll_to_visit(cards, monkeypatch):
+    s, bears, elf = _wheel(cards, monkeypatch, 5, 2)
+    to_main(s, 3, pick=bears.id)
+    assert _zone(s, bears) == "p1:phased" and _zone(s, elf) == "p1:battlefield"
+    check(s)
+    to_main(s, 5)  # (the roll of 2 is low: it phases in; Information Booth is visited)
+    assert _zone(s, bears) == "p1:battlefield"
     check(s)
 
 
-def test_zevlor_targeted_permanent_names_the_opponent_who_controls_it(cards):
-    """A Bolt at p2's creature: p2 is the opponent it concerns, so the copy goes to p3 or a permanent p3 controls."""
-    s = _zev(cards, p1=("Lightning Bolt",), p2=("Grizzly Bears",), p3=("Grizzly Bears",))
-    bear2 = put(s, "Grizzly Bears", "p2")
-    bear3 = put(s, "Grizzly Bears", "p3")
-    _bolt(s, bear2.id)
-    d = s.state.rules.decision
-    assert d is not None and {o.id for o in d.options} == {"p3", bear3.id}
-    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bear3.id])
-    answer(s)
-    assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard" and zone_of(s, "Grizzly Bears", "p3") == "p3:graveyard"
-    check(s)
-
-
-def test_zevlor_ignores_a_spell_that_does_not_target_only_an_opponent_thing(cards):
-    """A Bolt at your own creature does not match, so the watch stays; the next Bolt at an opponent is the one copied."""
-    s = _zev(cards, p1=("Lightning Bolt", "Lightning Bolt", "Grizzly Bears"))
-    mine = put(s, "Grizzly Bears")
-    _bolt(s, mine.id)
-    answer(s)
-    assert s.state.rules.decision is None and s.state.players["p3"].life == 40
-    _bolt(s, "p2")
-    answer(s)
-    assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 37
-    check(s)
-
-
-def test_zevlor_does_not_copy_a_spell_with_two_different_targets(cards):
-    """115.9c: "targets only a single" opponent or permanent: a spell with two different targets does not match, and the watch is not used up."""
-    from tests.test_rules_wave5b_stack_interaction import alice_casts
-
-    s = _zev(cards, p1=("Test Pair 16F", "Lightning Bolt"), p2=("Grizzly Bears",), p3=("Grizzly Bears",))
-    bear2 = put(s, "Grizzly Bears", "p2")
-    alice_casts(s, "Test Pair 16F", targets=[bear2.id, "p3"], counts=[1, 1], R=1)
-    answer(s)
-    assert s.state.players["p3"].life == 39 and s.state.players["p2"].life == 40
-    _bolt(s, "p2")
-    answer(s)
-    assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 36  # (1 from the pair, 3 from the copy)
+def test_a_high_roll_leaves_it_phased_out_and_the_wheel_cannot_choose_it_again(cards, monkeypatch):
+    s, bears, elf = _wheel(cards, monkeypatch, 5, 6, 2, 5)
+    to_main(s, 3, pick=bears.id)
+    to_main(s, 5, pick=elf.id)  # (6: both Attractions visited; the Wheel's only legal target is the Elf: the Bears are phased out)
+    assert _zone(s, bears) == "p1:phased" and _zone(s, elf) == "p1:phased"
+    to_main(s, 7)  # (2: low, both phase in)
+    assert _zone(s, bears) == "p1:battlefield" and _zone(s, elf) == "p1:battlefield"
+    to_main(s, 9)  # (5: the Wheel is visited again but both creatures were phased out with it already: no target)
+    assert _zone(s, bears) == "p1:battlefield" and _zone(s, elf) == "p1:battlefield"
     check(s)

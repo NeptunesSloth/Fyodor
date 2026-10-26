@@ -1675,6 +1675,8 @@ class RulesState(BaseModel):
     prepared: dict[str, str] = Field(default_factory=dict)  # -- prepared (wave 13C, 722.3) -- permanent's rules object -> its copy in exile
     prepare_spells110o: list[str] = Field(default_factory=list)  # -- (wave 110O) -- 722.3d: the exiled copies that were cast ("a prepared spell")
     phase_lifetimes: list[PhaseLifetime] = Field(default_factory=list)
+    camouflage_turn110f: int = 0  # -- wave 110F -- the turn Camouflage resolved (blockers are replaced by piles)
+    camouflage110f: dict[str, list[list[str]]] = Field(default_factory=dict)  # -- wave 110F -- defending player -> their piles (creature ids), until every player has divided
     ferris110f: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110F -- Ferris Wheel (rules object) -> the creatures (rules objects) it has phased out
     phase_holds110k: list[PhaseHold110K] = Field(default_factory=list)  # -- wave 110K --
     no_regen_sources110k: list[str] = Field(default_factory=list)  # -- wave 110K -- Runesword: the objects whose damage this turn makes a creature unable to regenerate

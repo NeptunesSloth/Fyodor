@@ -827,8 +827,12 @@ def start_declare_blockers(plan: Plan) -> None:
 def blocks_declared(plan: Plan) -> None:
     """Every defending player has declared blockers (509.1): "Whenever ~ attacks and isn't blocked"
     triggers for each attacking creature no creature was declared as a blocker for (509.3g, 509.1h)."""
-    from app.rules import triggers  # triggers → plan; imported late
+    from app.rules import (
+        triggers,  # triggers → plan; imported late
+        wave110f_camo,  # -- (wave 110F) -- Camouflage: the piles are assigned and block
+    )
 
+    wave110f_camo.apply(plan)
     triggers.unblocked(plan, [c for c in attackers_on(plan.state) if c.id not in plan.rules.blocked])
 
 
@@ -844,6 +848,10 @@ def ask_next_blocker(plan: Plan) -> None:
         if not attackers or not blockers:
             r.blockers_pending.pop(0)
             continue
+        from app.rules import wave110f_camo  # -- (wave 110F) -- Camouflage: piles instead of blockers
+
+        if wave110f_camo.ask(plan, pid, attackers, blockers):
+            return
         who = wave110a_choosers.chooser(plan, "block", pid)  # -- declaration choosers (wave 110A) --
         decide(plan, player=pid, kind="declare_blockers", prompt="Declare blockers (or block with nothing)", decider=who, blind=who is not None,
                options=[DecisionOption(id=f"b:{c.id}", label=c.name or "Creature", card_id=c.id) for c in blockers]
@@ -962,23 +970,10 @@ class PaidBlockers:
     attackers: dict[str, str]
 
 
-def _finish_blockers(plan: Plan, frame: PaidBlockers, payment: M.Payment | None) -> None:
-    from app.rules.engine import advance
-
+def apply_blocks(plan: Plan, blocks: list[A.BlockDeclaration], who: str | None = None) -> None:
+    """The blocks are declared (509.1g, 509.1h): ``who`` is the declaring player (None: a replaced declaration, wave 110F Camouflage)."""
     r = plan.rules
-    blocks = [b for b in frame.blocks if (blocker := plan.state.cards.get(b.blocker_id)) is not None
-              and blocker.zone.endswith(':battlefield') and blocker.controller == plan.actor
-              and plan.oid(blocker) == frame.blockers.get(b.blocker_id)
-              and (attacker := plan.state.cards.get(b.attacker_id)) is not None
-              and attacker.is_attacking and attacker.zone.endswith(':battlefield')
-              and plan.oid(attacker) == frame.attackers.get(b.attacker_id)]
     per_attacker = dict.fromkeys(b.attacker_id for b in blocks)
-    r.decision = None
-    from app.rules import wave110f_cards  # -- (wave 110F) -- Heat Wave
-
-    wave110f_cards.pay_block_life(plan, blocks)
-    if r.blockers_pending and r.blockers_pending[0] == plan.actor:
-        r.blockers_pending.pop(0)
     done: set[str] = set()
     for decl in blocks:
         plan.do({"type": "block", "card_id": decl.blocker_id, "attacker_id": decl.attacker_id, "also": decl.blocker_id in done})
@@ -996,8 +991,27 @@ def _finish_blockers(plan: Plan, frame: PaidBlockers, payment: M.Payment | None)
         triggers.blocked(plan, [plan.state.cards[d.blocker_id] for d in blocks],
                          [plan.state.cards[aid] for aid in per_attacker])
         triggers.flanking(plan, [(plan.state.cards[d.blocker_id], plan.state.cards[d.attacker_id]) for d in blocks])
-    if not blocks:
-        plan.note(f"{plan.name(plan.actor)} doesn't block")
+    if not blocks and who is not None:
+        plan.note(f"{plan.name(who)} doesn't block")
+
+
+def _finish_blockers(plan: Plan, frame: PaidBlockers, payment: M.Payment | None) -> None:
+    from app.rules.engine import advance
+
+    r = plan.rules
+    blocks = [b for b in frame.blocks if (blocker := plan.state.cards.get(b.blocker_id)) is not None
+              and blocker.zone.endswith(':battlefield') and blocker.controller == plan.actor
+              and plan.oid(blocker) == frame.blockers.get(b.blocker_id)
+              and (attacker := plan.state.cards.get(b.attacker_id)) is not None
+              and attacker.is_attacking and attacker.zone.endswith(':battlefield')
+              and plan.oid(attacker) == frame.attackers.get(b.attacker_id)]
+    r.decision = None
+    from app.rules import wave110f_cards  # -- (wave 110F) -- Heat Wave
+
+    wave110f_cards.pay_block_life(plan, blocks)
+    if r.blockers_pending and r.blockers_pending[0] == plan.actor:
+        r.blockers_pending.pop(0)
+    apply_blocks(plan, blocks, who=plan.actor)
     ask_next_blocker(plan)
     if r.decision is None:
         blocks_declared(plan)
