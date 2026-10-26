@@ -892,6 +892,9 @@ def test_extract_actual_zero_or_more_than_hand_uses_exact_feasible_count_and_lan
         answer(s,[land.id])
         assert s.view('p1')['cards'][land.id]['name']=='Forest'
         answer(s,['ok'])
+        d=s.state.rules.decision  # (asked all the same, nothing to cast: the other players mustn't learn the card is a land)
+        assert d is not None and d.player=='p1' and d.options==[] and d.min_choices==0
+        answer(s,[])
     assert s.state.rules.decision is None
     assert s.state.cards[land.id].zone=='p2:hand' and not s.state.cards[land.id].revealed_to
     assert not s.state.rules.permissions

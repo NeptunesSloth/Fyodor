@@ -199,13 +199,23 @@ def test_blockers_that_die_in_combat_are_arranged_by_their_owner(cards):
     from app.game.session import GameSession
     from tests.game_helpers import deck, turn_on
 
-    mine = deck(cards, "Krenko, Mob Boss", [(1, "Barrow Ghoul"), (9, "Forest")])
+    mine = deck(cards, "Krenko, Mob Boss", [(1, "Barrow Ghoul"), (1, "Grizzly Bears"), (9, "Forest")])
     theirs = deck(cards, "Atraxa, Praetors' Voice", [(1, "Grizzly Bears"), (1, "Llanowar Elves"), (9, "Island")])
     s = GameSession(new_game([PlayerSetup("Alice", cards=mine), PlayerSetup("Bob", cards=theirs)], shuffle=False), cards=cards)
     for name, pid in (("Barrow Ghoul", "p1"), ("Grizzly Bears", "p2"), ("Llanowar Elves", "p2")):
         act(s, pid, type="move", card_ids=[card_named(s, name, pid).id], to={"player": pid, "zone": "battlefield"})
+    # (the Ghoul's upkeep trigger: "sacrifice it unless you exile the top creature card of your graveyard" — Alice has one to exile)
+    act(s, "p1", type="move", card_ids=[card_named(s, "Grizzly Bears", "p1").id], to={"player": "p1", "zone": "graveyard"})
     turn_on(s)  # (the creatures were there before)
-    act(s, "p1", type="pass_priority")  # → Alice's main phase
+    for _ in range(20):  # → Alice's main phase
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((o.id for o in d.options if o.id == "pay" or "xile" in o.label), d.options[0].id)])
+        elif s.state.turn.phase == "main1" and not s.state.zones.get("stack"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert card_named(s, "Barrow Ghoul").zone == "p1:battlefield"
     act(s, "p1", type="pass_priority")  # → combat: Alice declares attackers
     ghoul = card_named(s, "Barrow Ghoul")
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": ghoul.id, "target": "p2"}])
