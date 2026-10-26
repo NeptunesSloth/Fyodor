@@ -1080,6 +1080,11 @@ def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = N
 
                 chosen.record(plan, card_id, value)
     if not preview:
+        from app.rules import (
+            devour as _devour110f,  # -- wave 110F -- Mimeoplasm, Revered One: the cards exiled as it entered are exiled with it
+        )
+
+        _devour110f.linked(plan, card_id, controller, choices)
         from app.rules import wave110a_control  # -- entry control (wave 110A) --
 
         wave110a_control.give(plan, card_id, choices)

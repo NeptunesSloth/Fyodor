@@ -684,3 +684,160 @@ def test_book_needs_all_three(cards):
     book = card_named(s, "The Book of Vile Darkness")
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=book.id, ability=ability(s, book.name, "p1", "Exile"))
+
+
+_INDO = ("As Indominus Rex enters, discard any number of creature cards. It enters with a flying counter on it if a card discarded this way has flying. The same is true for first strike, "
+         "double strike, deathtouch, hexproof, haste, indestructible, lifelink, menace, reach, trample, and vigilance.\nWhen Indominus Rex enters, draw a card for each counter on it.")
+_MIMEO = ("As Mimeoplasm enters, exile up to X creature cards from your graveyard. It enters with three +1/+1 counters on it for each creature card exiled this way.\n"
+          "{2}: Mimeoplasm becomes a copy of target creature card exiled with it, except it's 0/0 and has this ability.")
+_BASE.extend([
+    real("Indominus Rex, Alpha", "{1}{U/B}{U/B}{G}{G}", 5, "Legendary Creature — Dinosaur Mutant", _INDO, ("6", "6"), "BGU"),
+    real("Mimeoplasm, Revered One", "{X}{B}{G}{U}", 3, "Legendary Creature — Ooze", _MIMEO, ("0", "0"), "BGU"),
+    real("Test Flyer 110FD", "{1}", 1, "Creature — Bird", "Flying", ("1", "1"), ""),
+    real("Test Flyer Two 110FD", "{1}", 1, "Creature — Bird", "Flying", ("1", "1"), ""),
+    real("Test Rusher 110FD", "{1}", 1, "Creature — Ogre", "Haste, lifelink", ("2", "2"), ""),
+    real("Test Dull 110FD", "{1}", 1, "Creature — Ogre", "", ("2", "2"), ""),
+    real("Test Plain Spell 110FD", "{1}", 1, "Instant", "Flying", None, ""),
+])
+
+
+@pytest.mark.parametrize("name", ["Indominus Rex, Alpha", "Mimeoplasm, Revered One"])
+def test_asenter_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def _pick_ids(s, labels, pid="p1"):
+    d = s.state.rules.decision
+    assert d is not None and d.player == pid, (d and (d.player, d.kind))
+    act(s, pid, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label.endswith(lab) or lab in o.label) for lab in labels])
+
+
+def _indo(cards, hand, discard):
+    from tests.wave9c_kit import to_hand
+
+    s = build(cards, ["Indominus Rex, Alpha", *hand, "Test Plain Spell 110FD"], [])
+    for n in [*hand, "Test Plain Spell 110FD"]:
+        to_hand(s, n)
+    mana(s, "p1", U=2, G=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Indominus Rex, Alpha").id)
+    for n in discard:
+        for _ in range(8):
+            if s.state.rules.decision is not None:
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        _pick_ids(s, [n])
+    return s
+
+
+def _finish_indo(s):
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.id == "done")] if any(o.id == "done" for o in d.options) else [o.id for o in d.options][:1])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+def test_indominus_discards_creature_cards_and_enters_with_a_counter_of_each_keyword(cards):
+    """614.12, 122.1b: discard a flyer and a haste-lifelink creature: a flying, a haste and a lifelink counter; draws a card for each counter (3). A second flyer adds no second flying counter."""
+    s = _indo(cards, ["Test Flyer 110FD", "Test Flyer Two 110FD", "Test Rusher 110FD", "Test Dull 110FD"], ["Test Flyer 110FD", "Test Flyer Two 110FD", "Test Rusher 110FD"])
+    _finish_indo(s)
+    indo = card_named(s, "Indominus Rex, Alpha")
+    c = s.state.cards[indo.id]
+    assert c.zone == "p1:battlefield" and {k: v for k, v in c.counters.items() if v} == {"flying": 1, "haste": 1, "lifelink": 1}
+    assert all(s.state.cards[card_named(s, n).id].zone == "p1:graveyard" for n in ("Test Flyer 110FD", "Test Flyer Two 110FD", "Test Rusher 110FD"))
+    assert s.state.cards[card_named(s, "Test Dull 110FD").id].zone == "p1:hand"
+    assert len(s.state.zones["p1:hand"]) == 2 + 3  # (the Dull creature and the spell kept, a card drawn for each of the three counters)
+    check(s)
+
+
+def test_indominus_discarding_nothing_enters_without_counters(cards):
+    s = _indo(cards, ["Test Dull 110FD"], [])
+    _finish_indo(s)
+    c = s.state.cards[card_named(s, "Indominus Rex, Alpha").id]
+    assert c.zone == "p1:battlefield" and not any(c.counters.values()) and s.state.cards[card_named(s, "Test Dull 110FD").id].zone == "p1:hand"
+    check(s)
+
+
+def test_indominus_question_is_asked_even_without_a_creature_card_in_hand(cards):
+    """Asking, or not asking, tells the table nothing about a hand (the same as amplify): the question comes with only "done"."""
+    s = _indo(cards, [], [])
+    for _ in range(8):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and [o.id for o in d.options] == ["done"]
+
+
+def _mimeo(cards, x, in_gy):
+    from tests.wave9c_kit import to_hand
+    from tests.wave36a_kit import to_gy
+
+    s = build(cards, ["Mimeoplasm, Revered One", *in_gy], [])
+    for n in in_gy:
+        to_gy(s, n)
+    mana(s, "p1", B=1, G=1, U=1, C=x)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Mimeoplasm, Revered One").id, x_value=x)
+    return s
+
+
+def _settle_mimeo(s, pick):
+    """Pick the graveyard cards whose labels contain ``pick`` (one question each), then settle."""
+    picks = list(pick)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            if picks:
+                want = picks.pop(0)
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if want in o.label)])
+            else:
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.id == "done")])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+def test_mimeoplasm_exiles_up_to_x_cards_and_enters_with_three_counters_each(cards):
+    """614.12, 122.6: X = 2 and three creature cards in the graveyard: it stops asking after two; 6 counters on a 0/0 make it 6/6."""
+    from tests.wave9c_kit import pt
+
+    s = _mimeo(cards, 2, ["Test Flyer 110FD", "Test Dull 110FD", "Test Rusher 110FD"])
+    _settle_mimeo(s, ["Test Flyer", "Test Rusher"])
+    mim = s.state.cards[card_named(s, "Mimeoplasm, Revered One").id]
+    assert mim.zone == "p1:battlefield" and mim.counters.get("+1/+1") == 6 and pt(s, "Mimeoplasm, Revered One") == (6, 6)
+    assert [s.state.cards[card_named(s, n).id].zone for n in ("Test Flyer 110FD", "Test Rusher 110FD", "Test Dull 110FD")] == ["p1:exile", "p1:exile", "p1:graveyard"]
+    check(s)
+
+
+def test_mimeoplasm_becomes_a_copy_of_an_exiled_card_with_the_ability_and_zero_zero_base(cards):
+    """607.2b, 707.9: the exiled cards are "exiled with it": {2}: it becomes a copy of one, 0/0 (the counters stay), keeping this ability."""
+    from app.rules.plan import Plan
+    from tests.test_rules_wave34b_activated import ability
+    from tests.wave9c_kit import pt
+
+    s = _mimeo(cards, 2, ["Test Flyer 110FD", "Test Dull 110FD", "Test Rusher 110FD"])
+    _settle_mimeo(s, ["Test Flyer", "Test Rusher"])
+    mim = card_named(s, "Mimeoplasm, Revered One")
+    s.state.rules.controlled_since[mim.id].turn = 0
+    mana(s, "p1", C=2)
+    rusher = card_named(s, "Test Rusher 110FD")
+    act(s, "p1", type="activate_ability", card_id=mim.id, ability=ability(s, mim.name, "p1", "becomes a copy"), targets=[rusher.id])
+    answer(s)
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[mim.id])
+    assert ch.name == "Test Rusher 110FD" and "lifelink" in ch.keywords and any(a.kind == "activated" and "becomes a copy" in a.text for a in ch.abilities)
+    assert pt(s, "Mimeoplasm, Revered One") == (6, 6)  # (a 0/0 copy with six +1/+1 counters)
+    check(s)
+
+
+def test_mimeoplasm_x_zero_exiles_nothing(cards):
+    s = _mimeo(cards, 0, ["Test Dull 110FD"])
+    _settle_mimeo(s, [])
+    mim = s.state.cards[card_named(s, "Mimeoplasm, Revered One").id]
+    assert mim.zone != "p1:battlefield" or not any(mim.counters.values())  # (0/0: it dies as a state-based action)
+    check(s)

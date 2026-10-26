@@ -52,6 +52,9 @@ _BOOK = ("{T}, Exile ~ and artifacts you control named Eye of Vecna and Hand of 
          "triggered abilities of the exiled cards.")
 
 
+_MIMEO = "{2}: ~ becomes a copy of target creature card exiled with it, except it's 0/0 and has this ability."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -60,12 +63,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if ability.kind == "triggered" and text == _MASTER:
         probe = scripts.define(replace(ability, text=_MASTER.split(" If you do,")[0]), ch)
         if probe is None or probe["kind"] != "triggered":
-            return {}
+            return None
         return {**probe, "effects": [{**probe["effects"][0], "as": ORIGINAL}, {"do": "master110f"}]}
     if ability.kind == "static" and text == _ANIMATE:  # 613.1d, 613.4b: the type is added whatever the host is; its P/T only when it was no creature (2008-08-01 ruling)
         probe = scripts.define(replace(ability, text="Enchanted artifact has flying."), ch)
         if probe is None or probe.get("who") != "attached":
-            return {}
+            return None
         return {**probe, "keywords": [], "layered": True, "base_mv": True, "animate_mv110f": True, "layer4": {"add_types": ["Artifact", "Creature"]}}
     if ability.kind == "activated" and text == _VOLT_COST:  # 607.2a: the collected cards are exiled by this activated ability's cost: they are "exiled with it"
         if _BUSY:
@@ -79,14 +82,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if ability.kind == "triggered" and text == _VOLT_ATTACK:  # 608.2g (2024-02-02 ruling): cast during resolution, paying costs; 614.1a: a graveyard destination becomes the library's bottom
         probe = scripts.define(replace(ability, text="Whenever this Vehicle attacks, you may draw a card."), ch)
         if probe is None or probe["kind"] != "triggered":
-            return {}
+            return None
         sel = Selector(types=("Instant", "Sorcery"), zones=("stack",)).key()
         return {**probe, "optional": False, "effects": [{"do": "linked_cards", "as": "e0"}, {"do": "free_cast", "zone": "that", "who": "ref:e0", "filter": sel, "optional": True, "mv": None, "n": 1,
                                                                            "paid": True, "graveyard_destination": "library_bottom"}]}
     if ability.kind == "triggered" and text == _TASTER:  # 701.20a reveal, 701.13 exile, 611.2b "for as long as you control ~", 118.9/609.4b mana of any type; X once (ruling 2025-11-17)
         probe = scripts.define(replace(ability, text="When ~ enters, target opponent loses 1 life."), ch)
         if probe is None or probe["kind"] != "triggered":
-            return {}
+            return None
         sel = Selector(types=("Instant", "Sorcery"), card=True).key()
         goblins = scripts.parse_effects("Target opponent reveals X cards from their hand, where X is the number of Goblins you control.")
         assert goblins is not None
@@ -98,7 +101,7 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         probe = scripts.define(replace(ability, text="Whenever ~ attacks, draw a card."), ch)
         cast = scripts.parse_effects("You may cast a spell from your hand without paying its mana cost. If you don't, investigate.")
         if probe is None or probe["kind"] != "triggered" or cast is None:
-            return {}
+            return None
         free, gate, investigate = cast[0]
         return {**probe, "effects": [{"do": "seventh110f"}, {"do": "only_if", "cond": {"succeeded": "wrong110f"}, "skip": 1},
                                      {**free, "zone": "that", "who": "ref:seventh110f"}, gate, investigate]}
@@ -112,29 +115,29 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             finally:
                 _BUSY.pop()
             if native is None or [x["do"] for x in native["effects"]] != ["return_card"]:
-                return {}
+                return None
             return {**native, "effects": [{**native["effects"][0], "as": "e0"}, {"do": "link_put110f"}]}
         probe = scripts.define(replace(ability, text=("Whenever a creature you control dies, exile it and return ~ to its owner's hand." if text == _SERV[1]
                                                      else "When ~ leaves the battlefield, you gain 1 life.")), ch)
         if probe is None:
-            return {}
+            return None
         return {**probe, "cond": {"event": "die", "subject": "put_with110f"}} if text == _SERV[1] else {**probe, "effects": [{"do": "servitude110f"}]}
     if ability.kind == "triggered" and text == _STAND:  # 802.2: every opponent is a defending player as the combat phase starts; 700.3: the piles; Fight or Flight's machinery (pile_groups)
         probe = scripts.define(replace(ability, text="At the beginning of combat on your turn, draw a card."), ch)
         if probe is None or probe["kind"] != "triggered":
-            return {}
+            return None
         sel = Selector(types=("Creature",)).key()
         return {**probe, "effects": [{"do": "pile_deal", "who": "each_opponent", "split": "you", "sel": sel, "zone": "battlefield", "pick": "owner", "n": 2,
                                       "chosen": "limit_block", "other": None, "say": "creatures"}]}
     if ability.kind == "activated" and text == _JARKELD:
         probe = scripts.define(replace(ability, text="{T}: Choose two target blocked attacking creatures. You gain 1 life. Activate only during the declare blockers step."), ch)
         if probe is None or probe.get("kind") != "activated" or not probe.get("targets"):
-            return {}
+            return None
         return {**probe, "effects": [{"do": "jarkeld110f"}]}
     if ability.kind == "triggered" and text == _TAHNGARTH:
         probe = scripts.define(replace(ability, text="Whenever an opponent attacks with one or more creatures, if ~ is tapped, you may draw a card."), ch)
         if probe is None or probe["kind"] != "triggered" or not probe.get("optional"):
-            return {}
+            return None
         return {**probe, "effects": [{"do": "tahngarth110f"}]}
     if ability.kind == "static" and text == _IDRIS:  # 113.10, 613.1f the exiled card's abilities, 613.4c +X/+X, X its mana value (X in its cost is 0: 2023-10-13 ruling); none exiled: neither
         from app.rules.statics import _definition
@@ -145,8 +148,15 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if ability.kind == "activated" and scripts.self_text(ability.text, ch.name) == _BOOK:
         native = scripts.define(replace(ability, text=ability.text.replace(" and all triggered abilities of the exiled cards", "")), ch)
         if native is None or [x["do"] for x in native["effects"]] != ["create_token"]:
-            return {}
+            return None
         return {**native, "effects": [{"do": "vecna110f", "token": native["effects"][0]["token"]}]}
+    if ability.kind == "activated" and text == _MIMEO:  # 707.9a-b: a copy of the exiled card (a card in exile: its printed values) except 0/0 (the counters stay) and with this ability
+        probe = scripts.define(replace(ability, text=_MIMEO.replace("target creature card exiled with it", "target creature card in a graveyard").replace("~", "Mimeoplasm")), ch)
+        if probe is None or [x["do"] for x in probe["effects"]] != ["become_copy"]:
+            return None
+        eff = probe["effects"][0]
+        fixed = {**eff, "excepts": [{**eff["excepts"][0], "add_text": [ability.text.replace(ch.name.split(",")[0], "This permanent")]}]}
+        return {**probe, "effects": [fixed], "target": {"what": "exiled_with"}}
     return None
 
 
