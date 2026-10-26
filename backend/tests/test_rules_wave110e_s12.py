@@ -28,7 +28,11 @@ TAZRI = real("Tazri, Stalwart Survivor", "{2}{W}", 3, "Legendary Creature — Hu
              "{W}{U}{B}{R}{G}, {T}: Mill five cards. Put all creature cards with activated abilities that aren't mana abilities from among the milled cards into your hand.", ("3", "3"), "W")
 SHAMAN = real("Test Shaman", "{1}{R}", 2, "Creature — Goblin Shaman", "{1}, {T}: You gain 1 life.", ("1", "1"), "R")
 ELF = real("Test Mana Elf", "{G}", 1, "Creature — Elf Druid", "{T}: Add {G}.", ("1", "1"), "G")
-base.EXTRA.extend([EMISSARY, ARCH, BORCA, TAZRI, SHAMAN, ELF])
+CLARA = real("Clara Oswald", "{6}", 6, "Legendary Creature — Human Advisor",
+             "Impossible Girl — If Clara Oswald is your commander, choose a color before the game begins. Clara Oswald is the chosen color.\n"
+             "If a triggered ability of a Doctor you control triggers, that ability triggers an additional time.\nDoctor's companion (You can have two commanders if the other is the Doctor.)",
+             ("2", "6"))
+base.EXTRA.extend([EMISSARY, ARCH, BORCA, TAZRI, SHAMAN, ELF, CLARA])
 
 
 def test_emissary_full(cards):
@@ -250,3 +254,58 @@ def _ability_index(s, card, word):
     from app.rules.plan import Plan
 
     return next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(card).abilities if a.kind == "activated" and word in a.text)
+
+
+def test_clara_full(cards):
+    assert coverage.of_card_data(cards.resolve("Clara Oswald")).level == "FULL"
+
+
+def _clara_table(cards, commander="Clara Oswald"):
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.mulligan import COMMANDER_LONDON
+    from app.game.rules_state import AUTOMATION_PRESETS, start_rules
+    from app.game.session import GameSession
+    from app.game.state import GameSettings
+    from tests.game_helpers import deck, engine_pays
+
+    a = deck(cards, commander, [(20, "Forest")])
+    b = deck(cards, "Atraxa, Praetors' Voice", [(20, "Island")])
+    state = new_game([PlayerSetup("Alice", cards=a), PlayerSetup("Bob", cards=b)], settings=GameSettings(mulligan=COMMANDER_LONDON), shuffle=False)
+    state.settings.automation = "full"
+    state.settings.automation_options = AUTOMATION_PRESETS["full"].model_copy()
+    start_rules(state)
+    engine_pays(state)
+    return GameSession(state, cards=cards)
+
+
+def _colors(s, card):
+    from app.rules.plan import Plan
+
+    return sorted(Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card.id]).colors)
+
+
+@pytest.mark.parametrize("choice", ["R", "U"])
+def test_clara_is_the_color_chosen_before_the_game_begins_in_every_zone(cards, choice):
+    """The commander's owner chooses after the mulligans and before the game starts; the card is that color in the command zone, on the stack and on the battlefield."""
+    s = _clara_table(cards)
+    clara = card_named(s, "Clara Oswald")
+    assert clara.zone == "p1:command" and _colors(s, clara) == []  # colorless until the choice is made
+    act(s, "p1", type="mulligan_keep")
+    act(s, "p2", type="mulligan_keep")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and "color before the game begins" in d.prompt
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[choice])
+    assert s.state.rules.decision is None or "color before" not in s.state.rules.decision.prompt
+    assert _colors(s, clara) == [choice]  # in the command zone
+    act(s, "p1", type="move", card_ids=[clara.id], to={"zone": "stack"})
+    assert _colors(s, clara) == [choice]
+    act(s, "p1", type="move", card_ids=[clara.id], to={"player": "p1", "zone": "battlefield"})
+    assert s.state.cards[clara.id].zone == "p1:battlefield" and _colors(s, clara) == [choice]
+    check(s)
+
+
+def test_a_commander_without_the_ability_is_not_asked(cards):
+    s = _clara_table(cards, "Krenko, Mob Boss")
+    act(s, "p1", type="mulligan_keep")
+    act(s, "p2", type="mulligan_keep")
+    assert s.state.rules.decision is None or "color before" not in s.state.rules.decision.prompt

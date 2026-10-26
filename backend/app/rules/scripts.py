@@ -5990,6 +5990,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (war110e := wave110e_opp.war_definition(ability, ch)) is not None:
         return war110e
+    from app.rules import wave110e_clara  # -- pregame color (wave 110E) --
+
+    if (clara110e := wave110e_clara.definition(ability.text)) is not None:
+        return clara110e
     if ability.text.strip() == "Note the mana value of each card as it's put into exile.":  # -- noted values (wave 110E) -- see wave110e_note
         return {"kind": "static", "static": "note110e", "effects": []}
     if ability.text.strip() == "Bell Borca's power is equal to the greatest number noted for it this turn.":

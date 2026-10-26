@@ -1021,6 +1021,11 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     from app.rules.characteristics import provenance
 
     ch = provenance(card, ch)
+    from app.rules import (
+        wave110e_clara,  # -- pregame color (wave 110E) -- the card's own color effect, before every color effect
+    )
+
+    ch = wave110e_clara.apply(state, card, ch)
     ch = replace(ch, on_battlefield=card.zone.endswith(":battlefield"),
                  object_counters=frozenset(k for k, n in card.counters.items() if n > 0),
                  object_ring_bearer=bool(state.rules and card.zone.endswith(":battlefield")
