@@ -64,6 +64,9 @@ def other_loses(plan: Any, ctx: Context, e: dict[str, Any]) -> bool:
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
+    if scripts.self_text(ability.text, ch.name) == ("Each player may attack only the nearest opponent in the chosen direction and planeswalkers "
+                                                   "controlled by that opponent."):
+        return {"kind": "static", "static": "nearest110a", "effects": []}  # Pramikon: the restriction is added by the entering choice (wave110a_pick.record)
     if scripts.self_text(ability.text, ch.name) == SOWER:
         d = scripts.define(replace(ability, text="Whenever damage is dealt to a player, that player loses that much life."), ch)
         if d is None or [e["do"] for e in d["effects"]] != ["lose_life"] or d["cond"].get("subject") != "player":

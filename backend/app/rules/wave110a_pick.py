@@ -24,11 +24,13 @@ TEXTS = {"As ~ enters, choose another creature you control.": "other creature yo
 LABEL = "Chosen creature"
 PAIR = "As ~ enters, choose two players."  # Sower of Discord: one answer "p1,p2", kept in chosen_objects[source] (public, 614.12a)
 PAIR_LABEL = "Chosen players"
+SIDE = "As ~ enters, choose left or right."  # Pramikon: answer "left"/"right", kept in chosen_objects[source]
 
 
 def definition(text: str) -> dict[str, Any] | None:
-    if text == PAIR:
-        return {"kind": "replacement", "replacement": "enters_choice", "effects": [{"do": "choose_value", "who": "you", "what": WHAT, "pick110a": "players2"}]}
+    if text in (PAIR, SIDE):
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": WHAT, "pick110a": "players2" if text == PAIR else "side"}]}
     if (phrase := TEXTS.get(text)) is None:
         return None
     from app.rules import selectors
@@ -42,6 +44,8 @@ def definition(text: str) -> dict[str, Any] | None:
 def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, Any]) -> tuple[str, list[DecisionOption]]:
     from app.rules import selectors
 
+    if choice["pick110a"] == "side":
+        return f"{plan.ch(card).name or card.name}: as it enters, choose left or right", [DecisionOption(id=v, label=v.capitalize()) for v in ("left", "right")]
     if choice["pick110a"] == "players2":
         live = plan.live()
         return (f"{plan.ch(card).name or card.name}: as it enters, choose two players",
@@ -60,6 +64,15 @@ def record(plan: Plan, card_id: str, choices: dict[str, str] | None) -> None:
     if choices is None or WHAT not in choices:
         return
     value, rules = choices[WHAT], plan.rules
+    if value in ("left", "right"):  # 508.1d via combat_teyo66: each player may attack only the nearest opponent that way, while the source stays
+        from app.rules import combat_teyo66, layers, selectors
+
+        rules.chosen_objects[card_id] = value
+        plan.do({"type": "set_choice", "card_id": card_id, "key": "Chosen direction", "value": value.capitalize()}, actor=plan.state.cards[card_id].controller)
+        layers.add_effect(plan, affected=[], layer="6", source=plan.oid(card_id), controller=plan.state.cards[card_id].controller,
+                          who=selectors.Selector(types=("Creature",)).key(), source_card=card_id, imposes=(combat_teyo66.FIXED + value,),
+                          duration="source_on_battlefield", label="Attacks only " + value)  # type: ignore[arg-type]
+        return
     if "," in value:  # two players
         rules.chosen_objects[card_id] = value
         plan.do({"type": "set_choice", "card_id": card_id, "key": PAIR_LABEL, "value": " and ".join(plan.name(p) for p in value.split(","))},
