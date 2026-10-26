@@ -347,6 +347,26 @@ def _deceiver(d: Def) -> Def:
     return {**d, "effects": [eff[0], {"do": "copies_of_revealed110k"}, eff[1]]}
 
 
+def _flip_chandra(d: Def) -> Def:
+    """Chandra, Fire of Kaladesh: after the exile, the returning instruction names the exiled card, not the old object (400.7)."""
+    from app.rules import scripts
+
+    back = scripts.parse_effects("Exile ~, then return her to the battlefield transformed under her owner's control.")
+    eff = d["effects"]
+    if back is None or len(eff) != 3 or eff[1].get("do") != "only_if" or eff[2].get("do") != "exile":
+        return d
+    return {**d, "effects": [eff[0], {**eff[1], "skip": len(back[0])}, *back[0]]}
+
+
+def _chandra_emblems(d: Def) -> Def:
+    """Chandra, Roaring Flame -7: only the players the damage was actually dealt to (after prevention, 120.3) get the emblem."""
+    eff = d["effects"]
+    if len(eff) != 1 or eff[0].get("do") != "damage":
+        return d
+    emblem = {"do": "emblem", "who": "ref:chandra110k", "text": "At the beginning of your upkeep, this emblem deals 3 damage to you."}
+    return {**d, "effects": [{**eff[0], "bind_damage_players": "chandra110k"}, emblem]}
+
+
 def _rat_roles(d: Def) -> Def:
     """Twisted Sewer-Witch: a Wicked Role token for each Rat its controller has once the token exists, each attached to its own Rat (111.1, 303.7)."""
     from app.rules import selectors
@@ -356,6 +376,12 @@ def _rat_roles(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Any]] = {
+    "\u22127: Chandra deals 6 damage to each opponent. Each player dealt damage this way gets an emblem with \"At the beginning of your upkeep, this emblem "
+    "deals 3 damage to you.\"":
+        ("\u22127: ~ deals 6 damage to each opponent.", _chandra_emblems),
+    "{T}: Chandra deals 1 damage to target player or planeswalker. If Chandra has dealt 3 or more damage this turn, exile her, then return her to the "
+    "battlefield transformed under her owner's control.":
+        ("{T}: ~ deals 1 damage to target player or planeswalker. If ~ has dealt 3 or more damage this turn, exile ~.", _flip_chandra),
     "At the beginning of combat on your turn, reveal the top card of your library. If a creature card is revealed this way, you may have creatures you "
     "control other than this creature become copies of that card until end of turn. You may put that card on the bottom of your library.":
         ("At the beginning of combat on your turn, reveal the top card of your library. You may put that card on the bottom of your library.", _deceiver),

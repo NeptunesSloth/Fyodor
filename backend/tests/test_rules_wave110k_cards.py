@@ -702,3 +702,58 @@ def test_cruel_entertainment_needs_two_different_players(cards):
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2", "p2"], target_counts=[1, 1])
     check(s)
+
+
+# -- Chandra, Fire of Kaladesh // Chandra, Roaring Flame --
+CHANDRA = "Chandra, Fire of Kaladesh // Chandra, Roaring Flame"
+
+
+def test_chandra_is_full():
+    assert full(CHANDRA)
+
+
+def _ping(s, chandra, target="p2"):
+    activate(s, chandra, "{T}", targets=[target])
+
+
+def _chandra(cards):
+    s = build(cards, [CHANDRA, "Lightning Bolt", "Seething Song"])
+    chandra = put_new(s, CHANDRA)
+    s.state.rules.controlled_since[chandra.id].turn = 0
+    return s, chandra
+
+
+def test_chandra_flips_when_she_has_dealt_three_damage_this_turn(cards):
+    s, chandra = _chandra(cards)
+    _ping(s, chandra)
+    assert life(s, "p2") == 39 and now(s, chandra).face == 0
+    cast_on(s, "Lightning Bolt", "p2")  # a red spell: she untaps (the bolt's 3 damage isn't hers)
+    _ping(s, chandra)
+    assert life(s, "p2") == 35 and now(s, chandra).face == 0  # 2 damage so far
+    cast_on(s, "Seething Song")
+    _ping(s, chandra)  # 3 damage: exiled and returned transformed
+    assert life(s, "p2") == 34 and now(s, chandra).face == 1 and now(s, chandra).zone == "p1:battlefield"
+    assert ch(s, chandra).name == "Chandra, Roaring Flame" and now(s, chandra).counters.get("loyalty") == 4
+    check(s)
+
+
+def test_chandra_roaring_flame_minus_seven_gives_each_damaged_opponent_the_upkeep_emblem(cards):
+    s = build3(cards, [CHANDRA, "Lightning Bolt", "Seething Song"])
+    chandra = put(s, CHANDRA)
+    s.state.rules.controlled_since[chandra.id].turn = 0
+    _ping(s, chandra)
+    cast_on(s, "Lightning Bolt", "p2")
+    _ping(s, chandra)
+    cast_on(s, "Seething Song")
+    _ping(s, chandra)
+    assert now(s, chandra).face == 1
+    act(s, "p1", type="counter", card_ids=[chandra.id], kind="loyalty", delta=3)  # 4 -> 7
+    before = {p: life(s, p) for p in ("p1", "p2", "p3")}
+    activate(s, chandra, "−7")
+    assert life(s, "p2") == before["p2"] - 6 and life(s, "p3") == before["p3"] - 6 and life(s, "p1") == before["p1"]
+    for turn, player in ((2, "p2"), (3, "p3")):
+        to_phase(s, "upkeep", turn=turn)
+        settle(s)
+        assert life(s, player) == before[player] - 6 - 3  # its emblem: 3 damage to its controller at their upkeep
+    assert life(s, "p1") == before["p1"]
+    check(s)

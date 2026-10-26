@@ -1374,6 +1374,12 @@ def _object_dealt_player(m: re.Match[str]) -> Condition | None:
     return _obj(m, "dealt_player", n=n, **_damage_kind(m), **({"to": "event"} if m["p"] == "that player" else {}))
 
 
+@_history_pattern(rf"{_HO} has dealt (?P<n>\w+) or more damage this turn")
+def _object_dealt_total(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])  # -- wave 110K -- Chandra, Fire of Kaladesh: all the damage it dealt this turn, to players and to objects (120.3)
+    return None if n is None else _obj(m, "dealt_total110k", n=n)
+
+
 @_history_pattern(r"(?P<who>you|a player) (?:was|were|has been|have been) dealt (?:(?P<n>\w+) or more )?(?P<kind>combat |noncombat )?damage"
                   r"(?: by an? (?P<sub>[A-Z][a-z]+))? this turn")
 def _player_dealt(m: re.Match[str]) -> Condition | None:

@@ -333,5 +333,59 @@
 "B"
 ],
 "keywords": []
+},
+{
+"name": "Chandra, Fire of Kaladesh // Chandra, Roaring Flame",
+"layout": "transform",
+"mana_cost": "{1}{R}{R} // ",
+"cmc": 3.0,
+"type_line": "Legendary Creature — Human Shaman // Legendary Planeswalker — Chandra",
+"oracle_text": "Whenever you cast a red spell, untap Chandra.\n{T}: Chandra deals 1 damage to target player or planeswalker. If Chandra has dealt 3 or more damage this turn, exile her, then return her to the battlefield transformed under her owner's control.\n//\n+1: Chandra deals 2 damage to target player or planeswalker.\n−2: Chandra deals 2 damage to target creature.\n−7: Chandra deals 6 damage to each opponent. Each player dealt damage this way gets an emblem with \"At the beginning of your upkeep, this emblem deals 3 damage to you.\"",
+"power": "2",
+"toughness": "2",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [
+"Transform"
+],
+"card_faces": [
+{
+"name": "Chandra, Fire of Kaladesh",
+"mana_cost": "{1}{R}{R}",
+"type_line": "Legendary Creature — Human Shaman",
+"oracle_text": "Whenever you cast a red spell, untap Chandra.\n{T}: Chandra deals 1 damage to target player or planeswalker. If Chandra has dealt 3 or more damage this turn, exile her, then return her to the battlefield transformed under her owner's control.",
+"power": "2",
+"toughness": "2",
+"colors": [
+"R"
+],
+"image_uris": {
+"small": "https://cards.scryfall.io/small/front/b/9/b910c6a1-7701-45f1-9dc8-4a3e8a8f023e.jpg?1788503465",
+"normal": "https://cards.scryfall.io/normal/front/b/9/b910c6a1-7701-45f1-9dc8-4a3e8a8f023e.jpg?1788503465",
+"large": "https://cards.scryfall.io/large/front/b/9/b910c6a1-7701-45f1-9dc8-4a3e8a8f023e.jpg?1788503465",
+"art_crop": "https://cards.scryfall.io/art_crop/front/b/9/b910c6a1-7701-45f1-9dc8-4a3e8a8f023e.jpg?1788503465"
+}
+},
+{
+"name": "Chandra, Roaring Flame",
+"mana_cost": "",
+"type_line": "Legendary Planeswalker — Chandra",
+"oracle_text": "+1: Chandra deals 2 damage to target player or planeswalker.\n−2: Chandra deals 2 damage to target creature.\n−7: Chandra deals 6 damage to each opponent. Each player dealt damage this way gets an emblem with \"At the beginning of your upkeep, this emblem deals 3 damage to you.\"",
+"loyalty": "4",
+"colors": [
+"R"
+],
+"image_uris": {
+"small": "https://cards.scryfall.io/small/back/b/9/b910c6a1-7701-45f1-9dc8-4a3e8a8f023e.jpg?1788503465",
+"normal": "https://cards.scryfall.io/normal/back/b/9/b910c6a1-7701-45f1-9dc8-4a3e8a8f023e.jpg?1788503465",
+"large": "https://cards.scryfall.io/large/back/b/9/b910c6a1-7701-45f1-9dc8-4a3e8a8f023e.jpg?1788503465",
+"art_crop": "https://cards.scryfall.io/art_crop/back/b/9/b910c6a1-7701-45f1-9dc8-4a3e8a8f023e.jpg?1788503465"
+}
+}
+]
 }
 ]
