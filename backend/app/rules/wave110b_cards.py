@@ -674,6 +674,10 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return _angel()
     if text == _LINVALA:
         return _linvala(ability, ch)
+    from app.rules import wave110b_tahngarth  # -- Tahngarth (wave 110B) --
+
+    if (tahngarth := wave110b_tahngarth.definition(ability, ch)) is not None:
+        return tahngarth
     if (same := _AS.get(text)) is not None:
         return scripts.define(replace(ability, text=same), ch)
     if (built := _BUILD.get(text)) is not None:

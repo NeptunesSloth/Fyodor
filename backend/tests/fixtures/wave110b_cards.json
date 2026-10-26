@@ -3098,5 +3098,24 @@
   ],
   "power": "1",
   "toughness": "3"
+ },
+ {
+  "name": "Tahngarth, First Mate",
+  "layout": "normal",
+  "mana_cost": "{2}{R}{G}",
+  "cmc": 4.0,
+  "type_line": "Legendary Creature — Minotaur Warrior",
+  "oracle_text": "Tahngarth can't be blocked by more than one creature.\nWhenever an opponent attacks with one or more creatures, if Tahngarth is tapped, you may have that opponent gain control of Tahngarth until end of combat. If you do, choose a player or planeswalker that opponent is attacking. Tahngarth is attacking that player or planeswalker.",
+  "colors": [
+   "G",
+   "R"
+  ],
+  "color_identity": [
+   "G",
+   "R"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "5"
  }
 ]
