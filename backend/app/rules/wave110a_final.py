@@ -22,6 +22,8 @@ ULDAROS = ("When ~ enters, if you cast ~, exile up to one target nonland card of
 INTIMATIONS_SPELL = ("Each opponent sacrifices a creature or planeswalker of their choice, then discards a card. "
                      "You return a creature or planeswalker card from your graveyard to your hand, then draw a card.")
 INTIMATIONS_CAST = ("When you cast a Bolas planeswalker spell, exile this card from your graveyard. That planeswalker enters with an additional loyalty counter on it.")
+MAGMARCH = ("Whenever you cast an instant or sorcery spell that targets only a single nonland permanent an opponent controls, if another opponent controls one or more "
+            "nonland permanents that spell could target, choose one of those permanents. Copy that spell. The copy targets the chosen permanent.")
 ICE_CAVE = "Whenever a player casts a spell, any other player may pay that spell's mana cost. If a player does, counter the spell."
 
 
@@ -29,6 +31,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == MAGMARCH:  # the intervening "if" is read as it triggers (cond other_opp110a, triggers.py) and as it resolves (the primitive)
+        d = scripts.define(replace(ability, text="Whenever you cast an instant or sorcery spell that targets only a single nonland permanent an opponent controls, "
+                                                 "copy that spell. You may choose new targets for the copy."), ch)
+        if d is None or [e["do"] for e in d["effects"]] != ["copy_spell", "copy_new_targets"] or d["cond"].get("event") != "cast":
+            return None
+        return {**d, "cond": {**d["cond"], "other_opp110a": True}, "effects": [{"do": "magmarch110a"}]}
     if text == INTIMATIONS_CAST:  # 113.6m: it works from the graveyard (the "self_gy" exile); 614.1c: the Bolas planeswalker spell gets one more loyalty counter as it enters
         d = scripts.define(replace(ability, text="When you cast a Bolas planeswalker spell, return this card from your graveyard to your hand."), ch)
         if d is None or [e["do"] for e in d["effects"]] != ["return_card"]:
@@ -124,6 +132,71 @@ def resume_sacrifice(plan: Plan, d: Any, chosen: list[str]) -> None:
     plan.rules.passed = []
 
 
+def _copyable(plan: Plan, spell: str, oid: str) -> tuple[Any, list[Any], Any] | None:
+    from app.rules import copying, targets
+
+    card = plan.state.cards.get(spell)
+    entry = copying.source_entry102(plan, card, oid) if card is not None else None
+    if card is None or entry is None or not copying.positions(entry) or copying.uncopyable(plan, card, object_id=oid) is not None:
+        return None
+    return entry, copying.positions(entry), targets.source_of(plan, spell, True, object_id=oid)
+
+
+def other_opponents_permanents(plan: Plan, spell: str, oid: str, caster: str) -> list[str]:
+    """Magmarch: the nonland permanents of the opponents other than the one whose permanent the spell targets that the spell could target (115.1, 707.10c)."""
+    from app.rules import copying, targets
+
+    found = _copyable(plan, spell, oid)
+    if found is None or not found[0].targets:
+        return []
+    entry, positions, source_ch = found
+    first = plan.state.cards.get(entry.targets[0].id)
+    if first is None:
+        return []
+    return [c.id for c in plan.state.cards.values()
+            if c.zone.endswith(":battlefield") and c.controller not in (caster, first.controller) and "Land" not in plan.ch(c).types and plan.in_game(c)
+            and all(c.id in targets.legal_targets(plan, copying._spec(entry, p).get("what", "any"), caster, source_ch, spell, source_object=entry.source_object)
+                    for p in positions)]
+
+
+def other_opponent_could(plan: Plan, watcher: CardInstance, spell: CardInstance) -> bool:
+    return bool(other_opponents_permanents(plan, spell.id, str(plan.oid(spell)), watcher.controller))
+
+
+def magmarch(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Exterminator Magmarch (ruling 2024-06-07): the copy is created on the stack (not cast), even if the original was countered; modes and X are copied; nothing is
+    done when no other opponent has a permanent the spell could target as this resolves. 707.10: the caster chooses the one permanent the copy targets."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import copying, targets
+    from app.rules.plan import decide
+
+    found = next(iter(copying._copy_sources(plan, ctx, "event_spell")), None)
+    if found is None:
+        return True
+    legal = other_opponents_permanents(plan, found[0], found[1], ctx["controller"])
+    if not legal:
+        return True
+    if len(legal) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt="Exterminator Magmarch: choose the permanent the copy targets",
+               options=[DecisionOption(id=t, label=targets.label(plan, t), card_id=t) for t in legal], resume={"step": "magmarch110a", "ctx": ctx, "spell": found})
+        return False
+    return _copy_for(plan, ctx, found, legal[0])
+
+
+def _copy_for(plan: Plan, ctx: dict[str, Any], found: Any, target: str) -> bool:
+    from app.rules import copying, spell_copy_replacements
+
+    return copying._each_run(plan, {"ctx": ctx, "spell": found[0], "oid": found[1], "controller": ctx["controller"], "victims": [target],
+                                    "additional": spell_copy_replacements.additional(plan, ctx["controller"])})
+
+
+def resume_magmarch(plan: Plan, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    if _copy_for(plan, d.resume["ctx"], d.resume["spell"], chosen[0]):
+        effects.continue_effects(plan, d.resume["ctx"])
+
+
 def loyalty_rider(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """The planeswalker spell the cast trigger is about gets one more loyalty counter as it enters (the creature riders' record, cast_riders.spell_rider)."""
     from app.rules import cast_riders
@@ -212,5 +285,5 @@ def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 REWRITES = {INTIMATIONS_SPELL: INTIMATIONS_SPELL.replace("You return", "Return")}  # (the grammar has no "you return"; 101.4 / the 2017-02-09 ruling: opponents choose in turn order, all at once)
-PRIMITIVES: dict[str, Any] = {"loyalty_rider110a": loyalty_rider, "exile_one_per_type110a": one_per_type}
-RESUME: dict[str, Any] = {"damping110a": resume_sacrifice, "chaotic_order110a": resume_order, "exile_one_per_type110a": resume_one_per_type}
+PRIMITIVES: dict[str, Any] = {"magmarch110a": magmarch, "loyalty_rider110a": loyalty_rider, "exile_one_per_type110a": one_per_type}
+RESUME: dict[str, Any] = {"damping110a": resume_sacrifice, "chaotic_order110a": resume_order, "exile_one_per_type110a": resume_one_per_type, "magmarch110a": resume_magmarch}

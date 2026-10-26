@@ -6,9 +6,10 @@ from __future__ import annotations
 import pytest
 
 from app.game.errors import ActionError
+from tests.test_rules_wave30p_combat import three
 from tests.wave110a_kit import *
 
-NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations"]
+NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations", "Exterminator Magmarch"]
 
 
 @pytest.fixture()
@@ -305,4 +306,64 @@ def test_two_dark_intimations_give_two_extra_loyalty_counters(cards):
     answer(s)
     assert _loyalty(s, card_named(s, "Nicol Bolas, Dragon-God")) == 6
     assert all(c.zone == "p1:exile" for c in s.state.cards.values() if c.name == "Dark Intimations")
+    check(s)
+
+
+def _magmarch(cards, bob=("Llanowar Elves",), carol=("Birds of Paradise",), shock_at=None):
+    names_b = [n for n in bob]
+    s = three(cards, ["Exterminator Magmarch", "Shock"], names_b, list(carol))
+    put(s, "Exterminator Magmarch")
+    mine = {n: put(s, n, "p2") for n in bob}
+    theirs = {n: put(s, n, "p3") for n in carol}
+    fund(s, "{R}")
+    cast(s, "Shock", targets=[(shock_at or mine[bob[0]]).id], pay=False)
+    return s, mine, theirs
+
+
+def test_magmarch_copies_the_spell_at_the_other_opponents_only_permanent(cards):
+    """Exterminator Magmarch: Alice's Shock at Bob's Llanowar Elves; Carol controls a nonland permanent it could target, so the copy kills Birds of Paradise too."""
+    s, bob, carol = _magmarch(cards)
+    answer(s)
+    assert s.state.cards[bob["Llanowar Elves"].id].zone == "p2:graveyard" and s.state.cards[carol["Birds of Paradise"].id].zone == "p3:graveyard"
+    check(s)
+
+
+def test_magmarch_asks_which_of_several_permanents_the_copy_targets(cards):
+    s, bob, carol = _magmarch(cards, carol=("Birds of Paradise", "Llanowar Elves"))
+    d = s.state.rules.decision
+    for _ in range(3):
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and sorted(o.label for o in d.options) == ["Birds of Paradise", "Llanowar Elves"]  # (Bob's own is not among them)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[carol["Llanowar Elves"].id])
+    answer(s)
+    assert s.state.cards[carol["Llanowar Elves"].id].zone == "p3:graveyard" and s.state.cards[carol["Birds of Paradise"].id].zone == "p3:battlefield"
+    check(s)
+
+
+def test_magmarch_does_not_trigger_when_no_other_opponent_has_a_nonland_permanent(cards):
+    """Ruling 2024-06-07: Carol has only a land (a nonland permanent is required): no trigger, no copy."""
+    s = three(cards, ["Exterminator Magmarch", "Shock"], ["Llanowar Elves"], [])
+    put(s, "Exterminator Magmarch")
+    elves = put(s, "Llanowar Elves", "p2")
+    put(s, "Island", "p3")
+    fund(s, "{R}")
+    cast(s, "Shock", targets=[elves.id], pay=False)
+    answer(s)
+    assert s.state.cards[elves.id].zone == "p2:graveyard"
+    assert not any(e for e in s.state.log if "Magmarch" in repr(e.parts) and "Resolved" in repr(e.parts))
+    check(s)
+
+
+def test_magmarch_ignores_a_spell_that_targets_a_player_or_two_things(cards):
+    s = three(cards, ["Exterminator Magmarch", "Shock"], ["Llanowar Elves"], ["Birds of Paradise"])
+    put(s, "Exterminator Magmarch")
+    put(s, "Llanowar Elves", "p2")
+    birds = put(s, "Birds of Paradise", "p3")
+    fund(s, "{R}")
+    cast(s, "Shock", targets=["p2"], pay=False)  # a player: not a nonland permanent
+    answer(s)
+    assert s.state.cards[birds.id].zone == "p3:battlefield" and life(s, "p2") == 38
     check(s)

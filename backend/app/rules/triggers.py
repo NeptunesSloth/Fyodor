@@ -1304,6 +1304,11 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 return False
         if cond.get("targets") and not _targets_ok(plan, cond["targets"], watcher, info.get("targets") or []):
             return False
+        if cond.get("other_opp110a"):  # -- wave 110A -- Exterminator Magmarch: another opponent controls a nonland permanent the spell could target (intervening if, 603.4)
+            from app.rules import wave110a_final
+
+            if obj is None or not wave110a_final.other_opponent_could(plan, watcher, obj):
+                return False
     if event == "targeted":
         by = cond.get("by", "any")
         if (by == "you" and info.get("by") != you) or (by == "opponent" and info.get("by") == you):
