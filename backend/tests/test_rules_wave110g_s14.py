@@ -17,7 +17,13 @@ from tests.test_rules_wave110g_s13 import EXTRA as S13
 from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 
 DRAIN = "Target player activates a mana ability of each land they control. Then that player loses all unspent mana and you add the mana lost this way."
+
+SEA = ("(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II — Create a 2/2 green Alien Salamander creature token with islandwalk. "
+       "(It can't be blocked as long as defending player controls an Island.)\nIII — Until end of turn, whenever a Salamander deals combat damage to a player, "
+       "it deals that much damage to target creature that player controls.")
 EXTRA = [
+    real("The Sea Devils", "{2}{U}{U}", 4, "Enchantment \u2014 Saga", SEA, None, "U"),
+    real("Test Wall", "{2}", 2, "Creature \u2014 Wall", "", ("0", "9"), ""),
     real("Drain Power", "{U}{U}", 2, "Sorcery", DRAIN, None, "U"),
     *[c for c in S13 if c["name"] in ("Spellweaver Volute", "Test Shock", "Test Jolt", "Test Tonic")],
 ]
@@ -117,4 +123,45 @@ def test_volute_three_players_enchants_an_opponents_graveyard_instant_and_casts_
     assert s.state.players["p3"].life == 38 and s.state.players["p2"].life == 40
     assert s.state.cards[shock.id].zone == "p2:exile"
     assert s.state.rules.aura_links[s.state.rules.object_id(vol.id)] == [s.state.rules.object_id(jolt.id)]
+    check(s)
+
+
+
+def test_the_sea_devils_chapter_three_salamanders_hit_a_creature_of_the_damaged_player(cards):
+    """714.2c / 603.7: both Salamanders hurt Bob, each deals that much (2) to his Wall at once; a Bear (not a Salamander) does not trigger it: the Wall has 4 damage."""
+    s = build(cards, ["The Sea Devils", "Grizzly Bears"], ["Test Wall"])
+    wall, bear = put(s, "Test Wall", "p2"), put(s, "Grizzly Bears")
+    s.state.rules.controlled_since[bear.id].turn = 0
+    saga = to_hand(s, "The Sea Devils")
+    mana(s, U=2, G=1, C=4)
+    act(s, "p1", type="cast_spell", card_id=saga.id)
+    for _ in range(600):
+        d = s.state.rules.decision
+        if s.state.cards[saga.id].zone == "p1:graveyard" and d is not None and d.kind == "declare_attackers":
+            break
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((i for i in ids if i in (wall.id, "p2")), ids[0])])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    else:
+        raise AssertionError("no attack step")
+    sal = [c for c in s.state.cards.values() if c.name == "Alien Salamander" and c.zone == "p1:battlefield"]
+    assert len(sal) == 2
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in (*sal, bear)])
+    for _ in range(80):
+        d = s.state.rules.decision
+        if s.state.turn.phase in ("main2", "end") and d is None:
+            break
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            ids = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids if d.kind == "order" else [next((i for i in ids if i == wall.id), ids[0])])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.players["p2"].life == 40 - 6
+    assert s.state.cards[wall.id].damage == 4
     check(s)

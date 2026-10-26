@@ -8513,7 +8513,9 @@ def _event_refs_ok(d: Definition) -> bool:
         if not (self_trigger or mine or shield):
             return False
     # (-- random choices (wave 47B) -- a reflexive ability that follows "Choose a player at random." binds its own: effects.reflexive ``players_from``)
-    unbound = json.dumps({**d, "effects": [e for e in d.get("effects") or [] if not e.get("players_from") and not e.get("that")],
+    unbound = json.dumps({**d, "effects": [({k: v for k, v in e.items() if k != "target"} if e.get("do") == "delayed" and (e.get("when") or {}).get("kind") == "watch"
+                                            and _has_player((e["when"]).get("cond") or {}) else e)  # -- cards (wave 110G) -- a turn watch's own target binds "that player" as it triggers
+                                           for e in d.get("effects") or [] if not e.get("players_from") and not e.get("that")],
                           **({"targets": [g for g in d["targets"] if g.get("of") is None]} if d.get("targets") else {})})  # (-- player-relative selectors (wave 53A) -- a group tied to an earlier group's player is bound as the targets are chosen)
     if '\\"controller\\":\\"that_player\\"' in unbound or '\\"zone_owner\\":\\"that_player\\"' in unbound:
         cond = d.get("cond") if d.get("trigger") == "event" else None
