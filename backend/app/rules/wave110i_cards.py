@@ -463,7 +463,15 @@ def _that_much(d: Def) -> Def:
     return {**d, "effects": [{"do": "add_mana", "sym": "C", "n": {"x": 1}, "who": "target"} if e.get("do") == "add_mana" else e for e in d["effects"]]}
 
 
+def _taxed(d: Def) -> Def:
+    """Mavinda: the permission carries the {8} increase, charged once the cast spell's targets are known."""
+    return {**d, "effects": [{**e, "tax_untargeted110i": 8} if e.get("do") == "grant_play" else e for e in d["effects"]]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{0}: You may cast target instant or sorcery card from your graveyard this turn. If that spell doesn't target a creature you control, it costs {8} more to cast this way. "
+    "If that spell would be put into your graveyard, exile it instead. Activate only once each turn.":
+        ("{0}: You may cast target instant or sorcery card from your graveyard this turn. If that spell would be put into your graveyard, exile it instead. Activate only once each turn.", _taxed),
     "Remove one or more +1/+1 counters from among artifacts you control: Target player adds that much {C}. This mana can't be spent to cast nonartifact spells. Convert Jetfire.":
         ("Remove one or more +1/+1 counters from among artifacts you control: Target player adds {C}. This mana can't be spent to cast nonartifact spells. Convert this creature.", _that_much),
     "Whenever you cast your second spell each turn, each opponent mills two cards. When one or more cards are milled this way, exile target enchantment, instant, or sorcery card with equal or "

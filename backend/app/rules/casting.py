@@ -3933,6 +3933,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     from app.rules import cast_limits, spell_mana_floor, spell_symbol_choices, waterbend103
 
     additional.append(waterbend103.mana(optional))
+    if grant is not None and grant.tax_untargeted110i:  # -- wave 110I -- Mavinda: 601.2f, "If that spell doesn't target a creature you control, it costs {8} more to cast this way"
+        from app.rules import first_target_activation_cost58
+
+        if not first_target_activation_cost58.qualifies(plan.state, plan.actor, tuple(t.id for t in chosen), plan.info):
+            additional.append(M.ManaCost(generic=grant.tax_untargeted110i))
     prepared: list[Any] = []
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, alternative=(alternative if alternative is not None else M.parse_cost(ch.mana_cost) if grant is not None and grant.how == "resolving" else None),
                       free=free, kicker=a.kicker, additional=tuple(additional), face_down=a.face_down, targets=tuple(t.id for t in chosen),

@@ -17,6 +17,8 @@
   counters, spending mana from snow sources as though it were mana of any color (609.4b, ruling 2021-02-05: only snow-source mana, a spell still follows the normal rules).
 * Haldan, Avid Arcanist (with Pako's fetch counters): lands and noncreature spells from cards you exiled with fetch counters, mana of any color (305.1, 601.3, rulings 2020-04-17).
 * Jetfire, Ingenious Scientist: removing X +1/+1 counters from among your artifacts (118.3) makes the target player add X {C} that can't be spent on nonartifact spells (106.6a), then Jetfire converts (701.28-style, 712).
+* Mavinda, Students' Advocate: the cast permission from the graveyard (this turn, only once each turn, exiled instead of going to the graveyard) costs {8} more unless the spell targets a creature
+  you control (601.2f: counted after the targets are chosen, 601.2c).
 """
 from __future__ import annotations
 
@@ -620,4 +622,53 @@ def test_jetfire_counters_become_restricted_colorless_mana_and_it_converts(cards
     act(s, "p1", type="cast_spell", card_id=bear.id)
     answer(s)
     assert s.state.cards[bear.id].zone == "p1:battlefield" and pool(s, "C") == 2  # the restricted mana is still there
+    check(s)
+
+
+MAVINDA = real("Mavinda, Students' Advocate", "{2}{W}", 3, "Legendary Creature \u2014 Bird Advisor",
+               "Flying\n{0}: You may cast target instant or sorcery card from your graveyard this turn. If that spell doesn't target a creature you control, it costs {8} more to cast this way. "
+               "If that spell would be put into your graveyard, exile it instead. Activate only once each turn. (You still pay the spell's costs. Timing rules for the spell still apply.)", ("2", "3"), "W")
+base.EXTRA.append(MAVINDA)
+
+
+def test_mavinda_full(cards):
+    assert coverage.of_card_data(cards.resolve("Mavinda, Students' Advocate")).level == "FULL"
+
+
+def _mavinda(cards, spell):
+    from app.rules.plan import Plan
+
+    s = build(cards, ["Mavinda, Students' Advocate", spell, "Vampire of the Dire Moon"], ["Test Giant"])
+    mav = put(s, "Mavinda, Students' Advocate")
+    put(s, "Vampire of the Dire Moon")
+    giant = put(s, "Test Giant", "p2")
+    target = card_named(s, spell)
+    act(s, "p1", type="move", card_ids=[target.id], to={"zone": "graveyard"})
+    ab = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[mav.id]).abilities if a.kind == "activated")
+    act(s, "p1", type="activate_ability", card_id=mav.id, ability=ab, targets=[target.id])
+    answer(s)
+    return s, target, giant
+
+
+def test_mavinda_no_tax_when_the_spell_targets_a_creature_you_control(cards):
+    s, prey, giant = _mavinda(cards, "Prey Upon")
+    mana(s, G=1)
+    vamp = card_named(s, "Vampire of the Dire Moon")
+    act(s, "p1", type="cast_spell", card_id=prey.id, targets=[vamp.id, giant.id], target_counts=[1, 1])
+    answer(s)
+    assert s.state.cards[prey.id].zone.endswith(":exile")  # exiled instead of the graveyard
+    check(s)
+
+
+def test_mavinda_charges_8_more_when_it_does_not(cards):
+    from tests.wave9c_kit import life
+
+    s, bolt, _ = _mavinda(cards, "Test Bolt")
+    mana(s, R=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    mana(s, C=8)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    answer(s)
+    assert life(s, "p2") == 37 and s.state.cards[bolt.id].zone.endswith(":exile")
     check(s)
