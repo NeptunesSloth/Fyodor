@@ -11,6 +11,11 @@
   (ruling 2014-04-26); a creature attacking someone else is still assigned by its controller.
 * Gluttonous Hellkite: 603.3 / 107.3i the cast trigger has each player sacrifice X creatures before the spell resolves; it then enters with two +1/+1
   counters per creature actually sacrificed (not X, ruling 2014-07-18); a countered spell enters with none.
+* Ogre Battlecaster: 608.2g the cast (paying {R}{R} more, 118.8) is made as the attack trigger resolves; the spell is exiled instead of going to the graveyard;
+  603.7a "when you cast that spell" pumps the Ogre by its mana value; nothing is gained when no cast is made.
+* Emblazoned Golem: 601.2h X is paid only with colored mana, at most one of each color (kicker {X}, counters per X); unkicked, nothing is restricted.
+* Garth One-Eye: 707.12 a copy of the card with a chosen name (only the listed names, each Garth remembering its own: rulings 2017-03-14) is made and may be cast,
+  its costs paid; declining to cast it still uses the name up.
 * Phylactery Lich: 614.12a / 614.1c the artifact is chosen as it enters (no target, ruling 2013-04-15), the counter goes on it; with no artifact
   nothing happens and the state trigger (603.8) sacrifices the Lich; another phylactery counter anywhere keeps it.
 """
@@ -19,6 +24,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from tests.fixtures.cards import card
 from tests.game_helpers import act
 from tests.wave9c_kit import build, life, mana, to_hand
@@ -388,4 +394,186 @@ def test_hellkite_with_no_creatures_to_sacrifice_enters_without_counters(cards):
     s, spell = _hellkite(cards, 1, 0, 0)
     settle(s)
     assert now(s, spell).zone.endswith(":battlefield") and not now(s, spell).counters.get("+1/+1")
+    check(s)
+
+
+OGRE = "Ogre Battlecaster"
+
+
+def _ogre(cards, mountains=3):
+    from tests.wave110j_kit import grave_new
+
+    s = build(cards, [OGRE, BOLT, *["Mountain"] * mountains], [], forests=30, islands=30)
+    ogre = put_new(s, OGRE)
+    for _ in range(mountains):
+        put_new(s, "Mountain")
+    bolt = grave_new(s, BOLT)
+    to_phase(s, "declare_attackers", turn=3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": ogre.id, "target": "p2"}])
+    return s, ogre, bolt
+
+
+def test_ogre_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(OGRE)).level == "FULL"
+
+
+def test_ogre_casts_the_spell_for_rr_more_exiles_it_and_gets_plus_mana_value(cards):
+    from tests.wave110j_kit import ch
+
+    s, ogre, bolt = _ogre(cards)
+    for _ in range(8):
+        d = s.state.rules.decision
+        if d is None:
+            if s.state.zones.get("stack"):
+                act(s, s.state.rules.priority, type="pass_priority")
+                continue
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=["p2"] if "p2" in [o.id for o in d.options] else [o.id for o in d.options][: max(1, d.min_choices)])
+    assert now(s, bolt).zone.endswith(":exile")  # "exile it instead" of the graveyard
+    assert life(s, "p2") == 40 - 3 - 4  # Bolt, then the Ogre unblocked as a 4/3
+    assert ch(s, ogre).pt == (3 + 1, 3)  # +1/+0: Lightning Bolt's mana value is 1 (Ogre is 3/3)
+    assert not [c for c in s.state.cards.values() if c.name == "Mountain" and c.zone.endswith(":battlefield") and not c.tapped]  # {R} + {R}{R} paid
+    check(s)
+
+
+def test_ogre_declined_cast_leaves_the_spell_and_pumps_nothing(cards):
+    from tests.wave110j_kit import ch
+
+    s, ogre, bolt = _ogre(cards)
+    d = s.state.rules.decision
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])  # the target card
+    d = s.state.rules.decision
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=[])  # "or none"
+    settle(s)
+    assert now(s, bolt).zone.endswith(":graveyard") and ch(s, ogre).pt == (3, 3) and not s.state.rules.delayed
+    check(s)
+
+
+def test_ogre_two_mountains_cannot_pay_for_bolt_plus_rr(cards):
+    """{R} for Bolt plus {R}{R} is three red mana: with two Mountains the payment is refused (601.2h) and Bolt stays in the graveyard."""
+    s, ogre, bolt = _ogre(cards, mountains=2)
+    for _ in range(2):
+        d = s.state.rules.decision
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
+    d = s.state.rules.decision
+    with pytest.raises(ActionError, match="Not enough mana to pay {R}{R}{R}"):
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=["p2"])
+    assert now(s, bolt).zone.endswith(":graveyard") and life(s, "p2") == 40
+    check(s)
+
+
+GOLEM = "Emblazoned Golem"
+
+
+def _golem(cards, kicked, x, pool):
+    from tests.wave110j_kit import mana
+
+    s = build(cards, [GOLEM], [], forests=30, islands=30)
+    spell = to_hand(s, GOLEM)
+    mana(s, "p1", **pool)
+    act(s, "p1", type="cast_spell", card_id=spell.id, kicker=kicked, x_value=x, sources=[])
+    return s, spell
+
+
+def test_golem_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(GOLEM)).level == "FULL"
+
+
+def test_golem_x_paid_with_two_different_colors(cards):
+    s, spell = _golem(cards, 1, 2, {"G": 2, "W": 1, "U": 1})  # {2} + X=2: G and W (or U) are X's, the rest pays {2}
+    settle(s)
+    assert now(s, spell).zone.endswith(":battlefield") and now(s, spell).counters.get("+1/+1") == 2
+    check(s)
+
+
+def test_golem_x_cannot_be_paid_with_one_color_twice(cards):
+    with pytest.raises(ActionError):
+        _golem(cards, 1, 2, {"G": 4})
+
+
+def test_golem_x_cannot_be_paid_with_colorless_mana(cards):
+    with pytest.raises(ActionError):
+        _golem(cards, 1, 1, {"C": 3})
+
+
+def test_golem_unkicked_is_unrestricted(cards):
+    s, spell = _golem(cards, 0, 0, {"C": 2})
+    settle(s)
+    assert now(s, spell).zone.endswith(":battlefield") and not now(s, spell).counters.get("+1/+1")
+    check(s)
+
+
+GARTH = "Garth One-Eye"
+
+
+def _garth(cards, extra=()):
+    s = build(cards, [GARTH, "Grizzly Bears", *extra], ["Hill Giant"], forests=30, islands=30)
+    garth = put_new(s, GARTH)
+    giant = put_new(s, "Hill Giant", "p2")
+    to_phase(s, "main1", turn=3)
+    return s, garth, giant
+
+
+def _activate(s, garth, name, answers=()):
+    from tests.wave110j_kit import ability
+
+    act(s, "p1", type="activate_ability", card_id=garth.id, ability=ability(s, garth, "{T}"))
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_one"
+    return [o.id for o in d.options]
+
+
+def test_garth_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(GARTH)).level == "FULL"
+
+
+def test_garth_copies_terror_and_casts_it(cards):
+    from tests.wave110j_kit import mana
+
+    s, garth, giant = _garth(cards)
+    mana(s, "p1", B=1, C=1)
+    options = _activate(s, garth, "Terror")
+    assert options == ["Disenchant", "Braingeyser", "Terror", "Shivan Dragon", "Regrowth", "Black Lotus"]
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Terror"])
+    settle(s, answers=[[o.card_id for o in s.state.rules.decision.options][:1] if s.state.rules.decision and s.state.rules.decision.kind == "choose_cards" else None])
+    assert now(s, giant).zone.endswith(":graveyard")  # Terror destroyed the nonblack, nonartifact Giant
+    assert now(s, garth).choices.get("Names chosen") == "Terror"
+    check(s)
+
+
+def test_garth_declined_copy_still_uses_the_name_up_and_the_copy_ceases_to_exist(cards):
+    s, garth, giant = _garth(cards)
+    _activate(s, garth, "Terror")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Terror"])
+    d = s.state.rules.decision
+    assert d.kind == "choose_cards"  # "You may cast the copy"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+    settle(s)
+    assert now(s, giant).zone.endswith(":battlefield")
+    assert not [c for c in s.state.cards.values() if c.is_token and c.name == "Terror"]  # (704.5e: a copy of a card that isn't a spell or on the battlefield)
+    to_phase(s, "main1", turn=5)
+    options = _activate(s, garth, "x")
+    assert options == ["Disenchant", "Braingeyser", "Shivan Dragon", "Regrowth", "Black Lotus"]
+    check(s)
+
+
+def test_garth_that_left_and_returned_forgets(cards):
+    s, garth, giant = _garth(cards)
+    _activate(s, garth, "Terror")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Terror"])
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+    settle(s)
+    act(s, "p1", type="move", card_ids=[garth.id], to={"zone": "hand"})
+    act(s, "p1", type="move", card_ids=[garth.id], to={"player": "p1", "zone": "battlefield"})
+    assert not now(s, garth).choices.get("Names chosen")  # 400.7: a new object remembers nothing
     check(s)

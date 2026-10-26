@@ -2034,5 +2034,167 @@
   ],
   "power": "3",
   "toughness": "3"
+ },
+ {
+  "name": "Mountain",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Basic Land — Mountain",
+  "oracle_text": "({T}: Add {R}.)",
+  "colors": [],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Ogre Battlecaster",
+  "layout": "normal",
+  "mana_cost": "{2}{R}",
+  "cmc": 3.0,
+  "type_line": "Creature — Ogre Shaman",
+  "oracle_text": "First strike\nWhenever this creature attacks, you may cast target instant or sorcery card from your graveyard by paying {R}{R} in addition to its other costs. If that spell would be put into a graveyard, exile it instead. When you cast that spell, this creature gets +X/+0 until end of turn, where X is that spell's mana value.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "First strike"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Emblazoned Golem",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact Creature — Golem",
+  "oracle_text": "Kicker {X} (You may pay an additional {X} as you cast this spell.)\nSpend only colored mana on X. No more than one mana of each color may be spent this way.\nIf this creature was kicked, it enters with X +1/+1 counters on it.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": [
+   "Kicker"
+  ],
+  "power": "1",
+  "toughness": "2"
+ },
+ {
+  "name": "Terror",
+  "layout": "normal",
+  "mana_cost": "{1}{B}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target nonartifact, nonblack creature. It can't be regenerated.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Shivan Dragon",
+  "layout": "normal",
+  "mana_cost": "{4}{R}{R}",
+  "cmc": 6.0,
+  "type_line": "Creature — Dragon",
+  "oracle_text": "Flying\n{R}: This creature gets +1/+0 until end of turn.",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "5",
+  "toughness": "5"
+ },
+ {
+  "name": "Disenchant",
+  "layout": "normal",
+  "mana_cost": "{1}{W}",
+  "cmc": 2.0,
+  "type_line": "Instant",
+  "oracle_text": "Destroy target artifact or enchantment.",
+  "colors": [
+   "W"
+  ],
+  "color_identity": [
+   "W"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Black Lotus",
+  "layout": "normal",
+  "mana_cost": "{0}",
+  "cmc": 0.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}, Sacrifice this artifact: Add three mana of any one color.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Regrowth",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Return target card from your graveyard to your hand.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Braingeyser",
+  "layout": "normal",
+  "mana_cost": "{X}{U}{U}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Target player draws X cards.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
+ },
+ {
+  "name": "Garth One-Eye",
+  "layout": "normal",
+  "mana_cost": "{W}{U}{B}{R}{G}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Wizard",
+  "oracle_text": "{T}: Choose a card name that hasn't been chosen from among Disenchant, Braingeyser, Terror, Shivan Dragon, Regrowth, and Black Lotus. Create a copy of the card with the chosen name. You may cast the copy. (You still pay its costs.)",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [],
+  "power": "5",
+  "toughness": "5"
  }
 ]

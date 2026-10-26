@@ -7132,6 +7132,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return formation
     if (hellkite := wave110j_final.hellkite(ability, ch)) is not None:
         return hellkite
+    if (ogre := wave110j_final.ogre(ability, ch)) is not None:
+        return ogre
+    if (garth := wave110j_final.garth_definition(ability, ch)) is not None:
+        return garth
     if (conditional_prevention := conditional_prevention_effects.definition(ability, ch)) is not None:
         return conditional_prevention
 

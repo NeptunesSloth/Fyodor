@@ -819,7 +819,7 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
         any(source.abilities and any(index < 0 for index in source.abilities) for source in sources))
     if (helper_matching or (mixed_snow and snow_due)
             or any(s.generic_allowed and not all(s.generic_allowed) for s in sources)
-            or (cost.allocation is not None and any(row.producer is not None
+            or (cost.allocation is not None and any(row.producer is not None or row.distinct  # (distinct: wave 110J, Emblazoned Golem)
                 for row in (*cost.allocation.symbols, *cost.allocation.phyrexian)))):
         from app.rules import mana_allocation_masks
 

@@ -1307,6 +1307,7 @@ class Grant:
     once_key: str | None = None  # a static "once during each of your turns" ability's key
     sorcery: bool = False  # -- keywords (wave 15E) -- plot 702.170d: only in your main phase with an empty stack, whatever it is
     generic_extra: int = 0  # Additional generic mana charged by this permission.
+    extra_mana: str = ""  # -- wave 110J -- additional mana the effect names ("by paying {R}{R} in addition to its other costs", Ogre Battlecaster): 118.8, 601.2f
     generic_less: int = 0  # (wave 110G) generic mana this permission takes off the total cost (Urianger Augurelt), a cost reduction (601.2f, 118.7a)
     extra: str = ""  # -- cost alt (wave 16F) -- an additional cost the permission names ("discard a card"), paid with the rest (601.2b)
     graveyard_destination: str = ""  # Selected cast authority: library_bottom replaces this spell going to any graveyard.
