@@ -33,6 +33,8 @@ PW_LABEL = "Chosen planeswalker type"
 VISIONARY = "When you play a card exiled with ~, transform ~."
 PROWL_ATTACK = "Whenever ~ attacks, exile up to one other target tapped creature or Vehicle. For as long as that card remains exiled, its owner may play it."
 PROWL_PLAY = "Whenever a player plays a card exiled with ~, you draw a card and transform ~."  # (self_text reads "convert" as "transform", the same action: ruling 2022-10-14)
+SNOWBLIND = ("Enchanted creature gets -X/-Y. If that creature is attacking, X is the number of snow lands defending player controls. Otherwise, X is the number of snow lands its "
+             "controller controls. Y is equal to X or to enchanted creature's toughness minus 1, whichever is smaller.")
 ICE_CAVE = "Whenever a player casts a spell, any other player may pay that spell's mana cost. If a player does, counter the spell."
 
 
@@ -40,6 +42,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == SNOWBLIND:  # layers.py applies it after every other layer 7c effect (613.8a: Y depends on them) and before 7d; ``snowblind110a`` marks the static
+        d = scripts.define(replace(ability, text="Enchanted creature gets -1/-1."), ch)
+        if d is None or d.get("static") != "grant" or d.get("who") != "attached":
+            return None
+        return {**d, "p": 0, "t": 0, "snowblind110a": True}
     if text == PROWL_ATTACK:  # 607.2a: the exile is Prowl's linked one; 305.1 / 601.3: the card's owner (not Prowl's controller) may play it while it stays exiled (grant_play "owner")
         d = scripts.define(replace(ability, text="Whenever ~ attacks, exile up to one other target tapped creature or Vehicle."), ch)
         if d is None or [e["do"] for e in d["effects"]] != ["exile"]:
@@ -251,6 +258,19 @@ def entering_loyalty(plan: Plan, card: CardInstance) -> int:
 
     rec = mana_units.record_of(plan, card)
     return 0 if rec is None else sum(1 for r in rec.mana_riders if r["kind"] == "loyalty110a")
+
+
+def snowblind(state: GameState, info: Any, card: CardInstance, p: int, t: int) -> tuple[int, int]:
+    """Snowblind (613.4c, 613.8a-b): X is the snow lands the defending player controls while the creature attacks, else its controller's; Y is the lesser of X and the
+    toughness (as every other 7c effect left it: this effect depends on them, so it applies after them; its own -X/-Y is not in it) minus 1. Printed supertypes of the lands
+    (ponytail: a layer 4 change of "snow" is not seen)."""
+    from app.rules import characteristics as chars
+    from app.rules.combat import defender_of
+
+    owner = (defender_of(state, card.attacking) if card.attacking is not None else None) or card.controller
+    x = sum(1 for c in state.cards.values() if c.zone.endswith(":battlefield") and c.controller == owner
+            and (lch := chars.of(c, info)) is not None and "Land" in lch.types and "Snow" in lch.supertypes)
+    return p - x, t - min(x, t - 1)
 
 
 def pw_options(plan: Plan) -> list[str]:

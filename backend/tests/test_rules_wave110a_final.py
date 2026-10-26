@@ -11,7 +11,7 @@ from tests.test_rules_wave30p_combat import three, to_phase
 from tests.wave110a_kit import *
 
 NAMES = ["Ice Cave", "Damping Engine", "Chaotic Transformation", "Grime Gorger", "Uldaros Theorix", "Dark Intimations", "Exterminator Magmarch", "Threefold Signal", "Deification", "Voltaic Visionary // Volt-Charged Berserker",
-         "Prowl, Stoic Strategist // Prowl, Pursuit Vehicle"]
+         "Prowl, Stoic Strategist // Prowl, Pursuit Vehicle", "Snowblind"]
 
 
 @pytest.fixture()
@@ -534,4 +534,63 @@ def test_prowl_a_card_not_exiled_with_it_does_nothing(cards):
     act(s, "p2", type="play_land", card_id=other.id)
     answer(s)
     assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[prowl.id]).name == "Prowl, Stoic Strategist"
+    check(s)
+
+
+SNOWS = ["Snow-Covered Island", "Snow-Covered Swamp", "Snow-Covered Mountain", "Snow-Covered Plains"]
+
+
+def _snowblind(cards, mine_snow=1, bob_snow=3, growth=False):
+    s = build(cards, ["Snowblind", "Hill Giant", "Giant Growth", "Snow-Covered Forest"], SNOWS)
+    giant = put(s, "Hill Giant")
+    put(s, "Snow-Covered Forest")
+    for n in SNOWS[:bob_snow]:
+        put(s, n, "p2")
+    cast(s, "Snowblind", targets=[giant.id])
+    answer(s)
+    return s, giant
+
+
+@pytest.mark.parametrize("bob_snow", [0, 2])
+def test_snowblind_not_attacking_counts_its_controllers_snow_lands(cards, bob_snow):
+    """Snowblind on Alice's Hill Giant (3/3); Alice has 1 snow land, Bob 0 or 2: not attacking, X = 1 -> -1/-1 (Y = min(1, 3-1))."""
+    s, giant = _snowblind(cards, bob_snow=bob_snow)
+    assert pt(s, "Hill Giant") == (2, 2)
+
+
+def test_snowblind_y_is_capped_by_toughness_minus_one_so_the_creature_survives(cards):
+    """Five snow lands for Alice would be -5/-5: Y = min(5, 3-1) = 2 gives -5/-2, a 3/3 becomes -2/1 and stays."""
+    s = build(cards, ["Snowblind", "Hill Giant", *SNOWS, "Snow-Covered Forest"])
+    giant = put(s, "Hill Giant")
+    for n in (*SNOWS, "Snow-Covered Forest"):
+        put(s, n)
+    cast(s, "Snowblind", targets=[giant.id])
+    answer(s)
+    assert pt(s, "Hill Giant") == (-2, 1) and s.state.cards[giant.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_snowblind_reads_toughness_after_the_other_layer_7c_effects_whenever_they_came(cards):
+    """613.8a-b: Y depends on the other toughness modifiers, which apply first even though Giant Growth (+3/+3) is newer: 6/6, then with five snow lands -5/-min(5, 5) = 1/1 (applied first it would end 1/4)."""
+    s = build(cards, ["Snowblind", "Hill Giant", "Giant Growth", *SNOWS, "Snow-Covered Forest"])
+    giant = put(s, "Hill Giant")
+    for n in (*SNOWS, "Snow-Covered Forest"):
+        put(s, n)
+    cast(s, "Snowblind", targets=[giant.id])
+    answer(s)
+    cast(s, "Giant Growth", targets=[giant.id])
+    answer(s)
+    assert pt(s, "Hill Giant") == (1, 1)
+    check(s)
+
+
+def test_snowblind_attacking_counts_the_defending_players_snow_lands(cards):
+    """Attacking Bob (3 snow lands) the Giant gets X = 3: -3/-2 -> 0/1; before and after combat X is Alice's (1)."""
+    s, giant = _snowblind(cards, bob_snow=3)
+    assert pt(s, "Hill Giant") == (2, 2)
+    next_turn(s)
+    act(s, "p1", type="set_stops", own=STEPS, others=STEPS, smart_pass=False)
+    until(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": giant.id, "target": "p2"}])
+    assert pt(s, "Hill Giant") == (0, 1)
     check(s)
