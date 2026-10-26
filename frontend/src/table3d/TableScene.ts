@@ -30,12 +30,14 @@ import {
   CARD_H, CARD_W, MAT_D, MAT_W, PILES, STRIP_X, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
   virtualToLocal, type PileZone, type Seat,
 } from "./layout";
-import { backCanvas, canvasTexture, labelCanvas, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
+import { backCanvas, canvasTexture, contactShadowTexture, labelCanvas, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
 
 export type Quality = "low" | "medium" | "high";
 export type CameraPreset = "seat" | "overview" | { focus: string };
 
-const THICK = 0.014;
+const THICK = 0.016;
+/** Cards drawn per pile at most (taller piles space them out). */
+const PILE_LAYERS = 48;
 const LIFT = 0.55;
 
 interface CardObj {
@@ -53,8 +55,13 @@ interface CardObj {
 }
 
 interface PileObj {
+  /** Invisible hit box for clicks and drops (sized to the pile). */
   block: THREE.Mesh;
   slot: THREE.Mesh;
+  /** The pile itself: real card bodies stacked with a little hand-squared jitter. */
+  layers: THREE.InstancedMesh;
+  /** The library's top card back. */
+  top: THREE.Mesh | null;
   count: number;
 }
 
@@ -81,6 +88,24 @@ function flatCardGeometry(w: number, h: number, r: number): THREE.ShapeGeometry 
   geo.rotateX(-Math.PI / 2);
   return geo;
 }
+
+/** How tall a pile of n cards stands (real card thickness, gently compressed for big piles). */
+function pileHeight(n: number): number {
+  return n <= 0 ? 0 : Math.min(n, 40) * THICK * 0.9 + Math.max(0, n - 40) * THICK * 0.35;
+}
+
+/** Deterministic per-layer jitter so a pile looks squared by hand, not machine-stacked. */
+function jitter(i: number, salt: number): number {
+  const x = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
+  return x - Math.floor(x) - 0.5;
+}
+
+const UP = new THREE.Vector3(0, 1, 0);
+const shadowPos = new THREE.Vector3();
+const shadowQ = new THREE.Quaternion();
+const shadowScale = new THREE.Vector3();
+const shadowM = new THREE.Matrix4();
+const shadowColor = new THREE.Color();
 
 function angleLerp(a: number, b: number, t: number): number {
   let d = (b - a) % (Math.PI * 2);
@@ -132,7 +157,9 @@ export class TableScene {
   private cardFaceGeo = flatCardGeometry(CARD_W, CARD_H, 0.05);
   private cardBodyGeo: THREE.ExtrudeGeometry;
   private glowGeo = flatCardGeometry(CARD_W + 0.12, CARD_H + 0.12, 0.09);
-  private bodyMat = new THREE.MeshStandardMaterial({ color: "#111", roughness: 0.6 });
+  /** Card stock: the pale core you see on a card's edge. */
+  private bodyMat = new THREE.MeshStandardMaterial({ color: "#cdc6b8", roughness: 0.78 });
+  private hitMat = new THREE.MeshBasicMaterial({ visible: false });
   private textures = new Map<string, THREE.Texture>();
   private materials = new Map<string, THREE.MeshStandardMaterial>();
   private loader = new THREE.TextureLoader();
@@ -141,6 +168,9 @@ export class TableScene {
   /** Every card's body (its thickness and shadow) in one draw call. */
   private bodies: THREE.InstancedMesh;
   private arrows = new THREE.Group();
+  /** A soft contact shadow under every card (one draw call), spreading as the card lifts. */
+  private shadows: THREE.InstancedMesh;
+  private shadowTex = contactShadowTexture();
   private arrowKey = "";
   /** Soft studio reflections for metal, lacquer and card gloss (a prefiltered room, no download). */
   private envMap: THREE.Texture;
@@ -170,14 +200,33 @@ export class TableScene {
     this.scene.environment = this.envMap;
     this.scene.environmentIntensity = 0.3;
     if (quality === "high") this.post = createPost(this.renderer, this.scene, this.camera);
-    const body = new THREE.ExtrudeGeometry(roundedRect(CARD_W, CARD_H, 0.05), { depth: THICK, bevelEnabled: false, curveSegments: 6 });
+    // a card body with a hair of bevel so its edge catches the light
+    const bevel = 0.004;
+    const body = new THREE.ExtrudeGeometry(roundedRect(CARD_W - bevel * 2, CARD_H - bevel * 2, 0.045), {
+      depth: THICK - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 6,
+    });
     body.rotateX(-Math.PI / 2);
+    body.translate(0, bevel, 0);
     this.cardBodyGeo = body;
     this.bodies = new THREE.InstancedMesh(body, this.bodyMat, 1024);
     this.bodies.castShadow = quality !== "low";
+    this.bodies.receiveShadow = quality !== "low";
     this.bodies.count = 0;
     this.bodies.frustumCulled = false;
-    this.world.add(this.bodies, this.arrows);
+    const shadowGeo = new THREE.PlaneGeometry(CARD_W * 1.55, CARD_H * 1.45);
+    shadowGeo.rotateX(-Math.PI / 2);
+    // per-instance strength rides in instanceColor.r (the shadow itself is always black)
+    const shadowMat = new THREE.MeshBasicMaterial({ color: "#fff", alphaMap: this.shadowTex, transparent: true, opacity: 0.9, depthWrite: false });
+    shadowMat.onBeforeCompile = (sh) => {
+      sh.fragmentShader = sh.fragmentShader.replace("#include <alphamap_fragment>", "#include <alphamap_fragment>\n diffuseColor.a *= diffuseColor.r;\n diffuseColor.rgb = vec3(0.0);");
+    };
+    shadowMat.customProgramCacheKey = () => "card-contact-shadow";
+    this.shadows = new THREE.InstancedMesh(shadowGeo, shadowMat, 1024);
+    this.shadows.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(1024 * 3).fill(1), 3);
+    this.shadows.count = 0;
+    this.shadows.frustumCulled = false;
+    this.shadows.renderOrder = -1;
+    this.world.add(this.bodies, this.shadows, this.arrows);
     this.scene.add(this.world);
     this.applyFog();
     this.bindInput();
@@ -277,6 +326,10 @@ export class TableScene {
     for (const t of this.textures.values()) t.dispose();
     for (const m of this.materials.values()) m.dispose();
     this.bodies.dispose();
+    this.shadows.geometry.dispose();
+    (this.shadows.material as THREE.Material).dispose();
+    this.shadows.dispose();
+    this.shadowTex.dispose();
     this.cardFaceGeo.dispose();
     this.cardBodyGeo.dispose();
     this.glowGeo.dispose();
@@ -311,7 +364,9 @@ export class TableScene {
     }
     this.mats.clear();
     for (const p of this.piles.values()) {
-      this.world.remove(p.block, p.slot);
+      this.world.remove(p.block, p.slot, p.layers);
+      if (p.top) this.world.remove(p.top);
+      p.layers.dispose();
       p.block.geometry.dispose();
       p.slot.geometry.dispose();
       (p.slot.material as THREE.MeshBasicMaterial).map?.dispose();
@@ -331,7 +386,7 @@ export class TableScene {
     const e = this.plane.env;
     for (const seat of this.seatList) {
       const color = this.view?.players.find((p) => p.id === seat.player)?.color ?? "#888";
-      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshBasicMaterial({ map: matTexture(e.inlay, this.plane.ui.accent, color), transparent: true, depthWrite: false }));
+      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(e.inlay, this.plane.ui.accent, color), transparent: true, depthWrite: false, roughness: 0.92 }));
       mat.rotation.x = -Math.PI / 2;
       mat.rotation.z = seat.rot;
       const [mx, mz] = toWorld(seat, 0, 0);
@@ -348,14 +403,25 @@ export class TableScene {
         slot.rotation.z = seat.rot;
         slot.position.set(wx, 0.003, wz);
         slot.userData = { pile: zone, player: seat.player };
-        const block = new THREE.Mesh(new THREE.BoxGeometry(CARD_W, 1, CARD_H), [this.bodyMat, this.bodyMat, this.backMaterial(seat.player), this.bodyMat, this.bodyMat, this.bodyMat]);
+        const block = new THREE.Mesh(new THREE.BoxGeometry(CARD_W, 1, CARD_H), this.hitMat);
         block.rotation.y = seat.rot;
         block.position.set(wx, 0, wz);
         block.visible = false;
-        block.castShadow = this.quality !== "low";
         block.userData = { pile: zone, player: seat.player };
-        this.world.add(slot, block);
-        this.piles.set(`${seat.player}:${zone}`, { block, slot, count: -1 });
+        const layers = new THREE.InstancedMesh(this.cardBodyGeo, this.bodyMat, PILE_LAYERS);
+        layers.count = 0;
+        layers.castShadow = layers.receiveShadow = this.quality !== "low";
+        layers.userData = { pile: zone, player: seat.player };
+        let top: THREE.Mesh | null = null;
+        if (zone === "library") {
+          top = new THREE.Mesh(this.cardFaceGeo, this.backMaterial(seat.player));
+          top.receiveShadow = this.quality !== "low";
+          top.visible = false;
+          top.userData = { pile: zone, player: seat.player };
+          this.world.add(top);
+        }
+        this.world.add(slot, block, layers);
+        this.piles.set(`${seat.player}:${zone}`, { block, slot, layers, top, count: -1 });
       }
     }
   }
@@ -409,7 +475,8 @@ export class TableScene {
       const imgFace = data.double_faced ? Math.min(vis.face ?? 0, data.image_faces - 1) : 0;
       tex = this.loadTexture(imageUrl(data.id, imgFace, this.quality === "low" ? "small" : "normal"), text);
     } else tex = text();
-    m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.5, metalness: 0 });
+    // printed card stock with a faint satin sheen from the room reflections
+    m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.42, metalness: 0, envMapIntensity: 0.7 });
     this.materials.set(key, m);
     return m;
   }
@@ -421,6 +488,7 @@ export class TableScene {
     const face = new THREE.Mesh(this.cardFaceGeo, this.bodyMat);
     face.position.y = THICK + 0.0008;
     face.userData = { card: id };
+    face.receiveShadow = this.quality !== "low";
     const glow = new THREE.Mesh(this.glowGeo, new THREE.MeshBasicMaterial({ color: "#fff", transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
     glow.position.y = -0.001;
     group.add(glow, face);
@@ -522,17 +590,15 @@ export class TableScene {
         const pile = this.piles.get(`${pid}:${zone}`);
         if (pile && pile.count !== count) {
           pile.count = count;
-          const h = Math.max(0.001, count * 0.012);
-          pile.block.visible = count > 0 && (zone === "library" || count > 1);
-          pile.block.scale.y = zone === "library" ? h : Math.max(0.001, (count - 1) * 0.012);
-          pile.block.position.y = pile.block.scale.y / 2;
+          // graveyard and exile draw their top card for real, so the stack below has one fewer
+          this.stackPile(seat, zone, pile, zone === "library" ? count : Math.max(0, count - 1));
         }
         if (zone !== "library" && Array.isArray(z) && z.length) {
           const top = z[z.length - 1]!;
           const c = show(top);
           if (c && seat) {
             const [lx, lz] = PILES[zone];
-            this.place(c, seat, lx, lz, (z.length - 1) * 0.012 + 0.004, 0);
+            this.place(c, seat, lx, lz, pileHeight(z.length - 1) + 0.002, 0);
             this.setBadge(c, "", "");
             this.setGlow(c, selection.has(top) ? this.plane.ui.select : null, 0.9);
           }
@@ -599,7 +665,7 @@ export class TableScene {
       if (a && b && a.distanceTo(b) >= 0.3) wanted.push([a, b, color]);
     };
     for (const c of Object.values(view.cards)) {
-      if (c.attacking) add(c.id, c.attacking.id, "#e0463c");
+      if (c.attacking) add(c.id, c.attacking.id, "#ff5a2a");
       if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff");
     }
     for (const ar of view.arrows ?? []) {
@@ -612,16 +678,10 @@ export class TableScene {
     this.arrowKey = key;
     for (const child of [...this.arrows.children]) {
       this.arrows.remove(child);
-      const m = child as THREE.Mesh;
-      m.geometry.dispose();
-      (m.material as THREE.Material).dispose();
+      (child.userData.dispose as () => void)();
     }
     const flow = !document.body.classList.contains("reduced-motion");
-    for (const [a, b, color] of wanted) {
-      const mid = a.clone().lerp(b, 0.5);
-      mid.y += 0.9 + a.distanceTo(b) * 0.1;
-      this.arrows.add(makeArrow(new THREE.QuadraticBezierCurve3(a, mid, b), { color, flow }));
-    }
+    for (const [a, b, color] of wanted) this.arrows.add(makeArrow(a, b, { color, flow }));
   }
 
   private syncHandFan(seat: Seat, count: number): void {
@@ -644,6 +704,35 @@ export class TableScene {
     fan.rotation.y = seat.rot + Math.PI;
     this.world.add(fan);
     this.handFans.set(seat.player, fan);
+  }
+
+  /** Lay out a pile's card bodies (and the library's top back) for n cards. */
+  private stackPile(seat: Seat, zone: PileZone, pile: PileObj, n: number): void {
+    const [lx, lz] = PILES[zone];
+    const [wx, wz] = toWorld(seat, lx, lz);
+    const h = pileHeight(n);
+    const shown = Math.min(n, PILE_LAYERS);
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const up = new THREE.Vector3(0, 1, 0);
+    const one = new THREE.Vector3(1, 1, 1);
+    const salt = zone.length + seat.rot;
+    for (let i = 0; i < shown; i++) {
+      const y = shown <= 1 ? 0 : (i / shown) * h;
+      q.setFromAxisAngle(up, seat.rot + jitter(i, salt) * 0.035);
+      m.compose(new THREE.Vector3(wx + jitter(i, salt + 1) * 0.02, y, wz + jitter(i, salt + 2) * 0.02), q, one);
+      pile.layers.setMatrixAt(i, m);
+    }
+    pile.layers.count = shown;
+    pile.layers.instanceMatrix.needsUpdate = true;
+    pile.layers.computeBoundingSphere();
+    pile.block.scale.y = Math.max(0.06, h + THICK);
+    pile.block.position.y = pile.block.scale.y / 2;
+    if (pile.top) {
+      pile.top.visible = n > 0;
+      pile.top.position.set(wx, (shown <= 1 ? 0 : ((shown - 1) / shown) * h) + THICK + 0.0008, wz);
+      pile.top.rotation.y = seat.rot;
+    }
   }
 
   private legalColor(view: GameView, id: string): string | null {
@@ -716,7 +805,7 @@ export class TableScene {
     this.ray.setFromCamera(this.pointer(clientX, clientY), this.camera);
     const targets: THREE.Object3D[] = [];
     for (const c of this.cards.values()) if (!this.drag?.ids.includes(c.id)) targets.push(c.face);
-    for (const p of this.piles.values()) targets.push(p.block, p.slot);
+    for (const p of this.piles.values()) targets.push(p.block, p.slot, ...(p.top?.visible ? [p.top] : []));
     const hits = this.ray.intersectObjects(targets, false);
     const hit = hits[0];
     if (!hit) return null;
@@ -892,11 +981,25 @@ export class TableScene {
       c.group.rotation.x += (c.tilt - c.group.rotation.x) * k;
       if (n < 1024) {
         c.group.updateMatrix();
-        this.bodies.setMatrixAt(n++, c.group.matrix);
+        this.bodies.setMatrixAt(n, c.group.matrix);
+        // the shadow sits on the table, offset away from the key light and softer as the card rises
+        const lift = Math.max(0, c.group.position.y);
+        const spread = 1 + Math.min(lift, 1.2) * 0.55;
+        shadowPos.set(c.group.position.x + 0.05 + lift * 0.2, 0.0025, c.group.position.z + 0.08 + lift * 0.3);
+        shadowQ.setFromAxisAngle(UP, c.group.rotation.y);
+        shadowScale.set(spread, 1, spread);
+        shadowM.compose(shadowPos, shadowQ, shadowScale);
+        this.shadows.setMatrixAt(n, shadowM);
+        const strength = 1 / (1 + lift * 2.5);
+        shadowColor.setRGB(strength, strength, strength);
+        this.shadows.setColorAt(n++, shadowColor);
       }
     }
     this.bodies.count = n;
     this.bodies.instanceMatrix.needsUpdate = true;
+    this.shadows.count = n;
+    this.shadows.instanceMatrix.needsUpdate = true;
+    if (this.shadows.instanceColor) this.shadows.instanceColor.needsUpdate = true;
     const kc = 1 - Math.exp(-dt * 5);
     this.camPos.lerp(this.camGoalPos, kc);
     this.camLook.lerp(this.camGoalLook, kc);

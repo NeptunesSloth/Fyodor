@@ -387,4 +387,23 @@ export function labelCanvas(text: string, bg: string, fg = "#fff"): HTMLCanvasEl
   return c;
 }
 
+/** A soft blurred rounded-rect shadow for under a card: an alpha map (three reads its green channel). */
+export function contactShadowTexture(): THREE.CanvasTexture {
+  const W = 128;
+  const H = 168;
+  const [c, g] = canvas(W, H);
+  g.fillStyle = "#000";
+  g.fillRect(0, 0, W, H);
+  // a soft ramp from nested translucent rounded rects (no reliance on canvas blur support)
+  const steps = 16;
+  for (let i = 0; i < steps; i++) {
+    g.fillStyle = `rgba(255, 255, 255, ${0.12 + i * 0.01})`;
+    const inset = 4 + i * 1.6;
+    roundRect(g, inset, inset, W - inset * 2, H - inset * 2, 16);
+    g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  return t;
+}
+
 export { texture as canvasTexture };
