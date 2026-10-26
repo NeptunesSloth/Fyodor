@@ -18,6 +18,8 @@ PURSUIT = ("When this enchantment enters, suspect target creature an opponent co
             "that creature is also goaded.")
 PURSUIT2 = ("At the beginning of combat on your turn, if two or more players have lost the game, gain control of all goaded and/or suspected "
              "creatures until end of turn. Untap them. They gain haste until end of turn.")
+OBLIG = ("Return target creature card from an opponent's graveyard to the battlefield under their control with a duty counter on it. For as long as that "
+         "creature has a duty counter on it, it is goaded, can't attack you or a permanent you control, and can't block creatures you control.")
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -36,6 +38,18 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             d["effects"] = [{"do": "only_if", "cond": cond, "skip": len(d["effects"])},
                             {**d["effects"][0], "who": d["effects"][0]["who"].replace('"goaded"', '"goaded_or_suspected"')}, *d["effects"][1:]]
             d["if"] = cond
+        return d
+    if ability.kind == "spell" and ability.text.split(" (")[0] == OBLIG:  # 611.2b: all three last while it has a duty counter; "you" is the spell's controller
+        from app.rules import selectors
+
+        d = scripts.define(replace(ability, text="Return target creature card from an opponent's graveyard to the battlefield under its owner's control "
+                                                 "with a duty counter on it."), ch)
+        if d is not None:
+            mine = selectors.Selector(types=("Creature",), controller="player:@you").key()
+            d["effects"][0]["as"] = "duty110d"  # (400.7: "that creature" is the new object)
+            d["effects"] += [{"do": "until", "duration": "while_counter:duty", "n": 3}, {"do": "goad", "who": "ref:duty110d"},
+                             {"do": "restrict", "who": "ref:duty110d", "rules": ["cant_attack_player_pw:@you"], "locked": True},
+                             {"do": "restrict", "who": "ref:duty110d", "rules": ["cant_block_sel:" + mine], "locked": True}]
         return d
     if ability.text == PARK:  # per_opponent.py reads "that player controls" (115.1: one group per opponent); 611.2b duration
         return scripts.define(replace(ability, text=PARK.replace(" they control", " that player controls").replace("this Saga", "~")), ch)
