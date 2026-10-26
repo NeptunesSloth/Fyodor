@@ -185,9 +185,41 @@ _HERALD = ("Return any number of Aura cards from your graveyard to the battlefie
 _DRAIN = "Target player activates a mana ability of each land they control. Then that player loses all unspent mana and you add the mana lost this way."
 
 
+_JUDGMENT = ("~ deals 2 damage divided as you choose among any number of targets. If this spell's madness cost was paid, it deals X damage divided as you "
+             "choose among those permanents and/or players instead.")
+
+
+def _judgment() -> Any:
+    """Avacyn's Judgment: the targets and the total divided depend on the madness cost (601.2c-d, 702.35): one group per case, the other has no targets
+    (kicked_instead.applicable reads a madness cast as the "kicked" case)."""
+    from app.rules import scripts
+
+    a, b = scripts.parse_effects("~ deals 2 damage divided as you choose among any number of targets."), scripts.parse_effects("~ deals X damage divided as you choose among any number of targets.")
+    if a is None or b is None:
+        return None
+    madness = {"object": "self", "cast": {"alt": "madness"}}
+    big = {**b[0][0], "who": "target:1", "n": {"divided": 1}}
+    return ([{"do": "only_if", "cond": {"not": madness}, "skip": 1}, a[0][0], {"do": "only_if", "cond": madness, "skip": 1}, big],
+            [{**a[1][0], "kicked": False}, {**b[1][0], "kicked": True}], False)
+
+
+_JACE = "Until end of turn, you may activate loyalty abilities of Jace planeswalkers you control on any player's turn any time you could cast an instant."
+
+
+def jace_instant(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Jace's Machinations: a turn mark, read by cast_limits.loyalty_rule (606.3 timing lifted for the controller's Jace planeswalkers)."""
+    plan.rules.once_per_turn[f"loyalty_jace110g:{ctx['controller']}"] = plan.state.turn.number
+    return True
+
+
 def parse(body: str) -> Any:
     """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
     from app.rules import scripts
+
+    if body.strip() == _JACE:
+        return [{"do": "jace_instant110g"}], None, False
+    if body.strip() == _JUDGMENT:
+        return _judgment()
 
     if body.strip()[:1].upper() + body.strip()[1:] == _HERALD:  # Storm Herald: chosen as it resolves (608.2d, not targets); each Aura picks its own creature (303.4f), the exile rider is the grammar's
         got = scripts.parse_effects("Return target Aura card from your graveyard to the battlefield attached to a creature you control. Exile it at the beginning of your next end step. "
@@ -971,9 +1003,40 @@ _MAZE = ("Whenever another creature becomes the target of an ability of a land y
          "you may have this creature fight that creature.")
 
 
+_ROBBER = ('This creature escapes with "Whenever this creature deals combat damage to a player, you may cast an artifact, instant, or sorcery spell from among cards '
+           'exiled with this creature without paying its mana cost."')
+
+
+def robber_bind(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Skyway Robber: the cards exiled by the escape cost of this very escape (607.2a link by the ruling of 2022-04-29; 400.7j the objects they became), still in exile."""
+    from app.rules import context
+
+    record = plan.rules.payments.get(ctx.get("source_object") or "")
+    found = [oid.rsplit(".", 1)[0] for oid in (record.exiled_objects if record is not None else [])
+             if oid.rsplit(".", 1)[0] in plan.state.cards and plan.state.cards[oid.rsplit(".", 1)[0]].zone.endswith(":exile")
+             and plan.oid(oid.rsplit(".", 1)[0]) == oid]
+    context.bind_objects(plan, ctx, e["as"], found)
+    return True
+
+
+def _robber(ch: Any, ability: Any) -> Def | None:
+    """702.138c: "escapes with" a quoted ability: the permanent has the trigger only if it escaped (cond "it escaped"); the free cast is from the cards its escape cost exiled."""
+    from app.rules import conditions, permissions, scripts
+
+    native = scripts.define(replace(ability, text="Whenever this creature deals combat damage to a player, you may draw a card."), ch)
+    key = permissions.spell_filter("artifact, instant, or sorcery")
+    cond = conditions.parse("it escaped")
+    if native is None or key is None or cond is None:
+        return None
+    return {**native, "if": cond, "effects": [{"do": "robber_bind110g", "as": "robber110g"},
+                                              {"do": "free_cast", "zone": "ref", "who": "ref:robber110g", "filter": key, "optional": True, "mv": None, "n": 1}]}
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts, selectors
 
+    if ability.text.strip() == _ROBBER:
+        return _robber(ch, ability)
     if ability.text.strip() == _STICKER_KICKER:  # Wicker Picker: the grant itself is read by sticker_kicker via cast_limits' spell_helper table
         from app.rules import cast_limits
 
@@ -1578,7 +1641,7 @@ def bind_linked(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"return_self110g": return_self, "keep_entered110g": keep_entered, "boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"jace_instant110g": jace_instant, "robber_bind110g": robber_bind, "return_self110g": return_self, "keep_entered110g": keep_entered, "boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted, "bind_linked110g": bind_linked}
 RESUME: dict[str, Any] = {"boe110g": resume_boe, "hippo110g": resume_hippo, "river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

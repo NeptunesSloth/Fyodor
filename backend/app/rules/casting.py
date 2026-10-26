@@ -820,7 +820,8 @@ def choose_targets(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: d
 
         specs = kicked_instead.applicable(specs, a.kicker or int(a.awaken) or int(f"{a.card_id}:gift" in a.optional_costs) or int(f"{a.card_id}:bargain" in a.optional_costs)
                                           or int(f"{a.card_id}:teamwork" in a.optional_costs)
-                                          or int(any(f"{a.card_id}:{g['optional']}" in a.optional_costs for g in specs if "optional" in g)))  # (wave 110E: Hulk's Thunderclap)  # (awaken: wave 16B; bargain: 30E; teamwork: wave 100K, aslongas100k.TEAMWORK;
+                                          or int(any(f"{a.card_id}:{g['optional']}" in a.optional_costs for g in specs if "optional" in g))
+                                          or int(a.free and a.card_id in plan.rules.alt_costs and a.card_id not in plan.rules.miracled))  # (wave 110G: madness, Avacyn's Judgment)  # (wave 110E: Hulk's Thunderclap)  # (awaken: wave 16B; bargain: 30E; teamwork: wave 100K, aslongas100k.TEAMWORK;
         # gift: wave 23D, 702.174m: the targets only a promised spell chooses)
     from app.rules import flagbearer86
 
@@ -5855,18 +5856,29 @@ def _variable_ability_matching(state: GameState, card: CardInstance, ch: Charact
     return cost
 
 
+def _free_power_up(state: GameState | None, card: CardInstance | None, ability: AbilityText, info: CardInfo | None, actor: str | None) -> bool:
+    """118.9, 602.2b: a static lets the actor pay {0} rather than the power-up cost of their first power-up activation this turn."""
+    if state is None or card is None or info is None or state.rules is None or not ability.text.startswith("Power-up — "):
+        return False
+    from app.rules import cast_limits
+
+    who = actor or card.controller
+    return cast_limits.first_alt(state, who, "power_up", info, first=state.rules.once_per_turn.get(f"activated:{who}:power_up") != state.turn.number)
+
+
 def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState | None = None,
                  card: CardInstance | None = None, info: CardInfo | None = None, target: str | None = None,
                  targets: tuple[str, ...] | None = None, actor: str | None = None) -> AbilityCost:
     from app.rules import activation_alternatives, hybrid_power_up71
 
-    if (branches71 := hybrid_power_up71.alternatives(state, card, ch, ability)) is not None:
+    free_power_up = _free_power_up(state, card, ability, info, actor)  # -- power-up (wave 110G) -- Advancing the Spirit: {0} rather than the power-up cost
+    if not free_power_up and (branches71 := hybrid_power_up71.alternatives(state, card, ch, ability)) is not None:
         return AbilityCost(either=tuple(ability_cost(ch, branch, state=state, card=card, info=info, target=target, targets=targets, actor=actor)
                                        for branch in branches71))
     if (sides := activation_alternatives.sides(ability.cost or "")) is not None:
         return AbilityCost(either=tuple(ability_cost(ch, activation_alternatives.with_cost(ability, side),
                            state=state, card=card, info=info, target=target, targets=targets, actor=actor) for side in sides))
-    cost = parse_ability_cost(ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
+    cost = parse_ability_cost("" if free_power_up else ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
     if state is not None and card is not None and any(c.amount_rule == "opponents" for c in cost.components):
         from app.rules.plan import live_players
 
@@ -6473,6 +6485,8 @@ def _post_activation(plan: Plan, data: _PostActivation, paid: M.Payment | None) 
     first_target_activation_cost58.record(plan, data.targets_controlled_creature)
     if ability.special == "equip":  # -- first activation (wave 48D) --
         _activated(plan, "equip")
+    elif ability.text.startswith("Power-up — "):  # (wave 110G) Advancing the Spirit
+        _activated(plan, "power_up")
     if ability_id:  # -- activation (wave 11F) -- 602.2: "Whenever a player activates an ability …"
         from app.rules.triggers import activated
 
