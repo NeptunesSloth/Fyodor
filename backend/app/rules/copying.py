@@ -2197,7 +2197,10 @@ def define_static(text: str) -> dict[str, Any] | None:
     what = what.removesuffix(_MV_SPENT_TEXT).removesuffix(" on the battlefield")
     sel = selectors.parse(what)
     # (wave 24A: or a card in a graveyard — "any creature card in a graveyard", Body Double: public, its printed values, 707.2)
-    if sel is None or sel.player is not None or sel.other or sel.zones not in (("battlefield",), ("graveyard",)) \
+    master110k = what.removeprefix("a ") == "creature card in exile with a takeover counter on it"  # -- (wave 110K) -- The Master, Formed Anew: the cards its Body Thief exiled
+    if master110k and sel is not None and sel.zones == ("exile",) and sel.card:
+        pass
+    elif sel is None or sel.player is not None or sel.other or sel.zones not in (("battlefield",), ("graveyard",)) \
             or sel.card != (sel.zones == ("graveyard",)):
         return None
     # -- enter as copy (wave 5F) -- any permanent ("nonland permanent", "artifact or enchantment", "Equipment"): an Aura

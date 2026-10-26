@@ -765,7 +765,7 @@ class ContinuousEffect(BaseModel):
     counter_since_batch: int = 0  # while-counter durations ignore earlier zero-counter events
     duration: Literal["end_of_turn", "permanent", "next_turn", "end_of_next_turn", "source_on_battlefield", "source_controlled",
                       "source_tapped", "source_controlled_tapped", "while_counter", "end_of_combat", "until_cast", "while_enchanted",
-                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
+                      "next_upkeep", "monarch_player", "end_of_next_upkeep110g", "attached110n", "source_tapped_power110k"] = "end_of_turn"  # (next_upkeep: wave 100A, "until your next upkeep" — delayed.at_step)
     until_object: str | None = None  # -- as long as (wave 37A) -- until_cast: the object (in exile) whose being cast ends the effect (delayed.spell_cast)
     counter: str | None = None  # while_counter: the kind of counter
     until_player: str | None = None  # next_turn: whose next turn; source_controlled: who must control the source
@@ -1664,6 +1664,8 @@ class RulesState(BaseModel):
     prepared: dict[str, str] = Field(default_factory=dict)  # -- prepared (wave 13C, 722.3) -- permanent's rules object -> its copy in exile
     phase_lifetimes: list[PhaseLifetime] = Field(default_factory=list)
     phase_holds110k: list[PhaseHold110K] = Field(default_factory=list)  # -- wave 110K --
+    no_regen_sources110k: list[str] = Field(default_factory=list)  # -- wave 110K -- Runesword: the objects whose damage this turn makes a creature unable to regenerate
+    damaged_players110k: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110K -- source object -> the players it has dealt damage to (Diseased Vermin)
     damaged: dict[str, int] = Field(default_factory=dict)  # player -> last turn they were dealt damage (bloodthirst)
     echo_done: list[str] = Field(default_factory=list)  # "<object>:<controller>" whose echo upkeep came
     flashback: list[str] = Field(default_factory=list)  # stack objects cast with flashback (exiled as they leave)

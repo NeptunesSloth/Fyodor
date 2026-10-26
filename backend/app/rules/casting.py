@@ -5904,6 +5904,8 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
                                                                  or "Activate only if this card is in your graveyard" in ability.text):
         cost = replace(cost, graveyard_only=True,  # (review 20E: Glory's "Activate only if this card is in your graveyard.", 113.6m)
                        exile_too=_GRAVEYARD_OR_EXILE.match(ability.text.split(":", 1)[1].strip().replace(ch.name, "~")) is not None)  # (wave 42C)
+    if ability.kind == "activated" and ability.text.endswith(f"Activate only if {ch.name} is on the battlefield or in your graveyard."):
+        cost = replace(cost, graveyard_only=True, battlefield_too110k=True)  # -- (wave 110K) -- Skyblade's Boon: either zone, 113.6m
     if ability.kind == "activated" and "Activate only if this card is suspended." in ability.text:
         cost = replace(cost, graveyard_only=True, exile_too=True)
     # -- activated from hand / command zone (wave 27D) -- 113.6m: "Put this card from your hand onto the battlefield" / "Put ~ onto the
@@ -5964,6 +5966,9 @@ def ability_problem(state: GameState, player: str, card: CardInstance, ch: Chara
     elif cost.command_only:  # -- activated from hand / command zone (wave 27D) -- 113.6m
         if card.zone != zone_key(player, "command") or card.owner != player:
             return "That ability can only be activated from the command zone"
+    elif cost.from_graveyard and cost.battlefield_too110k:  # -- (wave 110K) -- Skyblade's Boon: on the battlefield, or in its owner's graveyard
+        if card.zone != zone_key(player, "battlefield") and (card.zone != zone_key(player, "graveyard") or card.owner != player):
+            return "That ability can only be activated while it is on the battlefield or in your graveyard"
     elif cost.from_graveyard:  # 113.6m: its cost moves it out of your graveyard, so it works only there
         if card.zone not in ((zone_key(player, "graveyard"), zone_key(player, "exile")) if cost.exile_too else (zone_key(player, "graveyard"),)) \
                 or card.owner != player:  # (-- activated other (wave 42C) -- or from exile, where the text says so)

@@ -947,6 +947,7 @@ def turn_cleanup(plan: Plan) -> None:
     )
 
     wave110k_cards.end_of_turn(plan)
+    plan.rules.no_regen_sources110k = []  # (wave 110K) Runesword's rule ends with the turn
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
     plan.rules.regeneration_riders = []
     plan.rules.no_regen = []  # (wave 19E) and so does "can't be regenerated this turn"

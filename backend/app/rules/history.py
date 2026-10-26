@@ -326,6 +326,8 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
             elif kind == "dealt_damage" and obj is None and info.get("recipient"):  # a player was dealt damage (120.3)
                 log.facts.append(TurnFact(kind="damage", player=info["recipient"], amount=int(info.get("amount") or 0),
                                           combat=bool(info.get("combat")), object_id=info.get("source_oid"), batch=e.batch))  # (wave 39B: batch)
+                if int(info.get("amount") or 0) > 0 and info.get("source_oid") and info["recipient"] not in (seen := plan.rules.damaged_players110k.setdefault(info["source_oid"], [])):
+                    seen.append(info["recipient"])  # -- (wave 110K) -- "target opponent previously dealt damage by it" (Diseased Vermin): for good, by the object
             elif kind == "dealt_damage" and obj is not None and info.get("oid") and int(info.get("amount") or 0) > 0:
                 # -- damage history (wave 6B) -- a permanent was dealt damage (120.3): "creature that was dealt damage
                 # this turn", "creature that dealt damage this turn" (app/rules/damage_history.py)
@@ -699,6 +701,8 @@ def _object_history(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any], log: 
     elif what == "damaged_by":  # -- trigger damage (wave 39B) -- a Giant, Wizard or spell you controlled dealt it damage (the source as it was, 608.2i)
         got = any(f.kind == "damaged" and f.object_id in ids and f.amount > 0 and f.source_controller == ctx["controller"]
                   and ((cond.get("spell") and f.source_spell) or set(cond.get("subtypes", ())) & set(f.source_subtypes)) for f in log.facts)
+    elif what == "dealt_total110k":  # -- (wave 110K) -- the damage it dealt this turn to players and to objects together
+        got = total("damage", lambda f: f.object_id in ids) + total("damaged", lambda f: f.source in ids) >= n
     elif what == "dealt_creature":  # -- commanders (wave 47A) -- it dealt damage (more than 0, 120.3) to a creature other than itself, as that creature was
         got = any(f.kind == "damaged" and f.source in ids and f.amount > 0 and f.object_id not in ids and "Creature" in f.types for f in log.facts)
     elif what == "dealt_player":

@@ -2308,6 +2308,8 @@ def matches_player(plan: Plan, sel: Selector, pid: str, you: str, *, source_obje
 
         if log_for(plan).lost.get(pid, 0) <= 0:
             return False
+    if "previously_damaged110k" in sel.extras and pid not in plan.rules.damaged_players110k.get(source_object or "", []):
+        return False  # -- (wave 110K) -- "target opponent previously dealt damage by it" (Diseased Vermin)
     if sel.damaged_by_source_this_turn:
         from app.rules.history import log_for
 

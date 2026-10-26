@@ -122,7 +122,7 @@ TRIGGERS = [
                 r"enchantment)'s controller|combat on (?P<cwhose>your|each opponent's|each player's) turn|(?P<each_combat>each combat)), "
                 r"(?P<body>.+)$"), "step"),
     # -- combat history (wave 31D) -- 511.2: "At end of combat, …" triggers as the end of combat step begins (a permanent's step trigger)
-    (re.compile(r"^At end of combat(?P<mine> on your turn)?, (?P<body>.+)$"), "end_combat_step"),
+    (re.compile(r"^At (?:the )?end of combat(?P<mine> on your turn)?, (?P<body>.+)$"), "end_combat_step"),  # (-- wave 110K -- "At the end of combat on your turn": only Sidequest: Play Blitzball has it)
     (re.compile(r"^Whenever you cast (?P<filter>a spell|a creature spell|a noncreature spell|an instant or sorcery spell|"
                 r"an artifact spell|an enchantment spell), (?P<body>.+)$"), "cast_you"),
     # -- cast triggers (wave 6D) -- "When you cast this spell, …" (603.2, 601.2i: it triggers from the stack)
