@@ -28,3 +28,4 @@
 - Apocalypse Chime, Golgothian Sylex: "name originally printed in the X expansion" needs set membership data.
 - Bomb Squad: state trigger "a creature has four or more fuse counters" with "that creature"; no CR rule or ruling found for several creatures reaching four at once (603.8 covers one state, not one per object). Needs the ruling before building a per-object state trigger.
 - Paliano, the High City: "chosen as you drafted cards named Paliano" depends on draft history that a Commander game does not have; stays manual (no CR rule, no ruling).
+- Bomb Squad (demoted, s9): "Whenever a creature has four or more fuse counters on it" is a state trigger (603.8). A "counters put on" rewrite differs: no trigger if Bomb Squad enters while a creature already has 4+, and a second trigger for a 5th counter put while the first is on the stack. No ruling for two creatures at 4+ at once ("that creature"). Needs a per-creature state trigger plus that ruling.

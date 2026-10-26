@@ -513,10 +513,6 @@ _BUILD["{2}{W}, {T}: Return all exiled cards with aegis counters on them to the 
     "{2}{W}, {T}: Return all cards from exile to the battlefield under their owners' control.", _livio_return)
 
 
-_BUILD["Whenever a creature has four or more fuse counters on it, remove all fuse counters from it and destroy it. That creature deals 4 damage to its controller."] = (
-    "Whenever one or more fuse counters are put on a creature, if it has four or more fuse counters on it, remove all fuse counters from it and destroy it. It deals 4 damage to its controller.", lambda d: d)
-
-
 _READING: set[str] = set()
 
 
@@ -608,3 +604,46 @@ def counter_names(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES["counter_names110j"] = counter_names
+
+
+# -- Turf War (wave 110J) -- 613.1b control change; the creature's controller (not Turf War's) chooses the land (608.2d, "of their choice"), 701.26 untap
+_TURF = ("Whenever a creature deals combat damage to a player, if that player controls one or more lands with contested counters on them, "
+         "that creature's controller gains control of one of those lands of their choice and untaps it.")
+_BUILD[_TURF] = ("Whenever a creature deals combat damage to a player, if that player controls a land with a contested counter on it, you draw a card.",
+                 lambda d: {**d, "effects": [{"do": "turf110j"}]})
+
+
+def _turf_take(plan: Any, ctx: Any, land: str, who: str) -> None:
+    from app.rules import effects
+
+    effects.PRIMITIVES["gain_control"](plan, ctx, {"do": "gain_control", "who": f"object:{plan.oid(land)}", "to": f"player:{who}", "untap": True})
+
+
+def turf(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.rules import context
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    found, hit = context.info(plan, ctx, context.EVENT), next(iter((ctx.get("event") or {}).get("players") or []), None)
+    lands = [c.id for c in plan.state.cards.values() if found and c.zone.endswith(":battlefield") and c.controller == hit
+             and "Land" in plan.ch(c).types and c.counters.get("contested")]
+    if not lands:
+        return True
+    who = found[0].controller
+    if len(lands) > 1:
+        decide(plan, player=who, kind="choose_cards", prompt="Gain control of one of the lands with contested counters", min_choices=1, max_choices=1,
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "a land", card_id=c) for c in lands], resume={"step": "turf110j", "ctx": ctx, "who": who})
+        return False
+    _turf_take(plan, ctx, lands[0], who)
+    return True
+
+
+def resume_turf(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    _turf_take(plan, d.resume["ctx"], chosen[0], d.resume["who"])
+    continue_effects(plan, d.resume["ctx"])
+
+
+PRIMITIVES["turf110j"] = turf
+RESUME: dict[str, Any] = {"turf110j": resume_turf}

@@ -84,20 +84,6 @@ def test_rasputin_cap_trims_a_doubled_enters_with(cards):
     check(s)
 
 
-@pytest.mark.parametrize(("fuses", "dies"), [(3, True), (2, False)])
-def test_bomb_squad_blows_up_at_four_fuse_counters(cards, fuses, dies):
-    """603.4, 701.8: the upkeep counter makes four; the creature loses them all, is destroyed and deals 4 damage to its controller."""
-    s = build(cards, ["Bomb Squad", "Templar Knight"])
-    put_new(s, "Bomb Squad")
-    bear = put_new(s, "Templar Knight")
-    act(s, "p1", type="counter", card_ids=[bear.id], kind="fuse", delta=fuses)
-    to_phase(s, "upkeep", turn=3)
-    settle(s)
-    assert (now(s, bear).zone == "p1:graveyard") is dies
-    assert life(s, "p1") == (36 if dies else 40) and now(s, bear).counters.get("fuse", 0) == (0 if dies else fuses + 1)
-    check(s)
-
-
 def test_manor_gargoyle_is_indestructible_only_while_it_has_defender(cards):
     """611.3a, 613.8: indestructible while defender; {1} until end of turn removes defender (and so indestructible) and grants flying, back at the next turn."""
     s = build(cards, ["Manor Gargoyle"])
