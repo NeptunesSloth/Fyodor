@@ -21,9 +21,7 @@
   you control (601.2f: counted after the targets are chosen, 601.2c).
 * Leori, Sparktouched Hunter: the chosen planeswalker type (205.3j) makes the delayed trigger copy each ability its controller activates of a planeswalker of that type until end of turn (707.10, 603.7); the copy
   changes no loyalty (rulings 2023-07-28), planeswalkers of other types are not copied.
-* Quicksilver Elemental: "gains all activated abilities of target creature until end of turn" (113.10, 611.2a: the abilities it has at resolution, written for "this permanent"), and its own abilities may
-  be paid with blue mana as though it were mana of any color (609.4b).
-* Grell Philosopher: each Horror you control gains all activated abilities of the target artifact an opponent controls; those abilities (only) may be paid with blue mana as though any color.
+* Quicksilver Elemental, Grell Philosopher: demoted to PARTIAL (wave 110D research: rulings silent on abilities the target gains later and on the target leaving; 611.2c does not settle it).
 * Panglacial Wurm: while you search your own library you may cast it from there, paying its mana cost (601.3, 608.2g); the cast comes before any card is found, the search then goes on and the Wurm waits on the
   stack above the search (rulings 2006-07-15); declining or a search of someone else's library offers nothing.
 * Shaman's Trance: the other players can't play lands or cast spells from their graveyards this turn (101.2); the caster may play lands and cast spells from other players' graveyards, and those cards count as in
@@ -741,80 +739,16 @@ def test_leori_copies_planeswalker_abilities_of_the_chosen_type_only(cards, pw_t
 QUICK = real("Quicksilver Elemental", "{3}{U}{U}", 5, "Creature \u2014 Elemental",
              "{U}: This creature gains all activated abilities of target creature until end of turn. (If any of the abilities use that creature's name, use this creature's name instead.)\n"
              "You may spend blue mana as though it were mana of any color to pay the activation costs of this creature's abilities.", ("3", "4"), "U")
-SORC = real("Prodigal Sorcerer", "{2}{U}", 3, "Creature \u2014 Human Wizard Sorcerer", "{T}: This creature deals 1 damage to any target.", ("1", "1"), "U")
-SHIVAN = real("Shivan Dragon", "{4}{R}{R}", 6, "Creature \u2014 Dragon", "Flying\n{R}: This creature gets +1/+0 until end of turn.", ("5", "5"), "R")
 GRELL = real("Grell Philosopher", "{2}{U}", 3, "Creature \u2014 Horror Wizard",
              "Aberrant Tinkering \u2014 When this creature enters and at the beginning of your upkeep, each Horror you control gains all activated abilities of target artifact an opponent controls until end of turn. "
              "You may spend blue mana as though it were mana of any color to activate those abilities.", ("1", "4"), "U")
-SPELLBOMB = real("Pyrite Spellbomb", "{0}", 0, "Artifact", "{R}, Sacrifice this artifact: This artifact deals 2 damage to any target.\n{1}, Sacrifice this artifact: Draw a card.", None)
-base.EXTRA.extend([QUICK, SORC, SHIVAN, GRELL, SPELLBOMB])
+base.EXTRA.extend([QUICK, GRELL])
 
 
-def test_quicksilver_and_grell_full(cards):
+def test_quicksilver_and_grell_stay_partial(cards):
+    """Demoted (wave 110D research): rulings are silent on abilities the target gains later and on the target leaving; CR 611.2c does not settle it."""
     for n in ("Quicksilver Elemental", "Grell Philosopher"):
-        assert coverage.of_card_data(cards.resolve(n)).level == "FULL"
-
-
-def _activated(s, card, needle, pid="p1"):
-    from app.rules.plan import Plan
-
-    return next(a.index for a in Plan(s.state, pid, s.cards, None).ch(s.state.cards[card.id]).abilities if a.kind == "activated" and needle in a.text)
-
-
-def test_quicksilver_gains_the_activated_abilities_of_the_target_and_pays_with_blue(cards):
-    from app.rules.plan import Plan
-    from tests.wave9c_kit import life, pt
-
-    s = build(cards, ["Quicksilver Elemental"], ["Prodigal Sorcerer", "Shivan Dragon"])
-    q = put(s, "Quicksilver Elemental")
-    s.state.rules.controlled_since[q.id].turn = 0
-    sorc, dragon = put(s, "Prodigal Sorcerer", "p2"), put(s, "Shivan Dragon", "p2")
-    mana(s, U=1)
-    act(s, "p1", type="activate_ability", card_id=q.id, ability=_activated(s, q, "gains all activated"), targets=[sorc.id])
-    answer(s)
-    ping = _activated(s, q, "deals 1 damage")  # "This creature" became Quicksilver Elemental
-    act(s, "p1", type="activate_ability", card_id=q.id, ability=ping, targets=["p2"])
-    answer(s)
-    assert life(s, "p2") == 39 and s.state.cards[q.id].tapped
-    mana(s, U=1)
-    act(s, "p1", type="activate_ability", card_id=q.id, ability=_activated(s, q, "gains all activated"), targets=[dragon.id])
-    answer(s)
-    pump = _activated(s, q, "gets +1/+0")
-    mana(s, G=1)
-    with pytest.raises(ActionError):  # green mana is not blue mana
-        act(s, "p1", type="activate_ability", card_id=q.id, ability=pump)
-    mana(s, U=1)  # blue mana pays {R}
-    act(s, "p1", type="activate_ability", card_id=q.id, ability=pump)
-    answer(s)
-    assert pt(s, "Quicksilver Elemental")[0] == 4
-    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[q.id]).abilities
-    check(s)
-
-
-def test_grell_gives_horrors_the_abilities_of_an_opponents_artifact_payable_with_blue(cards):
-    from tests.wave9c_kit import life
-
-    s = build(cards, ["Grell Philosopher"], ["Pyrite Spellbomb"])
-    bomb = put(s, "Pyrite Spellbomb", "p2")
-    mana(s, U=1, C=2)
-    grell = cast_card(s, "Grell Philosopher")
-    for _ in range(12):
-        d = s.state.rules.decision
-        if d is not None:
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((o.id for o in d.options if o.card_id == bomb.id), d.options[0].id)])
-        elif s.state.zones.get("stack"):
-            act(s, s.state.rules.priority, type="pass_priority")
-        else:
-            break
-    ab = _activated(s, grell, "deals 2 damage")
-    mana(s, G=1)
-    with pytest.raises(ActionError):
-        act(s, "p1", type="activate_ability", card_id=grell.id, ability=ab, targets=["p2"])
-    mana(s, U=1)
-    act(s, "p1", type="activate_ability", card_id=grell.id, ability=ab, targets=["p2"])  # {R} paid with blue mana
-    answer(s)
-    assert life(s, "p2") == 38 and s.state.cards[grell.id].zone.endswith(":graveyard")  # it sacrificed itself
-    check(s)
+        assert coverage.of_card_data(cards.resolve(n)).level == "PARTIAL"
 
 
 WURM = real("Panglacial Wurm", "{5}{G}{G}", 7, "Creature \u2014 Wurm", "Trample\nWhile you're searching your library, you may cast this card from your library.", ("9", "5"), "G")
@@ -826,22 +760,34 @@ def test_wurm_full(cards):
     assert coverage.of_card_data(cards.resolve("Panglacial Wurm")).level == "FULL"
 
 
-def _wurm_search(cards, cast_it):
+def _pang(d):
+    return [o.id for o in d.options if o.id.startswith("pang110i:")]
+
+
+def _wurm_search(cards, cast_it, deck=("Panglacial Wurm", "Rampant Growth"), watch=None):
+    """Plays Rampant Growth; at its search decision takes the Wurm option (cast_it) or a normal pick. ``watch`` collects what p2 sees at each decision."""
     from tests.test_rules_contextual_mana_outcomes import pool
 
-    s = build(cards, ["Panglacial Wurm", "Rampant Growth"])
+    s = build(cards, list(deck))
     mana(s, G=3, C=6)
     growth = to_hand(s, "Rampant Growth")
     act(s, "p1", type="cast_spell", card_id=growth.id)
     on_stack_while_searching = None
+    cast = False
     for _ in range(30):
         d = s.state.rules.decision
-        if d is not None and "Panglacial Wurm" in [o.label for o in d.options]:
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options] if cast_it else [])
+        if d is not None and watch is not None:
+            watch.append({k: v for k, v in s.view("p2")["rules"]["decision"].items() if k != "id"})
+        if d is not None and _pang(d) and cast_it and not cast:
+            cast = True
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=_pang(d))
+        elif d is not None and "Panglacial Wurm" in [o.label for o in d.options]:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
         elif d is not None:
-            if d.prompt.startswith("Search your library"):
-                on_stack_while_searching = card_named(s, "Panglacial Wurm").zone
-            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+            if d.prompt.startswith("Search your library") and not _pang(d) or cast:
+                on_stack_while_searching = card_named(s, "Panglacial Wurm").zone if any(c.name == "Panglacial Wurm" for c in s.state.cards.values()) else None
+            normal = [o.id for o in d.options if not o.id.startswith("pang110i:")]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=normal[: max(1, d.min_choices)])
         elif s.state.zones.get("stack"):
             act(s, s.state.rules.priority, type="pass_priority")
         else:
@@ -859,7 +805,7 @@ def test_wurm_is_cast_from_the_library_during_a_search(cards):
 
 def test_wurm_stays_in_the_library_when_the_window_is_declined(cards):
     s, zone_during, left = _wurm_search(cards, False)
-    assert zone_during == "p1:library" and card_named(s, "Panglacial Wurm").zone == "p1:library" and left == 7
+    assert card_named(s, "Panglacial Wurm").zone == "p1:library" and left == 7
     check(s)
 
 
@@ -875,7 +821,9 @@ def test_wurm_window_also_comes_before_a_gifts_ungiven_search(cards):
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Gifts Ungiven").id, targets=["p2"])
     for _ in range(30):
         d = s.state.rules.decision
-        if d is not None and "Panglacial Wurm" in [o.label for o in d.options] and d.prompt.startswith("Choose a spell"):
+        if d is not None and _pang(d):
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=_pang(d))
+        elif d is not None and "Panglacial Wurm" in [o.label for o in d.options]:
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
         elif d is not None:
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[])
@@ -885,6 +833,19 @@ def test_wurm_window_also_comes_before_a_gifts_ungiven_search(cards):
             break
     assert card_named(s, "Panglacial Wurm").zone == "p1:battlefield"
     check(s)
+
+
+def _log(s):
+    return [{k: v for k, v in e.items() if k not in ("id", "seq", "ts")} for e in s.view("p2")["log"]]
+
+
+def test_wurm_in_the_library_is_invisible_to_the_opponents(cards):
+    """The Wurm is one more option of the search's own decision: the other players see the same decisions, and the same log, with or without it in the library."""
+    seen_with, seen_without = [], []
+    with_wurm, _, _ = _wurm_search(cards, False, watch=seen_with)
+    without, _, _ = _wurm_search(cards, False, deck=("Forest", "Rampant Growth"), watch=seen_without)
+    assert seen_with == seen_without and seen_with
+    assert _log(with_wurm) == _log(without) and _log(with_wurm)
 
 
 TRANCE = real("Shaman's Trance", "{2}{R}", 3, "Instant",
@@ -944,15 +905,17 @@ def test_trance_stops_the_other_players_from_using_their_own_graveyards(cards):
 
 BENTHIC = real("Benthic Explorers", "{2}{U}", 3, "Creature \u2014 Merfolk Scout", "{T}, Untap a tapped land an opponent controls: Add one mana of any type that land could produce.", ("1", "1"), "U")
 TAIGA = real("Taiga", "", 0, "Land \u2014 Mountain Forest", "({T}: Add {R} or {G}.)")
-base.EXTRA.extend([BENTHIC, TAIGA])
+CONTAMINATION = real("Contamination", "{2}{B}", 3, "Enchantment", "At the beginning of your upkeep, sacrifice this enchantment unless you sacrifice a creature.\nIf a land is tapped for mana, it produces {B} instead of any other type and amount.", None, "B")
+DARKNESS = real("Infernal Darkness", "{3}{B}", 4, "Enchantment", "Cumulative upkeep\u2014Pay {B} and 1 life. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nIf a land is tapped for mana, it produces {B} instead of any other type.", None, "B")
+base.EXTRA.extend([BENTHIC, TAIGA, CONTAMINATION, DARKNESS])
 
 
 def test_benthic_full(cards):
     assert coverage.of_card_data(cards.resolve("Benthic Explorers")).level == "FULL"
 
 
-def _benthic(cards, land):
-    s = build(cards, ["Benthic Explorers"], [land])
+def _benthic(cards, land, extra=()):
+    s = build(cards, ["Benthic Explorers"], [land, *extra])
     bx = put(s, "Benthic Explorers")
     s.state.rules.controlled_since[bx.id].turn = 0
     theirs = put(s, land, "p2")
@@ -982,6 +945,31 @@ def test_benthic_cannot_add_a_type_the_land_could_not_produce(cards):
     act(s, "p2", type="tap", card_ids=[taiga.id], tapped=True)
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=bx.id, ability=_mana_ability(s, bx), mana_choice="U")
+
+
+def test_benthic_with_contamination_adds_what_the_land_could_produce_replaced(cards):
+    """106.7: what the land could produce takes replacement effects into account: with Contamination Taiga could produce only {B}."""
+    from tests.test_rules_contextual_mana_outcomes import pool
+
+    s, bx, taiga = _benthic(cards, "Taiga", ["Contamination"])
+    put(s, "Contamination", "p2")
+    act(s, "p2", type="tap", card_ids=[taiga.id], tapped=True)
+    act(s, "p1", type="activate_ability", card_id=bx.id, ability=_mana_ability(s, bx))  # the only type it could produce: no choice
+    answer(s)
+    assert pool(s, "B") == 1 and pool(s, "G") == 0 and not s.state.cards[taiga.id].tapped
+    check(s)
+
+
+def test_benthic_with_two_mana_replacements_is_left_to_the_players_with_a_note(cards):
+    """106.7 "any possible order": two replacements aren't worked out; the unreplaced types are offered and a note says to check by hand."""
+    s, bx, taiga = _benthic(cards, "Taiga", ["Contamination", "Infernal Darkness"])
+    put(s, "Contamination", "p2")
+    put(s, "Infernal Darkness", "p2")
+    act(s, "p2", type="tap", card_ids=[taiga.id], tapped=True)
+    act(s, "p1", type="activate_ability", card_id=bx.id, ability=_mana_ability(s, bx), mana_choice="G")
+    answer(s)
+    assert any("check by hand" in e["text"] for e in s.view("p1")["log"] if "text" in e) or any("check by hand" in str(e) for e in s.view("p1")["log"])
+    check(s)
 
 
 def test_benthic_needs_a_tapped_opposing_land(cards):

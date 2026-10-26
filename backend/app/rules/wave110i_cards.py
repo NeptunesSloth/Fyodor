@@ -522,17 +522,41 @@ def wurms(plan: Plan, pid: str) -> list[str]:
     return [c for c in plan.state.zones.get(zone_key(pid, "library"), []) if any(a.text == _PANGLACIAL for a in plan.ch(plan.state.cards[c]).abilities)]
 
 
-def pang_window(plan: Plan, ctx: Context, e: dict[str, Any], pid: str) -> bool:
-    """601.3, 608.2g: before the cards of a search of the searcher's own library are found, they may cast such a card from the library (paying its mana cost); the search then goes on (ruling 2006-07-15: the
-    spell waits on the stack above the resolving search). True when the cast window was queued (the caller returns; the search effect comes again, flagged)."""
-    from app.rules import effects, prohibitions
+def pang_options(plan: Plan, e: dict[str, Any], pid: str) -> list[Any]:
+    """601.3, 608.2g: one extra option per such card in the library, in the search's own decision (a separate window would show the other players whether a Wurm is in the library). Nothing when the search can't
+    happen, or when the Wurm was already offered for this search."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import prohibitions
 
-    if e.get("pang110i") or not wurms(plan, pid) or prohibitions.cant_search(plan, pid, ctx["controller"]) is not None:
+    if e.get("pang110i") or prohibitions.cant_search(plan, pid, pid) is not None:
+        return []
+    return [DecisionOption(id=f"pang110i:{c}", label=f"Cast {plan.ch(plan.state.cards[c]).name} from your library first (the search then goes on)") for c in wurms(plan, pid)]
+
+
+def pang_resume(plan: Plan, d: Any, chosen: list[str]) -> bool:
+    """The Wurm option chosen (alone): cast it before any card is found (ruling 2006-07-15: the spell waits on the stack above the resolving search), then the search is asked again. True when handled."""
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    pick = [c for c in chosen if c.startswith("pang110i:")]
+    if not pick:
         return False
+    if len(chosen) != 1:
+        raise ActionError("Cast the card from your library, or choose the cards to find, not both")
+    ctx, e = d.resume["ctx"], d.resume["e"]
     at = ctx["next"]
     ctx["effects"][at:at] = [{"do": "free_cast", "zone": "panglacial110i", "paid": True, "optional": True, "n": 1, "mv": None, "filter": None}, {**e, "pang110i": True}]
     effects.continue_effects(plan, ctx)
     return True
+
+
+def pang_forced(d: Any, chosen: list[str]) -> None:
+    """The search's own bounds, widened by the Wurm option, apply to the cards found."""
+    from app.game.errors import ActionError
+
+    least, greatest = d.resume.get("pang_least"), d.resume.get("pang_greatest")
+    if least is not None and not least <= len(chosen) <= greatest:
+        raise ActionError(f"Choose {least} to {greatest} cards" if least != greatest else f"Choose {least} cards")
 
 
 def _mask(d: Def) -> Def:
@@ -612,11 +636,6 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
     "creature spell without paying its mana cost. If the creature that spell becomes as it resolves has not been turned face up and would assign or deal damage, be dealt damage, or become tapped, "
     "instead it's turned face up and assigns or deals damage, is dealt damage, or becomes tapped. Activate only as a sorcery.":
         ("{X}: Tap target creature. Activate only as a sorcery.", _mask),
-    "{U}: This creature gains all activated abilities of target creature until end of turn.": ("{U}: Tap target creature.", _borrow("self")),
-    "Aberrant Tinkering \u2014 When this creature enters and at the beginning of your upkeep, each Horror you control gains all activated abilities of target artifact an opponent controls until end of turn. "
-    "You may spend blue mana as though it were mana of any color to activate those abilities.":
-        ("When this creature enters and at the beginning of your upkeep, tap target artifact an opponent controls.",
-         _borrow('sel:{"controller":"you","subtypes":["Horror"]}', True)),
     "Whenever Leori deals combat damage to a player, choose a planeswalker type. Until end of turn, whenever you activate an ability of a planeswalker of that type, copy that ability. "
     "You may choose new targets for the copies.": ("Whenever this creature deals combat damage to a player, you gain 1 life.", _leori),
     "{0}: You may cast target instant or sorcery card from your graveyard this turn. If that spell doesn't target a creature you control, it costs {8} more to cast this way. "
@@ -1448,7 +1467,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return None if native is None else {**native, "effects": [{"do": "flicker_exile110i"}]}
     if text == "You may spend blue mana as though it were mana of any color to pay the activation costs of this creature's abilities.":  # Quicksilver Elemental: 609.4b, ability_spend_mode "blue_color"
         return {"kind": "static", "static": "spend_as", "mode": "blue_color", "abilities": "self", "filter": None, "no_spells": True, "effects": []}
-    if text == _PANGLACIAL:  # a static ability read at search time (pang_window), whatever the zone: only this card in the library has it
+    if text == _PANGLACIAL:  # a static ability read at search time (pang_options), whatever the zone: only this card in the library has it
         return {"kind": "static", "static": "panglacial110i", "effects": []}
     if text == _DRAUGR:  # 601.3 (cast from exile), 609.4b: only spells; mana from snow sources as though any color (mana.spend_as "snow_color")
         return {"kind": "static", "static": "permission", "zone": "exile", "filter": None, "self": False, "play": False, "cast": True, "once": False, "flash": False,

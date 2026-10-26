@@ -2497,8 +2497,6 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
         prohibitions.note_search(plan, pid, owner)  # -- most-played cards (wave 43B) -- "Whenever an opponent searches their library"
         if search_group is not None:
             search_group['noted'] = True
-    if part == 0 and not picked and "library" in zones and owner == pid and _wave110i_cards.pang_window(plan, ctx, e, pid):
-        return False  # -- cards (wave 110I) -- Panglacial Wurm: the cast window before the cards are found
     if e.get("sel"):  # a structured card selector (app/rules/selectors.py)
         matching = _search_matches(plan, ctx, slot, owner, slot["sel"], library)
         if "graveyard" in zones:  # (wave 3R4) the graveyard's cards are public (404.2): the same test, read there
@@ -2523,10 +2521,15 @@ def _ask_search(plan: Plan, ctx: Context, e: dict[str, Any], pid: str, part: int
     if e.get('qualified_packet') and not {'library', 'hand'}.intersection(zones) and not e.get('upto'):
         forced = True  # A search entirely in public zones must find the specified quantity if available.
     whose = f"{plan.name(owner)}'s" if owner != pid else "your"
+    least, greatest = min(most, len(options)) if forced else 0, min(most, len(options))
+    pang_bounds: dict[str, int] = {}
+    if part == 0 and not picked and "library" in zones and owner == pid and (pang := _wave110i_cards.pang_options(plan, e, pid)):  # -- cards (wave 110I) -- Panglacial Wurm: one extra option of this same decision
+        pang_bounds = {"pang_least": least, "pang_greatest": greatest}  # (checked again in resume_search; no extra decision, so the others see the same pause with or without a Wurm)
+        options, least, greatest = [*options, *pang], 0, greatest + 1
     decide(plan, player=pid, kind="choose_cards", prompt=f"Search {whose} {' and '.join(zones)} ({what})",
-           options=options, min_choices=min(most, len(options)) if forced else 0, max_choices=min(most, len(options)),
+           options=options, min_choices=least, max_choices=greatest,
            decider=search_group["decider"] if search_group is not None else _player_control.search_controller(plan, pid) if "library" in zones and owner == pid else None,  # (-- wave 18H -- 723.2: Opposition Agent; review 26A: only while they search their own library)
-           resume={"step": "search", "ctx": ctx, "e": e, "part": part, "picked": picked})
+           resume={"step": "search", "ctx": ctx, "e": e, "part": part, "picked": picked, **pang_bounds})
     return False
 
 
@@ -2536,6 +2539,9 @@ _PLACES = {"hand": "into your hand", "battlefield": "onto the battlefield", "bat
 
 def resume_search(plan: Plan, d: Any, chosen: list[str]) -> None:
     ctx, e = d.resume["ctx"], d.resume["e"]
+    if _wave110i_cards.pang_resume(plan, d, chosen):  # -- cards (wave 110I) -- Panglacial Wurm
+        return
+    _wave110i_cards.pang_forced(d, chosen)
     if e.get("distinct_names"):  # -- refused zones/sized (wave 3R4) -- "… cards with different names" (201.2)
         names = [(plan.state.cards[c].name or "").lower() for c in chosen if c in plan.state.cards]
         if len(set(names)) != len(names):

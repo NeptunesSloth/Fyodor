@@ -6982,14 +6982,17 @@ def _activate_choosing(plan: Plan, card: CardInstance, ch: Characteristics, pars
     if parsed.count == "untapped_land_types":  # -- mana (wave 110I) -- Benthic Explorers, 106.7: the types of mana the untapped land's mana abilities could add (their effects only: not costs, not riders, ruling 2009-10-01)
         from app.rules import mana_replace
 
-        if mana_replace.in_play(plan.state, plan.info):  # 614 mana replacements change what a land could produce (any possible order): not worked out, never guessed
-            raise ActionError(f"A mana replacement effect is in play: what the untapped land could produce isn't worked out; {ch.name} can't be activated automatically")
         lands = [plan.state.cards[c] for i, comp in cost.choices if comp.kind == C.UNTAP_OTHER for c in objects.get(i, [])]
         found_types: set[str] = set()
         for land in lands:
-            for ab in plan.ch(land).abilities:
-                if ab.kind == "mana" and (pm := M.parse_mana_ability(ab.text, commander_identity(plan.state, land.controller, plan.info), card_name=plan.ch(land).name)):
-                    found_types |= {m for o in pm.options for m in o if m in M.ALL_MANA}
+            raw = [(i, pm) for i, ab in enumerate(plan.ch(land).abilities) if ab.kind == "mana"
+                   and (pm := M.parse_mana_ability(ab.text, commander_identity(plan.state, land.controller, plan.info), card_name=plan.ch(land).name))]
+            replaced = mana_replace.extend(plan.state, land, plan.info, raw)  # 106.7: replacement effects count (unchanged when none applies)
+            if len(replaced) < len(raw):  # 106.7 "any possible order": two replacements or restricted mana aren't worked out; offer the unreplaced types, the players check by hand
+                plan.note(f"A mana replacement effect applies to {plan.ch(land).name}'s mana in a way that isn't worked out: check by hand what it could produce")
+                replaced = raw
+            for _, pm in replaced:
+                found_types |= {m for o in pm.options for m in o if m in M.ALL_MANA}
         options = tuple((m,) for m in M.ALL_MANA if m in found_types) or ((),)
     if parsed.count == "sacrificed_land_types":  # -- mana (wave 110A) -- 106.7: types the sacrificed land's own mana abilities could add (last known information)
         lands = [plan.state.cards[c] for i, comp in cost.choices if comp.kind == C.SACRIFICE for c in objects.get(i, [])]

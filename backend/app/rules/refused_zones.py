@@ -91,8 +91,6 @@ def gifts(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     )
 
     pid = ctx["controller"]
-    if wave110i_cards.pang_window(plan, ctx, e, pid):
-        return False
     library = plan.state.zones.get(zone_key(pid, "library"), [])
     from app.rules import (
         prohibitions,  # -- prohibitions (wave 22B) -- 614.17: "Players can't search libraries." (nothing can be found)
@@ -117,16 +115,23 @@ def gifts(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         e = {**e, "need": count}
     quantity = str(e["max"]) if e.get("exact") else f"up to {e['max']}"
     names = " with different names" if e.get("different_names", True) else ""
+    least = count if e.get("exact") and not e.get("none_ok") else 0
+    options = [DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in matching]
+    pang = wave110i_cards.pang_options(plan, e, pid)  # -- cards (wave 110I) -- Panglacial Wurm: one extra option of this same decision (nothing extra shown to the others)
+    bounds = {"pang_least": least, "pang_greatest": count} if pang else {}
     decide(plan, player=pid, kind="choose_cards", prompt=f"Search your library ({quantity} {e['label']}{names})",
-           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in matching],
-           min_choices=count if e.get("exact") and not e.get("none_ok") else 0, max_choices=count, resume={"step": "gifts_found", "ctx": ctx, "e": e},
+           options=[*options, *pang],
+           min_choices=0 if pang else least, max_choices=count + bool(pang), resume={"step": "gifts_found", "ctx": ctx, "e": e, **bounds},
            decider=player_control.search_controller(plan, pid))  # (wave 18H) 723.2: Opposition Agent
     return False
 
 
 def resume_gifts_found(plan: Plan, d: Any, chosen: list[str]) -> None:
-    from app.rules import effects
+    from app.rules import effects, wave110i_cards
 
+    if wave110i_cards.pang_resume(plan, d, chosen):
+        return
+    wave110i_cards.pang_forced(d, chosen)
     ctx, e = d.resume["ctx"], d.resume["e"]
     names = [(plan.state.cards[c].name or "").lower() for c in chosen]
     from app.rules import card_names
