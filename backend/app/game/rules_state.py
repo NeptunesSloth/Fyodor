@@ -1204,6 +1204,7 @@ class Permission(BaseModel):
     cast: bool = False  # spells
     zone: Literal["hand", "graveyard", "exile", "library_top", "any"] = "any"  # where the card must be
     zone_owner: Literal["you", "any"] = "you"  # A broad graveyard permission may include other players' cards.
+    hand_of110m: str | None = None  # (wave 110M) zone "hand": the cards of THIS player's hand (Sen Triplets: "from that player's hand"), not the holder's own
     # A specific object ("you may play that card this turn"): the permission follows the object,
     # not the card (400.7h/i): once it changes zones it is a new object and the permission is spent
     object_id: str | None = None
@@ -1416,6 +1417,7 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
+    hand_reveal_turn110m: dict[str, int] = Field(default_factory=dict)  # (wave 110M) player -> the turn through which they play with their hand revealed
     reveal_ask110m: list[list[str]] = Field(default_factory=list)  # (wave 110M) [player, card, object] first draws of a turn whose "you may reveal" is still to be asked
     turn_reversed110m: bool = False  # (wave 110M) Aeon Engine: the turn order runs against the seat order
     coffin_counters110m: dict[str, dict[str, int]] = Field(default_factory=dict)  # (wave 110M) Tawnos's Coffin: exiled creature rules object -> the counters noted on it

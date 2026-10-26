@@ -1433,7 +1433,8 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
             if p.object_id != oid:
                 continue  # a new object since (400.7): the permission was for the one it was
         elif p.zone != "any" and p.zone != where and not (
-                p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)):
+                p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)) and not (
+                p.hand_of110m and p.zone == "hand" and card.zone == zone_key(p.hand_of110m, "hand")):  # (wave 110M) another player's hand
             continue
         if p.card_filter:
             from app.rules import selectors

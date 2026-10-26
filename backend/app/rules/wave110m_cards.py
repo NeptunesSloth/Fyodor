@@ -901,6 +901,40 @@ def resume_reveal_may(plan: Any, d: Any, chosen: list[str]) -> None:
                                      **{k: each[k] for k in ("target", "targets") if k in each}})
 
 
+_TRIPLETS = ("At the beginning of your upkeep, choose target opponent. This turn, that player can't cast spells or activate abilities and plays with their hand revealed. "
+             "You may play lands and cast spells from that player's hand this turn.")
+
+
+def _triplets(d: Def) -> Def:
+    return {**d, "effects": [{"do": "triplets110m"}]}
+
+
+_BUILD[_TRIPLETS] = ("At the beginning of your upkeep, target opponent loses 1 life.", _triplets)
+
+
+def triplets(plan: Any, ctx: Def, e: Def) -> bool:
+    """Sen Triplets: this turn the chosen opponent can't cast spells or activate abilities (mana abilities too, 605.1a) and plays with their hand revealed (701.20a), and the controller
+    may play lands and cast spells from that hand (601.3, 305.1: the cards stay theirs, the spells and lands are played by the controller with their own mana)."""
+    import secrets
+
+    from app.game.rules_state import Permission
+    from app.rules import cast_limits, effects
+
+    r = plan.rules
+    for opp in effects._players(plan, ctx, "target"):
+        if opp not in plan.live():
+            continue
+        for act in (None, "all"):
+            cast_limits.cast_limit(plan, ctx, {"do": "cast_limit", "who": f"player:{opp}", "until": "turn", "filter": None, "from": None, "act": act})
+        r.hand_reveal_turn110m[opp] = plan.state.turn.number
+        plan.note(f"{plan.name(opp)} plays with their hand revealed this turn", actor=ctx["controller"])
+        r.permissions.append(Permission(id=secrets.token_hex(4), player=ctx["controller"], play=True, cast=True, zone="hand", hand_of110m=opp, until="end_of_turn",
+                                        turn=plan.state.turn.number, granted_step=r.step_serial, source=ctx.get("source_object"),
+                                        label=f"{ctx.get('name') or 'An effect'}: play lands and cast spells from {plan.name(opp)}'s hand this turn"))
+        plan.note(f"{plan.name(ctx['controller'])} may play lands and cast spells from {plan.name(opp)}'s hand this turn")
+    return True
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -1558,4 +1592,4 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
 
 RESUME: dict[str, Any] = {"reveal_may110m": resume_reveal_may, "myra110m": resume_myra, "alaundo110m": resume_alaundo, "rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"myra_choose110m": myra_choose, "reverse_turn_order110m": reverse_turn_order, "coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"triplets110m": triplets, "myra_choose110m": myra_choose, "reverse_turn_order110m": reverse_turn_order, "coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

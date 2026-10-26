@@ -75,3 +75,56 @@ def test_declining_reveals_nothing(cards):
     answer(s)
     assert not cherubaels(s)
     check(s)
+
+
+# -- Sen Triplets ------------------------------------------------------------------------------------------------------------------------------
+TRIPLETS = "Sen Triplets"
+test_triplets_full = full_test([TRIPLETS])
+
+
+def triplets_table(cards):
+    from app.game.visibility import hand_revealed
+
+    s = build(cards, [TRIPLETS], ["Lightning Bolt", "Forest", "Grizzly Bears"], forests=20)
+    put(s, TRIPLETS)
+    s.state.rules.controlled_since[card_named(s, TRIPLETS).id].turn = 0
+    for n in ("Lightning Bolt", "Forest", "Grizzly Bears"):
+        act(s, "p2", type="move", card_ids=[card_named(s, n, "p2").id], to={"player": "p2", "zone": "hand"})
+    assert not hand_revealed(s.state, card_named(s, "Lightning Bolt", "p2"))
+    stops(s)
+    next_turn(s)  # Alice's upkeep: the trigger chooses Bob (the only opponent)
+    return s
+
+
+def test_the_opponents_hand_is_revealed_and_cannot_act_this_turn(cards):
+    from app.game.errors import ActionError
+    from app.game.visibility import hand_revealed
+
+    s = triplets_table(cards)
+    assert hand_revealed(s.state, card_named(s, "Lightning Bolt", "p2"))
+    with pytest.raises(ActionError):
+        act(s, "p2", type="cast_spell", card_id=card_named(s, "Lightning Bolt", "p2").id, targets=["p1"])
+    check(s)
+
+
+def test_the_controller_casts_a_spell_from_that_hand_with_their_own_mana(cards):
+    s = table_cast(cards)
+    assert zone_of(s, "Lightning Bolt", "p2") == "p2:graveyard" and life(s, "p2") == 37  # (cast by Alice: it goes to its owner's graveyard)
+    check(s)
+
+
+def table_cast(cards):
+    s = triplets_table(cards)
+    bolt = card_named(s, "Lightning Bolt", "p2")
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    answer(s)
+    return s
+
+
+def test_the_controller_plays_a_land_from_that_hand_and_controls_it(cards):
+    s = triplets_table(cards)
+    forest = card_named(s, "Forest", "p2")
+    act(s, "p1", type="play_land", card_id=forest.id)
+    assert s.state.cards[forest.id].zone == "p1:battlefield" and s.state.cards[forest.id].controller == "p1" and s.state.cards[forest.id].owner == "p2"
+    check(s)
