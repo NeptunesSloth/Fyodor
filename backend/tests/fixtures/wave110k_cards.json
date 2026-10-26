@@ -131,5 +131,94 @@
 "U"
 ],
 "keywords": []
+},
+{
+"name": "Break the Ice",
+"layout": "normal",
+"mana_cost": "{B}{B}",
+"cmc": 2.0,
+"type_line": "Sorcery",
+"oracle_text": "Destroy target land that is snow or could produce {C}.\nOverload {4}{B}{B} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Overload"
+]
+},
+{
+"name": "Ancient Ziggurat",
+"layout": "normal",
+"mana_cost": "",
+"cmc": 0.0,
+"type_line": "Land",
+"oracle_text": "{T}: Add one mana of any color. Spend this mana only to cast a creature spell.",
+"colors": [],
+"color_identity": [],
+"keywords": [],
+"produced_mana": [
+"B",
+"G",
+"R",
+"U",
+"W"
+]
+},
+{
+"name": "Snow-Covered Island",
+"layout": "normal",
+"mana_cost": "",
+"cmc": 0.0,
+"type_line": "Basic Snow Land — Island",
+"oracle_text": "({T}: Add {U}.)",
+"colors": [],
+"color_identity": [
+"U"
+],
+"keywords": [],
+"produced_mana": [
+"U"
+]
+},
+{
+"name": "Bone Shaman",
+"layout": "normal",
+"mana_cost": "{2}{R}{R}",
+"cmc": 4.0,
+"type_line": "Creature — Giant Shaman",
+"oracle_text": "{B}: Until end of turn, this creature gains \"Creatures dealt damage by this creature this turn can't be regenerated this turn.\"",
+"power": "3",
+"toughness": "3",
+"colors": [
+"R"
+],
+"color_identity": [
+"B",
+"R"
+],
+"keywords": []
+},
+{
+"name": "Drudge Skeletons",
+"layout": "normal",
+"mana_cost": "{1}{B}",
+"cmc": 2.0,
+"type_line": "Creature — Skeleton",
+"oracle_text": "{B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+"power": "1",
+"toughness": "1",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Heal",
+"Regenerate"
+]
 }
 ]

@@ -7,6 +7,9 @@
   card and may cast it free.
 * 702.26a, 702.26b: Teferi, Timeless Voyager's -8 phases out the opponent's creatures; they can't phase in until the end of Teferi's controller's next turn
   (so not in the untap step before it, nor in it), then phase in at their controller's next untap step.
+* 702.96a, 205.4: Break the Ice destroys a land that is snow or could produce {C} (either one), one target or, overloaded, each such land.
+* 701.19c, 614.8: Bone Shaman's granted ability makes a creature it dealt damage to this turn unable to be regenerated, so a regeneration shield
+  doesn't save it; without the ability the shield does.
 * 602.2b, 118.3: Bullseye, Death Dealer's activation cost is a choice announced with the activation: sacrifice an artifact or discard a nonland card.
 """
 
@@ -14,6 +17,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from tests.game_helpers import act
 from tests.wave9c_kit import build, life
 from tests.wave47b_kit import build3
@@ -228,4 +232,69 @@ def test_teferi_ultimate_keeps_the_creatures_out_until_after_your_next_turn(card
         assert all(now(s, c).zone == "p2:phased" for c in theirs), turn
     to_phase(s, "main1", turn=4)  # Bob's next untap step: back
     assert all(now(s, c).zone == "p2:battlefield" for c in theirs)
+    check(s)
+
+
+def test_break_the_ice_is_full():
+    assert full("Break the Ice")
+
+
+def _ice_table(cards):
+    s = build(cards, ["Break the Ice"], ["Shivan Reef", "Snow-Covered Island", "Command Tower"])
+    lands = {n: put_new(s, n, "p2") for n in ("Shivan Reef", "Snow-Covered Island", "Command Tower", "Island")}
+    return s, lands
+
+
+@pytest.mark.parametrize(("target", "destroyed"), [("Shivan Reef", True), ("Snow-Covered Island", True), ("Command Tower", False), ("Island", False)])
+def test_break_the_ice_targets_a_snow_land_or_a_land_that_could_produce_colorless(cards, target, destroyed):
+    s, lands = _ice_table(cards)
+    c = to_hand(s, "Break the Ice")
+    mana(s, B=2)
+    if destroyed:
+        act(s, "p1", type="cast_spell", card_id=c.id, targets=[lands[target].id])
+        settle(s)
+        assert now(s, lands[target]).zone.endswith(":graveyard")
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=c.id, targets=[lands[target].id])
+    check(s)
+
+
+def test_overloaded_break_the_ice_destroys_each_such_land_and_no_other(cards):
+    s, lands = _ice_table(cards)
+    c = to_hand(s, "Break the Ice")
+    mana(s, B=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=c.id, alt_cost=f"{c.id}:1")
+    settle(s)
+    assert {n: now(s, land).zone.endswith(":graveyard") for n, land in lands.items()} == {
+        "Shivan Reef": True, "Snow-Covered Island": True, "Command Tower": False, "Island": False}
+    check(s)
+
+
+def test_bone_shaman_is_full():
+    assert full("Bone Shaman")
+
+
+@pytest.mark.parametrize("shaman_ability", [False, True])
+def test_bone_shaman_stops_a_creature_it_damaged_from_regenerating(cards, shaman_ability):
+    from tests.wave110b_kit import through_combat
+    from tests.wave110k_kit import ability
+
+    s = build(cards, ["Drudge Skeletons"], ["Bone Shaman"])
+    skeletons, shaman = put_new(s, "Drudge Skeletons"), put_new(s, "Bone Shaman", "p2")
+    s.state.rules.controlled_since[skeletons.id].turn = 0  # (no summoning sickness: the passes below would otherwise skip combat)
+    mana(s, B=1)
+    if shaman_ability:
+        mana(s, "p2", B=1)
+    # (after an activation its controller passes on their own, so Bob has priority with it on the stack)
+    act(s, "p1", type="activate_ability", card_id=skeletons.id, ability=ability(s, skeletons, "{B}"))  # a regeneration shield, until end of turn
+    if shaman_ability:  # Bob answers: the shaman's creatures-it-damaged rule, also until end of turn
+        act(s, "p2", type="activate_ability", card_id=shaman.id, ability=ability(s, shaman, "{B}"))
+    settle(s)
+    if s.state.rules.decision is None:
+        act(s, "p1", type="pass_priority")
+    assert s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers"
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": skeletons.id, "target": "p2"}])
+    through_combat(s, [(shaman, skeletons)])
+    assert now(s, skeletons).zone == ("p1:graveyard" if shaman_ability else "p1:battlefield")
     check(s)

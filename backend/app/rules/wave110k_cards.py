@@ -126,6 +126,8 @@ def _flourish(effects: list[Def]) -> list[Def] | None:
     return [effects[0], {**effects[1], "skip": len(rest)}, *rest]
 
 
+_ICE = "Destroy target land that is snow or could produce {C}."
+_ICE_EACH = "Destroy each land that is snow or could produce {C}."  # (overload, 702.96a: "target" read as "each")
 _TEFERI = "Each creature target opponent controls phases out. Until the end of your next turn, they can't phase in."
 
 
@@ -136,8 +138,18 @@ def _teferi(effects: list[Def]) -> list[Def] | None:
     return [{**effects[0], "do": "phase_out_hold110k"}]
 
 
+def _snow_or_colorless() -> str:
+    """"Land that is snow or could produce {C}": either property is enough (a union, not the two together)."""
+    from app.rules import selectors
+
+    return selectors.Selector(types=("Land",), either=(selectors.Selector(types=("Land",), supertypes=("Snow",)).key(),
+                                                       selectors.Selector(types=("Land",), extras=("could_produce_c",)).key())).key()
+
+
 _BODIES: dict[str, tuple[str, Any]] = {
     _TEFERI: ("Each creature target opponent controls phases out.", _teferi),
+    _ICE_EACH: ("Destroy each land.", lambda effects: [{**effects[0], "who": _snow_or_colorless()}] if len(effects) == 1 else None),
+    _ICE: ("Destroy target land.", lambda effects: effects),
     _FLOURISH: ("Destroy target artifact or creature you don't control. If that permanent is destroyed this way, its controller gains 2 life.", _flourish),
 }
 
@@ -151,7 +163,8 @@ def parse(body: str) -> Any:
     if native is None:
         return None
     effects = built[1](native[0])
-    return None if effects is None else (effects, native[1], native[2])
+    target = _snow_or_colorless() if body.strip() == _ICE else native[1]
+    return None if effects is None else (effects, target, native[2])
 
 
 # -- one-ability wordings: the whole ability text -> (the wording the grammar reads, what to change in its definition) --
@@ -170,12 +183,32 @@ _BUILD: dict[str, tuple[str, Any]] = {
 }
 
 
+_NO_REGEN_DAMAGED = "Creatures dealt damage by this creature this turn can't be regenerated this turn."
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from dataclasses import replace
 
     from app.rules import scripts
 
+    if ability.text.strip().replace("this permanent", "this creature") == _NO_REGEN_DAMAGED:  # Bone Shaman's granted ability: read by regeneration.shielded / regeneration_choices.options
+        return {"kind": "static", "static": "no_regen_damaged110k", "effects": []}
+
     if (built := _BUILD.get(ability.text.strip())) is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
     return None if native is None else built[1](native)
+
+
+def damaged_unregenerable(plan: Any, card: Any) -> bool:
+    """701.19c / 614.8: a creature dealt damage this turn by a permanent that has "Creatures dealt damage by this creature this turn can't be
+    regenerated this turn" can't be regenerated (the damage as it was dealt: the facts of the turn, and the source still has the ability now)."""
+    from app.rules import scripts
+    from app.rules.history import log_for
+
+    oid = plan.oid(card)
+    sources = {f.source for f in log_for(plan).facts if f.kind == "damaged" and f.object_id == oid and f.amount > 0}
+    return any(
+        (src := plan.state.cards.get(s.rsplit(".", 1)[0])) is not None and src.zone.endswith(":battlefield") and plan.oid(src) == s
+        and "no_regen_damaged110k" in {d.get("static") for d in scripts.definitions(plan.ch(src)).values()}
+        for s in sources if s)
