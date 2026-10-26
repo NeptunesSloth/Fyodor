@@ -21,6 +21,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, mana_pool
 from tests.test_rules_attachments import token
@@ -436,9 +437,9 @@ def test_reckless_blaze_is_gone_next_turn(cards):
     cast(s, "Reckless Blaze")
     into_next_turn(s)
     assert delayed(s) == []
-    before = dict(s.state.players["p1"].mana)
+    before = dict(visible_pool(s.state, "p1"))
     kill(s, survivor)
-    assert s.state.players["p1"].mana == before
+    assert visible_pool(s.state, "p1") == before
     check(s)
 
 

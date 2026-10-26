@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.rules.mana_units import visible_pool
 from tests.game_helpers import act
 from tests.test_rules_conditionals import until
 from tests.wave9c_kit import card_named
@@ -98,4 +99,4 @@ def resolve_stack(s, limit=20):
 
 
 def pool(s, pid="p1"):
-    return {k: v for k, v in s.state.players[pid].mana.items() if v}
+    return {k: v for k, v in visible_pool(s.state, pid).items() if v}

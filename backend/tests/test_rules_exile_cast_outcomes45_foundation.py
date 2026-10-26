@@ -11,6 +11,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import effects, engine, scripts
 from app.rules import exile_cast_outcomes45 as leaf
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_bandmate_references import mana
@@ -367,7 +368,7 @@ def test_anrakyr_actual_life_alternative_preserves_optional_additional_mana_kick
     assert s.state.players['p1'].life==life
     assert s.state.cards[spell.id].zone=='p1:battlefield'
     assert s.state.cards[spell.id].counters.get('charge')==1
-    assert not any(s.state.players['p1'].mana.values())
+    assert not any(visible_pool(s.state, 'p1').values())
     roundtrip(s)
 
 
@@ -1141,7 +1142,7 @@ def test_squall_actual_delve_six_pays_only_generic_keeps_printed_value_nine_and_
     act(s,'p1',type='cast_spell',card_id=source.id,targets=['p2'],contributions=[{'kind':'delve','card':c.id} for c in fuel])
     assert ch(s,s.state.cards[source.id]).mana_value==9
     assert all(s.state.cards[c.id].zone=='p1:exile' for c in fuel)
-    assert not any(s.state.players['p1'].mana.values())
+    assert not any(visible_pool(s.state, 'p1').values())
     settle(s)
     assert s.state.rules.decision.resume['step']=='free_cast_pick'
     answer(s,[spell.id])
@@ -1264,7 +1265,7 @@ def test_squall_actual_generic_tax_increase_can_be_paid_by_seventh_delve_card(ca
     mana(s,U=3)
     act(s,'p1',type='cast_spell',card_id=source.id,targets=['p2'],contributions=[{'kind':'delve','card':c.id} for c in fuel])
     assert all(s.state.cards[c.id].zone=='p1:exile' for c in fuel)
-    assert not any(s.state.players['p1'].mana.values())
+    assert not any(visible_pool(s.state, 'p1').values())
     settle(s)
     answer(s,[])
     assert s.state.cards[source.id].zone=='p1:graveyard'
@@ -1514,7 +1515,7 @@ def test_widow_actual_any_type_permission_pays_real_colorless_requirement_with_g
     settle(s)
     assert s.state.cards[packet[0]].zone=='p1:battlefield'
     assert s.state.cards[packet[0]].owner=='p2'
-    assert not s.state.players['p1'].mana
+    assert not visible_pool(s.state, 'p1')
     roundtrip(s)
 
 
@@ -1758,7 +1759,7 @@ def test_reno_actual_source_dies_before_resolution_sacrifice_still_grants_paid_c
     settle(s)
     assert s.state.cards[packet[0]].zone=='p1:battlefield'
     assert s.state.cards[packet[0]].owner=='p2'
-    assert not s.state.players['p1'].mana
+    assert not visible_pool(s.state, 'p1')
     roundtrip(s)
 
 

@@ -23,6 +23,7 @@ from app.game.errors import ActionError
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from app.rules.view import hints
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
@@ -90,7 +91,7 @@ def test_torgaar_with_nothing_sacrificed_costs_the_whole_eight(cards):
     mana(s, B=2, C=6)
     cast_reduced(s, "Torgaar, Famine Incarnate", [])
     assert zone_of(s, "Torgaar, Famine Incarnate") == "p1:battlefield" and all(zone_of(s, x.name) == "p1:battlefield" for x in crew)
-    assert not any(s.state.players["p1"].mana.values())
+    assert not any(visible_pool(s.state, "p1").values())
     check(s)
 
 

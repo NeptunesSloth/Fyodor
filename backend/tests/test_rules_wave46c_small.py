@@ -13,6 +13,7 @@ import pytest
 
 from app.game.errors import ActionError
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, settle, stops, to_phase
@@ -124,7 +125,7 @@ def test_helitrooper_makes_equip_abilities_that_target_it_cost_less_but_not_othe
     with pytest.raises(ActionError):
         equip_to(s, hammer, giant)  # the Giant is not the Helitrooper: {3}
     equip_to(s, hammer, trooper)
-    assert attached_to(s, hammer) == trooper.id and s.state.players["p1"].mana.get("C", 0) == 0
+    assert attached_to(s, hammer) == trooper.id and visible_pool(s.state, "p1").get("C", 0) == 0
     check(s)
 
 
@@ -196,7 +197,7 @@ def test_monastery_siege_taxes_spells_that_target_its_controller_or_their_perman
     act(s, "p1", type="pass_priority")
     act(s, "p2", type="cast_spell", card_id=card_named(s, "Lightning Bolt", "p2").id, targets=[bears.id])  # his own creature: {R}
     settle(s)
-    assert s.state.players["p2"].mana.get("R", 0) == 1
+    assert visible_pool(s.state, "p2").get("R", 0) == 1
     act(s, "p1", type="pass_priority")  # (Bob has priority again)
     for target in ("p1", giant.id):
         with pytest.raises(ActionError, match="Not enough mana to pay"):
@@ -204,7 +205,7 @@ def test_monastery_siege_taxes_spells_that_target_its_controller_or_their_perman
     mana(s, "p2", C=2)
     act(s, "p2", type="cast_spell", card_id=card_named(s, "Shock", "p2").id, targets=["p1"])
     settle(s)
-    assert s.state.players["p1"].life == 38 and s.state.players["p2"].mana.get("R", 0) == 0
+    assert s.state.players["p1"].life == 38 and visible_pool(s.state, "p2").get("R", 0) == 0
     check(s)
 
 
@@ -342,7 +343,7 @@ def test_fire_nation_attacks_makes_soldiers_that_add_red_mana_when_they_attack(c
         if not s.state.zones.get("stack"):
             break
         act(s, s.state.rules.priority, type="pass_priority")
-    assert s.state.players["p1"].mana.get("R", 0) == 2  # one {R} for each attacking Soldier
+    assert visible_pool(s.state, "p1").get("R", 0) == 2  # one {R} for each attacking Soldier
     check(s)
 
 

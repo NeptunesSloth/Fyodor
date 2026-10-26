@@ -34,6 +34,7 @@ from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import coverage, scripts
 from app.rules.characteristics import Characteristics
+from app.rules.mana_units import visible_pool
 from app.rules.oracle import parse_abilities
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, turn_on
@@ -490,7 +491,7 @@ def test_sanctum_weaver_adds_one_color_per_enchantment(cards):
     d = s.state.rules.decision
     if d is not None:  # (the color: one choice for all of it, 605.3a)
         act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
-    pool = s.state.players["p1"].mana
+    pool = visible_pool(s.state, "p1")
     assert sum(pool.values()) == 3 and len([k for k, v in pool.items() if v]) == 1  # three of one color (not theirs)
     replay_matches(s)
 

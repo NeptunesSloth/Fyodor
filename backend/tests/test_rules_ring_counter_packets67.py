@@ -10,6 +10,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_bandmate_references import mana, wait_priority
@@ -44,7 +45,7 @@ def setup(cards):
     mana(s, C=1, G=1, W=1)
     act(s, 'p1', type='cast_spell', card_id=source.id, sources=[])
     settle(s)
-    assert source.zone == 'p1:battlefield' and not s.state.players['p1'].mana
+    assert source.zone == 'p1:battlefield' and not visible_pool(s.state, 'p1')
     ours = put(s, 'Grizzly Bears', 'battlefield')
     theirs = put(s, 'Grizzly Bears', 'battlefield', 'p2')
     return s, source, ours, theirs

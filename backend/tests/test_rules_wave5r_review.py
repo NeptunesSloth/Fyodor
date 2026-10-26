@@ -9,6 +9,7 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable, mana_pool, zone
 from tests.test_rules_conditionals import creature, life, on_field, pick, settle, to_hand, until_asked
@@ -250,7 +251,7 @@ def test_propaganda_paid_with_mirraris_wake_extra_mana(cards):
     s = GameSession(GameState.model_validate_json(s.state.model_dump_json()), cards=s.cards)
     act(s, "p1", type="activate_ability", card_id=forest, ability=0)
     assert attacking(s, a) == "p2"
-    assert s.state.players["p1"].mana == {}
+    assert visible_pool(s.state, "p1") == {}
     roundtrip(s)
 
 

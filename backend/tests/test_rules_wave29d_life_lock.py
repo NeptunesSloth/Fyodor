@@ -17,6 +17,7 @@ from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.rules import coverage, scripts
 from app.rules.casting import castable
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_conditionals import attack, through_combat, to_turn
@@ -378,7 +379,7 @@ def test_flare_of_fortitude_also_gives_hexproof_and_indestructible_and_costs_a_w
     if d is not None:
         act(s, "p1", type="choose", decision_id=d.id, option_ids=[knight.id])
     pass_until_stack_empty(s)
-    assert knight.zone == "p1:graveyard" and flare.zone == "p1:graveyard" and s.state.players["p1"].mana == {}
+    assert knight.zone == "p1:graveyard" and flare.zone == "p1:graveyard" and visible_pool(s.state, "p1") == {}
     assert {"hexproof", "indestructible"} <= keywords(s, necro)  # "permanents you control gain hexproof and indestructible"
     assert [x["until"] for x in s.state.rules.life_locks] == ["turn"]
     check(s)

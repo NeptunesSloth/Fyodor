@@ -24,6 +24,7 @@ from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.game.visibility import SPECTATOR
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import activate, ask, attack, next_turn, settle, stops, to_phase
@@ -228,7 +229,7 @@ def iroh_table(cards):
 def pass_until_mana(s, limit=6):
     """Pass priority one step at a time until the attack trigger has added mana (it is kept until end of combat, 702.189a)."""
     for _ in range(limit):
-        if s.state.players["p1"].mana:
+        if visible_pool(s.state, "p1"):
             return
         act(s, s.state.rules.priority, type="pass_priority")
 
@@ -237,7 +238,7 @@ def test_iroh_gives_firebending_to_a_creature_with_a_counter_on_it(cards):
     s, bears, _ = iroh_table(cards)
     attack(s, bears)
     pass_until_mana(s)
-    assert s.state.players["p1"].mana == {"R": 2}  # firebending 2: "add {R}{R}" as it attacks
+    assert visible_pool(s.state, "p1") == {"R": 2}  # firebending 2: "add {R}{R}" as it attacks
     check(s)
 
 
@@ -245,7 +246,7 @@ def test_iroh_gives_nothing_to_a_creature_without_a_counter(cards):
     s, _, elves = iroh_table(cards)
     attack(s, elves)
     pass_until_mana(s)
-    assert not s.state.players["p1"].mana
+    assert not visible_pool(s.state, "p1")
     check(s)
 
 

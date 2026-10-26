@@ -17,6 +17,7 @@ from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.game.errors import ActionError
 from app.rules import coverage
+from app.rules.mana_units import visible_pool
 from app.rules.plan import Plan
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
@@ -151,7 +152,7 @@ def test_chrome_mox_adds_one_mana_of_the_exiled_cards_colors(cards, card_name, c
     if len(colors) > 1:
         assert d is not None and sorted(o.label for o in d.options) == ["{B}", "{R}"]
         act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
-    assert sum(s.state.players["p1"].mana.values()) == 1 and set(s.state.players["p1"].mana) <= colors
+    assert sum(visible_pool(s.state, "p1").values()) == 1 and set(visible_pool(s.state, "p1")) <= colors
     check(s)
 
 
@@ -284,7 +285,7 @@ def test_pit_of_offerings_adds_mana_of_the_exiled_cards_colors_never_colorless(c
     d = s.state.rules.decision
     assert d is not None and sorted(o.label for o in d.options) == ["{B}", "{R}"]
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label == "{B}")])
-    assert s.state.players["p1"].mana == {"B": 1}
+    assert visible_pool(s.state, "p1") == {"B": 1}
     check(s)
 
 
@@ -293,5 +294,5 @@ def test_chrome_mox_with_nothing_imprinted_adds_no_mana(cards):
     assert zone_of(s, "Lightning Bolt").endswith(":hand")
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=c.id, ability=1)
-    assert sum(s.state.players["p1"].mana.values()) == 0
+    assert sum(visible_pool(s.state, "p1").values()) == 0
     check(s)

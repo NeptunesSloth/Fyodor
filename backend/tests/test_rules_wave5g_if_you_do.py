@@ -19,6 +19,7 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from app.game.state import GameState
 from app.rules import coverage, scripts
+from app.rules.mana_units import visible_pool
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable, zone
 from tests.test_rules_conditionals import creature, life, on_field, pick, settle, to_hand, until, until_asked
@@ -182,7 +183,7 @@ def test_vigil_for_the_lost_x_chosen_as_it_is_paid(cards, x):
     pick(s, "decline" if x is None else f"x:{x}")
     settle(s)
     assert life(s) == before + (x or 0)
-    assert s.state.players["p1"].mana.get("C", 0) == 3 - (x or 0)
+    assert visible_pool(s.state, "p1").get("C", 0) == 3 - (x or 0)
     roundtrip(s)
 
 
@@ -248,7 +249,7 @@ def test_well_of_lost_dreams_no_more_than_the_life_gained(cards):
     drawn = len(hand(s))
     pick(s, "x:2")
     settle(s)
-    assert len(hand(s)) == drawn + 2 and s.state.players["p1"].mana.get("C", 0) == 3
+    assert len(hand(s)) == drawn + 2 and visible_pool(s.state, "p1").get("C", 0) == 3
     roundtrip(s)
 
 
