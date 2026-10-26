@@ -1618,6 +1618,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import wave110j_cards
 
         return wave110j_cards.holds(plan, ctx, cond)
+    if "w110o" in cond:  # -- (wave 110O) --
+        from app.rules import wave110o_cards
+
+        return wave110o_cards.holds(plan, ctx, cond)
     if "w110g" in cond:  # -- wave 110G --
         from app.rules import wave110g_cards
 
@@ -1670,6 +1674,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import triggers100a
 
         return triggers100a.holds(plan, ctx, cond)
+    if cond.get("stolen110b"):  # -- wave 110B --
+        from app.rules import wave110b_cards
+
+        return wave110b_cards.stolen_holds(plan, ctx)
     if cond.get("skyguard110b"):  # -- wave 110B --
         from app.rules import wave110b_cards
 

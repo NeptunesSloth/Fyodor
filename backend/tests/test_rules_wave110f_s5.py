@@ -20,6 +20,7 @@ from tests.test_rules_wave100n_multi import EXTRA as _BASE
 from tests.test_rules_wave100n_multi import (
     card_db,  # noqa: F401  (fixture DB with EXTRA)
     cast,
+    to_graveyard,
 )
 from tests.wave9c_kit import build, check, mana, put, to_hand
 
@@ -35,11 +36,20 @@ EXTRA = [
          'Creatures you control enter as a copy of this creature.', ('6', '6'), 'G'),
     real('Dracoplasm', '{U}{R}', 2, 'Creature — Shapeshifter',
          "Flying\nAs this creature enters, sacrifice any number of creatures. This creature's power becomes the total power of those creatures and its toughness becomes their total toughness.\n{R}: This creature gets +1/+0 until end of turn.", ('0', '0'), 'RU'),
+    real('Clone', '{3}{U}', 4, 'Creature — Shapeshifter', 'You may have this creature enter as a copy of any creature on the battlefield.', ('0', '0'), 'U'),
+    real('Sutured Ghoul', '{4}{B}{B}{B}', 7, 'Creature — Zombie Horror',
+         "Trample\nAs this creature enters, exile any number of creature cards from your graveyard.\nSutured Ghoul's power is equal to the total power of the exiled cards and its toughness is equal to their total toughness.", ('*', '*'), 'B'),
+    real('Circling Vultures', '{B}', 1, 'Creature — Bird',
+         'Flying\nYou may discard this card any time you could cast an instant.\nAt the beginning of your upkeep, sacrifice this creature unless you exile the top creature card of your graveyard.', ('3', '2'), 'B'),
+    real('Remove Enchantments', '{W}', 1, 'Instant', 'Return to your hand all enchantments you both own and control, all Auras you own attached to permanents you control, and all Auras you own attached to attacking creatures your opponents control. Then destroy all other enchantments you control, all other Auras attached to permanents you control, and all other Auras attached to attacking creatures your opponents control.', None, 'W'),
+    real('Pacifism', '{1}{W}', 2, 'Enchantment — Aura', 'Enchant creature\nEnchanted creature can\'t attack or block.', None, 'W'),
+    real('Holy Strength', '{W}', 1, 'Enchantment — Aura', 'Enchant creature\nEnchanted creature gets +1/+2.', None, 'W'),
+    real('Glorious Anthem', '{1}{W}{W}', 3, 'Enchantment', 'Creatures you control get +1/+1.', None, 'W'),
     real('Test Giant 110F', '{3}{R}', 4, 'Creature — Giant', 'Vigilance', ('3', '3'), 'R'),
     real('Test Flash Bear 110F', '{1}{U}', 2, 'Creature — Bear', 'Flash', ('2', '2'), 'U'),
 ]
 _BASE.extend(EXTRA)
-NAMES = ["Blink", "Unyielding Gatekeeper", "Sparkshaper Visionary", "Essence of the Wild", "Dracoplasm"]
+NAMES = ["Blink", "Unyielding Gatekeeper", "Sparkshaper Visionary", "Essence of the Wild", "Dracoplasm", "Sutured Ghoul", "Circling Vultures", "Remove Enchantments"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -179,4 +189,90 @@ def test_dracoplasm_takes_the_total_power_and_toughness_of_what_it_sacrificed(ca
         assert s.state.cards[draco.id].zone == "p1:graveyard"
     else:
         assert ch(s, s.state.cards[draco.id]).pt == pt
+    check(s)
+
+
+@pytest.mark.parametrize("copy_bear", [True, False])
+def test_essence_with_clone_own_choice_applies_last_else_essence_copy_stays(cards, copy_bear):
+    """616.1: Clone's own "may enter as a copy" is applied last: copying the Bear wins; declining leaves the Essence copy (not plain Clone)."""
+    from app.rules.copying import NONE
+    from tests.test_rules_wave100f_control import ch
+
+    s = build(cards, ["Essence of the Wild", "Clone", "Grizzly Bears"], ["Grizzly Bears"], forests=20, islands=20)
+    put(s, "Essence of the Wild")
+    bear = put(s, "Grizzly Bears", pid="p2")
+    mana(s, U=1, C=3)
+    clone = cast(s, "Clone")
+    for _ in range(14):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[bear.id if copy_bear else NONE])
+    got = ch(s, s.state.cards[clone.id])
+    assert (got.name, got.pt) == (("Grizzly Bears", (2, 2)) if copy_bear else ("Essence of the Wild", (6, 6)))
+    check(s)
+
+
+def test_sutured_ghoul_exiles_graveyard_creatures_and_takes_their_totals(cards):
+    """614.12, 400.7: "exile any number of creature cards from your graveyard" as it enters; P/T are their totals (the Land stays)."""
+    from tests.test_rules_wave100f_control import ch
+
+    s = build(cards, ["Sutured Ghoul", "Grizzly Bears", "Test Giant 110F", "Forest"], forests=20, islands=20)
+    for n in ("Grizzly Bears", "Test Giant 110F", "Forest"):
+        to_graveyard(s, 1, n)
+    mana(s, B=4, C=3)
+    ghoul = cast(s, "Sutured Ghoul")
+    for pick in ("Grizzly Bears", "Test Giant 110F"):
+        d = s.state.rules.decision
+        while d is None and s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+            d = s.state.rules.decision
+        assert d is not None and all("Forest" not in o.label for o in d.options)
+        opt = next((o.id for o in d.options if pick and pick in o.label), "done")
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[opt])
+    _resolve(s)
+    got = ch(s, s.state.cards[ghoul.id])
+    assert got.pt == (5, 5) and sorted(c.name for c in s.state.cards.values() if c.zone == "p1:exile") == ["Grizzly Bears", "Test Giant 110F"]
+    check(s)
+
+
+@pytest.mark.parametrize("zone,works", [("hand", True), ("battlefield", False)])
+def test_circling_vultures_discards_itself_from_hand_only(cards, zone, works):
+    """116.2e: special action (no stack). "You may discard this card any time you could cast an instant" -- from the hand only; it is a cost, nothing else happens."""
+    from app.game.errors import ActionError
+
+    s = build(cards, ["Circling Vultures"], forests=20, islands=20)
+    v = to_hand(s, "Circling Vultures") if zone == "hand" else put(s, "Circling Vultures")
+    if works:
+        act(s, "p1", type="activate_ability", card_id=v.id, ability=1)
+        assert not s.state.zones.get("stack")  # 116.2e: special action, nothing on the stack to respond to
+        assert s.state.cards[v.id].zone == "p1:graveyard"
+        check(s)
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=v.id, ability=1)
+
+
+def test_remove_enchantments_returns_own_destroys_other_and_reads_attackers(cards):
+    """608.2c, 303.4: own Anthem and own Aura (on my Bear) return; Bob's Aura on my Bear and my Aura on his attacker: mine returns, Bob's Anthem stays."""
+    s = build(cards, ["Remove Enchantments", "Glorious Anthem", "Pacifism", "Holy Strength", "Grizzly Bears"], ["Glorious Anthem", "Pacifism", "Grizzly Bears"], forests=20, islands=20)
+    mine, bob = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", pid="p2")
+    anthem, aura_on_mine, aura_on_bob = put(s, "Glorious Anthem"), put(s, "Pacifism"), put(s, "Holy Strength")
+    bob_anthem, bob_aura = put(s, "Glorious Anthem", pid="p2"), put(s, "Pacifism", pid="p2")
+    act(s, "p1", type="attach", card_ids=[aura_on_mine.id], to=mine.id)
+    act(s, "p1", type="attach", card_ids=[aura_on_bob.id], to=bob.id)
+    act(s, "p2", type="attach", card_ids=[bob_aura.id], to=mine.id)
+    act(s, "p1", type="set_stops", others=["declare_attackers"], smart_pass=False)
+    to_phase(s, "declare_attackers", turn=2)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bob.id, "target": "p1"}])
+    assert s.state.turn.phase == "declare_attackers" and s.state.rules.priority == "p1"
+    mana(s, "p1", W=1)
+    cast(s, "Remove Enchantments", pid="p1")
+    _resolve(s)
+    zone = lambda c: s.state.cards[c.id].zone  # noqa: E731
+    assert [zone(c) for c in (anthem, aura_on_mine, aura_on_bob)] == ["p1:hand"] * 3
+    assert zone(bob_aura) == "p2:graveyard" and zone(bob_anthem) == "p2:battlefield" and zone(mine) == "p1:battlefield"
     check(s)

@@ -54,6 +54,7 @@ SUPPORTED_REPLACEMENTS: set[str] = {
     "exile_instead",  # "If ~ would die / be put into a graveyard from anywhere, exile it instead" (own and statics)
     "hand_instead",  # -- instead (wave 100K) -- "If a creature you control that's enchanted would die, return it to its owner's hand instead." (Necromancer's Magemark)
     "library_instead",  # "If ~ would die, put it on top of / on the bottom of its owner's library instead" (wave 20B)
+    "library_may110c",  # -- optional replacements (wave 110C) -- "If this permanent would be put into a graveyard, you may put it on top of its owner's library instead." (Pulmonic Sliver grant)
     "shuffle_instead",  # -- zone replacements (wave 22C) -- "… reveal ~ and shuffle it into its owner's library instead" (Blightsteel)
     "prevent",  # "Prevent all [combat] damage that would be dealt [to …] [by …] [this turn]" (615)
 }
@@ -70,6 +71,7 @@ SUPPORTED_REPLACEMENTS.add("enters_prepared")  # -- prepared (wave 13C) -- "~ en
 # app/rules/enter_cost.py, tests/test_rules_wave5g_if_you_do.py)
 SUPPORTED_REPLACEMENTS.add("enter_cost")
 SUPPORTED_REPLACEMENTS.add("enters_exile_unpaid")  # Own prospective payment-conditioned entry diversion.
+SUPPORTED_REPLACEMENTS.add("turned_up_attach110d")  # -- turned up (wave 110D) -- "As ~ is turned face up, you may attach it to a creature." (wave110d_misc.attach_up)
 SUPPORTED_REPLACEMENTS.add("turned_up_counters")  # -- counters (wave 52D) -- 708.11: "As ~ is turned face up, put five +1/+1 counters on it." (app/rules/counters52d.py)
 
 
@@ -701,7 +703,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
             only_gy = [ab for ab in ch.abilities if ab.kind != "keywords"]
             templated = {i for i in templated if templates.graveyard_only_ability(defs.get(i))} \
                 if only_gy and all(templates.graveyard_only_ability(defs.get(ab.index)) for ab in only_gy) else set()
-        elif whole.get("modes"):
+        elif whole.get("modes") or whole.get("whole110k"):  # (-- wave 110K -- whole110k: the resolution-time mode choice of "An opponent chooses one —", whose bullets are read with its header)
             templated = {ab.index for ab in ch.abilities if ab.kind != "keywords"}  # a modal spell (700.2)
     out: list[Feature] = []
 

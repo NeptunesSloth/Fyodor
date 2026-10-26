@@ -995,6 +995,8 @@ def _record(plan: Plan, ctx: Context, e: dict[str, Any], oids: list[str] | None,
     op: dict[str, Any] = {"do": "prevent_half_down" if e.get("half") else "prevent_all", "prevention": True,
                           **({"once": True, "batch": True} if e.get("once") else {}),
                           **({"rider": e["rider"]} if e.get("rider") else {})}  # (wave 17A) 615.5
+    if e.get("observe110g"):  # -- wave 110G -- Eye for an Eye: the damage is dealt as it was; only the rider (615.5-like additional damage) follows
+        op = {**op, "do": "observe110g", "prevention": False}
     if e.get("cap") is not None:
         op = {**op, "do": "prevent_all_but", "n": int(e["cap"])}
     if e.get("budget") is not None:

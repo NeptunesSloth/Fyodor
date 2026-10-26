@@ -274,7 +274,7 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
             if what in answers:
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
-                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"decider": deciding} if deciding else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
+                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"attach110i": True} if e.get("attach110i") else {}), **({"decider": deciding} if deciding else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
                                  **({"options": e["options"]} if e.get("options") else {}), **({"random": True} if e.get("random") else {})}  # (wave 51C: "choose Elemental, Elf, …": only the creature types listed)
                 if what == "second color":
                     out["choice"]["options"] = [o for o in ("White", "Blue", "Black", "Red", "Green") if o != answers.get("color")]
@@ -843,7 +843,7 @@ def move_together(plan: Plan, entries: list[Entry], *, simultaneous: dict[str, A
     for entry, _card, ep in planned:
         if ep.get("life"):
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-            _replace_life.lose_life(plan, [(entry["player"], int(ep["life"]))], actor=entry["actor"])
+            _replace_life.lose_life(plan, [(entry["player"], int(ep["life"]))], actor=entry["actor"], paid=True)
     # CR 614.12: another permanent arriving in this same event cannot change
     # whether an entry counter condition applied. Preserve even an empty result.
     for entry, _card, _ep in planned:
@@ -1347,6 +1347,7 @@ class Cand(NamedTuple):
     rider: dict[str, Any] | None = None
     link: str = ""  # -- linked exile (wave 30H) -- 607.2b: the object whose linked replacement effect this is: the card it exiles is "exiled with" it
     counter: str = ""  # -- exile with a counter (wave 50J) -- "exile that card with a blood counter on it instead" (Rayami): the kind of counter the exiled card gets
+    may: bool = False  # -- optional replacement (wave 110C) -- "you may put it on top of its owner's library instead" (wave110c_discard): declining is a result too
 
     @property
     def sig(self) -> str:
@@ -1387,7 +1388,9 @@ def zone_candidates(plan: Plan, card: CardInstance, dest: str = "graveyard") -> 
     out += _graveyard_candidates(plan, card, frm)
     if leaves:  # (review 22C) 616.1e: a library result still leaves the battlefield, so "exile it if it would leave" applies after it
         out = [c for c in out if not c.outcome.startswith("library:")]  # anyway: no choice between them (a rider still is one)
-    return out
+    from app.rules import wave110c_discard  # -- optional replacements (wave 110C) --
+
+    return wave110c_discard.with_decline(out)
 
 
 def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand]:
@@ -1418,6 +1421,8 @@ def _graveyard_candidates(plan: Plan, card: CardInstance, frm: str) -> list[Cand
     from app.rules import wave110c_wheel  # -- (wave 110C) --
 
     out += wave110c_wheel.candidates(plan, card)
+    if frm == "battlefield" and any(d.get("replacement") == "library_may110c" for d in _definitions(plan, card).values()):  # Pulmonic Sliver's grant
+        out.append(Cand(card.name or "its own ability", "library:top", may=True))
     return out
 
 
@@ -1470,6 +1475,9 @@ def move_instead(plan: Plan, cid: str, outcome: str | Cand, actor: str | None, *
         return
     card = plan.state.cards[cid]
     owner = card.owner
+    if outcome == "graveyard":  # -- optional replacements (wave 110C) -- declined: a prepared route, so no replacement is looked at again
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": "graveyard"}, "routes": {cid: {"player": owner, "zone": "graveyard"}}}, actor=actor)
+        return
     if outcome in ("exile", "battlefield", "hand", "command"):  # (review 23D: battlefield, a discard's "put it onto the battlefield instead"; wave 100K: hand; wave 100L: 717.6)
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": outcome}}, actor=actor)
         return
@@ -1528,7 +1536,7 @@ def run_rider(plan: Plan, rider: dict[str, Any]) -> None:
 
 _OUTCOME_TEXT = {"exile": "Exile it", "battlefield": "Put it onto the battlefield", "hand": "Return it to its owner's hand","library:top": "Put it on top of its owner's library", "library:bottom":
                  "Put it on the bottom of its owner's library", "library:shuffle": "Reveal it and shuffle it into its owner's library",
-                 "command": "Put it into its owner's command zone"}  # (wave 100L: 717.6)
+                 "command": "Put it into its owner's command zone", "graveyard": "Decline: put it into the graveyard"}  # (wave 100L: 717.6)
 
 
 def offer_616(plan: Plan) -> bool:
@@ -1717,11 +1725,20 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             if cost is not None:
                 madness.append((cid, cost))
                 continue
-        if cands := zone_candidates(plan, card, dest or ""):  # -- zone replacements (wave 22C) -- 616.1 among the candidates
+        from app.rules import (
+            wave110c_discard,  # -- optional replacements (wave 110C) -- an effect's discard: Library of Leng, Nephalia Academy
+        )
+
+        cands = zone_candidates(plan, card, dest or "")
+        if dest == "graveyard" and frm == "hand":
+            cands = wave110c_discard.with_decline([*cands, *wave110c_discard.discard_candidates(plan, card, actor)])
+        if cands:  # -- zone replacements (wave 22C) -- 616.1 among the candidates
             pick = _pick(plan, card, cands, dest or "")
             if pick is None:
                 held.append(cid)  # two different results: its controller chooses (asked before priority)
                 continue
+            if pick.outcome == "graveyard":
+                continue  # declined: the move goes on as asked
             if pick.used:  # (a spell cast "without paying …": its one-shot "exile it instead" is used up, 614.5)
                 r.exile_if_graveyard = [o for o in r.exile_if_graveyard if o != oid]
                 r.bottom_if_graveyard = [o for o in r.bottom_if_graveyard if o != oid]
@@ -1780,6 +1797,9 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
             move_instead(plan, cid, zone, actor, shuffle_after=plan.shuffle_after)
             continue
         plan.do({"type": "move", "card_ids": [cid], "to": {"player": owner, "zone": zone}, **also}, actor=actor)
+        if zone == "battlefield" and (with_counters := next((d["counters110i"] for d in _definitions(plan, plan.state.cards[cid]).values()
+                                                             if d.get("replacement") == "discard_battlefield" and d.get("counters110i")), None)):
+            after_entry(plan, cid, owner, extra_counters=dict(with_counters))  # -- wave 110I -- Dodecapod: "with two +1/+1 counters on it" (122.6, 614.12)
         if cid in links:
             _record_link(plan, cid, links[cid])
         if cid in marks:  # (it is in exile now: the counter goes on that object)

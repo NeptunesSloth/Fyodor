@@ -39,3 +39,10 @@
 - Karn, Living Legacy: emblem with an activated ability ("Tap an untapped artifact you control: ...") is not run from the command zone (designations.emblem_text_ok allows no activated abilities); -1 pay any amount of mana unsupported.
 - See the Unwritten: ferocious "put two creature cards instead of one": whether exactly one may be put is undecided (earlier wave 100 note).
 - Officious Interrogation: "any number of target players" with a total-creature investigate count has no target group foundation.
+- Zinnia, Valley's Voice: granted offspring "as you cast them"; whether the resulting permanent keeps the offspring ETB trigger is unsettled (702.175a).
+- Volcanic Offering: "target ... of an opponent's choice" on a spell; delegated_target_announcements handles activated abilities only.
+- Berserker's Frenzy: roll two d20 ignore the lower + cast timing + two choosers; too many new pieces.
+- Wheel of Potential: "pay any amount of {E}" then X-sized each-player exile/draw not read by the grammar.
+- See the Unwritten: with ferocious, "you may put two creature cards ... instead of one": unsettled whether exactly one may be chosen (no CR rule or ruling in the repo); left manual.
+- Tectonic Split: "sacrifice half the lands you control, rounded up" as additional cost needs the amount bound at every cast site (about 8 callers of spell_additional_cost); not built this session, still work (not refused).
+- Tezzeret, Betrayer of Flesh: "first activated ability of an artifact you activate each turn" must count mana abilities too (605.1a); needs a per-turn record in the mana-ability path; not built this session.

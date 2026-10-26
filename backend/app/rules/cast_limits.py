@@ -910,6 +910,10 @@ def cast_problem(state: GameState, player: str, card: CardInstance, ch: Characte
 
     if (first := static_perm100d.cast_problem(state, player, ch)) is not None:
         return first
+    from app.rules import wave110n_cards  # -- (wave 110N) -- Rock Jockey
+
+    if (rock := wave110n_cards.cast_problem(state, player, ch)) is not None:
+        return rock
     for x in r.cast_limits:
         if x.get("player") == player and _record_live(state, x) and _cast_hit(state, player, card, ch, info, x, x=announced):
             return f"{x.get('label') or 'An effect'}: you can't cast {_spells_words(x.get('filter'), x.get('from'))} now"

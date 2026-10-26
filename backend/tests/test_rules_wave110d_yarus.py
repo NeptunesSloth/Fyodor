@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from tests.game_helpers import act
 from tests.wave9c_kit import build, to_hand
-from tests.wave110d_kit import card_db, cast_on, check, full, mana, now, put_new, settle  # noqa: F401
+from tests.wave110d_kit import card_db, cast_on, check, fresh, full, mana, now, put_new, settle  # noqa: F401
 
 
 def test_yarus_is_full():
@@ -25,4 +25,17 @@ def test_dead_face_down_creature_returns_face_up(cards):
     cast_on(s, "Lightning Bolt", egotist)
     c = now(s, egotist)
     assert c.zone == "p1:battlefield" and not c.face_down
+    check(s)
+
+
+def test_dead_face_down_instant_stays_in_graveyard(cards):
+    """110.4, 708.9: a manifested instant card is not a permanent card, so it cannot return."""
+    s = build(cards, ["Yarus, Roar of the Old Gods", "Lightning Bolt", "Lightning Bolt"])
+    put_new(s, "Yarus, Roar of the Old Gods")
+    bolt = fresh(s, "Lightning Bolt")
+    act(s, "p1", type="move", card_ids=[bolt.id], to={"zone": "battlefield"}, face_down=True, face_down_kind="manifest", x=50, y=10)
+    assert now(s, bolt).face_down
+    cast_on(s, "Lightning Bolt", bolt)
+    c = now(s, bolt)
+    assert c.zone == "p1:graveyard" and not c.face_down
     check(s)

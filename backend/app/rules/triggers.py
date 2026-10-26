@@ -489,6 +489,8 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
     if e.kind in ("tapped", "untapped", "turned_face_up"):  # (turned_face_up: wave 18A, 702.37e)
         got = _object_then(plan, e.card, e.object_id)
         return [(e.kind, got[0], got[1], got[0].controller, {"oid": e.object_id, "tapper": e.actor, "declared": e.combat, "step_phase": e.step_phase, "active_player": e.active_player})] if got is not None else []
+    if e.kind == "life_paid":  # -- life paid (wave 110D) -- 119.4: "Whenever you pay life"
+        return [("pay_life", None, None, e.player, {"amount": e.amount})]
     if e.kind in ("life_gain", "life_loss"):
         return [("gain_life" if e.kind == "life_gain" else "lose_life", None, None, e.player, {"amount": e.amount, **({"life_operation": e.group} if e.kind == "life_loss" and e.group else {})})]
     if e.kind == "spell_cast":
@@ -1007,6 +1009,10 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
     if not _other_ok(plan, cond, watcher, info, obj):
         return False
+    if cond.get("host_mv_le_aura110n"):  # -- (wave 110N) -- Eriette: "with mana value less than or equal to that Aura's mana value", part of the event (603.2)
+        host = plan.state.cards.get(info.get("other") or "")
+        if obj is None or host is None or plan.ch(host).mana_value > plan.ch(obj).mana_value:
+            return False
     if cond.get("mana_source") == "self" and plan.oid(watcher) not in info.get("mana_sources", []):
         return False
     if cond.get("to") == "self" and info.get("other") != watcher.id:  # -- attachment events (wave 30S) -- "an Aura becomes attached to this creature"
@@ -1049,7 +1055,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 return False
         elif event == "you_attack" and bool(want) != ("defended" in info):
             return False
-        if event == "you_attack" and ("pw" in info) != (want == "each_pw"):  # -- trigger lines (wave 110F) -- 508.3a: one fact per planeswalker attacked
+        if event == "you_attack" and ("pw" in info) != (want == "each_pw") and not (want == "player_or_pw" and "pw" in info):  # (wave 110M)  # -- trigger lines (wave 110F) -- 508.3a: one fact per planeswalker attacked
             return False
         if want and want != "opponent_any" and not _defender_ok(want, watcher, info, plan):
             return False
@@ -1327,6 +1333,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "planeswalker" and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_pw" and recipient is None and not info.get("recipient_planeswalker")) or \
                 (to == "player_or_battle" and recipient is None and not info.get("recipient_battle")) or \
+                (to == "opponent_or_battle" and (recipient == you or recipient is None and not info.get("recipient_battle"))) or \
                 (to == "its_owner" and (recipient is None or obj is None or recipient != obj.owner)) or \
                 (to == "self" and info.get("other") != watcher.id) or \
                 (to == "players" and recipient is None) or (to == "opponents" and (recipient is None or recipient == you)) or \
@@ -1348,6 +1355,8 @@ def _defender_ok(want: str, watcher: CardInstance, info: dict[str, Any], plan: P
         return False  # (-- review 34 -- 310.5, 508.5: a creature attacking a battle attacks no player and no planeswalker, Gahiji / Frontier Warmonger)
     if want == "each_pw":
         return defended == you
+    if want == "player_or_pw":  # -- (wave 110M) -- 508.3a: a player attacked directly, or a planeswalker (its own fact)
+        return bool(info.get("pw")) or bool(info.get("direct"))
     if want == "your_pw":
         if plan is None or defended != you:
             return False
@@ -1484,6 +1493,7 @@ def _counted_attackers(plan: Plan, cond: dict[str, Any], watcher: CardInstance, 
     from app.rules import selectors
 
     direct = cond.get("defender") not in (None, "you_or_pw", "each_pw")  # (only the creatures attacking that player; wave 110F: each_pw counts the creatures at that planeswalker)
+    direct = direct and not (cond.get("defender") == "player_or_pw" and "pw" in info)  # (wave 110M) a planeswalker's own fact counts its attackers
     attackers = [plan.state.cards[c] for c in info.get("attacking_direct" if direct and "attacking_direct" in info
                                                        else "attacking") or [] if c in plan.state.cards]
     if cond.get("others_only"):  # (wave 11C) "~ and at least one other Warrior attack": not counting ~
@@ -1627,6 +1637,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
 
             if other_side.wanted(cond):
                 event = other_side.event(plan, info, event)
+                if cond.get("host_mv_le_aura110n"):  # -- (wave 110N) -- Eriette: "that permanent" is the host (as other_side made it); the Aura stays the event's other side
+                    event.other = _source_ref(plan, info.get("oid"))
             # One damage event to several recipients at once is one "deals damage" (and several
             # sources at once one "is dealt damage"): once per batch per object, amounts summed
             one_event = cond["event"] == "dealt_damage" or (cond["event"] == "deal_damage" and cond.get("to", "any") == "any")
@@ -1640,6 +1652,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
                 per = (info.get("oid") or "") if cond.get("subject") == "source" else ""  # (wave 39B: "a source …": each source of the batch, 603.2c)
             if cond["event"] == "mill" and cond.get("aggregate") and cond.get("player") == "any":
                 per = ""  # -- triggers (wave 17D) -- "one or more cards are milled": every player's cards of the batch are one event (603.2c)
+            if cond.get("batch110m"):
+                per = ""  # -- (wave 110M) -- "one or more of your opponents are dealt combat damage": all of the batch's recipients are one event (603.2c)
             if cond.get("all_players"):
                 per = ""  # -- trigger other (wave 36A) -- "one or more players sacrifice one or more creatures": every player's part of the batch is one event (603.2c)
             if cond["event"] == "lose_life" and cond.get("aggregate"):
@@ -1828,7 +1842,7 @@ def generic_combat(plan: Plan, event: str, cards: list[CardInstance],
     509.3a/c): one fact per creature; "you attack" once per combat for the attacking player.
     ``pairs`` (this creature, the creature on the other side): "blocks a creature" / "becomes
     blocked by a creature" trigger once for each (509.3b, 509.3d)."""
-    if not cards:
+    if not cards and not pairs:  # (110E: a creature put onto the battlefield blocking, 509.3d)
         return
     fired: Fired = {}
     attacking = [c.id for c in cards]
@@ -2813,6 +2827,8 @@ def bind_that_player(t: PendingTrigger) -> None:
     for key in ("controller", "zone_owner", "player_exclude", "attacking_player"):  # event-relative selector bindings
         marker = f'\\"{key}\\":\\"that_player\\"'
         raw = raw.replace(marker, f'\\"{key}\\":\\"player:{players[0]}\\"')
+    for kind in ("protected_by", "controlled_by"):  # (wave 110H) Rampaging Raptor: the player's battle (310.8) or planeswalker, in a nested selector key
+        raw = raw.replace(f"{kind}:that_player", f"{kind}:player:{players[0]}")
     t.ability = json.loads(raw)
     if keep:
         t.ability = {**t.ability, "effects": [keep.get(i, e) for i, e in enumerate(t.ability["effects"])]}
@@ -2953,6 +2969,18 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
                     plan.note(f"{t.name}'s ability has no defending player to choose its target and is removed")
                     return True
                 choice_player = t.event.defended
+            if t.ability.get("target_choice") == "opponent110d":  # -- delegated (wave 110D) -- "of an opponent's choice": the controller picks the opponent (one: no question), who picks the target
+                opponents = [pid for pid in plan.live() if pid != t.controller]
+                if not opponents:
+                    r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+                    plan.note(f"{t.name}'s ability has no opponent to choose its target and is removed")
+                    return True
+                if (picked := (picks or {}).get("opp110d")) is None and len(opponents) > 1:
+                    decide(plan, player=t.controller, kind="choose_one", prompt=f"{t.name}: choose an opponent to select the target",
+                           options=[DecisionOption(id=pid, label=plan.name(pid)) for pid in opponents],
+                           resume={"step": "trigger_opp110d", "trigger": t.id})
+                    return False
+                choice_player = picked or opponents[0]
             decide(plan, player=choice_player, kind="choose_one", prompt=f"{t.name}: choose a target",
                    options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
                    resume={"step": "trigger_target", "trigger": t.id})
@@ -3089,6 +3117,14 @@ def resume_target(plan: Plan, d: Any, chosen: list[str]) -> None:
     t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
     if t is not None:
         put(plan, t, target=chosen[0])
+    flush(plan)
+
+
+def resume_opponent(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """-- delegated (wave 110D) -- the controller named the opponent who picks the target of "of an opponent's choice"."""
+    t = next((p for p in plan.rules.pending_triggers if p.id == d.resume["trigger"]), None)
+    if t is not None and chosen[0] in plan.live() and chosen[0] != t.controller:
+        put(plan, t, picks={"opp110d": chosen[0]})
     flush(plan)
 
 

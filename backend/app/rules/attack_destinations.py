@@ -35,6 +35,10 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
         group = language.target_group('target opponent')
         if group is not None:
             return ([{'do':'attack_window','player':'target','window':'next_turn'}],[group],False)
+    if body == "During target player's next turn, each creature that player controls attacks if able.":  # (wave 110E) 508.1d
+        group = language.target_group('target player')
+        if group is not None:
+            return ([{'do':'attack_window','player':'target','window':'next_turn','plain':True}],[group],False)
     m = re.fullmatch(r'Until the end of your next turn, target creature attacks that player each combat if able\.',body,re.I)
     if m:
         creature = language.target_group('target creature')
@@ -94,7 +98,7 @@ def attack_window(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             source = ctx.get('source_object') or ''
             layers.add_effect(plan,affected=[],who=key,layer='6',source=source,
                               controller=ctx['controller'],duration='permanent',
-                              imposes=(f'attack_object:{source}',),
+                              imposes=('must_attack',) if e.get('plain') else (f'attack_object:{source}',),
                               declaration_window='next_turn',declaration_player=pid)
     return True
 

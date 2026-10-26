@@ -8,6 +8,9 @@ import copy
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from app.rules import wave110c_any
+from app.rules.wave110c_any import _FLOURISH
+
 if TYPE_CHECKING:
     from app.rules.oracle import AbilityText
     from app.rules.plan import Plan
@@ -256,6 +259,7 @@ BUILDERS: dict[str, Callable[[], Parsed]] = {
         lambda: read("Each opponent sacrifices a creature with the greatest power among creatures they control."),
     "Put a +1/+1 counter on each of up to two Soldiers you control.": _soldiers,
     "Destroy all lands or all creatures. Creatures destroyed this way can't be regenerated.": _catastrophe,
+    _FLOURISH: wave110c_any.flourish,
 }
 
 
@@ -324,8 +328,10 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         return kusari
     if (tevesh := wave110c_tevesh.definition(ability, ch)) is not None:  # Tevesh Szat, Doom of Fools
         return tevesh
-    from app.rules import wave110c_wheel
+    from app.rules import wave110c_discard, wave110c_wheel
 
+    if (discard := wave110c_discard.definition(ability.text)) is not None:  # Library of Leng, Nephalia Academy, Pulmonic Sliver's grant
+        return discard
     if (wheel := wave110c_wheel.definition(ability.text)) is not None:  # Wheel of Sun and Moon
         return wheel
     if (lose := wave110c_lose.definition(ability.text)) is not None:  # "If you would lose the game, instead ..." (Exquisite Archangel, The Golden Throne, Lich's Mirror)

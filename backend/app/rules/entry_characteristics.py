@@ -61,6 +61,7 @@ def effects(state: GameState, card: CardInstance) -> list[ContinuousEffect]:
         form.set_types is not None
         or form.add_types
         or form.set_creature_types is not None
+        or form.set_artifact_types is not None
         or form.add_subtypes
     ):
         parts.append(
@@ -70,6 +71,7 @@ def effects(state: GameState, card: CardInstance) -> list[ContinuousEffect]:
                     "set_types": form.set_types,
                     "add_types": form.add_types,
                     "set_creature_types": form.set_creature_types,
+                    "set_artifact_types": form.set_artifact_types,
                     "add_subtypes": form.add_subtypes,
                 },
             )
@@ -109,6 +111,7 @@ def from_become(effect: dict[str, Any]) -> dict[str, Any] | None:
         "set_types": None if effect.get("retain") or not effect.get("types") else effect["types"],
         "add_types": effect.get("types", []) if effect.get("retain") else [],
         "set_creature_types": effect.get("creature_types"),
+        "set_artifact_types": effect.get("artifact_types"),
         "add_subtypes": effect.get("add_creature_types", []),
         "set_colors": effect.get("colors"),
         "add_colors": effect.get("add_colors", []),

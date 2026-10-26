@@ -1113,7 +1113,7 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
             raise ActionError("You have no commander, so that cost can't be paid (903.4f)")
         if amount:
             from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-            _replace_life.lose_life(plan, [(player, amount)])
+            _replace_life.lose_life(plan, [(player, amount)], paid=True)
             record.life += amount
         return True
     return False

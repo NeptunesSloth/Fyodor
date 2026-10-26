@@ -43,12 +43,16 @@ COST_SENTENCE = re.compile(r"the flashback cost is equal to (?:its|that card's) 
 _HARMONIZE = re.compile(rf"^{_WHO} gains harmonize until end of turn$")  # -- one-card wordings (wave 110B) -- 702.180a, 611.2a (Songcrafter Mage)
 _HARMONIZE_COST = re.compile(r"its harmonize cost is equal to its mana cost")
 
+# -- escape grant (wave 110I) -- 702.138a, 611.2a (Confession Dial): "gains escape until end of turn. The escape cost is equal to its mana cost plus exile three other cards from your graveyard."
+_ESCAPE = re.compile(r"^target (?P<s1>[a-z ]+?) card in your graveyard gains escape until end of turn$")
+_ESCAPE_COST = re.compile(r"the escape cost is equal to its mana cost plus exile three other cards from your graveyard")
+
 
 def _selector(m: re.Match[str]) -> str:
     from app.rules import selectors
     from app.rules.scripts import _NoMatch
 
-    words = (m["s1"] or m["s2"] or "").replace(" and ", " or ")
+    words = (m.groupdict().get("s1") or m["s2"] or "").replace(" and ", " or ")
     sel = selectors.parse(f"{words} card in your graveyard")
     if sel is None or sel.zones != ("graveyard",) or not sel.card:
         raise _NoMatch
@@ -71,6 +75,32 @@ def _harmonize(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "grant_flashback", "who": "target", "cost": "pending", "keyword": "harmonize"}], sel
 
 
+def _escape(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    return [{"do": "grant_flashback", "who": "target", "cost": "pending", "keyword": "escape", "exile": 3}], _selector(m)
+
+
+_JUMP_START = re.compile(rf"^{_WHO} gains jump-start until end of turn$")  # -- (wave 110O) -- 702.133a, 611.2a (Filigree Racer)
+
+
+def _jump_start(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    sel = _selector(m)
+    return [{"do": "grant_flashback", "who": "target", "cost": "none", "keyword": "jump_start"}], sel
+
+
+_ESCAPE110O = re.compile(r"^until end of turn, (?P<who>each (?P<s2>[a-z ]+?) card in your graveyard) gains \"escape—(?P<mana>(?:\{[^}]+\})+), "
+                     r"exile (?P<n>[a-z]+) other cards from your graveyard\.?\"$", re.IGNORECASE)  # -- (wave 110O) -- 702.138a (The Grim Captain's Locker)
+
+
+def _escape110o(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    from app.rules.escape import _WORDS
+    from app.rules.scripts import _NoMatch
+
+    n = _WORDS.get(m["n"].lower())
+    if n is None:
+        raise _NoMatch
+    return [{"do": "grant_flashback", "who": _selector(m), "cost": f"{m['mana']}|{n}", "keyword": "escape110o"}], None
+
+
 def _play(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     sel = _selector(m)
     target = m["s1"] is not None
@@ -80,6 +110,9 @@ def _play(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
     (re.compile("^" + _FLASHBACK.pattern + "$"), _flashback),
     (_HARMONIZE, _harmonize),
+    (_JUMP_START, _jump_start),  # -- (wave 110O) --
+    (_ESCAPE110O, _escape110o),  # -- (wave 110O) --
+    (_ESCAPE, _escape),
     (re.compile("^" + _PLAY.pattern + "$", re.IGNORECASE), _play),
 ]
 
@@ -87,9 +120,11 @@ TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
 def cost_sentence(text: str, effects: list[dict[str, Any]]) -> bool:
     """"The flashback cost is equal to its mana cost." after a grant of flashback: its cost."""
     harmonize = _HARMONIZE_COST.fullmatch(text) is not None
-    if not harmonize and not COST_SENTENCE.fullmatch(text):
+    escape = _ESCAPE_COST.fullmatch(text) is not None
+    if not harmonize and not escape and not COST_SENTENCE.fullmatch(text):
         return False
-    pending = [e for e in effects if e.get("do") == "grant_flashback" and e.get("cost") == "pending" and (e.get("keyword") == "harmonize") == harmonize]
+    kw = "harmonize" if harmonize else "escape" if escape else "flashback"
+    pending = [e for e in effects if e.get("do") == "grant_flashback" and e.get("cost") == "pending" and e.get("keyword", "flashback") == kw]
     if len(pending) != 1:
         return False
     pending[0]["cost"] = "mana_cost"
@@ -116,7 +151,7 @@ def grant_flashback(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     found = _cards(plan, ctx, e["who"])
     for cid in found:
         r.graveyard_grants.append({"id": secrets.token_hex(4), "oid": plan.oid(cid), "card": cid, "turn": turn,
-                                   e.get("keyword", "flashback"): e["cost"], "controller": ctx["controller"]})
+                                   e.get("keyword", "flashback"): e["cost"], "controller": ctx["controller"], **({"exile": e["exile"]} if "exile" in e else {})})
     if found:
         cost = "equal to its mana cost" if e["cost"] == "mana_cost" else e["cost"]
         kw = e.get("keyword", "flashback")
