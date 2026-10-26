@@ -1133,7 +1133,7 @@ def _named_self(s: Selector, m: re.Match[str]) -> Selector:
 # "creature that doesn't have the same name as a token you control" (The Apprentice's Folly). 201.2a: two objects have the same name if they
 # have a name in common; an object with no name (face down, 708.2a) has the same name as nothing, so "doesn't have the same name" holds of it
 # (201.2c's "different name" would not: that wording isn't read). Names are the objects' own, layers applied (a copy has the copied name).
-_SN_REF = r"(?:(?:another|a) (?:permanent|creature|token) you control|a (?:creature )?card in (?:your|their) graveyard)"
+_SN_REF = r"(?:(?:another|a) (?:permanent|creature|token|Room) you control|a (?:creature )?card in (?:your|their) graveyard)"
 
 
 @_suffix(r"(?:with|(?:that |which )?(?:(?P<no>doesn't|don't|does not|do not) have|has|have)) the same name as "

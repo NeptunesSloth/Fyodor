@@ -42,6 +42,7 @@ TOVOLAR = ("At the beginning of your upkeep, if you control three or more Wolves
            "Then transform any number of Human Werewolves you control.")
 PREDICAMENTS = ("Whenever this creature deals combat damage to a player, choose a card in your hand. That player guesses whether the card's mana value is greater than 4. "
                 "If the player guessed wrong, you may cast the card without paying its mana cost.")
+STAIRS = "At the beginning of your upkeep, surveil 1. You win the game if there are eight or more different names among unlocked doors of Rooms you control."
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -154,6 +155,14 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if d is not None:
             d["effects"] = [{"do": "predicaments110d"}, {"do": "only_if", "cond": {"succeeded": "wrong110d"}, "skip": 1},
                             {"do": "free_cast", "zone": "that", "who": "ref:pred110d", "filter": None, "optional": True, "mv": None}]
+        return d
+    if ability.text == STAIRS:  # 104.2b win; 709.5c/201.2 the names of the unlocked doors (values._distinct "door_names110d")
+        from app.rules import selectors
+
+        d = scripts.define(replace(ability, text=STAIRS.split(". You")[0] + "."), ch)
+        if d is not None:
+            cond = {"value": {"distinct": "door_names110d", "among": selectors.parse("Rooms you control").key()}, "op": ">=", "n": 8}
+            d["effects"] += [{"do": "only_if", "cond": cond, "skip": 1}, {"do": "win_game", "who": "you"}]
         return d
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
