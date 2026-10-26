@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from tests.wave110a_kit import *
 
-NAMES = ["Ghyrson Starn, Kelermorph", "Averna, the Chaos Bloom", "Superior Spider-Man"]
+NAMES = ["Ghyrson Starn, Kelermorph", "Averna, the Chaos Bloom", "Superior Spider-Man", "Aminatou, the Fateshifter"]
 
 
 @pytest.fixture()
@@ -106,4 +106,36 @@ def test_spider_man_copies_a_graveyard_creature_then_exiles_it(cards):  # 707.9b
 def test_spider_man_declined_leaves_the_card_in_the_graveyard(cards):
     s, c, sorc = _spider(cards, False)
     assert ch(s, c).name == "Superior Spider-Man" and s.state.cards[sorc.id].zone == "p1:graveyard"
+    check(s)
+
+
+def _aminatou(cards, side):
+    from tests.test_rules_conditionals import token_of
+    from tests.test_rules_wave30i_sneak import pod
+
+    s = pod(cards, ["Aminatou, the Fateshifter"], players=3)
+    am = put(s, "Aminatou, the Fateshifter")
+    act(s, "p1", type="set_counter", card_id=am.id, kind="loyalty", value=9)
+    mine = token_of(s, "p1", "Bear", "Token Creature — Bear", "2/2")
+    wall = token_of(s, "p2", "Wall", "Token Creature — Wall", "0/4")
+    imp = token_of(s, "p3", "Imp", "Token Creature — Imp", "1/1")
+    put(s, "Island", "p2")
+    idx = next(a.index for a in ch(s, am).abilities if a.text.startswith("−6"))
+    act(s, "p1", type="activate_ability", card_id=am.id, ability=idx)
+    answer(s, side)
+    return s, am, mine, wall, imp
+
+
+def test_aminatou_left_gives_each_player_the_next_players_nonland_permanents(cards):  # 613.1b; Aminatou and lands stay
+    s, am, mine, wall, imp = _aminatou(cards, "left")
+    ctl = lambda c: s.state.cards[c.id].controller  # noqa: E731
+    assert (ctl(am), ctl(mine), ctl(wall), ctl(imp)) == ("p1", "p3", "p1", "p2")
+    assert next(c for c in s.state.cards.values() if c.name == "Island" and c.zone == "p2:battlefield").controller == "p2"
+    check(s)
+
+
+def test_aminatou_right_goes_the_other_way(cards):
+    s, am, mine, wall, imp = _aminatou(cards, "right")
+    ctl = lambda c: s.state.cards[c.id].controller  # noqa: E731
+    assert (ctl(am), ctl(mine), ctl(wall), ctl(imp)) == ("p1", "p2", "p3", "p1")
     check(s)
