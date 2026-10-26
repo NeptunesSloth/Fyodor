@@ -9,8 +9,8 @@ from __future__ import annotations
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
 from tests.game_helpers import act, deck, enable
-from tests.wave110d_kit import card_db, check, cost, ability, mana, now, put_new, settle, to_phase  # noqa: F401
 from tests.wave9c_kit import put, to_hand
+from tests.wave110d_kit import ability, card_db, check, cost, mana, now, put_new, settle, to_phase  # noqa: F401
 
 
 def three(cards, mine=(), p2=(), p3=()):
