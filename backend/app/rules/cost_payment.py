@@ -890,6 +890,11 @@ def pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, lis
 
                 for cid in ids:
                     emit(plan.state, "teamwork_tapped110j", object_id=plan.oid(cid), card=cid, player=player)
+            from app.rules import (
+                wave110n_cards,  # -- (wave 110N) -- Vodalian War Machine: "tapped this turn to pay for its abilities"
+            )
+
+            wave110n_cards.note_tapped(plan, card, ids)
         elif comp.kind == C.UNTAP_OTHER:  # -- activated sweep (wave 17B) -- 701.26b
             from app.rules import keyword_actions
 

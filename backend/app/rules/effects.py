@@ -4237,6 +4237,8 @@ PRIMITIVES["transform"] = _did_transform(PRIMITIVES["transform"])
 
 
 def describe(effects: list[dict[str, Any]]) -> str:
+    if said := next((e["say110n"] for e in effects if e.get("say110n")), None):  # -- (wave 110N) -- an effect that words its own question (Vislor Turlough)
+        return str(said).capitalize()
     words = {"draw": "draw {n} card(s)", "gain_life": "gain {n} life", "lose_life": "lose {n} life", "scry": "scry {n}",
              "surveil": "surveil {n}", "damage": "deal {n} damage", "player_counter": "get {n} {counter}",
              "create_token": "create {n} token(s)", "add_counters": "put {n} {kind} counter(s)", "proliferate": "proliferate",
@@ -4247,7 +4249,7 @@ def describe(effects: list[dict[str, Any]]) -> str:
     parts = [("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
               else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
              else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest")]  # (wave 30G: "any number")
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest", "vislor110n")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
     return (", ".join(parts) or "do it").capitalize()
 
 

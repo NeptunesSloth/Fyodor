@@ -2297,6 +2297,8 @@ def keyword_cost(line: str, word: str) -> tuple[str, Any] | None:
         return "mana", f"{{{m[1].upper()}/{m[2].upper()}}}"  # "{G} or {W}" for each age counter is that many {G/W}: each one paid with either
     if (m := re.fullmatch(rf"{word}—(?P<phrase>.+)", text, re.IGNORECASE)) is None:
         return None
+    if word == "cumulative upkeep" and m["phrase"].lower() == "exile the top card of your library":  # -- (wave 110N) -- Thought Lash: wave110n_cards.cu_exile
+        return "exile_top110n", None
     from app.rules import optional_payment
 
     if word == "cumulative upkeep" and m["phrase"] == "Put two cards from a single graveyard on the bottom of their owner's library":  # -- wave 110G -- Jötun Grunt
@@ -2346,6 +2348,8 @@ def _cumulative_upkeep(plan: Plan) -> None:
                 pay = [{"do": "pay_or_sacrifice", "cost": cost, "per": "age"}]
             elif kind == "gy_pairs110g":  # -- wave 110G -- 702.24a: the cost once for each age counter, all or nothing (118.3)
                 pay = [{"do": "gy_pairs110g", "n": age, "bind": "pay0"}, {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1}, *sacrifice]
+            elif kind == "exile_top110n":  # -- (wave 110N) -- Thought Lash
+                pay = [{"do": "cu_exile110n"}]
             elif kind == "cost":
                 pay = [{"do": "optional_payment", "who": "you", "cost": cost, "times": age, "bind": "pay0"},
                        {"do": "only_if", "cond": {"succeeded": "pay0", "negate": True}, "skip": 1}, *sacrifice]

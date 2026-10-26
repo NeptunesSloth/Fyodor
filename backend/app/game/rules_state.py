@@ -1085,6 +1085,7 @@ class CostContribution(BaseModel):
     pays: str = Field(max_length=8)  # "1" (one generic), "G", "W/U", "2/G", "G/P"
     card_types: list[str] | None = None  # Characteristics of the paid object; None in legacy saves.
     exiled_object_id: str | None = None  # Exact new exile incarnation for delve; absent in legacy saves.
+    keywords: list[str] | None = None  # -- (wave 110N) -- the exiled card's keywords as it was exiled (Soulflayer); None in older saves
 
 
 class MadnessFollowup(BaseModel):
@@ -1447,6 +1448,7 @@ class WorldInterval80(BaseModel):
 class RulesState(BaseModel):
     began_untapped110j: list[str] = Field(default_factory=list)  # (wave 110J) objects untapped on the battlefield as the turn began (Rasputin Dreamweaver)
     stored_dice110m: dict[str, list[int]] = Field(default_factory=dict)  # (wave 110M) object id -> the d6 results stored on it (706.8a: Centaur of Attention)
+    tap_paid110n: list[list[str]] = Field(default_factory=list)  # (wave 110N) [turn, ability source object, creature tapped for its cost] this turn (Vodalian War Machine)
     began_lands110c: dict[str, int] = Field(default_factory=dict)  # (wave 110C) player -> untapped lands they controlled as their turn began (Power Surge)
     sticker_splits101: dict[str, str] = Field(default_factory=dict)  # Original permanent OID -> chosen physical component.
 
