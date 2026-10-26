@@ -257,7 +257,11 @@ class _TooMany(Exception):
 def _canon(ev: Event) -> str:
     # (an entering permanent's counters are the same event before and after it moves: 614.12a)
     skip = ("applied", "why", "oid", "newcomers") if ev.get("entering") else ("applied", "why")  # (newcomers: wave 5H)
-    return json.dumps({k: v for k, v in ev.items() if k not in skip}, sort_keys=True, default=str)
+    out = {k: v for k, v in ev.items() if k not in skip}
+    if out.get("prevention_receipts"):  # (which effect prevented how much, not the order they applied in: two absorb 1 commute, 616.1)
+        out["prevention_receipts"] = sorted(json.dumps({k: v for k, v in r.items() if k != "id"}, sort_keys=True, default=str)
+                                            for r in out["prevention_receipts"])
+    return json.dumps(out, sort_keys=True, default=str)
 
 
 def _fingerprint(ev: Event, applicable: list[Candidate]) -> str:

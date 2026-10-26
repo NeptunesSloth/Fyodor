@@ -127,17 +127,18 @@ MANUAL = [card(c["name"], set_code="t40m", number=f"M{i:02d}", **{k: v for k, v 
 # for equipped creature, 509.3c) are read now, and so is Scriv (the Aura token "Contract" made attached to a target, with its own enchant ability: roles.NAMED) (tests/test_rules_wave53c_block_events.py)
 LIFTED_53C = ("Gift of Immortality", "Radiant Grace // Radiant Restraints", "Hedron Blade", "Scriv, the Obligator")
 LIFTED_100F = ("Glimmer Lens", "Observed Stasis")  # -- attached (wave 100F) -- read now (tests/test_rules_wave100f_control.py)
+# -- wave 110 -- read now: Rhuk (the Equipment attached as the creature died, 603.10a: tests/test_rules_wave110i_more.py) and Preston Garvey (the Settlement
+# Aura token with its own enchant ability: tests/test_rules_wave110d_auras.py)
+LIFTED_110 = ("Rhuk, Hexgold Nabber", "Preston Garvey, Minuteman")
 
-LIFTED_110 = ("Rhuk, Hexgold Nabber", "Preston Garvey, Minuteman")  # -- wave 110I / 110D -- read now: Rhuk (tests/test_rules_wave110i_more.py: dies via last known attachments 603.10a, attacks), Preston (tests/test_rules_wave110d_auras.py: named Aura token 111.3, attack untap)
 
-
-@pytest.mark.parametrize("name", [c["name"] for c in json.loads((Path(__file__).parent / "fixtures" / "wave40b_manual.json").read_text("utf-8")) if c["name"] not in (*LIFTED_53C, *LIFTED_100F, *LIFTED_110)])
-def test_these_stay_manual(name):
-    """Never faked: their attached-object wording needs more than this wave reads — Scriv (an Aura token with its own enchant ability), Hedron Blade
-    ("becomes blocked by one or more colorless creatures" for equipped creature), Observed Stasis ("for each tapped creature its controller controls"),
-    Glimmer Lens ("equipped creature and at least one other creature attack")."""
-    data = next(c for c in MANUAL if c["name"] == name)
-    assert coverage.of_card_data({**data, "faces": data.get("card_faces") or []}).level != "FULL"
+@pytest.mark.parametrize("name", [c["name"] for c in json.loads((Path(__file__).parent / "fixtures" / "wave40b_manual.json").read_text("utf-8"))])
+def test_the_once_manual_cards_are_read_now(name):
+    """This wave left them manual (their attached-object wording needed more than it read); later waves read each one (LIFTED_*)."""
+    assert name in (*LIFTED_53C, *LIFTED_100F, *LIFTED_110)
+    if name in LIFTED_110:
+        data = next(c for c in MANUAL if c["name"] == name)
+        assert coverage.of_card_data({**data, "faces": data.get("card_faces") or []}).level == "FULL"
 
 
 def level_of(oracle: str, type_line: str = "Enchantment — Aura") -> str:

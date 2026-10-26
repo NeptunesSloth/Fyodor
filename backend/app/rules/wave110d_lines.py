@@ -171,6 +171,14 @@ def draw_if_none(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 
 _HORDE = "{3}{R/W}{R/W}: Creatures your opponents control block this turn if able, and you choose how those creatures block."
+def return_or_draw(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Return the card, or draw a card when there is no card to return ("If you can't, draw a card")."""
+    from app.rules import selectors
+
+    effect = e["effect"]
+    found = selectors.candidates(plan, selectors.from_key(effect["sel"]), ctx["controller"], ctx.get("source_card"))
+    ctx["effects"][ctx["next"]:ctx["next"]] = [effect] if found else [{"do": "draw", "who": "you", "n": 1}]
+    return True
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
@@ -262,9 +270,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return d
     if text.endswith(_CANT_DRAW):  # Inventive Iteration: the graveyard pick is not a target, so "can't" = no artifact card to return (701.21, 608.2c)
         d = scripts.define(replace(ability, text=text[: -len(_CANT_DRAW)]), ch)
-        if d is not None:
-            d["effects"][0]["as"] = "back110d"
-            d["effects"].append({"do": "draw_if_none110d", "ref": "back110d"})
+        back = [i for i, x in enumerate(d["effects"]) if x.get("do") == "return_choice" and x.get("sel")] if d is not None else []
+        if d is None or not back:
+            return None
+        # (the last return is what "can't" is about: Roots of Wisdom mills first; whether a card could be returned is read as it would be, not
+        # from where the card ends up, so a commander put into the command zone instead (903.9b) still was returned)
+        d["effects"][back[-1]] = {"do": "return_or_draw110d", "effect": d["effects"][back[-1]]}
         return d
     d = None if native is None else scripts.define(replace(ability, text=native), ch)
     if d is not None and text.startswith("−6: Gain control of target creature. It becomes a Vampire"):
@@ -393,7 +404,7 @@ def turn_up_or_not(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"turn_up_or_not110d": turn_up_or_not, "attack_me110d": attack_me_next_turn, "draw_per_curse110d": draw_per_curse, "same_mv_limit110d": same_mv_limit, "draw_if_none110d": draw_if_none, "attach_event_player110d": attach_event_player, "share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
+PRIMITIVES = {"turn_up_or_not110d": turn_up_or_not, "attack_me110d": attack_me_next_turn, "draw_per_curse110d": draw_per_curse, "same_mv_limit110d": same_mv_limit, "draw_if_none110d": draw_if_none, "return_or_draw110d": return_or_draw, "attach_event_player110d": attach_event_player, "share_counters110d": share_counters, "draw_gained110d": draw_gained, "top_creature110d": top_creature}
 
 
 def holds(plan: Any, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:

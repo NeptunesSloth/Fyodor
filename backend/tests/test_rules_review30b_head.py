@@ -42,13 +42,14 @@ def cards(settings):
     repo.close()
 
 
-def test_earthbender_ascension_reflexive_intervening_if_is_not_automated(cards):
+def test_earthbender_ascension_reflexive_intervening_if_gates_the_whole_ability(cards):
     """Earthbender Ascension: "Landfall — Whenever a land you control enters, put a quest counter on this enchantment. When you do, if it has four
     or more quest counters on it, put a +1/+1 counter on target creature you control. It gains trample until end of turn." Wave 30L made "it has
     four or more quest counters on it" readable, and the reflexive ability went FULL reading "it" as the land that entered (never four counters)
     and gating only the +1/+1 counter (trample was granted anyway). An intervening "if" gates the whole reflexive ability, as it would trigger
     and as it resolves (603.4, 603.12): not read, the ability stays manual (as wave 30G's other reflexive builders already refuse it)."""
-    assert coverage.of_card_data(cards.resolve("Earthbender Ascension")).level != "FULL"
+    # (since read natively, gating the whole reflexive ability: tests/test_rules_reflexive_counter_threshold.py)
+    assert coverage.of_card_data(cards.resolve("Earthbender Ascension")).level == "FULL"
     s = build(cards, ["Earthbender Ascension", "Grizzly Bears", "Forest"], [])
     asc = put(s, "Earthbender Ascension")
     bears = put(s, "Grizzly Bears")

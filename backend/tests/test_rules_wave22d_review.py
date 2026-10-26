@@ -12,6 +12,7 @@ import pytest
 
 from app.game.factory import PlayerSetup, new_game
 from app.game.session import GameSession
+from app.rules.plan import Plan
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act, deck, enable
 from tests.test_rules_effects import mana, pass_until_stack_empty, replay_matches, run_until
@@ -189,10 +190,14 @@ def test_random_encounter_haste_only_for_what_entered_and_they_return(cards):
 
 
 def test_unlicensed_hearse_counts_only_what_is_still_exiled_with_it(cards):
-    s = build(cards, p1=("Unlicensed Hearse", "Probe Two", "Probe Four"))
+    s = build(cards, p1=("Unlicensed Hearse", "Probe Two", "Probe Four", "Grizzly Bears"))
     hearse = put(s, "Unlicensed Hearse", "battlefield")
+    pilot = put(s, "Grizzly Bears", "battlefield")
     two, four = put(s, "Probe Two", "graveyard"), put(s, "Probe Four", "graveyard")
     act(s, "p1", type="activate_ability", card_id=hearse.id, ability=0, targets=[two.id, four.id], target_counts=[2])
+    answer(s)
+    crew = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[hearse.id]).abilities if a.text.startswith("Crew"))
+    act(s, "p1", type="activate_ability", card_id=hearse.id, ability=crew, crew=[pilot.id])  # (a Vehicle has P/T only as a creature, 301.7a)
     answer(s)
     assert zone(s, two.id) == "p1:exile" and power(s, hearse.id) == (2, 2)
     roundtrip(s)

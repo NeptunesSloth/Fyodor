@@ -3163,7 +3163,7 @@ def spell_cost_ways(state: GameState, card: CardInstance, ch: Characteristics, *
         for final in finalize(cost) if finalize is not None else [cost]:
             x_maximum = min(kwargs.get('x', 0), final.generic)
             final = spell_mana_floor.apply(state, info, final) if floor else final
-            final = M.spend_as(final, mode) if floor and mode else final
+            final = M.spend_as(final, mode) if mode else final  # (609.4b: Oath of Nissa, with or without a floor)
             from app.rules import cost_statics101
 
             out.append((final, life + cost_statics101.commander_life(state, card, ch)))
@@ -5285,6 +5285,8 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         return
     if announce_free_x(plan, a, card, ch):  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}" kicked on a free cast, a miracle cost with {X}: X is announced with it
         return
+    if a.x_value is None and M.parse_cost(ch.mana_cost).x:
+        a.x_value = 0  # 107.3b: nothing announced it, so X is 0 (before targets that count X are chosen)
     if a.kicker and (minimum_kick := kicker_cost(ch.abilities)) is not None and (a.x_value or 0) < minimum_kick.minimum_x:
         raise ActionError(f"{ch.name}: kicker X must be at least {minimum_kick.minimum_x}")
     if M.parse_cost(ch.mana_cost).x and (limited := cast_limits.cast_problem(plan.state, plan.actor, card, ch, plan.info, resolving=True, announced=a.x_value or 0)):
