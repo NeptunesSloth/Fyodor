@@ -41,6 +41,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {"kind": "static", "static": flag, "effects": []}
     if ability.text.strip() == _BANE:
         return _bane(ability, ch)
+    if (jace := _jace(ability)) is not None:
+        return jace
     if ability.text.strip() == _MISTBIND:
         return _mistbind(ability, ch)
     if ability.text.strip() == _FLAYER:
@@ -448,6 +450,54 @@ def warmachine(plan: Any, ctx: Any, e: Def) -> bool:
     return True
 
 
+_JACE_PLUS = "+1: Empower Jace X, where X is the number of Islands you control."
+_JACE_MINUS = "\u22123: Until your next turn, whenever a creature attacks you or a planeswalker you control, it gets -5/-0 until end of turn."
+_JACE_ZERO = ("0: Exile all but the bottom card of each opponent's library. Activate only if there are twenty-five or more loyalty counters among Jaces you control.")
+
+
+def _jace(ability: Any) -> Def | None:
+    """Jace, Reality Sculptor. The card's short name is "Jace", so the grammar would read "Empower Jace" as "Empower ~"; the three loyalty abilities are built here."""
+    from app.rules import scripts
+
+    text = ability.text.strip()
+    if text == _JACE_PLUS:
+        found = scripts.parse_effects("Empower Jace X, where X is the number of Islands you control.")
+        return None if found is None else {"kind": "activated", "loyalty": True, "cost": ability.cost, "effects": found[0], "target": None}
+    if text == _JACE_MINUS:
+        found = scripts.parse_effects("Until your next turn, whenever a creature attacks, it gets -5/-0 until end of turn.")
+        if found is None or found[0][0].get("do") != "delayed" or found[0][0]["when"].get("kind") != "watch":
+            return None
+        head = found[0][0]
+        when = {**head["when"], "cond": {**head["when"]["cond"], "defender": "you_or_pw"}, "text": "a creature attacks you or a planeswalker you control"}
+        return {"kind": "activated", "loyalty": True, "cost": ability.cost, "effects": [{**head, "when": when}, *found[0][1:]], "target": None}
+    if text == _JACE_ZERO:
+        cond = restriction_condition("there are twenty-five or more loyalty counters among Jaces you control")
+        return {"kind": "activated", "loyalty": True, "cost": ability.cost, "effects": [{"do": "jace_library110n"}], "target": None,
+                "restriction": [{"kind": "if", "cond": cond, "text": "there are twenty-five or more loyalty counters among Jaces you control"}]}
+    return None
+
+
+def restriction_condition(text: str) -> Def | None:
+    """The activation condition of Jace's 0 ability, read from the printed sentence (the number word "twenty-five" and "Jaces" are not general grammar)."""
+    from app.rules import selectors
+
+    if text != "there are twenty-five or more loyalty counters among Jaces you control":
+        return None
+    jaces = selectors.Selector(controller="you", types=("Planeswalker",), subtypes=("Jace",)).key()
+    return {"value": {"counters_among": "loyalty", "of": jaces}, "op": ">=", "n": 25}
+
+
+def jace_library(plan: Any, ctx: Any, e: Def) -> bool:
+    """Each opponent's library keeps only its bottom card; the rest is exiled (701.13) in library order, face up. An empty or one-card library is unchanged."""
+    from app.rules import effects
+
+    for pid in effects._players(plan, ctx, "each_opponent"):
+        library = list(plan.state.zones.get(f"{pid}:library", []))
+        if len(library) > 1:
+            plan.do({"type": "move", "card_ids": library[:-1], "to": {"player": pid, "zone": "exile"}}, actor=ctx["controller"])
+    return True
+
+
 def _thief(d: Def) -> Def:
     """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
     from app.rules import scripts
@@ -787,6 +837,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "jace_library110n": jace_library, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {"vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}
