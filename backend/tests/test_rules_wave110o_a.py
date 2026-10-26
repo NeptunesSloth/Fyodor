@@ -895,4 +895,4 @@ def test_cuombajj_witches_alice_cannot_name_the_opponents_target_herself(cards):
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=w.id, ability=ability(s, w, "{T}"), targets=["p2", "p2"], target_counts=[1, 1])
     assert not now(s, w).tapped and not s.state.zones.get("stack")
-    check(s)
+    # (no replay check: ``ready`` set the summoning-sickness stamp by hand, which a replay of the log cannot know)
