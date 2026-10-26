@@ -66,3 +66,9 @@ Moved to FULL: Arsenal Thresher (devour.py REV), Arcee (cast_targets110i value),
 - Torrent of Lava: still two foundations (stack-granted ability to every creature, source-specific prevention shield); not small.
 - Spoils of War: unchanged (which opponent's graveyard).
 - Spinneret and Spiderling: "deals 4 or more damage" with no recipient: events.py excludes a threshold without recipient (one event, many recipients: no ruling on summing); exile_damage_choices49 is unregistered.
+
+## Session 13 (todo_from_n leftovers)
+- Acidic Dagger / Glyph of Delusion: "Activate only before blockers are declared" outside combat (main phase 2, other turns) has no ruling; Glyph needs "creature that target Wall blocked this turn" history. Not built.
+- Merseine: activation cost is the enchanted creature's mana cost, activated only by that creature's controller; needs host-cost placeholder that cannot become a free cost if state is missing. Foundation not built.
+- Retriever Phoenix: Learn is rewritten to discard/draw text in scripts.py (no learn event); a "would learn" replacement needs a real learn event first. Not built.
+- Chorus of the Conclave, Land Equilibrium, Ogre Battlecaster: unchanged from wave110n notes.
