@@ -456,6 +456,118 @@ _BUILD[_ESTRID_MASK] = ("−1: Create a Mask Aura token attached to another targ
 _BUILD[_ESTRID_ULT] = ("−7: Mill seven cards. Return all non-Aura enchantment cards from your graveyard to the battlefield. Return all Aura cards from your graveyard to the battlefield.", lambda d: d)
 
 
+_GRIP = "Whenever a spell or ability is put onto the stack, if it has a single target, reselect its target at random."
+_BUILD[_GRIP] = ("Whenever you cast a spell, you gain 1 life.", lambda d: {**d, "cond": {"hooked110m": True}, "effects": [{"do": "grip110m"}]})  # (found by stack_scan, never by an event match)
+
+
+def stack_scan(plan: Any) -> bool:
+    """Grip of Chaos: each spell or ability newly on the stack since the last look (603.2: the trigger event is its being put there; the look comes before anyone gets priority) triggers
+    every Grip of Chaos on the battlefield whose condition holds: it has a single target (115.9a: one instance chosen when it was put on the stack)."""
+    from app.game.rules_state import TriggerEvent
+    from app.rules import context, scripts
+    from app.rules.stack_interaction import target_entry
+    from app.rules.triggers import _add
+
+    r = plan.rules
+    stack = list(r.stack)
+    new = [sid for sid in stack if sid not in r.stack_seen110m]
+    r.stack_seen110m = stack
+    if not new:
+        return False
+    grips = [(src, i, d) for src in plan.state.cards.values() if src.zone.endswith(":battlefield") and plan.in_game(src) and not plan.manual(src)
+             for i, d in scripts.definitions(plan.ch(src)).items() if (d.get("cond") or {}).get("hooked110m") and d.get("effects") == [{"do": "grip110m"}]]
+    added = False
+    for sid in new:
+        entry = target_entry(plan, sid)
+        ref = context.ref_of(plan, sid)
+        if not grips or entry is None or ref is None or len(entry.targets) != 1:
+            continue
+        for src, i, d in grips:
+            added = _add(plan, controller=src.controller, source_card=src.id, source_object=plan.oid(src), name=src.name, index=i, definition=d,
+                         event=TriggerEvent(kind="reflexive", objects=[ref], count=1)) is not None or added
+    return added
+
+
+def pick_random(options: list[str]) -> str:
+    """The table's pick among the options (recorded in the steps that follow it: a replay or a load never draws again)."""
+    import secrets
+
+    return secrets.SystemRandom().choice(sorted(options))
+
+
+def grip(plan: Any, ctx: Def, e: Def) -> bool:
+    """Grip of Chaos: the spell or ability's one target becomes a legal target chosen at random from among all of them, the one it has included (115.7: a changed target must be legal;
+    the reminder text: select from among all legal targets). Judged again as this resolves (603.4: the object is still on the stack with a single target)."""
+    from app.rules import copying
+    from app.rules.stack_interaction import _apply, _fits, _legal, _with, target_entry
+
+    event = ctx.get("event") or {}
+    objects = event.get("objects") or []
+    sid = str(objects[0]["card"]) if objects else ""
+    entry = target_entry(plan, sid) if sid in plan.state.cards else None
+    if entry is None or len(entry.targets) != 1 or plan.oid(sid) != objects[0].get("object_id"):
+        return True
+    positions = copying.positions(entry)
+    if len(positions) != 1:
+        return True
+    current = copying._current(entry, positions[0]).id
+    legal = [x for x in _legal(plan, entry, positions[0], sid) if x == current or _fits(plan, entry, positions, x, sid)]
+    if not legal:
+        return True
+    pick = pick_random(legal)
+    plan.note(f"{ctx.get('name') or 'It'}: the target of {plan.state.cards[sid].name or 'it'} is reselected at random", actor=ctx["controller"])
+    if pick != current:
+        _apply(plan, sid, _with(plan, entry, positions, pick))
+    return True
+
+
+_GOBLIN = ("Each player hides at least one item, then all players reveal them simultaneously. Each player loses life equal to the number of items they revealed. The player who revealed the fewest "
+           "items then loses half their life, rounded up. If two or more players are tied for fewest, each loses half their life, rounded up.")
+
+
+def goblin(plan: Any, ctx: Def, e: Def) -> bool:
+    """Goblin Game (101.4, secretly chosen numbers of items, revealed together): step 1, each player loses life equal to their number; step 2, those who revealed the fewest (a tie: each of them)
+    then lose half their life as it is by then, rounded up (107.1: a whole number; a life total of 0 or less halves to nothing)."""
+    from app.rules import context
+
+    ballots = [(p, int(v)) for p, v in ctx["gc"][e["as"]]["ballots"] if p in plan.live()]
+    if e["step"] == 1:
+        steps: list[Def] = [{"do": "lose_life", "who": f"player:{p}", "n": n} for p, n in ballots]
+    else:
+        fewest = set(context.players(plan, ctx, f"{e['as']}:lo"))
+        steps = [{"do": "lose_life", "who": f"player:{p}", "n": (plan.state.players[p].life + 1) // 2} for p, _ in ballots if p in fewest and plan.state.players[p].life > 0]
+    at = ctx["next"]
+    ctx["effects"] = [*ctx["effects"][:at], *steps, *ctx["effects"][at:]]
+    return True
+
+
+_ROCKET = ("Whenever this Vehicle attacks, choose a letter. This Vehicle gets +1/+1 until end of turn for each name sticker on it that begins with the chosen letter.")
+_BUILD[_ROCKET] = ("Whenever this creature attacks, you gain 1 life.", lambda d: {**d, "effects": [{"do": "rocket110m"}]})
+
+
+def rocket(plan: Any, ctx: Def, e: Def) -> bool:
+    """_____ _____ Rocketship: its controller chooses a letter (A to Z), then the Vehicle gets +1/+1 for each name sticker on it whose name begins with that letter (case aside)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{ctx.get('name', '')}: choose a letter",
+           options=[DecisionOption(id=ch, label=ch) for ch in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"], resume={"step": "rocket110m", "ctx": ctx})
+    return False
+
+
+def resume_rocket(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx, letter = d.resume["ctx"], chosen[0]
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object"):
+        n = sum(1 for p in card.stickers101 if p.sticker.kind == "name" and p.sticker.text.strip()[:1].casefold() == letter.casefold())
+        plan.note(f"{plan.name(d.player)} chooses {letter}: {n} name sticker{'s' * (n != 1)} on {card.name} begin{'s' * (n == 1)} with it", actor=d.player)
+        if n:
+            effects.PRIMITIVES["pump"](plan, ctx, {"do": "pump", "who": "self", "p": n, "t": n})
+    effects.continue_effects(plan, ctx)
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -463,6 +575,9 @@ def parse(body: str) -> Any:
     """Spell bodies. Meddle: any spell may be targeted; whether it has one target and that target is a creature is judged as this resolves (115.7a, 608.2b)."""
     from app.rules import scripts
 
+    if body.strip() == _GOBLIN:
+        pick = {"do": "gc_choose", "who": "each_player", "what": "number", "min": 1, "secret": True, "as": "gc", "say": "how many items to hide"}
+        return [pick, {"do": "gc_extremes", "as": "gc"}, {"do": "goblin110m", "step": 1, "as": "gc"}, {"do": "goblin110m", "step": 2, "as": "gc"}], None, False
     if body.strip() == _SMOKE:
         parsed = scripts.parse_effects("Choose up to X target creatures.")
         assert parsed is not None
@@ -1108,6 +1223,6 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-RESUME: dict[str, Any] = {"nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
+RESUME: dict[str, Any] = {"rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

@@ -2756,6 +2756,9 @@ def apnap(plan: Plan) -> list[str]:
 def flush(plan: Plan) -> bool:
     """Put waiting triggers on the stack (603.3). True if the stack changed or a decision opened."""
     collect(plan)
+    from app.rules import wave110m_cards
+
+    wave110m_cards.stack_scan(plan)  # (wave 110M) "whenever a spell or ability is put onto the stack"
     from app.rules import combat_player_scope43
 
     if combat_player_scope43.ask_pending(plan):
@@ -2787,6 +2790,8 @@ def flush(plan: Plan) -> bool:
         for t in mine:
             if not put(plan, t):
                 return True  # waiting for a target choice
+    if wave110m_cards.stack_scan(plan):  # (wave 110M) the triggers just put there are objects put onto the stack too
+        return flush(plan) or True
     r.passed = []
     # -- core review -- 117.3c / 603.3: the player who was about to receive priority gets it once the triggers are on the
     # stack — the caster after a cast or activation, the active player after a resolution or at a step's start

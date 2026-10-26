@@ -1196,5 +1196,83 @@
 ],
 "power": "0",
 "toughness": "4"
+},
+{
+"name": "Grip of Chaos",
+"layout": "normal",
+"mana_cost": "{4}{R}{R}",
+"cmc": 6.0,
+"type_line": "Enchantment",
+"oracle_text": "Whenever a spell or ability is put onto the stack, if it has a single target, reselect its target at random. (Select from among all legal targets.)",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
+},
+{
+"name": "Test Fight",
+"layout": "normal",
+"mana_cost": "{G}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "Target creature you control deals damage equal to its power to target creature you don't control.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": []
+},
+{
+"name": "Test Pinger",
+"layout": "normal",
+"mana_cost": "{1}{R}",
+"cmc": 2.0,
+"type_line": "Creature — Goblin",
+"oracle_text": "When this creature enters, it deals 1 damage to any target.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [],
+"power": "1",
+"toughness": "1"
+},
+{
+"name": "Goblin Game",
+"layout": "normal",
+"mana_cost": "{5}{R}{R}",
+"cmc": 7.0,
+"type_line": "Sorcery",
+"oracle_text": "Each player hides at least one item, then all players reveal them simultaneously. Each player loses life equal to the number of items they revealed. The player who revealed the fewest items then loses half their life, rounded up. If two or more players are tied for fewest, each loses half their life, rounded up.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
+},
+{
+"name": "_____ _____ Rocketship",
+"layout": "normal",
+"mana_cost": "{4}",
+"cmc": 4.0,
+"type_line": "Artifact — Vehicle",
+"oracle_text": "Flying\nWhen this Vehicle enters, you may put up to two name stickers on it.\nWhenever this Vehicle attacks, choose a letter. This Vehicle gets +1/+1 until end of turn for each name sticker on it that begins with the chosen letter.\nCrew 2",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Flying",
+"Crew"
+],
+"power": "2",
+"toughness": "3"
 }
 ]
