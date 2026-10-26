@@ -41,6 +41,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {"kind": "static", "static": flag, "effects": []}
     if ability.text.strip() == _BANE:
         return _bane(ability, ch)
+    if ability.text.strip() == _MISTBIND:
+        return _mistbind(ability, ch)
     if ability.text.strip() == _FLAYER:
         return _flayer(ability, ch)
     if ability.text.strip() == _LASH:
@@ -106,9 +108,31 @@ _GENKU_MODAL = ["Whenever another nontoken permanent you control leaves the batt
                 "\u2022 Create a 1/1 black Rat creature token with lifelink."]
 
 
+_CHAMPION_FAERIE = "When this permanent enters, sacrifice it unless you exile another Faerie you control."
+_CHAMPIONED = "When a Faerie is championed with this creature, tap all lands target player controls."
+_MISTBIND = _CHAMPION_FAERIE + " " + _CHAMPIONED
+
+
+def _mistbind(ability: Any, ch: Any) -> Def | None:
+    """Mistbind Clique: "championed" (702.72c) is the Faerie exiled as the direct result of the champion ability, so its trigger is the reflexive trigger of that
+    exile (603.12): its target is chosen when it goes on the stack, after the exile, and the sacrifice happens only when nothing was exiled."""
+    from app.rules import scripts
+
+    sac = scripts.define(replace(ability, text=_CHAMPION_FAERIE), ch)
+    refl = scripts.define(replace(ability, text="When this permanent enters, you may exile another Faerie you control. When you do, tap all lands target player controls."), ch)
+    if sac is None or refl is None or [e["do"] for e in sac["effects"]] != ["optional_payment", "only_if", "sacrifice"] \
+            or [e["do"] for e in refl["effects"]] != ["optional_payment", "reflexive"]:
+        return None
+    pay, test, sacrifice = sac["effects"]
+    return {**sac, "effects": [pay, refl["effects"][1], test, sacrifice]}
+
+
 def rewrite_lines(lines: list[str]) -> None:
-    """Genku, Future Shaper: the bullets only say which token a mode makes, so the four lines are the modal trigger "choose one that hasn't been chosen this turn"
-    (700.2) with a mode for each token. In place."""
+    """In place. Mistbind Clique: the two linked lines are one ability here (_mistbind). Genku, Future Shaper: the bullets only say which token a mode makes, so
+    the four lines are the modal trigger "choose one that hasn't been chosen this turn" (700.2) with a mode for each token."""
+    if _CHAMPION_FAERIE in lines and _CHAMPIONED in lines:
+        lines[lines.index(_CHAMPION_FAERIE)] = _MISTBIND
+        lines.remove(_CHAMPIONED)
     for i in range(len(lines) - 3):
         if lines[i:i + 4] == _GENKU:
             lines[i:i + 4] = _GENKU_MODAL
