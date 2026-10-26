@@ -4,6 +4,7 @@
 * Revival Experiment: up to one graveyard card per permanent type, a matching of cards to types (205.2a); 3 life each; the spell is exiled.
 * Memory Vessel: both players exile seven; until the activator's next turn each may play their own exiled cards and none may play cards from hand (305.1, 601.3).
 * Sword of the Ages: the sacrificed artifact and creatures pay the cost (601.2h), X is their total power, and what is still in the graveyard afterwards is exiled.
+* Shifting Shadow: the granted upkeep trigger attaches the granting Aura to the creature it put onto the battlefield (607.1a, 303.4f).
 * Stitcher Geralf: each player mills three (701.17); up to two creature cards among those milled are exiled; the Zombie is as big as their total power (608.2c, 107.1b).
 """
 from __future__ import annotations
@@ -39,6 +40,10 @@ EXTRA = [
     real("Sword of the Ages", "{4}", 4, "Artifact",
          "This artifact enters tapped.\n{T}, Sacrifice this artifact and any number of creatures you control: This artifact deals X damage to any target, where X is "
          "the total power of the creatures sacrificed this way, then exile this artifact and those creature cards.", None, ""),
+    real("Shifting Shadow", "{1}{B}{B}", 3, "Enchantment \u2014 Aura",
+         "Enchant creature\nEnchanted creature has haste and \"At the beginning of your upkeep, destroy this creature. Reveal cards from the top of your library until you "
+         "reveal a creature card. Put that card onto the battlefield and attach Shifting Shadow to it, then put all other cards revealed this way on the bottom of your "
+         "library in a random order.\"", None, "B"),
     real("Sol Ring", "{1}", 1, "Artifact", "{T}: Add {C}{C}.", None, ""),
 ]
 NAMES = [c["name"] for c in EXTRA]
@@ -243,4 +248,26 @@ def test_sword_of_the_ages_exiles_what_it_sacrificed(cards, chosen, damage):
     assert s.state.cards[sword.id].zone == "p1:exile"
     for n in ("Hill Giant", "Grizzly Bears"):
         assert card_named(s, n).zone == ("p1:exile" if n in chosen else "p1:battlefield")
+    check(s)
+
+
+def test_shifting_shadow_moves_to_the_next_creature(cards):
+    """Upkeep: the host dies, the first creature card revealed (the Giant, under a Forest) enters and the Aura is attached to it (not in the graveyard); the Forest goes under."""
+    s = build(cards, ["Shifting Shadow", "Grizzly Bears", "Hill Giant"], forests=30, islands=30)
+    bears = put(s, "Grizzly Bears")
+    mana(s, B=3)
+    shadow = to_hand(s, "Shifting Shadow")
+    act(s, "p1", type="cast_spell", card_id=shadow.id, targets=[bears.id])
+    answer(s)
+    assert s.state.cards[shadow.id].attached_to == bears.id
+    giant = card_named(s, "Hill Giant")
+    top(s, "Hill Giant", "p1")
+    forest = next(c for c in s.state.cards.values() if c.owner == "p1" and c.name == "Forest" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "library"}, position="top")
+    to_phase(s, "main1", 3)
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard"
+    assert s.state.cards[giant.id].zone == "p1:battlefield"
+    assert s.state.cards[shadow.id].zone == "p1:battlefield" and s.state.cards[shadow.id].attached_to == giant.id
+    assert s.state.cards[forest.id].zone == "p1:library" and forest.id not in s.state.zones["p1:library"][:1]  # (under the rest: 701.20e, bottom)
     check(s)

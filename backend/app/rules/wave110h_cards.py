@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from typing import Any
 
@@ -55,6 +56,10 @@ _GERALF = ("{2}{U}, {T}: Each player mills three cards. Exile up to two creature
 # Sword of the Ages: the sacrificed artifact and creatures are cost objects (601.2h); afterwards those still in the graveyard (the same objects, 400.7) are exiled.
 _SWORD = ("{T}, Sacrifice this artifact and any number of creatures you control: This artifact deals X damage to any target, where X is the total power of "
           "the creatures sacrificed this way, then exile this artifact and those creature cards.")
+# Shifting Shadow: the granted upkeep trigger attaches the granting Aura (607.1a, the object ‹granter#id›) to the creature it put onto the battlefield (303.4f).
+_SHADOW = re.compile(r"^(?P<head>At the beginning of your upkeep, destroy (?:this creature|~)\. Reveal cards from the top of your library until you reveal a creature card\. "
+                     r"Put that card onto the battlefield) and attach ‹granter(?:#(?P<oid>[^›]*))?› to it(?P<tail>, then put all other cards revealed this way on the bottom of "
+                     r"your library in a random order\.)$")
 _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this creature is suspected, you may suspect one of the other creatures. "
               "If you do, this creature is no longer suspected.")
 
@@ -178,6 +183,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or [e["do"] for e in native["effects"]] != ["damage"]:
             return None
         return {**native, "effects": [*native["effects"], {"do": "sword110h"}]}
+    if (shadow := _SHADOW.match(text)) is not None:
+        native = scripts.define(replace(ability, text=shadow["head"] + shadow["tail"]), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["destroy", "look_top", "pick_looked", "rest_looked"]:
+            return None
+        pick = {**native["effects"][2], "as": "shadow110h"}
+        return {**native, "effects": [*native["effects"][:2], pick, {"do": "attach_to", "src": f"obj:{shadow['oid'] or ''}", "who": "ref:shadow110h"}, native["effects"][3]]}
     if text == _LEECH:  # the grant definition the staged untap model reads (tests/test_rules_untap_attempts45.py), marked: untap_hold carries it out
         return {"kind": "static", "static": "grant", "effects": [], "who": "attached", "attached_kind": "creature", "conditions": [], "p": 0, "t": 0,
                 "base": None, "keywords": [], "grants": [text.split('"')[1]], "rules": [], "untap_counter110h": True}
