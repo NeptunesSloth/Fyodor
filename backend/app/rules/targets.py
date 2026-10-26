@@ -174,6 +174,8 @@ def legal_targets(plan: Plan, selector: str, chooser: str, source: Characteristi
             return []
         return [cid for cid in exiled_with.cards(plan, {"source_object": oid, "source_card": source_card, "controller": chooser, "borrowed_link_scope": borrowed_scope}, selector)
                 if plan.in_game(plan.state.cards[cid]) and not prohibitions.untargetable(plan, chooser, plan.state.cards[cid])]
+    if selector == "opponent_active110n":  # -- (wave 110N) -- "target opponent whose turn it is" (The Beamtown Bullies): 500.1, the active player, if they are an opponent
+        return [p for p in legal_targets(plan, "opponent", chooser, source, source_card, attacker) if p == plan.state.turn.active_player]
     if selector.startswith("opponent_as:"):  # -- activated other (wave 21E) -- "target opponent who has more life than you do as you activate this ability" (601.2c)
         cond = selector.split(":", 1)[1]
         margin = 2 if cond == "hand2" else 1

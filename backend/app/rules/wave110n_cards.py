@@ -305,6 +305,39 @@ def vislor(plan: Any, ctx: Any, e: Def) -> bool:
 _BUILD[_VISLOR] = ("When this creature enters, an opponent gains control of it.", _vislor)
 
 
+_BULLIES = ("{T}: Target opponent whose turn it is puts target nonlegendary creature card from your graveyard onto the battlefield under their control. It gains haste. "
+            "Goad it. At the beginning of the next end step, exile it.")
+
+
+def _bullies(d: Def) -> Def:
+    """The Beamtown Bullies: the targeted opponent (the active player, 115.1) is the one who puts the card onto the battlefield, under their own control; the goad
+    is the Bullies' controller's (701.15a) and so is the delayed exile (603.7). Two target groups: the opponent, then the card."""
+    first = d["effects"][0] if d.get("effects") else {}
+    if first.get("do") != "return_card" or first.get("under") != "you" or not d.get("target"):
+        return d
+    card = {**d["target"], "min": 1, "max": 1}
+    effects = [{**{k: v for k, v in first.items() if k not in ("do", "who", "under")}, "do": "bullies110n", "who": "target:1"}, *d["effects"][1:]]
+    return {**{k: v for k, v in d.items() if k != "target"}, "target": None, "effects": effects,
+            "targets": [{"what": "opponent_active110n", "min": 1, "max": 1}, card]}
+
+
+_BUILD[_BULLIES] = (
+    "{T}: Return target nonlegendary creature card from your graveyard to the battlefield under your control. It gains haste. Goad it. At the beginning of the next end step, "
+    "exile it.", _bullies)
+
+
+def bullies(plan: Any, ctx: Any, e: Def) -> bool:
+    """Without a legal opponent nobody puts the card onto the battlefield (608.2b): the rest of the ability (haste, goad, the delayed exile) is skipped too."""
+    from app.rules import context, effects
+
+    who = effects._players(plan, ctx, "target:0")
+    if not who or who[0] != plan.state.turn.active_player:
+        ctx["next"] += 4
+        return True
+    context.bind_players(ctx, "bullies110n", who[:1])
+    return bool(effects.return_card(plan, ctx, {**e, "do": "return_card", "to": "battlefield", "tapped": False, "under": "ref:bullies110n"}))
+
+
 def _thief(d: Def) -> Def:
     """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
     from app.rules import scripts
@@ -644,6 +677,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {"vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}
