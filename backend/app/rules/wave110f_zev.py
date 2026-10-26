@@ -4,7 +4,9 @@ controls this turn, for each other opponent, choose that player or a permanent t
 603.7: the ability creates a delayed triggered ability that watches this turn for the next such spell (the cast condition is checked as the spell is cast, 115.9b-c:
 exactly one object or player is chosen). 707.10: the copies are made as the trigger resolves; "each other opponent" is each opponent of the caster other than the
 player who was targeted, or who controls the targeted permanent. The caster chooses, per such opponent, among that player and the permanents they control that are legal
-targets of the spell (115.1, 601.2c / 707.10c: a copy cannot target something the spell could not); an opponent with no legal choice gets no copy."""
+targets of the spell (115.1, 601.2c / 707.10c: a copy cannot target something the spell could not); an opponent with no legal choice gets no copy
+(Scryfall ruling 2022-06-10: "if the chosen player or permanent isn't a legal target for the spell, the copy won't be created"; the same ruling: copies are
+not cast, X and modes are copied, no additional costs are paid)."""
 from __future__ import annotations
 
 from dataclasses import replace

@@ -6,7 +6,7 @@ that pile is assigned to does so. (Piles can be empty.)"
 509.1: the declaration of blockers is replaced, so none of its requirements or costs (509.1c, 509.1d) are applied; the restrictions of 509.1b decide whether a creature "can
 block" the attacker its pile was assigned to (``combat.block_problem``; menace and similar minimums, 509.1b / 702.111b: fewer creatures than the minimum and none of the pile
 blocks it). The players divide in turn order but the piles are assigned only once every one has divided theirs, at random (every pile to a different attacker, a
-shuffle). Cases the table must decide by hand (an attacker that can't be blocked by more than one creature,
+shuffle). Scryfall has no rulings for Camouflage. Cases the table must decide by hand (requirements, block costs, menace-like minimums, an attacker that can't be blocked by more than one creature,
 "can't block alone", a limit on the number of blockers, a companion restriction) fall back to the ordinary declaration for that player."""
 from __future__ import annotations
 
@@ -29,13 +29,24 @@ def ask(plan: Any, pid: str, attackers: list[Any], blockers: list[Any]) -> bool:
     if r.camouflage_turn110f != plan.state.turn.number or not blockers:
         return False
     special = {"max_one_blocker", "block_by_all"}
-    if any(special & scripts.statics(plan.ch(a)) for a in attackers) or any("cant_block_alone" in scripts.statics(plan.ch(b)) for b in blockers) \
+    if _by_hand(plan, attackers, blockers) or any(special & scripts.statics(plan.ch(a)) for a in attackers) or any("cant_block_alone" in scripts.statics(plan.ch(b)) for b in blockers) \
             or r.block_caps.get(pid) is not None or combat_rules.limits(plan, combat_rules.BLOCK_LIMIT_ALL).get("*") is not None \
             or declaration_groups.relevant(plan, {b.id for b in blockers}, "block"):
         return False
     st = {"pid": pid, "n": len(attackers), "piles": [], "todo": []}
     _ask_choose(plan, st, blockers, combat)
     return True
+
+
+def _by_hand(plan: Any, attackers: list[Any], blockers: list[Any]) -> bool:
+    """No ruling or CR text says whether the 509.1c requirements, 509.1d costs or a menace-like minimum (509.1b) survive a replaced declaration: ordinary declaration."""
+    from app.rules import combat, combat_rules, scripts, statics, wave110m_cards
+
+    def forced(ch: Any) -> bool:
+        return any((n := statics.rule_arg(r)[0]).startswith(("must_block", "must_be_blocked")) or n == "lure" for r in scripts.statics(ch) | set(ch.imposed))
+
+    return any(forced(plan.ch(c)) for c in (*attackers, *blockers)) or any(combat.min_blockers(plan.ch(a)) > 1 or wave110m_cards.attacker_tax(plan.ch(a)) for a in attackers) \
+        or any(combat_rules.has_block_cost(plan, b.id, plan.ch(b)) for b in blockers)
 
 
 def _ask_choose(plan: Any, st: dict[str, Any], blockers: list[Any], combat: Any) -> None:

@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
@@ -25,6 +27,9 @@ _GLYPH = ("Cast this spell only after combat.\nDestroy all creatures that were b
 _BASE.extend([
     real('Glyph of Reincarnation', '{2}{G}{G}', 4, 'Instant', _GLYPH, None, 'G'),
     real('Test Wall 16F', '{1}', 1, 'Creature — Wall', 'Defender\nThis creature can block an additional creature each combat.', ('0', '6'), ''),
+    real('Test Menace 110F', '{1}', 1, 'Creature — Ogre', 'Menace', ('2', '2'), ''),
+    real('Test Must 110F', '{1}', 1, 'Creature — Ogre', 'Test Must 110F blocks each combat if able.', ('2', '2'), ''),
+    real('Test Snipe 110F', '{B}', 1, 'Instant', 'Destroy target creature.', None, 'B'),
     real('Test Raider A 16F', '{1}', 1, 'Creature — Ogre', '', ('2', '2'), ''),
     real('Test Raider B 16F', '{1}', 1, 'Creature — Orc', '', ('3', '3'), ''),
     real('Zevlor, Elturel Exile', '{1}{U}{B}{R}', 4, 'Legendary Creature — Tiefling Warrior',
@@ -263,4 +268,26 @@ def test_camouflage_a_creature_that_can_block_additional_creatures_may_join_two_
     assert d.max_choices == 2
     _choose(s, "p2", "0", "1")
     assert _blocked_by(s, a) == ["Test Wall 16F"] and _blocked_by(s, b) == ["Test Wall 16F"]
+    check(s)
+
+
+# -- verification (wave 110F s19): Scryfall has no Camouflage rulings, so requirements, block costs and menace piles go to the ordinary declaration ----
+@pytest.mark.parametrize("attacker,blocker", [("Test Menace 110F", "Test Wall 16F"), ("Test Raider A 16F", "Test Must 110F")])
+def test_camouflage_requirements_and_menace_stay_by_hand(cards, attacker, blocker):
+    """No ruling settles 509.1b menace piles or 509.1c requirements under a replaced declaration: the ordinary declaration (all restrictions and requirements) applies."""
+    s, _ = _camo(cards, [attacker], [blocker], [attacker])
+    put(s, blocker, "p2")
+    d = _asked(s)
+    assert d.kind == "declare_blockers"
+
+
+def test_zevlor_opponent_with_no_legal_target_gets_no_copy(cards):
+    """Scryfall 2022-06-10: if the chosen player or permanent isn't a legal target, the copy isn't created. p3 controls no creature: no question, no copy."""
+    s = _zev(cards, p1=("Test Snipe 110F",), p2=("Grizzly Bears",))
+    bear2 = put(s, "Grizzly Bears", "p2")
+    from tests.test_rules_wave5b_stack_interaction import alice_casts
+
+    alice_casts(s, "Test Snipe 110F", targets=[bear2.id], B=1)
+    answer(s)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard" and s.state.rules.decision is None
     check(s)
