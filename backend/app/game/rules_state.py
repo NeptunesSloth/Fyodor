@@ -1416,6 +1416,7 @@ class WorldInterval80(BaseModel):
 
 
 class RulesState(BaseModel):
+    tap_paid110n: list[list[str]] = Field(default_factory=list)  # (wave 110N) [turn, ability source object, creature tapped for its cost] this turn (Vodalian War Machine)
     began_lands110c: dict[str, int] = Field(default_factory=dict)  # (wave 110C) player -> untapped lands they controlled as their turn began (Power Surge)
     sticker_splits101: dict[str, str] = Field(default_factory=dict)  # Original permanent OID -> chosen physical component.
 

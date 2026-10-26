@@ -414,6 +414,40 @@ def timesifter(plan: Any, ctx: Any, e: Def) -> bool:
     return True
 
 
+_WARMACHINE = "When this creature dies, destroy all Merfolk tapped this turn to pay for its abilities."
+
+
+def note_tapped(plan: Any, source: Any, tapped: list[str]) -> None:
+    """602.2b: creatures tapped as the cost of an ability of ``source`` (the permanent as it is), kept with that object for this turn only."""
+    if not tapped:
+        return
+    turn = str(plan.state.turn.number)
+    r = plan.rules
+    r.tap_paid110n = [x for x in r.tap_paid110n if x[0] == turn]
+    r.tap_paid110n += [[turn, plan.oid(source), plan.oid(c)] for c in tapped]
+
+
+def _warmachine(d: Def) -> Def:
+    return {**d, "effects": [{"do": "warmachine110n"}]}
+
+
+_BUILD[_WARMACHINE] = ("When this creature dies, draw a card.", _warmachine)
+
+
+def warmachine(plan: Any, ctx: Any, e: Def) -> bool:
+    """Every Merfolk that was tapped this turn as the cost of one of the dead creature's abilities (as that object, 603.10a) and is still that Merfolk on the
+    battlefield is destroyed; one that left, or stopped being a Merfolk, is not (a new object, 400.7)."""
+    from app.rules import context, effects
+
+    turn, source = str(plan.state.turn.number), ctx.get("source_object")
+    oids = {x[2] for x in plan.rules.tap_paid110n if x[0] == turn and x[1] == source}
+    found = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) in oids and "Merfolk" in plan.ch(c).subtypes]
+    if found:
+        context.bind_objects(plan, ctx, "warmachine110n", found)
+        return bool(effects.PRIMITIVES["destroy"](plan, ctx, {"do": "destroy", "who": "ref:warmachine110n"}))
+    return True
+
+
 def _thief(d: Def) -> Def:
     """Thief of Existence: the spell gains the leaves-the-battlefield trigger only if the exile happened, and keeps it as the permanent it becomes (400.7a)."""
     from app.rules import scripts
@@ -753,6 +787,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {"vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}
