@@ -257,11 +257,11 @@ export function TurnDial() {
             {stack ? (
               // something is on the stack: resolving it comes first, stepping on is secondary
               <>
-                <button className="td-pass" onClick={() => void send({ type: "resolve_top" })} title="Resolve the top of the stack">Resolve top</button>
+                <button className="td-pass" onClick={() => void send({ type: "resolve_top" })} title="Resolve the top of the stack (P)">Resolve top</button>
                 <p className="td-hint">{topName} resolves next</p>
               </>
             ) : (
-              <button className="td-pass" onClick={() => void send({ type: "phase", to: "next" })} title="Next step (N)">{NEXT_VERB[step] ?? "Next step"}</button>
+              <button className="td-pass" onClick={() => void send({ type: "phase", to: "next" })} title="Next step (P or N)">{NEXT_VERB[step] ?? "Next step"}</button>
             )}
             <div className="td-more">
               {stack && <button className="tt-btn ghost" title="Next step (N)" onClick={() => void send({ type: "phase", to: "next" })}>{NEXT_VERB[step] ?? "Next step"}</button>}

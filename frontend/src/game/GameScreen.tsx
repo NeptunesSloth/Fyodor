@@ -179,6 +179,8 @@ function useShortcuts() {
         case "pass":
           if (view.rules && !view.rules.controlled_by && (view.rules.priority === me || (!!view.rules.acting_as && view.rules.priority === view.rules.acting_as)) && !view.rules.decision) void passPriority();
           else if (w?.waiting.includes(me)) void send({ type: "response_pass" });
+          // manual play: P does what the dial's big button says
+          else if (!view.rules) void send(view.stack.length ? { type: "resolve_top" } : { type: "phase", to: "next" });
           break;
         case "respond":
           if (w && w.opener !== me) void send({ type: "response_respond" });

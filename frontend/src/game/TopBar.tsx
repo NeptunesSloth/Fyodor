@@ -65,8 +65,8 @@ export function TopBar() {
           </select>
         </label>
       )}
-      <button className="tt-btn ghost" title="Minimal / full HUD (H)" onClick={() => usePrefs.getState().set({ hud: usePrefs.getState().hud === "full" ? "minimal" : "full" })}>
-        {hud === "full" ? "Less detail" : "More detail"}
+      <button className="tt-btn ghost" title="Hide or show the player panels' counters, mana pool, commander damage and tool tray (H)" onClick={() => usePrefs.getState().set({ hud: usePrefs.getState().hud === "full" ? "minimal" : "full" })}>
+        {hud === "full" ? "Hide panel extras" : "Show panel extras"}
       </button>
       <button className="tt-btn ghost" onClick={() => openDialog("help")} title="How to play, controls and shortcuts (?)">Help</button>
       <button className="tt-btn ghost" data-testid="table-menu" aria-label="More" title="Save, load, tools and settings" onClick={(e) => openMenu(e, tableMenu(isHost), "Table")}>More</button>

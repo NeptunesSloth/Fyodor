@@ -40,6 +40,7 @@ main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overfl
 }
 .t3d-flag.prio { color: #0b1a2b; background: var(--select); }
 .t3d-seat-stats { display: flex; gap: 8px; margin-top: 2px; font-size: 11px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.t3d-stat.zero { color: var(--text-dim); }
 .t3d-stat.lethal { color: #ffb3a8; font-weight: 700; }
 /* narrower screens: compact plaques cover fewer cards (name moves to the tooltip-sized line) */
 @media (max-width: 1500px) {
@@ -75,7 +76,7 @@ main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overfl
 .t3d-cams button.on .cam-chip { color: var(--text); }
 
 /* first-game tips, bottom left above the tool tray */
-.t3d-coach { position: absolute; left: 14px; bottom: 58px; z-index: 5; width: 300px; }
+.t3d-coach { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); z-index: 5; width: min(340px, calc(100% - 32px)); }
 .t3d-coach-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .t3d-coach-title { margin: 0; font: 700 14px/1.2 var(--font-display); color: var(--text); }
 .t3d-coach-count { font: 500 11.5px var(--font-ui); color: var(--text-dim); margin-left: 6px; }
@@ -133,3 +134,12 @@ body.reduced-motion .table.is-3d > .hand .hand-card { transition: none; }
   .table.is-3d > .hand .hand-card.selected:hover { transform-origin: 50% 100%; transform: translateY(-2%) rotate(0deg) scale(1.22); }
 }
 .table.is-3d > .zone-browser { z-index: 6; }
+
+/* the name of each selected battlefield card, under it (faces are too small to read from the seat) */
+.t3d-tags { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.t3d-tag {
+  position: absolute; left: 0; top: 0; visibility: hidden; max-width: 180px;
+  padding: 3px 9px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font: 600 12px/1.2 var(--font-ui); color: var(--text);
+  background: var(--hud-surface); box-shadow: 0 0 0 1px var(--select), 0 2px 8px rgba(0, 0, 0, 0.5);
+}

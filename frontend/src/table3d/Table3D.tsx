@@ -3,13 +3,14 @@
  * (seat plates with life totals, camera presets). Falls back to the 2D table when WebGL is
  * unavailable (see GameScreen).
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { setDropResolver3D } from "../game/dnd";
 import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "../game/PlayerPanel";
 import { plane } from "../theme/planes";
+import { isVisible, type GameView } from "../types/game";
 import { TableScene, type CameraPreset, type Quality } from "./TableScene";
 import { startAmbience } from "./ambience";
 import "./table3d.css";
@@ -37,6 +38,10 @@ export function Table3D({ me }: { me: string }) {
   const [preset, setPreset] = useState<CameraPreset>("seat");
   const [open, setOpen] = useState<string | null>(null);
   const plates = useRef<Record<string, HTMLDivElement | null>>({});
+  const tags = useRef<Record<string, HTMLDivElement | null>>({});
+  const tagView = useGame((s) => s.view);
+  const selection = useGame((s) => s.selection);
+  const tagged = useMemo(() => nameTags(tagView, selection), [tagView, selection]);
 
   // create / destroy the scene (quality changes need a new renderer)
   useEffect(() => {
@@ -67,31 +72,50 @@ export function Table3D({ me }: { me: string }) {
       cardAt: (id) => scene.screenOfCard(id),
       battlefieldAt: (player, x, y) => scene.screenOfBattlefield(player, x, y),
     };
-    // keep the seat plates glued to the table, stepping out from under fixed chrome (camera strip,
-    // turn dial, stack panels) so no plaque is ever hidden
+    // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,
+    // turn dial, stack panels) and the battlefield cards, and never past the screen edge
     let frame = 0;
-    let chrome: DOMRect[] = [];
+    let avoid: { left: number; top: number; right: number; bottom: number }[] = [];
     const follow = () => {
       const host = el.getBoundingClientRect();
+      const w = el.clientWidth;
+      const h = el.clientHeight;
       if (frame++ % 20 === 0) {
-        chrome = [...document.querySelectorAll(".t3d-cams, .turn-dial-wrap, .stack-widget.open, .rules-stack-wrap, .t3d-coach")].map((n) => n.getBoundingClientRect());
+        const chrome = [...document.querySelectorAll(".t3d-cams, .turn-dial-wrap, .stack-widget.open, .rules-stack-wrap, .t3d-coach")].map((n) => {
+          const r = n.getBoundingClientRect();
+          return { left: r.left - host.left, top: r.top - host.top, right: r.right - host.left, bottom: r.bottom - host.top };
+        });
+        avoid = [...chrome, ...scene.battlefieldRects(w, h)];
       }
       for (const [pid, node] of Object.entries(plates.current)) {
         if (!node) continue;
-        const pt = scene.seatScreen(pid, el.clientWidth, el.clientHeight);
+        const pt = scene.seatScreen(pid, w, h);
         if (!pt) continue;
         const pw = node.offsetWidth || 160;
         const ph = node.offsetHeight || 56;
         let { x, y } = pt;
-        for (const r of chrome) {
-          const cx = x + host.left;
-          const cy = y + host.top;
-          if (cx + pw / 2 < r.left || cx - pw / 2 > r.right || cy + ph / 2 < r.top || cy - ph / 2 > r.bottom) continue;
-          // move vertically to whichever edge of the obstacle is nearer
-          y = cy - r.top < r.bottom - cy ? r.top - host.top - ph / 2 - 6 : r.bottom - host.top + ph / 2 + 6;
+        // a few passes: stepping off one card can land on its neighbour
+        for (let pass = 0; pass < 4; pass++) {
+          let moved = false;
+          for (const r of avoid) {
+            if (x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom) continue;
+            y = y - r.top < r.bottom - y ? r.top - ph / 2 - 6 : r.bottom + ph / 2 + 6;
+            moved = true;
+          }
+          if (!moved) break;
         }
+        x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
+        y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
         node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
         node.style.visibility = pt.visible ? "visible" : "hidden";
+      }
+      // name tags under the selected cards (the card faces are too small to read at seat distance)
+      for (const [cid, node] of Object.entries(tags.current)) {
+        if (!node) continue;
+        const r = scene.cardRect(cid, w, h);
+        if (!r) { node.style.visibility = "hidden"; continue; }
+        node.style.transform = `translate(${Math.round((r.left + r.right) / 2)}px, ${Math.round(r.bottom + 4)}px) translateX(-50%)`;
+        node.style.visibility = "visible";
       }
     };
     scene.onFrame = follow; // runs inside the three.js loop: one animation loop for the whole table
@@ -156,6 +180,11 @@ export function Table3D({ me }: { me: string }) {
           </div>
         ))}
       </div>
+      <div className="t3d-tags" aria-hidden>
+        {tagged.map(([cid, name]) => (
+          <div key={cid} className="t3d-tag" ref={(n) => { tags.current[cid] = n; }}>{name}</div>
+        ))}
+      </div>
       <CoachTips />
       <div className="t3d-cams frame" role="toolbar" aria-label="Camera">
         <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Look from your seat (1)">Seat <kbd className="cam-key">1</kbd></button>
@@ -170,6 +199,22 @@ export function Table3D({ me }: { me: string }) {
     </div>
   );
 }
+
+/**
+ * Names for the selected battlefield cards. A face-down card is labelled as face down (never by its
+ * name: the table screen is public), and the server never sends a hidden card's name anyway.
+ */
+function nameTags(view: GameView | null, selection: string[]): [string, string][] {
+  if (!view || selection.length > 12) return EMPTY_TAGS;
+  const out: [string, string][] = [];
+  for (const id of selection) {
+    const c = view.cards[id];
+    if (!c?.zone.endsWith(":battlefield")) continue;
+    out.push([id, c.face_down || !isVisible(c) ? `Face down${c.face_down_as ? `: ${c.face_down_as}` : ""}` : c.name]);
+  }
+  return out.length ? out : EMPTY_TAGS;
+}
+const EMPTY_TAGS: [string, string][] = [];
 
 const TIPS = [
   { title: "Players", text: "Click a player's plaque to see their counters, commander damage and actions." },
@@ -225,10 +270,12 @@ function SeatPlate({ player, me, open, onToggle }: { player: string; me: string;
   // the numbers that decide a Commander game, shown only when they matter
   const cmd = Math.max(0, ...Object.values(p.commander_damage));
   const poison = p.resources.poison ?? 0;
-  const stats: { key: string; text: string; title: string; lethal: boolean }[] = [];
-  stats.push({ key: "cmd", text: `Cmdr ${cmd}`, title: `Most commander damage from one commander: ${cmd} of ${LETHAL_COMMANDER}`, lethal: cmd >= LETHAL_COMMANDER });
-  if (poison > 0) stats.push({ key: "poison", text: `Poison ${poison}`, title: `${poison} of ${LETHAL_POISON} poison counters`, lethal: poison >= LETHAL_POISON });
-  if (player !== me) stats.push({ key: "hand", text: `Hand ${p.hand_count}`, title: `${p.hand_count} cards in hand`, lethal: false });
+  // the same three stats on every plaque; a zero is dimmed, not hidden
+  const stats = [
+    { key: "cmd", text: `Cmdr dmg ${cmd}/${LETHAL_COMMANDER}`, title: `Most damage taken from one commander: ${cmd} of ${LETHAL_COMMANDER}`, n: cmd, lethal: cmd >= LETHAL_COMMANDER },
+    { key: "poison", text: `Poison ${poison}/${LETHAL_POISON}`, title: `${poison} of ${LETHAL_POISON} poison counters`, n: poison, lethal: poison >= LETHAL_POISON },
+    { key: "hand", text: `Hand ${p.hand_count}`, title: `${p.hand_count} cards in hand`, n: p.hand_count, lethal: false },
+  ];
   return (
     <div className={`t3d-seat ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
       {(active || priority) && (
@@ -242,11 +289,9 @@ function SeatPlate({ player, me, open, onToggle }: { player: string; me: string;
         <span className="t3d-seat-text">
           <span className="t3d-seat-name">{p.name}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
           <span className="t3d-seat-life" data-testid={`life3d-${player}`}>{p.life}</span>
-          {stats.length > 0 && (
-            <span className="t3d-seat-stats">
-              {stats.map((x) => <span key={x.key} className={`t3d-stat ${x.lethal ? "lethal" : ""}`} title={x.title}>{x.text}{x.lethal ? " · lethal" : ""}</span>)}
-            </span>
-          )}
+          <span className="t3d-seat-stats">
+            {stats.map((x) => <span key={x.key} className={`t3d-stat ${x.lethal ? "lethal" : x.n ? "" : "zero"}`} title={x.title}>{x.text}{x.lethal ? " · lethal" : ""}</span>)}
+          </span>
         </span>
       </button>
       {open && (
