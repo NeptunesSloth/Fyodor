@@ -23,7 +23,12 @@ ARCH = real("Archangel of Strife", "{5}{W}{W}", 7, "Creature — Angel",
 BORCA = real("Bell Borca, Spectral Sergeant", "{2}{R}{W}", 4, "Legendary Creature — Spirit Soldier",
              "Note the mana value of each card as it's put into exile.\nBell Borca's power is equal to the greatest number noted for it this turn.\n"
              "At the beginning of your upkeep, exile the top card of your library. You may play that card this turn.", ("*", "5"), "RW")
-base.EXTRA.extend([EMISSARY, ARCH, BORCA])
+TAZRI = real("Tazri, Stalwart Survivor", "{2}{W}", 3, "Legendary Creature — Human Warrior",
+             "Each creature you control has \"{T}: Add one mana of any of this creature's colors. Spend this mana only to activate an ability of a creature. Activate only if this creature has another activated ability.\"\n"
+             "{W}{U}{B}{R}{G}, {T}: Mill five cards. Put all creature cards with activated abilities that aren't mana abilities from among the milled cards into your hand.", ("3", "3"), "W")
+SHAMAN = real("Test Shaman", "{1}{R}", 2, "Creature — Goblin Shaman", "{1}, {T}: You gain 1 life.", ("1", "1"), "R")
+ELF = real("Test Mana Elf", "{G}", 1, "Creature — Elf Druid", "{T}: Add {G}.", ("1", "1"), "G")
+base.EXTRA.extend([EMISSARY, ARCH, BORCA, TAZRI, SHAMAN, ELF])
 
 
 def test_emissary_full(cards):
@@ -184,3 +189,64 @@ def test_borca_upkeep_exile_is_noted_and_the_note_is_gone_next_turn(cards):
     check(s)
     until(s, lambda s: s.state.turn.number == 5, limit=400)
     assert pt(s, name)[0] == 0
+
+
+def test_tazri_full(cards):
+    assert coverage.of_card_data(cards.resolve("Tazri, Stalwart Survivor")).level == "FULL"
+
+
+def _mana_ab(s, card):
+    from app.rules.plan import Plan
+
+    return next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(card).abilities if a.kind == "mana")
+
+
+def _ready(s, *cards_):
+    for c in cards_:
+        s.state.rules.controlled_since[c.id].turn = 0
+
+
+def test_tazri_gives_a_mana_ability_only_to_creatures_with_another_activated_ability(cards):
+    """602.1, 605.1a: a vanilla creature has only the granted ability (not "another"), so it cannot activate it; a creature with an activated ability adds one mana of its color,
+    and that mana is for abilities of creatures only."""
+    from app.game.errors import ActionError
+
+    s = _three(cards, ["Tazri, Stalwart Survivor", "Test Shaman", "Test Bear", "Test Mana Elf"])
+    tazri, shaman, bear, elf = (put(s, n) for n in ("Tazri, Stalwart Survivor", "Test Shaman", "Test Bear", "Test Mana Elf"))
+    _ready(s, tazri, shaman, bear, elf)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=bear.id, ability=_mana_ab(s, bear))
+    act(s, "p1", type="activate_ability", card_id=shaman.id, ability=_mana_ab(s, shaman))
+    units = lambda: [(u.sym, "activate an ability of a creature" in u.note) for u in s.state.players["p1"].mana_units]  # noqa: E731
+    assert units() == [("R", True)]  # the color of the Shaman, for abilities of creatures only
+    act(s, "p1", type="activate_ability", card_id=elf.id, ability=0)  # its own {T}: Add {G}
+    act(s, "p1", type="activate_ability", card_id=tazri.id, ability=_mana_ab(s, tazri))  # Tazri also has the mill ability
+    assert sorted(units()) == [("G", False), ("R", True), ("W", True)]
+    check(s)
+
+
+def test_tazri_mill_five_puts_creature_cards_with_non_mana_activated_abilities_into_hand(cards):
+    """Mill five; only creature cards with an activated ability that isn't a mana ability go to hand (a mana-only creature, a vanilla creature and a noncreature stay milled)."""
+    from tests.wave110b_kit import top
+
+    s = _three(cards, ["Tazri, Stalwart Survivor", "Test Shaman", "Test Shaman", "Test Mana Elf", "Test Bear", "Test Saga"])
+    tazri = put(s, "Tazri, Stalwart Survivor")
+    _ready(s, tazri)
+    shamans = [c for c in s.state.cards.values() if c.name == "Test Shaman" and c.owner == "p1"]
+    for n in ("Test Saga", "Test Bear", "Test Mana Elf"):
+        top(s, n)
+    for c in shamans:
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "library"}, position="top")
+    mana(s, W=1, U=1, B=1, R=1, G=1)
+    act(s, "p1", type="activate_ability", card_id=tazri.id, ability=_ability_index(s, tazri, "Mill"))
+    answer(s)
+    assert {c.id for c in shamans} <= set(s.state.zones["p1:hand"])
+    for n in ("Test Saga", "Test Bear", "Test Mana Elf"):
+        assert card_named(s, n).zone == "p1:graveyard", n
+    check(s)
+
+
+def _ability_index(s, card, word):
+    from app.rules.plan import Plan
+
+    return next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(card).abilities if a.kind == "activated" and word in a.text)

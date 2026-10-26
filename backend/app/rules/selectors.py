@@ -976,7 +976,7 @@ def _multitype(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "multitype110b"))
 
 
-@_suffix(r"with an activated ability that isn't a mana ability")  # -- cards (wave 110F) -- 602.1, 605.1a: Ravager Wurm
+@_suffix(r"with (?:an activated ability that isn't a mana ability|activated abilities that aren't mana abilities)")  # -- cards (wave 110F; 110E: plural, Tazri) -- 602.1, 605.1a: Ravager Wurm
 def _with_nonmana_ability(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "nonmana_ability"))
 

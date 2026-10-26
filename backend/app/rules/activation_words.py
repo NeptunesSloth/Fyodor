@@ -70,6 +70,8 @@ def condition(text: str) -> dict[str, Any] | None:
     m = _SELF_COMBAT.fullmatch(text)
     if m:
         return {"act7b": "self_combat", "any": [x for x in (m["a"], m["b"]) if x]}
+    if text == "~ has another activated ability":  # -- wave 110E -- Tazri: 602.1; this ability counts as one of them, so "another" = two or more (holds: act7b "other_activated")
+        return {"act7b": "other_activated"}
     if text == "you've been attacked this step":  # -- (wave 110J) -- 506.3, as cast_timing reads it (Kongming's Contraptions)
         return {"attacked_now": True}
     m = re.fullmatch(r"an (?P<k>[a-z]+) counter was removed from a permanent you controlled this turn or a permanent with an (?P=k) counter on it was put into a graveyard this turn", text)
@@ -111,6 +113,9 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     kind = cond["act7b"]
     if kind == "life_above_start":  # (-- trailing & intervening ifs (wave 38A) -- read as conditions.parse's life_vs_start now; kept for a definition made before)
         return plan.state.players[me].life - plan.state.settings.starting_life >= cond["n"]
+    if kind == "other_activated":  # (wave 110E) the source has an activated ability (a mana ability is one: 605.1a) besides the one being activated
+        src = plan.state.cards.get(ctx.get("source_card") or "")
+        return src is not None and sum(a.kind in ("mana", "activated", "loyalty") for a in plan.ch(src).abilities) >= 2
     if kind == "hand_most":
         mine = len(plan.state.zones.get(f"{me}:hand", []))
         return all(mine > len(plan.state.zones.get(f"{p}:hand", [])) for p in plan.live() if p != me)
