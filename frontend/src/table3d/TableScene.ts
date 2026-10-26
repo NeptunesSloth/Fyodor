@@ -27,6 +27,7 @@ import type { PlaneTheme } from "../theme/planes";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { buildEnvironment, type Environment } from "./environment";
 import { arrowTime, makeArrow } from "./arrows";
+import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
 import {
   CARD_H, CARD_W, MAT_D, MAT_W, PILES, STRIP_X, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
@@ -133,6 +134,7 @@ function overlayFor(card: GameCard, stats: CardStats | undefined): CardOverlay |
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
+const liftTarget = new THREE.Vector3();
 const shadowPos = new THREE.Vector3();
 const shadowQ = new THREE.Quaternion();
 const shadowScale = new THREE.Vector3();
@@ -180,6 +182,8 @@ export class TableScene {
   private drag: { ids: string[]; anchor: string; start: [number, number]; grab: THREE.Vector3; offsets: Map<string, THREE.Vector3>; active: boolean } | null = null;
   private orbit: { x: number; yaw: number } | null = null;
   private hovered: string | null = null;
+  /** The store's selection, for the selected-card lift. */
+  private selectedIds = new Set<string>();
   private lastClick = { id: "", at: 0 };
   private frames = 0;
   private fpsAt = 0;
@@ -285,6 +289,10 @@ export class TableScene {
     this.renderer.setSize(w, h, false);
     this.post?.setSize(w, h);
     this.camera.aspect = w / Math.max(1, h);
+    // frame the table above the hand: render the lower part of a taller frame, which lifts what the
+    // camera looks at by half the hand band (picking and projection use the same matrices)
+    const band = Math.round(h * 0.16);
+    this.camera.setViewOffset(w, h + band, 0, band, w, h);
     this.camera.updateProjectionMatrix();
     this.updateCameraGoal();
   }
@@ -582,6 +590,7 @@ export class TableScene {
     const seatOf = new Map(this.seatList.map((s) => [s.player, s]));
     const store = useGame.getState();
     const selection = new Set(store.selection);
+    this.selectedIds = selection;
     const pending = store.pendingPositions;
     const need: string[] = [];
     const show = (id: string): CardObj | null => {
@@ -822,9 +831,9 @@ export class TableScene {
     } else {
       // behind my seat, looking across the table (the main view): my mat large, every opponent visible
       const [lx, lz] = toWorld(mine, 0, -MAT_D / 2 - 2.8);
-      const [px, pz] = toWorld(mine, 0, MAT_D / 2 + span * 0.4);
+      const [px, pz] = toWorld(mine, 0, MAT_D / 2 + span * 0.32);
       look = new THREE.Vector3(lx, 0, lz);
-      pos = new THREE.Vector3(px, span * 0.7, pz);
+      pos = new THREE.Vector3(px, span * 0.74, pz);
     }
     const off = pos.clone().sub(look).multiplyScalar(this.zoom);
     off.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw);
@@ -1028,10 +1037,16 @@ export class TableScene {
     const started = performance.now();
     const dt = Math.min(0.5, this.clock.getDelta()); // real time: slow devices still settle quickly
     const t = this.clock.elapsedTime;
-    const k = 1 - Math.exp(-dt * 14);
+    const reduced = document.body.classList.contains("reduced-motion");
+    const k = ease(dt, 14, reduced);
+    const dragging = !!this.drag?.active;
     let n = 0;
     for (const c of this.cards.values()) {
-      c.group.position.lerp(c.target, k);
+      // hovered and selected cards ride a little higher, and a tap lifts the card as it turns
+      const lift = liftFor({ hovered: c.id === this.hovered && !dragging, selected: this.selectedIds.has(c.id), turning: reduced ? 0 : angleDelta(c.group.rotation.y, c.rot) });
+      liftTarget.copy(c.target);
+      liftTarget.y += lift;
+      c.group.position.lerp(liftTarget, k);
       c.group.rotation.y = angleLerp(c.group.rotation.y, c.rot, k);
       c.group.rotation.x += (c.tilt - c.group.rotation.x) * k;
       const sc = c.group.scale.x + (c.scale - c.group.scale.x) * k;
@@ -1057,13 +1072,16 @@ export class TableScene {
     this.shadows.count = n;
     this.shadows.instanceMatrix.needsUpdate = true;
     if (this.shadows.instanceColor) this.shadows.instanceColor.needsUpdate = true;
-    const kc = 1 - Math.exp(-dt * 5);
+    const kc = ease(dt, 5, reduced);
     this.camPos.lerp(this.camGoalPos, kc);
     this.camLook.lerp(this.camGoalLook, kc);
     this.camera.position.copy(this.camPos);
     this.camera.lookAt(this.camLook);
-    this.env?.update(t);
-    arrowTime.value = t;
+    if (!reduced) {
+      // candle flicker, drifting dust and flowing beams only when motion is welcome
+      this.env?.update(t);
+      arrowTime.value = t;
+    }
     this.renderer.info.reset();
     if (this.post) this.post.render();
     else this.renderer.render(this.scene, this.camera);

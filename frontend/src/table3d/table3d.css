@@ -82,11 +82,14 @@ main.table.is-3d > .hand.hand {
   --spread: min(4.5deg, calc(34deg / var(--n)));
   position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
   height: auto; align-items: flex-end; pointer-events: none;
+  /* the hand rests low, clear of my zones, and rises when the pointer comes to it */
+  --peek: 48%; /* low, but each card keeps its centre on screen */
 }
+.table.is-3d > .hand .hand-cards:hover, .table.is-3d > .hand .hand-cards:focus-within { --peek: 40%; }
 .table.is-3d > .hand .hand-card {
   width: var(--w); margin-left: calc(-1 * var(--overlap)); pointer-events: auto;
   transform-origin: 50% 140%;
-  transform: translateY(calc(40% + var(--fan2) * 2.2px)) rotate(calc(var(--fan) * var(--spread)));
+  transform: translateY(calc(var(--peek) + var(--fan2) * 2.2px)) rotate(calc(var(--fan) * var(--spread)));
   transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.3, 1), filter 0.16s;
   border-radius: 4.5%;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.85), 0 -2px 18px rgba(0, 0, 0, 0.55);

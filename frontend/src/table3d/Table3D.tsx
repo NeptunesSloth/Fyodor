@@ -67,15 +67,32 @@ export function Table3D({ me }: { me: string }) {
       cardAt: (id) => scene.screenOfCard(id),
       battlefieldAt: (player, x, y) => scene.screenOfBattlefield(player, x, y),
     };
-    // keep the seat plates glued to the table
+    // keep the seat plates glued to the table, stepping out from under fixed chrome (camera strip,
+    // turn dial, stack panels) so no plaque is ever hidden
     let raf = 0;
+    let frame = 0;
+    let chrome: DOMRect[] = [];
     const follow = () => {
       raf = requestAnimationFrame(follow);
+      const host = el.getBoundingClientRect();
+      if (frame++ % 20 === 0) {
+        chrome = [...document.querySelectorAll(".t3d-cams, .turn-dial-wrap, .stack-widget.open, .rules-stack-wrap, .t3d-coach")].map((n) => n.getBoundingClientRect());
+      }
       for (const [pid, node] of Object.entries(plates.current)) {
         if (!node) continue;
         const pt = scene.seatScreen(pid, el.clientWidth, el.clientHeight);
         if (!pt) continue;
-        node.style.transform = `translate(${Math.round(pt.x)}px, ${Math.round(pt.y)}px)`;
+        const pw = node.offsetWidth || 160;
+        const ph = node.offsetHeight || 56;
+        let { x, y } = pt;
+        for (const r of chrome) {
+          const cx = x + host.left;
+          const cy = y + host.top;
+          if (cx + pw / 2 < r.left || cx - pw / 2 > r.right || cy + ph / 2 < r.top || cy - ph / 2 > r.bottom) continue;
+          // move vertically to whichever edge of the obstacle is nearer
+          y = cy - r.top < r.bottom - cy ? r.top - host.top - ph / 2 - 6 : r.bottom - host.top + ph / 2 + 6;
+        }
+        node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
         node.style.visibility = pt.visible ? "visible" : "hidden";
       }
     };

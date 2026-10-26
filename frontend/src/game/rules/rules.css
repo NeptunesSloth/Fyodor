@@ -156,6 +156,14 @@
 .tap-mana .pay-thumb { border: 0; padding: 0; background: none; cursor: pointer; }
 .rules-target { outline: 2px solid var(--select); outline-offset: 2px; box-shadow: 0 0 16px var(--select-glow); cursor: crosshair; }
 
+/* short screens (laptops): a compact dial */
+@media (max-height: 820px) {
+  .turn-dial { gap: 4px; padding: 9px 12px; }
+  .td-phase { font-size: 18px; }
+  .td-pass { min-height: 36px; font-size: 15px; }
+  .td-group { font-size: 10px; }
+}
+
 @media (max-width: 720px) {
   .rules-stack-wrap { width: calc(100vw - 32px); right: 16px; }
   .auto-hud { right: 16px; }
