@@ -711,46 +711,24 @@ def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-def _could_produce(plan: Any, card: Any) -> tuple[set[str], bool]:
-    """(the types of mana a land could produce, whether some mana ability couldn't be read): 106.7, the options its mana abilities list."""
-    from app.rules import mana as M
-
-    ch = plan.ch(card)
-    types: set[str] = set()
-    unknown = False
-    for ab in ch.abilities:
-        if ab.kind != "mana":
-            continue
-        parsed = M.parse_mana_ability(ab.text, (), card_name=ch.name)
-        if parsed is None or any(m not in M.ALL_MANA for opt in parsed.options for m in opt):
-            unknown = True  # (a chosen color, "any color a land could produce": not decided here)
-            continue
-        types |= {m for opt in parsed.options for m in opt}
-    return types, unknown
-
-
 def mana_web(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    """Mana Web: tap all lands that player controls that could produce any type of mana the tapped land could produce (the land as it was tapped)."""
+    """Mana Web: tap all lands that player controls that could produce any type of mana the tapped land could produce (106.7; the land as it was tapped)."""
     from app.rules import context
+    from app.rules import mana as M
+    from app.rules.wave110a_grants import could_produce
 
     lands = context.objects(plan, ctx, context.EVENT)
     if not lands:
         return True
-    types, unknown = _could_produce(plan, plan.state.cards[lands[0]])
-    owner = plan.state.cards[lands[0]].controller
+    tapped = plan.state.cards[lands[0]]
+    types = [m for m in M.ALL_MANA if could_produce(plan, tapped, plan.ch(tapped), m)]
     hit = []
-    for cid in plan.state.zones.get(f"{owner}:battlefield", []):
+    for cid in plan.state.zones.get(f"{tapped.controller}:battlefield", []):
         c = plan.state.cards[cid]
-        if c.tapped or not plan.ch(c).is_land:
-            continue
-        mine, doubt = _could_produce(plan, c)
-        unknown = unknown or doubt
-        if types & mine:
+        if not c.tapped and plan.ch(c).is_land and any(could_produce(plan, c, plan.ch(c), m) for m in types):
             hit.append(cid)
     if hit:
         plan.do({"type": "tap", "card_ids": hit, "tapped": True}, actor=ctx["controller"])
-    if unknown:
-        plan.note("Mana Web: a land's mana can't be read (a chosen or borrowed type): tap the matching lands by hand if needed")
     return True
 
 

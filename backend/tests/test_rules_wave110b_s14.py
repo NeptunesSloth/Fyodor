@@ -34,7 +34,9 @@ def cards(settings):
 
     settings.ensure_dirs()
     otters = [real(f"Test Otter{x}", "{1}{G}", 2, "Creature — Otter", "", ("1", "1"), "G") for x in ("", " B")]
-    build_database([*fixture_cards(), *EXTRA, *otters], settings.cards_db_path, meta={"bulk_type": "test"})
+    lands = [real("City of Brass", "", 0, "Land", "Whenever this land becomes tapped, it deals 1 damage to you.\n{T}: Add one mana of any color."),
+             real("Reflecting Pool", "", 0, "Land", "{T}: Add one mana of any type that a land you control could produce.")]
+    build_database([*fixture_cards(), *EXTRA, *otters, *lands], settings.cards_db_path, meta={"bulk_type": "test"})
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
     yield repo
     repo.close()
@@ -273,4 +275,20 @@ def test_alania_first_otter_other_than_itself(cards):
 def test_alania_other_creature_spells_do_not_trigger(cards):
     s, drawn = alania(cards, [("Grizzly Bears", [])])
     assert drawn == 0
+    check(s)
+
+
+def test_mana_web_reads_commander_identity_land(cards):
+    """106.7: Command Tower (Bob's identity W U B G) tapped for G also taps Forest, Island, Swamp but not Mountain (R is outside it)."""
+    s, tapped = web_game(cards, "Command Tower", ("Command Tower", "Forest", "Island", "Swamp", "Mountain"), mana_choice="G")
+    assert tapped == {"Command Tower": True, "Forest": True, "Island": True, "Swamp": True, "Mountain": False}
+    check(s)
+
+
+def test_mana_web_reads_any_color_and_borrowed_types(cards):
+    """City of Brass could produce every color: tapping it for R taps all colored lands; Reflecting Pool (types other lands could produce) is tapped by a Forest."""
+    s, tapped = web_game(cards, "City of Brass", ("City of Brass", "Forest", "Mountain", "Island"), ability=1, mana_choice="R")
+    assert all(tapped.values())
+    s, tapped = web_game(cards, "Forest", ("Forest", "Reflecting Pool", "Mountain"))
+    assert tapped["Forest"] and tapped["Reflecting Pool"]
     check(s)
