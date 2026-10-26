@@ -194,17 +194,16 @@ def test_grimoire_thief_counters_only_spells_named_like_its_exiled_cards(cards, 
     """607.2a, 701.6: sacrificing it turns the cards it exiled face up and counters every spell with one of those names."""
     s = build(cards, ["Grimoire Thief"], ["Grizzly Bears", "Grizzly Bears", "Templar Knight"])
     thief = put_new(s, "Grimoire Thief")
+    spell = hand_new(s, cast, "p2")  # (the copy that is cast later; the rest of the deck is what gets exiled)
     bears = fresh(s, "Grizzly Bears", "p2")
     act(s, "p2", type="move", card_ids=[bears.id], to={"zone": "library"}, position="top")
     attack(s, thief)
     through_combat(s)
     assert now(s, bears).zone == "p2:exile" and now(s, bears).face_down
     to_phase(s, "main1", turn=4)
-    spell = to_hand(s, cast, "p2")
+    mana(s, "p1", U=1)
     mana(s, "p2", **cost(cast))
     act(s, "p2", type="cast_spell", card_id=spell.id)
-    mana(s, "p1", U=1)
-    act(s, "p2", type="pass_priority")
     act(s, "p1", type="activate_ability", card_id=thief.id, ability=ability(s, thief, "{U}"))
     settle(s)
     assert (now(s, spell).zone == "p2:graveyard") is countered and (now(s, spell).zone == "p2:battlefield") is not countered

@@ -600,7 +600,7 @@ def counter_names(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import effects
 
     names = {plan.state.cards[c].name for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":exile")}
-    for sid in list(plan.rules.stack):
+    for sid in list(plan.state.zones.get("stack", ())):
         card = plan.state.cards.get(sid)
         if card is not None and card.ability is None and card.name in names:
             effects.counter_object(plan, sid, ctx["controller"], source=ctx.get("source_card"))
