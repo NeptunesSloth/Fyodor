@@ -87,36 +87,9 @@
 .td-toggle.on::before { content: "● "; color: var(--frame-hi); }
 .td-toggle:focus-visible { outline: 2px solid var(--frame-hi); outline-offset: 2px; }
 
-/* The Stack */
-.rules-stack {
-  position: fixed; z-index: 54; right: 14px; top: 92px; width: 320px; max-height: 52vh; overflow: auto;
-  padding: 12px 12px 10px; font-size: 12.5px; color: var(--text);
-}
-.rules-stack-title {
-  font-family: var(--font-display); font-size: 15px; letter-spacing: 0.08em; color: var(--accent-2); margin-bottom: 10px;
-  display: flex; align-items: center; gap: 8px;
-}
-.rules-stack-count { font-family: var(--font-ui); font-size: 11px; color: var(--text-dim); border: 1px solid var(--line-2); border-radius: 999px; padding: 0 7px; }
-.rules-stack ol { list-style: none; margin: 0; padding: 0 0 0 14px; display: flex; flex-direction: column; gap: 8px; position: relative; }
-.rules-stack ol::before { content: ""; position: absolute; left: 4px; top: 12px; bottom: 12px; width: 2px; background: linear-gradient(var(--select), transparent); opacity: 0.6; }
-.rules-stack li {
-  position: relative; display: flex; align-items: center; gap: 10px; padding: 6px 8px;
-  background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line-2); border-radius: 5px;
-}
-.rules-stack li::before {
-  content: ""; position: absolute; left: -15px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%;
-  background: var(--bg); border: 2px solid var(--select);
-}
-.rules-stack li.top { border-color: var(--select); box-shadow: 0 0 12px var(--select-glow); }
-.rules-stack li.top::before { background: var(--select); box-shadow: 0 0 8px var(--select-glow); }
-.rules-stack-thumb { width: 44px; flex: none; }
-.rules-stack-body { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.3; }
-.rules-stack-body b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rules-stack-who, .rules-stack-tgt { color: var(--text-dim); font-size: 11.5px; }
-.rules-stack .tt-icon { flex: none; }
-.rules-stack-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
-.rules-stack-actions .act-btn { min-width: 0; padding: 9px 6px; font-size: 13px; }
-.rules-stack-hint { margin-top: 8px; font-size: 12px; color: var(--select); text-align: center; }
+/* The stack as a chain (shared with the manual stack panel; styles in game.css) */
+.rules-stack-wrap { position: fixed; z-index: 54; right: 14px; top: 92px; width: 320px; }
+.rules-stack { --cut: 10px; max-height: 52vh; overflow: auto; padding: 12px 12px 10px; font-size: 12.5px; }
 
 /* Prompts */
 .decision-panel {
@@ -186,7 +159,7 @@
 .rules-target { outline: 2px solid var(--select); outline-offset: 2px; box-shadow: 0 0 16px var(--select-glow); cursor: crosshair; }
 
 @media (max-width: 720px) {
-  .rules-stack { width: calc(100vw - 32px); right: 16px; }
+  .rules-stack-wrap { width: calc(100vw - 32px); right: 16px; }
   .auto-hud { right: 16px; }
   .turn-dial-wrap { right: 16px; left: 16px; width: auto; }
 }

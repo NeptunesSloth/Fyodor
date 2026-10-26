@@ -53,6 +53,8 @@ interface CardObj {
   target: THREE.Vector3;
   rot: number;
   tilt: number;
+  /** Target size (stack cards stand larger); eased like position. */
+  scale: number;
   seen: boolean;
 }
 
@@ -522,7 +524,7 @@ export class TableScene {
     glow.position.y = -0.001;
     group.add(glow, face);
     this.world.add(group);
-    const obj: CardObj = { id, group, face, glow, overlay: null, overlayKey: "", faceKey: "", target: new THREE.Vector3(), rot: 0, tilt: 0, seen: true };
+    const obj: CardObj = { id, group, face, glow, overlay: null, overlayKey: "", faceKey: "", target: new THREE.Vector3(), rot: 0, tilt: 0, scale: 1, seen: true };
     this.cards.set(id, obj);
     return obj;
   }
@@ -561,6 +563,7 @@ export class TableScene {
   }
 
   private place(c: CardObj, seat: Seat | undefined, lx: number, lz: number, y: number, extraRot = 0): void {
+    c.scale = 1;
     if (seat) {
       const [wx, wz] = toWorld(seat, lx, lz);
       c.target.set(wx, y, wz);
@@ -647,16 +650,22 @@ export class TableScene {
     }
 
     // the stack: cards hover above the centre of the table, most recent on top
+    // the stack: large cards standing at the table centre, fanned left to right in cast order (the
+    // chain), facing me; the top one stands biggest and highest and says it resolves next
+    const n = view.stack.length;
+    const myRot = seatOf.get(this.me)?.rot ?? 0;
+    const step = Math.min(2.1, 9 / Math.max(1, n));
     view.stack.forEach((id, i) => {
       const c = show(id);
       if (!c) return;
-      const n = view.stack.length;
-      const x = (i - (n - 1) / 2) * 0.5;
-      const me = seatOf.get(this.me);
-      this.place(c, undefined, x, -i * 0.12, 0.9 + i * 0.06, me?.rot ?? 0);
-      c.tilt = -0.35;
-      this.setOverlay(c, null);
-      this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.plane.ui.accent, 0.5);
+      const top = i === n - 1;
+      const x = (i - (n - 1) / 2) * step;
+      const z = top ? 0.15 : 0;
+      this.place(c, undefined, x * Math.cos(myRot) + z * Math.sin(myRot), -x * Math.sin(myRot) + z * Math.cos(myRot), (top ? 1.75 : 1.55) + i * 0.02, myRot);
+      c.scale = top ? 2.6 : 2.15;
+      c.tilt = 0.75; // far edge up: the face turns toward my seat
+      this.setOverlay(c, { keywords: [], counters: [], chain: { no: i + 1, next: top } });
+      this.setGlow(c, selection.has(id) ? this.plane.ui.select : top ? this.plane.ui.accent : null, top ? 0.6 : 0.5);
     });
 
     for (const [id, c] of this.cards) {
@@ -1007,12 +1016,14 @@ export class TableScene {
       c.group.position.lerp(c.target, k);
       c.group.rotation.y = angleLerp(c.group.rotation.y, c.rot, k);
       c.group.rotation.x += (c.tilt - c.group.rotation.x) * k;
+      const sc = c.group.scale.x + (c.scale - c.group.scale.x) * k;
+      c.group.scale.setScalar(sc);
       if (n < 1024) {
         c.group.updateMatrix();
         this.bodies.setMatrixAt(n, c.group.matrix);
         // the shadow sits on the table, offset away from the key light and softer as the card rises
         const lift = Math.max(0, c.group.position.y);
-        const spread = 1 + Math.min(lift, 1.2) * 0.55;
+        const spread = (1 + Math.min(lift, 1.2) * 0.55) * c.group.scale.x;
         shadowPos.set(c.group.position.x + 0.05 + lift * 0.2, 0.0025, c.group.position.z + 0.08 + lift * 0.3);
         shadowQ.setFromAxisAngle(UP, c.group.rotation.y);
         shadowScale.set(spread, 1, spread);

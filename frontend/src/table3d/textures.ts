@@ -453,6 +453,8 @@ export interface CardOverlay {
   keywords: { kind: string; n: number }[];
   /** Other counters (loyalty, charge, oil…). */
   counters: { label: string; n: number }[];
+  /** On the stack: its chain number, and whether it resolves next. */
+  chain?: { no: number; next: boolean };
 }
 
 export const OVERLAY_W = 512;
@@ -631,6 +633,29 @@ export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
     g.fillStyle = "#f4ead6";
     g.font = "800 32px Inter, Arial, sans-serif";
     g.fillText(`+${o.keywords.length - shown.length}`, cx, cy + 2);
+  }
+  // chain number (top left) and the "Resolves next" plate across the top
+  if (o.chain) {
+    const R2 = 46;
+    g.fillStyle = o.chain.next ? "#d8ae62" : PLATE;
+    g.beginPath();
+    g.arc(16 + R2, 16 + R2, R2, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = BRASS;
+    g.lineWidth = 5;
+    g.stroke();
+    g.fillStyle = o.chain.next ? "#231605" : "#f4ead6";
+    g.font = "800 50px Cinzel, Georgia, serif";
+    g.fillText(String(o.chain.no), 16 + R2, 16 + R2 + 3);
+    if (o.chain.next) {
+      const w = 300;
+      const h = 64;
+      const x = W - w - 14;
+      plate(g, x, 22, w, h);
+      g.fillStyle = "#f0c97d";
+      g.font = "700 34px Inter, Arial, sans-serif";
+      g.fillText("Resolves next", x + w / 2, 22 + h / 2 + 2);
+    }
   }
   // other counters, top right, stacked
   o.counters.slice(0, 3).forEach(({ label, n }, i) => {

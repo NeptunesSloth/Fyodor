@@ -50,8 +50,7 @@ export function StackWidget({ me }: { me: string }) {
     <div className={`stack-widget below-hud ${count ? "busy" : "idle"} ${open && count ? "open" : ""}`} data-testid="stack-widget">
       {count > 0 && open ? (
         <>
-          <StackPanel me={me} />
-          <button className="tt-icon stack-collapse" title="Collapse" onClick={() => setOpen(false)}>–</button>
+          <StackPanel me={me} onCollapse={() => setOpen(false)} />
         </>
       ) : (
         <button className="stack-pill" data-drop="stack" onClick={() => setOpen(true)} title="Drag a spell here to cast it">

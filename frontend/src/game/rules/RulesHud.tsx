@@ -11,8 +11,8 @@ import { PHASE_LABEL, PHASES, type PhaseName, type DecisionOptionView, type Deci
 import { autocomplete } from "../../services/cards";
 import { canConcede, choose, chooseName, concede, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { GameCardFace } from "../GameCardFace";
+import { ChainRow, chainEntries } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
-import { useCardCache } from "../../state/cardCache";
 
 function useRules() {
   const view = useGame((s) => s.view);
@@ -288,54 +288,30 @@ export function RulesStack() {
   const [responding, setResponding] = useState<string | null>(null);
   if (!ctx || !ctx.rules || !ctx.view.stack.length) return null;
   const { view, rules, me } = ctx;
-  const ids = [...view.stack].reverse();
+  const entries = chainEntries(view);
   const mine = !rules.controlled_by && (rules.priority === me || (!!rules.acting_as && rules.priority === rules.acting_as)) && !rules.decision;
-  const top = ids[0] ?? "";
+  const top = entries[0]?.id ?? "";
   return (
-    <div className="rules-stack frame" data-testid="rules-stack">
-      <div className="rules-stack-title">The Stack <span className="rules-stack-count">{ids.length}</span></div>
-      <ol>
-        {ids.map((id, i) => {
-          const c = view.cards[id];
-          const name = c ? (c.hidden ? "A card" : c.name || "Ability") : "?";
-          const kind = c && !c.hidden ? (c.ability ? `${c.ability.kind === "triggered" ? "Triggered" : "Activated"} ability` : stackTypeLine(c.card_id)) : "";
-          const targets = (view.arrows ?? []).filter((a) => a.source === id).flatMap((a) => a.targets);
-          return (
-            <li key={id} data-testid="stack-entry" className={i === 0 ? "top" : ""} onPointerEnter={() => useGame.getState().setHover(id)} onPointerLeave={() => useGame.getState().setHover(null)}>
-              <span className="rules-stack-thumb">{c && <GameCardFace card={c} size="small" />}</span>
-              <span className="rules-stack-body">
-                <b>{name}</b>
-                <span className="rules-stack-who">{c ? playerName(view, c.controller) : ""}{kind ? ` · ${kind}` : ""}</span>
-                {targets.length > 0 && <span className="rules-stack-tgt">→ {targets.map((t) => targetName(view, t)).join(", ")}</span>}
-              </span>
-              <button className="tt-icon" title="Hold after this resolves" aria-label="Hold after this resolves" onClick={() => void setPrefs({ stop_after: id })}>❚❚</button>
-            </li>
-          );
-        })}
-      </ol>
-      {mine && (
-        <div className="rules-stack-actions">
-          <button className="act-btn" data-testid="stack-pass" onClick={() => void passPriority()}>Pass</button>
-          <button className={`act-btn primary ${responding === top ? "on" : ""}`} data-testid="stack-respond"
-            title="Keep priority: cast or activate something in response" onClick={() => setResponding(top)}>Respond</button>
-          <button className="act-btn green" data-testid="stack-autopass" title="Pass until the stack is empty (you still get every decision)"
-            onClick={() => void passPriority("stack_empty")}>Auto-Pass</button>
-        </div>
-      )}
-      {mine && responding === top && <div className="rules-stack-hint">Cast or activate something, then pass.</div>}
+    <div className="rules-stack-wrap plaque-wrap">
+      <section className="rules-stack chain plaque" data-testid="rules-stack" aria-label="The stack">
+        <div className="chain-head"><span className="chain-title">The stack<span className="chain-count"> · {view.stack.length}</span></span></div>
+        <ol className="chain-list">
+          {entries.map((entry, i) => (
+            <ChainRow key={entry.id} entry={entry} top={i === 0} view={view}>
+              <button className="tt-icon chain-hold" title="Stop and give me priority after this resolves" aria-label="Hold after this resolves" onClick={() => void setPrefs({ stop_after: entry.id })}>❚❚</button>
+            </ChainRow>
+          ))}
+        </ol>
+        {mine && (
+          <div className="chain-actions">
+            <button className={`btn small ${responding === top ? "primary" : ""}`} data-testid="stack-respond"
+              title="Keep priority: cast or activate something in response" onClick={() => setResponding(top)}>Respond</button>
+            <span className="chain-actions-hint">{responding === top ? "Cast or activate something, then pass." : "Pass from the turn dial."}</span>
+          </div>
+        )}
+      </section>
     </div>
   );
-}
-
-function stackTypeLine(cardId: string | null | undefined): string {
-  const data = cardId ? useCardCache.getState().cards[cardId] : undefined;
-  return data?.type_line?.split("—")[0]?.trim() ?? "";
-}
-
-function targetName(view: GameView, id: string): string {
-  if (view.players.some((p) => p.id === id)) return playerName(view, id);
-  const c = view.cards[id];
-  return c && !c.hidden ? c.name : "a card";
 }
 
 /** The pending decision: the chooser answers here (or by clicking a highlighted card on the table). */
