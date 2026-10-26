@@ -36,10 +36,11 @@ def modal_header(ability: Any, ch: Any) -> Any:
 
 _PHOENIX = "When ~ dies, you may exile it and collect evidence 4. If you do, return this card to the battlefield tapped."
 # The Spot, Living Portal: the card is put on the bottom (401.4); "If you do" holds only if it really got to the library (608.2c), then the linked exile returns.
+# Wolverine, Fierce Fighter: a static read where damage is dealt (heal110h in replace.py): the damage marked earlier is removed as the new damage is marked.
+_WOLVERINE = "If damage would be dealt to ~, instead that damage is dealt, but all other damage already dealt to him is healed."
 _SPOT = "When ~ dies, put ~ on the bottom of ~'s owner's library. If you do, return the exiled cards to their owners' hands."
-# Mysterious Limousine: "If a creature is put into exile this way, return each other card exiled with this Vehicle": the older linked cards come back first and the
-# new target is exiled after (the same result as "each other card", 607.2a), only when there is a target to exile. ponytail: a target whose exile is replaced still
-# sends the others back.
+# Mysterious Limousine, in Oracle order (608.2c): exile the target (linked, 607.2a); if a creature really is in exile, return each OTHER linked card (not the one
+# just exiled: exiled_with "other" skips cards exiled in this same resolution).
 _LIMO = ("Whenever this Vehicle enters or attacks, exile up to one other target creature until this Vehicle leaves the battlefield. If a creature is put into "
          "exile this way, return each other card exiled with this Vehicle to the battlefield under its owner's control.")
 _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this creature is suspected, you may suspect one of the other creatures. "
@@ -112,6 +113,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or native["effects"][-1].get("who") != "event.new":
             return None
         return {**native, "effects": [*native["effects"][:-1], {**native["effects"][-1], "who": "ref:pay0x"}]}
+    if text == _WOLVERINE:
+        return {"kind": "static", "static": "heal110h", "effects": []}
     if text == _SPOT:
         put = scripts.define(replace(ability, text="When ~ dies, put it on the bottom of its owner's library."), ch)
         back = scripts.define(replace(ability, text="When ~ dies, return each card exiled with ~ to its owner's hand."), ch)
@@ -124,7 +127,7 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if until is None or [e["do"] for e in until["effects"]] != ["exile_until"]:
             return None
         # (the linked exile, 607.2a: marked by hand, the sub-reading cannot see the card's other sentence)
-        return {**until, "effects": [{"do": "limo_back110h"}, {**until["effects"][0], "link": True}]}
+        return {**until, "effects": [{**until["effects"][0], "link": True}, {"do": "limo_back110h"}]}
     if text == _LEECH:  # the grant definition the staged untap model reads (tests/test_rules_untap_attempts45.py), marked: untap_hold carries it out
         return {"kind": "static", "static": "grant", "effects": [], "who": "attached", "attached_kind": "creature", "conditions": [], "p": 0, "t": 0,
                 "base": None, "keywords": [], "grants": [text.split('"')[1]], "rules": [], "untap_counter110h": True}
@@ -328,11 +331,20 @@ def bottom_did(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return done
 
 
+def healed(plan: Any, creatures: dict[str, int]) -> list[str]:
+    """Creatures dealt damage that carry the heal static (Wolverine, Fierce Fighter): their earlier marked damage is healed first."""
+    from app.rules import permissions
+
+    mine = {src.id for src, _, _ in permissions._table_statics(plan.state, plan.info, {"heal110h"})}
+    return [c for c, n in creatures.items() if n > 0 and c in mine]
+
+
 def limo_back(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     from app.rules import effects, exiled_with
 
-    back = {"do": "return_card", "who": exiled_with.WHO, "to": "battlefield", "tapped": False, "under": "owner"}  # (built here: a stored WHO would read as its own pronoun)
-    return effects.PRIMITIVES["return_card"](plan, ctx, back) if effects._cards(plan, ctx, "target:0") else True
+    back = {"do": "return_card", "who": f"{exiled_with.WHO}:other", "to": "battlefield", "tapped": False, "under": "owner"}  # (built here: a stored WHO would read as its own pronoun)
+    # "If a creature is put into exile this way" (608.2c): judged by what the exile really recorded (a replaced exile records nothing).
+    return effects.PRIMITIVES["return_card"](plan, ctx, back) if ctx.get("exiled_now") else True
 
 
 PRIMITIVES = {"limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat}

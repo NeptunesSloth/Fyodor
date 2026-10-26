@@ -138,6 +138,8 @@ def rules_damage(state: GameState, a: A.RulesDamage) -> None:
     hurt = []
     for cid, n in a.creatures.items():
         card = ops.card(state, cid)
+        if cid in a.heal110h:
+            card.damage = 0
         card.damage += n
         hurt.append(card)
     for cid, n in a.wither.items():  # wither / infect (702.80, 702.90): -1/-1 counters instead of damage

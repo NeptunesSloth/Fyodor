@@ -47,6 +47,9 @@ EXTRA = [
     real("Lamplight Phoenix", "{2}{R}{R}", 4, "Creature \u2014 Phoenix Spirit",
          "Flying\nWhen this creature dies, you may exile it and collect evidence 4. If you do, return this card to the battlefield tapped. "
          "(To collect evidence 4, exile cards with total mana value 4 or greater from your graveyard.)", ("4", "3"), "R"),
+    real("Wolverine, Fierce Fighter", "{2}{R}{G}", 4, "Legendary Creature \u2014 Mutant Berserker Hero",
+         "Haste\nWhen Wolverine enters, he fights up to one other target creature.\nIf damage would be dealt to Wolverine, instead that damage is dealt, "
+         "but all other damage already dealt to him is healed.", ("3", "5"), "RG"),
     real("Doom Blade", "{1}{B}", 2, "Instant", "Destroy target nonblack creature.", None, "B"),
     real("Hill Giant", "{3}{R}", 4, "Creature \u2014 Giant", "", ("3", "3"), "R"),
     real("Grizzly Bears", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
@@ -179,6 +182,28 @@ def test_the_spot_returns_the_exiled_cards_when_it_dies(cards):
     check(s)
 
 
+def test_the_spot_exiled_in_response_returns_nothing(cards):
+    """608.2c: if The Spot is exiled with its dies trigger on the stack, it never reaches the library, so "If you do" is false and the exiled cards stay."""
+    s = build(cards, ["The Spot, Living Portal", "Murder", "Hill Giant"], ["Hill Giant"])
+    giant = put(s, "Hill Giant", "p2")
+    mana(s, W=1, U=1, B=1, C=2)
+    spot = cast(s, "The Spot, Living Portal", [giant.id], target_counts=[1, 0])
+    answer(s)
+    assert s.state.cards[giant.id].zone == "p2:exile"
+    mana(s, B=2, C=1)
+    act(s, "p1", type="configure", automation_options={"auto_priority_pass": False})
+    cast(s, "Murder", [spot.id])
+    for _ in range(10):  # resolve Murder (both pass), stop with the dies trigger on the stack
+        if s.state.cards[spot.id].zone == "p1:graveyard" and s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[spot.id].zone == "p1:graveyard"
+    act(s, "p1", type="move", card_ids=[spot.id], to={"player": "p1", "zone": "exile"})
+    answer(s)
+    assert s.state.cards[spot.id].zone == "p1:exile" and s.state.cards[giant.id].zone == "p2:exile"
+    check(s)
+
+
 def _raptor(cards, siege_owner, walker=False):
     s = build(cards, ["Rampaging Raptor", SIEGE], ["Test Walker", SIEGE])
     raptor = put(s, "Rampaging Raptor")
@@ -276,4 +301,17 @@ def test_mysterious_limousine_returns_the_older_exile(cards, second_target):
             act(s, s.state.rules.priority, type="pass_priority")
     assert (s.state.cards[b.id].zone == "p2:exile") == second_target
     assert (s.state.cards[a.id].zone == "p2:battlefield") == second_target
+    check(s)
+
+
+@pytest.mark.parametrize("bolts,alive", [(2, True), (1, True)])
+def test_wolverine_heals_earlier_damage(cards, bolts, alive):
+    """Two Bolts (3 + 3) would kill a 3/5, but the second deals its damage and heals the first: 3 damage stays (the new damage is still dealt)."""
+    s = build(cards, ["Wolverine, Fierce Fighter", "Lightning Bolt"])
+    wolf = put(s, "Wolverine, Fierce Fighter")
+    for _ in range(bolts):
+        mana(s, R=1)
+        cast(s, "Lightning Bolt", [wolf.id])
+        answer(s)
+    assert (s.state.cards[wolf.id].zone == "p1:battlefield") == alive and s.state.cards[wolf.id].damage == 3
     check(s)

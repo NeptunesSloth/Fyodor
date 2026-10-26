@@ -76,6 +76,8 @@ def _who(m: re.Match[str]) -> str:
 
     if not m["spec"]:
         return WHO
+    if m["spec"] == "other":  # "each other card exiled with ~": not the card(s) this same resolution just exiled (608.2c, 607.2a)
+        return f"{WHO}:other"
     sel = selectors.parse(f"{m['spec']} card")
     if sel is None or sel.player is not None or sel.zones or sel.controller is not None:
         raise _NoMatch
@@ -386,6 +388,7 @@ def record(plan: Plan, ctx: dict[str, Any], cards: list[str]) -> None:
     now = [plan.oid(c) for c in cards if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
     new_cards = [oid for oid in now if oid not in kept
                  and not plan.state.cards[oid.rsplit(".", 1)[0]].is_token]
+    ctx.setdefault("exiled_now", []).extend(o.rsplit(".", 1)[0] for o in new_cards)
     if new_cards:
         # The stated duration says "you": a later controller's exile is a different player's action.
         plan.rules.permissions = [p for p in plan.rules.permissions
@@ -403,6 +406,8 @@ def cards(plan: Plan, ctx: dict[str, Any], who: str = WHO) -> list[str]:
     """The cards the linked ability exiled, while each is still that object in exile (400.7); only those of the kind
     "exiled_with:<selector>" names ("each creature card exiled with it")."""
     found = [oid.rsplit(".", 1)[0] for oid in plan.rules.exiled_with.get(link_key(ctx), []) if _in_exile(plan, oid)]
+    if who == f"{WHO}:other":
+        return [c for c in found if c not in ctx.get("exiled_now", [])]
     if ":" not in who:
         return found
     from app.rules import selectors

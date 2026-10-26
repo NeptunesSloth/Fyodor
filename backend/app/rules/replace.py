@@ -2611,8 +2611,11 @@ def _commit_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, 
     for pid in [*out.players, *out.poison, *(d["target"] for d in dealt)]:
         if pid in plan.state.players:
             plan.rules.damaged[pid] = plan.state.turn.number
+    from app.rules import wave110h_cards
+
     plan.do({"type": "rules_damage", "creatures": out.creatures, "players": out.players, "poison": out.poison, "poison_by": out.poison_by,
              "wither": out.wither, "wither_by": out.wither_by, "planeswalkers": out.walkers, "lifelink": out.lifelink, "combat": combat, "dealt": dealt,
+             "heal110h": wave110h_cards.healed(plan, out.creatures),  # -- Wolverine, Fierce Fighter (wave 110H) --
              **(extra or {})}, actor=actor)
     for key, n in out.battles.items():
         have = plan.state.cards[key].counters.get("defense", 0) if key in plan.state.cards else 0
