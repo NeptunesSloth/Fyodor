@@ -367,7 +367,14 @@ _BAUBLE = ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land 
            "That player draws a card at the beginning of the next turn's upkeep.")
 _VAT = ("{1}, {T}, Sacrifice another artifact: Reveal the top eight cards of your library. Put up to two noncreature artifact cards with total mana value "
         "less than or equal to the sacrificed artifact's mana value from among them onto the battlefield and the rest on the bottom of your library in a random order.")
+def _reflect(d: Def) -> Def:
+    """Reflecting Mirror: any spell with a single target may be targeted; only as the ability resolves is it checked that the target is you (ruling 2004-10-04)."""
+    return {**d, "effects": [{**e, "you110i": True} for e in d["effects"]]}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{X}, {T}: Change the target of target spell with a single target if that target is you. The new target must be a player. X is twice the mana value of that spell.":
+        ("{X}, {T}: Change the target of target spell with a single target. The new target must be a player.", _reflect),
     "{1}{B}{B}, {T}: Target player discards a card unless they put a card from their hand on top of their library. If that player discards a card this way, "
     "this creature deals 1 damage to each creature and each player. Activate only as a sorcery.":
         ("{1}{B}{B}, {T}: Target player discards a card. This creature deals 1 damage to each creature and each player. Activate only as a sorcery.", _specter),

@@ -6097,7 +6097,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         return
     ability = announced
     if plan.locked_cost is None and (fixed := defined_activation_x.spec(ability, ch.name)) is not None:
-        x = defined_activation_x.evaluate(plan, card, fixed)
+        x = defined_activation_x.evaluate(plan, card, fixed, a.targets)
         if a.x_value is not None and a.x_value != x:
             raise ActionError(f"X is {x} for this ability; it isn't chosen (107.3c)")
         a.x_value = x

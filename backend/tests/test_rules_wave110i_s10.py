@@ -28,6 +28,8 @@ NAME = EXTRA[0]["name"]
 HERO = ("Whenever one or more cards are put into exile from your hand or a spell or ability you control exiles one or more permanents from the battlefield, "
         "put that many +1/+1 counters on this creature.\nAs long as this creature has five or more counters on it, it has flying and is an Angel in addition to its "
         "other types.\nAs long as this creature has ten or more counters on it, it has indestructible and is a God in addition to its other types.")
+MIRROR = ("{X}, {T}: Change the target of target spell with a single target if that target is you. The new target must be a player. "
+          "X is twice the mana value of that spell.")
 DAWN = ("Until end of turn, spells and abilities you control that would add colored mana instead add that much white mana. Until end of turn, you may spend "
         "white mana as though it were mana of any color.\nDraw a card.")
 PHOENIX = ("Flying\nIf this creature would die, return it to its owner's hand instead. Until that player's next turn, that player plays with that card revealed in "
@@ -40,6 +42,7 @@ EXTRA += [real("Hero of Bretagard", "{2}{W}", 3, "Creature \u2014 Human Warrior"
           real("False Dawn", "{1}{W}", 2, "Sorcery", DAWN, None, "W"),
           real("Dark Ritual", "{B}", 1, "Instant", "Add {B}{B}{B}.", None, "B"),
           real("Lightning Bolt", "{R}", 1, "Instant", "Lightning Bolt deals 3 damage to any target.", None, "R"),
+          real("Reflecting Mirror", "{4}", 4, "Artifact", MIRROR, None, ""),
           real("Probe Bear", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G")]
 
 
@@ -185,3 +188,29 @@ def test_false_dawn(cards, dawn):
     else:
         with pytest.raises(ActionError):
             act(s, "p1", type="cast_spell", card_id=card_named(s, "Lightning Bolt").id, targets=["p2"])
+
+
+@pytest.mark.parametrize("aim", ["me", "bear"])
+def test_reflecting_mirror(cards, aim):
+    """115.7, 115.9c, 107.3c: X is twice the spell's mana value (Bolt: 2, a wrong X is refused); a spell aimed at you is redirected to a player (Alice, the only other
+    one); aimed at anything else, the ability does nothing."""
+    from app.game.errors import ActionError
+    from tests.test_rules_conditionals import on_field, settle
+    from tests.test_rules_wave5b_stack_interaction import alice_casts
+    from tests.test_rules_wave5b_stack_interaction import build as build5b
+    from tests.test_rules_wave5b_stack_interaction import roundtrip as roundtrip5b
+
+    s = build5b(cards, ["Lightning Bolt"], ["Reflecting Mirror", "Probe Bear"])
+    bear = on_field(s, "Probe Bear", "p2")
+    mirror = on_field(s, "Reflecting Mirror", "p2")
+    bolt = alice_casts(s, "Lightning Bolt", targets=["p2" if aim == "me" else bear.id], R=1)
+    mana(s, "p2", C=5)
+    with pytest.raises(ActionError, match="X is 2"):
+        act(s, "p2", type="activate_ability", card_id=mirror.id, ability=0, targets=[bolt.id], x_value=5)
+    act(s, "p2", type="activate_ability", card_id=mirror.id, ability=0, targets=[bolt.id])
+    settle(s)
+    if aim == "me":
+        assert s.state.players["p1"].life == 37 and s.state.players["p2"].life == 40
+    else:
+        assert s.state.players["p1"].life == 40 and s.state.players["p2"].life == 40 and s.state.cards[bear.id].zone.endswith(":graveyard")
+    roundtrip5b(s)
