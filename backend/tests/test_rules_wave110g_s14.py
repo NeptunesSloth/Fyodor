@@ -22,6 +22,9 @@ SEA = ("(As this Saga enters and after your draw step, add a lore counter. Sacri
        "(It can't be blocked as long as defending player controls an Island.)\nIII — Until end of turn, whenever a Salamander deals combat damage to a player, "
        "it deals that much damage to target creature that player controls.")
 EXTRA = [
+    real("Storm Herald", "{2}{R}", 3, "Creature \u2014 Human Shaman", "Haste\nWhen this creature enters, return any number of Aura cards from your graveyard to the battlefield attached to creatures you control. Exile those Auras at the beginning of your next end step. If those Auras would leave the battlefield, exile them instead of putting them anywhere else.", ("3", "2"), "R"),
+    real("Test Boon", "{G}", 1, "Enchantment \u2014 Aura", "Enchant creature\nEnchanted creature gets +1/+1.", None, "G"),
+    real("Test Fertile", "{G}", 1, "Enchantment \u2014 Aura", "Enchant land\nEnchanted land has \"{T}: Add {G}.\"", None, "G"),
     real("The Face of Boe", "{1}{U}{R}{W}", 4, "Legendary Creature \u2014 Alien Advisor", "{T}: You may cast a spell with suspend from your hand. If you do, pay its suspend cost rather than its mana cost. Activate only as a sorcery.", ("0", "4"), "URW"),
     real("Rift Bolt", "{2}{R}", 3, "Sorcery", "Rift Bolt deals 3 damage to any target.\nSuspend 1\u2014{R} (Rather than cast this card from your hand, you may pay {R} and exile it with a time counter on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)", None, "R"),
     real("The Sea Devils", "{2}{U}{U}", 4, "Enchantment \u2014 Saga", SEA, None, "U"),
@@ -208,3 +211,56 @@ def test_face_of_boe_can_decline(cards):
     _finish(s, ("no",))
     assert s.state.players["p2"].life == 40 and s.state.cards[card_named(s, "Rift Bolt").id].zone == "p1:hand"
     check(s)
+
+
+def _herald(cards, take):
+    s = build(cards, ["Storm Herald", "Test Boon", "Test Fertile", "Grizzly Bears"], [])
+    bear = put(s, "Grizzly Bears")
+    for n in ("Test Boon", "Test Fertile"):
+        c = card_named(s, n)
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    herald = to_hand(s, "Storm Herald")
+    mana(s, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=herald.id)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if s.state.zones.get("stack"):
+                act(s, s.state.rules.priority, type="pass_priority")
+                continue
+            break
+        ids = [o.id for o in d.options]
+        if d.kind == "choose_cards" and s.state.cards[ids[0]].name.startswith("Test"):
+            pick = [i for i in ids if s.state.cards[i].name in take]
+        else:
+            pick = [bear.id] if bear.id in ids else ids[:1]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+    return s, bear
+
+
+def test_storm_herald_returns_the_chosen_creature_aura_and_exiles_it_at_the_end_step(cards):
+    """303.4f: the Enchant land Aura can't be attached to a creature and stays; the Boon enchants the Bear, then is exiled at the next end step (603.7)."""
+    s, bear = _herald(cards, {"Test Boon", "Test Fertile"})
+    boon, fertile = card_named(s, "Test Boon"), card_named(s, "Test Fertile")
+    assert s.state.cards[boon.id].zone == "p1:battlefield" and s.state.cards[fertile.id].zone == "p1:graveyard"
+    for _ in range(120):
+        if s.state.cards[boon.id].zone != "p1:battlefield":
+            break
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[boon.id].zone == "p1:exile"
+    check(s)
+
+
+def test_storm_herald_aura_that_would_leave_is_exiled_instead_and_none_is_fine(cards):
+    s, bear = _herald(cards, {"Test Boon"})
+    boon = card_named(s, "Test Boon")
+    act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "graveyard"})
+    act(s, "p1", type="pass_priority")  # 704.5m: the unattached Aura is put into the graveyard as a state-based action, here exile instead
+    assert s.state.cards[boon.id].zone == "p1:exile"  # 614.1a, never the graveyard
+    check(s)
+    s2, _ = _herald(cards, set())
+    assert s2.state.cards[card_named(s2, "Test Boon").id].zone == "p1:graveyard"

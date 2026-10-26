@@ -179,6 +179,8 @@ _AGONY = re.compile(r"(~ deals X damage to target creature, where X is the numbe
 
 
 _BOE = "You may cast a spell with suspend from your hand. If you do, pay its suspend cost rather than its mana cost."
+_HERALD = ("Return any number of Aura cards from your graveyard to the battlefield attached to creatures you control. Exile those Auras at the beginning of your next end step. "
+           "If those Auras would leave the battlefield, exile them instead of putting them anywhere else.")
 _DRAIN = "Target player activates a mana ability of each land they control. Then that player loses all unspent mana and you add the mana lost this way."
 
 
@@ -186,6 +188,14 @@ def parse(body: str) -> Any:
     """Etched Host Doombringer's mode: one target battle; the protector decides between removing and adding (310.4, 310.8)."""
     from app.rules import scripts
 
+    if body.strip()[:1].upper() + body.strip()[1:] == _HERALD:  # Storm Herald: chosen as it resolves (608.2d, not targets); each Aura picks its own creature (303.4f), the exile rider is the grammar's
+        got = scripts.parse_effects("Return target Aura card from your graveyard to the battlefield attached to a creature you control. Exile it at the beginning of your next end step. "
+                                    "If it would leave the battlefield, exile it instead of putting it anywhere else.")
+        if got is None:
+            return None
+        (ret, *rest), group, _ = got
+        pick = {"do": "player_chooses", "who": "you", "sel": group, "n": 250, "label": "Aura cards", "upto": True, "optional": True, "as": "gco"}
+        return [pick, {**ret, "who": "ref:gco"}, {"do": "keep_entered110g", "as": ret["as"]}, *rest], None, False
     if body.strip() == _BOE:  # The Face of Boe: a cast from hand with the suspend cost as the alternative cost (118.9, 702.62a)
         return [{"do": "boe110g"}], None, False
     if body.strip() == _DRAIN:  # Drain Power: the Pygmy Hippo machinery on a target player, the lost mana added at once (605.3a, 106.4)
@@ -1341,6 +1351,20 @@ def _activate_land(plan: Any, pid: str, cid: str, idx: int, oi: int) -> None:
     casting._produce_body(plan, card, ab, ab.options[oi], idx, extra, None, input_payment=paid, option_index=oi)
 
 
+def keep_entered(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Storm Herald: "those Auras" are the ones that really entered (303.4i: an Aura that can't enchant stays where it is), as the objects they became (400.7j);
+    the binding of a return that paused for an Aura's host choice still names the cards as they were in the graveyard."""
+    from app.rules import context
+
+    b = context.refs(ctx).get(e["as"])
+    if b is None or b.get("kind") != "objects":
+        return True
+    now = [o["card"] for o in b["objects"] if plan.state.cards[o["card"]].zone.endswith(":battlefield")]
+    b["objects"] = [{"card": c, "object_id": plan.oid(c), "zone": plan.state.cards[c].zone, "snapshot": None} for c in now]
+    b["was"] = [o for o in b.get("was") or [] if o["card"] in now]
+    return True
+
+
 def _suspend_costs(plan: Any, pid: str) -> dict[str, str]:
     """The cards in the player's hand with a suspend ability, each with its suspend cost (the first instance, 702.62a)."""
     from app.rules import casting
@@ -1457,7 +1481,7 @@ _BUILD[_HIPPO] = ("Whenever this creature attacks and isn't blocked, you may dra
     {"do": "deferred:add_mana", "sym": "C", "n": {"ref_amount": "lost110g"}}]})
 
 
-PRIMITIVES: dict[str, Any] = {"boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"keep_entered110g": keep_entered, "boe110g": boe, "hippo110g": hippo, "volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"boe110g": resume_boe, "hippo110g": resume_hippo, "river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}
