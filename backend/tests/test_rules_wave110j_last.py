@@ -232,3 +232,63 @@ def test_safeguard_without_counters_does_nothing(cards):
     answer(s)
     assert not any(s.state.cards[x.id].counters for x in bears) and s.state.rules.decision is None
     check(s)
+
+
+# -- Reed Richards, Smartest Man --
+REED = real("Reed Richards, Smartest Man", "{5}{U}", 6, "Legendary Creature — Human Scientist Hero",
+            "Reach\nYou have no maximum hand size.\n"
+            "The first time you would draw a card each turn except the first card you draw during each of your draw steps, you draw four cards instead.", ("2", "4"), "U")
+CANTRIP = real("Test Cantrip", "{U}", 1, "Instant", "Draw a card.", None, "U")
+base.EXTRA.extend([REED, CANTRIP])
+
+
+def test_reed_full(cards):
+    assert coverage.of_card_data(cards.resolve("Reed Richards, Smartest Man")).level == "FULL"
+
+
+def _hand(s, pid="p1"):
+    return len(s.state.zones.get(f"{pid}:hand", []))
+
+
+def _cantrip(s):
+    from tests.wave9c_kit import to_hand
+
+    c = to_hand(s, "Test Cantrip")
+    mana(s, U=1)
+    before = _hand(s) - 1
+    if s.state.rules.priority != "p1":
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    answer(s)
+    return _hand(s) - before
+
+
+def test_reed_your_turn_the_draw_step_draw_stays_one_and_the_next_draw_is_four(cards):
+    from tests.test_rules_wave100g_zones import to_step
+    from tests.wave110a_kit import goto
+
+    s = build(cards, ["Reed Richards, Smartest Man", "Test Cantrip", "Test Cantrip"])
+    put(s, "Reed Richards, Smartest Man")
+    to_step(s, "main1", 2)
+    before = _hand(s)
+    to_step(s, "main1", 3)
+    goto(s, "main1")
+    assert s.state.turn.active_player == "p1" and _hand(s) == before + 1  # the draw step's first card is excluded (504.1)
+    assert _cantrip(s) == 4  # the first other draw this turn
+    assert _cantrip(s) == 1  # only the first time
+    check(s)
+
+
+def test_reed_opponents_turn_the_first_draw_is_four(cards):
+    from tests.test_rules_wave100g_zones import to_step
+    from tests.wave110a_kit import goto
+
+    s = build(cards, ["Reed Richards, Smartest Man", "Test Cantrip", "Test Cantrip"])
+    put(s, "Reed Richards, Smartest Man")
+    opp = _hand(s, "p2")
+    to_step(s, "main1", 2)
+    goto(s, "main1", "p1")
+    assert s.state.turn.active_player == "p2" and _hand(s, "p2") == opp + 1  # only "you"
+    assert _cantrip(s) == 4
+    assert _cantrip(s) == 1
+    check(s)

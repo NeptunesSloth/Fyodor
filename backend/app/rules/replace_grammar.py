@@ -229,7 +229,15 @@ def _draw_body(rest: str) -> tuple[str, bool] | None:
 _FIRST_TIME = "The first time you would draw a card each turn, "
 
 
+_REED = "The first time you would draw a card each turn except the first card you draw during each of your draw steps, "
+
+
 def _draw(text: str) -> Definition | None:
+    if text.startswith(_REED):  # -- Reed Richards (wave 110J) -- the draw step's first card is left out of the set, so it doesn't use up "the first time" (504.1, 614.11)
+        d = _draw_plain("If you would draw a card except the first one you draw in each of your draw steps, " + text[len(_REED):])
+        if d is not None:
+            d["match"]["first_time_turn_nostep110j"] = True
+        return d
     first = text.startswith(_FIRST_TIME)  # -- draws (wave 110C) -- Scion of Halaster's grant: only the first draw event each turn (121.6, 614.11)
     if first:  # one card is left to put back, so "in any order" is vacuous (the body grammar reads "the rest ... in any order")
         text = "If you would draw a card, " + text[len(_FIRST_TIME):]

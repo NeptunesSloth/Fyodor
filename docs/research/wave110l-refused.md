@@ -6,7 +6,7 @@
 - Nephalia Academy: an optional ("you may reveal") discard replacement needs a decline branch in the 616 zone-replacement core, which has none; refused.
 - Extraordinary Journey: "exile up to X target creatures" (variable target count from X) plus "entered from exile or was cast from exile" are both unread; refused.
 - Prowl, Stoic Strategist // Prowl, Pursuit Vehicle: Convert and "plays a card exiled with Prowl" are both unread; refused.
-- Reed Richards, Smartest Man: "the first time you would draw a card each turn except the first card you draw during each of your draw steps" — whether the draw step's own draw counts as "the first time" is unsettled (no ruling); refused.
+- Reed Richards, Smartest Man: built in wave 110J (last cards): per its text the draw step's first card is left out and doesn't use up "the first time" (504.1, 614.11); the first other draw each turn becomes four.
 - Parnesse, the Subtle Brush: "that spell" in "also copy that spell" is the copied spell, but the trigger event only carries the copy on the stack (targets may differ); unsettled; refused.
 - Guile: "instead exile that spell and you may play that card" — when and for how long the card may be played is unsettled; refused.
 - Lukka, Coppercoat Outcast: the granted "cast this card from exile as long as you control a Lukka planeswalker" needs a permission duration bound to a condition on any planeswalker (not the source); not modelled; refused.
