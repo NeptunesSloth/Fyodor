@@ -62,6 +62,9 @@ _EQUILIBRIUM = ("If an opponent who controls at least as many lands as you do wo
 _PHOENIX = "As long as this card is in your graveyard, if you would learn, you may instead return this card to the battlefield."
 
 
+_NORTH = "{4}, {T}: For one spell this turn, you may spend mana as though it were mana of any type to pay that spell's mana cost."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -168,6 +171,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {"kind": "static", "static": "equilibrium110f", "effects": []}
     if ability.kind == "static" and text == _PHOENIX:  # applied as a learning is carried out (``learn_replacement``)
         return {"kind": "static", "static": "phoenix_learn110f", "effects": []}
+    if ability.kind == "activated" and text == _NORTH:
+        probe = scripts.define(replace(ability, text=ability.text.split(":", 1)[0] + ": You gain 1 life."), ch)
+        if probe is None or probe["kind"] != "activated":
+            return None
+        return {**probe, "effects": [{"do": "next_spell_grant", "grants": [{"keyword": "spend_any110f", "filter": None}]}]}
     return None
 
 

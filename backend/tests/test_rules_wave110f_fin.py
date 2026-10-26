@@ -1079,3 +1079,76 @@ def test_phoenix_outside_the_graveyard_changes_nothing(cards, zone):
     d = _next_decision(s)
     assert d is None or not any("Retriever Phoenix" in o.label for o in d.options)
     check(s)
+
+
+_NORTH = "{4}, {T}: For one spell this turn, you may spend mana as though it were mana of any type to pay that spell's mana cost. (Additional costs are still paid normally.)"
+_BASE.extend([
+    real("North Star", "{4}", 4, "Artifact", _NORTH, None, ""),
+    real("Test Red 110FN", "{R}{R}", 2, "Instant", "Test Red 110FN deals 1 damage to target player.", None, "R"),
+    real("Test Any 110FN", "{1}", 1, "Instant", "Test Any 110FN deals 1 damage to target player.", None, ""),
+])
+
+
+def test_north_star_full(cards):
+    assert coverage.of_card_data(cards.resolve("North Star")).level == "FULL"
+
+
+def _star(cards):
+    from tests.test_rules_wave34b_activated import activate
+    from tests.wave36a_kit import ready
+
+    s = build(cards, ["North Star", "Test Red 110FN", "Test Any 110FN"], [])
+    star = put(s, "North Star")
+    ready(s, "North Star")
+    mana(s, "p1", C=4)
+    activate(s, "p1", star, "")
+    answer(s)
+    return s
+
+
+def _cast(s, name, **pool):
+    from tests.wave9c_kit import to_hand
+
+    mana(s, "p1", **pool)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, name).id, targets=["p2"])
+    answer(s, "p2")
+
+
+def test_north_star_pays_a_colored_cost_with_any_mana_once(cards):
+    """609.4b: after North Star, {R}{R} is paid with green mana; the grant is used up, so a second such spell can't be."""
+    from app.game.errors import ActionError
+
+    s = _star(cards)
+    _cast(s, "Test Red 110FN", G=2)
+    assert life(s, "p2") == 39 and not s.state.rules.next_spell_grants
+    from tests.wave9c_kit import to_hand
+
+    again = to_hand(s, "Test Red 110FN")
+    mana(s, "p1", G=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=again.id, targets=["p2"])
+    check(s)
+
+
+def test_north_star_is_kept_by_a_spell_that_did_not_need_it(cards):
+    """"For one spell": a spell paid as printed doesn't use it up: the next one that needs it may."""
+    s = _star(cards)
+    _cast(s, "Test Any 110FN", G=1)
+    assert len(s.state.rules.next_spell_grants) == 1
+    from tests.wave9c_kit import to_hand
+
+    mana(s, "p1", G=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Red 110FN").id, targets=["p2"])
+    answer(s, "p2")
+    assert life(s, "p2") == 38 and not s.state.rules.next_spell_grants
+    check(s)
+
+
+def test_without_north_star_the_colored_cost_is_not_payable_with_other_colors(cards):
+    from app.game.errors import ActionError
+    from tests.wave9c_kit import to_hand
+
+    s = build(cards, ["Test Red 110FN"], [])
+    mana(s, "p1", G=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Test Red 110FN").id, targets=["p2"])

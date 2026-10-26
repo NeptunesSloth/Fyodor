@@ -192,7 +192,7 @@ def next_spell_grant(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool
         plan.rules.next_spell_grants.append(NextSpellGrant(
             id=secrets.token_hex(4), player=player, keyword=g["keyword"], what=g.get("what") or "", filter=g.get("filter"),
             turn=plan.state.turn.number, source=ctx.get("source_object"), label=(ctx.get("name") or "An effect")[:120], amount=int(amount)))
-    words = " and ".join(f"the next {'spell' if g.get('filter') is None else 'matching spell'} {'costs less' if g['keyword'] == 'cost' else 'has ' + g['keyword']}"
+    words = " and ".join(f"the next {'spell' if g.get('filter') is None else 'matching spell'} {'costs less' if g['keyword'] == 'cost' else 'may be paid with mana of any type' if g['keyword'] == 'spend_any110f' else 'has ' + g['keyword']}"
                          for g in e["grants"])
     plan.note(f"{plan.name(player)}: {words} this turn ({ctx.get('name') or 'an effect'})")
     return True
@@ -232,6 +232,19 @@ def consume(plan: Plan, card: Any, ch: Characteristics) -> None:
     def used(g: Any) -> bool:
         if g.player != player or (g.keyword == "hand110b" and not from_hand):  # (wave 110B: "from your hand" waits for one)
             return False
+        if g.keyword == "spend_any110f":  # -- wave 110F -- North Star: one spell of the player's choice; used up only by a cast that needed it (the colored part of its printed cost wasn't paid with mana of those colors)
+            from dataclasses import replace as _replace
+
+            from app.rules import mana as M
+
+            if record is not None and record.mana_known and ch.mana_cost:
+                try:
+                    M.solve(_replace(M.parse_cost(ch.mana_cost), generic=0, x=0), dict(record.mana_spent), [])
+                    return False
+                except M.ManaError:
+                    return True
+            return True
+            return True
         return g.filter is None or spell_matches(plan.state, player, card, ch, g.filter, plan.info)
 
     for g in r.next_spell_grants:
