@@ -37,6 +37,9 @@ CAMP = ("Whenever fortified land is tapped for mana, put a +1/+1 counter on targ
         "battlefield if the land leaves.)")
 GARRISON = ("Fortified land has indestructible.\nWhenever fortified land becomes tapped, target creature gets +1/+1 until end of turn.\n"
             "Fortify {3} ({3}: Attach to target land you control. Fortify only as a sorcery. This card enters unattached and stays on the battlefield if the land leaves.)")
+FURY = ("Power-up \u2014 {W}{U}{B}{R}{G}: Put two +1/+1 counters on Nick Fury, then look at the top seven cards of your library. You may put a Hero, Equipment, or Vehicle "
+        "card from among them onto the battlefield. If it's a double-faced card, you may transform it. Put the rest on the bottom of your library in a random order. "
+        "(Activate each power-up ability only once. Reduce the cost by his mana cost if he entered this turn.)")
 DAWN = ("Until end of turn, spells and abilities you control that would add colored mana instead add that much white mana. Until end of turn, you may spend "
         "white mana as though it were mana of any color.\nDraw a card.")
 PHOENIX = ("Flying\nIf this creature would die, return it to its owner's hand instead. Until that player's next turn, that player plays with that card revealed in "
@@ -50,6 +53,12 @@ EXTRA += [card("Tunnel of Love", set_code="unf", number="234a", layout="normal",
           real("Firestorm Phoenix", "{4}{R}{R}", 6, "Creature \u2014 Phoenix", PHOENIX, ("3", "2"), "R"),
           real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
           real("False Dawn", "{1}{W}", 2, "Sorcery", DAWN, None, "W"),
+          real("Wild Growth", "{G}", 1, "Enchantment \u2014 Aura", "Enchant land\nWhenever enchanted land is tapped for mana, its controller adds an additional {G}.", None, "G"),
+          real("Nick Fury, Agent of S.H.I.E.L.D.", "{W}{U}{B}{R}{G}", 5, "Legendary Creature \u2014 Human Hero", FURY, ("3", "3"), "WUBRG"),
+          card("Conqueror's Galleon // Conqueror's Foothold", set_code="tst", number="T7", layout="transform", mana_cost=None, cmc=4.0, type_line="Artifact \u2014 Vehicle // Land",
+               colors=[], color_identity=[], image_uris=None, keywords=["Transform"],
+               card_faces=[{"name": "Conqueror's Galleon", "mana_cost": "{4}", "type_line": "Artifact \u2014 Vehicle", "oracle_text": "Crew 4", "power": "2", "toughness": "10", "colors": []},
+                           {"name": "Conqueror's Foothold", "mana_cost": "", "type_line": "Land", "oracle_text": "{T}: Add {C}.", "colors": []}]),
           real("Dark Ritual", "{B}", 1, "Instant", "Add {B}{B}{B}.", None, "B"),
           real("Lightning Bolt", "{R}", 1, "Instant", "Lightning Bolt deals 3 damage to any target.", None, "R"),
           real("Reflecting Mirror", "{4}", 4, "Artifact", MIRROR, None, ""),
@@ -165,6 +174,28 @@ def test_firestorm_phoenix(cards):
     assert s.state.cards[phoenix.id].revealed_to == []
     kit_mana(s, R=2, C=4)
     act(s, "p1", type="cast_spell", card_id=phoenix.id)
+
+
+@pytest.mark.parametrize("dawn", [True, False])
+def test_false_dawn_wild_growth(cards, dawn):
+    """609.4b, 605.4a: the additional {G} of Wild Growth's triggered mana ability is also white under False Dawn."""
+    from tests.wave9c_kit import build as kit_build
+    from tests.wave9c_kit import cast as kit_cast
+    from tests.wave9c_kit import mana as kit_mana
+    from tests.wave9c_kit import put as kit_put
+    from tests.wave9c_kit import to_hand as kit_to_hand
+    s = kit_build(cards, ["False Dawn", "Wild Growth"])
+    forest = kit_put(s, "Forest")
+    growth = kit_put(s, "Wild Growth")
+    act(s, "p1", type="attach", card_ids=[growth.id], to=forest.id)
+    if dawn:
+        kit_to_hand(s, "False Dawn")
+        kit_mana(s, W=1, C=1)
+        kit_cast(s, "False Dawn")
+        answer(s)
+    act(s, "p1", type="activate_ability", card_id=forest.id, ability=0, **({} if dawn else {"mana_choice": "G"}))
+    units = sorted(u.sym for u in s.state.players["p1"].mana_units)
+    assert units == (["W", "W"] if dawn else ["G", "G"])
 
 
 @pytest.mark.parametrize("dawn", [True, False])
@@ -350,4 +381,35 @@ def test_tunnel_of_love(cards, monkeypatch, exile, theirs):
         assert s.state.cards[bear.id].zone == "p1:battlefield" and (not theirs or s.state.cards[goblin.id].zone == "p2:battlefield")
     else:
         assert s.state.cards[goblin.id].zone.endswith(":graveyard") and s.state.cards[bear.id].zone == "p1:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize("flip", [True, False])
+def test_nick_fury(cards, flip):
+    """701.27c, 608.2c: two counters; of the top seven only the Vehicle is offered and enters; the double-faced card may be turned over (the controller's choice);
+    the other six go to the bottom."""
+    from tests.wave9c_kit import build as kit_build
+    from tests.wave9c_kit import check
+    from tests.wave9c_kit import put as kit_put
+
+    s = kit_build(cards, ["Nick Fury, Agent of S.H.I.E.L.D.", "Conqueror's Galleon // Conqueror's Foothold", "Probe Bear"])
+    fury = kit_put(s, "Nick Fury, Agent of S.H.I.E.L.D.")
+    act(s, "p1", type="activate_ability", card_id=fury.id, ability=0)
+    seen = []
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is None:
+            if s.state.zones.get("stack"):
+                act(s, s.state.rules.priority, type="pass_priority")
+                continue
+            break
+        seen.append((d.prompt, [o.label for o in d.options]))
+        want = [o.id for o in d.options if "Galleon" in o.label or o.label.lower().startswith("yes")][:1] if flip else [o.id for o in d.options if "Galleon" in o.label][:1]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=want or [d.options[-1].id])
+    assert [lab for _, lab in seen][0] == ["Conqueror's Galleon // Conqueror's Foothold"]
+    bear = next(c for c in s.state.cards.values() if c.name == "Probe Bear" and c.owner == "p1")
+    assert bear.id in s.state.zones["p1:library"][-6:]
+    assert s.state.cards[fury.id].counters.get("+1/+1") == 2
+    galleon = next(c for c in s.state.cards.values() if c.name.startswith("Conqueror's Galleon"))
+    assert galleon.zone == "p1:battlefield" and galleon.face == int(flip)
     check(s)

@@ -91,7 +91,7 @@ def expanded(plan: Plan, controller: str, source_card: str | None, ab: dict[str,
     if not flagged(ab):
         return ab
     group = ab["targets"][0]
-    order = plan.state.seat_order
+    order = plan.state.turn_order()
     start = order.index(controller) if controller in order else 0
     from app.rules import values
 

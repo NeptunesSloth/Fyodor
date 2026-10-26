@@ -5,6 +5,8 @@ from typing import Any
 
 DIVERGENT = ('Exile two target creatures. For each of those creatures, its controller reveals cards from the top of their library '
              'until they reveal a creature card, puts that card onto the battlefield, then shuffles the rest into their library.')
+CHAOS = ('Exile any number of target creatures controlled by different players. For each creature exiled this way, its controller reveals cards from the top of their '
+         'library until they reveal a creature card, puts that card onto the battlefield, then puts the rest on the bottom of their library in a random order.')  # (wave 110C)
 REALITY = ('Put target permanent you own on the bottom of your library. Reveal cards from the top of your library until you reveal '
            'a card that shares a card type with that permanent. Put that card onto the battlefield and the rest on the bottom of '
            'your library in a random order.')
@@ -29,6 +31,7 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
     text = scripts.self_text(ability.text, ch.name)
     table = {DIVERGENT: ('divergent', 'Exile two target creatures.'),
+             CHAOS: ('chaos', 'Exile any number of target creatures controlled by different players.'),
              REALITY: ('reality', 'Put target permanent you own on the bottom of your library.'),
              CREATIVITY: ('creativity', 'Destroy X target artifacts and/or creatures.'),
              SYNTHETIC: ('synthetic', 'Exile all creatures you control.')}
@@ -111,7 +114,7 @@ def walk(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                       'as': 'creativity_one102', 'by_owner': True}, {'do': 'polymorph_collect102'}]
     else:
         sequence += [{'do': 'polymorph_pick102'}]
-        sequence += ([{'do': 'rest_looked', 'to': 'bottom_random'}] if frame['mode'] == 'reality'
+        sequence += ([{'do': 'rest_looked', 'to': 'bottom_random'}] if frame['mode'] in ('reality', 'chaos')
                      else [{'do': 'shuffle_library', 'who': 'player:' + owner}])
     sequence += [{'do': 'polymorph_walk102'}]
     ctx['effects'][ctx['next']:ctx['next']] = sequence

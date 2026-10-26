@@ -108,3 +108,21 @@ def test_preston_garvey_settles_a_land(cards):
     settlement = next(c for c in s.state.cards.values() if c.name == "Settlement")
     assert settlement.attached_to == land.id and ch(s, settlement).subtypes >= {"Aura"}
     check(s)
+
+
+def test_preston_garvey_attack_untaps_only_enchanted_permanents(cards):
+    """Whenever Preston Garvey attacks, untap each enchanted permanent you control: the land with Settlement untaps, the plain land stays tapped."""
+    s = build(cards, ["Preston Garvey, Minuteman", "Mountain", "Forest"])
+    preston = put(s, "Preston Garvey, Minuteman")
+    ready(s, preston)
+    lands = [put(s, "Mountain"), put(s, "Forest")]
+    to_phase(s, "begin_combat", turn=3)
+    settle(s)
+    enchanted = next(c for c in s.state.cards.values() if c.name == "Settlement").attached_to
+    plain = next(c.id for c in lands if c.id != enchanted)
+    act(s, "p1", type="tap", card_ids=[enchanted, plain])
+    to_phase(s, "declare_attackers", turn=3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": preston.id, "target": "p2"}])
+    settle(s)
+    assert not s.state.cards[enchanted].tapped and s.state.cards[plain].tapped
+    check(s)

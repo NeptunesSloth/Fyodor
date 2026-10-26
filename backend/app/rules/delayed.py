@@ -123,7 +123,8 @@ LABELS = {"next_turn": "until your next turn", "end_of_next_turn": "until the en
           "source_controlled_tapped": "for as long as you control ~ and ~ remains tapped",
           "while_counter": "for as long as it has a counter on it", "while_enchanted": "for as long as that creature is enchanted", "next_upkeep": "until your next upkeep",
           "monarch_player": "for as long as they're the monarch",
-          "creature_cast110m": "until a player casts a creature spell"}  # -- (wave 110M) -- ends as any player casts a creature spell (601.2i): wave110m_cards.spell_cast
+          "creature_cast110m": "until a player casts a creature spell",
+          "roll1_110f": "until end of turn or until any player rolls a 1"}  # -- (wave 110M) -- ends as any player casts a creature spell (601.2i): wave110m_cards.spell_cast
 MARKER = "until end of turn"  # the table marker text app/rules/effects._mark writes
 
 
@@ -225,7 +226,7 @@ def create(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
         watched = dealt_cards(plan, ctx, e["dealt"], e.get("types")) if e.get("dealt") else _cards(plan, ctx, e["who"])  # (wave 35B)
         watched = [c for c in watched if plan.state.cards[c].zone.endswith(":battlefield")]
-        if when.get("event") == "lose_control" and not e.get("watch_foreign105"):  # -- attached (wave 100F) -- only what its controller controls can be lost
+        if when.get("event") in ("lose_control", "lose_or_untap110i") and not e.get("watch_foreign105"):  # -- attached (wave 100F) -- only what its controller controls can be lost
             from app.rules import attached100f
 
             watched = attached100f.watching(plan, ctx, watched)
@@ -382,6 +383,11 @@ def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
     if w.get("tag") is not None:  # -- commander sweep (wave 49B) -- "At the beginning of that combat" (Moraug): the one combat phase it was made with, wherever it falls in the turn (500.8)
         return w.get("kind") == "step" and w.get("step") == phase and plan.rules.combat_tag == w["tag"] and (
             t.until_turn is None or plan.state.turn.number <= t.until_turn)
+    if any(e.get("do") == "oyster_tick110j" for e in t.effects):  # -- wave 110J -- Giant Oyster: only while it remains tapped
+        from app.rules import wave110j_cards
+
+        if not wave110j_cards.oyster_live(plan, t.effects[0]["oyster"]):
+            return False
     main = w.get("step") == "main" and phase in ("main1", "main2")  # -- stack interaction (wave 5B) -- (505.1)
     if w.get("kind") != "step" or (w.get("step") != phase and not main):
         return False
@@ -404,6 +410,10 @@ def _step_due(plan: Plan, t: DelayedTrigger, phase: str) -> bool:
         return plan.active == t.controller and (later_turn or same_turn_before)
     if whose in ("owner", "payer"):
         return plan.active == w.get("player") and (later_turn or same_turn_before)
+    if whose == "each110j":  # -- wave 110J -- Dimensional Breach: every player's upkeep, for as long as any of the exiled cards remain exiled (603.7b, 611.2b)
+        from app.rules import wave110j_cards
+
+        return (later_turn or same_turn_before) and wave110j_cards.breach_live(plan, t)
     return later_turn  # "the next turn's upkeep"
 
 
@@ -455,22 +465,38 @@ def on_events(plan: Plan, events: list[Event]) -> None:
     # -- attached (wave 100F) -- "When you lose control of the creature, …": another player gains control of it, or it leaves (603.10d; attached100f)
     from app.rules import attached100f
 
-    for t in [t for t in watching if t.when.get("event") == "lose_control"]:
+    untappers = [t for t in watching if t.when.get("event") == "lose_or_untap110i"]  # -- cards (wave 110I) -- Coffin Queen: "becomes untapped or you lose control of it"
+    for t in [t for t in watching if t.when.get("event") in ("lose_control", "lose_or_untap110i")]:
         eligible = [e for e in events if e.batch > int(t.when.get("after_batch105", -1))]
         if (gone := attached100f.lost(plan, t, eligible)):
             fired.append(t)
             _fire(plan, t, TriggerEvent(kind="lose_control", batch=events[-1].batch, count=1, objects=gone[:1]))
-    watching = [t for t in watching if t.when.get("event") != "lose_control"]
+    watching = [t for t in watching if t.when.get("event") not in ("lose_control", "lose_or_untap110i")]
     for e in events:
         if e.kind == "untapped" and not e.manual:  # -- (wave 110M) -- "When ~ leaves the battlefield or becomes untapped" (Merieke Ri Berit): the watched permanent became untapped (603.2)
             for t in [t for t in watching if t.when["event"] == "leave_or_untap110m" and t not in fired]:
                 if e.object_id in {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []} and (obj := plan.state.cards.get(e.card or "")) is not None:
                     fired.append(t)
                     _fire(plan, t, TriggerEvent(kind="untapped", batch=e.batch, count=1, objects=[ObjectRef(card=obj.id, object_id=e.object_id or "", zone=obj.zone)]))
+        if e.kind == "untapped" and not e.manual:
+            for t in [t for t in untappers if t not in fired]:
+                if e.object_id in {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []} and (obj := plan.state.cards.get(e.card or "")) is not None:
+                    fired.append(t)
+                    _fire(plan, t, TriggerEvent(kind="untapped", batch=e.batch, count=1, objects=[ObjectRef(card=obj.id, object_id=e.object_id or "", zone=obj.zone)]))
+        if e.kind == "designation" and e.counter == "visit":  # -- (wave 110M) -- Myra the Magnificent: "whenever you visit it", for as long as that Attraction is on the battlefield
+            for t in [t for t in watching if t.when["event"] == "visit110m" and t.controller == e.player]:
+                if e.object_id in {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []}:
+                    _fire(plan, t, TriggerEvent(kind="visit_attraction", batch=e.batch, count=1, players=[e.player or ""],
+                                                objects=[ObjectRef(card=e.card or "", object_id=e.object_id or "", zone=plan.state.cards[e.card].zone if e.card in plan.state.cards else "")]))
+            continue
         if e.kind == "untapped":
             continue
         if e.kind != "zone_change" or e.manual or _zone(e.from_zone) != "battlefield" or _zone(e.to_zone) == "battlefield":
             continue
+        gone110m = {t.id for t in watching if t.when["event"] == "visit110m" and e.object_id in {o["object_id"] for o in (t.refs.get("watch") or {}).get("objects") or []}}
+        if gone110m:  # (wave 110M) the watched Attraction left: "for as long as it is on the battlefield" is over
+            r.delayed = [t for t in r.delayed if t.id not in gone110m]
+            watching = [t for t in watching if t.id not in gone110m]
         snap = r.lki.get(e.object_id or "")
         if snap is None:
             continue
@@ -597,6 +623,12 @@ def apply_duration(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def roll_one110f(plan: Plan) -> None:
+    """-- wave 110F -- a player rolled a 1: the effects lasting "until end of turn, or until any player rolls a 1" end (Drop Tower)."""
+    if ended := [e for e in plan.rules.effects if e.duration == "roll1_110f"]:
+        _end(plan, ended)
+
+
 def spell_cast(plan: Plan, from_object: str | None) -> None:
     """-- as long as (wave 37A) -- 611.2a: "until this card is cast from exile" ends as that card is cast (601.2i): the effects naming the object it was
     in exile (``from_object``, before it became the spell). A mana ability they gave was usable while it was paid for (601.2g)."""
@@ -718,6 +750,8 @@ def expire(plan: Plan) -> None:
     )
 
     ended += [e for e in r.effects if e.duration == "attached110n" and not wave110n_cards.still_attached(plan, e)]
+    ended += [e for e in r.effects if e.duration == "object_tapped110m" and not any(  # (wave 110M) Zygon Infiltrator: "for as long as that creature remains tapped" (611.2b): that object, on the battlefield, tapped
+        plan.oid(c) == e.until_object and c.zone.endswith(":battlefield") and c.tapped for c in plan.state.cards.values())]
     for e in r.effects:  # -- quoted grants (wave 2D) -- "for as long as it has a … counter on it": per object
         if e.duration == "while_counter":
             lost_last = {ev.object_id for ev in r.events if ev.kind == "counters" and ev.counter == e.counter
@@ -757,6 +791,9 @@ def expire(plan: Plan) -> None:
     from app.rules import permissions
 
     permissions.expire_source(plan)  # -- durations (wave 30M) -- "You may play that card for as long as you control ~" (a stored permission)
+    from app.rules import wave110j_cards
+
+    wave110j_cards.oyster_sweep(plan)  # -- wave 110J -- Giant Oyster: "When this creature leaves the battlefield or becomes untapped, …"
 
 
 def _held(plan: Plan, ctx: Context, inner: list[dict[str, Any]]) -> list[str]:

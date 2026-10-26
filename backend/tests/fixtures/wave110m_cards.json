@@ -1104,5 +1104,502 @@
 "keywords": [],
 "power": "3",
 "toughness": "5"
+},
+{
+"name": "Estrid, the Masked",
+"layout": "normal",
+"mana_cost": "{1}{G}{W}{U}",
+"cmc": 4.0,
+"type_line": "Legendary Planeswalker — Estrid",
+"oracle_text": "+2: Untap each enchanted permanent you control.\n−1: Create a white Aura enchantment token named Mask attached to another target permanent. The token has enchant permanent and umbra armor.\n−7: Mill seven cards. Return all non-Aura enchantment cards from your graveyard to the battlefield, then do the same for Aura cards.\nEstrid, the Masked can be your commander.",
+"colors": [
+"G",
+"U",
+"W"
+],
+"color_identity": [
+"G",
+"U",
+"W"
+],
+"keywords": [
+"Mill"
+],
+"loyalty": "3"
+},
+{
+"name": "Smoke Spirits' Aid",
+"layout": "normal",
+"mana_cost": "{X}{R}",
+"cmc": 1.0,
+"type_line": "Sorcery",
+"oracle_text": "For each of up to X target creatures, create a red Aura enchantment token named Smoke Blessing attached to that creature. Those tokens have enchant creature and \"When enchanted creature dies, it deals 1 damage to its controller and you create a Treasure token.\"",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [
+"Treasure"
+]
+},
+{
+"name": "Wall of Shadows",
+"layout": "normal",
+"mana_cost": "{1}{B}{B}",
+"cmc": 3.0,
+"type_line": "Creature — Wall",
+"oracle_text": "Defender (This creature can't attack.)\nPrevent all damage that would be dealt to this creature by creatures it's blocking.\nThis creature can't be the target of spells that can target only Walls or of abilities that can target only Walls.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Defender"
+],
+"power": "0",
+"toughness": "1"
+},
+{
+"name": "Test Wall Pump",
+"layout": "normal",
+"mana_cost": "{G}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "Target Wall gets +2/+2 until end of turn.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": []
+},
+{
+"name": "Test Wall",
+"layout": "normal",
+"mana_cost": "{1}{W}",
+"cmc": 2.0,
+"type_line": "Creature — Wall",
+"oracle_text": "Defender",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": [
+"Defender"
+],
+"power": "0",
+"toughness": "4"
+},
+{
+"name": "Grip of Chaos",
+"layout": "normal",
+"mana_cost": "{4}{R}{R}",
+"cmc": 6.0,
+"type_line": "Enchantment",
+"oracle_text": "Whenever a spell or ability is put onto the stack, if it has a single target, reselect its target at random. (Select from among all legal targets.)",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
+},
+{
+"name": "Test Fight",
+"layout": "normal",
+"mana_cost": "{G}",
+"cmc": 1.0,
+"type_line": "Instant",
+"oracle_text": "Target creature you control deals damage equal to its power to target creature you don't control.",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": []
+},
+{
+"name": "Test Pinger",
+"layout": "normal",
+"mana_cost": "{1}{R}",
+"cmc": 2.0,
+"type_line": "Creature — Goblin",
+"oracle_text": "When this creature enters, it deals 1 damage to any target.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [],
+"power": "1",
+"toughness": "1"
+},
+{
+"name": "Goblin Game",
+"layout": "normal",
+"mana_cost": "{5}{R}{R}",
+"cmc": 7.0,
+"type_line": "Sorcery",
+"oracle_text": "Each player hides at least one item, then all players reveal them simultaneously. Each player loses life equal to the number of items they revealed. The player who revealed the fewest items then loses half their life, rounded up. If two or more players are tied for fewest, each loses half their life, rounded up.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
+},
+{
+"name": "_____ _____ Rocketship",
+"layout": "normal",
+"mana_cost": "{4}",
+"cmc": 4.0,
+"type_line": "Artifact — Vehicle",
+"oracle_text": "Flying\nWhen this Vehicle enters, you may put up to two name stickers on it.\nWhenever this Vehicle attacks, choose a letter. This Vehicle gets +1/+1 until end of turn for each name sticker on it that begins with the chosen letter.\nCrew 2",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Flying",
+"Crew"
+],
+"power": "2",
+"toughness": "3"
+},
+{
+"name": "Bend or Break",
+"layout": "normal",
+"mana_cost": "{3}{R}",
+"cmc": 4.0,
+"type_line": "Sorcery",
+"oracle_text": "Each player separates all nontoken lands they control into two piles. For each player, one of their piles is chosen by one of their opponents of their choice. Destroy all lands in the chosen piles. Tap all lands in the other piles.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": []
+},
+{
+"name": "Timothar, Baron of Bats",
+"layout": "normal",
+"mana_cost": "{4}{B}{B}",
+"cmc": 6.0,
+"type_line": "Legendary Creature — Vampire Noble",
+"oracle_text": "Ward—Discard a card.\nWhenever another nontoken Vampire you control dies, you may pay {1} and exile it. If you do, create a 1/1 black Bat creature token with flying. It gains \"When this token deals combat damage to a player, sacrifice it and return the exiled card to the battlefield tapped.\"",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Ward"
+],
+"power": "4",
+"toughness": "4"
+},
+{
+"name": "Test Vampire",
+"layout": "normal",
+"mana_cost": "{1}{B}",
+"cmc": 2.0,
+"type_line": "Creature — Vampire",
+"oracle_text": "",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [],
+"power": "2",
+"toughness": "2"
+},
+{
+"name": "Alaundo the Seer",
+"layout": "normal",
+"mana_cost": "{2}{G}{U}",
+"cmc": 4.0,
+"type_line": "Legendary Creature — Human Shaman",
+"oracle_text": "{T}: Draw a card, then exile a card from your hand and put a number of time counters on it equal to its mana value. It gains \"When the last time counter is removed from this card, if it's exiled, you may cast it without paying its mana cost. If you cast a creature spell this way, it gains haste until end of turn.\" Then remove a time counter from each other card you own in exile.",
+"colors": [
+"G",
+"U"
+],
+"color_identity": [
+"G",
+"U"
+],
+"keywords": [],
+"power": "3",
+"toughness": "5"
+},
+{
+"name": "Tawnos's Coffin",
+"layout": "normal",
+"mana_cost": "{4}",
+"cmc": 4.0,
+"type_line": "Artifact",
+"oracle_text": "You may choose not to untap this artifact during your untap step.\n{3}, {T}: Exile target creature and all Auras attached to it. Note the number and kind of counters that were on that creature. When this artifact leaves the battlefield or becomes untapped, return that exiled card to the battlefield under its owner's control tapped with the noted number and kind of counters on it. If you do, return the other exiled cards to the battlefield under their owner's control attached to that permanent.",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Disenchant",
+"layout": "normal",
+"mana_cost": "{1}{W}",
+"cmc": 2.0,
+"type_line": "Instant",
+"oracle_text": "Destroy target artifact or enchantment.",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": []
+},
+{
+"name": "Zygon Infiltrator",
+"layout": "normal",
+"mana_cost": "{2}{U}",
+"cmc": 3.0,
+"type_line": "Creature — Alien Shapeshifter Soldier",
+"oracle_text": "Body-print — {2}{U}: Tap another target creature and put a stun counter on it. This creature becomes a copy of that creature for as long as that creature remains tapped. Activate only as a sorcery. (If a permanent with a stun counter would become untapped, remove one from it instead.)",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [
+"Body-print"
+],
+"power": "3",
+"toughness": "2"
+},
+{
+"name": "Old-Growth Troll",
+"layout": "normal",
+"mana_cost": "{G}{G}{G}",
+"cmc": 3.0,
+"type_line": "Creature — Troll Warrior",
+"oracle_text": "Trample\nWhen Old-Growth Troll dies, if it was a creature, return it to the battlefield. It's an Aura enchantment with enchant Forest you control and \"Enchanted Forest has '{T}: Add {G}{G}' and '{1}, {T}, Sacrifice this land: Create a tapped 4/4 green Troll Warrior creature token with trample.'\"",
+"colors": [
+"G"
+],
+"color_identity": [
+"G"
+],
+"keywords": [
+"Trample"
+],
+"power": "4",
+"toughness": "4"
+},
+{
+"name": "Aeon Engine",
+"layout": "normal",
+"mana_cost": "{5}",
+"cmc": 5.0,
+"type_line": "Artifact",
+"oracle_text": "This artifact enters tapped.\n{T}, Exile this artifact: Reverse the game's turn order. (For example, if play had proceeded clockwise around the table, it now goes counterclockwise.)",
+"colors": [],
+"color_identity": [],
+"keywords": []
+},
+{
+"name": "Baron Helmut Zemo",
+"layout": "normal",
+"mana_cost": "{B}{B}{B}",
+"cmc": 3.0,
+"type_line": "Legendary Creature — Human Noble Villain",
+"oracle_text": "Whenever you cast a black spell from your hand, Baron Helmut Zemo connives.\nBoast — Exile any number of black cards from your graveyard with fifteen or more black mana symbols among their mana costs: Copy those exiled cards. You may cast up to three of the copies without paying their mana costs. (Activate only if this creature attacked this turn and only once each turn.)",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": [
+"Boast",
+"Connive"
+],
+"power": "3",
+"toughness": "3"
+},
+{
+"name": "Myra the Magnificent",
+"layout": "normal",
+"mana_cost": "{2}{U}{R}",
+"cmc": 4.0,
+"type_line": "Legendary Creature — Human Performer",
+"oracle_text": "Whenever you cast an instant or sorcery spell from your hand, open an Attraction.\n{X}, {T}: Exile target instant or sorcery card with mana value X from your graveyard and choose an Attraction you control that doesn't have a midway counter on it. Put a midway counter on it. For as long as that Attraction is on the battlefield, whenever you visit it, copy the exiled card. You may cast the copy without paying its mana cost.",
+"colors": [
+"R",
+"U"
+],
+"color_identity": [
+"R",
+"U"
+],
+"keywords": [
+"Open an Attraction"
+],
+"power": "2",
+"toughness": "4"
+},
+{
+"name": "Balduvian Shaman",
+"layout": "normal",
+"mana_cost": "{U}",
+"cmc": 1.0,
+"type_line": "Creature — Human Cleric Shaman",
+"oracle_text": "{T}: Change the text of target white enchantment you control that doesn't have cumulative upkeep by replacing all instances of one color word with another. (For example, you may change \"black creatures can't attack\" to \"blue creatures can't attack.\") That enchantment gains \"Cumulative upkeep {1}.\" (At the beginning of its controller's upkeep, that player puts an age counter on it, then sacrifices it unless they pay its upkeep cost for each age counter on it.)",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [],
+"power": "1",
+"toughness": "1"
+},
+{
+"name": "Crusade",
+"layout": "normal",
+"mana_cost": "{W}{W}",
+"cmc": 2.0,
+"type_line": "Enchantment",
+"oracle_text": "White creatures get +1/+1.",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": []
+},
+{
+"name": "Inquisitor Eisenhorn",
+"layout": "normal",
+"mana_cost": "{2}{U}{B}",
+"cmc": 4.0,
+"type_line": "Legendary Creature — Human Inquisitor",
+"oracle_text": "You may reveal the first card you draw each turn as you draw it. Whenever you reveal an instant or sorcery card this way, create Cherubael, a legendary 4/4 black Demon creature token with flying.\nWhenever Inquisitor Eisenhorn deals combat damage to a player, investigate that many times. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+"colors": [
+"B",
+"U"
+],
+"color_identity": [
+"B",
+"U"
+],
+"keywords": [
+"Investigate"
+],
+"power": "2",
+"toughness": "3"
+},
+{
+"name": "Sen Triplets",
+"layout": "normal",
+"mana_cost": "{2}{W}{U}{B}",
+"cmc": 5.0,
+"type_line": "Legendary Artifact Creature — Human Wizard",
+"oracle_text": "At the beginning of your upkeep, choose target opponent. This turn, that player can't cast spells or activate abilities and plays with their hand revealed. You may play lands and cast spells from that player's hand this turn.",
+"colors": [
+"B",
+"U",
+"W"
+],
+"color_identity": [
+"B",
+"U",
+"W"
+],
+"keywords": [],
+"power": "3",
+"toughness": "3"
+},
+{
+"name": "Ludevic, Necrogenius // Olag, Ludevic's Hubris",
+"layout": "transform",
+"mana_cost": "{U}{B} // ",
+"cmc": 2.0,
+"type_line": "Legendary Creature — Human Wizard // Legendary Creature — Zombie",
+"oracle_text": "Whenever Ludevic enters or attacks, mill a card.\n{X}{U}{U}{B}{B}, Exile X creature cards from your graveyard: Transform Ludevic. X can't be 0. Activate only as a sorcery.\n//\nAs this creature transforms into Olag, Ludevic's Hubris, it becomes a copy of a creature card exiled with it, except its name is Olag, Ludevic's Hubris, it's 4/4, and it's a legendary blue and black Zombie in addition to its other colors and types. Put a number of +1/+1 counters on Olag equal to the number of creature cards exiled with it.",
+"power": "2",
+"toughness": "3",
+"colors": [
+"B",
+"U"
+],
+"color_identity": [
+"B",
+"U"
+],
+"keywords": [
+"Transform",
+"Mill"
+],
+"card_faces": [
+{
+"name": "Ludevic, Necrogenius",
+"mana_cost": "{U}{B}",
+"type_line": "Legendary Creature — Human Wizard",
+"oracle_text": "Whenever Ludevic enters or attacks, mill a card.\n{X}{U}{U}{B}{B}, Exile X creature cards from your graveyard: Transform Ludevic. X can't be 0. Activate only as a sorcery.",
+"power": "2",
+"toughness": "3",
+"colors": [
+"B",
+"U"
+]
+},
+{
+"name": "Olag, Ludevic's Hubris",
+"mana_cost": "",
+"type_line": "Legendary Creature — Zombie",
+"oracle_text": "As this creature transforms into Olag, Ludevic's Hubris, it becomes a copy of a creature card exiled with it, except its name is Olag, Ludevic's Hubris, it's 4/4, and it's a legendary blue and black Zombie in addition to its other colors and types. Put a number of +1/+1 counters on Olag equal to the number of creature cards exiled with it.",
+"power": "4",
+"toughness": "4",
+"colors": [
+"B",
+"U"
+]
+}
+]
+},
+{
+"name": "God-Eternal Kefnet",
+"layout": "normal",
+"mana_cost": "{2}{U}{U}",
+"cmc": 4.0,
+"type_line": "Legendary Creature — Zombie God",
+"oracle_text": "Flying\nYou may reveal the first card you draw each turn as you draw it. Whenever you reveal an instant or sorcery card this way, copy that card and you may cast the copy. That copy costs {2} less to cast.\nWhen God-Eternal Kefnet dies or is put into exile from the battlefield, you may put it into its owner's library third from the top.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": [
+"Flying"
+],
+"power": "4",
+"toughness": "5"
 }
 ]

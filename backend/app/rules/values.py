@@ -596,6 +596,8 @@ def _turn_amount(what: str) -> Value | None:
         # for exile, controlled by an opponent as it left (608.2i: as it last existed there)
         sel = selectors.parse(m["sel"])
         return None if sel is None else {"turn_history": "died", "sel": sel.key(), "to": "exile", "who": "opponent"}
+    if (m := re.fullmatch(r"(?:the )?total power of (.+? (?:that )?died this turn)", what)) and isinstance(v := _turn_amount("the number of " + m[1]), dict):  # -- wave 110B -- 608.2h: their power as they last existed
+        return {**v, "power110b": True} if v.get("turn_history") == "died" else None
     m = _TURN_DIED.match(what)
     if m:  # 700.4; as they last existed on the battlefield (608.2i)
         # -- trigger tail (wave 15B) -- "for each Zubera that died this turn": a creature type counts creatures (700.4)
@@ -671,10 +673,18 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return max(0, v)
     if isinstance(v, dict) and 'began_lands110c' in v:  # (wave 110C) Power Surge: the active player's untapped lands as the turn began
         return plan.rules.began_lands110c.get(plan.active, 0)
+    if 'letters110i' in v:  # -- cards (wave 110I) --
+        from app.rules import wave110i_cards
+
+        return wave110i_cards.letters(plan, ctx, v)
     if isinstance(v, dict) and 'stored_same110m' in v:  # (wave 110M) Centaur of Attention: the most stored results sharing a value (706.8)
         from app.rules import wave110m_cards
 
         return wave110m_cards.same_stored(plan, ctx)
+    if isinstance(v, dict) and v.get('sticker_short110j'):  # -- Last Voyage of the _____ (wave 110J) --
+        from app.rules import wave110j_cards
+
+        return wave110j_cards.short_stickers(plan, ctx)
     if 'sticker_vowels102' in v:
         from app.rules import sticker_riders102
 
@@ -897,6 +907,16 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         if (ctx.get('source_object') or '') not in plan.rules.crafted_materials:
             raise NoChosenPlayer
         return mana_crafted_profiles.mana_value(plan, ctx)
+    if 'noted110e' in v:  # -- noted values (wave 110E) -- Bell Borca: the greatest number noted for the source this turn
+        from app.rules import wave110e_note
+
+        return wave110e_note.greatest(plan, ctx.get('source_object') or '')
+    if 'crafted_power' in v:  # -- craft materials (wave 110A) -- "the total power of the exiled cards used to craft it" (Wretched Bonemass)
+        from app.rules import mana_crafted_profiles
+
+        if (ctx.get('source_object') or '') not in plan.rules.crafted_materials:
+            raise NoChosenPlayer
+        return mana_crafted_profiles.total_power(plan, ctx)
     if 'crafted_colors' in v:
         from app.rules import mana_crafted_profiles
 
@@ -1055,6 +1075,10 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
         return plan.state.players[card.owner].commander_casts.get(card.commander_key, 0)
     if "commander_casts" in v:  # -- triggers (wave 19B) --
         return sum(plan.state.players[you].commander_casts.values())
+    if "exiled_mv110o" in v:  # -- (wave 110O) -- Living Lore: the mana value of the card exiled with it (607.2a), 0 with none
+        from app.rules import wave110o_cards
+
+        return wave110o_cards.exiled_mv(plan, ctx)
     if "exiled_with" in v:  # -- resolution memory (wave 22D) -- Unlicensed Hearse: "the number of cards exiled with it"
         from app.rules import exiled_with
 

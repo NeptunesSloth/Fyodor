@@ -598,11 +598,12 @@ RESTRICTIONS = {"block": ["cant_block"], "attack": ["cant_attack"], "attack or b
 # -- attack restrictions (wave 32B) -- 508.1c-d: restrictions on whom a creature may attack, aimed at the controller of the effect ("you"), as a one-shot
 # effect with a duration (611.2a): this turn / this combat / "during their next turn" (a player's, ``their_turn``) -- or, with "unless their controller pays
 # {2} for each of those creatures", an attack cost (508.1d, 508.1h-j: app/rules/combat_rules.py)
-_CANT_ATTACK_YOU = re.compile(r"(?P<o>.+?) can't attack (?P<t>you|you or planeswalkers you control|you or permanents you control)"
+_CANT_ATTACK_YOU = re.compile(r"(?P<o>.+?) can't attack (?P<t>you|you or planeswalkers you control|you or permanents you control|Jaces you control)"
                               r"(?: unless their controller pays (?P<cost>(?:\{[^}]+\})+|[1-9]\d* life) for each of those creatures)?"  # (wave 49D: life, Sivitri)
                               r" (?P<d>this turn|this combat|during their next turn)")
 _ATTACK_YOU = {"you": "cant_attack_player", "you or planeswalkers you control": "cant_attack_player_pw",
-               "you or permanents you control": "cant_attack_player_perm"}
+               "you or permanents you control": "cant_attack_player_perm",
+               "Jaces you control": "cant_attack_player_jace110b"}  # (-- wave 110B -- Jace, Multiverse Architect: planeswalkers with the Jace subtype)
 _TAX_YOU = {"you": "attack_tax", "you or planeswalkers you control": "attack_tax_pw"}
 _DURATION_YOU = {"this turn": {}, "this combat": {"duration": "end_of_combat"}, "during their next turn": {"duration": "their_turn"}}
 _THAT_PLAYERS_CREATURES = re.compile(r"(?:each )?creatures? (?:that player|they) controls?")
@@ -3101,7 +3102,7 @@ CHOOSE_VALUE = rf"choose (?:(?:a|an) )?(?P<what>color|creature type|basic land t
 CARD_TYPE_FIVE = "artifact, creature, enchantment, instant, or sorcery"  # -- commanders (wave 47A) -- Cloud Key: the five card types it offers
 TYPE_LIST = r"[A-Z][a-z]+(?:, [A-Z][a-z]+)+, or [A-Z][a-z]+"  # -- chosen type (wave 51C) -- "choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk" (Eclipsed Realms, Dawn-Blessed Pennant)
 _BASIC_PAIR = "(?:Plains|Island|Swamp|Mountain|Forest) or (?:Plains|Island|Swamp|Mountain|Forest)"  # -- chosen filters (wave 53B) -- "choose Island or Swamp" (Roots of Life): a basic land type, only those two
-ENTERS_CHOICE = re.compile(rf"^As ~ enters, (?:choose (?:(?:a|an) )?|(?P<opp>an opponent chooses )(?:a )?(?=creature type\.$))(?P<what>color|creature type|basic land type|land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE}|color and a creature type|color and an opponent|two basic land types|two colors|{_BASIC_PAIR}|{_chosen.PAIRS})\.$")  # (wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
+ENTERS_CHOICE = re.compile(rf"^As ~ enters, (?:choose (?:(?:a|an) )?|(?P<opp>an opponent chooses )(?:a )?(?=creature type\.$))(?P<what>color|creature type|basic land type|land type|opponent|player|odd or even|card type(?: other than creature or land)?|{CARD_TYPE_FIVE}|number between 1 and 10|two abilities from among first strike, vigilance, and lifelink|{TYPE_LIST}|{_chosen.TYPE_CHOICE}|{_chosen.NUMBER_CHOICE}|color and a creature type|color and an opponent|two basic land types|two colors|{_BASIC_PAIR}|black or red|{_chosen.PAIRS})\.$")  # (wave 110F: Mangara's Equity; wave 47A: card type, Umori and Stenn; Cloud Key; wave 51C: a short list of creature types)
 
 
 # -- choose own (wave 32A) -- "Then you may choose a token you control." (Brudiclad), "Choose a Giant creature you control. It deals damage equal to its
@@ -3377,6 +3378,9 @@ def enters_choice(text: str) -> dict[str, Any] | None:
     if m["opp"]:  # -- opponent chooses (wave 110E) -- 614.12a: an opponent answers "As ~ enters, an opponent chooses a creature type." (Callous Oppressor); replacements.named_choices
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": "creature type", "remember": True, "opp110e": True}]}
+    if m["what"] == "black or red":  # (wave 110F: Mangara's Equity: the answer is a color; the two words are its options)
+        return {"kind": "replacement", "replacement": "enters_choice",
+                "effects": [{"do": "choose_value", "who": "you", "what": "color", "options": ["Black", "Red"], "remember": True}]}
     if re.fullmatch(_BASIC_PAIR, m["what"]):  # (wave 53B: the answer is a basic land type; the two words are its options)
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": "basic land type", "options": m["what"].split(" or "), "remember": True}]}
@@ -4218,7 +4222,7 @@ def control_forms(text: str) -> tuple[Effects, Any] | None:
             return [{"do": "gain_control", "who": _who(kind, key), "to": "target", **dur}], pgroup
         if group is not None and set(group) == {"what", "min", "max", "another"}:  # -- if you do (wave 51D) -- "Target opponent gains control of another target permanent you control." (Stiltzkin): the first target is a player, so "another" is than the source (as reconfigure's, 702.151a), which the selector already says (``other``)
             group = {k: v for k, v in group.items() if k != "another"}
-        if group is None or not simple(group):
+        if group is None or not simple({**group, "min": 1} if (group["min"], group["max"]) == (0, 1) else group):  # (wave 110A: "up to one target creature you control", Jon Irenicus)
             return None
         return [{"do": "gain_control", "who": "target:1", "to": "target:0", **dur}], [pgroup, group]
     m = _CT_OWN.fullmatch(text)  # -- other players' choices (wave 12D) -- "Each player gains control of all creatures they own."
@@ -4498,8 +4502,12 @@ def keyword_forms(text: str) -> tuple[Effects, Any] | None:
         if kind not in ("target", "it", "host", "self") or (kind == "target" and not on_battlefield_only(key)):
             return None
         return [{"do": "suspect", "who": _who(kind, key)}], _one(group)
+    if text == "it's goaded for the rest of the game" and has_primitive("goad"):  # -- goad (wave 110A) -- 701.15a with no end (Jon Irenicus)
+        return [{"do": "goad", "who": "it", "forever": True}], None
     if not text.startswith("goad ") or not has_primitive("goad"):
         return None
+    if text == "goad all suspected creatures":  # -- wave 110B -- Nelly Borca: every creature with the suspected designation (701.60), whoever controls it
+        return [{"do": "goad", "who": "self", "suspected": True}], None
     m = _GOAD_PLAYER.fullmatch(text)
     if m:
         if m["p"] == "that player":

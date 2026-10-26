@@ -172,7 +172,7 @@ def prepare(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
         context.bind_objects(plan, ctx, bind[4:], ids)
         order = [p for p in plan.apnap() if p != ctx["controller"]]
         # CR101.4: choices in turn order starting after the spell's controller.
-        seats = [p for p in plan.state.seat_order if p in plan.live()]
+        seats = [p for p in plan.state.turn_order() if p in plan.live()]
         i = seats.index(ctx["controller"])
         order = [seats[(i + j) % len(seats)] for j in range(1, len(seats))]
         ctx.setdefault("ordered_choice", {})[bind] = {"order": order, "i": 0, "chosen": []}
@@ -300,7 +300,7 @@ def after(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if k == "memories":
         if not ids:
             return insert(ctx, [{"do": "draw", "who": "you", "n": 3}])
-        seats = [p for p in plan.state.seat_order if p in plan.live()]
+        seats = [p for p in plan.state.turn_order() if p in plan.live()]
         i = seats.index(ctx["controller"])
         order = [seats[(i + j) % len(seats)] for j in range(1, len(seats))]
         ctx.setdefault("ordered_choice", {})[bind] = {"order": order, "i": 0, "cards": ids}

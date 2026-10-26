@@ -377,6 +377,7 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     hint = " (activate your mana abilities first)" if manual_mana else " (tap your mana first)" if cost.mana and _self_pays(plan, payer) else ""
     shown = re.sub(r"^pay ", "", _label(cost).replace("~", ctx.get("name") or "it"), flags=re.IGNORECASE)  # ("Have ~ deal 7 damage to you": the source by name; "Pay 3 life" once)
     ask = shown if shown.startswith("Have ") else f"Pay {shown}"
+    hint += f" for {e['for110o']}" if e.get("for110o") else ""  # -- (wave 110O) -- Cleansing: which land the payment is for
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: {ask[0].lower()}{ask[1:]}?{hint}",
            options=[DecisionOption(id=PAY, label=ask), DecisionOption(id=str(e.get("decline_id") or DECLINE), label="Don't pay")],
            resume=_resume(ctx, opt, cost), source=source,
