@@ -325,20 +325,6 @@ def attach(plan: Plan, source: str, host: str, actor: str) -> bool:
     card = plan.state.cards.get(source)
     if card is None or host_problem(plan, card, host) is not None:
         return False
-    from app.rules import (
-        wave110e_blade,  # -- becomes attached, choose (wave 110E) -- only the equip ability asks for the color (wave110e_blade)
-    )
-
-    if not chosen110e and wave110e_blade.needs(plan, source):
-        plan.note(f"{card.name} must choose a color as it becomes attached: only equip does that; move it by hand", [source])
-        return False
-    from app.rules import (
-        wave110a_paper,  # -- becomes attached, choose (wave 110A) -- Psychic Paper: likewise only equip asks
-    )
-
-    if not chosen110e and wave110a_paper.needs(plan, source):
-        plan.note(f"{card.name} must choose a name and a type as it becomes attached: only equip does that; move it by hand", [source])
-        return False
     if host in plan.state.cards and plan.state.cards[host].zone.endswith(":graveyard"):  # -- reanimation Auras (wave 51F) -- 303.4a: it enchants a card in a graveyard
         plan.rules.aura_links[plan.oid(card)] = [plan.oid(host)]
         plan.note(f"{card.name} enchants {plan.state.cards[host].name} in a graveyard", [card.id, host])
