@@ -2252,5 +2252,63 @@
   "keywords": [
    "Equip"
   ]
+ },
+ {
+  "name": "Zenos yae Galvus // Shinryu, Transcendent Rival",
+  "layout": "transform",
+  "mana_cost": "{3}{B}{B} // ",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Noble Warrior // Legendary Creature — Dragon",
+  "oracle_text": "My First Friend — When Zenos yae Galvus enters, choose a creature an opponent controls. Until end of turn, creatures other than Zenos yae Galvus and the chosen creature get -2/-2.\nWhen the chosen creature leaves the battlefield, transform Zenos yae Galvus.\n//\nFlying\nAs this creature transforms into Shinryu, choose an opponent.\nBurning Chains — When the chosen player loses the game, you win the game.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying",
+   "Transform",
+   "My First Friend",
+   "Burning Chains"
+  ],
+  "power": "4",
+  "toughness": "4",
+  "card_faces": [
+   {
+    "name": "Zenos yae Galvus",
+    "mana_cost": "{3}{B}{B}",
+    "type_line": "Legendary Creature — Human Noble Warrior",
+    "oracle_text": "My First Friend — When Zenos yae Galvus enters, choose a creature an opponent controls. Until end of turn, creatures other than Zenos yae Galvus and the chosen creature get -2/-2.\nWhen the chosen creature leaves the battlefield, transform Zenos yae Galvus.",
+    "power": "4",
+    "toughness": "4",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/front/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484",
+     "normal": "https://cards.scryfall.io/normal/front/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484",
+     "large": "https://cards.scryfall.io/large/front/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484",
+     "art_crop": "https://cards.scryfall.io/art_crop/front/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484"
+    }
+   },
+   {
+    "name": "Shinryu, Transcendent Rival",
+    "mana_cost": "",
+    "type_line": "Legendary Creature — Dragon",
+    "oracle_text": "Flying\nAs this creature transforms into Shinryu, choose an opponent.\nBurning Chains — When the chosen player loses the game, you win the game.",
+    "power": "8",
+    "toughness": "8",
+    "colors": [
+     "B"
+    ],
+    "image_uris": {
+     "small": "https://cards.scryfall.io/small/back/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484",
+     "normal": "https://cards.scryfall.io/normal/back/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484",
+     "large": "https://cards.scryfall.io/large/back/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484",
+     "art_crop": "https://cards.scryfall.io/art_crop/back/4/0/40658fd0-78a6-44e5-9351-512e6bdcf637.jpg?1783906484"
+    }
+   }
+  ]
  }
 ]

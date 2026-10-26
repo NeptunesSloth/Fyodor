@@ -96,8 +96,15 @@ def record(plan: Plan, card_id: str, choices: dict[str, str] | None) -> None:
 
 
 def is_picked(plan: Plan, card: CardInstance, source: str | None) -> bool:
-    """Is ``card`` the permanent the source chose as it entered?"""
-    return source is not None and card.zone.endswith(":battlefield") and plan.rules.chosen_objects.get(source) == plan.oid(card)
+    """Is ``card`` the permanent the source chose as it entered? Once the chosen object has left, a leaves trigger's look-back copy of it
+    (603.10a, 608.2h) is still the chosen one (the recorded last known information of that object id)."""
+    if source is None:
+        return False
+    chosen = plan.rules.chosen_objects.get(source)
+    if chosen == plan.oid(card) and card.zone.endswith(":battlefield"):
+        return True
+    snap = plan.rules.lki.get(chosen or "")
+    return snap is not None and snap.card == card.id and card.zone == snap.zone and plan.oid(card) != chosen
 
 
 def pair(plan: Plan, card_id: str) -> list[str]:

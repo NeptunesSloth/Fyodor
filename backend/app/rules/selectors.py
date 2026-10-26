@@ -2749,6 +2749,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             if not wave110a_pick.is_picked(plan, card, source):
                 return False
+        if extra == "not_picked110a":  # -- wave 110A -- "other than the chosen creature"
+            from app.rules import wave110a_pick
+
+            if wave110a_pick.is_picked(plan, card, source):
+                return False
         if extra == "attached_source" and (source is None or card.attached_to != source):  # -- activated other (wave 34B) -- attached to the source itself
             return False
         if extra == "not_host_of_source" and (src_ := plan.state.cards.get(source or "")) is not None and src_.attached_to == card.id:  # (wave 53C)
