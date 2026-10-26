@@ -66,6 +66,9 @@ SYMBIOTE_OTHER = ("Whenever this creature deals combat damage to a player, look 
 ULALEK = ("Whenever you cast an Eldrazi spell, you may pay {C}{C}. If you do, copy all spells you control, then copy all other activated and triggered abilities you control. "
           "You may choose new targets for the copies.")
 
+KEFKA = ("At the beginning of your end step, exile a card at random from each opponent's graveyard. You may cast any number of spells from among cards exiled this way without paying "
+         "their mana costs. Then each player who owns a spell you cast this way loses life equal to its mana value.")
+
 PROCTOR = "Whenever a permanent entering causes a triggered ability to trigger, counter that ability unless its controller pays {2}."
 
 
@@ -141,6 +144,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is None or [e.get("do") for e in fx] != ["optional_payment", "only_if", "copy_spell", "copy_new_targets"]:
             return None
         return {**native, "effects": [fx[0], fx[1], {"do": "ulalek110c"}]}
+    if text == KEFKA:  # the cast is the library form's "any number of spells from among cards exiled this way"; the exile and the loss are own primitives
+        native = scripts.define(replace(ability, text="At the beginning of your end step, exile the top card of each opponent's library. You may cast any number of spells from among cards exiled this way without paying their mana costs."), ch)
+        fx = (native or {}).get("effects") or []
+        if native is None or [e.get("do") for e in fx] != ["exile_top", "free_cast"] or fx[0].get("as") != "e0":
+            return None
+        return {**native, "effects": [{"do": "kefka_exile110c", "as": "e0"}, fx[1], {"do": "kefka_loss110c", "of": "e0"}]}
     if text == NEERA:  # the "you may ... if you do" gate is read as a {0} payment; the spell moves first (it is not countered, 701.6a), else nothing follows (608.2c)
         native = scripts.define(replace(ability, text=NEERA.replace("put it on the bottom of its owner's library", "pay {0}")), ch)
         event = scripts.define(replace(ability, text="Whenever you cast a spell, you may pay {0}. If you do, copy that spell. This ability triggers only once each turn."), ch)  # (the form that keeps the spell: "that spell")
@@ -535,6 +544,42 @@ def ulalek(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return copying.run(plan, copying.new_job(ctx, controller=me, objects=objects, retarget=True, label=ctx.get("name") or "Copy"))
 
 
+def kefka_exile(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Kefka: from each opponent's graveyard (turn order from the controller), the table picks one card at random (no bias: not chosen by a player) and exiles it,
+    face up in its owner's exile; they are "the cards exiled this way"."""
+    import secrets
+
+    from app.rules import context, effects
+
+    me = ctx["controller"]
+    order = plan.apnap()
+    order = [p for p in [*order[order.index(me):], *order[:order.index(me)]] if p != me] if me in order else [p for p in order if p != me]
+    picked = []
+    for pid in order:
+        gy = sorted(plan.state.zones.get(f"{pid}:graveyard", []))
+        if gy:
+            picked.append((pid, (plan.rng or secrets.SystemRandom()).choice(gy)))
+    before = [r for _, c in picked if (r := context.ref_of(plan, c)) is not None]
+    for pid, cid in picked:
+        plan.note(f"{ctx.get('name') or 'It'}: {plan.name(pid)}'s graveyard, chosen at random →", [cid], actor=me)
+        plan.do({"type": "move", "card_ids": [cid], "to": {"player": plan.state.cards[cid].owner, "zone": "exile"}}, actor=me)
+    effects._moved(plan, ctx, e, before)
+    return True
+
+
+def kefka_loss(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Kefka: each player who owns a spell cast this way (one of the exiled cards now on the stack) loses life equal to its mana value (a graveyard is one player's, so each owns at most one)."""
+    from app.rules import context
+
+    lose = []
+    for ref in context._object_refs(ctx, e["of"], was=True):
+        card = plan.state.cards.get(ref.card)
+        if card is not None and card.zone == "stack" and card.ability is None:
+            lose.append({"do": "lose_life", "who": f"player:{card.owner}", "n": int(plan.ch(card).mana_value)})
+    ctx["effects"][ctx["next"]:ctx["next"]] = lose
+    return True
+
+
 def proctor(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Counter that ability unless its controller pays {2} (701.6a; 118.12): nothing if it already left the stack."""
     from app.rules import effects
@@ -580,4 +625,4 @@ def attached_if(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 RESUME = {"prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x, "wildhunt110c": resume_wildhunt}
-PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "ulalek110c": ulalek, "wildhunt110c": wildhunt, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
+PRIMITIVES = {"shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "kefka_exile110c": kefka_exile, "kefka_loss110c": kefka_loss, "ulalek110c": ulalek, "wildhunt110c": wildhunt, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
