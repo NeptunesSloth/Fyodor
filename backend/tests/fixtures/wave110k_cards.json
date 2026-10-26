@@ -440,5 +440,57 @@
 "B"
 ],
 "keywords": []
+},
+{
+"name": "Sidequest: Play Blitzball // World Champion, Celestial Weapon",
+"layout": "transform",
+"mana_cost": "{2}{R} // ",
+"cmc": 3.0,
+"type_line": "Enchantment // Legendary Artifact — Equipment",
+"oracle_text": "At the beginning of combat on your turn, target creature you control gets +2/+0 until end of turn.\nAt the end of combat on your turn, if a player was dealt 6 or more combat damage this turn, transform this enchantment, then attach it to a creature you control.\n//\nDouble Overdrive — Equipped creature gets +2/+0 and has double strike.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [
+"Double Overdrive",
+"Transform",
+"Equip",
+"Double"
+],
+"card_faces": [
+{
+"name": "Sidequest: Play Blitzball",
+"mana_cost": "{2}{R}",
+"type_line": "Enchantment",
+"oracle_text": "At the beginning of combat on your turn, target creature you control gets +2/+0 until end of turn.\nAt the end of combat on your turn, if a player was dealt 6 or more combat damage this turn, transform this enchantment, then attach it to a creature you control.",
+"colors": [
+"R"
+],
+"image_uris": {
+"small": "https://cards.scryfall.io/small/front/3/1/31e2ad37-73cf-4858-8a3a-fc1165cd21a7.jpg?1783906601",
+"normal": "https://cards.scryfall.io/normal/front/3/1/31e2ad37-73cf-4858-8a3a-fc1165cd21a7.jpg?1783906601",
+"large": "https://cards.scryfall.io/large/front/3/1/31e2ad37-73cf-4858-8a3a-fc1165cd21a7.jpg?1783906601",
+"art_crop": "https://cards.scryfall.io/art_crop/front/3/1/31e2ad37-73cf-4858-8a3a-fc1165cd21a7.jpg?1783906601"
+}
+},
+{
+"name": "World Champion, Celestial Weapon",
+"mana_cost": "",
+"type_line": "Legendary Artifact — Equipment",
+"oracle_text": "Double Overdrive — Equipped creature gets +2/+0 and has double strike.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+"colors": [
+"R"
+],
+"image_uris": {
+"small": "https://cards.scryfall.io/small/back/3/1/31e2ad37-73cf-4858-8a3a-fc1165cd21a7.jpg?1783906601",
+"normal": "https://cards.scryfall.io/normal/back/3/1/31e2ad37-73cf-4858-8a3a-fc1165cd21a7.jpg?1783906601",
+"large": "https://cards.scryfall.io/large/back/3/1/31e2ad37-73cf-4858-8a3a-fc1165cd21a7.jpg?1783906601",
+"art_crop": "https://cards.scryfall.io/art_crop/back/3/1/31e2ad37-73cf-4858-8a3a-fc1165cd21a7.jpg?1783906601"
+}
+}
+]
 }
 ]

@@ -209,6 +209,36 @@ def control_swap(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def attach_self_choose(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Attach it to a creature you control": not targeted, chosen as it resolves among the creatures it could be attached to (701.3a-b); none, it stays."""
+    from app.rules import attachments, effects
+
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    if card is None or not card.zone.endswith(":battlefield") or plan.oid(card) != ctx.get("source_object"):
+        return True
+    me = ctx["controller"]
+    hosts = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and c.controller == me and plan.ch(c).is_creature
+             and c.id != card.attached_to and attachments.host_problem(plan, card, c.id) is None]
+    if len(hosts) == 1:
+        attachments.attach(plan, card.id, hosts[0], me)
+        return True
+    if not hosts:
+        return True
+    effects.decide(plan, player=me, kind="choose_one", prompt=f"{card.name}: attach it to a creature you control",
+                   options=[effects.DecisionOption(id=h, label=plan.state.cards[h].name or "Creature", card_id=h) for h in hosts],
+                   resume={"step": "attach_self_choose110k", "ctx": ctx, "card": card.id, "hosts": hosts})
+    return False
+
+
+def resume_attach_self_choose(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import attachments, effects
+
+    if len(chosen) != 1 or chosen[0] not in d.resume["hosts"]:
+        raise ValueError("not one of the creatures")
+    attachments.attach(plan, d.resume["card"], chosen[0], d.player)
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
 def return_self_hand(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"Return ~ to its owner's hand" from the battlefield (bounce) or from the graveyard (the same object, 400.7: if it moved since, nothing)."""
     from app.rules import effects
@@ -228,8 +258,8 @@ from app.rules import delayed as _delayed  # noqa: E402
 
 _delayed.LABELS["source_tapped_power110k"] = "for as long as ~ remains tapped and its power is at most ~'s"
 
-PRIMITIVES = {"control_swap110k": control_swap, "copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
-RESUME = {"copies_of_revealed110k": resume_copies_of_revealed, "opponent_mode110k": resume_opponent_mode, "shuffle_other110k": resume_shuffle_other}
+PRIMITIVES = {"attach_self_choose110k": attach_self_choose, "control_swap110k": control_swap, "copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
+RESUME = {"attach_self_choose110k": resume_attach_self_choose, "copies_of_revealed110k": resume_copies_of_revealed, "opponent_mode110k": resume_opponent_mode, "shuffle_other110k": resume_shuffle_other}
 
 
 # -- spell bodies: the whole body -> (the wording the grammar reads, what to do with its effects) --
@@ -377,6 +407,14 @@ def _vermin(d: Def) -> Def:
     return {**d, "target": {**target, "what": selectors.Selector(player="opponent", extras=("previously_damaged110k",)).key()}}
 
 
+def _sidequest(d: Def) -> Def:
+    """Sidequest: Play Blitzball: after it transforms (it is an Equipment on its back face), it is attached to a creature its controller chooses (701.3)."""
+    eff = d["effects"]
+    if len(eff) != 2 or eff[0].get("do") != "only_if" or eff[1].get("do") != "transform":
+        return d
+    return {**d, "effects": [{**eff[0], "skip": 2}, eff[1], {"do": "attach_self_choose110k"}]}
+
+
 def _rat_roles(d: Def) -> Def:
     """Twisted Sewer-Witch: a Wicked Role token for each Rat its controller has once the token exists, each attached to its own Rat (111.1, 303.7)."""
     from app.rules import selectors
@@ -389,6 +427,9 @@ _WIGHT = ("At end of combat, put a paralyzation counter on each creature blockin
           "doesn't untap during its controller's untap step for as long as it has a paralyzation counter on it. Each of those creatures gains \"{4}: Remove a "
           "paralyzation counter from this creature.\"")
 _BUILD: dict[str, tuple[str, Any]] = {
+    "At the end of combat on your turn, if a player was dealt 6 or more combat damage this turn, transform this enchantment, then attach it to a creature "
+    "you control.":
+        ("At the end of combat on your turn, if a player was dealt 6 or more combat damage this turn, transform this enchantment.", _sidequest),
     "At the beginning of your upkeep, this creature deals X damage to target opponent previously dealt damage by it, where X is the number of infection "
     "counters on it.":
         ("At the beginning of your upkeep, this creature deals damage to target opponent equal to the number of infection counters on it.", _vermin),

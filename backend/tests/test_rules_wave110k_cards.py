@@ -835,3 +835,64 @@ def test_diseased_vermin_has_no_target_before_it_has_damaged_anyone(cards):
     settle(s)
     assert {p: life(s, p) for p in ("p2", "p3")} == before
     check(s)
+
+
+# -- Sidequest: Play Blitzball // World Champion, Celestial Weapon --
+SIDEQUEST = "Sidequest: Play Blitzball // World Champion, Celestial Weapon"
+
+
+def test_sidequest_is_full():
+    assert full(SIDEQUEST)
+
+
+def _blitz(cards, powers):
+    """Alice's Sidequest and creatures with the given powers (2 toughness+): she attacks with the first one, the begin-combat +2/+0 on it, to the end of combat."""
+    from tests.test_rules_conditionals import creature
+
+    s = build(cards, [SIDEQUEST])
+    quest = put_new(s, SIDEQUEST)
+    made = [creature(s, "p1", f"Runner {i}", f"{p}/5") for i, p in enumerate(powers)]
+    for c in made:
+        s.state.rules.controlled_since[c.id].turn = 0
+    attacked = False
+    for _ in range(80):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, "p1", type="declare_attackers", attackers=[{"card_id": made[0].id, "target": "p2"}])
+            attacked = True
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None and "attach it to a creature you control" in d.prompt:
+            break
+        elif d is not None and not attacked and d.kind in ("choose_cards", "choose_one"):
+            pick = made[0].id if made[0].id in [o.id for o in d.options] else d.options[0].id
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    return s, quest, made
+
+
+def test_sidequest_transforms_and_attaches_when_six_combat_damage_was_dealt(cards):
+    s, quest, (runner,) = _blitz(cards, [4])  # 4 + the 2 from its own begin-combat trigger
+    assert life(s, "p2") == 34 and now(s, quest).face == 1 and now(s, quest).attached_to == runner.id
+    assert ch(s, runner).pt[0] == 4 + 2 + 2 and "double strike" in ch(s, runner).keywords  # (until end of turn +2/+0, then the Equipment's +2/+0)
+    check(s)
+
+
+def test_sidequest_stays_a_quest_when_only_five_damage_was_dealt(cards):
+    s, quest, _ = _blitz(cards, [3])
+    assert life(s, "p2") == 35 and now(s, quest).face == 0 and now(s, quest).attached_to is None
+    check(s)
+
+
+def test_sidequest_lets_its_controller_choose_the_creature_when_there_are_several(cards):
+    s, quest, (first, second) = _blitz(cards, [4, 1])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and {o.id for o in d.options} == {first.id, second.id}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[second.id])
+    assert now(s, quest).face == 1 and now(s, quest).attached_to == second.id
+    check(s)
