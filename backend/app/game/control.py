@@ -24,10 +24,16 @@ def controller_of(state: GameState, pid: str) -> str:
     r = state.rules
     if r is not None:
         for c in reversed(r.player_control):
-            if c.status == "active" and c.controlled == pid == state.turn.active_player and c.turn == state.turn.number \
-                    and _live(state, c.controller):
+            if c.status == "active" and c.controlled == pid and _live(state, c.controller) and (
+                    c.obj in state.zones.get("stack", []) if c.obj else pid == state.turn.active_player and c.turn == state.turn.number):  # (wave 110E: obj)
                 return c.controller
     return pid
+
+
+def lands_only(state: GameState, pid: str) -> bool:
+    """Word of Command: while its control lasts the controlled player can activate mana abilities of lands only."""
+    r = state.rules
+    return r is not None and any(c.lands_only and c.controlled == pid and c.status == "active" and c.obj in state.zones.get("stack", []) for c in r.player_control)
 
 
 def decider_of(state: GameState, d: Any) -> str:

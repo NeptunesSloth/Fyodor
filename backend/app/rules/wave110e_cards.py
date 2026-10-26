@@ -401,6 +401,10 @@ PRIMITIVES["dyn_base_power110e"] = dyn_base_power
 
 def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """Exact wordings read as spell effects (scripts.parse_effects hook)."""
+    from app.rules import wave110e_word  # -- Word of Command (wave 110E) --
+
+    if (word := wave110e_word.parse(body)) is not None:
+        return word
     if body.strip() == _CULPRIT:  # 701.58: the creatures are chosen as it resolves (608.2d, not targeted), then exiled face down, shuffled, cloaked (facedown.manifest_pile)
         sel = '{"controller":"you","extras":["face_up"],"types":["Creature"],"with_keywords":["disguise"]}'
         return [{"do": "player_chooses", "who": "you", "sel": "sel:" + sel, "n": 1, "label": "creature", "any": True, "upto": True, "optional": True, "as": "cul110e"},

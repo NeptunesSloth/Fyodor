@@ -91,6 +91,10 @@ class PlayerControl(BaseModel):
     turn: int = 0  # the turn number it became active on (723.1: it ends with that turn)
     extra_after: int = 0  # Emrakul: "After that turn, that player takes an extra turn" (kept when 723.1a overwrites)
     label: str = ""
+    # -- Word of Command (wave 110E) -- 723.1: control that lasts while the stack object ``obj`` resolves instead of a turn (pending until it starts to);
+    # ``lands_only``: the controlled player may activate mana abilities of lands only
+    obj: str = ""
+    lands_only: bool = False
 
 
 class TurnCount(BaseModel):

@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 def active(state: Any, player: str, card_id: str) -> bool:
     r = state.rules
     p = r.free_cast_then if r else None
-    return bool(p and p.get('card') == card_id and p.get('e', {}).get('paid') and p.get('ctx', {}).get('controller') == player
+    return bool(p and p.get('card') == card_id and p.get('e', {}).get('paid') and (p.get('ctx', {}).get('controller') if p.get('e', {}).get('caster') != 'target110e' else p['ctx']['targets'][0]['id']) == player  # (wave 110E: Word of Command)
                 and card_id in r.free_casts and card_id in state.cards and state.cards[card_id].zone != 'stack')
 
 

@@ -47,7 +47,7 @@ def control_player(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     ctx["controlled_now"] = []
     for pid in _players(plan, ctx, e["who"]):
         ctx["controlled_now"].append(pid)
-        old = [c for c in r.player_control if c.controlled == pid and c.status == "pending"]  # 723.1a: the last one works
+        old = [c for c in r.player_control if c.controlled == pid and c.status == "pending" and not c.obj]  # 723.1a: the last one works
         r.player_control = [c for c in r.player_control if c not in old]
         r.player_control.append(PlayerControl(controlled=pid, controller=me, label=name,
                                               extra_after=sum(c.extra_after for c in old)))
@@ -72,7 +72,7 @@ def turn_began(plan: Plan) -> None:
     if not r.player_control:
         return
     live = plan.live()
-    r.player_control = [c for c in r.player_control if c.status == "pending" and c.controlled in live]
+    r.player_control = [c for c in r.player_control if c.status == "pending" and not c.obj and c.controlled in live]  # (wave 110E: obj windows end with their object)
     for c in r.player_control:
         if c.controlled != plan.active:
             continue

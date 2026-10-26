@@ -19,6 +19,7 @@ from typing import Any
 from pydantic import TypeAdapter
 
 from app.game import actions as A
+from app.game.control import lands_only
 from app.game.errors import ActionError
 from app.game.rules_state import (
     CostContribution,
@@ -581,6 +582,8 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
         if card.controller != player:
             continue
         ch = chars.of(card, info)
+        if not ch.is_land and lands_only(state, player):  # -- Word of Command (wave 110E) -- only lands' mana abilities
+            continue
         usable_tap = can_use_tap_abilities(state, card, ch, info)
         # (wave 3E) an ability paying energy is activated by hand only: several sources sharing one
         # energy total aren't something the solver can split (118.3: no partial payment)
@@ -6827,6 +6830,8 @@ def _activate_choosing(plan: Plan, card: CardInstance, ch: Characteristics, pars
     from app.rules import costs as C
     from app.rules import removed_mana
 
+    if not ch.is_land and lands_only(plan.state, plan.actor):  # -- Word of Command (wave 110E) --
+        raise ActionError(f"{ch.name} isn't a land: only lands' mana abilities can be activated while you're being controlled")
     limits = restrictions.parse(_own_text(_find_ability(ch, a.ability).text, ch.name)) or []
     if why := restrictions.problem(plan.state, plan.actor, card, a.ability, limits, plan, ch.name):
         raise ActionError(why)

@@ -30,6 +30,7 @@ base.EXTRA.extend([
     real("Zed Gain", "{5}{W}", 6, "Instant", "You gain 3 life.", None, "W"),
     real("Zed Rite", "{5}{B}", 6, "Sorcery", "You gain 4 life.", None, "B"),
     real("Fervor", "{2}{R}", 3, "Enchantment", "Creatures you control have haste.", None, "R"),
+    real("Zed Grow", "{5}{G}", 6, "Instant", "You gain 5 life.", None, "G"),
     real("Zed Cheap", "{G}", 1, "Creature — Bear", "", ("1", "1"), "G"),
 ])
 
@@ -146,3 +147,17 @@ def test_last_counter_may_decline_and_it_stays_exiled(cards):
     check(s)
 
 
+
+
+def test_last_counter_paid_by_tapping_untapped_lands(cards):
+    """601.2g-h: the paid cast taps mana sources during payment ({5}{G} less {4}); nothing floated beforehand."""
+    s, c = _exile(cards, "Zed Grow")
+    forests = [x.id for x in s.state.cards.values() if x.name == "Forest" and x.owner == "p1" and x.zone.endswith(":library")][:2]
+    act(s, "p1", type="move", card_ids=forests, to={"player": "p1", "zone": "battlefield"})
+    d = _last_question(s)
+    assert not any(s.state.players["p1"].mana.values())
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[c.id])
+    settle(s)
+    assert s.state.cards[c.id].zone == "p1:graveyard" and life(s, "p1") == 45
+    assert all(x.tapped for x in s.state.cards.values() if x.name == "Forest" and x.zone == "p1:battlefield")
+    check(s)

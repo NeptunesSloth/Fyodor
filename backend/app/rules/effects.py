@@ -4019,6 +4019,11 @@ def reading_x(plan: Plan, x: int | None) -> Iterator[None]:
 
 
 def begin_resolution(plan: Plan, stack_id: str, entry: StackEntry) -> None:
+    from app.rules import (
+        wave110e_word,  # -- Word of Command (wave 110E) -- 723.1: control while the cast spell resolves
+    )
+
+    wave110e_word.resolving(plan, stack_id)
     from app.rules import text_spell_refresh71
 
     refreshed71 = text_spell_refresh71.refresh(plan, stack_id, entry)
@@ -7290,3 +7295,5 @@ RESUME.update(_wave110e_kaya.RESUME)
 from app.rules import wave110e_uvilda as _wave110e_uvilda  # noqa: E402, I001  -- Uvilda, Dean of Perfection (wave 110E) --
 
 PRIMITIVES.update(_wave110e_uvilda.PRIMITIVES)
+from app.rules import wave110e_word as _wave110e_word  # noqa: E402, I001  -- Word of Command (wave 110E) --
+PRIMITIVES.update(_wave110e_word.PRIMITIVES)
