@@ -147,5 +147,8 @@ def test_osseous_sticktwister_needs_delirium(cards):
         act(s, "p1", type="move", card_ids=[card_named(s, name).id], to={"player": "p1", "zone": "graveyard"})
     to_phase(s, "main2", turn=1)
     for _ in range(6):
+        assert s.state.rules.decision is None
+        if s.state.turn.number == 2:
+            break
         act(s, s.state.rules.priority, type="pass_priority")
-    assert s.state.rules.decision is None and life(s, "p2") == 40
+    assert s.state.turn.number == 2 and life(s, "p2") == 40
