@@ -421,3 +421,30 @@ def test_spy_kit_tutor_same_name_as_equipped_creature_finds_nonlegendary_creatur
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][:1])
     settle(s)
     check(s)
+
+
+EXTRA.append(card("Reflector Mage", set_code="tst", number="W18", mana_cost="{1}{W}{U}", cmc=3.0, type_line="Creature — Human Wizard", colors=["W", "U"], color_identity=["W", "U"], keywords=[], layout="normal",
+                  power="2", toughness="3", oracle_text="When this creature enters, return target creature an opponent controls to its owner's hand. That creature's owner can't cast spells with the same name as that creature until your next turn."))
+
+
+def test_spy_kit_bounced_creature_bans_every_nonlegendary_creature_name(cards):
+    """201.2a: Reflector Mage bounces the Kit-equipped Sorcerer; its owner can't cast Grizzly Bears (a name the Sorcerer had) until the Mage's controller's next turn."""
+    from tests.wave9c_kit import mana, to_hand
+    from tests.wave110j_kit import activate
+
+    s = build(cards, ["Reflector Mage"], [KIT, "Prodigal Sorcerer", "Grizzly Bears"], forests=30, islands=30)
+    sorc, kit = put_new(s, "Prodigal Sorcerer", "p2"), put_new(s, KIT, "p2")
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", C=2)
+    activate(s, kit, "Equip {2}", pid="p2", targets=[sorc.id])
+    to_phase(s, "main1", turn=3)
+    mana(s, "p1", W=1, U=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Reflector Mage").id)
+    settle(s)
+    assert now(s, sorc).zone == "p2:hand"
+    to_phase(s, "main1", turn=4)
+    bears = to_hand(s, "Grizzly Bears", "p2")
+    mana(s, "p2", G=1, C=1)
+    with pytest.raises(ActionError, match="can't cast"):
+        act(s, "p2", type="cast_spell", card_id=bears.id)
+    check(s)

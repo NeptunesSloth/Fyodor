@@ -1321,7 +1321,12 @@ def mana_lost(plan: Any, before: dict[str, int]) -> None:
     if not any(before.values()) or not cast_limits._statics(plan.state, plan.info, "mana_life110j"):
         return
     after = pools(plan)
-    replace.lose_life(plan, [(pid, n - after[pid]) for pid, n in before.items() if n > after[pid]], actor=plan.active)  # (a life-loss choice can't pause here: ponytail, rare)
+    losses = [(pid, n - after[pid]) for pid, n in before.items() if n > after[pid]]
+    if replace.candidates(plan, "life_loss") and isinstance(replace.plan_loss(plan, losses, answers={}, ask=True), replace.Ask):
+        # 616.1: the step ends with no priority to pause for a choice between two life-loss replacements whose order matters: apply nothing, the players do it by hand
+        plan.note("Yurlok: lost mana costs that much life, but two replacement effects apply and the order matters; the engine can't ask here, apply them by hand (616.1)")
+        return
+    replace.lose_life(plan, losses, actor=plan.active)
 
 
 def yurlok_mana(plan: Any, ctx: Def, e: Def) -> bool:
@@ -1337,7 +1342,8 @@ PRIMITIVES["yurlok110j"] = yurlok_mana
 
 # The Great Aurora: every player's hand and owned permanents (tokens too: a token put into a library counts as a card for "that many", 2015-06-22 ruling, then ceases to
 # exist, 111.7) go into their owner's library together (101.4 APNAP is moot: one simultaneous move), each library is shuffled (701.24), then each player draws as many as
-# they put in (the cards a replacement kept elsewhere, e.g. a commander sent to the command zone, 903.9b, are not counted). Land drops and the exile are native.
+# they put in. A commander its owner sends to the command zone instead (903.9b, a replacement effect: replacements.MOVERS_903_9B asks first) still counts
+# (Scryfall ruling 2019-05-03, as for Warp World); a card that never left its zone would not. Land drops and the exile are native.
 _AURORA = ("Each player shuffles all cards from their hand and all permanents they own into their library, then draws that many cards. Each player may put any number of "
            "land cards from their hand onto the battlefield. Exile The Great Aurora.")
 
@@ -1350,7 +1356,7 @@ def aurora(plan: Any, ctx: Def, e: Def) -> bool:
             plan.do({"type": "move", "card_ids": ids, "to": {"player": p, "zone": "library"}}, actor=p)
     draws = []
     for p, ids in mine.items():
-        n = sum(c not in plan.state.cards or plan.state.cards[c].zone == f"{p}:library" for c in ids)
+        n = sum(c not in plan.state.cards or plan.state.cards[c].zone not in (f"{p}:hand", f"{p}:battlefield") for c in ids)  # left its zone (library, a token gone, or the command zone)
         plan.do({"type": "shuffle", "player": p, "zone": "library"}, actor=p)
         draws.append({"do": "draw", "who": "player:" + p, "n": n})
     at = ctx["next"]

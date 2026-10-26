@@ -103,3 +103,53 @@ def test_great_aurora_shuffles_hands_and_permanents_in_and_everyone_draws_that_m
         assert len([c for c in s.state.cards.values() if c.zone in (f"{p}:hand", f"{p}:battlefield")]) == n
     assert now(s, spell).zone.endswith(":exile")
     check(s)
+
+
+def test_great_aurora_commander_sent_to_the_command_zone_still_counts_for_the_draw(cards):
+    """903.9b: p2's commander goes to the command zone instead of the library (asked first); Scryfall ruling 2019-05-03: it still counts, so p2 draws 1."""
+    s = build(cards, [AURORA], [], forests=30, islands=30)
+    commander = next(c for c in s.state.cards.values() if c.owner == "p2" and c.commander_key)
+    act(s, "p2", type="move", card_ids=[commander.id], to={"player": "p2", "zone": "battlefield"})
+    spell = hand_new(s, AURORA)
+    mana(s, "p1", G=9)
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    settle(s, answers=["yes"])
+    assert now(s, commander).zone == "p2:command"
+    assert len([c for c in s.state.cards.values() if c.zone in ("p2:hand", "p2:battlefield")]) == 1  # the one card drawn (a land may then be put out)
+    check(s)
+
+
+BLOODLETTER = "Bloodletter of Aclazotz"
+EXTRA.append(card(BLOODLETTER, set_code="w110j", number="S154", mana_cost="{1}{B}{B}{B}", cmc=4.0, type_line="Creature — Vampire Demon", power="2", toughness="4", colors=["B"],
+                  color_identity=["B"], keywords=["Flying"], layout="normal",
+                  oracle_text="Flying\nIf an opponent would lose life during your turn, they lose twice that much life instead. (Damage causes loss of life.)"))
+
+
+def _yurlok_with_bloodletters(cards, bloodletters):
+    s = build(cards, [YURLOK, *[BLOODLETTER] * bloodletters], [], forests=30, islands=30)
+    y = put_new(s, YURLOK)
+    for _ in range(bloodletters):
+        put_new(s, BLOODLETTER)
+    to_phase(s, "main1", turn=3)
+    mana(s, "p1", C=1)
+    act(s, "p1", type="activate_ability", card_id=y.id, ability=ability(s, y, "{1}, {T}"))
+    to_phase(s, "begin_combat", turn=3)
+    return s
+
+
+def test_yurlok_mana_loss_goes_through_life_loss_replacements_that_commute(cards):
+    """616.1: two Bloodletters (double during their controller's turn) always give x4, so no choice is asked at the step end: their controller p1 loses 3, the opponent p2 loses 3*4."""
+    s = _yurlok_with_bloodletters(cards, 2)
+    assert (life(s, "p1"), life(s, "p2")) == (37, 28)
+    check(s)
+
+
+def test_yurlok_life_loss_with_an_order_that_matters_is_left_to_the_players(cards, monkeypatch):
+    """616.1: the step end cannot pause, so a loss whose replacement order matters is not guessed: nothing is lost and a note says to apply it by hand."""
+    from app.rules import replace
+
+    real = replace.plan_loss
+    monkeypatch.setattr(replace, "plan_loss", lambda *a, **k: replace.Ask("p1", "fp", {"kind": "life_loss", "player": "p1", "n": 3, "applied": []}, [], {}) if k.get("ask") else real(*a, **k))
+    s = _yurlok_with_bloodletters(cards, 1)
+    assert (life(s, "p1"), life(s, "p2")) == (40, 40) and not s.state.players["p1"].mana_units
+    assert any("apply them by hand" in str(line) for line in s.state.log)

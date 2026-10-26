@@ -45,7 +45,6 @@ import secrets
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from app.cards.names import normalize_name
 from app.game.state import COMBAT_PHASES, CardInstance, GameState, zone_key
 from app.rules import selectors
 from app.rules.characteristics import CardInfo, Characteristics
@@ -891,8 +890,7 @@ def _same_name_as_exiled(state: GameState, info: CardInfo, source: str, ch: Char
     src = state.cards[source]
     plan = Plan.view(state, src.controller, info)
     ctx = {"controller": src.controller, "source_card": source, "source_object": plan.oid(src)}
-    names = {normalize_name(n) for c in exiled_with.cards(plan, ctx) if not state.cards[c].face_down for n in card_names.names_of(plan.ch(state.cards[c]))}
-    return bool(names & {normalize_name(n) for n in card_names.names_of(ch)})
+    return any(card_names.share(plan.ch(state.cards[c]), ch) for c in exiled_with.cards(plan, ctx) if not state.cards[c].face_down)  # (Spy Kit, wave 110J: share() is name_test-aware)
 
 
 def _cast_this_turn(state: GameState, player: str, key: str | None) -> int:

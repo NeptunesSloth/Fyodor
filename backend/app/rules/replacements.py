@@ -1996,7 +1996,7 @@ def offer_903_9b(plan: Plan, *, only: str | None = None) -> bool:
 
 # Effect primitives that may put a card from a public zone into its owner's hand or library.
 MOVERS_903_9B = frozenset({"bounce", "return_card", "return_choice", "return_yours", "to_library", "shuffle_library",
-                           "delayed_move", "counter", "warp_shuffle110c"})  # (wave 110C: Warp World shuffles every permanent in)
+                           "delayed_move", "counter", "warp_shuffle110c", "aurora110j"})  # (wave 110C: Warp World shuffles every permanent in; 110J: The Great Aurora)
 
 
 def ask_903_9b_first(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

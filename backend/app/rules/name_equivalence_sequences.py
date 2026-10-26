@@ -199,7 +199,7 @@ def execute(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
         context.bind_players(ctx, 'name_owner', [original.owner])
         instructions = [{'do': 'bounce', 'who': 'ref:name_subject'}]
-        for name in card_names.names_of(characteristics):
+        for name in card_names.reference_names(characteristics):  # (Spy Kit, wave 110J: also ANY_CREATURE)
             selector = selectors.Selector(zones=('stack',), extras=('name:' + name,)).key()
             instructions.append({'do': 'cast_limit', 'who': 'ref:name_owner', 'until': 'next_turn', 'filter': selector})
     elif kind in ('god_hand', 'legion'):
