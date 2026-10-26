@@ -7289,3 +7289,7 @@ from app.rules import wave110b_hama as _wave110b_hama  # noqa: E402, I001
 
 PRIMITIVES.update(_wave110b_hama.PRIMITIVES)
 RESUME.update(_wave110b_hama.RESUME)
+from app.rules import wave110b_dack as _wave110b_dack  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_dack.PRIMITIVES)
+RESUME.update(_wave110b_dack.RESUME)

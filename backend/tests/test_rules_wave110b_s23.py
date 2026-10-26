@@ -13,6 +13,7 @@ from tests.game_helpers import act
 from tests.wave110b_kit import (
     build,
     card_named,
+    ch,
     check,
     drive,
     life,
@@ -31,7 +32,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", [HAMA, "Susan Foreman"])  # Susan: 701.31a, 901.3 planeswalking is Planechase-only; no planar deck in Commander
+@pytest.mark.parametrize("name", [HAMA, "Susan Foreman", "Dack Fayden, Helping Hand"])  # Susan: 701.31a, 901.3 planeswalking is Planechase-only; no planar deck in Commander
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -110,3 +111,49 @@ def test_hama_leaving_ends_the_permission(cards):
         act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"], sources=[])
     assert "exile" in str(err.value).lower() or "cast" in str(err.value).lower()
     assert s.state.cards[bolt.id].zone == "p2:exile"
+
+
+DACK = "Dack Fayden, Helping Hand"
+
+
+def table(cards, opponents):
+    """Alice (Dack, Bears, Elves, Giant Growth) against 1 or 2 opponents; shuffle off, the top of her library set by ``top``."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+
+    mine = deck(cards, "Krenko, Mob Boss", [(1, DACK), (1, "Grizzly Bears"), (1, "Llanowar Elves"), (1, "Giant Growth"), (20, "Forest")])
+    setups = [PlayerSetup("Alice", cards=mine)]
+    setups += [PlayerSetup(n, cards=deck(cards, "Atraxa, Praetors' Voice", [(20, "Island")])) for n in ("Bob", "Carol")[:opponents]]
+    s = GameSession(enable(new_game(setups, shuffle=False)), cards=cards)
+    act(s, "p1", type="pass_priority")
+    return s
+
+
+def cast_dack(s, creatures, picks=()):
+    """Alice casts Dack with ``creatures`` (and a Giant Growth above them) on top of her library; ``picks`` answers the opponent choices in order."""
+    for n in (*reversed(creatures), "Giant Growth"):
+        top(s, n)
+    mana(s, W=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, DACK).id)
+    queue = list(picks)
+    drive(s, lambda d: [queue.pop(0)] if d.kind == "choose_one" and queue else None)
+
+
+@pytest.mark.parametrize("opponents,creatures,picks,owners", [
+    (1, ["Grizzly Bears"], [], {"Grizzly Bears": "p2"}),
+    (2, ["Grizzly Bears", "Llanowar Elves"], ["p3"], {"Grizzly Bears": "p3", "Llanowar Elves": "p2"}),
+    (2, ["Grizzly Bears"], ["p3"], {"Grizzly Bears": "p3"}),  # fewer creatures than opponents: one permanent, one chosen opponent
+])
+def test_dack_gives_each_creature_to_a_different_opponent_goaded(cards, opponents, creatures, picks, owners):
+    """Reveal until X creature cards (X = opponents), put them onto the battlefield, goaded for the rest of the game, each to a different chosen opponent."""
+    from app.rules import keyword_actions
+
+    s = table(cards, opponents)
+    cast_dack(s, creatures, picks)
+    for name, who in owners.items():
+        c = card_named(s, name)
+        assert s.state.cards[c.id].zone.endswith(":battlefield") and s.state.cards[c.id].controller == who
+        assert keyword_actions.goaded_by(ch(s, c)) == {"p1"}
+    assert card_named(s, "Giant Growth").id in s.state.zones["p1:library"]
+    check(s)
