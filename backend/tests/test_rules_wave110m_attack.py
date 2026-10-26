@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from tests.test_rules_wave36a_trigger_words import loyal
 from tests.wave36a_kit import ready, to_turn_of
 from tests.wave110m_kit import *
@@ -227,4 +228,55 @@ def test_kylox_sacrifices_for_cards_and_casts_the_instants_and_sorceries_among_t
     assert all(zone_of(s, n) == "p1:graveyard" for n in ("Grizzly Bears", "Llanowar Elves"))
     assert s.state.cards[ids["Hill Giant"]].zone == "p1:exile"  # (a creature card can't be cast this way)
     assert s.state.cards[ids["Lightning Bolt"]].zone == "p1:graveyard" and s.state.cards[ids["Murder"]].zone == "p1:graveyard"  # both cast, for free
+    check(s)
+
+
+# -- Desdemona, Freedom's Edge ---------------------------------------------------------------------------------------------------------------
+DESDEMONA = "Desdemona, Freedom's Edge"
+test_desdemona_full = full_test([DESDEMONA])
+
+
+def desdemona_attack(cards):
+    names = ["Grizzly Bears", "Hill Giant", "Solemn Simulacrum", "Llanowar Elves", "Elite Vanguard", "Savannah Lions"]
+    s = build(cards, [DESDEMONA, *names], forests=20)
+    des = put(s, DESDEMONA)
+    ready(s, DESDEMONA)
+    ids = {n: card_named(s, n).id for n in names}
+    act(s, "p1", type="move", card_ids=list(ids.values()), to={"player": "p1", "zone": "graveyard"})
+    stops(s)
+    next_turn(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": des.id, "target": "p2"}])
+    return s, ids
+
+
+def test_desdemona_offers_only_creature_cards_that_are_artifacts_or_cost_three_or_less(cards):
+    s, ids = desdemona_attack(cards)
+    d = next_decision(s)
+    assert {o.id for o in d.options} == {ids[n] for n in ("Grizzly Bears", "Solemn Simulacrum", "Llanowar Elves", "Elite Vanguard", "Savannah Lions")}  # not Hill Giant: mana value 4
+
+
+def next_decision(s):
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            return d
+        act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no decision")
+
+
+def test_desdemona_gives_escape_for_its_mana_cost_plus_two_other_cards_to_the_target_only(cards):
+    s, ids = desdemona_attack(cards)
+    d = next_decision(s)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[ids["Solemn Simulacrum"]])
+    answer(s)
+    until(s, lambda s: s.state.turn.phase == "main2" and s.state.rules.decision is None)  # (a creature spell: the second main phase; the grant lasts all turn)
+    others = [ids["Grizzly Bears"], ids["Llanowar Elves"]]
+    mana(s, C=4)
+    act(s, "p1", type="cast_spell", card_id=ids["Solemn Simulacrum"], alt_cost=f"{ids['Solemn Simulacrum']}:desdemona110m",
+        cost_choices=[{"component": 0, "cards": others}])
+    answer(s)
+    assert s.state.cards[ids["Solemn Simulacrum"]].zone == "p1:battlefield" and all(s.state.cards[c].zone == "p1:exile" for c in others)
+    with pytest.raises(ActionError):  # (no escape was granted to the others)
+        act(s, "p1", type="cast_spell", card_id=ids["Savannah Lions"])
     check(s)

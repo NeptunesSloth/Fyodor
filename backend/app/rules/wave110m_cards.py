@@ -237,7 +237,7 @@ def march(plan: Any, ctx: Def, e: Def) -> bool:
 
 
 def resume_march(plan: Any, d: Any, chosen: list[str]) -> None:
-    from app.rules import copying, effects, selectors
+    from app.rules import copying, effects
 
     ctx = d.resume["ctx"]
     kind = chosen[0]
@@ -707,6 +707,52 @@ def _kylox(d: Def) -> Def:
 _BUILD[_KYLOX] = ("Whenever this creature attacks, sacrifice any number of other creatures. Exile the top X cards of your library, where X is the total power of the creatures sacrificed this way.", _kylox)
 _BUILD[_KYLOX.replace("Kylox attacks", "~ attacks")] = _BUILD[_KYLOX]
 
+_DESDEMONA = ("Whenever Desdemona attacks, target creature card in your graveyard that's an artifact or that has mana value 3 or less gains escape until end of turn. The escape cost is "
+              "equal to its mana cost plus exile two other cards from your graveyard.")
+
+
+def _desdemona(d: Def) -> Def:
+    from app.rules import selectors
+
+    small = selectors.Selector(card=True, types=("Creature",), zones=("graveyard",), zone_owner="you", compare=(("mv", "<=", 3),)).key()
+    artifact = selectors.Selector(card=True, types=("Creature", "Artifact"), zones=("graveyard",), zone_owner="you", extras=("all_types",)).key()
+    what = selectors.Selector(card=True, zones=("graveyard",), zone_owner="you", either=(small, artifact)).key()
+    return {**d, "effects": [{"do": "escape_grant110m", "who": "target"}], "target": {"what": what}}
+
+
+_BUILD[_DESDEMONA] = ("Whenever this creature attacks, draw a card.", _desdemona)
+_BUILD[_DESDEMONA.replace("Whenever Desdemona attacks", "Whenever ~ attacks")] = _BUILD[_DESDEMONA]
+
+
+def escape_grant(plan: Any, ctx: Def, e: Def) -> bool:
+    """The target card has escape until end of turn (611.2a): its escape cost is its mana cost plus exiling two other cards from the graveyard (see escape_offers)."""
+    from app.rules import effects
+
+    for cid in effects._cards(plan, ctx, e["who"]):
+        card = plan.state.cards[cid]
+        if card.zone == f"{card.owner}:graveyard":
+            plan.rules.escape_grants110m.append({"oid": plan.oid(card), "owner": card.owner, "turn": plan.state.turn.number})
+            plan.note(f"{card.name} gains escape until end of turn", [cid], actor=ctx["controller"])
+    return True
+
+
+def escape_offers(state: Any, player: str, card: Any, ch: Any, info: Any) -> list[Any]:
+    """The escape cast a Desdemona grant gives this card now (702.138a): only the card that was targeted, still that object, in its owner's graveyard, on the turn it was granted."""
+    from app.rules import alt_costs, escape
+    from app.rules import mana as M
+    from app.rules.graveyard_grants import _two_ways
+
+    r = state.rules
+    if r is None or not r.escape_grants110m or card.owner != player or not ch.mana_cost or "//" in ch.mana_cost or _two_ways(card):
+        return []
+    oid = r.object_id(card.id)
+    if not any(g["oid"] == oid and g["owner"] == player and g["turn"] == state.turn.number for g in r.escape_grants110m):
+        return []
+    cost = M.parse_cost(ch.mana_cost)
+    alt = None if cost.x or cost.unsupported else alt_costs.parse_cost(escape._cost_text(ch.mana_cost, 2))
+    return [] if alt is None else [alt_costs.Offer(f"{card.id}:desdemona110m", f"{ch.name}: escape ({ch.mana_cost}, exile 2 other cards from your graveyard)", alt, escape=True)]
+
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 
@@ -817,4 +863,4 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
 
 RESUME: dict[str, Any] = {"march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

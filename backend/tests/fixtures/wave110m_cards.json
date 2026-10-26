@@ -868,5 +868,39 @@
 "colors": [],
 "color_identity": [],
 "keywords": []
+},
+{
+"name": "Desdemona, Freedom's Edge",
+"layout": "normal",
+"mana_cost": "{2}{R}{W}",
+"cmc": 4.0,
+"type_line": "Legendary Creature — Human Rogue",
+"oracle_text": "Vigilance\nWhenever Desdemona attacks, target creature card in your graveyard that's an artifact or that has mana value 3 or less gains escape until end of turn. The escape cost is equal to its mana cost plus exile two other cards from your graveyard. (You may cast it from your graveyard for its escape cost this turn.)",
+"colors": [
+"R",
+"W"
+],
+"color_identity": [
+"R",
+"W"
+],
+"keywords": [
+"Vigilance"
+],
+"power": "3",
+"toughness": "4"
+},
+{
+"name": "Solemn Simulacrum",
+"layout": "normal",
+"mana_cost": "{4}",
+"cmc": 4.0,
+"type_line": "Artifact Creature — Golem",
+"oracle_text": "When this creature enters, you may search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.\nWhen this creature dies, you may draw a card.",
+"colors": [],
+"color_identity": [],
+"keywords": [],
+"power": "2",
+"toughness": "2"
 }
 ]

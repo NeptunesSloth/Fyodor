@@ -134,6 +134,11 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
                 if alt is not None:
                     out.append(alt_costs.Offer(f"{src.id}:{index}", f"{src.name}: escape ({ch.mana_cost}, exile {d['exile']} "
                                                "other cards from your graveyard)", alt, escape=True))
+    from app.rules import (
+        wave110m_cards,  # -- (wave 110M) -- Desdemona: a temporary grant of escape to one card (702.138a, 611.2a)
+    )
+
+    out += wave110m_cards.escape_offers(state, player, card, ch, info)
     from app.rules import (  # -- casting extras (wave 18E) -- 702.146a: cast transformed from the graveyard; 702.180a
         disturb,
         harmonize,
