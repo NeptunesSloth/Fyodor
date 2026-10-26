@@ -73,6 +73,7 @@ class Characteristics:
     doors: frozenset[int] | None = None  # -- Rooms (wave 18G) -- 709.5: the halves (1 left, 2 right) that count; a Room's abilities are sectioned by door
     word: str | None = None  # -- linked words (wave 33B) -- 607.2f: the word the object chose as it entered ("" none; None: not read, every linked ability)
     flanking_count: int | None = None  # derived: surviving instances after timestamp-ordered loss/grants
+    name_test: Any = field(default=None, compare=False)  # -- Spy Kit (wave 110J) -- "has all names of nonlegendary creature cards": name -> bool (card_names.has_name)
 
     @property
     def is_land(self) -> bool:

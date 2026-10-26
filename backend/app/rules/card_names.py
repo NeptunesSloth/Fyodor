@@ -131,7 +131,7 @@ def chosen(plan: Plan, source: str | None) -> str | None:
 
 def has_name(ch: Characteristics, name: str | None) -> bool:
     """709.4a: the object has the chosen name if one of its names is it."""
-    return bool(name) and normalize_name(name or "") in {normalize_name(n) for n in names_of(ch)}
+    return bool(name) and (normalize_name(name or "") in {normalize_name(n) for n in names_of(ch)} or (ch.name_test is not None and bool(ch.name_test(name))))
 
 
 def matches(plan: Plan, source: str | None, ch: Characteristics) -> bool:

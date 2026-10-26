@@ -335,10 +335,14 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
         for text in st.definition.get("grants", ()):
             # (wave 42A) 702.98a: a granted "Unleash" brings its second half, the static "can't block as long as it has a +1/+1 counter" (the first, the counter, is
             # chosen as it enters: riot.py); the same static the printed keyword is (scripts.define)
-            inner = grammar.parse("~ can't block as long as it has a +1/+1 counter on it." if text.rstrip(".").lower() == "unleash" else scripts.self_text(text, ""))
+            inner = grammar.parse("~ can't block as long as it has a +1/+1 counter on it." if text.rstrip(".").lower() == "unleash" else scripts.self_text(text.replace("‹mv›", "0"), ""))
             if inner is None:
                 continue
             for cid, controller in field:
+                if "‹mv›" in text:  # -- Bludgeon Brawl (wave 110J) -- the recipient's own mana value
+                    inner = grammar.parse(scripts.self_text(text.replace("‹mv›", str(int(copiable(state, state.cards[cid], info).mana_value))), ""))
+                    if inner is None:
+                        continue
                 seq = max(st.seq, timestamp(state, cid))
                 if cid in wiped and (seq, 0, 0) <= wiped[cid]:
                     continue  # -- attached events (wave 4L) -- granted before it lost all abilities (613.7)
@@ -1168,6 +1172,8 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         for k, (st, ordinal, text, expansion) in enumerate(grants):
             if quoted_prevention_loss47.lost(text, ch.name, st.key, effects):
                 continue
+            if "‹mv›" in text:  # -- Bludgeon Brawl (wave 110J) -- the recipient's own mana value (a granted Equip cost)
+                text = text.replace("‹mv›", str(int(ch.mana_value)))
             if "‹granter›" in text and state.rules is not None:  # -- granted from object (wave 18F) -- 607.1a: the granting object
                 text = text.replace("‹granter›", f"‹granter#{state.rules.object_id(st.source)}›")
             if text in _chosen.PROTECTION:  # -- attached events (wave 25D) -- the granting Aura's own recorded color (wave 53B: or card type, or creature type)
@@ -1557,6 +1563,10 @@ def _with_rules(state: GameState, card: CardInstance, ch: Characteristics, info:
             _T.depth -= 1
     if imposed:
         ch = replace(ch, imposed=ch.imposed | frozenset(imposed))
+        if "all_names110j" in imposed and info is not None:  # -- Spy Kit (wave 110J) --
+            from app.rules import wave110j_cards
+
+            ch = replace(ch, name_test=lambda n: wave110j_cards.nonlegendary_creature_name(info, n))
     return ch
 
 

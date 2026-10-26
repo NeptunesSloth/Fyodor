@@ -26,6 +26,19 @@ def _aspect(d: Def) -> Def:
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Bludgeon Brawl: layer 4 adds Equipment (205.1b); the two grants are layer 6 and name each artifact's own mana value: layers.py puts the recipient's mana value
+    # where "‹mv›" stands (only the artifact's own, printed value matters: an X in its cost is 0 on the battlefield, 107.3m)
+    'Each noncreature, non-Equipment artifact is an Equipment with equip {X} and "Equipped creature gets +X/+0," where X is that artifact\'s mana value.':
+        ("Each noncreature, non-Equipment artifact is an Equipment in addition to its other types.", lambda d: {**d, "grants": ["Equip {‹mv›}", "Equipped creature gets +‹mv›/+0."]}),
+    # Spy Kit: the extra names are a rule on the equipped creature (card_names.has_name asks wave110j_cards.nonlegendary_creature_name; the name list itself is never built)
+    "Equipped creature gets +1/+1 and has all names of nonlegendary creature cards in addition to its name.":
+        ("Equipped creature gets +1/+1.", lambda d: {**d, "rules": ["all_names110j"]}),
+    # Guardian Beast: 101.2 "can't" beats "can" (no Aura attaches, no other player gains control: attachments.host_problem, targets, effects._control_effect); the Auras
+    # already attached stay (its last sentence: host_problem skips state-based checks) and indestructible is the plain grant
+    "As long as this creature is untapped, noncreature artifacts you control can't be enchanted, they have indestructible, and other players can't gain control of them. "
+    "This effect doesn't remove Auras already attached to those artifacts.":
+        ("As long as ~ is untapped, noncreature artifacts you control have indestructible.",
+         lambda d: {**d, "rules": ["cant_be_enchanted110j", "cant_gain_control110j"]}),
     "Enchanted creature gets +X/+Y, where X is half the number of Forests you control, rounded down, and Y is half the number of Forests you control, rounded up.":
         (f"Enchanted creature gets +X/+0, where X is {_FORESTS}, rounded down.", _aspect),
 }
@@ -1240,3 +1253,19 @@ def resume_equinox(plan: Any, d: Any, chosen_ids: list[str]) -> None:
 PRIMITIVES["equinox110j"] = equinox
 RESUME["equinox110j"] = resume_equinox
 _BUILD["Enchanted land has \"" + _EQUINOX + "\""] = ("Enchanted land has \"{T}: Counter target spell.\"", lambda d: {**d, "grants": [_EQUINOX]})
+
+
+def nonlegendary_creature_name(info: Any, name: str | None) -> bool:
+    """Spy Kit (201.2, 201.4): is ``name`` the Oracle name of a nonlegendary creature card (a token is no card; a double-faced card has each face's name, 709.4a)?"""
+    from app.rules.card_names import normalize_name
+
+    card = info.resolve(name or "") if name and hasattr(info, "resolve") else None
+    if card is None or card.get("layout") in ("token", "emblem"):
+        return False
+    norm = normalize_name(name or "")
+    faces = card.get("faces") or []
+    face = next((f for f in faces if normalize_name(str(f.get("name") or "")) == norm), None) if len(faces) > 1 else card
+    if face is None or normalize_name(str(face.get("name") or "")) != norm:
+        return False
+    types = str(face.get("type_line") or "").replace("\u2014", " ").split()
+    return "Creature" in types and "Legendary" not in types

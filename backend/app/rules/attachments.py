@@ -257,6 +257,8 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
     if card is None or (host_face is None and not card.zone.endswith(":battlefield")):
         return "it's not on the battlefield"
     hch = host_face or plan.ch(card)
+    if kind == "aura" and not sba and "cant_be_enchanted110j" in hch.imposed:  # -- Guardian Beast (wave 110J) -- an Aura already there stays (its text)
+        return f"{hch.name} can't be enchanted"
     if kind == "aura" and any(rule.startswith("only_aura106:") and rule.partition(":")[2] != source.id for rule in hch.imposed):
         return f"{hch.name} can't be enchanted by another Aura"
     # -- attached events (wave 25D) -- 702.16n: a protection that "doesn't remove" this Aura / Auras isn't why an Aura falls off as a

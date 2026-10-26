@@ -106,6 +106,8 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     for rule in ch.imposed:  # -- cant (wave 16F) -- "can't be the target of black spells or abilities from black sources"
         if rule == "untargetable_artifact_abilities106" and source is not None and source.is_ability and "Artifact" in source.types:
             return False
+        if rule == "cant_be_enchanted110j" and source is not None and source.is_spell and "Aura" in source.subtypes:  # -- Guardian Beast (wave 110J) --
+            return False
         if rule.startswith("only_aura106:") and source is not None and source.is_spell and "Aura" in source.subtypes:
             return False
         if rule.startswith("untargetable_by_opponents_of:") and chooser != rule.split(":", 1)[1]:

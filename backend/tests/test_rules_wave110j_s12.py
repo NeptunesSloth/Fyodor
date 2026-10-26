@@ -217,3 +217,125 @@ def test_equinox_unclear_spell_goes_to_manual_resolution(cards):
     assert d is not None and d.kind == "manual_resolution" and "Equinox" in d.prompt
     settle(s)
     check(s)
+
+
+BEAST = "Guardian Beast"
+
+
+def _beast(cards, tapped):
+    """p1 has Guardian Beast (tapped or not) and a Sol Ring; p2 has a Sol Ring, Steal Artifact and Shifting Loyalties and is in its precombat main."""
+    s = build(cards, [BEAST, "Sol Ring"], ["Sol Ring", "Steal Artifact", "Shifting Loyalties"], forests=30, islands=30)
+    beast, ring = put_new(s, BEAST), put_new(s, "Sol Ring")
+    mine = put_new(s, "Sol Ring", "p2")
+    from tests.wave110j_kit import hand_new
+
+    for name in ("Steal Artifact", "Shifting Loyalties"):
+        hand_new(s, name, "p2")  # (before turn 2's draw empties the small library)
+    if tapped:
+        act(s, "p1", type="tap", card_ids=[beast.id], tapped=True)
+    to_phase(s, "main1", turn=2)
+    return s, ring, mine
+
+
+def test_guardian_beast_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(BEAST)).level == "FULL"
+
+
+@pytest.mark.parametrize("tapped", [False, True])
+def test_guardian_beast_untapped_artifacts_are_indestructible_and_cant_be_enchanted(cards, tapped):
+    """101.2 / 303.4: while untapped no Aura spell can target its controller's noncreature artifact; tapped, nothing is protected."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import ch
+
+    s, ring, _ = _beast(cards, tapped)
+    assert ("indestructible" in ch(s, now(s, ring)).keywords) == (not tapped)
+    aura = next(c for c in s.state.cards.values() if c.name == "Steal Artifact")
+    mana(s, "p2", U=2, C=2)
+    if tapped:
+        act(s, "p2", type="cast_spell", card_id=aura.id, targets=[ring.id])
+        settle(s)
+        assert now(s, ring).controller == "p2"
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p2", type="cast_spell", card_id=aura.id, targets=[ring.id])
+    check(s)
+
+
+@pytest.mark.parametrize("tapped", [False, True])
+def test_guardian_beast_blocks_exchange_of_control(cards, tapped):
+    """101.2 + 701.12a: other players can't gain control of the protected artifact, so the exchange does nothing; tapped, it happens."""
+    from tests.wave9c_kit import mana
+
+    s, ring, mine = _beast(cards, tapped)
+    spell = next(c for c in s.state.cards.values() if c.name == "Shifting Loyalties")
+    mana(s, "p2", U=1, C=5)
+    act(s, "p2", type="cast_spell", card_id=spell.id, targets=[ring.id, mine.id], target_counts=[2])
+    settle(s)
+    assert (now(s, ring).controller, now(s, mine).controller) == (("p2", "p1") if tapped else ("p1", "p2"))
+    check(s)
+
+
+KIT = "Spy Kit"
+
+
+def test_spy_kit_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(KIT)).level == "FULL"
+
+
+def test_spy_kit_gives_the_equipped_creature_every_nonlegendary_creature_name(cards):
+    """201.2 / 201.4: Pithing Needle naming "Grizzly Bears" stops the equipped Sorcerer's tap ability (it has that name too), not an unequipped one."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import activate, hand_new
+
+    s = build(cards, [KIT, "Pithing Needle", "Prodigal Sorcerer"], [], forests=30, islands=30)
+    sorc, kit = put_new(s, "Prodigal Sorcerer"), put_new(s, KIT)
+    mana(s, "p1", C=2)
+    activate(s, kit, "Equip {2}", targets=[sorc.id])
+    assert now(s, kit).attached_to == sorc.id
+    needle = hand_new(s, "Pithing Needle")
+    mana(s, "p1", C=1)
+    act(s, "p1", type="cast_spell", card_id=needle.id)
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, name="Grizzly Bears")
+    settle(s)
+    to_phase(s, "main1", turn=3)  # (no summoning sickness)
+    with pytest.raises(ActionError, match="can't be activated"):
+        act(s, "p1", type="activate_ability", card_id=sorc.id, ability=ability(s, sorc, "{T}"), targets=["p2"])
+    act(s, "p1", type="move", card_ids=[kit.id], to={"zone": "graveyard"})  # unequipped: the Sorcerer has only its own name
+    act(s, "p1", type="activate_ability", card_id=sorc.id, ability=ability(s, sorc, "{T}"), targets=["p2"])
+    settle(s)
+    check(s)
+
+
+BRAWL = "Bludgeon Brawl"
+
+
+def test_bludgeon_brawl_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(BRAWL)).level == "FULL"
+
+
+def test_bludgeon_brawl_makes_each_artifact_an_equipment_with_its_own_mana_value(cards):
+    """205.1b, 613.1d/f: a noncreature artifact is an Equipment with equip {X} and +X/+0, X its own mana value (Thran Dynamo 4, Sol Ring 1); a creature isn't."""
+    from tests.wave9c_kit import mana
+    from tests.wave110j_kit import activate, ch
+
+    s = build(cards, [BRAWL, "Thran Dynamo", "Sol Ring", "Grizzly Bears"], [], forests=30, islands=30)
+    brawl, dyn, ring, bears = (put_new(s, n) for n in (BRAWL, "Thran Dynamo", "Sol Ring", "Grizzly Bears"))
+    assert "Equipment" in ch(s, now(s, dyn)).subtypes and "Equipment" in ch(s, now(s, ring)).subtypes
+    mana(s, "p1", C=4)
+    activate(s, dyn, "Equip {4}", targets=[bears.id])
+    assert now(s, dyn).attached_to == bears.id and ch(s, now(s, bears)).pt == (6, 2)
+    mana(s, "p1", C=1)
+    activate(s, ring, "Equip {1}", targets=[bears.id])
+    assert ch(s, now(s, bears)).pt == (7, 2)
+    check(s)
+    act(s, "p1", type="move", card_ids=[brawl.id], to={"zone": "graveyard"})  # it leaves: no more Equipment, the +X/+0 ends
+    assert "Equipment" not in ch(s, now(s, dyn)).subtypes and ch(s, now(s, bears)).pt == (2, 2)
