@@ -10,6 +10,7 @@
 * 702.96a, 205.4: Break the Ice destroys a land that is snow or could produce {C} (either one), one target or, overloaded, each such land.
 * 701.19c, 614.8: Bone Shaman's granted ability makes a creature it dealt damage to this turn unable to be regenerated, so a regeneration shield
   doesn't save it; without the ability the shield does.
+* 113.6m: Skyblade's Boon returns itself to its owner's hand from the battlefield (the Aura leaves its creature) or from its owner's graveyard, and from nowhere else.
 * 602.2b, 118.3: Bullseye, Death Dealer's activation cost is a choice announced with the activation: sacrifice an artifact or discard a nonland card.
 """
 
@@ -298,3 +299,45 @@ def test_bone_shaman_stops_a_creature_it_damaged_from_regenerating(cards, shaman
     through_combat(s, [(shaman, skeletons)])
     assert now(s, skeletons).zone == ("p1:graveyard" if shaman_ability else "p1:battlefield")
     check(s)
+
+
+def test_skyblade_boon_is_full():
+    assert full("Skyblade's Boon")
+
+
+def test_skyblade_boon_returns_from_the_battlefield(cards):
+    s = build(cards, ["Skyblade's Boon", "Grizzly Bears"])
+    bears = put_new(s, "Grizzly Bears")
+    boon = cast_on(s, "Skyblade's Boon", bears)
+    assert now(s, boon).zone == "p1:battlefield" and "flying" in ch(s, bears).keywords
+    mana(s, W=1, C=2)
+    activate(s, boon, "{2}{W}")
+    assert now(s, boon).zone == "p1:hand" and "flying" not in ch(s, bears).keywords
+    check(s)
+
+
+def test_skyblade_boon_returns_from_the_graveyard(cards):
+    s = build(cards, ["Skyblade's Boon"])
+    boon = move_to_graveyard(s, "Skyblade's Boon")
+    mana(s, W=1, C=2)
+    activate(s, boon, "{2}{W}")
+    assert now(s, boon).zone == "p1:hand"
+    check(s)
+
+
+@pytest.mark.parametrize("zone", ["hand", "exile", "library"])
+def test_skyblade_boon_does_nothing_from_other_zones(cards, zone):
+    s = build(cards, ["Skyblade's Boon"])
+    boon = to_hand(s, "Skyblade's Boon")
+    if zone != "hand":
+        act(s, "p1", type="move", card_ids=[boon.id], to={"zone": zone})
+    mana(s, W=1, C=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=boon.id, ability=2)
+    check(s)
+
+
+def move_to_graveyard(s, name, pid="p1"):
+    c = to_hand(s, name, pid)
+    act(s, pid, type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    return c

@@ -220,5 +220,22 @@
 "Heal",
 "Regenerate"
 ]
+},
+{
+"name": "Skyblade's Boon",
+"layout": "normal",
+"mana_cost": "{1}{W}",
+"cmc": 2.0,
+"type_line": "Enchantment — Aura",
+"oracle_text": "Enchant creature\nEnchanted creature gets +1/+1 and has flying.\n{2}{W}: Return Skyblade's Boon to its owner's hand. Activate only if Skyblade's Boon is on the battlefield or in your graveyard.",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": [
+"Enchant"
+]
 }
 ]

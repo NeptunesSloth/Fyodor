@@ -106,7 +106,21 @@ def phase_out_hold(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
+def return_self_hand(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Return ~ to its owner's hand" from the battlefield (bounce) or from the graveyard (the same object, 400.7: if it moved since, nothing)."""
+    from app.rules import effects
+
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    if card is None or plan.oid(card) != ctx.get("source_object"):
+        return True
+    if card.zone.endswith(":battlefield"):
+        return effects.PRIMITIVES["bounce"](plan, ctx, {"do": "bounce", "who": "self"})
+    if card.zone.endswith(":graveyard"):
+        return effects.PRIMITIVES["return_card"](plan, ctx, {"do": "return_card", "to": "hand", "who": "self_gy"})
+    return True
+
+
+PRIMITIVES = {"return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
 RESUME = {"opponent_mode110k": resume_opponent_mode}
 
 
@@ -191,6 +205,10 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     from app.rules import scripts
 
+    if ability.text.strip() == f"{{2}}{{W}}: Return {ch.name} to its owner's hand. Activate only if {ch.name} is on the battlefield or in your graveyard." \
+            and ch.name == "Skyblade's Boon":
+        # costs.battlefield_too110k (casting.ability_cost, ability_problem): either zone; the effect moves it from whichever it is in
+        return {"kind": "activated", "cost": "{2}{W}", "effects": [{"do": "return_self_hand110k"}], "target": None, "text": ability.text}
     if ability.text.strip().replace("this permanent", "this creature") == _NO_REGEN_DAMAGED:  # Bone Shaman's granted ability: read by regeneration.shielded / regeneration_choices.options
         return {"kind": "static", "static": "no_regen_damaged110k", "effects": []}
 
