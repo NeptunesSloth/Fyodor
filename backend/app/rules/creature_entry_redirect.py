@@ -19,7 +19,13 @@ def definition(text: str) -> dict[str, Any] | None:
             'match': {'nontoken': True}, 'op': {'do': 'exile'}}
 
 
+# Don't Blink: creatures entering from exile, or as a spell cast from exile, are shuffled into their owners' libraries instead (614.1a, 701.24).
+SHUFFLE = "Until end of turn, if one or more creatures would enter from exile or after being cast from exile, their owners shuffle them into their libraries instead."
+
+
 def parse(body: str) -> tuple[list[dict[str, Any]], None, bool] | None:
+    if body.strip() == SHUFFLE:
+        return [{'do': 'replace_record', 'event': 'creature_entry_exile110h', 'match': {}, 'op': {'do': 'shuffle_in'}}], None, False
     if body.strip() == TIMED.replace('a creature', 'a nontoken creature'):  # -- as long as (wave 100K) -- Mistcaller: tokens still enter (its 2018-07-13 ruling)
         return [{'do': 'replace_record', 'event': 'creature_entry', 'match': {'nontoken': True}, 'op': {'do': 'exile'}}], None, False
     if body not in (TIMED, TIMED + ' Draw a card.'):
@@ -47,6 +53,29 @@ def exiles(plan: Plan, card: CardInstance, controller: str) -> bool:
     return 'Creature' in plan.ch(probe).types
 
 
+def shuffles(plan: Plan, card: CardInstance, controller: str) -> bool:
+    """-- cards (wave 110H) -- Don't Blink: a creature entering from exile, or a creature spell cast from exile (the exile replacement of ``exiles`` wins when both apply: 616.1)."""
+    from app.rules import replace
+
+    if not replace.candidates(plan, 'creature_entry_exile110h'):
+        return False
+    if card.id in plan.state.zones.get('stack', []):
+        paid = plan.rules.payments.get(plan.oid(card))
+        if paid is None or paid.cast_from != 'exile':
+            return False
+    elif not card.zone.endswith(':exile') or exiles(plan, card, controller):
+        return False
+    probe = card.model_copy(update={'zone': zone_key(controller, 'battlefield'), 'controller': controller})
+    return 'Creature' in plan.ch(probe).types
+
+
+def shuffle_in(plan: Plan, card_id: str) -> None:
+    card = plan.state.cards[card_id]
+    owner = card.owner
+    plan.do({"type": "move", "card_ids": [card_id], "to": {"player": owner, "zone": "library"}}, actor=owner)
+    plan.do({"type": "shuffle", "player": owner, "zone": "library"}, actor=owner)
+
+
 def token_exiles(plan: Plan, controller: str, spec: dict[str, Any]) -> bool:
     from app.game.rules_state import CopyRecipe
     from app.rules import copying, replacements
@@ -66,6 +95,7 @@ def move(plan: Plan, payload: dict[str, Any]) -> dict[str, Any]:
     """Prepare every destination against the same pre-entry environment."""
     routes = dict(payload.get('routes') or {})
     changed = False
+    shuffled: list[str] = []
     for cid in payload.get('card_ids') or []:
         dest = routes.get(cid, payload.get('to') or {})
         card = plan.state.cards.get(cid)
@@ -80,6 +110,15 @@ def move(plan: Plan, payload: dict[str, Any]) -> dict[str, Any]:
         if exiles(plan, probe, controller):
             routes[cid] = {'player': card.owner, 'zone': 'exile'}
             changed = True
+        elif shuffles(plan, probe, controller):  # -- cards (wave 110H) -- Don't Blink: shuffled in instead of entering
+            shuffle_in(plan, cid)
+            shuffled.append(cid)
+            changed = True
+    if shuffled:  # (the rest move as asked; none left: a log line, as replace_move does)
+        rest = [c for c in payload.get('card_ids') or [] if c not in shuffled]
+        if not rest:
+            return {'type': 'rules_log', 'text': "Shuffled into its owner's library instead", 'card_ids': shuffled[:20]}
+        payload = {**payload, 'card_ids': rest}
     if changed:
         for cid in payload.get('card_ids') or []:
             routes.setdefault(cid, payload.get('to') or {})

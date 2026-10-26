@@ -258,6 +258,11 @@ def _other_than_host(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_host_of_source"))
 
 
+@_suffix(r"created with (?:this creature|~)")  # -- cards (wave 110H) -- 111.2: the tokens the source made (Tetravus; the card, as Saproling Burst's made110h)
+def _made_by_source(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "made_by_source110h"))
+
+
 @_suffix(r"other than ‹granter(?:#(?P<oid>[^›]+))?›")  # -- granter (wave 110H) -- 607.1a: "an artifact other than Dire Blunderbuss" in its grant
 def _other_than_granter(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "not_oid:" + (m["oid"] or "")))
@@ -2629,6 +2634,8 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
                 c.controller == card.controller and c.zone.endswith(':battlefield')
                 and extra[len('controller_controls_land:'):] in plan.ch(c).subtypes
                 and 'Land' in plan.ch(c).types for c in plan.state.cards.values()):
+            return False
+        if extra == "made_by_source110h" and (card.token_source is None or card.token_source.source_id != source):  # (-- cards (wave 110H) --)
             return False
         if extra.startswith("not_oid:") and plan.oid(card) == extra[8:]:  # -- player-relative selectors (wave 53A) -- "other creatures that player controls": other than the target it follows
             return False

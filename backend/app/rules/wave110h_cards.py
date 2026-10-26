@@ -83,6 +83,15 @@ _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this c
               "If you do, this creature is no longer suspected.")
 
 
+# Tetravus: the upkeep trigger removes any number of +1/+1 counters as it resolves (X chosen, paid_x choose_x "counters"), then makes that many Tetravites (flying, can't be enchanted);
+# the other exiles any number of the tokens it made (token_source, 111.2) and puts that many counters on it.
+_TETRA_OUT = ("At the beginning of your upkeep, you may remove any number of +1/+1 counters from this creature. If you do, create that many 1/1 colorless Tetravite artifact creature "
+              "tokens. They each have flying and \"This token can't be enchanted.\"")
+_TETRA_IN = ("At the beginning of your upkeep, you may exile any number of tokens created with this creature. If you do, put that many +1/+1 counters on this creature.")
+# Magma Pummeler: Polukranos' prevention rider (615.5) removes the counters; the counters actually removed (122.8) size a reflexive trigger (603.12) dealing that much damage.
+_PUMMELER = ("If damage would be dealt to ~ while it has a +1/+1 counter on it, prevent that damage and remove that many +1/+1 counters from it. "
+             "When one or more counters are removed from ~ this way, it deals that much damage to any target.")
+_ALCHEMIST = "If a source would deal damage to a player, you may prevent X of that damage, where X is the number of Clerics you control."
 _SPECTER = ("Whenever ~ deals combat damage to a player, you may pay {X}. If you do, that player reveals X cards from their hand and you choose one of "
             "them. That player discards that card.")
 _AETHER = ("Whenever ~ blocks a creature, you may return ~ to its owner's hand. If you do, you may put a creature card from your hand onto the "
@@ -168,6 +177,31 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if text == _SCAPEGOAT.replace("this creature", "~") or text == _SCAPEGOAT:
         native = scripts.define(replace(ability, text="Whenever one or more other creatures you control enter, if this creature is suspected, draw a card."), ch)
         return None if native is None else {**native, "effects": [{"do": "scapegoat110h"}]}
+    if text == _TETRA_OUT.replace("this creature", "~"):
+        native = scripts.define(replace(ability, text="At the beginning of your upkeep, you may pay {X}. If you do, create X 1/1 colorless Tetravite artifact creature tokens with flying."), ch)
+        eff = native["effects"] if native else []
+        if native is None or len(eff) != 3 or eff[0].get("do") != "optional_payment" or eff[2].get("do") != "create_token":
+            return None
+        tetravite = {**eff[2]["token"], "text": "Flying\nThis creature can't be enchanted."}
+        pay = {k: v for k, v in eff[0].items() if k != "cost_has_x"}
+        return {**native, "effects": [{**pay, "choose_x": {"max": None, "counters": "+1/+1"}}, eff[1], {**eff[2], "token": tetravite}]}
+    if text == _TETRA_IN.replace("this creature", "~"):
+        native = scripts.define(replace(ability, text=_TETRA_IN.replace("exile", "sacrifice")), ch)
+        eff = native["effects"] if native else []
+        if native is None or not eff or eff[0].get("do") != "sacrifice_choice":
+            return None
+        return {**native, "effects": [{**eff[0], "exile": True}, *eff[1:]]}
+    if text == _PUMMELER.replace("this creature", "~"):
+        native = scripts.define(replace(ability, text=_PUMMELER[:_PUMMELER.index(" When one")]), ch)
+        rider = ((native or {}).get("op") or {}).get("rider") or {}
+        if native is None or [e["do"] for e in rider.get("effects", [])] != ["remove_counters"]:
+            return None
+        return {**native, "op": {**native["op"], "rider": {**rider, "effects": [{**rider["effects"][0], "bind": "removed110h"}, {"do": "pummel110h"}]}}}
+    if text == _ALCHEMIST:  # 615.1, 615.7: an optional prevention of X (the Clerics as the damage would be dealt), asked each time (the "blood" shield's external_optional)
+        from app.rules import values
+
+        return {"kind": "static", "static": "replace", "event": "damage", "match": {"source": {}, "to": {"players": "any"}}, "effects": [],
+                "op": {"do": "prevent", "n": 0, "value": values.parse_count("Clerics you control"), "prevention": True, "optional": True, "external_optional": True}}
     if text == _SPECTER.replace("~", ch.name) or text == _SPECTER:  # Hollow Specter: the paid X (107.3) sizes the reveal (701.20a), then Cabal Interrogator's chain
         native = scripts.define(replace(ability, text="Whenever ~ deals combat damage to a player, you may pay {X}. If you do, that player discards X cards."), ch)
         if native is None or native["effects"][-1].get("do") != "discard":
@@ -756,6 +790,40 @@ def assign_unblocked(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
+def counters_start(plan: Any, ctx: Any, e: dict[str, Any], payer: str, bind: str) -> bool:
+    """Tetravus: the controller chooses X, 0 to the +1/+1 counters on the source (107.3, 118.12), removed as the effect resolves."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import optional_payment as O
+    from app.rules import paid_x
+    from app.rules.plan import decide
+
+    kind = e["choose_x"]["counters"]
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    have = src.counters.get(kind, 0) if src is not None and src.zone.endswith(":battlefield") else 0
+    if have <= 0:
+        paid_x._record(ctx, bind, False, 0)
+        return True
+    options = [DecisionOption(id=f"{paid_x.CHOOSE}{n}", label=f"Remove {n} {kind} counter{'s' if n > 1 else ''} (X = {n})") for n in range(1, have + 1)]
+    options.append(DecisionOption(id=O.DECLINE, label="Don't remove any"))
+    decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: remove how many {kind} counters?", options=options, source=src,
+           resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "counters": kind, "source": src.id if src else None}, "cost": ""})
+    return False
+
+
+def pummel(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Magma Pummeler's reflexive trigger: one trigger if any counter was removed, dealing that many damage to any target (603.12)."""
+    from app.game.rules_state import TriggerEvent
+    from app.rules import context, trigger_multipliers, triggers
+
+    n = context.amount(ctx, "removed110h")
+    if n > 0:
+        triggers._add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
+                      name=ctx.get("name") or "", index=trigger_multipliers.REFLEXIVE,
+                      definition={"kind": "triggered", "effects": [{"do": "damage", "who": "target", "n": {"event_amount": 1}}], "target": {"what": "any"}},
+                      event=TriggerEvent(kind="prevention", amount=n))
+    return True
+
+
 def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """The battlefield tokens created with the source (token_source, 111.2), bound for the next effect."""
     from app.rules import context
@@ -766,5 +834,5 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "glimpse110h": glimpse, "pendulum110h": pendulum, "exile_counters110h": exile_counters}
+PRIMITIVES = {"pummel110h": pummel, "assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "glimpse110h": glimpse, "pendulum110h": pendulum, "exile_counters110h": exile_counters}
 RESUME = {"pendulum110h": resume_pendulum, "pendulum_reveal110h": resume_pendulum_reveal, "zimone110h": resume_zimone, "episode110h": resume_episode, "scapegoat110h": resume_scapegoat}

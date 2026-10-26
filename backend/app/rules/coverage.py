@@ -165,6 +165,7 @@ def counters_designations_gap(d: dict[str, Any]) -> str | None:
 # static with another op stays manual.
 SUPPORTED_REPLACE_OPS: dict[str, frozenset[str]] = {
     "creature_entry": frozenset({"exile"}),
+    "creature_entry_exile110h": frozenset({"shuffle_in"}),  # -- cards (wave 110H) -- Don't Blink (creature_entry_redirect.shuffles)
     "tokens": frozenset({"mul", "add", "set_creator"}),  # 614.16: Parallel Lives, Doubling Season, Xorn
     "counters": frozenset({"mul", "add"}),  # 122.6, 614.16: Hardened Scales, Winding Constrictor, Doubling Season
     "player_counters": frozenset({"add", "mul"}),  # Winding Constrictor; energy-specific additions/doubling (107.14)

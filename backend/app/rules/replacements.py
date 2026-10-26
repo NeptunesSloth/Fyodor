@@ -1719,6 +1719,8 @@ def replace_move(plan: Plan, payload: dict[str, Any], actor: str | None) -> dict
         from app.rules import creature_entry_redirect
 
         payload = creature_entry_redirect.move(plan, payload)
+        if payload.get("type") != "move":
+            return payload  # (110H: every card was shuffled in instead)
     if kind == "mill":
         return _replace_mill(plan, payload, actor)
     if kind != "move":

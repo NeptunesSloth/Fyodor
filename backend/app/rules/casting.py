@@ -6202,7 +6202,7 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         return
     ability = announced
     if plan.locked_cost is None and (fixed := defined_activation_x.spec(ability, ch.name)) is not None:
-        x = defined_activation_x.evaluate(plan, card, fixed, a.targets)
+        x = defined_activation_x.evaluate(plan, card, fixed, a.targets, a.x_value)
         if a.x_value is not None and a.x_value != x:
             raise ActionError(f"X is {x} for this ability; it isn't chosen (107.3c)")
         a.x_value = x
@@ -6531,7 +6531,7 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                     needs_x = ability_mana_cost(cost).x or cost.loyalty_x or cost.energy_x or cost.x_chosen
                     from app.rules import defined_activation_x
 
-                    if defined_activation_x.spec(ab, ch.name) is not None:
+                    if (fx := defined_activation_x.spec(ab, ch.name)) is not None and not fx.get("opp_hand110h"):  # (-- cards (wave 110H) -- the player announces which opponent's hand)
                         needs_x = False
                     out.append({"card_id": cid, "ability": ab.index, **({"x": True} if needs_x else {})})
             elif card.controller == player and ab.kind == "keywords" and _can_crew(state, player, card, ch, ab.index, info, check_priority):

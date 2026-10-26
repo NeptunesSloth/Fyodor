@@ -34,3 +34,4 @@
 - Hankyu (s8): the granted "{T}, Remove all aim counters from Hankyu" needs a remove-all-counters cost on the granter (not the creature) whose count sizes the damage; scripts._granter_view only rewrites effects.
 - Bargaining Table (s8): "an opponent's hand" with several opponents is still unsettled (no ruling found on who is chosen or when).
 - Zimone's Experiment (partial): a revealed Dryad Arbor-like land creature card is told to enter and to go to hand by the same spell; no CR rule or ruling settles it, so it stays on top revealed for manual placement (rest automated).
+Susan Foreman: no planar deck / Planechase planeswalk in the engine; a foundation for a whole variant, not built.

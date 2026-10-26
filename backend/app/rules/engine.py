@@ -1193,6 +1193,11 @@ def resolve_top_of_stack(plan: Plan) -> None:
     replacements.turn_down(plan, ep, controller)  # -- hidden exile (wave 18A) --
     from app.rules import creature_entry_redirect
 
+    if entering and creature_entry_redirect.shuffles(plan, top, controller):  # -- cards (wave 110H) -- Don't Blink
+        creature_entry_redirect.shuffle_in(plan, top_id)
+        plan.rules.payments.pop(plan.oid(top_id), None)
+        _after_resolution(plan)
+        return
     if entering and creature_entry_redirect.exiles(plan, top, controller):
         plan.do({"type": "move", "card_ids": [top_id], "to": {"player": top.owner, "zone": "exile"}}, actor=controller)
         plan.rules.payments.pop(plan.oid(top_id), None)
