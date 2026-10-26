@@ -10,6 +10,11 @@
 * 702.96a, 205.4: Break the Ice destroys a land that is snow or could produce {C} (either one), one target or, overloaded, each such land.
 * 701.19c, 614.8: Bone Shaman's granted ability makes a creature it dealt damage to this turn unable to be regenerated, so a regeneration shield
   doesn't save it; without the ability the shield does.
+* 113.6m: Skyblade's Boon returns itself to its owner's hand from the battlefield (the Aura leaves its creature) or from its owner's graveyard, and from nowhere else.
+* 611.2b: Old Man of the Sea keeps a creature (power at most his) while he stays tapped and its power stays at most his; he may skip untapping (502.3).
+* 302.6, 508.1: Frenzied Saddlebrute lets every summoning-sick creature attack the opponents of its controller (and their planeswalkers), no one else.
+* 701.55a, 701.55b: This Is How It Ends shuffles the creature away, then its owner faces the choice: lose 5 life, or shuffle another creature they own
+  (nothing if they own none).
 * 602.2b, 118.3: Bullseye, Death Dealer's activation cost is a choice announced with the activation: sacrifice an artifact or discard a nonland card.
 """
 
@@ -18,11 +23,13 @@ from __future__ import annotations
 import pytest
 
 from app.game.errors import ActionError
+from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
-from tests.wave9c_kit import build, life
+from tests.wave9c_kit import build, life, put
 from tests.wave47b_kit import build3
 from tests.wave110k_kit import (  # noqa: F401
     EXTRA,
+    ability,
     activate,
     card_db,
     cast_on,
@@ -297,4 +304,965 @@ def test_bone_shaman_stops_a_creature_it_damaged_from_regenerating(cards, shaman
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": skeletons.id, "target": "p2"}])
     through_combat(s, [(shaman, skeletons)])
     assert now(s, skeletons).zone == ("p1:graveyard" if shaman_ability else "p1:battlefield")
+    check(s)
+
+
+def test_skyblade_boon_is_full():
+    assert full("Skyblade's Boon")
+
+
+def test_skyblade_boon_returns_from_the_battlefield(cards):
+    s = build(cards, ["Skyblade's Boon", "Grizzly Bears"])
+    bears = put_new(s, "Grizzly Bears")
+    boon = cast_on(s, "Skyblade's Boon", bears)
+    assert now(s, boon).zone == "p1:battlefield" and "flying" in ch(s, bears).keywords
+    mana(s, W=1, C=2)
+    activate(s, boon, "{2}{W}")
+    assert now(s, boon).zone == "p1:hand" and "flying" not in ch(s, bears).keywords
+    check(s)
+
+
+def test_skyblade_boon_returns_from_the_graveyard(cards):
+    s = build(cards, ["Skyblade's Boon"])
+    boon = move_to_graveyard(s, "Skyblade's Boon")
+    mana(s, W=1, C=2)
+    activate(s, boon, "{2}{W}")
+    assert now(s, boon).zone == "p1:hand"
+    check(s)
+
+
+@pytest.mark.parametrize("zone", ["hand", "exile", "library"])
+def test_skyblade_boon_does_nothing_from_other_zones(cards, zone):
+    s = build(cards, ["Skyblade's Boon"])
+    boon = to_hand(s, "Skyblade's Boon")
+    if zone != "hand":
+        act(s, "p1", type="move", card_ids=[boon.id], to={"zone": zone})
+    mana(s, W=1, C=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=boon.id, ability=2)
+    check(s)
+
+
+def move_to_graveyard(s, name, pid="p1"):
+    c = to_hand(s, name, pid)
+    act(s, pid, type="move", card_ids=[c.id], to={"zone": "graveyard"})
+    return c
+
+
+# -- Swinging Ship (Unfinity 231a, lit 2 and 6; the Attraction's own printing sets what lights it) --
+SHIP = card("Swinging Ship", set_code="unf", number="231a", mana_cost="", cmc=0, type_line="Artifact — Attraction",
+            oracle_text="Visit — After the first combat phase this turn, there's an additional combat phase. At the beginning of that combat, untap all "
+                        "creatures that attacked this turn.", colors=[], color_identity=[], keywords=[])
+
+
+@pytest.fixture()
+def ship_cards(settings):
+    from app.cards.images import ImageStore
+    from app.cards.importer import build_database
+    from app.cards.repository import CardRepository
+
+    settings.ensure_dirs()
+    build_database([*fixture_cards(), SHIP], settings.cards_db_path, meta={"bulk_type": "test"})
+    repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
+    yield repo
+    repo.close()
+
+
+def test_swinging_ship_is_full(ship_cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(ship_cards.resolve("Swinging Ship")).level == "FULL"
+
+
+def _ship_turn(cards, monkeypatch, die):
+    """Alice's turn 3 with the Ship and a 2/2 attacker: the visit roll comes up ``die``; stops at the first declaration of attackers (or main 1 when none)."""
+    from tests.test_rules_conditionals import creature
+    from tests.test_rules_wave12a_counters_keywords import rolls
+    from tests.test_rules_wave100l_attractions import game
+    from tests.wave9c_kit import put
+
+    rolls(monkeypatch, die)
+    s = game(cards, [], ["Swinging Ship"])
+    put(s, "Swinging Ship")
+    bear = creature(s, "p1", "Attacker", "2/2")
+    for _ in range(400):
+        d = s.state.rules.decision
+        if s.state.turn.number == 3 and d is not None and d.kind == "declare_attackers":
+            return s, bear
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("never reached Alice's attack")
+
+
+def _attack_all_combats(s, bear):
+    """Alice attacks with ``bear`` in every combat phase she gets; returns how many combats it attacked in."""
+    attacks = 0
+    for _ in range(200):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers" and d.player == "p1":
+            alive = now(s, bear).zone == "p1:battlefield" and not now(s, bear).tapped
+            act(s, "p1", type="declare_attackers", attackers=[{"card_id": bear.id, "target": "p2"}] if alive else [])
+            attacks += alive
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.turn.number == 3 and s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    return attacks
+
+
+@pytest.mark.parametrize(("die", "attacks"), [(6, 2), (2, 2), (5, 1)])
+def test_swinging_ship_adds_a_combat_in_which_the_attackers_untap(ship_cards, monkeypatch, die, attacks):
+    s, bear = _ship_turn(ship_cards, monkeypatch, die)
+    life_before = life(s, "p2")
+    assert _attack_all_combats(s, bear) == attacks
+    assert life(s, "p2") == life_before - 2 * attacks
+    check(s)
+
+
+# -- Old Man of the Sea --
+def test_old_man_of_the_sea_is_full():
+    assert full("Old Man of the Sea")
+
+
+def _old_man(cards):
+    s = build(cards, ["Old Man of the Sea", "Giant Growth"], ["Grizzly Bears", "Twisted Abomination"])
+    man = put_new(s, "Old Man of the Sea")
+    s.state.rules.controlled_since[man.id].turn = 0
+    return s, man, put_new(s, "Grizzly Bears", "p2"), put_new(s, "Twisted Abomination", "p2")
+
+
+def test_old_man_takes_a_creature_with_no_more_power_and_not_a_bigger_one(cards):
+    s, man, bears, giant = _old_man(cards)
+    refused(s, "legal target", man, "{T}", targets=[giant.id])
+    activate(s, man, "{T}", targets=[bears.id])
+    assert now(s, bears).controller == "p1" and now(s, man).tapped
+    check(s)
+
+
+@pytest.mark.parametrize("keep_tapped", [True, False])
+def test_old_man_keeps_it_through_untap_steps_he_skips(cards, keep_tapped):
+    s, man, bears, _ = _old_man(cards)
+    activate(s, man, "{T}", targets=[bears.id])
+    for _ in range(300):
+        d = s.state.rules.decision
+        if s.state.turn.number == 3 and d is not None and d.kind != "declare_attackers":
+            break
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            act(s, d.player, type=d.kind, **({"attackers": []} if d.kind == "declare_attackers" else {"blocks": []}))
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert [o.id for o in d.options] == [man.id]  # 502.3: "You may choose not to untap" — kept tapped, it keeps the creature
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[man.id] if keep_tapped else [])
+    to_phase(s, "main1", turn=3)
+    assert now(s, bears).controller == ("p1" if keep_tapped else "p2")
+    check(s)
+
+
+def test_old_man_loses_it_when_its_power_grows_past_his(cards):
+    s, man, bears, _ = _old_man(cards)
+    activate(s, man, "{T}", targets=[bears.id])
+    assert now(s, bears).controller == "p1"
+    cast_on(s, "Giant Growth", bears)  # +3/+3: 5 power against his 2
+    assert now(s, bears).controller == "p2"
+    check(s)
+
+
+def test_old_man_loses_it_when_he_leaves(cards):
+    s = build(cards, ["Old Man of the Sea", "Lightning Bolt"], ["Grizzly Bears"])
+    man, bears = put_new(s, "Old Man of the Sea"), put_new(s, "Grizzly Bears", "p2")
+    s.state.rules.controlled_since[man.id].turn = 0
+    activate(s, man, "{T}", targets=[bears.id])
+    cast_on(s, "Lightning Bolt", man)  # 3 damage to the 3 toughness Old Man
+    assert now(s, man).zone == "p1:graveyard" and now(s, bears).controller == "p2"
+    check(s)
+
+
+# -- Frenzied Saddlebrute --
+def test_frenzied_saddlebrute_is_full():
+    assert full("Frenzied Saddlebrute")
+
+
+def _to_attackers(s, pid):
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers" and d.player == pid:
+            return d
+        act(s, s.state.rules.priority, type="pass_priority") if d is None else act(
+            s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    raise AssertionError("no attack declaration")
+
+
+def test_saddlebrute_lets_every_new_creature_attack_its_controllers_opponents(cards):
+    s = build3(cards, ["Frenzied Saddlebrute", "Grizzly Bears"], ["Grizzly Bears"])
+    put(s, "Frenzied Saddlebrute")
+    mine = put(s, "Grizzly Bears")  # just entered: summoning-sick
+    _to_attackers(s, "p1")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": mine.id, "target": "p2"}])
+    check(s)
+
+
+def test_a_sick_creature_cant_attack_without_the_saddlebrute(cards):
+    s = build3(cards, ["Grizzly Bears"])
+    put(s, "Grizzly Bears")
+    act(s, "p1", type="pass_priority")  # on from the first main phase: no creature can attack, so there is no declaration
+    assert s.state.turn.number == 1 and s.state.rules.decision is None and s.state.turn.phase != "declare_attackers"
+    check(s)
+
+
+@pytest.mark.parametrize(("target", "legal"), [("p3", True), ("p1", False)])
+def test_an_opponents_sick_creature_attacks_only_the_saddlebrutes_other_opponents(cards, target, legal):
+    s = build3(cards, ["Frenzied Saddlebrute"], ["Grizzly Bears"])
+    put(s, "Frenzied Saddlebrute")
+    to_phase(s, "main1", turn=2)
+    sick = put(s, "Grizzly Bears", "p2")
+    _to_attackers(s, "p2")
+    declare = {"card_id": sick.id, "target": target}
+    if legal:
+        act(s, "p2", type="declare_attackers", attackers=[declare])
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p2", type="declare_attackers", attackers=[declare])
+    check(s)
+
+
+@pytest.mark.parametrize(("walker_of", "legal"), [("p3", True), ("p1", False)])
+def test_an_opponents_sick_creature_attacks_the_saddlebrute_opponents_planeswalkers_only(cards, walker_of, legal):
+    s = build3(cards, ["Frenzied Saddlebrute", "Teferi, Timeless Voyager"], ["Grizzly Bears"], ["Teferi, Timeless Voyager"])
+    put(s, "Frenzied Saddlebrute")
+    walker = put(s, "Teferi, Timeless Voyager", walker_of)
+    act(s, walker_of, type="counter", card_ids=[walker.id], kind="loyalty", delta=4)  # (a card moved in has no loyalty counters: 704.5i)
+    to_phase(s, "main1", turn=2)
+    sick = put(s, "Grizzly Bears", "p2")
+    _to_attackers(s, "p2")
+    declare = {"card_id": sick.id, "target": walker.id}
+    if legal:
+        act(s, "p2", type="declare_attackers", attackers=[declare])
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p2", type="declare_attackers", attackers=[declare])
+    check(s)
+
+
+# -- This Is How It Ends --
+def test_this_is_how_it_ends_is_full():
+    assert full("This Is How It Ends")
+
+
+def _ends(cards, second_creature=True, controlled_by_caster=False):
+    s = build(cards, ["This Is How It Ends"], ["Grizzly Bears", "Elvish Visionary"])
+    victim = put_new(s, "Grizzly Bears", "p2")
+    other = put_new(s, "Elvish Visionary", "p2") if second_creature else None
+    d = s.state.rules.decision
+    while d is not None:  # (the Visionary's draw)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        d = s.state.rules.decision
+    if controlled_by_caster:
+        act(s, "p1", type="set_controller", card_ids=[victim.id], player="p1")
+    c = to_hand(s, "This Is How It Ends")
+    mana(s, B=2, C=4)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[victim.id])
+    for _ in range(10):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s, victim, other
+
+
+def _pick(s, option, who="p2"):
+    d = s.state.rules.decision
+    assert d is not None and d.player == who and [o.id for o in d.options] == ["a", "b"]
+    act(s, who, type="choose", decision_id=d.id, option_ids=[option])
+
+
+def test_this_is_how_it_ends_owner_loses_five_life(cards):
+    s, victim, other = _ends(cards)
+    _pick(s, "a")
+    settle(s)
+    assert now(s, victim).zone == "p2:library" and now(s, other).zone == "p2:battlefield" and life(s, "p2") == 35
+    check(s)
+
+
+def test_this_is_how_it_ends_owner_shuffles_another_creature_instead(cards):
+    s, victim, other = _ends(cards)
+    _pick(s, "b")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p2" and [o.id for o in d.options] == [other.id]
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=[other.id])
+    settle(s)
+    assert now(s, victim).zone == "p2:library" and now(s, other).zone == "p2:library" and life(s, "p2") == 40
+    check(s)
+
+
+def test_this_is_how_it_ends_with_no_other_creature_the_second_option_does_nothing(cards):
+    s, victim, other = _ends(cards, second_creature=False)
+    _pick(s, "b")
+    settle(s)
+    assert now(s, victim).zone == "p2:library" and life(s, "p2") == 40
+    check(s)
+
+
+def test_this_is_how_it_ends_the_owner_not_the_controller_faces_the_choice(cards):
+    s, victim, _ = _ends(cards, controlled_by_caster=True)
+    _pick(s, "a")  # Bob owns it, so Bob decides (and loses the life), not Alice who controlled it
+    settle(s)
+    assert life(s, "p2") == 35 and life(s, "p1") == 40
+    check(s)
+
+
+# -- Deceiver of Form --
+def test_deceiver_of_form_is_full():
+    assert full("Deceiver of Form")
+
+
+def _deceiver(cards, top_name):
+    from tests.wave110b_kit import top
+
+    s = build(cards, ["Deceiver of Form", "Grizzly Bears", "Elvish Visionary", "Lightning Bolt"])
+    s.deceiver = put(s, "Deceiver of Form")
+    bears = put(s, "Grizzly Bears")
+    top(s, top_name)
+    act(s, "p1", type="pass_priority")  # on to the beginning of combat: the trigger
+    return s, bears
+
+
+def _answer_all(s, answers):
+    """Take the decisions of the trigger in turn: ``answers`` are option ids (the first one that is offered when None)."""
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            if s.state.zones.get("stack"):
+                act(s, s.state.rules.priority, type="pass_priority")
+                continue
+            return
+        if d.kind in ("declare_attackers", "declare_blockers"):
+            return
+        want = answers.pop(0) if answers else None
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[want] if want else [o.id for o in d.options][: max(1, d.min_choices)] if want != "" else [])
+
+
+@pytest.mark.parametrize(("copy", "name"), [("yes", "Elvish Visionary"), ("no", "Grizzly Bears")])
+def test_deceiver_of_form_other_creatures_become_copies_of_a_revealed_creature_card(cards, copy, name):
+    s, bears = _deceiver(cards, "Elvish Visionary")
+    d = s.state.rules.decision
+    assert d is not None and [o.id for o in d.options] == ["yes", "no"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[copy])
+    _answer_all(s, [])
+    assert ch(s, bears).name == name
+    assert ch(s, s.deceiver).name == "Deceiver of Form"  # (it never copies itself)
+    check(s)
+
+
+def test_deceiver_of_form_a_noncreature_card_changes_nothing(cards):
+    s, bears = _deceiver(cards, "Lightning Bolt")
+    d = s.state.rules.decision
+    assert d is None or [o.id for o in d.options] != ["yes", "no"]
+    _answer_all(s, [])
+    assert ch(s, bears).name == "Grizzly Bears"
+    check(s)
+
+
+# -- Cruel Entertainment --
+def test_cruel_entertainment_is_full():
+    assert full("Cruel Entertainment")
+
+
+def _pairs(s):
+    return sorted((c.controlled, c.controller, c.status) for c in s.state.rules.player_control)
+
+
+def test_cruel_entertainment_makes_the_two_players_control_each_other_on_their_own_turns(cards):
+    s = build3(cards, ["Cruel Entertainment"])
+    c = to_hand(s, "Cruel Entertainment")
+    mana(s, B=1, C=6)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2", "p3"], target_counts=[1, 1])
+    settle(s)
+    assert _pairs(s) == [("p2", "p3", "pending"), ("p3", "p2", "pending")]  # 723.1: the first controls the second (p3) and the second controls the first
+    from tests.test_rules_wave18h_player_control import drive
+
+    drive(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")  # Bob's turn: Carol controls him
+    assert _pairs(s) == [("p2", "p3", "active"), ("p3", "p2", "pending")]
+    drive(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1")  # Carol's turn: Bob controls her
+    assert _pairs(s) == [("p3", "p2", "active")]
+    check(s)
+
+
+def test_cruel_entertainment_needs_two_different_players(cards):
+    s = build3(cards, ["Cruel Entertainment"])
+    c = to_hand(s, "Cruel Entertainment")
+    mana(s, B=1, C=6)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=c.id, targets=["p2", "p2"], target_counts=[1, 1])
+    check(s)
+
+
+# -- Chandra, Fire of Kaladesh // Chandra, Roaring Flame --
+CHANDRA = "Chandra, Fire of Kaladesh // Chandra, Roaring Flame"
+
+
+def test_chandra_is_full():
+    assert full(CHANDRA)
+
+
+def _ping(s, chandra, target="p2"):
+    activate(s, chandra, "{T}", targets=[target])
+
+
+def _chandra(cards):
+    s = build(cards, [CHANDRA, "Lightning Bolt", "Seething Song"])
+    chandra = put_new(s, CHANDRA)
+    s.state.rules.controlled_since[chandra.id].turn = 0
+    return s, chandra
+
+
+def test_chandra_flips_when_she_has_dealt_three_damage_this_turn(cards):
+    s, chandra = _chandra(cards)
+    _ping(s, chandra)
+    assert life(s, "p2") == 39 and now(s, chandra).face == 0
+    cast_on(s, "Lightning Bolt", "p2")  # a red spell: she untaps (the bolt's 3 damage isn't hers)
+    _ping(s, chandra)
+    assert life(s, "p2") == 35 and now(s, chandra).face == 0  # 2 damage so far
+    cast_on(s, "Seething Song")
+    _ping(s, chandra)  # 3 damage: exiled and returned transformed
+    assert life(s, "p2") == 34 and now(s, chandra).face == 1 and now(s, chandra).zone == "p1:battlefield"
+    assert ch(s, chandra).name == "Chandra, Roaring Flame" and now(s, chandra).counters.get("loyalty") == 4
+    check(s)
+
+
+def test_chandra_roaring_flame_minus_seven_gives_each_damaged_opponent_the_upkeep_emblem(cards):
+    s = build3(cards, [CHANDRA, "Lightning Bolt", "Seething Song"])
+    chandra = put(s, CHANDRA)
+    s.state.rules.controlled_since[chandra.id].turn = 0
+    _ping(s, chandra)
+    cast_on(s, "Lightning Bolt", "p2")
+    _ping(s, chandra)
+    cast_on(s, "Seething Song")
+    _ping(s, chandra)
+    assert now(s, chandra).face == 1
+    act(s, "p1", type="counter", card_ids=[chandra.id], kind="loyalty", delta=3)  # 4 -> 7
+    before = {p: life(s, p) for p in ("p1", "p2", "p3")}
+    activate(s, chandra, "−7")
+    assert life(s, "p2") == before["p2"] - 6 and life(s, "p3") == before["p3"] - 6 and life(s, "p1") == before["p1"]
+    for turn, player in ((2, "p2"), (3, "p3")):
+        to_phase(s, "upkeep", turn=turn)
+        settle(s)
+        assert life(s, player) == before[player] - 6 - 3  # its emblem: 3 damage to its controller at their upkeep
+    assert life(s, "p1") == before["p1"]
+    check(s)
+
+
+# -- Dread Wight --
+def test_dread_wight_is_full():
+    assert full("Dread Wight")
+
+
+def _wight_combat(cards, block=True):
+    from tests.wave110b_kit import attack, through_combat
+
+    s = build(cards, ["Dread Wight", "Grizzly Bears"], ["Wall of Stone"])
+    wight, wall = put_new(s, "Dread Wight"), put_new(s, "Wall of Stone", "p2")
+    attack(s, wight)
+    through_combat(s, [(wall, wight)] if block else None)
+    return s, wight, wall
+
+
+def test_dread_wight_paralyzes_what_blocked_it_and_the_creature_stays_tapped(cards):
+    s, wight, wall = _wight_combat(cards)
+    assert now(s, wall).counters.get("paralyzation") == 1 and now(s, wall).tapped
+    to_phase(s, "main1", turn=4)  # Bob's untap step (turn 2) and the next one (turn 4): still tapped
+    assert now(s, wall).tapped and now(s, wall).counters.get("paralyzation") == 1
+    check(s)
+
+
+def test_dread_wight_nothing_happens_when_unblocked(cards):
+    s, wight, wall = _wight_combat(cards, block=False)
+    assert not now(s, wall).counters and not now(s, wall).tapped
+    check(s)
+
+
+def test_the_paralyzed_creature_can_pay_four_to_lose_the_counter_and_untap(cards):
+    s, wight, wall = _wight_combat(cards)
+    to_phase(s, "main1", turn=2)  # (it stays tapped through Bob's untap step)
+    assert now(s, wall).tapped
+    mana(s, "p2", C=4)
+    act(s, "p2", type="activate_ability", card_id=wall.id, ability=ability(s, wall, "{4}"))
+    settle(s)
+    assert not now(s, wall).counters.get("paralyzation") and now(s, wall).tapped
+    to_phase(s, "main1", turn=4)  # the next untap step
+    assert not now(s, wall).tapped
+    check(s)
+
+
+# -- Diseased Vermin --
+def test_diseased_vermin_is_full():
+    assert full("Diseased Vermin")
+
+
+def _vermin(cards, hit=True):
+    from tests.wave110b_kit import attack, through_combat
+
+    s = build3(cards, ["Diseased Vermin"])
+    vermin = put(s, "Diseased Vermin")
+    if hit:
+        attack(s, vermin, target="p2")
+        through_combat(s)
+    return s, vermin
+
+
+def test_diseased_vermin_hurts_only_an_opponent_it_has_already_damaged(cards):
+    s, vermin = _vermin(cards)
+    assert now(s, vermin).counters.get("infection") == 1
+    before = {p: life(s, p) for p in ("p2", "p3")}
+    to_phase(s, "upkeep", turn=4)  # Alice's next turn
+    settle(s)
+    assert life(s, "p2") == before["p2"] - 1 and life(s, "p3") == before["p3"]
+    check(s)
+
+
+def test_diseased_vermin_has_no_target_before_it_has_damaged_anyone(cards):
+    s, vermin = _vermin(cards, hit=False)
+    before = {p: life(s, p) for p in ("p2", "p3")}
+    to_phase(s, "upkeep", turn=4)
+    settle(s)
+    assert {p: life(s, p) for p in ("p2", "p3")} == before
+    check(s)
+
+
+# -- Sidequest: Play Blitzball // World Champion, Celestial Weapon --
+SIDEQUEST = "Sidequest: Play Blitzball // World Champion, Celestial Weapon"
+
+
+def test_sidequest_is_full():
+    assert full(SIDEQUEST)
+
+
+def _blitz(cards, powers):
+    """Alice's Sidequest and creatures with the given powers (2 toughness+): she attacks with the first one, the begin-combat +2/+0 on it, to the end of combat."""
+    from tests.test_rules_conditionals import creature
+
+    s = build(cards, [SIDEQUEST])
+    quest = put_new(s, SIDEQUEST)
+    made = [creature(s, "p1", f"Runner {i}", f"{p}/5") for i, p in enumerate(powers)]
+    for c in made:
+        s.state.rules.controlled_since[c.id].turn = 0
+    attacked = False
+    for _ in range(80):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            act(s, "p1", type="declare_attackers", attackers=[{"card_id": made[0].id, "target": "p2"}])
+            attacked = True
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None and "attach it to a creature you control" in d.prompt:
+            break
+        elif d is not None and not attacked and d.kind in ("choose_cards", "choose_one"):
+            pick = made[0].id if made[0].id in [o.id for o in d.options] else d.options[0].id
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[pick])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    return s, quest, made
+
+
+def test_sidequest_transforms_and_attaches_when_six_combat_damage_was_dealt(cards):
+    s, quest, (runner,) = _blitz(cards, [4])  # 4 + the 2 from its own begin-combat trigger
+    assert life(s, "p2") == 34 and now(s, quest).face == 1 and now(s, quest).attached_to == runner.id
+    assert ch(s, runner).pt[0] == 4 + 2 + 2 and "double strike" in ch(s, runner).keywords  # (until end of turn +2/+0, then the Equipment's +2/+0)
+    check(s)
+
+
+def test_sidequest_stays_a_quest_when_only_five_damage_was_dealt(cards):
+    s, quest, _ = _blitz(cards, [3])
+    assert life(s, "p2") == 35 and now(s, quest).face == 0 and now(s, quest).attached_to is None
+    check(s)
+
+
+def test_sidequest_lets_its_controller_choose_the_creature_when_there_are_several(cards):
+    s, quest, (first, second) = _blitz(cards, [4, 1])
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and {o.id for o in d.options} == {first.id, second.id}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[second.id])
+    assert now(s, quest).face == 1 and now(s, quest).attached_to == second.id
+    check(s)
+
+
+# -- Backdraft --
+def test_backdraft_is_full():
+    assert full("Backdraft")
+
+
+def _backdraft_table(cards, spells):
+    s = build(cards, ["Backdraft", "Pyroclasm", "Firebolt", "Rift Bolt"], ["Grizzly Bears", "Elvish Visionary"])
+    put_new(s, "Grizzly Bears", "p2")
+    put_new(s, "Elvish Visionary", "p2")
+    d = s.state.rules.decision
+    while d is not None:  # (the Visionary's draw)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        d = s.state.rules.decision
+    for name, target in spells:
+        cast_on(s, name, target)
+    return s
+
+
+def _cast_backdraft(s):
+    c = to_hand(s, "Backdraft")
+    mana(s, R=4, C=4)
+    act(s, "p1", type="cast_spell", card_id=c.id)
+    for _ in range(10):
+        if s.state.rules.decision is not None or not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+def test_backdraft_deals_half_the_damage_one_sorcery_dealt_rounded_down(cards):
+    s = _backdraft_table(cards, [("Pyroclasm", None)])  # 2 damage to each of Bob's two creatures and none of Alice's: 4 in all
+    _cast_backdraft(s)
+    settle(s)
+    assert life(s, "p1") == 40 - 2
+    check(s)
+
+
+def test_backdraft_rounds_odd_damage_down(cards):
+    s = _backdraft_table(cards, [("Rift Bolt", "p2")])  # 3 damage: half is 1.5, rounded down (107.1a)
+    _cast_backdraft(s)
+    settle(s)
+    assert life(s, "p2") == 37 and life(s, "p1") == 40 - 1
+    check(s)
+
+
+@pytest.mark.parametrize(("pick", "lost"), [("Pyroclasm", 2), ("Firebolt", 1)])
+def test_backdraft_its_controller_picks_which_sorcery_spell_counts(cards, pick, lost):
+    s = _backdraft_table(cards, [("Pyroclasm", None), ("Firebolt", "p2")])
+    _cast_backdraft(s)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and len(d.options) == 2
+    chosen = next(o.id for o in d.options if o.label.startswith(pick))
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[chosen])
+    settle(s)
+    assert life(s, "p1") == 40 - lost
+    check(s)
+
+
+def test_backdraft_does_nothing_when_no_sorcery_was_cast(cards):
+    s = _backdraft_table(cards, [])
+    _cast_backdraft(s)
+    settle(s)
+    assert life(s, "p1") == 40 and life(s, "p2") == 40
+    check(s)
+
+
+# -- End-Blaze Epiphany --
+def test_end_blaze_epiphany_is_full():
+    assert full("End-Blaze Epiphany")
+
+
+def _epiphany(cards, victim, x):
+    s = build(cards, ["End-Blaze Epiphany"], [victim])
+    target = put_new(s, victim, "p2")
+    c = to_hand(s, "End-Blaze Epiphany")
+    mana(s, R=1, C=x)
+    act(s, "p1", type="cast_spell", card_id=c.id, targets=[target.id], x_value=x)
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        if not s.state.zones.get("stack"):
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s, target
+
+
+def _exiled(s):
+    return [c for c in s.state.cards.values() if c.zone == "p1:exile" and c.name != "End-Blaze Epiphany"]
+
+
+@pytest.mark.parametrize(("victim", "power"), [("Grizzly Bears", 2), ("Twisted Abomination", 5)])
+def test_end_blaze_epiphany_exiles_cards_equal_to_the_dead_creatures_power_and_lets_you_play_one(cards, victim, power):
+    s, target = _epiphany(cards, victim, 3)
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and len(d.options) == power and len(_exiled(s)) == power  # (the cards are exiled face up)
+    pick = d.options[0]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[pick.id])
+    settle(s)
+    assert now(s, target).zone == "p2:graveyard"
+    card_id = pick.card_id or pick.id
+    other = next(c for c in _exiled(s) if c.id != card_id)
+    with pytest.raises(ActionError):  # only the chosen card may be played
+        act(s, "p1", type="play_land", card_id=other.id)
+    act(s, "p1", type="play_land", card_id=card_id)  # a Forest from the top: playable until the end of Alice's next turn
+    assert s.state.cards[card_id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_end_blaze_epiphany_does_nothing_more_when_the_creature_survives(cards):
+    s, target = _epiphany(cards, "Twisted Abomination", 1)
+    settle(s)
+    assert now(s, target).zone == "p2:battlefield" and not _exiled(s)
+    check(s)
+
+
+# -- Liberated Livestock --
+def test_liberated_livestock_is_full():
+    assert full("Liberated Livestock")
+
+
+def _livestock(cards):
+    s = build(cards, ["Liberated Livestock", "Murder", "Pacifism", "Holy Strength"])
+    herd = put_new(s, "Liberated Livestock")
+    to_hand(s, "Pacifism")
+    strength = to_hand(s, "Holy Strength")
+    act(s, "p1", type="move", card_ids=[strength.id], to={"zone": "graveyard"})
+    murder = to_hand(s, "Murder")
+    mana(s, B=2, C=1)
+    act(s, "p1", type="cast_spell", card_id=murder.id, targets=[herd.id])
+    for _ in range(10):  # (not settle: the questions about the Auras are the test's)
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s, herd
+
+
+def _tokens(s):
+    return {c.name: c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"}
+
+
+def test_liberated_livestock_dies_into_three_tokens_each_may_get_an_aura_from_hand_or_graveyard(cards):
+    s, herd = _livestock(cards)
+    assert now(s, herd).zone == "p1:graveyard" and sorted(_tokens(s)) == ["Bird", "Cat", "Ox"]
+    asked = []
+    for _ in range(3):  # one question for each token, in turn
+        d = s.state.rules.decision
+        assert d is not None and d.player == "p1" and d.min_choices == 0
+        names = sorted(o.label for o in d.options)
+        asked.append(names)
+        pick = next((o.id for o in d.options if o.label == "Pacifism"), None) if len(asked) == 1 else \
+            next((o.id for o in d.options if o.label == "Holy Strength"), None) if len(asked) == 3 else None
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[pick] if pick else [])
+    settle(s)
+    tokens = _tokens(s)
+    attached = {name: sorted(c.name for c in s.state.cards.values() if c.attached_to == t.id) for name, t in tokens.items()}
+    assert asked[0] == ["Holy Strength", "Pacifism"]  # from the hand and the graveyard alike
+    assert sorted(a for v in attached.values() for a in v) == ["Holy Strength", "Pacifism"]
+    check(s)
+
+
+# -- The Master, Formed Anew --
+MASTER = "The Master, Formed Anew"
+
+
+def test_the_master_formed_anew_is_full():
+    assert full(MASTER)
+
+
+def _master(cards, with_body_thief=True):
+    s = build(cards, [MASTER, "Grizzly Bears", "Elvish Visionary"])
+    bears = put_new(s, "Grizzly Bears")
+    visionary = hand_new(s, "Elvish Visionary")
+    act(s, "p1", type="move", card_ids=[visionary.id], to={"zone": "exile"})  # in exile with no counter: never offered
+    master = to_hand(s, MASTER)
+    mana(s, U=1, B=1)
+    act(s, "p1", type="cast_spell", card_id=master.id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s, master, bears, visionary
+
+
+def test_the_master_enters_as_a_copy_of_the_creature_its_body_thief_exiled(cards):
+    s, master, bears, visionary = _master(cards)
+    offered = None
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "confirm":  # Body Thief: "you may exile a creature you control and put a takeover counter on it"
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"])
+        elif "copy" in d.prompt.lower():
+            offered = [o.id for o in d.options]
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+        else:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id] if bears.id in [o.id for o in d.options] else [d.options[0].id])
+    assert offered is not None and bears.id in offered and visionary.id not in offered  # (the one with a takeover counter only)
+    assert now(s, master).zone == "p1:battlefield" and ch(s, master).name == "Grizzly Bears"
+    check(s)
+
+
+def test_the_master_enters_as_itself_when_nothing_with_a_takeover_counter_is_in_exile(cards):
+    s, master, bears, visionary = _master(cards)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "confirm":
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=["no"])
+        else:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    assert now(s, master).zone == "p1:battlefield" and ch(s, master).name == MASTER and now(s, bears).zone == "p1:battlefield"
+    check(s)
+
+
+# -- Overblaze --
+def test_overblaze_is_full():
+    assert full("Overblaze")
+
+
+def test_overblaze_doubles_the_damage_its_target_deals_this_turn_and_only_its(cards):
+    from tests.wave110b_kit import attack, through_combat
+
+    s = build(cards, ["Overblaze", "Grizzly Bears", "Elvish Visionary"])
+    bears, visionary = put_new(s, "Grizzly Bears"), put_new(s, "Elvish Visionary")
+    d = s.state.rules.decision
+    while d is not None:  # (the Visionary's draw)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        d = s.state.rules.decision
+    cast_on(s, "Overblaze", bears)
+    attack(s, bears, visionary)
+    through_combat(s)
+    assert life(s, "p2") == 40 - 4 - 1  # Bears: 2 doubled; the Visionary: 1, not doubled
+    check(s)
+
+
+def test_overblaze_lasts_only_this_turn(cards):
+    from tests.wave110b_kit import attack, through_combat
+
+    s = build(cards, ["Overblaze", "Grizzly Bears"])
+    bears = put_new(s, "Grizzly Bears")
+    cast_on(s, "Overblaze", bears)
+    to_phase(s, "main1", turn=3)
+    attack(s, bears)
+    through_combat(s)
+    assert life(s, "p2") == 40 - 2
+    check(s)
+
+
+# -- Lynde, Cheerful Tormentor --
+LYNDE = "Lynde, Cheerful Tormentor"
+CURSE = "Curse of the Pierced Heart"
+
+
+def test_lynde_is_full():
+    assert full(LYNDE)
+
+
+def _lynde(cards):
+    s = build(cards, [LYNDE, CURSE, "Disenchant"])
+    lynde = put_new(s, LYNDE)
+    s.state.rules.controlled_since[lynde.id].turn = 0
+    curse = cast_on(s, CURSE, "p1")  # an Aura that enchants a player: Alice herself
+    assert now(s, curse).zone == "p1:battlefield" and now(s, curse).attached_player == "p1"
+    return s, lynde, curse
+
+
+def test_lynde_returns_a_curse_that_went_to_your_graveyard_attached_to_you_at_the_next_end_step(cards):
+    s, lynde, curse = _lynde(cards)
+    cast_on(s, "Disenchant", curse)
+    assert now(s, curse).zone == "p1:graveyard"
+    to_phase(s, "end", turn=1)
+    settle(s)
+    assert now(s, curse).zone == "p1:battlefield" and now(s, curse).attached_player == "p1"
+    check(s)
+
+
+@pytest.mark.parametrize("move", [True, False])
+def test_lynde_may_attach_a_curse_you_have_to_an_opponent_and_draw_two(cards, move):
+    s, lynde, curse = _lynde(cards)
+    hand = len(s.state.zones.get("p1:hand", []))
+    to_phase(s, "upkeep", turn=3)  # Alice's next upkeep: the Curse's own trigger and Lynde's (ordered first, say)
+    d = s.state.rules.decision
+    while d is not None and d.kind == "order":
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+        d = s.state.rules.decision
+    for _ in range(10):
+        if d is not None and "attach a Curse" in d.prompt:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and d.min_choices == 0 and [o.id for o in d.options] == [curse.id]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[curse.id] if move else [])
+    settle(s)
+    assert now(s, curse).attached_player == ("p2" if move else "p1")
+    assert len(s.state.zones.get("p1:hand", [])) == hand + 1 + (2 if move else 0)  # (the turn's own draw, then Lynde's two)
+    check(s)
+
+
+# -- Runesword --
+def test_runesword_is_full():
+    assert full("Runesword")
+
+
+def _runesword_combat(cards, blocker, sword, regen_mana):
+    """Alice's Runesword and attacking Grizzly Bears, blocked by Bob's ``blocker``; Bob regenerates it (if he can) while the ability is on the stack."""
+    s = build(cards, ["Runesword", "Grizzly Bears"], [blocker])
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_prefs", response="on")  # every priority is stopped at
+    rune, bears = put_new(s, "Runesword"), put_new(s, "Grizzly Bears")
+    wall = put_new(s, blocker, "p2")
+    s.state.rules.controlled_since[bears.id].turn = 0
+    s.state.rules.controlled_since[rune.id].turn = 0
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": bears.id}])
+    if sword:
+        mana(s, C=3)
+        act(s, "p1", type="activate_ability", card_id=rune.id, ability=ability(s, rune, "{3}"), targets=[bears.id])
+    if regen_mana:
+        if not sword:
+            act(s, "p1", type="pass_priority")  # (an activation passes on its own; otherwise Alice must pass for Bob to act)
+        mana(s, "p2", B=1)
+        act(s, "p2", type="activate_ability", card_id=wall.id, ability=ability(s, wall, "{B}"))
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            break
+        if s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    return s, rune, bears, wall
+
+
+def test_runesword_exiles_the_creature_its_target_killed_instead_of_letting_it_regenerate(cards):
+    s, rune, bears, wall = _runesword_combat(cards, "Drudge Skeletons", sword=True, regen_mana=True)
+    assert now(s, wall).zone == "p2:exile"
+    check(s)
+
+
+def test_without_runesword_the_blocker_regenerates(cards):
+    s, rune, bears, wall = _runesword_combat(cards, "Drudge Skeletons", sword=False, regen_mana=True)
+    assert now(s, wall).zone == "p2:battlefield"
+    check(s)
+
+
+def test_runesword_is_sacrificed_when_the_pumped_creature_leaves_the_battlefield(cards):
+    s, rune, bears, wall = _runesword_combat(cards, "Twisted Abomination", sword=True, regen_mana=False)
+    assert now(s, bears).zone == "p1:graveyard" and now(s, rune).zone == "p1:graveyard"  # (the pumped Bears dies to a 5-power blocker)
     check(s)

@@ -85,6 +85,10 @@ def static_definition(text: str) -> Definition | None:
     if (destination := attack_destinations.static_definition(text)) is not None:
         return destination
 
+    from app.rules import wave110f_cards  # -- (wave 110F) -- Heat Wave: a life payment to block
+
+    if (life := wave110f_cards.block_life_definition(text)) is not None:
+        return life
     if (nonmana := nonmana_combat_costs.parse(text)) is not None:
         return nonmana
 

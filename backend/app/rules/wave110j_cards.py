@@ -4,6 +4,7 @@ Each entry matches one whole ability's Oracle text exactly and nothing else; any
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
@@ -30,9 +31,70 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
 }
 
 
+_CAP = re.compile(r"(?P<name>\w+) can't have more than (?P<n>one|two|three|four|five|six|seven|eight|nine|ten) (?P<kind>[a-z]+) counters on it\.?")
+_NUMS = {w: i for i, w in enumerate(["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"])}
+
+
+def excess(plan: Any) -> list[tuple[Any, str, int]]:
+    """704.5r: "~ can't have more than N X counters on it" (Rasputin Dreamweaver) is a state-based action, so every way
+    counters arrive (proliferate, enters with, moved, put) is trimmed to N the same way."""
+    from app.rules import cast_limits
+
+    return [(src, d["counter"], over) for src, d in cast_limits._statics(plan.state, plan.info, "counter_cap110j")
+            if src.zone.endswith(":battlefield") and (over := src.counters.get(d["counter"], 0) - d["n"]) > 0]
+
+
+def counter_key(c: Any, ev: dict[str, Any]) -> str:
+    return f"counters110j:{c.id}:{ev['target']}"
+
+
+def counters_left(plan: Any, sim: dict[str, Any], c: Any, ev: dict[str, Any]) -> int:
+    """Rock Hydra: the counters still on the recipient that this damage batch hasn't used to prevent damage yet (the table changes after the batch, 615.5)."""
+    card = plan.state.cards.get(ev["target"])
+    return int(sim.get("shields", {}).get(counter_key(c, ev), card.counters.get(c.op["counter"], 0) if card is not None else 0))
+
+
+def caster(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> str:
+    """Swindler's Scheme: "that opponent may cast the revealed card" — whoever cast the spell that triggered it (permissions.free_cast)."""
+    if e.get("caster") == "event":
+        found = values_object(plan, ctx)
+        if found is not None:
+            return str(found[0].controller)
+    return str(ctx["controller"])
+
+
+def values_object(plan: Any, ctx: dict[str, Any]) -> tuple[Any, Any] | None:
+    from app.rules import values
+
+    return values._object(plan, ctx, "event")
+
+
+def holds(plan: Any, ctx: dict[str, Any], cond: Def) -> bool:
+    """Rasputin Dreamweaver: the source was untapped on the battlefield as this turn began (500.1, before the untap step). Swindler's Scheme: see below."""
+    if cond.get("w110j") == "unattached_ninja":  # Shuriken: the cost unattached the Equipment from a Ninja (701.3d, 205.3)
+        sid = ctx.get("stack_id") or ctx.get("source_card")
+        record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+        return record is not None and record.unattached_ninja110j
+    if cond.get("w110j") == "shares_event_type":  # Swindler's Scheme: 205.2, the revealed card and the spell that triggered it
+        from app.rules import values
+
+        card, spell = values._object(plan, ctx, cond["object"]), values._object(plan, ctx, "event")
+        return card is not None and spell is not None and bool(set(card[1].types) & set(spell[1].types))
+    return ctx.get("source_object") in plan.rules.began_untapped110j
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
+
+    if (cap := _CAP.fullmatch(ability.text.strip())) is not None and ch.name.startswith(cap["name"]):  # (the short name)
+        return {"kind": "static", "static": "counter_cap110j", "counter": cap["kind"], "n": _NUMS[cap["n"]], "effects": []}
+    if ability.text.strip() == _ES:
+        return _shapeshifter()
+    if (shuriken := _SHURIKEN.fullmatch(ability.text.strip())) is not None:
+        return _shuriken(shuriken["oid"], ability, ch)
+    if (blight := _BLIGHT.fullmatch(ability.text.strip())) is not None:
+        return _nettlevine(blight["oid"], ability, ch)
     if (built := _BUILD.get(ability.text.strip())) is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
@@ -45,6 +107,43 @@ def _farmer(d: Def) -> Def:
     return {**d, "effects": [{**e, "controller110j": True} if e in until else e for e in d["effects"]]} if len(until) == 1 else d
 
 
+def _hydra(d: Def) -> Def:
+    """Rock Hydra: for each 1 damage, a counter is removed and that 1 damage prevented — only as much is prevented as there are counters (op prevent_counters110j)."""
+    op = d.get("op") or {}
+    if d.get("event") != "damage" or op.get("do") != "prevent_all" or not op.get("rider"):
+        raise ValueError("Rock Hydra: unexpected native shape")
+    return {**d, "op": {**op, "do": "prevent_counters110j", "counter": "+1/+1"}}
+
+
+_BUILD["For each 1 damage that would be dealt to this creature, if it has a +1/+1 counter on it, remove a +1/+1 counter from it and prevent that 1 damage."] = (
+    "If this creature would be dealt damage while it has a +1/+1 counter on it, prevent that damage and remove that many +1/+1 counters from it.", _hydra)
+_BUILD["{4}, {T}: An opponent chooses target creature they control. Create a token that's a copy of that creature. That token gains haste until end of turn. Exile the token at the beginning of the next end step. Activate only as a sorcery."] = (
+    "{4}, {T}: Create a token that's a copy of target creature. That token gains haste until end of turn. Exile the token at the beginning of the next end step. Activate only as a sorcery.",
+    lambda d: {**d, "delegated_target": "opponent", "delegated_controls110d": True})  # Echo Chamber: the opponent announces the target among their own creatures (wave 110D, Preacher)
+def _keeper(d: Def) -> Def:
+    """Keeper of the Dead: the opponent is chosen as the ability is activated (601.2c) among those with at least two fewer creature cards in their graveyard."""
+    groups = d.get("targets") or []
+    if not groups or groups[0].get("what") != "opponent":
+        raise ValueError("Keeper of the Dead: unexpected native shape")
+    return {**d, "targets": [{**groups[0], "what": "opponent_as:gy2_110j"}, *groups[1:]]}
+
+
+_BUILD["{B}, {T}: Choose target opponent who has at least two fewer creature cards in their graveyard than you do as you activate this ability. Destroy target nonblack creature that player controls."] = (
+    "{B}, {T}: Choose target opponent. Destroy target nonblack creature that player controls.", _keeper)
+def _cycle(d: Def) -> Def:
+    """Cycle of Life: the target is a creature the controller cast this turn (targets.legal_targets cast_creature110j)."""
+    if not str((d.get("target") or {}).get("what")).startswith("sel:") or d.get("targets"):
+        raise ValueError("Cycle of Life: unexpected native shape")
+    return {**d, "target": {**d["target"], "what": "cast_creature110j"}}
+
+
+_BUILD["Return this enchantment to its owner's hand: Target creature you cast this turn has base power and toughness 0/1 until your next upkeep. At the beginning of your next upkeep, put a +1/+1 counter on that creature."] = (
+    "Return this enchantment to its owner's hand: Target creature you control has base power and toughness 0/1 until your next upkeep. At the beginning of your next upkeep, put a +1/+1 counter on that creature.", _cycle)
+_BUILD["Whenever Agent Maria Hill becomes tapped to pay a teamwork cost, put a +1/+1 counter on her and draw a card."] = (
+    "Whenever this creature becomes tapped, put a +1/+1 counter on this creature and draw a card.",
+    lambda d: {**d, "cond": {"event": "teamwork_tapped110j", "subject": "self"}})
+_BUILD["At the beginning of your upkeep, if Rasputin started the turn untapped, put a dream counter on it."] = (
+    "At the beginning of your upkeep, put a dream counter on this creature.", lambda d: {**d, "if": {"w110j": "began_untapped"}})
 _BUILD["{T}: Target land becomes a Swamp until its controller's next untap step."] = (
     "{T}: Target land becomes a Swamp until your next turn.", _farmer)
 
@@ -421,3 +520,213 @@ def _livio_return(d: Def) -> Def:
 
 _BUILD["{2}{W}, {T}: Return all exiled cards with aegis counters on them to the battlefield under their owners' control."] = (
     "{2}{W}, {T}: Return all cards from exile to the battlefield under their owners' control.", _livio_return)
+
+
+_READING: set[str] = set()
+
+
+def has_keyword(plan: Any, source: Any, keyword: str) -> bool:
+    """Manor Gargoyle: "as long as it has defender" reads the permanent's own abilities while the static is being applied. Read them as if
+    that static were off (613.8: it adds indestructible, which cannot change whether it has defender); the guard stops the loop."""
+    if source.id in _READING:
+        return False
+    _READING.add(source.id)
+    try:
+        return keyword in plan.ch(source).keywords
+    finally:
+        _READING.discard(source.id)
+
+
+_ES = "As long as an opponent controls a creature with flying not named Escaped Shapeshifter, this creature has flying. The same is true for first strike, trample, and protection from any color."
+
+
+def opponent_has(plan: Any, source: Any, controller: str, keyword: str) -> bool:
+    """Escaped Shapeshifter: an opponent controls a creature not named Escaped Shapeshifter with the keyword; "protection:R" is protection from that color
+    (702.16: read by testing the creature's protection qualities against a bare object of that color)."""
+    from app.rules import protection
+
+    if source.id in _READING:  # (two of them: each reads the other, which is named like it and so does not count — stop the loop)
+        return False
+    _READING.add(source.id)
+    try:
+        for c in plan.state.cards.values():
+            if c.zone.endswith(":battlefield") and c.controller != controller and c.controller in plan.live() and c.name != source.name:
+                have = plan.ch(c)
+                if not have.is_creature or have.name == source.name:
+                    continue
+                if keyword.startswith("protection:"):
+                    bare = replace(have, colors=frozenset({keyword[-1]}), types=frozenset(), subtypes=frozenset(), supertypes=frozenset(), name="")
+                    if protection.protected_from(have, bare):
+                        return True
+                elif keyword in have.keywords:
+                    return True
+        return False
+    finally:
+        _READING.discard(source.id)
+
+
+def _shapeshifter() -> Def:
+    from app.rules import statics
+
+    def part(**kw: Any) -> Def:
+        return statics._definition("self", None, [{"static": "opp_keyword110j", "keyword": kw.pop("when")}], **kw)
+
+    first = part(when="flying", keywords=["flying"])
+    colors = {"W": "white", "U": "blue", "B": "black", "R": "red", "G": "green"}
+    return {**first, "also": [part(when="first strike", keywords=["first strike"]), part(when="trample", keywords=["trample"]),
+                              *(part(when=f"protection:{c}", grants=[f"Protection from {n}"]) for c, n in colors.items())]}
+
+
+_BUILD["Whenever an opponent casts a spell from their hand, you may reveal the top card of your library. If it shares a card type with that spell, counter that spell and that opponent may cast the revealed card without paying its mana cost."] = (
+    "Whenever an opponent casts a spell from their hand, you may reveal the top card of your library. If it's a creature card, counter that spell.", lambda d: _scheme(d))
+
+
+def _scheme(d: Def) -> Def:
+    """Swindler's Scheme: the revealed card shares a card type with the spell (205.2, conditions "w110j": shares_event_type); the opponent who cast it may then
+    cast the revealed card for free (permissions.free_cast caster "event")."""
+    fx = d["effects"]
+    gate = next((i for i, e in enumerate(fx) if e.get("do") == "only_if"), None)
+    if gate is None or fx[gate]["cond"].get("object") != "ref:e0" or fx[gate]["skip"] != 1 or gate + 2 != len(fx):
+        raise ValueError("Swindler's Scheme: unexpected native shape")
+    cond = {"w110j": "shares_event_type", "object": "ref:e0"}
+    fx[gate]["cond"] = cond
+    fx += [{"do": "only_if", "cond": cond, "skip": 1},
+           {"do": "free_cast", "zone": "looked", "filter": None, "mv": None, "optional": True, "caster": "event"}]
+    return d
+
+
+_BUILD["{U}, Sacrifice this creature: Turn all cards exiled with this creature face up. Counter all spells with those names."] = (
+    "{U}, Sacrifice this creature: Draw a card.",
+    lambda d: {**d, "effects": [{"do": "turn_up_linked100g", "who": "exiled_with", "as": "grimoire110j"}, {"do": "counter_names110j", "who": "exiled_with"}]})
+
+
+def counter_names(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Grimoire Thief: 701.6 counter every spell (any controller) with the name of a card exiled with this creature (607.2a; the cards are face up now)."""
+    from app.rules import effects
+
+    names = {plan.state.cards[c].name for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":exile")}
+    for sid in list(plan.state.zones.get("stack", ())):
+        card = plan.state.cards.get(sid)
+        if card is not None and card.ability is None and card.name in names:
+            effects.counter_object(plan, sid, ctx["controller"], source=ctx.get("source_card"))
+    return True
+
+
+PRIMITIVES["counter_names110j"] = counter_names
+
+
+# -- Turf War (wave 110J) -- 613.1b control change; the creature's controller (not Turf War's) chooses the land (608.2d, "of their choice"), 701.26 untap
+_TURF = ("Whenever a creature deals combat damage to a player, if that player controls one or more lands with contested counters on them, "
+         "that creature's controller gains control of one of those lands of their choice and untaps it.")
+_BUILD[_TURF] = ("Whenever a creature deals combat damage to a player, if that player controls a land with a contested counter on it, you draw a card.",
+                 lambda d: {**d, "effects": [{"do": "turf110j"}]})
+
+
+def _turf_take(plan: Any, ctx: Any, land: str, who: str) -> None:
+    from app.rules import effects
+
+    effects.PRIMITIVES["gain_control"](plan, ctx, {"do": "gain_control", "who": f"object:{plan.oid(land)}", "to": f"player:{who}", "untap": True})
+
+
+def turf(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+
+    found, hit = context.info(plan, ctx, context.EVENT), next(iter((ctx.get("event") or {}).get("players") or []), None)
+    lands = [c.id for c in plan.state.cards.values() if found and c.zone.endswith(":battlefield") and c.controller == hit
+             and "Land" in plan.ch(c).types and c.counters.get("contested")]
+    if not lands or found is None:
+        return True
+    who = found[0].controller
+    if len(lands) > 1:
+        decide(plan, player=who, kind="choose_cards", prompt="Gain control of one of the lands with contested counters", min_choices=1, max_choices=1,
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "a land", card_id=c) for c in lands], resume={"step": "turf110j", "ctx": ctx, "who": who})
+        return False
+    _turf_take(plan, ctx, lands[0], who)
+    return True
+
+
+def resume_turf(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    _turf_take(plan, d.resume["ctx"], chosen[0], d.resume["who"])
+    continue_effects(plan, d.resume["ctx"])
+
+
+PRIMITIVES["turf110j"] = turf
+RESUME: dict[str, Any] = {"turf110j": resume_turf}
+
+
+# -- Kianne, Dean of Substance // Imbraham, Dean of Theory (wave 110J) -- study counters on exiled cards (122.1: counters on a card in exile are legal)
+def _kianne(d: Def) -> Def:
+    land = d["effects"][1]["cond"]
+    return {**d, "effects": [d["effects"][0], d["effects"][1], d["effects"][2], {"do": "only_if", "cond": {"not": land}, "skip": 1},
+                             {"do": "add_counters", "who": "ref:e0", "kind": "study", "n": 1}]}
+
+
+_BUILD["{T}: Exile the top card of your library. If it's a land card, put it into your hand. Otherwise, put a study counter on it."] = (
+    "{T}: Exile the top card of your library. If it's a land card, return it to your hand.", _kianne)
+
+
+def _imbraham(d: Def) -> Def:
+    from app.rules import selectors
+
+    sel = selectors.parse("card you own in exile with a study counter on it")
+    assert sel is not None
+    return {**d, "effects": [*d["effects"], {"do": "player_chooses", "who": "you", "sel": sel.key(), "n": 1, "label": "card with a study counter", "zone": "exile",
+                                             "upto": True, "optional": True, "as": "stu"}, {"do": "bounce", "who": "ref:stu"}]}
+
+
+_BUILD["{X}{U}{U}, {T}: Exile the top X cards of your library and put a study counter on each of them. Then you may put a card you own in exile with a study counter on it into your hand."] = (
+    "{X}{U}{U}, {T}: Exile the top X cards of your library and put a study counter on each of them.", _imbraham)
+
+
+# -- Memory Vampire (wave 110J) -- the mill clause (any number of target players, 115.1) then the collect-evidence reflexive trigger (701.59, 603.12) of the native wording
+def _vampire(d: Def) -> Def:
+    mill = {"do": "mill", "who": "target:0", "n": {"event_amount": 1}}
+    return {**d, "targets": [{"what": 'sel:{"player":"any"}', "min": 0, "max": 250}], "effects": [mill, *d["effects"]]}
+
+
+_BUILD["Whenever this creature deals combat damage to a player, any number of target players each mill that many cards. Then you may collect evidence 9. When you do, you may cast target nonland card from defending player's graveyard without paying its mana cost."] = (
+    "Whenever this creature deals combat damage to a player, you may collect evidence 9. When you do, you may cast target nonland card from that player's graveyard without paying its mana cost.", _vampire)
+
+
+# -- Nettlevine Blight (wave 110J) -- the granted trigger names its Aura (607.1a, layers bind ‹granter#oid›): its controller (the permanent's) sacrifices the permanent,
+# then chooses (not a target, 608.2d) a creature or land they control; the Aura, still on the battlefield, is attached to it (701.3a, 303.4f)
+_BLIGHT = re.compile(r"At the beginning of your end step, sacrifice (?:this permanent|~) and attach ‹granter(?:#(?P<oid>[^›]*))?› to a creature or land you control\.")
+
+
+def _nettlevine(oid: str | None, ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts
+    from app.rules.nontarget_creature_choices import key
+
+    native = scripts.define(replace(ability, text="At the beginning of your end step, sacrifice this permanent."), ch)
+    if native is None:
+        return None
+    pick = {"do": "player_chooses", "who": "you", "sel": key("creature or land you control"), "n": 1, "label": "creature or land", "as": "nv110j"}
+    # (no object id yet while the grant is only being read: attaches nothing)
+    return {**native, "effects": [*native["effects"], pick, {"do": "attach_to", "src": f"obj:{oid or ''}", "who": "ref:nv110j"}]}
+
+
+# -- Shuriken (wave 110J) -- the granted activated ability names its Equipment: it deals the damage (120.3), the cost unattached it (701.3d) from the creature whose
+# type counts (it was a Ninja or not), and the target's controller (as it last existed, 608.2h) gains control of the Equipment unless it was a Ninja
+_SHURIKEN = re.compile(r"\{T\}, Unattach ‹granter(?:#(?P<oid>[^›]*))?›: ‹granter(?:#[^›]*)?› deals 2 damage to target creature\. "
+                       r"That creature's controller gains control of ‹granter(?:#[^›]*)?› unless it was unattached from a Ninja\.")
+
+
+def _shuriken(oid: str | None, ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts
+
+    g = f"‹granter#{oid}›" if oid else "‹granter›"
+    native = scripts.define(replace(ability, text=f"{{T}}, Unattach {g}: {g} deals 2 damage to target creature."), ch)
+    if native is None:
+        return None
+    take = {"do": "gain_control", "who": f"obj:{oid or ''}", "to": "target_player_or_controller"}
+    return {**native, "effects": [*native["effects"], {"do": "only_if", "cond": {"not": {"w110j": "unattached_ninja"}}, "skip": 1}, take]}
+
+
+# Bomb Squad: 603.8 state trigger per creature (state_triggers._each); "that creature" is the event object
+_BUILD["Whenever a creature has four or more fuse counters on it, remove all fuse counters from it and destroy it. That creature deals 4 damage to its controller."] = (
+    "Whenever a creature attacks, remove all fuse counters from it and destroy it. That creature deals 4 damage to its controller.",
+    lambda d: {**d, "trigger": "state", "cond": None, "state": {"each110j": ["fuse", 4]}})

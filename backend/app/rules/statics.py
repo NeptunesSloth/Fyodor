@@ -219,6 +219,8 @@ def parse(text: str) -> Definition | None:
         return {**_definition("self", None, []), "set_colors": ["@color"]}
     if body == '~ is the chosen type':
         return {'kind': 'static', 'static': 'chosen_land_type', 'effects': [], 'chosen_type': 'land'}
+    if body == "Mana abilities of ~ cost an additional 1 life to activate":  # -- mana ability life (wave 110A) -- applied by layers._with_rules (wave110a_portal)
+        return _definition("self", None, [])
     if body == "~ is the chosen type in addition to its other types":
         return {**_definition("self", None, []), "remove_types": [], "add_subtypes": [], "chosen_type": True}
     # -- untap choice (wave 7F) -- 502.3: asked in the untap step (app/rules/untap_choice.py)
@@ -313,6 +315,7 @@ def parse(text: str) -> Definition | None:
     body = re.sub(r"^~ must be blocked if able, and ~ (must be blocked by two or more creatures if able)$", r"~ must be blocked if able and \1", body)
     # -- commanders (wave 47A) -- 509.1b: "Tromokratis can't be blocked unless all creatures defending player controls block it." is a block restriction (the rule
     # block_by_all), not a condition; "has hexproof unless it's attacking or blocking" is "has hexproof as long as it isn't attacking or blocking" (611.3a)
+    body = body.replace(" can't be blocked unless it's attacking its owner or a permanent its owner controls", " can't be blocked unless_owner110o")  # -- (wave 110O) -- one rule, not a condition
     body = re.sub(r"^(?P<s>.+) can't be blocked unless all creatures defending player controls block (?:it|~)$", r"\g<s> can't be blocked by fewer than all creatures defending player controls", body)
     body = re.sub(r"^(?P<s>~|It) (?P<v>has|have) (?P<k>[a-z ]+?) unless it's (?P<c>attacking or blocking|attacking|blocking)$", r"\g<s> \g<v> \g<k> as long as it isn't \g<c>", body)
     # -- attached (wave 100F) -- 502.3: "Enchanted creature doesn't untap during its controller's untap step unless that player is the monarch." (Fall from Favor):
@@ -785,7 +788,7 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
     if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
         return goaded["s"], goaded["p"]
-    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|(?<!you )(?<!but )don't|doesn't|assigns?(?= combat damage)|(?:crews|saddles)(?= (?:Vehicles|Mounts)))\b", body)  # (assigns: wave 6E; crews: 17C; wave 42A: "but don't own" is part of the subject, 108.3)
+    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|(?<!you )(?<!but )don't|doesn't|assigns?(?= combat damage)|(?:crews|saddles)(?= (?:Vehicles|Mounts))|stations(?= permanents))\b", body)  # (assigns: wave 6E; crews: 17C; wave 42A: "but don't own" is part of the subject, 108.3)
     if m is None or m.start() == 0:
         return None, None
     return body[: m.start()].strip(), body[m.start():].strip()
@@ -1175,7 +1178,8 @@ RULES.update({"is goaded": ("goaded:@you",), "are goaded": ("goaded:@you",)})
 # 508.1c: a restriction on where it attacks — "you" is the Aura's controller, app/rules/combat.py ``attack_forbidden``)
 RULES.update({"can't attack you or planeswalkers you control": ("cant_attack_player_pw:@you",),
               "can't attack you": ("cant_attack_player:@you",),
-              "can't attack its owner": ("cant_attack_player:@owner",)})  # -- group choices (wave 53D) -- Elrond of the White Council's grant: "@owner" is the owner of the creature it restricts
+              "can't attack its owner": ("cant_attack_player:@owner",),
+              "can't attack its owner or planeswalkers its owner controls": ("cant_attack_player_pw:@owner",)})  # (-- wave 110A -- Xantcha, 508.1b)  # -- group choices (wave 53D) -- Elrond of the White Council's grant: "@owner" is the owner of the creature it restricts
 # -- conditional statics (wave 4B) -- 702.3b: a creature with defender can't attack; this lets it (app/rules/combat.py)
 RULES.update({"can attack as though it didn't have defender": ("attack_despite_defender",),
               "can attack as though they didn't have defender": ("attack_despite_defender",)})
@@ -1249,10 +1253,14 @@ def _rule(piece: str) -> list[str] | None:
         return [f"crew_plus:{_num(m['n'])}"]
     if piece in ("crews Vehicles using its toughness rather than its power", "saddles Mounts and crews Vehicles using its toughness rather than its power"):
         return ["crew_toughness"]
+    if piece == "stations permanents using its toughness rather than its power":  # -- station (wave 110E) -- 702.184c (values._stat_of "station110e")
+        return ["station_toughness110e"]
     m = re.fullmatch(r"can't be blocked except by (?P<n>\w+) or more creatures", piece)
     if m:
         n = _num(m["n"])
         return [f"min_blockers:{n}"] if n is not None and n >= 2 else None
+    if piece == "can't be blocked unless_owner110o":  # -- (wave 110O) -- Become the Pilot; see combat.block_problem (statics.parse protects its "unless" from the condition split)
+        return ["cant_be_blocked_unless_owner110o"]
     if piece == "can't be blocked by creatures with greater power":
         return ["cant_be_blocked_by_power:greater"]
     if piece == "can't block creatures with power greater than ~'s power":
@@ -1396,6 +1404,9 @@ def _condition(text: str) -> dict[str, Any] | None:
     m = re.fullmatch(r"(?:it|~)(?: isn't|'s not| is not) (?P<test>attacking or blocking|attacking|blocking|tapped)", c)
     if m:
         return {"static": "not", "cond": {"static": "self", "test": m["test"].replace(" ", "_")}}
+    m = re.fullmatch(r"(?:it|this creature|~) has (?P<kw>defender)", c)  # -- (wave 110J) -- Manor Gargoyle: wave110j_cards.has_keyword
+    if m:
+        return {"static": "self_keyword110j", "keyword": m["kw"]}
     if c in ("it entered this turn", "~ entered this turn"):  # -- refused modal/conditional (wave 3R1) -- (Crew Captain)
         return {"history": "entered_self"}
     if re.fullmatch(r"(?:it|this creature|~) devoured an? creature", c):  # -- keyword mechanics (wave 48B) -- 702.82b: "This creature has flying and trample if it devoured a creature." (Hellkite Hatchling)
@@ -1509,6 +1520,14 @@ def holds(plan: Plan, cond: dict[str, Any], *, source: CardInstance, controller:
         kinds = [cond["counter"]] if cond["counter"] else list(source.counters)
         total = sum(source.counters.get(k, 0) for k in kinds)
         return total >= cond["n"] and (cond.get("max") is None or total <= cond["max"])  # (max: wave 9D, 711.2a)
+    if kind == "self_keyword110j":
+        from app.rules import wave110j_cards
+
+        return wave110j_cards.has_keyword(plan, source, cond["keyword"])
+    if kind == "opp_keyword110j":
+        from app.rules import wave110j_cards
+
+        return wave110j_cards.opponent_has(plan, source, controller, cond["keyword"])
     if kind == "share_color110d":  # (wave 110D) every nonartifact creature on the battlefield has one color in common; a colorless one breaks it
         shared = None
         for c in plan.state.cards.values():

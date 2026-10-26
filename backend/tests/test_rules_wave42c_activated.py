@@ -569,7 +569,5 @@ def test_fertilid_cannot_be_activated_without_the_mana_and_keeps_its_counter(car
     check(s)
 
 
-# ---- still manual ---------------------------------------------------------------------------------------------------------------------------------------
-@pytest.mark.parametrize("name", ["Jegantha, the Wellspring", "Shaun & Rebecca, Agents", "Baba Lysaga, Night Witch", "Diaochan, Artful Beauty"])
-def test_still_manual(cards, name):
-    assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL", name
+# (Jegantha: tests/test_rules_mana_allocation_native.py; Shaun & Rebecca: tests/test_rules_mana_resolution_profiles.py; Baba Lysaga: tests/test_rules_paid_sacrifice_effects.py;
+# Diaochan: tests/test_rules_wave110d_opp.py - all FULL since)

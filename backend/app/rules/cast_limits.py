@@ -539,7 +539,7 @@ def cycling_problem(state: GameState, info: CardInfo | None) -> str | None:
     return f"{source.name or 'A permanent'}: players can't cycle cards" if source is not None else None
 
 
-def land_problem(state: GameState, player: str, ch: Characteristics, info: CardInfo | None = None) -> str | None:
+def land_problem(state: GameState, player: str, ch: Characteristics, info: CardInfo | None = None, zone: str = '') -> str | None:
     """Why a stored limit forbids ``player`` playing this land now (305.1), or None: "lands with the chosen name can't be played" until a turn (the name is the bound ``name:`` of its spell selector)."""
     r = state.rules
     if info is not None and 'Basic' not in ch.supertypes:
@@ -548,6 +548,8 @@ def land_problem(state: GameState, player: str, ch: Characteristics, info: CardI
                 return f"{src.name}: you can't play a nonbasic land with the same name as a nontoken permanent"
     for x in r.cast_limits if r is not None else ():
         if x.get("lands") and x.get("player") == player and _record_live(state, x):
+            if x.get("from") and not any(zone.endswith(f":{z}") for z in x["from"]):  # -- one-card wordings (wave 110H) -- Memory Vessel: lands from hand only (305.1)
+                continue
             if not x.get("filter"):
                 return f"{x.get('label') or 'An effect'}: you can't play lands now"
             names = [e[5:] for e in selectors.from_key(x["filter"]).extras if e.startswith("name:")]
@@ -721,7 +723,7 @@ _KINDS = ("cant_cycle", "hexproof_targeting", "cast_limit", "activate_as_haste",
           "cant_enter", "cant_counters", "cant_remove_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap", "cant_target", "cant_play_gy_lands",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
-          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
+          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a", "counter_cap110j")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -811,6 +813,9 @@ def _when_ok(state: GameState, when: str | None, controller: str, player: str | 
     if when == "attacked110a":  # -- wave 110A -- Angelic Arbiter: the player declared attackers this turn (508.1)
         log = state.rules.turn_log if state.rules is not None else None
         return player is not None and log is not None and log.turn == state.turn.number and player in log.attacked
+    if when == "attacked_me110c":  # -- wave 110C -- Midnight Crusader Shuttle: the player attacked the source's controller or a planeswalker they control this turn
+        log = state.rules.turn_log if state.rules is not None else None
+        return player is not None and log is not None and log.turn == state.turn.number and player in log.attacked_at110c.get(controller, [])
     return True
 
 

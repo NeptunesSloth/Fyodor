@@ -68,6 +68,8 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
 
     if (hist110c := wave110c_history.condition(t)) is not None:
         return hist110c
+    if t == "you were dealt damage this turn by a red instant or sorcery spell":  # -- wave 110L -- Suffocation (history.holds "spelldmg110l")
+        return {"history": "spelldmg110l"}
     if t == "a player attacked you during their last turn":  # -- wave 110E -- previous_own_turns
         return {"w110e": "attacked_last_turn"}
     if t.lower() == 'you control a stickered permanent':
@@ -894,6 +896,11 @@ def _many_left_graveyard(m: re.Match[str]) -> Condition | None:
     return None if n is None else {"history": "left_graveyard", "n": n}
 
 
+@_history_pattern(r"a creature card left your graveyard this turn")  # -- (wave 110O) -- Syrix, Carrier of the Flame
+def _creature_left_graveyard(m: re.Match[str]) -> Condition:
+    return {"history": "left_graveyard_creature110o"}
+
+
 @_history_pattern(r"a card left your graveyard this turn")
 def _left_graveyard(m: re.Match[str]) -> Condition:
     return {"history": "left_graveyard"}
@@ -1374,6 +1381,12 @@ def _object_dealt_player(m: re.Match[str]) -> Condition | None:
     return _obj(m, "dealt_player", n=n, **_damage_kind(m), **({"to": "event"} if m["p"] == "that player" else {}))
 
 
+@_history_pattern(rf"{_HO} has dealt (?P<n>\w+) or more damage this turn")
+def _object_dealt_total(m: re.Match[str]) -> Condition | None:
+    n = _num(m["n"])  # -- wave 110K -- Chandra, Fire of Kaladesh: all the damage it dealt this turn, to players and to objects (120.3)
+    return None if n is None else _obj(m, "dealt_total110k", n=n)
+
+
 @_history_pattern(r"(?P<who>you|a player) (?:was|were|has been|have been) dealt (?:(?P<n>\w+) or more )?(?P<kind>combat |noncombat )?damage"
                   r"(?: by an? (?P<sub>[A-Z][a-z]+))? this turn")
 def _player_dealt(m: re.Match[str]) -> Condition | None:
@@ -1618,6 +1631,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import wave110i_cards
 
         return wave110i_cards.holds(plan, ctx, cond)
+    if "w110j" in cond:  # -- wave 110J --
+        from app.rules import wave110j_cards
+
+        return wave110j_cards.holds(plan, ctx, cond)
     if "w110o" in cond:  # -- (wave 110O) --
         from app.rules import wave110o_cards
 
@@ -2038,7 +2055,7 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
             snap = plan.rules.lki.get(ctx.get("source_object") or "") if cond["object"] == "self" else None
             snap = snap or next((x for x in reversed(plan.rules.lki.values()) if x.card == card.id), None)
             ids = list(snap.attached) if snap is not None else []
-        return any(plan.ch(plan.state.cards[i]).subtypes & set(cond["attached"]) for i in ids if i in plan.state.cards)
+        return sum(bool(plan.ch(plan.state.cards[i]).subtypes & set(cond["attached"])) for i in ids if i in plan.state.cards) >= cond.get("attached_n", 1)  # (wave 110G: "two or more Auras")
     if "level" in cond:  # -- Class (wave 16A) -- 716.2b, 716.2d: no level is level 1
         n = plan.rules.levels.get(plan.oid(card), 1)
         return n >= cond["level"] if cond["min"] else n == cond["level"]
@@ -2076,7 +2093,7 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
 
             value = mana_value(card, ch)
         bound: Any = cond["n"]
-        if isinstance(bound, dict) and "colors_spent" in bound:  # (wave 25B) converge, 202.3 / 601.2h: the colors of mana spent to cast the spell
+        if isinstance(bound, dict) and ("colors_spent" in bound or "paid_x" in bound):  # (wave 110C: Relentless Dead, the X paid on resolution)  # (wave 25B) converge, 202.3 / 601.2h: the colors of mana spent to cast the spell
             bound = values.evaluate(plan, ctx, bound)
         elif isinstance(bound, dict) and "count_value" in bound:  # (wave 26A) a count of the table, read as the spell resolves
             bound = values.evaluate(plan, ctx, bound["count_value"])
@@ -2108,6 +2125,8 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
         return card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object") and "Solved" in card.choices
     if test == "on_battlefield":  # -- reanimation Auras (wave 51F) -- 603.4: "if it's on the battlefield" as the ability resolves: still that object (400.7)
         return card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object")
+    if test == "in_exile110b":  # -- wave 110B -- Senu: "if this card is exiled" is still that object (400.7), in its owner's exile zone
+        return card is not None and card.zone == f"{card.owner}:exile" and plan.oid(card) == ctx.get("source_object")
     if test == "in_command":  # -- trailing & intervening ifs (wave 38A) -- still that object, in the command zone (400.7): a commander cast in response is a new object
         return card is not None and card.zone.endswith(":command") and plan.oid(card) == ctx.get("source_object")
     if test == "command_or_battlefield":  # -- trigger other (wave 25B) -- eminence: 113.6b, the zones the ability names (still that object, 400.7)

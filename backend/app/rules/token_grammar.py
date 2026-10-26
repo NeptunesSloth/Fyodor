@@ -179,6 +179,7 @@ def _with(part: str | None, vehicle: bool = False) -> tuple[list[str], str | Non
     if any(k not in SUPPORTED_KEYWORDS and not re.fullmatch(r"toxic \d+", k) and not keyword_triggers.supported(k, k)
            and not (re.fullmatch(r"[a-z]+ \d+", k) and (keyword_triggers.supported(k.split()[0], k) or k.startswith("firebending ")))  # (wave 46C: "with annihilator 1", "with firebending 1": numbered keywords the engine reads, 702.189a)
            and not (k.startswith("protection from ") and protection.supported(k))
+           and not re.fullmatch(r"devour \d+", k)  # -- devour token (wave 110B) -- 702.82a: read from the token's keyword line as a card's is (devour.py)
            and not re.fullmatch(r"ward \{\d+\}", k)  # -- ward token (wave 110G) -- 702.21a: "with ward {2}", read from the token's keyword line like a card's
            and not (vehicle and re.fullmatch(r"crew \d+", k)) for k in kws):  # (wave 38B: a Vehicle token's "crew N", 702.122a)
         return None

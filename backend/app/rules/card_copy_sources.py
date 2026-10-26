@@ -155,7 +155,7 @@ def select_originals(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool
     hidden = e.get('sel') and 'hand' in selectors.from_key(e['sel']).zones and bool(plan.state.zones.get(f'{player}:hand'))
     if not hidden and (most == 0 or (most == len(pool) and not e.get('upto'))):
         return effects._return_cards(plan, ctx, {**e, 'to': 'choose'}, pool[:most])
-    decide(plan, player=player, kind='choose_cards', prompt='Choose original cards to copy' + (' (or none)' if e.get('upto') else ''),
+    decide(plan, player=player, kind='choose_cards', prompt=e.get('prompt', 'Choose original cards to copy') + (' (or none)' if e.get('upto') else ''),
            options=[DecisionOption(id=cid, label=plan.state.cards[cid].name or 'Card', card_id=cid) for cid in pool],
            min_choices=0 if e.get('upto') else most, max_choices=max(most, 1) if hidden else most,
            resume={'step': 'select_copy_originals', 'ctx': ctx, 'e': e,
