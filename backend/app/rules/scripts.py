@@ -7111,7 +7111,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         d = _chosen.remember_name(_enters_self_check(_define(view[0] if view else ability, ch), ch), self_text(ability.text, ch.name))  # (-- any number as an additional cost (wave 48B) -- "creatures sacrificed this way" of a spell's own cost)  (wave 53B: a trigger's card name, kept)
     if view and d is not None:
         d = _granter_bound(d, view[1])
-    if d is not None and "additional cost was paid" in ability.text and not any(re.search(r"you may blight [1-5]\b", a.text) for a in ch.abilities):
+    from app.rules import cost_changes  # (wave 110A)
+
+    if d is not None and "additional cost was paid" in ability.text and not any(re.search(r"you may blight [1-5]\b", a.text) or a.text == cost_changes.BEHOLD_TYPE for a in ch.abilities):  # (wave 110A: Celestial Reunion's behold)
         return None  # -- blight (wave 51E) -- "this spell's additional cost was paid" is read as the blight only for a spell whose optional additional cost is one (another optional cost: manual)
     if d is not None and ability.special == 'embalm':
         d = {**d, 'effects': [{**e, 'embalmed': True} if e.get('do') == 'token_copy' else e for e in d['effects']]}

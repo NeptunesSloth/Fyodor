@@ -4849,12 +4849,18 @@ def optional_announced(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Chara
         if found_gift is gift.WAITING:
             return None
         gift_to = found_gift
+    if any(o.kind == "behold_type110a" for o in optional):  # -- wave 110A -- Celestial Reunion: the creature type chosen with the cost (601.2b), then beheld twice
+        from app.rules import wave110a_choose
+
+        if (kind := wave110a_choose.announce(plan, a, card, ch)) is None:
+            return None
+        optional = [replace(o, text=kind) if o.kind == "behold_type110a" else o for o in optional]
     if not plan.manual(card):  # -- cast-time choice (wave 110E) -- 601.2b
         from app.rules import wave110e_opp
 
         if (picked := wave110e_opp.announce(plan, a, card, ch)) is wave110e_opp.WAITING:
             return None
-        a.pick110e = picked
+        a.pick110e = picked if picked is not None else a.pick110e  # (wave 110A: keep a type chosen for the cost)
     if a.optional_costs and plan.manual(card):
         raise ActionError("That card is played by hand: pay its costs with the table tools")
     return optional, gift_to, any(o.kind == "bargain" for o in optional)  # -- keywords (wave 30E) -- 702.166b: its controller declared the intention to pay it
@@ -4920,7 +4926,7 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
         if part is None:  # a gift: an opponent to give it to (702.174a)
             if len(plan.live()) < 2:
                 continue
-        elif o.kind != "behold" and additional_problem(plan, costs.AbilityCost(components=(part,)), card, plan.actor):
+        elif o.kind not in ("behold", "behold_type110a") and additional_problem(plan, costs.AbilityCost(components=(part,)), card, plan.actor):
             continue
         out.append((o.source, o.label))
     return out

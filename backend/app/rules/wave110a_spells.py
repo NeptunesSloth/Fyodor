@@ -458,6 +458,14 @@ def _tarrasque() -> Parsed:
     return [*head, {"do": "lure_opponents110a", "lure": lure}], got[1], got[2]
 
 
+def _reunion() -> Parsed:
+    """Celestial Reunion: the revealed card goes onto the battlefield instead when the cost was paid and it has the type chosen with it (608.2c;
+    conditional_search_destination reads the type the caster chose, kept as the spell's ``pick110e``)."""
+    got = _p("Search your library for a creature card with mana value X or less, reveal it, put it into your hand, then shuffle.")
+    got[0][0]["source_to_if"] = {"cond": {"object": "self", "cast": {"optional": "behold_type110a"}}, "to": "battlefield", "type110a": True}
+    return got
+
+
 def lure_opponents(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.rules import effects, selectors
 
@@ -466,6 +474,8 @@ def lure_opponents(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 BUILDERS: dict[str, Callable[[], Parsed]] = {
+    "Search your library for a creature card with mana value X or less, reveal it, put it into your hand, then shuffle. If this spell's additional cost was "
+    "paid and the revealed card is the chosen type, put that card onto the battlefield instead of putting it into your hand.": _reunion,
     "Target creature gets +5/+5 and gains indestructible until end of turn. All creatures your opponents control able to block that creature this turn do so.":
         _tarrasque,
     "Exile target creature or enchantment you don't control until target enchantment you control leaves the battlefield.": _calix,
