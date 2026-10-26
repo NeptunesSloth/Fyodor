@@ -72,6 +72,9 @@ def static_definition(text: str) -> Definition | None:
         if sel is None or sel.player is not None:
             return None
         return {"kind": "static", "static": "cant_enter", "sel": sel.key(), "zones": list(_ZONES[m["zones"]]), "effects": []}
+    if t == "lands can't enter the battlefield":  # -- two names (wave 110F) -- Worms of the Earth: 614.17, 305.1; a land from anywhere else stays where it is (played lands: "Players can't play lands")
+        return {"kind": "static", "static": "cant_enter", "sel": selectors.Selector(types=("Land",)).key(),
+                "zones": ["hand", "graveyard", "library", "exile", "stack", "command"], "effects": []}
     m = _COUNTERS.fullmatch(t)
     if m is not None:
         sel = selectors.parse(re.sub(r",? and ", ", or " if "," in m["sel"] else " or ", m["sel"]))

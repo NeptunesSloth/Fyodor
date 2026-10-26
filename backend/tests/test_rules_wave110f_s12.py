@@ -18,7 +18,7 @@ from tests.test_rules_wave100n_multi import (
     card_db,  # noqa: F401  (fixture DB with EXTRA)
     cast,
 )
-from tests.wave9c_kit import build, check, mana, to_hand
+from tests.wave9c_kit import build, check, life, mana, put, to_hand
 
 EXTRA = [
     real('Serra Angel', '{3}{W}{W}', 5, 'Creature — Angel', 'Flying, vigilance', ('4', '4'), 'W'),
@@ -138,4 +138,65 @@ def test_vapors_multicolored_pick_covers_both_colors(cards):
     d = s.state.rules.decision  # white: the white creature or the gold one
     answer(s, [next(o.id for o in d.options if s.state.cards[o.id].name == "Test Gold 110F")])
     assert _zone(s, "Test Gold 110F", "p1") == ["hand"] and _zone(s, "Test White 110F", "p1") == ["graveyard"] and _zone(s, "Test Blue 110F", "p1") == ["graveyard"]
+    check(s)
+
+
+_WORMS = ("Players can't play lands.\nLands can't enter the battlefield.\nAt the beginning of each upkeep, any player may sacrifice two lands of their choice or have this enchantment deal 5 damage to that player. "
+          "If a player does either, destroy this enchantment.")
+_ADD2 = [
+    real('Worms of the Earth', '{2}{B}{B}', 4, 'Enchantment', _WORMS, None, 'B'),
+    real('Test Ramp 110F', '{G}', 1, 'Sorcery', 'Put a land card from your hand onto the battlefield.', None, 'G'),
+]
+_BASE.extend(_ADD2)
+
+
+def _upkeep(cards):
+    from tests.test_rules_wave100f_attached import to_phase
+
+    s = build(cards, ["Worms of the Earth", "Test Ramp 110F", "Test Land 110F"], ["Test Land 110F"])
+    put(s, "Worms of the Earth")
+    for pid in ("p1", "p2"):
+        ids = [c.id for c in s.state.cards.values() if c.name == ("Forest" if pid == "p1" else "Island") and c.owner == pid][:3]
+        act(s, pid, type="move", card_ids=ids, to={"player": pid, "zone": "battlefield"})
+    to_phase(s, "upkeep", turn=s.state.turn.number + 1)
+    return s
+
+
+def test_worms_full(cards):
+    assert coverage.of_card_data(cards.resolve("Worms of the Earth")).level == "FULL"
+
+
+def test_worms_lands_cannot_be_played_or_enter(cards):
+    """305.1 / 614.17: no land play; a land another spell would put onto the battlefield stays in hand."""
+    s = build(cards, ["Worms of the Earth", "Test Ramp 110F", "Test Land 110F"])
+    put(s, "Worms of the Earth")
+    land = to_hand(s, "Test Land 110F")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="play_land", card_id=land.id)
+    to_hand(s, "Test Ramp 110F")
+    mana(s, "p1", G=1)
+    cast(s, "Test Ramp 110F")
+    answer(s)
+    assert s.state.cards[land.id].zone == "p1:hand"
+    check(s)
+
+
+@pytest.mark.parametrize("p2,p1,survives", [("no", "no", True), ("sac", "no", False), ("hit", "no", False), ("no", "hit", False), ("sac", "sac", False)])
+def test_worms_any_player_pays_or_takes_damage_to_destroy_it(cards, p2, p1, survives):
+    """118.12: the active player (p2) answers first, then p1; a sacrifice (two lands) or 5 damage destroys it once; both saying no leaves it."""
+    s = _upkeep(cards)
+    nc = next(c for c in s.state.cards.values() if c.name == "Worms of the Earth")
+    for pid, pick in (("p2", p2), ("p1", p1)):
+        d = s.state.rules.decision
+        while d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            d = s.state.rules.decision
+        assert d.player == pid
+        act(s, pid, type="choose", decision_id=d.id, option_ids=[pick])
+    answer(s)
+    assert (s.state.cards[nc.id].zone == "p1:battlefield") is survives
+    forests = sum(1 for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:battlefield")
+    forests2 = sum(1 for c in s.state.cards.values() if c.name == "Island" and c.zone == "p2:battlefield")
+    assert (forests, forests2) == (3 - (2 if p1 == "sac" else 0), 3 - (2 if p2 == "sac" else 0))
+    assert life(s, "p2") == 40 - (5 if p2 == "hit" else 0) and life(s, "p1") == 40 - (5 if p1 == "hit" else 0)
     check(s)

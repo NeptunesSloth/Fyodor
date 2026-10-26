@@ -413,7 +413,46 @@ def resume_vapors(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, d.resume["ctx"])
 
 
+_LANDS = '{"types":["Land"]}'
+
+
+def worms(plan: Any, ctx: dict[str, Any], e: dict[str, Any], st: dict[str, Any] | None = None) -> bool:
+    """Worms of the Earth: "any player may sacrifice two lands of their choice or have this enchantment deal 5 damage to that player. If a player does either,
+    destroy this enchantment." 101.4 / 118.12: every player answers in turn order (APNAP) before anything happens (the ruling style of Clackbridge Troll), then the
+    sacrifices and damage are done, and the enchantment is destroyed once if anyone did either."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    st = st or {"todo": list(plan.apnap()), "sac": [], "hit": []}
+    while st["todo"]:
+        pid = st["todo"][0]
+        lands = [c for c in plan.state.zones.get(f"{pid}:battlefield", []) if "Land" in plan.ch(plan.state.cards[c]).types]
+        options = ([DecisionOption(id="sac", label="Sacrifice two lands")] if len(lands) >= 2 else []) + [
+            DecisionOption(id="hit", label="Have it deal 5 damage to you"), DecisionOption(id="no", label="Do nothing")]
+        decide(plan, player=pid, kind="choose_one", prompt="Worms of the Earth: sacrifice two lands or take 5 damage to destroy it?", options=options,
+               resume={"step": "worms110f", "ctx": ctx, "e": e, "st": st})
+        return False
+    todo = [{"do": "sacrifice_choice", "who": f"player:{p}", "sel": "sel:" + _LANDS, "n": 2} for p in st["sac"]]
+    todo += [{"do": "damage", "who": f"player:{p}", "n": 5} for p in st["hit"]]
+    if todo:
+        todo.append({"do": "destroy", "who": "self"})
+    ctx["effects"][ctx["next"]:ctx["next"]] = todo
+    return True
+
+
+def resume_worms(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    st = d.resume["st"]
+    st["todo"].pop(0)
+    if chosen[0] in ("sac", "hit"):
+        st[chosen[0]].append(d.player)
+    if worms(plan, d.resume["ctx"], d.resume["e"], st):
+        effects.continue_effects(plan, d.resume["ctx"])
+
+
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "any player may sacrifice two lands of their choice or have ~ deal 5 damage to that player. If a player does either, destroy ~.": lambda: ([{"do": "worms110f"}], None, False),
     "Each player reveals their hand, chooses one card of each color from it, then discards all other nonland cards.": lambda: ([{"do": "vapors110f"}], None, False),
     "Each player sacrifices an artifact, a creature, an enchantment, a land, and a planeswalker of their choice.": _release,
     "it deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to that creature.": _fires,
@@ -453,8 +492,8 @@ REWRITES = {
     "Destroy target attacking creature, then put this card on top of your library.": "Destroy target attacking creature. Put ~ on top of your library.",  # Vengeful Pharaoh
                 "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
-PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remove_enchantments110f": remove_enchantments, "same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock, "vapors110f": vapors}
-RESUME: dict[str, Any] = {"vapors110f": resume_vapors, "turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
+PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remove_enchantments110f": remove_enchantments, "same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock, "vapors110f": vapors, "worms110f": worms}
+RESUME: dict[str, Any] = {"vapors110f": resume_vapors, "worms110f": resume_worms, "turn_up_choice110f": resume_turn_up, "reveal_chroma110f": resume_reveal_chroma, "unlock110f": resume_unlock}
 
 
 # 905.2 / 103.6: nothing is drafted in Commander, so these cards never have a card, note or chosen color (app/rules/draft_only.py).
