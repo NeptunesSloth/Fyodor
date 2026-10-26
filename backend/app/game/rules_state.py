@@ -1614,6 +1614,7 @@ class RulesState(BaseModel):
     # -- piles (wave 53D) -- "Only creatures in the pile of their choice can attack this turn" (Fight or Flight): [turn, the attacking player, [object ids that may]]; every entry of
     # the turn binds (ruling 2008-08-01: with two, a creature must be in both chosen piles), and a creature that entered later is no object in any pile
     attack_piles: list[list[Any]] = Field(default_factory=list)
+    block_piles110f: list[list[Any]] = Field(default_factory=list)  # -- wave 110F -- Stand or Fall: [turn, the player, the objects of the chosen pile] (only they can block, 700.3)
     commander_color110f: dict[str, str] = Field(default_factory=dict)  # -- wave 110F -- Faceless One: card id -> chosen color letter (607.2p)
     opening_revealed: list[str] = Field(default_factory=list)  # -- opening hand (wave 18C) -- cards revealed until the first turn (103.6b)
     deferred_payments: list[DeferredPaymentWindow] = Field(default_factory=list)

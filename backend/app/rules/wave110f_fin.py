@@ -33,6 +33,10 @@ _SERV = ("When ~ enters, return target creature card from your graveyard to the 
          "When ~ leaves the battlefield, exile the creature put onto the battlefield with ~.")
 
 
+_STAND = ("At the beginning of combat on your turn, for each defending player, separate all creatures that player controls into two piles and that player chooses one. "
+          "Only creatures in the chosen piles can block this turn.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -100,6 +104,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if probe is None:
             return {}
         return {**probe, "cond": {"event": "die", "subject": "put_with110f"}} if text == _SERV[1] else {**probe, "effects": [{"do": "servitude110f"}]}
+    if ability.kind == "triggered" and text == _STAND:  # 802.2: every opponent is a defending player as the combat phase starts; 700.3: the piles; Fight or Flight's machinery (pile_groups)
+        probe = scripts.define(replace(ability, text="At the beginning of combat on your turn, draw a card."), ch)
+        if probe is None or probe["kind"] != "triggered":
+            return {}
+        sel = Selector(types=("Creature",)).key()
+        return {**probe, "effects": [{"do": "pile_deal", "who": "each_opponent", "split": "you", "sel": sel, "zone": "battlefield", "pick": "owner", "n": 2,
+                                      "chosen": "limit_block", "other": None, "say": "creatures"}]}
     return None
 
 
