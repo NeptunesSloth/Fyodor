@@ -28,6 +28,7 @@ from tests.wave110b_kit import (
     mana,
     put,
     repository,
+    settle,
     through_combat,
     to_hand,
     zone_of,
@@ -350,4 +351,35 @@ def test_linvala_sacrifice_chooses_hexproof_or_indestructible(cards, mode):
     drive(s, lambda d: [o.id for o in d.options if mode in o.label.lower()][:1] or None)
     assert s.state.cards[linvala.id].zone == "p1:graveyard"
     assert mode in ch(s, s.state.cards[keeper.id]).keywords
+    check(s)
+
+
+def test_weeping_angel_stops_being_a_creature_when_an_opponent_casts_a_creature(cards):
+    """205.1b, 611.2: an opponent's creature spell makes it a non-creature (an artifact) until end of turn; a noncreature spell does not."""
+    s = build(cards, ["Weeping Angel"], ["Grizzly Bears", "Lightning Bolt"])
+    angel = put(s, "Weeping Angel")
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p2").id, targets=["p1"])
+    settle(s)
+    assert ch(s, angel).is_creature
+    mana(s, "p2", G=1, C=1)
+    act(s, "p2", type="cast_spell", card_id=to_hand(s, "Grizzly Bears", "p2").id)
+    settle(s)
+    assert not ch(s, angel).is_creature and "Artifact" in ch(s, angel).types
+    check(s)
+
+
+@pytest.mark.parametrize("blocked", [True, False])
+def test_weeping_angel_combat_damage_to_a_creature_is_prevented_and_it_is_shuffled_away(cards, blocked):
+    """615.1, 701.24: damage it would deal to a creature is prevented and that creature's owner shuffles it into their library; a player is hurt as usual."""
+    s = build(cards, ["Weeping Angel"], ["Grizzly Bears", "Forest"])
+    angel = put(s, "Weeping Angel")
+    bears = put(s, "Grizzly Bears", "p2")
+    attack(s, angel)
+    through_combat(s, [(bears, angel)] if blocked else None)
+    if blocked:
+        assert s.state.cards[bears.id].zone == "p2:library" and life(s, "p2") == 40
+    else:
+        assert s.state.cards[bears.id].zone == "p2:battlefield" and life(s, "p2") < 40
     check(s)

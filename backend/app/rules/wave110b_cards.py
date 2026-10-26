@@ -232,6 +232,10 @@ def _towershell(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Weeping Angel: 205.1b the Angel loses the creature type until end of turn (it stays a permanent with its other types)
+    "Whenever an opponent casts a creature spell, this creature isn't a creature until end of turn.":
+        ("Whenever an opponent casts a creature spell, this creature becomes an artifact until end of turn.",
+         lambda d: {**d, "effects": [{"do": "become", "who": "self", "remove_types": ["Creature"], "duration": "end_of_turn"}]}),
     # Linvala, Shield of Sea Gate: 611.2a, 113.3: restricted until her controller's next turn, both rules on the one target
     "At the beginning of combat on your turn, if you have a full party, choose target nonland permanent an opponent controls. Until your next turn, it can't "
     "attack or block, and its activated abilities can't be activated.":
@@ -370,10 +374,25 @@ def _linvala(ability: Any, ch: Any) -> Def | None:
     return modal_abilities.definitions(head, replace(ch, abilities=(head, *rows))).get(ability.index)
 
 
+_ANGEL = "If this creature would deal combat damage to a creature, prevent that damage and that creature's owner shuffles it into their library."
+
+
+def _angel() -> Def:
+    """Weeping Angel: 615.1, 615.5 the combat damage it would deal to a creature is prevented, and the prevented-from creature's owner shuffles it in (the rider)."""
+    from app.rules import selectors
+
+    return {"kind": "static", "static": "replace", "event": "damage",
+            "match": {"combat": True, "source": {"self": True}, "to": {"objects": {"sel": selectors.Selector(types=("Creature",)).key()}}},
+            "op": {"do": "prevent_all", "prevention": True, "rider": {"aggregation": "batch", "effects": [{"do": "to_library", "who": "ref:to", "place": "shuffle"}]}},
+            "effects": []}
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _ANGEL:
+        return _angel()
     if text == _LINVALA:
         return _linvala(ability, ch)
     if (same := _AS.get(text)) is not None:
