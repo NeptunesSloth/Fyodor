@@ -40,6 +40,8 @@ def cast_trigger(plan: Any, pending: dict[str, Any], card: Any, spell_ch: Any) -
     src = plan.state.cards.get(ctx.get("source_card") or "")
     if src is None:
         return
-    effects = scripts.parse_effects(f"This creature gets +{int(spell_ch.mana_value)}/+0 until end of turn.")[0]
+    found = scripts.parse_effects(f"This creature gets +{int(spell_ch.mana_value)}/+0 until end of turn.")
+    assert found is not None
+    effects = found[0]
     triggers._add(plan, controller=ctx["controller"], source_card=src.id, source_object=ctx["source_object"], name=src.name or "Ogre Battlecaster",
                   index=trigger_multipliers.REFLEXIVE, definition={"kind": "triggered", "trigger": "reflexive", "effects": effects, "optional": False, "target": None})

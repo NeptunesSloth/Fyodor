@@ -344,9 +344,12 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         wave110c_misc,
         wave110c_ogre,
         wave110c_rad,
+        wave110c_visionary,
         wave110c_wheel,
     )
 
+    if (visionary := wave110c_visionary.definition(ability, ch)) is not None:  # Voltaic Visionary
+        return visionary
     if (animate := wave110c_animate.definition(ability.text)) is not None:  # Animate Artifact
         return animate
     if (equil := wave110c_equil.definition(ability.text)) is not None:  # Land Equilibrium

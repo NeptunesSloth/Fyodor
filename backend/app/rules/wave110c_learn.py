@@ -33,7 +33,9 @@ def _pool(plan: Plan, me: str) -> list[str]:
 def _plain(ctx: dict[str, Any]) -> None:
     from app.rules import scripts
 
-    ctx["effects"][ctx["next"]:ctx["next"]] = scripts.parse_effects(PLAIN)[0]
+    found = scripts.parse_effects(PLAIN)
+    assert found is not None
+    ctx["effects"][ctx["next"]:ctx["next"]] = found[0]
 
 
 def learn(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
