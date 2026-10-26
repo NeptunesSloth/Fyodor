@@ -7,7 +7,19 @@
 from __future__ import annotations
 
 from tests.game_helpers import act
-from tests.wave110d_kit import build, card_db, cast_on, check, full, hand_new, mana, now, put_new, settle, to_phase  # noqa: F401
+from tests.wave110d_kit import (  # noqa: F401
+    build,
+    card_db,
+    cast_on,
+    check,
+    full,
+    hand_new,
+    mana,
+    now,
+    put_new,
+    settle,
+    to_phase,
+)
 
 NAME = "Central Elevator // Promising Stairs"
 FUNERAL = "Funeral Room // Awakening Hall"

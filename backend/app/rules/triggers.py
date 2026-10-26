@@ -480,11 +480,16 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             if fact[0] == "enter":
                 fact[4]["played"] = e.new_object_id in window.get("played_lands", set())
         return facts
-    if e.kind == "mana_added" and e.counter == "tap":  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
+    if e.kind == "mana_added" and (e.counter == "tap" or e.amount > 0):  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
         got = _object_then(plan, e.card, e.object_id)
+        if got is None:
+            return []
         # (wave 110I: ``amount`` carries the colors produced as a bit mask, W=1 U=2 B=4 R=8 G=16, for C.A.M.P.'s "shares a color with the mana that land produced")
-        return [("tapped_for_mana", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player,
-                                                                "amount": sum(1 << "WUBRG".index(c) for c in e.mana_colors110i)})] if got is not None else []
+        mana_facts: list[Fact] = [("tapped_for_mana", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player,
+                                                              "amount": sum(1 << "WUBRG".index(c) for c in e.mana_colors110i)})] if e.counter == "tap" else []
+        if e.amount > 0:  # -- mana ability resolves (wave 110D) -- 605.3b: "Whenever a mana ability of this creature resolves" (Tyvar): the mana it produced
+            mana_facts.append(("mana_resolved110d", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "amount": e.amount}))
+        return mana_facts
     if e.kind == "exerted":
         got = _object_then(plan, e.card, e.object_id)
         if got is None:

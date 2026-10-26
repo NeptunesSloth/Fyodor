@@ -261,6 +261,8 @@ _CONDITION = re.compile(r"(?P<p>you|a player|an opponent) taps? (?P<o>~|an? [^,]
 def condition(c: str) -> dict[str, Any] | None:
     from app.rules import selectors
 
+    if c in ("a mana ability of this creature resolves", "a mana ability of ~ resolves"):  # -- (wave 110D) -- 605.3b, Tyvar the Bellicose
+        return {"event": "mana_resolved110d", "subject": "self"}
     m = _CONDITION.fullmatch(c)
     if m is None:
         return None

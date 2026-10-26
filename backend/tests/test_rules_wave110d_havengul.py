@@ -6,7 +6,20 @@
 
 from __future__ import annotations
 
-from tests.wave110d_kit import activate, build, card_db, cast_on, check, full, grave_new, mana, now, put_new, settle, to_phase  # noqa: F401
+from tests.wave110d_kit import (  # noqa: F401
+    activate,
+    build,
+    card_db,
+    cast_on,
+    check,
+    full,
+    grave_new,
+    mana,
+    now,
+    put_new,
+    settle,
+    to_phase,
+)
 
 NAME = "Havengul Laboratory // Havengul Mystery"
 

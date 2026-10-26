@@ -453,6 +453,7 @@ _STAYING = {"enter", "enter_attacking", "attack", "unblocked", "block", "blocked
 _STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive", "mutate"})  # -- becomes monstrous (wave 6D) --
 _STAYING.update({"to_graveyard", "to_exile", "to_library"})  # -- into a graveyard (wave 6D; wave 21D: exile, a library) -- the card(s) there, as they are there
 _STAYING.update({"phase_in", "phase_out"})  # (wave 50G: "Whenever ~ phases in")
+_STAYING.add("mana_resolved110d")  # (wave 110D)
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 _STAYING.add("transform")  # -- transform (wave 26D) -- 701.28, 712.18: the same object turned over: "Whenever a permanent you control transforms into a Phyrexian, put a counter on it"
 _STAYING.add("exerted")  # 701.43: the exact permanent exerted
@@ -8343,7 +8344,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 _AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "pay_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "counters_removed", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
                   "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library", "exiled_perm110i",
-                  "roll_die", "discover"}  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
+                  "roll_die", "discover", "mana_resolved110d"}  # (wave 110D: the mana a mana ability produced) # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage

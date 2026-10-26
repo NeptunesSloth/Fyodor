@@ -43,6 +43,8 @@ TOVOLAR = ("At the beginning of your upkeep, if you control three or more Wolves
 PREDICAMENTS = ("Whenever this creature deals combat damage to a player, choose a card in your hand. That player guesses whether the card's mana value is greater than 4. "
                 "If the player guessed wrong, you may cast the card without paying its mana cost.")
 STAIRS = "At the beginning of your upkeep, surveil 1. You win the game if there are eight or more different names among unlocked doors of Rooms you control."
+TYVAR = ('Each creature you control has "Whenever a mana ability of this creature resolves, put a number of +1/+1 counters on it equal to the amount of mana this creature '
+         'produced. This ability triggers only once each turn."')
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -144,9 +146,11 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if ability.text == TOVOLAR:  # 731.1 night; the transform is a choice on resolution, not a target (601.2c), so hexproof Werewolves can be picked (any number: 701.28)
         from app.rules import selectors
 
+        werewolves = selectors.parse("Human Werewolves you control")
+        assert werewolves is not None
         d = scripts.define(replace(ability, text=TOVOLAR.split(" Then")[0]), ch)
         if d is not None:
-            pick = {"do": "player_chooses", "who": "you", "sel": selectors.parse("Human Werewolves you control").key(), "n": 99, "upto": True, "optional": True,
+            pick = {"do": "player_chooses", "who": "you", "sel": werewolves.key(), "n": 99, "upto": True, "optional": True,
                     "label": "Human Werewolves", "as": "tovolar110d"}
             d["effects"] = [{**d["effects"][0], "skip": 3}, *d["effects"][1:], pick, {"do": "transform", "who": "ref:tovolar110d"}]
         return d
@@ -159,11 +163,15 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if ability.text == STAIRS:  # 104.2b win; 709.5c/201.2 the names of the unlocked doors (values._distinct "door_names110d")
         from app.rules import selectors
 
+        rooms = selectors.parse("Rooms you control")
+        assert rooms is not None
         d = scripts.define(replace(ability, text=STAIRS.split(". You")[0] + "."), ch)
         if d is not None:
-            cond = {"value": {"distinct": "door_names110d", "among": selectors.parse("Rooms you control").key()}, "op": ">=", "n": 8}
-            d["effects"] += [{"do": "only_if", "cond": cond, "skip": 1}, {"do": "win_game", "who": "you"}]
+            eight = {"value": {"distinct": "door_names110d", "among": rooms.key()}, "op": ">=", "n": 8}
+            d["effects"] += [{"do": "only_if", "cond": eight, "skip": 1}, {"do": "win_game", "who": "you"}]
         return d
+    if ability.text == TYVAR:  # 605.3b the event carries the mana the ability produced (triggers.py "mana_resolved110d"): "that many"
+        return scripts.define(replace(ability, text=TYVAR.replace("a number of +1/+1 counters on it equal to the amount of mana this creature produced", "that many +1/+1 counters on it")), ch)
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
         assert cond is not None
