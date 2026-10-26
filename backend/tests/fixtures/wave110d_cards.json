@@ -6866,5 +6866,35 @@
 "keywords": [
 "Equip"
 ]
+},
+{
+"name": "Reanimate",
+"layout": "normal",
+"mana_cost": "{B}",
+"cmc": 1.0,
+"type_line": "Sorcery",
+"oracle_text": "Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
+},
+{
+"name": "Rise of the Dark Realms",
+"layout": "normal",
+"mana_cost": "{7}{B}{B}",
+"cmc": 9.0,
+"type_line": "Sorcery",
+"oracle_text": "Put all creature cards from all graveyards onto the battlefield under your control.",
+"colors": [
+"B"
+],
+"color_identity": [
+"B"
+],
+"keywords": []
 }
 ]

@@ -28,6 +28,8 @@ ULTIMA = ("Whenever Ultima attacks, put a blight counter on target land. For as 
           'abilities and has "{T}: Add {C}."')
 SYMPOSIUM = "Target player creates a token that's a copy of target creature you control."
 NUKA = ("Whenever equipped creature attacks, until the end of defending player's next turn, that player gets two rad counters whenever they cast a spell.")
+DIVINER = ("Whenever one or more other creatures you control enter, if they entered or were cast from a graveyard, create a token that's a copy of one of them. "
+           "This ability triggers only once each turn.")
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -93,6 +95,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if d is not None and d["effects"][0].get("do") == "delayed":
             first = {k: v for k, v in d["effects"][0].items() if k != "next_turn"}
             d["effects"][0] = {**first, "end_of_next_turn": True, "player_ref110d": "defending_player"}
+        return d
+    if ability.text == DIVINER:  # 603.2c one batch; its controller picks the copied creature (707.2) from all of them; 603.4 "if" as Celes (conditions._SOME_OF_THEM)
+        d = scripts.define(replace(ability, text=DIVINER.replace("if they entered or were cast from a graveyard", "if one or more of them entered from a graveyard or "
+                                                                 "was cast from a graveyard").replace("one of them", "target creature you control")), ch)
+        if d is not None and d["effects"][-1].get("do") == "token_copy":  # (a target stand-in: the grammar refuses "that creature" for a batch)
+            d["target"] = None
+            d["effects"] = [*({**x, "skip": 2} if x.get("do") == "only_if" else x for x in d["effects"][:-1]), {"do": "choose_one_of", "who": "ref:event", "n": 1, "as": "copy110d"}, {**d["effects"][-1], "who": "ref:copy110d"}]
         return d
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
