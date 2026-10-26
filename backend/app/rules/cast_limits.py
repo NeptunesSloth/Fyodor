@@ -732,9 +732,8 @@ _KINDS = ("cant_cycle", "hexproof_targeting", "cast_limit", "activate_as_haste",
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
           "rad_gain", "venture_limit", "first_alt", "spell_replicate110a", "chorus110c", "counter_cap110j", "mana_life110j", "trigger_token_shield110a",
-          "cant_phase_in110o")  # (wave 110O: Disciple of Caelus Nin)  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
-
-_KINDS = (*_KINDS, "power_lethal110a")  # -- wave 110A -- Zilortha (wave110a_zilortha)
+          "cant_phase_in110o",  # (wave 110O: Disciple of Caelus Nin)  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
+          "power_lethal110a")  # -- wave 110A -- Zilortha (wave110a_zilortha)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
