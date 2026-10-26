@@ -10,7 +10,7 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
 from tests.wave9c_kit import pt
-from tests.wave110c_kit import answer, build, card_named, check, life, make_db, mana, put, real, zone
+from tests.wave110c_kit import answer, build, check, life, make_db, mana, put, real, zone
 
 OGRE = ("First strike\nWhenever this creature attacks, you may cast target instant or sorcery card from your graveyard by paying {R}{R} in addition to its "
         "other costs. If that spell would be put into a graveyard, exile it instead. When you cast that spell, this creature gets +X/+0 until end of turn, "
