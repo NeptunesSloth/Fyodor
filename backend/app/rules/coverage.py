@@ -755,7 +755,11 @@ def features_of(ch: Characteristics) -> list[Feature]:
                     for n in range(len(keyword_triggers.pieces("backup", ab.text)))) and bool(
                         keyword_triggers.pieces("backup", ab.text)))  # (wave 15E: the abilities below it, 702.165a)
         elif ab.kind == "mana":
-            add("mana:ability", ab.text, "mana:ability" in SUPPORTED and parse_mana_ability(ab.text, card_name=ch.name) is not None)
+            from app.rules import (
+                wave110g_spires,  # -- wave 110G -- Cryptic Spires (wave110g_spires.apply reads the circled colors)
+            )
+
+            add("mana:ability", ab.text, "mana:ability" in SUPPORTED and (parse_mana_ability(ab.text, card_name=ch.name) is not None or wave110g_spires.mana_ok(ab.text)))
         else:
             add(f"text:{ab.index}", ab.text, ab.index in templated)
     # -- counters & designations (wave 3E) -- the dungeon rooms a venture may lead into (automated or not)
@@ -816,7 +820,11 @@ def ability_supported(ch: Characteristics, index: int) -> bool:
     if ab.kind == "keywords":
         return all(k in SUPPORTED_KEYWORDS for k in ab.keywords)
     if ab.kind == "mana":
-        return "mana:ability" in SUPPORTED and parse_mana_ability(ab.text, card_name=ch.name) is not None
+        from app.rules import (
+            wave110g_spires,  # -- wave 110G -- Cryptic Spires: the circled colors make the ability readable (wave110g_spires.apply)
+        )
+
+        return "mana:ability" in SUPPORTED and (parse_mana_ability(ab.text, card_name=ch.name) is not None or wave110g_spires.mana_ok(ab.text))
     if ch.is_instant_or_sorcery:
         whole = templates.spell_definition(ch)
         own = templates.definitions(ch).get(index)

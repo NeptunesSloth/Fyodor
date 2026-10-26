@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.cards.images import ImageStore
@@ -32,7 +34,9 @@ JUSTICE = ("As an additional cost to cast this spell, you may pay {1}{R} and/or 
            "destroy another target artifact. For each additional {1}{G} you paid, destroy another target artifact, and you gain 1 life.")
 STORM = ("Lightning Storm deals X damage to any target, where X is 3 plus the number of charge counters on Lightning Storm.\nDiscard a land card: Put two charge counters "
          "on Lightning Storm. You may choose a new target for it. Any player may activate this ability but only if Lightning Storm is on the stack.")
-EXTRA = [real("Lightning Storm", "{1}{R}{R}", 3, "Instant", STORM, None, "R"),
+SPIRES = ("As you create your deck, circle two of the colors below.\nThis land enters tapped.\n{T}: Add one mana of either of the circled colors.")
+EXTRA = [real("Cryptic Spires", "", 0, "Land", SPIRES, None, ""),
+         real("Lightning Storm", "{1}{R}{R}", 3, "Instant", STORM, None, "R"),
          real("Primitive Justice", "{1}{R}", 2, "Sorcery", JUSTICE, None, "R"),
          *(real(f"Test Relic {i}", "{1}", 1, "Artifact", "", None, "") for i in range(5)),
          real("Skyway Robber", "{3}{U}", 4, "Creature \u2014 Bird Rogue", ROBBER, ("3", "3"), "U"),
@@ -53,7 +57,7 @@ def cards(settings):
 
 
 def test_full(cards):
-    for name in ("Advancing the Spirit", "Avacyn's Judgment", "Jace's Machinations", "Skyway Robber", "Primitive Justice", "Lightning Storm"):
+    for name in ("Advancing the Spirit", "Avacyn's Judgment", "Jace's Machinations", "Skyway Robber", "Primitive Justice", "Lightning Storm", "Cryptic Spires"):
         assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
 
@@ -331,4 +335,56 @@ def test_lightning_storm_opponent_activates_twice(cards):
         else:
             break
     assert life(s, "p1") == 35 and life(s, "p2") == 40
+    check(s)
+
+
+def _spires_table(cards):
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.mulligan import COMMANDER_LONDON
+    from app.game.rules_state import AUTOMATION_PRESETS, start_rules
+    from app.game.session import GameSession
+    from app.game.state import GameSettings
+    from tests.game_helpers import deck, engine_pays
+
+    a = deck(cards, "Krenko, Mob Boss", [(1, "Cryptic Spires"), (20, "Forest")])
+    b = deck(cards, "Atraxa, Praetors' Voice", [(1, "Cryptic Spires"), (20, "Island")])
+    state = new_game([PlayerSetup("Alice", cards=a), PlayerSetup("Bob", cards=b)], settings=GameSettings(mulligan=COMMANDER_LONDON), shuffle=False)
+    state.settings.automation = "full"
+    state.settings.automation_options = AUTOMATION_PRESETS["full"].model_copy()
+    start_rules(state)
+    engine_pays(state)
+    return GameSession(state, cards=cards)
+
+
+def _mana_text(s, card):
+    from app.rules.plan import Plan
+
+    return [a.text for a in Plan(s.state, "p1", s.cards, None).ch(s.state.cards[card.id]).abilities if a.kind == "mana"]
+
+
+def test_cryptic_spires_circled_colors_before_the_game(cards):
+    """Ruling 2024-11-08: two colors are circled as the deck is made, before any game, in the open; each Spires has its own pair; the mana ability then adds one of them."""
+    from tests.test_rules_wave34b_activated import ability
+
+    s = _spires_table(cards)
+    mine, theirs = card_named(s, "Cryptic Spires", "p1"), card_named(s, "Cryptic Spires", "p2")
+    assert _mana_text(s, mine) == ["{T}: Add one mana of either of the circled colors."]
+    act(s, "p1", type="mulligan_keep")
+    act(s, "p2", type="mulligan_keep")
+    for who, pick in (("p1", ["B", "G"]), ("p2", ["W", "R"])):
+        d = s.state.rules.decision
+        assert d is not None and d.player == who and "circle two colors" in d.prompt, d and d.prompt
+        with pytest.raises(ActionError):
+            act(s, who, type="choose", decision_id=d.id, option_ids=pick[:1])
+        act(s, who, type="choose", decision_id=d.id, option_ids=pick)
+    assert _mana_text(s, mine) == ["{T}: Add {B} or {G}."] and _mana_text(s, theirs) == ["{T}: Add {W} or {R}."]
+    while (d := s.state.rules.decision) is not None:  # the opening-hand actions (none to use)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[])
+    act(s, "p1", type="move", card_ids=[mine.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="untap_all", player="p1")
+    act(s, "p1", type="activate_ability", card_id=mine.id, ability=ability(s, "Cryptic Spires", "p1", "Add"))
+    d = s.state.rules.decision
+    assert d is not None and [o.label for o in d.options] and sorted(o.label for o in d.options) == ["{B}", "{G}"], d and [o.label for o in d.options]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["1"])
+    assert s.state.players["p1"].mana.get("G") == 1 or "G" in json.dumps(s.view("p1"), default=str)
     check(s)
