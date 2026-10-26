@@ -688,7 +688,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
         from app.rules import selectors
 
         # Back from the Brink: the choosable cards are the creature cards in the graveyard, each with that ability (zone_grants.apply, keyword "brink110b")
-        return {"kind": "static", "static": "zone_grant", "filter": selectors.parse("creature card in your graveyard").key()  # type: ignore[union-attr], "keyword": "brink110b", "cost": None, "reduce": 0, "effects": []}
+        sel = selectors.parse("creature card in your graveyard")
+        assert sel is not None
+        return {"kind": "static", "static": "zone_grant", "filter": sel.key(), "keyword": "brink110b", "cost": None, "reduce": 0, "effects": []}
     if text == "Clandestine Chameleon has all abilities of ability stickers on other permanents you own and cards in your graveyard.":
         return {"kind": "static", "static": "sticker_abilities110b", "effects": []}  # the abilities come from stickers101.continuous (613.1f)
     if (same := _AS.get(text)) is not None:
