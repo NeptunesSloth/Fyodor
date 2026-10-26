@@ -1727,6 +1727,15 @@ def cascade(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
             hit = top
             break
         missed.append(top)
+    from app.rules import wave110a_averna
+
+    if wave110a_averna.ask(plan, ctx, e, missed, hit):  # -- Averna (wave 110A) -- "As you cascade, you may put a land card from among the exiled cards onto the battlefield tapped"
+        return False
+    return cascade_end(plan, ctx, e["mv"], missed, hit)
+
+
+def cascade_end(plan: Plan, ctx: Context, mv: int, missed: list[str], hit: str | None) -> bool:
+    pid = ctx["controller"]
     order = bottom_at_random(plan, pid, missed)
     if hit is None:
         plan.note("Cascade found nothing")
@@ -1734,7 +1743,7 @@ def cascade(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     # -- granted casts (wave 29B) -- "if the resulting spell's mana value is less" (702.85a): each half / face
     from app.rules import granted_casts
 
-    return granted_casts.ask(plan, ctx, player=pid, cid=hit, head="Cascade", no="Put it on the bottom", decline="bottom", below=e["mv"],
+    return granted_casts.ask(plan, ctx, player=pid, cid=hit, head="Cascade", no="Put it on the bottom", decline="bottom", below=mv,
                              group=order)
 
 

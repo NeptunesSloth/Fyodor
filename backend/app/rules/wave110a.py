@@ -9,7 +9,7 @@ import re
 from collections.abc import Callable
 from typing import Any
 
-MODULES = ("wave110a_spells", "wave110a_choosers", "wave110a_parade", "wave110a_teferi")
+MODULES = ("wave110a_spells", "wave110a_choosers", "wave110a_parade", "wave110a_teferi", "wave110a_averna")
 Parsed = tuple[list[dict[str, Any]], Any, bool]
 
 
