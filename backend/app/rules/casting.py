@@ -1700,8 +1700,8 @@ def _pay(plan: Plan, player: str, cost: M.ManaCost, label: str, *, sources: list
         return payment if pc.payment_riders(plan, frame) else _PAYMENT_WAITING
     for card, index, ability in extras:
         # -- mana riders (wave 5A) -- counter "tap": tapped for mana (106.12a: an ability with {T} in its cost)
-        emit(plan.state, "mana_added", object_id=oids[card.id], card=card.id, player=player, amount=len(dict(payment.slots).get(card.id, ())),  # (110D: what it produced)
-             counter="tap" if ability.tap else None, mana_colors110i=[c for c in dict.fromkeys(dict(payment.slots).get(card.id, ())) if c in "WUBRG"])
+        emit(plan.state, "mana_added", object_id=oids[card.id], card=card.id, player=player, amount=len(payment.made110d.get(card.id, ())),  # (110D: what it produced, read where settle puts it in the pool)
+             counter="tap" if ability.tap else None, mana_colors110i=[c for c in dict.fromkeys(payment.made110d.get(card.id, ())) if c in "WUBRG"])
         after_mana_ability(plan, card, index, ability, player, source_object=oids[card.id])
     payment.life = life
     return payment
