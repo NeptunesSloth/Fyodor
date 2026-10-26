@@ -48,7 +48,7 @@ def test_wipe_later_than_the_grant_removes_the_granted_offspring(cards):  # 613.
 def test_full(cards):
     from app.rules import coverage
 
-    assert all(coverage.of_card_data(cards.resolve(n)).level == "FULL" for n in ("The Master, Multiplied", "Aboleth Spawn"))
+    assert all(coverage.of_card_data(cards.resolve(n)).level == "FULL" for n in ("The Master, Multiplied", "Aboleth Spawn", "Metamorphic Alteration"))
 
 
 def _unused_full(cards):
@@ -106,4 +106,38 @@ def test_aboleth_spawn_ignores_its_controllers_own_creatures(cards):
     cast(s, "Elvish Visionary")
     answer(s)
     assert len(s.state.zones["p1:hand"]) == n + 1  # card to hand +1, cast -1, draw +1, no copy
+    check(s)
+
+
+ALTER = "Metamorphic Alteration"
+
+
+def ch_pt(s, c):
+    from app.rules import sba
+
+    card = s.state.cards[c.id]
+    return sba.power(card, ch(s, c)), sba.toughness(card, ch(s, c))
+
+
+def _alter(cards):
+    s = build(cards, [ALTER, "Grizzly Bears", "Llanowar Elves", "Naturalize"])
+    bears, elves = put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    cast(s, ALTER, [bears.id])
+    answer(s, elves.id)
+    return s, bears, elves
+
+
+def test_metamorphic_alteration_enchanted_creature_becomes_a_copy_of_the_chosen_one(cards):  # 707.2c, 613.2a: layer-1 copy while the Aura stays attached (611.2b)
+    s, bears, elves = _alter(cards)
+    assert (ch(s, bears).name, ch_pt(s, bears)) == ("Llanowar Elves", (1, 1)) and ch(s, elves).name == "Llanowar Elves"
+    cast(s, "Naturalize", [card_named(s, ALTER).id])  # the Aura leaves: the copy effect ends
+    answer(s)
+    assert (ch(s, bears).name, ch_pt(s, bears)) == ("Grizzly Bears", (2, 2))
+    check(s)
+
+
+def test_metamorphic_alteration_copy_is_fixed_when_it_starts(cards):  # 707.2c: later changes to the chosen creature's copiable values are not followed
+    s, bears, elves = _alter(cards)
+    act(s, "p1", type="move", card_ids=[elves.id], to={"player": "p1", "zone": "graveyard"})
+    assert ch(s, bears).name == "Llanowar Elves"  # the copy needs no more than the values taken when it started
     check(s)
