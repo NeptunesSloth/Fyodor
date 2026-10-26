@@ -33,3 +33,4 @@
 - Battletide Alchemist (s8): "you may prevent X of that damage" is the Alchemist controller's choice per event, even when another player is damaged; replace.optional asks only the affected player.
 - Hankyu (s8): the granted "{T}, Remove all aim counters from Hankyu" needs a remove-all-counters cost on the granter (not the creature) whose count sizes the damage; scripts._granter_view only rewrites effects.
 - Bargaining Table (s8): "an opponent's hand" with several opponents is still unsettled (no ruling found on who is chosen or when).
+- Zimone's Experiment (partial): a revealed Dryad Arbor-like land creature card is told to enter and to go to hand by the same spell; no CR rule or ruling settles it, so it stays on top revealed for manual placement (rest automated).
