@@ -33,3 +33,4 @@
 - s10: Noxious Vapors: "chooses one card of each color" for a multicolored card (counts for several colors?) has no ruling in the local data.
 - s10: Mangara's Equity: "choose black or red" two-color choice, chosen-color source filter and "or a white creature you control" recipient are three missing pieces for one card.
 - s10: Drought / Brutal Suppression: unchanged (sacrifice components in the cost-change table).
+- s11: Mangara's Equity / Noxious Vapors / Null Chamber / Worms / Peace Talks: still open (see s9-s10 notes).

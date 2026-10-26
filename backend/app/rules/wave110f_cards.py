@@ -405,6 +405,13 @@ REWRITES = {
         "Gain control of target nonartifact, nonblack creature that attacked you this turn, then put a -1/-0 counter on it.",
     "You gain 3 life plus an additional 3 life for each additional {1}{G} you paid.": "You gain 3 life. You gain 3 life for each time this spell was kicked.",  # Taste of Paradise (702.33c)
     "Destroy target attacking creature, then put this card on top of your library.": "Destroy target attacking creature. Put ~ on top of your library.",  # Vengeful Pharaoh
+    # 905.2 / 103.6: nothing was drafted or exiled in a game with no draft, so there is no card, note or number to use (app/rules/draft_only.py).
+    "copy a card you exiled with cards named Arcane Savant. You may cast the copy without paying its mana cost.": "You gain 0 life.",
+    "Create a token that's a copy of a card you exiled with cards named Caller of the Untamed. X is the mana value of that card.": "You gain 0 life.",
+    "Choose a card at random you exiled with cards named Volatile Chimera. ~ becomes a copy of that card, except it has this ability.": "You gain 0 life.",
+    "~ deals damage to target creature equal to the highest number you noted for cards named Garbage Fire.": "~ deals 0 damage to target creature.",
+    # (Regicide: no color was chosen as it was drafted, so no creature is "one of those colors": a colorless red creature has none, the spell has no legal target.)
+    "Destroy target creature that's one or more of the colors chosen as you drafted cards named Regicide.": "Destroy target colorless red creature.",
     "it deals 6 damage to each creature it blocked this combat.": "~ deals 6 damage to each creature blocked by it.",
 }
 PRIMITIVES: dict[str, Any] = {"barrier_direction110f": barrier_direction, "remove_enchantments110f": remove_enchantments, "same_colors110f": same_colors, "phase_swap110f": phase_swap, "exile_discarded110f": exile_discarded, "turn_up_choice110f": turn_up_choice, "reveal_chroma110f": reveal_chroma, "unlock110f": unlock}
