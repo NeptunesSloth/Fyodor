@@ -61,7 +61,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero", "Living Lore", "Evelyn, the Covetous", "Kjeldoran Guard", "City in a Bottle", "Volo, Itinerant Scholar", "Cyclopean Tomb", "Enchantment Alteration", "Numa, Joraga Chieftain"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero", "Living Lore", "Evelyn, the Covetous", "Kjeldoran Guard", "City in a Bottle", "Volo, Itinerant Scholar", "Cyclopean Tomb", "Enchantment Alteration", "Numa, Joraga Chieftain", "Disciple of Caelus Nin", "Bronzehide Lion"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -1025,4 +1025,103 @@ def test_numa_with_x_zero_or_declined_puts_no_counters(cards):
     s, numa, elves = numa_table(cards)
     numa_pay(s, -1)
     assert not now(s, numa).counters and not now(s, elves).counters
+    check(s)
+
+
+DISCIPLE = "Disciple of Caelus Nin"
+
+
+def disciple_table(cards):
+    s = build(cards, [DISCIPLE, "Murder"], [], forests=12, islands=12)
+    mine = [put_new(s, "Forest") for _ in range(7)]
+    theirs = [put_new(s, "Island", "p2") for _ in range(7)]
+    return s, mine, theirs
+
+
+def zones(s, cards):
+    return [c.zone for c in (now(s, x) for x in cards)]
+
+
+def test_disciple_of_caelus_nin_lets_each_player_keep_five_permanents_and_phases_out_the_rest(cards):
+    s, mine, theirs = disciple_table(cards)
+    spell = to_hand(s, DISCIPLE)
+    mana(s, "p1", **cost(DISCIPLE))
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    asked = []
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            asked.append(d.player)
+            keep = (mine if d.player == "p1" else theirs)[:5]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[k.id for k in keep])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert asked == ["p1", "p2"]  # (101.4: starting with its controller)
+    assert zones(s, mine) == ["p1:battlefield"] * 5 + ["p1:phased"] * 2 and zones(s, theirs) == ["p2:battlefield"] * 5 + ["p2:phased"] * 2
+    assert now(s, spell).zone == "p1:battlefield"  # (the Disciple itself is not among "all other permanents")
+    check(s)
+
+
+def test_disciple_of_caelus_nin_keeps_permanents_from_phasing_in_while_it_is_on_the_battlefield(cards):
+    s, mine, theirs = disciple_table(cards)
+    spell = to_hand(s, DISCIPLE)
+    mana(s, "p1", **cost(DISCIPLE))
+    act(s, "p1", type="cast_spell", card_id=spell.id)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[k.id for k in (mine if d.player == "p1" else theirs)[:5]])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    next_turn(s)
+    next_turn(s)  # (both players' untap steps have come)
+    assert zones(s, mine)[5:] == ["p1:phased"] * 2 and zones(s, theirs)[5:] == ["p2:phased"] * 2
+    cast_on(s, "Murder", spell)  # (the Disciple dies; the permanents phase in at their controllers' next untap steps, 702.26a)
+    assert now(s, spell).zone == "p1:graveyard"
+    next_turn(s)
+    next_turn(s)
+    assert zones(s, mine) == ["p1:battlefield"] * 7 and zones(s, theirs) == ["p2:battlefield"] * 7
+    check(s)
+
+
+LION = "Bronzehide Lion"
+
+
+def lion_dies(cards, mine=("Grizzly Bears",), theirs=(), answers=()):
+    s = build(cards, [LION, "Murder", *mine], list(theirs))
+    lion = put(s, LION)
+    others = [put(s, n) for n in mine]
+    foes = [put(s, n, "p2") for n in theirs]
+    spell = to_hand(s, "Murder")
+    mana(s, "p1", **cost("Murder"))
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[lion.id])
+    settle(s, answers=list(answers))
+    return s, lion, others, foes
+
+
+def test_bronzehide_lion_returns_as_an_aura_on_a_creature_its_controller_controls(cards):
+    s, lion, (bears,), (foe,) = lion_dies(cards, theirs=("Llanowar Elves",))
+    back = next(c for c in s.state.cards.values() if c.name == LION and c.zone == "p1:battlefield")
+    chars = ch(s, back)
+    assert chars.types == {"Enchantment"} and "Aura" in chars.subtypes and "Creature" not in chars.types  # (an Aura, not a creature, 611.2e)
+    assert now(s, back).attached_to == bears.id  # (the only creature "you control": the opponent's Elves are no legal host)
+    abilities = [a.text for a in chars.abilities]
+    assert any(t.startswith("{G}{W}: Enchanted creature gains indestructible") for t in abilities) and not any("This creature gains" in t for t in abilities)
+    mana(s, "p1", G=1, W=1)
+    activate(s, back, "{G}{W}")
+    assert "indestructible" in ch(s, bears).keywords
+    check(s)
+
+
+def test_bronzehide_lion_with_two_creatures_asks_what_it_enchants_and_with_none_stays_dead(cards):
+    s, lion, (bears, elves), _ = lion_dies(cards, mine=("Grizzly Bears", "Llanowar Elves"))
+    back = next(c for c in s.state.cards.values() if c.name == LION and c.zone == "p1:battlefield")
+    assert now(s, back).attached_to in (bears.id, elves.id)
+    s2, lion2, _, _ = lion_dies(cards, mine=())
+    assert now(s2, lion2).zone == "p1:graveyard"  # (303.4g: nothing to enchant, it can't return)
+    check(s2)
     check(s)

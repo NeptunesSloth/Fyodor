@@ -9,7 +9,6 @@
 - Gluttonous Hellkite: X creatures sacrificed by each player as it is cast, then "enters with two counters for each sacrificed this way".
 - Invasion of Alara // Awaken the Maelstrom: battle back face and many unsupported effects.
 - Jetfire, Ingenious Scientist: "remove counters from among artifacts you control" cost, mana restriction on the added mana, convert.
-- Bronzehide Lion: comes back as an Aura (type change plus enchant restriction on the return).
 - Exchange of Words: exchanging text boxes (layer 3) is not modelled.
 - Eye of Ojer Taq: craft, a card type shared by the exiled materials, and "next spell of the chosen type is free".
 - Piracy: tapping lands you don't control for mana has no foundation.

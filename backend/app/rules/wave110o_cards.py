@@ -146,6 +146,11 @@ _TOMB_ACTIVATED = ("{2}, {T}: Put a mire counter on target non-Swamp land. That 
 _TOMB_TRIGGER = ("When ~ is put into a graveyard from the battlefield, at the beginning of each of your upkeeps for the rest of the game, remove all mire counters from a land "
                  "that a mire counter was put onto with ~ but that a mire counter has not been removed from with ~.")
 _ALTERATION = "Attach target Aura attached to a creature or land to another permanent of that type."
+_DISCIPLE_ENTER = ("When ~ enters, starting with you, each player chooses up to five permanents they control. All permanents other than ~ that weren't chosen this way phase out.")
+_LION = ("When ~ dies, return it to the battlefield. It's an Aura enchantment with enchant creature you control and \"{G}{W}: Enchanted creature gains indestructible until end of "
+         "turn,\" and it loses all other abilities.")
+_LION_FORM = {"set_types": ["Enchantment"], "add_subtypes": ["Aura"], "set_creature_types": [], "remove_abilities": True,
+              "add_abilities": ["Enchant creature you control", "{G}{W}: Enchanted creature gains indestructible until end of turn."]}
 _ARMOR_PREVENT = "Prevent all damage that would be dealt to enchanted creature by sources of the last chosen color."
 _ARMOR_COUNTER = "{X}: Put a sleight counter on ~ and choose a color. X is the number of sleight counters on ~."
 _PYRAMIDS_MODE = "• The next time target land would be destroyed this turn, remove all damage marked on it instead."
@@ -308,6 +313,18 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
         mine = [selectors.Selector(subtypes=("Aura",), extras=(x,)).key() for x in ("attached_creature", "attached_land")]
         return {"kind": "spell", "effects": [{"do": "alter_aura110o", "who": "target"}], "target": {"what": selectors.Selector(zones=("battlefield",), either=tuple(mine)).key()}}
+    if ability.kind == "triggered" and text == _DISCIPLE_ENTER:  # 101.4: starting with its controller, then turn order; the choices are all made before anything phases out (608.2e)
+        native = scripts.define(replace(ability, text="When ~ enters, each player chooses up to five permanents they control. All other permanents phase out."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["player_chooses", "phase_out"]:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "start": "you", "rest": "phase_out110o"}]}  # (the rest phase out as the last choice is made, effects._choose_next)
+    if ability.kind == "static" and text == "Permanents can't phase in.":  # 702.26a: read by phasing.untap_step (a permanent phased out stays so while this is on the battlefield)
+        return {"kind": "static", "static": "cant_phase_in110o", "effects": []}
+    if ability.kind == "triggered" and text == _LION:  # 611.2e, 303.4g: it returns as an Aura (never as a creature), its controller choosing what it enchants as it enters
+        native = scripts.define(replace(ability, text="When ~ dies, return it to the battlefield."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["return_card"]:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "do": "lion110o"}]}
     if ability.kind == "activated" and text == _KALDRA:  # 603.4-style "if" judged as it resolves (608.2c); every Equipment so named is attached
         from app.rules import conditions, selectors
 
@@ -1063,6 +1080,52 @@ def divide_x_to_event(target: Any) -> Any:
     return out if isinstance(target, list) else out[0]
 
 
+def lion(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Bronzehide Lion: the card returns with an entry form (an Aura with the two abilities); as an Aura not cast it enchants a creature its controller controls, chosen as it
+    enters (303.4f); with none it stays in the graveyard (303.4g)."""
+    from app.game.rules_state import DecisionOption
+    from app.game.state import zone_key
+    from app.rules import attachments, effects, entry_characteristics
+    from app.rules.plan import decide
+    from app.rules.targets import label
+
+    found = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":graveyard")]
+    if not found:
+        return True
+    card = plan.state.cards[found[0]]
+    form = entry_characteristics.freeze(plan, ctx, _LION_FORM).model_dump(mode="json")
+    player = ctx["controller"] if e.get("under") == "you" else card.owner
+    probe = entry_characteristics.probe(card, form).model_copy(update={"zone": zone_key(player, "battlefield"), "controller": player})
+    face = plan.ch(probe)
+    hosts = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and attachments.host_problem(plan, card, c.id, player, face=face) is None]
+    if not hosts:
+        plan.note("The Aura has nothing it could enchant: it stays where it is", [card.id])
+        return True
+    if len(hosts) == 1:
+        return _lion_enter(plan, ctx, card.id, hosts[0], form, player)
+    decide(plan, player=player, kind="choose_one", prompt="Choose what the Aura enchants",
+           options=[DecisionOption(id=h, label=label(plan, h), card_id=h) for h in hosts],
+           resume={"step": "lion110o", "ctx": ctx, "card": card.id, "form": form, "player": player}, source=card)
+    return False
+
+
+def _lion_enter(plan: Any, ctx: dict[str, Any], card_id: str, host: str, form: dict[str, Any], player: str) -> bool:
+    from app.rules import attachments
+
+    return attachments.enter(plan, [{"card": card_id, "player": player, "actor": ctx["controller"], "tapped": False, "entry_characteristics": form, "host": host, "bare": True}], ctx)
+
+
+def resume_lion(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    r = d.resume
+    if len(chosen) != 1 or chosen[0] not in {o.id for o in d.options}:
+        raise ActionError("It can't enchant that")
+    if _lion_enter(plan, r["ctx"], r["card"], chosen[0], r["form"], r["player"]):
+        effects.continue_effects(plan, r["ctx"])
+
+
 def wipe_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """614.1a: a shield for this turn on each target land (the object, 400.7): the next time it would be destroyed, the damage marked on it is removed instead."""
     from app.rules import effects
@@ -1109,7 +1172,7 @@ def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES: dict[str, Any] = {"alter_aura110o": alter_aura, "tomb_put110o": tomb_put, "tomb_delay110o": tomb_delay, "tomb_remove110o": tomb_remove, "note110o": note, "arn_sacrifice110o": arn_sacrifice, "collect110o": collect, "lore_bind110o": lore_bind, "secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
+PRIMITIVES: dict[str, Any] = {"lion110o": lion, "alter_aura110o": alter_aura, "tomb_put110o": tomb_put, "tomb_delay110o": tomb_delay, "tomb_remove110o": tomb_remove, "note110o": note, "arn_sacrifice110o": arn_sacrifice, "collect110o": collect, "lore_bind110o": lore_bind, "secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
               "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
-RESUME: dict[str, Any] = {"alter_aura110o": resume_alter_aura, "tomb_remove110o": resume_tomb_remove, "note110o": resume_note, "echo_offer110o": resume_echo_offer, "type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
+RESUME: dict[str, Any] = {"lion110o": resume_lion, "alter_aura110o": resume_alter_aura, "tomb_remove110o": resume_tomb_remove, "note110o": resume_note, "echo_offer110o": resume_echo_offer, "type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}

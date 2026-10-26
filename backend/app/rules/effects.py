@@ -4179,7 +4179,7 @@ def describe(effects: list[dict[str, Any]]) -> str:
     parts = [("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
               else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
              else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest", "rinoa_pick110o", "cleansing110o", "heroic110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o", "note110o", "tomb_put110o", "tomb_delay110o", "tomb_remove110o", "alter_aura110o")]  # (wave 30G: "any number")
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest", "rinoa_pick110o", "cleansing110o", "heroic110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o", "note110o", "tomb_put110o", "tomb_delay110o", "tomb_remove110o", "alter_aura110o", "lion110o")]  # (wave 30G: "any number")
     return (", ".join(parts) or "do it").capitalize()
 
 
@@ -4307,7 +4307,11 @@ def _choose_next(plan: Plan, ctx: Context, e: dict[str, Any], players: list[Any]
         from app.rules import nontarget_creature_choices
 
         rest = nontarget_creature_choices.rest(plan, e, rest, picked)
-        if e["rest"] == "sacrifice":
+        if e["rest"] == "phase_out110o":  # -- (wave 110O) -- Disciple of Caelus Nin: all the permanents not chosen, other than the source, phase out at once (702.26)
+            from app.rules import phasing
+
+            phasing.phase_out_cards(plan, ctx, [c for c in rest if c != ctx.get("source_card")])
+        elif e["rest"] == "sacrifice":
             _sacrifice_cards(plan, rest, ctx["controller"], ctx, e.get("as"))
         elif e["rest"] == "exile":  # -- group choices (wave 53D) -- "chooses two cards in their graveyard and exiles the rest" (Watchers of the Dead)
             exile_cards(plan, ctx, {}, rest)
