@@ -5992,6 +5992,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (war110e := wave110e_opp.war_definition(ability, ch)) is not None:
         return war110e
+    from app.rules import wave110e_uvilda  # -- refine counters (wave 110E) --
+
+    if (uvilda110e := wave110e_uvilda.definition(ability, ch)) is not None:
+        return uvilda110e
     from app.rules import wave110e_clara  # -- pregame color (wave 110E) --
 
     if (clara110e := wave110e_clara.definition(ability.text)) is not None:

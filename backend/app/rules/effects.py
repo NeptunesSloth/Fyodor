@@ -7257,3 +7257,6 @@ from app.rules import wave110e_kaya as _wave110e_kaya  # noqa: E402, I001  -- Ka
 
 PRIMITIVES.update(_wave110e_kaya.PRIMITIVES)
 RESUME.update(_wave110e_kaya.RESUME)
+from app.rules import wave110e_uvilda as _wave110e_uvilda  # noqa: E402, I001  -- Uvilda, Dean of Perfection (wave 110E) --
+
+PRIMITIVES.update(_wave110e_uvilda.PRIMITIVES)

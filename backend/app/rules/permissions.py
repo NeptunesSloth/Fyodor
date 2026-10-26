@@ -1840,6 +1840,9 @@ def total_cost(state: GameState, player: str, card: CardInstance, ch: Characteri
             else:
                 reduction -= m.delta
         reduction += self_reduction(state, player, card, ch, info)
+        from app.rules import wave110e_uvilda
+
+        reduction += wave110e_uvilda.less(state, card)  # -- wave 110E -- a resolving cast "costs {4} less to cast this way" (Uvilda)
         own = cost_changes.own_changes(state, player, card, ch, info, _definitions(ch), targets)
         increase += own.increase
         reduction += own.reduction
