@@ -1104,5 +1104,44 @@
 "keywords": [],
 "power": "3",
 "toughness": "5"
+},
+{
+"name": "Estrid, the Masked",
+"layout": "normal",
+"mana_cost": "{1}{G}{W}{U}",
+"cmc": 4.0,
+"type_line": "Legendary Planeswalker — Estrid",
+"oracle_text": "+2: Untap each enchanted permanent you control.\n−1: Create a white Aura enchantment token named Mask attached to another target permanent. The token has enchant permanent and umbra armor.\n−7: Mill seven cards. Return all non-Aura enchantment cards from your graveyard to the battlefield, then do the same for Aura cards.\nEstrid, the Masked can be your commander.",
+"colors": [
+"G",
+"U",
+"W"
+],
+"color_identity": [
+"G",
+"U",
+"W"
+],
+"keywords": [
+"Mill"
+],
+"loyalty": "3"
+},
+{
+"name": "Smoke Spirits' Aid",
+"layout": "normal",
+"mana_cost": "{X}{R}",
+"cmc": 1.0,
+"type_line": "Sorcery",
+"oracle_text": "For each of up to X target creatures, create a red Aura enchantment token named Smoke Blessing attached to that creature. Those tokens have enchant creature and \"When enchanted creature dies, it deals 1 damage to its controller and you create a Treasure token.\"",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [
+"Treasure"
+]
 }
 ]
