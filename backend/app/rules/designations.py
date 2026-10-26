@@ -1046,6 +1046,7 @@ def _walk(value: Any) -> list[dict[str, Any]]:
 # those the engine runs from the command zone: static grants and anthems (app/rules/layers.py ``statics``), and triggered
 # abilities the watchers read (app/rules/triggers.py ``_watchers``, ``at_step``). Anything else is not a template match.
 # Not a token (111.7 doesn't apply: app/game/handlers/cards.py), and no replacement doubles it (it isn't a token creation).
+_OB_NIXILIS_EMBLEM = "{1}{B}, Sacrifice a creature: You gain X life and draw X cards, where X is the sacrificed creature's power."  # (wave 110O)
 _EMBLEM_TRIGGERS = ("event", "landfall", "enters_other", "cast_you", "upkeep_you", "end_step_you")
 
 
@@ -1075,6 +1076,8 @@ def emblem_text_ok(text: str) -> bool:
                 continue
             if d.get("static") != "grant" or zone_static(d) or d.get("also"):
                 return False
+        elif d.get("kind") == "activated" and text == _OB_NIXILIS_EMBLEM:  # -- (wave 110O) -- 114.4, 602.2: the one emblem ability the engine activates from the command zone (casting.activate_ability)
+            continue
         elif d.get("kind") != "triggered" or not (d.get("trigger") in _EMBLEM_TRIGGERS or str(d.get("trigger")).startswith("step:")):
             return False
     return True

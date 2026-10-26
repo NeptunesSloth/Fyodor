@@ -9,6 +9,11 @@
 * 118.9, 404.1, 118.3: Spinning Darkness's alternative cost exiles the top three black cards of the graveyard (no choice); with fewer it can't be paid.
 * 608.2c, 118.12: Tidal Flats asks the controller of each attacking creature without flying for {1}; blockers of the creatures whose controller didn't pay get first strike.
 * 614.1a, 704.5g: Pyramids' shield replaces the next destruction of a land this turn (an effect's or lethal damage) by removing the damage on it; its other mode destroys an Aura attached to a land.
+* 614.1a, 608.2d: Soul Echo: the targeted opponent decides; each 1 damage to its controller until their next turn is replaced by an echo counter removed (while there is one).
+* 114.1, 602.2, 113.6k: Ob Nixilis of the Black Oath's -8 emblem is activated from the command zone (sacrifice a creature: gain X life, draw X cards).
+* 707.2, 611.2b, 610.3: Secret Invasion exiles a creature and makes the enchanted one a copy of it for as long as the Aura stays; the exiled one comes back with it.
+* 615.1, 614.1a: Chromatic Armor prevents damage to the enchanted creature from sources of the last chosen color (each choice replaces the one before).
+* 613.1d, 613.1c, 613.1f, 613.4b: Tenth District Hero becomes a legendary 5/5 named Mileva, the Stalwart (only if it is a Detective), giving other creatures its controller controls indestructible.
 """
 
 from __future__ import annotations
@@ -47,7 +52,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness", "Tidal Flats", "Pyramids", "Soul Echo", "Ob Nixilis of the Black Oath", "Secret Invasion", "Chromatic Armor", "Tenth District Hero"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -519,4 +524,177 @@ def test_pyramids_shield_saves_only_its_land_from_a_mass_destruction(cards):
     pyramids(s, pyr, 1, vault)
     cast_on(s, "Armageddon")
     assert now(s, vault).zone == "p1:battlefield" and now(s, forest).zone == "p1:graveyard"
+    check(s)
+
+
+ECHO = "Soul Echo"
+
+
+def echo_table(cards, x=2):
+    s = build(cards, [ECHO], ["Lightning Bolt", "Lightning Bolt"])
+    spell = to_hand(s, ECHO)
+    mana(s, "p1", W=2, C=x)
+    act(s, "p1", type="cast_spell", card_id=spell.id, x_value=x)
+    settle(s)
+    echo = now(s, spell)
+    assert echo.zone == "p1:battlefield" and echo.counters.get("echo", 0) == x
+    stops(s)
+    to_phase(s, "upkeep", turn=3)
+    return s, echo
+
+
+def answer_echo(s, choice):
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[choice if "echo" in d.prompt or "damage" in d.prompt else d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_soul_echo_removes_counters_instead_of_damage_when_the_opponent_chooses_it(cards):
+    s, echo = echo_table(cards)
+    answer_echo(s, "yes")
+    bolt(s, "p1")
+    assert life(s, "p1") == 39 and now(s, echo).counters.get("echo", 0) == 0  # (2 of the 3 damage replaced by 2 counters, the last point is dealt)
+    check(s)
+
+
+def test_soul_echo_does_nothing_when_the_opponent_declines(cards):
+    s, echo = echo_table(cards)
+    answer_echo(s, "no")
+    bolt(s, "p1")
+    assert life(s, "p1") == 37 and now(s, echo).counters.get("echo") == 2
+    check(s)
+
+
+def test_soul_echo_without_counters_is_sacrificed_at_the_upkeep(cards):
+    s, echo = echo_table(cards, x=0)
+    answer_echo(s, "yes")
+    assert now(s, echo).zone == "p1:graveyard"
+    check(s)
+
+
+OB = "Ob Nixilis of the Black Oath"
+
+
+def ob_table(cards):
+    s = build(cards, [OB, "Grizzly Bears", "Llanowar Elves"], [])
+    ob = put(s, OB)
+    s.state.cards[ob.id].counters["loyalty"] = 8
+    return s, ob, put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+
+
+def test_ob_nixilis_emblem_sacrifices_a_creature_for_life_and_cards_from_the_command_zone(cards):
+    s, ob, bears, elves = ob_table(cards)
+    act(s, "p1", type="activate_ability", card_id=ob.id, ability=next(a.index for a in ch(s, ob).abilities if a.text.startswith("−8")))
+    settle(s)
+    emblem = next(c for c in s.state.cards.values() if c.zone == "p1:command" and c.token is not None and c.token.type_line == "Emblem")
+    hand, life0 = len(s.state.zones["p1:hand"]), life(s, "p1")
+    mana(s, "p1", B=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=emblem.id, ability=ability(s, emblem, "{1}{B}"), cost_choices=[{"component": 1, "cards": [bears.id]}])
+    settle(s)
+    assert now(s, bears).zone == "p1:graveyard" and life(s, "p1") == life0 + 2 and len(s.state.zones["p1:hand"]) == hand + 2  # (X is the sacrificed Bears' power, 2)
+    # (it stays: 114.4 — a second activation works too)
+    mana(s, "p1", B=1, C=1)
+    act(s, "p1", type="activate_ability", card_id=emblem.id, ability=ability(s, emblem, "{1}{B}"), cost_choices=[{"component": 1, "cards": [elves.id]}])
+    settle(s)
+    assert now(s, elves).zone == "p1:graveyard" and life(s, "p1") == life0 + 3
+    check(s)
+
+
+SECRET = "Secret Invasion"
+
+
+def test_secret_invasion_exiles_a_creature_and_makes_the_enchanted_one_its_copy_while_the_aura_stays(cards):
+    s = build(cards, [SECRET, "Grizzly Bears", "Naturalize"], ["Mesa Pegasus"])
+    bears, bird = put(s, "Grizzly Bears"), put(s, "Mesa Pegasus", "p2")
+    aura = cast_on(s, SECRET, bears)
+    assert now(s, aura).attached_to == bears.id and now(s, bird).zone == "p2:exile"
+    assert ch(s, bears).name == "Mesa Pegasus" and ch(s, bears).pt == (1, 1) and "flying" in ch(s, bears).keywords  # (707.2: a copy of the exiled creature)
+    assert any(k.lower().startswith("ward") for k in ch(s, bears).keywords)  # (and Secret Invasion's ward {2})
+    check(s)
+    cast_on(s, "Naturalize", aura)
+    assert now(s, aura).zone == "p1:graveyard"
+    assert ch(s, bears).name == "Grizzly Bears" and ch(s, bears).pt == (2, 2) and now(s, bird).zone == "p2:battlefield"  # (611.2b, 610.3: both end with the Aura)
+    check(s)
+
+
+def test_secret_invasion_with_no_creature_to_exile_changes_nothing(cards):
+    s = build(cards, [SECRET, "Grizzly Bears"], [])
+    bears = put(s, "Grizzly Bears")
+    aura = cast_on(s, SECRET, bears)
+    assert now(s, aura).attached_to == bears.id and ch(s, bears).name == "Grizzly Bears"
+    check(s)
+
+
+ARMOR = "Chromatic Armor"
+
+
+def choose_color(s, label, pid="p1"):
+    """Answer the next question (a colour) with ``label``; resolve the stack."""
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options if o.label == label] or [d.options[0].id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+def test_chromatic_armor_prevents_damage_from_the_last_chosen_color(cards):
+    s = build(cards, [ARMOR, "Grizzly Bears"], ["Lightning Bolt", "Lightning Bolt", "Lightning Bolt"])
+    bears = put(s, "Grizzly Bears")
+    stops(s)
+    armor = to_hand(s, ARMOR)
+    mana(s, "p1", **cost(ARMOR))
+    act(s, "p1", type="cast_spell", card_id=armor.id, targets=[bears.id])
+    choose_color(s, "Red")
+    assert now(s, armor).counters.get("sleight") == 1
+    bolt(s, bears.id)
+    assert now(s, bears).damage == 0 and now(s, bears).zone == "p1:battlefield"  # (red: prevented)
+    mana(s, "p1", C=1)  # {X}, X = 1 sleight counter: one more counter and a new colour
+    act(s, "p1", type="activate_ability", card_id=armor.id, ability=ability(s, armor, "{X}"))
+    choose_color(s, "Blue")
+    assert now(s, armor).counters.get("sleight") == 2
+    bolt(s, bears.id)
+    assert now(s, bears).zone == "p1:graveyard"  # (red is no longer the chosen colour: Bolt kills the Bears)
+    check(s)
+
+
+HERO = "Tenth District Hero"
+
+
+def hero_table(cards):
+    s = build(cards, [HERO, "Grizzly Bears", "Llanowar Elves", "Murder", "Wrath of God", "Mesa Pegasus"], ["Grizzly Bears"])
+    hero = put(s, HERO)
+    for n in ("Grizzly Bears", "Llanowar Elves", "Murder", "Wrath of God"):
+        grave_new(s, n)
+    return s, hero
+
+
+def hero_activate(s, hero, start, pay, **mana_):
+    mana(s, "p1", **mana_)
+    act(s, "p1", type="activate_ability", card_id=hero.id, ability=ability(s, hero, start), cost_choices=[{"component": 1, "cards": [c.id for c in pay]}])
+    settle(s)
+
+
+def test_tenth_district_hero_becomes_mileva_only_after_it_is_a_detective(cards):
+    s, hero = hero_table(cards)
+    grave = {c.name: c for c in s.state.cards.values() if c.zone == "p1:graveyard"}
+    mine, theirs = put(s, "Mesa Pegasus"), put(s, "Grizzly Bears", "p2")
+    hero_activate(s, hero, "{2}{W}", [grave["Wrath of God"]], W=1, C=2)  # (not a Detective yet: nothing happens, though the evidence is paid)
+    assert ch(s, hero).name == HERO and ch(s, hero).pt == (2, 3)
+    hero_activate(s, hero, "{1}{W}", [grave["Grizzly Bears"]], W=1, C=1)
+    assert "Detective" in ch(s, hero).subtypes and ch(s, hero).pt == (4, 4) and "vigilance" in ch(s, hero).keywords
+    assert "indestructible" not in ch(s, mine).keywords
+    hero_activate(s, hero, "{2}{W}", [grave["Murder"], grave["Llanowar Elves"]], W=1, C=2)
+    mileva = ch(s, hero)
+    assert mileva.name == "Mileva, the Stalwart" and "Legendary" in mileva.supertypes and mileva.pt == (5, 5) and "Detective" in mileva.subtypes
+    assert "indestructible" not in mileva.keywords  # (other creatures only)
+    assert "indestructible" in ch(s, mine).keywords and "indestructible" not in ch(s, theirs).keywords  # (Mileva's controller's other creatures only)
     check(s)

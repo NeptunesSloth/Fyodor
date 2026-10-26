@@ -367,7 +367,8 @@ def _extend_statics(state: GameState, info: CardInfo, out: list[Static], wiped: 
                         if not inner.get('layer4') and not inner.get('base'):
                             out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))
                         continue
-                    if inner is None or (inner.get("who") != "self" and not damage_retention83.resolved_static(inner)) or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
+                    # (-- wave 110O -- Tenth District Hero's Mileva: the one group grant of a keyword a resolved effect gives, 613.1f)
+                    if inner is None or (inner.get("who") != "self" and not damage_retention83.resolved_static(inner) and text != "Other creatures you control have indestructible.") or inner.get("layer4") or inner.get("base") or inner.get("p") or inner.get("t") or inner.get("grants"):
                         continue
                     if inner.get("keywords") or inner.get("rules") or inner.get("each"):  # (each: "gets +1/+1 for each ..." granted by a resolved effect, 613.4c; wave 110D)
                         out.append(Static(cid, controller, inner, effect.object_seq, effect_key=key))

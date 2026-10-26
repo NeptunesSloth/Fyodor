@@ -2130,6 +2130,11 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
         left = sim.get("shields", {}).get(_finite_prevention_key(c, ev), c.op["limit"])
         if int(c.op["limit"]) <= 0 or (left <= 0 and not c.op.get("allocate")):
             return False
+    if c.op["do"] == "remove_counters110o":  # -- (wave 110O) -- 614.1a: it replaces the damage only while there is a counter left to remove
+        from app.rules import wave110o_cards
+
+        if wave110o_cards.echo_left(plan, c, sim) <= 0:
+            return False
     return _source_matches(plan, m.get("source") or {}, c, ev) and _recipient_matches(plan, m.get("to") or {}, c, ev)
 
 
@@ -2143,6 +2148,10 @@ def _added_value(plan: Plan, c: Candidate, value: Any) -> int:
 
 def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     op = c.op
+    if op["do"] == "remove_counters110o":  # -- (wave 110O) -- Soul Echo: each 1 damage is replaced by removing a counter (614.1a)
+        from app.rules import wave110o_cards
+
+        return wave110o_cards.echo_apply(plan, c, ev, sim)
     if op["do"] == "redirect":  # -- refused grants/replacements (wave 3R2) -- 614.9 (app/rules/source_shields.py)
         from app.rules import source_shields
 
@@ -2632,6 +2641,11 @@ def _commit_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, 
 def commit_shields(plan: Plan, shields: dict[str, int]) -> None:
     """The shields as the damage left them (615.7: used up by what they prevented)."""
     r = plan.rules
+    for key, used_n in shields.items():  # -- (wave 110O) -- Soul Echo: the counters the damage replaced
+        if key.startswith("echo110o:") and used_n > 0:
+            from app.rules import wave110o_cards
+
+            wave110o_cards.echo_commit(plan, key, used_n)
     # -- refused grants/replacements (wave 3R2) -- 615.8: a "next time" shield that prevented damage is used up
     used = {key[len("once:r:"):] for key in shields if key.startswith("once:r:")}
     for key, left in shields.items():  # -- prevention riders (wave 17A) -- what is left of "the next N damage is dealt to … instead"

@@ -6,7 +6,6 @@
 - Ranar the Ever-Watchful: the "first card you foretell each turn costs {0}" reduction and the exile-from-hand batch event are missing.
 - Volo, Itinerant Scholar: "note" creature types on a token (Alchemy note mechanic) has no storage or counting foundation.
 - Apple of Eden, Isu Relic: hand exiled face down, played with any mana, owner draws, delayed return: several missing parts.
-- Ob Nixilis of the Black Oath: the emblem holds an activated ability (emblem_text_ok rejects it).
 - Lucy MacLean, Positively Armed: another player creating the token copy has no foundation.
 - Gluttonous Hellkite: X creatures sacrificed by each player as it is cast, then "enters with two counters for each sacrificed this way".
 - Invasion of Alara // Awaken the Maelstrom: battle back face and many unsupported effects.
@@ -23,10 +22,6 @@
 - Kjeldoran Guard: "defending player" in an activated ability is undefined in multiplayer (506.2); no ruling found.
 - Numa, Joraga Chieftain: paying {X}{X} and distributing X counters among any number of targets are both missing.
 - Disciple of Caelus Nin: phasing out everything not chosen, and "permanents can't phase in".
-- Soul Echo: the opponent's choice to replace damage with echo counter removal.
 - Evelyn, the Covetous: a static permission over cards with a collection counter "exiled by an ability you controlled".
-- Secret Invasion: exile until it leaves plus becoming a copy of the exiled creature.
-- Tenth District Hero: becoming a creature "named" something (name change) is not modelled.
-- Chromatic Armor: sleight counters set X, and a prevention keyed to "the last chosen color".
 - Cyclopean Tomb: a delayed per-land cleanup tied to the lands the artifact marked.
 - Custodi Peacekeeper: depends on a number noted while drafting (905.2b); no rule for a game that was not drafted.

@@ -110,6 +110,14 @@ _HEROIC = ("Choose target creature you control. Until end of turn, all damage th
            "draw a card.")
 _TIDAL = ("For each attacking creature without flying, its controller may pay {1}. If that player doesn't, creatures you control blocking that creature "
           "gain first strike until end of turn.")
+_SOUL_ECHO = ("At the beginning of your upkeep, sacrifice ~ if there are no echo counters on it. Otherwise, target opponent may choose that for each 1 damage that would "
+              "be dealt to you until your next upkeep, you remove an echo counter from ~ instead.")
+_SECRET = ("When ~ enters, exile up to one target creature other than enchanted creature until ~ leaves the battlefield. Enchanted creature becomes "
+           "a copy of that creature until ~ leaves the battlefield.")
+_MILEVA = ("{2}{W}, Collect evidence 4: If ~ is a Detective, it becomes a legendary creature named Mileva, the Stalwart, it has base power and toughness 5/5, and it "
+           "gains \"Other creatures you control have indestructible.\"")
+_ARMOR_PREVENT = "Prevent all damage that would be dealt to enchanted creature by sources of the last chosen color."
+_ARMOR_COUNTER = "{X}: Put a sleight counter on ~ and choose a color. X is the number of sleight counters on ~."
 _PYRAMIDS_MODE = "• The next time target land would be destroyed this turn, remove all damage marked on it instead."
 _CLEANSING = "For each land, destroy that land unless any player pays 1 life."
 _UNDER_COST = "As an additional cost to cast this spell, you may pay {2}{R}."
@@ -183,6 +191,34 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {**native, "effects": [{**native["effects"][0], "as": "mysterio110o"},
                                       {"do": "delayed", "when": {"kind": "event", "event": "leave", "open": True}, "n": 1, "who": "self"},
                                       {"do": "deferred:exile", "who": "ref:mysterio110o"}]}
+    if ability.kind == "triggered" and text == _SOUL_ECHO:  # 614.1a: the opponent's choice is made as it resolves; the shield lasts until its controller's next turn begins
+        native = scripts.define(replace(ability, text="At the beginning of your upkeep, sacrifice ~ if there are no echo counters on it."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["only_if", "sacrifice"]:
+            return None
+        has_counters = {"value": {"counters": "echo", "on": "self"}, "op": ">=", "n": 1}
+        return {**native, "target": {"what": "opponent"},
+                "effects": [*native["effects"], {"do": "only_if", "cond": has_counters, "skip": 1}, {"do": "echo_offer110o"}]}
+    if ability.kind == "triggered" and text == _SECRET:  # 707.2, 611.2b: the creature enchanted becomes a copy of the exiled one for as long as this Aura stays
+        native = scripts.define(replace(ability, text="When this Aura enters, exile up to one target creature other than enchanted creature until this Aura leaves the battlefield. "
+                                                      "~ becomes a copy of that creature."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["exile_until", "become_copy"]:
+            return None
+        return {**native, "effects": [native["effects"][0], {**native["effects"][1], "do": "secret_copy110o", "who": "host"}]}
+    if ability.kind == "static" and text == _ARMOR_PREVENT:  # 614.1a: each "choose a color" replaces the one before, so the last chosen color is the color the Aura holds
+        return scripts.define(replace(ability, text=text.replace("the last chosen color", "the chosen color")), ch)
+    if ability.kind == "activated" and text == _ARMOR_COUNTER:  # one sentence, two actions in order: the same as two sentences
+        native = scripts.define(replace(ability, text=text.replace("on ~ and choose a color.", "on ~. Choose a color.")), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["add_counters", "choose_value"]:
+            return None  # (the choice is written on the Aura like the one it entered with: "the last chosen color" is what it holds)
+        return {**native, "effects": [native["effects"][0], {**native["effects"][1], "remember": True}]}
+    if ability.kind == "activated" and text == _MILEVA:  # 613.1d, 613.1c, 613.4b, 613.1f: one effect with a part in each layer, for good ("legendary creature named …")
+        native = scripts.define(replace(ability, text="{2}{W}, Collect evidence 4: If ~ is a Detective, it becomes a creature with base power and toughness 5/5 and gains vigilance."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["only_if", "become"]:
+            return None
+        become = {k: v for k, v in native["effects"][1].items() if k not in ("keywords", "types")}
+        return {**native, "effects": [{**native["effects"][0], "skip": 3}, {**become, "types": [], "legendary": True},
+                                      {"do": "named100g", "who": "self", "name": "Mileva, the Stalwart"},
+                                      {"do": "grant", "who": "self", "abilities": ["Other creatures you control have indestructible."], "duration": "permanent"}]}
     if ability.kind == "activated" and text == _KALDRA:  # 603.4-style "if" judged as it resolves (608.2c); every Equipment so named is attached
         from app.rules import conditions, selectors
 
@@ -660,6 +696,76 @@ def tidal_grant(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def _echo_holder(plan: Any, op: dict[str, Any]) -> Any:
+    return next((x for x in plan.state.cards.values() if x.zone.endswith(":battlefield") and plan.oid(x) == op["oid"]), None)
+
+
+def echo_left(plan: Any, c: Any, sim: dict[str, Any]) -> int:
+    """The counters Soul Echo's replacement can still remove in this damage batch (the permanent only while it is that object on the battlefield, 400.7)."""
+    holder = _echo_holder(plan, c.op)
+    return 0 if holder is None else holder.counters.get(c.op["kind"], 0) - sim.get("shields", {}).get(f"echo110o:{c.op['oid']}:{c.op['kind']}", 0)
+
+
+def echo_apply(plan: Any, c: Any, ev: dict[str, Any], sim: dict[str, Any]) -> list[dict[str, Any]]:
+    """614.1a: "for each 1 damage that would be dealt to you … you remove an echo counter instead": that many counters are removed (as many as there are), the rest is dealt."""
+    used = min(int(ev["amount"]), max(0, echo_left(plan, c, sim)))
+    key = f"echo110o:{c.op['oid']}:{c.op['kind']}"
+    shields = sim.setdefault("shields", {})
+    shields[key] = shields.get(key, 0) + used
+    return [{**ev, "amount": int(ev["amount"]) - used}]
+
+
+def echo_commit(plan: Any, key: str, n: int) -> None:
+    _, oid, kind = key.split(":", 2)
+    holder = next((x for x in plan.state.cards.values() if x.zone.endswith(":battlefield") and plan.oid(x) == oid), None)
+    if holder is not None and holder.counters.get(kind, 0) > 0:
+        taken = min(n, holder.counters[kind])
+        plan.do({"type": "counter", "card_ids": [holder.id], "kind": kind, "delta": -taken}, actor=holder.controller)
+        plan.note(f"{holder.name}: {taken} {kind} counter(s) removed instead of damage", [holder.id], actor=holder.controller)
+
+
+def echo_offer(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Target opponent may choose that …": the opponent targeted decides, privately, as the ability resolves (608.2d)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    opponents = effects._players(plan, ctx, "target")
+    if len(opponents) != 1 or opponents[0] not in plan.live():
+        return True
+    decide(plan, player=opponents[0], kind="choose_one",
+           prompt=f"{ctx.get('name') or 'It'}: for each 1 damage that would be dealt to {plan.name(ctx['controller'])} until their next upkeep, they remove an echo counter instead?",
+           options=[DecisionOption(id="yes", label="Choose that"), DecisionOption(id="no", label="Don't")],
+           resume={"step": "echo_offer110o", "ctx": ctx})
+    return False
+
+
+def resume_echo_offer(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects, replace
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in ("yes", "no"):
+        raise ActionError("Choose yes or no")
+    if chosen[0] == "yes" and ctx.get("source_object") is not None:
+        replace.add_record(plan, event="damage", match={"to": {"players": "you"}}, op={"do": "remove_counters110o", "kind": "echo", "oid": ctx["source_object"]},
+                           controller=ctx["controller"], source=ctx.get("source_object"), source_card=ctx.get("source_card"),
+                           label=ctx.get("name") or "an effect", until="next_turn", until_player=ctx["controller"])
+    effects.continue_effects(plan, ctx)
+
+
+def secret_copy(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """611.2b: the copy effect (layer 1, made by the ordinary ``become_copy``) lasts for as long as the Aura (the source) stays on the battlefield."""
+    from app.rules import copying
+
+    before = len(plan.rules.effects)
+    done = copying.become_copy(plan, ctx, {**e, "do": "become_copy"})
+    for made in plan.rules.effects[before:]:
+        if made.layer == "1" and made.copy_recipe is not None:
+            made.duration, made.source, made.source_card, made.until_player = "source_on_battlefield", ctx.get("source_object"), ctx.get("source_card"), ctx["controller"]
+    return done
+
+
 def wipe_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """614.1a: a shield for this turn on each target land (the object, 400.7): the next time it would be destroyed, the damage marked on it is removed instead."""
     from app.rules import effects
@@ -706,7 +812,7 @@ def cleansing(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return False
 
 
-PRIMITIVES: dict[str, Any] = {"wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
+PRIMITIVES: dict[str, Any] = {"secret_copy110o": secret_copy, "echo_offer110o": echo_offer, "wipe_shield110o": wipe_shield, "tidal110o": tidal, "tidal_grant110o": tidal_grant, "heroic110o": heroic, "cleansing110o": cleansing, "type_emblem110o": type_emblem, "redistribute110o": redistribute,
               "helm_test110o": helm_test, "helm_again110o": helm_again, "helm_pick110o": helm_pick, "portent_hand110o": portent_hand, "rinoa_pick110o": rinoa_pick, "lazav110o": lazav, "profaner110o": profaner, "gain_land110o": gain_land}
-RESUME: dict[str, Any] = {"type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
+RESUME: dict[str, Any] = {"echo_offer110o": resume_echo_offer, "type_emblem110o": resume_type_emblem, "redistribute_players110o": resume_redistribute_players,
                           "redistribute_give110o": resume_redistribute_give, "helm_pick110o": resume_helm_pick, "rinoa_pick110o": resume_rinoa_pick, "lazav110o": resume_lazav, "lazav_copy110o": resume_lazav_copy, "gain_land110o": resume_gain_land}
