@@ -59,9 +59,14 @@ const HandCard = memo(function HandCard({ id, index, fan, me, compact }: { id: s
       aria-label={card.hidden ? "Hidden card" : card.name}
       aria-pressed={selected}
       onKeyDown={(e) => {
-        if (e.key !== "Enter" && e.key !== " ") return;
-        e.preventDefault();
-        useGame.getState().select([id], e.shiftKey || e.ctrlKey || e.metaKey ? "toggle" : undefined);
+        if (e.key === " ") {
+          e.preventDefault();
+          useGame.getState().select([id], e.shiftKey || e.ctrlKey || e.metaKey ? "toggle" : undefined);
+        } else if (e.key === "Enter" && !card.hidden) {
+          // the keyboard way to play a card: the same as double-click (rules intents first)
+          e.preventDefault();
+          if (!dropAsIntent([id], { zone: `${me}:battlefield` }, me)) void moveCards([id], "battlefield", { player: me });
+        }
       }}
       onPointerDown={(e) => {
         if (e.button !== 0 || compact) return;

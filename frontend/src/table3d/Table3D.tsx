@@ -158,14 +158,14 @@ export function Table3D({ me }: { me: string }) {
       </div>
       <CoachTips />
       <div className="t3d-cams frame" role="toolbar" aria-label="Camera">
-        <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Look from your seat (1)">Seat</button>
+        <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Look from your seat (1)">Seat <kbd className="cam-key">1</kbd></button>
         {others.map((pid, i) => (
           <button key={pid} className={typeof preset === "object" && "focus" in preset && preset.focus === pid ? "on" : ""} onClick={() => setPreset({ focus: pid })}
             aria-label={`Look at ${nameOf(pid)}'s side`} title={`Look at ${nameOf(pid)}'s side (${i + 2})`}>
-            <PlayerChip player={pid} />
+            <PlayerChip player={pid} /> <kbd className="cam-key">{i + 2}</kbd>
           </button>
         ))}
-        <button className={preset === "overview" ? "on" : ""} onClick={() => setPreset("overview")} title="Look down on the whole table (0)">Table</button>
+        <button className={preset === "overview" ? "on" : ""} onClick={() => setPreset("overview")} title="Look down on the whole table (0)">Table <kbd className="cam-key">0</kbd></button>
       </div>
     </div>
   );
@@ -173,8 +173,8 @@ export function Table3D({ me }: { me: string }) {
 
 const TIPS = [
   { title: "Players", text: "Click a player's plaque to see their counters, commander damage and actions." },
-  { title: "Your turn", text: "The dial at the bottom right says whose turn it is and what Pass will do. P passes priority." },
-  { title: "Playing cards", text: "Drag a card from your hand onto the table to play it. Hold Alt as you drop to place it by hand." },
+  { title: "Your turn", text: "The dial at the bottom right says whose turn it is, and its big button says what pressing it will do." },
+  { title: "Playing cards", text: "Drag a card from your hand onto the table, or focus it and press Enter. Hold Alt as you drop to place it by hand." },
 ];
 const COACH_KEY = "fyodor.coach3d";
 
@@ -226,7 +226,7 @@ function SeatPlate({ player, me, open, onToggle }: { player: string; me: string;
   const cmd = Math.max(0, ...Object.values(p.commander_damage));
   const poison = p.resources.poison ?? 0;
   const stats: { key: string; text: string; title: string; lethal: boolean }[] = [];
-  if (cmd > 0) stats.push({ key: "cmd", text: `Cmdr ${cmd}`, title: `Most commander damage from one commander: ${cmd} of ${LETHAL_COMMANDER}`, lethal: cmd >= LETHAL_COMMANDER });
+  stats.push({ key: "cmd", text: `Cmdr ${cmd}`, title: `Most commander damage from one commander: ${cmd} of ${LETHAL_COMMANDER}`, lethal: cmd >= LETHAL_COMMANDER });
   if (poison > 0) stats.push({ key: "poison", text: `Poison ${poison}`, title: `${poison} of ${LETHAL_POISON} poison counters`, lethal: poison >= LETHAL_POISON });
   if (player !== me) stats.push({ key: "hand", text: `Hand ${p.hand_count}`, title: `${p.hand_count} cards in hand`, lethal: false });
   return (

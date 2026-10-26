@@ -16,3 +16,15 @@ describe("undoable action summaries", () => {
     expect(undoableSummary({ type: "pass_priority" })).toBeNull();
   });
 });
+
+import { recoveryHint } from "./gameStore";
+
+describe("recovery hints for refused actions", () => {
+  it("points at the way forward", () => {
+    expect(recoveryHint("You don't have priority")).toMatch(/turn dial/);
+    expect(recoveryHint("Can't afford {2}{U}")).toMatch(/mana/);
+    expect(recoveryHint("Illegal target")).toMatch(/highlighted targets/);
+    expect(recoveryHint("That move is not legal now")).toMatch(/hold Alt/);
+    expect(recoveryHint("Something odd happened")).toBe("");
+  });
+});

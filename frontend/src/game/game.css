@@ -231,8 +231,11 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .chain-hold { flex: none; align-self: center; }
 .chain-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .chain-actions-hint { font-size: 11.5px; color: var(--text-dim); }
+/* narrower screens: every chain entry stays listed, just tighter (no hidden rows) */
 @media (max-width: 1440px) {
-  .game-screen:has(main.table.is-3d) .chain-row:not(.top) { display: none; }
+  .game-screen:has(main.table.is-3d) .chain-thumb { display: none; }
+  .game-screen:has(main.table.is-3d) .chain-text { display: none; }
+  .game-screen:has(main.table.is-3d) .chain-row { padding: 4px 6px; }
 }
 .log-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .log-scroll { flex: 1; overflow: auto; padding: 0 10px 8px; font-size: 12.5px; line-height: 1.45; }

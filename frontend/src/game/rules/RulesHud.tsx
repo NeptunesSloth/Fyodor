@@ -43,7 +43,7 @@ export function AutomationHud() {
         <>
           <button className="auto-pill" data-testid="resp-mode" title="When the engine stops to let you respond (click to change)"
             onClick={() => void setPrefs({ response: next(RESPONSE_CYCLE, prefs.response) })}>
-            Responses: {cap(prefs.response)}
+            Stop for responses: {cap(prefs.response)}
           </button>
         </>
       )}
@@ -219,8 +219,7 @@ export function TurnDial() {
           <span className="td-turn">Turn {turn.number} · {active?.id === me ? "your turn" : active?.name}</span>
           {!auto && !watching && (
             <span className="td-steps">
-              <button className="tt-icon" title="Previous step" aria-label="Previous step" onClick={() => void send({ type: "phase", to: "prev" })}>‹</button>
-              <button className="tt-icon" title="Next step (N)" aria-label="Next step" onClick={() => void send({ type: "phase", to: "next" })}>›</button>
+              <button className="tt-btn ghost td-step" title="Back one step" onClick={() => void send({ type: "phase", to: "prev" })}>‹ Back</button>
             </span>
           )}
         </header>
@@ -308,7 +307,7 @@ export function RulesStack() {
         <ol className="chain-list">
           {entries.map((entry, i) => (
             <ChainRow key={entry.id} entry={entry} top={i === 0} view={view}>
-              <button className="tt-icon chain-hold" title="Stop and give me priority after this resolves" aria-label="Hold after this resolves" onClick={() => void setPrefs({ stop_after: entry.id })}>❚❚</button>
+              <button className="tt-btn ghost chain-hold" title="Stop and give me priority after this resolves" onClick={() => void setPrefs({ stop_after: entry.id })}>Stop after</button>
             </ChainRow>
           ))}
         </ol>

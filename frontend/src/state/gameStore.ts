@@ -86,6 +86,19 @@ interface GameStore {
   setPending: (positions: Record<string, [number, number]>) => void;
 }
 
+/**
+ * What to try next after a refused action. The manual table is always the way out: Alt while dropping
+ * places a card by hand, past the rules engine.
+ */
+export function recoveryHint(message: string): string {
+  const m = message.toLowerCase();
+  if (/priority/.test(m)) return "Wait until the turn dial says Your priority, or press P to pass.";
+  if (/mana|afford|pay/.test(m)) return "Tap lands or sources for mana first, then try again.";
+  if (/target/.test(m)) return "Pick one of the highlighted targets.";
+  if (/(not|isn't|can't|cannot) (legal|allowed|be)|illegal|not your|only/.test(m)) return "To do it anyway, hold Alt as you drop the card to place it by hand.";
+  return "";
+}
+
 const LOST_ZONES: Record<string, string> = { graveyard: "graveyard", exile: "exile", library: "library" };
 
 /**
@@ -186,7 +199,7 @@ export const useGame = create<GameStore>((set, get) => ({
       set({ pendingPositions: {} });
       const message = e instanceof Error ? e.message : String(e);
       if (message.startsWith("AUTOMATION ERROR")) set({ automationError: message });
-      else toast(`${message.replace(/\.?$/, ".")} Nothing changed.`, "error");
+      else toast(`${message.replace(/\.?$/, ".")} Nothing changed. ${recoveryHint(message)}`.trim(), "error");
       return false;
     }
   },
