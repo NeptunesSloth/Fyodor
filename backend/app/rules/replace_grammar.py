@@ -220,7 +220,21 @@ def _draw_body(rest: str) -> tuple[str, bool] | None:
     return (body, optional) if "instead" not in body else None
 
 
+_FIRST_TIME = "The first time you would draw a card each turn, "
+
+
 def _draw(text: str) -> Definition | None:
+    first = text.startswith(_FIRST_TIME)  # -- draws (wave 110C) -- Scion of Halaster's grant: only the first draw event each turn (121.6, 614.11)
+    if first:  # one card is left to put back, so "in any order" is vacuous (the body grammar reads "the rest ... in any order")
+        text = "If you would draw a card, " + text[len(_FIRST_TIME):]
+        text = text.replace(" and the other back on top of your library.", " and the rest back on top of your library in any order.")
+    d = _draw_plain(text)
+    if first and d is not None:
+        d["match"]["first_time_turn"] = True
+    return d
+
+
+def _draw_plain(text: str) -> Definition | None:
     m = _DRAW.match(text)
     if not m:
         return None

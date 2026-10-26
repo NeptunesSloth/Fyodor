@@ -1230,6 +1230,7 @@ def draws_this_step(plan: Plan, pid: str) -> int:
 def _draw_sim(plan: Plan, players: list[str]) -> Sim:
     return {"library": {p: len(plan.state.zones.get(zone_key(p, "library"), [])) for p in plan.state.players},
             "step": {p: draws_this_step(plan, p) for p in plan.state.players}, "dredged": [],
+            "would": dict(plan.rules.would_draw) if plan.rules.would_draw_turn == plan.state.turn.number else {},  # (-- draws (wave 110C) --)
             "hand": {p: len(plan.state.zones.get(zone_key(p, "hand"), [])) for p in plan.state.players}}
 
 
@@ -1254,6 +1255,8 @@ def _draw_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
 
         if speed.of(plan, pid) < speed.MAX:  # 702.178a: "as long as you have max speed"
             return False
+    if m.get("first_time_turn") and sim["would"].get(pid, 0) > 0:
+        return False  # -- draws (wave 110C) -- "The first time you would draw a card each turn": an earlier draw event this turn, replaced or not, used it up
     if m.get("draw_step_only") and not (plan.state.turn.phase == "draw" and plan.active == pid):
         return False
     if m.get("not_first_in_draw_step"):
@@ -1387,7 +1390,13 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
 
     left: dict[str, list[int] | None] = {}
 
+    seen: list[bool] = []  # (-- draws (wave 110C) -- whether the last draw event was allowed: a draw that can't happen isn't a time the player would draw)
+
     def allowed(ev: Event) -> bool:
+        seen[:] = [ok := _allowed(ev)]
+        return ok
+
+    def _allowed(ev: Event) -> bool:
         if ev["kind"] != "draw":
             return True
         pid = ev["player"]
@@ -1439,6 +1448,9 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
                 ev["counted"] = True
             out: list[Event] = []
             planner.settle(ev, sim, drawn(out))
+            if seen and seen[0]:
+                sim["would"][pid] = sim["would"].get(pid, 0) + 1  # (-- draws (wave 110C) -- this slot was a time the player would draw)
+            seen.clear()
             actions.append((ev, out))
             if any(f["kind"] in ("dredge", "body") for f in out):
                 cut = i  # (-- static_other sweep (wave 16B) -- a dredge mills cards that may be dredged for the next draw: the draws after it
@@ -1448,6 +1460,7 @@ def draw_cards(plan: Plan, players: list[str], n: int | dict[str, int], *, then:
         if _pause(plan, q, answers, _resume_for(then, "draw", request)):
             return False
         raise
+    plan.rules.would_draw_turn, plan.rules.would_draw = plan.state.turn.number, dict(sim["would"])
     left_to_players(plan, planner)
     left_to_players(plan, count_planner)
     for before, finals in counts:

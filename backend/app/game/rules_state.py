@@ -1776,6 +1776,9 @@ class RulesState(BaseModel):
     # they're drawn (for "except the first one they draw in each of their draw steps", 504.1).
     replace_step_key: str = ""
     replace_step_draws: dict[str, int] = Field(default_factory=dict)
+    # -- draws (wave 110C) -- "The first time you would draw a card each turn": draw events seen per player in the turn ``would_draw_turn`` (121.6, 614.11)
+    would_draw_turn: int = -1
+    would_draw: dict[str, int] = Field(default_factory=dict)
     # -- counters & designations (wave 3E; app/rules/designations.py) --
     # 309.2a / 309.4: each player's dungeon card in the command zone and the room their venture marker is on
     dungeons: dict[str, DungeonMark] = Field(default_factory=dict)
