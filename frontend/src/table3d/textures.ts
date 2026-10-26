@@ -63,12 +63,38 @@ function noiseField(size: number, cells: number, rand: () => number): (x: number
 
 const hex = (c: string) => new THREE.Color(c);
 
-function mix(a: THREE.Color, b: THREE.Color, t: number): string {
-  return `#${a.clone().lerp(b, Math.max(0, Math.min(1, t))).getHexString()}`;
+export interface SurfaceMaps { map: THREE.CanvasTexture; normalMap: THREE.CanvasTexture; roughnessMap: THREE.CanvasTexture }
+
+const surfaceCache = new Map<string, { color: HTMLCanvasElement; normal: HTMLCanvasElement; rough: HTMLCanvasElement }>();
+
+/**
+ * Linear values written as if they were sRGB: this deepens every plane's surface colours (the tables
+ * have always been tuned this way, and the brief wants a dark table that recedes behind the cards).
+ */
+const deep = (c: number) => Math.round(255 * Math.max(0, Math.min(1, c)));
+
+/**
+ * The table top for a plane (wood, marble, slate, stone…) as colour, normal and roughness maps from
+ * one height field: dark grain sits slightly recessed, plank seams and tile joints are grooves, and
+ * the raised grain is a touch glossier, so the surface catches the key light. Generated once per
+ * plane and kept for later rebuilds.
+ */
+export function surfaceMaps(kind: Surface, base: string, grain: string, baseRoughness: number, seed = 7): SurfaceMaps {
+  const key = `${kind}|${base}|${grain}|${baseRoughness}|${seed}`;
+  let canvases = surfaceCache.get(key);
+  if (!canvases) {
+    canvases = drawSurface(kind, base, grain, baseRoughness, seed);
+    surfaceCache.set(key, canvases);
+  }
+  const map = texture(canvases.color);
+  const normalMap = texture(canvases.normal);
+  normalMap.colorSpace = THREE.NoColorSpace;
+  const roughnessMap = texture(canvases.rough);
+  roughnessMap.colorSpace = THREE.NoColorSpace;
+  return { map, normalMap, roughnessMap };
 }
 
-/** The table top for a plane: wood, marble, slate, stone… */
-export function surfaceTexture(kind: Surface, base: string, grain: string, inlay: string, seed = 7): THREE.CanvasTexture {
+function drawSurface(kind: Surface, base: string, grain: string, baseRoughness: number, seed: number) {
   const size = 1024;
   const [c, g] = canvas(size, size);
   const rand = rng(seed);
@@ -77,9 +103,11 @@ export function surfaceTexture(kind: Surface, base: string, grain: string, inlay
   const n1 = noiseField(size, 6, rand);
   const n2 = noiseField(size, 24, rand);
   const img = g.createImageData(size, size);
+  const height = new Float32Array(size * size);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       let t: number;
+      let groove = 0;
       switch (kind) {
         case "oak":
         case "weathered":
@@ -88,7 +116,9 @@ export function surfaceTexture(kind: Surface, base: string, grain: string, inlay
           const plank = Math.floor(y / 128);
           const warp = n1(x, y + plank * 97) * 18;
           const line = Math.sin((y + warp) * 0.55 + plank * 3.1) * 0.5 + 0.5;
-          t = 0.35 * line + 0.45 * n2(x * 0.25, y * 2.2) + (y % 128 < 2 ? 0.9 : 0);
+          const seam = y % 128 < 2;
+          t = 0.35 * line + 0.45 * n2(x * 0.25, y * 2.2) + (seam ? 0.9 : 0);
+          groove = seam ? 1 : 0;
           if (kind === "weathered") t += (n2(x * 1.5, y * 1.5) - 0.5) * 0.35;
           if (kind === "lacquer") t = t * 0.35 + 0.15;
           break;
@@ -102,6 +132,7 @@ export function surfaceTexture(kind: Surface, base: string, grain: string, inlay
         case "oilmetal": {
           const tile = (x % 256 < 2 || y % 256 < 2) ? 1 : 0;
           t = 0.25 + n2(x, y) * 0.35 + n1(x, y) * 0.25 + tile * 0.6;
+          groove = tile;
           if (kind === "oilmetal") t = 0.2 + n1(x * 2, y * 2) * 0.45 + tile * 0.4;
           break;
         }
@@ -116,14 +147,16 @@ export function surfaceTexture(kind: Surface, base: string, grain: string, inlay
           const cellY = Math.floor((y + n1(y, x) * 40) / 200);
           const edge = ((x + n1(x, y) * 40) % 200 < 4 || (y + n1(y, x) * 40) % 200 < 4) ? 0.8 : 0;
           t = 0.2 + ((cellX * 13 + cellY * 7) % 5) * 0.05 + n2(x, y) * 0.35 + edge;
+          groove = edge ? 1 : 0;
         }
       }
-      const col = new THREE.Color(mix(A, B, t));
+      const k = Math.max(0, Math.min(1, t));
       const i = (y * size + x) * 4;
-      img.data[i] = col.r * 255;
-      img.data[i + 1] = col.g * 255;
-      img.data[i + 2] = col.b * 255;
+      img.data[i] = deep(A.r + (B.r - A.r) * k);
+      img.data[i + 1] = deep(A.g + (B.g - A.g) * k);
+      img.data[i + 2] = deep(A.b + (B.b - A.b) * k);
       img.data[i + 3] = 255;
+      height[y * size + x] = (1 - k) - groove * 0.8;
     }
   }
   g.putImageData(img, 0, 0);
@@ -140,8 +173,31 @@ export function surfaceTexture(kind: Surface, base: string, grain: string, inlay
       g.fillRect(x - r, y - r, r * 2, r * 2);
     }
   }
-  void inlay;
-  return texture(c);
+  // normal map (central differences, wrapping) and roughness map (three reads its green channel)
+  const [nc, ng] = canvas(size, size);
+  const [rc, rg] = canvas(size, size);
+  const nImg = ng.createImageData(size, size);
+  const rImg = rg.createImageData(size, size);
+  const strength = kind === "marble" || kind === "lacquer" ? 1.2 : 3.2;
+  const h = (x: number, y: number) => height[((y + size) % size) * size + ((x + size) % size)]!;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx = (h(x + 1, y) - h(x - 1, y)) * strength;
+      const dy = (h(x, y + 1) - h(x, y - 1)) * strength;
+      const inv = 1 / Math.sqrt(dx * dx + dy * dy + 1);
+      const i = (y * size + x) * 4;
+      nImg.data[i] = (-dx * inv * 0.5 + 0.5) * 255;
+      nImg.data[i + 1] = (dy * inv * 0.5 + 0.5) * 255;
+      nImg.data[i + 2] = (inv * 0.5 + 0.5) * 255;
+      nImg.data[i + 3] = 255;
+      const r = Math.max(0.05, Math.min(1, baseRoughness * (1.15 - h(x, y) * 0.35)));
+      rImg.data[i] = rImg.data[i + 1] = rImg.data[i + 2] = r * 255;
+      rImg.data[i + 3] = 255;
+    }
+  }
+  ng.putImageData(nImg, 0, 0);
+  rg.putImageData(rImg, 0, 0);
+  return { color: c, normal: nc, rough: rc };
 }
 
 /** A seat mat: a faint bordered area with zone outlines, tinted with the plane's inlay colour. */
@@ -366,27 +422,6 @@ export function backCanvas(color: string): HTMLCanvasElement {
   return c;
 }
 
-/** A small rounded label (counters, damage, P/T changes). */
-export function labelCanvas(text: string, bg: string, fg = "#fff"): HTMLCanvasElement {
-  const [probe, pg] = canvas(8, 8);
-  void probe;
-  pg.font = "700 40px Inter, Arial, sans-serif";
-  const w = Math.ceil(pg.measureText(text).width) + 36;
-  const [c, g] = canvas(w, 60);
-  g.fillStyle = bg;
-  roundRect(g, 2, 2, w - 4, 56, 26);
-  g.fill();
-  g.strokeStyle = "rgba(0, 0, 0, 0.6)";
-  g.lineWidth = 3;
-  g.stroke();
-  g.fillStyle = fg;
-  g.font = "700 40px Inter, Arial, sans-serif";
-  g.textAlign = "center";
-  g.textBaseline = "middle";
-  g.fillText(text, w / 2, 32);
-  return c;
-}
-
 /** A soft blurred rounded-rect shadow for under a card: an alpha map (three reads its green channel). */
 export function contactShadowTexture(): THREE.CanvasTexture {
   const W = 128;
@@ -407,3 +442,207 @@ export function contactShadowTexture(): THREE.CanvasTexture {
 }
 
 export { texture as canvasTexture };
+
+// ------------------------------------------------------------------ card badges (Arena-style)
+
+export interface CardOverlay {
+  /** Current power/toughness, and whether each is above (+1) or below (−1) the printed value. */
+  pt?: { text: string; dir: -1 | 0 | 1 };
+  damage?: number;
+  /** Keyword abilities from counters or effects, with a count for stacked counters. */
+  keywords: { kind: string; n: number }[];
+  /** Other counters (loyalty, charge, oil…). */
+  counters: { label: string; n: number }[];
+}
+
+export const OVERLAY_W = 512;
+export const OVERLAY_H = 714;
+const BRASS = "#d8ae62";
+const PLATE = "#16110c";
+
+/** Small line-art glyphs for keyword badges, drawn in a box of radius r around (0, 0). */
+const GLYPHS: Record<string, (g: CanvasRenderingContext2D, r: number) => void> = {
+  flying(g, r) { // a wing
+    g.beginPath();
+    g.moveTo(-r * 0.8, r * 0.35);
+    g.quadraticCurveTo(-r * 0.2, -r * 0.9, r * 0.85, -r * 0.55);
+    g.quadraticCurveTo(r * 0.3, -r * 0.25, r * 0.55, -r * 0.05);
+    g.quadraticCurveTo(r * 0.05, 0, r * 0.3, r * 0.3);
+    g.quadraticCurveTo(-r * 0.2, r * 0.25, -r * 0.8, r * 0.35);
+    g.fill();
+  },
+  "first strike"(g, r) { sword(g, r, 0); },
+  "double strike"(g, r) { sword(g, r * 0.9, -r * 0.32); sword(g, r * 0.9, r * 0.32); },
+  deathtouch(g, r) { // a skull
+    g.beginPath();
+    g.arc(0, -r * 0.15, r * 0.62, Math.PI * 0.85, Math.PI * 2.15);
+    g.lineTo(r * 0.35, r * 0.7);
+    g.lineTo(-r * 0.35, r * 0.7);
+    g.closePath();
+    g.fill();
+    g.globalCompositeOperation = "destination-out";
+    for (const x of [-0.25, 0.25]) { g.beginPath(); g.arc(x * r, -r * 0.1, r * 0.17, 0, Math.PI * 2); g.fill(); }
+    g.globalCompositeOperation = "source-over";
+  },
+  hexproof(g, r) { shield(g, r); g.globalCompositeOperation = "destination-out"; shield(g, r * 0.55); g.globalCompositeOperation = "source-over"; },
+  indestructible(g, r) { // a solid shield with a bar
+    shield(g, r);
+    g.globalCompositeOperation = "destination-out";
+    g.fillRect(-r * 0.12, -r * 0.5, r * 0.24, r * 0.95);
+    g.globalCompositeOperation = "source-over";
+  },
+  lifelink(g, r) { // a heart
+    g.beginPath();
+    g.moveTo(0, r * 0.75);
+    g.bezierCurveTo(-r * 1.1, 0, -r * 0.55, -r * 0.85, 0, -r * 0.3);
+    g.bezierCurveTo(r * 0.55, -r * 0.85, r * 1.1, 0, 0, r * 0.75);
+    g.fill();
+  },
+  menace(g, r) { // two horns
+    for (const s of [-1, 1]) {
+      g.beginPath();
+      g.moveTo(s * r * 0.15, r * 0.6);
+      g.quadraticCurveTo(s * r * 0.95, r * 0.3, s * r * 0.75, -r * 0.8);
+      g.quadraticCurveTo(s * r * 0.6, 0, s * r * 0.15, r * 0.15);
+      g.fill();
+    }
+  },
+  reach(g, r) { // an arrow pointing up
+    g.beginPath();
+    g.moveTo(0, -r * 0.85); g.lineTo(r * 0.55, -r * 0.2); g.lineTo(r * 0.18, -r * 0.2); g.lineTo(r * 0.18, r * 0.8);
+    g.lineTo(-r * 0.18, r * 0.8); g.lineTo(-r * 0.18, -r * 0.2); g.lineTo(-r * 0.55, -r * 0.2);
+    g.closePath(); g.fill();
+  },
+  trample(g, r) { // three chevrons
+    g.lineWidth = r * 0.22;
+    for (const y of [-0.5, 0, 0.5]) {
+      g.beginPath(); g.moveTo(-r * 0.6, y * r - r * 0.2); g.lineTo(0, y * r + r * 0.2); g.lineTo(r * 0.6, y * r - r * 0.2); g.stroke();
+    }
+  },
+  vigilance(g, r) { // an eye
+    g.beginPath();
+    g.moveTo(-r * 0.9, 0); g.quadraticCurveTo(0, -r * 0.85, r * 0.9, 0); g.quadraticCurveTo(0, r * 0.85, -r * 0.9, 0);
+    g.fill();
+    g.globalCompositeOperation = "destination-out";
+    g.beginPath(); g.arc(0, 0, r * 0.32, 0, Math.PI * 2); g.fill();
+    g.globalCompositeOperation = "source-over";
+    g.beginPath(); g.arc(0, 0, r * 0.16, 0, Math.PI * 2); g.fill();
+  },
+  haste(g, r) { // a lightning bolt
+    g.beginPath();
+    g.moveTo(r * 0.25, -r * 0.9); g.lineTo(-r * 0.5, r * 0.1); g.lineTo(-r * 0.02, r * 0.1); g.lineTo(-r * 0.25, r * 0.9);
+    g.lineTo(r * 0.5, -r * 0.15); g.lineTo(r * 0.02, -r * 0.15);
+    g.closePath(); g.fill();
+  },
+};
+
+function sword(g: CanvasRenderingContext2D, r: number, dx: number) {
+  g.save();
+  g.translate(dx, 0);
+  g.rotate(-Math.PI / 4);
+  g.fillRect(-r * 0.09, -r * 0.95, r * 0.18, r * 1.25); // blade
+  g.fillRect(-r * 0.36, r * 0.28, r * 0.72, r * 0.14); // guard
+  g.fillRect(-r * 0.08, r * 0.42, r * 0.16, r * 0.4); // grip
+  g.restore();
+}
+
+function shield(g: CanvasRenderingContext2D, r: number) {
+  g.beginPath();
+  g.moveTo(0, -r * 0.85); g.lineTo(r * 0.72, -r * 0.55); g.quadraticCurveTo(r * 0.7, r * 0.45, 0, r * 0.9);
+  g.quadraticCurveTo(-r * 0.7, r * 0.45, -r * 0.72, -r * 0.55);
+  g.closePath(); g.fill();
+}
+
+function plate(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, edge = BRASS) {
+  g.fillStyle = PLATE;
+  roundRect(g, x, y, w, h, h * 0.3);
+  g.fill();
+  g.strokeStyle = edge;
+  g.lineWidth = 4;
+  g.stroke();
+}
+
+/** Transparent overlay drawn on top of a card face: P/T plate, damage, keyword badges, counters. */
+export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
+  const W = OVERLAY_W;
+  const H = OVERLAY_H;
+  const [c, g] = canvas(W, H);
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  // P/T plate, bottom right; a modified value says so with ▲/▼ as well as colour
+  if (o.pt) {
+    const w = 186;
+    const h = 84;
+    const x = W - w - 14;
+    const y = H - h - 14;
+    plate(g, x, y, w, h);
+    g.fillStyle = o.pt.dir > 0 ? "#b6f09a" : o.pt.dir < 0 ? "#ffa08f" : "#f4ead6";
+    g.font = "800 54px Inter, Arial, sans-serif";
+    g.fillText(o.pt.text, x + w / 2 + (o.pt.dir ? 12 : 0), y + h / 2 + 3);
+    if (o.pt.dir) {
+      g.font = "800 26px Inter, Arial, sans-serif";
+      g.fillText(o.pt.dir > 0 ? "▲" : "▼", x + 26, y + h / 2 + 2);
+    }
+  }
+  if (o.damage) {
+    const w = 150;
+    const h = 64;
+    const x = W - w - 14;
+    const y = H - (o.pt ? 84 + 14 : 0) - h - 24;
+    plate(g, x, y, w, h, "#e0574a");
+    g.fillStyle = "#ffb3a8";
+    g.font = "800 38px Inter, Arial, sans-serif";
+    g.fillText(`${o.damage} dmg`, x + w / 2, y + h / 2 + 2);
+  }
+  // keyword badges, bottom left (at most 4 + an overflow chip, clear of the P/T plate)
+  const R = 40;
+  const shown = o.keywords.slice(0, o.keywords.length > 4 ? 3 : 4);
+  shown.forEach(({ kind, n }, i) => {
+    const cx = 14 + R + i * (R * 2 + 8);
+    const cy = H - 14 - R;
+    g.fillStyle = PLATE;
+    g.beginPath();
+    g.arc(cx, cy, R, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = BRASS;
+    g.lineWidth = 4;
+    g.stroke();
+    g.save();
+    g.translate(cx, cy);
+    g.fillStyle = g.strokeStyle = "#f4ead6";
+    const glyph = GLYPHS[kind.toLowerCase()];
+    if (glyph) glyph(g, R * 0.62);
+    else {
+      g.font = "800 30px Inter, Arial, sans-serif";
+      g.fillText(kind.slice(0, 2).replace(/^./, (ch) => ch.toUpperCase()), 0, 2);
+    }
+    g.restore();
+    if (n > 1) {
+      plate(g, cx + R * 0.35, cy - R - 10, 54, 36);
+      g.fillStyle = "#f4ead6";
+      g.font = "800 24px Inter, Arial, sans-serif";
+      g.fillText(`×${n}`, cx + R * 0.35 + 27, cy - R + 9);
+    }
+  });
+  if (o.keywords.length > shown.length) {
+    const cx = 14 + R + shown.length * (R * 2 + 8);
+    const cy = H - 14 - R;
+    plate(g, cx - R, cy - R * 0.6, R * 2, R * 1.2);
+    g.fillStyle = "#f4ead6";
+    g.font = "800 32px Inter, Arial, sans-serif";
+    g.fillText(`+${o.keywords.length - shown.length}`, cx, cy + 2);
+  }
+  // other counters, top right, stacked
+  o.counters.slice(0, 3).forEach(({ label, n }, i) => {
+    g.font = "800 34px Inter, Arial, sans-serif";
+    const text = `${label} ${n}`;
+    const w = Math.min(W - 40, g.measureText(text).width + 40);
+    const h = 60;
+    const x = W - w - 14;
+    const y = 96 + i * (h + 10);
+    plate(g, x, y, w, h);
+    g.fillStyle = "#f4ead6";
+    g.fillText(text, x + w / 2, y + h / 2 + 2);
+  });
+  return c;
+}

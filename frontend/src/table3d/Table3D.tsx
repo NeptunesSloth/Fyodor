@@ -8,7 +8,7 @@ import { useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { setDropResolver3D } from "../game/dnd";
-import { PlayerPanel } from "../game/PlayerPanel";
+import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "../game/PlayerPanel";
 import { plane } from "../theme/planes";
 import { TableScene, type CameraPreset, type Quality } from "./TableScene";
 import { startAmbience } from "./ambience";
@@ -100,6 +100,8 @@ export function Table3D({ me }: { me: string }) {
   }, [planeId, ambienceOn, ambientVol]);
 
   const others = players.filter((p) => p !== me);
+  const names = useGame((s) => s.view?.players);
+  const nameOf = (pid: string) => names?.find((p) => p.id === pid)?.name ?? pid;
   return (
     <div className="table3d" ref={host} data-testid="table-3d">
       <div className="t3d-plates">
@@ -110,10 +112,10 @@ export function Table3D({ me }: { me: string }) {
         ))}
       </div>
       <div className="t3d-cams frame" role="toolbar" aria-label="Camera">
-        <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Your seat">Seat</button>
-        <button className={preset === "overview" ? "on" : ""} onClick={() => setPreset("overview")} title="The whole table">Table</button>
+        <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Look from your seat">Seat</button>
+        <button className={preset === "overview" ? "on" : ""} onClick={() => setPreset("overview")} title="Look down on the whole table">Table</button>
         {others.map((pid) => (
-          <button key={pid} className={typeof preset === "object" && preset.focus === pid ? "on" : ""} onClick={() => setPreset({ focus: pid })}>
+          <button key={pid} className={typeof preset === "object" && preset.focus === pid ? "on" : ""} onClick={() => setPreset({ focus: pid })} aria-label={`Look at ${nameOf(pid)}'s side`}>
             <PlayerInitial player={pid} />
           </button>
         ))}
@@ -134,13 +136,31 @@ function SeatPlate({ player, me, open, onToggle }: { player: string; me: string;
   const priority = useGame((s) => s.view?.rules?.priority === player);
   const monarch = useGame((s) => s.view?.table.monarch === player);
   if (!p) return null;
+  // the numbers that decide a Commander game, shown only when they matter
+  const cmd = Math.max(0, ...Object.values(p.commander_damage));
+  const poison = p.resources.poison ?? 0;
+  const stats: { key: string; text: string; title: string; lethal: boolean }[] = [];
+  if (cmd > 0) stats.push({ key: "cmd", text: `Cmdr ${cmd}`, title: `Most commander damage from one commander: ${cmd} of ${LETHAL_COMMANDER}`, lethal: cmd >= LETHAL_COMMANDER });
+  if (poison > 0) stats.push({ key: "poison", text: `Poison ${poison}`, title: `${poison} of ${LETHAL_POISON} poison counters`, lethal: poison >= LETHAL_POISON });
+  if (player !== me) stats.push({ key: "hand", text: `Hand ${p.hand_count}`, title: `${p.hand_count} cards in hand`, lethal: false });
   return (
     <div className={`t3d-seat ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
-      <button className="t3d-seat-main" onClick={onToggle} data-testid={`seat-${player}`}>
+      {(active || priority) && (
+        <span className="t3d-seat-flags" aria-live="polite">
+          {active && <span className="t3d-flag turn">Turn</span>}
+          {priority && <span className="t3d-flag prio">Priority</span>}
+        </span>
+      )}
+      <button className="t3d-seat-main" onClick={onToggle} data-testid={`seat-${player}`} aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.life} life. Open player panel`} aria-expanded={open}>
         <span className={`portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: "46px", borderColor: p.color }}>{p.name.slice(0, 1).toUpperCase()}</span>
         <span className="t3d-seat-text">
           <span className="t3d-seat-name">{p.name}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
           <span className="t3d-seat-life" data-testid={`life3d-${player}`}>{p.life}</span>
+          {stats.length > 0 && (
+            <span className="t3d-seat-stats">
+              {stats.map((x) => <span key={x.key} className={`t3d-stat ${x.lethal ? "lethal" : ""}`} title={x.title}>{x.text}{x.lethal ? " · lethal" : ""}</span>)}
+            </span>
+          )}
         </span>
       </button>
       {open && (

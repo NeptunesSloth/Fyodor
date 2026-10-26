@@ -13,7 +13,8 @@ import { openMenu } from "../components/ContextMenu";
 import { imageUrl } from "../services/cards";
 import { requestCards, useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
-import { isVisible, type GameCard, type GameView, type LibraryView, type ZoneName } from "../types/game";
+import { isVisible, type CardStats, type GameCard, type GameView, type LibraryView, type ZoneName } from "../types/game";
+import { counterShort, isKeyword } from "../game/counters";
 import { draw, tapCards, targetsFor } from "../game/actions";
 import { cardMenu } from "../game/cardMenu";
 import type { DropResult } from "../game/dnd";
@@ -30,7 +31,7 @@ import {
   CARD_H, CARD_W, MAT_D, MAT_W, PILES, STRIP_X, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
   virtualToLocal, type PileZone, type Seat,
 } from "./layout";
-import { backCanvas, canvasTexture, contactShadowTexture, labelCanvas, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
+import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
 
 export type Quality = "low" | "medium" | "high";
 export type CameraPreset = "seat" | "overview" | { focus: string };
@@ -45,8 +46,9 @@ interface CardObj {
   group: THREE.Group;
   face: THREE.Mesh;
   glow: THREE.Mesh;
-  badge: THREE.Sprite | null;
-  badgeText: string;
+  /** P/T plate, damage, keyword badges and counters drawn on the card (null when there is nothing). */
+  overlay: THREE.Mesh | null;
+  overlayKey: string;
   faceKey: string;
   target: THREE.Vector3;
   rot: number;
@@ -98,6 +100,33 @@ function pileHeight(n: number): number {
 function jitter(i: number, salt: number): number {
   const x = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
   return x - Math.floor(x) - 0.5;
+}
+
+/**
+ * What a battlefield card's badges say. P/T shows only when it differs from the printed card or the
+ * creature is damaged or carries badges, so an unmodified board costs no extra draw calls.
+ */
+function overlayFor(card: GameCard, stats: CardStats | undefined): CardOverlay | null {
+  const counters = Object.entries(card.counters ?? {}).filter(([, n]) => n > 0);
+  const plus = card.counters?.["+1/+1"] ?? 0;
+  const minus = card.counters?.["-1/-1"] ?? 0;
+  const keywords: { kind: string; n: number }[] = counters.filter(([k]) => isKeyword(k)).map(([kind, n]) => ({ kind, n }));
+  for (const k of stats?.gained ?? []) if (isKeyword(k) && !keywords.some((x) => x.kind === k.toLowerCase())) keywords.push({ kind: k.toLowerCase(), n: 1 });
+  const others = counters.filter(([k]) => !isKeyword(k) && k !== "+1/+1" && k !== "-1/-1").map(([k, n]) => ({ label: k === "loyalty" ? "◆" : counterShort(k), n }));
+  const damage = card.damage ?? 0;
+  let pt: CardOverlay["pt"];
+  if (stats?.pt) {
+    const bp = Number(stats.base?.[0]);
+    const bt = Number(stats.base?.[1]);
+    const d = Number.isFinite(bp) && Number.isFinite(bt) ? stats.pt[0] - bp + (stats.pt[1] - bt) : plus - minus;
+    const dir = d > 0 ? 1 : d < 0 ? -1 : 0;
+    if (dir || damage || keywords.length || plus || minus) pt = { text: `${stats.pt[0]}/${stats.pt[1]}`, dir };
+  } else if (plus !== minus) {
+    const net = plus - minus;
+    pt = { text: net > 0 ? `+${net}/+${net}` : `${net}/${net}`, dir: net > 0 ? 1 : -1 };
+  }
+  if (!pt && !damage && !keywords.length && !others.length) return null;
+  return { ...(pt ? { pt } : {}), ...(damage ? { damage } : {}), keywords, counters: others };
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -493,7 +522,7 @@ export class TableScene {
     glow.position.y = -0.001;
     group.add(glow, face);
     this.world.add(group);
-    const obj: CardObj = { id, group, face, glow, badge: null, badgeText: "", faceKey: "", target: new THREE.Vector3(), rot: 0, tilt: 0, seen: true };
+    const obj: CardObj = { id, group, face, glow, overlay: null, overlayKey: "", faceKey: "", target: new THREE.Vector3(), rot: 0, tilt: 0, seen: true };
     this.cards.set(id, obj);
     return obj;
   }
@@ -501,30 +530,34 @@ export class TableScene {
   private disposeCard(c: CardObj): void {
     this.world.remove(c.group);
     (c.glow.material as THREE.Material).dispose();
-    if (c.badge) {
-      (c.badge.material as THREE.SpriteMaterial).map?.dispose();
-      c.badge.material.dispose();
-    }
+    this.clearOverlay(c);
   }
 
-  private setBadge(c: CardObj, text: string, color: string): void {
-    if (c.badgeText === text) return;
-    c.badgeText = text;
-    if (c.badge) {
-      c.group.remove(c.badge);
-      (c.badge.material as THREE.SpriteMaterial).map?.dispose();
-      c.badge.material.dispose();
-      c.badge = null;
-    }
-    if (!text) return;
-    const cv = labelCanvas(text, color);
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: canvasTexture(cv), depthTest: false, transparent: true }));
-    const h = 0.26;
-    s.scale.set((h * cv.width) / cv.height, h, 1);
-    s.position.set(0, 0.25, CARD_H * 0.28);
-    s.renderOrder = 10;
-    c.group.add(s);
-    c.badge = s;
+  private clearOverlay(c: CardObj): void {
+    if (!c.overlay) return;
+    c.group.remove(c.overlay);
+    const m = c.overlay.material as THREE.MeshBasicMaterial;
+    m.map?.dispose();
+    m.dispose();
+    c.overlay = null;
+  }
+
+  /** Arena-style badges on the card face; rebuilt only when what they say changes. */
+  private setOverlay(c: CardObj, o: CardOverlay | null): void {
+    const key = o ? JSON.stringify(o) : "";
+    if (c.overlayKey === key) return;
+    c.overlayKey = key;
+    this.clearOverlay(c);
+    if (!o) return;
+    const mat = new THREE.MeshBasicMaterial({
+      map: canvasTexture(cardOverlayCanvas(o)), transparent: true, depthWrite: false, toneMapped: false,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+    });
+    const m = new THREE.Mesh(this.cardFaceGeo, mat);
+    m.position.y = THICK + 0.0014;
+    m.renderOrder = 2;
+    c.group.add(m);
+    c.overlay = m;
   }
 
   private place(c: CardObj, seat: Seat | undefined, lx: number, lz: number, y: number, extraRot = 0): void {
@@ -575,12 +608,7 @@ export class TableScene {
         const lift = card.attacking || card.attacking_without_target ? 0.18 : 0;
         this.place(c, seat, lx, lz, 0.004 + i * 0.0035 + lift, tapped);
         c.tilt = card.attacking || card.attacking_without_target ? -0.12 : 0;
-        const counters = card.counters ? Object.entries(card.counters).filter(([, n]) => n) : [];
-        const stats = view.rules?.stats?.[id];
-        const pt = stats?.pt ? `${stats.pt[0]}/${stats.pt[1]}` : "";
-        const label = [card.damage ? `${card.damage} dmg` : counters.length ? counters.map(([k, n]) => (k === "+1/+1" ? `+${n}/+${n}` : k === "-1/-1" ? `-${n}/-${n}` : `${k} ${n}`)).join(" · ") : "", pt]
-          .filter(Boolean).join(" · ");
-        this.setBadge(c, label, card.damage ? "#9b2f27" : "#2c3a5a");
+        this.setOverlay(c, overlayFor(card, view.rules?.stats?.[id]));
         this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55);
       });
       // piles
@@ -599,7 +627,7 @@ export class TableScene {
           if (c && seat) {
             const [lx, lz] = PILES[zone];
             this.place(c, seat, lx, lz, pileHeight(z.length - 1) + 0.002, 0);
-            this.setBadge(c, "", "");
+            this.setOverlay(c, null);
             this.setGlow(c, selection.has(top) ? this.plane.ui.select : null, 0.9);
           }
         }
@@ -611,7 +639,7 @@ export class TableScene {
         if (!c) return;
         const [lx, lz] = PILES.command;
         this.place(c, seat, lx - i * (CARD_W + 0.12), lz, 0.004, 0);
-        this.setBadge(c, "", "");
+        this.setOverlay(c, null);
         this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.legalColor(view, id), 0.6);
       });
       // other players' hands: a fan of backs at their edge (count only)
@@ -627,7 +655,7 @@ export class TableScene {
       const me = seatOf.get(this.me);
       this.place(c, undefined, x, -i * 0.12, 0.9 + i * 0.06, me?.rot ?? 0);
       c.tilt = -0.35;
-      this.setBadge(c, "", "");
+      this.setOverlay(c, null);
       this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.plane.ui.accent, 0.5);
     });
 

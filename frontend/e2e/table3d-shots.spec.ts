@@ -48,6 +48,10 @@ async function board(page: Page, perSeat: number, extras: boolean) {
     const [a, b, c] = [placed.p1!, placed.p2!, placed.p3!];
     await act({ type: "tap", card_ids: [a[0], b[0], c[0]], tapped: true });
     await act({ type: "counter", card_ids: [a[1]], kind: "+1/+1", delta: 3 });
+    // a Kathril-style creature: several keyword counters (one stacked) plus +1/+1 counters
+    for (const kind of ["flying", "first strike", "deathtouch", "lifelink", "trample"]) await act({ type: "counter", card_ids: [a[2]], kind, delta: kind === "flying" ? 2 : 1 });
+    await act({ type: "counter", card_ids: [a[2]], kind: "+1/+1", delta: 2 });
+    await act({ type: "set_damage", card_ids: [a[3]], value: 2 });
     await act({ type: "create_token", player: "p1", token: { name: "Soldier", power: "1", toughness: "1", colors: ["W"], type_line: "Token Creature — Soldier" }, count: 6, x: 40, y: 330 });
     await act({ type: "set_controller", card_ids: [b[2]], player: "p1" }); // a stolen permanent
     await act({ type: "attack", card_ids: [c[3], c[4]], target: { kind: "player", id: "p1" } });
@@ -55,6 +59,7 @@ async function board(page: Page, perSeat: number, extras: boolean) {
     const hand = (await view("p1")).zones["p1:hand"]!;
     await act({ type: "move", card_ids: [hand[0]], to: { zone: "stack" } });
     await act({ type: "move", card_ids: [hand[1]], to: { zone: "stack" } });
+    await act({ type: "draw", player: "p1", count: 5 }); // a full hand for the fan
   }
   await page.goto(`/#/game/${gameId}`);
   await expect(page.getByTestId("table-3d")).toBeVisible();

@@ -47,7 +47,7 @@ export function StackWidget({ me }: { me: string }) {
   const rulesOn = useGame((s) => !!s.view?.rules && !s.view.rules.paused);
   if (rulesOn && count > 0) return null; // the rules engine's STACK panel shows it
   return (
-    <div className={`stack-widget ${rulesOn ? "below-hud" : ""} ${count ? "busy" : "idle"} ${open && count ? "open" : ""}`} data-testid="stack-widget">
+    <div className={`stack-widget below-hud ${count ? "busy" : "idle"} ${open && count ? "open" : ""}`} data-testid="stack-widget">
       {count > 0 && open ? (
         <>
           <StackPanel me={me} />
