@@ -14,12 +14,29 @@ MONOLITH = ('{T}: Until end of turn, target creature gains "Whenever this creatu
 
 ZHALFIR = "I, II — Another target nonland permanent phases out. It can't phase in for as long as you control this Saga."
 PARK = "I — For each opponent, up to one target noncreature artifact they control becomes a 0/4 Wall artifact creature with defender for as long as you control this Saga."
+PURSUIT = ("When this enchantment enters, suspect target creature an opponent controls. As long as this enchantment remains on the battlefield, "
+            "that creature is also goaded.")
+PURSUIT2 = ("At the beginning of combat on your turn, if two or more players have lost the game, gain control of all goaded and/or suspected "
+             "creatures until end of turn. Untap them. They gain haste until end of turn.")
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import events, scripts
 
+    if ability.text == PURSUIT:  # Hot Pursuit: 701.60a suspect, 611.2b goaded (by its controller, 701.15a) while the Enchantment stays
+        d = scripts.define(replace(ability, text=PURSUIT.split(" As long")[0]), ch)
+        if d is not None:
+            d["effects"] += [{"do": "goad_while110i", "who": "target"}]
+        return d
+    if ability.text == PURSUIT2:  # 603.4 intervening if (checked again as it resolves); 800.4a lost players are the ones out of the game
+        d = scripts.define(replace(ability, text=PURSUIT2.replace("if two or more players have lost the game, ", "").replace("goaded and/or suspected", "goaded")), ch)
+        if d is not None:
+            cond = {"value": {"players_lost": 1}, "op": ">=", "n": 2}
+            d["effects"] = [{"do": "only_if", "cond": cond, "skip": len(d["effects"])},
+                            {**d["effects"][0], "who": d["effects"][0]["who"].replace('"goaded"', '"goaded_or_suspected"')}, *d["effects"][1:]]
+            d["if"] = cond
+        return d
     if ability.text == PARK:  # per_opponent.py reads "that player controls" (115.1: one group per opponent); 611.2b duration
         return scripts.define(replace(ability, text=PARK.replace(" they control", " that player controls").replace("this Saga", "~")), ch)
     if ability.text == ZHALFIR:  # 702.26a, 610.3: phased out, held out for as long as its controller controls the Saga
