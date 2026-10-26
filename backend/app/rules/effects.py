@@ -984,7 +984,7 @@ RESTRICTION_LABELS = {"assign_toughness_if_tougher": "Assigns combat damage usin
 
 # -- attack restrictions (wave 32B) -- the marker of "can't attack you …" names the player (the rule's own text is "cant_attack_player:<id>")
 ATTACK_LABELS = {"cant_attack_player": "Can't attack {}", "cant_attack_player_pw": "Can't attack {} or their planeswalkers",
-                 "cant_attack_player_perm": "Can't attack {} or their permanents", "attack_tax": "Attacking {} costs extra",
+                 "cant_attack_player_perm": "Can't attack {} or their permanents", "cant_attack_player_jace110b": "Can't attack {}'s Jaces", "attack_tax": "Attacking {} costs extra",
                  "attack_tax_pw": "Attacking {} costs extra", "attack_player": "Attacks {} if able"}  # (attack_player: wave 47B)
 
 

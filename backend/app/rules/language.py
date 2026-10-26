@@ -598,11 +598,12 @@ RESTRICTIONS = {"block": ["cant_block"], "attack": ["cant_attack"], "attack or b
 # -- attack restrictions (wave 32B) -- 508.1c-d: restrictions on whom a creature may attack, aimed at the controller of the effect ("you"), as a one-shot
 # effect with a duration (611.2a): this turn / this combat / "during their next turn" (a player's, ``their_turn``) -- or, with "unless their controller pays
 # {2} for each of those creatures", an attack cost (508.1d, 508.1h-j: app/rules/combat_rules.py)
-_CANT_ATTACK_YOU = re.compile(r"(?P<o>.+?) can't attack (?P<t>you|you or planeswalkers you control|you or permanents you control)"
+_CANT_ATTACK_YOU = re.compile(r"(?P<o>.+?) can't attack (?P<t>you|you or planeswalkers you control|you or permanents you control|Jaces you control)"
                               r"(?: unless their controller pays (?P<cost>(?:\{[^}]+\})+|[1-9]\d* life) for each of those creatures)?"  # (wave 49D: life, Sivitri)
                               r" (?P<d>this turn|this combat|during their next turn)")
 _ATTACK_YOU = {"you": "cant_attack_player", "you or planeswalkers you control": "cant_attack_player_pw",
-               "you or permanents you control": "cant_attack_player_perm"}
+               "you or permanents you control": "cant_attack_player_perm",
+               "Jaces you control": "cant_attack_player_jace110b"}  # (-- wave 110B -- Jace, Multiverse Architect: planeswalkers with the Jace subtype)
 _TAX_YOU = {"you": "attack_tax", "you or planeswalkers you control": "attack_tax_pw"}
 _DURATION_YOU = {"this turn": {}, "this combat": {"duration": "end_of_combat"}, "during their next turn": {"duration": "their_turn"}}
 _THAT_PLAYERS_CREATURES = re.compile(r"(?:each )?creatures? (?:that player|they) controls?")

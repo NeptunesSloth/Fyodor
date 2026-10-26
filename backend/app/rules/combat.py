@@ -768,9 +768,9 @@ def attack_forbidden(plan: Plan, ch: Characteristics, target: str) -> bool:
             if defender in plan.state.players and _defender_fact(plan, who, defender) == (name == "cant_attack_if_def"):
                 return True
             continue
-        if name not in ("cant_attack_player", "cant_attack_player_pw", "cant_attack_player_perm"):
+        if name not in ("cant_attack_player", "cant_attack_player_pw", "cant_attack_player_perm", "cant_attack_player_jace110b"):
             continue
-        if target == who:
+        if target == who and name != "cant_attack_player_jace110b":
             return True
         card = plan.state.cards.get(target)
         if name == "cant_attack_player_pw" and card is not None and card.controller == who                 and "Planeswalker" in plan.ch(card).types:
@@ -779,6 +779,10 @@ def attack_forbidden(plan: Plan, ch: Characteristics, target: str) -> bool:
         # (the battle's controller, 110.2 — not its protector)
         if name == "cant_attack_player_perm" and card is not None and card.controller == who:
             return True
+        if name == "cant_attack_player_jace110b" and card is not None and card.controller == who:  # -- wave 110B -- 508.1c: only a Jace planeswalker (205.3j)
+            c = plan.ch(card)
+            if "Planeswalker" in c.types and "Jace" in c.subtypes:
+                return True
     return False
 
 

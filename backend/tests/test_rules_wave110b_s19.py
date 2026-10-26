@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave30m_durations import to_phase
@@ -35,7 +36,7 @@ def cards(settings):
     yield from repository(settings)
 
 
-@pytest.mark.parametrize("name", ["Genesis of the Daleks", "Dr. Eggman", "Market Gnome", "Osseous Sticktwister"])
+@pytest.mark.parametrize("name", ["Genesis of the Daleks", "Dr. Eggman", "Market Gnome", "Osseous Sticktwister", "Jace, Multiverse Architect"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -152,3 +153,39 @@ def test_osseous_sticktwister_needs_delirium(cards):
             break
         act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.turn.number == 2 and life(s, "p2") == 40
+
+
+def jace_table(cards, lands, pays):
+    """Alice's Jace; Bob (with ``lands`` Islands) is at the beginning of combat in his turn: he pays {2} or not, and then declares attackers."""
+    s = build(cards, ["Jace, Multiverse Architect"], ["Grizzly Bears"], forests=30, islands=40)
+    mana(s, W=1, U=1, B=1, R=1, C=1)
+    cast(s, "Jace, Multiverse Architect")
+    jace = card_named(s, "Jace, Multiverse Architect")
+    bears = put(s, "Grizzly Bears", "p2")
+    s.state.rules.controlled_since[bears.id].turn = 0
+    to_phase(s, "main1", turn=2)
+    islands = [c.id for c in s.state.cards.values() if c.name == "Island" and c.zone == "p2:library"][:lands]
+    if islands:
+        act(s, "p2", type="move", card_ids=islands, to={"player": "p2", "zone": "battlefield"})
+    act(s, "p2", type="set_stops", own=["declare_attackers"], others=[], smart_pass=False)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_one":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["pay" if pays else "decline"])
+        elif d is not None and d.kind == "declare_attackers":
+            return s, jace, bears
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("no combat")  # pragma: no cover
+
+
+@pytest.mark.parametrize(("lands", "pays"), [(2, True), (2, False), (1, False), (0, False)])
+def test_jace_multiverse_architect_taxes_attacks_on_jaces_only(cards, lands, pays):
+    """508.1c, 118.12: unless Bob paid {2} (only possible with two lands), his creatures can't attack Jaces; the player is still open."""
+    s, jace, bears = jace_table(cards, lands, pays)
+    if not pays:
+        with pytest.raises(ActionError, match="can't attack Jace"):
+            act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": jace.id}])
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": jace.id if pays else "p1"}])
+    assert s.state.cards[bears.id].attacking.id == (jace.id if pays else "p1")
+    check(s)
