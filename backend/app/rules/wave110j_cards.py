@@ -842,3 +842,75 @@ def _splicer(ability: Any, ch: Any) -> Def | None:
         modes.append({"text": text, "effects": scripts.rename_bindings(one["effects"], f"m{k}_"), "target": None, "groups": one["targets"]})
     return {"kind": "activated", "cost": "{2}, {T}", "effects": [], "target": None, "optional": False, "modes": modes,
             "modal": {"min": 1, "max": 1, "repeat": False, "condition": None, "memory": None, "index": ability.index, "form": "activated"}}
+
+
+# -- Giant Oyster (wave 110J) -- the "doesn't untap" restriction is native ("for as long as this creature remains tapped", 611.2b); here: the -1/-1 counter at the
+# beginning of each of its controller's draw steps while that holds (603.7), and the delayed "When this creature leaves the battlefield or becomes untapped,
+# remove all -1/-1 counters from the creature" (603.7a), put on the stack by oyster_sweep as the table is next looked at (603.3)
+_OYSTER = ("{T}: For as long as this creature remains tapped, target tapped creature doesn't untap during its controller's untap step, and at the beginning of each "
+           "of your draw steps, put a -1/-1 counter on that creature. When this creature leaves the battlefield or becomes untapped, remove all -1/-1 counters "
+           "from the creature.")
+_BUILD[_OYSTER] = ("{T}: Target tapped creature doesn't untap during its controller's untap step for as long as this creature remains tapped.",
+                   lambda d: {**d, "effects": [*d["effects"], {"do": "oyster110j"}]})
+
+
+def oyster_live(plan: Any, ref: dict[str, str]) -> bool:
+    card = plan.state.cards.get(ref["card"])
+    return card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ref["object"] and card.tapped
+
+
+def oyster(plan: Any, ctx: Def, e: Def) -> bool:
+    import secrets
+
+    from app.game.rules_state import DelayedTrigger
+    from app.rules import effects
+
+    me = plan.state.cards.get(ctx.get("source_card") or "")
+    if me is None or plan.oid(me) != ctx.get("source_object"):
+        return True
+    for target in effects._cards(plan, ctx, "target"):
+        if plan.state.cards[target].zone.endswith(":battlefield"):
+            plan.rules.delayed.append(DelayedTrigger(
+                id=secrets.token_hex(4), controller=ctx["controller"], source_card=me.id, source_object=ctx.get("source_object"), name=ctx.get("name") or "Giant Oyster",
+                when={"kind": "step", "step": "draw", "whose": "you"}, turn=plan.state.turn.number, step=plan.state.turn.phase, created_step=plan.rules.step_serial, once=False,
+                effects=[{"do": "oyster_tick110j", "oyster": {"card": me.id, "object": ctx["source_object"]}, "target": {"card": target, "object": plan.oid(target)}}]))
+    return True
+
+
+def _oyster_target(plan: Any, e: Def) -> str | None:
+    card = plan.state.cards.get(e["target"]["card"])
+    return card.id if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == e["target"]["object"] else None
+
+
+def oyster_tick(plan: Any, ctx: Def, e: Def) -> bool:
+    from app.rules import context, effects
+
+    if (target := _oyster_target(plan, e)) is not None:
+        context.bind_objects(plan, ctx, "oy110j", [target])
+        effects.PRIMITIVES["add_counters"](plan, ctx, {"do": "add_counters", "who": "ref:oy110j", "kind": "-1/-1", "n": 1})
+    return True
+
+
+def oyster_clear(plan: Any, ctx: Def, e: Def) -> bool:
+    from app.rules import context, effects
+
+    if (target := _oyster_target(plan, e)) is not None:
+        context.bind_objects(plan, ctx, "oy110j", [target])
+        effects.PRIMITIVES["remove_counters"](plan, ctx, {"do": "remove_counters", "who": "ref:oy110j", "kind": "-1/-1", "n": 1000000})
+    return True
+
+
+def oyster_sweep(plan: Any) -> None:
+    from app.rules import delayed
+
+    r = plan.rules
+    ended = [t for t in r.delayed if t.effects and t.effects[0].get("do") == "oyster_tick110j" and not oyster_live(plan, t.effects[0]["oyster"])]
+    if not ended:
+        return
+    r.delayed = [t for t in r.delayed if t not in ended]
+    for t in ended:
+        e = t.effects[0]
+        delayed._fire(plan, t.model_copy(update={"effects": [{"do": "oyster_clear110j", "target": e["target"]}], "when": {"kind": "event"}}), None)
+
+
+PRIMITIVES.update({"oyster110j": oyster, "oyster_tick110j": oyster_tick, "oyster_clear110j": oyster_clear})

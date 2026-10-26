@@ -225,3 +225,69 @@ def test_splicer_target_must_have_the_chosen_ability(cards):
         act(s, "p1", type="activate_ability", card_id=sp.id, ability=0, modes=[0], targets=[knight.id, crow.id], target_counts=[1, 1])
     with pytest.raises(ActionError):  # (another target: not the same creature)
         act(s, "p1", type="activate_ability", card_id=sp.id, ability=0, modes=[0], targets=[crow.id, crow.id], target_counts=[1, 1])
+
+
+OYSTER = "Giant Oyster"
+
+
+def test_oyster_is_full(cards):
+    from app.rules import coverage
+
+    assert coverage.of_card_data(cards.resolve(OYSTER)).level == "FULL"
+
+
+def _oyster_lock(cards):
+    s = build(cards, [OYSTER], ["Grizzly Bears"])
+    oy = put_new(s, OYSTER)
+    s.state.rules.controlled_since[oy.id].turn = 0
+    bears = put_new(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="tap", card_ids=[bears.id])
+    act(s, "p1", type="activate_ability", card_id=oy.id, ability=1, targets=[bears.id])
+    settle(s)
+    return s, oy, bears
+
+
+def _untap(s, turn, keep):
+    from tests.wave110j_kit import to_phase
+
+    to_phase(s, "untap", turn)
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards" and d.player == "p1"
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=keep)
+
+
+def test_oyster_locks_counts_and_clears_when_it_untaps(cards):
+    """611.2b, 603.7: while tapped, the creature doesn't untap and gets a -1/-1 counter each of its controller's draw steps; when it untaps, they go away."""
+    from tests.wave110j_kit import to_phase
+
+    s, oy, bears = _oyster_lock(cards)
+    turn = s.state.turn.number
+    to_phase(s, "draw", turn + 1)  # (p2's turn: their untap step does not untap the creature; no counter on their draw step)
+    settle(s)
+    assert now(s, bears).tapped and not now(s, bears).counters.get("-1/-1")
+    _untap(s, turn + 2, [oy.id])  # p1 keeps Giant Oyster tapped (rule 502.3: "you may choose not to untap")
+    to_phase(s, "draw", turn + 2)
+    settle(s)
+    assert now(s, bears).counters.get("-1/-1") == 1 and now(s, oy).tapped
+    _untap(s, turn + 4, [])  # it untaps: the delayed trigger removes every -1/-1 counter
+    settle(s)
+    to_phase(s, "upkeep", turn + 4)
+    settle(s)
+    assert not now(s, bears).counters.get("-1/-1") and not now(s, oy).tapped
+    check(s)
+
+
+def test_oyster_leaving_clears_the_counters(cards):
+    from tests.wave110j_kit import to_phase
+
+    s, oy, bears = _oyster_lock(cards)
+    turn = s.state.turn.number
+    _untap(s, turn + 2, [oy.id])
+    to_phase(s, "draw", turn + 2)
+    settle(s)
+    assert now(s, bears).counters.get("-1/-1") == 1
+    act(s, "p1", type="move", card_ids=[oy.id], to={"zone": "graveyard"})
+    act(s, "p1", type="pass_priority")
+    settle(s)
+    assert not now(s, bears).counters.get("-1/-1")
+    check(s)
