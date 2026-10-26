@@ -350,7 +350,7 @@ REFUSED: tuple[tuple[re.Pattern[str], str], ...] = (
 # -- keyword actions & face-down (wave 3F) -- refused on purpose, with the missing piece named
 REFUSED += (
     # (-- trigger other (wave 25B) -- airbending a permanent is read now: app/rules/airbend.py; a spell's exile from the stack isn't)
-    (re.compile(r"\bairbend[^.]*\bspells?\b", re.I), "airbending a spell: exiling it from the stack with that permission isn't modelled"),
+    (re.compile(r"\bairbend(?! up to one other target creature or spell\.)[^.]*\bspells?\b", re.I), "airbending a spell: exiling it from the stack with that permission isn't modelled"),
     # (review 25B: "Choose up to one target creature, then airbend all other creatures": "other" is other than the chosen one, not the source;
     # scripts._clause refuses it)
     (re.compile(r"\bchoose [^.]*\btargets?\b[^.]*, then \w+ all other\b", re.I),
@@ -765,10 +765,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
         gaps |= {g for g in [counters_designations_gap(whole)] if g is not None}
     for gap in sorted(gaps):
         add("engine:dungeon", gap[0].upper() + gap[1:], False)
-    if any(d.get("kind") == "static" and d.get("static") == "roll_adjust" and d.get("life", True) for d in defs.values()):  # (wave 110H: a counter cost has no life to pay)
-        # Night Shift's numeric rules are complete. Its accepted-use life payment
-        # on a symbolic planar die still requires the native planar-roll model.
-        add("engine:planar_roll_payment", "Planar-die life payment and accepted-use accounting", False)
+    # Night Shift of the Living Dead: a planar-die roll happens only in Planechase (706.7, 901.3); Fractured Powerstone rolls nothing in Commander (ruling 2012-06-01)
     return out
 
 

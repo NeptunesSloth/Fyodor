@@ -910,6 +910,8 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
         if event in ("dealt_damage", "targeted") and obj is not None:
             return False  # ("you're dealt damage": a player, not a permanent that player controls; wave 22E: "you become the target")
         if event == "cast":
+            if cond.get("card110b") and (obj is None or obj.id != cond["card110b"]):  # -- (wave 110B) -- Havengul Lich: that one card
+                return False
             return obj is not None and och is not None and selectors.matches(
                 plan, selectors.from_key(cond["spell"]), obj, och, you, watcher.id)
         if cond.get("obj"):  # the permanent sacrificed, the card discarded, the token created …

@@ -3145,6 +3145,7 @@ def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
                 _wave110l.note_surveilled(plan, pid, chosen)  # -- (wave 110L) -- 701.25a: the cards a surveil put into the graveyard (Eye of Duskmantle)
             else:
                 plan.do({"type": "move", "card_ids": chosen, "to": {"player": pid, "zone": "library"}, "position": "bottom"}, actor=pid)
+                _wave110b_cards.note_scry_bottom(plan, pid, chosen)  # -- (wave 110B) -- The Temporal Anchor: "Whenever you choose to put one or more cards on the bottom of your library while scrying"
     finally:
         plan.shuffle_retained = saved_retained
         plan.shuffle_after = saved_after
@@ -7281,3 +7282,18 @@ PRIMITIVES.update(_wave110e_once.PRIMITIVES)
 from app.rules import wave110e_blade as _wave110e_blade  # noqa: E402, I001  -- Sanctuary Blade (wave 110E) --
 
 RESUME.update(_wave110e_blade.RESUME)
+
+# -- Havengul Lich (wave 110B) --
+from app.rules import wave110b_lich as _wave110b_lich  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_lich.PRIMITIVES)
+
+# -- Hama, the Bloodbender (wave 110B) --
+from app.rules import wave110b_hama as _wave110b_hama  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_hama.PRIMITIVES)
+RESUME.update(_wave110b_hama.RESUME)
+from app.rules import wave110b_dack as _wave110b_dack  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_dack.PRIMITIVES)
+RESUME.update(_wave110b_dack.RESUME)

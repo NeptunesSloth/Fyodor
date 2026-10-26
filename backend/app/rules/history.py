@@ -902,6 +902,8 @@ _WAVE_4D: dict[str, Any] = {
     "unhit110b": lambda plan, ctx, cond, log: ctx["controller"] not in plan.rules.hit110b,  # (wave 110B)
     "attacked_by110b": lambda plan, ctx, cond, log: _attacked_by(plan, ctx, cond, log),  # (wave 110B)
     "attacked_with": lambda plan, ctx, cond, log: _attacked_with(plan, ctx, cond, log),  # (wave 51E)
+    "lore_put110b": lambda plan, ctx, cond, log: any(f.kind == "counters" and f.counter == "lore" and f.amount > 0 and f.object_id == ctx.get("source_object")
+                                                       for f in log.facts),  # (wave 110B) 122.1: a lore counter was put on the permission's source this turn
     "cast": _cast,
     "facts": _facts_holds,
     "damage": _damage,
