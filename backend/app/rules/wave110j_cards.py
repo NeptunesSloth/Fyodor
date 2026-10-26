@@ -620,8 +620,8 @@ def _turf_take(plan: Any, ctx: Any, land: str, who: str) -> None:
 
 
 def turf(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
-    from app.rules import context
     from app.game.rules_state import DecisionOption
+    from app.rules import context
     from app.rules.plan import decide
 
     found, hit = context.info(plan, ctx, context.EVENT), next(iter((ctx.get("event") or {}).get("players") or []), None)
@@ -671,3 +671,13 @@ def _imbraham(d: Def) -> Def:
 
 _BUILD["{X}{U}{U}, {T}: Exile the top X cards of your library and put a study counter on each of them. Then you may put a card you own in exile with a study counter on it into your hand."] = (
     "{X}{U}{U}, {T}: Exile the top X cards of your library and put a study counter on each of them.", _imbraham)
+
+
+# -- Memory Vampire (wave 110J) -- the mill clause (any number of target players, 115.1) then the collect-evidence reflexive trigger (701.59, 603.12) of the native wording
+def _vampire(d: Def) -> Def:
+    mill = {"do": "mill", "who": "target:0", "n": {"event_amount": 1}}
+    return {**d, "targets": [{"what": 'sel:{"player":"any"}', "min": 0, "max": 250}], "effects": [mill, *d["effects"]]}
+
+
+_BUILD["Whenever this creature deals combat damage to a player, any number of target players each mill that many cards. Then you may collect evidence 9. When you do, you may cast target nonland card from defending player's graveyard without paying its mana cost."] = (
+    "Whenever this creature deals combat damage to a player, you may collect evidence 9. When you do, you may cast target nonland card from that player's graveyard without paying its mana cost.", _vampire)

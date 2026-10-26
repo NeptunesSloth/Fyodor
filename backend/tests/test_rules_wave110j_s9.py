@@ -1,6 +1,7 @@
 """Wave 110J session 9: single-card wordings, real Oracle text (tests/fixtures/wave110j_cards.json). Every scenario ends with replay + save/load.
 
 * 122.1, 406.3, 608.2d: Kianne // Imbraham exile cards and mark them with study counters; the Fractal counts different mana values.
+* 701.17, 701.59, 603.12: Memory Vampire mills the chosen players, then may collect evidence 9 to cast a nonland card of the damaged player's graveyard free.
 * 613.1b, 608.2d, 701.26: Turf War: the creature's controller gains control of one of the defending player's contested lands (their choice) and untaps it.
 """
 
@@ -11,7 +12,20 @@ import pytest
 from tests.game_helpers import act
 from tests.wave9c_kit import build
 from tests.wave110b_kit import attack, top
-from tests.wave110j_kit import EXTRA, activate, card_db, ch, check, fresh, mana, move, now, put_new, settle  # noqa: F401
+from tests.wave110j_kit import (  # noqa: F401
+    EXTRA,
+    activate,
+    card_db,
+    ch,
+    check,
+    fresh,
+    grave_new,
+    mana,
+    move,
+    now,
+    put_new,
+    settle,
+)
 
 KIANNE = "Kianne, Dean of Substance // Imbraham, Dean of Theory"
 
@@ -102,4 +116,46 @@ def test_imbraham_exiles_x_cards_and_may_take_one(cards, pick):
     settle(s)
     exiled = [c for c in s.state.cards.values() if c.zone == "p1:exile" and c.counters.get("study")]
     assert len(exiled) == (1 if pick == 0 else 2) and len([c for c in s.state.cards.values() if c.zone == "p1:hand" and c.name in ("Grizzly Bears", "Templar Knight")]) == (1 if pick == 0 else 0)
+    check(s)
+
+
+def _combat(s, answer):
+    """Play combat on to the second main phase, ``answer(decision)`` giving the option ids of every decision but the blocks."""
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=answer(d))
+        elif s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            return
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    raise AssertionError("combat never ended")
+
+
+@pytest.mark.parametrize(("pay", "free"), [(True, True), (False, False)])
+def test_memory_vampire_mills_then_collects_evidence(cards, pay, free):
+    """Mills the chosen player by the damage; paying evidence 9 (three Walls of Stone, mana value 3 each) casts a nonland card free; declining leaves it."""
+    s = build(cards, ["Memory Vampire", "Wall of Stone", "Wall of Stone", "Wall of Stone"], ["Grizzly Bears"])
+    v = put_new(s, "Memory Vampire")
+    for _ in range(3):
+        grave_new(s, "Wall of Stone")
+    bears = fresh(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="move", card_ids=[bears.id], to={"zone": "graveyard"})
+    library = len(s.state.zones["p2:library"])
+    attack(s, v)
+
+    def answer(d):
+        ids = [o.id for o in d.options]
+        if "pay" in ids:
+            return ["pay" if pay else "decline"]
+        if "p2" in ids:
+            return ["p2"]
+        return ids if "Collect evidence" in d.prompt else ids[:1]
+
+    _combat(s, answer)
+    assert len(s.state.zones["p2:library"]) == library - ch(s, v).pt[0]
+    assert (now(s, bears).zone == "p1:battlefield") is free and (now(s, bears).controller == "p1" if free else True)
+    assert len([c for c in s.state.cards.values() if c.name == "Wall of Stone" and c.zone == "p1:exile"]) == (3 if pay else 0)
     check(s)
