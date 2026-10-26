@@ -141,3 +141,55 @@ def test_valeyard_adds_a_villainous_choice_for_each_opposing_copy(cards, mine, t
     assert facing(s) == times
     assert life(s, "p2") == 40 - 2 * times  # each damage option deals as many as the cards in hand (2)
     check(s)
+
+
+SUFFOCATION = "Suffocation"
+test_full_suffocation = full_test([SUFFOCATION])
+
+
+def bolt_alice(s):
+    """Alice passes in her main phase; Bob answers with Lightning Bolt on her, which resolves."""
+    to_hand(s, "Lightning Bolt", "p2")
+    act(s, "p1", type="pass_priority")
+    mana(s, "p2", R=1)
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Lightning Bolt", "p2").id, targets=["p1"])
+    while s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+def test_suffocation_hits_the_controller_of_the_red_spell_and_draws_next_upkeep(cards):
+    s = build(cards, [SUFFOCATION], ["Lightning Bolt"])
+    stops(s)
+    bolt_alice(s)
+    assert life(s, "p1") == 37
+    before = len(s.state.zones["p1:hand"])
+    cast(s, SUFFOCATION)
+    answer(s)
+    assert life(s, "p2") == 36 and life(s, "p1") == 37
+    to_phase(s, "main1", turn=3)
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == before + 2  # Suffocation's delayed draw (Bob's upkeep, the next turn's) and her own draw step's
+    check(s)
+
+
+def test_suffocation_cant_be_cast_without_that_damage(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, [SUFFOCATION])
+    stops(s)
+    with pytest.raises(ActionError):
+        cast(s, SUFFOCATION)
+
+
+def test_suffocation_cant_be_cast_after_damage_from_a_creature(cards):
+    from app.game.errors import ActionError
+
+    s = build(cards, [SUFFOCATION], ["Monastery Swiftspear"])
+    stops(s)
+    put(s, "Monastery Swiftspear", "p2")
+    to_phase(s, "declare_attackers", turn=2)
+    act(s, "p2", type="declare_attackers", attackers=[{"card_id": card_named(s, "Monastery Swiftspear", "p2").id, "target": "p1"}])
+    to_phase(s, "end_combat")
+    assert life(s, "p1") == 39
+    with pytest.raises(ActionError):
+        cast(s, SUFFOCATION)

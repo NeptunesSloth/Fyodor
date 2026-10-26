@@ -216,6 +216,25 @@ def extra_faces(plan: Plan, pid: str) -> int:
                and any(d.get("static") == _EXTRA_FACE for d in scripts.definitions(plan.ch(s)).values()))
 
 
+def dealt_by_red_spell(plan: Plan, ctx: Context, log: Any) -> Any:
+    """The last damage fact (608.2i) dealing damage to the ability's controller from a red instant or sorcery spell, as that spell was (colors, types and
+    controller recorded as it dealt the damage, history.note_events), or None."""
+    hits = [f for f in log.facts if f.kind == "damage" and f.player == ctx["controller"] and f.amount > 0 and f.source_spell
+            and "R" in f.source_colors and {"Instant", "Sorcery"} & set(f.source_types)]
+    return hits[-1] if hits else None
+
+
+def suffocate(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context, history
+    from app.rules.effects import PRIMITIVES as P
+
+    fact = dealt_by_red_spell(plan, ctx, history.log_for(plan, False))
+    if fact is None or not fact.source_controller or fact.source_controller not in plan.live():
+        return True
+    context.refs(ctx)["suffocate110l"] = {"kind": "choice", "what": "player", "value": fact.source_controller, "players": [fact.source_controller]}
+    return P["damage"](plan, ctx, {"do": "damage", "who": "ref:suffocate110l", "n": 4})
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key
@@ -267,7 +286,9 @@ _RITUAL = ("Sacrifice a nontoken permanent. If you do, target opponent loses 2 l
            "You may repeat this process any number of times.")
 _STRUGGLE = ("Target opponent reveals their hand. That player exiles a card from it, then you exile a card from it. Repeat this process until all cards in that hand "
              "have been exiled. That player returns the cards they exiled this way to their hand and puts the rest into their graveyard.")
-_BODIES: dict[str, tuple[list[Def], str]] = {
+_SUFFOCATION = "~ deals 4 damage to the controller of the last red instant or sorcery spell that dealt damage to you this turn."
+_BODIES: dict[str, tuple[list[Def], str | None]] = {
+    _SUFFOCATION: ([{"do": "suffocate110l"}], None),
     _RITUAL: ([{"do": "ritual110l", "who": "target"}], "opponent"),
     _STRUGGLE: ([{"do": "struggle110l", "who": "target"}], "opponent"),
 }
@@ -417,5 +438,5 @@ def resume_struggle(plan: Plan, d: Any, chosen: list[str]) -> None:
         continue_effects(plan, ctx)
 
 
-PRIMITIVES = {**_P0, "ritual110l": ritual, "ritual_again110l": ritual_again, "struggle110l": struggle}
+PRIMITIVES = {**_P0, "suffocate110l": suffocate, "ritual110l": ritual, "ritual_again110l": ritual_again, "struggle110l": struggle}
 RESUME = {**_R0, "ritual110l": resume_ritual, "struggle110l": resume_struggle}
