@@ -539,5 +539,99 @@
 "W"
 ],
 "keywords": []
+},
+{
+"name": "The Master, Formed Anew",
+"layout": "normal",
+"mana_cost": "{U}{B}",
+"cmc": 2.0,
+"type_line": "Legendary Creature — Time Lord Rogue",
+"oracle_text": "Body Thief — When you cast this spell, you may exile a creature you control and put a takeover counter on it.\nYou may have The Master enter as a copy of a creature card in exile with a takeover counter on it.",
+"power": "0",
+"toughness": "1",
+"colors": [
+"B",
+"U"
+],
+"color_identity": [
+"B",
+"U"
+],
+"keywords": [
+"Body Thief"
+]
+},
+{
+"name": "Overblaze",
+"layout": "normal",
+"mana_cost": "{3}{R}",
+"cmc": 4.0,
+"type_line": "Instant — Arcane",
+"oracle_text": "Each time target permanent would deal damage to a permanent or player this turn, it deals double that damage to that permanent or player instead.\nSplice onto Arcane {2}{R}{R} (As you cast an Arcane spell, you may reveal this card from your hand and pay its splice cost. If you do, add this card's effects to that spell.)",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [
+"Double",
+"Splice"
+]
+},
+{
+"name": "Curse of the Pierced Heart",
+"layout": "normal",
+"mana_cost": "{1}{R}",
+"cmc": 2.0,
+"type_line": "Enchantment — Aura Curse",
+"oracle_text": "Enchant player\nAt the beginning of enchanted player's upkeep, this Aura deals 1 damage to that player or a planeswalker that player controls.",
+"colors": [
+"R"
+],
+"color_identity": [
+"R"
+],
+"keywords": [
+"Enchant"
+]
+},
+{
+"name": "Lynde, Cheerful Tormentor",
+"layout": "normal",
+"mana_cost": "{1}{U}{B}{R}",
+"cmc": 4.0,
+"type_line": "Legendary Creature — Human Warlock",
+"oracle_text": "Deathtouch\nWhenever a Curse is put into your graveyard from the battlefield, return it to the battlefield attached to you at the beginning of the next end step.\nAt the beginning of your upkeep, you may attach a Curse attached to you to one of your opponents. If you do, draw two cards.",
+"power": "2",
+"toughness": "4",
+"colors": [
+"B",
+"R",
+"U"
+],
+"color_identity": [
+"B",
+"R",
+"U"
+],
+"keywords": [
+"Deathtouch"
+]
+},
+{
+"name": "Disenchant",
+"layout": "normal",
+"mana_cost": "{1}{W}",
+"cmc": 2.0,
+"type_line": "Instant",
+"oracle_text": "Destroy target artifact or enchantment.",
+"colors": [
+"W"
+],
+"color_identity": [
+"W"
+],
+"keywords": []
 }
 ]

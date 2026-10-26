@@ -324,6 +324,85 @@ def aura_for_each(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def double_damage_turn(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Overblaze: for the rest of this turn (611.2a), each time the permanent would deal damage, it deals double that damage instead (614.1, 120.3) — the
+    object the spell targeted (a new object, 400.7, is not it)."""
+    from app.rules import effects, replace
+
+    cards = effects._cards(plan, ctx, e["who"])
+    if len(cards) != 1:
+        return True
+    replace.add_record(plan, event="damage", match={"source": {"oids": [plan.oid(cards[0])]}, "to": {}}, op={"do": "mul", "n": 2}, controller=ctx["controller"],
+                       source=ctx.get("source_object"), source_card=ctx.get("source_card"), label=ctx.get("name") or "an effect")
+    return True
+
+
+def return_attached_you(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    return effects.PRIMITIVES["return_card"](plan, ctx, {**e, "do": "return_card", "host": f"player:{ctx['controller']}"})
+
+
+def _curses_on(plan: Any, pid: str) -> list[str]:
+    return [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and c.attached_player == pid and "Curse" in plan.ch(c).subtypes]
+
+
+def curse_to_opponent(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.rules import effects
+
+    me = ctx["controller"]
+    curses = _curses_on(plan, me)
+    if not curses or not [p for p in plan.apnap() if p != me and p in plan.live()]:
+        return True
+    effects.decide(plan, player=me, kind="choose_cards", prompt=f"{ctx.get('name') or 'It'}: you may attach a Curse attached to you to one of your opponents",
+                   min_choices=0, max_choices=1, options=[effects.DecisionOption(id=c, label=plan.state.cards[c].name or "Curse", card_id=c) for c in curses],
+                   resume={"step": "curse_to_opponent110k", "ctx": ctx, "stage": "curse", "curses": curses})
+    return False
+
+
+def _curse_hosts(plan: Any, me: str, curse: str) -> list[str]:
+    from app.rules import attachments
+
+    return [p for p in plan.apnap() if p != me and p in plan.live() and attachments.host_problem(plan, plan.state.cards[curse], p, me) is None]
+
+
+def _move_curse(plan: Any, ctx: dict[str, Any], curse: str, opponent: str) -> bool:
+    from app.rules import attachments, effects
+
+    attachments.attach(plan, curse, opponent, ctx["controller"])
+    if plan.state.cards[curse].attached_player == opponent:  # "if you do"
+        return effects.PRIMITIVES["draw"](plan, ctx, {"do": "draw", "who": "you", "n": 2})
+    return True
+
+
+def resume_curse_to_opponent(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    r, ctx = d.resume, d.resume["ctx"]
+    if r["stage"] == "curse":
+        if not chosen:
+            effects.continue_effects(plan, ctx)
+            return
+        if len(chosen) != 1 or chosen[0] not in r["curses"]:
+            raise ValueError("not one of the Curses")
+        hosts = _curse_hosts(plan, ctx["controller"], chosen[0])
+        if not hosts:
+            effects.continue_effects(plan, ctx)
+            return
+        if len(hosts) == 1:
+            if _move_curse(plan, ctx, chosen[0], hosts[0]):
+                effects.continue_effects(plan, ctx)
+            return
+        effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt="Choose the opponent to attach the Curse to",
+                       options=[effects.DecisionOption(id=p, label=plan.name(p)) for p in hosts],
+                       resume={"step": "curse_to_opponent110k", "ctx": ctx, "stage": "opponent", "curse": chosen[0], "hosts": hosts})
+        return
+    if chosen[0] not in r["hosts"]:
+        raise ValueError("not one of the opponents")
+    if _move_curse(plan, ctx, r["curse"], chosen[0]):
+        effects.continue_effects(plan, ctx)
+
+
 def return_self_hand(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"Return ~ to its owner's hand" from the battlefield (bounce) or from the graveyard (the same object, 400.7: if it moved since, nothing)."""
     from app.rules import effects
@@ -343,8 +422,8 @@ from app.rules import delayed as _delayed  # noqa: E402
 
 _delayed.LABELS["source_tapped_power110k"] = "for as long as ~ remains tapped and its power is at most ~'s"
 
-PRIMITIVES = {"aura_for_each110k": aura_for_each, "backdraft110k": backdraft, "attach_self_choose110k": attach_self_choose, "control_swap110k": control_swap, "copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
-RESUME = {"backdraft110k": resume_backdraft, "attach_self_choose110k": resume_attach_self_choose, "copies_of_revealed110k": resume_copies_of_revealed, "opponent_mode110k": resume_opponent_mode, "shuffle_other110k": resume_shuffle_other}
+PRIMITIVES = {"return_attached_you110k": return_attached_you, "curse_to_opponent110k": curse_to_opponent, "double_damage_turn110k": double_damage_turn, "aura_for_each110k": aura_for_each, "backdraft110k": backdraft, "attach_self_choose110k": attach_self_choose, "control_swap110k": control_swap, "copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
+RESUME = {"curse_to_opponent110k": resume_curse_to_opponent, "backdraft110k": resume_backdraft, "attach_self_choose110k": resume_attach_self_choose, "copies_of_revealed110k": resume_copies_of_revealed, "opponent_mode110k": resume_opponent_mode, "shuffle_other110k": resume_shuffle_other}
 
 
 # -- spell bodies: the whole body -> (the wording the grammar reads, what to do with its effects) --
@@ -372,6 +451,8 @@ _BACKDRAFT = ("Choose a player who cast one or more sorcery spells this turn. ~ 
               "spells this turn, rounded down.")
 _EPIPHANY = ("~ deals X damage to target creature. When that creature dies this turn, exile a number of cards from the top of your library equal to its power, "
              "then choose a card exiled this way. Until the end of your next turn, you may play that card.")
+_OVERBLAZE = ("Each time target permanent would deal damage to a permanent or player this turn, it deals double that damage to that permanent or player "
+              "instead.")
 _ICE_EACH = "Destroy each land that is snow or could produce {C}."  # (overload, 702.96a: "target" read as "each")
 _SHIP = ("After the first combat phase this turn, there's an additional combat phase. At the beginning of that combat, untap all creatures that attacked "
          "this turn.")
@@ -440,6 +521,11 @@ def parse(body: str) -> Any:
     from app.rules import scripts
 
     body = body.strip()
+    if body.strip() == _OVERBLAZE:
+        from app.rules import scripts
+
+        native = scripts.parse_effects("Destroy target permanent.")
+        return None if native is None else ([{"do": "double_damage_turn110k", "who": "target"}], native[1], False)
     if body.replace("End-Blaze Epiphany", "~") in (_EPIPHANY, _EPIPHANY.replace("a number of cards from the top of your library equal to its power",
                                                                               "the top X cards of your library, where X is its power")):  # (as define reads it)
         return _epiphany()
@@ -533,6 +619,19 @@ def _livestock(d: Def) -> Def:
     return {**d, "effects": [{**eff[0], "as": "e0"}, {"do": "aura_for_each110k", "who": "ref:e0"}]}
 
 
+def _lynde_return(d: Def) -> Def:
+    """Lynde: the Curse comes back attached to its controller (303.4c: a Curse enchants a player; the card goes to its owner's graveyard, "you" is the owner)."""
+    eff = d["effects"]
+    if len(eff) != 2 or eff[1].get("do") != "deferred:return_card":
+        return d
+    return {**d, "effects": [eff[0], {**eff[1], "do": "deferred:return_attached_you110k"}]}
+
+
+def _lynde_move(d: Def) -> Def:
+    """Lynde: at the beginning of your upkeep, you may attach a Curse attached to you to one of your opponents; if you do, draw two cards (701.3)."""
+    return {**d, "effects": [{"do": "curse_to_opponent110k"}]} if d.get("trigger") == "upkeep_you" else d
+
+
 def _rat_roles(d: Def) -> Def:
     """Twisted Sewer-Witch: a Wicked Role token for each Rat its controller has once the token exists, each attached to its own Rat (111.1, 303.7)."""
     from app.rules import selectors
@@ -545,6 +644,10 @@ _WIGHT = ("At end of combat, put a paralyzation counter on each creature blockin
           "doesn't untap during its controller's untap step for as long as it has a paralyzation counter on it. Each of those creatures gains \"{4}: Remove a "
           "paralyzation counter from this creature.\"")
 _BUILD: dict[str, tuple[str, Any]] = {
+    "Whenever a Curse is put into your graveyard from the battlefield, return it to the battlefield attached to you at the beginning of the next end step.":
+        ("Whenever a Curse is put into your graveyard from the battlefield, return it to the battlefield at the beginning of the next end step.", _lynde_return),
+    "At the beginning of your upkeep, you may attach a Curse attached to you to one of your opponents. If you do, draw two cards.":
+        ("At the beginning of your upkeep, draw a card.", _lynde_move),
     "When this creature dies, create a 1/1 white Cat creature token with lifelink, a 1/1 white Bird creature token with flying, and a 2/4 white Ox creature "
     "token. For each of those tokens, you may put an Aura card from your hand and/or graveyard onto the battlefield attached to it.":
         ("When this creature dies, create a 1/1 white Cat creature token with lifelink, a 1/1 white Bird creature token with flying, and a 2/4 white Ox "

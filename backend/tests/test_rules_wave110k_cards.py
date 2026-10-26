@@ -1056,3 +1056,148 @@ def test_liberated_livestock_dies_into_three_tokens_each_may_get_an_aura_from_ha
     assert asked[0] == ["Holy Strength", "Pacifism"]  # from the hand and the graveyard alike
     assert sorted(a for v in attached.values() for a in v) == ["Holy Strength", "Pacifism"]
     check(s)
+
+
+# -- The Master, Formed Anew --
+MASTER = "The Master, Formed Anew"
+
+
+def test_the_master_formed_anew_is_full():
+    assert full(MASTER)
+
+
+def _master(cards, with_body_thief=True):
+    s = build(cards, [MASTER, "Grizzly Bears", "Elvish Visionary"])
+    bears = put_new(s, "Grizzly Bears")
+    visionary = hand_new(s, "Elvish Visionary")
+    act(s, "p1", type="move", card_ids=[visionary.id], to={"zone": "exile"})  # in exile with no counter: never offered
+    master = to_hand(s, MASTER)
+    mana(s, U=1, B=1)
+    act(s, "p1", type="cast_spell", card_id=master.id)
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    return s, master, bears, visionary
+
+
+def test_the_master_enters_as_a_copy_of_the_creature_its_body_thief_exiled(cards):
+    s, master, bears, visionary = _master(cards)
+    offered = None
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "confirm":  # Body Thief: "you may exile a creature you control and put a takeover counter on it"
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"])
+        elif "copy" in d.prompt.lower():
+            offered = [o.id for o in d.options]
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id])
+        else:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[bears.id] if bears.id in [o.id for o in d.options] else [d.options[0].id])
+    assert offered is not None and bears.id in offered and visionary.id not in offered  # (the one with a takeover counter only)
+    assert now(s, master).zone == "p1:battlefield" and ch(s, master).name == "Grizzly Bears"
+    check(s)
+
+
+def test_the_master_enters_as_itself_when_nothing_with_a_takeover_counter_is_in_exile(cards):
+    s, master, bears, visionary = _master(cards)
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "confirm":
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=["no"])
+        else:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+    assert now(s, master).zone == "p1:battlefield" and ch(s, master).name == MASTER and now(s, bears).zone == "p1:battlefield"
+    check(s)
+
+
+# -- Overblaze --
+def test_overblaze_is_full():
+    assert full("Overblaze")
+
+
+def test_overblaze_doubles_the_damage_its_target_deals_this_turn_and_only_its(cards):
+    from tests.wave110b_kit import attack, through_combat
+
+    s = build(cards, ["Overblaze", "Grizzly Bears", "Elvish Visionary"])
+    bears, visionary = put_new(s, "Grizzly Bears"), put_new(s, "Elvish Visionary")
+    d = s.state.rules.decision
+    while d is not None:  # (the Visionary's draw)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        d = s.state.rules.decision
+    cast_on(s, "Overblaze", bears)
+    attack(s, bears, visionary)
+    through_combat(s)
+    assert life(s, "p2") == 40 - 4 - 1  # Bears: 2 doubled; the Visionary: 1, not doubled
+    check(s)
+
+
+def test_overblaze_lasts_only_this_turn(cards):
+    from tests.wave110b_kit import attack, through_combat
+
+    s = build(cards, ["Overblaze", "Grizzly Bears"])
+    bears = put_new(s, "Grizzly Bears")
+    cast_on(s, "Overblaze", bears)
+    to_phase(s, "main1", turn=3)
+    attack(s, bears)
+    through_combat(s)
+    assert life(s, "p2") == 40 - 2
+    check(s)
+
+
+# -- Lynde, Cheerful Tormentor --
+LYNDE = "Lynde, Cheerful Tormentor"
+CURSE = "Curse of the Pierced Heart"
+
+
+def test_lynde_is_full():
+    assert full(LYNDE)
+
+
+def _lynde(cards):
+    s = build(cards, [LYNDE, CURSE, "Disenchant"])
+    lynde = put_new(s, LYNDE)
+    s.state.rules.controlled_since[lynde.id].turn = 0
+    curse = cast_on(s, CURSE, "p1")  # an Aura that enchants a player: Alice herself
+    assert now(s, curse).zone == "p1:battlefield" and now(s, curse).attached_player == "p1"
+    return s, lynde, curse
+
+
+def test_lynde_returns_a_curse_that_went_to_your_graveyard_attached_to_you_at_the_next_end_step(cards):
+    s, lynde, curse = _lynde(cards)
+    cast_on(s, "Disenchant", curse)
+    assert now(s, curse).zone == "p1:graveyard"
+    to_phase(s, "end", turn=1)
+    settle(s)
+    assert now(s, curse).zone == "p1:battlefield" and now(s, curse).attached_player == "p1"
+    check(s)
+
+
+@pytest.mark.parametrize("move", [True, False])
+def test_lynde_may_attach_a_curse_you_have_to_an_opponent_and_draw_two(cards, move):
+    s, lynde, curse = _lynde(cards)
+    hand = len(s.state.zones.get("p1:hand", []))
+    to_phase(s, "upkeep", turn=3)  # Alice's next upkeep: the Curse's own trigger and Lynde's (ordered first, say)
+    d = s.state.rules.decision
+    while d is not None and d.kind == "order":
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options])
+        d = s.state.rules.decision
+    for _ in range(10):
+        if d is not None and "attach a Curse" in d.prompt:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+    assert d is not None and d.player == "p1" and d.min_choices == 0 and [o.id for o in d.options] == [curse.id]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[curse.id] if move else [])
+    settle(s)
+    assert now(s, curse).attached_player == ("p2" if move else "p1")
+    assert len(s.state.zones.get("p1:hand", [])) == hand + (2 if move else 0)
+    check(s)
