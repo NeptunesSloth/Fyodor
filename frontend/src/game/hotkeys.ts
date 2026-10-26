@@ -48,7 +48,7 @@ export const HOTKEYS: Hotkey[] = [
   { id: "respond", keys: ["r"], label: "Respond (keep priority)" },
   { id: "pass", keys: ["p"], label: "Pass priority (manual play: the dial's main button)" },
   { id: "auto_pass", keys: ["shift+p"], label: "Auto-pass for the rest of this turn" },
-  { id: "hud", keys: ["h"], label: "Hide / show panel extras" },
+  { id: "hud", keys: ["h"], label: "Hide / show player counters & tools" },
   { id: "cam_seat", keys: ["1"], label: "3D table: look from your seat" },
   { id: "cam_player", keys: ["2", "3", "4", "5", "6"], label: "3D table: look at the next players' sides, in seat order" },
   { id: "cam_table", keys: ["0"], label: "3D table: look down on the whole table" },

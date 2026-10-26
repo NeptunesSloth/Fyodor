@@ -76,7 +76,14 @@ main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overfl
 .t3d-cams button.on .cam-chip { color: var(--text); }
 
 /* first-game tips, bottom left above the tool tray */
-.t3d-coach { position: absolute; left: 14px; top: 220px; z-index: 5; width: min(320px, calc(100% - 32px)); }
+/* tips: a slim banner under the top bar, above the far edge of the table where no cards lie */
+.t3d-coach { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 5; width: min(720px, calc(100% - 32px)); }
+.t3d-coach .t3d-coach-body { flex-direction: row; align-items: center; gap: 12px; padding: 7px 10px 7px 14px; }
+.t3d-coach .t3d-coach-title { white-space: nowrap; font-size: 13px; }
+.t3d-coach .t3d-coach-text { flex: 1; font-size: 12.5px; line-height: 1.35; }
+.t3d-coach .t3d-coach-actions { margin: 0; flex: none; }
+/* a plaque with no free spot on a crowded table: name and life only, stats on hover or focus */
+.t3d-plate-anchor.compact .t3d-seat:not(:hover):not(:focus-within) .t3d-seat-stats { display: none; }
 .t3d-coach-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .t3d-coach-title { margin: 0; font: 700 14px/1.2 var(--font-display); color: var(--text); }
 .t3d-coach-count { font: 500 11.5px var(--font-ui); color: var(--text-dim); margin-left: 6px; }

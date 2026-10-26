@@ -475,7 +475,7 @@ export class TableScene {
     const e = this.plane.env;
     for (const seat of this.seatList) {
       const color = this.view?.players.find((p) => p.id === seat.player)?.color ?? "#888";
-      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(e.inlay, this.plane.ui.accent, color), transparent: true, depthWrite: false, roughness: 0.92 }));
+      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(e.inlay, this.plane.ui.accent, color), transparent: true, depthWrite: false, roughness: 0.92, emissive: this.plane.ui.accent, emissiveIntensity: 0 }));
       mat.rotation.x = -Math.PI / 2;
       mat.rotation.z = seat.rot;
       const [mx, mz] = toWorld(seat, 0, 0);
@@ -1162,6 +1162,11 @@ export class TableScene {
     for (const p of this.piles.values()) {
       const m = p.slot.material as THREE.MeshBasicMaterial;
       m.opacity = p.count > 0 || anyDrag ? 1 : 0.35;
+    }
+    // while a card is dragged, the battlefields (where it can land) light up
+    for (const mat of this.mats.values()) {
+      const m = mat.material as THREE.MeshStandardMaterial;
+      m.emissiveIntensity = anyDrag ? 0.18 : 0;
     }
     // the player's animation speed (Settings) scales every 3D motion
     const speed = usePrefs.getState().animationSpeed || 1;

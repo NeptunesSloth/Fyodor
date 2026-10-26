@@ -222,7 +222,7 @@ export function TurnDial() {
           <span className="td-turn">Turn {turn.number} · {active?.id === me ? "your turn" : active?.name}</span>
           {!auto && !watching && (
             <span className="td-steps">
-              <button className="tt-btn ghost td-step" title="Back one step" onClick={() => void send({ type: "phase", to: "prev" })}>‹ Back</button>
+              <button className="tt-btn ghost td-step" title="Go back one step" onClick={() => void send({ type: "phase", to: "prev" })}>‹ Previous step</button>
             </span>
           )}
         </header>
@@ -247,7 +247,7 @@ export function TurnDial() {
             <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title={blocked ?? "Pass priority (P)"} disabled={deciding} onClick={() => void passPriority()}>
               {verb}
             </button>
-            {stack && <p className="td-hint">{topName} resolves once everyone passes</p>}
+            {deciding ? <p className="td-hint" role="status">Answer your decision first</p> : stack && <p className="td-hint">{topName} resolves once everyone passes</p>}
             <div className="td-more">
               {stack && <button className="tt-btn ghost" data-testid="resolve-one" disabled={deciding} title={blocked} onClick={() => void passPriority("stack_changes")}>Resolve one</button>}
               {stack && <button className="tt-btn ghost" data-testid="resolve-all" disabled={deciding} title={blocked} onClick={() => void passPriority("stack_empty")}>Resolve all</button>}

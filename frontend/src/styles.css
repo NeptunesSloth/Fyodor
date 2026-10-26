@@ -376,3 +376,9 @@ body.cb-markers .seat-glyph { display: inline; }
 .welcome-steps li.todo::marker { content: "!  "; color: #e0a860; }
 .welcome-steps input { display: block; margin: 4px 0; max-width: 280px; }
 .welcome-steps code { margin-right: 6px; }
+
+/* Undo · ▾ · Redo read as one control: a shared outline with hairline dividers */
+.tt-split { display: inline-flex; border: 1px solid var(--line-2); border-radius: 6px; overflow: hidden; }
+.tt-split > .tt-btn { border-radius: 0; }
+.tt-split > .tt-btn + .tt-btn { border-left: 1px solid var(--line-2); }
+.tt-split > .undo-more { padding-inline: 7px; }

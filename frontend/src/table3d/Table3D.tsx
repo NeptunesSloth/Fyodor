@@ -95,14 +95,19 @@ export function Table3D({ me }: { me: string }) {
         if (!node) continue;
         const pt = scene.seatScreen(pid, w, h);
         if (!pt) continue;
-        const pw = node.offsetWidth || 160;
-        const ph = node.offsetHeight || 56;
+        // place by the full plaque's size (measured while it is full) so the compact switch can't flicker
+        if (!node.classList.contains("compact") && node.offsetWidth) node.dataset.full = `${node.offsetWidth},${node.offsetHeight}`;
+        const [pw, ph] = (node.dataset.full ?? "160,56").split(",").map(Number) as [number, number];
         let { x, y } = pt;
         const stepOff = (boxes: Box[]) => {
           let moved = false;
           for (const r of boxes) {
             if (x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom) continue;
-            y = y - r.top < r.bottom - y ? r.top - ph / 2 - 6 : r.bottom + ph / 2 + 6;
+            // to whichever edge of the obstacle is nearer, unless that leaves the screen
+            const up = r.top - ph / 2 - 6;
+            const down = r.bottom + ph / 2 + 6;
+            const fits = (v: number) => v >= ph / 2 + 8 && v <= h - ph / 2 - 8;
+            y = (y - r.top < r.bottom - y && fits(up)) || !fits(down) ? up : down;
             moved = true;
           }
           return moved;
@@ -113,6 +118,11 @@ export function Table3D({ me }: { me: string }) {
         for (let pass = 0; pass < 3 && stepOff(chrome); pass++);
         x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
         y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
+        // no free spot (a crowded table): drop to name and life; the stats come back on hover or focus
+        if (frame % 20 === 1) {
+          const covers = cards.some((r) => !(x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom));
+          node.classList.toggle("compact", covers);
+        }
         node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
         node.style.visibility = pt.visible ? "visible" : "hidden";
       }
@@ -188,9 +198,9 @@ export function Table3D({ me }: { me: string }) {
           </div>
         ))}
       </div>
-      <div className="t3d-tags" aria-hidden>
+      <div className="t3d-tags" role="list" aria-label="Names of selected cards">
         {tagged.map(([cid, name]) => (
-          <div key={cid} className="t3d-tag" ref={(n) => { tags.current[cid] = n; }}>{name}</div>
+          <div key={cid} className="t3d-tag" role="listitem" ref={(n) => { tags.current[cid] = n; }}>{name}</div>
         ))}
       </div>
       <CoachTips />

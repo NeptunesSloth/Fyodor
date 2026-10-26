@@ -37,14 +37,11 @@ export function TopBar() {
           {dayNight === "day" ? "☀ Day" : "☾ Night"}
         </button>
       )}
-      <button className="tt-btn ghost" disabled={!view.game.can_undo} onClick={() => void undo()} title="Undo (Ctrl+Z)">Undo</button>
-      <button className="tt-btn ghost undo-more" disabled={!view.game.can_undo} aria-label="Recent actions" title="Recent actions: undo back to any of them" onClick={(e) => void recentMenu(e)}>▾</button>
-      <button className="tt-btn ghost" disabled={!view.game.can_redo} onClick={() => void redo()} title="Redo (Ctrl+Shift+Z)">Redo</button>
-      {isHost && (
-        <button className="tt-btn ghost" data-testid="end-game" onClick={() => openDialog("endgame")} title="Record who won">
-          {view.game.result_id ? "Result ✓" : "End game"}
-        </button>
-      )}
+      <span className="tt-split" role="group" aria-label="Undo and redo">
+        <button className="tt-btn ghost" disabled={!view.game.can_undo} onClick={() => void undo()} title="Undo (Ctrl+Z)">Undo</button>
+        <button className="tt-btn ghost undo-more" disabled={!view.game.can_undo} aria-label="Undo back to a recent action" title="Undo back to a recent action" onClick={(e) => void recentMenu(e)}>▾</button>
+        <button className="tt-btn ghost" disabled={!view.game.can_redo} onClick={() => void redo()} title="Redo (Ctrl+Shift+Z)">Redo</button>
+      </span>
       {local && (
         <label className="seat-switch" title="Hot-seat: whose view to show">
           View
@@ -68,10 +65,16 @@ export function TopBar() {
         </label>
       )}
       <button className="tt-btn ghost" title="Hide or show the player panels' counters, mana pool, commander damage and tool tray (H)" onClick={() => usePrefs.getState().set({ hud: usePrefs.getState().hud === "full" ? "minimal" : "full" })}>
-        {hud === "full" ? "Hide panel extras" : "Show panel extras"}
+        {hud === "full" ? "Hide counters & tools" : "Show counters & tools"}
       </button>
       <button className="tt-btn ghost" onClick={() => openDialog("help")} title="How to play, controls and shortcuts (?)">Help</button>
       <button className="tt-btn ghost" data-testid="table-menu" aria-label="More" title="Save, load, tools and settings" onClick={(e) => openMenu(e, tableMenu(isHost), "Table")}>More</button>
+      {/* kept apart from Undo: ending the game is not a slip of the hand */}
+      {isHost && (
+        <button className="tt-btn ghost" data-testid="end-game" onClick={() => openDialog("endgame")} title="Record who won">
+          {view.game.result_id ? "Result ✓" : "End game"}
+        </button>
+      )}
     </header>
   );
 }
