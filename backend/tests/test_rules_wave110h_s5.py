@@ -59,6 +59,10 @@ EXTRA = [
          "fade counters on Saproling Burst.\"\nWhen this enchantment leaves the battlefield, destroy all tokens created with this enchantment. They can't be regenerated.",
          None, "G"),
     real("Disenchant", "{1}{W}", 2, "Instant", "Destroy target artifact or enchantment.", None, "W"),
+    real("Outmaneuver", "{X}{R}", 1, "Instant", "X target blocked creatures assign their combat damage this turn as though they weren't blocked.", None, "R"),
+    real("Ulamog's Despoiler", "{6}", 6, "Creature \u2014 Eldrazi Processor",
+         "As this creature enters, you may put two cards your opponents own from exile into their owners' graveyards. If you do, this creature enters with four +1/+1 counters on it.",
+         ("5", "5"), ""),
     real("Doom Blade", "{1}{B}", 2, "Instant", "Destroy target nonblack creature.", None, "B"),
     real("Hill Giant", "{3}{R}", 4, "Creature \u2014 Giant", "", ("3", "3"), "R"),
     real("Grizzly Bears", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
@@ -364,4 +368,60 @@ def test_saproling_burst(cards):
     answer(s)
     assert s.state.cards[burst.id].zone == "p1:graveyard"
     assert not [c for c in s.state.cards.values() if c.is_token and c.zone == "p1:battlefield"]
+    check(s)
+
+
+@pytest.mark.parametrize("cast", [True, False])
+def test_outmaneuver(cards, cast):
+    """510.1c exception: the blocked 3/3 assigns its damage as though unblocked: all to the player, none to the blocker; without the spell the blocker takes it."""
+    from tests.test_rules_conditionals import creature, sandbox
+    from tests.wave53c_kit import combat_step, swing, to_postcombat
+
+    s = sandbox(cards, "Outmaneuver")
+    atk = creature(s, "p1", "Brute", "3/3")
+    blk = creature(s, "p2", "Wall", "1/9")
+    combat_step(s)
+    swing(s, [atk], [(blk, atk)])
+    if cast:
+        spell = next(c for c in s.state.cards.values() if c.name == "Outmaneuver")
+        act(s, "p1", type="move", card_ids=[spell.id], to={"zone": "hand"})
+        act(s, "p1", type="add_mana", player="p1", mana={"R": 1, "C": 1})
+        act(s, "p1", type="cast_spell", card_id=spell.id, targets=[atk.id], x_value=1, target_counts=[1])
+    to_postcombat(s)
+    assert s.state.cards[blk.id].damage == (0 if cast else 3) and life(s, "p2") == (37 if cast else 40)
+    check(s)
+
+
+def _despoiler(cards, exiled):
+    s = build(cards, ["Ulamog's Despoiler", "Grizzly Bears", "Hill Giant"], ["Grizzly Bears", "Hill Giant"])
+    gone = []
+    for n in exiled:
+        c = to_hand(s, n, "p2")
+        act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "exile"})
+        gone.append(c)
+    mana(s, C=6)
+    return s, cast(s, "Ulamog's Despoiler"), gone
+
+
+def test_ulamogs_despoiler_two_cards(cards):
+    """Exactly two of the opponents' exiled cards go to their owners' graveyards; then it enters with four +1/+1 counters."""
+    s, d, (a, b) = _despoiler(cards, ["Grizzly Bears", "Hill Giant"])
+    answer(s, [a.id], [b.id])
+    assert s.state.cards[a.id].zone == s.state.cards[b.id].zone == "p2:graveyard"
+    assert s.state.cards[d.id].counters.get("+1/+1") == 4
+    check(s)
+
+
+def test_ulamogs_despoiler_declined(cards):
+    s, d, (a, b) = _despoiler(cards, ["Grizzly Bears", "Hill Giant"])
+    answer(s, ["done"])
+    assert s.state.cards[a.id].zone == s.state.cards[b.id].zone == "p2:exile" and not s.state.cards[d.id].counters.get("+1/+1")
+    check(s)
+
+
+def test_ulamogs_despoiler_one_card_is_not_enough(cards):
+    """"If you do" needs both cards (608.2c): one card picked, then stopping, leaves the card in exile and no counters; the Despoiler is not offered cards it cannot take."""
+    s, d, (a,) = _despoiler(cards, ["Grizzly Bears"])
+    answer(s, [a.id], ["done"])
+    assert s.state.cards[a.id].zone == "p2:exile" and not s.state.cards[d.id].counters.get("+1/+1")
     check(s)

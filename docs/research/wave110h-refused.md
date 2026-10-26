@@ -22,4 +22,8 @@
 - The Sea Devils (III): watch target "creature that player controls" needs event-player-relative own_target (watches.build requires {"what"} only); "a Salamander" is any controller's.
 - Darigaaz Reincarnated: die-exile with egg counters plus an upkeep trigger working from exile has no foundation (no from-exile ability hook).
 - Kodama of the Center Tree: soulshift X with X counted when the ability resolves vs on death unsettled; Bargaining Table: "an opponent's hand" with several opponents unsettled.
-- Heart of Kiran: alt crew cost needs a new crew action field (casting.crew). Stitcher Geralf / Ulamog's Despoiler: base wordings ("mills ... exile ... this way" total power; enters-as optional cost) not read.
+- Heart of Kiran: alt crew cost needs a new crew action field (casting.crew). Stitcher Geralf (Despoiler done in s6): base wordings ("mills ... exile ... this way" total power; enters-as optional cost) not read.
+- Zimone's Experiment: land creature card is both "land" and "creature" in the two final instructions; CR 608.2c order + 400.7j vs 400.6 and no ruling settles it (docs/research/qualified-selection-packets.md). Unsettled.
+- Magma Pummeler: foundation needed, not unsettled: a targeted reflexive trigger "when counters are removed this way" attached to a damage-prevention rider (rider_body rejects targets).
+- Don't Blink: foundation needed: entry replacement keyed on the origin zone / cast-from-exile over every entry path (resolve, return_card, put onto battlefield).
+- Stitcher Geralf: foundation needed: choose up to two creature cards among the cards each player milled (mill binding feeding pick_looked).

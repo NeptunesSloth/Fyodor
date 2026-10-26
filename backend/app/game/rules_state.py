@@ -1646,6 +1646,7 @@ class RulesState(BaseModel):
     assign_unblocked: dict[str, bool] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker -> "as though it weren't blocked"
     declare_choosers: dict[str, dict[str, Any]] = Field(default_factory=dict)  # -- declaration choosers (wave 110A) -- "attack"/"block" -> {player, turn, combat}: who declares them, until end of turn/combat
     assign_unblocked_turn: dict[str, int] = Field(default_factory=dict)  # -- wave 110A -- player -> turn number: "creatures you control assign combat damage as though they weren't blocked" this turn (510.1c)
+    assign_forced110h: dict[str, int] = Field(default_factory=dict)  # -- wave 110H -- creature card -> turn number: it assigns its combat damage as though it weren't blocked (Outmaneuver)
     block_caps: dict[str, int] = Field(default_factory=dict)  # -- commander sweep (wave 49B) -- 509.1b: player -> "can't block with more than N creatures this combat" (Mirri), dropped at end of combat
     # -- combat (wave 5C) -- 500.8: the phases still to come after the current one when effects added some (the
     # last is the phase that would have come next), and how many combat phases began this turn

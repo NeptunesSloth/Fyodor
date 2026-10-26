@@ -252,7 +252,15 @@ def _time_reaper() -> Any:
             {"do": "gain_life", "who": "you", "n": 3}], target, flag
 
 
+def _outmaneuver() -> Any:
+    from app.rules import scripts
+
+    base = scripts.parse_effects("X target blocked creatures gain flying until end of turn.")
+    return None if base is None else ([{"do": "assign_unblocked110h", "who": "target:0"}], base[1], base[2])
+
+
 BUILDERS = {
+    "X target blocked creatures assign their combat damage this turn as though they weren't blocked.": _outmaneuver,
     "put target face-up card they own in exile on the bottom of their library. If you do, you gain 3 life.": _time_reaper,
     "you may exile one or more creature cards from your graveyard. When you do, each other creature gets -X/-X until end of turn, where X is the "
     "number of cards exiled this way.": _specter_mortality,
@@ -370,6 +378,15 @@ def limo_back(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return effects.PRIMITIVES["return_card"](plan, ctx, back) if ctx.get("exiled_now") else True
 
 
+def assign_unblocked(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Outmaneuver (510.1c exception): the targets assign their combat damage this turn as though they weren't blocked (no choice: no "may")."""
+    from app.rules import effects
+
+    for c in effects._cards(plan, ctx, e["who"]):
+        plan.rules.assign_forced110h[c] = plan.state.turn.number
+    return True
+
+
 def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """The battlefield tokens created with the source (token_source, 111.2), bound for the next effect."""
     from app.rules import context
@@ -380,5 +397,5 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat}
+PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat}
 RESUME = {"episode110h": resume_episode, "scapegoat110h": resume_scapegoat}

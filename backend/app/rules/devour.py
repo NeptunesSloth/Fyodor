@@ -58,6 +58,10 @@ _STATICS = {"As ~ enters, you may sacrifice any number of creatures and/or plane
             "As ~ enters, sacrifice any number of creatures. ~'s power becomes the total power of those creatures and its toughness becomes their total toughness.": (STATS, 0),
             # -- (wave 110J) -- Shimatsu the Bloodcloaked: any number of permanents (zero allowed), one counter each (the same choice as devour 1)
             "As ~ enters, sacrifice any number of permanents. ~ enters with that many +1/+1 counters on it.": ("permanent", 1)}
+# -- Ulamog's Despoiler (wave 110H) -- "As this creature enters, you may put two cards your opponents own from exile into their owners' graveyards. If you do,
+# this creature enters with four +1/+1 counters on it.": the same choice over the opponents' exiled cards; all or nothing (exactly two, 608.2c "if you do").
+OPP_EXILE = "opp_exile110h"
+_STATICS["As ~ enters, you may put two cards your opponents own from exile into their owners' graveyards. If you do, ~ enters with four +1/+1 counters on it."] = (OPP_EXILE, 4)
 NO_COUNTERS = {"untapped_forest"}
 RETURNS = "nonland"  # (the one quality returned to its owner's hand, at most one)
 
@@ -101,6 +105,9 @@ def _matches(plan: Plan, cid: str, quality: str | None) -> bool:
 def candidates(plan: Plan, card: CardInstance, controller: str, quality: str | None, taken: set[str]) -> list[str]:
     """Permanents its controller could sacrifice: matching, on the battlefield, not the one entering (614.13a) nor one
     already picked or chosen by another entering permanent (614.13b)."""
+    if quality == OPP_EXILE:
+        return [cid for pid in plan.state.seat_order if pid != controller for cid in plan.state.zones.get(zone_key(pid, "exile"), [])
+                if cid not in taken and cid in plan.state.cards and not plan.state.cards[cid].is_token]
     return [cid for cid in plan.state.zones.get(zone_key(controller, "battlefield"), [])
             if cid != card.id and cid not in taken and plan.in_game(plan.state.cards[cid]) and _matches(plan, cid, quality)]
 
@@ -116,15 +123,21 @@ def plan_entry(plan: Plan, card: CardInstance, controller: str, answers: dict[st
         return
     value = answers.get(WHAT)
     left = candidates(plan, card, controller, found[0], {*reserved, *picked(value)})
-    if not finished(value) and left and not (found[0] == RETURNS and picked(value)):
+    two = found[0] == OPP_EXILE
+    if not finished(value) and left and not (found[0] == RETURNS and picked(value)) and not (two and len(picked(value)) >= 2):
         if "choice" not in out:
             out["choice"] = {"what": WHAT, "reserved": sorted(reserved), "picked": value}
         return
     ids = [c for c in picked(value) if c in plan.state.zones.get(zone_key(controller, "battlefield"), [])]
+    if two:  # exactly two, still in their owners' exile
+        ids = [c for c in picked(value) if c in plan.state.cards and plan.state.cards[c].zone.endswith(":exile")]
+        ids = ids if len(ids) == 2 else []
     if ids:
         out["devour"] = ids
         if found[0] == RETURNS:
             out["devour_return"] = True
+        if two:
+            out["devour_exile"] = True
     out.setdefault("choices", {})[WHAT] = ",".join(ids) + ("," if ids else "") + DONE
 
 
@@ -138,8 +151,14 @@ def prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[str, An
     assert found is not None
     quality, n = found
     already = picked(choice.get("picked"))
-    word = _QUALITY_WORD[quality]
+    word = _QUALITY_WORD.get(quality, "card")
     verb = "return" if quality == RETURNS else "sacrifice"
+    if quality == OPP_EXILE:  # (a face-down exiled card stays hidden: no name, no card id, 406.3)
+        opts = [DecisionOption(id=c, label=f"Put {plan.state.cards[c].name or 'a card'} into a graveyard" if not plan.state.cards[c].face_down else "Put a face-down card into a graveyard",
+                               **({} if plan.state.cards[c].face_down else {"card_id": c}))
+                for c in candidates(plan, card, controller, quality, {*(choice.get("reserved") or ()), *already})]
+        opts.append(DecisionOption(id=DONE, label="Don't"))
+        return f"{card.name}: as it enters, put two cards your opponents own from exile into their graveyards? ({len(already)} of 2 chosen)", opts
     options = [DecisionOption(id=c, label=f"{verb.capitalize()} {plan.state.cards[c].name or word}", card_id=c)
                for c in candidates(plan, card, controller, quality, {*(choice.get("reserved") or ()), *already})]
     options.append(DecisionOption(id=DONE, label=f"Done: {verb} {len(already)}" if already else f"Don't {verb} any"))
@@ -156,6 +175,12 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
     """702.82a: the chosen permanents are sacrificed as it enters, all at once; the counters follow the ones that were."""
     ids = ep.get("devour")
     if not ids:
+        return
+    if ep.get("devour_exile"):
+        was = {c: plan.oid(c) for c in ids if c in plan.state.cards}
+        plan.do({"type": "move", "card_ids": list(was), "to": {"zone": "graveyard"}}, actor=controller)  # (their owners' graveyards, 400.3)
+        ep.setdefault("choices", {})[WHAT] = ",".join(was.values()) + ("," if was else "") + DONE
+        ep["choices"][TOTALS] = "0,0"
         return
     from app.rules.effects import _sacrifice_cards
 
@@ -177,6 +202,8 @@ def sacrifice(plan: Plan, ep: dict[str, Any], controller: str) -> None:
 def counters(ch: Any, choices: dict[str, str] | None) -> int:
     found = spec(ch)
     n = len(picked((choices or {}).get(WHAT)))
+    if found is not None and found[0] == OPP_EXILE:
+        return found[1] if n == 2 else 0
     return 0 if found is None or found[0] in NO_COUNTERS or found[0] == STATS else (found[1] or n) * n  # (Thromok: N 0, X is how many were sacrificed)
 
 
