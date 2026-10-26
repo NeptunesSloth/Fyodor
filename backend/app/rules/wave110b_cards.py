@@ -827,10 +827,15 @@ def resume_kaito(plan: Any, d: Any, chosen: list[str]) -> None:
     ctx = d.resume["ctx"]
     chosen = [c for c in chosen[:1] if c in d.resume["pool"]]
     if chosen:
-        plan.do({"type": "move", "card_ids": chosen, "to": {"player": plan.state.cards[chosen[0]].owner, "zone": "hand"}}, actor=ctx["controller"])
-        if plan.state.cards[chosen[0]].zone.endswith(":hand"):  # (not when a replacement kept it: no "if you do")
-            plan.rules.once_per_turn[f"loyalty_veil110b:{ctx['source_card']}"] = plan.state.turn.number
+        # (wave 110E: queued, so the run loop asks 903.9b before a commander moves; kaito_veil then tests "if you do")
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "bounce", "who": f"object:{plan.oid(chosen[0])}"}, {"do": "kaito_veil110b", "card": chosen[0]}]
     effects.continue_effects(plan, ctx)
+
+
+def kaito_veil(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    if plan.state.cards[e["card"]].zone.endswith(":hand"):  # (not when a replacement kept it: no "if you do")
+        plan.rules.once_per_turn[f"loyalty_veil110b:{ctx['source_card']}"] = plan.state.turn.number
+    return True
 
 
 def ungoad(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
@@ -1034,4 +1039,4 @@ def resume_avacyn_out(plan: Any, d: Any, chosen: list[str]) -> None:
 RESUME["avacyn_out110b"] = resume_avacyn_out
 
 
-PRIMITIVES: dict[str, Any] = {"exile_bottom110b": exile_bottom, "slicer110b": slicer, "avacyn_up110b": avacyn_up, "avacyn_out110b": avacyn_out, "destroy_created110b": destroy_created, "adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}
+PRIMITIVES: dict[str, Any] = {"kaito_veil110b": kaito_veil, "exile_bottom110b": exile_bottom, "slicer110b": slicer, "avacyn_up110b": avacyn_up, "avacyn_out110b": avacyn_out, "destroy_created110b": destroy_created, "adapt_free110b": adapt_free, "second_main110b": second_main, "nelly_draw110b": nelly_draw, "lolth_loss110b": lolth_loss, "mana_web110b": mana_web, "faramir_set110b": faramir_set, "faramir_end110b": faramir_end, "redirect110b": redirect, "kaito110b": kaito, "return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}

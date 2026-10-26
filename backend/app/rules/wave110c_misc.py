@@ -761,4 +761,12 @@ def warp_bottom(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 RESUME = {"pandemonium110c": resume_pandemonium, "prodder110c": resume_prodder, "prodder_manual110c": prodder_done, "omnath110c": resume_omnath, "evidence_x110c": resume_evidence_x, "wildhunt110c": resume_wildhunt}
 PRIMITIVES = {"finale_copy110c": finale_copy, "pandemonium110c": pandemonium, "shuffle_dead110c": shuffle_dead, "yidaro110c": yidaro, "proctor110c": proctor, "vaevictis110c": vaevictis, "kefka_exile110c": kefka_exile, "kefka_loss110c": kefka_loss, "ulalek110c": ulalek, "wildhunt110c": wildhunt, "spell_bottom110c": spell_bottom, "attached_if110c": attached_if, "prodder110c": prodder, "omnath110c": omnath, "evidence_x110c": evidence_x, "revealed_x110c": revealed_x, "glyph110c": glyph, "shuttle110c": shuttle, "shuttle_attack110c": shuttle_attack}
-PRIMITIVES.update({"warp_shuffle110c": warp_shuffle, "warp_enter110c": warp_enter, "warp_bottom110c": warp_bottom})
+def mirror_in(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Lich's Mirror (wave 110E): the permanents its controller owns go into their library as an instruction of its own, so 903.9b is asked before a commander moves (MOVERS_903_9B)."""
+    owned = [c.id for c in plan.state.cards.values() if c.owner == ctx["controller"] and c.zone.endswith(":battlefield")]
+    if owned:
+        plan.do({"type": "move", "card_ids": owned, "to": {"player": ctx["controller"], "zone": "library"}}, actor=ctx["controller"])
+    return True
+
+
+PRIMITIVES.update({"warp_shuffle110c": warp_shuffle, "mirror_in110c": mirror_in, "warp_enter110c": warp_enter, "warp_bottom110c": warp_bottom})
