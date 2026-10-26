@@ -24,7 +24,6 @@
 - Numa, Joraga Chieftain: paying {X}{X} and distributing X counters among any number of targets are both missing.
 - Disciple of Caelus Nin: phasing out everything not chosen, and "permanents can't phase in".
 - Soul Echo: the opponent's choice to replace damage with echo counter removal.
-- Spinning Darkness: the alternative cost "exile the top three black cards of your graveyard" exists only as an activated-cost special case.
 - Evelyn, the Covetous: a static permission over cards with a collection counter "exiled by an ability you controlled".
 - Secret Invasion: exile until it leaves plus becoming a copy of the exiled creature.
 - Tenth District Hero: becoming a creature "named" something (name change) is not modelled.

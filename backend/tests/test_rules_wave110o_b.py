@@ -6,6 +6,7 @@
 * 608.2c, 118.12a, 101.4: Cleansing gives every land its own round of payments (every player decides in turn order); a land nobody paid for is destroyed.
 * 603.7a, 603.7c: Mysterio's tokens are exiled when it leaves the battlefield (a delayed trigger on Mysterio, so none if it already left).
 * 614.9, 122.8, 603.10a: Heroic Sacrifice sends damage to you and your creatures to the chosen creature (only while it is on the battlefield); when it dies its counters go to a creature.
+* 118.9, 404.1, 118.3: Spinning Darkness's alternative cost exiles the top three black cards of the graveyard (no choice); with fewer it can't be paid.
 """
 
 from __future__ import annotations
@@ -13,6 +14,8 @@ from __future__ import annotations
 import pytest
 
 from app.game.errors import ActionError
+from app.rules import alt_costs
+from app.rules.plan import Plan
 from tests.game_helpers import act
 from tests.test_rules_wave34b_activated import stops
 from tests.wave9c_kit import build
@@ -25,6 +28,7 @@ from tests.wave110o_kit import (  # noqa: F401
     check,
     cost,
     full,
+    grave_new,
     life,
     mana,
     now,
@@ -38,7 +42,7 @@ from tests.wave110o_kit import (  # noqa: F401
 UNDERGROWTH = "Undergrowth"
 
 
-@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice"])
+@pytest.mark.parametrize("name", [UNDERGROWTH, "Pure Intentions", "Nahiri's Sacrifice", "Cleansing", "Mysterio, Master of Illusion", "Heroic Sacrifice", "Spinning Darkness"])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -338,4 +342,59 @@ def test_heroic_sacrifice_does_nothing_once_the_chosen_creature_is_gone(cards):
     assert now(s, elves).zone == "p1:graveyard"
     bolt(s, "p1")
     assert life(s, "p1") == 37  # (614.9: the chosen creature is no longer on the battlefield: the damage is dealt to Alice)
+    check(s)
+
+
+DARKNESS = "Spinning Darkness"
+
+
+def darkness_table(cards, graveyard):
+    s = build(cards, [DARKNESS, *graveyard], ["Grizzly Bears", "Llanowar Elves", "Roxxon Brutes"])
+    for n in graveyard:
+        grave_new(s, n)
+    return s, put(s, "Grizzly Bears", "p2"), put(s, "Llanowar Elves", "p2")
+
+
+def cast_free(s, target):
+    spell = to_hand(s, DARKNESS)
+    plan = Plan(s.state, "p1", s.cards, None)
+    offers = alt_costs.offers(s.state, "p1", spell, plan.ch(spell), s.cards)
+    assert len(offers) == 1
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[target.id], alt_cost=offers[0].key)
+    settle(s)
+    return spell
+
+
+def test_spinning_darkness_exiles_the_top_three_black_cards_of_your_graveyard_instead_of_its_mana(cards):
+    names = ["Murder", "Lightning Bolt", "Mind Rot", "Grizzly Bears", "Common Crook", "Roxxon Brutes"]  # (the last one is the top)
+    s, bears, elves = darkness_table(cards, names)
+    cast_free(s, bears)
+    gone = {c.name for c in s.state.cards.values() if c.zone == "p1:exile"}
+    assert gone == {"Mind Rot", "Common Crook", "Roxxon Brutes"}  # (the Bears are on top of Mind Rot but not black: they stay, so do the older Murder and Bolt)
+    assert now(s, bears).zone == "p2:graveyard" and life(s, "p1") == 43
+    check(s)
+
+
+def test_spinning_darkness_cannot_be_cast_free_with_fewer_than_three_black_cards(cards):
+    s, bears, elves = darkness_table(cards, ["Murder", "Lightning Bolt", "Mind Rot", "Grizzly Bears"])
+    spell = to_hand(s, DARKNESS)
+    key = alt_costs.offers(s.state, "p1", spell, Plan(s.state, "p1", s.cards, None).ch(spell), s.cards)[0].key
+    before = s.state.model_dump(mode="json")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=spell.id, targets=[bears.id], alt_cost=key)  # (118.3: only two black cards, nothing is paid)
+    assert s.state.model_dump(mode="json") == before
+    check(s)
+
+
+def test_spinning_darkness_cannot_target_a_black_creature_and_kills_a_nonblack_one_for_its_mana(cards):
+    s, bears, elves = darkness_table(cards, ["Murder"])
+    brutes = put(s, "Roxxon Brutes", "p2")
+    spell = to_hand(s, DARKNESS)
+    mana(s, "p1", **cost(DARKNESS))
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=spell.id, targets=[brutes.id])
+    act(s, "p1", type="cast_spell", card_id=spell.id, targets=[elves.id])
+    settle(s)
+    assert now(s, elves).zone == "p2:graveyard" and now(s, brutes).zone == "p2:battlefield" and life(s, "p1") == 43
+    assert now(s, next(c for c in s.state.cards.values() if c.name == "Murder")).zone == "p1:graveyard"  # (paid with mana: no card exiled)
     check(s)
