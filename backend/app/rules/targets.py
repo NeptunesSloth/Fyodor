@@ -282,9 +282,12 @@ def _selector_targets(plan: Plan, sel: selectors.Selector, chooser: str, source:
         other_dropped = True
     out = []
     for cid in selectors.candidates(plan, sel, chooser, source_card, attacker):
-        if cid == source_card and other_dropped:  # (wave 110C) "another" still excludes the source card after it changed zones (Relentless Dead, LKI identity)
-            continue
         card = plan.state.cards[cid]
+        # (wave 110C) "another target ... card" still excludes the source card once it left the battlefield (Relentless Dead; Sylvan Hierophant
+        # ruling 2007-05-01: "it has to be a card other than the Hierophant"). A source that came back as a new permanent is another object
+        # (400.7): an old ability may target the new incarnation (Breaching Hippocamp after Ephemerate)
+        if cid == source_card and other_dropped and not card.zone.endswith(":battlefield"):
+            continue
         on_field = card.zone.endswith(":battlefield") or card.zone == "stack"
         if on_field and not can_target(plan, chooser, card, plan.ch(card), source):  # hexproof / shroud / protection
             continue

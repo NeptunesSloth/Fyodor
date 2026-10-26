@@ -2029,7 +2029,9 @@ def source_info(plan: Plan, card_id: str | None, oid: str | None, ch: Any, contr
             "names": card_names.names_of(ch) if ch is not None else [],  # (wave 53B: "sources with the chosen name", 709.4a)
             "counters": {k: n for k, n in counters.items() if n > 0},  # (wave 51C: the kinds, "with a +1/+1 counter on it", Uncivil Unrest)
             "has_counters": any(n > 0 for n in counters.values()),  # (-- counters (wave 41A) -- "a creature you control with a counter on it", Raphael, the Muscle)
-            "mv": None if ch is None else stack_interaction.mana_value(card if spell else None, ch)}  # (-- cant restrictions (wave 46A) -- Obosh: 202.3e)
+            # (-- cant restrictions (wave 46A) -- Obosh: 202.3e) a spell's X is added to its own characteristics: ``ch`` may already count it
+            # (effects' source view, source_qualities.source), and adding it twice made an even mana value odd
+            "mv": None if ch is None else stack_interaction.mana_value(card, plan.ch(card)) if spell and card is not None else int(ch.mana_value)}
 
 
 def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -> bool:
