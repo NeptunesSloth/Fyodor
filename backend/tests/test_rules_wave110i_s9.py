@@ -12,6 +12,7 @@ from tests.test_rules_designations import build as designations_build
 from tests.test_rules_designations import put, roundtrip
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave34b_activated import attack, next_turn, stops, to_phase
+from tests.wave110a_kit import answer
 from tests.wave110c_kit import make_db
 
 FOUNTAIN = ("At the beginning of each player's upkeep, that player puts a flood counter on target non-Island land they control of their choice. "
@@ -24,6 +25,11 @@ EXTRA = [real("Awesome Presence", "{U}", 1, "Enchantment \u2014 Aura", "Enchant 
          real("Providence", "{5}{W}{W}", 7, "Sorcery", "You may reveal this card from your opening hand. If you do, at the beginning of the first upkeep, your life total becomes 26.\nYour life total becomes 26.", None, "W"),
          real("Stardew Valley", "", 0, "Land", "{T}: Add {C}.\n{2}, {T}, Tap an untapped creature you control: Create a Food token.\n{3}, {T}: Choose target permanent you control. Draw a card, then another player of your choice may gain control of that permanent. Activate only as a sorcery.", None, ""),
          real("Quicksilver Fountain", "{3}", 3, "Artifact", FOUNTAIN, None, ""),
+         real("Aphetto Dredging", "{3}{B}", 4, "Sorcery", "Return up to three target creature cards of the creature type of your choice from your graveyard to your hand.", None, "B"),
+         real("Probe Elf Warrior", "{G}", 1, "Creature \u2014 Elf Warrior", "", ("1", "1"), "G"),
+         real("Probe Elf Shaman", "{G}", 1, "Creature \u2014 Elf Shaman", "", ("1", "1"), "G"),
+         real("Probe Goblin Warrior", "{R}", 1, "Creature \u2014 Goblin Warrior", "", ("1", "1"), "R"),
+         real("Probe Typeless", "{R}", 1, "Creature", "", ("1", "1"), "R"),
          real("Hipparion", "{1}{G}", 2, "Creature \u2014 Horse", "This creature can't block creatures with power 3 or greater unless you pay {1}.", ("1", "3"), "G")]
 
 
@@ -130,4 +136,34 @@ def test_quicksilver_fountain(cards, forests):
     assert len(marked) == 1 and "Island" in ch(s, s.state.cards[marked[0]]).subtypes
     to_ph(s, "main1", turn=4)
     assert bool(s.state.cards[marked[0]].counters.get("flood")) == (forests == 2)
+    check(s)
+
+
+@pytest.mark.parametrize(("picks", "ok"), [
+    (("Probe Elf Warrior", "Probe Elf Shaman"), True),      # Elf
+    (("Probe Elf Warrior", "Probe Goblin Warrior"), True),  # Warrior
+    (("Probe Elf Shaman", "Probe Goblin Warrior"), False),  # nothing shared
+    (("Probe Elf Warrior", "Probe Elf Shaman", "Probe Goblin Warrior"), False),  # no one type for all three
+    (("Probe Typeless",), False),                            # no creature type to choose
+    ((), True)])
+def test_aphetto_dredging(cards, picks, ok):
+    """601.2c: up to three targets of one chosen creature type = targets that share a creature type (targets.relation_ok)."""
+    from tests.wave9c_kit import build, check, mana
+    from tests.wave110c_kit import cast
+
+    names = ["Aphetto Dredging", "Probe Elf Warrior", "Probe Elf Shaman", "Probe Goblin Warrior", "Probe Typeless"]
+    s = build(cards, names)
+    ids = []
+    for n in picks:
+        c = next(c for c in s.state.cards.values() if c.name == n and c.owner == "p1")
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+        ids.append(c.id)
+    mana(s, B=1, C=3)
+    if not ok:
+        with pytest.raises(ActionError):
+            cast(s, "Aphetto Dredging", ids, target_counts=[len(ids)])
+        return
+    cast(s, "Aphetto Dredging", ids, target_counts=[len(ids)])
+    answer(s)
+    assert all(s.state.cards[c].zone == "p1:hand" for c in ids)
     check(s)

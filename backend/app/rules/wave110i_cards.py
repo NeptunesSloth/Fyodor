@@ -442,6 +442,9 @@ REWRITES: dict[str, str] = {}
 _RADAWAY = "Target player loses all rad counters. Sacrifice ~."
 
 
+_DREDGING = "Return up to three target creature cards of the creature type of your choice from your graveyard to your hand."
+
+
 def parse(body: str) -> Any:
     from app.rules import scripts
 
@@ -450,6 +453,13 @@ def parse(body: str) -> Any:
         assert parsed is not None
         effects, target, optional = parsed
         return [{"do": "lose_rad110i", "who": "target"}, *effects[1:]], target, optional
+    if body.strip() == _DREDGING:
+        # 601.2c: the creature type is chosen as the spell is cast; up to three targets that all have it = targets that share a creature type
+        # (targets.relation_ok ``shares``, each with at least one type: ``typed110i``)
+        parsed = scripts.parse_effects("Return up to three target creature cards from your graveyard to your hand.")
+        assert parsed is not None
+        effects, targets, optional = parsed
+        return effects, [{**targets[0], "shares": "creature_type", "typed110i": True}], optional
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
 
 
