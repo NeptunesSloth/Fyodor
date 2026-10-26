@@ -476,7 +476,8 @@ def wildhunt(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     wolves = [c for c in effects._cards(plan, ctx, e["wolves"]) if plan.state.cards[c].zone.endswith(":battlefield")]
     if target is None or not plan.state.cards[target].zone.endswith(":battlefield") or not wolves:
         return True
-    power = max(0, plan.ch(plan.state.cards[target]).pt[0] if plan.ch(plan.state.cards[target]).pt else 0)
+    pt = plan.ch(plan.state.cards[target]).pt
+    power = max(0, pt[0]) if pt else 0
     if not power:
         return True
     if len(wolves) == 1:
