@@ -109,3 +109,31 @@ for (const perSeat of [25, 75]) {
     await shoot(page, `perf-${perSeat * 4}-table`);
   });
 }
+
+test("3D shots: rules engine on, the turn dial with my priority", async ({ page }) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.addInitScript(() => {
+    localStorage.setItem("fyodor.renderer", "3d");
+    localStorage.setItem("fyodor.welcomeDone", "1");
+    localStorage.setItem("fyodor.profiles", JSON.stringify({ version: 2, active: "t", profiles: [{ id: "t", name: "Alice", avatar: "A", prefs: { ambience: false } }] }));
+  });
+  for (const text of [ALICE_DECK, BOB_DECK]) await page.request.post("/api/decks", { data: { text } });
+  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string }[];
+  const res = await page.request.post("/api/games", {
+    data: {
+      name: "Rules", format: "commander", mode: "local", shuffle: false, first_player: 0, auto_untap: true, mulligan_rule: "none", automation: "full",
+      players: ["Alice", "Bob", "Casey", "Jordan"].map((name, i) => ({ name, deck_id: decks[i % decks.length]!.id })),
+    },
+  });
+  const gameId = ((await res.json()) as { game: { id: string } }).game.id;
+  await page.goto(`/#/game/${gameId}`);
+  await expect(page.getByTestId("table-3d")).toBeVisible();
+  const phase = async () => ((await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { turn: { phase: string } }).turn.phase;
+  for (let i = 0; i < 6 && (await phase()) !== "main1"; i++) {
+    await page.getByTestId("priority-bar").getByRole("button", { name: /^(Pass|Next)/ }).first().click();
+    await page.waitForTimeout(400);
+  }
+  await page.waitForTimeout(2500);
+  await shoot(page, "dial-mine");
+});

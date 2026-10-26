@@ -8,36 +8,8 @@ import { seatToken } from "../services/games";
 import type { GameView } from "../types/game";
 import { useIsHost } from "./HostTools";
 import { useGame } from "../state/gameStore";
-import { OMNISCIENT, PHASE_LABEL, PHASES, SPECTATOR } from "../types/game";
+import { OMNISCIENT, SPECTATOR } from "../types/game";
 import { send } from "./actions";
-
-/** Plain-label turn tracker: "Turn 3 · Alice · Main 1". Click the step to jump to another. */
-export function PhaseBar() {
-  const turn = useGame((s) => s.view?.turn);
-  const players = useGame((s) => s.view?.players);
-  if (!turn || !players) return null;
-  const active = players.find((p) => p.id === turn.active_player);
-  const combat = turn.phase.includes("combat") || turn.phase.startsWith("declare");
-  return (
-    <div className="turn-tracker" data-testid="turn-tracker">
-      <button className="tt-icon" title="Previous step" onClick={() => void send({ type: "phase", to: "prev" })}>‹</button>
-      <button
-        className={`turn-label ${combat ? "combat" : ""}`}
-        style={{ ["--player-color" as string]: active?.color }}
-        title="Jump to a step"
-        onClick={(e) => openMenu(e, PHASES.map((ph) => ({ label: `${ph === turn.phase ? "● " : ""}${PHASE_LABEL[ph]}`, onClick: () => void send({ type: "phase", to: ph }) })), "Step")}
-      >
-        <span className="tt-turn">Turn {turn.number}</span>
-        <span className="tt-sep">·</span>
-        <span className="tt-player">{active?.name}</span>
-        <span className="tt-sep">·</span>
-        <span className="tt-phase" data-testid="current-phase">{PHASE_LABEL[turn.phase]}</span>
-      </button>
-      <button className="tt-icon" title="Next step (N)" onClick={() => void send({ type: "phase", to: "next" })}>›</button>
-      <button className="tt-btn brass next-turn" title="Next turn (Shift+N)" onClick={() => void send({ type: "next_turn" })}>Next turn</button>
-    </div>
-  );
-}
 
 export function TopBar() {
   const view = useGame((s) => s.view);
@@ -57,7 +29,6 @@ export function TopBar() {
         {view.game.mode === "lan" && view.game.code && <span className="room-code" title="Room code for other players">Room {view.game.code}</span>}
         {status !== "open" && <span className={`status ${status}`}>{status === "reconnecting" ? "Reconnecting…" : status}</span>}
       </div>
-      <PhaseBar />
       <span className="spacer" />
       {dayNight && (
         <button className={`tt-btn ghost daynight ${dayNight}`} title="Day / night (click to cycle)"
