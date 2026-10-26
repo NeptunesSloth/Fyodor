@@ -344,7 +344,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
         if native is None or native["effects"][-1]["do"] != "draw":
             return None
         return {**native, "effects": [*native["effects"][:-1], {"do": "trigger_leaf51_djinn_draws", "all": True, "n": 7}]}
-    if text == "As this Equipment becomes attached to a creature, choose a color.":  # 701.3a (wave110e_blade)
+    if text in ("As this Equipment becomes attached to a creature, choose a color.",
+                "As this Equipment becomes attached to a creature, choose an exiled creature card used to craft this Equipment.",
+                "Equipped creature is a copy of the last chosen card."):  # 701.3a (wave110e_blade)
         return {"kind": "static", "static": "attach_choice110e", "effects": []}
     if (alt := _REWRITE.get(text)) is not None:  # an exact Oracle sentence read as the wording the grammar already knows (pattern: multi100n)
         return scripts.define(replace(ability, text=alt), ch)
