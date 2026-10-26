@@ -286,6 +286,7 @@ class EntryCharacteristics(BaseModel):
     set_types: list[str] | None = None
     add_types: list[str] = Field(default_factory=list)
     set_creature_types: list[str] | None = None
+    set_artifact_types: list[str] | None = None  # -- (wave 110C) -- Vraska, the Silencer: "It's a Treasure artifact" as it enters (205.1a)
     add_subtypes: list[str] = Field(default_factory=list)
     set_colors: list[str] | None = None
     add_colors: list[str] = Field(default_factory=list)

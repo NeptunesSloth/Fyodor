@@ -928,6 +928,8 @@ def choose_modes(plan: Plan, a: A.CastSpell | A.ActivateAbility, definition: dic
     modal, modes = definition["modal"], definition["modes"]
     plan.x_choice = getattr(a, "x_value", None)  # -- most-played modal spells (wave 50I) -- 601.2b: X is announced before the modes; a mode's "creature with mana value X or less" reads it
     lo, hi, repeat = modal["min"], modal["max"], modal["repeat"]
+    if modal.get("x"):  # -- choose X (wave 110C) -- 700.2d: exactly X modes, X announced first (107.3a)
+        lo = hi = int(plan.x_choice or 0)
     allowed = choosable_modes(plan, definition, a.card_id, exclude, isinstance(a, A.CastSpell), source=_target_source(plan, a))
     if (inst := modal.get("instead")) is not None and _instead_holds(plan, a, inst["cond"]):
         # -- modal frames (wave 33B) -- 700.2a, 601.2b: "If [condition] as you cast this spell, [you may] choose both instead." — judged as the

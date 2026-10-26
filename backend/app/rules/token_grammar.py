@@ -485,6 +485,11 @@ def _attack_with(plan: Plan, cards: list[str], target: str, actor: str) -> None:
         return  # 508.4a: that player left the game
     if cards:
         plan.do({"type": "attack", "card_ids": cards, "target": {"kind": kind, "id": target}}, actor=actor)
+        from app.rules import (
+            triggers,  # -- enters attacking (wave 110C) -- 508.4: they never "attacked", but "enters attacking" triggers (Arni Metalbrow)
+        )
+
+        triggers.generic_combat(plan, "enter_attacking", [plan.state.cards[c] for c in cards])
 
 
 def resume_token_attack(plan: Plan, d: Any, chosen: list[str]) -> None:
