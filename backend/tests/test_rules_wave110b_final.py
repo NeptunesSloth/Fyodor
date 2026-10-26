@@ -369,18 +369,18 @@ TORRENT = "Torrent of Lava"
 
 def test_torrent_of_lava_grants_the_shield_ability_only_while_on_the_stack(cards):
     """113.6, 611.3a: while Torrent of Lava is on the stack each creature has "{T}: Prevent the next 1 damage that would be dealt to this creature by Torrent of Lava this turn"
-    (Bob uses it in response); the damage is X to each creature without flying; the shielded creature takes 1 less; the ability is gone once it has resolved."""
-    s = build(cards, [TORRENT, "Hill Giant", "Serra Angel"], ["Grizzly Bears"])
-    for pid in s.state.players:
-        act(s, pid, type="set_prefs", response="on")  # (hold priority so the spell stays on the stack)
-    giant, angel, bears = put(s, "Hill Giant"), put(s, "Serra Angel"), put(s, "Grizzly Bears", "p2")
-    for c in (giant, angel, bears):
+    (Alice uses it on her Bears while holding priority); the damage is X to each creature without flying; the shielded creature takes 1 less; the ability is gone once it has
+    resolved."""
+    s = build(cards, [TORRENT, "Grizzly Bears", "Hill Giant", "Serra Angel"], [])
+    act(s, "p1", type="set_prefs", hold_priority=True)  # (so the spell stays on the stack and Alice may act)
+    bears, giant, angel = put(s, "Grizzly Bears"), put(s, "Hill Giant"), put(s, "Serra Angel")
+    for c in (bears, giant, angel):
         s.state.rules.controlled_since[c.id].turn = 0
     assert not any("Torrent" in a.text for a in ch(s, bears).abilities)
     mana(s, R=2, C=2)
     act(s, "p1", type="cast_spell", card_id=to_hand(s, TORRENT).id, x_value=2)
     assert any("Torrent of Lava this turn" in a.text for a in ch(s, bears).abilities) and s.state.zones["stack"]
-    act(s, "p2", type="activate_ability", card_id=bears.id, ability=find_ab(s, bears, "Prevent the next 1 damage"))
+    act(s, "p1", type="activate_ability", card_id=bears.id, ability=find_ab(s, bears, "Prevent the next 1 damage"))
     settle(s)
     assert s.state.cards[bears.id].tapped
     assert s.state.cards[bears.id].damage == 1 and s.state.cards[giant.id].damage == 2 and s.state.cards[angel.id].damage == 0  # (2 each, 1 prevented for the Bears; the Angel flies)
