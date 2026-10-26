@@ -1305,7 +1305,12 @@ def _record_exile_instead(plan: Plan, card: CardInstance) -> tuple[str, dict[str
         if rec.get("kind") != "exile_if_dies" or rec.get("turn") != turn:
             continue
         ch = plan.ch(card)
-        if "oids" in rec:
+        if rec.get("dealt_by110k"):  # -- (wave 110K) -- Runesword: "a creature dealt damage by the targeted creature would die this turn, exile that creature instead"
+            from app.rules.history import log_for
+
+            if not any(f.kind == "damaged" and f.object_id == oid and f.source == rec["dealt_by110k"] and f.amount > 0 for f in log_for(plan).facts):
+                continue
+        elif "oids" in rec:
             if oid not in rec["oids"] or (rec.get("types") and not set(rec["types"]) & ch.types):
                 continue
         elif not rec.get("each") or not selectors.matches(plan, selectors.from_key(rec["each"]), card, ch,

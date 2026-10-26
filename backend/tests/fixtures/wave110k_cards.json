@@ -633,5 +633,16 @@
 "W"
 ],
 "keywords": []
+},
+{
+"name": "Runesword",
+"layout": "normal",
+"mana_cost": "{6}",
+"cmc": 6.0,
+"type_line": "Artifact",
+"oracle_text": "{3}, {T}: Target attacking creature gets +2/+0 until end of turn. When that creature leaves the battlefield this turn, sacrifice this artifact. If the creature deals damage to a creature this turn, the creature dealt damage can't be regenerated this turn. If a creature dealt damage by the targeted creature would die this turn, exile that creature instead.",
+"colors": [],
+"color_identity": [],
+"keywords": []
 }
 ]

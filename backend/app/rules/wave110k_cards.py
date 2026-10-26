@@ -403,6 +403,21 @@ def resume_curse_to_opponent(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
+def runesword_rules(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """614.1a, 611.2a: for the rest of the turn, by the targeted object: a creature it deals damage to can't be regenerated (damaged_unregenerable) and a
+    creature it dealt damage to that would die is exiled instead (replacements._record_exile_instead, rec "dealt_by110k")."""
+    from app.rules import effects
+
+    cards = effects._cards(plan, ctx, e["who"])
+    if len(cards) != 1:
+        return True
+    oid = plan.oid(cards[0])
+    plan.rules.no_regen_sources110k.append(oid)
+    plan.rules.replacements.append({"id": f"rs{plan.rules.timestamp}", "kind": "exile_if_dies", "turn": plan.state.turn.number, "controller": ctx["controller"],
+                                    "source": ctx.get("source_object"), "label": ctx.get("name") or "", "dealt_by110k": oid})
+    return True
+
+
 def return_self_hand(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"Return ~ to its owner's hand" from the battlefield (bounce) or from the graveyard (the same object, 400.7: if it moved since, nothing)."""
     from app.rules import effects
@@ -422,7 +437,7 @@ from app.rules import delayed as _delayed  # noqa: E402
 
 _delayed.LABELS["source_tapped_power110k"] = "for as long as ~ remains tapped and its power is at most ~'s"
 
-PRIMITIVES = {"return_attached_you110k": return_attached_you, "curse_to_opponent110k": curse_to_opponent, "double_damage_turn110k": double_damage_turn, "aura_for_each110k": aura_for_each, "backdraft110k": backdraft, "attach_self_choose110k": attach_self_choose, "control_swap110k": control_swap, "copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
+PRIMITIVES = {"runesword_rules110k": runesword_rules, "return_attached_you110k": return_attached_you, "curse_to_opponent110k": curse_to_opponent, "double_damage_turn110k": double_damage_turn, "aura_for_each110k": aura_for_each, "backdraft110k": backdraft, "attach_self_choose110k": attach_self_choose, "control_swap110k": control_swap, "copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
 RESUME = {"curse_to_opponent110k": resume_curse_to_opponent, "backdraft110k": resume_backdraft, "attach_self_choose110k": resume_attach_self_choose, "copies_of_revealed110k": resume_copies_of_revealed, "opponent_mode110k": resume_opponent_mode, "shuffle_other110k": resume_shuffle_other}
 
 
@@ -632,6 +647,15 @@ def _lynde_move(d: Def) -> Def:
     return {**d, "effects": [{"do": "curse_to_opponent110k"}]} if d.get("trigger") == "upkeep_you" else d
 
 
+def _runesword(d: Def) -> Def:
+    """Runesword: after the pump and the delayed sacrifice, this turn's two rules about what the targeted creature damages (a creature it deals damage to can't be
+    regenerated; one that would die is exiled instead), both tied to that object (400.7)."""
+    eff = d["effects"]
+    if [e.get("do") for e in eff] != ["pump", "delayed", "deferred:sacrifice"]:
+        return d
+    return {**d, "effects": [*eff, {"do": "runesword_rules110k", "who": "target"}]}
+
+
 def _rat_roles(d: Def) -> Def:
     """Twisted Sewer-Witch: a Wicked Role token for each Rat its controller has once the token exists, each attached to its own Rat (111.1, 303.7)."""
     from app.rules import selectors
@@ -644,6 +668,11 @@ _WIGHT = ("At end of combat, put a paralyzation counter on each creature blockin
           "doesn't untap during its controller's untap step for as long as it has a paralyzation counter on it. Each of those creatures gains \"{4}: Remove a "
           "paralyzation counter from this creature.\"")
 _BUILD: dict[str, tuple[str, Any]] = {
+    "{3}, {T}: Target attacking creature gets +2/+0 until end of turn. When that creature leaves the battlefield this turn, sacrifice this artifact. If the "
+    "creature deals damage to a creature this turn, the creature dealt damage can't be regenerated this turn. If a creature dealt damage by the targeted "
+    "creature would die this turn, exile that creature instead.":
+        ("{3}, {T}: Target attacking creature gets +2/+0 until end of turn. When that creature leaves the battlefield this turn, sacrifice this artifact.",
+         _runesword),
     "Whenever a Curse is put into your graveyard from the battlefield, return it to the battlefield attached to you at the beginning of the next end step.":
         ("Whenever a Curse is put into your graveyard from the battlefield, return it to the battlefield at the beginning of the next end step.", _lynde_return),
     "At the beginning of your upkeep, you may attach a Curse attached to you to one of your opponents. If you do, draw two cards.":
@@ -717,6 +746,8 @@ def damaged_unregenerable(plan: Any, card: Any) -> bool:
 
     oid = plan.oid(card)
     sources = {f.source for f in log_for(plan).facts if f.kind == "damaged" and f.object_id == oid and f.amount > 0}
+    if sources & set(plan.rules.no_regen_sources110k):  # Runesword: the targeted creature dealt it damage this turn (the rule isn't an ability of the source)
+        return True
     return any(
         (src := plan.state.cards.get(s.rsplit(".", 1)[0])) is not None and src.zone.endswith(":battlefield") and plan.oid(src) == s
         and "no_regen_damaged110k" in {d.get("static") for d in scripts.definitions(plan.ch(src)).values()}

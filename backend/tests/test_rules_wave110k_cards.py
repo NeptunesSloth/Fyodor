@@ -1201,3 +1201,68 @@ def test_lynde_may_attach_a_curse_you_have_to_an_opponent_and_draw_two(cards, mo
     assert now(s, curse).attached_player == ("p2" if move else "p1")
     assert len(s.state.zones.get("p1:hand", [])) == hand + 1 + (2 if move else 0)  # (the turn's own draw, then Lynde's two)
     check(s)
+
+
+# -- Runesword --
+def test_runesword_is_full():
+    assert full("Runesword")
+
+
+def _runesword_combat(cards, blocker, sword, regen_mana):
+    """Alice's Runesword and attacking Grizzly Bears, blocked by Bob's ``blocker``; Bob regenerates it (if he can) while the ability is on the stack."""
+    s = build(cards, ["Runesword", "Grizzly Bears"], [blocker])
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_prefs", response="on")  # every priority is stopped at
+    rune, bears = put_new(s, "Runesword"), put_new(s, "Grizzly Bears")
+    wall = put_new(s, blocker, "p2")
+    s.state.rules.controlled_since[bears.id].turn = 0
+    s.state.rules.controlled_since[rune.id].turn = 0
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_blockers":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": wall.id, "attacker_id": bears.id}])
+    if sword:
+        mana(s, C=3)
+        act(s, "p1", type="activate_ability", card_id=rune.id, ability=ability(s, rune, "{3}"), targets=[bears.id])
+    if regen_mana:
+        if not sword:
+            act(s, "p1", type="pass_priority")  # (an activation passes on its own; otherwise Alice must pass for Bob to act)
+        mana(s, "p2", B=1)
+        act(s, "p2", type="activate_ability", card_id=wall.id, ability=ability(s, wall, "{B}"))
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is not None and d.kind in ("declare_attackers", "declare_blockers"):
+            break
+        if s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    return s, rune, bears, wall
+
+
+def test_runesword_exiles_the_creature_its_target_killed_instead_of_letting_it_regenerate(cards):
+    s, rune, bears, wall = _runesword_combat(cards, "Drudge Skeletons", sword=True, regen_mana=True)
+    assert now(s, wall).zone == "p2:exile"
+    check(s)
+
+
+def test_without_runesword_the_blocker_regenerates(cards):
+    s, rune, bears, wall = _runesword_combat(cards, "Drudge Skeletons", sword=False, regen_mana=True)
+    assert now(s, wall).zone == "p2:battlefield"
+    check(s)
+
+
+def test_runesword_is_sacrificed_when_the_pumped_creature_leaves_the_battlefield(cards):
+    s, rune, bears, wall = _runesword_combat(cards, "Twisted Abomination", sword=True, regen_mana=False)
+    assert now(s, bears).zone == "p1:graveyard" and now(s, rune).zone == "p1:graveyard"  # (the pumped Bears dies to a 5-power blocker)
+    check(s)
