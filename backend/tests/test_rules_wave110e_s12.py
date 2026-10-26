@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -309,3 +310,38 @@ def test_a_commander_without_the_ability_is_not_asked(cards):
     act(s, "p1", type="mulligan_keep")
     act(s, "p2", type="mulligan_keep")
     assert s.state.rules.decision is None or "color before" not in s.state.rules.decision.prompt
+
+
+def _views(s, viewers):
+    """Whole view of each viewer as JSON text (log, hints, decision prompts, legal actions included)."""
+    out = {}
+    for v in viewers:
+        text = re.sub(r'"ts": [0-9.]+', '"ts": 0', json.dumps(s.view(v), default=str))
+        ids: dict[str, str] = {}  # random ids differ per game: rename by first appearance
+        out[v] = re.sub(r"\b[0-9a-f]{12}\b|\b[0-9a-f]{16}\b", lambda m: ids.setdefault(m.group(), f"#{len(ids)}"), text)
+    return out
+
+
+def test_emissary_choice_leaks_nothing_by_difference(cards):
+    """614.12a / 701.20: run the same game choosing Bob, then Carol; every other viewer's view (log, hints, prompts, actions, even by omission) must be identical."""
+    a, b = _table(cards, "Bob"), _table(cards, "Carol")
+    assert _views(a, ("p2", "p3")) == _views(b, ("p2", "p3")), "entered"
+    _bolt(a, "p1"), _bolt(b, "p1")
+    assert _views(a, ("p2", "p3")) == _views(b, ("p2", "p3")), "bolt on the stack"
+
+
+def test_emissary_pending_question_is_private(cards):
+    """While Alice answers, other players' views carry neither the options nor the prompt text beyond the public 'deciding' fact."""
+    s = _three(cards, ["Emissary of Grudges"])
+    mana(s, R=1, C=5)
+    cast_card(s, "Emissary of Grudges")
+    for _ in range(3):
+        d = s.state.rules.decision
+        if d is not None and d.player == "p1" and "secretly" in d.prompt:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert d is not None and "secretly" in d.prompt
+    for viewer in ("p2", "p3"):
+        text = json.dumps(s.view(viewer), default=str)
+        assert "secretly" not in text and '"Bob"' not in json.dumps(s.view(viewer).get("decision"), default=str)
+        assert "Carol" not in json.dumps(s.view(viewer).get("decision"), default=str)
