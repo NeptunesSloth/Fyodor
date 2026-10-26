@@ -131,6 +131,9 @@ def base_recipe(card: CardInstance) -> CopyRecipe:
     return CopyRecipe(printing=card.card_id, face=card.face, token=token, source=card.name[:200])
 
 
+MEDDLE_COPY = "Copy of the original face-down spell"
+
+
 def face_down_recipe(card: CardInstance) -> CopyRecipe:
     """708.2: only the characteristics the face-down status lists (none of the card's own: nothing hidden is read)."""
     ch = chars.face_down_characteristics(card.face_down_kind, card.face_down_as)
@@ -1743,7 +1746,9 @@ def resolved(plan: Plan, card_id: str, old_oid: str) -> None:
     the battlefield (the new object, 400.7). Layer-6 effects changing the permanent spell
     also continue to apply to that permanent (400.7a), without becoming copiable values."""
     card = plan.state.cards.get(card_id)
-    if card is None or not card.is_token or not card.zone.endswith(":battlefield"):
+    if card is None or not card.zone.endswith(":battlefield"):
+        return
+    if not card.is_token and not any(e.label == MEDDLE_COPY and old_oid in e.affected for e in plan.rules.effects):  # (wave 110J: Ertai's Meddling's copy of a face-down spell, ruling 2004-10-04)
         return
     new_oid = plan.oid(card)
     for e in plan.rules.effects:

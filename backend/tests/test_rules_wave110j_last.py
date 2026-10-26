@@ -664,3 +664,191 @@ def test_clone_copies_a_face_down_creature_as_a_nameless_2_2(cards):
     ch = _plan(s).ch(s.state.cards[clone.id])
     assert not s.state.cards[clone.id].face_down and ch.name == "" and (ch.power, ch.toughness) == ("2", "2") and not ch.abilities and not ch.colors
     check(s)
+
+
+# -- Ertai's Meddling --
+MEDDLING = real("Ertai's Meddling", "{X}{U}", 1, "Instant",
+                "X can't be 0.\nTarget spell's controller exiles it with X delay counters on it.\n"
+                "At the beginning of each of that player's upkeeps, if that card is exiled, remove a delay counter from it. If the card has no delay counters on it, "
+                "the player puts it onto the stack as a copy of the original spell.", None, "U")
+PYROMANCER = real("Young Pyromancer", "{1}{R}", 2, "Creature — Human Shaman", "Whenever you cast an instant or sorcery spell, create a 1/1 red Elemental creature token.", ("2", "1"), "R")
+THINK = real("Think Twice", "{1}{U}", 2, "Instant", "Draw a card.\nFlashback {2}{U} (You may cast this card from your graveyard for its flashback cost. Then exile it.)", None, "U")
+MIGHT = real("Kodama's Might", "{G}", 1, "Instant — Arcane", "Target creature gets +2/+2 until end of turn.\nSplice onto Arcane {G} (As you cast an Arcane spell, you may reveal this card "
+             "from your hand and pay its splice cost. If you do, add this card's effects to that spell.)", None, "G")
+RAY = real("Glacial Ray", "{1}{R}", 2, "Instant — Arcane", "Glacial Ray deals 2 damage to any target.\nSplice onto Arcane {1}{R} (As you cast an Arcane spell, you may reveal this card "
+           "from your hand and pay its splice cost. If you do, add this card's effects to that spell.)", None, "R")
+ANGEL = real("Exalted Angel", "{4}{W}{W}", 6, "Creature — Angel", "Flying\nWhenever this creature deals damage, you gain that much life.\n"
+             "Morph {2}{W}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)", ("4", "5"), "W")
+base.EXTRA.extend([MEDDLING, PYROMANCER, THINK, MIGHT, RAY, ANGEL])
+
+
+def test_meddling_full(cards):
+    assert coverage.of_card_data(cards.resolve("Ertai's Meddling")).level == "FULL"
+
+
+def _meddle_setup(cards, *more):
+    s = build(cards, ["Ertai's Meddling", *more], ["Grizzly Bears"])
+    for p in ("p1", "p2"):
+        act(s, p, type="set_prefs", hold_priority=True)
+    return s
+
+
+def _meddle(s, spell, x):
+    mana(s, U=1, C=x)
+    m = to_hand_(s, "Ertai's Meddling")
+    if s.state.rules.priority != "p1":
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, "p1", type="cast_spell", card_id=m.id, targets=[spell.id], x_value=x)
+    answer(s)
+
+
+def to_hand_(s, name):
+    from tests.wave9c_kit import to_hand
+
+    return to_hand(s, name)
+
+
+def _tokens(s):
+    return len([c for c in s.state.cards.values() if c.is_token and c.zone.endswith(":battlefield")])
+
+
+def _meddle_ticks(s):
+    return [t for t in s.state.rules.delayed if t.effects and t.effects[0].get("do") == "meddle_tick110j"]
+
+
+@pytest.mark.parametrize("x", [1, 2])
+def test_meddling_delays_the_spell_and_puts_the_card_back_uncast(cards, x):
+    from tests.test_rules_wave100g_zones import to_step
+
+    s = _meddle_setup(cards, "Shock", "Young Pyromancer")
+    put(s, "Young Pyromancer")
+    mana(s, R=1)
+    shock = cast_card(s, "Shock", ["p2"])
+    _meddle(s, shock, x)
+    assert s.state.cards[shock.id].zone == "p1:exile" and s.state.cards[shock.id].counters == {"delay": x} and life(s, "p2") == 40
+    tokens = _tokens(s)
+    to_step(s, "main1", 2)  # Bob's upkeep: not that player's
+    assert s.state.cards[shock.id].counters == {"delay": x}
+    to_step(s, "main1", 3)
+    if x == 2:
+        assert s.state.cards[shock.id].zone == "p1:exile" and s.state.cards[shock.id].counters == {"delay": 1} and life(s, "p2") == 40
+        to_step(s, "main1", 5)
+    assert life(s, "p2") == 38 and s.state.cards[shock.id].zone == "p1:graveyard"  # the original target (707.10)
+    assert _tokens(s) == tokens  # put onto the stack, not cast: no cast trigger (ruling 2013-04-15)
+    assert not _meddle_ticks(s) and not s.state.rules.meddled110j
+    check(s)
+
+
+def test_meddling_an_opponents_spell_returns_at_their_upkeep(cards):
+    from tests.test_rules_wave100g_zones import to_step
+
+    s = build(cards, ["Ertai's Meddling"], ["Shock"])
+    for p in ("p1", "p2"):
+        act(s, p, type="set_prefs", hold_priority=True)
+    to_step(s, "main1", 2)
+    mana(s, "p2", R=1)
+    _no_auto_pass(s)
+    shock = cast_card(s, "Shock", ["p1"], pid="p2")
+    _meddle(s, shock, 1)
+    assert s.state.cards[shock.id].zone == "p2:exile" and life(s, "p1") == 40
+    to_step(s, "main1", 3)
+    assert s.state.cards[shock.id].zone == "p2:exile"  # your upkeep: nothing
+    to_step(s, "main1", 4)
+    assert life(s, "p1") == 38 and s.state.cards[shock.id].zone == "p2:graveyard"
+    check(s)
+
+
+def _no_auto_pass(s):
+    from tests.wave110a_kit import STEPS
+
+    for p in ("p1", "p2"):
+        act(s, p, type="set_stops", own=STEPS, others=STEPS, smart_pass=False)
+
+
+def test_meddling_a_copy_of_a_spell_makes_it_cease_to_exist(cards):
+    from tests.wave110a_kit import STEPS
+
+    s = _meddle_setup(cards, "Shock", "Twincast")
+    act(s, "p1", type="set_stops", own=STEPS, others=STEPS, smart_pass=False)
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    mana(s, R=1, U=2)
+    shock = cast_card(s, "Shock", ["p2"])
+    cast_card(s, "Twincast", [shock.id])
+    for _ in range(6):  # Twincast resolves; the copy waits on the stack
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+            continue
+        copy = next((c for c in s.state.cards.values() if c.zone == "stack" and c.is_token), None)
+        if copy is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    _meddle(s, copy, 1)
+    assert copy.id not in s.state.cards or not s.state.cards[copy.id].zone.endswith("exile")  # it ceased to exist (707.10a)
+    assert not _meddle_ticks(s) and not s.state.rules.meddled110j and life(s, "p2") == 38  # only the original Shock dealt damage
+    check(s)
+
+
+def test_meddling_flashback_spell_is_exiled_after_it_resolves_again(cards):
+    from tests.test_rules_wave100g_zones import to_step
+
+    s = _meddle_setup(cards, "Think Twice")
+    think = card_named(s, "Think Twice")
+    act(s, "p1", type="move", card_ids=[think.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, U=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=think.id)
+    assert s.state.cards[think.id].zone == "stack"
+    _meddle(s, think, 1)
+    to_step(s, "main1", 2)
+    hand = len(s.state.zones["p1:hand"])
+    to_step(s, "main1", 3)
+    assert s.state.cards[think.id].zone == "p1:exile"  # it remembers flashback (ruling 2011-01-22)
+    assert len(s.state.zones["p1:hand"]) == hand + 2  # the draw step's card and Think Twice's
+    check(s)
+
+
+def test_meddling_keeps_the_spliced_effects(cards):
+    from tests.test_rules_wave100g_zones import to_step
+
+    s = _meddle_setup(cards, "Kodama's Might", "Glacial Ray")
+    bears = put(s, "Grizzly Bears", "p2")
+    might, ray = to_hand_(s, "Kodama's Might"), to_hand_(s, "Glacial Ray")
+    mana(s, G=1, R=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=might.id, splice=[ray.id], targets=[bears.id, "p2"], target_counts=[1, 1])
+    _meddle(s, might, 1)
+    assert life(s, "p2") == 40 and pt(s, "Grizzly Bears", "p2") == (2, 2)
+    to_step(s, "main1", 3)  # it comes back in this turn's upkeep: the pump lasts until end of turn
+    assert life(s, "p2") == 38 and pt(s, "Grizzly Bears", "p2") == (4, 4)  # both effects (ruling 2013-04-15)
+    check(s)
+
+
+def test_meddling_face_down_spell_returns_as_a_face_up_nameless_2_2(cards):
+    from tests.test_rules_wave100g_zones import to_step
+
+    s = _meddle_setup(cards, "Exalted Angel")
+    angel = to_hand_(s, "Exalted Angel")
+    mana(s, C=3)
+    act(s, "p1", type="cast_spell", card_id=angel.id, face_down=True)
+    _meddle(s, angel, 1)
+    assert s.state.cards[angel.id].zone == "p1:exile"
+    to_step(s, "main1", 3)
+    c = s.state.cards[angel.id]
+    ch = _plan(s).ch(c)
+    assert c.zone == "p1:battlefield" and not c.face_down
+    assert ch.name == "" and (ch.power, ch.toughness) == ("2", "2") and not ch.colors and not ch.abilities  # ruling 2004-10-04
+    check(s)
+
+
+def test_meddling_x_cant_be_0_and_a_card_that_left_exile_stays_gone(cards):
+    from tests.test_rules_wave100g_zones import to_step
+
+    s = _meddle_setup(cards, "Shock")
+    mana(s, R=1)
+    shock = cast_card(s, "Shock", ["p2"])
+    with pytest.raises(ActionError):
+        _meddle(s, shock, 0)
+    _meddle(s, shock, 1)
+    act(s, "p1", type="move", card_ids=[shock.id], to={"player": "p1", "zone": "graveyard"})  # it leaves exile
+    to_step(s, "main1", 3)
+    assert s.state.cards[shock.id].zone == "p1:graveyard" and life(s, "p2") == 40  # 603.4: "if that card is exiled"
+    check(s)

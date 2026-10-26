@@ -69,6 +69,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return parnesse_definition(ability, ch)
     if (magar_def := magar_definition(ability, ch)) is not None:
         return magar_def
+    if (meddle_def := meddle_definition(ability, ch)) is not None:
+        return meddle_def
     if ability.kind != "activated" or ability.text != CAPTAIN:
         return None
     return {"kind": "activated", "cost": "{3}, Unattach an Equipment from ~", "effects": [{"do": "damage", "who": "target:0", "n": {"divided": 0}}],
@@ -250,3 +252,122 @@ def magar_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES.update({"magar110j": magar, "magar_copy110j": magar_copy})
+
+
+# -- Ertai's Meddling -- the target spell is exiled with X delay counters as Meddling resolves (ruling 2008-04-01); a copy of a spell has no card, so
+# it ceases to exist (707.10a) and gets nothing (ruling 2004-10-04). A delayed triggered ability (603.7) of Meddling's controller triggers at each of
+# that player's upkeeps while that card is still that exiled object (an intervening "if", 603.4): it removes a delay counter, and with none left
+# the player puts the card itself onto the stack as a copy of the original spell (707.10: its targets, X, modes and kicker; the spliced effects stay,
+# ruling 2013-04-15). It isn't cast (601.2i: no cast triggers, not counted, ruling 2013-04-15), it is a new object that can be countered or targeted
+# (ruling 2004-10-04), and cast with flashback it is still exiled as it leaves the stack (ruling 2011-01-22, 702.34a). A face-down spell's copy is a
+# face-up nameless colorless 2/2 creature spell with no text (ruling 2004-10-04: the copiable values of the face-down spell, 708.2a, 707.2).
+MEDDLE_LINES = ("X can't be 0.", "Target spell's controller exiles it with X delay counters on it.",
+                "At the beginning of each of that player's upkeeps, if that card is exiled, remove a delay counter from it. If the card has no delay counters on it, "
+                "the player puts it onto the stack as a copy of the original spell.")
+
+
+def meddle_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    if ability.text not in MEDDLE_LINES or ch.name != "Ertai's Meddling" or (ability.kind != "spell") != (ability.text == MEDDLE_LINES[2]):
+        return None
+    if ability.text == MEDDLE_LINES[0]:
+        return {"kind": "spell", "effects": [], "target": None, "x_min": 1}  # 107.1b
+    if ability.text == MEDDLE_LINES[1]:
+        return {"kind": "spell", "effects": [{"do": "meddle110j"}], "target": {"what": "spell"}}
+    # (read as a triggered line, but it is the spell's delayed triggered ability, 603.7: made by meddle110j as the spell resolves; this
+    # definition is inert, a card's own triggered ability never comes from it)
+    return {"kind": "spell", "effects": [], "target": None}
+
+
+def meddle(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    import secrets
+
+    from app.game.rules_state import DelayedTrigger
+    from app.rules import copying, effects
+
+    r = plan.rules
+    for cid in effects._cards(plan, ctx, "target"):
+        card = plan.state.cards[cid]
+        if card.zone != "stack" or card.ability is not None:
+            continue
+        entry = r.stack.get(cid)
+        player = entry.controller if entry is not None else card.controller
+        old = plan.oid(card)
+        if card.is_token:  # a copy of a spell: exiled, it ceases to exist (707.10a); no counters, nothing comes back
+            plan.do({"type": "move", "card_ids": [cid], "to": {"zone": "exile"}}, actor=player)
+            continue
+        record = {"player": player, "orig": old, "entry": entry.model_dump(mode="json") if entry is not None else None,
+                  "info": card.stack_info.model_dump(mode="json") if card.stack_info is not None else None,
+                  "flashback": old in r.flashback, "evoked": cid in r.evoked, "dashed": cid in r.dashed,
+                  "face_down": copying.face_down_recipe(card).model_dump(mode="json") if card.face_down else None}
+        r.flashback = [o for o in r.flashback if o != old]  # (it is exiled now: by Meddling, not by flashback)
+        plan.do({"type": "move", "card_ids": [cid], "to": {"zone": "exile"}}, actor=player)
+        card = plan.state.cards[cid]
+        if not card.zone.endswith(":exile"):
+            continue
+        n = max(0, int(ctx.get("x") or 0))
+        plan.do({"type": "set_counter", "card_id": cid, "kind": "delay", "value": n}, actor=player)
+        r.meddled110j[cid] = {**record, "exiled": plan.oid(card)}
+        r.delayed.append(DelayedTrigger(
+            id=secrets.token_hex(4), controller=ctx["controller"], source_card=ctx.get("source_card"), source_object=ctx.get("source_object"),
+            name=ctx.get("name") or "Ertai's Meddling", when={"kind": "step", "step": "upkeep", "whose": "payer", "player": player},
+            turn=plan.state.turn.number, step=plan.state.turn.phase, created_step=r.step_serial, once=False,
+            effects=[{"do": "meddle_tick110j", "card": cid, "object": plan.oid(card)}]))
+        plan.note(f"{card.name} is exiled with {n} delay counter{'s' if n != 1 else ''} on it", [cid], actor=player)
+    return True
+
+
+def meddle_live(plan: Plan, e: dict[str, Any]) -> bool:
+    card = plan.state.cards.get(e["card"])
+    return card is not None and card.zone.endswith(":exile") and plan.oid(card) == e["object"] and e["card"] in plan.rules.meddled110j
+
+
+def meddle_tick(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import StackEntry
+    from app.game.state import StackInfo
+    from app.rules import copying
+
+    r = plan.rules
+    if not meddle_live(plan, e):  # 603.4: checked again as it resolves
+        return True
+    cid = e["card"]
+    card = plan.state.cards[cid]
+    rec = r.meddled110j[cid]
+    left = max(0, int(card.counters.get("delay", 0)) - 1) if card.counters.get("delay", 0) else 0
+    if card.counters.get("delay", 0):
+        plan.do({"type": "set_counter", "card_id": cid, "kind": "delay", "value": left}, actor=rec["player"])
+    if left:
+        return True
+    player = rec["player"]
+    r.delayed = [t for t in r.delayed if not (t.effects and t.effects[0].get("do") == "meddle_tick110j" and t.effects[0]["card"] == cid)]
+    del r.meddled110j[cid]
+    plan.do({"type": "move", "card_ids": [cid], "to": {"player": player, "zone": "stack"}}, actor=player)
+    card = plan.state.cards[cid]
+    if card.zone != "stack":
+        return True
+    oid = plan.oid(card)
+    if rec["entry"] is not None:
+        entry = StackEntry.model_validate(rec["entry"])
+        r.stack[cid] = copying._entry_copy(entry, controller=player, source=(cid, oid), orig=rec["orig"])
+    if rec["info"] is not None:
+        info = StackInfo.model_validate(rec["info"])
+        payload: dict[str, Any] = {"type": "set_stack_info", "card_id": cid, "tags": list(info.tags)}
+        if info.x is not None:
+            payload["x"] = info.x
+        if info.modes:
+            payload["modes"] = list(info.modes)
+        plan.do(payload, actor=player)
+    if rec["flashback"]:
+        r.flashback.append(oid)  # 702.34a: still exiled as it leaves the stack (ruling 2011-01-22)
+    for marks, kept in ((r.evoked, rec["evoked"]), (r.dashed, rec["dashed"])):
+        if kept:
+            marks.append(cid)
+    if rec["face_down"] is not None:
+        from app.game.rules_state import CopyRecipe
+
+        copying.add_copy_effect(plan, [oid], CopyRecipe.model_validate(rec["face_down"]), player, label=copying.MEDDLE_COPY)
+    copying._payment_alias(plan, rec["orig"], oid, cid, player)
+    plan.note(f"{plan.name(player)} puts {plan.ch(card).name or 'the card'} onto the stack as a copy of the original spell (it isn't cast)", [cid], actor=player)
+    return True
+
+
+PRIMITIVES.update({"meddle110j": meddle, "meddle_tick110j": meddle_tick})

@@ -44,6 +44,6 @@ Revered One; Tahngarth, First Mate; Riku of Many Paths; Indominus Rex, Alpha; An
 opponent is a defending player as the combat phase starts); General Jarkeld; Kylox's Voltstrider; Taster of Wares; Gather Specimens; North Star; Arcum's Sleigh (802.2a / 508.5a: with several defending players
 the controller chooses one, so any opponent of the active player controlling a snow land satisfies it). The older notes above for these cards are superseded.
 
-- Ertai's Meddling: final pass: unsettled because "puts it onto the stack as a copy of the original spell" has no CR rule (no "delay counter", no card put onto the stack as a copy), and the rulings disagree: 2004-10-04 (a copy
+- Ertai's Meddling: built in wave 110J (last cards): exiled with X delay counters as it resolves (2008-04-01), the card itself back on the stack uncast with the original's decisions (707.10; 2013-04-15), flashback remembered (2011-01-22), splice kept, spell copies cease to exist and face-down spells return as face-up 2/2s (2004-10-04).
   of a morph spell is a face-up 2/2; a copy with no card ceases to exist when exiled) read it as a copy spell, 2011-01-22 (the card still remembers the flashback cost and is exiled when it resolves) as the physical card on
   the stack; whether a permanent spell then makes a token or the card is not settled.
