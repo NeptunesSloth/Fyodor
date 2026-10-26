@@ -738,25 +738,6 @@ _BUILD[_ZYGON] = (_ZYGON_NATIVE, lambda d: json.loads(json.dumps(d).replace('"du
 _BUILD["Body-print — " + _ZYGON] = _BUILD[_ZYGON]
 
 
-_TROLL = ("When Old-Growth Troll dies, if it was a creature, return it to the battlefield. It's an Aura enchantment with enchant Forest you control and \"Enchanted Forest has "
-          "'{T}: Add {G}{G}' and '{1}, {T}, Sacrifice this land: Create a tapped 4/4 green Troll Warrior creature token with trample.'\"")
-_TROLL_NATIVE = "When this creature dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment."
-
-
-def _troll(d: Def) -> Def:
-    """Old-Growth Troll: it returns as an Aura enchantment (611.2e: as it enters, noncopiable; not a creature) that enchants a Forest its owner chooses as it enters (303.4g), with the granted
-    mana ability and the sacrifice ability on that land. "Enchanted Forest" is read as the enchanted land: the Aura can only enchant a Forest, and falls off when it stops being one (704.5m)."""
-    check, back, _ = d["effects"]
-    back = {**back, "entry_characteristics": {"set_types": ["Enchantment"], "add_subtypes": ["Aura"], "add_abilities": [
-        "Enchant Forest you control",
-        'Enchanted land has "{T}: Add {G}{G}" and "{1}, {T}, Sacrifice this land: Create a tapped 4/4 green Troll Warrior creature token with trample."']}}
-    return {**d, "effects": [{**check, "skip": 1}, back]}
-
-
-_BUILD[_TROLL] = (_TROLL_NATIVE, _troll)
-_BUILD[_TROLL.replace("Old-Growth Troll", "~")] = _BUILD[_TROLL]
-
-
 _AEON = "{T}, Exile this artifact: Reverse the game's turn order."
 _BUILD[_AEON] = ("{T}, Exile this artifact: You gain 1 life.", lambda d: {**d, "effects": [{"do": "reverse_turn_order110m"}]})
 
