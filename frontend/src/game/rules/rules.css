@@ -62,7 +62,7 @@
 .td-ticks i { flex: 1; height: 4px; border-radius: 1px; background: rgba(255, 236, 200, 0.12); }
 .td-ticks i.done { background: color-mix(in srgb, var(--frame) 70%, transparent); }
 .td-ticks i.on { background: var(--frame-hi); height: 6px; margin-top: -1px; }
-.td-group { font-size: 11px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.td-group { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .td-track li.here .td-group { color: var(--text); font-weight: 600; }
 .td-status { margin: 2px 0 0; font-size: 13px; color: var(--text-dim); }
 .turn-dial.mine .td-status { color: var(--select); font-weight: 600; }

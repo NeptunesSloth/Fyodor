@@ -69,8 +69,8 @@ main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overfl
 }
 .cam-player { display: inline-flex; align-items: center; gap: 6px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cam-chip {
-  width: 16px; height: 16px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-  font: 700 9.5px/1 var(--font-display); font-style: normal; color: var(--text); background: #0d0a07; border: 2px solid var(--player-color, var(--frame));
+  width: 20px; height: 20px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font: 700 11px/1 var(--font-display); font-style: normal; color: var(--text); background: #0d0a07; border: 2px solid var(--player-color, var(--frame));
 }
 .t3d-cams button.on .cam-chip { color: var(--text); }
 

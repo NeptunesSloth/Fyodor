@@ -58,6 +58,8 @@ export function GameScreen() {
   return (
     <div className="game-screen">
       <TopBar />
+      {/* the turn dial is fixed bottom-right, but early in the tab order: it is the game's main control */}
+      <TurnDial />
       <div className="game-body">
         <main className={`table ${three ? "is-3d" : ""}`}>
           {three ? <Suspense fallback={<div className="table3d-loading">Setting the table…</div>}><Table3D me={me} /></Suspense> : <TablePlaymat />}
@@ -89,7 +91,6 @@ export function GameScreen() {
       <ResponseBar />
       <AutomationHud />
       <RulesStack />
-      <TurnDial />
       <DecisionPanel />
       <XPrompt />
       <AutomationErrorPanel />
