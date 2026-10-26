@@ -467,10 +467,6 @@ def smoke(plan: Any, ctx: Def, e: Def) -> bool:
     return True
 
 
-_ESTRID_MASK = "−1: Create a white Aura enchantment token named Mask attached to another target permanent. The token has enchant permanent and umbra armor."
-_ESTRID_ULT = "−7: Mill seven cards. Return all non-Aura enchantment cards from your graveyard to the battlefield, then do the same for Aura cards."
-_BUILD[_ESTRID_MASK] = ("−1: Create a Mask Aura token attached to another target permanent.", lambda d: d)
-_BUILD[_ESTRID_ULT] = ("−7: Mill seven cards. Return all non-Aura enchantment cards from your graveyard to the battlefield. Return all Aura cards from your graveyard to the battlefield.", lambda d: d)
 
 
 _GRIP = "Whenever a spell or ability is put onto the stack, if it has a single target, reselect its target at random."
@@ -738,25 +734,6 @@ _BUILD[_ZYGON] = (_ZYGON_NATIVE, lambda d: json.loads(json.dumps(d).replace('"du
 _BUILD["Body-print — " + _ZYGON] = _BUILD[_ZYGON]
 
 
-_TROLL = ("When Old-Growth Troll dies, if it was a creature, return it to the battlefield. It's an Aura enchantment with enchant Forest you control and \"Enchanted Forest has "
-          "'{T}: Add {G}{G}' and '{1}, {T}, Sacrifice this land: Create a tapped 4/4 green Troll Warrior creature token with trample.'\"")
-_TROLL_NATIVE = "When this creature dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment."
-
-
-def _troll(d: Def) -> Def:
-    """Old-Growth Troll: it returns as an Aura enchantment (611.2e: as it enters, noncopiable; not a creature) that enchants a Forest its owner chooses as it enters (303.4g), with the granted
-    mana ability and the sacrifice ability on that land. "Enchanted Forest" is read as the enchanted land: the Aura can only enchant a Forest, and falls off when it stops being one (704.5m)."""
-    check, back, _ = d["effects"]
-    back = {**back, "entry_characteristics": {"set_types": ["Enchantment"], "add_subtypes": ["Aura"], "add_abilities": [
-        "Enchant Forest you control",
-        'Enchanted land has "{T}: Add {G}{G}" and "{1}, {T}, Sacrifice this land: Create a tapped 4/4 green Troll Warrior creature token with trample."']}}
-    return {**d, "effects": [{**check, "skip": 1}, back]}
-
-
-_BUILD[_TROLL] = (_TROLL_NATIVE, _troll)
-_BUILD[_TROLL.replace("Old-Growth Troll", "~")] = _BUILD[_TROLL]
-
-
 _AEON = "{T}, Exile this artifact: Reverse the game's turn order."
 _BUILD[_AEON] = ("{T}, Exile this artifact: You gain 1 life.", lambda d: {**d, "effects": [{"do": "reverse_turn_order110m"}]})
 
@@ -814,13 +791,14 @@ def myra_choose(plan: Any, ctx: Def, e: Def) -> bool:
 
 
 def _myra_mark(plan: Any, ctx: Def, found: list[str]) -> bool:
-    from app.rules import context
+    """The midway counter goes through the counter choke point (614.1a: "counters of any kind" replacements apply); False while a replacement choice is open."""
+    from app.rules import context, replace
 
     context.bind_objects(plan, ctx, "myra_att110m", found)
-    if found:
-        plan.do({"type": "counter", "card_ids": found, "kind": "midway", "delta": 1}, actor=ctx["controller"])
-        plan.note(f"{plan.state.cards[found[0]].name} gets a midway counter", found)
-    return True
+    if not found:
+        return True
+    plan.note(f"{plan.state.cards[found[0]].name} gets a midway counter", found)
+    return replace.put_counters(plan, [(c, "midway", 1) for c in found], by=ctx["controller"], then={"do": "continue", "ctx": ctx})
 
 
 def resume_myra(plan: Any, d: Any, chosen: list[str]) -> None:
@@ -1040,8 +1018,6 @@ def parse(body: str) -> Any:
         parsed = scripts.parse_effects("Target opponent loses 1 life.")
         assert parsed is not None
         return [{"do": "damnations110m"}], parsed[1], False
-    if body.strip() in (_REVERSAL, f"{_REVERSAL} Exile ~."):  # (the spell's own second sentence, "Exile Stunning Reversal.", moves it out of the graveyard's way)
-        return [{"do": "lose_shield110m"}, *([{"do": "exile", "who": "self"}] if body.strip().endswith("Exile ~.") else [])], None, False
     return None
 
 
@@ -1585,21 +1561,6 @@ def resume_faces(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-_REVERSAL = ("The next time you would lose the game this turn, instead draw seven cards and your life total becomes 1.")
-
-
-def lose_shield(plan: Any, ctx: Def, e: Def) -> bool:
-    """Stunning Reversal: a one-shot replacement of the controller's next loss of the game this turn (614.1a, 614.5); applied in wave110c_lose."""
-    plan.rules.lose_shields110m.append({"player": ctx["controller"], "turn": plan.state.turn.number, "card": ctx.get("source_card")})
-    return True
-
-
-def lose_shields(plan: Any, pid: str) -> list[tuple[Any, Def]]:
-    """The live shields of ``pid`` as replacement sources (the card that made them, exiled by then): only this turn's (610.3)."""
-    return [(card, {"life": "reversal110m"}) for x in plan.rules.lose_shields110m
-            if x["player"] == pid and x["turn"] == plan.state.turn.number and (card := plan.state.cards.get(x["card"] or "")) is not None]
-
-
 _DAMNATIONS = ("Target opponent chooses a number. You may have that player lose that much life. If you don't, that player sacrifices all but that many "
                "permanents of their choice.")
 
@@ -1664,4 +1625,4 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
 
 RESUME: dict[str, Any] = {"olag110m": resume_olag, "reveal_may110m": resume_reveal_may, "myra110m": resume_myra, "alaundo110m": resume_alaundo, "rocket110m": resume_rocket, "nihiloor110m": resume_nihiloor, "reroll_pick110m": resume_reroll_pick, "march110m": resume_march, "sphinx_search110m": resume_sphinx_search, "sphinx_put110m": resume_sphinx_put, "ashiok110m": resume_ashiok, "gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"kefnet_less110m": kefnet_less, "olag110m": olag, "triplets110m": triplets, "myra_choose110m": myra_choose, "reverse_turn_order110m": reverse_turn_order, "coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"kefnet_less110m": kefnet_less, "olag110m": olag, "triplets110m": triplets, "myra_choose110m": myra_choose, "reverse_turn_order110m": reverse_turn_order, "coffin_exile110m": coffin_exile, "coffin_creature110m": coffin_creature, "coffin_auras110m": coffin_auras, "alaundo_exile110m": alaundo_exile, "alaundo_tail110m": alaundo_tail, "bat_link110m": bat_link, "bat_return110m": bat_return, "rocket110m": rocket, "goblin110m": goblin, "grip110m": grip, "smoke110m": smoke, "nihiloor110m": nihiloor, "sylex110m": sylex, "store_dice110m": store_dice, "reroll_pick110m": reroll_pick, "reroll_roll110m": reroll_roll, "top_to_bottom110m": top_to_bottom, "faces110m": faces, "escape_grant110m": escape_grant, "march110m": march, "tap_count110m": tap_count, "sphinx_search110m": sphinx_search, "sphinx_put110m": sphinx_put, "gandalf110m": gandalf, "bind_target_player110m": bind_target_player, "ashiok110m": ashiok, "ashiok_ult110m": ashiok_ult, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

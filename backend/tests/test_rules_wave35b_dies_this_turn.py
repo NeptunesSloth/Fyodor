@@ -35,7 +35,7 @@ FULL = ["Rushed Rebirth", "Burn Away", "Fatal Fissure", "Adarkar Valkyrie", "Fig
         "Skeletonize", "Reckless Blaze", "Ghired's Belligerence"]
 # (wave 110D: the other five are FULL now - Touch of Moonglove 110G, Whippoorwill 110G, Heroic Sacrifice 110B, End-Blaze Epiphany and
 # Runesword 110K - checked in test_rules_wave110d_dies_manual.py / test_rules_wave110d_runesword.py)
-MANUAL = ["Kjeldoran Guard"]
+# (wave 110O: Kjeldoran Guard, the last one left manual here, is FULL too - tests/test_rules_wave110o_b.py)
 
 
 @pytest.fixture()
@@ -489,16 +489,6 @@ def test_unclear_shapes_are_not_read(text):
     from app.rules import scripts
 
     assert scripts.parse_effects(text) is None
-
-
-
-@pytest.mark.parametrize("name", MANUAL)
-def test_the_shapes_that_need_more_stay_manual(name):
-    from tests.test_rules_scripts import ch as characteristics
-
-    c = next(c for c in DATA if c["name"] == name)
-    chs = characteristics(c["name"], c["type_line"], c["oracle_text"])
-    assert coverage.of_characteristics(chs).level != "FULL"
 
 
 @pytest.mark.parametrize("name", ["Time to Feed", "Reincarnation"])

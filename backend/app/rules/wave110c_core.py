@@ -8,8 +8,7 @@ import copy
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from app.rules import wave110c_any, wave110c_last, wave110c_misc
-from app.rules.wave110c_any import _FLOURISH
+from app.rules import wave110c_last, wave110c_misc
 
 if TYPE_CHECKING:
     from app.rules.oracle import AbilityText
@@ -263,7 +262,6 @@ BUILDERS: dict[str, Callable[[], Parsed]] = {
         lambda: read("Each opponent sacrifices a creature with the greatest power among creatures they control."),
     "Put a +1/+1 counter on each of up to two Soldiers you control.": _soldiers,
     "Destroy all lands or all creatures. Creatures destroyed this way can't be regenerated.": _catastrophe,
-    _FLOURISH: wave110c_any.flourish,
 }
 
 
