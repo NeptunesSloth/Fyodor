@@ -1406,9 +1406,9 @@ def _of_chosen_number(s: Selector, m: re.Match[str]) -> Selector:
 _CMP_OPS = {"equal to": "==", "greater than or equal to": ">=", "less than or equal to": "<=", "greater than": ">", "less than": "<"}
 
 
-@_suffix(r"with (?P<what>mana value|power|toughness) (?:(?P<op>equal to|greater than or equal to|less than or equal to|greater than|less than) )?the chosen number")
+@_suffix(r"with (?P<what>mana value|power or toughness|power|toughness) (?:(?P<op>equal to|greater than or equal to|less than or equal to|greater than|less than) )?the chosen number")
 def _cmp_chosen_number(s: Selector, m: re.Match[str]) -> Selector:  # -- chosen filters (wave 53B) -- "Destroy all creatures with power greater than or equal to the chosen number." (Expel the Interlopers): the number chosen as the ability resolves (bind_chosen) or as the source entered (_chosen_ok)
-    what = {"mana value": "mv", "power": "power", "toughness": "toughness"}[m["what"]]
+    what = {"mana value": "mv", "power": "power", "toughness": "toughness", "power or toughness": "pt_either"}[m["what"]]
     return replace(s, extras=(*s.extras, "chosen_cmp"), compare=(*s.compare, (what, _CMP_OPS[m["op"] or "equal to"], "chosen_n")))
 
 
@@ -2590,6 +2590,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             if x is None:
                 return False
             n = x
+        if what == "pt_either":  # (wave 110H) "power or toughness equal to the chosen number" (Squall): either one meets the comparison
+            if not isinstance(n, (int, float)) or not any((v := _stat(ch, w)) is not None and {"<=": v <= n, ">=": v >= n, "==": v == n, "<": v < n, ">": v > n}[op]
+                                                          for w in ("power", "toughness")):
+                return False
+            continue
         value = _stat(ch, what)
         if what == "mv" and value is not None and zone == "stack" and card.stack_info is not None and card.stack_info.x:
             value += card.stack_info.x * ch.mana_cost.count("{X}")  # 202.3e: X on the stack is the value chosen

@@ -4695,24 +4695,35 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
     candidates = [c.id for c in plan.state.cards.values() if c.zone == card.zone and c.controller == plan.actor
                   and c.id != card.id and not c.tapped and plan.in_game(c) and plan.ch(c).is_creature
                   and (saddle or "cant_crew" not in plan.ch(c).imposed)]  # (wave 16F: Bound in Gold, 702.122d; review 23D: it may saddle)
-    if sum(crew_power_of(c) for c in candidates) < n:
+    from app.rules import (
+        wave110h_cards,  # -- crew loyalty (wave 110H) -- Heart of Kiran: remove a loyalty counter rather than pay the crew cost
+    )
+
+    pws = [] if saddle else wave110h_cards.crew_pws(ch, plan.actor, plan.state.cards.values(), lambda c: "Planeswalker" in plan.ch(c).types)
+    if sum(crew_power_of(c) for c in candidates) < n and not pws:
         raise ActionError(f"{ch.name}: you don't control untapped creatures with total power {n} or greater")
     if a.crew is None:
         decide(plan, player=plan.actor, kind="choose_cards", prompt=f"{kind.capitalize()} {n}: tap creatures with total power {n} or greater",
                options=[DecisionOption(id=c, label=f"{plan.state.cards[c].name} ({crew_power_of(c)})", card_id=c)
-                        for c in candidates],
-               min_choices=1, max_choices=len(candidates),
+                        for c in candidates] + [DecisionOption(id=c, label=f"Remove a loyalty counter from {plan.state.cards[c].name}", card_id=c) for c in pws],
+               min_choices=1, max_choices=len(candidates) + len(pws),
                resume={"step": "crew", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})}, source=card)
         return
     chosen = list(dict.fromkeys(a.crew))
-    if not chosen or any(c not in candidates for c in chosen):
+    if not chosen or any(c not in candidates and c not in pws for c in chosen):
         raise ActionError(f"{kind.capitalize()} with untapped creatures you control")
-    if sum(crew_power_of(c) for c in chosen) < n:
+    loyalty = any(c in pws for c in chosen)  # the other cost: one loyalty counter, no creature tapped
+    if loyalty and len(chosen) != 1:
+        raise ActionError("Remove one loyalty counter or tap creatures, not both")
+    if not loyalty and sum(crew_power_of(c) for c in chosen) < n:
         raise ActionError(f"Those creatures have less than {n} total power")
     oid = plan.oid(card)
     ability_id = _new_ability(plan, card, f"{ch.name} becomes {'saddled' if saddle else 'an artifact creature'} until end of turn.")
-    plan.do({"type": "tap", "card_ids": chosen, "tapped": True})
-    crew_saddle.tapped_to_pay(plan, kind, chosen, card)  # (702.122b, 702.171c)
+    if loyalty:
+        plan.do({"type": "counter", "card_ids": chosen, "kind": "loyalty", "delta": -1})
+    else:
+        plan.do({"type": "tap", "card_ids": chosen, "tapped": True})
+        crew_saddle.tapped_to_pay(plan, kind, chosen, card)  # (702.122b, 702.171c)
     if restrictions.limited(limits):
         restrictions.record_use(plan.rules, oid, a.ability, plan.state.turn.number)
     _stacked(plan, card, oid, ch, ability_id, [{"do": "saddled"}] if saddle else
@@ -6526,7 +6537,9 @@ def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteris
             cch = derive(state, c, chars.of(c, info), info)
             if cch.is_creature and (saddle or "cant_crew" not in cch.imposed):
                 total += crew_value(c, cch)
-    return total >= n
+    from app.rules import wave110h_cards  # -- crew loyalty (wave 110H) --
+
+    return total >= n or bool(not saddle and wave110h_cards.crew_pws(ch, player, state.cards.values(), lambda c: "Planeswalker" in derive(state, c, chars.of(c, info), info).types))
 
 
 def _count(option: tuple[str, ...]) -> dict[str, int]:

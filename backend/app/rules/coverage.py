@@ -109,7 +109,7 @@ def modal_supported(d: dict[str, Any]) -> bool:
 
 def definition_supported(d: dict[str, Any]) -> bool:
     """A replacement / prevention definition is automated only when its kind is listed above."""
-    if d.get("kind") == "static" and d.get("static") == "exert_attack" and not d.get("effects"):
+    if d.get("kind") == "static" and d.get("static") in ("exert_attack", "crew_loyalty110h") and not d.get("effects"):  # (wave 110H: casting.crew reads the second)
         return True
     if any(isinstance(g, dict) and g.get("random") for g in d.get("targets") or []) and len(d["targets"]) != 1:
         return False  # -- random choices (wave 47B) -- "target … chosen at random" is read as the ability's only target group (the pick is made as the targets are chosen, not between questions)

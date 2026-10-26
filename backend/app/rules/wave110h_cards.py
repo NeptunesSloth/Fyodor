@@ -64,6 +64,12 @@ _SHADOW = re.compile(r"^(?P<head>At the beginning of your upkeep, destroy (?:thi
 _DARI_DIES = "If ~ would die, instead exile it with three egg counters on it."
 _DARI_UP = ("At the beginning of your upkeep, if this card is exiled with an egg counter on it, remove an egg counter from it. "
             "Then if this card has no egg counters on it, return it to the battlefield.")
+# Heart of Kiran: a static marker; the crew action (casting.crew, _can_crew) reads it through crew_pws.
+_HEART = "You may remove a loyalty counter from a planeswalker you control rather than pay Heart of Kiran's crew cost."
+# Squall: the trigger is for one or more attackers; its intervening "if" (603.4) needs one of those creatures with power or toughness equal to the number Squall chose,
+# at trigger time (the cond's selector) and again as it resolves (squall_check)
+_SQUALL = ("Whenever one or more creatures attack one of your opponents, if any of those creatures have power or toughness equal to the chosen number, "
+           "~ deals damage equal to its power to defending player.")
 _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this creature is suspected, you may suspect one of the other creatures. "
               "If you do, this creature is no longer suspected.")
 
@@ -108,6 +114,16 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text in (_HEART, _HEART.replace("Heart of Kiran", "~")):
+        return {"kind": "static", "static": "crew_loyalty110h", "effects": []}
+    if text == _SQUALL or text == _SQUALL.replace("~", "Squall"):
+        from app.rules import selectors
+
+        native = scripts.define(replace(ability, text="Whenever one or more creatures attack one of your opponents, ~ deals damage equal to its power to defending player."), ch)
+        sel = selectors.parse("creature with power or toughness equal to the chosen number")
+        if native is None or sel is None or native.get("cond", {}).get("sel") is None:
+            return None
+        return {**native, "cond": {**native["cond"], "sel": sel.key()}, "effects": [{"do": "squall_check110h"}, *native["effects"]]}
     if text in (_DARI_DIES, _DARI_DIES.replace("~", "Darigaaz")):  # Darigaaz Reincarnated: the replacement (614.1a) exiles it, then the rider puts the counters on the exiled object (122.1, 400.7)
         return {"kind": "replacement", "replacement": "exile_instead", "from": "battlefield", "effects": [],
                 "rider": {"effects": [{"do": "exile_counters110h", "kind": "egg", "n": 3}], "reflexive": False}}
@@ -355,6 +371,25 @@ def exile_counters(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
+def crew_pws(ch: Any, player: str, cards: Any, is_pw: Any) -> list[str]:
+    """Heart of Kiran: the planeswalkers whose loyalty counter may be removed rather than paying the crew cost (702.122a, 122.1)."""
+    if not any(ab.kind == "static" and ab.text.strip() in (_HEART, _HEART.replace("Heart of Kiran", "~")) for ab in ch.abilities):
+        return []
+    return [c.id for c in cards if c.zone == f"{player}:battlefield" and c.controller == player and c.counters.get("loyalty", 0) >= 1 and is_pw(c)]
+
+
+def squall_check(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """603.4: as the trigger resolves, is one of the creatures that attacked still a creature with power or toughness equal to the chosen number? If not, nothing happens."""
+    from app.rules import context, selectors
+
+    sel = selectors.parse("creature with power or toughness equal to the chosen number")
+    assert sel is not None
+    if not any(c in plan.state.cards and selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), ctx["controller"], ctx.get("source_card"))
+               for c in context.objects(plan, ctx, context.EVENT)):
+        ctx["next"] = len(ctx["effects"])
+    return True
+
+
 def egg_tick(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """Darigaaz Reincarnated: still the same exiled object with an egg counter? Remove one; at zero return it to the battlefield under its owner's control."""
     from app.rules import effects
@@ -524,5 +559,5 @@ def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "exile_counters110h": exile_counters}
+PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "exile_counters110h": exile_counters}
 RESUME = {"episode110h": resume_episode, "scapegoat110h": resume_scapegoat}
