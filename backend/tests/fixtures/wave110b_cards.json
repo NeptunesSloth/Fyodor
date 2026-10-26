@@ -3654,5 +3654,70 @@
   ],
   "power": "2",
   "toughness": "3"
+ },
+ {
+  "name": "Invasion of Alara // Awaken the Maelstrom",
+  "layout": "transform",
+  "mana_cost": "{W}{U}{B}{R}{G} // ",
+  "cmc": 5.0,
+  "type_line": "Battle — Siege // Sorcery",
+  "oracle_text": "When this Siege enters, exile cards from the top of your library until you exile two nonland cards with mana value 4 or less. You may cast one of those two cards without paying its mana cost. Put one of them into your hand. Then put the other cards exiled this way on the bottom of your library in a random order.\n//\nAwaken the Maelstrom is all colors.\nTarget player draws two cards. You may put an artifact card from your hand onto the battlefield. Create a token that's a copy of a permanent you control. Distribute three +1/+1 counters among one, two, or three creatures you control. Destroy target permanent an opponent controls.",
+  "colors": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "B",
+   "G",
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Transform"
+  ],
+  "card_faces": [
+   {
+    "name": "Invasion of Alara",
+    "mana_cost": "{W}{U}{B}{R}{G}",
+    "type_line": "Battle — Siege",
+    "oracle_text": "When this Siege enters, exile cards from the top of your library until you exile two nonland cards with mana value 4 or less. You may cast one of those two cards without paying its mana cost. Put one of them into your hand. Then put the other cards exiled this way on the bottom of your library in a random order.",
+    "defense": "7",
+    "colors": [
+     "B",
+     "G",
+     "R",
+     "U",
+     "W"
+    ]
+   },
+   {
+    "name": "Awaken the Maelstrom",
+    "mana_cost": "",
+    "type_line": "Sorcery",
+    "oracle_text": "Awaken the Maelstrom is all colors.\nTarget player draws two cards. You may put an artifact card from your hand onto the battlefield. Create a token that's a copy of a permanent you control. Distribute three +1/+1 counters among one, two, or three creatures you control. Destroy target permanent an opponent controls.",
+    "colors": [
+     "B",
+     "G",
+     "R",
+     "U",
+     "W"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Mind Stone",
+  "layout": "normal",
+  "mana_cost": "{2}",
+  "cmc": 2.0,
+  "type_line": "Artifact",
+  "oracle_text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
  }
 ]

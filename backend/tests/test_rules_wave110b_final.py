@@ -73,7 +73,7 @@ def test_chameleon_ignores_its_own_and_others_unaffected(cards):
 BRINK = "Back from the Brink"
 
 
-@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain", "Thief of Blood", "Torrent of Lava", "River Song", "Sanar, Innovative First-Year", "The Dragon-Kami Reborn // Dragon-Kami's Egg"])
+@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain", "Thief of Blood", "Torrent of Lava", "River Song", "Sanar, Innovative First-Year", "The Dragon-Kami Reborn // Dragon-Kami's Egg", "Invasion of Alara // Awaken the Maelstrom"])
 def test_brink_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -526,4 +526,109 @@ def test_dragon_kamis_egg_casts_a_hatching_creature_when_it_or_a_dragon_dies(car
     drive(s, answer)
     assert s.state.cards[victims[dies].id].zone == "p1:graveyard"
     assert (s.state.cards[giant.id].zone == "p1:battlefield") is casts and s.state.cards[chief.id].zone == "p1:exile"
+    check(s)
+
+
+INVASION = "Invasion of Alara // Awaken the Maelstrom"
+
+
+def drive_exact(s, answer, limit=80):
+    """Like the kit's drive, but an answer of [] declines (a falsy answer is not replaced by the first option)."""
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = answer(d)
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids if ids is not None else [o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+def siege_enter(cards, cast_it):
+    """Alice's library top: Forest, Dragon Whelp (mana value 4), Shivan Dragon (6), Lightning Bolt (1), Hill Giant; the Siege enters: Forest, Whelp, Shivan and Bolt are exiled (two nonland cards
+    with mana value 4 or less: the Whelp and the Bolt); ``cast_it`` casts the Bolt free at Bob; the card not cast goes to the hand."""
+    s = build(cards, [INVASION, "Dragon Whelp", "Shivan Dragon", "Lightning Bolt", "Hill Giant"], [])
+    for n in ("Hill Giant", "Lightning Bolt", "Shivan Dragon", "Dragon Whelp"):
+        top(s, n)
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"zone": "library"}, position="top")
+    mana(s, W=1, U=1, B=1, R=1, G=1)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, INVASION).id)
+    seen: list[tuple[str, str]] = []
+
+    def answer(d):
+        seen.append((d.kind, d.prompt))
+        if "without paying" in d.prompt.lower() or "(or none)" in d.prompt:
+            return [o.id for o in d.options if s.state.cards[o.card_id].name == "Lightning Bolt"] if cast_it else []
+        if "Put one of them into your hand" in d.prompt:
+            return [o.id for o in d.options if s.state.cards[o.card_id].name == "Dragon Whelp"][:1]
+        if d.kind == "choose_one" and "target" in d.prompt.lower():
+            return [o.id for o in d.options if o.id == "p2"][:1] or None
+        return None
+
+    drive_exact(s, answer)
+    return s, seen
+
+
+@pytest.mark.parametrize("cast_it", [True, False])
+def test_invasion_of_alara_exiles_two_cheap_nonland_cards_casts_one_and_puts_one_in_hand(cards, cast_it):
+    """701.20, 118.9, 608.2g: the two cheap nonland cards are exiled with the lands and the big one; one may be cast free, one goes to the hand; the other exiled cards go to the bottom; a
+    card neither cast nor put in the hand stays in exile (the 2023-04-14 ruling)."""
+    s, seen = siege_enter(cards, cast_it)
+    whelp, bolt, shivan = card_named(s, "Dragon Whelp"), card_named(s, "Lightning Bolt"), card_named(s, "Shivan Dragon")
+    forest_exiled = [c for c in s.state.cards.values() if c.name == "Forest" and c.zone == "p1:exile"]
+    assert not forest_exiled and s.state.cards[shivan.id].zone == "p1:library" and s.state.zones["p1:library"].index(shivan.id) >= len(s.state.zones["p1:library"]) - 2
+    assert s.state.cards[whelp.id].zone == "p1:hand"
+    if cast_it:
+        assert s.state.cards[bolt.id].zone == "p1:graveyard" and life(s, "p2") == 37
+    else:
+        assert s.state.cards[bolt.id].zone == "p1:exile" and life(s, "p2") == 40
+    check(s)
+
+
+def test_awaken_the_maelstrom_resolves_every_part_in_order(cards):
+    """310.12b, 608.2c: the Siege is defeated by combat damage and cast transformed free; Awaken the Maelstrom: Alice draws two, puts the Mind Stone from her hand onto the battlefield,
+    copies a permanent she controls (the Mind Stone itself is legal, the 2023-04-14 ruling), distributes three +1/+1 counters among her creatures as it resolves, and destroys Bob's Hill
+    Giant."""
+    s = build(cards, [INVASION, "Mind Stone", "Grizzly Bears", "Shivan Dragon"], ["Hill Giant"])
+    bears, giant = put(s, "Grizzly Bears"), put(s, "Hill Giant", "p2")
+    stone = to_hand(s, "Mind Stone")
+    seen: list[tuple[str, str]] = []
+
+    def answer(d):
+        seen.append((d.kind, d.prompt))
+        if "choose a permanent you control to copy" in d.prompt:
+            return [o.id for o in d.options if s.state.cards[o.card_id].name == "Mind Stone"][:1]
+        if "+1/+1 counter" in d.prompt:
+            return [bears.id]
+        if "artifact" in d.prompt.lower():
+            return [stone.id]
+        return None
+
+    siege = put(s, INVASION)
+    act(s, "p1", type="set_counter", card_id=siege.id, kind="defense", value=1)
+    dragon = put(s, "Shivan Dragon")
+    attack(s, dragon, target=siege.id)  # 310.12b: the last defense counter is removed by combat damage: exile it and cast it transformed free
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is None and s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        if d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+            continue
+        if "target" in d.prompt.lower() and d.kind in ("choose_one", "choose_cards"):
+            ids = [o.id for o in d.options if o.id == "p1"] if "player" in d.prompt.lower() else [o.id for o in d.options if o.card_id == giant.id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=(ids or [d.options[0].id])[:1])
+            continue
+        ids = answer(d)
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=ids if ids is not None else [o.id for o in d.options][: max(1, d.min_choices)])
+    assert s.state.cards[stone.id].zone == "p1:battlefield" and s.state.cards[giant.id].zone == "p2:graveyard"
+    assert sum(1 for c in s.state.cards.values() if c.is_token and c.name == "Mind Stone") == 1
+    assert s.state.cards[bears.id].counters == {"+1/+1": 3}
+    assert sum("+1/+1 counter" in p[1] for p in seen if isinstance(p, tuple)) == 3
     check(s)

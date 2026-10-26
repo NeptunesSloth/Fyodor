@@ -88,6 +88,155 @@ def _egg(d: Def) -> Def:
 _BUILD[_EGG] = ("Whenever this creature or another Dragon you control dies, you may cast a creature spell from among cards you own in exile with hatching counters on them without paying its "
                 "mana cost.", _egg)
 
+_INVASION = ("When this Siege enters, exile cards from the top of your library until you exile two nonland cards with mana value 4 or less. You may cast one of those two cards "
+             "without paying its mana cost. Put one of them into your hand. Then put the other cards exiled this way on the bottom of your library in a random order.")
+_BUILD[_INVASION] = ("When this Siege enters, draw a card.", lambda d: {**d, "effects": [
+    {"do": "siege_exile110b"},
+    {"do": "free_cast", "zone": "that", "who": "ref:siege_keep110b", "filter": None, "optional": True, "mv": None, "n": 1},
+    {"do": "siege_hand110b"}, {"do": "siege_rest110b"}]})
+_ALL_COLORS = "Awaken the Maelstrom is all colors."
+_AWAKEN = ("Target player draws two cards. You may put an artifact card from your hand onto the battlefield. Create a token that's a copy of a permanent you control. "
+           "Distribute three +1/+1 counters among one, two, or three creatures you control. Destroy target permanent an opponent controls.")
+
+
+def spell(ch: Any, lines: list[Any]) -> Def | None:
+    """Awaken the Maelstrom as one definition (its "is all colors" line is a characteristic, characteristics.all_colors; whole110k: both lines read as this one)."""
+    from app.rules import scripts
+
+    if [x.text for x in lines] != [_ALL_COLORS, _AWAKEN]:
+        return None
+    parsed = scripts.parse_effects("Target player draws two cards. You may put an artifact card from your hand onto the battlefield. Destroy target permanent an opponent controls.")
+    assert parsed is not None
+    effects, targets, _ = parsed
+    effects = [effects[0], effects[1], {"do": "copy_choice110b"}, {"do": "distribute110b", "n": 3}, effects[2]]
+    return {"kind": "spell", "whole110k": True, "effects": effects, **scripts.target_fields(targets)}
+
+
+def siege_exile(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
+    """Exile from the top until two nonland cards with mana value 4 or less are exiled (or the library runs out); all are bound, and the two (the ones the cast and the hand are about) too."""
+    from app.rules import context
+
+    pid = ctx["controller"]
+    taken: list[str] = []
+    keep: list[str] = []
+    for cid in list(plan.state.zones.get(f"{pid}:library", [])):
+        taken.append(cid)
+        c = plan.state.cards[cid]
+        if "Land" not in plan.ch(c).types and plan.ch(c).mana_value <= 4:
+            keep.append(cid)
+            if len(keep) == 2:
+                break
+    if taken:
+        plan.do({"type": "move", "card_ids": taken, "to": {"player": pid, "zone": "exile"}}, actor=pid)
+    context.bind_objects(plan, ctx, "siege_all110b", [c for c in taken if plan.state.cards[c].zone.endswith(":exile")])
+    context.bind_objects(plan, ctx, "siege_keep110b", [c for c in keep if plan.state.cards[c].zone.endswith(":exile")])
+    return True
+
+
+def siege_hand(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
+    """"Put one of them into your hand": one of the two still in exile (the one not cast); with both left (none cast) the controller chooses which."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    left = [c for c in context.objects(plan, ctx, "siege_keep110b") if plan.state.cards[c].zone.endswith(":exile")]
+    if not left:
+        return True
+    if len(left) == 1:
+        plan.do({"type": "move", "card_ids": left, "to": {"player": pid, "zone": "hand"}}, actor=pid)
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt="Put one of them into your hand", options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in left],
+           min_choices=1, max_choices=1, resume={"step": "siege_hand110b", "ctx": ctx})
+    return False
+
+
+def resume_siege_hand(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    if len(chosen) != 1 or chosen[0] not in {o.id for o in d.options}:
+        raise ActionError("Choose one of the cards offered")
+    plan.do({"type": "move", "card_ids": chosen, "to": {"player": d.player, "zone": "hand"}}, actor=d.player)
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
+def siege_rest(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
+    """The other cards exiled this way (not the two) go to the bottom in a random order; the card of the two that stayed in exile stays there (the 2023-04-14 ruling)."""
+    from app.rules import context, effects
+
+    keep = {r.card for r in context._object_refs(ctx, "siege_keep110b")}
+    rest = [c for c in context.objects(plan, ctx, "siege_all110b") if c not in keep and plan.state.cards[c].zone.endswith(":exile")]
+    if rest:
+        effects.bottom_at_random(plan, ctx["controller"], rest)
+    return True
+
+
+def copy_choice(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
+    """"Create a token that's a copy of a permanent you control": chosen as it resolves (the 2023-04-14 ruling: the artifact just put onto the battlefield is a legal choice)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    mine = [c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == pid and plan.in_game(c)]
+    if not mine:
+        return True
+    decide(plan, player=pid, kind="choose_cards", prompt=f"{ctx.get('name') or 'Create a token'}: choose a permanent you control to copy",
+           options=[DecisionOption(id=c.id, label=c.name or "Permanent", card_id=c.id) for c in mine], min_choices=1, max_choices=1,
+           resume={"step": "copy_choice110b", "ctx": ctx})
+    return False
+
+
+def resume_copy_choice(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import context, effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in {o.id for o in d.options}:
+        raise ActionError("Choose one of the permanents offered")
+    context.bind_objects(plan, ctx, "copy_choice110b", chosen)
+    if effects.PRIMITIVES["token_copy"](plan, ctx, {"do": "token_copy", "n": 1, "who": "ref:copy_choice110b"}):
+        effects.continue_effects(plan, ctx)
+
+
+def distribute(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
+    """"Distribute three +1/+1 counters among one, two, or three creatures you control", chosen as it resolves: each counter goes to a creature of yours (so one to three
+    creatures get at least one, 601.2d's limit for the count); they are put at the same time (122.1)."""
+    return _distribute_ask(plan, ctx, e, [])
+
+
+def _distribute_ask(plan: Any, ctx: dict[str, Any], e: Def, given: list[str]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import replace
+    from app.rules.plan import decide
+
+    pid = ctx["controller"]
+    mine = [c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.controller == pid and plan.ch(c).is_creature and plan.in_game(c)]
+    if not mine:
+        return True
+    if len(given) < int(e["n"]):
+        decide(plan, player=pid, kind="choose_one", prompt=f"{ctx.get('name') or 'Distribute'}: put +1/+1 counter {len(given) + 1} of {e['n']} on which creature?",
+               options=[DecisionOption(id=c.id, label=c.name or "Creature", card_id=c.id) for c in mine],
+               resume={"step": "distribute110b", "ctx": ctx, "e": e, "given": given})
+        return False
+    tally: dict[str, int] = {}
+    for c in given:
+        tally[c] = tally.get(c, 0) + 1
+    replace.put_counters(plan, [(c, "+1/+1", n) for c, n in tally.items()], by=pid, effect=True)
+    return True
+
+
+def resume_distribute(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import effects
+
+    if len(chosen) != 1 or chosen[0] not in {o.id for o in d.options}:
+        raise ActionError("Choose one of the creatures offered")
+    ctx, e = d.resume["ctx"], d.resume["e"]
+    if _distribute_ask(plan, ctx, e, [*d.resume["given"], chosen[0]]):
+        effects.continue_effects(plan, ctx)
+
+
 _RIVER_DRAW = "Meet in Reverse \u2014 You draw cards from the bottom of your library rather than the top."
 _RIVER_SPOILERS = ("Spoilers \u2014 Whenever an opponent scries, surveils, or searches their library, put a +1/+1 counter on River Song. "
                    "Then River Song deals damage to that player equal to its power.")
@@ -245,5 +394,6 @@ def resume_crafted_put(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-PRIMITIVES: dict[str, Any] = {"torrent_prevent110b": torrent_prevent, "greater_dig110b": greater_dig, "crafted_put110b": crafted_put}
-RESUME: dict[str, Any] = {"crafted_put110b": resume_crafted_put}
+PRIMITIVES: dict[str, Any] = {"siege_exile110b": siege_exile, "siege_hand110b": siege_hand, "siege_rest110b": siege_rest, "copy_choice110b": copy_choice,
+                              "distribute110b": distribute, "torrent_prevent110b": torrent_prevent, "greater_dig110b": greater_dig, "crafted_put110b": crafted_put}
+RESUME: dict[str, Any] = {"crafted_put110b": resume_crafted_put, "siege_hand110b": resume_siege_hand, "copy_choice110b": resume_copy_choice, "distribute110b": resume_distribute}
