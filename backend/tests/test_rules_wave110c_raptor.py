@@ -9,7 +9,7 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_refused_look import stack_library
 from tests.wave9c_kit import build
-from tests.wave110c_kit import answer, check, make_db, mana, put, real, to_hand
+from tests.wave110c_kit import check, make_db, mana, real, to_hand
 
 RAPTOR = ("First strike\nWhen this creature enters, you get {E}{E} (two energy counters). Then if you cast it from your hand, exile cards from the top of your library until "
           "you exile a nonland card. You may cast that card by paying an amount of {E} equal to its mana value rather than paying its mana cost.")
