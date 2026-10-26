@@ -691,6 +691,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
 
     if (cmd110f := wave110f_cmd.definition(ability, ch)) is not None:  # Faceless One, The Prismatic Piper
         return cmd110f
+    from app.rules import wave110f_zev
+
+    if (zev110f := wave110f_zev.definition(ability, ch)) is not None:  # Zevlor
+        return zev110f
     if (sac110f := wave110f_sac.definition(ability, ch)) is not None:  # Brutal Suppression, Drought
         return sac110f
     text = scripts.self_text(ability.text, ch.name)
@@ -923,6 +927,10 @@ PRIMITIVES["edict_match110f"] = edict_match
 RESUME.update({"draw_up_to110f": resume_draw_up_to, "chooser110f": resume_chooser, "cast_modes_opp110f": resume_modes})
 
 from app.rules import wave110f_gy as _wave110f_gy  # noqa: E402  -- Cemetery Desecrator (wave 110F) --
+from app.rules import wave110f_zev as _wave110f_zev  # noqa: E402  -- Zevlor (wave 110F) --
+
+PRIMITIVES.update(_wave110f_zev.PRIMITIVES)
+RESUME.update(_wave110f_zev.RESUME)
 
 PRIMITIVES.update(_wave110f_gy.PRIMITIVES)
 RESUME.update(_wave110f_gy.RESUME)

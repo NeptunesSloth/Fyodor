@@ -9,6 +9,7 @@ from __future__ import annotations
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
+from tests.test_rules_wave30r_history import ability_index
 from tests.test_rules_wave100f_attached import to_phase
 from tests.test_rules_wave100n_multi import EXTRA as _BASE
 from tests.test_rules_wave100n_multi import (
@@ -26,6 +27,12 @@ _BASE.extend([
     real('Test Wall 16F', '{1}', 1, 'Creature — Wall', 'Defender\nThis creature can block an additional creature each combat.', ('0', '6'), ''),
     real('Test Raider A 16F', '{1}', 1, 'Creature — Ogre', '', ('2', '2'), ''),
     real('Test Raider B 16F', '{1}', 1, 'Creature — Orc', '', ('3', '3'), ''),
+    real('Zevlor, Elturel Exile', '{1}{U}{B}{R}', 4, 'Legendary Creature — Tiefling Warrior',
+         'Haste\n{2}, {T}: When you next cast an instant or sorcery spell that targets only a single opponent or a single permanent an opponent controls this turn, '
+         'for each other opponent, choose that player or a permanent they control, copy that spell, and the copy targets the chosen player or permanent.', ('4', '2'), 'BRU'),
+    real('Lightning Bolt', '{R}', 1, 'Instant', 'Lightning Bolt deals 3 damage to any target.', None, 'R'),
+    real('Test Pair 16F', '{R}', 1, 'Instant', 'Test Pair 16F deals 1 damage to target creature. Test Pair 16F deals 1 damage to target player.', None, 'R'),
+    real('Grizzly Bears', '{1}{G}', 2, 'Creature — Bear', '', ('2', '2'), 'G'),
     real('Threaten', '{2}{R}', 3, 'Sorcery', 'Untap target creature and gain control of it until end of turn. That creature gains haste until end of turn.', None, 'R'),
     real('Test Elf 16F', '{1}', 1, 'Creature — Elf', '', ('1', '1'), ''),
 ])
@@ -98,4 +105,80 @@ def test_glyph_uses_the_graveyard_of_the_player_who_controlled_the_creature_when
     answer(s)
     assert zone_of(s, "Test Raider A 16F") == "p1:graveyard"
     assert zone_of(s, "Test Elf 16F", "p2") == "p2:battlefield"
+    check(s)
+
+
+# -- Zevlor, Elturel Exile (603.7, 707.10, 115.9c) ---------------------------------------------------------------------------------
+def _zev(cards, p1=(), p2=(), p3=()):
+    from tests.test_rules_wave100o_retarget import build3
+
+    s = build3(cards, p1=("Zevlor, Elturel Exile", *p1), p2=p2, p3=p3)
+    zev = next(c for c in s.state.cards.values() if c.name == "Zevlor, Elturel Exile")
+    act(s, "p1", type="move", card_ids=[zev.id], to={"player": "p1", "zone": "battlefield"})
+    ready(s, "Zevlor, Elturel Exile")
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=zev.id, ability=ability_index(s, zev, "When you next cast"))
+    answer(s)
+    return s
+
+
+def _bolt(s, target, **kw):
+    from tests.test_rules_conditionals import until_asked
+    from tests.test_rules_wave5b_stack_interaction import alice_casts
+
+    alice_casts(s, "Lightning Bolt", targets=[target], R=1)
+    until_asked(s)  # (Zevlor's delayed trigger goes on the stack above the spell)
+
+
+def test_zevlor_copies_for_the_other_opponent_with_only_the_player_to_choose(cards):
+    """Bolt at p2: p3 is the other opponent; the caster chooses p3 (or a permanent p3 controls) for the copy. Only the next such spell is copied."""
+    s = _zev(cards, p1=("Lightning Bolt", "Lightning Bolt"))
+    _bolt(s, "p2")  # (p3 controls nothing: the player is the only legal choice, so no question is asked)
+    answer(s)
+    assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 37 and s.state.players["p1"].life == 40
+    _bolt(s, "p2")
+    answer(s)
+    assert s.state.players["p2"].life == 34 and s.state.players["p3"].life == 37  # (the watch was used up)
+    check(s)
+
+
+def test_zevlor_targeted_permanent_names_the_opponent_who_controls_it(cards):
+    """A Bolt at p2's creature: p2 is the opponent it concerns, so the copy goes to p3 or a permanent p3 controls."""
+    s = _zev(cards, p1=("Lightning Bolt",), p2=("Grizzly Bears",), p3=("Grizzly Bears",))
+    bear2 = put(s, "Grizzly Bears", "p2")
+    bear3 = put(s, "Grizzly Bears", "p3")
+    _bolt(s, bear2.id)
+    d = s.state.rules.decision
+    assert d is not None and {o.id for o in d.options} == {"p3", bear3.id}
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bear3.id])
+    answer(s)
+    assert zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard" and zone_of(s, "Grizzly Bears", "p3") == "p3:graveyard"
+    check(s)
+
+
+def test_zevlor_ignores_a_spell_that_does_not_target_only_an_opponent_thing(cards):
+    """A Bolt at your own creature does not match, so the watch stays; the next Bolt at an opponent is the one copied."""
+    s = _zev(cards, p1=("Lightning Bolt", "Lightning Bolt", "Grizzly Bears"))
+    mine = put(s, "Grizzly Bears")
+    _bolt(s, mine.id)
+    answer(s)
+    assert s.state.rules.decision is None and s.state.players["p3"].life == 40
+    _bolt(s, "p2")
+    answer(s)
+    assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 37
+    check(s)
+
+
+def test_zevlor_does_not_copy_a_spell_with_two_different_targets(cards):
+    """115.9c: "targets only a single" opponent or permanent: a spell with two different targets does not match, and the watch is not used up."""
+    from tests.test_rules_wave5b_stack_interaction import alice_casts
+
+    s = _zev(cards, p1=("Test Pair 16F", "Lightning Bolt"), p2=("Grizzly Bears",), p3=("Grizzly Bears",))
+    bear2 = put(s, "Grizzly Bears", "p2")
+    alice_casts(s, "Test Pair 16F", targets=[bear2.id, "p3"], counts=[1, 1], R=1)
+    answer(s)
+    assert s.state.players["p3"].life == 39 and s.state.players["p2"].life == 40
+    _bolt(s, "p2")
+    answer(s)
+    assert s.state.players["p2"].life == 37 and s.state.players["p3"].life == 36  # (1 from the pair, 3 from the copy)
     check(s)
