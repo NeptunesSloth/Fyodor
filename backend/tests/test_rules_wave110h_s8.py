@@ -44,6 +44,7 @@ EXTRA = [
     real("Town Guard", "{1}{W}", 2, "Creature \u2014 Human Soldier", "", ("1", "1"), "W"),
     real("Watch Captain", "{1}{W}", 2, "Creature \u2014 Human Soldier", "", ("1", "1"), "W"),
     real("Imagecrafter", "{1}{U}", 2, "Creature \u2014 Human Wizard", "{T}: Target creature becomes the creature type of your choice until end of turn.", ("1", "1"), "U"),
+    real("Twincast", "{U}{U}", 2, "Instant", "Copy target instant or sorcery spell. You may choose new targets for the copy.", None, "U"),
     real("Weaken", "{R}", 1, "Instant", "Target creature gets -1/-0 until end of turn.", None, "R"),
 ]
 NAMES = [c["name"] for c in EXTRA]
@@ -125,6 +126,23 @@ def test_heart_of_kiran_needs_a_planeswalker_with_a_counter_when_no_creature_can
     s, hk, pw = _crew_setup(cards, walker=False)
     with pytest.raises(ActionError):
         act(s, "p1", type="activate_ability", card_id=hk.id, ability=ability(s, hk, "Crew"), crew=[hk.id])
+
+
+def test_copied_selective_snare_keeps_the_chosen_type(cards):
+    """707.10: a copy copies the choices made as the spell was cast (601.2c). Soldier was chosen: the copy, retargeted to a Soldier and a non-Soldier, only returns the Soldier."""
+    s = build(cards, ["Selective Snare", "Twincast", "Town Guard", "Watch Captain", "Imagecrafter"])
+    guard, captain, crafter = (put(s, n) for n in ("Town Guard", "Watch Captain", "Imagecrafter"))
+    snare, twin = to_hand(s, "Selective Snare"), to_hand(s, "Twincast")
+    mana(s, U=6, C=2)
+    act(s, "p1", type="set_prefs", hold_priority=True, response="on", auto_resolve_own_triggers="off")
+    act(s, "p1", type="cast_spell", card_id=snare.id, targets=[guard.id, captain.id], x_value=2, target_counts=[2])
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Soldier"])
+    act(s, "p1", type="cast_spell", card_id=twin.id, targets=[snare.id])
+    act(s, "p1", type="pass_priority")
+    answer(s, "keep", crafter.id)  # (copy: keep Town Guard, second target becomes the Wizard)
+    assert now(s, guard).zone == now(s, captain).zone == "p1:hand" and now(s, crafter).zone == "p1:battlefield"  # (a copy that lost the type would have returned the Wizard too)
+    check(s)
 
 
 @pytest.mark.parametrize(("chosen", "hit"), [("3", True), ("2", True), ("4", False), ("0", False)])
