@@ -1149,6 +1149,7 @@ class PaymentRecord(BaseModel):
     tapped: list[str] = Field(default_factory=list)  # permanents tapped for mana while paying (engine-paid)
     sacrificed: list[str] = Field(default_factory=list)
     sacrificed_objects: list[str] = Field(default_factory=list)  # (wave 3D) the object ids they were: last known information
+    sacrificed_now110h: list[str] = Field(default_factory=list)  # (wave 110H) the graveyard objects they became (400.7): "exile those cards" finds exactly these
     discarded: list[str] = Field(default_factory=list)
     discarded_objects: list[str] = Field(default_factory=list)  # Exact objects the discard cost produced (400.7).
     discarded_mana_values: dict[str, int] = Field(default_factory=dict)  # Last known values if those exact discarded objects leave.

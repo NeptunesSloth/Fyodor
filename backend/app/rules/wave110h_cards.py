@@ -323,12 +323,16 @@ def _revival() -> Any:
 
 
 def sword(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
-    """Sword of the Ages: exile what was sacrificed to pay for the ability (this artifact and the creatures), if it is still in the graveyard."""
-    from app.rules import effects, this_way
+    """Sword of the Ages: exile the exact graveyard objects the sacrifice made (608.2h, 400.7); a same-name card already there, or one that left and came back, stays."""
+    from app.rules import effects
 
-    got = this_way.cost_objects(plan, ctx, this_way.COST, "sacrificed")
-    # ponytail: a card that left the graveyard and came back before this resolves (a new object, 400.7) is still exiled; object ids are a global counter, so no cheap check
-    ids = [o["card"] for o in got.get("objects") or [] if (c := plan.state.cards.get(o["card"])) is not None and c.zone.endswith(":graveyard")]
+    sid = ctx.get("stack_id")
+    record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if record is None and src is not None and src.zone == "stack":
+        record = plan.rules.payments.get(plan.oid(src))
+    now = set(record.sacrificed_now110h) if record is not None else set()
+    ids = [c.id for c in plan.state.cards.values() if c.zone.endswith(":graveyard") and plan.oid(c) in now]
     return effects.exile_cards(plan, ctx, {}, ids)
 
 
