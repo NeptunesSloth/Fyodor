@@ -29,7 +29,7 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if t == _STATIC:
         from app.rules.statics import _definition
 
-        return _definition("self", None, [], abilities_of={"sel": None, "linked": False, "no_mana": False, "chosen110c": True, "triggered": True})  # type: ignore[no-any-return]
+        return _definition("self", None, [], abilities_of={"sel": None, "linked": False, "no_mana": False, "chosen110c": True, "triggered": True})
     return None
 
 
