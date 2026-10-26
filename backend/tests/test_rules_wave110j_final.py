@@ -29,8 +29,7 @@
   you control, or with another name, is unaffected; supertypes stay (ruling 2019-01-25).
 * Space Beleren: space sculptor as a state-based action (opponents assign first; assignments lost with the last sculptor); +1 blocks only within a sector, -1 counters on
   and -5 destroys every creature in the chosen sector (rulings 2022-10-07).
-* Captain America, First Avenger: 601.2d / 118.3 the Equipment unattached as the Throw cost sizes the damage, so it is chosen first; the damage is its mana value divided
-  among one to three targets; "... Catch" attaches an Equipment at the beginning of combat.
+* Captain America, First Avenger: only the "... Catch" half is tested (attaches an Equipment at the beginning of combat); the card stays PARTIAL (Throw refused, see docs/research/wave110j-refused.md).
 * Phylactery Lich: 614.12a / 614.1c the artifact is chosen as it enters (no target, ruling 2013-04-15), the counter goes on it; with no artifact
   nothing happens and the state trigger (603.8) sacrifices the Lich; another phylactery counter anywhere keeps it.
 """
@@ -278,7 +277,8 @@ def test_lost_in_thought_is_ignored_by_exiling_three_cards_from_the_graveyard(ca
 
     s, bears = _lost_turn(cards, 3)
     act(s, "p2", type="activate_ability", card_id=bears.id, ability=ability(s, bears, "Exile three cards from your graveyard"))
-    settle(s)
+    assert not [c for c in s.state.cards.values() if c.zone == "stack"]  # ruling 2004-10-04, 116.2: a special action, nothing on the stack to respond to
+    assert s.state.rules.decision is None
     assert len([c for c in s.state.cards.values() if c.owner == "p2" and c.zone.endswith(":exile")]) == 3
     _to_declare(s)
     act(s, "p2", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p1"}])
@@ -634,6 +634,68 @@ def test_piracy_ends_with_the_turn(cards):
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     check(s)
+
+
+def _tap_foreign(s, land, text, color):
+    from tests.wave110j_kit import ability
+
+    act(s, "p1", type="activate_ability", card_id=land.id, ability=ability(s, land, text), mana_choice=color)
+
+
+def _piracy_on(s):
+    mana(s, "p1", U=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, PIRACY).id)
+    settle(s)
+
+
+def test_piracy_choice_land_is_tapped_by_hand_and_its_life_cost_is_yours(cards):
+    """602.2: the activating player is "you": Mana Confluence's {T}, Pay 1 life costs p1 the life, and the red mana is p1's, spells only (106.6)."""
+    s = build(cards, [PIRACY, BOLT], ["Mana Confluence"], forests=30, islands=30)
+    conf = put_new(s, "Mana Confluence", "p2")
+    _piracy_on(s)
+    bolt = to_hand(s, BOLT)
+    _tap_foreign(s, conf, "{T}, Pay 1 life", "R")
+    assert now(s, conf).tapped and life(s, "p1") == 39 and life(s, "p2") == 40
+    assert s.state.players["p1"].mana.get("R", 0) == 1 or any(u.sym == "R" for u in s.state.players["p1"].mana_units)
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    settle(s)
+    assert life(s, "p2") == 37 and life(s, "p1") == 39
+    check(s)
+
+
+def test_piracy_pain_land_hurts_you_not_its_controller(cards):
+    """602.2 / 109.5: Shivan Reef's "deals 1 damage to you" hits the player who tapped it."""
+    s = build(cards, [PIRACY, BOLT], ["Shivan Reef"], forests=30, islands=30)
+    reef = put_new(s, "Shivan Reef", "p2")
+    _piracy_on(s)
+    bolt = to_hand(s, BOLT)
+    _tap_foreign(s, reef, "{T}: Add {U} or {R}", "R")
+    assert life(s, "p1") == 39 and life(s, "p2") == 40
+    act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    settle(s)
+    assert life(s, "p2") == 37
+    check(s)
+
+
+def test_piracy_manual_mana_is_spells_only(cards):
+    """106.6: mana from a land tapped by hand through Piracy can't pay for an ability."""
+    s = build(cards, [PIRACY, "Rod of Ruin"], ["Mountain"], forests=30, islands=30)
+    mtn = put_new(s, "Mountain", "p2")
+    _piracy_on(s)
+    rod = put_new(s, "Rod of Ruin")
+    mana(s, "p1", C=2)
+    _tap_foreign(s, mtn, "{T}: Add {R}", None)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=rod.id, ability=0, targets=["p2"])
+    assert not now(s, rod).tapped
+    check(s)
+
+
+def test_piracy_manual_tap_needs_piracy(cards):
+    s = build(cards, [BOLT], ["Mountain"], forests=30, islands=30)
+    mtn = put_new(s, "Mountain", "p2")
+    with pytest.raises(ActionError):
+        _tap_foreign(s, mtn, "{T}: Add {R}", None)
 
 
 INNIAZ = "Inniaz, the Gale Force"
@@ -1014,50 +1076,6 @@ def test_beleren_plus_one_lets_only_creatures_in_the_same_sector_block(cards):
 
 
 CAP, BONE, SWORD = "Captain America, First Avenger", "Bonesplitter", "Sword of Feast and Famine"
-
-
-def _captain(cards, equipment):
-    s = build(cards, [CAP, *equipment], ["Hill Giant"], forests=30, islands=30)
-    cap, giant = put_new(s, CAP), put_new(s, "Hill Giant", "p2")
-    eq = []
-    for n in equipment:
-        e = put_new(s, n)
-        act(s, "p1", type="attach", card_ids=[e.id], to=cap.id)
-        eq.append(e)
-    to_phase(s, "main1", turn=3)
-    return s, cap, giant, eq
-
-
-def test_captain_full(cards):
-    from app.rules import coverage
-
-    assert coverage.of_card_data(cards.resolve(CAP)).level == "FULL"
-
-
-def test_captain_throw_unattaches_the_equipment_and_deals_its_mana_value_divided(cards):
-    from tests.wave110j_kit import ability, mana
-
-    s, cap, giant, (sword,) = _captain(cards, [SWORD])  # mana value 3
-    mana(s, "p1", C=3)
-    act(s, "p1", type="activate_ability", card_id=cap.id, ability=ability(s, cap, "Throw"), targets=["p2", giant.id], division=[2, 1])
-    settle(s)
-    assert life(s, "p2") == 38 and now(s, giant).damage == 1
-    assert now(s, sword).zone.endswith(":battlefield") and now(s, sword).attached_to is None
-    check(s)
-
-
-def test_captain_with_two_equipment_asks_which_one_is_unattached_first(cards):
-    from tests.wave110j_kit import ability, mana
-
-    s, cap, giant, (bone, sword) = _captain(cards, [BONE, SWORD])  # mana values 1 and 3
-    mana(s, "p1", C=3)
-    act(s, "p1", type="activate_ability", card_id=cap.id, ability=ability(s, cap, "Throw"), targets=["p2"])
-    d = s.state.rules.decision
-    assert d is not None and {o.card_id for o in d.options} == {bone.id, sword.id}
-    act(s, "p1", type="choose", decision_id=d.id, option_ids=[bone.id])
-    settle(s)
-    assert life(s, "p2") == 39 and now(s, bone).attached_to is None and now(s, sword).attached_to == cap.id
-    check(s)
 
 
 def test_captain_catch_attaches_an_equipment_at_the_beginning_of_combat(cards):

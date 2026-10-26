@@ -2463,5 +2463,25 @@
   "keywords": [
    "Equip"
   ]
+ },
+ {
+  "name": "Mana Confluence",
+  "layout": "normal",
+  "mana_cost": "",
+  "cmc": 0.0,
+  "type_line": "Land",
+  "oracle_text": "{T}, Pay 1 life: Add one mana of any color.",
+  "power": null,
+  "toughness": null,
+  "loyalty": null,
+  "colors": [],
+  "color_identity": [],
+  "keywords": []
+ },
+ {
+  "name": "Rod of Ruin",
+  "mana_cost": "{4}",
+  "type_line": "Artifact",
+  "oracle_text": "{3}, {T}: This artifact deals 1 damage to any target."
  }
 ]

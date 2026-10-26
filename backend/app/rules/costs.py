@@ -329,9 +329,6 @@ def _component(part: str, card_name: str) -> CostComponent | None:
         return CostComponent(MANA, text=part)
     if re.fullmatch(r"Unattach (?:this \w+|~)", part):
         return CostComponent(UNATTACH, text=part)
-    if (m := re.fullmatch(r"Unattach an Equipment from (?P<n>.+)", part)) and m["n"] in ("~", "this creature", card_name or "\0") \
-            and (sel := selectors.parse("Equipment attached to ~")) is not None:  # -- wave 110J -- Captain America: 701.3d, 118.3: one Equipment attached to it (chosen as the cost is announced)
-        return CostComponent(UNATTACH, selector=sel.key(), text=part)
     if m := _GRANTER_COST.match(part):  # -- granted from object (wave 18F) -- paid with that object (601.2h): the one choice, made for you
         sel = selectors.parse(m["g"])
         assert sel is not None

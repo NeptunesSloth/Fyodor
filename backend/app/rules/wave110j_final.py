@@ -218,8 +218,8 @@ def resume_garth(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 # -- Piracy -- "Until end of turn, you may tap lands you don't control for mana. Spend this mana only to cast spells." CR 602.2 / 605.3: only a permanent's controller activates its
 # abilities "unless the object specifically says otherwise": it does; the mana goes to the player who activates it (106.4), here only into casting a spell (106.6: the
-# restriction). Ceiling: only a land whose mana ability is a plain "{T}: Add {X}" is paid with automatically (a drawback, a condition, a count or a cost names "you", the
-# ability's controller, whom no ruling settles); the table's mana tools stay for any other land.
+# restriction). Automatic payment taps only lands whose mana ability is a plain "{T}: Add {X}"; any other mana ability of such a land (a choice, a pain land's damage to
+# "you", a cost) the player activates by hand (casting._who: the activating player is "you" and gets the mana, restricted to spells).
 PIRACY = "Until end of turn, you may tap lands you don't control for mana. Spend this mana only to cast spells."
 
 
@@ -239,6 +239,13 @@ def foreign_lands(state: Any, player: str, purpose: Any) -> list[str]:
     if rules is None or rules.piracy110j.get(player) != state.turn.number or purpose is None or purpose.spell is None:
         return []
     return [c.id for c in state.cards.values() if c.zone.endswith(":battlefield") and c.controller != player and not c.face_down and not c.tapped]
+
+
+def piracy_land(plan: Plan, player: str, card: Any) -> bool:
+    """602.2: Piracy lets ``player`` activate the mana abilities of ``card``, a land they don't control, this turn."""
+    rules = plan.state.rules
+    return (rules is not None and rules.piracy110j.get(player) == plan.state.turn.number and card.controller != player
+            and card.zone.endswith(":battlefield") and not card.face_down and plan.ch(card).is_land)
 
 
 def plain_ability(ab: Any) -> bool:
@@ -514,47 +521,6 @@ def resume_sector_pick(plan: Plan, d: Any, chosen: list[str]) -> None:
     if ids:
         ctx["effects"][ctx["next"]:ctx["next"]] = queue
     effects.continue_effects(plan, ctx)
-
-
-# -- Captain America, First Avenger (Throw) -- "{3}, Unattach an Equipment from Captain America: He deals damage equal to that Equipment's mana value divided as you choose among
-# one, two, or three targets." CR 601.2d (602.2b) the division is announced before the cost is paid (601.2h), so the total has to be known first: the Equipment is chosen
-# before the targets and the division, as 601.2b does for a variable defined by a choice made later ("that player makes that choice before announcing the value of that
-# variable"), and the cost then pays with that same Equipment (118.3); the damage is its mana value as it was when unattached. Scryfall lists no ruling for this card.
-CAPTAIN = ("Throw ... — {3}, Unattach an Equipment from Captain America: He deals damage equal to that Equipment's mana value divided as you choose among one, two, or three "
-           "targets.")
-
-
-def captain_definition(ability: Any, ch: Any) -> dict[str, Any] | None:
-    from dataclasses import replace
-
-    from app.rules import scripts
-
-    if ability.kind != "activated" or ability.text != CAPTAIN:
-        return None
-    base = scripts.define(replace(ability, text="{3}: ~ deals X damage divided as you choose among one, two, or three targets.", cost="{3}"), ch)
-    if base is None or [e.get("do") for e in base["effects"]] != ["damage"]:
-        return None
-    return {**base, "cost": ability.cost, "cost_mv_x110j": True}
-
-
-def captain_precost(plan: Plan, a: Any, cost: Any, card: Any, label: str) -> bool:
-    """False while the Equipment is being chosen; else ``a.x_value`` is its mana value and the choice is kept for the payment."""
-    from app.game.actions import CostChoice
-    from app.game.errors import ActionError
-    from app.rules import cost_payment, costs
-
-    chosen = cost_payment.choose(plan, a, cost, card, label)
-    if chosen is None:
-        return False
-    for i, comp in cost.choices:
-        if comp.kind == costs.UNATTACH and comp.selector is not None and chosen.get(i):
-            mv = int(plan.ch(plan.state.cards[chosen[i][0]]).mana_value)
-            if mv < 1:
-                raise ActionError("That Equipment has mana value 0: no target could receive at least 1 damage (601.2d)")
-            a.x_value = mv
-            if not any(c.component == i for c in a.cost_choices):
-                a.cost_choices = [*a.cost_choices, CostChoice(component=i, cards=list(chosen[i]))]
-    return True
 
 
 PRIMITIVES = {"sector110j": sector_effect, "bruna_put110j": bruna_put, "inniaz110j": inniaz, "piracy110j": piracy, "mentored110j": mentored, "sacrificed110j": sacrificed, "ogre_watch110j": ogre_watch, "ogre_drop110j": ogre_drop, "garth110j": garth}

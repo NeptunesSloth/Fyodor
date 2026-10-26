@@ -5748,9 +5748,13 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if card.zone == "stack" and ab is not None and ab.kind == "activated" and ab.text.endswith("is on the stack."):  # -- wave 110G -- Lightning Storm: 113.6 an ability that works on the stack, any player may activate it (602.2)
         activate_to_stack(plan, card, ch, ab, a)
         return
+    from app.rules import (
+        wave110j_final,  # -- Piracy (wave 110J) -- a land the player doesn't control, its mana ability
+    )
+
     if not card.zone.endswith(":battlefield") or not (
             actor_allowed(ab, ability_cost(ch, ab, state=plan.state, card=card, info=plan.info), card.controller, plan.actor, owner=card.owner)
-            if ab is not None else card.controller == plan.actor):
+            if ab is not None else card.controller == plan.actor) and not (ab is not None and ab.kind == "mana" and wave110j_final.piracy_land(plan, plan.actor, card)):
         if ab is not None and opponents_only(ab) and card.controller == plan.actor:
             raise ActionError("Only your opponents may activate this ability")
         raise ActionError("You can only activate abilities of permanents you control")
@@ -5762,6 +5766,19 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if "cant_activate_tap" in ch.imposed and ab is not None and ability_cost(ch, ab, state=plan.state, card=card, info=plan.info).tap:  # -- attached (wave 100F) --
         raise ActionError(f"{ch.name}’s activated abilities with {{T}} in their costs can't be activated")
     _activation_limit(plan, card, ch, mana=ability.kind == "mana", loyalty=ability.kind == "loyalty")  # -- cast limits (wave 5E) --
+    if ability.text.startswith(IGNORE_WAYS[1]):  # -- Lost in Thought (wave 110J) -- ruling 2004-10-04 / 116.2: a special action, no stack: nothing to respond to
+        from app.rules import wave110j_cards
+
+        cost = ability_cost(ch, ability, state=plan.state, card=card, info=plan.info)
+        if (why := cost_payment.problem(plan, cost, card, plan.actor)) is not None:
+            raise ActionError(why)
+        chosen = cost_payment.choose(plan, a, cost, card, f"{ch.name}’s ignore")
+        if chosen is None:
+            return
+        cost_payment.pay(plan, cost, card, chosen, PaymentRecord(card=card.id, controller=plan.actor, total_cost=ability.cost or ""))
+        wave110j_cards.ignore_now(plan, ability.text)
+        plan.rules.passed = []
+        return
     n = crew_power(ch, a.ability) if not plan.manual(card) else None
     if n is not None:
         crew(plan, card, ch, a, n)
@@ -5871,8 +5888,8 @@ def _activate_choosing_nested(plan: Plan, card: CardInstance, ch: Characteristic
     if any(t in ability.text for t in ("Activate only as an instant", "Activate only as a sorcery")):
         raise ActionError(f"{ch.name} can only be activated when you have priority (not while paying a cost)")
     input_cost = mana_activation_cost(plan.state, card, ch, parsed, plan.info, x=a.x_value)
-    if not input_cost.is_free and not pool_covers(plan.state, card.controller, input_cost,
-                                                purpose=Purpose(ability_of=ch, player=card.controller,
+    if not input_cost.is_free and not pool_covers(plan.state, _who(plan, card), input_cost,
+                                                purpose=Purpose(ability_of=ch, player=_who(plan, card),
                                                                 selected_cost_has_x='{X}' in (parsed.extra_cost or '')), info=plan.info):
         raise ActionError(f"Add {input_cost.text()} to your mana pool first to activate {ch.name}")
     r = plan.rules
@@ -5942,8 +5959,12 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
         raise ActionError(f"{card.name or 'That card'} is already paying part of the cost (click it again to take it back)")
     ch = plan.ch(card)
     ability = _find_ability(ch, a.ability)
+    from app.rules import (
+        wave110j_final,  # (wave 110J: Piracy lets a land's mana ability be activated by another player)
+    )
+
     if not actor_allowed(ability, ability_cost(ch, ability, state=plan.state, card=card, info=plan.info),
-                         card.controller, plan.actor, owner=card.owner):
+                         card.controller, plan.actor, owner=card.owner) and not wave110j_final.piracy_land(plan, plan.actor, card):
         raise ActionError("You cannot activate that mana ability")
     if "Activate only as an instant" in ability.text:
         raise ActionError(f"{ch.name} can only be activated when you have priority (not while paying a cost)")
@@ -6393,11 +6414,6 @@ def activate_to_stack(plan: Plan, card: CardInstance, ch: Characteristics, abili
         raise ActionError(f"{ch.name}: X can't be {a.x_value or 0}")
     if exclude_targets and set(a.targets) & set(exclude_targets):
         raise ActionError(f"{ch.name} can't target itself")
-    if definition is not None and definition.get("cost_mv_x110j"):  # -- Captain America (wave 110J) -- the Equipment is chosen before the division it sizes (601.2b, 601.2d)
-        from app.rules import wave110j_final
-
-        if not wave110j_final.captain_precost(plan, a, cost, card, f"{ch.name}’s ability"):
-            return
     modal: modal_abilities.Announced | None = None
     if definition is not None and definition.get("modes"):  # -- modal abilities (wave 1A): 602.2b → 601.2b-c --
         modal = modal_abilities.announce(plan, a, card, definition, ability.index, oid, f"{ch.name}’s ability")
@@ -6831,6 +6847,13 @@ def _mana_terminal(plan: Plan, *, nested: bool = False) -> dict[str, Any]:
     return pc.continuation(plan, "mana_done", _ManaDone(nested))
 
 
+def _who(plan: Plan, card: CardInstance) -> str:
+    """The player a mana ability of ``card`` is activated by, for "you" and the mana: its controller, or the player Piracy lets tap it (602.2)."""
+    from app.rules import wave110j_final
+
+    return plan.actor if wave110j_final.piracy_land(plan, plan.actor, card) else card.controller
+
+
 def _manual_produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tuple[str, ...], index: int,
                     *, nested: bool = False, option_index: int | None = None) -> None:
     from app.rules import replace as replacements_
@@ -6865,22 +6888,22 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
     """Produce mana; false means its persistent continuation owns all further work."""
     extra = parse_ability_cost(ability.extra_cost, card_name=plan.ch(card).name) if ability.extra_cost else None
     cost = activation_cost if activation_cost is not None else mana_activation_cost(plan.state, card, plan.ch(card), ability, plan.info)
-    purpose = Purpose(ability_of=plan.ch(card), player=card.controller,
+    purpose = Purpose(ability_of=plan.ch(card), player=_who(plan, card),
                       selected_cost_has_x='{X}' in (extra.mana if extra else ''),
                       cost_colorless='{C}' in (extra.mana if extra else ''))
     input_payment: M.Payment | None = None
     if not cost.is_free:
-        if payment_mode(plan, card.controller) == "self" and not pool_covers(plan.state, card.controller, cost, purpose=purpose, info=plan.info):
+        if payment_mode(plan, _who(plan, card)) == "self" and not pool_covers(plan.state, _who(plan, card), cost, purpose=purpose, info=plan.info):
             raise ActionError(f"Add {cost.text()} to your mana pool first to activate {plan.ch(card).name}")
-        sources: list[str] | None = [] if payment_mode(plan, card.controller) == "self" else None
+        sources: list[str] | None = [] if payment_mode(plan, _who(plan, card)) == "self" else None
         if then is not None:
             from app.rules import payment_continuations as pc
 
             after = pc.continuation(plan, "production_paid", _Production(card, ability, option, index, extra, then, option_index))
-            pay_then(plan, card.controller, cost, f"paid {cost.text()} to activate {plan.ch(card).name}", then=after,
+            pay_then(plan, _who(plan, card), cost, f"paid {cost.text()} to activate {plan.ch(card).name}", then=after,
                      sources=sources, exclude=(card.id,) + activation_exclude, purpose=purpose)
             return False
-        input_payment = pay(plan, card.controller, cost, f"paid {cost.text()} to activate {plan.ch(card).name}", sources=sources,
+        input_payment = pay(plan, _who(plan, card), cost, f"paid {cost.text()} to activate {plan.ch(card).name}", sources=sources,
             exclude=(card.id,) + activation_exclude, purpose=purpose)
     return _produce_body(plan, card, ability, option, index, extra, then, input_payment=input_payment, option_index=option_index)
 
@@ -6888,7 +6911,7 @@ def produce(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tupl
 def _produce_body(plan: Plan, card: CardInstance, ability: M.ManaAbility, option: tuple[str, ...], index: int | None,
                   extra: AbilityCost | None, then: dict[str, Any] | None, *, input_payment: M.Payment | None = None, option_index: int | None = None) -> bool:
     from app.rules import cost_moves
-    if ability.sacrifice_self and cost_moves.reserved(plan.state, card.controller, card.id):
+    if ability.sacrifice_self and cost_moves.reserved(plan.state, _who(plan, card), card.id):
         raise ActionError(f'{card.name} is reserved for a declaration cost; tap it for mana without sacrificing it')
     if ability.self_counter is not None:  # -- refused copy/mana (wave 3R3) -- the cost: a counter on the source (122.1a)
         if not card.zone.endswith(":battlefield"):
@@ -6905,7 +6928,12 @@ def _produce_body(plan: Plan, card: CardInstance, ability: M.ManaAbility, option
         if n:
             plan.do({"type": "counter", "card_ids": [card.id], "kind": kind, "delta": -n}, actor=card.controller)
     mana = _count(option)
-    who = card.controller  # (wave 24D: before a sacrifice cost sends the card away)
+    who = _who(plan, card)
+    if who != card.controller:  # -- Piracy (wave 110J) -- 106.6: this mana is only for casting spells (a restriction of its own already there: table tools)
+        if ability.spend_only is not None:
+            raise ActionError(f"{card.name}'s mana already has a spending restriction: use the table tools")
+        ability = replace(ability, spend_only='q:{"cast": "any"}', spend_text="Spend this mana only to cast spells.")
+    # (wave 24D: before a sacrifice cost sends the card away)
     oid = plan.oid(card)  # (wave 5A: the object as it was tapped)
     from app.rules import mana_units
 

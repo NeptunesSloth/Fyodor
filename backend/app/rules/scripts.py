@@ -7150,8 +7150,6 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return alpine
     if (beleren := wave110j_final.belerens(ability, ch)) is not None:
         return beleren
-    if (captain := wave110j_final.captain_definition(ability, ch)) is not None:
-        return captain
     if (conditional_prevention := conditional_prevention_effects.definition(ability, ch)) is not None:
         return conditional_prevention
 
