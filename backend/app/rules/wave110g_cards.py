@@ -309,6 +309,14 @@ def _shares(d: Def) -> Def:
     return {**d, "if": {"w110g": "shares_with_exiled"}}
 
 
+def _firm(d: Def) -> Def:
+    return {**d, "effects": [d["effects"][0], {"do": "firm_creature110g", "who": "target"}, *d["effects"][1:]]}  # Whippoorwill: after the regeneration clause
+
+
+def _opponent_cause(d: Def) -> Def:
+    return {**d, "cond": {**d["cond"], "cause_opp110g": True}}  # Sacred Ground: the move came out of an opponent's resolving spell or ability
+
+
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 def _imprint_pt(d: Def) -> Def:
     """Phyrexian Ingester: +X/+Y from the imprinted creature card, two statics of one line (613.4c; 607.2a link); no card exiled adds 0."""
@@ -340,6 +348,13 @@ def _no_phase_out(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Whippoorwill
+    "{G}{G}, {T}: Target creature can't be regenerated this turn. Damage that would be dealt to that creature this turn can't be prevented or dealt instead to "
+    "another permanent or player. When the creature dies this turn, exile the creature.":
+        ("{G}{G}, {T}: Target creature can't be regenerated this turn. When that creature dies this turn, exile it.", _firm),
+    # Sacred Ground
+    "Whenever a spell or ability an opponent controls causes a land to be put into your graveyard from the battlefield, return that card to the battlefield.":
+        ("Whenever a land is put into your graveyard from the battlefield, return that card to the battlefield.", _opponent_cause),
     # Ertai's Familiar
     "{U}: Until your next upkeep, this creature can't phase out.": ("{U}: Until your next upkeep, this creature can't attack.", _no_phase_out),
     # Elkin Lair
@@ -617,6 +632,18 @@ def exchange_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.become(plan, ctx, {**base, "who": "target", "p": mine})
 
 
+def firm_creature(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """615.12 / 614.9: damage that would be dealt to the creature this turn can be neither prevented nor dealt instead to another permanent or player."""
+    import secrets
+
+    from app.rules.effects import _cards
+
+    for cid in _cards(plan, ctx, e["who"]):
+        plan.rules.replacements.append({"id": secrets.token_hex(4), "kind": "unpreventable", "turn": plan.state.turn.number, "controller": ctx["controller"],
+                                        "source": ctx.get("source_object"), "scope": {}, "to110g": plan.oid(cid), "noredirect110g": True})
+    return True
+
+
 def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """614.1a / 615.8: the next damage to the target this turn is replaced (never dealt, 614.6) by destroying it; used up by that one time (a body, as Phytohydra's)."""
     from app.rules import replace as rep
@@ -630,7 +657,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

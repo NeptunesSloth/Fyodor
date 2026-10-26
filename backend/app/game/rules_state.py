@@ -478,6 +478,7 @@ class Event(BaseModel):
     sides: int = 0
     source_targets: list[str] | None = None  # -- trigger damage (wave 110C) -- a ``damage`` event: the targets of the spell dealing it (115.9c), None for any other source
     pair110c: str | None = None  # -- soulbond (wave 110C) -- a ``damage`` event: the object paired with the damaged one when it was dealt (603.2: judged as the event happens)
+    cause110g: str | None = None  # -- wave 110G -- a zone change: controller of the resolving spell or ability that moved it (SBA and rules: None)
     excess: int = 0  # -- trigger damage (wave 39B) -- a ``damage`` event: the excess damage (120.10) the batch dealt to the permanent, on its first event
 
 
@@ -1749,6 +1750,7 @@ class RulesState(BaseModel):
     cast_history_complete: bool | None = None  # True only when automation observed the trusted fresh-game boundary.
     named_casts_game: dict[str, dict[str, int]] = Field(default_factory=dict)  # public names when actually cast, per player, across turns
     entry_life_losses: dict[str, int] = Field(default_factory=dict)  # exact source incarnation / entry ability -> actual life lost
+    cause110g: str | None = None  # transient: the controller of the effect whose step is being applied (Plan.do sets it)
     entry_life_origins: list[str] = Field(default_factory=list)  # automatic entries observed with entry-life bookkeeping available
     entry_life_notices: list[str] = Field(default_factory=list)  # legacy source/ability keys already reported as unknown
     # -- replacement effects stage 2 (wave 2E; app/rules/replace.py) --
@@ -1955,6 +1957,8 @@ def emit(state: GameState, kind: EventKind, **fields: Any) -> None:
     rules = state.rules
     if rules is None:
         return
+    if kind == "zone_change" and rules.cause110g is not None:
+        fields.setdefault("cause110g", rules.cause110g)
     rules.events.append(Event(batch=rules.batch + 1, kind=kind, turn=state.turn.number, **fields))
     if kind == "turned_face_up" and (up_log110f := turn_log_now(state)) is not None and fields.get("object_id"):
         up_log110f.turned_up110f = list(dict.fromkeys([*up_log110f.turned_up110f, fields["object_id"]]))

@@ -4086,6 +4086,14 @@ def run_body(plan: Plan, ctx: Context) -> bool:
 
 
 def _run_body(plan: Plan, ctx: Context) -> bool:
+    before110g, plan.cause110g = plan.cause110g, ctx.get("controller")  # -- wave 110G -- stamps the zone changes this body causes
+    try:
+        return _run_effects(plan, ctx)
+    finally:
+        plan.cause110g = before110g
+
+
+def _run_effects(plan: Plan, ctx: Context) -> bool:
     while ctx["next"] < len(ctx["effects"]):  # (wave 19F: re-read each time: effects.repeat replaces the list)
         e = ctx["effects"][ctx["next"]]
         from app.rules import stickers101
