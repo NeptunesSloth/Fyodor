@@ -521,6 +521,7 @@ DRAFT_NOTHING = {
     "Choose a card at random you exiled with cards named Volatile Chimera. ~ becomes a copy of that card, except it has this ability.",
 }
 GARBAGE_FIRE = "~ deals damage to target creature equal to the highest number you noted for cards named Garbage Fire."  # target kept, nothing was noted
+SMUGGLER = "you may search your library for a card with a name you noted for cards named Smuggler Captain, reveal it, put it into your hand, then shuffle."
 REGICIDE = "Destroy target creature that's one or more of the colors chosen as you drafted cards named Regicide."
 
 
@@ -539,6 +540,8 @@ def _draft_parse(body: str) -> Any:
         return [{"do": "nothing_drafted110f"}], None, False
     if body == GARBAGE_FIRE:
         return [{"do": "nothing_drafted110f", "who": "target"}], "creature", False
+    if body == SMUGGLER:  # (wave 110C) a name was never noted, so the search finds nothing (701.23b: a quality search may fail) but the library is still shuffled
+        return [{"do": "shuffle_library", "who": "you"}], None, True
     if body == REGICIDE:  # no color was chosen, so no creature is one of them: a selector that matches nothing (a creature that is not a creature), hence no legal target
         return [{"do": "destroy", "who": "target"}], selectors.Selector(types=("Creature",), not_types=("Creature",)).key(), False
     return None

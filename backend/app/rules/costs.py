@@ -182,6 +182,7 @@ class AbilityCost:
     components: tuple[CostComponent, ...] = ()
     graveyard_only: bool = False  # -- reanimation (wave 3R) -- its effect moves this card out of your graveyard (113.6m)
     exile_too: bool = False  # -- activated other (wave 42C) -- "Return this card from your graveyard or from exile …" (Mister Immortal): graveyard_only, and the exile zone too (113.6m)
+    exile_only110c: bool = False  # -- wave 110C -- exile_too, but not the graveyard: "Put this card from exile onto the battlefield tapped" (Torrent Elemental, 113.6m)
     battlefield_too110k: bool = False  # -- wave 110K -- graveyard_only, and the battlefield too: "Activate only if ~ is on the battlefield or in your graveyard" (Skyblade's Boon)
     hand_only: bool = False  # -- activated from hand / command zone (wave 27D) -- its effect moves this card out of your hand (113.6m)
     command_only: bool = False  # (…or out of the command zone)

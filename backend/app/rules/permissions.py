@@ -689,6 +689,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         found_alt = alt_costs.define(t)
         if found_alt is not None and (kind == "static" or not found_alt.get("table")):
             return found_alt
+    if kind == "static" and t.startswith("as an additional cost to cast creature spells, you may pay any amount"):  # -- Chorus of the Conclave (wave 110C) --
+        from app.rules import wave110c_chorus
+
+        return wave110c_chorus.definition(t)
     if kind == "static" and t.startswith("as an additional cost to cast "):  # Defiler of Vigor (cost_changes.py)
         return cost_changes.optional_definition(t)
     # -- end cost changers (wave 4I) --
@@ -1453,6 +1457,10 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if p.object_id is not None:
             if p.object_id != oid or (p.top110j and where != "library_top"):  # (-- wave 110J -- Temporal Aperture: only while it is the top card)
                 continue  # a new object since (400.7): the permission was for the one it was
+        elif p.library_of is not None:  # -- Xanathar (wave 110C) -- the top card of another player's library
+            lib = state.zones.get(zone_key(p.library_of, "library")) or []
+            if not lib or lib[0] != card.id:
+                continue
         elif p.zone != "any" and p.zone != where and not (
                 p.zone in ("graveyard", "exile") and p.zone_owner == "any" and card.zone.endswith(":" + p.zone)) and not (
                 p.hand_of110m and p.zone == "hand" and card.zone == zone_key(p.hand_of110m, "hand")):  # (wave 110M) another player's hand
@@ -1530,7 +1538,7 @@ def grants(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if d.get("linked"):  # -- resolution memory (wave 22D) -- only a card still the object this permanent's ability exiled (400.7, 607.2a)
             from app.rules import exiled_with
 
-            linked_ctx: dict[str, Any] = {"source_object": r.object_id(src.id)}
+            linked_ctx: dict[str, Any] = {"source_object": src.choices.get("Linked to", "") if d.get("linked_to110c") else r.object_id(src.id)}  # (wave 110C: Tibalt's emblem)
             for linked_effect in d.get("effects") or []:
                 if linked_effect.get("do") == "borrowed_link_scope":
                     linked_ctx["borrowed_link_scope"] = linked_effect["scope"]

@@ -323,6 +323,9 @@ def face_down(state: GameState, a: A.FaceDown) -> None:
         # A face-down card is anonymous to everyone but its controller from now on.
         c.revealed_to = []
         (turned_down if new else turned_up).append(c)
+    if turned_down and state.rules is not None:
+        down = {c.id for c in turned_down}  # -- Vesuvan Shapeshifter (wave 110C) -- 708.2: its copy lasts "until this creature is turned face down"
+        state.rules.effects = [e for e in state.rules.effects if not (e.label == "Copy until turned face down" and any(x.split(".")[0] in down for x in e.affected))]
     if turned_down:
         log(state, a.actor, a.ts, [pname(state, a.actor), text(" turned "), group(state, turned_down, before), text(" face down")])
     if turned_up:

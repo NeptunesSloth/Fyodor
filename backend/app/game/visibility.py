@@ -110,8 +110,8 @@ def top_revealed(state: GameState, card: CardInstance, viewer: str) -> bool:
         return False
     # A resolved end-of-turn authority is independent of its original source (611.2a).
     # It reveals only the current top card to its beneficiary, never to spectators.
-    if card.zone == f"{viewer}:library" and any(
-        p.look_top and p.zone == 'library_top' and p.player == viewer
+    if card.zone in (f"{viewer}:library", *(f"{p.library_of}:library" for p in rules.permissions if p.library_of)) and any(
+        p.look_top and p.zone == 'library_top' and p.player == viewer and (p.library_of or viewer) == card.zone.split(":")[0]
         and p.until == 'end_of_turn' and p.turn == state.turn.number
         for p in rules.permissions
     ):

@@ -68,6 +68,10 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
 
     if (hist110c := wave110c_history.condition(t)) is not None:
         return hist110c
+    from app.rules import wave110c_last  # -- last cards (wave 110C) --
+
+    if (last110c := wave110c_last.condition(t)) is not None:
+        return last110c
     if t == "you were dealt damage this turn by a red instant or sorcery spell":  # -- wave 110L -- Suffocation (history.holds "spelldmg110l")
         return {"history": "spelldmg110l"}
     if t == "defending player controls no snow lands":  # -- (wave 110O) -- Kjeldoran Guard: 508.5a, the ability's controller chooses among the defending players
@@ -2141,6 +2145,10 @@ def _self_state(plan: Plan, ctx: dict[str, Any], test: str) -> bool:
         return card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ctx.get("source_object")
     if test == "in_exile110b":  # -- wave 110B -- Senu: "if this card is exiled" is still that object (400.7), in its owner's exile zone
         return card is not None and card.zone == f"{card.owner}:exile" and plan.oid(card) == ctx.get("source_object")
+    if test == "voyaging110c":  # -- wave 110C -- Cosima: exiled by her own upkeep ability and still that object (400.7)
+        from app.rules import wave110c_cosima
+
+        return wave110c_cosima.holds(plan, ctx)
     if test == "in_command":  # -- trailing & intervening ifs (wave 38A) -- still that object, in the command zone (400.7): a commander cast in response is a new object
         return card is not None and card.zone.endswith(":command") and plan.oid(card) == ctx.get("source_object")
     if test == "command_or_battlefield":  # -- trigger other (wave 25B) -- eminence: 113.6b, the zones the ability names (still that object, 400.7)

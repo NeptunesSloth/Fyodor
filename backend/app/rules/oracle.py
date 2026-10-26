@@ -413,6 +413,11 @@ def parse_abilities(oracle_text: str | None, *, spell: bool = False, pt: tuple[s
         if line == MASTER_CHEF:
             lines[i:i + 1] = ["Commander creatures you own enter with an additional +1/+1 counter on them.",
                               'Commander creatures you own have "Other creatures you control enter with an additional +1/+1 counter on them."']
+    from app.rules import (
+        wave110c_cosima,  # -- lines (wave 110C) -- Cosima: the paragraph is the upkeep ability and the ability it grants
+    )
+
+    wave110c_cosima.split(lines)
     # -- lines (wave 110C) -- Heirloom Epic: each mana of the cost may be paid by tapping an untapped creature (waterbend's payment, 701.67a, creatures only and not a
     # waterbend): the cost word "Tapbend" stands for that sentence
     for i, line in enumerate(lines):
