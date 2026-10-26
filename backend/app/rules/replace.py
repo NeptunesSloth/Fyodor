@@ -1745,7 +1745,7 @@ def plan_loss(plan: Plan, losses: list[tuple[str, int]], *, answers: dict[str, s
 
 def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = None, then: dict[str, Any] | None = None,
               answers: dict[str, str] | None = None, ctx: dict[str, Any] | None = None, as_gain: bool = False,
-              receipt: list[int] | None = None, bind: str | None = None, operation: int | None = None) -> bool:
+              receipt: list[int] | None = None, bind: str | None = None, operation: int | None = None, paid: bool = False) -> bool:
     """THE life-loss choke point (wave 28B): every way a player loses life that isn't damage's own result (effects, a payment of life: 119.4
     "the player loses that much life", 118.11 a payment may be modified by effects) goes through the "would lose life" replacements.
     With none in force, each player just loses it. False while a choice is open."""
@@ -1767,12 +1767,12 @@ def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = 
             if as_gain:  # -- counters (wave 44C) -- "gain life rather than lose life from radiation" (728.1a): the gain event, through the gain replacements
                 gain_life(plan, [(pid, n)], actor=actor or pid, operation=operation)
             else:
-                plan.do({"type": "life", "player": pid, "delta": -n, "group": operation}, actor=actor or pid)
+                plan.do({"type": "life", "player": pid, "delta": -n, "group": operation, **({"paid": True} if paid else {})}, actor=actor or pid)
         return True
     answers = answers if answers is not None else _ctx_answers(ctx)
     planned = plan_loss(plan, losses, answers=answers, ask=then is not None)
     if isinstance(planned, Ask):
-        request = {"losses": [list(x) for x in losses], "actor": actor, "bind": bind, "operation": operation}
+        request = {"losses": [list(x) for x in losses], "actor": actor, "bind": bind, "operation": operation, "paid": paid}
         if _pause(plan, planned, answers, _resume_for(then, "loss", request)):
             return False
         raise planned
@@ -1787,7 +1787,7 @@ def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = 
                 if as_gain:  # (wave 44C)
                     gain_life(plan, [(ev["player"], ev["n"])], actor=actor or ev["player"], operation=operation)
                 else:
-                    plan.do({"type": "life", "player": ev["player"], "delta": -ev["n"], "group": operation}, actor=actor or ev["player"])
+                    plan.do({"type": "life", "player": ev["player"], "delta": -ev["n"], "group": operation, **({"paid": True} if paid else {})}, actor=actor or ev["player"])
     return True
 
 
@@ -1923,7 +1923,7 @@ def keyword_replace(plan: Plan, ctx: dict[str, Any], e: dict[str, Any], kind: st
 def _run_loss(plan: Plan, request: dict[str, Any], answers: dict[str, str], then: dict[str, Any] | None) -> None:
     receipt: list[int] = []
     if lose_life(plan, [(x[0], int(x[1])) for x in request["losses"]], actor=request["actor"], then=then, answers=answers,
-                 receipt=receipt, bind=request.get("bind"), operation=request.get("operation")):
+                 receipt=receipt, bind=request.get("bind"), operation=request.get("operation"), paid=bool(request.get("paid"))):
         if request.get("bind") and then is not None and isinstance(then.get("ctx"), dict):
             from app.rules import context
 
@@ -2215,7 +2215,7 @@ def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
 
             row = prevention_receipts.receipt(c, ev, int(ev["amount"]) - n)
             out["prevention_receipts"] = [*(ev.get("prevention_receipts") or []), row]
-    if (op.get("prevention") or kind == "body") and op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
+    if (op.get("prevention") or kind in ("body", "observe110g")) and op.get("rider"):  # -- prevention riders (wave 17A) -- 615.5: the additional effect, once the damage has been dealt
         from app.rules import prevention_receipts
 
         out["riders"] = [*(ev.get("riders") or []), {"rider": op["rider"], "n": int(ev["amount"]) - n, "of": int(ev["amount"]), "by": c.controller,

@@ -29,12 +29,30 @@ _AS: dict[str, str] = {
     "or equal to the number of rust counters on it. Artifacts destroyed this way can't be regenerated.":
         "At the beginning of your upkeep, put a rust counter on each artifact target opponent controls. Then destroy each artifact with mana value less "
     "than or equal to the number of rust counters on it. They can't be regenerated.",
+    # Dermoplasm: a card put onto the battlefield from the hand is face up anyway (708.2: only a face-down instruction makes it face down)
+    "When this creature is turned face up, you may put a creature card with a morph ability from your hand onto the battlefield face up. If you do, return this creature to its owner's hand.":
+        "When this creature is turned face up, you may put a creature card with a morph ability from your hand onto the battlefield. If you do, return this creature to its owner's hand.",
 }
 
 
 def _until_leaves(d: Def) -> Def:
     """The Moment: "It phases out until ~ leaves the battlefield" (610.3, 702.26a): the Oubliette lifetime packet, without its tap."""
     return {**d, "effects": [{"do": "phase_until_target110c", "untapped110i": True} if x.get("do") == "phase_out" else x for x in d["effects"]]}
+
+
+def _pandorica(d: Def) -> Def:
+    """The Pandorica: it can't phase in for as long as the source remains tapped, and phases in when it untaps or leaves (610.3, 702.26d)."""
+    return {**d, "effects": [{"do": "phase_until_target110c", "untapped110i": True, "tapped110i": True} if x.get("do") == "phase_out" else x for x in d["effects"]]}
+
+
+def _copy_cast(d: Def) -> Def:
+    """Bloodthirsty Adversary: the exiled cards are copied and any number of the copies may be cast without paying (707.12, 608.2g), one at a time."""
+    inner = next(e for e in d["effects"] if e.get("do") == "reflexive")["ability"]["effects"]
+    at = next(i for i, e in enumerate(inner) if e.get("do") == "exile")
+    inner[at] = {**inner[at], "as": "ex110i"}
+    inner += [{"do": "copy_cards", "who": "ref:ex110i", "as": "cp110i"},
+              {"do": "free_cast", "zone": "that", "who": "ref:cp110i", "filter": None, "optional": True, "mv": None, "all": True}]
+    return d
 
 
 def _lose_types(d: Def) -> Def:
@@ -60,6 +78,18 @@ def _prevent_paid(d: Def) -> Def:
     return {**d, "effects": [pay, {"do": "prevent", "who": "event_player", "n": {"paid_x": "leak110i"}}, hit]}
 
 
+_INFINITE = ("Whenever enchanted creature blocks or becomes blocked by a creature with toughness 3 or less, destroy the other creature at end of combat. "
+             "At the beginning of the next end step, if that creature was destroyed this way, put a +1/+1 counter on the first creature.")
+
+
+def _destroy_mark(d: Def) -> Def:
+    """Infinite Authority: remember the enchanted creature as the trigger resolves, and make the end-of-combat destroy schedule the counter."""
+    effects = d["effects"]
+    at = next(i for i, e in enumerate(effects) if e.get("do") == "deferred:destroy")
+    effects[at] = {**effects[at], "do": "deferred:destroy_mark110i"}
+    return {**d, "effects": [{"do": "bind_first110i"}, *effects]}
+
+
 def _batch(d: Def) -> Def:
     """Bioessence Hydra: "one or more ... planeswalkers" is one trigger per batch of counter placements (603.2c) with their summed amount, not one per
     planeswalker (a replacement like Hardened Scales would add to each separate trigger's counters)."""
@@ -81,10 +111,26 @@ def _target_hand(d: Def) -> Def:
     return {**d, "effects": [{**e, "cond": {**e["cond"], "as": "target"}} if e.get("do") == "only_if" else e for e in d["effects"]]}
 
 
+def _goad_while_saga(d: Def) -> Def:
+    """The War Games: the tokens each player created are goaded (by the Saga's controller, 701.15a) for as long as the Saga remains on the battlefield
+    (611.2b: a layer-6 effect that ends when it leaves)."""
+    first, *rest = d["effects"]
+    return {**d, "effects": [{**first, "as": "games110i"}, *rest, {"do": "goad_while110i", "who": "ref:games110i"}]}
+
+
 _POWER_LEAK = "At the beginning of the upkeep of enchanted {0}'s controller, that player may pay any amount of mana. This Aura deals 2 damage to that player. Prevent X of that damage, where X is the amount of mana that player paid this way."
 
 # whole ability text -> (the wording the grammar reads, what to change in its definition)
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "When this creature enters, you may pay {2}{R} any number of times. When you pay this cost one or more times, put that many +1/+1 counters on this creature, "
+    "then exile up to that many target instant and/or sorcery cards with mana value 3 or less from your graveyard and copy them. "
+    "You may cast any number of the copies without paying their mana costs.":
+        ("When this creature enters, you may pay {2}{R} any number of times. When you pay this cost one or more times, put that many +1/+1 counters on this creature, "
+         "then exile up to that many target instant and/or sorcery cards with mana value 3 or less from your graveyard.", _copy_cast),
+    "{1}{W}, {T}: Untap another target nonland permanent, then it phases out. It can't phase in for as long as The Pandorica remains tapped. "
+    "When The Pandorica becomes untapped or leaves the battlefield, that permanent phases in. Activate only as a sorcery.":
+        ("{1}{W}, {T}: Untap another target nonland permanent, then it phases out. Activate only as a sorcery.", _pandorica),
+    _INFINITE: ("Whenever enchanted creature blocks or becomes blocked by a creature with toughness 3 or less, destroy the other creature at end of combat.", _destroy_mark),
     "{T}, Sacrifice this artifact: Choose up to seven face-up exiled cards you own. Exile all the cards from your library, then put the chosen cards on top of your library.":
         ("{T}, Sacrifice this artifact: Put up to seven target cards you own from exile on top of your library.", _mirror),
     "Whenever one or more loyalty counters are put on planeswalkers you control, put that many +1/+1 counters on this creature.":
@@ -95,6 +141,8 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
         ("{1}{B}, {T}: Target opponent discards a card. Then if an opponent has no cards in hand, flip this creature.", _target_hand),
     "At the beginning of each opponent's upkeep, that player loses 1 life for each card fewer than three in their hand.":
         ("At the beginning of each opponent's upkeep, that player loses X life, where X is 3 minus the number of cards in their hand.", lambda d: d),
+    "I \u2014 Each player creates three tapped 1/1 white Warrior creature tokens. The tokens are goaded for as long as this Saga remains on the battlefield.":
+        ("I \u2014 Each player creates three tapped 1/1 white Warrior creature tokens.", _goad_while_saga),
     "Whenever an equipped creature you control other than Rhuk attacks or dies, you may attach all Equipment attached to that creature to Rhuk.":
         ("Whenever an equipped creature you control other than ~ attacks or dies, you may draw a card.", _attach_all),
     "When enchanted creature dies, return that card to its owner's hand. If that card is returned to its owner's hand this way, you may pay {U}{U}{U}. If you do, return this card to its owner's hand.":
@@ -177,6 +225,18 @@ SIDES: dict[str, list[Def]] = {
 }
 
 
+def goad_while(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import effects, keyword_actions, layers
+
+    cards = effects._cards(plan, ctx, e["who"])
+    if cards:
+        layers.add_effect(plan, affected=[plan.oid(c) for c in cards], layer="6", source=ctx.get("source_object"), controller=ctx["controller"],
+                          duration="permanent", imposes=(keyword_actions.GOADED + ctx["controller"],), label="Goaded while the Saga remains")
+        fx = plan.rules.effects[-1]
+        fx.duration, fx.source_card, fx.until_player = "source_on_battlefield", ctx.get("source_card"), ctx["controller"]
+    return True
+
+
 def bind_rest(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """"Taps the rest": the creatures the acting player controls other than the one they chose."""
     from app.rules import context
@@ -196,7 +256,30 @@ def exile_library(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
+def bind_first(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context, effects
+
+    context.bind_objects(plan, ctx, "first110i", effects._cards(plan, ctx, "host"))
+    return True
+
+
+def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """701.8a: the creature is "destroyed this way" only if this destroy put it into a graveyard (regeneration / indestructible: no); then the
+    counter goes on the first creature at the next end step (603.7)."""
+    from app.rules import context, delayed, effects
+
+    doomed = [c for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].zone.endswith(":battlefield")]
+    effects.PRIMITIVES["destroy"](plan, ctx, {**e, "do": "destroy"})
+    now = plan.state.cards.get(doomed[0]) if doomed else None  # (a token ceases to exist in the graveyard, 111.7)
+    if doomed and (now is None or now.zone.endswith(":graveyard")) and (first := context._object_refs(ctx, "first110i")):
+        refs = {"first110i": {"kind": "objects", "objects": [r.model_dump(mode="json") for r in first]}}
+        delayed.create_plain(plan, ctx["controller"], ctx["source_card"], ctx["source_object"], ctx.get("name") or "Infinite Authority",
+                             {"kind": "step", "step": "end", "whose": "next"},
+                             [{"do": "bind_refs", "refs": refs}, {"do": "add_counters", "who": "ref:first110i", "kind": "+1/+1", "n": 1}])
+    return True
+
+
+PRIMITIVES = {"bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 
 
 def definition(ability: Any, ch: Any) -> Def | None:

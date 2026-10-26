@@ -2056,8 +2056,8 @@ def _parse(text: str) -> tuple[Effects, Any]:
         return [{"do": "restrict", "who": _who(kind, key), "rules": RESTRICTIONS[m["r"]], **for_combat}], _one(group)
     # -- multi (wave 100N) -- 115.2: "Permanents you control can't be the targets of blue or black spells your opponents control this turn." (Display of
     # Dominance): statics' rule, for the turn; a rule-changing effect, so its group isn't locked in (611.2c)
-    m = re.fullmatch(r"(?P<o>permanents you control) (?P<r>can't be the targets of (?:white|blue|black|red|green) or (?:white|blue|black|red|green) spells your "
-                     r"opponents control) this turn", text)
+    m = re.fullmatch(r"(?P<o>(?:permanents|creatures) you control) (?P<r>can't be the targets of (?:white|blue|black|red|green) or (?:white|blue|black|red|green) spells"
+                     r"(?: your opponents control)?) this turn", text)
     if m:
         from app.rules.statics import _rule
 
@@ -2339,14 +2339,14 @@ def _parse(text: str) -> tuple[Effects, Any]:
     m = re.fullmatch(rf"remove (?:(?P<up>up to) )?(?P<n>{AMT}) (?:(?P<k>[+-]\d+/[+-]\d+|[a-z]+) )?counters? from (?P<o>.+)", text)
     if m and (m["up"] or not m["k"]):
         kind, key, group = ref(m["o"])
-        if kind not in ("target", "self") or re.search(r"\b(?:players?|opponents?)\b", m["o"]) or (rider is not None and rider[0] != "x"):
+        if kind not in ("target", "self") or re.match(r"(?:(?:target|each|that|an?|your) )?(?:players?|opponents?)\b", m["o"]) or (rider is not None and rider[0] != "x"):
             raise _Fail
         return [{"do": "remove_any_counters", "who": _who(kind, key), "n": _apply(_amount(m["n"]), rider), "upto": bool(m["up"]),
                  **({"kind": m["k"]} if m["k"] else {})}], _one(group)
     m = re.fullmatch(rf"remove (?P<n>{AMT}|all) (?P<k>[+-]\d+/[+-]\d+|[a-z]+) counters? from (?P<o>.+)", text)
     if m:
         kind, key, group = ref(m["o"])
-        if kind == "players" or (m["n"] == "all" and rider is not None) or re.search(r"\b(?:players?|opponents?)\b", m["o"]):
+        if kind == "players" or (m["n"] == "all" and rider is not None) or re.match(r"(?:(?:target|each|that|an?|your) )?(?:players?|opponents?)\b", m["o"]):
             raise _Fail  # (wave 110I: remove_counters only reads cards; a player's counters would silently do nothing)
         # (wave 17D: "remove all -1/-1 counters from it" - as many as there are, 122.8)
         n = 10**6 if m["n"] == "all" else _apply(_amount(m["n"]), rider)
@@ -4371,7 +4371,7 @@ _GOAD_PLAYER = re.compile(r"goad (?:each|all) creatures? (?P<p>target player|tar
 _MANIFEST = re.compile(r"(?:(?P<p>its controller|that player|target player|target opponent|each player|each opponent) )?"
                        r"(?P<v>manifests?|cloaks?) the top (?:(?P<n>two|three|four|five|x|\d+) cards|card) of "
                        r"(?P<lib>your|their) library")
-_DREAD = re.compile(r"(?:(?P<p>its controller|that player) )?manifests? dread(?: (?P<n>twice|x times|\w+ times))?")  # (wave 17C: "Its controller manifests dread.")
+_DREAD = re.compile(r"(?:(?P<p>its controller|that player|the exiled card's owner) )?manifests? dread(?: (?P<n>twice|x times|\w+ times))?")  # (wave 17C: "Its controller manifests dread.")
 
 
 def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
@@ -4383,7 +4383,7 @@ def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
         if (m["p"] is None) != m.group(0).startswith("manifest dread"):
             return None
         return [{"do": "manifest", "dread": True, "kind": "manifest", "who": {None: "you", "its controller": "it.controller",
-                                                                              "that player": "that_player"}[m["p"]], "n": n}], None
+                                                                              "that player": "that_player", "the exiled card's owner": "it.owner"}[m["p"]], "n": n}], None  # (wave 110B: Unidentified Hovership, 607.2a)
     if (hand := re.fullmatch(r"(?P<v>manifest|cloak) a card from your hand", text)) is not None:  # -- hidden exile (wave 18A) --
         return [{"do": "manifest", "kind": hand["v"], "who": "you", "n": 1, "from": "hand"}], None  # (Scroll of Fate, Vannifar)
     other = re.fullmatch(r"(?:you )?(?P<v>manifest|cloak) the top card of (?P<lib>that player's|target opponent's|target player's|defending player's) library", text)
@@ -4407,7 +4407,7 @@ def _manifest_forms(text: str) -> tuple[Effects, Any] | None:
 
 def keyword_forms(text: str) -> tuple[Effects, Any] | None:
     """The keyword-action wordings above; None when the sentence is not one of them."""
-    if text.startswith(("manifest", "cloak", "you manifest", "you cloak", "its controller ", "that player ", "target player ", "target opponent ",
+    if text.startswith(("manifest", "cloak", "you manifest", "you cloak", "its controller ", "the exiled card's owner manifests", "that player ", "target player ", "target opponent ",
                         "each player ", "each opponent ")):
         found = _manifest_forms(text)
         if found is not None:

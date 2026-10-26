@@ -23,6 +23,7 @@ def firebending(line: str) -> int | None:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    "Exile Stunning Reversal.": "Exile ~.",
     # Desert Warfare: "that many" is the number of Deserts you control (the "five or more" test, 603.4, counts them); "They gain haste" is the tokens' own
     "At the beginning of combat on your turn, if you control five or more Deserts, create that many 1/1 red, green, and white Sand Warrior creature tokens. "
     "They gain haste.":
@@ -84,6 +85,30 @@ def _quake(d: Def) -> Def:
 def _skyguard(d: Def) -> Def:
     return {**d, "if": {"skyguard110b": True},
             "effects": [{**e, "duration": "end_of_combat"} if e["do"] == "prevent_all" else e for e in d["effects"]]}
+
+
+def uncounter_by(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Autumn's Veil: until the turn ends, spells ``ctx["controller"]`` controls can't be countered by spells of these colors."""
+    r, turn = plan.rules, plan.state.turn.number
+    r.results = [x for x in r.results if x["turn"] == turn]
+    r.results.append({"player": ctx["controller"], "what": "uncounterable_by", "turn": turn, "colors": e["colors"]})
+    return True
+
+
+def shielded(plan: Any, card: Any, source: str) -> bool:
+    """Is ``card`` (on the stack) protected from being countered by ``source``, a spell of a listed color (Autumn's Veil)?"""
+    src = plan.state.cards.get(source)
+    if src is None or src.zone != "stack" or src.ability is not None:
+        return False
+    turn, colors = plan.state.turn.number, set(plan.ch(src).colors)
+    return any(x.get("what") == "uncounterable_by" and x["turn"] == turn and x["player"] == card.controller and colors & set(x["colors"])
+               for x in plan.rules.results)
+
+
+def stolen_holds(plan: Any, ctx: dict[str, Any]) -> bool:
+    """Bronze Bombshell: its controller is not its owner (603.8, 108.3)."""
+    c = plan.state.cards[ctx["source_card"]]
+    return c.controller != c.owner
 
 
 def skyguard_holds(plan: Any, ctx: dict[str, Any]) -> bool:
@@ -194,7 +219,55 @@ def return_next_end(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
+def _towershell(d: Def) -> Def:
+    """603.7, 508.4: the delayed return waits for the declare attackers step of its controller's next turn, and the creature enters attacking."""
+    out = []
+    for e in d["effects"]:
+        if e["do"] == "delayed":
+            e = {**e, "when": {**e["when"], "step": "declare_attackers"}}
+        elif e["do"] == "deferred:return_card":
+            e = {**e, "attacking": True}
+        out.append(e)
+    return {**d, "effects": out}
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Weeping Angel: 205.1b the Angel loses the creature type until end of turn (it stays a permanent with its other types)
+    "Whenever an opponent casts a creature spell, this creature isn't a creature until end of turn.":
+        ("Whenever an opponent casts a creature spell, this creature becomes an artifact until end of turn.",
+         lambda d: {**d, "effects": [{"do": "become", "who": "self", "remove_types": ["Creature"], "duration": "end_of_turn"}]}),
+    # Linvala, Shield of Sea Gate: 611.2a, 113.3: restricted until her controller's next turn, both rules on the one target
+    "At the beginning of combat on your turn, if you have a full party, choose target nonland permanent an opponent controls. Until your next turn, it can't "
+    "attack or block, and its activated abilities can't be activated.":
+        ("At the beginning of combat on your turn, if you have a full party, until your next turn, target nonland permanent an opponent controls can't attack or block.",
+         lambda d: {**d, "effects": [{**e, "n": 2} if e["do"] == "until" else e for e in d["effects"]] + [{"do": "restrict", "who": "target", "rules": ["cant_activate"]}]}),
+    # Nissa of Shadowed Boughs: "you may have it become" asks before the become + "still a land" pair (unless_pays.may_rest skip 2), 205.1b
+    "+1: Untap target land you control. You may have it become a 3/3 Elemental creature with haste and menace until end of turn. It's still a land.":
+        ("+1: Untap target land you control. It becomes a 3/3 Elemental creature with haste and menace until end of turn. It's still a land.",
+         lambda d: {**d, "effects": [d["effects"][0], {"do": "may_rest", "skip": 2, "label": "Make it a 3/3 Elemental creature"}, *d["effects"][1:]]}),
+    "\u22125: You may put a creature card with mana value less than or equal to the number of lands you control onto the battlefield from your hand or "
+    "graveyard with two +1/+1 counters on it.":
+        ("-5: Put a creature card with mana value less than or equal to the number of lands you control from your hand or graveyard onto the battlefield "
+         "with two +1/+1 counters on it.", lambda d: {**d, "effects": [{"do": "may_rest"}, *d["effects"]]}),
+    # Meandering Towershell
+    "Whenever this creature attacks, exile it. Return it to the battlefield under your control tapped and attacking at the beginning of the declare "
+    "attackers step on your next turn.":
+        ("Whenever this creature attacks, exile it. Return it to the battlefield under your control tapped at the beginning of your next end step.", _towershell),
+    # Autumn's Veil: 101.2, 701.6 its controller's spells can't be countered by blue or black spells this turn (shielded), plus the targeting half
+    "Spells you control can't be countered by blue or black spells this turn, and creatures you control can't be the targets of blue or black spells this turn.":
+        ("Creatures you control can't be the targets of blue or black spells this turn.",
+         lambda d: {**d, "effects": [{"do": "uncounter_by110b", "colors": "UB"}, *d["effects"]]}),
+    # Bronze Bombshell: 603.8 state trigger "controlled by a player other than its owner" (stolen_holds); the thief is the trigger's controller
+    "When a player other than this creature's owner controls it, that player sacrifices it. If the player does, this creature deals 7 damage to the player.":
+        ("When you control no Islands, sacrifice this creature. If you do, ~ deals 7 damage to you.", lambda d: {**d, "state": {"stolen110b": True}}),
+    # Rendmaw: 701.15a each token is goaded by Rendmaw's controller, "for the rest of the game" (token_copy_sources.permanent_goad, as Nettling Nuisance)
+    "When Rendmaw enters and whenever you play a card with two or more card types, each player creates a tapped 2/2 black Bird creature token with flying. "
+    "The tokens are goaded for the rest of the game.":
+        ("When ~ enters and whenever you play a card with two or more card types, each player creates a tapped 2/2 black Bird creature token with flying.",
+         lambda d: {**d, "effects": [{**d["effects"][0], "as": "bird110b"}, {"do": "permanent_copy_goad", "who": "ref:bird110b"}]}),
+    # Stunning Reversal: 614.1a the next loss of the game this turn is replaced (wave110c_lose reads the shield)
+    "The next time you would lose the game this turn, instead draw seven cards and your life total becomes 1.":
+        ("Draw a card.", lambda d: {**d, "effects": [{"do": "lose_shield110b"}]}),
     "If a permanent you control would be put into a graveyard from the battlefield this turn, exile it instead. Return it to the battlefield under its "
     "owner's control at the beginning of the next end step.":
         ("If a creature you control would die this turn, exile it instead.", _intervention),
@@ -289,10 +362,39 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
 }
 
 
+_LINVALA = "Sacrifice Linvala: Choose hexproof or indestructible. Creatures you control gain that ability until end of turn."
+
+
+def _linvala(ability: Any, ch: Any) -> Def | None:
+    """700.2: "Choose hexproof or indestructible" is a choice of one of two modes, read as the modal ability it equals (header and two bullets in a scratch card)."""
+    from app.rules import modal_abilities
+
+    rows = [replace(ability, index=ability.index + i, kind="static", text=f"• Creatures you control gain {k} until end of turn.") for i, k in ((1, "hexproof"), (2, "indestructible"))]
+    head = replace(ability, text="Sacrifice Linvala: Choose one \u2014")
+    return modal_abilities.definitions(head, replace(ch, abilities=(head, *rows))).get(ability.index)
+
+
+_ANGEL = "If this creature would deal combat damage to a creature, prevent that damage and that creature's owner shuffles it into their library."
+
+
+def _angel() -> Def:
+    """Weeping Angel: 615.1, 615.5 the combat damage it would deal to a creature is prevented, and the prevented-from creature's owner shuffles it in (the rider)."""
+    from app.rules import selectors
+
+    return {"kind": "static", "static": "replace", "event": "damage",
+            "match": {"combat": True, "source": {"self": True}, "to": {"objects": {"sel": selectors.Selector(types=("Creature",)).key()}}},
+            "op": {"do": "prevent_all", "prevention": True, "rider": {"aggregation": "batch", "effects": [{"do": "to_library", "who": "ref:to", "place": "shuffle"}]}},
+            "effects": []}
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _ANGEL:
+        return _angel()
+    if text == _LINVALA:
+        return _linvala(ability, ch)
     if (same := _AS.get(text)) is not None:
         return scripts.define(replace(ability, text=same), ch)
     if (built := _BUILD.get(text)) is not None:
@@ -304,6 +406,26 @@ def definition(ability: Any, ch: Any) -> Def | None:
 _VINCENT = ('Until end of turn, target creature you control gains "When this creature dies, return it to the battlefield tapped under its owner\'s '
             'control" and has the chosen base power and toughness.')
 _TIER = re.compile(r"• (?P<label>[^—{}]+) — (?P<cost>(?:\{[^}]+\})+) — (?P<p>\d+)/(?P<t>\d+)\.")
+
+
+# Genku: the header's "those characteristics" are each bullet's own token (700.2, "hasn't been chosen this turn" is modal_abilities' memory)
+_GENKU = ("Whenever another nontoken permanent you control leaves the battlefield, choose one that hasn't been chosen this turn. Create a creature token with those characteristics.",
+          ["• 2/2 white Fox with vigilance.", "• 1/2 blue Moonfolk with flying.", "• 1/1 black Rat with lifelink."],
+          ["Create a 2/2 white Fox creature token with vigilance.", "Create a 1/2 blue Moonfolk creature token with flying.",
+           "Create a 1/1 black Rat creature token with lifelink."])
+
+
+def merge_lines(ch: Any, out: dict[int, Any]) -> None:
+    from app.rules import modal_abilities
+
+    head, rows, creates = _GENKU
+    for offset, ab in enumerate(ch.abilities):
+        if ab.text != head or [r.text for r in ch.abilities[offset + 1 : offset + 4]] != rows:
+            continue
+        new = {ab.index: replace(ab, text=head.split(", choose")[0] + ", choose one that hasn't been chosen this turn —")}
+        new.update({r.index: replace(r, text="• " + t) for r, t in zip(ch.abilities[offset + 1 : offset + 4], creates, strict=True)})
+        rewritten = replace(ch, abilities=tuple(new.get(a.index, a) for a in ch.abilities))
+        out.update(modal_abilities.definitions(new[ab.index], rewritten) or {})
 
 
 def tiered(ch: Any, lines: list[Any]) -> Def | None:
@@ -447,6 +569,15 @@ def no_attack_next(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
+def lose_shield(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import turn_log_now
+
+    log = turn_log_now(plan.state)
+    if log is not None:
+        log.lose_shield110b.append(f"{ctx['controller']}|{ctx['source_card']}")
+    return True
+
+
 RESUME: dict[str, Any] = {"exile_own110b": resume_exile_own, "rebound_hand110b": resume_rebound_hand}
 def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """702.174c: the gift was given (its instant or sorcery resolved, or its permanent's gift trigger resolved): "Whenever you give a gift"."""
@@ -456,4 +587,4 @@ def gift_given(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "exile_own110b": exile_own}
+PRIMITIVES: dict[str, Any] = {"return_next_end110b": return_next_end, "gap_search110b": gap_search, "gift_given110b": gift_given, "ungoad110b": ungoad, "no_attack_next110b": no_attack_next, "draw_game110b": draw_game, "reaver110b": reaver, "veil110b": veil, "uncounter_by110b": uncounter_by, "exile_own110b": exile_own, "lose_shield110b": lose_shield}

@@ -349,6 +349,9 @@ def start_declare_attackers(plan: Plan) -> None:
     targets = attack_targets(plan.state, ap, plan.info)
     if not eligible or not targets:
         r.no_attackers = True
+        from app.rules import delayed
+
+        delayed.at_step(plan, "declare_attackers")  # (wave 110B)
         return
     who = wave110a_choosers.chooser(plan, "attack", ap)  # -- declaration choosers (wave 110A) --
     decide(plan, player=ap, kind="declare_attackers", prompt="Declare attackers (or attack with nothing)", decider=who, blind=who is not None,
@@ -524,10 +527,13 @@ def _finish_attackers(plan: Plan, payload: PaidAttackers, payment: M.Payment | N
     if life:
         from app.rules import replace as _replace_life
 
-        _replace_life.lose_life(plan, [(plan.actor, life)], actor=plan.actor)
+        _replace_life.lose_life(plan, [(plan.actor, life)], actor=plan.actor, paid=True)
         plan.note(f"{plan.name(plan.actor)} paid {life} life to attack")
     # -- end combat (wave 5C) --
     r.decision = None
+    from app.rules import delayed
+
+    delayed.at_step(plan, "declare_attackers")  # -- delayed triggers (wave 110B) -- 603.7: "at the beginning of the declare attackers step" (Meandering Towershell), once the declaration is made
     if not a.attackers:
         r.no_attackers = True
         plan.note(f"{plan.name(plan.actor)} doesn't attack")
@@ -892,7 +898,11 @@ def declare_blockers(plan: Plan, a: A.DeclareBlockers) -> None:
         r.declaration_cost_reserved = DeclarationCostReservation(payer=plan.actor, objects={cid: oid for event in additional for cid, oid in event.objects.items()})
     frame = PaidBlockers(expanded, {cid: plan.oid(plan.state.cards[cid]) for cid in used},
                          {cid: plan.oid(plan.state.cards[cid]) for cid in effective_counts})
-    cost = M.parse_cost(combat_rules.block_cost(plan, set(used)))
+    from app.rules import (
+        wave110m_cards,  # -- (wave 110M) -- Awesome Presence: a cost to block that attacker, for each blocker (509.1d)
+    )
+
+    cost = M.parse_cost(combat_rules.block_cost(plan, set(used)) + wave110m_cards.block_tax_for(plan, expanded))
     if not cost.is_free:
         from app.rules import casting
 
@@ -982,7 +992,7 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
         covered.setdefault(block.blocker_id, set()).add(block.attacker_id)
     idle = [state.cards[b] for b in blockers if b not in used]
     att = [state.cards[x] for x in attackers]
-    from app.rules import combat_rules
+    from app.rules import combat_rules, wave110m_cards
 
     cap = combat_rules.limits(plan, combat_rules.BLOCK_LIMIT_ALL).get("*")  # -- static_other sweep (wave 16B) -- no more blockers once at it
     at_cap = cap is not None and len(used) + sum(1 for c in state.cards.values() if c.is_blocking) >= cap
@@ -993,6 +1003,8 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
         bch, ach = plan.ch(blocker), plan.ch(attacker)
         if blocker.id not in used and combat_rules.has_block_cost(plan, blocker.id, bch):
             return False  # 509.1c: a requirement never forces an additional payment.
+        if wave110m_cards.attacker_tax(ach):  # -- (wave 110M) -- Awesome Presence: blocking that attacker costs mana (509.1c)
+            return False
         if block_problem(state, blocker, bch, attacker, ach, plan.info) is not None:
             return False
         if "cant_block_alone" in scripts.statics(bch) and not a.blocks:
@@ -1005,6 +1017,7 @@ def block_requirements(plan: Plan, a: A.DeclareBlockers, blockers: set[str], att
         return 1 + per_attacker.get(x.id, 0) + sum(
             1 for i in blockers if i != b.id and x.id not in used.get(i, []) and len(used.get(i, [])) < block_limit(plan, plan.ch(state.cards[i]))
             and (i in used or not combat_rules.has_block_cost(plan, i, plan.ch(state.cards[i])))
+            and not wave110m_cards.attacker_tax(plan.ch(x))  # (wave 110M)
             and block_problem(state, state.cards[i], plan.ch(state.cards[i]), x, plan.ch(x), plan.info) is None)
 
     for b in idle:

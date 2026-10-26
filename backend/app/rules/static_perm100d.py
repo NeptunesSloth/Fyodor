@@ -312,7 +312,7 @@ def as_enters(plan: Plan, card_id: str, ep: dict[str, Any], controller: str) -> 
             from app.rules import replace
 
             plan.note(f"As {name} enters, {plan.name(controller)} pays {n} life", [card_id])
-            replace.lose_life(plan, [(controller, n)])
+            replace.lose_life(plan, [(controller, n)], paid=True)
         elif what == "mill_per_kick" and (n := 3 * values.kicked_count(plan, ctx)):  # 701.17a (not cast: never kicked)
             plan.note(f"As {name} enters, {plan.name(controller)} mills {n} cards", [card_id])
             effects.PRIMITIVES["mill"](plan, ctx, {"do": "mill", "who": "you", "n": n})

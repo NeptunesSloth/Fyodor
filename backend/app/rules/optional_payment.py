@@ -723,7 +723,7 @@ def _paid(plan: Plan, frame: OptionalPaymentFrame, payment: M.Payment | None) ->
     paid, refs = frame.paid, frame.refs
     if cost.life:
         from app.rules import replace as _replace_life  # (wave 28B: 119.4)
-        _replace_life.lose_life(plan, [(payer, cost.life)], actor=payer)
+        _replace_life.lose_life(plan, [(payer, cost.life)], actor=payer, paid=True)
     for kind, n in cost.remove_counters:
         from app.rules import counter_removal_results
 

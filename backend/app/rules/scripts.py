@@ -448,7 +448,7 @@ def _it_source(word: str) -> dict[str, str]:
 
 # Events after which the object is still where it was, so "it" can name it (not dies / leaves:
 # that's a new object in another zone, 400.7)
-_STAYING = {"enter", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
+_STAYING = {"enter", "enter_attacking", "attack", "unblocked", "block", "blocked", "tapped", "untapped", "dealt_damage", "deal_damage_opponent",
             "deal_combat_damage_player", "deal_damage", "counters_put", "counters_removed", "targeted", "create_token"}
 _STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive", "mutate"})  # -- becomes monstrous (wave 6D) --
 _STAYING.update({"to_graveyard", "to_exile", "to_library"})  # -- into a graveyard (wave 6D; wave 21D: exile, a library) -- the card(s) there, as they are there
@@ -2677,6 +2677,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import wave110k_cards  # -- exact wordings (wave 110K) --
+
+    if (body110k := wave110k_cards.parse(body)) is not None:
+        return body110k
     from app.rules import wave110g_cards  # -- exact wordings (wave 110G) --
 
     if (body110g := wave110g_cards.parse(body)) is not None:
@@ -2721,10 +2725,30 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (body110f := wave110f_cards.parse(body)) is not None:
         return body110f
+    from app.rules import wave110o_cards  # -- (wave 110O) --
+
+    if (body110o := wave110o_cards.parse(body)) is not None:
+        return body110o
     from app.rules import wave110i_cards  # -- cards (wave 110I) --
 
     if (body110i := wave110i_cards.parse(body)) is not None:
         return body110i
+    from app.rules import wave110j_cards as _w110j  # -- cards (wave 110J) --
+
+    if (body110j := _w110j.parse(body)) is not None:
+        return body110j
+    from app.rules import wave110l_cards  # -- wave 110L --
+
+    if (body110l := wave110l_cards.parse(body)) is not None:
+        return body110l
+    from app.rules import wave110m_cards as _w110m  # -- (wave 110M) --
+
+    if (body110m := _w110m.parse(body)) is not None:
+        return body110m
+    from app.rules import wave110n_cards  # -- (wave 110N) --
+
+    if (body110n := wave110n_cards.parse(body)) is not None:
+        return body110n
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (body100n := multi100n.parse(body)) is not None:
@@ -4717,6 +4741,10 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
                 and len(effects) - prev_start == 1 and effects[-1]["do"] == "counter" and "to" not in effects[-1]:  # -- counter outcomes (wave 110C) -- Desertion
             effects[-1] = {**effects[-1], "to": "battlefield_you", "types": ["Artifact", "Creature"]}
             continue
+        if text == "if a permanent spell is countered this way, exile it instead of putting it into its owner's graveyard" \
+                and len(effects) - prev_start == 1 and effects[-1]["do"] == "counter" and "to" not in effects[-1]:  # -- counter outcomes (wave 110I) -- Thranduil's Decree (110.4)
+            effects[-1] = {**effects[-1], "to": "exile", "types": ["Artifact", "Battle", "Creature", "Enchantment", "Land", "Planeswalker"]}
+            continue
         text = _for_each_this_way(text)  # -- "this way" outcomes (wave 4A) --
         from app.rules import (
             chain_spells,  # -- chain spells (wave 52C) -- "that player may pay {R}{R}. If the player does, they may copy this spell …"
@@ -6048,6 +6076,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (whole110a := wave110a.definition(ability, ch)) is not None:
         return whole110a
+    from app.rules import wave110o_cards as _w110o  # -- (wave 110O) --
+
+    if (card110o := _w110o.definition(ability, ch)) is not None:
+        return card110o
     from app.rules import wave110b_cards  # -- wave 110B --
 
     if (card110b := wave110b_cards.definition(ability, ch)) is not None:
@@ -6076,6 +6108,22 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (card110j := wave110j_cards.definition(ability, ch)) is not None:
         return card110j
+    from app.rules import wave110k_cards  # -- (wave 110K) --
+
+    if (card110k := wave110k_cards.definition(ability, ch)) is not None:
+        return card110k
+    from app.rules import wave110l_cards  # -- wave 110L --
+
+    if (card110l := wave110l_cards.definition(ability, ch)) is not None:
+        return card110l
+    from app.rules import wave110m_cards  # -- (wave 110M) --
+
+    if (card110m := wave110m_cards.definition(ability, ch)) is not None:
+        return card110m
+    from app.rules import wave110n_cards  # -- (wave 110N) --
+
+    if (card110n := wave110n_cards.definition(ability, ch)) is not None:
+        return card110n
     from app.rules import retarget100o  # -- retarget (wave 100O) --
 
     if (lines100o := retarget100o.definition(ability, ch)) is not None:
@@ -7071,7 +7119,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     # -- cost reductions paid with objects (wave 47C) -- "mana value less than X" (107.3f) reads the X announced for a spell or an ability with {X} in its cost; any other X
     # (Scrap Welder's is the sacrificed artifact's) is unbound, so the ability stays manual
     if d is not None and re.search(r'\["mv","<",-1\]', json.dumps(d, default=str).replace('\\"', '"')) \
-            and not ("{X}" in (ch.mana_cost or "") if d.get("kind") == "spell" else d.get("kind") == "activated" and "{X}" in (ability.cost or "")):
+            and not ("{X}" in (ch.mana_cost or "") if d.get("kind") == "spell" else d.get("kind") == "activated" and (
+                "{X}" in (ability.cost or "") or "with mana value X" in (ability.cost or ""))):  # -- X from a cost (wave 110D) -- Scrap Welder: "Sacrifice an artifact with mana value X" announces X (costs.selector_x), then the sacrificed artifact must have it
         return None
     from app.rules import kicked_instead  # -- kicked / instead (wave 4G) -- 702.33g: a spell's targets only
 
@@ -8272,7 +8321,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 # Trigger events that come with an amount ("that much" / "that many", TriggerEvent.amount): life
 # gained / lost, damage dealt, counters put; for a "one or more" batch of sacrifices, discards,
 # tokens created … the number of them (603.2c)
-_AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
+_AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "pay_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "counters_removed", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
                   "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library",
                   "roll_die"}  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
@@ -8515,6 +8564,9 @@ def _cached(ch: Characteristics) -> dict[int, Definition]:
     from app.rules import random_characteristic_choices
 
     random_characteristic_choices.merge_lines(ch, out)
+    from app.rules import wave110b_cards as _w110b  # -- wave 110B --
+
+    _w110b.merge_lines(ch, out)
     from app.rules import random_native_outcomes42
 
     random_native_outcomes42.merge_lines(ch, out)
@@ -8572,7 +8624,7 @@ def _merge_instead_lines(ch: Characteristics, out: dict[int, Definition]) -> Non
 def definitions(ch: Characteristics) -> dict[int, Definition]:
     """Engine definitions for a card's abilities, by ability index (see ``app.rules.oracle``).
     Hand-written scripts (``app.rules.cards``) are consulted by the caller first."""
-    if ch.is_ability or ch.face_down:
+    if ch.is_ability or (ch.face_down and not ch.abilities):  # -- face-down abilities (wave 110D) -- 708.2: none of its own, but an effect may grant some (Etrata)
         return {}
     from app.rules import cards  # hand-written scripts (a leaf package)
 
@@ -8733,6 +8785,7 @@ _MODAL_HEADERS = {
 # [as you cast this spell], [you may] choose both / two / one or more instead." (an ability word may lead: "Delirium — "), the condition checked
 # as the spell is cast (casting.choose_modes). Read: the two announced facts of a cast (kicked, teamwork 702.194b) and conditions about the table.
 _NUMBERS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
+X_HEADER = "Choose X. You may choose the same mode more than once."
 _REPEAT_HEADER = re.compile(r"^Choose (?P<up>up to )?(?P<n>three|four|five)\. You may choose the same mode more than once\.$")
 _INSTEAD_HEADER = re.compile(r"^(?:[A-Z][a-z]+(?: \d+)? — )?Choose one\. If (?P<c>.+?)(?: as you cast this spell)?, (?P<may>you may )?"
                              r"choose (?P<k>both|two|one or more|any number) instead\.$")
@@ -8746,6 +8799,8 @@ def modal_header(text: str) -> tuple[int, int, bool, dict[str, Any] | None] | No
         # -- spells (wave 110A) -- "Choose up to four. You may choose the same mode more than once." (Moment of Reckoning): one to four modes, 700.2d.
         # No CR rule or ruling lets a non-pawprint "up to" spell choose zero modes (700.2i is the pawprint form), so the minimum stays one.
         return (1 if m["up"] else _NUMBERS[m["n"]]), _NUMBERS[m["n"]], True, None
+    if text == X_HEADER:  # -- choose X (wave 110C) -- 700.2d, 601.2b: casting.choose_modes makes min = max = the announced X
+        return 0, 99, True, None
     if (m := _INSTEAD_HEADER.match(text)) is None:
         return None
     from app.rules import conditions
@@ -8792,7 +8847,8 @@ def modal_definition(lines: list[AbilityText], name: str = "") -> Definition | N
                       "target": {"what": target} if target else None})
     if not repeat and lo > len(modes):
         return None
-    modal: dict[str, Any] = {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": None}
+    modal: dict[str, Any] = {"min": lo, "max": min(hi, 99 if repeat else len(modes)), "repeat": repeat, "condition": None,
+                             **({"x": True} if lines[0].text == X_HEADER else {})}  # -- choose X (wave 110C) --
     if instead is not None:  # -- modal frames (wave 33B) --
         modal["instead"] = {**instead, "max": min(instead["max"], len(modes))}
     after: list[dict[str, Any]] = []  # -- wave 110A -- 608.2c: a line printed after the modes is carried out after the chosen modes ("Draw a card at the beginning of the next turn's upkeep.")
@@ -8907,6 +8963,10 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     from app.rules import contextual_mana_outcomes
     if (contextual := contextual_mana_outcomes.spell(ch, text_lines)) is not None:
         return contextual
+    from app.rules import wave110k_cards  # -- (wave 110K) --
+
+    if (spell110k := wave110k_cards.spell(ch, text_lines)) is not None:
+        return spell110k
     defs = definitions(ch)
     # ("This spell costs {1} less to cast for each …": part of the total cost, not of what it does)
     # (wave 3C: nor "If you control a commander, you may cast this spell without paying its mana cost"; 3$: additional costs)
@@ -9000,8 +9060,12 @@ def _spell_definition(ch: Characteristics) -> Definition | None:
     as_cast = {defs[ab.index]['x_as_cast'] for ab in lines if defs[ab.index].get('x_as_cast') is not None}
     if as_cast - {'greatest_own_power'} or len(as_cast) > 1:
         return None
+    delegated = [defs[ab.index] for ab in lines if defs[ab.index].get("delegated_target")]  # -- delegated (wave 110D) -- "of an opponent's choice" (Evangelize): a lone line
+    if delegated and len(lines) != 1:
+        return None
     return {"kind": "spell", "effects": effects, **target_fields(target), **({"x_min": minimum_x} if minimum_x else {}),
-            **({'x_as_cast': next(iter(as_cast))} if as_cast else {})}
+            **({'x_as_cast': next(iter(as_cast))} if as_cast else {}),
+            **({k: delegated[0][k] for k in ("delegated_target", "delegated_controls110d")} if delegated else {})}
 
 
 # =====================================================================================================
@@ -9611,6 +9675,9 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if text == "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield instead of putting it " \
                "into your graveyard.":  # -- discard causes (wave 23D) -- 614.1a, 701.9: the discard is replaced (replacements.replace_move)
         return {"kind": "replacement", "replacement": "discard_battlefield", "effects": []}
+    if text == "If a spell or ability an opponent controls causes you to discard this card, put it onto the battlefield with two +1/+1 counters on it instead of " \
+               "putting it into your graveyard.":  # -- discard causes (wave 110I) -- Dodecapod: the same replacement, 614.12 / 122.6 counters as it enters (replacements.replace_move)
+        return {"kind": "replacement", "replacement": "discard_battlefield", "effects": [], "counters110i": {"+1/+1": 2}}
     if text == "If a card that has a cycling ability would be put into your graveyard from anywhere and it wasn't cycled, exile it instead.":
         return {"kind": "static", "static": "exile_instead", "effects": [], "from": "anywhere",
                 "graveyard_of": "you", "who": "card", "cycling_not_cycled": True}
@@ -11212,7 +11279,7 @@ def _reflexive(rest: str, effects: list[dict[str, Any]], prev_start: int, option
         if (now := _x_now()):  # (the stand-in of a "where X is …" sentence: _where_x swaps it in)
             now[0] = json.loads(json.dumps(now[0]).replace('"cost:exiled"', '"event"'))
     stand_in = bool(_x_now()) and "event_amount" in json.dumps(_x_now()[0]) and "event_amount" in body_json  # (wave 34C: "where X is the amount of life you gained", read in _where_x)
-    keep = (keep and '"event"' in body_json) or (stand_in and lki is None and not sized_x)  # (only when the body actually reads the trigger's event; wave 34C: or its amount, explicitly)
+    keep = (keep and '"event"' in body_json) or (stand_in and lki is None and not sized_x) or ('"event_player"' in body_json and lki is None and not sized_x)  # (only when the body actually reads the trigger's event; or its player, whatever "it" is: "that player" = who event_player, 603.12, Ezio / Biting-Palm Ninja; wave 34C: or its amount, explicitly)
     x_bind = None
     if sized_x:
         # -- if you do (wave 25C) -- "you may pay {X}. When you do, ~ deals X damage to target player.": the X paid (107.3f, paid_x) is the

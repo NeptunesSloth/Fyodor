@@ -24,3 +24,7 @@
 - Elkin Lair: no "exile a card at random from hand" primitive plus owner-play-then-graveyard check.
 - North Star: "for one spell this turn" spend permission must be consumed by the first spell; no one-shot spend grant.
 - Touch of Moonglove: a spell-made "whenever a creature dealt damage by that creature dies this turn" watch needs a die watch bound to the target's damage log.
+- Thijarian Witness: "attacking or blocking alone" needs the simultaneous-death combat state (who else was attacking/blocking at the same instant); LKI cannot tell, so refused.
+- Ice Cave (s8): "any other player may pay that spell's mana cost" has no ordering ruling for several payers; needs each-may over non-casters plus cost = the spell's own mana cost (X as 0).
+- Sacred Ground (s8, still): zone_change actor is the effect's controller for effects but the owner for SBA/sacrifice, so "caused by a spell or ability an opponent controls" is not decidable for sacrifice effects; needs a cause stamp on every move.
+- Whippoorwill (s8): "can't be dealt instead to another permanent or player" (redirection prohibition) has no primitive.

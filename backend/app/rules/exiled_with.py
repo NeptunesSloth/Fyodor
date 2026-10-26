@@ -39,7 +39,7 @@ _UNDER = (r"under (?:(?P<you>your) control|(?:its|their) owner(?:'s|s') control"
 _BATTLEFIELD = re.compile(rf"^(?:return|put) {_THE} (?:to|onto) the battlefield(?P<tapped> tapped)?(?: (?P<specified>{_UNDER}))?$")
 _HAND = re.compile(rf"^(?:return|put) {_THE} (?:to|into) (?:its|their) owner(?:'s|s') hands?$")  # (wave 20D: "Put all cards exiled with ~ into their owners' hands.")
 _GRAVEYARD = re.compile(rf"^(?:put|return) {_THE} (?:into|to) (?:its|their) owner(?:'s|s') graveyards?$")  # (Currency Converter, Valakut Exploration, Gravegouger)
-_REFERS = re.compile(r"\bthe exiled cards?\b|\bcards?(?: you own| they own)?(?: have been)? exiled with (?:it\b|~|this [A-Za-z]+)|\bthat was exiled with (?:it\b|~)")  # (wave 17D: "~" has no word boundary after it)
+_REFERS = re.compile(r"\bthe exiled (?:creature )?cards?\b|\bcards?(?: you own| they own)?(?: have been)? exiled with (?:it\b|~|this [A-Za-z]+)|\bthat was exiled with (?:it\b|~)")  # (wave 17D: "~" has no word boundary after it)
 _OWNERS_RETURN = re.compile(r"^each player returns to (?P<where>the battlefield|their hand) all cards they own exiled with (?:it|~)$")
 
 
