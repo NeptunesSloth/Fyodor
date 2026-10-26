@@ -77,6 +77,12 @@
   --room-radius: 4px;
   --radius: 6px;
   --shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
+  /* motion (docs/GAME_UI_MOTION_RESEARCH.md): strong curves, short durations, scaled by the
+     player's animation speed through --anim-scale (0 with reduced motion) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-hover: calc(140ms * var(--anim-scale, 1));
+  --dur-popover: calc(180ms * var(--anim-scale, 1));
   /* every overlay on the table: blackened metal, not a grey web panel */
   --hud-surface: linear-gradient(180deg, #1b140e, #0d0a07);
   --hud-edge: color-mix(in srgb, var(--frame) 70%, black);

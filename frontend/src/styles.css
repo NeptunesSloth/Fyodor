@@ -116,7 +116,10 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 .toasts { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; z-index: 2000; max-width: min(560px, calc(100vw - 32px)); }
 .toast {
   display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; font-size: 13px;
-  background: var(--hud-surface, var(--panel-grad)); border: 1px solid var(--frame); border-radius: 3px; box-shadow: var(--shadow); animation: pop 0.15s;
+  background: var(--hud-surface, var(--panel-grad)); border: 1px solid var(--frame); border-radius: 3px; box-shadow: var(--shadow);
+  /* an interruptible entry from the top bar it hangs under (transitions, not keyframes) */
+  transition: opacity var(--dur-popover) var(--ease-out), transform var(--dur-popover) var(--ease-out);
+  @starting-style { opacity: 0; transform: translateY(-8px); }
 }
 .toast-text { flex: 1; }
 .toast-action { min-height: 26px; padding: 2px 10px; font-size: 12.5px; }

@@ -69,11 +69,9 @@ export function Table3D({ me }: { me: string }) {
     };
     // keep the seat plates glued to the table, stepping out from under fixed chrome (camera strip,
     // turn dial, stack panels) so no plaque is ever hidden
-    let raf = 0;
     let frame = 0;
     let chrome: DOMRect[] = [];
     const follow = () => {
-      raf = requestAnimationFrame(follow);
       const host = el.getBoundingClientRect();
       if (frame++ % 20 === 0) {
         chrome = [...document.querySelectorAll(".t3d-cams, .turn-dial-wrap, .stack-widget.open, .rules-stack-wrap, .t3d-coach")].map((n) => n.getBoundingClientRect());
@@ -96,9 +94,9 @@ export function Table3D({ me }: { me: string }) {
         node.style.visibility = pt.visible ? "visible" : "hidden";
       }
     };
-    follow();
+    scene.onFrame = follow; // runs inside the three.js loop: one animation loop for the whole table
     return () => {
-      cancelAnimationFrame(raf);
+      scene.onFrame = null;
       unGame();
       unCards();
       setDropResolver3D(null);

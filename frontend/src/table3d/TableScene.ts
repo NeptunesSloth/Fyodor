@@ -14,6 +14,7 @@ import { toast } from "../components/Toasts";
 import { imageUrl } from "../services/cards";
 import { requestCards, useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
+import { usePrefs } from "../state/prefs";
 import { isVisible, type CardStats, type GameCard, type GameView, type LibraryView, type ZoneName } from "../types/game";
 import { counterShort, isKeyword } from "../game/counters";
 import { draw, tapCards, targetsFor } from "../game/actions";
@@ -191,6 +192,9 @@ export class TableScene {
   private fpsAt = 0;
   private frameTime = 0;
   stats: SceneStats = { fps: 0, calls: 0, triangles: 0, cards: 0 };
+  /** Called once per frame after rendering: DOM overlays that follow the table hook in here, so the
+   * three.js loop stays the only animation loop. */
+  onFrame: (() => void) | null = null;
 
   private cardFaceGeo = flatCardGeometry(CARD_W, CARD_H, 0.05);
   private cardBodyGeo: THREE.ExtrudeGeometry;
@@ -1063,7 +1067,9 @@ export class TableScene {
     const dt = Math.min(0.5, this.clock.getDelta()); // real time: slow devices still settle quickly
     const t = this.clock.elapsedTime;
     const reduced = document.body.classList.contains("reduced-motion");
-    const k = ease(dt, 14, reduced);
+    // the player's animation speed (Settings) scales every 3D motion
+    const speed = usePrefs.getState().animationSpeed || 1;
+    const k = ease(dt, 14 * speed, reduced);
     const dragging = !!this.drag?.active;
     let n = 0;
     for (const c of this.cards.values()) {
@@ -1097,7 +1103,7 @@ export class TableScene {
     this.shadows.count = n;
     this.shadows.instanceMatrix.needsUpdate = true;
     if (this.shadows.instanceColor) this.shadows.instanceColor.needsUpdate = true;
-    const kc = ease(dt, 5, reduced);
+    const kc = ease(dt, 5 * speed, reduced);
     this.camPos.lerp(this.camGoalPos, kc);
     this.camLook.lerp(this.camGoalLook, kc);
     this.camera.position.copy(this.camPos);
@@ -1110,6 +1116,7 @@ export class TableScene {
     this.renderer.info.reset();
     if (this.post) this.post.render();
     else this.renderer.render(this.scene, this.camera);
+    this.onFrame?.();
     this.frameTime += performance.now() - started;
     this.frames++;
     if (t - this.fpsAt >= 1) {
