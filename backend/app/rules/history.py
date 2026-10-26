@@ -291,6 +291,10 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
     from app.rules import first_event_receipts78
 
     first_event_receipts78.note_events(plan, events, log)
+    for e in events:  # -- cards (wave 110H) -- Desolation: a land tapped for mana (605.1a, 106.12a) this turn
+        if e.kind == "mana_added" and e.counter == "tap" and not e.manual and e.player and e.turn == plan.state.turn.number and (got := plan.state.cards.get(e.card or "")) is not None \
+                and "Land" in plan.ch(got).types:
+            log.facts.append(TurnFact(kind="land_mana110h", player=e.player, object_id=e.object_id))
     for e in events:
         if into is None and e.kind == "damage" and e.source and e.amount > 0 and (to := e.player or e.object_id) \
                 and to not in plan.rules.dealt_to110g.setdefault(e.source, []):  # -- wave 110G -- "has dealt damage to this game" (120.3)
@@ -340,7 +344,7 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
                 # this turn", "creature that dealt damage this turn" (app/rules/damage_history.py)
                 log.facts.append(TurnFact(kind="damaged", player=player or obj.controller, object_id=info["oid"],
                                           amount=int(info["amount"]), combat=bool(info.get("combat")),
-                                          source=info.get("source_oid"), batch=e.batch, excess=int(info.get("excess") or 0),
+                                          source=info.get("source_oid"), batch=e.batch, excess=int(info.get("excess") or 0), source_controller=info.get("actor"),  # (wave 110A: Grothama)
                                           **what))  # (wave 39B: batch, excess — 120.10)
             elif kind == "deal_damage" and info.get("recipient") and log.facts and log.facts[-1].kind == "damage":
                 # its source, as it was as it dealt that damage (608.2i)
@@ -362,7 +366,8 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
             elif kind == "mill" and obj is not None:  # -- free cast (wave 40D) -- 701.17a: this object was milled ("cards in your graveyard that were milled this turn", Raul)
                 log.facts.append(TurnFact(kind="mill", player=player or obj.owner, object_id=info.get("oid"), **what))
             elif kind == "to_exile" and player is not None:  # -- this-turn state (wave 33D) -- 400.1: a card put into exile from another zone (a token is no card)
-                log.facts.append(TurnFact(kind="exile", player=player, object_id=info.get("oid"), **what))
+                log.facts.append(TurnFact(kind="exile", player=player, object_id=info.get("oid"), batch=e.batch,
+                                          mv110e=int(ch.mana_value) if ch is not None else 0, **what))  # (wave 110E: Bell Borca notes it)
             elif kind == "counters_put" and player is not None:
                 log.facts.append(TurnFact(kind="counters", player=player, object_id=info.get("oid"),
                                           amount=int(info.get("amount") or 0), counter=info.get("counter"),

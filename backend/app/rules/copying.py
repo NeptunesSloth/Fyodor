@@ -360,7 +360,7 @@ def lki(plan: Plan, snap: Any, ch: Characteristics) -> Characteristics:
 
 def add_copy_effect(plan: Plan, affected: list[str], recipe: CopyRecipe, controller: str, *,
                     duration: Literal["end_of_turn", "permanent", "next_turn"] = "permanent", source: str | None = None,
-                    entry_source: CopyEntrySource | None = None) -> None:
+                    entry_source: CopyEntrySource | None = None) -> Any:
     """A layer-1 copy effect (613.2a) on these objects, timestamped now (613.7)."""
     from app.rules import layers
 
@@ -371,6 +371,7 @@ def add_copy_effect(plan: Plan, affected: list[str], recipe: CopyRecipe, control
     text_global_word71.record_acquisition(plan, affected, made.id)
     if duration == "next_turn":  # -- becomes a copy (wave 31C) -- 500.4: "until your next turn" ends as the controller's next turn begins (delayed.turn_began)
         made.until_player, made.turn = controller, plan.state.turn.number
+    return made
 
 
 def supported_source(plan: Plan, card: CardInstance, *, token: bool = False) -> str | None:
@@ -1018,7 +1019,7 @@ def copy_cards(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
         pending = {'todo': [], 'made': [], 'by_hand': []}
         for cid in effects._cards(plan, ctx, e['who']):
             card = plan.state.cards[cid]
-            if card.zone.rsplit(':', 1)[-1] not in ('exile', 'graveyard') or card.is_token:
+            if card.zone.rsplit(':', 1)[-1] not in ('exile', 'graveyard', *(('hand',) if e.get('hand110m') else ())) or card.is_token:  # (wave 110M: Kefnet's revealed card)
                 continue
             if e.get('source_zone') and card.zone.rsplit(':', 1)[-1] != e['source_zone']:
                 continue  # The printed copied card must actually have reached that zone.
@@ -1677,11 +1678,12 @@ def become_copy(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     recipe = with_excepts(base, [keep_colors(CopyExcept.model_validate(x), own) for x in e.get("excepts") or []])
     duration: Literal["end_of_turn", "permanent", "next_turn"] = "end_of_turn" if e.get("duration") == "end_of_turn" \
         else "next_turn" if e.get("duration") == "next_turn" else "permanent"  # (wave 31C: 500.4 "until your next turn")
-    add_copy_effect(plan, [plan.oid(c) for c in who], recipe, ctx["controller"], duration=duration)
+    made = add_copy_effect(plan, [plan.oid(c) for c in who], recipe, ctx["controller"], duration=duration)
     if e.get("duration") == "while_attached110l" and (src110l := plan.state.cards.get(ctx.get("source_card") or "")) is not None:
         # -- (wave 110L) -- "for as long as this Equipment remains attached to it" (611.2b): ends with the attachment (delayed.expire)
-        made = plan.rules.effects[-1]
         made.duration, made.source_card, made.source = "while_attached110l", src110l.id, plan.oid(src110l)
+    if e.get("duration") == "object_tapped110m" and len(of) == 1:  # (wave 110M) "for as long as that creature remains tapped": the copied creature, that object
+        made.duration, made.until_object = "object_tapped110m", plan.oid(of[0])
     plan.note(f"{', '.join(plan.state.cards[c].name for c in who)} becomes a copy of {recipe.source or 'it'}"
               + {"end_of_turn": " until end of turn", "next_turn": " until your next turn"}.get(duration, ""), who, actor=ctx["controller"])
     return True
@@ -1966,8 +1968,8 @@ def with_this_ability(d: dict[str, Any], ability: Any, ch: Characteristics) -> d
     marker = json.dumps(THIS_ABILITY)
     if marker not in raw:
         return d
-    if d.get("kind") not in ("activated", "triggered") or "\\u0000" in text or '"' in text:
-        return None
+    if d.get("kind") not in ("activated", "triggered") or "\\u0000" in text or ('"' in text and not (text.count('"') == 2 and text.endswith('"'))):
+        return None  # (wave 110A: one quoted ability closing the line is fine: Aurora Shifter's "except it has this ability and "Whenever …"")
     own = text if named or text.startswith(("Exhaust — ", "Boast — ", "Power-up — ", "Forecast — ")) \
         else re.sub(r"(^|: |\. )this permanent", r"\1This permanent", renamed(text, ch.name, "this permanent"))  # (unchanged if it names no one)
     return json.loads(raw.replace(marker, json.dumps(own)))

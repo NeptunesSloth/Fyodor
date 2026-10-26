@@ -63,7 +63,15 @@ from app.game.rules_state import (
     emit,
     track,
 )
-from app.game.state import COMBAT_PHASES, AttackTarget, CardInstance, MergedPart, StackInfo, TokenDef
+from app.game.state import (
+    COMBAT_PHASES,
+    AttackTarget,
+    CardInstance,
+    MergedPart,
+    StackInfo,
+    TokenDef,
+    TokenSource,
+)
 from app.rules import characteristics as chars
 from app.rules import delayed, designations, layers, scripts, selectors
 from app.rules.characteristics import Characteristics
@@ -222,6 +230,9 @@ def _add(plan: Plan, *, controller: str, source_card: str, source_object: str, n
     from app.rules import wave110c_misc  # -- Strict Proctor (wave 110C) --
 
     wave110c_misc.proctor_triggers(plan, pending, cause if cause is not None else event)
+    from app.rules import wave110a_spawn  # -- Aboleth Spawn (wave 110A) --
+
+    wave110a_spawn.triggers(plan, pending, cause if cause is not None else event)
     # -- end trigger multipliers (wave 5D) --
     return pending
 
@@ -349,6 +360,11 @@ def collect(plan: Plan) -> None:
             if suspended_card is not None and suspend_grants.has_suspend(plan, suspended_card) \
                     and plan.oid(suspended_card) == e.object_id and e.counter_remaining == 0:
                 suspend_last(plan, suspended_card)
+            elif suspended_card is not None and e.object_id in plan.rules.alaundo110m and plan.oid(suspended_card) == e.object_id and e.counter_remaining == 0 \
+                    and suspended_card.zone.endswith(":exile"):  # (wave 110M) Alaundo the Seer's grant: the same trigger, cast only
+                _add(plan, controller=suspended_card.owner, source_card=suspended_card.id, source_object=plan.oid(suspended_card), name=suspended_card.name, index=5001,
+                     definition={"kind": "triggered", "trigger": "upkeep_you", "optional": False, "target": None,
+                                 "effects": [{"do": "suspend_cast", "card": suspended_card.id, "object": plan.oid(suspended_card), "cast110m": True}]})
         if e.kind == "counters" and e.counter == "defense" and e.amount < 0 and not e.manual:
             from app.rules import battles  # 310.12b: "When the last defense counter is removed …"
 
@@ -385,6 +401,13 @@ def collect(plan: Plan) -> None:
                 for i, d in abilities(plan, ch, kind):
                     if d.get("unless_counter") and snap.counters.get(d["unless_counter"], 0) > 0:
                         continue  # persist / undying: "if it had no … counters on it"
+                    if sub := d.get("soulshift_x110g"):  # -- (wave 110G) -- soulshift X: counted just before the creatures of this batch left (603.10a)
+                        n = sum(1 for c in plan.state.cards.values() if c.controller == snap.controller and c.zone.endswith(":battlefield")
+                                and sub in plan.ch(c).subtypes) + sum(
+                            1 for o in new if o.kind == "zone_change" and o.batch == e.batch and _zone(o.from_zone) == "battlefield"
+                            and _zone(o.to_zone) != "battlefield" and (s2 := r.lki.get(o.object_id or "")) is not None
+                            and s2.controller == snap.controller and sub in _lki_characteristics(plan, s2).subtypes)
+                        d = {**d, "target": {"what": f"graveyard:{sub}:{n}"}}
                     _add(plan, controller=snap.controller, source_card=snap.card, source_object=snap.object_id,
                          name=ch.name, index=i, definition=d, event=_left(plan, "die" if kind == "dies_self" else "leave", snap, e))
 
@@ -427,6 +450,7 @@ def _snapshot_card(plan: Plan, snap: ObjectSnapshot) -> tuple[CardInstance, Char
     card = CardInstance(id=snap.card, card_id=snap.printing, name=snap.name, owner=snap.owner, controller=snap.controller,
                         zone=snap.zone, face=snap.face, face_down=snap.face_down, face_down_kind=snap.face_down_kind,
                         face_down_as=snap.face_down_as, is_token=snap.is_token,
+                        token_source=TokenSource(source_id=snap.token_source_id, name="") if snap.token_source_id else None,  # (wave 110F)
                         stickers101=[StickerPlacement101.model_validate(p) for p in snap.stickers101],
                         attached_to=snap.attached_to, attached_player=snap.attached_player, tapped=snap.tapped,
                         entry_characteristics=snap.entry_characteristics, attacking=attacking, attacking_without_target=snap.attacking_without_target, attack_defender_lost=snap.attack_defender_lost, blocking=snap.blocking_ids[0] if snap.blocking_ids else None,
@@ -480,11 +504,16 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
             if fact[0] == "enter":
                 fact[4]["played"] = e.new_object_id in window.get("played_lands", set())
         return facts
-    if e.kind == "mana_added" and e.counter == "tap":  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
+    if e.kind == "mana_added" and (e.counter == "tap" or e.amount > 0):  # -- mana riders (wave 5A) -- tapped for mana (106.12a)
         got = _object_then(plan, e.card, e.object_id)
+        if got is None:
+            return []
         # (wave 110I: ``amount`` carries the colors produced as a bit mask, W=1 U=2 B=4 R=8 G=16, for C.A.M.P.'s "shares a color with the mana that land produced")
-        return [("tapped_for_mana", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player,
-                                                                "amount": sum(1 << "WUBRG".index(c) for c in e.mana_colors110i)})] if got is not None else []
+        mana_facts: list[Fact] = [("tapped_for_mana", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player,
+                                                              "amount": sum(1 << "WUBRG".index(c) for c in e.mana_colors110i)})] if e.counter == "tap" else []
+        if e.amount > 0:  # -- mana ability resolves (wave 110D) -- 605.3b: "Whenever a mana ability of this creature resolves" (Tyvar): the mana it produced
+            mana_facts.append(("mana_resolved110d", got[0], got[1], e.player, {"oid": e.object_id, "actor": e.player, "amount": e.amount}))
+        return mana_facts
     if e.kind == "exerted":
         got = _object_then(plan, e.card, e.object_id)
         if got is None:
@@ -750,7 +779,8 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
     if got is not None:
         out.append(("dealt_damage", got[0], got[1], got[0].controller,
                     {"oid": e.object_id, "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or ""),
-                     "amount": e.amount, "source_oid": e.source, "combat": e.combat, "attacking_player": e.attacking_player, "excess": e.excess, "pair110c": e.pair110c}))  # (wave 39B: 120.10)
+                     "amount": e.amount, "source_oid": e.source, "combat": e.combat, "attacking_player": e.attacking_player, "excess": e.excess, "pair110c": e.pair110c,
+                     "actor": e.actor}))  # (wave 39B: 120.10)
     elif e.player is not None:  # "you're dealt combat damage", "an opponent is dealt noncombat damage"
         out.append(("dealt_damage", None, None, e.player,
                     {"recipient": e.player, "amount": e.amount, "source_oid": e.source, "combat": e.combat, "attacking_player": e.attacking_player}))
@@ -771,6 +801,7 @@ def _damage_facts(plan: Plan, e: Event) -> list[Fact]:
                   "recipient_ctl110b": got[0].controller if got is not None else None,  # (-- one-card wordings (wave 110B) -- a permanent's controller)
                   "recipient_toughness110b": sba.toughness(got[0], got[1]) if got is not None and recipient_is_creature else None,  # (wave 110B: Taii Wakeen)
                   "recipient_blocking110b": got is not None and bool(got[0].blocking),  # (-- one-card wordings (wave 110B) -- 509.1g: a blocker)
+                  "recipient_colors110f": sorted(got[1].colors) if got is not None else [],  # (wave 110F: Mangara's Equity, "a white creature you control", as it was)
                   "recipient_subtypes": list(got[1].subtypes) if got is not None else []}  # (wave 15B)
     dealt_info["single110c"] = got is not None and e.source_targets is not None and set(e.source_targets) == {got[0].id}  # -- trigger damage (wave 110C) -- Imodane: the spell's only target
     dealt_info["recipient_blocking110c"] = got is not None and got[0].is_blocking  # -- blocking recipient (wave 110C) -- Kusari-Gama
@@ -809,6 +840,10 @@ def _cond_matches(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact:
 
         if not vampire_returns105.damage_match(plan, info.get("oid"), source_oid or plan.oid(watcher)):
             return False
+    if event == "die" and cond.get("damaged_by_kind110d") and not any(  # 120.3, 700.4: this turn a permanent of that subtype, under the watcher's controller, dealt it damage
+            f.kind == "damaged" and f.amount > 0 and f.object_id == info.get("oid") and f.source_controller == you
+            and cond["damaged_by_kind110d"] in (f.source_subtypes or ()) for f in plan.rules.turn_log.facts):
+        return False
     if event == 'die' and cond.get('damaged_by_host104'):
         from app.rules import damage_death104
 
@@ -1266,6 +1301,12 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
         if cond.get("spell_only") and not info.get("spell"):
             return False
+        if cond.get("land_named110g"):  # -- wave 110G -- "an ability of a land you control named X" (Skophos Maze-Warden): the ability's source, as it was put on the stack
+            ref = info.get("source_ref")
+            entry = plan.rules.stack.get(ref.card) if ref is not None else None
+            src = plan.state.cards.get(entry.source_card or "") if entry is not None else None
+            if entry is None or src is None or entry.controller != you or entry.kind == "spell" or src.name != cond["land_named110g"] or "Land" not in plan.ch(src).types:
+                return False
         if cond.get("ability_only") and info.get("spell"):  # -- stack interaction (wave 23B) -- "becomes the target of an ability"
             return False
         if cond.get("first_each_turn") and not (info.get("first") or {}).get({"you": "by", "opponent": "by_opp"}.get(by, "any")):
@@ -1354,6 +1395,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         recipient = info.get("recipient")
         if (to == "player" and recipient is None) or (to == "you" and recipient != you) or (to.startswith("pid:") and recipient != to[4:]) or \
                 (to == "you_or_perm110b" and you not in (recipient, info.get("recipient_ctl110b"))) or \
+                (to == "you_or_white110f" and recipient != you and not (info.get("recipient_creature") and info.get("recipient_ctl110b") == you and "W" in (info.get("recipient_colors110f") or ()))) or \
                 (to == "creature_or_opponent" and not (info.get('recipient_creature') or recipient is not None and recipient != you)) or \
                 (to == "opponent" and (recipient is None or recipient == you)) or \
                 (to == "creature" and not info.get("recipient_creature")) or \
@@ -1368,6 +1410,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
                 (to == "creatures" and not info.get("recipient_creature")) or (cond.get("blocking110b") and not info.get("recipient_blocking110b")) or \
                 (cond.get("min") and int(info.get("amount") or 0) < cond["min"]) or \
                 (cond.get("eq_toughness110b") and info.get("amount") != info.get("recipient_toughness110b")) or \
+                (cond.get("exact110a") and info.get("amount") != cond["exact110a"]) or (cond.get("other110a") and info.get("oid") == plan.oid(watcher)) or \
                 (to == "enchanted_player" and (recipient is None or recipient != watcher.attached_player)):
             return False
     return True
@@ -1584,7 +1627,7 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         if kind in _PAIRED.values() and info.get("other") in plan.state.cards
                         else _source_ref(plan, info.get("exploited_oid")) if kind == "exploit" else  # -- exploit (wave 110G) -- the exploited creature, as it was
                         _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None,  # (wave 19B: the Ring-bearer chosen)
-                        ballots=info.get("ballots") or [], combat_alone110g=info.get("alone110g"))  # (-- voting (wave 48D) --)
+                        ballots=info.get("ballots") or [], sticker=info.get("sticker"), combat_alone110g=info.get("alone110g"))  # (-- voting (wave 48D) --)
 
 
 def _attack_object(plan: Plan, kind: str, obj: CardInstance | None) -> ObjectRef | None:
@@ -2815,6 +2858,11 @@ def apnap(plan: Plan) -> list[str]:
 def flush(plan: Plan) -> bool:
     """Put waiting triggers on the stack (603.3). True if the stack changed or a decision opened."""
     collect(plan)
+    from app.rules import wave110m_cards
+
+    if wave110m_cards.reveal_ask(plan):  # (wave 110M) "you may reveal the first card you draw each turn as you draw it": asked before anyone gets priority
+        return True
+    wave110m_cards.stack_scan(plan)  # (wave 110M) "whenever a spell or ability is put onto the stack"
     from app.rules import combat_player_scope43
 
     if combat_player_scope43.ask_pending(plan):
@@ -2846,6 +2894,8 @@ def flush(plan: Plan) -> bool:
         for t in mine:
             if not put(plan, t):
                 return True  # waiting for a target choice
+    if wave110m_cards.stack_scan(plan):  # (wave 110M) the triggers just put there are objects put onto the stack too
+        return flush(plan) or True
     r.passed = []
     # -- core review -- 117.3c / 603.3: the player who was about to receive priority gets it once the triggers are on the
     # stack — the caster after a cast or activation, the active player after a resolution or at a step's start
@@ -2953,6 +3003,14 @@ def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[st
 
 
 def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
+    plan.peace_exempt110f = True  # -- wave 110F -- its targets are a triggered ability's (Peace Talks does not bar those)
+    try:
+        return _put_trigger(plan, t, target, picks)
+    finally:
+        plan.peace_exempt110f = False
+
+
+def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
     from app.rules import name_relation_continuations
 
     name_relation_continuations.bind_trigger_reference(plan, t)
@@ -3008,19 +3066,42 @@ def _put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[s
         spec = None
     elif spec:
         legal = legal_targets(plan, spec["what"], t.controller, source_of(plan, t.source_card, object_id=t.source_object), t.source_card, attacker, source_object=t.source_object)
+        if t.ability.get("target_choice") == "event_player_pov110n" and t.event is not None and len(t.event.players) == 1:
+            # -- (wave 110N) -- Necrotic Plague: "its controller chooses target creature one of their opponents controls": legal for the ability's controller (protection,
+            # 115.2), and an opponent of the player who chooses (that player's point of view for "opponent")
+            chooser = t.event.players[0]
+            pov = legal_targets(plan, t.ability["pov_what110n"], chooser, source_of(plan, t.source_card, object_id=t.source_object), t.source_card, attacker, source_object=t.source_object)
+            legal = [x for x in legal if x in pov]
         if target is None:
             if not legal:
                 r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
                 plan.note(f"{t.name}'s ability has no legal target and is removed")
                 return True
             choice_player = t.controller
-            if t.ability.get("target_choice") == "event_player":
+            if t.ability.get("target_choice") in ("event_player", "event_player_pov110n"):
                 event_players = list(t.event.players) if t.event is not None else []
                 if len(event_players) != 1 or event_players[0] not in plan.live():
                     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
                     plan.note(f"{t.name}'s ability has no unique player to choose its target and is removed")
                     return True
                 choice_player = event_players[0]
+            if t.ability.get("target_choice") == "entering110c":  # -- Pandemonium (wave 110C) -- the entering permanent's controller picks the target (ruling 2006-09-25)
+                from app.rules import wave110c_misc
+
+                if (entering := wave110c_misc.entering_controller(plan, t.event)) is None:
+                    r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+                    plan.note(f"{t.name}'s ability has no player to choose its target and is removed")
+                    return True
+                choice_player = entering
+            if t.ability.get("target_choice") == "host_controller110i":  # -- cards (wave 110I) -- Necrotic Plague: the dead creature's controller chooses a creature one of their opponents controls (603.3d)
+                dead = t.event.objects[0].snapshot if t.event is not None and len(t.event.objects) == 1 else None  # (603.10a: as it last existed)
+                chooser110i = dead.controller if dead is not None else None
+                legal = [x for x in legal if x in plan.state.cards and plan.state.cards[x].controller != chooser110i]
+                if chooser110i is None or chooser110i not in plan.live() or not legal:
+                    r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]
+                    plan.note(f"{t.name}'s ability has no legal target and is removed")
+                    return True
+                choice_player = chooser110i
             if t.ability.get("target_choice") == "defending100j":  # -- counters (wave 100J) -- "of defending player's choice" (Erithizon: 508.5)
                 if t.event is None or t.event.defended not in plan.live():
                     r.pending_triggers = [p for p in r.pending_triggers if p.id != t.id]

@@ -319,6 +319,13 @@ def _new_part_problem(plan: Plan, comp: CostComponent, card: CardInstance, playe
 _CARD_TYPES110M = frozenset({"Artifact", "Battle", "Creature", "Enchantment", "Instant", "Kindred", "Land", "Planeswalker", "Sorcery"})  # 205.2a (wave 110M)
 
 
+def black_symbols110m(plan: Plan, ids: list[str]) -> int:
+    """(wave 110M) The black mana symbols among the mana costs of these cards (202.2: a hybrid or Phyrexian symbol with B in it is black too; {X} and generic ones are not)."""
+    import re
+
+    return sum(1 for c in ids for sym in re.findall(r"\{([^}]+)\}", plan.ch(plan.state.cards[c]).mana_cost or "") if "B" in sym.split("/"))
+
+
 def _names_fit(plan: Plan, comp: CostComponent, ids: list[str]) -> bool:
     """201.2a–b: nameless objects never qualify; split cards can have several names."""
     from app.rules.card_names import names_of
@@ -331,6 +338,8 @@ def _names_fit(plan: Plan, comp: CostComponent, ids: list[str]) -> bool:
 
     if comp.names == "types4_110m":  # -- (wave 110M) -- Nethergoyf: four or more card types among the cards exiled (205.2a)
         return len({t for c in ids for t in plan.ch(plan.state.cards[c]).types if t in _CARD_TYPES110M}) >= 4
+    if comp.names == "black15_110m":  # -- (wave 110M) -- Baron Helmut Zemo: fifteen or more black mana symbols among the mana costs of the cards exiled
+        return black_symbols110m(plan, ids) >= 15
     if comp.names in wave110d_costs.GROUPS:
         return wave110d_costs.fit(plan, comp, ids)
     groups = [set(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
@@ -353,6 +362,8 @@ def _names_payable(plan: Plan, comp: CostComponent, ids: list[str], need: int) -
 
     if comp.names == "types4_110m":  # -- (wave 110M) -- exiling every candidate gives the most card types
         return len(ids) >= need and len({t for c in ids for t in plan.ch(plan.state.cards[c]).types if t in _CARD_TYPES110M}) >= 4
+    if comp.names == "black15_110m":  # -- (wave 110M) -- exiling every candidate gives the most black symbols
+        return len(ids) >= need and black_symbols110m(plan, ids) >= 15
     if comp.names in wave110d_costs.GROUPS:
         return wave110d_costs.payable(plan, comp, ids, need)
     groups = [frozenset(names_of(plan.ch(plan.state.cards[c]))) for c in ids]
@@ -997,6 +1008,7 @@ def _pay(plan: Plan, cost: AbilityCost, card: CardInstance, chosen: dict[int, li
         record.sacrificed_objects += [plan.oid(c) for c in sacrifice]  # (wave 3D: "the sacrificed creature's power", 608.2h)
         plan.do({"type": "move", "card_ids": sacrifice, "to": {"zone": "graveyard"}})
         record.sacrificed += sacrifice
+        record.sacrificed_now110h += [plan.oid(c) for c in sacrifice if c in plan.state.cards]  # (a token ceased to exist, 111.7)
     for comp in library_parts:  # -- activation costs (wave 4H) -- 601.2h: last; 701.17a mill, 701.13a exile
         top = list(plan.state.zones.get(zone_key(player, "library"), [])[: comp.amount])
         if len(top) < comp.amount:

@@ -34,6 +34,27 @@ def grant_freerunning(t: str) -> dict[str, Any] | None:
             "mv": None, "cond": alt_costs._cond(alt_costs.FREERUN_COND), "tag": "freerunning", "effects": []}
 
 
+# 702.190a: "Creature cards in your graveyard have sneak {3}{B}." + "You may cast creature spells from your graveyard using their sneak abilities." (Ninja Teen):
+# the sneak alternative cost (returning an unblocked creature you control) for those cards in the graveyard; the second line only permits what the first
+# line's cost does, so it is an inert static beside it.
+_SNEAK = re.compile(r"^(?P<sel>[A-Za-z]+) cards in your graveyard have sneak (?P<cost>(?:\{[^}X]+\})+)$", re.I)
+SNEAK_CAST = "You may cast creature spells from your graveyard using their sneak abilities."
+
+
+def grant_sneak(t: str) -> dict[str, Any] | None:
+    from app.rules import alt_costs
+    from app.rules.permissions import spell_filter
+
+    if t.strip().rstrip(".").lower() == SNEAK_CAST.rstrip(".").lower():
+        return {"kind": "static", "static": "sneak_cast110a", "effects": []}
+    m = _SNEAK.fullmatch(t)
+    cost = f"pay {m['cost']}{alt_costs.SNEAK_RETURN}" if m else ""
+    if m is None or m["sel"].lower() != "creature" or alt_costs.parse_cost(cost) is None or (key := spell_filter(m["sel"])) is None:
+        return None
+    return {"kind": "static", "static": "alt_cost", "cost": cost, "table": True, "filter": key, "once": False, "zone": "graveyard",
+            "mv": None, "cond": None, "tag": "sneak", "effects": []}
+
+
 # 702.35a: "Each Vampire creature card you own that isn't on the battlefield has madness. The madness cost is equal to its mana cost." (Falkenrath Gorger)
 _MADNESS = re.compile(r"^each (?P<sub>[a-z]+) creature card you own that isn't on the battlefield has madness\. the madness cost is equal to its mana cost$", re.I)
 
@@ -106,6 +127,19 @@ def grant_replicate(t: str) -> dict[str, Any] | None:
     return {"kind": "static", "static": "spell_replicate110a", "filter": key, "effects": []}
 
 
+# 702.175a: "Creature spells you cast gain offspring {2} as you cast them." (Zinnia, Valley's Voice) - same static, "kw" names the granted keyword.
+_OFFSPRING = re.compile(r"^(?P<sel>[A-Za-z]+) spells you cast gain offspring (?P<cost>(?:\{[^}]+\})+) as you cast them$", re.I)
+
+
+def grant_offspring(t: str) -> dict[str, Any] | None:
+    from app.rules.permissions import spell_filter
+
+    m = _OFFSPRING.fullmatch(t.strip().rstrip("."))
+    if m is None or (key := spell_filter(m["sel"])) is None:
+        return None
+    return {"kind": "static", "static": "spell_replicate110a", "filter": key, "kw": f"Offspring {m['cost']}", "effects": []}
+
+
 def with_replicate(state: Any, player: str, card: Any, ch: Any, info: Any) -> Any:
     """The spell as cast, with the replicate ability its caster's statics give it (602.. kicker_cost then reads it like a printed one)."""
     from dataclasses import replace
@@ -116,9 +150,29 @@ def with_replicate(state: Any, player: str, card: Any, ch: Any, info: Any) -> An
 
     if not ch.mana_cost or "replicate" in ch.keywords or "{X}" in ch.mana_cost:
         return ch
-    if not any(src.controller == player and spell_matches(state, player, card, ch, d["filter"], info, src.id)
-               for src, d in cast_limits._statics(state, info, "spell_replicate110a")):
+    hits = [d for src, d in cast_limits._statics(state, info, "spell_replicate110a")
+            if src.controller == player and spell_matches(state, player, card, ch, d["filter"], info, src.id)
+            and not (d.get("kw") and {"offspring", "kicker", "multikicker"} & set(ch.keywords))]  # (a printed kicker would share the one paid-cost slot: manual)
+    if not hits:
         return ch
-    extra = parse_abilities(f"Replicate {ch.mana_cost}.")
-    at = max([a.index for a in ch.abilities], default=99) + 1
-    return replace(ch, abilities=(*ch.abilities, *(replace(a, index=at + i) for i, a in enumerate(extra))))
+    extra = parse_abilities(hits[0].get("kw", f"Replicate {ch.mana_cost}") + ".")
+    return replace(ch, abilities=(*ch.abilities, *(replace(a, index=GRANTED_AT + i) for i, a in enumerate(extra))))
+
+
+GRANTED_AT = 1000  # index of the first ability a spell was given as it was cast
+
+
+def granted_offspring(ch: Any) -> bool:
+    """Was offspring given to this spell as it was cast (Zinnia)? Then the permanent keeps it (702.175a, the reminder text of the grant)."""
+    return any(a.index >= GRANTED_AT and "offspring" in a.keywords for a in ch.abilities)
+
+
+def overlay(ch: Any) -> Any:
+    """The permanent (or spell) that was given offspring as it was cast has the offspring ability, so its enters trigger exists."""
+    from dataclasses import replace
+
+    from app.rules.oracle import parse_abilities
+
+    if granted_offspring(ch) or "offspring" in ch.keywords:
+        return ch
+    return replace(ch, abilities=(*ch.abilities, *(replace(a, index=GRANTED_AT + i) for i, a in enumerate(parse_abilities("Offspring {2}.")))))

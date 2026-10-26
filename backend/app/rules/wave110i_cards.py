@@ -24,6 +24,13 @@ def _won_last(d: Def) -> Def:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Pin Collection: the stickers' abilities reach the equipped creature through stickers101.continuous (613.1f); the static itself is the +1/+1
+    "Equipped creature gets +1/+1 and has all abilities of ability stickers on this Equipment.": "Equipped creature gets +1/+1.",
+    # Nick Fury: the DFC transform is independent of the rest going to the bottom (701.27c, 608.2c); said last, the grammar reads "you may transform it" as the final choice
+    "Power-up \u2014 {W}{U}{B}{R}{G}: Put two +1/+1 counters on Nick Fury, then look at the top seven cards of your library. You may put a Hero, Equipment, or Vehicle "
+    "card from among them onto the battlefield. If it's a double-faced card, you may transform it. Put the rest on the bottom of your library in a random order.":
+        "Power-up \u2014 {W}{U}{B}{R}{G}: Put two +1/+1 counters on Nick Fury, then look at the top seven cards of your library. You may put a Hero, Equipment, or Vehicle "
+        "card from among them onto the battlefield. Put the rest on the bottom of your library in a random order. If it's a double-faced card, you may transform it.",
     # Corrosion: "Artifacts destroyed this way" are the ones the destroy-each instruction destroyed ("They", 701.8c: can't be regenerated)
     "At the beginning of your upkeep, put a rust counter on each artifact target opponent controls. Then destroy each artifact with mana value less than "
     "or equal to the number of rust counters on it. Artifacts destroyed this way can't be regenerated.":
@@ -146,6 +153,15 @@ def _stardew(d: Def) -> Def:
     """Stardew Valley: the player chosen on resolution (not a target) is asked whether to gain control of the permanent (608.2d: "may" is theirs)."""
     return {**d, "effects": [{"do": "each_may", "who": e["to"], "act": [{"do": "gain_control", "who": "target", "to": "you"}], "text": "gain control of that permanent"}
                              if e.get("do") == "gain_control" else e for e in d["effects"]]}
+
+
+_PLAGUE = ("When enchanted creature dies, its controller chooses target creature one of their opponents controls. "
+           "Return this card from its owner's graveyard to the battlefield attached to that creature.")
+
+
+def _plague(d: Def) -> Def:
+    """Necrotic Plague: the dying creature's controller picks the target (603.3d; ``triggers`` host_controller110i), the Aura returns under its owner's control (no "under your control")."""
+    return {**d, "target_choice": "host_controller110i", "effects": [{**x, "under": "owner"} if x.get("do") == "return_card" else x for x in d["effects"]]}
 
 
 def _fountain(d: Def) -> Def:
@@ -385,7 +401,25 @@ def camp_holds(plan: Plan, ctx: Context) -> bool:
     return target is not None and any(mask >> "WUBRG".index(c) & 1 for c in plan.ch(target).colors)
 
 
+def _letters(letter: str) -> Callable[[Def], Def]:
+    """Balls of Fire / Splash: "the number of {letter}'s in name stickers on this enchantment" (values.py ``letters110i``)."""
+    n = {"letters110i": letter}
+
+    def fix(d: Def) -> Def:
+        es = [{**e, "n": n} if e.get("do") == "damage" else e for e in d["effects"]]
+        t = d.get("target") or d.get("targets")
+        if isinstance(t, dict) and "max" in t:
+            return {**d, "effects": es, "target": {**t, "x_value": n}}
+        return {**d, "effects": es}
+
+    return fix
+
+
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "Whenever you put a sticker on this enchantment, it deals damage equal to the number of o's in name stickers on this enchantment to any target.":
+        ("Whenever you put a sticker on this enchantment, this enchantment deals 2 damage to any target.", _letters("o")),
+    "Whenever you put a sticker on this enchantment, tap up to X target creatures, where X is the number of u's in name stickers on this enchantment.":
+        ("Whenever you put a sticker on this enchantment, tap up to three target creatures.", _letters("u")),
     "Whenever fortified land is tapped for mana, put a +1/+1 counter on target creature you control. If that creature shares a color with the mana that land produced, "
     "create a Junk token.":
         ("Whenever fortified land is tapped for mana, put a +1/+1 counter on target creature you control. Create a Junk token.", _camp),
@@ -420,6 +454,7 @@ _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
          "That land becomes an Island for as long as it has a flood counter on it.", _fountain),
     "At the beginning of each end step, if all lands on the battlefield are Islands, remove all flood counters from them.":
         ("At the beginning of each end step, if there are no non-Island lands on the battlefield, remove all flood counters from all lands.", lambda d: d),
+    _PLAGUE: ("When enchanted creature dies, return this card from your graveyard to the battlefield attached to target creature.", _plague),
     _BAUBLE: ("{1}, {T}, Sacrifice this artifact: Put up to four target basic land cards from your graveyard on top of your library in any order.", _bauble),
     _VAT: (_VAT.replace(" with total mana value less than or equal to the sacrificed artifact's mana value", ""), _total_sacrificed),
     "If you would begin your draw step, you may skip that step instead. If you do, you gain 2 life.": ("Skip your draw step.", _fasting),
@@ -833,10 +868,183 @@ def resume_transform_attach(plan: Plan, d: Any, chosen: list[str]) -> None:
 RESUME = {"tunnel110i": resume_tunnel, "transform_attach110i": resume_transform_attach, "bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
 
 
+_WHISTLE = ("{3}, {T}: Choose target non-Wall creature the active player has controlled continuously since the beginning of the turn. That player may pay {X}, where X is "
+            "that creature's mana value. If they don't pay, the creature attacks this turn if able, and at the beginning of the next end step, destroy it if it didn't attack "
+            "this turn. Activate only before attackers are declared.")
+
+
+_WEE = ("Whenever you place a sticker, this creature gets +1/+1 until end of turn. If it's an art sticker, instead put a +1/+1 counter on this creature.")
+_AIRBRUSHER = "Whenever you place a sticker, create a Treasure token. If it's an art sticker, instead create two Treasure tokens."
+
+
+def letters(plan: Plan, ctx: Context, v: dict[str, Any]) -> int:
+    """The number of a letter in the name stickers on the source (Balls of Fire, Splash: 123.2)."""
+    c = plan.state.cards.get(ctx.get("source_card") or "")
+    return 0 if c is None else sum(p.sticker.text.casefold().count(v["letters110i"]) for p in c.stickers101 if p.sticker.kind == "name")
+
+
+def holds(plan: Plan, ctx: Context, cond: dict[str, Any]) -> bool:
+    """Wee Champion / Goblin Airbrusher: the placed sticker (the trigger event's kind) is an art sticker (123.2)."""
+    return (ctx.get("event") or {}).get("sticker") == cond["w110i"]
+
+
+def sticker_instead(ability: Any, ch: Any) -> Def | None:
+    """"Whenever you place a sticker, X. If it's an art sticker, instead Y." (608.2c): the condition is judged once, then exactly one of X and Y."""
+    from app.rules import multi100n, scripts
+
+    trig, alt = (_WEE_PARTS if ability.text.strip() == _WEE else _AIR_PARTS)
+    d = scripts.define(replace(ability, text=f"Whenever you place a sticker, {trig}."), ch)
+    more = scripts.parse_effects(f"{alt}.")
+    if d is None or more is None or len(d["effects"]) != len(more[0]):
+        return None
+    return {**d, "effects": multi100n._instead({"w110i": "art"}, d["effects"], more[0])}
+
+
+_WEE_PARTS = ("this creature gets +1/+1 until end of turn", "Put a +1/+1 counter on this creature")
+_AIR_PARTS = ("create a Treasure token", "Create two Treasure tokens")
+
+
+_WOLF = ("When this creature enters, you may put a name sticker on it. When you do, up to X target creatures each get -1/-1 until end of turn, where X is the number "
+         "of unique vowels on that sticker.")
+
+
+def wolf(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Wolf in _____ Clothing (603.12): if a name sticker was put on it, a reflexive trigger whose X (its event amount) is the unique vowels of that sticker (A, E, I, O, U, Y)."""
+    from app.game.rules_state import TriggerEvent
+    from app.rules import scripts
+    from app.rules.triggers import _add
+
+    records = (ctx.get("sticker_receipts101") or {}).get("name102") or []
+    if not records:
+        return True
+    base = scripts.parse_effects("Up to three target creatures each get -1/-1 until end of turn.")
+    assert base is not None
+    ability = {"kind": "triggered", "trigger": "reflexive", "effects": base[0], "optional": False, "target": None,
+               "targets": [{**base[1][0], "x_value": {"event_amount": 1}}]}
+    n = len(set(records[-1]["sticker"]["text"].casefold()) & set("aeiouy"))
+    _add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
+         name=str(ctx.get("name") or ""), index=7300, definition=ability, event=TriggerEvent(kind="reflexive", amount=n))
+    return True
+
+
+PRIMITIVES["wolf110i"] = wolf
+
+
+_CATALYST = ("{1}{R}, {T}: Choose an exiled card used to craft this artifact at random. You may cast that card without paying its mana cost.")
+
+
+def catalyst(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Cosmium Catalyst (702.167a, random pick as random_choice.choose_random_object): one of the exiled cards used to craft it (still those objects, still in exile)."""
+    import secrets
+
+    from app.rules import context
+
+    refs = plan.rules.crafted_materials.get(ctx.get("source_object") or "", [])
+    found = sorted(r.card for r in refs if (c := plan.state.cards.get(r.card)) is not None and plan.oid(c) == r.object_id and c.zone.endswith(":exile"))
+    pick = (plan.rng or secrets.SystemRandom()).choice(found) if found else None
+    if pick is not None:
+        plan.note(f"{ctx.get('name') or 'It'}: chosen at random \u2192", [pick], actor=ctx["controller"])
+    context.bind_objects(plan, ctx, "crafted110i", [pick] if pick is not None else [])
+    return True
+
+
+PRIMITIVES["catalyst110i"] = catalyst
+
+
+def whistle(ability: Any, ch: Any) -> Def | None:
+    """Arcum's Whistle (118.12a, 508.1d, 603.4): Nettling Imp's targeted forced attack plus end-step destroy (wave110e_imps), all behind the active player's optional {X}
+    payment (X the creature's mana value); paid, nothing happens."""
+    from app.rules import scripts, selectors
+    from app.rules.controller_turn_history69 import EXTRA
+
+    base = scripts.define(replace(ability, text="{3}, {T}: Target non-Wall creature attacks this turn if able. Activate only before attackers are declared."), ch)
+    kill = scripts.parse_effects("Target creature attacks this turn if able. At the beginning of the next end step, destroy it.")
+    pay = scripts.parse_effects("Target creature attacks this turn if able unless its controller pays {X}, where X is its mana value.")
+    if base is None or kill is None or pay is None or len(kill[0]) != 3 or len(pay[0]) != 3:
+        return None
+    sel = selectors.from_key(base["target"]["what"])
+    sel = replace(sel, controller="active", extras=(*sel.extras, EXTRA))
+    rest = [*base["effects"], {**kill[0][1], "n": 2}, {"do": "deferred:didnt_attack110e", "who": "target"}, kill[0][2]]
+    effects = [pay[0][0], {**pay[0][1], "skip": len(rest)}, *rest]
+    return {**base, "effects": effects, "target": {**base["target"], "what": sel.key()}}
+
+
+_COFFIN = ("{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control. "
+           "When this creature becomes untapped or you lose control of this creature, exile that creature.")
+
+
+def _coffin(d: Def) -> Def:
+    """Coffin Queen: 603.7a — the delayed trigger watches the Queen (untapped, or control of her lost: delayed.on_events) and exiles the creature put onto the battlefield (bound now, 603.7c)."""
+    back = {**d["effects"][0], "as": "coffin110i"}
+    watch = {"do": "delayed", "when": {"kind": "event", "event": "lose_or_untap110i"}, "n": 1, "who": "self"}
+    return {**d, "effects": [back, watch, {"do": "deferred:exile", "who": "ref:coffin110i"}]}
+
+
+_FLICKER = ("{2}{W}{W}: Exile enchanted creature and all Auras attached to it. At the beginning of the next end step, return that card to the battlefield under its owner's control. "
+            "If you do, return the other cards exiled this way to the battlefield under their owners' control attached to that creature.")
+
+
+def flicker_exile(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Flickerform: the creature and every Aura on it leave together (one move, so the Auras are not put into graveyards by 704.5m first)."""
+    from app.rules import context, delayed, effects
+
+    hosts = effects._cards(plan, ctx, "host")
+    if not hosts:
+        return True
+    auras = [c.id for c in plan.state.cards.values() if c.attached_to == hosts[0] and c.zone.endswith(":battlefield") and "Aura" in plan.ch(c).subtypes]
+    plan.do({"type": "move", "card_ids": [*hosts, *auras], "to": {"zone": "exile"}}, actor=ctx["controller"])
+    context.bind_objects(plan, ctx, "flick_h110i", [c for c in hosts if plan.state.cards[c].zone.endswith(":exile")])
+    context.bind_objects(plan, ctx, "flick_a110i", [c for c in auras if plan.state.cards[c].zone.endswith(":exile")])
+    ctx["effects"][ctx["next"]:ctx["next"]] = delayed.wrap_when([{"do": "flicker_return110i"}], delayed.WHEN["the next end step"])
+    return True
+
+
+def flicker_return(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """The card returns under its owner's control (400.7: a new object); only if it does, the other exiled cards return attached to it (303.4i: an Aura that can't enchant it stays exiled)."""
+    back = {"do": "return_card", "to": "battlefield", "tapped": False, "under": "owner"}
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**back, "who": "ref:flick_h110i", "as": "flick_new110i"}, {"do": "flicker_auras110i"}]
+    return True
+
+
+def flicker_auras(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.rules import context
+
+    new = [c for c in context.objects(plan, ctx, "flick_new110i") if plan.state.cards[c].zone.endswith(":battlefield")]
+    auras = [c for c in context.objects(plan, ctx, "flick_a110i") if plan.state.cards[c].zone.endswith(":exile")]
+    if new and auras:
+        context.bind_objects(plan, ctx, "flick_a110i", auras)
+        ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "return_card", "to": "battlefield", "tapped": False, "under": "owner", "who": "ref:flick_a110i", "host": "ref:flick_new110i"}]
+    return True
+
+
+PRIMITIVES.update({"flicker_exile110i": flicker_exile, "flicker_return110i": flicker_return, "flicker_auras110i": flicker_auras})
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == _COFFIN:
+        native = scripts.define(replace(ability, text="{2}{B}, {T}: Put target creature card from a graveyard onto the battlefield under your control."), ch)
+        return None if native is None else _coffin(native)
+    if text == _FLICKER:
+        native = scripts.define(replace(ability, text="{2}{W}{W}: Draw a card."), ch)
+        return None if native is None else {**native, "effects": [{"do": "flicker_exile110i"}]}
+    if text == "If a Rigger you control would assemble a Contraption, it assembles two Contraptions instead.":
+        # 701.45a: assembling is an Unstable mechanic outside these rules; no player has a Contraption deck in a Commander game, so nothing can be assembled and this never applies
+        return {"kind": "static", "static": "no_assemble110i", "effects": []}
+    if text == _WHISTLE:
+        return whistle(ability, ch)
+    if text == _CATALYST:
+        base = scripts.define(replace(ability, text="{1}{R}, {T}: Draw a card."), ch)
+        return None if base is None else {**base, "effects": [{"do": "catalyst110i"},
+                                                              {"do": "free_cast", "zone": "that", "who": "ref:crafted110i", "filter": None, "mv": None, "optional": True}]}
+    if text == _WOLF:
+        native = scripts.define(replace(ability, text="When this creature enters, draw a card."), ch)
+        assert native is not None
+        return {**native, "effects": [{"do": "put_sticker101", "who": "self", "kind": "name", "n": 1, "as": "name102"}, {"do": "wolf110i"}], "optional": False}
+    if text in (_WEE, _AIRBRUSHER):
+        return sticker_instead(ability, ch)
     if text == _PHOENIX:
         return {"kind": "replacement", "replacement": "hand_instead110i", "from": "battlefield", "effects": []}
     if text == "As this permanent transforms into Curse of Leeches, attach it to a player.":

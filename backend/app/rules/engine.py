@@ -86,6 +86,7 @@ from app.rules import (
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
     wave110a_teferi,  # -- wave 110A --
+    wave110e_clara,  # -- pregame color (wave 110E) --
     wave110e_opp,  # -- cast-time choice (wave 110E) --
     wave110f_cards,  # -- combat damage division (wave 110F) --
     wave110h_cards,  # -- untap hold (wave 110H) --
@@ -268,6 +269,11 @@ def settle(plan: Plan) -> None:
     if plan.rules.draw_reason is not None:
         return
     permissions.free_cast_abandoned(plan)  # -- refused look/cast-free (wave 3R5) -- a cancelled mid-resolution cast (608.2g)
+    if r0 := plan.rules.attach_asks110e:  # -- becomes attached, choose (wave 110E) --
+        from app.rules import wave110e_blade
+
+        if plan.rules.decision is None:
+            wave110e_blade.ask(plan, r0)
     layers.control_sync(plan)  # -- control (wave 3K) -- continuous effects first (613.1b), then state-based actions
     combat.sync_attacking(plan)
     sba.check(plan)
@@ -732,7 +738,7 @@ def extra_untap_step(plan: Plan) -> None:
     stunned = effects.keyword_actions.stunned(plan, [c.id for c in plan.state.cards.values() if c.tapped and c.id not in keep]) if stay is None else []
     keep = list(dict.fromkeys([*keep, *stunned]))
     keep += wave110h_cards.untap_hold(plan, pid, keep) if stay is None else []  # -- untap hold (wave 110H) --
-    previous = plan.rules.previous_turn or (plan.state.seat_order[(plan.state.seat_order.index(pid) - 1) % len(plan.state.seat_order)], max(0, plan.state.turn.number - 1))
+    previous = plan.rules.previous_turn or (plan.state.turn_order()[(plan.state.turn_order().index(pid) - 1) % len(plan.state.seat_order)], max(0, plan.state.turn.number - 1))
     finish = {"stunned": stunned, "previous": list(previous), "skipped": [], "plain": stay is None, "keep": keep, "same_turn": True}
     if untap_choice.ask(plan, asked, finish, limited):
         return
@@ -952,6 +958,7 @@ def turn_cleanup(plan: Plan) -> None:
     wave110k_cards.end_of_turn(plan)
     plan.rules.no_regen_sources110k = []  # (wave 110K) Runesword's rule ends with the turn
     plan.rules.regen_shields = {}  # regeneration shields last "this turn"
+    plan.rules.wipe_shields110o = {}  # -- (wave 110O) -- and so do Pyramids' damage-removal shields
     plan.rules.regeneration_riders = []
     plan.rules.no_regen = []  # (wave 19E) and so does "can't be regenerated this turn"
     plan.rules.prevention = {}  # and so do prevention shields
@@ -1196,6 +1203,15 @@ def resolve_top_of_stack(plan: Plan) -> None:
     replacements.turn_down(plan, ep, controller)  # -- hidden exile (wave 18A) --
     from app.rules import creature_entry_redirect
 
+    if entering and creature_entry_redirect.conflict(plan, top, controller):  # -- cards (wave 110H) -- Don't Blink + an exile replacement: 616.1 choice (sba.offer_616)
+        creature_entry_redirect.hold(plan, top)
+        _after_resolution(plan)
+        return
+    if entering and creature_entry_redirect.shuffles(plan, top, controller):  # -- cards (wave 110H) -- Don't Blink
+        creature_entry_redirect.shuffle_in(plan, top_id)
+        plan.rules.payments.pop(plan.oid(top_id), None)
+        _after_resolution(plan)
+        return
     if entering and creature_entry_redirect.exiles(plan, top, controller):
         plan.do({"type": "move", "card_ids": [top_id], "to": {"player": top.owner, "zone": "exile"}}, actor=controller)
         plan.rules.payments.pop(plan.oid(top_id), None)
@@ -1262,6 +1278,12 @@ def resolve_top_of_stack(plan: Plan) -> None:
         from app.rules import ninjutsu
 
         ninjutsu.attack_returned(plan, top_id, rec, controller)
+    if top_id in plan.rules.eot_haste110m:  # (wave 110M) Alaundo the Seer: "it gains haste until end of turn"
+        plan.rules.eot_haste110m = [c for c in plan.rules.eot_haste110m if c != top_id]
+        entered_now = plan.state.cards.get(top_id)
+        if entered_now is not None and entered_now.zone.endswith(":battlefield"):
+            layers.add_effect(plan, affected=[plan.oid(top_id)], layer="6", source=None, controller=controller,
+                              add_keywords=("haste",), duration="end_of_turn", label="Haste (Alaundo the Seer)")
     if top_id in plan.rules.suspend_haste:  # 702.62e: a suspended creature has haste
         plan.rules.suspend_haste = [c for c in plan.rules.suspend_haste if c != top_id]
         entered_now = plan.state.cards.get(top_id)
@@ -1352,6 +1374,10 @@ def land_play_problem(state: GameState, player: str, card: CardInstance, ch: Cha
     if info is not None and card.zone.endswith(":graveyard") and (barred := next(
             (src for src, _ in cast_limits._statics(state, info, "cant_play_gy_lands") if src.controller != player), None)) is not None:
         return f"{barred.name or 'A permanent'}: you can't play land cards from graveyards"  # -- cant restrictions (wave 50G) -- Tomik, Distinguished Advokist
+    from app.rules import card_names
+
+    if info is not None and (barred := next((src for src, d in cast_limits._statics(state, info, "cast_limit") if d.get("named_lands110f") and card_names.matches(Plan.view(state, src.controller, info), src.id, ch)), None)) is not None:
+        return f"{barred.name or 'A permanent'}: you can't play {ch.name}"  # -- two names (wave 110F) -- Null Chamber: 305.1
     from app.rules import wave110n_cards  # -- (wave 110N) -- Rock Jockey: 305.1
 
     if (why := wave110n_cards.land_problem(state, player, info)) is not None:
@@ -1653,6 +1679,9 @@ def _settle_decision(plan: Plan, d: Decision, leaver: str) -> None:
     if step in ("cleanup_discard", "cleanup_manual"):
         finish_cleanup(plan)  # 514.2 still happens; then the next player's turn
         return
+    if step == "cmd_color110f":  # -- wave 110F -- a player left during the commander color question: the next question, or the opening hands
+        opening_hand.start(plan)
+        return
     if step in ("opening_hand", "opening_exile"):  # -- opening hand (wave 18C) -- the rest of the table still acts (103.6)
         opening_hand.ask(plan, list(resume.get("order") or resume.get("rest") or [])[1 if step == "opening_hand" else 0:])
         return
@@ -1846,6 +1875,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "cost_moves": cost_moves.resume,
     "opening_hand": opening_hand.resume,  # -- opening hand (wave 18C) -- 103.6
     "opening_exile": opening_hand.resume_exile,
+    "clara110e": wave110e_clara.resume,  # -- pregame color (wave 110E)
     "exert_attackers": exert.resume,  # -- static wordings (wave 6E) -- 508.1g
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a

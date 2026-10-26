@@ -753,7 +753,7 @@ def create_token_batch(plan: Plan, requests: list[tuple[str, dict[str, Any], int
         for request_index, (pid, spec, count, source, tapped) in reqs:
             if count <= 0 or pid not in plan.live():
                 continue
-            ev: Event = {"kind": "tokens", "player": pid, "count": int(count), "token": spec, "source": source,
+            ev: Event = {"kind": "tokens", "player": pid, "count": int(count), "token": spec, "source": source, "source_object": ctx.get("source_object") if ctx and source is not None and ctx.get("source_card") == source else None,
                          "tapped": bool(tapped), "applied": [], 'embalmed': bool(spec.get('_embalmed')),
                          'effect_tapped': bool(spec.get('_effect_tapped', tapped))}
             if recipient_refs is not None and request_index < len(recipient_refs):
@@ -890,6 +890,7 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
         enters_tapped = (explicit_tapped or replacements.token_enters_tapped(plan, pid, prospective)) and not replacements.token_enters_untapped(plan, pid, prospective)
         created = plan.do({'type': 'create_token', 'player': pid, 'count': k, 'stacked': False, 'tapped': enters_tapped,
                            'source_id': ev.get('source') if ev.get('source') in plan.state.cards else None,
+                           'source_object': (ev.get('source_object') or plan.oid(ev['source'])) if ev.get('source') in plan.state.cards else None,  # -- cards (wave 110H) -- 400.7
                            'token': spec, 'embalmed': bool(ev.get('embalmed')), **({'zone': 'exile'} if diverted else {})}, actor=pid)
         new_ids = getattr(created, 'r', None)
         ids = list(new_ids.ids) if new_ids is not None else []
@@ -936,6 +937,9 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
             extra[counter['counter']] = extra.get(counter['counter'], 0) + value
         replacements.after_entry(plan, tid, pid, newcomers=made, choices=({key: value for key, value in picks[i].items() if key not in (token_copy_entry.COPY, token_copy_entry.ENTRY)} if i < len(picks) else None) or None,
                                  extra_counters=extra or None)
+    from app.rules import wave110e_once  # -- one-shot entry counters (wave 110E) --
+
+    wave110e_once.spend(plan, made)
     recipient = ev.get("recipient_ref")
     if recipient in plan.live() and pid == plan.active and recipient != pid and plan.state.turn.phase in (
             "declare_attackers", "declare_blockers", "combat_damage", "end_combat"):
@@ -1040,6 +1044,8 @@ def _counters_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event
     n = ev["n"] * int(op["n"]) if op["do"] == "mul" else ev["n"] + int(op["n"]) if op["do"] == "add" else ev["n"]
     if op["do"] == "half":  # -- counter putters (wave 22C) -- "half that many … rounded down" (Vorinclex)
         n = ev["n"] // 2
+    if op["do"] == "set":  # -- (wave 110G) -- Melira: "instead you get one poison counter"; the turn's cap is recorded when it is done (melira_record)
+        return [{**ev, "n": int(op["n"]), "once110g": True}]
     return [{**ev, "n": max(0, n)}]
 
 
@@ -1179,10 +1185,19 @@ def plan_counters(plan: Plan, puts: list[tuple[str, str, int]], *, by: str, effe
     return CounterPlan(finals, planner)
 
 
+def melira_record(plan: Plan, finals: list[tuple[Event, list[Event]]]) -> None:
+    """-- (wave 110G) -- Melira, the Living Cure: a player who got the one poison counter can't get more this turn (kept when Melira leaves)."""
+    for _before, out in finals:
+        for f in out:
+            if f.get("once110g") and f.get("n", 0) > 0:
+                plan.rules.poison_once110g[f["player"]] = plan.state.turn.number
+
+
 def do_counters(plan: Plan, planned: CounterPlan, *, by: str, receipt: list[CounterPlacement] | None = None) -> None:
     """The planned counters as table actions: the same kind and number for several objects is one
     step (one event batch), as without replacement effects."""
     left_to_players(plan, planned.planner)
+    melira_record(plan, planned.finals)
     groups: dict[tuple[str, str, int], list[str]] = {}
     group = plan.rules.batch + 1
     for before, out in planned.finals:
@@ -1788,6 +1803,10 @@ def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = 
     )
 
     losses = life_lock.keep(plan, losses, actor=actor)
+    if paid and losses:  # -- cards (wave 110H) -- Ashiok, Wicked Manipulator: paying life is replaced by exiling cards
+        from app.rules import wave110h_cards
+
+        losses = wave110h_cards.ashiok(plan, losses)
     if not losses:
         return True
     operation = _life_operation(plan, operation)
@@ -2002,6 +2021,10 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
     if not conditional_prevention_effects.source_matches(plan, spec, c, ev):
         return False
     src = ev.get("src") or {}
+    if spec.get("chosen_pair110e"):  # -- wave 110E -- Bitter Feud
+        from app.rules import wave110e_pair
+
+        return wave110e_pair.source_ok(plan, c, ev)
     if spec.get("alts"):  # -- as long as (wave 9B) -- "a red or artifact source you control": either description (609.7c)
         return any(_source_matches(plan, alt, c, ev) for alt in spec["alts"])
     # -- refused grants/replacements (wave 3R2) -- a source of a player's choice (609.7a: the object chosen; its
@@ -2073,6 +2096,10 @@ def _recipient_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event
     if not spec:
         return True
     target = ev["target"]
+    if spec.get("chosen_pair110e"):  # -- wave 110E -- Bitter Feud
+        from app.rules import wave110e_pair
+
+        return wave110e_pair.recipient_ok(plan, c, ev)
     if spec.get("chosen_player_or_controlled"):
         from app.rules import keyed_player_bindings
 
@@ -2167,6 +2194,11 @@ def _damage_applies(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> bool:
         left = sim.get("shields", {}).get(_finite_prevention_key(c, ev), c.op["limit"])
         if int(c.op["limit"]) <= 0 or (left <= 0 and not c.op.get("allocate")):
             return False
+    if c.op["do"] == "remove_counters110o":  # -- (wave 110O) -- 614.1a: it replaces the damage only while there is a counter left to remove
+        from app.rules import wave110o_cards
+
+        if wave110o_cards.echo_left(plan, c, sim) <= 0:
+            return False
     return _source_matches(plan, m.get("source") or {}, c, ev) and _recipient_matches(plan, m.get("to") or {}, c, ev)
 
 
@@ -2180,6 +2212,10 @@ def _added_value(plan: Plan, c: Candidate, value: Any) -> int:
 
 def _damage_apply(plan: Plan, c: Candidate, ev: Event, sim: Sim) -> list[Event]:
     op = c.op
+    if op["do"] == "remove_counters110o":  # -- (wave 110O) -- Soul Echo: each 1 damage is replaced by removing a counter (614.1a)
+        from app.rules import wave110o_cards
+
+        return wave110o_cards.echo_apply(plan, c, ev, sim)
     if op["do"] == "redirect":  # -- refused grants/replacements (wave 3R2) -- 614.9 (app/rules/source_shields.py)
         from app.rules import source_shields
 
@@ -2639,6 +2675,7 @@ def _commit_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, 
     for before, finals in [*out.counter_finals, *out.life_finals]:
         note_applied(plan, before, finals, actor=actor)
     commit_shields(plan, out.shields)
+    melira_record(plan, out.counter_finals)
     # -- counters (wave 7C) --
     from app.rules import shield_counters
 
@@ -2682,6 +2719,11 @@ def _commit_damage(plan: Plan, out: DamageOutcome, *, actor: str, combat: bool, 
 def commit_shields(plan: Plan, shields: dict[str, int]) -> None:
     """The shields as the damage left them (615.7: used up by what they prevented)."""
     r = plan.rules
+    for key, used_n in shields.items():  # -- (wave 110O) -- Soul Echo: the counters the damage replaced
+        if key.startswith("echo110o:") and used_n > 0:
+            from app.rules import wave110o_cards
+
+            wave110o_cards.echo_commit(plan, key, used_n)
     # -- refused grants/replacements (wave 3R2) -- 615.8: a "next time" shield that prevented damage is used up
     used = {key[len("once:r:"):] for key in shields if key.startswith("once:r:")}
     for key, left in shields.items():  # -- prevention riders (wave 17A) -- what is left of "the next N damage is dealt to … instead"

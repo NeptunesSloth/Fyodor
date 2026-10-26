@@ -143,6 +143,7 @@ def no_maximum(plan: Plan, player: str) -> bool:
 # 611.2a: a continuous effect from a resolving ability that changes the rules lasts "for the rest of the game"; it doesn't depend on
 # the object (610.3) and works for the player who got it, whatever leaves (``RulesState.no_max_hand``, read by ``maximum``).
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
+    (re.compile(r"^you have no maximum hand size for as long as you control (?:~|this Saga)$"), lambda m: ([{"do": "hand_limit", "kind": "none", "duration": "source_controlled"}], None)),
     (re.compile(r"^you have no maximum hand size until your next turn$"), lambda m: ([{"do": "hand_limit", "kind": "none", "duration": "next_turn"}], None)),
     (re.compile(r"^your maximum hand size is reduced by (?P<n>three|\d+) for the rest of the game$"), lambda m: ([{"do": "hand_limit", "kind": "delta", "value": -3 if m["n"] == "three" else -int(m["n"])}], None)),
     (re.compile(r"^you have no maximum hand size for the rest of the game$"), lambda m: ([{"do": "no_max_hand"}], None))]
@@ -169,7 +170,9 @@ def hand_limit(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
                                hand_limit=HandLimitModifier(player=ctx['controller'], kind=e['kind'], value=e.get('value', 0)))
     if duration == 'next_turn':
         effect.until_player, effect.turn = ctx['controller'], plan.state.turn.number
-    plan.note('Maximum hand size changes ' + ('until your next turn' if duration == 'next_turn' else 'for the rest of the game'), actor=ctx['controller'])
+    if duration == 'source_controlled':  # -- (wave 110D) -- 611.2b "for as long as you control this Saga" (delayed.expire ends it)
+        effect.source_card, effect.until_player = ctx.get('source_card'), ctx['controller']
+    plan.note('Maximum hand size changes ' + ('until your next turn' if duration == 'next_turn' else 'as long as you control the source' if duration == 'source_controlled' else 'for the rest of the game'), actor=ctx['controller'])
     return True
 
 

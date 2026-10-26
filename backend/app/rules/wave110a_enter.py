@@ -34,7 +34,16 @@ def static(t: str) -> dict[str, Any] | None:
 
 
 def apply(plan: Plan, card: CardInstance) -> None:
-    from app.rules import layers, permissions, selectors
+    from app.rules import copying, layers, permissions, selectors
+
+    # Superior Spider-Man: "When you do, exile that card" (603.12): a reflexive trigger on the object it copied (400.7: the card as it was)
+    if (d := copying.enter_definition(plan, card)) is not None and d.get("exile_copied110a") and (eff := copying._entering_effect(plan, card)) is not None \
+            and eff.copy_entry_source is not None:
+        from app.rules.triggers import _add
+
+        _add(plan, controller=card.controller, source_card=card.id, source_object=plan.oid(card), name=card.name or "", index=7310,
+             definition={"kind": "triggered", "trigger": "reflexive", "optional": False,
+                         "effects": [{"do": "exile_object110a", "oid": eff.copy_entry_source.object_id}]})
 
     for src, _, _d in permissions._table_statics(plan.state, plan.info, {"note_life110a"}):
         if src.id == card.id:
@@ -52,3 +61,14 @@ def apply(plan: Plan, card: CardInstance) -> None:
 def note(plan: Plan, card: CardInstance) -> None:
     """Note the controller's life total as of now (replacing the earlier note, "the last noted life total")."""
     plan.do({"type": "set_choice", "card_id": card.id, "key": NOTE, "value": str(plan.state.players[card.controller].life)}, actor=card.controller)
+
+
+def exile_object(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Exile one specific object wherever it is, if it is still that object (400.7)."""
+    from app.rules import effects
+
+    card = plan.state.cards.get(e["oid"].rsplit(".", 1)[0])
+    return effects.exile_cards(plan, ctx, e, [card.id] if card is not None and plan.oid(card) == e["oid"] else [])
+
+
+PRIMITIVES = {"exile_object110a": exile_object}
