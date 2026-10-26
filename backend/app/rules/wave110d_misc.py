@@ -27,6 +27,7 @@ WALL = ("You may have this creature enter as a copy of any creature on the battl
 ULTIMA = ("Whenever Ultima attacks, put a blight counter on target land. For as long as that land has a blight counter on it, it loses all land types and "
           'abilities and has "{T}: Add {C}."')
 SYMPOSIUM = "Target player creates a token that's a copy of target creature you control."
+NUKA = ("Whenever equipped creature attacks, until the end of defending player's next turn, that player gets two rad counters whenever they cast a spell.")
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -86,6 +87,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if d is not None:
             d["effects"] = [{**d["effects"][0], "who": "target:1", "creator": "target:0"}]
             d.update(target=None, targets=[{"what": "player", "min": 1, "max": 1}, {**d["target"], "min": 1, "max": 1}])
+        return d
+    if ability.text == NUKA:  # 603.7 a turn-long watch of the defending player's casts (508.5), ending in the cleanup of THEIR next turn (514.2)
+        d = scripts.define(replace(ability, text="Whenever equipped creature attacks, until your next turn, whenever an opponent casts a spell, they get two rad counters."), ch)
+        if d is not None and d["effects"][0].get("do") == "delayed":
+            first = {k: v for k, v in d["effects"][0].items() if k != "next_turn"}
+            d["effects"][0] = {**first, "end_of_next_turn": True, "player_ref110d": "defending_player"}
         return d
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")

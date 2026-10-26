@@ -310,6 +310,8 @@ def on_facts(plan: Plan, facts: list[Any], batch: int, fired_once: dict[Any, Any
         for fact in facts:
             if "recipient_players" in t.when and fact[4].get("recipient") not in t.when["recipient_players"]:
                 continue
+            if "actor_players110d" in t.when and fact[4].get("actor") not in t.when["actor_players110d"]:
+                continue  # (wave 110D: only what the named player did)
             if bound is not None and fact[4].get("oid") not in bound:
                 continue  # -- turn-long triggers (wave 33A) -- 603.7c, 400.7: the object it was bound to, not a new one
             cond = combat_player_scope43.restore(plan, t)
