@@ -714,6 +714,13 @@ def coffin_auras(plan: Any, ctx: Def, e: Def) -> bool:
     return effects.PRIMITIVES["return_card"](plan, ctx, {"do": "return_card", "who": "ref:coffin_a110m", "to": "battlefield", "tapped": False, "under": "owner", "host": "ref:coffin_back110m"})
 
 
+_ZYGON = ("{2}{U}: Tap another target creature and put a stun counter on it. This creature becomes a copy of that creature for as long as that creature remains tapped. "
+          "Activate only as a sorcery.")
+_ZYGON_NATIVE = ("{2}{U}: Tap another target creature and put a stun counter on it. This creature becomes a copy of that creature until end of turn. Activate only as a sorcery.")
+_BUILD[_ZYGON] = (_ZYGON_NATIVE, lambda d: json.loads(json.dumps(d).replace('"duration": "end_of_turn"', '"duration": "object_tapped110m"')))
+_BUILD["Body-print — " + _ZYGON] = _BUILD[_ZYGON]
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 

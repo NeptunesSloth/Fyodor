@@ -187,3 +187,45 @@ def test_keeping_the_coffin_tapped_keeps_the_creature_exiled(cards):
     untap_step(s, [coffin.id])
     assert s.state.cards[coffin.id].tapped and s.state.cards[bears.id].zone == "p2:exile"
     check(s)
+
+
+# -- Zygon Infiltrator -------------------------------------------------------------------------------------------------------------------------
+ZYGON = "Zygon Infiltrator"
+test_zygon_full = full_test([ZYGON])
+
+
+def zygon_table(cards):
+    s = build(cards, [ZYGON, "Lightning Bolt"], ["Hill Giant"], forests=20)
+    zygon = put(s, ZYGON)
+    giant = put(s, "Hill Giant", "p2")
+    ready(s, ZYGON)
+    mana(s, U=1, C=2)
+    act(s, "p1", type="activate_ability", card_id=zygon.id, ability=0, targets=[giant.id])
+    answer(s)
+    return s, zygon, giant
+
+
+def test_zygon_taps_the_creature_stuns_it_and_becomes_a_copy_while_it_stays_tapped(cards):
+    s, zygon, giant = zygon_table(cards)
+    assert s.state.cards[giant.id].tapped and s.state.cards[giant.id].counters.get("stun") == 1
+    assert ch(s, zygon).name == "Hill Giant" and ch(s, zygon).pt == (3, 3)
+    check(s)
+
+
+def test_the_copy_lasts_through_the_stun_counters_untap_and_ends_when_the_creature_finally_untaps(cards):
+    s, zygon, giant = zygon_table(cards)
+    stops(s)
+    to_phase(s, "main1", turn=2)  # Bob's untap step: the stun counter comes off instead of the Giant untapping
+    assert s.state.cards[giant.id].tapped and not s.state.cards[giant.id].counters.get("stun")
+    assert ch(s, zygon).name == "Hill Giant"
+    to_phase(s, "main1", turn=4)  # Bob's next untap step: it untaps
+    assert not s.state.cards[giant.id].tapped and ch(s, s.state.cards[zygon.id]).name == ZYGON
+    check(s)
+
+
+def test_the_copy_ends_when_the_creature_leaves_the_battlefield(cards):
+    s, zygon, giant = zygon_table(cards)
+    cast(s, "Lightning Bolt", [giant.id])
+    answer(s)
+    assert zone_of(s, "Hill Giant", "p2") == "p2:graveyard" and ch(s, s.state.cards[zygon.id]).name == ZYGON
+    check(s)

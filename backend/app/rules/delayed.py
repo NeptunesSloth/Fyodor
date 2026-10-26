@@ -690,6 +690,8 @@ def expire(plan: Plan) -> None:
     ended = [e for e in r.effects if e.duration.startswith("source_")
              and not _source_ok(plan, e.duration, e.source_card, e.source, e.until_player)]
     ended += [e for e in r.effects if e.duration == "monarch_player" and plan.state.table.monarch != e.until_player]  # (wave 110D)
+    ended += [e for e in r.effects if e.duration == "object_tapped110m" and not any(  # (wave 110M) Zygon Infiltrator: "for as long as that creature remains tapped" (611.2b): that object, on the battlefield, tapped
+        plan.oid(c) == e.until_object and c.zone.endswith(":battlefield") and c.tapped for c in plan.state.cards.values())]
     for e in r.effects:  # -- quoted grants (wave 2D) -- "for as long as it has a … counter on it": per object
         if e.duration == "while_counter":
             lost_last = {ev.object_id for ev in r.events if ev.kind == "counters" and ev.counter == e.counter
