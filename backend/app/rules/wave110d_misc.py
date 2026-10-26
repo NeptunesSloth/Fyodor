@@ -13,12 +13,15 @@ MONOLITH = ('{T}: Until end of turn, target creature gains "Whenever this creatu
 
 
 ZHALFIR = "I, II — Another target nonland permanent phases out. It can't phase in for as long as you control this Saga."
+PARK = "I — For each opponent, up to one target noncreature artifact they control becomes a 0/4 Wall artifact creature with defender for as long as you control this Saga."
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import events, scripts
 
+    if ability.text == PARK:  # per_opponent.py reads "that player controls" (115.1: one group per opponent); 611.2b duration
+        return scripts.define(replace(ability, text=PARK.replace(" they control", " that player controls").replace("this Saga", "~")), ch)
     if ability.text == ZHALFIR:  # 702.26a, 610.3: phased out, held out for as long as its controller controls the Saga
         d = scripts.define(replace(ability, text="I, II — Another target nonland permanent phases out."), ch)
         if d is not None:
