@@ -40,6 +40,11 @@ EXTRA = [
     real("Selective Snare", "{X}{U}{U}", 2, "Instant", "Return X target creatures of the creature type of your choice to their owner's hand.", None, "U"),
     real("Runeclaw Bear", "{1}{G}", 2, "Creature \u2014 Bear", "", ("2", "2"), "G"),
     real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
+    real("Dryad Arbor", "", 0, "Land Creature \u2014 Forest Dryad", "(This land isn't a spell, it's affected by summoning sickness, and it has \"{T}: Add {G}.\")", ("1", "1"), "G"),
+    real("Town Guard", "{1}{W}", 2, "Creature \u2014 Human Soldier", "", ("1", "1"), "W"),
+    real("Watch Captain", "{1}{W}", 2, "Creature \u2014 Human Soldier", "", ("1", "1"), "W"),
+    real("Imagecrafter", "{1}{U}", 2, "Creature \u2014 Human Wizard", "{T}: Target creature becomes the creature type of your choice until end of turn.", ("1", "1"), "U"),
+    real("Weaken", "{R}", 1, "Instant", "Target creature gets -1/-0 until end of turn.", None, "R"),
 ]
 NAMES = [c["name"] for c in EXTRA]
 
@@ -201,4 +206,66 @@ def test_selective_snare_returns_x_targets_of_one_creature_type(cards):
     act(s, "p1", type="cast_spell", card_id=snare.id, targets=[bears.id, rune.id], x_value=2, target_counts=[2])
     answer(s)
     assert s.state.cards[bears.id].zone == s.state.cards[rune.id].zone == "p1:hand" and s.state.cards[giant.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_selective_snare_each_target_needs_the_chosen_type_as_it_resolves(cards):
+    """Two Human Soldiers share two types; Soldier is chosen (601.2c). One becomes a plain Human in response: it still shares Human but lacks the chosen type (608.2b)."""
+    s = build(cards, ["Selective Snare", "Town Guard", "Watch Captain", "Imagecrafter"])
+    guard, captain, crafter = (put(s, n) for n in ("Town Guard", "Watch Captain", "Imagecrafter"))
+    to_phase(s, "main1", turn=3)  # (past its summoning sickness)
+    snare = to_hand(s, "Selective Snare")
+    mana(s, U=2, C=2)
+    act(s, "p1", type="set_prefs", hold_priority=True, response="on", auto_resolve_own_triggers="off")
+    act(s, "p1", type="cast_spell", card_id=snare.id, targets=[guard.id, captain.id], x_value=2, target_counts=[2])
+    d = s.state.rules.decision
+    assert {o.id for o in d.options} == {"Human", "Soldier"}  # (the shared types: asked, not guessed)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Soldier"])
+    act(s, "p1", type="activate_ability", card_id=crafter.id, ability=ability(s, crafter, "{T}"), targets=[captain.id])
+    d = s.state.rules.decision
+    while d is None or d.kind != "choose_one":
+        act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["Human"])
+    answer(s)
+    assert now(s, guard).zone == "p1:hand" and now(s, captain).zone == "p1:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize(("chosen", "hit"), [("3", False), ("2", True)])
+def test_squall_rechecks_power_or_toughness_as_the_trigger_resolves(cards, chosen, hit):
+    """603.4: Weaken (-1/-0) in response makes Squall 2/2: chosen 3 (power) no longer matches and nothing happens; chosen 2 (toughness) still does, for its new power 2."""
+    from tests.test_rules_wave100f_attached import to_phase as to_step
+
+    s = build(cards, ["Squall, Gunblade Duelist", "Weaken"])
+    squall = to_hand(s, "Squall, Gunblade Duelist")
+    mana(s, R=1, W=1, B=1)
+    act(s, "p1", type="cast_spell", card_id=squall.id)
+    answer(s, chosen)
+    weaken = to_hand(s, "Weaken")
+    act(s, "p1", type="set_prefs", hold_priority=True, response="on", auto_resolve_own_triggers="off")
+    to_step(s, "declare_attackers", turn=3)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": squall.id, "target": "p2"}])
+    assert s.state.rules.stack  # (the trigger)
+    mana(s, R=1)
+    act(s, "p1", type="cast_spell", card_id=weaken.id, targets=[squall.id])
+    answer(s)
+    to_step(s, "end", turn=3)
+    assert life(s, "p2") == 40 - 2 - (2 if hit else 0)
+    check(s)
+
+
+@pytest.mark.parametrize("both", [True, False])
+def test_zimone_dryad_arbor_is_left_for_manual_play(cards, both):
+    """A revealed land creature is told to enter and to go to hand: no ruling, so it stays put (revealed) while the other revealed card still moves."""
+    s = build(cards, ["Zimone's Experiment", "Dryad Arbor", "Grizzly Bears"])
+    arbor, bears = card_named(s, "Dryad Arbor"), card_named(s, "Grizzly Bears")
+    for c in (bears, arbor):
+        act(s, "p1", type="move", card_ids=[c.id], to={"zone": "library"}, position="top")
+    mana(s, G=4)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Zimone's Experiment").id)
+    answer(s, [arbor.id, bears.id] if both else [bears.id])
+    assert now(s, bears).zone == "p1:hand"
+    assert now(s, arbor).zone == ("p1:library" if both else "p1:library")
+    assert (now(s, arbor).id in s.state.zones["p1:library"][:1]) == both  # (still on top: not sent to the bottom with the unrevealed cards)
     check(s)

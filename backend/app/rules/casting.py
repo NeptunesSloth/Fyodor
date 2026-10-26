@@ -3795,6 +3795,12 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         picked_targets = choose_targets(plan, a, definition if aura is None else {"target": {"what": aura}}, ch.name or "it")
     if picked_targets is None:
         return  # waiting for the target choice (601.2c comes before paying costs)
+    from app.rules import (
+        wave110h_cards,  # -- cards (wave 110H) -- Selective Snare: the creature type of the targets
+    )
+
+    if not wave110h_cards.snare_type(plan, a, picked_targets):
+        return
     chosen = picked_targets.flat
     if flashing is not None and "targets" in flashing and not cost_changes.targets_fit(
             plan, card, plan.actor, flashing["targets"], tuple(t.id for t in chosen)):
@@ -5233,6 +5239,12 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         if found_targets is None:
             return  # waiting for the target choice; the grant stays
         picked_targets = found_targets
+    from app.rules import (
+        wave110h_cards,  # -- cards (wave 110H) -- Selective Snare: the creature type of the targets
+    )
+
+    if not wave110h_cards.snare_type(plan, a, picked_targets):
+        return
     chosen = picked_targets.flat
     announced = optional_announced(plan, a, card, ch)  # -- free-cast optional costs (wave 41D) --
     if announced is None:

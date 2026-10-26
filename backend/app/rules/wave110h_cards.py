@@ -65,6 +65,12 @@ _DARI_DIES = "If ~ would die, instead exile it with three egg counters on it."
 _DARI_UP = ("At the beginning of your upkeep, if this card is exiled with an egg counter on it, remove an egg counter from it. "
             "Then if this card has no egg counters on it, return it to the battlefield.")
 # Heart of Kiran: a static marker; the crew action (casting.crew, _can_crew) reads it through crew_pws.
+# Ashiok, Wicked Manipulator (614.1a): read by replace.lose_life (paid=True) for a life payment, 119.4
+_ASHIOK = "If you would pay life while your library has at least that many cards in it, exile that many cards from the top of your library instead."
+# Desolation (603.2): "tapped a land for mana this turn" is the turn fact ``land_mana110h`` (history.note_events); the players sacrifice together (701.21a, 101.4),
+# then each who sacrificed a Plains (as it was, 608.2h) is dealt 2 damage by the enchantment
+_DESOLATION = ("At the beginning of each end step, each player who tapped a land for mana this turn sacrifices a land of their choice. "
+               "This enchantment deals 2 damage to each player who sacrificed a Plains this way.")
 _HEART = "You may remove a loyalty counter from a planeswalker you control rather than pay Heart of Kiran's crew cost."
 # Squall: the trigger is for one or more attackers; its intervening "if" (603.4) needs one of those creatures with power or toughness equal to the number Squall chose,
 # at trigger time (the cond's selector) and again as it resolves (squall_check)
@@ -119,6 +125,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     text = scripts.self_text(ability.text, ch.name)
     if text in (_HEART, _HEART.replace("Heart of Kiran", "~")):
         return {"kind": "static", "static": "crew_loyalty110h", "effects": []}
+    if text == _DESOLATION.replace("This enchantment", "~"):
+        native = scripts.define(replace(ability, text="At the beginning of each end step, each player sacrifices a land of their choice. ~ deals 2 damage to each player."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["edict", "damage"]:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "who": "tapped_land110h", "as": "sac110h"}, {**native["effects"][1], "who": "plains110h:sac110h"}]}
+    if text == _ASHIOK:
+        return {"kind": "static", "static": "ashiok110h", "effects": []}
     if text == _SQUALL or text == _SQUALL.replace("~", "Squall"):
         from app.rules import selectors
 
@@ -266,14 +279,36 @@ def _zimone() -> Any:
 
 
 def _snare() -> Any:
-    """Selective Snare: X targets of one creature type, chosen as it is cast (601.2c). ponytail: read as "X target creatures that share a creature type" (the same
-    legal target sets at cast; on resolution the targets must still share some type, not specifically the chosen one)."""
+    """Selective Snare: X targets of one creature type, chosen as it is cast (601.2c). Read as "X target creatures that share a creature type"; the type is then
+    recorded (snare_type, PaymentRecord.pick110e) and each target must have THAT type as it resolves (608.2b, effects.py group check)."""
     from app.rules import scripts
 
     got = scripts.parse_effects("Return X target creatures to their owners' hands.")
     if got is None or len(got[1]) != 1:
         return None
-    return got[0], [{**got[1][0], "shares": "creature_type"}], got[2]
+    return got[0], [{**got[1][0], "shares": "creature_type", "chosen110h": True}], got[2]
+
+
+def snare_type(plan: Any, a: Any, picked: Any) -> bool:
+    """601.2c: once the targets are chosen, record the creature type they share (asked when they share several). False while the caster is asked."""
+    from app.game.errors import ActionError
+    from app.game.rules_state import DecisionOption
+    from app.rules import targets
+    from app.rules.plan import decide
+
+    if not any(s.get("chosen110h") for s in picked.specs or []):
+        return True
+    shared = frozenset.intersection(*(targets._kinds(plan.ch(plan.state.cards[t.id]), "creature_type") for t in picked.flat if t.id in plan.state.cards)) if picked.flat else frozenset()
+    if not shared or a.pick110e in shared:
+        return True
+    if a.pick110e is not None:
+        raise ActionError("Choose a creature type all the targets have")
+    if len(shared) == 1:
+        a.pick110e = next(iter(shared))
+        return True
+    decide(plan, player=plan.actor, kind="choose_one", prompt="Choose the creature type of the targets", options=[DecisionOption(id=t, label=t) for t in sorted(shared)],
+           resume={"step": "pick110e", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
+    return False
 
 
 def _episode() -> Any:
@@ -401,6 +436,37 @@ def exile_counters(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
+def tappers(plan: Any) -> list[str]:
+    """The players who tapped a land for mana this turn (a turn fact, recorded as the mana was added)."""
+    from app.game.rules_state import turn_log_now
+
+    log = turn_log_now(plan.state)
+    return [p for p in plan.live() if log is not None and any(f.kind == "land_mana110h" and f.player == p for f in log.facts)]
+
+
+def plains_players(plan: Any, ctx: Any, ref: str) -> list[str]:
+    """Desolation: the players who sacrificed a Plains this way (their sacrificed lands, as they were: 608.2h)."""
+    from app.rules import context
+
+    return list(dict.fromkeys(card.controller for card, ch in context.infos(plan, ctx, ref) if "Plains" in ch.subtypes and card.controller in plan.live()))
+
+
+def ashiok(plan: Any, losses: list[tuple[str, int]]) -> list[tuple[str, int]]:
+    """Ashiok, Wicked Manipulator: a payment of life by its controller becomes exiling that many cards from the top of the library when it has that many (the
+    payment is replaced, so it is not a payment of life: nothing that triggers on paying life). The rest of the payments stay as they were."""
+    from app.rules import permissions
+
+    owners = {c.controller for c, _i, _d in permissions._table_statics(plan.state, plan.info, {"ashiok110h"})}
+    left = []
+    for pid, n in losses:
+        library = plan.state.zones.get(f"{pid}:library", [])
+        if pid in owners and len(library) >= n:
+            plan.do({"type": "move", "card_ids": list(library[:n]), "to": {"player": pid, "zone": "exile"}}, actor=pid)
+        else:
+            left.append((pid, n))
+    return left
+
+
 def crew_pws(ch: Any, player: str, cards: Any, is_pw: Any) -> list[str]:
     """Heart of Kiran: the planeswalkers whose loyalty counter may be removed rather than paying the crew cost (702.122a, 122.1)."""
     if not any(ab.kind == "static" and ab.text.strip() in (_HEART, _HEART.replace("Heart of Kiran", "~")) for ab in ch.abilities):
@@ -444,6 +510,14 @@ def resume_zimone(plan: Any, d: Any, chosen: list[str]) -> None:
     picked = [c for c in dict.fromkeys(chosen) if c in d.resume["pool"] and c in plan.state.cards][:2]
     if picked:
         plan.do({"type": "reveal", "card_ids": picked}, actor=ctx["controller"])
+        # A card that is a land AND a creature (Dryad Arbor) is told to enter and to go to hand by the same spell: no ruling settles it, so it is left on top of the
+        # library, revealed, for the players to place by hand (manual play); the other revealed cards still move.
+        both = [c for c in picked if {"Land", "Creature"} <= plan.ch(plan.state.cards[c]).types]
+        if both:
+            plan.note("Zimone's Experiment: " + ", ".join(plan.state.cards[c].name or "a card" for c in both) + " is both a land card and a creature card; no rule says which "
+                      "instruction wins, so place it by hand", both)
+            ctx["looked"] = [c for c in ctx.get("looked") or [] if c not in both]
+            picked = [c for c in picked if c not in both]
         lands = [c for c in picked if "Land" in plan.ch(plan.state.cards[c]).types]
         for cards, to in ((lands, "battlefield_tapped"), ([c for c in picked if c not in lands], "hand")):
             if cards and not effects._picked(plan, ctx, {"do": "pick_looked", "to": to}, cards):

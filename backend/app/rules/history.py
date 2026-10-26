@@ -290,6 +290,10 @@ def note_events(plan: Plan, events: list[Any], into: TurnLog | None = None) -> N
     from app.rules import first_event_receipts78
 
     first_event_receipts78.note_events(plan, events, log)
+    for e in events:  # -- cards (wave 110H) -- Desolation: a land tapped for mana (605.1a, 106.12a) this turn
+        if e.kind == "mana_added" and e.counter == "tap" and not e.manual and e.player and e.turn == plan.state.turn.number and (got := plan.state.cards.get(e.card or "")) is not None \
+                and "Land" in plan.ch(got).types:
+            log.facts.append(TurnFact(kind="land_mana110h", player=e.player, object_id=e.object_id))
     for e in events:
         if into is None and e.kind == "damage" and e.source and e.amount > 0 and (to := e.player or e.object_id) \
                 and to not in plan.rules.dealt_to110g.setdefault(e.source, []):  # -- wave 110G -- "has dealt damage to this game" (120.3)

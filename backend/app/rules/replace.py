@@ -1788,6 +1788,10 @@ def lose_life(plan: Plan, losses: list[tuple[str, int]], *, actor: str | None = 
     )
 
     losses = life_lock.keep(plan, losses, actor=actor)
+    if paid and losses:  # -- cards (wave 110H) -- Ashiok, Wicked Manipulator: paying life is replaced by exiling cards
+        from app.rules import wave110h_cards
+
+        losses = wave110h_cards.ashiok(plan, losses)
     if not losses:
         return True
     operation = _life_operation(plan, operation)
