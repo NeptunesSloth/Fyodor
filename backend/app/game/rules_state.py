@@ -1739,6 +1739,7 @@ class RulesState(BaseModel):
     next_spell_grants: list[NextSpellGrant] = Field(default_factory=list)  # -- spell grants (wave 28C) --
     source_hand_reveals79: list[SourceHandReveal79] = Field(default_factory=list)
     top_reveals: list[TopReveal] = Field(default_factory=list)
+    face_down_looks110l: list[dict[str, Any]] = Field(default_factory=list)  # -- (wave 110L) -- {"player", "turn"}: "Until end of turn, you may look at face-down creatures you don't control any time" (Lumbering Laundry)
     # -- conditional / instead clauses (wave 1B) --  this turn's and last turn's history (TurnLog)
     turn_log: TurnLog = Field(default_factory=TurnLog)
     last_turn_log: TurnLog | None = None

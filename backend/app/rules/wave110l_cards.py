@@ -252,6 +252,17 @@ _BUILD["Magecraft — " + _MAGECRAFT.format(how="by paying {1} rather than payin
     "Magecraft — " + _MAGECRAFT.format(how="without paying its mana cost"), _by_paying_one)
 
 
+_BUILD["{2}: Until end of turn, you may look at face-down creatures you don't control any time."] = (
+    "{2}: You gain 1 life.", lambda d: {**d, "effects": [{"do": "face_down_look110l"}]})
+
+
+def face_down_look(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Lumbering Laundry: its controller may look at the face-down creatures they don't control until the turn ends (visibility.looks_at_face_down)."""
+    plan.rules.face_down_looks110l.append({"player": ctx["controller"], "turn": plan.state.turn.number})
+    plan.note(f"{plan.name(ctx['controller'])} may look at face-down creatures they don't control until end of turn", actor=ctx["controller"])
+    return True
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key
@@ -304,7 +315,11 @@ _RITUAL = ("Sacrifice a nontoken permanent. If you do, target opponent loses 2 l
 _STRUGGLE = ("Target opponent reveals their hand. That player exiles a card from it, then you exile a card from it. Repeat this process until all cards in that hand "
              "have been exiled. That player returns the cards they exiled this way to their hand and puts the rest into their graveyard.")
 _SUFFOCATION = "~ deals 4 damage to the controller of the last red instant or sorcery spell that dealt damage to you this turn."
+_GAMBIT = "Take an extra turn after this one. During that turn, damage can't be prevented."
 _BODIES: dict[str, tuple[list[Def], str | None]] = {
+    _GAMBIT: ([{"do": "extra_turn", "who": "you", "n": 1, "no_prevent110l": True}], None),
+    _GAMBIT + " At the beginning of that turn's end step, you lose the game.":
+        ([{"do": "extra_turn", "who": "you", "n": 1, "no_prevent110l": True, "then_lose": True}], None),
     _SUFFOCATION: ([{"do": "suffocate110l"}], None),
     _RITUAL: ([{"do": "ritual110l", "who": "target"}], "opponent"),
     _STRUGGLE: ([{"do": "struggle110l", "who": "target"}], "opponent"),
@@ -473,5 +488,5 @@ def resume_struggle(plan: Plan, d: Any, chosen: list[str]) -> None:
         continue_effects(plan, ctx)
 
 
-PRIMITIVES = {**_P0, "suffocate110l": suffocate, "ritual110l": ritual, "ritual_again110l": ritual_again, "struggle110l": struggle}
+PRIMITIVES = {**_P0, "face_down_look110l": face_down_look, "suffocate110l": suffocate, "ritual110l": ritual, "ritual_again110l": ritual_again, "struggle110l": struggle}
 RESUME = {**_R0, "ritual110l": resume_ritual, "struggle110l": resume_struggle}

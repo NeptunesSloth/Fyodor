@@ -177,3 +177,24 @@ def test_avatar_destiny_mills_its_power_returns_itself_and_may_reanimate_a_mille
     assert zone_of(s, "Llanowar Elves") == ("p1:battlefield" if take else "p1:graveyard")
     assert zone_of(s, "Young Wolf") == "p1:graveyard"
     check(s)
+
+
+LAUNDRY = "Lumbering Laundry"
+test_full_laundry = full_test([LAUNDRY])
+
+
+def test_lumbering_laundry_lets_its_controller_look_at_face_down_creatures_until_end_of_turn(cards):
+    s = build(cards, [LAUNDRY], ["Grizzly Bears"])
+    laundry = put(s, LAUNDRY)
+    bears = card_named(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="move", card_ids=[bears.id], to={"zone": "battlefield"}, face_down=True, face_down_kind="manifest", x=10, y=10)
+    assert s.view("p1")["cards"][bears.id]["hidden"]  # before: Alice can't tell what it is
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=laundry.id, ability=0)
+    answer(s)
+    mine, theirs = s.view("p1")["cards"][bears.id], s.view("p2")["cards"][bears.id]
+    assert mine["name"] == "Grizzly Bears" and not mine.get("hidden")
+    assert theirs["name"] == "Grizzly Bears"  # its own controller always knows
+    to_phase(s, "main1", turn=3)
+    assert s.view("p1")["cards"][bears.id]["hidden"]  # the look ended with the turn
+    check(s)

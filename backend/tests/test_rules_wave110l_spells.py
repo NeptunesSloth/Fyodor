@@ -254,3 +254,49 @@ def test_journey_to_the_oracle_returns_to_hand_only_with_eight_lands_and_a_disca
     assert zone_of(s, JADZI) == ("p1:hand" if returns else "p1:graveyard")
     assert zone_of(s, "Grizzly Bears") == ("p1:graveyard" if returns else "p1:hand")  # discarded only if the payment was made
     check(s)
+
+
+GAMBIT = "Alchemist's Gambit"
+test_full_gambit = full_test([GAMBIT])
+
+
+def bolt_with_prevention(s):
+    """Alice bolts Bob; Bob responds with Mending Hands on himself (prevent the next 4 damage)."""
+    to_hand(s, "Mending Hands", "p2")
+    cast(s, "Lightning Bolt", ["p2"])
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    mana(s, "p2", W=1)
+    act(s, "p2", type="cast_spell", card_id=card_named(s, "Mending Hands", "p2").id, targets=["p2"])
+    while s.state.zones.get("stack"):
+        act(s, s.state.rules.priority, type="pass_priority")
+
+
+@pytest.mark.parametrize("cleaved", [True, False])
+def test_alchemists_gambit_makes_damage_unpreventable_in_the_extra_turn_and_loses_only_uncleaved(cards, cleaved):
+    s = build(cards, [GAMBIT, "Lightning Bolt"], ["Mending Hands"])
+    stops(s)
+    gambit = to_hand(s, GAMBIT)
+    fund(s, "{4}{U}{U}{R}" if cleaved else "{1}{R}{R}")
+    act(s, "p1", type="cast_spell", card_id=gambit.id, **({"alt_cost": f"{gambit.id}:0"} if cleaved else {}))
+    answer(s)
+    assert zone_of(s, GAMBIT) == "p1:exile"
+    to_phase(s, "main1", turn=2)  # the extra turn is Alice's
+    assert s.state.turn.active_player == "p1"
+    bolt_with_prevention(s)
+    assert life(s, "p2") == 37  # the prevention shield did nothing: 615.12
+    if cleaved:
+        to_phase(s, "main1", turn=3)
+        assert s.state.turn.active_player == "p2" and "p1" not in s.state.rules.lost
+    else:
+        until(s, lambda s: "p1" in s.state.rules.lost or s.state.turn.number > 2)
+        assert "p1" in s.state.rules.lost and s.state.turn.number == 2  # lost at the end step of that turn
+    check(s)
+
+
+def test_damage_is_preventable_in_an_ordinary_turn(cards):
+    s = build(cards, ["Lightning Bolt"], ["Mending Hands"])
+    stops(s)
+    bolt_with_prevention(s)
+    assert life(s, "p2") == 40  # four prevented of three
+    check(s)
