@@ -29,7 +29,11 @@ SPLASH = ("Flash\nWhen this enchantment enters, you may put a name sticker on it
           "number of u's in name stickers on this enchantment.")
 WOLF = ("When this creature enters, you may put a name sticker on it. When you do, up to X target creatures each get -1/-1 until end of turn, where X is the number "
         "of unique vowels on that sticker. (The vowels are A, E, I, O, U, and Y.)")
-EXTRA = [real("Wolf in _____ Clothing", "{2}{G}", 3, "Creature \u2014 Wolf", WOLF, ("2", "2"), "G"), real("_____ Balls of Fire", "{1}{R}", 2, "Enchantment", BALLS, None, "R"), real("Make a _____ Splash", "{1}{U}", 2, "Enchantment", SPLASH, None, "U"),
+PIN = ("When this Equipment enters, you may put an ability sticker with ticket cost X or less on it without paying that sticker's ticket cost.\n"
+       "Equipped creature gets +1/+1 and has all abilities of ability stickers on this Equipment.\nEquip {2}")
+BOSS = ("Other Riggers you control get +1/+0 and have haste.\nIf a Rigger you control would assemble a Contraption, it assembles two Contraptions instead.")
+EXTRA = [real("Steamflogger Boss", "{2}{R}", 3, "Creature \u2014 Goblin Rigger", BOSS, ("2", "2"), "R"), real("Rigger Probe", "{R}", 1, "Creature \u2014 Goblin Rigger", "", ("1", "1"), "R"),
+         real("Pin Collection", "{X}{W}", 1, "Artifact \u2014 Equipment", PIN), real("Wolf in _____ Clothing", "{2}{G}", 3, "Creature \u2014 Wolf", WOLF, ("2", "2"), "G"), real("_____ Balls of Fire", "{1}{R}", 2, "Enchantment", BALLS, None, "R"), real("Make a _____ Splash", "{1}{U}", 2, "Enchantment", SPLASH, None, "U"),
          real("Wee Champion", "{1}{R}", 2, "Creature — Goblin Warrior", WEE, ("2", "2"), "R"),
          real("Goblin Airbrusher", "{1}{R}", 2, "Creature — Goblin Artificer", AIR, ("2", "2"), "R")]
 
@@ -51,7 +55,7 @@ def cards(settings):
 
 
 def start(cards):
-    names = ["Grizzly Bears", "Ticketomaton", "Wee Champion", "Goblin Airbrusher", "_____ Balls of Fire", "Make a _____ Splash", "Wolf in _____ Clothing"]
+    names = ["Grizzly Bears", "Ticketomaton", "Wee Champion", "Goblin Airbrusher", "_____ Balls of Fire", "Make a _____ Splash", "Wolf in _____ Clothing", "Pin Collection", "Steamflogger Boss", "Rigger Probe"]
     mine = deck(cards, "Krenko, Mob Boss", [(30, "Forest"), *((1, n) for n in names)])
     mine += [DeckCard("stickers", 1, s["name"], s["printing_id"]) for s in list(SHEETS.values())[:10]]
     other = deck(cards, "Atraxa, Praetors' Voice", [(30, "Island"), (1, "Grizzly Bears")])
@@ -63,7 +67,7 @@ def start(cards):
     return s
 
 
-@pytest.mark.parametrize("name", ["Wee Champion", "Goblin Airbrusher", "_____ Balls of Fire", "Make a _____ Splash", "Wolf in _____ Clothing"])
+@pytest.mark.parametrize("name", ["Wee Champion", "Goblin Airbrusher", "_____ Balls of Fire", "Make a _____ Splash", "Wolf in _____ Clothing", "Pin Collection", "Steamflogger Boss"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -163,4 +167,47 @@ def test_wolf_in_clothing(cards):
     _settle(s)
     oid = s.state.rules.object_id(bears[0].id)
     assert any(oid in e.affected and e.power == -1 and e.toughness == -1 for e in s.state.rules.effects)
+    check(s)
+
+
+def test_pin_collection(cards):
+    """123.2, 107.3m: cast with X=2 it offers only ability stickers of ticket cost 2 or less (placed free: no tickets spent); the equipped creature has the sticker's ability
+    and +1/+1, and loses it when unequipped (613.1f)."""
+    from app.rules.plan import Plan
+
+    s = start(cards)
+    bear = put(s, "Grizzly Bears", "battlefield")
+    cast(s, "Pin Collection", x_value=2)
+    pin = find(s, "Pin Collection")
+    d = question(s)
+    pick(s, [pin.id])
+    offered = [o.id for o in s.state.rules.decision.options]
+    from app.rules import stickers101
+
+    mine = {v["id"]: v for v in stickers101.available(Plan.view(s.state, "p1", s.cards), "p1", "ability")}
+    assert offered and all(mine[i]["cost"] <= 2 for i in offered if i in mine) and any(v["cost"] > 2 for v in mine.values())
+    chosen = next(mine[i] for i in offered if mine[i]["text"] == "Deathtouch")
+    pick(s, [chosen["id"]])
+    _settle(s, first=False)
+    assert d is not None and s.state.players["p1"].resources.get("ticket", 0) == 0
+    equip = next(a.index for a in Plan(s.state, "p1", s.cards, None).ch(pin).abilities if "equip" in a.keywords)
+    act(s, "p1", type="activate_ability", card_id=pin.id, ability=equip, targets=[bear.id], sources=[])
+    _settle(s, first=False)
+    assert s.state.cards[bear.id].zone == "p1:battlefield" and s.state.cards[pin.id].attached_to == bear.id
+    assert "deathtouch" in Plan(s.state, "p1", s.cards, None).ch(bear).keywords
+    act(s, "p1", type="attach", card_ids=[pin.id], to="p2")  # (off the Bear: by hand)
+    assert "deathtouch" not in Plan(s.state, "p1", s.cards, None).ch(bear).keywords
+    check(s)
+
+
+def test_steamflogger_boss(cards):
+    """613.4c, 701.45a: other Riggers you control get +1/+0 and haste (the Boss itself and a Bear do not); assembling is outside these rules and no Contraption deck exists in a
+    Commander game, so its replacement never applies."""
+    from app.rules.plan import Plan
+
+    s = start(cards)
+    boss, rigger, bear = (put(s, n, "battlefield") for n in ("Steamflogger Boss", "Rigger Probe", "Grizzly Bears"))
+    ch = {c.name: Plan(s.state, "p1", s.cards, None).ch(c) for c in (boss, rigger, bear)}
+    assert ("haste" in ch["Rigger Probe"].keywords, "haste" in ch["Steamflogger Boss"].keywords, "haste" in ch["Grizzly Bears"].keywords) == (True, False, False)
+    assert (ch["Rigger Probe"].pt, ch["Steamflogger Boss"].pt, ch["Grizzly Bears"].pt) == ((2, 1), (2, 2), (2, 2))
     check(s)

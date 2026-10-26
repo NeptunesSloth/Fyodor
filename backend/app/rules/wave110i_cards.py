@@ -24,6 +24,8 @@ def _won_last(d: Def) -> Def:
 
 # whole ability text -> the wording the grammar reads for it
 _AS: dict[str, str] = {
+    # Pin Collection: the stickers' abilities reach the equipped creature through stickers101.continuous (613.1f); the static itself is the +1/+1
+    "Equipped creature gets +1/+1 and has all abilities of ability stickers on this Equipment.": "Equipped creature gets +1/+1.",
     # Nick Fury: the DFC transform is independent of the rest going to the bottom (701.27c, 608.2c); said last, the grammar reads "you may transform it" as the final choice
     "Power-up \u2014 {W}{U}{B}{R}{G}: Put two +1/+1 counters on Nick Fury, then look at the top seven cards of your library. You may put a Hero, Equipment, or Vehicle "
     "card from among them onto the battlefield. If it's a double-faced card, you may transform it. Put the rest on the bottom of your library in a random order.":
@@ -940,6 +942,9 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
     text = ability.text.strip()
+    if text == "If a Rigger you control would assemble a Contraption, it assembles two Contraptions instead.":
+        # 701.45a: assembling is an Unstable mechanic outside these rules; no player has a Contraption deck in a Commander game, so nothing can be assembled and this never applies
+        return {"kind": "static", "static": "no_assemble110i", "effects": []}
     if text == _WHISTLE:
         return whistle(ability, ch)
     if text == _WOLF:
