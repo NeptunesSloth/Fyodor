@@ -35,6 +35,8 @@ _REWRITE: dict[str, str] = {
 }
 _EMBIGGEN = ("Embiggen Fist — Whenever you cast a spell that targets a creature you control, draw a card. "
              "Until end of turn, Ms. Marvel gains \"Ms. Marvel's base power is equal to the number of cards in your hand.\"")
+_CHILL = ("Choose X target attacking creatures. For each of those creatures, its controller may pay {1} or {2}. If that player doesn't, destroy that creature at end of combat. "
+          "If that player pays only {1}, prevent all combat damage that would be dealt to and dealt by that creature this combat.")
 _RADIATE = ("Choose target instant or sorcery spell that targets only a single permanent or player. Copy that spell for each other permanent or player "
             "the spell could target. Each copy targets a different one of those permanents and players.")
 _STORYWEAVE = ("Put two lore counters on target Saga you control. The next time one or more enchantment creatures you control enter this turn, "
@@ -331,6 +333,10 @@ def definition(ability: Any, ch: Any) -> Def | None:
         if native is None:
             return None
         return {**native, "effects": [{**e, "optional": "sacrifice110e"} if e["do"] == "kicked_gate" else e for e in native["effects"]]}
+    if text == "X can't be greater than the number of snow lands you control.":  # 601.2b: the cap on the X announced as it is cast (casting.cast_spell)
+        from app.rules import selectors
+
+        return {"kind": "static", "static": "x_cap", "n": {"count": selectors.parse("snow lands you control").key()}, "effects": []}  # type: ignore[union-attr]
     if text == _RETURNS:  # 121.2c, 101.4: each player picks 0..7 first (APNAP), then draws; reuses the Indentured Djinn chooser
         native = scripts.define(replace(ability, text=_RETURNS.replace("draws up to", "draws")), ch)
         if native is None or native["effects"][-1]["do"] != "draw":
@@ -385,6 +391,11 @@ def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
         if put is None or put[0][0].get("do") != "put_from_hand":
             return None
         return [{"do": "aura_swap_gate110e", "skip": 2}, {**put[0][0], "optional": True, "as": "sw110e"}, {"do": "aura_swap_return110e", "of": "ref:sw110e"}], None, False
+    if body.strip() == _CHILL:  # 601.2b X targets, then each controller decides (wave110e_once.chill)
+        from app.rules import scripts
+
+        first = scripts.parse_effects("Choose X target attacking creatures.")
+        return None if first is None or first[0] != [{"do": "choose_targets", "who": "target:0"}] else ([*first[0], {"do": "chill110e"}], first[1], first[2])
     if body.strip() == _RADIATE:  # 707.10d: the copies; the target spell's own restriction is read by selectors (targets_only)
         from app.rules import scripts
 

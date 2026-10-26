@@ -70,3 +70,28 @@ def radiate(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 
 
 PRIMITIVES["radiate110e"] = radiate
+
+
+def chill(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Winter's Chill: "For each of those creatures, its controller may pay {1} or {2}. If that player doesn't, destroy that creature at end of combat. If that
+    player pays only {1}, prevent all combat damage that would be dealt to and dealt by that creature this combat." (118.12 / 608.2c: its controller decides, creature by
+    creature.) Each creature becomes its own target group, then the instructions run for it: pay {2} (nothing more), else pay {1} (prevention), else destroy."""
+    groups = ctx.setdefault("groups", [[]])
+    block: list[dict[str, Any]] = []
+    for t in [t for t in (groups[0] if groups else []) if t]:
+        g = len(groups)
+        groups.append([t])
+        who, a, b = f"target:{g}", f"chill{g}a", f"chill{g}b"
+        block += [{"do": "optional_payment", "who": who, "cost": "{2}", "bind": a},
+                  {"do": "only_if", "cond": {"succeeded": a, "negate": True}, "skip": 6},
+                  {"do": "optional_payment", "who": who, "cost": "{1}", "bind": b},
+                  {"do": "only_if", "cond": {"succeeded": b}, "skip": 1},
+                  {"do": "prevent_all", "scope": {"combat": True, "to_or_by": True}, "who": who, "role": "both", "duration": "end_of_combat"},
+                  {"do": "only_if", "cond": {"succeeded": b, "negate": True}, "skip": 2},
+                  {"do": "delayed", "when": {"kind": "step", "step": "end_combat", "whose": "next"}, "n": 1},
+                  {"do": "deferred:destroy", "who": who}]
+    ctx["effects"][ctx["next"]:ctx["next"]] = block
+    return True
+
+
+PRIMITIVES["chill110e"] = chill

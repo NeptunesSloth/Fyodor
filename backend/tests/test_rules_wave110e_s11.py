@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import tests.test_rules_wave110e_cards as base
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.fixtures.cards import card
 from tests.game_helpers import act
@@ -26,6 +27,10 @@ SAGA = real("Test Saga", "{1}{G}", 2, "Enchantment \u2014 Saga", "I \u2014 You g
 RALLY = real("Test Rally", "{W}", 1, "Sorcery", "Return all creature cards from your graveyard to the battlefield.", None, "W")
 RADIATE = real("Radiate", "{3}{R}{R}", 5, "Instant", "Choose target instant or sorcery spell that targets only a single permanent or player. Copy that spell for each other permanent "
                "or player the spell could target. Each copy targets a different one of those permanents and players.", None, "R")
+CHILL = real("Winter's Chill", "{X}{U}", 1, "Instant", "Cast this spell only during combat before blockers are declared.\nX can't be greater than the number of snow lands you control.\n"
+             "Choose X target attacking creatures. For each of those creatures, its controller may pay {1} or {2}. If that player doesn't, destroy that creature at end of combat. "
+             "If that player pays only {1}, prevent all combat damage that would be dealt to and dealt by that creature this combat.", None, "U")
+SNOW = real("Test Snow Island", "", 0, "Basic Snow Land \u2014 Island", "({T}: Add {U}.)")
 SPIRIT = real("Test Spirit", "{1}{W}", 2, "Enchantment Creature \u2014 Spirit", "", ("1", "1"), "W")
 GIANT = real("Test Giant", "{4}{G}", 5, "Creature — Giant", "", ("0", "9"), "G")
 RAPTOR = real("Test Raptor", "{2}{R}", 3, "Creature — Dinosaur", "", ("3", "2"), "R")
@@ -33,11 +38,11 @@ _REAL = json.loads((Path(__file__).parent / "fixtures" / "wave110e_cards.json").
 FEUD = real("Bitter Feud", "{4}{R}", 5, "Enchantment", "As this enchantment enters, choose two players.\nIf a source controlled by one of the chosen players would deal "
             "damage to the other chosen player or a permanent that player controls, that source deals double that damage to that player or permanent instead.", None, "R")
 BOLT = real("Test Bolt", "{R}", 1, "Instant", "Test Bolt deals 3 damage to any target.", None, "R")
-base.EXTRA.extend([THROWDOWN, BEAR, BOON, RAPTOR, GIANT, STORY, SAGA, SPIRIT, RALLY, RADIATE, FEUD, BOLT, *(card(c["name"], set_code="w110e", number=f"E{i:03d}", **{k: v for k, v in c.items() if k != "name"})
+base.EXTRA.extend([THROWDOWN, BEAR, BOON, RAPTOR, GIANT, STORY, SAGA, SPIRIT, RALLY, RADIATE, CHILL, SNOW, FEUD, BOLT, *(card(c["name"], set_code="w110e", number=f"E{i:03d}", **{k: v for k, v in c.items() if k != "name"})
                                                     for i, c in enumerate(_REAL))])
 
 
-@pytest.mark.parametrize("name", ["Lethal Throwdown", "Bitter Feud", "Radiate", "Storyweave", "Saheeli's Lattice // Mastercraft Raptor"])
+@pytest.mark.parametrize("name", ["Lethal Throwdown", "Bitter Feud", "Radiate", "Winter's Chill", "Storyweave", "Saheeli's Lattice // Mastercraft Raptor"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -178,3 +183,60 @@ def test_radiate_copies_the_spell_for_each_other_permanent_or_player(cards):
     assert lost == {"p1": 3, "p2": 3, "p3": 3}
     assert s.state.cards[mine.id].damage == 3 and s.state.cards[theirs.id].damage == 3
     check(s)
+
+
+def _chill(cards, first, second, x=2, snow=2):
+    """Alice attacks with two bears; Bob (holding Winter's Chill, X snow lands) targets both during declare attackers; Alice answers per bear: "pay2" / "pay1" / "no"."""
+    from tests.wave110b_kit import attack
+
+    s = build(cards, ["Test Bear", "Test Bear"], ["Winter's Chill", "Test Snow Island", "Test Snow Island"])
+    bears = [c for c in s.state.cards.values() if c.name == "Test Bear" and c.owner == "p1"]
+    for c in bears:
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "battlefield"})
+    islands = [c for c in s.state.cards.values() if c.name == "Test Snow Island" and c.owner == "p2"]
+    act(s, "p2", type="move", card_ids=[c.id for c in islands[:snow]], to={"player": "p2", "zone": "battlefield"})
+    chill = to_hand(s, "Winter's Chill", "p2")
+    act(s, "p2", type="set_stops", own=[], others=["declare_attackers"], smart_pass=True)
+    attack(s, *bears)
+    mana(s, "p2", U=1, C=x)
+    mana(s, "p1", C=6)
+    if s.state.rules.priority == "p1":
+        act(s, "p1", type="pass_priority")
+    assert s.state.turn.phase == "declare_attackers" and s.state.rules.priority == "p2"
+    if first is None:
+        with pytest.raises(ActionError, match="X can't be greater than 1"):
+            act(s, "p2", type="cast_spell", card_id=chill.id, x_value=x, targets=[b.id for b in bears], target_counts=[x])
+        return s, bears, 0
+    act(s, "p2", type="cast_spell", card_id=chill.id, x_value=x, targets=[b.id for b in bears], target_counts=[x])
+    life = s.state.players["p2"].life
+    for want in ((first, second) if first else ()):
+        d = s.state.rules.decision
+        assert d is not None and d.player == "p1", d
+        if want == "pay2" and "pay" in [o.id for o in d.options]:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+        else:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=["decline"])
+            if want == "pay1":
+                d = s.state.rules.decision
+                act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
+            elif want == "no":
+                d = s.state.rules.decision
+                act(s, "p1", type="choose", decision_id=d.id, option_ids=["decline"])
+    return s, bears, life
+
+
+@pytest.mark.parametrize(("first", "second", "dead", "dmg"), [("pay2", "no", [False, True], 4), ("pay1", "no", [False, True], 2), ("no", "pay2", [True, False], 4)])
+def test_winters_chill_each_controller_decides_creature_by_creature(cards, first, second, dead, dmg):
+    """118.12, 614: pay {2}: nothing; pay only {1}: that creature's combat damage (dealt and received) is prevented; pay nothing: destroyed at end of combat."""
+    from tests.wave110b_kit import through_combat
+
+    s, bears, life = _chill(cards, first, second)
+    through_combat(s)
+    assert [s.state.cards[b.id].zone.endswith(":graveyard") for b in bears] == dead
+    assert life - s.state.players["p2"].life == dmg
+    check(s)
+
+
+def test_winters_chill_x_is_capped_by_the_snow_lands(cards):
+    """601.2b: X can't be greater than the number of snow lands you control (one snow land: X = 2 is refused)."""
+    _chill(cards, None, None, snow=1)
