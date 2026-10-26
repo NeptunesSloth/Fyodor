@@ -764,10 +764,7 @@ def features_of(ch: Characteristics) -> list[Feature]:
         gaps |= {g for g in [counters_designations_gap(whole)] if g is not None}
     for gap in sorted(gaps):
         add("engine:dungeon", gap[0].upper() + gap[1:], False)
-    if any(d.get("kind") == "static" and d.get("static") == "roll_adjust" and d.get("life", True) for d in defs.values()):  # (wave 110H: a counter cost has no life to pay)
-        # Night Shift's numeric rules are complete. Its accepted-use life payment
-        # on a symbolic planar die still requires the native planar-roll model.
-        add("engine:planar_roll_payment", "Planar-die life payment and accepted-use accounting", False)
+    # (wave 110B) Night Shift of the Living Dead: its life payment on a planar-die roll needs no model: Commander has no planar die (CR 901 is Planechase; same reading as 'chaos ensues' in wave110n_cards)
     return out
 
 
