@@ -448,12 +448,6 @@ def mana_abilities(state: GameState, card: CardInstance, info: CardInfo) -> list
         if parsed.once_per_turn and r is not None and \
                 r.once_per_turn.get(f"{r.object_id(card.id)}:{ab.index}") == state.turn.number:
             continue
-        from app.rules import (
-            wave110f_sac,  # -- additional costs (wave 110F) -- a taxed mana ability is not offered (the table pays the tax)
-        )
-
-        if wave110f_sac.ability_tax(state, info, card, ch, ab.text.partition(":")[0]) is not None:
-            continue
         if parsed.sacrifice_self or parsed.extra_cost:  # -- prohibitions (wave 22B) -- "Players can't pay life or sacrifice creatures …" (119.4)
             from app.rules import prohibitions
 
@@ -5517,14 +5511,6 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     card = plan.state.cards.get(a.card_id)
     if card is None:
         raise ActionError("That card isn't here any more")
-    from app.rules import (
-        wave110f_sac,  # -- additional costs (wave 110F) -- Drought: keyword activations with their own route pay no tax: refused
-    )
-
-    if (sac_ab := next((x for x in plan.ch(card).abilities if x.index == a.ability), None)) is not None and (
-            sac_ab.kind == "mana" or re.match(r"(?i)(?:basic )?\w*cycling\b|unearth\b|equip\b", sac_ab.text)) \
-            and wave110f_sac.refuses(plan.state, plan.info, sac_ab.text.partition(":")[0]):
-        raise ActionError("Drought taxes this ability, which Fyodor can't tax yet: use the table tools")
     if card.zone == zone_key(plan.actor, "hand"):
         ch = plan.ch(card)
         ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
@@ -5902,13 +5888,8 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
         # -- costs (wave 3$) -- "Activated abilities of creatures you control cost {2} less to activate" (601.2f)
         # (wave 4I: a cost with no mana in it can be increased too: "{T}: …" taxed {2} is "{2}, {T}: …")
         # -- cost changers (wave 4I) -- and the ability's own "This ability costs {1} less to activate for each …" (602.2b)
-        from app.rules import (
-            cost_changes,  # (a leaf over this module)
-            wave110f_sac,  # -- additional costs (wave 110F) -- Brutal Suppression, Drought (118.8)
-        )
+        from app.rules import cost_changes  # (a leaf over this module)
 
-        if (sac110f := wave110f_sac.ability_tax(state, info, card, ch, ability.cost or "")) is not None:
-            cost = replace(cost, components=(*cost.components, *sac110f.components))
         if ability.text.startswith("Power-up — ") and not ability.power_up_prepared:  # 702.193a
             from app.rules import power_up
 

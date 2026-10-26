@@ -1,8 +1,7 @@
 """Wave 110F session 13, on real Oracle text. Every scenario checks the replay and a save and a load.
 
-* 118.8, 602.2b: "Activated abilities of nontoken Rebels cost an additional "Sacrifice a land" to activate." (Brutal Suppression): Rebel abilities only, any land.
-* 118.8, 107.4e-f, 601.2f: Drought: a Swamp for each black mana symbol (hybrid and Phyrexian included) in a spell's mana cost or an ability's activation cost;
-  a mana ability or a cycling activation with a black symbol is not offered / refused (the tax is not automated there).
+* 118.8, 107.4e-f, 601.2f: Drought: a Swamp for each black mana symbol (hybrid and Phyrexian included) in a spell's mana cost is automated; its tax on
+  activated abilities (and Brutal Suppression) is not, so both cards stay PARTIAL and every activation (mana ability, cycling) stays legal and untaxed.
 """
 
 from __future__ import annotations
@@ -52,12 +51,17 @@ _BASE.extend([
     real('Test Doom 13F', '{B}', 1, 'Instant', 'Destroy target creature.', None, 'B'),
     real('Test Big 13F', '{3}', 3, 'Creature \u2014 Golem', '', ('5', '5'), ''),
 ])
-NAMES = ["Brutal Suppression", "Drought", "Cemetery Desecrator"]
+NAMES = ["Cemetery Desecrator"]
 
 
 @pytest.mark.parametrize("name", NAMES)
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+@pytest.mark.parametrize("name", ["Brutal Suppression", "Drought"])
+def test_activated_ability_tax_is_not_automated(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "PARTIAL"
 
 
 def _many(s, name, n):
@@ -73,38 +77,6 @@ def _lands(s, n):
 
 def _zone(s, card):
     return s.state.cards[card.id].zone
-
-
-def test_brutal_suppression_taxes_a_rebel_only(cards):
-    """118.8: the Rebel's activation sacrifices a land (its controller's choice); a Human is not taxed; without a land it cannot be activated."""
-    s = build(cards, ["Brutal Suppression", "Test Rebel 13F", "Test Human 13F", "Test Land 13F", "Test Land 13F", "Test Land 13F"])
-    put(s, "Brutal Suppression")
-    rebel, human = put(s, "Test Rebel 13F"), put(s, "Test Human 13F")
-    ready(s, "Test Rebel 13F")
-    ready(s, "Test Human 13F")
-    activate(s, "p1", human, "", targets=["p2"])
-    answer(s)
-    assert life(s, "p2") == 39 and not any(c.zone == "p1:graveyard" for c in s.state.cards.values())
-    with pytest.raises(ActionError):
-        activate(s, "p1", rebel, "", targets=["p2"])  # no land to sacrifice
-    one, two = _lands(s, 2)
-    activate(s, "p1", rebel, "", targets=["p2"])
-    answer(s, [two.id])
-    answer(s)
-    assert life(s, "p2") == 38 and _zone(s, two) == "p1:graveyard" and _zone(s, one) == "p1:battlefield"
-    check(s)
-
-
-def test_brutal_suppression_leaves_other_abilities(cards):
-    """Without it on the table the Rebel pays no land."""
-    s = build(cards, ["Test Rebel 13F", "Test Land 13F"])
-    rebel = put(s, "Test Rebel 13F")
-    land, = _lands(s, 1)
-    ready(s, "Test Rebel 13F")
-    activate(s, "p1", rebel, "", targets=["p2"])
-    answer(s)
-    assert life(s, "p2") == 39 and _zone(s, land) == "p1:battlefield"
-    check(s)
 
 
 def _drought(cards, deck, swamps):
@@ -132,30 +104,18 @@ def test_drought_spell_one_swamp_per_black_symbol(cards, spell, need):
     check(s)
 
 
-def test_drought_taxes_an_activated_ability_by_its_black_symbols(cards):
-    s, (swamp,) = _drought(cards, ["Test Dark Pinger 13F"], 1)
-    pinger = put(s, "Test Dark Pinger 13F")
-    ready(s, "Test Dark Pinger 13F")
-    mana(s, B=1)
-    activate(s, "p1", pinger, "", targets=["p2"])
-    answer(s)
-    assert life(s, "p2") == 39 and _zone(s, swamp) == "p1:graveyard"
-    check(s)
-
-
-def test_drought_mana_ability_and_cycling_with_black_symbols_are_refused(cards):
-    """Not automated: the tax is not paid for them, so they are not offered / refused."""
-    s, _ = _drought(cards, ["Test Swamp Mana 13F", "Test Cycler 13F"], 1)
+def test_drought_never_blocks_a_mana_ability_or_cycling_with_a_black_symbol(cards):
+    """Not automated, so never refused: a {B} mana ability and Cycling {B} stay legal (untaxed, the table pays the Swamp)."""
+    s, (swamp,) = _drought(cards, ["Test Swamp Mana 13F", "Test Cycler 13F"], 1)
     src = put(s, "Test Swamp Mana 13F")
     ready(s, "Test Swamp Mana 13F")
     mana(s, B=1)
-    with pytest.raises(ActionError):
-        activate(s, "p1", src, "")
+    activate(s, "p1", src, "")
     cyc = to_hand(s, "Test Cycler 13F")
-    with pytest.raises(ActionError, match="Drought"):
-        act(s, "p1", type="activate_ability", card_id=cyc.id, ability=ability_index(s, cyc, "Cycling"))
-    assert _zone(s, cyc) == "p1:hand"
-
+    act(s, "p1", type="activate_ability", card_id=cyc.id, ability=ability_index(s, cyc, "Cycling"))
+    answer(s)
+    assert _zone(s, cyc) == "p1:graveyard" and _zone(s, swamp) == "p1:battlefield"
+    check(s)
 
 
 def _desecrate(cards, mine=(), theirs=()):
