@@ -116,7 +116,7 @@ def definition(ability: Any, ch: Any) -> Def | None:
     if ability.text.strip() == _EQUINOX:
         return {"kind": "activated", "cost": "{T}", "effects": [{"do": "equinox110j"}], "target": {"what": "spell"}}
     if (curse := _CURSE_RE.fullmatch(ability.text.strip())) is not None:
-        native = scripts.define(replace(ability, text="Sacrifice a permanent: Draw a card."), ch)
+        native = scripts.define(replace(ability, text=f"{curse['cost']}: Draw a card."), ch)
         return None if native is None else {**native, "effects": [{"do": "ignore110j", "curse": curse["oid"] or ""}]}
     if ability.text.strip() == _SPLICER:
         return _splicer(ability, ch)
@@ -1160,15 +1160,31 @@ RESUME["takkle110j"] = resume_takkle
 _CURSE = ("Enchanted creature can't attack or block, and its activated abilities can't be activated. That creature's controller may sacrifice a permanent of their choice "
           "for that player to ignore this effect until end of turn.")
 _CURSE_IGNORE = "Sacrifice a permanent: Ignore ‹granter› until end of turn."  # layers.py binds ‹granter#oid› to the granting Curse (607.1a)
-_CURSE_RE = re.compile(r"Sacrifice a permanent: Ignore ‹granter(?:#(?P<oid>[^›]*))?› until end of turn\.")
+_CURSE_RE = re.compile(r"(?P<cost>Sacrifice a permanent|Exile three cards from your graveyard): Ignore ‹granter(?:#(?P<oid>[^›]*))?› until end of turn\.")
+# Lost in Thought (final pass): the same, its controller exiling three cards from their graveyard (ruling 2004-10-04: a special action without the stack, casting.activate_ability; Volrath's Curse has no such ruling and keeps its stack ability)
+_LOST = ("Enchanted creature can't attack or block, and its activated abilities can't be activated. Its controller may exile three cards from their graveyard "
+         "for that player to ignore this effect until end of turn.")
+_LOST_IGNORE = "Exile three cards from your graveyard: Ignore ‹granter› until end of turn."
 _BUILD[_CURSE] = ("Enchanted creature can't attack or block, and its activated abilities can't be activated.",
                   lambda d: {**d, "grants": [_CURSE_IGNORE], "conditions": [{"static": "not", "cond": {"static": "ignored110j"}}]})
 
 
+_BUILD[_LOST] = ("Enchanted creature can't attack or block, and its activated abilities can't be activated.",
+                 lambda d: {**d, "grants": [_LOST_IGNORE], "conditions": [{"static": "not", "cond": {"static": "ignored110j"}}]})
+
+
 def ignore(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     plan.rules.once_per_turn[f"ignore110j:{e['curse']}"] = plan.state.turn.number
-    plan.note("Volrath's Curse is ignored until end of turn", actor=ctx["controller"])
+    plan.note("The Aura is ignored until end of turn", actor=ctx["controller"])
     return True
+
+
+def ignore_now(plan: Any, text: str) -> None:
+    """The special action's effect (no stack): ignore the Aura whose granted line this is."""
+    m = _CURSE_RE.fullmatch(text.strip())
+    assert m is not None
+    plan.rules.once_per_turn[f"ignore110j:{m['oid'] or ''}"] = plan.state.turn.number
+    plan.note("The Aura is ignored until end of turn", actor=plan.actor)
 
 
 PRIMITIVES["ignore110j"] = ignore

@@ -119,6 +119,7 @@ ARABIAN_NIGHTS = frozenset({
 
 EXILE_WHAT = "exile110o"
 _LORE_ENTER = "As ~ enters, exile an instant or sorcery card from your graveyard."
+_DERM_ENTER = "As ~ enters, exile a creature card from a graveyard."  # -- wave 110J -- Dermotaxi's imprint: the same entry choice and link, from any graveyard
 _LORE_CDA = "~'s power and toughness are each equal to the exiled card's mana value."
 _LORE_TRIGGER = ("Whenever ~ deals combat damage, you may sacrifice it. If you do, you may cast the exiled card without paying its mana cost.")
 _EVELYN_TRIGGER = "Whenever ~ or another Vampire you control enters, exile the top card of each player's library with a collection counter on it."
@@ -239,10 +240,10 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         return {**native, "effects": [{**native["effects"][0], "skip": 3}, {**become, "types": [], "legendary": True},
                                       {"do": "named100g", "who": "self", "name": "Mileva, the Stalwart"},
                                       {"do": "grant", "who": "self", "abilities": ["Other creatures you control have indestructible."], "duration": "permanent"}]}
-    if text == _LORE_ENTER:  # 614.12a: "as it enters" the controller picks the card (a replacement, made before it enters), after_entry exiles it linked to the new permanent
+    if text in (_LORE_ENTER, _DERM_ENTER):  # 614.12a: "as it enters" the controller picks the card (a replacement, made before it enters), after_entry exiles it linked to the new permanent
         from app.rules import selectors
 
-        sel = selectors.parse("instant or sorcery card in your graveyard")
+        sel = selectors.parse("instant or sorcery card in your graveyard" if text == _LORE_ENTER else "creature card in a graveyard")
         assert sel is not None
         return {"kind": "replacement", "replacement": "enters_choice",
                 "effects": [{"do": "choose_value", "who": "you", "what": EXILE_WHAT, "pick110a": sel.key()}]}

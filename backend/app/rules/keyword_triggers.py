@@ -159,6 +159,8 @@ def _definition(piece: str) -> str | None:
             d = {**d, 'effects': [{'do': 'evolve_outcome', 'stage': 'mark'}, *d['effects'], {'do': 'evolve_outcome', 'stage': 'finish', 'event': 'trained'}]}
         if kw == "modular":  # -- (wave 110O) -- 702.43a: "a modular triggered ability" (Zabaz): its counters are tagged so a replacement can tell (replace.put_counters)
             d = {**d, "effects": [{**x, "modular110o": True} for x in d["effects"]]}
+        if kw == "mentor":  # -- mentor (wave 110J) -- 702.134c: "mentors" = its mentor ability resolved (the target was legal)
+            d = {**d, "effects": [*d["effects"], {"do": "mentored110j"}]}
         if kw == "exploit":  # (702.110b: the sacrifice is what "exploits a creature")
             d = {**d, "effects": [{**x, "exploit": True} for x in d["effects"]]}
         if kw == "hideaway":  # -- hideaway (wave 29D) -- 607.2a: the card exiled is the one the permanent's other abilities call "the exiled card"

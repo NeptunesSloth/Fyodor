@@ -2042,6 +2042,11 @@ def _source_matches(plan: Plan, spec: dict[str, Any], c: Candidate, ev: Event) -
     if not conditional_prevention_effects.source_matches(plan, spec, c, ev):
         return False
     src = ev.get("src") or {}
+    if spec.get("cause_targets_recipient110j"):  # -- Silhouette (wave 110J) --
+        from app.rules import wave110j_final
+
+        if not wave110j_final.cause_targets_recipient(plan, ev):
+            return False
     if spec.get("chosen_pair110e"):  # -- wave 110E -- Bitter Feud
         from app.rules import wave110e_pair
 

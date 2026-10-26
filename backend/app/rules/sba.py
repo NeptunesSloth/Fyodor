@@ -414,6 +414,13 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
                    resume={"step": "legend_rule", "cards": [c.id for c in group]})
             return True
 
+    from app.rules import (
+        wave110j_final,  # -- Space sculptor (wave 110J) -- creatures not yet in a sector (and lost sectors)
+    )
+
+    if wave110j_final.sector_sba(plan):
+        return True
+
     # 903.9b: a commander just put into its owner's hand or library may go to the command zone
     # instead (app/rules/replacements.py: the move happened; the owner is asked before priority)
     if r.pending_903_9b:

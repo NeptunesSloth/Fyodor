@@ -204,7 +204,7 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
         c = CardInstance(
             id=new_id,
             card_id=a.printing or (snap.printing if snap is not None else src.card_id if src else None),
-            name=snap.name if snap is not None else src.name if src else "",
+            name=a.name or (snap.name if snap is not None else src.name if src else ""),
             owner=pid, controller=pid, zone=key,
             x=(a.x if a.x is not None else (src.x if src else 0) + 24) + i * 18,
             y=(a.y if a.y is not None else (src.y if src else 0) + 24) + i * 18,

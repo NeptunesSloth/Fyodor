@@ -132,6 +132,14 @@ class Plan:
             from app.rules import wave110i_cards
 
             wave110i_cards.mask_flip(self, payload.get("tap") or () if payload["type"] == "rules_mana" else [c for c in payload.get("card_ids") or () if c in self.state.cards and not self.state.cards[c].tapped])
+        if payload.get("type") in ("life", "rules_damage"):  # -- life total replacement (wave 110J) -- Enduring Angel (614.1a)
+            from app.rules import wave110j_angel
+
+            payload, after = wave110j_angel.rewrite(self, payload, actor)
+            if after:
+                done = self.do(payload, actor=actor, departure_before=departure_before)
+                wave110j_angel.run_after(self, after, actor)
+                return done
         if payload.get("type") in ("move", "mill"):
             # Zone-change replacement effects (614): unearth's "exile it instead", "If ~ would die,
             # exile it instead", Rest in Peace-like statics, madness, 903.9b — app/rules/replacements.py

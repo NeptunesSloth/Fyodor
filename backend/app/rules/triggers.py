@@ -640,12 +640,12 @@ def _facts(plan: Plan, e: Event, window: dict[str, Any]) -> list[Fact]:
         return [(e.kind, got[0], got[1], got[0].controller,
                  {"oid": e.object_id, "other": host.id if live and host is not None else None, "other_oid": e.source,
                   "snap": None if _live(plan, got[0]) else r.lki.get(e.object_id or "")})]
-    if e.kind == "exploited":  # -- keyword triggers (wave 23D) -- 702.110b: the exploiter (it may have been sacrificed itself: its last known
+    if e.kind in ("exploited", "mentored"):  # -- keyword triggers (wave 23D) -- 702.110b: the exploiter (it may have been sacrificed itself: its last known
         by = _object_then(plan, e.by_card, e.source)  # information) and the creature it exploited, as it was
         was = _object_then(plan, e.card, e.object_id)
         if by is None or was is None:
             return []
-        return [("exploit", by[0], by[1], e.player, {"oid": e.source, "actor": e.player, "exploited": was, "exploited_oid": e.object_id, "amount": 1,
+        return [("mentor" if e.kind == "mentored" else "exploit", by[0], by[1], e.player, {"oid": e.source, "actor": e.player, "exploited": was, "exploited_oid": e.object_id, "amount": 1,
                                                     "snap": None if _live(plan, by[0]) else r.lki.get(e.source or "")})]
     if e.kind == "counters" and e.amount > 0:  # 122.6: counters put on a permanent
         got = _object_then(plan, e.card, e.object_id)
@@ -1660,7 +1660,7 @@ def _event(plan: Plan, fact: Fact, batch: int) -> TriggerEvent:
                         # -- damage wordings (wave 6B) -- the creature on the other side of a block (509.3c-d)
                         other=_source_ref(plan, plan.oid(plan.state.cards[info["other"]]))
                         if kind in _PAIRED.values() and info.get("other") in plan.state.cards
-                        else _source_ref(plan, info.get("exploited_oid")) if kind == "exploit" else  # -- exploit (wave 110G) -- the exploited creature, as it was
+                        else _source_ref(plan, info.get("exploited_oid")) if kind in ("exploit", "mentor") else  # -- exploit (wave 110G) -- the exploited creature, as it was
                         _source_ref(plan, info.get("bearer")) if kind == "ring_tempts" else None,  # (wave 19B: the Ring-bearer chosen)
                         ballots=info.get("ballots") or [], sticker=info.get("sticker"), combat_alone110g=info.get("alone110g"))  # (-- voting (wave 48D) --)
 

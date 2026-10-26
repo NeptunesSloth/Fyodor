@@ -84,6 +84,10 @@ def block_problem(state: GameState, blocker: CardInstance, bch: Characteristics,
         return f"{bch.name} has decayed: it can't block"
     if "cant_be_blocked" in scripts.statics(ach):
         return f"{ach.name} can't be blocked"
+    from app.rules import wave110j_final  # -- Space Beleren (wave 110J) --
+
+    if (sector := wave110j_final.sector_block_problem(state, blocker, attacker)) is not None:
+        return sector
     # rules of the attacker about its blockers (evasion, 509.1b: flying is one of them) and of the
     # blocker about what it may block (app/rules/statics.py has the vocabulary), each evaluated
     # against the other creature in the block
@@ -1341,7 +1345,7 @@ def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
     blocker blocking two or more attackers assign their combat damage divided as their controller chooses (any share may be
     0; a trampler's damage may go to what it attacks only once every blocker has lethal). Asks the first creature (attackers
     first, 510.1) whose division isn't known yet; False: none is missing."""
-    from app.rules import group_unblocked
+    from app.rules import group_unblocked, wave110j_final
 
     r = plan.rules
     for att in attackers_on(plan.state):  # -- static_other sweep (wave 19A) -- 510.1c: "You may have this creature assign its combat damage as though it weren't blocked"
@@ -1351,7 +1355,7 @@ def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
             continue
         if att.id in r.blocked and att.id not in r.assign_unblocked and group_unblocked.allows(plan, att, ach) and _deals(ach, rnd) \
                 and (_assigns(att, ach) or 0) > 0:
-            decide(plan, player=att.controller, kind="confirm",
+            decide(plan, player=wave110j_final.assigner(plan, att) or att.controller, kind="confirm",
                    prompt=f"Have {att.name} assign its combat damage as though it weren't blocked?",
                    options=[DecisionOption(id="yes", label="As though it weren't blocked"), DecisionOption(id="no", label="Among its blockers")],
                    resume={"step": "assign_unblocked", "round": rnd, "then": then, "creature": att.id})

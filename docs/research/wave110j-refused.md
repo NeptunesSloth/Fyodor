@@ -47,3 +47,9 @@
 - Volrath's Shapeshifter: CR 612.6 settles it (layer 3 full text); derived in copying.layer1, followed live by the graveyard.
 - Bludgeon Brawl: per-recipient "‹mv›" placeholder in grants (layers.py).
 - Guardian Beast: rules cant_be_enchanted110j / cant_gain_control110j (attachments, targets, effects._control_effect).
+
+## Final pass (wave 110 final, agent J)
+
+- Contractual Safeguard: final pass: unsettled because "each other creature you control" follows "a kind of counter on a creature you control", an indefinite creature that is not chosen, so there is no creature for "other" to exclude; no CR rule, the seven Scryfall rulings are about shield counters only, and the two readings (other than the creature(s) holding that kind, or other than one creature of the player's pick) differ when several creatures hold it.
+- Psychic Battle: final pass: unsettled because "chooses one or more targets" has a settled meaning only for a spell cast, an ability activated and a triggered ability put on the stack (601.2c, 602.2b, 603.3d); whether a copy whose controller chooses new targets (707.10c) or another effect that changes targets counts has no CR rule and no ruling (the four Scryfall rulings are about the change itself; the card's own "changing targets this way doesn't trigger" sentence only hints that changes may count).
+- Captain America, First Avenger (Throw): demoted to PARTIAL (lead ruling). The divided damage equals the MV of the Equipment unattached as a cost; CR 601.2d fixes the division before 601.2h pays costs (reading A: division needs the Equipment chosen first), but nothing in the CR or the Scryfall rulings (empty) says the cost choice may be made early (reading B: the Equipment is chosen at 601.2h, so the division cannot depend on it). No official ruling: an analogy is not enough. The "... Catch" half still works generically.

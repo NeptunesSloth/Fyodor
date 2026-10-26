@@ -1096,6 +1096,8 @@ def leave_stack(plan: Plan, card_id: str, controller: str, *, tapped: bool = Fal
 
             haunt.spell_resolved(plan, card_id, controller)
         record = plan.rules.payments.pop(oid, None)
+        if (sacrificed := plan.rules.sacrificed110j.pop(oid, None)) is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
+            plan.rules.sacrificed110j[plan.oid(card_id)] = sacrificed  # -- Gluttonous Hellkite (wave 110J) -- its cast trigger's count follows the permanent
         if record is not None and card_id in plan.state.cards and plan.state.cards[card_id].zone.endswith(":battlefield"):
             plan.rules.payments[plan.oid(card_id)] = record  # the permanent remembers how its spell was paid
             if record.pick110e and "|" not in record.pick110e:  # -- cast-time choice (wave 110E) -- public, read as the permanent's "Chosen creature type"

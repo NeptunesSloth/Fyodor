@@ -74,6 +74,7 @@ SUPPORTED_REPLACEMENTS.add("enters_prepared")  # -- prepared (wave 13C) -- "~ en
 SUPPORTED_REPLACEMENTS.add("enter_cost")
 SUPPORTED_REPLACEMENTS.add("enters_exile_unpaid")  # Own prospective payment-conditioned entry diversion.
 SUPPORTED_REPLACEMENTS.add("turned_up_attach110d")  # -- turned up (wave 110D) -- "As ~ is turned face up, you may attach it to a creature." (wave110d_misc.attach_up)
+SUPPORTED_REPLACEMENTS.add("life_floor110j")  # -- life total (wave 110J) -- Enduring Angel (wave110j_angel.rewrite, called by Plan.do)
 SUPPORTED_REPLACEMENTS.add("turned_up_counters")  # -- counters (wave 52D) -- 708.11: "As ~ is turned face up, put five +1/+1 counters on it." (app/rules/counters52d.py)
 
 
@@ -289,6 +290,7 @@ SUPPORTED_KEYWORDS.add("umbra armor")  # -- keywords (wave 15E) -- 702.89a (rege
 SUPPORTED_KEYWORDS.add("start your engines!")  # -- speed (wave 24B) -- 702.179 (app/rules/speed.py)
 SUPPORTED_KEYWORDS.add("phasing")  # -- phasing (wave 13D) -- 702.26 (app/rules/phasing.py)
 SUPPORTED_KEYWORDS.update(("aftermath", "gravestorm", "dredge", "fuse", "awaken", "escalate"))  # -- static_other sweep (wave 16B) -- 702.127 (casting.cast_grant)
+SUPPORTED_KEYWORDS.add("space sculptor")  # -- sectors (wave 110J) -- Space Beleren (wave110j_final.sector_sba, sector_block_problem)
 SUPPORTED_KEYWORDS.add("split second")  # -- split second (wave 8A) -- 702.61 (app/rules/split_second.py, cast_limits)
 # -- end sagas & attached-object triggers (wave 3S) --
 

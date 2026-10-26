@@ -3204,6 +3204,12 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return bound_redirection
     if (conditional_prevention := conditional_prevention_effects.parse(body)) is not None:
         return conditional_prevention
+    from app.rules import wave110j_final  # -- Silhouette (wave 110J) --
+
+    if (silhouette := wave110j_final.parse(body)) is not None:
+        return silhouette
+    if (piracy := wave110j_final.piracy_parse(body)) is not None:
+        return piracy
     if (scoped_prevention := scoped_prevention_effects.parse(body)) is not None:
         return scoped_prevention
     if (bound_subset := bound_subset_choices.parse(body)) is not None:
@@ -7128,6 +7134,26 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return delegated_target
     if (prevention_outcome := prevention_outcomes.definition(ability, ch)) is not None:
         return prevention_outcome
+    from app.rules import wave110j_final  # -- Defensive Formation (wave 110J) --
+
+    if ability.kind == "static" and (formation := wave110j_final.definition(ability.text)) is not None:
+        return formation
+    if (hellkite := wave110j_final.hellkite(ability, ch)) is not None:
+        return hellkite
+    if (garth := wave110j_final.garth_definition(ability, ch)) is not None:
+        return garth
+    if (inniaz := wave110j_final.inniaz_definition(ability, ch)) is not None:
+        return inniaz
+    if (bruna := wave110j_final.bruna_definition(ability, ch)) is not None:
+        return bruna
+    if (kasmina := wave110j_final.kasmina_definition(ability, ch)) is not None:
+        return kasmina
+    if (dermotaxi := wave110j_final.dermotaxi_definition(ability, ch)) is not None:
+        return dermotaxi
+    if (alpine := wave110j_final.alpine_definition(ability, ch)) is not None:
+        return alpine
+    if (beleren := wave110j_final.belerens(ability, ch)) is not None:
+        return beleren
     if (conditional_prevention := conditional_prevention_effects.definition(ability, ch)) is not None:
         return conditional_prevention
 
@@ -8178,9 +8204,10 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
                                else x for x in parsed[0]], *parsed[1:])
                 # -- damage wordings (wave 6B) -- "Whenever ~ blocks or becomes blocked by a creature, ~ deals 1 damage to
                 # that creature" (509.3c-d: once per creature on the other side): that creature is the event's ``other``
-                if parsed is None and cond is not None and cond.get("other") and cond.get("subject", "self") in ("self", "host") and (
-                        cond["event"] in ("block", "blocked")
-                        or (cond["event"] == "multi" and set(cond["events"]) <= {"block", "blocked"})):
+                if parsed is None and cond is not None and cond.get("subject", "self") in ("self", "host") and (
+                        cond.get("other") and (cond["event"] in ("block", "blocked")
+                                               or (cond["event"] == "multi" and set(cond["events"]) <= {"block", "blocked"}))
+                        or cond["event"] == "mentor"):  # (-- mentor (wave 110J) -- "that creature" is the mentored one, the event's ``other``)
                     from app.rules.language import OTHER_SIDE
 
                     if cond.get("subject", "self") == "self":
@@ -9581,6 +9608,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (picked := wave110a_pick.definition(text)) is not None:
         return picked
+    from app.rules import wave110j_angel  # -- life total replacement (wave 110J) --
+
+    if (floor := wave110j_angel.definition(text)) is not None:
+        return floor
     from app.rules import wave110e_opp  # -- entry secret choice (wave 110E) --
 
     if (secret := wave110e_opp.secret_definition(text)) is not None:

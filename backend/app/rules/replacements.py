@@ -287,7 +287,7 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
             if what in answers:
                 out.setdefault("choices", {})[what] = answers[what]
             elif "choice" not in out:
-                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"opt110a": True} if e.get("opt110a") else {}), **({"attach110i": True} if e.get("attach110i") else {}), **({"decider": deciding} if deciding else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
+                out["choice"] = {"what": what, **({"pick110a": e["pick110a"]} if e.get("pick110a") else {}), **({"opt110a": True} if e.get("opt110a") else {}), **({"attach110i": True} if e.get("attach110i") else {}), **({"lich110j": True} if e.get("lich110j") else {}), **({"decider": deciding} if deciding else {}), **({"look": answers.get(card_names.LOOK)} if e.get("look") else {}), **({"reveal": True} if e.get("reveal") else {}),
                                  **({"options": e["options"]} if e.get("options") else {}), **({"random": True} if e.get("random") else {})}  # (wave 51C: "choose Elemental, Elf, …": only the creature types listed)
                 if what == "second color":
                     out["choice"]["options"] = [o for o in ("White", "Blue", "Black", "Red", "Green") if o != answers.get("color")]
@@ -446,6 +446,10 @@ def entering_counters(plan: Plan, card: CardInstance, controller: str, ch: Any, 
                     n = _counter_amount(plan, card.id, controller, part, x, newcomers)
                     if n > 0:
                         counters[part["counter"]] = counters.get(part["counter"], 0) + n
+        from app.rules import wave110j_final  # -- Gluttonous Hellkite (wave 110J) --
+
+        if n := wave110j_final.entry_counters(plan, card, ch):
+            counters["+1/+1"] = counters.get("+1/+1", 0) + n
         for d in scripts.definitions(ch).values():  # -- chosen filters (wave 53B) -- "As ~ enters, choose a creature type. ~ enters with a counter for each creature you control of the chosen type." (614.12a, 614.1c)
             if d.get("replacement") == "enters_choice" and d.get("counters") and (picked := (choices or {}).get(d["counters_choice"])):
                 from app.rules import chosen as _chosen

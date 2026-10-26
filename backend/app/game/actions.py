@@ -345,6 +345,7 @@ class CopyCard(Base):
     zone: Literal["exile", "graveyard", "hand"] | None = None  # (wave 110M: "hand" — a revealed card copied where it is, Kefnet; wave 110N: a copy of a revealed card made to be cast, 707.12)
     face: int | None = None
     printing: str | None = Field(default=None, max_length=64)  # the copied card's printing when the source is itself a copy (722.2b)
+    name: str | None = Field(default=None, max_length=200)  # -- wave 110J -- the copy's name when ``printing`` is another card's (Garth One-Eye: a copy of the card with a chosen name)
     # -- spell copies (wave 31D) -- 707.10, 608.2h: a copy of a spell that has left the stack is made from how it last existed there (the object id
     # it had): its name, printing and face are the snapshot's (public: it was a spell), whatever zone the card is in now
     last_known: str | None = Field(default=None, max_length=80)

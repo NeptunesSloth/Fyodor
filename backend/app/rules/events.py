@@ -1454,6 +1454,13 @@ def _object_event(c: str) -> Condition | None:
         if base is None or base.get("aggregate"):
             raise _Refuse
         return {**base, "event": "exploit", "exploited": _object_sel(m["o"])}
+    # -- mentor (wave 110J) -- 702.134c: "Whenever equipped creature mentors a creature" (a mentor ability of the subject targeting it resolved)
+    m = re.fullmatch(r"(?P<s>~|an? .+?|another .+?|equipped creature) mentors (?P<o>an? .+)", c)
+    if m:
+        base = _subject(m["s"], host=True)
+        if base is None or base.get("aggregate"):
+            raise _Refuse
+        return {**base, "event": "mentor", "exploited": _object_sel(m["o"])}
     # "one or more +1/+1 counters are put on ~", "a +1/+1 counter is put on a creature you control"
     # -- counters (wave 5H) -- "you put one or more +1/+1 counters on a creature you control" (122.6, 122.6a: the player
     # who put them — the step's actor at the counter choke point). Only +1/+1 counters: -1/-1 counters dealt as damage

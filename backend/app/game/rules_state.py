@@ -429,6 +429,7 @@ EventKind = Literal[
     "saddle_tapped",  # 702.171c: likewise for a saddle ability
     "saddled",  # 702.171b: ``card`` became saddled
     "exploited",  # -- keyword triggers (wave 23D) -- 702.110b: ``card`` (object ``object_id``) was sacrificed to exploit ``by_card`` (``source``: its object)
+    "mentored",  # -- mentor (wave 110J) -- 702.134c: ``card`` (object ``object_id``) is the target of the resolved mentor ability of ``by_card`` (``source``: its object)
     "turned_face_up",  # 702.37e (morph)  # a Vehicle became crewed (702.122)
     # 701.21a: a permanent was sacrificed (emitted just before it moves, in the same batch; the
     # object is the permanent as it was — "whenever you sacrifice …" looks back in time, 603.10a)
@@ -1798,6 +1799,8 @@ class RulesState(BaseModel):
     # -- trigger lines (wave 100A) -- object id -> the players its enters ability targeted as it went on the stack (Soul Scourge's "that player")
     linked_players100a: dict[str, list[str]] = Field(default_factory=dict)
     batch: int = 0  # last event batch number
+    piracy110j: dict[str, int] = Field(default_factory=dict)  # -- wave 110J -- Piracy: player -> the turn number in which they may tap lands they don't control for mana
+    sacrificed110j: dict[str, int] = Field(default_factory=dict)  # -- wave 110J -- Gluttonous Hellkite: spell object -> creatures sacrificed by its cast trigger
     exploited110j: list[tuple[str, str]] = Field(default_factory=list)  # -- wave 110J -- (exploiter object, creature it exploited), 702.110b: "if it exploited that creature"
     events: list[Event] = Field(default_factory=list)  # events since the engine last acted (this intent's, or manual ones)
     events_dropped: bool = False  # manual play produced more events than are kept

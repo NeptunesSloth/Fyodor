@@ -22,7 +22,7 @@ _MANA_ABILITY = re.compile(
     rf"^\{{T\}}: Add (?:{_MANA_SYMBOL}(?:{_MANA_SYMBOL})*(?:(?:, | or |, or ){_MANA_SYMBOL})*|one mana of any color)\.$"
 )
 _LOYALTY = re.compile(r"^[+−-]?\d+: |^[+−-]X: ")
-_TRIGGER = re.compile(r"^(?:[A-Z0-9][\w'’!?,.\- ]+ — )?(When|Whenever|At) ")  # (wave 6E: "Exterminate! — When …"; wave 41A: a letter with a mark, "Pavitr's Sevā — When …")  # an ability word ("Landfall — ") may lead
+_TRIGGER = re.compile(r"^(?:(?:\.\.\. )?[A-Z0-9][\w'’!?,.\- ]+ — )?(When|Whenever|At) ")  # (wave 6E: "Exterminate! — When …"; wave 41A: a letter with a mark, "Pavitr's Sevā — When …")  # an ability word ("Landfall — ") may lead
 # (-- ability words (wave 4F) -- digits too: "Descend 4 — Whenever …", 207.2c)
 # (-- attached events (wave 4L) -- "Equipped creature has "{T}: …"" is a static granting an ability, not a cost)
 _COST_START = re.compile(
@@ -205,7 +205,7 @@ _ADD_MANA = re.compile(r"^(?P<cost>[^:]+): (?:Choose a color(?: of (?:a permanen
 # "Corrupted —" (-- ability words (wave 4F) -- read like an ability word: scripts.ABILITY_WORDS).
 # Anything else is a flavor word only when what follows is a trigger or a cost-led activated ability; other lines are left as they were.
 # (-- counters (wave 41A) -- \w: a flavor word may carry a mark on a letter, "Pavitr's Sevā — Whenever …" (Spider-Man India); 207.2d)
-_WORD_PREFIX = re.compile(r"^(?P<w>[A-Z0-9][\w'’!?,.\- ]{0,48}?) — (?P<rest>\S.*)$")  # (-- most-played cards II (wave 45A) -- a digit may lead: "10,000 Needles — Whenever …", Jumbo Cactuar)
+_WORD_PREFIX = re.compile(r"^(?P<w>(?:\.\.\. )?[A-Z0-9][\w'’!?,.\- ]{0,48}?) — (?P<rest>\S.*)$")  # (-- most-played cards II (wave 45A) -- a digit may lead: "10,000 Needles — Whenever …", Jumbo Cactuar)
 _NOT_FLAVOR = frozenset({"max speed", "power-up", "exhaust", "boast", "forecast", "visit", "companion", "prototype",
                          "solved", "to solve", "station", "level up",
                          "prize"})  # (-- review (wave 6R) -- "Prize —" is part of an Attraction's visit ability: 702.159b)
