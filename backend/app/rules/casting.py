@@ -5557,6 +5557,14 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if equip is not None:
         equip_ability(plan, card, ch, a, equip)
         return
+    fortify = attachments.fortify_cost(ch, a.ability) if not plan.manual(card) else None  # -- (wave 110M) -- 702.67a
+    if fortify is not None:
+        if "Fortification" not in ch.subtypes or ch.is_creature:
+            raise ActionError(f"{ch.name} can't fortify a land" + (" while it's a creature" if ch.is_creature else ""))  # 301.6
+        ability = AbilityText(index=a.ability, kind="activated", cost=fortify, text=f"{fortify}: Attach {ch.name} to target land you control. Activate only as a sorcery.")
+        activate_to_stack(plan, card, ch, ability, a, definition={"kind": "activated", "effects": [{"do": "attach_self"}],
+                                                                   "target": {"what": 'sel:{"controller":"you","types":["Land"]}'}}, exclude_targets=(card.id,))
+        return
     if ability.kind in ("activated", "loyalty"):
         activate_to_stack(plan, card, ch, ability, a)
         return

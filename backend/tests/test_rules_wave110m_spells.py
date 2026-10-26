@@ -252,3 +252,36 @@ def test_deadly_cover_up_with_evidence_but_no_card_in_an_opponents_graveyard_exi
     cover_up(s, collect=True)
     assert all(s.state.cards[e.id].zone != "p2:exile" for e in elves) and zone_of(s, "Elite Vanguard") == "p1:graveyard"
     check(s)
+
+
+# -- Hunted by The Family --------------------------------------------------------------------------------------------------------------------
+HUNTED = "Hunted by The Family"
+test_hunted_full = full_test([HUNTED])
+
+
+@pytest.mark.parametrize("birds_choice,elves_choice", [("a", "b"), ("b", "a"), ("a", "a"), ("b", "b")])
+def test_hunted_by_the_family_each_controller_picks_a_villainous_option_for_each_target(cards, birds_choice, elves_choice):
+    s = build(cards, [HUNTED], ["Birds of Paradise", "Llanowar Elves", "Grizzly Bears"], forests=20)
+    birds, elves, bears = (put(s, n, "p2") for n in ("Birds of Paradise", "Llanowar Elves", "Grizzly Bears"))
+    cast(s, HUNTED, [birds.id, elves.id], target_counts=[2])
+    d = None
+    for choice in (birds_choice, elves_choice):
+        for _ in range(20):
+            d = s.state.rules.decision
+            if d is not None:
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        assert d is not None and d.player == "p2" and [o.id for o in d.options] == ["a", "b"]
+        act(s, "p2", type="choose", decision_id=d.id, option_ids=[choice])
+        d = None
+    answer(s)
+    for card, choice, subtypes in ((birds, birds_choice, {"Bird"}), (elves, elves_choice, {"Elf", "Druid"})):
+        got = ch(s, card)
+        if choice == "a":
+            assert (got.pt, set(got.types), set(got.subtypes), set(got.colors), "flying" in got.keywords) == ((1, 1), {"Creature"}, {"Human"}, {"W"}, False)
+        else:
+            assert set(got.subtypes) == subtypes and (card is not birds or "flying" in got.keywords)  # (left as it was)
+    copies = [c for c in s.state.cards.values() if c.zone == "p1:battlefield" and c.token is not None]
+    assert sorted(c.name for c in copies) == sorted(n for n, choice in (("Birds of Paradise", birds_choice), ("Llanowar Elves", elves_choice)) if choice == "b")
+    assert pt(s, "Grizzly Bears", "p2") == (2, 2)  # (not targeted)
+    check(s)

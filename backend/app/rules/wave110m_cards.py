@@ -132,6 +132,39 @@ def resume_cover_up(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
+_HUNTED = ("Choose up to four target creatures you don't control. For each of them, that creature's controller faces a villainous choice — That creature becomes a 1/1 "
+           "white Human creature and loses all abilities, or you create a token that's a copy of it.")
+
+
+def _hunted() -> Any:
+    from app.rules import scripts
+
+    found = scripts.parse_effects("Choose up to four target creatures you don't control.")
+    return None if found is None else ([{"do": "hunted110m"}], found[1], found[2])
+
+
+def hunted(plan: Any, ctx: Def, e: Def) -> bool:
+    """Hunted by The Family: for each target still a creature on the battlefield, in the order they were chosen, its controller faces a villainous choice (701.55a): it
+    becomes a 1/1 white Human creature and loses all abilities for good (611.2a, 613.1), or the caster creates a token that's a copy of it (701.55b: either may be
+    impossible, then as much as possible happens). Each choice is made in its turn (villainous.py), the creature one specific object (400.7)."""
+    from app.rules import effects
+
+    steps: list[Def] = []
+    for cid in effects._cards(plan, ctx, "target"):
+        card = plan.state.cards[cid]
+        if not card.zone.endswith(":battlefield") or not plan.ch(card).is_creature:
+            continue
+        who = f"object:{plan.oid(card)}"
+        steps.append({"do": "villain", "who": f"player:{card.controller}", "labels": [f"{card.name} becomes a 1/1 white Human creature and loses all abilities",
+                                                                                      f"Create a token that's a copy of {card.name}"],
+                      "a": [{"do": "become", "who": who, "types": ["Creature"], "creature_types": ["Human"], "colors": ["W"], "p": 1, "t": 1, "duration": "permanent"},
+                            {"do": "become", "who": who, "types": [], "lose_abilities": True, "duration": "permanent"}],
+                      "b": [{"do": "token_copy", "n": 1, "who": who}]})
+    at = ctx["next"]
+    ctx["effects"] = [*ctx["effects"][:at], *steps, *ctx["effects"][at:]]
+    return True
+
+
 _MEDDLE = "If target spell has only one target and that target is a creature, change that spell's target to another creature."
 
 
@@ -139,6 +172,8 @@ def parse(body: str) -> Any:
     """Spell bodies. Meddle: any spell may be targeted; whether it has one target and that target is a creature is judged as this resolves (115.7a, 608.2b)."""
     from app.rules import scripts
 
+    if body.strip() == _HUNTED:
+        return _hunted()
     if body.strip() == _COVER_UP:
         return _cover_up()
     if body.strip() == _BRILLIANCE:
@@ -298,6 +333,10 @@ def unblocked_rule(ch: Any) -> bool:
     return UNBLOCKED in ch.imposed
 
 
+_BUILD["Fortified land has indestructible."] = ("Enchanted land has indestructible.", lambda d: d)
+_BUILD["Whenever fortified land becomes tapped, target creature gets +1/+1 until end of turn."] = (
+    "Whenever enchanted land becomes tapped, target creature gets +1/+1 until end of turn.", lambda d: d)
+
 _FACES = ("Whenever a creature dies, tap all untapped creatures that share a creature type with it or untap all tapped creatures that share a creature type with it.")
 _BUILD[_FACES] = ("Whenever a creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "faces110m"}]})
 
@@ -408,4 +447,4 @@ def resume_damnations_keep(plan: Any, d: Any, chosen: list[str]) -> None:
 
 RESUME: dict[str, Any] = {"gurzigost110m": resume_gurzigost, "cover_up110m": resume_cover_up, "faces110m": resume_faces, "damnations110m": resume_damnations, "damnations110m_lose": resume_damnations_lose,
                           "damnations110m_keep": resume_damnations_keep}
-PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}
+PRIMITIVES: dict[str, Any] = {"top_to_bottom110m": top_to_bottom, "faces110m": faces, "lose_shield110m": lose_shield, "hunted110m": hunted, "gurzigost110m": gurzigost, "cover_up110m": cover_up, "damnations110m": damnations}

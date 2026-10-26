@@ -571,5 +571,33 @@
 ],
 "power": "0",
 "toughness": "5"
+},
+{
+"name": "Darksteel Garrison",
+"layout": "normal",
+"mana_cost": "{2}",
+"cmc": 2.0,
+"type_line": "Artifact — Fortification",
+"oracle_text": "Fortified land has indestructible.\nWhenever fortified land becomes tapped, target creature gets +1/+1 until end of turn.\nFortify {3} ({3}: Attach to target land you control. Fortify only as a sorcery. This card enters unattached and stays on the battlefield if the land leaves.)",
+"colors": [],
+"color_identity": [],
+"keywords": [
+"Fortify"
+]
+},
+{
+"name": "Hunted by The Family",
+"layout": "normal",
+"mana_cost": "{5}{U}{U}",
+"cmc": 7.0,
+"type_line": "Sorcery",
+"oracle_text": "Choose up to four target creatures you don't control. For each of them, that creature's controller faces a villainous choice — That creature becomes a 1/1 white Human creature and loses all abilities, or you create a token that's a copy of it.",
+"colors": [
+"U"
+],
+"color_identity": [
+"U"
+],
+"keywords": []
 }
 ]

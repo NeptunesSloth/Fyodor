@@ -218,3 +218,45 @@ def test_merieke_leaving_the_battlefield_destroys_the_creature(cards):
     answer(s)
     assert s.state.cards[merieke.id].zone == "p1:graveyard" and zone_of(s, "Grizzly Bears", "p2") == "p2:graveyard"
     check(s)
+
+
+# -- Darksteel Garrison (Fortify) --------------------------------------------------------------------------------------------------------------
+GARRISON = "Darksteel Garrison"
+test_garrison_full = full_test([GARRISON])
+
+
+def garrison_table(cards):
+    s = build(cards, [GARRISON, "Grizzly Bears"], ["Forest"], forests=9)
+    garrison = put(s, GARRISON)
+    forest = next(c for c in s.state.cards.values() if c.name == "Forest" and c.owner == "p1" and c.zone == "p1:library")
+    act(s, "p1", type="move", card_ids=[forest.id], to={"player": "p1", "zone": "battlefield"})
+    bears = put(s, "Grizzly Bears")
+    return s, garrison, s.state.cards[forest.id], bears
+
+
+def fortify(s, garrison, land):
+    fund(s, "{3}")
+    act(s, "p1", type="activate_ability", card_id=garrison.id, ability=2, targets=[land.id])
+    answer(s)
+
+
+def test_fortify_attaches_to_a_land_that_then_has_indestructible_and_pumps_a_creature_when_tapped(cards):
+    s, garrison, forest, bears = garrison_table(cards)
+    fortify(s, garrison, forest)
+    assert s.state.cards[garrison.id].attached_to == forest.id and "indestructible" in ch(s, forest).keywords
+    act(s, "p1", type="activate_ability", card_id=forest.id, ability=0)  # tapped for mana: it becomes tapped (603.2)
+    answer(s)
+    assert pt(s, "Grizzly Bears") == (3, 3)
+    check(s)
+
+
+def test_fortify_is_sorcery_speed_and_needs_a_land_you_control(cards):
+    from app.game.errors import ActionError
+
+    s, garrison, forest, bears = garrison_table(cards)
+    with pytest.raises(ActionError):
+        fund(s, "{3}")
+        act(s, "p1", type="activate_ability", card_id=garrison.id, ability=2, targets=[bears.id])  # a creature isn't a land
+    to_turn_of(s, "p2")
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=garrison.id, ability=2, targets=[forest.id])
