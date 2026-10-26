@@ -86,6 +86,7 @@ from app.rules import (
     triggers,
     untap_choice,  # -- untap choice (wave 7F) --
     wave110e_opp,  # -- cast-time choice (wave 110E) --
+    wave110f_cards,  # -- combat damage division (wave 110F) --
     wave110h_cards,  # -- untap hold (wave 110H) --
 )
 from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
@@ -1818,6 +1819,7 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "enlist": enlist.resume,  # -- casting extras (wave 18E) -- 702.154a
     "assist": assist.resume,  # -- casting extras (wave 18E) -- 702.132a
     "pick110e": wave110e_opp.resume,  # -- cast-time choice (wave 110E)
+    "giant110f": wave110f_cards.resume_giant,  # -- combat damage division (wave 110F)
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "free_multikicker": casting.resume_free_multikicker,
     "free_optional": casting.resume_free_optional,  # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b

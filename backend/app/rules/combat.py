@@ -16,7 +16,7 @@ from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption, note_block
 from app.game.state import CardInstance, GameState, zone_key
-from app.rules import banding, protection, replace, scripts, selectors, wave110a_choosers
+from app.rules import banding, protection, replace, scripts, selectors, wave110a_choosers, wave110f_cards
 from app.rules import characteristics as chars
 from app.rules import mana as M
 from app.rules.casting import summoning_sick
@@ -1162,8 +1162,8 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
         if n > 0 and "lifelink" in source.keywords:
             out.lifelink[source_card.id] = out.lifelink.get(source_card.id, 0) + n
 
-    def hit_target(att: CardInstance, ach: Characteristics, n: int) -> int:
-        tgt = att.attacking
+    def hit_target(att: CardInstance, ach: Characteristics, n: int, tgt: Any = None) -> int:
+        tgt = tgt or att.attacking  # (-- wave 110F -- ``tgt``: Butcher Orgg's defending player when it attacks a planeswalker)
         if tgt is None or n <= 0:
             return 0
         if tgt.kind == "player":
@@ -1208,7 +1208,15 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
             continue
         blockers = [b for b in blockers_all if b.blocks(att.id)]
         dealt = 0
-        if att.id in r.blocked and not r.assign_unblocked.get(att.id):  # (wave 19A: 510.1c "as though it weren't blocked": all to what it attacks)
+        if (shares := wave110f_cards.divided_shares(plan, att, ach)) is not None:  # -- wave 110F -- Butcher Orgg, Cunning Giant: as its controller chose
+            for tid, n in shares.items():
+                if n <= 0:
+                    continue
+                if tid in state.players:
+                    dealt += hit_target(att, ach, n, A.AttackTarget(kind="player", id=tid))
+                elif (c := state.cards.get(tid)) is not None and c.zone.endswith(":battlefield") and "Creature" in plan.ch(c).types:
+                    dealt += hit_creature(att, ach, c, n)
+        elif att.id in r.blocked and not r.assign_unblocked.get(att.id):  # (wave 19A: 510.1c "as though it weren't blocked": all to what it attacks)
             trample = "trample" in ach.keywords
             need = [lethal(b, ach, p) for b in blockers]
             shares = r.block_split.get(att.id)
@@ -1267,6 +1275,9 @@ def ask_split(plan: Plan, rnd: Round, then: str) -> bool:
                    prompt=f"Have {att.name} assign its combat damage as though it weren't blocked?",
                    options=[DecisionOption(id="yes", label="As though it weren't blocked"), DecisionOption(id="no", label="Among its blockers")],
                    resume={"step": "assign_unblocked", "round": rnd, "then": then, "creature": att.id})
+            return True
+    for att in attackers_on(plan.state):  # -- wave 110F -- Butcher Orgg, Cunning Giant (510.1 as the card changes it)
+        if wave110f_cards.ask_divide(plan, att, rnd, then, _deals(plan.ch(att), rnd), _assigns(att, plan.ch(att))):
             return True
     todo: list[tuple[CardInstance, list[CardInstance], list[int]]] = []
     compute_combat_damage(plan, rnd, todo)

@@ -112,8 +112,10 @@ def find(plan: Plan) -> Found:
                 r.drew_from_empty = [p_ for p_ in r.drew_from_empty if p_ != pid]  # (704.5b: checked, nothing happened)
                 continue
             out.losers.append((pid, reason))
-    from app.rules import keyword_actions
-    from app.rules import wave110f_cards  # -- wave 110F -- Ogre Enforcer
+    from app.rules import (
+        keyword_actions,
+        wave110f_cards,  # -- wave 110F -- Ogre Enforcer
+    )
     from app.rules.copying import ceases_to_exist
 
     for card in list(state.cards.values()):

@@ -3,6 +3,7 @@
 * 613.1f, 702.16: "Target creature loses protection from black until end of turn." (Cephalid Snitch): only the black quality goes.
 * 704.5g, 120.6: "can't be destroyed by lethal damage unless lethal damage dealt by a single source is marked on it" (Ogre Enforcer).
 * 603.4, 118.9: Thunderblade Charge's graveyard trigger pays {2}{R}{R}{R}, then casts the card without paying its mana cost.
+* 510.1: Butcher Orgg divides its combat damage among the defending player and/or their creatures; Cunning Giant (unblocked) assigns it all to one creature.
 * 613.1f, 113.6: "Cards in graveyards lose all abilities." (Yixlid Jailer): no flashback from a graveyard; permanents on the battlefield keep theirs.
 """
 
@@ -14,13 +15,17 @@ from app.game.errors import ActionError
 from app.rules import coverage, protection
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.test_rules_wave100n_multi import EXTRA as _BASE
-from tests.test_rules_wave100n_multi import card_db  # noqa: F401  (fixture DB with EXTRA)
-from tests.test_rules_wave100n_multi import answer, ch
-from tests.test_rules_wave100n_multi import cast
 from tests.test_rules_wave34b_activated import attack
 from tests.test_rules_wave100f_attached import to_phase
-from tests.wave9c_kit import life,  build, card_named, check, mana, put
+from tests.test_rules_wave100f_gear import block
+from tests.test_rules_wave100n_multi import EXTRA as _BASE
+from tests.test_rules_wave100n_multi import (
+    answer,
+    card_db,  # noqa: F401  (fixture DB with EXTRA)
+    cast,
+    ch,
+)
+from tests.wave9c_kit import build, card_named, check, life, mana, put
 
 EXTRA = [
     real('Yixlid Jailer', '{1}{B}', 2, 'Creature — Zombie Wizard',
@@ -38,10 +43,14 @@ EXTRA = [
     real('Test Burn 4 110F', '{2}{R}', 3, 'Instant', 'Test Burn 4 110F deals 4 damage to any target.', None, 'R'),
     real('Thunderblade Charge', '{1}{R}{R}', 3, 'Sorcery',
          'Thunderblade Charge deals 3 damage to any target.\nWhenever one or more creatures you control deal combat damage to a player, if this card is in your graveyard, you may pay {2}{R}{R}{R}. If you do, you may cast it without paying its mana cost.', None, 'R'),
+    real('Cunning Giant', '{5}{R}', 6, 'Creature — Giant',
+         'If this creature is unblocked, you may have it assign its combat damage to a creature defending player controls.', ('4', '4'), 'R'),
+    real('Butcher Orgg', '{4}{R}{R}{R}', 7, 'Creature — Orgg',
+         "You may assign this creature's combat damage divided as you choose among defending player and/or any number of creatures they control.", ('6', '6'), 'R'),
     real('Test Flyer 110F', '{1}{W}', 2, 'Creature — Bird', 'Flying', ('1', '1'), 'W'),
 ]
 _BASE.extend(EXTRA)
-NAMES = ["Yixlid Jailer", "Cephalid Snitch", "Ogre Enforcer", "Thunderblade Charge"]
+NAMES = ["Yixlid Jailer", "Cephalid Snitch", "Ogre Enforcer", "Thunderblade Charge", "Cunning Giant", "Butcher Orgg"]
 
 
 @pytest.mark.parametrize("name", NAMES)
@@ -122,4 +131,56 @@ def test_thunderblade_charge_recasts_itself_from_the_graveyard(cards, pay):
         else:
             break
     assert life(s, "p2") == (35 if pay else 38) and s.state.cards[charge.id].zone == "p1:graveyard"
+    check(s)
+
+
+def _combat(s, attacker, blocker=None, use=True, split=None, target=None):
+    """Attack with ``attacker``; p2 blocks with ``blocker`` (or not); the ability is used or not; the 510.1 answers: ``split`` (id -> damage) or ``target``."""
+    act(s, "p1", type="set_stops", own=["end_combat"], smart_pass=False)
+    attack(s, attacker)
+    for _ in range(60):
+        d = s.state.rules.decision
+        if d is None:
+            if s.state.turn.phase in ("end_combat", "main2") and not s.state.zones.get("stack"):
+                return
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_blockers":
+            block(s, *([(blocker, attacker)] if blocker else []))
+        elif d.kind == "confirm":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes" if use else "no"])
+        elif d.kind == "divide":
+            act(s, d.player, type="choose", decision_id=d.id, amounts=[split.get(o.id, 0) for o in d.options])
+        elif d.kind == "choose_one":
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[target])
+        else:
+            raise AssertionError(d.kind)
+    raise AssertionError("combat never ended")
+
+
+@pytest.mark.parametrize("case", ["split", "declined", "blocked"])
+def test_butcher_orgg_divides_its_damage(cards, case):
+    """510.1 changed by the card: 3 to the player and 3 to a creature (it dies); declined = all 6 to the player; blocked it may still choose (the text is unconditional)."""
+    s = build(cards, ["Butcher Orgg"], ["Grizzly Bears", "Grizzly Bears"], forests=20, islands=20)
+    orgg = put(s, "Butcher Orgg")
+    bear, other = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.owner == "p2"][:2]
+    for c in (bear, other):
+        act(s, "p2", type="move", card_ids=[c.id], to={"player": "p2", "zone": "battlefield"})
+    to_phase(s, "main1", turn=3)
+    shares = {"p2": 3, bear.id: 3} if case == "split" else {"p2": 6} if case == "blocked" else None
+    _combat(s, orgg, blocker=bear if case == "blocked" else None, use=case != "declined", split=shares)
+    zone = lambda c: s.state.cards[c.id].zone  # noqa: E731
+    assert (life(s, "p2"), zone(bear)) == {"split": (37, "p2:graveyard"), "declined": (34, "p2:battlefield"), "blocked": (34, "p2:battlefield")}[case]
+    assert zone(other) == "p2:battlefield"
+    check(s)
+
+
+@pytest.mark.parametrize("case", ["unblocked_choose", "unblocked_decline", "blocked"])
+def test_cunning_giant_assigns_to_a_creature_only_when_unblocked(cards, case):
+    """Cunning Giant: unblocked, all 4 go to the creature chosen (it dies, the player takes none); declined = to the player; blocked: no choice, as usual."""
+    s = build(cards, ["Cunning Giant"], ["Grizzly Bears"], forests=20, islands=20)
+    giant, bear = put(s, "Cunning Giant"), put(s, "Grizzly Bears", pid="p2")
+    to_phase(s, "main1", turn=3)
+    _combat(s, giant, blocker=bear if case == "blocked" else None, use=case != "unblocked_decline", target=bear.id)
+    assert (life(s, "p2"), s.state.cards[bear.id].zone) == {"unblocked_choose": (40, "p2:graveyard"), "unblocked_decline": (36, "p2:battlefield"),
+                                                            "blocked": (40, "p2:graveyard")}[case]
     check(s)

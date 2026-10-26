@@ -338,11 +338,88 @@ def spared_by_split_damage(plan: Any, card: Any, ch: Any, toughness: int) -> boo
 
     if not any(d.get("static") == SPLIT_DAMAGE for d in scripts.definitions(ch).values()):
         return False
-    oid, dealt = plan.oid(card), {}
+    oid = plan.oid(card)
+    dealt: dict[str, int] = {}
     for f in history.log_for(plan).facts:
-        if f.kind == "damaged" and f.object_id == oid and f.amount > 0:
+        if f.kind == "damaged" and f.object_id == oid and f.amount > 0 and f.source:
             dealt[f.source] = dealt.get(f.source, 0) + f.amount
     return max(dealt.values(), default=0) < toughness
+
+
+# 510.1: the card changes how its controller assigns its combat damage. Butcher Orgg: divided as they choose among the defending player and/or any number
+# of creatures that player controls (blocked or not: the text is unconditional). Cunning Giant: all to one creature the defending player controls, if unblocked.
+DIVIDE, GIANT = "divide_damage110f", "giant_damage110f"
+_DIVIDE_TEXT = "You may assign this creature's combat damage divided as you choose among defending player and/or any number of creatures they control."
+_GIANT_TEXT = "If this creature is unblocked, you may have it assign its combat damage to a creature defending player controls."
+
+
+def _mode(plan: Any, ch: Any) -> str | None:
+    from app.rules import scripts
+
+    names = scripts.statics(ch)
+    return DIVIDE if DIVIDE in names else GIANT if GIANT in names else None
+
+
+def _defenders(plan: Any, att: Any, mode: str) -> list[Any]:
+    """The defending player (Orgg only) and their creatures, as options."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import combat
+
+    pid = combat.defender_of(plan.state, att.attacking)
+    if pid is None or pid not in plan.state.players:
+        return []
+    mine = [DecisionOption(id=pid, label=plan.state.players[pid].name)] if mode == DIVIDE else []
+    return mine + [DecisionOption(id=c.id, label=c.name or "Creature", card_id=c.id) for c in plan.state.cards.values()
+                   if c.controller == pid and c.zone.endswith(":battlefield") and plan.ch(c).is_creature]
+
+
+def ask_divide(plan: Any, att: Any, rnd: str, then: str, deals: bool, power: int | None) -> bool:
+    """Ask (once per combat damage round) whether to use the card's assignment and how; True: a decision is open. Called from combat.ask_split."""
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    r = plan.rules
+    mode = _mode(plan, plan.ch(att)) if att.is_attacking and att.zone.endswith(":battlefield") else None
+    if mode is None or not deals or not power or power <= 0 or att.attacking is None or att.id in r.block_split:
+        return False
+    if mode == GIANT and att.id in r.blocked:
+        return False
+    options = _defenders(plan, att, mode)
+    if not options:
+        return False
+    if att.id not in r.assign_unblocked:
+        decide(plan, player=att.controller, kind="confirm", prompt=f"Assign {att.name}'s combat damage with its ability?",
+               options=[DecisionOption(id="yes", label="Choose where it goes"), DecisionOption(id="no", label="Assign it normally")],
+               resume={"step": "assign_unblocked", "round": rnd, "then": then, "creature": att.id})
+        return True
+    if not r.assign_unblocked[att.id]:
+        return False
+    resume = {"round": rnd, "then": then, "creature": att.id, "total": power, "least": 0}
+    if mode == DIVIDE:
+        decide(plan, player=att.controller, kind="divide", prompt=f"Divide {att.name}'s {power} combat damage among the defending player and their creatures",
+               options=options, min_choices=len(options), max_choices=len(options), display={"kind": "divide", "total": power, "what": "damage", "least": 0},
+               resume={**resume, "step": "block_split"})
+    else:
+        decide(plan, player=att.controller, kind="choose_one", prompt=f"Choose the creature {att.name} assigns its {power} combat damage to", options=options,
+               resume={**resume, "step": "giant110f"})
+    return True
+
+
+def resume_giant(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import engine
+
+    plan.rules.block_split[d.resume["creature"]] = {chosen[0]: int(d.resume["total"])}
+    engine.combat_damage(plan, d.resume["round"], d.resume["then"])
+    if plan.rules.decision is None:
+        engine._after_resolution(plan)
+
+
+def divided_shares(plan: Any, att: Any, ach: Any) -> dict[str, int] | None:
+    """The shares its controller chose (combat.compute_combat_damage); None: assign as usual (declined, or not asked)."""
+    r = plan.rules
+    if _mode(plan, ach) is None or not r.assign_unblocked.get(att.id):
+        return None
+    return r.block_split.get(att.id) or None
 
 
 COPY_ENTRY = "copy_entry110f"
@@ -374,6 +451,8 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         if native is not None and native["effects"][-1].get("do") == "draw":
             cast = {"do": "free_cast", "zone": "that", "who": "self_gy", "filter": None, "optional": True, "mv": None, "n": 1}
             return {**native, "effects": [*native["effects"][:-1], cast]}
+    if ability.kind == "static" and (t := scripts.self_text(ability.text, ch.name).replace("~", "this creature")) in (_DIVIDE_TEXT, _GIANT_TEXT):
+        return {"kind": "static", "static": DIVIDE if t == _DIVIDE_TEXT else GIANT, "effects": []}
     if ability.kind == "static" and scripts.self_text(ability.text, ch.name).replace("~", "This creature") == _SPLIT_TEXT:
         return {"kind": "static", "static": SPLIT_DAMAGE, "effects": []}
     if ability.kind == "static" and scripts.self_text(ability.text, ch.name).replace("~", "this creature") == _COPY_ENTRY_TEXT:

@@ -23,3 +23,4 @@
 - Faceless One / The Prismatic Piper: chosen color applies in deck construction (903.4b), foundation spans deck builder and pregame.
 - Null Chamber: two chosen names, one by an opponent (card_names stores one name per source).
 - Glyph of Reincarnation, Camouflage, Noxious Vapors (multicolor choice ruling unchecked), Malik (secret choices), Zevlor: not attempted.
+- s8: Vengeful Pharaoh: trigger "combat damage is dealt to you or a planeswalker you control" needs a two-subject damage event (only Pharaoh has it). Fires of Mount Doom: "When you play a card this way" reflexive trigger on a played exiled card (no machinery). Dance of Many: token<->enchantment linked leave triggers. Liquid Fire: number chosen as additional cost (cast-time number choice; pick110e is creature-type only). Brutal Suppression/Drought: extra non-mana cost on activated abilities. Fatal Lore/Misfortune: opponent picks the mode at resolution with targets.
