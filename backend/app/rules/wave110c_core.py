@@ -338,6 +338,7 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
     from app.rules import (
         wave110c_dark,
         wave110c_discard,
+        wave110c_equil,
         wave110c_learn,
         wave110c_misc,
         wave110c_ogre,
@@ -345,6 +346,8 @@ def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
         wave110c_wheel,
     )
 
+    if (equil := wave110c_equil.definition(ability.text)) is not None:  # Land Equilibrium
+        return equil
     if (ogre := wave110c_ogre.definition(ability, ch)) is not None:  # Ogre Battlecaster
         return ogre
     if (dark := wave110c_dark.definition(ability, ch)) is not None:  # Dark Intimations

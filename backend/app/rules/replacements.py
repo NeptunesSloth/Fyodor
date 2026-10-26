@@ -109,6 +109,9 @@ def entry_plan(plan: Plan, card: CardInstance, controller: str, **kw: Any) -> di
     from app.rules import static_perm100d
 
     static_perm100d.plan_entry(plan, card, controller, out, kw.get("answers"))
+    from app.rules import wave110c_equil  # -- Land Equilibrium (wave 110C) --
+
+    wave110c_equil.plan_entry(plan, card, controller, out)
     from app.rules import numeric_entry_roll42
 
     if (receipt := numeric_entry_roll42.current_receipt(plan, card, kw.get("answers"))) is not None:
@@ -1034,6 +1037,10 @@ def _counter_amount(plan: Plan, card_id: str, controller: str, d: dict[str, Any]
 def after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = None, **kw: Any) -> tuple[Any, Any] | None:
     """``_after_entry``, then (-- wave 110E --, 614.1c) a lone entry (no ``newcomers`` batch: its caller spends) uses up the one-shot entry effects."""
     result = _after_entry(plan, card_id, controller, x=x, **kw)
+    if not kw.get("preview") and (kw.get("choices") or {}).get("equilibrium110c"):  # -- Land Equilibrium (wave 110C) -- the sacrifice right after it entered
+        from app.rules import wave110c_equil
+
+        wave110c_equil.sacrifice(plan, card_id, controller, int(kw["choices"]["equilibrium110c"]))
     if kw.get("newcomers") is None and not kw.get("preview"):
         from app.rules import wave110e_once
 
