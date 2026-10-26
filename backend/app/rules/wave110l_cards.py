@@ -396,8 +396,8 @@ def resume_struggle(plan: Plan, d: Any, chosen: list[str]) -> None:
     r = d.resume
     ctx, opp, turn = r["ctx"], r["opp"], r["turn"]
     theirs, mine = [tuple(x) for x in r["theirs"]], [tuple(x) for x in r["mine"]]
-    theirs, mine = _struggle_exile(plan, ctx, chosen[0], turn, theirs, mine)  # type: ignore[arg-type]
-    if _struggle_next(plan, ctx, r["e"], opp, "me" if turn == "opp" else "opp", theirs, mine):  # type: ignore[arg-type]
+    theirs, mine = _struggle_exile(plan, ctx, chosen[0], turn, theirs, mine)
+    if _struggle_next(plan, ctx, r["e"], opp, "me" if turn == "opp" else "opp", theirs, mine):
         continue_effects(plan, ctx)
 
 
