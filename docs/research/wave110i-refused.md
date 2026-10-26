@@ -60,3 +60,9 @@ Moved to FULL: Arsenal Thresher (devour.py REV), Arcee (cast_targets110i value),
 - Torrent of Lava: still two foundations: a source-specific "prevent the next 1 damage ... by Torrent of Lava" shield (RulesState.prevention is per recipient, any source) and an ability granted to every creature while the spell is on the stack (layers statics are battlefield-only).
 - Spoils of War: unchanged (which opponent's graveyard: no CR rule or ruling).
 - Pyretic Hunter, Lurking Automaton, Cogwork Grinder, Aether Searcher: draft-matters (905.2b, 607.2e). In a Commander game nothing was drafted, so nothing is noted/removed: X would be 0 and the Searcher finds nothing. Not promoted: no official ruling text in the repo for "nothing noted"; lead decision (inert draft lines + X = 0 is the only reading).
+
+## Session 12
+- Done: Pyretic Hunter, Lurking Automaton, Cogwork Grinder (draft_only.py: X is 0, lead decision), Aether Searcher (wave110f DRAFT_NOTHING entry), Ob Nixilis of the Black Oath (designations.emblem_text_ok allows the activated emblem cost).
+- Torrent of Lava: still two foundations (stack-granted ability to every creature, source-specific prevention shield); not small.
+- Spoils of War: unchanged (which opponent's graveyard).
+- Spinneret and Spiderling: "deals 4 or more damage" with no recipient: events.py excludes a threshold without recipient (one event, many recipients: no ruling on summing); exile_damage_choices49 is unregistered.
