@@ -140,6 +140,40 @@ def rewrite_lines(lines: list[str]) -> None:
             lines[i:i + 4] = _GENKU_MODAL
 
 
+_REVERSAL = ("Target opponent reveals their hand. You may copy an instant or sorcery card in it. If you do, you may cast the copy without paying its mana cost.")
+
+
+def _reversal() -> Any:
+    from app.rules import card_copy_sources, scripts
+
+    found = scripts.parse_effects("Target opponent reveals their hand. You may choose an instant or sorcery card from it.")
+    if found is None:
+        return None
+    reveal, pick = found[0]
+    if pick.get("do") != "choose_from_hand":
+        return None
+    free = card_copy_sources.copy_cast()[1]
+    return [reveal, {**pick, "optional": True, "as": "rv110n"}, {"do": "reversal_copy110n"}, {**free, "who": "ref:rv_copy110n"}], found[1], False
+
+
+def reversal_copy(plan: Any, ctx: Any, e: Def) -> bool:
+    """707.12: the copy of the chosen (revealed, public) card is made in a hand -- the copy's creator's, where it is cast from (it ceases to exist if it is not cast,
+    704.5e); a card that left the hand (or a player who chose nothing) leaves nothing to copy."""
+    from app.rules import context
+
+    key = next((k for k in context.refs(ctx) if k.endswith("rv110n")), "rv110n")  # (the grammar prefixes the names of one clause's bindings)
+    prefix = key[:-len("rv110n")]
+    chosen = context.objects(plan, ctx, key)
+    made: list[str] = []
+    for cid in chosen:
+        card = plan.state.cards[cid]
+        if card.zone.endswith(":hand"):
+            created = plan.do({"type": "copy_card", "card_id": cid, "player": ctx["controller"], "count": 1, "zone": "hand"}, actor=ctx["controller"])
+            made += list(getattr(getattr(created, "r", None), "ids", []))
+    context.bind_objects(plan, ctx, prefix + "rv_copy110n", made)
+    return True
+
+
 _GRIP = "Counter target spell unless its controller exiles all cards from their graveyard."
 
 
@@ -243,6 +277,8 @@ def parse(body: str) -> Any:
         return [{"do": "siren_attack110n"}], None, False
     if body.strip() == _SIREN_DESTROY:
         return [{"do": "siren_destroy110n"}], None, False
+    if body.strip() == _REVERSAL:
+        return _reversal()
     if body.strip() == _GRIP:
         return _grip_parse()
     if body.strip() == _REAP:
@@ -1007,6 +1043,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "grip110n": grip, "queen110n": queen, "flicker110n": flicker, "flicker_host110n": flicker_host, "flicker_auras110n": flicker_auras, "jace_library110n": jace_library, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "reversal_copy110n": reversal_copy, "grip110n": grip, "queen110n": queen, "flicker110n": flicker, "flicker_host110n": flicker_host, "flicker_auras110n": flicker_auras, "jace_library110n": jace_library, "warmachine110n": warmachine, "siren_attack110n": siren_attack, "siren_destroy110n": siren_destroy, "timesifter110n": timesifter, "bullies110n": bullies, "vislor110n": vislor, "vision110n": vision, "cu_exile110n": cu_exile, "spirit110n": spirit, "swarm_pre110n": swarm_pre, "swarm_post110n": swarm_post, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {"grip110n": resume_grip, "vision110n": resume_vision, "spirit110n": resume_spirit, "cu_exile110n": resume_cu_exile}
