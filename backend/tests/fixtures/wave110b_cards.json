@@ -2982,5 +2982,42 @@
   "keywords": [],
   "power": null,
   "toughness": null
+ },
+ {
+  "name": "Hama, the Bloodbender",
+  "layout": "normal",
+  "mana_cost": "{2}{U/B}{U/B}{U/B}",
+  "cmc": 5.0,
+  "type_line": "Legendary Creature — Human Warlock",
+  "oracle_text": "When Hama enters, target opponent mills three cards. Exile up to one noncreature, nonland card from that player's graveyard. For as long as you control Hama, you may cast the exiled card during your turn by waterbending {X} rather than paying its mana cost, where X is its mana value. (While paying a waterbend cost, you can tap your artifacts and creatures to help. Each one pays for {1}.)",
+  "colors": [
+   "B",
+   "U"
+  ],
+  "color_identity": [
+   "B",
+   "U"
+  ],
+  "keywords": [
+   "Mill",
+   "Waterbend"
+  ],
+  "power": "3",
+  "toughness": "3"
+ },
+ {
+  "name": "Ertai's Meddling",
+  "layout": "normal",
+  "mana_cost": "{X}{U}",
+  "cmc": 1.0,
+  "type_line": "Instant",
+  "oracle_text": "X can't be 0.\nTarget spell's controller exiles it with X delay counters on it.\nAt the beginning of each of that player's upkeeps, if that card is exiled, remove a delay counter from it. If the card has no delay counters on it, the player puts it onto the stack as a copy of the original spell.",
+  "colors": [
+   "U"
+  ],
+  "color_identity": [
+   "U"
+  ],
+  "keywords": []
  }
 ]

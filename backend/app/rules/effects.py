@@ -7283,3 +7283,9 @@ RESUME.update(_wave110e_blade.RESUME)
 from app.rules import wave110b_lich as _wave110b_lich  # noqa: E402, I001
 
 PRIMITIVES.update(_wave110b_lich.PRIMITIVES)
+
+# -- Hama, the Bloodbender (wave 110B) --
+from app.rules import wave110b_hama as _wave110b_hama  # noqa: E402, I001
+
+PRIMITIVES.update(_wave110b_hama.PRIMITIVES)
+RESUME.update(_wave110b_hama.RESUME)
