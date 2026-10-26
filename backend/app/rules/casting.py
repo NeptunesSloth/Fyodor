@@ -5421,6 +5421,9 @@ def resume_crew(plan: Plan, d: Any, chosen: list[str]) -> None:
     activate_ability(plan, intent)  # type: ignore[arg-type]
 
 
+VULTURES = "Discard this card: You gain 0 life."  # oracle.py wave 110F rewrite of Circling Vultures' line (116.2e)
+
+
 def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
     if paying_now(plan):  # tapping mana while paying: only mana abilities
         _mana_while_paying(plan, a)
@@ -5438,6 +5441,11 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
         if suspend_info(ch, a.ability) is None:  # -- cast limits (wave 5E) -- (suspend is a special action, 116.2f)
             _activation_limit(plan, card, ch)
+        if ability is not None and ability.text.startswith(VULTURES):  # -- wave 110F -- 116.2e: a special action, no stack, no response
+            plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "graveyard"}}, actor=plan.actor)
+            plan.note(f"{plan.name(plan.actor)} discards {ch.name}", [card.id])
+            plan.rules.passed = []
+            return
         if ability is not None and ability.kind == "activated" and ability_cost(ch, ability).from_hand:
             activate_to_stack(plan, card, ch, ability, a)  # -- ability words (wave 4F) -- channel (113.6m)
             return

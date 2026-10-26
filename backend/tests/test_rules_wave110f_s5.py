@@ -241,14 +241,14 @@ def test_sutured_ghoul_exiles_graveyard_creatures_and_takes_their_totals(cards):
 
 @pytest.mark.parametrize("zone,works", [("hand", True), ("battlefield", False)])
 def test_circling_vultures_discards_itself_from_hand_only(cards, zone, works):
-    """113.6m, 701.9a: "You may discard this card any time you could cast an instant" -- from the hand only; it is a cost, nothing else happens."""
+    """116.2e: special action (no stack). "You may discard this card any time you could cast an instant" -- from the hand only; it is a cost, nothing else happens."""
     from app.game.errors import ActionError
 
     s = build(cards, ["Circling Vultures"], forests=20, islands=20)
     v = to_hand(s, "Circling Vultures") if zone == "hand" else put(s, "Circling Vultures")
     if works:
         act(s, "p1", type="activate_ability", card_id=v.id, ability=1)
-        _resolve(s)
+        assert not s.state.zones.get("stack")  # 116.2e: special action, nothing on the stack to respond to
         assert s.state.cards[v.id].zone == "p1:graveyard"
         check(s)
     else:
