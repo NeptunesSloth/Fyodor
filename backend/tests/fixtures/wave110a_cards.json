@@ -2954,5 +2954,23 @@
    "B"
   ],
   "keywords": []
+ },
+ {
+  "name": "Fight the _____ Fight",
+  "layout": "normal",
+  "mana_cost": "{1}{G}",
+  "cmc": 2.0,
+  "type_line": "Enchantment — Aura",
+  "oracle_text": "Enchant creature you control\nWhen this Aura enters, you may put a name sticker on it. When you do, enchanted creature fights up to one target creature you don't control.\nEnchanted creature gets +0/+2 for each name sticker on this Aura with eight or more letters.",
+  "colors": [
+   "G"
+  ],
+  "color_identity": [
+   "G"
+  ],
+  "keywords": [
+   "Fight",
+   "Enchant"
+  ]
  }
 ]

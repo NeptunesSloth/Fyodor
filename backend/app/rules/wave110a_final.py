@@ -35,6 +35,8 @@ PROWL_ATTACK = "Whenever ~ attacks, exile up to one other target tapped creature
 PROWL_PLAY = "Whenever a player plays a card exiled with ~, you draw a card and transform ~."  # (self_text reads "convert" as "transform", the same action: ruling 2022-10-14)
 SNOWBLIND = ("Enchanted creature gets -X/-Y. If that creature is attacking, X is the number of snow lands defending player controls. Otherwise, X is the number of snow lands its "
              "controller controls. Y is equal to X or to enchanted creature's toughness minus 1, whichever is smaller.")
+FIGHT_ETB = ("When ~ enters, you may put a name sticker on it. When you do, enchanted creature fights up to one target creature you don't control.")
+FIGHT_PUMP = "Enchanted creature gets +0/+2 for each name sticker on ~ with eight or more letters."
 ICE_CAVE = "Whenever a player casts a spell, any other player may pay that spell's mana cost. If a player does, counter the spell."
 
 
@@ -42,6 +44,18 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == FIGHT_ETB:  # ruling 2022-10-07: no sticker, no reflexive trigger (603.12); the fight is the reflexive ability's
+        base = scripts.define(replace(ability, text="When this Aura enters, you may put a name sticker on it."), ch)
+        fight = scripts.define(replace(ability, text="When this Aura enters, you may discard a card. When you do, enchanted creature fights up to one target creature you don't control."), ch)
+        if base is None or fight is None or [e["do"] for e in base["effects"]] != ["put_sticker101"] or [e["do"] for e in fight["effects"]] != ["optional_payment", "reflexive"]:
+            return None
+        reflexive = {**fight["effects"][1], "cond": {"flag": "stickered110a"}}
+        return {**base, "effects": [*base["effects"], {"do": "sticker_flag110a"}, reflexive]}
+    if text == FIGHT_PUMP:  # letters, as Last Voyage of the _____ counts them (spaces and punctuation are not letters)
+        d = scripts.define(replace(ability, text="Enchanted creature gets +0/+2 for each counter on this Aura."), ch)
+        if d is None or d.get("each") is None:
+            return None
+        return {**d, "each": {**d["each"], "value": {"sticker_long110a": True}}}
     if text == SNOWBLIND:  # layers.py applies it after every other layer 7c effect (613.8a: Y depends on them) and before 7d; ``snowblind110a`` marks the static
         d = scripts.define(replace(ability, text="Enchanted creature gets -1/-1."), ch)
         if d is None or d.get("static") != "grant" or d.get("who") != "attached":
@@ -273,6 +287,20 @@ def snowblind(state: GameState, info: Any, card: CardInstance, p: int, t: int) -
     return p - x, t - min(x, t - 1)
 
 
+def long_stickers(plan: Plan, ctx: dict[str, Any]) -> int:
+    """Name stickers on the source whose text has eight or more letters (the same count as wave110j_cards.short_stickers)."""
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    return 0 if card is None else sum(1 for p in card.stickers101 if p.sticker.kind == "name" and sum(ch.isalpha() for ch in p.sticker.text) >= 8)
+
+
+def sticker_flag(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"When you do": a sticker was put on it by the instruction before (the receipts of ``put_sticker101``)."""
+    from app.rules import context
+
+    context.refs(ctx)["stickered110a"] = {"kind": "flag", "ok": bool((ctx.get("sticker_receipts101") or {}).get("placed101"))}
+    return True
+
+
 def pw_options(plan: Plan) -> list[str]:
     """205.3j: every planeswalker type (the known ones and any a planeswalker in this game has)."""
     from app.rules import selectors
@@ -381,5 +409,5 @@ def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 REWRITES = {INTIMATIONS_SPELL: INTIMATIONS_SPELL.replace("You return", "Return")}  # (the grammar has no "you return"; 101.4 / the 2017-02-09 ruling: opponents choose in turn order, all at once)
-PRIMITIVES: dict[str, Any] = {"magmarch110a": magmarch, "loyalty_rider110a": loyalty_rider, "exile_one_per_type110a": one_per_type}
+PRIMITIVES: dict[str, Any] = {"sticker_flag110a": sticker_flag, "magmarch110a": magmarch, "loyalty_rider110a": loyalty_rider, "exile_one_per_type110a": one_per_type}
 RESUME: dict[str, Any] = {"damping110a": resume_sacrifice, "chaotic_order110a": resume_order, "exile_one_per_type110a": resume_one_per_type, "magmarch110a": resume_magmarch}
