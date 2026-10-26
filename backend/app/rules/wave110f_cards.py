@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -42,6 +43,13 @@ def same_colors(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     if len(cards) != 2 or len({frozenset(plan.ch(plan.state.cards[c]).colors) for c in cards}) != 1:
         ctx["next"] = min(len(ctx["effects"]), ctx["next"] + int(e["skip"]))
     return True
+
+
+def _fires() -> Parsed:
+    """Fires of Mount Doom: "that creature" is the target (608.2c), not the trigger's event object (the entering Fires); SBAs wait for the resolution (704.3), so a
+    creature the damage kills still has its Equipment attached."""
+    effects, targets, optional = _p("~ deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to it.")
+    return json.loads(json.dumps(effects).replace("att@pron", "att@target")), targets, optional
 
 
 def _taunt() -> Parsed:
@@ -281,6 +289,7 @@ def _snitch() -> Parsed:
 
 
 BUILDERS: dict[str, Callable[[], Parsed | None]] = {
+    "it deals 2 damage to target creature an opponent controls. Destroy all Equipment attached to that creature.": _fires,
     "Destroy up to two target creatures the chosen player controls. They can't be regenerated. The chosen player draws up to three cards.": lambda: _lore(),
     "Target creature loses protection from black until end of turn.": _snitch,
     "Return to your hand all enchantments you both own and control, all Auras you own attached to permanents you control, and all Auras you own attached to attacking creatures your opponents control. Then destroy all other enchantments you control, all other Auras attached to permanents you control, and all other Auras attached to attacking creatures your opponents control.":
@@ -430,6 +439,9 @@ _COPY_ENTRY_TEXT = "Creatures you control enter as a copy of this creature."
 _STICKER_BACK = "Whenever you put {k} sticker on a creature, you may return this card from your graveyard to your hand."
 
 
+_FIRES = "{2}{R}: Exile the top card of your library. You may play that card this turn. When you play a card this way, ~ deals 2 damage to each player."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     """Essence of the Wild: the static is read at entry (copying.entering -> :func:`copy_on_entry`), it has no effect of its own."""
     from dataclasses import replace
@@ -441,6 +453,13 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         native = scripts.define(replace(ability, text="When ~ enters and at the beginning of your upkeep, draw a card."), ch)
         if native is not None:  # Mystic Barrier: both triggers, the same choice
             return {**native, "effects": [{"do": "choose_value", "who": "you", "what": "direction", "as": "direction110f"}, {"do": "barrier_direction110f"}]}
+    if ability.kind == "activated" and text == _FIRES:  # 603.7c-like reflexive trigger of the permission used (permission_use_triggers43 "native"): playing the exiled card, land or spell
+        native = scripts.define(replace(ability, text=_FIRES.replace(" When you play a card this way, ~ deals 2 damage to each player.", "")), ch)
+        if native is not None and (grant := native["effects"][-1]).get("do") == "grant_play":
+            dmg = scripts.parse_effects("~ deals 2 damage to each player.")
+            assert dmg is not None
+            grant["use_trigger"] = {"kind": "native", "index": ability.index, "definition": {"effects": dmg[0]}}
+            return native
     if ability.kind == "static" and text == "Each player may attack only the nearest opponent in the last chosen direction and planeswalkers controlled by that opponent.":
         return {"kind": "static", "static": "barrier_direction110f", "effects": []}  # (the effect is added by the choice)
     # Unlawful Entry, A Good Day to Pie: a graveyard trigger (603.4 intervening "if", gy_watch) on the sticker event (events.py)
