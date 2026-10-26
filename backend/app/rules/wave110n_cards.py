@@ -41,6 +41,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return {"kind": "static", "static": flag, "effects": []}
     if ability.text.strip() == _BANE:
         return _bane(ability, ch)
+    if ability.text.strip() == _ERIETTE:
+        return _eriette(ability, ch)
     if (built := _BUILD.get(ability.text.strip())) is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
@@ -177,6 +179,43 @@ def _bane(ability: Any, ch: Any) -> Def | None:
         {"do": "draw", "who": "you", "n": 1}]}
 
 
+_ERIETTE = ("Whenever an Aura you control becomes attached to a nonland permanent an opponent controls with mana value less than or equal to that Aura's "
+            "mana value, gain control of that permanent for as long as that Aura is attached to it.")
+
+
+def _eriette(ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts
+
+    native = scripts.define(replace(ability, text="Whenever an Aura you control becomes attached to a nonland permanent an opponent controls, tap that permanent."), ch)
+    if native is None or native.get("cond", {}).get("event") != "attached":
+        return None
+    return {**native, "effects": [{"do": "eriette110n"}], "cond": {**native["cond"], "host_mv_le_aura110n": True}}
+
+
+def eriette(plan: Any, ctx: Any, e: Def) -> bool:
+    """611.2b: control of the permanent lasts while that very Aura stays attached to it; if the Aura is already gone or elsewhere the duration has ended and
+    nothing happens (the permanent is the object the event named, 400.7)."""
+    from app.rules import context, effects, layers
+
+    aura = context.info(plan, ctx, context.EVENT_OTHER)
+    host = context.info(plan, ctx, context.EVENT)
+    if aura is None or host is None:
+        return True
+    a, h = aura[0], host[0]
+    if not (a.zone.endswith(":battlefield") and a.attached_to == h.id and h.zone.endswith(":battlefield") and plan.in_game(h)):
+        return True
+    effects._control_effect(plan, ctx, [h.id], ctx["controller"], "attached110n")
+    plan.rules.effects[-1].until_object = plan.oid(a)
+    layers.control_sync(plan)
+    return True
+
+
+def still_attached(plan: Any, e: Any) -> bool:
+    aura = next((c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.oid(c) == e.until_object), None)
+    host = plan.state.cards.get(aura.attached_to or "") if aura is not None else None
+    return host is not None and host.zone.endswith(":battlefield") and plan.oid(host) in e.affected
+
+
 def _willow(d: Def) -> Def:
     return {**d, "effects": [{"do": "willow110n", "who": "target"}]}
 
@@ -235,6 +274,6 @@ def land_problem(state: Any, player: str, info: Any) -> str | None:
     return None
 
 
-PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "sword110n": sword, "sword_note110n": sword_note,
+PRIMITIVES: dict[str, Any] = {"decree110n": decree, "willow110n": willow, "eriette110n": eriette, "sword110n": sword, "sword_note110n": sword_note,
                               "sword_hand110n": sword_hand, "sword_rest110n": sword_rest}
 RESUME: dict[str, Any] = {}

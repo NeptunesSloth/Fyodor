@@ -1004,6 +1004,10 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
             return False
     if not _other_ok(plan, cond, watcher, info, obj):
         return False
+    if cond.get("host_mv_le_aura110n"):  # -- (wave 110N) -- Eriette: "with mana value less than or equal to that Aura's mana value", part of the event (603.2)
+        host = plan.state.cards.get(info.get("other") or "")
+        if obj is None or host is None or plan.ch(host).mana_value > plan.ch(obj).mana_value:
+            return False
     if cond.get("mana_source") == "self" and plan.oid(watcher) not in info.get("mana_sources", []):
         return False
     if cond.get("to") == "self" and info.get("other") != watcher.id:  # -- attachment events (wave 30S) -- "an Aura becomes attached to this creature"
@@ -1619,6 +1623,8 @@ def _fire_generic(plan: Plan, facts: list[Fact], batch: int, fired: Fired,
 
             if other_side.wanted(cond):
                 event = other_side.event(plan, info, event)
+                if cond.get("host_mv_le_aura110n"):  # -- (wave 110N) -- Eriette: "that permanent" is the host (as other_side made it); the Aura stays the event's other side
+                    event.other = _source_ref(plan, info.get("oid"))
             # One damage event to several recipients at once is one "deals damage" (and several
             # sources at once one "is dealt damage"): once per batch per object, amounts summed
             one_event = cond["event"] == "dealt_damage" or (cond["event"] == "deal_damage" and cond.get("to", "any") == "any")

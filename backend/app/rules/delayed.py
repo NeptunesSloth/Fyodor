@@ -682,6 +682,11 @@ def expire(plan: Plan) -> None:
     ended = [e for e in r.effects if e.duration.startswith("source_")
              and not _source_ok(plan, e.duration, e.source_card, e.source, e.until_player)]
     ended += [e for e in r.effects if e.duration == "monarch_player" and plan.state.table.monarch != e.until_player]  # (wave 110D)
+    from app.rules import (
+        wave110n_cards,  # -- (wave 110N) -- "for as long as that Aura is attached to it" (Eriette), 611.2b
+    )
+
+    ended += [e for e in r.effects if e.duration == "attached110n" and not wave110n_cards.still_attached(plan, e)]
     for e in r.effects:  # -- quoted grants (wave 2D) -- "for as long as it has a … counter on it": per object
         if e.duration == "while_counter":
             lost_last = {ev.object_id for ev in r.events if ev.kind == "counters" and ev.counter == e.counter
