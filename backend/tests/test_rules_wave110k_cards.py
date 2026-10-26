@@ -615,3 +615,55 @@ def test_this_is_how_it_ends_the_owner_not_the_controller_faces_the_choice(cards
     settle(s)
     assert life(s, "p2") == 35 and life(s, "p1") == 40
     check(s)
+
+
+# -- Deceiver of Form --
+def test_deceiver_of_form_is_full():
+    assert full("Deceiver of Form")
+
+
+def _deceiver(cards, top_name):
+    from tests.wave110b_kit import top
+
+    s = build(cards, ["Deceiver of Form", "Grizzly Bears", "Elvish Visionary", "Lightning Bolt"])
+    s.deceiver = put(s, "Deceiver of Form")
+    bears = put(s, "Grizzly Bears")
+    top(s, top_name)
+    act(s, "p1", type="pass_priority")  # on to the beginning of combat: the trigger
+    return s, bears
+
+
+def _answer_all(s, answers):
+    """Take the decisions of the trigger in turn: ``answers`` are option ids (the first one that is offered when None)."""
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            if s.state.zones.get("stack"):
+                act(s, s.state.rules.priority, type="pass_priority")
+                continue
+            return
+        if d.kind in ("declare_attackers", "declare_blockers"):
+            return
+        want = answers.pop(0) if answers else None
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[want] if want else [o.id for o in d.options][: max(1, d.min_choices)] if want != "" else [])
+
+
+@pytest.mark.parametrize(("copy", "name"), [("yes", "Elvish Visionary"), ("no", "Grizzly Bears")])
+def test_deceiver_of_form_other_creatures_become_copies_of_a_revealed_creature_card(cards, copy, name):
+    s, bears = _deceiver(cards, "Elvish Visionary")
+    d = s.state.rules.decision
+    assert d is not None and [o.id for o in d.options] == ["yes", "no"]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[copy])
+    _answer_all(s, [])
+    assert ch(s, bears).name == name
+    assert ch(s, s.deceiver).name == "Deceiver of Form"  # (it never copies itself)
+    check(s)
+
+
+def test_deceiver_of_form_a_noncreature_card_changes_nothing(cards):
+    s, bears = _deceiver(cards, "Lightning Bolt")
+    d = s.state.rules.decision
+    assert d is None or [o.id for o in d.options] != ["yes", "no"]
+    _answer_all(s, [])
+    assert ch(s, bears).name == "Grizzly Bears"
+    check(s)

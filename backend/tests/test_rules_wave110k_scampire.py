@@ -17,7 +17,7 @@ from app.rules import coverage
 from app.rules.sticker_sheets101 import SHEETS
 from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act, deck, enable
-from tests.test_rules_sticker_effects101 import FixedSheetRng, pick, place, question
+from tests.test_rules_sticker_effects101 import FixedSheetRng, place
 from tests.wave9c_kit import check
 from tests.wave100c_kit import chars, move, one, settle, to_phase, zone
 from tests.wave110k_kit import DATA

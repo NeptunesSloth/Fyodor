@@ -162,6 +162,34 @@ def resume_shuffle_other(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, ctx)
 
 
+def copies_of_revealed(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"If a creature card is revealed this way, you may have creatures you control other than this creature become copies of that card until end of
+    turn": its controller decides; the copies take the card's copiable values as the effect begins (707.2, 707.9, 611.2c)."""
+    from app.rules import effects, selectors
+
+    _, looked = effects._looked(plan, ctx)
+    if len(looked) != 1 or "Creature" not in plan.ch(plan.state.cards[looked[0]]).types:
+        return True
+    others = selectors.Selector(types=("Creature",), controller="you", other=True).key()
+    if not effects._cards(plan, ctx, others):
+        return True
+    effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"{plan.state.cards[looked[0]].name}: have your other creatures become copies of it?",
+                   options=[effects.DecisionOption(id="yes", label="Yes, they become copies of it until end of turn"), effects.DecisionOption(id="no", label="No")],
+                   resume={"step": "copies_of_revealed110k", "ctx": ctx, "card": looked[0], "who": others})
+    return False
+
+
+def resume_copies_of_revealed(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import context, copying, effects
+
+    ctx = d.resume["ctx"]
+    card = plan.state.cards.get(d.resume["card"])
+    if chosen == ["yes"] and card is not None and card.zone.endswith(":library"):
+        context.bind_objects(plan, ctx, "revealed110k", [card.id])
+        copying.become_copy(plan, ctx, {"do": "become_copy", "who": d.resume["who"], "with": "ref:revealed110k", "duration": "end_of_turn"})
+    effects.continue_effects(plan, ctx)
+
+
 def return_self_hand(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """"Return ~ to its owner's hand" from the battlefield (bounce) or from the graveyard (the same object, 400.7: if it moved since, nothing)."""
     from app.rules import effects
@@ -181,8 +209,8 @@ from app.rules import delayed as _delayed  # noqa: E402
 
 _delayed.LABELS["source_tapped_power110k"] = "for as long as ~ remains tapped and its power is at most ~'s"
 
-PRIMITIVES = {"villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
-RESUME = {"opponent_mode110k": resume_opponent_mode, "shuffle_other110k": resume_shuffle_other}
+PRIMITIVES = {"copies_of_revealed110k": copies_of_revealed, "villain110k": villain110k, "shuffle_other110k": shuffle_other, "extra_combat_after_first110k": extra_combat_after_first, "return_self_hand110k": return_self_hand, "opponent_mode110k": opponent_mode, "as_controller110k": as_controller, "phase_out_hold110k": phase_out_hold}
+RESUME = {"copies_of_revealed110k": resume_copies_of_revealed, "opponent_mode110k": resume_opponent_mode, "shuffle_other110k": resume_shuffle_other}
 
 
 # -- spell bodies: the whole body -> (the wording the grammar reads, what to do with its effects) --
@@ -288,6 +316,14 @@ def _stickered_target(d: Def) -> Def:
     return {**d, "target": {**d["target"], "what": selectors.replace(sel, extras=(*sel.extras, "sticker101:any")).key()}}
 
 
+def _deceiver(d: Def) -> Def:
+    """Deceiver of Form: after the reveal and before the optional bottom, a creature card revealed may be what the other creatures become copies of."""
+    eff = d["effects"]
+    if len(eff) != 2 or eff[0].get("do") != "look_top" or eff[1].get("do") != "pick_looked":
+        return d
+    return {**d, "effects": [eff[0], {"do": "copies_of_revealed110k"}, eff[1]]}
+
+
 def _rat_roles(d: Def) -> Def:
     """Twisted Sewer-Witch: a Wicked Role token for each Rat its controller has once the token exists, each attached to its own Rat (111.1, 303.7)."""
     from app.rules import selectors
@@ -297,6 +333,9 @@ def _rat_roles(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Any]] = {
+    "At the beginning of combat on your turn, reveal the top card of your library. If a creature card is revealed this way, you may have creatures you "
+    "control other than this creature become copies of that card until end of turn. You may put that card on the bottom of your library.":
+        ("At the beginning of combat on your turn, reveal the top card of your library. You may put that card on the bottom of your library.", _deceiver),
     "{3}{B}: Return target creature card with a sticker on it from your graveyard to the battlefield. That creature gains haste. Exile it at the beginning of "
     "the next end step. Activate only as a sorcery.":
         ("{3}{B}: Return target creature card from your graveyard to the battlefield. That creature gains haste. Exile it at the beginning of the next end "
