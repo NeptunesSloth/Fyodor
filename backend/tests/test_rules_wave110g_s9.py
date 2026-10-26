@@ -2,6 +2,8 @@
 
 * Sacred Ground: 603.2 / 704.3 an opponent's resolving spell or ability that puts a land into your graveyard returns it; your own spell and state-based actions do not.
 * Whippoorwill: 701.19c / 615.12 / 614.9 / 700.4 the creature can't regenerate, its damage can't be prevented or dealt instead to another permanent, and it is exiled if it dies.
+* Tatsumasa, the Dragon's Fang: 610.3 / 400.7 exiled as a cost, it returns when the Dragon Spirit token dies (not when it is exiled).
+* Idol of Endurance: 610.3 creature cards with mana value 3 or less leave your graveyard until it leaves (and go back there); 118.9 one may be cast free this turn.
 """
 from __future__ import annotations
 
@@ -14,7 +16,7 @@ from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build
+from tests.wave9c_kit import build, card_named
 from tests.wave110b_kit import cast, check, mana, put
 
 EXTRA = [
@@ -28,7 +30,18 @@ EXTRA += [
     real("Carom", "{1}{W}", 2, "Instant", "The next 1 damage that would be dealt to target creature this turn is dealt to another target creature instead.\nDraw a card.", None, "W"),
     real("Hill Giant", "{3}{R}", 4, "Creature \u2014 Giant", "", ("3", "3"), "R"),
 ]
-NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Stone Rain", "Carom", "Hill Giant")]
+EXTRA += [
+    real("Tatsumasa, the Dragon's Fang", "{6}", 6, "Legendary Artifact \u2014 Equipment", "Equipped creature gets +5/+5.\n{6}, Exile Tatsumasa: Create a 5/5 blue Dragon Spirit creature token "
+         "with flying. Return Tatsumasa to the battlefield under its owner's control when that token dies.\nEquip {3}", None, ""),
+    real("Shatter", "{1}{R}", 2, "Instant", "Destroy target artifact.", None, "R"),
+    real("Murder", "{1}{B}{B}", 3, "Instant", "Destroy target creature.", None, "B"),
+    real("Swords to Plowshares", "{W}", 1, "Instant", "Exile target creature. Its controller gains life equal to its power.", None, "W"),
+]
+EXTRA += [
+    real("Idol of Endurance", "{2}{W}", 3, "Artifact", "When this artifact enters, exile all creature cards with mana value 3 or less from your graveyard until this artifact leaves the battlefield.\n"
+         "{1}{W}, {T}: Until end of turn, you may cast a creature spell from among cards exiled with this artifact without paying its mana cost.", None, "W"),
+]
+NAMES = [c["name"] for c in EXTRA if c["name"] not in ("Stone Rain", "Carom", "Hill Giant", "Murder", "Swords to Plowshares", "Shatter")]
 
 
 def answer(s, limit=60):
@@ -103,4 +116,58 @@ def test_whippoorwill_damage_ignores_carom_and_the_creature_is_exiled(cards, fir
         assert got[giant.id].zone == "p1:exile" and got[bears.id].damage == 0
     else:
         assert (got[giant.id].damage, got[bears.id].damage) == (2, 1)
+    check(s)
+
+
+@pytest.mark.parametrize("removal, back", [("Murder", True), ("Swords to Plowshares", False)])
+def test_tatsumasa_returns_when_the_dragon_token_dies(cards, removal, back):
+    """Tatsumasa: the Dragon Spirit dying returns the exiled Equipment; the token being exiled does not."""
+    s = build(cards, ["Tatsumasa, the Dragon's Fang", removal])
+    tat = put(s, "Tatsumasa, the Dragon's Fang")
+    mana(s, "p1", C=6)
+    act(s, "p1", type="activate_ability", card_id=tat.id, ability=1)
+    answer(s)
+    assert s.state.cards[tat.id].zone == "p1:exile"
+    dragon = next(c for c in s.state.cards.values() if c.name == "Dragon Spirit")
+    mana(s, "p1", B=2, C=1, W=1)
+    cast(s, removal, [dragon.id])
+    answer(s)
+    assert s.state.cards[tat.id].zone == ("p1:battlefield" if back else "p1:exile")
+    check(s)
+
+
+def test_idol_of_endurance_exiles_small_creatures_casts_one_free_and_gives_the_rest_back(cards):
+    """Idol of Endurance: Bears (MV 2) leave the graveyard, Hill Giant (MV 4) stays; Bears can be cast free; when the Idol dies the exiled card returns."""
+    from tests.test_rules_conditionals import until
+
+    s = build(cards, ["Idol of Endurance", "Grizzly Bears", "Hill Giant", "Murder"], ["Murder"])
+    bears, giant, murder = (card_named(s, n) for n in ("Grizzly Bears", "Hill Giant", "Murder"))
+    act(s, "p1", type="move", card_ids=[bears.id, giant.id], to={"zone": "graveyard"})
+    mana(s, "p1", W=1, C=2)
+    cast(s, "Idol of Endurance")
+    answer(s)
+    assert (s.state.cards[bears.id].zone, s.state.cards[giant.id].zone) == ("p1:exile", "p1:graveyard")
+    idol = card_named(s, "Idol of Endurance")
+    until(s, lambda s: s.state.turn.number == 3 and s.state.turn.phase == "main1" and s.state.rules.decision is None)
+    mana(s, "p1", W=2)
+    act(s, "p1", type="activate_ability", card_id=idol.id, ability=1)
+    answer(s)
+    act(s, "p1", type="cast_spell", card_id=bears.id, free=True)
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_idol_of_endurance_leaving_returns_the_cards_to_the_graveyard(cards):
+    s = build(cards, ["Idol of Endurance", "Grizzly Bears", "Shatter"])
+    bears = card_named(s, "Grizzly Bears")
+    act(s, "p1", type="move", card_ids=[bears.id], to={"zone": "graveyard"})
+    mana(s, "p1", W=1, C=2)
+    cast(s, "Idol of Endurance")
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p1:exile"
+    mana(s, "p1", R=1, C=1)
+    cast(s, "Shatter", [card_named(s, "Idol of Endurance").id])
+    answer(s)
+    assert s.state.cards[bears.id].zone == "p1:graveyard"
     check(s)

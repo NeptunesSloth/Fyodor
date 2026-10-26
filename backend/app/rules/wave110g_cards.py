@@ -313,6 +313,19 @@ def _firm(d: Def) -> Def:
     return {**d, "effects": [d["effects"][0], {"do": "firm_creature110g", "who": "target"}, *d["effects"][1:]]}  # Whippoorwill: after the regeneration clause
 
 
+def _tatsumasa(d: Def) -> Def:
+    es = d["effects"]  # token, "when it dies", return: the exiled Equipment (bound as it is in exile) comes back, not the token
+    return {**d, "effects": [{"do": "bind_exiled110g", "as": "tatsumasa"}, es[0], es[1], {**es[2], "who": "ref:tatsumasa", "under": "owner"}]}
+
+
+def _idol_enter(d: Def) -> Def:
+    return {**d, "effects": [{"do": "exile_gy_until110g"}]}
+
+
+def _idol_cast(d: Def) -> Def:
+    return {**d, "effects": [{"do": "idol_cast110g"}]}
+
+
 def _opponent_cause(d: Def) -> Def:
     return {**d, "cond": {**d["cond"], "cause_opp110g": True}}  # Sacred Ground: the move came out of an opponent's resolving spell or ability
 
@@ -348,6 +361,14 @@ def _no_phase_out(d: Def) -> Def:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    # Idol of Endurance
+    "When this artifact enters, exile all creature cards with mana value 3 or less from your graveyard until this artifact leaves the battlefield.":
+        ("When this artifact enters, draw a card.", _idol_enter),
+    "{1}{W}, {T}: Until end of turn, you may cast a creature spell from among cards exiled with this artifact without paying its mana cost.":
+        ("{1}{W}, {T}: Draw a card.", _idol_cast),
+    # Tatsumasa, the Dragon's Fang
+    "{6}, Exile Tatsumasa: Create a 5/5 blue Dragon Spirit creature token with flying. Return Tatsumasa to the battlefield under its owner's control when that token dies.":
+        ("{6}, Exile this artifact: Create a 5/5 blue Dragon Spirit creature token with flying. When that token dies, return it to the battlefield.", _tatsumasa),
     # Whippoorwill
     "{G}{G}, {T}: Target creature can't be regenerated this turn. Damage that would be dealt to that creature this turn can't be prevented or dealt instead to "
     "another permanent or player. When the creature dies this turn, exile the creature.":
@@ -632,6 +653,44 @@ def exchange_power(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return effects.become(plan, ctx, {**base, "who": "target", "p": mine})
 
 
+def bind_exiled(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The source, exiled as a cost, as that new object in exile (400.7): a later 'return it' only finds it while it is still there (610.3-style)."""
+    from app.rules import context
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    context.bind_objects(plan, ctx, e["as"], [src.id] if src is not None and src.zone.endswith(":exile") else [])
+    return True
+
+
+def exile_gy_until(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """610.3 / 607.2a: your creature cards with mana value 3 or less leave the graveyard together, linked to this source; they go back there when it leaves."""
+    from app.rules import effects, exiled_with, selectors
+
+    src = effects._cards(plan, ctx, "self")
+    if not src:  # 610.3b: the artifact is already gone
+        return True
+    sel = selectors.Selector(card=True, zones=("graveyard",), types=("Creature",), compare=(("mv", "<=", 3),))
+    you = ctx["controller"]
+    cards = [c for c in plan.state.zones.get(f"{you}:graveyard", []) if selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), you, ctx.get("source_card"))]
+    if cards:
+        plan.do({"type": "move", "card_ids": cards, "to": {"zone": "exile"}}, actor=you)
+        exiled = [c for c in cards if plan.state.cards[c].zone.endswith(":exile")]
+        oids = [plan.oid(c) for c in exiled]
+        plan.rules.linked_exile[ctx["source_object"]] = [*plan.rules.linked_exile.get(ctx["source_object"], []), *oids]
+        plan.rules.linked_exile_from.update({oid: "graveyard" for oid in oids})
+        exiled_with.record(plan, ctx, exiled)
+    return True
+
+
+def idol_cast(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Until end of turn the controller may cast any creature card exiled with this artifact for free (normal timing, 118.9)."""
+    from app.rules import context, exiled_with
+    from app.rules.exile_packet_continuations import insert
+
+    context.bind_objects(plan, ctx, "idol110g", exiled_with.cards(plan, ctx))
+    return insert(ctx, [{"do": "grant_play", "who": "ref:idol110g", "from_exile": True, "play": False, "cast": True, "until": "end_of_turn", "free": True}])
+
+
 def firm_creature(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """615.12 / 614.9: damage that would be dealt to the creature this turn can be neither prevented nor dealt instead to another permanent or player."""
     import secrets
@@ -657,7 +716,7 @@ def destroy_instead(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES: dict[str, Any] = {"firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+PRIMITIVES: dict[str, Any] = {"exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

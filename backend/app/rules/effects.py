@@ -2178,7 +2178,7 @@ def linked_entries(plan: Plan, source: str) -> list[dict[str, Any]]:
         card = plan.state.cards[cid]
         back = plan.rules.linked_exile_from.pop(ref, None)  # -- resolution memory (wave 22D) -- 610.3: back to the hand it came from
         if card.zone.endswith(":exile") and card.owner in live:
-            entries.append({"card": cid, "player": card.owner, "actor": card.owner, **({"to": "hand"} if back == "hand" else {})})
+            entries.append({"card": cid, "player": card.owner, "actor": card.owner, **({"to": back} if back in ("hand", "graveyard") else {})})  # (back: wave 110G, Idol of Endurance, the graveyard)
     return entries
 
 
