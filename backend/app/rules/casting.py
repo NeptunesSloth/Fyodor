@@ -3595,6 +3595,8 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     ch = permission_spell_keywords.apply(ch, grant)
     ch = wave110a_grants.with_replicate(plan.state, plan.actor, card, ch, plan.info)  # -- grants (wave 110A) --
     ch = wave110g_cards.sticker_kicker(plan.state, plan.actor, card, ch, plan.info)  # -- sticker kicker (wave 110G) --
+    if wave110g_cards.sticker_kicker_manual(plan.state, plan.actor, card, ch, plan.info):
+        plan.note(f"{ch.name} has its own kicker and Wicker Picker's sticker kicker (702.33c): the sticker kicker is manual play; pay {{1}}, take a ticket counter and place a sticker by hand", [card.id])
     free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
     from app.rules import flashback_choices
 
