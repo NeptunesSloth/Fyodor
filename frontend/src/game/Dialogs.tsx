@@ -319,28 +319,36 @@ const TABLE_LEGEND: [string, string][] = [
   ["Turn / Priority tabs", "On a player's plaque: whose turn it is and who may act now"],
 ];
 
+/** Help, task first: how to do things, what the table's marks mean, then every shortcut — all searchable. */
 function HelpDialog({ onClose }: { onClose: () => void }) {
+  const [q, setQ] = useState("");
+  const match = ([k, v]: [string, string]) => !q.trim() || `${k} ${v}`.toLowerCase().includes(q.trim().toLowerCase());
+  const keys = [...SHORTCUTS, ...HOTKEYS.map((h): [string, string] => [h.keys.map(keyLabel).join("  /  "), h.label])].filter(match);
+  const how = HOW_TO.filter(match);
+  const legend = TABLE_LEGEND.filter(match);
   return (
-    <Modal title="Controls" onClose={onClose}>
-      <table className="shortcuts">
-        <tbody>
-          {[...SHORTCUTS, ...HOTKEYS.map((h): [string, string] => [h.keys.map(keyLabel).join("  /  "), h.label])].map(([k, v]) => (
-            <tr key={k}><td><kbd>{k}</kbd></td><td>{v}</td></tr>
-          ))}
-        </tbody>
-      </table>
-      <h3 className="help-section">How to</h3>
-      <table className="shortcuts">
-        <tbody>
-          {HOW_TO.map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}
-        </tbody>
-      </table>
-      <h3 className="help-section">On the 3D table</h3>
-      <table className="shortcuts">
-        <tbody>
-          {TABLE_LEGEND.map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}
-        </tbody>
-      </table>
+    <Modal title="Help" onClose={onClose}>
+      <input type="search" className="help-search" placeholder="Search help: attack, undo, stack, camera…" aria-label="Search help"
+        value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+      {how.length > 0 && (
+        <>
+          <h3 className="help-section">How to</h3>
+          <table className="shortcuts"><tbody>{how.map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}</tbody></table>
+        </>
+      )}
+      {legend.length > 0 && (
+        <>
+          <h3 className="help-section">On the 3D table</h3>
+          <table className="shortcuts"><tbody>{legend.map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}</tbody></table>
+        </>
+      )}
+      {keys.length > 0 && (
+        <>
+          <h3 className="help-section">Mouse and keys</h3>
+          <table className="shortcuts"><tbody>{keys.map(([k, v]) => <tr key={k}><td><kbd>{k}</kbd></td><td>{v}</td></tr>)}</tbody></table>
+        </>
+      )}
+      {!how.length && !legend.length && !keys.length && <p className="hint">Nothing matches “{q}”. Try a game word like attack, mana, stack or undo.</p>}
       <p className="hint">With automation on, the rules engine decides what's legal; with it off, you decide, as at a real table. Everything is logged and can be undone.</p>
     </Modal>
   );

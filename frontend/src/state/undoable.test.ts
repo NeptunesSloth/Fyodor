@@ -20,11 +20,18 @@ describe("undoable action summaries", () => {
 import { recoveryHint } from "./gameStore";
 
 describe("recovery hints for refused actions", () => {
-  it("points at the way forward", () => {
-    expect(recoveryHint("You don't have priority")).toMatch(/turn dial/);
-    expect(recoveryHint("Can't afford {2}{U}")).toMatch(/mana/);
-    expect(recoveryHint("Illegal target")).toMatch(/highlighted targets/);
-    expect(recoveryHint("That move is not legal now")).toMatch(/hold Alt/);
+  it("points at the way forward when the message doesn't", () => {
+    expect(recoveryHint("Ornithopter can only be activated when you have priority (not while paying a cost)")).toMatch(/turn dial/);
+    expect(recoveryHint("Not enough mana to pay {2}{U}")).toMatch(/mana/);
+    expect(recoveryHint("That isn't a legal target")).toMatch(/highlighted targets/);
+    expect(recoveryHint("Llanowar Elves has summoning sickness", "move")).toMatch(/hold Alt/);
+  });
+
+  it("stays quiet when the message already guides, or Alt can't help", () => {
+    expect(recoveryHint("Tap your mana first: {2} isn't in your mana pool")).toBe("");
+    expect(recoveryHint("Choose one of the offered options")).toBe("");
+    expect(recoveryHint("Only the host can do that", "move")).toBe("");
+    expect(recoveryHint("Llanowar Elves has summoning sickness", "tap")).toBe("");
     expect(recoveryHint("Something odd happened")).toBe("");
   });
 });

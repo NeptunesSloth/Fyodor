@@ -86,16 +86,23 @@ interface GameStore {
   setPending: (positions: Record<string, [number, number]>) => void;
 }
 
+/** Actions that place a card, which Alt-dropping can also do by hand (past the rules intents). */
+const PLACING = new Set(["play_land", "cast", "cast_spell", "move", "put_from_hand"]);
+
 /**
- * What to try next after a refused action. The manual table is always the way out: Alt while dropping
- * places a card by hand, past the rules engine.
+ * What to try next after a refused action, when the server's message doesn't already say. Never for
+ * permission, host or ownership refusals (Alt can't bypass those), and the Alt hint only for actions
+ * that place a card.
  */
-export function recoveryHint(message: string): string {
+export function recoveryHint(message: string, actionType = ""): string {
   const m = message.toLowerCase();
-  if (/priority/.test(m)) return "Wait until the turn dial says Your priority, or press P to pass.";
-  if (/mana|afford|pay/.test(m)) return "Tap lands or sources for mana first, then try again.";
-  if (/target/.test(m)) return "Pick one of the highlighted targets.";
-  if (/(not|isn't|can't|cannot) (legal|allowed|be)|illegal|not your|only/.test(m)) return "To do it anyway, hold Alt as you drop the card to place it by hand.";
+  if (/^choose|first|unlock it|only the host|not your|your own|host|seat|private|hidden/.test(m)) return "";
+  if (/when you have priority|priority/.test(m)) return "Wait until the turn dial says Your priority.";
+  if (/can't pay|cannot pay|not enough mana|mana pool|don't pay/.test(m)) return "Tap lands or other sources for mana, then try again.";
+  if (/legal target|isn't a legal target/.test(m)) return "Pick one of the highlighted targets.";
+  if (PLACING.has(actionType) && /summoning sickness|is tapped|can't enchant|no legal|can only|isn't|not on the battlefield|not legal|illegal/.test(m)) {
+    return "To do it anyway, hold Alt as you drop the card to place it by hand.";
+  }
   return "";
 }
 
@@ -199,7 +206,7 @@ export const useGame = create<GameStore>((set, get) => ({
       set({ pendingPositions: {} });
       const message = e instanceof Error ? e.message : String(e);
       if (message.startsWith("AUTOMATION ERROR")) set({ automationError: message });
-      else toast(`${message.replace(/\.?$/, ".")} Nothing changed. ${recoveryHint(message)}`.trim(), "error");
+      else toast(`${message.replace(/\.?$/, ".")} Nothing changed. ${recoveryHint(message, String((action as { type?: unknown }).type ?? ""))}`.trim(), "error");
       return false;
     }
   },

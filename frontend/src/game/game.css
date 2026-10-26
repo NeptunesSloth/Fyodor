@@ -307,6 +307,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .ability-line:hover { border-color: var(--accent); }
 .shortcuts { border-collapse: collapse; width: 100%; font-size: 13px; }
 .shortcuts td { padding: 5px 6px; border-bottom: 1px solid var(--line); }
+.help-search { width: 100%; margin: 0 0 6px; }
 .help-section { margin: 18px 0 6px; font: 700 14px/1.2 var(--font-display); color: var(--text); }
 kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4px; padding: 1px 6px; font-size: 12px; font-family: inherit; }
 
