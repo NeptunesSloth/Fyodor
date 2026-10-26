@@ -26,6 +26,7 @@ from tests.wave110b_kit import (
     put,
     repository,
     settle,
+    to_hand,
     top,
 )
 
@@ -72,7 +73,7 @@ def test_chameleon_ignores_its_own_and_others_unaffected(cards):
 BRINK = "Back from the Brink"
 
 
-@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain"])
+@pytest.mark.parametrize("name", [BRINK, "Braided Net // Braided Quipu", "Lukka, Coppercoat Outcast", "Throne of the Grim Captain // The Grim Captain", "Soundwave, Sonic Spy // Soundwave, Superior Captain", "Thief of Blood", "Torrent of Lava"])
 def test_brink_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -331,4 +332,57 @@ def test_soundwave_declined_cast_does_not_convert(cards):
     s, wave, _ = soundwave_hit(cards, 3, cast=False)
     assert s.state.cards[card_named(s, "Divination", "p2").id].zone == "p2:exile" and s.state.cards[wave.id].face == 0
     assert not any(c.is_token and c.name in ("Ravage", "Laserbeak") for c in s.state.cards.values())
+    check(s)
+
+
+THIEF = "Thief of Blood"
+
+
+def test_thief_of_blood_removes_every_counter_and_enters_with_that_many(cards):
+    """614.12, 122.6, 122.1: every counter on every permanent (loyalty included, an opponent's too) comes off as it enters; it enters with a +1/+1 counter for each."""
+    s = build(cards, [THIEF, "Grizzly Bears", LUKKA], ["Grizzly Bears"])
+    mine, theirs, lk = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2"), put(s, LUKKA)
+    act(s, "p1", type="set_counter", card_id=mine.id, kind="+1/+1", value=2)
+    act(s, "p1", type="set_counter", card_id=mine.id, kind="stun", value=1)
+    act(s, "p1", type="set_counter", card_id=theirs.id, kind="-1/-1", value=1)
+    act(s, "p1", type="set_counter", card_id=lk.id, kind="loyalty", value=5)
+    mana(s, B=2, C=4)
+    cast(s, THIEF)
+    thief = card_named(s, THIEF)
+    assert all(not s.state.cards[c.id].counters for c in (mine, theirs, lk))
+    assert s.state.cards[thief.id].counters == {"+1/+1": 9}
+    from app.rules import sba
+    assert sba.power(s.state.cards[thief.id], ch(s, thief)) == 10
+    check(s)
+
+
+def test_thief_of_blood_with_no_counters_enters_plain(cards):
+    s = build(cards, [THIEF], [])
+    mana(s, B=2, C=4)
+    cast(s, THIEF)
+    assert not s.state.cards[card_named(s, THIEF).id].counters
+    check(s)
+
+
+TORRENT = "Torrent of Lava"
+
+
+def test_torrent_of_lava_grants_the_shield_ability_only_while_on_the_stack(cards):
+    """113.6, 611.3a: while Torrent of Lava is on the stack each creature has "{T}: Prevent the next 1 damage that would be dealt to this creature by Torrent of Lava this turn"
+    (Bob uses it in response); the damage is X to each creature without flying; the shielded creature takes 1 less; the ability is gone once it has resolved."""
+    s = build(cards, [TORRENT, "Hill Giant", "Serra Angel"], ["Grizzly Bears"])
+    for pid in s.state.players:
+        act(s, pid, type="set_prefs", response="on")  # (hold priority so the spell stays on the stack)
+    giant, angel, bears = put(s, "Hill Giant"), put(s, "Serra Angel"), put(s, "Grizzly Bears", "p2")
+    for c in (giant, angel, bears):
+        s.state.rules.controlled_since[c.id].turn = 0
+    assert not any("Torrent" in a.text for a in ch(s, bears).abilities)
+    mana(s, R=2, C=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, TORRENT).id, x_value=2)
+    assert any("Torrent of Lava this turn" in a.text for a in ch(s, bears).abilities) and s.state.zones["stack"]
+    act(s, "p2", type="activate_ability", card_id=bears.id, ability=find_ab(s, bears, "Prevent the next 1 damage"))
+    settle(s)
+    assert s.state.cards[bears.id].tapped
+    assert s.state.cards[bears.id].damage == 1 and s.state.cards[giant.id].damage == 2 and s.state.cards[angel.id].damage == 0  # (2 each, 1 prevented for the Bears; the Angel flies)
+    assert not any("Torrent" in a.text for a in ch(s, bears).abilities)
     check(s)

@@ -3468,5 +3468,39 @@
    "W"
   ],
   "keywords": []
+ },
+ {
+  "name": "Thief of Blood",
+  "layout": "normal",
+  "mana_cost": "{4}{B}{B}",
+  "cmc": 6.0,
+  "type_line": "Creature — Vampire",
+  "oracle_text": "Flying\nAs this creature enters, remove all counters from all permanents. This creature enters with a +1/+1 counter on it for each counter removed this way.",
+  "colors": [
+   "B"
+  ],
+  "color_identity": [
+   "B"
+  ],
+  "keywords": [
+   "Flying"
+  ],
+  "power": "1",
+  "toughness": "1"
+ },
+ {
+  "name": "Torrent of Lava",
+  "layout": "normal",
+  "mana_cost": "{X}{R}{R}",
+  "cmc": 2.0,
+  "type_line": "Sorcery",
+  "oracle_text": "Torrent of Lava deals X damage to each creature without flying.\nAs long as Torrent of Lava is on the stack, each creature has \"{T}: Prevent the next 1 damage that would be dealt to this creature by Torrent of Lava this turn.\"",
+  "colors": [
+   "R"
+  ],
+  "color_identity": [
+   "R"
+  ],
+  "keywords": []
  }
 ]

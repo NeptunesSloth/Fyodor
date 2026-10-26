@@ -1230,6 +1230,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     if lent:
         ch = replace(ch, abilities=ch.abilities + lent)
     ch = _granted_by_effects(ch, effects, wipe)
+    if on_field and state.zones.get("stack"):  # -- (wave 110B) -- Torrent of Lava: the ability it gives every creature while it is on the stack
+        from app.rules import wave110b_final
+
+        ch = wave110b_final.stack_grants(state, card, ch)
     if (wipe is None or (timestamp(state, card.id), 0, 0) > wipe) and state.rules is not None and state.rules.payments:  # -- grants (wave 110A) -- offspring given to the spell as it was cast stays on the permanent (a wipe earlier than the permanent's timestamp does not remove it, a later one does, 613.7)
         rec = state.rules.payments.get(state.rules.object_id(card.id))
         if rec is not None and rec.granted_offspring110a:

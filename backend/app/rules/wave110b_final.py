@@ -43,9 +43,71 @@ _BUILD: dict[str, tuple[str, Any]] = {
 }
 
 
+_THIEF = ("As this creature enters, remove all counters from all permanents. This creature enters with a +1/+1 counter on it for each counter removed this way.")
+
+
+def _has_thief(ch: Any) -> bool:
+    return any(a.text.strip() == _THIEF for a in ch.abilities)
+
+
+def thief_total(plan: Any, card: Any, ch: Any) -> int:
+    """Thief of Blood (614.12, 122.6): the counters on all permanents now (the look-ahead of what it enters with; nothing is removed here)."""
+    if not _has_thief(ch):
+        return 0
+    return sum(sum(c.counters.values()) for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and c.id != card.id)
+
+
+def thief_remove(plan: Any, card: Any, ch: Any, controller: str) -> None:
+    """The removal itself, as the Thief really enters (the 2015-11-04 rulings: loyalty counters are removed from planeswalkers, players' experience counters are not)."""
+    if not _has_thief(ch):
+        return
+    for c in list(plan.state.cards.values()):
+        if c.zone.endswith(":battlefield") and c.id != card.id:
+            for kind, n in list(c.counters.items()):
+                if n > 0:
+                    plan.do({"type": "counter", "card_ids": [c.id], "kind": kind, "delta": -n}, actor=controller)
+
+
+_TORRENT_STATIC = ('As long as Torrent of Lava is on the stack, each creature has "{T}: Prevent the next 1 damage that would be dealt to this creature by Torrent of Lava this turn."')
+_TORRENT_GRANT = "{T}: Prevent the next 1 damage that would be dealt to this creature by Torrent of Lava this turn."
+
+
+def stack_grants(state: Any, card: Any, ch: Any) -> Any:
+    """Torrent of Lava (113.6, 604.1, 611.3): while it is on the stack every creature has the shield ability (a static ability of the spell works on the stack, 113.6b).
+    ponytail: keyed by the name, like Pin Collection; a second card of this kind needs the text read from its static instead."""
+    from dataclasses import replace as _replace
+
+    from app.rules.oracle import parse_abilities
+
+    if not ch.is_creature or not any(c.name == "Torrent of Lava" and c.ability is None and c.zone == "stack" for c in state.cards.values()):
+        return ch
+    ab = parse_abilities(_TORRENT_GRANT)
+    return _replace(ch, abilities=ch.abilities + (_replace(ab[0], index=190),)) if len(ab) == 1 else ch
+
+
+def torrent_prevent(plan: Any, ctx: dict[str, Any], e: Def) -> bool:
+    """The granted ability's effect: the next 1 damage the Torrent (the spell on the stack, as that object) would deal to this creature this turn is prevented (615.7)."""
+    from app.rules import source_shields
+
+    spell = next((c for c in plan.state.cards.values() if c.name == "Torrent of Lava" and c.ability is None and c.zone == "stack"), None)
+    if spell is None:
+        plan.note("Torrent of Lava is no longer on the stack: nothing is prevented", actor=ctx["controller"])
+        return True
+    source_shields._record(plan, ctx, {"to": "self", "budget": 1, "props": {}}, [plan.oid(spell)], "Torrent of Lava")
+    return True
+
+
 def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import scripts
 
+    if ability.text.strip() == _TORRENT_STATIC:
+        return {"kind": "static", "static": "stack_grant110b", "effects": []}
+    if ability.text.strip() == _TORRENT_GRANT:
+        native = scripts.define(replace(ability, text="{T}: You gain 1 life."), ch)
+        return None if native is None else {**native, "effects": [{"do": "torrent_prevent110b"}]}
+
+    if ability.text.strip() == _THIEF:
+        return {"kind": "static", "static": "thief110b", "effects": []}  # carried out where permanents enter (replacements.entered: thief_remove)
     if (built := _BUILD.get(ability.text.strip())) is None:
         return None
     native = scripts.define(replace(ability, text=built[0]), ch)
@@ -118,5 +180,5 @@ def resume_crafted_put(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, ctx)
 
 
-PRIMITIVES: dict[str, Any] = {"greater_dig110b": greater_dig, "crafted_put110b": crafted_put}
+PRIMITIVES: dict[str, Any] = {"torrent_prevent110b": torrent_prevent, "greater_dig110b": greater_dig, "crafted_put110b": crafted_put}
 RESUME: dict[str, Any] = {"crafted_put110b": resume_crafted_put}
