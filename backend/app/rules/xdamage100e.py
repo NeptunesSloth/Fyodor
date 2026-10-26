@@ -868,7 +868,9 @@ def total_power(plan: Any, ctx: dict[str, Any], v: dict[str, Any]) -> int:
     negative power subtracts, and the total is never below 0 (107.1b)."""
     from app.rules import context
 
-    return max(0, sum(ch.pt[0] for _, ch in context.infos(plan, ctx, v["total_power100e"]) if ch.pt is not None))
+    # (off the battlefield no layers ran: the printed number is the power, 208.3; a card in exile or a graveyard has no pt. ponytail: a "*" power there counts 0)
+    return max(0, sum(ch.pt[0] if ch.pt is not None else int(ch.power) if (ch.power or "").lstrip("-").isdigit() else 0
+                      for _, ch in context.infos(plan, ctx, v["total_power100e"])))
 
 
 def effigy_damage(plan: Any, ctx: dict[str, Any], v: dict[str, Any]) -> int:

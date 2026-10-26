@@ -49,6 +49,9 @@ _SPOT = "When ~ dies, put ~ on the bottom of ~'s owner's library. If you do, ret
 # just exiled: exiled_with "other" skips cards exiled in this same resolution).
 _LIMO = ("Whenever this Vehicle enters or attacks, exile up to one other target creature until this Vehicle leaves the battlefield. If a creature is put into "
          "exile this way, return each other card exiled with this Vehicle to the battlefield under its owner's control.")
+# Stitcher Geralf: the controller picks up to two creature cards among the milled ones (any graveyard), exiles them, and the token is as big as their total power.
+_GERALF = ("{2}{U}, {T}: Each player mills three cards. Exile up to two creature cards put into graveyards this way. Create an X/X blue Zombie creature "
+           "token, where X is the total power of the cards exiled this way.")
 _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this creature is suspected, you may suspect one of the other creatures. "
               "If you do, this creature is no longer suspected.")
 
@@ -154,6 +157,18 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
             return None
         # (the linked exile, 607.2a: marked by hand, the sub-reading cannot see the card's other sentence)
         return {**until, "effects": [{**until["effects"][0], "link": True}, {"do": "limo_back110h"}]}
+    if text == _GERALF:
+        from app.rules import card_copy_sources as C
+
+        native = scripts.define(replace(ability, text="{2}{U}, {T}: Each player mills three cards. Create a 3/3 blue Zombie creature token."), ch)
+        token = scripts.parse_effects("Create an X/X blue Zombie creature token, where X is the number of cards in your hand.")
+        if native is None or token is None or [e["do"] for e in native["effects"]] != ["mill", "create_token"]:
+            return None
+        made = {**token[0][0], "token": {**token[0][0]["token"], "power": {"total_power100e": "geralf"}, "toughness": {"total_power100e": "geralf"}}}
+        pick = C.select(who="ref:geralf_milled", n=2, upto=True, filter=C.key("creature card in a graveyard"))
+        pick["as"], pick["prompt"] = "geralf_pick", "Stitcher Geralf: exile up to two creature cards put into graveyards this way"
+        return {**native, "effects": [{**native["effects"][0], "as": "geralf_milled"}, pick,
+                                      {"do": "exile", "who": "ref:geralf_pick", "as": "geralf"}, made]}
     if text == _LEECH:  # the grant definition the staged untap model reads (tests/test_rules_untap_attempts45.py), marked: untap_hold carries it out
         return {"kind": "static", "static": "grant", "effects": [], "who": "attached", "attached_kind": "creature", "conditions": [], "p": 0, "t": 0,
                 "base": None, "keywords": [], "grants": [text.split('"')[1]], "rules": [], "untap_counter110h": True}
