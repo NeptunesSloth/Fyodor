@@ -128,6 +128,12 @@ def offers(state: GameState, player: str, card: CardInstance, ch: Characteristic
         if g.get("escape") and g.get("oid") == r.object_id(card.id) and g.get("turn") == state.turn.number and ch.mana_cost and "//" not in ch.mana_cost \
                 and not _two_ways(card) and (alt := alt_costs.parse_cost(_cost_text(ch.mana_cost, g["exile"]))) is not None:
             out.append(alt_costs.Offer(f"{card.id}:granted", f"{ch.name}: escape ({ch.mana_cost}, exile {g['exile']} other cards from your graveyard)", alt, escape=True))
+    for g in r.graveyard_grants:  # -- (wave 110O) -- "gains Escape—{3}{B}, …" until end of turn (graveyard_grants.grant_flashback): its own stated cost, 611.2c
+        if g.get("escape110o") and g.get("oid") == r.object_id(card.id) and g.get("turn") == state.turn.number:
+            mana, n = str(g["escape110o"]).split("|")
+            alt = alt_costs.parse_cost(_cost_text(mana, int(n)))
+            if alt is not None:
+                out.append(alt_costs.Offer(f"{card.id}:grant{g['id']}", f"{ch.name}: escape ({mana}, exile {n} other cards from your graveyard)", alt, escape=True))
     from app.rules import (  # -- casting extras (wave 18E) -- 702.146a: cast transformed from the graveyard; 702.180a
         disturb,
         harmonize,
