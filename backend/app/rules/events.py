@@ -92,7 +92,8 @@ _EVENT_VERBS = [
 # ("to a player or battle": a battle is dealt damage like a planeswalker, 120.3h — it can be
 # attacked, 310.5, and targeted by "any target" spells)
 _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature", " to an opponent": "opponent",
-              " to you": "you", " to a player or planeswalker": "player_or_pw", " to a planeswalker": "planeswalker",
+              " to you": "you", **{f" to player p{i}": f"pid:p{i}" for i in range(1, 9)}, " to the player who cast this spell": "caster110a",  # -- wave 110A -- Hellish Rebuke: bound to the caster's id as the ability is granted (effects.grant)
+              " to a player or planeswalker": "player_or_pw", " to a planeswalker": "planeswalker",
               " to one of your opponents": "opponent", " to enchanted player": "enchanted_player",
               " to enchanted planeswalker": "enchanted_planeswalker",
               " to a player or battle": "player_or_battle", " to an opponent or battle": "opponent_or_battle",  # (wave 110H: Bloodfeather Phoenix)

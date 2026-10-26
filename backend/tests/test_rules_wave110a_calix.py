@@ -7,7 +7,7 @@ from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave100n_multi import EXTRA as _BASE
 from tests.test_rules_wave100n_multi import answer, card_db  # noqa: F401
-from tests.wave9c_kit import build, card_named, check, put
+from tests.wave9c_kit import build, check, put
 
 EXTRA = [
     real("Calix, Destiny's Hand", "{2}{G}{W}", 4, "Legendary Planeswalker — Calix",

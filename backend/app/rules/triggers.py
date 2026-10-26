@@ -1321,7 +1321,7 @@ def _details_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, fact: F
         if cond.get("single110c") and not info.get("single110c"):
             return False
         recipient = info.get("recipient")
-        if (to == "player" and recipient is None) or (to == "you" and recipient != you) or \
+        if (to == "player" and recipient is None) or (to == "you" and recipient != you) or (to.startswith("pid:") and recipient != to[4:]) or \
                 (to == "you_or_perm110b" and you not in (recipient, info.get("recipient_ctl110b"))) or \
                 (to == "creature_or_opponent" and not (info.get('recipient_creature') or recipient is not None and recipient != you)) or \
                 (to == "opponent" and (recipient is None or recipient == you)) or \

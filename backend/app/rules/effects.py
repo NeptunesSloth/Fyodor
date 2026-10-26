@@ -944,6 +944,7 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     from app.rules import player_protection_grants, source_quality_grants
 
     abilities = source_quality_grants.abilities(plan, ctx, player_protection_grants.abilities(plan, ctx, list(e.get("abilities") or [])))
+    abilities = [a.replace("to the player who cast this spell", f"to player {ctx['controller']}") for a in abilities]  # -- wave 110A -- Hellish Rebuke (601.2: the caster)
     if abilities:
         receivers = [c for c in cards if plan.state.cards[c].zone.endswith(":battlefield") or (
             plan.state.cards[c].zone == "stack" and plan.state.cards[c].ability is None

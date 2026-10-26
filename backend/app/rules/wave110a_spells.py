@@ -223,6 +223,9 @@ def _decree() -> Parsed:
 
 # Sentences the grammar reads in other words with the same meaning (the rewrite must mean the same: 608.2c).
 REWRITES = {
+    # (Hellish Rebuke: the granted trigger names its caster; effects.grant binds "the player who cast this spell" to the caster's id)
+    'Until end of turn, permanents your opponents control gain "When ~ deals damage to the player who cast ‹granter›, sacrifice ~. You lose 2 life."':
+        'Until end of turn, permanents your opponents control gain "When this permanent deals damage to the player who cast this spell, sacrifice this permanent. You lose 2 life."',
     # (Threaten: control and haste both last until end of turn, 611.2a)
     "Until end of turn, you gain control of target creature and it gains haste.":
         "Gain control of target creature until end of turn. It gains haste until end of turn.",
