@@ -263,6 +263,26 @@ def face_down_look(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+def _optimus(d: Def) -> Def:
+    """Optimus Prime: "The chosen creature" is the creature bolster chose (701.39a; the native reading, the creature chosen as a permanent entered, is another
+    thing). "When that creature deals combat damage to a player this turn, convert Optimus Prime" is one delayed trigger on it (603.7c: "when", so once),
+    reading as the "Whenever that creature …" watcher the grammar has, but spent after the first conversion."""
+    from app.rules import scripts
+
+    bolster, grant = d["effects"]
+    if bolster.get("do") != "bolster" or grant.get("do") != "grant":
+        return d
+    watch = scripts.parse_effects("Target creature gets +1/+1 until end of turn. Whenever that creature deals combat damage to a player this turn, transform ~.")
+    assert watch is not None
+    delayed, convert = watch[0][1], watch[0][2]
+    who = "ref:bolstered110l"
+    return {**d, "effects": [{**bolster, "as": "bolstered110l"}, {**grant, "who": who}, {**delayed, "once": True, "who": who}, convert]}
+
+
+_BUILD["Whenever you attack, bolster 2. The chosen creature gains trample until end of turn. When that creature deals combat damage to a player this turn, convert Optimus Prime."] = (
+    "Whenever you attack, bolster 2. The chosen creature gains trample until end of turn.", _optimus)
+
+
 def pick_discard(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     """The owner reveals their hand; the chooser picks one card of it, which is discarded (an empty hand reveals nothing and discards nothing)."""
     from app.rules.effects import _players, decide, zone_key

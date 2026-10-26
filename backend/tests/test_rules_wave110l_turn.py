@@ -198,3 +198,43 @@ def test_lumbering_laundry_lets_its_controller_look_at_face_down_creatures_until
     to_phase(s, "main1", turn=3)
     assert s.view("p1")["cards"][bears.id]["hidden"]  # the look ended with the turn
     check(s)
+
+
+OPTIMUS = "Optimus Prime, Hero // Optimus Prime, Autobot Leader"
+test_full_optimus = full_test([OPTIMUS])
+
+
+def optimus_hits(cards, block):
+    s = build(cards, [OPTIMUS, "Grizzly Bears"], ["Courser of Kruphix"])
+    prime = card_named(s, OPTIMUS)
+    act(s, "p1", type="move", card_ids=[prime.id], to={"player": "p1", "zone": "battlefield"}, back_ids=[prime.id])  # the Vehicle face (712.14a)
+    bears = put(s, "Grizzly Bears")
+    if block:
+        put(s, "Courser of Kruphix", "p2")
+    next_turn(s)
+    stops(s)
+    to_phase(s, "declare_attackers")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": bears.id, "target": "p2"}])
+    return s, prime, bears
+
+
+def test_optimus_bolsters_and_converts_when_the_chosen_creature_connects(cards):
+    s, prime, bears = optimus_hits(cards, block=False)
+    answer(s)  # bolster 2 on the creature with the least toughness (Bears), trample until end of turn
+    assert card_named(s, "Grizzly Bears").counters.get("+1/+1") == 2
+    assert "trample" in ch(s, bears).keywords
+    to_phase(s, "end_combat")
+    assert ch(s, prime).name == "Optimus Prime, Hero"  # converted to the other face after the combat damage
+    check(s)
+
+
+def test_optimus_stays_put_if_the_chosen_creature_deals_no_damage_to_a_player(cards):
+    s, prime, bears = optimus_hits(cards, block=True)
+    answer(s)
+    to_phase(s, "declare_blockers")
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "declare_blockers"
+    act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": card_named(s, "Courser of Kruphix", "p2").id, "attacker_id": bears.id}])
+    to_phase(s, "end_combat")
+    assert ch(s, prime).name == "Optimus Prime, Autobot Leader"
+    check(s)

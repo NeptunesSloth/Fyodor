@@ -383,5 +383,60 @@
   ],
   "power": "4",
   "toughness": "5"
+ },
+ {
+  "name": "Optimus Prime, Hero // Optimus Prime, Autobot Leader",
+  "layout": "transform",
+  "mana_cost": "{3}{U}{R}{W} // ",
+  "cmc": 6.0,
+  "type_line": "Legendary Artifact Creature — Robot // Legendary Artifact — Vehicle",
+  "oracle_text": "More Than Meets the Eye {2}{U}{R}{W} (You may cast this card converted for {2}{U}{R}{W}.)\nAt the beginning of each end step, bolster 1. (Choose a creature with the least toughness among creatures you control and put a +1/+1 counter on it.)\nWhen Optimus Prime dies, return it to the battlefield converted under its owner's control.\n//\nLiving metal (During your turn, this Vehicle is also a creature.)\nTrample\nWhenever you attack, bolster 2. The chosen creature gains trample until end of turn. When that creature deals combat damage to a player this turn, convert Optimus Prime.",
+  "colors": [
+   "R",
+   "U",
+   "W"
+  ],
+  "color_identity": [
+   "R",
+   "U",
+   "W"
+  ],
+  "keywords": [
+   "Living metal",
+   "Trample",
+   "Convert",
+   "More Than Meets the Eye",
+   "Bolster"
+  ],
+  "card_faces": [
+   {
+    "name": "Optimus Prime, Hero",
+    "mana_cost": "{3}{U}{R}{W}",
+    "type_line": "Legendary Artifact Creature — Robot",
+    "oracle_text": "More Than Meets the Eye {2}{U}{R}{W} (You may cast this card converted for {2}{U}{R}{W}.)\nAt the beginning of each end step, bolster 1. (Choose a creature with the least toughness among creatures you control and put a +1/+1 counter on it.)\nWhen Optimus Prime dies, return it to the battlefield converted under its owner's control.",
+    "power": "4",
+    "toughness": "8",
+    "colors": [
+     "R",
+     "U",
+     "W"
+    ]
+   },
+   {
+    "name": "Optimus Prime, Autobot Leader",
+    "mana_cost": "",
+    "type_line": "Legendary Artifact — Vehicle",
+    "oracle_text": "Living metal (During your turn, this Vehicle is also a creature.)\nTrample\nWhenever you attack, bolster 2. The chosen creature gains trample until end of turn. When that creature deals combat damage to a player this turn, convert Optimus Prime.",
+    "power": "6",
+    "toughness": "8",
+    "colors": [
+     "R",
+     "U",
+     "W"
+    ]
+   }
+  ],
+  "power": "4",
+  "toughness": "8"
  }
 ]
