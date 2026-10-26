@@ -211,12 +211,6 @@ def winter_table(cards):
     return s, d
 
 
-def resolve_to_decision(s):
-    while s.state.rules.decision is None and s.state.zones.get("stack"):
-        act(s, s.state.rules.priority, type="pass_priority")
-    return s.state.rules.decision
-
-
 def test_winter_exiles_four_types_and_puts_a_permanent_card_back_with_a_finality_counter(cards):
     s, d = winter_table(cards)
     ids = {o.label: o.id for o in d.options}
