@@ -489,3 +489,7 @@ def _livio_return(d: Def) -> Def:
 
 _BUILD["{2}{W}, {T}: Return all exiled cards with aegis counters on them to the battlefield under their owners' control."] = (
     "{2}{W}, {T}: Return all cards from exile to the battlefield under their owners' control.", _livio_return)
+
+
+_BUILD["Whenever a creature has four or more fuse counters on it, remove all fuse counters from it and destroy it. That creature deals 4 damage to its controller."] = (
+    "Whenever one or more fuse counters are put on a creature, if it has four or more fuse counters on it, remove all fuse counters from it and destroy it. It deals 4 damage to its controller.", lambda d: d)
