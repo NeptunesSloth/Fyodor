@@ -227,7 +227,8 @@ def _return_until(plan: Plan, t: Any) -> bool:
 def facts(plan: Plan, e: Event) -> list[Any]:
     """Trigger facts for app/rules/triggers.py from a ``designation`` event (app/rules/events.py)."""
     if (e.counter or "").startswith("sticker101:") and e.player and "Creature" in (e.types or []):  # -- stickers (wave 110F) -- 123.2
-        return [(f"put_{(e.counter or '').split(':')[1]}_sticker110f", None, None, e.player, {})]
+        stuck = plan.state.cards.get(e.card or "")  # (wave 110C: "that creature", Tusk and Whiskers)
+        return [(f"put_{(e.counter or '').split(':')[1]}_sticker110f", stuck, plan.ch(stuck) if stuck is not None else None, e.player, {"oid": e.object_id})]
     if e.counter == "monarch" and e.player:
         return [("become_monarch", None, None, e.player, {})]
     if e.counter == "initiative" and e.player:

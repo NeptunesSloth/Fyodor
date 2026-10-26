@@ -40,8 +40,22 @@ def condition(text: str) -> dict[str, Any] | None:
     return {"value": {"distinct": "names", "among": replace(sel, extras=("basic_or_sub110c:Sphere|Locus",)).key()}, "op": ">=", "n": 9}
 
 
+_TUSK_TRIGGER = "Whenever you put an ability sticker on a creature, put a +1/+1 counter on that creature."
+_TUSK_ACTIVATED = "{2}{G}{W}, {T}: You get {TK}. You may put a sticker on a nonland permanent you own."
+
+
 def definition(ability: AbilityText, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
+
+    if ability.text == _TUSK_TRIGGER:  # 123.2: the creature the sticker went on gets the counter (122.1)
+        d = scripts.define(replace(ability, text=_TUSK_TRIGGER.replace("that creature", "~")), ch)
+        return None if d is None else {**d, "effects": [{**e, "who": "event"} for e in d["effects"]]}
+    if ability.text == _TUSK_ACTIVATED:  # 702.33h-like: a ticket counter, then an optional sticker on a nonland permanent you own (Done for the Day)
+        base = scripts.define(replace(ability, text="{2}{G}{W}, {T}: You get {TK}."), ch)
+        if base is None:
+            return None
+        put = {"do": "put_sticker101", "kind": None, "n": 1, "as": "placed101", "sel": 'sel:{"not_types":["Land"],"owner":"you"}'}
+        return {**base, "effects": [*base["effects"], put]}
 
     if ability.text == _MONUMENT:
         # 611.2a / 613.1: no duration, so permanent; the abilities it gains come after "loses all abilities" (timestamp order, 613.7)
