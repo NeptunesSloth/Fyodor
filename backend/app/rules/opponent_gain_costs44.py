@@ -36,6 +36,8 @@ def component(text: str) -> C.CostComponent | None:
     normalized = text[:1].lower() + text[1:]
     if normalized == 'have an opponent gain 3 life':
         return C.CostComponent(KIND, amount=3, text=text)
+    if normalized == 'an opponent gains 5 life':  # -- splice (wave 110G) -- Roar of Jukai: 118.1 an action is a cost, 702.47a pays it as an additional cost
+        return C.CostComponent(KIND, amount=5, text=text)
     amounts = {'have each other player gain 5 life': 5, 'have each other player gain 6 life': 6}
     if normalized in amounts:
         return C.CostComponent(KIND, amount=amounts[normalized], text=text, gain_scope='each_other_player')

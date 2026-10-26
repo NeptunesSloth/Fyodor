@@ -89,6 +89,20 @@ def definition(ability: Any, ch: Any) -> Def | None:
 
     if (cap := _CAP.fullmatch(ability.text.strip())) is not None and ch.name.startswith(cap["name"]):  # (the short name)
         return {"kind": "static", "static": "counter_cap110j", "counter": cap["kind"], "n": _NUMS[cap["n"]], "effects": []}
+    if ability.text.strip() == _WEB1:  # Magnetic Web: a source-less conditional attack requirement (508.1d), score in combat_conditional_requirements67
+        from app.rules import combat_conditional_requirements67, selectors, statics
+
+        return statics._definition(selectors.Selector(types=("Creature",), extras=("counter:magnet",)).key(), None, [],
+                                   rules=[combat_conditional_requirements67.PREFIX + "@src:magnet110j"])
+    if ability.text.strip() == _TAKKLE_GAIN:  # Takklemaggot's granted ability: the chosen player is the one recorded as it returned (read by triggers._whose_step)
+        return {"kind": "triggered", "trigger": "step:upkeep:chosen_player", "effects": [{"do": "damage", "who": "event_player", "n": 1}], "optional": False, "target": None}
+    if ability.text.strip() == _EQUINOX:
+        return {"kind": "activated", "cost": "{T}", "effects": [{"do": "equinox110j"}], "target": {"what": "spell"}}
+    if ability.text.strip() == _CURSE_IGNORE:
+        native = scripts.define(replace(ability, text="Sacrifice a permanent: Draw a card."), ch)
+        return None if native is None else {**native, "effects": [{"do": "ignore110j"}]}
+    if ability.text.strip() == _SPLICER:
+        return _splicer(ability, ch)
     if ability.text.strip() == _ES:
         return _shapeshifter()
     if (shuriken := _SHURIKEN.fullmatch(ability.text.strip())) is not None:
@@ -415,9 +429,33 @@ REWRITES: dict[str, str] = {
 }
 
 
+_BOUND = ("Sacrifice a creature. Return up to X cards from your graveyard to your hand, where X is the number of colors that creature was. "
+          "Exile this card.")
+
+
+_PRANCE = ("Target creature you don't control blocks target creature you control with a power and toughness sticker on it other than ~ "
+           "this turn if able.")
+
+
 def parse(body: str) -> Any:
     from app.rules import scripts
 
+    if body.strip() == _BOUND:  # Bound: X = colors of the sacrificed creature as it last existed (608.2h)
+        got = scripts.parse_effects("Sacrifice a creature. Return up to two cards from your graveyard to your hand. Exile ~.")
+        if got is not None:
+            got[0][0]["as"] = "e0"
+            got[0][1]["n"] = {"colors": "ref:e0"}
+        return got
+    if body.strip() == _PRANCE:  # Lineprancers: the second target is "other than ~" (the stickered creature must not be the source)
+        got = scripts.parse_effects(_PRANCE.replace(" other than ~", ""))
+        if got is not None:
+            from dataclasses import replace
+
+            from app.rules import selectors
+
+            t = got[1][1]
+            t["what"] = replace(selectors.from_key(t["what"]), other=True).key()
+        return got
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
 
 
@@ -730,3 +768,476 @@ def _shuriken(oid: str | None, ability: Any, ch: Any) -> Def | None:
 _BUILD["Whenever a creature has four or more fuse counters on it, remove all fuse counters from it and destroy it. That creature deals 4 damage to its controller."] = (
     "Whenever a creature attacks, remove all fuse counters from it and destroy it. That creature deals 4 damage to its controller.",
     lambda d: {**d, "trigger": "state", "cond": None, "state": {"each110j": ["fuse", 4]}})
+
+
+# -- Temporal Aperture (wave 110J) -- after the shuffle and reveal: until end of turn, for as long as that card remains on top of the library (checked in
+# permissions.expire_source and grants), it is revealed to everyone (401.5, visibility.top_revealed) and its owner may play it free (118.9, X is 0: 107.3b)
+def aperture(plan: Any, ctx: Def, e: Def) -> bool:
+    import secrets
+
+    from app.game.rules_state import Permission
+    from app.game.state import zone_key
+
+    pid = ctx["controller"]
+    library = plan.state.zones.get(zone_key(pid, "library"), [])
+    if library:
+        top = library[0]
+        plan.rules.permissions.append(Permission(
+            id=secrets.token_hex(4), player=pid, play=True, cast=True, zone="library_top", object_id=plan.oid(plan.state.cards[top]), card=top, free=True,
+            top110j=True, turn=plan.state.turn.number, granted_step=plan.rules.step_serial, source=ctx.get("source_object"),
+            label=f"{ctx.get('name') or 'An effect'}: play it from the top of your library without paying its mana cost"))
+    return True
+
+
+PRIMITIVES["aperture110j"] = aperture
+_BUILD["{5}, {T}: Shuffle your library, then reveal the top card. Until end of turn, for as long as that card remains on top of your library, play with the top card of your library revealed and you may play that card without paying its mana cost."] = (
+    "{5}, {T}: Shuffle your library, then reveal the top card of your library.", lambda d: {**d, "effects": [*d["effects"], {"do": "aperture110j"}]})
+
+
+# -- Dimensional Breach (wave 110J) -- 603.7: the delayed ability at the beginning of each player's upkeep (it ends once none of the exiled cards remain exiled,
+# 611.2b); that player (the active player, 503.1) returns one of the exiled cards they own to the battlefield (their choice, 608.2d)
+_BREACH = ("Exile all permanents. For as long as any of those cards remain exiled, at the beginning of each player's upkeep, "
+           "that player returns one of the exiled cards they own to the battlefield.")
+
+
+def _breach_cards(plan: Any, cards: list[dict[str, str]]) -> list[str]:
+    return [c["card"] for c in cards if (card := plan.state.cards.get(c["card"])) is not None and card.zone.endswith(":exile") and plan.oid(card) == c["object"]]
+
+
+def breach_live(plan: Any, t: Any) -> bool:
+    return any(_breach_cards(plan, e["cards"]) for e in t.effects if e.get("do") == "breach_return110j")
+
+
+def breach_setup(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    import secrets
+
+    from app.game.rules_state import DelayedTrigger
+    from app.rules import context
+
+    name = next((k for k in (ctx.get("refs") or {}) if k.endswith("bx110j")), "")  # (the grammar prefixes binding names with their level: l0_bx110j)
+    cards = [{"card": c, "object": plan.oid(c)} for c in context.objects(plan, ctx, name) if plan.state.cards[c].zone.endswith(":exile")]
+    if cards:
+        plan.rules.delayed.append(DelayedTrigger(
+            id=secrets.token_hex(4), controller=ctx["controller"], source_card=ctx.get("source_card"), source_object=ctx.get("source_object"),
+            name=ctx.get("name") or "Dimensional Breach", when={"kind": "step", "step": "upkeep", "whose": "each110j"},
+            effects=[{"do": "breach_return110j", "cards": cards}], turn=plan.state.turn.number, step=plan.state.turn.phase,
+            created_step=plan.rules.step_serial, once=False))
+    return True
+
+
+def _breach_return(plan: Any, ctx: Any, card: str) -> None:
+    from app.rules import context, effects
+
+    context.bind_objects(plan, ctx, "pick110j", [card])
+    effects.PRIMITIVES["return_card"](plan, ctx, {"do": "return_card", "who": "ref:pick110j", "to": "battlefield", "tapped": False, "under": "owner"})
+
+
+def breach_return(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules.plan import decide
+
+    who = plan.active
+    mine = [c for c in _breach_cards(plan, e["cards"]) if plan.state.cards[c].owner == who]
+    if len(mine) > 1:
+        decide(plan, player=who, kind="choose_cards", prompt="Return one of the exiled cards you own to the battlefield", min_choices=1, max_choices=1,
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "a card", card_id=c) for c in mine],
+               resume={"step": "breach110j", "ctx": ctx})
+        return False
+    if mine:
+        _breach_return(plan, ctx, mine[0])
+    return True
+
+
+def resume_breach(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    _breach_return(plan, d.resume["ctx"], chosen[0])
+    continue_effects(plan, d.resume["ctx"])
+
+
+PRIMITIVES.update({"breach_setup110j": breach_setup, "breach_return110j": breach_return})
+RESUME["breach110j"] = resume_breach
+_BUILD[_BREACH] = ("Exile all permanents.", lambda d: {**d, "effects": [{**d["effects"][0], "as": "bx110j"}, {"do": "breach_setup110j"}]})
+
+
+# -- Phyrexian Splicer (wave 110J) -- "Choose flying, first strike, trample, or shadow" is announced like the mode of a "choose one" ability (the choice comes before
+# the targets, which name "the chosen ability"): four modes, each with its two target groups (601.2b-c, 700.2)
+_SPLICER = ("{2}, {T}, Choose flying, first strike, trample, or shadow: Until end of turn, target creature with the chosen ability loses it and another "
+            "target creature gains it.")
+
+
+def _splicer(ability: Any, ch: Any) -> Def | None:
+    from app.rules import scripts
+
+    modes: list[Def] = []
+    for k, kw in enumerate(("flying", "first strike", "trample", "shadow")):
+        text = f"Target creature with {kw} loses {kw} until end of turn. Another target creature gains {kw} until end of turn."
+        one = scripts.define(replace(ability, text="{2}, {T}: " + text, cost="{2}, {T}"), ch)
+        if one is None or not one.get("targets"):
+            return None
+        modes.append({"text": text, "effects": scripts.rename_bindings(one["effects"], f"m{k}_"), "target": None, "groups": one["targets"]})
+    return {"kind": "activated", "cost": "{2}, {T}", "effects": [], "target": None, "optional": False, "modes": modes,
+            "modal": {"min": 1, "max": 1, "repeat": False, "condition": None, "memory": None, "index": ability.index, "form": "activated"}}
+
+
+# -- Giant Oyster (wave 110J) -- the "doesn't untap" restriction is native ("for as long as this creature remains tapped", 611.2b); here: the -1/-1 counter at the
+# beginning of each of its controller's draw steps while that holds (603.7), and the delayed "When this creature leaves the battlefield or becomes untapped,
+# remove all -1/-1 counters from the creature" (603.7a), put on the stack by oyster_sweep as the table is next looked at (603.3)
+_OYSTER = ("{T}: For as long as this creature remains tapped, target tapped creature doesn't untap during its controller's untap step, and at the beginning of each "
+           "of your draw steps, put a -1/-1 counter on that creature. When this creature leaves the battlefield or becomes untapped, remove all -1/-1 counters "
+           "from the creature.")
+_BUILD[_OYSTER] = ("{T}: Target tapped creature doesn't untap during its controller's untap step for as long as this creature remains tapped.",
+                   lambda d: {**d, "effects": [*d["effects"], {"do": "oyster110j"}]})
+
+
+def oyster_live(plan: Any, ref: dict[str, str]) -> bool:
+    card = plan.state.cards.get(ref["card"])
+    return card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == ref["object"] and card.tapped
+
+
+def oyster(plan: Any, ctx: Def, e: Def) -> bool:
+    import secrets
+
+    from app.game.rules_state import DelayedTrigger
+    from app.rules import effects
+
+    me = plan.state.cards.get(ctx.get("source_card") or "")
+    if me is None or plan.oid(me) != ctx.get("source_object"):
+        return True
+    for target in effects._cards(plan, ctx, "target"):
+        if plan.state.cards[target].zone.endswith(":battlefield"):
+            plan.rules.delayed.append(DelayedTrigger(
+                id=secrets.token_hex(4), controller=ctx["controller"], source_card=me.id, source_object=ctx.get("source_object"), name=ctx.get("name") or "Giant Oyster",
+                when={"kind": "step", "step": "draw", "whose": "you"}, turn=plan.state.turn.number, step=plan.state.turn.phase, created_step=plan.rules.step_serial, once=False,
+                effects=[{"do": "oyster_tick110j", "oyster": {"card": me.id, "object": ctx["source_object"]}, "target": {"card": target, "object": plan.oid(target)}}]))
+    return True
+
+
+def _oyster_target(plan: Any, e: Def) -> str | None:
+    card = plan.state.cards.get(e["target"]["card"])
+    return card.id if card is not None and card.zone.endswith(":battlefield") and plan.oid(card) == e["target"]["object"] else None
+
+
+def oyster_tick(plan: Any, ctx: Def, e: Def) -> bool:
+    from app.rules import context, effects
+
+    if (target := _oyster_target(plan, e)) is not None:
+        context.bind_objects(plan, ctx, "oy110j", [target])
+        effects.PRIMITIVES["add_counters"](plan, ctx, {"do": "add_counters", "who": "ref:oy110j", "kind": "-1/-1", "n": 1})
+    return True
+
+
+def oyster_clear(plan: Any, ctx: Def, e: Def) -> bool:
+    from app.rules import context, effects
+
+    if (target := _oyster_target(plan, e)) is not None:
+        context.bind_objects(plan, ctx, "oy110j", [target])
+        effects.PRIMITIVES["remove_counters"](plan, ctx, {"do": "remove_counters", "who": "ref:oy110j", "kind": "-1/-1", "n": 1000000})
+    return True
+
+
+def oyster_sweep(plan: Any) -> None:
+    from app.rules import delayed
+
+    r = plan.rules
+    ended = [t for t in r.delayed if t.effects and t.effects[0].get("do") == "oyster_tick110j" and not oyster_live(plan, t.effects[0]["oyster"])]
+    if not ended:
+        return
+    r.delayed = [t for t in r.delayed if t not in ended]
+    for t in ended:
+        e = t.effects[0]
+        delayed._fire(plan, t.model_copy(update={"effects": [{"do": "oyster_clear110j", "target": e["target"]}], "when": {"kind": "event"}}), None)
+
+
+PRIMITIVES.update({"oyster110j": oyster, "oyster_tick110j": oyster_tick, "oyster_clear110j": oyster_clear})
+
+
+# -- Balduvian Warlord, Sorrow's Path (wave 110J) -- blockers moved by an effect. 506.4 (removed from combat), 509.1h (a creature it blocked stays blocked), 509.3c/d via
+# combat_rules.enter_blocking (an effect-made block does not check blocking restrictions: 509.1b is about the declaration; the attacker must attack the blocker's controller, 506.3e)
+_WARLORD = ("{T}: Remove target blocking creature from combat. Creatures it was blocking that hadn't become blocked by another creature this combat become "
+            "unblocked, then it blocks an attacking creature of your choice. Activate only during the declare blockers step.")
+_PATH = ("{T}: Choose two target blocking creatures controlled by the same opponent. If each of those creatures could block all creatures that the other is "
+         "blocking, remove both of them from combat. Each one then blocks all creatures the other was blocking.")
+
+
+def _blocked_by(card: Any) -> list[str]:
+    return [x for x in (card.blocking, *card.blocking_more) if x]
+
+
+def _leave(plan: Any, ctx: Any, card: Any) -> None:
+    from app.rules import combat_rules
+
+    combat_rules.remove_from_combat(plan, ctx, {"who": f"object:{plan.oid(card)}"})
+
+
+def _block(plan: Any, ctx: Any, blocker: Any, attacker_id: str) -> None:
+    from app.rules import combat_rules
+
+    combat_rules.enter_blocking(plan, ctx, {"who": f"object:{plan.oid(blocker)}", "blocked": f"object:{plan.oid(plan.state.cards[attacker_id])}", "effect": True})
+
+
+# Rules check (wave 110 J): the brief said a creature made to block by an effect does not trigger "whenever ~ blocks". CR 509.3a/b say it DOES (once per combat if it
+# was not already a blocking creature; per attacker for "blocks a creature"); only a creature put onto the battlefield blocking (509.4, Brimaz tokens) never triggers.
+# So the effect-made blocks here pass "effect": True to combat_rules.enter_blocking, which fires the block triggers.
+def warlord(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects, history
+    from app.rules.plan import decide
+
+    found = [plan.state.cards[c] for c in effects._cards(plan, ctx, e["who"]) if plan.state.cards[c].is_blocking and plan.state.cards[c].zone.endswith(":battlefield")]
+    if not found:
+        return True
+    t, blocks = found[0], history.log_for(plan).blocks
+    mine = plan.oid(t)
+    atk = _blocked_by(t)
+    _leave(plan, ctx, t)
+    for a in atk:  # "hadn't become blocked by another creature this combat": nobody else was ever declared as its blocker
+        if not any(plan.oid(plan.state.cards[a]) in objs for ob, objs in blocks.items() if ob != mine):
+            plan.rules.blocked = [c for c in plan.rules.blocked if c != a]
+    opts = [c.id for c in plan.state.cards.values() if c.is_attacking and c.zone.endswith(":battlefield") and c.attacking is not None
+            and (c.attacking.id == t.controller or plan.state.cards.get(c.attacking.id) is not None and plan.state.cards[c.attacking.id].controller == t.controller)]
+    if len(opts) > 1:
+        decide(plan, player=ctx["controller"], kind="choose_cards", prompt=f"{t.name} blocks which attacking creature?", min_choices=1, max_choices=1,
+               options=[DecisionOption(id=c, label=plan.state.cards[c].name or "a creature", card_id=c) for c in opts], resume={"step": "warlord110j", "ctx": ctx, "who": t.id})
+        return False
+    if opts:
+        _block(plan, ctx, t, opts[0])
+    return True
+
+
+def resume_warlord(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    _block(plan, d.resume["ctx"], plan.state.cards[d.resume["who"]], chosen[0])
+    continue_effects(plan, d.resume["ctx"])
+
+
+def path(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.rules import combat, effects
+
+    got = [plan.state.cards[c] for k in ("who", "with") for c in effects._cards(plan, ctx, e[k])]
+    if len(got) != 2 or got[0].id == got[1].id or got[0].controller != got[1].controller or not all(c.is_blocking and c.zone.endswith(":battlefield") for c in got):
+        return True
+    a, b = got
+    # "could block all creatures that the other is blocking": every one of them blockable (509.1a-b restrictions) and within the blocker's block limit (509.1a)
+    for x, y in ((a, b), (b, a)):
+        if len(_blocked_by(y)) > combat.block_limit(plan, plan.ch(x)) or any(
+                combat.block_problem(plan.state, x, plan.ch(x), plan.state.cards[i], plan.ch(plan.state.cards[i]), plan.info) for i in _blocked_by(y)):
+            return True
+    ma, mb = _blocked_by(a), _blocked_by(b)
+    _leave(plan, ctx, a)
+    _leave(plan, ctx, b)
+    for x, ys in ((a, mb), (b, ma)):
+        for i in ys:
+            _block(plan, ctx, x, i)
+    return True
+
+
+PRIMITIVES.update({"warlord110j": warlord, "path110j": path})
+RESUME["warlord110j"] = resume_warlord
+_BUILD[_WARLORD] = ("{T}: Remove target blocking creature from combat. Activate only during the declare blockers step.",
+                    lambda d: {**d, "effects": [{"do": "warlord110j", "who": d["effects"][0]["who"]}]})
+_BUILD[_PATH] = ("{T}: Target blocking creature an opponent controls fights another target blocking creature that player controls.",
+                 lambda d: {**d, "effects": [{**d["effects"][0], "do": "path110j"}]})
+
+
+# -- Magnetic Web (wave 110J) -- 508.1d: while a creature with a magnet counter is declared as an attacker, every creature with one attacks if able (the condition is
+# read from the proposed declaration: combat_conditional_requirements67.score, "magnet110j"); the trigger makes each of them block the attacker (509.1c, @it = the attacker)
+_WEB1 = "If a creature with a magnet counter on it attacks, all creatures with magnet counters on them attack if able."
+_WEB2 = "Whenever a creature with a magnet counter on it attacks, all creatures with magnet counters on them block that creature this turn if able."
+_BUILD[_WEB2] = ("Whenever a creature with a magnet counter on it attacks, you gain 1 life.",
+                 lambda d: {**d, "effects": [{"do": "restrict", "who": d["cond"]["sel"], "rules": ["must_block_obj:@it"]}]})
+
+
+# -- Paliano, the High City (wave 110J) -- ruling 2014-05-29: without a draft nothing was chosen, so the mana ability adds no mana (not even colorless). It stays a
+# mana ability (605.1a): {T} is paid, the one option adds nothing.
+_PALIANO = "{T}: Add one mana of any color chosen as you drafted cards named Paliano, the High City."
+
+
+def parse_mana(text: str) -> Any:
+    from app.rules import mana as M
+
+    return M.ManaAbility(tap=True, sacrifice_self=False, options=((),)) if text.strip() == _PALIANO else None
+
+
+# -- Takklemaggot (wave 110J) -- "When enchanted creature dies, that creature's controller chooses a creature that this card could enchant. ..." Rulings 2009-10-01: the
+# trigger resolves with the Aura in the graveyard (704.5m put it there); the creature is chosen on resolution (no target), only one this card could legally enchant, and
+# the player must choose one if able; the controller of the returned card stays the Aura's controller. 303.4f: an Aura entering not being cast is attached to the chosen
+# object. With none, it returns as an Enchantment that is no Aura (205.1a, entry form), loses "enchant creature" (613.1f) and gains the damage trigger, which names the
+# player the dying creature's controller (chosen player, 614.12a style record).
+_TAKKLE = ("When enchanted creature dies, that creature's controller chooses a creature that this card could enchant. If the player does, return this card to the battlefield "
+           "under your control attached to that creature. If they don't, return this card to the battlefield under your control as a non-Aura enchantment. It loses \"enchant "
+           "creature\" and gains \"At the beginning of that player's upkeep, this enchantment deals 1 damage to that player.\"")
+_TAKKLE_GAIN = "At the beginning of the chosen player's upkeep, this enchantment deals 1 damage to that player."
+_BUILD[_TAKKLE] = ("When enchanted creature dies, draw a card.", lambda d: {**d, "effects": [{"do": "takkle110j"}]})
+
+
+def _takkle_hosts(plan: Any, card: Any, controller: str) -> list[str]:
+    from app.rules import attachments
+
+    return [h for h in attachments.legal_hosts(plan, card, controller)
+            if h in plan.state.cards and plan.state.cards[h].zone.endswith(":battlefield") and "Creature" in plan.ch(plan.state.cards[h]).types]
+
+
+def takkle(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import context
+    from app.rules.plan import decide
+    from app.rules.targets import label
+
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    who = context.players(plan, ctx, "event.controller")
+    if card is None or not card.zone.endswith(":graveyard") or not who:  # (ruling: only if it is still in that graveyard)
+        return True
+    hosts = _takkle_hosts(plan, card, ctx["controller"])
+    if hosts:
+        decide(plan, player=who[0], kind="choose_one", prompt="Choose a creature for the Aura to enchant", options=[DecisionOption(id=h, label=label(plan, h), card_id=h) for h in hosts],
+               resume={"step": "takkle110j", "ctx": ctx, "chooser": who[0]}, source=card)
+        return False
+    return _takkle_enter(plan, ctx, card, None, who[0])
+
+
+def _takkle_enter(plan: Any, ctx: Any, card: Any, host: str | None, chooser: str) -> bool:
+    from app.rules import attachments, chosen, effects
+
+    entry: dict[str, Any] = {"card": card.id, "player": ctx["controller"], "actor": ctx["controller"]}
+    if host is not None:
+        entry["host"] = host
+    if host is None:  # (attachments.enter judges the printed Aura: it would stay in the graveyard, 303.4g; it stops being an Aura at once below, 205.1a, before any state-based action, 704.5m)
+        from app.rules import replacements
+
+        replacements.move_together(plan, [entry])
+    elif not attachments.enter(plan, [entry], ctx):
+        return False
+    now = plan.state.cards[card.id]
+    if host is None and now.zone.endswith(":battlefield"):
+        plan.do({"type": "set_choice", "card_id": card.id, "key": "Chosen player", "value": plan.state.players[chooser].name}, actor=ctx["controller"])
+        chosen.record(plan, card.id, chooser)
+        gone = [a.index for a in plan.ch(now).abilities if a.kind == "keywords" and a.text.startswith("Enchant")]
+        effects.become(plan, {**ctx, "source_card": card.id, "source_object": plan.oid(now)},
+                       {"who": "self", "types": [], "remove_subtypes": ["Aura"], "abilities": [_TAKKLE_GAIN], "lose_index": gone, "duration": "permanent", "marker": "loses enchant creature"})
+    return True
+
+
+def resume_takkle(plan: Any, d: Any, chosen_ids: list[str]) -> None:
+    from app.rules.effects import continue_effects
+
+    ctx = d.resume["ctx"]
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    if card is None or not card.zone.endswith(":graveyard"):
+        return continue_effects(plan, ctx)
+    if chosen_ids[0] not in _takkle_hosts(plan, card, ctx["controller"]):
+        raise ValueError("it can't enchant that")
+    if _takkle_enter(plan, ctx, card, chosen_ids[0], d.resume["chooser"]):
+        continue_effects(plan, ctx)
+
+
+PRIMITIVES["takkle110j"] = takkle
+RESUME["takkle110j"] = resume_takkle
+
+
+# -- Volrath's Curse (wave 110J) -- "That creature's controller may sacrifice a permanent of their choice for that player to ignore this effect until end of turn."
+# The creature gets "Sacrifice a permanent: ..." (its controller pays; ceilings: it uses the stack and needs priority, so it must be done before attackers/blockers are
+# declared, and two Curses on one creature are ignored together) which is exempt from the Curse's own "activated abilities can't be activated" (casting.py); while it
+# has been paid this turn (statics.holds "ignored110j") the whole static, "can't attack or block" included, does not apply (611.3a).
+_CURSE = ("Enchanted creature can't attack or block, and its activated abilities can't be activated. That creature's controller may sacrifice a permanent of their choice "
+          "for that player to ignore this effect until end of turn.")
+_CURSE_IGNORE = "Sacrifice a permanent: Ignore Volrath's Curse until end of turn."
+_BUILD[_CURSE] = ("Enchanted creature can't attack or block, and its activated abilities can't be activated.",
+                  lambda d: {**d, "grants": [_CURSE_IGNORE], "conditions": [{"static": "not", "cond": {"static": "ignored110j"}}]})
+
+
+def ignore(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    plan.rules.once_per_turn[f"ignore110j:{ctx['source_object']}"] = plan.state.turn.number
+    plan.note("Volrath's Curse is ignored until end of turn", actor=ctx["controller"])
+    return True
+
+
+PRIMITIVES["ignore110j"] = ignore
+
+
+# -- Last Voyage of the _____ (wave 110J) -- rulings 2022-10-07: it becomes an Aura whether or not a sticker was put on (205.1, permanent: 611.2a), enchant creature; if it can't
+# be attached to the returned creature (protection) it goes to the graveyard as a state-based action (704.5m) and the creature stays. 303.4: attach_to is the engine's
+# "attach this Aura to it". Its +2/+0 counts the name stickers on this Aura with seven or fewer letters (values.py "sticker_short110j").
+_VOYAGE = ("When this enchantment enters, you may put a name sticker on it, then it becomes an Aura with enchant creature. Return a creature card from your graveyard to the "
+           "battlefield and attach this Aura to it.")
+
+
+def _voyage(d: Def) -> Def:
+    fx = d["effects"]
+    return {**d, "effects": [fx[0], {"do": "become", "who": "self", "types": [], "add_creature_types": ["Aura"], "abilities": ["Enchant creature"], "duration": "permanent"}, *fx[1:]]}
+
+
+_BUILD[_VOYAGE] = ("When this enchantment enters, you may put a name sticker on it. Return a creature card from your graveyard to the battlefield and attach this Aura to it.", _voyage)
+_BUILD["Enchanted creature gets +2/+0 for each name sticker on this Aura with seven or fewer letters."] = (
+    "Enchanted creature gets +2/+0 for each counter on this Aura.", lambda d: {**d, "each": {**d["each"], "value": {"sticker_short110j": True}}})
+_BUILD["When this Aura leaves the battlefield, sacrifice enchanted creature."] = (
+    "When this Aura leaves the battlefield, enchanted creature's controller sacrifices it.", lambda d: d)
+
+
+def short_stickers(plan: Any, ctx: Any) -> int:
+    """Name stickers (kind "name") on the source whose text has seven or fewer letters (spaces and punctuation are not letters)."""
+    card = plan.state.cards.get(ctx.get("source_card") or "")
+    return 0 if card is None else sum(1 for p in card.stickers101 if p.sticker.kind == "name" and sum(ch.isalpha() for ch in p.sticker.text) <= 7)
+
+
+# -- Equinox (wave 110J) -- "{T}: Counter target spell if it would destroy a land you control." Rulings: 2013-09-20 checked as the ability resolves, by what the spell would do
+# right then; 2004-10-04 / 2008-10-01 only a spell that destroys the land directly (not damage, sacrifice, or a result of a choice or chance); any spell can be targeted.
+# Read: the spell's own unconditional "destroy" instructions (a target, a selector) and "destroy all"; a spell with modes, or any other instruction that mentions destroying,
+# is not guessed: the ability's controller says whether it would (the same call a player makes at the table).
+_EQUINOX = "{T}: Counter target spell if it would destroy a land you control."
+
+
+def _destroys_my_land(plan: Any, entry: Any, sid: str, ctx: Any) -> bool | None:
+    from app.rules import effects
+
+    if plan.state.cards[sid].ability is not None:
+        return False
+    if entry is None or entry.modes or entry.slots:
+        return None
+    sctx = {"controller": entry.controller, "source_card": entry.source_card, "source_object": entry.source_object, "name": entry.name,
+            "targets": [t.model_dump() for t in entry.targets], "stack_id": sid, "kind": entry.kind, "effects": entry.effects, "next": 0, "x": entry.x, "event": None}
+    hit = False
+    for e in entry.effects:
+        if e.get("do") == "destroy" and set(e) <= {"do", "who", "as"} and (e["who"] == "target" or str(e["who"]).startswith("sel:")):
+            ids = effects._cards(plan, sctx, e["who"])
+        elif e.get("do") == "destroy_all" and set(e) <= {"do", "who", "types"} and e.get("who") == "all":
+            ids = [c.id for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.ch(c).types & set(e.get("types") or ["Land"])] if "Land" in (e.get("types") or []) else []
+        elif "destroy" in repr(e):
+            return None
+        else:
+            continue
+        hit = hit or any(plan.state.cards[c].zone.endswith(":battlefield") and plan.state.cards[c].controller == ctx["controller"] and "Land" in plan.ch(plan.state.cards[c]).types
+                         for c in ids if c in plan.state.cards)
+    return hit
+
+
+def equinox(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    sids = effects._stack_targets(plan, ctx, {"who": "target"})
+    if not sids:
+        return True
+    sid = sids[0]
+    verdict = _destroys_my_land(plan, plan.rules.stack.get(sid), sid, ctx)
+    if verdict is None:
+        decide(plan, player=ctx["controller"], kind="choose_one", prompt=f"Would {plan.state.cards[sid].name} destroy a land you control if it resolved right now?",
+               options=[DecisionOption(id="yes", label="Yes, counter it"), DecisionOption(id="no", label="No")], resume={"step": "equinox110j", "ctx": ctx, "sid": sid})
+        return False
+    return effects.counter(plan, ctx, {"do": "counter", "who": "target"}) if verdict else True
+
+
+def resume_equinox(plan: Any, d: Any, chosen_ids: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if chosen_ids[0] == "yes" and d.resume["sid"] in plan.state.zones.get("stack", []):
+        effects.counter(plan, ctx, {"do": "counter", "who": "target"})
+    effects.continue_effects(plan, ctx)
+
+
+PRIMITIVES["equinox110j"] = equinox
+RESUME["equinox110j"] = resume_equinox
+_BUILD["Enchanted land has \"" + _EQUINOX + "\""] = ("Enchanted land has \"{T}: Counter target spell.\"", lambda d: {**d, "grants": [_EQUINOX]})

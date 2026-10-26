@@ -112,6 +112,7 @@ _DOUBLING_SEASON = re.compile(r"^If an effect would put one or more counters on 
                               r"those counters on that permanent instead\.$")
 _PLAYER_COUNTERS = re.compile(r"^If you would get one or more counters, you get that many plus one of each of those "
                               r"kinds of counters instead\.$")
+_MELIRA110G = "If you would get one or more poison counters, instead you get one poison counter and you can't get additional poison counters this turn."
 _ENERGY_COUNTERS = re.compile(r"^If you would get one or more \{E\}, you get "
                              r"(?P<how>that many plus one|twice that many) \{E\} instead\.$")
 
@@ -169,6 +170,8 @@ def _counters(text: str) -> Definition | None:
     m = _PLAYER_COUNTERS.match(text)
     if m:
         return _static("player_counters", {"who": "you"}, {"do": "add", "n": 1})
+    if text == _MELIRA110G:  # -- (wave 110G) -- Melira, the Living Cure: 614.1a; the "can't get additional" half is prohibitions.cant_get_counters
+        return _static("player_counters", {"who": "you", "counter": "poison"}, {"do": "set", "n": 1, "once110g": True})
     m = _COUNTERS.match(text)
     if not m:
         return None
@@ -431,6 +434,8 @@ def _source(phrase: str) -> dict[str, Any] | None:
     """The damage source a static watches for (609.7c: permanents with the property, and sources
     elsewhere that have it): its colors, card types, subtypes, whether it's a spell, its controller."""
     phrase = phrase.strip()
+    if phrase == "a source controlled by one of the chosen players":  # -- wave 110E -- Bitter Feud (wave110e_pair)
+        return {"chosen_pair110e": True}
     if phrase == "~":
         return {"self": True}
     if phrase in ("equipped creature", "enchanted creature"):
@@ -534,6 +539,8 @@ def _source(phrase: str) -> dict[str, Any] | None:
 def _recipient(phrase: str | None) -> dict[str, Any] | None:
     """What the damage would be dealt to: players ("you", "an opponent", "a player") and/or
     permanents (a selector, "~", what it's attached to); None: any recipient."""
+    if phrase == "the other chosen player or a permanent that player controls":  # -- wave 110E -- Bitter Feud (wave110e_pair)
+        return {"chosen_pair110e": True}
     if phrase == "the chosen player or a permanent they control":
         return {"chosen_player_or_controlled": True}
     if phrase is None or phrase in ("a permanent or player", "a player or permanent", "any target"):

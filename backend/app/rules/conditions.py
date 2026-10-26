@@ -70,6 +70,8 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
         return hist110c
     if t == "you were dealt damage this turn by a red instant or sorcery spell":  # -- wave 110L -- Suffocation (history.holds "spelldmg110l")
         return {"history": "spelldmg110l"}
+    if t == "defending player controls no snow lands":  # -- (wave 110O) -- Kjeldoran Guard: 508.5a, the ability's controller chooses among the defending players
+        return {"w110o": "defender_no_snow"}
     if t == "a player attacked you during their last turn":  # -- wave 110E -- previous_own_turns
         return {"w110e": "attacked_last_turn"}
     if t.lower() == 'you control a stickered permanent':
@@ -1695,6 +1697,14 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import wave110b_cards
 
         return wave110b_cards.stolen_holds(plan, ctx)
+    if cond.get("adapt_free110b"):  # -- wave 110B -- 701.46a: the adapting creature has a one-shot "as though no +1/+1 counters" waiting (used up now)
+        from app.rules import wave110b_cards
+
+        return wave110b_cards.adapt_free_used(plan, ctx)
+    if cond.get("lolth110b"):  # -- wave 110B -- Lolth's emblem: the damaged player has lost less than 8 life this turn
+        from app.rules import wave110b_cards
+
+        return wave110b_cards.lolth_lost(plan, ctx) < 8
     if cond.get("camp110i"):  # -- cards (wave 110I) -- C.A.M.P.
         from app.rules import wave110i_cards
 
@@ -1771,6 +1781,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         from app.rules import group_choice
 
         return group_choice.holds(plan, ctx, cond)
+    if "targets_mine110e" in cond:  # -- wave 110E -- Emissary of Grudges: the target spell or ability targets you or a permanent you control
+        from app.rules import wave110e_opp
+
+        return wave110e_opp.targets_mine(plan, ctx)
     if "secret" in cond:  # -- group choices (wave 53D) -- the choice its source made in secret as it entered
         from app.rules import group_choice
 

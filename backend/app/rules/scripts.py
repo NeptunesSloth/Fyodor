@@ -453,6 +453,7 @@ _STAYING = {"enter", "enter_attacking", "attack", "unblocked", "block", "blocked
 _STAYING.update({"become_monstrous", "become_renowned", "become_level", "explore", "connive", "mutate"})  # -- becomes monstrous (wave 6D) --
 _STAYING.update({"to_graveyard", "to_exile", "to_library"})  # -- into a graveyard (wave 6D; wave 21D: exile, a library) -- the card(s) there, as they are there
 _STAYING.update({"phase_in", "phase_out"})  # (wave 50G: "Whenever ~ phases in")
+_STAYING.add("mana_resolved110d")  # (wave 110D)
 _STAYING.add("tapped_for_mana")  # -- mana riders (wave 5A) -- "Whenever you tap this creature for mana, it deals …"
 _STAYING.add("transform")  # -- transform (wave 26D) -- 701.28, 712.18: the same object turned over: "Whenever a permanent you control transforms into a Phyrexian, put a counter on it"
 _STAYING.add("exerted")  # 701.43: the exact permanent exerted
@@ -3984,7 +3985,7 @@ def _difference(body: str) -> str:
 
 
 def _parse_effects_checked(body: str, it: str | None, event_player: bool) -> tuple[list[dict[str, Any]], Any, bool] | None:
-    body = _difference(body)
+    body = _difference(re.sub(r"\b([Pp]ay half (?:your|their) life), rounded up", r"\1 rounded up", body))  # -- wave 110B -- 107.1a: one cost part, not a clause split at its comma
     from app.rules import random_choice  # -- random choices (wave 47B) --
 
     body, or_pw = random_choice.strip_pw(body)
@@ -4920,6 +4921,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
         from app.rules import villainous as _villainous  # -- villainous choice (wave 23A) -- 701.55
 
         if (villain := _villainous.sentence(text, effects, lambda t: _plain_clause(t, it, True))) is not None:
+            if any(x.get('who') == 'target' for x in villain):  # -- (wave 110B) -- "Target opponent faces a villainous choice"
+                villain = _add_groups(groups, villain, 'opponent')
             effects += villain
             continue
         if (filtered := _player_filter.sentence(text, effects, lambda t: _plain_clause(t, it, event_player))) is not None:
@@ -5943,6 +5946,8 @@ def _granter_view(ability: AbilityText) -> tuple[AbilityText, str] | None:
     from app.rules import wave110d_granter  # -- granter counters (wave 110D) --
 
     found = _GRANTER_RE.search(effect)
+    if ability.kind == "triggered" and (m := re.fullmatch(rf"(.+, you may have it fight ){selectors.GRANTER}\.", ability.text)):
+        return replace(ability, text=f"{m[1]}target creature."), m["oid"] or ""  # -- granter fights (wave 110A) -- Grothama: bound to the granter by ``_granter_bound``
     effect, marker = wave110d_granter.text(effect)
     if ability.kind != "activated" or found is None or _OTHER_SELF.search(_GRANTER_RE.sub("", effect).replace(" counters on it", "")):
         return None
@@ -5954,6 +5959,9 @@ def _granter_bound(d: Definition, oid: str) -> Definition | None:
 
     if (own := wave110d_granter.bound(d, oid)) is not None:
         return own
+    if d.get("kind") == "triggered":  # -- granter fights (wave 110A) -- "you may have it fight <granter>": the one creature to fight is the granting object, not a target
+        fights = [{**e, "with": f"obj:{oid}"} for e in d["effects"] if e.get("do") == "fight" and e.get("with") == "target"]
+        return {**{k: v for k, v in d.items() if k != "target"}, "effects": fights} if len(fights) == len(d["effects"]) else None
     effects = []
     for e in d["effects"]:
         if e.get("do") in _GRANTER_SUBJECT and e.get("who") == "self":
@@ -5986,6 +5994,18 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import wave110e_opp  # -- war or peace (wave 110E) --
+
+    if (war110e := wave110e_opp.war_definition(ability, ch)) is not None:
+        return war110e
+    from app.rules import wave110e_clara  # -- pregame color (wave 110E) --
+
+    if (clara110e := wave110e_clara.definition(ability.text)) is not None:
+        return clara110e
+    if ability.text.strip() == "Note the mana value of each card as it's put into exile.":  # -- noted values (wave 110E) -- see wave110e_note
+        return {"kind": "static", "static": "note110e", "effects": []}
+    if ability.text.strip() == "Bell Borca's power is equal to the greatest number noted for it this turn.":
+        return {"kind": "static", "static": "cda", "effects": [], "p": {"noted110e": True}, "t": None}
     from app.rules import wave110f_cards  # -- whole abilities (wave 110F) --
 
     if (whole110f := wave110f_cards.definition(ability, ch)) is not None:
@@ -7122,9 +7142,9 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         d = _chosen.remember_name(_enters_self_check(_define(view[0] if view else ability, ch), ch), self_text(ability.text, ch.name))  # (-- any number as an additional cost (wave 48B) -- "creatures sacrificed this way" of a spell's own cost)  (wave 53B: a trigger's card name, kept)
     if view and d is not None:
         d = _granter_bound(d, view[1])
-    from app.rules import cost_changes  # (wave 110A)
+    from app.rules import cost_changes, wave110o_cards  # (wave 110A; wave 110O)
 
-    if d is not None and "additional cost was paid" in ability.text and not any(re.search(r"you may blight [1-5]\b", a.text) or a.text == cost_changes.BEHOLD_TYPE for a in ch.abilities):  # (wave 110A: Celestial Reunion's behold)
+    if d is not None and "additional cost was paid" in ability.text and not any(re.search(r"you may blight [1-5]\b", a.text) or a.text in (cost_changes.BEHOLD_TYPE, wave110o_cards._UNDER_COST) for a in ch.abilities):  # (wave 110A: Celestial Reunion's behold; wave 110O: Undergrowth's {2}{R})
         return None  # -- blight (wave 51E) -- "this spell's additional cost was paid" is read as the blight only for a spell whose optional additional cost is one (another optional cost: manual)
     if d is not None and ability.special == 'embalm':
         d = {**d, 'effects': [{**e, 'embalmed': True} if e.get('do') == 'token_copy' else e for e in d['effects']]}
@@ -7680,7 +7700,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     text = re.sub(r"^(Whenever you cast) a spell, if that spell was kicked, ", r"\1 a kicked spell, ", text)
     # "When ~ dies, it deals damage equal to its power divided as you choose …" (Orca, Siege Demon): "it" is the creature that died, ~ (language.py reads ~'s)
     text = re.sub(r"^(When ~ dies, )it deals (damage equal to its power divided as you choose among )", r"\1~ deals \2", text)
-    if ability.kind == "static" and re.match(r"(?i:(?:~ has )?(?:bushido|firebending|mobilize|annihilator) X, where X is)", text):  # -- X keywords (wave 41B) --
+    if ability.kind == "static" and re.match(r"(?i:(?:~ has )?(?:bushido|firebending|mobilize|annihilator|soulshift) X, where X is)", text):  # -- X keywords (wave 41B; soulshift 110G) --
         from app.rules import keyword_triggers
 
         return keyword_triggers.dynamic_x(text)
@@ -8343,7 +8363,7 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 _AMOUNT_EVENTS = {"damage_prevented", "gain_life", "lose_life", "pay_life", "dealt_damage", "deal_damage_opponent", "deal_combat_damage_player",
                   "deal_damage", "counters_put", "counters_removed", "discard", "sacrifice", "create_token", "cycle", "leave_graveyard",
                   "player_counters", "mill", "attack", "scry", "to_graveyard", "to_exile", "to_library", "exiled_perm110i",
-                  "roll_die", "discover"}  # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
+                  "roll_die", "discover", "mana_resolved110d"}  # (wave 110D: the mana a mana ability produced) # (wave 24B: the die's result, "put that many +1/+1 counters")  # (wave 21D: cards put there; player_counters: wave 3E, "you get that many {E}"; scry: wave 19C, the cards looked at)
 
 
 _PLAYER_EVENTS = {"deal_combat_damage_player", "deal_damage_opponent"}  # events with a player dealt damage
@@ -8513,7 +8533,9 @@ def _event_refs_ok(d: Definition) -> bool:
         if not (self_trigger or mine or shield):
             return False
     # (-- random choices (wave 47B) -- a reflexive ability that follows "Choose a player at random." binds its own: effects.reflexive ``players_from``)
-    unbound = json.dumps({**d, "effects": [e for e in d.get("effects") or [] if not e.get("players_from") and not e.get("that")],
+    unbound = json.dumps({**d, "effects": [({k: v for k, v in e.items() if k != "target"} if e.get("do") == "delayed" and (e.get("when") or {}).get("kind") == "watch"
+                                            and _has_player((e["when"]).get("cond") or {}) else e)  # -- cards (wave 110G) -- a turn watch's own target binds "that player" as it triggers
+                                           for e in d.get("effects") or [] if not e.get("players_from") and not e.get("that")],
                           **({"targets": [g for g in d["targets"] if g.get("of") is None]} if d.get("targets") else {})})  # (-- player-relative selectors (wave 53A) -- a group tied to an earlier group's player is bound as the targets are chosen)
     if '\\"controller\\":\\"that_player\\"' in unbound or '\\"zone_owner\\":\\"that_player\\"' in unbound:
         cond = d.get("cond") if d.get("trigger") == "event" else None
@@ -9515,6 +9537,10 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
 
     if (picked := wave110a_pick.definition(text)) is not None:
         return picked
+    from app.rules import wave110e_opp  # -- entry secret choice (wave 110E) --
+
+    if (secret := wave110e_opp.secret_definition(text)) is not None:
+        return secret
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen

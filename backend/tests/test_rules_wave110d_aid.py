@@ -30,6 +30,7 @@ def test_control_haste_no_sacrifice_no_attack_on_that_player(cards, stolen):
     cast_on(s, "Call for Aid", "p2")
     assert now(s, theirs).controller == "p1" and not now(s, theirs).tapped
     plan = Plan(s.state, "p1", cards, None)
+    assert "haste" in plan.ch(now(s, theirs)).keywords and "haste" not in plan.ch(now(s, mine)).keywords
     assert prohibitions.sacrifice_forbidden(plan, now(s, theirs)) and not prohibitions.sacrifice_forbidden(plan, now(s, mine))
     to_phase(s, "declare_attackers", turn=3)
     with pytest.raises(ActionError):

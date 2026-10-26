@@ -113,6 +113,9 @@ def put_from_hand(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     options = [c for k in (e["sel"], *e.get("alt", ()))
                for c in selectors.candidates(plan, selectors.from_key(k), pid, ctx.get("source_card"))
                if plan.state.cards[c].zone == f"{pid}:hand" and _permanent_card(plan, c) and _mv_ok(plan, ctx, e, c)]
+    if e.get("cmd110g"):  # -- cards (wave 110G) -- Next of Kin: "from your hand or from the command zone": the creature cards you own there (408.1)
+        options += [c for c in plan.state.zones.get(f"{pid}:command", []) if plan.state.cards[c].owner == pid and _permanent_card(plan, c) and _mv_ok(plan, ctx, e, c)
+                    and "Creature" in plan.ch(plan.state.cards[c]).types]
     options = list(dict.fromkeys(options))
     may = bool(e.get("optional")) or bool(e.get("many"))  # ("you may": none is a choice; a trigger's "you may" was asked already, 603.5)
     cap = len(options) if e.get("cap") is None else max(0, effects._amount(plan, ctx, e["cap"]))
@@ -184,8 +187,9 @@ def resume(plan: Plan, d: Any, chosen: list[str]) -> None:
         raise ActionError("Choose no more cards than the effect allows")
     for cid in chosen[: 999 if e.get("many") else 1]:
         card = plan.state.cards.get(cid)
-        if card is None or card.zone != f"{pid}:hand" or not _permanent_card(plan, cid) or not _mv_ok(plan, ctx, e, cid) \
-                or not _matches(plan, e, card, chars.of(card, plan.info), pid, ctx.get("source_card")):
+        if card is None or not _permanent_card(plan, cid) or not _mv_ok(plan, ctx, e, cid) \
+                or (card.zone != f"{pid}:hand" or not _matches(plan, e, card, chars.of(card, plan.info), pid, ctx.get("source_card"))) \
+                and not (e.get("cmd110g") and card.zone == f"{pid}:command" and card.owner == pid and "Creature" in chars.of(card, plan.info).types):
             raise ActionError("Choose a matching card from your hand")
         cards.append(cid)
     atk = e.get("attacking")

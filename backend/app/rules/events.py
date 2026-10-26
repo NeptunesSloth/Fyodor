@@ -102,7 +102,8 @@ _DAMAGE_TO = {"": "any", " to a player": "player", " to a creature": "creature",
               " to one or more players": "players", " to your opponents": "opponents",
               " to one or more of your opponents": "opponents", " to ~": "self", " to one or more creatures": "creatures",
               " to one or more blocking creatures": "creatures",
-              " to you or a permanent you control": "you_or_perm110b"}  # -- one-card wordings (wave 110B) -- Flameblade Angel  # (-- one-card wordings (wave 110B) -- Arashin War Beast: the cond's "blocking110b")
+              " to you or a permanent you control": "you_or_perm110b",
+              " to you or a white creature you control": "you_or_white110f"}  # (wave 110F: Mangara's Equity)  # -- one-card wordings (wave 110B) -- Flameblade Angel  # (-- one-card wordings (wave 110B) -- Arashin War Beast: the cond's "blocking110b")
 _ONE_OR_MORE_TO = (" to one or more players", " to your opponents", " to one or more of your opponents")  # (wave 39B)
 _DAMAGE_TO_RE = "|".join(re.escape(k) for k in sorted(_DAMAGE_TO, key=len, reverse=True) if k)
 # 508.3a / 508.3b / 508.3e / 508.6: whom an attack was declared against
@@ -448,6 +449,14 @@ def _parse(c: str) -> Condition | None:
         if inner is None or inner.get("event") != "die" or inner.get("subject") != "sel" or inner.get("aggregate"):
             return None
         return {**inner, "damaged_by_self": True}
+    # -- trigger damage (wave 110D) -- Shelob, Child of Ungoliant: "Whenever another creature dealt damage this turn by a Spider you controlled dies": the
+    # turn's log kept who dealt it, as what (subtypes) and under whose control (triggers._cond_matches)
+    m = re.fullmatch(r"(?P<s>another creature) dealt damage this turn by an? (?P<t>[A-Z][a-z]+) you controlled dies", c)
+    if m:
+        inner = _parse(f"{m['s']} dies")
+        if inner is None or inner.get("event") != "die" or inner.get("subject") != "sel" or inner.get("aggregate"):
+            return None
+        return {**inner, "damaged_by_kind110d": m["t"]}
     # -- trigger tail (wave 16C) -- "When this creature dies during combat" (Mongrel Pack): it dies while a combat phase is going
     # on (506.1: beginning of combat through end of combat); read as the event happens (triggers._details_ok)
     # (-- spell grants (wave 30T) -- "Whenever a nontoken creature you control enters during combat" (The Blue Spirit, Noctis): the same look at the phase)
@@ -466,12 +475,12 @@ def _parse(c: str) -> Condition | None:
             return None
         return {**inner, "nodie": True}
     # -- triggers (wave 17D) -- "Whenever a creature is exiled from the battlefield" (Soulherder): a leave whose destination is exile
-    m = re.fullmatch(r"(?P<s>.+?) (?:is|are) (?:exiled|put into exile) from the battlefield", c)
+    m = re.fullmatch(r"(?P<s>.+?) (?:is|are) (?:exiled|put into exile) from the battlefield(?P<craft> while you're activating a craft ability)?", c)
     if m and " or " not in m["s"] and not m["s"].endswith(" or"):  # ("~ dies or is put into exile from the battlefield": the either-form below)
         inner = _parse(f"{m['s']} leaves the battlefield")
         if inner is None or inner.get("event") != "leave":
             return None
-        return {**inner, "dest": "exile"}
+        return {**inner, "dest": "exile", **({"craft110b": True} if m["craft"] else {})}
     # "When ~ enters or dies", "Whenever ~ attacks or blocks": one ability, each event (603.2)
     m = re.fullmatch(rf"~ (?P<a>{_MULTI_RE}) or (?P<b>{_MULTI_RE})", c)
     if m:

@@ -60,10 +60,38 @@ _SWORD = ("{T}, Sacrifice this artifact and any number of creatures you control:
 _SHADOW = re.compile(r"^(?P<head>At the beginning of your upkeep, destroy (?:this creature|~)\. Reveal cards from the top of your library until you reveal a creature card\. "
                      r"Put that card onto the battlefield) and attach ‹granter(?:#(?P<oid>[^›]*))?› to it(?P<tail>, then put all other cards revealed this way on the bottom of "
                      r"your library in a random order\.)$")
+# Darigaaz Reincarnated: dies -> exile with three egg counters (614.1a); each upkeep of its owner it loses one (intervening "if", 603.4), and with none left it returns (400.7: a new object).
+_DARI_DIES = "If ~ would die, instead exile it with three egg counters on it."
+_DARI_UP = ("At the beginning of your upkeep, if this card is exiled with an egg counter on it, remove an egg counter from it. "
+            "Then if this card has no egg counters on it, return it to the battlefield.")
+# Heart of Kiran: a static marker; the crew action (casting.crew, _can_crew) reads it through crew_pws.
+# Ashiok, Wicked Manipulator (614.1a): read by replace.lose_life (paid=True) for a life payment, 119.4
+_ASHIOK = "If you would pay life while your library has at least that many cards in it, exile that many cards from the top of your library instead."
+# Desolation (603.2): "tapped a land for mana this turn" is the turn fact ``land_mana110h`` (history.note_events); the players sacrifice together (701.21a, 101.4),
+# then each who sacrificed a Plains (as it was, 608.2h) is dealt 2 damage by the enchantment
+_DESOLATION = ("At the beginning of each end step, each player who tapped a land for mana this turn sacrifices a land of their choice. "
+               "This enchantment deals 2 damage to each player who sacrificed a Plains this way.")
+_HEART = "You may remove a loyalty counter from a planeswalker you control rather than pay Heart of Kiran's crew cost."
+# Squall: the trigger is for one or more attackers; its intervening "if" (603.4) needs one of those creatures with power or toughness equal to the number Squall chose,
+# at trigger time (the cond's selector) and again as it resolves (squall_check)
+_SQUALL = ("Whenever one or more creatures attack one of your opponents, if any of those creatures have power or toughness equal to the chosen number, "
+           "~ deals damage equal to its power to defending player.")
+# Liar's Pendulum: the name is chosen publicly (201.4), the target opponent answers yes/no, then its controller may reveal their hand (701.20a); revealing after a wrong guess draws.
+_PENDULUM = ("{2}, {T}: Choose a card name. Target opponent guesses whether a card with that name is in your hand. You may reveal your hand. "
+             "If you do and your opponent guessed wrong, draw a card.")
 _SCAPEGOAT = ("Whenever one or more other creatures you control enter, if this creature is suspected, you may suspect one of the other creatures. "
               "If you do, this creature is no longer suspected.")
 
 
+# Tetravus: the upkeep trigger removes any number of +1/+1 counters as it resolves (X chosen, paid_x choose_x "counters"), then makes that many Tetravites (flying, can't be enchanted);
+# the other exiles any number of the tokens it made (token_source, 111.2) and puts that many counters on it.
+_TETRA_OUT = ("At the beginning of your upkeep, you may remove any number of +1/+1 counters from this creature. If you do, create that many 1/1 colorless Tetravite artifact creature "
+              "tokens. They each have flying and \"This token can't be enchanted.\"")
+_TETRA_IN = ("At the beginning of your upkeep, you may exile any number of tokens created with this creature. If you do, put that many +1/+1 counters on this creature.")
+# Magma Pummeler: Polukranos' prevention rider (615.5) removes the counters; the counters actually removed (122.8) size a reflexive trigger (603.12) dealing that much damage.
+_PUMMELER = ("If damage would be dealt to ~ while it has a +1/+1 counter on it, prevent that damage and remove that many +1/+1 counters from it. "
+             "When one or more counters are removed from ~ this way, it deals that much damage to any target.")
+_ALCHEMIST = "If a source would deal damage to a player, you may prevent X of that damage, where X is the number of Clerics you control."
 _SPECTER = ("Whenever ~ deals combat damage to a player, you may pay {X}. If you do, that player reveals X cards from their hand and you choose one of "
             "them. That player discards that card.")
 _AETHER = ("Whenever ~ blocks a creature, you may return ~ to its owner's hand. If you do, you may put a creature card from your hand onto the "
@@ -100,10 +128,60 @@ def untap_hold(plan: Any, player: str, keep: list[str]) -> list[str]:
     return held
 
 
+# Ultra Magnus (701.28: convert = transform): the delayed convert only follows a creature actually put onto the battlefield; Formidable reads the attackers' total power as it resolves.
+_MAGNUS_PUT = "Whenever ~ attacks, you may put an artifact creature card from your hand onto the battlefield tapped and attacking."
+_MAGNUS_FORMIDABLE = "Whenever ~ attacks, attacking creatures you control gain indestructible until end of turn. If those creatures have total power 8 or greater, transform ~."
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
+    if text == _MAGNUS_PUT + " If you do, transform ~ at end of combat.":
+        native = scripts.define(replace(ability, text=_MAGNUS_PUT), ch)
+        delayed = scripts.parse_effects("Transform ~ at end of combat.")
+        if native is None or [e["do"] for e in native["effects"]] != ["put_from_hand"] or delayed is None:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "did": "did0"}, {"do": "only_if", "cond": {"succeeded": "did0"}, "skip": len(delayed[0])}, *delayed[0]]}
+    if text == _MAGNUS_FORMIDABLE:
+        from app.rules import selectors
+
+        native = scripts.define(replace(ability, text="Whenever ~ attacks, attacking creatures you control gain indestructible until end of turn. If you control three or more attacking creatures, transform ~."), ch)
+        attackers = selectors.parse("attacking creatures you control")
+        eff = native["effects"] if native else []
+        if attackers is None or len(eff) < 2 or eff[-2].get("do") != "only_if":
+            return None
+        cond = {"value": {"sum": "power", "of": attackers.key()}, "op": ">=", "n": 8}  # ("those creatures" are the attackers the first sentence just affected)
+        return {**native, "effects": [*eff[:-2], {**eff[-2], "cond": cond}, eff[-1]]}
+    if text in (_HEART, _HEART.replace("Heart of Kiran", "~")):
+        return {"kind": "static", "static": "crew_loyalty110h", "effects": []}
+    if text == _DESOLATION.replace("This enchantment", "~"):
+        native = scripts.define(replace(ability, text="At the beginning of each end step, each player sacrifices a land of their choice. ~ deals 2 damage to each player."), ch)
+        if native is None or [e["do"] for e in native["effects"]] != ["edict", "damage"]:
+            return None
+        return {**native, "effects": [{**native["effects"][0], "who": "tapped_land110h", "as": "sac110h"}, {**native["effects"][1], "who": "plains110h:sac110h"}]}
+    if text == _ASHIOK:
+        return {"kind": "static", "static": "ashiok110h", "effects": []}
+    if text == _SQUALL or text == _SQUALL.replace("~", "Squall"):
+        from app.rules import selectors
+
+        native = scripts.define(replace(ability, text="Whenever one or more creatures attack one of your opponents, ~ deals damage equal to its power to defending player."), ch)
+        sel = selectors.parse("creature with power or toughness equal to the chosen number")
+        if native is None or sel is None or native.get("cond", {}).get("sel") is None:
+            return None
+        return {**native, "cond": {**native["cond"], "sel": sel.key()}, "effects": [{"do": "squall_check110h"}, *native["effects"]]}
+    if text == _PENDULUM:
+        native = scripts.define(replace(ability, text="{2}, {T}: Target opponent gains 1 life."), ch)
+        if native is None or native.get("target") != {"what": "opponent"}:
+            return None
+        return {**native, "effects": [{"do": "choose_value", "who": "you", "what": "card name", "as": "pendulum110h"}, {"do": "pendulum110h", "who": "target"}]}
+    if text in (_DARI_DIES, _DARI_DIES.replace("~", "Darigaaz")):  # Darigaaz Reincarnated: the replacement (614.1a) exiles it, then the rider puts the counters on the exiled object (122.1, 400.7)
+        return {"kind": "replacement", "replacement": "exile_instead", "from": "battlefield", "effects": [],
+                "rider": {"effects": [{"do": "exile_counters110h", "kind": "egg", "n": 3}], "reflexive": False}}
+    if text == _DARI_UP:  # the exiled card's own upkeep trigger (as for All Hallow's Eve, wave110j_cards.scream_tick)
+        native = scripts.define(replace(ability, text="At the beginning of your upkeep, draw a card."), ch)
+        return None if native is None else {**native, "trigger": "step:upkeep:you", "exiled_step": True,
+                                            "if": {"value": {"counters": "egg", "on": "self"}, "op": ">=", "n": 1}, "effects": [{"do": "egg_tick110h"}]}
     if text == _UNSCYTHE:
         native = scripts.define(replace(ability, text=text.replace("equipped creature", "~")), ch)
         if native is None or "damaged_by_self" not in native.get("cond", {}):
@@ -120,6 +198,33 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     if text == _SCAPEGOAT.replace("this creature", "~") or text == _SCAPEGOAT:
         native = scripts.define(replace(ability, text="Whenever one or more other creatures you control enter, if this creature is suspected, draw a card."), ch)
         return None if native is None else {**native, "effects": [{"do": "scapegoat110h"}]}
+    if text == _TETRA_OUT.replace("this creature", "~"):
+        native = scripts.define(replace(ability, text="At the beginning of your upkeep, you may pay {X}. If you do, create X 1/1 colorless Tetravite artifact creature tokens with flying."), ch)
+        eff = native["effects"] if native else []
+        if native is None or len(eff) != 3 or eff[0].get("do") != "optional_payment" or eff[2].get("do") != "create_token":
+            return None
+        tetravite = {**eff[2]["token"], "text": "Flying\nThis creature can't be enchanted."}
+        pay = {k: v for k, v in eff[0].items() if k != "cost_has_x"}
+        return {**native, "effects": [{**pay, "choose_x": {"max": None, "counters": "+1/+1"}}, eff[1], {**eff[2], "token": tetravite}]}
+    if text == _TETRA_IN.replace("this creature", "~"):
+        native = scripts.define(replace(ability, text=_TETRA_IN.replace("exile", "sacrifice")), ch)
+        eff = native["effects"] if native else []
+        if native is None or not eff or eff[0].get("do") != "sacrifice_choice":
+            return None
+        # 111.2: the tokens may be any controller's (a stolen Tetravite too), so the controller of this ability chooses among them (not a sacrifice list of their own permanents)
+        pick = {"do": "player_chooses", "who": "you", "sel": eff[0]["sel"], "n": 99, "label": "token", "upto": True, "optional": True, "any": True, "as": "tco"}
+        return {**native, "effects": [pick, {"do": "exile", "who": "ref:tco", "as": "e0"}, {**eff[1], "n": {**eff[1]["n"], "this_way": "exiled"}}, *eff[2:]]}
+    if text == _PUMMELER.replace("this creature", "~"):
+        native = scripts.define(replace(ability, text=_PUMMELER[:_PUMMELER.index(" When one")]), ch)
+        rider = ((native or {}).get("op") or {}).get("rider") or {}
+        if native is None or [e["do"] for e in rider.get("effects", [])] != ["remove_counters"]:
+            return None
+        return {**native, "op": {**native["op"], "rider": {**rider, "effects": [{**rider["effects"][0], "bind": "removed110h"}, {"do": "pummel110h"}]}}}
+    if text == _ALCHEMIST:  # 615.1, 615.7: an optional prevention of X (the Clerics as the damage would be dealt), asked each time (the "blood" shield's external_optional)
+        from app.rules import values
+
+        return {"kind": "static", "static": "replace", "event": "damage", "match": {"source": {}, "to": {"players": "any"}}, "effects": [],
+                "op": {"do": "prevent", "n": 0, "value": values.parse_count("Clerics you control"), "prevention": True, "optional": True, "external_optional": True}}
     if text == _SPECTER.replace("~", ch.name) or text == _SPECTER:  # Hollow Specter: the paid X (107.3) sizes the reveal (701.20a), then Cabal Interrogator's chain
         native = scripts.define(replace(ability, text="Whenever ~ deals combat damage to a player, you may pay {X}. If you do, that player discards X cards."), ch)
         if native is None or native["effects"][-1].get("do") != "discard":
@@ -217,6 +322,74 @@ def _carom() -> Any:
     # 614.9: the redirection of the shared 3-damage recipe, one damage
     return [{"do": R.STEP, "mode": "finite", "origin": "target:0", "destination": "target:1", "n": 1}], \
         [{"what": R.key("creature")}, {"what": R.key("creature"), "distinct_from": [0]}], False
+
+
+def _zimone() -> Any:
+    """Zimone's Experiment: look at five, reveal up to two creature and/or land cards, the rest to the bottom at random; lands enter tapped, creatures go to hand."""
+    from app.rules import scripts
+
+    base = scripts.parse_effects("Look at the top five cards of your library. You may reveal a creature or land card from among them and put it into your hand. "
+                                 "Put the rest on the bottom of your library in a random order.")
+    if base is None or [e["do"] for e in base[0]] != ["look_top", "pick_looked", "rest_looked"] or base[0][2].get("to") != "bottom_random":
+        return None
+    return [base[0][0], {"do": "zimone110h"}, base[0][2]], base[1], base[2]
+
+
+def _snare() -> Any:
+    """Selective Snare: X targets of one creature type, chosen as it is cast (601.2c). Read as "X target creatures that share a creature type"; the type is then
+    recorded (snare_type, PaymentRecord.pick110e) and each target must have THAT type as it resolves (608.2b, effects.py group check)."""
+    from app.rules import scripts
+
+    got = scripts.parse_effects("Return X target creatures to their owners' hands.")
+    if got is None or len(got[1]) != 1:
+        return None
+    return got[0], [{**got[1][0], "shares": "creature_type", "chosen110h": True}], got[2]
+
+
+def snare_type(plan: Any, a: Any, picked: Any) -> bool:
+    """601.2c: once the targets are chosen, record the creature type they share (asked when they share several). False while the caster is asked."""
+    from app.game.errors import ActionError
+    from app.game.rules_state import DecisionOption
+    from app.rules import targets
+    from app.rules.plan import decide
+
+    if not any(s.get("chosen110h") for s in picked.specs or []):
+        return True
+    shared = frozenset.intersection(*(targets._kinds(plan.ch(plan.state.cards[t.id]), "creature_type") for t in picked.flat if t.id in plan.state.cards)) if picked.flat else frozenset()
+    if not shared or a.pick110e in shared:
+        return True
+    if a.pick110e is not None:
+        raise ActionError("Choose a creature type all the targets have")
+    if len(shared) == 1:
+        a.pick110e = next(iter(shared))
+        return True
+    decide(plan, player=plan.actor, kind="choose_one", prompt="Choose the creature type of the targets", options=[DecisionOption(id=t, label=t) for t in sorted(shared)],
+           resume={"step": "pick110e", "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"})})
+    return False
+
+
+def _glimpse() -> Any:
+    """Glimpse of Tomorrow: the shuffle and the reveal of that many cards are one primitive; the rest is the native reveal chain (non-Auras, then Auras, then the bottom)."""
+    from app.rules import scripts
+
+    native = scripts.parse_effects("Reveal the top five cards of your library. Put all non-Aura permanent cards revealed this way onto the battlefield. Put all Aura cards "
+                                   "revealed this way onto the battlefield. Put the rest on the bottom of your library in a random order.")
+    if native is None or [e["do"] for e in native[0]] != ["look_top", "pick_looked", "pick_looked", "rest_looked"]:
+        return None
+    return [{"do": "glimpse110h"}, *native[0][1:]], native[1], native[2]
+
+
+def glimpse(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """701.24a: every permanent its controller owns (tokens too: they are permanents shuffled in, then cease to exist, 704.5d) goes into the library, which is
+    shuffled; that many cards from the top are revealed."""
+    from app.rules import effects
+
+    pid = ctx["controller"]
+    owned = [c.id for c in plan.state.cards.values() if c.owner == pid and c.zone.endswith(":battlefield")]
+    if owned:
+        plan.do({"type": "move", "card_ids": owned, "to": {"player": pid, "zone": "library"}}, actor=pid)
+    effects.shuffle_library(plan, ctx, {"do": "shuffle_library", "who": "you"})
+    return effects.look_top(plan, ctx, {"do": "look_top", "n": len(owned), "player": "you", "reveal": True})
 
 
 def _episode() -> Any:
@@ -323,13 +496,170 @@ def _revival() -> Any:
 
 
 def sword(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
-    """Sword of the Ages: exile what was sacrificed to pay for the ability (this artifact and the creatures), if it is still in the graveyard."""
-    from app.rules import effects, this_way
+    """Sword of the Ages: exile the exact graveyard objects the sacrifice made (608.2h, 400.7); a same-name card already there, or one that left and came back, stays."""
+    from app.rules import effects
 
-    got = this_way.cost_objects(plan, ctx, this_way.COST, "sacrificed")
-    # ponytail: a card that left the graveyard and came back before this resolves (a new object, 400.7) is still exiled; object ids are a global counter, so no cheap check
-    ids = [o["card"] for o in got.get("objects") or [] if (c := plan.state.cards.get(o["card"])) is not None and c.zone.endswith(":graveyard")]
+    sid = ctx.get("stack_id")
+    record = plan.rules.payments.get(plan.rules.object_id(sid)) if sid else None
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if record is None and src is not None and src.zone == "stack":
+        record = plan.rules.payments.get(plan.oid(src))
+    now = set(record.sacrificed_now110h) if record is not None else set()
+    ids = [c.id for c in plan.state.cards.values() if c.zone.endswith(":graveyard") and plan.oid(c) in now]
     return effects.exile_cards(plan, ctx, {}, ids)
+
+
+def exile_counters(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """A replacement's rider: the counters go on the source as the exiled object it now is (122.1; counters on a card in exile, not a permanent)."""
+    card = plan.state.cards.get(ctx.get("source_card", ""))
+    if card is not None and card.zone.endswith(":exile"):
+        plan.do({"type": "counter", "card_ids": [card.id], "kind": e["kind"], "delta": e["n"]}, actor=ctx["controller"])
+    return True
+
+
+def tappers(plan: Any) -> list[str]:
+    """The players who tapped a land for mana this turn (a turn fact, recorded as the mana was added)."""
+    from app.game.rules_state import turn_log_now
+
+    log = turn_log_now(plan.state)
+    return [p for p in plan.live() if log is not None and any(f.kind == "land_mana110h" and f.player == p for f in log.facts)]
+
+
+def plains_players(plan: Any, ctx: Any, ref: str) -> list[str]:
+    """Desolation: the players who sacrificed a Plains this way (their sacrificed lands, as they were: 608.2h)."""
+    from app.rules import context
+
+    return list(dict.fromkeys(card.controller for card, ch in context.infos(plan, ctx, ref) if "Plains" in ch.subtypes and card.controller in plan.live()))
+
+
+def ashiok(plan: Any, losses: list[tuple[str, int]]) -> list[tuple[str, int]]:
+    """Ashiok, Wicked Manipulator: a payment of life by its controller becomes exiling that many cards from the top of the library when it has that many (the
+    payment is replaced, so it is not a payment of life: nothing that triggers on paying life). The rest of the payments stay as they were."""
+    from app.rules import permissions
+
+    owners = {c.controller for c, _i, _d in permissions._table_statics(plan.state, plan.info, {"ashiok110h"})}
+    left = []
+    for pid, n in losses:
+        library = plan.state.zones.get(f"{pid}:library", [])
+        if pid in owners and len(library) >= n:
+            plan.do({"type": "move", "card_ids": list(library[:n]), "to": {"player": pid, "zone": "exile"}}, actor=pid)
+        else:
+            left.append((pid, n))
+    return left
+
+
+def crew_pws(ch: Any, player: str, cards: Any, is_pw: Any) -> list[str]:
+    """Heart of Kiran: the planeswalkers whose loyalty counter may be removed rather than paying the crew cost (702.122a, 122.1)."""
+    if not any(ab.kind == "static" and ab.text.strip() in (_HEART, _HEART.replace("Heart of Kiran", "~")) for ab in ch.abilities):
+        return []
+    return [c.id for c in cards if c.zone == f"{player}:battlefield" and c.controller == player and c.counters.get("loyalty", 0) >= 1 and is_pw(c)]
+
+
+def squall_check(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """603.4: as the trigger resolves, is one of the creatures that attacked still a creature with power or toughness equal to the chosen number? If not, nothing happens."""
+    from app.rules import context, selectors
+
+    sel = selectors.parse("creature with power or toughness equal to the chosen number")
+    assert sel is not None
+    if not any(c in plan.state.cards and selectors.matches(plan, sel, plan.state.cards[c], plan.ch(plan.state.cards[c]), ctx["controller"], ctx.get("source_card"))
+               for c in context.objects(plan, ctx, context.EVENT)):
+        ctx["next"] = len(ctx["effects"])
+    return True
+
+
+def zimone(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Zimone's Experiment: you may reveal up to two creature and/or land cards among the looked-at ones (701.20a)."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import effects
+    from app.rules.plan import decide
+
+    _, looked = effects._looked(plan, ctx)
+    pool = [c for c in looked if (t := plan.ch(plan.state.cards[c]).types) and ("Creature" in t or "Land" in t)]
+    if not pool:
+        return True
+    decide(plan, player=ctx["controller"], kind="choose_cards", prompt="Reveal up to two creature and/or land cards",
+           options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in pool],
+           min_choices=0, max_choices=min(2, len(pool)), resume={"step": "zimone110h", "ctx": ctx, "pool": pool})
+    return False
+
+
+def resume_zimone(plan: Any, d: Any, chosen: list[str]) -> None:
+    """Revealed together; then every revealed land enters tapped and every other revealed creature goes to hand (a land creature is a land card: it enters)."""
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    picked = [c for c in dict.fromkeys(chosen) if c in d.resume["pool"] and c in plan.state.cards][:2]
+    if picked:
+        plan.do({"type": "reveal", "card_ids": picked}, actor=ctx["controller"])
+        # A card that is a land AND a creature (Dryad Arbor) is told to enter and to go to hand by the same spell: no ruling settles it, so it is left on top of the
+        # library, revealed, for the players to place by hand (manual play); the other revealed cards still move.
+        both = [c for c in picked if {"Land", "Creature"} <= plan.ch(plan.state.cards[c]).types]
+        if both:
+            plan.note("Zimone's Experiment: " + ", ".join(plan.state.cards[c].name or "a card" for c in both) + " is both a land card and a creature card; no rule says which "
+                      "instruction wins, so place it by hand", both)
+            ctx["looked"] = [c for c in ctx.get("looked") or [] if c not in both]
+            picked = [c for c in picked if c not in both]
+        lands = [c for c in picked if "Land" in plan.ch(plan.state.cards[c]).types]
+        for cards, to in ((lands, "battlefield_tapped"), ([c for c in picked if c not in lands], "hand")):
+            if cards and not effects._picked(plan, ctx, {"do": "pick_looked", "to": to}, cards):
+                return
+    effects.continue_effects(plan, ctx)
+
+
+def pendulum(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Liar's Pendulum: the target opponent guesses whether a card with the chosen name is in the controller's hand."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import context, effects
+    from app.rules.plan import decide
+
+    guessers = effects._players(plan, ctx, e["who"])
+    name = (context.refs(ctx).get("pendulum110h") or {}).get("value")
+    if not guessers or not name:  # (a target that left the game guesses nothing, 800.4)
+        return True
+    decide(plan, player=guessers[0], kind="choose_one", prompt=f"{ctx.get('name', '')}: is a card named {name} in {plan.name(ctx['controller'])}'s hand?",
+           options=[DecisionOption(id="yes", label="Yes"), DecisionOption(id="no", label="No")],
+           resume={"step": "pendulum110h", "ctx": ctx, "name": name})
+    return False
+
+
+def resume_pendulum(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.rules_state import DecisionOption
+    from app.rules import card_names
+    from app.rules.plan import decide
+
+    ctx, name = d.resume["ctx"], d.resume["name"]
+    hand = plan.state.zones.get(f"{ctx['controller']}:hand", [])
+    right = (chosen[0] == "yes") == any(card_names.has_name(plan.ch(plan.state.cards[c]), name) for c in hand)
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt="Reveal your hand?",
+           options=[DecisionOption(id="yes", label="Reveal your hand"), DecisionOption(id="no", label="Don't reveal")],
+           resume={"step": "pendulum_reveal110h", "ctx": ctx, "wrong": not right})
+    return None
+
+
+def resume_pendulum_reveal(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.rules import effects
+
+    ctx = d.resume["ctx"]
+    if chosen[0] == "yes":
+        hand = list(plan.state.zones.get(f"{ctx['controller']}:hand", []))
+        if hand:
+            plan.do({"type": "reveal", "card_ids": hand}, actor=ctx["controller"])
+        if d.resume["wrong"]:
+            effects.PRIMITIVES["draw"](plan, ctx, {"do": "draw", "who": f"player:{ctx['controller']}", "n": 1})
+    effects.continue_effects(plan, ctx)
+
+
+def egg_tick(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Darigaaz Reincarnated: still the same exiled object with an egg counter? Remove one; at zero return it to the battlefield under its owner's control."""
+    from app.rules import effects
+
+    card = plan.state.cards.get(ctx.get("source_card", ""))
+    if card is None or not card.zone.endswith(":exile") or plan.oid(card) != ctx.get("source_object") or card.counters.get("egg", 0) < 1:
+        return True
+    plan.do({"type": "counter", "card_ids": [card.id], "kind": "egg", "delta": -1}, actor=ctx["controller"])
+    if plan.state.cards[card.id].counters.get("egg", 0) == 0:
+        effects._return_cards(plan, ctx, {"do": "return_card", "to": "battlefield", "tapped": False, "under": "you"}, [card.id])
+    return True
 
 
 def excess_reflex(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
@@ -347,6 +677,11 @@ def excess_reflex(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
 
 
 BUILDERS = {
+    "Shuffle all permanents you own into your library, then reveal that many cards from the top of your library. Put all non-Aura permanent cards revealed this way "
+    "onto the battlefield, then do the same for Aura cards, then put the rest on the bottom of your library in a random order.": lambda: _glimpse(),
+    "Return X target creatures of the creature type of your choice to their owner's hand.": _snare,
+    "Look at the top five cards of your library. You may reveal up to two creature and/or land cards from among them, then put the rest on the bottom of your "
+    "library in a random order. Put all land cards revealed this way onto the battlefield tapped and put all creature cards revealed this way into your hand.": _zimone,
     "For each permanent type, return up to one card of that type from your graveyard to the battlefield. You lose 3 life for each card returned this way. "
     "Exile ~.": _revival,
     "~ deals 7 damage to target creature or planeswalker. When it deals excess damage this way, destroy target artifact or enchantment an opponent controls "
@@ -478,15 +813,49 @@ def assign_unblocked(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     return True
 
 
+def counters_start(plan: Any, ctx: Any, e: dict[str, Any], payer: str, bind: str) -> bool:
+    """Tetravus: the controller chooses X, 0 to the +1/+1 counters on the source (107.3, 118.12), removed as the effect resolves."""
+    from app.game.rules_state import DecisionOption
+    from app.rules import optional_payment as O
+    from app.rules import paid_x
+    from app.rules.plan import decide
+
+    kind = e["choose_x"]["counters"]
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    have = src.counters.get(kind, 0) if src is not None and src.zone.endswith(":battlefield") else 0
+    if have <= 0:
+        paid_x._record(ctx, bind, False, 0)
+        return True
+    options = [DecisionOption(id=f"{paid_x.CHOOSE}{n}", label=f"Remove {n} {kind} counter{'s' if n > 1 else ''} (X = {n})") for n in range(1, have + 1)]
+    options.append(DecisionOption(id=O.DECLINE, label="Don't remove any"))
+    decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: remove how many {kind} counters?", options=options, source=src,
+           resume={"step": O.STEP, "ctx": ctx, "choose_x": {"bind": bind, "payer": payer, "counters": kind, "source": src.id if src else None}, "cost": ""})
+    return False
+
+
+def pummel(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
+    """Magma Pummeler's reflexive trigger: one trigger if any counter was removed, dealing that many damage to any target (603.12)."""
+    from app.game.rules_state import TriggerEvent
+    from app.rules import context, trigger_multipliers, triggers
+
+    n = context.amount(ctx, "removed110h")
+    if n > 0:
+        triggers._add(plan, controller=ctx["controller"], source_card=ctx.get("source_card") or "", source_object=ctx.get("source_object") or "",
+                      name=ctx.get("name") or "", index=trigger_multipliers.REFLEXIVE,
+                      definition={"kind": "triggered", "effects": [{"do": "damage", "who": "target", "n": {"event_amount": 1}}], "target": {"what": "any"}},
+                      event=TriggerEvent(kind="prevention", amount=n))
+    return True
+
+
 def made(plan: Any, ctx: Any, e: dict[str, Any]) -> bool:
     """The battlefield tokens created with the source (token_source, 111.2), bound for the next effect."""
     from app.rules import context
 
     src = ctx.get("source_card")
     context.bind_objects(plan, ctx, e["as"], [c.id for c in plan.state.cards.values()
-                                              if c.is_token and c.zone.endswith(":battlefield") and c.token_source is not None and c.token_source.source_id == src])
+                                              if c.is_token and c.zone.endswith(":battlefield") and c.token_source is not None and (c.token_source.object_id == ctx.get("source_object") if c.token_source.object_id else c.token_source.source_id == src)])
     return True
 
 
-PRIMITIVES = {"assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword}
-RESUME = {"episode110h": resume_episode, "scapegoat110h": resume_scapegoat}
+PRIMITIVES = {"pummel110h": pummel, "assign_unblocked110h": assign_unblocked, "made110h": made, "limo_back110h": limo_back, "bottom_did110h": bottom_did, "episode110h": episode, "scapegoat110h": scapegoat, "excess_reflex110h": excess_reflex, "sword110h": sword, "egg_tick110h": egg_tick, "squall_check110h": squall_check, "zimone110h": zimone, "glimpse110h": glimpse, "pendulum110h": pendulum, "exile_counters110h": exile_counters}
+RESUME = {"pendulum110h": resume_pendulum, "pendulum_reveal110h": resume_pendulum_reveal, "zimone110h": resume_zimone, "episode110h": resume_episode, "scapegoat110h": resume_scapegoat}

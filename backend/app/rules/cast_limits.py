@@ -276,6 +276,9 @@ def static_definition(text: str) -> Definition | None:
                 'act': None, 'when': None, 'max': None, 'name_permanent': True,
                 'spells': 'cast spells' in t, 'nonbasic_lands': 'nonbasic lands' in t, 'effects': []}
   # (wave 50J: counted for the caster, who is "you" to the spell selector)
+    if t == "spells with the chosen names can't be cast and lands with the chosen names can't be played":  # -- two names (wave 110F) -- Null Chamber: 601.3, 305.1; card_names.has_name reads both
+        return {"kind": "static", "static": "cast_limit", "who": "each", "when": None, "from": None, "act": None, "max": None, "effects": [], "named_lands110f": True,
+                "filter": selectors.parse("spells with the chosen name").key()}  # type: ignore[union-attr]
     if (own := HAS_FLASH_WHILE.fullmatch(t)) is not None:  # (wave 35D)
         t = f"you may cast this spell as though it had flash if {own['c']}"
     if (lead := AS_LONG_FLASH.fullmatch(t)) is not None:
@@ -546,6 +549,11 @@ def land_problem(state: GameState, player: str, ch: Characteristics, info: CardI
         for src, d in _statics(state, info, 'cast_limit'):
             if d.get('nonbasic_lands') and _shares_permanent_name(state, info, ch):
                 return f"{src.name}: you can't play a nonbasic land with the same name as a nontoken permanent"
+            if d.get('arn_lands110o'):  # -- (wave 110O) -- City in a Bottle: 305.1
+                from app.rules import wave110o_cards
+
+                if wave110o_cards.named_arn(ch.name):
+                    return f"{src.name}: you can't play {ch.name}"
     for x in r.cast_limits if r is not None else ():
         if x.get("lands") and x.get("player") == player and _record_live(state, x):
             if x.get("from") and not any(zone.endswith(f":{z}") for z in x["from"]):  # -- one-card wordings (wave 110H) -- Memory Vessel: lands from hand only (305.1)
@@ -696,7 +704,8 @@ def turn_began(plan: Plan, skipped: list[tuple[str, int]] | None = None) -> None
     r.cast_limits = [x for x in r.cast_limits if not (x.get("until") == "next_turn" and any(
         x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in ended))
         and not (x.get("until") == "end_of_next_turn" and any(x.get("controller") == p and n > int(x.get("turn") or 0) for p, n in skipped or ()))  # (wave 32C)
-        and not (x.get("until") == "turn" and x.get("turn") != turn)]
+        and not (x.get("until") == "turn" and x.get("turn") != turn)
+        and not (x.get("until") == "two_turns110f" and turn > int(x.get("turn") or 0) + 1)]  # (wave 110F: Peace Talks, this turn and the next one)
     for x in old110i:  # -- cards (wave 110I) -- the reveal lasts as long as the ban (Firestorm Phoenix)
         if x.get("reveal110i") and x not in r.cast_limits and (k := plan.state.cards.get(x["reveal110i"])) is not None and plan.oid(k) == x["obj110i"]:
             plan.do({"type": "hide", "card_ids": [k.id]}, actor=k.owner)
@@ -723,7 +732,7 @@ _KINDS = ("cant_cycle", "hexproof_targeting", "cast_limit", "activate_as_haste",
           "cant_enter", "cant_counters", "cant_remove_counters", "cant_play_lands", "cant_pay", "cant_cause_sacrifice", "cant_search", "search_top", "draw_cap", "cant_target", "cant_play_gy_lands",  # (wave 22B: app/rules/prohibitions.py; 43B: Aven Mindcensor)
           "zone_grant",  # (wave 25A: app/rules/zone_grants.py)
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
-          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a", "counter_cap110j")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
+          "rad_gain", "venture_limit", "first_alt", "spell_replicate110a", "counter_cap110j", "trigger_token_shield110a")  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:
@@ -1162,6 +1171,13 @@ def granted_instances(plan: Plan, spell_card: str, spell: Characteristics, cast_
             continue
         if d.get("filter") is not None and not spell_matches(plan.state, player, card, spell, d["filter"], plan.info):
             continue
+        if d.get("during110c") == "your_turn" and plan.state.turn.active_player != player:  # -- Abaddon (wave 110C) -- "During your turn, … with mana value X or less"
+            continue
+        if d.get("mv_le110c") is not None:
+            from app.rules import values
+
+            if spell.mana_value > values.evaluate(plan, {"controller": player, "source_card": src.id, "source_object": plan.oid(src)}, d["mv_le110c"]):
+                continue
         if d.get("first") == "kind" and not first_ok(plan.state, plan.info, player, d["filter"]):
             continue  # -- spell grants (wave 30T) -- "The first instant or sorcery spell you cast each turn has casualty 2." (601.2i: this one isn't counted yet)
         total += [d] * int(d.get("count", 1))
