@@ -13,7 +13,7 @@ from app.cards.images import ImageStore
 from app.cards.importer import build_database
 from app.cards.repository import CardRepository
 from app.rules import coverage
-from tests.fixtures.cards import fixture_cards
+from tests.fixtures.cards import card, fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import build, card_named
@@ -294,7 +294,9 @@ def test_a_recast_stangg_is_not_sacrificed_for_the_old_twin(cards):
 def cards_sac(settings):
     """Same pool, but the named land's ability sacrifices the land as a cost (it is gone when the trigger checks it)."""
     settings.ensure_dirs()
-    extra = [real("Labyrinth of Skophos", "", 0, "Land", "{T}, Sacrifice this land: Remove target attacking or blocking creature from combat.", None, "") if c["name"] == "Labyrinth of Skophos" else c for c in EXTRA]
+    sac = card("Labyrinth of Skophos", set_code="tst", number="110G-SAC", mana_cost="", cmc=0.0, type_line="Land", colors=[], color_identity=[], keywords=[],
+               oracle_text="{T}, Sacrifice this land: Remove target attacking or blocking creature from combat.")  # (a distinct card id: the card info cache is keyed by it)
+    extra = [sac if c["name"] == "Labyrinth of Skophos" else c for c in EXTRA]
     build_database([*fixture_cards(), *extra], settings.cards_db_path, meta={"bulk_type": "test"})
     repo = CardRepository(settings.cards_db_path, ImageStore(settings.images_dir))
     yield repo

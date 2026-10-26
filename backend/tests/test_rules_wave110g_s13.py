@@ -12,7 +12,7 @@ from app.rules import coverage
 from tests.fixtures.cards import fixture_cards
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
-from tests.wave9c_kit import build, check, mana, put, to_hand
+from tests.wave9c_kit import build, card_named, check, mana, put, to_hand
 from tests.wave110b_kit import ch
 
 SPLICE = " (As you cast an Arcane spell, you may reveal this card from your hand and pay its splice cost. If you do, add this card's effects to that spell.)"
@@ -20,6 +20,10 @@ EXTRA = [
     real("Roar of Jukai", "{1}{G}", 2, "Instant", "If you control a Forest, each blocked creature gets +2/+2 until end of turn.\nSplice onto Arcane—An opponent gains 5 life." + SPLICE, None, "G"),
     real("Kodama's Might", "{G}", 1, "Instant — Arcane", "Target creature gets +2/+2 until end of turn.\nSplice onto Arcane {G}" + SPLICE, None, "G"),
     real("Raging River", "{R}{G}", 2, "Enchantment", "Whenever one or more creatures you control attack, each defending player divides all creatures without flying they control into a \"left\" pile and a \"right\" pile. Then, for each attacking creature you control, choose \"left\" or \"right.\" That creature can't be blocked this combat except by creatures with flying and creatures in a pile with the chosen label.", None, "GR"),
+    real("Spellweaver Volute", "{1}{U}", 2, "Enchantment \u2014 Aura", "Enchant instant card in a graveyard\nWhenever you cast a sorcery spell, copy the enchanted instant card. You may cast the copy without paying its mana cost. If you do, exile the enchanted card and attach this Aura to another instant card in a graveyard.", None, "U"),
+    real("Test Shock", "{R}", 1, "Instant", "Test Shock deals 2 damage to any target.", None, "R"),
+    real("Test Jolt", "{U}", 1, "Instant", "Target player loses 3 life.", None, "U"),
+    real("Test Tonic", "{1}", 1, "Sorcery", "You gain 1 life.", None, ""),
     real("Sky Hawk", "{2}{U}", 3, "Creature \u2014 Bird", "Flying", ("1", "1"), "U"),
     real("Bear Cub", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
 ]
@@ -34,7 +38,7 @@ def cards(settings):
     repo.close()
 
 
-@pytest.mark.parametrize("name", ["Roar of Jukai", "Raging River"])
+@pytest.mark.parametrize("name", ["Roar of Jukai", "Raging River", "Spellweaver Volute"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -101,3 +105,102 @@ def test_raging_river_piles_limit_blockers(cards, label, flier):
         act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bad.id, "attacker_id": atk.id}])
     act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": (hawk if flier else ok).id, "attacker_id": atk.id}])
     check(s)
+
+
+def _volute(cards, shocks=("Test Shock",)):
+    """Alice's Volute enchants Test Shock (in her graveyard); other instants in `shocks` sit in a graveyard too."""
+    s = build(cards, ["Spellweaver Volute", "Test Tonic", *shocks], [])
+    vol = to_hand(s, "Spellweaver Volute")
+    shock = card_named(s, "Test Shock", "p1")
+    for n in shocks:
+        c = card_named(s, n, "p1")
+        act(s, "p1", type="move", card_ids=[c.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, U=2)
+    act(s, "p1", type="cast_spell", card_id=vol.id, targets=[shock.id])
+    _drain(s)
+    return s, vol, shock
+
+
+def _drain(s, first=None, limit=30):
+    for _ in range(limit):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options][: max(1, d.min_choices)]
+            if first and any(f in [o.id for o in d.options] for f in first):
+                ids = [next(f for f in first if f in [o.id for o in d.options])]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+    raise AssertionError("never settled")
+
+
+def test_volute_enchants_a_graveyard_instant_and_only_that(cards):
+    """303.4a / 704.5m: it enchants an instant card in a graveyard; the Aura stays while the card is still there."""
+    s, vol, shock = _volute(cards)
+    assert s.state.cards[vol.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_volute_copy_cast_exiles_the_card_and_moves_to_another_instant(cards):
+    s, vol, shock = _volute(cards, ("Test Shock", "Test Jolt"))
+    jolt = card_named(s, "Test Jolt", "p1")
+    tonic = to_hand(s, "Test Tonic")
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=tonic.id)
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            opts = [o.id for o in d.options]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((o for o in opts if o in ("yes", shock.id, "p2", jolt.id)), opts[0])])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert s.state.players["p2"].life == 38  # the copy of Test Shock (cast free) hit Bob
+    assert s.state.cards[shock.id].zone == "p1:exile"  # the enchanted card is exiled
+    assert s.state.cards[vol.id].zone == "p1:battlefield"
+    assert s.state.rules.aura_links[s.state.rules.object_id(vol.id)] == [s.state.rules.object_id(jolt.id)]  # attached to the other instant
+    check(s)
+
+
+def _tonic(s, answers):
+    """Cast Test Tonic; each decision takes the first of `answers` among its options (else the first option)."""
+    tonic = to_hand(s, "Test Tonic")
+    mana(s, C=1)
+    act(s, "p1", type="cast_spell", card_id=tonic.id)
+    for _ in range(14):
+        d = s.state.rules.decision
+        if d is not None:
+            opts = [o.id for o in d.options]
+            pick = [] if "none" in answers and d.min_choices == 0 else [next((o for a in answers for o in opts if o == a), opts[0])]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+
+
+
+def test_volute_declined_cast_changes_nothing(cards):
+    s, vol, shock = _volute(cards)
+    _tonic(s, ["none"])
+    assert s.state.players["p2"].life == 40 and s.state.cards[shock.id].zone == "p1:graveyard" and s.state.cards[vol.id].zone == "p1:battlefield"
+    check(s)
+
+
+def test_volute_with_no_other_instant_falls_off(cards):
+    s, vol, shock = _volute(cards)
+    _tonic(s, ["yes", shock.id, "p2"])
+    assert s.state.cards[shock.id].zone == "p1:exile" and s.state.cards[vol.id].zone == "p1:graveyard"  # 704.5m: nothing left to enchant
+    check(s)
+
+
+def test_volute_cannot_enchant_a_sorcery_card(cards):
+    s = build(cards, ["Spellweaver Volute", "Test Tonic"], [])
+    vol, tonic = to_hand(s, "Spellweaver Volute"), card_named(s, "Test Tonic", "p1")
+    act(s, "p1", type="move", card_ids=[tonic.id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, U=2)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=vol.id, targets=[tonic.id])

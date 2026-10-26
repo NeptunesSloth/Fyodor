@@ -1239,7 +1239,50 @@ def resume_river_label(plan: Any, d: Any, chosen: list[str]) -> None:
         effects.continue_effects(plan, r["ctx"])
 
 
-PRIMITIVES: dict[str, Any] = {"river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
+_VOLUTE = ("Whenever you cast a sorcery spell, copy the enchanted instant card. You may cast the copy without paying its mana cost. "
+           "If you do, exile the enchanted card and attach this Aura to another instant card in a graveyard.")
+
+
+def volute_bind(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """Spellweaver Volute: bind "the enchanted instant card" (an Aura enchanting a card in a graveyard keeps it in aura_links, 303.4a / 303.4m); none: nothing happens."""
+    from app.rules import attachments, context
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    cards = attachments.enchanted_cards(plan, src) if src is not None and src.zone.endswith(":battlefield") else []
+    context.bind_objects(plan, ctx, "vh110g", cards[:1])
+    if not cards:
+        ctx["next"] = len(ctx["effects"])  # nothing to copy: the rest does nothing
+    return True
+
+
+def volute_attach(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """"Attach this Aura to another instant card in a graveyard": the Aura's controller chooses on resolution (not a target); the exiled card is gone from the graveyard."""
+    from app.rules import effects
+
+    src = plan.state.cards.get(ctx.get("source_card") or "")
+    if src is None or not src.zone.endswith(":battlefield"):
+        return True
+    from app.rules import attachments
+
+    hosts = [c.id for c in plan.state.cards.values() if c.zone.endswith(":graveyard") and "Instant" in plan.ch(c).types and attachments.host_problem(plan, src, c.id) is None]
+    if len(hosts) <= 1:
+        return not hosts or _attach_to(plan, ctx, src.id, hosts[0])
+    effects.decide(plan, player=ctx["controller"], kind="choose_one", prompt="Choose another instant card in a graveyard to attach this Aura to",
+                   options=[effects.DecisionOption(id=h, label=plan.state.cards[h].name or "Instant", card_id=h) for h in hosts],
+                   resume={"step": "reattach110g", "ctx": ctx, "aura": src.id, "hosts": hosts})
+    return False
+
+
+_BUILD[_VOLUTE] = ("Whenever you cast a sorcery spell, you gain 1 life.", lambda d: {**d, "effects": [
+    {"do": "volute_bind110g"},
+    {"do": "copy_cards", "who": "ref:vh110g", "n": 1, "as": "e0"},
+    {"do": "free_cast", "zone": "that", "who": "ref:e0", "filter": None, "optional": True, "mv": None, "n": 1, "did": "vdid110g"},
+    {"do": "only_if", "cond": {"succeeded": "vdid110g"}, "skip": 2},
+    {"do": "exile", "who": "ref:vh110g"},
+    {"do": "volute_attach110g"}]})
+
+
+PRIMITIVES: dict[str, Any] = {"volute_bind110g": volute_bind, "volute_attach110g": volute_attach, "river110g": river, "equipoise110g": equipoise, "glamer110g": glamer, "gy_pairs110g": gy_pairs, "reattach110g": reattach, "speed_cut110g": speed_cut, "exile_split110g": exile_split, "halfdane110g": halfdane, "exile_gy_until110g": exile_gy_until, "idol_cast110g": idol_cast, "bind_exiled110g": bind_exiled, "firm_creature110g": firm_creature, "elkin110g": elkin, "suncleanser110g": suncleanser, "fallen110g": fallen, "destroy_instead110g": destroy_instead, "exchange_power110g": exchange_power, "lowest_life_control110g": lowest_life_control,
                            "sacrifice_pair110g": sacrifice_pair, "swap_tapped110g": swap_tapped, "opponent_exiles110g": opponent_exiles,
                               "unattach_enchanted110g": unattach_enchanted}
 RESUME: dict[str, Any] = {"river110g": resume_river, "river_label110g": resume_river_label, "equipoise110g": resume_equipoise, "glamer110g": resume_glamer, "gy_pairs110g": resume_gy_pairs, "reattach110g": resume_reattach, "lowest_control110g": resume_lowest_control, "opponent_exiles110g": resume_opponent_exiles}

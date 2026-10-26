@@ -56,6 +56,7 @@ PLAYER_SELECTORS = {"player", "opponent"}
 # -- reanimation Auras (wave 51F) -- "Enchant creature card in a graveyard" (Animate Dead: the Aura spell targets that card, 303.4a, 115.1b) and, once its enters
 # trigger swaps it, "enchant creature put onto the battlefield with this Aura" (only what that Aura put there: ``RulesState.aura_links``, app/rules/reanimate_auras.py)
 GRAVE = 'sel:{"card":true,"types":["Creature"],"zones":["graveyard"]}'
+GRAVE_INSTANT = 'sel:{"card":true,"types":["Instant"],"zones":["graveyard"]}'  # -- (wave 110G) -- Spellweaver Volute: the same graveyard-card hosting for "Enchant instant card in a graveyard"
 PUT_WITH = "put_with"
 _PUT_WITH = re.compile(r"^creature put onto the battlefield with .+$", re.IGNORECASE)
 
@@ -90,6 +91,8 @@ def enchant_selector_of(line: str) -> str | None:
         return ENCHANT_SELECTORS[what.lower()]
     if what.lower() == "creature card in a graveyard":  # -- reanimation Auras (wave 51F) --
         return GRAVE
+    if what.lower() == "instant card in a graveyard":  # -- (wave 110G) --
+        return GRAVE_INSTANT
     if _PUT_WITH.match(what):
         return PUT_WITH
     # -- keywords (wave 15E) -- 702.5a: any object description the selector grammar reads ("Enchant tapped creature",
@@ -236,11 +239,11 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
             return f"{plan.name(host)} has protection from it ({shield})"
         return None
     card = host_card or plan.state.cards.get(host)
-    if card is not None and card.zone.endswith(":graveyard") and kind == "aura" and enchant_selector(sch) == GRAVE:
+    if card is not None and card.zone.endswith(":graveyard") and kind == "aura" and (grave := enchant_selector(sch)) in (GRAVE, GRAVE_INSTANT):
         # -- reanimation Auras (wave 51F) -- 303.4a: a creature card in a graveyard; protection and hexproof don't function there (Animate Dead's ruling 2016-06-08)
         from app.rules import selectors
 
-        return None if selectors.matches(plan, selectors.from_key(GRAVE), card, plan.ch(card), you, source.id) else f"it can't enchant {card.name}"
+        return None if selectors.matches(plan, selectors.from_key(grave), card, plan.ch(card), you, source.id) else f"it can't enchant {card.name}"
     if card is None or (host_face is None and not card.zone.endswith(":battlefield")):
         return "it's not on the battlefield"
     hch = host_face or plan.ch(card)
@@ -259,7 +262,7 @@ def host_problem(plan: Plan, source: CardInstance, host: str, controller: str | 
         if selector == PUT_WITH:  # -- reanimation Auras (wave 51F) -- only a creature this Aura put onto the battlefield, still that object (400.7)
             ok = hch.is_creature and plan.oid(card) in plan.rules.aura_links.get(plan.oid(source), ())
             return None if ok else f"it can only enchant a creature it put onto the battlefield, not {hch.name or 'that'}"
-        if selector == GRAVE:
+        if selector in (GRAVE, GRAVE_INSTANT):
             return f"it can't enchant {hch.name or 'that'}"  # (a creature card in a graveyard, not a permanent)
         if selector.startswith("sel:"):  # (wave 15E) a described host, judged for the Aura's controller
             from app.rules import selectors
