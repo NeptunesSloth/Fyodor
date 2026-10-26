@@ -1139,8 +1139,12 @@ def _pay_new_part(plan: Plan, comp: CostComponent, card: CardInstance, ids: list
         replace.put_counters(plan, [(target, comp.counter or "", x if comp.counters_x else comp.amount)], by=player, effect=False)
         return True
     if comp.kind in (C.COLLECT_EVIDENCE, C.FORAGE):  # 701.59a / 701.61a: exiled from the graveyard (a Food: pay())
+        was110f = [plan.oid(c) for c in ids]
         plan.do({"type": "move", "card_ids": ids, "to": {"zone": "exile"}})
         record.exiled += ids
+        if comp.kind == C.COLLECT_EVIDENCE:  # -- (wave 110F) -- the new objects ("cards exiled with it", 607.2a: Kylox's Voltstrider)
+            record.exiled_was += was110f
+            record.exiled_objects += [plan.oid(c) for c in ids]
         return True
     if comp.kind == C.REVEAL_SECRET:  # -- group choices (wave 53D) -- 701.20a: shown to all players as the cost is paid; the choice itself stays (it is read by the ability's effect)
         value = plan.rules.secret_choices[plan.oid(card)][1]

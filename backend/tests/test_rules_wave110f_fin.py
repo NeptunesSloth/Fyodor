@@ -127,3 +127,69 @@ def test_animate_artifact_leaves(cards):
     act(s, "p1", type="move", card_ids=[aura.id], to={"player": "p1", "zone": "graveyard"})
     assert _stats(s, rock)[0] is False
     check(s)
+
+
+_VOLT = ("Collect evidence 6: This Vehicle becomes an artifact creature until end of turn.\n"
+         "Whenever this Vehicle attacks, you may cast an instant or sorcery spell from among cards exiled with it. If that spell would be put into a graveyard, "
+         "put it on the bottom of its owner's library instead.\nCrew 2")
+_BASE.extend([
+    real("Kylox's Voltstrider", "{3}{R}", 4, "Artifact — Vehicle", _VOLT, ("4", "4"), "R"),
+    real("Test Bolt 110FF", "{1}{R}", 2, "Instant", "Test Bolt 110FF deals 3 damage to target player.", None, "R"),
+    real("Test Fire 110FF", "{4}{R}", 5, "Sorcery", "Test Fire 110FF deals 2 damage to target player.", None, "R"),
+    real("Test Dead 110FF", "{2}", 2, "Creature — Bear", "", ("2", "2"), ""),
+])
+
+
+def test_voltstrider_full(cards):
+    assert coverage.of_card_data(cards.resolve("Kylox's Voltstrider")).level == "FULL"
+
+
+def _volt(cards):
+    from tests.test_rules_wave34b_activated import activate
+    from tests.wave36a_kit import ready, to_gy
+
+    s = build(cards, ["Kylox's Voltstrider", "Test Bolt 110FF", "Test Fire 110FF", "Test Dead 110FF"], [])
+    volt = put(s, "Kylox's Voltstrider")
+    ready(s, "Kylox's Voltstrider")
+    gy = {n: to_gy(s, n) for n in ("Test Bolt 110FF", "Test Fire 110FF", "Test Dead 110FF")}
+    return s, volt, gy, activate
+
+
+def test_voltstrider_casts_a_card_it_exiled_and_the_spell_goes_to_the_library_bottom(cards):
+    """607.2a (a cost's exile is the linked instruction), 608.2g (cast during resolution, paying its cost), 614.1a (graveyard -> library bottom)."""
+    from tests.wave36a_kit import to_attackers
+
+    s, volt, gy, activate = _volt(cards)
+    activate(s, "p1", volt, "Collect evidence")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.label.startswith(("Test Bolt", "Test Fire"))])
+    answer(s)
+    assert s.state.cards[gy["Test Bolt 110FF"].id].zone == "p1:exile" and s.state.cards[gy["Test Dead 110FF"].id].zone == "p1:graveyard"
+    to_attackers(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": volt.id, "target": "p2"}])
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards"
+    assert {o.label.split(" (")[0] for o in d.options} == {"Test Bolt 110FF", "Test Fire 110FF"}  # (the creature card was never exiled with it)
+    mana(s, "p1", R=1, C=1)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[next(o.id for o in d.options if o.label.startswith("Test Bolt"))])
+    answer(s, "p2")
+    assert life(s, "p2") == 37 - 4 and s.state.zones["p1:library"][-1] == gy["Test Bolt 110FF"].id  # (3 from the spell, 4 combat damage)
+    check(s)
+
+
+def test_voltstrider_may_decline(cards):
+    """"You may cast": none chosen leaves the cards exiled with it."""
+    from tests.wave36a_kit import to_attackers
+
+    s, volt, gy, activate = _volt(cards)
+    activate(s, "p1", volt, "Collect evidence")
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.label.startswith(("Test Bolt", "Test Fire"))])
+    answer(s)
+    to_attackers(s)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": volt.id, "target": "p2"}])
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[])
+    answer(s)
+    assert s.state.cards[gy["Test Bolt 110FF"].id].zone == "p1:exile" and life(s, "p2") == 36
+    check(s)
