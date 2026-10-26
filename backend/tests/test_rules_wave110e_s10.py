@@ -19,10 +19,14 @@ BEAR = real("Test Bear", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G")
 DRAIN = real("Test Drain", "{B}", 1, "Sorcery", "Each opponent loses 3 life.", None, "B")
 BLADE = real("Sanctuary Blade", "{2}", 2, "Artifact — Equipment",
              "As this Equipment becomes attached to a creature, choose a color.\nEquipped creature gets +2/+0 and has protection from the last chosen color.\nEquip {3}", None, "")
-base.EXTRA.extend([REPROACH, BEAR, DRAIN, BLADE])
+MONITOR = real("Monitor Monitor", "{2}{U}", 3, "Creature — Human Wizard",
+               "When this creature enters, open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)\n"
+               "Once each turn, you may pay {1} to reroll one or more dice you rolled.", ("1", "3"), "U")
+ROLL = real("Test Roll", "{B}", 1, "Sorcery", "Roll a six-sided die. You gain life equal to the result.", None, "B")
+base.EXTRA.extend([REPROACH, BEAR, DRAIN, BLADE, MONITOR, ROLL])
 
 
-@pytest.mark.parametrize("name", ["Teferi's Reproach", "Sanctuary Blade"])
+@pytest.mark.parametrize("name", ["Teferi's Reproach", "Sanctuary Blade", "Monitor Monitor"])
 def test_full(cards, name):
     assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
 
@@ -75,3 +79,42 @@ def test_sanctuary_blade_chooses_a_color_each_time_it_becomes_attached(cards):
     assert "protection from green" in _keywords(s, other) and "protection from red" not in _keywords(s, other)
     assert "protection from red" not in _keywords(s, bear2) or bear2.id == other.id
     check(s)
+
+
+@pytest.mark.parametrize(("reroll", "second", "life"), [(True, 6, 46), (True, 1, 41), (False, 6, 42)])
+def test_monitor_monitor_rerolls_before_the_result_counts(cards, monkeypatch, reroll, second, life):
+    """706.2a-b: paying {1} rerolls the chosen dice and the new natural result is final; declining keeps the first roll; once each turn."""
+    from tests.test_rules_random_consequences import faces
+
+    s = build(cards, ["Monitor Monitor", "Test Roll", "Test Roll"])
+    put(s, "Monitor Monitor")
+    faces(monkeypatch, [2, second, 4])
+    mana(s, B=1, C=1)
+    cast(s, "Test Roll")
+    d = s.state.rules.decision
+    assert d is not None and d.options[0].id.startswith("roll_adjust42:")
+    if not reroll:
+        pick(s, ["done"])
+    else:
+        pick(s, [d.options[0].id])
+        assert [o.id for o in s.state.rules.decision.options][0] == "pay"
+        pick(s, ["pay"])
+        assert s.state.rules.decision.kind == "choose_cards"
+        pick(s, ["0"])
+    answer(s)
+    assert life_of(s) == life
+    check(s)
+    if reroll:  # once each turn: the second roll is not offered another reroll
+        mana(s, B=1, C=1)
+        cast(s, "Test Roll")
+        answer(s)
+        assert life_of(s) == life + 4
+
+
+def pick(s, ids):
+    d = s.state.rules.decision
+    act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+
+
+def life_of(s):
+    return s.state.players["p1"].life
