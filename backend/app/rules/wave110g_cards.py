@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import collections
+import json
 import re
 from collections.abc import Callable
 from dataclasses import replace
@@ -553,6 +554,18 @@ def _mist(d: Def) -> Def:
     return {**d, "effects": [{"do": "untap_choice", "who": draw["who"], "n": draw["n"], "kind": "permanent", "sel": selectors.Selector().key()}]}
 
 
+def _fraying(d: Def) -> Def:
+    """Fraying Line: the upkeep player's payment decides both branches (118.12a); on a decline the artifact and every creature without a rope counter is exiled
+    in the one instruction, then the counters go."""
+    pay = d["effects"][0]
+    cond = {"succeeded": "pay0"}
+    rope = {"types": ["Creature"]}
+    mine = [{"do": "player_chooses", "who": "event_player", "sel": 'sel:{"types":["Creature"]}', "n": 1, "label": "creature", "as": "e0"},
+            {"do": "add_counters", "who": "ref:e0", "kind": "rope", "n": 1}]
+    gone = [{"do": "exile", "who": "self"}, {"do": "exile", "who": 'sel:{"extras":["nocounter:rope"],"types":["Creature"]}'}, {"do": "remove_counters", "who": f"sel:{json.dumps(rope, separators=(',', ':'))}", "kind": "rope", "n": 1000000}]
+    return {**d, "effects": [pay, {"do": "only_if", "cond": cond, "skip": 2}, *mine, {"do": "only_if", "cond": {**cond, "negate": True}, "skip": 3}, *gone]}
+
+
 def _two_auras(d: Def) -> Def:
     """Kitsune Mystic: "enchanted by two or more Auras" = two attached Auras (303.4)."""
     cond = {**d["if"], "attached_n": 2}
@@ -770,6 +783,9 @@ def resume_reattach(plan: Any, d: Any, chosen: list[str]) -> None:
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "At the beginning of each player's upkeep, that player may pay {2}. If they do, they put a rope counter on a creature they control. Otherwise, exile this artifact and each "
+    "creature without a rope counter on it, then remove all rope counters from all creatures.":
+        ("At the beginning of each player's upkeep, that player may pay {2}. If they don't, you gain 1 life.", _fraying),
     "When Stangg enters, create Stangg Twin, a legendary 3/4 red and green Human Warrior creature token. Exile that token when Stangg leaves the battlefield. Sacrifice Stangg when that token leaves the battlefield.":
         ("When this creature enters, create a 3/4 red and green Human Warrior creature token.", _stangg),
     "At the beginning of your upkeep, for each land target player controls in excess of the number you control, choose a land that player controls, then the chosen permanents phase out. Repeat this process for artifacts and creatures.":

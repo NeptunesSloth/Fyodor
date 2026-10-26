@@ -20,6 +20,9 @@ EXTRA = [real("Kodama of the Center Tree", "{4}{G}", 5, "Legendary Creature — 
          real("Test Wisp", "{1}", 1, "Creature — Spirit", "", ("1", "1"), ""),
          real("Test Kami", "{2}", 2, "Creature — Spirit", "", ("2", "2"), ""),
          real("Test Gem", "{3}", 3, "Creature — Spirit", "", ("3", "3"), ""),
+         real("Fraying Line", "{3}", 3, "Artifact", "When this artifact enters, put a rope counter on target creature you control.\nAt the beginning of each player's upkeep, "
+              "that player may pay {2}. If they do, they put a rope counter on a creature they control. Otherwise, exile this artifact and each creature without a rope "
+              "counter on it, then remove all rope counters from all creatures.", None, ""),
          real("Test Giant", "{4}", 4, "Creature — Spirit", "", ("4", "4"), "")]
 
 
@@ -66,4 +69,41 @@ def test_x_counts_kodama_and_other_spirits(cards, board, gy, legal):
             break
         act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes"])
     assert s.state.cards[card_named(s, next(iter(legal))).id].zone == "p1:hand"
+    check(s)
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_fraying_line(cards, pay):
+    """Fraying Line (118.12a, 701.13): Bob's upkeep payment puts a rope counter on his creature; declining exiles the Line and every creature without one."""
+    s = build(cards, ["Fraying Line", "Test Wisp"], ["Test Kami", "Test Gem"])
+    put(s, "Fraying Line")
+    mine, bears, gem = put(s, "Test Wisp"), put(s, "Test Kami", "p2"), put(s, "Test Gem", "p2")
+    act(s, "p1", type="counter", card_ids=[mine.id], kind="rope", delta=1)
+    isles = [c.id for c in s.state.cards.values() if c.name == "Island" and c.zone == "p2:library"][:2]  # (the payment is only offered when it can be made)
+    act(s, "p2", type="move", card_ids=isles, to={"player": "p2", "zone": "battlefield"})
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.player == "p2" and {o.id for o in d.options} == {"pay", "decline"}:
+            break
+        if d is None:
+            act(s, s.state.rules.priority, type="pass_priority")
+        elif d.kind == "declare_attackers":
+            act(s, d.player, type="declare_attackers", attackers=[])
+        else:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[d.options[0].id])
+    assert s.state.turn.active_player == "p2", (s.state.turn, d and (d.kind, d.player, [o.id for o in d.options]))
+    act(s, "p2", type="choose", decision_id=d.id, option_ids=["pay" if pay else "decline"])
+    for _ in range(6):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[bears.id if bears.id in {o.id for o in d.options} else d.options[0].id])
+    z = {c.id: s.state.cards[c.id].zone for c in (mine, bears, gem)}
+    line = card_named(s, "Fraying Line")
+    if pay:
+        assert s.state.cards[bears.id].counters.get("rope") == 1 and s.state.cards[mine.id].counters.get("rope") == 1
+        assert line.zone == "p1:battlefield" and all(v.endswith("battlefield") for v in z.values())
+    else:
+        assert line.zone == "p1:exile" and z[mine.id].endswith("battlefield") and z[bears.id].endswith("exile") and z[gem.id].endswith("exile")
+        assert not s.state.cards[mine.id].counters.get("rope")
     check(s)
