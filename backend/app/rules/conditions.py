@@ -2068,7 +2068,7 @@ def _object_holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
 
             value = mana_value(card, ch)
         bound: Any = cond["n"]
-        if isinstance(bound, dict) and "colors_spent" in bound:  # (wave 25B) converge, 202.3 / 601.2h: the colors of mana spent to cast the spell
+        if isinstance(bound, dict) and ("colors_spent" in bound or "paid_x" in bound):  # (wave 110C: Relentless Dead, the X paid on resolution)  # (wave 25B) converge, 202.3 / 601.2h: the colors of mana spent to cast the spell
             bound = values.evaluate(plan, ctx, bound)
         elif isinstance(bound, dict) and "count_value" in bound:  # (wave 26A) a count of the table, read as the spell resolves
             bound = values.evaluate(plan, ctx, bound["count_value"])

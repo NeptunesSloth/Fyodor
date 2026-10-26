@@ -663,6 +663,7 @@ class TurnLog(BaseModel):
     attackers: dict[str, list[str]] = Field(default_factory=dict)  # player -> creatures (objects) declared as attackers
     blockers: list[str] = Field(default_factory=list)  # -- combat state (wave 27A) -- creatures (objects) declared as blockers this turn (509.1g)
     blocks: dict[str, list[str]] = Field(default_factory=dict)  # -- combat history (wave 31D) -- blocker (object) -> the attackers (objects) it blocked this turn
+    attacked_at110c: dict[str, list[str]] = Field(default_factory=dict)  # -- wave 110C -- defending player (or a planeswalker's controller) -> players who attacked them this turn
     attacked_who: dict[str, list[str]] = Field(default_factory=dict)  # -- static_other sweep (wave 19A) -- attacker object -> players it attacked
     counters_removed110j: list[str] = Field(default_factory=list)  # -- (wave 110J) -- "<controller>:<kind>" per counter kind removed from a permanent this turn (122.1)
     gy_counters110j: list[str] = Field(default_factory=list)  # -- (wave 110J) -- counter kinds on permanents as they were put into a graveyard this turn (603.10a)
@@ -2063,6 +2064,16 @@ def note_attack(state: GameState, player: str, attackers: list[str] | None = Non
         for a, t in zip(attackers, targets or (), strict=True):  # -- static_other sweep (wave 19A) -- 508.1c: "a player it has already attacked"
             if t in state.players and t not in log.attacked_who.setdefault(a, []):
                 log.attacked_who[a].append(t)
+
+    for t in targets or ():  # -- wave 110C -- 506.3: a player, or the controller of a planeswalker attacked (Midnight Crusader Shuttle); a battle's protector is not "you"
+        if t in state.players:
+            owner: str | None = t
+        else:
+            from app.rules import battles
+
+            owner = state.cards[t].controller if t in state.cards and battles.protector(state, state.cards[t]) is None else None
+        if log is not None and owner is not None and player not in log.attacked_at110c.setdefault(owner, []):
+            log.attacked_at110c[owner].append(player)
 
     if state.rules is not None and state.rules.combat_memory is not None:
         from app.rules import last_combat_receipts44

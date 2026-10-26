@@ -2275,7 +2275,9 @@ def echo_cost(ch: Any) -> tuple[str, Any] | None:
     for ab in ch.abilities:
         if ab.kind == "keywords" and "echo" in ab.keywords:
             return keyword_cost(ab.text, "echo")
-    return None
+    from app.rules import wave110c_misc  # -- echo {X}, X your life total (wave 110C) --
+
+    return wave110c_misc.echo_cost(ch)
 
 
 def cumulative_costs(ch: Any) -> list[tuple[str, Any]]:

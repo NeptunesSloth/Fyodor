@@ -2971,6 +2971,8 @@ def pay_or_sacrifice(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                    resume={"step": "pay_or_sacrifice", "ctx": ctx, "cost": "{0}"}, source=plan.state.cards[src[0]])
             return False
         e = {**e, "cost": printed}
+    if e["cost"] == "life110c":  # -- echo {X}, X your life total (wave 110C) -- worked out as it is paid
+        e = {**e, "cost": f"{{{max(0, plan.state.players[pid].life)}}}"}
     cost = mana.parse_cost(e["cost"])
     if e.get("per"):  # cumulative upkeep: the cost once for each age counter
         n = plan.state.cards[src[0]].counters.get(e["per"], 0)
@@ -7167,3 +7169,6 @@ from app.rules import wave110o_cards as _wave110o  # noqa: E402, I001  -- (wave 
 
 PRIMITIVES.update(_wave110o.PRIMITIVES)
 RESUME.update(_wave110o.RESUME)
+from app.rules import wave110c_misc as _wave110c_misc  # noqa: E402, I001  -- (wave 110C) --
+
+PRIMITIVES.update(_wave110c_misc.PRIMITIVES)
