@@ -16,7 +16,7 @@ from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave110e_cards import card_db  # noqa: F401  (the fixture)
 from tests.test_rules_wave110e_s11 import _three
 from tests.test_rules_wave110i_s14 import BEAR, GIANT  # noqa: F401  (registers the helper creatures)
-from tests.wave9c_kit import build, check, life, mana, put
+from tests.wave9c_kit import build, check, life, mana, put, to_hand
 from tests.wave110j_kit import now
 
 BRACELET = real("The Dominion Bracelet", "{2}", 2, "Legendary Artifact — Equipment",
@@ -119,4 +119,69 @@ def test_megatron_redirects_the_excess_and_converts_only_then(cards, artifact, e
     assert (s.state.cards[wolf.id].zone.endswith(":graveyard")) == (artifact is not None)
     assert life(s, "p2") == 40 - excess - (7 if converts else 4)  # (then unblocked combat damage: the 7/5 front face after converting, else the 4/5 Vehicle)
     assert (now(s, megatron).face == 0) == converts
+    check(s)
+
+
+# -- Yavimaya Bloomsage // Channel --------------------------------------------------------------------------------------------------------------------------------------------------------
+_CHANNEL = "Until end of turn, any time you could activate a mana ability, you may pay 1 life. If you do, add {C}."
+_BLOOM_FRONT = ("At the beginning of your end step, put a +1/+1 counter on target creature you control. Then if that creature has power 7 or greater, this creature becomes prepared. "
+                "(While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)")
+
+
+def test_bloomsage_full(cards):
+    from pathlib import Path
+
+    from tools.commander_coverage import rows
+
+    d = next(d for d in rows(Path("/home/user/Fyodor/data/cards.sqlite"))[0] if d["name"] == "Yavimaya Bloomsage // Channel")
+    assert _CHANNEL in d["oracle_text"] and coverage.of_card_data(d).level == "FULL"
+
+
+base.EXTRA.append(real("Channel110I", "{G}{G}", 2, "Sorcery", _CHANNEL, None, "G"))
+
+
+def _cast(s, name, pid="p1"):
+    from tests.wave9c_kit import to_hand
+
+    act(s, pid, type="cast_spell", card_id=to_hand(s, name, pid).id)
+    for _ in range(10):
+        if not s.state.zones.get("stack") and s.state.rules.decision is None:
+            break
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+
+
+def _anvil_table(cards, channel):
+    s = _three(cards, ["Channel110I", "Anvil110I"])
+    if channel:
+        mana(s, G=2)
+        _cast(s, "Channel110I")
+    return s
+
+
+def test_channel_pays_life_only_after_channel(cards):
+    """Without Channel a {3} artifact with {1} of mana is refused; with it, 2 life pay the rest (1 life for each generic symbol, mana first)."""
+    s = _anvil_table(cards, False)
+    mana(s, C=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Anvil110I").id)
+    s = _anvil_table(cards, True)
+    mana(s, C=1)
+    life = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Anvil110I").id)
+    assert s.state.players["p1"].life == life - 2
+    check(s)
+
+
+def test_channel_spends_mana_before_life_and_serves_only_its_controller(cards):
+    s = _anvil_table(cards, True)
+    mana(s, C=3)
+    life = s.state.players["p1"].life
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Anvil110I").id)
+    assert s.state.players["p1"].life == life
+    s2 = _anvil_table(cards, True)
+    assert "channel110i" in str(s2.state.rules.tap_mana)
     check(s)

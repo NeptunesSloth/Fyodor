@@ -50,14 +50,15 @@ class ManaCost:
     x: int = 0  # number of {X}
     unsupported: tuple[str, ...] = ()  # symbols the engine can't pay (e.g. {S} snow)
     allocation: RequirementPlan | None = None  # Internal requirement origin before payment-only encodings.
+    life1: int = 0  # -- Channel (wave 110I) -- up to this many generic / {C} symbols may each be paid with 1 life instead of mana (``solve``; set by casting._spending_cost)
 
     def with_x(self, x: int) -> ManaCost:
         return ManaCost(self.generic + x * self.x, self.colored, self.hybrid, self.phyrexian, 0, self.unsupported,
-                        replace(self.allocation, generic=self.allocation.generic + x * self.x) if self.allocation else None)
+                        replace(self.allocation, generic=self.allocation.generic + x * self.x) if self.allocation else None, self.life1)
 
     def plus_generic(self, n: int) -> ManaCost:
         return ManaCost(self.generic + n, self.colored, self.hybrid, self.phyrexian, self.x, self.unsupported,
-                        replace(self.allocation, generic=max(0, self.allocation.generic + n)) if self.allocation else None)
+                        replace(self.allocation, generic=max(0, self.allocation.generic + n)) if self.allocation else None, self.life1)
 
     def text(self) -> str:
         parts = [f"{{{self.generic}}}"] if self.generic else []
@@ -805,6 +806,17 @@ def _pay_one(units: dict[str, int], remaining: list[Source], chosen: Chosen, req
             yield new, remaining[:j] + remaining[j + 1:], [*chosen, (src, oi)]
 
 
+def _less_c(reqs: list[tuple[str, ...]], n: int) -> list[tuple[str, ...]]:
+    """-- Channel (wave 110I) -- the requirements without ``n`` of their {C} symbols (paid with life)."""
+    out, skip = [], n
+    for r in reqs:
+        if r == ("C",) and skip:
+            skip -= 1
+        else:
+            out.append(r)
+    return out
+
+
 def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: int = 0) -> Payment:
     """Find a payment for ``cost`` (X already fixed). Raises ManaError if there is none."""
     mixed_snow = any(source.producer_facts and any(
@@ -834,11 +846,14 @@ def solve(cost: ManaCost, pool: dict[str, int], sources: list[Source], *, life: 
 
     phy = cost.phyrexian
     by_life = {tuple(sorted(phy[i] for i in ix)): ix for k in range(len(phy) + 1) for ix in combinations(range(len(phy)), k)}
-    attempts = [(base + [tuple(c.split("/")) for i, c in enumerate(phy) if i not in ix], 2 * len(ix)) for ix in by_life.values()]
-    for reqs, life_cost in attempts:
+    attempts = [(base + [tuple(c.split("/")) for i, c in enumerate(phy) if i not in ix], 2 * len(ix), cost.generic) for ix in by_life.values()]
+    if cost.life1:  # -- Channel (wave 110I) -- 1 life for each generic or {C} symbol instead of its mana: after the attempts with mana (fewest life first)
+        spare = [(g, c) for g in range(min(cost.generic, cost.life1) + 1) for c in range(min(cost.colored.count("C"), cost.life1 - g) + 1) if g + c]
+        attempts += [(_less_c(reqs, c), life_cost + g + c, generic - g) for g, c in sorted(spare, key=sum) for reqs, life_cost, generic in attempts[:len(by_life)]]
+    for reqs, life_cost, generic in attempts:
         if life_cost and life_cost > life:  # 119.4 (wave 29C): the life total only has to be at least the payment — all of it may be paid
             continue
-        found = _solve(reqs, cost.generic, pool, ordered)
+        found = _solve(reqs, generic, pool, ordered)
         if found is None:
             continue
         left, chosen = found

@@ -522,6 +522,8 @@ def parse(body: str) -> Any:
         return [{"do": "tunnel110i"}], None, False
     if body.strip() == _DAWN:
         return [{"do": "false_dawn110i"}], None, False
+    if body.strip() == _CHANNEL:  # -- cards (wave 110I) -- Yavimaya Bloomsage's Channel
+        return [{"do": "channel110i"}], None, False
     if body.strip() == _MEDOMAI:  # 603.7: chapter III creates a delayed trigger for this turn (Scryfall ruling 2018-04-27: with no name chosen it can never trigger)
         parsed = scripts.parse_effects("Whenever you cast a spell with the chosen name this turn, draw two cards.")
         assert parsed is not None
@@ -900,6 +902,25 @@ def dawn_mana(plan: Plan, controller: str, mana: list[str]) -> list[str]:
     if not _dawn(plan.state, controller, "mana_replace"):
         return mana
     return ["W" if c in "WUBRG" else c for c in mana]
+
+
+_CHANNEL = "Until end of turn, any time you could activate a mana ability, you may pay 1 life. If you do, add {C}."
+
+
+def channel(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """Channel (605.3a, 106.12): until end of turn the controller may, whenever they could activate a mana ability, pay 1 life to add {C}. Applied where mana is
+    spent (``mana.solve`` ``life1``: each generic or {C} symbol of a cost the player pays may be paid with 1 life, after every way with mana). ponytail: the {C} is
+    only ever spent on a payment; banking it in the pool for a later step is not offered."""
+    from app.rules import tap_mana
+
+    return tap_mana.until_eot(plan, ctx, {"def": {"kind": "static", "static": "channel110i", "effects": []}})
+
+
+PRIMITIVES["channel110i"] = channel
+
+
+def channel_active(state: Any, player: str) -> bool:
+    return _dawn(state, player, "channel110i")
 
 
 def spending_active(state: Any, player: str) -> bool:
