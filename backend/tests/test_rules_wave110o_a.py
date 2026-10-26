@@ -4,6 +4,7 @@
 * 205.3m, 613.1d: Oko's +2 gives a creature every creature type for good; his -6 emblem boosts the chosen type for the rest of the game (114.1).
 * 119.7-8, 616.1: Reverse the Sands lets its caster hand the chosen players' life totals out again, one each (an exchange; a player who can't
   gain or lose life can't get a higher or lower one).
+* 702.133a, 611.2a: Filigree Racer, paying {E}{E} as it attacks, gives an instant or sorcery card in the graveyard jump-start for the turn.
 * 701.24a, 608.2b: Serene Remembrance shuffles itself and up to three target cards from a single graveyard into their owners' libraries.
 """
 
@@ -27,6 +28,7 @@ from tests.wave110o_kit import (  # noqa: F401
     full,
     grave_new,
     hand_new,
+    life,
     mana,
     move,
     now,
@@ -38,10 +40,10 @@ from tests.wave110o_kit import (  # noqa: F401
     to_phase,
 )
 
-REMEMBRANCE, THRALL, SANDS, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
+REMEMBRANCE, THRALL, SANDS, RACER, OKO = "Serene Remembrance", "Evil's Thrall", "Reverse the Sands", "Filigree Racer", "Oko, Lorwyn Liege // Oko, Shadowmoor Scion"
 
 
-@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, OKO])
+@pytest.mark.parametrize("name", [REMEMBRANCE, THRALL, SANDS, RACER, OKO])
 def test_the_cards_are_full(name):
     assert full(name)
 
@@ -268,4 +270,59 @@ def test_reverse_the_sands_cant_give_a_player_who_cant_gain_life_a_higher_total(
     assert d is None or [o.id for o in d.options] == ["p1"]
     settle(s)
     assert (s.state.players["p1"].life, s.state.players["p2"].life) == (40, 17)
+    check(s)
+
+
+def racer_attacks(s):
+    """Filigree Racer (crewed by a Grizzly Bears) attacks Bob; the energy trigger waits on Alice's answer."""
+    racer = put(s, RACER)
+    act(s, "p1", type="resource", player="p1", key="energy", delta=4)  # (its own enters trigger is not what is tested)
+    bears = put(s, "Grizzly Bears")
+    for c in (racer, bears):
+        s.state.rules.controlled_since[c.id].turn = 0
+    act(s, "p1", type="activate_ability", card_id=racer.id, ability=ability(s, racer, "Crew"), crew=[bears.id])
+    settle(s)
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": racer.id, "target": "p2"}])
+    return racer
+
+
+@pytest.mark.parametrize("pay", [True, False])
+def test_filigree_racer_pay_energy_to_give_jump_start_for_the_turn(cards, pay):
+    s = build(cards, [RACER, "Grizzly Bears", "Lightning Bolt", "Templar Knight"])
+    bolt, spare = grave_new(s, "Lightning Bolt"), hand_new(s, "Templar Knight")
+    racer_attacks(s)
+    for _ in range(6):  # (the attack trigger resolves: pass priority round)
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.player == "p1", (s.state.zones.get("stack"), s.state.rules.priority)
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay" if pay else "decline"])
+    settle(s, answers=[[bolt.id]] if pay else [])
+    assert s.state.players["p1"].resources.get("energy", 0) == (2 if pay else 4)
+    mana(s, "p1", R=1)
+    if pay:
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+        settle(s)
+        assert life(s, "p2") == 40 - 5 - 3 and now(s, bolt).zone == "p1:exile" and now(s, spare).zone == "p1:graveyard"  # (the discard, then exiled)
+    else:
+        with pytest.raises(ActionError):
+            act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
+    check(s)
+
+
+def test_filigree_racer_jump_start_ends_with_the_turn(cards):
+    s = build(cards, [RACER, "Grizzly Bears", "Lightning Bolt", "Templar Knight"])
+    bolt = grave_new(s, "Lightning Bolt")
+    hand_new(s, "Templar Knight")
+    racer_attacks(s)
+    while s.state.rules.decision is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+    act(s, s.state.rules.decision.player, type="choose", decision_id=s.state.rules.decision.id, option_ids=["pay"])
+    settle(s, answers=[[bolt.id]])
+    to_phase(s, "main1", turn=3)
+    mana(s, "p1", R=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     check(s)

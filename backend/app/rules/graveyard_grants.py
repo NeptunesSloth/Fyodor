@@ -71,6 +71,14 @@ def _harmonize(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [{"do": "grant_flashback", "who": "target", "cost": "pending", "keyword": "harmonize"}], sel
 
 
+_JUMP_START = re.compile(rf"^{_WHO} gains jump-start until end of turn$")  # -- (wave 110O) -- 702.133a, 611.2a (Filigree Racer)
+
+
+def _jump_start(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
+    sel = _selector(m)
+    return [{"do": "grant_flashback", "who": "target", "cost": "none", "keyword": "jump_start"}], sel
+
+
 def _play(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     sel = _selector(m)
     target = m["s1"] is not None
@@ -80,6 +88,7 @@ def _play(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
 TEMPLATES: list[tuple[re.Pattern[str], Any]] = [
     (re.compile("^" + _FLASHBACK.pattern + "$"), _flashback),
     (_HARMONIZE, _harmonize),
+    (_JUMP_START, _jump_start),  # -- (wave 110O) --
     (re.compile("^" + _PLAY.pattern + "$", re.IGNORECASE), _play),
 ]
 
