@@ -20,6 +20,10 @@ _VOLT_ATTACK = ("Whenever ~ attacks, you may cast an instant or sorcery spell fr
                 "If that spell would be put into a graveyard, put it on the bottom of its owner's library instead.")
 
 
+_TASTER = ("When ~ enters, target opponent reveals X cards from their hand, where X is the number of Goblins you control. You choose one of those cards. "
+           "That player exiles it. If an instant or sorcery card is exiled this way, you may cast it for as long as you control ~, and mana of any type can be spent to cast that spell.")
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
     from app.rules.token_copy_outcomes import ORIGINAL
@@ -51,6 +55,17 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
         sel = Selector(types=("Instant", "Sorcery"), zones=("stack",)).key()
         return {**probe, "optional": False, "effects": [{"do": "linked_cards", "as": "e0"}, {"do": "free_cast", "zone": "that", "who": "ref:e0", "filter": sel, "optional": True, "mv": None, "n": 1,
                                                                            "paid": True, "graveyard_destination": "library_bottom"}]}
+    if ability.kind == "triggered" and text == _TASTER:  # 701.20a reveal, 701.13 exile, 611.2b "for as long as you control ~", 118.9/609.4b mana of any type; X once (ruling 2025-11-17)
+        probe = scripts.define(replace(ability, text="When ~ enters, target opponent loses 1 life."), ch)
+        if probe is None or probe["kind"] != "triggered":
+            return {}
+        sel = Selector(types=("Instant", "Sorcery"), card=True).key()
+        goblins = scripts.parse_effects("Target opponent reveals X cards from their hand, where X is the number of Goblins you control.")
+        assert goblins is not None
+        return {**probe, "effects": [*goblins[0],
+                                     {"do": "choose_from_hand", "who": "you", "sel": 'sel:{"card":true,"zones":[]}', "n": 1, "label": "card", "optional": False, "as": "e1"},
+                                     {"do": "exile", "who": "ref:e1", "as": "e2"}, {"do": "only_if", "cond": {"object": "ref:e2", "is": sel}, "skip": 1},
+                                     {"do": "grant_play", "who": "ref:e2", "play": False, "cast": True, "until": "source_controlled", "optional": True, "spend": "type"}]}
     return None
 
 

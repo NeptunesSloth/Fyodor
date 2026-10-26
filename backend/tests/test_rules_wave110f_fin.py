@@ -193,3 +193,79 @@ def test_voltstrider_may_decline(cards):
     answer(s)
     assert s.state.cards[gy["Test Bolt 110FF"].id].zone == "p1:exile" and life(s, "p2") == 36
     check(s)
+
+
+_TASTER = ("When this creature enters, target opponent reveals X cards from their hand, where X is the number of Goblins you control. You choose one of those cards. "
+           "That player exiles it. If an instant or sorcery card is exiled this way, you may cast it for as long as you control this creature, and mana of any type can be spent to cast that spell.")
+_BASE.extend([
+    real("Taster of Wares", "{2}{B}", 3, "Creature — Goblin Warlock", _TASTER, ("3", "2"), "B"),
+    real("Test Goblin 110FF", "{1}", 1, "Creature — Goblin", "", ("1", "1"), ""),
+    real("Test Kill 110FF", "{R}", 1, "Instant", "Test Kill 110FF deals 3 damage to target player.", None, "R"),
+    real("Test Wrath 110FF", "{3}", 3, "Sorcery", "Test Wrath 110FF deals 2 damage to target player.", None, ""),
+])
+
+
+def test_taster_full(cards):
+    assert coverage.of_card_data(cards.resolve("Taster of Wares")).level == "FULL"
+
+
+def _taster(cards, theirs):
+    from tests.wave9c_kit import to_hand
+
+    s = build(cards, ["Taster of Wares", "Test Goblin 110FF"], theirs)
+    put(s, "Test Goblin 110FF")
+    for n in theirs:
+        to_hand(s, n, "p2")
+    mana(s, "p1", B=1, C=2)
+    cast(s, "Taster of Wares")
+    return s
+
+
+def _settle_taster(s, choose, reveal=("Test Kill", "Test Wrath")):
+    """Answer the trigger: Bob reveals the first two, Alice chooses the card whose name starts with ``choose``."""
+    for _ in range(25):
+        d = s.state.rules.decision
+        if d is None:
+            if not s.state.zones.get("stack"):
+                return
+            act(s, s.state.rules.priority, type="pass_priority")
+            continue
+        picks = [o.id for o in d.options if o.label.startswith(choose)][:1] if d.player == "p1" and d.kind == "choose_cards" else [o.id for o in d.options if o.label.startswith(reveal)] if d.player == "p2" else [o.id for o in d.options][: max(1, d.min_choices)]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=picks)
+    raise AssertionError("never settled")
+
+
+@pytest.mark.parametrize("choose,spell_life", [("Test Kill", 37), ("Test Wrath", 38)])
+def test_taster_exiles_and_casts_an_instant_or_sorcery_with_any_mana(cards, choose, spell_life):
+    """701.20a, 611.2b, 609.4b: X is the Goblins you control (2); the chosen revealed instant or sorcery is exiled and may be cast with mana of any type while you control Taster."""
+    s = _taster(cards, ["Test Kill 110FF", "Test Wrath 110FF", "Test Dead 110FF"])
+    _settle_taster(s, choose)
+    exiled = next(c for c in s.state.cards.values() if c.zone == "p2:exile")
+    assert exiled.name.startswith(choose)
+    mana(s, "p1", G=3)  # (green mana pays for a red spell: any type)
+    act(s, "p1", type="cast_spell", card_id=exiled.id, targets=["p2"])
+    answer(s)
+    assert life(s, "p2") == spell_life and s.state.cards[exiled.id].zone == "p2:graveyard"
+    check(s)
+
+
+def test_taster_creature_is_exiled_without_permission(cards):
+    """"If an instant or sorcery card is exiled this way": a creature card is exiled and nothing may be cast."""
+    s = _taster(cards, ["Test Kill 110FF", "Test Wrath 110FF", "Test Dead 110FF"])
+    _settle_taster(s, "Test Dead", reveal=("Test Dead", "Test Kill"))
+    assert [c.name for c in s.state.cards.values() if c.zone == "p2:exile"] == ["Test Dead 110FF"] and not s.state.rules.permissions
+    check(s)
+
+
+def test_taster_permission_ends_when_it_leaves(cards):
+    """611.2b: "for as long as you control this creature": gone, the exiled card can't be cast."""
+    from app.game.errors import ActionError
+
+    s = _taster(cards, ["Test Kill 110FF", "Test Wrath 110FF", "Test Dead 110FF"])
+    _settle_taster(s, "Test Kill")
+    exiled = next(c for c in s.state.cards.values() if c.zone == "p2:exile")
+    act(s, "p1", type="move", card_ids=[card_named(s, "Taster of Wares").id], to={"player": "p1", "zone": "graveyard"})
+    mana(s, "p1", G=3)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="cast_spell", card_id=exiled.id, targets=["p2"])
+    check(s)
