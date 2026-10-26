@@ -979,7 +979,8 @@ def grant(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
                           controller=ctx["controller"], add_keywords=tuple(keywords), remove_keywords=tuple(removed),
                           imposes=tuple("cant_have_keyword:" + k for k in e.get("deny", ())),
                           duration=duration, label=f"{', '.join(words)} {when}", add_abilities=abilities,
-                          activation_player=ctx["controller"] if e.get("activation_player") == "you" else None)
+                          activation_player=ctx["controller"] if e.get("activation_player") == "you" else None,
+                          spend_blue110i=bool(e.get("spend_blue110i")))  # (wave 110I: Grell Philosopher)
         marker = ", ".join([*(k.capitalize() for k in keywords), *(f"No {k}" for k in removed),
                             *(f'Gains "{a}"' for a in abilities)])
         _mark(plan, cards, marker, value="Ability" if abilities and not (keywords or removed) else None,

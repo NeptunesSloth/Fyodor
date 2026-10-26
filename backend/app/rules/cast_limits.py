@@ -1070,7 +1070,7 @@ def ability_spend_mode(state: GameState, player: str, card: CardInstance, ch: Ch
              and (d["abilities"] == "all" or d["abilities"] == "self" and card.id == src.id
                   or card.controller == src.controller and (d["abilities"] == "unowned" and card.owner != card.controller
                                                            or d["abilities"] == "creatures" and ch.is_creature))}
-    return "type" if "type" in modes else "color" if modes else None
+    return "type" if "type" in modes else "blue_color" if modes == {"blue_color"} else "color" if modes else None  # (wave 110I: "blue_color", Quicksilver Elemental)
 
 
 def as_though_haste(state: GameState, card: CardInstance, info: CardInfo | None) -> bool:

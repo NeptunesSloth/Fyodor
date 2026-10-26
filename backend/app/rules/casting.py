@@ -5979,7 +5979,7 @@ def _variable_ability_matching(state: GameState, card: CardInstance, ch: Charact
     from app.rules import cast_limits, mana_allocation_masks
 
     mode = cast_limits.ability_spend_mode(state, card.controller, card, ch, info) or (
-        'color' if state.rules is not None and ability.borrowed_color == state.rules.object_id(card.id) else None)
+        'color' if state.rules is not None and ability.borrowed_color == state.rules.object_id(card.id) else 'blue_color' if ability.spend_blue110i else None)
     if mode:
         cost = M.spend_as(cost, mode)
     if SPEND_CHOSEN in ability.text:
@@ -6072,7 +6072,8 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
 
         variable = bool(ability_mana_cost(cost).x)
         if cost.mana and not variable and (mode := (cast_limits.ability_spend_mode(state, card.controller, card, ch, info) or
-                                  ("color" if state.rules is not None and getattr(ability, "borrowed_color", None) == state.rules.object_id(card.id) else None))):
+                                  ("color" if state.rules is not None and getattr(ability, "borrowed_color", None) == state.rules.object_id(card.id)
+                                   else "blue_color" if ability.spend_blue110i else None))):
             transformed = M.spend_as(ability_mana_cost(cost), mode)
             cost = replace(cost, mana=transformed.text(), mana_allocation=transformed.allocation)
         if SPEND_CHOSEN in ability.text and cost.mana and not variable:  # -- most-played cards (wave 51F) -- "Spend only mana of the chosen color to activate this ability" (Throne of Eldraine, 106.6)

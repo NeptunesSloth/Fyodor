@@ -463,12 +463,68 @@ def _that_much(d: Def) -> Def:
     return {**d, "effects": [{"do": "add_mana", "sym": "C", "n": {"x": 1}, "who": "target"} if e.get("do") == "add_mana" else e for e in d["effects"]]}
 
 
+def _leori(d: Def) -> Def:
+    """Leori: the combat damage trigger asks for a planeswalker type (205.3j); the rest is made once it is known (``resume_leori``)."""
+    return {**d, "effects": [{"do": "leori110i"}]}
+
+
+def leori(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import selectors
+    from app.rules.plan import decide
+
+    decide(plan, player=ctx["controller"], kind="choose_one", prompt="Choose a planeswalker type",
+           options=[DecisionOption(id=t, label=t) for t in sorted(selectors.PLANESWALKER_TYPES)], resume={"step": "leori110i", "ctx": ctx})
+    return False
+
+
+def resume_leori(plan: Plan, d: Any, chosen: list[str]) -> None:
+    """Until end of turn, whenever you activate an ability of a planeswalker of that type, copy that ability (707.10) and choose new targets for the copies (the delayed trigger, 603.7)."""
+    from app.rules import effects, selectors
+
+    ctx = d.resume["ctx"]
+    sel = selectors.Selector(types=("Planeswalker",), subtypes=(chosen[0],))
+    at = ctx["next"]
+    ctx["effects"][at:at] = [
+        {"do": "delayed", "when": {"kind": "watch", "cond": {"event": "activate", "subject": "player", "player": "you", "nonmana": True, "loyalty": False, "obj": sel.key()},
+                                   "text": f"you activate an ability of a {chosen[0]} planeswalker"}, "n": 2, "this_turn": True, "once": False},
+        {"do": "deferred:copy_ability", "who": "event_ability"}, {"do": "deferred:copy_new_targets", "optional": True}]
+    effects.continue_effects(plan, ctx)
+
+
+def _borrow(to: str, spend_blue: bool = False) -> Callable[[Def], Def]:
+    """Quicksilver Elemental, Grell Philosopher: the native "tap target ..." becomes "``to`` gains all activated abilities of the target until end of turn"."""
+    def build(d: Def) -> Def:
+        return {**d, "effects": [{"do": "borrow110i", "to": to, "spend_blue110i": spend_blue} if e.get("do") == "tap" else e for e in d["effects"]]}
+    return build
+
+
+def borrow(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
+    """113.10, 611.2a, 613.1f: at resolution, each receiver gains copies of every activated ability the target has (rulings 2004-10-04, 2022-06-10: only activated abilities, written for "this permanent"),
+    one layer-6 effect until end of turn; a lender that already left the battlefield lends nothing."""
+    from app.rules import abilities_of, effects
+
+    texts: list[str] = []
+    for lender in effects._cards(plan, ctx, "target"):
+        card = plan.state.cards[lender]
+        if card.zone.endswith(":battlefield"):
+            texts += [ab.text for ab in abilities_of._lent(plan, card, False)]
+    return effects.PRIMITIVES["grant"](plan, ctx, {"do": "grant", "who": e["to"], "abilities": texts, "spend_blue110i": e.get("spend_blue110i", False)}) if texts else True
+
+
 def _taxed(d: Def) -> Def:
     """Mavinda: the permission carries the {8} increase, charged once the cast spell's targets are known."""
     return {**d, "effects": [{**e, "tax_untargeted110i": 8} if e.get("do") == "grant_play" else e for e in d["effects"]]}
 
 
 _BUILD: dict[str, tuple[str, Callable[[Def], Def]]] = {
+    "{U}: This creature gains all activated abilities of target creature until end of turn.": ("{U}: Tap target creature.", _borrow("self")),
+    "Aberrant Tinkering \u2014 When this creature enters and at the beginning of your upkeep, each Horror you control gains all activated abilities of target artifact an opponent controls until end of turn. "
+    "You may spend blue mana as though it were mana of any color to activate those abilities.":
+        ("When this creature enters and at the beginning of your upkeep, tap target artifact an opponent controls.",
+         _borrow('sel:{"controller":"you","subtypes":["Horror"]}', True)),
+    "Whenever Leori deals combat damage to a player, choose a planeswalker type. Until end of turn, whenever you activate an ability of a planeswalker of that type, copy that ability. "
+    "You may choose new targets for the copies.": ("Whenever this creature deals combat damage to a player, you gain 1 life.", _leori),
     "{0}: You may cast target instant or sorcery card from your graveyard this turn. If that spell doesn't target a creature you control, it costs {8} more to cast this way. "
     "If that spell would be put into your graveyard, exile it instead. Activate only once each turn.":
         ("{0}: You may cast target instant or sorcery card from your graveyard this turn. If that spell would be put into your graveyard, exile it instead. Activate only once each turn.", _taxed),
@@ -803,6 +859,8 @@ def destroy_mark(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 
 PRIMITIVES = {"specter110i": specter, "raiding110i": raiding, "bind_self110i": bind_self, "bauble110i": bauble, "bind_first110i": bind_first, "destroy_mark110i": destroy_mark, "goad_while110i": goad_while, "bind_rest110i": bind_rest, "exile_library110i": exile_library, "attach_all110i": attach_all, "lose_rad110i": lose_rad, "bounce_gate110i": bounce_gate}
 PRIMITIVES["milled_any110i"] = milled_any
+PRIMITIVES["borrow110i"] = borrow
+PRIMITIVES["leori110i"] = leori
 PRIMITIVES["short110i"] = short
 PRIMITIVES["lose_if_short110i"] = lose_if_short
 
@@ -1059,7 +1117,7 @@ def resume_transform_attach(plan: Plan, d: Any, chosen: list[str]) -> None:
     attachments.attach(plan, d.resume["card"], chosen[0], d.player)
 
 
-RESUME = {"tunnel110i": resume_tunnel, "transform_attach110i": resume_transform_attach, "bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
+RESUME = {"leori110i": resume_leori, "tunnel110i": resume_tunnel, "transform_attach110i": resume_transform_attach, "bauble110i": resume_bauble, "skip_may110i": resume_skip, "specter110i": resume_specter, "specter_top110i": resume_specter_top, "raiding_tap110i": resume_raiding_tap, "raiding_plains110i": resume_raiding_plains}
 
 
 _WHISTLE = ("{3}, {T}: Choose target non-Wall creature the active player has controlled continuously since the beginning of the turn. That player may pay {X}, where X is "
@@ -1266,6 +1324,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
     if text == _FLICKER:
         native = scripts.define(replace(ability, text="{2}{W}{W}: Draw a card."), ch)
         return None if native is None else {**native, "effects": [{"do": "flicker_exile110i"}]}
+    if text == "You may spend blue mana as though it were mana of any color to pay the activation costs of this creature's abilities.":  # Quicksilver Elemental: 609.4b, ability_spend_mode "blue_color"
+        return {"kind": "static", "static": "spend_as", "mode": "blue_color", "abilities": "self", "filter": None, "no_spells": True, "effects": []}
     if text == _DRAUGR:  # 601.3 (cast from exile), 609.4b: only spells; mana from snow sources as though any color (mana.spend_as "snow_color")
         return {"kind": "static", "static": "permission", "zone": "exile", "filter": None, "self": False, "play": False, "cast": True, "once": False, "flash": False,
                 "foreign": True, "exile_counter": "ice", "spend": "snow_color", "effects": []}

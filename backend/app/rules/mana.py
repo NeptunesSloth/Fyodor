@@ -108,7 +108,7 @@ def spend_as(cost: ManaCost, mode: str) -> ManaCost:
     from app.rules import mana_allocation_masks
 
     transformed = _spend_as(cost, mode)
-    if mode not in ('type', 'color', 'colorless_color', 'white_red', 'white_any', 'white_color', 'snow_color'):
+    if mode not in ('type', 'color', 'colorless_color', 'white_red', 'white_any', 'white_color', 'snow_color', 'blue_color'):
         return transformed
     return replace(transformed, allocation=mana_allocation_masks.requirements(cost, mode))
 
@@ -127,11 +127,12 @@ def _spend_as(cost: ManaCost, mode: str) -> ManaCost:
         return ManaCost(cost.generic, tuple(white(c) for c in cost.colored if c != 'C'),
                         (('C', *others),) * cost.colored.count('C') + tuple(tuple(dict.fromkeys('W' if k in COLORS else k for k in h)) for h in cost.hybrid),
                         tuple(white(c) for c in cost.phyrexian), cost.x, cost.unsupported)
-    if mode == 'white_color':  # -- cards (wave 110I) -- False Dawn, 609.4b: white mana pays any colored symbol (colorless stays colorless)
-        other = tuple(c for c in cost.colored if c in COLORS and c != 'W')
+    if mode in ('white_color', 'blue_color'):  # -- cards (wave 110I) -- False Dawn, Quicksilver Elemental, 609.4b: white (blue) mana pays any colored symbol (colorless stays colorless)
+        w = 'W' if mode == 'white_color' else 'U'
+        other = tuple(c for c in cost.colored if c in COLORS and c != w)
         return ManaCost(cost.generic, tuple(c for c in cost.colored if c not in other),
-                        tuple((c, 'W') for c in other) + tuple(tuple(dict.fromkeys((*h, 'W'))) if any(c in COLORS for c in h) else h for h in cost.hybrid),
-                        tuple('/'.join(dict.fromkeys((*c.split('/'), 'W'))) if any(k in COLORS for k in c.split('/')) else c for c in cost.phyrexian),
+                        tuple((c, w) for c in other) + tuple(tuple(dict.fromkeys((*h, w))) if any(c in COLORS for c in h) else h for h in cost.hybrid),
+                        tuple('/'.join(dict.fromkeys((*c.split('/'), w))) if any(k in COLORS for k in c.split('/')) else c for c in cost.phyrexian),
                         cost.x, cost.unsupported)
     if mode == 'snow_color':  # -- cards (wave 110I) -- Draugr Necromancer, 609.4b: mana from a snow source pays any colored symbol (an {S} payment, 107.4h; other mana is unchanged)
         return ManaCost(cost.generic, tuple(c for c in cost.colored if c not in COLORS),

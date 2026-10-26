@@ -19,6 +19,11 @@
 * Jetfire, Ingenious Scientist: removing X +1/+1 counters from among your artifacts (118.3) makes the target player add X {C} that can't be spent on nonartifact spells (106.6a), then Jetfire converts (701.28-style, 712).
 * Mavinda, Students' Advocate: the cast permission from the graveyard (this turn, only once each turn, exiled instead of going to the graveyard) costs {8} more unless the spell targets a creature
   you control (601.2f: counted after the targets are chosen, 601.2c).
+* Leori, Sparktouched Hunter: the chosen planeswalker type (205.3j) makes the delayed trigger copy each ability its controller activates of a planeswalker of that type until end of turn (707.10, 603.7); the copy
+  changes no loyalty (rulings 2023-07-28), planeswalkers of other types are not copied.
+* Quicksilver Elemental: "gains all activated abilities of target creature until end of turn" (113.10, 611.2a: the abilities it has at resolution, written for "this permanent"), and its own abilities may
+  be paid with blue mana as though it were mana of any color (609.4b).
+* Grell Philosopher: each Horror you control gains all activated abilities of the target artifact an opponent controls; those abilities (only) may be paid with blue mana as though any color.
 """
 from __future__ import annotations
 
@@ -671,4 +676,134 @@ def test_mavinda_charges_8_more_when_it_does_not(cards):
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     answer(s)
     assert life(s, "p2") == 37 and s.state.cards[bolt.id].zone.endswith(":exile")
+    check(s)
+
+
+LEORI = real("Leori, Sparktouched Hunter", "{U}{R}{W}", 3, "Legendary Creature \u2014 Elemental Cat",
+             "Flying, vigilance\nWhenever Leori deals combat damage to a player, choose a planeswalker type. Until end of turn, whenever you activate an ability of a planeswalker of that type, copy that ability. "
+             "You may choose new targets for the copies.", ("3", "3"), "URW")
+AJANI = card("Ajani Goldmane", set_code="t110i", number="A1", mana_cost="{2}{W}{W}", cmc=4.0, type_line="Legendary Planeswalker \u2014 Ajani", loyalty="4", colors=["W"], color_identity=["W"],
+             oracle_text="+1: You gain 2 life.\n\u22121: Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.\n\u22126: Create a white Avatar creature token. "
+                         "It has \"This token's power and toughness are each equal to your life total.\"")
+base.EXTRA.extend([LEORI, AJANI])
+
+
+def test_leori_full(cards):
+    assert coverage.of_card_data(cards.resolve("Leori, Sparktouched Hunter")).level == "FULL"
+
+
+def _leori(cards, pw_type):
+    from tests.wave110b_kit import attack
+
+    s = build(cards, ["Leori, Sparktouched Hunter", "Ajani Goldmane"])
+    leori = put(s, "Leori, Sparktouched Hunter")
+    mana(s, W=2, C=2)
+    ajani = cast_card(s, "Ajani Goldmane")  # cast, so it enters with its loyalty counters
+    answer(s)
+    attack(s, leori)
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None and d.kind == "choose_one" and "planeswalker type" in d.prompt:
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=[pw_type])
+        elif d is not None and d.kind == "declare_blockers":
+            act(s, d.player, type="declare_blockers", blocks=[])
+        elif d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.turn.phase == "main2" and not s.state.zones.get("stack"):
+            break
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    return s, ajani
+
+
+@pytest.mark.parametrize(("pw_type", "gained"), [("Ajani", 4), ("Jace", 2)])
+def test_leori_copies_planeswalker_abilities_of_the_chosen_type_only(cards, pw_type, gained):
+    from tests.wave9c_kit import life
+
+    s, ajani = _leori(cards, pw_type)
+    before = life(s, "p1")
+    plus = next(a.index for a in __import__("app.rules.plan", fromlist=["Plan"]).Plan(s.state, "p1", s.cards, None).ch(s.state.cards[ajani.id]).abilities if a.kind == "loyalty")
+    act(s, "p1", type="activate_ability", card_id=ajani.id, ability=plus)
+    answer(s)
+    assert life(s, "p1") == before + gained  # +1: gain 2 life, and its copy gains 2 more only for the chosen type
+    assert s.state.cards[ajani.id].counters.get("loyalty") == 5  # 4 + 1: the copy doesn't add loyalty
+    check(s)
+
+
+QUICK = real("Quicksilver Elemental", "{3}{U}{U}", 5, "Creature \u2014 Elemental",
+             "{U}: This creature gains all activated abilities of target creature until end of turn. (If any of the abilities use that creature's name, use this creature's name instead.)\n"
+             "You may spend blue mana as though it were mana of any color to pay the activation costs of this creature's abilities.", ("3", "4"), "U")
+SORC = real("Prodigal Sorcerer", "{2}{U}", 3, "Creature \u2014 Human Wizard Sorcerer", "{T}: This creature deals 1 damage to any target.", ("1", "1"), "U")
+SHIVAN = real("Shivan Dragon", "{4}{R}{R}", 6, "Creature \u2014 Dragon", "Flying\n{R}: This creature gets +1/+0 until end of turn.", ("5", "5"), "R")
+GRELL = real("Grell Philosopher", "{2}{U}", 3, "Creature \u2014 Horror Wizard",
+             "Aberrant Tinkering \u2014 When this creature enters and at the beginning of your upkeep, each Horror you control gains all activated abilities of target artifact an opponent controls until end of turn. "
+             "You may spend blue mana as though it were mana of any color to activate those abilities.", ("1", "4"), "U")
+SPELLBOMB = real("Pyrite Spellbomb", "{0}", 0, "Artifact", "{R}, Sacrifice this artifact: This artifact deals 2 damage to any target.\n{1}, Sacrifice this artifact: Draw a card.", None)
+base.EXTRA.extend([QUICK, SORC, SHIVAN, GRELL, SPELLBOMB])
+
+
+def test_quicksilver_and_grell_full(cards):
+    for n in ("Quicksilver Elemental", "Grell Philosopher"):
+        assert coverage.of_card_data(cards.resolve(n)).level == "FULL"
+
+
+def _activated(s, card, needle, pid="p1"):
+    from app.rules.plan import Plan
+
+    return next(a.index for a in Plan(s.state, pid, s.cards, None).ch(s.state.cards[card.id]).abilities if a.kind == "activated" and needle in a.text)
+
+
+def test_quicksilver_gains_the_activated_abilities_of_the_target_and_pays_with_blue(cards):
+    from app.rules.plan import Plan
+    from tests.wave9c_kit import life, pt
+
+    s = build(cards, ["Quicksilver Elemental"], ["Prodigal Sorcerer", "Shivan Dragon"])
+    q = put(s, "Quicksilver Elemental")
+    s.state.rules.controlled_since[q.id].turn = 0
+    sorc, dragon = put(s, "Prodigal Sorcerer", "p2"), put(s, "Shivan Dragon", "p2")
+    mana(s, U=1)
+    act(s, "p1", type="activate_ability", card_id=q.id, ability=_activated(s, q, "gains all activated"), targets=[sorc.id])
+    answer(s)
+    ping = _activated(s, q, "deals 1 damage")  # "This creature" became Quicksilver Elemental
+    act(s, "p1", type="activate_ability", card_id=q.id, ability=ping, targets=["p2"])
+    answer(s)
+    assert life(s, "p2") == 39 and s.state.cards[q.id].tapped
+    mana(s, U=1)
+    act(s, "p1", type="activate_ability", card_id=q.id, ability=_activated(s, q, "gains all activated"), targets=[dragon.id])
+    answer(s)
+    pump = _activated(s, q, "gets +1/+0")
+    mana(s, G=1)
+    with pytest.raises(ActionError):  # green mana is not blue mana
+        act(s, "p1", type="activate_ability", card_id=q.id, ability=pump)
+    mana(s, U=1)  # blue mana pays {R}
+    act(s, "p1", type="activate_ability", card_id=q.id, ability=pump)
+    answer(s)
+    assert pt(s, "Quicksilver Elemental")[0] == 4
+    assert Plan(s.state, "p1", s.cards, None).ch(s.state.cards[q.id]).abilities
+    check(s)
+
+
+def test_grell_gives_horrors_the_abilities_of_an_opponents_artifact_payable_with_blue(cards):
+    from tests.wave9c_kit import life
+
+    s = build(cards, ["Grell Philosopher"], ["Pyrite Spellbomb"])
+    bomb = put(s, "Pyrite Spellbomb", "p2")
+    mana(s, U=1, C=2)
+    grell = cast_card(s, "Grell Philosopher")
+    for _ in range(12):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[next((o.id for o in d.options if o.card_id == bomb.id), d.options[0].id)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    ab = _activated(s, grell, "deals 2 damage")
+    mana(s, G=1)
+    with pytest.raises(ActionError):
+        act(s, "p1", type="activate_ability", card_id=grell.id, ability=ab, targets=["p2"])
+    mana(s, U=1)
+    act(s, "p1", type="activate_ability", card_id=grell.id, ability=ab, targets=["p2"])  # {R} paid with blue mana
+    answer(s)
+    assert life(s, "p2") == 38 and s.state.cards[grell.id].zone.endswith(":graveyard")  # it sacrificed itself
     check(s)

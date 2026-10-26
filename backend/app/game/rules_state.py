@@ -828,6 +828,7 @@ class ContinuousEffect(BaseModel):
     remove_abilities: bool = False
     add_abilities: list[str] = Field(default_factory=list)
     activation_player: str | None = None  # None retains the normal controller permission (602.2).
+    spend_blue110i: bool = False  # (wave 110I) the abilities it grants may be activated with blue mana as though any color (Grell Philosopher)
     # -- licids (wave 50A) -- 613.1f: "loses this ability" (one printed ability, by its index); 116.2c: "You may pay {W} to end this effect" - the
     # special action's cost (``end_cost``, for ``controller``) ends every effect of the same resolution (``end_group``: the first one's timestamp)
     lose_index: list[int] = Field(default_factory=list)

@@ -228,7 +228,7 @@ def layer6(ch: Characteristics, effects: list[ContinuousEffect], wipe: tuple[int
                 continue
             ab = granted_ability(line := with_final_stop(text)) or _enchant(line)
             if ab is not None:
-                extra.append(replace(ab, index=index_of(e.timestamp, k), activation_player=e.activation_player))
+                extra.append(replace(ab, index=index_of(e.timestamp, k), activation_player=e.activation_player, spend_blue110i=e.spend_blue110i))
     return replace(ch, abilities=ch.abilities + tuple(extra)) if extra else ch
 
 
