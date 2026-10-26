@@ -1095,7 +1095,7 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                  for c in selectors.candidates(plan, selectors.from_key(key), you, _other_than(ctx))]
         nums = [n for n in found if n is not None]
         return max(0, sum(nums) if "sum" in v else max(nums or [0]))
-    for stat in ("power", "toughness", "base_power", "mana_value", "colors"):
+    for stat in ("power", "toughness", "base_power", "mana_value", "colors", "station110e"):
         if stat in v:
             got = _object(plan, ctx, v[stat])
             if got is None:
@@ -1178,6 +1178,8 @@ def _stat_of(ch: Any, stat: str) -> int | None:
         return ch.base_pt[0] if ch.base_pt is not None else _stat_of(ch, "power")
     if stat == "mana_value":
         return int(ch.mana_value)
+    if stat == "station110e":  # -- station (wave 110E) -- 702.184c: Tapestry Warden's static makes the number its toughness
+        return _stat_of(ch, "toughness" if "station_toughness110e" in ch.imposed else "power")
     if stat == "power_or_toughness":  # -- value grammar (wave 23C) -- "the greatest power and/or toughness among …": each object's larger number
         both = [n for n in (_stat_of(ch, "power"), _stat_of(ch, "toughness")) if n is not None]
         return max(both) if both else None

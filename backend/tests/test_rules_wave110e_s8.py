@@ -1,0 +1,162 @@
+"""Wave 110E session 8: Oracle-text scenarios for cards promoted this session (each docstring names the rule)."""
+from __future__ import annotations
+
+import pytest
+
+import tests.test_rules_wave110e_cards as base
+import tests.test_rules_wave110e_s7  # noqa: F401  (registers the cards)
+from app.rules import coverage
+from tests.game_helpers import act
+from tests.test_rules_wave110e_cards import card_db  # noqa: F401  (the fixture)
+from tests.test_rules_wave12a_counters_keywords import real
+
+SHRIEK = real("Fell Beast's Shriek", "{U}{R}", 2, "Sorcery",
+              "Each opponent chooses a creature they control. Tap and goad the chosen creatures. (Until your next turn, those creatures attack each combat if able "
+              "and attack a player other than you if able.)\nSplice onto instant or sorcery {2}{U}{R} (As you cast an instant or sorcery spell, you may reveal this "
+              "card from your hand and pay its splice cost. If you do, add this card's effects to that spell.)", None, "UR")
+SIP = real("Test Sip", "{U}", 1, "Instant", "You gain 1 life.", None, "U")
+CULPRIT = real("Expose the Culprit", "{1}{R}", 2, "Instant",
+               "Choose one or both —\n• Turn target face-down creature face up.\n• Exile any number of face-up creatures you control with disguise in a face-down pile, "
+               "shuffle that pile, then cloak them. (To cloak a card, put it onto the battlefield face down as a 2/2 creature with ward {2}. Turn it face up any time for its "
+               "mana cost if it's a creature card.)", None, "R")
+DISGUISER = real("Test Disguiser", "{1}{G}", 2, "Creature — Elf", "Disguise {1}{G} (You may cast this card face down for {3} as a 2/2 creature with ward {2}.)", ("3", "3"), "G")
+AMBUSH = real("Auditore Ambush", "{2}{U}{B}", 4, "Sorcery",
+              "Choose one or both —\n• Return target creature to its owner's hand.\n• Target player searches their library and/or graveyard for a card named Ezio, "
+              "Blade of Vengeance, reveals it, and puts it into their hand. If they search their library this way, they shuffle.", None, "UB")
+EZIO = real("Ezio, Blade of Vengeance", "{3}{U}{B}", 5, "Legendary Creature — Human Assassin",
+            "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nWhenever an Assassin you control deals combat damage to a player, draw a card.",
+            ("5", "5"), "UB")
+base.EXTRA.extend([SHRIEK, SIP, CULPRIT, DISGUISER, AMBUSH, EZIO])
+
+
+@pytest.mark.parametrize("name", [c["name"] for c in (SHRIEK, CULPRIT, AMBUSH)])
+def test_full(cards, name):
+    assert coverage.of_card_data(cards.resolve(name)).level == "FULL"
+
+
+def test_fell_beasts_shriek_each_opponent_taps_and_goads_the_creature_they_chose(cards):
+    """608.2c, 701.39a: each opponent picks one of their creatures; those creatures become tapped and goaded by the caster."""
+    from tests.test_rules_conditionals import creature
+    from tests.test_rules_wave110e_cards import answer, cast
+    from tests.wave9c_kit import build, check, mana
+
+    s = build(cards, ["Fell Beast's Shriek"])
+    a, b = creature(s, "p2", "Aaa", "2/2"), creature(s, "p2", "Bbb", "3/3")
+    mana(s, U=1, R=1)
+    cast(s, "Fell Beast's Shriek")
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=[a.id])
+    answer(s)
+    assert s.state.cards[a.id].tapped and not s.state.cards[b.id].tapped
+    from app.rules.keyword_actions import goaded_by
+    from app.rules.plan import Plan
+
+    plan = Plan(s.state, "p1", s.cards, None)
+    assert goaded_by(plan.ch(s.state.cards[a.id])) == {"p1"} and not goaded_by(plan.ch(s.state.cards[b.id]))
+    check(s)
+
+
+def test_fell_beasts_shriek_spliced_onto_an_instant_adds_its_text_and_cost(cards):
+    """702.47a: spliced onto an instant, the spell also makes each opponent choose a creature to tap and goad; the splice cost {2}{U}{R} is extra."""
+    from tests.test_rules_conditionals import creature
+    from tests.test_rules_wave110e_cards import answer
+    from tests.wave9c_kit import build, check, mana, to_hand
+
+    s = build(cards, ["Test Sip", "Fell Beast's Shriek"])
+    a = creature(s, "p2", "Aaa", "2/2")
+    sip, shriek = to_hand(s, "Test Sip"), to_hand(s, "Fell Beast's Shriek")
+    mana(s, U=2, R=1, C=2)
+    act(s, "p1", type="cast_spell", card_id=sip.id, splice=[shriek.id])
+    answer(s)
+    assert s.state.cards[a.id].tapped and s.state.cards[shriek.id].zone == "p1:hand" and s.state.players["p1"].life == 41
+    check(s)
+
+
+def _expose(cards, modes, pick_disguisers):
+    from tests.test_rules_conditionals import creature
+    from tests.test_rules_wave110e_cards import answer, cast
+    from tests.wave9c_kit import build, mana, put
+
+    s = build(cards, ["Expose the Culprit", "Test Disguiser", "Grizzly Bears"])
+    d = put(s, "Test Disguiser")
+    bears = put(s, "Grizzly Bears")
+    creature(s, "p2", "Plain", "2/2")
+    return s, d, bears, (mana, cast, answer)
+
+
+def _face_down(s, pid="p1"):
+    return [c for c in s.state.cards.values() if c.face_down and c.zone == f"{pid}:battlefield"]
+
+
+@pytest.mark.parametrize("take", [True, False])
+def test_expose_the_culprit_cloaks_only_the_disguise_creatures_you_choose(cards, take):
+    """701.58, 406.3: any number (0 too) of face-up creatures with disguise are exiled face down, shuffled, then cloaked; a creature without disguise is not an option."""
+    from tests.wave9c_kit import check
+
+    s, d, bears, (mana, cast, answer) = _expose(cards, [1], take)
+    mana(s, R=1, C=1)
+    cast(s, "Expose the Culprit", modes=[1])
+    for _ in range(10):
+        dec = s.state.rules.decision
+        if dec is None:
+            break
+        assert [o.id for o in dec.options] == [d.id]  # (the Bears has no disguise)
+        act(s, dec.player, type="choose", decision_id=dec.id, option_ids=[d.id] if take else [])
+    answer(s)
+    down = _face_down(s)
+    assert len(down) == (1 if take else 0) and s.state.cards[bears.id].zone == "p1:battlefield" and not s.state.cards[bears.id].face_down
+    assert all(c.name == "Test Disguiser" for c in down)  # (the same card, now a face-down permanent: 708.4)
+    check(s)
+
+
+def test_expose_the_culprit_first_mode_turns_the_cloaked_creature_face_up(cards):
+    """701.58 then 708.8: a cloaked (face-down) creature is the target of mode one and is turned face up."""
+    from tests.wave9c_kit import check
+
+    s, d, bears, (mana, cast, answer) = _expose(cards, [1], True)
+    mana(s, R=2, C=2)
+    cast(s, "Expose the Culprit", modes=[1])
+    for _ in range(10):
+        dec = s.state.rules.decision
+        if dec is None:
+            break
+        act(s, dec.player, type="choose", decision_id=dec.id, option_ids=[d.id])
+    answer(s)
+    (hidden,) = _face_down(s)
+    cast(s, "Expose the Culprit", [hidden.id], modes=[0])
+    answer(s)
+    assert not s.state.cards[hidden.id].face_down
+    check(s)
+
+
+@pytest.mark.parametrize(("zone", "searcher"), [("library", "p2"), ("graveyard", "p2"), ("library", "p1")])
+def test_auditore_ambush_the_target_player_searches_their_own_zones_for_ezio(cards, zone, searcher):
+    """701.23a: the targeted player (not the caster) searches their library and/or graveyard; 701.24g: only a library search shuffles; the card goes to that player's hand."""
+    from tests.test_rules_wave110e_cards import answer, cast
+    from tests.wave9c_kit import build, card_named, check, mana
+
+    s = build(cards, ["Auditore Ambush", "Ezio, Blade of Vengeance"], ["Ezio, Blade of Vengeance"])
+    mine, theirs = card_named(s, "Ezio, Blade of Vengeance", "p1"), card_named(s, "Ezio, Blade of Vengeance", "p2")
+    ezio = theirs if searcher == "p2" else mine
+    if zone == "graveyard":
+        act(s, searcher, type="move", card_ids=[ezio.id], to={"player": searcher, "zone": "graveyard"})
+    other = mine if searcher == "p2" else theirs
+    before = list(s.state.zones[f"{searcher}:library"])
+    mana(s, U=1, B=1, C=2)
+    cast(s, "Auditore Ambush", [searcher], modes=[1])
+    for _ in range(10):
+        d = s.state.rules.decision
+        if d is None:
+            break
+        want = [o.id for o in d.options if o.id in (ezio.id, "graveyard" if zone == "graveyard" else "both")] or [d.options[0].id]
+        act(s, d.player, type="choose", decision_id=d.id, option_ids=want[:1])
+    answer(s)
+    assert s.state.cards[ezio.id].zone == f"{searcher}:hand" and s.state.cards[other.id].zone != f"{searcher}:hand"
+    shuffled = any("shuffle" in (p.t or "") for entry in s.state.log for p in entry.parts)
+    assert shuffled == (zone == "library")
+    if zone == "graveyard":
+        assert s.state.zones[f"{searcher}:library"] == before  # (no library search, no shuffle)
+    check(s)

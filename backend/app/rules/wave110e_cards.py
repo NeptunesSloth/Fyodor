@@ -25,6 +25,14 @@ _APPEND: dict[str, tuple[str, list[Def]]] = {
     "Surveil 2, then draw a card. You may planeswalk.": ("Surveil 2, then draw a card.", []),
 }
 
+_REWRITE: dict[str, str] = {
+    # 701.39a goad, 701.21? tap: both act on the creatures each opponent chose (608.2c)
+    "Each opponent chooses a creature they control. Tap and goad the chosen creatures.":
+        "Each opponent chooses a creature they control. Tap those creatures. Goad those creatures.",
+}
+_CULPRIT = "Exile any number of face-up creatures you control with disguise in a face-down pile, shuffle that pile, then cloak them."
+_AMBUSH = ("Target player searches their library and/or graveyard for a card named Ezio, Blade of Vengeance, reveals it, and puts it into their hand. "
+           "If they search their library this way, they shuffle.")
 _BOLAS = 'sel:{"controller":"you","subtypes":["Bolas"],"types":["Planeswalker"]}'
 # whole ability text -> (the wording the grammar reads for the targets, the effects that replace the parsed ones; "target:0" = the first target group)
 _SWAP: dict[str, tuple[str, list[Def]]] = {
@@ -278,6 +286,8 @@ def definition(ability: Any, ch: Any) -> Def | None:
         if native is None or native["effects"][-1]["do"] != "draw":
             return None
         return {**native, "effects": [*native["effects"][:-1], {"do": "trigger_leaf51_djinn_draws", "all": True, "n": 7}]}
+    if (alt := _REWRITE.get(text)) is not None:  # an exact Oracle sentence read as the wording the grammar already knows (pattern: multi100n)
+        return scripts.define(replace(ability, text=alt), ch)
     swap = _SWAP.get(ability.text.strip())
     if swap is not None:
         native = scripts.define(replace(ability, text=swap[0]), ch)
@@ -287,3 +297,18 @@ def definition(ability: Any, ch: Any) -> Def | None:
         return None
     native = scripts.define(replace(ability, text=got[0]), ch)
     return None if native is None else {**native, "effects": [*native["effects"], *got[1]]}
+
+
+def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """Exact wordings read as spell effects (scripts.parse_effects hook)."""
+    if body.strip() == _CULPRIT:  # 701.58: the creatures are chosen as it resolves (608.2d, not targeted), then exiled face down, shuffled, cloaked (facedown.manifest_pile)
+        sel = '{"controller":"you","extras":["face_up"],"types":["Creature"],"with_keywords":["disguise"]}'
+        return [{"do": "player_chooses", "who": "you", "sel": "sel:" + sel, "n": 1, "label": "creature", "any": True, "upto": True, "optional": True, "as": "cul110e"},
+                {"do": "manifest_pile", "kind": "cloak", "tapped": False, "who": "ref:cul110e"}], None, False
+    if body.strip() == _AMBUSH:  # 701.23: the targeted player is the searcher (effects.search: who), the same search "you" would make
+        from app.rules import scripts
+
+        own = scripts.parse_effects(_AMBUSH.replace("Target player searches their", "Search your").replace("reveals it, and puts it into their hand", "reveal it, and put it into your hand")
+                                    .replace("If they search their library this way, they shuffle", "If you search your library this way, shuffle"))
+        return None if own is None or len(own[0]) != 1 or own[0][0].get("do") != "search" else ([{**own[0][0], "who": "target"}], "player", False)
+    return None

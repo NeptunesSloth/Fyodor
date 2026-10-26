@@ -68,7 +68,7 @@ def granted(when: str, text: str, is_keyword: Callable[[str], bool]) -> str:
 # (and, with a power/toughness box, "and is a creature with base power and toughness [P/T] in addition to its other types"); the box is the
 # one the reminder text names ("It's an artifact creature at N+."). 721.2c: a station card has no power or toughness off the battlefield.
 _STATION_SYMBOL = re.compile(r"^(\d+)\+ \| (.+)$")
-STATION = ("Tap another untapped creature you control: Put a number of charge counters on this permanent equal to the power of the creature "
+STATION = ("Tap another untapped creature you control: Put a number of charge counters on this permanent equal to the station value of the creature "
            "tapped this way. Activate only as a sorcery.")
 
 

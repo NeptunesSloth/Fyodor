@@ -785,7 +785,7 @@ def _split_subject(body: str) -> tuple[str | None, str | None]:
     goaded = re.fullmatch(r"(?P<s>.+?) (?P<p>(?:is|are) goaded)", body)  # -- wave 3F -- 701.15b
     if goaded and not re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|don't|doesn't)\b", goaded["s"]):
         return goaded["s"], goaded["p"]
-    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|(?<!you )(?<!but )don't|doesn't|assigns?(?= combat damage)|(?:crews|saddles)(?= (?:Vehicles|Mounts)))\b", body)  # (assigns: wave 6E; crews: 17C; wave 42A: "but don't own" is part of the subject, 108.3)
+    m = re.search(r"\b(?:gets?|ha(?:s|ve)|can't|can|attacks?|blocks?|must|(?<!you )(?<!but )don't|doesn't|assigns?(?= combat damage)|(?:crews|saddles)(?= (?:Vehicles|Mounts))|stations(?= permanents))\b", body)  # (assigns: wave 6E; crews: 17C; wave 42A: "but don't own" is part of the subject, 108.3)
     if m is None or m.start() == 0:
         return None, None
     return body[: m.start()].strip(), body[m.start():].strip()
@@ -1249,6 +1249,8 @@ def _rule(piece: str) -> list[str] | None:
         return [f"crew_plus:{_num(m['n'])}"]
     if piece in ("crews Vehicles using its toughness rather than its power", "saddles Mounts and crews Vehicles using its toughness rather than its power"):
         return ["crew_toughness"]
+    if piece == "stations permanents using its toughness rather than its power":  # -- station (wave 110E) -- 702.184c (values._stat_of "station110e")
+        return ["station_toughness110e"]
     m = re.fullmatch(r"can't be blocked except by (?P<n>\w+) or more creatures", piece)
     if m:
         n = _num(m["n"])
