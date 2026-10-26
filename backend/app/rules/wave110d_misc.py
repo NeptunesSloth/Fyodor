@@ -40,6 +40,8 @@ MYSTERY = "When this land transforms into Havengul Mystery, return target creatu
 MYSTERY2 = "When the creature put onto the battlefield with Havengul Mystery leaves the battlefield, transform Havengul Mystery."
 TOVOLAR = ("At the beginning of your upkeep, if you control three or more Wolves and/or Werewolves, it becomes night. "
            "Then transform any number of Human Werewolves you control.")
+PREDICAMENTS = ("Whenever this creature deals combat damage to a player, choose a card in your hand. That player guesses whether the card's mana value is greater than 4. "
+                "If the player guessed wrong, you may cast the card without paying its mana cost.")
 DACK = "Whenever you cast a spell that targets one or more permanents, gain control of those permanents."
 
 
@@ -147,6 +149,12 @@ def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
                     "label": "Human Werewolves", "as": "tovolar110d"}
             d["effects"] = [{**d["effects"][0], "skip": 3}, *d["effects"][1:], pick, {"do": "transform", "who": "ref:tovolar110d"}]
         return d
+    if ability.text == PREDICAMENTS:  # 608.2d the controller picks in secret, the damaged player answers; a wrong guess lets the controller cast it free (118.9)
+        d = scripts.define(replace(ability, text=PREDICAMENTS.split(",")[0] + ", draw a card."), ch)
+        if d is not None:
+            d["effects"] = [{"do": "predicaments110d"}, {"do": "only_if", "cond": {"succeeded": "wrong110d"}, "skip": 1},
+                            {"do": "free_cast", "zone": "that", "who": "ref:pred110d", "filter": None, "optional": True, "mv": None}]
+        return d
     if ability.text == DACK:  # Dack Fayden's emblem (114.1): the cast event's targets (115.9b: departed ones are ignored), permanently
         cond = events.parse_condition("you cast a spell that targets one or more permanents")
         assert cond is not None
@@ -236,8 +244,53 @@ def resume_attach(plan: Any, d: Any, chosen: list[str]) -> None:
         attachments.attach(plan, card.id, chosen[0], d.player)
 
 
-PRIMITIVES: dict[str, Any] = {"phase_hold110d": phase_hold, "may_hit110d": may_hit, "spell_permanents110d": spell_permanents}
-RESUME: dict[str, Any] = {"may_hit110d": resume, GIFT_UP: resume_attach}
+def predicaments(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    from app.game.rules_state import DecisionOption
+    from app.rules import context, effects
+
+    me = ctx["controller"]
+    hand = list(plan.state.zones.get(f"{me}:hand", []))
+    context.bind_payment(ctx, "wrong110d", False)
+    context.bind_objects(plan, ctx, "pred110d", [])
+    if not hand or not effects._players(plan, ctx, "event_player"):
+        return True
+    effects.decide(plan, player=me, kind="choose_cards", prompt=f"{ctx.get('name') or 'Choose'}: choose a card in your hand",
+                   options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in hand], min_choices=1, max_choices=1,
+                   resume={"step": "predicaments110d", "ctx": ctx})
+    return False
+
+
+def resume_predicaments(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.game.rules_state import DecisionOption
+    from app.rules import context, effects
+
+    ctx = d.resume["ctx"]
+    if len(chosen) != 1 or chosen[0] not in plan.state.zones.get(f"{d.player}:hand", []):
+        raise ActionError("Choose a card in your hand")
+    context.bind_objects(plan, ctx, "pred110d", chosen)
+    guesser = effects._players(plan, ctx, "event_player")[0]
+    effects.decide(plan, player=guesser, kind="choose_one", prompt=f"{ctx.get('name') or 'Guess'}: is the mana value of the chosen card greater than 4?",
+                   options=[DecisionOption(id="yes", label="Yes, greater than 4"), DecisionOption(id="no", label="No, 4 or less")],
+                   resume={"step": "predicaments110d_guess", "ctx": ctx, "card": chosen[0]})
+
+
+def resume_guess(plan: Any, d: Any, chosen: list[str]) -> None:
+    from app.game.errors import ActionError
+    from app.rules import characteristics as chars
+    from app.rules import context, effects
+
+    if len(chosen) != 1 or chosen[0] not in ("yes", "no"):
+        raise ActionError("Choose yes or no")
+    card = plan.state.cards[d.resume["card"]]  # (hidden until now: the guess is made without seeing it, 608.2d)
+    wrong = (chars.of(card, plan.info).mana_value > 4) != (chosen[0] == "yes")  # 202.3e: X in a hand is 0
+    plan.note(f"{plan.name(d.player)} guessed {'wrong' if wrong else 'right'}", actor=d.player)
+    context.bind_payment(d.resume["ctx"], "wrong110d", wrong)
+    effects.continue_effects(plan, d.resume["ctx"])
+
+
+PRIMITIVES: dict[str, Any] = {"predicaments110d": predicaments, "phase_hold110d": phase_hold, "may_hit110d": may_hit, "spell_permanents110d": spell_permanents}
+RESUME: dict[str, Any] = {"predicaments110d": resume_predicaments, "predicaments110d_guess": resume_guess, "may_hit110d": resume, GIFT_UP: resume_attach}
 
 
 CALL = "Choose up to two. Return those cards from your graveyard to your hand."
