@@ -21,7 +21,6 @@
 - Living Lore: "as this creature enters, exile …" with power and toughness read from the exiled card and a linked free cast.
 - False Orders: removes a blocker from combat and inserts a new block.
 - Gather Specimens: a turn-long "enters under your control instead" replacement.
-- Pure Intentions: "a spell or ability an opponent controls causes you to discard" needs the cause of a discard recorded.
 - City in a Bottle: "originally printed in Arabian Nights" needs printing history, and a cast / play prohibition by name set.
 - Kjeldoran Guard: "defending player" in an activated ability is undefined in multiplayer (506.2); no ruling found.
 - Numa, Joraga Chieftain: paying {X}{X} and distributing X counters among any number of targets are both missing.

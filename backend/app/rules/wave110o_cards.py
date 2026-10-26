@@ -46,6 +46,16 @@ def parse(body: str) -> Any:
                 {"do": "portent_hand110o"}], None, False
     if body.strip() == _SANDS:
         return [{"do": "redistribute110o"}], None, False
+    if body.strip() == _PURE:  # 603.7a, 701.9, 603.2c: a turn-long trigger on the opponents' discards, one trigger for the batch; the cards, as they now are in the graveyard
+        from app.rules import delayed, events
+
+        cond = events.parse_condition("a spell or ability an opponent controls causes you to discard cards")
+        if cond is None or not cond.get("aggregate") or cond.get("cause") != "opponent":
+            return None
+        head = {"kind": "watch", "cond": cond, "text": "a spell or ability an opponent controls causes you to discard cards"}
+        wrapped = delayed.wrap_when([{"do": "bounce", "who": "event.new"}], head, this_turn=True)
+        wrapped[0]["once"] = False
+        return wrapped, None, False
     if body.strip() == _UNDER_COST:  # 601.2b: the optional additional cost is announced as the spell is cast (costs.kicker_cost reads it); this line does nothing itself
         return [], None, False
     if body.strip() == _UNDER_PREVENT:  # 615.1, 608.2c: the exception is read when the spell resolves; the red creatures are those of that moment
@@ -74,6 +84,7 @@ def parse(body: str) -> Any:
     return scripts.parse_effects(same) if (same := REWRITES.get(body.strip())) is not None else None
 
 
+_PURE = ("Whenever a spell or ability an opponent controls causes you to discard cards this turn, return those cards from your graveyard to your hand.")
 _UNDER_COST = "As an additional cost to cast this spell, you may pay {2}{R}."
 _UNDER_PREVENT = ("Prevent all combat damage that would be dealt this turn. If this spell's additional cost was paid, this effect doesn't affect "
                   "combat damage that would be dealt by red creatures.")
