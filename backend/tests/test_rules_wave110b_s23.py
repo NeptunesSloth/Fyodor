@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.wave110b_kit import (
@@ -95,7 +96,7 @@ def test_hama_permission_is_not_usable_on_the_opponents_turn(cards):
             act(s, s.state.rules.priority, type="pass_priority")
     assert s.state.turn.active_player == "p2"
     mana(s, "p1", R=1, C=1)
-    with pytest.raises(Exception):
+    with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"], sources=[])
 
 
@@ -105,7 +106,7 @@ def test_hama_leaving_ends_the_permission(cards):
     hama = card_named(s, HAMA)
     act(s, "p1", type="move", card_ids=[hama.id], to={"zone": "graveyard"})
     mana(s, "p1", R=1, C=1)
-    with pytest.raises(Exception) as err:
+    with pytest.raises(ActionError) as err:
         act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"], sources=[])
     assert "exile" in str(err.value).lower() or "cast" in str(err.value).lower()
     assert s.state.cards[bolt.id].zone == "p2:exile"
