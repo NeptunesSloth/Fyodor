@@ -255,7 +255,7 @@ export function cssTokens(p: PlaneTheme): Record<string, string> {
     "--accent-grad": `linear-gradient(180deg, ${u.accent2} 0%, ${u.accent} 50%, ${accentLow(p)} 100%)`,
     "--accent-glow": rgba(accent, 0.42),
     "--select": u.select, "--select-glow": rgba(sel, 0.55),
-    "--felt": e.felt, "--felt-2": e.feltNap,
+    "--felt": e.felt, "--felt-2": e.feltNap, "--wood": e.surfaceBase, "--wood-2": e.surfaceGrain,
     "--mat": "rgba(0, 0, 0, 0.22)", "--mat-line": rgba(hexRgb(e.inlay), 0.22),
     "--steel-hi": hex(steelHi), "--steel-lo": hex(steelLo),
     "--hud-surface": `linear-gradient(180deg, ${hex(steelHi)}, ${hex(steelLo)})`,

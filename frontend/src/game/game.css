@@ -553,3 +553,48 @@ body.hud-minimal .player-panel { padding: 3px 8px; }
 .mana-field input { width: 44px; }
 
 .stack-widget.below-hud { top: 92px; }
+
+/* ================= the 2D table, in the 3D table's materials =================
+   A walnut table under a warm lamp; each player's battlefield is a baize playmat stitched in their
+   seat colour; panels are blackened steel; empty piles are slots pressed into the wood. */
+main.table:not(.is-3d) {
+  background:
+    radial-gradient(ellipse 65% 55% at 50% 48%, rgba(255, 196, 130, 0.10), transparent 70%),
+    radial-gradient(ellipse 110% 95% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.6) 100%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.12) 0 1px, transparent 1px 6px, rgba(255, 222, 186, 0.025) 6px 8px, transparent 8px 21px),
+    repeating-linear-gradient(0deg, transparent 0 239px, rgba(0, 0, 0, 0.35) 239px 241px),
+    linear-gradient(180deg, var(--wood), var(--wood-2));
+}
+main.table:not(.is-3d) .opponents { border-bottom: 0; }
+main.table:not(.is-3d) .opponents > .player-area + .player-area { border-left: 0; }
+main.table:not(.is-3d) .player-area { padding: 8px 10px; }
+main.table:not(.is-3d) .battlefield {
+  border: 0; border-radius: 14px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 80% 75% at 50% 42%, var(--felt-2), var(--felt));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 12px 26px rgba(0, 0, 0, 0.55), inset 0 0 0 9px rgba(0, 0, 0, 0.16), inset 0 0 70px rgba(0, 0, 0, 0.35);
+}
+/* the hem, stitched in the seat colour */
+main.table:not(.is-3d) .battlefield::after {
+  content: ""; position: absolute; inset: 7px; border-radius: 9px; pointer-events: none; z-index: 0;
+  border: 2px dashed color-mix(in srgb, var(--player-color) 70%, transparent);
+}
+main.table:not(.is-3d) .player-panel {
+  background: var(--hud-surface); border: 1px solid var(--line); border-radius: 6px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+main.table:not(.is-3d) .player-panel.active { box-shadow: 0 0 0 1px var(--frame-hi), 0 8px 18px rgba(0, 0, 0, 0.5); }
+main.table:not(.is-3d) .life { font-family: var(--font-display); font-weight: 700; color: var(--text); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9); }
+main.table:not(.is-3d) .life-step { background: transparent; border-color: var(--line); color: var(--text-dim); }
+main.table:not(.is-3d) .pile-empty { border: 0; background: rgba(0, 0, 0, 0.28); box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 230, 200, 0.05); }
+main.table:not(.is-3d) .pile-card { filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.55)); }
+main.table:not(.is-3d) .command-zone { background: rgba(0, 0, 0, 0.22); border: 0; box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.55); }
+/* an opponent's hand: a small fan of sleeves, not a row of tiles */
+main.table:not(.is-3d) .hand.compact .hand-cards { --overlap: 14px; }
+main.table:not(.is-3d) .hand.compact .hand-card { width: 24px; }
+main.table:not(.is-3d) > .hand:not(.compact) { background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent); }
+/* life buttons wait until you reach for the panel (the space stays, so nothing jumps) */
+@media (hover: hover) and (pointer: fine) {
+  main.table:not(.is-3d) .player-panel:not(:hover):not(:focus-within) :is(.life-step, .life-btn) { opacity: 0; }
+}
