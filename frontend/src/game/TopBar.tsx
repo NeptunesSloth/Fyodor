@@ -11,6 +11,7 @@ import { fetchHistory, historyText } from "./HistoryDialog";
 import { useGame } from "../state/gameStore";
 import { OMNISCIENT, SPECTATOR } from "../types/game";
 import { send } from "./actions";
+import { resolveRenderer } from "../table3d/renderer";
 
 export function TopBar() {
   const view = useGame((s) => s.view);
@@ -19,7 +20,9 @@ export function TopBar() {
   const { undo, redo, openDialog, setViewer, setActingAs } = useGame.getState();
   const isHost = useIsHost();
   const hud = usePrefs((st) => st.hud);
+  const renderer = usePrefs((st) => st.renderer);
   if (!view) return null;
+  const is3d = resolveRenderer(renderer) === "3d";
   const local = view.game.mode === "local";
   const dayNight = view.table.day_night;
   return (
@@ -63,6 +66,12 @@ export function TopBar() {
             ))}
           </select>
         </label>
+      )}
+      {resolveRenderer("3d") === "3d" && (
+        <button className="tt-btn ghost" data-testid="renderer-toggle" title="Switch between the 3D table and the lighter 2D table (also in Settings → Table)"
+          onClick={() => usePrefs.getState().set({ renderer: is3d ? "2d" : "3d" })}>
+          {is3d ? "2D table" : "3D table"}
+        </button>
       )}
       <button className="tt-btn ghost" title="Hide or show the player panels' counters, mana pool, commander damage and tool tray (H)" onClick={() => usePrefs.getState().set({ hud: usePrefs.getState().hud === "full" ? "minimal" : "full" })}>
         {hud === "full" ? "Hide counters & tools" : "Show counters & tools"}
