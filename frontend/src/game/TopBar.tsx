@@ -7,6 +7,7 @@ import { api } from "../services/api";
 import { seatToken } from "../services/games";
 import type { GameView } from "../types/game";
 import { useIsHost } from "./HostTools";
+import { fetchHistory, historyText } from "./HistoryDialog";
 import { useGame } from "../state/gameStore";
 import { OMNISCIENT, SPECTATOR } from "../types/game";
 import { send } from "./actions";
@@ -36,13 +37,11 @@ export function TopBar() {
           {dayNight === "day" ? "☀ Day" : "☾ Night"}
         </button>
       )}
-      <button className="tt-btn ghost" disabled={!view.game.can_undo} onClick={() => void undo()} title="Undo (Ctrl+Z)">Undo</button>
-      <button className="tt-btn ghost" disabled={!view.game.can_redo} onClick={() => void redo()} title="Redo (Ctrl+Shift+Z)">Redo</button>
-      {isHost && (
-        <button className="tt-btn ghost" data-testid="end-game" onClick={() => openDialog("endgame")} title="Record who won">
-          {view.game.result_id ? "Result ✓" : "End game"}
-        </button>
-      )}
+      <span className="tt-split" role="group" aria-label="Undo and redo">
+        <button className="tt-btn ghost" disabled={!view.game.can_undo} onClick={() => void undo()} title="Undo (Ctrl+Z)">Undo</button>
+        <button className="tt-btn ghost undo-more" disabled={!view.game.can_undo} aria-label="Undo back to a recent action" title="Undo back to a recent action" onClick={(e) => void recentMenu(e)}>▾</button>
+        <button className="tt-btn ghost" disabled={!view.game.can_redo} onClick={() => void redo()} title="Redo (Ctrl+Shift+Z)">Redo</button>
+      </span>
       {local && (
         <label className="seat-switch" title="Hot-seat: whose view to show">
           View
@@ -65,13 +64,33 @@ export function TopBar() {
           </select>
         </label>
       )}
-      <button className="tt-btn ghost" title="Minimal / full HUD (H)" onClick={() => usePrefs.getState().set({ hud: usePrefs.getState().hud === "full" ? "minimal" : "full" })}>
-        {hud === "full" ? "Less detail" : "More detail"}
+      <button className="tt-btn ghost" title="Hide or show the player panels' counters, mana pool, commander damage and tool tray (H)" onClick={() => usePrefs.getState().set({ hud: usePrefs.getState().hud === "full" ? "minimal" : "full" })}>
+        {hud === "full" ? "Hide counters & tools" : "Show counters & tools"}
       </button>
       <button className="tt-btn ghost" onClick={() => openDialog("help")} title="How to play, controls and shortcuts (?)">Help</button>
       <button className="tt-btn ghost" data-testid="table-menu" aria-label="More" title="Save, load, tools and settings" onClick={(e) => openMenu(e, tableMenu(isHost), "Table")}>More</button>
+      {/* kept apart from Undo: ending the game is not a slip of the hand */}
+      {isHost && (
+        <button className="tt-btn ghost" data-testid="end-game" onClick={() => openDialog("endgame")} title="Record who won">
+          {view.game.result_id ? "Result ✓" : "End game"}
+        </button>
+      )}
     </header>
   );
+}
+
+/** The last few actions, newest first; picking one undoes everything back to and including it. */
+async function recentMenu(e: React.MouseEvent) {
+  const at = { clientX: e.clientX, clientY: e.clientY };
+  const s = useGame.getState();
+  if (!s.view) return;
+  const items = await fetchHistory(s.view).catch(() => []);
+  const live = items.filter((it) => !it.undone).slice(0, 10);
+  openMenu(at, live.length ? live.map((it, i) => ({
+    label: historyText(it),
+    hint: i ? `Undo ${i + 1} actions` : "Undo this action",
+    onClick: async () => { for (let k = 0; k <= i; k++) await useGame.getState().undo(); },
+  })) : [{ label: "Nothing to undo", disabled: true }], "Undo back to…");
 }
 
 function tableMenu(isHost: boolean): MenuItem[] {

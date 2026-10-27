@@ -3,14 +3,15 @@
  * (seat plates with life totals, camera presets). Falls back to the 2D table when WebGL is
  * unavailable (see GameScreen).
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { setDropResolver3D } from "../game/dnd";
 import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "../game/PlayerPanel";
 import { plane } from "../theme/planes";
-import { TableScene, type CameraPreset, type Quality } from "./TableScene";
+import { isVisible, type GameView } from "../types/game";
+import { ERROR_MS, TableScene, type CameraPreset, type Quality } from "./TableScene";
 import { startAmbience } from "./ambience";
 import "./table3d.css";
 
@@ -37,6 +38,11 @@ export function Table3D({ me }: { me: string }) {
   const [preset, setPreset] = useState<CameraPreset>("seat");
   const [open, setOpen] = useState<string | null>(null);
   const plates = useRef<Record<string, HTMLDivElement | null>>({});
+  const tags = useRef<Record<string, HTMLDivElement | null>>({});
+  const tagView = useGame((s) => s.view);
+  const selection = useGame((s) => s.selection);
+  const [allNames, setAllNames] = useState(false);
+  const tagged = useMemo(() => nameTags(tagView, selection, allNames), [tagView, selection, allNames]);
 
   // create / destroy the scene (quality changes need a new renderer)
   useEffect(() => {
@@ -55,7 +61,8 @@ export function Table3D({ me }: { me: string }) {
     };
     sync();
     const unGame = useGame.subscribe((s, prev) => {
-      if (s.view !== prev.view || s.selection !== prev.selection || s.pendingPositions !== prev.pendingPositions) sync();
+      if (s.view !== prev.view || s.selection !== prev.selection || s.pendingPositions !== prev.pendingPositions || s.errorCard !== prev.errorCard) sync();
+      if (s.errorCard && s.errorCard !== prev.errorCard) setTimeout(sync, ERROR_MS + 50);
     });
     const unCards = useCardCache.subscribe((s, prev) => {
       if (s.cards !== prev.cards) sync();
@@ -67,31 +74,72 @@ export function Table3D({ me }: { me: string }) {
       cardAt: (id) => scene.screenOfCard(id),
       battlefieldAt: (player, x, y) => scene.screenOfBattlefield(player, x, y),
     };
-    // keep the seat plates glued to the table, stepping out from under fixed chrome (camera strip,
-    // turn dial, stack panels) so no plaque is ever hidden
+    // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,
+    // turn dial, stack panels) and the battlefield cards, and never past the screen edge
     let frame = 0;
-    let chrome: DOMRect[] = [];
+    type Box = { left: number; top: number; right: number; bottom: number };
+    let cards: Box[] = [];
+    let chrome: Box[] = [];
     const follow = () => {
       const host = el.getBoundingClientRect();
+      const w = el.clientWidth;
+      const h = el.clientHeight;
       if (frame++ % 20 === 0) {
-        chrome = [...document.querySelectorAll(".t3d-cams, .turn-dial-wrap, .stack-widget.open, .rules-stack-wrap, .t3d-coach")].map((n) => n.getBoundingClientRect());
+        chrome = [...document.querySelectorAll(".t3d-cams, .turn-dial-wrap, .stack-widget.open, .rules-stack-wrap, .t3d-coach")].map((n) => {
+          const r = n.getBoundingClientRect();
+          return { left: r.left - host.left, top: r.top - host.top, right: r.right - host.left, bottom: r.bottom - host.top };
+        });
+        cards = scene.battlefieldRects(w, h);
       }
       for (const [pid, node] of Object.entries(plates.current)) {
         if (!node) continue;
-        const pt = scene.seatScreen(pid, el.clientWidth, el.clientHeight);
+        const pt = scene.seatScreen(pid, w, h);
         if (!pt) continue;
-        const pw = node.offsetWidth || 160;
-        const ph = node.offsetHeight || 56;
-        let { x, y } = pt;
-        for (const r of chrome) {
-          const cx = x + host.left;
-          const cy = y + host.top;
-          if (cx + pw / 2 < r.left || cx - pw / 2 > r.right || cy + ph / 2 < r.top || cy - ph / 2 > r.bottom) continue;
-          // move vertically to whichever edge of the obstacle is nearer
-          y = cy - r.top < r.bottom - cy ? r.top - host.top - ph / 2 - 6 : r.bottom - host.top + ph / 2 + 6;
-        }
+        // sizes are measured in each form, so the compact switch doesn't flicker
+        const form = node.classList.contains("compact") ? "small" : "full";
+        if (node.offsetWidth) node.dataset[form] = `${node.offsetWidth},${node.offsetHeight}`;
+        const size = (f: string) => (node.dataset[f] ?? "160,56").split(",").map(Number) as [number, number];
+        const place = ([pw, ph]: [number, number]) => {
+          let { x, y } = pt;
+          const hits = (r: Box) => !(x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom);
+          const fits = (v: number) => v >= ph / 2 + 8 && v <= h - ph / 2 - 8;
+          const stepOff = (boxes: Box[]) => {
+            let moved = false;
+            for (const r of boxes) {
+              if (!hits(r)) continue;
+              // to whichever edge of the obstacle is nearer, unless that leaves the screen
+              const up = r.top - ph / 2 - 6;
+              const down = r.bottom + ph / 2 + 6;
+              y = (y - r.top < r.bottom - y && fits(up)) || !fits(down) ? up : down;
+              moved = true;
+            }
+            return moved;
+          };
+          // cards first (a few passes: stepping off one card can land on its neighbour); a plaque
+          // that would have to wander from its seat stays put instead; the fixed panels go last, so
+          // a plaque is never hidden under one
+          for (let pass = 0; pass < 4 && stepOff(cards); pass++);
+          const far = Math.abs(y - pt.y) > MAX_DRIFT;
+          if (far) y = pt.y;
+          x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
+          y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
+          for (let pass = 0; pass < 3 && stepOff(chrome); pass++);
+          return { x, y, covers: far || cards.some(hits) };
+        };
+        // no free spot near the seat (a crowded table): the compact form, which keeps life and any
+        // commander damage or poison, and shows the rest on hover or focus
+        if (frame % 20 === 1) node.classList.toggle("compact", place(size("full")).covers);
+        const { x, y } = place(size(node.classList.contains("compact") ? "small" : "full"));
         node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
         node.style.visibility = pt.visible ? "visible" : "hidden";
+      }
+      // name tags under the selected cards (the card faces are too small to read at seat distance)
+      for (const [cid, node] of Object.entries(tags.current)) {
+        if (!node) continue;
+        const r = scene.cardRect(cid, w, h);
+        if (!r) { node.style.visibility = "hidden"; continue; }
+        node.style.transform = `translate(${Math.round((r.left + r.right) / 2)}px, ${Math.round(r.bottom + 4)}px) translateX(-50%)`;
+        node.style.visibility = "visible";
       }
     };
     scene.onFrame = follow; // runs inside the three.js loop: one animation loop for the whole table
@@ -115,6 +163,7 @@ export function Table3D({ me }: { me: string }) {
     const onCam = (e: Event) => {
       const { id, digit, hover } = (e as CustomEvent<{ id: string; digit: number; hover: string | null }>).detail;
       const others = players.filter((p) => p !== me);
+      if (id === "cam_names") return setAllNames((x) => !x);
       setPreset((cur) => {
         if (id === "cam_seat" || id === "cam_reset") return "seat";
         if (id === "cam_table") return "overview";
@@ -156,7 +205,13 @@ export function Table3D({ me }: { me: string }) {
           </div>
         ))}
       </div>
+      <div className="t3d-tags" role="list" aria-label="Names of selected cards">
+        {tagged.map(([cid, name]) => (
+          <div key={cid} className="t3d-tag" role="listitem" ref={(n) => { tags.current[cid] = n; }}>{name}</div>
+        ))}
+      </div>
       <CoachTips />
+      <MomentTips me={me} />
       <div className="t3d-cams frame" role="toolbar" aria-label="Camera">
         <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Look from your seat (1)">Seat <kbd className="cam-key">1</kbd></button>
         {others.map((pid, i) => (
@@ -166,10 +221,31 @@ export function Table3D({ me }: { me: string }) {
           </button>
         ))}
         <button className={preset === "overview" ? "on" : ""} onClick={() => setPreset("overview")} title="Look down on the whole table (0)">Table <kbd className="cam-key">0</kbd></button>
+        <button className={allNames ? "on" : ""} aria-pressed={allNames} onClick={() => setAllNames(!allNames)} title="Show the names of all cards on the table (V)">Names <kbd className="cam-key">V</kbd></button>
       </div>
     </div>
   );
 }
+
+/**
+ * Names for the selected battlefield cards. A face-down card is labelled as face down (never by its
+ * name: the table screen is public), and the server never sends a hidden card's name anyway.
+ */
+function nameTags(view: GameView | null, selection: string[], all: boolean): [string, string][] {
+  if (!view || (!all && selection.length > 12)) return EMPTY_TAGS;
+  const out: [string, string][] = [];
+  // ponytail: one DOM tag per card; fine to ~150 permanents, a canvas label layer if boards get bigger
+  for (const id of all ? Object.keys(view.cards) : selection) {
+    if (out.length >= 150) break;
+    const c = view.cards[id];
+    if (!c?.zone.endsWith(":battlefield")) continue;
+    out.push([id, c.face_down || !isVisible(c) ? `Face down${c.face_down_as ? `: ${c.face_down_as}` : ""}` : c.name]);
+  }
+  return out.length ? out : EMPTY_TAGS;
+}
+const EMPTY_TAGS: [string, string][] = [];
+/** How far (px) a seat plaque may move off its seat to clear cards before it goes compact instead. */
+const MAX_DRIFT = 110;
 
 const TIPS = [
   { title: "Players", text: "Click a player's plaque to see their counters, commander damage and actions." },
@@ -205,6 +281,51 @@ function CoachTips() {
   );
 }
 
+const MOMENTS = {
+  combat: { title: "Combat", text: "Drag your creatures toward a player or their plaque to attack, or right-click a creature for Attack. The dial's button moves on to blocks." },
+  priority: { title: "Something is on the stack", text: "You can respond: cast an instant or use an ability now, and it resolves first. Otherwise press Pass (P) and the top of the stack resolves." },
+  target: { title: "Choose a target", text: "Glowing cards and plaques are legal choices: click one. Esc cancels." },
+} as const;
+type Moment = keyof typeof MOMENTS;
+const MOMENT_KEY = "fyodor.tips.seen";
+
+/** A short tip the first time each moment comes up (after the first-turn tips); each shows once on this device. */
+function MomentTips({ me }: { me: string }) {
+  const [seen, setSeen] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(MOMENT_KEY) ?? "[]") as string[]; } catch { return Object.keys(MOMENTS); }
+  });
+  const moment = useGame((s): Moment | null => {
+    const v = s.view;
+    if (!v) return null;
+    const d = v.rules?.decision;
+    if (s.pick || (d && d.player === me && d.kind === "choose_cards")) return "target";
+    if (v.rules?.priority === me && v.stack.length) return "priority";
+    if (v.turn.active_player === me && (v.turn.phase === "begin_combat" || v.turn.phase === "declare_attackers")) return "combat";
+    return null;
+  });
+  const save = (list: string[]) => {
+    setSeen(list);
+    try { localStorage.setItem(MOMENT_KEY, JSON.stringify(list)); } catch { /* private mode */ }
+  };
+  const firstTurn = useGame((s) => (s.view?.turn.number ?? 1) <= 1);
+  let coaching = false;
+  try { coaching = firstTurn && localStorage.getItem(COACH_KEY) !== "done"; } catch { /* private mode */ }
+  if (!moment || coaching || seen.includes(moment) || seen.includes("off")) return null;
+  const tip = MOMENTS[moment];
+  return (
+    <aside className="t3d-coach plaque-wrap" aria-label="Tip" aria-live="polite">
+      <div className="plaque t3d-coach-body">
+        <p className="t3d-coach-title">{tip.title}</p>
+        <p className="t3d-coach-text">{tip.text}</p>
+        <div className="t3d-coach-actions">
+          <button className="tt-btn" onClick={() => save([...seen, moment])}>Got it</button>
+          <button className="tt-btn ghost" onClick={() => save([...seen, "off"])}>No more tips</button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 function PlayerChip({ player }: { player: string }) {
   const p = useGame((s) => s.view?.players.find((x) => x.id === player));
   return (
@@ -225,10 +346,12 @@ function SeatPlate({ player, me, open, onToggle }: { player: string; me: string;
   // the numbers that decide a Commander game, shown only when they matter
   const cmd = Math.max(0, ...Object.values(p.commander_damage));
   const poison = p.resources.poison ?? 0;
-  const stats: { key: string; text: string; title: string; lethal: boolean }[] = [];
-  stats.push({ key: "cmd", text: `Cmdr ${cmd}`, title: `Most commander damage from one commander: ${cmd} of ${LETHAL_COMMANDER}`, lethal: cmd >= LETHAL_COMMANDER });
-  if (poison > 0) stats.push({ key: "poison", text: `Poison ${poison}`, title: `${poison} of ${LETHAL_POISON} poison counters`, lethal: poison >= LETHAL_POISON });
-  if (player !== me) stats.push({ key: "hand", text: `Hand ${p.hand_count}`, title: `${p.hand_count} cards in hand`, lethal: false });
+  // the same three stats on every plaque; a zero is dimmed, not hidden
+  const stats = [
+    { key: "cmd", text: `Cmdr dmg ${cmd}/${LETHAL_COMMANDER}`, title: `Most damage taken from one commander: ${cmd} of ${LETHAL_COMMANDER}`, n: cmd, lethal: cmd >= LETHAL_COMMANDER },
+    { key: "poison", text: `Poison ${poison}/${LETHAL_POISON}`, title: `${poison} of ${LETHAL_POISON} poison counters`, n: poison, lethal: poison >= LETHAL_POISON },
+    { key: "hand", text: `Hand ${p.hand_count}`, title: `${p.hand_count} cards in hand`, n: p.hand_count, lethal: false },
+  ];
   return (
     <div className={`t3d-seat ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
       {(active || priority) && (
@@ -242,11 +365,9 @@ function SeatPlate({ player, me, open, onToggle }: { player: string; me: string;
         <span className="t3d-seat-text">
           <span className="t3d-seat-name">{p.name}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
           <span className="t3d-seat-life" data-testid={`life3d-${player}`}>{p.life}</span>
-          {stats.length > 0 && (
-            <span className="t3d-seat-stats">
-              {stats.map((x) => <span key={x.key} className={`t3d-stat ${x.lethal ? "lethal" : ""}`} title={x.title}>{x.text}{x.lethal ? " · lethal" : ""}</span>)}
-            </span>
-          )}
+          <span className="t3d-seat-stats">
+            {stats.map((x) => <span key={x.key} className={`t3d-stat t3d-stat-${x.key} ${x.lethal ? "lethal" : x.n ? "" : "zero"}`} title={x.title}>{x.text}{x.lethal ? " · lethal" : ""}</span>)}
+          </span>
         </span>
       </button>
       {open && (

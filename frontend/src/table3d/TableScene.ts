@@ -36,6 +36,9 @@ import {
 } from "./layout";
 import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
 
+/** How long a refused action's card stays marked. */
+export const ERROR_MS = 1800;
+
 export type Quality = "low" | "medium" | "high";
 export type CameraPreset = "seat" | "overview" | { focus: string } | { card: string };
 
@@ -43,6 +46,8 @@ const THICK = 0.016;
 /** Cards drawn per pile at most (taller piles space them out). */
 const PILE_LAYERS = 48;
 const LIFT = 0.55;
+
+export interface ScreenRect { id: string; left: number; top: number; right: number; bottom: number }
 
 interface CardObj {
   id: string;
@@ -184,6 +189,8 @@ export class TableScene {
   private yaw = 0;
   private drag: { ids: string[]; anchor: string; start: [number, number]; grab: THREE.Vector3; offsets: Map<string, THREE.Vector3>; active: boolean } | null = null;
   private orbit: { x: number; yaw: number } | null = null;
+  /** Box selection: dragging on the bare table draws a rectangle (as on the 2D table). */
+  private marquee: { x0: number; y0: number; add: boolean; el: HTMLDivElement } | null = null;
   private hovered: string | null = null;
   /** The store's selection, for the selected-card lift. */
   private selectedIds = new Set<string>();
@@ -323,9 +330,56 @@ export class TableScene {
   seatScreen(player: string, width: number, height: number): { x: number; y: number; visible: boolean } | null {
     const seat = this.seatList.find((s) => s.player === player);
     if (!seat) return null;
-    const [wx, wz] = toWorld(seat, -STRIP_X, -0.6);
+    const [wx, wz] = toWorld(seat, -STRIP_X, this.plaqueZ(seat.player));
     const v = new THREE.Vector3(wx, 0.3, wz).project(this.camera);
-    return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height, visible: v.z < 1 && Math.abs(v.x) < 1.3 && Math.abs(v.y) < 1.3 };
+    return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height, visible: v.z < 1 }; // off to the side: the overlay clamps it to the screen edge
+  }
+
+  /**
+   * Screen boxes (CSS px, relative to the canvas) of the cards on the battlefields and of the piles
+   * beside them (ids are card ids or "player:zone"), so DOM overlays
+   * (seat plaques) can step out from over them.
+   */
+  battlefieldRects(width: number, height: number): ScreenRect[] {
+    const out: ScreenRect[] = [];
+    if (!this.view) return out;
+    for (const c of this.cards.values()) {
+      if (!this.view.cards[c.id]?.zone.endsWith(":battlefield")) continue;
+      const r = this.cardRect(c.id, width, height);
+      if (r) out.push(r);
+    }
+    // the piles beside each mat (library, graveyard, exile, command zone) count too
+    for (const [key, p] of this.piles) out.push(this.rectOf(key, p.slot, width, height));
+    return out;
+  }
+
+  /** One card's screen box (CSS px, relative to the canvas). */
+  cardRect(id: string, width: number, height: number): ScreenRect | null {
+    const c = this.cards.get(id);
+    return c ? this.rectOf(id, c.face, width, height) : null;
+  }
+
+  private rectOf(id: string, obj: THREE.Object3D, width: number, height: number): ScreenRect {
+    const box = this.tmpBox.setFromObject(obj);
+    const v = this.tmpV;
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      v.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(this.camera);
+      const x = ((v.x + 1) / 2) * width;
+      const y = ((1 - v.y) / 2) * height;
+      left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y); bottom = Math.max(bottom, y);
+    }
+    return { id, left, top, right, bottom };
+  }
+  private tmpBox = new THREE.Box3();
+  private tmpV = new THREE.Vector3();
+
+  /**
+   * Where along its mat a seat's plaque sits: yours on the inner side (the outer edge is under your
+   * hand), everyone else's on their outer edge, by them rather than out in the middle of the table.
+   */
+  private plaqueZ(player: string): number {
+    return player === this.me ? -0.6 : MAT_D / 2 - 0.4;
   }
 
   /** Screen position (CSS px, relative to the canvas) of a card, or of a battlefield point of a seat. */
@@ -435,7 +489,7 @@ export class TableScene {
     const e = this.plane.env;
     for (const seat of this.seatList) {
       const color = this.view?.players.find((p) => p.id === seat.player)?.color ?? "#888";
-      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(e.inlay, this.plane.ui.accent, color), transparent: true, depthWrite: false, roughness: 0.92 }));
+      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(e.inlay, this.plane.ui.accent, color), transparent: true, depthWrite: false, roughness: 0.92, emissive: this.plane.ui.accent, emissiveIntensity: 0 }));
       mat.rotation.x = -Math.PI / 2;
       mat.rotation.z = seat.rot;
       const [mx, mz] = toWorld(seat, 0, 0);
@@ -717,6 +771,10 @@ export class TableScene {
     }
     if (need.length) requestCards(need);
     this.stats.cards = this.cards.size;
+    // a refused action's card glows red for a moment (static: no motion to reduce)
+    const err = store.errorCard;
+    const errObj = err && Date.now() - err.at < ERROR_MS ? this.cards.get(err.id) : undefined;
+    if (errObj) this.setGlow(errObj, "#ff5a4a", 1);
     this.syncArrows(view);
   }
 
@@ -733,8 +791,11 @@ export class TableScene {
       // a player: their plaque (as Arena lands on the avatar), spread a little so several
       // attackers' crystals sit side by side
       const spread = from ? Math.max(-0.7, Math.min(0.7, toLocal(seat, from.x, from.z)[0] * 0.12)) : 0;
-      const [wx, wz] = toWorld(seat, -STRIP_X + spread, -0.6);
-      return new THREE.Vector3(wx, 0.3, wz);
+      const [wx, wz] = toWorld(seat, -STRIP_X + spread, this.plaqueZ(seat.player));
+      const p = new THREE.Vector3(wx, 0.3, wz);
+      // stop short of the plaque so the crystal stays clear of its Turn / Priority flags
+      if (from) p.add(from.clone().setY(0.3).sub(p).setLength(Math.min(1.1, from.distanceTo(p) * 0.3)));
+      return p;
     };
     const wanted: [THREE.Vector3, THREE.Vector3, string][] = [];
     // a stack card's beam leaves from the edge that faces its other end, so it never crosses the face
@@ -958,6 +1019,14 @@ export class TableScene {
     if (!hit?.card) {
       if (!hit && !e.shiftKey) store.clearSelection();
       if (hit?.pile && hit.player) this.clickPile(hit.player, hit.pile, e);
+      if (!hit && !store.pick) {
+        const el = document.createElement("div");
+        el.className = "marquee";
+        el.hidden = true;
+        this.canvas.parentElement?.append(el);
+        this.marquee = { x0: e.clientX, y0: e.clientY, add: e.shiftKey, el };
+        this.canvas.setPointerCapture(e.pointerId);
+      }
       return;
     }
     const id = hit.card;
@@ -996,6 +1065,16 @@ export class TableScene {
       this.updateCameraGoal();
       return;
     }
+    const m = this.marquee;
+    if (m) {
+      const r = this.canvas.getBoundingClientRect();
+      Object.assign(m.el.style, {
+        left: `${Math.min(m.x0, e.clientX) - r.left}px`, top: `${Math.min(m.y0, e.clientY) - r.top}px`,
+        width: `${Math.abs(e.clientX - m.x0)}px`, height: `${Math.abs(e.clientY - m.y0)}px`,
+      });
+      m.el.hidden = false;
+      return;
+    }
     const d = this.drag;
     if (d) {
       if (!d.active && Math.hypot(e.clientX - d.start[0], e.clientY - d.start[1]) < 5) return;
@@ -1017,6 +1096,18 @@ export class TableScene {
   private onUp(e: PointerEvent): void {
     if (this.orbit) {
       this.orbit = null;
+      return;
+    }
+    const m = this.marquee;
+    if (m) {
+      this.marquee = null;
+      m.el.remove();
+      const r = this.canvas.getBoundingClientRect();
+      const [x0, x1] = [Math.min(m.x0, e.clientX) - r.left, Math.max(m.x0, e.clientX) - r.left];
+      const [y0, y1] = [Math.min(m.y0, e.clientY) - r.top, Math.max(m.y0, e.clientY) - r.top];
+      if (x1 - x0 < 4 && y1 - y0 < 4) return;
+      const ids = this.battlefieldRects(r.width, r.height).filter((b) => this.cards.has(b.id) && b.left < x1 && b.right > x0 && b.top < y1 && b.bottom > y0).map((b) => b.id);
+      useGame.getState().select(ids, m.add ? "add" : "replace");
       return;
     }
     const d = this.drag;
@@ -1080,6 +1171,19 @@ export class TableScene {
     const dt = Math.min(0.5, this.clock.getDelta()); // real time: slow devices still settle quickly
     const t = this.clock.elapsedTime;
     const reduced = document.body.classList.contains("reduced-motion");
+    // empty pile outlines stay faint until a drag needs them as drop targets
+    const anyDrag = document.body.classList.contains("dragging");
+    for (const p of this.piles.values()) {
+      const m = p.slot.material as THREE.MeshBasicMaterial;
+      m.opacity = p.count > 0 || anyDrag ? 1 : 0.35;
+    }
+    // while a card is dragged, the battlefields (where it can land) light up
+    // (with the rules engine on, only your own: the engine refuses the others)
+    const rulesOn = !!this.view?.rules;
+    for (const [pid, mat] of this.mats) {
+      const m = mat.material as THREE.MeshStandardMaterial;
+      m.emissiveIntensity = anyDrag && (!rulesOn || pid === this.me) ? 0.18 : 0;
+    }
     // the player's animation speed (Settings) scales every 3D motion
     const speed = usePrefs.getState().animationSpeed || 1;
     const k = ease(dt, 14 * speed, reduced);
