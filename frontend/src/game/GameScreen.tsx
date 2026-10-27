@@ -23,6 +23,7 @@ import { AutomationErrorPanel, AutomationHud, DecisionPanel, RulesStack, TurnDia
 import { passPriority } from "./rules/intents";
 import "./rules/rules.css";
 import { resolveRenderer } from "../table3d/renderer";
+import { CombatLanes } from "./CombatLanes";
 import { GameNight } from "./GameNight";
 
 const Table3D = lazy(() => import("../table3d/Table3D").then((m) => ({ default: m.Table3D })));
@@ -98,6 +99,7 @@ export function GameScreen() {
       <DragLayer />
       {!three && <CombatArrows />}
       <PickLayer />
+      <CombatLanes />
       <GameNight />
     </div>
   );

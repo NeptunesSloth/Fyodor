@@ -136,3 +136,22 @@ body.reduced-motion .night-rule { animation: none; }
 .sim-hand { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin-top: 10px; }
 .sim-card { animation: night-rise calc(200ms * var(--anim-scale, 1)) var(--ease-out) both; }
 body.reduced-motion .sim-card { animation-name: night-fade; }
+
+/* -- combat lanes (renderer-independent overlay; the table itself never moves) -- */
+.combat-pill { position: fixed; z-index: 37; left: 50%; bottom: calc(var(--hand-h, 150px) + 12px); transform: translateX(-50%); font-size: 12.5px; }
+.game-screen:has(main.table.is-3d) .combat-pill { bottom: 150px; }
+.combat-lanes { position: fixed; z-index: 58; left: 50%; top: 56px; transform: translateX(-50%); width: max-content; max-width: min(980px, calc(100vw - 32px)); max-height: calc(100vh - 260px); display: flex; }
+.combat-lanes > .plaque { flex: 1; min-width: 280px; }
+.combat-lanes-body { padding: 12px 16px 14px; overflow: auto; animation: night-rise calc(180ms * var(--anim-scale, 1)) var(--ease-out) both; }
+.combat-lanes-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.combat-lanes-head b { font: 700 18px var(--font-display); }
+.combat-front h3 { margin: 10px 0 6px; font: 600 13.5px var(--font-ui); letter-spacing: 0; text-transform: none; font-variant: normal; color: var(--text-dim); }
+.combat-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+.combat-lane { display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 6px; width: 112px; }
+.combat-card { display: block; flex: none; padding: 0; border: 0; background: none; cursor: pointer; width: 100%; border-radius: 5px; }
+.combat-card.small { width: 84px; }
+.combat-card:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+.combat-blockers { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.combat-vs { font-size: 11.5px; color: var(--text-dim); }
+.combat-vs.open { color: var(--accent-2); font-weight: 600; }
+body.reduced-motion .combat-lanes-body { animation-name: night-fade; }
