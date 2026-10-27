@@ -23,7 +23,7 @@ import { AutomationErrorPanel, AutomationHud, DecisionPanel, RulesStack, TurnDia
 import { passPriority } from "./rules/intents";
 import "./rules/rules.css";
 import { resolveRenderer } from "../table3d/renderer";
-import { CombatLanes } from "./CombatLanes";
+import { CombatLanes, CombatStrip } from "./CombatLanes";
 import { GameNight } from "./GameNight";
 import { SignalLayer } from "./Signals";
 
@@ -71,6 +71,7 @@ export function GameScreen() {
               <PlayerArea key={pid} player={pid} me={me} mine={false} compact={others.length > 1} focused={focus === pid} />
             ))}
           </div>}
+          {!three && <CombatStrip />}
           {!three && <div className={`me ${focus === me ? "focused" : ""} ${focus && focus !== me ? "shrunk" : ""}`}>
             <PlayerArea player={me} me={me} mine />
           </div>}
@@ -100,7 +101,7 @@ export function GameScreen() {
       <DragLayer />
       {!three && <CombatArrows />}
       <PickLayer />
-      <CombatLanes />
+      {three && <CombatLanes />}
       <GameNight />
       <SignalLayer />
     </div>

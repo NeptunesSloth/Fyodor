@@ -7,7 +7,8 @@ import { GameCardFace } from "./GameCardFace";
  * Combat lane view (TABLETOP_QOL_MILESTONE.md #9): an optional, temporary presentation of combat.
  * Each attacker sits over its blocker(s), grouped by the player, planeswalker or battle it attacks.
  * It never moves a card on the table; closing it (or combat ending) leaves every position as it was.
- * Works the same over the 2D and the 3D table.
+ * The 3D table opens it from a small button; the 2D table docks it as a strip between the
+ * opponents and you (CombatStrip), open for as long as combat lasts.
  */
 
 interface Lane { attacker: GameCard; blockers: GameCard[] }
@@ -81,5 +82,36 @@ function LaneCard({ card, small, onHover, onPick }: { card: GameCard; small?: bo
       aria-label={isVisible(card) ? card.name : "Face-down card"}>
       <GameCardFace card={card} size="small" />
     </button>
+  );
+}
+
+/** 2D: the fight, docked between the opponents and you while anything is attacking. */
+export function CombatStrip() {
+  const view = useGame((s) => s.view);
+  const fronts = view ? combatFronts(view) : [];
+  if (!view || !fronts.length) return null;
+  const { setHover, select } = useGame.getState();
+  return (
+    <section className="combat-strip" data-testid="combat-strip" aria-label="Combat">
+      <b className="combat-strip-title">Combat</b>
+      {fronts.map((f) => (
+        <div key={f.key} className="combat-strip-front">
+          <span className="combat-strip-label">Attacking {f.label}</span>
+          <div className="combat-strip-row">
+            {f.lanes.map(({ attacker, blockers }) => (
+              <div key={attacker.id} className="combat-strip-lane">
+                <LaneCard card={attacker} onHover={setHover} onPick={(id) => select([id])} />
+                {blockers.length ? (
+                  <>
+                    <span className="combat-strip-vs" aria-label="blocked by">vs</span>
+                    {blockers.map((b) => <LaneCard key={b.id} card={b} small onHover={setHover} onPick={(id) => select([id])} />)}
+                  </>
+                ) : <span className="combat-vs open">Unblocked</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
   );
 }

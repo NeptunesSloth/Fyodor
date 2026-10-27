@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { ALICE_DECK, BOB_DECK } from "./helpers";
 
 /** Combat lane view: attackers over their blockers, grouped by defender; the table itself never moves. */
-test("combat lanes show each attacker over its blockers without moving cards", async ({ page }) => {
+test("2D combat strip shows each attacker with its blockers without moving cards", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.addInitScript(() => localStorage.setItem("fyodor.welcomeDone", "1"));
   for (const text of [ALICE_DECK, BOB_DECK]) await page.request.post("/api/decks", { data: { text } });
@@ -27,12 +27,12 @@ test("combat lanes show each attacker over its blockers without moving cards", a
   await act({ type: "block", card_id: wall, attacker_id: raider });
 
   await page.goto(`/#/game/${gameId}`);
-  await expect(page.getByTestId("combat-view-toggle")).toContainText("2 attacking · 1 blocked");
-  await page.getByTestId("combat-view-toggle").click();
-  const lanes = page.getByTestId("combat-lanes");
+  // the 2D table docks the fight between the opponents and you while combat lasts
+  const lanes = page.getByTestId("combat-strip");
   await expect(lanes).toContainText("Attacking Bob");
-  await expect(lanes.locator(".combat-lane")).toHaveCount(2);
+  await expect(lanes.locator(".combat-strip-lane")).toHaveCount(2);
   await expect(lanes.locator(".combat-vs.open")).toHaveText("Unblocked");
+  await expect(lanes.locator(".combat-strip-vs")).toHaveCount(1);
   await page.waitForTimeout(400);
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/combat-lanes.png` });
   // presentation only: every card is exactly where it was
@@ -40,5 +40,5 @@ test("combat lanes show each attacker over its blockers without moving cards", a
   for (const id of [raider, scout, wall]) expect([after.cards[id!]!.x, after.cards[id!]!.y]).toEqual([before.cards[id!]!.x, before.cards[id!]!.y]);
   // combat ends: the view goes away
   await act({ type: "clear_combat" });
-  await expect(page.getByTestId("combat-view-toggle")).toHaveCount(0);
+  await expect(page.getByTestId("combat-strip")).toHaveCount(0);
 });

@@ -62,18 +62,7 @@ export function CombatArrows() {
     if (!cards) return;
     const compute = () => {
       const out: Line[] = [];
-      for (const c of Object.values(cards)) {
-        if (!c.blocking) continue;
-        const a = locate(c.id);
-        if (!a) continue;
-        for (const target of [c.blocking, ...(c.blocking_more ?? [])]) {
-          const b = locate(target);
-          if (!b) continue;
-          const p = center(a);
-          const q = center(b);
-          out.push({ key: `blk-${c.id}-${target}`, x1: p.x, y1: p.y, x2: q.x, y2: q.y, kind: "block" });
-        }
-      }
+      // blocks are shown by the combat strip (CombatStrip), not by lines across the table
       for (const ar of arrows ?? []) {
         const a = locate(ar.source);
         if (!a) continue;
