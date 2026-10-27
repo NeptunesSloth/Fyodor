@@ -17,7 +17,7 @@ import urllib.request
 import webbrowser
 from dataclasses import dataclass
 
-from app.config import Settings, load_settings
+from app.config import FROZEN, Settings, load_settings
 
 
 @dataclass
@@ -90,13 +90,16 @@ def _open_when_ready(url: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="fyodor", description="Start the Fyodor table on this computer.")
-    parser.add_argument("--lan", action="store_true", help="let other devices on your home network join")
+    # game night is a pod on one network: other devices may join unless --local says otherwise
+    parser.add_argument("--local", action="store_true", help="only this computer can connect")
+    parser.add_argument("--lan", action="store_true", help=argparse.SUPPRESS)  # the default now; kept for old shortcuts
     parser.add_argument("--port", type=int, default=None, help="port to listen on (default 8000)")
     parser.add_argument("--no-browser", action="store_true", help="don't open a browser window")
     parser.add_argument("--check", action="store_true", help="only run the checks and exit")
     args = parser.parse_args(argv)
 
     env = dict(os.environ)
+    args.lan = not args.local
     if args.lan:
         env["FYODOR_HOST"] = "0.0.0.0"  # noqa: S104 - explicit opt-in for LAN play
     if args.port:
@@ -105,6 +108,13 @@ def main(argv: list[str] | None = None) -> int:
 
     print("Fyodor — checking this computer\n")
     checks = preflight(settings)
+    if not args.check and any(c.label == "Card database missing" for c in checks):
+        print("  First run: downloading the Magic card database (one time, needs Internet, about 80 MB)…")
+        from tools.update_cards import main as update_cards
+
+        with contextlib.suppress(Exception):  # offline: the check below explains what to do
+            update_cards(["--images", "none", "--data-dir", str(settings.data_dir)])
+        checks = preflight(settings)
     for c in checks:
         print(f"  {'✓' if c.ok else '✗'} {c.label}" + ("" if c.ok else f"\n      → {c.hint}"))
     blocking = [c for c in checks if not c.ok and not c.label.startswith("Card database")]
@@ -112,6 +122,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if blocking else 0
     if blocking:
         print("\nFix the items marked ✗ and run this again.")
+        if FROZEN:  # double-clicked: keep the window open long enough to read why
+            input("Press Enter to close.")
         return 1
 
     local = f"http://127.0.0.1:{settings.port}"
@@ -119,12 +131,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.lan:
         addrs = lan_addresses()
         if addrs:
-            print("Other devices on your network open: " + " or ".join(f"http://{a}:{settings.port}" for a in addrs))
+            print("\n  Friends on your network open:  " + "  or  ".join(f"http://{a}:{settings.port}" for a in addrs))
+            print("  (or send them the invite link shown in the lobby once you open a LAN table)\n")
         else:
             print("No network address found — are you connected to Wi-Fi/Ethernet?")
         print("(If they can't connect, allow Python through this computer's firewall for private networks.)")
     else:
-        print("Only this computer can connect. Use --lan to let the rest of the pod join.")
+        print("Only this computer can connect (--local). Start without --local to let the rest of the pod join.")
     print("Press Ctrl+C to stop. Games are autosaved.\n")
 
     if not args.no_browser:

@@ -40,6 +40,8 @@ export interface PlaneTheme {
     glow: string; glowIntensity: number; flicker: number;
     surface: Surface; surfaceBase: string; surfaceGrain: string; inlay: string;
     rail: string;
+    /** The cloth of each seat's playmat (base and the lighter nap), set into the table surface. */
+    felt: string; feltNap: string;
     props: Prop[];
     particles: Particles; particleColor: string; particleCount: number;
   };
@@ -49,14 +51,14 @@ export interface PlaneTheme {
 export const PLANES: PlaneTheme[] = [
   {
     id: "dominaria", name: "Dominaria", wave: 1,
-    tagline: "Where it began. Warm oak, brass and candlelight in a Tolarian study.",
-    swatches: ["#d4a55a", "#7a4a2a", "#2d5a8a", "#e8dcc0"],
-    ui: { bg: "#100b07", bg2: "#18110b", panelRgb: [32, 22, 15], line: "#3d2b1c", line2: "#5c422a", frame: "#8a6a3f", frameHi: "#dcb46a",
-      text: "#f2e6cf", textDim: "#c0aa89", textFaint: "#806d55", accent: "#d4a55a", accent2: "#f0ca7e", accentDeep: "#93682c", accentInk: "#231605", select: "#7fb6ff" },
-    env: { skyTop: "#1c120b", skyBottom: "#0b0705", fog: "#140d08", fogDensity: 0.028, ambient: "#ffe2b8", ambientIntensity: 0.35,
+    tagline: "Where it began. Walnut, spruce baize, brass and candlelight in a Tolarian study.",
+    swatches: ["#d4a55a", "#3b2117", "#21434c", "#eee5d3"],
+    ui: { bg: "#0b0c0d", bg2: "#121416", panelRgb: [19, 21, 23], line: "#2a2d31", line2: "#3e4247", frame: "#8a6a3f", frameHi: "#dcb46a",
+      text: "#eee5d3", textDim: "#b5ad9e", textFaint: "#857e72", accent: "#d4a55a", accent2: "#f0ca7e", accentDeep: "#93682c", accentInk: "#231605", select: "#7fb6ff" },
+    env: { skyTop: "#14110f", skyBottom: "#070607", fog: "#0d0b0a", fogDensity: 0.028, ambient: "#ffe2b8", ambientIntensity: 0.35,
       key: "#ffe6c4", keyIntensity: 1.5, rim: "#6f8fd0", rimIntensity: 0.25, glow: "#ffae52", glowIntensity: 1.6, flicker: 0.25,
-      surface: "oak", surfaceBase: "#4a2e1b", surfaceGrain: "#2d1b0f", inlay: "#c9a15a", rail: "#2a190e",
-      props: ["candles", "books", "crystal"], particles: "dust", particleColor: "#ffd9a0", particleCount: 140 },
+      surface: "oak", surfaceBase: "#3b2117", surfaceGrain: "#1d0f0a", inlay: "#c9a15a", rail: "#1c100b", felt: "#152c33", feltNap: "#21434c",
+      props: ["candles", "books"], particles: "dust", particleColor: "#ffd9a0", particleCount: 0 },
     ambience: "hearth",
   },
   {
@@ -67,7 +69,7 @@ export const PLANES: PlaneTheme[] = [
       text: "#e9edf6", textDim: "#a6afc4", textFaint: "#6a7288", accent: "#b7c3d9", accent2: "#e2e9f7", accentDeep: "#6c7897", accentInk: "#0b0f18", select: "#5fe0e0" },
     env: { skyTop: "#161b2a", skyBottom: "#07080d", fog: "#0c0f18", fogDensity: 0.032, ambient: "#b8c6e8", ambientIntensity: 0.32,
       key: "#dfe6ff", keyIntensity: 1.3, rim: "#9a6be0", rimIntensity: 0.45, glow: "#ffcf7a", glowIntensity: 1.2, flicker: 0.12,
-      surface: "slate", surfaceBase: "#262b36", surfaceGrain: "#171a22", inlay: "#aeb9d2", rail: "#14171e",
+      surface: "slate", surfaceBase: "#262b36", surfaceGrain: "#171a22", inlay: "#aeb9d2", rail: "#14171e", felt: "#1c2236", feltNap: "#2a334e",
       props: ["lanterns", "spires"], particles: "motes", particleColor: "#cbd7ff", particleCount: 110 },
     ambience: "city",
   },
@@ -79,7 +81,7 @@ export const PLANES: PlaneTheme[] = [
       text: "#e7ebf1", textDim: "#a2abb9", textFaint: "#66707e", accent: "#c3ccda", accent2: "#eef2f8", accentDeep: "#6e7a8c", accentInk: "#0a0c10", select: "#e05a5a" },
     env: { skyTop: "#1a2230", skyBottom: "#05070a", fog: "#1a212c", fogDensity: 0.05, ambient: "#9fb3d6", ambientIntensity: 0.28,
       key: "#c9d8ff", keyIntensity: 1.1, rim: "#a8c0ff", rimIntensity: 0.55, glow: "#ffb060", glowIntensity: 0.9, flicker: 0.35,
-      surface: "weathered", surfaceBase: "#2f2a26", surfaceGrain: "#1a1714", inlay: "#b8c2d0", rail: "#15120f",
+      surface: "weathered", surfaceBase: "#2f2a26", surfaceGrain: "#1a1714", inlay: "#b8c2d0", rail: "#15120f", felt: "#2a1619", feltNap: "#3d2226",
       props: ["candles", "gravestones", "moon"], particles: "fog", particleColor: "#c7d3e6", particleCount: 60 },
     ambience: "night",
   },
@@ -91,7 +93,7 @@ export const PLANES: PlaneTheme[] = [
       text: "#f5f1e6", textDim: "#bdb6a2", textFaint: "#7a7466", accent: "#e8c46a", accent2: "#f8e2a0", accentDeep: "#a88630", accentInk: "#1d1605", select: "#b69bff" },
     env: { skyTop: "#241a4a", skyBottom: "#07061a", fog: "#141130", fogDensity: 0.022, ambient: "#d6ccff", ambientIntensity: 0.35,
       key: "#fff4de", keyIntensity: 1.5, rim: "#8a6bff", rimIntensity: 0.6, glow: "#ffd27a", glowIntensity: 1.1, flicker: 0.1,
-      surface: "marble", surfaceBase: "#c9c1b0", surfaceGrain: "#8f8574", inlay: "#d6b25a", rail: "#b9b1a2",
+      surface: "marble", surfaceBase: "#c9c1b0", surfaceGrain: "#8f8574", inlay: "#d6b25a", rail: "#b9b1a2", felt: "#17213f", feltNap: "#24325a",
       props: ["columns", "stars"], particles: "stars", particleColor: "#e6dcff", particleCount: 220 },
     ambience: "temple",
   },
@@ -103,7 +105,7 @@ export const PLANES: PlaneTheme[] = [
       text: "#ecf3ea", textDim: "#a9bba8", textFaint: "#6c7f6a", accent: "#6fcf97", accent2: "#aef0c6", accentDeep: "#3d8e61", accentInk: "#06130b", select: "#ffb055" },
     env: { skyTop: "#1d3a36", skyBottom: "#060c0a", fog: "#12211c", fogDensity: 0.03, ambient: "#cdeedd", ambientIntensity: 0.34,
       key: "#fff0d8", keyIntensity: 1.4, rim: "#5fe0a8", rimIntensity: 0.4, glow: "#7dffc0", glowIntensity: 0.9, flicker: 0.05,
-      surface: "stone", surfaceBase: "#5a5446", surfaceGrain: "#3a352b", inlay: "#7fe0ac", rail: "#2e2a22",
+      surface: "stone", surfaceBase: "#5a5446", surfaceGrain: "#3a352b", inlay: "#7fe0ac", rail: "#2e2a22", felt: "#1c2d22", feltNap: "#2a4231",
       props: ["hedrons", "vines"], particles: "motes", particleColor: "#b9ffd9", particleCount: 120 },
     ambience: "wilds",
   },
@@ -115,7 +117,7 @@ export const PLANES: PlaneTheme[] = [
       text: "#f6ece6", textDim: "#c4aaa5", textFaint: "#836d69", accent: "#e8574a", accent2: "#ff9a8a", accentDeep: "#9c2a22", accentInk: "#190605", select: "#ff7ad9" },
     env: { skyTop: "#2a1422", skyBottom: "#08050a", fog: "#1a0f16", fogDensity: 0.03, ambient: "#ffd6e0", ambientIntensity: 0.3,
       key: "#ffe8e0", keyIntensity: 1.3, rim: "#ff5fc8", rimIntensity: 0.55, glow: "#ff9a5a", glowIntensity: 1.3, flicker: 0.15,
-      surface: "lacquer", surfaceBase: "#5a1612", surfaceGrain: "#2c0a08", inlay: "#e8c36a", rail: "#1a0907",
+      surface: "lacquer", surfaceBase: "#5a1612", surfaceGrain: "#2c0a08", inlay: "#e8c36a", rail: "#1a0907", felt: "#191b23", feltNap: "#272b37",
       props: ["torii", "lanterns", "neon"], particles: "petals", particleColor: "#ffc0d8", particleCount: 90 },
     ambience: "shrine",
   },
@@ -127,7 +129,7 @@ export const PLANES: PlaneTheme[] = [
       text: "#f7ecd4", textDim: "#c9b48b", textFaint: "#8a7656", accent: "#e3b04b", accent2: "#f7d58a", accentDeep: "#a3761f", accentInk: "#1e1403", select: "#5a8cff" },
     env: { skyTop: "#5a3a1a", skyBottom: "#120b05", fog: "#2a1d0f", fogDensity: 0.025, ambient: "#ffe0a8", ambientIntensity: 0.42,
       key: "#fff0c8", keyIntensity: 1.7, rim: "#ffae52", rimIntensity: 0.4, glow: "#ffcf6a", glowIntensity: 1.0, flicker: 0.08,
-      surface: "sandstone", surfaceBase: "#b08a55", surfaceGrain: "#7a5c34", inlay: "#2a4fa0", rail: "#6a4f2c",
+      surface: "sandstone", surfaceBase: "#b08a55", surfaceGrain: "#7a5c34", inlay: "#2a4fa0", rail: "#6a4f2c", felt: "#1b2a48", feltNap: "#283b66",
       props: ["obelisks", "pyramids"], particles: "sand", particleColor: "#ffdca0", particleCount: 160 },
     ambience: "desert",
   },
@@ -139,7 +141,7 @@ export const PLANES: PlaneTheme[] = [
       text: "#eef3e4", textDim: "#afbd9d", textFaint: "#6f7d5f", accent: "#e8b53a", accent2: "#f7d77a", accentDeep: "#a17a16", accentInk: "#1a1303", select: "#4fd0e0" },
     env: { skyTop: "#1a3a2a", skyBottom: "#050c08", fog: "#10231a", fogDensity: 0.035, ambient: "#d8f0c8", ambientIntensity: 0.34,
       key: "#fff2d0", keyIntensity: 1.4, rim: "#4fd0e0", rimIntensity: 0.35, glow: "#ffc84a", glowIntensity: 1.0, flicker: 0.1,
-      surface: "jungle", surfaceBase: "#4a4a36", surfaceGrain: "#2a2c1e", inlay: "#e8b53a", rail: "#26261a",
+      surface: "jungle", surfaceBase: "#4a4a36", surfaceGrain: "#2a2c1e", inlay: "#e8b53a", rail: "#26261a", felt: "#132f2d", feltNap: "#1f4542",
       props: ["vines", "gold"], particles: "fireflies", particleColor: "#fff08a", particleCount: 80 },
     ambience: "jungle",
   },
@@ -151,7 +153,7 @@ export const PLANES: PlaneTheme[] = [
       text: "#eaf0e6", textDim: "#a4ae9e", textFaint: "#687264", accent: "#c8d8c0", accent2: "#eef6ea", accentDeep: "#6e8068", accentInk: "#0a0c0a", select: "#ff4a6a" },
     env: { skyTop: "#1a221a", skyBottom: "#050605", fog: "#0e130e", fogDensity: 0.04, ambient: "#c8e0c0", ambientIntensity: 0.26,
       key: "#e8f4e0", keyIntensity: 1.2, rim: "#7aff8a", rimIntensity: 0.4, glow: "#9aff6a", glowIntensity: 0.8, flicker: 0.2,
-      surface: "oilmetal", surfaceBase: "#1c201e", surfaceGrain: "#0c0e0d", inlay: "#c8d8c0", rail: "#0a0b0a",
+      surface: "oilmetal", surfaceBase: "#1c201e", surfaceGrain: "#0c0e0d", inlay: "#c8d8c0", rail: "#0a0b0a", felt: "#161a17", feltNap: "#232924",
       props: ["pipes", "spikes"], particles: "oil", particleColor: "#b8ffb0", particleCount: 70 },
     ambience: "machine",
   },
@@ -163,7 +165,7 @@ export const PLANES: PlaneTheme[] = [
       text: "#f4f2e0", textDim: "#bdbb98", textFaint: "#7c7a5c", accent: "#f0c060", accent2: "#fbe0a0", accentDeep: "#a88426", accentInk: "#1c1504", select: "#b690ff" },
     env: { skyTop: "#3a3a5a", skyBottom: "#0a0a10", fog: "#1a1a24", fogDensity: 0.028, ambient: "#fff0d0", ambientIntensity: 0.4,
       key: "#fff2c8", keyIntensity: 1.5, rim: "#a88aff", rimIntensity: 0.45, glow: "#ffd07a", glowIntensity: 1.0, flicker: 0.12,
-      surface: "meadow", surfaceBase: "#5a6a3a", surfaceGrain: "#3a4526", inlay: "#f0c060", rail: "#2e3520",
+      surface: "meadow", surfaceBase: "#5a6a3a", surfaceGrain: "#3a4526", inlay: "#f0c060", rail: "#2e3520", felt: "#232f1c", feltNap: "#33452a",
       props: ["mushrooms", "willows"], particles: "pollen", particleColor: "#fff2b0", particleCount: 130 },
     ambience: "meadow",
   },
@@ -226,7 +228,9 @@ export function cssTokens(p: PlaneTheme): Record<string, string> {
   const sel = hexRgb(u.select);
   const glow = hexRgb(e.glow);
   const panel = u.panelRgb;
-  const panelHi: [number, number, number] = [panel[0] + 12, panel[1] + 9, panel[2] + 7];
+  const panelHi: [number, number, number] = [panel[0] + 10, panel[1] + 10, panel[2] + 10];
+  const steelHi: [number, number, number] = [panel[0] + 5, panel[1] + 5, panel[2] + 5];
+  const steelLo: [number, number, number] = [panel[0] * 0.55, panel[1] * 0.55, panel[2] * 0.55];
   const scene = [
     `radial-gradient(ellipse 38% 30% at 8% 12%, ${rgba(glow, 0.16)}, transparent 70%)`,
     `radial-gradient(ellipse 30% 26% at 94% 18%, ${rgba(glow, 0.12)}, transparent 70%)`,
@@ -234,11 +238,11 @@ export function cssTokens(p: PlaneTheme): Record<string, string> {
     `radial-gradient(ellipse 80% 70% at 50% 45%, transparent 40%, rgba(0, 0, 0, 0.7) 100%)`,
     `linear-gradient(180deg, ${e.skyTop}, ${e.skyBottom})`,
   ].join(", ");
+  // the 2D table is the same baize as the 3D mats, lit from above
   const surface = [
-    `radial-gradient(ellipse 60% 55% at 50% 50%, ${rgba(hexRgb(e.inlay), 0.08)}, transparent 70%)`,
-    `radial-gradient(ellipse 90% 80% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.45) 100%)`,
-    `repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.10) 0 1px, transparent 1px 9px)`,
-    `linear-gradient(180deg, ${e.surfaceBase}, ${e.surfaceGrain})`,
+    `radial-gradient(ellipse 70% 60% at 50% 45%, ${rgba(hexRgb(e.feltNap), 0.9)}, transparent 75%)`,
+    `radial-gradient(ellipse 95% 85% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.5) 100%)`,
+    `linear-gradient(180deg, ${e.feltNap}, ${e.felt})`,
   ].join(", ");
   return {
     "--bg": u.bg, "--bg-2": u.bg2,
@@ -251,11 +255,13 @@ export function cssTokens(p: PlaneTheme): Record<string, string> {
     "--accent-grad": `linear-gradient(180deg, ${u.accent2} 0%, ${u.accent} 50%, ${accentLow(p)} 100%)`,
     "--accent-glow": rgba(accent, 0.42),
     "--select": u.select, "--select-glow": rgba(sel, 0.55),
-    "--felt": e.surfaceBase, "--felt-2": e.surfaceGrain,
-    "--mat": "rgba(0, 0, 0, 0.32)", "--mat-line": rgba(hexRgb(e.inlay), 0.22),
+    "--felt": e.felt, "--felt-2": e.feltNap, "--wood": e.surfaceBase, "--wood-2": e.surfaceGrain,
+    "--mat": "rgba(0, 0, 0, 0.22)", "--mat-line": rgba(hexRgb(e.inlay), 0.22),
+    "--steel-hi": hex(steelHi), "--steel-lo": hex(steelLo),
+    "--hud-surface": `linear-gradient(180deg, ${hex(steelHi)}, ${hex(steelLo)})`,
     "--scene": scene, "--table-surface": surface,
     "--room-charcoal": u.bg, "--room-charcoal-2": u.bg2, "--room-edge": u.line2,
-    "--room-felt": e.surfaceBase, "--room-felt-deep": e.surfaceGrain,
+    "--room-felt": e.felt, "--room-felt-deep": e.feltNap,
     "--room-bone": u.text, "--room-bone-dim": u.textDim, "--room-brass": u.accent, "--room-brass-hi": u.accent2,
   };
 }

@@ -246,6 +246,23 @@ export interface GameMeta {
   revision?: number;
   /** LAN: the host's seat (table-level overrides are the host's). */
   host_seat?: string | null;
+  /** Game night: turn order and its d20 rolls, an agreed-ending proposal, the result and rematch vote. */
+  night?: NightInfo;
+}
+
+export type NightResultType = "single" | "multiple" | "draw" | "no_result";
+
+/** Everything here is public (docs/GAME_NIGHT_FLOW.md). Seats are this game's player ids. */
+export interface NightInfo {
+  number: number;
+  order_source: "d20" | "winner_last" | "host";
+  /** d20 rounds: the first is everyone, later ones are tie-breaks among the tied players. */
+  rolls: Record<string, number>[];
+  previous_winner: string | null;
+  proposal: { by: string; by_name: string; result_type: NightResultType; winners: string[]; winner_names: string[]; agreed: string[] } | null;
+  result: { result_type: NightResultType; winners: string[]; winner_names: string[]; agreed: boolean } | null;
+  votes: Record<string, "rematch" | "lobby">;
+  history: { number: number; result_type: NightResultType; winner_names: string[]; agreed: boolean; order: string[]; turns: number }[];
 }
 
 /** How opening hands work at this table (see docs/MULLIGAN_RULES.md). */
@@ -476,6 +493,8 @@ export interface LobbySettings {
   priority_helper: "off" | "simple";
   auto_untap: boolean;
   automation: AutomationLevel;
+  /** "pod": d20 for game 1 and after a draw, then the previous winner goes last. */
+  turn_order?: "pod" | "random";
 }
 
 export interface LobbyDeckSummary {
@@ -524,6 +543,8 @@ export interface LobbyView {
   seats: LobbySeat[];
   spectators: number;
   start_blockers: string[];
+  /** Tonight's finished games, oldest first (the session recap). */
+  night?: (NightInfo["history"][number] & { minutes?: number; commanders?: Record<string, string[]> })[];
 }
 
 export interface CardStats {

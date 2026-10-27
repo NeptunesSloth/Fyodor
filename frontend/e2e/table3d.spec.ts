@@ -61,7 +61,9 @@ test("3D table: seats, drag from hand onto the table, right-click menu, tap", as
   await expect.poll(async () => (await view()).cards[id]!.tapped).toBe(true);
 
   // camera presets
+  await page.getByRole("toolbar", { name: "Camera" }).hover(); // the strip shows only the current view until hovered
   await page.getByRole("toolbar", { name: "Camera" }).getByRole("button", { name: "Table" }).click();
+  await page.getByRole("toolbar", { name: "Camera" }).hover(); // the strip shows only the current view until hovered
   await page.getByRole("toolbar", { name: "Camera" }).getByRole("button", { name: "Seat" }).click();
 });
 

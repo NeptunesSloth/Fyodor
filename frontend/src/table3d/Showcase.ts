@@ -3,7 +3,7 @@ import * as THREE from "three";
 import type { PlaneTheme } from "../theme/planes";
 import { buildEnvironment, type Environment } from "./environment";
 import { CARD_H, CARD_W } from "./layout";
-import { backCanvas, canvasTexture, textCardCanvas } from "./textures";
+import { backCanvas, canvasTexture, matTexture, textCardCanvas } from "./textures";
 
 export class Showcase {
   private renderer: THREE.WebGLRenderer;
@@ -41,6 +41,18 @@ export class Showcase {
     this.scene.background = new THREE.Color(plane.env.skyBottom);
     this.env = buildEnvironment(plane, { w: 30, d: 24 }, "medium");
     this.scene.add(this.env.group);
+    // two seats' playmats, so the launcher shows the same cloth as the game table
+    for (const [z, rot] of [[4.2, 0], [-6, Math.PI]] as const) {
+      const matTex = matTexture(plane.env.felt, plane.env.feltNap, plane.ui.accent);
+      const matMat = new THREE.MeshStandardMaterial({ map: matTex, transparent: true, depthWrite: false, roughness: 1, envMapIntensity: 0.15 });
+      const matGeo = new THREE.PlaneGeometry(10.5, 6.5);
+      this.disposables.push(matTex, matMat, matGeo);
+      const m = new THREE.Mesh(matGeo, matMat);
+      m.rotation.set(-Math.PI / 2, 0, rot);
+      m.position.set(0, 0.004, z);
+      m.receiveShadow = true;
+      this.props.add(m);
+    }
     // a few cards mid-game: a small battlefield, a library and a fanned hand
     const geo = new THREE.PlaneGeometry(CARD_W, CARD_H);
     geo.rotateX(-Math.PI / 2);

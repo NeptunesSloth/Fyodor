@@ -4,8 +4,9 @@
  * for every kind of decision, the numbered STACK helper, and the AUTOMATION ERROR panel.
  * Everything here reads `view.rules`; the server decides, the client only asks and shows.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { openMenu } from "../../components/ContextMenu";
+import { NudgeButton } from "../Signals";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { PHASE_LABEL, PHASES, type PhaseName, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
 import { autocomplete } from "../../services/cards";
@@ -28,7 +29,12 @@ export function AutomationHud() {
   const ctx = useRules();
   const [open, setOpen] = useState(false);
   const [conceding, setConceding] = useState(false);
-  if (!ctx) return null;
+  useEffect(() => {
+    const on = () => setOpen(true);
+    window.addEventListener("fyodor:automation", on);
+    return () => window.removeEventListener("fyodor:automation", on);
+  }, []);
+  if (!ctx || (!ctx.rules && !open)) return null; // automation off: nothing on screen (More → Rules automation…)
   const { view, rules, seated, me } = ctx;
   const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
   const level = rules ? (rules.paused ? "Paused" : cap(rules.automation)) : "Off";
@@ -196,7 +202,7 @@ const DECIDING: Partial<Record<string, string>> = {
  */
 export function TurnDial() {
   const ctx = useRules();
-  if (!ctx) return null;
+  if (!ctx || ctx.view.game.night?.result) return null; // game over: the rematch vote is the only next step
   const { view, rules, me } = ctx;
   const turn = view.turn;
   const active = view.players.find((p) => p.id === turn.active_player);
@@ -248,7 +254,10 @@ export function TurnDial() {
             );
           })}
         </ol>
-        <p className="td-status" data-testid="priority-holder" aria-live="polite">{status}</p>
+        <div className="td-status-row">
+          <p className="td-status" data-testid="priority-holder" aria-live="polite">{status}</p>
+          {!watching && <NudgeButton view={view} me={me} />}
+        </div>
         {auto && mine && (
           <>
             <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title={blocked ?? "Pass priority (P)"} disabled={deciding} onClick={() => void passPriority()}>

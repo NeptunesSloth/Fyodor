@@ -26,12 +26,14 @@ import {
   updateLobbySettings,
   type LobbyDeckBody,
   type MyDeck,
+  lanInfo,
 } from "../services/games";
 import { useGame } from "../state/gameStore";
 import type { DeckSummary } from "../types/decks";
 import type { LobbySeat, LobbySettings, LobbyView } from "../types/game";
 import { PersonalDeckImports } from "./PersonalDeckImports";
 import "./lobby.css";
+import { Icon } from "../components/Icon";
 
 export const DECK_PRIVACY_LABEL: Record<LobbySettings["deck_privacy"], string> = {
   private: "Private",
@@ -86,6 +88,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
               Mulligan: {lobby.mulligan?.display_name ?? MULLIGAN_LABEL[s.mulligan_rule] ?? s.mulligan_rule}
               {lobby.mulligan?.needs_definition ? " (not defined yet)" : ""}
             </span>
+            <span>Turn order: {(s.turn_order ?? "pod") === "pod" ? "d20, then the winner goes last" : "random first player"}</span>
             <span>Automation: {(s.automation ?? "off").toUpperCase()}</span>
             {(s.automation ?? "off") === "off" && <span>Response helper: {s.priority_helper === "simple" ? "On" : "Off"}</span>}
           </div>
@@ -102,6 +105,8 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
         )}
       </header>
 
+      {lobby.is_host && lobby.game.code && <InviteLink code={lobby.game.code} />}
+
       <div className="seat-grid">
         {lobby.seats.map((seat) => (
           <SeatPlate
@@ -115,6 +120,8 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
           />
         ))}
       </div>
+
+      {lobby.night && lobby.night.length > 0 && <SessionRecap games={lobby.night} />}
 
       <footer className="lobby-foot">
         <div className="lobby-status">
@@ -151,6 +158,54 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
       {choosing && me && <ChooseDeck gameId={gameId} onClose={() => setChoosing(false)} onDone={(l) => { setLobby(l); setChoosing(false); }} />}
       {settingsOpen && <SettingsDialog lobby={lobby} onClose={() => setSettingsOpen(false)} onSaved={setLobby} />}
     </div>
+  );
+}
+
+/** The link the host sends the pod: it opens Join with the room code already filled in. */
+function InviteLink({ code }: { code: string }) {
+  const [addr, setAddr] = useState<string | null>(null);
+  useEffect(() => {
+    lanInfo().then((i) => setAddr(i.reachable && i.addresses[0] ? `http://${i.addresses[0]}:${i.port}` : null), () => setAddr(null));
+  }, []);
+  if (!addr) return null;
+  const link = `${addr}/#/play?code=${code}`;
+  return (
+    <p className="invite-link" data-testid="invite-link">
+      Friends on your network open <code>{link}</code>
+      <button className="tt-btn ghost" onClick={() => void navigator.clipboard?.writeText(link).then(() => toast("Invite link copied"), () => undefined)}>Copy link</button>
+    </p>
+  );
+}
+
+/** Tonight so far (TABLETOP_QOL_MILESTONE #17): a casual recap, never a ranking. */
+function SessionRecap({ games }: { games: NonNullable<LobbyView["night"]> }) {
+  const wins = new Map<string, number>();
+  for (const g of games) if (g.result_type === "single" || g.result_type === "multiple") for (const w of g.winner_names) wins.set(w, (wins.get(w) ?? 0) + 1);
+  const minutes = games.reduce((n, g) => n + (g.minutes ?? 0), 0);
+  const describe = (g: (typeof games)[number]) =>
+    g.result_type === "draw" ? "Draw" : g.result_type === "no_result" ? "No result" : `${g.winner_names.join(" & ")} won`;
+  return (
+    <section className="session-recap" data-testid="session-recap" aria-label="Tonight so far">
+      <h2>Tonight so far</h2>
+      <p className="hint">
+        {games.length} game{games.length === 1 ? "" : "s"}{minutes ? ` · about ${minutes} min` : ""}
+        {wins.size > 0 && ` · ${[...wins].sort((a, b) => b[1] - a[1]).map(([n, w]) => `${n} ${w}`).join(", ")}`}
+      </p>
+      <ol>
+        {games.map((g) => {
+          const winner = g.winner_names.length === 1 ? g.winner_names[0]! : null;
+          const cmdr = winner ? g.commanders?.[winner]?.join(" & ") : null;
+          return (
+            <li key={g.number}>
+              <span className="recap-n">Game {g.number}</span>
+              <span>{describe(g)}{cmdr ? ` with ${cmdr}` : ""}{g.agreed ? " (agreed)" : ""}</span>
+              <span className="hint">{g.turns} turn{g.turns === 1 ? "" : "s"}{g.minutes ? ` · ${g.minutes} min` : ""}</span>
+            </li>
+          );
+        })}
+      </ol>
+      <a className="tt-btn ghost" href="#/stats">Pod stats</a>
+    </section>
   );
 }
 
@@ -209,7 +264,7 @@ function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
       </div>
 
       <div className={`seat-art ${cmdId ? "" : "empty"}`}>
-        {cmdId ? <CommanderArt id={cmdId} /> : <span className="seat-art-glyph" aria-hidden>{seat.claimed ? "❖" : "+"}</span>}
+        {cmdId ? <CommanderArt id={cmdId} /> : <span className="seat-art-glyph" aria-hidden><Icon name={seat.claimed ? "cards" : "plus"} size={34} /></span>}
         <div className="seat-art-caption">
           <b>{deck?.commanders?.length ? deck.commanders.join(" & ") : deck ? (deck.name ?? "A deck") : seat.claimed ? "No deck yet" : "Waiting for a player"}</b>
           {deck?.commanders?.length ? <span>{deck.name}</span> : null}
@@ -522,6 +577,12 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
             <option value="off">Off — sandbox, nothing enforced</option>
             <option value="assisted">Assisted — validates and asks before important steps</option>
             <option value="full">Full — supported rules happen by themselves</option>
+          </select>
+        </label>
+        <label className="field">Turn order
+          <select data-testid="lobby-turn-order" value={draft.turn_order ?? "pod"} onChange={(e) => set({ turn_order: e.target.value as LobbySettings["turn_order"] })}>
+            <option value="pod">Pod rule — d20 for the first game, then the winner goes last</option>
+            <option value="random">Random first player, seats as they are</option>
           </select>
         </label>
         <label className="field">Response helper

@@ -87,6 +87,7 @@ async function shoot(page: Page, name: string) {
 }
 
 async function camera(page: Page, name: "Seat" | "Table") {
+  await page.getByRole("toolbar", { name: "Camera" }).hover(); // the strip shows only the current view until hovered
   await page.getByRole("toolbar", { name: "Camera" }).getByRole("button", { name }).click();
   await page.waitForTimeout(2000);
 }

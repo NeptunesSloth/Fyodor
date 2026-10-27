@@ -489,7 +489,7 @@ export class TableScene {
     const e = this.plane.env;
     for (const seat of this.seatList) {
       const color = this.view?.players.find((p) => p.id === seat.player)?.color ?? "#888";
-      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(e.inlay, this.plane.ui.accent, color), transparent: true, depthWrite: false, roughness: 0.92, emissive: this.plane.ui.accent, emissiveIntensity: 0 }));
+      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(e.felt, e.feltNap, color), transparent: true, depthWrite: false, roughness: 1, envMapIntensity: 0.15, emissive: this.plane.ui.accent, emissiveIntensity: 0 }));
       mat.rotation.x = -Math.PI / 2;
       mat.rotation.z = seat.rot;
       const [mx, mz] = toWorld(seat, 0, 0);
@@ -579,7 +579,8 @@ export class TableScene {
       tex = this.loadTexture(imageUrl(data.id, imgFace, this.quality === "low" ? "small" : "normal"), text);
     } else tex = text();
     // printed card stock with a faint satin sheen from the room reflections
-    m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.42, metalness: 0, envMapIntensity: 0.7 });
+    // matte card stock: a glossy face catches the overhead light and washes the art out
+    m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0, envMapIntensity: 0.12 });
     this.materials.set(key, m);
     return m;
   }
@@ -681,9 +682,8 @@ export class TableScene {
         const pos = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
         const [lx, lz] = virtualToLocal(pos[0], pos[1]);
         const tapped = (card.tapped ? -Math.PI / 2 : 0) + (card.flipped ? Math.PI : 0) - ((card.rotation ?? 0) * Math.PI) / 180;
-        const lift = card.attacking || card.attacking_without_target ? 0.18 : 0;
-        this.place(c, seat, lx, lz, 0.004 + i * 0.0035 + lift, tapped);
-        c.tilt = card.attacking || card.attacking_without_target ? -0.12 : 0;
+        this.place(c, seat, lx, lz, 0.004 + i * 0.0035, tapped);
+        c.tilt = 0;
         this.setOverlay(c, overlayFor(card, view.rules?.stats?.[id]));
         this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55);
       });
@@ -775,7 +775,52 @@ export class TableScene {
     const err = store.errorCard;
     const errObj = err && Date.now() - err.at < ERROR_MS ? this.cards.get(err.id) : undefined;
     if (errObj) this.setGlow(errObj, "#ff5a4a", 1);
+    this.layoutCombat(view);
     this.syncArrows(view);
+  }
+
+  /**
+   * Combat as a formation (presentation only; stored positions never change): each attacker marches
+   * out into the open wood beyond its mat, side by side with the others attacking the same player
+   * and facing them; each blocker steps up directly in front of the attacker it blocks.
+   */
+  private layoutCombat(view: GameView): void {
+    const seatOf = (pid: string | undefined) => this.seatList.find((s) => s.player === pid);
+    const groups = new Map<string, { a: Seat; d: Seat; ids: string[] }>();
+    for (const card of Object.values(view.cards)) {
+      if (!card.attacking || !card.zone.endsWith(":battlefield")) continue;
+      const a = seatOf(card.controller);
+      const d = seatOf(card.attacking.kind === "player" ? card.attacking.id : view.cards[card.attacking.id]?.controller);
+      if (!a || !d || a === d) continue;
+      const key = `${a.player}>${d.player}`;
+      const g = groups.get(key) ?? { a, d, ids: [] };
+      g.ids.push(card.id);
+      groups.set(key, g);
+    }
+    const blockers = Object.values(view.cards).filter((b) => b.blocking && b.zone.endsWith(":battlefield"));
+    for (const { a, d, ids } of groups.values()) {
+      const dx = d.x - a.x;
+      const dz = d.z - a.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const [ux, uz] = [dx / len, dz / len];
+      const [px, pz] = [-uz, ux];
+      const out = MAT_D / 2 + 1.4; // just past the attacker's mat edge, into the open wood
+      ids.forEach((id, i) => {
+        const c = this.cards.get(id);
+        if (!c) return;
+        const off = (i - (ids.length - 1) / 2) * CARD_H * 1.15; // tapped attackers lie sideways
+        const x = a.x + ux * out + px * off;
+        const z = a.z + uz * out + pz * off;
+        c.target.set(x, c.target.y + 0.04, z);
+        blockers.filter((b) => b.blocking === id).forEach((b, j, all) => {
+          const bc = this.cards.get(b.id);
+          if (!bc) return;
+          const side = (j - (all.length - 1) / 2) * CARD_W * 1.1;
+          bc.target.set(x + ux * CARD_H * 1.3 + px * side, bc.target.y + 0.04, z + uz * CARD_H * 1.3 + pz * side);
+          bc.rot = d.rot + (b.tapped ? -Math.PI / 2 : 0);
+        });
+      });
+    }
   }
 
   /**
@@ -805,17 +850,17 @@ export class TableScene {
       const d = (p: THREE.Vector3) => Math.hypot(p.x - toward.x, p.z - toward.z);
       return (d(e.near) < d(e.far) ? e.near : e.far).clone();
     };
-    const add = (from: string, to: string, color: string) => {
+    const add = (from: string, to: string, color: string, low = false) => {
       const a0 = at(from);
       const b0 = a0 && at(to, a0);
       if (!a0 || !b0) return;
       const a = edge(from, b0) ?? a0;
       const b = edge(to, a) ?? b0;
-      if (a.distanceTo(b) >= 0.3) wanted.push([a, b, color]);
+      if (a.distanceTo(b) >= 0.3) wanted.push([a, b, low ? `${color}|low` : color]);
     };
     for (const c of Object.values(view.cards)) {
-      if (c.attacking) add(c.id, c.attacking.id, ATTACK_RED);
-      if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff");
+      if (c.attacking && c.attacking.kind !== "player") add(c.id, c.attacking.id, ATTACK_RED, true);
+      if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff", true);
     }
     for (const ar of view.arrows ?? []) {
       const color = ar.kind === "attack" ? ATTACK_RED : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;
@@ -831,7 +876,10 @@ export class TableScene {
       (child.userData.dispose as () => void)();
     }
     const flow = !document.body.classList.contains("reduced-motion");
-    for (const [a, b, color] of wanted) this.arrows.add(makeArrow(a, b, { color, flow }, this.stackBox));
+    for (const [a, b, c] of wanted) {
+      const [color, low] = c.split("|");
+      this.arrows.add(makeArrow(a, b, { color: color!, flow, low: !!low }, this.stackBox));
+    }
   }
 
   private syncHandFan(seat: Seat, count: number): void {

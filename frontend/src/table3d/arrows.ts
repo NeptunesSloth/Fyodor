@@ -32,20 +32,22 @@ const beamFragment = /* glsl */ `
   #include <fog_pars_fragment>
   void main() {
     float across = abs(vBand.y);
-    float halo = pow(1.0 - across, 2.2);
     float core = 1.0 - smoothstep(0.0, 0.16, across);
     // a pulse of light travelling to the target
     float p = fract(vBand.x - time * 0.55 * flow);
     float pulse = flow * smoothstep(0.18, 0.0, abs(p - 0.5) * 2.0 - 0.82);
     // fade in from the source, full strength over the target
     float ends = smoothstep(0.0, 0.12, vBand.x);
-    vec3 col = color * halo * (0.55 + pulse * 0.8) + vec3(1.0) * core * (0.75 + pulse * 0.5);
-    gl_FragColor = vec4(col * ends, 1.0);
+    // a thin cord down the middle of the ribbon, softly edged; the rest is transparent (no glow)
+    float cord = 1.0 - smoothstep(0.22, 0.38, across);
+    vec3 col = color * (0.85 + pulse * 0.35) + vec3(1.0) * core * 0.25;
+    gl_FragColor = vec4(col, cord * ends);
     #include <colorspace_fragment>
     #include <fog_fragment>
   }`;
 
-export interface ArrowStyle { color: string; flow: boolean }
+/** `low`: combat cords skim the table instead of arcing overhead. */
+export interface ArrowStyle { color: string; flow: boolean; low?: boolean }
 
 /** Shared clock for every arrow's pulse (set each frame by the scene). */
 export const arrowTime = { value: 0 };
@@ -99,11 +101,11 @@ function crosses(a: THREE.Vector3, b: THREE.Vector3, box: GroundBox): boolean {
  * path would run through it (so beams never pass through the stack's standing cards). The bend goes
  * to whichever side needs less.
  */
-export function routeAround(a: THREE.Vector3, b: THREE.Vector3, box: GroundBox | null): THREE.Curve<THREE.Vector3> {
+export function routeAround(a: THREE.Vector3, b: THREE.Vector3, box: GroundBox | null, low = false): THREE.Curve<THREE.Vector3> {
   const dist = a.distanceTo(b);
   // beams that start or end high (a stack card's edge) arc gently; table-to-table beams arc high
   const raised = Math.max(a.y, b.y) > 0.5;
-  const lift = Math.max(a.y, b.y) + (raised ? 0.35 + dist * 0.05 : 1.1 + dist * 0.14);
+  const lift = Math.max(a.y, b.y) + (low ? 0.15 + dist * 0.025 : raised ? 0.35 + dist * 0.05 : 1.1 + dist * 0.14);
   const at = (t: number, side: THREE.Vector3, d: number) =>
     new THREE.Vector3(a.x + (b.x - a.x) * t + side.x * d, lift, a.z + (b.z - a.z) * t + side.z * d);
   const straight = (side: THREE.Vector3, d: number) => new THREE.CubicBezierCurve3(a, at(1 / 3, side, d), at(2 / 3, side, d), b);
@@ -133,7 +135,7 @@ export function routeAround(a: THREE.Vector3, b: THREE.Vector3, box: GroundBox |
 
 /** A beam from a to b. userData.dispose frees what the group owns (the shared shapes stay). */
 export function makeArrow(a: THREE.Vector3, b: THREE.Vector3, style: ArrowStyle, avoid: GroundBox | null = null): THREE.Group {
-  const curve = routeAround(a, b, avoid);
+  const curve = routeAround(a, b, avoid, style.low);
   const color = new THREE.Color(style.color);
   const beamMat = new THREE.ShaderMaterial({
     vertexShader: beamVertex,
@@ -141,10 +143,8 @@ export function makeArrow(a: THREE.Vector3, b: THREE.Vector3, style: ArrowStyle,
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { color: { value: color }, flow: { value: style.flow ? 1 : 0 } }]),
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    side: THREE.DoubleSide,
+    side: THREE.DoubleSide, // normal blending: a cord on the table, not a neon glow (critique)
     fog: true,
-    toneMapped: false,
   });
   beamMat.uniforms.time = arrowTime; // shared object: one write per frame animates every beam
   const beam = new THREE.Mesh(beamGeometry(curve), beamMat);
@@ -153,11 +153,11 @@ export function makeArrow(a: THREE.Vector3, b: THREE.Vector3, style: ArrowStyle,
 
   // the crystal hovers over the target, pointing down at it
   const crystal = new THREE.Mesh(crystalGeo, new THREE.MeshStandardMaterial({
-    color: color.clone().lerp(new THREE.Color("#ffffff"), 0.35), emissive: color, emissiveIntensity: 1.1, roughness: 0.15, metalness: 0.2,
+    color: color.clone().lerp(new THREE.Color("#ffffff"), 0.35), emissive: color, emissiveIntensity: 0.35, roughness: 0.15, metalness: 0.2,
   }));
   crystal.position.copy(b).setY(b.y + 0.42);
   crystal.renderOrder = 6;
-  const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3, depthWrite: false }));
   ring.position.copy(b).setY(b.y + 0.02);
   ring.renderOrder = 6;
 

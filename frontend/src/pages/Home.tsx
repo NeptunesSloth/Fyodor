@@ -10,16 +10,17 @@ import { plane, PLANES } from "../theme/planes";
 import { resolveRenderer } from "../table3d/renderer";
 import { Welcome, resetWelcome, welcomeDone } from "./Welcome";
 import "./home.css";
+import { Icon, type IconName } from "../components/Icon";
 
 const ShowcaseView = lazy(() => import("./ShowcaseView"));
 
-const MENU = [
-  { href: "#/play", label: "Start New Game", icon: "⚔", testid: "menu-new" },
-  { href: "#/play", label: "Resume Game", icon: "↺", testid: "menu-resume", resume: true },
-  { href: "#/play?mode=lan", label: "LAN Lobby", icon: "⌂", testid: "menu-lan" },
-  { href: "#/decks", label: "Deck Library", icon: "❖", testid: "menu-decks" },
-  { href: "#/stats", label: "Pod Stats", icon: "♛", testid: "menu-stats" },
-  { href: "#/settings", label: "Settings", icon: "⚙", testid: "menu-settings" },
+const MENU: { href: string; label: string; icon: IconName; testid: string; resume?: boolean }[] = [
+  { href: "#/play", label: "Start a game", icon: "swords", testid: "menu-new" },
+  { href: "#/play", label: "Resume a game", icon: "resume", testid: "menu-resume", resume: true },
+  { href: "#/play?mode=lan", label: "LAN lobby", icon: "table", testid: "menu-lan" },
+  { href: "#/decks", label: "Deck library", icon: "cards", testid: "menu-decks" },
+  { href: "#/stats", label: "Pod stats", icon: "crown", testid: "menu-stats" },
+  { href: "#/settings", label: "Settings", icon: "gear", testid: "menu-settings" },
 ];
 
 export function Home() {
@@ -48,20 +49,18 @@ export function Home() {
         </Suspense>
       )}
       <div className="home-vignette" />
-      <section className="home-menu frame ornate">
-        <div className="home-star" aria-hidden>✦</div>
+      <section className="home-menu frame">
         <h1 className="home-title">Fyodor</h1>
-        <div className="home-sub">Commander Tabletop</div>
+        <div className="home-sub">Commander tabletop</div>
         <nav className="home-items">
           {MENU.map((m) => (
             <a key={m.testid} href={m.resume && saves ? "#/play?tab=saves" : m.href} className="home-item" data-testid={m.testid}>
-              <span className="home-icon" aria-hidden>{m.icon}</span>
+              <span className="home-icon"><Icon name={m.icon} /></span>
               <span>{m.label}</span>
               {m.resume && saves > 0 && <span className="home-count">{saves}</span>}
             </a>
           ))}
         </nav>
-        <p className="home-tag">Play Commander your way.<br />Tabletop feel. Arena convenience.</p>
         <div className="home-status">
           {error && <span className="error">Server unreachable</span>}
           {health && (

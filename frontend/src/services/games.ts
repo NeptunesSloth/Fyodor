@@ -19,6 +19,8 @@ export interface CreateGameBody {
   auto_untap: boolean;
   /** LAN lobby: players take seats and choose their own decks before the host starts. */
   lobby?: boolean;
+  /** Lobby turn order: "pod" = d20 for the first game, then the winner goes last. */
+  turn_order?: "pod" | "random";
   seats?: number;
   deck_privacy?: LobbySettings["deck_privacy"];
   mulligan_rule?: string;

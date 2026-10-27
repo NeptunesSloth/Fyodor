@@ -10,6 +10,7 @@ import { cardMenu } from "./cardMenu";
 import { beginPointerDrag } from "./dnd";
 import { CounterBadges, GameCardFace } from "./GameCardFace";
 import { answerByClick, legalClass } from "./rules/RulesHud";
+import { Icon } from "../components/Icon";
 
 interface Props {
   id: string;
@@ -74,7 +75,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
         {visible && card.is_token && !card.copy_of && <span className="mark token">TOKEN</span>}
         {visible && card.test_object && <span className="mark test" title="Test object — not part of any deck">TEST</span>}
         {visible && card.copy_of && <span className="mark copy" title={`Copy of ${card.copy_of.source_name}${card.copy_of.modifications ? ` — ${card.copy_of.modifications}` : ""}`}>COPY</span>}
-        {visible && card.commander_key && <span className="mark cmdr" title="Commander">♛</span>}
+        {visible && card.commander_key && <span className="mark cmdr" title="Commander"><Icon name="crown" size={11} /></span>}
         {visible && card.merged && card.merged.length > 1 && (
           <span className="mark merge" data-testid="merge-mark" title={`${card.melded ? "Melded" : "Merged"} permanent, top to bottom:\n${card.merged.map((p) => p.name).join("\n")}`}>
             {card.melded ? "MELD" : `MUTATED ×${card.merged.length - 1}`}
@@ -84,7 +85,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
         {card.face_down && card.face_down_kind && card.face_down_kind !== "generic" && (
           <span className="mark fd" title={`${FACE_DOWN_LABEL[card.face_down_kind]} (face down)`}>{FACE_DOWN_LABEL[card.face_down_kind].toUpperCase()}</span>
         )}
-        {(card.attacking || card.attacking_without_target) && <span className="mark atk" title="Attacking">⚔</span>}
+        {(card.attacking || card.attacking_without_target) && <span className="mark atk" title="Attacking"><Icon name="swords" size={11} /></span>}
         {(card.blocking || card.blocking_without_attacker) && <span className="mark blk" title="Blocking">⛨</span>}
         {card.locked && <span className="mark lock" title="Locked in place">🔒</span>}
         {visible && card.choices && Object.keys(card.choices).length > 0 && (

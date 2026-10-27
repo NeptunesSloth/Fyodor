@@ -1,21 +1,25 @@
 ---
 name: Fyodor
-description: A private Commander card room — dark wood, blackened metal and restrained brass around a physical table.
+description: A private Commander card room — walnut table, petrol baize playmats, blackened steel and restrained brass.
 colors:
-  room-black: "#0f0a07"
-  room-black-2: "#17100b"
-  plaque-top: "#1b140e"
-  plaque-bottom: "#0d0a07"
-  line: "#3b2a1c"
-  line-2: "#5a4129"
+  room-black: "#0b0c0d"
+  room-black-2: "#121416"
+  plaque-top: "#181a1c"
+  plaque-bottom: "#0a0b0d"
+  line: "#2a2d31"
+  line-2: "#3e4247"
+  walnut: "#3b2117"
+  walnut-deep: "#1d0f0a"
+  baize: "#152c33"
+  baize-nap: "#21434c"
   brass-frame: "#8a6a3f"
   brass-hi: "#d7ae63"
   brass: "#d0a45a"
   brass-light: "#f0c97d"
   brass-ink: "#231605"
-  parchment: "#f1e4cc"
-  parchment-dim: "#bfa988"
-  parchment-faint: "#96826a"
+  parchment: "#eee5d3"
+  parchment-dim: "#b5ad9e"
+  parchment-faint: "#8f887c"
   priority-ice: "#7fb6ff"
   danger: "#e0645c"
   ok: "#7cc48f"
@@ -77,17 +81,18 @@ components:
 ## Overview
 A game client for one private Commander pod: Tabletop Simulator freedom, MTG Arena-level rules help and
 Master Duel priority clarity. The table is the interface — about 85–90% of attention — and every overlay
-is an object lying on or beside it, not an app panel. Materials come from a real card room: dark walnut,
-leather, blackened metal, a little brass. Colour values above are the Dominaria (default) plane; every
+is an object lying on or beside it, not an app panel. Materials come from a real card room: a dark walnut
+table, a petrol-blue baize playmat per seat stitched in the seat colour, blackened steel, a little brass. Colour values above are the Dominaria (default) plane; every
 plane maps the same roles (`theme/planes.ts` → `cssTokens()`), so roles, not hex values, are normative.
 
 ## Colors
-- **Room black / plaque** carry all surfaces. Never a neutral grey panel.
+- **Baize** is the play surface (3D mats, the 2D table); **walnut** is everything around it.
+- **Blackened steel** (room black / plaque, `--steel-hi`/`--steel-lo`/`--hud-surface`) carries every overlay. Never brown panels.
 - **Brass** is emphasis only: the primary action, the active turn, the selected card's edge. One brass
   thing per region. Brass buttons use a gradient whose darkest stop is computed per plane to keep
   `brass-ink` at ≥ 4.5:1 (`accentLow()`); faint text is lifted to ≥ 4.5:1 (`textFaint()`), both tested.
 - **Priority ice** means "you may act now" and nothing else.
-- **Beams:** attack orange-red, block blue, targets ice, other arrows brass.
+- **Beams:** attack orange-red, block blue, targets ice, other arrows brass — thin cords, never glowing.
 - Never signal with colour alone: turn, priority, lethal, modified P/T all also say it in words or glyphs.
 
 ## Typography

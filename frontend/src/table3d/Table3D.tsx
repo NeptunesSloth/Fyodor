@@ -156,17 +156,20 @@ export function Table3D({ me }: { me: string }) {
   }, [me, graphics]);
 
   useEffect(() => sceneRef.current?.setPlane(plane(planeId)), [planeId]);
+  useEffect(() => useGame.getState().setLayout({ stackOpen: false }), []); // the stack lies on the table itself
   useEffect(() => sceneRef.current?.setCamera(preset), [preset]);
   // camera keys (game/hotkeys.ts): 1 seat, 2–6 other players, 0 whole table, C focus the hovered card, Home back
   const back = useRef<CameraPreset>("seat");
   useEffect(() => {
     const onCam = (e: Event) => {
-      const { id, digit, hover } = (e as CustomEvent<{ id: string; digit: number; hover: string | null }>).detail;
+      const { id, digit, hover, player } = (e as CustomEvent<{ id: string; digit: number; hover: string | null; player?: string }>).detail;
       const others = players.filter((p) => p !== me);
       if (id === "cam_names") return setAllNames((x) => !x);
       setPreset((cur) => {
         if (id === "cam_seat" || id === "cam_reset") return "seat";
         if (id === "cam_table") return "overview";
+        // the winner spotlight turns the camera toward the winning seat (your own seat: your usual view)
+        if (id === "cam_focus_player") return player && player !== me && players.includes(player) ? { focus: player } : "seat";
         if (id === "cam_player") return others[digit - 2] ? { focus: others[digit - 2]! } : cur;
         if (id === "cam_focus") {
           if (typeof cur === "object" && "card" in cur) return back.current;
@@ -188,6 +191,7 @@ export function Table3D({ me }: { me: string }) {
       window.removeEventListener("keydown", onEsc);
     };
   }, [players, me]);
+  useAutoCenter(me, setPreset);
   useEffect(() => {
     if (!ambienceOn || ambientVol <= 0) return;
     return startAmbience(plane(planeId).ambience, ambientVol);
@@ -249,7 +253,7 @@ const MAX_DRIFT = 110;
 
 const TIPS = [
   { title: "Players", text: "Click a player's plaque to see their counters, commander damage and actions." },
-  { title: "Your turn", text: "The dial at the bottom right says whose turn it is, and its big button says what pressing it will do." },
+  { title: "Your turn", text: "The panel at the bottom right says whose turn it is, and its big button says what pressing it will do." },
   { title: "Playing cards", text: "Drag a card from your hand onto the table, or focus it and press Enter. Hold Alt as you drop to place it by hand." },
 ];
 const COACH_KEY = "fyodor.coach3d";
@@ -282,7 +286,7 @@ function CoachTips() {
 }
 
 const MOMENTS = {
-  combat: { title: "Combat", text: "Drag your creatures toward a player or their plaque to attack, or right-click a creature for Attack. The dial's button moves on to blocks." },
+  combat: { title: "Combat", text: "Drag your creatures toward a player or their plaque to attack, or right-click a creature for Attack. The big button at the bottom right moves on to blocks." },
   priority: { title: "Something is on the stack", text: "You can respond: cast an instant or use an ability now, and it resolves first. Otherwise press Pass (P) and the top of the stack resolves." },
   target: { title: "Choose a target", text: "Glowing cards and plaques are legal choices: click one. Esc cancels." },
 } as const;
@@ -377,4 +381,63 @@ function SeatPlate({ player, me, open, onToggle }: { player: string; me: string;
       )}
     </div>
   );
+}
+
+/**
+ * Auto-center (TABLETOP_QOL_MILESTONE #11), off unless the player turns it on: a commander cast or
+ * an elimination turns the camera toward that seat for a moment, then back. Any input of the
+ * player's own cancels it at once; reduced motion disables it. Camera only, never game state.
+ */
+function useAutoCenter(me: string, setPreset: React.Dispatch<React.SetStateAction<CameraPreset>>) {
+  const mode = usePrefs((s) => s.autoCenter);
+  const reduced = usePrefs((s) => s.reducedMotion);
+  const prev = useRef<{ stack: Set<string>; out: Set<string> } | null>(null);
+  useEffect(() => {
+    if (mode === "off" || reduced) {
+      prev.current = null;
+      return;
+    }
+    let timer = 0;
+    let restore: CameraPreset | null = null;
+    const cancel = () => {
+      window.clearTimeout(timer);
+      if (restore) setPreset(restore);
+      restore = null;
+    };
+    const unsub = useGame.subscribe((s) => {
+      const v = s.view;
+      if (!v) return;
+      const stack = new Set(v.stack);
+      const out = new Set([...(v.rules?.conceded ?? []), ...Object.keys(v.rules?.lost ?? {})]);
+      const before = prev.current;
+      prev.current = { stack, out };
+      if (!before) return;
+      let focus: string | null = null;
+      for (const pid of out) if (!before.out.has(pid)) focus = pid;
+      for (const id of stack) {
+        const c = v.cards[id];
+        if (!before.stack.has(id) && c && "commander_key" in c && c.commander_key) focus = c.controller;
+      }
+      if (!focus || focus === me) return;
+      window.clearTimeout(timer);
+      setPreset((cur) => {
+        if (!restore) restore = cur;
+        return { focus: focus! };
+      });
+      timer = window.setTimeout(cancel, 2600 / (usePrefs.getState().animationSpeed || 1));
+    });
+    const input = () => {
+      if (restore) cancel();
+    };
+    window.addEventListener("pointerdown", input, true);
+    window.addEventListener("wheel", input, true);
+    window.addEventListener("keydown", input, true);
+    return () => {
+      unsub();
+      window.clearTimeout(timer);
+      window.removeEventListener("pointerdown", input, true);
+      window.removeEventListener("wheel", input, true);
+      window.removeEventListener("keydown", input, true);
+    };
+  }, [mode, reduced, me, setPreset]);
 }

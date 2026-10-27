@@ -28,6 +28,11 @@ export interface Prefs {
   renderer: "auto" | "3d" | "2d";
   /** Ambient environment audio (per theme). */
   ambience: boolean;
+  /** Receive nudges ("the table is waiting on you") and see spectators' reactions. */
+  nudges: boolean;
+  reactions: boolean;
+  /** 3D: gently turn the camera toward important public events. */
+  autoCenter: "off" | "important";
   showTokenSources: boolean;
   hud: "full" | "minimal";
   uiScale: number;
@@ -62,6 +67,9 @@ export const DEFAULT_PREFS: Prefs = {
   plane: DEFAULT_PLANE,
   renderer: "auto",
   ambience: true,
+  nudges: true,
+  reactions: true,
+  autoCenter: "off",
   showTokenSources: false,
   hud: "full",
   uiScale: 1,

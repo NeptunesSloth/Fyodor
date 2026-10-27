@@ -71,4 +71,13 @@ describe("lobby updates arriving out of order", () => {
     useGame.getState().applyLobby(lobby(9, true));
     expect(useGame.getState().lobby).toBeNull();
   });
+
+  it("goes back to the lobby when the pod returns there after a game (a newer revision)", () => {
+    useGame.setState({ view: { game: { id: "g1", revision: 10 } } as unknown as GameView, lobby: null });
+    useGame.getState().applyLobby(lobby(9, true)); // a late one from before the game: ignored
+    expect(useGame.getState().lobby).toBeNull();
+    useGame.getState().applyLobby(lobby(12, false));
+    expect(useGame.getState().lobby?.revision).toBe(12);
+    expect(useGame.getState().view).toBeNull();
+  });
 });

@@ -29,7 +29,22 @@ Internet.
 See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design details.
 
-## Requirements
+## Download (no Python or Node needed)
+
+Grab the zip for your computer from the repository's **Releases** page (or the latest
+**Downloadable app** run in the Actions tab), unzip it and double-click **Fyodor**
+(`Fyodor.exe` on Windows). The first start downloads the card database once (~80 MB); after
+that it runs with no Internet. Cards and saves live in a `Fyodor` folder in your home folder,
+so a newer download keeps them.
+
+- **Windows** may show "Windows protected your PC": click *More info* → *Run anyway*, and allow
+  it on private networks when the firewall asks (that's what lets the pod join).
+- **macOS**: the app isn't signed, so right-click **Fyodor** → *Open* the first time.
+
+To build it yourself: `scripts/build-app.sh` (on Windows, from Git Bash) → `dist/Fyodor/`.
+A new tag like `v0.2.0` builds all three and attaches them to a release.
+
+## Requirements (running from source)
 
 - Python 3.11+
 - Node.js 20+ (only needed to build/run the frontend)
@@ -78,9 +93,9 @@ images.
 port, prints the address for the pod and opens your browser):
 
 ```bash
-scripts/start.sh          # this computer only
-scripts/start.sh --lan    # let phones/laptops on your home network join
-scripts\start.cmd --lan   # Windows
+Start Fyodor.bat          # Windows: double-click (installs and downloads cards on the first run)
+Start Fyodor.command      # macOS: double-click
+scripts/start.sh          # Linux / terminal; add --local for this computer only
 ```
 
 The first time you open it, a short **setup guide** on the home page asks your name, confirms
@@ -101,7 +116,7 @@ scripts/serve.sh    # builds the frontend, serves everything on http://127.0.0.1
 ### LAN play
 
 ```bash
-scripts/start.sh --lan              # or: FYODOR_HOST=0.0.0.0 scripts/serve.sh
+scripts/start.sh                    # or: FYODOR_HOST=0.0.0.0 scripts/serve.sh
 ```
 
 1. On the host, open `http://127.0.0.1:8000` → **Play** → choose *LAN* → **Start game**.

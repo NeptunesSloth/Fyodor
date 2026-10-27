@@ -1,0 +1,189 @@
+/* Game night moments: intro, countdown, agreed-ending bar, result spotlight and rematch vote.
+   Rare moments (once a game): the one place for an orchestrated reveal (GAME_UI_MOTION_RESEARCH §4),
+   always skippable, durations scaled by --anim-scale (0 with reduced motion). */
+
+.night-intro {
+  position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; cursor: pointer;
+  background: radial-gradient(ellipse 60% 55% at 50% 48%, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.72));
+  animation: night-fade calc(220ms * var(--anim-scale, 1)) var(--ease-out) both;
+}
+.night-card { width: min(600px, calc(100vw - 32px)); cursor: default; }
+.night-plaque { padding: 22px 26px 16px; }
+.night-title { margin: 0; font: 700 30px/1.1 var(--font-display); letter-spacing: 0.04em; color: var(--text); }
+.night-sub { margin: 4px 0 16px; color: var(--text-dim); font-size: 13.5px; }
+.night-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.night-row {
+  display: grid; grid-template-columns: 26px 44px 1fr auto auto; align-items: center; gap: 12px;
+  padding: 6px 10px 6px 6px; border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  animation: night-rise calc(260ms * var(--anim-scale, 1)) var(--ease-out) both;
+  animation-delay: calc((120ms + var(--i) * 70ms) * var(--anim-scale, 1));
+}
+.night-pos {
+  font: 700 22px/1 var(--font-display); color: var(--accent-2); text-align: center; font-variant-numeric: lining-nums;
+  padding-bottom: 3px; border-bottom: 2px solid var(--seat); /* the seat colour, beside the name (never colour alone) */
+}
+.night-art { width: 44px; aspect-ratio: 63 / 88; border-radius: 3px; overflow: hidden; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); }
+.night-art .card-face { width: 100%; }
+.night-art-empty {
+  display: grid; place-items: center; width: 100%; height: 100%;
+  font: 600 18px var(--font-display); color: var(--text-dim); background: var(--steel-lo); border: 1px solid var(--line-2);
+}
+.night-who { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.night-who b { font-size: 14.5px; color: var(--text); }
+.night-who span { font-size: 12.5px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.night-tag { font-size: 11.5px; font-weight: 600; color: var(--accent-ink); background: var(--accent); padding: 2px 7px; border-radius: 3px; white-space: nowrap; }
+.night-dice { display: flex; gap: 5px; align-items: center; }
+/* a d20 reads as a die: a small bevelled ivory hexagon with the number engraved */
+.night-die {
+  --d: 34px;
+  width: var(--d); height: var(--d); display: grid; place-items: center;
+  font: 700 15px/1 var(--font-display); color: #1c1610; font-variant-numeric: lining-nums;
+  background: linear-gradient(160deg, #f4ead6, #cdbd9c);
+  clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  animation: night-roll calc(420ms * var(--anim-scale, 1)) var(--ease-out) both;
+  animation-delay: calc((200ms + var(--i) * 70ms) * var(--anim-scale, 1));
+}
+.night-die.tied { --d: 26px; font-size: 12px; opacity: 0.55; } /* earlier rolls that tied, then rerolled */
+.night-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; color: var(--text-dim); font-size: 13px; }
+.night-count {
+  font: 700 clamp(120px, 18vw, 220px)/1 var(--font-display); color: var(--accent-2); font-variant-numeric: lining-nums;
+  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.8);
+  animation: night-count calc(520ms * var(--anim-scale, 1)) var(--ease-out) both;
+}
+
+/* -- agreed ending -- */
+.night-proposal { position: fixed; z-index: 62; left: 50%; top: 56px; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); }
+.night-proposal-body { padding: 12px 16px; animation: night-rise calc(200ms * var(--anim-scale, 1)) var(--ease-out) both; }
+.night-proposal-body p { margin: 0 0 4px; font-size: 14px; }
+.night-proposal-wait { color: var(--text-dim); font-size: 12.5px !important; }
+.night-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
+
+/* -- result: a short spotlight over the still-visible battlefield, then a compact panel -- */
+.night-spot {
+  position: fixed; inset: 0; z-index: 85; display: grid; place-items: center; cursor: pointer;
+  background: radial-gradient(ellipse 55% 45% at 50% 46%, rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.6));
+  animation: night-fade calc(300ms * var(--anim-scale, 1)) var(--ease-out) both;
+}
+.night-spot.defeat { background: radial-gradient(ellipse 55% 45% at 50% 46%, rgba(20, 0, 0, 0.3), rgba(10, 0, 0, 0.75)); }
+.night-spot-inner { text-align: center; padding: 0 16px; }
+.night-word {
+  font: 700 clamp(56px, 8vw, 112px)/1 var(--font-display); letter-spacing: 0.06em; color: var(--accent-2);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.7), 0 10px 40px rgba(0, 0, 0, 0.7);
+  animation: night-word calc(800ms * var(--anim-scale, 1)) var(--ease-out) both;
+}
+.night-spot.defeat .night-word { color: #d29a90; }
+.night-spot.draw .night-word, .night-spot.none .night-word { color: #d9dcdf; }
+.night-spot.winner .night-word { font-size: clamp(40px, 5.5vw, 76px); letter-spacing: 0.03em; }
+.night-rule {
+  width: min(320px, 60vw); height: 1px; margin: 18px auto 14px; background: var(--frame-hi); opacity: 0.8;
+  transform-origin: 50% 50%;
+  animation: night-rule calc(500ms * var(--anim-scale, 1)) var(--ease-out) both;
+  animation-delay: calc(250ms * var(--anim-scale, 1));
+}
+.night-spot.defeat .night-rule { background: #8a4a42; }
+.night-spot.draw .night-rule, .night-spot.none .night-rule { background: #9ca1a6; }
+.night-winner, .night-cmdr, .night-agreed {
+  animation: night-rise calc(300ms * var(--anim-scale, 1)) var(--ease-out) both;
+  animation-delay: calc(420ms * var(--anim-scale, 1));
+}
+.night-winner { font: 600 22px/1.3 var(--font-display); color: var(--text); }
+.night-cmdr { margin-top: 4px; font-size: 15px; color: var(--text-dim); }
+.night-agreed { margin-top: 10px; font-size: 12.5px; color: var(--text-dim); }
+
+.night-result { position: fixed; z-index: 62; left: 50%; top: 52px; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); }
+.night-result-body { padding: 12px 16px 12px; animation: night-rise calc(240ms * var(--anim-scale, 1)) var(--ease-out) both; }
+.night-result-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.night-result-word { font: 700 22px/1 var(--font-display); color: var(--accent-2); }
+.night-result-word.defeat { color: #d29a90; }
+.night-result-word.draw, .night-result-word.none, .night-result-word.winner { color: var(--text); }
+.night-result-line { color: var(--text-dim); font-size: 13.5px; }
+.night-votes { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; }
+.night-votes li { display: inline-flex; align-items: baseline; gap: 6px; }
+.night-votes b { font-weight: 600; }
+.night-votes b.rematch { color: var(--accent-2); }
+.night-votes b.lobby { color: var(--text); }
+.night-votes b.waiting { color: var(--text-dim); font-weight: 500; }
+.night-force { margin-top: 8px; font-size: 12.5px; }
+
+@keyframes night-fade { from { opacity: 0; } }
+@keyframes night-rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes night-roll { from { opacity: 0; transform: rotate(-120deg) scale(0.85); } }
+@keyframes night-count {
+  0% { opacity: 0; transform: scale(0.92); }
+  30% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.03); }
+}
+@keyframes night-word { from { opacity: 0; transform: translateY(10px); letter-spacing: 0.16em; } }
+@keyframes night-rule { from { transform: scaleX(0); } }
+
+/* reduced motion: keep the fades, drop the movement */
+body.reduced-motion :is(.night-row, .night-die, .night-count, .night-word, .night-winner, .night-cmdr, .night-agreed, .night-proposal-body, .night-result-body) {
+  animation-name: night-fade;
+}
+body.reduced-motion .night-rule { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  :is(.night-row, .night-die, .night-count, .night-word, .night-winner, .night-cmdr, .night-agreed, .night-proposal-body, .night-result-body) { animation-name: night-fade; }
+  .night-rule { animation: none; }
+}
+
+/* -- eliminated: a brief dark pulse, shorter and quieter than Defeat -- */
+.night-spot.eliminated { background: radial-gradient(ellipse 55% 45% at 50% 46%, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.78)); }
+.night-spot.eliminated .night-word { font-size: clamp(44px, 6vw, 80px); color: #c9b9b5; }
+.night-spot.eliminated .night-rule { background: #6b5a57; }
+.night-pill { position: fixed; z-index: 36; left: 50%; top: 52px; transform: translateX(-50%); font-size: 12.5px; }
+.sim-hand { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin-top: 10px; }
+.sim-card { animation: night-rise calc(200ms * var(--anim-scale, 1)) var(--ease-out) both; }
+body.reduced-motion .sim-card { animation-name: night-fade; }
+
+/* -- combat lanes (renderer-independent overlay; the table itself never moves) -- */
+/* bottom left, above Tokens / Dice: never over the hand (a hovered card rises through the middle) */
+.combat-pill { position: fixed; z-index: 37; left: 12px; bottom: 56px; font-size: 12.5px; }
+.combat-lanes { position: fixed; z-index: 58; left: 50%; top: 56px; transform: translateX(-50%); width: max-content; max-width: min(980px, calc(100vw - 32px)); max-height: calc(100vh - 260px); display: flex; }
+.combat-lanes > .plaque { flex: 1; min-width: 280px; }
+.combat-lanes-body { padding: 12px 16px 14px; overflow: auto; animation: night-rise calc(180ms * var(--anim-scale, 1)) var(--ease-out) both; }
+.combat-lanes-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.combat-lanes-head b { font: 700 18px var(--font-display); }
+.combat-front h3 { margin: 10px 0 6px; font: 600 13.5px var(--font-ui); letter-spacing: 0; text-transform: none; font-variant: normal; color: var(--text-dim); }
+.combat-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+.combat-lane { display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 6px; width: 112px; }
+.combat-card { display: block; flex: none; padding: 0; border: 0; background: none; cursor: pointer; width: 100%; border-radius: 5px; }
+.combat-card.small { width: 84px; }
+.combat-card:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+.combat-blockers { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.combat-vs { font-size: 11.5px; color: var(--text-dim); }
+.combat-vs.open { color: var(--accent-2); font-weight: 600; }
+body.reduced-motion .combat-lanes-body { animation-name: night-fade; }
+
+/* -- nudges and reactions -- */
+.td-status-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.td-nudge { padding: 2px 8px; font-size: 12px; min-height: 0; }
+.signal-feed { position: fixed; z-index: 36; left: 14px; bottom: 136px; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+.signal-feed li {
+  display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 6px; border-radius: 4px; font-size: 12.5px; color: var(--text);
+  background: var(--hud-surface); box-shadow: 0 0 0 1px var(--line), 0 4px 10px rgba(0, 0, 0, 0.45);
+  animation: night-rise calc(200ms * var(--anim-scale, 1)) var(--ease-out) both;
+}
+.signal-emoji { font-size: 18px; line-height: 1; }
+.signal-bar { position: fixed; z-index: 36; left: 12px; bottom: 96px; display: flex; gap: 2px; padding: 3px; border-radius: 5px; background: var(--hud-surface); box-shadow: 0 0 0 1px var(--line), 0 4px 10px rgba(0, 0, 0, 0.45); }
+.signal-btn { width: 32px; height: 30px; border: 0; border-radius: 3px; background: transparent; font-size: 17px; cursor: pointer; }
+.signal-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); }
+.signal-btn:disabled { opacity: 0.4; cursor: default; }
+body.reduced-motion .signal-feed li { animation-name: night-fade; }
+
+/* -- 2D: combat docked between the opponents and you -- */
+.combat-strip {
+  flex: none; display: flex; align-items: center; gap: 18px; padding: 8px 14px; margin: 0 10px; overflow-x: auto;
+  background: rgba(0, 0, 0, 0.42); border-radius: 8px; box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+  animation: night-rise calc(200ms * var(--anim-scale, 1)) var(--ease-out) both;
+}
+.combat-strip-title { font: 700 16px var(--font-display); color: var(--text); }
+.combat-strip-front { display: flex; flex-direction: column; gap: 4px; }
+.combat-strip-label { font-size: 12.5px; color: var(--text-dim); }
+.combat-strip-row { display: flex; gap: 18px; }
+.combat-strip-lane { display: flex; align-items: center; gap: 6px; }
+.combat-strip-lane .combat-card { width: 64px; }
+.combat-strip-lane .combat-card.small { width: 56px; }
+.combat-strip-vs { font: 700 12px var(--font-display); color: var(--text-dim); }
+body.reduced-motion .combat-strip { animation-name: night-fade; }

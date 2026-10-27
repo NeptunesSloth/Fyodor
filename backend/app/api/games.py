@@ -166,6 +166,8 @@ class CreateGameIn(BaseModel):
     priority_helper: Literal["off", "simple"] = "simple"
     # Rules automation (docs/AUTOMATION_UX.md): OFF is the sandbox (the safe default).
     automation: AutomationLevel = "off"
+    # Lobby turn order: "pod" = d20, then the previous winner goes last (GAME_NIGHT_FLOW.md §2).
+    turn_order: Literal["pod", "random"] = "random"
 
     @field_validator("name")
     @classmethod
@@ -241,7 +243,7 @@ def _create_lobby(services: Services, body: CreateGameIn) -> dict[str, Any]:
                              deck_privacy=body.deck_privacy,
                              mulligan_rule=body.mulligan_rule or ("commander_london" if body.format == "commander" else "london"),
                              mulligan_policy=body.mulligan_policy, priority_helper=body.priority_helper,
-                             auto_untap=body.auto_untap, automation=body.automation)
+                             auto_untap=body.auto_untap, automation=body.automation, turn_order=body.turn_order)
     room = services.hub.create_lobby(settings, password=body.password)
     result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
     if body.host_seat:
@@ -308,7 +310,11 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
         start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
     session.notice(f"Game created. {state.players[state.turn.active_player].name} goes first.")
-    return _create_room(services, session, body.mode, body.password, body.host_seat)
+    created = _create_room(services, session, body.mode, body.password, body.host_seat)
+    room = services.hub.get(state.id)
+    if room is not None:
+        room.night.setups = dict(zip(state.seat_order, setups, strict=True))
+    return created
 
 
 @router.get("/games/{game_id}")
@@ -601,6 +607,7 @@ class LobbySettingsIn(BaseModel):
     priority_helper: Literal["off", "simple"] | None = None
     auto_untap: bool | None = None
     automation: AutomationLevel | None = None
+    turn_order: Literal["pod", "random"] | None = None
 
 
 class StartIn(BaseModel):
@@ -1025,6 +1032,15 @@ async def start_game(
         if blockers and not body.force:
             raise HTTPException(409, "Not everyone is ready: " + "; ".join(blockers))
         lobby = room.lobby or LobbySettings()
+        night = room.night
+        pod_rule = lobby.turn_order == "pod" and body.first_player == "random"
+        if pod_rule:
+            winner = next((pid for pid in order if night.last_winner_key and room.seats[pid].token == night.last_winner_key), None)
+            order, night.order_source, night.rolls = night.plan(order, winner)
+            night.previous_winner = winner
+        else:
+            night.order_source, night.rolls, night.previous_winner = "host", [], None
+        night.proposal, night.result, night.votes = None, None, {}
         setups = []
         for pid in order:
             info = room.lobby_seats.get(pid) or LobbySeatInfo()
@@ -1039,12 +1055,16 @@ async def start_game(
                 )
             )
         first: int | None = None
-        if body.first_player == "random":
+        if pod_rule:
+            first = 0  # the seats are already in turn order
+        elif body.first_player == "random":
             import secrets
 
             first = secrets.randbelow(len(setups))
         elif isinstance(body.first_player, int):
             first = body.first_player if 0 <= body.first_player < len(setups) else 0
+        night.setups = dict(zip(order, setups, strict=True))
+        night.infos = {pid: room.lobby_seats.get(pid) or LobbySeatInfo() for pid in order}
         settings = GameSettings(
             starting_life=lobby.starting_life or {"commander": 40}.get(lobby.format, 20),
             auto_untap=lobby.auto_untap,
@@ -1069,6 +1089,10 @@ async def start_game(
             state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules
         )
         session.notice(f"Game started. {state.players[state.turn.active_player].name} goes first.")
+        if night.order_source == "winner_last":
+            session.notice(f"Turn order: {room.seat_name(night.previous_winner or '')} won the last game and goes last.")
+        elif night.order_source == "d20":
+            session.notice("Turn order: everyone rolled a d20, highest first.")
         if blockers:
             session.notice("The host started without waiting for everyone.")
         services.hub.start(room, session, order)
@@ -1094,7 +1118,8 @@ class ResultIn(BaseModel):
 
 @router.get("/games/{game_id}/result")
 def game_result(game_id: str, services: ServicesDep) -> dict[str, Any] | None:
-    return services.stats.for_game(game_id)
+    room = services.hub.get(game_id)
+    return services.stats.for_game(room.night.result_key(room.id) if room else game_id)
 
 
 @router.post("/games/{game_id}/result", status_code=201)
@@ -1102,29 +1127,55 @@ async def record_result(game_id: str, body: ResultIn, request: Request, services
                         x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
     """End the game: the host records who won. Nothing is ever decided automatically."""
     room = _host_room(services, game_id, request, x_seat_token)
+    result = record_game_result(services, room, body.result_type, body.winners, notes=body.notes, names=body.names)
+    await services.hub.broadcast(room)
+    return result
+
+
+def record_game_result(services: Services, room: Room, result_type: str, winners: list[str], *, notes: str = "",
+                       names: dict[str, str] | None = None, agreed: bool = False) -> dict[str, Any]:
+    """Record the current game's result in pod stats and open the post-game vote (GAME_NIGHT_FLOW.md §5-6)."""
     state = room.session.state
     participants = []
     for pid in state.seat_order:
         p = state.players[pid]
         commanders = sorted({c.name for c in state.cards.values() if c.commander_key and c.owner == pid})
-        name = clean_text(body.names.get(pid, ""), 40) or p.name
+        name = clean_text((names or {}).get(pid, ""), 40) or p.name
         participants.append(Participant(seat=pid, name=name, deck_key=deck_key_for(p.deck_id, p.deck_name, commanders),
                                         deck_name=p.deck_name, commanders=commanders))
+    if agreed:
+        notes = ("Agreed result: every remaining player agreed to end the game. " + notes).strip()
     try:
         result = services.stats.record(
-            game_id=room.id, result_type=body.result_type, participants=participants, winners=body.winners,
+            game_id=room.night.result_key(room.id), result_type=result_type,  # type: ignore[arg-type]
+            participants=participants, winners=winners,
             table_name=state.name, format=state.format, started_at=state.created_at, turns=state.turn.number,
-            notes=body.notes)
+            notes=notes)
     except DuplicateResult as exc:
         raise HTTPException(409, str(exc)) from exc
     except ResultError as exc:
         raise HTTPException(422, str(exc)) from exc
     room.result_id = result["id"]
+    night = room.night
+    night.proposal = None
+    night.result = {"result_type": result_type, "winners": list(winners), "winner_names": list(result["winners"]),
+                    "agreed": agreed}
+    night.votes = {}
+    single = result_type == "single" and len(winners) == 1
+    night.last_winner_key = (room.seats[winners[0]].token or winners[0]) if single and winners[0] in room.seats else None
+    night.history.append({"number": night.number, "result_type": result_type, "winner_names": list(result["winners"]),
+                          "agreed": agreed, "order": [state.players[pid].name for pid in state.seat_order],
+                          "turns": state.turn.number, "minutes": max(0, round((time.time() - state.created_at) / 60)),
+                          "commanders": {state.players[pid].name: sorted({c.name for c in state.cards.values()
+                                                                           if c.commander_key and c.owner == pid})
+                                         for pid in state.seat_order}})
     services.hub.persist(room)
     what = {"single": f"{', '.join(result['winners'])} won", "multiple": f"{' and '.join(result['winners'])} won",
-            "draw": "a draw", "no_result": "no result (not counted)"}[body.result_type]
-    room.session.notice(f"Game over — {what}. Result recorded.")
-    await services.hub.broadcast(room)
+            "draw": "a draw", "no_result": "no result (not counted)"}[result_type]
+    if agreed:
+        room.session.notice(f"Game over by agreement — {what}. This result was agreed by the players, not decided by the rules.")
+    else:
+        room.session.notice(f"Game over — {what}. Result recorded.")
     return result
 
 

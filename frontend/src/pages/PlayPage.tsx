@@ -205,6 +205,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         players: useLobby ? [{ name: players[0]?.name.trim() || "Host", deck_id: null }] : players.map((p) => ({ ...p, name: p.name.trim() || "Player" })),
         shuffle: true,
         lobby: useLobby,
+        turn_order: "pod", // the pod's own rule is the default for game nights (Table settings can change it)
         seats,
         deck_privacy: privacy,
         mulligan_rule: mulligan,
@@ -341,7 +342,8 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
 }
 
 function JoinGame() {
-  const [code, setCode] = useState("");
+  // an invite link (#/play?code=ABC123) fills the room code in
+  const [code, setCode] = useState(() => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("code") ?? "");
   const [name, setName] = useState(() => activeProfile().name === "Player" ? "" : activeProfile().name);
   const [password, setPassword] = useState("");
   const join = async (spectate: boolean) => {

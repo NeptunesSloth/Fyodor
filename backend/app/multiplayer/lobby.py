@@ -37,6 +37,9 @@ class LobbySettings(BaseModel):
     priority_helper: PriorityHelper = "simple"
     auto_untap: bool = True
     automation: AutomationLevel = "off"  # rules automation (docs/AUTOMATION_UX.md); OFF by default
+    # "pod": d20 for game 1 and after a draw, then the previous winner goes last (GAME_NIGHT_FLOW.md §2).
+    # The app asks for it when it creates a lobby; the API default keeps seats in join order.
+    turn_order: Literal["pod", "random"] = "random"
 
     @field_validator("name")
     @classmethod

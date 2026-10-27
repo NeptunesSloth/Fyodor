@@ -4,14 +4,19 @@ import { ResultForm, draftValid, type ResultDraft } from "../components/ResultFo
 import { toastError } from "../components/Toasts";
 import { gameResult, RESULT_LABEL, recordResult, type GameResult } from "../services/pod";
 import { useGame } from "../state/gameStore";
+import { proposeEnd } from "../services/night";
+import { useIsHost } from "./HostTools";
 import "../pages/podstats.css";
 
 /**
  * END GAME: the players decide when it's over and who won — nothing is detected automatically.
- * Two steps (choose, then confirm) so statistics never change by accident.
+ * Two steps (choose, then confirm) so statistics never change by accident. At a LAN table anyone
+ * may propose the result to the table (every remaining player must agree); the host can also
+ * record it directly.
  */
 export function EndGameDialog({ onClose }: { onClose: () => void }) {
   const view = useGame((s) => s.view);
+  const isHost = useIsHost();
   const [draft, setDraft] = useState<ResultDraft>({ result_type: "single", winners: [], notes: "" });
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -49,13 +54,30 @@ export function EndGameDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const lan = view.game.mode === "lan";
+  const propose = async () => {
+    setBusy(true);
+    try {
+      await proposeEnd(view.game.id, draft.result_type, draft.winners);
+      onClose();
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <Modal title="End game" onClose={onClose} footer={
       confirming ? (
         <>
           <button className="tt-btn" onClick={() => setConfirming(false)} disabled={busy}>Cancel</button>
           <span className="spacer" />
-          <button className="tt-btn brass" data-testid="record-result" disabled={busy} onClick={() => void record()}>Record result</button>
+          {lan && (
+            <button className={`tt-btn ${isHost ? "" : "brass"}`} data-testid="propose-result" disabled={busy} onClick={() => void propose()}
+              title="Every player still in the game must agree before it is recorded">Propose to the table</button>
+          )}
+          {(!lan || isHost) && <button className="tt-btn brass" data-testid="record-result" disabled={busy} onClick={() => void record()}>Record result</button>}
         </>
       ) : (
         <>
