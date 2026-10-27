@@ -199,14 +199,23 @@ def test_blockers_that_die_in_combat_are_arranged_by_their_owner(cards):
     from app.game.session import GameSession
     from tests.game_helpers import deck, turn_on
 
-    mine = deck(cards, "Krenko, Mob Boss", [(1, "Barrow Ghoul"), (9, "Forest")])
+    mine = deck(cards, "Krenko, Mob Boss", [(1, "Barrow Ghoul"), (1, "Llanowar Elves"), (9, "Forest")])
     theirs = deck(cards, "Atraxa, Praetors' Voice", [(1, "Grizzly Bears"), (1, "Llanowar Elves"), (9, "Island")])
     s = GameSession(new_game([PlayerSetup("Alice", cards=mine), PlayerSetup("Bob", cards=theirs)], shuffle=False), cards=cards)
     for name, pid in (("Barrow Ghoul", "p1"), ("Grizzly Bears", "p2"), ("Llanowar Elves", "p2")):
         act(s, pid, type="move", card_ids=[card_named(s, name, pid).id], to={"player": pid, "zone": "battlefield"})
+    fodder = card_named(s, "Llanowar Elves", "p1")  # (for the Ghoul's upkeep: "sacrifice it unless you exile the top creature card of your graveyard")
+    act(s, "p1", type="move", card_ids=[fodder.id], to={"player": "p1", "zone": "graveyard"})
     turn_on(s)  # (the creatures were there before)
-    act(s, "p1", type="pass_priority")  # → Alice's main phase
-    act(s, "p1", type="pass_priority")  # → combat: Alice declares attackers
+    for _ in range(12):  # Alice's upkeep (the Ghoul exiles her Elves and stays), then on to combat: Alice declares attackers
+        d = s.state.rules.decision
+        if d is not None and d.kind == "declare_attackers":
+            break
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.card_id == fodder.id])
+        else:
+            act(s, s.state.rules.priority, type="pass_priority")
+    assert s.state.cards[fodder.id].zone == "p1:exile"
     ghoul = card_named(s, "Barrow Ghoul")
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": ghoul.id, "target": "p2"}])
     blocks = [{"blocker_id": card_named(s, n, "p2").id, "attacker_id": ghoul.id} for n in ("Grizzly Bears", "Llanowar Elves")]
