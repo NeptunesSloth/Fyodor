@@ -48,6 +48,10 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     const flashback = zone === "graveyard" && abilityLines(oracle).some((l) => /^flashback \{/i.test(l));
     if (!aftermath) items.push({ label: flashback ? "Cast with flashback" : `Cast from ${zone}`, onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
   }
+  // -- Chorus of the Conclave (wave 110C) -- 601.2b: any amount of extra mana for +1/+1 counters, announced with the cast (the server lists the cards)
+  if (mine && hints.chorus?.includes(card.id)) {
+    items.push({ label: "Cast with Chorus of the Conclave…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: card.id }, field: "chorus" }) });
+  }
   if (mine && hints.free_castable?.includes(card.id) && !isLand(card.id, view)) {
     items.push({ label: "Cast without paying its mana cost", onClick: () => void send({ type: "cast_spell", card_id: card.id, free: true }) });
   }
@@ -185,7 +189,7 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   // server lists the cost only to that player, on the permanent the effect is on
   const endCost = rules.stats?.[card.id]?.end_cost;
   if (zone === "battlefield" && endCost) {
-    items.push({ label: `End the effect (${endCost}, special action)`, disabled: !hints.has_priority, onClick: () => void send({ type: "end_effect", card_id: card.id }) });
+    items.push({ label: `${rules.stats?.[card.id]?.end_label ?? "End the effect"} (${endCost}, special action)`, disabled: !hints.has_priority, onClick: () => void send({ type: "end_effect", card_id: card.id }) });
   }
   if (mine && zone === "battlefield" && card.face_down) {
     const ways = rules.stats?.[card.id]?.turn_up;

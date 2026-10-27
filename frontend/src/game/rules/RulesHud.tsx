@@ -54,6 +54,13 @@ export function AutomationHud() {
           Pay <ManaText text={window.cost} /> to prevent {window.name}
         </button>
       ))}
+      {seated && rules?.hints.channel && (
+        <button className="auto-pill" data-testid="channel" title="Channel: pay 1 life to add {C} (a mana ability, until end of turn)"
+          disabled={!rules.hints.has_priority || !!rules.decision || rules.paused}
+          onClick={() => void send({ type: "activate_ability", card_id: rules.hints.channel, ability: 0 })}>
+          Pay 1 life: add <ManaText text="{C}" />
+        </button>
+      )}
       {canConcede(view, me) && (conceding ? (
         <span className="auto-pill" data-testid="concede-confirm">
           Concede the game?{" "}
@@ -506,6 +513,12 @@ function CardNameChoice({ d, view }: { d: DecisionView; view: GameView }) {
   );
 }
 
+const PROMPT = {
+  x_value: ["Choose a value for X", "Cast / activate with X"],
+  kicker: ["Choose a multikicker count (0–1000)", "Cast with multikicker"],
+  chorus: ["Chorus of the Conclave: pay how much extra mana? (0–1000)", "Cast with Chorus"],
+} as const;
+
 /** -- X announced (wave 24D) -- 107.3a: the number for X, asked before the cast / activation is sent (the server validates the range). */
 export function XPrompt() {
   const action = useXPrompt((s) => s.action);
@@ -517,11 +530,11 @@ export function XPrompt() {
   const go = () => { if (submitNumericPrompt(x)) setX("0"); };
   return (
     <div className="decision-panel frame" data-testid="x-prompt">
-      <div className="decision-prompt">{field === "kicker" ? "Choose a multikicker count (0–1000)" : "Choose a value for X"}</div>
+      <div className="decision-prompt">{PROMPT[field][0]}</div>
       <div className="decision-options">
         <input className="decision-name" data-testid="x-input" type="number" min={0} max={1000} autoFocus value={x}
           onChange={(e) => setX(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") go(); if (e.key === "Escape") close(); }} />
-        <button className="tt-btn brass" data-testid="x-done" disabled={!ok} onClick={go}>{field === "kicker" ? "Cast with multikicker" : "Cast / activate with X"}</button>
+        <button className="tt-btn brass" data-testid="x-done" disabled={!ok} onClick={go}>{PROMPT[field][1]}</button>
         <button className="tt-btn" data-testid="x-cancel" onClick={close}>Cancel</button>
       </div>
     </div>

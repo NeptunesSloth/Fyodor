@@ -15,7 +15,7 @@ import type { DropResult } from "../dnd";
 
 /** -- X announced (wave 24D) -- 107.3a, 601.2b: a cast or activation that needs X (the hints' `x_cast`, `activatable[].x`) waits here
  * for the player's number (the XPrompt in RulesHud); free and alternative-cost casts make X 0 on the server (107.3b). */
-export const useXPrompt = create<{ action: Action | null; field: "x_value" | "kicker" }>(() => ({ action: null, field: "x_value" }));
+export const useXPrompt = create<{ action: Action | null; field: "x_value" | "kicker" | "chorus" }>(() => ({ action: null, field: "x_value" }));
 
 export function needsX(view: GameView | null, a: Action): boolean {
   const h = view?.rules?.hints;

@@ -49,6 +49,8 @@ def test_cast_their_top_card_with_any_color_and_they_cannot_cast(cards):
     assert s.state.zones["p2:library"][0] == bolt.id
     assert "Lightning Bolt" in json.dumps(s.view("p1"))  # (401.5: the controller looks)
     mana(s, G=1)  # (609.4b: green mana pays {R})
+    assert bolt.id in s.view("p1")["rules"]["hints"]["castable"]  # (the client's library-top menu offers the cast)
+    assert bolt.id not in json.dumps(s.view("p2")["rules"]["hints"])
     act(s, "p1", type="cast_spell", card_id=bolt.id, targets=["p2"])
     answer(s)
     assert life(s, "p2") == 37
