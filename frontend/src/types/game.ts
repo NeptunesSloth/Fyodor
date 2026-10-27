@@ -542,6 +542,8 @@ export interface LobbyView {
   seats: LobbySeat[];
   spectators: number;
   start_blockers: string[];
+  /** Tonight's finished games, oldest first (the session recap). */
+  night?: (NightInfo["history"][number] & { minutes?: number; commanders?: Record<string, string[]> })[];
 }
 
 export interface CardStats {

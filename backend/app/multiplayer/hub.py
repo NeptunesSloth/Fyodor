@@ -234,6 +234,8 @@ class Room:
             "seats": seats,
             "spectators": sum(1 for c in self.connections.values() if c.viewer == SPECTATOR),
             "start_blockers": self.start_blockers(),
+            # tonight's finished games (public: names, winners, turns), for the session recap
+            "night": [dict(h) for h in self.night.history],
         }
 
     def start_blockers(self) -> list[str]:

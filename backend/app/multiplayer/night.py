@@ -86,6 +86,8 @@ class Night:
     history: list[dict[str, Any]] = field(default_factory=list)  # one entry per finished game
     # Seat token (or, at a hot-seat table, game seat) of the last game's single winner; never sent to clients.
     last_winner_key: str | None = None
+    # Monotonic times of recent nudges / reactions (rate limits; in memory only, never sent or saved).
+    signals: dict[str, float] = field(default_factory=dict)
 
     def result_key(self, room_id: str) -> str:
         """The pod-stats game id of the current game (game 1 keeps the room id; later games add #n)."""

@@ -142,3 +142,10 @@
 .seat-card .seat-actions { flex-wrap: wrap; }
 .seat-card .seat-actions .tt-btn { white-space: nowrap; }
 .seat-card .seat-name { font-size: 16px; }
+
+/* tonight so far: a quiet recap between games */
+.session-recap { margin: 18px 0 0; padding: 14px 18px; border-radius: 6px; background: var(--hud-surface); box-shadow: 0 0 0 1px var(--line), 0 8px 18px rgba(0, 0, 0, 0.45); }
+.session-recap h2 { margin: 0 0 2px; font: 700 18px var(--font-display); letter-spacing: 0.03em; }
+.session-recap ol { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.session-recap li { display: grid; grid-template-columns: 80px 1fr auto; gap: 12px; align-items: baseline; font-size: 13.5px; }
+.recap-n { color: var(--text-dim); }

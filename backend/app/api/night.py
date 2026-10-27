@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -237,3 +238,67 @@ async def own_deck(game_id: str, request: Request, services: ServicesDep, viewer
     return {"name": setup.deck_name, "cards": [
         {"section": c.section, "quantity": c.quantity, "name": c.name, "printing_id": c.printing_id}
         for c in setup.cards if c.section in ("main", "commander")]}
+
+
+# --------------------------------------------------------------------------- nudges and reactions
+
+REACTIONS = ("👍", "😂", "😮", "🔥", "💀", "👏")
+NUDGE_COOLDOWN = 30.0  # seconds between nudges from one player, and to one player
+REACT_COOLDOWN = 3.0
+
+
+class SignalIn(BaseModel):
+    kind: Literal["nudge", "react"]
+    emoji: str | None = Field(default=None, max_length=8)
+    as_player: str | None = Field(default=None, max_length=8)
+
+
+def waiting_on(state: GameState) -> str:
+    """Who the game is waiting on: the player making a decision, the one with priority, else the active player."""
+    r = state.rules
+    if r is not None and r.decision is not None:
+        return r.decision.player
+    if r is not None and r.priority:
+        return r.priority
+    return state.turn.active_player
+
+
+@router.post("/games/{game_id}/night/signal")
+async def signal(game_id: str, body: SignalIn, request: Request, services: ServicesDep,
+                 x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """A soft social signal (TABLETOP_QOL_MILESTONE #13-14). Nothing here touches the game: it is
+    never logged, saved or replayed, carries no game information and is rate limited."""
+    room = _room(services, game_id)
+    viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=None, as_player=body.as_player)
+    state = room.session.state
+    now = time.monotonic()
+    who = actor or f"spectator:{x_seat_token or ''}"
+    last = room.night.signals
+    if body.kind == "nudge":
+        if actor is None:
+            raise HTTPException(403, "Spectators can't nudge")
+        target = waiting_on(state)
+        if target == actor:
+            raise HTTPException(409, "The game is waiting on you")
+        if now - last.get(f"nudge-from:{actor}", -1e9) < NUDGE_COOLDOWN or now - last.get(f"nudge-to:{target}", -1e9) < NUDGE_COOLDOWN:
+            raise HTTPException(429, "Give them a moment: you can nudge again in half a minute")
+        last[f"nudge-from:{actor}"] = last[f"nudge-to:{target}"] = now
+        await services.hub.send_to(room, target, {"type": "signal", "kind": "nudge", "from": actor,
+                                                 "from_name": room.seat_name(actor), "to": target})
+        return {"to": target}
+    # reactions: from spectators and players already out of the game
+    if body.emoji not in REACTIONS:
+        raise HTTPException(422, "Unknown reaction")
+    if actor is not None and actor in remaining(state):
+        raise HTTPException(403, "Reactions are for players who are out and spectators")
+    if now - last.get(f"react:{who}", -1e9) < REACT_COOLDOWN:
+        raise HTTPException(429, "One reaction every few seconds")
+    last[f"react:{who}"] = now
+    message: dict[str, Any] = {"type": "signal", "kind": "react", "from": actor, "from_name": room.seat_name(actor) if actor else "A spectator",
+               "emoji": body.emoji}
+    for conn in list(room.connections.values()):
+        try:
+            await conn.send(message)
+        except Exception:  # noqa: BLE001 - best effort, like every push
+            services.hub.disconnect(room, conn)
+    return {"sent": True}

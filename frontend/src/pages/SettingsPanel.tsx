@@ -77,6 +77,14 @@ export function SettingsPanel() {
             </select>
           </label>
           <label className="check"><input type="checkbox" checked={p.ambience} onChange={(e) => set({ ambience: e.target.checked })} /> Ambient sound of the plane (volume: Sound → Ambient)</label>
+          <label className="field">3D camera on big moments
+            <select value={p.autoCenter} data-testid="auto-center" onChange={(e) => set({ autoCenter: e.target.value as Prefs["autoCenter"] })}>
+              <option value="off">Off: the camera only moves when you move it</option>
+              <option value="important">Important only: commander casts and eliminations (any input cancels)</option>
+            </select>
+          </label>
+          <label className="check"><input type="checkbox" checked={p.nudges} onChange={(e) => set({ nudges: e.target.checked })} /> Let other players nudge me when the table waits on me</label>
+          <label className="check"><input type="checkbox" checked={p.reactions} onChange={(e) => set({ reactions: e.target.checked })} /> Show spectators' reactions</label>
         </div>
       </section>
       <section>

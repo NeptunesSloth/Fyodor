@@ -25,6 +25,7 @@ import "./rules/rules.css";
 import { resolveRenderer } from "../table3d/renderer";
 import { CombatLanes } from "./CombatLanes";
 import { GameNight } from "./GameNight";
+import { SignalLayer } from "./Signals";
 
 const Table3D = lazy(() => import("../table3d/Table3D").then((m) => ({ default: m.Table3D })));
 
@@ -101,6 +102,7 @@ export function GameScreen() {
       <PickLayer />
       <CombatLanes />
       <GameNight />
+      <SignalLayer />
     </div>
   );
 }

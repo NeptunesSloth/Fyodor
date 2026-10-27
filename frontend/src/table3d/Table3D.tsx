@@ -190,6 +190,7 @@ export function Table3D({ me }: { me: string }) {
       window.removeEventListener("keydown", onEsc);
     };
   }, [players, me]);
+  useAutoCenter(me, setPreset);
   useEffect(() => {
     if (!ambienceOn || ambientVol <= 0) return;
     return startAmbience(plane(planeId).ambience, ambientVol);
@@ -379,4 +380,63 @@ function SeatPlate({ player, me, open, onToggle }: { player: string; me: string;
       )}
     </div>
   );
+}
+
+/**
+ * Auto-center (TABLETOP_QOL_MILESTONE #11), off unless the player turns it on: a commander cast or
+ * an elimination turns the camera toward that seat for a moment, then back. Any input of the
+ * player's own cancels it at once; reduced motion disables it. Camera only, never game state.
+ */
+function useAutoCenter(me: string, setPreset: React.Dispatch<React.SetStateAction<CameraPreset>>) {
+  const mode = usePrefs((s) => s.autoCenter);
+  const reduced = usePrefs((s) => s.reducedMotion);
+  const prev = useRef<{ stack: Set<string>; out: Set<string> } | null>(null);
+  useEffect(() => {
+    if (mode === "off" || reduced) {
+      prev.current = null;
+      return;
+    }
+    let timer = 0;
+    let restore: CameraPreset | null = null;
+    const cancel = () => {
+      window.clearTimeout(timer);
+      if (restore) setPreset(restore);
+      restore = null;
+    };
+    const unsub = useGame.subscribe((s) => {
+      const v = s.view;
+      if (!v) return;
+      const stack = new Set(v.stack);
+      const out = new Set([...(v.rules?.conceded ?? []), ...Object.keys(v.rules?.lost ?? {})]);
+      const before = prev.current;
+      prev.current = { stack, out };
+      if (!before) return;
+      let focus: string | null = null;
+      for (const pid of out) if (!before.out.has(pid)) focus = pid;
+      for (const id of stack) {
+        const c = v.cards[id];
+        if (!before.stack.has(id) && c && "commander_key" in c && c.commander_key) focus = c.controller;
+      }
+      if (!focus || focus === me) return;
+      window.clearTimeout(timer);
+      setPreset((cur) => {
+        if (!restore) restore = cur;
+        return { focus: focus! };
+      });
+      timer = window.setTimeout(cancel, 2600 / (usePrefs.getState().animationSpeed || 1));
+    });
+    const input = () => {
+      if (restore) cancel();
+    };
+    window.addEventListener("pointerdown", input, true);
+    window.addEventListener("wheel", input, true);
+    window.addEventListener("keydown", input, true);
+    return () => {
+      unsub();
+      window.clearTimeout(timer);
+      window.removeEventListener("pointerdown", input, true);
+      window.removeEventListener("wheel", input, true);
+      window.removeEventListener("keydown", input, true);
+    };
+  }, [mode, reduced, me, setPreset]);
 }

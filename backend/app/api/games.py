@@ -1165,7 +1165,10 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
     night.last_winner_key = (room.seats[winners[0]].token or winners[0]) if single and winners[0] in room.seats else None
     night.history.append({"number": night.number, "result_type": result_type, "winner_names": list(result["winners"]),
                           "agreed": agreed, "order": [state.players[pid].name for pid in state.seat_order],
-                          "turns": state.turn.number})
+                          "turns": state.turn.number, "minutes": max(0, round((time.time() - state.created_at) / 60)),
+                          "commanders": {state.players[pid].name: sorted({c.name for c in state.cards.values()
+                                                                           if c.commander_key and c.owner == pid})
+                                         for pid in state.seat_order}})
     services.hub.persist(room)
     what = {"single": f"{', '.join(result['winners'])} won", "multiple": f"{' and '.join(result['winners'])} won",
             "draw": "a draw", "no_result": "no result (not counted)"}[result_type]

@@ -117,6 +117,8 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
         ))}
       </div>
 
+      {lobby.night && lobby.night.length > 0 && <SessionRecap games={lobby.night} />}
+
       <footer className="lobby-foot">
         <div className="lobby-status">
           {lobby.start_blockers.length === 0 ? (
@@ -152,6 +154,38 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
       {choosing && me && <ChooseDeck gameId={gameId} onClose={() => setChoosing(false)} onDone={(l) => { setLobby(l); setChoosing(false); }} />}
       {settingsOpen && <SettingsDialog lobby={lobby} onClose={() => setSettingsOpen(false)} onSaved={setLobby} />}
     </div>
+  );
+}
+
+/** Tonight so far (TABLETOP_QOL_MILESTONE #17): a casual recap, never a ranking. */
+function SessionRecap({ games }: { games: NonNullable<LobbyView["night"]> }) {
+  const wins = new Map<string, number>();
+  for (const g of games) if (g.result_type === "single" || g.result_type === "multiple") for (const w of g.winner_names) wins.set(w, (wins.get(w) ?? 0) + 1);
+  const minutes = games.reduce((n, g) => n + (g.minutes ?? 0), 0);
+  const describe = (g: (typeof games)[number]) =>
+    g.result_type === "draw" ? "Draw" : g.result_type === "no_result" ? "No result" : `${g.winner_names.join(" & ")} won`;
+  return (
+    <section className="session-recap" data-testid="session-recap" aria-label="Tonight so far">
+      <h2>Tonight so far</h2>
+      <p className="hint">
+        {games.length} game{games.length === 1 ? "" : "s"}{minutes ? ` · about ${minutes} min` : ""}
+        {wins.size > 0 && ` · ${[...wins].sort((a, b) => b[1] - a[1]).map(([n, w]) => `${n} ${w}`).join(", ")}`}
+      </p>
+      <ol>
+        {games.map((g) => {
+          const winner = g.winner_names.length === 1 ? g.winner_names[0]! : null;
+          const cmdr = winner ? g.commanders?.[winner]?.join(" & ") : null;
+          return (
+            <li key={g.number}>
+              <span className="recap-n">Game {g.number}</span>
+              <span>{describe(g)}{cmdr ? ` with ${cmdr}` : ""}{g.agreed ? " (agreed)" : ""}</span>
+              <span className="hint">{g.turns} turn{g.turns === 1 ? "" : "s"}{g.minutes ? ` · ${g.minutes} min` : ""}</span>
+            </li>
+          );
+        })}
+      </ol>
+      <a className="tt-btn ghost" href="#/stats">Pod stats</a>
+    </section>
   );
 }
 

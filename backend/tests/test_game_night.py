@@ -235,3 +235,34 @@ def test_own_deck_is_only_ever_the_askers(table):
     assert "Krenko, Mob Boss" in names and "Atraxa, Praetors' Voice" not in names
     # no token: no deck (spectators and strangers get nothing)
     assert client.get(f"/api/games/{gid}/night/deck").status_code == 403
+
+
+def test_nudge_reaches_only_the_player_the_game_waits_on_and_is_rate_limited(table):
+    client, gid, alice, bob = table
+    state = client.app.state.services.hub.get(gid).session.state
+    waiting = state.turn.active_player
+    nudger = bob if seat_of(client, gid, alice) == waiting else alice
+    res = client.post(f"/api/games/{gid}/night/signal", json={"kind": "nudge"}, headers=h(nudger))
+    assert res.status_code == 200 and res.json()["to"] == waiting
+    assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "nudge"}, headers=h(nudger)).status_code == 429
+    other = alice if nudger == bob else bob
+    assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "nudge"}, headers=h(other)).status_code == 409
+
+
+def test_reactions_are_for_spectators_and_players_who_are_out(table):
+    client, gid, alice, bob = table
+    assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "react", "emoji": "👍"}, headers=h(alice)).status_code == 403
+    code = client.get(f"/api/games/{gid}").json()["code"]
+    spectator = client.post("/api/join", json={"code": code, "spectate": True}).json()["token"]
+    assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "react", "emoji": "🔥"}, headers=h(spectator)).status_code == 200
+    assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "react", "emoji": "🔥"}, headers=h(spectator)).status_code == 429
+    assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "react", "emoji": "<script>"}, headers=h(spectator)).status_code == 422
+
+
+def test_the_lobby_recaps_tonights_games(table):
+    client, gid, alice, bob = table
+    _finish(client, gid, alice, bob, bob)
+    client.post(f"/api/games/{gid}/night/vote", json={"choice": "lobby"}, headers=h(alice))
+    recap = lobby_of(client, gid, alice)["night"]
+    assert len(recap) == 1 and recap[0]["winner_names"] == ["Bob"] and recap[0]["agreed"] is True
+    assert recap[0]["commanders"]["Bob"] == ["Krenko, Mob Boss"] and recap[0]["minutes"] >= 0

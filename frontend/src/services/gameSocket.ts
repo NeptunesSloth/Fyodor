@@ -11,7 +11,11 @@ interface Handlers {
   onClosedByServer: (reason: string) => void;
   /** How many actions are waiting to reach the table (sent again after a reconnect). */
   onOutbox?: (count: number) => void;
+  /** A transient social signal (a nudge to you, a spectator's reaction); never game state. */
+  onSignal?: (signal: Signal) => void;
 }
+
+export interface Signal { kind: "nudge" | "react"; from: string | null; from_name: string; to?: string; emoji?: string }
 
 type ServerMessage =
   | { type: "state"; view: GameView; revision?: number; resync?: boolean }
@@ -20,7 +24,8 @@ type ServerMessage =
   | { type: "ack"; id: number | null; status?: "ACCEPTED" | "ALREADY_APPLIED" }
   | { type: "error"; id?: number | null; message: string; status?: "REJECTED" }
   | { type: "pong"; id: number | null }
-  | { type: "closed" };
+  | { type: "closed" }
+  | ({ type: "signal" } & Signal);
 
 const FATAL_CODES = new Set([4403, 4404]);
 const OUTBOX_TTL = 45000; // an action waits this long for the table to come back
@@ -222,6 +227,9 @@ export class GameConnection {
         this.handlers.onClosedByServer("The host closed this game.");
         break;
       case "pong":
+        break;
+      case "signal":
+        this.handlers.onSignal?.(msg);
         break;
     }
   }

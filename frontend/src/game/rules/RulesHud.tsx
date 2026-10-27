@@ -6,6 +6,7 @@
  */
 import { useState } from "react";
 import { openMenu } from "../../components/ContextMenu";
+import { NudgeButton } from "../Signals";
 import { perspective, playerName, useGame } from "../../state/gameStore";
 import { PHASE_LABEL, PHASES, type PhaseName, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
 import { autocomplete } from "../../services/cards";
@@ -241,7 +242,10 @@ export function TurnDial() {
             );
           })}
         </ol>
-        <p className="td-status" data-testid="priority-holder" aria-live="polite">{status}</p>
+        <div className="td-status-row">
+          <p className="td-status" data-testid="priority-holder" aria-live="polite">{status}</p>
+          {!watching && <NudgeButton view={view} me={me} />}
+        </div>
         {auto && mine && (
           <>
             <button className="td-pass" data-testid="pass-priority" aria-label={`Pass priority: ${verb.toLowerCase()}`} title={blocked ?? "Pass priority (P)"} disabled={deciding} onClick={() => void passPriority()}>

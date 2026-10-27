@@ -87,6 +87,10 @@ test("game night: d20 intro, agreed ending, spotlight, rematch and back to the l
   await guest.page.getByTestId("vote-lobby").click();
   for (const p of pages) await expect(p.getByTestId("lobby")).toBeVisible();
   await expect(guest.page.getByTestId("lobby")).toContainText("Goblins");
+  const recap = host.page.getByTestId("session-recap");
+  await expect(recap).toContainText("2 games");
+  await expect(recap).toContainText("Alice won with Atraxa, Praetors' Voice (agreed)");
+  await expect(recap).toContainText("Draw");
   await shot(host.page, "lobby-again");
 });
 
@@ -121,4 +125,17 @@ test("eliminated: a short scene, then opening-hand practice with your own deck",
   // the live game didn't move: practice never touches it
   const v = (await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { players: { id: string }[]; zones: Record<string, string[]> };
   expect(v.zones["p1:hand"]).toHaveLength(0);
+});
+
+test("nudge: the waiting player gets one quiet reminder", async ({ browser }) => {
+  test.setTimeout(120_000);
+  const { startLanGame } = await import("./helpers");
+  const { host, guest, gameId } = await startLanGame(browser);
+  await keepAll(host.page, guest.page);
+  const v = (await serverView(host.page, gameId)) as unknown as { viewer: string; turn: { active_player: string } };
+  const [waiting, nudger] = v.turn.active_player === v.viewer ? [host.page, guest.page] : [guest.page, host.page];
+  await expect(waiting.getByTestId("nudge")).toHaveCount(0); // never to yourself
+  await nudger.getByTestId("nudge").click();
+  await expect(waiting.getByText(/nudged you: the table is waiting on your action/)).toBeVisible();
+  await expect(nudger.getByTestId("nudge")).toBeDisabled(); // cooldown
 });
