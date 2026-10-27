@@ -149,3 +149,5 @@
 .session-recap ol { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .session-recap li { display: grid; grid-template-columns: 80px 1fr auto; gap: 12px; align-items: baseline; font-size: 13.5px; }
 .recap-n { color: var(--text-dim); }
+.invite-link { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; font-size: 13.5px; color: var(--text-dim); }
+.invite-link code { color: var(--accent-2); font-size: 14px; user-select: all; }

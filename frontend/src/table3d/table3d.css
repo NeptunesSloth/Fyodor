@@ -153,5 +153,5 @@ body.reduced-motion .table.is-3d > .hand .hand-card { transition: none; }
 
 /* the camera strip shows only the current view until the pointer or keyboard focus comes to it
    (the number keys switch views without it) */
-.t3d-cams:not(:hover):not(:focus-within) button:not(.on) { display: none; }
-.t3d-cams:not(:hover):not(:focus-within) .cam-key { display: none; }
+.t3d-cams:not(:hover):not(:has(:focus-visible)) button:not(.on) { display: none; }
+.t3d-cams:not(:hover):not(:has(:focus-visible)) .cam-key { display: none; }

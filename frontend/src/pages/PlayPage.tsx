@@ -342,7 +342,8 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
 }
 
 function JoinGame() {
-  const [code, setCode] = useState("");
+  // an invite link (#/play?code=ABC123) fills the room code in
+  const [code, setCode] = useState(() => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("code") ?? "");
   const [name, setName] = useState(() => activeProfile().name === "Player" ? "" : activeProfile().name);
   const [password, setPassword] = useState("");
   const join = async (spectate: boolean) => {

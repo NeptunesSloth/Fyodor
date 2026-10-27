@@ -78,9 +78,9 @@ images.
 port, prints the address for the pod and opens your browser):
 
 ```bash
-scripts/start.sh          # this computer only
-scripts/start.sh --lan    # let phones/laptops on your home network join
-scripts\start.cmd --lan   # Windows
+Start Fyodor.bat          # Windows: double-click (installs and downloads cards on the first run)
+Start Fyodor.command      # macOS: double-click
+scripts/start.sh          # Linux / terminal; add --local for this computer only
 ```
 
 The first time you open it, a short **setup guide** on the home page asks your name, confirms
@@ -101,7 +101,7 @@ scripts/serve.sh    # builds the frontend, serves everything on http://127.0.0.1
 ### LAN play
 
 ```bash
-scripts/start.sh --lan              # or: FYODOR_HOST=0.0.0.0 scripts/serve.sh
+scripts/start.sh                    # or: FYODOR_HOST=0.0.0.0 scripts/serve.sh
 ```
 
 1. On the host, open `http://127.0.0.1:8000` → **Play** → choose *LAN* → **Start game**.

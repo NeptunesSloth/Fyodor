@@ -142,7 +142,6 @@ function overlayFor(card: GameCard, stats: CardStats | undefined): CardOverlay |
 const UP = new THREE.Vector3(0, 1, 0);
 /** One red for every attack beam (DESIGN.md: attack-beam). */
 const ATTACK_RED = "#ff5a2a";
-const COMBAT_STEP = 1.1; // world units a fighting creature steps toward the table centre
 const liftTarget = new THREE.Vector3();
 const shadowPos = new THREE.Vector3();
 const shadowQ = new THREE.Quaternion();
@@ -683,10 +682,7 @@ export class TableScene {
         const pos = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
         const [lx, lz] = virtualToLocal(pos[0], pos[1]);
         const tapped = (card.tapped ? -Math.PI / 2 : 0) + (card.flipped ? Math.PI : 0) - ((card.rotation ?? 0) * Math.PI) / 180;
-        // combat reads from positions: attackers and blockers step out of their row toward the middle
-        // of the table (presentation only; the card's stored position never changes)
-        const fighting = !!(card.attacking || card.attacking_without_target || card.blocking);
-        this.place(c, seat, lx, lz - (fighting ? COMBAT_STEP : 0), 0.004 + i * 0.0035 + (fighting ? 0.06 : 0), tapped);
+        this.place(c, seat, lx, lz, 0.004 + i * 0.0035, tapped);
         c.tilt = 0;
         this.setOverlay(c, overlayFor(card, view.rules?.stats?.[id]));
         this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55);
@@ -779,7 +775,52 @@ export class TableScene {
     const err = store.errorCard;
     const errObj = err && Date.now() - err.at < ERROR_MS ? this.cards.get(err.id) : undefined;
     if (errObj) this.setGlow(errObj, "#ff5a4a", 1);
+    this.layoutCombat(view);
     this.syncArrows(view);
+  }
+
+  /**
+   * Combat as a formation (presentation only; stored positions never change): each attacker marches
+   * out into the open wood beyond its mat, side by side with the others attacking the same player
+   * and facing them; each blocker steps up directly in front of the attacker it blocks.
+   */
+  private layoutCombat(view: GameView): void {
+    const seatOf = (pid: string | undefined) => this.seatList.find((s) => s.player === pid);
+    const groups = new Map<string, { a: Seat; d: Seat; ids: string[] }>();
+    for (const card of Object.values(view.cards)) {
+      if (!card.attacking || !card.zone.endsWith(":battlefield")) continue;
+      const a = seatOf(card.controller);
+      const d = seatOf(card.attacking.kind === "player" ? card.attacking.id : view.cards[card.attacking.id]?.controller);
+      if (!a || !d || a === d) continue;
+      const key = `${a.player}>${d.player}`;
+      const g = groups.get(key) ?? { a, d, ids: [] };
+      g.ids.push(card.id);
+      groups.set(key, g);
+    }
+    const blockers = Object.values(view.cards).filter((b) => b.blocking && b.zone.endsWith(":battlefield"));
+    for (const { a, d, ids } of groups.values()) {
+      const dx = d.x - a.x;
+      const dz = d.z - a.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const [ux, uz] = [dx / len, dz / len];
+      const [px, pz] = [-uz, ux];
+      const out = MAT_D / 2 + 1.4; // just past the attacker's mat edge, into the open wood
+      ids.forEach((id, i) => {
+        const c = this.cards.get(id);
+        if (!c) return;
+        const off = (i - (ids.length - 1) / 2) * CARD_H * 1.15; // tapped attackers lie sideways
+        const x = a.x + ux * out + px * off;
+        const z = a.z + uz * out + pz * off;
+        c.target.set(x, c.target.y + 0.04, z);
+        blockers.filter((b) => b.blocking === id).forEach((b, j, all) => {
+          const bc = this.cards.get(b.id);
+          if (!bc) return;
+          const side = (j - (all.length - 1) / 2) * CARD_W * 1.1;
+          bc.target.set(x + ux * CARD_H * 1.3 + px * side, bc.target.y + 0.04, z + uz * CARD_H * 1.3 + pz * side);
+          bc.rot = d.rot + (b.tapped ? -Math.PI / 2 : 0);
+        });
+      });
+    }
   }
 
   /**
@@ -818,7 +859,7 @@ export class TableScene {
       if (a.distanceTo(b) >= 0.3) wanted.push([a, b, low ? `${color}|low` : color]);
     };
     for (const c of Object.values(view.cards)) {
-      if (c.attacking) add(c.id, c.attacking.id, ATTACK_RED, true);
+      if (c.attacking && c.attacking.kind !== "player") add(c.id, c.attacking.id, ATTACK_RED, true);
       if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff", true);
     }
     for (const ar of view.arrows ?? []) {

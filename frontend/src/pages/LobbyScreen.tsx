@@ -26,6 +26,7 @@ import {
   updateLobbySettings,
   type LobbyDeckBody,
   type MyDeck,
+  lanInfo,
 } from "../services/games";
 import { useGame } from "../state/gameStore";
 import type { DeckSummary } from "../types/decks";
@@ -104,6 +105,8 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
         )}
       </header>
 
+      {lobby.is_host && lobby.game.code && <InviteLink code={lobby.game.code} />}
+
       <div className="seat-grid">
         {lobby.seats.map((seat) => (
           <SeatPlate
@@ -155,6 +158,22 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
       {choosing && me && <ChooseDeck gameId={gameId} onClose={() => setChoosing(false)} onDone={(l) => { setLobby(l); setChoosing(false); }} />}
       {settingsOpen && <SettingsDialog lobby={lobby} onClose={() => setSettingsOpen(false)} onSaved={setLobby} />}
     </div>
+  );
+}
+
+/** The link the host sends the pod: it opens Join with the room code already filled in. */
+function InviteLink({ code }: { code: string }) {
+  const [addr, setAddr] = useState<string | null>(null);
+  useEffect(() => {
+    lanInfo().then((i) => setAddr(i.reachable && i.addresses[0] ? `http://${i.addresses[0]}:${i.port}` : null), () => setAddr(null));
+  }, []);
+  if (!addr) return null;
+  const link = `${addr}/#/play?code=${code}`;
+  return (
+    <p className="invite-link" data-testid="invite-link">
+      Friends on your network open <code>{link}</code>
+      <button className="tt-btn ghost" onClick={() => void navigator.clipboard?.writeText(link).then(() => toast("Invite link copied"), () => undefined)}>Copy link</button>
+    </p>
   );
 }
 
