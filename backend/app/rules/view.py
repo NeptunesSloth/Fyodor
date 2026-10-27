@@ -200,6 +200,7 @@ def stats(state: GameState, viewer: str, info: CardInfo) -> dict[str, dict[str, 
 
         if card.zone.endswith(":battlefield") and wave110a_arbiter.has(now) and "end_cost" not in entry:
             entry["end_cost"] = wave110a_arbiter.COST
+            entry["end_label"] = f"Ignore {card.name or 'this effect'} until end of turn"  # (not "end the effect": 116.2c's special action only lets the payer ignore it)
         if not now.is_creature:
             if entry:
                 out[cid] = entry
@@ -239,6 +240,10 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
         out["deferred_payments"] = [{"id": w.id, "cost": w.cost, "name": w.name} for w in windows]
     if not out["has_priority"]:
         return out
+    from app.rules import wave110i_cards
+
+    if wave110i_cards.channel_active(state, viewer):
+        out["channel"] = wave110i_cards.CHANNEL_ID  # -- cards (wave 110I) -- Channel: the viewer's own player-level mana ability (605.3a), the ActivateAbility.card_id to send
     # Your hand, your commander, your graveyard and exile (flashback, "you may play that card this
     # turn" …) and the top card of your library — that one only when you can see it (601.3f in
     # spirit: a card you can't look at isn't offered, so the hint reveals nothing about it).
@@ -257,6 +262,11 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     library = state.zones.get(zone_key(viewer, "library"), [])
     if library and can_see(state, state.cards[library[0]], viewer):
         candidates.append(library[0])
+    # -- Xanathar (wave 110C) -- the top card of another player's library a permission of this viewer's names (601.3), only when the viewer sees it (401.5)
+    for owner in {p.library_of for p in r.permissions if p.player == viewer and p.library_of and p.zone == "library_top"} if r is not None else ():
+        theirs = state.zones.get(zone_key(owner, "library"), [])
+        if theirs and can_see(state, state.cards[theirs[0]], viewer):
+            candidates.append(theirs[0])
     from app.rules.pooled_casting_authorities71 import external_candidates
 
     candidates = list(dict.fromkeys([*candidates, *external_candidates(state, viewer, info)]))

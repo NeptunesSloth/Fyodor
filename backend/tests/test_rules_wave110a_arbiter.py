@@ -35,6 +35,8 @@ def test_players_cannot_search_until_one_pays_two_and_then_only_that_player_and_
     cast(s, "Rampant Growth")
     answer(s)
     assert not _lands(s) and _blocked(s, "p1") and _blocked(s, "p2")  # no card found: the search can't happen
+    shown = s.view("p1")["rules"]["stats"][arb.id]
+    assert shown["end_cost"] == "{2}" and shown["end_label"] == "Ignore Leonin Arbiter until end of turn"  # (the client's label: ignoring, not ending)
     fund(s, "{2}")
     act(s, "p1", type="end_effect", card_id=arb.id)  # special action: the cost is paid, no stack object
     assert not s.state.zones["stack"] and not _blocked(s, "p1") and _blocked(s, "p2")

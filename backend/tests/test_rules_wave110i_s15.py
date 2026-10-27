@@ -179,7 +179,9 @@ def test_channel_is_a_mana_ability_not_a_discount(cards):
     s = _anvil_table(cards, False)
     with pytest.raises(ActionError):
         _tap_life(s)
+    assert "channel" not in s.view("p1")["rules"]["hints"]
     s = _anvil_table(cards, True)
+    assert s.view("p1")["rules"]["hints"]["channel"] == "player:channel110i" and "channel" not in s.view("p2")["rules"]["hints"]  # (the client's button)
     mana(s, C=1)
     life = s.state.players["p1"].life
     with pytest.raises(ActionError):  # {1} of mana is still not {3}: life is not a payment on its own
