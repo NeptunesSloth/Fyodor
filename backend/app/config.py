@@ -8,11 +8,18 @@ the configured data directory, so no machine-specific path is hard-coded.
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+# the downloadable app (PyInstaller): the table interface ships inside the bundle, and cards and
+# saves live in the player's home folder, which survives replacing the app with a newer one
+FROZEN = bool(getattr(sys, "frozen", False))
+if FROZEN:
+    REPO_ROOT = Path(getattr(sys, "_MEIPASS", REPO_ROOT))
+DATA_ROOT = Path.home() / "Fyodor" if FROZEN else REPO_ROOT
 
 
 def _load_dotenv(path: Path) -> dict[str, str]:
@@ -85,7 +92,7 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
     def get(name: str) -> str | None:
         return source.get(f"FYODOR_{name}")
 
-    data_dir = Path(get("DATA_DIR") or (REPO_ROOT / "data")).expanduser().resolve()
+    data_dir = Path(get("DATA_DIR") or (DATA_ROOT / "data")).expanduser().resolve()
     dist = get("FRONTEND_DIST")
     frontend_dist = Path(dist).expanduser().resolve() if dist else REPO_ROOT / "frontend" / "dist"
     cors = get("CORS_ORIGINS")

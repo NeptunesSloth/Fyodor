@@ -17,7 +17,7 @@ import urllib.request
 import webbrowser
 from dataclasses import dataclass
 
-from app.config import Settings, load_settings
+from app.config import FROZEN, Settings, load_settings
 
 
 @dataclass
@@ -122,6 +122,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if blocking else 0
     if blocking:
         print("\nFix the items marked ✗ and run this again.")
+        if FROZEN:  # double-clicked: keep the window open long enough to read why
+            input("Press Enter to close.")
         return 1
 
     local = f"http://127.0.0.1:{settings.port}"

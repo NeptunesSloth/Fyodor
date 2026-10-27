@@ -29,7 +29,22 @@ Internet.
 See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design details.
 
-## Requirements
+## Download (no Python or Node needed)
+
+Grab the zip for your computer from the repository's **Releases** page (or the latest
+**Downloadable app** run in the Actions tab), unzip it and double-click **Fyodor**
+(`Fyodor.exe` on Windows). The first start downloads the card database once (~80 MB); after
+that it runs with no Internet. Cards and saves live in a `Fyodor` folder in your home folder,
+so a newer download keeps them.
+
+- **Windows** may show "Windows protected your PC": click *More info* → *Run anyway*, and allow
+  it on private networks when the firewall asks (that's what lets the pod join).
+- **macOS**: the app isn't signed, so right-click **Fyodor** → *Open* the first time.
+
+To build it yourself: `scripts/build-app.sh` (on Windows, from Git Bash) → `dist/Fyodor/`.
+A new tag like `v0.2.0` builds all three and attaches them to a release.
+
+## Requirements (running from source)
 
 - Python 3.11+
 - Node.js 20+ (only needed to build/run the frontend)

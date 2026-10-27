@@ -78,6 +78,8 @@ main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overfl
 /* first-game tips, bottom left above the tool tray */
 /* tips: a slim banner under the top bar, above the far edge of the table where no cards lie */
 .t3d-coach { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 5; width: min(720px, calc(100% - 32px)); }
+/* the combat panel opens in the same top-centre spot; the tip steps aside until it closes */
+body:has(.combat-lanes) .t3d-coach { display: none; }
 .t3d-coach .t3d-coach-body { flex-direction: row; align-items: center; gap: 12px; padding: 7px 10px 7px 14px; }
 .t3d-coach .t3d-coach-title { white-space: nowrap; font-size: 13px; }
 .t3d-coach .t3d-coach-text { flex: 1; font-size: 12.5px; line-height: 1.35; }
