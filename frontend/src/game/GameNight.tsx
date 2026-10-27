@@ -6,6 +6,7 @@ import { useCardCache } from "../state/cardCache";
 import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { SPECTATOR, type GameView, type NightInfo } from "../types/game";
+import { Eliminated } from "./Eliminated";
 import { useIsHost } from "./HostTools";
 import "./night.css";
 
@@ -76,11 +77,29 @@ export function GameNight() {
       <GameIntro key={`intro-${view.game.night.number}`} view={view} night={view.game.night} />
       <ProposalBar view={view} night={view.game.night} />
       <ResultScene key={`result-${view.game.night.number}`} view={view} night={view.game.night} />
+      <Out view={view} />
     </>
   );
 }
 
+/** The eliminated player's own moment (others never see it); gone once the game has a result. */
+function Out({ view }: { view: GameView }) {
+  const actingAs = useGame((s) => s.actingAs);
+  const me = perspective(view, actingAs);
+  const r = view.rules;
+  const out = view.viewer !== SPECTATOR && !!r && (r.conceded.includes(me) || me in r.lost) && !view.game.night?.result;
+  if (!out) return null;
+  return <Eliminated key={`${me}-${view.game.night?.number}`} view={view} me={me} sceneOn={scenesOn()} />;
+}
+
 // --------------------------------------------------------------------------- the intro
+
+/** Seats in the order they take turns: from the player who goes first, around the table. */
+function turnOrder(view: GameView): string[] {
+  const order = view.seat_order;
+  const first = Math.max(0, order.indexOf(view.turn.active_player));
+  return [...order.slice(first), ...order.slice(0, first)];
+}
 
 function rollsOf(night: NightInfo, pid: string): number[] {
   return night.rolls.filter((r) => pid in r).map((r) => r[pid]!);
@@ -115,7 +134,7 @@ function GameIntro({ view, night }: { view: GameView; night: NightInfo }) {
             <h2 className="night-title">Game {night.number}</h2>
             <p className="night-sub">{source}</p>
             <ol className="night-order">
-              {view.seat_order.map((pid, i) => {
+              {turnOrder(view).map((pid, i) => {
                 const p = view.players.find((x) => x.id === pid);
                 const rolls = rollsOf(night, pid);
                 return (

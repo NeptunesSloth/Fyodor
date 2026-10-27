@@ -222,3 +222,18 @@ def to_lobby(services: Services, room: Room) -> None:
     night.proposal, night.result, night.votes = None, None, {}
     night.setups, night.infos = {}, {}
     room.result_id = None
+
+
+@router.get("/games/{game_id}/night/deck")
+async def own_deck(game_id: str, request: Request, services: ServicesDep, viewer: str | None = None,
+                   x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """The deck this seat brought to the current game, for its own side activities (opening-hand
+    practice while eliminated, ELIMINATION_HUB.md). Only ever the asking seat's own deck."""
+    room = _room(services, game_id)
+    seat, _ = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=viewer, as_player=None)
+    setup = room.night.setups.get(seat)
+    if setup is None:
+        raise HTTPException(404, "Your deck isn't available at this table")
+    return {"name": setup.deck_name, "cards": [
+        {"section": c.section, "quantity": c.quantity, "name": c.name, "printing_id": c.printing_id}
+        for c in setup.cards if c.section in ("main", "commander")]}

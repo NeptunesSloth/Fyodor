@@ -127,3 +127,12 @@ body.reduced-motion .night-rule { animation: none; }
   :is(.night-row, .night-die, .night-count, .night-word, .night-winner, .night-cmdr, .night-agreed, .night-proposal-body, .night-result-body) { animation-name: night-fade; }
   .night-rule { animation: none; }
 }
+
+/* -- eliminated: a brief dark pulse, shorter and quieter than Defeat -- */
+.night-spot.eliminated { background: radial-gradient(ellipse 55% 45% at 50% 46%, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.78)); }
+.night-spot.eliminated .night-word { font-size: clamp(44px, 6vw, 80px); color: #c9b9b5; }
+.night-spot.eliminated .night-rule { background: #6b5a57; }
+.night-pill { position: fixed; z-index: 36; left: 50%; top: 52px; transform: translateX(-50%); font-size: 12.5px; }
+.sim-hand { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin-top: 10px; }
+.sim-card { animation: night-rise calc(200ms * var(--anim-scale, 1)) var(--ease-out) both; }
+body.reduced-motion .sim-card { animation-name: night-fade; }

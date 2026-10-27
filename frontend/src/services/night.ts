@@ -17,3 +17,9 @@ export const answerProposal = (gameId: string, agree: boolean, as?: string) =>
 export const voteNext = (gameId: string, choice: "rematch" | "lobby", opts: { as?: string; force?: boolean } = {}) =>
   api.post<{ decision: "rematch" | "lobby" | null }>(`/games/${gameId}/night/vote`,
     { choice, as_player: opts.as ?? null, force: !!opts.force }, seat(gameId));
+
+export interface OwnDeckCard { section: string; quantity: number; name: string; printing_id: string | null }
+
+/** The deck this seat brought to the current game (only ever your own). */
+export const ownDeck = (gameId: string, viewer?: string) =>
+  api.get<{ name: string | null; cards: OwnDeckCard[] }>(`/games/${gameId}/night/deck${viewer ? `?viewer=${encodeURIComponent(viewer)}` : ""}`, seat(gameId));

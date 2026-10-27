@@ -89,3 +89,36 @@ test("game night: d20 intro, agreed ending, spotlight, rematch and back to the l
   await expect(guest.page.getByTestId("lobby")).toContainText("Goblins");
   await shot(host.page, "lobby-again");
 });
+
+test("eliminated: a short scene, then opening-hand practice with your own deck", async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.addInitScript(() => {
+    localStorage.setItem("fyodor.nightScenes", "1");
+    localStorage.setItem("fyodor.welcomeDone", "1");
+  });
+  for (const text of [ALICE_DECK, BOB_DECK]) await page.request.post("/api/decks", { data: { text } });
+  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string; name: string }[];
+  const res = await page.request.post("/api/games", { data: { name: "Out", mode: "local", automation: "full", mulligan_rule: "none",
+    players: ["Alice", "Bob", "Cara"].map((name, i) => ({ name, deck_id: decks[i % 2]!.id })) } });
+  const gameId = ((await res.json()) as { game: { id: string } }).game.id;
+  await page.goto(`/#/game/${gameId}`);
+  await expect(page.getByTestId("game-intro")).toBeVisible();
+  await expect(page.getByTestId("game-intro").locator(".night-row").first()).toContainText(/goes first|Alice|Bob|Cara/);
+  await page.keyboard.press("Escape"); // past the intro
+  await expect(page.getByTestId("game-intro")).toHaveCount(0);
+  const conceded = await page.request.post(`/api/games/${gameId}/actions`, { data: { action: { type: "concede" }, as: "p1" } });
+  expect(conceded.ok(), await conceded.text()).toBeTruthy();
+  await expect(page.getByTestId("eliminated-scene")).toContainText("Eliminated");
+  await page.waitForTimeout(600);
+  await shot(page, "eliminated");
+  await expect(page.getByTestId("eliminated-hub")).toBeVisible({ timeout: 10_000 });
+  await shot(page, "eliminated-hub");
+  await page.getByRole("button", { name: "Practise opening hands" }).click();
+  await expect(page.getByTestId("hand-sim").locator(".sim-card")).toHaveCount(7);
+  await page.waitForTimeout(500);
+  await shot(page, "hand-sim");
+  // the live game didn't move: practice never touches it
+  const v = (await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { players: { id: string }[]; zones: Record<string, string[]> };
+  expect(v.zones["p1:hand"]).toHaveLength(0);
+});

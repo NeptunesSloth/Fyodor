@@ -226,3 +226,12 @@ def test_night_survives_a_host_restart(table):
     restored = Night.from_meta(meta["night"])
     assert restored.result == room.night.result and restored.history == room.night.history
     assert restored.last_winner_key == room.seats[restored.result["winners"][0]].token
+
+
+def test_own_deck_is_only_ever_the_askers(table):
+    client, gid, alice, bob = table
+    mine = client.get(f"/api/games/{gid}/night/deck", headers=h(bob)).json()
+    names = {c["name"] for c in mine["cards"]}
+    assert "Krenko, Mob Boss" in names and "Atraxa, Praetors' Voice" not in names
+    # no token: no deck (spectators and strangers get nothing)
+    assert client.get(f"/api/games/{gid}/night/deck").status_code == 403
