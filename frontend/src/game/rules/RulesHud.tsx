@@ -155,6 +155,7 @@ export function AutomationSettings({ onClose }: { onClose: () => void }) {
             <Switch label="Full control (never pass for me)" on={prefs.full_control} set={(v) => void setPrefs({ full_control: v })} />
             <Switch label="Bluff stops" on={prefs.bluff_stops} set={(v) => void setPrefs({ bluff_stops: v })} />
             <Switch label="Auto-order identical triggers" on={prefs.auto_order_identical_triggers} set={(v) => void setPrefs({ auto_order_identical_triggers: v })} />
+            <Switch label="Pick the only legal target" on={prefs.auto_target ?? true} set={(v) => void setPrefs({ auto_target: v })} />
             <Switch label="Always let me order my graveyard" on={prefs.ask_graveyard_order} set={(v) => void setPrefs({ ask_graveyard_order: v })} />
           </div>
         </>
