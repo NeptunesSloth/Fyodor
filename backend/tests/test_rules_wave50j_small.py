@@ -570,7 +570,9 @@ def test_pia_nalaar_makes_a_vehicle_as_big_as_the_energy_paid(cards):
     settle(s, answer="x:3")
     assert energy(s) == 2
     (jet,) = [c for c in s.state.cards.values() if c.name == "Nalaar Aetherjet"]
-    assert pt(s, "Nalaar Aetherjet") == (3, 3) and keywords(s, "Nalaar Aetherjet") >= {"flying", "crew"}
+    # 208.3: a noncreature Vehicle has no power or toughness on the battlefield; the token's copiable X/X is 3/3 (crewed: 301.7b)
+    assert pt(s, "Nalaar Aetherjet") == (None, None) and (jet.token.power, jet.token.toughness) == ("3", "3")
+    assert keywords(s, "Nalaar Aetherjet") >= {"flying", "crew"}
     check(s)
 
 

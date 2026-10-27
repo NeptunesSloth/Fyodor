@@ -14,6 +14,18 @@ from app.main import create_app
 from tests.fixtures.cards import fixture_cards
 
 
+@pytest.fixture(autouse=True)
+def _fresh_printed_cache() -> None:
+    # Printed characteristics are cached per printing id for the process. Real printings never change, but two test files may give
+    # the same fixture id different data (wave 12A's "Test Giant" costs {6}, wave 16C's {5}; wave 110G's two "Test Doctor"s cost {G}
+    # and {2}; all get ids like "Test Giant|tst|12A-Test Gi"). Many test files bring their own ``cards`` fixture, so every test starts
+    # from an empty cache here: what a test sees never depends on which tests ran before it.
+    from app.rules import characteristics
+
+    characteristics._printed_cache.clear()
+    characteristics._fused_cache.clear()
+
+
 @pytest.fixture()
 def settings(tmp_path: Path) -> Settings:
     return load_settings({"FYODOR_DATA_DIR": str(tmp_path / "data"), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist")})
@@ -28,13 +40,6 @@ def card_db(settings: Settings) -> Path:
 
 @pytest.fixture()
 def cards(settings: Settings, card_db: Path) -> Iterator[CardRepository]:
-    # Printed characteristics are cached per printing id for the process. Real printings never change, but two test files may give
-    # the same fixture id different data (wave 12A's "Test Giant" costs {6}, wave 16C's {5}; both get id "Test Giant|tst|12A-Test Gi"):
-    # each test's card database starts from an empty cache, so what a test sees never depends on which tests ran before it.
-    from app.rules import characteristics
-
-    characteristics._printed_cache.clear()
-    characteristics._fused_cache.clear()
     repo = CardRepository(card_db, ImageStore(settings.images_dir))
     yield repo
     repo.close()

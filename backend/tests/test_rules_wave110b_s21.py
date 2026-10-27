@@ -83,12 +83,15 @@ def test_avatar_aang_draws_per_bend_and_transforms_after_all_four(cards, skip):
     water = put(s, "Ruthless Waterbender")
     put(s, "Forest")  # a land to earthbend
     mana(s, G=3, W=2, C=2)
-    hand = len(s.state.zones["p1:hand"])
+    # (both Ascensions go to the hand first: Earthbender Ascension's search shuffles the library, so a bend's draw could otherwise be
+    # the Airbender Ascension that to_hand would then not move)
+    earth, air = to_hand(s, "Earthbender Ascension"), to_hand(s, "Airbender Ascension")
+    hand = len(s.state.zones["p1:hand"]) - (skip != "earth") - (skip != "air")  # (less the Ascensions cast)
     if skip != "earth":
-        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Earthbender Ascension").id)
+        act(s, "p1", type="cast_spell", card_id=earth.id)
         drive(s)
     if skip != "air":
-        act(s, "p1", type="cast_spell", card_id=to_hand(s, "Airbender Ascension").id)
+        act(s, "p1", type="cast_spell", card_id=air.id)
         drive(s, pick(bears))
     if skip != "water":
         act(s, "p1", type="activate_ability", card_id=water.id, ability=0)
