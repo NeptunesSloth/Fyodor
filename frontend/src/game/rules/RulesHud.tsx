@@ -190,7 +190,7 @@ const DECIDING: Partial<Record<string, string>> = {
  */
 export function TurnDial() {
   const ctx = useRules();
-  if (!ctx) return null;
+  if (!ctx || ctx.view.game.night?.result) return null; // game over: the rematch vote is the only next step
   const { view, rules, me } = ctx;
   const turn = view.turn;
   const active = view.players.find((p) => p.id === turn.active_player);

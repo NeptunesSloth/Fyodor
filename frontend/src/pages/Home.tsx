@@ -49,7 +49,7 @@ export function Home() {
         </Suspense>
       )}
       <div className="home-vignette" />
-      <section className="home-menu frame ornate">
+      <section className="home-menu frame">
         <h1 className="home-title">Fyodor</h1>
         <div className="home-sub">Commander tabletop</div>
         <nav className="home-items">
@@ -61,7 +61,6 @@ export function Home() {
             </a>
           ))}
         </nav>
-        <p className="home-tag">Play Commander your way.<br />Tabletop feel. Arena convenience.</p>
         <div className="home-status">
           {error && <span className="error">Server unreachable</span>}
           {health && (

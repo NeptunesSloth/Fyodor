@@ -132,7 +132,7 @@
 .seat-fact { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; }
 .seat-fact > span:first-child { color: var(--text-dim); flex: 1; }
 .seat-fact b { color: var(--text); }
-.seat-fact b.cov { color: var(--select); font-size: 16px; }
+.seat-fact b.cov { color: var(--accent-2); font-size: 16px; }
 .seat-fact .cov-count { color: var(--text-faint); font-size: 11.5px; }
 .lobby-foot { background: rgba(0, 0, 0, 0.45); border: 1px solid var(--frame); border-radius: 6px; }
 .lobby-foot [data-testid="start-game"] { min-width: 180px; font-family: var(--font-display); letter-spacing: 0.02em; font-size: 15px; min-height: 40px; }

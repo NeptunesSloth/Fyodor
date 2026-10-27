@@ -141,10 +141,8 @@ export function makeArrow(a: THREE.Vector3, b: THREE.Vector3, style: ArrowStyle,
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { color: { value: color }, flow: { value: style.flow ? 1 : 0 } }]),
     transparent: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    side: THREE.DoubleSide,
+    side: THREE.DoubleSide, // normal blending: a cord on the table, not a neon glow (critique)
     fog: true,
-    toneMapped: false,
   });
   beamMat.uniforms.time = arrowTime; // shared object: one write per frame animates every beam
   const beam = new THREE.Mesh(beamGeometry(curve), beamMat);
@@ -153,11 +151,11 @@ export function makeArrow(a: THREE.Vector3, b: THREE.Vector3, style: ArrowStyle,
 
   // the crystal hovers over the target, pointing down at it
   const crystal = new THREE.Mesh(crystalGeo, new THREE.MeshStandardMaterial({
-    color: color.clone().lerp(new THREE.Color("#ffffff"), 0.35), emissive: color, emissiveIntensity: 1.1, roughness: 0.15, metalness: 0.2,
+    color: color.clone().lerp(new THREE.Color("#ffffff"), 0.35), emissive: color, emissiveIntensity: 0.35, roughness: 0.15, metalness: 0.2,
   }));
   crystal.position.copy(b).setY(b.y + 0.42);
   crystal.renderOrder = 6;
-  const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.3, depthWrite: false }));
   ring.position.copy(b).setY(b.y + 0.02);
   ring.renderOrder = 6;
 
