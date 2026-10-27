@@ -1772,7 +1772,7 @@ def _require_seated(plan: Plan) -> None:
 
 
 SIMPLE_PREFS = ("response", "stops_my_turn", "stops_their_turn", "bluff_stops", "payment", "auto_resolve_own_triggers",
-                "auto_order_identical_triggers", "ask_graveyard_order", "hold_priority", "full_control", "force_stop")
+                "auto_order_identical_triggers", "auto_target", "ask_graveyard_order", "hold_priority", "full_control", "force_stop")
 
 
 def set_prefs(plan: Plan, a: A.SetPrefs) -> None:

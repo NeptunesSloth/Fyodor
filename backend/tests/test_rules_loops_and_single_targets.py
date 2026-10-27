@@ -47,6 +47,7 @@ def roundtrip(s):
 
 def combo(cards, bob=((10, "Island"),)):
     s = build(cards, [(1, "Sanguine Bond"), (1, "Exquisite Blood")], bob)
+    act(s, "p1", type="set_prefs", auto_target=True)  # (the engine tests' tables ask about every target: game_helpers.engine_pays)
     put(s, "Sanguine Bond", "battlefield")
     put(s, "Exquisite Blood", "battlefield")
     act(s, "p1", type="create_token", player="p1", token={"name": "Agent", "type_line": "Token Artifact — Test",
@@ -91,4 +92,13 @@ def test_a_loop_that_cannot_end_pauses_instead_of_failing(cards):
     act(s, "p1", type="pass_priority")
     act(s, s.state.rules.priority, type="pass_priority")  # passing again carries on, and pauses again
     assert s.state.players["p2"].life < life and "p2" not in s.state.rules.lost
+    roundtrip(s)
+
+
+def test_a_player_who_turns_auto_target_off_is_still_asked(cards):
+    s = combo(cards)
+    act(s, "p1", type="set_prefs", auto_target=False)
+    act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.prompt == "Sanguine Bond: choose a target" and [o.id for o in d.options] == ["p2"]
     roundtrip(s)

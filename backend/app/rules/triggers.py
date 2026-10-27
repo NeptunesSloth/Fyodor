@@ -3171,7 +3171,7 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
                            resume={"step": "trigger_opp110d", "trigger": t.id})
                     return False
                 choice_player = picked or opponents[0]
-            if len(legal) != 1:  # -- single target -- one legal target leaves nothing to choose (603.3d, 601.2c): no question
+            if len(legal) != 1 or not plan.rules.prefs_for(choice_player).auto_target:  # -- single target -- one legal target leaves nothing to choose (603.3d, 601.2c)
                 decide(plan, player=choice_player, kind="choose_one", prompt=f"{t.name}: choose a target",
                        options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
                        resume={"step": "trigger_target", "trigger": t.id})
