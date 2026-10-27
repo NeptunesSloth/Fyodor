@@ -5,8 +5,8 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 
 .game-top {
   flex: none; height: 42px; display: flex; align-items: center; gap: 6px; padding: 0 10px;
-  background: linear-gradient(180deg, #1a130d, #0f0a07); border-bottom: 1px solid var(--hud-edge); z-index: 20;
-  box-shadow: 0 1px 0 rgba(255, 236, 200, 0.04), 0 4px 14px rgba(0, 0, 0, 0.45);
+  background: var(--hud-surface); border-bottom: 1px solid var(--line); z-index: 20;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 .game-top .brand { color: var(--text-dim); font-size: 18px; padding: 2px 8px; border-radius: 3px; }
 .game-top .brand:hover { background: var(--panel-2); color: var(--text); }
@@ -23,7 +23,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .game-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
 .table {
   position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0;
-  background: radial-gradient(ellipse at 50% 40%, var(--felt-2), var(--felt) 60%, #0f2019);
+  background: radial-gradient(ellipse at 50% 40%, var(--felt-2), var(--felt) 60%, color-mix(in srgb, var(--felt) 55%, black));
 }
 .opponents { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; border-bottom: 1px solid rgba(0,0,0,0.35); }
 .opponents.n2, .opponents.n3, .opponents.n4, .opponents.n5 { flex-direction: row; }

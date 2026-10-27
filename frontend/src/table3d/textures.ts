@@ -113,11 +113,12 @@ function drawSurface(kind: Surface, base: string, grain: string, baseRoughness: 
         case "weathered":
         case "lacquer": {
           // long planks with flowing grain lines
-          const plank = Math.floor(y / 128);
-          const warp = n1(x, y + plank * 97) * 18;
-          const line = Math.sin((y + warp) * 0.55 + plank * 3.1) * 0.5 + 0.5;
-          const seam = y % 128 < 2;
-          t = 0.35 * line + 0.45 * n2(x * 0.25, y * 2.2) + (seam ? 0.9 : 0);
+          // wide boards with slow, low-contrast figure: fine grain reads as moiré at a distance
+          const plank = Math.floor(y / 256);
+          const warp = n1(x, y + plank * 97) * 30;
+          const line = Math.sin((y + warp) * 0.11 + plank * 3.1) * 0.5 + 0.5;
+          const seam = y % 256 < 2;
+          t = 0.22 * line + 0.4 * n2(x * 0.12, y * 1.6) + 0.12 * n1(x * 3, y * 3) + (seam ? 0.45 : 0);
           groove = seam ? 1 : 0;
           if (kind === "weathered") t += (n2(x * 1.5, y * 1.5) - 0.5) * 0.35;
           if (kind === "lacquer") t = t * 0.35 + 0.15;
@@ -200,56 +201,103 @@ function drawSurface(kind: Surface, base: string, grain: string, baseRoughness: 
   return { color: c, normal: nc, rough: rc };
 }
 
-/** A seat mat: a faint bordered area with zone outlines, tinted with the plane's inlay colour. */
-export function matTexture(inlay: string, accent: string, playerColor: string): THREE.CanvasTexture {
-  const w = 1200;
-  const h = 720;
+const matCache = new Map<string, HTMLCanvasElement>();
+
+/**
+ * A seat's playmat: cloth with a lighter nap under the lamp, a bound edge stitched in the seat's
+ * colour, and a faint compass worked into the weave. Opaque except the rounded corners.
+ */
+export function matTexture(felt: string, nap: string, playerColor: string): THREE.CanvasTexture {
+  const key = `${felt}|${nap}|${playerColor}`;
+  let c = matCache.get(key);
+  if (!c) {
+    c = drawMat(felt, nap, playerColor);
+    matCache.set(key, c);
+  }
+  return texture(c);
+}
+
+function drawMat(felt: string, nap: string, playerColor: string): HTMLCanvasElement {
+  const w = 1260;
+  const h = 780;
+  const r = 34;
   const [c, g] = canvas(w, h);
-  g.fillStyle = "rgba(0, 0, 0, 0.12)";
+  roundRect(g, 0, 0, w, h, r);
+  g.save();
+  g.clip();
+  g.fillStyle = felt;
   g.fillRect(0, 0, w, h);
-  const grad = g.createRadialGradient(w / 2, h / 2, 50, w / 2, h / 2, w * 0.6);
-  grad.addColorStop(0, "rgba(255, 255, 255, 0.04)");
-  grad.addColorStop(1, "rgba(0, 0, 0, 0.14)");
-  g.fillStyle = grad;
+  const lit = g.createRadialGradient(w / 2, h * 0.46, 40, w / 2, h / 2, w * 0.62);
+  lit.addColorStop(0, nap);
+  lit.addColorStop(1, felt);
+  g.fillStyle = lit;
   g.fillRect(0, 0, w, h);
-  g.strokeStyle = inlay;
-  g.globalAlpha = 0.55;
-  g.lineWidth = 4;
-  g.strokeRect(10, 10, w - 20, h - 20);
-  g.globalAlpha = 0.25;
-  g.lineWidth = 2;
-  g.strokeRect(24, 24, w - 48, h - 48);
-  // corner ornaments
-  g.globalAlpha = 0.6;
-  g.strokeStyle = accent;
-  for (const [x, y, sx, sy] of [[24, 24, 1, 1], [w - 24, 24, -1, 1], [24, h - 24, 1, -1], [w - 24, h - 24, -1, -1]] as const) {
+  // the weave: fine per-pixel fibre noise plus a soft cloudy variation, never a pattern
+  const img = g.getImageData(0, 0, w, h);
+  const rand = rng(w * 31 + felt.length);
+  const cloud = noiseField(w, 9, rand);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const v = (rand() - 0.5) * 14 + (cloud(x, y) - 0.5) * 10;
+      img.data[i] = img.data[i]! + v;
+      img.data[i + 1] = img.data[i + 1]! + v;
+      img.data[i + 2] = img.data[i + 2]! + v;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  // a faint compass worked into the cloth, centred where nothing important lies
+  g.strokeStyle = "rgba(255, 255, 255, 0.03)";
+  g.lineWidth = 3;
+  for (const rr of [150, 168]) {
     g.beginPath();
-    g.moveTo(x, y + sy * 60);
-    g.lineTo(x, y);
-    g.lineTo(x + sx * 60, y);
+    g.arc(w / 2, h / 2, rr, 0, Math.PI * 2);
     g.stroke();
   }
-  // the owner's edge carries their seat colour
-  g.globalAlpha = 0.8;
-  g.fillStyle = playerColor;
-  g.fillRect(w * 0.3, h - 16, w * 0.4, 5);
+  g.beginPath();
+  for (let k = 0; k < 4; k++) {
+    const a = (k * Math.PI) / 2;
+    g.moveTo(w / 2 + Math.cos(a) * 196, h / 2 + Math.sin(a) * 196);
+    g.lineTo(w / 2 + Math.cos(a + Math.PI / 4) * 40, h / 2 + Math.sin(a + Math.PI / 4) * 40);
+    g.lineTo(w / 2 + Math.cos(a + Math.PI / 2) * 196, h / 2 + Math.sin(a + Math.PI / 2) * 196);
+  }
+  g.stroke();
+  // the edge falls into shadow, then a bound hem
+  g.lineWidth = 60;
+  g.strokeStyle = "rgba(0, 0, 0, 0.18)";
+  roundRect(g, 0, 0, w, h, r);
+  g.stroke();
+  g.lineWidth = 22;
+  g.strokeStyle = "rgba(0, 0, 0, 0.42)";
+  roundRect(g, 0, 0, w, h, r);
+  g.stroke();
+  g.restore();
+  // the stitching, in the seat's colour
+  g.strokeStyle = playerColor;
+  g.globalAlpha = 0.75;
+  g.lineWidth = 3;
+  g.setLineDash([13, 9]);
+  roundRect(g, 17, 17, w - 34, h - 34, r - 12);
+  g.stroke();
+  g.setLineDash([]);
   g.globalAlpha = 1;
-  return texture(c);
+  return c;
 }
 
 /** Outline slot for a zone pile. */
 export function slotTexture(label: string, color: string): THREE.CanvasTexture {
   const [c, g] = canvas(168, 234);
+  g.fillStyle = "rgba(0, 0, 0, 0.28)";
+  roundRect(g, 6, 6, 156, 222, 12);
+  g.fill();
   g.strokeStyle = color;
-  g.globalAlpha = 0.55;
-  g.setLineDash([10, 8]);
-  g.lineWidth = 4;
+  g.globalAlpha = 0.4;
+  g.lineWidth = 2;
   roundRect(g, 6, 6, 156, 222, 12);
   g.stroke();
-  g.setLineDash([]);
-  g.globalAlpha = 0.6;
+  g.globalAlpha = 0.7;
   g.fillStyle = color;
-  g.font = "600 22px Cinzel, Georgia, serif";
+  g.font = "600 20px Cinzel, Georgia, serif";
   g.textAlign = "center";
   g.fillText(label.toUpperCase(), 84, 124);
   return texture(c);
@@ -266,8 +314,8 @@ function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number,
 }
 
 const FRAME: Record<string, [string, string]> = {
-  W: ["#f3ecd6", "#d8cba6"], U: ["#a9cde9", "#5f93c2"], B: ["#a79c9a", "#4b4342"], R: ["#eaa688", "#b8553a"],
-  G: ["#a5cf9f", "#4f8a50"], M: ["#e4cf87", "#b89a3e"], C: ["#cfc9c2", "#8f8a84"], L: ["#c9b89a", "#8a7658"],
+  W: ["#e6dcc2", "#b3a681"], U: ["#4f86c0", "#1f4876"], B: ["#5a5254", "#262123"], R: ["#cc5f42", "#7a2818"],
+  G: ["#4f9563", "#1e5231"], M: ["#d9b65e", "#8e6b24"], C: ["#aaa6a0", "#66625d"], L: ["#a88f6a", "#5a4630"],
 };
 
 function wrap(g: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lh: number, maxY: number): void {
@@ -342,14 +390,17 @@ export function textCardCanvas(card: CardData | undefined, face: number, fallbac
   }
   // art window: a soft wash, in the colour a basic land makes
   const basic = type.match(/\b(Plains|Island|Swamp|Mountain|Forest)\b/)?.[1];
-  const wash = basic ? { Plains: "rgba(240, 225, 170, 0.8)", Island: "rgba(70, 130, 200, 0.8)", Swamp: "rgba(60, 45, 55, 0.85)", Mountain: "rgba(200, 80, 50, 0.8)", Forest: "rgba(60, 130, 70, 0.8)" }[basic]! : "rgba(0, 0, 0, 0.55)";
+  // a solid art window (a pale wash turns the whole card white at table distance)
+  const [hiCol, loCol]: [string, string] = basic
+    ? ({ Plains: ["#e8d9a4", "#a8915a"], Island: ["#5d9bd6", "#1d4677"], Swamp: ["#6a5566", "#241a22"], Mountain: ["#d8734f", "#6e2414"], Forest: ["#5fa36c", "#1c4a2a"] } as Record<string, [string, string]>)[basic]!
+    : [light, dark];
   const art = g.createLinearGradient(32, 100, W - 32, 330);
-  art.addColorStop(0, wash);
-  art.addColorStop(1, "rgba(0, 0, 0, 0.15)");
+  art.addColorStop(0, hiCol);
+  art.addColorStop(1, loCol);
   g.fillStyle = art;
   roundRect(g, 32, 100, W - 64, 230, 6);
   g.fill();
-  g.fillStyle = "rgba(255, 255, 255, 0.28)";
+  g.fillStyle = "rgba(255, 255, 255, 0.32)";
   g.font = "600 110px Cinzel, Georgia, serif";
   g.textAlign = "center";
   g.fillText(name.slice(0, 1).toUpperCase(), W / 2, 220);
@@ -398,8 +449,8 @@ export function backCanvas(color: string): HTMLCanvasElement {
   roundRect(g, 0, 0, W, H, 14);
   g.fill();
   const grad = g.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, "#3a2616");
-  grad.addColorStop(1, "#1c120b");
+  grad.addColorStop(0, "#22304a");
+  grad.addColorStop(1, "#111827");
   g.fillStyle = grad;
   roundRect(g, 8, 8, W - 16, H - 16, 10);
   g.fill();

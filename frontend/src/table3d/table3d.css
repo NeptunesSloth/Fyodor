@@ -8,8 +8,8 @@ main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overfl
   --cut: 9px;
   display: flex; align-items: center; gap: 10px; padding: 5px 16px 5px 6px; cursor: pointer; color: var(--text);
   background:
-    linear-gradient(180deg, rgba(255, 236, 200, 0.07), rgba(0, 0, 0, 0) 45%),
-    linear-gradient(180deg, #1b140e, #0c0907);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0) 45%),
+    var(--hud-surface);
   border: 0; position: relative;
   clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut));
 }
@@ -71,7 +71,7 @@ main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overfl
 .cam-player { display: inline-flex; align-items: center; gap: 6px; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cam-chip {
   width: 20px; height: 20px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-  font: 700 11px/1 var(--font-display); font-style: normal; color: var(--text); background: #0d0a07; border: 2px solid var(--player-color, var(--frame));
+  font: 700 11px/1 var(--font-display); font-style: normal; color: var(--text); background: var(--steel-lo); border: 2px solid var(--player-color, var(--frame));
 }
 .t3d-cams button.on .cam-chip { color: var(--text); }
 

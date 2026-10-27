@@ -14,21 +14,21 @@
   --font-ui: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
   /* surfaces */
-  --bg: #0f0a07;
-  --bg-2: #17100b;
-  --panel: rgba(30, 21, 15, 0.94);
-  --panel-2: rgba(44, 31, 21, 0.96);
-  --panel-grad: linear-gradient(180deg, rgba(42, 29, 20, 0.96), rgba(24, 16, 11, 0.97));
-  --line: #3b2a1c;
-  --line-2: #5a4129;
+  --bg: #0b0c0d;
+  --bg-2: #121416;
+  --panel: rgba(19, 21, 23, 0.94);
+  --panel-2: rgba(29, 31, 33, 0.96);
+  --panel-grad: linear-gradient(180deg, rgba(29, 31, 33, 0.95), rgba(19, 21, 23, 0.97));
+  --line: #2a2d31;
+  --line-2: #3e4247;
   --frame: #8a6a3f;
   --frame-hi: #d7ae63;
   --frame-inner: rgba(215, 174, 99, 0.16);
 
   /* text */
-  --text: #f1e4cc;
-  --text-dim: #bfa988;
-  --text-faint: #96826a;
+  --text: #eee5d3;
+  --text-dim: #b5ad9e;
+  --text-faint: #8f887c;
 
   /* accents */
   --accent: #d0a45a;
@@ -46,32 +46,27 @@
   --info: #6aa7e8;
 
   /* the table */
-  --felt: #3a2416;
-  --felt-2: #4a2e1c;
+  --felt: #152c33;
+  --felt-2: #21434c;
   --mat: rgba(20, 12, 7, 0.55);
   --mat-line: rgba(215, 174, 99, 0.22);
   --scene:
-    radial-gradient(ellipse 38% 30% at 8% 12%, rgba(255, 170, 70, 0.22), transparent 70%),
-    radial-gradient(ellipse 30% 26% at 94% 18%, rgba(255, 160, 60, 0.18), transparent 70%),
-    radial-gradient(ellipse 45% 35% at 50% 110%, rgba(255, 140, 50, 0.16), transparent 70%),
-    radial-gradient(ellipse 80% 70% at 50% 45%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.65) 100%),
-    repeating-linear-gradient(92deg, rgba(0, 0, 0, 0.18) 0 2px, transparent 2px 9px, rgba(255, 220, 170, 0.025) 9px 11px, transparent 11px 23px),
-    repeating-linear-gradient(0deg, transparent 0 118px, rgba(0, 0, 0, 0.35) 118px 121px),
-    linear-gradient(180deg, #2a1a10, #1b110a 60%, #120b06);
+    radial-gradient(ellipse 60% 45% at 50% 38%, rgba(255, 196, 120, 0.10), transparent 70%),
+    radial-gradient(ellipse 85% 75% at 50% 45%, rgba(0, 0, 0, 0) 35%, rgba(0, 0, 0, 0.75) 100%),
+    linear-gradient(180deg, #14110f, #070607);
   --table-surface:
-    radial-gradient(ellipse 60% 55% at 50% 50%, rgba(120, 30, 22, 0.20), transparent 70%),
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 7px, rgba(255, 210, 150, 0.03) 7px 9px, transparent 9px 19px),
-    repeating-linear-gradient(0deg, transparent 0 160px, rgba(0, 0, 0, 0.30) 160px 163px),
-    linear-gradient(180deg, #4a2f1c, #3a2415 50%, #2e1c10);
+    radial-gradient(ellipse 70% 60% at 50% 45%, rgba(33, 67, 76, 0.9), transparent 75%),
+    radial-gradient(ellipse 95% 85% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.5) 100%),
+    linear-gradient(180deg, #21434c, #152c33);
 
   /* legacy names used across the table code */
-  --room-charcoal: #150e09;
-  --room-charcoal-2: #21160e;
-  --room-edge: #5a4129;
-  --room-felt: #3a2416;
-  --room-felt-deep: #25170d;
-  --room-bone: #f1e4cc;
-  --room-bone-dim: #bfa988;
+  --room-charcoal: #0b0c0d;
+  --room-charcoal-2: #121416;
+  --room-edge: #3e4247;
+  --room-felt: #152c33;
+  --room-felt-deep: #21434c;
+  --room-bone: #eee5d3;
+  --room-bone-dim: #b5ad9e;
   --room-brass: #c79a52;
   --room-brass-hi: #efc77c;
   --room-radius: 4px;
@@ -84,7 +79,9 @@
   --dur-hover: calc(140ms * var(--anim-scale, 1));
   --dur-popover: calc(180ms * var(--anim-scale, 1));
   /* every overlay on the table: blackened metal, not a grey web panel */
-  --hud-surface: linear-gradient(180deg, #1b140e, #0d0a07);
+  --steel-hi: #181a1c;
+  --steel-lo: #0a0b0d;
+  --hud-surface: linear-gradient(180deg, var(--steel-hi), var(--steel-lo));
   --hud-edge: color-mix(in srgb, var(--frame) 70%, black);
 }
 
@@ -172,7 +169,7 @@ body { font-family: var(--font-ui); background: var(--bg); }
 .plaque {
   --cut: 8px;
   position: relative; color: var(--text);
-  background: linear-gradient(180deg, rgba(255, 236, 200, 0.06), rgba(0, 0, 0, 0) 40%), linear-gradient(180deg, #1b140e, #0d0a07);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0) 40%), var(--hud-surface);
   clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut));
 }
 .plaque::before {
