@@ -499,6 +499,8 @@ def advance(plan: Plan) -> None:
             r.priority = players[0] if players else None  # game over: the table stays a sandbox
             return
         if all(p in r.passed for p in players):
+            if plan.state.zones.get(STACK) and loop_pause(plan, players):
+                return
             if plan.state.zones.get(STACK):
                 resolve_top_of_stack(plan)
             else:
@@ -519,6 +521,28 @@ def advance(plan: Plan) -> None:
         if is_stop(plan, holder):
             return
         r.passed.append(holder)  # no stop here: pass for them (Arena's auto-pass)
+
+
+# -- loops -- 104.4b / 732.4: a loop of mandatory actions is a draw, but only when no player can stop it, which the
+# engine can't know (an instant in a hand). So it never calls the draw: once one action has run this long, the
+# automatic passing stops between two resolutions and every player gets their choices back; each pass after that
+# carries on, and the pod can agree to a draw (End game → Propose).
+LOOP_PAUSE_SHARE = 0.6  # of plan.max_steps: past this, no further automatic resolution in this action
+
+
+def loop_pause(plan: Plan, players: list[str]) -> bool:
+    if not plan.max_steps or len(plan.steps) < plan.max_steps * LOOP_PAUSE_SHARE:
+        return False
+    r = plan.rules
+    r.passed, r.auto_pass = [], None
+    r.priority = plan.active if plan.active in players else plan.after(plan.active)
+    for pid in players:
+        prefs = plan.rules.prefs.get(pid)
+        if prefs is not None:
+            prefs.pass_until, prefs.pass_mark = None, ""
+    plan.note("This keeps repeating, so automatic passing stopped. Pass to keep going; if nobody can stop it, "
+              "the game is a draw (104.4b): propose one from End game.")
+    return True
 
 
 def pass_priority(plan: Plan, a: A.PassPriority) -> None:

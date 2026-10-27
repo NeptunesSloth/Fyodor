@@ -3170,10 +3170,12 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
                            resume={"step": "trigger_opp110d", "trigger": t.id})
                     return False
                 choice_player = picked or opponents[0]
-            decide(plan, player=choice_player, kind="choose_one", prompt=f"{t.name}: choose a target",
-                   options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
-                   resume={"step": "trigger_target", "trigger": t.id})
-            return False
+            if len(legal) != 1:  # -- single target -- one legal target leaves nothing to choose (603.3d, 601.2c): no question
+                decide(plan, player=choice_player, kind="choose_one", prompt=f"{t.name}: choose a target",
+                       options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
+                       resume={"step": "trigger_target", "trigger": t.id})
+                return False
+            target = legal[0]
         targets = [ref(plan, target)]
     if t.ability.get("target_choice") == "host_controller110i" and t.event is not None and len(t.event.objects) == 1 \
             and t.event.objects[0].snapshot is not None:  # -- cards (wave 110I) -- remember the chooser for the 608.2b recheck
