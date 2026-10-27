@@ -19,10 +19,7 @@ export function TopBar() {
   const actingAs = useGame((s) => s.actingAs);
   const { undo, redo, openDialog, setViewer, setActingAs } = useGame.getState();
   const isHost = useIsHost();
-  const hud = usePrefs((st) => st.hud);
-  const renderer = usePrefs((st) => st.renderer);
   if (!view) return null;
-  const is3d = resolveRenderer(renderer) === "3d";
   const local = view.game.mode === "local";
   const dayNight = view.table.day_night;
   return (
@@ -67,15 +64,6 @@ export function TopBar() {
           </select>
         </label>
       )}
-      {resolveRenderer("3d") === "3d" && (
-        <button className="tt-btn ghost" data-testid="renderer-toggle" title="Switch between the 3D table and the lighter 2D table (also in Settings → Table)"
-          onClick={() => usePrefs.getState().set({ renderer: is3d ? "2d" : "3d" })}>
-          {is3d ? "2D table" : "3D table"}
-        </button>
-      )}
-      <button className="tt-btn ghost" title="Hide or show the player panels' counters, mana pool, commander damage and tool tray (H)" onClick={() => usePrefs.getState().set({ hud: usePrefs.getState().hud === "full" ? "minimal" : "full" })}>
-        {hud === "full" ? "Hide counters & tools" : "Show counters & tools"}
-      </button>
       <button className="tt-btn ghost" onClick={() => openDialog("help")} title="How to play, controls and shortcuts (?)">Help</button>
       <button className="tt-btn ghost" data-testid="table-menu" aria-label="More" title="Save, load, tools and settings" onClick={(e) => openMenu(e, tableMenu(isHost), "Table")}>More</button>
       {/* kept apart from Undo: ending the game is not a slip of the hand */}
@@ -105,7 +93,12 @@ async function recentMenu(e: React.MouseEvent) {
 function tableMenu(isHost: boolean): MenuItem[] {
   const s = useGame.getState();
   const prefs = usePrefs.getState();
+  const is3d = resolveRenderer(prefs.renderer) === "3d";
   return [
+    ...(resolveRenderer("3d") === "3d" ? [{ label: is3d ? "Switch to the 2D table" : "Switch to the 3D table", onClick: () => prefs.set({ renderer: is3d ? "2d" : "3d" }) }] : []),
+    { label: prefs.hud === "full" ? "Hide counters & tools" : "Show counters & tools", hint: "H", onClick: () => prefs.set({ hud: prefs.hud === "full" ? "minimal" : "full" }) },
+    { label: "Rules automation…", onClick: () => window.dispatchEvent(new Event("fyodor:automation")) },
+    "separator",
     { label: "Save game…", onClick: () => s.openDialog("save") },
     { label: "Snapshots & history…", onClick: () => s.openDialog("history") },
     { label: "Appearance…", hint: "sleeves & playmat", onClick: () => s.openDialog("appearance") },

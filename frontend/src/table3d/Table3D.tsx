@@ -156,6 +156,7 @@ export function Table3D({ me }: { me: string }) {
   }, [me, graphics]);
 
   useEffect(() => sceneRef.current?.setPlane(plane(planeId)), [planeId]);
+  useEffect(() => useGame.getState().setLayout({ stackOpen: false }), []); // the stack lies on the table itself
   useEffect(() => sceneRef.current?.setCamera(preset), [preset]);
   // camera keys (game/hotkeys.ts): 1 seat, 2–6 other players, 0 whole table, C focus the hovered card, Home back
   const back = useRef<CameraPreset>("seat");

@@ -142,6 +142,7 @@ function overlayFor(card: GameCard, stats: CardStats | undefined): CardOverlay |
 const UP = new THREE.Vector3(0, 1, 0);
 /** One red for every attack beam (DESIGN.md: attack-beam). */
 const ATTACK_RED = "#ff5a2a";
+const COMBAT_STEP = 1.1; // world units a fighting creature steps toward the table centre
 const liftTarget = new THREE.Vector3();
 const shadowPos = new THREE.Vector3();
 const shadowQ = new THREE.Quaternion();
@@ -579,7 +580,8 @@ export class TableScene {
       tex = this.loadTexture(imageUrl(data.id, imgFace, this.quality === "low" ? "small" : "normal"), text);
     } else tex = text();
     // printed card stock with a faint satin sheen from the room reflections
-    m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.42, metalness: 0, envMapIntensity: 0.7 });
+    // matte card stock: a glossy face catches the overhead light and washes the art out
+    m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0, envMapIntensity: 0.12 });
     this.materials.set(key, m);
     return m;
   }
@@ -681,9 +683,11 @@ export class TableScene {
         const pos = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
         const [lx, lz] = virtualToLocal(pos[0], pos[1]);
         const tapped = (card.tapped ? -Math.PI / 2 : 0) + (card.flipped ? Math.PI : 0) - ((card.rotation ?? 0) * Math.PI) / 180;
-        const lift = card.attacking || card.attacking_without_target ? 0.18 : 0;
-        this.place(c, seat, lx, lz, 0.004 + i * 0.0035 + lift, tapped);
-        c.tilt = card.attacking || card.attacking_without_target ? -0.12 : 0;
+        // combat reads from positions: attackers and blockers step out of their row toward the middle
+        // of the table (presentation only; the card's stored position never changes)
+        const fighting = !!(card.attacking || card.attacking_without_target || card.blocking);
+        this.place(c, seat, lx, lz - (fighting ? COMBAT_STEP : 0), 0.004 + i * 0.0035 + (fighting ? 0.06 : 0), tapped);
+        c.tilt = 0;
         this.setOverlay(c, overlayFor(card, view.rules?.stats?.[id]));
         this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55);
       });
@@ -805,17 +809,17 @@ export class TableScene {
       const d = (p: THREE.Vector3) => Math.hypot(p.x - toward.x, p.z - toward.z);
       return (d(e.near) < d(e.far) ? e.near : e.far).clone();
     };
-    const add = (from: string, to: string, color: string) => {
+    const add = (from: string, to: string, color: string, low = false) => {
       const a0 = at(from);
       const b0 = a0 && at(to, a0);
       if (!a0 || !b0) return;
       const a = edge(from, b0) ?? a0;
       const b = edge(to, a) ?? b0;
-      if (a.distanceTo(b) >= 0.3) wanted.push([a, b, color]);
+      if (a.distanceTo(b) >= 0.3) wanted.push([a, b, low ? `${color}|low` : color]);
     };
     for (const c of Object.values(view.cards)) {
-      if (c.attacking) add(c.id, c.attacking.id, ATTACK_RED);
-      if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff");
+      if (c.attacking) add(c.id, c.attacking.id, ATTACK_RED, true);
+      if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff", true);
     }
     for (const ar of view.arrows ?? []) {
       const color = ar.kind === "attack" ? ATTACK_RED : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;
@@ -831,7 +835,10 @@ export class TableScene {
       (child.userData.dispose as () => void)();
     }
     const flow = !document.body.classList.contains("reduced-motion");
-    for (const [a, b, color] of wanted) this.arrows.add(makeArrow(a, b, { color, flow }, this.stackBox));
+    for (const [a, b, c] of wanted) {
+      const [color, low] = c.split("|");
+      this.arrows.add(makeArrow(a, b, { color: color!, flow, low: !!low }, this.stackBox));
+    }
   }
 
   private syncHandFan(seat: Seat, count: number): void {

@@ -4,7 +4,7 @@
  * for every kind of decision, the numbered STACK helper, and the AUTOMATION ERROR panel.
  * Everything here reads `view.rules`; the server decides, the client only asks and shows.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { openMenu } from "../../components/ContextMenu";
 import { NudgeButton } from "../Signals";
 import { perspective, playerName, useGame } from "../../state/gameStore";
@@ -29,7 +29,12 @@ export function AutomationHud() {
   const ctx = useRules();
   const [open, setOpen] = useState(false);
   const [conceding, setConceding] = useState(false);
-  if (!ctx) return null;
+  useEffect(() => {
+    const on = () => setOpen(true);
+    window.addEventListener("fyodor:automation", on);
+    return () => window.removeEventListener("fyodor:automation", on);
+  }, []);
+  if (!ctx || (!ctx.rules && !open)) return null; // automation off: nothing on screen (More → Rules automation…)
   const { view, rules, seated, me } = ctx;
   const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
   const level = rules ? (rules.paused ? "Paused" : cap(rules.automation)) : "Off";

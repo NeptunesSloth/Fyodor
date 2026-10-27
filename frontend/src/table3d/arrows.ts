@@ -46,7 +46,8 @@ const beamFragment = /* glsl */ `
     #include <fog_fragment>
   }`;
 
-export interface ArrowStyle { color: string; flow: boolean }
+/** `low`: combat cords skim the table instead of arcing overhead. */
+export interface ArrowStyle { color: string; flow: boolean; low?: boolean }
 
 /** Shared clock for every arrow's pulse (set each frame by the scene). */
 export const arrowTime = { value: 0 };
@@ -100,11 +101,11 @@ function crosses(a: THREE.Vector3, b: THREE.Vector3, box: GroundBox): boolean {
  * path would run through it (so beams never pass through the stack's standing cards). The bend goes
  * to whichever side needs less.
  */
-export function routeAround(a: THREE.Vector3, b: THREE.Vector3, box: GroundBox | null): THREE.Curve<THREE.Vector3> {
+export function routeAround(a: THREE.Vector3, b: THREE.Vector3, box: GroundBox | null, low = false): THREE.Curve<THREE.Vector3> {
   const dist = a.distanceTo(b);
   // beams that start or end high (a stack card's edge) arc gently; table-to-table beams arc high
   const raised = Math.max(a.y, b.y) > 0.5;
-  const lift = Math.max(a.y, b.y) + (raised ? 0.35 + dist * 0.05 : 1.1 + dist * 0.14);
+  const lift = Math.max(a.y, b.y) + (low ? 0.15 + dist * 0.025 : raised ? 0.35 + dist * 0.05 : 1.1 + dist * 0.14);
   const at = (t: number, side: THREE.Vector3, d: number) =>
     new THREE.Vector3(a.x + (b.x - a.x) * t + side.x * d, lift, a.z + (b.z - a.z) * t + side.z * d);
   const straight = (side: THREE.Vector3, d: number) => new THREE.CubicBezierCurve3(a, at(1 / 3, side, d), at(2 / 3, side, d), b);
@@ -134,7 +135,7 @@ export function routeAround(a: THREE.Vector3, b: THREE.Vector3, box: GroundBox |
 
 /** A beam from a to b. userData.dispose frees what the group owns (the shared shapes stay). */
 export function makeArrow(a: THREE.Vector3, b: THREE.Vector3, style: ArrowStyle, avoid: GroundBox | null = null): THREE.Group {
-  const curve = routeAround(a, b, avoid);
+  const curve = routeAround(a, b, avoid, style.low);
   const color = new THREE.Color(style.color);
   const beamMat = new THREE.ShaderMaterial({
     vertexShader: beamVertex,
