@@ -138,8 +138,8 @@ body.reduced-motion .night-rule { animation: none; }
 body.reduced-motion .sim-card { animation-name: night-fade; }
 
 /* -- combat lanes (renderer-independent overlay; the table itself never moves) -- */
-.combat-pill { position: fixed; z-index: 37; left: 50%; bottom: calc(var(--hand-h, 150px) + 12px); transform: translateX(-50%); font-size: 12.5px; }
-.game-screen:has(main.table.is-3d) .combat-pill { bottom: 150px; }
+/* bottom left, above Tokens / Dice: never over the hand (a hovered card rises through the middle) */
+.combat-pill { position: fixed; z-index: 37; left: 12px; bottom: 56px; font-size: 12.5px; }
 .combat-lanes { position: fixed; z-index: 58; left: 50%; top: 56px; transform: translateX(-50%); width: max-content; max-width: min(980px, calc(100vw - 32px)); max-height: calc(100vh - 260px); display: flex; }
 .combat-lanes > .plaque { flex: 1; min-width: 280px; }
 .combat-lanes-body { padding: 12px 16px 14px; overflow: auto; animation: night-rise calc(180ms * var(--anim-scale, 1)) var(--ease-out) both; }
@@ -159,14 +159,14 @@ body.reduced-motion .combat-lanes-body { animation-name: night-fade; }
 /* -- nudges and reactions -- */
 .td-status-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .td-nudge { padding: 2px 8px; font-size: 12px; min-height: 0; }
-.signal-feed { position: fixed; z-index: 36; left: 14px; bottom: 100px; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+.signal-feed { position: fixed; z-index: 36; left: 14px; bottom: 136px; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
 .signal-feed li {
   display: flex; align-items: center; gap: 6px; padding: 3px 10px 3px 6px; border-radius: 4px; font-size: 12.5px; color: var(--text);
   background: var(--hud-surface); box-shadow: 0 0 0 1px var(--line), 0 4px 10px rgba(0, 0, 0, 0.45);
   animation: night-rise calc(200ms * var(--anim-scale, 1)) var(--ease-out) both;
 }
 .signal-emoji { font-size: 18px; line-height: 1; }
-.signal-bar { position: fixed; z-index: 36; left: 12px; bottom: 56px; display: flex; gap: 2px; padding: 3px; border-radius: 5px; background: var(--hud-surface); box-shadow: 0 0 0 1px var(--line), 0 4px 10px rgba(0, 0, 0, 0.45); }
+.signal-bar { position: fixed; z-index: 36; left: 12px; bottom: 96px; display: flex; gap: 2px; padding: 3px; border-radius: 5px; background: var(--hud-surface); box-shadow: 0 0 0 1px var(--line), 0 4px 10px rgba(0, 0, 0, 0.45); }
 .signal-btn { width: 32px; height: 30px; border: 0; border-radius: 3px; background: transparent; font-size: 17px; cursor: pointer; }
 .signal-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); }
 .signal-btn:disabled { opacity: 0.4; cursor: default; }
