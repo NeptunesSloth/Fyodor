@@ -162,7 +162,9 @@ export const useGame = create<GameStore>((set, get) => ({
     set((s) => {
       // A lobby arrives both as HTTP responses and WebSocket pushes, in no guaranteed order.
       // Keep the newest: an older one (or any lobby after the game started) is stale.
-      if (s.view && s.view.game.id === lobby.game.id) return {};
+      // ...unless the pod went back to the lobby after a game (a newer revision than the game view)
+      const back = s.view?.game.revision != null && (lobby.revision ?? 0) > s.view.game.revision;
+      if (s.view && s.view.game.id === lobby.game.id && !back) return {};
       if (s.lobby && s.lobby.game.id === lobby.game.id && (lobby.revision ?? 0) < (s.lobby.revision ?? 0)) return {};
       return { lobby, view: null };
     }),
@@ -173,7 +175,9 @@ export const useGame = create<GameStore>((set, get) => ({
       onState: (incoming, replace) => {
         const prev = get().view;
         if (prev && prev.game.id === incoming.game.id && !replace) playNewLogSounds(prev, incoming);
-        const view = prev && !replace && prev.game.id === incoming.game.id ? reconcile(prev, incoming) : incoming;
+        // a rematch keeps the table's id but is a brand-new game: replace, never merge
+        const sameGame = !!prev && prev.game.id === incoming.game.id && (prev.game.night?.number ?? 1) === (incoming.game.night?.number ?? 1);
+        const view = prev && !replace && sameGame ? reconcile(prev, incoming) : incoming;
         const ids: string[] = [];
         for (const c of Object.values(view.cards)) {
           if (!c.hidden && c.card_id) ids.push(c.card_id);

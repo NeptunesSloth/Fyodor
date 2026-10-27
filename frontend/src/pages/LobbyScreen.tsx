@@ -86,6 +86,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
               Mulligan: {lobby.mulligan?.display_name ?? MULLIGAN_LABEL[s.mulligan_rule] ?? s.mulligan_rule}
               {lobby.mulligan?.needs_definition ? " (not defined yet)" : ""}
             </span>
+            <span>Turn order: {(s.turn_order ?? "pod") === "pod" ? "d20, then the winner goes last" : "random first player"}</span>
             <span>Automation: {(s.automation ?? "off").toUpperCase()}</span>
             {(s.automation ?? "off") === "off" && <span>Response helper: {s.priority_helper === "simple" ? "On" : "Off"}</span>}
           </div>
@@ -522,6 +523,12 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
             <option value="off">Off — sandbox, nothing enforced</option>
             <option value="assisted">Assisted — validates and asks before important steps</option>
             <option value="full">Full — supported rules happen by themselves</option>
+          </select>
+        </label>
+        <label className="field">Turn order
+          <select data-testid="lobby-turn-order" value={draft.turn_order ?? "pod"} onChange={(e) => set({ turn_order: e.target.value as LobbySettings["turn_order"] })}>
+            <option value="pod">Pod rule — d20 for the first game, then the winner goes last</option>
+            <option value="random">Random first player, seats as they are</option>
           </select>
         </label>
         <label className="field">Response helper

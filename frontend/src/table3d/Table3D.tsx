@@ -161,12 +161,14 @@ export function Table3D({ me }: { me: string }) {
   const back = useRef<CameraPreset>("seat");
   useEffect(() => {
     const onCam = (e: Event) => {
-      const { id, digit, hover } = (e as CustomEvent<{ id: string; digit: number; hover: string | null }>).detail;
+      const { id, digit, hover, player } = (e as CustomEvent<{ id: string; digit: number; hover: string | null; player?: string }>).detail;
       const others = players.filter((p) => p !== me);
       if (id === "cam_names") return setAllNames((x) => !x);
       setPreset((cur) => {
         if (id === "cam_seat" || id === "cam_reset") return "seat";
         if (id === "cam_table") return "overview";
+        // the winner spotlight turns the camera toward the winning seat (your own seat: your usual view)
+        if (id === "cam_focus_player") return player && player !== me && players.includes(player) ? { focus: player } : "seat";
         if (id === "cam_player") return others[digit - 2] ? { focus: others[digit - 2]! } : cur;
         if (id === "cam_focus") {
           if (typeof cur === "object" && "card" in cur) return back.current;

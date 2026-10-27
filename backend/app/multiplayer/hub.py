@@ -23,6 +23,7 @@ from app.game.factory import PLAYER_COLORS
 from app.game.session import GameSession
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
+from app.multiplayer.night import Night
 from app.storage.journal import RoomJournal
 
 log = logging.getLogger(__name__)
@@ -99,6 +100,8 @@ class Room:
     result_id: str | None = None  # the recorded pod result for this game, if any
     # client_action_id -> outcome ("ACCEPTED" / "REJECTED: …"): a retried action applies once.
     client_actions: dict[str, str] = field(default_factory=dict)
+    night: Night = field(default_factory=Night)  # game night: turn order, agreed endings, rematch vote
+
     @property
     def id(self) -> str:
         return self.game_id
@@ -320,6 +323,7 @@ class GameHub:
             "password_hash": room.password_hash.hex() if room.password_hash else None,
             "seats": {pid: {"token": s.token, "claimed_name": s.claimed_name} for pid, s in room.seats.items()},
             "spectator_tokens": sorted(room.spectator_tokens), "result_id": room.result_id, "created_at": room.created_at,
+            "night": room.night.meta(),
         }
 
     def persist(self, room: Room) -> None:
@@ -361,6 +365,7 @@ class GameHub:
                                    last_seen=time.time())
         room.spectator_tokens = set(meta.get("spectator_tokens") or [])
         room.result_id = meta.get("result_id")
+        room.night = Night.from_meta(meta.get("night"))
         room.created_at = float(meta.get("created_at") or time.time())
         room.client_actions = dict(client_actions)
         if any(r.code == room.code for r in self.rooms.values()):
@@ -453,6 +458,7 @@ class GameHub:
                 conn.viewer = new_pid or SPECTATOR
                 conn.actor = new_pid
         room.seats = seats
+        room.night.remap(mapping)
         room.host_seat = mapping.get(room.host_seat or "")
         room.game = session
         room.phase = "playing"
@@ -549,6 +555,7 @@ class GameHub:
             "revision": room.revision,
             "result_id": room.result_id,
             "assets": self._assets(room),
+            "night": room.night.public(room.seat_name),
         }
         return room.session.view(viewer, meta=meta)
 

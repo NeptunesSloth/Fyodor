@@ -62,7 +62,11 @@ export function recordTraffic(page: Page): { text: () => string } {
   return { text: () => chunks.join("\n") };
 }
 
-export async function hostLobby(page: Page, opts: { name: string; privacy?: string }): Promise<{ gameId: string; code: string }> {
+/**
+ * Host a LAN lobby. Seats keep their join order unless `turnOrder: "pod"` (the d20 pod rule reseats
+ * players by their rolls), so most tests can name seats p1, p2… in join order.
+ */
+export async function hostLobby(page: Page, opts: { name: string; privacy?: string; turnOrder?: "pod" | "random" }): Promise<{ gameId: string; code: string }> {
   await page.goto("/#/play");
   await page.getByTestId("table-mode").selectOption("lan");
   await expect(page.getByTestId("use-lobby")).toBeChecked();
@@ -72,6 +76,11 @@ export async function hostLobby(page: Page, opts: { name: string; privacy?: stri
   await expect(page.getByTestId("lobby")).toBeVisible();
   const code = (await page.getByTestId("room-code").textContent())!.trim();
   const gameId = page.url().split("/game/")[1]!.split(/[?#]/)[0]!;
+  if ((opts.turnOrder ?? "random") === "random") {
+    const token = await page.evaluate((id) => localStorage.getItem(`fyodor.seat.${id}`), gameId);
+    const res = await page.request.post(`/api/games/${gameId}/lobby/settings`, { data: { turn_order: "random" }, headers: token ? { "X-Seat-Token": token } : {} });
+    expect(res.ok(), await res.text()).toBeTruthy();
+  }
   return { gameId, code };
 }
 

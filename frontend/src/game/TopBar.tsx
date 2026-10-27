@@ -79,8 +79,8 @@ export function TopBar() {
       <button className="tt-btn ghost" onClick={() => openDialog("help")} title="How to play, controls and shortcuts (?)">Help</button>
       <button className="tt-btn ghost" data-testid="table-menu" aria-label="More" title="Save, load, tools and settings" onClick={(e) => openMenu(e, tableMenu(isHost), "Table")}>More</button>
       {/* kept apart from Undo: ending the game is not a slip of the hand */}
-      {isHost && (
-        <button className="tt-btn ghost" data-testid="end-game" onClick={() => openDialog("endgame")} title="Record who won">
+      {(isHost || (view.game.mode === "lan" && view.viewer in view.game.seats)) && (
+        <button className="tt-btn ghost" data-testid="end-game" onClick={() => openDialog("endgame")} title={isHost ? "Record who won" : "Propose ending the game"}>
           {view.game.result_id ? "Result ✓" : "End game"}
         </button>
       )}

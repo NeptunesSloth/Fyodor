@@ -205,6 +205,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
         players: useLobby ? [{ name: players[0]?.name.trim() || "Host", deck_id: null }] : players.map((p) => ({ ...p, name: p.name.trim() || "Player" })),
         shuffle: true,
         lobby: useLobby,
+        turn_order: "pod", // the pod's own rule is the default for game nights (Table settings can change it)
         seats,
         deck_privacy: privacy,
         mulligan_rule: mulligan,
