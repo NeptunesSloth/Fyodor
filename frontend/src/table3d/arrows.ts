@@ -32,15 +32,16 @@ const beamFragment = /* glsl */ `
   #include <fog_pars_fragment>
   void main() {
     float across = abs(vBand.y);
-    float halo = pow(1.0 - across, 2.2);
     float core = 1.0 - smoothstep(0.0, 0.16, across);
     // a pulse of light travelling to the target
     float p = fract(vBand.x - time * 0.55 * flow);
     float pulse = flow * smoothstep(0.18, 0.0, abs(p - 0.5) * 2.0 - 0.82);
     // fade in from the source, full strength over the target
     float ends = smoothstep(0.0, 0.12, vBand.x);
-    vec3 col = color * halo * (0.55 + pulse * 0.8) + vec3(1.0) * core * (0.75 + pulse * 0.5);
-    gl_FragColor = vec4(col * ends, 1.0);
+    // a thin cord down the middle of the ribbon, softly edged; the rest is transparent (no glow)
+    float cord = 1.0 - smoothstep(0.22, 0.38, across);
+    vec3 col = color * (0.85 + pulse * 0.35) + vec3(1.0) * core * 0.25;
+    gl_FragColor = vec4(col, cord * ends);
     #include <colorspace_fragment>
     #include <fog_fragment>
   }`;
