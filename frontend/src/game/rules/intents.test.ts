@@ -6,6 +6,8 @@ import type { GameView } from "../../types/game";
 import { abilityLines, automationOn, canConcede, choose, concede, divide, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, send, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { canSubmitChoice, doneLabel, legalClass, paidSymbol } from "./RulesHud";
 import { rulesMenu } from "./rulesMenu";
+import { libraryTopActions } from "../ZonePile";
+import type { MenuItem } from "../../components/ContextMenu";
 
 const card = (id: string, zone: string, card_id: string) => ({ id, zone, card_id, name: card_id, owner: "p1", controller: "p1" });
 
@@ -642,5 +644,58 @@ describe("decision answers", () => {
     void send({ type: "cast_spell", card_id: "c2", alt_cost: "c2:1" });
     expect(useXPrompt.getState().action).toEqual({ type: "cast_spell", card_id: "c2", alt_cost: "c2:1" });
     useXPrompt.setState({ action: null });
+  });
+});
+
+describe("wave 110 follow-ups: library top, Chorus, Leonin Arbiter", () => {
+  const labels = (items: MenuItem[]) => items.map((i) => (i === "separator" ? "—" : i.label));
+  const withTop = (hints: object, top: string | null) => {
+    const base = view({ ...RULES, hints });
+    return { ...base, zones: { "p2:library": { count: 30, known: top ? [[0, top]] : [] } },
+      cards: { ...base.cards, ...(top ? { [top]: { ...card(top, "p2:library", "bolt"), owner: "p2", controller: "p2" } } : {}) } } as unknown as GameView;
+  };
+
+  it("offers another player's top card only when the viewer sees it and the server lists it (Xanathar)", () => {
+    useGame.setState({ view: withTop({ castable: ["t1"] }, "t1") });
+    const items = libraryTopActions("p2", "p1");
+    expect(labels(items)).toEqual(["Cast their top card", "—"]);
+    const [cast] = items;
+    if (!cast || cast === "separator") throw new Error("expected Cast");
+    cast.onClick?.();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "t1" }]);
+    useGame.setState({ view: withTop({ castable: [] }, "t1") });
+    expect(libraryTopActions("p2", "p1")).toEqual([]); // seen, not castable
+    useGame.setState({ view: withTop({ castable: ["t1"] }, null) });
+    expect(libraryTopActions("p2", "p1")).toEqual([]); // not seen: no entry
+  });
+
+  it("offers plot and a free cast from the top of your library (Fblthp, Temporal Aperture)", () => {
+    const base = withTop({ activatable: [{ card_id: "t1", ability: 102 }], free_castable: ["t1"] }, "t1");
+    const v = { ...base, zones: { "p1:library": { count: 30, known: [[0, "t1"]] } } } as unknown as GameView;
+    useGame.setState({ view: v });
+    const items = libraryTopActions("p1", "p1");
+    expect(labels(items)).toEqual(["Cast the top card without paying its mana cost", "Plot the top card (special action)", "—"]);
+    const plot = items[1];
+    if (!plot || plot === "separator") throw new Error("expected Plot");
+    plot.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "t1", ability: 102 }]);
+  });
+
+  it("asks for the Chorus of the Conclave amount and sends it as chorus", () => {
+    const v = view({ ...RULES, hints: { castable: ["c2"], chorus: ["c2"] } });
+    useGame.setState({ view: v });
+    const chorus = rulesMenu(v.cards.c2!, v, "p1").find((i) => i !== "separator" && i.label === "Cast with Chorus of the Conclave…");
+    if (!chorus || chorus === "separator") throw new Error("expected the Chorus entry");
+    chorus.onClick?.();
+    expect(useXPrompt.getState()).toMatchObject({ action: { type: "cast_spell", card_id: "c2" }, field: "chorus" });
+    expect(submitNumericPrompt("3")).toBe(true);
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "c2", chorus: 3 }]);
+    expect(rulesMenu(v.cards.c1!, v, "p1").some((i) => i !== "separator" && i.label.includes("Chorus"))).toBe(false); // not listed
+  });
+
+  it("labels Leonin Arbiter's special action with the server's wording", () => {
+    const base = view({ ...RULES, hints: { has_priority: true }, stats: { la: { end_cost: "{2}", end_label: "Ignore Leonin Arbiter until end of turn" } } });
+    const v = { ...base, cards: { ...base.cards, la: { ...card("la", "p2:battlefield", "looter"), owner: "p2", controller: "p2" } } } as unknown as GameView;
+    expect(labels(rulesMenu(v.cards.la!, v, "p1"))).toContain("Ignore Leonin Arbiter until end of turn ({2}, special action)");
   });
 });

@@ -6,7 +6,7 @@ import { splitZone, type ZoneName } from "../types/game";
 import { draw, moveCards, send } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
-import { dropAsIntent } from "./rules/intents";
+import { dropAsIntent, send as sendIntent, useXPrompt } from "./rules/intents";
 import { GameCardFace } from "./GameCardFace";
 
 const LABEL: Partial<Record<ZoneName, string>> = {
@@ -27,22 +27,39 @@ function dropInto(ids: string[], target: DropResult | null) {
   void moveCards(ids, zone, { player, position: target.position, index: target.index, x: target.x, y: target.y });
 }
 
+/** Rules actions on the top card of a library: a permission to play or cast it (yours, or another player's with Xanathar), a free cast
+ * (Temporal Aperture), plot (Fblthp, 116.2k). Only a top card this viewer can see is in the view, and the server lists it in the viewer's own hints. */
+export function libraryTopActions(player: string, me: string): MenuItem[] {
+  const view = useGame.getState().view;
+  const top = view?.zones[`${player}:library`];
+  const topId = top && !Array.isArray(top) ? top.known.find(([i]) => i === 0)?.[1] : undefined;
+  const hints = view?.rules && !view.rules.paused ? view.rules.hints : undefined;
+  if (!topId || !hints) return [];
+  const items: MenuItem[] = [];
+  const whose = player === me ? "the top card" : "their top card";
+  if (hints.playable_lands?.includes(topId)) {
+    items.push({ label: `Play ${whose} as your land`, onClick: () => void sendIntent({ type: "play_land", card_id: topId }) });
+  }
+  if (hints.castable?.includes(topId)) {
+    items.push({ label: `Cast ${whose}`, onClick: () => void sendIntent({ type: "cast_spell", card_id: topId }) });
+  }
+  if (hints.chorus?.includes(topId)) {
+    items.push({ label: `Cast ${whose} with Chorus of the Conclave…`, onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: topId }, field: "chorus" }) });
+  }
+  if (hints.free_castable?.includes(topId)) {
+    items.push({ label: `Cast ${whose} without paying its mana cost`, onClick: () => void sendIntent({ type: "cast_spell", card_id: topId, free: true }) });
+  }
+  for (const a of hints.activatable?.filter((x) => x.card_id === topId) ?? []) {
+    items.push({ label: "Plot the top card (special action)", onClick: () => void sendIntent({ type: "activate_ability", card_id: topId, ability: a.ability }) });
+  }
+  return items.length ? [...items, "separator"] : [];
+}
+
 export function libraryMenu(player: string, me: string, name: string): MenuItem[] {
   const mine = player === me;
   const items: MenuItem[] = [];
+  items.push(...libraryTopActions(player, me));
   if (mine) {
-    // A permission to play or cast the top card ("You may play lands from the top of your
-    // library"): the server lists it among your legal plays when you can see the card.
-    const view = useGame.getState().view;
-    const top = view?.zones[`${player}:library`];
-    const topId = top && !Array.isArray(top) ? top.known.find(([i]) => i === 0)?.[1] : undefined;
-    const hints = view?.rules?.hints;
-    if (topId && hints?.playable_lands?.includes(topId)) {
-      items.push({ label: "Play the top card as your land", onClick: () => void send({ type: "play_land", card_id: topId }) });
-    }
-    if (topId && hints?.castable?.includes(topId)) {
-      items.push({ label: "Cast the top card", onClick: () => void send({ type: "cast_spell", card_id: topId }) });
-    }
     items.push({ label: "Draw a card", hint: "D", onClick: () => void draw(player, 1) });
     items.push({
       label: "Draw several…",

@@ -373,6 +373,7 @@ export interface RulesHints {
   x_kicker?: string[]; // castable cards of yours whose kicker cost has {X}: only a kicked cast asks for it (107.3a, wave 43D)
   activatable?: { card_id: string; ability: number; x?: boolean }[]; // x: the activation asks for X (107.3k)
   miracle?: string[]; // cards of yours you may reveal for miracle now (702.94a)
+  channel?: string; // -- wave 110I -- Channel: the player-level mana ability's ActivateAbility.card_id ("player:channel110i"), while you have it (605.3a)
 }
 
 export interface RulesView {
@@ -541,4 +542,6 @@ export interface CardStats {
   abilities?: { index: number; text: string; kind: string }[];
   /** -- licids (wave 50A) -- 116.2c: the cost you may pay (a special action) to end the effect you have on this permanent ("You may pay {W} to end this effect"). */
   end_cost?: string;
+  /** The special action's own wording when it doesn't end an effect (Leonin Arbiter: "Ignore … until end of turn"). */
+  end_label?: string;
 }
