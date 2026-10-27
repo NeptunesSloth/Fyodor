@@ -4,6 +4,7 @@ import { askNumber, askText } from "../components/Prompt";
 import { useGame, usePlayer } from "../state/gameStore";
 import type { ManaUnit, PlayerView } from "../types/game";
 import { changeLife, changeResource, send } from "./actions";
+import { Icon } from "../components/Icon";
 
 const LIFE_STEPS = [-10, -5, -1, 1, 5, 10];
 /** Colorblind-safe seat markers: a distinct shape per seat alongside the color. */
@@ -93,7 +94,7 @@ export function PlayerPanel({ player, me, compact }: { player: string; me: strin
         <div className="pp-cmds" data-testid={`commanders-${p.id}`}>
           {p.commanders.map((c) => (
             <span key={c.key} className={`pp-cmd ${c.zone?.endsWith(":command") ? "home" : ""}`} title={`${c.name} — commander tax ${c.tax}, cast ${c.casts ?? 0}× from the command zone`}>
-              ♛ {c.name.split(",")[0]} <b>+{c.tax}</b>
+              <Icon name="crown" size={12} /> {c.name.split(",")[0]} <b>+{c.tax}</b>
             </span>
           ))}
         </div>
@@ -228,7 +229,7 @@ function ManaPool({ player, mana, units }: { player: string; mana: Record<string
   const total = Object.values(mana).reduce((a, b) => a + b, 0) + units.length;
   const add = (color: string, delta: number) => void send({ type: "add_mana", player, mana: { [color]: delta } });
   if (!open && !total) {
-    return <button className="mana-toggle" data-testid={`mana-open-${player}`} onClick={() => setOpen(true)} title="Mana pool">◇ mana</button>;
+    return <button className="mana-toggle" data-testid={`mana-open-${player}`} onClick={() => setOpen(true)} title="Mana pool"><Icon name="gem" size={12} /> mana</button>;
   }
   return (
     <div className="mana-pool" data-testid={`mana-${player}`}>

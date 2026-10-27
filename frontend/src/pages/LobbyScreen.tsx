@@ -32,6 +32,7 @@ import type { DeckSummary } from "../types/decks";
 import type { LobbySeat, LobbySettings, LobbyView } from "../types/game";
 import { PersonalDeckImports } from "./PersonalDeckImports";
 import "./lobby.css";
+import { Icon } from "../components/Icon";
 
 export const DECK_PRIVACY_LABEL: Record<LobbySettings["deck_privacy"], string> = {
   private: "Private",
@@ -244,7 +245,7 @@ function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
       </div>
 
       <div className={`seat-art ${cmdId ? "" : "empty"}`}>
-        {cmdId ? <CommanderArt id={cmdId} /> : <span className="seat-art-glyph" aria-hidden>{seat.claimed ? "❖" : "+"}</span>}
+        {cmdId ? <CommanderArt id={cmdId} /> : <span className="seat-art-glyph" aria-hidden><Icon name={seat.claimed ? "cards" : "plus"} size={34} /></span>}
         <div className="seat-art-caption">
           <b>{deck?.commanders?.length ? deck.commanders.join(" & ") : deck ? (deck.name ?? "A deck") : seat.claimed ? "No deck yet" : "Waiting for a player"}</b>
           {deck?.commanders?.length ? <span>{deck.name}</span> : null}

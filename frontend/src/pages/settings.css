@@ -1,5 +1,5 @@
 .settings { display: flex; flex-direction: column; gap: 18px; max-width: 900px; color: var(--room-bone); }
-.settings h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--room-bone-dim); margin: 0 0 8px; font-weight: 600; }
+.settings h2 { font-size: 12px; letter-spacing: 0.02em; color: var(--room-bone-dim); margin: 0 0 8px; font-weight: 600; }
 .settings section { padding-bottom: 14px; border-bottom: 1px solid var(--room-edge); }
 .settings .settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 14px; }
 .settings-checks { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 6px 0; align-items: center; }

@@ -89,7 +89,7 @@
 
 body { font-family: var(--font-ui); background: var(--bg); }
 
-.display, h1, .frame-title { font-family: var(--font-display); letter-spacing: 0.06em; font-weight: 600; }
+.display, h1, .frame-title { font-family: var(--font-display); letter-spacing: 0.02em; font-weight: 600; }
 
 /* A framed panel: warm gradient, thin metallic border, an inner hairline and soft depth. */
 .frame {
@@ -107,7 +107,7 @@ body { font-family: var(--font-ui); background: var(--bg); }
 .frame.ornate::after { bottom: 3px; right: 3px; border-width: 0 1px 1px 0; }
 
 .frame-title {
-  font-size: 13px; text-transform: uppercase; color: var(--accent-2); margin: 0 0 10px;
+  font-size: 13px; color: var(--accent-2); margin: 0 0 10px;
   display: flex; align-items: center; gap: 10px;
 }
 .frame-title::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--frame), transparent); }
@@ -199,7 +199,7 @@ body { font-family: var(--font-ui); background: var(--bg); }
 }
 .theme-tile.on { border-color: var(--frame-hi); box-shadow: 0 0 16px var(--accent-glow); }
 .theme-tile .preview { height: 88px; }
-.theme-tile .name { font-family: var(--font-display); letter-spacing: 0.08em; padding: 0 10px; }
+.theme-tile .name { font-family: var(--font-display); letter-spacing: 0.02em; padding: 0 10px; }
 .theme-tile .blurb { font-size: 12px; color: var(--text-dim); padding: 0 10px; }
 .theme-tile .dots { display: flex; gap: 6px; padding: 0 10px 10px; }
 .theme-tile .dots i { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.5); }
