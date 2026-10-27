@@ -471,8 +471,9 @@ def stack_scan(plan: Any) -> bool:
     r.stack_seen110m = stack
     if not new:
         return False
-    grips = [(src, i, d) for src in plan.state.cards.values() if src.zone.endswith(":battlefield") and plan.in_game(src) and not plan.manual(src)
-             for i, d in scripts.definitions(plan.ch(src)).items() if (d.get("cond") or {}).get("hooked110m") and d.get("effects") == [{"do": "grip110m"}]]
+    with plan.reading():
+        grips = [(src, i, d) for src in plan.state.cards.values() if src.zone.endswith(":battlefield") and plan.in_game(src) and not plan.manual(src)
+                 for i, d in scripts.definitions(plan.ch(src)).items() if (d.get("cond") or {}).get("hooked110m") and d.get("effects") == [{"do": "grip110m"}]]
     added = False
     for sid in new:
         entry = target_entry(plan, sid)

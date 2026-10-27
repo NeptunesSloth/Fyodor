@@ -27,6 +27,10 @@ def _has(state: GameState, player: str, info: CardInfo | None, texts: tuple[str,
     from app.rules.plan import Plan
 
     def scan() -> bool:
+        with read_pass.scope(state, info):
+            return _scan()
+
+    def _scan() -> bool:
         view = Plan.view(state, player, info)
         for card in state.cards.values():
             if card.controller != player or not card.zone.endswith(':battlefield') or card.face_down:

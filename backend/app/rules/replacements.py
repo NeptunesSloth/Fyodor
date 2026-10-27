@@ -299,6 +299,16 @@ def named_choices(plan: Plan, controller: str, defs: list[dict[str, Any]], answe
 ORDER = "order:"  # an entering answer that is a 616.1 order: "order:<question>" -> the effect applied first
 
 
+def _reads(fn: Any) -> Any:
+    """plan.reads, imported when first called (this module loads before app.rules.plan)."""
+    def run(plan: Any, *args: Any, **kw: Any) -> Any:
+        from app.rules.plan import reads
+
+        return reads(fn)(plan, *args, **kw)
+    return run
+
+
+@_reads
 def others_enter_tapped(plan: Plan, card: CardInstance, controller: str, static: str = "enters_tapped_others") -> bool:
     """614.1d: "Creatures your opponents control enter tapped." — statics of permanents on the
     battlefield, checked against the permanent as it would exist on the battlefield under the

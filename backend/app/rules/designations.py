@@ -44,7 +44,7 @@ from typing import Any
 
 from app.game.rules_state import DecisionOption, DungeonMark, Event, TurnFact, emit, turn_log_now
 from app.game.state import CardInstance, TokenDef, zone_key
-from app.rules.plan import Plan, decide
+from app.rules.plan import Plan, decide, reads
 
 Context = dict[str, Any]
 
@@ -957,6 +957,7 @@ def day_night(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     return True
 
 
+@reads
 def _bound(plan: Plan) -> tuple[list[CardInstance], list[CardInstance], bool]:
     """Daybound and nightbound permanents, and whether one says "If it's neither day nor night, it
     becomes day as ~ enters" (once it's day or night it stays one of them, 731.1: read any time)."""
@@ -1145,11 +1146,9 @@ def ascend_permanents(plan: Plan) -> bool:
 
 
 # -- storied (wave 45D) -- 702.195: the enduring story designation
-def storied_permanents(plan: Plan) -> bool:
-    """702.195a: any time a player controls a permanent with storied and three or more permanents that are artifacts, Sagas
-    and/or legendary, they get the enduring story designation for the rest of the game (702.195b: no other rules meaning).
-    (-- review 39 -- the keyword as the permanent has it now, 613: one that lost all its abilities has no storied.)"""
-    happened = False
+@reads
+def _storied_due(plan: Plan) -> list[str]:
+    due = []
     for pid in plan.live():
         if pid in plan.rules.enduring_story:
             continue
@@ -1158,12 +1157,23 @@ def storied_permanents(plan: Plan) -> bool:
             continue
         n = sum(1 for c in mine if (ch := plan.ch(c)).supertypes & {"Legendary"} or ch.types & {"Artifact"} or "Saga" in ch.subtypes)
         if n >= 3:
-            plan.rules.enduring_story.append(pid)
-            plan.note(f"{plan.name(pid)} has an enduring story")
-            happened = True
+            due.append(pid)
+    return due
+
+
+def storied_permanents(plan: Plan) -> bool:
+    """702.195a: any time a player controls a permanent with storied and three or more permanents that are artifacts, Sagas
+    and/or legendary, they get the enduring story designation for the rest of the game (702.195b: no other rules meaning).
+    (-- review 39 -- the keyword as the permanent has it now, 613: one that lost all its abilities has no storied.)"""
+    happened = False
+    for pid in _storied_due(plan):
+        plan.rules.enduring_story.append(pid)
+        plan.note(f"{plan.name(pid)} has an enduring story")
+        happened = True
     return happened
 
 
+@reads
 def ascend_permanent_due(plan: Plan, pid: str) -> bool:
     """-- most-played cards II (wave 45A) -- 702.131b: ten permanents and a permanent with ascend: the blessing is theirs at once ("any time"), also in the middle of a
     resolution before the state-based actions are checked (Ocelot Pride's ruling 2024-06-07: its Cat as the tenth permanent gives it before the ability checks)."""

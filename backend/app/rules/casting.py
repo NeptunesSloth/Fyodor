@@ -585,6 +585,7 @@ def _cast_origin_ok(alt: dict[str, Any], purpose: Purpose) -> bool:
     return not (alt.get("not_zone") and (zone is None or zone == alt["not_zone"]))
 
 
+@read_pass.adopting(info_at=2)
 def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose | None = None) -> list[M.Source]:
     """Untapped permanents ``player`` controls that can pay for things right now. Each permanent
     is one source whose options are ordered painless-first; a filter-style ability (with its own
@@ -6788,6 +6789,7 @@ def _post_activation(plan: Plan, data: _PostActivation, paid: M.Payment | None) 
     advance(plan)
 
 
+@read_pass.adopting(info_at=2)
 def activatable(state: GameState, player: str, info: CardInfo, *, check_priority: bool = True) -> list[dict[str, Any]]:
     """Abilities of ``player``'s permanents that could be activated right now (for hints)."""
     out: list[dict[str, Any]] = []
@@ -7278,6 +7280,7 @@ def resume_mana_ability(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 # -- responding -------------------------------------------------------------------------
+@read_pass.adopting(info_at=2)
 def has_responses(state: GameState, player: str, info: CardInfo) -> bool:
     """Could ``player`` do anything at instant speed right now? (For Arena-style auto-passing.)"""
     from app.rules import required_keyword79, required_mutate75

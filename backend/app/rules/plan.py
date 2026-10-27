@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import functools
 import secrets
-from typing import Any
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -28,6 +30,8 @@ from app.game.visibility import publicly_visible
 from app.rules import characteristics as chars
 from app.rules.characteristics import CardInfo, Characteristics
 
+READ_REUSE_FROM = 40  # objects in the game from which ``Plan.reading`` keeps its pass between checks
+MARK_IGNORES = {"priority", "passed", "auto_pass", "stack_seen110m"}  # rules fields no kept answer depends on (``Plan._mark``)
 MAX_STEPS = 400  # a safety valve: no single intent may expand into more table actions
 ARROW_TARGETS = 20  # the most objects one arrow points at (A.CreateArrow.targets)
 ENGINE_ARROWS = 190  # the engine's target arrows stop here (the table takes 200: handlers/marks.py; the rest is the players')
@@ -73,6 +77,9 @@ class Plan:
         self.rng = rng
         self.steps: list[dict[str, Any]] = []
         self.max_steps = MAX_STEPS
+        from app.rules import read_pass
+
+        read_pass.own(self.state, self)
         self.hold: str | None = None  # a player keeping priority right now (HOLD PRIORITY, a cancelled cast)
         self.probe_903: list[tuple[str, str]] | None = None  # a look ahead for 903.9b (replacements.ask_903_9b_first)
         # -- review (face-down ids) -- whether each card is face down in view (as the intent began, then after each of its moves)
@@ -120,6 +127,13 @@ class Plan:
 
     def do(self, payload: dict[str, Any], *, actor: str | None = None, departure_before: DepartureBefore | None = None) -> A.Action:
         """Resolve and apply one table action on the scratch copy, and record it."""
+        self.writes = getattr(self, "writes", 0) + 1  # (a kept read pass is for the table as it was: ``reading``)
+        try:
+            return self._do(payload, actor=actor, departure_before=departure_before)
+        finally:
+            self.writes += 1
+
+    def _do(self, payload: dict[str, Any], *, actor: str | None = None, departure_before: DepartureBefore | None = None) -> A.Action:
         from app.game.engine import HANDLERS  # the game engine imports resolve → this module
         from app.game.resolve import resolve
         from app.rules import (
@@ -183,6 +197,7 @@ class Plan:
 
         world_before80 = world_durations80.before(self) if resolved.type != 'rules_sync' else None
         HANDLERS[resolved.type](self.state, resolved)
+        self.writes += 1
         if before is not None and self.began is not None:
             for cid, zone in before.zones.items():
                 if (c := self.state.cards.get(cid)) is not None and zone_name(zone) != zone_name(c.zone):
@@ -324,6 +339,34 @@ class Plan:
 
         return derive(self.state, card, chars.of(card, self.info), self.info)
 
+    def reading(self) -> Any:
+        """A read pass over this table (``reads``) for a block that only reads it: ``with plan.reading(): ...``. On a big table the pass
+        is kept and used again by the next block that finds the table exactly as it was (``_mark``), so a run of checks between two
+        changes derives each permanent once, not once per check."""
+        from app.rules import read_pass
+
+        if (cur := read_pass.current(self.state, self.info)) is not None:  # (already inside one: nothing to compare)
+            return read_pass.enter(cur)
+        mark = self._mark()
+        kept = getattr(self, "_kept", None)
+        if mark is not None and kept is not None and kept[0] == mark and kept[1].state is self.state and kept[1].info is self.info:
+            return read_pass.enter(kept[1])
+        sc = read_pass.ReadPass(self.state, self.info)
+        if mark is not None:
+            self._kept = (mark, sc)
+        return read_pass.enter(sc)
+
+    def _mark(self) -> tuple[Any, ...] | None:
+        """What a kept read pass is good for: this table object, the number of table actions carried out on it (every change to the
+        cards, zones, players and turn goes through ``do``), and the rules state, compared whole (it is changed in place throughout the
+        engine; only who has priority, who passed and Grip of Chaos's look at the stack are left out: no characteristic and no question a
+        pass keeps reads them). None: a table too small for the comparison to pay."""
+        r = self.state.rules
+        if r is None or len(self.state.cards) < READ_REUSE_FROM:
+            return None
+        return (id(self.state), getattr(self, "writes", None), r.model_dump_json(exclude=MARK_IGNORES),
+                tuple(p.model_dump_json() for p in self.state.players.values()))
+
     def prefs(self, player: str) -> PlayerPrefs:
         """A player's preferences, created on first change (so they're saved with the rules state)."""
         prefs = self.rules.prefs.get(player)
@@ -386,6 +429,20 @@ class Plan:
             if p in live:
                 return p
         return player
+
+
+_R = TypeVar("_R")
+
+
+def reads(fn: Callable[..., _R]) -> Callable[..., _R]:
+    """-- read passes (repeat speed) -- for a function of a Plan that only reads the table: one read pass for the whole call
+    (read_pass.scope), so each permanent is derived once and the statics table is read once, not once per permanent. Without it, a
+    scan over the battlefield costs the square of its size, which made REPEAT of a token maker slow as the tokens piled up."""
+    @functools.wraps(fn)
+    def run(plan: Plan, *args: Any, **kw: Any) -> _R:
+        with plan.reading():
+            return fn(plan, *args, **kw)
+    return run
 
 
 def live_players(state: GameState) -> list[str]:

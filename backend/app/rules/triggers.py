@@ -75,7 +75,7 @@ from app.game.state import (
 from app.rules import characteristics as chars
 from app.rules import delayed, designations, layers, scripts, selectors
 from app.rules.characteristics import Characteristics
-from app.rules.plan import Plan, decide
+from app.rules.plan import Plan, decide, reads
 from app.rules.targets import choose_groups, label, legal_targets, ref, source_of
 
 _FIRST_KINDS = ("gain_life", "lose_life", "create_token")  # (wave 11C) events counted "for the first time each turn"
@@ -2038,6 +2038,7 @@ def unblocked(plan: Plan, attackers: list[CardInstance]) -> None:
     generic_combat(plan, "unblocked", attackers)
 
 
+@reads
 def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
     out = []
     for card in plan.state.cards.values():

@@ -14,7 +14,9 @@ shared by the whole pass are kept in it and nowhere else:
 
 from __future__ import annotations
 
+import functools
 import threading
+import weakref
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -40,6 +42,45 @@ class ReadPass:
 
 T = TypeVar("T")
 _PASS = threading.local()
+_OWNERS = threading.local()  # -- read passes (repeat speed) -- id(table) -> the Plan carrying out actions on that table (weakly held)
+
+
+def own(state: GameState, plan: Any) -> None:
+    """``plan`` carries out actions on ``state``: readers handed only the table may use its kept passes (``adopted``)."""
+    owners = getattr(_OWNERS, "map", None)
+    if owners is None:
+        owners = _OWNERS.map = weakref.WeakValueDictionary()
+    owners[id(state)] = plan
+
+
+@contextmanager
+def adopted(state: GameState, info: CardInfo) -> Iterator[ReadPass]:
+    """``scope`` for a reader handed only the table: the pass already open, else the owning plan's (``Plan.reading``)."""
+    if (sc := current(state, info)) is not None:
+        yield sc
+        return
+    owners = getattr(_OWNERS, "map", None)
+    plan = owners.get(id(state)) if owners is not None else None
+    if plan is None or plan.state is not state or plan.info is not info:
+        with scope(state, info) as sc:
+            yield sc
+        return
+    with plan.reading() as sc:
+        yield sc
+
+
+def adopting(info_at: int) -> Callable[[Callable[..., T]], Callable[..., T]]:
+    """A function of (table, …, info at position ``info_at`` or keyword ``info``) that only reads the table: run it in ``adopted``."""
+    def wrap(fn: Callable[..., T]) -> Callable[..., T]:
+        @functools.wraps(fn)
+        def run(state: GameState, *args: Any, **kw: Any) -> T:
+            info = kw["info"] if "info" in kw else args[info_at - 1]
+            if info is None:
+                return fn(state, *args, **kw)
+            with adopted(state, info):
+                return fn(state, *args, **kw)
+        return run
+    return wrap
 
 
 def current(state: GameState, info: CardInfo | None) -> ReadPass | None:
@@ -66,6 +107,19 @@ def once(state: GameState, info: CardInfo | None, key: Any, compute: Callable[[]
     if key not in sc.once:
         sc.once[key] = compute()
     return sc.once[key]
+
+
+@contextmanager
+def enter(sc: ReadPass) -> Iterator[ReadPass]:
+    """``scope`` with a pass kept from before (``Plan.reading``: the table is exactly as it was when the pass began)."""
+    prev: ReadPass | None = getattr(_PASS, "cur", None)
+    if prev is not None and prev.state is sc.state and prev.info is sc.info:
+        sc = prev
+    _PASS.cur = sc
+    try:
+        yield sc
+    finally:
+        _PASS.cur = prev
 
 
 @contextmanager

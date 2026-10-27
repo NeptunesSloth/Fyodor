@@ -278,10 +278,10 @@ def settle(plan: Plan) -> None:
             wave110e_blade.ask(plan, r0)
     layers.control_sync(plan)  # -- control (wave 3K) -- continuous effects first (613.1b), then state-based actions
     combat.sync_attacking(plan)
-    sba.check(plan)
+    checked = sba.check(plan)
     r = plan.rules
     if r.decision is None and len(plan.live()) > 1 and (r.priority is None or r.priority not in plan.live()):
-        advance(plan)
+        advance(plan, checked=checked)
     elif r.decision is None and len(plan.live()) > 1 and triggers.flush(plan) and r.decision is None:
         advance(plan)  # e.g. a land's "enters" trigger: on the stack now, then priority as usual
 
@@ -373,6 +373,9 @@ def repeat_sequence(plan: Plan, a: A.RepeatSequence) -> None:
                 raise _Stop("it isn't deterministic")
         except (ActionError, _Stop) as exc:
             plan.state, plan.steps = snapshot, plan.steps[:mark]
+            from app.rules import read_pass
+
+            read_pass.own(plan.state, plan)  # (the table is the snapshot now: its readers use this plan's passes)
             reason = str(exc).rstrip(".")
             break
         done += 1
@@ -471,10 +474,10 @@ def is_stop(plan: Plan, player: str) -> bool:
     return (mine and phase == "main1") or phase in prefs.stops(mine)
 
 
-def advance(plan: Plan) -> None:
+def advance(plan: Plan, *, checked: bool = False) -> None:
     """Hand priority on until someone has a real decision to make: skip players without a stop
     in this step, resolve the stack when everyone passed, move to the next step when the stack
-    is empty and everyone passed."""
+    is empty and everyone passed. ``checked``: the state-based actions were just checked and nothing has happened since."""
     while True:
         from app.rules import mana_named_land_profiles
 
@@ -485,7 +488,9 @@ def advance(plan: Plan) -> None:
         if r.restart_hold110a:  # -- wave 110A -- 727.4: the restarted game waits at its untap step like a new one
             r.restart_hold110a = False
             return
-        sba.check(plan)  # before anyone gets priority (rule 117.5)
+        # -- repeat speed -- after a check that left nothing to do, an automatic pass changes nothing it reads
+        clean = checked or sba.check(plan)  # before anyone gets priority (rule 117.5)
+        clean_at, checked = len(plan.steps), False
         if r.decision is not None:
             return
         stack_now = set(plan.state.zones.get(STACK, []))
@@ -517,10 +522,13 @@ def advance(plan: Plan) -> None:
             auto, r.auto_pass = r.auto_pass, None
             if auto == holder:
                 r.passed.append(holder)
+                checked = clean and clean_at == len(plan.steps)
                 continue
         if is_stop(plan, holder):
             return
         r.passed.append(holder)  # no stop here: pass for them (Arena's auto-pass)
+        checked = clean and clean_at == len(plan.steps)
+
 
 
 # -- loops -- 104.4b / 732.4: a loop of mandatory actions is a draw, but only when no player can stop it, which the
