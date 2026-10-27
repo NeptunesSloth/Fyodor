@@ -140,7 +140,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 /* ---------- player panel ---------- */
 .player-panel {
   background: linear-gradient(rgba(29, 30, 34, 0.94), rgba(22, 23, 26, 0.94)); border: 1px solid var(--room-edge);
-  border-radius: var(--room-radius); padding: 5px 8px 6px; border-left: 3px solid var(--player-color);
+  border-radius: var(--room-radius); padding: 5px 8px 6px;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .player-panel.active { box-shadow: 0 0 0 1px var(--player-color), 0 0 18px color-mix(in srgb, var(--player-color) 35%, transparent); }
@@ -318,7 +318,7 @@ kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4
 .play .panel h2 { font-size: 16px; }
 .row.wrap { flex-wrap: wrap; }
 .players-setup { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
-.player-setup { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 8px; background: var(--bg-2); border-left: 3px solid var(--player-color); }
+.player-setup { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 8px; background: var(--bg-2); }
 .player-setup input[type="color"] { width: 30px; height: 30px; padding: 0; border: none; background: none; cursor: pointer; }
 .player-setup select { max-width: 260px; }
 .btn.big { padding: 11px 26px; font-size: 15px; margin-top: 12px; }
