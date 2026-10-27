@@ -329,6 +329,7 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 .tt-btn:hover:not(:disabled) { border-color: var(--frame); background: linear-gradient(180deg, #241a12, #120d09); }
 .tt-btn:active:not(:disabled) { box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6); }
 .tt-btn:disabled { opacity: 0.4; cursor: default; }
+.tt-btn.brass:disabled { opacity: 1; background: var(--hud-surface); border-color: var(--line-2); color: var(--text-dim); }
 .tt-btn.brass { background: var(--accent-grad); border-color: var(--frame-hi); color: var(--accent-ink); font-weight: 650; }
 .tt-btn.brass:hover:not(:disabled) { background: var(--accent-grad); filter: brightness(1.07); }
 .tt-btn.on { background: linear-gradient(180deg, var(--steel-hi), var(--steel-lo)); border-color: var(--frame-hi); color: var(--accent-2); }

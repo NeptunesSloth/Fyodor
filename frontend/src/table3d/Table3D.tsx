@@ -253,7 +253,7 @@ const MAX_DRIFT = 110;
 
 const TIPS = [
   { title: "Players", text: "Click a player's plaque to see their counters, commander damage and actions." },
-  { title: "Your turn", text: "The dial at the bottom right says whose turn it is, and its big button says what pressing it will do." },
+  { title: "Your turn", text: "The panel at the bottom right says whose turn it is, and its big button says what pressing it will do." },
   { title: "Playing cards", text: "Drag a card from your hand onto the table, or focus it and press Enter. Hold Alt as you drop to place it by hand." },
 ];
 const COACH_KEY = "fyodor.coach3d";
@@ -286,7 +286,7 @@ function CoachTips() {
 }
 
 const MOMENTS = {
-  combat: { title: "Combat", text: "Drag your creatures toward a player or their plaque to attack, or right-click a creature for Attack. The dial's button moves on to blocks." },
+  combat: { title: "Combat", text: "Drag your creatures toward a player or their plaque to attack, or right-click a creature for Attack. The big button at the bottom right moves on to blocks." },
   priority: { title: "Something is on the stack", text: "You can respond: cast an instant or use an ability now, and it resolves first. Otherwise press Pass (P) and the top of the stack resolves." },
   target: { title: "Choose a target", text: "Glowing cards and plaques are legal choices: click one. Esc cancels." },
 } as const;
