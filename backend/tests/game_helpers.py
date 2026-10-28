@@ -55,12 +55,15 @@ def enable(state, level="full"):
 
 def engine_pays(state):
     """Most engine tests exercise payments with the internal AUTO payer; players at a real table
-    always tap their own mana (payment "self", tested in test_rules_self_tap.py)."""
+    always tap their own mana (payment "self", tested in test_rules_self_tap.py). They also read each
+    target as a question, even a target with no alternative (``auto_target``, tested in
+    test_rules_loops_and_single_targets.py)."""
     from app.game.rules_state import PlayerPrefs
 
     if state.rules is not None:
         for pid in state.players:
-            state.rules.prefs.setdefault(pid, PlayerPrefs()).payment = "auto"
+            prefs = state.rules.prefs.setdefault(pid, PlayerPrefs())
+            prefs.payment, prefs.auto_target = "auto", False
 
 
 def turn_on(s, level="full", *, arrived=(), land=False, player="p1"):

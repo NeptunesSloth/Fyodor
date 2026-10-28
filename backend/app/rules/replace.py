@@ -158,6 +158,16 @@ def conditional_lines(ch: Characteristics) -> set[int]:
     return out
 
 
+
+def _reads(fn: Any) -> Any:
+    """plan.reads, imported when first called (this module loads before app.rules.plan)."""
+    def run(plan: Any, *args: Any, **kw: Any) -> Any:
+        from app.rules.plan import reads
+
+        return reads(fn)(plan, *args, **kw)
+    return run
+
+@_reads
 def static_candidates(plan: Plan, event: str | tuple[str, ...]) -> list[Candidate]:
     """The replacement statics of permanents on the battlefield for this kind of event (611.3a:
     they apply while their source is there; a face-down permanent has none; a card taken out of

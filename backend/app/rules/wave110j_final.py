@@ -397,6 +397,16 @@ BEL_MINUS = "−1: Put a +1/+1 counter on each creature in the sector of your ch
 BEL_ULT = "−5: Destroy all creatures in the sector of your choice."
 
 
+
+def _reads(fn: Any) -> Any:
+    """plan.reads, imported when first called (this module loads before app.rules.plan)."""
+    def run(plan: Any, *args: Any, **kw: Any) -> Any:
+        from app.rules.plan import reads
+
+        return reads(fn)(plan, *args, **kw)
+    return run
+
+@_reads
 def sculptors(plan: Plan) -> list[Any]:
     return [c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and not c.face_down and plan.in_game(c) and SPACE in plan.ch(c).keywords]
 
@@ -407,7 +417,8 @@ def sector_sba(plan: Plan) -> bool:
     from app.rules.plan import decide
 
     sculpt = sculptors(plan)
-    creatures = [c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and plan.ch(c).is_creature]
+    with plan.reading():
+        creatures = [c for c in plan.state.cards.values() if c.zone.endswith(":battlefield") and plan.in_game(c) and plan.ch(c).is_creature]
     if not sculpt:
         for c in plan.state.cards.values():
             if SECTOR_KEY in c.choices:

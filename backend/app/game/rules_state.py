@@ -207,6 +207,7 @@ class PlayerPrefs(BaseModel):
     mana_sources: dict[str, SourceProtection] = Field(default_factory=dict)  # card id -> PREFER / SAVE
     auto_resolve_own_triggers: TriggerAutoResolve = "safe"
     auto_order_identical_triggers: bool = True
+    auto_target: bool = True  # a triggered ability with exactly one legal target takes it without asking (603.3d, 601.2c)
     # -- graveyard order (wave 40C) -- 404.3: ask me to arrange every batch of two or more cards put into my graveyard together, not only
     # when a card on the table reads a graveyard's order (it covers a reader in my hand or library, app/rules/graveyard_order.py)
     ask_graveyard_order: bool = False

@@ -10,7 +10,7 @@ from app.game.rules_state import Decision, DecisionOption, ObjectSnapshot, copy_
 from app.game.state import CardInstance
 from app.rules import attachments, battles
 from app.rules.characteristics import Characteristics
-from app.rules.plan import Plan, decide, live_players
+from app.rules.plan import Plan, decide, live_players, reads
 
 POISON_LETHAL = 10
 COMMANDER_LETHAL = 21
@@ -43,13 +43,16 @@ def power(card: CardInstance, ch: Characteristics) -> int | None:
     return base + card.counters.get("+1/+1", 0) - card.counters.get("-1/-1", 0)
 
 
-def check(plan: Plan) -> None:
-    """Perform state-based actions until none apply (or one needs a player's decision)."""
+def check(plan: Plan) -> bool:
+    """Perform state-based actions until none apply (or one needs a player's decision). True: none apply now."""
     if plan.rules.draw_reason is not None:
-        return
+        return False
     for _ in range(MAX_ROUNDS):
-        if plan.rules.decision is not None or not _round(plan):
-            return
+        if plan.rules.decision is not None:
+            return False
+        if not _round(plan):
+            return plan.rules.decision is None
+    return False
 
 
 class Found:
@@ -89,6 +92,7 @@ def game_result_zero_life_ok(plan: Plan, pid: str) -> bool:
     return game_result.zero_life_ok(plan, pid)
 
 
+@reads
 def find(plan: Plan) -> Found:
     state = plan.state
     r = plan.rules
@@ -396,11 +400,12 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
 
     # 704.5j legend rule: the controller chooses one to keep (one decision at a time)
     legends: dict[tuple[str, str], list[CardInstance]] = {}
-    for card in state.cards.values():
-        if card.zone.endswith(":battlefield") and plan.in_game(card):
-            ch = plan.ch(card)
-            if "Legendary" in ch.supertypes and ch.name:
-                legends.setdefault((card.controller, ch.name), []).append(card)
+    with plan.reading():
+        for card in state.cards.values():
+            if card.zone.endswith(":battlefield") and plan.in_game(card):
+                ch = plan.ch(card)
+                if "Legendary" in ch.supertypes and ch.name:
+                    legends.setdefault((card.controller, ch.name), []).append(card)
     for (controller, name), group in legends.items():
         if len(group) > 1:  # -- legend rule (wave 10B) -- permanents the rule doesn't apply to aren't counted
             from app.rules import legend_rule

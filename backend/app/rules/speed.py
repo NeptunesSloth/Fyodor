@@ -48,11 +48,11 @@ def has(plan: Plan, pid: str) -> bool:
 def start_engines(plan: Plan) -> bool:
     """704.5aa: a player who controls a permanent with start your engines! and has no speed gets speed 1."""
     happened = False
-    for pid in plan.live():
-        if has(plan, pid) or not any(
-                c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c) and plan.in_game(c)
-                and "start your engines!" in plan.ch(c).keywords for c in plan.state.cards.values()):
-            continue
+    with plan.reading():
+        due = [pid for pid in plan.live() if not has(plan, pid) and any(
+               c.controller == pid and c.zone.endswith(":battlefield") and not plan.manual(c) and plan.in_game(c)
+               and "start your engines!" in plan.ch(c).keywords for c in plan.state.cards.values())]
+    for pid in due:
         plan.do({"type": "set_resource", "player": pid, "key": KEY, "value": 1}, actor=pid)
         happened = True
     return happened

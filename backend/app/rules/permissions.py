@@ -1378,7 +1378,8 @@ def _table_statics(state: GameState, info: CardInfo, kinds: set[str]) -> list[tu
     from app.rules import read_pass
 
     # -- hints speed (wave 29A) -- a pass that only reads the table derives each permanent once, not once per call and kind
-    found = read_pass.once(state, info, "table_statics", lambda: _all_table_statics(state, info))
+    with read_pass.adopted(state, info):
+        found = read_pass.once(state, info, "table_statics", lambda: _all_table_statics(state, info))
     return [t for t in found if t[2].get("static") in kinds]
 
 

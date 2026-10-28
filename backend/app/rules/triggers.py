@@ -75,7 +75,7 @@ from app.game.state import (
 from app.rules import characteristics as chars
 from app.rules import delayed, designations, layers, scripts, selectors
 from app.rules.characteristics import Characteristics
-from app.rules.plan import Plan, decide
+from app.rules.plan import Plan, decide, reads
 from app.rules.targets import choose_groups, label, legal_targets, ref, source_of
 
 _FIRST_KINDS = ("gain_life", "lose_life", "create_token")  # (wave 11C) events counted "for the first time each turn"
@@ -2038,6 +2038,7 @@ def unblocked(plan: Plan, attackers: list[CardInstance]) -> None:
     generic_combat(plan, "unblocked", attackers)
 
 
+@reads
 def _watchers(plan: Plan, trigger: str) -> list[tuple[CardInstance, Characteristics, int, dict[str, Any]]]:
     out = []
     for card in plan.state.cards.values():
@@ -3170,10 +3171,12 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
                            resume={"step": "trigger_opp110d", "trigger": t.id})
                     return False
                 choice_player = picked or opponents[0]
-            decide(plan, player=choice_player, kind="choose_one", prompt=f"{t.name}: choose a target",
-                   options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
-                   resume={"step": "trigger_target", "trigger": t.id})
-            return False
+            if len(legal) != 1 or not plan.rules.prefs_for(choice_player).auto_target:  # -- single target -- one legal target leaves nothing to choose (603.3d, 601.2c)
+                decide(plan, player=choice_player, kind="choose_one", prompt=f"{t.name}: choose a target",
+                       options=[DecisionOption(id=x, label=label(plan, x), card_id=x if x in plan.state.cards else None) for x in legal],
+                       resume={"step": "trigger_target", "trigger": t.id})
+                return False
+            target = legal[0]
         targets = [ref(plan, target)]
     if t.ability.get("target_choice") == "host_controller110i" and t.event is not None and len(t.event.objects) == 1 \
             and t.event.objects[0].snapshot is not None:  # -- cards (wave 110I) -- remember the chooser for the 608.2b recheck
