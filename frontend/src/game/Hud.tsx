@@ -12,6 +12,7 @@ import { addCounter, send, tapCards } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { damageMenu } from "./marksMenu";
 import { typeLine } from "./selection";
+import { keyLabel } from "./hotkeys";
 import { HAND_SORTS, HAND_SORT_LABEL } from "./handSort";
 import { domBoxOf, placeAnchored, selectionAnchor } from "./anchors";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
@@ -149,10 +150,12 @@ export function SelectionBar() {
   const sub = (label: string) => (full.items.find((i) => i !== "separator" && i.label === label) as Exclude<MenuItem, "separator"> | undefined)?.submenu;
   const counters = sub("Add counter");
   const damage = damageMenu(onTable, first) as Exclude<MenuItem, "separator">;
+  const keymap = usePrefs.getState().keymap;
+  const chip = (id: Parameters<typeof keyLabel>[0]) => { const k = keyLabel(id, keymap); return k ? <kbd className="key-chip" aria-hidden>{k}</kbd> : null; };
   return (
     <div className="selection-bar anchored" data-testid="selection-bar" ref={ref} role="toolbar" aria-label="Selected card actions">
       <span className="sel-count">{onTable.length === 1 && isVisible(first) ? first.name : `${onTable.length} selected`}</span>
-      <button className="tt-btn" title="Tap or untap (T, double-click)" onClick={() => void tapCards(onTable, anyUntapped)}>{anyUntapped ? "Tap" : "Untap"}</button>
+      <button className="tt-btn" title="Tap or untap (or double-click the card)" onClick={() => void tapCards(onTable, anyUntapped)}>{anyUntapped ? "Tap" : "Untap"}{chip("tap")}</button>
       {creatures ? (
         <>
           <button className="tt-btn" title="Add a +1/+1 counter (right-click removes one)" onClick={() => void addCounter(onTable, "+1/+1", 1)}
@@ -162,8 +165,9 @@ export function SelectionBar() {
       ) : counters ? (
         <button className="tt-btn" title="Add a counter" onClick={(e) => openMenu(e, counters, "Add counter")}>Counter…</button>
       ) : null}
-      {turnable && <button className="tt-btn" title="Turn over (F)" onClick={() => void send({ type: "set_face", card_id: first.id })}>Turn over</button>}
+      {turnable && <button className="tt-btn" title="Turn over" onClick={() => void send({ type: "set_face", card_id: first.id })}>Turn over{chip("turn_over")}</button>}
       <button className="tt-btn ghost" title="Every action for this card (right-click)" onClick={(e) => openMenu(e, full.items, full.title)}>More…</button>
+      <span className="sel-ping" aria-hidden>{chip("ping")} ping</span>
       <button className="tt-icon" title="Clear selection (Esc)" aria-label="Clear selection" onClick={() => useGame.getState().clearSelection()}>✕</button>
     </div>
   );

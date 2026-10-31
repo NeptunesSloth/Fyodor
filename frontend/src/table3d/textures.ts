@@ -508,6 +508,8 @@ export interface CardOverlay {
   counters: { label: string; n: number }[];
   /** On the stack: its chain number, and whether it resolves next. */
   chain?: { no: number; next: boolean };
+  /** Arena-style ×N: this card tops a pile of identical lands (game/piles.ts). */
+  pile?: number;
 }
 
 export const OVERLAY_W = 512;
@@ -624,6 +626,13 @@ export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
   const [c, g] = canvas(W, H);
   g.textAlign = "center";
   g.textBaseline = "middle";
+  // pile count, top right, clear of the name line's mana cost (lands have none)
+  if (o.pile) {
+    plate(g, W - 186, 96, 172, 110);
+    g.fillStyle = "#f4ead6";
+    g.font = "800 76px Inter, Arial, sans-serif";
+    g.fillText(`×${o.pile}`, W - 100, 154);
+  }
   // P/T plate, bottom right; a modified value says so with ▲/▼ as well as colour
   if (o.pt) {
     const w = 380;

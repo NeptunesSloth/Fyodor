@@ -20,6 +20,7 @@ import { counterShort, isKeyword } from "../game/counters";
 import { draw, tapCards, targetsFor } from "../game/actions";
 import { cardMenu } from "../game/cardMenu";
 import { tableMenu } from "../game/selection";
+import { zonePileTops } from "../game/piles";
 import type { DropResult } from "../game/dnd";
 import type { PingTarget } from "../services/night";
 import { dropCards } from "../game/drop";
@@ -688,6 +689,7 @@ export class TableScene {
       const pid = seat.player;
       // battlefield
       const bf = (view.zones[`${pid}:battlefield`] as string[] | undefined) ?? [];
+      const piles = zonePileTops(view, `${pid}:battlefield`);
       bf.forEach((id, i) => {
         const card = view.cards[id];
         const c = show(id);
@@ -697,7 +699,9 @@ export class TableScene {
         const tapped = (card.tapped ? -Math.PI / 2 : 0) + (card.flipped ? Math.PI : 0) - ((card.rotation ?? 0) * Math.PI) / 180;
         this.place(c, seat, lx, lz, 0.004 + i * 0.0035, tapped);
         c.tilt = 0;
-        this.setOverlay(c, overlayFor(card, view.rules?.stats?.[id]));
+        const overlay = overlayFor(card, view.rules?.stats?.[id]);
+        const pile = piles.get(id);
+        this.setOverlay(c, pile ? { ...(overlay ?? { keywords: [], counters: [] }), pile } : overlay);
         this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
       });
       // piles

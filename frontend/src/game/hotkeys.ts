@@ -104,3 +104,20 @@ export function collisions(list: Hotkey[] = HOTKEYS): string[] {
   }
   return out;
 }
+
+/** How a shortcut reads on a button: "T", "Shift+N", "Space" (the first key, after remapping). */
+export function keyLabel(id: HotkeyId, keymap: Record<string, string[]> = {}): string | null {
+  const key = effectiveHotkeys(keymap).find((h) => h.id === id)?.keys[0];
+  if (!key) return null;
+  return key.split("+").map((p) => (p === " " ? "Space" : p === "ctrl" ? "Ctrl" : p === "shift" ? "Shift" : p.length === 1 ? p.toUpperCase() : p[0]!.toUpperCase() + p.slice(1))).join("+");
+}
+
+/**
+ * Key presets for muscle memory brought from elsewhere (docs/UI_REFERENCE_STUDY.md §22). "Arena": Space passes
+ * priority as in MTG Arena (and P still does); T alone taps. Tabletop Simulator's own keys mostly match already
+ * (F turns a card over); its Tab pointer stays G here, because Tab moves keyboard focus.
+ */
+export const KEY_PRESETS: { id: "fyodor" | "arena"; label: string; keymap: Record<string, string[]> }[] = [
+  { id: "fyodor", label: "Fyodor keys", keymap: {} },
+  { id: "arena", label: "Arena keys (Space passes)", keymap: { pass: [" ", "p"], tap: ["t"] } },
+];

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast, toastError } from "../components/Toasts";
 import { api, ApiError } from "../services/api";
-import { effectiveHotkeys, collisions, comboOf, type HotkeyId } from "../game/hotkeys";
+import { effectiveHotkeys, collisions, comboOf, KEY_PRESETS, type HotkeyId } from "../game/hotkeys";
 import { play } from "../game/sound";
 import { listAssets, type Asset } from "../services/assets";
 import { backupSize, whenMade, type AutoBackupStatus, type BackupInfo } from "../services/backups";
@@ -276,6 +276,12 @@ function KeysSection() {
   return (
     <section>
       <h2>Keys</h2>
+      <div className="row key-presets">
+        {KEY_PRESETS.map((pre) => (
+          <button key={pre.id} className={`tt-btn ghost ${JSON.stringify(keymap) === JSON.stringify(pre.keymap) ? "on" : ""}`}
+            data-testid={`keys-${pre.id}`} onClick={() => usePrefs.getState().set({ keymap: pre.keymap })}>{pre.label}</button>
+        ))}
+      </div>
       {clashes.length > 0 && <p className="warn">Two actions share a key: {clashes.join("; ")}</p>}
       <table className="keys">
         <tbody>

@@ -1,4 +1,5 @@
 import { memo, useMemo } from "react";
+import { create } from "zustand";
 import { openMenu } from "../components/ContextMenu";
 import { toast } from "../components/Toasts";
 import { useCardCache } from "../state/cardCache";
@@ -11,7 +12,7 @@ import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
 import { dropAsIntent } from "./rules/intents";
 import { legalClass } from "./rules/RulesHud";
-import { HAND_SORT_LABEL, sortHand, type HandFacts } from "./handSort";
+import { customOrder, moveInOrder, saveCustomOrder, sortHand, type HandFacts } from "./handSort";
 import type { CardData } from "../types/cards";
 
 /** What sorting needs to know about a card in my hand (null while its card data hasn't loaded). */
@@ -23,6 +24,18 @@ function factsOf(card: GameCard | undefined, cache: Record<string, CardData>): H
   return { name: data.name, mv: data.cmc ?? 0, colors: data.colors, typeLine: data.type_line ?? "" };
 }
 
+/** Bumped when "my order" changes (it lives in session storage, outside React). */
+const useOrderTick = create<{ n: number; bump: () => void }>((set) => ({ n: 0, bump: () => set((s) => ({ n: s.n + 1 })) }));
+
+/** My hand in the order I see it: drawn, sorted, or my own arrangement (display only). */
+function displayOrder(ids: string[]): string[] {
+  const view = useGame.getState().view;
+  const sort = usePrefs.getState().handSort;
+  if (!view || sort === "drawn") return ids;
+  const cache = useCardCache.getState().cards;
+  return sortHand(ids, (id) => factsOf(view.cards[id], cache), sort, customOrder(view.game.id));
+}
+
 /** Horizontal, overlapping hand. Only the owner (or an open-table view) sees card faces. */
 export function Hand({ player, me, compact = false }: { player: string; me: string; compact?: boolean }) {
   const key = `${player}:hand`;
@@ -31,10 +44,12 @@ export function Hand({ player, me, compact = false }: { player: string; me: stri
   const sort = usePrefs((s) => s.handSort);
   const cards = useGame((s) => s.view?.cards);
   const cache = useCardCache((s) => s.cards);
+  const tick = useOrderTick((s) => s.n);
   const mine = player === me && !compact;
-  // my hand in the order I chose (Arena-style sorting); the server keeps the drawn order
-  const shown = useMemo(() => (mine && sort !== "drawn" && cards ? sortHand(ids, (id) => factsOf(cards[id], cache), sort) : ids),
-    [mine, sort, ids, cards, cache]);
+  // my hand in the order I chose (Arena-style sorting, or my own arrangement); the server keeps the drawn order
+  const shown = useMemo(() => (mine && sort !== "drawn" && cards ? displayOrder(ids) : ids),
+    // displayOrder reads these stores; tick covers "my order"
+    [mine, sort, ids, cards, cache, tick]);
   return (
     <div className={`hand ${compact ? "compact" : ""} ${over ? "drop-over" : ""}`} data-drop={key} data-ordered="">
       {ids.length === 0 && !compact && <div className="hand-empty">Hand is empty — press D to draw</div>}
@@ -58,9 +73,18 @@ const HandCard = memo(function HandCard({ id, index, fan, me, compact }: { id: s
     if (dropAsIntent(ids, target, me)) return; // automation on: play the land / cast the spell
     const { zone, player } = splitZone(target.zone);
     if (target.zone === card.zone && target.index != null) {
-      const sort = usePrefs.getState().handSort;
-      if (sort !== "drawn") {
-        toast(`Your hand is sorted ${HAND_SORT_LABEL[sort]}: choose "as drawn" (S) to arrange it by hand`);
+      const prefs = usePrefs.getState();
+      const view = useGame.getState().view;
+      if (prefs.handSort !== "drawn" && view) {
+        // a sorted hand: keep what I see, with this move, as "my order" (display only, like the sort)
+        const hand = (view.zones[card.zone] as string[] | undefined) ?? [];
+        const before = target.index < hand.length ? hand[target.index]! : null;
+        saveCustomOrder(view.game.id, moveInOrder(displayOrder(hand), ids, before));
+        if (prefs.handSort !== "custom") {
+          prefs.set({ handSort: "custom" });
+          toast("Hand: in my order (S cycles the sorts)");
+        }
+        useOrderTick.getState().bump();
         return;
       }
       const adjusted = target.index > index ? target.index - 1 : target.index;

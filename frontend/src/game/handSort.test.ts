@@ -24,5 +24,17 @@ describe("sortHand", () => {
   it("by name", () => expect(sortHand(HAND, facts, "name")[0]).toBe("atraxa"));
   it("cards not loaded yet stay at the end in drawn order", () =>
     expect(sortHand(["x2", "atraxa", "x1", "island"], facts, "mana")).toEqual(["island", "atraxa", "x2", "x1"]));
-  it("cycles through every mode", () => expect(nextHandSort("name")).toBe("drawn"));
+  it("cycles through every mode", () => { expect(nextHandSort("name")).toBe("custom"); expect(nextHandSort("custom")).toBe("drawn"); });
+});
+
+describe("my order", () => {
+  it("moves cards before another card, or to the end", async () => {
+    const { moveInOrder } = await import("./handSort");
+    expect(moveInOrder(["a", "b", "c", "d"], ["d"], "b")).toEqual(["a", "d", "b", "c"]);
+    expect(moveInOrder(["a", "b", "c", "d"], ["a"], null)).toEqual(["b", "c", "d", "a"]);
+    expect(moveInOrder(["a", "b", "c"], ["b"], "b")).toEqual(["a", "c", "b"]);
+  });
+  it("keeps my arrangement and puts new draws after it", () => {
+    expect(sortHand(["x", "a", "b", "new"], facts, "custom", ["b", "x", "gone", "a"])).toEqual(["b", "x", "a", "new"]);
+  });
 });

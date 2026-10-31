@@ -30,48 +30,55 @@ export function PlayerPanel({ player, me, compact }: { player: string; me: strin
   return (
     <div className={`player-panel ${active ? "active" : ""} ${danger ? "danger" : ""} ${compact ? "compact" : ""}`} style={{ ["--player-color" as string]: p.color }}
       data-player-id={player}>
-      <div className="pp-head">
-        <span className="pp-dot" />
-        <span className="seat-glyph" aria-hidden>{SEAT_GLYPHS[(Number(player.slice(1)) - 1) % SEAT_GLYPHS.length]}</span>
-        <span className="pp-name" title={p.deck_name ?? undefined}>{p.name}{player === me ? " (you)" : ""}</span>
-        {mode === "lan" && seat && (
-          <span className={`presence-label ${seat.presence ?? (seat.connected ? "connected" : "disconnected")}`} data-testid={`presence-${player}`}>
-            {{ connected: "Connected", reconnecting: "Reconnecting…", disconnected: "Disconnected", open: "Open seat" }[seat.presence ?? (seat.connected ? "connected" : "disconnected")]}
-          </span>
-        )}
-        {monarch && <span className="marker" title="The Monarch">♚</span>}
-        {initiative && <span className="marker" title="Has the initiative">⚑</span>}
-        {p.city_blessing && <span className="marker" title="City's blessing">✦</span>}
-        <button className="icon-btn small" onClick={(e) => openMenu(e, playerMenu(p), p.name)} aria-label="Player menu">⋯</button>
-      </div>
-      <div className="life-line">
-        <button className="life-step" aria-label="Lose 1 life" data-testid={`life-minus-${player}`} onClick={() => void changeLife(player, -1)}>−</button>
-        <button
-          className="life"
-          data-testid={`life-${player}`}
-          title="Click for quick adjust · right-click for history"
-          onClick={(e) =>
-            openMenu(e, [
-              ...LIFE_STEPS.map((d) => ({ label: d > 0 ? `+${d}` : `${d}`, onClick: () => void changeLife(player, d) })),
-              "separator" as const,
-              {
-                label: "Set life…",
-                onClick: async () => {
-                  const v = await askNumber(`Set ${p.name}'s life`, p.life);
-                  if (v !== null) void send({ type: "set_life", player, value: v });
-                },
-              },
-              { label: showHistory ? "Hide history" : "Life history", onClick: () => setShowHistory((x) => !x) },
-            ], `${p.name} · ${p.life} life`)
-          }
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setShowHistory((x) => !x);
-          }}
-        >
-          {p.life}
-        </button>
-        <button className="life-step" aria-label="Gain 1 life" data-testid={`life-plus-${player}`} onClick={() => void changeLife(player, 1)}>+</button>
+      {/* the seat plaque, as on the 3D table: a portrait in the seat colour, then name and life */}
+      <div className="pp-top">
+        <span className={`portrait pp-portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: compact ? "30px" : "36px", borderColor: p.color }} aria-hidden>
+          {p.name.slice(0, 1).toUpperCase()}
+        </span>
+        <div className="pp-who">
+          <div className="pp-head">
+            <span className="seat-glyph" aria-hidden>{SEAT_GLYPHS[(Number(player.slice(1)) - 1) % SEAT_GLYPHS.length]}</span>
+            <span className="pp-name" title={p.deck_name ?? undefined}>{p.name}{player === me ? " (you)" : ""}</span>
+            {mode === "lan" && seat && (
+              <span className={`presence-label ${seat.presence ?? (seat.connected ? "connected" : "disconnected")}`} data-testid={`presence-${player}`}>
+                {{ connected: "Connected", reconnecting: "Reconnecting…", disconnected: "Disconnected", open: "Open seat" }[seat.presence ?? (seat.connected ? "connected" : "disconnected")]}
+              </span>
+            )}
+            {monarch && <span className="marker" title="The Monarch">♚</span>}
+            {initiative && <span className="marker" title="Has the initiative">⚑</span>}
+            {p.city_blessing && <span className="marker" title="City's blessing">✦</span>}
+            <button className="icon-btn small" onClick={(e) => openMenu(e, playerMenu(p), p.name)} aria-label="Player menu">⋯</button>
+          </div>
+          <div className="life-line">
+            <button
+              className="life"
+              data-testid={`life-${player}`}
+              title="Click for quick adjust · right-click for history"
+              onClick={(e) =>
+                openMenu(e, [
+                  ...LIFE_STEPS.map((d) => ({ label: d > 0 ? `+${d}` : `${d}`, onClick: () => void changeLife(player, d) })),
+                  "separator" as const,
+                  {
+                    label: "Set life…",
+                    onClick: async () => {
+                      const v = await askNumber(`Set ${p.name}'s life`, p.life);
+                      if (v !== null) void send({ type: "set_life", player, value: v });
+                    },
+                  },
+                  { label: showHistory ? "Hide history" : "Life history", onClick: () => setShowHistory((x) => !x) },
+                ], `${p.name} · ${p.life} life`)
+              }
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setShowHistory((x) => !x);
+              }}
+            >
+              {p.life}
+            </button>
+            <button className="life-step" aria-label="Lose 1 life" data-testid={`life-minus-${player}`} onClick={() => void changeLife(player, -1)}>−</button>
+            <button className="life-step" aria-label="Gain 1 life" data-testid={`life-plus-${player}`} onClick={() => void changeLife(player, 1)}>+</button>
+          </div>
+        </div>
       </div>
       {showHistory && (
         <div className="life-history" onClick={() => setShowHistory(false)}>

@@ -19,10 +19,12 @@ interface Props {
   width: number;
   me: string;
   z: number;
+  /** Arena-style: this card tops a pile of identical lands (game/piles.ts). */
+  pile?: number;
 }
 
 /** A permanent on a battlefield: positioned, tappable, draggable, with counters and markers. */
-export const TableCard = memo(function TableCard({ id, left, top, width, me, z }: Props) {
+export const TableCard = memo(function TableCard({ id, left, top, width, me, z, pile }: Props) {
   const card = useCardView(id);
   const selected = useGame((s) => s.selection.includes(id));
   const showSources = usePrefs((s) => s.showTokenSources);
@@ -71,6 +73,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
       onPointerLeave={() => useGame.getState().hover === id && useGame.getState().setHover(null)}
     >
       <GameCardFace card={card} />
+      {pile && <span className="pile-count-mark" data-testid="pile-count" title={`${pile} identical lands in this pile`}>×{pile}</span>}
       <div className="card-marks">
         {visible && card.is_token && !card.copy_of && <span className="mark token">TOKEN</span>}
         {visible && card.test_object && <span className="mark test" title="Test object — not part of any deck">TEST</span>}

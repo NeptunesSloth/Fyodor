@@ -1,11 +1,13 @@
 import { playmatStyle, usePlaymat } from "./appearance";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDrag } from "./dnd";
 import { useGame, useZoneIds } from "../state/gameStore";
 import { battlefieldCardWidth, BF_H, BF_W, CARD_RATIO, toPixels } from "./geometry";
 import { TableCard } from "./TableCard";
 import { openMenu } from "../components/ContextMenu";
 import { tableMenu } from "./selection";
+import { zonePileTops } from "./piles";
+import { useCardCache } from "../state/cardCache";
 
 interface Props {
   player: string;
@@ -36,6 +38,9 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
     return () => ro.disconnect();
   }, []);
 
+  const typeData = useCardCache((s) => s.cards); // type lines arrive after the first render
+  const view = useGame((s) => s.view);
+  const piles = useMemo(() => (view ? zonePileTops(view, key) : new Map<string, number>()), [view, key, typeData]);
   const cardW = battlefieldCardWidth(size.w, size.h);
   const cardH = cardW * CARD_RATIO;
 
@@ -94,8 +99,10 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
         const c = cards?.[id];
         if (!c) return null;
         const [vx, vy] = pending[id] ?? [c.x ?? 0, c.y ?? 0];
-        const [left, top] = toPixels(Math.max(-40, Math.min(BF_W, vx)), Math.max(-40, Math.min(BF_H, vy)), size.w, size.h, cardH, mirrored);
-        return <TableCard key={id} id={id} left={left} top={top} width={cardW} me={me} z={i + 1} />;
+        const [left, raw] = toPixels(Math.max(-40, Math.min(BF_W, vx)), Math.max(-40, Math.min(BF_H, vy)), size.w, size.h, cardH, mirrored);
+        // a wide, short mat makes cards taller than the room below their row: keep them on the felt (display only)
+        const top = size.h > cardH + 8 ? Math.max(4, Math.min(size.h - cardH - 4, raw)) : raw;
+        return <TableCard key={id} id={id} left={left} top={top} width={cardW} me={me} z={i + 1} pile={piles.get(id)} />;
       })}
       {marquee && (
         <div

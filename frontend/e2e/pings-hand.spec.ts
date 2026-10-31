@@ -55,4 +55,18 @@ test("ping a card with G (never a hand card); sort the hand by mana value", asyn
   await expect(page.getByTestId("hand-sort")).toHaveText("Hand: colour");
   const server = (await (await page.request.get(`/api/games/${gameId}/view?viewer=p1`)).json()) as { zones: Record<string, string[]>; cards: Record<string, { name: string }> };
   expect(server.zones["p1:hand"]!.map((cid) => server.cards[cid]!.name)).toEqual(drawn);
+
+  // dragging inside a sorted hand keeps what I see, with the move, as "my order" (still display only)
+  const shown = await names();
+  const last = hand.nth(shown.length - 1);
+  const from = (await last.boundingBox())!;
+  const to = (await hand.first().boundingBox())!;
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + 8, to.y + to.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.getByTestId("hand-sort")).toHaveText("Hand: in my order");
+  await expect.poll(names).toEqual([shown[shown.length - 1], ...shown.slice(0, -1)]);
+  const after = (await (await page.request.get(`/api/games/${gameId}/view?viewer=p1`)).json()) as typeof server;
+  expect(after.zones["p1:hand"]!.map((cid) => after.cards[cid]!.name)).toEqual(drawn);
 });

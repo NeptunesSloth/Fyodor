@@ -6,7 +6,26 @@ import { sendPing, type PingTarget } from "../services/night";
 import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { isVisible, SPECTATOR } from "../types/game";
-import { pingPoint, pingTargetAt } from "./ping";
+import { pingable, pingPoint, pingTargetAt } from "./ping";
+import { keyLabel } from "./hotkeys";
+
+const TIP_KEY = "fyodor.tip.ping";
+
+/** Once per browser: the first time you hover a card everyone can see at a LAN table, say how to ping it. */
+function usePingTip(): void {
+  useEffect(() => useGame.subscribe((s, prev) => {
+    if (!s.hover || s.hover === prev.hover || !s.view || s.view.game.mode !== "lan" || s.view.viewer === SPECTATOR) return;
+    if (!pingable(s.view, s.hover)) return;
+    try {
+      if (localStorage.getItem(TIP_KEY)) return;
+      localStorage.setItem(TIP_KEY, "1");
+    } catch {
+      return;
+    }
+    const key = keyLabel("ping", usePrefs.getState().keymap) ?? "G";
+    toast(`Tip: press ${key} (or Alt+click) to point at a card for everyone at the table.`);
+  }), []);
+}
 import { play } from "./sound";
 
 /*
@@ -40,6 +59,7 @@ export async function pingAt(clientX: number, clientY: number): Promise<void> {
 }
 
 export function PingLayer() {
+  usePingTip();
   const [shown, setShown] = useState<Shown[]>([]);
   const pointer = useRef<{ x: number; y: number } | null>(null);
 

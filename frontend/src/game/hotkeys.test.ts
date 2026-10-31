@@ -12,6 +12,13 @@ describe("hotkeys", () => {
     expect(matchHotkey(ev("p"), { pass: ["x"] })).toBeNull();
     expect(collisions(effectiveHotkeys({ pass: ["t"] }))).toEqual(["t: tap / pass"]);
   });
+  it("ships presets without collisions; Arena's Space passes", async () => {
+    const { KEY_PRESETS } = await import("./hotkeys");
+    for (const p of KEY_PRESETS) expect(collisions(effectiveHotkeys(p.keymap))).toEqual([]);
+    const arena = KEY_PRESETS.find((p) => p.id === "arena")!.keymap;
+    expect(matchHotkey({ key: " ", ctrlKey: false, metaKey: false, shiftKey: false }, arena)).toBe("pass");
+    expect(matchHotkey({ key: " ", ctrlKey: false, metaKey: false, shiftKey: false })).toBe("tap");
+  });
   it("finds bookmark slots by physical key", () => {
     expect(bookmarkSlot({ code: "Digit3", ctrlKey: true, metaKey: false, shiftKey: false })).toEqual({ slot: 3, save: false });
     expect(bookmarkSlot({ code: "Digit3", ctrlKey: true, metaKey: false, shiftKey: true })).toEqual({ slot: 3, save: true });

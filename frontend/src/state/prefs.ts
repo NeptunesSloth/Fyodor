@@ -21,7 +21,7 @@ export interface Bookmark {
   logOpen: boolean;
 }
 
-export type HandSort = "drawn" | "mana" | "color" | "type" | "name";
+export type HandSort = "drawn" | "mana" | "color" | "type" | "name" | "custom";
 
 export interface Prefs {
   /** Table theme (a Magic plane): environment, surface, lighting, ambience and UI accents. */
