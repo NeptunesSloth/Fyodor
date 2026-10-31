@@ -29,7 +29,7 @@ declare global {
       battlefieldAt: (player: string, x: number, y: number) => { x: number; y: number } | null;
       dice: () => { x: number; y: number }[];
       flick: (ids: string[], vx: number, vz: number) => boolean;
-      heartAt: (player: string) => { x: number; y: number } | null;
+      heartAt: (player: string, side?: -1 | 0 | 1) => { x: number; y: number } | null;
       buttonAt: (id: SeatActionId) => { x: number; y: number } | null;
     };
   }
@@ -88,7 +88,7 @@ export function Table3D({ me }: { me: string }) {
       battlefieldAt: (player, x, y) => scene.screenOfBattlefield(player, x, y),
       dice: () => scene.diceOnScreen(),
       flick: (ids, vx, vz) => scene.flickCards(ids, vx, vz),
-      heartAt: (player) => scene.heartOnScreen(player),
+      heartAt: (player, side) => scene.heartOnScreen(player, side ?? 0),
       buttonAt: (id) => scene.buttonOnScreen(id),
     };
     // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,

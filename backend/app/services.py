@@ -12,7 +12,13 @@ import httpx
 
 from app.assets.store import AssetNotFound, AssetStore
 from app.assistant import OllamaAssistant, RulesAssistant
-from app.cards.downloader import ImageReport, download_images, image_jobs_from_rows, make_client
+from app.cards.downloader import (
+    ImageReport,
+    download_card_back,
+    download_images,
+    image_jobs_from_rows,
+    make_client,
+)
 from app.cards.images import ImageStore
 from app.cards.repository import CardRepository
 from app.config import Settings
@@ -170,6 +176,7 @@ class Services:
 
         with make_client(self.settings.user_agent, timeout=30.0) as client:
             result = download_images(client, self.images, jobs, workers=6, progress=report)
+            download_card_back(client, self.images)  # the Magic card back, for library piles and hidden cards
         return (f"{result.downloaded} downloaded, {result.skipped} already cached, {result.failed} failed"
                 + (" — re-run to retry" if result.failed else ""))
 

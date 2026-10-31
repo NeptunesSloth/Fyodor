@@ -162,6 +162,28 @@ def download_images(
     return report
 
 
+def download_card_back(client: httpx.Client, store: ImageStore) -> bool:
+    """Fetch the standard Magic card back into the cache, once. True if it's there afterwards."""
+    from app.cards.images import CARD_BACK_URL
+
+    path = store.card_back_path()
+    if path.is_file():
+        return True
+    try:
+        res = client.get(CARD_BACK_URL)
+        if res.status_code != 200 or not res.content.startswith(b"\xff\xd8"):
+            log.warning("Card back download failed: HTTP %s", res.status_code)
+            return False
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".part")
+        tmp.write_bytes(res.content)
+        tmp.replace(path)
+        return True
+    except (httpx.HTTPError, OSError) as exc:
+        log.warning("Card back download failed: %s", exc)
+        return False
+
+
 def image_jobs_from_rows(rows: Iterable[Any]) -> list[ImageJob]:
     import json
 

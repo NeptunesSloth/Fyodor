@@ -45,7 +45,7 @@ export function towardMiddle(seat: Seat): 1 | -1 {
 
 /** Where a seat's life heart floats, mat-local: over the aisle by the mat's inner corner nearest the middle. */
 export function heartSpot(seat: Seat): [number, number] {
-  return [towardMiddle(seat) * (MAT_W / 2 - 0.7), -MAT_D / 2 - AISLE * 0.5];
+  return [towardMiddle(seat) * (MAT_W / 2 - 0.6), -MAT_D / 2 - AISLE * 0.4];
 }
 
 /** Where a seat's plaque (portrait, name, trackers) sits, mat-local: beside its heart, a little further along. */

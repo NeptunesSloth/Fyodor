@@ -1,5 +1,5 @@
 /**
- * The scripted tables' seat buttons (Oops I Baked a Pie): Untap, Draw, Scry, Mill and Reveal, by your mat. One
+ * The scripted tables' seat buttons (Oops I Baked a Pie): Untap, Draw, Scry, Mill, Reveal and Mulligan, by your mat. One
  * definition for both tables: the 2D table's round buttons beside your mat (game/SeatButtons.tsx) and the 3D
  * table's physical buttons on the table (table3d/seatProps.ts). Click does one, right-click three, or hover a
  * button and type a number.
@@ -7,35 +7,23 @@
 import { useGame } from "../state/gameStore";
 import { draw, send } from "./actions";
 
-export type SeatActionId = "untap" | "draw" | "scry" | "mill" | "reveal";
+export type SeatActionId = "untap" | "draw" | "scry" | "mill" | "reveal" | "mulligan";
 
-export const SEAT_ACTIONS: { id: SeatActionId; label: string; color: string; title: string }[] = [
-  { id: "untap", label: "Untap", color: "#e0b43c", title: "Untap all your permanents (U)" },
-  { id: "draw", label: "Draw", color: "#5aa64f", title: "Draw: click 1, right-click 3, or hover and type a number" },
-  { id: "scry", label: "Scry", color: "#4f86c9", title: "Scry: look at the top cards (click 1, right-click 3, or hover and type a number)" },
-  { id: "mill", label: "Mill", color: "#c4483c", title: "Mill: click 1, right-click 3, or hover and type a number" },
-  { id: "reveal", label: "Reveal", color: "#b8b2a3", title: "Reveal the top card(s): click 1, right-click 3, or hover and type a number" },
+/** In the Oops table's order, left to right along your mat's near edge; Mulligan sits apart, to the right. */
+export const SEAT_ACTIONS: { id: SeatActionId; label: string; title: string }[] = [
+  { id: "untap", label: "Untap", title: "Untap all your permanents (U)" },
+  { id: "draw", label: "Draw", title: "Draw: click 1, right-click 3, or hover and type a number" },
+  { id: "scry", label: "Scry", title: "Scry: look at the top cards (click 1, right-click 3, or hover and type a number)" },
+  { id: "mill", label: "Mill", title: "Mill: click 1, right-click 3, or hover and type a number" },
+  { id: "reveal", label: "Reveal", title: "Reveal the top card(s): click 1, right-click 3, or hover and type a number" },
+  { id: "mulligan", label: "Mulligan", title: "Mulligan: shuffle your hand into your library and draw 7 (Ctrl+Z undoes it)" },
 ];
 
-const circle = (cx: number, cy: number, r: number) => `M${cx - r} ${cy}a${r} ${r} 0 1 0 ${2 * r} 0a${r} ${r} 0 1 0 ${-2 * r} 0`;
-
-/**
- * Each button's icon (24×24, stroked), after the Oops buttons: an untap arrow, a card coming off the library, an
- * eye, a skull, a magnifying glass. SVG path data, so the 2D buttons and the 3D table's canvas (Path2D) draw the
- * same thing.
- */
-export const SEAT_ICONS: Record<SeatActionId, string[]> = {
-  untap: ["M19 12a7 7 0 1 1-2.1-5", "M19.5 3.5v4.4h-4.4"],
-  draw: ["M7.5 9.5h9v11h-9z", "M12 2.5v8", "M8.8 5.6l3.2-3.1 3.2 3.1"],
-  scry: ["M2 12c2.6-4.2 6-6.3 10-6.3s7.4 2.1 10 6.3c-2.6 4.2-6 6.3-10 6.3S4.6 16.2 2 12z", circle(12, 12, 3)],
-  mill: ["M12 3a7 7 0 0 0-4 12.7V20h8v-4.3A7 7 0 0 0 12 3z", circle(9.4, 11, 1.4), circle(14.6, 11, 1.4), "M10.5 20v-2.2M13.5 20v-2.2"],
-  reveal: [circle(10.5, 10.5, 6), "M15 15l5.8 5.8"],
-};
-
-/** Do a seat button's action, n times over (Untap ignores n). */
+/** Do a seat button's action, n times over (Untap and Mulligan happen once). */
 export function runSeatAction(id: SeatActionId, n: number, me: string): void {
   if (n < 1) return;
   if (id === "untap") void send({ type: "untap_all", player: me });
+  else if (id === "mulligan") void send({ type: "mulligan", player: me });
   else if (id === "draw") void draw(me, n);
   else if (id === "mill") void send({ type: "mill", player: me, count: n });
   else if (id === "reveal") void send({ type: "reveal_top", player: me, count: n });
@@ -54,7 +42,7 @@ export class TypedCount {
 
   /** A key while `id` is hovered; true if it was a digit for the button. */
   key(id: SeatActionId | null, key: string): boolean {
-    if (!id || id === "untap" || !/^[0-9]$/.test(key)) return false;
+    if (!id || id === "untap" || id === "mulligan" || !/^[0-9]$/.test(key)) return false;
     this.digits = `${this.id === id ? this.digits : ""}${key}`.slice(0, 3);
     this.id = id;
     this.onShow(id, this.digits);

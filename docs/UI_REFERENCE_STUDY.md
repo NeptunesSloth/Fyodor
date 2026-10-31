@@ -1214,3 +1214,53 @@ click batching), used by `game/SeatButtons.tsx` and `table3d/seatProps.ts`.
 - `table3d.spec.ts` clicks Bob's floating heart (twice, then a right-click: 41) and the Draw button on the table.
 - `layout.test.ts` checks every heart floats toward the middle, over the aisle.
 - `scripted-chores.spec.ts` covers the 2D buttons (click, right-click, a typed count).
+
+## 29. Closer to Oops: its buttons, its hearts, and the Magic card back
+
+The user: "those life buttons are trash", "for the action buttons use the exact symbols from Oops, same location
+too", and "make the backs of cards in the library look like the MTG card back". The Oops gallery's annotated and
+overhead shots (T5) were zoomed in to copy the buttons and hearts. Nothing from them is stored in the repo.
+
+**The buttons, as on the Oops mat** (`game/seatIcons.ts`):
+- Glossy black discs, each with one bold coloured symbol:
+  - a yellow U-turn arrow (Untap);
+  - a green open hand (Draw);
+  - a blue eye (Scry);
+  - a red skull (Mill);
+  - a beige magnifying glass (Reveal).
+- **Mulligan** is added apart on the right, as on Oops: grey cards around a cyan arrow loop. It shuffles your hand
+  in and draws seven, and Ctrl+Z undoes it.
+- The symbols are drawn in canvas code (simple shapes, nothing copied), so the 3D buttons and the 2D buttons show
+  the same picture.
+- **3D:** a row just past your mat's near edge, a little left of centre, as on Oops. The seat camera was re-solved
+  so that row shows above your hand at 16:9 while the far mats stay whole. The solve has to include the scene's
+  view offset, which renders the lower part of a taller frame.
+  - The button faces are unlit, so the black stays black under the table's warm light.
+  - Click does one, right-click three, or hover and type a number.
+- **2D:** the same discs in the rail by your mat, under your piles.
+
+**Life, as the Oops heart** (`table3d/seatProps.ts`, `game/SeatPlate.tsx`):
+- A black heart edged thick in the seat's colour, the total big and pale in its middle, ▼ on its left and ▲ on its
+  right.
+- Click the left half for −1 and the right half for +1. Right-click either half for 5, or use the wheel; quick
+  clicks are gathered into one change, as before.
+- **3D:** it sits at each mat's inner corner by the middle of the table, as on Oops. It hovers a little above the
+  felt, unlit, and turns so every seat's number reads upright to you. (Oops prints them flat, facing their owners.)
+  The +/− buttons beside the 3D plaque are gone; the heart is the control.
+- **2D:** the plaque's heart has the same look and halves. Its hover +/− buttons stay for touch.
+
+**The Magic card back:**
+- The host fetches Scryfall's standard card back (`backs.scryfall.io`, card back
+  `0aeebaf5-8c7d-4636-9e82-8c27447861f7`) into its image cache whenever it caches card art. It's never shipped with
+  Fyodor, the same as card images.
+- The host serves it at `/api/images/card-back` (404 until it's cached).
+- **2D:** `cards/cardBack.ts` checks for it once and sets `has-card-back` on the page; then every back (library
+  piles, opponents' hands, face-down cards) shows it.
+- **3D:** library piles and face-down cards use the same image. A player's sleeve still wins. Without the cached
+  image, both tables keep drawing their own back.
+
+**Tests:**
+- `test_cards.py`: the back is downloaded once, served from the host, and a bad answer leaves nothing behind.
+- `table3d.spec.ts`: clicks the heart's ▲ half twice and ▼ once (41), right-clicks ▼ (36), then presses Draw on the
+  table.
+- `scripted-chores.spec.ts`: the 2D buttons.

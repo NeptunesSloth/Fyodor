@@ -65,6 +65,15 @@ def get_printings(card_id: str, services: ServicesDep) -> list[dict[str, Any]]:
     return services.cards.printings(card["oracle_id"])
 
 
+@router.get("/images/card-back", response_class=FileResponse)
+def get_card_back(services: ServicesDep) -> FileResponse:
+    """The Magic card back, once it's cached with the art (404 until then: tables draw their own back)."""
+    path = services.images.card_back()
+    if path is None:
+        raise HTTPException(404, "Card back not cached")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
+
+
 @router.get("/images/{card_id}", response_class=FileResponse)
 def get_image(
     card_id: str,

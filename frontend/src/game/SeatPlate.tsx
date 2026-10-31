@@ -51,12 +51,22 @@ const sign = (n: number) => (n > 0 ? `+${n}` : `${n}`);
 /** The scripted tables' heart: the life total itself is the control. */
 function LifeHeart({ player, name, life, testId }: { player: string; name: string; life: number; testId: string }) {
   const [pending, bump] = useBatched((d) => void changeLife(player, d));
+  // the Oops heart: its left half (▼) takes life away, its right half (▲) gives it; right-click for 5
+  const half = (e: React.MouseEvent) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return e.clientX < r.left + r.width / 2 ? -1 : 1;
+  };
+  const keys = counterHandlers(bump);
   return (
     <button className={`seat-heart ${life + pending <= 0 ? "dead" : ""}`} data-testid={`heart-${player}`}
-      aria-label={`${name}: ${life + pending} life. Click to gain 1, right-click to lose 1 (Shift: 5)`}
-      title="Life: click +1, right-click −1, wheel, or ↑/↓ (Shift: 5 at a time)" {...counterHandlers(bump)}>
+      aria-label={`${name}: ${life + pending} life. Click the left half to lose 1 or the right half to gain 1 (right-click: 5)`}
+      title="Life: click ▼ −1 or ▲ +1, right-click for 5, the wheel, or ↑/↓"
+      onClick={(e) => { e.stopPropagation(); bump(half(e) * (e.shiftKey ? 5 : 1)); }}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); bump(half(e) * 5); }}
+      onWheel={keys.onWheel} onKeyDown={keys.onKeyDown} onPointerDown={keys.onPointerDown}>
       <svg viewBox="0 0 64 58" aria-hidden className="seat-heart-shape">
         <path d="M32 55 C14 42 3 31 3 18 C3 9 10 3 18 3 C24 3 29 6 32 11 C35 6 40 3 46 3 C54 3 61 9 61 18 C61 31 50 42 32 55 Z" />
+        <path className="seat-heart-tri" d="M9 22h6l-3 4z M49 26h6l-3-4z" />
       </svg>
       <span className="seat-heart-n" data-testid={testId}>{life + pending}</span>
       {pending !== 0 && <span className={`seat-pending ${pending > 0 ? "up" : "down"}`} aria-hidden>{sign(pending)}</span>}
@@ -131,10 +141,10 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
           {flat && presence === "connected" && <span className="seat-presence connected" data-testid={`presence-${player}`}>Connected</span>}
         </span>
       </div>
-      <span className="seat-steps">
+      {flat && <span className="seat-steps">
         <button aria-label={`${p.name}: gain 1 life`} title="Gain 1 life" data-testid={`life-plus-${player}`} onClick={() => void changeLife(player, 1)}>+</button>
         <button aria-label={`${p.name}: lose 1 life`} title="Lose 1 life" data-testid={`life-minus-${player}`} onClick={() => void changeLife(player, -1)}>−</button>
-      </span>
+      </span>}
       {open && (
         <div className={`t3d-seat-panel frame ${drop === "down" ? "down" : ""}`}>
           <PlayerPanel player={player} me={me} />

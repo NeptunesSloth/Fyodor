@@ -216,3 +216,29 @@ def test_image_api(client, settings):
     assert res.status_code == 200 and res.content == b"\xff\xd8jpeg"
     assert client.get("/api/images/..%2F..%2Fetc%2Fpasswd").status_code in (400, 404)
     assert client.get(f"/api/images/{sol_id}", params={"size": "../x"}).status_code == 422
+
+
+def test_card_back_is_cached_with_the_art_and_served_from_the_host(client, settings, tmp_path: Path):
+    """The Magic card back comes from Scryfall into the local cache (never shipped); 404 until then."""
+    from app.cards.downloader import download_card_back
+    from app.cards.images import CARD_BACK_URL
+
+    assert client.get("/api/images/card-back").status_code == 404
+    store = ImageStore(settings.images_dir)
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(200, content=b"\xff\xd8back")
+
+    with _transport(handler) as http:
+        assert download_card_back(http, store) is True
+        assert download_card_back(http, store) is True  # already there: no second request
+    assert calls == [CARD_BACK_URL]
+    res = client.get("/api/images/card-back")
+    assert res.status_code == 200 and res.content == b"\xff\xd8back"
+    # a bad answer leaves nothing behind
+    bad = ImageStore(tmp_path)
+    with _transport(lambda r: httpx.Response(200, content=b"<html>")) as http:
+        assert download_card_back(http, bad) is False
+    assert bad.card_back() is None

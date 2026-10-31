@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { checkCardBack } from "./cards/cardBack";
 import "./styles.css";
 import "./game/game.css";
 import "./theme/theme.css";
@@ -12,3 +13,5 @@ createRoot(root).render(
     <App />
   </StrictMode>,
 );
+
+void checkCardBack();

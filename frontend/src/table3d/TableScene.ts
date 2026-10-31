@@ -37,6 +37,7 @@ import { createPost, type Post } from "./post";
 import { DiceTray } from "./dice";
 import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
 import { SeatProps } from "./seatProps";
+import { CARD_BACK_URL } from "../cards/cardBack";
 import type { DiceShow } from "../game/dice";
 import {
   AISLE, CARD_H, CARD_W, heartSpot, MAT_D, MAT_W, PILES, plaqueSpot, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
@@ -384,10 +385,16 @@ export class TableScene {
     this.dice.throw(show, color, { from: new THREE.Vector3(fx, 0, fz), land, bounds, obstacles }, performance.now());
   }
 
-  /** A seat's life heart and my seat's buttons, on screen (tests and diagnostics). */
-  heartOnScreen(player: string): { x: number; y: number } | null {
+  /** A seat's life heart (its ▼ or ▲ half, or the middle) and my seat's buttons, on screen (tests and diagnostics). */
+  heartOnScreen(player: string, side: -1 | 0 | 1 = 0): { x: number; y: number } | null {
     const p = this.props.heartWorld(player);
-    return p ? this.project(p) : null;
+    if (!p) return null;
+    if (side) {
+      // the heart turns to face the camera: its halves lie across the view
+      const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0).setY(0).normalize();
+      p.addScaledVector(right, side * 0.42);
+    }
+    return this.project(p);
   }
 
   buttonOnScreen(id: SeatActionId): { x: number; y: number } | null {
@@ -619,7 +626,9 @@ export class TableScene {
     const key = `back:${owner}:${sleeve ?? ""}:${player?.color ?? ""}`;
     let m = this.materials.get(key);
     if (!m) {
-      const tex = sleeve ? this.loadTexture(sleeve, () => canvasTexture(backCanvas(player?.color ?? "#888"))) : canvasTexture(backCanvas(player?.color ?? "#888"));
+      // a sleeve, else the Magic card back the host cached with the art, else a back drawn here
+      const drawn = () => canvasTexture(backCanvas(player?.color ?? "#888"));
+      const tex = this.loadTexture(sleeve ?? CARD_BACK_URL, sleeve ? () => this.loadTexture(CARD_BACK_URL, drawn) : drawn);
       m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 });
       this.materials.set(key, m);
     }
@@ -1072,9 +1081,11 @@ export class TableScene {
     } else {
       // behind my seat, looking across the aisle (the main view): my mat large, the far row whole. The
       // camera leans toward the table's middle when my seat is off-centre, as you would at a long table.
-      const reach = Math.max((size.w / aspect) * 1.45, size.d);
-      look = new THREE.Vector3(mine.x * 0.25, 0, -AISLE - 1.2);
-      pos = new THREE.Vector3(mine.x * 0.35, reach * 0.66, mine.z + MAT_D / 2 + reach * 0.26);
+      // framed from the far mats' back edge down to my seat's buttons, just past my mat's near edge and above my
+      // hand (solved for 16:9; a narrower screen pulls back to keep the far row whole)
+      const reach = Math.max((size.w / aspect) * 1.1, size.d);
+      look = new THREE.Vector3(mine.x * 0.25, 0, mine.z - 3.75);
+      pos = new THREE.Vector3(mine.x * 0.35, reach * 1.07, mine.z + MAT_D / 2 + reach * 0.48);
     }
     const off = pos.clone().sub(look).multiplyScalar(this.zoom);
     off.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw);
@@ -1095,7 +1106,7 @@ export class TableScene {
     return this.ray.ray.intersectPlane(this.tablePlane, out);
   }
 
-  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId } | null {
+  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; side?: -1 | 1; seatButton?: SeatActionId } | null {
     this.ray.setFromCamera(this.pointer(clientX, clientY), this.camera);
     const targets: THREE.Object3D[] = [...this.props.targets()];
     for (const c of this.cards.values()) if (!this.drag?.ids.includes(c.id)) targets.push(c.face);
@@ -1104,6 +1115,8 @@ export class TableScene {
     const hit = hits[0];
     if (!hit) return null;
     const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId };
+    // the Oops heart: its left half (▼) takes life away, its right half (▲) gives it
+    if (d.heart) return { ...d, side: (hit.uv?.x ?? 1) < 0.5 ? -1 : 1 };
     return d;
   }
 
@@ -1169,7 +1182,7 @@ export class TableScene {
     const hit = this.pick(e.clientX, e.clientY);
     const store = useGame.getState();
     if (hit?.heart) {
-      this.lifeBatch.bump(hit.heart, e.shiftKey ? 5 : 1); // the heart's number is the control: click +1
+      this.lifeBatch.bump(hit.heart, (hit.side ?? 1) * (e.shiftKey ? 5 : 1)); // ▼ −1, ▲ +1
       return;
     }
     if (hit?.seatButton) {
@@ -1258,7 +1271,7 @@ export class TableScene {
     this.hoveredButton = hit?.seatButton ?? null;
     this.props.hover(this.hoveredButton);
     const tip = hit?.seatButton ? SEAT_ACTIONS.find((a) => a.id === hit.seatButton)?.title
-      : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life: click +1, right-click −1, or the wheel (Shift: 5)` : "";
+      : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life: click ▼ −1 or ▲ +1, right-click for 5, or the wheel` : "";
     if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
     this.canvas.style.cursor = hit?.seatButton || hit?.heart ? "pointer" : "";
   }
@@ -1375,7 +1388,7 @@ export class TableScene {
     e.preventDefault();
     const hit = this.pick(e.clientX, e.clientY);
     if (hit?.heart) {
-      this.lifeBatch.bump(hit.heart, e.shiftKey ? -5 : -1); // right-click −1
+      this.lifeBatch.bump(hit.heart, (hit.side ?? 1) * 5); // right-click: 5 at a time
       return;
     }
     if (hit?.seatButton) {

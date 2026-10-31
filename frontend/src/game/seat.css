@@ -34,12 +34,14 @@
   display: grid; place-items: center; color: var(--text); touch-action: manipulation;
 }
 .seat-heart-shape { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.seat-heart-shape path { fill: rgba(10, 8, 6, 0.85); stroke: var(--player-color); stroke-width: 3.5; transition: stroke-width 120ms; }
-.seat-heart:hover .seat-heart-shape path, .seat-heart:focus-visible .seat-heart-shape path { stroke-width: 5; }
+/* the Oops heart: black, edged thick in the seat colour, ▼ and ▲ at its sides */
+.seat-heart-shape path { fill: #050505; stroke: var(--player-color); stroke-width: 4.5; stroke-linejoin: round; }
+.seat-heart-shape path.seat-heart-tri { fill: #8e8a84; stroke: none; }
+.seat-heart:hover .seat-heart-shape path:not(.seat-heart-tri), .seat-heart:focus-visible .seat-heart-shape path:not(.seat-heart-tri) { stroke-width: 5.5; }
 .seat-heart:focus-visible { outline: none; }
 .seat-heart:focus-visible .seat-heart-shape { filter: drop-shadow(0 0 3px var(--select)); }
 .seat-heart-n {
-  position: relative; margin-top: -6px; font: 700 22px/1 var(--font-display); font-variant-numeric: lining-nums tabular-nums;
+  position: relative; margin-top: -6px; font: 700 21px/1 Inter, "Helvetica Neue", Arial, sans-serif; color: #e6e2da; font-variant-numeric: tabular-nums;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9);
 }
 .seat-heart.dead .seat-heart-n { color: #ffb3a8; }

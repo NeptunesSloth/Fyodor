@@ -63,13 +63,16 @@ test("3D table: seats, drag from hand onto the table, right-click menu, tap", as
   await menuPath(page, "Tap");
   await expect.poll(async () => (await view()).cards[id]!.tapped).toBe(true);
 
-  // the floating life heart, as on the scripted tables: click +1, right-click −1, gathered into one change
+  // the Oops heart: its ▲ half +1, its ▼ half −1, right-click 5 at a time, gathered into one change
   const life = async (pid: string) => ((await view()) as unknown as { players: { id: string; life: number }[] }).players.find((p) => p.id === pid)!.life;
-  const heart = (await page.evaluate(() => window.__fyodor3d!.heartAt("p2")))!;
-  await page.mouse.click(heart.x, heart.y);
-  await page.mouse.click(heart.x, heart.y);
-  await page.mouse.click(heart.x, heart.y, { button: "right" });
+  const up = (await page.evaluate(() => window.__fyodor3d!.heartAt("p2", 1)))!;
+  const down = (await page.evaluate(() => window.__fyodor3d!.heartAt("p2", -1)))!;
+  await page.mouse.click(up.x, up.y);
+  await page.mouse.click(up.x, up.y);
+  await page.mouse.click(down.x, down.y);
   await expect.poll(() => life("p2"), { timeout: 15_000 }).toBe(41);
+  await page.mouse.click(down.x, down.y, { button: "right" });
+  await expect.poll(() => life("p2"), { timeout: 15_000 }).toBe(36);
 
   // my seat's buttons are on the table by my mat: Draw draws one
   const handCount = async () => ((await view()) as unknown as { zones: Record<string, unknown> }).zones["p1:hand"] as string[];

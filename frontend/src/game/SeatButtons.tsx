@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { perspective, useGame } from "../state/gameStore";
-import { runSeatAction, SEAT_ACTIONS, SEAT_ICONS, TypedCount, type SeatActionId } from "./seatActions";
+import { runSeatAction, SEAT_ACTIONS, TypedCount, type SeatActionId } from "./seatActions";
+import { seatIconUrl } from "./seatIcons";
 
 /**
  * Your seat's buttons on the 2D table, by your mat as on the Oops tables: round Untap, Draw, Scry, Mill and Reveal
@@ -34,12 +35,11 @@ export function SeatButtons() {
     <div className="seat-buttons" role="toolbar" aria-label="Your seat's buttons" data-testid="seat-buttons">
       {SEAT_ACTIONS.map((b) => (
         <button key={b.id} className={`seat-btn seat-${b.id}`} title={b.title} aria-label={b.title} data-testid={`seat-btn-${b.id}`}
-          style={{ ["--btn" as string]: b.color }}
           onPointerEnter={() => { hovered.current = b.id; }}
           onPointerLeave={() => { if (hovered.current === b.id) hovered.current = null; }}
           onClick={() => runSeatAction(b.id, 1, me)}
           onContextMenu={(e) => { e.preventDefault(); runSeatAction(b.id, 3, me); }}>
-          <svg viewBox="0 0 24 24" aria-hidden>{SEAT_ICONS[b.id].map((d, i) => <path key={i} d={d} />)}</svg>
+          <img src={seatIconUrl(b.id)} alt="" draggable={false} />
           {typed.id === b.id && <b className="seat-typed" aria-live="polite">{typed.n}</b>}
         </button>
       ))}
