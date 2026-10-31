@@ -6,6 +6,7 @@ import { toast } from "../components/Toasts";
 import { api } from "../services/api";
 import { seatToken } from "../services/games";
 import type { GameView } from "../types/game";
+import { openImporter } from "./TableImporter";
 import { useIsHost } from "./HostTools";
 import { fetchHistory, historyText } from "./HistoryDialog";
 import { useGame } from "../state/gameStore";
@@ -63,6 +64,9 @@ export function TopBar() {
             ))}
           </select>
         </label>
+      )}
+      {view.viewer !== "__spectator__" && (
+        <button className="tt-btn ghost" onClick={openImporter} data-testid="open-importer" title="Card importer: find a card, place a saved or pasted deck, reset or restart">Importer</button>
       )}
       <button className="tt-btn ghost" onClick={() => openDialog("help")} title="How to play, controls and shortcuts (?)">Help</button>
       <button className="tt-btn ghost" data-testid="table-menu" aria-label="More" title="Save, load, tools and settings" onClick={(e) => openMenu(e, tableMenu(isHost), "Table")}>More</button>

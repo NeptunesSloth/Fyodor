@@ -81,9 +81,14 @@ test("3D table: seats, drag from hand onto the table, right-click menu, tap", as
   await page.mouse.click(drawButton.x, drawButton.y);
   await expect.poll(async () => (await handCount()).length).toBe(handBefore + 1);
 
-  // and the card importer's board, at the left of that row, opens the importer on the table
-  const importer = (await page.evaluate(() => window.__fyodor3d!.importerAt()))!;
-  await page.mouse.click(importer.x, importer.y);
+  // the commander tax counter beside my commander's slot: click +2
+  const cmdKey = ((await view()) as unknown as { players: { id: string; commanders: { key: string; tax: number }[] }[] }).players.find((p) => p.id === "p1")!.commanders[0]!.key;
+  const taxChip = (await page.evaluate((k) => window.__fyodor3d!.taxAt(k), cmdKey))!;
+  await page.mouse.click(taxChip.x, taxChip.y);
+  await expect.poll(async () => ((await view()) as unknown as { players: { id: string; commanders: { tax: number }[] }[] }).players.find((p) => p.id === "p1")!.commanders[0]!.tax).toBe(2);
+
+  // the card importer, from the top bar, opens over the 3D table
+  await page.getByTestId("open-importer").click();
   await expect(page.getByTestId("table-importer")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("table-importer")).toHaveCount(0);

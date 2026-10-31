@@ -31,7 +31,7 @@ declare global {
       flick: (ids: string[], vx: number, vz: number) => boolean;
       heartAt: (player: string, side?: -1 | 0 | 1) => { x: number; y: number } | null;
       buttonAt: (id: SeatActionId) => { x: number; y: number } | null;
-      importerAt: () => { x: number; y: number } | null;
+      taxAt: (commanderKey: string) => { x: number; y: number } | null;
     };
   }
 }
@@ -91,7 +91,7 @@ export function Table3D({ me }: { me: string }) {
       flick: (ids, vx, vz) => scene.flickCards(ids, vx, vz),
       heartAt: (player, side) => scene.heartOnScreen(player, side ?? 0),
       buttonAt: (id) => scene.buttonOnScreen(id),
-      importerAt: () => scene.importerOnScreen(),
+      taxAt: (key) => scene.taxOnScreen(key),
     };
     // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,
     // turn dial, stack panels) and the battlefield cards, and never past the screen edge

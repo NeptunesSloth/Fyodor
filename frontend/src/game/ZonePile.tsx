@@ -236,27 +236,51 @@ export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
   );
 }
 
-/** Command zone: commanders shown face up with their tax; draggable to the stack/battlefield. */
+/**
+ * Command zone: a slot for each commander (a partner or background gets its own, as on the Oops mat), the commander
+ * face up in it while it's here, and its tax counter under it (click +2, right-click −2). Anything else in the zone
+ * (emblems …) comes after the slots.
+ */
 export function CommandZone({ player, me }: { player: string; me: string }) {
   const key = `${player}:command`;
   const ids = useZoneIds(key) ?? [];
   const over = useDrag((s) => s.drag?.overZone === key);
+  const commanders = useGame((s) => s.view?.players.find((p) => p.id === player)?.commanders);
+  const list = commanders ?? [];
+  const others = ids.filter((id) => !list.some((c) => c.instance_id === id));
   return (
-    <div className={`command-zone ${over ? "drop-over" : ""}`} data-drop={key}>
-      {ids.length === 0 && <span className="pile-label">Command</span>}
-      {ids.map((id) => (
+    <div className={`command-zone ${over ? "drop-over" : ""} ${list.length > 1 ? "partners" : ""}`} data-drop={key}>
+      {ids.length === 0 && list.length === 0 && <span className="pile-label">Command</span>}
+      {list.map((c, i) => (
+        <div key={c.key} className="command-slot">
+          {c.instance_id && ids.includes(c.instance_id) ? <CommandCard id={c.instance_id} me={me} player={player} />
+            : <div className="command-empty" title={`${c.name} isn't in the command zone`}>{i === 0 ? "Commander" : "Partner"}</div>}
+          <TaxButton commander={c.key} name={c.name} tax={c.tax} />
+        </div>
+      ))}
+      {others.map((id) => (
         <CommandCard key={id} id={id} me={me} player={player} />
       ))}
     </div>
   );
 }
 
+/** A commander's tax, kept by hand: click +2 (one more cast), right-click −2. */
+function TaxButton({ commander, name, tax }: { commander: string; name: string; tax: number }) {
+  return (
+    <button className={`tax-btn ${tax ? "" : "zero"}`} data-testid={`tax-${commander}`}
+      title={`Commander tax for ${name}: ${tax} (click +2, right-click −2)`} aria-label={`Commander tax for ${name}: ${tax}. Click to add 2, right-click to remove 2`}
+      onClick={(e) => { e.stopPropagation(); void send({ type: "commander_tax", commander, delta: 2 }); }}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); void send({ type: "commander_tax", commander, delta: -2 }); }}
+      onPointerDown={(e) => e.stopPropagation()}>
+      <span className="tax-label">Tax</span> {tax}
+    </button>
+  );
+}
+
 function CommandCard({ id, me, player }: { id: string; me: string; player: string }) {
   const card = useCardView(id);
-  const tax = useGame((s) => {
-    const key = card && !card.hidden ? card.commander_key : undefined;
-    return key ? s.view?.players.find((p) => p.id === player)?.commander_tax[key] ?? 0 : 0;
-  });
+  void player;
   if (!card) return null;
   return (
     <div
@@ -279,7 +303,6 @@ function CommandCard({ id, me, player }: { id: string; me: string; player: strin
       title="Double-click to cast (adds commander tax)"
     >
       <GameCardFace card={card} />
-      {tax > 0 && <span className="tax-badge" title="Commander tax">+{tax}</span>}
     </div>
   );
 }

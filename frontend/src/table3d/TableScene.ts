@@ -19,7 +19,6 @@ import { isVisible, type CardStats, type GameCard, type GameView, type LibraryVi
 import { counterShort, isKeyword } from "../game/counters";
 import { changeLife, draw, send, tapCards, targetsFor } from "../game/actions";
 import { Batcher, runSeatAction, SEAT_ACTIONS, TypedCount, type SeatActionId } from "../game/seatActions";
-import { openImporter } from "../game/TableImporter";
 import { cardMenu } from "../game/cardMenu";
 import { tableMenu } from "../game/selection";
 import { zonePileTops } from "../game/piles";
@@ -41,7 +40,7 @@ import { SeatProps } from "./seatProps";
 import { CARD_BACK_URL } from "../cards/cardBack";
 import type { DiceShow } from "../game/dice";
 import {
-  AISLE, CARD_H, CARD_W, heartSpot, MAT_D, MAT_W, PILES, plaqueSpot, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
+  AISLE, CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, MAT_W, PILES, plaqueSpot, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
   virtualToLocal, type PileZone, type Seat,
 } from "./layout";
 import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
@@ -353,6 +352,8 @@ export class TableScene {
       this.props.rebuild(this.seatList, me, Object.fromEntries(view.players.map((p) => [p.id, p.color])));
     }
     for (const p of view.players) this.props.setLife(p.id, p.life, this.lifeBatch.pending(p.id));
+    this.props.setCommanders(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, p.commanders.map((c) => ({ key: c.key, tax: c.tax }))])),
+      Object.fromEntries(view.players.map((p) => [p.id, p.color])));
     this.syncCards();
   }
 
@@ -398,8 +399,8 @@ export class TableScene {
     return this.project(p);
   }
 
-  importerOnScreen(): { x: number; y: number } | null {
-    const p = this.props.importerWorld();
+  taxOnScreen(key: string): { x: number; y: number } | null {
+    const p = this.props.taxWorld(key);
     return p ? this.project(p) : null;
   }
 
@@ -810,13 +811,17 @@ export class TableScene {
           }
         }
       }
-      // command zone
+      // command zone: each commander in its own slot (a partner's above), anything else after them
       const cmd = (view.zones[`${pid}:command`] as string[] | undefined) ?? [];
-      cmd.forEach((id, i) => {
+      const keys = view.players.find((p) => p.id === pid)?.commanders.map((c) => c.instance_id) ?? [];
+      let extra = 0;
+      cmd.forEach((id) => {
         const c = show(id);
         if (!c) return;
-        const [lx, lz] = PILES.command;
-        this.place(c, seat, lx - i * (CARD_W + 0.12), lz, 0.004, 0);
+        const slot = keys.indexOf(id);
+        const at = slot >= 0 && slot < COMMAND_SLOTS.length ? COMMAND_SLOTS[slot]! : null;
+        const [lx, lz] = at ?? [PILES.command[0] - (++extra) * (CARD_W + 0.12), PILES.command[1]];
+        this.place(c, seat, lx, lz, 0.004, 0);
         this.setOverlay(c, null);
         this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), 0.6);
       });
@@ -1112,7 +1117,7 @@ export class TableScene {
     return this.ray.ray.intersectPlane(this.tablePlane, out);
   }
 
-  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; side?: -1 | 1; seatButton?: SeatActionId; importer?: boolean } | null {
+  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; side?: -1 | 1; seatButton?: SeatActionId; tax?: string } | null {
     this.ray.setFromCamera(this.pointer(clientX, clientY), this.camera);
     const targets: THREE.Object3D[] = [...this.props.targets()];
     for (const c of this.cards.values()) if (!this.drag?.ids.includes(c.id)) targets.push(c.face);
@@ -1120,7 +1125,7 @@ export class TableScene {
     const hits = this.ray.intersectObjects(targets, false);
     const hit = hits[0];
     if (!hit) return null;
-    const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId; importer?: boolean };
+    const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId; tax?: string };
     // the Oops heart: its left half (▼) takes life away, its right half (▲) gives it
     if (d.heart) return { ...d, side: (hit.uv?.x ?? 1) < 0.5 ? -1 : 1 };
     return d;
@@ -1191,15 +1196,16 @@ export class TableScene {
       this.lifeBatch.bump(hit.heart, (hit.side ?? 1) * (e.shiftKey ? 5 : 1)); // ▼ −1, ▲ +1
       return;
     }
+    if (hit?.tax) {
+      void send({ type: "commander_tax", commander: hit.tax, delta: 2 }); // cast once more: +2
+      return;
+    }
     if (hit?.seatButton) {
       this.props.press(hit.seatButton);
       runSeatAction(hit.seatButton, 1, this.me);
       return;
     }
-    if (hit?.importer) {
-      openImporter();
-      return;
-    }
+
     if (!hit?.card) {
       if (!hit && !e.shiftKey) store.clearSelection();
       if (hit?.pile && hit.player) this.clickPile(hit.player, hit.pile, e);
@@ -1280,10 +1286,11 @@ export class TableScene {
     this.setHover(hit?.card ?? null);
     this.hoveredButton = hit?.seatButton ?? null;
     this.props.hover(this.hoveredButton);
-    const tip = hit?.importer ? "Card importer: find a card, place a new deck, reset or restart" : hit?.seatButton ? SEAT_ACTIONS.find((a) => a.id === hit.seatButton)?.title
+    const taxOf = hit?.tax ? this.view?.players.flatMap((p) => p.commanders).find((c) => c.key === hit.tax) : undefined;
+    const tip = taxOf ? `Commander tax for ${taxOf.name}: ${taxOf.tax} (click +2, right-click −2)` : hit?.seatButton ? SEAT_ACTIONS.find((a) => a.id === hit.seatButton)?.title
       : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life: click ▼ −1 or ▲ +1, right-click for 5, or the wheel` : "";
     if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
-    this.canvas.style.cursor = hit?.seatButton || hit?.heart || hit?.importer ? "pointer" : "";
+    this.canvas.style.cursor = hit?.seatButton || hit?.heart || hit?.tax ? "pointer" : "";
   }
 
   private onUp(e: PointerEvent): void {
@@ -1399,6 +1406,10 @@ export class TableScene {
     const hit = this.pick(e.clientX, e.clientY);
     if (hit?.heart) {
       this.lifeBatch.bump(hit.heart, (hit.side ?? 1) * 5); // right-click: 5 at a time
+      return;
+    }
+    if (hit?.tax) {
+      void send({ type: "commander_tax", commander: hit.tax, delta: -2 });
       return;
     }
     if (hit?.seatButton) {

@@ -1303,3 +1303,40 @@ without leaving the table."
 - `table-importer.spec.ts`: find a card, place a pasted deck, and restart by clicking twice, all without the URL
   changing.
 - `table3d.spec.ts`: the importer board on the 3D table opens the panel.
+
+## 31. The importer moves to the top bar; saved decks; commander tax and partners
+
+The user didn't like where the importer sat. Asked to choose, they picked **the top bar**. They also asked about
+"swapping to saved decks", and for "a button to keep track of commander tax and a zone for them and any partners".
+
+**Importer in the top bar** (`game/TopBar.tsx`, `game/TableImporter.tsx`):
+- An **Importer** button next to Undo, Help and More. The panel drops down under it, and the same button closes it,
+  as does ✕ or Esc.
+- The table board (3D) and the rail button (2D) are gone, so the seat buttons are only the Oops six again.
+
+**Saved decks, one click:**
+- "Place a deck" opens on your saved decks as tiles: name, commanders, and a **Place** button each. The host's deck
+  library is listed on the host computer, and any deck you've brought from this browser is listed everywhere.
+- Pasting a list or an Archidekt link stays under the tiles.
+- A pasted list with no name is now called after its commander(s) (it used to say "Deck").
+
+**Commander tax and a slot per commander:**
+- **3D** (`table3d/seatProps.ts`, `layout.ts`):
+  - Each commander has its own slot in the command zone: the commander by your left hand, a partner or background
+    above it, in line with the graveyard opposite. A partner's slot is outlined and labelled on the felt.
+  - Beside each slot is a tax counter: a dark chip with a brass rim, showing the tax and "TAX". Click +2,
+    right-click −2, and the name and tax show on hover.
+  - The partner slot takes drops as the command zone.
+- **2D** (`game/ZonePile.tsx`):
+  - The command zone shows a slot per commander (a partner beside it), each with a "TAX n" button under it: click +2,
+    right-click −2.
+  - A commander that has left the zone leaves its slot outlined, still with its counter.
+  - In your rail, a partner pair gets twice a pile's width.
+- The tax is the same server value as before (`commander_tax`), so automation that adds tax on a cast and the
+  player panel's +2/−2 stay in step.
+
+**Tests:**
+- `commander-tax.spec.ts`: tax 0 → 4 → 2; a second commander gets its own slot and counter.
+- `table3d.spec.ts`: clicks the 3D tax chip, and opens the importer from the top bar.
+- `table-importer.spec.ts`: opens from the top bar; a pasted deck is named after its commander; one click swaps
+  back to a saved deck.

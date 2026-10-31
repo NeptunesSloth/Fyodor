@@ -133,10 +133,25 @@ export const PILES: Record<PileZone, [number, number]> = {
   command: [-STRIP_X, MAT_D / 2 - CARD_H / 2],
 };
 
-/** Which pile (if any) a mat-local point is on. */
+/**
+ * The command zone's slots, one per commander, as on the Oops mat: the commander's by the owner's left hand, a
+ * partner's (or background's) above it, in line with the graveyard on the other side.
+ */
+export const COMMAND_SLOTS: [number, number][] = [PILES.command, [-STRIP_X, MAT_D / 2 - CARD_H * 1.65], [-STRIP_X, MAT_D / 2 - CARD_H * 2.8]];
+
+/** Where a commander's tax counter sits, mat-local: just outside its slot. */
+export function taxSpot(slot: number): [number, number] {
+  const [x, z] = COMMAND_SLOTS[Math.min(slot, COMMAND_SLOTS.length - 1)]!;
+  return [x - CARD_W / 2 - 0.36, z];
+}
+
+/** Which pile (if any) a mat-local point is on (a partner's slot is the command zone too). */
 export function pileAt(lx: number, lz: number): PileZone | null {
   for (const [zone, [px, pz]] of Object.entries(PILES) as [PileZone, [number, number]][]) {
     if (Math.abs(lx - px) <= CARD_W * 0.75 && Math.abs(lz - pz) <= CARD_H * 0.6) return zone;
+  }
+  for (const [px, pz] of COMMAND_SLOTS.slice(1, 2)) {
+    if (Math.abs(lx - px) <= CARD_W * 0.75 && Math.abs(lz - pz) <= CARD_H * 0.6) return "command";
   }
   return null;
 }

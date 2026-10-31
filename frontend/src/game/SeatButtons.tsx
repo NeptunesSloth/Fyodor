@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { perspective, useGame } from "../state/gameStore";
 import { runSeatAction, SEAT_ACTIONS, TypedCount, type SeatActionId } from "./seatActions";
 import { seatIconUrl } from "./seatIcons";
-import { openImporter } from "./TableImporter";
 
 /**
  * Your seat's buttons on the 2D table, by your mat as on the Oops tables: round Untap, Draw, Scry, Mill and Reveal
@@ -44,10 +43,6 @@ export function SeatButtons() {
           {typed.id === b.id && <b className="seat-typed" aria-live="polite">{typed.n}</b>}
         </button>
       ))}
-      <button className="seat-btn seat-importer" title="Card importer: find a card, place a new deck, reset or restart" aria-label="Card importer"
-        data-testid="seat-btn-importer" onClick={openImporter}>
-        <img src={seatIconUrl("importer")} alt="" draggable={false} />
-      </button>
     </div>
   );
 }

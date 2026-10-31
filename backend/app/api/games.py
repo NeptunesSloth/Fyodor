@@ -1261,7 +1261,9 @@ async def load_deck_at_table(game_id: str, body: LoadDeckIn, request: Request, s
         deck = await run_in_threadpool(_import_for_lobby, services, body, local)
     except DeckTooLarge as exc:
         raise HTTPException(413, str(exc)) from exc
-    action = A.LoadDeck(player=seat, deck_name=deck.name[:120], deck_id=body.deck_id if body.deck_id and local else None, draw=body.draw,
+    # a pasted list with no name of its own is called after its commander(s), as the lobby shows it
+    name = deck.name if body.name or body.deck_id or deck.name not in ("Deck", "") else " & ".join(deck.commanders) or deck.name
+    action = A.LoadDeck(player=seat, deck_name=name[:120], deck_id=body.deck_id if body.deck_id and local else None, draw=body.draw,
                         cards=[A.LoadDeckCard(section=c.section, quantity=c.quantity, name=c.name, printing_id=c.printing_id)
                                for c in deck.cards if c.section in ("commander", "companion", "main", "sideboard", "attractions")])
     async with room.lock:

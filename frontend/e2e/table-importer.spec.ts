@@ -26,8 +26,8 @@ test("card importer at the table: find a card, place a deck, restart without lea
   await page.goto(`/#/game/${gameId}`);
   const url = page.url();
 
-  // the importer opens on the table (from the button by my mat), not on another page
-  await page.getByTestId("seat-btn-importer").click();
+  // the importer opens from the top bar, over the table, not on another page
+  await page.getByTestId("open-importer").click();
   const panel = page.getByTestId("table-importer");
   await expect(panel).toBeVisible();
 
@@ -37,13 +37,20 @@ test("card importer at the table: find a card, place a deck, restart without lea
   await page.getByTestId("ti-result").first().click();
   await expect.poll(async () => (await alice()).hand_count).toBe(1);
 
-  // place a whole new deck: Alice is now playing Krenko, with seven in hand, at the same table
+  // place a whole new deck: Alice is now playing Krenko, with seven in hand, at the same table, named after him
   await page.getByTestId("ti-tab-deck").click();
   await page.getByTestId("ti-deck-text").fill(KRENKO_LIST);
   await page.getByTestId("ti-place-deck").click();
   await expect.poll(async () => (await alice()).commanders.map((c) => c.name)).toEqual(["Krenko, Mob Boss"]);
   expect((await alice()).hand_count).toBe(7);
+  expect((await alice()).deck_name).toBe("Krenko, Mob Boss");
   expect(page.url()).toBe(url);
+
+  // and swap back to a saved deck with one click (other tests on this server may have saved the same list)
+  const saved = page.getByTestId("ti-saved-decks").locator("li", { hasText: decks[0]!.name }).first();
+  await saved.getByTestId("ti-place-saved").click();
+  await expect.poll(async () => (await alice()).deck_name).toBe(decks[0]!.name);
+  expect((await alice()).commanders.map((c) => c.name)).toEqual(["Atraxa, Praetors' Voice"]);
 
   // restart for everyone from the table: asks twice, then life is back and hands are redrawn
   await page.request.post(`/api/games/${gameId}/actions`, { data: { action: { type: "life", player: "p2", delta: -9 } } });
@@ -51,6 +58,6 @@ test("card importer at the table: find a card, place a deck, restart without lea
   await expect(page.getByTestId("ti-restart")).toContainText("Click again");
   await page.getByTestId("ti-restart").click();
   await expect.poll(async () => (await view()).players.find((p) => p.id === "p2")!.life).toBe(40);
-  expect((await alice()).commanders.map((c) => c.name)).toEqual(["Krenko, Mob Boss"]); // the new deck stays
+  expect((await alice()).commanders.map((c) => c.name)).toEqual(["Atraxa, Praetors' Voice"]); // the placed deck stays
   expect(page.url()).toBe(url);
 });

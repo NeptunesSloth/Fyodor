@@ -11,7 +11,8 @@
 import * as THREE from "three";
 import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
 import { drawSeatIcon } from "../game/seatIcons";
-import { heartSpot, MAT_D, toWorld, type Seat } from "./layout";
+import { CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, taxSpot, toWorld, type Seat } from "./layout";
+import { slotTexture } from "./textures";
 
 const HEART_W = 1.45;
 const HEART_Y = 0.16;
@@ -78,12 +79,38 @@ const blobTexture = () => {
   return (blob = new THREE.CanvasTexture(c));
 };
 
+/** A commander's tax counter: a dark chip with a brass rim, the tax big, TAX small, the commander's name on hover. */
+function drawTax(canvas: HTMLCanvasElement, tax: number, color: string): void {
+  const g = canvas.getContext("2d")!;
+  const W = canvas.width;
+  g.clearRect(0, 0, W, W);
+  g.fillStyle = "#0d0b09";
+  g.beginPath();
+  g.arc(W / 2, W / 2, W / 2 - 3, 0, Math.PI * 2);
+  g.fill();
+  g.lineWidth = 7;
+  g.strokeStyle = color;
+  g.stroke();
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillStyle = tax ? "#f1d58e" : "#bdb7ad";
+  g.font = `800 ${tax >= 10 ? 46 : 56}px Inter, Arial, sans-serif`;
+  g.fillText(String(tax), W / 2, W / 2 - 6);
+  g.fillStyle = "#8e8a84";
+  g.font = "700 20px Inter, Arial, sans-serif";
+  g.fillText("TAX", W / 2, W / 2 + 32);
+}
+
+interface Tax { mesh: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; color: string; shown: number }
+
 interface Heart { group: THREE.Group; face: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; color: string; shown: string }
 interface Button { group: THREE.Group; top: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; typed: string; press: number; flat: boolean }
 
 export class SeatProps {
   readonly group = new THREE.Group();
   private hearts = new Map<string, Heart>();
+  private taxes = new Map<string, Tax>();
+  private taxKey = "";
   private buttons = new Map<SeatActionId, Button>();
   private hovered: SeatActionId | null = null;
   private disposables: { dispose(): void }[] = [];
@@ -150,27 +177,9 @@ export class SeatProps {
       tex.needsUpdate = true;
       this.buttons.set(a.id, b);
     });
-    // the card importer: a board on the table at the left of the row, as the Oops table keeps its importers by you
-    const canvas = document.createElement("canvas");
-    canvas.width = canvas.height = 128;
-    drawSeatIcon(canvas, "importer");
-    const tex = this.keep(new THREE.CanvasTexture(canvas));
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const board = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(0.95, 0.95).rotateX(-Math.PI / 2)),
-      this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })));
-    const [ix, iz] = toWorld(mine, -3.05, MAT_D / 2 + 0.52);
-    board.position.set(ix, 0.006, iz);
-    board.rotation.y = mine.rot;
-    board.userData = { importer: true };
-    this.importer = board;
-    this.group.add(board);
   }
 
-  private importer: THREE.Mesh | null = null;
 
-  importerWorld(): THREE.Vector3 | null {
-    return this.importer?.position.clone() ?? null;
-  }
 
   /** A seat's life, with any clicks still on their way (shown under the number). */
   setLife(player: string, life: number, pending: number): void {
@@ -191,6 +200,65 @@ export class SeatProps {
       drawSeatIcon(b.canvas, bid, typed);
       b.tex.needsUpdate = true;
     }
+  }
+
+  /**
+   * Each commander's tax counter beside its slot in the command zone (and a slot for a partner when there is one).
+   * `commanders`: per seat, its commanders' keys in slot order, with their tax.
+   */
+  setCommanders(seats: Seat[], commanders: Record<string, { key: string; tax: number }[]>, colors: Record<string, string>): void {
+    const key = JSON.stringify(seats.map((s) => [s.player, (commanders[s.player] ?? []).map((c) => c.key)]));
+    if (key !== this.taxKey) {
+      this.taxKey = key;
+      for (const t of this.taxes.values()) this.group.remove(t.mesh);
+      this.taxes.clear();
+      for (const extra of this.slots) this.group.remove(extra);
+      this.slots = [];
+      for (const seat of seats) {
+        const list = commanders[seat.player] ?? [];
+        const color = colors[seat.player] ?? "#c9a35a";
+        list.slice(0, COMMAND_SLOTS.length).forEach((c, i) => {
+          if (i > 0) {
+            // the partner's slot, outlined on the felt like the others
+            const slot = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(CARD_W * 1.05, CARD_H * 1.05)),
+              this.keep(new THREE.MeshBasicMaterial({ map: this.keep(slotTexture(i === 1 ? "Partner" : "Command", "#b39458")), transparent: true, depthWrite: false })));
+            slot.rotation.x = -Math.PI / 2;
+            slot.rotation.z = seat.rot;
+            const [sx, sz] = toWorld(seat, ...COMMAND_SLOTS[i]!);
+            slot.position.set(sx, 0.003, sz);
+            this.group.add(slot);
+            this.slots.push(slot);
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = canvas.height = 128;
+          const tex = this.keep(new THREE.CanvasTexture(canvas));
+          tex.colorSpace = THREE.SRGBColorSpace;
+          const mesh = new THREE.Mesh(this.keep(new THREE.CircleGeometry(0.27, 32).rotateX(-Math.PI / 2)),
+            this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })));
+          const [wx, wz] = toWorld(seat, ...taxSpot(i));
+          mesh.position.set(wx, 0.01, wz);
+          mesh.rotation.y = seat.rot;
+          mesh.userData = { tax: c.key };
+          this.group.add(mesh);
+          this.taxes.set(c.key, { mesh, canvas, tex, color, shown: -1 });
+        });
+      }
+    }
+    for (const list of Object.values(commanders)) {
+      for (const c of list) {
+        const t = this.taxes.get(c.key);
+        if (!t || t.shown === c.tax) continue;
+        t.shown = c.tax;
+        drawTax(t.canvas, c.tax, t.color);
+        t.tex.needsUpdate = true;
+      }
+    }
+  }
+
+  private slots: THREE.Mesh[] = [];
+
+  taxWorld(key: string): THREE.Vector3 | null {
+    return this.taxes.get(key)?.mesh.position.clone() ?? null;
   }
 
   hover(id: SeatActionId | null): void {
@@ -221,8 +289,8 @@ export class SeatProps {
   targets(): THREE.Object3D[] {
     const out: THREE.Object3D[] = [];
     for (const h of this.hearts.values()) out.push(h.face);
+    for (const t of this.taxes.values()) out.push(t.mesh);
     for (const b of this.buttons.values()) out.push(...b.group.children);
-    if (this.importer) out.push(this.importer);
     return out;
   }
 
@@ -241,8 +309,10 @@ export class SeatProps {
   }
 
   private clear(): void {
-    this.importer = null;
     this.group.clear();
+    this.taxes.clear();
+    this.taxKey = "";
+    this.slots = [];
     this.hearts.clear();
     this.buttons.clear();
     for (const d of this.disposables) d.dispose();

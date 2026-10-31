@@ -11,26 +11,29 @@ import type { DeckSummary } from "../types/decks";
 import { send } from "./actions";
 import { useIsHost } from "./HostTools";
 
-/** Open the table's importer (the 3D table's importer tile and the 2D rail's button send this). */
-export const openImporter = () => window.dispatchEvent(new CustomEvent("fyodor:importer"));
+/** Open (or close) the importer from the top bar's button, under it. */
+export const openImporter = (e?: React.MouseEvent) => {
+  const r = (e?.currentTarget as HTMLElement | undefined)?.getBoundingClientRect();
+  window.dispatchEvent(new CustomEvent("fyodor:importer", { detail: r ? { right: r.right, bottom: r.bottom } : null }));
+};
 
 /**
- * The scripted tables' card importer, at the table (Oops I Baked a Pie): find any card, put a whole new deck in your
- * seat, reset your deck or restart the game, without leaving the table or going through a menu. Docked on the left
- * of the table, so the game stays in view.
+ * The scripted tables' card importer (Oops I Baked a Pie): find any card, put a saved or pasted deck in your seat,
+ * reset your deck or restart the game, without leaving the table. It drops down under its button in the top bar,
+ * so the game stays in view.
  */
 export function TableImporter() {
-  const [open, setOpen] = useState(false);
+  const [at, setAt] = useState<{ right: number; bottom: number } | null | false>(false);
   useEffect(() => {
-    const show = () => setOpen(true);
-    window.addEventListener("fyodor:importer", show);
-    return () => window.removeEventListener("fyodor:importer", show);
+    const toggle = (e: Event) => setAt((open) => (open !== false ? false : (e as CustomEvent<{ right: number; bottom: number } | null>).detail));
+    window.addEventListener("fyodor:importer", toggle);
+    return () => window.removeEventListener("fyodor:importer", toggle);
   }, []);
-  if (!open) return null;
-  return <ImporterPanel onClose={() => setOpen(false)} />;
+  if (at === false) return null;
+  return <ImporterPanel at={at} onClose={() => setAt(false)} />;
 }
 
-function ImporterPanel({ onClose }: { onClose: () => void }) {
+function ImporterPanel({ at, onClose }: { at: { right: number; bottom: number } | null; onClose: () => void }) {
   const view = useGame((s) => s.view);
   const gameId = useGame((s) => s.gameId);
   const actingAs = useGame((s) => s.actingAs);
@@ -43,7 +46,8 @@ function ImporterPanel({ onClose }: { onClose: () => void }) {
   if (!view || !gameId) return null;
   const me = perspective(view, actingAs);
   return (
-    <aside className="table-importer frame" role="dialog" aria-label="Card importer" data-testid="table-importer">
+    <aside className="table-importer frame" role="dialog" aria-label="Card importer" data-testid="table-importer"
+      style={at ? { top: at.bottom + 6, right: Math.max(12, window.innerWidth - at.right - 120) } : undefined}>
       <header className="ti-head">
         <b>Card importer</b>
         <div className="ti-tabs" role="tablist">
@@ -100,48 +104,56 @@ function FindCard({ me }: { me: string }) {
   );
 }
 
-/** A whole new deck in your seat: pasted, from Archidekt, from your decks (this browser) or the host's library. */
+/** A whole new deck in your seat: one of your saved decks (one click), or a pasted list or Archidekt link. */
 function PlaceDeck({ gameId, me, local }: { gameId: string; me: string; local: boolean }) {
   const [text, setText] = useState("");
   const [hostDecks, setHostDecks] = useState<DeckSummary[] | null>(null);
-  const [pick, setPick] = useState("");
   const [draw, setDraw] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const mine = useMemo(() => myDecks(), []);
   useEffect(() => { listDecks().then(setHostDecks, () => setHostDecks(null)); }, []);
-  const place = async () => {
-    const saved = mine.find((d) => `my:${d.id}` === pick);
-    const body = pick.startsWith("host:") ? { deck_id: pick.slice(5) }
-      : saved ? { ...saved.body }
-      : /archidekt\.com\/decks\/\d+/.test(text.trim()) ? { archidekt: text.trim() } : { text };
-    setBusy(true);
+  const place = async (key: string, body: Parameters<typeof loadDeckAtTable>[1]) => {
+    setBusy(key);
     try {
       const r = await loadDeckAtTable(gameId, { ...body, draw: draw ? 7 : 0, ...(local ? { seat: me } : {}) });
       toast(`${r.deck} is at your seat`);
-      setText("");
-      setPick("");
+      if (key === "paste") setText("");
     } catch (e) {
       toastError(e);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
-  const ready = !!pick || text.trim().length > 0;
+  const saved = [
+    ...(hostDecks ?? []).map((d) => ({ key: `host:${d.id}`, name: d.name, sub: d.commanders.join(" & ") || `${d.counts.main ?? 0} cards`, cover: d.cover_id, body: { deck_id: d.id } })),
+    ...mine.map((d) => ({ key: `my:${d.id}`, name: d.name, sub: d.commanders.join(" & ") || "brought from this computer", cover: null as string | null, body: { ...d.body } })),
+  ];
   return (
     <section className="ti-section">
-      <label className="field">Your decks
-        <select value={pick} onChange={(e) => setPick(e.target.value)} data-testid="ti-deck-pick">
-          <option value="">Paste a list below…</option>
-          {mine.length > 0 && <optgroup label="Brought from this computer">{mine.map((d) => <option key={d.id} value={`my:${d.id}`}>{d.name}</option>)}</optgroup>}
-          {hostDecks && hostDecks.length > 0 && <optgroup label="Deck library">{hostDecks.map((d) => <option key={d.id} value={`host:${d.id}`}>{d.name}</option>)}</optgroup>}
-        </select>
-      </label>
-      {!pick && (
-        <textarea className="ti-list" rows={7} placeholder={"Paste a deck list or an Archidekt link\n\nCommander\n1 Krenko, Mob Boss\nDeck\n1 Sol Ring\n…"}
-          value={text} onChange={(e) => setText(e.target.value)} data-testid="ti-deck-text" />
-      )}
       <label className="ti-check"><input type="checkbox" checked={draw} onChange={(e) => setDraw(e.target.checked)} /> Shuffle and draw 7</label>
-      <button className="btn primary" disabled={!ready || busy} onClick={() => void place()} data-testid="ti-place-deck">{busy ? "Placing…" : "Place deck"}</button>
+      {saved.length > 0 && (
+        <>
+          <h4 className="ti-sub">Your saved decks</h4>
+          <ul className="ti-decks" data-testid="ti-saved-decks">
+            {saved.map((d) => (
+              <li key={d.key}>
+                {d.cover && <span className="ti-deck-art" style={{ backgroundImage: `url("/api/images/${d.cover}?size=normal")` }} aria-hidden />}
+                <span className="ti-deck-text"><b>{d.name}</b><small>{d.sub}</small></span>
+                <button className="btn" disabled={!!busy} onClick={() => void place(d.key, d.body)} data-testid="ti-place-saved">
+                  {busy === d.key ? "Placing…" : "Place"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <h4 className="ti-sub">Or paste a list</h4>
+      <textarea className="ti-list" rows={5} placeholder={"A deck list or an Archidekt link\n\nCommander\n1 Krenko, Mob Boss\nDeck\n1 Sol Ring\n…"}
+        value={text} onChange={(e) => setText(e.target.value)} data-testid="ti-deck-text" />
+      <button className="btn primary" disabled={!text.trim() || !!busy} data-testid="ti-place-deck"
+        onClick={() => void place("paste", /archidekt\.com\/decks\/\d+/.test(text.trim()) ? { archidekt: text.trim() } : { text })}>
+        {busy === "paste" ? "Placing…" : "Place this deck"}
+      </button>
       <p className="hint">Your current cards leave the table; your life goes back to the start. Undo brings the old deck back.</p>
     </section>
   );

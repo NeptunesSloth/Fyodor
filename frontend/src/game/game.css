@@ -691,3 +691,29 @@ main.table:not(.is-3d) > .hand:not(.compact) { background: linear-gradient(to to
 @media (hover: hover) and (pointer: fine) {
   main.table:not(.is-3d) .player-panel:not(:hover):not(:focus-within) :is(.life-step, .life-btn, .res.add) { opacity: 0; }
 }
+
+/* command zone slots: one per commander (a partner beside it), each with its tax counter under it */
+.command-zone.partners { flex-direction: row; gap: 4px; }
+.command-slot { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; flex: 1; }
+.command-slot .command-card { width: 100%; }
+.command-empty {
+  width: 100%; aspect-ratio: 63 / 88; display: grid; place-items: center; font-size: 10px; color: var(--text-dim);
+  border: 1px dashed var(--line); border-radius: 4px; text-align: center;
+}
+.tax-btn {
+  display: inline-flex; align-items: baseline; gap: 3px; padding: 1px 7px; border-radius: 10px; cursor: pointer;
+  font: 700 12px/1.4 Inter, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap;
+  background: #0d0b09; color: #f1d58e; border: 1.5px solid var(--player-color, var(--frame));
+}
+.tax-btn.zero { color: #bdb7ad; }
+.tax-btn:hover, .tax-btn:focus-visible { border-color: var(--frame-hi); outline: none; }
+.tax-label { font-size: 9px; font-weight: 700; color: #8e8a84; text-transform: uppercase; letter-spacing: 0.05em; }
+.seat-strip .tax-btn { padding: 0 4px; font-size: 10px; }
+.seat-strip .tax-label { display: none; }
+/* my rail: a partner pair gets twice a pile's width, and the counters stay readable */
+.player-area.mine .zone-rail:has(.command-zone.partners) { grid-template-columns: 1fr 1fr 1fr 2.1fr; }
+.player-area.mine .command-zone.partners { gap: 3px; }
+.zone-rail .tax-btn { padding: 0 4px; font-size: 10.5px; border-width: 1px; }
+.zone-rail .tax-label { font-size: 8px; }
+
+.player-area.mine .zone-rail:has(.command-zone.partners) .pile-label { font-size: 8.5px; }
