@@ -8,7 +8,7 @@ from app.game.errors import ActionError
 from app.game.handlers import objects, response
 from app.game.handlers.cards import untap_permanents
 from app.game.ops import log, pname, text
-from app.game.state import COMBAT_PHASES, PHASES, STACK, AbilityDef, CardInstance, GameState
+from app.game.state import COMBAT_PHASES, PHASES, STACK, AbilityDef, CardInstance, DiceRollLog, GameState
 
 PHASE_LABELS = {
     "untap": "Untap",
@@ -191,7 +191,7 @@ def roll(state: GameState, a: A.Roll) -> None:
         msg = f" rolled {a.r.results[0]} on a {dice}"
     else:
         msg = f" rolled {dice}: {', '.join(map(str, a.r.results))} (total {sum(a.r.results)})"
-    log(state, a.actor, a.ts, [pname(state, a.actor), text(msg)], kind="dice")
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(msg)], kind="dice", roll=DiceRollLog(sides=a.sides, results=list(a.r.results)))
 
 
 def coin(state: GameState, a: A.Coin) -> None:
@@ -201,7 +201,8 @@ def coin(state: GameState, a: A.Coin) -> None:
         state.rules.coin_flipped[a.actor] = state.turn.number
     faces = ["heads" if r else "tails" for r in a.r.results]
     msg = f" flipped a coin: {faces[0]}" if a.count == 1 else f" flipped {a.count} coins: {', '.join(faces)} ({sum(a.r.results)} heads)"
-    log(state, a.actor, a.ts, [pname(state, a.actor), text(msg)], kind="dice")
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(msg)], kind="dice",
+        roll=DiceRollLog(sides=2, results=[int(bool(r)) for r in a.r.results], coin=True))
 
 
 def chat(state: GameState, a: A.Chat) -> None:

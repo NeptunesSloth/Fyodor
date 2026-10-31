@@ -179,6 +179,7 @@ def render_log(entries: list[LogEntry], viewer: str) -> list[dict[str, Any]]:
             "parts": [_render_part(p, viewer) for p in e.parts],
             **({"manual": True} if e.manual else {}),
             **({"folded": True} if e.folded else {}),
+            **({"roll": e.roll.model_dump()} if e.roll else {}),
         }
         for e in entries
     ]

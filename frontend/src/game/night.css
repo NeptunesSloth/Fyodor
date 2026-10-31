@@ -215,3 +215,46 @@ body.reduced-motion .ping-ring.late { display: none; }
 /* pinned to the screen edge: the target is off this screen; a dashed ring says "over there" */
 .ping.edge .ping-ring { border-style: dashed; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* -- dice you can see (game/DiceLayer.tsx): thrown from the roller's plaque onto their mat -- */
+.dice-layer { position: fixed; inset: 0; pointer-events: none; z-index: 45; }
+.dice-throw {
+  position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 8px;
+  animation: dice-away calc(600ms * var(--anim-scale, 1)) ease-in both;
+  animation-delay: calc((1100ms + 5200ms) * var(--anim-scale, 1));
+}
+.dice-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: 360px; }
+.die2d-wrap {
+  filter: drop-shadow(0 7px 8px rgba(0, 0, 0, 0.6));
+  animation: die-throw calc(1100ms * var(--anim-scale, 1)) cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: calc(var(--i) * 45ms * var(--anim-scale, 1));
+}
+.die2d {
+  --d: 46px;
+  width: var(--d); height: var(--d); display: grid; place-items: center;
+  font: 700 19px/1 var(--font-display); color: #1c1610; font-variant-numeric: lining-nums;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--seat) 22%, #f4ead6), color-mix(in srgb, var(--seat) 48%, #9a8664));
+  clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+}
+.die2d.d4 { clip-path: polygon(50% 3%, 98% 94%, 2% 94%); padding-top: 14px; font-size: 16px; }
+.die2d.d6 { clip-path: none; border-radius: 9px; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), inset 0 2px 0 rgba(255, 255, 255, 0.4); }
+.die2d.d8 { clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+.die2d.d10 { clip-path: polygon(50% 0, 100% 42%, 50% 100%, 0 42%); }
+.die2d.d12 { clip-path: polygon(50% 0, 98% 37%, 80% 97%, 20% 97%, 2% 37%); padding-top: 4px; }
+.die2d.coin { clip-path: none; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #f1d58e, #b39458 55%, #6e5630); color: #2a1f10; box-shadow: inset 0 0 0 3px rgba(60, 44, 20, 0.45); }
+.dice-total {
+  font-size: 13px; color: var(--text); padding: 4px 10px; border-radius: 4px; white-space: nowrap;
+  background: rgba(16, 14, 12, 0.88); border: 1px solid color-mix(in srgb, var(--seat) 70%, transparent);
+  animation: night-fade calc(260ms * var(--anim-scale, 1)) ease-out both; animation-delay: calc(1000ms * var(--anim-scale, 1));
+}
+.dice-total b { font-family: var(--font-display); font-size: 15px; }
+@keyframes die-throw {
+  0% { opacity: 0; transform: translate(var(--fx), var(--fy)) rotate(-560deg) scale(0.6); }
+  12% { opacity: 1; }
+  55% { transform: translate(0, -16px) rotate(-50deg) scale(1.06); }
+  74% { transform: translate(0, 0) rotate(12deg) scale(1); }
+  88% { transform: translate(0, -5px) rotate(-4deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes dice-away { to { opacity: 0; } }
+body.reduced-motion .die2d-wrap { animation-name: night-fade; }

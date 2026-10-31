@@ -33,8 +33,10 @@ import { buildEnvironment, type Environment } from "./environment";
 import { arrowTime, makeArrow, type GroundBox } from "./arrows";
 import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
+import { DiceTray } from "./dice";
+import type { DiceShow } from "../game/dice";
 import {
-  CARD_H, CARD_W, MAT_D, MAT_W, PILES, STRIP_X, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
+  AISLE, CARD_H, CARD_W, MAT_D, MAT_W, PILES, PLAQUE_AT, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
   virtualToLocal, type PileZone, type Seat,
 } from "./layout";
 import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
@@ -220,6 +222,7 @@ export class TableScene {
   /** Every card's body (its thickness and shadow) in one draw call. */
   private bodies: THREE.InstancedMesh;
   private arrows = new THREE.Group();
+  private dice = new DiceTray();
   /** A soft contact shadow under every card (one draw call), spreading as the card lifts. */
   private shadows: THREE.InstancedMesh;
   private shadowTex = contactShadowTexture();
@@ -281,7 +284,7 @@ export class TableScene {
     this.shadows.count = 0;
     this.shadows.frustumCulled = false;
     this.shadows.renderOrder = -1;
-    this.world.add(this.bodies, this.shadows, this.arrows);
+    this.world.add(this.bodies, this.shadows, this.arrows, this.dice.group);
     this.scene.add(this.world);
     this.applyFog();
     this.bindInput();
@@ -329,11 +332,37 @@ export class TableScene {
     this.syncCards();
   }
 
+  /**
+   * A roll everyone sees (game/dice.ts): the dice leave the roller's near edge, cross their mat and land in a
+   * row in the aisle in front of it, by their plaque.
+   */
+  throwDice(show: DiceShow): void {
+    const seat = this.seatList.find((s) => s.player === show.actor) ?? this.seatList.find((s) => s.player === this.me);
+    if (!seat) return;
+    const color = this.view?.players.find((p) => p.id === seat.player)?.color ?? "#d7ae63";
+    const [fx, fz] = toWorld(seat, 2.2, MAT_D / 2 + 0.6);
+    const land = (i: number, n: number) => {
+      const perRow = Math.min(n, 6);
+      const row = Math.floor(i / perRow);
+      const lx = 1.4 + (i % perRow - (perRow - 1) / 2) * 0.62;
+      const [wx, wz] = toWorld(seat, lx, -MAT_D / 2 - AISLE * 0.42 - row * 0.62);
+      return new THREE.Vector3(wx, 0, wz);
+    };
+    const size = tableSize(this.seatList);
+    const bounds = { minX: -size.w / 2 + 0.6, maxX: size.w / 2 - 0.6, minZ: -size.d / 2 + 0.6, maxZ: size.d / 2 - 0.6 };
+    this.dice.throw(show, color, { from: new THREE.Vector3(fx, 0, fz), land, bounds }, performance.now());
+  }
+
+  /** The dice on the table, in screen coordinates (tests and diagnostics). */
+  diceOnScreen(): { x: number; y: number }[] {
+    return this.dice.positions().map((p) => this.project(p));
+  }
+
   /** Where a seat's player plate should be drawn on screen (for the DOM overlay). */
   seatScreen(player: string, width: number, height: number): { x: number; y: number; visible: boolean } | null {
     const seat = this.seatList.find((s) => s.player === player);
     if (!seat) return null;
-    const [wx, wz] = toWorld(seat, -STRIP_X, this.plaqueZ(seat.player));
+    const [wx, wz] = toWorld(seat, ...PLAQUE_AT);
     const v = new THREE.Vector3(wx, 0.3, wz).project(this.camera);
     return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height, visible: v.z < 1 }; // off to the side: the overlay clamps it to the screen edge
   }
@@ -377,14 +406,6 @@ export class TableScene {
   private tmpBox = new THREE.Box3();
   private tmpV = new THREE.Vector3();
 
-  /**
-   * Where along its mat a seat's plaque sits: yours on the inner side (the outer edge is under your
-   * hand), everyone else's on their outer edge, by them rather than out in the middle of the table.
-   */
-  private plaqueZ(player: string): number {
-    return player === this.me ? -0.6 : MAT_D / 2 - 0.4;
-  }
-
   /** Screen position (CSS px, relative to the canvas) of a card, or of a battlefield point of a seat. */
   screenOfCard(id: string): { x: number; y: number } | null {
     const c = this.cards.get(id);
@@ -421,7 +442,6 @@ export class TableScene {
     const p = this.tablePoint(clientX, clientY);
     if (!p || !this.view) return null;
     if (offset) p.sub(offset);
-    if (Math.hypot(p.x, p.z) < 1.8 && this.stackCenterFree()) return { zone: "stack" };
     for (const seat of this.seatList) {
       const [lx, lz] = toLocal(seat, p.x, p.z);
       if (onBattlefield(lx, lz)) {
@@ -431,12 +451,15 @@ export class TableScene {
       const pile = pileAt(lx, lz);
       if (pile) return { zone: `${seat.player}:${pile}`, position: "top" };
     }
+    // the stack: the middle of the aisle between the rows
+    if (Math.abs(p.z) < AISLE + 0.3 && Math.abs(p.x) < 2.2 && this.stackCenterFree()) return { zone: "stack" };
     return null;
   }
 
   dispose(): void {
     cancelAnimationFrame(this.raf);
     for (const u of this.unsubs) u();
+    this.dice.dispose();
     this.clearTable();
     for (const c of this.cards.values()) this.disposeCard(c);
     this.cards.clear();
@@ -853,7 +876,7 @@ export class TableScene {
       // a player: their plaque (as Arena lands on the avatar), spread a little so several
       // attackers' crystals sit side by side
       const spread = from ? Math.max(-0.7, Math.min(0.7, toLocal(seat, from.x, from.z)[0] * 0.12)) : 0;
-      const [wx, wz] = toWorld(seat, -STRIP_X + spread, this.plaqueZ(seat.player));
+      const [wx, wz] = toWorld(seat, PLAQUE_AT[0] + spread, PLAQUE_AT[1]);
       const p = new THREE.Vector3(wx, 0.3, wz);
       // stop short of the plaque so the crystal stays clear of its Turn / Priority flags
       if (from) p.add(from.clone().setY(0.3).sub(p).setLength(Math.min(1.1, from.distanceTo(p) * 0.3)));
@@ -982,8 +1005,10 @@ export class TableScene {
     let pos: THREE.Vector3;
     let look: THREE.Vector3;
     if (preset === "overview") {
-      look = new THREE.Vector3(0, 0, 0.5);
-      pos = new THREE.Vector3(0, span * 1.45, span * 0.28);
+      // straight down the table, as the scripted tables' overhead camera: every mat whole, with room for
+      // the top bar and the hand
+      look = new THREE.Vector3(0, 0, 0.3);
+      pos = new THREE.Vector3(0, span * 1.74, span * 0.3);
     } else if (typeof preset === "object" && "card" in preset) {
       // close up on one card, seen from my side of the table
       const c = this.cards.get(preset.card);
@@ -997,11 +1022,11 @@ export class TableScene {
       look = new THREE.Vector3(lx, 0, lz);
       pos = new THREE.Vector3(px, 8.5, pz);
     } else {
-      // behind my seat, looking across the table (the main view): my mat large, every opponent visible
-      const [lx, lz] = toWorld(mine, 0, -MAT_D / 2 - 2.8);
-      const [px, pz] = toWorld(mine, 0, MAT_D / 2 + span * 0.32);
-      look = new THREE.Vector3(lx, 0, lz);
-      pos = new THREE.Vector3(px, span * 0.74, pz);
+      // behind my seat, looking across the aisle (the main view): my mat large, the far row whole. The
+      // camera leans toward the table's middle when my seat is off-centre, as you would at a long table.
+      const reach = Math.max((size.w / aspect) * 1.45, size.d);
+      look = new THREE.Vector3(mine.x * 0.25, 0, -AISLE - 1.2);
+      pos = new THREE.Vector3(mine.x * 0.35, reach * 0.66, mine.z + MAT_D / 2 + reach * 0.26);
     }
     const off = pos.clone().sub(look).multiplyScalar(this.zoom);
     off.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw);
@@ -1289,6 +1314,7 @@ export class TableScene {
     this.shadows.count = n;
     this.shadows.instanceMatrix.needsUpdate = true;
     if (this.shadows.instanceColor) this.shadows.instanceColor.needsUpdate = true;
+    this.dice.update(performance.now(), reduced, speed);
     const kc = ease(dt, 5 * speed, reduced);
     this.camPos.lerp(this.camGoalPos, kc);
     this.camLook.lerp(this.camGoalLook, kc);

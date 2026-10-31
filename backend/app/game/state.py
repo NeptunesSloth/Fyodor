@@ -450,6 +450,14 @@ class LogPart(BaseModel):
     group: list[LogPart] | None = None  # rendered as "Sol Ring, Island and 2 cards"
 
 
+class DiceRollLog(BaseModel):
+    """The numbers of a public dice roll or coin flip, so every table can show the dice landing."""
+
+    sides: int
+    results: list[int]
+    coin: bool = False  # results: 1 heads, 0 tails
+
+
 class LogEntry(BaseModel):
     seq: int
     ts: float
@@ -460,6 +468,7 @@ class LogEntry(BaseModel):
     kind: str = "action"
     manual: bool = False  # a sandbox action taken while rules automation was on
     folded: bool = False  # shown collapsed under the following summary line (a repeated sequence)
+    roll: DiceRollLog | None = None
 
 
 class CollectionCard(BaseModel):

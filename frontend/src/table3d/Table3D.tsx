@@ -11,6 +11,7 @@ import { setDropResolver3D } from "../game/dnd";
 import { setPingLocator3D } from "../game/ping";
 import { placeAnchored, selectionAnchor } from "../game/anchors";
 import { SeatPlate } from "../game/SeatPlate";
+import { useDiceFeed } from "../game/dice";
 import { plane } from "../theme/planes";
 import { isVisible, type GameView } from "../types/game";
 import { ERROR_MS, TableScene, type CameraPreset, type Quality } from "./TableScene";
@@ -25,6 +26,7 @@ declare global {
       camera: (p: CameraPreset) => void;
       cardAt: (id: string) => { x: number; y: number } | null;
       battlefieldAt: (player: string, x: number, y: number) => { x: number; y: number } | null;
+      dice: () => { x: number; y: number }[];
     };
   }
 }
@@ -80,6 +82,7 @@ export function Table3D({ me }: { me: string }) {
       camera: (p) => scene.setCamera(p),
       cardAt: (id) => scene.screenOfCard(id),
       battlefieldAt: (player, x, y) => scene.screenOfBattlefield(player, x, y),
+      dice: () => scene.diceOnScreen(),
     };
     // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,
     // turn dial, stack panels) and the battlefield cards, and never past the screen edge
@@ -205,6 +208,7 @@ export function Table3D({ me }: { me: string }) {
     };
   }, [players, me]);
   useAutoCenter(me, setPreset);
+  useDiceFeed((roll) => sceneRef.current?.throwDice(roll));
   useEffect(() => {
     if (!ambienceOn || ambientVol <= 0) return;
     return startAmbience(plane(planeId).ambience, ambientVol);

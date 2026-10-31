@@ -330,3 +330,19 @@ def test_dice_and_coins(s):
     assert len(r.r.results) == 3
     r = act(s, "p1", type="coin", count=5)
     assert set(r.r.results) <= {0, 1}
+
+
+def test_dice_rolls_carry_their_numbers_to_every_table(s):
+    """Every viewer's log has the roll's numbers, so each table can show the dice landing."""
+    from app.game.views import build_view
+
+    r = act(s, "p1", type="roll", sides=6, count=2)
+    roll = s.state.log[-1].roll
+    assert roll is not None and roll.sides == 6 and roll.results == r.r.results and not roll.coin
+    for viewer in ("p1", "p2"):
+        entry = build_view(s.state, viewer)["log"][-1]
+        assert entry["roll"] == {"sides": 6, "results": r.r.results, "coin": False}
+    act(s, "p1", type="coin")
+    assert s.state.log[-1].roll is not None and s.state.log[-1].roll.coin
+    act(s, "p1", type="chat", text="gg")
+    assert "roll" not in build_view(s.state, "p2")["log"][-1]

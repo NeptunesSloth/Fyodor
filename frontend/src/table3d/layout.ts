@@ -29,47 +29,34 @@ export interface Seat {
 
 export interface TableSize { w: number; d: number }
 
+/** Half the aisle between the two rows of mats: the stack, combat arrows and the life plaques live here. */
+export const AISLE = 1.5;
+/** Mat centre to mat centre along a row: the zone strips of neighbours don't touch. */
+export const SEAT_DX = 2 * STRIP_X + CARD_W + 0.8;
+/** Where each seat's plaque sits, mat-local: in the aisle by the mat's inner edge, toward its owner's left. */
+export const PLAQUE_AT: [number, number] = [-MAT_W / 2 + 0.9, -MAT_D / 2 - AISLE / 2];
+
 /**
- * Seats for 1–6 players, starting with the viewer at the south edge and going clockwise
- * (to the viewer's left first, as turn order goes around a real table).
+ * Seats for 1–6 players in two facing rows, as on the scripted Commander tables of Tabletop Simulator
+ * (Oops I Baked a Pie's four- and six-seat tables): the viewer's row at the south edge, the rest across
+ * the aisle, and every mat upright for its owner (nobody's cards read sideways). Turn order goes
+ * clockwise around the table: along the viewer's row to their left, then back along the far row.
  */
 export function seats(order: string[], me: string): Seat[] {
   const start = Math.max(0, order.indexOf(me));
   const players = [...order.slice(start), ...order.slice(0, start)];
   const n = players.length;
-  const south = MAT_D / 2 + 3.6; // distance of a south/north mat centre from the table centre
-  const side = MAT_W / 2 + 2.6 + MAT_D / 2 + 0.6; // east/west mats sit outside the south/north strips
-  const place = (i: number): Omit<Seat, "player"> => {
-    if (n <= 2) return i === 0 ? { x: 0, z: south, rot: 0, side: "south" } : { x: 0, z: -south, rot: Math.PI, side: "north" };
-    if (n === 3) {
-      return [
-        { x: 0, z: south, rot: 0, side: "south" as const },
-        { x: -side, z: -1.5, rot: -Math.PI / 2, side: "west" as const },
-        { x: side, z: -1.5, rot: Math.PI / 2, side: "east" as const },
-      ][i]!;
-    }
-    if (n === 4) {
-      return [
-        { x: 0, z: south, rot: 0, side: "south" as const },
-        { x: -side, z: 0, rot: -Math.PI / 2, side: "west" as const },
-        { x: 0, z: -south, rot: Math.PI, side: "north" as const },
-        { x: side, z: 0, rot: Math.PI / 2, side: "east" as const },
-      ][i]!;
-    }
-    // 5–6: two mats at the north edge, and one at each end for the 6th.
-    const half = MAT_W / 2 + 2.2;
-    const layout: Omit<Seat, "player">[] = [
-      { x: 0, z: south, rot: 0, side: "south" },
-      { x: -side, z: 0, rot: -Math.PI / 2, side: "west" },
-      { x: -half - 0.4, z: -south, rot: Math.PI, side: "north" },
-      { x: half + 0.4, z: -south, rot: Math.PI, side: "north" },
-      { x: side, z: 0, rot: Math.PI / 2, side: "east" },
-    ];
-    if (n === 6) layout.splice(1, 0, { x: -half - 0.4, z: south, rot: 0, side: "south" });
-    if (n === 6) layout[0] = { x: half + 0.4, z: south, rot: 0, side: "south" };
-    return layout[i]!;
-  };
-  return players.map((player, i) => ({ player, ...place(i) }));
+  const nSouth = Math.max(1, Math.floor(n / 2));
+  const nNorth = n - nSouth;
+  const rowX = (i: number, k: number) => (i - (k - 1) / 2) * SEAT_DX;
+  const rowZ = MAT_D / 2 + AISLE;
+  // clockwise seen from above: the south row east → west, then the north row west → east
+  const southRow = Array.from({ length: nSouth }, (_, i) => ({ x: rowX(nSouth - 1 - i, nSouth), z: rowZ, rot: 0, side: "south" as const }));
+  const northRow = Array.from({ length: nNorth }, (_, i) => ({ x: rowX(i, nNorth), z: -rowZ, rot: Math.PI, side: "north" as const }));
+  const ring: Omit<Seat, "player">[] = [...southRow, ...northRow];
+  // the viewer sits in the middle of their row (east of the middle when the row is even)
+  const mine = Math.floor((nSouth - 1) / 2);
+  return players.map((player, i) => ({ player, ...ring[(mine + i) % n]! }));
 }
 
 /** The table top that fits every mat with a margin. */

@@ -1037,3 +1037,72 @@ drawn about 50px wide at 1920×1080 and about 37px at 1366×768.
 the answer there for now. The 3D Table camera frames a four-seat table even in 1v1, so the two boards look small
 there.
 
+
+## 25. The scripted-table pass: seating, the 1v1 camera, dice and physics
+
+**Prompt:** the user's screenshots of Oops I Baked a Pie's scripted tables (four- and six-seat, overhead) and the Card
+Encoder overlay, with "take heavy inspo for how the 3D/engine works", "fix the 3D table camera for 1v1", "can I see
+the dice being used", and "want the point of 3D for the physics engine". The Oops gallery's overhead and annotated
+shots (T5, linked there) were viewed for reference only and are not stored in the repo.
+
+**Seating, as on the scripted tables** (`table3d/layout.ts`):
+- **Two facing rows.** 1+1, 1+2, 2+2, 2+3, 3+3. The viewer's row is at the south edge, and turn order runs clockwise:
+  along your row to your left, then back along the far row. Nobody's mat is sideways any more, which closes the
+  "side seats read sideways" gap in §23.
+- **An aisle between the rows** (3 units wide) for the stack, combat arrows and the life plaques. As on the Oops
+  table's hearts, each plaque sits in the aisle by its mat's inner edge, toward its owner's left. The stack's drop
+  area is the middle of the aisle, checked after the mats so it never takes a drop meant for a mat.
+- **Cameras.** The seat camera sits behind your mat and leans toward the table's middle when your seat is
+  off-centre, framing the whole far row. The Table camera looks straight down the table, as the scripted tables'
+  overhead view does. 1v1 now frames two close mats instead of a four-seat table with a wide gap between them.
+
+**Dice everyone sees** (`game/dice.ts`, `table3d/dice.ts`, `table3d/physics.ts`, `game/DiceLayer.tsx`):
+- **The server records each roll's numbers** on its log entry (`LogEntry.roll`: sides, results, coin). It is public,
+  like the log line, and every table shows it. Rolls already in the log when a table opens aren't replayed.
+- **3D, with physics.** A small rigid-body simulation, written for Fyodor rather than added as a library:
+  - gravity, restitution, Coulomb friction, rolling resistance, knocks between dice (as spheres) and the table's
+    edges.
+  - Dice are thrown from the roller's edge across their mat toward the aisle and roll to rest on a face.
+  - The throw is simulated ahead and played back. It is seeded by the roll, so every screen sees the same throw.
+  - The server's number is printed on whichever face ends up on top (a d4 numbers its points, the top point shows
+    the roll; a coin's up face shows heads or tails). The number also floats above the die, with a total for
+    several dice.
+  - Shapes: d4, d6, d8, d10 (a planar pentagonal trapezohedron), d12 and d20, plus coins. Other dice use the d20
+    shape.
+  - Unit-tested (`table3d/physics.test.ts`): every die rests flat on a face, on the table, in under 4 s, and the
+    same seed gives the same throw.
+- **2D.** The dice tumble from the roller's plaque onto the middle of their mat, in their seat colour, and settle with
+  a "Bob · 2d6: 1 + 4 = 5" line. e2e: `dice.spec.ts`.
+- **Reduced motion:** dice appear at rest, with no tumble.
+
+**The Card Encoder overlay [US-2] against Fyodor:**
+
+| Encoder control | Fyodor | Where |
+|---|---|---|
+| Open menu for more options | **Yes** | Right-click a card; the selection toolbar's More |
+| Flip double-faced card | **Yes** | Turn over (F), toolbar and menu |
+| Toggle +1/+1 counter | **Yes** | Toolbar +1/+1 on creatures; Add counter menu |
+| Toggle counter (any type) | **Yes** | Add counter → any type, or a custom type |
+| Counter number on the card | **Yes** | Counter chips on the card, in 2D and 3D |
+| Toggle power/toughness | **Partly** | With rules on, a live P/T badge. In manual play, +N/+N effects, but no box to type a P/T into |
+| Left-click to increase, right-click to decrease | **Partly** | The toolbar's +1/+1 counter button: left-click adds, right-click removes. The chips on the card are display-only |
+| Copy card | **Partly** | Create copy, copy with changes, several copies. Counters aren't copied (TTS "exact copy" keeps them) |
+| Re-import card | **Not needed** | Card data is the offline database. Settings → Update card database refreshes everything |
+| Get tokens and emblems | **Yes** | The Tokens dialog suggests each of your cards' related tokens and emblems; "Create tokens from this…" |
+| Toggle owner gem | **No** | Nothing marks a card controlled by someone other than its owner (Give control and Return to owner exist) |
+| Library: cascade for X | **Partly** | The rules engine runs cascade; manual play has no one-click cascade |
+| Library: reveal until type | **No** | There is Reveal the top card, Look at the top N and Mill |
+| Library: get basic land | **Yes, manually** | Search library; with rules on, fetch effects run themselves |
+| Hand: sort by CMC | **Yes** | Hand sort by mana value, colour, type, name, or your own order |
+| Hand: discard at random | **No, manually** | The engine discards at random for cards that say so; there's no manual button |
+| "Only works if cards have CMC and type in their name fields" | **Better** | Fyodor reads real card data |
+
+**Next, from the same tables:**
+- Reveal-until and cascade as library actions (resolved on the server, which has the card data and the RNG), and
+  discard at random.
+- A per-seat button row: Untap, Draw, Scry, Mill, Reveal, with left-click 1, right-click 3, or type a number while
+  hovering, as the Oops buttons do.
+- Encoder-style steppers on the counter chips themselves (left-click +1, right-click −1), as the toolbar's +1/+1
+  button already does.
+- An owner marker on cards controlled by someone else.
+- Exact copy, which keeps counters.

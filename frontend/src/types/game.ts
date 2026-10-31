@@ -215,6 +215,8 @@ export interface LogEntryView {
   actor: string | null;
   kind: string;
   parts: LogPartView[];
+  /** A public dice roll or coin flip's numbers (coin results: 1 heads, 0 tails). */
+  roll?: { sides: number; results: number[]; coin: boolean };
 }
 
 export interface GameMeta {

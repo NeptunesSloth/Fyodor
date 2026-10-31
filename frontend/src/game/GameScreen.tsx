@@ -28,6 +28,7 @@ import { CombatLanes, CombatStrip } from "./CombatLanes";
 import { GameNight } from "./GameNight";
 import { SignalLayer } from "./Signals";
 import { PingLayer } from "./Pings";
+import { DiceLayer } from "./DiceLayer";
 import { useTurnAlert } from "./turnAlert";
 import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 
@@ -107,6 +108,7 @@ export function GameScreen() {
           {outbox > 0 && <span className="conn-outbox"> · {outbox} action{outbox === 1 ? "" : "s"} will be sent when the table is back</span>}
         </div>
       )}
+      {!three && <DiceLayer />}
       <StackWidget me={me} />
       <LogDrawer />
       <ToolTray />
