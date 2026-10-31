@@ -1264,3 +1264,42 @@ overhead shots (T5) were zoomed in to copy the buttons and hearts. Nothing from 
 - `table3d.spec.ts`: clicks the heart's ▲ half twice and ▼ once (41), right-clicks ▼ (36), then presses Draw on the
   table.
 - `scripted-chores.spec.ts`: the 2D buttons.
+
+## 30. The card importer and restart, at the table
+
+The user: "I like that you don't have to go to a menu in Oops: you just use the card importer, and can restart
+without leaving the table."
+
+**The importer is on the table** (`game/TableImporter.tsx`):
+- **3D:** a board at the left end of your button row, by your mat, as the Oops table keeps its importers by each
+  seat.
+- **2D:** a button at the end of the seat buttons in your rail.
+- Either one opens the importer docked at the table's left edge, so the game stays in view. It closes with ✕ or Esc.
+
+**Find a card:**
+- Search the card database ("Search for Magic cards", as on Oops). Click a card to put it in your hand; Shift-click
+  puts it on the battlefield.
+- The cards come in as TEST objects, so they're marked as not part of any deck, and only where the table allows
+  them. The host gets an "Allow it" link if the table doesn't yet.
+
+**Place a deck:**
+- Paste a list or an Archidekt link, pick one of the decks you've brought from this computer before, or (on the
+  host computer) pick a deck from the library.
+- "Place deck" replaces the deck in your seat mid-game: your old cards, tokens and copies leave the table, the new
+  deck's commander goes to the command zone and the rest is shuffled into the library. Your life goes back to the
+  start, and you draw seven unless you untick it.
+- The server builds the action from the deck you brought, through the same import as the lobby, so a client can't
+  forge a card list. You can only place a deck in your own seat; the host computer at a local table can place one
+  in any seat. One undo brings the old deck back.
+- Backend: `POST /api/games/{id}/load-deck`, action `load_deck`.
+
+**Restart and reset, on the same panel:**
+- "Reset my deck" and "Restart game". Each asks for a second click rather than opening a pop-up.
+- Restart is for the host, as before. A deck you placed stays through a restart.
+
+**Tests:**
+- `test_games_api.py`: placing a deck mid-game, with life, hand, commander and library checked, Bob's seat
+  unchanged, a saved deck, a forged client action refused, and undo.
+- `table-importer.spec.ts`: find a card, place a pasted deck, and restart by clicking twice, all without the URL
+  changing.
+- `table3d.spec.ts`: the importer board on the 3D table opens the panel.

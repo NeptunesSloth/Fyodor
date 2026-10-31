@@ -245,3 +245,33 @@ def test_corrupt_save_rejected(client, settings, decks):
     services.app_db.commit()
     res = client.post(f"/api/saves/{saved['id']}/load", json={})
     assert res.status_code == 422
+
+
+def test_load_a_new_deck_at_the_table_without_leaving(client, decks):
+    """The scripted tables' importer: paste a list (or pick a saved deck) and it replaces your deck mid-game."""
+    gid = create(client, decks)["game"]["id"]
+
+    def view(v="p1"):
+        return client.get(f"/api/games/{gid}/view", params={"viewer": v}).json()
+
+    client.post(f"/api/games/{gid}/actions", json={"action": {"type": "draw", "player": "p1", "count": 3}})
+    before = view()
+    old_ids = {cid for cid, c in before["cards"].items() if c.get("owner") == "p1"}
+    res = client.post(f"/api/games/{gid}/load-deck", json={"text": ATRAXA, "name": "Superfriends"})
+    assert res.status_code == 200, res.text
+    after = view()
+    me = next(p for p in after["players"] if p["id"] == "p1")
+    assert me["deck_name"] == "Superfriends" and me["life"] == 40 and me["hand_count"] == 7
+    assert [c["name"] for c in me["commanders"]] == ["Atraxa, Praetors' Voice"]
+    assert after["zones"]["p1:library"]["count"] == 22 - 7
+    assert not old_ids & set(after["cards"])  # the old deck's cards left the table
+    assert "placed a new deck" in json.dumps(after["log"][-1])
+    # Bob's seat is untouched; the host's saved decks work too, and a client can't send the action itself
+    assert next(p for p in after["players"] if p["id"] == "p2")["deck_name"] == before["players"][1]["deck_name"]
+    assert client.post(f"/api/games/{gid}/load-deck", json={"deck_id": decks[0], "draw": 0}).status_code == 200
+    assert next(p for p in view()["players"] if p["id"] == "p1")["hand_count"] == 0
+    forged = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "load_deck", "player": "p1", "cards": [{"section": "main", "quantity": 1, "name": "Island"}]}})
+    assert forged.status_code in (400, 409, 422)
+    # it can be undone like any action
+    assert client.post(f"/api/games/{gid}/undo", json={}).status_code in (200, 204)
+    assert next(p for p in view()["players"] if p["id"] == "p1")["deck_name"] == "Superfriends"

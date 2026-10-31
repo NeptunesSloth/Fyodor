@@ -265,3 +265,29 @@ body.reduced-motion .die2d-wrap { animation-name: night-fade; }
 .dig-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .dig-card { width: 92px; display: block; }
 .dig .row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* -- the table's card importer (game/TableImporter.tsx): docked at the table's left edge, the game stays in view -- */
+.table-importer {
+  position: fixed; z-index: 60; left: 12px; top: 56px; bottom: 96px; width: min(400px, calc(100vw - 24px));
+  display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; overflow: hidden;
+  background: var(--hud-surface); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+  animation: night-rise calc(160ms * var(--anim-scale, 1)) var(--ease-out) both;
+}
+.ti-head { display: flex; align-items: center; gap: 10px; }
+.ti-head b { font: 700 15px var(--font-display); color: var(--text); }
+.ti-tabs { display: flex; gap: 2px; margin-left: auto; }
+.ti-tabs button { font-size: 12.5px; padding: 4px 9px; border: 1px solid var(--line); background: transparent; color: var(--text-dim); cursor: pointer; border-radius: 3px; }
+.ti-tabs button.on { color: var(--text); border-color: var(--frame); background: rgba(179, 148, 88, 0.12); }
+.ti-close { padding: 2px 8px; }
+.ti-section { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+.ti-search, .ti-list { width: 100%; box-sizing: border-box; }
+.ti-search { font-size: 14px; padding: 8px 10px; }
+.ti-list { font: 12.5px/1.4 ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+.ti-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(82px, 1fr)); gap: 6px; }
+.ti-card { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 4px; }
+.ti-card:hover:not(:disabled) { outline: 2px solid var(--frame-hi); }
+.ti-card:disabled { opacity: 0.5; cursor: default; }
+.ti-check { font-size: 13px; color: var(--text-dim); display: flex; gap: 6px; align-items: center; }
+.ti-restart { display: flex; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
+.ti-restart .btn { flex: 1; }
+.linkish { background: none; border: 0; padding: 0; color: var(--frame-hi); text-decoration: underline; cursor: pointer; font: inherit; }

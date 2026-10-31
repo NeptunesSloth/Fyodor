@@ -625,6 +625,32 @@ class SpawnCard(Base):
     resolved_name: str | None = None  # filled by resolve from the card database
 
 
+class LoadDeckCard(BaseModel):
+    section: str = Field(max_length=20)
+    quantity: int = Field(ge=1, le=250)
+    name: str = Field(max_length=200)
+    printing_id: str | None = Field(default=None, max_length=64)
+
+
+class LoadDeckData(BaseModel):
+    ids: list[str]  # one per card, in the deck's order
+    perm: list[int]  # the library's shuffle
+
+
+class LoadDeck(Base):
+    """The scripted tables' deck importer, at the table: put a new deck in a seat without leaving the game (its owner's
+    old cards leave the table). Built by the server from a deck the player brought (POST /games/{id}/load-deck); a
+    client can't send one directly."""
+
+    type: Literal["load_deck"] = "load_deck"
+    player: Id
+    deck_name: str = Field(default="Deck", max_length=120)
+    deck_id: str | None = Field(default=None, max_length=64)
+    cards: list[LoadDeckCard] = Field(max_length=600)
+    draw: int = Field(default=7, ge=0, le=20)
+    r: LoadDeckData | None = None
+
+
 class ResetDeck(Base):
     """Gather a player's own cards back into their deck (library, command zone, sideboard …),
     remove their tokens, copies and test objects, shuffle, and optionally reset life and draw."""
@@ -1453,7 +1479,7 @@ INTENT_TYPES = frozenset(
      "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
      "miracle_reveal", "end_effect", "pay_deferred"}
 )
-SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber", "rules_sticker101"})
+SERVER_ONLY_TYPES = frozenset({"load_deck", "rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber", "rules_sticker101"})
 
 
 Action = Annotated[
@@ -1499,6 +1525,7 @@ Action = Annotated[
     | ReturnToOwner
     | RestoreState
     | SpawnCard
+    | LoadDeck
     | ResetDeck
     | RestartGame
     | RunMacro

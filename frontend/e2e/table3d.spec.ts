@@ -81,6 +81,13 @@ test("3D table: seats, drag from hand onto the table, right-click menu, tap", as
   await page.mouse.click(drawButton.x, drawButton.y);
   await expect.poll(async () => (await handCount()).length).toBe(handBefore + 1);
 
+  // and the card importer's board, at the left of that row, opens the importer on the table
+  const importer = (await page.evaluate(() => window.__fyodor3d!.importerAt()))!;
+  await page.mouse.click(importer.x, importer.y);
+  await expect(page.getByTestId("table-importer")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("table-importer")).toHaveCount(0);
+
   // a flick: one of my cards, let go while moving fast, slides on across my mat and the server keeps where it
   // stops (a real hand's pointer events are too far apart in this software-rendered browser, so the test throws
   // it through the same physics directly)

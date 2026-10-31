@@ -122,3 +122,70 @@ def restart_game(state: GameState, a: A.RestartGame) -> None:
         log(state, a.actor, a.ts, [pname(state, a.first), text(" restarted the game (Karn Liberated, 727): a new game begins")])
         return
     log(state, a.actor, a.ts, [pname(state, a.actor), text(" restarted the game: every deck reset and shuffled")])
+
+
+def load_deck(state: GameState, a: A.LoadDeck) -> None:
+    """A new deck in a seat, mid-game (the scripted tables' importer): the owner's cards, tokens and copies leave the
+    table, the new deck's cards arrive in their zones (commander in the command zone, the rest shuffled into the
+    library), life goes back to the start and, unless told otherwise, seven are drawn."""
+    from app.game.factory import SECTION_ZONES
+    pid = ops.player(state, a.player, a.actor)
+    if a.r is None:
+        raise ActionError("unresolved deck")
+    if not any(c.section in ("main", "commander") for c in a.cards):
+        raise ActionError("That deck has no cards")
+    for c in [c for c in state.cards.values() if c.merged and c.owner == pid]:  # merged piles break up first
+        ops.move_card(state, c, zone_key(pid, "graveyard"))
+    gone: set[str] = set()
+    old_keys = {c.commander_key for c in state.cards.values() if c.owner == pid and c.commander_key}
+    for c in [c for c in state.cards.values() if c.owner == pid]:
+        if c.id in state.cards:
+            gone.add(c.id)
+            ops.delete(state, c)
+    state.arrows = [ar for ar in state.arrows if ar.owner != pid and ar.source not in gone and not gone.intersection(ar.targets)]
+    state.views = [v for v in state.views if v.viewer != pid]
+    ids = iter(a.r.ids)
+    p = state.players[pid]
+    p.commander_tax = {}
+    p.commander_casts = {}
+    for other in state.players.values():
+        for key in old_keys:
+            other.commander_damage.pop(key, None)
+    n = 0
+    library = zone_key(pid, "library")
+    for entry in a.cards:
+        zone = SECTION_ZONES.get(entry.section)
+        if zone is None:
+            continue
+        for _ in range(entry.quantity):
+            cid = next(ids, None)
+            if cid is None or cid in state.cards:
+                raise ActionError("unresolved deck")
+            card = CardInstance(id=cid, card_id=entry.printing_id, name=entry.name, owner=pid, controller=pid,
+                                zone=zone_key(pid, zone), origin=zone)  # type: ignore[arg-type]
+            if entry.section == "commander":
+                n += 1
+                card.commander_key = f"cmd-{pid}-{cid[:6]}-{n}"
+                card.protected = True
+                p.commander_tax[card.commander_key] = 0
+            state.cards[cid] = card
+            state.zone(card.zone).append(cid)
+    lib = state.zone(library)
+    if sorted(a.r.perm) != list(range(len(lib))):
+        raise ActionError("unresolved deck")
+    lib[:] = [lib[i] for i in a.r.perm]  # shuffled (the ids are new: nothing links them to the old deck)
+    p.deck_name = a.deck_name
+    p.deck_id = a.deck_id
+    p.life = state.settings.starting_life
+    p.life_history = []
+    p.resources = {k: 0 for k in DEFAULT_RESOURCES}
+    p.commander_damage = {}
+    p.mana = {}
+    p.mana_units = []
+    p.mulligans = 0
+    if a.draw:
+        draw_cards(state, pid, a.draw)
+    total = sum(c.quantity for c in a.cards if c.section in ("main", "commander"))
+    log(state, a.actor, a.ts, [pname(state, pid), text(f" placed a new deck at the table: {a.deck_name} ({total} cards), shuffled"
+                                                      f"{f', drew {a.draw}' if a.draw else ''}")])
+

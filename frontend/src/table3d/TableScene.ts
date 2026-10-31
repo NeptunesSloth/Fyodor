@@ -19,6 +19,7 @@ import { isVisible, type CardStats, type GameCard, type GameView, type LibraryVi
 import { counterShort, isKeyword } from "../game/counters";
 import { changeLife, draw, send, tapCards, targetsFor } from "../game/actions";
 import { Batcher, runSeatAction, SEAT_ACTIONS, TypedCount, type SeatActionId } from "../game/seatActions";
+import { openImporter } from "../game/TableImporter";
 import { cardMenu } from "../game/cardMenu";
 import { tableMenu } from "../game/selection";
 import { zonePileTops } from "../game/piles";
@@ -395,6 +396,11 @@ export class TableScene {
       p.addScaledVector(right, side * 0.42);
     }
     return this.project(p);
+  }
+
+  importerOnScreen(): { x: number; y: number } | null {
+    const p = this.props.importerWorld();
+    return p ? this.project(p) : null;
   }
 
   buttonOnScreen(id: SeatActionId): { x: number; y: number } | null {
@@ -1106,7 +1112,7 @@ export class TableScene {
     return this.ray.ray.intersectPlane(this.tablePlane, out);
   }
 
-  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; side?: -1 | 1; seatButton?: SeatActionId } | null {
+  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; side?: -1 | 1; seatButton?: SeatActionId; importer?: boolean } | null {
     this.ray.setFromCamera(this.pointer(clientX, clientY), this.camera);
     const targets: THREE.Object3D[] = [...this.props.targets()];
     for (const c of this.cards.values()) if (!this.drag?.ids.includes(c.id)) targets.push(c.face);
@@ -1114,7 +1120,7 @@ export class TableScene {
     const hits = this.ray.intersectObjects(targets, false);
     const hit = hits[0];
     if (!hit) return null;
-    const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId };
+    const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId; importer?: boolean };
     // the Oops heart: its left half (▼) takes life away, its right half (▲) gives it
     if (d.heart) return { ...d, side: (hit.uv?.x ?? 1) < 0.5 ? -1 : 1 };
     return d;
@@ -1188,6 +1194,10 @@ export class TableScene {
     if (hit?.seatButton) {
       this.props.press(hit.seatButton);
       runSeatAction(hit.seatButton, 1, this.me);
+      return;
+    }
+    if (hit?.importer) {
+      openImporter();
       return;
     }
     if (!hit?.card) {
@@ -1270,10 +1280,10 @@ export class TableScene {
     this.setHover(hit?.card ?? null);
     this.hoveredButton = hit?.seatButton ?? null;
     this.props.hover(this.hoveredButton);
-    const tip = hit?.seatButton ? SEAT_ACTIONS.find((a) => a.id === hit.seatButton)?.title
+    const tip = hit?.importer ? "Card importer: find a card, place a new deck, reset or restart" : hit?.seatButton ? SEAT_ACTIONS.find((a) => a.id === hit.seatButton)?.title
       : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life: click ▼ −1 or ▲ +1, right-click for 5, or the wheel` : "";
     if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
-    this.canvas.style.cursor = hit?.seatButton || hit?.heart ? "pointer" : "";
+    this.canvas.style.cursor = hit?.seatButton || hit?.heart || hit?.importer ? "pointer" : "";
   }
 
   private onUp(e: PointerEvent): void {

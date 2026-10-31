@@ -188,3 +188,8 @@ export function forgetMyDeck(id: string): void {
     /* ignore */
   }
 }
+
+/** The table's importer: put a new deck in a seat without leaving the game (POST /games/{id}/load-deck). */
+export const loadDeckAtTable = (gameId: string, body: LobbyDeckBody & { seat?: string; draw?: number }) =>
+  api.post<{ deck: string; cards: number }>(`/games/${encodeURIComponent(gameId)}/load-deck`, body, seatHeaders(gameId));
+

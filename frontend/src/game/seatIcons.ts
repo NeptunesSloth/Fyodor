@@ -6,7 +6,7 @@
  */
 import type { SeatActionId } from "./seatActions";
 
-export type SeatIconId = SeatActionId | "mulligan";
+export type SeatIconId = SeatActionId | "mulligan" | "importer";
 
 const OUTLINE = "#0b0907";
 
@@ -244,7 +244,45 @@ function mulligan(g: CanvasRenderingContext2D): void {
   }
 }
 
-const GLYPH: Record<SeatIconId, (g: CanvasRenderingContext2D) => void> = { untap, draw: hand, scry: eye, mill: skull, reveal: glass, mulligan };
+/** The card importer: a dark board, a deck with a card coming in, IMPORT under it (the Oops importer boards). */
+function importer(g: CanvasRenderingContext2D): void {
+  g.fillStyle = "#15171d";
+  g.strokeStyle = "#8a6a3f";
+  g.lineWidth = 3;
+  g.beginPath();
+  g.roundRect(6, 10, 88, 80, 8);
+  g.fill();
+  g.stroke();
+  for (let i = 0; i < 3; i++) {
+    g.fillStyle = i === 2 ? "#3c4a6b" : "#2b3247";
+    g.strokeStyle = "#0b0907";
+    g.lineWidth = 1.6;
+    g.beginPath();
+    g.roundRect(36 - i * 3, 34 - i * 3, 24, 32, 3);
+    g.fill();
+    g.stroke();
+  }
+  g.strokeStyle = "#35d0d0";
+  g.lineWidth = 5;
+  g.lineCap = "round";
+  g.beginPath();
+  g.moveTo(68, 20);
+  g.lineTo(68, 44);
+  g.stroke();
+  g.fillStyle = "#35d0d0";
+  g.beginPath();
+  g.moveTo(59, 40);
+  g.lineTo(77, 40);
+  g.lineTo(68, 52);
+  g.closePath();
+  g.fill();
+  g.fillStyle = "#d9c4ad";
+  g.font = "800 14px Inter, Arial, sans-serif";
+  g.textAlign = "center";
+  g.fillText("IMPORT", 50, 83);
+}
+
+const GLYPH: Record<SeatIconId, (g: CanvasRenderingContext2D) => void> = { untap, draw: hand, scry: eye, mill: skull, reveal: glass, mulligan, importer };
 
 /** Draw a seat button's face into a square canvas (any size). `count` is a number being typed over it. */
 export function drawSeatIcon(canvas: HTMLCanvasElement, id: SeatIconId, count = ""): void {
@@ -252,7 +290,7 @@ export function drawSeatIcon(canvas: HTMLCanvasElement, id: SeatIconId, count = 
   g.save();
   g.clearRect(0, 0, canvas.width, canvas.height);
   g.scale(canvas.width / 100, canvas.height / 100);
-  if (id !== "mulligan") disc(g);
+  if (id !== "mulligan" && id !== "importer") disc(g);
   GLYPH[id](g);
   if (count) {
     g.fillStyle = "rgba(10, 8, 6, 0.86)";

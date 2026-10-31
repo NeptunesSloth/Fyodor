@@ -150,6 +150,26 @@ export class SeatProps {
       tex.needsUpdate = true;
       this.buttons.set(a.id, b);
     });
+    // the card importer: a board on the table at the left of the row, as the Oops table keeps its importers by you
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 128;
+    drawSeatIcon(canvas, "importer");
+    const tex = this.keep(new THREE.CanvasTexture(canvas));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const board = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(0.95, 0.95).rotateX(-Math.PI / 2)),
+      this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })));
+    const [ix, iz] = toWorld(mine, -3.05, MAT_D / 2 + 0.52);
+    board.position.set(ix, 0.006, iz);
+    board.rotation.y = mine.rot;
+    board.userData = { importer: true };
+    this.importer = board;
+    this.group.add(board);
+  }
+
+  private importer: THREE.Mesh | null = null;
+
+  importerWorld(): THREE.Vector3 | null {
+    return this.importer?.position.clone() ?? null;
   }
 
   /** A seat's life, with any clicks still on their way (shown under the number). */
@@ -202,6 +222,7 @@ export class SeatProps {
     const out: THREE.Object3D[] = [];
     for (const h of this.hearts.values()) out.push(h.face);
     for (const b of this.buttons.values()) out.push(...b.group.children);
+    if (this.importer) out.push(this.importer);
     return out;
   }
 
@@ -220,6 +241,7 @@ export class SeatProps {
   }
 
   private clear(): void {
+    this.importer = null;
     this.group.clear();
     this.hearts.clear();
     this.buttons.clear();

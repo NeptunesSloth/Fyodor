@@ -30,6 +30,7 @@ import { SignalLayer } from "./Signals";
 import { PingLayer } from "./Pings";
 import { DiceLayer } from "./DiceLayer";
 import { DigDialog } from "./DigDialog";
+import { TableImporter } from "./TableImporter";
 import { useTurnAlert } from "./turnAlert";
 import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 
@@ -111,6 +112,7 @@ export function GameScreen() {
       )}
       {!three && <DiceLayer />}
       <DigDialog me={me} />
+      <TableImporter />
       <StackWidget me={me} />
       <LogDrawer />
       <ToolTray />

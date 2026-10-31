@@ -76,6 +76,7 @@ HANDLERS: dict[str, Handler] = {
     "restore_state": players.restore_state,
     "run_macro": objects.run_macro,
     "spawn_card": solo.spawn_card,
+    "load_deck": solo.load_deck,
     "reset_deck": solo.reset_deck,
     "restart_game": solo.restart_game,
     "set_table_playmat": players.set_table_playmat,

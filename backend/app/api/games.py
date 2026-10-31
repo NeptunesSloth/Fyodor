@@ -1237,6 +1237,43 @@ async def delete_snapshot(game_id: str, snapshot_id: str, request: Request, serv
     return Response(status_code=204)
 
 
+class LoadDeckIn(LobbyDeckIn):
+    """A deck to put in your seat mid-game (the table's importer): a pasted list, an Archidekt link, or (on the host
+    computer) a saved deck. ``seat``: whose seat, for the host computer at a local table (anyone else loads their own)."""
+
+    seat: str | None = Field(default=None, pattern=r"^p[1-6]$")
+    draw: int = Field(default=7, ge=0, le=20)
+
+
+@router.post("/games/{game_id}/load-deck")
+async def load_deck_at_table(game_id: str, body: LoadDeckIn, request: Request, services: ServicesDep,
+                             x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """Put a new deck in your seat without leaving the table (the scripted tables' importer). Your old cards leave."""
+    room = _room(services, game_id)
+    viewer, actor = _seated(room, request, x_seat_token)
+    local = is_local_request(request)
+    seat = body.seat if body.seat and room.mode != "lan" and local else actor
+    if seat is None or seat not in room.session.state.players:
+        raise HTTPException(403, "Spectators can't load a deck")
+    if room.mode == "lan" and seat != actor:
+        raise HTTPException(403, "You can only load a deck into your own seat")
+    try:
+        deck = await run_in_threadpool(_import_for_lobby, services, body, local)
+    except DeckTooLarge as exc:
+        raise HTTPException(413, str(exc)) from exc
+    action = A.LoadDeck(player=seat, deck_name=deck.name[:120], deck_id=body.deck_id if body.deck_id and local else None, draw=body.draw,
+                        cards=[A.LoadDeckCard(section=c.section, quantity=c.quantity, name=c.name, printing_id=c.printing_id)
+                               for c in deck.cards if c.section in ("commander", "companion", "main", "sideboard", "attractions")])
+    async with room.lock:
+        try:
+            room.session.perform(seat, action, trusted=True)
+        except (ActionError, ValidationError) as exc:
+            raise HTTPException(409, str(exc)) from exc
+        services.hub.after_change(room)
+    await services.hub.broadcast(room)
+    return {"deck": deck.name, "cards": deck.card_count, "report": deck.report, "view": services.hub.view(room, viewer)}
+
+
 async def _restore(services: Services, room: Room, request: Request, token: str | None, state: dict[str, Any],
                    label: str) -> dict[str, Any]:
     viewer, actor = _seated(room, request, token)

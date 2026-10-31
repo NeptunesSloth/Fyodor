@@ -174,6 +174,12 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.r = _resolve_top(state, info, a.card_id)
     elif isinstance(a, A.RevealUntil | A.Cascade):
         a.r = _dig(state, a, actor, info)
+    elif isinstance(a, A.LoadDeck):
+        # a fresh id for every card, and the library's shuffle (over the main deck's cards)
+        main = sum(c.quantity for c in a.cards if c.section == "main")
+        perm = list(range(main))
+        rng.shuffle(perm)
+        a.r = A.LoadDeckData(ids=[new_id() for _ in range(sum(c.quantity for c in a.cards if c.section in _DECK_ZONES))], perm=perm)
     elif isinstance(a, A.FetchCard):
         pid = a.player or actor
         library_ids = state.zones.get(zone_key(pid, "library"), [])
@@ -211,6 +217,9 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
     if isinstance(a, A.MulliganKeep | A.MulliganBottom | A.MulliganFinish):
         a.opening = _opening_steps(state, a, info, rng)
     return response.wrap(state, a)
+
+
+_DECK_ZONES = ("commander", "companion", "main", "sideboard", "attractions")
 
 
 def _has_type(type_line: str, wanted: str) -> bool:
