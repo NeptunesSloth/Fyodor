@@ -28,7 +28,7 @@ MAX_COMMANDERS = 4
 
 class LobbySettings(BaseModel):
     name: str = Field(default="Game", max_length=80)
-    format: Literal["commander", "constructed", "sandbox"] = "commander"
+    format: Literal["commander"] = "commander"
     seats: int = Field(default=4, ge=1, le=6)
     starting_life: int | None = Field(default=None, ge=1, le=10000)
     deck_privacy: DeckPrivacy = "commander_only"

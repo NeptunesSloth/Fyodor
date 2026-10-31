@@ -72,10 +72,18 @@ def test_default_name_from_commander(client):
 
 
 def test_import_append(client):
-    deck = client.post("/api/decks", json={"text": "1 Sol Ring", "name": "T", "format": "constructed"}).json()
+    deck = client.post("/api/decks", json={"text": "1 Sol Ring", "name": "T"}).json()
     res = client.post(f"/api/decks/{deck['id']}/import", json={"text": "4 Lightning Bolt", "mode": "append"}).json()
     assert [(e["name"], e["quantity"]) for e in res["entries"]] == [("Sol Ring", 1), ("Lightning Bolt", 4)]
-    assert any("minimum 60" in w["message"] for w in res["warnings"])
+    assert any("Lightning Bolt" in w["message"] for w in res["warnings"])  # four copies break Commander's singleton rule
+
+
+def test_constructed_and_sandbox_decks_open_as_commander_decks(client):
+    """Fyodor is Commander-only: a deck sent with an old format (an export, an older client) is kept, as a Commander deck."""
+    for fmt in ("constructed", "sandbox"):
+        deck = client.post("/api/decks", json={"text": "1 Sol Ring", "name": fmt, "format": fmt}).json()
+        assert deck["format"] == "commander"
+    assert client.post("/api/decks", json={"text": "1 Sol Ring", "format": "modern"}).status_code == 422
 
 
 def test_validation_rejects_bad_input(client):
@@ -89,3 +97,19 @@ def test_validation_rejects_bad_input(client):
 def test_names_are_sanitized(client):
     deck = client.post("/api/decks", json={"text": "", "name": "Evil‮\x00  deck   name"}).json()
     assert deck["name"] == "Evil deck name"
+
+
+def test_stored_constructed_decks_become_commander_decks(tmp_path):
+    """App DB migration 8: decks saved as Constructed or Sandbox before the formats were removed keep their cards."""
+    from app.storage.app_db import MIGRATIONS, open_app_db
+    from app.storage.db import connect, migrate
+
+    path = tmp_path / "app.sqlite"
+    conn = connect(path)
+    migrate(conn, MIGRATIONS[:7], name="app")
+    conn.execute("INSERT INTO decks (id, name, format, notes, created_at, updated_at) VALUES ('d1', 'Burn', 'constructed', '', 'x', 'x')")
+    conn.execute("INSERT INTO decks (id, name, format, notes, created_at, updated_at) VALUES ('d2', 'Pile', 'sandbox', '', 'x', 'x')")
+    conn.commit()
+    conn.close()
+    conn = open_app_db(path)
+    assert [r[0] for r in conn.execute("SELECT format FROM decks ORDER BY id")] == ["commander", "commander"]

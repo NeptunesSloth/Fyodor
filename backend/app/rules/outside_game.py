@@ -2,14 +2,13 @@
 
 These permissions cannot bring traditional cards into Commander. This is a format rule,
 not an assertion that a player's collection is empty. Explicit exceptions such as companion
-use their own rules. Other formats retain the manual fallback until selection is implemented.
+use their own rules. (Fyodor plays Commander only, so every table follows this rule.)
 """
 from __future__ import annotations
 
 import re
 from typing import Any
 
-from app.game.errors import ActionError
 from app.rules import selectors
 from app.rules.plan import Plan
 
@@ -69,8 +68,6 @@ def plain(body: str) -> str:
 
 
 def permission(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    if plan.state.format != 'commander':
-        raise ActionError('Outside-game card selection in this format must be resolved manually')
     if e.get('exile_choice'):
         from app.rules import effects
 

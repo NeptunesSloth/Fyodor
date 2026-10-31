@@ -44,6 +44,14 @@ def act(client, game_id, action, **kw):
     return client.post(f"/api/games/{game_id}/actions", json={"action": action, **kw}, headers=headers)
 
 
+def test_games_are_commander_only(client, decks):
+    """Constructed and Sandbox were removed: a new table is always Commander (40 life), and other formats are refused."""
+    assert create(client, decks)["game"]["format"] == "commander"
+    for fmt in ("constructed", "sandbox"):
+        body = {"name": "T", "format": fmt, "players": [{"name": "Alice", "deck_id": decks[0]}]}
+        assert client.post("/api/games", json=body).status_code == 422
+
+
 def test_local_game_flow(client, decks):
     game = create(client, decks)
     gid = game["game"]["id"]
@@ -133,6 +141,22 @@ def test_lan_join_and_private_views(client, decks):
     # a remote client cannot request the omniscient view
     res = client.get(f"/api/games/{gid}/view", params={"viewer": "all"}, headers={"X-Seat-Token": bob, **remote})
     assert res.json()["viewer"] == "p2"
+
+
+def test_private_diagnostics_keep_a_lan_game_in_progress_out(client, decks):
+    """The host computer's diagnostics export can't show other players' hands mid-game; once the result is recorded it can."""
+    game = create(client, decks, mode="lan")
+    gid, code = game["game"]["id"], game["game"]["code"]
+    bob = client.post("/api/join", json={"code": code}, headers={"X-Forwarded-For": "192.168.1.50"}).json()["token"]
+    bob_hand = act(client, gid, {"type": "draw", "count": 7}, token=bob).json()["zones"]["p2:hand"]
+
+    room = next(r for r in client.get("/api/diagnostics?include_private=true").json()["rooms"] if r["id"] == gid)
+    assert "state" not in room and "still being played" in room["state_withheld"]
+    assert not any(c in client.get("/api/diagnostics?include_private=true").text for c in bob_hand)
+
+    client.app.state.services.hub.rooms[gid].result_id = "recorded"  # the game ended and its result was recorded
+    room = next(r for r in client.get("/api/diagnostics?include_private=true").json()["rooms"] if r["id"] == gid)
+    assert "state_withheld" not in room and set(bob_hand) <= set(room["state"]["zones"]["p2:hand"])
 
 
 def test_lan_host_computer_never_gets_the_all_hands_view(client, decks):

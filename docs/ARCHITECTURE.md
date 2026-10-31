@@ -49,7 +49,7 @@ automation + a manual sandbox override + an Archidekt-first pod workflow**.
 
 ```
 GameState
-  id, name, format ("commander" | "constructed" | "sandbox"), created_at
+  id, name, format ("commander": Fyodor is Commander-only), created_at
   seq (actions applied == history position), settings: GameSettings
   players: {player_id: PlayerState}, seat_order: [player_id]
   cards: {instance_id: CardInstance}          # normalized — zones hold ids only

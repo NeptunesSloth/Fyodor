@@ -173,3 +173,17 @@ def test_v5_sandbox_game_stays_off(cards):
                "state": _as_v5(s.state.model_dump(mode="json")), "history": {**history, "base": _as_v5(history["base"])}}
     loaded, restored = load_payload(decode(encode(payload)))
     assert loaded.settings.automation == "off" and loaded.rules is None and restored is not None
+
+
+def test_a_constructed_or_sandbox_game_is_refused_with_a_clear_reason(cards):
+    """Fyodor plays Commander only: a save from a removed format says why it won't load, instead of a validation dump."""
+    import pytest
+
+    from app.storage.save_format import SaveFormatError
+
+    s = make_session(cards)
+    for fmt in ("constructed", "sandbox"):
+        payload = {"state": {**s.state.model_dump(mode="json"), "format": fmt}, "history": s.history.to_dict()}
+        with pytest.raises(SaveFormatError, match=f"This is a {fmt.title()} game. Fyodor plays Commander only"):
+            load_payload(payload)
+    load_payload({"state": s.state.model_dump(mode="json"), "history": s.history.to_dict()})  # Commander games still load

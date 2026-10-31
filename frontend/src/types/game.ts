@@ -226,7 +226,7 @@ export interface DigLog { mode: "reveal_until" | "cascade"; player: string; card
 export interface GameMeta {
   id: string;
   name: string;
-  format: "commander" | "constructed" | "sandbox";
+  format: "commander";
   seq: number;
   settings: {
     starting_life: number;
@@ -491,7 +491,7 @@ export const isVisible = (c: GameCard | undefined): c is VisibleCard => !!c && !
 
 export interface LobbySettings {
   name: string;
-  format: "commander" | "constructed" | "sandbox";
+  format: "commander";
   seats: number;
   starting_life: number | null;
   deck_privacy: "private" | "commander_only" | "public";

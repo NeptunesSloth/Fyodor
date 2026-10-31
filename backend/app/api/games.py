@@ -148,7 +148,7 @@ class PlayerIn(BaseModel):
 
 class CreateGameIn(BaseModel):
     name: str = Field(default="Game", max_length=80)
-    format: Literal["commander", "constructed", "sandbox"] = "commander"
+    format: Literal["commander"] = "commander"
     mode: Literal["local", "lan"] = "local"
     password: str | None = Field(default=None, max_length=100)
     players: list[PlayerIn] = Field(default_factory=list, max_length=6)
@@ -243,7 +243,7 @@ def _create_lobby(services: Services, body: CreateGameIn) -> dict[str, Any]:
         raise HTTPException(422, "A lobby is for LAN games")
     settings = LobbySettings(name=body.name, format=body.format, seats=body.seats, starting_life=body.starting_life,
                              deck_privacy=body.deck_privacy,
-                             mulligan_rule=body.mulligan_rule or ("commander_london" if body.format == "commander" else "london"),
+                             mulligan_rule=body.mulligan_rule or "commander_london",
                              mulligan_policy=body.mulligan_policy, priority_helper=body.priority_helper,
                              auto_untap=body.auto_untap, automation=body.automation, turn_order=body.turn_order)
     room = services.hub.create_lobby(settings, password=body.password)
@@ -600,7 +600,7 @@ class ProfileIn(BaseModel):
 
 class LobbySettingsIn(BaseModel):
     name: str | None = Field(default=None, max_length=80)
-    format: Literal["commander", "constructed", "sandbox"] | None = None
+    format: Literal["commander"] | None = None
     seats: int | None = Field(default=None, ge=1, le=6)
     starting_life: int | None = Field(default=None, ge=1, le=10000)
     deck_privacy: Literal["private", "commander_only", "public"] | None = None
@@ -676,13 +676,10 @@ def _submitted(
 ) -> SubmittedDeck:
     cards = _deck_cards(services, entries)
     check_bounds(cards)
-    # Advisory legality checks for every table format (the host may change it after you submit).
+    # Advisory Commander legality checks (never blocking: "play anyway").
     playable = [e for e in entries if e.section != "maybeboard"]
     card_data = services.cards.get_many([e.printing_id for e in playable if e.printing_id])
-    warnings = {
-        f: [w.model_dump() for w in deck_service.validate(DeckIn(name="deck", format=f, entries=playable), services.cards, card_data)][:40]
-        for f in ("commander", "constructed", "sandbox")
-    }
+    warnings = {"commander": [w.model_dump() for w in deck_service.validate(DeckIn(name="deck", entries=playable), services.cards, card_data)][:40]}
     commander_ids = [c.printing_id for c in cards if c.section == "commander" and c.printing_id]
     data = services.cards.get_many(commander_ids) if commander_ids else {}
     levels = {"FULL": 0, "PARTIAL": 0, "REVIEW": 0, "MANUAL": 0}

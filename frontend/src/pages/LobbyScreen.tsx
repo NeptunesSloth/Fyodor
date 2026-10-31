@@ -81,8 +81,8 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
         <div className="lobby-title">
           <h1>{s.name}</h1>
           <div className="lobby-meta">
-            <span>{s.format === "commander" ? "Commander" : s.format === "constructed" ? "Constructed" : "Sandbox"}</span>
-            <span>Life {s.starting_life ?? (s.format === "commander" ? 40 : 20)}</span>
+            <span>Commander</span>
+            <span>Life {s.starting_life ?? 40}</span>
             <span title={DECK_PRIVACY_HINT[s.deck_privacy]}>Decks: {DECK_PRIVACY_LABEL[s.deck_privacy]}</span>
             <span className={lobby.mulligan?.needs_definition ? "warn" : undefined}>
               Mulligan: {lobby.mulligan?.display_name ?? MULLIGAN_LABEL[s.mulligan_rule] ?? s.mulligan_rule}
@@ -545,13 +545,6 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
     }>
       <div className="settings-grid">
         <label className="field">Table name<input value={draft.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} /></label>
-        <label className="field">Format
-          <select value={draft.format} onChange={(e) => set({ format: e.target.value as LobbySettings["format"] })}>
-            <option value="commander">Commander</option>
-            <option value="constructed">Constructed</option>
-            <option value="sandbox">Sandbox</option>
-          </select>
-        </label>
         <label className="field">Seats
           <select value={draft.seats} onChange={(e) => set({ seats: Number(e.target.value) })}>
             {[1, 2, 3, 4, 5, 6].filter((n) => n >= minSeats).map((n) => <option key={n} value={n}>{n}</option>)}

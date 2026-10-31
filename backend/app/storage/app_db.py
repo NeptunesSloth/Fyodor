@@ -144,6 +144,10 @@ MIGRATIONS: list[str] = [
         PRIMARY KEY (game_id, client_action_id)
     );
     """,
+    # 8: Fyodor is Commander-only. Decks saved as Constructed or Sandbox become Commander decks (their cards are kept).
+    """
+    UPDATE decks SET format = 'commander' WHERE format <> 'commander';
+    """,
 ]
 
 

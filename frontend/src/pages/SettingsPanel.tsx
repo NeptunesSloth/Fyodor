@@ -250,7 +250,7 @@ function DiagnosticsSection() {
       </p>
       <div className="row">
         <label className="check"><input type="checkbox" checked={priv} onChange={(e) => setPriv(e.target.checked)} data-testid="diag-private" />
-          Include private information (full table states and decklists)</label>
+          Include private information (full table states and decklists; LAN games still being played stay private)</label>
         <a className="tt-btn ghost" data-testid="diag-download" href={`/api/diagnostics${priv ? "?include_private=true" : ""}`} download>Download diagnostics</a>
       </div>
     </section>

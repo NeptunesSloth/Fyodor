@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Modal } from "../components/Modal";
 import { toast, toastError } from "../components/Toasts";
 import { cacheArt, createDeck, importOptions, previewImport } from "../services/decks";
-import type { DeckFormat, ImportRequest, ParsePreview } from "../types/decks";
+import type { ImportRequest, ParsePreview } from "../types/decks";
 
 type Source = "url" | "paste" | "file" | "other";
 
@@ -23,7 +23,6 @@ export function ImportDialog({ onClose, onCreated }: { onClose: () => void; onCr
   const [text, setText] = useState("");
   const [file, setFile] = useState<{ name: string; content: string } | null>(null);
   const [name, setName] = useState("");
-  const [format, setFormat] = useState<DeckFormat | "">("");
   const [preview, setPreview] = useState<ParsePreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -85,7 +84,7 @@ export function ImportDialog({ onClose, onCreated }: { onClose: () => void; onCr
     if (!req) return;
     setBusy(true);
     try {
-      const deck = await createDeck({ ...req, name: name.trim() || undefined, format: format || undefined });
+      const deck = await createDeck({ ...req, name: name.trim() || undefined, });
       const r = deck.import_report;
       const issues = (r?.unresolved.length ?? 0) + (r?.fallbacks.length ?? 0);
       toast(issues ? `Imported ${deck.name} — ${issues} card(s) need a look` : `Imported ${deck.name}`, issues ? "warn" : "info");
@@ -203,15 +202,6 @@ export function ImportDialog({ onClose, onCreated }: { onClose: () => void; onCr
             <label className="field grow">
               Name
               <input value={name} placeholder={preview?.name ?? "Deck name"} maxLength={120} onChange={(e) => setName(e.target.value)} />
-            </label>
-            <label className="field">
-              Format
-              <select value={format} onChange={(e) => setFormat(e.target.value as DeckFormat | "")}>
-                <option value="">{preview?.format ? `Detect (${preview.format})` : "Detect"}</option>
-                <option value="commander">Commander</option>
-                <option value="constructed">Constructed</option>
-                <option value="sandbox">Sandbox</option>
-              </select>
             </label>
           </div>
         </div>

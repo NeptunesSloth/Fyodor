@@ -7,8 +7,15 @@ from pydantic import BaseModel, Field, field_validator
 from app.textutil import clean_text
 
 Section = Literal["commander", "companion", "main", "sideboard", "maybeboard", "tokens", "attractions", "stickers"]
-DeckFormat = Literal["commander", "constructed", "sandbox"]
+DeckFormat = Literal["commander"]  # Fyodor is Commander-only; older "constructed"/"sandbox" decks read as Commander decks
 Finish = Literal["nonfoil", "foil", "etched"]
+
+
+def _as_commander(v: object) -> object:
+    """Decks from before Constructed and Sandbox were removed (exports, packages, older clients) open as Commander decks."""
+    return "commander" if v in ("constructed", "sandbox") else v
+
+
 # How a printing was chosen for an entry (see docs/ARCHIDEKT_COMPATIBILITY.md §4).
 Resolution = Literal["exact", "set", "fallback", "name", "manual", "unresolved"]
 
@@ -83,6 +90,11 @@ class DeckIn(BaseModel):
     entries: list[DeckEntry] = Field(default_factory=list, max_length=1000)
     categories: list[DeckCategory] = Field(default_factory=list, max_length=100)
 
+    @field_validator("format", mode="before")
+    @classmethod
+    def _commander_only(cls, v: object) -> object:
+        return _as_commander(v)
+
     @field_validator("name")
     @classmethod
     def _clean_name(cls, v: str) -> str:
@@ -126,5 +138,10 @@ class DeckImportRequest(BaseModel):
     name: str | None = Field(default=None, max_length=120)
     format: DeckFormat | None = None
     mode: Literal["replace", "append"] = "replace"
+
+    @field_validator("format", mode="before")
+    @classmethod
+    def _commander_only(cls, v: object) -> object:
+        return _as_commander(v)
 
     model_config = {"populate_by_name": True}

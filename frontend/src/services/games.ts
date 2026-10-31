@@ -9,7 +9,7 @@ export interface CreatePlayer {
 
 export interface CreateGameBody {
   name: string;
-  format: "commander" | "constructed" | "sandbox";
+  format: "commander";
   mode: "local" | "lan";
   password?: string | null;
   players: CreatePlayer[];

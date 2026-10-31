@@ -187,11 +187,6 @@ export function DeckEditor({ id, jobId }: { id: string; jobId?: string | null })
     <div className="page deck-editor">
       <div className="toolbar">
         <input className="deck-title" value={name} maxLength={120} onChange={(e) => { setName(e.target.value); setDirty(true); }} />
-        <select value={format} onChange={(e) => { setFormat(e.target.value as DeckFormat); setDirty(true); }}>
-          <option value="commander">Commander</option>
-          <option value="constructed">Constructed</option>
-          <option value="sandbox">Sandbox</option>
-        </select>
         <ColorPips colors={deck.summary.color_identity} />
         <span className="hint">{total} cards</span>
         <span className="spacer" />

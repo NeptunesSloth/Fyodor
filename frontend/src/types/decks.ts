@@ -1,5 +1,5 @@
 export type Section = "commander" | "companion" | "main" | "sideboard" | "maybeboard" | "tokens" | "attractions" | "stickers";
-export type DeckFormat = "commander" | "constructed" | "sandbox";
+export type DeckFormat = "commander"; // Fyodor is Commander-only
 export const SECTIONS: Section[] = ["commander", "companion", "main", "sideboard", "maybeboard", "tokens", "attractions", "stickers"];
 export const SECTION_LABEL: Record<Section, string> = {
   commander: "Commander",

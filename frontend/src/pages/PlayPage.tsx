@@ -160,7 +160,6 @@ export function PlayPage({ route }: { route: Route }) {
 
 function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string | null }) {
   const [name, setName] = useState("Commander night");
-  const [format, setFormat] = useState<"commander" | "constructed" | "sandbox">("commander");
   const [mode, setMode] = useState<"local" | "lan">(() => (window.location.hash.includes("mode=lan") ? "lan" : "local"));
   const [password, setPassword] = useState("");
   const [first, setFirst] = useState<string>("random");
@@ -199,7 +198,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
     try {
       const res = await createGame({
         name: name.trim() || "Game",
-        format,
+        format: "commander",
         mode,
         password: mode === "lan" ? password || null : null,
         players: useLobby ? [{ name: players[0]?.name.trim() || "Host", deck_id: null }] : players.map((p) => ({ ...p, name: p.name.trim() || "Player" })),
@@ -232,16 +231,8 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
       <div className="row wrap">
         <label className="field grow">Table name<input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} /></label>
         <label className="field">
-          Format
-          <select value={format} onChange={(e) => setFormat(e.target.value as typeof format)}>
-            <option value="commander">Commander (40 life)</option>
-            <option value="constructed">Constructed (20 life)</option>
-            <option value="sandbox">Sandbox</option>
-          </select>
-        </label>
-        <label className="field">
           Starting life
-          <input type="number" placeholder={format === "commander" ? "40" : "20"} value={life} min={1} onChange={(e) => setLife(e.target.value)} style={{ width: 90 }} />
+          <input type="number" placeholder="40" value={life} min={1} onChange={(e) => setLife(e.target.value)} style={{ width: 90 }} />
         </label>
         <label className="field" title={AUTOMATION_HINT[automation]}>
           Automation

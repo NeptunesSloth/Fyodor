@@ -495,7 +495,7 @@ class GameState(BaseModel):
     format_version: int = 1
     id: str
     name: str
-    format: Literal["commander", "constructed", "sandbox"] = "commander"
+    format: Literal["commander"] = "commander"  # Fyodor plays Commander only (Constructed and Sandbox were removed)
     created_at: float
     seq: int = 0  # number of actions applied (== history position)
     settings: GameSettings = Field(default_factory=GameSettings)
