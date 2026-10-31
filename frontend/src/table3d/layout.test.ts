@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { localToVirtual, pileAt, PILES, seats, tableSize, toLocal, toWorld, virtualToLocal } from "./layout";
+import { heartSpot, localToVirtual, pileAt, PILES, seats, tableSize, toLocal, toWorld, virtualToLocal } from "./layout";
 
 describe("3D table layout", () => {
   it("seats two facing rows, the viewer's row south, clockwise (along my row to my left, then back across)", () => {
@@ -19,6 +19,16 @@ describe("3D table layout", () => {
       // the viewer sits in the middle of their row
       const row = s.filter((x) => x.side === "south").map((x) => x.x);
       expect(Math.abs(s[0]!.x)).toBeLessThanOrEqual(Math.max(...row.map(Math.abs)));
+    }
+  });
+
+  it("floats every life heart toward the middle of the table, over the aisle", () => {
+    for (const n of [2, 4, 6]) {
+      for (const seat of seats(Array.from({ length: n }, (_, i) => `p${i}`), "p0")) {
+        const [hx, hz] = toWorld(seat, ...heartSpot(seat));
+        if (Math.abs(seat.x) > 0.01) expect(Math.abs(hx)).toBeLessThan(Math.abs(seat.x)); // nearer the middle than its mat
+        expect(Math.abs(hz)).toBeLessThan(Math.abs(seat.z)); // out over the aisle side
+      }
     }
   });
 

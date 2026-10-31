@@ -9,7 +9,7 @@ import { useCardCache } from "../state/cardCache";
 import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { isVisible } from "../types/game";
-import { addCounter, draw, send, tapCards } from "./actions";
+import { addCounter, send, tapCards } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { damageMenu } from "./marksMenu";
 import { typeLine } from "./selection";
@@ -95,66 +95,6 @@ export function LogDrawer() {
   );
 }
 
-/**
- * The scripted tables' seat buttons, by your seat: Untap, Draw, Scry, Mill, Reveal. Click does one, right-click
- * three, or hover one and type a number (as on the Tabletop Simulator tables) and it does that many.
- */
-export function SeatButtons() {
-  const view = useGame((s) => s.view);
-  const actingAs = useGame((s) => s.actingAs);
-  const [typed, setTyped] = useState<{ id: string; n: string } | null>(null);
-  const hovered = useRef<string | null>(null);
-  const timer = useRef<number>(0);
-  const me = view ? perspective(view, actingAs) : null;
-  const run = useRef<(id: string, n: number) => void>(() => {});
-  run.current = (id, n) => {
-    if (!me || n < 1) return;
-    if (id === "untap") void send({ type: "untap_all", player: me });
-    else if (id === "draw") void draw(me, n);
-    else if (id === "mill") void send({ type: "mill", player: me, count: n });
-    else if (id === "reveal") void send({ type: "reveal_top", player: me, count: n });
-    else if (id === "scry") void send({ type: "look_top", player: me, count: n }).then((ok) => ok && useGame.getState().openBrowser({ zone: `${me}:library`, title: `Scry ${n}: drag cards to the bottom, or leave them on top`, limit: n }));
-  };
-  useEffect(() => {
-    // typing a number over a button: digits go to the button, not the table's camera keys
-    const onKey = (e: KeyboardEvent) => {
-      const id = hovered.current;
-      if (!id || id === "untap" || !/^[0-9]$/.test(e.key)) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      setTyped((t) => {
-        const n = `${t?.id === id ? t.n : ""}${e.key}`.slice(0, 3);
-        window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(() => { run.current(id, Number(n)); setTyped(null); }, 900);
-        return { id, n };
-      });
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => { window.removeEventListener("keydown", onKey, true); window.clearTimeout(timer.current); };
-  }, []);
-  if (!me || view?.viewer === "__spectator__") return null;
-  const buttons: { id: string; label: string; title: string }[] = [
-    { id: "untap", label: "Untap", title: "Untap all your permanents (U)" },
-    { id: "draw", label: "Draw", title: "Draw: click 1, right-click 3, or hover and type a number" },
-    { id: "scry", label: "Scry", title: "Scry: look at the top cards (click 1, right-click 3, or hover and type a number)" },
-    { id: "mill", label: "Mill", title: "Mill: click 1, right-click 3, or hover and type a number" },
-    { id: "reveal", label: "Reveal", title: "Reveal the top card(s): click 1, right-click 3, or hover and type a number" },
-  ];
-  return (
-    <div className="seat-buttons" role="toolbar" aria-label="Your seat" data-testid="seat-buttons">
-      {buttons.map((b) => (
-        <button key={b.id} className={`tt-btn seat-btn seat-${b.id}`} title={b.title} data-testid={`seat-btn-${b.id}`}
-          onPointerEnter={() => { hovered.current = b.id; }}
-          onPointerLeave={() => { if (hovered.current === b.id) hovered.current = null; }}
-          onClick={() => run.current(b.id, 1)}
-          onContextMenu={(e) => { e.preventDefault(); run.current(b.id, 3); }}>
-          {b.label}{typed?.id === b.id && <b className="seat-typed" aria-live="polite"> ×{typed.n}</b>}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 /** A few physical tools within reach, bottom-left. */
 export function ToolTray() {
   const openDialog = useGame((s) => s.openDialog);
@@ -171,7 +111,6 @@ export function ToolTray() {
   ], "Your hand (S sorts)");
   return (
     <div className="tool-tray" data-testid="tool-tray">
-      <SeatButtons />
       <button className="tt-btn" onClick={() => openDialog("tokens")} title="Create tokens">Tokens</button>
       <button className="tt-btn" onClick={() => openDialog("dice")} title="Dice and coins">Dice</button>
       <button className="tt-btn" onClick={sortMenu} title="Sort your hand: as drawn, mana value, colour, type or name (S)" data-testid="hand-sort">

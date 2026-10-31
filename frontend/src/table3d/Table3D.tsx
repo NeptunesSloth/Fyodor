@@ -12,6 +12,7 @@ import { setPingLocator3D } from "../game/ping";
 import { placeAnchored, selectionAnchor } from "../game/anchors";
 import { SeatPlate } from "../game/SeatPlate";
 import { useDiceFeed } from "../game/dice";
+import type { SeatActionId } from "../game/seatActions";
 import { plane } from "../theme/planes";
 import { isVisible, type GameView } from "../types/game";
 import { ERROR_MS, TableScene, type CameraPreset, type Quality } from "./TableScene";
@@ -28,6 +29,8 @@ declare global {
       battlefieldAt: (player: string, x: number, y: number) => { x: number; y: number } | null;
       dice: () => { x: number; y: number }[];
       flick: (ids: string[], vx: number, vz: number) => boolean;
+      heartAt: (player: string) => { x: number; y: number } | null;
+      buttonAt: (id: SeatActionId) => { x: number; y: number } | null;
     };
   }
 }
@@ -85,6 +88,8 @@ export function Table3D({ me }: { me: string }) {
       battlefieldAt: (player, x, y) => scene.screenOfBattlefield(player, x, y),
       dice: () => scene.diceOnScreen(),
       flick: (ids, vx, vz) => scene.flickCards(ids, vx, vz),
+      heartAt: (player) => scene.heartOnScreen(player),
+      buttonAt: (id) => scene.buttonOnScreen(id),
     };
     // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,
     // turn dial, stack panels) and the battlefield cards, and never past the screen edge

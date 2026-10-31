@@ -114,7 +114,8 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
           <span className={`portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: "34px", borderColor: p.color }}>{p.name.slice(0, 1).toUpperCase()}</span>
           <span className="t3d-seat-name">{p.name}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
         </button>
-        <LifeHeart player={player} name={p.name} life={p.life} testId={flat ? `life-${player}` : `life3d-${player}`} />
+        {/* on the 3D table the life heart floats over the seat itself (table3d/seatProps.ts) */}
+        {flat && <LifeHeart player={player} name={p.name} life={p.life} testId={`life-${player}`} />}
         <span className="seat-trackers">
           {sources.map((c) => (
             <Tracker key={c.key} value={p.commander_damage[c.key] ?? 0} lethal={LETHAL_COMMANDER} color={c.owner.color} glyph={c.owner.name.slice(0, 1).toUpperCase()}

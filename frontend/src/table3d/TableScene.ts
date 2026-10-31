@@ -17,7 +17,8 @@ import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { isVisible, type CardStats, type GameCard, type GameView, type LibraryView, type ZoneName } from "../types/game";
 import { counterShort, isKeyword } from "../game/counters";
-import { draw, send, tapCards, targetsFor } from "../game/actions";
+import { changeLife, draw, send, tapCards, targetsFor } from "../game/actions";
+import { Batcher, runSeatAction, SEAT_ACTIONS, TypedCount, type SeatActionId } from "../game/seatActions";
 import { cardMenu } from "../game/cardMenu";
 import { tableMenu } from "../game/selection";
 import { zonePileTops } from "../game/piles";
@@ -35,9 +36,10 @@ import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
 import { DiceTray } from "./dice";
 import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
+import { SeatProps } from "./seatProps";
 import type { DiceShow } from "../game/dice";
 import {
-  AISLE, CARD_H, CARD_W, MAT_D, MAT_W, PILES, PLAQUE_AT, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
+  AISLE, CARD_H, CARD_W, heartSpot, MAT_D, MAT_W, PILES, plaqueSpot, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
   virtualToLocal, type PileZone, type Seat,
 } from "./layout";
 import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
@@ -228,6 +230,15 @@ export class TableScene {
   private bodies: THREE.InstancedMesh;
   private arrows = new THREE.Group();
   private dice = new DiceTray();
+  /** Life hearts over every seat and my seat's buttons (table3d/seatProps.ts). */
+  private props = new SeatProps();
+  private propsKey = "";
+  private hoveredButton: SeatActionId | null = null;
+  private lifeBatch = new Batcher((pid, d) => void changeLife(pid, d), (pid, pending) => {
+    const p = this.view?.players.find((x) => x.id === pid);
+    if (p) this.props.setLife(pid, p.life, pending);
+  });
+  private typed = new TypedCount((id, n) => this.props.setTyped(id, n), (id, n) => runSeatAction(id, n, this.me));
   /** A soft contact shadow under every card (one draw call), spreading as the card lifts. */
   private shadows: THREE.InstancedMesh;
   private shadowTex = contactShadowTexture();
@@ -289,7 +300,7 @@ export class TableScene {
     this.shadows.count = 0;
     this.shadows.frustumCulled = false;
     this.shadows.renderOrder = -1;
-    this.world.add(this.bodies, this.shadows, this.arrows, this.dice.group);
+    this.world.add(this.bodies, this.shadows, this.arrows, this.dice.group, this.props.group);
     this.scene.add(this.world);
     this.applyFog();
     this.bindInput();
@@ -334,6 +345,12 @@ export class TableScene {
       this.rebuildTable();
       this.updateCameraGoal();
     }
+    const propsKey = `${key}|${view.players.map((p) => p.color).join(",")}`;
+    if (propsKey !== this.propsKey) {
+      this.propsKey = propsKey;
+      this.props.rebuild(this.seatList, me, Object.fromEntries(view.players.map((p) => [p.id, p.color])));
+    }
+    for (const p of view.players) this.props.setLife(p.id, p.life, this.lifeBatch.pending(p.id));
     this.syncCards();
   }
 
@@ -367,6 +384,17 @@ export class TableScene {
     this.dice.throw(show, color, { from: new THREE.Vector3(fx, 0, fz), land, bounds, obstacles }, performance.now());
   }
 
+  /** A seat's life heart and my seat's buttons, on screen (tests and diagnostics). */
+  heartOnScreen(player: string): { x: number; y: number } | null {
+    const p = this.props.heartWorld(player);
+    return p ? this.project(p) : null;
+  }
+
+  buttonOnScreen(id: SeatActionId): { x: number; y: number } | null {
+    const p = this.props.buttonWorld(id);
+    return p ? this.project(p) : null;
+  }
+
   /** The dice on the table, in screen coordinates (tests and diagnostics). */
   diceOnScreen(): { x: number; y: number }[] {
     return this.dice.positions().map((p) => this.project(p));
@@ -376,7 +404,7 @@ export class TableScene {
   seatScreen(player: string, width: number, height: number): { x: number; y: number; visible: boolean } | null {
     const seat = this.seatList.find((s) => s.player === player);
     if (!seat) return null;
-    const [wx, wz] = toWorld(seat, ...PLAQUE_AT);
+    const [wx, wz] = toWorld(seat, ...plaqueSpot(seat));
     const v = new THREE.Vector3(wx, 0.3, wz).project(this.camera);
     return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height, visible: v.z < 1 }; // off to the side: the overlay clamps it to the screen edge
   }
@@ -474,6 +502,9 @@ export class TableScene {
     cancelAnimationFrame(this.raf);
     for (const u of this.unsubs) u();
     this.dice.dispose();
+    this.lifeBatch.dispose();
+    this.typed.dispose();
+    this.props.dispose();
     this.clearTable();
     for (const c of this.cards.values()) this.disposeCard(c);
     this.cards.clear();
@@ -892,7 +923,8 @@ export class TableScene {
       // a player: their plaque (as Arena lands on the avatar), spread a little so several
       // attackers' crystals sit side by side
       const spread = from ? Math.max(-0.7, Math.min(0.7, toLocal(seat, from.x, from.z)[0] * 0.12)) : 0;
-      const [wx, wz] = toWorld(seat, PLAQUE_AT[0] + spread, PLAQUE_AT[1]);
+      const [hx, hz] = heartSpot(seat);
+      const [wx, wz] = toWorld(seat, hx + spread, hz);
       const p = new THREE.Vector3(wx, 0.3, wz);
       // stop short of the plaque so the crystal stays clear of its Turn / Priority flags
       if (from) p.add(from.clone().setY(0.3).sub(p).setLength(Math.min(1.1, from.distanceTo(p) * 0.3)));
@@ -1063,15 +1095,15 @@ export class TableScene {
     return this.ray.ray.intersectPlane(this.tablePlane, out);
   }
 
-  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string } | null {
+  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId } | null {
     this.ray.setFromCamera(this.pointer(clientX, clientY), this.camera);
-    const targets: THREE.Object3D[] = [];
+    const targets: THREE.Object3D[] = [...this.props.targets()];
     for (const c of this.cards.values()) if (!this.drag?.ids.includes(c.id)) targets.push(c.face);
     for (const p of this.piles.values()) targets.push(p.block, p.slot, ...(p.top?.visible ? [p.top] : []));
     const hits = this.ray.intersectObjects(targets, false);
     const hit = hits[0];
     if (!hit) return null;
-    const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string };
+    const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId };
     return d;
   }
 
@@ -1095,9 +1127,23 @@ export class TableScene {
     };
     window.addEventListener("keydown", onKey, true);
     this.unsubs.push(() => window.removeEventListener("keydown", onKey, true));
+    // hover a seat button and type a number: that many (digits go to the button, not the camera keys)
+    const onDigit = (e: KeyboardEvent) => {
+      if (this.typed.key(this.hoveredButton, e.key)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener("keydown", onDigit, true);
+    this.unsubs.push(() => window.removeEventListener("keydown", onDigit, true));
     on("contextmenu", (e) => this.onContext(e));
     on("wheel", (e) => {
       e.preventDefault();
+      const over = this.pick(e.clientX, e.clientY);
+      if (over?.heart) {
+        this.lifeBatch.bump(over.heart, e.deltaY < 0 ? 1 : -1);
+        return;
+      }
       this.zoom = Math.max(0.45, Math.min(1.8, this.zoom * (e.deltaY > 0 ? 1.08 : 1 / 1.08)));
       this.updateCameraGoal();
     }, { passive: false });
@@ -1122,6 +1168,15 @@ export class TableScene {
     if (e.button !== 0) return;
     const hit = this.pick(e.clientX, e.clientY);
     const store = useGame.getState();
+    if (hit?.heart) {
+      this.lifeBatch.bump(hit.heart, e.shiftKey ? 5 : 1); // the heart's number is the control: click +1
+      return;
+    }
+    if (hit?.seatButton) {
+      this.props.press(hit.seatButton);
+      runSeatAction(hit.seatButton, 1, this.me);
+      return;
+    }
     if (!hit?.card) {
       if (!hit && !e.shiftKey) store.clearSelection();
       if (hit?.pile && hit.player) this.clickPile(hit.player, hit.pile, e);
@@ -1200,6 +1255,12 @@ export class TableScene {
     }
     const hit = this.pick(e.clientX, e.clientY);
     this.setHover(hit?.card ?? null);
+    this.hoveredButton = hit?.seatButton ?? null;
+    this.props.hover(this.hoveredButton);
+    const tip = hit?.seatButton ? SEAT_ACTIONS.find((a) => a.id === hit.seatButton)?.title
+      : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life: click +1, right-click −1, or the wheel (Shift: 5)` : "";
+    if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
+    this.canvas.style.cursor = hit?.seatButton || hit?.heart ? "pointer" : "";
   }
 
   private onUp(e: PointerEvent): void {
@@ -1313,6 +1374,15 @@ export class TableScene {
   private onContext(e: MouseEvent): void {
     e.preventDefault();
     const hit = this.pick(e.clientX, e.clientY);
+    if (hit?.heart) {
+      this.lifeBatch.bump(hit.heart, e.shiftKey ? -5 : -1); // right-click −1
+      return;
+    }
+    if (hit?.seatButton) {
+      this.props.press(hit.seatButton);
+      runSeatAction(hit.seatButton, 3, this.me); // right-click: three
+      return;
+    }
     const store = useGame.getState();
     const view = store.view;
     if (!view) return;
@@ -1411,6 +1481,7 @@ export class TableScene {
     this.shadows.instanceMatrix.needsUpdate = true;
     if (this.shadows.instanceColor) this.shadows.instanceColor.needsUpdate = true;
     this.dice.update(performance.now(), reduced, speed);
+    this.props.tick(t, this.camera, reduced);
     const kc = ease(dt, 5 * speed, reduced);
     this.camPos.lerp(this.camGoalPos, kc);
     this.camLook.lerp(this.camGoalLook, kc);

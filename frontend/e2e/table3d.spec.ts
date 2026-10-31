@@ -38,8 +38,11 @@ async function fourPlayerTable(page: Page, perSeatOnBattlefield: number, plane =
 
 test("3D table: seats, drag from hand onto the table, right-click menu, tap", async ({ page }) => {
   const { view } = await fourPlayerTable(page, 2);
-  // every player has a seat plate with their life total
-  for (const pid of ["p1", "p2", "p3", "p4"]) await expect(page.getByTestId(`life3d-${pid}`)).toHaveText("40");
+  // every player has a seat plate, and a life heart floating over their seat
+  for (const pid of ["p1", "p2", "p3", "p4"]) {
+    await expect(page.getByTestId(`seat-${pid}`)).toBeVisible();
+    expect(await page.evaluate((p) => window.__fyodor3d!.heartAt(p), pid)).not.toBeNull();
+  }
 
   // drag a card from the (2D) hand onto my 3D battlefield
   const hand = page.locator("main.table > .hand .hand-card");
@@ -60,14 +63,20 @@ test("3D table: seats, drag from hand onto the table, right-click menu, tap", as
   await menuPath(page, "Tap");
   await expect.poll(async () => (await view()).cards[id]!.tapped).toBe(true);
 
-  // the life heart, as on the scripted tables: click +1, right-click −1, gathered into one change
+  // the floating life heart, as on the scripted tables: click +1, right-click −1, gathered into one change
   const life = async (pid: string) => ((await view()) as unknown as { players: { id: string; life: number }[] }).players.find((p) => p.id === pid)!.life;
-  const heart = page.getByTestId("heart-p2");
-  await heart.click();
-  await heart.click();
-  await heart.click({ button: "right" });
-  await expect(page.getByTestId("life3d-p2")).toHaveText("41");
-  await expect.poll(() => life("p2")).toBe(41);
+  const heart = (await page.evaluate(() => window.__fyodor3d!.heartAt("p2")))!;
+  await page.mouse.click(heart.x, heart.y);
+  await page.mouse.click(heart.x, heart.y);
+  await page.mouse.click(heart.x, heart.y, { button: "right" });
+  await expect.poll(() => life("p2"), { timeout: 15_000 }).toBe(41);
+
+  // my seat's buttons are on the table by my mat: Draw draws one
+  const handCount = async () => ((await view()) as unknown as { zones: Record<string, unknown> }).zones["p1:hand"] as string[];
+  const handBefore = (await handCount()).length;
+  const drawButton = (await page.evaluate(() => window.__fyodor3d!.buttonAt("draw")))!;
+  await page.mouse.click(drawButton.x, drawButton.y);
+  await expect.poll(async () => (await handCount()).length).toBe(handBefore + 1);
 
   // a flick: one of my cards, let go while moving fast, slides on across my mat and the server keeps where it
   // stops (a real hand's pointer events are too far apart in this software-rendered browser, so the test throws

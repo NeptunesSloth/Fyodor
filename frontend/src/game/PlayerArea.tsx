@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useGame, usePlayer } from "../state/gameStore";
 import { Battlefield } from "./Battlefield";
 import { Hand } from "./Hand";
+import { SeatButtons } from "./SeatButtons";
 import { SeatPlate } from "./SeatPlate";
 import { CommandZone, LibraryPile, Pile } from "./ZonePile";
 
@@ -32,6 +33,7 @@ export function PlayerArea({ player, me, mine, compact, focused }: { player: str
           <aside className="area-side">
             {plaque}
             {zones}
+            <SeatButtons />
           </aside>
           <Battlefield player={player} me={me} mirrored={false} color={p.color} />
         </div>

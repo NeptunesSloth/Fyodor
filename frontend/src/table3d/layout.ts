@@ -33,8 +33,25 @@ export interface TableSize { w: number; d: number }
 export const AISLE = 1.9;
 /** Mat centre to mat centre along a row: the zone strips of neighbours don't touch. */
 export const SEAT_DX = 2 * STRIP_X + CARD_W + 0.8;
-/** Where each seat's plaque sits, mat-local: in the aisle by the mat's inner edge, toward its owner's left. */
-export const PLAQUE_AT: [number, number] = [-MAT_W / 2 + 0.9, -MAT_D / 2 - AISLE / 2];
+/**
+ * Which way along its mat a seat's heart and plaque sit: toward the middle of the table (where the scripted tables
+ * keep the hearts, and where every seat can see them), or the owner's left for a seat in the middle of its row.
+ * +1 is the owner's right in the mat's own frame.
+ */
+export function towardMiddle(seat: Seat): 1 | -1 {
+  if (Math.abs(seat.x) < 0.01) return -1;
+  return -Math.sign(seat.x) * Math.sign(Math.cos(seat.rot)) > 0 ? 1 : -1;
+}
+
+/** Where a seat's life heart floats, mat-local: over the aisle by the mat's inner corner nearest the middle. */
+export function heartSpot(seat: Seat): [number, number] {
+  return [towardMiddle(seat) * (MAT_W / 2 - 0.7), -MAT_D / 2 - AISLE * 0.5];
+}
+
+/** Where a seat's plaque (portrait, name, trackers) sits, mat-local: beside its heart, a little further along. */
+export function plaqueSpot(seat: Seat): [number, number] {
+  return [towardMiddle(seat) * (MAT_W / 2 - 3.5), -MAT_D / 2 - AISLE / 2];
+}
 
 /**
  * Seats for 1–6 players in two facing rows, as on the scripted Commander tables of Tabletop Simulator

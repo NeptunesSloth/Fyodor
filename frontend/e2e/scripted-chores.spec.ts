@@ -50,7 +50,7 @@ test("library and hand chores, seat buttons, counter steppers, owner gem, exact 
   const before = await libCount();
   await page.getByTestId("seat-btn-mill").hover();
   await page.keyboard.press("2");
-  await expect(page.getByTestId("seat-btn-mill")).toContainText("×2");
+  await expect(page.getByTestId("seat-btn-mill")).toContainText("2"); // the count being typed, on the button
   await expect.poll(libCount).toBe(before - 2);
 
   // discard at random, from the Hand menu

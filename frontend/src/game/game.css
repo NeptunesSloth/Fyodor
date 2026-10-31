@@ -67,16 +67,14 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .opponents.focused > .player-area:not(.focused) .seat-steps { display: none; }
 .opponents.focused > .player-area:not(.focused) .seat-strip { flex-wrap: wrap; row-gap: 4px; }
 /* my rail: plaque on top, the four zones under it */
-.player-area.mine .zone-rail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 8px; align-items: start; }
+/* the four piles in one row, so the seat buttons fit under them by the mat */
+.player-area.mine .zone-rail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; align-items: start; }
 .player-area.mine .zone-rail .pile-card, .player-area.mine .zone-rail .pile-empty { max-width: 74px; margin: 0 auto; }
 .player-area.mine .zone-rail .command-zone { min-height: 0; justify-content: center; }
-.player-area.mine .zone-rail .command-card { width: 66px; }
+.player-area.mine .zone-rail .pile-label { font-size: 9.5px; }
+.player-area.mine .zone-rail .command-card { width: 100%; }
 /* short screens (laptops): the zones share one row under the plaque, so nothing is cut off */
-@media (max-height: 900px) {
-  .player-area.mine .zone-rail { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
-  .player-area.mine .zone-rail .pile-label { font-size: 9.5px; }
-  .player-area.mine .zone-rail .command-card { width: 100%; }
-}
+
 
 /* ---------- battlefield ---------- */
 .battlefield {
@@ -572,11 +570,24 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
 }
 .log-pill-label { font-size: 12px; font-weight: 600; color: var(--room-brass-hi); }
 .log-pill-last { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tool-tray { position: fixed; z-index: 33; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 4px; max-width: 380px; }
-/* your seat's buttons sit over the tools, as the scripted tables put them along each player's edge */
-.seat-buttons { flex-basis: 100%; display: flex; gap: 4px; }
-.seat-btn { padding-inline: 10px; }
-.seat-typed { color: var(--room-brass-hi); }
+.tool-tray { position: fixed; z-index: 33; left: 12px; bottom: 12px; display: flex; gap: 4px; }
+/* your seat's buttons, in the rail by your mat as on the Oops tables: round, coloured, an icon each */
+.seat-buttons { display: flex; justify-content: space-between; gap: 4px; padding: 2px 2px 0; }
+.seat-btn {
+  position: relative; width: 34px; height: 34px; padding: 0; border-radius: 50%; cursor: pointer; flex: none;
+  display: grid; place-items: center; color: #0e0b08;
+  background: radial-gradient(circle at 38% 32%, color-mix(in srgb, var(--btn) 60%, white), var(--btn) 55%, color-mix(in srgb, var(--btn) 60%, black));
+  border: 2px solid rgba(0, 0, 0, 0.55); box-shadow: 0 3px 6px rgba(0, 0, 0, 0.55), inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+  transition: transform 80ms ease-out;
+}
+.seat-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.seat-btn:hover { filter: brightness(1.12); }
+.seat-btn:active { transform: translateY(1px) scale(0.96); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55); }
+.seat-btn:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+.seat-typed {
+  position: absolute; top: -9px; right: -7px; min-width: 18px; padding: 1px 4px; border-radius: 9px; font: 800 11px/1.3 Inter, sans-serif;
+  background: var(--room-brass-hi); color: #1a1208; pointer-events: none;
+}
 .counter-step b { font-variant-numeric: tabular-nums; margin-left: 2px; }
 .selection-bar {
   position: fixed; z-index: 45; left: 50%; bottom: calc(var(--hand-h, 150px) + 60px); transform: translateX(-50%);

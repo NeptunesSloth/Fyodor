@@ -1181,3 +1181,36 @@ work as it does on the Oops table, "so it isn't just another menu".
 - The portrait and name still open the full player panel; the counters don't need it. The +/− buttons stay
   (shown on hover) for touch and for anyone without a right-click.
 
+
+## 28. Seat buttons and life hearts on the table itself
+
+The user asked for the seat buttons to be "actual buttons by your mat like in Oops", and for life to "hover in their
+seat in the air" with no name.
+
+**The 3D table** (`table3d/seatProps.ts`):
+- **Life hearts float over every seat**, in the seat's colour, with no name: whose heart it is shows by where it
+  floats.
+  - Each heart sits over the aisle by its mat's inner corner nearest the middle of the table, as the Oops table
+    keeps its hearts in the middle, where every seat can see them.
+  - Hearts turn to face you, bob gently (not with reduced motion), and cast a soft shadow on the table.
+  - The number is the control: click +1, right-click −1, the wheel over the heart (otherwise the wheel zooms), and
+    Shift for 5. Quick clicks are gathered into one change, shown under the number as it builds.
+  - Attack arrows aimed at a player land under their heart.
+- **Your seat's buttons are physical discs on the table**, in a column along your mat's left side, clear of your
+  hand. Each is colour-coded with an icon (Untap, Draw, Scry, Mill, Reveal, after the Oops buttons).
+  - Click does one, right-click three, or hover one and type a number (it shows on the button's face).
+  - Buttons light when hovered and dip when pressed. The canvas tooltip names each one.
+- The plaque in the aisle keeps the portrait, name (it opens the player panel) and the trackers. In 3D it no longer
+  carries a heart.
+
+**The 2D table:** the seat buttons are round, coloured, icon buttons in the rail by your mat, under your piles.
+The piles share one row so the buttons fit. The bottom-left tray is back to Tokens, Dice and the Hand menu. Each
+2D plaque keeps its heart, which is the 2D table's version of the floating one.
+
+**Shared code:** `game/seatActions.ts` (the five actions, their icons as SVG path data, the typed count and the
+click batching), used by `game/SeatButtons.tsx` and `table3d/seatProps.ts`.
+
+**Tests:**
+- `table3d.spec.ts` clicks Bob's floating heart (twice, then a right-click: 41) and the Draw button on the table.
+- `layout.test.ts` checks every heart floats toward the middle, over the aisle.
+- `scripted-chores.spec.ts` covers the 2D buttons (click, right-click, a typed count).
