@@ -7,6 +7,7 @@ destinations) is recorded on the action so that ``engine.apply`` stays pure.
 
 from __future__ import annotations
 
+import re
 import secrets
 import time
 from typing import TYPE_CHECKING, Any, Protocol
@@ -171,6 +172,30 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.r = _resolve_move(state, a, actor, info)
     elif isinstance(a, A.ResolveTop):
         a.r = _resolve_top(state, info, a.card_id)
+    elif isinstance(a, A.RevealUntil | A.Cascade):
+        a.r = _dig(state, a, actor, info)
+    elif isinstance(a, A.FetchCard):
+        pid = a.player or actor
+        library_ids = state.zones.get(zone_key(pid, "library"), [])
+        want = a.name.strip().lower()
+        found = next((cid for cid in library_ids if (state.cards[cid].name or "").lower() == want), None)
+        if found is None:
+            raise ActionError(f"There's no {a.name.strip()} in that library")
+        inner = A.Move(card_ids=[found], to=A.ZoneRef(zone=a.to, player=pid if a.to == "battlefield" else None), actor=actor, ts=a.ts)
+        if a.to == "battlefield":
+            card = state.cards[found]
+            inner.x, inner.y = placement.free_spot(state, zone_key(pid, "battlefield"), placement.row_for(_face_type(info.get(card.card_id) if card.card_id else None, 0)))
+        inner.r = _resolve_move(state, inner, actor, info)
+        a.r = A.FetchData(move=inner, shuffle=shuffle_data(len(library_ids) - 1, rng))
+    elif isinstance(a, A.DiscardRandom):
+        pid = a.player or actor
+        in_hand = list(state.zones.get(zone_key(pid, "hand"), []))
+        if not in_hand:
+            raise ActionError("That hand is empty")
+        picked = rng.sample(in_hand, min(a.count, len(in_hand)))
+        inner = A.Move(card_ids=picked, to=A.ZoneRef(zone="graveyard"), actor=actor, ts=a.ts)
+        inner.r = _resolve_move(state, inner, actor, info)
+        a.r = inner
     elif isinstance(a, A.PutTopFaceDown):
         top_ids = state.zones.get(zone_key(a.player or actor, "library"), [])[: a.count]
         spots: list[tuple[float, float]] = []
@@ -186,6 +211,37 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
     if isinstance(a, A.MulliganKeep | A.MulliganBottom | A.MulliganFinish):
         a.opening = _opening_steps(state, a, info, rng)
     return response.wrap(state, a)
+
+
+def _has_type(type_line: str, wanted: str) -> bool:
+    """Does a type line include this card type, supertype or subtype ("Creature", "Basic Land", "Elf")?"""
+    return re.search(rf"(?<![A-Za-z]){re.escape(wanted.strip())}(?![A-Za-z])", type_line, re.IGNORECASE) is not None
+
+
+def _dig(state: GameState, a: A.RevealUntil | A.Cascade, actor: str, info: CardInfo) -> A.DigData:
+    """How far down the library the reveal goes: up to and including the first card that qualifies (the card
+    database knows types and mana values; the client never sees the library)."""
+    pid = a.player or actor
+    lib = state.zones.get(zone_key(pid, "library"), [])
+    if not lib:
+        raise ActionError("That library is empty")
+    count, hit = len(lib), False
+    for i, cid in enumerate(lib):
+        card = state.cards[cid]
+        data = info.get(card.card_id) if card.card_id else None
+        line = _face_type(data, 0)
+        if isinstance(a, A.RevealUntil):
+            ok = _has_type(line, a.card_type)
+        else:  # 702.85a: a nonland card with lesser mana value
+            ok = bool(line) and not _has_type(line.split("—")[0], "Land") and float((data or {}).get("cmc") or 0) < a.below
+        if ok:
+            count, hit = i + 1, True
+            break
+    move = None
+    if isinstance(a, A.Cascade):
+        move = A.Move(card_ids=list(lib[:count]), to=A.ZoneRef(zone="exile", player=pid), actor=actor, ts=a.ts)
+        move.r = _resolve_move(state, move, actor, info)
+    return A.DigData(count=count, hit=hit, move=move)
 
 
 def _opening_steps(state: GameState, a: A.MulliganKeep | A.MulliganBottom | A.MulliganFinish, info: CardInfo,

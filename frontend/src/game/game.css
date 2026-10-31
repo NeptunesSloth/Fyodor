@@ -112,6 +112,9 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .mark.atk { background: #a8322c; }
 .mark.blk { background: #2f5f93; }
 .counters { position: absolute; left: 3%; bottom: 3%; right: 3%; display: flex; flex-wrap: wrap; gap: 2px; pointer-events: none; }
+/* encoder-style steppers: click a chip for +1, right-click for −1 */
+.counters.steppers .counter { pointer-events: auto; cursor: pointer; }
+.counters.steppers .counter:hover { filter: brightness(1.25); box-shadow: 0 0 0 1px var(--room-brass-hi); }
 .counter {
   font-size: 10.5px; font-weight: 750; padding: 1px 5px; border-radius: 999px; background: rgba(12, 12, 14, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.25); color: #fff; line-height: 1.35; white-space: nowrap;
@@ -472,6 +475,8 @@ kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4
 .card-marks .mark.choice { max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgba(20, 20, 24, 0.85); color: var(--room-brass-hi); }
 .card-marks .mark.src { background: rgba(20, 20, 24, 0.8); color: var(--room-bone-dim); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-marks .mark.lock { background: transparent; }
+/* owner gem: someone else's card, in their seat colour, with their initial (never colour alone) */
+.card-marks .mark.owner { background: var(--owner); color: #0e0b08; font-weight: 800; border-radius: 50%; min-width: 16px; text-align: center; box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.6); }
 .combat-arrows .arrow line { stroke-width: 2; opacity: 0.55; stroke-linecap: round; }
 .combat-arrows .arrow.block line { stroke: #6aa7e8; }
 .combat-arrows .arrow.target line { stroke: #d9b36a; stroke-dasharray: 6 4; }
@@ -567,7 +572,12 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
 }
 .log-pill-label { font-size: 12px; font-weight: 600; color: var(--room-brass-hi); }
 .log-pill-last { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tool-tray { position: fixed; z-index: 33; left: 12px; bottom: 12px; display: flex; gap: 4px; }
+.tool-tray { position: fixed; z-index: 33; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 4px; max-width: 380px; }
+/* your seat's buttons sit over the tools, as the scripted tables put them along each player's edge */
+.seat-buttons { flex-basis: 100%; display: flex; gap: 4px; }
+.seat-btn { padding-inline: 10px; }
+.seat-typed { color: var(--room-brass-hi); }
+.counter-step b { font-variant-numeric: tabular-nums; margin-left: 2px; }
 .selection-bar {
   position: fixed; z-index: 45; left: 50%; bottom: calc(var(--hand-h, 150px) + 60px); transform: translateX(-50%);
   display: flex; align-items: center; gap: 4px; padding: 4px 6px 4px 12px; max-width: calc(100vw - 32px); flex-wrap: wrap;

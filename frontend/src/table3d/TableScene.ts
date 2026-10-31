@@ -733,7 +733,9 @@ export class TableScene {
         c.tilt = 0;
         const overlay = overlayFor(card, view.rules?.stats?.[id]);
         const pile = piles.get(id);
-        this.setOverlay(c, pile ? { ...(overlay ?? { keywords: [], counters: [] }), pile } : overlay);
+        const ownerP = card.owner !== card.controller ? view.players.find((p) => p.id === card.owner) : undefined;
+        const owner = ownerP ? { initial: ownerP.name.slice(0, 1).toUpperCase(), color: ownerP.color } : undefined;
+        this.setOverlay(c, pile || owner ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}) } : overlay);
         this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
       });
       // piles

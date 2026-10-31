@@ -1084,20 +1084,20 @@ shots (T5, linked there) were viewed for reference only and are not stored in th
 | Toggle +1/+1 counter | **Yes** | Toolbar +1/+1 on creatures; Add counter menu |
 | Toggle counter (any type) | **Yes** | Add counter → any type, or a custom type |
 | Counter number on the card | **Yes** | Counter chips on the card, in 2D and 3D |
-| Toggle power/toughness | **Partly** | With rules on, a live P/T badge. In manual play, +N/+N effects, but no box to type a P/T into |
-| Left-click to increase, right-click to decrease | **Partly** | The toolbar's +1/+1 counter button: left-click adds, right-click removes. The chips on the card are display-only |
-| Copy card | **Partly** | Create copy, copy with changes, several copies. Counters aren't copied (TTS "exact copy" keeps them) |
+| Toggle power/toughness | **Yes** (§26) | With rules on, a live P/T badge. In manual play, "Set power/toughness…" puts a P/T marker on the card |
+| Left-click to increase, right-click to decrease | **Yes** (§26) | On the card's counter chips (2D) and on the card toolbar's counter chips (2D and 3D) |
+| Copy card | **Yes** (§26) | Create copy, Exact copy (keeps counters, markers and choices), copy with changes, several copies |
 | Re-import card | **Not needed** | Card data is the offline database. Settings → Update card database refreshes everything |
 | Get tokens and emblems | **Yes** | The Tokens dialog suggests each of your cards' related tokens and emblems; "Create tokens from this…" |
-| Toggle owner gem | **No** | Nothing marks a card controlled by someone other than its owner (Give control and Return to owner exist) |
-| Library: cascade for X | **Partly** | The rules engine runs cascade; manual play has no one-click cascade |
-| Library: reveal until type | **No** | There is Reveal the top card, Look at the top N and Mill |
-| Library: get basic land | **Yes, manually** | Search library; with rules on, fetch effects run themselves |
+| Toggle owner gem | **Yes** (§26) | A card controlled by someone other than its owner wears its owner's initial in their seat colour, in 2D and 3D |
+| Library: cascade for X | **Yes** (§26) | Library → Cascade…: the server exiles down to the hit; a dialog offers cast it and the rest to the bottom in a random order |
+| Library: reveal until type | **Yes** (§26) | Library → Reveal until… (a type, or any type or subtype); a dialog offers where the cards go |
+| Library: get basic land | **Yes** (§26) | Library → Get a basic land: into your hand or onto the battlefield, then the library is shuffled |
 | Hand: sort by CMC | **Yes** | Hand sort by mana value, colour, type, name, or your own order |
-| Hand: discard at random | **No, manually** | The engine discards at random for cards that say so; there's no manual button |
+| Hand: discard at random | **Yes** (§26) | The Hand menu: Discard a card at random, or several; the server picks |
 | "Only works if cards have CMC and type in their name fields" | **Better** | Fyodor reads real card data |
 
-**Next, from the same tables:**
+**Next, from the same tables** (all built in §26):
 - Reveal-until and cascade as library actions (resolved on the server, which has the card data and the RNG), and
   discard at random.
 - A per-seat button row: Untap, Draw, Scry, Mill, Reveal, with left-click 1, right-click 3, or type a number while
@@ -1106,3 +1106,44 @@ shots (T5, linked there) were viewed for reference only and are not stored in th
   button already does.
 - An owner marker on cards controlled by someone else.
 - Exact copy, which keeps counters.
+
+## 26. Everything from §25's list, and the physics library
+
+The user asked for the physics library and for every open item from §25.
+
+**The physics library: `cannon-es`** (MIT, pure JavaScript, 0.20.0, bundled into the 3D table's chunk so the table
+stays offline; the 2D table never loads it):
+- Dice are their real convex polyhedra; a coin is a cylinder.
+- The table top, its edges and every seat's library, graveyard and exile piles are solid, so dice glance off decks.
+- A throw is still simulated ahead, seeded by the roll (every screen sees the same throw), and played back. The
+  server's number is printed on the face that ends up on top.
+- Cards don't use it: they stay where the server puts them, and the 3D table eases them there as before.
+- Tests (`table3d/physics.test.ts`): every die rests flat on a face on the table within 4 s, a coin lands flat, a deck
+  stops a die, and the same seed gives the same throw.
+- `fyodor-ui-design` rule 3 records this as the one exception to "no physics engine".
+
+**The library and hand chores** (resolved on the server, which has the card data and the RNG; nobody sees a library):
+- **Reveal until…** a type or subtype: the cards down to the first one stay on top, revealed to everyone.
+- **Cascade…** (mana value less than X): exiles down to the first cheaper nonland card (702.85a).
+- **Get a basic land**: into your hand or onto the battlefield, then the library is shuffled. Any card by name works.
+- **Discard at random**, from the Hand menu (701.9b).
+- After a reveal or a cascade, its owner gets a dialog: put the found card into hand, onto the battlefield, cast it
+  (cascade), and the rest to the bottom in a random order or the graveyard. Everyone else sees the cards in the
+  log and on top of the library (or in exile).
+- The log entry carries the cards (`LogEntry.dig`), like a roll's numbers.
+
+**The seat buttons** (bottom left, over Tokens, Dice and Hand): Untap, Draw, Scry, Mill and Reveal. Click does one,
+right-click three, or hover a button and type a number, as on the Oops buttons. Digits typed over a button go to it,
+not to the camera keys.
+
+**The encoder's card controls:**
+- Counter chips are steppers: click +1, right-click −1, on the card in 2D and on the card toolbar in 2D and 3D.
+- An **owner gem** (the owner's initial in their seat colour) on a card someone else controls, in 2D and 3D.
+- **Exact copy** keeps counters, effect markers and choices; a plain copy still starts bare, as the rules say.
+- **Set power/toughness…** puts a P/T marker on the card for manual play.
+
+**Plaques:** the aisle is wider (3.8 units), so the plaques sit clear of the card rows.
+
+e2e: `scripted-chores.spec.ts` covers reveal until, get a basic land, the seat buttons (click, right-click and a
+typed number), discard at random, counter steppers, exact copy and the owner gem.
+

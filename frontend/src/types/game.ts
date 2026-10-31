@@ -217,7 +217,11 @@ export interface LogEntryView {
   parts: LogPartView[];
   /** A public dice roll or coin flip's numbers (coin results: 1 heads, 0 tails). */
   roll?: { sides: number; results: number[]; coin: boolean };
+  /** Cards turned over from the top of a library (reveal until, cascade): public, for their owner to place. */
+  dig?: DigLog;
 }
+
+export interface DigLog { mode: "reveal_until" | "cascade"; player: string; cards: string[]; hit: string | null }
 
 export interface GameMeta {
   id: string;

@@ -458,6 +458,16 @@ class DiceRollLog(BaseModel):
     coin: bool = False  # results: 1 heads, 0 tails
 
 
+class DigLog(BaseModel):
+    """Cards turned over from the top of a library (reveal until, cascade): public, so their owner's table can offer
+    where to put them."""
+
+    mode: Literal["reveal_until", "cascade"]
+    player: str
+    cards: list[str]
+    hit: str | None = None
+
+
 class LogEntry(BaseModel):
     seq: int
     ts: float
@@ -469,6 +479,7 @@ class LogEntry(BaseModel):
     manual: bool = False  # a sandbox action taken while rules automation was on
     folded: bool = False  # shown collapsed under the following summary line (a repeated sequence)
     roll: DiceRollLog | None = None
+    dig: DigLog | None = None
 
 
 class CollectionCard(BaseModel):

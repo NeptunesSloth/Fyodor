@@ -30,6 +30,11 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
   const showSources = usePrefs((s) => s.showTokenSources);
   const legal = useGame((s) => legalClass(s.view, id, me));
   const stats = useGame((s) => s.view?.rules?.stats?.[id]);
+  // the encoder's owner gem: a card controlled by someone other than its owner says whose it is
+  const owner = useGame((s) => {
+    const c = s.view?.cards[id];
+    return c && c.owner !== c.controller ? s.view?.players.find((p) => p.id === c.owner) : undefined;
+  });
   if (!card) return null;
   const visible = isVisible(card);
   const rotation = (card.tapped ? 90 : 0) + (card.flipped ? 180 : 0) + (card.rotation ?? 0);
@@ -97,6 +102,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
           </span>
         )}
         {visible && card.token_source && showSources && <span className="mark src" title={`Created by ${card.token_source.name}`}>↳ {card.token_source.name}</span>}
+        {owner && <span className="mark owner" data-testid="owner-gem" style={{ ["--owner" as string]: owner.color }} title={`Owned by ${owner.name}`}>{owner.name.slice(0, 1).toUpperCase()}</span>}
       </div>
       {(card.effects?.length || card.damage) ? (
         <div className="card-effects">
@@ -109,7 +115,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
           {(card.effects?.length ?? 0) > 4 && <span className="fx more">+{card.effects!.length - 4}</span>}
         </div>
       ) : null}
-      <CounterBadges counters={card.counters} />
+      <CounterBadges counters={card.counters} cardId={id} />
       {visible && stats && <StatBadge stats={stats} />}
     </div>
   );

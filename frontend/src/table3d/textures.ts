@@ -510,6 +510,8 @@ export interface CardOverlay {
   chain?: { no: number; next: boolean };
   /** Arena-style ×N: this card tops a pile of identical lands (game/piles.ts). */
   pile?: number;
+  /** The encoder's owner gem: someone else owns this card (their initial, in their seat colour). */
+  owner?: { initial: string; color: string };
 }
 
 export const OVERLAY_W = 512;
@@ -632,6 +634,19 @@ export function cardOverlayCanvas(o: CardOverlay): HTMLCanvasElement {
     g.fillStyle = "#f4ead6";
     g.font = "800 76px Inter, Arial, sans-serif";
     g.fillText(`×${o.pile}`, W - 100, 154);
+  }
+  // owner gem, top left, over the art's corner
+  if (o.owner) {
+    g.beginPath();
+    g.arc(78, 150, 50, 0, Math.PI * 2);
+    g.fillStyle = o.owner.color;
+    g.fill();
+    g.lineWidth = 8;
+    g.strokeStyle = PLATE;
+    g.stroke();
+    g.fillStyle = "#0e0b08";
+    g.font = "800 58px Inter, Arial, sans-serif";
+    g.fillText(o.owner.initial, 78, 154);
   }
   // P/T plate, bottom right; a modified value says so with ▲/▼ as well as colour
   if (o.pt) {

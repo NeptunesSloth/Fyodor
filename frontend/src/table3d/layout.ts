@@ -30,7 +30,7 @@ export interface Seat {
 export interface TableSize { w: number; d: number }
 
 /** Half the aisle between the two rows of mats: the stack, combat arrows and the life plaques live here. */
-export const AISLE = 1.5;
+export const AISLE = 1.9;
 /** Mat centre to mat centre along a row: the zone strips of neighbours don't touch. */
 export const SEAT_DX = 2 * STRIP_X + CARD_W + 0.8;
 /** Where each seat's plaque sits, mat-local: in the aisle by the mat's inner edge, toward its owner's left. */

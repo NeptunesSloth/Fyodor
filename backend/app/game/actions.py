@@ -227,6 +227,57 @@ class RevealTop(Base):
     count: int = Field(default=1, ge=1, le=100)
 
 
+class DigData(BaseModel):
+    count: int  # cards turned over from the top
+    hit: bool  # the last of them is the one asked for (False: the library ran out first)
+    move: Move | None = None  # cascade: the exile move, resolved like any move
+
+
+class RevealUntil(Base):
+    """The scripted tables' "reveal until type": reveal cards from the top of a library until one of a card type
+    (or subtype) turns up. They stay on top, revealed to everyone, for their owner to place (game/DigDialog)."""
+
+    type: Literal["reveal_until"] = "reveal_until"
+    player: Id | None = None
+    card_type: Annotated[str, Field(min_length=1, max_length=40)]
+    r: DigData | None = None
+
+
+class Cascade(Base):
+    """Cascade by hand (702.85a): exile cards from the top until a nonland card with mana value less than ``below``.
+    They stay face up in exile, for their owner to cast the hit and put the rest on the bottom in a random order."""
+
+    type: Literal["cascade"] = "cascade"
+    player: Id | None = None
+    below: int = Field(ge=1, le=30)
+    r: DigData | None = None
+
+
+class FetchData(BaseModel):
+    move: Move
+    shuffle: ShuffleData
+
+
+class FetchCard(Base):
+    """The scripted tables' "get basic land": take a card by name from a library (a basic land, usually), put it into
+    the hand or onto the battlefield, then shuffle."""
+
+    type: Literal["fetch_card"] = "fetch_card"
+    player: Id | None = None
+    name: Annotated[str, Field(min_length=1, max_length=80)]
+    to: Literal["hand", "battlefield"] = "hand"
+    r: FetchData | None = None
+
+
+class DiscardRandom(Base):
+    """Discard at random (701.9b): the server picks the cards."""
+
+    type: Literal["discard_random"] = "discard_random"
+    player: Id | None = None
+    count: int = Field(default=1, ge=1, le=20)
+    r: Move | None = None
+
+
 class SearchStart(Base):
     type: Literal["search_start"] = "search_start"
     zone: ZoneRef
@@ -340,6 +391,9 @@ class CopyCard(Base):
     player: Id | None = None  # controller of the copy (default: actor)
     count: int = Field(default=1, ge=1, le=50)
     modifications: str = Field(default="", max_length=300)
+    # the scripted tables' "exact copy": the copy also takes the original's counters, effect markers and choices
+    # (a tabletop convenience; a rules copy, 707.2, copies none of them)
+    exact: bool = False
     # -- cast a copy (wave 13C) -- 707.12: the copy is made in the card's own zone (exile / graveyard); 722.3c: a prepared
     # permanent's copy is made in exile with the face of its prepare spell
     zone: Literal["exile", "graveyard", "hand"] | None = None  # (wave 110M: "hand" — a revealed card copied where it is, Kefnet; wave 110N: a copy of a revealed card made to be cast, 707.12)
@@ -1418,6 +1472,10 @@ Action = Annotated[
     | MulliganFinish
     | Reveal
     | Hide
+    | RevealUntil
+    | Cascade
+    | FetchCard
+    | DiscardRandom
     | LookTop
     | RevealTop
     | SearchStart

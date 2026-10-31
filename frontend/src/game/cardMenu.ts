@@ -159,6 +159,8 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
       label: "Create copy",
       submenu: [
         { label: "Copy", onClick: () => void send({ type: "copy_card", card_id: card.id, player: me }) },
+        // the scripted tables' exact copy (a plain copy starts without them, as the rules say)
+        { label: "Exact copy", hint: "keeps counters and markers", onClick: () => void send({ type: "copy_card", card_id: card.id, player: me, exact: true }) },
         {
           label: "Copy with changes…",
           onClick: async () => {
@@ -176,6 +178,18 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
       ],
     });
     items.push({ label: "Put ability on stack…", onClick: () => useGame.getState().openDialog("ability", card.id) });
+  }
+  if (zone === "battlefield" && visible) {
+    // the encoder's power/toughness box: a P/T marker on the card, for manual play (remove it from Effects)
+    items.push({
+      label: "Set power/toughness…",
+      onClick: async () => {
+        const data = card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
+        const pt = await askText("Power/toughness to show on the card", data?.power != null ? `${data.power}/${data.toughness}` : "2/2", { label: "e.g. 4/4" });
+        const m = pt ? /^\s*(-?\d+|\*)\s*\/\s*(-?\d+|\*)\s*$/.exec(pt) : null;
+        if (m) void send({ type: "add_effect", card_ids: ids, name: "P/T", value: `${m[1]}/${m[2]}`, color: "#f4ead6" });
+      },
+    });
   }
 
   if (zone === "hand" || zone === "library" || zone === "sideboard" || zone === "foretell") {

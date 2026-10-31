@@ -346,3 +346,77 @@ def test_dice_rolls_carry_their_numbers_to_every_table(s):
     assert s.state.log[-1].roll is not None and s.state.log[-1].roll.coin
     act(s, "p1", type="chat", text="gg")
     assert "roll" not in build_view(s.state, "p2")["log"][-1]
+
+
+def test_reveal_until_a_type_reveals_down_to_the_first_one_for_everyone(s):
+    """The scripted tables' "reveal until type": the server reads the types, every player sees the cards."""
+    from app.game.views import build_view
+
+    top = zone(s.state, "p1", "library")[:4]
+    act(s, "p1", type="reveal_until", card_type="Creature")
+    elves = find(s.state, "Llanowar Elves")
+    dig = s.state.log[-1].dig
+    assert dig is not None and dig.mode == "reveal_until" and dig.cards == top[:3] and dig.hit == elves.id
+    known = build_view(s.state, "p2")["zones"]["p1:library"]["known"]
+    assert [cid for _, cid in known] == top[:3]  # Bob sees the three, not the fourth
+    assert len(zone(s.state, "p1", "library")) == 15  # nothing moved
+    act(s, "p2", type="reveal_until", card_type="Planeswalker")
+    miss = s.state.log[-1]
+    assert miss.dig is not None and miss.dig.hit is None and len(miss.dig.cards) == 16
+    assert "no Planeswalker" in miss.parts[-1].t
+
+
+def test_cascade_exiles_down_to_a_cheaper_nonland_card(s):
+    act(s, "p1", type="mill", count=3)  # Sol Ring, Lightning Bolt and Llanowar Elves off the top
+    act(s, "p1", type="cascade", below=4)
+    exile = zone(s.state, "p1", "exile")
+    names = [s.state.cards[c].name for c in exile]
+    assert names[0] == "Fire // Ice" and names[1].startswith("Delver of Secrets") and len(names) == 2  # mana value 4 isn't less than 4
+    assert not any(s.state.cards[c].face_down for c in exile)
+    dig = s.state.log[-1].dig
+    assert dig is not None and dig.mode == "cascade" and dig.hit == exile[-1]
+
+
+def test_fetch_a_basic_land_then_shuffle(s):
+    before = set(zone(s.state, "p1", "library"))
+    act(s, "p1", type="fetch_card", name="Mountain")
+    hand = zone(s.state, "p1", "hand")
+    assert [s.state.cards[c].name for c in hand] == ["Mountain"]
+    assert len(zone(s.state, "p1", "library")) == 14
+    assert not set(zone(s.state, "p1", "library")) & before  # shuffled: every library id re-keyed
+    act(s, "p1", type="fetch_card", name="mountain", to="battlefield")
+    land = s.state.cards[zone(s.state, "p1", "battlefield")[-1]]
+    assert land.name == "Mountain" and land.x is not None
+    with pytest.raises(ActionError):
+        act(s, "p1", type="fetch_card", name="Forest")
+
+
+def test_discard_at_random(s):
+    act(s, "p1", type="draw", count=3)
+    drawn = list(zone(s.state, "p1", "hand"))
+    act(s, "p1", type="discard_random", count=1)
+    grave = zone(s.state, "p1", "graveyard")
+    assert len(grave) == 1 and grave[0] in drawn
+    assert len(zone(s.state, "p1", "hand")) == 2
+    assert "at random" in s.state.log[-2].parts[1].t or any("at random" in (p.t or "") for e in s.state.log[-3:] for p in e.parts)
+    act(s, "p1", type="discard_random", count=5)  # more than the hand: discards what there is
+    assert zone(s.state, "p1", "hand") == []
+    with pytest.raises(ActionError):
+        act(s, "p1", type="discard_random")
+
+
+def test_exact_copy_keeps_counters_and_markers(s):
+    """The scripted tables' exact copy: a plain copy starts bare, an exact one takes the counters and markers."""
+    act(s, "p1", type="draw", count=3)
+    elves = find(s.state, "Llanowar Elves")
+    act(s, "p1", type="move", card_ids=[elves.id], to={"zone": "battlefield"})
+    act(s, "p1", type="counter", card_ids=[elves.id], kind="+1/+1", delta=2)
+    act(s, "p1", type="add_effect", card_ids=[elves.id], name="Flying")
+    act(s, "p1", type="copy_card", card_id=elves.id)
+    plain = s.state.cards[zone(s.state, "p1", "battlefield")[-1]]
+    assert plain.counters == {} and plain.effects == []
+    act(s, "p1", type="copy_card", card_id=elves.id, exact=True)
+    exact = s.state.cards[zone(s.state, "p1", "battlefield")[-1]]
+    assert exact.counters == {"+1/+1": 2}
+    assert [e.name for e in exact.effects] == ["Flying"] and exact.effects[0].id != elves.effects[0].id
+    assert "an exact copy" in "".join(p.t or "" for p in s.state.log[-1].parts)

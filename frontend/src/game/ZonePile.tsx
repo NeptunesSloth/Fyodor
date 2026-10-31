@@ -1,6 +1,6 @@
 import { sleeveStyle, useSleeve } from "./appearance";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
-import { askNumber } from "../components/Prompt";
+import { askNumber, askText } from "../components/Prompt";
 import { useCardView, useGame, useLibrary, useZoneIds } from "../state/gameStore";
 import { splitZone, type ZoneName } from "../types/game";
 import { draw, moveCards, send } from "./actions";
@@ -55,6 +55,9 @@ export function libraryTopActions(player: string, me: string): MenuItem[] {
   return items.length ? [...items, "separator"] : [];
 }
 
+const REVEAL_TYPES = ["Creature", "Land", "Basic Land", "Artifact", "Enchantment", "Instant", "Sorcery", "Planeswalker"];
+const BASICS = ["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"];
+
 export function libraryMenu(player: string, me: string, name: string): MenuItem[] {
   const mine = player === me;
   const items: MenuItem[] = [];
@@ -80,6 +83,38 @@ export function libraryMenu(player: string, me: string, name: string): MenuItem[
     },
   });
   items.push({ label: "Reveal the top card", onClick: () => void send({ type: "reveal_top", player, count: 1 }) });
+  // the scripted tables' library chores (the server reads the card types; nobody sees the library)
+  const revealUntil = (card_type: string) => void send({ type: "reveal_until", player, card_type });
+  items.push({
+    label: "Reveal until…",
+    submenu: [
+      ...REVEAL_TYPES.map((t) => ({ label: `a ${t.toLowerCase()}`, onClick: () => revealUntil(t) })),
+      "separator" as const,
+      { label: "Another type…", onClick: async () => { const t = await askText("Reveal until a card of which type?", "Elf", { label: "Card type or subtype" }); if (t?.trim()) revealUntil(t.trim()); } },
+    ],
+  });
+  if (mine) {
+    items.push({
+      label: "Cascade…",
+      hint: "manual",
+      onClick: async () => {
+        const n = await askNumber("Cascade: exile until a nonland card with mana value less than…", 4, { min: 1, max: 30, label: "Mana value less than" });
+        if (n) void send({ type: "cascade", player, below: n });
+      },
+    });
+    const fetch = (name: string, to: "hand" | "battlefield") => void send({ type: "fetch_card", player, name, to });
+    const named = (to: "hand" | "battlefield") => async () => { const n = await askText("Which card? (by its exact name)", "", { label: "Card name" }); if (n?.trim()) fetch(n.trim(), to); };
+    items.push({
+      label: "Get a basic land",
+      submenu: [
+        ...BASICS.map((b) => ({ label: `${b} into your hand`, onClick: () => fetch(b, "hand") })),
+        "separator" as const,
+        ...BASICS.map((b) => ({ label: `${b} onto the battlefield`, onClick: () => fetch(b, "battlefield") })),
+        "separator" as const,
+        { label: "Another card by name…", onClick: named("hand") },
+      ],
+    });
+  }
   items.push({
     label: "Put the top card onto the battlefield face down",
     submenu: [

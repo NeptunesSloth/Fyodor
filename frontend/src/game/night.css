@@ -139,7 +139,7 @@ body.reduced-motion .sim-card { animation-name: night-fade; }
 
 /* -- combat lanes (renderer-independent overlay; the table itself never moves) -- */
 /* bottom left, above Tokens / Dice: never over the hand (a hovered card rises through the middle) */
-.combat-pill { position: fixed; z-index: 37; left: 12px; bottom: 56px; font-size: 12.5px; }
+.combat-pill { position: fixed; z-index: 37; left: 12px; bottom: 92px; font-size: 12.5px; } /* over the seat buttons and the tools */
 .combat-lanes { position: fixed; z-index: 58; left: 50%; top: 56px; transform: translateX(-50%); width: max-content; max-width: min(980px, calc(100vw - 32px)); max-height: calc(100vh - 260px); display: flex; }
 .combat-lanes > .plaque { flex: 1; min-width: 280px; }
 .combat-lanes-body { padding: 12px 16px 14px; overflow: auto; animation: night-rise calc(180ms * var(--anim-scale, 1)) var(--ease-out) both; }
@@ -258,3 +258,10 @@ body.reduced-motion .ping-ring.late { display: none; }
 }
 @keyframes dice-away { to { opacity: 0; } }
 body.reduced-motion .die2d-wrap { animation-name: night-fade; }
+
+/* -- after "reveal until" or a cascade (game/DigDialog.tsx) -- */
+.dig { display: flex; flex-direction: column; gap: 14px; }
+.dig h3 { font: 600 14px var(--font-display); margin: 0 0 8px; color: var(--text); }
+.dig-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.dig-card { width: 92px; display: block; }
+.dig .row { display: flex; flex-wrap: wrap; gap: 8px; }

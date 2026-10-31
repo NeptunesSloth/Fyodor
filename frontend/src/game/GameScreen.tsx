@@ -29,6 +29,7 @@ import { GameNight } from "./GameNight";
 import { SignalLayer } from "./Signals";
 import { PingLayer } from "./Pings";
 import { DiceLayer } from "./DiceLayer";
+import { DigDialog } from "./DigDialog";
 import { useTurnAlert } from "./turnAlert";
 import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 
@@ -109,6 +110,7 @@ export function GameScreen() {
         </div>
       )}
       {!three && <DiceLayer />}
+      <DigDialog me={me} />
       <StackWidget me={me} />
       <LogDrawer />
       <ToolTray />

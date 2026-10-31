@@ -180,6 +180,7 @@ def render_log(entries: list[LogEntry], viewer: str) -> list[dict[str, Any]]:
             **({"manual": True} if e.manual else {}),
             **({"folded": True} if e.folded else {}),
             **({"roll": e.roll.model_dump()} if e.roll else {}),
+            **({"dig": e.dig.model_dump()} if e.dig else {}),
         }
         for e in entries
     ]
