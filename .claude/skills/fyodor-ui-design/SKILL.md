@@ -20,6 +20,8 @@ interface.**
 - Feature plans it points to: `docs/3D_DIRECTION.md` (renderer, §7a end-of-game scenes and post-game flow),
   `docs/GAME_NIGHT_FLOW.md`, `docs/ELIMINATION_HUB.md`, `docs/TABLETOP_QOL_MILESTONE.md`,
   `docs/AUTOMATION_UX.md`.
+- `docs/UI_REFERENCE_STUDY.md` (Tabletop Simulator / MTG Arena references, the audit, what to borrow and avoid) and
+  `docs/reference/MTG_TTS_REFERENCE_PACK.md`; `docs/UI_SKILL_REGISTRY.md` lists every skill, its source and when to use it.
 - Code: `frontend/src/theme` (tokens, `theme.css`, `planes.ts`), `frontend/src/table3d` (three.js table),
   `frontend/src/game` (2D table, rules UI), `frontend/src/state` (zustand).
 
@@ -57,6 +59,9 @@ build the neutral table first.
    with **`review-animations`**, using the tokens, spring presets, card choreography table and ban list in
    `docs/GAME_UI_MOTION_RESEARCH.md`. Game state never waits on animation; a global speed multiplier and
    click/Space-to-skip apply to every animation; one rAF owner (the three.js loop).
+   **HUD, overlays and in-game menus** (plaques, dial, toasts, drawers, pause/result screens): also read
+   **`threejs-game-ui-designer`** (UI reads state and sends intents, text fit, world/UI cohesion). Ignore its image/3D
+   generator pointers (paid services, not installed) and its touch sections unless phones are the target.
 3. **`impeccable`** critiques the implemented UI (`/impeccable critique|audit|polish <target>`); fix concrete
    findings that fit the tabletop direction. `PRODUCT.md` is its context; run `/impeccable document` to
    record `DESIGN.md` before large changes.
@@ -64,6 +69,9 @@ build the neutral table first.
    performance, postprocessing, shaders; `threejs-aaa-graphics-builder` for visual quality,
    `threejs-debug-profiler` for perf, `threejs-qa-release` for canvas/visual checks). Ignore their React,
    physics-engine, scaffold and asset-generation advice.
+   **`accessibility`** (WCAG 2.2) is the reference for the accessibility hard rule: 2.5.7 single-pointer alternatives
+   to every drag (the table is drag-heavy), 2.4.11 focus not obscured by overlays, 2.5.8 target size. Impeccable's
+   engine has telemetry and an update check: run it with `IMPECCABLE_NO_TELEMETRY=1 IMPECCABLE_NO_UPDATE_CHECK=1`.
 5. Verify in the real app (screenshots from the brief's checklist), run `cd frontend && npm run typecheck &&
    npm test`, Playwright for flows touched, and backend leak tests when views/hints change.
 6. Ship in phase-sized, reviewed commits; never one giant unreviewed patch.
