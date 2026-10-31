@@ -76,7 +76,9 @@ def authorize(room: Room, *, local: bool, token: str | None, viewer: str | None,
     seat = room.seat_for_token(token)
     if seat is None:
         if local and room.is_host(token):
-            return OMNISCIENT if viewer == "all" else SPECTATOR, None
+            # The host computer watches its LAN table as a spectator would. Every hand stays hidden from it, as it would
+            # from a host who isn't playing (the all-hands view is for hot-seat games on one computer only).
+            return SPECTATOR, None
         raise HTTPException(403, "Join the game first (missing or invalid seat token)")
     return seat, (seat if seat != SPECTATOR else None)
 

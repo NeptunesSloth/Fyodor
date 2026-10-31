@@ -135,6 +135,29 @@ def test_lan_join_and_private_views(client, decks):
     assert res.json()["viewer"] == "p2"
 
 
+def test_lan_host_computer_never_gets_the_all_hands_view(client, decks):
+    """The host's own computer sees a LAN table like a spectator: no hidden card reaches it (REST or WebSocket)."""
+    game = create(client, decks, mode="lan")
+    gid, code, host = game["game"]["id"], game["game"]["code"], game["host_token"]
+    remote = {"X-Forwarded-For": "192.168.1.50"}
+    bob = client.post("/api/join", json={"code": code}, headers=remote).json()["token"]
+    res = act(client, gid, {"type": "draw", "count": 7}, token=bob)
+    assert res.status_code == 200
+    bob_hand = res.json()["zones"]["p2:hand"]
+
+    view = client.get(f"/api/games/{gid}/view", params={"viewer": "all"}, headers={"X-Seat-Token": host}).json()
+    assert view["viewer"] == "__spectator__"
+    assert len(view["zones"]["p2:hand"]) == 7 and all(view["cards"][c].get("hidden") for c in view["zones"]["p2:hand"])
+    assert not set(bob_hand) & set(json.dumps(view).split('"'))  # not even the hidden cards' ids
+    with client.websocket_connect(f"/ws/games/{gid}?token={host}&viewer=all") as ws:
+        first = ws.receive_json()
+        assert first["type"] == "state" and first["view"]["viewer"] == "__spectator__"
+        assert all(first["view"]["cards"][c].get("hidden") for c in first["view"]["zones"]["p2:hand"])
+    # hot-seat tables on one computer keep the open-table view
+    local = create(client, decks)["game"]["id"]
+    assert client.get(f"/api/games/{local}/view", params={"viewer": "all"}).json()["viewer"] == OMNISCIENT
+
+
 def test_join_brute_force_throttled(client, decks):
     create(client, decks, mode="lan", password="pw")
     headers = {"X-Forwarded-For": "192.168.1.77"}
