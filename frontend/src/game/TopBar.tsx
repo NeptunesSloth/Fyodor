@@ -1,6 +1,6 @@
 import { viewsMenu } from "./bookmarks";
 import { usePrefs } from "../state/prefs";
-import { cleanupMenu, selectMenu } from "./selection";
+import { cleanupMenu, selectMenu, tidyMyLands } from "./selection";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { toast } from "../components/Toasts";
 import { api } from "../services/api";
@@ -113,6 +113,7 @@ function tableMenu(isHost: boolean): MenuItem[] {
     },
     soloMenu(isHost),
     viewsMenu(),
+    { label: "Tidy my lands", hint: "pile identical lands by your edge", onClick: tidyMyLands },
     selectMenu(),
     cleanupMenu(),
     { label: prefs.showTokenSources ? "Hide token sources" : "Show token sources", onClick: () => prefs.set({ showTokenSources: !prefs.showTokenSources }) },

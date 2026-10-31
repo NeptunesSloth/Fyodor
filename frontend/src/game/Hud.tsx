@@ -2,15 +2,18 @@
  * The tabletop HUD: small floating pieces instead of a dashboard sidebar. The table is the
  * interface; these only appear when they have something to say.
  */
-import { useEffect, useRef, useState } from "react";
-import { openMenu } from "../components/ContextMenu";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { openMenu, type MenuItem } from "../components/ContextMenu";
+import { useCardCache } from "../state/cardCache";
 import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { isVisible } from "../types/game";
 import { addCounter, send, tapCards } from "./actions";
 import { cardMenu } from "./cardMenu";
-import { EFFECT_PRESETS } from "./marksMenu";
+import { damageMenu } from "./marksMenu";
+import { typeLine } from "./selection";
 import { HAND_SORTS, HAND_SORT_LABEL } from "./handSort";
+import { domBoxOf, placeAnchored, selectionAnchor } from "./anchors";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
 
 /** Large card preview that floats at the edge of the table while you hover a card. */
@@ -109,26 +112,59 @@ export function ToolTray() {
   );
 }
 
-/** Contextual toolbar for the current selection on the battlefield. */
+/** Contextual toolbar for the current selection on the battlefield, attached to the card it acts on. */
 export function SelectionBar() {
   const selection = useGame((s) => s.selection);
   const view = useGame((s) => s.view);
   const actingAs = useGame((s) => s.actingAs);
-  if (!view) return null;
-  const onTable = selection.filter((id) => view.cards[id]?.zone.endsWith(":battlefield"));
-  if (onTable.length < 1) return null;
+  const ref = useRef<HTMLDivElement>(null);
+  const onTable = view ? selection.filter((id) => view.cards[id]?.zone.endsWith(":battlefield")) : [];
+  const anchor = onTable[0] ?? null;
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node || !anchor) return;
+    selectionAnchor.node = node;
+    selectionAnchor.card = anchor;
+    const three = !!document.querySelector("[data-drop3d]"); // the 3D frame loop places it there
+    const place = () => { if (!three) placeAnchored(node, domBoxOf(anchor)); };
+    place();
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("resize", place);
+      if (selectionAnchor.node === node) {
+        selectionAnchor.node = null;
+        selectionAnchor.card = null;
+      }
+    };
+  });
+  if (!view || !anchor) return null;
   const me = perspective(view, actingAs);
-  const first = view.cards[onTable[0]!]!;
+  const first = view.cards[anchor]!;
   const anyUntapped = onTable.some((id) => !view.cards[id]?.tapped);
+  // what fits these cards (one primary row, the rest under More…): creatures get +1/+1 and damage, the others counters
+  const creatures = onTable.every((id) => /\bCreature\b/.test(typeLine(view.cards[id]!)));
+  const cardData = onTable.length === 1 && isVisible(first) && first.card_id ? useCardCache.getState().cards[first.card_id] : undefined;
+  const turnable = !!cardData && (cardData.double_faced || cardData.faces.length > 1);
+  const full = cardMenu(first, view, me);
+  const sub = (label: string) => (full.items.find((i) => i !== "separator" && i.label === label) as Exclude<MenuItem, "separator"> | undefined)?.submenu;
+  const counters = sub("Add counter");
+  const damage = damageMenu(onTable, first) as Exclude<MenuItem, "separator">;
   return (
-    <div className="selection-bar" data-testid="selection-bar">
+    <div className="selection-bar anchored" data-testid="selection-bar" ref={ref} role="toolbar" aria-label="Selected card actions">
       <span className="sel-count">{onTable.length === 1 && isVisible(first) ? first.name : `${onTable.length} selected`}</span>
-      <button className="tt-btn" onClick={() => void tapCards(onTable, anyUntapped)}>{anyUntapped ? "Tap" : "Untap"}</button>
-      <button className="tt-btn" onClick={() => void addCounter(onTable, "+1/+1", 1)}>+1/+1</button>
-      <button className="tt-btn" onClick={(e) => openMenu(e, EFFECT_PRESETS.map((p) => ({ label: p.name, onClick: () => void send({ type: "add_effect", card_ids: onTable, name: p.name, ...(p.value ? { value: p.value } : {}), ...(p.color ? { color: p.color } : {}) }) })), "Add effect")}>Effect</button>
-      <button className="tt-btn" onClick={() => void send({ type: "set_damage", card_ids: onTable, delta: 1 })}>Damage +1</button>
-      <button className="tt-btn ghost" title="All actions" onClick={(e) => { const m = cardMenu(first, view, me); openMenu(e, m.items, m.title); }}>More…</button>
-      <button className="tt-icon" title="Clear selection (Esc)" onClick={() => useGame.getState().clearSelection()}>✕</button>
+      <button className="tt-btn" title="Tap or untap (T, double-click)" onClick={() => void tapCards(onTable, anyUntapped)}>{anyUntapped ? "Tap" : "Untap"}</button>
+      {creatures ? (
+        <>
+          <button className="tt-btn" title="Add a +1/+1 counter (right-click removes one)" onClick={() => void addCounter(onTable, "+1/+1", 1)}
+            onContextMenu={(e) => { e.preventDefault(); void addCounter(onTable, "+1/+1", -1); }}>+1/+1 counter</button>
+          <button className="tt-btn" title="Mark damage" onClick={(e) => openMenu(e, damage.submenu ?? [], damage.label)}>{damage.label}…</button>
+        </>
+      ) : counters ? (
+        <button className="tt-btn" title="Add a counter" onClick={(e) => openMenu(e, counters, "Add counter")}>Counter…</button>
+      ) : null}
+      {turnable && <button className="tt-btn" title="Turn over (F)" onClick={() => void send({ type: "set_face", card_id: first.id })}>Turn over</button>}
+      <button className="tt-btn ghost" title="Every action for this card (right-click)" onClick={(e) => openMenu(e, full.items, full.title)}>More…</button>
+      <button className="tt-icon" title="Clear selection (Esc)" aria-label="Clear selection" onClick={() => useGame.getState().clearSelection()}>✕</button>
     </div>
   );
 }

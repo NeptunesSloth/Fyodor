@@ -4,6 +4,8 @@ import { useDrag } from "./dnd";
 import { useGame, useZoneIds } from "../state/gameStore";
 import { battlefieldCardWidth, BF_H, BF_W, CARD_RATIO, toPixels } from "./geometry";
 import { TableCard } from "./TableCard";
+import { openMenu } from "../components/ContextMenu";
+import { tableMenu } from "./selection";
 
 interface Props {
   player: string;
@@ -79,6 +81,11 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
       data-cardh={cardH}
       {...(mirrored ? { "data-mirrored": "" } : {})}
       onPointerDown={onPointerDown}
+      onContextMenu={(e) => {
+        if (e.target !== e.currentTarget) return; // a card has its own menu
+        e.preventDefault();
+        openMenu(e, tableMenu(), "Table");
+      }}
     >
       {playmat.url && (
         <div className={`playmat-layer ${playmat.mat?.show_zones ? "" : "bare"}`} style={playmatStyle(playmat.mat, playmat.url)} aria-hidden />

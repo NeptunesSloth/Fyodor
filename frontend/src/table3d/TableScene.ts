@@ -19,6 +19,7 @@ import { isVisible, type CardStats, type GameCard, type GameView, type LibraryVi
 import { counterShort, isKeyword } from "../game/counters";
 import { draw, tapCards, targetsFor } from "../game/actions";
 import { cardMenu } from "../game/cardMenu";
+import { tableMenu } from "../game/selection";
 import type { DropResult } from "../game/dnd";
 import type { PingTarget } from "../services/night";
 import { dropCards } from "../game/drop";
@@ -697,7 +698,7 @@ export class TableScene {
         this.place(c, seat, lx, lz, 0.004 + i * 0.0035, tapped);
         c.tilt = 0;
         this.setOverlay(c, overlayFor(card, view.rules?.stats?.[id]));
-        this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55);
+        this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
       });
       // piles
       for (const zone of ["library", "graveyard", "exile"] as const) {
@@ -728,7 +729,7 @@ export class TableScene {
         const [lx, lz] = PILES.command;
         this.place(c, seat, lx - i * (CARD_W + 0.12), lz, 0.004, 0);
         this.setOverlay(c, null);
-        this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.legalColor(view, id), 0.6);
+        this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), 0.6);
       });
       // other players' hands: a fan of backs at their edge (count only)
       if (pid !== this.me) this.syncHandFan(seat, ((view.zones[`${pid}:hand`] as string[] | undefined) ?? []).length);
@@ -1203,8 +1204,12 @@ export class TableScene {
     const hit = this.pick(e.clientX, e.clientY);
     const store = useGame.getState();
     const view = store.view;
-    if (!hit || !view) return;
+    if (!view) return;
     const fake = { clientX: e.clientX, clientY: e.clientY, preventDefault() {}, stopPropagation() {} } as unknown as React.MouseEvent;
+    if (!hit) {
+      openMenu(fake, tableMenu(), "Table"); // the table's own actions, as in Tabletop Simulator
+      return;
+    }
     if (hit.card) {
       const card = view.cards[hit.card];
       if (!card) return;

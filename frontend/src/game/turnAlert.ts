@@ -25,7 +25,8 @@ export function useTurnAlert(): void {
   const reason = useGame((s) => (s.view ? waitReason(s.view, perspective(s.view, s.actingAs)) : null));
   const enabled = usePrefs((s) => s.turnAlert);
   useEffect(() => {
-    if (!enabled || !reason || !document.hidden) return;
+    // another tab, or another window in front (the game on a second monitor while you read a card elsewhere)
+    if (!enabled || !reason || (!document.hidden && document.hasFocus())) return;
     const original = document.title;
     const alert = `● ${reason} — ${original}`;
     let on = true;
@@ -39,10 +40,12 @@ export function useTurnAlert(): void {
       window.clearInterval(timer);
       document.title = original;
     };
-    const onVisible = () => { if (!document.hidden) stop(); };
-    document.addEventListener("visibilitychange", onVisible);
+    const onBack = () => { if (!document.hidden && document.hasFocus()) stop(); };
+    document.addEventListener("visibilitychange", onBack);
+    window.addEventListener("focus", onBack);
     return () => {
-      document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("visibilitychange", onBack);
+      window.removeEventListener("focus", onBack);
       stop();
     };
   }, [reason, enabled]);

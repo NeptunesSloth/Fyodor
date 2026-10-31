@@ -141,8 +141,8 @@ export function PlayPage({ route }: { route: Route }) {
                       toastError(e);
                     }
                   }}>LAN</button>
-                  <a className="btn small" href={packageUrl(s.id)} download title="Download a portable package (save + custom images + macros)">⇩</a>
-                  <button className="btn small danger" onClick={async () => {
+                  <a className="btn small" href={packageUrl(s.id)} download title="Download a portable package (save + custom images + macros)" aria-label={`Download “${s.name}” as a package`}>⇩</a>
+                  <button className="btn small danger" aria-label={`Delete save “${s.name}”`} title="Delete this save" onClick={async () => {
                     if (!window.confirm(`Delete save “${s.name}”?`)) return;
                     await deleteSave(s.id).catch(toastError);
                     refresh();
@@ -280,9 +280,9 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
           const deck = decks.find((d) => d.id === p.deck_id);
           return (
             <div key={i} className="player-setup" style={{ ["--player-color" as string]: p.color }}>
-              <input type="color" value={p.color} onChange={(e) => update(i, { color: e.target.value })} title="Player color" />
-              <input className="grow" value={p.name} maxLength={40} onChange={(e) => update(i, { name: e.target.value })} />
-              <select value={p.deck_id ?? ""} onChange={(e) => update(i, { deck_id: e.target.value || null })}>
+              <input type="color" value={p.color} onChange={(e) => update(i, { color: e.target.value })} title="Player color" aria-label={`Player ${i + 1} colour`} />
+              <input className="grow" value={p.name} maxLength={40} onChange={(e) => update(i, { name: e.target.value })} aria-label={`Player ${i + 1} name`} />
+              <select value={p.deck_id ?? ""} onChange={(e) => update(i, { deck_id: e.target.value || null })} aria-label={`Player ${i + 1} deck`}>
                 <option value="">— no deck —</option>
                 {decks.map((d) => (
                   <option key={d.id} value={d.id}>{d.name}{d.commanders.length ? ` (${d.commanders.join(" & ")})` : ""}</option>

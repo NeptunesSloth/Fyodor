@@ -150,7 +150,7 @@ body.reduced-motion .table.is-3d > .hand .hand-card { transition: none; }
   position: absolute; left: 0; top: 0; visibility: hidden; max-width: 180px;
   padding: 3px 9px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font: 600 12px/1.2 var(--font-ui); color: var(--text);
-  background: var(--hud-surface); box-shadow: 0 0 0 1px var(--select), 0 2px 8px rgba(0, 0, 0, 0.5);
+  background: var(--hud-surface); box-shadow: 0 0 0 1px var(--frame-hi), 0 2px 8px rgba(0, 0, 0, 0.5); /* brass, like the selected edge */
 }
 
 /* the camera strip shows only the current view until the pointer or keyboard focus comes to it

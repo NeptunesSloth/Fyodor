@@ -4,8 +4,10 @@ import { useCardCache } from "../state/cardCache";
 import { perspective, useGame } from "../state/gameStore";
 import { isVisible, type GameCard } from "../types/game";
 import { send } from "./actions";
+import { toast } from "../components/Toasts";
+import { tidyLandMoves, type LandFacts } from "./tidy";
 
-function typeLine(c: GameCard): string {
+export function typeLine(c: GameCard): string {
   if (!isVisible(c)) return "";
   if (c.token && !c.card_id) return c.token.type_line;
   const data = c.card_id ? useCardCache.getState().cards[c.card_id] : undefined;
@@ -80,4 +82,33 @@ export function cleanupMenu(): MenuItem {
       },
     ],
   };
+}
+
+/** "Tidy my lands" (game/tidy.ts): pile my identical lands along my edge, as one undoable move. */
+export function tidyMyLands(): void {
+  const s = useGame.getState();
+  const view = s.view;
+  if (!view) return;
+  const me = perspective(view, s.actingAs);
+  const lands: LandFacts[] = [];
+  for (const id of (view.zones[`${me}:battlefield`] as string[] | undefined) ?? []) {
+    const c = view.cards[id];
+    if (!isVisible(c) || c.controller !== me || c.attached_to) continue;
+    lands.push({ id, name: c.name, typeLine: typeLine(c) });
+  }
+  const moves = tidyLandMoves(lands);
+  if (!moves.length) {
+    toast("No lands of yours to tidy");
+    return;
+  }
+  void send({ type: "set_position", moves });
+}
+
+/** Right-click on empty table: the table's own actions (Tabletop Simulator style). */
+export function tableMenu(): MenuItem[] {
+  return [
+    { label: "Tidy my lands", hint: "pile identical lands by your edge · Undo puts them back", onClick: tidyMyLands },
+    selectMenu(),
+    cleanupMenu(),
+  ];
 }

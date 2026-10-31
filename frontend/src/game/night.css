@@ -211,4 +211,6 @@ body.reduced-motion .combat-strip { animation-name: night-fade; }
 /* reduced motion: one still ring that fades with the label */
 body.reduced-motion .ping-ring { animation: ping-hold 2.6s linear forwards; transform: translate(-50%, -50%) scale(0.6); }
 body.reduced-motion .ping-ring.late { display: none; }
+/* pinned to the screen edge: the target is off this screen; a dashed ring says "over there" */
+.ping.edge .ping-ring { border-style: dashed; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

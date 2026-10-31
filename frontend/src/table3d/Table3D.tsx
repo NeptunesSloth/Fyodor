@@ -9,6 +9,7 @@ import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { setDropResolver3D } from "../game/dnd";
 import { setPingLocator3D } from "../game/ping";
+import { placeAnchored, selectionAnchor } from "../game/anchors";
 import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "../game/PlayerPanel";
 import { plane } from "../theme/planes";
 import { isVisible, type GameView } from "../types/game";
@@ -139,10 +140,15 @@ export function Table3D({ me }: { me: string }) {
         node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
         node.style.visibility = pt.visible ? "visible" : "hidden";
       }
+      // the selection toolbar rides above the card it acts on (the camera can move every frame)
+      if (selectionAnchor.node && selectionAnchor.card) {
+        const r = scene.cardRect(selectionAnchor.card, w, h);
+        placeAnchored(selectionAnchor.node, r && { left: host.left + r.left, top: host.top + r.top, right: host.left + r.right, bottom: host.top + r.bottom });
+      }
       // name tags under the selected cards (the card faces are too small to read at seat distance)
       for (const [cid, node] of Object.entries(tags.current)) {
         if (!node) continue;
-        const r = scene.cardRect(cid, w, h);
+        const r = cid === selectionAnchor.card ? null : scene.cardRect(cid, w, h); // the toolbar names its own card
         if (!r) { node.style.visibility = "hidden"; continue; }
         node.style.transform = `translate(${Math.round((r.left + r.right) / 2)}px, ${Math.round(r.bottom + 4)}px) translateX(-50%)`;
         node.style.visibility = "visible";

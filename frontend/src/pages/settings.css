@@ -13,6 +13,7 @@
 /* Automatic backups: a status plate with a lamp, then the slots like a save list (Auto / By hand). */
 .autobackup { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; margin: 0 0 10px; border: 1px solid var(--room-edge); border-radius: 6px; background: rgba(0, 0, 0, 0.22); }
 .autobackup p { margin: 0 0 4px; }
+.autobackup code { color: var(--room-bone-dim); } /* the hint grey on this plate measured 4.15:1; code stays readable */
 .autobackup-lamp { flex: none; width: 10px; height: 10px; margin-top: 5px; border-radius: 50%; background: var(--ok); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35); }
 .autobackup.off .autobackup-lamp { background: var(--text-faint); }
 .backups { border-collapse: collapse; width: 100%; margin-top: 10px; }

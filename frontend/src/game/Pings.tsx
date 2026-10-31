@@ -5,7 +5,7 @@ import type { Signal } from "../services/gameSocket";
 import { sendPing, type PingTarget } from "../services/night";
 import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
-import { SPECTATOR } from "../types/game";
+import { isVisible, SPECTATOR } from "../types/game";
 import { pingPoint, pingTargetAt } from "./ping";
 import { play } from "./sound";
 
@@ -18,7 +18,8 @@ import { play } from "./sound";
 const SHOW_MS = 2600;
 const MOVE_TOLERANCE = 5;
 
-interface Shown { id: number; x: number; y: number; name: string; color: string; mine: boolean }
+interface Shown { id: number; x: number; y: number; name: string; color: string; mine: boolean; what: string; edge: boolean }
+const EDGE = 28; // a ping off this screen (another camera angle) is pinned to the edge, facing where it is
 let nextId = 0;
 
 /** Send a ping for whatever is under this point (a quiet hint when there is nothing everyone can see there). */
@@ -78,7 +79,11 @@ export function PingLayer() {
       const view = useGame.getState().view;
       const color = view?.players.find((p) => p.id === sig.from)?.color ?? "#d0a45a";
       const mine = !!view && sig.from === perspective(view, useGame.getState().actingAs);
-      const ping = { id: ++nextId, x: at.x, y: at.y, name: sig.from_name, color, mine };
+      const x = Math.max(EDGE, Math.min(window.innerWidth - EDGE, at.x));
+      const y = Math.max(EDGE + 40, Math.min(window.innerHeight - EDGE, at.y));
+      const card = sig.card ? view?.cards[sig.card] : undefined;
+      const what = card && isVisible(card) ? card.name : "a spot on the table";
+      const ping = { id: ++nextId, x, y, name: sig.from_name, color, mine, what, edge: x !== at.x || y !== at.y };
       setShown((xs) => [...xs.slice(-5), ping]);
       if (!mine) play("ping");
       window.setTimeout(() => setShown((xs) => xs.filter((x) => x.id !== ping.id)), SHOW_MS);
@@ -91,11 +96,11 @@ export function PingLayer() {
   return (
     <div className="ping-layer" aria-live="polite">
       {shown.map((p) => (
-        <div key={p.id} className="ping" style={{ left: p.x, top: p.y, ["--ping-color" as string]: p.color }} data-testid="ping">
+        <div key={p.id} className={`ping ${p.edge ? "edge" : ""}`} style={{ left: p.x, top: p.y, ["--ping-color" as string]: p.color }} data-testid="ping">
           <span className="ping-ring" aria-hidden />
           <span className="ping-ring late" aria-hidden />
           <span className="ping-dot" aria-hidden />
-          <span className="ping-name">{p.mine ? "You" : p.name}<span className="sr-only"> pinged here</span></span>
+          <span className="ping-name">{p.mine ? "You" : p.name}<span className="sr-only"> pinged {p.what}{p.edge ? " (off screen)" : ""}</span></span>
         </div>
       ))}
     </div>
