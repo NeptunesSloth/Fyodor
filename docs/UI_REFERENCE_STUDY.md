@@ -1147,3 +1147,37 @@ not to the camera keys.
 e2e: `scripted-chores.spec.ts` covers reveal until, get a basic land, the seat buttons (click, right-click and a
 typed number), discard at random, counter steppers, exact copy and the owner gem.
 
+## 27. Cards with physics, and life on the table (third scripted-table pass)
+
+The user asked for physics on the cards, "so players can organise them as they please", and for the life total to
+work as it does on the Oops table, "so it isn't just another menu".
+
+**Flicked cards** (`table3d/cardPhysics.ts`, cannon-es, 3D table only):
+- Let go of your own cards while still moving them and they slide on across your mat, slowing on the felt. They
+  knock your other cards aside and stop at the mat's edge. Cards stay flat and square to the mat.
+- Piles are deliberate, not collisions: cards under the flicked one, and cards already overlapping each other, are
+  left where they are.
+- The release speed comes from the pointer events' own timestamps, over the last 90 ms. Below 4.5 units a second
+  it's a normal, exact drop.
+- The slide is simulated ahead and played back at the table's animation speed (reduced motion: it jumps to the
+  end). Where every moved card stops goes to the server as one `set_position`, one undo step. Other screens see
+  the cards move there.
+- Only your own battlefield. Settings → "Flick cards to slide them (3D)" turns it off.
+- Tests: `table3d/cardPhysics.test.ts` (slides and stops, knocks a card in its way, leaves piles alone, stops at
+  the edge). `table3d.spec.ts` flicks a card through the scene's own path and checks where the server keeps it.
+  In this headless, software-rendered browser a real hand's pointer events arrive seconds apart, so that test
+  throws the card directly; on a normal machine the hand does.
+
+**Life on the table, as on the Oops hearts** (`game/SeatPlate.tsx`, the plaque both tables share):
+- The life total is a heart in the seat's colour, and the number is the control: click +1, right-click −1, the
+  wheel, ↑/↓ or +/− on the keyboard, and Shift for 5 at a time.
+- Quick clicks are gathered into one change: the heart shows "−3" while you click, then it's sent once (one log
+  line, one undo step).
+- Beside it:
+  - a commander-damage tracker for each opposing commander, in its owner's colour with their initial (click +1,
+    right-click −1; it changes life too, as before);
+  - a poison tracker;
+  - the hand count.
+- The portrait and name still open the full player panel; the counters don't need it. The +/− buttons stay
+  (shown on hover) for touch and for anyone without a right-click.
+

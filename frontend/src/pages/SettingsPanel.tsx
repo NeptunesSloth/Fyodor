@@ -181,6 +181,7 @@ export function SettingsPanel() {
           <label><input type="checkbox" checked={p.colorblindMarkers} onChange={(e) => set({ colorblindMarkers: e.target.checked })} /> Colorblind-safe seat markers (shapes)</label>
           <label><input type="checkbox" checked={p.reducedMotion} onChange={(e) => set({ reducedMotion: e.target.checked })} /> Reduce motion</label>
           <label><input type="checkbox" checked={p.showTokenSources} onChange={(e) => set({ showTokenSources: e.target.checked })} /> Show token sources</label>
+          <label title="On the 3D table: let go of your cards while still moving them and they slide on, nudging your other cards aside"><input type="checkbox" checked={p.cardPhysics} onChange={(e) => set({ cardPhysics: e.target.checked })} data-testid="card-physics" /> Flick cards to slide them (3D)</label>
           <label><input type="checkbox" checked={p.snap} onChange={(e) => set({ snap: e.target.checked })} /> Snap cards when dropping</label>
         </div>
       </section>

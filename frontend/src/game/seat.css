@@ -3,7 +3,7 @@
 .t3d-seat { position: relative; transform: translate(-50%, -50%); pointer-events: auto; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6)); }
 .t3d-seat-main {
   --cut: 9px;
-  display: flex; align-items: center; gap: 10px; padding: 5px 16px 5px 6px; cursor: pointer; color: var(--text);
+  display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 6px; color: var(--text);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0) 45%),
     var(--hud-surface);
@@ -22,7 +22,49 @@
 .t3d-seat.active .t3d-seat-main::before { opacity: 1; }
 .t3d-seat-main:focus-visible { outline: none; }
 /* the chamfer clips an outline on the button itself, so the ring goes on the plaque around it */
-.t3d-seat:has(.t3d-seat-main:focus-visible) { outline: 2px solid var(--select); outline-offset: 3px; border-radius: 6px; }
+.t3d-seat:has(.seat-who:focus-visible) { outline: 2px solid var(--select); outline-offset: 3px; border-radius: 6px; }
+
+/* portrait and name: the way into the full player panel */
+.seat-who { display: inline-flex; align-items: center; gap: 7px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; position: relative; }
+.seat-who .t3d-seat-name { max-width: 92px; }
+
+/* the life heart (the Oops tables' heart): the number is the control */
+.seat-heart {
+  position: relative; width: 58px; height: 52px; padding: 0; border: 0; background: none; cursor: pointer; flex: none;
+  display: grid; place-items: center; color: var(--text); touch-action: manipulation;
+}
+.seat-heart-shape { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.seat-heart-shape path { fill: rgba(10, 8, 6, 0.85); stroke: var(--player-color); stroke-width: 3.5; transition: stroke-width 120ms; }
+.seat-heart:hover .seat-heart-shape path, .seat-heart:focus-visible .seat-heart-shape path { stroke-width: 5; }
+.seat-heart:focus-visible { outline: none; }
+.seat-heart:focus-visible .seat-heart-shape { filter: drop-shadow(0 0 3px var(--select)); }
+.seat-heart-n {
+  position: relative; margin-top: -6px; font: 700 22px/1 var(--font-display); font-variant-numeric: lining-nums tabular-nums;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9);
+}
+.seat-heart.dead .seat-heart-n { color: #ffb3a8; }
+.seat-pending {
+  position: absolute; right: -10px; top: -8px; font: 800 12px/1 Inter, sans-serif; padding: 3px 5px; border-radius: 9px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); pointer-events: none;
+}
+.seat-pending.up { background: #2e6b3e; color: #e8ffe9; }
+.seat-pending.down { background: #7a2a22; color: #ffe9e5; }
+
+/* the trackers beside it: commander damage from each opposing commander (its owner's colour and initial), poison */
+.seat-trackers { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; max-width: 150px; }
+.seat-track {
+  display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 6px 0 3px; cursor: pointer;
+  font: 600 12px/1 Inter, sans-serif; font-variant-numeric: tabular-nums; color: var(--text);
+  background: rgba(0, 0, 0, 0.35); border: 1px solid color-mix(in srgb, var(--track, var(--line)) 70%, transparent); border-radius: 11px;
+}
+.seat-track-glyph {
+  width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 800;
+  background: var(--track, #5d8a4a); color: #0e0b08;
+}
+.seat-track.zero { opacity: 0.55; }
+.seat-track:hover, .seat-track:focus-visible { opacity: 1; border-color: var(--frame-hi); outline: none; }
+.seat-track.lethal { border-color: #ff8a7a; color: #ffb3a8; opacity: 1; }
+.seat-hand { display: inline-flex; align-items: center; gap: 2px; font: 600 12px/1 Inter, sans-serif; color: var(--text-dim); padding: 0 4px; }
 .t3d-seat-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
 .t3d-seat-name { font-size: 12px; color: var(--text-dim); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .t3d-seat-life {
@@ -36,9 +78,6 @@
   color: var(--accent-ink); background: var(--accent);
 }
 .t3d-flag.prio { color: #0b1a2b; background: var(--select); }
-.t3d-seat-stats { display: flex; gap: 8px; margin-top: 2px; font-size: 12.5px; color: var(--text); font-variant-numeric: tabular-nums; }
-.t3d-stat.zero { color: var(--text-dim); }
-.t3d-stat.lethal { color: #ffb3a8; font-weight: 700; }
 /* narrower screens: compact plaques cover fewer cards (name moves to the tooltip-sized line) */
 @media (max-width: 1500px) {
   .t3d-seat-main { gap: 7px; padding: 3px 10px 3px 4px; }
@@ -52,11 +91,11 @@
 
 /* ---- the 2D table: the plaque sits in its seat's strip, not on a 3D anchor ---- */
 .t3d-seat.seat-2d { transform: none; display: inline-flex; align-items: center; gap: 2px; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55)); flex: none; }
-.seat-2d .t3d-seat-main { padding: 3px 12px 3px 4px; gap: 8px; }
+.seat-2d .t3d-seat-main { padding: 3px 10px 3px 4px; gap: 6px; }
+.seat-2d .seat-heart { width: 52px; height: 46px; }
+.seat-2d .seat-heart-n { font-size: 20px; }
 .seat-2d .t3d-seat-main .portrait { --size: 34px !important; }
-.seat-2d .t3d-seat-life { font-size: 24px; }
 .seat-2d .t3d-seat-flags { left: 18px; transform: none; }
-.seat-2d .t3d-seat-stats { font-size: 11.5px; gap: 6px; }
 /* life steppers wait until you reach for the plaque (the space stays, so nothing jumps) */
 .seat-steps { display: flex; flex-direction: column; gap: 2px; }
 .seat-steps button {
@@ -64,9 +103,20 @@
   background: var(--hud-surface); color: var(--text-dim); border: 1px solid var(--line); border-radius: 3px;
 }
 .seat-steps button:hover { color: var(--text); border-color: var(--frame); }
-@media (hover: hover) and (pointer: fine) { .seat-2d:not(:hover):not(:focus-within) .seat-steps { opacity: 0; } }
+@media (hover: hover) and (pointer: fine) { .t3d-seat:not(:hover):not(:focus-within) .seat-steps { opacity: 0; } }
+/* on the 3D table the steppers sit at the plaque's right end (the heart is the usual way: click, right-click, wheel) */
+.t3d-seat:not(.seat-2d) .seat-steps { position: absolute; left: calc(100% + 4px); top: 50%; transform: translateY(-50%); }
 .seat-presence { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
 .seat-presence.connected::before { content: "● "; color: var(--ok); }
 .seat-presence.reconnecting::before, .seat-presence.disconnected::before { content: "● "; color: var(--danger); }
 .t3d-seat-panel.down { bottom: auto; top: calc(100% + 8px); }
 .t3d-seat-panel { max-height: min(70vh, 560px); overflow: auto; }
+/* my own plaque sits in the slim rail beside my mat: the name on its own row, the heart and trackers under it */
+.area-side .t3d-seat-main { flex-wrap: wrap; row-gap: 2px; }
+.area-side .seat-who { flex-basis: 100%; }
+.area-side .seat-who .t3d-seat-name { max-width: 130px; }
+.area-side .seat-trackers { max-width: 92px; }
+.area-side .seat-heart { width: 46px; height: 42px; }
+.area-side .seat-heart-n { font-size: 18px; }
+.area-side .seat-track { padding-right: 4px; }
+.area-side .t3d-seat.seat-2d { max-width: 100%; }

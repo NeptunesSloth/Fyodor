@@ -42,6 +42,8 @@ export interface Prefs {
   /** 3D: gently turn the camera toward important public events. */
   autoCenter: "off" | "important";
   showTokenSources: boolean;
+  /** 3D table: let go of your cards while moving them and they slide on, knocking others aside (a flick). */
+  cardPhysics: boolean;
   hud: "full" | "minimal";
   uiScale: number;
   inspectSize: "normal" | "large";
@@ -82,6 +84,7 @@ export const DEFAULT_PREFS: Prefs = {
   handSort: "drawn",
   autoCenter: "off",
   showTokenSources: false,
+  cardPhysics: true,
   hud: "full",
   uiScale: 1,
   inspectSize: "normal",

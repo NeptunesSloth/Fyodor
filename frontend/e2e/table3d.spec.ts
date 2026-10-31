@@ -60,6 +60,29 @@ test("3D table: seats, drag from hand onto the table, right-click menu, tap", as
   await menuPath(page, "Tap");
   await expect.poll(async () => (await view()).cards[id]!.tapped).toBe(true);
 
+  // the life heart, as on the scripted tables: click +1, right-click −1, gathered into one change
+  const life = async (pid: string) => ((await view()) as unknown as { players: { id: string; life: number }[] }).players.find((p) => p.id === pid)!.life;
+  const heart = page.getByTestId("heart-p2");
+  await heart.click();
+  await heart.click();
+  await heart.click({ button: "right" });
+  await expect(page.getByTestId("life3d-p2")).toHaveText("41");
+  await expect.poll(() => life("p2")).toBe(41);
+
+  // a flick: one of my cards, let go while moving fast, slides on across my mat and the server keeps where it
+  // stops (a real hand's pointer events are too far apart in this software-rendered browser, so the test throws
+  // it through the same physics directly)
+  const before = await view();
+  const [left, right] = before.zones["p1:battlefield"]!.filter((cid) => cid !== id).sort((a, b) => (before.cards[a]!.x ?? 0) - (before.cards[b]!.x ?? 0));
+  const rightX = before.cards[right!]!.x ?? 0;
+  expect(await page.evaluate((cid) => window.__fyodor3d!.flick([cid], 9, 0), right!)).toBe(true);
+  await expect.poll(async () => (await view()).cards[right!]!.x ?? 0).toBeGreaterThan(rightX + 200); // open felt: it slides a long way
+  // and the left one, flicked harder across the felt, comes to rest well along too
+  const leftX = before.cards[left!]!.x ?? 0;
+  await page.waitForTimeout(500);
+  expect(await page.evaluate((cid) => window.__fyodor3d!.flick([cid], 14, 0), left!)).toBe(true);
+  await expect.poll(async () => (await view()).cards[left!]!.x ?? 0).toBeGreaterThan(leftX + 100);
+
   // camera presets
   await page.getByRole("toolbar", { name: "Camera" }).hover(); // the strip shows only the current view until hovered
   await page.getByRole("toolbar", { name: "Camera" }).getByRole("button", { name: "Table" }).click();

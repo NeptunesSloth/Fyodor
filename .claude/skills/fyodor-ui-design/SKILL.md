@@ -34,8 +34,9 @@ interface.**
 3. **Keep the plain three.js renderer.** Improve `frontend/src/table3d` in place. No React Three Fiber, Drei,
    Rapier or other 3D framework; no new runtime dependency without a concrete need the current stack can't
    meet. Skills are guidance, not architecture. **One exception, the user's decision (2026-10-31):** `cannon-es`
-   simulates thrown dice and coins (`table3d/physics.ts`, loaded only with the 3D table). It drives presentation
-   only: cards stay where the server puts them, and roll results come from the server.
+   (loaded only with the 3D table) simulates thrown dice and coins (`table3d/physics.ts`) and flicked cards
+   (`table3d/cardPhysics.ts`). The server still decides: roll results come from it, and a flick's resting
+   positions are sent to it as one `set_position`, which it applies like any move.
 4. **2D table stays first-class** and fully usable. 3D is optional presentation.
 5. **Manual tabletop freedom is never removed** (free positioning, any zone move, notes, tokens, undo).
 6. **Accessibility:** reduced motion honored, readable contrast, keyboard actions, visible focus/selection,

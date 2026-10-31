@@ -57,13 +57,13 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
   .seat-strip > .hand.compact { display: none; }
   .seat-strip { gap: 6px; }
   .seat-strip .t3d-seat-name { max-width: 84px; }
-  .seat-strip .t3d-stat.zero:not(.t3d-stat-hand) { display: none; } /* a zero says nothing a narrow seat can spare */
+  .seat-strip .seat-track.zero, .seat-strip .t3d-seat-name { display: none; } /* a zero says nothing a narrow seat can spare */
 }
 /* the stack pill is pinned at the table's top-right: the last seat's strip leaves it room */
 .opponents > .player-area:last-child .seat-strip { padding-right: 84px; }
 /* looking at one opponent: the others keep just their plaque (and their Look button) */
 .opponents.focused > .player-area:not(.focused) .seat-strip > :not(.t3d-seat):not(.seat-look),
-.opponents.focused > .player-area:not(.focused) .t3d-seat-stats,
+.opponents.focused > .player-area:not(.focused) .seat-trackers,
 .opponents.focused > .player-area:not(.focused) .seat-steps { display: none; }
 .opponents.focused > .player-area:not(.focused) .seat-strip { flex-wrap: wrap; row-gap: 4px; }
 /* my rail: plaque on top, the four zones under it */

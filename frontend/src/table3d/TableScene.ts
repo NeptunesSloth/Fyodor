@@ -17,7 +17,7 @@ import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { isVisible, type CardStats, type GameCard, type GameView, type LibraryView, type ZoneName } from "../types/game";
 import { counterShort, isKeyword } from "../game/counters";
-import { draw, tapCards, targetsFor } from "../game/actions";
+import { draw, send, tapCards, targetsFor } from "../game/actions";
 import { cardMenu } from "../game/cardMenu";
 import { tableMenu } from "../game/selection";
 import { zonePileTops } from "../game/piles";
@@ -34,6 +34,7 @@ import { arrowTime, makeArrow, type GroundBox } from "./arrows";
 import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
 import { DiceTray } from "./dice";
+import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
 import type { DiceShow } from "../game/dice";
 import {
   AISLE, CARD_H, CARD_W, MAT_D, MAT_W, PILES, PLAQUE_AT, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
@@ -51,6 +52,8 @@ const THICK = 0.016;
 /** Cards drawn per pile at most (taller piles space them out). */
 const PILE_LAYERS = 48;
 const LIFT = 0.55;
+/** How fast (world units a second) a card must still be moving when you let go for it to slide on (a flick). */
+const FLICK_SPEED = 4.5;
 
 export interface ScreenRect { id: string; left: number; top: number; right: number; bottom: number }
 
@@ -192,7 +195,9 @@ export class TableScene {
   private preset: CameraPreset = "seat";
   private zoom = 1;
   private yaw = 0;
-  private drag: { ids: string[]; anchor: string; start: [number, number]; grab: THREE.Vector3; offsets: Map<string, THREE.Vector3>; active: boolean } | null = null;
+  private drag: { ids: string[]; anchor: string; start: [number, number]; grab: THREE.Vector3; offsets: Map<string, THREE.Vector3>; active: boolean; trail: { t: number; x: number; z: number }[] } | null = null;
+  /** A flicked card sliding across its mat (and anything it knocked), played back from table3d/cardPhysics.ts. */
+  private sliding: { seat: Seat; start: number; frames: number; tracks: Map<string, Float32Array> } | null = null;
   private orbit: { x: number; yaw: number } | null = null;
   /** Box selection: dragging on the bare table draws a rectangle (as on the 2D table). */
   private marquee: { x0: number; y0: number; add: boolean; el: HTMLDivElement } | null = null;
@@ -1156,7 +1161,7 @@ export class TableScene {
       const c = this.cards.get(cid);
       if (c) offsets.set(cid, c.group.position.clone().setY(0).sub(grab));
     }
-    this.drag = { ids, anchor: id, start: [e.clientX, e.clientY], grab, offsets, active: false };
+    this.drag = { ids, anchor: id, start: [e.clientX, e.clientY], grab, offsets, active: false, trail: [] };
     this.canvas.setPointerCapture(e.pointerId);
   }
 
@@ -1183,6 +1188,9 @@ export class TableScene {
       document.body.classList.add("dragging");
       const p = this.tablePoint(e.clientX, e.clientY);
       if (!p) return;
+      // where the hand has been lately: how fast it was moving when it let go (a flick)
+      d.trail.push({ t: e.timeStamp, x: p.x, z: p.z }); // the event's own time: a busy frame doesn't skew the speed
+      if (d.trail.length > 8) d.trail.shift();
       for (const cid of d.ids) {
         const c = this.cards.get(cid);
         const off = d.offsets.get(cid);
@@ -1218,9 +1226,72 @@ export class TableScene {
     if (!d.active) return;
     const anchorOff = d.offsets.get(d.anchor);
     const target = this.resolveDrop(e.clientX, e.clientY, anchorOff ? anchorOff.clone().negate() : undefined);
+    if (target && this.flick(d, e.timeStamp)) return;
     if (target) dropCards(d.ids, d.anchor, { ...target, manual: e.altKey });
     else toast("Dropped off the table: nothing changed", "info");
     this.syncCards(); // snap back (or to the pending position) until the server answers
+  }
+
+  /**
+   * Let go of your own cards while still moving them and they slide on, knocking your other cards aside (physics:
+   * table3d/cardPhysics.ts). Where everything stops is sent as one move. A slow release is a normal, exact drop.
+   */
+  private flick(d: NonNullable<TableScene["drag"]>, released: number): boolean {
+    if (usePrefs.getState().cardPhysics === false) return false;
+    const recent = d.trail.filter((p) => released - p.t < 90);
+    if (recent.length < 2) return false;
+    const a = recent[0]!, b = recent[recent.length - 1]!;
+    const dt = (b.t - a.t) / 1000;
+    if (dt <= 0) return false;
+    const vx = (b.x - a.x) / dt, vz = (b.z - a.z) / dt;
+    if (Math.hypot(vx, vz) < FLICK_SPEED) return false;
+    return this.flickCards(d.ids, vx, vz);
+  }
+
+  /** Slide these cards of mine from where they are now at (vx, vz) world units a second (tests use it directly). */
+  flickCards(ids: string[], vx: number, vz: number): boolean {
+    const view = this.view;
+    const seat = this.seatList.find((s) => s.player === this.me);
+    if (!view || !seat || !ids.length) return false;
+    const now = performance.now();
+    const d = { ids };
+    const mat = `${this.me}:battlefield`;
+    if (!d.ids.every((id) => view.cards[id]?.zone === mat)) return false; // only rearranging your own battlefield
+    // the velocity on the mat's own axes
+    const [ox, oz] = toLocal(seat, 0, 0);
+    const [ux, uz] = toLocal(seat, vx, vz);
+    const lv = [ux - ox, uz - oz];
+    const pending = useGame.getState().pendingPositions;
+    const cards: SlideCard[] = [];
+    for (const id of (view.zones[mat] as string[] | undefined) ?? []) {
+      const card = view.cards[id];
+      if (!card || ("attached_to" in card && card.attached_to)) continue; // attachments ride on their host
+      const turned = !!card.tapped !== !!((card.rotation ?? 0) % 180);
+      const [w, dd] = turned ? [CARD_H, CARD_W] : [CARD_W, CARD_H];
+      if (d.ids.includes(id)) {
+        const c = this.cards.get(id);
+        if (!c) continue;
+        const [lx, lz] = toLocal(seat, c.target.x, c.target.z);
+        cards.push({ id, x: lx, z: lz, w, d: dd, vx: lv[0], vz: lv[1] });
+      } else {
+        const [vx0, vy0] = pending[id] ?? [card.x ?? 0, card.y ?? 0];
+        const [lx, lz] = virtualToLocal(vx0, vy0);
+        cards.push({ id, x: lx, z: lz, w, d: dd });
+      }
+    }
+    const result = slide(cards, MAT_W / 2 + 0.7, MAT_D / 2 + 1.0);
+    const final: Record<string, [number, number]> = {};
+    for (const c of cards) {
+      const at = result.rest.get(c.id) ?? (d.ids.includes(c.id) ? [c.x, c.z] as [number, number] : null);
+      if (at) final[c.id] = localToVirtual(at[0], at[1]);
+    }
+    const moves = Object.entries(final).slice(0, 250).map(([id, [x, y]]) => [id, Math.round(x), Math.round(y)]);
+    if (!moves.length) return false;
+    useGame.getState().setPending(final);
+    void send({ type: "set_position", moves });
+    this.sliding = { seat, start: now, frames: result.frames, tracks: result.tracks };
+    this.syncCards();
+    return true;
   }
 
   private clickPile(player: string, pile: PileZone, e: PointerEvent): void {
@@ -1293,6 +1364,20 @@ export class TableScene {
     const speed = usePrefs.getState().animationSpeed || 1;
     const k = ease(dt, 14 * speed, reduced);
     const dragging = !!this.drag?.active;
+    const sl = this.sliding;
+    if (sl) {
+      // a flick plays back at the table's animation speed; reduced motion jumps to where it stopped
+      const f = reduced ? sl.frames : Math.floor(((performance.now() - sl.start) / 1000) * SLIDE_FPS * speed);
+      for (const [id, track] of sl.tracks) {
+        const c = this.cards.get(id);
+        if (!c) continue;
+        const i = Math.min(f, track.length / 2 - 1) * 2;
+        const [wx, wz] = toWorld(sl.seat, track[i]!, track[i + 1]!);
+        c.target.x = wx;
+        c.target.z = wz;
+      }
+      if (f >= sl.frames) this.sliding = null;
+    }
     let n = 0;
     for (const c of this.cards.values()) {
       // hovered and selected cards ride a little higher, and a tap lifts the card as it turns
