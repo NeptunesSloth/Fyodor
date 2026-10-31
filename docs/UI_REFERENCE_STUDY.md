@@ -1340,3 +1340,12 @@ The user didn't like where the importer sat. Asked to choose, they picked **the 
 - `table3d.spec.ts`: clicks the 3D tax chip, and opens the importer from the top bar.
 - `table-importer.spec.ts`: opens from the top bar; a pasted deck is named after its commander; one click swaps
   back to a saved deck.
+
+**Decks first (follow-up).** The user asked why the importer worked "by card name and not by deck link or from saved
+decks". It did both, but it opened on **Find a card**, and the link shared a box with pasted lists. Now:
+- It opens on **Place a deck**, the first tab, with **Find a card** second.
+- A **deck link** field sits at the top. The host fetches Archidekt links (or bare deck numbers) itself.
+- Moxfield, TappedOut, MTGGoldfish and Deckstats offer no public deck feed, so a link from one of those disables
+  **Place** and says how to bring the deck instead: export it as text on that site and paste the list below.
+- `game/deckLinks.ts` decides which links can be fetched, with unit tests in `deckLinks.test.ts`.
+- `table-importer.spec.ts` checks that the panel opens on saved decks and that a Moxfield link shows its message.

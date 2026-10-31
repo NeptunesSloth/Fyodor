@@ -26,12 +26,19 @@ test("card importer at the table: find a card, place a deck, restart without lea
   await page.goto(`/#/game/${gameId}`);
   const url = page.url();
 
-  // the importer opens from the top bar, over the table, not on another page
+  // the importer opens from the top bar, over the table, not on another page, on its decks
   await page.getByTestId("open-importer").click();
   const panel = page.getByTestId("table-importer");
   await expect(panel).toBeVisible();
+  await expect(page.getByTestId("ti-saved-decks")).toBeVisible();
+
+  // a link from a site the host can't fetch says how to bring the deck instead
+  await page.getByTestId("ti-deck-link").fill("https://moxfield.com/decks/AbC123");
+  await expect(panel.getByRole("status")).toContainText("Moxfield links can't be fetched");
+  await page.getByTestId("ti-deck-link").fill("");
 
   // find a card: into my hand (the host allows it here if the table doesn't yet)
+  await page.getByTestId("ti-tab-card").click();
   if (!(await view()).game.settings.allow_test_objects) await panel.getByRole("button", { name: "Allow it" }).click();
   await page.getByTestId("ti-search").fill("sol ring");
   await page.getByTestId("ti-result").first().click();

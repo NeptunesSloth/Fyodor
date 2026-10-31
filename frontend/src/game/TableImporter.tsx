@@ -10,6 +10,7 @@ import type { CardData } from "../types/cards";
 import type { DeckSummary } from "../types/decks";
 import { send } from "./actions";
 import { useIsHost } from "./HostTools";
+import { ARCHIDEKT, OTHER_SITES, linkProblem } from "./deckLinks";
 
 /** Open (or close) the importer from the top bar's button, under it. */
 export const openImporter = (e?: React.MouseEvent) => {
@@ -37,7 +38,7 @@ function ImporterPanel({ at, onClose }: { at: { right: number; bottom: number } 
   const view = useGame((s) => s.view);
   const gameId = useGame((s) => s.gameId);
   const actingAs = useGame((s) => s.actingAs);
-  const [tab, setTab] = useState<"card" | "deck">("card");
+  const [tab, setTab] = useState<"card" | "deck">("deck"); // decks first: placing one is what the importer is mostly for
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -51,8 +52,8 @@ function ImporterPanel({ at, onClose }: { at: { right: number; bottom: number } 
       <header className="ti-head">
         <b>Card importer</b>
         <div className="ti-tabs" role="tablist">
-          <button role="tab" aria-selected={tab === "card"} className={tab === "card" ? "on" : ""} onClick={() => setTab("card")}>Find a card</button>
           <button role="tab" aria-selected={tab === "deck"} className={tab === "deck" ? "on" : ""} onClick={() => setTab("deck")} data-testid="ti-tab-deck">Place a deck</button>
+          <button role="tab" aria-selected={tab === "card"} className={tab === "card" ? "on" : ""} onClick={() => setTab("card")} data-testid="ti-tab-card">Find a card</button>
         </div>
         <button className="tt-btn ghost ti-close" onClick={onClose} aria-label="Close the importer">✕</button>
       </header>
@@ -104,8 +105,9 @@ function FindCard({ me }: { me: string }) {
   );
 }
 
-/** A whole new deck in your seat: one of your saved decks (one click), or a pasted list or Archidekt link. */
+/** A whole new deck in your seat: one of your saved decks (one click), an Archidekt link, or a pasted list. */
 function PlaceDeck({ gameId, me, local }: { gameId: string; me: string; local: boolean }) {
+  const [link, setLink] = useState("");
   const [text, setText] = useState("");
   const [hostDecks, setHostDecks] = useState<DeckSummary[] | null>(null);
   const [draw, setDraw] = useState(true);
@@ -118,6 +120,7 @@ function PlaceDeck({ gameId, me, local }: { gameId: string; me: string; local: b
       const r = await loadDeckAtTable(gameId, { ...body, draw: draw ? 7 : 0, ...(local ? { seat: me } : {}) });
       toast(`${r.deck} is at your seat`);
       if (key === "paste") setText("");
+      if (key === "link") setLink("");
     } catch (e) {
       toastError(e);
     } finally {
@@ -131,6 +134,18 @@ function PlaceDeck({ gameId, me, local }: { gameId: string; me: string; local: b
   return (
     <section className="ti-section">
       <label className="ti-check"><input type="checkbox" checked={draw} onChange={(e) => setDraw(e.target.checked)} /> Shuffle and draw 7</label>
+      <h4 className="ti-sub">From a deck link</h4>
+      <form className="ti-link" onSubmit={(e) => {
+        e.preventDefault();
+        const problem = linkProblem(link);
+        if (problem) toast(problem);
+        else if (link.trim()) void place("link", { archidekt: link.trim() });
+      }}>
+        <input className="ti-search" type="text" inputMode="url" autoComplete="off" spellCheck={false} placeholder="https://archidekt.com/decks/…" value={link}
+          onChange={(e) => setLink(e.target.value)} aria-label="Deck link" data-testid="ti-deck-link" />
+        <button className="btn primary" type="submit" disabled={!link.trim() || OTHER_SITES.test(link) || !!busy} data-testid="ti-place-link">{busy === "link" ? "Placing…" : "Place"}</button>
+      </form>
+      {OTHER_SITES.test(link) && <p className="hint ti-warn" role="status">{linkProblem(link)}</p>}
       {saved.length > 0 && (
         <>
           <h4 className="ti-sub">Your saved decks</h4>
@@ -147,11 +162,11 @@ function PlaceDeck({ gameId, me, local }: { gameId: string; me: string; local: b
           </ul>
         </>
       )}
-      <h4 className="ti-sub">Or paste a list</h4>
-      <textarea className="ti-list" rows={5} placeholder={"A deck list or an Archidekt link\n\nCommander\n1 Krenko, Mob Boss\nDeck\n1 Sol Ring\n…"}
+      <h4 className="ti-sub">Or paste a deck list</h4>
+      <textarea className="ti-list" rows={4} placeholder={"Moxfield, Archidekt, MTGO or Arena text\n\nCommander\n1 Krenko, Mob Boss\nDeck\n1 Sol Ring\n…"}
         value={text} onChange={(e) => setText(e.target.value)} data-testid="ti-deck-text" />
       <button className="btn primary" disabled={!text.trim() || !!busy} data-testid="ti-place-deck"
-        onClick={() => void place("paste", /archidekt\.com\/decks\/\d+/.test(text.trim()) ? { archidekt: text.trim() } : { text })}>
+        onClick={() => void place("paste", ARCHIDEKT.test(text.trim()) && !text.trim().includes("\n") ? { archidekt: text.trim() } : { text })}>
         {busy === "paste" ? "Placing…" : "Place this deck"}
       </button>
       <p className="hint">Your current cards leave the table; your life goes back to the start. Undo brings the old deck back.</p>

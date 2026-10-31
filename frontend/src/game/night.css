@@ -288,6 +288,9 @@ body.reduced-motion .die2d-wrap { animation-name: night-fade; }
 .ti-card { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 4px; }
 .ti-card:hover:not(:disabled) { outline: 2px solid var(--frame-hi); }
 .ti-card:disabled { opacity: 0.5; cursor: default; }
+.ti-link { display: flex; gap: 6px; }
+.ti-link .ti-search { flex: 1; min-width: 0; font-size: 13px; padding: 7px 9px; }
+.table-importer .ti-warn { color: #e2b26b; margin: -2px 0 0; }
 .ti-check { font-size: 13px; color: var(--text-dim); display: flex; gap: 6px; align-items: center; }
 .ti-restart { display: flex; gap: 8px; border-top: 1px solid var(--line); padding-top: 10px; }
 .ti-restart .btn { flex: 1; }
