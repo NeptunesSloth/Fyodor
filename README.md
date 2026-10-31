@@ -1,17 +1,19 @@
-# Fyodor — offline MTG tabletop
+# Fyodor — offline Commander tabletop
 
-A fast, offline-first digital tabletop for **Magic: The Gathering**, built for a Commander pod,
-60-card constructed and casual games. Once the card data is downloaded, nothing needs the
-Internet.
+A private, offline-first digital tabletop for one **Magic: The Gathering Commander** pod: each
+player on their own computer, joined over the LAN to one host. Once the card data is downloaded,
+nothing needs the Internet.
 
-- **Today** it is a complete sandbox table. You and your opponents decide what's legal, and
-  Fyodor provides the zones, cards, counters, life totals, stack, turn tracker, log, undo,
-  saves and LAN play.
-- **Where it's going:** Tabletop Simulator-style 3D interaction on top of an **MTG Arena-like
-  rules engine**. It will automate normal play for the cards our decks use, while keeping the
-  manual sandbox for anything unsupported. See
-  [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) and
-  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+![The 3D table mid-game: two objects on the stack, one targeting a permanent, and the turn dial at bottom right](docs/screenshots/table-3d.jpg)
+
+- **A physical table.** A three.js 3D table, or a lighter 2D table, where anything can be moved
+  by hand, as in Tabletop Simulator.
+- **A rules engine.** Deterministic automation researched from the Comprehensive Rules, set per
+  table: *Off* (sandbox), *Assisted* or *Full*. Supported cards play themselves. Everything else
+  falls back to the manual table, so nothing ever blocks the game. Coverage is reported per card
+  in [`docs/RULES_COVERAGE.md`](docs/RULES_COVERAGE.md).
+- **Clear priority.** A turn and priority dial, the stack as a chain on the table, and a
+  response helper that only stops you when you can act.
 
 - **Tabletop**: free card positioning, drag and drop between every zone, tap/untap, counters,
   tokens, copies, face-down cards, transform/MDFC/adventure/split faces, notes, reveal,
@@ -25,6 +27,11 @@ Internet.
   and each device only receives what its player is allowed to see
 - **Decks**: paste lists from Moxfield, Archidekt, MTGGoldfish, Arena or plain text;
   deck library, editor, printing picker, advisory checks
+
+| | |
+|---|---|
+| ![Home screen with the table theme showcase](docs/screenshots/home.jpg) | ![LAN lobby with four seats and a room code](docs/screenshots/lobby.jpg) |
+| ![The 2D table with combat and the stack](docs/screenshots/table-2d.jpg) | ![Opening hand with Commander London mulligans](docs/screenshots/mulligan.jpg) |
 
 See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design details.
@@ -153,6 +160,7 @@ Environment variables (or a `.env` file in `backend/`), see [`.env.example`](.en
 | `FYODOR_LOG_LEVEL` | `INFO` | |
 | `FYODOR_AUTOSAVE_EVERY` | `10` | autosave after this many actions |
 | `FYODOR_HISTORY_LIMIT` | `500` | undo steps kept per game |
+| `FYODOR_ALLOW_NETWORK` | `1` | `0` turns off Archidekt import and artwork caching |
 | `FYODOR_CORS_ORIGINS` | dev server | comma-separated |
 | `FYODOR_ASSISTANT_URL` | unset | Ollama-compatible endpoint for the optional rules assistant |
 | `FYODOR_ASSISTANT_MODEL` | `llama3.1` | |
@@ -203,7 +211,7 @@ backend/
   app/game/         pure game engine: state, actions, resolve, engine, views, history
   app/multiplayer/  rooms, seats, connections
   app/storage/      SQLite helpers, migrations, versioned saves
-  app/rules/        extension point for future rules assistance (advisory only)
+  app/rules/        the rules engine: priority, the stack, combat, triggers and card automation
   app/assistant/    optional local AI rules assistant (disabled by default)
   tools/update_cards.py
   tests/
@@ -219,8 +227,10 @@ scripts/            start (launcher), setup, dev, serve, test, update-cards
 
 ## Privacy
 
-No telemetry, analytics or tracking. The only network access is the explicit card/image
-download in `update-cards` (and the optional assistant endpoint you configure yourself).
+No telemetry, analytics or tracking. Fyodor only goes online when you ask it to: the card and
+image download in `update-cards`, importing a deck from an Archidekt link, caching a deck's
+artwork, and the optional assistant endpoint you configure yourself. Set `FYODOR_ALLOW_NETWORK=0`
+to turn off Archidekt import and artwork caching.
 
 Card data and images are provided by [Scryfall](https://scryfall.com). Magic: The Gathering
 is © Wizards of the Coast. Fyodor is unofficial Fan Content and not affiliated with them.
