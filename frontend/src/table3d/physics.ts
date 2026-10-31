@@ -1,16 +1,22 @@
 /**
- * A small rigid-body simulation for thrown dice, written for Fyodor rather than pulled in as a physics
- * library. Convex bodies fall under gravity onto the table top, bounce (restitution), slide and roll
- * (friction), knock into each other (as spheres), and come to rest on a face. A throw is simulated ahead in
- * fixed steps and played back, so the server's number can be printed on whichever face ends up on top. A
- * seed makes the throw identical on every screen at the table.
+ * Thrown dice, simulated with cannon-es (a rigid-body physics library: MIT, pure JavaScript, bundled with the app
+ * so the table stays offline). Each die is its real convex polyhedron (a coin is a cylinder). The table top, its
+ * edges and the seats' library piles are solid, so dice bounce, knock together, glance off decks and roll to
+ * rest on a face. A throw is simulated ahead in fixed steps and played back, so the server's number can be
+ * printed on whichever face ends up on top. A seed makes the throw identical on every screen at the table.
+ * Cards stay where the server puts them: physics is only for what is thrown.
  */
+import * as CANNON from "cannon-es";
 import * as THREE from "three";
 
 export interface BodyInit {
   /** Hull vertices in the body's own frame (the centre of mass at the origin). */
   verts: THREE.Vector3[];
-  /** Bounding radius, for knocks between dice and the inertia. */
+  /** The hull's faces as vertex indices, counter-clockwise seen from outside. */
+  faces?: number[][];
+  /** A coin: a cylinder along the body's Y axis, instead of the hull. */
+  cylinder?: { radius: number; height: number };
+  /** Bounding radius (the table's edges keep this much room). */
   radius: number;
   pos: THREE.Vector3;
   vel: THREE.Vector3;
@@ -21,18 +27,19 @@ export interface BodyInit {
 /** Recorded poses per body: [x, y, z, qx, qy, qz, qw] per frame. */
 export interface Track { frames: Float32Array; count: number }
 
+/** A solid box on the table (a library pile), centred at (x, z), standing h tall. */
+export interface Obstacle { x: number; z: number; w: number; d: number; h: number }
+
 export interface SimOptions {
   /** Table-top bounds the dice stay inside (x/z min and max). */
   bounds: { minX: number; maxX: number; minZ: number; maxZ: number };
+  obstacles?: Obstacle[];
   gravity?: number;
   maxSeconds?: number;
 }
 
 const STEP = 1 / 240;
 const RECORD_EVERY = 2; // 120 frames a second
-const RESTITUTION = 0.32;
-const FRICTION = 0.5;
-const WALL_BOUNCE = 0.45;
 
 /** Deterministic random numbers from a string (mulberry32 over a string hash). */
 export function seeded(key: string): () => number {
@@ -48,121 +55,61 @@ export function seeded(key: string): () => number {
   };
 }
 
-interface State { x: THREE.Vector3; q: THREE.Quaternion; v: THREE.Vector3; w: THREE.Vector3; invI: number; still: number; asleep: boolean; b: BodyInit }
+const vec = (v: THREE.Vector3) => new CANNON.Vec3(v.x, v.y, v.z);
 
-const UP = new THREE.Vector3(0, 1, 0);
-const tmp = { r: new THREE.Vector3(), p: new THREE.Vector3(), u: new THREE.Vector3(), t: new THREE.Vector3(), c: new THREE.Vector3(), dq: new THREE.Quaternion() };
-
-/** Apply an impulse j at offset r from the centre. */
-function impulse(s: State, r: THREE.Vector3, j: THREE.Vector3): void {
-  s.v.add(j);
-  s.w.add(tmp.c.copy(r).cross(j).multiplyScalar(s.invI));
-}
-
-/** Velocity of the body's point at offset r. */
-function pointVel(s: State, r: THREE.Vector3, out: THREE.Vector3): THREE.Vector3 {
-  return out.copy(s.w).cross(r).add(s.v);
-}
-
-/** Simulate the throw; every body ends at rest (or is eased flat if it hasn't settled in time). */
+/** Simulate the throw until every body is at rest (or the time runs out). */
 export function simulate(bodies: BodyInit[], opts: SimOptions): Track[] {
-  const g = opts.gravity ?? 28;
-  const steps = Math.round((opts.maxSeconds ?? 4) / STEP);
-  const states: State[] = bodies.map((b) => ({
-    x: b.pos.clone(), q: b.rot.clone(), v: b.vel.clone(), w: b.spin.clone(),
-    invI: 1 / (0.4 * b.radius * b.radius), still: 0, asleep: false, b,
-  }));
-  const tracks: Track[] = bodies.map(() => ({ frames: new Float32Array(Math.ceil(steps / RECORD_EVERY + 2) * 7), count: 0 }));
-  const record = (i: number) => {
-    const s = states[i]!;
-    const t = tracks[i]!;
-    t.frames.set([s.x.x, s.x.y, s.x.z, s.q.x, s.q.y, s.q.z, s.q.w], t.count * 7);
-    t.count++;
+  const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -(opts.gravity ?? 28), 0), allowSleep: true });
+  world.solver = Object.assign(new CANNON.GSSolver(), { iterations: 14 });
+  const felt = new CANNON.Material("table");
+  const bone = new CANNON.Material("die");
+  world.addContactMaterial(new CANNON.ContactMaterial(felt, bone, { friction: 0.42, restitution: 0.32 }));
+  world.addContactMaterial(new CANNON.ContactMaterial(bone, bone, { friction: 0.3, restitution: 0.4 }));
+  // the table top, its four edges and the library piles
+  const ground = new CANNON.Body({ mass: 0, material: felt, shape: new CANNON.Plane() });
+  ground.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+  world.addBody(ground);
+  const { minX, maxX, minZ, maxZ } = opts.bounds;
+  const solid = (x: number, y: number, z: number, hx: number, hy: number, hz: number) => {
+    const b = new CANNON.Body({ mass: 0, material: felt, shape: new CANNON.Box(new CANNON.Vec3(hx, hy, hz)) });
+    b.position.set(x, y, z);
+    world.addBody(b);
   };
-  states.forEach((_, i) => record(i));
+  const wall = 0.5;
+  solid(minX - wall, 1, (minZ + maxZ) / 2, wall, 1, (maxZ - minZ) / 2 + wall);
+  solid(maxX + wall, 1, (minZ + maxZ) / 2, wall, 1, (maxZ - minZ) / 2 + wall);
+  solid((minX + maxX) / 2, 1, minZ - wall, (maxX - minX) / 2 + wall, 1, wall);
+  solid((minX + maxX) / 2, 1, maxZ + wall, (maxX - minX) / 2 + wall, 1, wall);
+  for (const o of opts.obstacles ?? []) solid(o.x, o.h / 2, o.z, o.w / 2, o.h / 2, o.d / 2);
+  // the dice
+  const dice = bodies.map((b) => {
+    const shape = b.cylinder
+      ? new CANNON.Cylinder(b.cylinder.radius, b.cylinder.radius, b.cylinder.height, 20)
+      : new CANNON.ConvexPolyhedron({ vertices: b.verts.map(vec), faces: b.faces });
+    const body = new CANNON.Body({ mass: 1, material: bone, shape, linearDamping: 0.05, angularDamping: 0.12 });
+    body.sleepSpeedLimit = 0.12;
+    body.sleepTimeLimit = 0.25;
+    body.position.copy(vec(b.pos));
+    body.velocity.copy(vec(b.vel));
+    body.angularVelocity.copy(vec(b.spin));
+    body.quaternion.set(b.rot.x, b.rot.y, b.rot.z, b.rot.w);
+    world.addBody(body);
+    return body;
+  });
+  const steps = Math.round((opts.maxSeconds ?? 4) / STEP);
+  const tracks: Track[] = dice.map(() => ({ frames: new Float32Array(Math.ceil(steps / RECORD_EVERY + 2) * 7), count: 0 }));
+  const record = () => dice.forEach((d, i) => {
+    const t = tracks[i]!;
+    t.frames.set([d.position.x, d.position.y, d.position.z, d.quaternion.x, d.quaternion.y, d.quaternion.z, d.quaternion.w], t.count * 7);
+    t.count++;
+  });
+  record();
   for (let step = 1; step <= steps; step++) {
-    let awake = 0;
-    for (const s of states) {
-      if (s.asleep) continue;
-      awake++;
-      s.v.y -= g * STEP;
-      // the ground: every hull point below the table top pushes back (normal impulse, then friction)
-      let deepest = 0;
-      let touching = false;
-      for (const local of s.b.verts) {
-        const r = tmp.r.copy(local).applyQuaternion(s.q);
-        const y = s.x.y + r.y;
-        if (y >= 0) continue;
-        touching = true;
-        deepest = Math.min(deepest, y);
-        const u = pointVel(s, r, tmp.u);
-        const vn = u.y;
-        if (vn >= 0) continue;
-        const rxn = tmp.p.copy(r).cross(UP);
-        const k = 1 + rxn.lengthSq() * s.invI;
-        const jn = (-(1 + RESTITUTION) * vn) / k;
-        impulse(s, r, tmp.t.set(0, jn, 0));
-        // friction against the sliding direction, bounded by the normal impulse (Coulomb)
-        const ut = pointVel(s, r, tmp.u).setY(0);
-        const speed = ut.length();
-        if (speed > 1e-5) {
-          const dir = ut.divideScalar(speed);
-          const rxt = tmp.p.copy(r).cross(dir);
-          const kt = 1 + rxt.lengthSq() * s.invI;
-          const jt = Math.min(FRICTION * jn, speed / kt);
-          impulse(s, r, dir.multiplyScalar(-jt));
-        }
-      }
-      if (deepest < 0) s.x.y -= deepest * 0.85;
-      if (touching) {
-        // rolling resistance: felt and wood soak up a little spin every step
-        s.w.multiplyScalar(0.992);
-        s.v.multiplyScalar(0.998);
-      }
-      // the table's edges
-      const { minX, maxX, minZ, maxZ } = opts.bounds;
-      const rad = s.b.radius;
-      if (s.x.x < minX + rad && s.v.x < 0) s.v.x *= -WALL_BOUNCE;
-      if (s.x.x > maxX - rad && s.v.x > 0) s.v.x *= -WALL_BOUNCE;
-      if (s.x.z < minZ + rad && s.v.z < 0) s.v.z *= -WALL_BOUNCE;
-      if (s.x.z > maxZ - rad && s.v.z > 0) s.v.z *= -WALL_BOUNCE;
-      // integrate
-      s.x.addScaledVector(s.v, STEP);
-      const wl = s.w.length();
-      if (wl > 1e-6) {
-        tmp.dq.setFromAxisAngle(tmp.t.copy(s.w).divideScalar(wl), wl * STEP);
-        s.q.premultiply(tmp.dq).normalize();
-      }
-      // asleep once it has sat still on the table for a moment
-      s.still = touching && s.v.lengthSq() < 0.0025 && s.w.lengthSq() < 0.04 ? s.still + 1 : 0;
-      if (s.still > 40) s.asleep = true;
-    }
-    // knocks between dice (as spheres): push apart and trade the closing speed
-    for (let i = 0; i < states.length; i++) {
-      for (let j = i + 1; j < states.length; j++) {
-        const a = states[i]!, b = states[j]!;
-        const d = tmp.p.copy(b.x).sub(a.x);
-        const min = (a.b.radius + b.b.radius) * 0.82;
-        const dist = d.length();
-        if (dist >= min || dist < 1e-6) continue;
-        const n = d.divideScalar(dist);
-        const push = (min - dist) / 2;
-        a.x.addScaledVector(n, -push);
-        b.x.addScaledVector(n, push);
-        const closing = tmp.u.copy(a.v).sub(b.v).dot(n);
-        if (closing > 0) {
-          const j = closing * (1 + RESTITUTION) / 2;
-          a.v.addScaledVector(n, -j);
-          b.v.addScaledVector(n, j);
-          a.asleep = b.asleep = false;
-          a.still = b.still = 0;
-        }
-      }
-    }
-    if (step % RECORD_EVERY === 0) states.forEach((_, i) => record(i));
-    if (!awake) break;
+    world.step(STEP);
+    if (step % RECORD_EVERY === 0) record();
+    if (dice.every((d) => d.sleepState === CANNON.Body.SLEEPING)) break;
   }
-  states.forEach((_, i) => record(i));
+  record();
   return tracks;
 }
 

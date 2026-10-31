@@ -3,7 +3,8 @@
 These are the Claude Code skills used for Fyodor's UI and 3D work. They are kept under `.claude/skills/` (repo-local,
 copied from upstream at a recorded commit; nothing is installed globally). `fyodor-ui-design` routes the work to them.
 They are guidance, not architecture: **Fyodor stays on plain three.js**. Advice in any skill to use React Three Fiber,
-Drei, GSAP, Rapier/cannon-es or `@react-three/postprocessing` is ignored, and so are paid asset-generator services.
+Drei, GSAP, Rapier or `@react-three/postprocessing` is ignored, and so are paid asset-generator services. The one
+physics library, `cannon-es`, was added at the user's request for thrown dice only (`UI_REFERENCE_STUDY.md` §26).
 
 Last reviewed 2026-10-31. Each upstream repository was cloned and the installed copy diffed against it.
 

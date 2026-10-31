@@ -1,13 +1,13 @@
 /**
- * 3D dice and coins (game/dice.ts feeds them). Each roll is thrown for real: table3d/physics.ts simulates the
- * dice from the roller's edge of the table, across their mat and into the aisle, bouncing, knocking together
- * and rolling to rest. The simulation is seeded by the roll, so every screen sees the same throw. The number
+ * 3D dice and coins (game/dice.ts feeds them). Each roll is thrown for real: table3d/physics.ts (cannon-es)
+ * simulates the dice from the roller's edge of the table, across their mat and into the aisle, bouncing off the
+ * table, its edges and the decks, knocking together and rolling to rest. The simulation is seeded by the roll, so every screen sees the same throw. The number
  * the server rolled is then printed on whichever face came to rest on top (on a d4, at the top point), and
  * floats above the die as well, readable from every seat, until the dice fade.
  */
 import * as THREE from "three";
 import { DICE_HOLD_MS, DICE_SHOWN, rollSummary, type DiceShow } from "../game/dice";
-import { FRAMES_PER_SECOND, poseAt, seeded, simulate, trackSeconds, type BodyInit, type Track } from "./physics";
+import { FRAMES_PER_SECOND, poseAt, seeded, simulate, trackSeconds, type BodyInit, type Obstacle, type Track } from "./physics";
 
 const SIZE = 0.56;
 const FADE_MS = 600;
@@ -42,7 +42,7 @@ function trapezohedron(r: number): THREE.BufferGeometry {
 }
 
 interface Face { normal: THREE.Vector3; center: THREE.Vector3; corners: { vertex: number; a: number; b: number }[] }
-interface Shape { geometry: THREE.BufferGeometry; faces: Face[]; hull: THREE.Vector3[]; radius: number; cols: number; rows: number }
+interface Shape { geometry: THREE.BufferGeometry; faces: Face[]; polygons: number[][]; hull: THREE.Vector3[]; radius: number; cols: number; rows: number }
 const shapes = new Map<string, Shape>();
 
 /** The die's mesh, with its faces found (coplanar triangles), each mapped to its own cell of a number atlas. */
@@ -104,13 +104,16 @@ function shapeFor(sides: number): Shape {
   });
   g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
   const radius = Math.max(...hull.map((p) => p.length()));
-  const shape: Shape = { geometry: g, faces, hull, radius, cols, rows };
+  // the physics wants each face as its corners in order, counter-clockwise seen from outside: (u, v, normal) is
+  // right-handed (u × v = normal), so sorting the corners by angle in (u, v) does it
+  const polygons = faces.map((f) => [...f.corners].sort((p, q) => Math.atan2(p.b, p.a) - Math.atan2(q.b, q.a)).map((k) => k.vertex));
+  const shape: Shape = { geometry: g, faces, polygons, hull, radius, cols, rows };
   shapes.set(key, shape);
   return shape;
 }
 
 /** For tests: a die's faces and hull. */
-export const dieShape = (sides: number) => { const s = shapeFor(sides); return { faces: s.faces.length, hull: s.hull, radius: s.radius, normals: s.faces.map((f) => f.normal) }; };
+export const dieShape = (sides: number) => { const s = shapeFor(sides); return { faces: s.faces.length, polygons: s.polygons, hull: s.hull, radius: s.radius, normals: s.faces.map((f) => f.normal) }; };
 
 /** The numbers on a die's faces (cells), with `top` showing the roll. A d4 numbers its points instead. */
 function atlas(shape: Shape, sides: number, labels: string[], color: string, cornerLabels?: string[]): THREE.CanvasTexture {
@@ -195,7 +198,7 @@ interface Die { mesh: THREE.Mesh; shadow: THREE.Mesh; label: THREE.Sprite; track
 interface Throw { started: number; dice: Die[]; total: THREE.Sprite | null; solids: THREE.Material[]; fades: THREE.Material[]; textures: THREE.Texture[]; geometries: THREE.BufferGeometry[]; last: number }
 
 /** Where a throw starts and aims (world), and the table-top it stays on. TableScene works these out from the seat. */
-export interface ThrowPath { from: THREE.Vector3; land: (i: number, n: number) => THREE.Vector3; bounds: { minX: number; maxX: number; minZ: number; maxZ: number } }
+export interface ThrowPath { from: THREE.Vector3; land: (i: number, n: number) => THREE.Vector3; bounds: { minX: number; maxX: number; minZ: number; maxZ: number }; obstacles?: Obstacle[] }
 
 const COIN_R = 0.3;
 const COIN_H = 0.05;
@@ -217,16 +220,28 @@ export class DiceTray {
     const rnd = seeded(show.key);
     const shape = show.coin ? null : shapeFor(show.sides);
     // the throw: from the roller's hand toward the aisle, spinning hard
+    // dice leave the hand side by side, never overlapping (overlapping solids would burst apart)
+    const radius = show.coin ? COIN_R : shape!.radius;
+    const aim = path.land(0, 1).sub(path.from).setY(0).normalize();
+    const across = new THREE.Vector3(-aim.z, 0, aim.x);
+    const perRow = 4;
     const bodies: BodyInit[] = results.map((_, i) => {
       const target = path.land(i, results.length);
-      const pos = path.from.clone().add(new THREE.Vector3((rnd() - 0.5) * 0.6, 1.0 + rnd() * 0.5, (rnd() - 0.5) * 0.6));
+      const row = Math.floor(i / perRow);
+      const inRow = Math.min(perRow, results.length - row * perRow);
+      const pos = path.from.clone()
+        .addScaledVector(across, ((i % perRow) - (inRow - 1) / 2) * (radius * 2 + 0.15))
+        .addScaledVector(aim, -row * (radius * 2 + 0.15) + (rnd() - 0.5) * 0.1)
+        .setY(1.0 + rnd() * 0.4);
       const flat = target.clone().sub(pos).setY(0);
-      const vel = flat.multiplyScalar(1.3 + rnd() * 0.2).setY(1.5 + rnd() * 1.5);
+      const vel = flat.multiplyScalar(0.95 + rnd() * 0.15).setY(1.5 + rnd() * 1.5);
       const spin = new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize().multiplyScalar(show.coin ? 26 : 14 + rnd() * 10);
       const rot = new THREE.Quaternion().setFromEuler(new THREE.Euler(rnd() * 6.3, rnd() * 6.3, rnd() * 6.3));
-      return { verts: show.coin ? coinHull : shape!.hull, radius: show.coin ? COIN_R : shape!.radius, pos, vel, spin, rot };
+      return show.coin
+        ? { verts: coinHull, cylinder: { radius: COIN_R, height: COIN_H }, radius: COIN_R, pos, vel, spin, rot }
+        : { verts: shape!.hull, faces: shape!.polygons, radius: shape!.radius, pos, vel, spin, rot };
     });
-    const tracks = simulate(bodies, { bounds: path.bounds });
+    const tracks = simulate(bodies, { bounds: path.bounds, obstacles: path.obstacles });
     const t: Throw = { started: now, dice: [], total: null, solids: [], fades: [], textures: [], geometries: [], last: 0 };
     const end = new THREE.Vector3();
     const endQ = new THREE.Quaternion();

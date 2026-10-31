@@ -33,7 +33,9 @@ interface.**
    WebSocket payloads. Private choices go in a private drawer; others see only "Waiting for Player N".
 3. **Keep the plain three.js renderer.** Improve `frontend/src/table3d` in place. No React Three Fiber, Drei,
    Rapier or other 3D framework; no new runtime dependency without a concrete need the current stack can't
-   meet. Skills are guidance, not architecture.
+   meet. Skills are guidance, not architecture. **One exception, the user's decision (2026-10-31):** `cannon-es`
+   simulates thrown dice and coins (`table3d/physics.ts`, loaded only with the 3D table). It drives presentation
+   only: cards stay where the server puts them, and roll results come from the server.
 4. **2D table stays first-class** and fully usable. 3D is optional presentation.
 5. **Manual tabletop freedom is never removed** (free positioning, any zone move, notes, tokens, undo).
 6. **Accessibility:** reduced motion honored, readable contrast, keyboard actions, visible focus/selection,
@@ -68,7 +70,7 @@ build the neutral table first.
 4. 3D work: consult `threejs-*` skills (core, geometry, materials, lighting, camera, animation, loaders,
    performance, postprocessing, shaders; `threejs-aaa-graphics-builder` for visual quality,
    `threejs-debug-profiler` for perf, `threejs-qa-release` for canvas/visual checks). Ignore their React,
-   physics-engine, scaffold and asset-generation advice.
+   scaffold and asset-generation advice, and their physics-engine advice beyond the dice (rule 3).
    **`accessibility`** (WCAG 2.2) is the reference for the accessibility hard rule: 2.5.7 single-pointer alternatives
    to every drag (the table is drag-heavy), 2.4.11 focus not obscured by overlays, 2.5.8 target size. Impeccable's
    engine has telemetry and an update check: run it with `IMPECCABLE_NO_TELEMETRY=1 IMPECCABLE_NO_UPDATE_CHECK=1`.

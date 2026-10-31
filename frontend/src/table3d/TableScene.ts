@@ -342,15 +342,24 @@ export class TableScene {
     const color = this.view?.players.find((p) => p.id === seat.player)?.color ?? "#d7ae63";
     const [fx, fz] = toWorld(seat, 2.2, MAT_D / 2 + 0.6);
     const land = (i: number, n: number) => {
-      const perRow = Math.min(n, 6);
+      // aimed side by side (as they leave the hand: table3d/dice.ts), so they don't converge mid-air
+      const perRow = Math.min(n, 4);
       const row = Math.floor(i / perRow);
-      const lx = 1.4 + (i % perRow - (perRow - 1) / 2) * 0.62;
-      const [wx, wz] = toWorld(seat, lx, -MAT_D / 2 - AISLE * 0.42 - row * 0.62);
+      const inRow = Math.min(perRow, n - row * perRow);
+      const lx = 1.4 + (i % perRow - (inRow - 1) / 2) * 1.1;
+      const [wx, wz] = toWorld(seat, lx, -MAT_D / 2 - AISLE * 0.42 - row * 1.1);
       return new THREE.Vector3(wx, 0, wz);
     };
     const size = tableSize(this.seatList);
     const bounds = { minX: -size.w / 2 + 0.6, maxX: size.w / 2 - 0.6, minZ: -size.d / 2 + 0.6, maxZ: size.d / 2 - 0.6 };
-    this.dice.throw(show, color, { from: new THREE.Vector3(fx, 0, fz), land, bounds }, performance.now());
+    // every seat's piles are solid: a die that reaches a deck glances off it
+    const obstacles = this.seatList.flatMap((s) => (["library", "graveyard", "exile"] as const).flatMap((zone) => {
+      const n = this.piles.get(`${s.player}:${zone}`)?.count ?? 0;
+      if (!n) return [];
+      const [x, z] = toWorld(s, ...PILES[zone]);
+      return [{ x, z, w: CARD_W, d: CARD_H, h: pileHeight(n) + THICK }];
+    }));
+    this.dice.throw(show, color, { from: new THREE.Vector3(fx, 0, fz), land, bounds, obstacles }, performance.now());
   }
 
   /** The dice on the table, in screen coordinates (tests and diagnostics). */
