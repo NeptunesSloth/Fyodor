@@ -41,7 +41,7 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
   const typeData = useCardCache((s) => s.cards); // type lines arrive after the first render
   const view = useGame((s) => s.view);
   const piles = useMemo(() => (view ? zonePileTops(view, key) : new Map<string, number>()), [view, key, typeData]);
-  const cardW = battlefieldCardWidth(size.w, size.h);
+  const cardW = battlefieldCardWidth(size.w, size.h, true);
   const cardH = cardW * CARD_RATIO;
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -99,9 +99,11 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
         const c = cards?.[id];
         if (!c) return null;
         const [vx, vy] = pending[id] ?? [c.x ?? 0, c.y ?? 0];
-        const [left, raw] = toPixels(Math.max(-40, Math.min(BF_W, vx)), Math.max(-40, Math.min(BF_H, vy)), size.w, size.h, cardH, mirrored);
+        const [rawLeft, raw] = toPixels(Math.max(-40, Math.min(BF_W, vx)), Math.max(-40, Math.min(BF_H, vy)), size.w, size.h, cardH, mirrored);
         // a wide, short mat makes cards taller than the room below their row: keep them on the felt (display only)
         const top = size.h > cardH + 8 ? Math.max(4, Math.min(size.h - cardH - 4, raw)) : raw;
+        // small mats draw cards larger than their share (readable): the right-most stay on the felt too
+        const left = Math.max(0, Math.min(size.w - cardW - 2, rawLeft));
         return <TableCard key={id} id={id} left={left} top={top} width={cardW} me={me} z={i + 1} pile={piles.get(id)} />;
       })}
       {marquee && (

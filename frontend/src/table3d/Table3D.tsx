@@ -10,7 +10,7 @@ import { usePrefs } from "../state/prefs";
 import { setDropResolver3D } from "../game/dnd";
 import { setPingLocator3D } from "../game/ping";
 import { placeAnchored, selectionAnchor } from "../game/anchors";
-import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "../game/PlayerPanel";
+import { SeatPlate } from "../game/SeatPlate";
 import { plane } from "../theme/planes";
 import { isVisible, type GameView } from "../types/game";
 import { ERROR_MS, TableScene, type CameraPreset, type Quality } from "./TableScene";
@@ -350,49 +350,6 @@ function PlayerChip({ player }: { player: string }) {
       <i className="cam-chip" style={{ ["--player-color" as string]: p?.color }} aria-hidden>{p?.name.slice(0, 1).toUpperCase()}</i>
       {p?.name ?? "?"}
     </span>
-  );
-}
-
-/** Portrait, name and life on the table next to each seat; click for the full player panel. */
-function SeatPlate({ player, me, open, onToggle }: { player: string; me: string; open: boolean; onToggle: () => void }) {
-  const p = useGame((s) => s.view?.players.find((x) => x.id === player));
-  const active = useGame((s) => s.view?.turn.active_player === player);
-  const priority = useGame((s) => s.view?.rules?.priority === player);
-  const monarch = useGame((s) => s.view?.table.monarch === player);
-  if (!p) return null;
-  // the numbers that decide a Commander game, shown only when they matter
-  const cmd = Math.max(0, ...Object.values(p.commander_damage));
-  const poison = p.resources.poison ?? 0;
-  // the same three stats on every plaque; a zero is dimmed, not hidden
-  const stats = [
-    { key: "cmd", text: `Cmdr dmg ${cmd}/${LETHAL_COMMANDER}`, title: `Most damage taken from one commander: ${cmd} of ${LETHAL_COMMANDER}`, n: cmd, lethal: cmd >= LETHAL_COMMANDER },
-    { key: "poison", text: `Poison ${poison}/${LETHAL_POISON}`, title: `${poison} of ${LETHAL_POISON} poison counters`, n: poison, lethal: poison >= LETHAL_POISON },
-    { key: "hand", text: `Hand ${p.hand_count}`, title: `${p.hand_count} cards in hand`, n: p.hand_count, lethal: false },
-  ];
-  return (
-    <div className={`t3d-seat ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
-      {(active || priority) && (
-        <span className="t3d-seat-flags" aria-live="polite">
-          {active && <span className="t3d-flag turn">Turn</span>}
-          {priority && <span className="t3d-flag prio">Priority</span>}
-        </span>
-      )}
-      <button className="t3d-seat-main" onClick={onToggle} data-testid={`seat-${player}`} aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.life} life. Open player panel`} aria-expanded={open}>
-        <span className={`portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: "46px", borderColor: p.color }}>{p.name.slice(0, 1).toUpperCase()}</span>
-        <span className="t3d-seat-text">
-          <span className="t3d-seat-name">{p.name}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
-          <span className="t3d-seat-life" data-testid={`life3d-${player}`}>{p.life}</span>
-          <span className="t3d-seat-stats">
-            {stats.map((x) => <span key={x.key} className={`t3d-stat t3d-stat-${x.key} ${x.lethal ? "lethal" : x.n ? "" : "zero"}`} title={x.title}>{x.text}{x.lethal ? " · lethal" : ""}</span>)}
-          </span>
-        </span>
-      </button>
-      {open && (
-        <div className="t3d-seat-panel frame">
-          <PlayerPanel player={player} me={me} />
-        </div>
-      )}
-    </div>
   );
 }
 

@@ -29,13 +29,54 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .opponents.n2, .opponents.n3, .opponents.n4, .opponents.n5 { flex-direction: row; }
 .opponents > .player-area { flex: 1 1 0; min-width: 0; }
 .opponents.n2 > .player-area + .player-area, .opponents.n3 > .player-area + .player-area { border-left: 1px solid rgba(0,0,0,0.35); }
-.me { flex: 1.15 1 0; min-height: 0; display: flex; }
+.me { flex: 1 1 0; min-height: 0; display: flex; }
+/* several opponents share the width, so they get more of the height: their cards stay readable */
+.opponents.n2, .opponents.n3, .opponents.n4, .opponents.n5 { flex-grow: 1.35; }
+.opponents.n1 { flex-grow: 1.2; } /* one opponent: their strip's height back, so both mats match */
 .me > .player-area { flex: 1; }
 
 .player-area { display: flex; flex-direction: column; min-height: 0; padding: 6px; gap: 4px; }
 .area-row { flex: 1; min-height: 0; display: flex; gap: 6px; }
-.area-side { flex: none; width: 196px; display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: hidden; }
-.player-area.compact .area-side { width: 150px; }
+.area-side { flex: none; width: 196px; display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: hidden; padding-top: 14px; }
+
+/* ---------- 2D seats: the plaque and zones at the mat's edge (as on the 3D table and a real playmat) ---------- */
+/* an opponent's strip runs along their edge, so their mat gets the seat's full width (cards stay readable) */
+.seat-strip { flex: none; display: flex; align-items: center; gap: 8px; padding: 14px 2px 4px; min-width: 0; }
+.seat-strip .zone-rail { flex: none; display: flex; gap: 4px; align-items: center; }
+.seat-strip .pile { width: 34px; padding-bottom: 0; }
+.seat-strip .pile-label { display: none; } /* the piles name themselves on hover */
+.seat-strip .pile-count { top: 50%; transform: translate(-50%, -50%); font-size: 11px; padding: 0 5px; }
+.seat-strip .command-zone { min-height: 0; padding: 2px; gap: 3px; }
+.seat-strip .command-zone > .pile-label { display: none; }
+.seat-strip .command-card { width: 34px; }
+.seat-strip > .hand.compact { flex: 1 1 0; min-width: 0; height: 40px; padding: 0 4px; overflow: hidden; }
+.seat-look { flex: none; }
+/* a narrow seat drops the hand fan (the plaque says how many cards) before anything else */
+.player-area.opponent { container-type: inline-size; }
+@container (max-width: 560px) {
+  .seat-strip > .hand.compact { display: none; }
+  .seat-strip { gap: 6px; }
+  .seat-strip .t3d-seat-name { max-width: 84px; }
+  .seat-strip .t3d-stat.zero:not(.t3d-stat-hand) { display: none; } /* a zero says nothing a narrow seat can spare */
+}
+/* the stack pill is pinned at the table's top-right: the last seat's strip leaves it room */
+.opponents > .player-area:last-child .seat-strip { padding-right: 84px; }
+/* looking at one opponent: the others keep just their plaque (and their Look button) */
+.opponents.focused > .player-area:not(.focused) .seat-strip > :not(.t3d-seat):not(.seat-look),
+.opponents.focused > .player-area:not(.focused) .t3d-seat-stats,
+.opponents.focused > .player-area:not(.focused) .seat-steps { display: none; }
+.opponents.focused > .player-area:not(.focused) .seat-strip { flex-wrap: wrap; row-gap: 4px; }
+/* my rail: plaque on top, the four zones under it */
+.player-area.mine .zone-rail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 8px; align-items: start; }
+.player-area.mine .zone-rail .pile-card, .player-area.mine .zone-rail .pile-empty { max-width: 74px; margin: 0 auto; }
+.player-area.mine .zone-rail .command-zone { min-height: 0; justify-content: center; }
+.player-area.mine .zone-rail .command-card { width: 66px; }
+/* short screens (laptops): the zones share one row under the plaque, so nothing is cut off */
+@media (max-height: 900px) {
+  .player-area.mine .zone-rail { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+  .player-area.mine .zone-rail .pile-label { font-size: 9.5px; }
+  .player-area.mine .zone-rail .command-card { width: 100%; }
+}
 
 /* ---------- battlefield ---------- */
 .battlefield {
@@ -136,17 +177,6 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .tax-badge { position: absolute; bottom: 2px; right: 2px; background: #6b4a0f; color: #ffe0a6; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 0 5px; }
 .player-area.compact .piles { gap: 4px; }
 .player-area.compact .command-card { width: 42px; }
-/* short screens (laptops): the piles and the command zone share one row, so no one's commander is cut off */
-@media (max-height: 900px) {
-  .area-side { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-content: start; }
-  .area-side > .player-panel { grid-column: 1 / -1; }
-  .area-side > .piles { display: contents; }
-  .area-side > .command-zone { min-height: 0; padding: 3px; align-self: start; justify-content: center; }
-  .area-side .command-card, .player-area.opponent .area-side .command-card { width: 100%; }
-  /* an opponent's columns are too narrow for words: the piles say what they are on hover */
-  .player-area.opponent .area-side .pile-label { display: none; }
-  .player-area.opponent .area-side .pile { padding-bottom: 0; }
-}
 
 /* ---------- player panel ---------- */
 .player-panel {

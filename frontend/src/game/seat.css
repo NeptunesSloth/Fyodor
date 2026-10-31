@@ -1,0 +1,72 @@
+/* Seat plaques, shared by the 3D table (placed by its frame loop) and the 2D table (in each seat strip). */
+/* seat plaques: blackened metal with a chamfered brass edge, life engraved in Cinzel */
+.t3d-seat { position: relative; transform: translate(-50%, -50%); pointer-events: auto; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6)); }
+.t3d-seat-main {
+  --cut: 9px;
+  display: flex; align-items: center; gap: 10px; padding: 5px 16px 5px 6px; cursor: pointer; color: var(--text);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0) 45%),
+    var(--hud-surface);
+  border: 0; position: relative;
+  clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut));
+}
+/* the brass edge follows the chamfer (an inset copy of the same polygon) */
+.t3d-seat-main::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, var(--frame-hi), var(--frame) 40%, color-mix(in srgb, var(--frame) 55%, black));
+  clip-path: inherit;
+  -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  padding: 1px; opacity: 0.55;
+}
+.t3d-seat.active .t3d-seat-main::before { opacity: 1; }
+.t3d-seat-main:focus-visible { outline: none; }
+/* the chamfer clips an outline on the button itself, so the ring goes on the plaque around it */
+.t3d-seat:has(.t3d-seat-main:focus-visible) { outline: 2px solid var(--select); outline-offset: 3px; border-radius: 6px; }
+.t3d-seat-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+.t3d-seat-name { font-size: 12px; color: var(--text-dim); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t3d-seat-life {
+  font-family: var(--font-display); font-size: 28px; font-weight: 700; color: var(--text); font-variant-numeric: lining-nums;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9), 0 -1px 0 rgba(255, 230, 180, 0.12);
+}
+/* turn and priority are said in words, never by colour alone */
+.t3d-seat-flags { position: absolute; left: 50%; bottom: calc(100% - 2px); transform: translateX(-50%); display: flex; gap: 4px; white-space: nowrap; }
+.t3d-flag {
+  font-size: 11px; font-weight: 600; line-height: 1; padding: 3px 8px 4px; border-radius: 3px 3px 0 0;
+  color: var(--accent-ink); background: var(--accent);
+}
+.t3d-flag.prio { color: #0b1a2b; background: var(--select); }
+.t3d-seat-stats { display: flex; gap: 8px; margin-top: 2px; font-size: 12.5px; color: var(--text); font-variant-numeric: tabular-nums; }
+.t3d-stat.zero { color: var(--text-dim); }
+.t3d-stat.lethal { color: #ffb3a8; font-weight: 700; }
+/* narrower screens: compact plaques cover fewer cards (name moves to the tooltip-sized line) */
+@media (max-width: 1500px) {
+  .t3d-seat-main { gap: 7px; padding: 3px 10px 3px 4px; }
+  .t3d-seat-main .portrait { --size: 34px !important; }
+  .t3d-seat-life { font-size: 22px; }
+  .t3d-seat-name { font-size: 11px; max-width: 96px; }
+}
+.t3d-seat-panel { position: absolute; left: 0; bottom: calc(100% + 8px); width: 260px; padding: 8px; z-index: 5; }
+.t3d-seat-panel .player-panel { background: transparent; border: 0; box-shadow: none; }
+
+
+/* ---- the 2D table: the plaque sits in its seat's strip, not on a 3D anchor ---- */
+.t3d-seat.seat-2d { transform: none; display: inline-flex; align-items: center; gap: 2px; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55)); flex: none; }
+.seat-2d .t3d-seat-main { padding: 3px 12px 3px 4px; gap: 8px; }
+.seat-2d .t3d-seat-main .portrait { --size: 34px !important; }
+.seat-2d .t3d-seat-life { font-size: 24px; }
+.seat-2d .t3d-seat-flags { left: 18px; transform: none; }
+.seat-2d .t3d-seat-stats { font-size: 11.5px; gap: 6px; }
+/* life steppers wait until you reach for the plaque (the space stays, so nothing jumps) */
+.seat-steps { display: flex; flex-direction: column; gap: 2px; }
+.seat-steps button {
+  width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; font-size: 14px;
+  background: var(--hud-surface); color: var(--text-dim); border: 1px solid var(--line); border-radius: 3px;
+}
+.seat-steps button:hover { color: var(--text); border-color: var(--frame); }
+@media (hover: hover) and (pointer: fine) { .seat-2d:not(:hover):not(:focus-within) .seat-steps { opacity: 0; } }
+.seat-presence { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+.seat-presence.connected::before { content: "● "; color: var(--ok); }
+.seat-presence.reconnecting::before, .seat-presence.disconnected::before { content: "● "; color: var(--danger); }
+.t3d-seat-panel.down { bottom: auto; top: calc(100% + 8px); }
+.t3d-seat-panel { max-height: min(70vh, 560px); overflow: auto; }

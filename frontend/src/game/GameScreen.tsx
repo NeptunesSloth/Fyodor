@@ -33,6 +33,22 @@ import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 
 const Table3D = lazy(() => import("../table3d/Table3D").then((m) => ({ default: m.Table3D })));
 
+/** The 2D table's "camera": the 3D seat keys (2–6 look at an opponent, 1 or T back to the whole table) set the focus. */
+function FocusKeys({ others, me }: { others: string[]; me: string }) {
+  useEffect(() => {
+    const onCam = (e: Event) => {
+      const { id, digit, player } = (e as CustomEvent<{ id: string; digit: number; player?: string }>).detail;
+      const setFocus = (focus: string | null) => useGame.getState().setLayout({ focus });
+      if (id === "cam_seat" || id === "cam_reset" || id === "cam_table") setFocus(null);
+      else if (id === "cam_player" && others[digit - 2]) setFocus(others[digit - 2]!);
+      else if (id === "cam_focus_player") setFocus(player && player !== me && others.includes(player) ? player : null);
+    };
+    window.addEventListener("fyodor:camera", onCam);
+    return () => window.removeEventListener("fyodor:camera", onCam);
+  }, [others.join(), me]);
+  return null;
+}
+
 export function GameScreen() {
   const view = useGame((s) => s.view);
   const status = useGame((s) => s.status);
@@ -71,6 +87,7 @@ export function GameScreen() {
       <div className="game-body">
         <main className={`table ${three ? "is-3d" : ""}`}>
           {three ? <Suspense fallback={<div className="table3d-loading">Setting the table…</div>}><Table3D me={me} /></Suspense> : <TablePlaymat />}
+          {!three && <FocusKeys others={others} me={me} />}
           {!three && <div className={`opponents n${others.length} ${focus && focus !== me ? "focused" : ""} ${focus === me ? "shrunk" : ""}`}>
             {others.map((pid) => (
               <PlayerArea key={pid} player={pid} me={me} mine={false} compact={others.length > 1} focused={focus === pid} />
@@ -135,7 +152,7 @@ function useShortcuts() {
       const targets = s.selection.length ? s.selection : s.hover && view.cards[s.hover] ? [s.hover] : [];
       const w = view.response;
       if (id.startsWith("cam_")) {
-        // the 3D table owns its camera; the 2D table ignores these
+        // the 3D table moves its camera; the 2D table focuses a seat (FocusKeys)
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("fyodor:camera", { detail: { id, digit: Number(e.key) || 0, hover: s.hover } }));
         return;

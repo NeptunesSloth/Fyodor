@@ -39,6 +39,16 @@ test("snapshot → change → restore; history view; saved views; profile settin
   await alice.keyboard.press("Control+Digit1");
   await expect(alice.locator(".player-area.focused")).toHaveCount(1);
 
+  // the 2D table's camera: 1 is the whole table, Look (or 2–6, the 3D seat keys) enlarges one opponent's board
+  await alice.keyboard.press("Digit1");
+  await expect(alice.locator(".player-area.focused")).toHaveCount(0);
+  await alice.getByTestId("look-p2").click();
+  await expect(alice.getByTestId("look-p2")).toHaveAttribute("aria-pressed", "true");
+  await alice.getByTestId("look-p2").click();
+  await expect(alice.locator(".player-area.focused")).toHaveCount(0);
+  await alice.keyboard.press("Digit2");
+  await expect(alice.getByTestId("look-p2")).toHaveText("Whole table");
+
   // profile settings persist in this browser
   await alice.goto("/#/settings");
   await alice.getByTestId("profile-name").fill("Jonathan");

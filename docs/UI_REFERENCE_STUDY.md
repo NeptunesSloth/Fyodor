@@ -944,7 +944,7 @@ Each was checked in the running app, 2D and 3D.
 |---|---|---|
 | ×N land piles | **Done (display only)** | Identical noncreature lands overlapping in a row (Tidy builds exactly that; hand-made piles count too) show **×N** on the top card. In 2D it's a brass-edged chip; in 3D it's a plate in the card overlay. Nothing is grouped on the server, so tapping one or dragging one out just changes the count. Built in `game/piles.ts`, which is unit-tested, including against Tidy's own output |
 | "My order" for the hand | **Done** | Dragging inside a sorted hand keeps what you see, with the move applied, as "in my order". It's per game, in session storage, and display only. In "as drawn", a drag still reorders the hand on the server. e2e: `pings-hand.spec.ts` |
-| The 2D table | **First step done** | 2D player panels now open with the 3D seat plaque's identity: a portrait in the seat colour, with a brass ring for the active seat, then the name and life numeral beside it. A wide, short mat no longer pushes near-edge cards off the felt (display clamp in `Battlefield.tsx`). Still to do: plates sitting on each mat's edge, and the opponents' row of panels becoming a strip of plates |
+| The 2D table | **Done (§24)** | First step: 2D player panels took the 3D seat plaque's identity (portrait in the seat colour, brass ring for the active seat, name and life numeral) and a wide, short mat stopped pushing near-edge cards off the felt. Then the rework in §24: the 3D plaque itself on every 2D seat, opponents' zones in a strip along their edge, full-width mats, readable card sizes and a Look view |
 | Discoverability | **Done** | Each toolbar action shows its key (T, F), following remapping (`keyLabel`), plus a "G ping" chip. A one-time tip appears the first time you hover a public card at a LAN table |
 | Key audit | **Done** | §22, plus an Arena keys preset |
 | Real-art screenshots and perf | **Done** | §23 |
@@ -1000,3 +1000,40 @@ Done in this pass:
 | 300 permanents (fixture) | 277 | 222k | 5.3 ms |
 
 \* Includes the first frames after loading. The 300-permanent board settles lower. Draw calls grow sublinearly, through instancing and shared materials (the existing `threejs-performance` work). None of this pass's additions draws every frame: the ×N plate is baked into the card's overlay texture, and the toolbar and pings are DOM, placed by the existing frame loop or once on arrival.
+
+## 24. The 2D table rework (third pass)
+
+**The complaint:** "2D seems extremely hard to see what's going on on an opponent's board." The cause was width. Three
+opponents shared the top row, and each also gave about 150px to a panel column beside its mat, so their cards were
+drawn about 50px wide at 1920×1080 and about 37px at 1366×768.
+
+**What changed** (`game/PlayerArea.tsx`, `game/SeatPlate.tsx`, `game/geometry.ts`, `game/game.css`):
+- **One plaque for both tables.** The 3D seat plaque moved to `game/SeatPlate.tsx` and is used on every 2D seat as
+  well, with life steppers and the LAN connection state added in 2D.
+- **Opponents: a strip, then the mat.** An opponent's plaque, library, graveyard, exile, command zone, hand count and
+  a **Look** button sit in one strip along their edge (as on a real playmat), so the mat below gets the seat's full
+  width. Your own plaque and zones stay in a slim rail beside your mat.
+- **Height follows need.** With several opponents, their row gets more of the height (they share the width; you
+  don't). In 1v1 both mats come out the same height.
+- **Readable card size.** A small mat now draws its cards up to 74px wide, at most 1.45× their share of the mat. They
+  overlap their neighbours a little, as cards in a crowded row do. Positions are unchanged, and it's display only.
+- **Look (the 2D camera).** Look, or keys **2–6** (the same keys that turn the 3D camera), enlarges one opponent's
+  board. Then **1**, **0** or "Whole table" brings the whole table back. The winner spotlight uses the same focus.
+- **Slim combat band.** Combat is one line between the boards instead of a tall band.
+- **Narrow seats** (container query, under 560px) drop the hand fan, since the plaque gives the count, and hide stats
+  that are zero.
+
+**Measured** (real-art boards from §23, card width in the DOM):
+
+| Board | Viewport | Opponents' cards | Your cards |
+|---|---|---|---|
+| Four players | 1920×1080 | ~50px → **74px** | 85px → 74px |
+| Four players | 1366×768 | ~37px → **53px** | ~48px → **63px** |
+| 1v1 | 1920×1080 | **75px** | 78px |
+| 1v1 | 1366×768 | **53px** | 67px |
+| Four players, Look at one opponent | 1920×1080 | ~120px | (shrunk while looking) |
+
+**Still open:** at 1366×768 a 1v1 opponent's mat is about 165px tall, so their cards stay at 53px. Look (key 2) is
+the answer there for now. The 3D Table camera frames a four-seat table even in 1v1, so the two boards look small
+there.
+
