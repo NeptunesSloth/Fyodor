@@ -4,6 +4,7 @@ import { api, ApiError } from "../services/api";
 import { effectiveHotkeys, collisions, comboOf, type HotkeyId } from "../game/hotkeys";
 import { play } from "../game/sound";
 import { listAssets, type Asset } from "../services/assets";
+import { whenMade, type AutoBackupStatus, type BackupInfo } from "../services/backups";
 import { pct, podPlayer, podPlayers, type PodPlayerDetail } from "../services/pod";
 import { GRAPHICS_NOTES } from "../state/applyPrefs";
 import { usePrefs, type Prefs } from "../state/prefs";
@@ -289,16 +290,18 @@ function KeysSection() {
   );
 }
 
-interface BackupInfo { name: string; size: number; created_at: string }
-
-/** BACKUP FYODOR / restore (host computer only). */
+/** BACKUP FYODOR / restore (host computer only), with automatic backups like a rotating autosave. */
 function BackupSection() {
   const [list, setList] = useState<BackupInfo[] | null>(null);
+  const [auto, setAuto] = useState<AutoBackupStatus | null>(null);
   const [denied, setDenied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [restartNeeded, setRestartNeeded] = useState(false);
   const file = useRef<HTMLInputElement>(null);
-  const load = () => api.get<{ backups: BackupInfo[] }>("/backups").then((r) => setList(r.backups), (e: unknown) => {
+  const load = () => api.get<{ backups: BackupInfo[]; auto: AutoBackupStatus }>("/backups").then((r) => {
+    setList(r.backups);
+    setAuto(r.auto);
+  }, (e: unknown) => {
     if (e instanceof ApiError && e.status === 403) setDenied(true);
   });
   useEffect(() => void load(), []);
@@ -328,8 +331,25 @@ function BackupSection() {
         <p className="hint">Backups are made on the host computer (the one running Fyodor).</p>
       ) : (
         <>
+          {auto && (
+            <div className={`autobackup ${auto.enabled ? "on" : "off"}`} data-testid="autobackup">
+              <span className="autobackup-lamp" aria-hidden />
+              <div>
+                {auto.enabled ? (
+                  <p><b>Automatic backups are on.</b> At start-up, every {auto.interval_minutes} minutes while anything changes, and right after each recorded game. Fyodor keeps the newest 8 and one a day for a week.</p>
+                ) : (
+                  <p><b>Automatic backups are off</b> (FYODOR_AUTO_BACKUP_MINUTES=0). Only the backups you make here are kept.</p>
+                )}
+                <p className="hint">
+                  {auto.last ? <>Last automatic backup {whenMade(auto.last.mtime)}{auto.last.reason ? ` (${auto.last.reason})` : ""}. </> : null}
+                  {auto.copy_dir ? <>Every backup is also copied to <code>{auto.copy_dir}</code>.</> : <>To keep a second copy off this computer's disk, set <code>FYODOR_BACKUP_COPY_DIR</code> to a USB stick or synced folder.</>}
+                </p>
+                {auto.last_error && <p className="warn">{auto.last_error}</p>}
+              </div>
+            </div>
+          )}
           <p className="hint">A backup holds your decks, saves, live tables, pod stats, macros and custom sleeves / playmats. The card database isn't included; it is rebuilt from card data.</p>
-          <div className="settings-grid">
+          <div className="row">
             <button className="btn primary" disabled={busy} data-testid="backup-now"
               onClick={() => void run(async () => {
                 const made = await api.post<BackupInfo>("/backups", {});
@@ -346,13 +366,14 @@ function BackupSection() {
           </div>
           {restartNeeded && <p className="warn">Restart Fyodor (close the window running it and start it again) to finish restoring.</p>}
           {list && list.length > 0 && (
-            <table className="backups">
+            <table className="backups" data-testid="backup-list">
               <tbody>
                 {list.map((b) => (
                   <tr key={b.name}>
-                    <td>{b.created_at.replace("T", " ")}</td>
-                    <td className="hint">{(b.size / 1024 / 1024).toFixed(1)} MB</td>
-                    <td>
+                    <td className="when" title={b.created_at.replace("T", " ")}>{whenMade(b.mtime)}</td>
+                    <td><span className={`slot ${b.auto ? "auto" : "manual"}`}>{b.auto ? "Auto" : "By hand"}</span>{b.reason && <span className="hint"> {b.reason}</span>}</td>
+                    <td className="hint size">{(b.size / 1024 / 1024).toFixed(1)} MB</td>
+                    <td className="actions">
                       <a className="tt-btn ghost" href={`/api/backups/${encodeURIComponent(b.name)}`} download>Download</a>
                       <button className="tt-btn ghost" disabled={busy} onClick={() => void restore(() => api.post(`/backups/${encodeURIComponent(b.name)}/restore`, {}))}>Restore</button>
                     </td>

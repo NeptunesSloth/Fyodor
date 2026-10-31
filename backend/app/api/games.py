@@ -1172,6 +1172,7 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
                                                                            if c.commander_key and c.owner == pid})
                                          for pid in state.seat_order}})
     services.hub.persist(room)
+    services.autobackups.soon("after a recorded game")
     what = {"single": f"{', '.join(result['winners'])} won", "multiple": f"{' and '.join(result['winners'])} won",
             "draw": "a draw", "no_result": "no result (not counted)"}[result_type]
     if agreed:

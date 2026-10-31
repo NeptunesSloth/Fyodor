@@ -1,6 +1,7 @@
 """BACKUP FYODOR / restore, pre-migration backups and the database recovery mode.
 
-* ``create_backup`` writes ``data/backups/fyodor-backup-<time>.zip``: a consistent copy of
+* ``create_backup`` writes ``data/backups/fyodor-backup-<time>.zip`` (``fyodor-autobackup-`` for the automatic
+  ones, see ``app/storage/autobackup.py``): a consistent copy of
   ``app.sqlite`` (decks, saves, pod stats, macros, assets index, live tables) and the custom
   asset files (sleeves, playmats). The card database is not included: it is rebuilt from
   Scryfall data and would make every backup hundreds of megabytes.
@@ -32,10 +33,13 @@ from app import __version__
 
 log = logging.getLogger(__name__)
 
-BACKUP_NAME = re.compile(r"^fyodor-backup-\d{8}-\d{6}(-\d+)?\.zip$")
+BACKUP_NAME = re.compile(r"^fyodor-(auto)?backup-\d{8}-\d{6}(-\d+)?\.zip$")
+AUTO_PREFIX = "fyodor-autobackup-"
 ASSET_NAME = re.compile(r"^assets/[0-9a-f]{64}\.(png|jpg|jpeg|webp)$")
 MAX_BACKUP_BYTES = 2 * 1024 * 1024 * 1024
-KEEP_BACKUPS = 12
+KEEP_BACKUPS = 12  # backups the host made by hand
+KEEP_AUTO_RECENT = 8  # automatic ones: the newest few …
+KEEP_AUTO_DAYS = 7  # … plus the last one of each of the past week's days
 
 
 class BackupError(ValueError):
@@ -113,9 +117,12 @@ def _unique(path: Path) -> Path:
     raise BackupError("Too many backups with the same name")
 
 
-def create_backup(data_dir: Path, conn: sqlite3.Connection, lock: Any, assets_dir: Path) -> dict[str, Any]:
+def create_backup(data_dir: Path, conn: sqlite3.Connection, lock: Any, assets_dir: Path, *, reason: str | None = None,
+                  copy_dir: Path | None = None) -> dict[str, Any]:
+    """A backup made by hand, or an automatic one when ``reason`` says why ("start-up", "after a recorded game" …)."""
     out_dir = backups_dir(data_dir)
-    dest = _unique(out_dir / f"fyodor-backup-{time.strftime('%Y%m%d-%H%M%S')}.zip")
+    prefix = AUTO_PREFIX if reason else "fyodor-backup-"
+    dest = _unique(out_dir / f"{prefix}{time.strftime('%Y%m%d-%H%M%S')}.zip")
     tmp_db = out_dir / ".backup-app.sqlite"
     with lock:
         copy_sqlite(conn, tmp_db)
@@ -130,18 +137,71 @@ def create_backup(data_dir: Path, conn: sqlite3.Connection, lock: Any, assets_di
                         files += 1
             manifest = {"format": "fyodor-backup", "version": 1, "app_version": __version__,
                         "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"), "schema_version": schema_version(tmp_db),
-                        "assets": files}
+                        "assets": files, **({"reason": reason} if reason else {})}
             zf.writestr("manifest.json", json.dumps(manifest, indent=2))
     finally:
         tmp_db.unlink(missing_ok=True)
-    for old in list_backups(data_dir)[KEEP_BACKUPS:]:
-        (out_dir / old["name"]).unlink(missing_ok=True)
-    return describe(dest)
+    for name in prune(list_backups(data_dir)):
+        (out_dir / name).unlink(missing_ok=True)
+    made = describe(dest)
+    if copy_dir is not None:
+        try:
+            made["copied_to"] = copy_out(out_dir, copy_dir)
+        except OSError as exc:  # the stick isn't plugged in: the backup itself still counts
+            log.warning("Could not copy backups to %s: %s", copy_dir, exc)
+            made["copy_error"] = f"Couldn't copy to {copy_dir}: {exc.strerror or exc}"
+    return made
+
+
+def prune(backups: list[dict[str, Any]], now: float | None = None) -> list[str]:
+    """Names to delete (``backups`` newest first). Hand-made: the newest ``KEEP_BACKUPS``. Automatic, like a rotating
+    autosave: the newest ``KEEP_AUTO_RECENT`` plus the newest of each of the last ``KEEP_AUTO_DAYS`` days, so a mistake
+    noticed a few days later still has a backup from before it."""
+    now = time.time() if now is None else now
+    manual = [b for b in backups if not b["auto"]]
+    auto = [b for b in backups if b["auto"]]
+    drop = [b["name"] for b in manual[KEEP_BACKUPS:]]
+    days_kept: set[str] = set()
+    for i, b in enumerate(auto):
+        day = time.strftime("%Y-%m-%d", time.localtime(b["mtime"]))
+        recent_day = now - b["mtime"] < KEEP_AUTO_DAYS * 86400
+        if i < KEEP_AUTO_RECENT or (recent_day and day not in days_kept):
+            days_kept.add(day)
+            continue
+        drop.append(b["name"])
+    return drop
+
+
+def copy_out(out_dir: Path, copy_dir: Path) -> str:
+    """Mirror the backups folder to a second place (a USB stick, a synced folder) so a dead disk doesn't take both."""
+    copy_dir.mkdir(parents=True, exist_ok=True)
+    keep = {f.name for f in out_dir.iterdir() if f.is_file() and BACKUP_NAME.match(f.name)}
+    for name in sorted(keep):
+        target = copy_dir / name
+        if not target.exists():
+            tmp = copy_dir / f".{name}.part"
+            shutil.copyfile(out_dir / name, tmp)
+            tmp.replace(target)
+    for f in copy_dir.iterdir():
+        if f.is_file() and BACKUP_NAME.match(f.name) and f.name not in keep:
+            f.unlink(missing_ok=True)
+    return str(copy_dir)
+
+
+def _reason(path: Path) -> str | None:
+    try:
+        with zipfile.ZipFile(path) as zf:
+            reason = json.loads(zf.read("manifest.json")).get("reason")
+    except (OSError, KeyError, ValueError, zipfile.BadZipFile):
+        return None
+    return reason if isinstance(reason, str) else None
 
 
 def describe(path: Path) -> dict[str, Any]:
     st = path.stat()
-    return {"name": path.name, "size": st.st_size, "created_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(st.st_mtime))}
+    auto = path.name.startswith(AUTO_PREFIX)
+    return {"name": path.name, "size": st.st_size, "created_at": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(st.st_mtime)),
+            "mtime": st.st_mtime, "auto": auto, "reason": _reason(path) if auto else None}
 
 
 def list_backups(data_dir: Path) -> list[dict[str, Any]]:

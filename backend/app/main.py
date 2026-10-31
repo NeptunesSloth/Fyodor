@@ -39,6 +39,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         log.info("Fyodor %s starting; data dir %s", __version__, settings.data_dir)
+        app.state.services.autobackups.start()
         yield
         app.state.services.close()
 

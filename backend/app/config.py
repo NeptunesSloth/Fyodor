@@ -54,6 +54,8 @@ class Settings:
     assistant_url: str | None = None  # Ollama-compatible endpoint; unset = assistant disabled
     assistant_model: str = "llama3.1"
     allow_network: bool = True  # explicit, user-initiated online features (Archidekt import, art caching)
+    auto_backup_minutes: int = 30  # automatic backups while something changed (0 = off); see app/storage/autobackup.py
+    backup_copy_dir: Path | None = None  # a second folder every backup is copied to (USB stick, synced folder)
     dev_tools: bool = False  # developer tools such as EXPORT RULES SCENARIO (FYODOR_DEV_TOOLS=1)
     scryfall_api: str = "https://api.scryfall.com"
     user_agent: str = "Fyodor-MTG-Tabletop/0.1"
@@ -110,6 +112,8 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         assistant_url=get("ASSISTANT_URL") or None,
         assistant_model=get("ASSISTANT_MODEL") or "llama3.1",
         allow_network=_bool(get("ALLOW_NETWORK"), True),
+        auto_backup_minutes=int(get("AUTO_BACKUP_MINUTES") or 30),
+        backup_copy_dir=Path(copy_dir).expanduser().resolve() if (copy_dir := get("BACKUP_COPY_DIR")) else None,
         dev_tools=_bool(get("DEV_TOOLS"), False),
     )
 

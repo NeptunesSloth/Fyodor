@@ -161,6 +161,8 @@ Environment variables (or a `.env` file in `backend/`), see [`.env.example`](.en
 | `FYODOR_AUTOSAVE_EVERY` | `10` | autosave after this many actions |
 | `FYODOR_HISTORY_LIMIT` | `500` | undo steps kept per game |
 | `FYODOR_ALLOW_NETWORK` | `1` | `0` turns off Archidekt import and artwork caching |
+| `FYODOR_AUTO_BACKUP_MINUTES` | `30` | automatic backups while anything changes; `0` turns them off |
+| `FYODOR_BACKUP_COPY_DIR` | unset | also copy every backup here (a USB stick or synced folder) |
 | `FYODOR_CORS_ORIGINS` | dev server | comma-separated |
 | `FYODOR_ASSISTANT_URL` | unset | Ollama-compatible endpoint for the optional rules assistant |
 | `FYODOR_ASSISTANT_MODEL` | `llama3.1` | |

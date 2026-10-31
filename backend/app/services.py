@@ -25,9 +25,11 @@ from app.rules import RulesRegistry
 from app.stats.repository import PodStats
 from app.storage.app_db import MIGRATIONS as APP_MIGRATIONS
 from app.storage.app_db import open_app_db
+from app.storage.autobackup import AutoBackups
 from app.storage.backup import (
     RecoveryInfo,
     apply_pending_restore,
+    create_backup,
     list_backups,
     pre_migration_backup,
     quarantine_damaged,
@@ -87,6 +89,9 @@ class Services:
             OllamaAssistant(settings.assistant_url, settings.assistant_model) if settings.assistant_url else None
         )
         self.recovered: list[dict[str, Any]] = self.recover_rooms()
+        self.autobackups = AutoBackups(
+            data_dir=settings.data_dir, interval_minutes=settings.auto_backup_minutes, copy_dir=settings.backup_copy_dir,
+            make=lambda reason: self.backup(reason=reason), changes=lambda: self.app_db.total_changes, has_data=self._has_data)
 
     def recover_rooms(self) -> list[dict[str, Any]]:
         """Bring back every table that was live when Fyodor stopped (crash or restart)."""
@@ -134,6 +139,16 @@ class Services:
             self.recovery = RecoveryInfo(reason=str(exc)[:200], moved_to=moved.name,
                                          backups=[b["name"] for b in list_backups(self.settings.data_dir)])
             return open_app_db(path)
+
+    def backup(self, *, reason: str | None = None) -> dict[str, Any]:
+        """A backup now: by hand (``reason`` None) or automatic. Mirrored to FYODOR_BACKUP_COPY_DIR when set."""
+        return create_backup(self.settings.data_dir, self.app_db, self.app_db_lock, self.settings.assets_dir, reason=reason,
+                             copy_dir=self.settings.backup_copy_dir)
+
+    def _has_data(self) -> bool:
+        with self.app_db_lock:
+            return any(self.app_db.execute(f"SELECT 1 FROM {t} LIMIT 1").fetchone()  # noqa: S608 - fixed names
+                       for t in ("decks", "saves", "game_results"))
 
     def archidekt_fetch(self, deck_id: str) -> dict[str, Any]:
         """Fetch a public Archidekt deck (only called on explicit user action)."""
@@ -211,6 +226,7 @@ class Services:
                 self.autosave(room)
             except Exception:  # noqa: BLE001 - shutting down; log and continue closing
                 log.exception("Final autosave failed for %s", room.id)
+        self.autobackups.stop()
         self.jobs.shutdown()
         self.cards.close()
         self.app_db.close()
