@@ -8,6 +8,8 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+import httpx
+
 from app.assets.store import AssetNotFound, AssetStore
 from app.assistant import OllamaAssistant, RulesAssistant
 from app.cards.downloader import ImageReport, download_images, image_jobs_from_rows, make_client
@@ -19,7 +21,7 @@ from app.decks.repository import DeckRepository
 from app.game import engine
 from app.game.actions import ACTION_ADAPTER
 from app.game.session import GameSession
-from app.jobs import JobManager
+from app.jobs import JobManager, ProgressFn
 from app.multiplayer.hub import GameHub, Room
 from app.rules import RulesRegistry
 from app.stats.repository import PodStats
@@ -83,6 +85,7 @@ class Services:
         self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every, asset_info=self.asset_info,
                            journal=self.journal)
         self.jobs = JobManager()
+        self.http_client: Callable[..., httpx.Client] = make_client  # online features use this (the tests swap it)
         self.source_cache: dict[str, tuple[float, Any]] = {}
         self.rules = RulesRegistry()  # no modules ship enabled; see app/rules/__init__.py
         self.assistant: RulesAssistant | None = (
@@ -154,7 +157,7 @@ class Services:
         """Fetch a public Archidekt deck (only called on explicit user action)."""
         return archidekt.fetch_deck(deck_id, user_agent=self.settings.user_agent)
 
-    def cache_artwork(self, printing_ids: list[str], progress: Callable[[int, int, int], None]) -> str:
+    def cache_artwork(self, printing_ids: list[str], progress: ProgressFn) -> str:
         """Download missing images for these printings and the tokens they create."""
         ids = list(dict.fromkeys(printing_ids))
         cards = self.cards.get_many(ids)

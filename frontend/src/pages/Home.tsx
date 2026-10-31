@@ -64,7 +64,7 @@ export function Home() {
         <div className="home-status">
           {error && <span className="error">Server unreachable</span>}
           {health && (
-            <span title={db?.available ? `${db.printings.toLocaleString()} printings · ${db.images.toLocaleString()} images cached` : "Run scripts/update-cards.sh once while online"}>
+            <span title={db?.available ? `${db.printings.toLocaleString()} printings · ${db.images.toLocaleString()} images cached` : "Download it in Settings → Card database while online"}>
               {db?.available ? `${db.oracle_cards.toLocaleString()} cards ready · offline` : "No card database yet"}
             </span>
           )}

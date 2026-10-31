@@ -70,7 +70,7 @@ def preflight(settings: Settings) -> list[Check]:
         checks.append(Check(True, f"Card database: {stats['oracle_cards']:,} cards"))
     else:
         checks.append(Check(False, "Card database missing",
-                            "run scripts/update-cards.sh once while online (games can't resolve decks without it)"))
+                            "download it once while online: Settings → Card database (games can't resolve decks without it)"))
     checks.append(Check(settings.frontend_dist is not None, "Table interface built",
                         "run: (cd frontend && npm install && npm run build)"))
     checks.append(Check(port_free(settings.host, settings.port), f"Port {settings.port} is free",

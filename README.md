@@ -41,8 +41,9 @@ See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) and
 Grab the zip for your computer from the repository's **Releases** page (or the latest
 **Downloadable app** run in the Actions tab), unzip it and double-click **Fyodor**
 (`Fyodor.exe` on Windows). The first start downloads the card database once (~80 MB); after
-that it runs with no Internet. Cards and saves live in a `Fyodor` folder in your home folder,
-so a newer download keeps them.
+that it runs with no Internet. When new sets come out, the host opens **Settings → Card
+database → Check for new cards** while online. Cards and saves live in a `Fyodor` folder in
+your home folder, so a newer download keeps them.
 
 - **Windows** may show "Windows protected your PC": click *More info* → *Run anyway*, and allow
   it on private networks when the firewall asks (that's what lets the pod join).
@@ -160,7 +161,7 @@ Environment variables (or a `.env` file in `backend/`), see [`.env.example`](.en
 | `FYODOR_LOG_LEVEL` | `INFO` | |
 | `FYODOR_AUTOSAVE_EVERY` | `10` | autosave after this many actions |
 | `FYODOR_HISTORY_LIMIT` | `500` | undo steps kept per game |
-| `FYODOR_ALLOW_NETWORK` | `1` | `0` turns off Archidekt import and artwork caching |
+| `FYODOR_ALLOW_NETWORK` | `1` | `0` turns off Archidekt import, artwork caching and card updates |
 | `FYODOR_AUTO_BACKUP_MINUTES` | `30` | automatic backups while anything changes; `0` turns them off |
 | `FYODOR_BACKUP_COPY_DIR` | unset | also copy every backup here (a USB stick or synced folder) |
 | `FYODOR_CORS_ORIGINS` | dev server | comma-separated |
@@ -230,9 +231,10 @@ scripts/            start (launcher), setup, dev, serve, test, update-cards
 ## Privacy
 
 No telemetry, analytics or tracking. Fyodor only goes online when you ask it to: the card and
-image download in `update-cards`, importing a deck from an Archidekt link, caching a deck's
-artwork, and the optional assistant endpoint you configure yourself. Set `FYODOR_ALLOW_NETWORK=0`
-to turn off Archidekt import and artwork caching.
+image download in `update-cards` or Settings → Card database, importing a deck from an
+Archidekt link, caching a deck's artwork, and the optional assistant endpoint you configure
+yourself. Set `FYODOR_ALLOW_NETWORK=0`
+to turn off Archidekt import, artwork caching and card updates.
 
 Card data and images are provided by [Scryfall](https://scryfall.com). Magic: The Gathering
 is © Wizards of the Coast. Fyodor is unofficial Fan Content and not affiliated with them.

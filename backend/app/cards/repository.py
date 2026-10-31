@@ -60,6 +60,16 @@ class CardRepository:
             log.info("Opened card database %s", self.db_path)
         return self._conn
 
+    def replace_with(self, new_db: Path) -> None:
+        """Swap in a freshly built database (UPDATE CARD DATABASE). Our connection closes first: Windows can't replace
+        an open file. Readers wait on the lock and reopen the new file on their next query."""
+        with self._lock:
+            self._close()
+            os.replace(new_db, self.db_path)
+            for stale in (Path(f"{self.db_path}-wal"), Path(f"{self.db_path}-shm")):
+                stale.unlink(missing_ok=True)
+            log.info("Card database replaced with %s", new_db.name)
+
     def _close(self) -> None:
         if self._conn is not None:
             self._conn.close()

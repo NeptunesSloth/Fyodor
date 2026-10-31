@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { whenMade } from "./backups";
+import { backupSize, whenMade } from "./backups";
+
+describe("backupSize", () => {
+  it("never says 0.0 MB", () => {
+    expect(backupSize(300)).toBe("1 KB");
+    expect(backupSize(48 * 1024)).toBe("48 KB");
+    expect(backupSize(3.2 * 1024 * 1024)).toBe("3.2 MB");
+  });
+});
 
 describe("whenMade", () => {
   const now = new Date(2026, 9, 31, 22, 0, 0).getTime() / 1000;

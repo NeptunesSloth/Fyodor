@@ -4,7 +4,8 @@ import { api, ApiError } from "../services/api";
 import { effectiveHotkeys, collisions, comboOf, type HotkeyId } from "../game/hotkeys";
 import { play } from "../game/sound";
 import { listAssets, type Asset } from "../services/assets";
-import { whenMade, type AutoBackupStatus, type BackupInfo } from "../services/backups";
+import { backupSize, whenMade, type AutoBackupStatus, type BackupInfo } from "../services/backups";
+import { CardDataSection } from "./CardDataPanel";
 import { pct, podPlayer, podPlayers, type PodPlayerDetail } from "../services/pod";
 import { GRAPHICS_NOTES } from "../state/applyPrefs";
 import { usePrefs, type Prefs } from "../state/prefs";
@@ -216,6 +217,7 @@ export function SettingsPanel() {
       </section>
 
       <KeysSection />
+      <CardDataSection />
       <BackupSection />
       <DiagnosticsSection />
     </div>
@@ -372,7 +374,7 @@ function BackupSection() {
                   <tr key={b.name}>
                     <td className="when" title={b.created_at.replace("T", " ")}>{whenMade(b.mtime)}</td>
                     <td><span className={`slot ${b.auto ? "auto" : "manual"}`}>{b.auto ? "Auto" : "By hand"}</span>{b.reason && <span className="hint"> {b.reason}</span>}</td>
-                    <td className="hint size">{(b.size / 1024 / 1024).toFixed(1)} MB</td>
+                    <td className="hint size">{backupSize(b.size)}</td>
                     <td className="actions">
                       <a className="tt-btn ghost" href={`/api/backups/${encodeURIComponent(b.name)}`} download>Download</a>
                       <button className="tt-btn ghost" disabled={busy} onClick={() => void restore(() => api.post(`/backups/${encodeURIComponent(b.name)}/restore`, {}))}>Restore</button>
