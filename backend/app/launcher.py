@@ -135,7 +135,8 @@ def main(argv: list[str] | None = None) -> int:
             print("  (or send them the invite link shown in the lobby once you open a LAN table)\n")
         else:
             print("No network address found — are you connected to Wi-Fi/Ethernet?")
-        print("(If they can't connect, allow Python through this computer's firewall for private networks.)")
+        app_name = "Fyodor" if FROZEN else "Python"  # the downloadable app runs as Fyodor(.exe)
+        print(f"(If they can't connect, allow {app_name} through this computer's firewall for private networks.)")
     else:
         print("Only this computer can connect (--local). Start without --local to let the rest of the pod join.")
     print("Press Ctrl+C to stop. Games are autosaved.\n")
