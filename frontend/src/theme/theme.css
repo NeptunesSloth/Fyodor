@@ -194,12 +194,12 @@ body { font-family: var(--font-ui); background: var(--bg); }
 .portrait.active { box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6), 0 0 0 4px var(--frame-hi); } /* a brass ring, not a glow */
 
 /* Theme picker swatches */
-.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; } /* a wave of five planes fits one row */
 .theme-tile {
   display: flex; flex-direction: column; gap: 8px; padding: 0; text-align: left; cursor: pointer; overflow: hidden;
   border: 1px solid var(--line-2); border-radius: 6px; background: var(--bg-2); color: var(--text);
 }
-.theme-tile.on { border-color: var(--frame-hi); box-shadow: 0 0 16px var(--accent-glow); }
+.theme-tile.on { border-color: var(--frame-hi); box-shadow: 0 0 0 1px var(--frame-hi); } /* a brass edge, not a glow */
 .theme-tile .preview { height: 88px; }
 .theme-tile .name { font-family: var(--font-display); letter-spacing: 0.02em; padding: 0 10px; }
 .theme-tile .blurb { font-size: 12px; color: var(--text-dim); padding: 0 10px; }

@@ -77,10 +77,10 @@ function DeckTile({ deck, onDelete, onDuplicate }: { deck: DeckSummary; onDelete
         <a href={`#/decks/${deck.id}`} className="deck-name">{deck.name}</a>
         <div className="deck-meta">
           <ColorPips colors={deck.color_identity} />
-          <span>{deck.format}</span>
+          <span className="deck-format">{deck.format}</span>
           <span>{total} cards</span>
         </div>
-        {deck.commanders.length > 0 && <div className="deck-cmdr">{deck.commanders.join(" & ")}</div>}
+        {deck.commanders.length > 0 && deck.commanders.join(" & ") !== deck.name && <div className="deck-cmdr">{deck.commanders.join(" & ")}</div>}
         {deck.unresolved > 0 && <div className="warn small">{deck.unresolved} unresolved</div>}
         <div className="deck-actions">
           <a className="btn small primary" href={`#/play?deck=${deck.id}`}>Play</a>

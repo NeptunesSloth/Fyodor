@@ -71,16 +71,16 @@ export function SettingsPanel() {
         <div className="settings-grid">
           <label className="field">Table
             <select value={p.renderer} data-testid="renderer" onChange={(e) => set({ renderer: e.target.value as Prefs["renderer"] })}>
-              <option value="auto">Auto (3D when this device supports it)</option>
+              <option value="auto">Auto (3D when supported)</option>
               <option value="3d">3D table</option>
               <option value="2d">2D table (lighter, for slow devices)</option>
             </select>
           </label>
           <label className="check"><input type="checkbox" checked={p.ambience} onChange={(e) => set({ ambience: e.target.checked })} /> Ambient sound of the plane (volume: Sound → Ambient)</label>
-          <label className="field">3D camera on big moments
+          <label className="field" title="Big moments are commander casts and eliminations; any input cancels the camera move">3D camera on big moments
             <select value={p.autoCenter} data-testid="auto-center" onChange={(e) => set({ autoCenter: e.target.value as Prefs["autoCenter"] })}>
-              <option value="off">Off: the camera only moves when you move it</option>
-              <option value="important">Important only: commander casts and eliminations (any input cancels)</option>
+              <option value="off">Off (you move it)</option>
+              <option value="important">Follow big moments</option>
             </select>
           </label>
           <label className="check"><input type="checkbox" checked={p.nudges} onChange={(e) => set({ nudges: e.target.checked })} /> Let other players nudge me when the table waits on me</label>

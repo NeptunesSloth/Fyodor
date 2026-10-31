@@ -153,8 +153,8 @@ function CommanderDamage({ p }: { p: PlayerView }) {
   const taken = sources.filter((c) => (p.commander_damage[c.key] ?? 0) > 0);
   return (
     <div className="cmd-damage">
-      <button className="cmd-toggle" onClick={() => setOpen((o) => !o)}>
-        Commander damage {taken.length ? taken.map((c) => p.commander_damage[c.key]).join(" · ") : "—"} {open ? "▴" : "▾"}
+      <button className="cmd-toggle" onClick={() => setOpen((o) => !o)} title="Commander damage taken" aria-expanded={open}>
+        <span>Cmdr damage {taken.length ? taken.map((c) => p.commander_damage[c.key]).join(" · ") : "—"}</span> {open ? "▴" : "▾"}
       </button>
       {open && (
         <div className="cmd-list">
@@ -229,7 +229,7 @@ function ManaPool({ player, mana, units }: { player: string; mana: Record<string
   const total = Object.values(mana).reduce((a, b) => a + b, 0) + units.length;
   const add = (color: string, delta: number) => void send({ type: "add_mana", player, mana: { [color]: delta } });
   if (!open && !total) {
-    return <button className="mana-toggle" data-testid={`mana-open-${player}`} onClick={() => setOpen(true)} title="Mana pool"><Icon name="gem" size={12} /> mana</button>;
+    return <button className="mana-toggle" data-testid={`mana-open-${player}`} onClick={() => setOpen(true)} title="Mana pool"><Icon name="gem" size={12} /> Mana pool</button>;
   }
   return (
     <div className="mana-pool" data-testid={`mana-${player}`}>

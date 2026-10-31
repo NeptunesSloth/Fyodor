@@ -4,6 +4,8 @@
 .pod-head h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 0.03em; }
 .pod-head .spacer, .pod-game .spacer { flex: 1; }
 .pod-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+/* the standings span the row until a player is picked */
+.pod-grid > .pod-panel:only-child { grid-column: 1 / -1; }
 @media (max-width: 800px) { .pod-grid { grid-template-columns: 1fr; } }
 .pod-panel {
   background: linear-gradient(#1c1e22, #17181b); border: 1px solid var(--room-edge); border-radius: var(--room-radius);

@@ -181,6 +181,7 @@ export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
     <div
       className={`pile ${zone} ${over ? "drop-over" : ""}`}
       data-drop={key}
+      title={label}
       onClick={open}
       onContextMenu={(e) => {
         e.preventDefault();

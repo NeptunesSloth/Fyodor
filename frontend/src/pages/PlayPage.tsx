@@ -81,7 +81,7 @@ export function PlayPage({ route }: { route: Route }) {
               <div key={g.id} className="list-row">
                 <div className="grow">
                   <b>{g.name}</b> <span className="hint">· {g.mode === "lan" ? `LAN · room ${g.code}` : "hot-seat"} · turn {g.turn}</span>
-                  <div className="hint">{g.players.map((p) => `${p.name}${g.mode === "lan" ? (p.connected ? " ●" : p.claimed ? " ○" : " (open)") : ""}`).join(" · ")}</div>
+                  <div className="hint">{g.players.map((p) => `${p.name}${g.mode === "lan" ? (p.connected ? "" : p.claimed ? " (away)" : " (open)") : ""}`).join(" · ")}</div>
                 </div>
                 {host && <button className="btn small primary" onClick={() => open(g.id)}>Open</button>}
                 {host && (
@@ -288,7 +288,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                   <option key={d.id} value={d.id}>{d.name}{d.commanders.length ? ` (${d.commanders.join(" & ")})` : ""}</option>
                 ))}
               </select>
-              {deck && <ColorPips colors={deck.color_identity} />}
+              <span className="setup-pips">{deck && <ColorPips colors={deck.color_identity} />}</span>
               {players.length > 1 && <button className="icon-btn" onClick={() => setPlayers((ps) => ps.filter((_, j) => j !== i))} aria-label="Remove player">✕</button>}
             </div>
           );

@@ -136,6 +136,17 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .tax-badge { position: absolute; bottom: 2px; right: 2px; background: #6b4a0f; color: #ffe0a6; font-size: 11px; font-weight: 700; border-radius: 999px; padding: 0 5px; }
 .player-area.compact .piles { gap: 4px; }
 .player-area.compact .command-card { width: 42px; }
+/* short screens (laptops): the piles and the command zone share one row, so no one's commander is cut off */
+@media (max-height: 900px) {
+  .area-side { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-content: start; }
+  .area-side > .player-panel { grid-column: 1 / -1; }
+  .area-side > .piles { display: contents; }
+  .area-side > .command-zone { min-height: 0; padding: 3px; align-self: start; justify-content: center; }
+  .area-side .command-card, .player-area.opponent .area-side .command-card { width: 100%; }
+  /* an opponent's columns are too narrow for words: the piles say what they are on hover */
+  .player-area.opponent .area-side .pile-label { display: none; }
+  .player-area.opponent .area-side .pile { padding-bottom: 0; }
+}
 
 /* ---------- player panel ---------- */
 .player-panel {
@@ -182,13 +193,17 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .res.energy { color: #f5d77a; }
 .res.add { color: var(--text-faint); }
 .cmd-damage { margin-top: 4px; }
-.cmd-toggle { width: 100%; background: none; border: none; color: var(--text-dim); font-size: 11.5px; cursor: pointer; text-align: left; padding: 2px 0; }
+.cmd-toggle {
+  width: 100%; display: flex; gap: 4px; align-items: baseline; background: none; border: none; color: var(--text-dim);
+  font-size: 11.5px; cursor: pointer; text-align: left; padding: 2px 0; white-space: nowrap;
+}
+.cmd-toggle span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cmd-list { display: flex; flex-direction: column; gap: 3px; }
 .cmd-row { display: flex; align-items: center; gap: 3px; font-size: 12px; }
 .cmd-row.lethal .cmd-val { color: var(--danger); font-weight: 800; }
 .cmd-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cmd-val { min-width: 20px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }
-.pp-foot { font-size: 11px; margin-top: 3px; text-align: center; }
+.pp-foot { font-size: 11px; margin-top: 3px; }
 
 /* ---------- sidebar ---------- */
 .sidebar { display: flex; flex-direction: column; min-height: 0; background: var(--bg-2); border-left: 1px solid var(--line); }
@@ -320,8 +335,10 @@ kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4
 .players-setup { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
 .player-setup { display: flex; gap: 8px; align-items: center; padding: 6px; border-radius: 8px; background: var(--bg-2); }
 .player-setup input[type="color"] { width: 30px; height: 30px; padding: 0; border: none; background: none; cursor: pointer; }
-.player-setup select { max-width: 260px; }
-.btn.big { padding: 11px 26px; font-size: 15px; margin-top: 12px; }
+.player-setup select { width: 260px; max-width: 45%; }
+/* a fixed slot for the colour pips so every row's name and deck line up */
+.player-setup .setup-pips { flex: none; width: 74px; display: flex; }
+.btn.big { padding: 11px 26px; font-size: 15px; margin: 12px 0 8px; }
 .list-row { display: flex; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .list-row:last-child { border-bottom: none; }
 @media (max-width: 1000px) { .play-grid { grid-template-columns: 1fr; } }
@@ -343,7 +360,7 @@ kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4
   background: rgba(6, 10, 9, 0.62); backdrop-filter: blur(2px); padding: 16px;
 }
 .mull-panel {
-  width: min(1100px, 100%); max-height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 14px;
+  width: min(1180px, 100%); max-height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 14px;
   padding: 16px 18px; background: linear-gradient(#1f2126, #17181c); color: var(--room-bone);
   border: 1px solid var(--room-edge); border-radius: var(--room-radius); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
@@ -351,9 +368,10 @@ kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4
 .mull-head h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: 0.02em; }
 .mull-head .hint, .mull-foot .hint { color: var(--room-bone-dim); }
 .mull-note { margin: 0; color: var(--room-bone); }
-.mull-hand { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; padding: 6px 0; }
+/* the whole opening hand on one row: cards shrink rather than leave one orphan on a second line */
+.mull-hand { display: flex; gap: 10px; justify-content: center; padding: 6px 0 12px; overflow-x: auto; }
 .mull-card {
-  position: relative; width: clamp(92px, 12vw, 150px); padding: 0; border: 0; background: none; cursor: pointer;
+  position: relative; flex: 0 1 150px; min-width: 72px; padding: 0; border: 0; background: none; cursor: pointer;
   border-radius: 6px; transition: transform 0.12s ease;
 }
 .mull-card:disabled { cursor: default; }
@@ -596,5 +614,5 @@ main.table:not(.is-3d) .hand.compact .hand-card { width: 24px; }
 main.table:not(.is-3d) > .hand:not(.compact) { background: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent); }
 /* life buttons wait until you reach for the panel (the space stays, so nothing jumps) */
 @media (hover: hover) and (pointer: fine) {
-  main.table:not(.is-3d) .player-panel:not(:hover):not(:focus-within) :is(.life-step, .life-btn) { opacity: 0; }
+  main.table:not(.is-3d) .player-panel:not(:hover):not(:focus-within) :is(.life-step, .life-btn, .res.add) { opacity: 0; }
 }
