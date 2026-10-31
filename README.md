@@ -4,7 +4,7 @@ A private, offline-first digital tabletop for one **Magic: The Gathering Command
 player on their own computer, joined over the LAN to one host. Once the card data is downloaded,
 nothing needs the Internet.
 
-![The 3D table mid-game: two objects on the stack, one targeting a permanent, and the turn dial at bottom right](docs/screenshots/table-3d.jpg)
+![The 3D table mid-game with real card art: four seats, tidied land piles with ×N counts, an attack, the turn dial at bottom right](docs/screenshots/table-3d.jpg)
 
 - **A physical table.** A three.js 3D table, or a lighter 2D table, where anything can be moved
   by hand, as in Tabletop Simulator.
@@ -31,7 +31,7 @@ nothing needs the Internet.
 | | |
 |---|---|
 | ![Home screen with the table theme showcase](docs/screenshots/home.jpg) | ![LAN lobby with four seats and a room code](docs/screenshots/lobby.jpg) |
-| ![The 2D table with combat and the stack](docs/screenshots/table-2d.jpg) | ![Opening hand with Commander London mulligans](docs/screenshots/mulligan.jpg) |
+| ![The 2D table with real card art: seat plaques, land piles with ×N counts, the combat strip](docs/screenshots/table-2d.jpg) | ![Opening hand with Commander London mulligans](docs/screenshots/mulligan.jpg) |
 
 See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design details.

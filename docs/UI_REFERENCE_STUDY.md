@@ -938,15 +938,65 @@ Each was checked in the running app, 2D and 3D.
   - 23 px targets;
   - one 4.15:1 contrast.
 
-## 21. Next, in order
-1. **Arena-style ×N land piles.** Collapse the tidied piles into one card with a count badge and a tapped/untapped
-   split (principle 9). This needs a display-group concept in the 2D and 3D renderers, like token stacks.
-2. **"My order" for the hand.** Dragging inside a sorted hand freezes the shown order and applies the move,
-   instead of refusing it.
-3. **The 2D table.** Move away from the column-of-panels look: plates at each mat's edge, as the 3D table has
-   (critique, open).
-4. **Discoverability.** Print the key next to each action (toolbar, menus), and add a one-line "G to ping" hint the
-   first time a player hovers an opponent's card.
-5. **A key-conflict audit against TTS and Arena muscle memory** (Space, P, Tab, Enter; §18).
-6. **Real-art screenshots** of a crowded four-player board, compared with the Lenc and Oops galleries (§18, pack
-   checklist 3 and 6), with perf numbers from `e2e/table3d-shots.spec.ts` (`SHOT_DIR`).
+## 21. Second pass: the six follow-ups
+
+| Follow-up | Status | What |
+|---|---|---|
+| ×N land piles | **Done (display only)** | Identical noncreature lands overlapping in a row (Tidy builds exactly that; hand-made piles count too) show **×N** on the top card. In 2D it's a brass-edged chip; in 3D it's a plate in the card overlay. Nothing is grouped on the server, so tapping one or dragging one out just changes the count. Built in `game/piles.ts`, which is unit-tested, including against Tidy's own output |
+| "My order" for the hand | **Done** | Dragging inside a sorted hand keeps what you see, with the move applied, as "in my order". It's per game, in session storage, and display only. In "as drawn", a drag still reorders the hand on the server. e2e: `pings-hand.spec.ts` |
+| The 2D table | **First step done** | 2D player panels now open with the 3D seat plaque's identity: a portrait in the seat colour, with a brass ring for the active seat, then the name and life numeral beside it. A wide, short mat no longer pushes near-edge cards off the felt (display clamp in `Battlefield.tsx`). Still to do: plates sitting on each mat's edge, and the opponents' row of panels becoming a strip of plates |
+| Discoverability | **Done** | Each toolbar action shows its key (T, F), following remapping (`keyLabel`), plus a "G ping" chip. A one-time tip appears the first time you hover a public card at a LAN table |
+| Key audit | **Done** | §22, plus an Arena keys preset |
+| Real-art screenshots and perf | **Done** | §23 |
+
+## 22. Key audit against Tabletop Simulator and Arena (done)
+
+Fyodor's defaults are in `frontend/src/game/hotkeys.ts`. The TTS and Arena columns come from K10 and the sources it
+cites. The question for each key: does a key that is harmless in TTS or Arena do something here that can't be undone?
+
+| Key | Fyodor default | MTG Arena | Tabletop Simulator | Verdict |
+|---|---|---|---|---|
+| Space | Tap / untap the hovered or selected card | Pass priority | Reset camera | Safe: a tap is undoable and never passes priority. The **Arena keys** preset (Settings → Keys) makes Space pass priority instead, for players who want the Arena habit |
+| P | Pass priority (manual play: the dial's main button) | — | Camera mode | Kept. A TTS player gets a pass, not a camera change. The dial says what P will do, and in rules mode nothing irreversible happens before the stack resolves |
+| Enter | Play the focused hand card (keyboard access) | Pass until a response | — | Kept. It acts only on the keyboard-focused card, so it never fires by accident from the table |
+| Tab | Moves keyboard focus | — | Pointer / ping | **Not** used for pings (WCAG 2.1.1: Tab must move focus). Fyodor pings with **G** or Alt+click |
+| F | Turn over (double-faced card) | — | Flip | Same as TTS |
+| T | Tap | — | — | — |
+| G | Ping | — | — | Unique, so no conflict |
+| S | Sort hand (cycle) | — | — | Display only, harmless |
+| Ctrl+Z / Ctrl+Shift+Z | Undo / redo | — | Undo | Same habit |
+
+Done in this pass:
+- **Arena keys preset** (`KEY_PRESETS`, Settings → Keys). Space and P pass priority; T alone taps.
+- **Fyodor keys** resets to the defaults.
+- A unit test checks that every preset is free of collisions.
+- The card toolbar prints each action's key, and follows remapping (`keyLabel`).
+
+## 23. Real-art comparison and performance (second pass)
+
+**Setup:**
+- The real Scryfall database: 116,863 printings, downloaded with the in-app updater.
+- Four decks: the two sample decks plus Meren and Edgar Markov. Every card resolved.
+- Art cached for all of them: 203 images.
+- About 20 permanents per seat, plus tokens, counters, damage and an attack.
+- Every seat's lands were tidied.
+- Shots: 1920×1080 and 2560×1440 in 3D (seat and Table cameras), and 1920×1080 and 1366×768 in 2D.
+
+**Against the Lenc and Oops galleries** (TTS wood EDH tables):
+- **Table-to-screen ratio:** the table fills the screen edge to edge in both cameras. Chrome is limited to the thin top bar, the dial (bottom right), the tray (bottom left) and the plaques, so it holds up against the TTS tables, which give more space to props and instruction boards.
+- **Card legibility:** with real art, cards read by art at seat distance as they do in TTS. Names need the hover inspector or the selected-card tag, which matches Arena.
+- **Land piles:** in TTS, players pile lands by hand. Here Tidy plus ×N gives the Arena count without taking away free placement.
+- **Depth:** cards have edges and contact shadows, and the mats are stitched felt. There is no clutter: no dice cannons, toys or instruction cards on the table (the pack's "don't copy").
+- **Gaps against TTS:**
+  - The side seats' cards read sideways (true of a real table too).
+  - At 1366×768 in 2D, a 30-card opponent hand becomes a long strip of card backs. Collapsing it to "30 ▮" past a dozen cards is a follow-up.
+
+**Performance** (`e2e/table3d-shots.spec.ts` with `SHOT_DIR`, headless Chromium with software WebGL, so FPS isn't meaningful; the numbers to watch are draw calls, triangles and CPU per frame):
+
+| Board | Draw calls | Triangles | CPU per frame |
+|---|---|---|---|
+| 68 cards, real art, four seats | 150 | 119k | 2.5 ms |
+| 100 permanents (fixture) | 173 | 86k | 11.2 ms* |
+| 300 permanents (fixture) | 277 | 222k | 5.3 ms |
+
+\* Includes the first frames after loading. The 300-permanent board settles lower. Draw calls grow sublinearly, through instancing and shared materials (the existing `threejs-performance` work). None of this pass's additions draws every frame: the ×N plate is baked into the card's overlay texture, and the toolbar and pings are DOM, placed by the existing frame loop or once on arrival.
