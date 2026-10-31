@@ -15,6 +15,7 @@ import { PlayerArea } from "./PlayerArea";
 import { TopBar } from "./TopBar";
 import { CardPreview, LogDrawer, SelectionBar, StackWidget, ToolTray, useHudClass } from "./Hud";
 import { usePrefs } from "../state/prefs";
+import { toast } from "../components/Toasts";
 import { ZoneBrowser } from "./ZoneBrowser";
 import { bookmarkSlot, matchHotkey } from "./hotkeys";
 import { recallBookmark, saveBookmark } from "./bookmarks";
@@ -26,6 +27,9 @@ import { resolveRenderer } from "../table3d/renderer";
 import { CombatLanes, CombatStrip } from "./CombatLanes";
 import { GameNight } from "./GameNight";
 import { SignalLayer } from "./Signals";
+import { PingLayer } from "./Pings";
+import { useTurnAlert } from "./turnAlert";
+import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 
 const Table3D = lazy(() => import("../table3d/Table3D").then((m) => ({ default: m.Table3D })));
 
@@ -39,6 +43,7 @@ export function GameScreen() {
   const rendererPref = usePrefs((s) => s.renderer);
   const browserOpen = useGame((s) => !!s.browser || (!!s.view && !!s.view.searches[s.view.viewer]));
   useShortcuts();
+  useTurnAlert();
   useHudClass();
   usePreferredLook();
   useEffect(() => useMacros.getState().refresh(), []);
@@ -104,6 +109,7 @@ export function GameScreen() {
       {three && <CombatLanes />}
       <GameNight />
       <SignalLayer />
+      <PingLayer />
     </div>
   );
 }
@@ -186,6 +192,16 @@ function useShortcuts() {
         case "help":
           s.openDialog("help");
           break;
+        case "ping":
+          window.dispatchEvent(new Event("fyodor:ping-here"));
+          break;
+        case "hand_sort": {
+          const prefs = usePrefs.getState();
+          const next = nextHandSort(prefs.handSort);
+          prefs.set({ handSort: next });
+          toast(`Hand: ${HAND_SORT_LABEL[next]}`);
+          break;
+        }
         case "pass":
           if (view.rules && !view.rules.controlled_by && (view.rules.priority === me || (!!view.rules.acting_as && view.rules.priority === view.rules.acting_as)) && !view.rules.decision) void passPriority();
           else if (w?.waiting.includes(me)) void send({ type: "response_pass" });

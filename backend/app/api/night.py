@@ -22,6 +22,7 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.rules_state import start_rules
 from app.game.session import GameSession
 from app.game.state import GameState, PlayerState
+from app.game.visibility import publicly_visible
 from app.multiplayer.hub import Room
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, SubmittedDeck
 from app.multiplayer.night import Night, Proposal
@@ -240,17 +241,23 @@ async def own_deck(game_id: str, request: Request, services: ServicesDep, viewer
         for c in setup.cards if c.section in ("main", "commander")]}
 
 
-# --------------------------------------------------------------------------- nudges and reactions
+# --------------------------------------------------------------------------- nudges, reactions and pings
 
 REACTIONS = ("👍", "😂", "😮", "🔥", "💀", "👏")
 NUDGE_COOLDOWN = 30.0  # seconds between nudges from one player, and to one player
 REACT_COOLDOWN = 3.0
+PING_COOLDOWN = 0.6  # a ping is a quick "this one!", not a stream
 
 
 class SignalIn(BaseModel):
-    kind: Literal["nudge", "react"]
+    kind: Literal["nudge", "react", "ping"]
     emoji: str | None = Field(default=None, max_length=8)
     as_player: str | None = Field(default=None, max_length=8)
+    # a ping points at a card everyone can see, or at a spot on someone's battlefield (virtual units, as card x/y)
+    card: str | None = Field(default=None, max_length=80)
+    player: str | None = Field(default=None, max_length=8)
+    x: float | None = Field(default=None, ge=-200, le=1200)
+    y: float | None = Field(default=None, ge=-200, le=800)
 
 
 def waiting_on(state: GameState) -> str:
@@ -266,8 +273,9 @@ def waiting_on(state: GameState) -> str:
 @router.post("/games/{game_id}/night/signal")
 async def signal(game_id: str, body: SignalIn, request: Request, services: ServicesDep,
                  x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
-    """A soft social signal (TABLETOP_QOL_MILESTONE #13-14). Nothing here touches the game: it is
-    never logged, saved or replayed, carries no game information and is rate limited."""
+    """A soft social signal (TABLETOP_QOL_MILESTONE #13-14): a nudge, a reaction, or a ping ("look here", as in Tabletop
+    Simulator). Nothing here touches the game: it is never logged, saved or replayed, carries no hidden information
+    and is rate limited."""
     room = _room(services, game_id)
     viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=None, as_player=body.as_player)
     state = room.session.state
@@ -286,6 +294,25 @@ async def signal(game_id: str, body: SignalIn, request: Request, services: Servi
         await services.hub.send_to(room, target, {"type": "signal", "kind": "nudge", "from": actor,
                                                  "from_name": room.seat_name(actor), "to": target})
         return {"to": target}
+    if body.kind == "ping":
+        if actor is None:
+            raise HTTPException(403, "Spectators can't ping")
+        if now - last.get(f"ping:{actor}", -1e9) < PING_COOLDOWN:
+            raise HTTPException(429, "One ping at a time")
+        ping: dict[str, Any] = {"type": "signal", "kind": "ping", "from": actor, "from_name": room.seat_name(actor)}
+        if body.card is not None:
+            card = state.cards.get(body.card)
+            # only a card every seat and spectator can see: pointing at a hidden one would hand out its id
+            if card is None or not publicly_visible(state, card):
+                raise HTTPException(404, "Nothing everyone can see there")
+            ping["card"] = card.id
+        elif body.player in state.players and body.x is not None and body.y is not None:
+            ping.update(player=body.player, x=round(body.x, 1), y=round(body.y, 1))
+        else:
+            raise HTTPException(422, "Point at a card or at a spot on a battlefield")
+        last[f"ping:{actor}"] = now
+        await _to_everyone(services, room, ping)
+        return {"sent": True}
     # reactions: from spectators and players already out of the game
     if body.emoji not in REACTIONS:
         raise HTTPException(422, "Unknown reaction")
@@ -296,9 +323,13 @@ async def signal(game_id: str, body: SignalIn, request: Request, services: Servi
     last[f"react:{who}"] = now
     message: dict[str, Any] = {"type": "signal", "kind": "react", "from": actor, "from_name": room.seat_name(actor) if actor else "A spectator",
                "emoji": body.emoji}
+    await _to_everyone(services, room, message)
+    return {"sent": True}
+
+
+async def _to_everyone(services: Services, room: Room, message: dict[str, Any]) -> None:
     for conn in list(room.connections.values()):
         try:
             await conn.send(message)
         except Exception:  # noqa: BLE001 - best effort, like every push
             services.hub.disconnect(room, conn)
-    return {"sent": True}

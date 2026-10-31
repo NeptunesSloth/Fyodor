@@ -6,6 +6,7 @@ import { play } from "../game/sound";
 import { listAssets, type Asset } from "../services/assets";
 import { backupSize, whenMade, type AutoBackupStatus, type BackupInfo } from "../services/backups";
 import { CardDataSection } from "./CardDataPanel";
+import { HAND_SORTS, HAND_SORT_LABEL } from "../game/handSort";
 import { pct, podPlayer, podPlayers, type PodPlayerDetail } from "../services/pod";
 import { GRAPHICS_NOTES } from "../state/applyPrefs";
 import { usePrefs, type Prefs } from "../state/prefs";
@@ -87,6 +88,8 @@ export function SettingsPanel() {
           </label>
           <label className="check"><input type="checkbox" checked={p.nudges} onChange={(e) => set({ nudges: e.target.checked })} /> Let other players nudge me when the table waits on me</label>
           <label className="check"><input type="checkbox" checked={p.reactions} onChange={(e) => set({ reactions: e.target.checked })} /> Show spectators' reactions</label>
+          <label className="check"><input type="checkbox" checked={p.pings} data-testid="pref-pings" onChange={(e) => set({ pings: e.target.checked })} /> Show pings from other players (G or Alt+click to ping)</label>
+          <label className="check"><input type="checkbox" checked={p.turnAlert} data-testid="pref-turn-alert" onChange={(e) => set({ turnAlert: e.target.checked })} /> Flash this tab and chime when the table waits on me in the background</label>
         </div>
       </section>
       <section>
@@ -204,6 +207,11 @@ export function SettingsPanel() {
               <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
             </select>
             <span className="hint">{GRAPHICS_NOTES[p.graphics]}</span>
+          </label>
+          <label className="field">Sort my hand
+            <select value={p.handSort} data-testid="pref-hand-sort" onChange={(e) => set({ handSort: e.target.value as Prefs["handSort"] })}>
+              {HAND_SORTS.map((m) => <option key={m} value={m}>{HAND_SORT_LABEL[m][0]!.toUpperCase() + HAND_SORT_LABEL[m].slice(1)}</option>)}
+            </select>
           </label>
           <label className="field">Collapse identical tokens above
             <select value={p.tokenCollapse} onChange={(e) => set({ tokenCollapse: Number(e.target.value) as Prefs["tokenCollapse"] })}>

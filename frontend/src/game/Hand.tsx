@@ -1,25 +1,46 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { openMenu } from "../components/ContextMenu";
+import { toast } from "../components/Toasts";
+import { useCardCache } from "../state/cardCache";
 import { useCardView, useGame, useZoneIds } from "../state/gameStore";
-import { splitZone } from "../types/game";
+import { usePrefs } from "../state/prefs";
+import { isVisible, splitZone, type GameCard } from "../types/game";
 import { moveCards, targetsFor } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
 import { dropAsIntent } from "./rules/intents";
 import { legalClass } from "./rules/RulesHud";
+import { HAND_SORT_LABEL, sortHand, type HandFacts } from "./handSort";
+import type { CardData } from "../types/cards";
+
+/** What sorting needs to know about a card in my hand (null while its card data hasn't loaded). */
+function factsOf(card: GameCard | undefined, cache: Record<string, CardData>): HandFacts | null {
+  if (!isVisible(card)) return null;
+  if (card.token) return { name: card.name, mv: 0, colors: card.token.colors ?? [], typeLine: card.token.type_line ?? "" };
+  const data = card.card_id ? cache[card.card_id] : undefined;
+  if (!data) return null;
+  return { name: data.name, mv: data.cmc ?? 0, colors: data.colors, typeLine: data.type_line ?? "" };
+}
 
 /** Horizontal, overlapping hand. Only the owner (or an open-table view) sees card faces. */
 export function Hand({ player, me, compact = false }: { player: string; me: string; compact?: boolean }) {
   const key = `${player}:hand`;
   const ids = useZoneIds(key) ?? [];
   const over = useDrag((s) => s.drag?.overZone === key);
+  const sort = usePrefs((s) => s.handSort);
+  const cards = useGame((s) => s.view?.cards);
+  const cache = useCardCache((s) => s.cards);
+  const mine = player === me && !compact;
+  // my hand in the order I chose (Arena-style sorting); the server keeps the drawn order
+  const shown = useMemo(() => (mine && sort !== "drawn" && cards ? sortHand(ids, (id) => factsOf(cards[id], cache), sort) : ids),
+    [mine, sort, ids, cards, cache]);
   return (
     <div className={`hand ${compact ? "compact" : ""} ${over ? "drop-over" : ""}`} data-drop={key} data-ordered="">
       {ids.length === 0 && !compact && <div className="hand-empty">Hand is empty — press D to draw</div>}
       <div className="hand-cards" style={{ ["--n" as string]: ids.length }}>
-        {ids.map((id, i) => (
-          <HandCard key={id} id={id} index={i} fan={i - (ids.length - 1) / 2} me={me} compact={compact} />
+        {shown.map((id, i) => (
+          <HandCard key={id} id={id} index={ids.indexOf(id)} fan={i - (shown.length - 1) / 2} me={me} compact={compact} />
         ))}
       </div>
     </div>
@@ -37,6 +58,11 @@ const HandCard = memo(function HandCard({ id, index, fan, me, compact }: { id: s
     if (dropAsIntent(ids, target, me)) return; // automation on: play the land / cast the spell
     const { zone, player } = splitZone(target.zone);
     if (target.zone === card.zone && target.index != null) {
+      const sort = usePrefs.getState().handSort;
+      if (sort !== "drawn") {
+        toast(`Your hand is sorted ${HAND_SORT_LABEL[sort]}: choose "as drawn" (S) to arrange it by hand`);
+        return;
+      }
       const adjusted = target.index > index ? target.index - 1 : target.index;
       if (adjusted !== index) void moveCards(ids, "hand", { player, index: adjusted });
       return;

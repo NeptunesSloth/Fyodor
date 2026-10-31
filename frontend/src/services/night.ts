@@ -28,3 +28,9 @@ export const REACTIONS = ["👍", "😂", "😮", "🔥", "💀", "👏"] as con
 
 export const sendSignal = (gameId: string, kind: "nudge" | "react", emoji?: string, as?: string) =>
   api.post(`/games/${gameId}/night/signal`, { kind, emoji: emoji ?? null, as_player: as ?? null }, seat(gameId));
+
+export type PingTarget = { card: string } | { player: string; x: number; y: number };
+
+/** "Look here" for everyone at the table (a card everyone can see, or a spot on a battlefield). */
+export const sendPing = (gameId: string, target: PingTarget, as?: string) =>
+  api.post(`/games/${gameId}/night/signal`, { kind: "ping", ...target, as_player: as ?? null }, seat(gameId));

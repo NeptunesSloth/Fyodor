@@ -10,6 +10,7 @@ import { isVisible } from "../types/game";
 import { addCounter, send, tapCards } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { EFFECT_PRESETS } from "./marksMenu";
+import { HAND_SORTS, HAND_SORT_LABEL } from "./handSort";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
 
 /** Large card preview that floats at the edge of the table while you hover a card. */
@@ -92,10 +93,18 @@ export function LogDrawer() {
 /** A few physical tools within reach, bottom-left. */
 export function ToolTray() {
   const openDialog = useGame((s) => s.openDialog);
+  const sort = usePrefs((s) => s.handSort);
+  const sortMenu = (e: React.MouseEvent) => openMenu(e, HAND_SORTS.map((m) => ({
+    label: `${m === sort ? "✓ " : ""}${HAND_SORT_LABEL[m][0]!.toUpperCase()}${HAND_SORT_LABEL[m].slice(1)}`,
+    onClick: () => usePrefs.getState().set({ handSort: m }),
+  })), "Sort your hand (S)");
   return (
     <div className="tool-tray" data-testid="tool-tray">
       <button className="tt-btn" onClick={() => openDialog("tokens")} title="Create tokens">Tokens</button>
       <button className="tt-btn" onClick={() => openDialog("dice")} title="Dice and coins">Dice</button>
+      <button className="tt-btn" onClick={sortMenu} title="Sort your hand: as drawn, mana value, colour, type or name (S)" data-testid="hand-sort">
+        Hand: {sort === "drawn" ? "as drawn" : HAND_SORT_LABEL[sort].replace("by ", "")}
+      </button>
     </div>
   );
 }

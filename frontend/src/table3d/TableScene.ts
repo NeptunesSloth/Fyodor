@@ -20,6 +20,7 @@ import { counterShort, isKeyword } from "../game/counters";
 import { draw, tapCards, targetsFor } from "../game/actions";
 import { cardMenu } from "../game/cardMenu";
 import type { DropResult } from "../game/dnd";
+import type { PingTarget } from "../services/night";
 import { dropCards } from "../game/drop";
 import { pickClick } from "../game/Overlays";
 import { answerByClick, legalClass } from "../game/rules/RulesHud";
@@ -400,6 +401,17 @@ export class TableScene {
     const v = p.clone().project(this.camera);
     const r = this.canvas.getBoundingClientRect();
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
+  }
+
+  /** What a ping at this point points at: the card under the pointer, else the battlefield spot (game/ping.ts). */
+  pingTargetAt(clientX: number, clientY: number): PingTarget | null {
+    const hit = this.pick(clientX, clientY);
+    if (hit?.card) return { card: hit.card };
+    const drop = this.resolveDrop(clientX, clientY);
+    if (drop?.zone.endsWith(":battlefield") && drop.x !== undefined && drop.y !== undefined) {
+      return { player: drop.zone.split(":")[0]!, x: drop.x, y: drop.y };
+    }
+    return null;
   }
 
   /** Drop resolution for DOM drags (from the hand) over the canvas. */

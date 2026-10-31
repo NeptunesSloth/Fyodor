@@ -146,7 +146,11 @@ the host computer itself.
   block, move to library position N, reveal, give control, notes…).
 - Click your **library** for draw N, shuffle, search, look at top N, reveal, mill, mulligan.
 - Keys: `D` draw · `T`/space tap · `F` turn over · `N` next step · `Shift+N` next turn ·
-  `U` untap all · `Delete` to graveyard · `Ctrl+Z` / `Ctrl+Shift+Z` undo/redo · `?` help.
+  `U` untap all · `Delete` to graveyard · `Ctrl+Z` / `Ctrl+Shift+Z` undo/redo · `G` ping ·
+  `S` sort your hand · `?` help.
+- **Ping** (`G`, or Alt+click) shows everyone a ring and your name on a card or spot, as in
+  Tabletop Simulator. When the table waits on you while the tab is in the background, the tab
+  title flashes and a chime plays (Settings can turn both off).
 - In hot-seat games use **View** in the top bar to switch seats, or *Open table* to see
   every hand (goldfishing).
 

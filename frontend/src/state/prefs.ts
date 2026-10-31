@@ -21,6 +21,8 @@ export interface Bookmark {
   logOpen: boolean;
 }
 
+export type HandSort = "drawn" | "mana" | "color" | "type" | "name";
+
 export interface Prefs {
   /** Table theme (a Magic plane): environment, surface, lighting, ambience and UI accents. */
   plane: PlaneId;
@@ -31,6 +33,12 @@ export interface Prefs {
   /** Receive nudges ("the table is waiting on you") and see spectators' reactions. */
   nudges: boolean;
   reactions: boolean;
+  /** See other players' pings ("look here", G or Alt+click). */
+  pings: boolean;
+  /** When the table waits on me and this tab is in the background: flash the tab title and chime. */
+  turnAlert: boolean;
+  /** How my own hand is laid out (display only: the hand itself never changes order on the server). */
+  handSort: HandSort;
   /** 3D: gently turn the camera toward important public events. */
   autoCenter: "off" | "important";
   showTokenSources: boolean;
@@ -69,6 +77,9 @@ export const DEFAULT_PREFS: Prefs = {
   ambience: true,
   nudges: true,
   reactions: true,
+  pings: true,
+  turnAlert: true,
+  handSort: "drawn",
   autoCenter: "off",
   showTokenSources: false,
   hud: "full",

@@ -8,6 +8,7 @@ import { useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { setDropResolver3D } from "../game/dnd";
+import { setPingLocator3D } from "../game/ping";
 import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "../game/PlayerPanel";
 import { plane } from "../theme/planes";
 import { isVisible, type GameView } from "../types/game";
@@ -68,6 +69,11 @@ export function Table3D({ me }: { me: string }) {
       if (s.cards !== prev.cards) sync();
     });
     setDropResolver3D((x, y) => scene.resolveDrop(x, y));
+    setPingLocator3D({
+      targetAt: (x, y) => scene.pingTargetAt(x, y),
+      card: (id) => scene.screenOfCard(id),
+      spot: (player, x, y) => scene.screenOfBattlefield(player, x, y),
+    });
     window.__fyodor3d = {
       stats: () => scene.stats,
       camera: (p) => scene.setCamera(p),
@@ -148,6 +154,7 @@ export function Table3D({ me }: { me: string }) {
       unGame();
       unCards();
       setDropResolver3D(null);
+      setPingLocator3D(null);
       ro.disconnect();
       scene.dispose();
       sceneRef.current = null;

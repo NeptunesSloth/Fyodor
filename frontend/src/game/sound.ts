@@ -6,13 +6,13 @@
 import { usePrefs } from "../state/prefs";
 
 export type SoundName =
-  | "card" | "place" | "tap" | "flip" | "shuffle" | "draw" | "dice" | "coin" | "token" | "counter" | "response" | "turn" | "bag";
+  | "card" | "place" | "tap" | "flip" | "shuffle" | "draw" | "dice" | "coin" | "token" | "counter" | "response" | "turn" | "bag" | "ping";
 type Channel = "cards" | "dice" | "ui" | "ambient";
 
 const CHANNEL: Record<SoundName, Channel> = {
   card: "cards", place: "cards", tap: "cards", flip: "cards", shuffle: "cards", draw: "cards", token: "cards", counter: "cards",
   dice: "dice", coin: "dice", bag: "dice",
-  response: "ui", turn: "ui",
+  response: "ui", turn: "ui", ping: "ui",
 };
 
 let ctx: AudioContext | null = null;
@@ -123,6 +123,10 @@ export function play(name: SoundName): void {
     case "turn":
       tone(ac, out, t, 392, 0.4, 0.04);
       tone(ac, out, t + 0.12, 523, 0.5, 0.035);
+      break;
+    case "ping": // a small bell: "look here"
+      tone(ac, out, t, 1318, 0.22, 0.045, "triangle");
+      tone(ac, out, t + 0.07, 1760, 0.3, 0.03, "triangle");
       break;
   }
 }

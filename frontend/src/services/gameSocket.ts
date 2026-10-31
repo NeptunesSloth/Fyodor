@@ -15,7 +15,18 @@ interface Handlers {
   onSignal?: (signal: Signal) => void;
 }
 
-export interface Signal { kind: "nudge" | "react"; from: string | null; from_name: string; to?: string; emoji?: string }
+export interface Signal {
+  kind: "nudge" | "react" | "ping";
+  from: string | null;
+  from_name: string;
+  to?: string;
+  emoji?: string;
+  /** a ping: a card everyone can see, or a spot (virtual x/y) on a player's battlefield */
+  card?: string;
+  player?: string;
+  x?: number;
+  y?: number;
+}
 
 type ServerMessage =
   | { type: "state"; view: GameView; revision?: number; resync?: boolean }
