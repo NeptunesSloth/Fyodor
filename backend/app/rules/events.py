@@ -369,6 +369,12 @@ def _parse(c: str) -> Condition | None:
             return None
         return {"event": "either", "subject": "player", "player": "you", "conds": [cast, {"event": "activate", "subject": "player", "player": "you", "nonmana": True,
                                                                                          "loyalty": False, "gy110d": True}]}
+    # -- mana and sources (wave 111R2) -- Kai Winn: "an opponent casts a spell with the chosen name or activates an ability of a source with the
+    # chosen name" (603.2c: each half its own event; 109.2c: a source in any zone; 605.1a: mana abilities included)
+    from app.rules import wave111r2_mana
+
+    if (either111r2 := wave111r2_mana.cast_or_activate(c, _parse)) is not None:
+        return either111r2
     # -- either with a batch half (wave 49D) -- "Whenever an opponent discards a card or mills one or more cards" (Lo and Li, Royal Advisors): one player's two
     # actions, each its own event (603.2c); the "one or more" half is once per batch of its own (triggers.py reads the half that matched)
     m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<a>[a-z]+ an? [^,]+?) or (?P<b>[a-z]+ one or more [^,]+)", c)
@@ -1355,7 +1361,11 @@ def _activate(c: str) -> Condition | None:
     m = _ACTIVATE.fullmatch(c)
     if m is None:
         return None
-    sel = selectors.parse(re.sub(r"^an? ", "", m["o"])) if m["o"] else None
+    # -- mana and sources (wave 111R2) -- 109.2c: "an ability of a source with the chosen name", in any zone
+    from app.rules import wave111r2_mana
+
+    source111r2 = wave111r2_mana.source_selector(m["o"]) if m["o"] and not m["own"] else None
+    sel = source111r2 or (selectors.parse(re.sub(r"^an? ", "", m["o"])) if m["o"] else None)
     if m["o"] and (sel is None or sel.player is not None or sel.card or (m["own"] and (sel.controller or sel.owner))):
         raise _Refuse
     tg = _ability_targets(m["tg"]) if m["tg"] else None

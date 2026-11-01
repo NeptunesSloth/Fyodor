@@ -1030,6 +1030,11 @@ def spend_kind(s: str) -> str | None:
     for pattern, kind in _SPEND:
         if sm := pattern.fullmatch(s):
             return f"type:{sm.group('t')}" if kind == "type" else kind
+    # -- mana and sources (wave 111R2) -- "Spend this mana only to cast your commander" (106.6, 903.3d)
+    from app.rules import wave111r2_mana
+
+    if (kind111r2 := wave111r2_mana.spend_kind(s)) is not None:
+        return kind111r2
     return parse_spend(s)
 
 

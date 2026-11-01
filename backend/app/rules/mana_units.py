@@ -84,7 +84,7 @@ def unit_sources(state: GameState, player: str, purpose: Purpose | None) -> list
     return [M.Source(f"{PREFIX}{u.id}", ((u.sym,),), rank=-1, snow="Snow" in u.tags,
                      generic_allowed=(False,) if not u.generic_allowed else (),
                      producer_facts=((ProducerFact(tuple(u.tags), u.production_zone),),))
-            for u in state.players[player].mana_units if spend_allowed(u.only, purpose)]
+            for u in state.players[player].mana_units if spend_allowed(u.only, purpose, state=state, payer=player)]  # (wave 111R2: payer)
 
 
 @dataclass
