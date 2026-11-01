@@ -80,3 +80,26 @@ def test_channel_with_nothing_to_destroy_is_not_offered(cards):  # noqa: F811
     settle(s)
     assert s.state.cards[ring.id].zone == "p2:graveyard" and s.state.cards[boseiju.id].zone == "p1:graveyard"
     check(s)
+
+
+def test_a_treasure_the_spell_targets_is_not_offered_to_pay_for_it(cards):  # noqa: F811
+    """For the Common Good ("Create X tokens that are copies of target token you control. …") targeting a Treasure: the "tap your mana"
+    panel doesn't offer the Treasure, and tapping it anyway is refused before it's sacrificed (the cast, carried out again once the cost is
+    covered, would refuse the target that left the table: only cancelling was left); the Forest still pays, and the spell resolves."""
+    s = build(cards, mine=["For the Common Good"], forests=2)
+    act(s, "p1", type="set_prefs", payment="self")
+    good = to_hand(s, "For the Common Good")
+    act(s, "p1", type="create_token", player="p1", token={"name": "Treasure", "type_line": "Token Artifact — Treasure",
+                                                          "text": "{T}, Sacrifice this artifact: Add one mana of any color."})
+    treasure = next(c for c in s.state.cards.values() if c.name == "Treasure")
+    forest = put(s, "Forest")
+    act(s, "p1", type="cast_spell", card_id=good.id, x_value=0, targets=[treasure.id])
+    d = s.state.rules.decision
+    assert d.display["kind"] == "tap_mana" and d.display["sources"] == [forest.id]
+    with pytest.raises(ActionError, match="target of what you're paying for"):  # (clicked on the table: refused before it's sacrificed)
+        act(s, "p1", type="activate_ability", card_id=treasure.id, ability=0)
+    assert s.state.cards[treasure.id].zone == "p1:battlefield" and s.state.rules.decision.id == d.id
+    act(s, "p1", type="activate_ability", card_id=forest.id, ability=0)
+    settle(s)
+    assert s.state.cards[good.id].zone == "p1:graveyard" and s.state.cards[treasure.id].zone == "p1:battlefield"
+    check(s)

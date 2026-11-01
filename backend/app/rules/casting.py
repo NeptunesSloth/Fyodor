@@ -2281,6 +2281,10 @@ def _tap_display(plan: Plan, player: str, cost: M.ManaCost, what: str, resume: d
         if cid not in exclude and can_use_tap_abilities(plan.state, card, plan.ch(card), plan.info) and any(
                 ab.reveal_hand is not None for _, ab in mana_abilities(plan.state, card, plan.info)):
             sources.append(cid)
+    # -- hint/cast agreement (soak) -- a source whose mana abilities all sacrifice it (a Treasure) isn't offered to pay for the spell or ability
+    # that targets it: the cast is carried out again once the cost is covered, and that refuses a chosen target that has left the table
+    if chosen := set((resume.get("intent") or {}).get("targets") or ()):
+        sources = [cid for cid in sources if cid not in chosen or not all(ab.sacrifice_self for _, ab in mana_abilities(plan.state, plan.state.cards[cid], plan.info))]
     spell, spell_card = _prompt_spell(plan, resume)
     usable = available_helpers(plan.state, player, plan.info, spell, spell_card) if spell is not None else []
     by_kind: dict[str, list[str]] = {k: [] for k in P.KINDS}
@@ -6175,6 +6179,11 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     parsed = dict(mana_abilities(plan.state, card, plan.info)).get(a.ability) if ability.kind == "mana" else None
     if parsed is None:
         raise ActionError("While paying you can only tap for mana")
+    if parsed.sacrifice_self and d is not None and card.id in (((d.resume or {}).get("intent") or {}).get("targets") or ()):
+        # -- hint/cast agreement (soak) -- 601.2g lets a player sacrifice a target for mana (the spell then has an illegal target, 608.2b),
+        # but the engine carries the cast out again once the cost is covered and refuses a chosen target that has left the table: refused
+        # here, before anything is sacrificed, instead of after (where only cancelling was left)
+        raise ActionError(f"{ch.name} is a target of what you're paying for: pay with other mana")
     if parsed.tap and not can_use_tap_abilities(plan.state, card, ch, plan.info):
         raise ActionError(f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness")
     if parsed.reveal_hand is not None:
