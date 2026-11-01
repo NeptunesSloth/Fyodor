@@ -2773,6 +2773,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (body110n := wave110n_cards.parse(body)) is not None:
         return body110n
+    from app.rules import wave111d_cards  # -- Star Trek one-offs (wave 111D) --
+
+    if (body111d := wave111d_cards.parse(body)) is not None:
+        return body111d
     from app.rules import multi100n  # -- multi (wave 100N) --
 
     if (body100n := multi100n.parse(body)) is not None:
@@ -4321,7 +4325,8 @@ def _that_players_hand(found: tuple[list[dict[str, Any]], Any, bool] | None) -> 
         # Salvation): beside other targets, "that player" is the one target player's group (608.2b: as chosen), whose own count it is
         return json.loads(text.replace(relative, f'"for_player": "target:{one[0]}"')), found[1], found[2]
     elif found[1] is None and (marked or relative in text) and (any(e.get("who") == "event_player" for e in found[0]) or all(
-            e.get("who", "you") == "you" for e in found[0] if marker in json.dumps(e) or library in json.dumps(e) or relative in json.dumps(e))):
+            e.get("who", "you") == "you" or (e.get("do") == "add_counters" and e.get("who") in ("self", "it") and not marked)  # -- counters for that player (wave 111D) -- Planet Killer
+            for e in found[0] if marker in json.dumps(e) or library in json.dumps(e) or relative in json.dumps(e))):
         bound = "event"  # -- value grammar (wave 30N) -- ... or you: "you gain 1 life for each artifact that player controls" (the trigger's player; _event_refs_ok checks it has one)
     elif relative in text and not marked and found[1] is None and all(
             e.get("do") == "damage" and e.get("who") == "defending_player" for e in found[0] if relative in json.dumps(e)):

@@ -16,8 +16,8 @@ from app.rules import coverage
 from tests.game_helpers import act
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave30m_durations import to_phase
-from tests.test_rules_wave111d_costs import answer, cast, ch, counters
-from tests.wave9c_kit import build, check, mana, put
+from tests.test_rules_wave111d_costs import answer, build3, cast, ch, counters
+from tests.wave9c_kit import build, check, life, mana, put
 
 EXTRA = [
     real("Ensign Harry Kim, Operations", "{1}{W}", 2, "Legendary Creature — Human Officer", "Whenever another creature you control enters, if it has greater "
@@ -29,6 +29,8 @@ EXTRA = [
          "power 8 or greater, put a +1/+1 counter on target creature.", ("3", "3"), "W"),
     real("Tactical Officer", "{1}{W}", 2, "Creature — Human Officer", "Whenever you attack while creatures you control have total power 8 or greater, put a "
          "+1/+1 counter on this creature. Untap it.", ("2", "1"), "W"),
+    real("Planet Killer", "{8}", 8, "Artifact Creature — Construct", "Flying, indestructible\nThis creature attacks each combat if able.\nWhenever this "
+         "creature deals combat damage to a player, put a +1/+1 counter on it for each land that player controls.", ("9", "9"), ""),
 ]
 NAMES = [c["name"] for c in EXTRA]
 EXTRA += [
@@ -158,4 +160,26 @@ def test_tactical_officer_grows_and_untaps_when_you_attack_with_total_power_8(ca
     answer(s)
     assert counters(s, officer) == (1 if big else 0)
     assert s.state.cards[officer.id].tapped is not big  # ("Untap it": still an attacking creature, 506.4)
+    check(s)
+
+
+# -- Planet Killer -----------------------------------------------------------------------------------------------------------------------
+def lands_for(s, pid, name, n):
+    found = [c for c in s.state.cards.values() if c.name == name and c.owner == pid and c.zone == f"{pid}:library"][:n]
+    act(s, pid, type="move", card_ids=[c.id for c in found], to={"player": pid, "zone": "battlefield"})
+
+
+@pytest.mark.parametrize(("target", "expected"), [("p2", 2), ("p3", 4)])
+def test_planet_killer_grows_by_the_lands_of_the_player_it_hit(cards, target, expected):
+    s = build3(cards, ["Planet Killer"])
+    killer = put(s, "Planet Killer")
+    lands_for(s, "p1", "Forest", 3)  # (yours: not counted)
+    lands_for(s, "p2", "Island", 2)
+    lands_for(s, "p3", "Mountain", 4)
+    act(s, "p1", type="set_stops", own=["main1", "main2"])
+    to_phase(s, "declare_attackers", turn=4)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": killer.id, "target": target}])
+    to_phase(s, "main2", turn=4)
+    assert counters(s, killer) == expected  # (510.2: dealt to that player; 603.7c-style, the player the event names)
+    assert life(s, target) == 31
     check(s)
