@@ -253,6 +253,11 @@ def _short_name(name: str, text: str = "") -> str | None:
     num = re.match(r"^(.+?) [IVXLC]{2,}$", name)  # -- commander sweep (wave 49B) -- "King Darien XLVIII" is "King Darien" in its own text (201.5c)
     if num is not None and re.search(rf"\b{re.escape(num[1])}\b", text):
         return num[1]
+    # -- Star Trek names (wave 111G) -- 201.5c: "Lieutenant Hikaru Sulu" is "Lieutenant Sulu" in its own text, a rank or title and
+    # the surname (also Captain Janeway, Ensign Chekov, Dr. McCoy); taken only where the text writes exactly that
+    rank = re.match(r'^((?:Captain|Commander|Ensign|Lieutenant|Dr\.) )(?:[A-Z"][\w".\'-]* )+([A-Z][\w\'-]+)(?:,|$)', name)
+    if rank is not None and re.search(rf"(?<![\w-]){re.escape(rank[1] + rank[2])}(?![\w-])", text):
+        return rank[1] + rank[2]
     two = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]+ [A-ZÀ-ÖØ-Þ][\w'-]+) (?:the|of) ", name)  # -- trigger tail (wave 15B) -- "Tor Wauki the Younger"
     if two is not None and re.search(rf"\b{re.escape(two[1])}\b", text):
         return two[1]
@@ -2070,10 +2075,12 @@ def _explore_times(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     return [_repeat("two" if m["twice"] else m["n"]), {"do": "explore", **_it_source(m["src"])}], None  # (wave 19F)
 
 
-@effect(r"(?P<src>~|it|target creature you control) explores")
+@effect(r"(?P<src>~|it|that creature|target creature you control) explores")
 def _explore(m: re.Match[str]) -> tuple[list[dict[str, Any]], str | None]:
     if m["src"] == "target creature you control":  # -- trigger tail (wave 16C) -- 701.44a: the creature explores (you control it)
         return [{"do": "explore", "who": "target"}], "creature_you_control"
+    if m["src"] == "that creature":  # -- explores (wave 111A) -- "Whenever ~ or another creature you control enters, that creature explores." (Captain Kathryn
+        return [{"do": "explore", "src": "it"}], None  # Janeway): the pronoun "it" says the same, resolved against the same antecedent (resolve_it)
     return [{"do": "explore", **_it_source(m["src"])}], None
 
 

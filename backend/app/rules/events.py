@@ -1046,7 +1046,8 @@ def _combat(c: str) -> Condition | None:
     # "~ attacks while you control a creature with power 4 or greater" (read as it triggers)
     # (-- trigger other (wave 25B) -- also "while there are four or more card types among cards in your graveyard" (delirium),
     # "while you have no cards in hand"; and "Whenever you attack while you control …": the player's attack, 508.3c)
-    m = re.fullmatch(r"you attack while (?P<w>you control .+|there (?:is|are) .+|you have .+)", c)
+    # (-- trigger other (wave 111G) -- "while creatures you control have total power 8 or greater": every creature you control as you attack)
+    m = re.fullmatch(r"you attack while (?P<w>you control .+|there (?:is|are) .+|you have .+|creatures you control have total power \w+ or greater)", c)
     if m:
         from app.rules import conditions
 

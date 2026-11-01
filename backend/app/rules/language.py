@@ -874,6 +874,16 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
                 or found[0][0].get("to") != "battlefield" or found[0][0].get("to2"):
             raise _Fail
         return [{**found[0][0], "counter": "+1/+1", "counter_n": 1}], found[1]
+    # -- charge counters (wave 111A) -- "Search your library for a Spacecraft card, put it onto the battlefield with seven charge counters on it, then
+    # shuffle." (Captain Jean-Luc Picard): the card enters with them (122.6; 122.6a: its controller puts them), so a station card's symbols (721.2a)
+    # apply as it enters. Only charge counters, a number word.
+    charged = re.search(r" onto the battlefield with (?P<n>a|one|two|three|four|five|six|seven|eight|nine|ten) charge counters? on it(?=,)", text)
+    if charged:
+        found = _search(text[:charged.start()] + " onto the battlefield" + text[charged.end():])
+        if found is None or len(found[0]) != 1 or found[0][0].get("do") != "search" or found[0][0].get("to") != "battlefield" \
+                or found[0][0].get("to2") or found[0][0].get("counter"):
+            raise _Fail
+        return [{**found[0][0], "counter": "charge", "counter_n": 1 if charged["n"] in ("a", "one") else values.NUMBERS[charged["n"]]}], found[1]
     if (tt := _SEARCH_TARGET.fullmatch(text)) is not None:  # (wave 42C)
         found = _search(f"each player {tt['rest']}")
         if found is None or found[0][0].get("who") != "each_player" or found[0][0].get("parts") or found[0][0].get("to2"):
