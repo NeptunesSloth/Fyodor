@@ -44,3 +44,9 @@ CREATURE_TYPES = CREATURE_TYPES | frozenset({
     "Kwejian", "Lanthanite", "Medusan", "Melkotian", "Na’kuhl", "Ocampa", "Officer", "Orion", "Q", "Romulan", "Talaxian",
     "Talosian", "Tamarian", "Tellarite", "Tholian", "Tosk", "Trill", "Tribble", "Vau-N’Akat", "Vorta", "Vulcan", "Xindi",
 })
+
+# -- straight apostrophes (wave 111, lead) -- card data (type lines and Oracle text) writes C'tan, Shi'ar, Jem'Hadar, Na'kuhl and
+# Vau-N'Akat with a straight apostrophe, where 205.3m prints ’. One spelling, the cards': a card's subtypes then meet this list
+# (layer 4 "loses all creature types", counting creature types, copies, history), and "all creature types" (702.73a, changeling)
+# holds each type once.
+CREATURE_TYPES = frozenset(t.replace("’", "'") for t in CREATURE_TYPES)
