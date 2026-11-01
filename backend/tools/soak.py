@@ -248,9 +248,9 @@ class Bot:
         abilities = [{"type": "activate_ability", "card_id": a["card_id"], "ability": a["ability"],
                       **({"x_value": rng.randint(0, 5)} if a.get("x") else {})} for a in h.get("activatable", [])]
         mine = self.session.state.turn.active_player == pid
-        if spells and rng.random() < (0.75 if mine else 0.3):
+        if spells and rng.random() < (0.8 if mine else 0.3):
             return rng.choice(spells), "hint"
-        if abilities and rng.random() < (0.35 if mine else 0.15):
+        if abilities and rng.random() < (0.5 if mine else 0.2):
             return rng.choice(abilities), "hint"
         stack = self.session.state.zones.get("stack")
         if rng.random() < (0.04 if stack else 0.015):  # the HUD's other pass buttons: Resolve one / Resolve all with a stack, End turn without
@@ -414,6 +414,8 @@ class Privacy:
                            c.token.text if c.token is not None else ""]
             elif c.owner != viewer and c.zone.split(":")[-1] in ("hand", "library"):
                 hidden.append(c)
+                if c.commander_key:  # 903.3: who the commander is is public (the commander list shows it, not which hidden card it is)
+                    seen.update(t for t in self.fingerprints(c, self.cards) if t != c.id)
         shown = "\n".join(public)
         for c in hidden:
             for token in self.fingerprints(c, self.cards):
@@ -457,7 +459,7 @@ class Game:
             for pid in self.session.state.seat_order:  # each player's own preferences (players always tap their own mana)
                 self.session.perform(pid, {"type": "set_prefs", "response": self.rng.choice(["auto", "auto", "on"]),
                                            "auto_resolve_own_triggers": self.rng.choice(["safe", "safe", "off", "on"]),
-                                           "auto_target": self.rng.random() < 0.7})
+                                           "auto_target": self.rng.random() < 0.7, "hold_priority": self.rng.random() < 0.2})
             outcome = self.loop(turns)
             if outcome not in ("crashed", "stuck") and not self.check():
                 outcome = "crashed"
