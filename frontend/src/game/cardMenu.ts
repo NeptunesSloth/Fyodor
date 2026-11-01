@@ -10,6 +10,7 @@ import { FACE_DOWN_LABEL, isVisible, splitZone, type FaceDownKind, type GameCard
 import { addCounter, COMMON_COUNTERS, moveCards, send, tapCards, targetsFor } from "./actions";
 import { choicesMenu, damageMenu, effectsMenu, exileGroupMenu, stackMenu, startArrow, startCopyTarget } from "./marksMenu";
 import { rulesMenu } from "./rules/rulesMenu";
+import { stackSize, tokenStackItems } from "./tokenStacks";
 
 function moveMenu(ids: string[], current: ZoneName, owner: string | null, me: string): MenuItem[] {
   const items: MenuItem[] = [];
@@ -50,6 +51,7 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
 
   if (zone === "battlefield") {
     items.push({ label: card.tapped ? "Untap" : "Tap", hint: "T / double-click", onClick: () => tapGesture(ids, (x) => void tapCards(x)) });
+    items.push(...tokenStackItems(card, view, me, ids)); // split a "Goblin ×10" stack, or stack identical tokens
     items.push({
       label: "Add counter",
       submenu: [
@@ -308,7 +310,8 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
       });
     }
   } else if (visible && (card.is_token || card.ability || card.copy_of)) {
-    items.push({ label: card.ability ? "Remove ability" : card.copy_of && !card.is_token ? "Remove copy" : "Remove token", danger: true, onClick: () => void send({ type: "delete_card", card_ids: ids }) });
+    const label = card.ability ? "Remove ability" : card.copy_of && !card.is_token ? "Remove copy" : stackSize(card) > 1 ? `Remove all ${stackSize(card)} tokens` : "Remove token";
+    items.push({ label, danger: true, onClick: () => void send({ type: "delete_card", card_ids: ids }) });
   }
   return { title, items };
 }

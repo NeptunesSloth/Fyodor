@@ -21,7 +21,7 @@ import { changeLife, draw, send, tapCards, targetsFor } from "../game/actions";
 import { Batcher, runSeatAction, SEAT_ACTIONS, TypedCount, type SeatActionId } from "../game/seatActions";
 import { cardMenu } from "../game/cardMenu";
 import { tableMenu } from "../game/selection";
-import { zonePileTops } from "../game/piles";
+import { countMark, zonePileTops } from "../game/piles";
 import type { DropResult } from "../game/dnd";
 import type { PingTarget } from "../services/night";
 import { dropCards } from "../game/drop";
@@ -792,7 +792,7 @@ export class TableScene {
         this.place(c, seat, lx, lz, 0.004 + i * 0.0035, tapped);
         c.tilt = 0;
         const overlay = overlayFor(card, view.rules?.stats?.[id]);
-        const pile = piles.get(id);
+        const pile = countMark(card, piles.get(id))?.n; // ×N: the land pile it tops, or the token stack it is
         const ownerP = card.owner !== card.controller ? view.players.find((p) => p.id === card.owner) : undefined;
         const owner = ownerP ? { initial: ownerP.name.slice(0, 1).toUpperCase(), color: ownerP.color } : undefined;
         this.setOverlay(c, pile || owner ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}) } : overlay);

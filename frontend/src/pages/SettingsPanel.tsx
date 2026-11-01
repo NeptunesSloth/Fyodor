@@ -219,6 +219,7 @@ export function SettingsPanel() {
             <select value={p.tokenCollapse} onChange={(e) => set({ tokenCollapse: Number(e.target.value) as Prefs["tokenCollapse"] })}>
               <option value={5}>5</option><option value={10}>10</option><option value={20}>20</option><option value={0}>Never</option>
             </select>
+            <span className="hint">One card shows ×N; right-click it to split. With rules automation on, every token stays its own card.</span>
           </label>
           <label className="field">Favorite counters
             <input value={p.favoriteCounters.join(", ")} onChange={(e) => set({ favoriteCounters: e.target.value.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 12) })} />

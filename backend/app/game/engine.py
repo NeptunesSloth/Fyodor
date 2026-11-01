@@ -10,7 +10,7 @@ from app.game.errors import ActionError
 from app.game.handlers import cards, marks, mulligan, objects, players, response, rules, solo, turn, zones
 from app.game.rules_state import capture, track, wither_put_by
 from app.game.state import GameState
-from app.rules import stickers101
+from app.rules import stickers101, token_stacks
 
 Handler = Callable[[GameState, Any], None]
 
@@ -181,5 +181,7 @@ def apply(state: GameState, action: A.Action) -> None:
             rules.unsynced = True
         track(state, before, manual=manual, actor=action.actor, put_by=wither_put_by(action),
               non_discard=bool(getattr(action, "non_discard", False)))  # (actor: wave 5H)
+        if isinstance(action, A.SplitStack | A.ExpandStack) and action.r is not None:
+            token_stacks.adopt(state, action.card_id, action.r.ids)  # -- token stacks (gap 2) -- the tokens were already there
     state.departures().clear()
     state.renames().clear()

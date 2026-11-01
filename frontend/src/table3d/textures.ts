@@ -508,7 +508,7 @@ export interface CardOverlay {
   counters: { label: string; n: number }[];
   /** On the stack: its chain number, and whether it resolves next. */
   chain?: { no: number; next: boolean };
-  /** Arena-style ×N: this card tops a pile of identical lands (game/piles.ts). */
+  /** Arena-style ×N: this card tops a pile of identical lands, or is a stack of N tokens (game/piles.ts countMark). */
   pile?: number;
   /** The encoder's owner gem: someone else owns this card (their initial, in their seat colour). */
   owner?: { initial: string; color: string };
