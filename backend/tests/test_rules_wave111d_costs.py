@@ -16,7 +16,7 @@ import pytest
 from app.game.errors import ActionError
 from app.rules import coverage
 from app.rules.plan import Plan
-from tests.game_helpers import act
+from tests.game_helpers import act, mana_pool
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave30m_durations import to_phase
 from tests.wave9c_kit import build, check, life, mana, put, to_hand
@@ -28,6 +28,10 @@ EXTRA = [
          "you control.\nCreate two 2/2 black Romulan creature tokens. Draw two cards, then discard a card.", None, "U"),
     real("General Chang, Cold Warrior", "{B}", 1, "Legendary Creature — Klingon Warrior Officer", "{1}, Sacrifice a creature: Put a +1/+1 counter on each "
          "Klingon you control.", ("1", "2"), "B"),
+    real("The Beacon of Kahless", "{2}{R}", 3, "Legendary Artifact", "{T}: Add one mana of any color.\nBattlefront — {T}: Choose a color. Add an amount of "
+         "mana of that color equal to the number of opponents you attacked this turn.", None, "R"),
+    real("Starfleet Academy", "", 0, "Legendary Land", "{T}: Add {C}.\nFederation — {5}, {T}: Choose a color. Add an amount of mana of that color equal to "
+         "the number of creature types among non-Borg creatures you control.", None, ""),
     real("Maturation Chamber", "{1}{W}", 2, "Artifact", "Whenever you cast an artifact spell, put a charge counter on this artifact.\n{4}, {T}: Create a 1/1 "
          "colorless Borg artifact creature token for each charge counter on this artifact. Activate only as a sorcery.", None, "W"),
 ]
@@ -39,6 +43,9 @@ EXTRA += [
     real("Goblin Piker", "{1}{R}", 2, "Creature — Goblin Warrior", "", ("2", "1"), "R"),
     real("Worf, Chief Tactical Officer", "{2}{W}", 3, "Legendary Creature — Klingon Warrior Officer", "Vigilance (Attacking doesn't cause this creature "
          "to tap.)", ("2", "3"), "W"),
+    real("Centaur Courser", "{2}{G}", 3, "Creature — Centaur Warrior", "", ("3", "3"), "G"),
+    real("Assault Drone", "{3}{B}", 4, "Artifact Creature — Borg", "Artifact creatures you control get +1/+0.", ("2", "4"), "B"),
+    real("Universal Automaton", "{1}", 1, "Artifact Creature — Shapeshifter", "Changeling (This card is every creature type.)", ("1", "1"), ""),
     real("Mox Jet", "{0}", 0, "Artifact", "{T}: Add {B}.", None, ""),
     real("Ur-Golem's Eye", "{4}", 4, "Artifact", "{T}: Add {C}{C}.", None, ""),
 ]
@@ -232,4 +239,37 @@ def test_maturation_chamber_ignores_an_opponents_artifact_spell_and_activates_on
     cast(s, "Mox Jet", pid="p2")
     answer(s)
     assert counters(s, chamber, "charge") == 0
+    check(s)
+
+
+# -- chosen-color mana amounts -----------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("targets", "attacked"), [((), 0), (("p2", "p2"), 1), (("p2", "p3"), 2)])
+def test_beacon_of_kahless_adds_one_of_a_color_per_opponent_you_attacked(cards, targets, attacked):
+    s = build3(cards, ["The Beacon of Kahless", "Grizzly Bears", "Centaur Courser"])
+    beacon = put(s, "The Beacon of Kahless")
+    attackers = [put(s, "Grizzly Bears"), put(s, "Centaur Courser")]
+    act(s, "p1", type="set_stops", own=["main1", "main2"])
+    to_phase(s, "declare_attackers", turn=4)
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": a.id, "target": t} for a, t in zip(attackers, targets, strict=False)])
+    to_phase(s, "main2", turn=4)
+    if attacked:
+        act(s, "p1", type="activate_ability", card_id=beacon.id, ability=1, mana_choice="R")
+    else:  # (no mana to add: the engine doesn't offer the empty activation, as for any counted mana ability)
+        with pytest.raises(ActionError):
+            act(s, "p1", type="activate_ability", card_id=beacon.id, ability=1, mana_choice="R")
+    assert mana_pool(s) == ({"R": attacked} if attacked else {})  # (two attackers at one opponent: one opponent, 508.6)
+    check(s)
+
+
+@pytest.mark.parametrize("theirs", [False, True])
+def test_starfleet_academy_counts_creature_types_among_your_non_borg_creatures(cards, theirs):
+    s = build(cards, ["Starfleet Academy", "Grizzly Bears", "Centaur Courser", "Warship Flight Crew", "Assault Drone", "Universal Automaton"], ["Goblin Piker"])
+    academy = put(s, "Starfleet Academy")
+    for name in ("Grizzly Bears", "Centaur Courser", "Warship Flight Crew", "Assault Drone", "Universal Automaton"):
+        put(s, name)  # (the Borg and the changeling, which is every creature type and so a Borg too (702.73a), aren't counted)
+    if theirs:
+        put(s, "Goblin Piker", "p2")  # (an opponent's Goblin Warrior: not yours)
+    mana(s, C=5)
+    act(s, "p1", type="activate_ability", card_id=academy.id, ability=1, mana_choice="G")
+    assert mana_pool(s) == {"G": 5}  # Bear, Centaur, Warrior, Klingon, Pilot
     check(s)

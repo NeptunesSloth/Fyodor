@@ -111,7 +111,9 @@ def _safe(v: Any) -> bool:
     if not isinstance(v, dict):
         return False
     if "turn_history" in v:
-        return v["turn_history"] in ("drew", "gained", "lost", "died")
+        return v["turn_history"] in ("drew", "gained", "lost", "died",
+                                     "opponents_attacked")  # -- mana amounts (wave 111D) -- 508.6: the opponents you declared attackers against this turn
+
     if "times" in v or "plus" in v or "minus" in v:
         return all(_safe(x) for x in (v.get("times") or v.get("plus") or v.get("minus") or []))
     if "half" in v:
