@@ -1,3 +1,37 @@
+## WAVES 111 AND 111R — STAR TREK CARDS (2026-11-01)
+
+**Star Trek (`trk`, `trc`, released 2026-11-13): 423 FULL / 33 PARTIAL of 456 new cards**, on Scryfall's pre-release Oracle text of 2026-10-30. They aren't Commander-legal yet, so they aren't in the main count. The main count, recounted on `539a03ef`, is unchanged: **32,068 FULL / 0 PARTIAL**, commanders 3,502 / 3,502, 0 unrecognized clauses. Draft [PR #35](https://github.com/NeptunesSloth/Fyodor/pull/35), section 17.
+
+- **Wave 111** (agents A–G, `app/rules/wave111{a..g}_*.py`, tests `tests/test_rules_wave111*`): 156 of the 162 cards that use existing rules, including the three Battlefront cards (an ability word, 207.2c).
+- **Wave 111R** promoted the 6 first-refused cards with engine features:
+  - Kira Nerys, Firebrand (`wave111r3_enter.py`): enters tapped and attacking.
+  - Nog, Ambitious Cadet and Q, Stacking the Deck (`wave111r1_grants.py`): granted static abilities and exile-activated abilities.
+  - Queen's Diamond and Kai Winn, Faithless Leader (`wave111r2_mana.py`): commander-only mana, and activations of a source in any zone.
+  - Hugh, First of Many (`wave111r3_replicate.py`): replicate that a permanent grants.
+- **New table menus** (`rulesMenu.ts`): activated abilities of a card in exile, and "Cast with replicate" for granted replicate (`hints.replicate111r3`).
+- **Shared changes:**
+  - `CREATURE_TYPES` uses straight apostrophes (C'tan, Jem'Hadar, …), as card type lines do. Changelings gain the new types.
+  - Short names and Planet tokens.
+- **Reviews:** two independent reviews fixed 5 bugs. No other existing card's parse changed.
+- **Spirit Guide fix** (`casting.activate_ability` and `_mana_while_paying`, tests `test_rules_spirit_guide_limits.py`):
+  - A Spirit Guide's mana ability, activated from the hand, now obeys Phyrexian Revoker while its owner is paying for a spell (602.5).
+  - With priority, Pithing Needle and split second no longer stop it (605.1a, 702.61b).
+
+Still PARTIAL (33):
+- 27 use mechanics CR 2026-09-25 doesn't define: beam me up (11), face a dilemma (9) and assimilate (7). They wait for the CR update.
+- 6 wait for a ruling (`docs/research/wave111{d,e,f}-refused.md`): All Good Things..., Chief Montgomery Scott, Commander Spock, The Guardian of Forever, The Holodeck, and Marooned (which needs beam up).
+
+**On release day:**
+1. Run `scripts/update-cards.sh` and `tools.rules_research.update`/`diff`.
+2. Recheck the wave 111 cards' Oracle text, creature types and short names against the released data.
+3. Recount.
+
+Tests on `539a03ef`:
+- **Backend: 39,610 collected; 39,605 passed, 0 failed, 4 skipped, 1 xfailed** (`pytest -n 4`, eight shards, full card database). Ruff and `mypy app` clean.
+- **Frontend:** typecheck, 154 vitest tests.
+- **Playwright:** 33 passed, 6 skipped.
+- The Spirit Guide fix came later, with its own tests and the related mana, activation-limit and split-second test files.
+
 ## PR #35 FINISH — COMMANDER-ONLY, ALL CARDS FULL, FULL SUITES GREEN (2026-11-01)
 
 **32,068 FULL / 0 PARTIAL** of 32,068 Commander-legal cards; possible commanders **3,502 / 3,502**. Recounted with `python -m tools.commander_coverage` on `4c3a5ecd` (Scryfall `default_cards` 2026-10-30, CR 2026-09-25): 113,151 ability features, all automated, 0 unrecognized clauses. The 11 cards wave 110 left PARTIAL were finished by the wave 110J commits (each checked with `tools.card_check`). Draft [PR #35](https://github.com/NeptunesSloth/Fyodor/pull/35).

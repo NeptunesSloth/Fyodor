@@ -5790,7 +5790,8 @@ def activate_ability(plan: Plan, a: A.ActivateAbility) -> None:
         ch = plan.ch(card)
         ability = next((ab for ab in ch.abilities if ab.index == a.ability), None)
         if suspend_info(ch, a.ability) is None:  # -- cast limits (wave 5E) -- (suspend is a special action, 116.2f)
-            _activation_limit(plan, card, ch)
+            # (a Spirit Guide's is a mana ability, 605.1a: Pithing Needle and split second leave it alone, 702.61b)
+            _activation_limit(plan, card, ch, mana=ability is not None and ability.kind == "mana")
         if ability is not None and ability.text.startswith(VULTURES):  # -- wave 110F -- 116.2e: a special action, no stack, no response
             plan.do({"type": "move", "card_ids": [card.id], "to": {"zone": "graveyard"}}, actor=plan.actor)
             plan.note(f"{plan.name(plan.actor)} discards {ch.name}", [card.id])
@@ -6098,6 +6099,7 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
         hand_ch = plan.ch(card)
         hand_ability = _find_ability(hand_ch, a.ability)
         if hand_ability.kind == "mana":
+            _activation_limit(plan, card, hand_ch, mana=True)  # 602.5: Phyrexian Revoker holds while paying too
             mana_riders.activate_from_hand(plan, card, hand_ch, hand_ability)
             after_tapping(plan)
             return
