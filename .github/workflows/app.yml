@@ -1,9 +1,16 @@
 name: Downloadable app
 
-# Builds Fyodor for Windows, macOS and Linux (no Python or Node needed to run it).
-# Run it from the Actions tab, or push a tag like v0.2.0 to attach the zips to a GitHub release.
+# Builds Fyodor as an app that needs no Python or Node: Windows by default (macOS minutes cost ten times as much on a
+# private repository). Run it from the Actions tab (choose "all" for macOS and Linux too), or push a tag like v0.2.0 to
+# attach the Windows zip to a GitHub release.
 on:
   workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Which apps to build"
+        type: choice
+        options: [windows, all]
+        default: windows
   push:
     tags: ["v*"]
 
@@ -14,10 +21,7 @@ jobs:
   build:
     strategy:
       matrix:
-        include:
-          - { os: windows-latest, name: windows }
-          - { os: macos-latest, name: macos }
-          - { os: ubuntu-latest, name: linux }
+        include: ${{ fromJSON(inputs.platforms == 'all' && '[{"os":"windows-latest","name":"windows"},{"os":"macos-latest","name":"macos"},{"os":"ubuntu-latest","name":"linux"}]' || '[{"os":"windows-latest","name":"windows"}]') }}
     runs-on: ${{ matrix.os }}
     defaults:
       run:

@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Actions → CI → Run workflow: the same checks plus the full card suite (8 parallel jobs).
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Also run the full card suite (about 16 hours of test time, split over 8 parallel jobs)"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -13,8 +20,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Every push: lint, types, the non-card tests and a fixed sample of the per-card rules tests (tools/test_shards.py).
+  # The whole per-card suite is too long for one job (GitHub stops a job at 6 hours): it runs in backend-full, by hand.
   backend:
-    name: Backend (ruff, mypy, pytest)
+    name: Backend (ruff, mypy, quick pytest)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -26,10 +35,32 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: backend/pyproject.toml
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[dev]" pytest-xdist
       - run: ruff check .
       - run: mypy app tools
-      - run: pytest -q
+      - run: pytest -q -n auto $(python -m tools.test_shards --quick)
+
+  backend-full:
+    name: Backend full suite (${{ matrix.shard }}/8)
+    if: github.event_name == 'workflow_dispatch' && inputs.full
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e ".[dev]" pytest-xdist
+      - run: pytest -q -n auto $(python -m tools.test_shards --shard ${{ matrix.shard }}/8)
 
   frontend:
     name: Frontend (typecheck, vitest, build)
