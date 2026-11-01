@@ -11,6 +11,7 @@ import { beginPointerDrag } from "./dnd";
 import { CounterBadges, GameCardFace } from "./GameCardFace";
 import { answerByClick, legalClass } from "./rules/RulesHud";
 import { Icon } from "../components/Icon";
+import { countMark } from "./piles";
 
 interface Props {
   id: string;
@@ -38,6 +39,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
   if (!card) return null;
   const visible = isVisible(card);
   const rotation = (card.tapped ? 90 : 0) + (card.flipped ? 180 : 0) + (card.rotation ?? 0);
+  const count = countMark(card, pile); // ×N: the land pile it tops, or the token stack it is
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -78,7 +80,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
       onPointerLeave={() => useGame.getState().hover === id && useGame.getState().setHover(null)}
     >
       <GameCardFace card={card} />
-      {pile && <span className="pile-count-mark" data-testid="pile-count" title={`${pile} identical lands in this pile`}>×{pile}</span>}
+      {count && <span className="pile-count-mark" data-testid={count.testId} title={count.title}>×{count.n}</span>}
       <div className="card-marks">
         {visible && card.is_token && !card.copy_of && <span className="mark token">TOKEN</span>}
         {visible && card.test_object && <span className="mark test" title="Test object — not part of any deck">TEST</span>}
