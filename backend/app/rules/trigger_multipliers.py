@@ -381,7 +381,11 @@ def count(plan: Plan, t: PendingTrigger, index: int, cause: TriggerEvent | None)
         return 0
     batch = cause.batch if cause is not None and cause.batch > 0 else None
     look_back = cause is not None and cause.kind in LOOK_BACK
-    return sum(_applies(plan, d, mult, t, source, cause, batch, look_back) for mult, d in _multipliers(plan, None, batch, look_back))
+    from app.rules import wave111c_statics  # -- Star Trek statics (wave 111C) --
+
+    # (Lwaxana Troi's effect on one creature: its rule on that object)
+    return sum(_applies(plan, d, mult, t, source, cause, batch, look_back) for mult, d in _multipliers(plan, None, batch, look_back)) \
+        + (wave111c_statics.again(source[1]) if source[2] == "permanent" else 0)
 
 
 def suppressed(plan: Plan, event: TriggerEvent | None, controller: str | None = None, permanent: bool = True) -> bool:

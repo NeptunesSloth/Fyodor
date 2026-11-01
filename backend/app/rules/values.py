@@ -1159,6 +1159,11 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                 from app.rules.stack_interaction import mana_value
 
                 return max(0, mana_value(obj, ch))
+            if stat == "station110e":  # -- Star Trek statics (wave 111C) -- Sulu: "stations Spacecraft … as though his power were tripled" (702.184c)
+                from app.rules import wave111c_statics
+
+                if (tripled := wave111c_statics.station_value(plan, ctx, ch)) is not None:
+                    return max(0, tripled)
             return max(0, _stat_of(ch, stat) or 0)
     if "relative" in v:  # -- token & pump wordings (wave 6C) -- statics._relative_count: about the object modified
         return _relative(plan, ctx, v)

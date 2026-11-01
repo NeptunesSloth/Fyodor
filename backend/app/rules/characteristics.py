@@ -281,7 +281,7 @@ def _build(data: dict[str, Any], src: dict[str, Any], text: str) -> Characterist
     supertypes, types, subtypes = parse_type_line(type_line)
     cost = str(src.get("mana_cost") or (data.get("mana_cost") if src is data else "") or "")
     colors = src.get("colors") if src.get("colors") is not None else data.get("colors")
-    station = levelers.station_creature(text) is not None  # -- Station (wave 46D) -- 721.2c: its power/toughness box is the station symbol's
+    station = levelers.station_box(text, (src.get("power"), src.get("toughness"))) is not None  # -- Station (wave 46D) -- 721.2c: its power/toughness box is the station symbol's (wave 111C: station_box)
     abilities = with_intrinsic_mana(parse_abilities(text, spell=bool(types & {"Instant", "Sorcery"}), pt=(src.get("power"), src.get("toughness"))), subtypes)
     return _as_entry_base(Characteristics(
         name=str(src.get("name") or data.get("name") or ""),

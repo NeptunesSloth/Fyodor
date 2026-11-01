@@ -253,6 +253,11 @@ def _short_name(name: str, text: str = "") -> str | None:
     num = re.match(r"^(.+?) [IVXLC]{2,}$", name)  # -- commander sweep (wave 49B) -- "King Darien XLVIII" is "King Darien" in its own text (201.5c)
     if num is not None and re.search(rf"\b{re.escape(num[1])}\b", text):
         return num[1]
+    # -- Star Trek names (wave 111G) -- 201.5c: "Lieutenant Hikaru Sulu" is "Lieutenant Sulu" in its own text, a rank or title and
+    # the surname (also Captain Janeway, Ensign Chekov, Dr. McCoy); taken only where the text writes exactly that
+    rank = re.match(r'^((?:Captain|Commander|Ensign|Lieutenant|Dr\.) )(?:[A-Z"][\w".\'-]* )+([A-Z][\w\'-]+)(?:,|$)', name)
+    if rank is not None and re.search(rf"(?<![\w-]){re.escape(rank[1] + rank[2])}(?![\w-])", text):
+        return rank[1] + rank[2]
     two = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]+ [A-ZÀ-ÖØ-Þ][\w'-]+) (?:the|of) ", name)  # -- trigger tail (wave 15B) -- "Tor Wauki the Younger"
     if two is not None and re.search(rf"\b{re.escape(two[1])}\b", text):
         return two[1]
@@ -2692,6 +2697,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return join110e
     if (body110e := wave110e_cards.parse(body)) is not None:
         return body110e
+    from app.rules import wave111c_statics  # -- Star Trek statics (wave 111C) --
+
+    if (body111c := wave111c_statics.parse(body)) is not None:
+        return body111c
     from app.rules import wave110k_cards  # -- exact wordings (wave 110K) --
 
     if (body110k := wave110k_cards.parse(body)) is not None:
@@ -6053,6 +6062,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (whole110c := wave110c_core.definition(ability, ch)) is not None:
         return whole110c
+    from app.rules import wave111c_statics  # -- Star Trek statics (wave 111C) --
+
+    if (statics111c := wave111c_statics.definition(ability, ch)) is not None:
+        return statics111c
     from app.rules import sticker_riders102
 
     if (rider102 := sticker_riders102.definition(ability, ch)) is not None:

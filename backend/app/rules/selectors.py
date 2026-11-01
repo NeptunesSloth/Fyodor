@@ -1864,6 +1864,19 @@ def parse(phrase: str) -> Selector | None:
         if any(branch is None for branch in branches):
             return None
         return Selector(either=tuple(branch.key() for branch in branches if branch is not None), zones=("battlefield", "exile"))
+    # -- Star Trek statics (wave 111C) -- "Other Officers, Artificers, Doctors, Pilots, Scientists, and Spacecraft creatures you control" (Kirk, Man of
+    # Action): creature types, and last a noncreature subtype that names creatures only with "creatures" (205.3g: Spacecraft is an artifact type);
+    # an object of any of them (the creature-type list as "Officers, … or Scientists", and the "Spacecraft creatures"), the qualifiers on both
+    types_and_sub = re.fullmatch(r"(?P<pre>(?:other |another )?)(?P<list>[A-Z][A-Za-z'\-]+(?:, [A-Z][A-Za-z'\-]+)*),? and (?P<sub>[A-Z][A-Za-z'\-]+) creatures"
+                                 r"(?P<post> you control)?", phrase.strip())
+    if types_and_sub is not None and types_and_sub["sub"] in OTHER_SUBTYPES:
+        words = types_and_sub["list"].split(", ")
+        listed = f"{', '.join(words[:-1])} and {words[-1]}" if len(words) > 1 else words[0]
+        halves = [_parse(_type_and(f"{types_and_sub['pre']}{listed}{types_and_sub['post'] or ''}")),
+                  _parse(f"{types_and_sub['pre']}{types_and_sub['sub']} creatures{types_and_sub['post'] or ''}")]
+        if len(words) < 2 or any(h is None or h.either or h.player is not None for h in halves[1:]) or halves[0] is None or halves[0].player is not None:
+            return None
+        return Selector(either=tuple(h.key() for h in halves if h is not None))
     # A compound first branch keeps its intersection: (artifact AND creature)
     # OR Vehicle. Leading and trailing qualifiers apply to both branches.
     compound_union = re.fullmatch(

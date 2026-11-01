@@ -1647,6 +1647,9 @@ class RulesState(BaseModel):
     turns_taken: dict[str, int] = Field(default_factory=dict)
     no_power_up_turns: list[int] = Field(default_factory=list)  # -- power-up (wave 50J) -- the turn numbers power-up abilities can't be activated in (Kang the Conqueror's extra turn)
     extra_turn: bool = False  # -- static_other (wave 42A) -- 500.7: the turn in progress is an extra turn ("can't attack during extra turns", Medomai; engine.start_next_turn)
+    # -- Star Trek statics (wave 111C) -- known only from a game's start (start_rules; None: automation began mid-game or an older save):
+    extra_turn_begun111c: list[str] | None = None  # 500.7: the players who have begun an extra turn this game (H.M.S. Bounty)
+    casts_game111c: dict[str, int] | None = None  # 601.2i: how many spells each player has cast this game (First Contact)
     # … and "can't gain life this turn / for the rest of the game" (614.17; app/rules/cant_gain.py):
     # {"id", "player", "controller", "turn" (None: the rest of the game), "label"}
     cant_gain: list[dict[str, Any]] = Field(default_factory=list)
@@ -1962,6 +1965,8 @@ def start_rules(state: GameState) -> RulesState:
         crew_saddle_history_turn80=(state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None),
         first_event_history_turn78=(state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None),
         cast_history_complete=True if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
+        extra_turn_begun111c=[] if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,  # -- Star Trek statics (wave 111C) --
+        casts_game111c={} if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
         target_activation_history_turn=state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
         coin_history_from_turn=state.turn.number if state.seq <= 1 else state.turn.number + 1,
         graveyard_history_from_turn=state.turn.number if state.seq <= 1 else state.turn.number + 1,

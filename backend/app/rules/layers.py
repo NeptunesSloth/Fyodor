@@ -1213,6 +1213,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
                     continue
                 text = line
             ab = granted_ability(text)
+            if ab is None and st.definition.get("linked111c") and st.source == card.id:  # -- Star Trek statics (wave 111C) -- 607.1a, 607.2a: a station
+                from app.rules import wave111c_statics
+
+                ab = wave111c_statics.linked_grant(text, ch, 100 + k)  # (symbol's ability that refers to cards exiled with this object: read with its printed ones)
             if ab is not None:
                 keeps = st.definition.get("keeps")  # (702.16n: attachments.host_problem)
                 owner = state.cards.get(st.source)

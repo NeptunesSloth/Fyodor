@@ -4866,13 +4866,15 @@ def crew_power(ch: Characteristics, index: int) -> int | None:
     return None
 
 
-def crew_value(c: CardInstance, ch: Characteristics) -> int:
+def crew_value(c: CardInstance, ch: Characteristics, crewed: Characteristics | None = None) -> int:
     """What a creature counts toward crewing a Vehicle (702.122a: its power) — -- static_other sweep (wave 17C) -- or its toughness,
-    or its power as though it were greater, while a static says so ("crews Vehicles using its toughness rather than its power")."""
+    or its power as though it were greater, while a static says so ("crews Vehicles using its toughness rather than its power").
+    ``crewed``: the permanent whose crew ability it pays for (None: saddling) -- Star Trek statics (wave 111C) -- Sulu's power tripled for a Vehicle."""
+    from app.rules import wave111c_statics
     from app.rules.combat import power
     from app.rules.sba import toughness
 
-    base = (toughness(c, ch) if "crew_toughness" in ch.imposed else power(c, ch)) or 0
+    base = (toughness(c, ch) if "crew_toughness" in ch.imposed else (power(c, ch) or 0) * wave111c_statics.crew_times(ch, crewed)) or 0
     return max(0, base + sum(int(r.split(":")[1]) for r in ch.imposed if r.startswith("crew_plus:")))
 
 
@@ -4892,7 +4894,7 @@ def crew(plan: Plan, card: CardInstance, ch: Characteristics, a: A.ActivateAbili
 
     def crew_power_of(cid: str) -> int:
         c = plan.state.cards[cid]
-        return crew_value(c, plan.ch(c))
+        return crew_value(c, plan.ch(c), None if saddle else ch)  # (wave 111C: the Vehicle crewed)
 
     candidates = [c.id for c in plan.state.cards.values() if c.zone == card.zone and c.controller == plan.actor
                   and c.id != card.id and not c.tapped and plan.in_game(c) and plan.ch(c).is_creature
@@ -6916,7 +6918,7 @@ def _can_crew(state: GameState, player: str, card: CardInstance, ch: Characteris
         if c.zone == card.zone and c.controller == player and c.id != card.id and not c.tapped:
             cch = derive(state, c, chars.of(c, info), info)
             if cch.is_creature and (saddle or "cant_crew" not in cch.imposed):
-                total += crew_value(c, cch)
+                total += crew_value(c, cch, None if saddle else ch)  # (wave 111C: the Vehicle crewed)
     from app.rules import wave110h_cards  # -- crew loyalty (wave 110H) --
 
     return total >= n or bool(not saddle and wave110h_cards.crew_pws(ch, player, state.cards.values(), lambda c: "Planeswalker" in derive(state, c, chars.of(c, info), info).types))

@@ -7415,3 +7415,7 @@ from app.rules import wave110j_last as _wave110j_last  # noqa: E402  (wave 110J 
 
 PRIMITIVES.update(_wave110j_last.PRIMITIVES)
 RESUME.update(_wave110j_last.RESUME)
+from app.rules import wave111c_statics as _wave111c_statics  # noqa: E402  (wave 111C)
+
+PRIMITIVES.update(_wave111c_statics.PRIMITIVES)
+RESUME.update(_wave111c_statics.RESUME)

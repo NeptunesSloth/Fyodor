@@ -754,6 +754,9 @@ def start_next_turn(plan: Plan) -> None:
         skipped.append((plan.active, plan.state.turn.number))
     plan.rules.turn_base = base if extra else plan.active  # -- extra turns (wave 8A) -- 500.7
     plan.rules.extra_turn = bool(extra)  # -- static_other (wave 42A) -- 500.7: this turn is one an effect added
+    from app.rules import wave111c_statics  # -- Star Trek statics (wave 111C) --
+
+    wave111c_statics.turn_began(plan, bool(extra))  # ("haven't begun an extra turn this game")
     tt = plan.rules.turns_taken  # -- most-played cards (wave 43B) -- the game's first turn was never begun here: counted when it ends
     # ponytail: a state loaded mid-game starts the count at its next turn, so "first, second, or third turn" reads low there
     if not tt:
