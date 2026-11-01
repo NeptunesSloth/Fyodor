@@ -8,7 +8,8 @@ import { useCardCache } from "../state/cardCache";
 import { isVisible, splitZone } from "../types/game";
 import { draw, moveCards, send, tapCards } from "./actions";
 import { GameDialogs } from "./Dialogs";
-import { CombatArrows, DragLayer, PickLayer } from "./Overlays";
+import { AttachLines, CombatArrows, DragLayer, PickLayer } from "./Overlays";
+import { FocusKeys2D } from "./focus2d";
 import { Hand } from "./Hand";
 import { MulliganOverlay } from "./MulliganOverlay";
 import { PlayerArea } from "./PlayerArea";
@@ -91,6 +92,7 @@ export function GameScreen() {
         <main className={`table ${three ? "is-3d" : ""}`}>
           {three ? <Suspense fallback={<div className="table3d-loading">Setting the table…</div>}><Table3D me={me} /></Suspense> : <TablePlaymat />}
           {!three && <FocusKeys others={others} me={me} />}
+          {!three && <FocusKeys2D />}
           {!three && <div className={`opponents n${others.length} ${focus && focus !== me ? "focused" : ""} ${focus === me ? "shrunk" : ""}`}>
             {others.map((pid) => (
               <PlayerArea key={pid} player={pid} me={me} mine={false} compact={others.length > 1} focused={focus === pid} />
@@ -128,6 +130,7 @@ export function GameScreen() {
       <AutomationErrorPanel />
       <DragLayer />
       {!three && <CombatArrows />}
+      {!three && <AttachLines />}
       <PickLayer />
       {three && <CombatLanes />}
       <GameNight />

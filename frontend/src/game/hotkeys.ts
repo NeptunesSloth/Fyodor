@@ -24,6 +24,8 @@ export type HotkeyId =
   | "cam_player"
   | "cam_table"
   | "cam_focus"
+  | "cam_stack"
+  | "cam_combat"
   | "cam_reset"
   | "cam_names"
   | "ping"
@@ -54,7 +56,9 @@ export const HOTKEYS: Hotkey[] = [
   { id: "cam_seat", keys: ["1"], label: "Look from your seat (2D: the whole table)" },
   { id: "cam_player", keys: ["2", "3", "4", "5", "6"], label: "Look at the next players' boards, in seat order" },
   { id: "cam_table", keys: ["0"], label: "Look over the whole table" },
-  { id: "cam_focus", keys: ["c"], label: "3D table: zoom to the hovered card (C or Esc to return)" },
+  { id: "cam_focus", keys: ["c"], label: "Focus the hovered card: 3D zooms to it, 2D looks at its board (C or Esc to return)" },
+  { id: "cam_stack", keys: ["k"], label: "Focus the stack (K or Esc to return)" },
+  { id: "cam_combat", keys: ["x"], label: "Focus the current combat (X or Esc to return)" },
   { id: "cam_reset", keys: ["home"], label: "3D table: back to your seat" },
   { id: "cam_names", keys: ["v"], label: "3D table: show / hide the names of all cards on the table" },
   { id: "ping", keys: ["g"], label: "Ping what the pointer is on, for everyone (or Alt+click)" },
@@ -82,7 +86,10 @@ export function matchHotkey(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey"
   const key = JSON.stringify(keymap);
   if (key !== cacheKey) {
     cacheKey = key;
-    byCombo = new Map(effectiveHotkeys(keymap).flatMap((h) => h.keys.map((k) => [k, h.id] as [string, HotkeyId])));
+    // a key the player chose wins over a default that came later (a new shortcut never takes a remapped key away)
+    const list = effectiveHotkeys(keymap);
+    const mine = (h: Hotkey) => !!keymap[h.id]?.length;
+    byCombo = new Map([...list.filter((h) => !mine(h)), ...list.filter(mine)].flatMap((h) => h.keys.map((k) => [k, h.id] as [string, HotkeyId])));
   }
   return byCombo.get(comboOf(e)) ?? null;
 }

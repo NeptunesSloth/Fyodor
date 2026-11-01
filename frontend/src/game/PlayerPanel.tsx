@@ -5,12 +5,14 @@ import { useGame, usePlayer } from "../state/gameStore";
 import type { ManaUnit, PlayerView } from "../types/game";
 import { changeLife, changeResource, send } from "./actions";
 import { Icon } from "../components/Icon";
+import { LETHAL_COMMANDER } from "./commanderDamage";
+import { CommanderMatrixToggle } from "./CommanderDamageViews";
 
 const LIFE_STEPS = [-10, -5, -1, 1, 5, 10];
 /** Colorblind-safe seat markers: a distinct shape per seat alongside the color. */
 const SEAT_GLYPHS = ["●", "▲", "■", "◆", "★", "✚"];
 const RESOURCE_ICON: Record<string, string> = { poison: "☠", energy: "⚡", experience: "★", rad: "☢", ticket: "🎟" };
-export const LETHAL_COMMANDER = 21;
+export { LETHAL_COMMANDER };
 export const LETHAL_POISON = 10;
 
 export function PlayerPanel({ player, me, compact }: { player: string; me: string; compact?: boolean }) {
@@ -189,6 +191,7 @@ function CommanderDamage({ p }: { p: PlayerView }) {
           <div className="hint">Commander damage also reduces life. 21+ from one commander is marked.</div>
         </div>
       )}
+      <CommanderMatrixToggle />
     </div>
   );
 }
