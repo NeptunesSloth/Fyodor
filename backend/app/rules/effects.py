@@ -2898,6 +2898,9 @@ def return_card(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
              if e["to"] == "command" or not plan.state.cards[c].zone.endswith(":battlefield")]
     if e.get("from"):  # -- if you do (wave 100B) -- "put it from your graveyard onto the battlefield" (Silvan Reveler): only while it is in that graveyard
         cards = [c for c in cards if plan.state.cards[c].zone == f"{ctx['controller']}:{e['from']}"]
+    if e.get("exclude"):  # -- if you do / instead (wave 111B) -- "return all other … cards" after "You may sacrifice …. If you do": not the card just sacrificed (The Promise of Kahless)
+        gone = set(context.objects(plan, ctx, e["exclude"]))
+        cards = [c for c in cards if c not in gone]
     return _return_cards(plan, ctx, e, list(dict.fromkeys(cards)))
 
 
@@ -7415,3 +7418,6 @@ from app.rules import wave110j_last as _wave110j_last  # noqa: E402  (wave 110J 
 
 PRIMITIVES.update(_wave110j_last.PRIMITIVES)
 RESUME.update(_wave110j_last.RESUME)
+from app.rules import wave111b_cards as _wave111b_cards  # noqa: E402  (wave 111B: if you do / instead)
+
+PRIMITIVES.update(_wave111b_cards.PRIMITIVES)

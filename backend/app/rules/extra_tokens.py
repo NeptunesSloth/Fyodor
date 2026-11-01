@@ -40,7 +40,9 @@ _YOU_CREATE = re.compile(r"If you would create one or more (?P<kind>artifact )?t
 # Clue, Food, or Treasure token, instead create one of each." (Academy Manufactor): that many of each; "If you would create a Food token, instead create a
 # Food token and a Treasure token." (Bilbo, Fellow Conspirator): that many Food and that many Treasure. Judged on the kind of token as it would be created
 # (a noncreature token that becomes a creature only as it enters is not a creature token yet).
-_SWAP = re.compile(r"If one or more (?P<kind>creature|artifact) tokens would be created under your control, that many (?P<tok>[^,.]+?) tokens"
+# (-- token swaps (wave 111B) -- of any kind: "If one or more tokens would be created under your control, that many 3/3 colorless Illusion artifact creature
+# tokens are created instead." (Holo-Engineer): every token creation event of yours, Treasures and copies too)
+_SWAP = re.compile(r"If one or more (?:(?P<kind>creature|artifact) )?tokens would be created under your control, that many (?P<tok>[^,.]+?) tokens"
                    r"(?P<more> with [^,.]+?)? are created instead\.")
 _EACH_OF = re.compile(r"If you would create a Clue, Food, or Treasure token, instead create one of each\.")
 _AND_ALSO = re.compile(r"If you would create an? (?P<kind>[A-Z][a-z]+) token, instead create an? (?P=kind) token and an? (?P<more>[A-Z][a-z]+) token\.")
@@ -63,7 +65,8 @@ def swap_definition(text: str) -> Definition | None:
     tail: dict[str, Any] | None = None
     if (m := _SWAP.fullmatch(text)) is not None:
         token = _one_token("create a " + m["tok"] + " token" + (m["more"] or ""))
-        tail = None if token is None else {"match": {"who": "you", "types": [m["kind"].capitalize()]}, "op": {"do": "replace", "token": token}}
+        tail = None if token is None else {"match": {"who": "you", **({"types": [m["kind"].capitalize()]} if m["kind"] else {})},  # (wave 111B: any kind)
+                                           "op": {"do": "replace", "token": token}}
     elif _EACH_OF.fullmatch(text):
         tail = {"match": {"who": "you", "subtypes": ["Clue", "Food", "Treasure"]}, "op": {"do": "each_of"}}
     elif (m := _AND_ALSO.fullmatch(text)) is not None and m["kind"] in ("Food", "Clue", "Treasure", "Blood", "Map", "Gold", "Powerstone"):

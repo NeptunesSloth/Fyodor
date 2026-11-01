@@ -107,7 +107,8 @@ PERMISSION = re.compile(
     r"(?: by (?P<by>.+?) in addition to (?:paying )?(?:its|their) other costs)?"
     # -- cast from graveyard (wave 19C) -- 614.1a: "If a spell cast this way would be put into your graveyard, exile it instead."
     r"(?:\. If (?:(?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead"
-    r"|(?:you cast a spell this way|you do), (?:that [a-z]+ enters (?:(?P<tapped>tapped)|(?P<fin>with a finality counter on it))|it gains \"(?P<gain>[^\"]+)\"))"
+    r"|(?:you cast a spell this way|you do), (?:that [a-z]+(?: creature)? enters (?:(?P<tapped>tapped)|(?P<fin>with a finality counter on it))|it gains \"(?P<gain>[^\"]+)\"))"
+    # (-- if you do / instead (wave 111B) -- "that artifact creature enters with a finality counter on it": Overflow Submatrix)
     # -- most-played cards (wave 43B) -- "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost." (Bolas's Citadel)
     r"|\. If you cast a spell this way, (?P<lmv>pay life equal to its mana value rather than pay its mana cost)"
     # -- if you do (wave 51D) -- 601.3b / 614.1c / 611.2a: the riders of a cast from the top of the library: "If you cast a creature spell this way, it gains haste until end of
@@ -2251,6 +2252,10 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             from app.rules import wave110e_word
 
             pid = wave110e_word.caster(ctx)
+        if e["caster"] == "target111b":  # -- if you do / instead (wave 111B) -- Cmdr. Troi: the targeted opponent casts from their own hand (608.2g)
+            from app.rules import wave111b_cards
+
+            pid = wave111b_cards.caster(plan, ctx)
     done = ctx.setdefault("free_cast_done", [])
     if not e.get("all") and sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
         return _free_cast_over(ctx, e)
@@ -2459,6 +2464,10 @@ def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
     from app.rules import context
 
     pid = ctx["controller"]
+    if e.get("caster") == "target111b":  # -- if you do / instead (wave 111B) -- Cmdr. Troi: "from their hand", the caster's own
+        from app.rules import wave111b_cards
+
+        pid = wave111b_cards.caster(plan, ctx)
     zone = e["zone"]
     if zone == "selector" and e.get("pool_selector"):
         return selectors.candidates(plan, selectors.from_key(e["pool_selector"]), pid, ctx.get("source_card"))

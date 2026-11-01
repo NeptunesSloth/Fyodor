@@ -2719,6 +2719,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (body110h := _w110h.parse(body)) is not None:
         return body110h
+    from app.rules import wave111b_cards as _w111b  # -- if you do / instead (wave 111B) --
+
+    if (body111b := _w111b.parse(body)) is not None:
+        return body111b
     from app.rules import sticker_effects101
 
     if (sticker101 := sticker_effects101.parse(body, it)) is not None:
@@ -6080,6 +6084,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (death104 := damage_death104.definition(ability, ch)) is not None:
         return death104
+    from app.rules import wave111b_cards  # -- if you do / instead (wave 111B) --
+
+    if (found111b := wave111b_cards.definition(ability, ch)) is not None:
+        return found111b
     from app.rules import wave110h_cards  # -- one-card rewrites (wave 110H) --
 
     if (found110h := wave110h_cards.definition(ability, ch)) is not None:

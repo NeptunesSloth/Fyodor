@@ -938,6 +938,10 @@ def _stack_objects(plan: Plan, ctx: Context, who: str) -> list[str]:
         src = ctx.get("source_card")
         return [src] if src in plan.state.cards and plan.state.cards[src].zone == "stack" and plan.oid(src) == ctx.get("source_object") else []
 
+    if who == "free_cast111b":  # -- if you do / instead (wave 111B) -- Cmdr. Troi: "that spell", the one cast during this resolution (608.2g), still on the stack
+        done = ctx.get("free_cast_done") or []
+        return [done[-1]] if done and done[-1] in plan.state.cards and plan.state.cards[done[-1]].zone == "stack" else []
+
     if who == "event_ability":  # -- copied abilities (wave 18F) -- the ability an activation trigger is about (603.2), while it's still on the stack
         src = (ctx.get("event") or {}).get("source") or {}
         return [src["card"]] if src.get("card") in plan.state.cards and plan.state.cards[src["card"]].zone == "stack" \
@@ -1659,6 +1663,15 @@ def entry_counters(plan: Plan, card: CardInstance, controller: str, ch: Characte
         other = plan.state.cards.get(((choices or {}).get(str(d["what"])) or "|").split("|")[-1])
         n = int(plan.ch(other).power or 0) if other is not None and (plan.ch(other).power or "").lstrip("-").isdigit() else 0
         return {"+1/+1": n} if n > 0 else {}
+    if d is not None and d.get("counters_of_copied111b") and entering_as_copy(plan, card):
+        # -- if you do / instead (wave 111B) -- Dominion Saboteur: "If you do, it enters with additional counters on it equal to the same number and kinds
+        # of counters the copied permanent has on it" — the copied permanent's counters as the copy enters (614.12a, 707.9e: an effect of the replacement)
+        applied = _entering_effect(plan, card)
+        ref = applied.copy_entry_source if applied is not None else None
+        copied = plan.state.cards.get(ref.card) if ref is not None else None
+        if copied is None or ref is None or plan.oid(copied) != ref.object_id or not copied.zone.endswith(":battlefield"):
+            return {}
+        return {k: n for k, n in sorted(copied.counters.items()) if n > 0}
     if d is None or not d.get("enter_counters") or not entering_as_copy(plan, card):
         return {}
     source = plan.state.cards.get((choices or {}).get(str(d["what"]), ""))
