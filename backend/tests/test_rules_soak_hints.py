@@ -12,7 +12,7 @@ from tests.game_helpers import act
 from tests.soak_kit import cards  # noqa: F401 - the fixture
 from tests.test_rules_attachments import token
 from tests.test_rules_conditionals import settle
-from tests.wave9c_kit import build, check, mana, to_hand
+from tests.wave9c_kit import build, check, mana, put, to_hand
 
 
 def castable(s, pid="p1"):
@@ -60,4 +60,23 @@ def test_a_gift_card_in_hand_gets_its_hints(cards):  # noqa: F811
     settle(s)
     assert s.state.cards[octo.id].zone == "p1:battlefield"
     assert [c.name for c in s.state.cards.values() if c.zone == "p2:battlefield" and c.token] == ["Octopus"]
+    check(s)
+
+
+def test_channel_with_nothing_to_destroy_is_not_offered(cards):  # noqa: F811
+    """Boseiju, Who Endures ("Channel — {1}{G}, Discard this card: Destroy target artifact, enchantment, or nonbasic land an opponent
+    controls. …"): with only basic lands across the table the ability has no legal target (602.2b → 601.2c), so the hint doesn't offer it
+    and the activation is refused; once Bob has an artifact it is offered and destroys it."""
+    s = build(cards, mine=["Boseiju, Who Endures"], theirs=["Sol Ring"])
+    boseiju = to_hand(s, "Boseiju, Who Endures")
+    mana(s, G=2)
+    channel = {"card_id": boseiju.id, "ability": 1}
+    assert channel not in hints(s.state, "p1", s.cards)["activatable"]
+    with pytest.raises(ActionError, match="no legal target"):
+        act(s, "p1", type="activate_ability", **channel)
+    ring = put(s, "Sol Ring", "p2")
+    assert channel in hints(s.state, "p1", s.cards)["activatable"]
+    act(s, "p1", type="activate_ability", targets=[ring.id], **channel)
+    settle(s)
+    assert s.state.cards[ring.id].zone == "p2:graveyard" and s.state.cards[boseiju.id].zone == "p1:graveyard"
     check(s)
