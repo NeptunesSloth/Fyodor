@@ -31,9 +31,13 @@ EXTRA = [
          "+1/+1 counter on this creature. Untap it.", ("2", "1"), "W"),
     real("Planet Killer", "{8}", 8, "Artifact Creature — Construct", "Flying, indestructible\nThis creature attacks each combat if able.\nWhenever this "
          "creature deals combat damage to a player, put a +1/+1 counter on it for each land that player controls.", ("9", "9"), ""),
+    real("Dr. Beverly Crusher", "{2}{W}", 3, "Legendary Creature — Human Doctor", "If you gaining life causes a triggered ability of a permanent you "
+         "control to trigger, that ability triggers an additional time.\nWhenever you gain life, put a +1/+1 counter on Dr. Crusher.", ("2", "2"), "W"),
 ]
 NAMES = [c["name"] for c in EXTRA]
 EXTRA += [
+    real("Soul Warden", "{W}", 1, "Creature — Human Cleric", "Whenever another creature enters, you gain 1 life.", ("1", "1"), "W"),
+    real("Ajani's Pridemate", "{1}{W}", 2, "Creature — Cat Soldier", "Whenever you gain life, put a +1/+1 counter on this creature.", ("2", "2"), "W"),
     real("Lizard Warrior", "{3}{R}", 4, "Creature — Lizard Warrior", "", ("4", "2"), "R"),
     real("Grizzly Bears", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
     real("Centaur Courser", "{2}{G}", 3, "Creature — Centaur Warrior", "", ("3", "3"), "G"),
@@ -67,15 +71,17 @@ def hand(s, pid="p1"):
 def test_ensign_kim_grows_only_for_a_stronger_creature_of_yours(cards):
     s = build(cards, ["Ensign Harry Kim, Operations", "Grizzly Bears", "Centaur Courser"], ["Grizzly Bears"])
     kim = put(s, "Ensign Harry Kim, Operations")
-    put(s, "Grizzly Bears", "p2")  # (an opponent's creature: no trigger)
-    answer(s)
-    assert counters(s, kim) == 0
     mana(s, G=1, C=1)
     cast(s, "Grizzly Bears")  # (2 > 1: a counter, Kim is 2/3)
     answer(s)
     assert counters(s, kim) == 1 and ch(s, kim).pt == (2, 3)
     mana(s, G=1, C=2)
     cast(s, "Centaur Courser")  # (3 > 2: another)
+    answer(s)
+    assert counters(s, kim) == 2
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", G=1, C=1)
+    cast(s, "Grizzly Bears", pid="p2")  # (an opponent's creature: "you control", no trigger)
     answer(s)
     assert counters(s, kim) == 2
     check(s)
@@ -120,7 +126,11 @@ def test_zefram_cochrane_gives_your_spacecraft_two_charge_counters_as_they_enter
     mana(s, C=4)
     eye = cast(s, "Ur-Golem's Eye")  # (no Spacecraft: none)
     answer(s)
-    theirs = put(s, "Lumen-Class Frigate", "p2")  # (not yours: none)
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", W=1, C=1)
+    theirs = cast(s, "Lumen-Class Frigate", pid="p2")  # (not yours: none)
+    answer(s)
+    assert s.state.cards[theirs.id].zone == "p2:battlefield"
     assert counters(s, eye, "charge") == 0 and counters(s, theirs, "charge") == 0
     check(s)
 
@@ -182,4 +192,28 @@ def test_planet_killer_grows_by_the_lands_of_the_player_it_hit(cards, target, ex
     to_phase(s, "main2", turn=4)
     assert counters(s, killer) == expected  # (510.2: dealt to that player; 603.7c-style, the player the event names)
     assert life(s, target) == 31
+    check(s)
+
+
+# -- Dr. Beverly Crusher -----------------------------------------------------------------------------------------------------------------
+def test_dr_crusher_doubles_your_life_gain_triggers_only(cards):
+    s = build(cards, ["Dr. Beverly Crusher", "Ajani's Pridemate", "Soul Warden", "Grizzly Bears"], ["Ajani's Pridemate", "Soul Warden", "Grizzly Bears"])
+    crusher = put(s, "Dr. Beverly Crusher")
+    mine = put(s, "Ajani's Pridemate")
+    put(s, "Soul Warden")
+    answer(s)
+    assert (counters(s, crusher), counters(s, mine)) == (0, 0)
+    mana(s, G=1, C=1)
+    cast(s, "Grizzly Bears")  # (Soul Warden's trigger isn't caused by life gain: once; the gain triggers each "whenever you gain life" twice)
+    answer(s)
+    assert life(s, "p1") == 41
+    assert (counters(s, crusher), counters(s, mine)) == (2, 2)  # (603.2c: each triggers an additional time)
+    theirs = put(s, "Ajani's Pridemate", "p2")
+    put(s, "Soul Warden", "p2")
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", G=1, C=1)
+    cast(s, "Grizzly Bears", pid="p2")  # (Bob gaining life, his permanents: not Alice's Dr. Crusher's business; Alice's Soul Warden: she gains too)
+    answer(s)
+    assert life(s, "p2") == 41 and counters(s, theirs) == 1
+    assert life(s, "p1") == 42 and (counters(s, crusher), counters(s, mine)) == (4, 4)
     check(s)

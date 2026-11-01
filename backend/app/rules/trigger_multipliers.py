@@ -88,6 +88,7 @@ _CAUSES = (
     (re.compile(r"^you casting or copying an? (?P<sel>instant or sorcery spell)$"), "cast"),
     (re.compile(r"^a player drawing a card$"), "draw"),
     (re.compile(r"^turning a face-down permanent face up$"), "face_up"),  # -- trigger multipliers (wave 110D) -- 701.40, 702.37e (Panoptic Projektor): the turned_face_up event
+    (re.compile(r"^you gaining life$"), "gain"),  # -- trigger multipliers (wave 111D) -- 119.9 (Dr. Beverly Crusher): an ability whose own event is that player gaining life
 )
 # Not multiplied: the ids of the abilities _add creates that aren't "triggered abilities the object has" (603.2d)
 DELAYED, REFLEXIVE, MADNESS = 7000, 7300, 8000
@@ -311,6 +312,8 @@ def _caused(plan: Plan, d: dict[str, Any], mult: CardInstance, event: TriggerEve
         return event.kind == "draw"
     if cause == "face_up":  # (wave 110D) Panoptic Projektor: a face-down permanent turned face up; "enters" abilities don't trigger then (702.37e), so only turned-face-up ones
         return event.kind == "turned_face_up"
+    if cause == "gain":  # -- trigger multipliers (wave 111D) -- the multiplier's controller gaining life (119.9), never what the life gain came from (lifelink damage: its own event)
+        return event.kind == "gain_life" and event.players == [mult.controller]
     return False
 
 

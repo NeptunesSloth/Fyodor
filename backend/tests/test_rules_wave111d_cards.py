@@ -4,6 +4,11 @@ save and a load.
 * I'm a Doctor, Not a . . .: "Until end of turn, it gets +1/+1 and becomes a Doctor." (205.1a: the new creature type replaces the old ones, as its
   reminder says; both effects end at cleanup, 514.2).
 * Daniels, Temporal Agent: "{2}, Put this card from your graveyard on the bottom of your library: You gain 2 life." (113.6m: only from the graveyard).
+* Tasha Yar, Out of Time: "Create a token that's a copy of this card" after its cost exiled it (400.7j), sacrificed at the next end step (603.7).
+* Dathon, His Heart Open: "If it's a Saga spell" (the cast trigger's spell), "Choose a counter on target enchantment you control. Put another counter
+  of that kind on it." (122.1; a lore counter added triggers a chapter, 714.2b).
+* Seven of Nine, Unassimilated: "you control N or more differently named lands" (201.2: one per name), judged as the trigger resolves (608.2c) and as the
+  ability is activated (602.5b); "base power and toughness become 7/9" with no duration lasts (611.2a, layer 7b).
 """
 
 from __future__ import annotations
@@ -29,6 +34,9 @@ EXTRA = [
     real("Dathon, His Heart Open", "{G}{U}{R}", 3, "Legendary Creature — Tamarian Officer", "Whenever you cast an enchantment spell, draw a card. If "
          "it's a Saga spell, Dathon deals 2 damage to each opponent.\n{2}: Choose a counter on target enchantment you control. Put another counter of that "
          "kind on it. Activate only as a sorcery.", ("3", "3"), "GRU"),
+    real("Seven of Nine, Unassimilated", "{1}{U}", 2, "Legendary Artifact Creature — Human Officer", "At the beginning of your first main phase, draw a "
+         "card. Then discard a card unless you control five or more differently named lands.\n{6}{U}: Seven of Nine's base power and toughness become 7/9. "
+         "Activate only if you control seven or more differently named lands.", ("0", "4"), "U"),
 ]
 NAMES = [c["name"] for c in EXTRA]
 EXTRA += [
@@ -181,4 +189,48 @@ def test_dathon_gives_a_chosen_counter_another_of_its_kind(cards):
     act(s, "p1", type="activate_ability", card_id=dathon.id, ability=1, targets=[saga.id])
     answer(s)
     assert counters(s, saga, "lore") == 2 and len(knights(s)) == 2  # (a lore counter: chapter II triggers, 714.2b)
+    check(s)
+
+
+# -- Seven of Nine, Unassimilated --------------------------------------------------------------------------------------------------------
+LANDS = ["Forest", "Island", "Mountain", "Swamp", "Command Tower", "Cabal Coffers", "Reflecting Pool"]
+
+
+def lands(s, names):
+    """The named lands onto Alice's battlefield (one card each), tapped (so none pays for anything)."""
+    found = [next(c for c in s.state.cards.values() if c.name == n and c.owner == "p1" and c.zone == "p1:library") for n in names]
+    act(s, "p1", type="move", card_ids=[c.id for c in found], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="tap", card_ids=[c.id for c in found], tapped=True)
+    return found
+
+
+@pytest.mark.parametrize(("names", "discards"), [(5, False), (4, True)])
+def test_seven_of_nine_loots_unless_five_differently_named_lands(cards, names, discards):
+    s = build(cards, ["Seven of Nine, Unassimilated", *LANDS[1:]])
+    put(s, "Seven of Nine, Unassimilated")
+    lands(s, [*LANDS[:names], "Forest"][: names + 1])  # (a second Forest: still one name)
+    hand = len(s.state.zones.get("p1:hand", []))
+    graveyard = len(s.state.zones.get("p1:graveyard", []))
+    to_phase(s, "main1", turn=3)
+    answer(s)
+    assert len(s.state.zones["p1:hand"]) == hand + (1 if discards else 2)  # (the draw step's card and the trigger's, less the discard)
+    assert len(s.state.zones.get("p1:graveyard", [])) == graveyard + (1 if discards else 0)
+    check(s)
+
+
+@pytest.mark.parametrize("names", [7, 6])
+def test_seven_of_nine_becomes_7_9_only_with_seven_differently_named_lands(cards, names):
+    s = build(cards, ["Seven of Nine, Unassimilated", *LANDS[1:]])
+    seven = put(s, "Seven of Nine, Unassimilated")
+    lands(s, LANDS[:names])
+    mana(s, U=1, C=6)
+    if names < 7:
+        with pytest.raises(ActionError):  # (602.5b)
+            act(s, "p1", type="activate_ability", card_id=seven.id, ability=1)
+        assert ch(s, seven).pt == (0, 4)
+    else:
+        act(s, "p1", type="activate_ability", card_id=seven.id, ability=1)
+        answer(s)
+        to_phase(s, "main1", turn=3)
+        assert ch(s, seven).pt == (7, 9)  # (no duration: it lasts, 611.2a)
     check(s)

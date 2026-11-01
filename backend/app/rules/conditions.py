@@ -389,6 +389,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
             return None
         return {"value": {"distinct": "powers", "among": key}, "op": ">=", "n": n}
     m = _DIFFERENT_NAMES.fullmatch(t)  # -- token & pump wordings (wave 6C) --
+    if m is None and (dn := re.fullmatch(r"you control (\w+) or more differently named lands", t)) is not None:  # -- differently named (wave 111D) -- Seven of Nine
+        m = _DIFFERENT_NAMES.fullmatch(f"you control {dn[1]} or more lands with different names")
     if m:  # how many different names among them (201.2; a face-down permanent has none, 708.2a)
         n = _num(m["n"])
         key = _count(m["what"], "you control")

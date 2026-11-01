@@ -140,8 +140,15 @@ def test_gagh_slinger_discounts_klingons_and_warriors_and_pings_each_opponent(ca
 def test_gagh_slinger_ignores_an_opponents_klingon(cards):
     s = build(cards, ["Gagh Slinger"], ["Warship Flight Crew"])
     put(s, "Gagh Slinger")
-    put(s, "Warship Flight Crew", "p2")  # (an opponent's Klingon entering: "you control")
-    assert life(s, "p2") == 40
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", R=1)
+    with pytest.raises(ActionError):  # ("Klingon spells … you cast": not Bob's)
+        cast(s, "Warship Flight Crew", pid="p2")
+    mana(s, "p2", C=1)
+    crew = cast(s, "Warship Flight Crew", pid="p2")  # (an opponent's Klingon entering: "you control")
+    answer(s)
+    assert s.state.cards[crew.id].zone == "p2:battlefield"
+    assert (life(s, "p1"), life(s, "p2")) == (40, 40)
     check(s)
 
 
