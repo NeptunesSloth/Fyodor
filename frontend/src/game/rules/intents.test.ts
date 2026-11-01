@@ -279,6 +279,28 @@ describe("rules card menu", () => {
     expect(labels(rulesMenu(v.cards.x4!, v, "p1")).some((l) => l.startsWith("Activate:"))).toBe(false);
   });
 
+  it("offers each granted replicate (Hugh) as its own count, in the server's order (702.56b)", () => {
+    const base = view({ ...RULES, hints: { castable: ["c2"], replicate111r3: { c2: ["Replicate {2}{U} (Hugh, First of Many)", "Replicate {2}{U} (Hugh, First of Many)"] } } });
+    const v = base as unknown as GameView;
+    const casts = rulesMenu(v.cards.c2!, v, "p1").filter((i) => i !== "separator" && i.label.startsWith("Cast with Replicate"));
+    expect(casts).toHaveLength(2);
+    const second = casts[1];
+    if (!second || second === "separator" || !second.submenu) throw new Error("expected a submenu");
+    const twice = second.submenu.find((i) => i !== "separator" && i.label === "Replicate ×2");
+    if (!twice || twice === "separator") throw new Error("expected ×2");
+    twice.onClick?.();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "c2", replicate: [0, 2] }]);
+    // "Other count…" asks for a number and fills only that grant's count
+    const other = second.submenu.find((i) => i !== "separator" && i.label === "Other count…");
+    if (!other || other === "separator") throw new Error("expected Other count");
+    other.onClick?.();
+    expect(useXPrompt.getState().field).toBe("replicate");
+    expect(submitNumericPrompt("5")).toBe(true);
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "c2", replicate: [0, 5] });
+    // a card the server doesn't list gets no replicate entry
+    expect(labels(rulesMenu(v.cards.c1!, v, "p1")).some((l) => l.startsWith("Cast with Replicate"))).toBe(false);
+  });
+
   it("offers morph: cast face down from hand, turn face up on the battlefield", () => {
     const base = view(RULES);
     const v = { ...base, cards: { ...base.cards, mh: card("mh", "p1:hand", "slinger"), mb: { ...card("mb", "p1:battlefield", "slinger"), face_down: true } } } as unknown as GameView;

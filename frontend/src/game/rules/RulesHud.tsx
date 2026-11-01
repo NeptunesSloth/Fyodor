@@ -527,6 +527,7 @@ const PROMPT = {
   x_value: ["Choose a value for X", "Cast / activate with X"],
   kicker: ["Choose a multikicker count (0–1000)", "Cast with multikicker"],
   chorus: ["Chorus of the Conclave: pay how much extra mana? (0–1000)", "Cast with Chorus"],
+  replicate: ["Replicate: pay it how many times? (0–1000)", "Cast with replicate"],
 } as const;
 
 /** -- X announced (wave 24D) -- 107.3a: the number for X, asked before the cast / activation is sent (the server validates the range). */
@@ -535,7 +536,7 @@ export function XPrompt() {
   const field = useXPrompt((s) => s.field);
   const [x, setX] = useState("0");
   if (!action) return null;
-  const close = () => { useXPrompt.setState({ action: null, field: "x_value" }); setX("0"); };
+  const close = () => { useXPrompt.setState({ action: null, field: "x_value", slot: undefined }); setX("0"); };
   const ok = /^\d{1,4}$/.test(x) && Number(x) <= 1000;
   const go = () => { if (submitNumericPrompt(x)) setX("0"); };
   return (

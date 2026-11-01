@@ -15,7 +15,7 @@ import type { DropResult } from "../dnd";
 
 /** -- X announced (wave 24D) -- 107.3a, 601.2b: a cast or activation that needs X (the hints' `x_cast`, `activatable[].x`) waits here
  * for the player's number (the XPrompt in RulesHud); free and alternative-cost casts make X 0 on the server (107.3b). */
-export const useXPrompt = create<{ action: Action | null; field: "x_value" | "kicker" | "chorus" }>(() => ({ action: null, field: "x_value" }));
+export const useXPrompt = create<{ action: Action | null; field: "x_value" | "kicker" | "chorus" | "replicate"; slot?: number }>(() => ({ action: null, field: "x_value" }));
 
 export function needsX(view: GameView | null, a: Action): boolean {
   const h = view?.rules?.hints;
@@ -36,7 +36,15 @@ export const send = (action: Action): Promise<boolean> => {
 export function submitNumericPrompt(text: string): boolean {
   const { action, field } = useXPrompt.getState();
   if (!action || !/^\d{1,4}$/.test(text) || Number(text) > 1000) return false;
-  useXPrompt.setState({ action: null, field: "x_value" });
+  const { slot } = useXPrompt.getState();
+  useXPrompt.setState({ action: null, field: "x_value", slot: undefined });
+  if (field === "replicate") {
+    // -- granted replicate (wave 111R3) -- the count for one grant; the others stay as the menu set them (702.56b)
+    const counts = [...((action.replicate as number[] | undefined) ?? [])];
+    counts[slot ?? 0] = Number(text);
+    void send({ ...action, replicate: counts });
+    return true;
+  }
   void send({ ...action, [field]: Number(text) });
   return true;
 }

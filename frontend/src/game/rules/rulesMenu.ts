@@ -111,6 +111,18 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
       items.push({ label: `Cast with ${kicker}`, disabled: !castable, onClick: cast(1) });
     }
   }
+  // -- granted replicate (wave 111R3) -- 702.56b: each replicate a permanent gives this spell (Hugh, First of Many) is paid
+  // separately, in the order the server lists them (CastSpell.replicate); listed only for castable cards
+  const replicates = hints.replicate111r3?.[card.id];
+  if (mine && replicates?.length) {
+    replicates.forEach((label, slot) => {
+      const counts = (n: number) => replicates.map((_, i) => (i === slot ? n : 0));
+      const cast = (n: number) => () => void send({ type: "cast_spell", card_id: card.id, replicate: counts(n) });
+      items.push({ label: `Cast with ${label}`,
+        submenu: [...[1, 2, 3].map((n) => ({ label: `Replicate ×${n}`, onClick: cast(n) })),
+          { label: "Other count…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: card.id, replicate: counts(0) }, field: "replicate", slot }) }] });
+    });
+  }
   // 702.160a / 718.3: a prototype card may be cast prototyped (its alternative mana cost, power and toughness).
   const prototype = abilityLines(oracle).find((l) => /^prototype \{/i.test(l));
   if (mine && zone === "hand" && prototype) {
