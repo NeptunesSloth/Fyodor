@@ -19,6 +19,7 @@ import {
 import { reconcile } from "./reconcile";
 import { play, soundForLog } from "../game/sound";
 import { requestCards } from "./cardCache";
+import { undoActor, undoRefusal, type UndoOp } from "../game/undoPolicy";
 
 export interface PickMode {
   prompt: string;
@@ -75,8 +76,9 @@ interface GameStore {
   /** The last AUTOMATION ERROR (a rules-engine failure: nothing was applied). */
   automationError: string | null;
   setAutomationError: (message: string | null) => void;
-  undo: () => Promise<void>;
-  redo: () => Promise<void>;
+  /** True when the server took the step (false: nothing to do, the undo setting forbids it, or it failed; the reason is toasted). */
+  undo: () => Promise<boolean>;
+  redo: () => Promise<boolean>;
   setViewer: (viewer: string) => void;
   setActingAs: (player: string) => void;
   select: (ids: string[], mode?: "replace" | "toggle" | "add") => void;
@@ -215,7 +217,10 @@ export const useGame = create<GameStore>((set, get) => ({
     try {
       await conn.requestAction({ type: "action", action, as });
       const done = undoableSummary(action as Record<string, unknown>);
-      if (done && get().view?.game.can_undo) toast(done, "info", { label: "Undo", run: () => void get().undo() });
+      // -- undo policy (gap 3) -- offer Undo only when this player may take back the action they just sent (theirs)
+      const after = get().view;
+      const me = after ? undoActor(after, get().actingAs) : null;
+      if (done && after?.game.can_undo && !undoRefusal(after, me, "undo", me)) toast(done, "info", { label: "Undo", run: () => void get().undo() });
       return true;
     } catch (e) {
       set({ pendingPositions: {} });
@@ -235,17 +240,8 @@ export const useGame = create<GameStore>((set, get) => ({
   automationError: null,
   setAutomationError: (message) => set({ automationError: message }),
 
-  undo: async () => {
-    const { conn, view, actingAs } = get();
-    if (!conn || !view?.game.can_undo) return;
-    await conn.request({ type: "undo", as: view.game.mode === "local" ? actingAs : undefined }).catch((e: Error) => toast(e.message, "error"));
-  },
-
-  redo: async () => {
-    const { conn, view, actingAs } = get();
-    if (!conn || !view?.game.can_redo) return;
-    await conn.request({ type: "redo", as: view.game.mode === "local" ? actingAs : undefined }).catch((e: Error) => toast(e.message, "error"));
-  },
+  undo: () => historyStep(get, "undo"),
+  redo: () => historyStep(get, "redo"),
 
   setViewer: (viewer) => {
     get().conn?.setViewer(viewer);
@@ -272,6 +268,24 @@ export const useGame = create<GameStore>((set, get) => ({
   openDialog: (dialog, arg = null) => set({ dialog, dialogArg: arg }),
   setPending: (positions) => set((s) => ({ pendingPositions: { ...s.pendingPositions, ...positions } })),
 }));
+
+/** Undo or redo one step; the table's undo setting is explained here rather than sent to the server to refuse (gap 3). */
+async function historyStep(get: () => GameStore, op: UndoOp): Promise<boolean> {
+  const { conn, view, actingAs } = get();
+  if (!conn || !view || !(op === "undo" ? view.game.can_undo : view.game.can_redo)) return false;
+  const why = undoRefusal(view, undoActor(view, actingAs), op);
+  if (why) {
+    toast(why, "error");
+    return false;
+  }
+  return conn.request({ type: op, as: view.game.mode === "local" ? actingAs : undefined }).then(
+    () => true,
+    (e: Error) => {
+      toast(e.message, "error");
+      return false;
+    },
+  );
+}
 
 function resolveActingAs(view: GameView, current: string | null): string {
   if (view.viewer in view.game.seats) return view.viewer;

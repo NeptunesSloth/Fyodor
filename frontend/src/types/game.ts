@@ -223,6 +223,8 @@ export interface LogEntryView {
 
 export interface DigLog { mode: "reveal_until" | "cascade"; player: string; cards: string[]; hit: string | null }
 
+export type UndoPolicy = "everyone" | "own" | "host";
+
 export interface GameMeta {
   id: string;
   name: string;
@@ -238,9 +240,17 @@ export interface GameMeta {
     clear_mana_on_step?: boolean;
     auto_clear_combat?: boolean;
     allow_test_objects?: boolean;
+    /** Who may undo (the host's setting; the server enforces it, see game/undoPolicy.ts). */
+    undo_policy?: UndoPolicy;
   };
+  /** The history has an action to undo / redo (whether this viewer may: game/undoPolicy.ts). */
   can_undo: boolean;
   can_redo: boolean;
+  /** This viewer counts as the host for the undo setting (the host's seat; anyone at a hot-seat table). */
+  undo_host?: boolean;
+  /** Under the "own" undo setting only: whose action the next undo / redo would touch (public, like the log). */
+  undo_by?: string | null;
+  redo_by?: string | null;
   mode: "local" | "lan";
   code: string | null;
   seats: Record<string, { claimed: boolean; connected: boolean; presence?: "open" | "connected" | "reconnecting" | "disconnected" }>;
