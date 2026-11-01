@@ -3249,7 +3249,10 @@ def life_x_problem(plan: Plan, extra: AbilityCost, a: Any, player: str) -> str |
     return None
 
 
-def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True) -> bool:
+def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True,
+             announce: bool = False) -> bool:
+    """Could ``player`` cast this card now (timing, permissions, costs)? ``announce`` (the hint): also choose its modes and required
+    targets (``announce_problem``)."""
     from app.rules import dynamic_zone_keyword_costs56
 
     faces = dynamic_zone_keyword_costs56.foretell_faces(state, player, card, info) or ((0, 1) if chars.is_two_spell_card(card, info) else (None,))
@@ -3264,6 +3267,8 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         extra = None if manual else costs.spell_additional_cost(ch.abilities)
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
+        if announce and not manual and announce_problem(state, player, card, ch, info) is not None:
+            continue  # -- hint/cast agreement (soak) -- cast_spell would refuse it: no mode or no legal target
         grant = cast_grant(state, player, card, ch, info)
         from app.rules import permission_spell_keywords, wave110a_grants, wave110g_cards
 
@@ -3313,6 +3318,16 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
                                reserve=(extra.life if extra is not None else 0) + (grant_extra.life if grant_extra is not None else 0) + (fb_more.life if fb_more is not None else 0) + life_due):
                         return True
     return False
+
+
+def announce_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> str | None:
+    """-- hint/cast agreement (soak) -- why the castability hint mustn't offer this spell: 601.2b / 700.2a no mode can be chosen, 601.2c a
+    required target group can't get its legal targets ("Counter target spell." with an empty stack; "Destroy target creature." with no
+    creature), so the cast is illegal (601.5) and cast_spell refuses it. The checks made before a free cast is offered (free_cast_problem,
+    X is 0); a spell whose targets depend on its kicker (702.33g, kicked_instead) is left to the cast, where kicking is announced."""
+    if any("kicked" in g for g in scripts.target_groups(scripts.spell_definition(ch))):
+        return None
+    return free_cast_problem(permissions._view(state, player, info), player, card, ch)
 
 
 def announces_x(card: CardInstance, info: CardInfo) -> bool:
@@ -3421,9 +3436,9 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
     for offer in cost_changes.optional_offers(state, player, card, ch, info):
         if state.players[player].life < offer.life or (offer.life and spendable_life(state, player, info) == 0):  # (wave 22B: 119.4)
             continue
-        if offer.kind and cost_payment.problem(permissions._view(state, player, info),
-                                               costs.AbilityCost(components=(cost_changes.keyword_component(offer),)), card, player):
-            continue  # (-- static_other sweep (wave 17C) -- conspire / teamwork: the creatures to tap aren't there)
+        if offer.kind and (keyword_part := cost_changes.keyword_component(offer)) is not None and cost_payment.problem(
+                permissions._view(state, player, info), costs.AbilityCost(components=(keyword_part,)), card, player):
+            continue  # (-- static_other sweep (wave 17C) -- conspire / teamwork: the creatures to tap aren't there; soak: a gift's has no part, 702.174a)
         part = cost_changes.keyword_component(offer) if offer.kind in ("reduce", "bargain") or (offer.kind == "evidence" and offer.n) else None  # -- cost reductions paid with objects (wave 47C) -- the most the objects it can take
         paid_offerings = offering_paid(state, player, card, ch, info) if offer.kind == "offering" else []
 

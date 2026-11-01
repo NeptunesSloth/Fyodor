@@ -277,7 +277,7 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
             playable.append(cid)
     out["playable_lands"] = playable
     out["activatable"] = activatable(state, viewer, info)
-    out["castable"] = [cid for cid in candidates if castable(state, viewer, state.cards[cid], info)]
+    out["castable"] = [cid for cid in candidates if castable(state, viewer, state.cards[cid], info, announce=True)]  # (soak: modes and targets too)
     # (wave 24D) 107.3a: castable cards that ask for X when cast (the server validates the range; min 0)
     if x_cast := [cid for cid in out["castable"] if announces_x(state.cards[cid], info)]:
         out["x_cast"] = x_cast
