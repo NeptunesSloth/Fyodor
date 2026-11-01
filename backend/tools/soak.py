@@ -189,6 +189,7 @@ class Bot:
         self.names = sorted({c.name for c in session.state.cards.values() if c.name})
         self.oracle: dict[str, str] = {}
         self.fewer_blocks = False  # the last block plan was refused: try a smaller one
+        self.fewer_picks = False  # the last multi-pick answer was refused: pick as few as allowed
         self.on_manual: Any = None
         self.last_decision: dict[str, Any] = {}
         self.paying: dict[str, bool] = {}  # decision id -> whether this seat decided to pay that optional cost
@@ -315,6 +316,8 @@ class Bot:
         if kind in ("choose_one", "confirm", "manual_resolution"):
             return {**choose, "option_ids": [rng.choice(picks)] if picks else []}
         lo, hi = d.get("min_choices", 1), min(d.get("max_choices", 1), len(picks))
+        if self.fewer_picks:
+            hi, self.fewer_picks = max(min(lo, hi), min(hi, 1)), False
         chosen = rng.sample(picks, rng.randint(min(lo, hi), hi))
         weights = {o["id"]: o["label"].split(" — ")[0].count("{P}") for o in options}
         if picks and all(weights.get(i) for i in picks):  # the Seasons: "up to five {P} worth of modes", each mode's {P} on its label (700.2d)
@@ -516,6 +519,12 @@ class Game:
                     # the client lets a player put any blocker on any attacker; the server checks the plan (509.1b, 509.1c)
                     self.report.refused[f"declare_blockers: {str(exc)[:80]}"] += 1
                     self.bot.fewer_blocks = True
+                    continue
+                if how == "decision" and self.payload.get("type") == "choose" and len(self.payload.get("option_ids") or ()) > max(
+                        1, self.bot.last_decision.get("min_choices", 1)):
+                    # several picks the server checks together ("two basic land cards that share a land type"): pick fewer
+                    self.report.refused[f"choose {len(self.payload['option_ids'])}: {str(exc)[:80]}"] += 1
+                    self.bot.fewer_picks = True
                     continue
                 if how == "x":
                     self.report.refused[f"X {self.payload['x_value']}: {re.sub(r'[0-9a-f]{12}', '#', str(exc))[:80]}"] += 1
