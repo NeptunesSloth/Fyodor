@@ -33,9 +33,15 @@ EXTRA = [
          "creature deals combat damage to a player, put a +1/+1 counter on it for each land that player controls.", ("9", "9"), ""),
     real("Dr. Beverly Crusher", "{2}{W}", 3, "Legendary Creature — Human Doctor", "If you gaining life causes a triggered ability of a permanent you "
          "control to trigger, that ability triggers an additional time.\nWhenever you gain life, put a +1/+1 counter on Dr. Crusher.", ("2", "2"), "W"),
+    real("Jean-Luc, Mon Capitaine", "{2}{U}{R}{W}", 5, "Legendary Creature — Human Officer", "Flying\nFederation — Faeries you control enter with an "
+         "additional +1/+1 counter on them for each creature type among non-Borg creatures you already control.", ("5", "3"), "RUW"),
 ]
 NAMES = [c["name"] for c in EXTRA]
 EXTRA += [
+    real("Scryb Sprites", "{G}", 1, "Creature — Faerie", "Flying", ("1", "1"), "G"),
+    real("Warship Flight Crew", "{1}{R}", 2, "Creature — Klingon Pilot", "", ("2", "2"), "R"),
+    real("Assault Drone", "{3}{B}", 4, "Artifact Creature — Borg", "Artifact creatures you control get +1/+0.", ("2", "4"), "B"),
+    real("Universal Automaton", "{1}", 1, "Artifact Creature — Shapeshifter", "Changeling (This card is every creature type.)", ("1", "1"), ""),
     real("Soul Warden", "{W}", 1, "Creature — Human Cleric", "Whenever another creature enters, you gain 1 life.", ("1", "1"), "W"),
     real("Ajani's Pridemate", "{1}{W}", 2, "Creature — Cat Soldier", "Whenever you gain life, put a +1/+1 counter on this creature.", ("2", "2"), "W"),
     real("Lizard Warrior", "{3}{R}", 4, "Creature — Lizard Warrior", "", ("4", "2"), "R"),
@@ -216,4 +222,26 @@ def test_dr_crusher_doubles_your_life_gain_triggers_only(cards):
     answer(s)
     assert life(s, "p2") == 41 and counters(s, theirs) == 1
     assert life(s, "p1") == 42 and (counters(s, crusher), counters(s, mine)) == (4, 4)
+    check(s)
+
+
+# -- Jean-Luc, Mon Capitaine -------------------------------------------------------------------------------------------------------------
+def test_jean_luc_faeries_enter_with_a_counter_per_creature_type_you_already_have(cards):
+    s = build(cards, ["Jean-Luc, Mon Capitaine", "Warship Flight Crew", "Assault Drone", "Universal Automaton", "Scryb Sprites", "Grizzly Bears"],
+              ["Scryb Sprites"])
+    for name in ("Jean-Luc, Mon Capitaine", "Warship Flight Crew", "Assault Drone", "Universal Automaton"):
+        put(s, name)  # (the Borg and the changeling, a Borg too (702.73a), don't count)
+    mana(s, G=1)
+    sprites = cast(s, "Scryb Sprites")
+    answer(s)
+    assert counters(s, sprites) == 4  # Human, Officer, Klingon, Pilot (not the Faerie's own type: it isn't there yet, 614.12)
+    mana(s, G=1, C=1)
+    bears = cast(s, "Grizzly Bears")  # (no Faerie: none)
+    answer(s)
+    assert counters(s, bears) == 0
+    to_phase(s, "main1", turn=2)
+    mana(s, "p2", G=1)
+    theirs = cast(s, "Scryb Sprites", pid="p2")  # (not yours: none)
+    answer(s)
+    assert counters(s, theirs) == 0
     check(s)

@@ -833,6 +833,9 @@ def _enter_extra(text: str) -> Definition | None:
         each = re.sub(r' spent to cast them$', ' spent to cast it', m['each'])
         already = re.fullmatch(r"(?P<w>.+) you already control", each)
         times = values.parse_count(f"{already['w']} you control" if already else each)
+        if already and isinstance(times, dict) and times.get("distinct") == "creature_types":  # -- enters with counters (wave 111D) -- Jean-Luc, Mon Capitaine:
+            op["times"] = {"already_distinct": times["among"]}  # "for each creature type among non-Borg creatures you already control" (614.12: not the ones entering now)
+            return _static("counters", {"on": {"sel": sel.key()}, "counter": m["k"] or m["k2"], "entering_only": True}, op)
         if not isinstance(times, dict) or (already and "count" not in times):
             return None
         op["times"] = {"already": times["count"]} if already else times
