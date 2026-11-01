@@ -2701,6 +2701,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (join110e := wave110e_kaya.join(body)) is not None:  # -- one instruction exiling two targets (wave 110E) --
         return join110e
+    from app.rules import wave111f_lines  # -- Star Trek lines (wave 111F) --
+
+    if (body111f := wave111f_lines.parse(body)) is not None:
+        return body111f
     if (body110e := wave110e_cards.parse(body)) is not None:
         return body110e
     from app.rules import wave111c_statics  # -- Star Trek statics (wave 111C) --
@@ -3797,6 +3801,11 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # "… with mana value X or less from your graveyard to the battlefield, where X is the amount of life you lost this turn."
     body = re.sub(r"(^|\. )((?:[Rr]eturn|[Pp]ut) [^.]*? with mana value) (?:less than or equal to|equal to or less than) (the (?:amount|number) of [^.,]+?)"
                   r"( from your graveyard[^.]*?)\.", lambda m: f"{m[1]}{m[2]} X or less{m[4]}, where X is {m[3]}.", body)
+    # -- reanimation (wave 111F) -- the other way round: "return target creature card with mana value X or less from your graveyard to the battlefield, where
+    # X is ~'s power." (Julian Bashir, Frontier Doctor) is "… with mana value less than or equal to ~'s power …" (Guardian Scalelord's native line, zones100g):
+    # the source's power as the target is chosen and again as it resolves (608.2b, 107.3c), as it last existed if it has left (608.2h)
+    body = re.sub(r"(^|\. )([Rr]eturn target [a-z ]*?card with mana value) X or less( from your graveyard to the battlefield), where X is (~'s|this creature's) power\.",
+                  r"\1\2 less than or equal to \4 power\3.", body)
     # -- reanimation (wave 37B) -- "Return target creature card from your graveyard to the battlefield. It's a Skeleton in addition to its other types and has no
     # abilities." (Xu-Ifit): layers 4 and 6 (613.1d, 613.1f) of one effect, as "It loses all abilities and becomes a Skeleton in addition to its other types."
     body = re.sub(r"\b(It|That creature)'s an? ([A-Z][a-z]+) in addition to its other types and has no abilities\b",
@@ -3813,7 +3822,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = re.sub(r"(^|\. )For each opponent, you (create (?![^.,]* with |[^.,]* attacking that opponent)[^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
     # -- resolution memory (wave 22D) -- "Choose any number of target creatures you control. For each of them, create a token that's a copy of that
     # creature, except it has haste." (Twinflame): one token for each object chosen — "create a token that's a copy of each of any number of target …"
-    body = re.sub(r"(^|\. )Choose ((?:any number of|up to \w+) target [^.]+?)\. For each of them, create (?:a|one) token that's a copy of that "
+    body = re.sub(r"(^|\. )Choose ((?:any number of|up to \w+|X) target [^.]+?)\. For each of them, create (?:a|one) token that's a copy of that "  # (wave 111F: exactly X, Dominion Infiltration)
                   r"(?:creature|permanent)(, except it [^.]+)?\.",
                   lambda m: f"{m[1]}Create a token that's a copy of each of {m[2]}{m[3] or ''}.", body)
     from app.rules import (
@@ -6075,6 +6084,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return {"kind": "static", "static": "note110e", "effects": []}
     if ability.text.strip() == "Bell Borca's power is equal to the greatest number noted for it this turn.":
         return {"kind": "static", "static": "cda", "effects": [], "p": {"noted110e": True}, "t": None}
+    from app.rules import wave111f_lines  # -- Star Trek lines (wave 111F) --
+
+    if (lines111f := wave111f_lines.definition(ability, ch)) is not None:
+        return lines111f
     from app.rules import wave110f_cards  # -- whole abilities (wave 110F) --
 
     if (whole110f := wave110f_cards.definition(ability, ch)) is not None:
@@ -11814,7 +11827,7 @@ def _become_copy_targets(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 # -- copy exceptions (wave 24A) -- "Each other creature you control becomes a copy of that creature until end of turn, except it isn't legendary."
 @_first
-@effect(r"each (?P<other>other )?(?P<grp>[a-z -]+?)(?P<ctl> you control)?(?P<oth> other than the chosen creature)? becomes a copy of "
+@effect(r"each (?P<other>other )?(?P<grp>(?:Equipment )?[a-z -]+?)(?P<ctl> you control)?(?P<oth> other than the chosen creature)? becomes a copy of "  # (-- token copies (wave 111F) -- "Each Equipment token you control …", Gwyndala, the Progeny)
         r"(?:(?P<src>it|that creature|that token)|target (?P<what>.+?))(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")  # (wave 32A: "that token", Brudiclad)
 def _become_copy_group(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import copying
@@ -12380,11 +12393,13 @@ def _becomes_prepared(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 @_first
-@effect(r"copy (?P<w>that card|those cards|them)(?: (?P<k>twice|three times))?")
+@effect(r"copy (?P<w>that card|those cards|them)(?: (?P<k>twice|three times)| (?P<x>7919) times)?")  # (-- free casts (wave 111F) -- "Copy that card X times, where X is …" (Infinite Diversity): _where_x's stand-in, the count as it resolves)
 def _copy_cards(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     out: dict[str, Any] = {"do": "copy_cards", "who": ("it:card" if m["w"] == "that card" else "them:card")}
     if m["k"]:
         out["n"] = {"twice": 2, "three times": 3}[m["k"]]
+    if m["x"]:
+        out["n"] = _X_SENTINEL
     return [out], None
 
 

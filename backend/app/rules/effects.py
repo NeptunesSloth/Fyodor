@@ -7431,3 +7431,8 @@ from app.rules import wave111e_trek as _wave111e_trek  # noqa: E402, I001  -- St
 
 PRIMITIVES["to_library"] = _wave111e_trek.to_library_reflex(PRIMITIVES["to_library"])
 PRIMITIVES.update(_wave111e_trek.PRIMITIVES)
+
+from app.rules import wave111f_lines as _wave111f_lines  # noqa: E402, I001  -- Star Trek lines (wave 111F) --
+
+PRIMITIVES.update(_wave111f_lines.PRIMITIVES)
+RESUME.update(_wave111f_lines.RESUME)

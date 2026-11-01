@@ -160,7 +160,7 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     hrest = "" if xdef else m["rest"].strip() if m is not None else ""
     if xdef and not any(re.search(r"\bX\b", b.text) for b in _bullets(ch, ab.index)):
         return {}  # (an X that no mode uses: not read)
-    if m is None or (extra is None and not _header_ok(ab, m["prefix"], m["end"], hrest)):
+    if m is None or (extra is None and not _header_ok(ab, m["prefix"], m["end"], hrest, ch.name)):
         return {}
     if m["random"] and (ab.kind != "triggered" or m["count"] != "one" or m["memory"]):
         return {}
@@ -334,14 +334,15 @@ def _player_selector(what: str) -> bool:
 # -- end refused modal/conditional (wave 3R1) --
 
 
-def _header_ok(ab: AbilityText, prefix: str, end: str, rest: str) -> bool:
+def _header_ok(ab: AbilityText, prefix: str, end: str, rest: str, name: str = "") -> bool:
     """Is the line one header and nothing else: "<trigger condition>, choose one —", "<cost>: Choose
     one —" (an activated ability may add its "Activate only …" sentences after "Choose one.", a
     triggered ability its limit)."""
     if ab.kind == "triggered":
-        from app.rules import sagas
+        from app.rules import sagas, scripts
 
-        if not (prefix.endswith(", ") or sagas.chapters_of(f"{prefix}x")) or ". " in prefix:
+        # (-- wave 111F -- the card's own name read as ~ first: "When Dr. McCoy enters, choose one —" has no other sentence, 201.5c)
+        if not (prefix.endswith(", ") or sagas.chapters_of(f"{prefix}x")) or ". " in (scripts.self_text(prefix, name) if name else prefix):
             return False  # (a line with another sentence before it is a reflexive trigger, 603.12, or the like)
         return rest == "" if end == " —" else rest == "" or rest in restrictions.TRIGGER_LIMITS
     if ab.kind in ("activated", "loyalty") and ab.cost:
