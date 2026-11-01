@@ -342,3 +342,17 @@ def test_deck_lab_copies_the_match_deck_and_never_touches_it(table):
     # only your own deck, and spectators have none
     assert "Atraxa" not in res.json()["text"] and "Lim-Dûl" not in res.json()["text"]
     assert client.post(f"/api/games/{gid}/deck-lab", json={}, headers=h(t["spec"])).status_code == 403
+
+
+def test_a_practice_table_never_asks_for_a_pod_result(table, monkeypatch):
+    """-- rules result -- a practice table can turn the rules on, but the engine ending its game opens no end-game proposal:
+    a practice table has no pod result to record (record_game_result refuses it)."""
+    from app.multiplayer import night as night_mod
+
+    client, gid, t = table
+    concede(client, gid, t["carol"])
+    res = practice(client, gid, t["carol"])
+    proom = room_of(client, res.json()["game_id"])
+    monkeypatch.setattr(night_mod, "rules_ending", lambda state: ("win:p1", "single", ["p1"]))
+    night_mod.follow_rules(proom)
+    assert proom.night.proposal is None and proom.night.rules_end is None

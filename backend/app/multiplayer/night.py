@@ -203,7 +203,7 @@ def follow_rules(room: Room) -> None:
     ended the game, open the end-game proposal with its result, so the spotlight and the rematch vote follow once the players
     confirm it; when an undo (or a restored snapshot) takes the ending back, withdraw it. Nothing is recorded here, and a
     declined rules result stays declined until the ending changes."""
-    if room.game is None:
+    if room.game is None or room.practice is not None:  # (elimination hub) a practice table never has a pod result
         return
     session = room.game
     state = session.state
