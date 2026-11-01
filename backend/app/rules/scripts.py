@@ -2699,6 +2699,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return join110e
     if (body110e := wave110e_cards.parse(body)) is not None:
         return body110e
+    from app.rules import wave111c_statics  # -- Star Trek statics (wave 111C) --
+
+    if (body111c := wave111c_statics.parse(body)) is not None:
+        return body111c
     from app.rules import wave110k_cards  # -- exact wordings (wave 110K) --
 
     if (body110k := wave110k_cards.parse(body)) is not None:
@@ -6064,6 +6068,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (whole110c := wave110c_core.definition(ability, ch)) is not None:
         return whole110c
+    from app.rules import wave111c_statics  # -- Star Trek statics (wave 111C) --
+
+    if (statics111c := wave111c_statics.definition(ability, ch)) is not None:
+        return statics111c
     from app.rules import sticker_riders102
 
     if (rider102 := sticker_riders102.definition(ability, ch)) is not None:

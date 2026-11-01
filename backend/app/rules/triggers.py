@@ -1019,6 +1019,8 @@ def _other_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, info: dic
     if not cond.get("other"):
         return True
     other = plan.state.cards.get(info.get("other") or "")
+    if cond["other"] == "self":  # -- Star Trek statics (wave 111C) -- "Whenever a creature blocks this creature" (509.3b): the attacker it blocks is the watcher
+        return other is not None and other.id == watcher.id and plan.oid(other) == info.get("other_oid")
     if other is not None and cond.get("other_cmp") and obj is not None:  # -- block events (wave 53C) -- "blocked by a creature with lesser power" (No Quarter): than the creature it is blocked by / blocks, 509.3f
         from app.rules.sba import power
 

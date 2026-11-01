@@ -7421,3 +7421,8 @@ RESUME.update(_wave110j_last.RESUME)
 from app.rules import wave111b_cards as _wave111b_cards  # noqa: E402  (wave 111B: if you do / instead)
 
 PRIMITIVES.update(_wave111b_cards.PRIMITIVES)
+
+from app.rules import wave111c_statics as _wave111c_statics  # noqa: E402  (wave 111C)
+
+PRIMITIVES.update(_wave111c_statics.PRIMITIVES)
+RESUME.update(_wave111c_statics.RESUME)

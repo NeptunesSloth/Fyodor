@@ -157,6 +157,21 @@ def _own_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{'do': 'return_card', 'who': f'{WHO}:{sel.key()}', 'to': 'hand'}], None
 
 
+# -- Star Trek statics (wave 111C) -- "return each creature card you own exiled with it to the battlefield" (S.S. Botany Bay): the linked cards of
+# that kind that you own (607.2a), put onto the battlefield under the control of the ability's controller, here their owner (110.2a)
+_OWN_BATTLEFIELD = re.compile(r"^return (?:all|each) (?P<spec>creature|artifact|permanent) cards? you own exiled with (?:it|~) to the battlefield$")
+
+
+def _own_battlefield(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
+    if (own := _off(m)) is not None:
+        return own
+    from app.rules import selectors
+
+    sel = selectors.parse(f"{m['spec']} card you own")
+    assert sel is not None
+    return [{"do": "return_card", "who": f"{WHO}:{sel.key()}", "to": "battlefield", "tapped": False, "under": "you"}], None
+
+
 def _target_hand(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{'do': 'return_card', 'who': 'target', 'to': 'hand'}], _who(m)
 
@@ -219,7 +234,8 @@ def _top_of_pile(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     return [{"do": "pile_top_hand"}], None
 
 
-TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_TARGET_HAND, _target_hand), (_OWN_HAND, _own_hand), (_PICK_HAND, _pick_hand), (_OWNERS_RETURN, _owners_return), (_TARGET_BATTLEFIELD, _target_battlefield), (_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick), (_PICK_RANDOM, _pick_random),
+TEMPLATES: list[tuple[re.Pattern[str], Any]] = [(_TARGET_HAND, _target_hand), (_OWN_HAND, _own_hand), (_OWN_BATTLEFIELD, _own_battlefield),  # (wave 111C: _OWN_BATTLEFIELD)
+                                                (_PICK_HAND, _pick_hand), (_OWNERS_RETURN, _owners_return), (_TARGET_BATTLEFIELD, _target_battlefield), (_BATTLEFIELD, _battlefield), (_HAND, _hand), (_GRAVEYARD, _graveyard), (_COPY, _copy), (_PICK, _pick), (_PICK_RANDOM, _pick_random),
                                                 (_TOP_OF_PILE, _top_of_pile), (_PICK_GRAVEYARD, _pick_graveyard)]
 
 # -- linked casting (wave 30H) -- 607.2a, 608.2g: in an ability that only refers to what another exiled, "cast a spell from among cards exiled with ~

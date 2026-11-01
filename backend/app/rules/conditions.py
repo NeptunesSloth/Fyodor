@@ -64,6 +64,10 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     refers to ("it's a land card", "~ is tapped") — only for wording inside an ability's effects or
     trigger, which has those objects (statics and restrictions don't)."""
     t = text.strip().rstrip(",").replace("’", "'")
+    from app.rules import wave111c_statics  # -- Star Trek statics (wave 111C) --
+
+    if (statics111c := wave111c_statics.condition(t, objects)) is not None:
+        return statics111c
     from app.rules import wave110c_history  # -- turn history (wave 110C) --
 
     if (hist110c := wave110c_history.condition(t)) is not None:
@@ -1634,6 +1638,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return any((held110f := plan.state.cards[c]).controller in plan.live() and held110f.controller != plan.active
                    and selectors.matches(plan, sel, held110f, plan.ch(held110f), ctx["controller"], ctx.get("source_card"))
                    for c in selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card")))
+    if "w111c" in cond:  # -- Star Trek statics (wave 111C) --
+        from app.rules import wave111c_statics
+
+        return wave111c_statics.holds(plan, ctx, cond)
     if "w110e" in cond:  # -- wave 110E -- 508.1: another player's last completed turn (previous_own_turns); unknown history (old save) = no
         from app.rules import previous_own_turns
 
