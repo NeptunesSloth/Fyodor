@@ -33,6 +33,9 @@ EXTRA = [
     real("Mind Stone", "{2}", 2, "Artifact", "{T}: Add {C}.\n{1}, {T}, Sacrifice this artifact: Draw a card.", None, ""),
     real("Test Bear 111R3", "{1}{G}", 2, "Creature — Bear", "", ("2", "2"), "G"),
     real("Test Manifest 111R3", "{G}", 1, "Instant", "Manifest the top card of your library.", None, "G"),
+    real("Warchief Giant", "{3}{R}{R}", 5, "Creature — Giant Warrior",
+         "Haste\nMyriad (Whenever this creature attacks, for each opponent other than defending player, you may create a token copy that's tapped and "
+         "attacking that player or a planeswalker they control. Exile the tokens at end of combat.)", ("5", "3"), "R"),
 ]
 NAMES = ["Kira Nerys, Firebrand"]
 MINE = ["Kira Nerys, Firebrand", "Ambush Viper", "Raise the Alarm", "Cloudshift", "Miraculous Recovery", "Hero of Bladehold", "Mind Stone",
@@ -217,6 +220,29 @@ def test_an_attacking_instruction_asks_once(cards):  # Hero of Bladehold's token
     tokens = by_name(s, "Soldier")
     assert len(tokens) == 2 and len(asked) == 2  # one question for each token, not two
     assert [target_of(s, t) for t in tokens] == ["p3", "p3"]
+    check(s)
+
+
+def test_myriad_tokens_attack_the_player_they_are_made_for(cards):  # 702.116a: the myriad instruction says what each copy attacks (508.4)
+    s = sandbox(cards, *MINE, "Warchief Giant", players=3)
+    kira = on_field(s, "Kira Nerys, Firebrand")
+    giant = on_field(s, "Warchief Giant")
+    combat_step(s)
+    attack(s, (kira, "p2"), (giant, "p2"))
+    asked = []
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            asked += [d] if ASKED in d.prompt else []
+            ids = ["p3"] if any(o.id == "p3" for o in d.options) and ASKED not in d.prompt else [d.options[0].id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    copies = [c for c in s.state.cards.values() if c.name == "Warchief Giant" and c.is_token and c.zone == "p1:battlefield"]
+    assert asked == []  # (no 508.4 question of Kira's: Carol is the one it attacks)
+    assert len(copies) == 1 and copies[0].tapped and target_of(s, copies[0]) == "p3"
     check(s)
 
 

@@ -138,9 +138,13 @@ def mark(plan: Any, entries: list[dict[str, Any]], ctx: dict[str, Any] | None) -
                 entry["choices"] = {**(entry.get("choices") or {}), WHAT: BY_EFFECT}
 
 
-def flag_tokens(plan: Any, ev: dict[str, Any], ctx: dict[str, Any] | None) -> None:
-    """``replace.create_token_batch``: a creation event of an attacking instruction (only where the replacement is)."""
-    if by_effect(ctx) and _sources(plan, ev["player"]):
+def flag_tokens(plan: Any, ev: dict[str, Any], ctx: dict[str, Any] | None, receipt_bind: str | None = None) -> None:
+    """``replace.create_token_batch``: a creation event of an attacking instruction (only where the replacement is). (-- review (wave 111R) --
+    also tokens whose creator makes them attacking right after, through token_attack_continuations: myriad's copies, "tapped and attacking that
+    player or a planeswalker they control" — that instruction says what each attacks, 508.4, so nothing is asked twice)"""
+    from app.rules import token_attack_continuations
+
+    if (by_effect(ctx) or receipt_bind == token_attack_continuations.BINDING) and _sources(plan, ev["player"]):
         ev[TOKEN_FLAG] = True
 
 

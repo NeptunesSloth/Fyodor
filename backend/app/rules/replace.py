@@ -780,7 +780,7 @@ def create_token_batch(plan: Plan, requests: list[tuple[str, dict[str, Any], int
                 wave111r3_enter,  # -- enters attacking (wave 111R3) -- an instruction that makes the tokens attacking itself
             )
 
-            wave111r3_enter.flag_tokens(plan, ev, ctx)
+            wave111r3_enter.flag_tokens(plan, ev, ctx, receipt_bind)
             out: list[Event] = []
             if grouped_mode:
                 finals.append((ev, [ev]))
