@@ -5959,3 +5959,7 @@ from app.rules import wave111e_trek as _wave111e_trek  # noqa: E402, I001  -- St
 
 PRIMITIVES["to_library"] = _wave111e_trek.to_library_reflex(PRIMITIVES["to_library"])
 hooks.register(hooks.RESOLUTION[39], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
+
+# Imported for what they register, not for a table: a saved game resumed in a fresh process needs them before any card is read.
+from app.rules import damage_rider_continuations as _damage_rider_continuations  # noqa: E402, F401  (replace.THEN["damage_riders"]: prevention bodies that suspend mid-damage)
+from app.rules import opponent_gain_costs44 as _opponent_gain_costs44  # noqa: E402, F401  (payment_continuations stage "opponent_gain_costs44")
