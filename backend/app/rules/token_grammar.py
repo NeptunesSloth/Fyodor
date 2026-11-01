@@ -101,6 +101,11 @@ _SENTENCE = re.compile(
 _ALL_BASIC_LAND_TOKEN = re.compile(rf"^create (?P<n>{_QTY}) (?P<tapped>tapped )?colorless land tokens? named (?P<name>{_NAME}) "
                                    r"that (?:is|are) every basic land type$")
 _CHOSEN_TOKEN = re.compile(rf"^create (?P<n>{_QTY}) (?P<pt>(?:\d+|X)/(?:\d+|X)) creature tokens? of the chosen color and type$")
+# -- land tokens (wave 111D) -- "create a tapped Planet land token named New Planet with "{T}: Add one mana of any color."" (Star Trek's anomalies): a
+# noncreature land token with a land type (205.3i lists Planet), its own name (111.4) and one quoted ability; no color is said, so it is colorless
+# (111.3: it has no characteristic the effect doesn't define; 105.2c)
+LAND_TYPES = LAND_TYPES | {"Planet"}
+_LAND_TOKEN = re.compile(rf"^create (?P<n>{_QTY}) (?P<tapped>tapped )?(?P<sub>{_CAPS}) land tokens? named (?P<name>{_NAME}) with \"(?P<q>[^\"]+)\"$")
 _EACH_FIRST = re.compile(r"^for each (?P<each>[^,\"]+), create (?P<rest>[^\"]+?(?:\"[^\"]+\")?)$")
 _RIDER = re.compile(r"^(?P<head>.+?)(?: for each (?P<each>[^\"]+)|, where [xX] is (?P<xdef>[^\"]+))$")
 
@@ -231,6 +236,16 @@ def parse(sentence: str) -> list[Effect] | None:
 
         return [{"do": "create_token", "who": "you", "n": _qty(land["n"]), "tapped": bool(land["tapped"]),
                  "token": {"name": land["name"], "colors": [], "type_line": "Token Land — " + " ".join(BASIC_LAND_MANA), "text": ""}}]
+    if (land := _LAND_TOKEN.fullmatch(text)) is not None:  # -- land tokens (wave 111D) --
+        subs = land["sub"].split(" ")
+        line = _quoted_text(land["q"].replace("this token", "this land"))
+        if each is not None or xdef is not None or half is not None or any(s not in LAND_TYPES for s in subs) or line is None or '"' in line:
+            return None
+        made: Effect = {"do": "create_token", "who": "you", "n": _qty(land["n"]),
+                        "token": {"name": land["name"], "power": None, "toughness": None, "colors": [], "type_line": "Token Land — " + " ".join(subs), "text": line}}
+        if land["tapped"]:
+            made["tapped"] = True
+        return [made]
     m = _SENTENCE.match(text)
     if not m:
         return None
