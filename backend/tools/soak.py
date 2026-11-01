@@ -44,12 +44,14 @@ from app.game.rules_state import AUTOMATION_PRESETS, start_rules
 from app.game.session import GameSession
 from app.game.state import GameSettings, GameState
 from app.game.visibility import can_see
-from app.rules.casting import mana_abilities
+from app.rules.casting import mana_abilities, pool_covers
+from app.rules.mana import parse_cost
 from app.storage.saves import load_payload
 
 DECKS = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "soak_decks"
 DECK_FILES = ("kiora_underdasea.txt", "adrix_nev_super_clons.txt")
 CHECK_EVERY = 50  # actions between replay / save-load / privacy checks
+UNDO_CHANCE = 0.01  # how often a player takes back the move they just made
 MAX_ACTIONS_PER_TURN = 400  # a turn that runs longer is reported as stuck
 NAME_OPTION, NUMBER_OPTION = "__name__", "__number__"  # frontend RulesHud: a typed card name / number
 KICKER = re.compile(r"^(?:multi)?kicker (?:\{[^}]+\})+$", re.I)  # frontend rulesMenu: a plain kicker line (cast with kicker: 1)
@@ -83,11 +85,13 @@ class Report:
     problems: list[Problem] = field(default_factory=list)
     refused: Counter[str] = field(default_factory=Counter)  # moves the client offers but the server checks (illegal block plans)
     outcomes: Counter[str] = field(default_factory=Counter)
+    moves: Counter[str] = field(default_factory=Counter)  # accepted moves by kind
     manual: Counter[str] = field(default_factory=Counter)  # "resolve it by hand" prompts (every card of both decks is FULL)
 
     def text(self) -> str:
         lines = [f"games {self.games}, turns {self.turns}, actions {self.actions}, {self.seconds:.0f}s",
-                 "outcomes: " + ", ".join(f"{k} {v}" for k, v in sorted(self.outcomes.items()))]
+                 "outcomes: " + ", ".join(f"{k} {v}" for k, v in sorted(self.outcomes.items())),
+                 "moves: " + ", ".join(f"{k} {v}" for k, v in self.moves.most_common())]
         if self.manual:
             lines.append("resolve-by-hand prompts: " + "; ".join(f"{k} ×{v}" for k, v in self.manual.most_common(10)))
         if self.refused:
@@ -186,6 +190,8 @@ class Bot:
         self.oracle: dict[str, str] = {}
         self.fewer_blocks = False  # the last block plan was refused: try a smaller one
         self.on_manual: Any = None
+        self.last_decision: dict[str, Any] = {}
+        self.paying: dict[str, bool] = {}  # decision id -> whether this seat decided to pay that optional cost
 
     def next_move(self, *, fallback: bool = False) -> tuple[str, dict[str, Any], str]:
         """(actor, payload, how): how is "hint" (offered by the engine), "decision" or "client" (offered by the client UI only).
@@ -195,8 +201,11 @@ class Bot:
         if pre is not None and not pre.finished:
             for pid in state.seat_order:
                 seat = pre.seats.get(pid)
-                if seat is not None and seat.status == "deciding":
-                    return pid, {"type": "mulligan_keep"}, "client"
+                if seat is not None and seat.status == "deciding":  # one (free) mulligan for a hand of 0-1 or 6-7 lands
+                    lands = sum("Land" in ((self.cards.get(state.cards[c].card_id or "") or {}).get("type_line") or "")
+                                for c in state.zones[f"{pid}:hand"])
+                    take = seat.mulligans == 0 and not 2 <= lands <= 5
+                    return pid, {"type": "mulligan_take" if take else "mulligan_keep"}, "client"
                 if seat is not None and seat.status == "bottoming":
                     hand = state.zones[f"{pid}:hand"]
                     return pid, {"type": "mulligan_bottom", "card_ids": hand[: seat.to_bottom]}, "client"
@@ -204,7 +213,7 @@ class Bot:
         assert r is not None
         if r.decision is not None:
             who = decider_of(state, r.decision)
-            d = self.session.view(who)["rules"]["decision"]
+            d = self.last_decision = self.session.view(who)["rules"]["decision"]
             if d["kind"] == "manual_resolution" and self.on_manual is not None:
                 self.on_manual(d["prompt"])
             return who, self.answer(who, d), "decision"
@@ -243,8 +252,8 @@ class Bot:
             return rng.choice(spells), "hint"
         if abilities and rng.random() < (0.35 if mine else 0.15):
             return rng.choice(abilities), "hint"
-        if rng.random() < 0.04:  # the HUD's other pass buttons: Resolve one / Resolve all with a stack, End turn without
-            stack = self.session.state.zones.get("stack")
+        stack = self.session.state.zones.get("stack")
+        if rng.random() < (0.04 if stack else 0.015):  # the HUD's other pass buttons: Resolve one / Resolve all with a stack, End turn without
             return {"type": "pass_priority", "until": rng.choice(["stack_changes", "stack_empty"] if stack else ["next_turn"])}, "client"
         return {"type": "pass_priority"}, "client"
 
@@ -280,6 +289,8 @@ class Bot:
                 {"blocker_id": b, "attacker_id": rng.choice(attackers)} for b in blockers if rng.random() < p]}
         if display.get("kind") == "tap_mana":
             return self.tap_mana(who, d, display)
+        if display.get("kind") == "optional_cost" and "pay" in ids:
+            return self.optional_cost(who, d, display)
         if d.get("cancelable") and rng.random() < 0.03:
             return {**choose, "option_ids": ["cancel"]}
         if ids and ids[0] == NAME_OPTION:
@@ -299,14 +310,53 @@ class Bot:
         if kind in ("choose_one", "confirm", "manual_resolution"):
             return {**choose, "option_ids": [rng.choice(picks)] if picks else []}
         lo, hi = d.get("min_choices", 1), min(d.get("max_choices", 1), len(picks))
-        return {**choose, "option_ids": rng.sample(picks, rng.randint(min(lo, hi), hi))}
+        chosen = rng.sample(picks, rng.randint(min(lo, hi), hi))
+        weights = {o["id"]: o["label"].split(" — ")[0].count("{P}") for o in options}
+        if picks and all(weights.get(i) for i in picks):  # the Seasons: "up to five {P} worth of modes", each mode's {P} on its label (700.2d)
+            budget = d.get("max_choices", 1) * min(weights.values())
+            while sum(weights[i] for i in chosen) > budget:
+                chosen.pop(rng.randrange(len(chosen)))
+        return {**choose, "option_ids": chosen}
 
     def divide(self, options: list[dict[str, Any]], display: dict[str, Any]) -> list[int]:
+        """601.2d / 510.1: at least ``least`` each (a trampler's blockers: lethal damage first, 702.19b), the rest at random."""
         total, least = int(display.get("total", 0)), int(display.get("least", 1))
-        amounts = [least] * len(options)
-        for _ in range(max(0, total - least * len(options))):
+        lethal = list(display.get("lethal") or [])
+        amounts = [lethal[i] if i < len(lethal) else least for i in range(len(options))]
+        if sum(amounts) > total:  # (not enough for every blocker: the client's prefill, in order)
+            amounts, left = [], total
+            for i in range(len(options)):
+                amounts.append(min(left, lethal[i] if i < len(lethal) else least))
+                left -= amounts[-1]
+        for _ in range(max(0, total - sum(amounts))):
             amounts[self.rng.randrange(len(options))] += 1
         return amounts
+
+    def mana_sources(self, who: str) -> list[str]:
+        state = self.session.state
+        return [cid for cid in state.zones.get(f"{who}:battlefield", []) if not state.cards[cid].tapped
+                and state.cards[cid].controller == who and mana_abilities(state, state.cards[cid], self.session.cards)]  # type: ignore[arg-type]
+
+    def optional_cost(self, who: str, d: dict[str, Any], display: dict[str, Any]) -> dict[str, Any]:
+        """"Pay {1}? (tap your mana first)": decide once; to pay, tap mana sources (any of yours, as the client lets you click
+        them) until the pool covers the cost, then Pay; with nothing left to tap, don't."""
+        choose = {"type": "choose", "decision_id": d["id"]}
+        decline = next(o["id"] for o in d["options"] if o["id"] != "pay")
+        if self.paying.setdefault(d["id"], self.rng.random() < 0.6) is False:
+            return {**choose, "option_ids": [decline]}
+        state = self.session.state
+        try:
+            cost = parse_cost(str(display.get("cost") or ""))
+        except Exception:  # noqa: BLE001 - not a plain mana cost: just answer
+            return {**choose, "option_ids": ["pay"]}
+        if pool_covers(state, who, cost, None, self.session.cards):
+            return {**choose, "option_ids": ["pay"]}
+        sources = self.mana_sources(who)
+        if not sources:
+            return {**choose, "option_ids": [decline]}
+        cid = self.rng.choice(sources)
+        found = mana_abilities(state, state.cards[cid], self.session.cards)  # type: ignore[arg-type]
+        return {"type": "activate_ability", "card_id": cid, "ability": found[0][0]}
 
     def tap_mana(self, who: str, d: dict[str, Any], display: dict[str, Any]) -> dict[str, Any]:
         """Tap one of the offered mana sources (the client's tapForMana: the permanent's first mana ability); cancel when
@@ -318,7 +368,7 @@ class Bot:
             found = mana_abilities(state, state.cards[cid], self.session.cards)  # type: ignore[arg-type]
             if found:
                 return {"type": "activate_ability", "card_id": cid, "ability": found[0][0]}
-        if not display.get("remaining"):
+        if "remaining" in display and not display["remaining"]:
             return {"type": "choose", "decision_id": d["id"], "option_ids": ["pay"]}
         return {"type": "choose", "decision_id": d["id"], "option_ids": ["cancel"]}
 
@@ -447,6 +497,10 @@ class Game:
                 return False
             try:
                 self.session.perform(self.actor, self.payload)
+                self.report.moves[self.move_kind(how)] += 1
+                if self.rng.random() < UNDO_CHANCE:  # the table's Undo button: take the move back (and play on from there)
+                    self.session.undo(self.actor)
+                    self.report.moves["undo"] += 1
                 return True
             except AutomationError as exc:
                 self.problem("AutomationError", "".join(traceback.format_exception(exc.__cause__ or exc)))
@@ -460,6 +514,15 @@ class Game:
             except Exception:  # noqa: BLE001
                 self.problem("exception", traceback.format_exc())
         return False
+
+    def move_kind(self, how: str) -> str:
+        kind = str(self.payload["type"])
+        if how == "decision" and kind == "activate_ability":
+            return "tap for mana"
+        if how == "decision" and kind == "choose":
+            d = self.bot.last_decision
+            return f"answer {d.get('display', {}).get('kind') or d.get('kind')}" if d else "answer"
+        return kind
 
     def check(self) -> bool:
         session = self.session
