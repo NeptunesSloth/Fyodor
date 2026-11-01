@@ -7415,3 +7415,7 @@ from app.rules import wave110j_last as _wave110j_last  # noqa: E402  (wave 110J 
 
 PRIMITIVES.update(_wave110j_last.PRIMITIVES)
 RESUME.update(_wave110j_last.RESUME)
+from app.rules import wave111f_lines as _wave111f_lines  # noqa: E402, I001  -- Star Trek lines (wave 111F) --
+
+PRIMITIVES.update(_wave111f_lines.PRIMITIVES)
+RESUME.update(_wave111f_lines.RESUME)

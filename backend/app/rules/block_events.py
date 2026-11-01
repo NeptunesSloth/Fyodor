@@ -109,7 +109,7 @@ def register() -> None:
         (re.compile(rf"(?:,)? that (?P<v>blocked or (?:was|were) blocked by|blocked|was blocked by|were blocked by) (?:(?P<r>{_REF})|(?P<sel>an? .+?)) "
                     r"this (?P<t>turn|combat)$"), _history),
         (re.compile(r"(?:,)? that (?:was|were) attached to (?P<r>that creature|it)$"), _was_attached),
-        (re.compile(rf"(?<!with a legendary Equipment)(?<!with another Aura)(?<!with another Equipment)(?:,)? (?:that(?:'s| is| are) )?attached to (?P<r>that creature|it|{_TARGET})$"), _attached),  # ("with another Aura/Equipment" and Kassandra's legendary Equipment qualifier have their own suffixes)
+        (re.compile(rf"(?<!with a legendary Equipment)(?<!with another Aura)(?<!with another Equipment)(?<!with a Communicator)(?:,)? (?:that(?:'s| is| are) )?attached to (?P<r>that creature|it|{_TARGET})$"), _attached),  # ("with another Aura/Equipment" and Kassandra's legendary Equipment qualifier have their own suffixes)  # (-- attached (wave 111F) -- and "with a Communicator", selectors._with_attached_kind)
     ]
     for pair in reversed(suffixes):
         selectors._SUFFIXES.insert(0, pair)

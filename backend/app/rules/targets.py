@@ -108,6 +108,11 @@ def can_target(plan: Plan, chooser: str, card: CardInstance, ch: Characteristics
     for rule in ch.imposed:  # -- cant (wave 16F) -- "can't be the target of black spells or abilities from black sources"
         if rule == "untargetable_artifact_abilities106" and source is not None and source.is_ability and "Artifact" in source.types:
             return False
+        # -- restrictions (wave 111F) -- 115.2 (Species 8472): an ability of an artifact source an opponent of its controller controls (the ability's
+        # controller is its source's: 602.2a, 603.3a; as untargetable_opp_abilities reads it); a spell, or a nonartifact source, still may
+        if rule == "untargetable_opp_artifact_abilities111f" and source is not None and source.is_ability and "Artifact" in source.types \
+                and card.controller != chooser:
+            return False
         if rule == "cant_be_enchanted110j" and source is not None and source.is_spell and "Aura" in source.subtypes:  # -- Guardian Beast (wave 110J) --
             return False
         if (rule.startswith("only_aura106:") or rule == "no_aura110h") and source is not None and source.is_spell and "Aura" in source.subtypes:  # (110H: Tetravite "can't be enchanted", 303.4)

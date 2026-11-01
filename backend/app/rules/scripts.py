@@ -253,6 +253,11 @@ def _short_name(name: str, text: str = "") -> str | None:
     num = re.match(r"^(.+?) [IVXLC]{2,}$", name)  # -- commander sweep (wave 49B) -- "King Darien XLVIII" is "King Darien" in its own text (201.5c)
     if num is not None and re.search(rf"\b{re.escape(num[1])}\b", text):
         return num[1]
+    # -- Star Trek names (wave 111G) -- 201.5c: "Lieutenant Hikaru Sulu" is "Lieutenant Sulu" in its own text, a rank or title and
+    # the surname (also Captain Janeway, Ensign Chekov, Dr. McCoy); taken only where the text writes exactly that
+    rank = re.match(r'^((?:Captain|Commander|Ensign|Lieutenant|Dr\.) )(?:[A-Z"][\w".\'-]* )+([A-Z][\w\'-]+)(?:,|$)', name)
+    if rank is not None and re.search(rf"(?<![\w-]){re.escape(rank[1] + rank[2])}(?![\w-])", text):
+        return rank[1] + rank[2]
     two = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]+ [A-ZÀ-ÖØ-Þ][\w'-]+) (?:the|of) ", name)  # -- trigger tail (wave 15B) -- "Tor Wauki the Younger"
     if two is not None and re.search(rf"\b{re.escape(two[1])}\b", text):
         return two[1]
@@ -3774,6 +3779,11 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     # "… with mana value X or less from your graveyard to the battlefield, where X is the amount of life you lost this turn."
     body = re.sub(r"(^|\. )((?:[Rr]eturn|[Pp]ut) [^.]*? with mana value) (?:less than or equal to|equal to or less than) (the (?:amount|number) of [^.,]+?)"
                   r"( from your graveyard[^.]*?)\.", lambda m: f"{m[1]}{m[2]} X or less{m[4]}, where X is {m[3]}.", body)
+    # -- reanimation (wave 111F) -- the other way round: "return target creature card with mana value X or less from your graveyard to the battlefield, where
+    # X is ~'s power." (Julian Bashir, Frontier Doctor) is "… with mana value less than or equal to ~'s power …" (Guardian Scalelord's native line, zones100g):
+    # the source's power as the target is chosen and again as it resolves (608.2b, 107.3c), as it last existed if it has left (608.2h)
+    body = re.sub(r"(^|\. )([Rr]eturn target [a-z ]*?card with mana value) X or less( from your graveyard to the battlefield), where X is (~'s|this creature's) power\.",
+                  r"\1\2 less than or equal to \4 power\3.", body)
     # -- reanimation (wave 37B) -- "Return target creature card from your graveyard to the battlefield. It's a Skeleton in addition to its other types and has no
     # abilities." (Xu-Ifit): layers 4 and 6 (613.1d, 613.1f) of one effect, as "It loses all abilities and becomes a Skeleton in addition to its other types."
     body = re.sub(r"\b(It|That creature)'s an? ([A-Z][a-z]+) in addition to its other types and has no abilities\b",
@@ -6045,6 +6055,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return {"kind": "static", "static": "note110e", "effects": []}
     if ability.text.strip() == "Bell Borca's power is equal to the greatest number noted for it this turn.":
         return {"kind": "static", "static": "cda", "effects": [], "p": {"noted110e": True}, "t": None}
+    from app.rules import wave111f_lines  # -- Star Trek lines (wave 111F) --
+
+    if (lines111f := wave111f_lines.definition(ability, ch)) is not None:
+        return lines111f
     from app.rules import wave110f_cards  # -- whole abilities (wave 110F) --
 
     if (whole110f := wave110f_cards.definition(ability, ch)) is not None:

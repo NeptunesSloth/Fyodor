@@ -34,3 +34,13 @@ CREATURE_TYPES: frozenset[str] = frozenset({
     "Wolverine", "Wombat", "Worm", "Wraith", "Wurm", "Yeti", "Zombie", "Zubera",
     "Time Lord",
 })
+
+# -- Star Trek creature types (wave 111E) -- the creature subtypes printed on the type lines of the Star Trek sets (trk, trc;
+# Oracle text of 2026-10-30): 205.3a, a subtype on a creature card's type line is a creature type. CR 205.3m 2026-09-25
+# predates those sets; re-check against its update at release. Apostrophes curly, as the CR writes C’tan and Shi’ar.
+CREATURE_TYPES = CREATURE_TYPES | frozenset({
+    "Aenar", "Andorian", "Android", "Bajoran", "Betazoid", "Bolian", "Borg", "Brikar", "Caitian", "Cardassian", "Denobulan",
+    "Edosian", "El-Aurian", "Excalbian", "Ferengi", "Gorn", "Hirogen", "Illyrian", "Jem’Hadar", "Kelpien", "Klingon",
+    "Kwejian", "Lanthanite", "Medusan", "Melkotian", "Na’kuhl", "Ocampa", "Officer", "Orion", "Q", "Romulan", "Talaxian",
+    "Talosian", "Tamarian", "Tellarite", "Tholian", "Tosk", "Trill", "Tribble", "Vau-N’Akat", "Vorta", "Vulcan", "Xindi",
+})

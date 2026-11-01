@@ -394,6 +394,13 @@ def _with_other_attachment(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "other_attachment:" + m["kind"]))
 
 
+# -- attached (wave 111F) -- "another creature with a Communicator attached to it" (Combadge), "other creatures you control with a Communicator attached
+# to them" (Starfleet Communicator): a permanent with that artifact subtype (the Star Trek sets' Equipment) attached to it on the battlefield (301.5)
+@_suffix(r"with a (?P<kind>Communicator) attached to (?:it|them)")
+def _with_attached_kind(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "attached_kind111f:" + m["kind"]))
+
+
 @_suffix(r"with a legendary Equipment attached to it")  # -- trigger other (wave 44B) -- Kassandra, Eagle Bearer: 301.5, an Equipment attached to it that is legendary
 def _with_legendary_equipment(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "legendary_equipped"))
@@ -2816,6 +2823,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "host_of_source" and ((src := plan.state.cards.get(source or "")) is None or src.attached_to != card.id):
             return False  # -- attached events (wave 40B) -- 303.4b, 301.5: the permanent the source (an Aura / Equipment) is attached to ("Tap enchanted creature")
+        if extra.startswith("attached_kind111f:") and not any(  # -- attached (wave 111F) -- a permanent of that subtype attached to it (301.5)
+                c.zone.endswith(":battlefield") and c.attached_to == card.id and extra.split(":", 1)[1] in plan.ch(c).subtypes for c in plan.state.cards.values()):
+            return False
         if extra.startswith("other_attachment:"):
             kind = extra.split(":", 1)[1]
             if not any(c.id != source and c.zone.endswith(":battlefield") and c.attached_to == card.id
