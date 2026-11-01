@@ -52,9 +52,9 @@ def parse_for_each(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any] | None:
     from app.rules import copying, selectors
 
     what, target = m["what"].strip(), None
-    tm = re.fullmatch(r"(?P<sel>.+?) target player controls", what)
-    if tm is not None:  # (Clone Legion: "each creature target player controls")
-        what, target = tm["sel"] + " on the battlefield", "player"
+    tm = re.fullmatch(r"(?P<sel>.+?) target (?P<p>player|opponent) controls", what)
+    if tm is not None:  # (Clone Legion: "each creature target player controls"; -- token copies (wave 111F) -- "… target opponent controls", Mirror Universe Intrusion)
+        what, target = tm["sel"] + " on the battlefield", tm["p"]
     if what.startswith("another ") or " target " in f" {what} ":
         return None
     sel = selectors.parse(what.removesuffix(" on the battlefield") if what.endswith(" on the battlefield") else what)

@@ -6,6 +6,9 @@
 * "mana value X or less …, where X is Julian Bashir's power": read again as it resolves (608.2b). "Then return a land card … If you can't, create a
   Treasure token." (Temporal Conqueror). "… abilities from artifact sources your opponents control" (Species 8472, 115.2). "with a Communicator attached
   to it/them" (Combadge, Starfleet Communicator, 301.5). Worf: one target per opponent (601.2c), Warriors with haste until end of turn.
+* Token copies: "Choose X target creatures … For each of them, create a token that's a copy …" (Dominion Infiltration, 707.9b changeling), "If this
+  spell was kicked, instead for each creature target opponent controls, …" (Mirror Universe Intrusion: the kicked group replaces the other, 601.2c),
+  "Each Equipment token you control becomes a copy of target Equipment …" (Gwyndala, 611.2c). A station line's flavor word (U.S.S. Prometheus, 207.2d).
 """
 
 from __future__ import annotations
@@ -57,6 +60,21 @@ EXTRA = [
     real("Worf, Intelligence Contractor", "{2}{R}", 3, "Legendary Creature — Klingon Warrior Spy",
          "When Worf enters, for each opponent, gain control of up to one target creature that player controls with mana value 3 or less until end of "
          "turn. Untap those creatures. Until end of turn, they become Warriors in addition to their other types and gain haste.", ("3", "2"), "R"),
+    real("Dominion Infiltration", "{X}{R}{R}{R}", 3, "Sorcery",
+         "Choose X target creatures your opponents control. For each of them, create a token that's a copy of that creature, except it has "
+         "changeling. Those tokens gain haste. Exile those tokens at the beginning of the next end step. (They're every creature type.)", None, "R"),
+    real("Mirror Universe Intrusion", "{1}{U}{B}", 3, "Sorcery",
+         "Kicker {4}{U}{B} (You may pay an additional 4 as you cast this spell.)\n"
+         "Create a token that's a copy of target creature an opponent controls, except it has menace. If this spell was kicked, instead for each "
+         "creature target opponent controls, create a token that's a copy of that creature, except it has menace.", None, "UB"),
+    real("Gwyndala, the Progeny", "{1}{U}", 2, "Legendary Creature — Vau-N'Akat Advisor",
+         "When Gwyndala enters, create a colorless Equipment artifact token named Neuroflux Heirloom with \"Equipped creature gets +1/+1\" and "
+         "equip {2}. Attach it to Gwyndala.\n{2}: Each Equipment token you control becomes a copy of target Equipment you control until end of turn.",
+         ("1", "1"), "U"),
+    real("U.S.S. Prometheus, Prototype", "{5}", 5, "Legendary Artifact — Spacecraft",
+         "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an "
+         "artifact creature at 4+.)\n4+ | Flying\n8+ | Multivector Assault Mode — Whenever U.S.S. Prometheus deals combat damage to an opponent, it "
+         "deals that much damage to each other opponent.", ("6", "6"), ""),
 ]
 NAMES = [c["name"] for c in EXTRA]
 EXTRA += [
@@ -593,4 +611,80 @@ def test_worf_borrows_one_small_creature_of_each_opponent_as_a_hasty_warrior(car
     check(s)
     until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1")
     assert s.state.cards[bear.id].controller == "p2" and "Warrior" not in ch(s, bear).subtypes  # (until end of turn)
+    check(s)
+
+
+# -- token copies -------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("x", [0, 2])
+def test_dominion_infiltration_copies_x_targets_as_hasty_changelings_until_the_end_step(cards, x):
+    s = three(cards, ["Dominion Infiltration"], bobs=["Zf Bear", "Zf Dragon"], carols=["Zf Giant"])
+    bear, dragon, giant = put(s, "Zf Bear", "p2"), put(s, "Zf Dragon", "p2"), put(s, "Zf Giant", "p3")
+    mana(s, R=3, C=x)
+    cast(s, "Dominion Infiltration", [bear.id, giant.id][:x], x_value=x)
+    answer(s)
+    made = [c for c in field(s) if c.is_token]
+    assert sorted(ch(s, c).name for c in made) == sorted(["Zf Bear", "Zf Giant"][:x])
+    for c in made:
+        x_ch = ch(s, c)
+        assert {"Borg", "Klingon", "Bear" if x_ch.name == "Zf Bear" else "Giant"} <= x_ch.subtypes  # (changeling: every creature type, 702.73a)
+        assert "haste" in {k.lower() for k in x_ch.keywords}
+    assert s.state.cards[dragon.id].controller == "p2"
+    check(s)
+    until(s, lambda s: s.state.turn.number == 2)
+    assert not [c for c in field(s) if c.is_token]  # (exiled at the beginning of the next end step)
+    check(s)
+
+
+@pytest.mark.parametrize("kicked", [False, True])
+def test_mirror_universe_intrusion_copies_one_creature_or_all_of_target_opponents(cards, kicked):
+    s = three(cards, ["Mirror Universe Intrusion"], bobs=["Zf Bear", "Zf Dragon"], carols=["Zf Giant"])
+    put(s, "Zf Bear", "p2"), put(s, "Zf Dragon", "p2")
+    giant = put(s, "Zf Giant", "p3")
+    mana(s, U=2 if kicked else 1, B=2 if kicked else 1, C=5 if kicked else 1)
+    spell = to_hand(s, "Mirror Universe Intrusion")
+    if kicked:
+        act(s, "p1", type="cast_spell", card_id=spell.id, kicker=1, targets=["p2"], target_counts=[0, 1])
+    else:
+        act(s, "p1", type="cast_spell", card_id=spell.id, targets=[giant.id], target_counts=[1, 0])
+    answer(s)
+    made = sorted(ch(s, c).name for c in field(s) if c.is_token)
+    assert made == (["Zf Bear", "Zf Dragon"] if kicked else ["Zf Giant"])  # (kicked: every creature Bob controls; 608.2c "instead")
+    assert all("menace" in {k.lower() for k in ch(s, c).keywords} for c in field(s) if c.is_token)
+    check(s)
+
+
+# -- Gwyndala -----------------------------------------------------------------------------------------------------------------------------------
+def test_gwyndala_heirloom_and_equipment_tokens_become_copies_until_end_of_turn(cards):
+    s = three(cards, ["Gwyndala, the Progeny", "Zf Gear", "Zf Bear"])
+    gear, bear = put(s, "Zf Gear"), put(s, "Zf Bear")
+    act(s, "p1", type="attach", card_ids=[gear.id], to=bear.id)
+    mana(s, U=1, C=1)
+    gwyndala = cast(s, "Gwyndala, the Progeny")
+    answer(s)
+    [heirloom] = [c for c in field(s) if c.is_token]
+    assert ch(s, heirloom).name == "Neuroflux Heirloom" and s.state.cards[heirloom.id].attached_to == gwyndala.id
+    assert ch(s, gwyndala).pt == (2, 2)
+    mana(s, C=2)
+    act(s, "p1", type="activate_ability", card_id=gwyndala.id, ability=1, targets=[gear.id])
+    answer(s)
+    assert ch(s, heirloom).name == "Zf Gear" and s.state.cards[heirloom.id].attached_to == gwyndala.id  # (still attached: not a copiable value)
+    assert ch(s, gwyndala).pt == (2, 1) and ch(s, bear).pt == (3, 2) and ch(s, gear).name == "Zf Gear"
+    check(s)
+    until(s, lambda s: s.state.turn.number == 2)
+    assert ch(s, heirloom).name == "Neuroflux Heirloom" and ch(s, gwyndala).pt == (2, 2)  # (until end of turn)
+    check(s)
+
+
+# -- U.S.S. Prometheus --------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("charge", [7, 8])
+def test_prometheus_at_eight_deals_its_combat_damage_to_each_other_opponent(cards, charge):
+    s = three(cards, ["U.S.S. Prometheus, Prototype"], sandbox=True)
+    ship = put(s, "U.S.S. Prometheus, Prototype")
+    act(s, "p1", type="set_counter", card_id=ship.id, kind="charge", value=charge)
+    rules_on(s)
+    assert ch(s, ship).is_creature and ch(s, ship).pt == (6, 6)
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="declare_attackers", attackers=[{"card_id": ship.id, "target": "p2"}])
+    until(s, lambda s: s.state.turn.phase == "main2" and not s.state.zones.get("stack"))
+    assert (life(s, "p2"), life(s, "p3"), life(s)) == (34, 34 if charge == 8 else 40, 40)
     check(s)

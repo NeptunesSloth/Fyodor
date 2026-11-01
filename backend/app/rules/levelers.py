@@ -53,6 +53,12 @@ def rewrite(lines: list[str], is_keyword: Callable[[str], bool]) -> list[str]:
 
 def granted(when: str, text: str, is_keyword: Callable[[str], bool]) -> str:
     """One ability line of a section as "As long as [when], it has [it]." (711.2a, 721.2a): a keyword line, a quoted ability, or a static."""
+    from app.rules.oracle import word_prefix  # (oracle imports this module)
+
+    # -- station (wave 111F) -- 207.2c/207.2d: an ability or flavor word before a triggered or activated ability has no rules meaning
+    # ("8+ | Multivector Assault Mode — Whenever U.S.S. Prometheus deals combat damage to an opponent, …"): the ability it has is the rest
+    if (wp := word_prefix(text)) is not None and _STARTS_AS_ABILITY.search(wp[1]):
+        text = wp[1]
     line = text.rstrip(".")
     if is_keyword(line):
         words = [w.strip().lower() for w in line.split(", ")]

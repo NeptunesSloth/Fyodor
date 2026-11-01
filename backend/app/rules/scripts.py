@@ -3800,7 +3800,7 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = re.sub(r"(^|\. )For each opponent, you (create (?![^.,]* with |[^.,]* attacking that opponent)[^.,]+? tokens?)\.", lambda m: f"{m[1]}{m[2][:1].upper()}{m[2][1:]} for each opponent.", body)
     # -- resolution memory (wave 22D) -- "Choose any number of target creatures you control. For each of them, create a token that's a copy of that
     # creature, except it has haste." (Twinflame): one token for each object chosen — "create a token that's a copy of each of any number of target …"
-    body = re.sub(r"(^|\. )Choose ((?:any number of|up to \w+) target [^.]+?)\. For each of them, create (?:a|one) token that's a copy of that "
+    body = re.sub(r"(^|\. )Choose ((?:any number of|up to \w+|X) target [^.]+?)\. For each of them, create (?:a|one) token that's a copy of that "  # (wave 111F: exactly X, Dominion Infiltration)
                   r"(?:creature|permanent)(, except it [^.]+)?\.",
                   lambda m: f"{m[1]}Create a token that's a copy of each of {m[2]}{m[3] or ''}.", body)
     from app.rules import (
@@ -11782,7 +11782,7 @@ def _become_copy_targets(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 # -- copy exceptions (wave 24A) -- "Each other creature you control becomes a copy of that creature until end of turn, except it isn't legendary."
 @_first
-@effect(r"each (?P<other>other )?(?P<grp>[a-z -]+?)(?P<ctl> you control)?(?P<oth> other than the chosen creature)? becomes a copy of "
+@effect(r"each (?P<other>other )?(?P<grp>(?:Equipment )?[a-z -]+?)(?P<ctl> you control)?(?P<oth> other than the chosen creature)? becomes a copy of "  # (-- token copies (wave 111F) -- "Each Equipment token you control …", Gwyndala, the Progeny)
         r"(?:(?P<src>it|that creature|that token)|target (?P<what>.+?))(?P<until> until end of turn)?(?:, except (?P<exc>.+))?")  # (wave 32A: "that token", Brudiclad)
 def _become_copy_group(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import copying
