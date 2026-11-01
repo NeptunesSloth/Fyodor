@@ -2252,6 +2252,10 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             from app.rules import wave110e_word
 
             pid = wave110e_word.caster(ctx)
+        if e["caster"] == "target111b":  # -- if you do / instead (wave 111B) -- Cmdr. Troi: the targeted opponent casts from their own hand (608.2g)
+            from app.rules import wave111b_cards
+
+            pid = wave111b_cards.caster(plan, ctx)
     done = ctx.setdefault("free_cast_done", [])
     if not e.get("all") and sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
         return _free_cast_over(ctx, e)
@@ -2460,6 +2464,10 @@ def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
     from app.rules import context
 
     pid = ctx["controller"]
+    if e.get("caster") == "target111b":  # -- if you do / instead (wave 111B) -- Cmdr. Troi: "from their hand", the caster's own
+        from app.rules import wave111b_cards
+
+        pid = wave111b_cards.caster(plan, ctx)
     zone = e["zone"]
     if zone == "selector" and e.get("pool_selector"):
         return selectors.candidates(plan, selectors.from_key(e["pool_selector"]), pid, ctx.get("source_card"))

@@ -49,6 +49,9 @@ EXTRA = [
     real("Guinan, Ancient Advisor", "{2}{W}", 3, "Legendary Creature — El-Aurian Advisor", "{1}, {T}: Put a +1/+1 counter on each creature you control that entered this turn. If you put two or more +1/+1 counters on creatures this way, draw a card.", ("1", "4"), "W"),
     real("Salt Vampire", "{1}{B}", 2, "Creature — Vampire Shapeshifter", "Lifelink\nWhen this creature enters, look at target opponent's hand. You may choose a nonland card from it. If you do, that player exiles that card, then draws a card.", ("2", "2"), "B"),
     real("Peace in Our Time", "{3}{W}", 4, "Enchantment", "At the beginning of combat on each player's turn, that player may draw a card. If they do, they can't attack this turn and you put a peace counter on this enchantment.\nAt the beginning of your upkeep, if this enchantment has twelve or more peace counters on it, you win the game.", None, "W"),
+    real("Cmdr. Troi, Outgoing Empath", "{2}{U}{R}", 4, "Legendary Creature — Betazoid Human Advisor", "Vigilance\n{T}: Target opponent whose turn it is may cast a spell from their hand without paying its mana cost. If they do, you copy that spell. You may choose new targets for the copy. If they don't, you draw a card.", ("3", "3"), "RU"),
+    real("Dr. McCoy, Surly Surgeon", "{2}{W}{W}", 4, "Legendary Creature — Human Doctor", "When Dr. McCoy enters, put a +1/+1 counter on another target creature you control.\nIf another creature you control with a +1/+1 counter on it would be destroyed, instead remove all +1/+1 counters from it and all damage already dealt to it is healed.", ("2", "2"), "W"),
+    real("Dominion Saboteur", "{4}{U}", 5, "Creature — Shapeshifter", "You may have this creature enter as a copy of any artifact or creature on the battlefield, except it isn't legendary. If you do, it enters with additional counters on it equal to the same number and kinds of counters the copied permanent has on it.", ("3", "3"), "U"),
     real("Sarek, Federation Ambassador", "{1}{G}{W}{U}", 4, "Legendary Creature — Vulcan Advisor", "Federation — At the beginning of combat on your turn, draw a card for every five creature types among non-Borg creatures you control. If you draw three or more cards this way, put two +1/+1 counters on each creature you control.", ("0", "5"), "GUW"),
 ]
 NAMES = [c["name"] for c in EXTRA]
@@ -614,6 +617,34 @@ def test_peace_in_our_time_a_draw_means_no_attack_and_a_peace_counter(cards, dra
     check(s)
 
 
+def test_peace_in_our_time_on_an_opponents_turn_that_player_chooses_and_you_get_the_counter(cards):
+    """Three players: on Bob's turn Bob is asked; he draws, his creatures can't attack, and Alice (the enchantment's controller) puts the counter."""
+    s = sandbox(cards, "Peace in Our Time", players=3)
+    peace = on_field(s, "Peace in Our Time")
+    wolf = creature(s, "p2", "Wolf", "2/2", type_line="Token Creature \u2014 Wolf")
+    carol = len(hand(s, "p3"))
+    combat_step(s)
+    asked = []
+
+    def pick(d):
+        if "pay" in opts(d):
+            asked.append((s.state.turn.number, d.player))
+            return ["pay"] if d.player == "p2" else ["decline"]
+        return None
+    play(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1" and not s.state.zones.get("stack"), pick=pick)
+    bob = len(hand(s, "p2"))
+    play(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase not in ("main1", "begin_combat") and not s.state.zones.get("stack")
+         and (s.state.rules.decision is None or s.state.rules.decision.kind == "declare_attackers"), pick=pick)
+    assert asked == [(1, "p1"), (2, "p2")] and len(hand(s, "p2")) == bob + 1 and len(hand(s, "p3")) == carol
+    assert s.state.cards[peace.id].counters.get("peace", 0) == 1 and s.state.cards[peace.id].controller == "p1"
+    d = s.state.rules.decision
+    if d is not None and d.kind == "declare_attackers":
+        with pytest.raises(ActionError):  # (Bob can't attack this turn)
+            act(s, "p2", type="declare_attackers", attackers=[{"card_id": wolf.id, "target": "p1"}])
+    assert not s.state.cards[wolf.id].is_attacking
+    check(s)
+
+
 # -- Sarek, Federation Ambassador ----------------------------------------------------------------------------------------------------------
 @pytest.mark.parametrize("more, draws", [(True, 3), (False, 1)])
 def test_sarek_draws_per_five_creature_types_of_non_borg_creatures(cards, more, draws):
@@ -628,4 +659,167 @@ def test_sarek_draws_per_five_creature_types_of_non_borg_creatures(cards, more, 
     play(s, lambda s: s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_attackers")
     assert len(hand(s)) == held + draws
     assert s.state.cards[sarek.id].counters.get("+1/+1", 0) == s.state.cards[a.id].counters.get("+1/+1", 0) == (2 if draws >= 3 else 0)
+    check(s)
+
+
+# -- Dominion Saboteur ---------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("copy", [True, False])
+def test_dominion_saboteur_copies_a_nonlegendary_gowron_with_its_counters(cards, copy):
+    s = build(cards, ["Dominion Saboteur"], ["Gowron, Eager for Battle"])
+    gowron = put(s, "Gowron, Eager for Battle", "p2")
+    play(s)
+    act(s, "p2", type="counter", card_ids=[gowron.id], kind="+1/+1", delta=2)
+    act(s, "p2", type="counter", card_ids=[gowron.id], kind="shield", delta=1)
+    mana(s, U=1, C=4)
+    sab = cast(s, "Dominion Saboteur")
+    play(s, pick=picks((lambda o: gowron.id in o, [gowron.id] if copy else ["none"])))
+    from app.rules.plan import Plan
+
+    ch = Plan(s.state, "p1", s.cards, None).ch(s.state.cards[sab.id])
+    assert zone(s, sab) == "p1:battlefield" and zone(s, gowron) == "p2:battlefield"
+    if copy:
+        assert ch.name == "Gowron, Eager for Battle" and "Legendary" not in ch.supertypes  # (except it isn't legendary)
+        assert s.state.cards[sab.id].counters == {"+1/+1": 2, "shield": 1} and ptof(s, sab) == (5, 5)
+    else:
+        assert ch.name == "Dominion Saboteur" and not s.state.cards[sab.id].counters and ptof(s, sab) == (3, 3)
+    check(s)
+
+
+# -- Dr. McCoy, Surly Surgeon --------------------------------------------------------------------------------------------------------------
+def mccoy_table(cards):
+    s = build(cards, ["Dr. McCoy, Surly Surgeon", "Murder", "Lightning Bolt"], ["Murder"])
+    mccoy = put(s, "Dr. McCoy, Surly Surgeon")
+    play(s)
+    return s, mccoy
+
+
+@pytest.mark.parametrize("who, counter, survives", [("p1", True, True), ("p1", False, False), ("p2", True, False)])
+def test_mccoy_a_destroyed_creature_of_yours_with_a_counter_loses_its_counters_instead(cards, who, counter, survives):
+    s, _ = mccoy_table(cards)
+    bear = creature(s, who, "Bear", "2/2", type_line="Token Creature — Bear")
+    if counter:
+        act(s, who, type="counter", card_ids=[bear.id], kind="+1/+1", delta=2)
+    mana(s, B=2, C=1)
+    cast(s, "Murder", [bear.id])
+    play(s)
+    assert (bear.id in s.state.cards and zone(s, bear) == f"{who}:battlefield") == survives
+    if survives:
+        assert not s.state.cards[bear.id].counters.get("+1/+1") and ptof(s, bear) == (2, 2)
+    check(s)
+
+
+def test_mccoy_lethal_damage_is_healed_and_mccoy_himself_is_not_saved(cards):
+    s, mccoy = mccoy_table(cards)
+    bear = creature(s, "p1", "Bear", "2/2", type_line="Token Creature — Bear")
+    act(s, "p1", type="counter", card_ids=[bear.id, mccoy.id], kind="+1/+1", delta=1)
+    mana(s, R=1)
+    cast(s, "Lightning Bolt", [bear.id])  # 3 damage to a 3/3: destroyed by 704.5g, replaced
+    play(s)
+    assert zone(s, bear) == "p1:battlefield" and s.state.cards[bear.id].damage == 0 and ptof(s, bear) == (2, 2)
+    mana(s, B=2, C=1)
+    cast(s, "Murder", [mccoy.id])  # (another creature: not McCoy himself)
+    play(s)
+    assert zone(s, mccoy) == "p1:graveyard"
+    check(s)
+
+
+@pytest.mark.parametrize("use_mccoy", [True, False])
+def test_mccoy_or_a_shield_counter_its_controller_chooses(cards, use_mccoy):
+    """616.1: two replacements of the same destruction (a shield counter, 122.1c; McCoy's): the affected creature's controller picks one."""
+    s, _ = mccoy_table(cards)
+    bear = creature(s, "p1", "Bear", "2/2", type_line="Token Creature — Bear")
+    act(s, "p1", type="counter", card_ids=[bear.id], kind="+1/+1", delta=1)
+    act(s, "p1", type="counter", card_ids=[bear.id], kind="shield", delta=1)
+    mana(s, B=2, C=1)
+    cast(s, "Murder", [bear.id])
+    labels = []
+
+    def pick(d):
+        if any("heal it instead" in o.label for o in d.options):
+            labels.extend(o.label for o in d.options)
+            return [next(o.id for o in d.options if ("heal it instead" in o.label) == use_mccoy)]
+        return None
+    play(s, pick=pick)
+    assert len(labels) == 2 and zone(s, bear) == "p1:battlefield"
+    assert s.state.cards[bear.id].counters.get("+1/+1", 0) == (0 if use_mccoy else 1)
+    assert s.state.cards[bear.id].counters.get("shield", 0) == (1 if use_mccoy else 0)
+    check(s)
+
+
+def test_mccoy_a_creature_left_at_zero_toughness_still_dies(cards):
+    """704.5f: with its +1/+1 counters removed a 0/0 is put into the graveyard (not destroyed, so nothing replaces it)."""
+    s, _ = mccoy_table(cards)
+    blob = creature(s, "p1", "Blob", "0/0", type_line="Token Creature — Ooze")
+    act(s, "p1", type="counter", card_ids=[blob.id], kind="+1/+1", delta=2)
+    play(s)
+    assert zone(s, blob) == "p1:battlefield"
+    mana(s, B=2, C=1)
+    cast(s, "Murder", [blob.id])
+    play(s)
+    assert blob.id not in s.state.cards or not zone(s, blob).endswith("battlefield")
+    check(s)
+
+
+# -- Cmdr. Troi, Outgoing Empath -----------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("cast_it", [True, False])
+def test_troi_the_active_opponent_may_cast_free_and_you_copy_it_else_you_draw(cards, cast_it):
+    from tests.game_helpers import turn_on
+
+    s = sandbox(cards, "Cmdr. Troi, Outgoing Empath", p2=("Grizzly Bears",), players=3)
+    troi = on_field(s, "Cmdr. Troi, Outgoing Empath")
+    bears = card_named(s, "Grizzly Bears", "p2")
+    act(s, "p2", type="move", card_ids=[bears.id], to={"player": "p2", "zone": "hand"})
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # → Alice's main 1
+    with pytest.raises(ActionError):  # (no opponent whose turn it is)
+        act(s, "p1", type="activate_ability", card_id=troi.id, ability=1, targets=["p2"])
+    act(s, "p1", type="set_stops", own=[], others=["main1"], smart_pass=False)
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1" and s.state.rules.priority == "p1" and not s.state.zones.get("stack"))
+    with pytest.raises(ActionError):  # (Carol: not the player whose turn it is)
+        act(s, "p1", type="activate_ability", card_id=troi.id, ability=1, targets=["p3"])
+    held = len(hand(s))
+    act(s, "p1", type="activate_ability", card_id=troi.id, ability=1, targets=["p2"])
+    asked = []
+
+    def pick(d):
+        if bears.id in opts(d):
+            asked.append(d.player)
+            return [bears.id] if cast_it else []
+        return None
+    play(s, pick=pick)
+    assert asked == ["p2"]  # (Bob's own choice)
+    copies = [c for c in s.state.cards.values() if c.name == "Grizzly Bears" and c.zone == "p1:battlefield"]
+    if cast_it:
+        assert zone(s, bears) == "p2:battlefield" and len(copies) == 1 and copies[0].is_token and len(hand(s)) == held  # (707.10f: a copy of a permanent spell)
+    else:
+        assert zone(s, bears) == "p2:hand" and not copies and len(hand(s)) == held + 1
+    check(s)
+
+
+def test_troi_copies_a_targeted_spell_with_a_new_target(cards):
+    """707.10c: Troi's controller controls the copy and may choose new targets for it; the copy resolves first."""
+    from tests.game_helpers import turn_on
+
+    s = sandbox(cards, "Cmdr. Troi, Outgoing Empath", p2=("Lightning Bolt",), players=3)
+    troi = on_field(s, "Cmdr. Troi, Outgoing Empath")
+    bolt = card_named(s, "Lightning Bolt", "p2")
+    act(s, "p2", type="move", card_ids=[bolt.id], to={"player": "p2", "zone": "hand"})
+    turn_on(s)
+    act(s, "p1", type="pass_priority")
+    act(s, "p1", type="set_stops", own=[], others=["main1"], smart_pass=False)
+    until(s, lambda s: s.state.turn.number == 2 and s.state.turn.phase == "main1" and s.state.rules.priority == "p1" and not s.state.zones.get("stack"))
+    act(s, "p1", type="activate_ability", card_id=troi.id, ability=1, targets=["p2"])
+    seen = []
+
+    def pick(d):
+        seen.append((d.player, d.kind, opts(d)))
+        if bolt.id in opts(d):
+            return [bolt.id]
+        if d.player == "p2" and "p1" in opts(d):
+            return ["p1"]  # Bob's Bolt at Alice
+        if d.player == "p1" and "p2" in opts(d):
+            return ["p2"]  # Alice's copy at Bob
+        return None
+    play(s, pick=pick)
+    assert life(s, "p1") == 37 and life(s, "p2") == 37 and life(s, "p3") == 40, seen
     check(s)

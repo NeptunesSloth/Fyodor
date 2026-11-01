@@ -8,6 +8,9 @@
   lose 1 life." (Gowron, Eager for Battle): only the ability's controller pays its cost (602.2b, 601.2h), so "you sacrificed a
   Klingon this way" is "a Klingon was sacrificed this way" (conditions ``cost_sacrifice_is``: the creature as it last existed on
   the battlefield, 608.2h / 112.7a; a changeling is a Klingon, 702.73a).
+* Built from native parts (each explained where it is defined below): Salt Vampire, Support Mission, The Promise of Kahless (``parse``),
+  Peace in Our Time, Sarek, Guinan (counter receipts, ``counted_111b``), Dominion Saboteur (copying.entry_counters), Cmdr. Troi
+  (permissions.free_cast caster "target111b", copying._stack_objects "free_cast111b"), Dr. McCoy (regeneration_choices: ``healers`` / ``heal``).
 """
 from __future__ import annotations
 
@@ -25,6 +28,11 @@ _AS: dict[str, str] = {
         "When ~ enters, look at target opponent's hand. You may choose a nonland card from it. If you do, exile that card, then that player draws a card.",
 }
 
+# Dominion Saboteur: the copy (707.5, 614.1c, the choice as it enters: 614.12a) and, only when it is used, the copied permanent's counters, each kind and
+# number, as additional counters it enters with (707.9e: an effect of the replacement; 122.6: counters put as it enters, so counter replacements apply)
+_SABOTEUR = ("You may have ~ enter as a copy of any artifact or creature on the battlefield, except it isn't legendary. If you do, it enters with additional "
+             "counters on it equal to the same number and kinds of counters the copied permanent has on it.")
+_SABOTEUR_COPY = "You may have ~ enter as a copy of any artifact or creature on the battlefield, except it isn't legendary."
 # Peace in Our Time: "that player may draw a card. If they do, they can't attack this turn and you put a peace counter on this enchantment." — the
 # player whose turn it is chooses (the draw is theirs, 118.12); then none of the creatures they control can be declared as attackers this turn, those
 # that come under their control later too (a rule for the player's creatures, not locked in: 611.2c, 508.1c), and the enchantment's controller puts
@@ -90,11 +98,77 @@ def counted(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 PRIMITIVES = {"counted_111b": counted}
 
 
+# Cmdr. Troi, Outgoing Empath: the target is the active player, if an opponent (targets "opponent_active110n", 500.1); that player may cast a spell from
+# their own hand during the resolution without paying its mana cost (608.2g, 118.9; permissions.free_cast with caster "target111b": the question is
+# theirs, asked whenever their hand holds a card, so the table never learns whether one was castable). "If they do, you copy that spell": the copy is
+# yours (707.10, 707.10c: new targets may be chosen), put on the stack above it; "If they don't": nothing was cast (declined or abandoned), you draw.
+_TROI = ("{T}: Target opponent whose turn it is may cast a spell from their hand without paying its mana cost. If they do, you copy that spell. You may "
+         "choose new targets for the copy. If they don't, you draw a card.")
+_TROI_NATIVE = "{T}: You may cast a spell from your hand without paying its mana cost."
+
+
+def caster(plan: Any, ctx: dict[str, Any]) -> str:
+    """The targeted opponent (Troi's one target); the ability's controller if there is none (never reached: with an illegal target the ability doesn't
+    resolve, 608.2b)."""
+    from app.rules import effects
+
+    found = effects._players(plan, ctx, "target")
+    return str(found[0]) if found else str(ctx["controller"])
+
+
+# Dr. McCoy, Surly Surgeon: a destruction replacement (614.1a) offered with regeneration, shield counters and umbra armor (regeneration_choices: the
+# affected creature's controller picks one when several apply, 616.1), for destruction by an effect (701.8) and by lethal or deathtouch damage
+# (704.5g-h). Not a regeneration ("can't be regenerated" doesn't stop it). With its +1/+1 counters gone the creature may still die of 0 toughness
+# (704.5f: not a destruction).
+_MCCOY = ("If another creature you control with a +1/+1 counter on it would be destroyed, instead remove all +1/+1 counters from it and all damage "
+          "already dealt to it is healed.")
+HEAL = "heal111b:"
+
+
+def healers(plan: Any, card: Any) -> list[Any]:
+    """The Dr. McCoys whose replacement would apply to ``card`` being destroyed now: another creature its controller controls, with a +1/+1 counter."""
+    from app.rules import scripts
+
+    if card.counters.get("+1/+1", 0) <= 0 or not card.zone.endswith(":battlefield") or not plan.ch(card).is_creature:
+        return []
+    return [doc for doc in plan.state.cards.values()
+            if doc.id != card.id and doc.controller == card.controller and doc.zone.endswith(":battlefield") and not plan.manual(doc)
+            and any(d.get("static") == "heal_instead111b" for d in scripts.definitions(plan.ch(doc)).values())]
+
+
+def heal(plan: Any, card: Any, actor: str | None) -> None:
+    """Instead of being destroyed: all its +1/+1 counters removed and the damage marked on it removed (a deathtouch hit with it, 704.5h)."""
+    from app.rules import counter_removal_results
+
+    plan.note(f"{card.name}: Dr. McCoy's replacement is used instead of the destruction", [card.id], actor=actor)
+    counter_removal_results.remove(plan, card.id, "+1/+1", card.counters.get("+1/+1", 0), by=card.controller)
+    card = plan.state.cards[card.id]
+    if card.damage:
+        plan.do({"type": "set_damage", "card_ids": [card.id], "value": 0}, actor=actor)
+    plan.rules.deathtouched = [c for c in plan.rules.deathtouched if c != card.id]
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
     text = text.removeprefix("Federation — ")  # (an ability word, 207.2c: no rules meaning)
+    if text == _TROI and ability.kind == "activated":
+        native = scripts.define(replace(ability, text=_TROI_NATIVE), ch)
+        if native is None or native.get("target") or [e["do"] for e in native["effects"]] != ["free_cast"] or native["effects"][0].get("zone") != "hand":
+            return None
+        cast = {**native["effects"][0], "caster": "target111b", "did": "troi0"}
+        return {**native, "target": {"what": "opponent_active110n"},
+                "effects": [cast, {"do": "only_if", "cond": {"succeeded": "troi0"}, "skip": 2}, {"do": "copy_spell", "who": "free_cast111b"},
+                            {"do": "copy_new_targets", "optional": True}, {"do": "only_if", "cond": {"succeeded": "troi0", "negate": True}, "skip": 1},
+                            {"do": "draw", "who": "you", "n": 1}]}
+    if text == _MCCOY and ability.kind == "static":
+        return {"kind": "static", "static": "heal_instead111b", "effects": []}  # (regeneration_choices reads it: healers / heal)
+    if text == _SABOTEUR:
+        native = scripts.define(replace(ability, text=_SABOTEUR_COPY), ch)
+        if native is None or native.get("replacement") != "enter_as_copy" or native.get("enter_counters") or native.get("mimeo110c"):
+            return None
+        return {**native, "counters_of_copied111b": True}  # (copying.entry_counters)
     if text == _PEACE:
         native = scripts.define(replace(ability, text=_PEACE_PARTS[0]), ch)
         cant = scripts.parse_effects(_PEACE_PARTS[1], event_player=True)
