@@ -6517,6 +6517,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (reselection73 := attacker_reselection73.definition(ability, ch)) is not None:
         return reselection73
+    from app.rules import wave111g_triggers  # -- trigger other (wave 111G) -- Tuvok, U.S.S. Defiant
+
+    if (whole111g := wave111g_triggers.definition(ability, ch)) is not None:
+        return whole111g
     from app.rules import combat_conditional_requirements67
 
     if (conditional67 := combat_conditional_requirements67.definition(ability, ch)) is not None:
@@ -10410,7 +10414,7 @@ def _from_language(found: tuple[list[dict[str, Any]], Any] | None) -> tuple[list
 
 
 @effect(r"sacrifice (?P<o>them|those tokens|those creatures|the tokens|those permanents|that creature|that token|"
-        r"the token|that permanent|that card|the creature|that artifact)")  # (the creature / that artifact: wave 6A)
+        r"the token|that permanent|that card|the creature|that artifact|those lands)")  # (the creature / that artifact: wave 6A; -- trigger other (wave 111G) -- those lands: Will Riker)
 def _sacrifice_pronoun(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 

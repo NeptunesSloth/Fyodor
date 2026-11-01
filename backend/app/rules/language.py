@@ -2973,6 +2973,7 @@ _PRONOUN_SACRIFICE = {"them": "them", "those tokens": "them", "those creatures":
                       "those permanents": "them", "that creature": "it", "that token": "it", "the token": "it",
                       "that permanent": "it", "that card": "it"}
 _PRONOUN_SACRIFICE.update({"the creature": "it", "that artifact": "it"})  # -- permanent effects (wave 6A) -- Sneak Attack, Arms Race
+_PRONOUN_SACRIFICE["those lands"] = "them"  # -- trigger other (wave 111G) -- "Sacrifice those lands at the beginning of your next end step." (Will Riker)
 _OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)?(?P<fd> face down)? under (?P<u>their owner's|its owner's|your) control"
                            r"(?: as (?P<spec>.+))?$")
 
