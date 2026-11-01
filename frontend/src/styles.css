@@ -392,3 +392,5 @@ body.cb-markers .seat-glyph { display: inline; }
 .tt-split > .tt-btn { border-radius: 0; }
 .tt-split > .tt-btn + .tt-btn { border-left: 1px solid var(--line-2); }
 .tt-split > .undo-more { padding-inline: 7px; }
+/* the host's undo setting forbids this player: dimmed like a disabled button, but still focusable and clickable to say why */
+.tt-btn[aria-disabled="true"] { opacity: 0.4; cursor: help; }

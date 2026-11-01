@@ -305,7 +305,7 @@ const HOW_TO: [string, string][] = [
   ["Attack", "In combat, the engine asks you to declare attackers; or right-click a creature → Attack."],
   ["Respond", "When you have priority, cast or activate something; the turn dial says when you have it."],
   ["Move on", "Press the big button on the turn dial (P): it says what passing will do."],
-  ["Fix a mistake", "Undo (Ctrl+Z), or the Undo button on the message after a discard, exile or mill."],
+  ["Fix a mistake", "Undo (Ctrl+Z), or the Undo button on the message after a discard, exile or mill. The host can limit undo to each player's own actions, or to the host (Host tools)."],
 ];
 
 /** What the marks on the 3D table mean. */

@@ -4,8 +4,9 @@ import { toast, toastError } from "../components/Toasts";
 import { api } from "../services/api";
 import { seatToken } from "../services/games";
 import { useGame } from "../state/gameStore";
-import { isVisible, splitZone } from "../types/game";
+import { isVisible, splitZone, type UndoPolicy } from "../types/game";
 import { send } from "./actions";
+import { UNDO_POLICIES } from "./undoPolicy";
 
 const PRESENCE: Record<string, string> = {
   connected: "Connected",
@@ -105,7 +106,29 @@ export function HostToolsDialog({ onClose }: { onClose: () => void }) {
           </div>
           <p className="hint">Undo (Ctrl+Z) restores anything deleted by mistake. Dice objects arrive with the tabletop toys.</p>
         </section>
+        <UndoSetting />
       </div>
     </Modal>
+  );
+}
+
+/** -- undo policy (gap 3) -- who may undo at this table (the server enforces it; saved with the game). */
+function UndoSetting() {
+  const mode = useGame((s) => s.view?.game.mode);
+  const policy = useGame((s) => s.view?.game.settings.undo_policy ?? "everyone");
+  const current = UNDO_POLICIES.find((p) => p.id === policy) ?? UNDO_POLICIES[0]!;
+  const extra = mode === "local"
+    ? " Everyone at a hot-seat table sits at the host computer: Host only lets everyone undo, and Own actions only follows the player acting."
+    : policy !== "everyone" ? " To take back someone else's action anyway: Snapshots & history, Restore from here." : "";
+  return (
+    <section>
+      <h3>Undo</h3>
+      <label className="field inline">Who can undo
+        <select value={policy} data-testid="undo-policy" onChange={(e) => void send({ type: "configure", undo_policy: e.target.value as UndoPolicy })}>
+          {UNDO_POLICIES.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
+      </label>
+      <p className="hint">{current.hint}.{extra}</p>
+    </section>
   );
 }

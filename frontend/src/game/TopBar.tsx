@@ -13,6 +13,7 @@ import { useGame } from "../state/gameStore";
 import { OMNISCIENT, SPECTATOR } from "../types/game";
 import { send } from "./actions";
 import { resolveRenderer } from "../table3d/renderer";
+import { UNDO_POLICIES, undoActor, undoRefusal } from "./undoPolicy";
 
 export function TopBar() {
   const view = useGame((s) => s.view);
@@ -23,6 +24,12 @@ export function TopBar() {
   if (!view) return null;
   const local = view.game.mode === "local";
   const dayNight = view.table.day_night;
+  // -- undo policy (gap 3) -- the host's undo setting: dim what this player may not take back, and say why
+  const me = undoActor(view, actingAs);
+  const undoWhy = view.game.can_undo ? undoRefusal(view, me, "undo") : null;
+  const redoWhy = view.game.can_redo ? undoRefusal(view, me, "redo") : null;
+  const policy = UNDO_POLICIES.find((p) => p.id === view.game.settings.undo_policy && p.id !== "everyone");
+  const note = policy ? ` · undo: ${policy.label.toLowerCase()}` : "";
   return (
     <header className="game-top">
       <a className="brand" href="#/play" title="Back to lobby">←</a>
@@ -39,9 +46,12 @@ export function TopBar() {
         </button>
       )}
       <span className="tt-split" role="group" aria-label="Undo and redo">
-        <button className="tt-btn ghost" disabled={!view.game.can_undo} onClick={() => void undo()} title="Undo (Ctrl+Z)">Undo</button>
-        <button className="tt-btn ghost undo-more" disabled={!view.game.can_undo} aria-label="Undo back to a recent action" title="Undo back to a recent action" onClick={(e) => void recentMenu(e)}>▾</button>
-        <button className="tt-btn ghost" disabled={!view.game.can_redo} onClick={() => void redo()} title="Redo (Ctrl+Shift+Z)">Redo</button>
+        <button className="tt-btn ghost" disabled={!view.game.can_undo} aria-disabled={undoWhy ? true : undefined}
+          onClick={() => void undo()} title={undoWhy ?? `Undo (Ctrl+Z)${note}`}>Undo</button>
+        <button className="tt-btn ghost undo-more" disabled={!view.game.can_undo || !!undoWhy} aria-label="Undo back to a recent action"
+          title={undoWhy ?? "Undo back to a recent action"} onClick={(e) => void recentMenu(e)}>▾</button>
+        <button className="tt-btn ghost" disabled={!view.game.can_redo} aria-disabled={redoWhy ? true : undefined}
+          onClick={() => void redo()} title={redoWhy ?? `Redo (Ctrl+Shift+Z)${note}`}>Redo</button>
       </span>
       {local && (
         <label className="seat-switch" title="Hot-seat: whose view to show">
@@ -90,7 +100,7 @@ async function recentMenu(e: React.MouseEvent) {
   openMenu(at, live.length ? live.map((it, i) => ({
     label: historyText(it),
     hint: i ? `Undo ${i + 1} actions` : "Undo this action",
-    onClick: async () => { for (let k = 0; k <= i; k++) await useGame.getState().undo(); },
+    onClick: async () => { for (let k = 0; k <= i; k++) if (!(await useGame.getState().undo())) break; }, // stops where the undo setting does
   })) : [{ label: "Nothing to undo", disabled: true }], "Undo back to…");
 }
 

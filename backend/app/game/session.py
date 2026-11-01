@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from app.game import engine
+from app.game import engine, undo_rights
 from app.game.actions import INTENT_TYPES, Action, parse_action
 from app.game.control import is_controlled
 from app.game.errors import ActionError, AutomationError
@@ -93,15 +93,18 @@ class GameSession:
         if is_controlled(self.state, actor):
             raise ActionError("Another player is making your choices right now (you can still concede)")
 
-    def undo(self, actor: str) -> Action:
+    def undo(self, actor: str, *, host: bool = False) -> Action:
+        """``host``: the actor counts as the host for the table's undo setting (see app/game/undo_rights.py)."""
         self._check_not_controlled(actor)
+        undo_rights.check(self.state, self.history, actor, host=host, op="undo")  # -- undo policy (gap 3) --
         state, undone = self.history.undo()
         self.state = state
         self._notice(actor, [pname(self.state, actor), text(f" undid: {describe(undone)}")])
         return undone
 
-    def redo(self, actor: str) -> Action:
+    def redo(self, actor: str, *, host: bool = False) -> Action:
         self._check_not_controlled(actor)
+        undo_rights.check(self.state, self.history, actor, host=host, op="redo")  # -- undo policy (gap 3) --
         state, redone = self.history.redo(self.state)
         self.state = state
         self._notice(actor, [pname(self.state, actor), text(f" redid: {describe(redone)}")])
