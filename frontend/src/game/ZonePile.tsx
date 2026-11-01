@@ -8,6 +8,7 @@ import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
 import { dropAsIntent, send as sendIntent, useXPrompt } from "./rules/intents";
 import { GameCardFace } from "./GameCardFace";
+import { commanderDealt, dealtText } from "./commanderDamage";
 
 const LABEL: Partial<Record<ZoneName, string>> = {
   library: "Library",
@@ -246,6 +247,7 @@ export function CommandZone({ player, me }: { player: string; me: string }) {
   const ids = useZoneIds(key) ?? [];
   const over = useDrag((s) => s.drag?.overZone === key);
   const commanders = useGame((s) => s.view?.players.find((p) => p.id === player)?.commanders);
+  const players = useGame((s) => s.view?.players);
   const list = commanders ?? [];
   const others = ids.filter((id) => !list.some((c) => c.instance_id === id));
   return (
@@ -254,7 +256,7 @@ export function CommandZone({ player, me }: { player: string; me: string }) {
       {list.map((c, i) => (
         <div key={c.key} className="command-slot">
           {c.instance_id && ids.includes(c.instance_id) ? <CommandCard id={c.instance_id} me={me} player={player} />
-            : <div className="command-empty" title={`${c.name} isn't in the command zone`}>{i === 0 ? "Commander" : "Partner"}</div>}
+            : <div className="command-empty" title={`${c.name} isn't in the command zone${dealtLine(players, c.key)}`}>{i === 0 ? "Commander" : "Partner"}</div>}
           <TaxButton commander={c.key} name={c.name} tax={c.tax} />
         </div>
       ))}
@@ -263,6 +265,12 @@ export function CommandZone({ player, me }: { player: string; me: string }) {
       ))}
     </div>
   );
+}
+
+/** The commander-damage line for an empty command slot's tooltip (hovering the card itself shows it in the inspector). */
+function dealtLine(players: Parameters<typeof commanderDealt>[0] | undefined, key: string): string {
+  const text = players ? dealtText(commanderDealt(players, key)) : "";
+  return text ? `\nCommander damage dealt: ${text}` : "";
 }
 
 /** A commander's tax, kept by hand: click +2 (one more cast), right-click −2. */

@@ -12,6 +12,8 @@ import { GameCardFace } from "./GameCardFace";
 import { moveCards } from "./actions";
 import { splitZone } from "../types/game";
 import { ChainRow, chainEntries } from "./StackChain";
+import { commanderKeyOf } from "./commanderDamage";
+import { DealtNote } from "./CommanderDamageViews";
 
 /** Large preview of whatever card is hovered (board, hand, log, browser). */
 export function Inspector() {
@@ -56,6 +58,7 @@ export function Inspector() {
       {card?.counters && Object.keys(card.counters).length > 0 && (
         <div className="insp-note">{Object.entries(card.counters).map(([k, v]) => `${k}: ${v}`).join(" · ")}</div>
       )}
+      {commanderKeyOf(card) && <DealtNote commander={commanderKeyOf(card)!} />}
     </div>
   );
 }

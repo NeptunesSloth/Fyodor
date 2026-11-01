@@ -80,10 +80,11 @@ export function SettingsPanel() {
             </select>
           </label>
           <label className="check"><input type="checkbox" checked={p.ambience} onChange={(e) => set({ ambience: e.target.checked })} /> Ambient sound of the plane (volume: Sound → Ambient)</label>
-          <label className="field" title="Big moments are commander casts and eliminations; any input cancels the camera move">3D camera on big moments
+          <label className="field" title="Big moments: eliminations, commander casts, attacks on you, and spells or abilities aimed at you or your permanents. All moments adds the start of your turn and other players' attacks. The camera glances there and comes back; any input cancels it">3D camera on big moments
             <select value={p.autoCenter} data-testid="auto-center" onChange={(e) => set({ autoCenter: e.target.value as Prefs["autoCenter"] })}>
               <option value="off">Off (you move it)</option>
               <option value="important">Follow big moments</option>
+              <option value="on">Follow all moments (also your turn and every attack)</option>
             </select>
           </label>
           <label className="check"><input type="checkbox" checked={p.nudges} onChange={(e) => set({ nudges: e.target.checked })} /> Let other players nudge me when the table waits on me</label>

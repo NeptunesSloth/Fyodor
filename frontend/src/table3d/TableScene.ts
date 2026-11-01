@@ -32,6 +32,10 @@ import type { PlaneTheme } from "../theme/planes";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { buildEnvironment, type Environment } from "./environment";
 import { arrowTime, makeArrow, type GroundBox } from "./arrows";
+import { makeTether } from "./tethers";
+import { combatCardIds, frameBox } from "./focus";
+import { attachmentLinks, tetherAnchor } from "../game/attachments";
+import { commanderDealt, dealtText } from "../game/commanderDamage";
 import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
 import { DiceTray } from "./dice";
@@ -49,7 +53,7 @@ import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, typ
 export const ERROR_MS = 1800;
 
 export type Quality = "low" | "medium" | "high";
-export type CameraPreset = "seat" | "overview" | { focus: string } | { card: string };
+export type CameraPreset = "seat" | "overview" | { focus: string } | { card: string } | { stack: true } | { combat: true };
 
 const THICK = 0.016;
 /** Cards drawn per pile at most (taller piles space them out). */
@@ -244,6 +248,9 @@ export class TableScene {
   private shadows: THREE.InstancedMesh;
   private shadowTex = contactShadowTexture();
   private arrowKey = "";
+  /** Attachment lines (game/attachments.ts): shown while either end is hovered or selected. */
+  private tethers = new THREE.Group();
+  private tetherKey = "";
   /** Where the stack's standing cards are (beams route around it), and each stack card's beam anchor. */
   private stackBox: GroundBox | null = null;
   private stackAnchors = new Map<string, { far: THREE.Vector3; near: THREE.Vector3 }>();
@@ -302,6 +309,7 @@ export class TableScene {
     this.shadows.frustumCulled = false;
     this.shadows.renderOrder = -1;
     this.world.add(this.bodies, this.shadows, this.arrows, this.dice.group, this.props.group);
+    this.world.add(this.tethers);
     this.scene.add(this.world);
     this.applyFog();
     this.bindInput();
@@ -884,6 +892,41 @@ export class TableScene {
     if (errObj) this.setGlow(errObj, "#ff5a4a", 1);
     this.layoutCombat(view);
     this.syncArrows(view);
+    this.syncTethers();
+    // a stack or combat close-up follows the stack and the fight as they change
+    if (typeof this.preset === "object" && ("stack" in this.preset || "combat" in this.preset)) this.updateCameraGoal();
+  }
+
+  /** Attachment cords for whatever is hovered or selected (game/attachments.ts); rebuilt only when one changes. */
+  private syncTethers(): void {
+    const view = this.view;
+    if (!view) return;
+    const store = useGame.getState();
+    const links = attachmentLinks(view, [store.hover, ...store.selection]);
+    const ends: [THREE.Vector3, THREE.Vector3][] = [];
+    const foot = (c: CardObj) => ({ x: c.target.x, y: c.target.z, hw: (CARD_W / 2) * c.scale, hh: (CARD_H / 2) * c.scale, rot: -c.rot });
+    // just over the card's face, as high as the hover or selection lift carries it
+    const top = (c: CardObj) => c.target.y + liftFor({ hovered: c.id === this.hovered, selected: this.selectedIds.has(c.id), turning: 0 }) + THICK + 0.012;
+    for (const l of links) {
+      const a = this.cards.get(l.from);
+      const h = l.player ? undefined : this.cards.get(l.to);
+      // an Aura enchanting a player ends at their life heart
+      const seat = l.player ? this.seatList.find((s) => s.player === l.to) : undefined;
+      if (!a || (!h && !seat)) continue;
+      const [hx, hz] = seat ? toWorld(seat, ...heartSpot(seat)) : [0, 0];
+      const b = h ? h.target.clone().setY(top(h)) : new THREE.Vector3(hx, 0.05, hz);
+      // a tucked attachment's line starts on the part of it that peeks out from under the host
+      const p = h ? tetherAnchor(foot(a), foot(h)) : { x: a.target.x, y: a.target.z };
+      ends.push([new THREE.Vector3(p.x, top(a), p.y), b]);
+    }
+    const key = ends.map(([a, b]) => `${a.x.toFixed(2)},${a.z.toFixed(2)},${a.y.toFixed(2)}>${b.x.toFixed(2)},${b.z.toFixed(2)},${b.y.toFixed(2)}`).join("|");
+    if (key === this.tetherKey) return;
+    this.tetherKey = key;
+    for (const child of [...this.tethers.children]) {
+      this.tethers.remove(child);
+      (child.userData.dispose as () => void)();
+    }
+    for (const [a, b] of ends) this.tethers.add(makeTether(a, b));
   }
 
   /**
@@ -1063,6 +1106,22 @@ export class TableScene {
 
   // ------------------------------------------------------------------ camera
 
+  /** The area the stack (K) or combat (X) close-up frames, or null when there's nothing there. */
+  private closeUpBox(preset: CameraPreset): GroundBox | null {
+    if (typeof preset !== "object") return null;
+    if ("stack" in preset) return this.stackBox;
+    if (!("combat" in preset) || !this.view) return null;
+    let box: GroundBox | null = null;
+    const r = CARD_H / 2 + 0.2;
+    for (const id of combatCardIds(this.view)) {
+      const c = this.cards.get(id);
+      if (!c) continue;
+      const b: GroundBox = box ?? { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+      box = { minX: Math.min(b.minX, c.target.x - r), maxX: Math.max(b.maxX, c.target.x + r), minZ: Math.min(b.minZ, c.target.z - r), maxZ: Math.max(b.maxZ, c.target.z + r) };
+    }
+    return box;
+  }
+
   private updateCameraGoal(): void {
     const mine = this.seatList.find((s) => s.player === this.me) ?? this.seatList[0];
     if (!mine) return;
@@ -1070,6 +1129,7 @@ export class TableScene {
     const aspect = this.camera.aspect || 16 / 9;
     const span = Math.max(size.w / Math.max(aspect, 1), size.d);
     const preset = this.preset;
+    const box = this.closeUpBox(preset); // K / X: nothing there any more (resolved, combat over): my seat
     let pos: THREE.Vector3;
     let look: THREE.Vector3;
     if (preset === "overview") {
@@ -1077,13 +1137,19 @@ export class TableScene {
       // the top bar and the hand
       look = new THREE.Vector3(0, 0, 0.3);
       pos = new THREE.Vector3(0, span * 1.74, span * 0.3);
+    } else if (box) {
+      // the stack's standing cards, or the fight (attackers out in the aisle with their blockers), seen from my side
+      const [dx, dz] = toWorld({ ...mine, x: 0, z: 0 }, 0, 1);
+      const f = frameBox(box, [dx, dz], typeof preset === "object" && "stack" in preset ? { y: 1, elevation: 0.8 } : {});
+      look = new THREE.Vector3(...f.look);
+      pos = new THREE.Vector3(...f.pos);
     } else if (typeof preset === "object" && "card" in preset) {
       // close up on one card, seen from my side of the table
       const c = this.cards.get(preset.card);
       look = c ? c.target.clone().setY(0) : new THREE.Vector3();
       const [dx, dz] = toWorld({ ...mine, x: 0, z: 0 }, 0, 1);
       pos = look.clone().add(new THREE.Vector3(dx * 2.6, 5.2, dz * 2.6));
-    } else if (typeof preset === "object") {
+    } else if (typeof preset === "object" && "focus" in preset) {
       const seat = this.seatList.find((s) => s.player === preset.focus) ?? mine;
       const [lx, lz] = toWorld(seat, 0, -0.3);
       const [px, pz] = toWorld(seat, 0, MAT_D / 2 + 5.2);
@@ -1179,6 +1245,7 @@ export class TableScene {
     const s = useGame.getState();
     if (id) s.setHover(id);
     else if (s.hover && this.cards.has(s.hover)) s.setHover(null);
+    this.syncTethers();
     this.canvas.style.cursor = id ? "pointer" : "";
   }
 
@@ -1287,7 +1354,8 @@ export class TableScene {
     this.hoveredButton = hit?.seatButton ?? null;
     this.props.hover(this.hoveredButton);
     const taxOf = hit?.tax ? this.view?.players.flatMap((p) => p.commanders).find((c) => c.key === hit.tax) : undefined;
-    const tip = taxOf ? `Commander tax for ${taxOf.name}: ${taxOf.tax} (click +2, right-click −2)` : hit?.seatButton ? SEAT_ACTIONS.find((a) => a.id === hit.seatButton)?.title
+    const dealt = taxOf && this.view ? dealtText(commanderDealt(this.view.players, taxOf.key)) : "";
+    const tip = taxOf ? `Commander tax for ${taxOf.name}: ${taxOf.tax} (click +2, right-click −2)${dealt ? `\nCommander damage dealt: ${dealt}` : ""}` : hit?.seatButton ? SEAT_ACTIONS.find((a) => a.id === hit.seatButton)?.title
       : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life: click ▼ −1 or ▲ +1, right-click for 5, or the wheel` : "";
     if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
     this.canvas.style.cursor = hit?.seatButton || hit?.heart || hit?.tax ? "pointer" : "";
@@ -1468,6 +1536,7 @@ export class TableScene {
     const speed = usePrefs.getState().animationSpeed || 1;
     const k = ease(dt, 14 * speed, reduced);
     const dragging = !!this.drag?.active;
+    this.tethers.visible = !dragging; // attachment lines catch up when the move lands
     const sl = this.sliding;
     if (sl) {
       // a flick plays back at the table's animation speed; reduced motion jumps to where it stopped

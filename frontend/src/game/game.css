@@ -240,6 +240,27 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .cmd-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cmd-val { min-width: 20px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; }
 .pp-foot { font-size: 11px; margin-top: 3px; }
+/* commander damage at a glance (game/CommanderDamageViews.tsx): dealt by a hovered commander, and the whole table */
+.cmdr-dealt { display: flex; flex-wrap: wrap; gap: 3px 10px; align-items: baseline; color: var(--room-bone); }
+.cmdr-dealt-label { flex-basis: 100%; font-size: 11px; color: var(--room-bone-dim); }
+.cmdr-dealt-row { display: inline-flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; }
+.cmdr-dealt-row.zero { color: var(--room-bone-dim); }
+.cmdr-dealt-row.lethal b, .cmd-matrix td.lethal { color: var(--danger); font-weight: 800; }
+.cmdr-dealt-chip {
+  display: inline-grid; place-items: center; width: 14px; height: 14px; border-radius: 50%; font-style: normal; font-size: 9px; font-weight: 700;
+  color: var(--room-charcoal); background: var(--player-color, var(--room-bone-dim)); flex: none; align-self: center;
+}
+.cmd-matrix { overflow-x: auto; margin-top: 2px; }
+.cmd-matrix table { border-collapse: collapse; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.cmd-matrix caption { caption-side: bottom; text-align: left; font-size: 10.5px; color: var(--text-faint); padding-top: 3px; }
+.cmd-matrix th, .cmd-matrix td { padding: 2px 4px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.cmd-matrix thead th { font-weight: 600; color: var(--text-dim); text-align: center; }
+.cmd-matrix thead th .cmdr-dealt-chip { display: grid; margin: 0 auto; }
+.cmd-matrix tbody th { font-weight: 600; text-align: left; }
+.cmd-matrix-cmdr { display: inline-flex; gap: 4px; align-items: center; }
+.cmd-matrix-cname { max-width: 84px; overflow: hidden; text-overflow: ellipsis; }
+.cmd-matrix td { text-align: center; font-weight: 700; color: var(--text); }
+.cmd-matrix td.zero, .cmd-matrix td.own { color: var(--text-faint); font-weight: 400; }
 
 /* ---------- sidebar ---------- */
 .sidebar { display: flex; flex-direction: column; min-height: 0; background: var(--bg-2); border-left: 1px solid var(--line); }
@@ -485,6 +506,11 @@ kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4
 .combat-arrows .head.attack { fill: #d9776a; }
 .combat-arrows .head.custom { fill: #b8b2a3; }
 .combat-arrows text { fill: var(--room-bone); font-size: 11px; paint-order: stroke; stroke: rgba(0, 0, 0, 0.8); stroke-width: 3px; text-anchor: middle; }
+/* attachment lines (game/attachments.ts): quiet bone cords, a dot on the attachment and a ring on its host */
+.attach-lines { position: fixed; inset: 0; pointer-events: none; z-index: 39; width: 100vw; height: 100vh; }
+.attach-lines line { stroke: var(--room-bone); stroke-width: 1.5; stroke-linecap: round; opacity: 0.7; }
+.attach-lines circle.from { fill: var(--room-bone); opacity: 0.85; }
+.attach-lines circle.to { fill: none; stroke: var(--room-bone); stroke-width: 1.5; opacity: 0.85; }
 .pick-bar {
   position: fixed; z-index: 70; top: 56px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center;
   padding: 6px 8px 6px 12px; background: rgba(20, 21, 25, 0.96); border: 1px solid var(--room-brass); border-radius: var(--room-radius); color: var(--room-bone);
@@ -717,3 +743,8 @@ main.table:not(.is-3d) > .hand:not(.compact) { background: linear-gradient(to to
 .zone-rail .tax-label { font-size: 8px; }
 
 .player-area.mine .zone-rail:has(.command-zone.partners) .pile-label { font-size: 8.5px; }
+
+/* focus on the 2D table (game/focus2d.tsx): what C / K / X focused, marked for a moment */
+.focus-flash { outline: 2px solid var(--room-brass-hi); outline-offset: 3px; animation: focus-flash calc(1.4s * var(--anim-scale, 1)) var(--ease-out) forwards; }
+@keyframes focus-flash { 0%, 55% { outline-color: var(--room-brass-hi); } 100% { outline-color: transparent; } }
+body.reduced-motion .focus-flash { animation: none; }

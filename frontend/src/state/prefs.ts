@@ -39,8 +39,8 @@ export interface Prefs {
   turnAlert: boolean;
   /** How my own hand is laid out (display only: the hand itself never changes order on the server). */
   handSort: HandSort;
-  /** 3D: gently turn the camera toward important public events. */
-  autoCenter: "off" | "important";
+  /** 3D: gently turn the camera toward major public events: the important ones, or all of them (table3d/autoCenter.ts). */
+  autoCenter: "off" | "important" | "on";
   showTokenSources: boolean;
   /** 3D table: let go of your cards while moving them and they slide on, knocking others aside (a flick). */
   cardPhysics: boolean;

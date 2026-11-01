@@ -17,6 +17,8 @@ import { plane } from "../theme/planes";
 import { isVisible, type GameView } from "../types/game";
 import { ERROR_MS, TableScene, type CameraPreset, type Quality } from "./TableScene";
 import { startAmbience } from "./ambience";
+import { autoCenterTarget, autoSnap, type AutoSnap } from "./autoCenter";
+import { cameraKey, combatCardIds } from "./focus";
 import "./table3d.css";
 
 declare global {
@@ -183,31 +185,26 @@ export function Table3D({ me }: { me: string }) {
   useEffect(() => sceneRef.current?.setPlane(plane(planeId)), [planeId]);
   useEffect(() => useGame.getState().setLayout({ stackOpen: false }), []); // the stack lies on the table itself
   useEffect(() => sceneRef.current?.setCamera(preset), [preset]);
-  // camera keys (game/hotkeys.ts): 1 seat, 2–6 other players, 0 whole table, C focus the hovered card, Home back
+  // camera keys (game/hotkeys.ts): 1 seat, 2–6 other players, 0 whole table, Home back; C the hovered card, K the
+  // stack, X the fight (the same key or Esc returns: table3d/focus.ts)
   const back = useRef<CameraPreset>("seat");
   useEffect(() => {
-    const onCam = (e: Event) => {
-      const { id, digit, hover, player } = (e as CustomEvent<{ id: string; digit: number; hover: string | null; player?: string }>).detail;
-      const others = players.filter((p) => p !== me);
-      if (id === "cam_names") return setAllNames((x) => !x);
-      setPreset((cur) => {
-        if (id === "cam_seat" || id === "cam_reset") return "seat";
-        if (id === "cam_table") return "overview";
-        // the winner spotlight turns the camera toward the winning seat (your own seat: your usual view)
-        if (id === "cam_focus_player") return player && player !== me && players.includes(player) ? { focus: player } : "seat";
-        if (id === "cam_player") return others[digit - 2] ? { focus: others[digit - 2]! } : cur;
-        if (id === "cam_focus") {
-          if (typeof cur === "object" && "card" in cur) return back.current;
-          if (hover && sceneRef.current?.screenOfCard(hover)) {
-            back.current = cur;
-            return { card: hover };
-          }
-        }
-        return cur;
+    const step = (id: string, detail: { digit?: number; hover?: string | null; player?: string } = {}) => setPreset((cur) => {
+      const v = useGame.getState().view;
+      const r = cameraKey(id, cur, back.current, {
+        me, players, hover: detail.hover ?? null, digit: detail.digit, player: detail.player,
+        onTable: (cid) => !!sceneRef.current?.screenOfCard(cid), stack: !!v?.stack.length, combat: !!v && combatCardIds(v).length > 0,
       });
+      back.current = r.back;
+      return r.preset;
+    });
+    const onCam = (e: Event) => {
+      const detail = (e as CustomEvent<{ id: string; digit: number; hover: string | null; player?: string }>).detail;
+      if (detail.id === "cam_names") return setAllNames((x) => !x);
+      step(detail.id, detail);
     };
     const onEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPreset((cur) => (typeof cur === "object" && "card" in cur ? back.current : cur));
+      if (e.key === "Escape") step("escape");
     };
     window.addEventListener("fyodor:camera", onCam);
     window.addEventListener("keydown", onEsc);
@@ -216,6 +213,12 @@ export function Table3D({ me }: { me: string }) {
       window.removeEventListener("keydown", onEsc);
     };
   }, [players, me]);
+  // the stack resolved or the fight ended: its close-up goes back to the view you had
+  const stackEmpty = useGame((s) => !s.view?.stack.length);
+  const noCombat = useGame((s) => !s.view || combatCardIds(s.view).length === 0);
+  useEffect(() => {
+    setPreset((cur) => (typeof cur === "object" && (("stack" in cur && stackEmpty) || ("combat" in cur && noCombat)) ? back.current : cur));
+  }, [stackEmpty, noCombat]);
   useAutoCenter(me, setPreset);
   useDiceFeed((roll) => sceneRef.current?.throwDice(roll));
   useEffect(() => {
@@ -367,14 +370,14 @@ function PlayerChip({ player }: { player: string }) {
 }
 
 /**
- * Auto-center (TABLETOP_QOL_MILESTONE #11), off unless the player turns it on: a commander cast or
- * an elimination turns the camera toward that seat for a moment, then back. Any input of the
+ * Auto-center (TABLETOP_QOL_MILESTONE #11), off unless the player turns it on: a major public event (which ones:
+ * table3d/autoCenter.ts, "Important" or "On") turns the camera toward it for a moment, then back. Any input of the
  * player's own cancels it at once; reduced motion disables it. Camera only, never game state.
  */
 function useAutoCenter(me: string, setPreset: React.Dispatch<React.SetStateAction<CameraPreset>>) {
   const mode = usePrefs((s) => s.autoCenter);
   const reduced = usePrefs((s) => s.reducedMotion);
-  const prev = useRef<{ stack: Set<string>; out: Set<string> } | null>(null);
+  const prev = useRef<AutoSnap | null>(null);
   useEffect(() => {
     if (mode === "off" || reduced) {
       prev.current = null;
@@ -387,25 +390,25 @@ function useAutoCenter(me: string, setPreset: React.Dispatch<React.SetStateActio
       if (restore) setPreset(restore);
       restore = null;
     };
-    const unsub = useGame.subscribe((s) => {
+    const unsub = useGame.subscribe((s, old) => {
       const v = s.view;
-      if (!v) return;
-      const stack = new Set(v.stack);
-      const out = new Set([...(v.rules?.conceded ?? []), ...Object.keys(v.rules?.lost ?? {})]);
+      if (!v || v === old.view) return;
       const before = prev.current;
-      prev.current = { stack, out };
+      prev.current = autoSnap(v);
       if (!before) return;
-      let focus: string | null = null;
-      for (const pid of out) if (!before.out.has(pid)) focus = pid;
-      for (const id of stack) {
-        const c = v.cards[id];
-        if (!before.stack.has(id) && c && "commander_key" in c && c.commander_key) focus = c.controller;
-      }
-      if (!focus || focus === me) return;
+      const look = autoCenterTarget(before, v, me, mode);
+      if (!look) return;
       window.clearTimeout(timer);
+      if (look === "seat") {
+        // your turn: the camera comes home to your seat and stays (coming back would pull it off your board as you play)
+        restore = null;
+        setPreset("seat");
+        return;
+      }
       setPreset((cur) => {
+        if (JSON.stringify(cur) === JSON.stringify(look)) return cur; // already looking there
         if (!restore) restore = cur;
-        return { focus: focus! };
+        return look;
       });
       timer = window.setTimeout(cancel, 2600 / (usePrefs.getState().animationSpeed || 1));
     });
