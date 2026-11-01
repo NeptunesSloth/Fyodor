@@ -1113,6 +1113,12 @@ def _entering_times(plan: Plan, c: Candidate, ev: Event) -> int:
         fresh = {ev["card"], *(ev.get("newcomers") or ())}
         return sum(1 for cid in selectors.candidates(plan, selectors.from_key(times["already"]), c.controller, c.source_card)
                    if cid not in fresh)
+    if "already_distinct" in times:  # -- enters with counters (wave 111D) -- the creature types (205.3m) among those already there, not the ones entering now (614.12)
+        from app.rules.creature_types import CREATURE_TYPES
+
+        fresh = {ev["card"], *(ev.get("newcomers") or ())}
+        return len({t for cid in selectors.candidates(plan, selectors.from_key(times["already_distinct"]), c.controller, c.source_card)
+                    if cid not in fresh for t in plan.ch(plan.state.cards[cid]).subtypes & CREATURE_TYPES})
     from app.rules import values
 
     return max(0, values.evaluate(plan, ctx, times))

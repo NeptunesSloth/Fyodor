@@ -806,7 +806,8 @@ def _enters_tapped(text: str) -> Definition | None:
 # permanents already there give it (a creature entering with Renata doesn't get one: ruling).
 _ENTER_EXTRA = re.compile(
     r"^(?:Each (?P<one>.+?) enters|(?P<many>[A-Z].+?) enter) with (?:(?P<n>an|one|two|three|four|five) additional "
-    r"(?P<k>\+1/\+1|loyalty|flying|deathtouch|haste|hexproof|indestructible|lifelink|menace|reach|shadow|trample|vigilance) counters?"  # (33C: Tayam's keyword counter, 122.1b)
+    r"(?P<k>\+1/\+1|loyalty|flying|deathtouch|haste|hexproof|indestructible|lifelink|menace|reach|shadow|trample|vigilance"  # (33C: Tayam's keyword counter, 122.1b)
+    r"|charge) counters?"  # -- enters with counters (wave 111D) -- "Spacecraft you control enter with two additional charge counters on them." (Zefram Cochrane)
     r"|a number of additional (?P<k2>\+1/\+1|loyalty) counters) on (?:it|them)"
     r"(?: for each (?P<each>.+?)| equal to (?P<eq>~'s|this creature's) (?P<stat>power|toughness))?\.$")
 
@@ -845,6 +846,9 @@ def _enter_extra(text: str) -> Definition | None:
         each = re.sub(r' spent to cast them$', ' spent to cast it', m['each'])
         already = re.fullmatch(r"(?P<w>.+) you already control", each)
         times = values.parse_count(f"{already['w']} you control" if already else each)
+        if already and isinstance(times, dict) and times.get("distinct") == "creature_types":  # -- enters with counters (wave 111D) -- Jean-Luc, Mon Capitaine:
+            op["times"] = {"already_distinct": times["among"]}  # "for each creature type among non-Borg creatures you already control" (614.12: not the ones entering now)
+            return _static("counters", {"on": {"sel": sel.key()}, "counter": m["k"] or m["k2"], "entering_only": True}, op)
         if not isinstance(times, dict) or (already and "count" not in times):
             return None
         op["times"] = {"already": times["count"]} if already else times

@@ -1589,6 +1589,8 @@ def parse_sentence(text: str) -> tuple[Effects, Any] | None:
 
 def _one_recipient(e: dict[str, Any]) -> bool:
     who = str(e.get("who") or "you")
+    if e.get("do") == "add_counters" and who in ("self", "it"):  # -- counters for that player (wave 111D) -- "put a +1/+1 counter on it for each land that player controls" (Planet Killer): no player recipient
+        return True
     return who in ("you", "event_player", "that_player") or who == "target" or who.startswith("target:")  # (that_player: scripts.resolve_it binds it)
 
 
