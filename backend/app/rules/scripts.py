@@ -253,6 +253,11 @@ def _short_name(name: str, text: str = "") -> str | None:
     num = re.match(r"^(.+?) [IVXLC]{2,}$", name)  # -- commander sweep (wave 49B) -- "King Darien XLVIII" is "King Darien" in its own text (201.5c)
     if num is not None and re.search(rf"\b{re.escape(num[1])}\b", text):
         return num[1]
+    # -- Star Trek names (wave 111G) -- 201.5c: "Lieutenant Hikaru Sulu" is "Lieutenant Sulu" in its own text, a rank or title and
+    # the surname (also Captain Janeway, Ensign Chekov, Dr. McCoy); taken only where the text writes exactly that
+    rank = re.match(r'^((?:Captain|Commander|Ensign|Lieutenant|Dr\.) )(?:[A-Z"][\w".\'-]* )+([A-Z][\w\'-]+)(?:,|$)', name)
+    if rank is not None and re.search(rf"(?<![\w-]){re.escape(rank[1] + rank[2])}(?![\w-])", text):
+        return rank[1] + rank[2]
     two = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]+ [A-ZÀ-ÖØ-Þ][\w'-]+) (?:the|of) ", name)  # -- trigger tail (wave 15B) -- "Tor Wauki the Younger"
     if two is not None and re.search(rf"\b{re.escape(two[1])}\b", text):
         return two[1]
@@ -2686,6 +2691,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import wave111e_trek  # -- Star Trek (wave 111E) -- exact wordings
+
+    if (body111e := wave111e_trek.parse(body)) is not None:
+        return body111e
     from app.rules import wave110e_cards, wave110e_kaya  # -- exact wordings (wave 110E) --
 
     if (join110e := wave110e_kaya.join(body)) is not None:  # -- one instruction exiling two targets (wave 110E) --
@@ -4634,6 +4643,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     if (parts := parley.split(body)) is not None:
         return parley.bind(parts, lambda t: _parse_effects(t, it, event_player))
+    if (parts := parley.split_draw_first(body)) is not None:  # -- parley (wave 111E) -- "…, then draws a card. For each …" (Ambassador K'Ehleyr)
+        return parley.bind(parts, lambda t: _parse_effects(t, it, event_player), draw_first=True)
     optional = False
     effects: list[dict[str, Any]] = []
     groups: list[dict[str, Any]] = []
@@ -6029,6 +6040,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import wave111e_trek  # -- Star Trek (wave 111E) -- exact wordings
+
+    if (trek111e := wave111e_trek.definition(ability, ch)) is not None:
+        return trek111e
     from app.rules import wave110e_opp  # -- war or peace (wave 110E) --
 
     if (war110e := wave110e_opp.war_definition(ability, ch)) is not None:

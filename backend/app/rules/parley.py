@@ -26,9 +26,9 @@ _FOR_EACH = re.compile(r"^For each (?P<k>nonland|land) card revealed this way, (
 _THEN_FOR_EACH = re.compile(r"^Then (?P<e>[^.]+?) for each (?P<k>nonland|land) card revealed this way\.")
 
 
-def split(body: str) -> list[tuple[str, str]] | None:
+def split(body: str, head: re.Pattern[str] = _HEAD) -> list[tuple[str, str]] | None:
     """[(land | nonland, the instruction that many times)] of a parley body, or None."""
-    m = _HEAD.match(body.strip())
+    m = head.match(body.strip())
     if m is None:
         return None
     mid, out = m["mid"], []
@@ -42,9 +42,12 @@ def split(body: str) -> list[tuple[str, str]] | None:
     return out or None
 
 
-def bind(parts: list[tuple[str, str]], parse: Any) -> tuple[list[dict[str, Any]], Any, bool] | None:
+def bind(parts: list[tuple[str, str]], parse: Any, *, draw_first: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
     """The effects of a parley body; ``parse`` reads one instruction's text (scripts._parse_effects)."""
     effects: list[dict[str, Any]] = [{"do": "parley_reveal"}]
+    draw = {"do": "draw", "who": "each_player", "n": 1}
+    if draw_first:  # -- parley (wave 111E) -- the draws come right after the reveal (``split_draw_first``)
+        effects.append(draw)
     for kind, text in parts:
         found = parse(text)
         if found is None:
@@ -55,7 +58,18 @@ def bind(parts: list[tuple[str, str]], parse: Any) -> tuple[list[dict[str, Any]]
         # (Selvala, Explorer Returned: "{T}: … add {G} …" is not a mana ability although it could add mana: its effect
         # moves a card from a library, the draw — 605.1a — so it uses the stack)
         effects += [{"do": "parley_repeat", "kind": kind, "skip": len(inner)}, *inner]
-    return [*effects, {"do": "draw", "who": "each_player", "n": 1}], None, False
+    return [*effects, *([] if draw_first else [draw])], None, False
+
+
+# -- parley (wave 111E) -- "Each player reveals the top card of their library, then draws a card. For each nonland card revealed this way, [E]."
+# (Ambassador K'Ehleyr): the same reveal (701.20a), then every player draws, in turn order (121.2c: the card each revealed), then the instruction
+# once for each card of the kind the reveal counted (608.2c: the cards "revealed this way", whatever was drawn since)
+_HEAD_DRAW = re.compile(r"^[Ee]ach player reveals the top card of their library, then draws a card\. (?P<mid>For each .+)$")
+
+
+def split_draw_first(body: str) -> list[tuple[str, str]] | None:
+    """The parts of a parley body whose draws come right after the reveal, or None."""
+    return split(body, _HEAD_DRAW)
 
 
 def reveal(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
