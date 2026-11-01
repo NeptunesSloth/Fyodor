@@ -118,13 +118,28 @@ test("eliminated: a short scene, then opening-hand practice with your own deck",
   await shot(page, "eliminated");
   await expect(page.getByTestId("eliminated-hub")).toBeVisible({ timeout: 10_000 });
   await shot(page, "eliminated-hub");
-  await page.getByRole("button", { name: "Practise opening hands" }).click();
+  const hub = page.getByTestId("eliminated-hub");
+  await expect(hub.getByTestId("open-practice")).toBeVisible();
+  await expect(hub.getByTestId("open-deck-lab")).toBeVisible();
+  await hub.getByRole("button", { name: "Opening hands" }).click();
   await expect(page.getByTestId("hand-sim").locator(".sim-card")).toHaveCount(7);
   await page.waitForTimeout(500);
   await shot(page, "hand-sim");
   // the live game didn't move: practice never touches it
-  const v = (await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { players: { id: string }[]; zones: Record<string, string[]> };
-  expect(v.zones["p1:hand"]).toHaveLength(0);
+  const live = async () => (await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { players: { id: string }[]; zones: Record<string, string[]> };
+  expect((await live()).zones["p1:hand"]).toHaveLength(0);
+
+  // the practice table: a private table with Alice's own deck, then back to the live game
+  await page.keyboard.press("Escape"); // close the opening-hands practice
+  const pill = page.getByTestId("eliminated-pill");
+  if (await pill.isVisible()) await pill.click();
+  await page.getByTestId("eliminated-hub").getByTestId("open-practice").click();
+  await expect(page.getByTestId("practice-pill")).toBeVisible({ timeout: 15_000 });
+  await expect(page).not.toHaveURL(new RegExp(gameId));
+  await shot(page, "practice-table");
+  expect((await live()).zones["p1:hand"]).toHaveLength(0);
+  await page.getByTestId("return-live").click();
+  await expect(page).toHaveURL(new RegExp(gameId));
 });
 
 test("nudge: the waiting player gets one quiet reminder", async ({ browser }) => {

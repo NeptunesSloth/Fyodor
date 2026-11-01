@@ -31,12 +31,13 @@ async function fourPlayerTable(page: Page, perSeatOnBattlefield: number, plane =
     for (const [i, cid] of ids.entries()) await act({ type: "move", card_ids: [cid], to: { zone: "battlefield", player: pid }, x: 20 + (i % 10) * 95, y: 30 + Math.floor(i / 10) * 140 });
   }
   await page.goto(`/#/game/${gameId}`);
-  await expect(page.getByTestId("table-3d")).toBeVisible();
+  await expect(page.getByTestId("table-3d")).toBeVisible({ timeout: 30_000 }); // software WebGL on a CI runner is slow to start
   await expect.poll(() => page.evaluate(() => window.__fyodor3d?.stats().cards ?? 0), { timeout: 20_000 }).toBeGreaterThanOrEqual(perSeatOnBattlefield * 4);
   return { gameId, act, view };
 }
 
 test("3D table: seats, drag from hand onto the table, right-click menu, tap", async ({ page }) => {
+  test.slow(); // many mouse steps, each waiting on rendered frames: software WebGL (CI, no GPU) needs more than the default minute
   const { view } = await fourPlayerTable(page, 2);
   // every player has a seat plate, and a life heart floating over their seat
   for (const pid of ["p1", "p2", "p3", "p4"]) {
