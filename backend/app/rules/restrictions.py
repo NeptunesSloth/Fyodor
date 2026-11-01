@@ -238,6 +238,8 @@ def _condition(text: str) -> dict[str, Any] | None:
         return {"defending110f": selectors.Selector(types=("Land",), supertypes=("Snow",)).key()}
     if text == 'it has no time counters on it':
         text = '~ has no time counters on it'
+    if text == "this card is exiled":  # -- granted abilities (wave 111R1) -- 113.6b: the same object, in its owner's exile (400.7; Q, Stacking the Deck)
+        return {"object": "self", "test": "in_exile110b"}
     # -- activated other (wave 34B) -- "Activate only if this artifact or another artifact entered the battlefield under your control this turn." (Master's
     # Guide-Mural): the source is one of those artifacts too, so it is "an artifact entered …" (the turn's history reads every permanent that entered)
     text = re.sub(r"^~ or another (\w+) (entered the battlefield under your control this turn)$",

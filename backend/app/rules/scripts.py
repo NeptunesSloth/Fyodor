@@ -316,7 +316,9 @@ def self_text(text: str, name: str) -> str:
 
     short = _short_name(name, out)
     names = [n for n in sorted({name, name.split(",")[0].strip(), *([short] if short else [])}, key=len, reverse=True)
-             if len(n) >= 3 or (len(n) == 2 and (n.isupper() or n == name.split(",")[0].strip()))]  # (wave 15D: "MJ"; wave 50C: "Ao", the name before the comma)
+             if len(n) >= 3 or (len(n) == 2 and (n.isupper() or n == name.split(",")[0].strip()))
+             or (len(n) == 1 and n.isupper() and "," in name and n == name.split(",")[0].strip())]  # (wave 15D: "MJ"; wave 50C: "Ao", the name before the comma)
+    # (-- granted abilities (wave 111R1) -- 201.5c: "When Q enters" on Q, Stacking the Deck: a one-letter name before the comma, never a mana symbol's letter, below)
 
     def own(part: str) -> str:
         # -- activated wordings (wave 15D) -- a token's name is its own ("a Kobold token named Kobolds of Kher Keep" on Kher Keep)
@@ -330,8 +332,8 @@ def self_text(text: str, name: str) -> str:
             # (-- static_other (wave 36B) -- a shortened name that is also a creature type is that type before "creature(s)": "becomes a green Lizard creature" on
             # Lizard, Connors's Curse is no self-reference ("a green ~ creature" is nothing a card says)
             # (-- trigger other (wave 52B) -- "this Case" on "Case of …" is the type word after "this", not the short name)
-            part = re.sub(r"(?<![\w-])(?<!named )" + (r"(?<!create )(?<!this )(?<!This )" if n != name else "") + (r"(?<!other )(?<!another )(?<![Tt]arget )" if n in _CREATURE_TYPES else "")  # A fixed named object isn't a self reference (201.5).
-                          + rf"{re.escape(n)}(?!\w)(?! target\b)" + (r"(?! (?:the|of) [A-Z])(?! all\b)" if n == short else "")  # (-- most-played cards (wave 49A) -- "Exile target …" on Exile is the verb; -- zones (wave 100G) -- "Return all …" on Return of the Nightstalkers too)
+            part = re.sub(r"(?<![\w-])(?<!named )" + (r"(?<![{/])" if len(n) == 1 else "") + (r"(?<!create )(?<!this )(?<!This )" if n != name else "") + (r"(?<!other )(?<!another )(?<![Tt]arget )" if n in _CREATURE_TYPES else "")  # A fixed named object isn't a self reference (201.5).
+                          + rf"{re.escape(n)}(?!\w)(?! target\b)" + (r"(?![}/])" if len(n) == 1 else "") + (r"(?! (?:the|of) [A-Z])(?! all\b)" if n == short else "")  # (-- most-played cards (wave 49A) -- "Exile target …" on Exile is the verb; -- zones (wave 100G) -- "Return all …" on Return of the Nightstalkers too)
                           + (r"(?! (?:creature|token)s?\b)" if n != name else ""),  # (-- attached events (wave 40B) -- "create Icingdeath, Frost Tongue, a legendary … token": the token's own name, on Icingdeath, Frost Tyrant)
                           "~", part)  # (wave 16D: a name ending in "!" has no \b after it; wave 26C: not "non-Spirit" on a Spirit token)
         return part
@@ -349,7 +351,8 @@ def self_text(text: str, name: str) -> str:
     # object that gets the quoted ability is the source itself (it is the one that becomes), so the name in the quote names its owner as well (~ there)
     # (-- Station (wave 46D) -- likewise a station symbol's "As long as this permanent has N or more charge counters on it, it has "Whenever Dawnsire …"": 721.2a)
     alt = "|".join(re.escape(n) for n in names) or "(?!)"
-    self_grant = re.compile(rf"(?:^|: |\. )(?:If (?:{alt}|~|this \w+) is an? [\w' -]+, it|{alt}|~|[Tt]his \w+) becomes? [^\".]*$")
+    # (-- granted abilities (wave 111R1) -- "If Nog is a Rogue, he becomes a Ferengi Scout … and gains "Whenever Nog becomes tapped, …"": the named character's "he" is it, 201.5c)
+    self_grant = re.compile(rf"(?:^|: |\. )(?:If (?:{alt}|~|this \w+) is an? [\w' -]+, (?:it|he|she)|{alt}|~|[Tt]his \w+) becomes? [^\".]*$")
     parts = out.split('"')
     out = '"'.join(own(p) if i % 2 == 0 else _own(p) if self_grant.search(parts[i - 1]) or parts[i - 1].endswith(" counters on it, it has ") else granter(p) for i, p in enumerate(parts)) if len(parts) % 2 else own(out)
     out = re.sub(r"\b(?:a|an) ((?:[a-z]+ )*?card) other than this card\b", r"another \1", out)  # (wave 19C: Ichorid; the source is that card)
@@ -2693,6 +2696,11 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    # -- granted abilities (wave 111R1) -- a card in exile gains a quoted ability; "Create a copy of this card."
+    from app.rules import wave111r1_grants
+
+    if (body111r1 := wave111r1_grants.parse(body)) is not None:
+        return body111r1
     from app.rules import wave111e_trek  # -- Star Trek (wave 111E) -- exact wordings
 
     if (body111e := wave111e_trek.parse(body)) is not None:
@@ -6064,6 +6072,11 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    # -- granted abilities (wave 111R1) -- Q's granted ability, read without its holder's name
+    from app.rules import wave111r1_grants
+
+    if (granted111r1 := wave111r1_grants.definition(ability, ch)) is not None:
+        return granted111r1
     from app.rules import wave111e_trek  # -- Star Trek (wave 111E) -- exact wordings
 
     if (trek111e := wave111e_trek.definition(ability, ch)) is not None:
