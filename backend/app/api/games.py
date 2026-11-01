@@ -392,7 +392,8 @@ async def _history_op(services: Services, game_id: str, body: MetaIn, request: R
         raise HTTPException(403, "Spectators cannot undo")
     async with room.lock:
         try:
-            room.session.undo(actor) if op == "undo" else room.session.redo(actor)
+            host = room.mode == "local" or room.is_host(token)  # -- undo policy (gap 3) -- everyone at a hot-seat table is at the host computer
+            room.session.undo(actor, host=host) if op == "undo" else room.session.redo(actor, host=host)
         except ActionError as exc:
             raise HTTPException(409, str(exc)) from exc
         services.hub.after_change(room)
@@ -1558,9 +1559,9 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
             if isinstance(msg, WsAction):
                 room.session.perform(actor, msg.action)
             elif msg.type == "undo":
-                room.session.undo(actor)
+                room.session.undo(actor, host=room.mode == "local" or conn.host)  # -- undo policy (gap 3) --
             else:
-                room.session.redo(actor)
+                room.session.redo(actor, host=room.mode == "local" or conn.host)
         except ValidationError as exc:
             if cid is not None:
                 services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")

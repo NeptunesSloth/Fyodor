@@ -19,6 +19,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from app.game import undo_rights
 from app.game.factory import PLAYER_COLORS
 from app.game.session import GameSession
 from app.game.visibility import OMNISCIENT, SPECTATOR
@@ -558,6 +559,9 @@ class GameHub:
             "result_id": room.result_id,
             "assets": self._assets(room),
             "night": room.night.public(room.seat_name),
+            # -- undo policy (gap 3) -- the host's own seat at a LAN table, anyone at a hot-seat one (as the API decides)
+            **undo_rights.view_fields(room.session.state, room.session.history,
+                                      host=room.mode == "local" or (room.host_seat is not None and viewer == room.host_seat)),
         }
         return room.session.view(viewer, meta=meta)
 
