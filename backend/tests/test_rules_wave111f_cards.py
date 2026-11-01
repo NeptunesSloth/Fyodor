@@ -9,6 +9,9 @@
 * Token copies: "Choose X target creatures … For each of them, create a token that's a copy …" (Dominion Infiltration, 707.9b changeling), "If this
   spell was kicked, instead for each creature target opponent controls, …" (Mirror Universe Intrusion: the kicked group replaces the other, 601.2c),
   "Each Equipment token you control becomes a copy of target Equipment …" (Gwyndala, 611.2c). A station line's flavor word (U.S.S. Prometheus, 207.2d).
+* Free casts: "That player may exile it. If they don't, you may cast …" (Brazen Bluff, 608.2d/608.2g), "Copy that card X times, where X is …" (Infinite
+  Diversity, 707.12). Alexander: an opponent picked at random as it resolves, X the greatest mana value revealed (701.20a). Dr. McCoy: a dies-this-turn
+  trigger whose return waits for the next end step (603.7, 400.7); "When Dr. McCoy enters, choose one —" (201.5c).
 """
 
 from __future__ import annotations
@@ -81,12 +84,20 @@ EXTRA = [
     real("Infinite Diversity", "{7}{R}{R}", 9, "Sorcery",
          "Federation — Exile target instant or sorcery card from your graveyard. Copy that card X times, where X is the number of creature types "
          "among non-Borg creatures you control. You may cast the copies without paying their mana costs. Exile Infinite Diversity.", None, "R"),
+    real("Alexander, Ship's Fool", "{3}{R}{W}", 5, "Legendary Creature — Klingon Human",
+         "Vigilance, haste\n{T}: Each player reveals the top card of their library, then draws a card. Alexander deals X damage to a random opponent, "
+         "where X is the greatest mana value among cards revealed this way.", ("3", "5"), "RW"),
+    real('Dr. Leonard "Bones" McCoy', "{1}{G}{G}", 3, "Legendary Creature — Human Doctor",
+         "Flash\nWhen Dr. McCoy enters, choose one —\n• Return target non-Doctor permanent card from your graveyard to your hand.\n"
+         "• Choose up to one other target creature. When it dies this turn, return that card to the battlefield under its owner's control with a "
+         "+1/+1 counter on it at the beginning of the next end step.", ("3", "2"), "G"),
 ]
 NAMES = [c["name"] for c in EXTRA]
 EXTRA += [
     real("Zf Elf", "{G}", 1, "Creature — Elf", "", ("1", "1"), "G"),
     real("Zf Sage", "{1}", 1, "Artifact", "{1}: Draw a card.", None, ""),
     real("Zf Shock", "{R}", 1, "Instant", "Zf Shock deals 2 damage to any target.", None, "R"),
+    real("Zf Medic", "{1}{W}", 2, "Creature — Human Doctor", "", ("1", "1"), "W"),
     real("Zf Rod", "{1}", 1, "Artifact", "{T}: Zf Rod deals 1 damage to target creature.", None, ""),
     real("Zf Pinger", "{1}{R}", 2, "Creature — Human Wizard", "{T}: Zf Pinger deals 1 damage to target creature.", ("1", "1"), "R"),
     real("Zf Gear", "{1}", 1, "Artifact — Equipment", "Equipped creature gets +1/+0.\nEquip {1}", None, ""),
@@ -760,4 +771,91 @@ def test_infinite_diversity_copies_the_card_once_per_creature_type_among_non_bor
             break
     assert life(s, "p2") == 40 - 2 * types  # (each copy cast for free, each targeting Bob)
     assert s.state.cards[shock.id].zone == "p1:exile" and s.state.cards[spell.id].zone == "p1:exile"
+    check(s)
+
+
+# -- Alexander ----------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize(("tops", "x"), [((("Zf Giant", "p1"), ("Zf Bear", "p2"), ("Island", "p3")), 4), ((("Mountain", "p1"), ("Island", "p2"), ("Island", "p3")), 0)])
+def test_alexander_reveals_draws_and_hits_a_random_opponent_for_the_greatest_mana_value(cards, tops, x):
+    s = three(cards, ["Alexander, Ship's Fool", "Zf Giant"], bobs=["Zf Bear"], sandbox=True)
+    alexander = put(s, "Alexander, Ship's Fool")
+    rules_on(s)  # (Alice's draw step: the tops are set after it)
+    for name, pid in tops:
+        _top(s, [name], pid)
+    hands = {p: len(s.state.zones[f"{p}:hand"]) for p in ("p1", "p2", "p3")}
+    act(s, "p1", type="activate_ability", card_id=alexander.id, ability=1)
+    answer(s)
+    assert {p: len(s.state.zones[f"{p}:hand"]) for p in hands} == {p: n + 1 for p, n in hands.items()}  # (each player drew the revealed card)
+    lost = sorted(40 - life(s, p) for p in ("p2", "p3"))
+    assert lost == [0, x] and life(s) == 40  # (one opponent, picked at random; never Alexander's controller)
+    check(s)
+
+
+# -- Dr. McCoy ------------------------------------------------------------------------------------------------------------------------------------
+def _mccoy(s, mode, target):
+    """Cast Dr. McCoy; the mode is the one whose label starts with ``mode``, the target ``target`` (a card id)."""
+    mana(s, G=2, C=1)
+    mccoy = cast(s, 'Dr. Leonard "Bones" McCoy')
+    seen = []
+    for _ in range(30):
+        d = s.state.rules.decision
+        if d is not None:
+            ids = [o.id for o in d.options]
+            seen.append({o.id: o.label for o in d.options})
+            mode_pick = [o.id for o in d.options if o.label.startswith(mode)]
+            pick = mode_pick[:1] or ([target] if target in ids else ids[: max(1, d.min_choices)])
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=pick)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    return mccoy, seen
+
+
+@pytest.mark.parametrize("whose", ["p1", "p2"])
+def test_mccoy_returns_the_creature_that_died_this_turn_at_the_next_end_step(cards, whose):
+    s = three(cards, ['Dr. Leonard "Bones" McCoy', "Zf Bear", "Zf Kill"], bobs=["Zf Bear"])
+    bear = put(s, "Zf Bear", whose)
+    _mccoy(s, "Choose up to one", bear.id)
+    kill(s, bear)
+    assert s.state.cards[bear.id].zone == f"{whose}:graveyard"
+    until(s, lambda s: s.state.turn.number == 2)
+    back = s.state.cards[bear.id]
+    assert back.zone == f"{whose}:battlefield" and back.controller == whose and back.counters.get("+1/+1") == 1  # (under its owner's control)
+    assert ch(s, back).pt == (3, 3)
+    check(s)
+
+
+def test_mccoy_watches_only_this_turn(cards):
+    s = three(cards, ['Dr. Leonard "Bones" McCoy', "Zf Bear", "Zf Kill"])
+    bear = put(s, "Zf Bear")
+    _mccoy(s, "Choose up to one", bear.id)
+    until(s, lambda s: s.state.turn.number == 4 and s.state.turn.phase == "main1" and s.state.rules.priority == "p1")
+    kill(s, bear)  # (dies on a later turn: not "this turn")
+    assert s.state.cards[bear.id].zone == "p1:graveyard"
+    until(s, lambda s: s.state.turn.number == 5)
+    assert s.state.cards[bear.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_mccoy_card_that_left_the_graveyard_doesnt_come_back(cards):
+    s = three(cards, ['Dr. Leonard "Bones" McCoy', "Zf Bear", "Zf Kill"])
+    bear = put(s, "Zf Bear")
+    _mccoy(s, "Choose up to one", bear.id)
+    kill(s, bear)
+    act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "exile"})
+    act(s, "p1", type="move", card_ids=[bear.id], to={"player": "p1", "zone": "graveyard"})  # (a new object, 400.7)
+    until(s, lambda s: s.state.turn.number == 2)
+    assert s.state.cards[bear.id].zone == "p1:graveyard"
+    check(s)
+
+
+def test_mccoy_returns_a_non_doctor_permanent_card(cards):
+    s = three(cards, ['Dr. Leonard "Bones" McCoy', "Zf Bear", "Zf Medic", "Zf Kill"])
+    bear, medic, spell = card_named(s, "Zf Bear"), card_named(s, "Zf Medic"), card_named(s, "Zf Kill")
+    act(s, "p1", type="move", card_ids=[bear.id, medic.id, spell.id], to={"player": "p1", "zone": "graveyard"})
+    _, seen = _mccoy(s, "Return target", bear.id)
+    targets = next(x for x in seen if bear.id in x)
+    assert medic.id not in targets and spell.id not in targets  # (a Doctor; not a permanent card)
+    assert s.state.cards[bear.id].zone == "p1:hand"
     check(s)

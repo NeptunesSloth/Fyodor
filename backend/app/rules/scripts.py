@@ -2695,6 +2695,10 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (join110e := wave110e_kaya.join(body)) is not None:  # -- one instruction exiling two targets (wave 110E) --
         return join110e
+    from app.rules import wave111f_lines  # -- Star Trek lines (wave 111F) --
+
+    if (body111f := wave111f_lines.parse(body)) is not None:
+        return body111f
     if (body110e := wave110e_cards.parse(body)) is not None:
         return body110e
     from app.rules import wave110k_cards  # -- exact wordings (wave 110K) --

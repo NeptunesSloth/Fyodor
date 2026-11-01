@@ -52,12 +52,54 @@ def _bluff(ability: Any, ch: Any) -> dict[str, Any] | None:
                                 copy.deepcopy(cast[0][0])]}
 
 
+ALEXANDER = ("{T}: Each player reveals the top card of their library, then draws a card. ~ deals X damage to a random opponent, where X is the greatest "
+             "mana value among cards revealed this way.")
+
+
+def _alexander(ability: Any, ch: Any) -> dict[str, Any] | None:
+    """Alexander, Ship's Fool: the native reveal-and-draw, then an opponent picked at random as it resolves (random_choice: the table's recorded
+    pick among the opponents still in the game) and X, the greatest mana value among the cards revealed (public, 701.20a; 0 if none was)."""
+    from app.rules import scripts
+
+    head = scripts.define(replace(ability, text="{T}: Each player reveals the top card of their library, then draws a card."), ch)
+    if head is None or [e["do"] for e in head["effects"]] != ["look_top", "draw"] or head.get("target") is not None:
+        return None
+    look = {**head["effects"][0], "as": "alx111f"}
+    return {**head, "effects": [look, head["effects"][1], {"do": "choose_random", "pool": "opponent", "as": "alxp111f"},
+                                {"do": "greatest_revealed111f", "bind": "alx111f", "who": "ref:alxp111f"}]}
+
+
+MCCOY = ("Choose up to one other target creature. When it dies this turn, return that card to the battlefield under its owner's control with a +1/+1 "
+         "counter on it at the beginning of the next end step.")
+_MCCOY_NATIVE = ("Choose up to one other target creature. When that creature dies this turn, return that card to the battlefield under its owner's "
+                 "control with a +1/+1 counter on it.")
+
+
+def parse(body: str) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    """Dr. Leonard "Bones" McCoy's second mode: the native "When that creature dies this turn, return that card …" whose return is itself put off
+    to the beginning of the next end step (603.7: the dies trigger, as it resolves, creates a delayed triggered ability; 400.7: only the card as
+    it went to the graveyard, if it is still there then)."""
+    if body.strip().rstrip(".") != MCCOY.rstrip("."):
+        return None
+    from app.rules import scripts
+
+    native = scripts.parse_effects(_MCCOY_NATIVE)
+    if native is None or [e["do"] for e in native[0]] != ["choose_targets", "delayed", "deferred:return_card"] or native[0][2].get("who") != "event.new":
+        return None
+    effects = copy.deepcopy(native[0])
+    back = {k: v for k, v in effects[2].items() if k != "do"}
+    effects[2] = {"do": "deferred:mccoy_later111f", "effect": {**back, "do": "return_card"}}
+    return effects, native[1], native[2]
+
+
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
     from app.rules import scripts
 
     text = scripts.self_text(ability.text, ch.name)
     if text == WORF:
         return _worf(ability, ch)
+    if text == ALEXANDER and ability.kind == "activated":
+        return _alexander(ability, ch)
     if text == BLUFF and ability.kind == "spell":
         return _bluff(ability, ch)
     m = _CANT.match(text)
@@ -120,5 +162,48 @@ def resume_bluff(plan: Plan, d: Any, chosen: list[str]) -> None:
     continue_effects(plan, ctx)
 
 
-PRIMITIVES = {"return_or_else111f": return_or_else, "bluff_offer111f": bluff_offer}
+def greatest_revealed(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """~ deals X damage to the player picked, X the greatest mana value among the cards the reveal bound (202.3: each card's own; they were
+    shown to everyone, so reading them leaks nothing)."""
+    from app.rules import context
+
+    found = (context.refs(ctx).get(e["bind"]) or {}).get("objects") or []
+    cards = [plan.state.cards[o["card"]] for o in found if o.get("card") in plan.state.cards]
+    x = int(max((plan.ch(c).mana_value for c in cards), default=0))
+    plan.note(f"{ctx.get('name') or 'It'}: the greatest mana value revealed is {x}", actor=ctx["controller"])
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{"do": "damage", "who": e["who"], "n": x}]
+    return True
+
+
+def mccoy_later(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """The dies trigger resolves: a delayed triggered ability "at the beginning of the next end step" (603.7a), for that card as it is in the
+    graveyard now (a token or a card put elsewhere, 903.9a, is not returned: 400.7)."""
+    from app.rules import delayed
+    from app.rules.effects import _cards
+
+    for cid in _cards(plan, ctx, "event.new"):
+        card = plan.state.cards[cid]
+        if not card.zone.endswith(":graveyard"):
+            continue
+        delayed.create_plain(plan, ctx["controller"], ctx.get("source_card") or "", ctx.get("source_object") or "", ctx.get("name") or "Dr. McCoy",
+                             {"kind": "step", "step": "end", "whose": "next"},
+                             [{"do": "mccoy_return111f", "card": cid, "object": plan.oid(card), "effect": e["effect"]}])
+        plan.note(f"{card.name} returns to the battlefield at the beginning of the next end step", [cid])
+    return True
+
+
+def mccoy_return(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """At the next end step: return that card, if it is still the same object in its owner's graveyard (400.7)."""
+    from app.rules import context
+
+    card = plan.state.cards.get(e["card"])
+    if card is None or not card.zone.endswith(":graveyard") or plan.oid(card) != e["object"]:
+        return True
+    context.bind_objects(plan, ctx, "mccoy111f", [card.id])
+    ctx["effects"][ctx["next"]:ctx["next"]] = [{**e["effect"], "who": "ref:mccoy111f"}]
+    return True
+
+
+PRIMITIVES = {"return_or_else111f": return_or_else, "bluff_offer111f": bluff_offer, "greatest_revealed111f": greatest_revealed,
+              "mccoy_later111f": mccoy_later, "mccoy_return111f": mccoy_return}
 RESUME: dict[str, Any] = {"bluff_offer111f": resume_bluff}
