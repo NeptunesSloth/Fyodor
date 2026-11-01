@@ -36,6 +36,9 @@ EXTRA = [
     real("Warchief Giant", "{3}{R}{R}", 5, "Creature — Giant Warrior",
          "Haste\nMyriad (Whenever this creature attacks, for each opponent other than defending player, you may create a token copy that's tapped and "
          "attacking that player or a planeswalker they control. Exile the tokens at end of combat.)", ("5", "3"), "R"),
+    real("Zara, Renegade Recruiter", "{3}{U}{B}", 5, "Legendary Creature — Dragon", "Flying\nWhenever Zara attacks, look at defending player's hand. You may put a "
+         "creature card from it onto the battlefield under your control tapped and attacking that player or a planeswalker they control. Return that creature to its "
+         "owner's hand at the beginning of the next end step.", ("4", "4"), "UB"),
 ]
 NAMES = ["Kira Nerys, Firebrand"]
 MINE = ["Kira Nerys, Firebrand", "Ambush Viper", "Raise the Alarm", "Cloudshift", "Miraculous Recovery", "Hero of Bladehold", "Mind Stone",
@@ -243,6 +246,31 @@ def test_myriad_tokens_attack_the_player_they_are_made_for(cards):  # 702.116a: 
     copies = [c for c in s.state.cards.values() if c.name == "Warchief Giant" and c.is_token and c.zone == "p1:battlefield"]
     assert asked == []  # (no 508.4 question of Kira's: Carol is the one it attacks)
     assert len(copies) == 1 and copies[0].tapped and target_of(s, copies[0]) == "p3"
+    check(s)
+
+
+def test_zaras_creature_attacks_the_player_it_was_taken_from(cards):  # "tapped and attacking that player or a planeswalker they control"
+    s = sandbox(cards, *MINE, "Zara, Renegade Recruiter", p2=["Ambush Viper"], players=3)
+    kira = on_field(s, "Kira Nerys, Firebrand")
+    zara = on_field(s, "Zara, Renegade Recruiter")
+    viper = next(c for c in s.state.cards.values() if c.name == "Ambush Viper" and c.owner == "p2")
+    act(s, "p2", type="move", card_ids=[viper.id], to={"zone": "hand"})
+    combat_step(s)
+    attack(s, (kira, "p3"), (zara, "p2"))
+    asked = []
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            asked += [d] if ASKED in d.prompt else []
+            ids = [viper.id] if any(o.id == viper.id for o in d.options) else [o.id for o in d.options if o.id == "p3"][:1] or [d.options[0].id]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=ids)
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    v = s.state.cards[viper.id]
+    assert asked == []  # (no 508.4 question of Kira's: Zara's instruction names Bob)
+    assert v.zone == "p1:battlefield" and v.tapped and target_of(s, viper) == "p2"
     check(s)
 
 

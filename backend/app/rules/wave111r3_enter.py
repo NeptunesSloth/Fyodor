@@ -32,7 +32,8 @@ BY_EFFECT = "*effect"  # the effect putting it onto the battlefield puts it atta
 PENDING = "*pending"  # it applied to an entry that couldn't ask before it entered: asked right after (``offer``)
 TOKEN_FLAG = "attacking111r3"  # a token creation event whose instruction makes the tokens attacking
 TEXT = "If a creature you control would enter while you control an attacking creature, instead it enters tapped and attacking."
-_PUTS_ATTACKING = frozenset({"create_attacking", "ninjutsu_enter"})  # (and any effect with "attacking": "tapped and attacking")
+_PUTS_ATTACKING = frozenset({"create_attacking", "ninjutsu_enter",  # (and any effect with "attacking": "tapped and attacking")
+                             "enter_chosen110a"})  # (-- review (wave 111R) -- Zara, Renegade Recruiter: "… tapped and attacking that player or a planeswalker they control")
 
 
 def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
