@@ -144,6 +144,11 @@ def quote(text: str) -> str | None:
         return t  # -- (wave 110K) -- Bone Shaman: regeneration.shielded / regeneration_choices.options read it from the source's current abilities
     if d.get("static") == "creature_combat_cost" and d.get("who") == "self":
         return t  # Declaration costs read the holder's completed layer-6 abilities.
+    # -- granted abilities (wave 111R1) -- 613.1f: a static read from its source's current abilities
+    from app.rules import wave111r1_grants
+
+    if wave111r1_grants.current_static(d):
+        return t  # ("You may play lands from your graveyard", "You may play an additional land on each of your turns": Nog, Ambitious Cadet)
     if (d.get("static") == "grant" and d.get("who") == "self" and not d.get("conditions")
             and d.get("rules") == ["attack_despite_defender"]):
         # scripts.statics reads this self-only combat permission directly from

@@ -6134,7 +6134,12 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
     if (sides := activation_alternatives.sides(ability.cost or "")) is not None:
         return AbilityCost(either=tuple(ability_cost(ch, activation_alternatives.with_cost(ability, side),
                            state=state, card=card, info=info, target=target, targets=targets, actor=actor) for side in sides))
-    cost = parse_ability_cost("" if free_power_up else ability.cost or "", card_name=ch.name, loyalty=ability.kind == "loyalty")
+    holder = ch.name
+    if ability.index >= 10_000:  # -- granted abilities (wave 111R1) -- Q's granted ability names no holder: its cost is read without the name (a card named "Exile")
+        from app.rules import wave111r1_grants
+
+        holder = wave111r1_grants.holder_name(ability, ch)
+    cost = parse_ability_cost("" if free_power_up else ability.cost or "", card_name=holder, loyalty=ability.kind == "loyalty")
     if cost.mana == "{H}" and state is not None and card is not None and info is not None:  # -- Merseine (wave 110C) -- "Pay enchanted creature's mana cost" (X is 0, 107.3)
         host = state.cards.get(card.attached_to or "")
         if host is not None and (hch := Plan.view(state, card.controller, info).ch(host)).mana_cost:
@@ -6213,6 +6218,11 @@ def ability_cost(ch: Characteristics, ability: AbilityText, *, state: GameState 
         cost = replace(cost, graveyard_only=True, battlefield_too110k=True)  # -- (wave 110K) -- Skyblade's Boon: either zone, 113.6m
     if ability.kind == "activated" and "Activate only if this card is suspended." in ability.text:
         cost = replace(cost, graveyard_only=True, exile_too=True)
+    if ability.kind == "activated" and ability.text.endswith("if this card is exiled."):  # -- granted abilities (wave 111R1) -- 113.6b: it functions in exile only (Q)
+        from app.rules import wave111r1_grants
+
+        if wave111r1_grants.EXILED_ONLY.search(ability.text):
+            cost = replace(cost, graveyard_only=True, exile_too=True, exile_only110c=True)
     # -- activated from hand / command zone (wave 27D) -- 113.6m: "Put this card from your hand onto the battlefield" / "Put ~ onto the
     # battlefield from the command zone" moves the card out of that zone, so the ability works only there
     if ability.kind == "activated" and ":" in ability.text:
@@ -6878,9 +6888,15 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
                                     check_priority=check_priority,
                                     info=info) is None:
                 out.append({"card_id": cid, "ability": ab.index})
+    # -- granted abilities (wave 111R1) -- an ability a resolved effect gave the card in exile (layers ``ability_zone``): its current characteristics
+    zoned = {oid for e in state.rules.effects if e.ability_zone == "exile" for oid in e.affected} if state.rules is not None else set()
     for cid in state.zones.get(zone_key(player, "exile"), []):  # -- activated other (wave 42C) -- 113.6m: "Return this card from your graveyard or from exile …"
         card = state.cards[cid]
         ch = chars.of(card, info)
+        if zoned and state.rules is not None and state.rules.object_id(cid) in zoned:
+            from app.rules import layers
+
+            ch = layers.derive(state, card, ch, info)
         for ab in ch.abilities:
             if ab.kind == "activated" and ability_cost(ch, ab).exile_too and \
                     ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),

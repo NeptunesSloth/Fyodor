@@ -7436,3 +7436,8 @@ from app.rules import wave111f_lines as _wave111f_lines  # noqa: E402, I001  -- 
 
 PRIMITIVES.update(_wave111f_lines.PRIMITIVES)
 RESUME.update(_wave111f_lines.RESUME)
+
+from app.rules import wave111r1_grants as _wave111r1_grants  # noqa: E402, I001  -- granted abilities (wave 111R1) --
+
+PRIMITIVES.update(_wave111r1_grants.PRIMITIVES)
+RESUME.update(_wave111r1_grants.RESUME)
