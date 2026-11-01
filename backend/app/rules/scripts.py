@@ -2693,6 +2693,10 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
+    from app.rules import wave111e_trek  # -- Star Trek (wave 111E) -- exact wordings
+
+    if (body111e := wave111e_trek.parse(body)) is not None:
+        return body111e
     from app.rules import wave110e_cards, wave110e_kaya  # -- exact wordings (wave 110E) --
 
     if (join110e := wave110e_kaya.join(body)) is not None:  # -- one instruction exiling two targets (wave 110E) --
@@ -4654,6 +4658,8 @@ def _parse_effects(body: str, it: str | None, event_player: bool = False) -> tup
 
     if (parts := parley.split(body)) is not None:
         return parley.bind(parts, lambda t: _parse_effects(t, it, event_player))
+    if (parts := parley.split_draw_first(body)) is not None:  # -- parley (wave 111E) -- "…, then draws a card. For each …" (Ambassador K'Ehleyr)
+        return parley.bind(parts, lambda t: _parse_effects(t, it, event_player), draw_first=True)
     optional = False
     effects: list[dict[str, Any]] = []
     groups: list[dict[str, Any]] = []
@@ -6049,6 +6055,10 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import wave111e_trek  # -- Star Trek (wave 111E) -- exact wordings
+
+    if (trek111e := wave111e_trek.definition(ability, ch)) is not None:
+        return trek111e
     from app.rules import wave110e_opp  # -- war or peace (wave 110E) --
 
     if (war110e := wave110e_opp.war_definition(ability, ch)) is not None:
