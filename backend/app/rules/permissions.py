@@ -107,7 +107,8 @@ PERMISSION = re.compile(
     r"(?: by (?P<by>.+?) in addition to (?:paying )?(?:its|their) other costs)?"
     # -- cast from graveyard (wave 19C) -- 614.1a: "If a spell cast this way would be put into your graveyard, exile it instead."
     r"(?:\. If (?:(?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead"
-    r"|(?:you cast a spell this way|you do), (?:that [a-z]+ enters (?:(?P<tapped>tapped)|(?P<fin>with a finality counter on it))|it gains \"(?P<gain>[^\"]+)\"))"
+    r"|(?:you cast a spell this way|you do), (?:that [a-z]+(?: creature)? enters (?:(?P<tapped>tapped)|(?P<fin>with a finality counter on it))|it gains \"(?P<gain>[^\"]+)\"))"
+    # (-- if you do / instead (wave 111B) -- "that artifact creature enters with a finality counter on it": Overflow Submatrix)
     # -- most-played cards (wave 43B) -- "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost." (Bolas's Citadel)
     r"|\. If you cast a spell this way, (?P<lmv>pay life equal to its mana value rather than pay its mana cost)"
     # -- if you do (wave 51D) -- 601.3b / 614.1c / 611.2a: the riders of a cast from the top of the library: "If you cast a creature spell this way, it gains haste until end of

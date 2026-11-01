@@ -264,7 +264,7 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
                 return {}  # (only modes that all target a player of the same kind)
             modal["different_players"] = True
         if "instead" in extra:
-            if (n != 2 and not extra["instead"].get("pick")) or m["count"] != "one" or ab.kind != "triggered":
+            if (n != 2 and not extra["instead"].get("pick") and not extra["instead"].get("more111b")) or m["count"] != "one" or ab.kind != "triggered":
                 return {}
             modal["instead"] = extra["instead"]
     out: dict[int, Definition] = {ab.index: {**shape, "effects": [], "target": None, "optional": False,
@@ -290,6 +290,7 @@ def _plain_groups(ab: AbilityText, groups: list[Definition]) -> bool:
 
 # -- refused modal/conditional (wave 3R1) --
 _BOTH_INSTEAD =re.compile(r"^If (?P<c>.+), (?P<may>you may )?choose both instead\.$")
+_MORE_INSTEAD111B = re.compile(r"^If (?P<c>.+), choose one or more instead\.$")  # (wave 111B)
 _CHOOSE_INSTEAD = re.compile(r"^If (?P<c>.+), you choose one instead\.$")  # -- random choices (wave 47B) -- "choose one at random. If …, you choose one instead." (Typhoid Mary)
 _KICKED_CONDITION = re.compile(r"^(?:it|this spell|~) was kicked$")
 
@@ -310,6 +311,11 @@ def _header_extra(ab: AbilityText, m: re.Match[str]) -> dict[str, Any] | None:
         cond = conditions.parse(chose["c"], objects=True)
         return {"instead": {"cond": cond, "min": 1, "max": 1, "pick": True}} if cond is not None and not set(conditions.objects_in(cond)) else None
     both = _BOTH_INSTEAD.match(rest)
+    if both is None and (more := _MORE_INSTEAD111B.match(rest)) is not None:
+        # -- if you do / instead (wave 111B) -- "Whenever Captain Kirk enters or attacks, choose one. If you have no cards in hand, choose one or more
+        # instead." (Captain James T. Kirk): checked as the ability is put on the stack, when its modes are announced (603.3c, 700.2a; as "both")
+        cond = conditions.parse(more["c"], objects=True)
+        return {"instead": {"cond": cond, "min": 1, "max": 99, "more111b": True}} if cond is not None and not set(conditions.objects_in(cond)) else None
     if both is None:
         return None
     cond = ({"object": "self", "cast": {"kicked": True}} if _KICKED_CONDITION.match(both["c"])

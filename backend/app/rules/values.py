@@ -797,6 +797,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "half" in v:
         n = evaluate(plan, ctx, v["half"])
         return (n + 1) // 2 if v.get("round") == "up" else n // 2
+    if "every111b" in v:  # -- if you do / instead (wave 111B) -- "for every five …": [5, value], the value divided, rounded down (107.1a; Sarek)
+        per, of = v["every111b"]
+        return evaluate(plan, ctx, of) // int(per)
     if "neg" in v:
         return 0  # a negative result of an effect is zero (107.1b); the sign is evaluate_signed's
     if "kicked" in v:
