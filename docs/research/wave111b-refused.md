@@ -1,1 +1,3 @@
-- Kira Nerys, Firebrand: "If a creature you control would enter while you control an attacking creature, instead it enters tapped and attacking." The rules are settled (614.1c, 508.4: its controller picks the player, planeswalker or battle it attacks), but the engine only puts creatures onto the battlefield attacking per instruction (token_grammar.enter_attacking, refused_zones.enter_attacking). A static replacement covering every entry (a resolving creature spell, tokens, returns, blinks) with the 508.4 choice made as it enters isn't built.
+# Wave 111B refused (Star Trek, group B)
+
+(none left: Kira Nerys, Firebrand was promoted in wave 111R3, rules/wave111r3_enter.py)

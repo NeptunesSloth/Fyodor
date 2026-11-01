@@ -247,6 +247,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
 
         if offer_616(plan):
             return True
+    if r.attack_pending111r3:  # -- enters attacking (wave 111R3) -- 508.4: what a creature that entered attacking attacks, if not asked first
+        from app.rules import wave111r3_enter
+
+        if wave111r3_enter.offer(plan):
+            return True
     found = find(plan)
     from app.rules import regeneration_choices
 

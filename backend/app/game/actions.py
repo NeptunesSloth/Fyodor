@@ -1118,6 +1118,10 @@ class CastSpell(_Intent):
     kicker: int = Field(default=0, ge=0, le=1000 * 1025)  # platform numeric range (0..1000), like x_value; not a rules maximum; two any-number costs pack first + 1024 * second (costs.PAIR_SHIFT)
     # -- Chorus of the Conclave (wave 110C) -- 601.2b: the {1} paid for its own additional cost (not a kicker: the spell isn't kicked); platform range
     chorus: int = Field(default=0, ge=0, le=1000)
+    # -- granted replicate (wave 111R3) -- 702.56b: how many times each instance of replicate the spell is given as it is cast (Hugh, First of Many) is
+    # paid, in the order the hints list them (``replicate111r3``: rules/wave111r3_replicate.py); each count in the platform range 0..1000
+    replicate: list[Annotated[int, Field(ge=0, le=1000)]] = Field(default_factory=list, max_length=10)
+    replicate_from: list[Id] = Field(default_factory=list, max_length=10)  # (set by the server as they are announced: each count's source; 601.2f)
     # (wave 3$) the objects chosen for the parts of an additional cost ("As an additional cost to cast this spell,
     # sacrifice a creature"); anything missing is asked for as a decision
     cost_choices: list[CostChoice] = Field(default_factory=list, max_length=10)

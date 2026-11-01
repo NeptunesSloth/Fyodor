@@ -3685,6 +3685,11 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
     ch = permission_spell_keywords.apply(ch, grant)
     ch = wave110a_grants.with_replicate(plan.state, plan.actor, card, ch, plan.info)  # -- grants (wave 110A) --
     ch = wave110g_cards.sticker_kicker(plan.state, plan.actor, card, ch, plan.info)  # -- sticker kicker (wave 110G) --
+    from app.rules import (
+        wave111r3_replicate,  # -- granted replicate (wave 111R3) -- 702.56b: each instance paid in its own count (601.2b, 601.2f)
+    )
+
+    replicate_costs, replicate_paid = wave111r3_replicate.announce(plan, a, card, ch)
     if wave110g_cards.sticker_kicker_manual(plan.state, plan.actor, card, ch, plan.info):
         plan.note(f"{ch.name} has its own kicker and Wicker Picker's sticker kicker (702.33c): the sticker kicker is manual play; pay {{1}}, take a ticket counter and place a sticker by hand", [card.id])
     free = grant is not None and grant.free  # "without paying its mana cost" (118.9): an alternative cost of {0}
@@ -3727,6 +3732,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         raise ActionError(f"{ch.name}: kicker X must be at least {kc.minimum_x}")
     alternative: M.ManaCost | None = M.parse_cost("{3}") if a.face_down else None
     additional: list[M.ManaCost] = grant_additional(grant)
+    additional += replicate_costs  # -- granted replicate (wave 111R3) --
     if a.buyback:
         extra = keyword_cost(ch, "buyback", BUYBACK)
         if extra is None and buyback_parts(ch) is None:  # (-- keywords (wave 30E) -- a buyback cost of other parts: merged below)
@@ -4094,6 +4100,7 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
         data.counter_cost_origins70 = origins70
     data.origin_player103 = origin.split(":", 1)[0] if ":" in origin else None
     data.cast_greatest_power = cast_greatest_power
+    data.replicate111r3 = replicate_paid  # -- granted replicate (wave 111R3) --
     from app.rules import card_names
 
     data.spliced_names = sorted({name for cid in a.splice for name in card_names.names_of(plan.ch(plan.state.cards[cid]))})
@@ -4155,6 +4162,7 @@ class _PostCast:
     cast_greatest_power: int | None = None
     counter_cost_origins70: list[ObjectRef] | None = None
     origin_player103: str | None = None  # Physical origin owner, captured before moving to the stack.
+    replicate111r3: list[tuple[str, int]] | None = None  # -- granted replicate (wave 111R3) -- [(source, count)] announced (601.2b)
 
 
 @dataclass
@@ -4298,6 +4306,9 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
         tags.append("Entwined")
     elif a.kicker:
         tags.append("Kicked" if kicked == 1 else f"Kicked ×{kicked}")
+    from app.rules import wave111r3_replicate
+
+    tags += wave111r3_replicate.tags(data.replicate111r3)  # -- granted replicate (wave 111R3) --
     if a.awaken:
         tags.append("Awakened")
     if bargained:
@@ -4367,6 +4378,8 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
             _demonstrate_trigger(plan, card, ch, record.cast_from)  # (wave 43D)
     if "replicate" in ch.keywords and not a.face_down and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
+    if not a.face_down and not plan.manual(card):  # -- granted replicate (wave 111R3) -- 702.56b: one trigger per instance
+        wave111r3_replicate.cast_triggers(plan, card, ch, data.replicate111r3)
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=modal_effects(definition, picked, True), x=effect_x, modes=picked,
@@ -5154,6 +5167,18 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
                 break
             out.append((f"chorus:{n}", f"Chorus of the Conclave: pay {{{n}}}"))
         out.append(("chorus:other", "Chorus of the Conclave: another amount (0–1000)"))
+    from app.rules import (
+        wave111r3_replicate,  # -- granted replicate (wave 111R3) -- 118.9d: each instance, its own counts
+    )
+
+    def _replicate_payable(extra: M.ManaCost) -> bool:
+        ways = spell_cost_ways(plan.state, card, ch, info=plan.info, player=plan.actor, free=alt is None,
+                               alternative=M.parse_cost(alt) if alt is not None else None, additional=(extra,))
+        return any(can_pay(plan.state, plan.actor, total, plan.info, purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=plan.actor,
+                                                                                     spell_object=_spell_reference(plan.state, card)),
+                           reserve=life_due + (alternative_parts.life if alternative_parts is not None else 0)) for total, life_due in ways)
+
+    out += wave111r3_replicate.free_offers(plan, card, ch, _replicate_payable, FREE_KICKS)
     for o in cost_changes.optional_offers(plan.state, plan.actor, card, ch, plan.info):
         if not o.kind or o.kind == "offering":  # (-- offering (wave 51H) -- 702.48a: a reduction of a cost that is {0} here, and no timing to change)
             continue
@@ -5170,7 +5195,7 @@ def free_optional_offers(plan: Plan, card: CardInstance, ch: Characteristics) ->
 def announce_free_optional(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characteristics) -> bool:
     """601.2b, 118.9d: ask the caster of a free cast which optional additional costs to pay (privately; none may be chosen), unless the intent
     already announced them (``kicker``, ``optional_costs``) or they were asked. True while the question waits; its answer re-runs the cast."""
-    if a.optional_asked or a.kicker or a.chorus or a.optional_costs or plan.manual(card):
+    if a.optional_asked or a.kicker or a.chorus or a.replicate or a.optional_costs or plan.manual(card):  # (replicate: wave 111R3)
         return False
     offers = free_optional_offers(plan, card, ch)
     if not offers:
@@ -5199,13 +5224,18 @@ def announce_free_x(plan: Plan, a: A.CastSpell, card: CardInstance, ch: Characte
     kick = kicker_cost(ch.abilities) if a.kicker and not plan.manual(card) else None
     if a.x_value is not None or not ((kick is not None and kick.x) or (alt is not None and M.parse_cost(alt).x)):
         return False
+    from app.rules import (
+        wave111r3_replicate,  # -- granted replicate (wave 111R3) -- what the announced payments add (601.2f)
+    )
+
+    replicate_costs = wave111r3_replicate.announce(plan, a, card, ch, legacy=False)[0]
     options: list[DecisionOption] = []
     for n in range(kick.minimum_x if kick is not None and kick.x else 0, 1001):  # actual selected kicker lower bound
         x_payments: list[dict[str, Any] | None] = []
         selected_costs: list[bool | None] = []
         ways = spell_cost_ways(plan.state, card, ch, x=n, info=plan.info, player=plan.actor, free=alt is None,
                                alternative=M.parse_cost(alt) if alt is not None else None, kicker=a.kicker, chorus=a.chorus, x_payments=x_payments,
-                               selected_costs=selected_costs)
+                               selected_costs=selected_costs, additional=tuple(replicate_costs))
         if not any(can_pay(plan.state, plan.actor, total, plan.info,
                            purpose=Purpose(spell=ch, card=card.id, zone=card.zone, player=plan.actor, kicked=bool(a.kicker),
                                            spell_object=_spell_reference(plan.state, card), x_payment=x_payments[i], selected_cost_has_x=selected_costs[i]),
@@ -5298,8 +5328,23 @@ def resume_free_optional(plan: Plan, d: Any, chosen: list[str]) -> None:
     if kicks == ["kicker:other"] and chorus == ["chorus:other"]:
         raise ActionError("Choose a typed count for one of them at a time")
     assert isinstance(intent, A.CastSpell)
-    intent.optional_costs = [c for c in chosen if not c.startswith(("kicker:", "chorus:"))]
+    from app.rules import (
+        wave111r3_replicate,  # -- granted replicate (wave 111R3) -- each instance's count (702.56b)
+    )
+
+    typed_replicate = wave111r3_replicate.take_answers(intent, chosen)
+    if typed_replicate is not None and (kicks == ["kicker:other"] or chorus == ["chorus:other"]):
+        raise ActionError("Choose a typed count for one of them at a time")
+    intent.optional_costs = [c for c in chosen if not c.startswith(("kicker:", "chorus:", wave111r3_replicate.OPTION))]
     intent.optional_asked = True
+    if typed_replicate is not None:  # (the other counts are announced: the typed one next)
+        if d.resume.get("card_object") is None or plan.oid(intent.card_id) != d.resume["card_object"]:
+            raise ActionError("That spell is a different object now")
+        intent.kicker = int(kicks[0].split(":")[1]) if kicks else 0
+        if chorus:
+            intent.chorus = int(chorus[0].split(":")[1])
+        wave111r3_replicate.ask_count(plan, d, intent, typed_replicate)
+        return
     if chorus and chorus != ["chorus:other"]:
         intent.chorus = int(chorus[0].split(":")[1])
     if kicks == ["kicker:other"] or chorus == ["chorus:other"]:
@@ -5385,6 +5430,11 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
         return
     if announce_free_x(plan, a, card, ch):  # -- cast keywords (wave 43D) -- 107.3a: "Kicker {X}" kicked on a free cast, a miracle cost with {X}: X is announced with it
         return
+    from app.rules import (
+        wave111r3_replicate,  # -- granted replicate (wave 111R3) -- 118.9d: still paid, each instance in its own count
+    )
+
+    replicate_costs, replicate_paid = wave111r3_replicate.announce(plan, a, card, ch, legacy=False)
     if a.x_value is None and M.parse_cost(ch.mana_cost).x:
         a.x_value = 0  # 107.3b: nothing announced it, so X is 0 (before targets that count X are chosen)
     if a.kicker and (minimum_kick := kicker_cost(ch.abilities)) is not None and (a.x_value or 0) < minimum_kick.minimum_x:
@@ -5486,7 +5536,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     cost = spell_cost(plan.state, card, ch, a.x_value or 0, plan.info, player=plan.actor, free=alt is None,
                       alternative=M.parse_cost(alt) if alt is not None else None, kicker=a.kicker, chorus=a.chorus,
                       targets=tuple(t.id for t in chosen),  # (wave 4I: "spells that target …")
-                      additional=(*((M.parse_cost(either.mana),) if either is not None and either.mana else ()), *mode_costs, waterbend103.mana(optional)),  # (wave 6E)
+                      additional=(*((M.parse_cost(either.mana),) if either is not None and either.mana else ()), *mode_costs, waterbend103.mana(optional), *replicate_costs),  # (wave 6E; 111R3)
                       reduce=cost_payment.reduction(add_cost, add_objects) if add_cost is not None else 0,
                       mana_symbols=a.mana_symbols, capture=prepared, announced_kicker77=True)  # (wave 47C: 118.9d, 601.2f)
     if spell_mana_floor.minimum(plan.state, plan.info) or a.mana_symbols is not None:
@@ -5511,6 +5561,7 @@ def cast_free(plan: Plan, card: CardInstance, ch: Characteristics, a: A.CastSpel
     from app.rules import as_cast_values42
 
     data = _PostFreeCast(a, add_cost, add_objects, alt, aura, bargained, card, ch, chosen, definition, gift_to, optional, paid, picked, picked_targets, slot_specs, slots)
+    data.replicate111r3 = replicate_paid  # -- granted replicate (wave 111R3) --
     data.global_text_prepared71 = global_text_prepared71
     data.cast_greatest_power = as_cast_values42.capture(plan, definition)
     if alt is not None or not cost.is_free:
@@ -5566,10 +5617,11 @@ class _PostFreeCast:
     record: PaymentRecord | None = None
     cast_greatest_power: int | None = None
     global_text_prepared71: bool = False
+    replicate111r3: list[tuple[str, int]] | None = None  # -- granted replicate (wave 111R3) -- [(source, count)] announced (601.2b)
 
 
 def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) -> None:
-    from app.rules import waterbend102
+    from app.rules import waterbend102, wave111r3_replicate
     record = data.record
     assert record is not None
     record.cast_greatest_power = data.cast_greatest_power
@@ -5644,7 +5696,8 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
         plan.reserved_life = 0  # (wave 29C)
     plan.do({"type": "set_stack_info", "card_id": card.id,
              "tags": ([] if paid else [f"Cast for its {kind} cost" if alt is not None else "Cast without paying its mana cost"])
-             + (["Kicked" if record.kicked == 1 else f"Kicked ×{record.kicked}"] if a.kicker else []) + (["Bargained"] if bargained else [])})
+             + (["Kicked" if record.kicked == 1 else f"Kicked ×{record.kicked}"] if a.kicker else []) + (["Bargained"] if bargained else [])
+             + wave111r3_replicate.tags(data.replicate111r3)})  # (-- granted replicate (wave 111R3) --)
     record.x = a.x_value
     record_payment(plan, card.id, record)
     if a.targets:
@@ -5671,6 +5724,8 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
         _demonstrate_trigger(plan, card, ch, record.cast_from)  # (wave 43D)
     if "replicate" in ch.keywords and not plan.manual(card):  # (wave 15E)
         _replicate_trigger(plan, card, ch, a.kicker)
+    if not plan.manual(card):  # -- granted replicate (wave 111R3) -- 702.56b: one trigger per instance
+        wave111r3_replicate.cast_triggers(plan, card, ch, data.replicate111r3)
     if definition is not None and picked and not slot_specs and any(definition["modes"][i].get("groups") for i in picked):
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=modal_effects(definition, picked, True), x=effect_x, modes=picked,

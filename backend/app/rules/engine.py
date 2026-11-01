@@ -92,6 +92,8 @@ from app.rules import (
     wave110f_cmd,  # -- pregame commander color (wave 110F) --
     wave110g_spires,  # -- wave 110G --
     wave110h_cards,  # -- untap hold (wave 110H) --
+    wave111r3_enter,  # -- enters attacking (wave 111R3) --
+    wave111r3_replicate,  # -- granted replicate (wave 111R3) --
 )
 from app.rules import morph_costs78 as _morph_costs78  # noqa: F401
 
@@ -1958,6 +1960,8 @@ RESUME: dict[str, Callable[[Plan, Decision, list[str]], None]] = {
     "gift": gift.resume,  # -- gift (wave 23D) -- 702.174a
     "free_multikicker": casting.resume_free_multikicker,
     "free_chorus": casting.resume_free_chorus,  # -- Chorus of the Conclave (wave 110C) --
+    "free_replicate111r3": wave111r3_replicate.resume_free_count,  # -- granted replicate (wave 111R3) -- a typed count, on a free cast
+    "attack111r3": wave111r3_enter.resume,  # -- enters attacking (wave 111R3) -- 508.4, asked right after it entered
     "free_optional": casting.resume_free_optional,  # -- free-cast optional costs (wave 41D) -- 118.9d, 601.2b
     "casualty_x": casting.resume_casualty_x,
     "flashback_choice": casting.resume_flashback_choice,

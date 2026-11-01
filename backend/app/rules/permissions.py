@@ -675,6 +675,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import wave110a_grants
 
         return wave110a_grants.grant_replicate(t)
+    if " spells you cast have replicate {" in t and kind == "static":  # -- granted replicate (wave 111R3) -- Hugh, First of Many
+        from app.rules import wave111r3_replicate
+
+        return wave111r3_replicate.definition(t)
     if " gain offspring " in t and kind == "static":  # -- grants (wave 110A) -- Zinnia, Valley's Voice
         from app.rules import wave110a_grants
 
