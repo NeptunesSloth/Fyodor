@@ -253,6 +253,11 @@ def _short_name(name: str, text: str = "") -> str | None:
     num = re.match(r"^(.+?) [IVXLC]{2,}$", name)  # -- commander sweep (wave 49B) -- "King Darien XLVIII" is "King Darien" in its own text (201.5c)
     if num is not None and re.search(rf"\b{re.escape(num[1])}\b", text):
         return num[1]
+    # -- Star Trek names (wave 111G) -- 201.5c: "Lieutenant Hikaru Sulu" is "Lieutenant Sulu" in its own text, a rank or title and
+    # the surname (also Captain Janeway, Ensign Chekov, Dr. McCoy); taken only where the text writes exactly that
+    rank = re.match(r'^((?:Captain|Commander|Ensign|Lieutenant|Dr\.) )(?:[A-Z"][\w".\'-]* )+([A-Z][\w\'-]+)(?:,|$)', name)
+    if rank is not None and re.search(rf"(?<![\w-]){re.escape(rank[1] + rank[2])}(?![\w-])", text):
+        return rank[1] + rank[2]
     two = re.match(r"^([A-ZÀ-ÖØ-Þ][\w'-]+ [A-ZÀ-ÖØ-Þ][\w'-]+) (?:the|of) ", name)  # -- trigger tail (wave 15B) -- "Tor Wauki the Younger"
     if two is not None and re.search(rf"\b{re.escape(two[1])}\b", text):
         return two[1]
@@ -6510,6 +6515,10 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (reselection73 := attacker_reselection73.definition(ability, ch)) is not None:
         return reselection73
+    from app.rules import wave111g_triggers  # -- trigger other (wave 111G) -- Tuvok, U.S.S. Defiant
+
+    if (whole111g := wave111g_triggers.definition(ability, ch)) is not None:
+        return whole111g
     from app.rules import combat_conditional_requirements67
 
     if (conditional67 := combat_conditional_requirements67.definition(ability, ch)) is not None:
@@ -10403,7 +10412,7 @@ def _from_language(found: tuple[list[dict[str, Any]], Any] | None) -> tuple[list
 
 
 @effect(r"sacrifice (?P<o>them|those tokens|those creatures|the tokens|those permanents|that creature|that token|"
-        r"the token|that permanent|that card|the creature|that artifact)")  # (the creature / that artifact: wave 6A)
+        r"the token|that permanent|that card|the creature|that artifact|those lands)")  # (the creature / that artifact: wave 6A; -- trigger other (wave 111G) -- those lands: Will Riker)
 def _sacrifice_pronoun(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     from app.rules import language
 
