@@ -23,13 +23,44 @@ _BODIES = {
 
 def parse(body: str) -> Parsed | None:
     """The native reading of one of the exact bodies above, else None."""
-    from app.rules import scripts
+    from app.rules import scripts, selectors
 
+    if body.strip() == "Choose a counter on target enchantment you control. Put another counter of that kind on it.":
+        # Dathon, His Heart Open: Animation Module's "Choose a counter on target permanent. Give that permanent another counter of that kind." (one
+        # instruction, the kind chosen as it resolves, 608.2c; 122.1) with an enchantment you control as its target (115.1)
+        got = scripts.parse_effects("Choose a counter on target permanent. Give that permanent another counter of that kind.")
+        sel = selectors.parse("enchantment you control")
+        if got is None or got[1] != "sel:{}" or sel is None:
+            return None
+        return copy.deepcopy(got[0]), sel.key(), got[2]
     native = _BODIES.get(body.strip())
     if native is None:
         return None
     got = scripts.parse_effects(native)
     return copy.deepcopy(got) if got is not None else None
+
+
+_ABILITIES = {
+    # Tasha Yar, Out of Time: "this card" is the card its cost exiled (400.7j: the ability's effects can find it in exile), copied as embalm's is
+    # (702.128a, 707.2: its copiable values); the token is sacrificed by a delayed trigger (603.7)
+    "{2}{R}, Exile this card from your graveyard: Create a token that's a copy of this card. Sacrifice it at the beginning of the next end step. Activate "
+    "only as a sorcery.":
+        "{2}{R}, Exile this card from your graveyard: Create a token that's a copy of the card exiled to activate this ability. Sacrifice it at the "
+        "beginning of the next end step. Activate only as a sorcery.",
+    # Dathon, His Heart Open: in a cast trigger, "it" is the spell that was cast, judged as the trigger resolves (608.2h if it has left the stack)
+    "Whenever you cast an enchantment spell, draw a card. If it's a Saga spell, Dathon deals 2 damage to each opponent.":
+        "Whenever you cast an enchantment spell, draw a card. If that spell is a Saga, Dathon deals 2 damage to each opponent.",
+}
+
+
+def definition(ability: Any, ch: Any) -> dict[str, Any] | None:
+    """The definition of one of the exact abilities above, read as its native wording, else None."""
+    from dataclasses import replace
+
+    from app.rules import scripts
+
+    native = _ABILITIES.get(ability.text)
+    return scripts.define(replace(ability, text=native), ch) if native is not None else None
 
 
 def component(part: str) -> CostComponent | None:
