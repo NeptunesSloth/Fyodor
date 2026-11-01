@@ -499,6 +499,21 @@ def test_first_contact_gains_two_life_only_as_your_first_spell_of_the_game(cards
     check(s)
 
 
+def test_first_contact_cast_first_stays_the_first_spell_after_another_is_cast_in_response(cards):
+    """(review) "this spell is the first spell you've cast this game" is a fact about the order of the casts (601.2i): a spell cast after it,
+    in response, doesn't make First Contact any less the first one, so it still gains the life as it resolves."""
+    s = build(cards, ["First Contact", "Opt"])
+    act(s, "p1", type="set_prefs", hold_priority=True)
+    mana(s, G=1, C=1)
+    cast(s, "First Contact")
+    assert s.state.zones["stack"]
+    mana(s, U=1)
+    cast(s, "Opt")  # (in response: Opt resolves first)
+    decide(s)
+    assert life(s) == 42
+    check(s)
+
+
 @pytest.mark.parametrize("end", [False, True])
 def test_merciful_mandate_untaps_your_attackers_and_may_end_the_combat_phase(cards, end):
     """724.2: yes exiles the stack with the spell, and the game goes on to the postcombat main phase without combat damage."""

@@ -376,12 +376,13 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: dict[str, Any]) -> bool:
     r, who = plan.rules, ctx["controller"]
     if cond["w111c"] == "no_extra_turn":
         return r.extra_turn_begun111c is not None and who not in r.extra_turn_begun111c
-    if cond["w111c"] == "first_spell_game":  # 601.2i: this spell was cast, and it is the only spell its controller has cast this game (a copy wasn't cast, 707.10)
+    if cond["w111c"] == "first_spell_game":  # 601.2i: this spell was cast, and its controller cast no spell before it this game (a copy wasn't cast, 707.10)
         from app.game.rules_state import turn_log_now
 
         log = turn_log_now(plan.state)
         mine = [n for n in (log.casts if log is not None else []) if n.player == who]
-        return r.casts_game111c is not None and r.casts_game111c.get(who) == 1 and len(mine) == 1 and mine[0].object_id == ctx.get("source_object")
+        # (review: spells cast after it, in response, don't change which was first: every cast of the game is this turn's, and it is the first of them)
+        return r.casts_game111c is not None and r.casts_game111c.get(who) == len(mine) and bool(mine) and mine[0].object_id == ctx.get("source_object")
     return False
 
 
