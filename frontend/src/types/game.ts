@@ -254,6 +254,27 @@ export interface GameMeta {
   host_seat?: string | null;
   /** Game night: turn order and its d20 rolls, an agreed-ending proposal, the result and rematch vote. */
   night?: NightInfo;
+  /** Major public events of this game, newest last (docs/ELIMINATION_HUB.md); each id is announced once. */
+  events?: MajorEvent[];
+  /** Set only on a private practice table: the live game it belongs to (docs/ELIMINATION_HUB.md). */
+  practice?: PracticeInfo;
+}
+
+/** "Bob was eliminated.", "Final two players remain: …", "Alice wins." Built by the server from public facts only. */
+export interface MajorEvent {
+  id: string;
+  game: number | null;
+  kind: "out" | "final_two" | "result";
+  text: string;
+  players: string[];
+}
+
+/** Whose practice table this is: the live game, the seat there, and which game of the night it was opened in. */
+export interface PracticeInfo {
+  of: string;
+  seat: string;
+  game: number;
+  local: boolean;
 }
 
 export type NightResultType = "single" | "multiple" | "draw" | "no_result";

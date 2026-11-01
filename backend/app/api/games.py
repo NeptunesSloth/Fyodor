@@ -277,7 +277,8 @@ def _create_room(services: Services, session: GameSession, mode: str, password: 
 async def list_games(request: Request, services: ServicesDep) -> list[dict[str, Any]]:
     # (-- sync endpoints (wave 30B) -- on the event loop, see game_summary)
     local = is_local_request(request)
-    return [r.summary() for r in services.hub.rooms.values() if local or r.mode == "lan"]
+    # a practice table (elimination hub) is its owner's alone: never listed
+    return [r.summary() for r in services.hub.rooms.values() if (local or r.mode == "lan") and r.practice is None]
 
 
 @router.post("/games", status_code=201)
@@ -1134,6 +1135,8 @@ async def record_result(game_id: str, body: ResultIn, request: Request, services
 def record_game_result(services: Services, room: Room, result_type: str, winners: list[str], *, notes: str = "",
                        names: dict[str, str] | None = None, agreed: bool = False) -> dict[str, Any]:
     """Record the current game's result in pod stats and open the post-game vote (GAME_NIGHT_FLOW.md §5-6)."""
+    if room.practice is not None:  # (elimination hub) a practice table is never a pod game
+        raise HTTPException(409, "A practice table has no result to record")
     state = room.session.state
     participants = []
     for pid in state.seat_order:

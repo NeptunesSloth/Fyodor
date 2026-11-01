@@ -1,8 +1,33 @@
-# Plan: the elimination activity hub (not started)
+# The elimination activity hub (core built)
 
-Requested 2026-10-03, for later. Nothing here is built yet. Spectator side activities (PiP Practice Table,
-next-game queue, reactions, damage sandbox, fake-point predictions) extend this hub later:
-`SPECTATOR_ACTIVITIES_MILESTONE.md`.
+Requested 2026-10-03. Spectator side activities (PiP Practice Table, next-game queue, reactions, damage
+sandbox, fake-point predictions) extend this hub later: `SPECTATOR_ACTIVITIES_MILESTONE.md`.
+
+## What is built
+
+- **Hub** (`frontend/src/game/Eliminated.tsx`): after the ELIMINATED moment, Practice table, Opening hands,
+  Deck Lab, Keep watching, and links to Pod stats and the Card browser (new tabs, so the live seat stays put).
+  The "You're out · Things to do" pill brings the hub back.
+- **Spectate:** the eliminated seat keeps its ordinary per-seat view, which shows other players exactly what a
+  spectator sees (`tests/test_elimination_hub.py` checks REST and WebSocket payloads).
+- **Major public events** (`backend/app/multiplayer/elimination.py`, `Pulse`): "Bob was eliminated." / "conceded." /
+  "left the game.", "Final two players remain: …", "Alice wins." (from the recorded result only). Built from public
+  facts, each announced once per game, kept in memory (never saved), sent in every view as `game.events`. The live
+  table shows them as brief toasts (`MajorNotices.tsx`; the result is left to the result spotlight, your own
+  departure to your ELIMINATED moment); the practice pill shows them too.
+- **Practice Table** (`backend/app/api/practice.py`, `POST/DELETE /api/games/{id}/practice`): a separate one-seat
+  sandbox room built only from the player's own deck (guided opening hand, test cards allowed, rules off), with its
+  own seat token. Never listed, joinable by code, journaled, autosaved or recorded in pod stats; no host. Only for a
+  player who is out while the game goes on; resumed if they have one. `PracticeBar.tsx` keeps the live seat
+  connected, shows the live turn and events, has **Return to live game**, and brings the player back (putting the
+  practice table away) when the live game has a result or the pod moves on.
+- **Opening Hand Simulator:** Draw 7 / Mulligan / Draw a card / Reset, in the browser.
+- **Deck Lab** (`POST /api/games/{id}/deck-lab`): a copy of the deck brought to this game. On the host computer it is
+  a new library deck opened in the deck editor; on a guest's computer it is the list, edited in place and saved to that
+  browser's My decks. The match deck and its library original are never changed; the next deck is chosen in the lobby.
+
+Not built yet: dice / table toys, a Game Log link, and Deck Lab's compare view; a guest's Deck Lab is a plain list
+(the host computer's deck editor shows card types and the mana curve).
 
 **Goal:** a player knocked out early in a Commander game still has something fun or useful to do
 while their friends finish. Elimination must **not** mean "you lost, sit in spectator mode until

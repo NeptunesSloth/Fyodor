@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
-from app.api import assets, backups, cards, decks, games, health, macros, night, pod, rules, tools
+from app.api import assets, backups, cards, decks, games, health, macros, night, pod, practice, rules, tools
 from app.cards.repository import CardDatabaseUnavailable
 from app.config import Settings, get_settings
 from app.logging_setup import configure_logging
@@ -66,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(decks.router, prefix="/api")
     app.include_router(games.router, prefix="/api")
     app.include_router(night.router, prefix="/api")
+    app.include_router(practice.router, prefix="/api")
     app.include_router(pod.router, prefix="/api")
     app.include_router(assets.router, prefix="/api")
     app.include_router(macros.router, prefix="/api")

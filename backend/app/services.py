@@ -207,8 +207,8 @@ class Services:
         return used
 
     def autosave(self, room: Room) -> None:
-        if not room.started:
-            return  # nothing to save before the host starts the game
+        if not room.started or room.practice is not None:
+            return  # nothing to save before the host starts the game; a practice table is never saved (ELIMINATION_HUB.md)
         state = room.session.state
         saved = self.saves.save(state, room.session.history, name=f"{state.name} (autosave)", autosave=True,
                                 extras={"table_snapshots": room.session.table_snapshots})

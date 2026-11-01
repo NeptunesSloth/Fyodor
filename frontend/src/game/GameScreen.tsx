@@ -26,6 +26,7 @@ import "./rules/rules.css";
 import { resolveRenderer } from "../table3d/renderer";
 import { CombatLanes, CombatStrip } from "./CombatLanes";
 import { GameNight } from "./GameNight";
+import { MajorNotices } from "./MajorNotices";
 import { SignalLayer } from "./Signals";
 import { PingLayer } from "./Pings";
 import { DiceLayer } from "./DiceLayer";
@@ -131,6 +132,7 @@ export function GameScreen() {
       <PickLayer />
       {three && <CombatLanes />}
       <GameNight />
+      <MajorNotices />
       <SignalLayer />
       <PingLayer />
     </div>

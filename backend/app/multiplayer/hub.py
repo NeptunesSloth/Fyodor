@@ -22,6 +22,7 @@ from typing import Any, Literal
 from app.game.factory import PLAYER_COLORS
 from app.game.session import GameSession
 from app.game.visibility import OMNISCIENT, SPECTATOR
+from app.multiplayer.elimination import PracticeLink, Pulse
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
 from app.multiplayer.night import Night
 from app.storage.journal import RoomJournal
@@ -101,6 +102,8 @@ class Room:
     # client_action_id -> outcome ("ACCEPTED" / "REJECTED: …"): a retried action applies once.
     client_actions: dict[str, str] = field(default_factory=dict)
     night: Night = field(default_factory=Night)  # game night: turn order, agreed endings, rematch vote
+    pulse: Pulse = field(default_factory=Pulse)  # major public events of the current game (elimination hub)
+    practice: PracticeLink | None = None  # a private practice table (elimination hub): whose it is
 
     @property
     def id(self) -> str:
@@ -287,6 +290,15 @@ class GameHub:
         log.info("Created lobby %s (%s)", room.id, settings.name)
         return room
 
+    def create_practice(self, session: GameSession, link: PracticeLink) -> Room:
+        """A private practice table (ELIMINATION_HUB.md): one seat, no host, never listed, joined by code, journaled or saved."""
+        room = self._new_room(session.state.id, "lan", None)
+        room.game, room.practice = session, link
+        room.seats = {pid: Seat(player_id=pid) for pid in session.state.seat_order}
+        self.rooms[room.id] = room
+        log.info("Created practice table %s for %s at %s", room.id, link.seat, link.live)
+        return room
+
     def _new_room(self, game_id: str, mode: Mode, password: str | None) -> Room:
         room = Room(mode=mode, code=self._new_code(), host_token=secrets.token_urlsafe(24), game_id=game_id)
         if password:
@@ -305,7 +317,7 @@ class GameHub:
 
     def by_code(self, code: str) -> Room | None:
         code = code.strip().upper()
-        return next((r for r in self.rooms.values() if r.mode == "lan" and hmac.compare_digest(r.code, code)), None)
+        return next((r for r in self.rooms.values() if r.mode == "lan" and r.practice is None and hmac.compare_digest(r.code, code)), None)
 
     def close(self, game_id: str) -> None:
         room = self.rooms.pop(game_id, None)
@@ -330,7 +342,7 @@ class GameHub:
 
     def persist(self, room: Room) -> None:
         """Store the room's seats and tokens (started tables only)."""
-        if self.journal is None or not room.started:
+        if self.journal is None or not room.started or room.practice is not None:
             return
         try:
             self.journal.save_meta(room.id, self.meta(room))
@@ -549,6 +561,7 @@ class GameHub:
         return self.asset_info(ids) if ids else {}
 
     def view(self, room: Room, viewer: str) -> dict[str, Any]:
+        room.pulse.observe(room.session.state, room.night.number, room.night.result, room.seat_name)
         meta = {
             "mode": room.mode,
             "code": room.code if room.mode == "lan" else None,
@@ -558,7 +571,11 @@ class GameHub:
             "result_id": room.result_id,
             "assets": self._assets(room),
             "night": room.night.public(room.seat_name),
+            "events": room.pulse.public(),
         }
+        if room.practice is not None:  # a practice table has no code to share and no game night of its own
+            meta.update(code=None, practice=room.practice.public())
+            del meta["night"]
         return room.session.view(viewer, meta=meta)
 
     def after_change(self, room: Room) -> None:
