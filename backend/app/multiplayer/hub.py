@@ -23,7 +23,7 @@ from app.game.factory import PLAYER_COLORS
 from app.game.session import GameSession
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
-from app.multiplayer.night import Night
+from app.multiplayer.night import Night, follow_rules
 from app.storage.journal import RoomJournal
 
 log = logging.getLogger(__name__)
@@ -374,6 +374,7 @@ class GameHub:
             room.code = self._new_code()
         self.rooms[room.id] = room
         self.track(room)
+        follow_rules(room)  # -- rules result -- a table the rules had ended asks for its result again
         return room
 
     def remember_action(self, room: Room, client_action_id: str, outcome: str) -> None:
@@ -465,6 +466,7 @@ class GameHub:
         room.game = session
         room.phase = "playing"
         room.lobby_seats = {}
+        follow_rules(room)  # -- rules result -- a fresh game forgets the last one's ending
         self.track(room)
 
     # -- seats -----------------------------------------------------------------------
@@ -562,6 +564,7 @@ class GameHub:
         return room.session.view(viewer, meta=meta)
 
     def after_change(self, room: Room) -> None:
+        follow_rules(room)  # -- rules result -- the engine ended the game (or an undo took that back)
         self.persist(room)
         room.actions_since_save += 1
         if self._autosave and room.actions_since_save >= self.autosave_every:

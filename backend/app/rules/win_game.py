@@ -97,6 +97,11 @@ def finish_loss(plan: Plan, ctx: dict[str, Any], todo: list[str], lost: list[str
     if losers and len(left) == 1 and r.winner is None:
         r.winner = left[0]
         plan.note(f"{plan.name(left[0])} wins the game")
+    elif losers and not left and r.winner is None and r.draw_reason is None:  # -- rules result -- 104.4a
+        from app.rules.sba import DRAW_ALL_LOST
+
+        r.draw_reason = DRAW_ALL_LOST
+        plan.note("Every player still in the game lost at the same time: the game is a draw")
     return True
 
 

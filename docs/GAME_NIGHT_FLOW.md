@@ -117,6 +117,13 @@ Pods often know a game is over before every mechanical action is done.
 - If anyone declines, the game continues normally.
 - If everyone agrees, the result is recorded as an **AGREED RESULT**, kept distinct in game history
   from a result the rules engine determined. The log must never pretend the engine produced it.
+- **When the rules engine ends the game** (a last player standing or a win effect, 104.2; a draw, 104.4,
+  including everyone still in losing at once, 104.4a) the server opens this same proposal pre-filled with
+  the engine's result and why ("Bob lost (0 or less life)"). The players who were in the game when it
+  ended each confirm it with one click (one click settles it at a hot-seat table); it is recorded as the
+  engine's result ("Rules result: …" in pod stats, `rules` in the night result), and the spotlight and
+  rematch vote follow. "Not yet" leaves it to the pod (undo, or End game by hand); undoing the deciding
+  action withdraws it. Built in `app/multiplayer/night.py` (`follow_rules`, run after every change).
 
 ## 5. Winner spotlight
 
