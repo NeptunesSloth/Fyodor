@@ -234,7 +234,8 @@ def build_view(
                 {"key": c.commander_key, "name": c.name, "card_id": c.card_id, "instance_id": c.id if can_see(state, c, viewer) else None,
                  # -- review (sys 18A) -- 708.5: a face-down commander the viewer can't look at (manifested from a library, cast
                  # face down from a hand) isn't located for them: its zone would say which face-down permanent it is
-                 "zone": None if c.face_down and not can_see(state, c, viewer) else c.zone,
+                 # (soak: nor one in a hand or library they can't see: its zone would say when it is drawn, searched for or put back, 400.2)
+                 "zone": c.zone if can_see(state, c, viewer) else None,
                  "tax": state.players[c.owner].commander_tax.get(c.commander_key, 0),
                  "casts": state.players[c.owner].commander_casts.get(c.commander_key, 0)}
             )
