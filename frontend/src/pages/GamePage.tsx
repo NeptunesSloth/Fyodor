@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { GameScreen } from "../game/GameScreen";
+import { PracticeBar } from "../game/PracticeBar";
 import { rememberSeat, seatToken } from "../services/games";
 import { useGame } from "../state/gameStore";
 import { LobbyScreen } from "./LobbyScreen";
@@ -17,7 +18,12 @@ export function GamePage({ id, viewer }: { id: string; viewer: string | null }) 
   const lobby = useGame((s) => s.lobby);
   const view = useGame((s) => s.view);
   if (lobby && !view) return <LobbyScreen lobby={lobby} />;
-  return <GameScreen />;
+  return (
+    <>
+      <GameScreen />
+      <PracticeBar id={id} />
+    </>
+  );
 }
 
 /**
