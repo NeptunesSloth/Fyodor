@@ -514,13 +514,18 @@ def mana_activation_cost(state: GameState, card: CardInstance, ch: Characteristi
     return M.spend_as(cost, mode) if mode else cost
 
 
-def spend_allowed(kind: str | None, purpose: Purpose | None) -> bool:
-    """May mana with this spending restriction pay for ``purpose``?"""
+def spend_allowed(kind: str | None, purpose: Purpose | None, *, state: GameState | None = None, payer: str | None = None) -> bool:
+    """May mana with this spending restriction pay for ``purpose``? (``state`` / ``payer``: the game and the player whose mana it is, for a
+    restriction that reads more than the spell's characteristics: "your commander".)"""
     if kind is None:
         return True
     if purpose is None:
         return False
     spell, source = purpose.spell, purpose.ability_of
+    if kind == "commander":  # -- mana and sources (wave 111R2) -- 903.3, 903.3d: a spell that is the payer's commander (Queen's Diamond)
+        from app.rules import wave111r2_mana
+
+        return wave111r2_mana.commander_spell(state, payer, purpose)
     if kind.startswith(('cast_object:', 'cast_objects:')):
         if spell is None or purpose.spell_object is None:
             return False
@@ -607,7 +612,7 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
         # (wave 3E) an ability paying energy is activated by hand only: several sources sharing one
         # energy total aren't something the solver can split (118.3: no partial payment)
         abilities = [(i, ab) for i, ab in mana_abilities(state, card, info)
-                     if (usable_tap or not ab.tap) and spend_allowed(ab.spend_only, purpose) and any(ab.options)
+                     if (usable_tap or not ab.tap) and spend_allowed(ab.spend_only, purpose, state=state, payer=player) and any(ab.options)  # (wave 111R2: payer)
                      and not ab.chooses and ab.reveal_hand is None and ab.self_counter is None  # (wave 3R3: the payer's choice: by hand)
                      and (cid not in foreign or wave110j_final.plain_ability(ab))  # (wave 110J: a land Piracy lets you tap)
                      and not (ab.count or "").startswith("removed:")  # -- if you do (wave 6F) -- how many: by hand

@@ -345,3 +345,8 @@ def activate_from_hand(plan: Plan, card: CardInstance, ch: Any, ability: Any) ->
                  "producer_before_cost": asdict(producer_before_cost)}, added), "life": 0,
              "label": f"exiled {ch.name or 'a card'} from their hand: added {M.symbols(added)}"}, actor=plan.actor)
     emit(plan.state, "mana_added", object_id=None, card=card.id, player=plan.actor, amount=sum(added.values()))
+    # -- mana and sources (wave 111R2) -- 602.2, 605.3a: a mana ability activated from the hand is an activation like any other: "Whenever an
+    # opponent … activates an ability of a source with the chosen name" (Kai Winn, 109.2c) sees it (its source: the card it was, 113.7a)
+    from app.rules.triggers import activated as _activated111r2
+
+    _activated111r2(plan, card, source_object, mana_ability=True, actor=plan.actor, cost_has_tap=False)
