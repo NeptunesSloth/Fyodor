@@ -1,3 +1,23 @@
+## PR #35 FINISH — COMMANDER-ONLY, ALL CARDS FULL, FULL SUITES GREEN (2026-11-01)
+
+**32,068 FULL / 0 PARTIAL** of 32,068 Commander-legal cards; possible commanders **3,502 / 3,502**. Recounted with `python -m tools.commander_coverage` on `4c3a5ecd` (Scryfall `default_cards` 2026-10-30, CR 2026-09-25): 113,151 ability features, all automated, 0 unrecognized clauses. The 11 cards wave 110 left PARTIAL were finished by the wave 110J commits (each checked with `tools.card_check`). Draft [PR #35](https://github.com/NeptunesSloth/Fyodor/pull/35).
+
+Tests on `801c0fc6`, with the full card database at `data/cards.sqlite`:
+- **Backend: 39,056 collected; 39,051 passed, 0 failed, 4 skipped, 1 xfailed** (`pytest -n 4`, in eight file-ordered shards: one run here can't exceed two hours). Ruff and `mypy app` clean.
+- **Frontend:** typecheck, 151 vitest tests. **Playwright:** 33 passed, 6 skipped (screenshot specs that need `SHOT_DIR`), on `5f42554a`.
+- Fixed on the way: five mana test files (and `test_bloomsage_full`, which read an absolute path from one machine) needed `data/cards.sqlite` and failed without it; they now skip when it is missing, like `test_rules_review_core`.
+
+Decisions made in this PR (by the user):
+- **Commander only.** Constructed and Sandbox are gone from the New game form, lobby settings, deck importer and deck editor, and from the server (`GameState.format`, lobby and deck formats are `"commander"`). A saved Constructed or Sandbox game is refused with a clear reason; app DB migration 8 turns stored Constructed/Sandbox decks into Commander decks (cards kept), and decks sent with those formats open as Commander decks.
+- **Private diagnostics** leave out the state of a LAN game still being played (other players' hands), until its result is recorded.
+- **Moxfield links** are not fetched (no public API); the table importer says to paste Moxfield's text export instead. Archidekt links are fetched.
+
+Open items:
+- **Star Trek (`trk`, `trc`, released 2026-11-13):** 456 new cards, not yet legal so not in the count above. 267 are FULL already; 189 PARTIAL (83 of the 168 possible commanders). 160 of those use existing rules; 29 use mechanics the CR 2026-09-25 doesn't define yet (beam me up 11, face a dilemma 8, assimilate 7, Battlefront 3) and wait for the CR update. After release and a card DB update the recount will show these.
+- GitHub Actions jobs get no runner (they fail in about a second without running), so CI gives no signal. A repository or account setting.
+- Wave 110 fold-in pass: partly done (`exact_ability.build` shares the table tail; Clara Oswald's pregame color folded in). The wave-module registry and helper dedupe remain; internal only.
+- The wave 110 UI follow-ups (library-top actions, Channel, Chorus, Leonin Arbiter's label) are done (`23f14465`).
+
 ## WAVE 110 — CARD AUTOMATION NEAR-COMPLETE
 
 **32,057 FULL / 11 PARTIAL** of 32,068 Commander-legal cards (possible commanders: 3,497 / 3,502), from `tools.commander_coverage` on `aaf0cf99`. Draft [PR #25](https://github.com/NeptunesSloth/Fyodor/pull/25).
