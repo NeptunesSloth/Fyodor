@@ -8,12 +8,15 @@ import { usePrefs } from "../state/prefs";
 import { SPECTATOR, type GameView, type NightInfo } from "../types/game";
 import { Eliminated } from "./Eliminated";
 import { useIsHost } from "./HostTools";
+import { proposalSeat, showEliminated } from "./nightEnding";
 import "./night.css";
 
 /*
  * Game night moments (docs/GAME_NIGHT_FLOW.md): the short pre-game intro with the turn order and
  * its d20 rolls, a 3-2-1 countdown, the agree/decline bar for a proposed ending, and the result
- * spotlight with the rematch vote. Every number here comes from the server; the client only shows it.
+ * spotlight with the rematch vote. Every number here comes from the server; the client only shows it. When the rules
+ * engine ends the game the server opens the same proposal with the engine's result, so the spotlight and the vote follow
+ * once the players confirm it.
  * Nothing blocks the game: the intro and the spotlight are skippable (click, Space, Esc) and scaled
  * by the player's animation speed; reduced motion keeps the fades and drops the movement.
  */
@@ -82,13 +85,11 @@ export function GameNight() {
   );
 }
 
-/** The eliminated player's own moment (others never see it); gone once the game has a result. */
+/** The eliminated player's own moment (others never see it); gone once the game has a result or the rules ended it. */
 function Out({ view }: { view: GameView }) {
   const actingAs = useGame((s) => s.actingAs);
   const me = perspective(view, actingAs);
-  const r = view.rules;
-  const out = view.viewer !== SPECTATOR && !!r && (r.conceded.includes(me) || me in r.lost) && !view.game.night?.result;
-  if (!out) return null;
+  if (!showEliminated(view, me)) return null;
   return <Eliminated key={`${me}-${view.game.night?.number}`} view={view} me={me} sceneOn={scenesOn()} />;
 }
 
@@ -178,27 +179,18 @@ function CommanderArt({ view, pid }: { view: GameView; pid: string }) {
   );
 }
 
-// --------------------------------------------------------------------------- agreed ending
-
-function remaining(view: GameView): string[] {
-  const r = view.rules;
-  return view.seat_order.filter((pid) => !view.players.find((p) => p.id === pid)?.left && !(r && (r.conceded.includes(pid) || pid in r.lost)));
-}
+// --------------------------------------------------------------------------- agreed ending (and the rules result)
 
 function ProposalBar({ view, night }: { view: GameView; night: NightInfo }) {
   const actingAs = useGame((s) => s.actingAs);
   const [busy, setBusy] = useState(false);
   const p = night.proposal;
-  if (!p || night.result) return null;
   const me = perspective(view, actingAs);
+  const seat = proposalSeat(view, me);
+  if (!p || !seat) return null;
   const local = view.game.mode === "local";
-  const live = remaining(view);
-  const waiting = live.filter((pid) => !p.agreed.includes(pid));
+  const { what, waiting, mustAnswer } = seat;
   const nameOf = (pid: string) => view.players.find((x) => x.id === pid)?.name ?? pid;
-  const what = p.result_type === "single" || p.result_type === "multiple"
-    ? `${p.winner_names.join(" and ")} ${p.winner_names.length === 1 ? "wins" : "win"}`
-    : p.result_type === "draw" ? "a draw" : "no result";
-  const mustAnswer = live.includes(me) && !p.agreed.includes(me) && view.viewer !== SPECTATOR;
   const answer = async (agree: boolean) => {
     setBusy(true);
     try {
@@ -209,6 +201,28 @@ function ProposalBar({ view, night }: { view: GameView; night: NightInfo }) {
       setBusy(false);
     }
   };
+  if (seat.rules) {
+    return (
+      <div className="night-proposal plaque-wrap" role="alertdialog" aria-label="The rules ended the game" data-testid="night-rules-result">
+        <div className="plaque night-proposal-body">
+          <p>The rules ended the game: <b>{what}</b>.</p>
+          <p className="night-proposal-wait">{seat.rules}.</p>
+          <p className="night-proposal-wait">
+            {local ? "Confirm to record the result." : waiting.length ? `Waiting for ${waiting.map(nameOf).join(", ")} to confirm.` : "Everyone confirmed."}
+            {!local && " Everyone in the game when it ended confirms; undo takes it back."}
+          </p>
+          {mustAnswer && (
+            <div className="night-actions">
+              <button className="tt-btn" disabled={busy} data-testid="rules-result-later" onClick={() => void answer(false)}
+                title="Leave it to the table: undo the last action, or record the result by hand with End game">Not yet</button>
+              <button className="tt-btn brass" data-testid="rules-result-confirm" disabled={busy} onClick={() => void answer(true)}
+                title="Record this result; the result and the rematch vote follow">Confirm result</button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="night-proposal plaque-wrap" role="alertdialog" aria-label="Proposal to end the game" data-testid="night-proposal">
       <div className="plaque night-proposal-body">
@@ -222,7 +236,7 @@ function ProposalBar({ view, night }: { view: GameView; night: NightInfo }) {
               <button className="tt-btn" disabled={busy} onClick={() => void answer(false)}>{local ? `${nameOf(me)} declines` : "Decline"}</button>
               <button className="tt-btn brass" data-testid="proposal-agree" disabled={busy} onClick={() => void answer(true)}>{local ? `${nameOf(me)} agrees` : "Agree"}</button>
             </>
-          ) : p.by === me ? (
+          ) : seat.canWithdraw ? (
             <button className="tt-btn" disabled={busy} onClick={() => void answer(false)}>Withdraw</button>
           ) : null}
         </div>

@@ -289,6 +289,22 @@ export interface PracticeInfo {
 
 export type NightResultType = "single" | "multiple" | "draw" | "no_result";
 
+/**
+ * A proposal to end the game. A player's own (`rules` null): every player still in the game agrees. The rules engine's result
+ * (`rules` says why, `by_name` is "The rules"): the server opens it when the engine ends the game, and each player in
+ * `voters` (the players in the game when it ended) confirms it; an undo of the deciding action withdraws it.
+ */
+export interface NightProposal {
+  by: string;
+  by_name: string;
+  result_type: NightResultType;
+  winners: string[];
+  winner_names: string[];
+  agreed: string[];
+  rules?: string | null;
+  voters?: string[];
+}
+
 /** Everything here is public (docs/GAME_NIGHT_FLOW.md). Seats are this game's player ids. */
 export interface NightInfo {
   number: number;
@@ -296,10 +312,11 @@ export interface NightInfo {
   /** d20 rounds: the first is everyone, later ones are tie-breaks among the tied players. */
   rolls: Record<string, number>[];
   previous_winner: string | null;
-  proposal: { by: string; by_name: string; result_type: NightResultType; winners: string[]; winner_names: string[]; agreed: string[] } | null;
-  result: { result_type: NightResultType; winners: string[]; winner_names: string[]; agreed: boolean } | null;
+  proposal: NightProposal | null;
+  /** `rules`: the rules engine decided it and the players confirmed it (never set with `agreed`). */
+  result: { result_type: NightResultType; winners: string[]; winner_names: string[]; agreed: boolean; rules?: boolean } | null;
   votes: Record<string, "rematch" | "lobby">;
-  history: { number: number; result_type: NightResultType; winner_names: string[]; agreed: boolean; order: string[]; turns: number }[];
+  history: { number: number; result_type: NightResultType; winner_names: string[]; agreed: boolean; rules?: boolean; order: string[]; turns: number }[];
 }
 
 /** How opening hands work at this table (see docs/MULLIGAN_RULES.md). */

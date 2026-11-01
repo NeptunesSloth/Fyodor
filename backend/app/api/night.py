@@ -3,6 +3,9 @@
 * **Propose / answer:** any remaining player proposes ending the game with a result; it is recorded
   only when every remaining player agrees, and it is marked as an agreed result, never as one the
   rules engine decided. One decline and the game simply continues.
+* **Rules result:** when the rules engine ends the game (a winner, 104.2, or a draw, 104.4) the server opens the same
+  proposal with the engine's result (``app.multiplayer.night.follow_rules``); the players who were in the game when it ended
+  each confirm it with one click, and it is recorded as the engine's result. Undoing the deciding action withdraws it.
 * **Vote:** after a recorded result each seated player picks Rematch (same decks) or Lobby. Everyone
   rematch: a brand-new game at the same table. Anyone lobby: the pod goes back to the lobby with
   every deck still selected. The host can settle a vote that hangs (someone left or disconnected).
@@ -100,15 +103,23 @@ async def answer_proposal(game_id: str, body: AnswerIn, request: Request, servic
     async with room.lock:
         actor = _actor(room, request, x_seat_token, body.as_player)
         night = room.night
-        if night.proposal is None:
+        proposal = night.proposal
+        if proposal is None:
             raise HTTPException(409, "Nobody has proposed ending the game")
-        if actor not in remaining(room.session.state):
+        if proposal.rules is not None:  # -- rules result -- the players in the game when it ended confirm it
+            if room.mode != "local" and actor not in proposal.voters:
+                raise HTTPException(403, "Only the players still in the game when it ended confirm this")
+        elif actor not in remaining(room.session.state):
             raise HTTPException(403, "Only players still in the game answer this")
         if not body.agree:
             night.proposal = None
-            room.session.notice(f"{room.seat_name(actor)} declined. The game continues.")
+            if proposal.rules is not None:
+                room.session.notice(f"{room.seat_name(actor)} didn't confirm the rules result. Undo to take back the last action, "
+                                    "or record the result by hand with End game.")
+            else:
+                room.session.notice(f"{room.seat_name(actor)} declined. The game continues.")
         else:
-            night.proposal.agreed.add(actor)
+            proposal.agreed.add(actor)
             _settle_proposal(services, room)
     await services.hub.broadcast(room)
     return room.night.public(room.seat_name)
@@ -122,7 +133,15 @@ def _describe(room: Room, p: Proposal) -> str:
 
 def _settle_proposal(services: Services, room: Room) -> None:
     p = room.night.proposal
-    if p is not None and set(remaining(room.session.state)) <= p.agreed:
+    if p is not None and p.rules is not None:
+        # -- rules result -- recorded as the engine's result once every player in the game at the end confirmed it (a seat
+        # nobody has taken can't answer, so it isn't waited for); one person runs a hot-seat table: their click settles it
+        state = room.session.state
+        needed = {pid for pid in p.voters if pid in state.players and not state.players[pid].left
+                  and (room.mode == "local" or (pid in room.seats and room.seats[pid].token))}
+        if room.mode == "local" or needed <= p.agreed:
+            record_game_result(services, room, p.result_type, p.winners, rules=p.rules)
+    elif p is not None and set(remaining(room.session.state)) <= p.agreed:
         record_game_result(services, room, p.result_type, p.winners, agreed=True)
 
 

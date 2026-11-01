@@ -11,13 +11,20 @@ others keep their relative order. Clients never roll or decide anything.
 
 from __future__ import annotations
 
+import logging
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.factory import PlayerSetup
+from app.game.state import GameState
 from app.multiplayer.lobby import LobbySeatInfo
+
+if TYPE_CHECKING:
+    from app.multiplayer.hub import Room
+
+log = logging.getLogger(__name__)
 
 OrderSource = Literal["d20", "winner_last", "host"]
 Choice = Literal["rematch", "lobby"]
@@ -57,16 +64,24 @@ def winner_last(order: list[str], winner: str) -> list[str]:
 
 @dataclass
 class Proposal:
-    """A player's proposal to end the game now with a given result; every remaining player must agree."""
+    """A player's proposal to end the game now with a given result; every remaining player must agree.
+
+    -- rules result -- or the rules engine's own result, opened by the server when the engine ends the game (104.1):
+    ``rules`` says why (public: the losses and draw reasons are in every view already), ``voters`` are the players who were
+    still in the game when it ended, and each confirms it with one click (at a hot-seat table one click settles it)."""
 
     by: str
     result_type: ResultType
     winners: list[str]
     agreed: set[str] = field(default_factory=set)
+    rules: str | None = None
+    voters: list[str] = field(default_factory=list)
 
     def public(self, names: Callable[[str], str]) -> dict[str, Any]:
-        return {"by": self.by, "by_name": names(self.by), "result_type": self.result_type, "winners": list(self.winners),
-                "winner_names": [names(w) for w in self.winners], "agreed": sorted(self.agreed)}
+        return {"by": self.by, "by_name": "The rules" if self.rules is not None else names(self.by),
+                "result_type": self.result_type, "winners": list(self.winners),
+                "winner_names": [names(w) for w in self.winners], "agreed": sorted(self.agreed),
+                "rules": self.rules, "voters": list(self.voters)}
 
 
 @dataclass
@@ -88,6 +103,9 @@ class Night:
     last_winner_key: str | None = None
     # Monotonic times of recent nudges / reactions (rate limits; in memory only, never sent or saved).
     signals: dict[str, float] = field(default_factory=dict)
+    # -- rules result -- the engine's ending ("win:p2", "draw:<reason>") the last change of the table showed, None while the
+    # game goes on; in memory only, so a restored table asks again
+    rules_end: str | None = None
 
     def result_key(self, room_id: str) -> str:
         """The pod-stats game id of the current game (game 1 keeps the room id; later games add #n)."""
@@ -141,3 +159,80 @@ class Night:
         night.history = list(meta.get("history") or [])
         night.last_winner_key = meta.get("last_winner_key")
         return night
+
+
+# --------------------------------------------------------------------------- rules result
+
+
+def still_in(state: GameState) -> list[str]:
+    """Players still in the game: not removed from the table, not conceded or lost (800.4a)."""
+    r = state.rules
+    return [pid for pid in state.seat_order
+            if not state.players[pid].left and (r is None or (pid not in r.conceded and pid not in r.lost))]
+
+
+def rules_ending(state: GameState) -> tuple[str, ResultType, list[str]] | None:
+    """The rules engine's verdict once it has ended the game (104.1): a winner (104.2) or a draw (104.4)."""
+    r = state.rules
+    if r is None:
+        return None
+    if r.winner is not None:
+        return f"win:{r.winner}", "single", [r.winner]
+    if r.draw_reason is not None:
+        return f"draw:{r.draw_reason}", "draw", []
+    return None
+
+
+def _finalists(room: Room) -> list[str]:
+    """The players who were in the game just before the action that ended it, read back from the history (so a table loaded
+    from a save or restored after a crash knows them too)."""
+    session = room.session
+    state = session.state
+    history = session.history
+    if history.cursor > 0:
+        try:
+            before = still_in(history.state_at(history.cursor - 1))
+            return [pid for pid in before if pid in state.players and not state.players[pid].left]
+        except Exception:  # noqa: BLE001 - who confirms is a courtesy; a history that can't replay falls back below
+            log.exception("Could not read the table before the game ended")
+    return still_in(state) or [pid for pid in state.seat_order if not state.players[pid].left]
+
+
+def follow_rules(room: Room) -> None:
+    """-- rules result -- after every change of a started table (GAME_NIGHT_FLOW.md §4-5): when the rules engine has just
+    ended the game, open the end-game proposal with its result, so the spotlight and the rematch vote follow once the players
+    confirm it; when an undo (or a restored snapshot) takes the ending back, withdraw it. Nothing is recorded here, and a
+    declined rules result stays declined until the ending changes."""
+    if room.game is None:
+        return
+    session = room.game
+    state = session.state
+    night = room.night
+    ending = rules_ending(state)
+    key = ending[0] if ending else None
+    if key == night.rules_end:
+        return
+    night.rules_end = key
+    current = night.proposal
+    if current is not None and current.rules is not None:
+        night.proposal = None
+        if ending is None:
+            session.notice("The game-ending action was taken back, so the rules result is withdrawn. The game goes on.")
+    if ending is None or night.result is not None or room.result_id is not None or len(state.seat_order) < 2:
+        return
+    _, result_type, winners = ending
+    r = state.rules
+    assert r is not None
+    finalists = _finalists(room)
+    # whoever conceded chose to leave: they don't confirm (the others do, the loser of the deciding action included)
+    voters = [pid for pid in finalists if pid not in r.conceded] or still_in(state) or finalists
+    if result_type == "draw":
+        reason = r.draw_reason or "The game is a draw"
+        what = "a draw"
+    else:
+        why = [f"{room.seat_name(pid)} conceded" if pid in r.conceded else f"{room.seat_name(pid)} lost ({r.lost[pid]})"
+               for pid in finalists if pid in r.conceded or pid in r.lost]
+        reason = "; ".join(why) or f"{room.seat_name(winners[0])} is the last player in the game"
+        what = f"{room.seat_name(winners[0])} wins"
+    night.proposal = Proposal(by="", result_type=result_type, winners=list(winners), rules=reason, voters=voters)
+    session.notice(f"The rules ended the game: {what}. {reason[:1].upper()}{reason[1:]}. Confirm the result to record it.")

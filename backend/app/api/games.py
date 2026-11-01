@@ -42,6 +42,7 @@ from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room
 from app.multiplayer.lobby import DeckTooLarge, LobbySeatInfo, LobbySettings, SubmittedDeck, check_bounds
+from app.multiplayer.night import follow_rules
 from app.rules import commander as commander_rules
 from app.rules import coverage
 from app.services import Services
@@ -261,6 +262,7 @@ def _create_room(services: Services, session: GameSession, mode: str, password: 
     room = services.hub.create_room(session, mode=mode, password=password)  # type: ignore[arg-type]
     recorded = services.stats.for_game(room.id)
     room.result_id = recorded["id"] if recorded else None
+    follow_rules(room)  # -- rules result -- a loaded game the rules already ended asks for its result
     result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
     if mode == "lan" and host_seat:
         viewer, token = services.hub.claim_seat(room, name=None, seat=host_seat if host_seat in room.seats else None)
@@ -1134,8 +1136,10 @@ async def record_result(game_id: str, body: ResultIn, request: Request, services
 
 
 def record_game_result(services: Services, room: Room, result_type: str, winners: list[str], *, notes: str = "",
-                       names: dict[str, str] | None = None, agreed: bool = False) -> dict[str, Any]:
-    """Record the current game's result in pod stats and open the post-game vote (GAME_NIGHT_FLOW.md §5-6)."""
+                       names: dict[str, str] | None = None, agreed: bool = False, rules: str | None = None) -> dict[str, Any]:
+    """Record the current game's result in pod stats and open the post-game vote (GAME_NIGHT_FLOW.md §5-6).
+
+    ``rules``: the rules engine decided it (why), and the players confirmed it (``app.multiplayer.night.follow_rules``)."""
     if room.practice is not None:  # (elimination hub) a practice table is never a pod game
         raise HTTPException(409, "A practice table has no result to record")
     state = room.session.state
@@ -1148,6 +1152,8 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
                                         deck_name=p.deck_name, commanders=commanders))
     if agreed:
         notes = ("Agreed result: every remaining player agreed to end the game. " + notes).strip()
+    elif rules:
+        notes = (f"Rules result: {rules}. " + notes).strip()
     try:
         result = services.stats.record(
             game_id=room.night.result_key(room.id), result_type=result_type,  # type: ignore[arg-type]
@@ -1162,12 +1168,12 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
     night = room.night
     night.proposal = None
     night.result = {"result_type": result_type, "winners": list(winners), "winner_names": list(result["winners"]),
-                    "agreed": agreed}
+                    "agreed": agreed, "rules": rules is not None}
     night.votes = {}
     single = result_type == "single" and len(winners) == 1
     night.last_winner_key = (room.seats[winners[0]].token or winners[0]) if single and winners[0] in room.seats else None
     night.history.append({"number": night.number, "result_type": result_type, "winner_names": list(result["winners"]),
-                          "agreed": agreed, "order": [state.players[pid].name for pid in state.seat_order],
+                          "agreed": agreed, "rules": rules is not None, "order": [state.players[pid].name for pid in state.seat_order],
                           "turns": state.turn.number, "minutes": max(0, round((time.time() - state.created_at) / 60)),
                           "commanders": {state.players[pid].name: sorted({c.name for c in state.cards.values()
                                                                            if c.commander_key and c.owner == pid})
@@ -1178,6 +1184,8 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
             "draw": "a draw", "no_result": "no result (not counted)"}[result_type]
     if agreed:
         room.session.notice(f"Game over by agreement — {what}. This result was agreed by the players, not decided by the rules.")
+    elif rules is not None:
+        room.session.notice(f"Game over by the rules — {what}. The players confirmed it; result recorded.")
     else:
         room.session.notice(f"Game over — {what}. Result recorded.")
     return result
