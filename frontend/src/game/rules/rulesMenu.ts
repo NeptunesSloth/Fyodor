@@ -172,6 +172,19 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
         onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
     });
   }
+  // -- abilities in exile (wave 111R1) -- 113.6b: an ability that works while its card is exiled ("… Activate only during your turn
+  // and only if this card is exiled.", which Q, Stacking the Deck grants to a card it exiles). Read from the server's list of the
+  // card's abilities (stable index, granted ones included) and enabled only when the server says it can be activated now.
+  if (mine && zone === "exile") {
+    const listed = (i: number) => hints.activatable?.find((a) => a.card_id === card.id && a.ability === i);
+    for (const ability of rules.stats?.[card.id]?.abilities ?? []) {
+      const now = listed(ability.index);
+      if (!now && !/\bif this card is exiled\b/i.test(ability.text)) continue;
+      const line = ability.text.replace(/\s*\(.*$/, "");
+      items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !now,
+        onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: ability.index }) });
+    }
+  }
   if (mine && zone === "hand" && (morph || disguise)) {
     items.push({ label: `Cast face down (${morph ? "morph" : "disguise"}, {3})`, onClick: () => void send({ type: "cast_spell", card_id: card.id, face_down: true }) });
   }

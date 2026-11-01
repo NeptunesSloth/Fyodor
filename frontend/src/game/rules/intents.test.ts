@@ -259,6 +259,26 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "cast_spell", card_id: "x1" }]);
   });
 
+  it("offers an ability that works in exile (Q, Stacking the Deck's grant), enabled only when the server lists it (113.6b)", () => {
+    const granted = { index: 2, kind: "activated",
+      text: "Exile a card from your hand: Create a copy of this card. You may cast the copy. Activate only during your turn and only if this card is exiled." };
+    const base = view({ ...RULES, hints: { activatable: [{ card_id: "x1", ability: 2 }] },
+      stats: { x1: { abilities: [granted] }, x2: { abilities: [granted] }, x3: { abilities: [{ index: 0, kind: "activated", text: "{T}: Draw a card." }] } } });
+    const v = { ...base, cards: { ...base.cards, x1: card("x1", "p1:exile", "bolt"), x2: card("x2", "p1:exile", "bolt"),
+      x3: card("x3", "p1:exile", "bolt"), x4: card("x4", "p2:exile", "bolt") } } as unknown as GameView;
+    const [now] = rulesMenu(v.cards.x1!, v, "p1").filter((i) => i !== "separator" && i.label.startsWith("Activate:"));
+    if (!now || now === "separator") throw new Error("expected Activate");
+    expect(now.disabled).toBe(false);
+    now.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "x1", ability: 2 }]);
+    // the same ability not usable right now (not your turn): shown, disabled
+    const later = rulesMenu(v.cards.x2!, v, "p1").find((i) => i !== "separator" && i.label.startsWith("Activate:"));
+    expect(later && later !== "separator" && later.disabled).toBe(true);
+    // an ordinary ability of an exiled card isn't offered, nor anything on another player's exiled card
+    expect(labels(rulesMenu(v.cards.x3!, v, "p1")).some((l) => l.startsWith("Activate:"))).toBe(false);
+    expect(labels(rulesMenu(v.cards.x4!, v, "p1")).some((l) => l.startsWith("Activate:"))).toBe(false);
+  });
+
   it("offers morph: cast face down from hand, turn face up on the battlefield", () => {
     const base = view(RULES);
     const v = { ...base, cards: { ...base.cards, mh: card("mh", "p1:hand", "slinger"), mb: { ...card("mb", "p1:battlefield", "slinger"), face_down: true } } } as unknown as GameView;
