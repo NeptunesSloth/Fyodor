@@ -141,6 +141,11 @@ def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bo
         if tapped_if_land and "Land" in plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"), "controller": controller})).types:
             out["tapped"] = True
         out["tapped"] = out["tapped"] or others_enter_tapped(plan, card, controller)
+        from app.rules import (
+            wave111r3_enter,  # -- enters attacking (wave 111R3) -- another permanent's replacement still applies (614.12)
+        )
+
+        wave111r3_enter.plan_entry(plan, card, controller, answers, out)
         return out
     # -- copy system (wave 2F): "You may have ~ enter as a copy of …" (707.5, 614.12a): chosen first;
     # then the rest of this plan reads the copied text (app/rules/copying.py) --
@@ -163,6 +168,11 @@ def _entry_plan(plan: Plan, card: CardInstance, controller: str, *, pay_life: bo
 
     battles.entry_choice(plan, plan.ch(card.model_copy(update={"zone": zone_key(controller, "battlefield"),
                                                                 "controller": controller})), controller, answers, out)
+    from app.rules import (
+        wave111r3_enter,  # -- enters attacking (wave 111R3) -- 614.1d, 614.12a: tapped, and what it attacks (508.4)
+    )
+
+    wave111r3_enter.plan_entry(plan, card, controller, answers, out)
     entry_x = int((x if x is not None else card.stack_info.x if card.zone == "stack" and card.stack_info is not None else 0) or 0)
     for d in defs:
         kind = d["replacement"]
@@ -652,6 +662,10 @@ def choice_prompt(plan: Plan, card: CardInstance, controller: str, choice: dict[
 
     if what == battles.PROTECTOR:  # 310.9a / 310.12a
         return f"{card.name}: as it enters, choose its protector", battles.choice_options(plan, controller, card)
+    from app.rules import wave111r3_enter
+
+    if what == wave111r3_enter.WHAT:  # -- enters attacking (wave 111R3) -- 508.4
+        return wave111r3_enter.prompt(plan, card, controller)
     from app.rules import chosen
 
     if (picks := chosen.words(what)) is not None:  # -- linked words (wave 33B) -- 607.2f
@@ -1161,6 +1175,11 @@ def _after_entry(plan: Plan, card_id: str, controller: str, *, x: int | None = N
         from app.rules import text_global_word71
 
         text_global_word71.record_entry(plan, card_id, controller, choices)
+        from app.rules import (
+            wave111r3_enter,  # -- enters attacking (wave 111R3) -- 508.4: attacking what was chosen as it entered
+        )
+
+        wave111r3_enter.entered(plan, card_id, controller, choices)
     # -- replacement effects stage 2 (wave 2E): the counters it enters with, through the counter
     # choke point (122.6, 614.16), in the order its controller chose before it entered (614.12a) --
     from app.rules import (
@@ -1303,6 +1322,14 @@ def token_choices(plan: Plan, evs: list[dict[str, Any]], answers: dict[str, str]
             if ask is not None:
                 return rows, {**ask, "source": ev.get("source")}
             row[k] = {**row[k], **dev}
+            from app.rules import (
+                wave111r3_enter,  # -- enters attacking (wave 111R3) -- 508.4, 614.12a: each token's own question
+            )
+
+            got111r3, ask111r3 = wave111r3_enter.token_question(plan, pid, token_copy_entry.effective(ev, row[k]), ev, f"{ENTER}{n + k}:{wave111r3_enter.WHAT}", answers)
+            if ask111r3 is not None:
+                return rows, {**ask111r3, "source": ev.get("source")}
+            row[k] = {**row[k], **got111r3}
             if (one := token_entering(plan, pid, token_copy_entry.effective(ev, row[k]))) is not None:
                 probe, defs = one
                 got: dict[str, str] = {}

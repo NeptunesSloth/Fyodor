@@ -285,6 +285,12 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
         out["x_kicker"] = x_kicker
     if chorus := [cid for cid in out["castable"] if wave110c_chorus.offered(state, viewer, state.cards[cid], chars.of(state.cards[cid], info), info)]:
         out["chorus"] = chorus  # -- Chorus of the Conclave (wave 110C) -- castable cards whose cast may carry CastSpell.chorus (601.2b, 0-1000)
+    from app.rules import (
+        wave111r3_replicate,  # -- granted replicate (wave 111R3) -- card id → the labels of CastSpell.replicate's counts (702.56b)
+    )
+
+    if replicated := {cid: labels for cid in out["castable"] if (labels := wave111r3_replicate.hint(state, viewer, state.cards[cid], info))}:
+        out["replicate111r3"] = replicated
     # (wave 3C) cards a permission lets you cast without paying their mana costs
     out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info)]
     # -- cost changers (wave 4I) -- alternative costs written on cards (118.9): card id → [{"id", "label"}]

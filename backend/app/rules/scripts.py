@@ -6064,6 +6064,12 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
+    from app.rules import (
+        wave111r3_enter,  # -- enters attacking (wave 111R3) -- Kira Nerys, Firebrand (614.1d, 508.4)
+    )
+
+    if (enter111r3 := wave111r3_enter.definition(ability, ch)) is not None:
+        return enter111r3
     from app.rules import wave111e_trek  # -- Star Trek (wave 111E) -- exact wordings
 
     if (trek111e := wave111e_trek.definition(ability, ch)) is not None:

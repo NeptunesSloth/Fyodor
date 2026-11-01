@@ -354,6 +354,11 @@ def enter(plan: Plan, entries: list[dict[str, Any]], ctx: dict[str, Any] | None,
     for back in (e for e in entries if e.get("to") in ("hand", "graveyard")):  # -- resolution memory (wave 22D) -- 610.3: exiled from a hand, returns there
         plan.do({"type": "move", "card_ids": [back["card"]], "to": {"player": back["player"], "zone": back["to"]}}, actor=back["actor"])
     entries = [dict(e) for e in entries if e.get("to") not in ("hand", "graveyard")]
+    from app.rules import (
+        wave111r3_enter,  # -- enters attacking (wave 111R3) -- what an attacking instruction puts there it makes attacking itself (508.4)
+    )
+
+    wave111r3_enter.mark(plan, entries, ctx)
     for i, entry in enumerate(entries):
         card = plan.state.cards.get(entry["card"])
         if card is not None:

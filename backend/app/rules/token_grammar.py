@@ -476,7 +476,7 @@ def enter_attacking(plan: Plan, ctx: dict[str, Any], made: list[str], at: dict[s
     their controller is asked whom they attack. (wave 38B: ``pid``, their controller when it isn't the ability's.)"""
     pid = pid or ctx["controller"]
     new = [c for c in made if (card := plan.state.cards.get(c)) is not None and card.controller == pid and card.zone.endswith(":battlefield")
-           and plan.ch(card).is_creature]
+           and plan.ch(card).is_creature and not (at is None and card.is_attacking)]  # (-- wave 111R3 -- entered attacking already, its 508.4 choice made: Kira Nerys)
     if not new or plan.state.turn.phase not in _ATTACKING_PHASES or pid != plan.active:
         return True
     options = attack_options(plan, ctx, pid, at)
@@ -501,12 +501,14 @@ def _attack_with(plan: Plan, cards: list[str], target: str, actor: str) -> None:
     if kind == "player" and target not in plan.live():
         return  # 508.4a: that player left the game
     if cards:
+        fresh = [c for c in cards if not plan.state.cards[c].is_attacking]  # (-- wave 111R3 -- one that entered attacking already doesn't enter attacking again)
         plan.do({"type": "attack", "card_ids": cards, "target": {"kind": kind, "id": target}}, actor=actor)
         from app.rules import (
             triggers,  # -- enters attacking (wave 110C) -- 508.4: they never "attacked", but "enters attacking" triggers (Arni Metalbrow)
         )
 
-        triggers.generic_combat(plan, "enter_attacking", [plan.state.cards[c] for c in cards])
+        if fresh:
+            triggers.generic_combat(plan, "enter_attacking", [plan.state.cards[c] for c in fresh])
 
 
 def resume_token_attack(plan: Plan, d: Any, chosen: list[str]) -> None:

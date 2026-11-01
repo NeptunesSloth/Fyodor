@@ -141,7 +141,8 @@ def grant_offspring(t: str) -> dict[str, Any] | None:
 
 
 def with_replicate(state: Any, player: str, card: Any, ch: Any, info: Any) -> Any:
-    """The spell as cast, with the replicate ability its caster's statics give it (602.. kicker_cost then reads it like a printed one)."""
+    """The spell as cast, with the offspring ability its caster's statics give it (kicker_cost then reads it like a printed one). (-- wave 111R3 --
+    a granted replicate is no longer added here: wave111r3_replicate pays each instance on its own.)"""
     from dataclasses import replace
 
     from app.rules import cast_limits
@@ -150,8 +151,12 @@ def with_replicate(state: Any, player: str, card: Any, ch: Any, info: Any) -> An
 
     if not ch.mana_cost or "replicate" in ch.keywords or "{X}" in ch.mana_cost:
         return ch
+    from app.rules import (
+        wave111r3_replicate,  # -- granted replicate (wave 111R3) -- replicate grants are their own instances, paid in CastSpell.replicate
+    )
+
     hits = [d for src, d in cast_limits._statics(state, info, "spell_replicate110a")
-            if src.controller == player and spell_matches(state, player, card, ch, d["filter"], info, src.id)
+            if src.controller == player and not wave111r3_replicate.is_replicate(d) and spell_matches(state, player, card, ch, d["filter"], info, src.id)
             and not (d.get("kw") and {"offspring", "kicker", "multikicker"} & set(ch.keywords))]  # (a printed kicker would share the one paid-cost slot: manual)
     if not hits:
         return ch

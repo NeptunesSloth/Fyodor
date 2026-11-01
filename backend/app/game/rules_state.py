@@ -1682,6 +1682,9 @@ class RulesState(BaseModel):
     # different results apply (Blightsteel's shuffle vs Rest in Peace) stays where it is until its controller (owner if
     # it has none) picks the one that applies: card id -> {"oid", "dest", "options": {outcome: source label}}
     pending_616: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    # -- enters attacking (wave 111R3) -- 508.4: creatures that entered attacking (Kira Nerys, Firebrand) through a path that couldn't ask first what
+    # they attack (a manifested card): {"card", "object", "player"}, asked before anyone gets priority (rules/wave111r3_enter.offer)
+    attack_pending111r3: list[dict[str, str]] = Field(default_factory=list)
     # -- graveyard order (wave 40C) -- 404.3: batches of two or more cards that were put into one graveyard together, whose owner is to
     # arrange them before anyone gets priority: {"owner", "cards" (bottom to top)} (app/rules/graveyard_order.py)
     pending_gy_order: list[dict[str, Any]] = Field(default_factory=list)
