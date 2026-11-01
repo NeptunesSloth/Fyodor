@@ -12348,11 +12348,13 @@ def _becomes_prepared(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
 
 
 @_first
-@effect(r"copy (?P<w>that card|those cards|them)(?: (?P<k>twice|three times))?")
+@effect(r"copy (?P<w>that card|those cards|them)(?: (?P<k>twice|three times)| (?P<x>7919) times)?")  # (-- free casts (wave 111F) -- "Copy that card X times, where X is …" (Infinite Diversity): _where_x's stand-in, the count as it resolves)
 def _copy_cards(m: re.Match[str]) -> tuple[list[dict[str, Any]], Any]:
     out: dict[str, Any] = {"do": "copy_cards", "who": ("it:card" if m["w"] == "that card" else "them:card")}
     if m["k"]:
         out["n"] = {"twice": 2, "three times": 3}[m["k"]]
+    if m["x"]:
+        out["n"] = _X_SENTINEL
     return [out], None
 
 

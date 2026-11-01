@@ -75,11 +75,18 @@ EXTRA = [
          "Station (Tap another creature you control: Put charge counters equal to its power on this Spacecraft. Station only as a sorcery. It's an "
          "artifact creature at 4+.)\n4+ | Flying\n8+ | Multivector Assault Mode — Whenever U.S.S. Prometheus deals combat damage to an opponent, it "
          "deals that much damage to each other opponent.", ("6", "6"), ""),
+    real("Brazen Bluff", "{R}{R}", 2, "Instant",
+         "Choose target noncreature spell an opponent controls. That player may exile it. If they don't, you may cast a noncreature spell from "
+         "your hand without paying its mana cost.", None, "R"),
+    real("Infinite Diversity", "{7}{R}{R}", 9, "Sorcery",
+         "Federation — Exile target instant or sorcery card from your graveyard. Copy that card X times, where X is the number of creature types "
+         "among non-Borg creatures you control. You may cast the copies without paying their mana costs. Exile Infinite Diversity.", None, "R"),
 ]
 NAMES = [c["name"] for c in EXTRA]
 EXTRA += [
     real("Zf Elf", "{G}", 1, "Creature — Elf", "", ("1", "1"), "G"),
     real("Zf Sage", "{1}", 1, "Artifact", "{1}: Draw a card.", None, ""),
+    real("Zf Shock", "{R}", 1, "Instant", "Zf Shock deals 2 damage to any target.", None, "R"),
     real("Zf Rod", "{1}", 1, "Artifact", "{T}: Zf Rod deals 1 damage to target creature.", None, ""),
     real("Zf Pinger", "{1}{R}", 2, "Creature — Human Wizard", "{T}: Zf Pinger deals 1 damage to target creature.", ("1", "1"), "R"),
     real("Zf Gear", "{1}", 1, "Artifact — Equipment", "Equipped creature gets +1/+0.\nEquip {1}", None, ""),
@@ -687,4 +694,70 @@ def test_prometheus_at_eight_deals_its_combat_damage_to_each_other_opponent(card
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": ship.id, "target": "p2"}])
     until(s, lambda s: s.state.turn.phase == "main2" and not s.state.zones.get("stack"))
     assert (life(s, "p2"), life(s, "p3"), life(s)) == (34, 34 if charge == 8 else 40, 40)
+    check(s)
+
+
+# -- free casts ----------------------------------------------------------------------------------------------------------------------------------
+@pytest.mark.parametrize("exiles", [True, False])
+def test_brazen_bluff_the_spells_controller_exiles_it_or_you_cast_for_free(cards, exiles):
+    s = three(cards, ["Brazen Bluff", "Zf Bear", "Zf Rod", "Zf Giant"], bobs=["Zf Kill"])
+    bear = put(s, "Zf Bear")
+    rod, giant = to_hand(s, "Zf Rod"), to_hand(s, "Zf Giant")
+    for pid in ("p1", "p2"):
+        act(s, pid, type="set_prefs", response="on")
+    act(s, "p1", type="pass_priority")
+    assert s.state.rules.priority == "p2"
+    mana(s, "p2", B=1)
+    kill = cast(s, "Zf Kill", [bear.id], pid="p2")
+    for _ in range(5):
+        if s.state.rules.priority == "p1":
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    mana(s, R=2)
+    cast(s, "Brazen Bluff", [kill.id])
+    asked = []
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            asked.append((d.player, sorted(o.id for o in d.options)))
+            if d.player == "p2":
+                act(s, "p2", type="choose", decision_id=d.id, option_ids=["exile" if exiles else "keep"])
+            else:
+                assert giant.id not in {o.id for o in d.options}  # (a creature spell isn't offered)
+                act(s, "p1", type="choose", decision_id=d.id, option_ids=[rod.id] if rod.id in {o.id for o in d.options} else [d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert asked[0] == ("p2", ["exile", "keep"])  # (the target spell's controller decides first)
+    if exiles:
+        assert s.state.cards[kill.id].zone == "p2:exile" and s.state.cards[bear.id].zone == "p1:battlefield"
+        assert s.state.cards[rod.id].zone == "p1:hand" and len(asked) == 1
+    else:
+        assert s.state.cards[kill.id].zone == "p2:graveyard" and s.state.cards[bear.id].zone == "p1:graveyard"
+        assert s.state.cards[rod.id].zone == "p1:battlefield"  # (cast without paying its mana cost)
+    check(s)
+
+
+@pytest.mark.parametrize("types", [1, 3])
+def test_infinite_diversity_copies_the_card_once_per_creature_type_among_non_borg_creatures(cards, types):
+    s = three(cards, ["Infinite Diversity", "Zf Shock", "Zf Elf", "Zf Warrior", "Tenacious Drone"])
+    shock = card_named(s, "Zf Shock")
+    to_gy(s, shock)
+    put(s, "Tenacious Drone")  # (a Borg: none of its types count)
+    put(s, "Zf Elf")  # (Elf)
+    if types == 3:
+        put(s, "Zf Warrior")  # (Human Warrior)
+    mana(s, R=2, C=7)
+    spell = cast(s, "Infinite Diversity", [shock.id])
+    for _ in range(40):
+        d = s.state.rules.decision
+        if d is not None:
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options if o.id == "p2"] or [o.id for o in d.options][: max(1, d.min_choices)])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            break
+    assert life(s, "p2") == 40 - 2 * types  # (each copy cast for free, each targeting Bob)
+    assert s.state.cards[shock.id].zone == "p1:exile" and s.state.cards[spell.id].zone == "p1:exile"
     check(s)
