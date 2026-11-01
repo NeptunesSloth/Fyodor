@@ -202,6 +202,8 @@ def _token_signature(c: CardInstance) -> tuple[object, ...]:
 
 
 def merge_tokens(state: GameState, a: A.MergeTokens) -> None:
+    if state.rules is not None and state.settings.automation != "off":  # -- token stacks (gap 2) -- app/rules/token_stacks.py
+        raise ActionError("With rules automation on, each token stays its own object (the rules count, tap and sacrifice them one at a time)")
     targets = ops.cards(state, a.card_ids)
     if any(not c.is_token for c in targets):
         raise ActionError("Only tokens can be stacked — real cards never merge")

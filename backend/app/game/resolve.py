@@ -128,6 +128,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
             a.r = shuffle_data(len(state.zones.get(key, [])), rng)
     elif isinstance(a, A.CreateToken):
         a.stacked = a.stacked if a.stacked is not None else a.count > 3
+        if a.stacked and state.rules is not None and state.settings.automation != "off":
+            a.stacked = False  # -- token stacks (gap 2) -- the rules count, tap and sacrifice tokens one object each (app/rules/token_stacks.py)
         a.r = A.NewIds(ids=[new_id() for _ in range(1 if a.stacked else a.count)])
         a.resolved_token = _token_def(a.token, info)
         if a.x is None or a.y is None:

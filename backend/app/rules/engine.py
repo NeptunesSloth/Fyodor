@@ -232,6 +232,10 @@ def begin(plan: Plan) -> None:
     linked_exile_look.refresh(plan)
     permissions.refresh_reveals(plan.state, plan.info)  # (a permanent put onto the table by hand since)
     hideaway.refresh(plan.state)  # (-- hideaway (wave 29D) -- a permanent whose control was taken by hand since)
+    # -- token stacks (gap 2) -- the engine reads tokens one object each (109.1, 111.6)
+    from app.rules import token_stacks
+
+    token_stacks.spread(plan)
 
 
 def absorb_manual_events(plan: Plan) -> None:
