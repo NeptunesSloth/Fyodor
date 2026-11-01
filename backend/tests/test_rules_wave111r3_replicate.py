@@ -94,6 +94,26 @@ def test_a_kicker_count_still_pays_the_one_grant(cards):  # (the way wave 110A's
     check(s)
 
 
+def test_a_payment_saved_before_wave_111r_still_pays_the_grant(cards):  # (an intent saved mid-payment by wave 110A's engine: the count in kicker)
+    s = build(cards, ["Hugh, First of Many", "Mind Stone"])
+    put(s, "Hugh, First of Many")
+    act(s, "p1", type="set_prefs", payment="self")
+    mana(s, U=1)
+    c = to_hand(s, "Mind Stone")
+    act(s, "p1", type="cast_spell", card_id=c.id, replicate=[1])
+    d = s.state.rules.decision
+    assert d is not None and d.resume["step"] == "pay_mana"
+    intent = d.resume["intent"]
+    intent["kicker"] = intent.pop("replicate")[0]  # (no replicate fields then)
+    intent.pop("replicate_from")
+    mana(s, C=4)
+    d = s.state.rules.decision
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"] if any(o.id == "pay" for o in d.options) else [d.options[0].id])
+    answer(s)
+    assert len(mine(s, "Mind Stone")) == 2
+    check(s)
+
+
 def test_not_for_other_spells(cards):
     s = build(cards, ["Hugh, First of Many", "Test Bear 111R3"])
     put(s, "Hugh, First of Many")

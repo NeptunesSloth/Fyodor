@@ -97,14 +97,14 @@ def announce(plan: Any, a: Any, card: Any, ch: Any, *, legacy: bool = True) -> t
     [(source, count)] the cast trigger reads. ``legacy``: a lone ``kicker`` count pays the first instance of a spell without a kicker-like
     cost of its own (the intent is changed: the count moves to ``replicate``)."""
     found = instances(plan.state, plan.actor, card, ch, plan.info, face_down=bool(getattr(a, "face_down", False)))
+    if legacy and a.kicker and not a.replicate and found and not own_kicker(ch):
+        a.replicate, a.kicker = [a.kicker], 0  # (also a payment saved before wave 111R, resumed with its cost locked: its count is read the same way)
     if plan.locked_cost is not None and len(a.replicate_from) == len(a.replicate):
         # 601.2f-h: the payment of this cast resumed after its total cost was locked in (a mana ability was activated meanwhile): the
         # announcement stands, even if the permanent that gave an instance has left since (a creature sacrificed for mana: cast_triggers)
         costs = {inst.source: inst.cost for inst in found}
         announced = [(source, n) for source, n in zip(a.replicate_from, a.replicate, strict=True) if n]
         return [times(costs[source], n) for source, n in announced if source in costs], announced
-    if legacy and a.kicker and not a.replicate and found and not own_kicker(ch):
-        a.replicate, a.kicker = [a.kicker], 0
     if any(n < 0 or n > 1000 for n in a.replicate):
         raise ActionError("Pay each replicate cost 0 to 1000 times (platform numeric range)")
     if any(a.replicate[len(found):]):
