@@ -35,6 +35,9 @@ EXTRA = [
     real("Captain Michael Burnham", "{2}{R}", 3, "Legendary Creature — Human Officer", "Trample\nLandfall — Whenever a land you control enters, Captain Burnham deals 1 damage to each opponent. If this is the second time this ability has resolved this turn, put a +1/+1 counter on Captain Burnham.", ("3", "3"), "R"),
     real("Miles O'Brien, Transporter Ops", "{2}{W}", 3, "Legendary Creature — Human Artificer", "When Miles O'Brien enters, return up to one other target creature or artifact you control to its owner's hand.\nAt the beginning of each end step, if a permanent was returned to your hand from the battlefield this turn, draw a card.", ("3", "3"), "W"),
     real("The Wrath of Khan", "{2}{R}", 3, "Enchantment — Saga", "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — This Saga deals 4 damage to target creature an opponent controls. At the beginning of the next combat this turn, gain control of that creature until end of turn. Untap it. It gains haste until end of turn.\nII — You may exile a card from your hand. If you do, draw a card.\nIII — Each opponent sacrifices a nontoken permanent of their choice.", None, "R"),
+    real("La Forge, Thoughtful as Ever", "{3}{U}", 4, "Legendary Creature — Human Artificer", "{T}: For each permanent you control that you've put a counter on this turn, create a 1/1 blue Faerie creature token with flying.", ("2", "4"), "U"),
+    real("Ezri Dax, Newly Joined", "{1}{W}", 2, "Legendary Creature — Trill Advisor", "Flash\nYou may have Ezri Dax enter as a copy of any creature card in your graveyard that was put there from the battlefield this turn, except her name is Ezri Dax, Newly Joined and she's a legendary Trill in addition to her other types.", ("2", "2"), "W"),
+    real("T'Pring, Never Parted", "{3}{G}{U}", 5, "Legendary Creature — Vulcan Citizen", "Kal-if-fee — When T'Pring enters, choose another target creature you control and target creature an opponent controls. You may have the chosen creatures fight each other. Whenever a creature that fought this way dies this turn, you draw a card.", ("3", "3"), "GU"),
 ]
 NAMES = [c["name"] for c in EXTRA]
 EXTRA += [
@@ -43,6 +46,7 @@ EXTRA += [
     real("Test Officer Pump 111E", "{R}", 1, "Instant", "Target creature gets +3/+0 until end of turn.", None, "R"),
     *(real(f"Test Land {c} 111E", "", 0, "Land", "{T}: Add {C}.") for c in "ABCDE"),
     real("Test Proliferate 111E", "{U}", 1, "Instant", "Proliferate.", None, "U"),
+    real("Test Counter 111E", "{G}", 1, "Instant", "Put a +1/+1 counter on target creature.", None, "G"),
 ]
 
 
@@ -522,4 +526,146 @@ def test_wrath_of_khan_one_damages_then_steals_the_creature_at_the_next_combat(c
         assert card.controller == "p1" and not card.tapped and "haste" in ch(s, target).keywords
         to_phase(s, "main1", turn=2)
         assert s.state.cards[target.id].controller == "p2"  # (until end of turn)
+    check(s)
+
+
+# -- La Forge: permanents you control that you've put a counter on this turn ----------------------------------------------------------------
+def test_la_forge_one_faerie_per_permanent_you_control_you_put_a_counter_on(cards):
+    from tests.game_helpers import turn_on
+    from tests.test_rules_conditionals import creature, on_field, sandbox
+
+    s = sandbox(cards, "La Forge, Thoughtful as Ever", "Shuttlecraft Galileo", "Test Counter 111E", p2=("Test Counter 111E",))
+    laforge, galileo = on_field(s, "La Forge, Thoughtful as Ever"), on_field(s, "Shuttlecraft Galileo")
+    x, v, w = creature(s, "p1", "X", "2/2"), creature(s, "p1", "V", "2/2"), creature(s, "p1", "W", "3/3")
+    turn_on(s)
+    act(s, "p1", type="pass_priority")  # (→ Alice's main phase)
+    mana(s, G=1)
+    cast(s, "Test Counter 111E", [x.id])  # (Alice: a +1/+1 counter on X)
+    answer(s)
+    station = next(a.index for a in ch(s, galileo).abilities if a.text.startswith("Tap another"))
+    act(s, "p1", type="activate_ability", card_id=galileo.id, ability=station)
+    answer(s, [w.id])  # (W tapped: three charge counters on the Spacecraft, a permanent that isn't a creature)
+    assert s.state.cards[galileo.id].counters.get("charge") == 3
+    act(s, "p2", type="set_stops", own=[], others=["main1"], smart_pass=False)
+    act(s, "p1", type="pass_priority")  # (Bob gets priority in Alice's main phase: his counter on V is not one Alice put)
+    assert s.state.rules.priority == "p2"
+    mana(s, "p2", G=1)
+    cast(s, "Test Counter 111E", [v.id], pid="p2")
+    answer(s)
+    assert s.state.cards[v.id].counters.get("+1/+1") == 1 and s.state.turn.phase == "main1"
+    act(s, "p1", type="activate_ability", card_id=laforge.id, ability=0)
+    answer(s)
+    faeries = mine(s, "Faerie")
+    assert len(faeries) == 2  # (X and the Shuttlecraft: not V, W or La Forge)
+    assert ch(s, faeries[0]).colors == {"U"} and "flying" in ch(s, faeries[0]).keywords
+    check(s)
+
+
+# -- Ezri Dax: a copy of a creature card put into your graveyard from the battlefield this turn ---------------------------------------------
+@pytest.mark.parametrize("how", ["died", "milled", "none"])
+def test_ezri_dax_enters_as_a_legendary_trill_copy_of_a_creature_that_died_this_turn(cards, how):
+    s = build(cards, ["Ezri Dax, Newly Joined", "Grizzly Bears", "Lightning Bolt", "Murder"], ["Grizzly Bears"])
+    bears = card_named(s, "Grizzly Bears")
+    theirs = put(s, "Grizzly Bears", "p2")
+    mana(s, B=2, C=1)
+    cast(s, "Murder", [theirs.id])  # (Bob's Bears died this turn too: not in Alice's graveyard)
+    answer(s)
+    if how == "died":
+        put(s, "Grizzly Bears")
+        mana(s, R=1)
+        cast(s, "Lightning Bolt", [bears.id])
+        answer(s)
+    elif how == "milled":  # (put into the graveyard from the library: not "from the battlefield")
+        act(s, "p1", type="move", card_ids=[bears.id], to={"player": "p1", "zone": "graveyard"})
+    assert s.state.cards[bears.id].zone == ("p1:library" if how == "none" else "p1:graveyard")
+    ezri = to_hand(s, "Ezri Dax, Newly Joined")
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=ezri.id)
+    answer(s, [bears.id])
+    c = ch(s, ezri)
+    assert c.name == "Ezri Dax, Newly Joined" and c.supertypes == {"Legendary"}
+    if how == "died":  # (707.9b: the Bears' copiable values, legendary and a Trill too)
+        assert c.subtypes == {"Bear", "Trill"} and c.mana_cost == "{1}{G}" and stats(s, ezri) == (2, 2)
+    else:
+        assert c.subtypes == {"Trill", "Advisor"} and c.mana_cost == "{1}{W}"
+    check(s)
+
+
+# -- T'Pring: the chosen creatures may fight; each that fought draws a card when it dies this turn ------------------------------------------
+def tpring(s, mine_, theirs, fight=True, before=None):
+    """Cast T'Pring; her trigger targets ``mine_`` and ``theirs``; ``before`` runs while it waits on the stack; "you may" answered ``fight``."""
+    mana(s, G=1, U=1, C=3)
+    cast(s, "T'Pring, Never Parted")
+    picked = set()
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None and {mine_.id, theirs.id} & {o.id for o in d.options}:
+            ids = [c.id for c in (mine_, theirs) if c.id in {o.id for o in d.options}]
+            act(s, "p1", type="choose", decision_id=d.id, option_ids=ids)
+            picked |= set(ids)
+            if picked == {mine_.id, theirs.id}:
+                break  # (the trigger is on the stack with its targets; Alice has priority)
+            continue
+        act(s, s.state.rules.priority, type="pass_priority")
+    assert picked == {mine_.id, theirs.id}
+    if before is not None:
+        before()
+    for _ in range(20):
+        d = s.state.rules.decision
+        if d is not None:
+            yes = [o.id for o in d.options if o.id in ("yes", "no")]
+            act(s, d.player, type="choose", decision_id=d.id, option_ids=["yes" if fight else "no"] if yes else [d.options[0].id])
+        elif s.state.zones.get("stack"):
+            act(s, s.state.rules.priority, type="pass_priority")
+        else:
+            return
+
+
+@pytest.mark.parametrize("fight", [True, False])
+def test_tpring_both_fighters_dying_draw_two(cards, fight):
+    s = build(cards, ["T'Pring, Never Parted", "Grizzly Bears"], ["Grizzly Bears"])
+    mine_, theirs = put(s, "Grizzly Bears"), put(s, "Grizzly Bears", "p2")
+    n = drew(s)
+    tpring(s, mine_, theirs, fight)
+    dead = s.state.cards[mine_.id].zone == "p1:graveyard" and s.state.cards[theirs.id].zone == "p2:graveyard"
+    assert dead is fight and drew(s) == n + (2 if fight else 0)  # (two died at once: it triggers for each)
+    check(s)
+
+
+def drew(s, pid="p1"):
+    return s.state.rules.turn_log.drew.get(pid, 0)
+
+
+def test_tpring_a_fighter_dying_later_this_turn_draws_too(cards):
+    s = build(cards, ["T'Pring, Never Parted", "Excalbian Gamemaster", "Murder"], ["Grizzly Bears"])
+    mine_, theirs = put(s, "Excalbian Gamemaster"), put(s, "Grizzly Bears", "p2")
+    n = drew(s)
+    tpring(s, mine_, theirs)
+    answer(s)
+    assert s.state.cards[theirs.id].zone == "p2:graveyard" and s.state.cards[mine_.id].damage == 2 and drew(s) == n + 1
+    mana(s, B=2, C=1)
+    cast(s, "Murder", [mine_.id])
+    answer(s)  # (its own dies trigger puts a counter on T'Pring; the delayed one draws)
+    assert s.state.cards[mine_.id].zone == "p1:graveyard" and drew(s) == n + 2
+    check(s)
+
+
+def test_tpring_no_fight_when_a_target_is_gone_and_nothing_is_watched(cards):
+    s = build(cards, ["T'Pring, Never Parted", "Excalbian Gamemaster", "Lightning Bolt", "Murder"], ["Grizzly Bears"])
+    mine_, theirs = put(s, "Excalbian Gamemaster"), put(s, "Grizzly Bears", "p2")
+    act(s, "p1", type="set_stops", own=["main1"], others=[], smart_pass=False)  # (Alice answers the trigger on the stack)
+
+    def bolt():
+        assert s.state.zones.get("stack") and s.state.rules.priority == "p1"
+        mana(s, R=1)
+        cast(s, "Lightning Bolt", [theirs.id])
+        act(s, "p1", type="pass_priority")
+
+    n = drew(s)
+    tpring(s, mine_, theirs, before=bolt)
+    assert s.state.cards[theirs.id].zone == "p2:graveyard" and s.state.cards[mine_.id].damage == 0  # (701.14b: neither fought)
+    mana(s, B=2, C=1)
+    cast(s, "Murder", [mine_.id])
+    answer(s)
+    assert s.state.cards[mine_.id].zone == "p1:graveyard" and drew(s) == n  # (it didn't fight this way: no card)
     check(s)

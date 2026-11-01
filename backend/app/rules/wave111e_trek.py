@@ -19,6 +19,9 @@ wording stays unsupported.
   then the reflexive "When you do, draw a card." inside the delayed trigger (603.12): it triggers only when the card really went to the
   library (a commander its owner sent to the command zone instead, 903.9b, or an object that left the battlefield first, 400.7: no).
 * Miles O'Brien: "returned to your hand" is Barrin's "put into your hand" (wave 30R Departure history).
+* T'Pring: two targets (601.2c); "You may have the chosen creatures fight each other" asked as it resolves ("No": nothing more happens);
+  when they fight (701.14a; 701.14b: neither fights if one of them is an illegal target, gone or no creature), a delayed triggered ability
+  watches both for the rest of the turn (603.7b-c), triggering once for each of them that dies (400.7: that object, not a new one).
 """
 
 from __future__ import annotations
@@ -39,6 +42,9 @@ MISSION = ("put a quest counter on ~. Then exile cards from the top of your libr
 FARRAGUT = ("you may put a creature card from your hand onto the battlefield. That creature gains haste. At the beginning of the next end "
             "step, put it on the bottom of your library. When you do, draw a card.")
 FARRAGUT_DID = "farragut111e"
+TPRING = ("choose another target creature you control and target creature an opponent controls. You may have the chosen creatures fight each "
+          "other. Whenever a creature that fought this way dies this turn, you draw a card.")
+TPRING_REF = "tpring111e"
 
 # whole ability text -> the native wording it means (exact_ability.build)
 SAME = {
@@ -103,7 +109,17 @@ def _farragut() -> Parsed:
     return effects, target, optional
 
 
-_BODIES = {SCIENTISTS: _scientists, UNIFICATION: _unification, CITY: _city, KHAN: _khan, MISSION: _mission, FARRAGUT: _farragut}
+def _tpring() -> Parsed:
+    fight, targets, _ = _native("Another target creature you control fights target creature an opponent controls.")
+    draw, _, _ = _native("You draw a card.")
+    assert [e["do"] for e in fight] == ["fight"] and len(targets) == 2 and len(draw) == 1
+    return [{"do": "may_rest", "label": "have the chosen creatures fight each other"}, {**fight[0], "do": "tpring_fight111e"},
+            {"do": "delayed", "when": {"kind": "event", "event": "die"}, "n": 1, "who": "ref:" + TPRING_REF, "this_turn": True, "once": False},
+            *({**e, "do": "deferred:" + e["do"]} for e in draw)], targets, False
+
+
+_BODIES = {SCIENTISTS: _scientists, UNIFICATION: _unification, CITY: _city, KHAN: _khan, MISSION: _mission, FARRAGUT: _farragut,
+           TPRING: _tpring}
 
 
 def parse(body: str) -> Parsed | None:
@@ -115,6 +131,23 @@ def definition(ability: Any, ch: Any) -> Def | None:
     from app.rules import exact_ability
 
     return exact_ability.build(ability, ch, {}, SAME)
+
+
+def tpring_fight(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """T'Pring's fight (701.14a): the two creatures, when both are still legal targets, on the battlefield and creatures, fight; only then are they
+    bound as "a creature that fought this way" for the delayed ability after it (701.14b: otherwise neither fights, and nothing is watched)."""
+    from app.rules import context
+    from app.rules.effects import PRIMITIVES, _cards
+
+    a, b = _cards(plan, ctx, e["who"]), _cards(plan, ctx, e["with"])
+    pair = [*a, *b] if len(a) == 1 and len(b) == 1 else []
+    if any(not plan.state.cards[c].zone.endswith(":battlefield") or not plan.ch(plan.state.cards[c]).is_creature for c in pair):
+        pair = []
+    context.bind_objects(plan, ctx, TPRING_REF, pair)
+    return bool(PRIMITIVES["fight"](plan, ctx, {**e, "do": "fight"}))
+
+
+PRIMITIVES = {"tpring_fight111e": tpring_fight}
 
 
 def to_library_reflex(fn: Any) -> Any:

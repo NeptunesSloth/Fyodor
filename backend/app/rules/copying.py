@@ -1832,6 +1832,13 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     if m:  # (707.9b; wave 24A: "legendary and snow", Moritte of the Frost)
         ex.add_supertypes = sorted({*ex.add_supertypes, *(w.capitalize() for w in m["s"].split(" and "))})
         return True
+    # -- Star Trek (wave 111E) -- "she's a legendary Trill in addition to her other types" (Ezri Dax, Newly Joined): 707.9b, the supertype and the
+    # creature types added to the copiable values, nothing else changed (no P/T, no color)
+    m = re.fullmatch(_SUBJECT + r"is a legendary (?P<subs>[A-Z][\w'’-]*(?: [A-Z][\w'’-]*)*) in addition to its other types", c)
+    if m and all(sub in CREATURE_TYPES for sub in m["subs"].split()):
+        ex.add_supertypes = sorted({*ex.add_supertypes, "Legendary"})
+        ex.add_subtypes = sorted({*ex.add_subtypes, *m["subs"].split()})
+        return True
     m = re.fullmatch(_SUBJECT + r"enters? with (?P<n>an?|one|two|three|four|X|\d+) (?:additional )?(?P<k>\+1/\+1|loyalty|shield) counters? on (?:it|them)"
                                 r"(?: if (?:it is an? (?P<t>creature|planeswalker)|(?P<own>you control that (?:creature|permanent))))?", c)
     if m:  # -- copy exceptions (wave 24A) -- 707.9e: an additional effect of the replacement (``entry_counters``), not a copiable value

@@ -333,6 +333,15 @@ def _you_put_counters_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"you_put_counters:{m['k']}"))
 
 
+# -- Star Trek (wave 111E) -- "For each permanent you control that you've put a counter on this turn" (La Forge, Thoughtful as Ever): a counter of
+# any kind put by you on that permanent (400.7: not a new object) this turn (122.6: also one it entered with), the same TurnFact as above
+@_suffix(r"that you've put a counter on this turn")
+def _you_put_a_counter_this_turn111e(s: Selector, m: re.Match[str]) -> Selector:
+    if re.search(r"\bpermanents?(?: you control)?$", m.string[: m.start()].rstrip()) is None:
+        raise ValueError("only \"permanents you control that you've put a counter on this turn\" (a group on the battlefield)")
+    return replace(s, extras=(*s.extras, "you_put_counters:any111e"))
+
+
 @_suffix(r"that didn't attack this turn")  # -- damage sized by a count (wave 34D) -- Kratos, Angel's Trumpet: not declared as an attacker this turn (508.1)
 def _didnt_attack_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     if re.search(r"\bcreatures?(?: [a-z ]+? controls?)?$", m.string[: m.start()].rstrip()) is None:  # ("creatures that player controls that didn't …"; wave 41A: "each creature you control that didn't …")
@@ -3128,7 +3137,8 @@ def _you_put_counters_now(plan: Plan, card: CardInstance, you: str | None, kind:
     from app.rules.history import log_for
 
     oid = plan.oid(card)
-    return any(f.kind == "counters" and f.object_id == oid and f.actor == you and f.counter == kind and f.amount > 0 for f in log_for(plan, False).facts)
+    return any(f.kind == "counters" and f.object_id == oid and f.actor == you and (f.counter == kind or kind == "any111e")  # (wave 111E: any kind)
+               and f.amount > 0 for f in log_for(plan, False).facts)
 
 
 def _attacked_this_turn_now(plan: Plan, card: CardInstance) -> bool:

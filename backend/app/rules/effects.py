@@ -7418,3 +7418,4 @@ RESUME.update(_wave110j_last.RESUME)
 from app.rules import wave111e_trek as _wave111e_trek  # noqa: E402, I001  -- Star Trek (wave 111E) -- U.S.S. Farragut's "When you do" (603.12)
 
 PRIMITIVES["to_library"] = _wave111e_trek.to_library_reflex(PRIMITIVES["to_library"])
+PRIMITIVES.update(_wave111e_trek.PRIMITIVES)
