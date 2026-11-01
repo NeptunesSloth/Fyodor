@@ -35,6 +35,7 @@ from typing import Any, Literal
 
 from app.rules import (  # (this_way: wave 4A)
     block_events,  # -- block events (wave 53C) -- combat and attachment relations to a named creature (a leaf module)
+    hooks,  # -- hook registry (wave 110 fold-in) -- the modules each reading step tries, in order
     player_relative,  # -- player-relative selectors (wave 53A) --
     restrictions,
     reveal_until_gy,
@@ -2696,117 +2697,14 @@ def _sacrifice_count_sequence(body: str) -> tuple[list[dict[str, Any]], Any, boo
 
 
 def parse_effects(body: str, it: str | None = None, *, event_player: bool = False) -> tuple[list[dict[str, Any]], Any, bool] | None:
-    # -- granted abilities (wave 111R1) -- a card in exile gains a quoted ability; "Create a copy of this card."
-    from app.rules import wave111r1_grants
-
-    if (body111r1 := wave111r1_grants.parse(body)) is not None:
-        return body111r1
-    from app.rules import wave111e_trek  # -- Star Trek (wave 111E) -- exact wordings
-
-    if (body111e := wave111e_trek.parse(body)) is not None:
-        return body111e
-    from app.rules import wave110e_cards, wave110e_kaya  # -- exact wordings (wave 110E) --
-
-    if (join110e := wave110e_kaya.join(body)) is not None:  # -- one instruction exiling two targets (wave 110E) --
-        return join110e
-    from app.rules import wave111f_lines  # -- Star Trek lines (wave 111F) --
-
-    if (body111f := wave111f_lines.parse(body)) is not None:
-        return body111f
-    if (body110e := wave110e_cards.parse(body)) is not None:
-        return body110e
-    from app.rules import wave111c_statics  # -- Star Trek statics (wave 111C) --
-
-    if (body111c := wave111c_statics.parse(body)) is not None:
-        return body111c
-    from app.rules import wave110k_cards  # -- exact wordings (wave 110K) --
-
-    if (body110k := wave110k_cards.parse(body)) is not None:
-        return body110k
-    from app.rules import wave110b_cards as _w110b_parse  # -- exact wordings (wave 110B) --
-
-    if (body110b := _w110b_parse.parse(body)) is not None:
-        return body110b
-    from app.rules import wave110g_cards  # -- exact wordings (wave 110G) --
-
-    if (body110g := wave110g_cards.parse(body)) is not None:
-        return body110g
-    from app.rules import wave110c_core  # -- exact wordings (wave 110C) --
-
-    if (body110c := wave110c_core.parse(body)) is not None:
-        return body110c
-    from app.rules import wave110h_cards as _w110h  # -- exact wordings (wave 110H) --
-
-    if (body110h := _w110h.parse(body)) is not None:
-        return body110h
-    from app.rules import wave111b_cards as _w111b  # -- if you do / instead (wave 111B) --
-
-    if (body111b := _w111b.parse(body)) is not None:
-        return body111b
+    if (hooked := hooks.PARSE_EFFECTS[0].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import sticker_effects101
 
     if (sticker101 := sticker_effects101.parse(body, it)) is not None:
         return sticker101
-    from app.rules import damage_values102
-
-    if (damage102 := damage_values102.parse(body)) is not None:
-        return damage102
-    from app.rules import library_packets101
-
-    if (library101 := library_packets101.parse(body)) is not None:
-        return library101
-    from app.rules import modal_clauses101
-
-    if (modal101 := modal_clauses101.parse(body)) is not None:
-        return modal101
-    from app.rules import zones100g  # -- zones (wave 100G) -- exact wordings (app/rules/zones100g.py)
-
-    if (zones := zones100g.parse(body)) is not None:
-        return zones
-    from app.rules import otherchooser100p  # -- other choosers (wave 100P) -- exact wordings
-
-    if (other100p := otherchooser100p.parse(body)) is not None:
-        return other100p
-    from app.rules import wave110a  # -- wave 110A --
-
-    if (body110a := wave110a.parse(body)) is not None:
-        return body110a
-    from app.rules import wave110f_cards  # -- wave 110F --
-
-    if (body110f := wave110f_cards.parse(body)) is not None:
-        return body110f
-    from app.rules import wave110o_cards  # -- (wave 110O) --
-
-    if (body110o := wave110o_cards.parse(body)) is not None:
-        return body110o
-    from app.rules import wave110i_cards  # -- cards (wave 110I) --
-
-    if (body110i := wave110i_cards.parse(body)) is not None:
-        return body110i
-    from app.rules import wave110j_cards as _w110j  # -- cards (wave 110J) --
-
-    if (body110j := _w110j.parse(body)) is not None:
-        return body110j
-    from app.rules import wave110l_cards  # -- wave 110L --
-
-    if (body110l := wave110l_cards.parse(body)) is not None:
-        return body110l
-    from app.rules import wave110m_cards as _w110m  # -- (wave 110M) --
-
-    if (body110m := _w110m.parse(body)) is not None:
-        return body110m
-    from app.rules import wave110n_cards  # -- (wave 110N) --
-
-    if (body110n := wave110n_cards.parse(body)) is not None:
-        return body110n
-    from app.rules import wave111d_cards  # -- Star Trek one-offs (wave 111D) --
-
-    if (body111d := wave111d_cards.parse(body)) is not None:
-        return body111d
-    from app.rules import multi100n  # -- multi (wave 100N) --
-
-    if (body100n := multi100n.parse(body)) is not None:
-        return body100n
+    if (hooked := hooks.PARSE_EFFECTS[1].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import turnstate100h  # -- turn state (wave 100H) -- exact bodies read as a native wording
 
     if (same100h := turnstate100h.SAME.get(body)) is not None:
@@ -2827,14 +2725,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (vault71 := vault_loop71.parse(body) or static_perm100d.parse(body)) is not None:
         return vault71
-    from app.rules import attached100f
-
-    if (whole100f := attached100f.parse(body)) is not None:  # -- attached (wave 100F) -- exact bodies (Twist Allegiance, Reins of Power, Grip of Phyresis)
-        return whole100f
-    from app.rules import shuffle_mill67
-
-    if (shuffle67 := shuffle_mill67.parse(body)) is not None:
-        return shuffle67
+    if (hooked := hooks.PARSE_EFFECTS[2].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import repeated_graveyard_offer89
 
     if (next64 := repeated_graveyard_offer89.parse(body)) is not None:
@@ -2843,22 +2735,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (next64 := nightshade_reveal88.parse(body)) is not None:
         return next64
-    from app.rules import public_mill_costs64
-
-    if (admitted63 := public_mill_costs64.parse(body)) is not None:
-        return admitted63
-    from app.rules import bounded_unless_pay90
-
-    if (answer90 := bounded_unless_pay90.parse(body)) is not None:
-        return answer90
-    from app.rules import conditional_upkeep_grants91
-
-    if (answer91 := conditional_upkeep_grants91.parse(body)) is not None:
-        return answer91
-    from app.rules import nonbattlefield_life_offers86
-
-    if (answer86 := nonbattlefield_life_offers86.parse(body)) is not None:
-        return answer86
+    if (hooked := hooks.PARSE_EFFECTS[3].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import public_mill_picks65
 
     if (admitted62 := public_mill_picks65.parse(body)) is not None:
@@ -2871,14 +2749,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (admitted62 := greatest_creature_cost84.parse(body)) is not None:
         return admitted62
-    from app.rules import permanent_payments83
-
-    if (permanent83 := permanent_payments83.parse(body)) is not None:
-        return permanent83
-    from app.rules import cyber_controller63
-
-    if (cyber63 := cyber_controller63.parse(body)) is not None:
-        return cyber63
+    if (hooked := hooks.PARSE_EFFECTS[4].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import post_mill_continuations60
 
     if (admitted := post_mill_continuations60.parse(body)) is not None:
@@ -2899,14 +2771,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (continued59 := public_mill_attachment59.parse(body, it, event_player)) is not None:
         return continued59
-    from app.rules import conditional_counter_riders77
-
-    if (rider77 := conditional_counter_riders77.parse(body)) is not None:
-        return rider77
-    from app.rules import text_change_instructions71
-
-    if (text71 := text_change_instructions71.parse(body)) is not None:
-        return text71
+    if (hooked := hooks.PARSE_EFFECTS[5].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import optional_continuations58
 
     if (continued58 := optional_continuations58.parse(body, it, event_player)) is not None:
@@ -2915,38 +2781,8 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
 
     if (returned57 := graveyard_return57.parse(body, it)) is not None:
         return returned57
-    from app.rules import immediate_cast_pools67
-
-    if (immediate := immediate_cast_pools67.parse(body)) is not None:
-        return immediate
-    from app.rules import player_counter_instructions75
-
-    if (players75 := player_counter_instructions75.parse(body)) is not None:
-        return players75
-    from app.rules import entry_receipt56
-
-    if (entered := entry_receipt56.parse(body)) is not None:
-        return entered
-    from app.rules import hand_library_choices52
-
-    if (hand_library := hand_library_choices52.parse(body)) is not None:
-        return hand_library
-    from app.rules import counter_alternatives50
-
-    if (counter_alternative := counter_alternatives50.parse(body)) is not None:
-        return counter_alternative
-    from app.rules import combat_prevention_variants47, ordered_zone_costs46, quoted_prevention_loss47
-
-    if (combat_prevention := combat_prevention_variants47.parse(body)) is not None:
-        return combat_prevention
-    if (quoted_loss := quoted_prevention_loss47.parse(body)) is not None:
-        return quoted_loss
-    if (ordered_zone := ordered_zone_costs46.parse(body)) is not None:
-        return ordered_zone
-    from app.rules import source_duration_prevention45
-
-    if (source_prevention := source_duration_prevention45.parse(body)) is not None:
-        return source_prevention
+    if (hooked := hooks.PARSE_EFFECTS[6].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     if body.strip() == "Exile up to twice X target cards from graveyards.":
         native = parse_effects("Exile up to X target cards from graveyards.", it, event_player=event_player)
         if native is not None and isinstance(native[1], list) and len(native[1]) == 1:
@@ -2954,8 +2790,6 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
         return None
     from app.rules import (
         capped_counters,
-        color_comparisons,
-        conditional_search_destination,
         copying,
         entry_payment_counters,
         fight_excess_mana,
@@ -2984,139 +2818,14 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     if (defender_effect := defender_effects.parse(body, it=it)) is not None:
         return defender_effect
 
-    from app.rules import (
-        activated_card_outcomes,
-        damage_history_outcomes,
-        damage_snapshot_outcomes,
-        life_card_outcomes41,
-        life_history_outcomes,
-        life_receipt_sequences42,
-        qualified_look_outcomes,
-    )
-
-    if (damage_history := damage_history_outcomes.parse(body)) is not None:
-        return damage_history
-
-    if (life_card := life_card_outcomes41.parse(body)) is not None:
-        return life_card
-    if (life_sequence := life_receipt_sequences42.parse(body)) is not None:
-        return life_sequence
-    if (life_history := life_history_outcomes.parse(body)) is not None:
-        return life_history
-
-    if (damage_snapshot := damage_snapshot_outcomes.parse(body)) is not None:
-        return damage_snapshot
-
-    if (activated_outcome := activated_card_outcomes.parse(body)) is not None:
-        return activated_outcome
-
-    if (qualified_look := qualified_look_outcomes.parse(body)) is not None:
-        return qualified_look
-
-    from app.rules import reveal_target_sequences
-
-    if (reveal_targets := reveal_target_sequences.parse(body)) is not None:
-        return reveal_targets
-
-    from app.rules import reveal_consequences
-
-    if (reveal_consequence := reveal_consequences.parse(body)) is not None:
-        return reveal_consequence
-
-    from app.rules import reveal_snapshots
-
-    if (reveal_snapshot := reveal_snapshots.parse(body)) is not None:
-        return reveal_snapshot
-
-    from app.rules import reveal_outcomes
-
-    if (reveal_outcome := reveal_outcomes.parse(body)) is not None:
-        return reveal_outcome
-
-    from app.rules import resolved_library_guesses
-
-    if (library_guess := resolved_library_guesses.parse(body)) is not None:
-        return library_guess
-
-    from app.rules import creature_damage_followups
-
-    if (creature_damage := creature_damage_followups.parse(body)) is not None:
-        return creature_damage
-
-    from app.rules import kicked_x_lki_outcomes61
-
-    if (kicked_x_lki := kicked_x_lki_outcomes61.parse(body)) is not None:
-        return kicked_x_lki
-
-    from app.rules import kicked_target_outcomes60
-
-    if (kicked_targets := kicked_target_outcomes60.parse(body)) is not None:
-        return kicked_targets
-
-    from app.rules import kicked_spell_outcomes59
-
-    if (kicked_outcome := kicked_spell_outcomes59.parse(body)) is not None:
-        return kicked_outcome
-
-    from app.rules import kicked_spell_riders
-
-    if (kicked_rider := kicked_spell_riders.parse(body)) is not None:
-        return kicked_rider
-
-    from app.rules import (
-        activated_copy_effects,
-        adamant_effects,
-        conditional_counters,
-        spell_payment_facts,
-        spent_mana_effects,
-    )
-
-    if (conditional_counter := conditional_counters.parse(body)) is not None:
-        return conditional_counter
-
-    from app.rules import resolved_library_choices
-
-    if (resolved_choice := resolved_library_choices.parse(body)) is not None:
-        return resolved_choice
-
-    from app.rules import revealed_two_stage_picks
-
-    if (two_stage_pick := revealed_two_stage_picks.parse(body)) is not None:
-        return two_stage_pick
-
-    from app.rules import spent_mana_outcomes
-
-    if (spent_outcome := spent_mana_outcomes.parse(body)) is not None:
-        return spent_outcome
-
-    from app.rules import discard_outcomes
-
-    if (discard_outcome := discard_outcomes.parse(body)) is not None:
-        return discard_outcome
-
-    from app.rules import hidden_card_facts
-
-    if (hidden_fact := hidden_card_facts.parse(body)) is not None:
-        return hidden_fact
-
-    from app.rules import paid_sacrifice_effects
-
-    if (paid_sacrifice := paid_sacrifice_effects.parse(body)) is not None:
-        return paid_sacrifice
-
-    if (activation_copy := activated_copy_effects.parse(body)) is not None:
-        return activation_copy
-
-    if (adamant_effect := adamant_effects.parse(body)) is not None:
-        return adamant_effect
+    from app.rules import spell_payment_facts, spent_mana_effects
+    if (hooked := hooks.PARSE_EFFECTS[7].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
 
     if (spent_normalized := spent_mana_effects.normalize(body)) is not None:
         return parse_effects(spent_normalized,it,event_player=event_player)
-    if (spent_effect := spent_mana_effects.parse(body)) is not None:
-        return spent_effect
-
-    if (payment_spell := spell_payment_facts.parse(body)) is not None:
-        return payment_spell
+    if (hooked := hooks.PARSE_EFFECTS[8].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     if (payment_normalized := spell_payment_facts.normalize(body)) is not None:
         return parse_effects(payment_normalized,it,event_player=event_player)
 
@@ -3129,138 +2838,9 @@ def parse_effects(body: str, it: str | None = None, *, event_player: bool = Fals
     if (without_restriction := x_mana_restrictions.strip(body)) is not None and without_restriction:
         return parse_effects(without_restriction, it, event_player=event_player)
 
-    if (color_comparison := color_comparisons.parse(body)) is not None:
-        return color_comparison
-
-    from app.rules import exile_outcomes42
-
-    if (outcome42 := exile_outcomes42.production_parse(body)) is not None:
-        return outcome42
-
-    from app.rules import exile_cast_outcomes45
-
-    if (outcome45 := exile_cast_outcomes45.production_parse(body)) is not None:
-        return outcome45
-
-    from app.rules import exile_spell_choices49
-
-    if (spell_choice49 := exile_spell_choices49.parse(body)) is not None:
-        return spell_choice49
-
-    from app.rules import outside_research50
-
-    if (research50 := outside_research50.parse(body)) is not None:
-        return research50
-
-    from app.rules import delayed_blinks50
-
-    if (blink50 := delayed_blinks50.parse(body)) is not None:
-        return blink50
-
-    from app.rules import delayed_combat_blinks50
-
-    if (combat_blink50 := delayed_combat_blinks50.parse(body)) is not None:
-        return combat_blink50
-
-    from app.rules import delayed_spell_blinks50
-
-    if (spell_blink50 := delayed_spell_blinks50.parse(body)) is not None:
-        return spell_blink50
-
-    from app.rules import exile_authority_continuations
-
-    if (exile_authority := exile_authority_continuations.parse(body)) is not None:
-        return exile_authority
-
-    from app.rules import exile_packet_continuations
-
-    if (exile_packet := exile_packet_continuations.parse(body)) is not None:
-        return exile_packet
-
-    from app.rules import draw_replacement_sequences
-
-    if (draw_sequence := draw_replacement_sequences.parse(body)) is not None:
-        return draw_sequence
-
-    from app.rules import reveal_cast_packets
-
-    if (reveal_cast_effect := reveal_cast_packets.parse(body)) is not None:
-        return reveal_cast_effect
-
-    from app.rules import qualified_selection_packets
-
-    if (qualified_packet := qualified_selection_packets.parse(body)) is not None:
-        return qualified_packet
-
-    from app.rules import controller_tutors
-
-    if (controller_tutor := controller_tutors.parse(body)) is not None:
-        return controller_tutor
-
-    from app.rules import ordered_tutor_continuations
-
-    if (ordered_tutor := ordered_tutor_continuations.parse(body)) is not None:
-        return ordered_tutor
-
-    from app.rules import conditional_tutor_outcomes, qualified_attached_tutors, qualified_search_packets
-
-    if (relative_tutor := qualified_attached_tutors.parse(body)) is not None:
-        return relative_tutor
-    if (conditional_tutor := conditional_tutor_outcomes.parse(body)) is not None:
-        return conditional_tutor
-    if (qualified_search := qualified_search_packets.parse(body)) is not None:
-        return qualified_search
-
-    if (conditional_search := conditional_search_destination.parse(body)) is not None:
-        return conditional_search
-
-    from app.rules import (
-        bound_subset_choices,
-        conditional_own_discounts,
-        conditional_prevention_effects,
-        damage_redirection_effects,
-        life_prevention_outcomes42,
-        nonhand_copy_riders,
-        nontarget_creature_choices,
-        prevention_frontier_cards,
-        prevention_outcomes,
-        scoped_prevention_effects,
-        suspend_grant_followthrough,
-        suspended_counter_choices,
-    )
-
-    if (life_prevention := life_prevention_outcomes42.parse(body)) is not None:
-        return life_prevention
-    if (joint_prevention := prevention_frontier_cards.parse(body)) is not None:
-        return joint_prevention
-    if (prevention_outcome := prevention_outcomes.parse(body)) is not None:
-        return prevention_outcome
-    if (bound_redirection := damage_redirection_effects.parse(body)) is not None:
-        return bound_redirection
-    if (conditional_prevention := conditional_prevention_effects.parse(body)) is not None:
-        return conditional_prevention
-    from app.rules import wave110j_final  # -- Silhouette (wave 110J) --
-
-    if (silhouette := wave110j_final.parse(body)) is not None:
-        return silhouette
-    if (piracy := wave110j_final.piracy_parse(body)) is not None:
-        return piracy
-    from app.rules import wave110j_last  # -- last cards (wave 110J) --
-
-    if (last := wave110j_last.parse(body)) is not None:
-        return last
-    if (scoped_prevention := scoped_prevention_effects.parse(body)) is not None:
-        return scoped_prevention
-    if (bound_subset := bound_subset_choices.parse(body)) is not None:
-        return bound_subset
-    if (creature_choices := nontarget_creature_choices.parse(body)) is not None:
-        return creature_choices
-    if (suspend_grant_body := suspend_grant_followthrough.parse(body)) is not None:
-        return suspend_grant_body
-    if (suspended_body := suspended_counter_choices.parse(body)) is not None:
-        return suspended_body
-    if (conditional_discount_body := conditional_own_discounts.parse(body)) is not None:
-        return conditional_discount_body
+    from app.rules import nonhand_copy_riders
+    if (hooked := hooks.PARSE_EFFECTS[9].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     if (copy_rider := nonhand_copy_riders.parse(body, it, event_player)) is not None:
         return copy_rider
     if (conditional_copy := copying.parse_conditional_copy_gain(body, it, event_player)) is not None:
@@ -3315,223 +2895,29 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     None, a selector key (one "target [something]"), or a list of target groups (see
     target_fields). ``it``: what the pronoun "it" means when no target precedes it (resolve_it);
     ``event_player``: the trigger event names a player ("that player" may mean them)."""
-    from app.rules import (
-        multiplayer_roll_consumers,
-        random_characteristic_choices,
-        random_choice_receipts,
-        random_consequences,
-        random_native_outcomes42,
-        random_receipt_consumers,
-    )
-
-    if (native_outcome := random_native_outcomes42.parse(body)) is not None:
-        return native_outcome
-    if (choice_receipt := random_choice_receipts.parse(body)) is not None:
-        return choice_receipt
-    if (characteristic_choice := random_characteristic_choices.parse(body)) is not None:
-        return characteristic_choice
-
-    if (multiplayer_program := multiplayer_roll_consumers.parse(body)) is not None:
-        return multiplayer_program
-
-    if (receipt_program := random_receipt_consumers.parse(body)) is not None:
-        return receipt_program
-    if (random_program := random_consequences.parse(body)) is not None:
-        return random_program
-    from app.rules import coin_recipes
-
-    if (coin_program := coin_recipes.parse(body)) is not None:
-        return coin_program
-    from app.rules import (
-        attack_destinations,
-        attack_reveal_fight,
-        bound_delayed_effects,
-        declaration_requirements,
-        linked_aggregates,
-        linked_exile_look,
-        linked_play_grants,
-        linked_returns,
-        name_search,
-        temporary_hand_exile,
-        unblocked_riders,
-    )
-
-    if (attack_reveal := attack_reveal_fight.parse(body)) is not None:
-        return attack_reveal
-    if (bound_delayed := bound_delayed_effects.parse(body)) is not None:
-        return bound_delayed
-    if (destinations := attack_destinations.parse(body)) is not None:
-        return destinations
-    if (requirements := declaration_requirements.parse(body)) is not None:
-        return requirements
-
-    if (unblocked_watch := unblocked_riders.parse(body)) is not None:
-        return unblocked_watch
-
-    if (linked_look := linked_exile_look.parse(body)) is not None:
-        return linked_look
-
-    if (linked_play := linked_play_grants.parse(body)) is not None:
-        return linked_play
-
-    from app.rules import (
-        card_copy_sources,
-        conditional_copy_sources,
-        token_copy_continuations,
-        token_copy_outcomes,
-        token_copy_sources,
-        token_source_groups,
-    )
-
-    if (copy_continuation := token_copy_continuations.parse(body)) is not None:
-        return copy_continuation
-
-    if (copy_outcome := token_copy_outcomes.parse(body)) is not None:
-        return copy_outcome
-
-    if (conditional_source := conditional_copy_sources.parse(body)) is not None:
-        return conditional_source
-
-    if (group_source := token_source_groups.parse(body)) is not None:
-        return group_source
-
-    if (card_copy_source := card_copy_sources.parse(body)) is not None:
-        return card_copy_source
-    if (copy_source := token_copy_sources.parse(body)) is not None:
-        return copy_source
-
-    if (linked_aggregate := linked_aggregates.parse_effects(body)) is not None:
-        return linked_aggregate
-
-    if (linked_return := linked_returns.parse(body)) is not None:
-        return linked_return
-
-    if (temporary_hand := temporary_hand_exile.parse(body)) is not None:
-        return temporary_hand
+    from app.rules import name_search
+    if (hooked := hooks.PARSE_EFFECTS_PLAIN[0].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
 
     if (hand_search := name_search.parse_hand(body, event_player=event_player)) is not None:
         return hand_search
 
-    from app.rules import (
-        conditional_look,
-        equipment_unattach_choice,
-        exile_opponent_play,
-        land_or_cast,
-        library_look,
-        opponent_looked_choice,
-        optional_library_look,
-        reveal_count_return,
-        search_partition,
-        token_creation_replacements,
-    )
-
-    if (fisher := token_creation_replacements.parse(body)) is not None:
-        return fisher
-
-    if (optional_look := optional_library_look.parse(body)) is not None:
-        return optional_look
-
-    if (partitioned := search_partition.parse(body)) is not None:
-        return partitioned
-
-    if (land_cast := land_or_cast.parse(body)) is not None:
-        return land_cast
-
-    if (replacement_look := conditional_look.parse(body)) is not None:
-        return replacement_look
-
-    if (opponent_look := opponent_looked_choice.parse(body)) is not None:
-        return opponent_look
-
-    if (private_look := library_look.parse(body)) is not None:
-        return private_look
-
-    if (reveal_return := reveal_count_return.parse(body)) is not None:
-        return reveal_return
-
-    if (unattach_choice := equipment_unattach_choice.parse(body)) is not None:
-        return unattach_choice
-
-    if (opponent_play := exile_opponent_play.parse(body)) is not None:
-        return opponent_play
-    from app.rules import reveal_equal_spell
-
-    if (equal_spell := reveal_equal_spell.parse(body)) is not None:
-        return equal_spell
-    from app.rules import awakened_land_refs
-
-    if (awakened := awakened_land_refs.parse(body)) is not None:
-        return awakened
+    if (hooked := hooks.PARSE_EFFECTS_PLAIN[1].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     if body.lower().rstrip(".") == "target opponent creates a token that's a copy of it":
         return ([{"do": "token_copy", "who": "ref:event", "n": 1, "creator": "target"}], "opponent", False)
-    from app.rules import exile_delayed_damage
-
-    if (exile_damage := exile_delayed_damage.parse(body)) is not None:
-        return exile_damage
-    from app.rules import (
-        armored_skyhunter,
-        conditional_repeat_search,
-        descendants_path,
-        destroy_type_reveal,
-        exchange_energy,
-        exert_equipment,
-        exile_land_compensation,
-        exile_mv_threshold,
-        plargg_nassari,
-        reflexive_roll,
-        reveal_hand_or_top,
-        timed_damage_replacements,
-    )
-
-    if (threshold := exile_mv_threshold.parse(body)) is not None:
-        return threshold
-    if (plargg := plargg_nassari.parse(body)) is not None:
-        return plargg
-    if (equipment := exert_equipment.parse(body)) is not None:
-        return equipment
-    if (skyhunter := armored_skyhunter.parse(body)) is not None:
-        return skyhunter
-    if (path := descendants_path.parse(body)) is not None:
-        return path
-    if (energy_exchange := exchange_energy.parse(body)) is not None:
-        return energy_exchange
-    if (hand_top := reveal_hand_or_top.parse(body)) is not None:
-        return hand_top
-    if (type_reveal := destroy_type_reveal.parse(body)) is not None:
-        return type_reveal
-    if (land_compensation := exile_land_compensation.parse(body)) is not None:
-        return land_compensation
-    if (repeat_search := conditional_repeat_search.parse(body)) is not None:
-        return repeat_search
-    if (timed_damage := timed_damage_replacements.parse(body)) is not None:
-        return timed_damage
-    from app.rules import spell_control
-
-    if (controlled_spell := spell_control.parse(body)) is not None:
-        return controlled_spell
+    from app.rules import reflexive_roll
+    if (hooked := hooks.PARSE_EFFECTS_PLAIN[2].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import event_excluded_player
 
     if (excluded_player := event_excluded_player.parse(body, it, event_player)) is not None:
         return excluded_player
     if (rolled_reflex := reflexive_roll.parse(body, it, event_player)) is not None:
         return rolled_reflex
-    from app.rules import (
-        banding,
-        blink_search_together,
-        card_copy_casting_family,
-        card_copy_sequences,
-        hand_shortfall,
-        player_counter_top_up,
-        refused_zones,  # -- refused zones/sized (wave 3R4) -- Gifts piles (a leaf module)
-        shared_damage,
-    )
-
-    if (counter_top_up := player_counter_top_up.parse(body)) is not None:
-        return counter_top_up
-    if (blink_search := blink_search_together.parse(body)) is not None:
-        return blink_search
-    if (card_copies := card_copy_casting_family.parse(body)) is not None:
-        return card_copies
+    from app.rules import card_copy_sequences, refused_zones, shared_damage
+    if (hooked := hooks.PARSE_EFFECTS_PLAIN[3].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     body = card_copy_sequences.normalize(body)
     body = re.sub(r"^Return from your graveyard to the battlefield any number of target creature cards that each have a different mana value (?P<n>X|\d+) or less\.$",
                   r"Return any number of target creature cards with different mana values with mana value \g<n> or less from your graveyard to the battlefield.", body)
@@ -3542,147 +2928,26 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
         body = re.sub(r"^((?:all|attacking) creatures banded with) it (gain (?:first strike|trample) until end of turn\.)$",
                       r"\1 this creature \2", body, flags=re.I)
     from app.rules import (
-        airbend,
-        attached_copy_fallback,
-        conditional_optional_target,
-        conditional_return_destination,
-        conditional_search_cast,
-        conditional_target_cast,
-        counter_random_recast,
-        creature_entry_redirect,
-        delayed_fewer_counters,
-        discover_followup,
-        draw_or_mill_damage,
-        exile_power_counters,
-        linked_attachment_return,
-        linked_graveyard_damage,
-        loyalty_survivors,
-        mill_pair_repeat,
-        multi_target_search,
-        name_exile_loop,
-        named_recast,
-        optional_event_tap,
-        optional_repeat_roll,
-        proliferate_followup,
-        shared_permanent_return,
-        simultaneous_moves,
-        target_player_counts,
-        targeted_damage_watch,
-        temporary_commander_entry,
         threshold_division,
-        token_creator,
-        token_fight_pairs,
-        upkeep_control_sequence,
     )
-
-    if (fewer_counters := delayed_fewer_counters.parse(body)) is not None:
-        return fewer_counters
-    if (return_destination := conditional_return_destination.parse(body)) is not None:
-        return return_destination
-    if (attachment_return := linked_attachment_return.parse(body)) is not None:
-        return attachment_return
-    if (entry_redirect := creature_entry_redirect.parse(body)) is not None:
-        return entry_redirect
-    if (creator_change := token_creator.parse(body)) is not None:
-        return creator_change
-    if (protected_airbend := airbend.complement(body)) is not None:
-        return protected_airbend
-    if (spell_airbend := airbend.spell_target(body)) is not None:  # -- airbend (wave 110B) --
-        return spell_airbend
-    from app.rules import wave110b_dack, wave110b_hama, wave110b_lich, wave110b_stangg
+    if (hooked := hooks.PARSE_EFFECTS_PLAIN[4].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
+    from app.rules import wave110b_dack, wave110b_hama, wave110b_stangg
 
     if (hama := wave110b_hama.parse(body) or wave110b_dack.parse(body) or wave110b_stangg.parse(body)) is not None:  # -- Hama, Dack Fayden, Stangg (wave 110B) --
         return hama
-    if (lich := wave110b_lich.parse(body)) is not None:  # -- Havengul Lich (wave 110B) --
-        return lich
-    if (attached_copy := attached_copy_fallback.parse(body)) is not None:
-        return attached_copy
-    if (after_discover := discover_followup.parse(body)) is not None:
-        return after_discover
-    if (fight_tokens := token_fight_pairs.parse(body)) is not None:
-        return fight_tokens
-    if (targeted_watch := targeted_damage_watch.parse(body)) is not None:
-        return targeted_watch
-    if (upkeep_control := upkeep_control_sequence.parse(body)) is not None:
-        return upkeep_control
-    if (random_recast := counter_random_recast.parse(body)) is not None:
-        return random_recast
-    if (commander_entry := temporary_commander_entry.parse(body)) is not None:
-        return commander_entry
-    if (exile_power := exile_power_counters.parse(body)) is not None:
-        return exile_power
-    if (shared_return := shared_permanent_return.parse(body)) is not None:
-        return shared_return
-    if (optional_target := conditional_optional_target.parse(body)) is not None:
-        return optional_target
+    if (hooked := hooks.PARSE_EFFECTS_PLAIN[5].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     if (threshold_damage := threshold_division.parse(body, it, event_player=event_player)) is not None:
         return threshold_damage
-    if (player_count := target_player_counts.parse(body)) is not None:
-        return player_count
-    if (multi_search := multi_target_search.parse(body)) is not None:
-        return multi_search
-    if (event_tap := optional_event_tap.parse(body)) is not None:
-        return event_tap
-    if (milled_pair := mill_pair_repeat.parse(body)) is not None:
-        return milled_pair
-    if (repeated_roll := optional_repeat_roll.parse(body)) is not None:
-        return repeated_roll
-    if (simultaneous := simultaneous_moves.parse(body)) is not None:
-        return simultaneous
-    if (linked_cleanup := linked_graveyard_damage.parse(body)) is not None:
-        return linked_cleanup
-    if (draw_mill := draw_or_mill_damage.parse(body)) is not None:
-        return draw_mill
-    if (survivors := loyalty_survivors.parse(body)) is not None:
-        return survivors
-    if (recast := named_recast.parse(body)) is not None:
-        return recast
-    if (name_loop := name_exile_loop.parse(body)) is not None:
-        return name_loop
-    if (proliferated := proliferate_followup.parse(body)) is not None:
-        return proliferated
-    from app.rules import (
-        exile_permission_sequences,
-        foreign_zone_sequences,
-        look_optional_placement,
-        name_equivalence_sequences,
-        name_event_receipts,
-        name_relation_continuations,
-    )
-
-    if (placement := look_optional_placement.parse(body)) is not None:
-        return placement
-    from app.rules import casting_timing_permissions
-
-    if (casting_timing := casting_timing_permissions.parse(body)) is not None:
-        return casting_timing
-    if (receipt := name_event_receipts.parse(body)) is not None:
-        return receipt
-    if (name_relation := name_relation_continuations.parse(body)) is not None:
-        return name_relation
-
-    if (name_equivalence := name_equivalence_sequences.parse(body)) is not None:
-        return name_equivalence
-
-    if (exile_permission := exile_permission_sequences.parse(body)) is not None:
-        return exile_permission
-
-    if (foreign_zone := foreign_zone_sequences.parse(body)) is not None:
-        return foreign_zone
-    if (searched_cast := conditional_search_cast.parse(body)) is not None:
-        return searched_cast
-    if (target_cast := conditional_target_cast.parse(body)) is not None:
-        return target_cast
-    if (lost_bands := banding.parse_loss(body)) is not None:
-        return lost_bands
+    if (hooked := hooks.PARSE_EFFECTS_PLAIN[6].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     if (sacrificed := _sacrifice_count_sequence(body)) is not None:
         return sacrificed
     if (shared := shared_damage.parse(body, it, event_player)) is not None:
         return shared
-    if (hand_draw := hand_shortfall.parse(body)) is not None:
-        return hand_draw
-    if (tap_sequence := _tap_or_untap.sequence(body)) is not None:
-        return tap_sequence
+    if (hooked := hooks.PARSE_EFFECTS_PLAIN[7].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     # CR 608.2c: preserve the shared player subject before resolving pronouns.
     body = re.sub(r"(?i)(^|\. )(that player draws \w+ cards?) and gains control of ([^.]+)\.",
                   r"\1\2. That player gains control of \3.", body)
@@ -3712,18 +2977,8 @@ def _parse_effects_plain(body: str, it: str | None = None, *, event_player: bool
     body = _player_choices.rewrite(body)  # -- player-relative selectors (wave 53A) -- "… not chosen this way" (app/rules/player_choices.py)
     if (cb := counter_riders.counterbalance(body, it)) is not None:
         return cb
-    from app.rules import exile_spawn_cleanup
-
-    if (spawn_cleanup := exile_spawn_cleanup.parse(body)) is not None:
-        return spawn_cleanup
-    from app.rules import received_counter_doubling
-
-    if (received_double := received_counter_doubling.parse(body)) is not None:
-        return received_double
-    from app.rules import player_counter_doubling
-
-    if (player_double := player_counter_doubling.parse(body)) is not None:
-        return player_double
+    if (hooked := hooks.PARSE_EFFECTS_PLAIN[8].first(body)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import sacrifice_return  # -- if you do (wave 52A) --
 
     if (sr := sacrifice_return.parse(body, lambda t: _parse_effects_plain(t, it, event_player=event_player))) is not None:
@@ -6072,29 +5327,8 @@ def _first_time_gate(text: str) -> str:
 
 def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
-    # -- granted abilities (wave 111R1) -- Q's granted ability, read without its holder's name
-    from app.rules import wave111r1_grants
-
-    if (granted111r1 := wave111r1_grants.definition(ability, ch)) is not None:
-        return granted111r1
-    from app.rules import (
-        wave111r3_enter,  # -- enters attacking (wave 111R3) -- Kira Nerys, Firebrand (614.1d, 508.4)
-    )
-
-    if (enter111r3 := wave111r3_enter.definition(ability, ch)) is not None:
-        return enter111r3
-    from app.rules import wave111e_trek  # -- Star Trek (wave 111E) -- exact wordings
-
-    if (trek111e := wave111e_trek.definition(ability, ch)) is not None:
-        return trek111e
-    from app.rules import wave110e_opp  # -- war or peace (wave 110E) --
-
-    if (war110e := wave110e_opp.war_definition(ability, ch)) is not None:
-        return war110e
-    from app.rules import wave110e_uvilda  # -- refine counters (wave 110E) --
-
-    if (uvilda110e := wave110e_uvilda.definition(ability, ch)) is not None:
-        return uvilda110e
+    if (hooked := hooks.DEFINE[0].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import wave110g_spires  # -- wave 110G --
 
     if (spires110g := wave110g_spires.definition(ability.text)) is not None:
@@ -6103,34 +5337,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return {"kind": "static", "static": "note110e", "effects": []}
     if ability.text.strip() == "Bell Borca's power is equal to the greatest number noted for it this turn.":
         return {"kind": "static", "static": "cda", "effects": [], "p": {"noted110e": True}, "t": None}
-    from app.rules import wave111f_lines  # -- Star Trek lines (wave 111F) --
-
-    if (lines111f := wave111f_lines.definition(ability, ch)) is not None:
-        return lines111f
-    from app.rules import wave110f_cards  # -- whole abilities (wave 110F) --
-
-    if (whole110f := wave110f_cards.definition(ability, ch)) is not None:
-        return whole110f
-    from app.rules import wave110c_core  # -- whole abilities (wave 110C) --
-
-    if (whole110c := wave110c_core.definition(ability, ch)) is not None:
-        return whole110c
-    from app.rules import wave111c_statics  # -- Star Trek statics (wave 111C) --
-
-    if (statics111c := wave111c_statics.definition(ability, ch)) is not None:
-        return statics111c
-    from app.rules import sticker_riders102
-
-    if (rider102 := sticker_riders102.definition(ability, ch)) is not None:
-        return rider102
-    from app.rules import copy_controllers105
-
-    if (copy105 := copy_controllers105.definition(ability, ch)) is not None:
-        return copy105
-    from app.rules import vampire_returns105
-
-    if (found105 := vampire_returns105.definition(ability, ch)) is not None:
-        return found105
+    if (hooked := hooks.DEFINE[1].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import damage_death104
 
     if (death104 := damage_death104.definition(ability, ch)) is not None:
@@ -6139,243 +5347,14 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (death104 := damage_death104.definition(ability, ch)) is not None:
         return death104
-    from app.rules import wave111b_cards  # -- if you do / instead (wave 111B) --
-
-    if (found111b := wave111b_cards.definition(ability, ch)) is not None:
-        return found111b
-    from app.rules import wave110h_cards  # -- one-card rewrites (wave 110H) --
-
-    if (found110h := wave110h_cards.definition(ability, ch)) is not None:
-        return found110h
-    from app.rules import epic103
-
-    if (epic := epic103.definition(ability, ch)) is not None:
-        return epic
-    from app.rules import stickers101
-
-    if (stickers := stickers101.definition(ability, ch)) is not None:
-        return stickers
-
-    from app.rules import next_copy104
-
-    if (next104 := next_copy104.definition(ability, ch)) is not None:
-        return next104
-    from app.rules import stack_extension103
-
-    if (stack103 := stack_extension103.definition(ability, ch)) is not None:
-        return stack103
-    from app.rules import combat_damage95
-
-    if (combat95 := combat_damage95.definition(ability, ch)) is not None:
-        return combat95
-    from app.rules import waterbend104
-
-    if (water104 := waterbend104.definition(ability,ch)) is not None:
-        return water104
-    from app.rules import waterbend103
-
-    if (water103 := waterbend103.definition(ability,ch)) is not None:
-        return water103
-    from app.rules import waterbend102
-
-    if (water102 := waterbend102.definition(ability,ch)) is not None:
-        return water102
-    from app.rules import library_polymorph102
-
-    if (polymorph102 := library_polymorph102.definition(ability, ch)) is not None:
-        return polymorph102
-    from app.rules import stack_events102
-
-    if (stack102 := stack_events102.definition(ability, ch)) is not None:
-        return stack102
-    from app.rules import library_packets101
-
-    if (library101 := library_packets101.definition(ability, ch)) is not None:
-        return library101
-    from app.rules import cost_statics101
-
-    if (native101 := cost_statics101.definition(ability, ch)) is not None:
-        return native101
-    from app.rules import upkeep_sacrifice101
-
-    if (upkeep101 := upkeep_sacrifice101.definition(ability, ch)) is not None:
-        return upkeep101
-    from app.rules import flagbearer86
-
-    if (flag86 := flagbearer86.definition(ability, ch)) is not None:
-        return flag86
-    from app.rules import multi100m  # -- multi (wave 100M) --
-
-    if (lines100m := multi100m.definition(ability, ch)) is not None:
-        return lines100m
-    from app.rules import counters100j  # -- counters (wave 100J) --
-
-    if (lines100j := counters100j.definition(ability, ch)) is not None:
-        return lines100j
-    from app.rules import wave110a  # -- wave 110A --
-
-    if (whole110a := wave110a.definition(ability, ch)) is not None:
-        return whole110a
-    from app.rules import wave110o_cards as _w110o  # -- (wave 110O) --
-
-    if (card110o := _w110o.definition(ability, ch)) is not None:
-        return card110o
-    from app.rules import wave110b_cards  # -- wave 110B --
-
-    if (card110b := wave110b_cards.definition(ability, ch)) is not None:
-        return card110b
-    from app.rules import wave110e_cards  # -- wave 110E --
-
-    if (card110e := wave110e_cards.definition(ability, ch)) is not None:
-        return card110e
-    from app.rules import wave110g_cards  # -- wave 110G --
-
-    if (card110g := wave110g_cards.definition(ability, ch)) is not None:
-        return card110g
-    from app.rules import wave110i_cards  # -- cards (wave 110I) --
-
-    if (card110i := wave110i_cards.definition(ability, ch)) is not None:
-        return card110i
-    from app.rules import wave111d_cards  # -- Star Trek one-offs (wave 111D) --
-
-    if (whole111d := wave111d_cards.definition(ability, ch)) is not None:
-        return whole111d
-    from app.rules import multi100n  # -- multi (wave 100N) --
-
-    if (whole100n := multi100n.definition(ability, ch)) is not None:
-        return whole100n
-    from app.rules import wave110d  # -- wave 110D --
-
-    if (whole110d := wave110d.definition(ability, ch)) is not None:
-        return whole110d
-    from app.rules import wave110j_cards  # -- wave 110J --
-
-    if (card110j := wave110j_cards.definition(ability, ch)) is not None:
-        return card110j
-    from app.rules import wave110k_cards  # -- (wave 110K) --
-
-    if (card110k := wave110k_cards.definition(ability, ch)) is not None:
-        return card110k
-    from app.rules import wave110l_cards  # -- wave 110L --
-
-    if (card110l := wave110l_cards.definition(ability, ch)) is not None:
-        return card110l
-    from app.rules import wave110m_cards  # -- (wave 110M) --
-
-    if (card110m := wave110m_cards.definition(ability, ch)) is not None:
-        return card110m
-    from app.rules import wave110n_cards  # -- (wave 110N) --
-
-    if (card110n := wave110n_cards.definition(ability, ch)) is not None:
-        return card110n
-    from app.rules import retarget100o  # -- retarget (wave 100O) --
-
-    if (lines100o := retarget100o.definition(ability, ch)) is not None:
-        return lines100o
-    from app.rules import turnstate100h  # -- turn state (wave 100H) --
-
-    if (turn100h := turnstate100h.definition(ability, ch)) is not None:
-        return turn100h
-    from app.rules import triggers100a  # -- trigger lines (wave 100A) --
-
-    if (lines100a := triggers100a.definition(ability, ch)) is not None:
-        return lines100a
-    from app.rules import attractions100l  # -- Attractions (wave 100L) -- "Visit — …", "Prize — …" (702.159)
-
-    if (visit100l := attractions100l.definition(ability, ch)) is not None:
-        return visit100l
-    from app.rules import zones100g  # -- zones (wave 100G) -- whole-ability wordings (app/rules/zones100g.py)
-
-    if (zones := zones100g.definition(ability, ch)) is not None:
-        return zones
-    from app.rules import activated100i  # -- activated (wave 100I) --
-
-    if (act100i := activated100i.definition(ability, ch)) is not None:
-        return act100i
-    from app.rules import static_perm100d  # -- static permanents (wave 100D) --
-
-    if (perm100d := static_perm100d.definition(ability, ch)) is not None:
-        return perm100d
-    from app.rules import (
-        xdamage100e,  # -- xdamage (wave 100E) -- exact whole-ability wordings (app/rules/xdamage100e.py)
-    )
-
-    if (xdamage := xdamage100e.definition(ability, ch)) is not None:
-        return xdamage
-    from app.rules import static_spell100c
-
-    if (cda100c := static_spell100c.definition(ability, ch)) is not None:  # -- static spells (wave 100C) -- "Ghostfire is colorless."
-        return cda100c
+    if (hooked := hooks.DEFINE[2].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import devour, first_reveal100b, ifyoudo100b  # -- if you do (wave 100B) --
 
     if (reveal100b := first_reveal100b.definition(ability, ch) or devour.static100b(ability, ch) or ifyoudo100b.definition(ability, ch)) is not None:
         return reveal100b
-    from app.rules import zone_exchanges94
-
-    if (zone94 := zone_exchanges94.definition(ability, ch)) is not None:
-        return zone94
-    from app.rules import exile_counter_access85
-
-    if (counter85 := exile_counter_access85.definition(ability, ch)) is not None:
-        return counter85
-    from app.rules import chosen_forms95
-
-    if (chosen95 := chosen_forms95.definition(ability, ch)) is not None:
-        return chosen95
-
-    from app.rules import stack_granted_abilities84
-
-    if (grant84 := stack_granted_abilities84.definition(ability, ch)) is not None:
-        return grant84
-    from app.rules import gwenom_top70
-
-    if (gwenom70 := gwenom_top70.definition(ability, ch)) is not None:
-        return gwenom70
-    from app.rules import exchange_spells93
-
-    if (exchange93 := exchange_spells93.definition(ability, ch)) is not None:
-        return exchange93
-    from app.rules import target_conditional_costs81
-
-    if (target81 := target_conditional_costs81.definition(ability, ch)) is not None:
-        return target81
-
-    from app.rules import flitting_reflexive69
-
-    if (flitting69 := flitting_reflexive69.definition(ability, ch)) is not None:
-        return flitting69
-    from app.rules import exchange_choices92
-
-    if (exchange92 := exchange_choices92.definition(ability, ch)) is not None:
-        return exchange92
-    from app.rules import static_count_values94
-
-    if (counts94 := static_count_values94.definition(ability, ch)) is not None:
-        return counts94
-    from app.rules import attached_destruction82
-
-    if (attached82 := attached_destruction82.definition(ability, ch)) is not None:
-        return attached82
-    from app.rules import damage_retention83
-
-    if (retention83 := damage_retention83.definition(ability, ch)) is not None:
-        return retention83
-    from app.rules import post_mill_graveyard68
-
-    if (grave68 := post_mill_graveyard68.definition(ability, ch)) is not None:
-        return grave68
-    from app.rules import linked_spell_windows81
-
-    if (linked81 := linked_spell_windows81.definition(ability, ch)) is not None:
-        return linked81
-    from app.rules import graveyard_windows80
-
-    if (window80 := graveyard_windows80.definition(ability, ch)) is not None:
-        return window80
-    from app.rules import exchange_conditions91
-
-    if (exchange91 := exchange_conditions91.definition(ability, ch)) is not None:
-        return exchange91
+    if (hooked := hooks.DEFINE[3].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import conditional_animations92
 
     if (next64 := conditional_animations92.definition(ability, ch)) is not None:
@@ -6452,22 +5431,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (admitted61 := attack_subjects86.definition(ability, ch)) is not None:
         return admitted61
-    from app.rules import required_mutate75
-
-    if (mutate75 := required_mutate75.definition(ability, ch)) is not None:
-        return mutate75
-    from app.rules import conditional_attacks85
-
-    if (attacks85 := conditional_attacks85.definition(ability, ch)) is not None:
-        return attacks85
-    from app.rules import attacked_player_costs80
-
-    if (attacked80 := attacked_player_costs80.definition(ability, ch)) is not None:
-        return attacked80
-
-    from app.rules import target_duration_costs69
-    if (duration69 := target_duration_costs69.definition(ability, ch)) is not None:
-        return duration69
+    if (hooked := hooks.DEFINE[4].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import equipment_notebook_costs67
 
     if (admitted := equipment_notebook_costs67.definition(ability, ch)) is not None:
@@ -6508,625 +5473,33 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
 
     if (admitted := cloudspire82.definition(ability, ch)) is not None:
         return admitted
-    from app.rules import text_global_word71
-
-    if (global71 := text_global_word71.definition(ability, ch)) is not None:
-        return global71
-    from app.rules import conditional_tax80
-
-    if (tax80 := conditional_tax80.definition(ability, ch)) is not None:
-        return tax80
-    from app.rules import upkeep_tax79
-
-    if (tax79 := upkeep_tax79.definition(ability, ch)) is not None:
-        return tax79
-    from app.rules import first_crew_saddle80
-
-    if (first80 := first_crew_saddle80.definition(ability, ch)) is not None:
-        return first80
-    from app.rules import unblocked_choices79
-
-    if (unblocked79 := unblocked_choices79.definition(ability, ch)) is not None:
-        return unblocked79
-    from app.rules import first_event_receipts78
-
-    if (first78 := first_event_receipts78.definition(ability, ch)) is not None:
-        return first78
-    from app.rules import graveyard_return57
-
-    if (return57 := graveyard_return57.definition(ability, ch)) is not None:
-        return return57
-    from app.rules import player_counter_instructions75
-
-    if (players75 := player_counter_instructions75.definition(ability, ch)) is not None:
-        return players75
-    from app.rules import targeting_sources77
-
-    if (target77 := targeting_sources77.definition(ability, ch)) is not None:
-        return target77
-    from app.rules import combat_soulbond_partner70
-
-    if (soulbond70 := combat_soulbond_partner70.definition(ability, ch)) is not None:
-        return soulbond70
-    from app.rules import optional_attacker_damage74
-
-    if (damage74 := optional_attacker_damage74.definition(ability, ch)) is not None:
-        return damage74
-    from app.rules import saddled_receipts76
-
-    if (mount76 := saddled_receipts76.definition(ability, ch)) is not None:
-        return mount76
-    from app.rules import combat_equipment_blocks70
-
-    if (equipment70 := combat_equipment_blocks70.definition(ability, ch)) is not None:
-        return equipment70
-    from app.rules import conditional_tap_counter73
-
-    if (tap73 := conditional_tap_counter73.definition(ability, ch)) is not None:
-        return tap73
-    from app.rules import trigger_upkeep_comparison75
-
-    if (oath75 := trigger_upkeep_comparison75.definition(ability, ch)) is not None:
-        return oath75
-    from app.rules import combat_named_exception69
-
-    if (named69 := combat_named_exception69.definition(ability, ch)) is not None:
-        return named69
-    from app.rules import manifest_aura74
-
-    if (form74 := manifest_aura74.definition(ability, ch)) is not None:
-        return form74
-    from app.rules import combat_at_least_one68
-
-    if (one68 := combat_at_least_one68.definition(ability, ch)) is not None:
-        return one68
-    from app.rules import attacker_reselection73
-
-    if (reselection73 := attacker_reselection73.definition(ability, ch)) is not None:
-        return reselection73
-    from app.rules import wave111g_triggers  # -- trigger other (wave 111G) -- Tuvok, U.S.S. Defiant
-
-    if (whole111g := wave111g_triggers.definition(ability, ch)) is not None:
-        return whole111g
-    from app.rules import combat_conditional_requirements67
-
-    if (conditional67 := combat_conditional_requirements67.definition(ability, ch)) is not None:
-        return conditional67
-    from app.rules import ordered_graveyard53
-
-    if (ordered_graveyard := ordered_graveyard53.definition(ability, ch)) is not None:
-        return ordered_graveyard
-    from app.rules import trigger_upkeep_pay_return71
-
-    if (pay_return71 := trigger_upkeep_pay_return71.definition(ability, ch)) is not None:
-        return pay_return71
-    from app.rules import trigger_damage_threshold70
-
-    if (threshold70 := trigger_damage_threshold70.definition(ability, ch)) is not None:
-        return threshold70
-    # -- last cards (wave 110J) -- Spinneret and Spiderling: one damage event's total (603.2c)
-    from app.rules import exile_damage_choices49
-
-    if (spinneret110j := exile_damage_choices49.definition(ability, ch)) is not None:
-        return spinneret110j
-    from app.rules import combat_teyo66
-
-    if (direction66 := combat_teyo66.definition(ability, ch)) is not None:
-        return direction66
-    from app.rules import controller_turn_history69
-
-    if (controller69 := controller_turn_history69.definition(ability, ch)) is not None:
-        return controller69
-    from app.rules import entry_counter_kind_choices68
-
-    if (entry_kind68 := entry_counter_kind_choices68.definition(ability, ch)) is not None:
-        return entry_kind68
-    from app.rules import ring_counter_packets67
-
-    if (ring_packet67 := ring_counter_packets67.definition(ability, ch)) is not None:
-        return ring_packet67
-    from app.rules import combat_defender_aliases66
-
-    if (defender66 := combat_defender_aliases66.definition(ability, ch)) is not None:
-        return defender66
-    from app.rules import trigger_attached_artifact67
-
-    if (attached67 := trigger_attached_artifact67.definition(ability, ch)) is not None:
-        return attached67
-    from app.rules import discard_counter_union66
-
-    if (discard_union66 := discard_counter_union66.definition(ability, ch)) is not None:
-        return discard_union66
-    from app.rules import trigger_handcast_sweep66
-
-    if (sweep66 := trigger_handcast_sweep66.definition(ability, ch)) is not None:
-        return sweep66
-    from app.rules import trigger_attack_population63
-
-    if (population63 := trigger_attack_population63.definition(ability, ch)) is not None:
-        return population63
-    from app.rules import counter_event_packets50
-
-    if (counter_packet := counter_event_packets50.definition(ability, ch)) is not None:
-        return counter_packet
-    from app.rules import counter_lki_tokens50
-
-    if (counter_lki_token := counter_lki_tokens50.definition(ability, ch)) is not None:
-        return counter_lki_token
-    from app.rules import counter_ownership50
-
-    if (counter_owner := counter_ownership50.definition(ability, ch)) is not None:
-        return counter_owner
-    from app.rules import counter_state_thresholds50
-
-    if (counter_state := counter_state_thresholds50.definition(ability, ch)) is not None:
-        return counter_state
+    if (hooked := hooks.DEFINE[5].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import aslongas100k, conditional_instead59
 
     if (instead59 := conditional_instead59.definition(ability, ch) or aslongas100k.definition(ability, ch)) is not None:  # (wave 100K)
         return instead59
-    from app.rules import trigger_grave_counter_top65
-
-    if (grave_counter_top := trigger_grave_counter_top65.definition(ability, ch)) is not None:
-        return grave_counter_top
-
-    from app.rules import trigger_grave_extreme64
-
-    if (grave_extreme := trigger_grave_extreme64.definition(ability, ch)) is not None:
-        return grave_extreme
-
-    from app.rules import trigger_leaf58_staged
-
-    if (pair_target_trigger := trigger_leaf58_staged.definition(ability, ch)) is not None:
-        return pair_target_trigger
-
-    from app.rules import trigger_tap_actors62
-
-    if (tap_actor_trigger := trigger_tap_actors62.definition(ability, ch)) is not None:
-        return tap_actor_trigger
-
-    from app.rules import trigger_leaf57_staged
-
-    if (designation_return := trigger_leaf57_staged.definition(ability, ch)) is not None:
-        return designation_return
-
-    from app.rules import trigger_status_instead60
-
-    if (status_trigger := trigger_status_instead60.definition(ability, ch)) is not None:
-        return status_trigger
-
-    from app.rules import trigger_leaf56_staged
-
-    if (target_aura_trigger := trigger_leaf56_staged.definition(ability, ch)) is not None:
-        return target_aura_trigger
-
-    from app.rules import trigger_return_references60
-
-    if (return_reference := trigger_return_references60.definition(ability, ch)) is not None:
-        return return_reference
-
-
-    from app.rules import trigger_leaf54_staged
-
-    if (power_life_trigger := trigger_leaf54_staged.definition(ability, ch)) is not None:
-        return power_life_trigger
-
-    from app.rules import trigger_main_cast60
-
-    if (main_cast := trigger_main_cast60.definition(ability, ch)) is not None:
-        return main_cast
-
-    from app.rules import trigger_grave_upkeep59
-
-    if (grave_upkeep := trigger_grave_upkeep59.definition(ability, ch)) is not None:
-        return grave_upkeep
-
-    from app.rules import trigger_sacrifice_entered58
-
-    if (sacrifice_entered := trigger_sacrifice_entered58.definition(ability, ch)) is not None:
-        return sacrifice_entered
-
-    from app.rules import trigger_extreme_choices57
-
-    if (extreme_choice := trigger_extreme_choices57.definition(ability, ch)) is not None:
-        return extreme_choice
-    from app.rules import trigger_permanent_steps54
-
-    if (permanent_step := trigger_permanent_steps54.definition(ability, ch)) is not None:
-        return permanent_step
-    from app.rules import trigger_pt_choices56
-
-    if (pt_choice := trigger_pt_choices56.definition(ability, ch)) is not None:
-        return pt_choice
-    from app.rules import trigger_library_win53
-
-    if (library_win := trigger_library_win53.definition(ability, ch)) is not None:
-        return library_win
-    from app.rules import trigger_tap_union52
-
-    if (tap_union := trigger_tap_union52.definition(ability, ch)) is not None:
-        return tap_union
-    from app.rules import trigger_defender_release53
-
-    if (defender_release := trigger_defender_release53.definition(ability, ch)) is not None:
-        return defender_release
-    from app.rules import trigger_upkeep_compounds53
-
-    if (upkeep_compound := trigger_upkeep_compounds53.definition(ability, ch)) is not None:
-        return upkeep_compound
-    from app.rules import trigger_owned_return51
-
-    if (owned_return := trigger_owned_return51.definition(ability, ch)) is not None:
-        return owned_return
-    from app.rules import trigger_draw_token_counter51
-
-    if (draw_token_counter := trigger_draw_token_counter51.definition(ability, ch)) is not None:
-        return draw_token_counter
-    from app.rules import trigger_grave_bottom51
-
-    if (grave_bottom := trigger_grave_bottom51.definition(ability, ch)) is not None:
-        return grave_bottom
-    from app.rules import trigger_target_control50
-
-    if (target_control := trigger_target_control50.definition(ability, ch)) is not None:
-        return target_control
-    from app.rules import trigger_empty_board50
-
-    if (empty_board := trigger_empty_board50.definition(ability, ch)) is not None:
-        return empty_board
-    from app.rules import trigger_damage_values51
-
-    if (damage_values := trigger_damage_values51.definition(ability, ch)) is not None:
-        return damage_values
-    from app.rules import trigger_aggregate_counters50
-
-    if (aggregate_counters := trigger_aggregate_counters50.definition(ability, ch)) is not None:
-        return aggregate_counters
-    from app.rules import trigger_cast_counters50
-
-    if (cast_counter := trigger_cast_counters50.definition(ability, ch)) is not None:
-        return cast_counter
-    from app.rules import source_damage_counters50
-
-    if (damage_counters := source_damage_counters50.definition(ability, ch)) is not None:
-        return damage_counters
-    from app.rules import trigger_faceup_union50
-
-    if (faceup_union := trigger_faceup_union50.definition(ability, ch)) is not None:
-        return faceup_union
-    from app.rules import trigger_combat_counts50
-
-    if (combat_count := trigger_combat_counts50.definition(ability, ch)) is not None:
-        return combat_count
-    from app.rules import trigger_hand_owner50
-
-    if (hand_owner := trigger_hand_owner50.definition(ability, ch)) is not None:
-        return hand_owner
-    from app.rules import trigger_source_graveyard50
-
-    if (source_graveyard := trigger_source_graveyard50.definition(ability, ch)) is not None:
-        return source_graveyard
-    from app.rules import trigger_graveyard_owners50
-
-    if (graveyard_owner := trigger_graveyard_owners50.definition(ability, ch)) is not None:
-        return graveyard_owner
-    from app.rules import trigger_return_choices50
-
-    if (return_choice := trigger_return_choices50.definition(ability, ch)) is not None:
-        return return_choice
-    from app.rules import trigger_step_damage50
-
-    if (step_damage := trigger_step_damage50.definition(ability, ch)) is not None:
-        return step_damage
+    if (hooked := hooks.DEFINE[6].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import trigger_leaf51_staged
 
     if ability.text in (trigger_leaf51_staged.JOKUL, trigger_leaf51_staged.DRUID) and (leaf_trigger := trigger_leaf51_staged.definition(ability, ch)) is not None:
         return leaf_trigger
-    from app.rules import trigger_leaf52_staged
-
-    if (self_layer_trigger := trigger_leaf52_staged.definition(ability, ch)) is not None:
-        return self_layer_trigger
-    from app.rules import trigger_leaf53_staged
-
-    if (bound_land_trigger := trigger_leaf53_staged.definition(ability, ch)) is not None:
-        return bound_land_trigger
-    from app.rules import trigger_step_counts50
-
-    if (step_count := trigger_step_counts50.definition(ability, ch)) is not None:
-        return step_count
-    from app.rules import counter_event_comparisons50
-
-    if (counter_comparison := counter_event_comparisons50.definition(ability, ch)) is not None:
-        return counter_comparison
-    from app.rules import temporary_creature_types93
-
-    if (types93 := temporary_creature_types93.definition(ability, ch)) is not None:
-        return types93
-    from app.rules import conditional_toughness96
-
-    if (toughness96 := conditional_toughness96.definition(ability, ch)) is not None:
-        return toughness96
-    from app.rules import world_upkeep83
-
-    if (world_upkeep := world_upkeep83.definition(ability, ch)) is not None:
-        return world_upkeep
-    from app.rules import upkeep_target_choice65
-
-    if (upkeep_choice65 := upkeep_target_choice65.definition(ability, ch)) is not None:
-        return upkeep_choice65
-    from app.rules import damage_target_counts65
-
-    if (damage_count65 := damage_target_counts65.definition(ability, ch)) is not None:
-        return damage_count65
-    from app.rules import dynamic_keyword_costs55
-
-    if (dynamic_keyword_cost := dynamic_keyword_costs55.definition(ability, ch)) is not None:
-        return dynamic_keyword_cost
-
-    from app.rules import kicked_spell_outcomes59
-
-    if (kicked_keyword := kicked_spell_outcomes59.definition(ability, ch)) is not None:
-        return kicked_keyword
-
-    from app.rules import kicked_x_lki_outcomes61
-
-    if (kicked_x_entry := kicked_x_lki_outcomes61.definition(ability, ch)) is not None:
-        return kicked_x_entry
-
-    from app.rules import target_cost_conditions62
-
-    if (target_cost := target_cost_conditions62.definition(ability, ch)) is not None:
-        return target_cost
-
-    from app.rules import caster_turn_costs63
-
-    if (caster_cost := caster_turn_costs63.definition(ability, ch)) is not None:
-        return caster_cost
-
-    from app.rules import source_spell_discounts64
-
-    if (source_discount := source_spell_discounts64.definition(ability, ch)) is not None:
-        return source_discount
-
-    from app.rules import selected_keyword_costs65
-
-    if (selected_keyword := selected_keyword_costs65.definition(ability, ch)) is not None:
-        return selected_keyword
-
-    from app.rules import wave110a_activation  # -- activation cost (wave 110A) --
-
-    if (first_artifact := wave110a_activation.definition(ability, ch)) is not None:
-        return first_artifact
-
-    from app.rules import first_target_activation_cost58
-
-    if (first_target_cost := first_target_activation_cost58.definition(ability, ch)) is not None:
-        return first_target_cost
-
-    from app.rules import graveyard_cost_grants57
-
-    if (graveyard_cost_grant := graveyard_cost_grants57.definition(ability, ch)) is not None:
-        return graveyard_cost_grant
-
-    from app.rules import dynamic_zone_keyword_costs56
-
-    if (dynamic_zone_keyword := dynamic_zone_keyword_costs56.definition(ability, ch)) is not None:
-        return dynamic_zone_keyword
-
-    from app.rules import table_activation_modifiers52
-
-    if (table_activation := table_activation_modifiers52.definition(ability, ch)) is not None:
-        return table_activation
-
-    from app.rules import torch_exile_receipts65
-
-    if (torch_exile65 := torch_exile_receipts65.definition(ability, ch)) is not None:
-        return torch_exile65
-    from app.rules import top_library_authorities69
-
-    if (top69 := top_library_authorities69.definition(ability, ch)) is not None:
-        return top69
-
-    from app.rules import conditional_free_casts68
-
-    if (conditional68 := conditional_free_casts68.definition(ability, ch)) is not None:
-        return conditional68
-
-    from app.rules import immediate_cast_pools67
-
-    if (immediate67 := immediate_cast_pools67.definition(ability, ch)) is not None:
-        return immediate67
-    from app.rules import copied_exile_packets66
-
-    if (copied_exile66 := copied_exile_packets66.definition(ability, ch)) is not None:
-        return copied_exile66
-    from app.rules import damage_exile_statics65
-
-    if (damage_exile_static65 := damage_exile_statics65.definition(ability, ch)) is not None:
-        return damage_exile_static65
-    from app.rules import dependent_object_targets65
-
-    if (dependent_object65 := dependent_object_targets65.definition(ability, ch)) is not None:
-        return dependent_object65
-    from app.rules import fight_exile_receipts65
-
-    if (fight_exile65 := fight_exile_receipts65.definition(ability, ch)) is not None:
-        return fight_exile65
-    from app.rules import relative_damage_receipts65
-
-    if (relative_damage65 := relative_damage_receipts65.definition(ability, ch)) is not None:
-        return relative_damage65
-    from app.rules import random_vehicle_crash45
-
-    if (random_vehicle := random_vehicle_crash45.definition(ability, ch)) is not None:
-        return random_vehicle
-    from app.rules import random_cost_roll44
-
-    if (random_cost := random_cost_roll44.definition(ability, ch)) is not None:
-        return random_cost
-    from app.rules import random_previous_combat44
-
-    if (random_previous := random_previous_combat44.definition(ability, ch)) is not None:
-        return random_previous
-    from app.rules import random_walker_faces44
-
-    if (random_walker := random_walker_faces44.definition(ability, ch)) is not None:
-        return random_walker
-    from app.rules import random_draw_reflexives43
-
-    if (random_draw := random_draw_reflexives43.definition(ability, ch)) is not None:
-        return random_draw
-    from app.rules import random_transform_outcomes43
-
-    if (random_transform := random_transform_outcomes43.definition(ability, ch)) is not None:
-        return random_transform
-    from app.rules import counter_restrictions43
-
-    if (counter_restriction := counter_restrictions43.definition(ability, ch)) is not None:
-        return counter_restriction
-    from app.rules import mana_followthrough_profiles
-
-    if (mana_followthrough := mana_followthrough_profiles.definition(ability, ch)) is not None:
-        return mana_followthrough
-    from app.rules import mana_activation_cost_watchers51
-
-    if (activation_cost_watcher := mana_activation_cost_watchers51.definition(ability, ch)) is not None:
-        return activation_cost_watcher
-    from app.rules import mana_sunglasses49
-
-    if (sunglasses := mana_sunglasses49.definition(ability, ch)) is not None:
-        return sunglasses
-    from app.rules import mana_persistent_replacements48
-
-    if (persistent_mana := mana_persistent_replacements48.definition(ability, ch)) is not None:
-        return persistent_mana
-    from app.rules import mana_security_rhox47
-
-    if (rhox := mana_security_rhox47.definition(ability, ch)) is not None:
-        return rhox
-    from app.rules import mana_producer_profiles45
-
-    if (producer := mana_producer_profiles45.definition(ability, ch)) is not None:
-        return producer
-    from app.rules import mana_x_profiles
-
-    if (mana_x := mana_x_profiles.definition(ability, ch)) is not None:
-        return mana_x
-    from app.rules import mana_saga_profiles
-
-    if (mana_saga := mana_saga_profiles.definition(ability, ch)) is not None:
-        return mana_saga
-    from app.rules import mana_deity_profiles
-
-    if (mana_deity := mana_deity_profiles.definition(ability, ch)) is not None:
-        return mana_deity
-    from app.rules import mana_esper_profiles
-
-    if (mana_esper := mana_esper_profiles.definition(ability, ch)) is not None:
-        return mana_esper
-    from app.rules import mana_combat_packet_profiles
-
-    if (combat_packet := mana_combat_packet_profiles.definition(ability, ch)) is not None:
-        return combat_packet
-    from app.rules import random_choice_receipts
-
-    if (choice_receipt := random_choice_receipts.definition(ability, ch)) is not None:
-        return choice_receipt
-    from app.rules import linked_exile_life42
-
-    if (linked_life := linked_exile_life42.definition(ability, ch)) is not None:
-        return linked_life
-    from app.rules import exile_outcomes42
-
-    if (outcome42 := exile_outcomes42.production_definition(ability, ch)) is not None:
-        return outcome42
-
-    from app.rules import exile_cast_outcomes45
-
-    if (outcome45 := exile_cast_outcomes45.production_definition(ability, ch)) is not None:
-        return outcome45
-
-    from app.rules import exile_sphinx49
-
-    if (sphinx49 := exile_sphinx49.definition(ability, ch)) is not None:
-        return sphinx49
-
-    from app.rules import delayed_blinks50
-
-    if (blink50 := delayed_blinks50.definition(ability, ch)) is not None:
-        return blink50
-
-    from app.rules import delayed_loyalty_blinks50
-
-    if (loyalty_blink50 := delayed_loyalty_blinks50.definition(ability, ch)) is not None:
-        return loyalty_blink50
-
-    from app.rules import delayed_entry_blinks50
-
-    if (entry_blink50 := delayed_entry_blinks50.definition(ability, ch)) is not None:
-        return entry_blink50
-
-    from app.rules import delayed_self_blinks50
-
-    if (self_blink50 := delayed_self_blinks50.definition(ability, ch)) is not None:
-        return self_blink50
-
-    from app.rules import delayed_cycle_blinks50
-
-    if (cycle_blink50 := delayed_cycle_blinks50.definition(ability, ch)) is not None:
-        return cycle_blink50
-
-    from app.rules import exile_authority_continuations
-
-    if (exile_authority := exile_authority_continuations.definition(ability, ch)) is not None:
-        return exile_authority
-
-    from app.rules import mana_temporary_profiles
-
-    if (temporary_mana := mana_temporary_profiles.definition(ability, ch)) is not None:
-        return temporary_mana
-    from app.rules import mana_foundry_profiles
-
-    if (foundry_mana := mana_foundry_profiles.definition(ability, ch)) is not None:
-        return foundry_mana
-    from app.rules import mana_crafted_profiles
-
-    if (crafted_mana := mana_crafted_profiles.definition(ability, ch)) is not None:
-        return crafted_mana
-    from app.rules import mana_class_profiles
-
-    if (class_mana := mana_class_profiles.definition(ability, ch)) is not None:
-        return class_mana
-    from app.rules import mana_named_land_profiles
-
-    if (named_land := mana_named_land_profiles.definition(ability, ch)) is not None:
-        return named_land
-    from app.rules import mana_resolution_profiles, mana_symbol_production
-
-    if (mana_profile := mana_resolution_profiles.definition(ability, ch)) is not None:
-        return mana_profile
-    if (symbol_definition := mana_symbol_production.definition(ability, ch)) is not None:
-        return symbol_definition
     from app.rules import (
         abilities_of,
         activated_copy_effects,
+        characteristic_recipes,
         color_comparisons,
-        contextual_mana_outcomes,
         entry_characteristic_effects,
         immediate_mana_resolutions,
         keyed_player_bindings,
-        mana_delayed_effects,
         pay_objects,
+        random_choice_receipts,
         suspend_grant_followthrough,
         suspended_counter_choices,
     )
-    if (contextual := contextual_mana_outcomes.definition(ability, ch)) is not None:
-        return contextual
-
-    from app.rules import characteristic_recipes, life_game_history
-
-    if (life_game_definition := life_game_history.definition(ability, ch)) is not None:
-        return life_game_definition
+    if (hooked := hooks.DEFINE[7].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
 
     if (characteristic_definition := characteristic_recipes.definition(self_text(ability.text, ch.name))) is not None:
         return characteristic_definition
@@ -7140,10 +5513,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if ability.kind == "triggered" and (suspend_grant_trigger := suspend_grant_followthrough.definition(self_text(ability.text, ch.name))) is not None:
         return suspend_grant_trigger
     from app.rules import (
-        case_solve_watchers,
         casting_timing_permissions,
         coin_outcomes,
-        look_optional_placement,
         name_equivalence_sequences,
         name_event_receipts,
         name_relation_continuations,
@@ -7153,10 +5524,8 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return coin_replacement
     if ability.kind in ("static", "spell") and (timing_static := casting_timing_permissions.static(self_text(ability.text, ch.name))) is not None:
         return timing_static
-    if (case_watch := case_solve_watchers.definition(ability, ch)) is not None:
-        return case_watch
-    if (placement_definition := look_optional_placement.definition(ability, ch)) is not None:
-        return placement_definition
+    if (hooked := hooks.DEFINE[8].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
     if (receipt_definition := name_event_receipts.definition(self_text(ability.text, ch.name))) is not None:
         return receipt_definition
     if (relation_definition := name_relation_continuations.definition(self_text(ability.text, ch.name))) is not None:
@@ -7165,100 +5534,23 @@ def define(ability: AbilityText, ch: Characteristics) -> Definition | None:
         return named_definition
     if ability.kind == "triggered" and (suspended_trigger := suspended_counter_choices.definition(self_text(ability.text, ch.name))) is not None:
         return suspended_trigger
-    from app.rules import activated_card_outcomes, private_top_card_outcomes
-
-    if (activated_definition := activated_card_outcomes.definition(ability, ch)) is not None:
-        return activated_definition
-
-    if (private_top_card := private_top_card_outcomes.definition(ability, ch)) is not None:
-        return private_top_card
-
-    from app.rules import spent_mana_outcomes
-
-    if (spent_outcome := spent_mana_outcomes.definition(ability, ch)) is not None:
-        return spent_outcome
-
-    from app.rules import discard_outcomes
-
-    if (discard_outcome := discard_outcomes.definition(ability, ch)) is not None:
-        return discard_outcome
-
-    from app.rules import hidden_card_facts
-
-    if (hidden_fact := hidden_card_facts.definition(ability, ch)) is not None:
-        return hidden_fact
+    if (hooked := hooks.DEFINE[9].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
 
     from app.rules import (
         bloatfly_outcomes44,
-        conditional_prevention_effects,
-        conditional_prevention_grants45,
-        delegated_target_announcements,
-        immortal_coil_outcomes,
-        life_prevention_outcomes42,
-        prevention_frontier_cards,
-        prevention_outcomes,
-        prevention_unpreventable_outcomes44,
     )
 
     if ability.kind == 'static' and (bloatfly := bloatfly_outcomes44.definition(self_text(ability.text, ch.name))) is not None:
         return bloatfly
-    if (compound_prevention := conditional_prevention_grants45.definition(ability, ch)) is not None:
-        return compound_prevention
-    if (unpreventable_outcome := prevention_unpreventable_outcomes44.definition(ability, ch)) is not None:
-        return unpreventable_outcome
-    if (life_prevention := life_prevention_outcomes42.definition(ability, ch)) is not None:
-        return life_prevention
-    if (joint_prevention := prevention_frontier_cards.definition(ability, ch)) is not None:
-        return joint_prevention
-    if (coil_outcome := immortal_coil_outcomes.definition(ability, ch)) is not None:
-        return coil_outcome
-
-    if (delegated_target := delegated_target_announcements.definition(ability, ch)) is not None:
-        return delegated_target
-    if (prevention_outcome := prevention_outcomes.definition(ability, ch)) is not None:
-        return prevention_outcome
+    if (hooked := hooks.DEFINE[10].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import wave110j_final  # -- Defensive Formation (wave 110J) --
 
     if ability.kind == "static" and (formation := wave110j_final.definition(ability.text)) is not None:
         return formation
-    if (hellkite := wave110j_final.hellkite(ability, ch)) is not None:
-        return hellkite
-    if (garth := wave110j_final.garth_definition(ability, ch)) is not None:
-        return garth
-    if (inniaz := wave110j_final.inniaz_definition(ability, ch)) is not None:
-        return inniaz
-    from app.rules import wave110j_last  # -- last cards (wave 110J) --
-
-    if (last := wave110j_last.definition(ability, ch)) is not None:
-        return last
-    if (bruna := wave110j_final.bruna_definition(ability, ch)) is not None:
-        return bruna
-    if (kasmina := wave110j_final.kasmina_definition(ability, ch)) is not None:
-        return kasmina
-    if (dermotaxi := wave110j_final.dermotaxi_definition(ability, ch)) is not None:
-        return dermotaxi
-    if (alpine := wave110j_final.alpine_definition(ability, ch)) is not None:
-        return alpine
-    if (beleren := wave110j_final.belerens(ability, ch)) is not None:
-        return beleren
-    if (conditional_prevention := conditional_prevention_effects.definition(ability, ch)) is not None:
-        return conditional_prevention
-
-    from app.rules import bound_subset_choices
-
-    if (bound_subset := bound_subset_choices.definition(ability, ch)) is not None:
-        return bound_subset
-
-    from app.rules import upkeep_reveal_consequences
-
-    if (upkeep_revealed := upkeep_reveal_consequences.definition(ability, ch)) is not None:
-        return upkeep_revealed
-    from app.rules import paid_sacrifice_effects
-
-    if (paid_sacrifice := paid_sacrifice_effects.definition(ability, ch)) is not None:
-        return paid_sacrifice
-    if (mana_delayed := mana_delayed_effects.definition(ability, ch)) is not None:
-        return mana_delayed
+    if (hooked := hooks.DEFINE[11].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules.contextual_mana_triggers import card_definition as contextual_card_definition
     from app.rules.contextual_mana_triggers import stack_definition as contextual_stack_definition
 
@@ -7579,49 +5871,9 @@ def _blight(text: str) -> str:
 
 def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     """The engine definition of one ability, or None (manual)."""
-    from app.rules import exile_counter_access85
-
-    if (counter85 := exile_counter_access85.definition(ability, ch)) is not None:
-        return counter85
-    from app.rules import (
-        ability_mana_history,
-        merged,  # -- merged permanents (wave 18D) -- meld wordings carry card names with commas
-        qualified_attached_tutors,
-        reanimate_auras,  # -- reanimation Auras (wave 51F) -- Animate Dead, Dance of the Dead, Necromancy: the whole enters trigger
-    )
-
-    if (relative_definition := qualified_attached_tutors.definition(ability, ch)) is not None:
-        return relative_definition
-
-    from app.rules import exile_packet_continuations
-
-    if (exile_packet_definition := exile_packet_continuations.definition(ability, ch)) is not None:
-        return exile_packet_definition
-
-    from app.rules import draw_replacement_sequences
-
-    if (draw_sequence_definition := draw_replacement_sequences.definition(ability, ch)) is not None:
-        return draw_sequence_definition
-
-    from app.rules import reveal_cast_packets
-
-    if (reveal_cast_definition := reveal_cast_packets.definition(ability, ch)) is not None:
-        return reveal_cast_definition
-
-    from app.rules import qualified_selection_packets
-
-    if (qualified_packet_definition := qualified_selection_packets.definition(ability, ch)) is not None:
-        return qualified_packet_definition
-
-    from app.rules import attached_kindred_look
-
-    if (kindred_definition := attached_kindred_look.definition(ability, ch)) is not None:
-        return kindred_definition
-
-    from app.rules import ordered_tutor_continuations
-
-    if (ordered_definition := ordered_tutor_continuations.definition(ability, ch)) is not None:
-        return ordered_definition
+    from app.rules import ability_mana_history, merged, reanimate_auras
+    if (hooked := hooks.DEFINE_BODY[0].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
 
     if ability_mana_history.CLAUSE in ability.text:
         return ability_mana_history.definition(ability, ch)
@@ -7656,82 +5908,14 @@ def _define(ability: AbilityText, ch: Characteristics) -> Definition | None:
     if (linked_definition := linked_aggregates.definition(text, ability.kind)) is not None:
         return linked_definition
     from app.rules import (
-        damage_history_outcomes,
         damage_life_results42,
-        damage_snapshot_outcomes,
-        life_card_outcomes41,
-        life_history_outcomes,
-        life_receipt_sequences42,
-        qualified_look_outcomes,
-        reveal_consequences,
     )
-
-    if (damage_history_definition := damage_history_outcomes.definition(ability, ch)) is not None:
-        return damage_history_definition
-
-    if (life_card_definition := life_card_outcomes41.definition(ability, ch)) is not None:
-        return life_card_definition
-    from app.rules import combat_damage_life_receipts
-
-    if (combat_life_definition := combat_damage_life_receipts.definition(ability, ch)) is not None:
-        return combat_life_definition
-    if (life_sequence_definition := life_receipt_sequences42.definition(ability, ch)) is not None:
-        return life_sequence_definition
-    from app.rules import life_sequences43
-
-    if (life43_definition := life_sequences43.definition(ability, ch)) is not None:
-        return life43_definition
-
-    from app.rules import life_sequences44
-
-    if (life44_definition := life_sequences44.definition(ability, ch)) is not None:
-        return life44_definition
-    from app.rules import death_outcomes46
-
-    if (death46_definition := death_outcomes46.definition(ability, ch)) is not None:
-        return death46_definition
-    from app.rules import life_sequences45
-
-    if (life45_definition := life_sequences45.definition(ability, ch)) is not None:
-        return life45_definition
-    from app.rules import surveil_outcomes45
-
-    if (surveil_outcome := surveil_outcomes45.definition(ability, ch)) is not None:
-        return surveil_outcome
-    from app.rules import chosen_color_pairs45
-
-    if (color_pair_definition := chosen_color_pairs45.definition(ability, ch)) is not None:
-        return color_pair_definition
-    from app.rules import life_dynamic45
-
-    if (dynamic_life_definition := life_dynamic45.definition(ability, ch)) is not None:
-        return dynamic_life_definition
-    from app.rules import life_sets44
-
-    if (life_sets_definition := life_sets44.definition(ability, ch)) is not None:
-        return life_sets_definition
-    from app.rules import life_total_damage_results43
-
-    if (life_total_definition := life_total_damage_results43.definition(ability, ch)) is not None:
-        return life_total_definition
+    if (hooked := hooks.DEFINE_BODY[1].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
     if (damage_life_definition := damage_life_results42.definition(ability.text)) is not None:
         return damage_life_definition
-    if (life_history_definition := life_history_outcomes.definition(ability, ch)) is not None:
-        return life_history_definition
-
-    if (damage_definition := damage_snapshot_outcomes.definition(ability, ch)) is not None:
-        return damage_definition
-
-    if (qualified_look := qualified_look_outcomes.definition(ability, ch)) is not None:
-        return qualified_look
-
-    if (reveal_consequence := reveal_consequences.definition(ability, ch)) is not None:
-        return reveal_consequence
-
-    from app.rules import reveal_snapshots
-
-    if (reveal_snapshot := reveal_snapshots.definition(ability, ch)) is not None:
-        return reveal_snapshot
+    if (hooked := hooks.DEFINE_BODY[2].first(ability, ch)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import reveal_outcomes
 
     if (reveal_outcome := reveal_outcomes.definition(text, ability.kind)) is not None:
@@ -9578,23 +7762,8 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     """A static line that is a replacement or prevention effect of the permanent itself."""
     if ability.kind != "static":
         return None
-    from app.rules import entry_counter_source72
-
-    if (source72 := entry_counter_source72.definition(text)) is not None:
-        return source72
-    from app.rules import entry_payment_diversion, entry_value_counters
-
-    if (entry_diversion := entry_payment_diversion.definition(text)) is not None:
-        return entry_diversion
-
-    if (entry_value := entry_value_counters.parse(text)) is not None:
-        return entry_value
-    from app.rules import copiable_coin_entry, random_entry_choice
-
-    if (coin_form := copiable_coin_entry.definition(text)) is not None:
-        return coin_form
-    if (random_entry := random_entry_choice.parse(text)) is not None:
-        return random_entry
+    if (hooked := hooks.DEFINE_REPLACEMENT[0].first(text)) is not None:  # (app/rules/hooks.py)
+        return hooked
     from app.rules import kicked_entries
 
     if (kicked_entry := kicked_entries.parse(ability, text)) is not None:
@@ -9624,114 +7793,35 @@ def define_replacement(ability: AbilityText, text: str) -> Definition | None:
     if text.startswith("As ~ enters or is turned face up, put X +1/+1 counters on it, where X is "):  # -- counters (wave 110H) -- Crowd-Control Warden
         base = define_replacement(ability, text.replace("As ~ enters or is turned face up, put X +1/+1 counters on it,", "~ enters with X +1/+1 counters on it,", 1))
         return None if base is None or base.get("replacement") != "enters_with_counters" else {**base, "face_up110h": True}
-    # -- refused grants/replacements (wave 3R2) -- "Damage can't be prevented." and friends (615.12)
-    from app.rules import skips, source_shields
-
-    if (unpreventable := source_shields.static_definition(text)) is not None:
-        return unpreventable
-    if (skip := skips.static_definition(text)) is not None:  # "Skip your draw step." (614.10)
-        return skip
-    from app.rules import cant_gain, extra_tokens, token_creation_replacements
+    if (hooked := hooks.DEFINE_REPLACEMENT[1].first(text)) is not None:  # (app/rules/hooks.py)
+        return hooked
+    from app.rules import token_creation_replacements
 
     token_characteristics = token_creation_replacements.definition(text)
     if token_characteristics is not None:
         return token_characteristics
 
-    if (extra := extra_tokens.static_definition(text)) is not None:  # "those tokens plus a Food token" (614.16)
-        return extra
-    if (cant := cant_gain.static_definition(text)) is not None:  # "Players can't gain life." (614.17)
-        return cant
-    from app.rules import (
-        designations,  # -- counters (wave 44C) -- "You gain life rather than lose life from radiation." (728.1a)
-    )
-
-    if (rad := designations.static_definition(text)) is not None:
-        return rad
-    from app.rules import (
-        dice,  # -- dice (wave 24B) -- "If you would roll one or more dice, instead roll that many dice plus one and ignore the lowest roll."
-    )
-
-    if (roll_extra := dice.static_definition(text)) is not None:
-        return roll_extra
-    from app.rules import hand_size  # -- hand size (wave 4J) -- "You have no maximum hand size." (402.2)
-
-    if (no_max := hand_size.static_definition(text)) is not None:
-        return no_max
-    from app.rules import game_result  # -- game result statics (wave 10B) -- 104.2, 104.3
-
-    if (result := game_result.static_definition(text)) is not None:
-        return result
-    from app.rules import legend_rule  # -- legend rule (wave 10B) -- 704.5j
-
-    if (no_legend := legend_rule.static_definition(text)) is not None:
-        return no_legend
-    from app.rules import land_plays  # -- additional land plays (wave 4J) -- (305.2)
-
-    if (extra_lands := land_plays.static_definition(text)) is not None:
-        return extra_lands
-    from app.rules import trigger_multipliers  # -- trigger multipliers (wave 5D) -- 603.2d
-
-    if (multiplier := trigger_multipliers.static_definition(text)) is not None:
-        return multiplier
-    from app.rules import (
-        player_control,  # -- controlling another player (wave 18H) -- Opposition Agent (723.2)
-    )
-
-    if (searching := player_control.static_definition(text)) is not None:
-        return searching
+    if (hooked := hooks.DEFINE_REPLACEMENT[2].first(text)) is not None:  # (app/rules/hooks.py)
+        return hooked
     # -- end refused grants/replacements (wave 3R2) --
     if text == "~ enters tapped.":
         return {"kind": "replacement", "replacement": "enters_tapped", "effects": []}
     if text == "~ enters prepared.":  # -- prepared (wave 13C) -- 722.3a: applied as it enters (replacements.after_entry)
         return {"kind": "replacement", "replacement": "enters_prepared", "effects": []}
-    from app.rules import (
-        language,  # (a leaf module)
-        wave110a_control,  # -- entry control (wave 110A) --
-    )
-
-    if (ctl := wave110a_control.definition(text)) is not None:
-        return ctl
-    from app.rules import wave110a_pick  # -- chosen objects (wave 110A) --
-
-    if (picked := wave110a_pick.definition(text)) is not None:
-        return picked
-    from app.rules import wave110j_angel  # -- life total replacement (wave 110J) --
-
-    if (floor := wave110j_angel.definition(text)) is not None:
-        return floor
-    from app.rules import wave110e_opp  # -- entry secret choice (wave 110E) --
-
-    if (secret := wave110e_opp.secret_definition(text)) is not None:
-        return secret
+    from app.rules import language
+    if (hooked := hooks.DEFINE_REPLACEMENT[3].first(text)) is not None:  # (app/rules/hooks.py)
+        return hooked
     chosen = language.enters_choice(text)  # "As ~ enters, choose a color." (614.1c, 614.12a)
     if chosen is not None:
         return chosen
-    from app.rules import card_names  # -- card names (wave 22B) -- "As ~ enters, choose a card name." (201.4)
-
-    if (named := card_names.enters_choice(text)) is not None:
-        return named
-    # -- entry forms (wave 5F) -- "~ enters tapped. As it enters, choose a color …"
-    from app.rules import entry_forms
-
-    if (tapped_choice := entry_forms.tapped_choice(text)) is not None:
-        return tapped_choice
-    if (standalone := entry_forms.standalone_choice(text)) is not None:  # -- static statics (wave 10B) --
-        return standalone
-    if (turn_down := entry_forms.turn_others_down(text)) is not None:  # -- hidden exile (wave 18A) --
-        return turn_down
+    if (hooked := hooks.DEFINE_REPLACEMENT[4].first(text)) is not None:  # (app/rules/hooks.py)
+        return hooked
     m = ENTERS_TAPPED_UNLESS.match(text)
     if m:  # check lands, fast lands, battle lands, Battlebond lands (614.1d)
         cond = _unless_condition(m["cond"])
         return {"kind": "replacement", "replacement": "enters_tapped", "unless": cond, "effects": []} if cond else None
-    # -- "this way" outcomes (wave 4A) -- Snarls: reveal a card or enter tapped
-    from app.rules import reveal_lands
-
-    if (revealed := reveal_lands.definition(text)) is not None:
-        return revealed
-    from app.rules import enter_cost  # -- entering for a cost (wave 5G) -- Mox Diamond, Lake of the Dead
-
-    if (entering_cost := enter_cost.definition(text)) is not None:
-        return entering_cost
+    if (hooked := hooks.DEFINE_REPLACEMENT[5].first(text)) is not None:  # (app/rules/hooks.py)
+        return hooked
     # -- conditional statics (wave 4B) -- "If you control two or more other lands, this land enters tapped." (Den of
     # the Bugbear; 614.1d, checked as it enters, 614.12): "enters tapped unless" the condition is false
     m = re.fullmatch(r"If (?P<cond>you control .+), ~ enters tapped\.", text)

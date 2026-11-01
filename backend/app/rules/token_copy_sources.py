@@ -184,6 +184,16 @@ def zombie(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
 PRIMITIVES.update({'permanent_copy_goad': permanent_goad, 'copy_card_zombie': zombie})
 
 
+def bind_spell_targets(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
+    """601.2c, 115.9b: the objects the cast spell targets (still where they were), as one named group (``e["as"]``) for "those
+    creatures" / "those permanents". The primitive of waves 110D (spell_permanents110d) and 110E (spell_targets110e)."""
+    from app.rules import context
+
+    refs = spell_targets(plan, ctx, e["selector"])
+    context.refs(ctx)[e["as"]] = {"kind": "objects", "objects": [r.model_dump(mode="json") for r in refs]}
+    return True
+
+
 def spell_targets(plan: Plan, ctx: dict[str, Any], selector: str | None = None) -> list[Any]:
     from app.game.rules_state import ObjectRef
     from app.rules import context, selectors, triggers

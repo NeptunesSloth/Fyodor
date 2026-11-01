@@ -32,6 +32,7 @@ from app.rules import (
     context,
     delayed,
     entry_forms,
+    hooks,  # -- hook registry (wave 110 fold-in) -- the module tables registered below, in order
     layers,
     optional_payment,
     permissions,
@@ -3136,27 +3137,10 @@ PRIMITIVES: dict[str, Callable[[Plan, Context, dict[str, Any]], bool]] = {
     "fight": fight, "choose_targets": choose_targets,
     "double_counters": double_counters, "lki_counters": lki_counters,  # (wave 5H; move_counters: wave 12A, app/rules/counter_moves.py)
 }
-# -- copy system (wave 2F): copying spells, abilities and permanents (CR 707; app/rules/copying.py,
-# which imports this module lazily) --
-from app.rules import copying, graveyard_cost_grants57  # noqa: E402
-
-PRIMITIVES.update(graveyard_cost_grants57.PRIMITIVES)
-PRIMITIVES.update(copying.PRIMITIVES)
-from app.rules import kicked_target_outcomes60  # noqa: E402
-
-PRIMITIVES.update(kicked_target_outcomes60.PRIMITIVES)
-from app.rules import crew_saddle, phasing  # noqa: E402
-
-PRIMITIVES.update(phasing.PRIMITIVES)  # -- phasing (wave 13D) -- 702.26
-PRIMITIVES.update(crew_saddle.PRIMITIVES)  # -- crew & saddle (wave 23D) -- 702.171
-PRIMITIVES.update(entry_forms.PRIMITIVES)  # -- entry forms (wave 5F) -- "It's an enchantment." (611.2e)
+from app.rules import copying  # noqa: E402
 from app.rules import merged as _merged  # noqa: E402
 
-PRIMITIVES.update(_merged.PRIMITIVES)  # -- merged permanents (wave 18D) -- meld, 701.42
-# -- resolution memory (wave 22D) --
-from app.rules import exiled_with as _exiled_with  # noqa: E402
-
-PRIMITIVES.update(_exiled_with.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[0], PRIMITIVES)  # (app/rules/hooks.py)
 
 
 def resume_look(plan: Plan, d: Any, chosen: list[str]) -> None:
@@ -3761,24 +3745,8 @@ PRIMITIVES.update({"only_if": only_if})
 from app.rules import kinship as _kinship  # noqa: E402
 
 PRIMITIVES["kinship"] = _kinship.run
-from app.rules import voting as _voting  # noqa: E402, I001  -- voting (wave 18C) --
 
-PRIMITIVES.update(_voting.PRIMITIVES)
-from app.rules import tempting as _tempting  # noqa: E402, I001  -- tempting offers (wave 18C) --
-
-PRIMITIVES.update(_tempting.PRIMITIVES)
-from app.rules import friend_foe as _friend_foe  # noqa: E402, I001  -- friend or foe (wave 18C) --
-
-PRIMITIVES.update(_friend_foe.PRIMITIVES)
-from app.rules import group_choice as _group_choice  # noqa: E402, I001  -- group choices (wave 53D) --
-
-PRIMITIVES.update(_group_choice.PRIMITIVES)
-from app.rules import pile_groups as _pile_groups  # noqa: E402, I001  -- piles (wave 53D) --
-
-PRIMITIVES.update(_pile_groups.PRIMITIVES)
-from app.rules import reanimate_auras as _reanimate_auras  # noqa: E402, I001  -- reanimation Auras (wave 51F) --
-
-PRIMITIVES.update(_reanimate_auras.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[1], PRIMITIVES)  # (app/rules/hooks.py)
 from app.rules import parley as _parley  # noqa: E402  -- parley (wave 9C) --
 
 PRIMITIVES.update({"parley_reveal": _parley.reveal, "parley_repeat": _parley.repeat})
@@ -4874,11 +4842,7 @@ from app.rules import keyword_soup as _keyword_soup  # noqa: E402, I001  # -- ke
 PRIMITIVES["keyword_soup"] = _keyword_soup.soup
 RESUME["keyword_soup"] = _keyword_soup.resume
 RESUME["pick_counter"] = _counter_pick.resume
-RESUME.update(_voting.RESUME)  # -- voting (wave 18C) --
-RESUME.update(_tempting.RESUME)
-RESUME.update(_friend_foe.RESUME)
-RESUME.update(_group_choice.RESUME)  # -- group choices (wave 53D) --
-RESUME.update(_pile_groups.RESUME)  # -- piles (wave 53D) --
+hooks.register(hooks.RESOLUTION[2], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 # -- name search (wave 11D) -- "Search its controller's graveyard, hand, and library for all cards with the same name …"
 from app.rules import name_search as _name_search  # noqa: E402, I001
 
@@ -4890,11 +4854,7 @@ from app.rules import drawn_toll as _drawn_toll  # noqa: E402, I001
 PRIMITIVES["drawn_toll"] = _drawn_toll.toll
 RESUME["drawn_toll"] = _drawn_toll.resume_pick
 RESUME["drawn_toll_each"] = _drawn_toll.resume_each
-# -- Doctor Who keywords (wave 25A) -- time travel (app/rules/time_travel.py)
-from app.rules import time_travel as _time_travel  # noqa: E402, I001
-
-PRIMITIVES.update(_time_travel.PRIMITIVES)
-RESUME.update(_time_travel.RESUME)
+hooks.register(hooks.RESOLUTION[3], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 # -- end if you do (wave 8C) --
 
 
@@ -5524,79 +5484,21 @@ RESUME["draw_may"] = resume_draw_may  # (wave 17B)
 RESUME["draw_upto"] = resume_draw_upto  # (wave 51B)
 RESUME["look_may"] = resume_look_may  # (wave 15C)
 RESUME["search_zones"] = resume_search_zones  # -- refused zones/sized (wave 3R4) --
-# -- counters & designations (wave 3E) --------------------------------------------------------------
-# Rad counters (728), the monarch (725), the initiative (726), venture into the dungeon (701.49, 309),
-# the Ring tempts you (701.54): app/rules/designations.py (a leaf module over this one).
-from app.rules import designations  # noqa: E402, I001
+from app.rules import (  # noqa: E402
+    designations,  # noqa: E402
+    refused_zones,  # noqa: E402
+    skips,  # noqa: E402, F401  (engine.py and wave110i_cards.py read effects.skips)
+)
+from app.rules import player_control as _player_control  # noqa: E402
 
-PRIMITIVES.update(designations.PRIMITIVES)
-RESUME.update(designations.RESUME)
-# -- refused zones/sized (wave 3R4): app/rules/refused_zones.py (a leaf module over this one) --
-from app.rules import refused_zones  # noqa: E402, I001
-
-PRIMITIVES.update(refused_zones.PRIMITIVES)
-RESUME.update(refused_zones.RESUME)
-# -- random choices (wave 47B): app/rules/random_choice.py (a leaf module over this one) --
-from app.rules import random_choice  # noqa: E402, I001
-
-PRIMITIVES.update(random_choice.PRIMITIVES)
-RESUME.update(random_choice.RESUME)
-# -- end counters & designations (wave 3E) --
-from app.rules import graveyard_bottom as _graveyard_bottom  # noqa: E402, I001  -- trigger other (wave 52B) --
-
-from app.rules import reveal_until_gy as _reveal_until_gy  # noqa: E402, I001
-from app.rules import top_trade as _top_trade  # noqa: E402, I001
-
-PRIMITIVES.update(_reveal_until_gy.PRIMITIVES)  # Consuming Aberration (app/rules/reveal_until_gy.py)
-
-PRIMITIVES.update(_top_trade.PRIMITIVES)  # Keen Duelist, Parker Luck, Duskmantle Seer (app/rules/top_trade.py)
-PRIMITIVES.update(_graveyard_bottom.PRIMITIVES)  # "puts all the cards from their graveyard on the bottom of their library in a random order" (app/rules/graveyard_bottom.py)
-
-# -- refused grants/replacements (wave 3R2) -- source-of-your-choice shields (609.7a, 615.8) and "Damage can't be
-# prevented this turn." (615.12): app/rules/source_shields.py (a leaf module over this one)
-from app.rules import cant_gain, graveyard_grants, skips, source_shields  # noqa: E402, I001
-
-PRIMITIVES.update(source_shields.PRIMITIVES)
-PRIMITIVES.update(skips.PRIMITIVES)  # 614.10 "skips their next …" (app/rules/skips.py)
-# -- next untap step (wave 6A) --
-from app.rules import next_untap as _next_untap  # noqa: E402
-
-PRIMITIVES.update(_next_untap.PRIMITIVES)  # 502.3 "doesn't untap during its controller's next untap step"
-from app.rules import extra_turns as _extra_turns  # noqa: E402  -- extra turns (wave 8A) --
-from app.rules import player_control as _player_control  # noqa: E402  (wave 18H)
-
-PRIMITIVES.update(_player_control.PRIMITIVES)  # 723.1 "You control target player during that player's next turn."
-PRIMITIVES.update(_extra_turns.PRIMITIVES)  # 500.7 "Take an extra turn after this one."
-from app.rules import end_turn as _end_turn  # noqa: E402  -- end the turn (wave 46C) --
-
-PRIMITIVES.update(_end_turn.PRIMITIVES)  # 724.1 "End the turn."
-RESUME.update(_end_turn.RESUME)
-from app.rules import land_plays as _land_plays  # noqa: E402  -- one-shot extra land plays (wave 8A) --
-
-PRIMITIVES.update(_land_plays.PRIMITIVES)  # 305.2 "You may play an additional land this turn."
-from app.rules import bounce_forms as _bounce_forms  # noqa: E402
-
-PRIMITIVES.update(_bounce_forms.PRIMITIVES)  # "return target A and target B to their owners' hands" (one move)
+hooks.register(hooks.RESOLUTION[4], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 PRIMITIVES["exchange_life"] = exchange_life
 PRIMITIVES["exchange_life_stat"] = exchange_life_stat
 PRIMITIVES["set_life"] = set_life  # (wave 16C)  # -- activated wordings (wave 15D) --
-PRIMITIVES.update(cant_gain.PRIMITIVES)  # 614.17 "can't gain life …" (app/rules/cant_gain.py)
-from app.rules import game_result as _game_result  # noqa: E402, I001  -- prohibitions (wave 22B) --
+from app.rules import hand_library_exchange as _hand_library_exchange  # noqa: E402, F401  (engine.py reads its RESUME)
+from app.rules import prohibitions as _prohibitions  # noqa: E402
 
-PRIMITIVES.update(_game_result.PRIMITIVES)  # 104.2b / 104.3 "can't lose the game this turn" (app/rules/game_result.py)
-from app.rules import prohibitions as _prohibitions  # noqa: E402, I001
-
-PRIMITIVES.update(_prohibitions.PRIMITIVES)  # 614.17 "Players can't search libraries this turn." (app/rules/prohibitions.py)
-from app.rules import hand_size as _hand_size  # noqa: E402  -- ability words (wave 20C) --
-
-PRIMITIVES.update(_hand_size.PRIMITIVES)  # "You have no maximum hand size for the rest of the game." (app/rules/hand_size.py)
-from app.rules import hand_library_exchange as _hand_library_exchange  # noqa: E402
-
-PRIMITIVES.update(_hand_library_exchange.PRIMITIVES)
-
-PRIMITIVES.update(graveyard_grants.PRIMITIVES)  # "gains flashback until end of turn" (app/rules/graveyard_grants.py)
-RESUME.update(graveyard_grants.RESUME)  # ("Choose one of them.")
-RESUME.update(source_shields.RESUME)
+hooks.register(hooks.RESOLUTION[5], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 # -- end refused grants/replacements (wave 3R2) --
 from app.rules import tap_mana as _tap_mana  # noqa: E402, I001  -- mana riders (wave 5A) --
 
@@ -5614,21 +5516,7 @@ from app.rules import mana_units as _mana_units  # noqa: E402, I001  -- mana pro
 PRIMITIVES["restrict_mana"] = _mana_units.restrict
 # -- end refused copy/mana (wave 3R3) --
 
-# -- unless pays (wave 4C) -- "you may [effect] unless that player pays …" (118.12a): app/rules/unless_pays.py
-from app.rules import unless_pays as _unless_pays  # noqa: E402, I001
-
-PRIMITIVES.update(_unless_pays.PRIMITIVES)
-# -- end unless pays (wave 4C) --
-
-# -- cast limits (wave 5E) -- "… can't cast spells this turn" / flash for a turn (app/rules/cast_limits.py)
-from app.rules import cast_limits as _cast_limits  # noqa: E402, I001
-
-PRIMITIVES.update(_cast_limits.PRIMITIVES)
-RESUME.update(_cast_limits.RESUME)  # (and player hexproof / protection: app/rules/player_shields.py)
-from app.rules import protection_grants as _protection_grants  # noqa: E402, I001
-
-PRIMITIVES.update(_protection_grants.PRIMITIVES)  # "gains protection from the color of your choice" (608.2)
-RESUME.update(_protection_grants.RESUME)
+hooks.register(hooks.RESOLUTION[6], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 # -- end cast limits (wave 5E) --
 
 
@@ -5644,131 +5532,32 @@ def _note_resolution(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
 PRIMITIVES["note_resolution"] = _note_resolution
 # -- end this-turn history (wave 4D) --
 
-# -- X sized by a count (wave 4K) -- "Shuffle ~ into its owner's library." as a spell's last instruction (the Zenith
-# cycle): app/rules/x_spells.py (a leaf module over this one)
-from app.rules import x_spells as _x_spells  # noqa: E402, I001
+from app.rules import recursion as _recursion  # noqa: E402
 
-PRIMITIVES.update(_x_spells.PRIMITIVES)
-# -- end X sized by a count (wave 4K) --
-
-# -- discover (wave 9A) -- 701.57: app/rules/discover.py
-from app.rules import discover as _discover  # noqa: E402, I001
-
-PRIMITIVES.update(_discover.PRIMITIVES)
-# -- end discover (wave 9A) --
-
-# -- recursion & tutors (wave 4M) -- a spell moving itself (608.2m/n) and the rest: app/rules/recursion.py
-from app.rules import recursion as _recursion  # noqa: E402, I001
-
-PRIMITIVES.update(_recursion.PRIMITIVES)
-# -- end recursion & tutors (wave 4M) --
-
-
-# -- combat (wave 5C) -- additional combat phases, tokens entering attacking each opponent (app/rules/combat_rules.py)
-from app.rules import combat_rules as _combat_rules  # noqa: E402
-
-PRIMITIVES.update(_combat_rules.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[7], PRIMITIVES)  # (app/rules/hooks.py)
 from app.rules import ninjutsu as _ninjutsu  # noqa: E402  -- keywords (wave 15E) -- 702.49
 
 PRIMITIVES["ninjutsu_enter"] = _ninjutsu.enter
 from app.rules import miracle as _miracle  # noqa: E402, I001  -- casting extras (wave 18E) -- 702.94a
 
 PRIMITIVES["miracle_offer"] = _miracle.offer
-RESUME.update(_combat_rules.RESUME)
+from app.rules import player_choices as _player_choices  # noqa: E402
 
-# -- triggers (wave 5D) -- "then put two cards from your hand on top of your library in any order" (app/rules/put_back.py)
-from app.rules import put_back as _put_back  # noqa: E402, I001
-
-PRIMITIVES.update(_put_back.PRIMITIVES)
-RESUME.update(_put_back.RESUME)
-# -- end triggers (wave 5D) --
-
-# -- stack interaction (wave 5B) -- changing the target of a spell or ability (115.7): app/rules/stack_interaction.py
-from app.rules import stack_interaction as _stack_interaction  # noqa: E402, I001
-
-PRIMITIVES.update(_stack_interaction.PRIMITIVES)
-RESUME.update(_stack_interaction.RESUME)
-# -- end stack interaction (wave 5B) --
-
-# -- token & pump wordings (wave 6C) -- Role tokens created attached to a creature (app/rules/roles.py)
-from app.rules import roles as _roles  # noqa: E402, I001
-
-PRIMITIVES.update(_roles.PRIMITIVES)
-PRIMITIVES.update(block_events.PRIMITIVES)  # -- block events (wave 53C) -- an effect making an attacker become blocked
-from app.rules import decayed as _decayed  # noqa: E402, I001  (702.147: decayed's sacrifice at end of combat)
-
-PRIMITIVES.update(_decayed.PRIMITIVES)
-# -- end token & pump wordings (wave 6C) --
-from app.rules import player_choices as _player_choices  # noqa: E402, I001  -- player-relative selectors (wave 53A) --
-
-PRIMITIVES.update(_player_choices.PRIMITIVES)
-RESUME.update(_player_choices.RESUME)
-
-# -- token copies & attach on entry (wave 5J) -- "attach it to target creature you control" (app/rules/attach_entry.py),
-# populate and "for each …, create a token that's a copy of that …" (app/rules/populate.py)
-from app.rules import attach_entry as _attach_entry  # noqa: E402, I001
-
-PRIMITIVES.update(_attach_entry.PRIMITIVES)
-RESUME.update(_attach_entry.RESUME)  # (wave 25A: attach_choose)
-from app.rules import haunt as _haunt  # noqa: E402, I001  -- haunt (wave 50H) --
-from app.rules import paradigm as _paradigm  # noqa: E402, I001  -- paradigm (wave 50H) --
-
-PRIMITIVES.update(_haunt.PRIMITIVES)
-PRIMITIVES.update(_paradigm.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[8], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 from app.rules import licids as _licids  # noqa: E402, I001  -- licids (wave 50A) --
 
 PRIMITIVES["licid"] = _licids.licid
-from app.rules import populate as _populate  # noqa: E402, I001
-
-PRIMITIVES.update(_populate.PRIMITIVES)
-RESUME.update(_populate.RESUME)
-from app.rules import put_from_hand as _put_from_hand  # noqa: E402, I001
-
-PRIMITIVES.update(_put_from_hand.PRIMITIVES)
-RESUME.update(_put_from_hand.RESUME)
-# -- end token copies & attach on entry (wave 5J) --
-# -- tap or untap (wave 6D) -- "You may tap or untap target permanent." (app/rules/tap_or_untap.py)
 from app.rules import tap_or_untap as _tap_or_untap  # noqa: E402
 
-PRIMITIVES.update(_tap_or_untap.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[9], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 RESUME["tap_or_untap"] = _tap_or_untap.resume
-# -- state triggers (wave 6D) -- the marker effect of a state trigger (603.8: app/rules/state_triggers.py)
-from app.rules import state_triggers as _state_triggers  # noqa: E402
-
-PRIMITIVES.update(_state_triggers.PRIMITIVES)
-# -- endure (wave 6D) -- "it endures 2" (701.63: app/rules/endure.py)
 from app.rules import endure as _endure  # noqa: E402
 
-PRIMITIVES.update(_endure.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[10], PRIMITIVES)  # (app/rules/hooks.py)
 RESUME["endure"] = _endure.resume
-# -- win the game (wave 6D) -- "you win the game" (104.2b: app/rules/win_game.py)
-from app.rules import win_game as _win_game  # noqa: E402
+from app.rules import clash as _clash  # noqa: E402
 
-PRIMITIVES.update(_win_game.PRIMITIVES)
-
-# -- if you do (wave 6F) -- "Each opponent may [cost]. Each opponent who doesn't …" (app/rules/each_may.py)
-from app.rules import each_may as _each_may  # noqa: E402, I001
-
-PRIMITIVES.update(_each_may.PRIMITIVES)
-# -- end if you do (wave 6F) --
-# -- choice grants and switches (wave 7E) -- app/rules/choice_grants.py
-from app.rules import choice_grants as _choice_grants  # noqa: E402, I001
-
-PRIMITIVES.update(_choice_grants.PRIMITIVES)
-from app.rules import coin_flips as _coin_flips  # noqa: E402, I001  -- coin flips (wave 7E)
-
-PRIMITIVES.update(_coin_flips.PRIMITIVES)
-RESUME.update(_coin_flips.RESUME)
-from app.rules import coin_outcomes as _coin_outcomes  # noqa: E402, I001
-
-RESUME.update(_coin_outcomes.RESUME)
-from app.rules import coin_recipes as _coin_recipes  # noqa: E402, I001
-
-PRIMITIVES.update(_coin_recipes.PRIMITIVES)
-RESUME.update(_coin_recipes.RESUME)
-from app.rules import clash as _clash  # noqa: E402, I001  -- clash (wave 12A)
-
-PRIMITIVES.update(_clash.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[11], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 RESUME[_clash.STEP] = _clash.resume
 from app.rules import dice as _dice  # noqa: E402, I001  -- rolling dice (wave 12A)
 
@@ -5798,109 +5587,33 @@ from app.rules import name_exile_loop as _name_exile_loop  # noqa: E402, I001
 PRIMITIVES.update(_name_exile_loop.PRIMITIVES)
 RESUME[_name_exile_loop.STEP] = _name_exile_loop.resume
 
-from app.rules import named_recast as _named_recast  # noqa: E402, I001
+from app.rules import pairing as _pairing  # noqa: E402
 
-PRIMITIVES.update(_named_recast.PRIMITIVES)
-
-from app.rules import loyalty_survivors as _loyalty_survivors  # noqa: E402, I001
-
-PRIMITIVES.update(_loyalty_survivors.PRIMITIVES)
-RESUME.update(_choice_grants.RESUME)
-# -- zone replacements (wave 22C) -- "If it would leave the battlefield, exile it instead of putting it anywhere else." (app/rules/leave_exile.py)
-from app.rules import leave_exile as _leave_exile  # noqa: E402, I001
-
-PRIMITIVES.update(_leave_exile.PRIMITIVES)
-# -- per-player filters (wave 23A) -- "Each opponent who can't …": the players a predicate holds for (app/rules/player_filter.py)
-from app.rules import player_filter as _player_filter  # noqa: E402, I001
-
-PRIMITIVES.update(_player_filter.PRIMITIVES)
-# -- villainous choice (wave 23A) -- 701.55 (app/rules/villainous.py)
-from app.rules import villainous as _villainous  # noqa: E402, I001
-
-PRIMITIVES.update(_villainous.PRIMITIVES)
-# -- speed (wave 24B) -- 702.179c (app/rules/speed.py)
-from app.rules import speed as _speed  # noqa: E402, I001
-
-PRIMITIVES.update(_speed.PRIMITIVES)
-# -- soulbond (wave 24B) -- 702.95 (app/rules/pairing.py)
-from app.rules import pairing as _pairing  # noqa: E402, I001
-
-PRIMITIVES.update(_pairing.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[12], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 RESUME[_pairing.STEP] = _pairing.resume
 # -- loops and repeats (wave 24B) -- "Repeat this process" (608.2c: app/rules/loops.py)
 from app.rules import loops as _loops  # noqa: E402, I001
 
 PRIMITIVES.update(_loops.PRIMITIVES)
 RESUME[_loops.STEP] = _loops.resume
-RESUME.update(_villainous.RESUME)
-# -- counter kinds (wave 24C) -- "for each kind of counter on …", "choose a counter on …", "remove any number of counters" (app/rules/counter_kinds.py)
-from app.rules import counter_kinds as _counter_kinds  # noqa: E402, I001
+from app.rules import resolution_choice as _resolution_choice  # noqa: E402
 
-PRIMITIVES.update(_counter_kinds.PRIMITIVES)
-RESUME.update(_counter_kinds.RESUME)
-# -- suspend granted (wave 24C) -- "it gains suspend" (app/rules/suspend_grants.py)
-from app.rules import suspend_grants as _suspend_grants  # noqa: E402, I001
-
-PRIMITIVES.update(_suspend_grants.PRIMITIVES)
-# -- trigger other (wave 25B) -- airbend 701.65 (app/rules/airbend.py)
-from app.rules import airbend as _airbend  # noqa: E402, I001
-
-PRIMITIVES.update(_airbend.PRIMITIVES)
-# -- trigger other (wave 25B) -- "create a Food token or a Treasure token" (app/rules/resolution_choice.py)
-from app.rules import resolution_choice as _resolution_choice  # noqa: E402, I001
-
-PRIMITIVES.update(_resolution_choice.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[13], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 RESUME[_resolution_choice.STEP] = _resolution_choice.resume
-# -- trigger other (wave 25B) -- "put the cards in your hand on the bottom of your library in any order, then draw that many cards" (app/rules/hand_wheel.py)
-from app.rules import hand_wheel as _hand_wheel  # noqa: E402, I001
+from app.rules import pay_untap as _pay_untap  # noqa: E402
 
-PRIMITIVES.update(_hand_wheel.PRIMITIVES)
-RESUME.update(_hand_wheel.RESUME)  # (wave 51B)
-# -- trigger other (wave 25B) -- join forces (app/rules/join_forces.py)
-from app.rules import join_forces as _join_forces  # noqa: E402, I001
-
-PRIMITIVES.update(_join_forces.PRIMITIVES)
-# -- cast riders (wave 25C) -- "When you next cast a creature spell this turn, that creature enters with an additional +1/+1 counter on it."
-from app.rules import cast_riders as _cast_riders  # noqa: E402, I001
-
-PRIMITIVES.update(_cast_riders.PRIMITIVES)
-# -- cast riders (wave 38C) -- "exile it instead of putting it into your graveyard as it resolves", "it becomes plotted" (app/rules/resolve_exile.py)
-from app.rules import resolve_exile as _resolve_exile  # noqa: E402, I001
-
-PRIMITIVES.update(_resolve_exile.PRIMITIVES)
-RESUME.update(_resolve_exile.RESUME)
-# -- pay to untap (wave 25C) -- Dream Tides, Mudslide (app/rules/pay_untap.py)
-from app.rules import pay_untap as _pay_untap  # noqa: E402, I001
-
-PRIMITIVES.update(_pay_untap.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[14], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 RESUME[_pay_untap.STEP] = _pay_untap.resume
-# -- spell grants (wave 28C) -- "The next spell you cast this turn has improvise." (app/rules/spell_grants.py)
-from app.rules import spell_grants as _spell_grants  # noqa: E402, I001
-
-PRIMITIVES.update(_spell_grants.PRIMITIVES)
-# -- activated other (wave 52D) -- the edge of a graveyard or library, and more (app/rules/activated52d.py)
-from app.rules import activated52d as _activated52d  # noqa: E402, I001
-
-PRIMITIVES.update(_activated52d.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[15], PRIMITIVES)  # (app/rules/hooks.py)
 
 # CR 903.11: ordinary outside-game permissions, with an explicit fallback in other formats.
 from app.rules import outside_game as _outside_game  # noqa: E402, I001
 
 PRIMITIVES["outside_permission"] = _outside_game.permission
 
-from app.rules import shared_damage as _shared_damage  # noqa: E402, I001
-
-PRIMITIVES.update(_shared_damage.PRIMITIVES)
-RESUME.update(_shared_damage.RESUME)
-
-
-from app.rules import hexproof_targeting as _hexproof_targeting  # noqa: E402, I001
-
-PRIMITIVES.update(_hexproof_targeting.PRIMITIVES)
-
 from app.rules import optional_event_tap as _optional_event_tap  # noqa: E402
 
-PRIMITIVES.update(_optional_event_tap.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[16], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 RESUME[_optional_event_tap.STEP] = _optional_event_tap.resume
 
 from app.rules import shared_permanent_return as _shared_permanent_return  # noqa: E402
@@ -5909,139 +5622,12 @@ PRIMITIVES.update(_shared_permanent_return.PRIMITIVES)
 RESUME[_shared_permanent_return.STEP] = _shared_permanent_return.resume
 
 
-from app.rules import damage_controller_destruction as _damage_controller_destruction  # noqa: E402, I001
+from app.rules import token_fight_pairs as _token_fight_pairs  # noqa: E402
 
-PRIMITIVES.update(_damage_controller_destruction.PRIMITIVES)
-
-
-from app.rules import ability_mana_history as _ability_mana_history  # noqa: E402, I001
-
-PRIMITIVES.update(_ability_mana_history.PRIMITIVES)
-
-
-from app.rules import token_fight_pairs as _token_fight_pairs  # noqa: E402, I001
-
-PRIMITIVES.update(_token_fight_pairs.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[17], PRIMITIVES)  # (app/rules/hooks.py)
 RESUME[_token_fight_pairs.STEP] = _token_fight_pairs.resume
 
-from app.rules import simultaneous_moves as _simultaneous_moves  # noqa: E402, I001
-
-PRIMITIVES.update(_simultaneous_moves.PRIMITIVES)
-RESUME.update(_simultaneous_moves.RESUME)
-
-
-# CR 608.2c/g/h: counter, random mill, differently named free cast, then cleanup.
-from app.rules import counter_random_recast as _counter_random_recast  # noqa: E402, I001
-
-PRIMITIVES.update(_counter_random_recast.PRIMITIVES)
-
-from app.rules import optional_repeat_roll as _optional_repeat_roll  # noqa: E402, I001
-
-PRIMITIVES.update(_optional_repeat_roll.PRIMITIVES)
-RESUME.update(_optional_repeat_roll.RESUME)
-
-
-from app.rules import discover_followup as _discover_followup  # noqa: E402, I001
-
-PRIMITIVES.update(_discover_followup.PRIMITIVES)
-
-
-from app.rules import player_counter_top_up as _player_counter_top_up  # noqa: E402, I001
-
-PRIMITIVES.update(_player_counter_top_up.PRIMITIVES)
-
-from app.rules import mill_pair_repeat as _mill_pair_repeat  # noqa: E402, I001
-
-PRIMITIVES.update(_mill_pair_repeat.PRIMITIVES)
-RESUME.update(_mill_pair_repeat.RESUME)
-
-
-from app.rules import attached_copy_fallback as _attached_copy_fallback  # noqa: E402, I001
-
-PRIMITIVES.update(_attached_copy_fallback.PRIMITIVES)
-
-
-from app.rules import harness as _harness  # noqa: E402, I001
-
-PRIMITIVES.update(_harness.PRIMITIVES)
-
-from app.rules import paid_effect_costs as _paid_effect_costs  # noqa: E402, I001
-
-RESUME.update(_paid_effect_costs.RESUME)
-
-
-from app.rules import linked_attachment_return as _linked_attachment_return  # noqa: E402
-
-PRIMITIVES.update(_linked_attachment_return.PRIMITIVES)
-RESUME.update(_linked_attachment_return.RESUME)
-
-
-from app.rules import conditional_repeat_search as _conditional_repeat_search  # noqa: E402, I001
-
-PRIMITIVES.update(_conditional_repeat_search.PRIMITIVES)
-RESUME.update(_conditional_repeat_search.RESUME)
-
-
-from app.rules import conditional_return_destination as _conditional_return_destination  # noqa: E402, I001
-
-PRIMITIVES.update(_conditional_return_destination.PRIMITIVES)
-RESUME.update(_conditional_return_destination.RESUME)
-
-
-from app.rules import exile_land_compensation as _exile_land_compensation  # noqa: E402, I001
-
-PRIMITIVES.update(_exile_land_compensation.PRIMITIVES)
-
-
-from app.rules import chosen_library_kind as _chosen_library_kind  # noqa: E402, I001
-
-PRIMITIVES.update(_chosen_library_kind.PRIMITIVES)
-RESUME.update(_chosen_library_kind.RESUME)
-
-
-from app.rules import delayed_fewer_counters as _delayed_fewer_counters  # noqa: E402, I001
-
-PRIMITIVES.update(_delayed_fewer_counters.PRIMITIVES)
-
-
-from app.rules import destroy_type_reveal as _destroy_type_reveal  # noqa: E402, I001
-
-PRIMITIVES.update(_destroy_type_reveal.PRIMITIVES)
-
-
-from app.rules import reveal_hand_or_top as _reveal_hand_or_top  # noqa: E402, I001
-
-PRIMITIVES.update(_reveal_hand_or_top.PRIMITIVES)
-RESUME.update(_reveal_hand_or_top.RESUME)
-
-
-from app.rules import exile_delayed_damage as _exile_delayed_damage  # noqa: E402, I001
-
-PRIMITIVES.update(_exile_delayed_damage.PRIMITIVES)
-
-
-from app.rules import descendants_path as _descendants_path  # noqa: E402, I001
-
-PRIMITIVES.update(_descendants_path.PRIMITIVES)
-
-from app.rules import received_counter_doubling as _received_counter_doubling  # noqa: E402, I001
-
-PRIMITIVES.update(_received_counter_doubling.PRIMITIVES)
-
-from app.rules import player_counter_doubling as _player_counter_doubling  # noqa: E402, I001
-
-PRIMITIVES.update(_player_counter_doubling.PRIMITIVES)
-
-
-from app.rules import exchange_energy as _exchange_energy  # noqa: E402, I001
-
-PRIMITIVES.update(_exchange_energy.PRIMITIVES)
-
-
-from app.rules import armored_skyhunter as _armored_skyhunter  # noqa: E402, I001
-
-PRIMITIVES.update(_armored_skyhunter.PRIMITIVES)
-RESUME.update(_armored_skyhunter.RESUME)
+hooks.register(hooks.RESOLUTION[18], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 
 from app.rules import capped_counters as _capped_counters  # noqa: E402, I001
@@ -6050,551 +5636,13 @@ PRIMITIVES["capped_counters"] = _capped_counters.run
 RESUME["capped_counters"] = _capped_counters.resume
 
 
-from app.rules import exert_equipment as _exert_equipment  # noqa: E402, I001
-
-PRIMITIVES.update(_exert_equipment.PRIMITIVES)
-
-from app.rules import conditional_search_destination as _conditional_search_destination  # noqa: E402, I001
-
-RESUME.update(_conditional_search_destination.RESUME)
-
-
-from app.rules import plargg_nassari as _plargg_nassari  # noqa: E402, I001
-
-PRIMITIVES.update(_plargg_nassari.PRIMITIVES)
-RESUME.update(_plargg_nassari.RESUME)
-
-
-from app.rules import grouped_discard as _grouped_discard  # noqa: E402, I001
-
-RESUME.update(_grouped_discard.RESUME)
-
-from app.rules import equipment_unattach_choice as _equipment_unattach_choice  # noqa: E402, I001
-
-PRIMITIVES.update(_equipment_unattach_choice.PRIMITIVES)
-RESUME.update(_equipment_unattach_choice.RESUME)
-
-from app.rules import exile_mv_threshold as _exile_mv_threshold  # noqa: E402, I001
-
-PRIMITIVES.update(_exile_mv_threshold.PRIMITIVES)
-
-
-from app.rules import counter_offers as _counter_offers  # noqa: E402, I001
-
-PRIMITIVES.update(_counter_offers.PRIMITIVES)
-RESUME.update(_counter_offers.RESUME)
-
-
-from app.rules import counter_choice_effects as _counter_choice_effects  # noqa: E402, I001
-
-PRIMITIVES.update(_counter_choice_effects.PRIMITIVES)
-RESUME.update(_counter_choice_effects.RESUME)
-
-
-from app.rules import capped_damage_life as _capped_damage_life  # noqa: E402, I001
-
-PRIMITIVES.update(_capped_damage_life.PRIMITIVES)
-RESUME.update(_capped_damage_life.RESUME)
-
-from app.rules import player_protection_grants as _player_protection_grants  # noqa: E402
-
-PRIMITIVES.update(_player_protection_grants.PRIMITIVES)
-
-from app.rules import derived_protection as _derived_protection  # noqa: E402
-
-PRIMITIVES.update(_derived_protection.PRIMITIVES)
-
-
-from app.rules import counter_group_choices as _counter_group_choices  # noqa: E402, I001
-
-PRIMITIVES.update(_counter_group_choices.PRIMITIVES)
-RESUME.update(_counter_group_choices.RESUME)
-
-from app.rules import library_look as _library_look  # noqa: E402
-
-PRIMITIVES.update(_library_look.PRIMITIVES)
-
-
-from app.rules import counter_distribution as _untargeted_counter_distribution  # noqa: E402, I001
-
-PRIMITIVES.update(_untargeted_counter_distribution.PRIMITIVES)
-RESUME.update(_untargeted_counter_distribution.RESUME)
-
-from app.rules import opponent_looked_choice as _opponent_looked_choice  # noqa: E402
-
-PRIMITIVES.update(_opponent_looked_choice.PRIMITIVES)
-
-
-from app.rules import source_quality_grants as _source_quality_grants  # noqa: E402
-
-PRIMITIVES.update(_source_quality_grants.PRIMITIVES)
-
-
-from app.rules import counter_arithmetic as _counter_arithmetic  # noqa: E402, I001
-
-PRIMITIVES.update(_counter_arithmetic.PRIMITIVES)
-
-from app.rules import land_or_cast as _land_or_cast  # noqa: E402
-
-PRIMITIVES.update(_land_or_cast.PRIMITIVES)
-
-from app.rules import temporary_hand_exile as _temporary_hand_exile  # noqa: E402
-
-PRIMITIVES.update(_temporary_hand_exile.PRIMITIVES)
-
-from app.rules import group_counter_values as _group_counter_values  # noqa: E402, I001
-
-PRIMITIVES.update(_group_counter_values.PRIMITIVES)
-
-from app.rules import search_partition as _search_partition  # noqa: E402
-
-PRIMITIVES.update(_search_partition.PRIMITIVES)
-RESUME.update(_search_partition.RESUME)
-
-from app.rules import counter_upkeep_payments as _counter_upkeep_payments  # noqa: E402, I001
-
-PRIMITIVES.update(_counter_upkeep_payments.PRIMITIVES)
-RESUME.update(_counter_upkeep_payments.RESUME)
-
-from app.rules import optional_library_look as _optional_library_look  # noqa: E402
-
-PRIMITIVES.update(_optional_library_look.PRIMITIVES)
-
-from app.rules import activated_copy_effects as _activated_copy_effects  # noqa: E402
-
-PRIMITIVES.update(_activated_copy_effects.PRIMITIVES)
-
-from app.rules import linked_exile_look as _linked_exile_look  # noqa: E402
-
-PRIMITIVES.update(_linked_exile_look.PRIMITIVES)
-
-from app.rules import linked_play_grants as _linked_play_grants  # noqa: E402
-
-PRIMITIVES.update(_linked_play_grants.PRIMITIVES)
-
-from app.rules import foreign_zone_sequences as _foreign_zone_sequences  # noqa: E402
-
-PRIMITIVES.update(_foreign_zone_sequences.PRIMITIVES)
-RESUME.update(_foreign_zone_sequences.RESUME)
-
-from app.rules import qualified_search_packets as _qualified_search_packets  # noqa: E402
-
-PRIMITIVES.update(_qualified_search_packets.PRIMITIVES)
-RESUME.update(_qualified_search_packets.RESUME)
-
-from app.rules import linked_returns as _linked_returns  # noqa: E402
-
-PRIMITIVES.update(_linked_returns.PRIMITIVES)
-
-from app.rules import resolved_library_guesses as _resolved_library_guesses  # noqa: E402
-
-PRIMITIVES.update(_resolved_library_guesses.PRIMITIVES)
-
-from app.rules import reveal_outcomes as _reveal_outcomes  # noqa: E402
-
-PRIMITIVES.update(_reveal_outcomes.PRIMITIVES)
-
-from app.rules import conditional_tutor_outcomes as _conditional_tutor_outcomes  # noqa: E402
-
-PRIMITIVES.update(_conditional_tutor_outcomes.PRIMITIVES)
-RESUME.update(_conditional_tutor_outcomes.RESUME)
-
-from app.rules import exile_permission_sequences as _exile_permission_sequences  # noqa: E402
-
-PRIMITIVES.update(_exile_permission_sequences.PRIMITIVES)
-RESUME.update(_exile_permission_sequences.RESUME)
-
-from app.rules import suspended_counter_choices as _suspended_counter_choices  # noqa: E402
-
-PRIMITIVES.update(_suspended_counter_choices.PRIMITIVES)
-RESUME.update(_suspended_counter_choices.RESUME)
+hooks.register(hooks.RESOLUTION[19], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 
 from app.rules import paid_sacrifice_effects as _paid_sacrifice_effects  # noqa: E402, I001
 
 PRIMITIVES["source_emerge_tokens"] = _paid_sacrifice_effects.source_emerge_tokens
-RESUME.update(_paid_sacrifice_effects.RESUME)
-
-from app.rules import linked_aggregates as _linked_aggregates  # noqa: E402
-
-PRIMITIVES.update(_linked_aggregates.PRIMITIVES)
-RESUME.update(_linked_aggregates.RESUME)
-
-from app.rules import name_equivalence_sequences as _name_equivalence_sequences  # noqa: E402
-
-PRIMITIVES.update(_name_equivalence_sequences.PRIMITIVES)
-
-from app.rules import qualified_attached_tutors as _qualified_attached_tutors  # noqa: E402
-
-PRIMITIVES.update(_qualified_attached_tutors.PRIMITIVES)
-RESUME.update(_qualified_attached_tutors.RESUME)
-
-from app.rules import reveal_snapshots as _reveal_snapshots  # noqa: E402
-
-PRIMITIVES.update(_reveal_snapshots.PRIMITIVES)
-
-from app.rules import conditional_copy_sources as _conditional_copy_sources  # noqa: E402
-from app.rules import token_copy_sources as _token_copy_sources  # noqa: E402
-from app.rules import token_source_groups as _token_source_groups  # noqa: E402
-
-PRIMITIVES.update(_token_copy_sources.PRIMITIVES)
-PRIMITIVES.update(_token_source_groups.PRIMITIVES)
-PRIMITIVES.update(_conditional_copy_sources.PRIMITIVES)
-
-from app.rules import suspend_grant_followthrough as _suspend_grant_followthrough  # noqa: E402
-
-PRIMITIVES.update(_suspend_grant_followthrough.PRIMITIVES)
-RESUME.update(_suspend_grant_followthrough.RESUME)
-
-
-from app.rules import attack_destinations as _attack_destinations  # noqa: E402
-
-PRIMITIVES.update(_attack_destinations.PRIMITIVES)
-
-
-from app.rules import hidden_card_facts as _hidden_card_facts  # noqa: E402, I001
-
-PRIMITIVES.update(_hidden_card_facts.PRIMITIVES)
-RESUME.update(_hidden_card_facts.RESUME)
-
-RESUME.update(_token_copy_sources.RESUME)
-
-from app.rules import reveal_consequences as _reveal_consequences  # noqa: E402
-
-PRIMITIVES.update(_reveal_consequences.PRIMITIVES)
-
-from app.rules import name_relation_continuations as _name_relation_continuations  # noqa: E402
-
-PRIMITIVES.update(_name_relation_continuations.PRIMITIVES)
-RESUME.update(_name_relation_continuations.RESUME)
-
-from app.rules import nontarget_creature_choices as _nontarget_creature_choices  # noqa: E402
-
-PRIMITIVES.update(_nontarget_creature_choices.PRIMITIVES)
-
-
-from app.rules import card_copy_sources as _card_copy_sources  # noqa: E402
-
-PRIMITIVES.update(_card_copy_sources.PRIMITIVES)
-RESUME.update(_card_copy_sources.RESUME)
-
-from app.rules import ordered_tutor_continuations as _ordered_tutor_continuations  # noqa: E402
-
-PRIMITIVES.update(_ordered_tutor_continuations.PRIMITIVES)
-RESUME.update(_ordered_tutor_continuations.RESUME)
-
-
-from app.rules import discard_outcomes as _discard_outcomes  # noqa: E402, I001
-
-PRIMITIVES.update(_discard_outcomes.PRIMITIVES)
-
-from app.rules import upkeep_reveal_consequences as _upkeep_reveal_consequences  # noqa: E402
-
-PRIMITIVES.update(_upkeep_reveal_consequences.PRIMITIVES)
-
-from app.rules import reveal_target_sequences as _reveal_target_sequences  # noqa: E402
-
-PRIMITIVES.update(_reveal_target_sequences.PRIMITIVES)
-RESUME.update(_reveal_target_sequences.RESUME)
-
-
-from app.rules import attack_reveal_fight as _attack_reveal_fight  # noqa: E402
-
-PRIMITIVES.update(_attack_reveal_fight.PRIMITIVES)
-
-from app.rules import spent_mana_outcomes as _spent_mana_outcomes  # noqa: E402, I001
-
-PRIMITIVES.update(_spent_mana_outcomes.PRIMITIVES)
-
-from app.rules import name_event_receipts as _name_event_receipts  # noqa: E402
-
-PRIMITIVES.update(_name_event_receipts.PRIMITIVES)
-RESUME.update(_name_event_receipts.RESUME)
-
-from app.rules import controller_tutors as _controller_tutors  # noqa: E402
-
-PRIMITIVES.update(_controller_tutors.PRIMITIVES)
-RESUME.update(_controller_tutors.RESUME)
-
-from app.rules import bound_subset_choices as _bound_subset_choices  # noqa: E402
-
-PRIMITIVES.update(_bound_subset_choices.PRIMITIVES)
-
-from app.rules import revealed_two_stage_picks as _revealed_two_stage_picks  # noqa: E402, I001
-
-PRIMITIVES.update(_revealed_two_stage_picks.PRIMITIVES)
-RESUME.update(_revealed_two_stage_picks.RESUME)
-
-from app.rules import qualified_look_outcomes as _qualified_look_outcomes  # noqa: E402
-
-PRIMITIVES.update(_qualified_look_outcomes.PRIMITIVES)
-
-from app.rules import look_optional_placement as _look_optional_placement  # noqa: E402
-
-PRIMITIVES.update(_look_optional_placement.PRIMITIVES)
-
-from app.rules import private_top_card_outcomes as _private_top_card_outcomes  # noqa: E402, I001
-
-PRIMITIVES.update(_private_top_card_outcomes.PRIMITIVES)
-
-from app.rules import attached_kindred_look as _attached_kindred_look  # noqa: E402
-
-PRIMITIVES.update(_attached_kindred_look.PRIMITIVES)
-
-from app.rules import scoped_prevention_effects as _scoped_prevention_effects  # noqa: E402
-
-PRIMITIVES.update(_scoped_prevention_effects.PRIMITIVES)
-
-from app.rules import activated_card_outcomes as _activated_card_outcomes  # noqa: E402
-
-PRIMITIVES.update(_activated_card_outcomes.PRIMITIVES)
-RESUME.update(_activated_card_outcomes.RESUME)
-
-from app.rules import immediate_mana_resolutions as _immediate_mana_resolutions  # noqa: E402, I001
-
-PRIMITIVES.update(_immediate_mana_resolutions.PRIMITIVES)
-RESUME.update(_immediate_mana_resolutions.RESUME)
-
-from app.rules import casting_timing_permissions as _casting_timing_permissions  # noqa: E402
-
-PRIMITIVES.update(_casting_timing_permissions.PRIMITIVES)
-
-from app.rules import qualified_selection_packets as _qualified_selection_packets  # noqa: E402
-
-PRIMITIVES.update(_qualified_selection_packets.PRIMITIVES)
-RESUME.update(_qualified_selection_packets.RESUME)
-
-from app.rules import conditional_prevention_effects as _conditional_prevention_effects  # noqa: E402
-
-PRIMITIVES.update(_conditional_prevention_effects.PRIMITIVES)
-
-from app.rules import reveal_cast_packets as _reveal_cast_packets  # noqa: E402
-
-PRIMITIVES.update(_reveal_cast_packets.PRIMITIVES)
-
-from app.rules import contextual_mana_outcomes as _contextual_mana_outcomes  # noqa: E402, I001
-
-PRIMITIVES.update(_contextual_mana_outcomes.PRIMITIVES)
-RESUME.update(_contextual_mana_outcomes.RESUME)
-
-from app.rules import token_copy_outcomes as _token_copy_outcomes  # noqa: E402
-
-PRIMITIVES.update(_token_copy_outcomes.PRIMITIVES)
-
-from app.rules import damage_snapshot_outcomes as _damage_snapshot_outcomes  # noqa: E402
-
-PRIMITIVES.update(_damage_snapshot_outcomes.PRIMITIVES)
-
-from app.rules import damage_redirection_effects as _damage_redirection_effects  # noqa: E402
-
-PRIMITIVES.update(_damage_redirection_effects.PRIMITIVES)
-
-from app.rules import token_copy_continuations as _token_copy_continuations  # noqa: E402
-
-PRIMITIVES.update(_token_copy_continuations.PRIMITIVES)
-
-from app.rules import single_recipient_redirection as _single_recipient_redirection  # noqa: E402
-
-RESUME.update(_single_recipient_redirection.RESUME)
-
-from app.rules import damage_history_outcomes as _damage_history_outcomes  # noqa: E402
-
-PRIMITIVES.update(_damage_history_outcomes.PRIMITIVES)
-
-from app.rules import life_history_outcomes as _life_history_outcomes  # noqa: E402
-
-PRIMITIVES.update(_life_history_outcomes.PRIMITIVES)
-
-from app.rules import draw_replacement_sequences as _draw_replacement_sequences  # noqa: E402
-
-PRIMITIVES.update(_draw_replacement_sequences.PRIMITIVES)
-RESUME.update(_draw_replacement_sequences.RESUME)
-
-
-from app.rules import random_consequences as _random_consequences  # noqa: E402
-
-PRIMITIVES.update(_random_consequences.PRIMITIVES)
-RESUME.update(_random_consequences.RESUME)
-
-from app.rules import contextual_mana_triggers as _contextual_mana_triggers  # noqa: E402
-
-PRIMITIVES.update(_contextual_mana_triggers.PRIMITIVES)
-RESUME.update(_contextual_mana_triggers.RESUME)
-
-# Immediate prevention bodies can suspend without completing the original damage caller.
-from app.rules import damage_rider_continuations as _damage_rider_continuations  # noqa: E402, F401
-from app.rules import life_game_history as _life_game_history  # noqa: E402
-
-PRIMITIVES.update(_life_game_history.PRIMITIVES)
-
-from app.rules import exile_packet_continuations as _exile_packet_continuations  # noqa: E402
-
-PRIMITIVES.update(_exile_packet_continuations.PRIMITIVES)
-
-from app.rules import random_receipt_consumers as _random_receipt_consumers  # noqa: E402
-
-PRIMITIVES.update(_random_receipt_consumers.PRIMITIVES)
-RESUME.update(_random_receipt_consumers.RESUME)
-
-from app.rules import prevention_outcomes as _prevention_outcomes  # noqa: E402
-
-PRIMITIVES.update(_prevention_outcomes.PRIMITIVES)
-
-from app.rules import mana_resolution_profiles as _mana_resolution_profiles  # noqa: E402
-from app.rules import mana_symbol_production as _mana_symbol_production  # noqa: E402
-
-PRIMITIVES.update(_mana_resolution_profiles.PRIMITIVES)
-RESUME.update(_mana_resolution_profiles.RESUME)
-
-from app.rules import mana_codie_profiles as _mana_codie_profiles  # noqa: E402
-
-PRIMITIVES.update(_mana_codie_profiles.PRIMITIVES)
-RESUME.update(_mana_codie_profiles.RESUME)
-PRIMITIVES.update(_mana_symbol_production.PRIMITIVES)
-RESUME.update(_mana_symbol_production.RESUME)
-
-from app.rules import mana_named_land_profiles as _mana_named_land_profiles  # noqa: E402
-
-PRIMITIVES.update(_mana_named_land_profiles.PRIMITIVES)
-
-from app.rules import mana_class_profiles as _mana_class_profiles  # noqa: E402
-
-PRIMITIVES.update(_mana_class_profiles.PRIMITIVES)
-
-from app.rules import mana_linked_profiles as _mana_linked_profiles  # noqa: E402
-
-PRIMITIVES.update(_mana_linked_profiles.PRIMITIVES)
-
-from app.rules import mana_crafted_profiles as _mana_crafted_profiles  # noqa: E402
-
-PRIMITIVES.update(_mana_crafted_profiles.PRIMITIVES)
-RESUME.update(_mana_crafted_profiles.RESUME)
-
-from app.rules import multiplayer_roll_consumers as _multiplayer_roll_consumers  # noqa: E402
-
-PRIMITIVES.update(_multiplayer_roll_consumers.PRIMITIVES)
-
-from app.rules import life_card_outcomes41 as _life_card_outcomes41  # noqa: E402
-
-PRIMITIVES.update(_life_card_outcomes41.PRIMITIVES)
-
-# Interpreter/resumes are generic prerequisites; canonical recipe admission is separate.
-from app.rules import random_choice_receipts as _random_choice_receipts  # noqa: E402
-
-PRIMITIVES.update(_random_choice_receipts.PRIMITIVES)
-from app.rules import random_native_outcomes42 as _random_native_outcomes42  # noqa: E402, I001
-
-PRIMITIVES.update(_random_native_outcomes42.PRIMITIVES)
-RESUME.update(_random_choice_receipts.RESUME)
-
-from app.rules import random_characteristic_choices as _random_characteristic_choices  # noqa: E402
-
-PRIMITIVES.update(_random_characteristic_choices.PRIMITIVES)
-
-from app.rules import counter_outcomes42 as _counter_outcomes42  # noqa: E402
-
-PRIMITIVES.update(_counter_outcomes42.PRIMITIVES)
-
-from app.rules import copiable_coin_entry as _copiable_coin_entry  # noqa: E402
-
-PRIMITIVES.update(_copiable_coin_entry.PRIMITIVES)
-
-from app.rules import immortal_coil_outcomes as _immortal_coil_outcomes  # noqa: E402
-
-PRIMITIVES.update(_immortal_coil_outcomes.PRIMITIVES)
-
-from app.rules import counter_payments42 as _counter_payments42  # noqa: E402
-
-PRIMITIVES.update(_counter_payments42.PRIMITIVES)
-RESUME.update(_counter_payments42.RESUME)
-
-from app.rules import mana_foundry_profiles as _mana_foundry_profiles  # noqa: E402
-
-PRIMITIVES.update(_mana_foundry_profiles.PRIMITIVES)
-
-from app.rules import mana_temporary_profiles as _mana_temporary_profiles  # noqa: E402
-
-PRIMITIVES.update(_mana_temporary_profiles.PRIMITIVES)
-
-from app.rules import mana_esper_profiles as _mana_esper_profiles  # noqa: E402
-
-PRIMITIVES.update(_mana_esper_profiles.PRIMITIVES)
-RESUME.update(_mana_esper_profiles.RESUME)
-
-from app.rules import mana_combat_packet_profiles as _mana_combat_packet_profiles  # noqa: E402
-
-PRIMITIVES.update(_mana_combat_packet_profiles.PRIMITIVES)
-
-from app.rules import returned_counter_choices42 as _returned_counter_choices42  # noqa: E402
-
-PRIMITIVES.update(_returned_counter_choices42.PRIMITIVES)
-RESUME.update(_returned_counter_choices42.RESUME)
-
-from app.rules import exile_authority_continuations as _exile_authority_continuations  # noqa: E402
-
-PRIMITIVES.update(_exile_authority_continuations.PRIMITIVES)
-RESUME.update(_exile_authority_continuations.RESUME)
-
-from app.rules import sacrificed_equipment42 as _sacrificed_equipment42  # noqa: E402
-
-PRIMITIVES.update(_sacrificed_equipment42.PRIMITIVES)
-RESUME.update(_sacrificed_equipment42.RESUME)
-
-from app.rules import life_prevention_outcomes42 as _life_prevention_outcomes42  # noqa: E402
-
-PRIMITIVES.update(_life_prevention_outcomes42.PRIMITIVES)
-
-from app.rules import mandatory_return_payments43 as _mandatory_return_payments43  # noqa: E402
-
-PRIMITIVES.update(_mandatory_return_payments43.PRIMITIVES)
-RESUME.update(_mandatory_return_payments43.RESUME)
-
-from app.rules import life_receipt_sequences42 as _life_receipt_sequences42  # noqa: E402
-
-PRIMITIVES.update(_life_receipt_sequences42.PRIMITIVES)
-RESUME.update(_life_receipt_sequences42.RESUME)
-
-from app.rules import tap_energy_outcomes43 as _tap_energy_outcomes43  # noqa: E402
-
-PRIMITIVES.update(_tap_energy_outcomes43.PRIMITIVES)
-RESUME.update(_tap_energy_outcomes43.RESUME)
-
-from app.rules import numeric_roll_finalization42 as _numeric_roll_finalization42  # noqa: E402, I001
-
-PRIMITIVES.update(_numeric_roll_finalization42.PRIMITIVES)
-RESUME.update(_numeric_roll_finalization42.RESUME)
-
-from app.rules import exiled_counter_payments43 as _exiled_counter_payments43  # noqa: E402
-
-PRIMITIVES.update(_exiled_counter_payments43.PRIMITIVES)
-RESUME.update(_exiled_counter_payments43.RESUME)
-
-from app.rules import combat_damage_life_receipts as _combat_damage_life_receipts  # noqa: E402
-
-PRIMITIVES.update(_combat_damage_life_receipts.PRIMITIVES)
-RESUME.update(_combat_damage_life_receipts.RESUME)
-
-from app.rules import life_total_damage_results43 as _life_total_damage_results43  # noqa: E402
-
-PRIMITIVES.update(_life_total_damage_results43.PRIMITIVES)
-RESUME.update(_life_total_damage_results43.RESUME)
-
-from app.rules import linked_exile_life42 as _linked_exile_life42  # noqa: E402
-
-PRIMITIVES.update(_linked_exile_life42.PRIMITIVES)
-
-from app.rules import exiled_return_payments43 as _exiled_return_payments43  # noqa: E402
-
-PRIMITIVES.update(_exiled_return_payments43.PRIMITIVES)
-
-from app.rules import life_sequences43 as _life_sequences43  # noqa: E402
-
-PRIMITIVES.update(_life_sequences43.PRIMITIVES)
-RESUME.update(_life_sequences43.RESUME)
-
-from app.rules import numeric_entry_roll42 as _numeric_entry_roll42  # noqa: E402, I001
-
-PRIMITIVES.update(_numeric_entry_roll42.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[20], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 from app.rules import exile_outcomes42 as _exile_outcomes42  # noqa: E402
 
@@ -6615,18 +5663,7 @@ RESUME["exile_outcomes42_intellect"] = _exile_outcomes42.resume_intellect
 
 PRIMITIVES.update({"exile_outcomes42_kingpin": _exile_outcomes42.PRIMITIVES["exile_outcomes42_kingpin"]})
 
-from app.rules import phase_lifetimes43 as _phase_lifetimes43  # noqa: E402
-
-PRIMITIVES.update(_phase_lifetimes43.PRIMITIVES)
-
-from app.rules import sacrifice_entry_outcomes43 as _sacrifice_entry_outcomes43  # noqa: E402
-
-PRIMITIVES.update(_sacrifice_entry_outcomes43.PRIMITIVES)
-RESUME.update(_sacrifice_entry_outcomes43.RESUME)
-
-from app.rules import combat_player_scope43 as _combat_player_scope43  # noqa: E402, I001
-
-RESUME.update(_combat_player_scope43.RESUME)
+hooks.register(hooks.RESOLUTION[21], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 from app.rules import random_transform_outcomes43 as _random_transform_outcomes43  # noqa: E402
 
@@ -6640,20 +5677,13 @@ from app.rules import random_walker_faces44 as _random_walker_faces44  # noqa: E
 
 PRIMITIVES['ral_other_blue44'] = _random_walker_faces44.draw_if_other_blue
 
-from app.rules import prevention_frontier_cards as _joint_prevention_cards  # noqa: E402, I001
-
-PRIMITIVES.update(_joint_prevention_cards.PRIMITIVES)
-RESUME.update(_joint_prevention_cards.RESUME)
+hooks.register(hooks.RESOLUTION[22], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 PRIMITIVES.update({"exile_outcomes42_wand": _exile_outcomes42.PRIMITIVES["exile_outcomes42_wand"]})
 
 PRIMITIVES.update({"exile_outcomes42_stash": _exile_outcomes42.PRIMITIVES["exile_outcomes42_stash"]})
 
-from app.rules import life_sequences44 as _life_sequences44  # noqa: E402
-from app.rules import opponent_gain_costs44 as _opponent_gain_costs44  # noqa: E402, F401
-
-PRIMITIVES.update(_life_sequences44.PRIMITIVES)
-RESUME.update(_life_sequences44.RESUME)
+hooks.register(hooks.RESOLUTION[23], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 PRIMITIVES.update({key: _exile_outcomes42.PRIMITIVES[key] for key in ("exile_outcomes42_lobelia_enter", "exile_outcomes42_lobelia", "exile_outcomes42_narfi", "exile_outcomes42_linked_grant")})
 RESUME["exile_outcomes42_narfi"] = _exile_outcomes42.resume_narfi
@@ -6770,13 +5800,7 @@ def _resume_look_gy_order45(plan: Plan, d: Any, chosen: list[str]) -> None:
 replace.THEN['look_finish45'] = _then_look45
 RESUME['look_gy_order45'] = _resume_look_gy_order45
 
-from app.rules import random_cost_roll44 as _random_cost_roll44  # noqa: E402
-
-PRIMITIVES.update(_random_cost_roll44.PRIMITIVES)
-
-from app.rules import chosen_color_pairs45 as _chosen_color_pairs45  # noqa: E402
-
-PRIMITIVES.update(_chosen_color_pairs45.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[24], PRIMITIVES)  # (app/rules/hooks.py)
 
 
 def _register_counter_consumers45() -> None:
@@ -6788,10 +5812,7 @@ def _register_counter_consumers45() -> None:
 
 _register_counter_consumers45()
 
-from app.rules import surveil_outcomes45 as _surveil_outcomes45  # noqa: E402
-
-PRIMITIVES.update(_surveil_outcomes45.PRIMITIVES)
-RESUME.update(_surveil_outcomes45.RESUME)
+hooks.register(hooks.RESOLUTION[25], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 # Only admitted exact45 text emits this continuation; other recipes stay held.
 from app.rules import exile_cast_outcomes45 as _exile_cast_outcomes45  # noqa: E402
@@ -6800,31 +5821,7 @@ PRIMITIVES['exile_cast_outcome45'] = _exile_cast_outcomes45.run
 RESUME['exile_cast_outcome45'] = _exile_cast_outcomes45.resume
 RESUME['exile_cast_extract45'] = _exile_cast_outcomes45.resume_extract
 
-from app.rules import exile_spell_choices49 as _exile_spell_choices49  # noqa: E402
-from app.rules import exile_sphinx49 as _exile_sphinx49  # noqa: E402
-
-PRIMITIVES.update(_exile_spell_choices49.PRIMITIVES)
-RESUME.update(_exile_spell_choices49.RESUME)
-PRIMITIVES.update(_exile_sphinx49.PRIMITIVES)
-
-from app.rules import delayed_blinks50 as _delayed_blinks50  # noqa: E402
-from app.rules import delayed_combat_blinks50 as _delayed_combat_blinks50  # noqa: E402
-from app.rules import delayed_entry_blinks50 as _delayed_entry_blinks50  # noqa: E402
-from app.rules import delayed_loyalty_blinks50 as _delayed_loyalty_blinks50  # noqa: E402
-from app.rules import delayed_self_blinks50 as _delayed_self_blinks50  # noqa: E402
-
-PRIMITIVES.update(_delayed_blinks50.PRIMITIVES)
-PRIMITIVES.update(_delayed_combat_blinks50.PRIMITIVES)
-PRIMITIVES.update(_delayed_entry_blinks50.PRIMITIVES)
-PRIMITIVES.update(_delayed_loyalty_blinks50.PRIMITIVES)
-PRIMITIVES.update(_delayed_self_blinks50.PRIMITIVES)
-RESUME.update(_delayed_loyalty_blinks50.RESUME)
-
-
-from app.rules import outside_research50 as _outside_research50  # noqa: E402
-
-PRIMITIVES.update(_outside_research50.PRIMITIVES)
-RESUME.update(_outside_research50.RESUME)
+hooks.register(hooks.RESOLUTION[26], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 
 def _register_adjacent_counter_consumers45() -> None:
@@ -6837,40 +5834,7 @@ def _register_adjacent_counter_consumers45() -> None:
 
 _register_adjacent_counter_consumers45()
 
-from app.rules import life_dynamic45 as _life_dynamic45  # noqa: E402
-
-PRIMITIVES.update(_life_dynamic45.PRIMITIVES)
-
-
-from app.rules import life_sequences45 as _life_sequences45  # noqa: E402
-
-PRIMITIVES.update(_life_sequences45.PRIMITIVES)
-RESUME.update(_life_sequences45.RESUME)
-
-
-from app.rules import death_outcomes46 as _death_outcomes46  # noqa: E402
-
-PRIMITIVES.update(_death_outcomes46.PRIMITIVES)
-RESUME.update(_death_outcomes46.RESUME)
-
-from app.rules import random_vehicle_crash45 as _random_vehicle_crash45  # noqa: E402
-
-PRIMITIVES.update(_random_vehicle_crash45.PRIMITIVES)
-RESUME.update(_random_vehicle_crash45.RESUME)
-
-
-from app.rules import quoted_prevention_loss47 as _quoted_prevention_loss47  # noqa: E402
-
-PRIMITIVES.update(_quoted_prevention_loss47.PRIMITIVES)
-
-from app.rules import mana_persistent_replacements48 as _mana_persistent_replacements48  # noqa: E402
-
-PRIMITIVES.update(_mana_persistent_replacements48.PRIMITIVES)
-
-
-from app.rules import counter_alternatives50 as _counter_alternatives50  # noqa: E402
-
-PRIMITIVES.update(_counter_alternatives50.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[27], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 from app.rules import trigger_leaf54_staged as _trigger_leaf54  # noqa: E402
 
@@ -6881,28 +5845,7 @@ from app.rules import trigger_leaf57_staged as _trigger_leaf57  # noqa: E402
 PRIMITIVES["lammasu_unsuspect57"] = _trigger_leaf57.unsuspect
 
 
-from app.rules import counter_event_packets50 as _counter_event_packets50  # noqa: E402
-
-PRIMITIVES.update(_counter_event_packets50.PRIMITIVES)
-
-
-from app.rules import trigger_attached_artifact67 as _trigger_attached_artifact67  # noqa: E402
-
-PRIMITIVES.update(_trigger_attached_artifact67.PRIMITIVES)
-
-
-from app.rules import ring_counter_packets67 as _ring_counter_packets67  # noqa: E402
-
-PRIMITIVES.update(_ring_counter_packets67.PRIMITIVES)
-
-from app.rules import combat_teyo66 as _combat_teyo66  # noqa: E402
-
-PRIMITIVES.update(_combat_teyo66.PRIMITIVES)
-
-
-from app.rules import entry_counter_kind_choices68 as _entry_counter_kind_choices68  # noqa: E402
-
-PRIMITIVES.update(_entry_counter_kind_choices68.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[28], PRIMITIVES)  # (app/rules/hooks.py)
 
 from app.rules import attacker_reselection73 as _attacker_reselection73  # noqa: E402
 
@@ -6945,13 +5888,7 @@ RESUME['text71_legacy_done'] = _text_change_instructions71.legacy_done
 
 CHOICE_OPTIONS['replacement word'] = CHOICE_OPTIONS['word to replace']
 
-from app.rules import top_library_authorities69  # noqa: E402
-
-PRIMITIVES.update(top_library_authorities69.PRIMITIVES)
-
-from app.rules import conditional_counter_riders77  # noqa: E402
-
-PRIMITIVES.update(conditional_counter_riders77.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[29], PRIMITIVES)  # (app/rules/hooks.py)
 
 from app.rules import unblocked_choices79 as _unblocked79  # noqa: E402
 
@@ -6961,24 +5898,7 @@ from app.rules import first_crew_saddle80 as _first_crew80  # noqa: E402
 
 PRIMITIVES['mindlink_copy80'] = _first_crew80.mindlink_copy
 
-from app.rules import public_mill_attachment59 as _public_mill_attachment59  # noqa: E402
-
-PRIMITIVES.update(_public_mill_attachment59.PRIMITIVES)
-RESUME.update(_public_mill_attachment59.RESUME)
-
-from app.rules import object_mana_offers78  # noqa: E402
-
-PRIMITIVES.update(object_mana_offers78.PRIMITIVES)
-RESUME.update(object_mana_offers78.RESUME)
-
-from app.rules import upkeep_tax79  # noqa: E402
-
-PRIMITIVES.update(upkeep_tax79.PRIMITIVES)
-RESUME.update(upkeep_tax79.RESUME)
-
-from app.rules import prepared_mill61 as _prepared_mill61  # noqa: E402, I001
-
-RESUME.update(_prepared_mill61.RESUME)
+hooks.register(hooks.RESOLUTION[30], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 
 CHOICE_OPTIONS['color word'] = list(_text_change_instructions71.COLORS)
@@ -6992,104 +5912,12 @@ RESUME['restore_global_word71'] = _global_word71.resume_restore
 
 RESUME['restore_global_continue71'] = _global_word71.resume_continue
 
-from app.rules import post_mill_continuations60 as _post_mill_continuations60  # noqa: E402, I001
+from app.rules import teferi_realm84 as _teferi_realm84  # noqa: E402
 
-PRIMITIVES.update(_post_mill_continuations60.PRIMITIVES)
-RESUME.update(_post_mill_continuations60.RESUME)
-
-from app.rules import crew_saddle_readers81 as _crew_saddle_readers81  # noqa: E402, I001
-
-PRIMITIVES.update(_crew_saddle_readers81.PRIMITIVES)
-
-from app.rules import pooled_casting_authorities71 as _pooled_casting_authorities71  # noqa: E402, I001
-
-PRIMITIVES.update(_pooled_casting_authorities71.PRIMITIVES)
-
-from app.rules import demonic_covenant62 as _demonic_covenant62  # noqa: E402, I001
-
-PRIMITIVES.update(_demonic_covenant62.PRIMITIVES)
-
-from app.rules import deferred_payment82 as _deferred82  # noqa: E402
-
-PRIMITIVES.update(_deferred82.PRIMITIVES)
-RESUME.update(_deferred82.RESUME)
-
-from app.rules import fortune83 as _fortune83  # noqa: E402, I001
-
-PRIMITIVES.update(_fortune83.PRIMITIVES)
-
-from app.rules import grave_adventure74 as _grave_adventure74  # noqa: E402, I001
-
-PRIMITIVES.update(_grave_adventure74.PRIMITIVES)
-RESUME.update(_grave_adventure74.RESUME)
-
-from app.rules import target_duration_costs69 as _target_duration69  # noqa: E402
-
-PRIMITIVES.update(_target_duration69.PRIMITIVES)
-
-from app.rules import attack_subjects86 as _attack_subjects86  # noqa: E402, I001
-
-PRIMITIVES.update(_attack_subjects86.PRIMITIVES)
-
-from app.rules import teferi_realm84 as _teferi_realm84  # noqa: E402, I001
-
-PRIMITIVES.update(_teferi_realm84.PRIMITIVES)
-
-from app.rules import source_cohort87 as _source_cohort87  # noqa: E402, I001
-
-PRIMITIVES.update(_source_cohort87.PRIMITIVES)
-
-from app.rules import cyber_controller63 as _cyber_controller63  # noqa: E402, I001
-
-PRIMITIVES.update(_cyber_controller63.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[31], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 CHOICE_OPTIONS[_teferi_realm84.WHAT] = list(_teferi_realm84.CHOICES)
 
-from app.rules import permanent_payments83 as _permanent83  # noqa: E402, I001
-
-PRIMITIVES.update(_permanent83.PRIMITIVES)
-RESUME.update(_permanent83.RESUME)
-
-from app.rules import greatest_creature_cost84 as _greatest_creature_cost84  # noqa: E402, I001
-
-PRIMITIVES.update(_greatest_creature_cost84.PRIMITIVES)
-RESUME.update(_greatest_creature_cost84.RESUME)
-
-from app.rules import creature_obligations85 as _creature_obligations85  # noqa: E402, I001
-
-PRIMITIVES.update(_creature_obligations85.PRIMITIVES)
-RESUME.update(_creature_obligations85.RESUME)
-
-from app.rules import public_mill_picks65 as _public_mill_picks65  # noqa: E402, I001
-
-PRIMITIVES.update(_public_mill_picks65.PRIMITIVES)
-RESUME.update(_public_mill_picks65.RESUME)
-
-from app.rules import hall_gemstone86 as _hall_gemstone86  # noqa: E402, I001
-
-PRIMITIVES.update(_hall_gemstone86.PRIMITIVES)
-
-from app.rules import phase_skips88 as _phase_skips88  # noqa: E402, I001
-
-PRIMITIVES.update(_phase_skips88.PRIMITIVES)
-RESUME.update(_phase_skips88.RESUME)
-
-from app.rules import linked_owner_cast77 as _linked_owner_cast77  # noqa: E402, I001
-
-PRIMITIVES.update(_linked_owner_cast77.PRIMITIVES)
-
-from app.rules import nonbattlefield_life_offers86 as _life86  # noqa: E402, I001
-
-PRIMITIVES.update(_life86.PRIMITIVES)
-RESUME.update(_life86.RESUME)
-
-from app.rules import public_mill_costs64 as _public_mill_costs64  # noqa: E402, I001
-
-PRIMITIVES.update(_public_mill_costs64.PRIMITIVES)
-RESUME.update(_public_mill_costs64.RESUME)
-
-from app.rules import knowledge_pool78 as _knowledge_pool78  # noqa: E402, I001
-
-PRIMITIVES.update(_knowledge_pool78.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[32], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 
 from app.rules import echo_alternatives76 as _echo76  # noqa: E402
@@ -7101,343 +5929,33 @@ PRIMITIVES['note_echo_paid76'] = _echo76.note_paid
 PRIMITIVES['echo_draws76'] = _echo76.draws
 
 
-from app.rules import nightshade_reveal88 as _nightshade88  # noqa: E402, I001
-
-PRIMITIVES.update(_nightshade88.PRIMITIVES)
-RESUME.update(_nightshade88.RESUME)
-
-from app.rules import repeated_graveyard_offer89 as _lore89  # noqa: E402, I001
-
-PRIMITIVES.update(_lore89.PRIMITIVES)
-RESUME.update(_lore89.RESUME)
+hooks.register(hooks.RESOLUTION[33], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 
 from app.rules import exchange_conditions91 as _exchange91  # noqa: E402
 
 PRIMITIVES.update({"exchange_drake91": _exchange91.drake, "exchange_neither91": _exchange91.neither, "exchange_auras91": _exchange91.auras})
 
-from app.rules import graveyard_windows80 as _graveyard_windows80  # noqa: E402
-
-PRIMITIVES.update(_graveyard_windows80.PRIMITIVES)
-
-from app.rules import post_mill_graveyard68  # noqa: E402
-
-PRIMITIVES.update(post_mill_graveyard68.PRIMITIVES)
-
-from app.rules import attached_destruction82 as _attached_destruction82  # noqa: E402
-
-PRIMITIVES.update(_attached_destruction82.PRIMITIVES)
-
-from app.rules import exchange_choices92 as _exchange92  # noqa: E402
-
-PRIMITIVES.update(_exchange92.PRIMITIVES)
-
-from app.rules import exchange_spells93 as _exchange93  # noqa: E402
-
-PRIMITIVES.update(_exchange93.PRIMITIVES)
-
-from app.rules import vault_loop71 as _vault71  # noqa: E402, I001
-
-PRIMITIVES.update(_vault71.PRIMITIVES)
-
-from app.rules import conditional_upkeep_grants91 as _upkeep91  # noqa: E402, I001
-
-PRIMITIVES.update(_upkeep91.PRIMITIVES)
-
-from app.rules import zone_exchanges94 as _zone_exchanges94  # noqa: E402
-
-PRIMITIVES.update(_zone_exchanges94.PRIMITIVES)
-
-# -- trigger lines (wave 100A) --
-from app.rules import triggers100a as _triggers100a  # noqa: E402
-
-PRIMITIVES.update(_triggers100a.PRIMITIVES)
-from app.rules import xdamage100e as _xdamage100e  # noqa: E402  -- xdamage (wave 100E) --
-
-PRIMITIVES.update(_xdamage100e.PRIMITIVES)
-RESUME.update(_xdamage100e.RESUME)
-from app.rules import ifyoudo100b as _ifyoudo100b  # noqa: E402, I001  -- if you do (wave 100B) --
-
-PRIMITIVES.update(_ifyoudo100b.PRIMITIVES)
-RESUME.update(_ifyoudo100b.RESUME)
-# -- attached (wave 100F) -- (app/rules/attached100f.py)
-from app.rules import attached100f as _attached100f  # noqa: E402, I001
-
-PRIMITIVES.update(_attached100f.PRIMITIVES)
-RESUME.update(_attached100f.RESUME)
-# -- static spells (wave 100C) --
-from app.rules import static_spell100c as _static_spell100c  # noqa: E402
-
-PRIMITIVES.update(_static_spell100c.PRIMITIVES)
-from app.rules import zones100g as _zones100g  # noqa: E402  -- zones (wave 100G) --
-
-PRIMITIVES.update(_zones100g.PRIMITIVES)
-RESUME.update(_zones100g.RESUME)
-RESUME.update(_triggers100a.RESUME)
-# -- activated (wave 100I) -- (app/rules/activated100i.py)
-from app.rules import activated100i as _activated100i  # noqa: E402, I001
-
-PRIMITIVES.update(_activated100i.PRIMITIVES)
-# -- counters (wave 100J) -- (app/rules/counters100j.py)
-from app.rules import counters100j as _counters100j  # noqa: E402
-
-PRIMITIVES.update(_counters100j.PRIMITIVES)
-RESUME.update(_counters100j.RESUME)
-# -- turn state (wave 100H) -- (app/rules/turnstate100h.py)
-from app.rules import turnstate100h as _turnstate100h  # noqa: E402
-
-PRIMITIVES.update(_turnstate100h.PRIMITIVES)
-from app.rules import instead100k as _instead100k  # noqa: E402, I001  -- instead (wave 100K) --
-
-PRIMITIVES.update(_instead100k.PRIMITIVES)
-RESUME.update(_instead100k.RESUME)
-from app.rules import aslongas100k as _aslongas100k  # noqa: E402, I001  -- as long as (wave 100K) --
-
-PRIMITIVES.update(_aslongas100k.PRIMITIVES)
-from app.rules import attractions100l as _attractions100l  # noqa: E402  -- Attractions (wave 100L) --
-
-PRIMITIVES.update(_attractions100l.PRIMITIVES)
-from app.rules import otherchooser100p as _otherchooser100p  # noqa: E402  -- other choosers (wave 100P) --
-
-PRIMITIVES.update(_otherchooser100p.PRIMITIVES)
-from app.rules import multi100n as _multi100n  # noqa: E402, I001  -- multi (wave 100N) --
-
-PRIMITIVES.update(_multi100n.PRIMITIVES)
-from app.rules import retarget100o as _retarget100o  # noqa: E402  -- retarget (wave 100O) --
-
-PRIMITIVES.update(_retarget100o.PRIMITIVES)
-RESUME.update(_retarget100o.RESUME)
-
-from app.rules import multi100n as _multi100n  # noqa: E402, I001  -- multi (wave 100N) --
-
-PRIMITIVES.update(_multi100n.PRIMITIVES)
-from app.rules import retarget100o as _retarget100o  # noqa: E402  -- retarget (wave 100O) --
-
-PRIMITIVES.update(_retarget100o.PRIMITIVES)
-RESUME.update(_retarget100o.RESUME)
-from app.rules import modal_clauses101 as _modal101  # noqa: E402
-
-PRIMITIVES.update(_modal101.PRIMITIVES)
-
-from app.rules import upkeep_sacrifice101 as _upkeep101  # noqa: E402
-
-PRIMITIVES.update(_upkeep101.PRIMITIVES)
-
-from app.rules import library_packets101 as _library_packets101  # noqa: E402
-
-PRIMITIVES.update(_library_packets101.PRIMITIVES)
-RESUME.update(_library_packets101.RESUME)
-
-from app.rules import damage_values102 as _damage_values102  # noqa: E402
-
-PRIMITIVES.update(_damage_values102.PRIMITIVES)
-
-from app.rules import stack_events102 as _stack102  # noqa: E402
-
-PRIMITIVES.update(_stack102.PRIMITIVES)
-
-from app.rules import library_polymorph102 as _library_polymorph102  # noqa: E402
-
-PRIMITIVES.update(_library_polymorph102.PRIMITIVES)
-
-from app.rules import combat_damage95 as _combat_damage95  # noqa: E402
-
-PRIMITIVES.update(_combat_damage95.PRIMITIVES)
-
-from app.rules import stack_extension103 as _stack103  # noqa: E402
-
-PRIMITIVES.update(_stack103.PRIMITIVES)
-
-from app.rules import next_copy104 as _next104  # noqa: E402
-
-PRIMITIVES.update(_next104.PRIMITIVES)
-
-from app.rules import sticker_effects101 as _sticker_effects101  # noqa: E402
-
-PRIMITIVES.update(_sticker_effects101.PRIMITIVES)
-from app.rules import epic103 as _epic103  # noqa: E402
-
-PRIMITIVES.update(_epic103.PRIMITIVES)
-
-
-from app.rules import vampire_returns105 as _vampire_returns105  # noqa: E402, I001
-PRIMITIVES.update(_vampire_returns105.PRIMITIVES)
-
-from app.rules import copy_controllers105 as _copy105  # noqa: E402
-
-PRIMITIVES.update(_copy105.PRIMITIVES)
+hooks.register(hooks.RESOLUTION[34], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 from app.rules import wave110a as _wave110a  # noqa: E402  -- wave 110A --
 
 PRIMITIVES.update(_wave110a.primitives())
-# -- wave 110B --
 from app.rules import wave110b_cards as _wave110b_cards  # noqa: E402
+from app.rules import wave110i_cards as _wave110i_cards  # noqa: E402
 
-PRIMITIVES.update(_wave110b_cards.PRIMITIVES)
-from app.rules import wave110c_core as _wave110c_core  # noqa: E402, I001  -- core (wave 110C) --
-PRIMITIVES.update(_wave110c_core.PRIMITIVES)
-RESUME.update(_wave110c_core.RESUME)
-from app.rules import wave110d as _wave110d  # noqa: E402, I001  -- wave 110D --
-
-PRIMITIVES.update(_wave110d.PRIMITIVES)
-RESUME.update(_wave110d.RESUME)
-RESUME.update(_wave110b_cards.RESUME)
-
-from app.rules import wave110c_kusari as _wave110c_kusari  # noqa: E402, I001
-PRIMITIVES.update(_wave110c_kusari.PRIMITIVES)  # -- Kusari-Gama (wave 110C) --
-
-from app.rules import wave110e_cards as _wave110e  # noqa: E402, I001  -- wave 110E --
-
-PRIMITIVES.update(_wave110e.PRIMITIVES)
-from app.rules import wave110f_cards as _wave110f_cards  # noqa: E402, I001  -- cards (wave 110F) --
-PRIMITIVES.update(_wave110f_cards.PRIMITIVES)
-# -- wave 110G --
-from app.rules import wave110g_cards as _wave110g_cards  # noqa: E402
-
-PRIMITIVES.update(_wave110g_cards.PRIMITIVES)
-from app.rules import wave110h_cards as _wave110h  # noqa: E402, I001  -- wave 110H --
-
-PRIMITIVES.update(_wave110h.PRIMITIVES)
-RESUME.update(_wave110h.RESUME)
-from app.rules import wave110i_cards as _wave110i_cards  # noqa: E402, I001  -- cards (wave 110I) --
-
-PRIMITIVES.update(_wave110i_cards.PRIMITIVES)
-RESUME.update(_wave110i_cards.RESUME)
+hooks.register(hooks.RESOLUTION[35], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 replace.THEN["cu_paid110i"] = _wave110i_cards.cu_paid_then  # -- cumulative upkeep paid (wave 110I) --
-from app.rules import wave110c_any as _wave110c_any  # noqa: E402, I001
-PRIMITIVES.update(_wave110c_any.PRIMITIVES)  # -- any opponent may (wave 110C) --
-from app.rules import wave110e_opp as _wave110e_opp  # noqa: E402, I001  -- wave 110E --
-PRIMITIVES.update(_wave110e_opp.PRIMITIVES)
+from app.rules import wave110l_cards as _wave110l  # noqa: E402
 
-from app.rules import wave110e_imps as _wave110e_imps  # noqa: E402  -- Nettling Imp (wave 110E)
-
-PRIMITIVES.update(_wave110e_imps.PRIMITIVES)
-RESUME.update(_wave110f_cards.RESUME)
-RESUME.update(_wave110g_cards.RESUME)
-from app.rules import wave110j_cards as _wave110j  # noqa: E402, I001  -- wave 110J --
-
-PRIMITIVES.update(_wave110j.PRIMITIVES)
-RESUME.update(_wave110j.RESUME)
-from app.rules import wave110k_cards as _wave110k  # noqa: E402, I001  -- wave 110K --
-
-PRIMITIVES.update(_wave110k.PRIMITIVES)
-RESUME.update(_wave110k.RESUME)
-from app.rules import wave110l_cards as _wave110l  # noqa: E402, I001  -- wave 110L --
-
-PRIMITIVES.update(_wave110l.PRIMITIVES)
-RESUME.update(_wave110l.RESUME)
-from app.rules import wave110m_cards as _wave110m  # noqa: E402, I001  -- wave 110M --
-
-PRIMITIVES.update(_wave110m.PRIMITIVES)
-RESUME.update(_wave110m.RESUME)
-from app.rules import wave110n_cards as _wave110n  # noqa: E402, I001  -- wave 110N --
-
-PRIMITIVES.update(_wave110n.PRIMITIVES)
-RESUME.update(_wave110n.RESUME)
-from app.rules import wave110o_cards as _wave110o  # noqa: E402, I001  -- (wave 110O) --
-
-PRIMITIVES.update(_wave110o.PRIMITIVES)
-RESUME.update(_wave110o.RESUME)
+hooks.register(hooks.RESOLUTION[36], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 RESUME.update(_wave110a.resume())  # -- wave 110A --
-from app.rules import wave110c_misc as _wave110c_misc  # noqa: E402, I001  -- (wave 110C) --
-
-PRIMITIVES.update(_wave110c_misc.PRIMITIVES)
-RESUME.update(_wave110c_misc.RESUME)
-from app.rules import wave110e_pets as _wave110e_pets  # noqa: E402, I001  -- Exotic Pets (wave 110E) --
-
-PRIMITIVES.update(_wave110e_pets.PRIMITIVES)
-RESUME.update(_wave110e_pets.RESUME)
-from app.rules import wave110b_mirror as _wave110b_mirror  # noqa: E402, I001  -- (wave 110B) --
-
-PRIMITIVES.update(_wave110b_mirror.PRIMITIVES)
-from app.rules import wave110e_once as _wave110e_once  # noqa: E402, I001  -- Storyweave (wave 110E) --
-
-PRIMITIVES.update(_wave110e_once.PRIMITIVES)
-from app.rules import wave110e_blade as _wave110e_blade  # noqa: E402, I001  -- Sanctuary Blade (wave 110E) --
-
-RESUME.update(_wave110e_blade.RESUME)
-from app.rules import wave110e_kaya as _wave110e_kaya  # noqa: E402, I001  -- Kaya, Spirits' Justice (wave 110E) --
-
-PRIMITIVES.update(_wave110e_kaya.PRIMITIVES)
-RESUME.update(_wave110e_kaya.RESUME)
-from app.rules import wave110e_uvilda as _wave110e_uvilda  # noqa: E402, I001  -- Uvilda, Dean of Perfection (wave 110E) --
-
-PRIMITIVES.update(_wave110e_uvilda.PRIMITIVES)
-from app.rules import wave110e_word as _wave110e_word  # noqa: E402, I001  -- Word of Command (wave 110E) --
-PRIMITIVES.update(_wave110e_word.PRIMITIVES)
-from app.rules import wave110e_adapt as _wave110e_adapt  # noqa: E402, I001  -- Selective Adaptation (wave 110E) --
-PRIMITIVES.update(_wave110e_adapt.PRIMITIVES)
-
-# -- Havengul Lich (wave 110B) --
-from app.rules import wave110b_lich as _wave110b_lich  # noqa: E402, I001
-
-PRIMITIVES.update(_wave110b_lich.PRIMITIVES)
-
-# -- Hama, the Bloodbender (wave 110B) --
-from app.rules import wave110b_hama as _wave110b_hama  # noqa: E402, I001
-
-PRIMITIVES.update(_wave110b_hama.PRIMITIVES)
-RESUME.update(_wave110b_hama.RESUME)
-from app.rules import wave110b_dack as _wave110b_dack  # noqa: E402, I001
-
-PRIMITIVES.update(_wave110b_dack.PRIMITIVES)
-RESUME.update(_wave110b_dack.RESUME)
-from app.rules import wave110b_stangg as _wave110b_stangg  # noqa: E402, I001
-
-PRIMITIVES.update(_wave110b_stangg.PRIMITIVES)
-from app.rules import wave110c_xanathar as _wave110c_xanathar  # noqa: E402, I001  -- (wave 110C) --
-
-PRIMITIVES.update(_wave110c_xanathar.PRIMITIVES)
-from app.rules import wave110c_valki as _wave110c_valki  # noqa: E402, I001  -- (wave 110C) --
-
-PRIMITIVES.update(_wave110c_valki.PRIMITIVES)
-RESUME.update(_wave110c_valki.RESUME)
-from app.rules import wave110c_cosima as _wave110c_cosima  # noqa: E402, I001  -- (wave 110C) --
-
-PRIMITIVES.update(_wave110c_cosima.PRIMITIVES)
-RESUME.update(_wave110c_cosima.RESUME)
-from app.rules import wave110c_koh as _wave110c_koh  # noqa: E402, I001  -- (wave 110C) --
-
-PRIMITIVES.update(_wave110c_koh.PRIMITIVES)
-RESUME.update(_wave110c_koh.RESUME)
+hooks.register(hooks.RESOLUTION[37], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 CHOICE_LABELS["planeswalker type"] = "Chosen planeswalker type"  # -- (wave 110A) -- Deification
 CHOICE_LABELS["card type shared among two exiled cards used to craft it"] = "Chosen card type"  # -- (wave 110A) -- Eye of Ojer Taq
-from app.rules import wave110b_final as _wave110b_final  # noqa: E402, I001
-
-PRIMITIVES.update(_wave110b_final.PRIMITIVES)
-RESUME.update(_wave110b_final.RESUME)
-from app.rules import wave110c_learn as _wave110c_learn  # noqa: E402, I001  -- (wave 110C) --
-
-PRIMITIVES.update(_wave110c_learn.PRIMITIVES)
-RESUME.update(_wave110c_learn.RESUME)
-from app.rules import wave110j_final as _wave110j_final  # noqa: E402  (wave 110J)
-
-PRIMITIVES.update(_wave110j_final.PRIMITIVES)
-RESUME.update(_wave110j_final.RESUME)
-from app.rules import wave110j_last as _wave110j_last  # noqa: E402  (wave 110J last cards)
-
-PRIMITIVES.update(_wave110j_last.PRIMITIVES)
-RESUME.update(_wave110j_last.RESUME)
-from app.rules import wave111b_cards as _wave111b_cards  # noqa: E402  (wave 111B: if you do / instead)
-
-PRIMITIVES.update(_wave111b_cards.PRIMITIVES)
-
-from app.rules import wave111c_statics as _wave111c_statics  # noqa: E402  (wave 111C)
-
-PRIMITIVES.update(_wave111c_statics.PRIMITIVES)
-RESUME.update(_wave111c_statics.RESUME)
+hooks.register(hooks.RESOLUTION[38], PRIMITIVES, RESUME)  # (app/rules/hooks.py)
 
 from app.rules import wave111e_trek as _wave111e_trek  # noqa: E402, I001  -- Star Trek (wave 111E) -- U.S.S. Farragut's "When you do" (603.12)
 
 PRIMITIVES["to_library"] = _wave111e_trek.to_library_reflex(PRIMITIVES["to_library"])
-PRIMITIVES.update(_wave111e_trek.PRIMITIVES)
-
-from app.rules import wave111f_lines as _wave111f_lines  # noqa: E402, I001  -- Star Trek lines (wave 111F) --
-
-PRIMITIVES.update(_wave111f_lines.PRIMITIVES)
-RESUME.update(_wave111f_lines.RESUME)
-
-from app.rules import wave111r1_grants as _wave111r1_grants  # noqa: E402, I001  -- granted abilities (wave 111R1) --
-
-PRIMITIVES.update(_wave111r1_grants.PRIMITIVES)
-RESUME.update(_wave111r1_grants.RESUME)
+hooks.register(hooks.RESOLUTION[39], PRIMITIVES, RESUME)  # (app/rules/hooks.py)

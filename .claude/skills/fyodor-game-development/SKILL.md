@@ -23,7 +23,7 @@ description: How to change Fyodor's rules engine, game server and card automatio
 ## Where things are (`backend/app/rules/`)
 
 `scripts.py` (templates, `define`, `_parse_effects`), `language.py` (sentence grammar), `effects.py`
-(primitives, `PRIMITIVES`/`RESUME`), `conditions.py`, `values.py` (amounts), `selectors.py`, `events.py` +
+(primitives, `PRIMITIVES`/`RESUME`), `hooks.py` (the hooked modules of each step, in order), `conditions.py`, `values.py` (amounts), `selectors.py`, `events.py` +
 `triggers.py`, `statics.py` + `layers.py` (613 layers), `replace.py`/`replacements.py` (614–616),
 `casting.py`/`costs.py`/`cost_payment.py`/`cost_changes.py`/`alt_costs.py`, `combat.py`, `history.py` (turn
 log), `copying.py`, `coverage.py` (FULL/PARTIAL), `rules_state.py` in `app/game/`. Many wave modules
