@@ -5,12 +5,15 @@
 Each seat plays like a person at the table: it reads its own view (the JSON the client receives) and picks, with a seeded RNG,
 among the moves the engine offers it — the hints (playable lands, castable spells, activatable abilities), the pending decision
 and its options (targets, modes, payments, attackers, blockers) — and sends the client's payloads through ``GameSession.perform``.
-Mulligans: everyone keeps. The seats alternate the two real decks in ``tests/fixtures/soak_decks``.
+Mulligans: one free mulligan for a hand of 0-1 or 6-7 lands, else keep. Now and then a seat presses Undo. The seats alternate the two
+real decks in ``tests/fixtures/soak_decks``.
 
 Checks: no AutomationError and no unexpected exception; an ActionError for a move the hints offered is a hint/engine mismatch;
 every ``CHECK_EVERY`` actions and at the end of each game the history replays to the same table and a save loads back to it (play
 then goes on from the loaded table); every seat's view hides the other seats' hands and libraries (the fingerprints of
-tests/test_protocol_privacy.py). Game ``i`` uses seed ``--seed + i``, so ``--seed <that> --games 1`` replays it exactly.
+tests/test_protocol_privacy.py). Some moves the client lets a player put together are checked by the server as a whole (a block
+plan, an X, several cards that must share a land type): a refusal of those is expected, counted in the report, and the seat tries
+a smaller one. Game ``i`` uses seed ``--seed + i``, so ``--seed <that> --games 1`` replays it exactly (with the same code).
 """
 
 from __future__ import annotations
@@ -503,7 +506,7 @@ class Game:
             try:
                 self.actor, self.payload, how = self.bot.next_move(fallback=attempt > 0)
             except Exception:  # noqa: BLE001 - a view or a hint that fails is an engine bug
-                self.problem("exception (view)", traceback.format_exc())
+                self.problem("exception (view or bot)", traceback.format_exc())
                 return False
             try:
                 self.session.perform(self.actor, self.payload)
