@@ -279,6 +279,13 @@ describe("rules card menu", () => {
     expect(labels(rulesMenu(v.cards.x4!, v, "p1")).some((l) => l.startsWith("Activate:"))).toBe(false);
   });
 
+  it("offers no activation for a triggered ability an exiled card was given (Uvilda's refine counters)", () => {
+    const upkeep = { index: 10000, kind: "triggered", text: "At the beginning of your upkeep, if this card is exiled, remove a refine counter from it." };
+    const base = view({ ...RULES, stats: { x1: { abilities: [upkeep] } } });
+    const v = { ...base, cards: { ...base.cards, x1: card("x1", "p1:exile", "bolt") } } as unknown as GameView;
+    expect(labels(rulesMenu(v.cards.x1!, v, "p1")).some((l) => l.startsWith("Activate:"))).toBe(false);
+  });
+
   it("offers each granted replicate (Hugh) as its own count, in the server's order (702.56b)", () => {
     const base = view({ ...RULES, hints: { castable: ["c2"], replicate111r3: { c2: ["Replicate {2}{U} (Hugh, First of Many)", "Replicate {2}{U} (Hugh, First of Many)"] } } });
     const v = base as unknown as GameView;

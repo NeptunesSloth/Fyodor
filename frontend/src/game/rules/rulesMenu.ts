@@ -191,7 +191,8 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     const listed = (i: number) => hints.activatable?.find((a) => a.card_id === card.id && a.ability === i);
     for (const ability of rules.stats?.[card.id]?.abilities ?? []) {
       const now = listed(ability.index);
-      if (!now && !/\bif this card is exiled\b/i.test(ability.text)) continue;
+      // (review 111R: only activated abilities — a triggered one given in exile, Uvilda's "if this card is exiled, remove a refine counter", isn't activated)
+      if (ability.kind !== "activated" || (!now && !/\bif this card is exiled\b/i.test(ability.text))) continue;
       const line = ability.text.replace(/\s*\(.*$/, "");
       items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !now,
         onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: ability.index }) });
