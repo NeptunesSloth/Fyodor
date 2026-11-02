@@ -3484,17 +3484,19 @@ def grant_additional(grant: Any) -> list[M.ManaCost]:
     return [*([M.ManaCost(generic=grant.generic_extra)] if grant.generic_extra else []), *([M.parse_cost(grant.extra_mana)] if grant.extra_mana else [])]
 
 
-def optional_castable(state: GameState, player: str, card: CardInstance, info: CardInfo) -> list[dict[str, Any]]:
+def optional_castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, free: bool = False) -> list[dict[str, Any]]:
     """The optional additional costs (Defiler of Vigor) ``player`` could pay casting this card right now, each alone. -- pod audit -- a split
-    card or adventure: each half's, with the half (``face``, 709.3: Revenge with Silverquill's casualty)."""
+    card or adventure: each half's, with the half (``face``, 709.3: Revenge with Silverquill's casualty). ``free``: with a cast without paying
+    its mana cost (118.9d: Deadly Rollick with Silverquill's casualty), as cast_spell's ``free`` with ``optional_costs``."""
     if state.rules is None or state.rules.card_mode(card.id) == "manual":
         return []
     if not chars.is_two_spell_card(card, info):
-        return _optional_castable(state, player, card, info, None)
-    return [{**offer, "face": face} for face in (0, 1) for offer in _optional_castable(state, player, card, info, face)]
+        return _optional_castable(state, player, card, info, None, free)
+    return [{**offer, "face": face} for face in (0, 1) for offer in _optional_castable(state, player, card, info, face, free)]
 
 
-def _optional_castable(state: GameState, player: str, card: CardInstance, info: CardInfo, face: int | None) -> list[dict[str, Any]]:
+def _optional_castable(state: GameState, player: str, card: CardInstance, info: CardInfo, face: int | None,
+                       free: bool = False) -> list[dict[str, Any]]:
     from app.rules import cost_changes
 
     out: list[dict[str, Any]] = []
@@ -3502,14 +3504,16 @@ def _optional_castable(state: GameState, player: str, card: CardInstance, info: 
     from app.rules import text_global_word71
 
     ch = text_global_word71.prospective(state, card, ch, info)
-    if ch.is_land or cast_problem(state, player, card, ch, info=info) is not None:
+    if ch.is_land or cast_problem(state, player, card, ch, info=info, free=free) is not None:
         return out
     if announce_problem(state, player, card, ch, info) is not None:
         # -- hint/cast agreement (pod audit) -- 601.2c: this spell or half can't be cast (Revival with no creature card to return; soak seed
         # 5201: Reprieve with Silverquill's casualty and an empty stack), as the plain cast hint (castable, announce=True)
         return out
-    grant = cast_grant(state, player, card, ch, info)
+    grant = cast_grant(state, player, card, ch, info, free=free)
     for offer in cost_changes.optional_offers(state, player, card, ch, info):
+        if free and (not offer.kind or offer.kind == "offering"):
+            continue  # (a permanent's "pay 2 life: it costs {G} less", an offering: a reduction of nothing, as free_optional_offers skips them)
         if state.players[player].life < offer.life or (offer.life and spendable_life(state, player, info) == 0):  # (wave 22B: 119.4)
             continue
         if offer.kind and (keyword_part := cost_changes.keyword_component(offer)) is not None and cost_payment.problem(
@@ -3525,7 +3529,7 @@ def _optional_castable(state: GameState, player: str, card: CardInstance, info: 
         try:
             selected_costs: list[bool | None] = []
             ways = spell_cost_ways(state, card, ch, info=info, player=player,
-                                   free=grant is not None and grant.free,
+                                   free=free or (grant is not None and grant.free),
                                    alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None,
                                    additional=tuple(grant_additional(grant)),
                                    reduce=part.reduces * (min(1, len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))

@@ -77,6 +77,12 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
       items.push({ label: `Cast ${half ? `${half} ` : ""}and ${opt.label.replace(/^[^:]*: /, "")} (${opt.label.split(":")[0]})`,
         onClick: () => void send({ type: "cast_spell", card_id: card.id, optional_costs: [opt.id], ...(opt.face !== undefined ? { face: opt.face } : {}) }) });
     }
+    // -- pod audit -- 118.9d: an optional additional cost with a cast without paying its mana cost (Deadly Rollick with Silverquill's casualty)
+    for (const opt of hints.free_optional_costs?.[card.id] ?? []) {
+      const half = opt.face !== undefined ? data?.faces?.[opt.face]?.name : undefined;
+      items.push({ label: `Cast ${half ? `${half} ` : ""}without paying its mana cost and ${opt.label.replace(/^[^:]*: /, "")} (${opt.label.split(":")[0]})`,
+        onClick: () => void send({ type: "cast_spell", card_id: card.id, free: true, optional_costs: [opt.id], ...(opt.face !== undefined ? { face: opt.face } : {}) }) });
+    }
   }
   const morph = abilityLines(oracle).find((l) => /^(mega)?morph \{/i.test(l));
   const disguise = abilityLines(oracle).find((l) => /^disguise \{/i.test(l));

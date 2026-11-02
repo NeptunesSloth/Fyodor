@@ -366,4 +366,8 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     optional = {cid: found for cid in candidates if (found := optional_castable(state, viewer, state.cards[cid], info))}
     if optional:
         out["optional_costs"] = optional  # (Defiler of Vigor: card id → [{"id": source, "label"}])
+    # -- pod audit -- the same, with a cast without paying its mana cost (118.9d: Deadly Rollick with Silverquill's casualty): CastSpell.free
+    # with optional_costs, for the cards in free_castable
+    if free_optional := {cid: found for cid in out["free_castable"] if (found := optional_castable(state, viewer, state.cards[cid], info, free=True))}:
+        out["free_optional_costs"] = free_optional
     return out
