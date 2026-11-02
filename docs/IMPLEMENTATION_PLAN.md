@@ -58,11 +58,11 @@ docs, and an updated status table.
 | 13 | P3: snapshots + history timeline, profiles/sound/keys/accessibility/perf presets, custom actions (declarative macros), solo tools, portable packages, diagnostics, launcher + first-run, lobby deck checks, full pod regression E2E | ✅ done |
 | 14 | **Rules boundary:** intent protocol, `rules/` package, `RulesState`, decisions, override logging, automation setting, coverage metadata (FULL / PARTIAL / MANUAL), pod card inventory from Archidekt/saved decks | ✅ done |
 | 15 | **Core rules primitives:** mana costs and payment, casting and the stack, activated abilities, state-based actions, combat, commander rules | ✅ done |
-| 16 | **Rules language:** events and event batches, object identity, LKI, costs, targeting, choices, triggers, continuous effects and layers, replacement/prevention, permissions/restrictions, copies, effect primitives, multiplayer leaving | in progress — foundations built (see M16) |
-| 17 | **Magic knowledge (Commander-only):** CR research/index/diff tooling, Oracle template library over the Commander-legal pool, mechanic registry, safe generated scripts, Commander + pod coverage | in progress |
-| 18 | **Digital card game UX:** AUTOMATION OFF/ASSISTED/FULL, RESPONSE OFF/AUTO/ON, MANA AUTO/ASK/MANUAL, stops, prompts, stack helper, highlights, auto-yields, reconciliation | engine side built; client next |
-| 19 | **Physical client:** three.js table, physical cards, camera, hands, playmats, dice/cannon/bags, 2D fallback | planned — see `3D_DIRECTION.md` |
-| 20 | **Game-night hardening:** crash recovery, durable autosave, idempotent actions, backups, DB recovery, offline test, long sessions, device soak | planned — see `GAME_NIGHT_RECOVERY.md` |
+| 16 | **Rules language:** events and event batches, object identity, LKI, costs, targeting, choices, triggers, continuous effects and layers, replacement/prevention, permissions/restrictions, copies, effect primitives, multiplayer leaving | ✅ built: every Commander-legal card is FULL (32,068 of 32,068; see M16) |
+| 17 | **Magic knowledge (Commander-only):** CR research/index/diff tooling, Oracle template library over the Commander-legal pool, mechanic registry, safe generated scripts, Commander + pod coverage | ✅ built: CR research tooling, the Oracle template library and pod coverage (see M17) |
+| 18 | **Digital card game UX:** AUTOMATION OFF/ASSISTED/FULL, RESPONSE OFF/AUTO/ON, MANA AUTO/ASK/MANUAL, stops, prompts, stack helper, highlights, auto-yields, reconciliation | ✅ built, engine and client (see M18, `AUTOMATION_UX.md`) |
+| 19 | **Physical client:** three.js table, physical cards, camera, hands, playmats, dice/cannon/bags, 2D fallback | ✅ table built (see M19, `3D_DIRECTION.md`); not built: a dice cannon and bags (Bag of Extras) |
+| 20 | **Game-night hardening:** crash recovery, durable autosave, idempotent actions, backups, DB recovery, offline test, long sessions, device soak | ✅ built (see M20, `GAME_NIGHT_RECOVERY.md`); still to do: a multi-hour soak on real game-night hardware |
 
 The history model (M7) and hidden-information views (M8) shape the engine itself, so they
 were built into the engine from Milestone 4. The rules engine follows the same rule: it is

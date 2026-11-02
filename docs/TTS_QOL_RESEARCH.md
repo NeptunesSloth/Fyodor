@@ -67,7 +67,7 @@ Items in *italics* existed before this round of work.
 | Host permissions for spawn/delete/modify others | ⬜ planned. The architecture has a permission check point in `api/games.py` `authorize()`. |
 | Play mode / edit mode | 🟡 Play mode is the default and hides table editing. The table editor is future work. |
 | Table presets | 🟡 Presets are data in `table3d/layout.ts` (2–6 seats). Saving custom presets is planned. |
-| Solo / goldfish mode | 🟡 One-player games and *Open table* exist. **Restart with same deck** is planned. |
+| Solo / goldfish mode | ✅ One-player games and *Open table* exist; the Importer panel has **Reset my deck** and **Restart game** (same decks, fresh table). |
 | Opening hand tool | ⬜ Draw 7 / Mulligan / Keep bar at game start |
 | Performance architecture | ⬜ render-on-demand, shared geometry, texture LRU, logical stacks. See the benchmarks in `docs/PERFORMANCE.md`. |
 
