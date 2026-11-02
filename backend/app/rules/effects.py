@@ -20,6 +20,7 @@ from __future__ import annotations
 import contextlib
 import itertools
 import json
+import re
 from collections.abc import Callable, Iterator
 from typing import Any
 
@@ -4272,6 +4273,17 @@ def _did_transform(fn: Any) -> Any:
 PRIMITIVES["transform"] = _did_transform(PRIMITIVES["transform"])
 
 
+def _said(e: dict[str, Any]) -> str | None:
+    """-- pod audit -- effects whose words depend on their data (the trigger order prompt read "Temporal Extortion: Storm" for the casualty
+    copy, 702.153a, and "Temporal Extortion: Each_may" for "any player may pay half their life")."""
+    if e["do"] == "storm":
+        return "copy it" if e.get("n") == 1 else "copy it for each other spell cast before it this turn"
+    if e["do"] == "each_may" and isinstance(e.get("cost"), str):
+        cost = re.sub(r"\byour\b", "their", re.sub(r"(?i)^pay ", "", e["cost"]))  # (the cost is worded for the payer: "pay half your life rounded up")
+        return f"{'any player' if e.get('who') == 'each_player' else 'each opponent'} may pay {cost}"
+    return None
+
+
 def describe(effects: list[dict[str, Any]]) -> str:
     if said := next((e["say110n"] for e in effects if e.get("say110n")), None):  # -- (wave 110N) -- an effect that words its own question (Vislor Turlough)
         return str(said).capitalize()
@@ -4283,12 +4295,13 @@ def describe(effects: list[dict[str, Any]]) -> str:
              "aura_sharing110d": "return this Aura to a creature that shares a creature type", "aura_back110d": "return this Aura to the battlefield",  # (wave 110D; wave 100B: Auriok Survivors)
              "return_choice": "return a chosen card", "move_counters": "move a counter",  # (pod deck audit: Avatar Destiny, Agent's Toolkit asked "Return_choice?", "Move_counters?")
              "remove_counters": "remove {n} {kind} counter(s)",  # (pod deck audit: Arixmethes asked "Remove_counters?")
-             "replace_vat_pool": "return each other card exiled with it to its owner's graveyard"}  # (pod deck audit: Mimic Vat)
+             "replace_vat_pool": "return each other card exiled with it to its owner's graveyard",  # (pod deck audit: Mimic Vat)
+             "gain_control": "gain control of it"}  # (pod deck audit: Roil Elemental asked "Until, gain_control?")
     # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
-    parts = [("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
+    parts = [_said(e) or (("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
               else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
-             else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
-             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest", "vislor110n", "rinoa_pick110o", "cleansing110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o", "note110o", "tomb_put110o", "tomb_delay110o", "tomb_remove110o", "alter_aura110o", "lion110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
+             else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()})) for e in effects
+             if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest", "until", "vislor110n", "rinoa_pick110o", "cleansing110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o", "note110o", "tomb_put110o", "tomb_delay110o", "tomb_remove110o", "alter_aura110o", "lion110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
     return (", ".join(parts) or "do it").capitalize()
 
 
