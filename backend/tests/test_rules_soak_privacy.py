@@ -48,3 +48,27 @@ def test_the_soak_privacy_check_flags_a_hidden_name_but_not_one_inside_a_longer_
     check(s, "p1", view)  # (inside a longer visible name: fine)
     with pytest.raises(AssertionError, match="Counterspell"):
         check(s, "p1", {**view, "leak": "Counterspell"})
+
+
+def test_the_soak_privacy_check_lets_a_player_see_their_own_search(cards):
+    """tools/soak.py's privacy check: Alice searching her own library sees her Sol Ring among the options while Bob's Sol Ring is in his
+    library (soak seed 5201: Scapeshift and "Raugrin Triome"). That isn't a leak to Alice; the same name in Bob's view still is."""
+    import pytest
+
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.rules_state import Decision, DecisionOption
+    from app.game.session import GameSession
+    from tests.game_helpers import deck, enable
+    from tools import soak
+
+    alice = deck(cards, "Krenko, Mob Boss", [(1, "Sol Ring"), (5, "Mountain")])
+    bob = deck(cards, "Atraxa, Praetors' Voice", [(1, "Sol Ring"), (5, "Island")])
+    s = GameSession(enable(new_game([PlayerSetup("Alice", cards=alice), PlayerSetup("Bob", cards=bob)], shuffle=False)), cards=cards)
+    mine, his = find(s.state, "Sol Ring", "p1"), find(s.state, "Sol Ring", "p2")
+    assert mine.zone == "p1:library" and his.zone == "p2:library"
+    s.state.rules.decision = Decision(id="d1", player="p1", kind="choose_cards", prompt="Search your library (artifact cards)",
+                                      options=[DecisionOption(id=mine.id, label="Sol Ring", card_id=mine.id)], min_choices=0)
+    check = soak.Privacy(soak.CachedCards(cards)).check
+    check(s, "p1")  # (her own Sol Ring, in her own search)
+    with pytest.raises(AssertionError, match="Sol Ring"):
+        check(s, "p2", {**s.view("p2"), "leak": "Sol Ring"})

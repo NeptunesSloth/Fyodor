@@ -477,6 +477,14 @@ class Privacy:
                 hidden.append(c)
                 if c.commander_key:  # 903.3: who the commander is is public (the commander list shows it, not which hidden card it is)
                     seen.update(t for t in self.fingerprints(c, self.cards) if t != c.id)
+        d = state.rules.decision if state.rules is not None else None
+        if d is not None and decider_of(state, d) == viewer:
+            # the chooser's own cards its decision lists (a search of their own library, 701.23: Scapeshift's lands): it sees those, even
+            # when another player's hidden card shares a name ("Raugrin Triome" in both libraries). Anyone else's card listed stays hidden.
+            for o in d.options:
+                listed = state.cards.get(o.card_id or o.id)
+                if listed is not None and listed.owner == viewer:
+                    seen.update(self.fingerprints(listed, self.cards))
         shown = "\n".join(public)
         # a hidden card's name inside a longer visible one ("Badgermole" in "Badgermole Cub") isn't a leak: take the visible texts out first
         scrubbed = text
