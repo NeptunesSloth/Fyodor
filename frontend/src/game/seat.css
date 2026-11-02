@@ -113,6 +113,10 @@
 .seat-presence.reconnecting::before, .seat-presence.disconnected::before { content: "● "; color: var(--danger); }
 .t3d-seat-panel.down { bottom: auto; top: calc(100% + 8px); }
 .t3d-seat-panel { max-height: min(70vh, 560px); overflow: auto; }
+/* the 2D table's panel, portaled to the page (SeatPlate FloatingPanel): placed by its inline left/top/bottom */
+.t3d-seat-panel.floating { position: fixed; z-index: 60; }
+.t3d-seat-panel.floating.down { bottom: auto; }
+.t3d-seat-panel.floating:not(.down) { top: auto; }
 /* my own plaque sits in the slim rail beside my mat: the name on its own row, the heart and trackers under it */
 .area-side .t3d-seat-main { flex-wrap: wrap; row-gap: 2px; }
 .area-side .seat-who { flex-basis: 100%; }

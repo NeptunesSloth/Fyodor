@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useGame } from "../state/gameStore";
 import { changeLife, changeResource, send } from "./actions";
 import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "./PlayerPanel";
@@ -106,13 +107,14 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
   const priority = useGame((s) => s.view?.rules?.priority === player);
   const monarch = useGame((s) => s.view?.table.monarch === player);
   const seat = useGame((s) => (s.view?.game.mode === "lan" ? s.view.game.seats[player] : undefined));
+  const plate = useRef<HTMLDivElement>(null);
   if (!p) return null;
   const flat = variant === "2d";
   const poison = p.resources.poison ?? 0;
   const sources = (players ?? []).filter((o) => o.id !== player).flatMap((o) => o.commanders.map((c) => ({ ...c, owner: o })));
   const presence = seat ? seat.presence ?? (seat.connected ? "connected" : "disconnected") : null;
   return (
-    <div className={`t3d-seat ${flat ? "seat-2d" : ""} ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
+    <div ref={plate} className={`t3d-seat ${flat ? "seat-2d" : ""} ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
       {(active || priority) && (
         <span className="t3d-seat-flags" aria-live="polite">
           {active && <span className="t3d-flag turn">Turn</span>}
@@ -145,11 +147,40 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
         <button aria-label={`${p.name}: gain 1 life`} title="Gain 1 life" data-testid={`life-plus-${player}`} onClick={() => void changeLife(player, 1)}>+</button>
         <button aria-label={`${p.name}: lose 1 life`} title="Lose 1 life" data-testid={`life-minus-${player}`} onClick={() => void changeLife(player, -1)}>−</button>
       </span>}
-      {open && (
+      {open && !flat && (
         <div className={`t3d-seat-panel frame ${drop === "down" ? "down" : ""}`}>
           <PlayerPanel player={player} me={me} />
         </div>
       )}
+      {open && flat && <FloatingPanel anchor={plate} drop={drop} color={p.color}><PlayerPanel player={player} me={me} /></FloatingPanel>}
     </div>
+  );
+}
+
+/**
+ * The 2D table's player panel: drawn over the whole page next to its plaque. The plaque sits in a strip or rail that
+ * clips (overflow) and a drop-shadow filter (which also traps position: fixed), so a panel inside it was cut off.
+ */
+function FloatingPanel({ anchor, drop, color, children }: { anchor: React.RefObject<HTMLDivElement | null>; drop: "up" | "down"; color: string; children: React.ReactNode }) {
+  const [box, setBox] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  useLayoutEffect(() => {
+    const place = () => {
+      const r = anchor.current?.getBoundingClientRect();
+      if (!r) return;
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - 268));
+      setBox(drop === "down" ? { left, top: r.bottom + 8 } : { left, bottom: window.innerHeight - r.top + 8 });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [anchor, drop]);
+  if (!box) return null;
+  return createPortal(
+    <div className={`t3d-seat-panel frame floating ${drop === "down" ? "down" : ""}`} style={{ ...box, ["--player-color" as string]: color }} data-testid="seat-panel">{children}</div>,
+    document.body,
   );
 }
