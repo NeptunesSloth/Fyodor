@@ -129,8 +129,20 @@ test("eliminated: a short scene, then opening-hand practice with your own deck",
   const live = async () => (await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { players: { id: string }[]; zones: Record<string, string[]> };
   expect((await live()).zones["p1:hand"]).toHaveLength(0);
 
-  // the practice table: a private table with Alice's own deck, then back to the live game
+  // dice & toys: rolled in this browser only; the live game doesn't move
+  const seq = async () => ((await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { seq: number }).seq;
+  const before = await seq();
   await page.keyboard.press("Escape"); // close the opening-hands practice
+  await page.getByTestId("eliminated-pill").click();
+  await page.getByTestId("eliminated-hub").getByTestId("open-toys").click();
+  await page.getByTestId("toys-roll").click();
+  await expect(page.getByTestId("toys-total")).toContainText(/\d/);
+  await page.waitForTimeout(800);
+  await shot(page, "toys");
+  expect(await seq()).toBe(before);
+
+  // the practice table: a private table with Alice's own deck, then back to the live game
+  await page.keyboard.press("Escape"); // close the dice & toys
   const pill = page.getByTestId("eliminated-pill");
   if (await pill.isVisible()) await pill.click();
   await page.getByTestId("eliminated-hub").getByTestId("open-practice").click();
