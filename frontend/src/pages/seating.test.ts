@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LobbyView } from "../types/game";
-import { canNudge, moveSeat, nudgeSeat, previewLine, rollsText } from "./seating";
+import { canNudge, miniSeats, moveSeat, nudgeSeat, previewLine, previewParts, rollsText } from "./seating";
 
 const ORDER = ["p1", "p2", "p3", "p4"];
 
@@ -57,5 +57,55 @@ describe("the next game's order", () => {
   it("writes a game's recorded rolls, tie-breaks after", () => {
     expect(rollsText([{ Ann: 15, Ben: 4, Cat: 15 }, { Ann: 2, Cat: 9 }])).toBe("Ann 15, Ben 4, Cat 15 · tie-break Ann 2, Cat 9");
     expect(rollsText([])).toBe("");
+  });
+});
+
+describe("the next game's order, in parts for the lobby", () => {
+  const lobby = (turn_order: "pod" | "random" | "seats", preview?: LobbyView["turn_preview"]) =>
+    ({
+      settings: { turn_order },
+      seats: [
+        { id: "p1", name: "Ann", claimed: true },
+        { id: "p2", name: "Ben", claimed: true },
+        { id: "p3", name: "", claimed: false },
+        { id: "p4", name: "Cat", claimed: true },
+      ],
+      turn_preview: preview,
+    }) as unknown as LobbyView;
+
+  it("names who goes first only when it is known", () => {
+    expect(previewParts(lobby("pod", { source: "winner_last", order: ["p1", "p4", "p2"], previous_winner: "p2" })))
+      .toEqual({ order: ["p1", "p4", "p2"], first: "p1", note: "Ben won last game and goes last.", source: "winner_last" });
+    expect(previewParts(lobby("seats"))).toMatchObject({ order: ["p1", "p2", "p4"], first: "p1", note: "Ann goes first." });
+    expect(previewParts(lobby("random", { source: "random", order: ["p1", "p2", "p4"], previous_winner: null })))
+      .toMatchObject({ first: null, note: "A random player goes first, then around the table." });
+  });
+  it("gives no order while a d20 decides, and nothing at all for one player", () => {
+    const d20 = previewParts(lobby("pod", { source: "d20", order: ["p1", "p2", "p4"], previous_winner: null }));
+    expect(d20.order).toEqual([]);
+    expect(d20.note).toMatch(/d20/);
+    expect(previewParts(lobby("seats", { source: "seats", order: ["p1"], previous_winner: null })))
+      .toMatchObject({ order: [], note: "" });
+  });
+});
+
+describe("the miniature table", () => {
+  it("puts the viewer on the near side and goes clockwise: along their row to the left, then back across", () => {
+    const at = Object.fromEntries(miniSeats(["a", "b", "c", "d"], "c").map((s) => [s.id, s]));
+    expect(at.c!.y).toBe(1);
+    expect(at.d!.y).toBe(1);
+    expect(at.d!.x).toBeLessThan(at.c!.x);
+    expect([at.a!.y, at.b!.y]).toEqual([0, 0]);
+    expect(at.a!.x).toBeLessThan(at.b!.x);
+  });
+  it("seats a watcher's table from the first player, and keeps every seat on the table", () => {
+    const placed = miniSeats(["a", "b", "c"], "spectator");
+    expect(placed.find((s) => s.id === "a")!.y).toBe(1);
+    for (const s of miniSeats(["a", "b", "c", "d", "e", "f"], "a")) {
+      expect(s.x).toBeGreaterThan(0);
+      expect(s.x).toBeLessThan(1);
+    }
+    expect(miniSeats([], "a")).toEqual([]);
+    expect(miniSeats(["a"], "a")).toEqual([{ id: "a", x: 0.5, y: 1 }]);
   });
 });

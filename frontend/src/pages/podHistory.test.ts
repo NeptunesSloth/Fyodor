@@ -32,6 +32,13 @@ describe("eliminationLines", () => {
       .toEqual(["1st out: Ann (0 life), Ben (poison) and Cy (0 life) together, turn 4"]);
   });
 
+  it("comes in parts whose words make up the line", () => {
+    const lines = eliminationLines([out("Dan", 1, "conceded", 1), out("Ann", 2, "life", 9), out("Ben", 2, "poison", 9)]);
+    expect(lines[0]).toMatchObject({ head: "1st out:", who: "Dan", rest: " (turn 1, conceded)" });
+    expect(lines[1]).toMatchObject({ head: "2nd out:", who: "Ann (0 life) and Ben (poison) together", rest: ", turn 9" });
+    for (const l of lines) expect(`${l.head} ${l.who}${l.rest}`).toBe(l.text);
+  });
+
   it("leaves out a turn nobody knows (an older save) and says 'out' when the reason is unknown", () => {
     expect(eliminationLines([out("Eve", 1, "left", null)])[0]!.text).toBe("1st out: Eve (left the table)");
     expect(howText({ how: "out", reason: "" })).toBe("out");
