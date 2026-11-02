@@ -553,7 +553,7 @@ export interface GameSummary {
   code: string | null;
   has_password: boolean;
   turn: number;
-  /** `color` and `commanders` once the game has started (the tables list on the host, or an open LAN table). */
+  /** `color` and `commanders` once the game has started, on the host's own screen only. */
   players: { id: string; name: string; claimed: boolean; connected: boolean; color?: string; commanders?: CommanderRef[] }[];
   spectators: number;
   updated_at: number;

@@ -297,10 +297,9 @@ def _create_room(services: Services, session: GameSession, mode: str, password: 
 async def list_games(request: Request, services: ServicesDep) -> list[dict[str, Any]]:
     # (-- sync endpoints (wave 30B) -- on the event loop, see game_summary)
     local = is_local_request(request)
-    # a practice table (elimination hub) is its owner's alone: never listed. Commanders show on the host's own screen and on
-    # open tables; a password-protected table shows a LAN device no more than its players' names until they join.
-    return [r.summary(commanders=local or r.password_hash is None) for r in services.hub.rooms.values()
-            if (local or r.mode == "lan") and r.practice is None]
+    # a practice table (elimination hub) is its owner's alone: never listed. Commanders (for the Play page's tiles) show on the
+    # host's own screen only: another device sees no more than the players' names until it sits at the table.
+    return [r.summary(commanders=local) for r in services.hub.rooms.values() if (local or r.mode == "lan") and r.practice is None]
 
 
 @router.post("/games", status_code=201)

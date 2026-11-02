@@ -302,8 +302,8 @@ def test_load_a_new_deck_at_the_table_without_leaving(client, decks):
 
 
 def test_play_page_tiles_name_each_players_commanders(client, decks):
-    """The Play page shows tables and saves with their commanders: public once the game starts (903.6), so the host's
-    screen and open LAN tables list them, a password-protected table keeps them to its players, and a lobby has none yet."""
+    """The Play page shows tables and saves with their commanders: public once the game starts (903.6), but listed on the
+    host's own screen only; another LAN device sees names until it sits at a table, and a lobby has none yet."""
     gid = create(client, decks)["game"]["id"]
     listed = next(g for g in client.get("/api/games").json() if g["id"] == gid)
     assert [p["commanders"][0]["name"] for p in listed["players"]] == ["Krenko, Mob Boss", "Atraxa, Praetors' Voice"]
@@ -313,8 +313,10 @@ def test_play_page_tiles_name_each_players_commanders(client, decks):
     locked = create(client, decks, mode="lan", password="hunter2")["game"]["id"]
     open_ = create(client, decks, mode="lan")["game"]["id"]
     seen = {g["id"]: g for g in client.get("/api/games", headers=remote).json()}
-    assert "commanders" not in seen[locked]["players"][0]
-    assert seen[open_]["players"][1]["commanders"][0]["name"] == "Atraxa, Praetors' Voice"
+    assert seen.keys() >= {locked, open_}
+    assert all("commanders" not in p and "color" not in p for g in seen.values() for p in g["players"])
+    assert "Atraxa" not in json.dumps(list(seen.values()))
+    assert next(g for g in client.get("/api/games").json() if g["id"] == open_)["players"][1]["commanders"]
     lobby = client.post("/api/games", json={"name": "Night", "mode": "lan", "lobby": True, "players": [{"name": "Host"}]}).json()
     assert all("commanders" not in p for p in seen.get(lobby["game"]["id"], lobby["game"])["players"])
     assert client.get(f"/api/games/{gid}").json()["players"][0].keys() == {"id", "name", "claimed", "connected"}
