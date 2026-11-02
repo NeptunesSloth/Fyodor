@@ -13,6 +13,7 @@ from typing import Any
 from app.game.errors import ActionError
 from app.game.history import History
 from app.game.state import GameState
+from app.game.summary import player_commanders
 from app.storage.db import transaction
 from app.storage.save_format import SAVE_FORMAT, SAVE_VERSION, SaveFormatError, decode, encode
 
@@ -28,7 +29,8 @@ def _summary(state: GameState) -> dict[str, Any]:
         "game_name": state.name,
         "format": state.format,
         "turn": state.turn.number,
-        "players": [{"name": p.name, "life": p.life, "deck": p.deck_name} for p in (state.players[i] for i in state.seat_order)],
+        "players": [{"name": p.name, "life": p.life, "deck": p.deck_name, "color": p.color, "commanders": player_commanders(state, p.id)}
+                    for p in (state.players[i] for i in state.seat_order)],
     }
 
 

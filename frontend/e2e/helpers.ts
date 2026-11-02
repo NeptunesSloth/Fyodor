@@ -68,7 +68,7 @@ export function recordTraffic(page: Page): { text: () => string } {
  */
 export async function hostLobby(page: Page, opts: { name: string; privacy?: string; turnOrder?: "pod" | "random" }): Promise<{ gameId: string; code: string }> {
   await page.goto("/#/play");
-  await page.getByTestId("table-mode").selectOption("lan");
+  await page.getByTestId("table-mode-lan").check();
   await expect(page.getByTestId("use-lobby")).toBeChecked();
   await page.getByTestId("host-name").fill(opts.name);
   if (opts.privacy) await page.getByTestId("deck-privacy").selectOption(opts.privacy);

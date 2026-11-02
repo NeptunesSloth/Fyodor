@@ -299,3 +299,34 @@ def test_load_a_new_deck_at_the_table_without_leaving(client, decks):
     # it can be undone like any action
     assert client.post(f"/api/games/{gid}/undo", json={}).status_code in (200, 204)
     assert next(p for p in view()["players"] if p["id"] == "p1")["deck_name"] == "Superfriends"
+
+
+def test_play_page_tiles_name_each_players_commanders(client, decks):
+    """The Play page shows tables and saves with their commanders: public once the game starts (903.6), but listed on the
+    host's own screen only; another LAN device sees names until it sits at a table, and a lobby has none yet."""
+    gid = create(client, decks)["game"]["id"]
+    listed = next(g for g in client.get("/api/games").json() if g["id"] == gid)
+    assert [p["commanders"][0]["name"] for p in listed["players"]] == ["Krenko, Mob Boss", "Atraxa, Praetors' Voice"]
+    assert all(p["commanders"][0]["card_id"] for p in listed["players"]) and listed["players"][0]["color"]
+
+    remote = {"X-Forwarded-For": "192.168.1.50"}
+    locked = create(client, decks, mode="lan", password="hunter2")["game"]["id"]
+    open_ = create(client, decks, mode="lan")["game"]["id"]
+    seen = {g["id"]: g for g in client.get("/api/games", headers=remote).json()}
+    assert seen.keys() >= {locked, open_}
+    assert all("commanders" not in p and "color" not in p for g in seen.values() for p in g["players"])
+    assert "Atraxa" not in json.dumps(list(seen.values()))
+    assert next(g for g in client.get("/api/games").json() if g["id"] == open_)["players"][1]["commanders"]
+    lobby = client.post("/api/games", json={"name": "Night", "mode": "lan", "lobby": True, "players": [{"name": "Host"}]}).json()
+    assert all("commanders" not in p for p in seen.get(lobby["game"]["id"], lobby["game"])["players"])
+    assert client.get(f"/api/games/{gid}").json()["players"][0].keys() == {"id", "name", "claimed", "connected"}
+
+    saved = client.post(f"/api/games/{gid}/save", json={"name": "Tiles"}).json()
+    assert saved["players"][1]["commanders"][0]["name"] == "Atraxa, Praetors' Voice"
+    assert saved["players"][0]["color"] == listed["players"][0]["color"]
+    row = next(s for s in client.get("/api/saves").json() if s["id"] == saved["id"])
+    assert row["players"] == saved["players"]
+    # the save still loads, and the loaded table lists the same commanders
+    loaded = client.post(f"/api/saves/{saved['id']}/load", json={}).json()["game"]["id"]
+    again = next(g for g in client.get("/api/games").json() if g["id"] == loaded)
+    assert [p["commanders"] for p in again["players"]] == [p["commanders"] for p in listed["players"]]

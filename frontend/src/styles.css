@@ -40,7 +40,7 @@ input, select, textarea, button { font: inherit; color: inherit; }
 .topnav a.active { color: var(--accent-2); border-bottom-color: var(--accent); }
 .topnav .brand {
   font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: 0.02em; margin-right: 18px;
-  background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; color: transparent; border: 0;
+  color: var(--accent-2); border: 0;
 }
 .page { padding: 20px 24px; max-width: 1500px; margin: 0 auto; }
 
