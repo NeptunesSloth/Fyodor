@@ -3,7 +3,7 @@ import * as THREE from "three";
 import type { PlaneTheme } from "../theme/planes";
 import { buildEnvironment, type Environment } from "./environment";
 import { CARD_H, CARD_W } from "./layout";
-import { backCanvas, canvasTexture, matTexture, textCardCanvas } from "./textures";
+import { backCanvas, canvasTexture, matTexture, textCardTexture } from "./textures";
 
 export class Showcase {
   private renderer: THREE.WebGLRenderer;
@@ -63,7 +63,7 @@ export class Showcase {
     const colors = [[], [], [], ["W"], ["U"], ["R"]];
     names.forEach((name, i) => {
       const card = { name, type_line: i < 3 ? "Artifact" : "Instant", colors: colors[i], mana_cost: "", oracle_text: "" };
-      const mat = new THREE.MeshStandardMaterial({ map: canvasTexture(textCardCanvas(card as never, 0, name)), roughness: 0.5 });
+      const mat = new THREE.MeshStandardMaterial({ map: textCardTexture(card as never, 0, name), roughness: 0.5 });
       this.disposables.push(mat);
       const m = new THREE.Mesh(geo, mat);
       m.position.set(-3.2 + i * 1.25, 0.01, 4 + (i % 2) * 0.2);

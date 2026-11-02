@@ -1,7 +1,9 @@
-import { memo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { imageUrl } from "../services/cards";
 import type { CardData, CardFaceData } from "../types/cards";
 import { ManaText } from "./ManaText";
+import { textMeasure, proxyFontsReady, tinyNameSize, whenProxyFontsReady } from "./proxyMeasure";
+import { GLYPHS, layoutProxy, proxyColours, proxyFace, stripReminders, TIERS, type ProxyFace } from "./proxy";
 
 export interface CustomFace {
   name: string;
@@ -57,41 +59,88 @@ export const CardFace = memo(function CardFace({ card, custom, face = 0, faceDow
 });
 
 function TextCard({ card, custom, face, className }: { card?: CardData | undefined; custom?: CustomFace | undefined; face: number; className?: string | undefined }) {
-  const f = card ? (card.double_faced ? faceData(card, face) : null) : null;
-  const name = f?.name ?? card?.name ?? custom?.name ?? "";
-  const mana = f ? f.mana_cost : card?.mana_cost;
-  const type = f?.type_line ?? card?.type_line ?? custom?.type_line;
-  const text = f?.oracle_text ?? card?.oracle_text ?? custom?.oracle_text;
-  const power = f?.power ?? card?.power ?? custom?.power;
-  const toughness = f?.toughness ?? card?.toughness ?? custom?.toughness;
-  const loyalty = f?.loyalty ?? card?.loyalty;
-  const colors = f?.colors ?? card?.colors ?? custom?.colors;
-  const land = /\bLand\b/.test(type ?? "");
-  // a basic land type tints the art window with the colour it makes
-  const basic = (type ?? "").match(/\b(Plains|Island|Swamp|Mountain|Forest)\b/)?.[1];
-  const wash = basic ? { Plains: "w", Island: "u", Swamp: "b", Mountain: "r", Forest: "g" }[basic] : null;
+  // (a token's `custom` is a fresh object on every render: key on what it says)
+  const c = custom;
+  const p = useMemo(() => proxyFace(card, face, c),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [card, face, c?.name, c?.type_line, c?.oracle_text, c?.power, c?.toughness, c?.colors?.join("")]);
+  // laid out with estimated widths until the fonts load, then measured again
+  const [fonts, setFonts] = useState(proxyFontsReady);
+  useEffect(() => {
+    if (fonts) return;
+    let live = true;
+    void whenProxyFontsReady().then(() => live && setFonts(true));
+    return () => { live = false; };
+  }, [fonts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `fonts` changes what textMeasure() returns
+  const { style, full, small } = useMemo(() => proxyStyle(p), [p, fonts]);
+  const text = full.text.reminders ? p.text : stripReminders(p.text);
   return (
     <div className={`card-face ${className ?? ""}`}>
-      <div className={`text-card ${land ? "col-l" : colorClass(colors)} ${wash ? `wash-${wash}` : ""}`}>
-      <div className="tc-head">
-        <span className="tc-name">{name}</span>
-        <span className="tc-cost">
-          <ManaText text={mana} />
-        </span>
-      </div>
-      <div className="tc-art" data-initial={name.slice(0, 1).toUpperCase()} aria-hidden />
-      <div className="tc-type">{type}</div>
-      <div className="tc-text">
-        {(text ?? "").split("\n").map((line, i) => (
-          <p key={i}>
-            <ManaText text={line} />
-          </p>
-        ))}
-      </div>
-      {(power != null || loyalty != null) && (
-        <div className="tc-pt">{power != null ? `${power}/${toughness}` : loyalty}</div>
-      )}
+      <div className={`text-card col-${p.frame.toLowerCase()} kind-${p.kind}${full.text.fits ? "" : " tc-crowded"}${small.text.fits ? "" : " tc-crowded-s"}${full.name.lines.length > 1 ? " tc-name2" : ""}`} style={style}>
+        <div className="tc-head">
+          {p.cost && (
+            <span className="tc-cost">
+              <ManaText text={p.cost} />
+            </span>
+          )}
+          <span className="tc-name">{p.name}</span>
+        </div>
+        <div className="tc-art" aria-hidden>
+          <svg className="tc-glyph" viewBox="0 0 24 24">
+            <path className="tc-glyph-lit" d={GLYPHS[p.kind]} transform="translate(0 0.7)" />
+            <path d={GLYPHS[p.kind]} />
+          </svg>
+        </div>
+        <div className="tc-type">{p.type}</div>
+        <div className="tc-text">
+          {text.split("\n").filter((l) => l.trim()).map((line, i) => (
+            <p key={i}>
+              <RulesLine line={line} />
+            </p>
+          ))}
+        </div>
+        {p.stat && <div className={`tc-pt tc-${p.stat.kind}`}>{p.stat.text}</div>}
       </div>
     </div>
   );
+}
+
+/** One paragraph of rules text with its mana symbols; reminder text (in parentheses) is printed lighter. */
+function RulesLine({ line }: { line: string }) {
+  const parts = line.split(/(\([^()]*\))/);
+  return (
+    <>
+      {parts.map((part, i) => (part ? (i % 2 ? <span key={i} className="tc-rem"><ManaText text={part} /></span> : <ManaText key={i} text={part} />) : null))}
+    </>
+  );
+}
+
+const styles = new Map<string, ReturnType<typeof layoutStyle>>();
+
+/** The proxy's colours and fitted sizes, shared by every copy of the same card face (30 Islands lay out once). */
+function proxyStyle(p: ProxyFace) {
+  const key = [proxyFontsReady(), p.name, p.cost, p.type, p.text, p.stat?.text, p.frame, p.field.join(""), p.kind].join("\u0001");
+  let hit = styles.get(key);
+  if (!hit) {
+    if (styles.size > 600) styles.clear();
+    styles.set(key, (hit = layoutStyle(p)));
+  }
+  return hit;
+}
+
+/** The proxy's colours and its fitted sizes at the full and small levels of detail, as CSS variables (card units = cqw). */
+function layoutStyle(p: ProxyFace) {
+  const c = proxyColours(p);
+  const measure = textMeasure();
+  const full = layoutProxy(p, TIERS.full, measure);
+  const small = layoutProxy(p, TIERS.small, measure);
+  const style = {
+    "--tc-frame": c.frame, "--tc-dark": c.dark, "--tc-bar": c.bar, "--tc-paper": c.paper,
+    "--tc-field": c.field[0], "--tc-field2": c.field[1], "--tc-glyph": c.glyph, "--tc-glyph-lit": c.glyphLit,
+    "--tc-ns": full.name.size, "--tc-ts": full.type.size, "--tc-fs": full.text.size, "--tc-tb": full.text.box,
+    "--tc-ns-s": small.name.size, "--tc-ts-s": small.type.size, "--tc-fs-s": small.text.size, "--tc-tb-s": small.text.box,
+    "--tc-ns-t": tinyNameSize(p.name, measure),
+  } as React.CSSProperties;
+  return { style, full, small };
 }

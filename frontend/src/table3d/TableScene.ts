@@ -54,7 +54,7 @@ import {
   AISLE, CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, MAT_W, PILES, plaqueSpot, localToVirtual, onBattlefield, pileAt, seatCamera, seats, tableSize, toLocal, toWorld,
   virtualToLocal, type PileZone, type Seat,
 } from "./layout";
-import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
+import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
 
 /** How long a refused action's card stays marked. */
 export const ERROR_MS = 1800;
@@ -727,7 +727,7 @@ export class TableScene {
     if (m) return m;
     const vis = card as Extract<GameCard, { hidden?: undefined }>;
     const data = vis.card_id ? useCardCache.getState().cards[vis.card_id] : undefined;
-    const text = () => canvasTexture(textCardCanvas(data, vis.face ?? 0, vis.name));
+    const text = () => textCardTexture(data, vis.face ?? 0, vis.name);
     let tex: THREE.Texture;
     if (data?.has_image) {
       const imgFace = data.double_faced ? Math.min(vis.face ?? 0, data.image_faces - 1) : 0;

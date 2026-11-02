@@ -5,6 +5,8 @@
  */
 import * as THREE from "three";
 import type { Surface } from "../theme/planes";
+import { BORDER, CARD_H, CANVAS_TIER, GLYPHS as TYPE_GLYPHS, INK, layoutProxy, proxyColours, proxyFace, SYM_EM } from "../cards/proxy";
+import { proxyFontsReady, textMeasure, whenProxyFontsReady } from "../cards/proxyMeasure";
 import type { CardData } from "../types/cards";
 
 /** Small deterministic PRNG so every table looks the same on every device. */
@@ -313,131 +315,302 @@ function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number,
   g.closePath();
 }
 
-const FRAME: Record<string, [string, string]> = {
-  W: ["#e6dcc2", "#b3a681"], U: ["#4f86c0", "#1f4876"], B: ["#5a5254", "#262123"], R: ["#cc5f42", "#7a2818"],
-  G: ["#4f9563", "#1e5231"], M: ["#d9b65e", "#8e6b24"], C: ["#aaa6a0", "#66625d"], L: ["#a88f6a", "#5a4630"],
-};
+/** Mana symbol fills, as the DOM's `.mana` circles (styles.css --mana-*). */
+const MANA: Record<string, string> = { W: "#f5efd9", U: "#9fcff0", B: "#b9aeb0", R: "#f2a07e", G: "#9ad3a6", C: "#ccc6c0", S: "#ccc6c0" };
 
-function wrap(g: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lh: number, maxY: number): void {
-  for (const para of text.split("\n")) {
-    let line = "";
-    for (const word of para.split(" ")) {
-      const test = line ? `${line} ${word}` : word;
-      if (g.measureText(test).width > maxW && line) {
-        if (y > maxY) return;
-        g.fillText(line, x, y);
-        y += lh;
-        line = word;
-      } else line = test;
-    }
-    if (y > maxY) return;
-    g.fillText(line, x, y);
-    y += lh * 1.25;
-  }
+/** One `{X}` symbol as a circle of diameter d centred at (cx, cy), drawn like ManaText. */
+function manaSymbol(g: CanvasRenderingContext2D, sym: string, cx: number, cy: number, d: number): void {
+  const up = sym.toUpperCase();
+  const parts = up.split("/").map((p) => MANA[p]).filter(Boolean) as string[];
+  g.save();
+  g.beginPath();
+  g.arc(cx, cy + d * 0.05, d / 2, 0, Math.PI * 2);
+  g.fillStyle = "rgba(0, 0, 0, 0.45)";
+  g.fill();
+  g.beginPath();
+  g.arc(cx, cy, d / 2, 0, Math.PI * 2);
+  if (parts.length > 1) {
+    const grad = g.createLinearGradient(cx - d / 2, cy - d / 2, cx + d / 2, cy + d / 2);
+    grad.addColorStop(0.5, parts[0]!);
+    grad.addColorStop(0.5, parts[1]!);
+    g.fillStyle = grad;
+  } else g.fillStyle = up === "T" || up === "Q" ? "#d5d0c8" : parts[0] ?? MANA.C!;
+  g.fill();
+  g.fillStyle = "#111";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  const label = up === "T" ? "\u27f3" : up === "Q" ? "\u27f2" : up.replace("/P", "\u1d56").replace("/", "");
+  g.font = `700 ${d * (label.length > 2 ? 0.48 : label.length > 1 ? 0.6 : 0.72)}px "Inter Variable", Inter, Arial, sans-serif`;
+  g.fillText(label, cx, cy + d * 0.04);
+  g.restore();
 }
 
-/** A readable card front for cards without a cached image (offline, no art). */
-export function textCardCanvas(card: CardData | undefined, face: number, fallbackName = ""): HTMLCanvasElement {
-  const W = 488;
-  const H = 680;
-  const [c, g] = canvas(W, H);
-  const f = card?.faces?.[face];
-  const name = f?.name ?? card?.name ?? fallbackName;
-  const type = f?.type_line ?? card?.type_line ?? "";
-  const cost = f?.mana_cost ?? card?.mana_cost ?? "";
-  const text = (f?.oracle_text ?? card?.oracle_text ?? "").replace(/\s*\([^()]*\)/g, "");
-  const power = f?.power ?? card?.power;
-  const toughness = f?.toughness ?? card?.toughness;
-  const loyalty = f?.loyalty ?? card?.loyalty;
-  const colors = f?.colors ?? card?.colors ?? [];
-  const key = /\bLand\b/.test(type) ? "L" : colors.length > 1 ? "M" : colors[0] ?? "C";
-  const [light, dark] = FRAME[key] ?? FRAME.C!;
-  g.fillStyle = "#0d0d0d";
-  roundRect(g, 0, 0, W, H, 26);
+/** A filled bar like the proxy's name and type bars: pale frame tint, dark rule, lit top edge, a soft drop shadow. */
+function bar(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, u: number, fill: string, rule: string): void {
+  g.save();
+  g.shadowColor = "rgba(0, 0, 0, 0.32)";
+  g.shadowBlur = 0.9 * u;
+  g.shadowOffsetY = 0.5 * u;
+  roundRect(g, x, y, w, h, r);
+  g.fillStyle = fill;
   g.fill();
-  const grad = g.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, dark);
-  grad.addColorStop(0.5, light);
-  grad.addColorStop(1, dark);
-  g.fillStyle = grad;
-  roundRect(g, 18, 18, W - 36, H - 36, 14);
+  g.restore();
+  g.save();
+  roundRect(g, x, y, w, h, r);
+  g.clip();
+  g.fillStyle = "rgba(255, 255, 255, 0.55)";
+  g.fillRect(x, y, w, 0.4 * u);
+  g.restore();
+  roundRect(g, x, y, w, h, r);
+  g.strokeStyle = rule;
+  g.lineWidth = 0.4 * u;
+  g.stroke();
+}
+
+/** `text` cut with an ellipsis to fit `maxW` at the current font. */
+function clip(g: CanvasRenderingContext2D, text: string, maxW: number): string {
+  if (g.measureText(text).width <= maxW) return text;
+  let t = text;
+  while (t.length > 1 && g.measureText(`${t}\u2026`).width > maxW) t = t.slice(0, -1);
+  return `${t.trimEnd()}\u2026`;
+}
+
+/**
+ * Draws the printed proxy (cards/proxy.ts, the small level of detail: a big name, the type's icon, a
+ * big P/T) for a card without a cached image.
+ */
+function drawProxy(g: CanvasRenderingContext2D, W: number, H: number, card: CardData | undefined, face: number, fallbackName: string): void {
+  const p = proxyFace(card, face, undefined, fallbackName);
+  const c = proxyColours(p);
+  const measure = textMeasure();
+  const tier = CANVAS_TIER;
+  const L = layoutProxy(p, tier, measure);
+  const u = W / 100;
+  const v = H / CARD_H; // px per vertical card unit (the canvas is not exactly 63:88)
+  g.clearRect(0, 0, W, H);
+  // black border and the frame's ink on linen stock
+  g.fillStyle = BORDER;
+  roundRect(g, 0, 0, W, H, 4.75 * u);
   g.fill();
-  // name bar
-  g.fillStyle = "rgba(250, 244, 230, 0.72)";
-  roundRect(g, 32, 32, W - 64, 56, 10);
-  g.fill();
-  g.fillStyle = "#111";
-  g.font = "700 30px Inter, Arial, sans-serif";
-  g.textBaseline = "middle";
-  let nameText = name;
-  while (g.measureText(nameText).width > W - 180 && nameText.length > 4) nameText = nameText.slice(0, -2);
-  g.fillText(nameText === name ? name : `${nameText}…`, 46, 61);
-  // mana cost as pips
-  const pips = [...cost.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]!);
-  let px = W - 50;
-  for (const pip of pips.reverse()) {
-    const col = { W: "#f5efd9", U: "#9fcff0", B: "#b9aeb0", R: "#f2a07e", G: "#9ad3a6" }[pip] ?? "#ccc6c0";
-    g.fillStyle = col;
-    g.beginPath();
-    g.arc(px, 61, 17, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = "#111";
-    g.font = "700 20px Inter, Arial, sans-serif";
-    g.textAlign = "center";
-    g.fillText(/^[WUBRG]$/.test(pip) ? pip : pip.replace("/", ""), px, 62);
-    g.textAlign = "left";
-    px -= 38;
+  const b = tier.border * u;
+  g.save();
+  roundRect(g, b, b, W - b * 2, H - b * 2, 1.6 * u);
+  g.clip();
+  g.fillStyle = c.frame;
+  g.fillRect(b, b, W - b * 2, H - b * 2);
+  g.fillStyle = "rgba(0, 0, 0, 0.045)";
+  for (let y = b; y < H - b; y += 3) g.fillRect(b, y, W - b * 2, 1);
+  g.fillStyle = "rgba(255, 255, 255, 0.04)";
+  for (let x = b; x < W - b; x += 3) g.fillRect(x, b, 1, H - b * 2);
+  g.restore();
+  roundRect(g, b + 0.22 * u, b + 0.22 * u, W - b * 2 - 0.44 * u, H - b * 2 - 0.44 * u, 1.4 * u);
+  g.strokeStyle = c.dark;
+  g.lineWidth = 0.45 * u;
+  g.stroke();
+
+  const x0 = L.inner.x * u;
+  const iw = L.inner.w * u;
+  const top = (tier.border + tier.pad) * v;
+  // name bar: the cost on the right of the first line, the name wrapping under it
+  const nb = L.name.barH * v;
+  bar(g, x0, top, iw, nb, 1.1 * u, u, c.bar, c.dark);
+  const ns = L.name.size * u;
+  const lh = ns * tier.name.lh;
+  const firstY = top + tier.name.padY * v + lh / 2;
+  const syms = [...p.cost.matchAll(/\{([^}]+)\}|(\/\/)/g)];
+  let cx = x0 + iw - tier.name.padX * u;
+  const d = ns * 0.82 * 1.15;
+  for (const m of syms.reverse()) {
+    if (m[2]) {
+      g.fillStyle = INK;
+      g.font = `700 ${ns * 0.8}px "Inter Variable", Inter, Arial, sans-serif`;
+      g.textAlign = "right";
+      g.textBaseline = "middle";
+      g.fillText("//", cx, firstY);
+      cx -= g.measureText("//").width + 0.1 * ns;
+      continue;
+    }
+    manaSymbol(g, m[1]!, cx - d / 2, firstY, d);
+    cx -= d + 0.1 * ns;
   }
-  // art window: a soft wash, in the colour a basic land makes
-  const basic = type.match(/\b(Plains|Island|Swamp|Mountain|Forest)\b/)?.[1];
-  // a solid art window (a pale wash turns the whole card white at table distance)
-  const [hiCol, loCol]: [string, string] = basic
-    ? ({ Plains: ["#e8d9a4", "#a8915a"], Island: ["#5d9bd6", "#1d4677"], Swamp: ["#6a5566", "#241a22"], Mountain: ["#d8734f", "#6e2414"], Forest: ["#5fa36c", "#1c4a2a"] } as Record<string, [string, string]>)[basic]!
-    : [light, dark];
-  const art = g.createLinearGradient(32, 100, W - 32, 330);
-  art.addColorStop(0, hiCol);
-  art.addColorStop(1, loCol);
-  g.fillStyle = art;
-  roundRect(g, 32, 100, W - 64, 230, 6);
-  g.fill();
-  g.fillStyle = "rgba(255, 255, 255, 0.32)";
-  g.font = "600 110px Cinzel, Georgia, serif";
-  g.textAlign = "center";
-  g.fillText(name.slice(0, 1).toUpperCase(), W / 2, 220);
+  g.fillStyle = INK;
+  g.font = `700 ${ns}px Cinzel, Georgia, serif`;
   g.textAlign = "left";
-  // type bar
-  g.fillStyle = "rgba(250, 244, 230, 0.72)";
-  roundRect(g, 32, 340, W - 64, 46, 8);
-  g.fill();
-  g.fillStyle = "#111";
-  g.font = "600 24px Inter, Arial, sans-serif";
-  let typeText = type;
-  while (g.measureText(typeText).width > W - 90 && typeText.length > 4) typeText = typeText.slice(0, -2);
-  g.fillText(typeText, 46, 364);
-  // rules text
-  g.fillStyle = "rgba(246, 238, 220, 0.8)";
-  roundRect(g, 32, 396, W - 64, H - 450, 6);
-  g.fill();
-  g.fillStyle = "#151515";
-  g.font = "400 23px Inter, Arial, sans-serif";
-  g.textBaseline = "top";
-  wrap(g, text, 48, 410, W - 96, 28, H - 110);
-  // P/T or loyalty
-  const pt = power != null && toughness != null ? `${power}/${toughness}` : loyalty != null ? String(loyalty) : null;
-  if (pt) {
-    g.fillStyle = "#f2efe8";
-    roundRect(g, W - 150, H - 92, 112, 52, 10);
+  g.textBaseline = "middle";
+  L.name.lines.slice(0, tier.name.lines).forEach((line, i) => {
+    const s = line.tokens.map((t) => (t.t === "space" ? " " : t.t === "sym" ? `{${t.s}}` : t.s)).join("");
+    const room = i === 0 ? cx - x0 - tier.name.padX * u : iw - tier.name.padX * 2 * u;
+    const last = i === tier.name.lines - 1 && L.name.lines.length > tier.name.lines;
+    g.fillText(last ? clip(g, `${s} ${L.name.lines.slice(i + 1).map((l) => l.tokens.map((t) => (t.t === "word" ? t.s : " ")).join("")).join(" ")}`, room) : clip(g, s, room), x0 + tier.name.padX * u, firstY + i * lh);
+  });
+
+  // the art window: the card's colours, engraved, the type's icon pressed in
+  const fy = L.field.top * v;
+  const fh = L.field.h * v;
+  g.save();
+  roundRect(g, x0, fy, iw, fh, 0.5 * u);
+  g.clip();
+  g.fillStyle = c.field[0];
+  g.fillRect(x0, fy, iw, fh);
+  if (c.field[1] !== c.field[0]) {
+    // a two-colour field: the second colour beyond a seam at 118°, through the centre
+    const k = Math.tan((28 * Math.PI) / 180) * (fh / 2);
+    g.beginPath();
+    g.moveTo(x0 + iw / 2 + k, fy);
+    g.lineTo(x0 + iw, fy);
+    g.lineTo(x0 + iw, fy + fh);
+    g.lineTo(x0 + iw / 2 - k, fy + fh);
+    g.closePath();
+    g.fillStyle = c.field[1];
     g.fill();
-    g.strokeStyle = "#333";
-    g.lineWidth = 2;
-    g.stroke();
-    g.fillStyle = "#111";
-    g.font = "800 32px Inter, Arial, sans-serif";
+  }
+  g.strokeStyle = "rgba(255, 255, 255, 0.05)";
+  g.lineWidth = 1;
+  g.beginPath();
+  for (let t = -fh; t < iw; t += 3) { g.moveTo(x0 + t, fy + fh); g.lineTo(x0 + t + fh, fy); }
+  g.stroke();
+  // recessed: darker toward the edges and under the top lip
+  const edge = 4 * u;
+  for (const [gx, gy, gw, gh, x1, y1, x2, y2] of [
+    [x0, fy, iw, edge, 0, fy, 0, fy + edge], [x0, fy + fh - edge, iw, edge, 0, fy + fh, 0, fy + fh - edge],
+    [x0, fy, edge, fh, x0, 0, x0 + edge, 0], [x0 + iw - edge, fy, edge, fh, x0 + iw, 0, x0 + iw - edge, 0],
+  ] as const) {
+    const gr = g.createLinearGradient(x1, y1, x2, y2);
+    gr.addColorStop(0, "rgba(0, 0, 0, 0.26)");
+    gr.addColorStop(1, "rgba(0, 0, 0, 0)");
+    g.fillStyle = gr;
+    g.fillRect(gx, gy, gw, gh);
+  }
+  const gs = Math.min(fh * 0.62, 40 * u) / 24;
+  g.translate(x0 + iw / 2 - 12 * gs, fy + fh / 2 - 12 * gs);
+  g.scale(gs, gs);
+  const path = glyphPath(p.kind);
+  g.translate(0, 0.7);
+  g.fillStyle = c.glyphLit;
+  g.fill(path, "evenodd");
+  g.translate(0, -0.7);
+  g.fillStyle = c.glyph;
+  g.fill(path, "evenodd");
+  g.restore();
+  roundRect(g, x0, fy, iw, fh, 0.5 * u);
+  g.strokeStyle = c.dark;
+  g.lineWidth = 0.4 * u;
+  g.stroke();
+
+  // type bar
+  const textBottom = H - (tier.border + tier.bottom) * v;
+  const tb = L.text.box * v;
+  const ty = textBottom - tb - (tier.gap + tier.type.h) * v;
+  const th = tier.type.h * v;
+  bar(g, x0, ty, iw, th, 1.1 * u, u, c.bar, c.dark);
+  g.fillStyle = INK;
+  g.font = `600 ${L.type.size * u}px "Inter Variable", Inter, Arial, sans-serif`;
+  g.textBaseline = "middle";
+  g.fillText(clip(g, p.type, iw - tier.name.padX * 2 * u), x0 + tier.name.padX * u, ty + th / 2 + 0.2 * u);
+
+  // rules text, fitted (cards/proxy.ts fitText), reminder text lighter
+  const tyTop = textBottom - tb;
+  roundRect(g, x0, tyTop, iw, tb, 0.4 * u);
+  g.fillStyle = c.paper;
+  g.fill();
+  g.strokeStyle = c.dark;
+  g.lineWidth = 0.4 * u;
+  g.stroke();
+  const fs = L.text.size * u;
+  const padX = tier.text.padX * u;
+  g.save();
+  roundRect(g, x0, tyTop, iw, tb, 0.4 * u);
+  g.clip();
+  g.font = `430 ${fs}px "Inter Variable", Inter, Arial, sans-serif`;
+  g.textBaseline = "middle";
+  g.textAlign = "left";
+  const space = measure(" ", "text") * fs;
+  let y = tyTop + tier.text.padY * v + (fs * tier.text.lh) / 2;
+  for (const para of L.text.lines) {
+    for (const line of para) {
+      let x = x0 + padX;
+      for (const t of line.tokens) {
+        if (t.t === "space") { x += space; continue; }
+        if (t.t === "sym") {
+          const sd = fs * 0.82 * 1.15;
+          manaSymbol(g, t.s, x + fs * 0.05 + sd / 2, y, sd);
+          x += SYM_EM * fs;
+          continue;
+        }
+        g.fillStyle = t.rem ? "rgba(31, 26, 21, 0.66)" : INK;
+        g.font = `430 ${fs}px "Inter Variable", Inter, Arial, sans-serif`;
+        g.textAlign = "left";
+        g.fillText(t.s, x, y);
+        x += measure(t.s, "text") * fs;
+      }
+      y += fs * tier.text.lh;
+    }
+    y += fs * tier.text.gap;
+  }
+  if (!L.text.fits) {
+    const fade = g.createLinearGradient(0, textBottom - 7 * u, 0, textBottom - u);
+    fade.addColorStop(0, "rgba(0, 0, 0, 0)");
+    fade.addColorStop(1, c.paper);
+    g.fillStyle = fade;
+    g.fillRect(x0, textBottom - 7 * u, iw, 7 * u);
+  }
+  g.restore();
+
+  // P/T, loyalty or defense
+  if (p.stat) {
+    g.font = `700 ${tier.stat.size * u}px Cinzel, Georgia, serif`;
+    const pw = Math.max(tier.stat.w * u, g.measureText(p.stat.text).width + 4 * u);
+    const ph = tier.stat.h * u;
+    const px = W - b - tier.stat.inset * u - pw;
+    const py = H - b - tier.stat.inset * u - ph;
+    const dark = p.stat.kind !== "pt";
+    bar(g, px, py, pw, ph, 1.1 * u, u, dark ? (p.stat.kind === "defense" ? "#4a231c" : "#24201c") : c.bar, c.dark);
+    g.fillStyle = dark ? "#f1e8d4" : INK;
     g.textAlign = "center";
     g.textBaseline = "middle";
-    g.fillText(pt, W - 94, H - 65);
+    g.fillText(p.stat.text, px + pw / 2, py + ph / 2 + 0.3 * u);
   }
+  // the table's lights brighten the stock: one warm multiply brings it back to the printed card's tones
+  g.save();
+  roundRect(g, 0, 0, W, H, 4.75 * u);
+  g.clip();
+  g.globalCompositeOperation = "multiply";
+  g.fillStyle = "#cfc8bd";
+  g.fillRect(0, 0, W, H);
+  g.restore();
+}
+
+const glyphPaths = new Map<string, Path2D>();
+function glyphPath(kind: keyof typeof TYPE_GLYPHS): Path2D {
+  let p = glyphPaths.get(kind);
+  if (!p) glyphPaths.set(kind, (p = new Path2D(TYPE_GLYPHS[kind])));
+  return p;
+}
+
+const PROXY_W = 488;
+const PROXY_H = 680;
+
+/** A readable printed proxy for cards without a cached image (offline, no art). */
+export function textCardCanvas(card: CardData | undefined, face: number, fallbackName = ""): HTMLCanvasElement {
+  const [c, g] = canvas(PROXY_W, PROXY_H);
+  drawProxy(g, PROXY_W, PROXY_H, card, face, fallbackName);
   return c;
+}
+
+/**
+ * The proxy as a texture, drawn once. If the proxy's fonts haven't loaded yet it is drawn with the
+ * fallbacks now and once more, into the same canvas, when they arrive (never per frame).
+ */
+export function textCardTexture(card: CardData | undefined, face: number, fallbackName = ""): THREE.CanvasTexture {
+  const c = textCardCanvas(card, face, fallbackName);
+  const t = texture(c);
+  if (!proxyFontsReady()) {
+    void whenProxyFontsReady().then(() => {
+      drawProxy(c.getContext("2d")!, PROXY_W, PROXY_H, card, face, fallbackName);
+      t.needsUpdate = true;
+    });
+  }
+  return t;
 }
 
 /** The default card back: a dark sleeve with a subtle gold emblem in the player's colour. */
