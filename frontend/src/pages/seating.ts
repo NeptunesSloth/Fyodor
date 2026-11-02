@@ -1,3 +1,4 @@
+import { seats } from "../table3d/layout";
 import type { LobbySeat, LobbySettings, LobbyView } from "../types/game";
 
 /*
@@ -47,19 +48,45 @@ export function canNudge(order: string[], id: string, delta: -1 | 1): boolean {
   return order.includes(id) && j >= 0 && j < order.length;
 }
 
-/** What the pod should know about the next game's order, from the server's preview: one line, names in turn order. */
-export function previewLine(lobby: Pick<LobbyView, "turn_preview" | "seats" | "settings">): string {
+/**
+ * The next game's order in parts, from the server's preview: the claimed seats in turn order (none while a d20 decides the
+ * seating), the player known to go first, and the sentence that explains it.
+ */
+export function previewParts(lobby: Pick<LobbyView, "turn_preview" | "seats" | "settings">): {
+  order: string[];
+  first: string | null;
+  note: string;
+  source: "d20" | "winner_last" | "random" | "seats";
+} {
   const p = lobby.turn_preview;
-  const mode = lobby.settings.turn_order ?? "pod";
   const name = (id: string) => lobby.seats.find((s: LobbySeat) => s.id === id)?.name ?? `Seat ${id.slice(1)}`;
   const order = p?.order ?? lobby.seats.filter((s) => s.claimed).map((s) => s.id);
-  if (order.length < 2) return "";
-  const names = order.map(name).join(" → ");
-  const source = p?.source ?? mode;
-  if (source === "d20") return "Everyone rolls a d20 at the start: highest goes first, ties reroll. The rolls set the seating.";
-  if (source === "winner_last") return `${names} · ${name(p!.previous_winner!)} won last game and goes last.`;
-  if (source === "seats") return `${names} · ${name(order[0]!)} goes first.`;
-  return `${names} · a random player goes first, then around the table.`;
+  const mode = lobby.settings.turn_order ?? "pod";
+  const source = p?.source ?? (mode === "seats" ? "seats" : "random");
+  if (order.length < 2) return { order: [], first: null, note: "", source };
+  if (source === "d20") return { order: [], first: null, note: "Everyone rolls a d20 at the start: highest goes first, ties reroll. The rolls set the seating.", source };
+  if (source === "winner_last") return { order, first: order[0]!, note: `${name(p!.previous_winner!)} won last game and goes last.`, source };
+  if (source === "seats") return { order, first: order[0]!, note: `${name(order[0]!)} goes first.`, source };
+  return { order, first: null, note: "A random player goes first, then around the table.", source };
+}
+
+/** What the pod should know about the next game's order, from the server's preview: one line, names in turn order. */
+export function previewLine(lobby: Pick<LobbyView, "turn_preview" | "seats" | "settings">): string {
+  const { order, note, source } = previewParts(lobby);
+  if (!note || !order.length) return note;
+  const name = (id: string) => lobby.seats.find((s: LobbySeat) => s.id === id)?.name ?? `Seat ${id.slice(1)}`;
+  return `${order.map(name).join(" → ")} · ${source === "random" ? note.charAt(0).toLowerCase() + note.slice(1) : note}`;
+}
+
+/**
+ * Where each player sits on a miniature of the table (the lobby's seat preview), as fractions of its width (x) and depth (y,
+ * 0 = the far edge): the 3D table's own seating (table3d/layout.ts), the viewer's row nearest, turn order clockwise.
+ */
+export function miniSeats(order: string[], me: string): { id: string; x: number; y: number }[] {
+  if (!order.length) return [];
+  const placed = seats(order, me);
+  const span = Math.max(...placed.map((s) => Math.abs(s.x))) || 1;
+  return placed.map((s) => ({ id: s.player, x: 0.5 + (s.x / span) * 0.34, y: s.z > 0 ? 1 : 0 }));
 }
 
 /** A game's recorded d20 rounds, by name: "Ann 17, Ben 12 · tie-break Ann 4, Cat 9". */

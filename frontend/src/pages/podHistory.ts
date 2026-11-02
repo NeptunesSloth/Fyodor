@@ -33,9 +33,10 @@ function names(list: string[]): string {
 
 /**
  * One line per place: "1st out: Bob (turn 7, commander damage)". Players out in the same action share their place:
- * "3rd out: Ann and Ben together (turn 9, 0 life)", or each with their own reason when those differ.
+ * "3rd out: Ann and Ben together (turn 9, 0 life)", or each with their own reason when those differ. Each line also comes in
+ * parts for styling, `${head} ${who}${rest}` being its text ("1st out:", "Bob", " (turn 7, commander damage)").
  */
-export function eliminationLines(list: EliminationEntry[] | undefined): { place: number; text: string }[] {
+export function eliminationLines(list: EliminationEntry[] | undefined): { place: number; text: string; head: string; who: string; rest: string }[] {
   const groups: EliminationEntry[][] = [];
   for (const e of list ?? []) {
     const last = groups[groups.length - 1];
@@ -45,13 +46,12 @@ export function eliminationLines(list: EliminationEntry[] | undefined): { place:
   return groups.map((group) => {
     const first = group[0]!;
     const turn = first.turn != null && group.every((e) => e.turn === first.turn) ? `turn ${first.turn}` : null;
-    const head = `${ordinal(first.place)} out: `;
-    if (group.length === 1) return { place: first.place, text: `${head}${first.name} (${[turn, howText(first)].filter(Boolean).join(", ")})` };
+    const head = `${ordinal(first.place)} out:`;
+    const line = (who: string, rest: string) => ({ place: first.place, text: `${head} ${who}${rest}`, head, who, rest });
+    if (group.length === 1) return line(first.name, ` (${[turn, howText(first)].filter(Boolean).join(", ")})`);
     const hows = new Set(group.map(howText));
-    if (hows.size === 1) {
-      return { place: first.place, text: `${head}${names(group.map((e) => e.name))} together (${[turn, howText(first)].filter(Boolean).join(", ")})` };
-    }
-    return { place: first.place, text: `${head}${names(group.map((e) => `${e.name} (${howText(e)})`))} together${turn ? `, ${turn}` : ""}` };
+    if (hows.size === 1) return line(`${names(group.map((e) => e.name))} together`, ` (${[turn, howText(first)].filter(Boolean).join(", ")})`);
+    return line(`${names(group.map((e) => `${e.name} (${howText(e)})`))} together`, turn ? `, ${turn}` : "");
   });
 }
 
