@@ -36,6 +36,7 @@ import { useGame } from "../state/gameStore";
 import { activeProfile } from "../state/prefs";
 import type { DeckSummary } from "../types/decks";
 import { SPECTATOR, type LobbySeat, type LobbySettings, type LobbyView } from "../types/game";
+import { EliminationOrder, FinalBoard } from "./GameRecap";
 import { PersonalDeckImports } from "./PersonalDeckImports";
 import { TURN_ORDER_LABEL, TURN_ORDER_SHORT, canNudge, moveSeat, nudgeSeat, previewLine, rollsText, type TurnOrderMode } from "./seating";
 import "./lobby.css";
@@ -259,6 +260,12 @@ function SessionRecap({ games }: { games: NonNullable<LobbyView["night"]> }) {
                 {g.rolls && g.rolls.length > 0 && <span className="recap-rolls" data-testid="recap-rolls"> · d20 {rollsText(g.rolls)}</span>}
               </span>
               <span className="hint">{g.turns} turn{g.turns === 1 ? "" : "s"}{g.minutes ? ` · ${g.minutes} min` : ""}</span>
+              {(!!g.eliminations?.length || !!g.result_id) && (
+                <div className="recap-more">
+                  <EliminationOrder list={g.eliminations} />
+                  {g.result_id && <FinalBoard resultId={g.result_id} eliminations={g.eliminations} />}
+                </div>
+              )}
             </li>
           );
         })}

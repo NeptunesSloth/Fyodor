@@ -6,7 +6,7 @@ import { rememberMyDeck, rememberSeat } from "../services/games";
 import { deckLabCopy, openPractice, ownDeck, type OwnDeckCard } from "../services/night";
 import { requestCards, useCardCache } from "../state/cardCache";
 import type { GameView } from "../types/game";
-import { commandersOf, rememberPractice } from "./eliminationHub";
+import { commandersOf, openGameLog, rememberPractice } from "./eliminationHub";
 import { playEndScene, type EndPlay } from "./motion/endScene";
 import { SideActivityDialog, type SideActivity } from "./SpectatorHub";
 import "./elimination.css";
@@ -16,7 +16,8 @@ import "./elimination.css";
  * dark pulse, "Eliminated — the game continues", then a small hub: keep watching (the same public
  * view everyone else has; elimination grants nothing hidden), a private practice table with your own
  * deck (a separate game only you see; the live game is untouched), opening-hand practice (local to this
- * browser), Deck Lab (a copy of your deck for the next game), dice & toys (local to this browser), pod stats and the
+ * browser), Deck Lab (a copy of your deck for the next game), dice & toys (local to this browser), the game log (the table's
+ * own log drawer), pod stats and the
  * card browser (new tabs, so the live game keeps its seat), or leave the table. The pill brings the hub back.
  */
 export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; sceneOn: boolean }) {
@@ -119,6 +120,10 @@ export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; 
               <button className="elim-link" data-testid="open-toys" onClick={() => open("toys")}
                 title="Roll some dice, spin for a random player, keep a tally: only in this browser, the game never changes">
                 Dice & toys
+              </button>
+              <button className="elim-link" data-testid="open-game-log" onClick={() => { settle(); openGameLog(); }}
+                title="The game log: every public action and the table's chat, as everyone at the table reads it">
+                Game log
               </button>
               <a href="#/stats" target="_blank" rel="noopener noreferrer">Pod stats ↗</a>
               <a href="#/cards" target="_blank" rel="noopener noreferrer">Card browser ↗</a>

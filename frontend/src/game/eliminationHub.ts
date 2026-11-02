@@ -1,4 +1,5 @@
 import type { GameView, MajorEvent, PracticeInfo } from "../types/game";
+import { useGame } from "../state/gameStore";
 
 /*
  * Major public events (docs/ELIMINATION_HUB.md, "Staying connected"): the server lists the newest few in every
@@ -53,6 +54,11 @@ export function liveLine(live: GameView): string {
   });
   const active = live.players.find((p) => p.id === live.turn.active_player)?.name;
   return [`Turn ${live.turn.number}`, active ? `${active}'s turn` : null, `${left.length} still in`].filter(Boolean).join(" · ");
+}
+
+/** The hub's Game log link: open the table's own log drawer (the public log and chat everyone at the table reads). */
+export function openGameLog(): void {
+  useGame.getState().setLayout({ logOpen: true });
 }
 
 const PRACTICE_KEY = (id: string) => `fyodor.practice.${id}`;
