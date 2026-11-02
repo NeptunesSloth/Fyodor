@@ -1,0 +1,79 @@
+// Disa the Restless eldrazo (Archidekt 17094081): commander and main deck only
+Commander
+1x Disa the Restless (m3c) 1
+Deck
+1x Entomb (dmr) 82
+1x Maskwood Nexus (drc) 132
+1x Taurean Mauler (tdc) 238
+1x Blasphemous Act (eoc) 86
+1x Farseek (eoc) 50
+1x Three Visits (fic) 315
+1x Chainer, Nightmare Adept (mh2) 419
+1x Tortured Existence (plst) STH-74
+1x Birds of Paradise (rvr) 344
+1x Cultivate (eoc) 95
+1x Path of Ancestry (fic) 411
+1x Garruk's Uprising (fdn) 220
+1x Nature's Lore (eoc) 101
+1x Rampant Growth (fic) 313
+1x Buried Alive (mh3) 273
+1x Command Tower (eoc) 59
+1x Arcane Signet (eoc) 53
+1x Conspiracy (acr) 88
+1x Ziatora's Proving Ground (snc) 359
+1x Wooded Foothills (mh3) 441
+1x Woodland Cemetery (pip) 316
+1x Evolving Wilds (fic) 389
+1x Terminate (acr) 98
+1x Shifting Woodland (mh3) 228
+1x Fauna Shaman (bro) 179
+1x The Reaver Cleaver (m3c) 217
+1x Sol Ring (tle) 316
+1x Ignoble Hierarch (m3c) 234
+1x Lightning Greaves (fic) 349
+1x Thrill of Possibility (fdn) 210
+1x Airship Crash (fin) 171
+1x Breaker of Armies (plst) BFZ-3
+1x Mimic Vat (ncc) 372
+7x Swamp (tla) 284
+6x Mountain (tle) 295
+9x Forest (tla) 286
+1x Smoldering Marsh (eoc) 182
+1x Cinder Glade (eoc) 154
+1x Cruel Tutor (plst) POR-87
+1x Vampiric Tutor (dmr) 108
+1x Demonic Tutor (cmm) 150
+1x Grim Tutor (m21) 103
+1x Diabolic Tutor (plst) ODY-129
+1x Sylvan Tutor (por) 188
+1x Profane Tutor (mh2) 401
+1x Worldly Tutor (dmr) 185
+1x Apex Devastator (m3c) 220
+1x Lifeline (usg) 299
+1x Avacyn, Angel of Horror (frc) 7
+1x Smaug the Impenetrable (hoc) 9
+1x Abomination, World Ravager (msc) 47
+1x Grim Giganotosaurus (rex) 11
+1x Aggressive Mammoth (fdn) 551
+1x Bygone Colossus (eoe) 235
+1x Caller of the Pack (cma) 94
+1x Dragonlord Atarka (tdc) 285
+1x Ghalta, Stampede Tyrant (lci) 185
+1x Earthquake Dragon (clb) 228
+1x Ghalta, Primal Hunger (fdn) 222
+1x Hierophant Bio-Titan (40k) 92
+1x Platinum Emperion (uma) 233
+1x Assassin's Trophy (ecc) 119
+1x Impervious Greatwurm (2x2) 152
+1x Icetill Explorer (eoe) 192
+1x Avatar of Slaughter (cmm) 206
+1x Avatar Destiny (tla) 165
+1x Altar of Dementia (mh1) 218
+1x Etali, Primal Conqueror // Etali, Primal Sickness (mom) 137
+1x Zopandrel, Hunger Dominus (one) 195
+1x Balefire Dragon (inr) 479
+1x Polyraptor (rix) 144
+1x Vorinclex, Voice of Hunger (plst) NPH-127
+1x Ardyn, the Usurper (fin) 89
+1x Old Gnawbone (afr) 197
+1x Rakdos Charm (eoc) 125

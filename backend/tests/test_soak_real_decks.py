@@ -1,4 +1,4 @@
-"""Whole games with the two real Commander decks (tests/fixtures/soak_decks) at the Full automation level, played by tools/soak.py's
+"""Whole games with the pod's real Commander decks (tests/fixtures/soak_decks) at the Full automation level, played by tools/soak.py's
 bot: every seat picks among the moves the engine offers it (hints, decisions, attackers, blockers). A short seeded run, 2 and 4 players
 with the seats alternating the decks: no AutomationError, no unexpected exception, no hint the engine refuses; the history replays and
 a save loads back to the table (every 50 actions and at the end); no seat's view shows another seat's hand or library."""
@@ -21,3 +21,17 @@ def test_real_decks_play_whole_turns_cleanly(players: int, seed: int, turns: int
     report = soak.run(DB, games=1, turns=turns, seed=seed, players=players)
     assert not report.problems, report.text()
     assert report.games == 1 and report.actions > 10 and report.turns == turns
+
+
+POD_DECKS = ("kiora_underdasea.txt", "ian_malcolm_group_play.txt", "grand_arbiter_augustin_iv_interesting.txt",
+             "disa_the_restless_disa_eldrazo.txt", "zedruu_the_greathearted_grouphug.txt", "atraxa_exp_bar_low.txt")
+
+
+def test_the_pods_other_decks_play_whole_turns_cleanly() -> None:
+    """The pod's six other Archidekt decks (UnderDaSea, Group play, Interesting, Disa the Restless eldrazo, grouphug, my exp bar is
+    low), four seats a game, two games so every deck sits down."""
+    if not DB.is_file():
+        pytest.skip("needs the real card database (data/cards.sqlite)")
+    report = soak.run(DB, games=2, turns=5, seed=3101, players=4, deck_files=POD_DECKS)
+    assert not report.problems, report.text()
+    assert report.games == 2 and report.actions > 20

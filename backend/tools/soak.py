@@ -316,6 +316,9 @@ class Bot:
                 groups.setdefault(o.get("group") or o["id"], []).append(o["id"])
             return {**choose, "option_ids": [rng.choice(g) for g in groups.values()]}
         picks = [o["id"] for o in options if o.get("group") != "seen"]
+        if kind == "choose_one" and "tap your mana first" in str(d.get("prompt") or "") and any(i.startswith("x:") for i in picks):
+            # "pay any amount of mana" (Minds Aglow's join forces): an amount needs that mana in the pool first; the bot pays nothing
+            picks = [i for i in picks if not i.startswith("x:") or i == "x:0"] or picks
         if kind in ("choose_one", "confirm", "manual_resolution"):
             return {**choose, "option_ids": [rng.choice(picks)] if picks else []}
         lo, hi = d.get("min_choices", 1), min(d.get("max_choices", 1), len(picks))
@@ -562,14 +565,15 @@ class Game:
         return True
 
 
-def run(db: Path, *, games: int, turns: int, seed: int, players: int, log: bool = False) -> Report:
+def run(db: Path, *, games: int, turns: int, seed: int, players: int, log: bool = False, deck_files: tuple[str, ...] = DECK_FILES) -> Report:
     cards = CachedCards(CardRepository(db, ImageStore(db.parent / "images")))
     try:
-        decks = [load_deck(cards, DECKS / name) for name in DECK_FILES]
+        decks = [load_deck(cards, DECKS / name) for name in deck_files]
         report, privacy = Report(), Privacy(cards)
         start = time.perf_counter()
         for i in range(games):
-            Game(cards, decks, seed + i, players, report, privacy, log=log).play(turns)
+            turn = (i * players) % len(decks)  # each game seats the next decks in the list, so every deck plays
+            Game(cards, decks[turn:] + decks[:turn], seed + i, players, report, privacy, log=log).play(turns)
             if log:
                 print(f"game {i + 1}/{games} (seed {seed + i}): {report.actions} actions so far", file=sys.stderr)
         report.seconds = time.perf_counter() - start
@@ -589,8 +593,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--players", type=int, choices=(2, 4), default=2)
     ap.add_argument("--log", action="store_true", help="print each problem as it happens")
+    ap.add_argument("--decks", nargs="+", default=list(DECK_FILES), metavar="FILE",
+                    help="deck files in tests/fixtures/soak_decks, seated in turn (default: the two original decks)")
     args = ap.parse_args(argv)
-    report = run(args.db, games=args.games, turns=args.turns, seed=args.seed, players=args.players, log=args.log)
+    report = run(args.db, games=args.games, turns=args.turns, seed=args.seed, players=args.players, log=args.log, deck_files=tuple(args.decks))
     print(report.text())
     return 1 if report.problems else 0
 
