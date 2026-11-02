@@ -26,7 +26,18 @@ sandbox, fake-point predictions) extend this hub later: `SPECTATOR_ACTIVITIES_MI
   a new library deck opened in the deck editor; on a guest's computer it is the list, edited in place and saved to that
   browser's My decks. The match deck and its library original are never changed; the next deck is chosen in the lobby.
 
-Not built yet: dice / table toys, a Game Log link, and Deck Lab's compare view; a guest's Deck Lab is a plain list
+- **Dice & toys** (`frontend/src/game/TableToys.tsx`, logic in `toys.ts`): a link in the hub and an entry in the
+  spectators' "Watching · Things to do" plaque (a `SideActivity`). A **dice tray**: d4, d6, d8, d10, d12, d20 and a coin,
+  several at once (3d6 + d20, up to 12 dice), each die and the total shown, the last ten rolls kept in this browser with
+  Clear and Reroll; Enter rolls, Esc closes. The dice are the table's own: with the 3D table available it is a small
+  three.js tray thrown with `table3d/dice.ts` and cannon-es (`table3d/toyTray.ts`, loaded only then, disposed on close,
+  drawing nothing once the dice rest); without WebGL, on low graphics or if that fails, it is the 2D table's throw.
+  Reduced motion and the animation speed apply to both. Two toys: a **random player** over the seated players' public
+  names (alphabetical, never seat order, labelled "just for fun": it never sets the turn order) and a **tally**. All
+  local: numbers from `crypto.getRandomValues`, nothing sent to the server, the live game's state, log, dice and sounds
+  untouched (`toys.test.ts` spies on `fetch` and the game's WebSocket).
+
+Not built yet: a Game Log link, and Deck Lab's compare view; a guest's Deck Lab is a plain list
 (the host computer's deck editor shows card types and the mana curve).
 
 **Goal:** a player knocked out early in a Commander game still has something fun or useful to do
