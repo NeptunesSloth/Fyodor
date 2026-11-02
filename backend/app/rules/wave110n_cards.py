@@ -814,7 +814,8 @@ def resume_cu_exile(plan: Any, d: Any, chosen: list[str]) -> None:
         n = src.counters.get("age", 0)
         library = plan.state.zones.get(f"{src.controller}:library", [])
         if chosen[0] == "pay" and len(library) >= n:
-            plan.do({"type": "move", "card_ids": list(library[:n]), "to": {"player": src.controller, "zone": "exile"}}, actor=src.controller)
+            if n:  # (pod audit: no age counter, under Solemnity, is the cost paid zero times, 702.24a: nothing to exile, and it stays)
+                plan.do({"type": "move", "card_ids": list(library[:n]), "to": {"player": src.controller, "zone": "exile"}}, actor=src.controller)
             plan.note(f"{plan.name(src.controller)} exiles the top {n} card{'s' if n != 1 else ''} of their library to pay for {src.name}")
         else:
             _unpaid(plan, ctx, src)

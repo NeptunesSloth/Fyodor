@@ -3544,8 +3544,10 @@ def resume_free_chorus(plan: Plan, d: Any, chosen: list[str]) -> None:
 
 
 # -- cast without paying (wave 3C) --
-def free_castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True) -> bool:
-    """Whether any legal alternative permission can pay this face's required costs now."""
+def free_castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True,
+                  announce: bool = False) -> bool:
+    """Whether any legal alternative permission can pay this face's required costs now. ``announce`` (the hint): also as ``castable``
+    does, not when cast_spell would refuse it for want of a mode or a legal target (Fierce Guardianship with no spell to counter)."""
     from app.rules import alt_costs, spell_mana_floor
 
     faces = (0, 1) if chars.is_two_spell_card(card, info) else (None,)
@@ -3557,6 +3559,8 @@ def free_castable(state: GameState, player: str, card: CardInstance, info: CardI
         if cast_problem(state, player, card, ch, info=info, free=True, check_priority=check_priority) is not None:
             continue
         manual = state.rules is not None and state.rules.card_mode(card.id) == "manual"
+        if announce and not manual and announce_problem(state, player, card, ch, info) is not None:
+            continue  # -- hint/cast agreement (pod audit) -- 601.2c: no legal target, so the free cast is refused too
         printed = None if manual else costs.spell_additional_cost(ch.abilities)
         grant = cast_grant(state, player, card, ch, info, free=True)
         for candidate in (grant, *grant.among) if grant is not None else (None,):
