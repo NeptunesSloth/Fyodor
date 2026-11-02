@@ -264,7 +264,7 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
         </header>
 
         {useLobby ? (
-          <ul className="pg-seats lobby" aria-label="Seats">
+          <ul className="pg-seats pg-lobby" aria-label="Seats">
             <li className="pg-seat host">
               <div className="pg-plate">
                 <SeatChip color={COLORS[0]} text="1" />
@@ -273,7 +273,7 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
                   <input className="pg-name" data-testid="host-name" value={players[0]?.name ?? ""} maxLength={40} onChange={(e) => update(0, { name: e.target.value })} />
                 </label>
               </div>
-              <div className="pg-art empty"><span className="pg-slot"><Icon name="cards" size={26} /></span></div>
+              <div className="pg-art no-deck"><span className="pg-slot"><Icon name="cards" size={26} /></span></div>
               <div className="pg-deck"><p className="pg-note">You host. You bring your deck in the lobby, like everyone else.</p></div>
             </li>
             <li className="pg-chairs">
@@ -308,7 +308,7 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
                     </label>
                     <input className="pg-name" value={p.name} maxLength={40} onChange={(e) => update(i, { name: e.target.value })} aria-label={`Player ${i + 1} name`} />
                   </div>
-                  <button className={`pg-art ${deck ? "" : "empty"}`} onClick={() => setPicking(i)}
+                  <button className={`pg-art ${deck ? "" : "no-deck"}`} onClick={() => setPicking(i)}
                     aria-label={`Player ${i + 1} deck: ${deck ? `${deck.name}${deck.commanders.length ? `, ${deck.commanders.join(" & ")}` : ""}` : "none"}. Choose a deck`}>
                     {deck ? (deck.commanders.length && deck.cover_id ? <CommanderArt id={deck.cover_id} /> : <CommanderArt back />) : (
                       <span className="pg-slot"><Icon name="cards" size={26} /><span>Choose a deck</span></span>

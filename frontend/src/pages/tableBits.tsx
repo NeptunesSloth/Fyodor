@@ -66,7 +66,7 @@ export function TableMosaic({ seats, className }: { seats: MosaicSeat[]; classNa
           </span>
         );
       })}
-      {shown.length === 3 && <span className="mosaic-cell empty" />}
+      {shown.length === 3 && <span className="mosaic-cell blank" />}
     </span>
   );
 }
