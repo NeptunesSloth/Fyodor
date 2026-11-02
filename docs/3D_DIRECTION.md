@@ -55,7 +55,47 @@ works offline, and every theme keeps cards, counters and prompts identical.
 The theme is a per-player preference (Settings → Table theme, or the arrows on the launcher);
 ambience volume is Settings → Sound → Ambient.
 
-Still to come: dice tray / cannon / Bag of Extras as physical objects, token piles as stacks,
+### Dice
+
+Every public roll or coin flip (the server's `roll` / `coin` actions, rolled on the host and logged) is thrown as real
+dice, on the 3D table, over the 2D table and in the elimination hub's toy tray:
+
+- **The dice** (`table3d/diceGeometry.ts`): d4, d6 (pips), d8, d10 (0–9), d12, d20, a d100 as a tens die (00–90) plus
+  a d10, a d3, and a thick coin (struck relief, milled rim). Rounded edges (the solid shrunk by the bevel and grown
+  back by a sphere); standard numbering (opposite faces sum to n + 1, a d10's evens round one apex, a d4 numbered at
+  its points and read at the top); 6 and 9 underlined. Numbers and pips are engraved and inked: one normal-map + ink
+  atlas per kind, drawn once (`diceArt.ts`).
+- **The number is the server's**: the physics decides how a die tumbles and which face lands up; the die is drawn
+  turned by the rotation of its own symmetry group that carries the face showing the server's number onto that face
+  (`faceTurn`), so it tumbles exactly as simulated and lands right. Nothing is printed on whatever face comes up.
+- **The throw** (`diceThrow.ts`, cannon-es): from the roller's hand over the near edge of their mat, an arc and a
+  tumble onto its far half, knocking each other and glancing off the roller's piles; settles in about 1–2.5 s. A die
+  that ends cocked, sunk or off the mat is thrown again with the next seed, or eased flat. The simulation runs in the
+  roller's mat frame against an environment every screen builds alike, seeded by the log entry: every screen sees the
+  same throw, and the 2D table lands that throw on its own mat.
+- **Look** (`diceLook.ts`): the roller's seat colour, ivory or soot ink for contrast; Settings → Dice picks glossy
+  resin (default, clearcoat), marble swirl (solid noise in the die's space), enamelled metal or gemstone (a dark glossy
+  cut stone with an iridescent sheen; no refraction pass: dice stay out all turn, and refraction redraws the whole
+  table every frame). Real shadows from the table's key light plus a contact shadow.
+- **Readable**: at rest a chip over each die and a line by the roller ("Bob · 2d6: 3 + 6 = 9"), crisp DOM
+  (`diceHud.ts`); a d20's natural 20 (gold) or 1 (ash red) gets a ring and a tag; dice the rules ignored (706.6,
+  Barbarian Class) are greyed, their chips struck through, and left out of the total.
+- **They stay** until the roller rolls again, someone clicks them (or their line) away on their own screen, or the
+  turn ends: a roll usually decides something for the rest of the turn, and no longer, so dice don't pile up on cards.
+- **Sound** (`game/diceSound.ts`): each recorded impact plays a synthesised clack as the throw reaches it, by how hard
+  it hit (felt thud, resin knock, leather rail, deck, coin ring), on Settings → Sound → Dice; silent when muted.
+- **2D table** (`game/DiceLayer.tsx`): the same 3D dice in a transparent overlay (`table3d/diceOverlay.ts`, loaded
+  with the first roll, drawing only while dice move); without WebGL or on low graphics, drawn dice
+  (`game/DieGlyph.tsx`) tumble in and rest with their numbers up.
+- **Rolling** (`game/DicePanel.tsx`): the tool tray's Dice button or Shift+R opens a compact panel: d4–d20, d100, a
+  coin and a count, quick picks (1d20, 2d6, a coin), any XdY, and the table's last rolls with Again.
+- **Cost**: one draw call per die (plus its shadow and contact shadow), ~1–1.5k triangles each; geometry, atlases and
+  materials cached and freed with the last tray (the d20, d6 and coin built ahead while idle); a typical throw
+  simulates in 5–20 ms, a dozen dice (stepped at 120 Hz) in ~50–100 ms; reduced
+  motion shows the dice at rest, animation speed scales the throw. Tests and screenshots freeze a throw at a set time
+  (`window.__fyodorDice.freeze`): headless software WebGL draws about a frame a second.
+
+Still to come: cannon / Bag of Extras as physical objects, token piles as stacks,
 card flip and shuffle animations, hands in TABLETOP mode.
 
 ## 1. What exists (inspected 2026-09-28)
@@ -270,7 +310,7 @@ so Undo takes back the whole play.
    picture-in-picture.
 6. When the 3D table covers every 2D feature, make it the default. The 2D view remains
    as a low-spec fallback.
-7. **Tabletop toys** (dice objects, tray, token bags, a hidden draw bag with the same
+7. **Tabletop toys** (dice objects — done, see "Dice" above —, tray, token bags, a hidden draw bag with the same
    per-viewer privacy as libraries). Their results are resolved on the server and recorded,
    and the visual physics is cosmetic.
 

@@ -71,6 +71,22 @@ function tone(ac: AudioContext, out: AudioNode, t: number, freq: number, dur: nu
 
 let last: Record<string, number> = {};
 
+/**
+ * A gain node on one of the sound channels at the player's volume, or null when that channel is muted or silent (or
+ * there is no audio): nothing is created then. For sounds built elsewhere (game/diceSound.ts).
+ */
+export function channelOut(channel: Channel): { ac: AudioContext; out: GainNode } | null {
+  const s = usePrefs.getState().sound;
+  const level = s.muted ? 0 : s.master * s[channel];
+  if (level <= 0.001) return null;
+  const ac = audio();
+  if (!ac || ac.state !== "running") return null;
+  const out = ac.createGain();
+  out.gain.value = level * 0.7;
+  out.connect(ac.destination);
+  return { ac, out };
+}
+
 export function play(name: SoundName): void {
   const prefs = usePrefs.getState();
   const s = prefs.sound;
@@ -134,6 +150,7 @@ export function play(name: SoundName): void {
 /** Map a new log line to a sound (cosmetic only). */
 export function soundForLog(kind: string, text: string): SoundName | null {
   if (kind === "turn") return "turn";
+  if (kind === "dice") return null; // the thrown dice make their own sound as they land (game/diceSound.ts)
   if (/shuffled/.test(text)) return "shuffle";
   if (/rolled|a d\d+/.test(text)) return "dice";
   if (/flipped a coin|coin/.test(text)) return "coin";

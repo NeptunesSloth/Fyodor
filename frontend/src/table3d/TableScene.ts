@@ -38,7 +38,9 @@ import { attachmentLinks, tetherAnchor } from "../game/attachments";
 import { commanderDealt, dealtText } from "../game/commanderDamage";
 import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
-import { DiceTray } from "./dice";
+import { DiceTray, prewarmDice } from "./dice";
+import { DiceHud } from "./diceHud";
+import { rollerEnv } from "./diceEnv";
 import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
 import { SeatProps } from "./seatProps";
 import { CARD_BACK_URL } from "../cards/cardBack";
@@ -234,7 +236,10 @@ export class TableScene {
   /** Every card's body (its thickness and shadow) in one draw call. */
   private bodies: THREE.InstancedMesh;
   private arrows = new THREE.Group();
-  private dice = new DiceTray();
+  /** Thrown dice (table3d/dice.ts) and their chips (diceHud.ts). */
+  private dice: DiceTray;
+  private diceHud: DiceHud;
+  private diceTurn = -1;
   /** Life hearts over every seat and my seat's buttons (table3d/seatProps.ts). */
   private props = new SeatProps();
   private propsKey = "";
@@ -282,6 +287,9 @@ export class TableScene {
     this.scene.environment = this.envMap;
     this.scene.environmentIntensity = 0.3;
     if (quality === "high") this.post = createPost(this.renderer, this.scene, this.camera);
+    this.dice = new DiceTray({ look: usePrefs.getState().diceLook, envMap: this.envMap, shadows: quality !== "low", segments: quality === "low" ? 3 : 4 });
+    this.diceHud = new DiceHud(container, (key) => this.dice.dismiss(key));
+    this.unsubs.push(usePrefs.subscribe((s) => this.dice.setLook(s.diceLook)), prewarmDice());
     // a card body with a hair of bevel so its edge catches the light
     const bevel = 0.004;
     const body = new THREE.ExtrudeGeometry(roundedRect(CARD_W - bevel * 2, CARD_H - bevel * 2, 0.045), {
@@ -345,6 +353,9 @@ export class TableScene {
   }
 
   update(view: GameView, me: string): void {
+    // landed dice stay for the turn they were rolled in (game/dice.ts)
+    if (this.diceTurn >= 0 && view.turn.number !== this.diceTurn) this.dice.clear();
+    this.diceTurn = view.turn.number;
     this.view = view;
     this.me = me;
     const key = `${view.seat_order.join(",")}|${me}`;
@@ -366,33 +377,22 @@ export class TableScene {
   }
 
   /**
-   * A roll everyone sees (game/dice.ts): the dice leave the roller's near edge, cross their mat and land in a
-   * row in the aisle in front of it, by their plaque.
+   * A roll everyone sees (game/dice.ts): the dice leave the roller's hand over the near edge of their mat, tumble
+   * across it and come to rest on its far half (table3d/diceThrow.ts), glancing off the roller's piles. The throw
+   * runs in the roller's mat frame, so it is the same throw on every screen. Rolling again clears your last dice.
    */
   throwDice(show: DiceShow): void {
     const seat = this.seatList.find((s) => s.player === show.actor) ?? this.seatList.find((s) => s.player === this.me);
     if (!seat) return;
-    const color = this.view?.players.find((p) => p.id === seat.player)?.color ?? "#d7ae63";
-    const [fx, fz] = toWorld(seat, 2.2, MAT_D / 2 + 0.6);
-    const land = (i: number, n: number) => {
-      // aimed side by side (as they leave the hand: table3d/dice.ts), so they don't converge mid-air
-      const perRow = Math.min(n, 4);
-      const row = Math.floor(i / perRow);
-      const inRow = Math.min(perRow, n - row * perRow);
-      const lx = 1.4 + (i % perRow - (inRow - 1) / 2) * 1.1;
-      const [wx, wz] = toWorld(seat, lx, -MAT_D / 2 - AISLE * 0.42 - row * 1.1);
-      return new THREE.Vector3(wx, 0, wz);
-    };
-    const size = tableSize(this.seatList);
-    const bounds = { minX: -size.w / 2 + 0.6, maxX: size.w / 2 - 0.6, minZ: -size.d / 2 + 0.6, maxZ: size.d / 2 - 0.6 };
-    // every seat's piles are solid: a die that reaches a deck glances off it
-    const obstacles = this.seatList.flatMap((s) => (["library", "graveyard", "exile"] as const).flatMap((zone) => {
-      const n = this.piles.get(`${s.player}:${zone}`)?.count ?? 0;
-      if (!n) return [];
-      const [x, z] = toWorld(s, ...PILES[zone]);
-      return [{ x, z, w: CARD_W, d: CARD_H, h: pileHeight(n) + THICK }];
-    }));
-    this.dice.throw(show, color, { from: new THREE.Vector3(fx, 0, fz), land, bounds, obstacles }, performance.now());
+    const player = this.view?.players.find((p) => p.id === seat.player);
+    this.dice.clear(seat.player);
+    // the roller's piles and cards, from the public view as every screen has them (table3d/diceEnv.ts)
+    this.dice.throw(show, player?.color ?? "#d7ae63", player?.name ?? "", { x: seat.x, z: seat.z, rotY: seat.rot }, rollerEnv(this.view, seat.player), performance.now());
+  }
+
+  /** The thrown dice now on the table (tests and diagnostics). */
+  diceState(): ReturnType<DiceTray["describe"]> {
+    return this.dice.describe();
   }
 
   /** A seat's life heart (its ▼ or ▲ half, or the middle) and my seat's buttons, on screen (tests and diagnostics). */
@@ -524,6 +524,7 @@ export class TableScene {
     cancelAnimationFrame(this.raf);
     for (const u of this.unsubs) u();
     this.dice.dispose();
+    this.diceHud.dispose();
     this.lifeBatch.dispose();
     this.typed.dispose();
     this.props.dispose();
@@ -1257,6 +1258,13 @@ export class TableScene {
       return;
     }
     if (e.button !== 0) return;
+    // a click on landed dice clears them away (from this screen)
+    this.ray.setFromCamera(this.pointer(e.clientX, e.clientY), this.camera);
+    const die = this.dice.pick(this.ray);
+    if (die) {
+      this.dice.dismiss(die);
+      return;
+    }
     const hit = this.pick(e.clientX, e.clientY);
     const store = useGame.getState();
     if (hit?.heart) {
@@ -1598,6 +1606,15 @@ export class TableScene {
     this.renderer.info.reset();
     if (this.post) this.post.render();
     else this.renderer.render(this.scene, this.camera);
+    if (this.dice.count || this.diceHud.el.childElementCount) {
+      // the dice's chips and line, in the canvas's own pixels
+      const w = this.canvas.clientWidth;
+      const h = this.canvas.clientHeight;
+      this.diceHud.render(this.dice.hud((p) => {
+        const v = this.tmpV.copy(p).project(this.camera);
+        return { x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h, visible: v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1 };
+      }));
+    }
     this.onFrame?.();
     this.frameTime += performance.now() - started;
     this.frames++;

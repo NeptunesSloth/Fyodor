@@ -246,6 +246,10 @@ function useShortcuts() {
           prefs.set({ hud: prefs.hud === "full" ? "minimal" : "full" });
           break;
         }
+        case "dice":
+          e.preventDefault();
+          s.openDialog(s.dialog === "dice" ? null : "dice");
+          break;
         case "auto_pass":
           void send({ type: "response_auto", on: !view.auto_pass?.includes(me) });
           break;

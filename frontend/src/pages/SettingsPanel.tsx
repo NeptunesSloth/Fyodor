@@ -3,6 +3,7 @@ import { toast, toastError } from "../components/Toasts";
 import { api, ApiError } from "../services/api";
 import { effectiveHotkeys, collisions, comboOf, KEY_PRESETS, type HotkeyId } from "../game/hotkeys";
 import { play } from "../game/sound";
+import { DICE_LOOKS } from "../game/dice";
 import { listAssets, type Asset } from "../services/assets";
 import { backupSize, whenMade, type AutoBackupStatus, type BackupInfo } from "../services/backups";
 import { CardDataSection } from "./CardDataPanel";
@@ -85,6 +86,11 @@ export function SettingsPanel() {
               <option value="off">Off (you move it)</option>
               <option value="important">Follow big moments</option>
               <option value="on">Follow all moments (also your turn and every attack)</option>
+            </select>
+          </label>
+          <label className="field" title="What thrown dice are made of on this screen. Every player's dice keep their seat colour">Dice
+            <select value={p.diceLook} data-testid="dice-look" onChange={(e) => set({ diceLook: e.target.value as Prefs["diceLook"] })}>
+              {DICE_LOOKS.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
             </select>
           </label>
           <label className="check"><input type="checkbox" checked={p.nudges} onChange={(e) => set({ nudges: e.target.checked })} /> Let other players nudge me when the table waits on me</label>

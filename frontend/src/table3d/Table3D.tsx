@@ -11,7 +11,7 @@ import { setDropResolver3D } from "../game/dnd";
 import { setPingLocator3D } from "../game/ping";
 import { placeAnchored, selectionAnchor } from "../game/anchors";
 import { SeatPlate } from "../game/SeatPlate";
-import { useDiceFeed } from "../game/dice";
+import { useDiceFeed, type DiceShow } from "../game/dice";
 import type { SeatActionId } from "../game/seatActions";
 import { plane } from "../theme/planes";
 import { isVisible, type GameView } from "../types/game";
@@ -30,6 +30,8 @@ declare global {
       cardAt: (id: string) => { x: number; y: number } | null;
       battlefieldAt: (player: string, x: number, y: number) => { x: number; y: number } | null;
       dice: () => { x: number; y: number }[];
+      diceState: () => ReturnType<TableScene["diceState"]>;
+      throwDice: (show: DiceShow) => void;
       flick: (ids: string[], vx: number, vz: number) => boolean;
       heartAt: (player: string, side?: -1 | 0 | 1) => { x: number; y: number } | null;
       buttonAt: (id: SeatActionId) => { x: number; y: number } | null;
@@ -90,6 +92,8 @@ export function Table3D({ me }: { me: string }) {
       cardAt: (id) => scene.screenOfCard(id),
       battlefieldAt: (player, x, y) => scene.screenOfBattlefield(player, x, y),
       dice: () => scene.diceOnScreen(),
+      diceState: () => scene.diceState(),
+      throwDice: (show) => scene.throwDice(show),
       flick: (ids, vx, vz) => scene.flickCards(ids, vx, vz),
       heartAt: (player, side) => scene.heartOnScreen(player, side ?? 0),
       buttonAt: (id) => scene.buttonOnScreen(id),
