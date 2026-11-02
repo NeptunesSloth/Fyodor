@@ -62,7 +62,7 @@ export class DiceOverlay {
     } catch {
       this.env = null;
     }
-    this.tray = new DiceTray({ look, envMap: this.env, shadows: true, transmission: quality === "high", envIntensity: 0.55 });
+    this.tray = new DiceTray({ look, envMap: this.env, shadows: true, envIntensity: 0.55 });
     this.hud = new DiceHud(document.body, (k) => this.dismiss(k), true);
     // the 3D table's light: a warm key from the top left and behind the viewer, a soft fill from the room
     const hemi = new THREE.HemisphereLight(0xfff1dc, 0x2a1d14, 0.55);

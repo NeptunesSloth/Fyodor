@@ -30,8 +30,6 @@ export interface TrayOptions {
   /** Reflections for the glossy looks (the scene's environment). */
   envMap: THREE.Texture | null;
   shadows: boolean;
-  /** Gemstone dice refract (a transmission pass): high graphics only. */
-  transmission: boolean;
   /** Edge segments of the rounded dice. */
   segments?: number;
   /** Play impact sounds (the live table and the overlay; the toy tray too). */
@@ -57,6 +55,8 @@ interface LiveThrow {
   cleared: number | null;
   /** Throw time at the last update (ms). */
   age: number;
+  /** How long the throw took to simulate and build (diagnostics). */
+  ms: number;
 }
 
 const CLEAR_MS = 260;
@@ -100,6 +100,25 @@ const flat = () => (plane ??= new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2
 const tmpQ = new THREE.Quaternion();
 const tmpV = new THREE.Vector3();
 
+/**
+ * Build the commonest dice's meshes and engraving ahead, while the page is idle, so the first roll of a d20 or a d6
+ * doesn't pay for them.
+ */
+export function prewarmDice(): () => void {
+  const idle = (globalThis as { requestIdleCallback?: (f: () => void) => number }).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 400));
+  const cancel = (globalThis as { cancelIdleCallback?: (n: number) => void }).cancelIdleCallback ?? ((n: number) => clearTimeout(n));
+  const jobs: (() => void)[] = [() => dieAtlas("d20"), () => dieAtlas("d6"), () => dieSolid("d20"), () => dieSolid("d6"), () => coinAtlas()];
+  let handle = 0;
+  const next = () => {
+    const job = jobs.shift();
+    if (!job) return;
+    job();
+    handle = idle(next) as number;
+  };
+  handle = idle(next) as number;
+  return () => cancel(handle);
+}
+
 export class DiceTray {
   readonly group = new THREE.Group();
   private throws: LiveThrow[] = [];
@@ -118,6 +137,7 @@ export class DiceTray {
    * for the live table), `now` the clock the tray is updated with.
    */
   throw(show: DiceShow, color: string, name: string, frame: ThrowFrame, env: ThrowEnv, now: number): void {
+    const t0 = performance.now();
     const thrown = throwRoll(show, env);
     const root = new THREE.Group();
     this.place(root, frame);
@@ -125,7 +145,7 @@ export class DiceTray {
     this.group.add(root);
     this.throws.push({
       key: show.key, actor: show.actor, color, name, show, root, dice, impacts: thrown.impacts, heard: 0, started: now,
-      settles: Math.max(...thrown.dice.map((d) => d.rest)) * 1000, cleared: null, age: -1,
+      settles: Math.max(...thrown.dice.map((d) => d.rest)) * 1000, cleared: null, age: -1, ms: performance.now() - t0,
     });
     this.changed = true;
   }
@@ -146,13 +166,13 @@ export class DiceTray {
   }
 
   private material(kind: DieKind, color: string, ignored: boolean): THREE.Material {
-    const { look, envMap, transmission } = this.opts;
+    const { look, envMap } = this.opts;
     const key = `${kind === "coin" ? "coin" : look}|${color}|${kind}|${ignored ? 1 : 0}`;
     let m = this.materials.get(key);
     if (!m) {
       m = kind === "coin"
         ? coinMaterial(color, coinAtlas(), envMap, ignored)
-        : diceMaterial({ look, seat: color, ignored, atlas: dieAtlas(kind), envMap, transmission, seed: (color.charCodeAt(1) % 7) * 3.1 });
+        : diceMaterial({ look, seat: color, ignored, atlas: dieAtlas(kind), envMap, seed: (color.charCodeAt(1) % 7) * 3.1 });
       (m as THREE.MeshPhysicalMaterial).envMapIntensity *= this.opts.envIntensity ?? 1;
       this.materials.set(key, m);
     }
@@ -226,7 +246,7 @@ export class DiceTray {
       for (const d of t.dice) {
         if (!d.ring) continue;
         const k = Math.max(0, Math.min(1, (age - d.spec.rest * 1000 - 120) / 380));
-        (d.ring.material as THREE.MeshBasicMaterial).opacity = k * (d.spec.crit === "high" ? 0.75 : 0.55);
+        (d.ring.material as THREE.MeshBasicMaterial).opacity = k * 0.5;
         d.ring.scale.setScalar(d.radius * (2.9 + (1 - k) * 0.6));
       }
       t.age = age;
@@ -336,9 +356,9 @@ export class DiceTray {
   }
 
   /** What each throw shows (tests and diagnostics): each die's label, kind, whether ignored and whether at rest. */
-  describe(): { key: string; dice: { label: string; kind: DieKind; ignored: boolean; resting: boolean }[] }[] {
+  describe(): { key: string; ms: number; dice: { label: string; kind: DieKind; ignored: boolean; resting: boolean }[] }[] {
     return this.throws.filter((t) => t.cleared === null).map((t) => ({
-      key: t.key, dice: t.dice.map((d) => ({ label: d.spec.label, kind: d.spec.kind, ignored: d.spec.ignored, resting: t.age >= d.spec.rest * 1000 })),
+      key: t.key, ms: Math.round(t.ms * 10) / 10, dice: t.dice.map((d) => ({ label: d.spec.label, kind: d.spec.kind, ignored: d.spec.ignored, resting: t.age >= d.spec.rest * 1000 })),
     }));
   }
 

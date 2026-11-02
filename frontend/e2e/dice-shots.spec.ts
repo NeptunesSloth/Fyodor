@@ -63,7 +63,7 @@ test("3D table: dice thrown, mid-air and at rest", async ({ page }) => {
 test("3D table: every kind of die, an ignored roll and a natural 20", async ({ page }) => {
   test.skip(!!ONLY && ONLY !== "3d-all", "SHOT_ONLY");
   test.setTimeout(300_000);
-  await table(page, "3d", ["Alice", "Bob", "Casey", "Dana"], { diceLook: process.env.SHOT_LOOK ?? "resin" });
+  await table(page, "3d", ["Alice", "Bob", "Casey", "Dana", "Eve", "Finn"], { diceLook: process.env.SHOT_LOOK ?? "resin" });
   await page.evaluate(() => window.__fyodorDice!.freeze(0));
   await page.evaluate(() => {
     const t = window.__fyodor3d!;
@@ -71,6 +71,8 @@ test("3D table: every kind of die, an ignored roll and a natural 20", async ({ p
     t.throwDice({ key: "s2", actor: "p2", sides: 100, results: [37], coin: false });
     t.throwDice({ key: "s3", actor: "p3", sides: 4, results: [3, 1, 4], coin: false });
     t.throwDice({ key: "s4", actor: "p4", sides: 12, results: [11, 2], coin: false });
+    t.throwDice({ key: "s5", actor: "p5", sides: 2, results: [1, 0], coin: true });
+    t.throwDice({ key: "s6", actor: "p6", sides: 8, results: [6, 3], coin: false });
   });
   await freezeAndShoot(page, `3d-all-${process.env.SHOT_LOOK ?? "resin"}`, [4000]);
   await page.evaluate(() => window.__fyodor3d!.camera("overview"));
@@ -139,4 +141,33 @@ test("the elimination hub's toy tray throws the same dice", async ({ page }) => 
   await page.waitForTimeout(4000);
   await frames(page);
   await page.getByTestId("toys").screenshot({ path: `${OUT}/toys.png` });
+});
+
+test("dice cost: draw calls, triangles and frame time before and after a big roll", async ({ page }) => {
+  test.skip(!!ONLY && ONLY !== "perf", "SHOT_ONLY");
+  test.setTimeout(300_000);
+  await table(page, "3d", ["Alice", "Bob", "Casey", "Dana"]);
+  const sample = async () => {
+    await page.waitForTimeout(6000); // stats refresh once a second; frames take ~1 s in software WebGL
+    return page.evaluate(() => window.__fyodor3d!.stats());
+  };
+  const before = await sample();
+  await page.evaluate(() => window.__fyodorDice!.freeze(6000));
+  const first = await page.evaluate(() => {
+    const t = window.__fyodor3d!;
+    const t0 = performance.now();
+    t.throwDice({ key: "perf1", actor: "p1", sides: 20, results: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], coin: false });
+    const a = performance.now() - t0;
+    const t1 = performance.now();
+    t.throwDice({ key: "perf2", actor: "p2", sides: 6, results: [3, 4], coin: false });
+    const b = performance.now() - t1;
+    const t2 = performance.now();
+    t.throwDice({ key: "perf3", actor: "p3", sides: 20, results: [17], coin: false });
+    return { twelveD20: a, twoD6: b, oneD20: performance.now() - t2 };
+  });
+  const after = await sample();
+  const out = { before, after, throwMs: first, diceState: await page.evaluate(() => window.__fyodor3d!.diceState().map((t) => ({ key: t.key, ms: t.ms, dice: t.dice.length }))) };
+  console.log(JSON.stringify(out));
+  const fs = await import("node:fs");
+  fs.writeFileSync(`${OUT}/perf.json`, JSON.stringify(out, null, 2));
 });

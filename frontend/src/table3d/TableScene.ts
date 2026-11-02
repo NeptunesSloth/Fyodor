@@ -38,7 +38,7 @@ import { attachmentLinks, tetherAnchor } from "../game/attachments";
 import { commanderDealt, dealtText } from "../game/commanderDamage";
 import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
-import { DiceTray } from "./dice";
+import { DiceTray, prewarmDice } from "./dice";
 import { DiceHud } from "./diceHud";
 import { rollerEnv } from "./diceEnv";
 import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
@@ -287,9 +287,9 @@ export class TableScene {
     this.scene.environment = this.envMap;
     this.scene.environmentIntensity = 0.3;
     if (quality === "high") this.post = createPost(this.renderer, this.scene, this.camera);
-    this.dice = new DiceTray({ look: usePrefs.getState().diceLook, envMap: this.envMap, shadows: quality !== "low", transmission: quality === "high", segments: quality === "low" ? 3 : 4 });
+    this.dice = new DiceTray({ look: usePrefs.getState().diceLook, envMap: this.envMap, shadows: quality !== "low", segments: quality === "low" ? 3 : 4 });
     this.diceHud = new DiceHud(container, (key) => this.dice.dismiss(key));
-    this.unsubs.push(usePrefs.subscribe((s) => this.dice.setLook(s.diceLook)));
+    this.unsubs.push(usePrefs.subscribe((s) => this.dice.setLook(s.diceLook)), prewarmDice());
     // a card body with a hair of bevel so its edge catches the light
     const bevel = 0.004;
     const body = new THREE.ExtrudeGeometry(roundedRect(CARD_W - bevel * 2, CARD_H - bevel * 2, 0.045), {

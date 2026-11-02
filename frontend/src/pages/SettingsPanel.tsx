@@ -88,7 +88,7 @@ export function SettingsPanel() {
               <option value="on">Follow all moments (also your turn and every attack)</option>
             </select>
           </label>
-          <label className="field" title="What thrown dice are made of on this screen. Every player's dice keep their seat colour; the gemstone refracts on high graphics">Dice
+          <label className="field" title="What thrown dice are made of on this screen. Every player's dice keep their seat colour">Dice
             <select value={p.diceLook} data-testid="dice-look" onChange={(e) => set({ diceLook: e.target.value as Prefs["diceLook"] })}>
               {DICE_LOOKS.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
             </select>

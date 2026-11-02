@@ -39,7 +39,7 @@ describe("a die the rules ignored (Barbarian Class: roll one more, ignore the lo
     afterEach(() => vi.unstubAllGlobals());
 
     it("has its chip struck through and marked ignored, and the line counts only the kept roll", () => {
-      const tray = new DiceTray({ look: "resin", envMap: null, shadows: false, transmission: false, sound: false });
+      const tray = new DiceTray({ look: "resin", envMap: null, shadows: false, sound: false });
       tray.throw({ ...barbarian, results: [20, 7] }, "#d4a852", "Alice", { x: 0, z: 0, rotY: 0 }, tableEnv(), 0);
       tray.update(10_000, false, 1);
       const [t] = tray.hud((p) => ({ x: p.x * 10, y: -p.z * 10, visible: true }));
@@ -51,7 +51,7 @@ describe("a die the rules ignored (Barbarian Class: roll one more, ignore the lo
     });
 
     it("clears a player's dice when they roll again, and everyone's at the end of the turn", () => {
-      const tray = new DiceTray({ look: "resin", envMap: null, shadows: false, transmission: false, sound: false });
+      const tray = new DiceTray({ look: "resin", envMap: null, shadows: false, sound: false });
       const env = tableEnv();
       tray.throw({ key: "a", actor: "p1", sides: 6, results: [3], coin: false }, "#d4a852", "Alice", { x: 0, z: 5, rotY: 0 }, env, 0);
       tray.throw({ key: "b", actor: "p2", sides: 6, results: [4], coin: false }, "#5fa8d3", "Bob", { x: 0, z: -5, rotY: Math.PI }, env, 0);

@@ -1,7 +1,7 @@
 /**
  * What the dice are made of (Settings → Dice): glossy resin (the default), a marble swirl, enamelled metal, or a
- * gemstone. Every player's dice take their seat colour; the ink in the engraving is ivory or near-black, whichever
- * reads better on that colour. One physical material per look, colour and kind of die, built on three's
+ * gemstone (a dark glossy cut stone). Every player's dice take their seat colour; the ink in the engraving is ivory
+ * or near-black, whichever reads better on that colour. One physical material per look, colour and kind of die, built on three's
  * MeshPhysicalMaterial with a small shader patch: the ink comes from the atlas's alpha (table3d/diceArt.ts), the
  * swirl is solid noise in the die's own space (so it runs over edges and corners unbroken), and a die the rules
  * ignored is drawn greyed and darker. Materials are cached per tray and disposed with it.
@@ -55,13 +55,13 @@ float dNoise(vec3 x) {
 float dFbm(vec3 p) { float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++) { s += a * dNoise(p); p = p * 2.03 + 1.7; a *= 0.5; } return s; }
 `;
 
-interface Spec { look: DiceLook; seat: string; ignored: boolean; atlas: THREE.Texture; envMap: THREE.Texture | null; transmission: boolean; seed: number }
+interface Spec { look: DiceLook; seat: string; ignored: boolean; atlas: THREE.Texture; envMap: THREE.Texture | null; seed: number }
 
 /** One die material (see the module comment). */
 export function diceMaterial(spec: Spec): THREE.MeshPhysicalMaterial {
   const body = bodyColor(spec.seat, spec.look);
   const ink = inkFor(body);
-  const tone = body.clone().lerp(spec.look === "marble" ? IVORY : body.clone().multiplyScalar(0.55), spec.look === "marble" ? 0.72 : 1);
+  const tone = body.clone().lerp(spec.look === "marble" ? IVORY : body.clone().multiplyScalar(0.55), spec.look === "marble" ? 0.62 : 1);
   const m = new THREE.MeshPhysicalMaterial({ color: body, normalMap: spec.atlas, normalScale: new THREE.Vector2(1, 1), envMap: spec.envMap, envMapIntensity: 1 });
   switch (spec.look) {
     case "resin":
@@ -74,12 +74,13 @@ export function diceMaterial(spec: Spec): THREE.MeshPhysicalMaterial {
       Object.assign(m, { roughness: 0.3, metalness: 1, clearcoat: 0, envMapIntensity: 1.0 });
       break;
     case "gem":
-      if (spec.transmission) {
-        Object.assign(m, { roughness: 0.04, metalness: 0, transmission: 1, thickness: 0.7, ior: 1.6, attenuationColor: body.clone(), attenuationDistance: 0.55, specularIntensity: 1, envMapIntensity: 1.4, color: body.clone().lerp(IVORY, 0.55) });
-      } else {
-        // no transmission pass (medium and low graphics): a deep, glossy translucent-looking stone
-        Object.assign(m, { roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, iridescence: 0.35, iridescenceIOR: 1.6, specularIntensity: 1, envMapIntensity: 1.6, color: body.clone().multiplyScalar(0.8) });
-      }
+      // a deep cut stone: dark glassy body, a bright sheen and an oil-on-water play of colour at the facets. No
+      // refraction (transmission): the dice stay on the table all turn, and a refraction pass redraws the table
+      Object.assign(m, {
+        roughness: 0.05, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, iridescence: 0.55, iridescenceIOR: 1.7,
+        sheen: 0.6, sheenColor: body.clone().lerp(IVORY, 0.4), sheenRoughness: 0.3, specularIntensity: 1, envMapIntensity: 1.3,
+        color: body.clone().multiplyScalar(0.7), emissive: body.clone().multiplyScalar(0.12),
+      });
       break;
   }
   const uniforms = {
@@ -89,7 +90,6 @@ export function diceMaterial(spec: Spec): THREE.MeshPhysicalMaterial {
     uDiceSeed: { value: spec.seed },
   };
   const marble = spec.look === "marble";
-  const gem = spec.look === "gem" && spec.transmission;
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = sh.vertexShader
@@ -104,8 +104,8 @@ export function diceMaterial(spec: Spec): THREE.MeshPhysicalMaterial {
         float sw = dFbm(mp + 1.8 * vec3(dFbm(mp * 0.9), dFbm(mp * 0.9 + 4.1), dFbm(mp * 0.9 + 8.3)));
         float band = smoothstep(0.38, 0.62, sw);
         float vein = 1.0 - smoothstep(0.0, 0.035, abs(sw - 0.5));
-        diffuseColor.rgb = mix(diffuseColor.rgb, uDiceTone, band * 0.85);
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0, 0.97, 0.9), vein * 0.55);` : ""}
+        diffuseColor.rgb = mix(diffuseColor.rgb, uDiceTone, band * 0.7);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0, 0.97, 0.9), vein * 0.45);` : ""}
         diffuseColor.rgb = mix(diffuseColor.rgb, uDiceInk, diceInk);
         if (uDiceDim > 0.5) {
           float grey = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
@@ -113,14 +113,10 @@ export function diceMaterial(spec: Spec): THREE.MeshPhysicalMaterial {
         }`)
       .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = mix(roughnessFactor, 0.62, diceInk);")
       .replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\nmetalnessFactor = mix(metalnessFactor, 0.0, diceInk);");
-    if (gem) {
-      sh.fragmentShader = sh.fragmentShader.replace("#include <transmission_fragment>",
-        THREE.ShaderChunk.transmission_fragment.replace("material.transmission = transmission;", "material.transmission = transmission * (1.0 - diceInk) * (1.0 - 0.7 * uDiceDim);"));
-    }
     sh.fragmentShader = sh.fragmentShader.replace("#include <lights_physical_fragment>",
       THREE.ShaderChunk.lights_physical_fragment.replace("material.clearcoat = clearcoat;", "material.clearcoat = clearcoat * (1.0 - 0.6 * diceInk);"));
   };
-  m.customProgramCacheKey = () => `dice-${spec.look}${gem ? "-tx" : ""}`;
+  m.customProgramCacheKey = () => `dice-${spec.look}`;
   m.userData.diceUniforms = uniforms;
   return m;
 }

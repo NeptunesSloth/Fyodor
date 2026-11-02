@@ -74,8 +74,9 @@ dice, on the 3D table, over the 2D table and in the elimination hub's toy tray:
   roller's mat frame against an environment every screen builds alike, seeded by the log entry: every screen sees the
   same throw, and the 2D table lands that throw on its own mat.
 - **Look** (`diceLook.ts`): the roller's seat colour, ivory or soot ink for contrast; Settings → Dice picks glossy
-  resin (default, clearcoat), marble swirl (solid noise in the die's space), enamelled metal or gemstone (refracts on
-  high graphics, a glossy stone otherwise). Real shadows from the table's key light plus a contact shadow.
+  resin (default, clearcoat), marble swirl (solid noise in the die's space), enamelled metal or gemstone (a dark glossy
+  cut stone with an iridescent sheen; no refraction pass: dice stay out all turn, and refraction redraws the whole
+  table every frame). Real shadows from the table's key light plus a contact shadow.
 - **Readable**: at rest a chip over each die and a line by the roller ("Bob · 2d6: 3 + 6 = 9"), crisp DOM
   (`diceHud.ts`); a d20's natural 20 (gold) or 1 (ash red) gets a ring and a tag; dice the rules ignored (706.6,
   Barbarian Class) are greyed, their chips struck through, and left out of the total.

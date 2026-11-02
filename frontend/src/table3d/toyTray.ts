@@ -108,7 +108,7 @@ export class ToyTrayScene {
     } catch {
       this.env = null;
     }
-    this.dice = new DiceTray({ look, envMap: this.env, shadows: quality === "high", transmission: quality === "high", envIntensity: 0.6 });
+    this.dice = new DiceTray({ look, envMap: this.env, shadows: quality === "high", envIntensity: 0.6 });
     const hemi = new THREE.HemisphereLight(0xfff1dc, 0x1a120c, 1.0);
     const key = new THREE.DirectionalLight(0xffe8c8, 2.2);
     key.position.set(-3, 9, 5);
