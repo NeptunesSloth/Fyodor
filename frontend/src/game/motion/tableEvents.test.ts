@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameView } from "../../types/game";
-import { tableEvents } from "./tableEvents";
+import { onTableEvents, publishTableEvents, tableEvents } from "./tableEvents";
 
 type Card = Record<string, unknown> & { id: string; zone: string; owner: string };
 /** A table as a viewer is sent it: ``zones`` lists ids (a library: its size and shuffles), ``cards`` the views. */
@@ -100,5 +100,17 @@ describe("tableEvents", () => {
     const prev = table([...hidden(3, "p2:hand")]);
     const next = table([...hidden(3, "p2:hand")]);
     expect(tableEvents(prev, next)).toEqual([]);
+  });
+
+  it("a hot-seat table switching whose view it shows publishes nothing (the hands didn't move)", () => {
+    const heard: unknown[] = [];
+    const off = onTableEvents((events) => heard.push(events));
+    const alice = { ...table([seen("bolt", "p1:hand"), ...hidden(3, "p2:hand")]), viewer: "p1" } as GameView;
+    const bob = { ...table([...hidden(1, "p1:hand"), seen("ring", "p2:hand"), seen("elf", "p2:hand"), seen("ox", "p2:hand")]), viewer: "p2" } as GameView;
+    publishTableEvents(alice, bob, new Set());
+    expect(heard).toEqual([]);
+    publishTableEvents(alice, { ...alice, players: [{ id: "p1", life: 39 }] } as unknown as GameView, new Set());
+    expect(heard).toEqual([[{ kind: "life", player: "p1", delta: -1 }]]);
+    off();
   });
 });
