@@ -2154,7 +2154,7 @@ def test_you_may_return_another_creature_and_if_you_do_gain_life_equal_to_its_ma
 
 def test_the_prompt_of_an_optional_ability_names_an_amount_worked_out_later_as_x():
     assert effects.describe([{"do": "bounce", "who": "target"}, {"do": "gain_life", "who": "you", "n": {"mana_value": "ref:e0"}}]) \
-        == "Bounce, gain x life"
+        == "Bounce, gain X life"  # (pod deck audit: X, as the cards print it)
     assert effects.describe([{"do": "draw", "who": "you", "n": 1}, {"do": "discard", "who": "you", "n": 1}]) == "Draw 1 card(s), discard 1"
 
 
