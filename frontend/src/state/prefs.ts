@@ -37,6 +37,8 @@ export interface Prefs {
   pings: boolean;
   /** When the table waits on me and this tab is in the background: flash the tab title and chime. */
   turnAlert: boolean;
+  /** Answer a public choice (a color, a player, a number …) on a quick wheel at the pointer instead of the list (game/rules/ChoiceWheel.tsx). */
+  choiceWheel: boolean;
   /** How my own hand is laid out (display only: the hand itself never changes order on the server). */
   handSort: HandSort;
   /** 3D: gently turn the camera toward major public events: the important ones, or all of them (table3d/autoCenter.ts). */
@@ -81,6 +83,7 @@ export const DEFAULT_PREFS: Prefs = {
   reactions: true,
   pings: true,
   turnAlert: true,
+  choiceWheel: true,
   handSort: "drawn",
   autoCenter: "off",
   showTokenSources: false,

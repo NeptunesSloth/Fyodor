@@ -418,6 +418,8 @@ export interface DecisionView {
   cancelable?: boolean;
   /** Presentation hints for the chooser (e.g. a payment's suggested sources). */
   display?: { kind: string; [key: string]: unknown };
+  /** Chooser only: a single choice among public values (a color, a type, a number, a player …), which the quick wheel may offer (game/rules/wheel.ts). */
+  public_choice?: boolean;
   /** Other players' view of someone's decision: only who is choosing. */
   public?: { type: "PLAYER_MAKING_CHOICE"; chooser: string };
 }

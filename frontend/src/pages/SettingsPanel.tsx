@@ -91,6 +91,7 @@ export function SettingsPanel() {
           <label className="check"><input type="checkbox" checked={p.reactions} onChange={(e) => set({ reactions: e.target.checked })} /> Show spectators' reactions</label>
           <label className="check"><input type="checkbox" checked={p.pings} data-testid="pref-pings" onChange={(e) => set({ pings: e.target.checked })} /> Show pings from other players (G or Alt+click to ping)</label>
           <label className="check"><input type="checkbox" checked={p.turnAlert} data-testid="pref-turn-alert" onChange={(e) => set({ turnAlert: e.target.checked })} /> Flash this tab and chime when the table waits on me in the background</label>
+          <label className="check" title="Colors, players, numbers, heads or tails: aim and click, or type its number and press Enter. Esc shows the usual list"><input type="checkbox" checked={p.choiceWheel} data-testid="pref-choice-wheel" onChange={(e) => set({ choiceWheel: e.target.checked })} /> Pick public choices on a quick wheel at the pointer</label>
         </div>
       </section>
       <section>

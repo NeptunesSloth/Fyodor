@@ -113,6 +113,30 @@ def designations_view(state: GameState) -> dict[str, Any]:
 # being declared). Every other decision is shown to other players only as "someone is choosing".
 _PUBLIC_KINDS = {"declare_attackers": "is declaring attackers", "declare_blockers": "is declaring blockers"}
 
+# -- public choice wheel (TABLETOP_QOL_MILESTONE.md) -- the rules steps whose single choice is among public values: a named color, creature or
+# card type, number, word or player ("choose_value", 105.1 / 205.3m / 607.2; "choose_each" asks each player in turn, 101.4), "an opponent" that
+# isn't a target (choose_opponent), a commander's color before the game (903.4b: revealed), which mana a mana ability or effect adds, a
+# protection / prevention color, a counter kind, fabricate / endure / tap-or-untap / friend-or-foe, a dungeon, a gift's or assist's player. Never
+# a target (chosen on the table), a cost, a secret choice (group_choice "gc_secret" / "gc_bid": revealed later) or anything about hidden cards.
+PUBLIC_CHOICE_STEPS = frozenset({
+    "choose_value", "choose_each", "choose_opponent", "cmd_color110f",
+    "add_mana", "mana_ability", "immediate_mana_production", "mana_composition", "mana_symbol_production",
+    "prevent_color", "protection_choice", "become_pick", "counter_kind_choice",
+    "fabricate", "endure", "tap_or_untap", "friend_foe", "venture", "gift", "assist",
+})
+
+
+def public_choice(d: Any) -> bool:
+    """May the chooser's client offer this decision on its quick wheel? One answer among the public options of a known public step (above), or
+    which of two public coin flips to keep (coin_group "ignore": heads or tails). Options naming a card (a target, a card looked at) or typed
+    (a card name, a secret number: ``group``) never are. Read from the server-only ``resume``; sent to the chooser alone, as a flag."""
+    if d.kind != "choose_one" or d.max_choices != 1 or d.display is not None:
+        return False
+    resume = d.resume or {}
+    step = resume.get("step")
+    known = step in PUBLIC_CHOICE_STEPS or (step == "coin_group" and resume.get("phase") == "ignore")
+    return known and all(o.card_id is None and o.group is None for o in d.options)
+
 
 def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
     """The pending decision as ``viewer`` may see it. The chooser (and the omniscient host view)
@@ -135,6 +159,8 @@ def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
                                 "cancelable": cancelable(d)}  # (wave 24D)
         if d.display is not None:
             full["display"] = d.display
+        if public_choice(d):
+            full["public_choice"] = True  # (public choice wheel) the chooser's client may answer it on its radial picker
         if decider != d.player:
             full["for_player"] = d.player  # the player this choice is made for
         return full

@@ -14,6 +14,9 @@ import { canConcede, choose, chooseName, concede, delveCard, divide, next, passP
 import { GameCardFace } from "../GameCardFace";
 import { ChainRow, chainEntries } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
+import { ChoiceWheel } from "./ChoiceWheel";
+import { wheelEligible } from "./wheel";
+import { usePrefs } from "../../state/prefs";
 
 function useRules() {
   const view = useGame((s) => s.view);
@@ -346,6 +349,8 @@ export function RulesStack() {
 /** The pending decision: the chooser answers here (or by clicking a highlighted card on the table). */
 export function DecisionPanel() {
   const ctx = useRules();
+  const wheelOn = usePrefs((s) => s.choiceWheel);
+  const [listed, setListed] = useState<string | null>(null); // the decision whose wheel the player closed (Esc): it shows as the list
   if (!ctx || !ctx.rules?.decision) return null;
   const { view, me } = ctx;
   const d = ctx.rules.decision;
@@ -358,6 +363,9 @@ export function DecisionPanel() {
   }
   if (d.display?.kind === "payment") return <PaymentPanel key={d.id} d={d} view={view} />;
   if (d.display?.kind === "tap_mana") return <TapManaPanel key={d.id} d={d} view={view} />;
+  if (wheelOn && listed !== d.id && wheelEligible(d, view.players.map((p) => p.id))) { // a public choice: the quick wheel (wheel.ts)
+    return <ChoiceWheel key={d.id} d={d} view={view} onList={() => setListed(d.id)} />;
+  }
   const targeting = d.kind === "choose_one" && (d.options ?? []).some((o) => o.card_id) && (d.options ?? []).length > 1;
   return (
     <div className={`decision-panel frame ${targeting ? "targeting" : ""}`} data-testid="decision-panel" data-kind={d.kind}>
