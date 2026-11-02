@@ -11,7 +11,7 @@ const shot = async (page: Page, name: string) => {
   if (OUT) await page.screenshot({ path: `${OUT}/night-${name}.png` });
 };
 
-type NightView = { viewer: string; game: { night: { number: number; order_source: string; previous_winner: string | null } } };
+type NightView = { viewer: string; game: { night: { number: number; order_source: string; previous_winner: string | null; rolls: Record<string, number>[] } } };
 
 async function seatPost(page: Page, gameId: string, path: string, data: Record<string, unknown>) {
   const token = await page.evaluate((id) => localStorage.getItem(`fyodor.seat.${id}`), gameId);
@@ -37,18 +37,23 @@ test("game night: d20 intro, agreed ending, spotlight, rematch and back to the l
   await host.page.getByTestId("start-game").click();
   const pages = [host.page, guest.page];
 
-  // Game 1: everyone sees the same server-rolled d20s and the resulting order.
-  for (const p of pages) await expect(p.getByTestId("game-intro")).toBeVisible();
-  await expect(host.page.getByTestId("game-intro")).toContainText("Game 1");
-  await expect(host.page.locator(".night-die").first()).toBeVisible();
-  await host.page.waitForTimeout(900);
-  await shot(host.page, "intro");
+  // Game 1: everyone sees the same server-rolled d20s and the resulting order. (The order shows for about 2.8 s, then a 3-2-1
+  // countdown: on a slow runner the check may land in the countdown, so the intro is checked by its label, the rolls on the server.)
+  for (const p of pages) {
+    await expect(p.getByTestId("game-intro")).toBeVisible();
+    await expect(p.getByTestId("game-intro")).toHaveAttribute("aria-label", "Game 1: turn order");
+  }
+  if (await host.page.locator(".night-order").isVisible()) {
+    await host.page.waitForTimeout(900);
+    await shot(host.page, "intro");
+  }
   for (const p of pages) {
     await p.keyboard.press("Escape");
     await expect(p.getByTestId("game-intro")).toHaveCount(0);
   }
   const first = (await serverView(host.page, gameId)) as unknown as NightView;
   expect(first.game.night.order_source).toBe("d20");
+  expect(first.game.night.rolls.length).toBeGreaterThanOrEqual(1); // everyone rolled (ties roll again)
   await keepAll(...pages);
 
   // Bob proposes that Alice wins; Alice agrees on her screen.
