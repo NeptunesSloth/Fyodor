@@ -108,6 +108,13 @@
   background: var(--hud-surface); color: var(--text-dim); border: 1px solid var(--line); border-radius: 3px;
 }
 .seat-steps button:hover { color: var(--text); border-color: var(--frame); }
+/* -- out of the game -- a player who left reads every counter but no longer changes them (game/outOfGame.ts) */
+.seat-steps button:disabled { visibility: hidden; }
+.seat-heart:disabled, .seat-track:disabled { cursor: default; }
+.seat-heart:disabled .seat-heart-shape path:not(.seat-heart-tri) { stroke-width: 4.5; }
+.seat-track:disabled:hover { border-color: color-mix(in srgb, var(--track, var(--line)) 70%, transparent); }
+.seat-track.zero:disabled { opacity: 0.55; }
+.seat-track.lethal:disabled { border-color: #ff8a7a; }
 @media (hover: hover) and (pointer: fine) { .t3d-seat:not(:hover):not(:focus-within) .seat-steps { opacity: 0; } }
 /* on the 3D table the steppers sit at the plaque's right end (the heart is the usual way: click, right-click, wheel) */
 .t3d-seat:not(.seat-2d) .seat-steps { position: absolute; left: calc(100% + 4px); top: 50%; transform: translateY(-50%); }

@@ -14,6 +14,7 @@ import { GameCardFace } from "./GameCardFace";
 import { dropAsIntent } from "./rules/intents";
 import { legalClass } from "./rules/RulesHud";
 import { customOrder, moveInOrder, saveCustomOrder, sortHand, type HandFacts } from "./handSort";
+import { isOut } from "./outOfGame";
 import type { CardData } from "../types/cards";
 
 /** What sorting needs to know about a card in my hand (null while its card data hasn't loaded). */
@@ -46,6 +47,7 @@ export function Hand({ player, me, compact = false }: { player: string; me: stri
   const cards = useGame((s) => s.view?.cards);
   const cache = useCardCache((s) => s.cards);
   const tick = useOrderTick((s) => s.n);
+  const out = useGame((s) => isOut(s.view, me)); // -- out of the game -- nothing to draw for: they watch
   const mine = player === me && !compact;
   // my hand in the order I chose (Arena-style sorting, or my own arrangement); the server keeps the drawn order
   const shown = useMemo(() => (mine && sort !== "drawn" && cards ? displayOrder(ids) : ids),
@@ -53,7 +55,7 @@ export function Hand({ player, me, compact = false }: { player: string; me: stri
     [mine, sort, ids, cards, cache, tick]);
   return (
     <div className={`hand ${compact ? "compact" : ""} ${over ? "drop-over" : ""}`} data-drop={key} data-ordered="">
-      {ids.length === 0 && !compact && <div className="hand-empty">Hand is empty — press D to draw</div>}
+      {ids.length === 0 && !compact && !out && <div className="hand-empty">Hand is empty — press D to draw</div>}
       <div className="hand-cards" style={{ ["--n" as string]: ids.length }}>
         {shown.map((id, i) => (
           <HandCard key={id} id={id} index={ids.indexOf(id)} fan={i - (shown.length - 1) / 2} me={me} compact={compact} />

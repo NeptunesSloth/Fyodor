@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useGame } from "../state/gameStore";
 import { changeLife, changeResource, send } from "./actions";
 import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "./PlayerPanel";
+import { isOut } from "./outOfGame";
 import "./seat.css";
 
 /**
@@ -50,7 +51,7 @@ function counterHandlers(bump: (d: number) => void) {
 const sign = (n: number) => (n > 0 ? `+${n}` : `${n}`);
 
 /** The scripted tables' heart: the life total itself is the control. */
-function LifeHeart({ player, name, life, testId }: { player: string; name: string; life: number; testId: string }) {
+function LifeHeart({ player, name, life, testId, readOnly }: { player: string; name: string; life: number; testId: string; readOnly: boolean }) {
   const [pending, bump] = useBatched((d) => void changeLife(player, d));
   // the Oops heart: its left half (▼) takes life away, its right half (▲) gives it; right-click for 5
   const half = (e: React.MouseEvent) => {
@@ -58,13 +59,17 @@ function LifeHeart({ player, name, life, testId }: { player: string; name: strin
     return e.clientX < r.left + r.width / 2 ? -1 : 1;
   };
   const keys = counterHandlers(bump);
+  const control = readOnly
+    ? { disabled: true, "aria-label": `${name}: ${life} life`, title: "Life" } // -- out of the game -- the total, not a control
+    : {
+      "aria-label": `${name}: ${life + pending} life. Click the left half to lose 1 or the right half to gain 1 (right-click: 5)`,
+      title: "Life: click ▼ −1 or ▲ +1, right-click for 5, the wheel, or ↑/↓",
+      onClick: (e: React.MouseEvent) => { e.stopPropagation(); bump(half(e) * (e.shiftKey ? 5 : 1)); },
+      onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); bump(half(e) * 5); },
+      onWheel: keys.onWheel, onKeyDown: keys.onKeyDown, onPointerDown: keys.onPointerDown,
+    };
   return (
-    <button className={`seat-heart ${life + pending <= 0 ? "dead" : ""}`} data-testid={`heart-${player}`}
-      aria-label={`${name}: ${life + pending} life. Click the left half to lose 1 or the right half to gain 1 (right-click: 5)`}
-      title="Life: click ▼ −1 or ▲ +1, right-click for 5, the wheel, or ↑/↓"
-      onClick={(e) => { e.stopPropagation(); bump(half(e) * (e.shiftKey ? 5 : 1)); }}
-      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); bump(half(e) * 5); }}
-      onWheel={keys.onWheel} onKeyDown={keys.onKeyDown} onPointerDown={keys.onPointerDown}>
+    <button className={`seat-heart ${life + pending <= 0 ? "dead" : ""}`} data-testid={`heart-${player}`} {...control}>
       <svg viewBox="0 0 64 58" aria-hidden className="seat-heart-shape">
         <path d="M32 55 C14 42 3 31 3 18 C3 9 10 3 18 3 C24 3 29 6 32 11 C35 6 40 3 46 3 C54 3 61 9 61 18 C61 31 50 42 32 55 Z" />
         <path className="seat-heart-tri" d="M9 22h6l-3 4z M49 26h6l-3-4z" />
@@ -79,16 +84,18 @@ function LifeHeart({ player, name, life, testId }: { player: string; name: strin
 const PLAQUE_RESOURCES: [string, string, string][] = [["experience", "★", "Experience counters"], ["energy", "⚡", "Energy counters ({E})"]];
 
 /** One small counter beside the heart (commander damage from one commander, or poison). */
-function Tracker({ value, lethal, label, title, color, glyph, onChange, testId }: {
-  value: number; lethal: number; label: string; title: string; color?: string; glyph: string; onChange: (d: number) => void; testId: string;
+function Tracker({ value, lethal, label, title, color, glyph, onChange, testId, readOnly }: {
+  value: number; lethal: number; label: string; title: string; color?: string; glyph: string; onChange: (d: number) => void; testId: string; readOnly: boolean;
 }) {
   const [pending, bump] = useBatched(onChange);
   const n = Math.max(0, value + pending);
+  const of = `${label}: ${n}${Number.isFinite(lethal) ? ` of ${lethal}` : ""}`;
   return (
     <button className={`seat-track ${n >= lethal ? "lethal" : n ? "" : "zero"}`} data-testid={testId}
       style={color ? { ["--track" as string]: color } : undefined}
-      aria-label={`${label}: ${n}${Number.isFinite(lethal) ? ` of ${lethal}` : ""}. Click to add 1, right-click to remove 1`} title={`${title} — click +1, right-click −1`}
-      {...counterHandlers(bump)}>
+      {...(readOnly // -- out of the game -- the count, not a control
+        ? { disabled: true, "aria-label": of, title }
+        : { "aria-label": `${of}. Click to add 1, right-click to remove 1`, title: `${title} — click +1, right-click −1`, ...counterHandlers(bump) })}>
       <span className="seat-track-glyph" aria-hidden>{glyph}</span>
       <span className="seat-track-n">{n}</span>
     </button>
@@ -110,6 +117,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
   const priority = useGame((s) => s.view?.rules?.priority === player);
   const monarch = useGame((s) => s.view?.table.monarch === player);
   const seat = useGame((s) => (s.view?.game.mode === "lan" ? s.view.game.seats[player] : undefined));
+  const out = useGame((s) => isOut(s.view, me)); // -- out of the game -- the counters read as values to a player who left
   const plate = useRef<HTMLDivElement>(null);
   if (!p) return null;
   const flat = variant === "2d";
@@ -130,19 +138,19 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
           <span className="t3d-seat-name">{p.name}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
         </button>
         {/* on the 3D table the life heart floats over the seat itself (table3d/seatProps.ts) */}
-        {flat && <LifeHeart player={player} name={p.name} life={p.life} testId={`life-${player}`} />}
+        {flat && <LifeHeart player={player} name={p.name} life={p.life} testId={`life-${player}`} readOnly={out} />}
         <span className="seat-trackers">
           {sources.map((c) => (
             <Tracker key={c.key} value={p.commander_damage[c.key] ?? 0} lethal={LETHAL_COMMANDER} color={c.owner.color} glyph={c.owner.name.slice(0, 1).toUpperCase()}
               label={`Commander damage to ${p.name} from ${c.name}`} title={`Commander damage from ${c.name} (${c.owner.name}); it also changes life`}
-              testId={`cmdr-${player}-${c.key}`} onChange={(d) => void send({ type: "commander_damage", player, commander: c.key, delta: d })} />
+              testId={`cmdr-${player}-${c.key}`} onChange={(d) => void send({ type: "commander_damage", player, commander: c.key, delta: d })} readOnly={out} />
           ))}
           <Tracker value={poison} lethal={LETHAL_POISON} glyph="☠" label={`${p.name}'s poison counters`} title="Poison counters" testId={`poison-${player}`}
-            onChange={(d) => void changeResource(player, "poison", d)} />
+            onChange={(d) => void changeResource(player, "poison", d)} readOnly={out} />
           {/* experience and energy (Atraxa's experience deck): on the plaque while a player has any, so everyone sees them at a glance */}
           {PLAQUE_RESOURCES.filter(([k]) => (p.resources[k] ?? 0) !== 0).map(([k, glyph, title]) => (
             <Tracker key={k} value={p.resources[k] ?? 0} lethal={Infinity} glyph={glyph} label={`${p.name}'s ${k} counters`} title={title}
-              testId={`${k}-${player}`} onChange={(d) => void changeResource(player, k, d)} />
+              testId={`${k}-${player}`} onChange={(d) => void changeResource(player, k, d)} readOnly={out} />
           ))}
           <span className="seat-hand" title={`${p.hand_count} cards in hand`} aria-label={`${p.hand_count} cards in hand`}>
             <span aria-hidden>▯</span>{p.hand_count}
@@ -152,8 +160,9 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
         </span>
       </div>
       {flat && <span className="seat-steps">
-        <button aria-label={`${p.name}: gain 1 life`} title="Gain 1 life" data-testid={`life-plus-${player}`} onClick={() => void changeLife(player, 1)}>+</button>
-        <button aria-label={`${p.name}: lose 1 life`} title="Lose 1 life" data-testid={`life-minus-${player}`} onClick={() => void changeLife(player, -1)}>−</button>
+        {/* (out of the game: kept in place, hidden, so the plaque doesn't change size) */}
+        <button aria-label={`${p.name}: gain 1 life`} title="Gain 1 life" data-testid={`life-plus-${player}`} disabled={out} onClick={() => void changeLife(player, 1)}>+</button>
+        <button aria-label={`${p.name}: lose 1 life`} title="Lose 1 life" data-testid={`life-minus-${player}`} disabled={out} onClick={() => void changeLife(player, -1)}>−</button>
       </span>}
       {open && !flat && (
         <div className={`t3d-seat-panel frame ${drop === "down" ? "down" : ""}`}>

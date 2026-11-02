@@ -11,6 +11,7 @@ import { GameCardFace } from "./GameCardFace";
 import { castableIn } from "./exileCastables";
 import "./exile.css";
 import { commanderDealt, dealtText } from "./commanderDamage";
+import { isOut } from "./outOfGame";
 
 const LABEL: Partial<Record<ZoneName, string>> = {
   library: "Library",
@@ -157,13 +158,14 @@ export function LibraryPile({ player, me, name }: { player: string; me: string; 
   const over = useDrag((s) => s.drag?.overZone === key);
   const searching = useGame((s) => s.view?.searches);
   const beingSearched = searching ? Object.entries(searching).filter(([, z]) => z === key).map(([p]) => p) : [];
+  const out = useGame((s) => isOut(s.view, me)); // -- out of the game -- no "double-click to draw" for a player who left
   const count = lib?.count ?? 0;
   return (
     <div
       className={`pile library ${over ? "drop-over" : ""}`}
       data-drop={key}
       data-library=""
-      title="Click for library actions · double-click to draw"
+      title={out ? `${player === me ? "Your" : `${name}'s`} library` : "Click for library actions · double-click to draw"}
       onClick={(e) => openMenu(e, libraryMenu(player, me, name), `${player === me ? "Your" : `${name}'s`} library (${count})`)}
       onDoubleClick={(e) => {
         e.stopPropagation();

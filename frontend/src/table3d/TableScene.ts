@@ -19,6 +19,7 @@ import { isVisible, type CardStats, type GameCard, type GameView, type LibraryVi
 import { counterShort, isKeyword } from "../game/counters";
 import { changeLife, draw, send, tapCards, targetsFor } from "../game/actions";
 import { Batcher, runSeatAction, SEAT_ACTIONS, TypedCount, type SeatActionId } from "../game/seatActions";
+import { isOut } from "../game/outOfGame";
 import { cardMenu } from "../game/cardMenu";
 import { tableMenu } from "../game/selection";
 import { countMark, zonePileTops } from "../game/piles";
@@ -402,10 +403,11 @@ export class TableScene {
       this.rebuildTable();
       this.updateCameraGoal();
     }
-    const propsKey = `${key}|${view.players.map((p) => p.color).join(",")}`;
+    const out = isOut(view, me); // -- out of the game -- no seat buttons by the mat of a player who left (game/outOfGame.ts)
+    const propsKey = `${key}|${view.players.map((p) => p.color).join(",")}|${out}`;
     if (propsKey !== this.propsKey) {
       this.propsKey = propsKey;
-      this.props.rebuild(this.seatList, me, Object.fromEntries(view.players.map((p) => [p.id, p.color])));
+      this.props.rebuild(this.seatList, out ? "" : me, Object.fromEntries(view.players.map((p) => [p.id, p.color])));
     }
     for (const p of view.players) this.props.setLife(p.id, p.life, this.lifeBatch.pending(p.id));
     this.props.setCommanders(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, p.commanders.map((c) => ({ key: c.key, tax: c.tax }))])),
