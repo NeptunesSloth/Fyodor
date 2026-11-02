@@ -1,7 +1,7 @@
-# Milestone plan: game night / match flow (not started)
+# Milestone plan: game night / match flow (mostly built)
 
 Requested 2026-10-03. **Build it after the core rules engine and the primary tabletop functionality
-are mature.** Nothing here is built yet.
+are mature.** Status (2026-11-01): mostly built; what is still missing is in `IMPLEMENTATION_PLAN.md` (host seat reordering under the pod rule, the rolls in the game history, the pod-session record).
 
 **Goal:** several Commander games with the same pod feel like one continuous game night. Build these
 systems together:

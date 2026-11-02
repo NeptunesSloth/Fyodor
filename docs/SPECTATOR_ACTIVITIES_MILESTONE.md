@@ -1,6 +1,6 @@
-# Milestone plan: spectator side activities (not started)
+# Milestone plan: spectator side activities (mostly not started)
 
-Requested 2026-10-03, for later. Nothing here is built yet.
+Requested 2026-10-03, for later. Status (2026-11-01): only the live reactions are built.
 
 **Build it only after these are stable:** the elimination/spectator flow (`ELIMINATION_HUB.md`), the
 Practice Table, the persistent pod lobby and the core game-night flow (`GAME_NIGHT_FLOW.md`), and the base

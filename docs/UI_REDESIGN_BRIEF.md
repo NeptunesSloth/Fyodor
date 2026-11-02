@@ -1,6 +1,6 @@
-# Brief: full UI / 3D tabletop redesign (not started)
+# Brief: full UI / 3D tabletop redesign (done in rounds)
 
-Requested 2026-10-03 as the brief for the **later** redesign. Nothing here is built yet. When the
+Requested 2026-10-03 as the brief for the redesign, which was built in PR #35's rounds (`UI_REFERENCE_STUDY.md` §20–31). When the
 redesign starts, this file is the instruction set; the related plans it pulls together are:
 
 - end-of-game scenes and the post-game flow: `3D_DIRECTION.md` §7a;
