@@ -2,7 +2,7 @@
 
 What the app still lacked for a real game night, built without taking anything away, then a deliberate audit of the pod's seven decks. Draft [PR #35](https://github.com/NeptunesSloth/Fyodor/pull/35), sections 19–29. Card coverage is unchanged: **32,068 FULL / 0 PARTIAL**.
 
-**A correction first.** The first report on the pod's six other decks as having "no engine problems" after 12 bot games. That was wrong: those games stopped after about four turns a seat, and no deck reached its plan. Disa the Restless's core combo was broken the whole time. Since then:
+**A correction first.** The first report on the pod's six other decks said "no engine problems" after 12 bot games. That was wrong: those games stopped after about four turns a seat, and no deck reached its plan. Disa the Restless's core combo was broken the whole time. Since then:
 - every deck was audited deliberately: its plan and 10–15 key interactions were played on purpose against the real card data;
 - the bot's report says what each deck actually did (commander cast, lands, the spells and abilities it used), so a clean run can't hide a deck that never got going.
 
