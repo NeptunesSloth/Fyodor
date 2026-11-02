@@ -6,6 +6,7 @@ import { closePractice } from "../services/night";
 import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { EventTracker, liveHash, liveLine, liveOver, practiceLink } from "./eliminationHub";
+import { WatchPip } from "./WatchPip";
 import "./elimination.css";
 
 /**
@@ -27,6 +28,7 @@ function PracticePill({ of, seat, game, local }: { of: string; seat: string; gam
   const [line, setLine] = useState("Connecting to the live game…");
   const [news, setNews] = useState<{ text: string; at: number } | null>(null);
   const [gone, setGone] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);  // (spectator activities) each live update refreshes the corner summary
   const speed = usePrefs((s) => s.animationSpeed) || 1;
   const back = liveHash({ of, seat, local });
 
@@ -39,6 +41,7 @@ function PracticePill({ of, seat, game, local }: { of: string; seat: string; gam
         if (fresh.length) setNews({ text: fresh[fresh.length - 1]!.text, at: Date.now() });
         if (liveOver({ game }, live)) return leave(live.game.night?.result ? "The live game is over" : "The pod has started the next game");
         setLine(liveLine(live));
+        setTick((n) => n + 1);
       },
       onLobby: () => leave("The pod is back in the lobby"),
       onStatus: (status, detail) => {
@@ -72,12 +75,15 @@ function PracticePill({ of, seat, game, local }: { of: string; seat: string; gam
   }, [news, speed]);
 
   return (
-    <div className="practice-pill" role="region" aria-label="Practice table" data-testid="practice-pill">
-      <span className="practice-tag" title="Only you see this table. Nothing here reaches the live game.">Practice</span>
-      <span className={`practice-live ${news ? "news" : ""}`} aria-live="polite">
-        {gone ?? (news ? news.text : `Live game · ${line}`)}
-      </span>
-      <a className="tt-btn brass" href={gone ? "#/play" : back} data-testid="return-live">{gone ? "Back to Play" : "Return to live game"}</a>
-    </div>
+    <>
+      <div className="practice-pill" role="region" aria-label="Practice table" data-testid="practice-pill">
+        <span className="practice-tag" title="Only you see this table. Nothing here reaches the live game.">Practice</span>
+        <span className={`practice-live ${news ? "news" : ""}`} aria-live="polite">
+          {gone ?? (news ? news.text : `Live game · ${line}`)}
+        </span>
+        <a className="tt-btn brass" href={gone ? "#/play" : back} data-testid="return-live">{gone ? "Back to Play" : "Return to live game"}</a>
+      </div>
+      {!gone && <WatchPip of={of} seat={seat} local={local} tick={tick} back={back} />}
+    </>
   );
 }

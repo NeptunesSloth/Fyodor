@@ -8,6 +8,7 @@ import { requestCards, useCardCache } from "../state/cardCache";
 import { usePrefs } from "../state/prefs";
 import type { GameView } from "../types/game";
 import { commandersOf, rememberPractice } from "./eliminationHub";
+import { SideActivityDialog, type SideActivity } from "./SpectatorHub";
 import "./elimination.css";
 
 /*
@@ -28,7 +29,7 @@ export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; 
     }
     return sceneOn ? "scene" : "hub";
   });
-  const [activity, setActivity] = useState<null | "hands" | "lab">(null);
+  const [activity, setActivity] = useState<null | "hands" | "lab" | SideActivity>(null);
   const [busy, setBusy] = useState(false);
   // stable: the live table re-renders this on every action, and a new onClose would reload (and reset) the activity
   const closeActivity = useCallback(() => setActivity(null), []);
@@ -48,7 +49,7 @@ export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; 
   };
   const local = view.game.mode === "local";
   const viewer = local ? me : undefined;
-  const open = (what: "hands" | "lab") => {
+  const open = (what: "hands" | "lab" | SideActivity) => {
     settle();
     setActivity(what);
   };
@@ -96,9 +97,20 @@ export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; 
                 title="Edit a copy of your deck for the next game (the deck in this game never changes)">
                 Deck Lab
               </button>
+              <button className="tt-btn" data-testid="open-sandbox" onClick={() => open("sandbox")}
+                title="Was that attack lethal? Try out a combat on the public board; the game never changes">
+                Damage sandbox
+              </button>
+              {!local && (
+                <button className="tt-btn" data-testid="open-next-game" onClick={() => open("next")}
+                  title="Queue the deck you want for the next game; the lobby proposes it when the pod returns there">
+                  Next game
+                </button>
+              )}
               <button className="tt-btn brass" onClick={settle}>Keep watching</button>
             </div>
             <div className="elim-links">
+              {!local && <button className="elim-link" data-testid="open-predictions" onClick={() => open("predictions")}>Predictions</button>}
               <a href="#/stats" target="_blank" rel="noopener noreferrer">Pod stats ↗</a>
               <a href="#/cards" target="_blank" rel="noopener noreferrer">Card browser ↗</a>
               {!local && <a href="#/play">Leave table</a>}
@@ -108,12 +120,13 @@ export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; 
       )}
       {stage === "pill" && !activity && (
         <button className="night-pill tt-btn" data-testid="eliminated-pill" onClick={() => setStage("hub")}
-          title="Practice table, opening hands, Deck Lab, pod stats: things to do while the game goes on">
+          title="Practice table, damage sandbox, next game, predictions, Deck Lab: things to do while the game goes on">
           You're out · Things to do
         </button>
       )}
       {activity === "hands" && <HandSimulator gameId={view.game.id} viewer={viewer} onClose={closeActivity} />}
       {activity === "lab" && <DeckLab gameId={view.game.id} viewer={viewer} onClose={closeActivity} />}
+      {activity !== "hands" && activity !== "lab" && <SideActivityDialog activity={activity} view={view} viewer={viewer} onClose={closeActivity} />}
     </>
   );
 }

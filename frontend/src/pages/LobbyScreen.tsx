@@ -16,7 +16,10 @@ import {
   leaveLobby,
   myDecks,
   importPersonalDeck,
+  joinGame,
   personalCollection,
+  rememberSeat,
+  seatToken,
   syncPersonalCollection,
   rememberMyDeck,
   setLobbyProfile,
@@ -29,8 +32,9 @@ import {
   lanInfo,
 } from "../services/games";
 import { useGame } from "../state/gameStore";
+import { activeProfile } from "../state/prefs";
 import type { DeckSummary } from "../types/decks";
-import type { LobbySeat, LobbySettings, LobbyView } from "../types/game";
+import { SPECTATOR, type LobbySeat, type LobbySettings, type LobbyView } from "../types/game";
 import { PersonalDeckImports } from "./PersonalDeckImports";
 import "./lobby.css";
 import { Icon } from "../components/Icon";
@@ -291,6 +295,11 @@ function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
       <div className="seat-deck">
         {deck && (
           <>
+            {mine && seat.queued && !seat.ready && (
+              <div className="seat-queued" data-testid="queued-deck">
+                Next deck queued — <b>{deck.commanders?.length ? deck.commanders.join(" & ") : deck.name}</b>. Ready to use it, or change it.
+              </div>
+            )}
             {mine && deck.report && deck.report.unresolved.length > 0 && (
               <div className="warn small">{deck.report.unresolved.length} line(s) not found — they'll be text proxies</div>
             )}
@@ -331,10 +340,29 @@ function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
         {!mine && !seat.claimed && iAmSeated && (
           <button className="tt-btn ghost" disabled={busy} onClick={() => void onRun(() => changeLobbySeat(gameId, seat.id))}>Sit here</button>
         )}
+        {!seat.claimed && lobby.viewer === SPECTATOR && !lobby.is_host && lobby.game.code && (
+          <button className="tt-btn ghost" disabled={busy} data-testid={`take-seat-${seat.id}`}
+            title="Take this seat (a deck you queued while watching comes with you)"
+            onClick={() => void onRun(() => takeSeat(lobby, seat.id))}>Take this seat</button>
+        )}
         {!mine && seat.claimed && <span className={`seat-state ${state}`}>{state === "ready" ? "Ready" : state === "deck" ? "Deck chosen" : "Choosing"}</span>}
       </div>
     </section>
   );
+}
+
+/**
+ * (spectator activities) A spectator in the lobby takes an open seat; the deck they queued while watching comes with them
+ * (the server moves it from their spectator token to the new seat).
+ */
+async function takeSeat(lobby: LobbyView, seat: string): Promise<void> {
+  const gameId = lobby.game.id;
+  const password = lobby.game.has_password ? window.prompt("Room password") ?? undefined : undefined;
+  if (lobby.game.has_password && password === undefined) return;
+  const name = activeProfile().name === "Player" ? undefined : activeProfile().name;
+  const res = await joinGame({ code: lobby.game.code ?? "", seat, name, password }, seatToken(gameId));
+  rememberSeat(gameId, res.token);
+  useGame.getState().connect(gameId, { token: res.token });
 }
 
 /** The commander's art (or its text card offline), cropped for the seat card. */

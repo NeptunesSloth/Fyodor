@@ -1,6 +1,25 @@
-# Milestone plan: spectator side activities (mostly not started)
+# Milestone plan: spectator side activities (1-5 built; 6 not started)
 
-Requested 2026-10-03, for later. Status (2026-11-01): only the live reactions are built.
+Requested 2026-10-03. Status (2026-11-02): 1-5 are built in a lightweight form; the Spectator Points cosmetic
+progression (6) is not started.
+
+- **1. Watch + PiP:** the practice table shows a compact live summary in its corner (`frontend/src/game/WatchPip.tsx`,
+  `GET /games/{id}/watch`, built from the spectator view): life, poison, the heaviest commander damage, whose turn, the
+  stack and the latest public log lines. Minimize/restore, a click returns to the live game. Not a second live 3D/2D
+  table, and it can't be moved or resized yet.
+- **2. Next-game queue:** `/games/{id}/next-deck` (players who are out, or anyone once the game is over, and
+  spectators). The deck is resolved at once and becomes the proposed, not-ready lobby deck on return to the lobby
+  (`NEXT DECK QUEUED`); a same-decks rematch ignores it; a spectator taking a lobby seat ("Take this seat") brings theirs.
+  No cosmetics or seat preference.
+- **3. Reactions:** the per-player mute (Settings) plus the host's table-wide switch (Host tools,
+  `POST /games/{id}/night/reactions`, default on).
+- **4. Damage sandbox:** `frontend/src/game/DamageSandbox.tsx`, `app/multiplayer/sandbox.py`: the public board (face-down
+  creatures stay nameless 2/2s), its current combat copied, editable power/toughness/keywords/life/poison, worked out
+  by `combat.compute_combat_damage` on a throwaway table. No damage modifiers, no planeswalker or battle targets, and
+  each blocker blocks one attacker.
+- **5. Predictions:** "who wins" and "who is eliminated next", 500 points, stakes 10/25/50/100, picks hidden until the
+  game ends, then revealed under the result for the whole table. In memory only (`app/multiplayer/spectate.py`). No
+  "does this spell resolve" or "will X survive this combat" templates, and no best-prediction/streak recap yet.
 
 **Build it only after these are stable:** the elimination/spectator flow (`ELIMINATION_HUB.md`), the
 Practice Table, the persistent pod lobby and the core game-night flow (`GAME_NIGHT_FLOW.md`), and the base

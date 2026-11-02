@@ -10,7 +10,8 @@ import { play } from "./sound";
 /*
  * Soft social signals (TABLETOP_QOL_MILESTONE #13-14): a nudge to the player the table is waiting
  * on, and reactions from spectators and players who are already out. The server rate limits both;
- * they never touch game state, and each player can turn them off in Settings.
+ * they never touch game state, and each player can turn them off in Settings. The host can also turn
+ * reactions off for the whole table (Host tools); the server then refuses them.
  */
 
 /** Who the table is waiting on: the player deciding, the one with priority, else the active player. */
@@ -58,7 +59,9 @@ export function SignalLayer() {
   const view = useGame((s) => s.view);
   const actingAs = useGame((s) => s.actingAs);
   const nudges = usePrefs((s) => s.nudges);
-  const reactions = usePrefs((s) => s.reactions);
+  const muted = !usePrefs((s) => s.reactions);
+  const tableOff = useGame((s) => s.view?.game.night?.reactions === false);  // the host's table-wide switch
+  const reactions = !muted && !tableOff;
   const [bubbles, setBubbles] = useState<Bubble[]>([]);
   useEffect(() => {
     const on = (e: Event) => {
@@ -86,7 +89,7 @@ export function SignalLayer() {
           {bubbles.map((b) => <li key={b.id}><span className="signal-emoji" aria-hidden>{b.emoji}</span>{b.name}</li>)}
         </ul>
       )}
-      {out && view.game.mode === "lan" && <ReactionBar gameId={view.game.id} />}
+      {out && view.game.mode === "lan" && !tableOff && <ReactionBar gameId={view.game.id} />}
     </>
   );
 }

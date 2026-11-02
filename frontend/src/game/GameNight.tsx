@@ -9,6 +9,8 @@ import { SPECTATOR, type GameView, type NightInfo } from "../types/game";
 import { Eliminated } from "./Eliminated";
 import { useIsHost } from "./HostTools";
 import { proposalSeat, showEliminated } from "./nightEnding";
+import { PredictionsRecap } from "./Predictions";
+import { SpectatorHub } from "./SpectatorHub";
 import "./night.css";
 
 /*
@@ -81,6 +83,7 @@ export function GameNight() {
       <ProposalBar view={view} night={view.game.night} />
       <ResultScene key={`result-${view.game.night.number}`} view={view} night={view.game.night} />
       <Out view={view} />
+      <SpectatorHub view={view} />
     </>
   );
 }
@@ -341,6 +344,7 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
                 ))}
               </ul>
             )}
+            {view.game.predictions && <PredictionsRecap recap={view.game.predictions} />}
             {!local && isHost && voters.some((pid) => !night.votes[pid]) && (
               <button className="tt-btn ghost night-force" disabled={busy} onClick={() => void vote("lobby", true)}>Everyone back to the lobby now</button>
             )}
