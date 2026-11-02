@@ -31,7 +31,19 @@ from app.rules import characteristics as chars
 from app.rules.characteristics import CardInfo, Characteristics
 
 READ_REUSE_FROM = 40  # objects in the game from which ``Plan.reading`` keeps its pass between checks
-MARK_IGNORES = {"priority", "passed", "auto_pass", "stack_seen110m"}  # rules fields no kept answer depends on (``Plan._mark``)
+MARK_IGNORES = {"priority", "passed", "auto_pass", "stack_seen110m",  # rules fields no kept answer depends on (``Plan._mark``)
+                # -- big boards (perf) -- and: the triggered abilities waiting to be put on the stack (read only by the trigger machinery,
+                # the SBA checks of a Siege's or a Saga's waiting ability, state triggers, dungeon completion and settle: answers worked
+                # out afresh in each check, never kept in a pass), and the two stamps ``_do`` writes on every step for ``emit`` (its only
+                # reader, inside a step). Each trigger of a big batch added one and every following scan derived the board again.
+                "pending_triggers", "cause110g", "craft110b"}
+# -- big boards (perf) -- table actions that don't count as a change of the table for a kept read pass (``Plan.writes``, ``_mark``): a
+# rules log line. Its handler (handlers/rules.rules_log) only appends to ``state.log`` and folds earlier log entries; no kept answer
+# reads the log (characteristics, the statics table, ``read_pass.once`` answers, ``read_pass.card_fact``: the log is read only by
+# coin_outcomes._seen and engine.settle, which are steps, not kept answers), the plan's steps don't change ``state.seq`` (only
+# engine.apply does), and whatever the step changes in the rules state or the players (``track`` and the rest of ``_do``) is still
+# compared by ``_mark``. A note between two scans of a big board made the second one derive every permanent again.
+UNREAD_STEPS = frozenset({"rules_log"})
 MAX_STEPS = 400  # a safety valve: no single intent may expand into more table actions
 ARROW_TARGETS = 20  # the most objects one arrow points at (A.CreateArrow.targets)
 ENGINE_ARROWS = 190  # the engine's target arrows stop here (the table takes 200: handlers/marks.py; the rest is the players')
@@ -128,6 +140,8 @@ class Plan:
 
     def do(self, payload: dict[str, Any], *, actor: str | None = None, departure_before: DepartureBefore | None = None) -> A.Action:
         """Resolve and apply one table action on the scratch copy, and record it."""
+        if payload.get("type") in UNREAD_STEPS:  # (big boards: a log line changes nothing a kept read pass read)
+            return self._do(payload, actor=actor, departure_before=departure_before)
         self.writes = getattr(self, "writes", 0) + 1  # (a kept read pass is for the table as it was: ``reading``)
         try:
             return self._do(payload, actor=actor, departure_before=departure_before)
@@ -198,7 +212,8 @@ class Plan:
 
         world_before80 = world_durations80.before(self) if resolved.type != 'rules_sync' else None
         HANDLERS[resolved.type](self.state, resolved)
-        self.writes += 1
+        if resolved.type not in UNREAD_STEPS:
+            self.writes += 1
         if before is not None and self.began is not None:
             for cid, zone in before.zones.items():
                 if (c := self.state.cards.get(cid)) is not None and zone_name(zone) != zone_name(c.zone):
