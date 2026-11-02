@@ -107,6 +107,7 @@ class LobbySeatInfo:
     ready: bool = False
     collection: list[CollectionCard] = field(default_factory=list)
     last_fetch: float = -1e9  # monotonic time of the last Archidekt fetch (rate limit)
+    queued: SubmittedDeck | None = None  # (spectator activities) the deck queued while out of the last game, as put here
 
 
 def deck_summary(deck: SubmittedDeck | None, *, privacy: DeckPrivacy, own: bool, table_format: str = "commander") -> dict[str, Any] | None:
