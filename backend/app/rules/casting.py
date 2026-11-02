@@ -3254,12 +3254,13 @@ def life_x_problem(plan: Plan, extra: AbilityCost, a: Any, player: str) -> str |
 
 
 def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True,
-             announce: bool = False) -> bool:
+             announce: bool = False, face: int | None = None) -> bool:
     """Could ``player`` cast this card now (timing, permissions, costs)? ``announce`` (the hint): also choose its modes and required
-    targets (``announce_problem``)."""
+    targets (``announce_problem``). ``face``: only that half of a split card or adventure."""
     from app.rules import dynamic_zone_keyword_costs56
 
-    faces = dynamic_zone_keyword_costs56.foretell_faces(state, player, card, info) or ((0, 1) if chars.is_two_spell_card(card, info) else (None,))
+    faces = (face,) if face is not None else (
+        dynamic_zone_keyword_costs56.foretell_faces(state, player, card, info) or ((0, 1) if chars.is_two_spell_card(card, info) else (None,)))
     for face in faces:
         ch = chars.as_cast(card, info, face)
         from app.rules import text_global_word71
@@ -3391,9 +3392,11 @@ def _hint_targets(ch: Characteristics) -> tuple[str, ...]:
 
 # -- cost changers (wave 4I) --
 def alt_castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *,
-                 check_priority: bool = True, face: int | None = None) -> list[dict[str, Any]]:
+                 check_priority: bool = True, face: int | None = None, announce: bool = False) -> list[dict[str, Any]]:
     """The alternative costs (118.9) ``player`` could cast this card for right now, each with what the intent's
-    ``alt_cost`` names: its condition holds, and the whole total cost (601.2f) can be paid (118.3)."""
+    ``alt_cost`` names: its condition holds, and the whole total cost (601.2f) can be paid (118.3). ``announce`` (the hint): also as
+    ``castable`` does, not when cast_spell would refuse it for want of a mode or a legal target, read for the spell that cost makes it (a
+    bestowed Aura spell targets a creature, 702.103b; an overloaded one has no targets, 702.96b)."""
     from app.rules import alt_costs  # (a leaf over this module)
 
     out: list[dict[str, Any]] = []
@@ -3431,6 +3434,8 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
         extra = alt_costs.merged(costs.spell_additional_cost(ch.abilities), offer.alt.cost)
         if extra is not None and additional_problem(view, extra, card, player):
             continue
+        if announce and announce_problem(state, player, card, _as_alternative(ch, offer.tag), info) is not None:
+            continue  # -- hint/cast agreement (pod audit) -- 601.2c: bestow with no creature to enchant is refused by cast_spell too
         selected_costs: list[bool | None] = []
         ways = spell_cost_ways(state, card, ch, info=info, player=player, alternative=alt_costs.bind_template(offer, x=0).alt.mana_cost,
                                additional=tuple(grant_additional(grant)),
@@ -3446,6 +3451,24 @@ def alt_castable(state: GameState, player: str, card: CardInstance, info: CardIn
     return out
 
 
+def _as_alternative(ch: Characteristics, tag: str | None) -> Characteristics:
+    """-- hint/cast agreement (pod audit) -- the spell as cast_spell makes it for an alternative cost with this tag (bestow 702.103b, overload
+    702.96a, cleave 702.148a); any other alternative cost leaves it as it is."""
+    if tag == "bestow":
+        from app.rules import bestow
+
+        return bestow.overlay(ch)
+    if tag == "overload":
+        from app.rules import overload
+
+        return overload.overlay(ch)
+    if tag == "cleave":
+        from app.rules import cleave
+
+        return cleave.overlay(ch)
+    return ch
+
+
 def grant_additional(grant: Any) -> list[M.ManaCost]:
     """The mana a permission adds to the cost: generic (Rooftop Storm-like taxes) and -- wave 110C -- named symbols ("by paying {R}{R}")."""
     if grant is None:
@@ -3453,19 +3476,28 @@ def grant_additional(grant: Any) -> list[M.ManaCost]:
     return [*([M.ManaCost(generic=grant.generic_extra)] if grant.generic_extra else []), *([M.parse_cost(grant.extra_mana)] if grant.extra_mana else [])]
 
 
-def optional_castable(state: GameState, player: str, card: CardInstance, info: CardInfo) -> list[dict[str, str]]:
-    """The optional additional costs (Defiler of Vigor) ``player`` could pay casting this card right now, each alone."""
+def optional_castable(state: GameState, player: str, card: CardInstance, info: CardInfo) -> list[dict[str, Any]]:
+    """The optional additional costs (Defiler of Vigor) ``player`` could pay casting this card right now, each alone. -- pod audit -- a split
+    card or adventure: each half's, with the half (``face``, 709.3: Revenge with Silverquill's casualty)."""
+    if state.rules is None or state.rules.card_mode(card.id) == "manual":
+        return []
+    if not chars.is_two_spell_card(card, info):
+        return _optional_castable(state, player, card, info, None)
+    return [{**offer, "face": face} for face in (0, 1) for offer in _optional_castable(state, player, card, info, face)]
+
+
+def _optional_castable(state: GameState, player: str, card: CardInstance, info: CardInfo, face: int | None) -> list[dict[str, Any]]:
     from app.rules import cost_changes
 
-    out: list[dict[str, str]] = []
-    if chars.is_two_spell_card(card, info) or state.rules is None or state.rules.card_mode(card.id) == "manual":
-        return out
-    ch = chars.as_cast(card, info, None)
+    out: list[dict[str, Any]] = []
+    ch = chars.as_cast(card, info, face)
     from app.rules import text_global_word71
 
     ch = text_global_word71.prospective(state, card, ch, info)
     if ch.is_land or cast_problem(state, player, card, ch, info=info) is not None:
         return out
+    if face is not None and announce_problem(state, player, card, ch, info) is not None:
+        return out  # -- hint/cast agreement (pod audit) -- 601.2c: this half can't be cast (Revival with no creature card to return)
     grant = cast_grant(state, player, card, ch, info)
     for offer in cost_changes.optional_offers(state, player, card, ch, info):
         if state.players[player].life < offer.life or (offer.life and spendable_life(state, player, info) == 0):  # (wave 22B: 119.4)
@@ -3660,6 +3692,13 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
 
         if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
             a.face = 1
+    if (a.face is None and not a.fuse and not a.free and a.alt_cost is None and not plan.manual(card) and card.card_id
+            and (plan.info.get(card.card_id) or {}).get("layout") == "split" and chars.is_two_spell_card(card, plan.info)
+            and not castable(plan.state, plan.actor, card, plan.info, announce=True, face=0)
+            and castable(plan.state, plan.actor, card, plan.info, announce=True, face=1)):
+        # -- hint/cast agreement (pod audit) -- 709.3a: a split card with no half named, only the second castable now (Revenge with no creature
+        # card for Revival). An adventurer stays the creature: a card dragged onto the battlefield means it (715.3)
+        a.face = 1
     ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
     from app.rules import text_global_word71
 

@@ -345,6 +345,9 @@ class Bot:
             picks = [i for i in picks if not i.startswith("x:") or i == "x:0"] or picks
         if kind in ("choose_one", "confirm", "manual_resolution"):
             return {**choose, "option_ids": [rng.choice(picks)] if picks else []}
+        if isinstance(display.get("exactly"), int):  # a cost of exactly N objects ("Sacrifice two …", 601.2h): all N, or none (cancel)
+            n = display["exactly"]
+            return {**choose, "option_ids": rng.sample(picks, n) if len(picks) >= n else []}
         lo, hi = d.get("min_choices", 1), min(d.get("max_choices", 1), len(picks))
         if self.fewer_picks:
             hi, self.fewer_picks = max(min(lo, hi), min(hi, 1)), False

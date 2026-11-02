@@ -290,7 +290,9 @@ class ManaUnit(BaseModel):
     id: int
     sym: str = Field(max_length=1)  # W U B R G C
     src: str = Field(default="", max_length=80)  # object id of the source (106.3: its permanent, spell or ability's source)
-    tags: list[str] = Field(default_factory=list, max_length=40)  # the source's types, subtypes and supertypes when it produced it
+    # the source's types, subtypes and supertypes when it produced it (pod audit: an animated Mutavault, a changeling or anything under Maskwood
+    # Nexus has every creature type, 205.3m, 702.73a: over 360 of them, so the bound covers every subtype there is)
+    tags: list[str] = Field(default_factory=list, max_length=1000)
     only: str | None = Field(default=None, max_length=2000)  # a spending restriction (casting.spend_allowed)
     note: str = Field(default="", max_length=300)  # the restriction as Oracle words, for the pool display
     riders: list[dict[str, Any]] = Field(default_factory=list, max_length=8)  # effects when it is spent (mana_units.RIDERS)

@@ -590,6 +590,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   const done = (ids: string[]) => void choose(d.id, ids, remember || undefined);
   const min = d.min_choices ?? 1;
   const max = d.max_choices ?? 1;
+  const exactly = typeof d.display?.exactly === "number" ? d.display.exactly : undefined; // (pod audit: "Sacrifice two …": none or both)
 
   if (d.kind === "declare_attackers") return <DeclareAttackers d={d} />;
   if (d.kind === "declare_blockers") return <DeclareBlockers d={d} />;
@@ -638,7 +639,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
         <button key={o.id} className={`tt-btn ${picked.includes(o.id) ? "on" : "ghost"}`} data-testid={`option-${o.id}`}
           onClick={() => toggle(o.id)}>{optionLabel(o, view)}</button>
       ))}
-      <button className="tt-btn brass" data-testid="decision-done" disabled={!canSubmitChoice(picked.length, min, max)} onClick={() => done(picked)}>
+      <button className="tt-btn brass" data-testid="decision-done" disabled={!canSubmitChoice(picked.length, min, max, exactly)} onClick={() => done(picked)}>
         {doneLabel(picked.length, min, max)}
       </button>
       {d.cancelable && <button className="tt-btn ghost" data-testid="option-cancel" onClick={() => done(["cancel"])}>Cancel</button>}
@@ -647,9 +648,9 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
 }
 
 /** A choose_cards answer is legal with min..max picks; min 0 lets an EMPTY answer through (a cost
- * choice's "none to cancel", mana sources "pool only", "up to" choices). */
-export function canSubmitChoice(n: number, min: number, max: number): boolean {
-  return n >= min && n <= max;
+ * choice's "none to cancel", mana sources "pool only", "up to" choices). ``exactly`` (a cost of N objects, 601.2h): none or all N. */
+export function canSubmitChoice(n: number, min: number, max: number, exactly?: number): boolean {
+  return n >= min && n <= max && (exactly === undefined || n === 0 || n === exactly);
 }
 
 export function doneLabel(n: number, min: number, max: number): string {

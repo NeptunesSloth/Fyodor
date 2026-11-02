@@ -9,6 +9,10 @@ const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+(?: and\/or (?:\{[^}
 /** Multikicker quick choices; Other uses the same platform numeric range as X. */
 export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
 
+/** -- pod audit -- 709.3, 715.3: a split card (not a Room) or an adventure, cast from the hand as the half the player chooses. */
+const twoSpells = (data?: { layout: string; faces: { name: string; mana_cost?: string | null }[] }): data is { layout: string; faces: { name: string; mana_cost?: string | null }[] } =>
+  (data?.layout === "split" || data?.layout === "adventure") && data.faces.length === 2;
+
 /** -- Rooms (wave 18G) -- 709.5: a split card whose halves share one Room type line. */
 const isRoom = (data?: { layout: string; faces: { type_line?: string | null }[] }): data is { layout: string; faces: { name: string; mana_cost?: string | null; type_line?: string | null }[] } =>
   data?.layout === "split" && data.faces.length === 2 && data.faces.every((f) => /\bRoom\b/.test(f.type_line ?? ""));
@@ -37,6 +41,10 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     // 709.5: a Room is cast as one half (its door is unlocked as it enters)
     data.faces.forEach((f, i) => items.push({ label: `Cast ${f.name} ${f.mana_cost ?? ""}`.trim(),
       onClick: () => void send({ type: "cast_spell", card_id: card.id, face: i }) }));
+  } else if (mine && zone === "hand" && twoSpells(data)) {
+    // -- pod audit -- 709.3: which half is chosen before the spell is cast (Revival // Revenge, Bonecrusher Giant // Stomp); the hint counts either half
+    data.faces.forEach((f, i) => items.push({ label: `Cast ${f.name} ${f.mana_cost ?? ""}`.trim(), disabled: !hints.castable?.includes(card.id),
+      onClick: () => void send({ type: "cast_spell", card_id: card.id, face: i }) }));
   } else if (mine && (zone === "hand" || zone === "command")) {
     items.push({ label: "Cast", disabled: !hints.castable?.includes(card.id), onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
   } else if (mine && elsewhere && hints.castable?.includes(card.id)) {
@@ -64,8 +72,10 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     }
     // Optional additional costs other permanents offer (Defiler of Vigor: "you may pay 2 life … cost {G} less").
     for (const opt of hints.optional_costs?.[card.id] ?? []) {
-      items.push({ label: `Cast and ${opt.label.replace(/^[^:]*: /, "")} (${opt.label.split(":")[0]})`,
-        onClick: () => void send({ type: "cast_spell", card_id: card.id, optional_costs: [opt.id] }) });
+      // (pod audit: a split card's or an adventure's optional cost is for one half, named, 709.3)
+      const half = opt.face !== undefined ? data?.faces?.[opt.face]?.name : undefined;
+      items.push({ label: `Cast ${half ? `${half} ` : ""}and ${opt.label.replace(/^[^:]*: /, "")} (${opt.label.split(":")[0]})`,
+        onClick: () => void send({ type: "cast_spell", card_id: card.id, optional_costs: [opt.id], ...(opt.face !== undefined ? { face: opt.face } : {}) }) });
     }
   }
   const morph = abilityLines(oracle).find((l) => /^(mega)?morph \{/i.test(l));

@@ -471,7 +471,7 @@ export interface RulesHints {
   castable?: string[];
   free_castable?: string[]; // a permission lets you cast these without paying their mana costs
   alt_castable?: Record<string, { id: string; label: string; x?: boolean }[]>; // alternative costs (118.9): card id → costs it can be cast for now (x: the cost has {X}, 107.3a)
-  optional_costs?: Record<string, { id: string; label: string }[]>; // optional additional costs (Defiler of Vigor): card id → sources
+  optional_costs?: Record<string, { id: string; label: string; face?: number }[]>; // optional additional costs (Defiler of Vigor): card id → sources (face: the half of a split card or adventure)
   x_cast?: string[]; // castable cards of yours that ask for X when cast (107.3a); the server validates the range (min 0)
   chorus?: string[]; // castable creature cards whose cast may set `chorus` (Chorus of the Conclave, 601.2b, wave 110C)
   replicate111r3?: Record<string, string[]>; // castable card → one label per replicate a permanent gives it (Hugh), in CastSpell.replicate's order (702.56b, wave 111R3)

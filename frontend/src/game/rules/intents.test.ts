@@ -400,6 +400,25 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "unlock_door", card_id: "rb", door: 2 }]);
   });
 
+  it("offers each half of a split card to cast, and a half's optional cost with that half (709.3, pod audit)", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true, castable: ["sp"],
+      optional_costs: { sp: [{ id: "sp:casualty", label: "Casualty 1: sacrifice a creature with power 1 or greater", face: 1 }] } } });
+    const v = { ...base, cards: { ...base.cards, sp: card("sp", "p1:hand", "split") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        split: { id: "split", name: "Revival // Revenge", layout: "split", type_line: "Sorcery // Sorcery", oracle_text: "",
+          faces: [{ name: "Revival", mana_cost: "{W/B}{W/B}", type_line: "Sorcery" }, { name: "Revenge", mana_cost: "{4}{W}{B}", type_line: "Sorcery" }] } as unknown as CardData,
+      },
+    });
+    const cast = rulesMenu(v.cards.sp!, v, "p1").filter((i): i is Exclude<MenuItem, "separator"> => i !== "separator" && i.label.startsWith("Cast"));
+    expect(cast.map((i) => i.label)).toEqual(["Cast Revival {W/B}{W/B}", "Cast Revenge {4}{W}{B}",
+      "Cast Revenge and sacrifice a creature with power 1 or greater (Casualty 1)"]);
+    cast[1]!.onClick?.();
+    cast[2]!.onClick?.();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "sp", face: 1 }, { type: "cast_spell", card_id: "sp", optional_costs: ["sp:casualty"], face: 1 }]);
+  });
+
   it("offers the special action that ends a Licid's effect (116.2c) when the server lists its cost", () => {
     const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true }, stats: { lb: { end_cost: "{W}" } } });
     const v = { ...base, cards: { ...base.cards, lb: card("lb", "p1:battlefield", "licid"), lc: card("lc", "p1:battlefield", "licid") } } as unknown as GameView;
@@ -640,6 +659,8 @@ describe("decision answers", () => {
     expect(doneLabel(0, 0, 2)).toBe("Done (none)");
     expect(canSubmitChoice(0, 1, 1)).toBe(false);
     expect(canSubmitChoice(3, 0, 2)).toBe(false);
+    // a cost of exactly two objects ("Sacrifice two other artifacts and/or creatures", 601.2h): none (cancel) or both, never one
+    expect([0, 1, 2].map((n) => canSubmitChoice(n, 0, 2, 2))).toEqual([true, false, true]);
     expect(doneLabel(2, 0, 2)).toBe("Done (2)");
     void choose("d1", []);
     expect(sent).toEqual([{ type: "choose", decision_id: "d1", option_ids: [] }]);
