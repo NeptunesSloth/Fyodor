@@ -170,7 +170,7 @@ def deterministic(seed: int) -> Iterator[random.Random]:
     order also matters: ``main`` re-runs itself with PYTHONHASHSEED=0."""
     engine = random.Random(f"engine:{seed}")
     ids = random.Random(f"ids:{seed}")
-    saved = (secrets.SystemRandom, secrets.token_hex, dict(resolve_module.resolve.__kwdefaults__ or {}))
+    saved = (secrets.SystemRandom, secrets.token_hex, dict(resolve_module.resolve.__kwdefaults__ or {}), resolve_module._rng)
 
     def token_hex(nbytes: int | None = None) -> str:
         k = 32 if nbytes is None else nbytes
@@ -179,11 +179,13 @@ def deterministic(seed: int) -> Iterator[random.Random]:
     secrets.SystemRandom = lambda *_: engine  # type: ignore[assignment,misc]
     secrets.token_hex = token_hex
     resolve_module.resolve.__kwdefaults__ = {**saved[2], "rng": engine}
+    resolve_module._rng = engine  # type: ignore[assignment]  # (the session's undo-request Recorder reads this one: app/game/undo_requests.py)
     try:
         yield engine
     finally:
         secrets.SystemRandom, secrets.token_hex = saved[0], saved[1]  # type: ignore[misc]
         resolve_module.resolve.__kwdefaults__ = saved[2]
+        resolve_module._rng = saved[3]
 
 
 def new_session(cards: CachedCards, decks: list[list[DeckCard]], players: int, rng: random.Random,
