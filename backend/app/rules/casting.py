@@ -3487,7 +3487,7 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
                                    alternative=M.parse_cost(grant.alt_mana) if grant is not None and grant.alt_mana else None,
                                    additional=tuple(grant_additional(grant)),
                                    reduce=part.reduces * (min(1, len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
-                                                          if offer.kind in ("bargain", "evidence") else len(cost_payment.candidates(permissions._view(state, player, info), part, player, card)))
+                                                          if offer.kind in ("bargain", "evidence") else cost_payment.picks(permissions._view(state, player, info), part, player, card))  # (pod audit: per counter)
                                    + (grant.generic_less if grant is not None else 0) if part is not None else (grant.generic_less if grant is not None else 0),  # (wave 110G: Urianger)
                                    finalize=finish, selected_costs=selected_costs)
         except ActionError:
