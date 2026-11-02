@@ -1,7 +1,7 @@
-# Milestone plan: tabletop quality of life (15 of 17 built)
+# Milestone plan: tabletop quality of life (built)
 
 Requested 2026-10-03. **Build it after the core rules engine and the primary 3D table are stable.**
-Status (2026-11-01): 15 of the 17 aids are built; the quick undo request (#7, approval) and the public choice wheel (#12) are not. `IMPLEMENTATION_PLAN.md` lists each. Don't redesign the app: the goal is to make a real Commander game faster,
+Status (2026-11-02): all 17 aids are built, the quick undo request (#7, approval) and the public choice wheel (#12) last. `IMPLEMENTATION_PLAN.md` lists each. Don't redesign the app: the goal is to make a real Commander game faster,
 clearer and less annoying to operate.
 
 **Preserve:** the authoritative server state, privacy, manual tabletop freedom, rules automation, the

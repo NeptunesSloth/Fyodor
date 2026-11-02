@@ -397,18 +397,19 @@ A player eliminated early gets a compact hub instead of only spectating:
 
 Not built: dice/table toys, a Game Log link, and Deck Lab's compare view.
 
-### Later: spectator side activities — mostly not started (`SPECTATOR_ACTIVITIES_MILESTONE.md`)
+### Spectator side activities — 1-5 built (`SPECTATOR_ACTIVITIES_MILESTONE.md`, 2026-11-02)
 
-Built:
-- Rate-limited reactions. Each player can mute them; there is no table-wide switch.
+For eliminated players and spectators, all outside the live match (none creates a game action or reaches saves):
+- Watch + PiP: the practice table shows a compact live summary (life, poison, commander damage, turn, stack, log),
+  built from the spectator view.
+- A next-game deck queue, proposed (not readied) when the pod returns to the lobby; a spectator can take an open seat.
+- A public-only damage sandbox that works out a what-if combat with the engine's own damage step.
+- Session-only fake-point predictions, hidden until the game ends.
+- Rate-limited reactions, which each player can mute, and a host's table-wide switch.
 
-Not started, all to stay isolated from the live match:
-- Watch + PiP Practice Table.
-- A next-game deck queue.
-- A public-only damage sandbox.
-- Session-only fake-point predictions.
+Not started: Spectator Points cosmetic progression (6).
 
-### Post-game flow — built except View final board (`3D_DIRECTION.md` §7a)
+### Post-game flow — built (`3D_DIRECTION.md` §7a)
 
 After a result there is a winner spotlight, then a vote, which the host can force:
 - **Rematch — same decks**: a fresh game with the same seats, decks and settings, and a new result record.
@@ -416,9 +417,10 @@ After a result there is a winner spotlight, then a vote, which the host can forc
 
 When the rules engine ends a game, the result is offered for one-click confirmation. Undoing the deciding action withdraws it.
 
-Not built: **View final board**.
+**View final board:** after a recorded result the table is read-only (actions, undo, restores and deck loads are
+refused on the server); the result panel folds into a small bar that reopens the vote.
 
-### Game night / match flow — mostly built (`GAME_NIGHT_FLOW.md`)
+### Game night / match flow — built (`GAME_NIGHT_FLOW.md`)
 
 Built:
 - A persistent pod lobby.
@@ -429,12 +431,13 @@ Built:
 - A rematch vote.
 - Elimination notices.
 
-Partly built:
-- The host can't reorder seats under the pod rule.
-- The game history keeps the turn order but not the rolls.
-- The pod session has no elimination order or final-board snapshot in Pod stats.
+- The host arranges seats in the lobby (arrows or drag); the turn-order setting gains "seats" (seat 1 first), and
+  under the pod rule the winner-goes-last order follows the host's seating.
+- The game history keeps each game's turn order, how it was set and its d20 rolls.
 
-### Tabletop quality-of-life — 15 of 17 aids built (`TABLETOP_QOL_MILESTONE.md`)
+Not built: the pod session's elimination order and a final-board snapshot in Pod stats.
+
+### Tabletop quality-of-life — all 17 aids built (`TABLETOP_QOL_MILESTONE.md`)
 
 Built:
 - The private choice drawer and the pending decision indicator.
@@ -448,11 +451,13 @@ Built:
 - Auto-centre: Off, Important or On.
 - Nudge, reactions, the countdown, card notes and the session recap.
 
-Undo: the host's undo setting (everyone, own actions only, or host only) is enforced on the server.
+Undo: the host's undo setting (everyone, own actions only, or host only) is enforced on the server. At a LAN table an
+undo the setting refuses can be requested ("Bob asks to undo: cast Sol Ring — Approve / Decline"), and undoing an
+action that showed hidden information or a random outcome (a draw, a look, a reveal, a search, a shuffle, a roll)
+asks the table under every setting. Hot-seat tables undo directly.
 
-Not built:
-- The request-and-approve "quick undo request".
-- The public choice wheel.
+The public choice wheel: a radial picker for public, non-target choices (a color, a type, a player, a number, a coin),
+which the server marks; Settings can turn it off.
 
 ### Full UI / 3D tabletop redesign — done in rounds (`UI_REDESIGN_BRIEF.md`, `UI_REFERENCE_STUDY.md` §20–31)
 
