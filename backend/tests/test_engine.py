@@ -431,3 +431,6 @@ def test_a_marker_named_by_its_value_is_logged_once(s):
     lines = ["".join(p.t or "" for p in e.parts) for e in s.state.log[-2:]]
     assert " gave Menace to " in lines[0] and "Menace Menace" not in lines[0]
     assert " gave Shield +1 to " in lines[1]
+    act(s, "p1", type="add_effect", card_ids=[card.id], name="Hexproof, Indestructible", value="Hexproof, Indestruc…")  # (a long name, cut)
+    line = "".join(p.t or "" for p in s.state.log[-1].parts)
+    assert " gave Hexproof, Indestructible to " in line and "Indestruc…" not in line
