@@ -186,3 +186,27 @@ def test_remembered_answers_apply_in_the_same_context(s):
 def engine_payment(s, pid, mode):
     """The internal payment modes (players at a table always tap their own mana)."""
     s.state.rules.prefs[pid].payment = mode
+
+
+def test_pass_until_the_stack_changes_with_a_tall_stack(cards):
+    """Soak (seed 5201, Omnath and Scapeshift: a stack of landfall triggers): RESOLVE ONE remembered the whole stack as text, which a
+    stack of about 25 objects took past its 400-character limit: the engine failed (AUTOMATION ERROR). It keeps a fixed-size digest."""
+    from tests.pod_c_kit import hold, mana, table
+    from tests.test_rules_effects import replay_matches
+
+    s = table(cards, ["Lightning Bolt"] * 30)
+    bolts = [c.id for c in s.state.cards.values() if c.name == "Lightning Bolt" and c.owner == "p1"]
+    act(s, "p1", type="move", card_ids=bolts, to={"zone": "hand"})
+    hold(s)
+    mana(s, R=len(bolts))
+    for cid in bolts:
+        act(s, "p1", type="cast_spell", card_id=cid, targets=["p2"])
+    assert len(s.state.zones["stack"]) == 30
+    act(s, "p2", type="set_prefs", response="on")  # (Bob stops to respond: Alice's RESOLVE ONE waits, remembering the stack)
+    act(s, "p1", type="pass_priority", until="stack_changes")  # RESOLVE ONE
+    assert s.state.rules.priority == "p2" and s.state.rules.prefs["p1"].pass_until == "stack_changes"
+    assert len(s.state.rules.prefs["p1"].pass_mark) <= 64
+    act(s, "p2", type="pass_priority")
+    assert len(s.state.zones["stack"]) == 29 and s.state.players["p2"].life == 40 - 3
+    assert s.state.rules.priority == "p1" and s.state.rules.prefs["p1"].pass_until is None  # (the stack changed: Alice's turn to act)
+    replay_matches(s)

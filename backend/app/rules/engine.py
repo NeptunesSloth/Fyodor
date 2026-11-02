@@ -18,6 +18,7 @@ automate, decisions, and conceding. Casting, abilities and combat arrive with mi
 
 from __future__ import annotations
 
+import hashlib
 import re
 import secrets
 from collections.abc import Callable
@@ -436,7 +437,10 @@ def repeat_sequence(plan: Plan, a: A.RepeatSequence) -> None:
 
 # -- priority ----------------------------------------------------------------------------
 def stack_signature(plan: Plan) -> str:
-    return ",".join(plan.oid(cid) for cid in plan.state.zones.get(STACK, []))
+    """The stack as it is, as a fixed-size digest of its objects in order (PlayerPrefs.pass_mark holds 400 characters, and a stack of
+    landfall triggers is far longer than that written out; soak: Omnath and Scapeshift)."""
+    objects = ",".join(plan.oid(cid) for cid in plan.state.zones.get(STACK, []))
+    return hashlib.sha256(objects.encode()).hexdigest()[:32]
 
 
 def pass_mark(plan: Plan, until: str) -> str:
