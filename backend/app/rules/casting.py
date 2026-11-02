@@ -3692,10 +3692,13 @@ def cast_spell(plan: Plan, a: A.CastSpell) -> None:
 
         if any(o.key == a.alt_cost and o.tag == _converted.CONVERTED_TAG for o in _converted.converted_offers(plan.state, plan.actor, card, plan.info)):
             a.face = 1
-    if (a.face is None and not a.fuse and not a.free and a.alt_cost is None and not plan.manual(card) and chars.is_two_spell_card(card, plan.info)
+    if (a.face is None and not a.fuse and not a.free and a.alt_cost is None and not plan.manual(card) and card.card_id
+            and (plan.info.get(card.card_id) or {}).get("layout") == "split" and chars.is_two_spell_card(card, plan.info)
             and not castable(plan.state, plan.actor, card, plan.info, announce=True, face=0)
             and castable(plan.state, plan.actor, card, plan.info, announce=True, face=1)):
-        a.face = 1  # -- hint/cast agreement (pod audit) -- 709.3a: no half named and only the second can be cast now (Revenge with no creature card for Revival)
+        # -- hint/cast agreement (pod audit) -- 709.3a: a split card with no half named, only the second castable now (Revenge with no creature
+        # card for Revival). An adventurer stays the creature: a card dragged onto the battlefield means it (715.3)
+        a.face = 1
     ch = chars.as_cast(card, plan.info, a.face, a.fuse)  # split cards / adventures: the half being cast
     from app.rules import text_global_word71
 
