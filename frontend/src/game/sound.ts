@@ -6,13 +6,16 @@
 import { usePrefs } from "../state/prefs";
 
 export type SoundName =
-  | "card" | "place" | "tap" | "flip" | "shuffle" | "draw" | "dice" | "coin" | "token" | "counter" | "response" | "turn" | "bag" | "ping";
+  | "card" | "place" | "tap" | "flip" | "shuffle" | "draw" | "dice" | "coin" | "token" | "counter" | "response" | "turn" | "bag" | "ping"
+  // the end-of-game stings (game/motion/endScene.ts): short, soft, and never needed (every one has its scene)
+  | "victory" | "defeat" | "drawn" | "eliminated";
 type Channel = "cards" | "dice" | "ui" | "ambient";
 
 const CHANNEL: Record<SoundName, Channel> = {
   card: "cards", place: "cards", tap: "cards", flip: "cards", shuffle: "cards", draw: "cards", token: "cards", counter: "cards",
   dice: "dice", coin: "dice", bag: "dice",
   response: "ui", turn: "ui", ping: "ui",
+  victory: "ui", defeat: "ui", drawn: "ui", eliminated: "ui",
 };
 
 let ctx: AudioContext | null = null;
@@ -143,6 +146,22 @@ export function play(name: SoundName): void {
     case "ping": // a small bell: "look here"
       tone(ac, out, t, 1318, 0.22, 0.045, "triangle");
       tone(ac, out, t + 0.07, 1760, 0.3, 0.03, "triangle");
+      break;
+    case "victory": // a warm rising fifth, like a brass bell struck twice
+      tone(ac, out, t, 392, 0.9, 0.045, "triangle");
+      tone(ac, out, t + 0.16, 587, 1.1, 0.04, "triangle");
+      tone(ac, out, t + 0.16, 1174, 0.7, 0.012);
+      break;
+    case "defeat": // a low falling step, quiet
+      tone(ac, out, t, 220, 0.9, 0.045, "triangle");
+      tone(ac, out, t + 0.2, 185, 1.1, 0.04, "triangle");
+      break;
+    case "drawn": // one neutral bell
+      tone(ac, out, t, 523, 0.9, 0.035);
+      tone(ac, out, t, 784, 0.6, 0.015);
+      break;
+    case "eliminated": // a single low note, shorter than defeat
+      tone(ac, out, t, 196, 0.6, 0.035, "triangle");
       break;
   }
 }

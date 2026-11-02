@@ -316,7 +316,28 @@ so Undo takes back the whole play.
 
 > The full redesign brief that pulls these plans together is `UI_REDESIGN_BRIEF.md`.
 
-## 7a. Planned: end-of-game scenes (late-stage, not started)
+## 7a. End-of-game scenes ✅ built
+
+**Status (2026-11-02): built on both tables.** The DOM spotlight (VICTORY / DEFEAT / DRAW, or "X wins" for a
+spectator), the eliminated player's own scene, the result panel with the rematch / lobby vote and View final board were
+already there (`game/GameNight.tsx`, `game/Eliminated.tsx`). Now the table itself reacts while the spotlight holds:
+
+- One cue for both tables, `game/motion/endScene.ts` (pure beats per kind, unit-tested): the result word comes from the
+  server's result (`resultWord`); the eliminated scene stays the eliminated player's own (`showEliminated`). It holds
+  1.6–2.6 s at 1× (never past 3 s at any speed), keys don't reach the table meanwhile, and any click or key ends it
+  (`onMotionSkip`); the table then settles back in 0.4–0.6 s (180 ms after a skip).
+- 3D (`table3d/endScene3d.ts`, stepped from `TableScene`'s frame loop, three draw calls at most, made once and pooled):
+  a full-screen multiply dims the room toward the kind's colour (deeper at the edges); one soft ring of light (gold,
+  silver) or shadow (dark red, near-black) spreads over the battlefields; a handful of motes rise (14 gold, 9 embers,
+  7 silver, none when eliminated); the camera eases along its line of sight (+3 % victory, −3 % defeat, −2 % eliminated,
+  ≈0 draw) over where the table's camera already is, so the camera goal and the player's control are never touched.
+- 2D (`game/motion/EndScene2D.tsx`): the same beats over the table with WAAPI (a tinted veil, the ring, the motes),
+  transform and opacity only, under the spotlight.
+- Sound: short synthesised stings (`victory`, `defeat`, `drawn`, `eliminated` in `game/sound.ts`, the UI channel) land
+  with the pulse; nothing depends on them.
+- Reduced motion (the setting, low graphics or the system's) keeps the dim and the text and drops the camera, the pulse
+  and the motes. Not built: a desaturating draw (the draw has a cool, silver cast instead) and the optional commander
+  emblem behind the word.
 
 Requested 2026-10-03 for the 3D redesign. It is late-stage presentation work, like the other polish
 items: build it after the rules work, as part of the 3D redesign. The feel to reference is Teamfight

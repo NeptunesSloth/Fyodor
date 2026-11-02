@@ -45,6 +45,8 @@ import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
 import { SeatProps } from "./seatProps";
 import { CARD_BACK_URL } from "../cards/cardBack";
 import { TableMotion } from "./motion3d";
+import { EndScene3D } from "./endScene3d";
+import { onEndScene } from "../game/motion/endScene";
 import { onTableEvents } from "../game/motion/tableEvents";
 import { onMotionSkip } from "../game/motion/timing";
 import type { DiceShow } from "../game/dice";
@@ -273,6 +275,8 @@ export class TableScene {
   private post: Post | null = null;
   /** Card flights, stand-ins, riffles, strikes and numbers (table3d/motion3d.ts), stepped from this loop. */
   private motion: TableMotion;
+  /** The end-of-game table scene (table3d/endScene3d.ts): dim, camera ease, one pulse, a few motes; stepped from this loop. */
+  private end: EndScene3D;
   private bodyN = 0;
   private pushStandIn = (obj: THREE.Object3D, opacity: number): void => {
     this.bodyN = this.writeBody(obj, this.bodyN, opacity);
@@ -350,6 +354,8 @@ export class TableScene {
       heart: (p) => this.props.heartWorld(p),
     });
     this.unsubs.push(onTableEvents((events, next, prev) => this.motion.play(events, next, prev)), onMotionSkip(() => this.motion.finish()));
+    this.end = new EndScene3D(this.scene, () => tableSize(this.seatList));
+    this.unsubs.push(onEndScene((cue) => this.end.play(cue)));
     this.applyFog();
     this.bindInput();
     this.loop();
@@ -564,6 +570,7 @@ export class TableScene {
     cancelAnimationFrame(this.raf);
     for (const u of this.unsubs) u();
     this.motion.dispose();
+    this.end.dispose();
     this.dice.dispose();
     this.diceHud.dispose();
     this.lifeBatch.dispose();
@@ -1664,6 +1671,7 @@ export class TableScene {
     this.camPos.lerp(this.camGoalPos, kc);
     this.camLook.lerp(this.camGoalLook, kc);
     this.camera.position.copy(this.camPos);
+    if (this.end.active) this.end.update(started, reduced, this.camera.position, this.camLook, this.camGoalLook);
     this.camera.lookAt(this.camLook);
     if (!reduced) {
       // candle flicker, drifting dust and flowing beams only when motion is welcome

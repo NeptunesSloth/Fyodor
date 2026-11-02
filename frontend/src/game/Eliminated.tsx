@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CardFace } from "../cards/CardFace";
 import { Modal } from "../components/Modal";
 import { toast, toastError } from "../components/Toasts";
 import { rememberMyDeck, rememberSeat } from "../services/games";
 import { deckLabCopy, openPractice, ownDeck, type OwnDeckCard } from "../services/night";
 import { requestCards, useCardCache } from "../state/cardCache";
-import { usePrefs } from "../state/prefs";
 import type { GameView } from "../types/game";
 import { commandersOf, rememberPractice } from "./eliminationHub";
+import { playEndScene, type EndPlay } from "./motion/endScene";
 import { SideActivityDialog, type SideActivity } from "./SpectatorHub";
 import "./elimination.css";
 
@@ -33,12 +33,14 @@ export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; 
   const [busy, setBusy] = useState(false);
   // stable: the live table re-renders this on every action, and a new onClose would reload (and reset) the activity
   const closeActivity = useCallback(() => setActivity(null), []);
-  const speed = usePrefs((s) => s.animationSpeed) || 1;
+  // the table's short, quiet reaction (motion/endScene.ts), for this player only; a key, a click or its end opens the hub
+  const scene = useRef<EndPlay | null>(null);
   useEffect(() => {
     if (stage !== "scene") return;
-    const t = window.setTimeout(() => setStage("hub"), 1600 / speed);
-    return () => window.clearTimeout(t);
-  }, [stage, speed]);
+    const play = playEndScene("eliminated", () => setStage("hub"));
+    scene.current = play;
+    return () => play.stop();
+  }, [stage]);
   const settle = () => {
     try {
       sessionStorage.setItem(key, "1");
@@ -72,7 +74,10 @@ export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; 
   return (
     <>
       {stage === "scene" && (
-        <div className="night-spot eliminated" role="status" aria-live="polite" data-testid="eliminated-scene" onClick={() => setStage("hub")}>
+        <div className="night-spot eliminated" role="status" aria-live="polite" data-testid="eliminated-scene" onClick={() => {
+          scene.current?.stop();
+          setStage("hub");
+        }}>
           <div className="night-spot-inner">
             <div className="night-word">Eliminated</div>
             <div className="night-rule" aria-hidden />
