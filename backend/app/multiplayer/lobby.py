@@ -20,6 +20,10 @@ from app.textutil import clean_text
 
 DeckPrivacy = Literal["private", "commander_only", "public"]
 PriorityHelper = Literal["off", "simple"]
+# How the next game's order is decided (GAME_NIGHT_FLOW.md §2): "pod" = d20 for game 1 and after a draw, then the previous
+# winner goes last; "random" = a random first player, then around the table as seated; "seats" (-- seating --) = the seats as
+# the host arranged them, seat 1 first.
+TurnOrder = Literal["pod", "random", "seats"]
 
 MAX_DECK_ENTRIES = 400
 MAX_DECK_CARDS = 600
@@ -38,8 +42,8 @@ class LobbySettings(BaseModel):
     auto_untap: bool = True
     automation: AutomationLevel = "off"  # rules automation (docs/AUTOMATION_UX.md); OFF by default
     # "pod": d20 for game 1 and after a draw, then the previous winner goes last (GAME_NIGHT_FLOW.md §2).
-    # The app asks for it when it creates a lobby; the API default keeps seats in join order.
-    turn_order: Literal["pod", "random"] = "random"
+    # The app asks for it when it creates a lobby; the API default keeps seats in join order. "seats": seat 1 first.
+    turn_order: TurnOrder = "random"
 
     @field_validator("name")
     @classmethod

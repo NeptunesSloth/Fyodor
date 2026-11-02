@@ -105,6 +105,16 @@
 .night-votes b.lobby { color: var(--text); }
 .night-votes b.waiting { color: var(--text-dim); font-weight: 500; }
 .night-force { margin-top: 8px; font-size: 12.5px; }
+/* -- final board -- the result panel folds into this bar so the finished table can be looked at (and opened again) */
+.night-board-open { margin-right: auto; }
+.night-board-bar { position: fixed; z-index: 36; left: 50%; top: 52px; transform: translateX(-50%); max-width: calc(100vw - 32px); }
+.night-board-body {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding: 6px 8px 6px 14px; font-size: 13px;
+  animation: night-rise calc(200ms * var(--anim-scale, 1)) var(--ease-out) both;
+}
+.night-board-tag { font: 600 11.5px/1 var(--font-ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-2); }
+.night-board-line { color: var(--text); }
+.night-board-votes { color: var(--text-dim); }
 
 @keyframes night-fade { from { opacity: 0; } }
 @keyframes night-rise { from { opacity: 0; transform: translateY(8px); } }
@@ -119,12 +129,12 @@
 @keyframes night-rule { from { transform: scaleX(0); } }
 
 /* reduced motion: keep the fades, drop the movement */
-body.reduced-motion :is(.night-row, .night-die, .night-count, .night-word, .night-winner, .night-cmdr, .night-agreed, .night-proposal-body, .night-result-body) {
+body.reduced-motion :is(.night-row, .night-die, .night-count, .night-word, .night-winner, .night-cmdr, .night-agreed, .night-proposal-body, .night-result-body, .night-board-body) {
   animation-name: night-fade;
 }
 body.reduced-motion .night-rule { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  :is(.night-row, .night-die, .night-count, .night-word, .night-winner, .night-cmdr, .night-agreed, .night-proposal-body, .night-result-body) { animation-name: night-fade; }
+  :is(.night-row, .night-die, .night-count, .night-word, .night-winner, .night-cmdr, .night-agreed, .night-proposal-body, .night-result-body, .night-board-body) { animation-name: night-fade; }
   .night-rule { animation: none; }
 }
 

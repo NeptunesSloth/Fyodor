@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.factory import PlayerSetup
 from app.game.state import GameState
-from app.multiplayer.lobby import LobbySeatInfo
+from app.multiplayer.lobby import LobbySeatInfo, TurnOrder
 
 if TYPE_CHECKING:
     from app.multiplayer.hub import Room
@@ -29,6 +29,13 @@ log = logging.getLogger(__name__)
 OrderSource = Literal["d20", "winner_last", "host"]
 Choice = Literal["rematch", "lobby"]
 ResultType = Literal["single", "multiple", "draw", "no_result"]
+
+# -- final board -- once a result is recorded the table is the final board (3D_DIRECTION.md §7a "View final board"): anyone
+# may look at it (either renderer, the camera, card details, the log), nothing may change it. Table talk and closing a private
+# look at cards ("end_view": it only hides them again) change no card, zone or counter, so they stay open; everything else
+# waits for the rematch or the lobby.
+FINAL_BOARD = "The game is over: the final board can be looked at but not changed. Rematch or return to the lobby to play again."
+POSTGAME_ACTIONS = frozenset({"chat", "end_view"})
 
 
 def d20() -> int:
@@ -107,6 +114,13 @@ class Night:
     # game goes on; in memory only, so a restored table asks again
     rules_end: str | None = None
 
+    def final_board(self, action_type: str | None = None) -> str | None:
+        """-- final board -- why the table refuses a change now (``action_type``: the action asked for; None: an undo, a
+        redo, a restore or any other change), or None while the game goes on."""
+        if self.result is None or action_type in POSTGAME_ACTIONS:
+            return None
+        return FINAL_BOARD
+
     def result_key(self, room_id: str) -> str:
         """The pod-stats game id of the current game (game 1 keeps the room id; later games add #n)."""
         return room_id if self.number == 1 else f"{room_id}#{self.number}"
@@ -118,6 +132,17 @@ class Night:
             return winner_last(seats, winner), "winner_last", []
         order, rounds = roll_order(seats, roll)
         return order, "d20", rounds
+
+    @staticmethod
+    def preview(seats: list[str], winner: str | None, mode: TurnOrder) -> dict[str, Any]:
+        """-- seating -- what the next game's order will be, for the lobby (public: seats, and last game's winner, whose win
+        everyone saw). ``seats``: the claimed seats as the host arranged them. Under the pod rule a d20 roll (game 1, after a
+        draw) can't be known before the start, so ``order`` is then just the seating."""
+        if mode == "pod":
+            if winner is not None and winner in seats:
+                return {"source": "winner_last", "order": winner_last(seats, winner), "previous_winner": winner}
+            return {"source": "d20", "order": list(seats), "previous_winner": None}
+        return {"source": mode, "order": list(seats), "previous_winner": None}
 
     def remap(self, mapping: dict[str, str]) -> None:
         """Seats were renumbered for a new game (old seat -> new seat)."""

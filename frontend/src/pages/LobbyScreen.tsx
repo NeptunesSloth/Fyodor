@@ -9,6 +9,7 @@ import { navigate } from "../hooks/useHashRoute";
 import { ApiError } from "../services/api";
 import { listDecks } from "../services/decks";
 import {
+  arrangeLobbySeats,
   changeLobbySeat,
   clearLobbyDeck,
   forgetMyDeck,
@@ -32,6 +33,7 @@ import { useGame } from "../state/gameStore";
 import type { DeckSummary } from "../types/decks";
 import type { LobbySeat, LobbySettings, LobbyView } from "../types/game";
 import { PersonalDeckImports } from "./PersonalDeckImports";
+import { TURN_ORDER_LABEL, TURN_ORDER_SHORT, canNudge, moveSeat, nudgeSeat, previewLine, rollsText, type TurnOrderMode } from "./seating";
 import "./lobby.css";
 import { Icon } from "../components/Icon";
 
@@ -55,6 +57,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
   const [choosing, setChoosing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState<string | null>(null);
   const setLobby = (l: LobbyView) => useGame.getState().applyLobby(l);
 
   const run = async (fn: () => Promise<unknown>) => {
@@ -73,6 +76,20 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
     if (force && !window.confirm(`Start without waiting?\n\n${lobby.start_blockers.join("\n")}`)) return;
     await run(() => startLobbyGame(gameId, { force, first_player: "random" }));
   };
+  // -- seating -- the host arranges the seats: arrows on each seat, or drag its grip onto another seat
+  const seatIds = lobby.seats.map((x) => x.id);
+  const arrange = async (order: string[]) => {
+    if (order.join() !== seatIds.join()) await run(() => arrangeLobbySeats(gameId, order));
+  };
+  // an arrow keeps the keyboard on the player it moved (their seat number just changed)
+  const nudge = (id: string, delta: -1 | 1) => {
+    const order = nudgeSeat(seatIds, id, delta);
+    const to = `p${order.indexOf(id) + 1}`;
+    void arrange(order).then(() => requestAnimationFrame(() => {
+      const button = (dir: string) => document.querySelector<HTMLButtonElement>(`[data-testid="seat-${dir}-${to}"]:not(:disabled)`);
+      (button(delta < 0 ? "earlier" : "later") ?? button(delta < 0 ? "later" : "earlier"))?.focus();
+    }));
+  };
 
   const s = lobby.settings;
   return (
@@ -88,7 +105,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
               Mulligan: {lobby.mulligan?.display_name ?? MULLIGAN_LABEL[s.mulligan_rule] ?? s.mulligan_rule}
               {lobby.mulligan?.needs_definition ? " (not defined yet)" : ""}
             </span>
-            <span>Turn order: {(s.turn_order ?? "pod") === "pod" ? "d20, then the winner goes last" : "random first player"}</span>
+            <span>Turn order: {TURN_ORDER_SHORT[s.turn_order ?? "pod"]}</span>
             <span>Automation: {(s.automation ?? "off").toUpperCase()}</span>
             {(s.automation ?? "off") === "off" && <span>Response helper: {s.priority_helper === "simple" ? "On" : "Off"}</span>}
           </div>
@@ -107,6 +124,8 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
 
       {lobby.is_host && lobby.game.code && <InviteLink code={lobby.game.code} />}
 
+      <SeatingBar lobby={lobby} busy={busy} onRun={run} />
+
       <div className="seat-grid">
         {lobby.seats.map((seat) => (
           <SeatPlate
@@ -117,6 +136,13 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
             busy={busy}
             onChoose={() => setChoosing(true)}
             onRun={run}
+            arranging={lobby.is_host ? {
+              earlier: canNudge(seatIds, seat.id, -1) ? () => nudge(seat.id, -1) : null,
+              later: canNudge(seatIds, seat.id, 1) ? () => nudge(seat.id, 1) : null,
+              dropOn: (from) => void arrange(moveSeat(seatIds, from, seat.id)),
+              over: dragOver === seat.id,
+              setOver: (on) => setDragOver(on ? seat.id : null),
+            } : null}
           />
         ))}
       </div>
@@ -161,6 +187,32 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
   );
 }
 
+/** -- seating -- the next game's order for everyone, and for the host how the first player is decided. */
+function SeatingBar({ lobby, busy, onRun }: { lobby: LobbyView; busy: boolean; onRun: (fn: () => Promise<unknown>) => Promise<void> }) {
+  const line = previewLine(lobby);
+  const mode: TurnOrderMode = lobby.settings.turn_order ?? "pod";
+  if (!lobby.is_host && !line) return null;
+  return (
+    <section className="seating-bar" aria-label="Seating and turn order" data-testid="seating-bar">
+      <span className="seating-label">Next game</span>
+      <span className="seating-preview" data-testid="turn-preview">{line || "Waiting for players."}</span>
+      {lobby.is_host && (
+        <>
+          <span className="spacer" />
+          <span className="hint seating-hint">Arrange seats with the arrows, or drag a seat's grip onto another seat.</span>
+          <label className="seating-mode">
+            <span>First player</span>
+            <select data-testid="seating-mode" value={mode} disabled={busy}
+              onChange={(e) => void onRun(() => updateLobbySettings(lobby.game.id, { turn_order: e.target.value as TurnOrderMode }))}>
+              {(["pod", "random", "seats"] as const).map((m) => <option key={m} value={m}>{TURN_ORDER_LABEL[m]}</option>)}
+            </select>
+          </label>
+        </>
+      )}
+    </section>
+  );
+}
+
 /** The link the host sends the pod: it opens Join with the room code already filled in. */
 function InviteLink({ code }: { code: string }) {
   const [addr, setAddr] = useState<string | null>(null);
@@ -198,7 +250,10 @@ function SessionRecap({ games }: { games: NonNullable<LobbyView["night"]> }) {
           return (
             <li key={g.number}>
               <span className="recap-n">Game {g.number}</span>
-              <span>{describe(g)}{cmdr ? ` with ${cmdr}` : ""}{g.agreed ? " (agreed)" : ""}</span>
+              <span>
+                {describe(g)}{cmdr ? ` with ${cmdr}` : ""}{g.agreed ? " (agreed)" : ""}
+                {g.rolls && g.rolls.length > 0 && <span className="recap-rolls" data-testid="recap-rolls"> · d20 {rollsText(g.rolls)}</span>}
+              </span>
               <span className="hint">{g.turns} turn{g.turns === 1 ? "" : "s"}{g.minutes ? ` · ${g.minutes} min` : ""}</span>
             </li>
           );
@@ -209,13 +264,25 @@ function SessionRecap({ games }: { games: NonNullable<LobbyView["night"]> }) {
   );
 }
 
-function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
+/** -- seating -- the host's controls for one seat (null for everyone else). */
+interface Arranging {
+  earlier: (() => void) | null;
+  later: (() => void) | null;
+  dropOn: (from: string) => void;
+  over: boolean;
+  setOver: (on: boolean) => void;
+}
+
+const SEAT_DRAG = "application/x-fyodor-seat";
+
+function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun, arranging }: {
   seat: LobbySeat;
   mine: boolean;
   lobby: LobbyView;
   busy: boolean;
   onChoose: () => void;
   onRun: (fn: () => Promise<unknown>) => Promise<void>;
+  arranging: Arranging | null;
 }) {
   const gameId = lobby.game.id;
   const [editing, setEditing] = useState(false);
@@ -229,7 +296,22 @@ function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
   const covTotal = cov ? cov.FULL + cov.PARTIAL + cov.REVIEW + cov.MANUAL : 0;
   const level = lobby.settings.automation ?? "off";
   return (
-    <section className={`seat-plate seat-card frame ${state} ${mine ? "mine" : ""}`} style={{ ["--seat" as string]: seat.color }} data-testid={`seat-${seat.id}`}>
+    <section className={`seat-plate seat-card frame ${state} ${mine ? "mine" : ""} ${arranging?.over ? "drop-target" : ""}`}
+      style={{ ["--seat" as string]: seat.color }} data-testid={`seat-${seat.id}`}
+      onDragOver={arranging ? (e) => {
+        if (!e.dataTransfer.types.includes(SEAT_DRAG)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (!arranging.over) arranging.setOver(true);
+      } : undefined}
+      onDragLeave={arranging ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) arranging.setOver(false); } : undefined}
+      onDrop={arranging ? (e) => {
+        const from = e.dataTransfer.getData(SEAT_DRAG);
+        arranging.setOver(false);
+        if (!from) return;
+        e.preventDefault();
+        arranging.dropOn(from);
+      } : undefined}>
       <div className="seat-top">
         <span className="portrait" style={{ ["--size" as string]: "38px", borderColor: seat.claimed ? seat.color : undefined }}>
           {seat.claimed ? seat.name.slice(0, 1).toUpperCase() : seat.id.slice(1)}
@@ -255,6 +337,23 @@ function SeatPlate({ seat, mine, lobby, busy, onChoose, onRun }: {
         {mine && (
           <input type="color" className="seat-color" value={seat.color} title="Your color"
             onChange={(e) => void onRun(() => setLobbyProfile(gameId, { color: e.target.value }))} />
+        )}
+        {arranging && seat.claimed && (
+          <span className="seat-move" role="group" aria-label={`Move ${seat.name}`}>
+            <button className="tt-icon" disabled={busy || !arranging.earlier} onClick={() => arranging.earlier?.()}
+              title={`Move ${seat.name} one seat earlier`} aria-label={`Move ${seat.name} one seat earlier`} data-testid={`seat-earlier-${seat.id}`}>
+              <Icon name="left" size={14} />
+            </button>
+            <span className="seat-grip" draggable={!busy} title={`Drag ${seat.name} onto another seat`} aria-hidden
+              onDragStart={(e) => { e.dataTransfer.setData(SEAT_DRAG, seat.id); e.dataTransfer.effectAllowed = "move"; }}
+              onDragEnd={() => arranging.setOver(false)}>
+              <Icon name="grip" size={14} />
+            </span>
+            <button className="tt-icon" disabled={busy || !arranging.later} onClick={() => arranging.later?.()}
+              title={`Move ${seat.name} one seat later`} aria-label={`Move ${seat.name} one seat later`} data-testid={`seat-later-${seat.id}`}>
+              <Icon name="right" size={14} />
+            </button>
+          </span>
         )}
         {lobby.is_host && seat.claimed && !seat.host && (
           <button className="tt-icon" title={`Remove ${seat.name} from the table`} onClick={() => {
@@ -574,8 +673,7 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
         </label>
         <label className="field">Turn order
           <select data-testid="lobby-turn-order" value={draft.turn_order ?? "pod"} onChange={(e) => set({ turn_order: e.target.value as LobbySettings["turn_order"] })}>
-            <option value="pod">Pod rule — d20 for the first game, then the winner goes last</option>
-            <option value="random">Random first player, seats as they are</option>
+            {(["pod", "random", "seats"] as const).map((m) => <option key={m} value={m}>{TURN_ORDER_LABEL[m]}</option>)}
           </select>
         </label>
         <label className="field">Response helper

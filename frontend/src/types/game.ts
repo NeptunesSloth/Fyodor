@@ -316,7 +316,12 @@ export interface NightInfo {
   /** `rules`: the rules engine decided it and the players confirmed it (never set with `agreed`). */
   result: { result_type: NightResultType; winners: string[]; winner_names: string[]; agreed: boolean; rules?: boolean } | null;
   votes: Record<string, "rematch" | "lobby">;
-  history: { number: number; result_type: NightResultType; winner_names: string[]; agreed: boolean; rules?: boolean; order: string[]; turns: number }[];
+  history: {
+    number: number; result_type: NightResultType; winner_names: string[]; agreed: boolean; rules?: boolean; order: string[]; turns: number;
+    /** How the order was set and the d20 rounds that set it, by player name (games recorded before these were kept have neither). */
+    order_source?: NightInfo["order_source"];
+    rolls?: Record<string, number>[];
+  }[];
 }
 
 /** How opening hands work at this table (see docs/MULLIGAN_RULES.md). */
@@ -549,8 +554,8 @@ export interface LobbySettings {
   priority_helper: "off" | "simple";
   auto_untap: boolean;
   automation: AutomationLevel;
-  /** "pod": d20 for game 1 and after a draw, then the previous winner goes last. */
-  turn_order?: "pod" | "random";
+  /** "pod": d20 for game 1 and after a draw, then the previous winner goes last; "seats": seat 1 first, as the host arranged them. */
+  turn_order?: "pod" | "random" | "seats";
 }
 
 export interface LobbyDeckSummary {
@@ -601,6 +606,11 @@ export interface LobbyView {
   start_blockers: string[];
   /** Tonight's finished games, oldest first (the session recap). */
   night?: (NightInfo["history"][number] & { minutes?: number; commanders?: Record<string, string[]> })[];
+  /**
+   * -- seating -- the next game's order as far as the server knows it before the start: the claimed seats in turn order
+   * (under a d20 roll, just the seating), and the seat of last game's winner when they go last.
+   */
+  turn_preview?: { source: "d20" | "winner_last" | "random" | "seats"; order: string[]; previous_winner: string | null };
 }
 
 export interface CardStats {
