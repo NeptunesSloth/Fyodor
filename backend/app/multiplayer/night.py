@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from app.game.factory import PlayerSetup
 from app.game.state import GameState
-from app.multiplayer.lobby import LobbySeatInfo, TurnOrder
+from app.multiplayer.lobby import LobbySeatInfo, SubmittedDeck, TurnOrder
 
 if TYPE_CHECKING:
     from app.multiplayer.hub import Room
@@ -113,6 +113,11 @@ class Night:
     # -- rules result -- the engine's ending ("win:p2", "draw:<reason>") the last change of the table showed, None while the
     # game goes on; in memory only, so a restored table asks again
     rules_end: str | None = None
+    # (spectator activities) the host's table-wide switch for reactions (default on; each player can also mute them)
+    reactions: bool = True
+    # (spectator activities) next-game decks queued by players who are out and by spectators, by seat or spectator token.
+    # In memory only, never sent; applied when the pod returns to the lobby (a same-decks rematch ignores them).
+    queued: dict[str, SubmittedDeck] = field(default_factory=dict)
 
     def final_board(self, action_type: str | None = None) -> str | None:
         """-- final board -- why the table refuses a change now (``action_type``: the action asked for; None: an undo, a
@@ -162,13 +167,14 @@ class Night:
             "result": self.result,
             "votes": dict(self.votes),
             "history": [dict(h) for h in self.history],
+            "reactions": self.reactions,
         }
 
     def meta(self) -> dict[str, Any]:
         """Crash-recovery record (setups and lobby infos are rebuilt by the host if lost)."""
         return {"number": self.number, "order_source": self.order_source, "rolls": self.rolls,
                 "previous_winner": self.previous_winner, "result": self.result, "votes": dict(self.votes),
-                "history": self.history, "last_winner_key": self.last_winner_key}
+                "history": self.history, "last_winner_key": self.last_winner_key, "reactions": self.reactions}
 
     @classmethod
     def from_meta(cls, meta: dict[str, Any] | None) -> Night:
@@ -183,6 +189,7 @@ class Night:
         night.votes = dict(meta.get("votes") or {})
         night.history = list(meta.get("history") or [])
         night.last_winner_key = meta.get("last_winner_key")
+        night.reactions = bool(meta.get("reactions", True))
         return night
 
 

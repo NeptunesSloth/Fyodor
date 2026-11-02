@@ -243,6 +243,13 @@ def to_lobby(services: Services, room: Room) -> None:
     night.proposal, night.result, night.votes = None, None, {}
     night.setups, night.infos = {}, {}
     room.result_id = None
+    # (spectator activities) a deck queued while out of that game becomes the proposed deck (not ready: they confirm or change it)
+    for pid, info in infos.items():
+        token = room.seats[pid].token if pid in room.seats else None
+        queued = night.queued.pop(token, None) if token else None
+        if queued is not None:
+            queued.collection = list(info.collection)
+            info.deck = info.queued = queued
 
 
 @router.get("/games/{game_id}/night/deck")
@@ -335,6 +342,8 @@ async def signal(game_id: str, body: SignalIn, request: Request, services: Servi
     # reactions: from spectators and players already out of the game
     if body.emoji not in REACTIONS:
         raise HTTPException(422, "Unknown reaction")
+    if not room.night.reactions:  # (spectator activities) the host's table-wide switch
+        raise HTTPException(409, "The host has turned reactions off at this table")
     if actor is not None and actor in remaining(state):
         raise HTTPException(403, "Reactions are for players who are out and spectators")
     if now - last.get(f"react:{who}", -1e9) < REACT_COOLDOWN:
@@ -344,6 +353,28 @@ async def signal(game_id: str, body: SignalIn, request: Request, services: Servi
                "emoji": body.emoji}
     await _to_everyone(services, room, message)
     return {"sent": True}
+
+
+class ReactionsIn(BaseModel):
+    on: bool
+
+
+@router.post("/games/{game_id}/night/reactions")
+async def set_reactions(game_id: str, body: ReactionsIn, request: Request, services: ServicesDep,
+                        x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """(spectator activities) The host turns reactions on or off for the whole table (each player can still mute them for
+    themselves). A table setting for the session: it is not part of the game, its log or its history."""
+    room = _room(services, game_id)
+    if room.practice is not None:
+        raise HTTPException(409, "A practice table has no reactions")
+    if room.mode == "lan" and not room.is_host(x_seat_token):
+        raise HTTPException(403, "Only the host can change that")
+    if room.mode == "local" and not is_local_request(request):
+        raise HTTPException(403, "This is a hot-seat game on the host computer")
+    room.night.reactions = body.on
+    services.hub.persist(room)
+    await services.hub.broadcast(room)
+    return {"reactions": room.night.reactions}
 
 
 async def _to_everyone(services: Services, room: Room, message: dict[str, Any]) -> None:

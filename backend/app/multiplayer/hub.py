@@ -26,6 +26,7 @@ from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.elimination import PracticeLink, Pulse
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
 from app.multiplayer.night import Night, follow_rules
+from app.multiplayer.spectate import Predictions
 from app.storage.journal import RoomJournal
 
 log = logging.getLogger(__name__)
@@ -105,6 +106,7 @@ class Room:
     night: Night = field(default_factory=Night)  # game night: turn order, agreed endings, rematch vote
     pulse: Pulse = field(default_factory=Pulse)  # major public events of the current game (elimination hub)
     practice: PracticeLink | None = None  # a private practice table (elimination hub): whose it is
+    predictions: Predictions = field(default_factory=Predictions)  # spectators' fake-point predictions (memory only)
 
     @property
     def id(self) -> str:
@@ -227,6 +229,8 @@ class Room:
                     "ready": info.ready,
                     "host": pid == self.host_seat,
                     "deck": deck_summary(info.deck, privacy=settings.deck_privacy, own=pid == viewer, table_format=settings.format),
+                    # (spectator activities) the deck this player queued while out of the last game, still unchanged
+                    **({"queued": True} if pid == viewer and info.deck is not None and info.deck is info.queued else {}),
                 }
             )
         return {
@@ -597,6 +601,8 @@ class GameHub:
 
     def view(self, room: Room, viewer: str) -> dict[str, Any]:
         room.pulse.observe(room.session.state, room.night.number, room.night.result, room.seat_name)
+        room.predictions.observe(room.pulse, room.night.result)  # (spectator activities) follows the same public facts
+        recap = room.predictions.recap(room.night.number, room.seat_name) if room.night.result is not None else None
         meta = {
             "mode": room.mode,
             "code": room.code if room.mode == "lan" else None,
@@ -610,6 +616,7 @@ class GameHub:
             **undo_rights.view_fields(room.session.state, room.session.history,
                                       host=room.mode == "local" or (room.host_seat is not None and viewer == room.host_seat)),
             "events": room.pulse.public(),
+            **({"predictions": recap} if recap else {}),
         }
         if room.night.final_board() is not None:  # -- final board -- nothing to undo or redo on a finished table
             meta.update(can_undo=False, can_redo=False)

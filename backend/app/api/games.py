@@ -465,7 +465,8 @@ def _throttle_join(failures: dict[str, list[float]], ip: str) -> None:
 
 
 @router.post("/join")
-def join_game(body: JoinIn, request: Request, services: ServicesDep) -> dict[str, Any]:
+def join_game(body: JoinIn, request: Request, services: ServicesDep,
+              x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
     ip = client_ip(request)
     failures = services.hub.join_failures
     _throttle_join(failures, ip)
@@ -487,6 +488,13 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep) -> dict[str
                 room.session.perform(viewer, {"type": "rename_player", "name": name})
         except (ActionError, ValidationError) as exc:
             log.info("Could not apply joining player's name: %s", exc)
+    # (spectator activities) a spectator of this table taking a lobby seat brings the deck they queued while watching
+    if x_seat_token and not room.started and viewer in room.lobby_seats and room.seat_for_token(x_seat_token) == SPECTATOR:
+        queued = room.night.queued.pop(x_seat_token, None)
+        if queued is not None:
+            info = room.lobby_seats[viewer]
+            queued.collection = list(info.collection)
+            info.deck = info.queued = queued
     return {"game_id": room.id, "viewer": viewer, "token": token, "game": room.summary()}
 
 

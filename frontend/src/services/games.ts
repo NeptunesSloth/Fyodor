@@ -50,8 +50,9 @@ export async function importPackage(file: Blob): Promise<{ save: SaveSummary; as
   if (!res.ok) throw new ApiError(res.status, typeof body.detail === "string" ? body.detail : res.statusText, body);
   return body;
 }
-export const joinGame = (body: { code: string; name?: string; password?: string; seat?: string | null; spectate?: boolean }) =>
-  api.post<{ game_id: string; viewer: string; token: string; game: GameSummary }>("/join", body);
+/** `token`: a spectator of that table taking a seat sends theirs, so a deck they queued while watching comes along. */
+export const joinGame = (body: { code: string; name?: string; password?: string; seat?: string | null; spectate?: boolean }, token?: string | null) =>
+  api.post<{ game_id: string; viewer: string; token: string; game: GameSummary }>("/join", body, token ? { "X-Seat-Token": token } : undefined);
 export const lanInfo = () => api.get<{ addresses: string[]; port: number; bound_host: string; reachable: boolean }>("/lan-info");
 
 const seatKey = (gameId: string) => `fyodor.seat.${gameId}`;

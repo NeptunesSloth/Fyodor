@@ -268,6 +268,8 @@ export interface GameMeta {
   events?: MajorEvent[];
   /** Set only on a private practice table: the live game it belongs to (docs/ELIMINATION_HUB.md). */
   practice?: PracticeInfo;
+  /** Spectators' fake-point predictions, revealed once the game has a result (docs/SPECTATOR_ACTIVITIES_MILESTONE.md). */
+  predictions?: import("../services/spectate").PredictionRecap;
 }
 
 /** "Bob was eliminated.", "Final two players remain: …", "Alice wins." Built by the server from public facts only. */
@@ -322,6 +324,8 @@ export interface NightInfo {
     order_source?: NightInfo["order_source"];
     rolls?: Record<string, number>[];
   }[];
+  /** The host's table-wide switch for spectators' reactions (absent: on). */
+  reactions?: boolean;
 }
 
 /** How opening hands work at this table (see docs/MULLIGAN_RULES.md). */
@@ -589,6 +593,8 @@ export interface LobbySeat {
   ready: boolean;
   host: boolean;
   deck: LobbyDeckSummary | null;
+  /** Your own seat only: this deck is the one you queued while out of the last game (unchanged since). */
+  queued?: boolean;
 }
 
 export interface LobbyView {

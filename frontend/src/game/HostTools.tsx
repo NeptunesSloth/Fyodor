@@ -5,6 +5,7 @@ import { api } from "../services/api";
 import { seatToken } from "../services/games";
 import { useGame } from "../state/gameStore";
 import { isVisible, splitZone, type UndoPolicy } from "../types/game";
+import { setTableReactions } from "../services/spectate";
 import { send } from "./actions";
 import { UNDO_POLICIES } from "./undoPolicy";
 
@@ -107,8 +108,32 @@ export function HostToolsDialog({ onClose }: { onClose: () => void }) {
           <p className="hint">Undo (Ctrl+Z) restores anything deleted by mistake. Dice objects arrive with the tabletop toys.</p>
         </section>
         <UndoSetting />
+        {lan && <ReactionsSetting gameId={gameId} on={view.game.night?.reactions !== false} />}
       </div>
     </Modal>
+  );
+}
+
+/** (spectator activities) the table-wide switch for spectators' reactions; each player can still mute them in Settings. */
+function ReactionsSetting({ gameId, on }: { gameId: string; on: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const toggle = async (value: boolean) => {
+    setBusy(true);
+    try {
+      await setTableReactions(gameId, value);
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section>
+      <h3>Reactions</h3>
+      <label className="check"><input type="checkbox" checked={on} disabled={busy} data-testid="table-reactions"
+        onChange={(e) => void toggle(e.target.checked)} /> Spectators and players who are out can send reactions</label>
+      <p className="hint">For the whole table, for tonight. Each player can also hide reactions just for themselves in Settings.</p>
+    </section>
   );
 }
 
