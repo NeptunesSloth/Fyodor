@@ -71,6 +71,8 @@ interface GameStore {
   focus: string | null;
   stackOpen: boolean;
   logOpen: boolean;
+  /** The game the focus belongs to ("<table id>#<game of the night>"): a new game opens on the whole table. */
+  layoutGame: string | null;
   setLayout: (patch: Partial<Pick<GameStore, "focus" | "stackOpen" | "logOpen">>) => void;
 
   connect: (gameId: string, opts: { token?: string | null; viewer?: string | null }) => void;
@@ -161,6 +163,7 @@ export const useGame = create<GameStore>((set, get) => ({
   focus: null,
   stackOpen: true,
   logOpen: false,
+  layoutGame: null,
   setLayout: (patch) => set(patch),
 
   applyLobby: (lobby) =>
@@ -191,12 +194,16 @@ export const useGame = create<GameStore>((set, get) => ({
         for (const p of view.players) for (const cmd of p.commanders) if (cmd.card_id) ids.push(cmd.card_id);
         requestCards(ids);
         const dragged = new Set(Object.keys(get().pendingPositions)); // (cards the viewer just dragged: already where the hand put them)
+        const match = `${incoming.game.id}#${incoming.game.night?.number ?? 1}`;
         set((s) => ({
           view,
           lobby: null,
           pendingPositions: {},
           selection: s.selection.filter((id) => id in view.cards),
           actingAs: resolveActingAs(view, s.actingAs),
+          // a new game of the night (a rematch keeps the table id, as after the lobby): the last game's 2D focus (its end scene
+          // focused the winner's side) was that game's, so the table opens whole again; open panels stay (the player's choice)
+          ...(s.layoutGame !== match ? { layoutGame: match, focus: null } : {}),
         }));
         // -- table motion -- what just happened, for the tables to show (display only; game/motion/tableEvents.ts)
         if (prev && !replace && sameGame) publishTableEvents(prev, view, dragged);

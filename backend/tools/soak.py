@@ -315,8 +315,16 @@ class Bot:
         if kind == "declare_attackers":
             targets = [i[2:] for i in ids if i.startswith("t:")]
             attackers = [i[2:] for i in ids if i.startswith("a:")]
+            # as the client offers them: each creature's own legal targets (508.1c: Alexios "can't attack its owner"), and the creatures a
+            # requirement says attack pre-selected (508.1d: Khârn "attacks or blocks each combat if able"), at one of their best places
+            legal, must = display.get("targets"), display.get("must_attack") or {}
             go = rng.random() < 0.6
-            chosen = [{"card_id": a, "target": rng.choice(targets)} for a in attackers if go and rng.random() < 0.6]
+            chosen = []
+            for a in attackers:
+                if must.get(a):
+                    chosen.append({"card_id": a, "target": rng.choice(must[a])})
+                elif go and rng.random() < 0.6 and (places := targets if legal is None else legal.get(a, [])):
+                    chosen.append({"card_id": a, "target": rng.choice(places)})
             while chosen and not self.can_pay_attack(who, chosen):  # 508.1h: a player who can't pay the attack taxes attacks with fewer
                 chosen.pop()
             return {"type": "declare_attackers", "attackers": chosen}
@@ -511,6 +519,15 @@ class Privacy:
                 listed = state.cards.get(o.card_id or o.id)
                 if listed is not None and listed.owner == viewer:
                     seen.update(self.fingerprints(listed, self.cards))
+        r = state.rules
+        if r is not None and r.recent_turn == state.turn.number:
+            # its Repeat panel (rules.repeatable, its own moves this turn, for it alone) names the cards it picked in its own decisions
+            # ("Choose: Raugrin Triome" after scrying it to the bottom, 701.22a: it looked at it): its own cards. Anyone else's stays hidden.
+            for move in r.recent.get(viewer, []):
+                for oid in (move.get("option_ids") or []) if move.get("type") == "choose" else []:
+                    picked = state.cards.get(oid)
+                    if picked is not None and picked.owner == viewer:
+                        seen.update(self.fingerprints(picked, self.cards))
         shown = "\n".join(public)
         # a hidden card's name inside a longer visible one ("Badgermole" in "Badgermole Cub") isn't a leak: take the visible texts out first
         scrubbed = text

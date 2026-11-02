@@ -399,7 +399,51 @@ def start_declare_attackers(plan: Plan) -> None:
            + [DecisionOption(id=f"t:{t}", label=_label(plan.state, t), card_id=t if t in plan.state.cards else None)
               for t in targets],
            min_choices=0, max_choices=len(eligible), resume={"step": "declare_attackers"},
-           display=banding.declaration_options(plan, eligible))
+           display={**banding.declaration_options(plan, eligible), **attack_guide(plan, eligible, targets)})
+
+
+# -- attack guide (soak gaps) -- what the declaration offers each creature: the server's own checks, read before anything is declared
+def target_problem(plan: Plan, card: CardInstance, target: str) -> str | None:
+    """508.1c: the restriction that forbids this creature to attack this player, planeswalker or battle, if any ("can't attack its
+    owner", Alexios). declare_attackers refuses a declaration with it; the decision lists each creature's places without one."""
+    ch = plan.ch(card)
+    if attack_forbidden(plan, ch, target):  # -- attached events (wave 4L) -- (508.1c)
+        return f"{card.name} can't attack {_label(plan.state, target)}"
+    from app.rules import wave110k_cards  # -- (wave 110K) -- Frenzied Saddlebrute
+
+    if not wave110k_cards.sick_target_ok(plan, card, ch, target):
+        return f"{card.name} has summoning sickness and can't attack that"
+    if "attack_needs_island" in scripts.statics(ch):
+        defender = target if target in plan.state.players else defender_of(plan.state, A.AttackTarget(kind="card", id=target))
+        if not _controls_land(plan.state, defender or "", "Island", plan.info):
+            return f"{card.name} can't attack unless defending player controls an Island"
+    if _attacked_before(plan, card, ch, target):  # -- static_other sweep (wave 19A) -- 508.1c (Port Razer)
+        return f"{card.name} can't attack a player it has already attacked this turn"
+    return None
+
+
+def attack_guide(plan: Plan, eligible: list[str], targets: list[str]) -> dict[str, Any]:
+    """The declare-attackers decision's guide for the table (display): ``targets``, each creature's legal places (508.1c), and
+    ``must_attack``, each creature a requirement says attacks (attacks each combat if able, goad, "attacks that player if able"), with
+    the places that obey the most of its requirements without a restriction or a cost (508.1d: a cost to attack is never required).
+    Judged creature by creature, as goad_requirements judges them; a cap on attackers ("no more than two creatures can attack you") and
+    companion groups are weighed by declare_attackers over the whole declaration."""
+    from app.rules import attack_requirements, combat_rules
+    from app.rules.keyword_actions import goaded_by
+
+    places = {cid: [t for t in targets if target_problem(plan, plan.state.cards[cid], t) is None] for cid in eligible}
+    must: dict[str, list[str]] = {}
+    for cid in eligible:
+        card = plan.state.cards[cid]
+        ch = plan.ch(card)
+        if not (attack_requirements.counts(ch) or goaded_by(ch)) or ("cant_attack_alone" in scripts.statics(ch) and len(eligible) == 1):
+            continue
+        free = [t for t in places[cid] if not combat_rules.taxed(plan, ch, t, cid)]
+        scores = {t: attack_requirements.score(plan, ch, t) for t in free}
+        best = max(scores.values(), default=0)
+        if best > 0:
+            must[cid] = [t for t in free if scores[t] == best]
+    return {"targets": places, "must_attack": must}
 
 
 def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
@@ -433,19 +477,8 @@ def declare_attackers(plan: Plan, a: A.DeclareAttackers) -> None:
             raise ActionError(problem)
         if decl.target not in targets or decl.target not in current_targets:
             raise ActionError(f"{card.name} can't attack that")
-        if attack_forbidden(plan, plan.ch(card), decl.target):  # -- attached events (wave 4L) -- (508.1c)
-            raise ActionError(f"{card.name} can't attack {_label(plan.state, decl.target)}")
-        from app.rules import wave110k_cards  # -- (wave 110K) -- Frenzied Saddlebrute
-
-        if not wave110k_cards.sick_target_ok(plan, card, plan.ch(card), decl.target):
-            raise ActionError(f"{card.name} has summoning sickness and can't attack that")
-        if "attack_needs_island" in scripts.statics(plan.ch(card)):
-            defender = decl.target if decl.target in plan.state.players else \
-                defender_of(plan.state, A.AttackTarget(kind="card", id=decl.target))
-            if not _controls_land(plan.state, defender or "", "Island", plan.info):
-                raise ActionError(f"{card.name} can't attack unless defending player controls an Island")
-        if _attacked_before(plan, card, plan.ch(card), decl.target):  # -- static_other sweep (wave 19A) -- 508.1c (Port Razer)
-            raise ActionError(f"{card.name} can't attack a player it has already attacked this turn")
+        if (problem := target_problem(plan, card, decl.target)) is not None:  # 508.1c (the decision's guide reads the same checks)
+            raise ActionError(problem)
         if decl.card_id in seen:
             raise ActionError(f"{card.name} can only attack once")
         seen.add(decl.card_id)
