@@ -4272,6 +4272,18 @@ def _did_transform(fn: Any) -> Any:
 PRIMITIVES["transform"] = _did_transform(PRIMITIVES["transform"])
 
 
+def _pay_words(e: dict[str, Any]) -> str:
+    """"you may pay {1}" / "Pay 3 life" / "Sacrifice a creature" / an ``ask`` of its own, as a may prompt's words."""
+    if e.get("ask"):
+        return str(e["ask"])
+    cost = str(e.get("cost") or "")
+    if cost.lower().startswith("pay "):
+        cost = cost[4:]
+    elif cost[:1].isupper():
+        return cost[:1].lower() + cost[1:]
+    return f"pay {cost}" if cost else "pay"
+
+
 def describe(effects: list[dict[str, Any]]) -> str:
     if said := next((e["say110n"] for e in effects if e.get("say110n")), None):  # -- (wave 110N) -- an effect that words its own question (Vislor Turlough)
         return str(said).capitalize()
@@ -4287,9 +4299,11 @@ def describe(effects: list[dict[str, Any]]) -> str:
     # (an amount that is worked out as it resolves — "equal to its mana value", X — reads as X, not as its data)
     parts = [("discard any number" if e["do"] == "discard" else f"sacrifice up to {e['n']}" if isinstance(e.get("n"), int) and e["n"] < 10**6  # (wave 100B: "up to three")
               else "sacrifice any number") if e["do"] in ("discard", "sacrifice_choice") and e.get("upto")
+             else _pay_words(e) if e["do"] == "optional_payment"  # (pod deck audit: the Go-Shintai end-step triggers read "Optional_payment")
              else words.get(e["do"], e["do"]).format(**{k: "X" if isinstance(v, (dict, list)) else v for k, v in e.items()}) for e in effects
              if e["do"] not in ("kicked_gate", "record_action", "action_gate", "only_if", "note_resolution", "reflexive", "demonstrate_opponent", "may_rest", "vislor110n", "rinoa_pick110o", "cleansing110o", "tidal110o", "tidal_grant110o", "wipe_shield110o", "echo_offer110o", "secret_copy110o", "lore_bind110o", "collect110o", "arn_sacrifice110o", "note110o", "tomb_put110o", "tomb_delay110o", "tomb_remove110o", "alter_aura110o", "lion110o")]  # (wave 30G: "any number"; wave 110N: Vislor's goad follows the control change)
-    return (", ".join(parts) or "do it").capitalize()
+    said = ", ".join(parts) or "do it"
+    return said[:1].upper() + said[1:]  # (pod deck audit: not str.capitalize, which made "Draw X card(s)" "Draw x card(s)" and "{G}" "{g}")
 
 
 # -- delayed triggered abilities (603.7) and durations (611.2): app/rules/delayed.py (agent J) ------
