@@ -1,0 +1,83 @@
+// super clons (Archidekt 27945162): commander and main deck only
+Commander
+1x Adrix and Nev, Twincasters (mkc) 198
+Deck
+1x Rampaging Baloths (eoc) 104
+11x Island (mdd) 294
+11x Forest (mdd) 301
+1x Arcane Signet (trc) 485
+1x Command Tower (trc) 521
+1x Beast Within (trc) 459
+1x Hinterland Harbor (trc) 537
+1x Cultivate (trc) 460
+1x Dreamroot Cascade (sos) 254
+1x Yavimaya Coast (soc) 425
+1x Sol Ring (trc) 499
+1x Rampant Growth (trc) 468
+1x Kodama's Reach (ecc) 113
+1x Reliquary Tower (trc) 551
+1x Vineglimmer Snarl (trc) 417
+1x Growth Spiral (trc) 476
+1x Rejuvenating Springs (msc) 260
+1x Rapid Hybridization (soc) 198
+1x Rite of Replication (soc) 202
+1x Farseek (trc) 462
+1x Three Visits (msc) 181
+1x Esix, Fractal Bloom (mkc) 210
+1x Avenger of Zendikar (ecc) 98
+1x Reef Worm (mh3) 271
+1x Curiosity Crafter (soc) 191
+1x Double Major (stx) 179
+1x Pongify (trc) 441
+1x Perplexing Test (soc) 197
+1x Theoretical Duplication (woc) 112
+1x Replication Technique (soc) 200
+1x Sodden Verdure (trc) 404
+1x Combine Chrysalis (moc) 319
+1x Irenicus's Vile Duplication (clb) 78
+1x Spark Double (msc) 279
+1x Biovisionary (plst) GTC-146
+1x Koma, World-Eater (fdn) 121
+1x Boseiju, Who Endures (neo) 266
+1x Helm of the Host (msc) 200
+1x Willowrush Verge (dft) 270
+1x Heroic Intervention (trc) 303
+1x Doppelgang (mkm) 198
+1x Extravagant Replication (fdn) 154
+1x Scute Swarm (trc) 307
+1x Sakashima of a Thousand Faces (cmr) 89
+1x Bootleggers' Stash (drc) 110
+1x For the Common Good (blb) 172
+1x Biowaste Blob (cmr) 219
+1x Mystic Reflection (khm) 69
+1x Quantum Misalignment (msc) 152
+1x Octomancer (blc) 37
+1x Enduring Vitality (dsk) 176
+1x Awaken the Woods (bro) 170
+1x Verdant Kraken (fra) 118
+1x Echocasting Symposium (sos) 44
+1x City of Death (who) 99
+1x Mister Fantastic, Reed Richards (msh) 66
+1x Aggressive Biomancy (m3c) 121
+1x Skyclave Relic (moc) 380
+1x Council of Reeds (msc) 28
+1x Evendo, Waking Haven (eoe) 253
+1x Cryptolith Rite (inr) 189
+1x Oversimplify (soc) 322
+1x Multiversal Recruitment (msc) 629
+1x Craterhoof Behemoth (tdm) 138
+1x Eureka Moment (soc) 308
+1x Relm's Sketching (fin) 67
+1x Concordant Crossroads (2x2) 141
+1x Shamanic Revelation (fdc) 229
+1x Garruk's Uprising (ecc) 109
+1x Rhystic Study (j22) 114
+1x Primal Vigor (plst) C13-162
+1x Rally the Galadhrim (ltc) 499
+1x Season of Weaving (blb) 68
+1x Giant Adephage (dsc) 179
+1x Cyclonic Rift (rvr) 313
+1x Quasiduplicate (rvr) 55
+1x Cackling Counterpart (inr) 55
+1x Counterspell (fdc) 61
+1x Defense of the Heart (plst) ULG-100

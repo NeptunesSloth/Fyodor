@@ -17,6 +17,9 @@ The proof that nothing else changed:
   (Wave 110 fix: the rules view gained ``attacking_bands`` (702.22) and ``draw_reason`` (104.4) on every table, an attackers decision
   shows its banding ``display``, and Dream Halls' alternative cost is read, so the ``free_casts`` board and ``play_through`` list it on
   each spell sharing a color with another card in hand, Krenko from the command zone included; nothing else in the golden moved.)
+  (Soak fix: the castability hint leaves out a spell cast_spell refuses for want of a legal target (601.2c), so Counterspell, Daze, Force of
+  Will, Mental Misstep, Misdirection and Remand with an empty stack, and Cyclonic Rift with no opponent's nonland permanent, are no longer
+  listed as castable; nothing else in the golden moved.)
 * the same boards with the pass switched off (the old code path, still there for every engine action) must give the same views;
 * a pass is read-only by construction: the table is the same at the end, and no value is stored in it while the table differs from its start;
 * it ends with the call (nothing survives to the next action), belongs to one thread, one table object and one card info, and a probe's copy of

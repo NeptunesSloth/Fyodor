@@ -2281,6 +2281,10 @@ def _tap_display(plan: Plan, player: str, cost: M.ManaCost, what: str, resume: d
         if cid not in exclude and can_use_tap_abilities(plan.state, card, plan.ch(card), plan.info) and any(
                 ab.reveal_hand is not None for _, ab in mana_abilities(plan.state, card, plan.info)):
             sources.append(cid)
+    # -- hint/cast agreement (soak) -- a source whose mana abilities all sacrifice it (a Treasure) isn't offered to pay for the spell or ability
+    # that targets it: the cast is carried out again once the cost is covered, and that refuses a chosen target that has left the table
+    if chosen := set((resume.get("intent") or {}).get("targets") or ()):
+        sources = [cid for cid in sources if cid not in chosen or not all(ab.sacrifice_self for _, ab in mana_abilities(plan.state, plan.state.cards[cid], plan.info))]
     spell, spell_card = _prompt_spell(plan, resume)
     usable = available_helpers(plan.state, player, plan.info, spell, spell_card) if spell is not None else []
     by_kind: dict[str, list[str]] = {k: [] for k in P.KINDS}
@@ -3249,7 +3253,10 @@ def life_x_problem(plan: Plan, extra: AbilityCost, a: Any, player: str) -> str |
     return None
 
 
-def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True) -> bool:
+def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, *, check_priority: bool = True,
+             announce: bool = False) -> bool:
+    """Could ``player`` cast this card now (timing, permissions, costs)? ``announce`` (the hint): also choose its modes and required
+    targets (``announce_problem``)."""
     from app.rules import dynamic_zone_keyword_costs56
 
     faces = dynamic_zone_keyword_costs56.foretell_faces(state, player, card, info) or ((0, 1) if chars.is_two_spell_card(card, info) else (None,))
@@ -3264,6 +3271,8 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
         extra = None if manual else costs.spell_additional_cost(ch.abilities)
         if extra is not None and additional_problem(permissions._view(state, player, info), extra, card, player):
             continue  # (wave 3$) the additional cost can't be paid: not offered
+        if announce and not manual and announce_problem(state, player, card, ch, info) is not None:
+            continue  # -- hint/cast agreement (soak) -- cast_spell would refuse it: no mode or no legal target
         grant = cast_grant(state, player, card, ch, info)
         from app.rules import permission_spell_keywords, wave110a_grants, wave110g_cards
 
@@ -3313,6 +3322,46 @@ def castable(state: GameState, player: str, card: CardInstance, info: CardInfo, 
                                reserve=(extra.life if extra is not None else 0) + (grant_extra.life if grant_extra is not None else 0) + (fb_more.life if fb_more is not None else 0) + life_due):
                         return True
     return False
+
+
+def announce_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, info: CardInfo) -> str | None:
+    """-- hint/cast agreement (soak) -- why the castability hint mustn't offer this spell: 601.2b / 700.2a no mode can be chosen, 601.2c a
+    required target group can't get its legal targets ("Counter target spell." with an empty stack; "Destroy target creature." with no
+    creature), so the cast is illegal (601.5) and cast_spell refuses it. The checks made before a free cast is offered (free_cast_problem,
+    X is 0); a spell whose targets depend on its kicker (702.33g, kicked_instead) is left to the cast, where kicking is announced."""
+    if any("kicked" in g for g in scripts.target_groups(scripts.spell_definition(ch))):
+        return None
+    return free_cast_problem(permissions._view(state, player, info), player, card, ch)
+
+
+def ability_target_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, ab: AbilityText,
+                           info: CardInfo) -> str | None:
+    """-- hint/cast agreement (soak) -- 602.2b → 601.2c: an activated ability (not a modal one) a required target group of which can't get its
+    legal targets can't be activated, and activate_ability refuses it ("Boseiju, Who Endures's ability has no legal target": its channel
+    with no artifact, enchantment or nonbasic land an opponent controls), so the hint doesn't offer it. The target check made before a free
+    cast is offered (free_cast_problem), for the ability's definition; X is 0."""
+    from app.rules.targets import group_limits
+
+    if state.rules is not None and state.rules.card_mode(card.id) == "manual":
+        return None
+    definition = scripts.definitions(ch).get(ab.index)
+    if definition is None or definition.get("kind") != "activated" or definition.get("modes"):
+        return None
+    plan = Plan.view(state, player, info)
+    prev, plan.actor = plan.actor, player
+    try:
+        definition = per_opponent.for_cast(plan, card.id, definition)
+        specs = scripts.target_groups(definition)
+        if not specs:
+            return None
+        src = source_of(plan, card.id)
+        for spec in specs:
+            lo, hi = (0, 0) if "x_value" in spec or (spec.get("divide") or {}).get("value") is not None else group_limits(spec, None)
+            if hi < lo or player_relative.room(plan, spec, specs, lambda w: legal_targets(plan, w, player, src, card.id)) < lo:
+                return f"{ch.name or 'Its'}’s ability has no legal target"
+        return None
+    finally:
+        plan.actor = prev
 
 
 def announces_x(card: CardInstance, info: CardInfo) -> bool:
@@ -3421,9 +3470,9 @@ def optional_castable(state: GameState, player: str, card: CardInstance, info: C
     for offer in cost_changes.optional_offers(state, player, card, ch, info):
         if state.players[player].life < offer.life or (offer.life and spendable_life(state, player, info) == 0):  # (wave 22B: 119.4)
             continue
-        if offer.kind and cost_payment.problem(permissions._view(state, player, info),
-                                               costs.AbilityCost(components=(cost_changes.keyword_component(offer),)), card, player):
-            continue  # (-- static_other sweep (wave 17C) -- conspire / teamwork: the creatures to tap aren't there)
+        if offer.kind and (keyword_part := cost_changes.keyword_component(offer)) is not None and cost_payment.problem(
+                permissions._view(state, player, info), costs.AbilityCost(components=(keyword_part,)), card, player):
+            continue  # (-- static_other sweep (wave 17C) -- conspire / teamwork: the creatures to tap aren't there; soak: a gift's has no part, 702.174a)
         part = cost_changes.keyword_component(offer) if offer.kind in ("reduce", "bargain") or (offer.kind == "evidence" and offer.n) else None  # -- cost reductions paid with objects (wave 47C) -- the most the objects it can take
         paid_offerings = offering_paid(state, player, card, ch, info) if offer.kind == "offering" else []
 
@@ -6130,6 +6179,11 @@ def _mana_while_paying(plan: Plan, a: A.ActivateAbility) -> None:
     parsed = dict(mana_abilities(plan.state, card, plan.info)).get(a.ability) if ability.kind == "mana" else None
     if parsed is None:
         raise ActionError("While paying you can only tap for mana")
+    if parsed.sacrifice_self and d is not None and card.id in (((d.resume or {}).get("intent") or {}).get("targets") or ()):
+        # -- hint/cast agreement (soak) -- 601.2g lets a player sacrifice a target for mana (the spell then has an illegal target, 608.2b),
+        # but the engine carries the cast out again once the cost is covered and refuses a chosen target that has left the table: refused
+        # here, before anything is sacrificed, instead of after (where only cancelling was left)
+        raise ActionError(f"{ch.name} is a target of what you're paying for: pay with other mana")
     if parsed.tap and not can_use_tap_abilities(plan.state, card, ch, plan.info):
         raise ActionError(f"{ch.name} is tapped" if card.tapped else f"{ch.name} has summoning sickness")
     if parsed.reveal_hand is not None:
@@ -6864,8 +6918,10 @@ def _post_activation(plan: Plan, data: _PostActivation, paid: M.Payment | None) 
 
 
 @read_pass.adopting(info_at=2)
-def activatable(state: GameState, player: str, info: CardInfo, *, check_priority: bool = True) -> list[dict[str, Any]]:
-    """Abilities of ``player``'s permanents that could be activated right now (for hints)."""
+def activatable(state: GameState, player: str, info: CardInfo, *, check_priority: bool = True,
+                announce: bool = False) -> list[dict[str, Any]]:
+    """Abilities of ``player``'s permanents that could be activated right now (for hints). ``announce`` (the hint): also choose the
+    ability's required targets (``ability_target_problem``)."""
     out: list[dict[str, Any]] = []
     for cid in [c for zone, ids in state.zones.items() if zone.endswith(":battlefield") for c in ids]:
         card = state.cards[cid]
@@ -6876,6 +6932,8 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
             if ab.kind in ("activated", "loyalty"):
                 problem = ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),
                                           check_priority=check_priority, info=info)
+                if problem is None and announce:  # -- hint/cast agreement (soak) --
+                    problem = ability_target_problem(state, player, card, ch, ab, info)
                 if problem is None:
                     cost = ability_cost(ch, ab, state=state, card=card, info=info)
                     # (wave 24D) 107.3k: X announced as the ability is activated ("{X}, {T}:", "Sacrifice X …", −X, "Pay X {E}")
@@ -6894,7 +6952,8 @@ def activatable(state: GameState, player: str, info: CardInfo, *, check_priority
             if ab.kind == "activated" and ability_cost(ch, ab).from_hand and \
                     ability_problem(state, player, card, ch, ab, ability_cost(ch, ab, state=state, card=card, info=info),  # (wave 4I)
                                     check_priority=check_priority,
-                                    info=info) is None:
+                                    info=info) is None \
+                    and not (announce and ability_target_problem(state, player, card, ch, ab, info)):  # (soak: channel's target, Boseiju)
                 out.append({"card_id": cid, "ability": ab.index})
     for cid in state.zones.get(zone_key(player, "command"), []):  # -- activated from hand / command zone (wave 27D) -- 113.6m
         card = state.cards[cid]
