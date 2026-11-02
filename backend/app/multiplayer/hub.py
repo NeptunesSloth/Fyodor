@@ -22,6 +22,7 @@ from typing import Any, Literal
 from app.game import undo_requests, undo_rights
 from app.game.factory import PLAYER_COLORS
 from app.game.session import GameSession
+from app.game.summary import player_commanders
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.elimination import PracticeLink, Pulse
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
@@ -157,7 +158,9 @@ class Room:
             or f"Seat {pid[1:]}"
         )
 
-    def summary(self) -> dict[str, Any]:
+    def summary(self, *, commanders: bool = False) -> dict[str, Any]:
+        """The table at a glance. ``commanders`` adds each player's commanders and seat colour once the game has started (public:
+        they began face up in the command zone), for the Play page's tiles."""
         common = {
             "id": self.game_id,
             "mode": self.mode,
@@ -196,6 +199,7 @@ class Room:
                     "name": st.players[pid].name,
                     "claimed": self.seats[pid].token is not None,
                     "connected": self.seats[pid].connections > 0,
+                    **({"color": st.players[pid].color, "commanders": player_commanders(st, pid)} if commanders else {}),
                 }
                 for pid in st.seat_order
             ],
