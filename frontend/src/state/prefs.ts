@@ -7,6 +7,7 @@
  * The stored data is versioned; `migrateProfiles` upgrades anything older.
  */
 import { DEFAULT_PLANE, type PlaneId } from "../theme/planes";
+import type { DiceLook } from "../game/dice";
 import { create } from "zustand";
 
 export const PROFILE_VERSION = 2;
@@ -46,6 +47,8 @@ export interface Prefs {
   showTokenSources: boolean;
   /** 3D table: let go of your cards while moving them and they slide on, knocking others aside (a flick). */
   cardPhysics: boolean;
+  /** What thrown dice are made of, on this screen (table3d/diceLook.ts); each player's dice keep their seat colour. */
+  diceLook: DiceLook;
   hud: "full" | "minimal";
   uiScale: number;
   inspectSize: "normal" | "large";
@@ -88,6 +91,7 @@ export const DEFAULT_PREFS: Prefs = {
   autoCenter: "off",
   showTokenSources: false,
   cardPhysics: true,
+  diceLook: "resin",
   hud: "full",
   uiScale: 1,
   inspectSize: "normal",

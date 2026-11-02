@@ -1,0 +1,127 @@
+/* The thrown dice's labels (table3d/diceHud.ts), the 2D table's dice overlay and drawn fallback (game/DiceLayer.tsx),
+   the die glyphs (game/DieGlyph.tsx) and the roll panel (game/DicePanel.tsx). */
+
+/* ---- chips over landed dice and the line by the roller ------------------------------------------------------------ */
+.dice-hud { position: absolute; inset: 0; pointer-events: none; z-index: 6; overflow: hidden; }
+.dice-hud.fixed { position: fixed; z-index: 45; }
+.dice-hud-throw { position: absolute; inset: 0; transition: opacity 220ms var(--ease-out); }
+.dice-chip, .dice-line {
+  position: absolute; left: 0; top: 0; pointer-events: none; opacity: 0; will-change: transform;
+  font-family: var(--font-ui); color: var(--room-bone); cursor: pointer;
+  transition: opacity calc(160ms * var(--anim-scale, 1)) var(--ease-out);
+}
+.dice-chip.on, .dice-line.on { opacity: 1; pointer-events: auto; }
+.dice-chip {
+  display: grid; justify-items: center; min-width: 28px; height: 26px; padding: 0 7px; border-radius: 13px;
+  background: rgba(16, 13, 10, 0.9); border: 2px solid var(--seat, var(--accent));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+  font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 22px;
+}
+.dice-chip:hover { border-color: var(--room-bone); }
+.dice-chip.crit-high { border-color: #e9c46f; color: #ffe2a0; box-shadow: 0 0 0 3px rgba(233, 196, 111, 0.22), 0 2px 6px rgba(0, 0, 0, 0.55); }
+.dice-chip.crit-low { border-color: #b4584f; color: #f2b2a9; }
+.dice-chip.ignored { height: 34px; border-style: dashed; border-color: rgba(181, 173, 158, 0.6); color: var(--text-faint); background: rgba(16, 13, 10, 0.78); line-height: 16px; padding-top: 2px; }
+.dice-chip.ignored .dice-chip-n { text-decoration: line-through 2px; }
+.dice-chip-tag { font-size: 9px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; line-height: 10px; }
+.dice-line {
+  display: flex; align-items: center; gap: 8px; max-width: 360px; padding: 4px 6px 4px 10px; border-radius: 4px;
+  background: rgba(16, 13, 10, 0.92); border: 1px solid rgba(215, 174, 99, 0.28); border-left: 3px solid var(--seat, var(--accent));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5); font-size: 13px; font-weight: 600; white-space: nowrap; text-align: left;
+}
+.dice-line-text { overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.dice-line-tag {
+  font-family: var(--font-display); font-size: 11px; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 3px;
+  background: rgba(233, 196, 111, 0.16); color: #f3d38d;
+}
+.dice-line.crit-low .dice-line-tag { background: rgba(180, 88, 79, 0.2); color: #f2b2a9; }
+.dice-line-x { color: var(--text-faint); font-size: 15px; line-height: 1; padding: 0 2px; }
+.dice-line:hover .dice-line-x, .dice-line:focus-visible .dice-line-x { color: var(--room-bone); }
+.dice-line:focus-visible, .dice-chip:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+body.reduced-motion .dice-chip, body.reduced-motion .dice-line, body.reduced-motion .dice-hud-throw { transition: none; }
+
+/* ---- the 2D table: the 3D dice overlay, or drawn dice without WebGL ---------------------------------------------- */
+.dice-overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 44; }
+.dice-layer { position: fixed; inset: 0; pointer-events: none; z-index: 45; }
+.dice2d { position: absolute; left: 0; top: 0; width: var(--d); height: var(--d); margin: calc(var(--d) / -2) 0 0 calc(var(--d) / -2); }
+.dice2d-shadow {
+  position: absolute; left: 12%; right: 12%; bottom: -10%; height: 26%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.5), transparent); animation: dice2d-shadow var(--t) var(--ease-out) both;
+}
+.dice2d-body { position: absolute; inset: 0; animation: dice2d-throw var(--t) cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.dice2d-body .die-glyph { width: 100%; height: 100%; animation: dice2d-spin var(--t) cubic-bezier(0.15, 0.75, 0.25, 1) both; }
+.dice2d .die-glyph-n { opacity: 0; animation: dice2d-reveal var(--t) step-end both; }
+.dice2d-body, .dice2d-body .die-glyph, .dice2d-shadow, .dice2d .die-glyph-n { animation-delay: var(--delay, 0ms); }
+.dice2d.crit-high::before, .dice2d.crit-low::before {
+  content: ""; position: absolute; inset: -18%; border-radius: 50%; animation: dice2d-reveal var(--t) step-end both;
+  background: radial-gradient(closest-side, transparent 62%, rgba(242, 201, 108, 0.55) 74%, transparent 100%);
+}
+.dice2d.crit-low::before { background: radial-gradient(closest-side, transparent 62%, rgba(184, 70, 61, 0.45) 74%, transparent 100%); }
+.dice2d.ignored .die-glyph { filter: grayscale(0.8) brightness(0.6); }
+.dice2d.ignored .die-glyph-n { text-decoration: line-through; }
+@keyframes dice2d-throw {
+  0% { transform: translate(var(--fx), var(--fy)) scale(1.3); opacity: 0; }
+  8% { opacity: 1; }
+  45% { transform: translate(calc(var(--bx) * 0.4), calc(var(--by) * 0.4)) scale(1.05); }
+  58% { transform: translate(calc(var(--bx) * 0.25), calc(var(--by) * 0.25 - 14px)) scale(1.04); }
+  72% { transform: translate(calc(var(--bx) * 0.1), calc(var(--by) * 0.1)) scale(1); }
+  82% { transform: translate(calc(var(--bx) * 0.04), calc(var(--by) * 0.04 - 4px)) scale(1); }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes dice2d-spin {
+  0% { transform: rotate(calc(var(--spin) * 1turn)); }
+  100% { transform: rotate(var(--rest)); }
+}
+@keyframes dice2d-shadow {
+  0% { opacity: 0; transform: scale(1.6) translate(var(--fx), var(--fy)); }
+  45% { opacity: 0.7; }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes dice2d-reveal { 0% { opacity: 0; } 100% { opacity: 1; } }
+body.reduced-motion .dice2d-body, body.reduced-motion .dice2d-body .die-glyph, body.reduced-motion .dice2d-shadow { animation: none; }
+body.reduced-motion .dice2d .die-glyph-n { animation: none; opacity: 1; }
+
+/* ---- die glyphs (shaded polyhedra; panel buttons, toy tray, the drawn dice) --------------------------------------- */
+.die-glyph { display: block; overflow: visible; }
+.die-glyph-n { font-family: var(--font-display); font-weight: 700; fill: var(--glyph-ink, #17120d); }
+
+/* ---- the roll panel ------------------------------------------------------------------------------------------------ */
+.dice-panel {
+  position: fixed; z-index: 60; left: 12px; bottom: 52px; width: 344px; padding: 12px; border-radius: var(--radius);
+  background: linear-gradient(180deg, #1d1f21, #131517); border: 1px solid var(--hud-edge); box-shadow: var(--shadow); color: var(--text);
+  transform-origin: 30px 100%; animation: dice-panel-in var(--dur-popover) var(--ease-out);
+}
+@keyframes dice-panel-in { from { opacity: 0; transform: translateY(6px) scale(0.98); } }
+body.reduced-motion .dice-panel { animation: none; }
+.dice-panel-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.dice-panel-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.03em; color: var(--accent-2); }
+.dice-panel-head kbd, .dice-panel-hint kbd { font-family: var(--font-ui); font-size: 11px; padding: 0 4px; border: 1px solid var(--line-2); border-radius: 3px; color: var(--text-dim); }
+.dice-panel-head .spacer { flex: 1; }
+.dice-kinds { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.dice-kind {
+  display: grid; justify-items: center; gap: 2px; padding: 6px 0 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line); color: var(--text-dim); font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: border-color var(--dur-hover) var(--ease-out), background var(--dur-hover) var(--ease-out);
+}
+.dice-kind:hover { border-color: var(--line-2); color: var(--text); }
+.dice-kind[aria-pressed="true"] { border-color: var(--frame-hi); background: var(--frame-inner); color: var(--text); }
+.dice-kind .die-glyph { width: 34px; height: 34px; }
+.dice-roll-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.dice-count { display: flex; align-items: center; border: 1px solid var(--line-2); border-radius: 4px; overflow: hidden; }
+.dice-count button { width: 30px; height: 32px; background: transparent; border: 0; color: var(--text); font-size: 16px; cursor: pointer; }
+.dice-count button:disabled { color: var(--text-faint); cursor: default; }
+.dice-count button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); }
+.dice-count output { min-width: 26px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.dice-roll-row .tt-btn.brass { flex: 1; justify-content: center; min-height: 34px; font-weight: 700; }
+.dice-quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.dice-quick .tt-btn { min-height: 26px; padding: 2px 10px; font-size: 12.5px; }
+.dice-custom { display: flex; gap: 6px; margin-top: 8px; }
+.dice-custom input { flex: 1; min-width: 0; height: 28px; padding: 0 8px; border-radius: 4px; border: 1px solid var(--line-2); background: rgba(0, 0, 0, 0.25); color: var(--text); font: inherit; font-size: 13px; }
+.dice-custom .tt-btn { min-height: 28px; padding: 2px 10px; font-size: 12.5px; }
+.dice-recent { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.dice-recent-head { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; }
+.dice-recent ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.dice-recent li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-dim); min-height: 26px; }
+.dice-recent li .who { width: 8px; height: 8px; border-radius: 50%; background: var(--seat, var(--accent)); flex: none; }
+.dice-recent li .what { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dice-recent li .tt-btn { min-height: 22px; padding: 0 8px; font-size: 12px; }
+.dice-panel-hint { margin: 8px 0 0; font-size: 11.5px; color: var(--text-faint); }
