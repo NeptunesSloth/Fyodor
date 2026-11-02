@@ -106,6 +106,16 @@ def candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstanc
     return [c for c in found if c not in spoken] if spoken else found
 
 
+def picks(plan: Plan, comp: CostComponent, player: str, source: CardInstance) -> int:
+    """-- pod deck audit (Disa) -- how many picks an "any number of" part offers: one per object, or for counters removed "from among" creatures one
+    per counter of that kind (122.1, as _choose_any asks them). Hierophant Bio-Titan: three +1/+1 counters on one Taurean Mauler are three picks,
+    {6} off its cost; the menu's hint counted the one creature ({2})."""
+    usable = candidates(plan, comp, player, source)
+    if comp.kind == C.REMOVE_COUNTER and comp.among:
+        return sum(1 for _, kind in counter_tokens(plan, usable).values() if comp.counter in (C.ANY_COUNTER, kind))
+    return len(usable)
+
+
 def _candidates(plan: Plan, comp: CostComponent, player: str, source: CardInstance) -> list[str]:
     if comp.kind == C.CRAFT:  # -- casting extras (wave 18E) -- 702.167a-b: permanents you control (selector) and/or cards in your graveyard (alt)
         out = []
