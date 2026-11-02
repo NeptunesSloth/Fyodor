@@ -5,6 +5,8 @@ import { resolveRenderer } from "../table3d/renderer";
 import type { ToyTrayScene } from "../table3d/toyTray";
 import type { GameView } from "../types/game";
 import { play } from "./sound";
+import { DieGlyph } from "./DieGlyph";
+import "./dice.css";
 import {
   DIE_KINDS, MAX_DICE, TALLY_MAX, TALLY_MIN, addDie, emptyPool, keepRoll, loadToys, poolLabel, poolOf, poolSize,
   rollHeadline, rollLine, rollPool, rollTotal, saveToys, secureInt, sidesOf, spinPath, spinPlayers,
@@ -17,13 +19,12 @@ import "./toys.css";
  * DICE & TOYS (docs/ELIMINATION_HUB.md): something light for a player who is out, or a spectator, while the game goes
  * on. A dice tray (d4 … d20 and a coin, several at once, with a short history), a random player that is clearly just
  * for fun, and a tally. Everything stays in this browser (game/toys.ts): nothing is sent, and the live table's dice,
- * log and sounds are untouched. The dice are the table's own: the 3D tray throws them with table3d/dice.ts, the 2D
- * tray with the 2D table's throw (DiceLayer's die2d look), which is also the fallback without WebGL or on low graphics.
+ * log and sounds are untouched. The dice are the table's own: the 3D tray throws them with table3d/dice.ts (with their
+ * own clatter), the 2D tray with the drawn dice (game/DieGlyph.tsx), the fallback without WebGL or on low graphics.
  */
 
 type Tab = "dice" | "spin" | "tally";
 const TABS: { id: Tab; label: string }[] = [{ id: "dice", label: "Dice tray" }, { id: "spin", label: "Random player" }, { id: "tally", label: "Tally" }];
-const SHAPE: Record<DieKind, string> = { d4: "d4", d6: "d6", d8: "d8", d10: "d10", d12: "d12", d20: "d20", coin: "coin" };
 const NAME: Record<DieKind, string> = { d4: "d4", d6: "d6", d8: "d8", d10: "d10", d12: "d12", d20: "d20", coin: "coin" };
 
 const reducedMotion = () => {
@@ -91,6 +92,9 @@ export function TableToys({ view, viewer, onClose }: { view: GameView; viewer?: 
 
 // -- the dice tray -----------------------------------------------------------------------------------------------------
 
+/** Whether the tray will be the 3D one (as TrayView decides). */
+const threeTray = () => usePrefs.getState().graphics !== "low" && resolveRenderer(usePrefs.getState().renderer) === "3d";
+
 function DiceToy({ saved, update, color, enter }: {
   saved: ToysSaved;
   update: (fn: (s: ToysSaved) => ToysSaved) => void;
@@ -105,7 +109,8 @@ function DiceToy({ saved, update, color, enter }: {
     if (!roll) return;
     setLast(roll);
     update((s) => keepRoll(s, roll));
-    play(roll.groups.every((g) => g.kind === "coin") ? "coin" : "dice"); // this browser only
+    // this browser only; the 3D tray's dice make their own sound as they land
+    if (!threeTray()) play(roll.groups.every((g) => g.kind === "coin") ? "coin" : "dice");
   }, [pool, update]);
   enter.current = () => rollThis();
   const add = (kind: DieKind, delta: number) => update((s) => ({ ...s, pool: addDie(s.pool, kind, delta) }));
@@ -117,7 +122,7 @@ function DiceToy({ saved, update, color, enter }: {
           <div key={k} className={`toys-die ${pool[k] ? "on" : ""}`}>
             <button className="toys-add" onClick={() => add(k, 1)} disabled={addDie(pool, k, 1) === pool}
               aria-label={`Add a ${NAME[k]}`} title={`Add a ${NAME[k]}`} data-testid={`toys-add-${k}`}>
-              <span className={`die2d ${SHAPE[k]}`} aria-hidden>{k === "coin" ? "H" : sidesOf(k)}</span>
+              <DieGlyph kind={k} value={k === "coin" ? "H" : String(sidesOf(k))} color={color} />
               <span className="toys-kind">{NAME[k]}</span>
             </button>
             <div className="toys-step">
@@ -175,14 +180,14 @@ function TrayView({ roll, color }: { roll: Roll | null; color: string }) {
   const three = !failed && graphics !== "low" && resolveRenderer(renderer) === "3d";
   return (
     <div className={`toys-tray ${three ? "is-3d" : ""}`} data-testid="toys-tray">
-      {three ? <Tray3D roll={roll} color={color} quality={graphics === "high" ? "high" : "medium"} onFail={() => setFailed(true)} /> : <Tray2D roll={roll} />}
+      {three ? <Tray3D roll={roll} color={color} quality={graphics === "high" ? "high" : "medium"} onFail={() => setFailed(true)} /> : <Tray2D roll={roll} color={color} />}
       {!roll && <span className="toys-tray-empty">Pick dice, then roll</span>}
     </div>
   );
 }
 
-/** The 2D table's throw (DiceLayer): each die tumbles in from the near edge and rests, number up. */
-function Tray2D({ roll }: { roll: Roll | null }) {
+/** The drawn dice (as the 2D table's, game/DiceLayer.tsx): each die tumbles in from the near edge and rests, number up. */
+function Tray2D({ roll, color }: { roll: Roll | null; color: string }) {
   if (!roll) return null;
   let i = 0;
   return (
@@ -192,8 +197,8 @@ function Tray2D({ roll }: { roll: Roll | null }) {
           {g.results.map((v, j) => {
             const n = i++;
             return (
-              <span key={j} className="die2d-wrap" style={{ ["--i" as string]: n, ["--fx" as string]: `${((n * 47) % 140) - 70}px`, ["--fy" as string]: "150px" }}>
-                <span className={`die2d ${SHAPE[g.kind]}`}>{g.kind === "coin" ? (v ? "H" : "T") : v}</span>
+              <span key={j} className="die2d-wrap toys-glyph" style={{ ["--i" as string]: n, ["--fx" as string]: `${((n * 47) % 140) - 70}px`, ["--fy" as string]: "150px" }}>
+                <DieGlyph kind={g.kind} value={g.kind === "coin" ? (v ? "H" : "T") : String(v)} color={color} />
               </span>
             );
           })}
@@ -220,7 +225,7 @@ function Tray3D({ roll, color, quality, onFail }: { roll: Roll | null; color: st
     const speed = usePrefs.getState().animationSpeed || 1;
     try {
       s.throw(r.groups.map((g) => ({ key: `${r.id}:${g.kind}`, sides: sidesOf(g.kind), coin: g.kind === "coin", results: g.results })),
-        { reduced: reducedMotion(), speed, color: c });
+        { reduced: reducedMotion(), speed, color: c, look: usePrefs.getState().diceLook });
     } catch {
       fail.current();
     }
@@ -231,7 +236,7 @@ function Tray3D({ roll, color, quality, onFail }: { roll: Roll | null; color: st
     import("../table3d/toyTray").then((m) => {
       if (!alive || !canvas.current) return;
       try {
-        made = new m.ToyTrayScene(canvas.current, quality);
+        made = new m.ToyTrayScene(canvas.current, quality, usePrefs.getState().diceLook);
         scene.current = made;
         throwIt();
       } catch {

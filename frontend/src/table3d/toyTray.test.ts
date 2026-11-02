@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { dieShape } from "./dice";
-import { ToyTrayScene, planTray, type TrayGroup } from "./toyTray";
+import { ToyTrayScene, laneEnv, planTray, type TrayGroup } from "./toyTray";
 
 // no WebGL here: a stand-in renderer that records what the tray asks of it
 const made: { disposed: number; lost: number; renders: number }[] = [];
@@ -30,37 +29,22 @@ vi.mock("three", async (importOriginal) => {
 });
 
 const group = (sides: number, n: number, coin = false) => ({ sides, coin, results: Array.from({ length: n }, () => 1) });
-const radius = (g: { sides: number; coin: boolean }) => (g.coin ? 0.3 : dieShape(g.sides).radius);
-
-/** Where DiceTray (table3d/dice.ts) puts die i of n as it leaves the hand: four abreast, rows behind. */
-function spawn(plan: ReturnType<typeof planTray>, lane: number, r: number, i: number, n: number) {
-  const { from } = plan.lanes[lane]!;
-  const step = r * 2 + 0.15;
-  const row = Math.floor(i / 4);
-  const inRow = Math.min(4, n - row * 4);
-  return { x: from.x + ((i % 4) - (inRow - 1) / 2) * step, z: from.z + row * step };
-}
 
 describe("the 3D dice & toys tray: lanes", () => {
-  it("gives each kind of die its own lane, inside the tray, as the dice leave the hand", () => {
+  it("gives each kind of die its own lane, side by side inside the tray", () => {
     for (const groups of [[group(6, 3), group(20, 1)], [group(4, 4), group(6, 4), group(8, 4)], [group(20, 8), group(6, 2, true)], [group(12, 1)]]) {
       const plan = planTray(groups);
-      const spans = groups.map((g, lane) => {
-        const r = radius(g);
-        const xs = g.results.map((_, i) => spawn(plan, lane, r, i, g.results.length));
-        for (const p of xs) {
-          expect(p.x - r).toBeGreaterThan(plan.bounds.minX);
-          expect(p.x + r).toBeLessThan(plan.bounds.maxX);
-          expect(p.z + r).toBeLessThan(plan.bounds.maxZ);
-          expect(p.z - r).toBeGreaterThan(plan.bounds.minZ);
-        }
-        // thrown straight down its lane, toward the far rim
-        const target = plan.lanes[lane]!.land(0, 1);
-        expect(target.x).toBeCloseTo(plan.lanes[lane]!.from.x);
-        expect(target.z).toBeLessThan(plan.lanes[lane]!.from.z);
-        return [Math.min(...xs.map((p) => p.x)) - r, Math.max(...xs.map((p) => p.x)) + r] as const;
+      plan.lanes.forEach((lane, i) => {
+        expect(lane.x - lane.width / 2).toBeGreaterThan(plan.bounds.minX);
+        expect(lane.x + lane.width / 2).toBeLessThan(plan.bounds.maxX);
+        if (i) expect(lane.x - lane.width / 2).toBeGreaterThan(plan.lanes[i - 1]!.x + plan.lanes[i - 1]!.width / 2);
+        // thrown from the near rim toward the far one, inside the tray
+        const env = laneEnv(plan, lane, []);
+        expect(env.hand.z + lane.radius).toBeLessThan(plan.bounds.maxZ);
+        expect(env.land.maxZ).toBeLessThan(env.hand.z);
+        expect(env.land.minX + lane.x).toBeGreaterThan(plan.bounds.minX);
+        expect(env.land.maxX + lane.x).toBeLessThan(plan.bounds.maxX);
       });
-      for (let i = 1; i < spans.length; i++) expect(spans[i]![0]).toBeGreaterThan(spans[i - 1]![1]);
     }
   });
 
@@ -76,8 +60,17 @@ describe("the 3D dice & toys tray: a throw", () => {
     made.length = 0;
     frames = [];
     // the dice print their numbers on a 2D canvas: a do-nothing one is enough here
-    const ctx2d = new Proxy({}, { get: () => () => ({ addColorStop() {} }), set: () => true });
-    vi.stubGlobal("document", { createElement: () => ({ width: 0, height: 0, getContext: () => ctx2d }) });
+    const canvasStub = () => {
+      const c = { width: 0, height: 0, getContext: () => ctx2d };
+      const method = (k: string | symbol) => {
+        if (k === "getImageData") return (_x: number, _y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) });
+        if (k === "measureText") return () => ({ width: 10 });
+        return () => ({ addColorStop() {} });
+      };
+      const ctx2d: unknown = new Proxy({}, { get: (_t, k) => method(k), set: () => true });
+      return c;
+    };
+    vi.stubGlobal("document", { createElement: canvasStub });
     vi.stubGlobal("window", { devicePixelRatio: 1 });
     vi.stubGlobal("requestAnimationFrame", (f: FrameRequestCallback) => frames.push(f));
     vi.stubGlobal("cancelAnimationFrame", () => {});
