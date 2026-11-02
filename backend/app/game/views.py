@@ -109,7 +109,13 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
     if c.stickers101 and c.zone.split(':')[-1] in ('battlefield', 'graveyard', 'exile', 'command', 'stack', 'phased'):
         view['stickers101'] = [s.model_dump() for s in c.stickers101]
     if c.token_source is not None and not view.get("hidden"):
-        view["token_source"] = c.token_source.model_dump()
+        # "Created by Mischievous Mystic" is public (everyone saw it happen), but which card made it is shown only while the viewer can
+        # see that card: once the source is back in its owner's hand or library, its id would pick it out among the hidden cards
+        source = state.cards.get(c.token_source.source_id or "")
+        if source is not None and can_see(state, source, viewer):
+            view["token_source"] = c.token_source.model_dump()
+        else:
+            view["token_source"] = {"source_id": None, "name": c.token_source.name, "object_id": None}
     if c.face_down and c.face_down_kind:
         view["face_down_kind"] = c.face_down_kind  # public: everyone saw how it got face down
         if c.face_down_as:
