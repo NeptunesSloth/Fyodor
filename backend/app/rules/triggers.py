@@ -484,9 +484,14 @@ def _card_in(plan: Plan, card_id: str | None, zone: str | None) -> tuple[CardIns
     then = card if card.zone == zone else card.model_copy(update={"zone": zone, "counters": {}, "tapped": False})
     from app.rules import outside_battlefield_self
 
-    ch = (Characteristics(name='', face_down=True) if then.face_down and zone.endswith(':exile')
-          else outside_battlefield_self.apply(chars.of(then, plan.info)))
-    return then, ch
+    if then.face_down and zone.endswith(':exile'):
+        return then, Characteristics(name='', face_down=True)
+    if then is card and not zone.endswith(':battlefield'):
+        # -- pod decks (Disa) -- 603.10: the object as it is right after the event, with the continuous effects that exist then. Maskwood
+        # Nexus and Conspiracy make the creature cards you own that aren't on the battlefield every / the chosen creature type: Entomb's
+        # Ghalta is a Lhurgoyf as it is put into the graveyard (Disa the Restless). (derive also applies the card's own 113.6c self effects.)
+        return then, plan.ch(card)
+    return then, outside_battlefield_self.apply(chars.of(then, plan.info))
 
 
 def _live(plan: Plan, obj: CardInstance) -> bool:
