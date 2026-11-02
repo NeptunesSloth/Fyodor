@@ -273,6 +273,7 @@ engine adds its own `GameState.rules` separately (see `ARCHITECTURE.md`).
 | `macro` action | Runs a validated list of primitive steps as **one** undoable history entry |
 | Macro library | Macros saved per card (by Oracle id, so every printing shares them) or in a personal library, in `app.sqlite` |
 | `GameSettings.undo_policy` | everyone / own actions / host only |
+| `GameSettings.card_permissions` | who may change a player's cards with the table tools: everyone / each player (and the host); `game/table_rights.py` |
 | `GameSettings.clear_mana_on_step` | Convenience, default off |
 
 View changes: views gain the new fields. Hidden cards still expose only public

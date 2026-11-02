@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.cards.repository import CardRepository, RulesCards
-from app.game import engine, undo_requests, undo_rights
+from app.game import engine, table_rights, undo_requests, undo_rights
 from app.game.actions import INTENT_TYPES, Action, parse_action
 from app.game.control import is_controlled
 from app.game.errors import ActionError, AutomationError
@@ -51,10 +51,11 @@ class GameSession:
         self.undo_request: undo_requests.UndoRequest | None = None  # -- quick undo request -- waiting for the table (in memory)
 
     # -- actions ---------------------------------------------------------------------
-    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False, host: bool = False) -> Action:
         """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
 
-        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot). ``host``: the actor counts as the
+        host for the table's card permissions (the host's seat at a LAN table, every seat at a hot-seat one; app/game/table_rights.py)."""
         if actor not in self.state.players:
             raise ActionError("Only seated players can act")
         action = parse_action(payload) if isinstance(payload, dict) else payload
@@ -79,6 +80,8 @@ class GameSession:
                 f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
                 "Resolve it manually with the table tools, pause automation, or export a rules scenario."
             ) from exc
+        if not trusted:  # -- table permissions -- on the resolved action: placeholders are real ids, a macro's steps filled in
+            table_rights.check(self.state, resolved, actor, host=host)
         try:
             engine.apply(self.state, resolved)
         except ActionError:

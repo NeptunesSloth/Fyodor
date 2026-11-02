@@ -64,7 +64,7 @@ Items in *italics* existed before this round of work.
 |---|---|
 | LAN sync, private-information filtering, spectators | *✅ existed*. New fields are covered by the leak tests. |
 | Undo permissions | ⬜ (`undo_policy`) |
-| Host permissions for spawn/delete/modify others | ⬜ planned. The architecture has a permission check point in `api/games.py` `authorize()`. |
+| Host permissions for spawn/delete/modify others | ✅ **Who may change a player's cards** (`GameSettings.card_permissions`): *Everyone* (default, tabletop freedom) or *Each player (and the host)*. Set in the lobby's Table settings or Host tools; saved with the game; a hot-seat table ignores it. The server checks every manual table edit in `GameSession.perform` (`game/table_rights.py`): another player's cards (the controller's on the battlefield and the stack, a hidden zone's player's, the owner's or zone holder's in other zones) are refused with "Bob's cards: only Bob or the host can change them at this table.", and the host can always help. Rules intents and everything the engine does, resolving, phases, mulligans, looking, arrows and life totals are never limited. The card menu and selection bar offer another player's cards only what they allow (`frontend/src/game/cardPermissions.ts`); a drag snaps back with the reason. |
 | Play mode / edit mode | 🟡 Play mode is the default and hides table editing. The table editor is future work. |
 | Table presets | 🟡 Presets are data in `table3d/layout.ts` (2–6 seats). Saving custom presets is planned. |
 | Solo / goldfish mode | ✅ One-player games and *Open table* exist; the Importer panel has **Reset my deck** and **Restart game** (same decks, fresh table). |

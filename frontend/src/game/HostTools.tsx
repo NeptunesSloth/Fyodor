@@ -4,10 +4,11 @@ import { toast, toastError } from "../components/Toasts";
 import { api } from "../services/api";
 import { seatToken } from "../services/games";
 import { useGame } from "../state/gameStore";
-import { isVisible, splitZone, type UndoPolicy } from "../types/game";
+import { isVisible, splitZone, type CardPermissions, type UndoPolicy } from "../types/game";
 import { setTableReactions } from "../services/spectate";
 import { send } from "./actions";
 import { UNDO_POLICIES } from "./undoPolicy";
+import { CARD_PERMISSIONS } from "./cardPermissions";
 
 const PRESENCE: Record<string, string> = {
   connected: "Connected",
@@ -108,9 +109,28 @@ export function HostToolsDialog({ onClose }: { onClose: () => void }) {
           <p className="hint">Undo (Ctrl+Z) restores anything deleted by mistake. Dice objects arrive with the tabletop toys.</p>
         </section>
         <UndoSetting />
+        {lan && <CardPermissionsSetting />}
         {lan && <ReactionsSetting gameId={gameId} on={view.game.night?.reactions !== false} />}
       </div>
     </Modal>
+  );
+}
+
+/** -- table permissions -- who may change a player's cards at this LAN table (the server enforces it; saved with the game). */
+function CardPermissionsSetting() {
+  const policy = useGame((s) => s.view?.game.settings.card_permissions ?? "everyone");
+  const current = CARD_PERMISSIONS.find((p) => p.id === policy) ?? CARD_PERMISSIONS[0]!;
+  return (
+    <section>
+      <h3>Cards</h3>
+      <label className="field inline">Who may change a player's cards
+        <select value={policy} data-testid="card-permissions"
+          onChange={(e) => void send({ type: "configure", card_permissions: e.target.value as CardPermissions })}>
+          {CARD_PERMISSIONS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
+      </label>
+      <p className="hint">{current.hint}.</p>
+    </section>
   );
 }
 

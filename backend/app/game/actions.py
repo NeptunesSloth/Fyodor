@@ -1017,6 +1017,7 @@ class Configure(Base):
 
     type: Literal["configure"] = "configure"
     undo_policy: Literal["everyone", "own", "host"] | None = None
+    card_permissions: Literal["everyone", "owner"] | None = None  # -- table permissions -- (app/game/table_rights.py)
     clear_mana_on_step: bool | None = None
     auto_untap: bool | None = None
     auto_commander_tax: bool | None = None

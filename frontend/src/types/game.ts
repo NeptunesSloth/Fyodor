@@ -228,6 +228,8 @@ export interface LogEntryView {
 export interface DigLog { mode: "reveal_until" | "cascade"; player: string; cards: string[]; hit: string | null }
 
 export type UndoPolicy = "everyone" | "own" | "host";
+/** -- table permissions -- who may change a player's cards with the table tools (server: app/game/table_rights.py). */
+export type CardPermissions = "everyone" | "owner";
 
 export interface GameMeta {
   id: string;
@@ -246,6 +248,8 @@ export interface GameMeta {
     allow_test_objects?: boolean;
     /** Who may undo (the host's setting; the server enforces it, see game/undoPolicy.ts). */
     undo_policy?: UndoPolicy;
+    /** Who may change a player's cards (the host's setting; the server enforces it, see game/cardPermissions.ts). */
+    card_permissions?: CardPermissions;
   };
   /** The history has an action to undo / redo (whether this viewer may: game/undoPolicy.ts). */
   can_undo: boolean;
@@ -595,6 +599,8 @@ export interface LobbySettings {
   automation: AutomationLevel;
   /** "pod": d20 for game 1 and after a draw, then the previous winner goes last; "seats": seat 1 first, as the host arranged them. */
   turn_order?: "pod" | "random" | "seats";
+  /** -- table permissions -- who may change a player's cards (absent from an older server: everyone). */
+  card_permissions?: CardPermissions;
 }
 
 export interface LobbyDeckSummary {

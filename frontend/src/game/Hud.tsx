@@ -11,6 +11,7 @@ import { usePrefs } from "../state/prefs";
 import { isVisible } from "../types/game";
 import { addCounter, send, tapCards } from "./actions";
 import { cardMenu } from "./cardMenu";
+import { cardEditRefusal } from "./cardPermissions";
 import { damageMenu } from "./marksMenu";
 import { typeLine } from "./selection";
 import { keyLabel } from "./hotkeys";
@@ -157,6 +158,7 @@ export function SelectionBar() {
   const cardData = onTable.length === 1 && isVisible(first) && first.card_id ? useCardCache.getState().cards[first.card_id] : undefined;
   const turnable = !!cardData && (cardData.double_faced || cardData.faces.length > 1);
   const full = cardMenu(first, view, me);
+  const kept = cardEditRefusal(view, onTable); // -- table permissions -- another player's cards: no edit buttons, just why
   const sub = (label: string) => (full.items.find((i) => i !== "separator" && i.label === label) as Exclude<MenuItem, "separator"> | undefined)?.submenu;
   const counters = sub("Add counter");
   const damage = damageMenu(onTable, first) as Exclude<MenuItem, "separator">;
@@ -165,6 +167,7 @@ export function SelectionBar() {
   return (
     <div className="selection-bar anchored" data-testid="selection-bar" ref={ref} role="toolbar" aria-label="Selected card actions">
       <span className="sel-count">{onTable.length === 1 && isVisible(first) ? first.name : `${onTable.length} selected`}</span>
+      {kept ? <span className="hint" title={kept}>{kept.split(":")[0]}</span> : (<>
       <button className="tt-btn" title="Tap or untap (or double-click the card)" onClick={() => void tapCards(onTable, anyUntapped)}>{anyUntapped ? "Tap" : "Untap"}{chip("tap")}</button>
       {creatures ? (
         <>
@@ -183,6 +186,7 @@ export function SelectionBar() {
         </button>
       ))}
       {turnable && <button className="tt-btn" title="Turn over" onClick={() => void send({ type: "set_face", card_id: first.id })}>Turn over{chip("turn_over")}</button>}
+      </>)}
       <button className="tt-btn ghost" title="Every action for this card (right-click)" onClick={(e) => openMenu(e, full.items, full.title)}>More…</button>
       <span className="sel-ping" aria-hidden>{chip("ping")} ping</span>
       <button className="tt-icon" title="Clear selection (Esc)" aria-label="Clear selection" onClick={() => useGame.getState().clearSelection()}>✕</button>

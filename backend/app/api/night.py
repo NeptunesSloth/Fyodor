@@ -230,7 +230,9 @@ def to_lobby(services: Services, room: Room) -> None:
         infos[pid] = info
     if room.lobby is None:
         room.lobby = LobbySettings(name=old.name, format=old.format, seats=len(old.seat_order))
-    room.lobby = room.lobby.model_copy(update={"seats": max(room.lobby.seats, len(room.seats))})
+    # (-- table permissions -- the host's latest choice, made in the lobby or at the table, holds for the next game too)
+    room.lobby = room.lobby.model_copy(update={"seats": max(room.lobby.seats, len(room.seats)),
+                                               "card_permissions": old.settings.card_permissions})
     room.session.history.listener = None
     if services.hub.journal is not None:
         services.hub.journal.forget(room.id)

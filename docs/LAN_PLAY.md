@@ -27,6 +27,26 @@ and with *Private* not even the deck name.
 - **Never a blocker:** checks never stop anyone from readying or the host from starting. They
   follow the format if the host changes it.
 
+**Who may change a player's cards:** *Everyone* (default: anyone moves, taps and marks any card, as at a real
+table) or *Each player (and the host)*. The host sets it in the lobby (**Table settings**) or at the table
+(**⋯ → Host tools → Cards**); it is saved with the game and carries to the next game of the night. A hot-seat game
+ignores it. With *Each player*, the server refuses a player's table edits (move, tap, counters, damage, P/T, notes,
+delete, flip, face down, attach, control, …) on another player's cards: "Bob's cards: only Bob or the host can change
+them at this table." The host can always help, to fix a mistake.
+
+- **Whose cards:** on the battlefield and the stack, the controller's (a creature you stole is yours to tap and move until
+  it goes back; its owner gets it back from you or the host). In a hand, library or sideboard, that player's. Anywhere
+  else, the owner's, and also the player whose zone holds it (your card in my exile: both of us). An Aura you control stays yours on my creature; I can still move my
+  creature, and the Aura follows it.
+- **Never limited:** casting, abilities, combat and everything rules automation does (your Murder still puts my creature
+  into my graveyard), resolving the stack, phases and turns, mulligans, undo and undo requests, looking (top of library,
+  reveals, searches), arrows and pings, chat and dice, life totals, poison and commander damage, table-wide cleanup
+  (damage, until-end-of-turn markers, combat). *Delete all tokens* waits until the other players' tokens are theirs to remove.
+- **New objects:** tokens, copies and test objects for yourself are fine (copying my card only reads it); for another
+  player, they or the host make them. The same goes for drawing, milling or shuffling another player's library.
+- The table offers another player's cards only what the setting allows (their card menu says why), and a drag of one
+  snaps back with the reason.
+
 ## Surviving home-network trouble
 
 Every seat has a **seat token** stored in that browser (`localStorage`). It is the player's
