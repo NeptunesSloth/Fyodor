@@ -29,3 +29,22 @@ def test_a_commander_in_a_hidden_zone_is_not_located_for_others(cards):
     act(s, "p1", type="move", card_ids=[krenko.id], to={"zone": "battlefield"})
     assert located(s, "p2") == "p1:battlefield"  # public again
     replay_matches(s)
+
+
+
+def test_the_soak_privacy_check_flags_a_hidden_name_but_not_one_inside_a_longer_visible_name(cards):
+    """tools/soak.py's privacy check: a hidden card's name inside a longer visible name ("Badgermole" in the token "Badgermole Cub") isn't
+    a leak; the name standing alone is."""
+    import pytest
+
+    from tools import soak
+
+    s = make_session(cards)
+    assert find(s.state, "Counterspell", "p2").zone == "p2:library"
+    act(s, "p1", type="create_token", token={"name": "Counterspell Cub", "power": "1", "toughness": "1"})
+    check = soak.Privacy(soak.CachedCards(cards)).check
+    view = s.view("p1")
+    assert "Counterspell Cub" in str(view)
+    check(s, "p1", view)  # (inside a longer visible name: fine)
+    with pytest.raises(AssertionError, match="Counterspell"):
+        check(s, "p1", {**view, "leak": "Counterspell"})

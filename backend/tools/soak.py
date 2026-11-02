@@ -470,9 +470,16 @@ class Privacy:
                 if c.commander_key:  # 903.3: who the commander is is public (the commander list shows it, not which hidden card it is)
                     seen.update(t for t in self.fingerprints(c, self.cards) if t != c.id)
         shown = "\n".join(public)
+        # a hidden card's name inside a longer visible one ("Badgermole" in "Badgermole Cub") isn't a leak: take the visible texts out first
+        scrubbed = text
+        for known in sorted((t for t in seen if len(t) > 3), key=len, reverse=True):
+            scrubbed = scrubbed.replace(known, "")
         for c in hidden:
+            keywords = {k.lower() for k in ((self.cards.get(c.card_id) or {}).get("keywords") or [])} if c.card_id else set()
             for token in self.fingerprints(c, self.cards):
-                if token not in seen and token not in shown and token in text:
+                if keywords and all(part.strip().lower() in keywords for part in token.split(",")):
+                    continue  # (a first line that is only keywords, "Indestructible": any public marker or reminder may say the word)
+                if token not in seen and token not in shown and token in scrubbed:
                     raise AssertionError(f"{viewer} sees {token!r} of {c.name} in {c.zone}")
         for card_view in body.get("cards", {}).values():
             if card_view.get("hidden") and card_view["zone"].split(":")[1] in ("hand", "sideboard", "foretell") \
