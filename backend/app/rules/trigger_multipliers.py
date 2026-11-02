@@ -214,6 +214,12 @@ def _multipliers(plan: Plan, controller: str | None, batch: int | None,
                  look_back: bool, kind: str = STATIC) -> list[tuple[CardInstance, dict[str, Any]]]:
     """The multipliers ``controller`` (None: anyone) controlled when the event of ``batch`` happened (603.10): right after it, or
     right before it for an ability that looks back in time (603.10a). No batch: as they are now."""
+    with plan.reading():  # (a read-only scan of the battlefield: the statics table is read once; big boards)
+        return _multipliers_read(plan, controller, batch, look_back, kind)
+
+
+def _multipliers_read(plan: Plan, controller: str | None, batch: int | None,
+                      look_back: bool, kind: str) -> list[tuple[CardInstance, dict[str, Any]]]:
     from app.rules.triggers import _snapshot_card, _zone
 
     r = plan.rules

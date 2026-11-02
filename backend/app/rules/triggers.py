@@ -2937,6 +2937,7 @@ def flush(plan: Plan) -> bool:
                options=[DecisionOption(id="yes", label="Put on the stack"), DecisionOption(id="no", label="By hand")],
                resume={"step": "trigger_confirm"})
         return True
+    headroom(plan, len(r.pending_triggers))  # (a big board's batch fits the step budget: 603.3b)
     for player in apnap(plan):
         mine = [t for t in r.pending_triggers if t.controller == player]
         if not mine:
@@ -3046,6 +3047,21 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
             raw = raw.replace(f'\\"{EVENT_STAT}{what}\\"', str(n))
     t.ability = json.loads(raw)
 # -- end damage wordings (wave 6B) --
+
+
+TRIGGER_STEPS = 4  # the table steps one trigger may take going on the stack, at most (headroom)
+
+
+def headroom(plan: Plan, waiting: int) -> None:
+    """603.3b: every waiting trigger goes on the stack before a player gets priority: a finite step, not a loop. When a big
+    board's batch (dozens of landfall or token triggers) doesn't fit in what is left of the action's step budget (Plan.max_steps,
+    the safety valve against runaway loops), the budget is raised to fit it, once per action; the loop pause (engine.loop_pause)
+    then gives the players priority, and the stack resolves one pass at a time. Raised once only, so a real loop stays bounded."""
+    if not plan.max_steps or plan.trigger_headroom or waiting <= 0:
+        return
+    need = len(plan.steps) + TRIGGER_STEPS * waiting + 64
+    if need > plan.max_steps:
+        plan.max_steps, plan.trigger_headroom = need, True
 
 
 def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
@@ -3328,6 +3344,7 @@ def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
         t.ordered = True
     rest = [t for t in r.pending_triggers if t.controller != d.player]
     r.pending_triggers = rest + ordered
+    headroom(plan, len(r.pending_triggers))
     for t in ordered:
         if not put(plan, t):
             return
