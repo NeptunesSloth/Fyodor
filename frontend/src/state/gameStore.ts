@@ -4,7 +4,7 @@
  * goes through `send()`, and the UI re-renders from the view the server sends back.
  */
 import { create } from "zustand";
-import { toast } from "../components/Toasts";
+import { toast, useToasts } from "../components/Toasts";
 import { GameConnection, type ConnStatus } from "../services/gameSocket";
 import {
   OMNISCIENT,
@@ -20,6 +20,7 @@ import { reconcile } from "./reconcile";
 import { play, soundForLog } from "../game/sound";
 import { requestCards } from "./cardCache";
 import { undoActor, undoRefusal, type UndoOp } from "../game/undoPolicy";
+import { finalBoardRefusal } from "../game/finalBoard";
 
 export interface PickMode {
   prompt: string;
@@ -214,6 +215,13 @@ export const useGame = create<GameStore>((set, get) => ({
     const { conn, view, actingAs } = get();
     if (!conn || !view) return false;
     const as = view.game.mode === "local" ? actingAs ?? undefined : undefined;
+    const closed = finalBoardRefusal(view, String((action as { type?: unknown }).type ?? ""));
+    if (closed) {
+      // -- final board -- the server would refuse it: put any dragged card back and say why (not again while that shows)
+      set({ pendingPositions: {} });
+      if (!useToasts.getState().toasts.some((t) => t.text === closed)) toast(closed, "info");
+      return false;
+    }
     try {
       await conn.requestAction({ type: "action", action, as });
       const done = undoableSummary(action as Record<string, unknown>);

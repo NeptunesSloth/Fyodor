@@ -9,12 +9,14 @@ import { SPECTATOR, type GameView, type NightInfo } from "../types/game";
 import { Eliminated } from "./Eliminated";
 import { useIsHost } from "./HostTools";
 import { proposalSeat, showEliminated } from "./nightEnding";
+import { boardBar } from "./finalBoard";
 import "./night.css";
 
 /*
  * Game night moments (docs/GAME_NIGHT_FLOW.md): the short pre-game intro with the turn order and
  * its d20 rolls, a 3-2-1 countdown, the agree/decline bar for a proposed ending, and the result
- * spotlight with the rematch vote. Every number here comes from the server; the client only shows it. When the rules
+ * spotlight with the rematch vote (closed to a small bar to look at the final board, and opened again from it). Every number
+ * here comes from the server; the client only shows it. When the rules
  * engine ends the game the server opens the same proposal with the engine's result, so the spotlight and the vote follow
  * once the players confirm it.
  * Nothing blocks the game: the intro and the spotlight are skippable (click, Space, Esc) and scaled
@@ -34,6 +36,13 @@ function markSeen(key: string): void {
     sessionStorage.setItem(key, "1");
   } catch {
     /* private window: the moment may replay, which is harmless */
+  }
+}
+function unmark(key: string): void {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    /* private window: nothing was kept */
   }
 }
 
@@ -272,6 +281,9 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
     return () => window.clearTimeout(t);
   }, [result, key, scale]);
   useSkipKeys(spot, () => end.current());
+  // -- final board -- the panel folds into a small bar so the finished table can be looked at; the vote stays on the server
+  const boardKey = seenKey("board", view);
+  const [board, setBoard] = useState(() => seen(boardKey));
   if (!result) return null;
 
   const me = perspective(view, actingAs);
@@ -286,6 +298,15 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
   const voters = view.seat_order.filter((pid) => local || view.game.seats[pid]?.claimed);
   const myVote = night.votes[me];
   const nameOf = (pid: string) => view.players.find((x) => x.id === pid)?.name ?? pid;
+  const bar = boardBar(view, me);
+  const viewBoard = () => {
+    markSeen(boardKey);
+    setBoard(true);
+  };
+  const showChoices = () => {
+    unmark(boardKey);
+    setBoard(false);
+  };
   const vote = async (choice: "rematch" | "lobby", force = false) => {
     setBusy(true);
     try {
@@ -310,7 +331,23 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
           </div>
         </div>
       )}
-      {!spot && (
+      {!spot && board && bar && (
+        <div className="night-board-bar plaque-wrap" data-testid="final-board-bar" role="region" aria-label="Final board">
+          <div className="plaque night-board-body">
+            <span className="night-board-tag" title="The game is over: look around, nothing on the table can change">Final board</span>
+            <span className="night-board-line">{bar.line}</span>
+            {bar.votes && (
+              <span className="night-board-votes">
+                {bar.votes}{bar.mine ? ` · you: ${bar.mine === "rematch" ? "Rematch" : "Lobby"}` : ""}
+              </span>
+            )}
+            <button className="tt-btn" data-testid="final-board-choices" onClick={showChoices}>
+              {!seated ? "Result" : local ? "Rematch or leave…" : "Rematch or lobby…"}
+            </button>
+          </div>
+        </div>
+      )}
+      {!spot && !board && (
         <div className="night-result plaque-wrap" data-testid="night-result">
           <div className="plaque night-result-body">
             <div className="night-result-head">
@@ -319,18 +356,21 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
                 Game {night.number}{winnerLine ? ` · ${winnerLine}` : ""}{result.agreed ? " · agreed" : ""}
               </span>
             </div>
-            {seated && (
-              <div className="night-actions">
-                {local ? (
-                  <a className="tt-btn" href="#/play">Leave table</a>
-                ) : (
-                  <button className={`tt-btn ${myVote === "lobby" ? "on" : ""}`} disabled={busy} data-testid="vote-lobby" onClick={() => void vote("lobby")}>Return to lobby</button>
-                )}
+            <div className="night-actions">
+              <button className="tt-btn ghost night-board-open" data-testid="view-final-board" onClick={viewBoard}
+                title="Close this panel to look at the finished table (camera, cards, log). Nothing on it can change; your vote stays.">
+                View final board
+              </button>
+              {seated && local && <a className="tt-btn" href="#/play">Leave table</a>}
+              {seated && !local && (
+                <button className={`tt-btn ${myVote === "lobby" ? "on" : ""}`} disabled={busy} data-testid="vote-lobby" onClick={() => void vote("lobby")}>Return to lobby</button>
+              )}
+              {seated && (
                 <button className={`tt-btn brass ${myVote === "rematch" ? "on" : ""}`} disabled={busy || myVote === "rematch"} data-testid="vote-rematch" onClick={() => void vote("rematch")}>
                   {myVote === "rematch" ? "Rematch — waiting" : "Rematch — same decks"}
                 </button>
-              </div>
-            )}
+              )}
+            </div>
             {!local && (
               <ul className="night-votes" aria-label="Votes">
                 {voters.map((pid) => (

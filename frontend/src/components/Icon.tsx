@@ -20,6 +20,10 @@ const PATHS = {
   close: "M6 6l12 12M18 6L6 18",
   plus: "M12 5v14M5 12h14",
   check: "M5 12.5l4.5 4.5L19 7.5",
+  // chevrons and a grip: arranging seats in the lobby
+  left: "M14.5 5.5L8 12l6.5 6.5",
+  right: "M9.5 5.5L16 12l-6.5 6.5",
+  grip: "M9 6.5h.01M15 6.5h.01M9 12h.01M15 12h.01M9 17.5h.01M15 17.5h.01",
 } as const;
 
 export type IconName = keyof typeof PATHS;

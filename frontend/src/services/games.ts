@@ -20,7 +20,7 @@ export interface CreateGameBody {
   /** LAN lobby: players take seats and choose their own decks before the host starts. */
   lobby?: boolean;
   /** Lobby turn order: "pod" = d20 for the first game, then the winner goes last. */
-  turn_order?: "pod" | "random";
+  turn_order?: LobbySettings["turn_order"];
   seats?: number;
   deck_privacy?: LobbySettings["deck_privacy"];
   mulligan_rule?: string;
@@ -115,6 +115,9 @@ export const setLobbyProfile = (gameId: string, body: { name?: string; color?: s
 export const leaveLobby = (gameId: string) => api.post<void>(lobbyPath(gameId, "/leave"), {}, seatHeaders(gameId));
 export const updateLobbySettings = (gameId: string, body: Partial<LobbySettings>) =>
   api.post<LobbyView>(lobbyPath(gameId, "/settings"), body, seatHeaders(gameId));
+/** -- seating -- host: every seat id once, in the order they should sit (seat 1 first). */
+export const arrangeLobbySeats = (gameId: string, order: string[]) =>
+  api.post<LobbyView>(lobbyPath(gameId, "/arrange"), { order }, seatHeaders(gameId));
 export const kickFromLobby = (gameId: string, seat: string) => api.post<LobbyView>(lobbyPath(gameId, "/kick"), { seat }, seatHeaders(gameId));
 export const startLobbyGame = (gameId: string, body: { force?: boolean; first_player?: "random" | number }) =>
   api.post<{ game: GameSummary }>(lobbyPath(gameId, "/start"), body, seatHeaders(gameId));

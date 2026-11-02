@@ -41,7 +41,14 @@ from app.game.state import CollectionCard, GameSettings, MulliganPolicy
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room
-from app.multiplayer.lobby import DeckTooLarge, LobbySeatInfo, LobbySettings, SubmittedDeck, check_bounds
+from app.multiplayer.lobby import (
+    DeckTooLarge,
+    LobbySeatInfo,
+    LobbySettings,
+    SubmittedDeck,
+    TurnOrder,
+    check_bounds,
+)
 from app.multiplayer.night import follow_rules
 from app.rules import commander as commander_rules
 from app.rules import coverage
@@ -123,6 +130,12 @@ async def _after_action(services: Services, room: Room, action: dict[str, Any]) 
             services.hub.persist(room)
 
 
+def _check_table_open(room: Room, action_type: str | None = None) -> None:
+    """-- final board -- after a recorded result the table can be looked at, not changed (``Night.final_board``)."""
+    if (why := room.night.final_board(action_type)) is not None:
+        raise HTTPException(409, why)
+
+
 def _room(services: Services, game_id: str) -> Room:
     room = services.hub.get(game_id)
     if room is None:
@@ -169,8 +182,8 @@ class CreateGameIn(BaseModel):
     priority_helper: Literal["off", "simple"] = "simple"
     # Rules automation (docs/AUTOMATION_UX.md): OFF is the sandbox (the safe default).
     automation: AutomationLevel = "off"
-    # Lobby turn order: "pod" = d20, then the previous winner goes last (GAME_NIGHT_FLOW.md §2).
-    turn_order: Literal["pod", "random"] = "random"
+    # Lobby turn order: "pod" = d20, then the previous winner goes last (GAME_NIGHT_FLOW.md §2); "seats" = seat 1 first.
+    turn_order: TurnOrder = "random"
 
     @field_validator("name")
     @classmethod
@@ -358,6 +371,7 @@ async def post_action(
         if cid is not None and cid in room.client_actions:
             previous = room.client_actions[cid]
             return {**services.hub.view(room, viewer), "status": "ALREADY_APPLIED", "outcome": previous}
+        _check_table_open(room, body.action.get("type"))
         try:
             room.session.perform(actor, body.action)
         except ValidationError as exc:
@@ -394,6 +408,7 @@ async def _history_op(services: Services, game_id: str, body: MetaIn, request: R
     if actor is None:
         raise HTTPException(403, "Spectators cannot undo")
     async with room.lock:
+        _check_table_open(room)
         try:
             host = room.mode == "local" or room.is_host(token)  # -- undo policy (gap 3) -- everyone at a hot-seat table is at the host computer
             room.session.undo(actor, host=host) if op == "undo" else room.session.redo(actor, host=host)
@@ -468,7 +483,8 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep) -> dict[str
     if name and viewer in room.seats and room.started:
         room.session.notice(f"{name} took the seat of {room.session.state.players[viewer].name}.")
         try:
-            room.session.perform(viewer, {"type": "rename_player", "name": name})
+            if room.night.final_board() is None:  # -- final board -- the finished table keeps the names it ended with
+                room.session.perform(viewer, {"type": "rename_player", "name": name})
         except (ActionError, ValidationError) as exc:
             log.info("Could not apply joining player's name: %s", exc)
     return {"game_id": room.id, "viewer": viewer, "token": token, "game": room.summary()}
@@ -613,7 +629,13 @@ class LobbySettingsIn(BaseModel):
     priority_helper: Literal["off", "simple"] | None = None
     auto_untap: bool | None = None
     automation: AutomationLevel | None = None
-    turn_order: Literal["pod", "random"] | None = None
+    turn_order: TurnOrder | None = None
+
+
+class ArrangeIn(BaseModel):
+    """-- seating -- every lobby seat once, in the order the host wants them seated (seat 1 first)."""
+
+    order: list[Annotated[str, Field(pattern=r"^p[1-6]$")]] = Field(min_length=1, max_length=6)
 
 
 class StartIn(BaseModel):
@@ -934,6 +956,26 @@ async def change_seat(
     return _lobby_response(room, body.seat, host)
 
 
+@router.post("/games/{game_id}/lobby/arrange")
+async def arrange_seats(
+    game_id: str, body: ArrangeIn, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
+) -> dict[str, Any]:
+    """-- seating -- the host arranges the seats (GAME_NIGHT_FLOW.md §2: "the others keep their relative order, unless the host
+    changes it"). The turn-order setting then decides who goes first: the pod rule, a random player, or seat 1."""
+    room = _lobby_room(services, game_id)
+    _require_host(room, x_seat_token)
+    async with room.lock:
+        if room.started:
+            raise HTTPException(409, "The game has already started")
+        try:
+            services.hub.arrange_seats(room, body.order)
+        except LookupError as exc:
+            raise HTTPException(422, str(exc)) from exc
+    viewer, host = _lobby_who(room, x_seat_token, seat_required=False)
+    await _lobby_changed(services, room)
+    return _lobby_response(room, viewer, host)
+
+
 @router.post("/games/{game_id}/lobby/profile")
 async def set_profile(
     game_id: str, body: ProfileIn, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
@@ -1029,7 +1071,7 @@ async def start_game(
         if room.started:
             raise HTTPException(409, "The game has already started")
         blockers = room.start_blockers()
-        order = [pid for pid, seat in room.seats.items() if seat.token is not None]
+        order = room.claimed_seats()  # -- seating -- as the host arranged them
         if not order:
             raise HTTPException(409, "Nobody has taken a seat")
         if blockers and not body.force:
@@ -1038,7 +1080,7 @@ async def start_game(
         night = room.night
         pod_rule = lobby.turn_order == "pod" and body.first_player == "random"
         if pod_rule:
-            winner = next((pid for pid in order if night.last_winner_key and room.seats[pid].token == night.last_winner_key), None)
+            winner = room.last_winner_seat()
             order, night.order_source, night.rolls = night.plan(order, winner)
             night.previous_winner = winner
         else:
@@ -1060,9 +1102,9 @@ async def start_game(
         first: int | None = None
         if pod_rule:
             first = 0  # the seats are already in turn order
+        elif body.first_player == "random" and lobby.turn_order == "seats":
+            first = 0  # -- seating -- the seats as the host arranged them, seat 1 first
         elif body.first_player == "random":
-            import secrets
-
             first = secrets.randbelow(len(setups))
         elif isinstance(body.first_player, int):
             first = body.first_player if 0 <= body.first_player < len(setups) else 0
@@ -1174,6 +1216,9 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
     night.last_winner_key = (room.seats[winners[0]].token or winners[0]) if single and winners[0] in room.seats else None
     night.history.append({"number": night.number, "result_type": result_type, "winner_names": list(result["winners"]),
                           "agreed": agreed, "rules": rules is not None, "order": [state.players[pid].name for pid in state.seat_order],
+                          # -- seating -- how the order was set, and the d20 rounds that set it (by name, like the order)
+                          "order_source": night.order_source,
+                          "rolls": [{state.players[pid].name: v for pid, v in r.items() if pid in state.players} for r in night.rolls],
                           "turns": state.turn.number, "minutes": max(0, round((time.time() - state.created_at) / 60)),
                           "commanders": {state.players[pid].name: sorted({c.name for c in state.cards.values()
                                                                            if c.commander_key and c.owner == pid})
@@ -1276,6 +1321,7 @@ async def load_deck_at_table(game_id: str, body: LoadDeckIn, request: Request, s
                         cards=[A.LoadDeckCard(section=c.section, quantity=c.quantity, name=c.name, printing_id=c.printing_id)
                                for c in deck.cards if c.section in ("commander", "companion", "main", "sideboard", "attractions")])
     async with room.lock:
+        _check_table_open(room)
         try:
             room.session.perform(seat, action, trusted=True)
         except (ActionError, ValidationError) as exc:
@@ -1292,6 +1338,7 @@ async def _restore(services: Services, room: Room, request: Request, token: str 
         raise HTTPException(403, "Only the host can restore the table")
     actor = actor or room.session.state.seat_order[0]
     async with room.lock:
+        _check_table_open(room)
         try:
             room.session.perform(actor, A.RestoreState(label=label[:120], state=state), trusted=True)
         except (ActionError, ValidationError) as exc:
@@ -1565,6 +1612,9 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
                 await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": previous.removeprefix("REJECTED: ")})
             else:
                 await send({"type": "ack", "id": msg.id, "status": "ALREADY_APPLIED"})
+            return
+        if (closed := room.night.final_board(msg.action.get("type") if isinstance(msg, WsAction) else None)) is not None:
+            await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": closed})
             return
         try:
             if isinstance(msg, WsAction):
