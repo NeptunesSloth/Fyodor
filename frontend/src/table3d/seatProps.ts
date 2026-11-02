@@ -11,6 +11,7 @@
 import * as THREE from "three";
 import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
 import { drawSeatIcon } from "../game/seatIcons";
+import { motionMs, onMotionSkip } from "../game/motion/timing";
 import { CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, taxSpot, toWorld, type Seat } from "./layout";
 import { slotTexture } from "./textures";
 
@@ -103,8 +104,20 @@ function drawTax(canvas: HTMLCanvasElement, tax: number, color: string): void {
 
 interface Tax { mesh: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; color: string; shown: number }
 
-interface Heart { group: THREE.Group; face: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; color: string; shown: string }
+interface Heart {
+  group: THREE.Group; face: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; color: string; shown: string;
+  /** -- table motion -- the life total on the heart rolls to a new value (docs/GAME_UI_MOTION_RESEARCH.md §4: 300–600 ms scaled to the
+   * change): what it shows now, where it's going, and the clicks still on their way. */
+  roll: { from: number; to: number; start: number; dur: number; at: number | null; pending: number };
+}
 interface Button { group: THREE.Group; top: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; typed: string; press: number; flat: boolean }
+
+/** The whole number a rolling life total shows at ``now`` (ease-out; it lands exactly on ``to``). */
+export function lifeRollAt(r: { from: number; to: number; start: number; dur: number }, now: number): number {
+  const k = r.dur > 0 ? Math.min(1, Math.max(0, (now - r.start) / r.dur)) : 1;
+  if (k >= 1) return r.to;
+  return Math.round(r.from + (r.to - r.from) * (1 - Math.pow(1 - k, 3)));
+}
 
 export class SeatProps {
   readonly group = new THREE.Group();
@@ -115,6 +128,15 @@ export class SeatProps {
   private hovered: SeatActionId | null = null;
   private disposables: { dispose(): void }[] = [];
   private tmp = new THREE.Vector3();
+  /** Any click or key lands every rolling life total at once (game/motion/timing.ts). */
+  private unskip = onMotionSkip(() => {
+    for (const h of this.hearts.values()) {
+      if (h.roll.at !== null && h.roll.at !== h.roll.to) {
+        h.roll.at = h.roll.to;
+        this.drawLife(h, h.roll.at);
+      }
+    }
+  });
 
   /** Hearts for every seat; buttons for mine (seat colours from the view). */
   rebuild(seats: Seat[], me: string, colors: Record<string, string>): void {
@@ -140,7 +162,7 @@ export class SeatProps {
       const [wx, wz] = toWorld(seat, ...heartSpot(seat));
       group.position.set(wx, HEART_Y, wz);
       this.group.add(group);
-      this.hearts.set(seat.player, { group, face, canvas, tex, color, shown: "" });
+      this.hearts.set(seat.player, { group, face, canvas, tex, color, shown: "", roll: { from: 0, to: 0, start: 0, dur: 0, at: null, pending: 0 } });
     }
     const mine = seats.find((s) => s.player === me);
     if (!mine) return;
@@ -185,10 +207,25 @@ export class SeatProps {
   setLife(player: string, life: number, pending: number): void {
     const h = this.hearts.get(player);
     if (!h) return;
-    const key = `${life}|${pending}`;
+    const r = h.roll;
+    r.pending = pending;
+    if (r.at === null) { // (first sight of this heart: no roll)
+      r.from = r.to = r.at = life;
+    } else if (life !== r.to) {
+      const delta = Math.abs(life - r.at);
+      r.from = r.at;
+      r.to = life;
+      r.start = performance.now();
+      r.dur = motionMs(Math.min(600, 300 + delta * 25), false); // (a number is feedback: reduced motion keeps it)
+    }
+    this.drawLife(h, r.at);
+  }
+
+  private drawLife(h: Heart, shown: number): void {
+    const key = `${shown}|${h.roll.pending}`;
     if (h.shown === key) return;
     h.shown = key;
-    drawHeart(h.canvas, h.color, life, pending);
+    drawHeart(h.canvas, h.color, shown, h.roll.pending);
     h.tex.needsUpdate = true;
   }
 
@@ -278,6 +315,12 @@ export class SeatProps {
       h.group.rotation.y = Math.atan2(this.tmp.x - p.x, this.tmp.z - p.z);
     }
     const now = performance.now();
+    for (const h of this.hearts.values()) { // a life total rolling to its new value (only while one changes)
+      const r = h.roll;
+      if (r.at === null || r.at === r.to) continue;
+      r.at = lifeRollAt(r, now);
+      this.drawLife(h, r.at);
+    }
     for (const [id, b] of this.buttons) {
       (b.top.material as THREE.MeshBasicMaterial).color.setScalar(id === this.hovered ? 1.35 : 1);
       const since = now - b.press;
@@ -320,6 +363,7 @@ export class SeatProps {
   }
 
   dispose(): void {
+    this.unskip();
     this.clear();
   }
 }
