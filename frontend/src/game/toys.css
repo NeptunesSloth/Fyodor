@@ -1,0 +1,108 @@
+/* DICE & TOYS (game/TableToys.tsx): a dice tray, a just-for-fun random player and a tally, local to this browser. The dice
+   themselves are the 2D table's (.die2d in night.css) or the 3D table's (table3d/toyTray.ts). */
+
+.toys { --seat: #d7ae63; }
+.toys-tabs { display: flex; gap: 2px; margin: -4px 0 12px; }
+.toys-tabs button {
+  font-size: 12.5px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 3px;
+  background: transparent; color: var(--text-dim); cursor: pointer;
+}
+.toys-tabs button:hover { color: var(--text); }
+.toys-tabs button[aria-selected="true"] { color: var(--text); border-color: var(--frame); background: rgba(179, 148, 88, 0.12); }
+
+/* the dice to pick: one column per kind, the die itself adds one */
+.toys-pick { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.toys-die { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.toys-add {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; padding: 6px 0 5px;
+  border: 1px solid transparent; border-radius: 3px; background: none; color: var(--text-dim); cursor: pointer;
+}
+.toys-add:hover:not(:disabled) { border-color: var(--line-2); background: rgba(255, 255, 255, 0.03); color: var(--text); }
+.toys-add:disabled { opacity: 0.4; cursor: default; }
+.toys-die.on .toys-add { border-color: var(--room-brass); color: var(--text); }
+.toys-add .die2d { --d: 34px; font-size: 13px; }
+.toys-add .die2d.d4 { padding-top: 10px; font-size: 11px; }
+.toys-kind { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; }
+.toys-step { display: flex; align-items: center; gap: 4px; min-height: 22px; }
+.toys-less {
+  width: 22px; height: 22px; padding: 0; border: 1px solid var(--line); border-radius: 3px;
+  background: transparent; color: var(--text-dim); cursor: pointer; line-height: 1;
+}
+.toys-less:hover:not(:disabled) { color: var(--text); border-color: var(--line-2); }
+.toys-less:disabled { opacity: 0.3; cursor: default; }
+.toys-n { min-width: 2.2ch; font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--accent-2); }
+
+.toys-pool { display: flex; align-items: center; gap: 10px; margin-top: 10px; min-height: 34px; }
+.toys-pool-label { font: 600 14px var(--font-display); color: var(--text); }
+.toys-roll { min-width: 92px; }
+
+/* the tray: felt in a wooden rim */
+.toys-tray {
+  position: relative; height: 210px; margin: 10px 0 8px; border-radius: 4px; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 35%, var(--felt-2), var(--felt) 72%);
+  box-shadow: inset 0 0 0 3px var(--wood), inset 0 0 0 4px rgba(0, 0, 0, 0.5), inset 0 10px 22px rgba(0, 0, 0, 0.55);
+}
+.toys-tray.is-3d { height: 240px; background: radial-gradient(ellipse at 50% 30%, rgba(255, 255, 255, 0.03), transparent 70%); box-shadow: none; }
+.toys-canvas { display: block; width: 100%; height: 100%; }
+.toys-tray-empty {
+  position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none;
+  color: var(--text-faint); font-size: 13px;
+}
+.toys-tray-2d {
+  position: absolute; inset: 0; display: flex; flex-wrap: wrap; align-content: center; justify-content: center;
+  gap: 12px 22px; padding: 16px;
+}
+.toys-group { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: 260px; }
+
+.toys-result { min-height: 34px; }
+.toys-result-row {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  animation: night-fade calc(260ms * var(--anim-scale, 1)) ease-out both; animation-delay: calc(950ms * var(--anim-scale, 1));
+}
+.toys-total-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
+.toys-total { font: 700 28px/1 var(--font-display); color: var(--accent-2); font-variant-numeric: tabular-nums lining-nums; }
+.toys-breakdown { color: var(--text-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.toys-history { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.toys-history-head { display: flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+.toys-history-head .hint { text-transform: none; letter-spacing: 0; }
+.toys-history-head .tt-btn, .toys-history li .tt-btn { min-height: 24px; padding: 1px 9px; font-size: 12px; }
+.toys-history ol { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; max-height: 168px; overflow: auto; }
+.toys-history li { display: flex; align-items: center; gap: 10px; min-height: 28px; font-size: 12.5px; }
+.toys-history-sum { min-width: 4ch; font: 700 14px var(--font-display); color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+.toys-history-line { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-dim); }
+.toys-history p { margin: 6px 0 0; }
+
+/* the random player */
+.toys-note { margin: 0 0 12px; font-size: 13px; color: var(--text-dim); }
+.toys-note b { color: var(--warn); }
+.toys-names { display: flex; flex-wrap: wrap; gap: 6px; }
+.toys-name {
+  padding: 7px 14px; border: 1px solid var(--line-2); border-radius: 3px; background: var(--bg-2);
+  color: var(--text); cursor: pointer; font-size: 13.5px;
+  transition: background-color var(--dur-hover) ease-out, border-color var(--dur-hover) ease-out;
+}
+.toys-name[aria-pressed="false"] { color: var(--text-faint); text-decoration: line-through; border-style: dashed; }
+.toys-name:disabled { cursor: default; }
+.toys-name.lit { border-color: var(--frame-hi); background: rgba(212, 168, 82, 0.16); transition: none; }
+.toys-name.picked { border-color: var(--frame-hi); background: var(--accent-grad); color: var(--accent-ink); font-weight: 650; }
+.toys-spin-result { font-size: 14px; color: var(--text-dim); }
+.toys-spin-result b { color: var(--accent-2); font-family: var(--font-display); font-size: 16px; }
+
+/* the tally */
+.toys-tally { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 4px 0; }
+.toys-tally-label { display: flex; align-items: center; gap: 8px; }
+.toys-tally-label input { width: 220px; text-align: center; }
+.toys-tally-n { font: 700 52px/1 var(--font-display); color: var(--accent-2); font-variant-numeric: tabular-nums lining-nums; }
+.toys-tally-row { display: flex; gap: 6px; }
+.toys-tally .hint { margin: 0; text-align: center; max-width: 420px; }
+
+body.reduced-motion .toys-result-row { animation: none; }
+body.reduced-motion .toys-name { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .toys-result-row, .toys-tray-2d .die2d-wrap { animation: none; }
+  .toys-name { transition: none; }
+}
+@media (max-width: 520px) {
+  .toys-pick { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}

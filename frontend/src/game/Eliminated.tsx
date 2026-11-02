@@ -16,8 +16,8 @@ import "./elimination.css";
  * dark pulse, "Eliminated — the game continues", then a small hub: keep watching (the same public
  * view everyone else has; elimination grants nothing hidden), a private practice table with your own
  * deck (a separate game only you see; the live game is untouched), opening-hand practice (local to this
- * browser), Deck Lab (a copy of your deck for the next game), pod stats and the card browser (new tabs,
- * so the live game keeps its seat), or leave the table. The pill brings the hub back.
+ * browser), Deck Lab (a copy of your deck for the next game), dice & toys (local to this browser), pod stats and the
+ * card browser (new tabs, so the live game keeps its seat), or leave the table. The pill brings the hub back.
  */
 export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; sceneOn: boolean }) {
   const key = `fyodor.night.out.${view.game.id}.${view.game.night?.number ?? 1}.${me}`;
@@ -111,6 +111,10 @@ export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; 
             </div>
             <div className="elim-links">
               {!local && <button className="elim-link" data-testid="open-predictions" onClick={() => open("predictions")}>Predictions</button>}
+              <button className="elim-link" data-testid="open-toys" onClick={() => open("toys")}
+                title="Roll some dice, spin for a random player, keep a tally: only in this browser, the game never changes">
+                Dice & toys
+              </button>
               <a href="#/stats" target="_blank" rel="noopener noreferrer">Pod stats ↗</a>
               <a href="#/cards" target="_blank" rel="noopener noreferrer">Card browser ↗</a>
               {!local && <a href="#/play">Leave table</a>}
@@ -120,7 +124,7 @@ export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; 
       )}
       {stage === "pill" && !activity && (
         <button className="night-pill tt-btn" data-testid="eliminated-pill" onClick={() => setStage("hub")}
-          title="Practice table, damage sandbox, next game, predictions, Deck Lab: things to do while the game goes on">
+          title="Practice table, damage sandbox, next game, predictions, Deck Lab, dice & toys: things to do while the game goes on">
           You're out · Things to do
         </button>
       )}
