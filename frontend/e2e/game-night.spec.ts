@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ALICE_DECK, BOB_DECK, bringDeck, hostLobby, joinLobby, keepAll, newPlayer, serverView } from "./helpers";
+import { ALICE_DECK, BOB_DECK, bringDeck, hostLobby, joinLobby, keepAll, newPlayer, serverView, saveDecks } from "./helpers";
 
 /**
  * Game night (docs/GAME_NIGHT_FLOW.md) on two devices: the pod-rule d20 intro, an agreed ending,
@@ -101,8 +101,7 @@ test("eliminated: a short scene, then opening-hand practice with your own deck",
     localStorage.setItem("fyodor.nightScenes", "1");
     localStorage.setItem("fyodor.welcomeDone", "1");
   });
-  for (const text of [ALICE_DECK, BOB_DECK]) await page.request.post("/api/decks", { data: { text } });
-  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string; name: string }[];
+  const decks = await saveDecks(page);
   const res = await page.request.post("/api/games", { data: { name: "Out", mode: "local", automation: "full", mulligan_rule: "none",
     players: ["Alice", "Bob", "Cara"].map((name, i) => ({ name, deck_id: decks[i % 2]!.id })) } });
   const gameId = ((await res.json()) as { game: { id: string } }).game.id;

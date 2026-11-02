@@ -1,13 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { ALICE_DECK, BOB_DECK, menuPath } from "./helpers";
+import { menuPath, saveDecks } from "./helpers";
 
 /**
  * The scripted Tabletop Simulator tables' chores (docs/UI_REFERENCE_STUDY.md §25–26): reveal until a type, get a
  * basic land, discard at random, the seat buttons, counter steppers on the card, the owner gem and exact copy.
  */
 test("library and hand chores, seat buttons, counter steppers, owner gem, exact copy", async ({ page }) => {
-  for (const text of [ALICE_DECK, BOB_DECK]) expect((await page.request.post("/api/decks", { data: { text } })).ok()).toBeTruthy();
-  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string; name: string }[];
+  const decks = await saveDecks(page);
   const res = await page.request.post("/api/games", {
     data: {
       name: "Chores", mode: "local", shuffle: false, first_player: 0, mulligan_rule: "none",

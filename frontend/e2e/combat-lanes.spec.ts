@@ -1,12 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { ALICE_DECK, BOB_DECK } from "./helpers";
+import { saveDecks } from "./helpers";
 
 /** Combat lane view: attackers over their blockers, grouped by defender; the table itself never moves. */
 test("2D combat strip shows each attacker with its blockers without moving cards", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.addInitScript(() => localStorage.setItem("fyodor.welcomeDone", "1"));
-  for (const text of [ALICE_DECK, BOB_DECK]) await page.request.post("/api/decks", { data: { text } });
-  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string }[];
+  const decks = await saveDecks(page);
   const res = await page.request.post("/api/games", { data: { name: "Fight", mode: "local", shuffle: false,
     players: ["Alice", "Bob"].map((name, i) => ({ name, deck_id: decks[i]!.id })) } });
   const gameId = ((await res.json()) as { game: { id: string } }).game.id;

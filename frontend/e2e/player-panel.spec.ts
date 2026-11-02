@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ALICE_DECK, BOB_DECK } from "./helpers";
+import { saveDecks } from "./helpers";
 
 /** The 2D table: a seat plaque's player panel opens in full view (not clipped by the rail or strip it sits in), for my
  * own seat and an opponent's, with the commander-damage matrix inside it. */
@@ -9,8 +9,7 @@ test("2D: player panels open in full view, with the commander damage matrix", as
     localStorage.setItem("fyodor.welcomeDone", "1");
     localStorage.setItem("fyodor.renderer", "2d");
   });
-  for (const text of [ALICE_DECK, BOB_DECK]) await page.request.post("/api/decks", { data: { text } });
-  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string; name: string }[];
+  const decks = await saveDecks(page);
   const res = await page.request.post("/api/games", { data: { name: "Panels", mode: "local", shuffle: false, mulligan_rule: "none",
     players: ["Alice", "Bob", "Cara"].map((name, i) => ({ name, deck_id: decks[i % 2]!.id })) } });
   const gid = ((await res.json()) as { game: { id: string } }).game.id;

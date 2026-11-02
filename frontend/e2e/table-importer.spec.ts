@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ALICE_DECK, BOB_DECK } from "./helpers";
+import { saveDecks } from "./helpers";
 
 const KRENKO_LIST = `Commander
 1 Krenko, Mob Boss
@@ -11,8 +11,7 @@ Deck
 
 /** The scripted tables' importer, on the table: find a card, place a new deck, restart, all without leaving. */
 test("card importer at the table: find a card, place a deck, restart without leaving", async ({ page }) => {
-  for (const text of [ALICE_DECK, BOB_DECK]) expect((await page.request.post("/api/decks", { data: { text } })).ok()).toBeTruthy();
-  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string; name: string }[];
+  const decks = await saveDecks(page);
   const res = await page.request.post("/api/games", {
     data: {
       name: "Importer", mode: "local", shuffle: false, first_player: 0, mulligan_rule: "none",

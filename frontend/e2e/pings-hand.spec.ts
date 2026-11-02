@@ -1,9 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { ALICE_DECK, BOB_DECK } from "./helpers";
+import { saveDecks } from "./helpers";
 
 test("ping a card with G (never a hand card); sort the hand by mana value", async ({ page }) => {
-  for (const text of [ALICE_DECK, BOB_DECK]) expect((await page.request.post("/api/decks", { data: { text } })).ok()).toBeTruthy();
-  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string; name: string }[];
+  const decks = await saveDecks(page);
   const res = await page.request.post("/api/games", {
     data: {
       name: "Pings", mode: "local", shuffle: false, first_player: 0, mulligan_rule: "none",

@@ -1,10 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { ALICE_DECK, BOB_DECK } from "./helpers";
+import { saveDecks } from "./helpers";
 
 /** Commander tax kept by hand on the table, and a slot of its own for a partner (as on the Oops mat). */
 test("commander tax buttons, and a partner gets its own slot and counter", async ({ page }) => {
-  for (const text of [ALICE_DECK, BOB_DECK]) expect((await page.request.post("/api/decks", { data: { text } })).ok()).toBeTruthy();
-  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string; name: string }[];
+  const decks = await saveDecks(page);
   const res = await page.request.post("/api/games", {
     data: {
       name: "Tax", mode: "local", shuffle: false, first_player: 0, mulligan_rule: "none",
