@@ -17,6 +17,7 @@ import {
   type PlayerView,
 } from "../types/game";
 import { reconcile } from "./reconcile";
+import { publishTableEvents } from "../game/motion/tableEvents";
 import { play, soundForLog } from "../game/sound";
 import { requestCards } from "./cardCache";
 import { undoActor, undoMode, undoRefusal, type UndoOp } from "../game/undoPolicy";
@@ -189,6 +190,7 @@ export const useGame = create<GameStore>((set, get) => ({
         }
         for (const p of view.players) for (const cmd of p.commanders) if (cmd.card_id) ids.push(cmd.card_id);
         requestCards(ids);
+        const dragged = new Set(Object.keys(get().pendingPositions)); // (cards the viewer just dragged: already where the hand put them)
         set((s) => ({
           view,
           lobby: null,
@@ -196,6 +198,8 @@ export const useGame = create<GameStore>((set, get) => ({
           selection: s.selection.filter((id) => id in view.cards),
           actingAs: resolveActingAs(view, s.actingAs),
         }));
+        // -- table motion -- what just happened, for the tables to show (display only; game/motion/tableEvents.ts)
+        if (prev && !replace && sameGame) publishTableEvents(prev, view, dragged);
       },
       onLobby: (lobby) => get().applyLobby(lobby),
       onStatus: (status, detail) => set({ status, statusDetail: detail ?? null }),

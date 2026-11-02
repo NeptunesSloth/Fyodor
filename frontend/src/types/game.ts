@@ -153,6 +153,8 @@ export type GameCard = HiddenCard | VisibleCard;
 export interface LibraryView {
   count: number;
   known: [number, string][];
+  /** How many times this library was shuffled (public; absent: never). The table shows a shuffle when it goes up (game/motion). */
+  shuffles?: number;
 }
 
 export interface CommanderInfo {

@@ -234,6 +234,7 @@ def rekey_zone(state: GameState, key: str, perm: list[int], new_ids: list[str], 
         if new_id in state.cards and new_id not in old:
             raise ActionError("id collision while shuffling")
         renamed[c.id] = new_id
+    state.shuffles[key] = state.shuffles.get(key, 0) + 1  # (table motion: the shuffle is public)
     for c in reordered:
         del state.cards[c.id]
     for c, new_id in zip(reordered, new_ids, strict=True):

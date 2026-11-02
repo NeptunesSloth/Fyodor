@@ -246,7 +246,7 @@ def build_view(
                 if can_see(state, c, viewer):
                     known.append([index, cid])
                     cards[cid] = card_view(state, c, viewer)
-            zones[key] = {"count": len(ids), "known": known}
+            zones[key] = {"count": len(ids), "known": known, **({"shuffles": state.shuffles[key]} if state.shuffles.get(key) else {})}
         elif zone in OWNER_VISIBLE_ZONES:
             # Hands etc.: visible cards keep their ids; every hidden card becomes an anonymous
             # placeholder in a keyed-hash order, so nothing links it to a card seen earlier.

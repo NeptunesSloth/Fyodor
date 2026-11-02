@@ -506,6 +506,9 @@ class GameState(BaseModel):
     seat_order: list[str]
     cards: dict[str, CardInstance] = Field(default_factory=dict)
     zones: dict[str, list[str]] = Field(default_factory=dict)
+    # -- table motion -- how many times each zone was shuffled (public: everyone at the table sees a library shuffled), so the tables can show
+    # it; a shuffle gives the cards new ids (rekey_zone), so nothing else tells a client it happened
+    shuffles: dict[str, int] = Field(default_factory=dict)
     collections: dict[str, list[CollectionCard]] = Field(default_factory=dict)
     turn: TurnState
     table: TableState = Field(default_factory=TableState)
