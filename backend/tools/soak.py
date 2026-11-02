@@ -90,6 +90,7 @@ class Report:
     outcomes: Counter[str] = field(default_factory=Counter)
     moves: Counter[str] = field(default_factory=Counter)  # accepted moves by kind
     manual: Counter[str] = field(default_factory=Counter)  # "resolve it by hand" prompts (every card of both decks is FULL)
+    decks: dict[str, DeckUse] = field(default_factory=dict)  # what each deck actually did: no errors means little if a deck never got going
 
     def text(self) -> str:
         lines = [f"games {self.games}, turns {self.turns}, actions {self.actions}, {self.seconds:.0f}s",
@@ -100,6 +101,9 @@ class Report:
         if self.refused:
             lines.append("refused client-offered moves (expected): "
                          + "; ".join(f"{k} ×{v}" for k, v in self.refused.most_common(10)))
+        if self.decks:
+            lines.append("what each deck did:")
+            lines += [use.text(name) for name, use in self.decks.items()]
         groups: dict[str, list[Problem]] = {}
         for p in self.problems:
             groups.setdefault(p.signature(), []).append(p)
@@ -108,6 +112,24 @@ class Report:
             more = f" (×{len(same)}, seeds {sorted({p.seed for p in same})})" if len(same) > 1 else ""
             lines.append(same[0].text() + more)
         return "\n".join(lines)
+
+
+@dataclass
+class DeckUse:
+    """One deck's games: how far it got (its commander cast, the turns its seat took) and the cards it cast and activated."""
+
+    seated: int = 0
+    commander_cast: int = 0
+    max_lands: int = 0
+    cast: Counter[str] = field(default_factory=Counter)
+    activated: Counter[str] = field(default_factory=Counter)
+
+    def text(self, name: str) -> str:
+        top = ", ".join(f"{n} ×{k}" for n, k in self.cast.most_common(8))
+        used = ", ".join(f"{n} ×{k}" for n, k in self.activated.most_common(5))
+        return (f"  {name}: {self.seated} games, commander cast {self.commander_cast}×, at most {self.max_lands} lands, "
+                f"{sum(self.cast.values())} spells ({len(self.cast)} different), {sum(self.activated.values())} abilities "
+                f"({len(self.activated)} different)\n    cast: {top or '-'}\n    activated: {used or '-'}")
 
 
 class CachedCards:
@@ -450,11 +472,12 @@ class Game:
     another move), and the table is checked every CHECK_EVERY actions and at the end."""
 
     def __init__(self, cards: CachedCards, decks: list[list[DeckCard]], seed: int, players: int, report: Report,
-                 privacy: Privacy, *, log: bool = False) -> None:
+                 privacy: Privacy, *, log: bool = False, names: list[str] | None = None) -> None:
         self.cards, self.seed, self.report, self.privacy, self.log = cards, seed, report, privacy, log
         self.rng = random.Random(f"bot:{seed}")
         self.engine = random.Random(f"engine:{seed}")
         self.decks, self.players = decks, players
+        self.names = names or [f"deck {i + 1}" for i in range(len(decks))]
         self.actor, self.payload = "", dict[str, Any]()
         self.failed = False
 
@@ -474,6 +497,8 @@ class Game:
                 self.session.perform(pid, {"type": "set_prefs", "response": self.rng.choice(["auto", "auto", "on"]),
                                            "auto_resolve_own_triggers": self.rng.choice(["safe", "safe", "off", "on"]),
                                            "auto_target": self.rng.random() < 0.7, "hold_priority": self.rng.random() < 0.2})
+            for pid in self.session.state.seat_order:
+                self.use(pid).seated += 1
             outcome = self.loop(turns)
             if outcome not in ("crashed", "stuck") and not self.check():
                 outcome = "crashed"
@@ -512,8 +537,10 @@ class Game:
                 self.problem("exception (view or bot)", traceback.format_exc())
                 return False
             try:
+                card = self.session.state.cards.get(str(self.payload.get("card_id") or ""))
                 self.session.perform(self.actor, self.payload)
                 self.report.moves[self.move_kind(how)] += 1
+                self.note_use(how, card)
                 if self.rng.random() < UNDO_CHANCE:  # the table's Undo button: take the move back (and play on from there)
                     self.session.undo(self.actor)
                     self.report.moves["undo"] += 1
@@ -539,6 +566,26 @@ class Game:
             except Exception:  # noqa: BLE001
                 self.problem("exception", traceback.format_exc())
         return False
+
+    def use(self, pid: str) -> DeckUse:
+        name = self.names[self.session.state.seat_order.index(pid) % len(self.names)]
+        return self.report.decks.setdefault(name, DeckUse())
+
+    def note_use(self, how: str, card: Any) -> None:
+        """What the move did for its deck: a spell cast (its commander?), a non-mana ability activated, the lands it has."""
+        kind = self.payload.get("type")
+        if card is None or kind not in ("cast_spell", "activate_ability", "play_land"):
+            return
+        use = self.use(self.actor)
+        if kind == "cast_spell":
+            use.cast[card.name] += 1
+            use.commander_cast += bool(card.commander_key)
+        elif kind == "activate_ability" and how != "decision":  # (a decision's activation is tapping for mana)
+            use.activated[card.name] += 1
+        state = self.session.state
+        lands = sum(1 for c in state.zones.get(f"{self.actor}:battlefield", [])
+                    if "Land" in ((self.cards.get(state.cards[c].card_id or "") or {}).get("type_line") or ""))
+        use.max_lands = max(use.max_lands, lands)
 
     def move_kind(self, how: str) -> str:
         kind = str(self.payload["type"])
@@ -573,7 +620,9 @@ def run(db: Path, *, games: int, turns: int, seed: int, players: int, log: bool 
         start = time.perf_counter()
         for i in range(games):
             turn = (i * players) % len(decks)  # each game seats the next decks in the list, so every deck plays
-            Game(cards, decks[turn:] + decks[:turn], seed + i, players, report, privacy, log=log).play(turns)
+            names = [Path(n).stem for n in deck_files]
+            Game(cards, decks[turn:] + decks[:turn], seed + i, players, report, privacy, log=log,
+                 names=names[turn:] + names[:turn]).play(turns)
             if log:
                 print(f"game {i + 1}/{games} (seed {seed + i}): {report.actions} actions so far", file=sys.stderr)
         report.seconds = time.perf_counter() - start

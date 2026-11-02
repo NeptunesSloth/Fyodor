@@ -35,3 +35,6 @@ def test_the_pods_other_decks_play_whole_turns_cleanly() -> None:
     report = soak.run(DB, games=2, turns=5, seed=3101, players=4, deck_files=POD_DECKS)
     assert not report.problems, report.text()
     assert report.games == 2 and report.actions > 20
+    # the report says what each deck did (no problems means little if a deck never got going)
+    assert set(report.decks) == {Path(n).stem for n in POD_DECKS}, report.text()
+    assert all(use.seated >= 1 for use in report.decks.values()) and "what each deck did" in report.text()
