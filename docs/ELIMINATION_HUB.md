@@ -25,6 +25,11 @@ sandbox, fake-point predictions) extend this hub later: `SPECTATOR_ACTIVITIES_MI
 - **Deck Lab** (`POST /api/games/{id}/deck-lab`): a copy of the deck brought to this game. On the host computer it is
   a new library deck opened in the deck editor; on a guest's computer it is the list, edited in place and saved to that
   browser's My decks. The match deck and its library original are never changed; the next deck is chosen in the lobby.
+  **Compare** lists what the next-game version brings in and takes out against the deck brought to the game (In / Out
+  with counts, cards matched by name within their section so a new printing is no change, and the deck's size before and
+  after): the list being edited on a guest's computer, the library copy as the deck editor last saved it on the host
+  computer (`game/deckCompare.ts`, `DeckChanges.tsx`). Reopened in the same tab, Deck Lab comes back to the same copy (and a
+  guest's list), so the library gets one copy per game.
 
 - **Dice & toys** (`frontend/src/game/TableToys.tsx`, logic in `toys.ts`): a link in the hub and an entry in the
   spectators' "Watching · Things to do" plaque (a `SideActivity`). A **dice tray**: d4, d6, d8, d10, d12, d20 and a coin,
@@ -41,8 +46,8 @@ sandbox, fake-point predictions) extend this hub later: `SPECTATOR_ACTIVITIES_MI
 - **Game log:** a link in the hub opens the table's own log drawer (the public log and chat everyone at the table reads; the
   hub folds into its pill). Nothing new is sent: it is the same per-seat view.
 
-Not built yet: Deck Lab's compare view; a guest's Deck Lab is a plain list
-(the host computer's deck editor shows card types and the mana curve).
+Not built yet: card types and the mana curve in a guest's Deck Lab, which is a plain list and its compare view (the host
+computer's deck editor shows them).
 
 **Goal:** a player knocked out early in a Commander game still has something fun or useful to do
 while their friends finish. Elimination must **not** mean "you lost, sit in spectator mode until
