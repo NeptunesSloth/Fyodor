@@ -90,17 +90,23 @@ body:has(.lobby) .toasts { top: 16px; max-width: min(460px, calc(100vw - 32px));
   position: relative; flex: 1 0 auto; display: flex; flex-direction: column; justify-content: center; gap: 22px;
   margin: 12px calc(var(--lb-gutter) + 12px) 26px; padding: 22px clamp(16px, 2vw, 30px);
   border-radius: 22px;
-  background:
-    radial-gradient(ellipse 60% 50% at 28% 12%, rgba(255, 216, 160, 0.08), transparent 70%),
-    radial-gradient(ellipse 110% 95% at 50% 42%, transparent 52%, rgba(0, 0, 0, 0.5) 100%),
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.16 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
-    var(--felt);
+  background: var(--felt); isolation: isolate;
   box-shadow:
     inset 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 3px 22px rgba(0, 0, 0, 0.5),
     0 0 0 10px var(--wood), 0 0 0 11px color-mix(in srgb, var(--frame) 40%, transparent), 0 0 0 13px var(--wood-2),
     6px 26px 46px rgba(0, 0, 0, 0.6);
 }
-body.perf-low .lobby-table { background: var(--felt); }
+/* the felt's light and grain on a layer of their own under the table: drawn once, not again each time a seat changes (a big
+   gradient + SVG-noise background repainted on every lobby update was slow on CPU-only renderers: the browser tests on CI) */
+.lobby-table::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; will-change: transform;
+  background:
+    radial-gradient(ellipse 60% 50% at 28% 12%, rgba(255, 216, 160, 0.08), transparent 70%),
+    radial-gradient(ellipse 110% 95% at 50% 42%, transparent 52%, rgba(0, 0, 0, 0.5) 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.16 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    var(--felt);
+}
+body.perf-low .lobby-table::before { display: none; }
 
 .seat-row { display: grid; grid-template-columns: var(--cols, repeat(auto-fit, minmax(0, var(--plinth-w)))); justify-content: center; align-items: stretch; gap: 18px; }
 
@@ -173,7 +179,7 @@ button.pl-name:hover { color: var(--accent-2); }
   position: relative; display: block; overflow: hidden; container-type: size;
   background: radial-gradient(ellipse 80% 70% at 35% 25%, color-mix(in srgb, var(--felt-2) 75%, black), color-mix(in srgb, var(--felt) 55%, black));
 }
-.cmdr-art > .card-face { position: absolute; transition: filter calc(260ms * var(--anim-scale, 1)) var(--ease-out); }
+.cmdr-art > .card-face { position: absolute; }
 /* a cached scan (Scryfall "normal"): the art box is about 9–91% across and 12–54.5% down the card */
 .cmdr-art:has(> .card-face > img) > .card-face {
   left: -10.98%; top: 0; width: 121.95%; border-radius: 0;
