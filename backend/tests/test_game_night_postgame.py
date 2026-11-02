@@ -272,3 +272,21 @@ def test_the_pod_rule_rolls_records_the_rolls_and_follows_the_hosts_seating_afte
     entry = view(client, gid, alice)["game"]["night"]["history"][1]
     assert entry["order"] == expected and entry["order_source"] == "winner_last" and entry["rolls"] == []
     roundtrip(hub.get(gid).session)
+
+
+def test_the_final_board_takes_no_undo_request(table):
+    """-- final board, quick undo request -- an undo request waiting when the result is recorded can't be approved any more, and a
+    new one is refused: the finished table can't change."""
+    client, gid, alice, bob = table
+    hub = client.app.state.services.hub
+    a = seat_of(client, gid, alice)
+    act = f"/api/games/{gid}/actions"
+    ask = f"/api/games/{gid}/undo-request"
+    assert client.post(act, json={"action": {"type": "draw", "player": a, "count": 1}}, headers=h(alice)).status_code == 200
+    assert client.post(ask, json={"op": "request"}, headers=h(alice)).status_code == 200  # a draw others saw: the table is asked
+    _finish(client, gid, alice, bob, alice)
+    room = hub.get(gid)
+    before, cursor = board(room.session.state), room.session.history.cursor
+    assert client.post(ask, json={"op": "approve"}, headers=h(bob)).status_code == 409
+    assert client.post(ask, json={"op": "request"}, headers=h(alice)).status_code == 409
+    assert board(room.session.state) == before and room.session.history.cursor == cursor

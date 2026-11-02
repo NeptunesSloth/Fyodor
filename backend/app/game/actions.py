@@ -49,6 +49,9 @@ class Base(BaseModel):
     model_config = ConfigDict(extra="forbid")
     actor: str = ""  # set by the server
     ts: float = 0.0  # set by the server
+    # -- quick undo request -- set by the server as it records the action: hidden information or a random outcome it showed
+    # (a category, never a card), so taking it back asks the table first (app/game/undo_requests.py)
+    shown: Literal["draw", "search", "look", "reveal", "library", "random"] | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 # --- resolved payloads --------------------------------------------------------------

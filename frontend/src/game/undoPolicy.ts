@@ -37,3 +37,57 @@ export function undoRefusal(view: GameView, actor: string | null, op: UndoOp = "
   const which = op === "undo" ? "the last action" : "the next action to redo";
   return `Players may only ${op} their own actions at this table: ${which} was ${name ? `${name}'s` : "another player's"}.`;
 }
+
+/**
+ * -- quick undo request -- what the Undo button does for `actor` now: undo directly, ask the table first (the server says
+ * why: the undo setting refuses it, or the action showed hidden information or a random outcome), or nothing (refused, with
+ * no one to ask; nothing to undo). Only the server decides; this reads its view.
+ */
+export type UndoMode =
+  | { kind: "direct" }
+  | { kind: "ask"; why: string }
+  | { kind: "waiting"; why: string }
+  | { kind: "refused"; why: string }
+  | { kind: "none" };
+
+export function undoMode(view: GameView, actor: string | null): UndoMode {
+  const g = view.game;
+  if (!g.can_undo) return { kind: "none" };
+  const pending = g.undo_request;
+  if (pending) {
+    return { kind: "waiting", why: pending.by === actor ? "Your undo request is waiting for the table." : `${pending.by_name}'s undo request is waiting for the table.` };
+  }
+  if (g.undo_ask) return { kind: "ask", why: g.undo_ask };
+  const refused = undoRefusal(view, actor, "undo");
+  return refused ? { kind: "refused", why: refused } : { kind: "direct" };
+}
+
+/** What the undo request bar shows this seat (`me`: the seat it acts as), or null when it shows nothing here. */
+export interface UndoRequestSeat {
+  /** "Bob asks to undo: cast Sol Ring" / "You asked to undo: draw". */
+  title: string;
+  /** Why it needed the table: what the action showed (null when the undo setting alone asked). */
+  why: string | null;
+  /** Who still has to answer (names). */
+  waiting: string[];
+  /** This seat answers now (Approve / Decline). */
+  mustAnswer: boolean;
+  /** This seat asked and may withdraw it. */
+  mine: boolean;
+}
+
+export function undoRequestSeat(view: GameView, me: string | null): UndoRequestSeat | null {
+  const r = view.game.undo_request;
+  if (!r || !me || view.game.mode === "local") return null;
+  const mine = r.by === me;
+  const voter = r.voters.includes(me);
+  if (!mine && !voter) return null; // spectators and players already out of the game don't answer it
+  const name = (pid: string) => view.players.find((p) => p.id === pid)?.name ?? pid;
+  return {
+    title: mine ? `You asked to undo: ${r.label}` : `${r.by_name} asks to undo: ${r.label}`,
+    why: r.why,
+    waiting: r.waiting.map(name),
+    mustAnswer: voter && r.waiting.includes(me),
+    mine,
+  };
+}

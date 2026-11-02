@@ -19,7 +19,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from app.game import undo_rights
+from app.game import undo_requests, undo_rights
 from app.game.factory import PLAYER_COLORS
 from app.game.session import GameSession
 from app.game.visibility import OMNISCIENT, SPECTATOR
@@ -603,6 +603,7 @@ class GameHub:
         room.pulse.observe(room.session.state, room.night.number, room.night.result, room.seat_name)
         room.predictions.observe(room.pulse, room.night.result)  # (spectator activities) follows the same public facts
         recap = room.predictions.recap(room.night.number, room.seat_name) if room.night.result is not None else None
+        host = room.mode == "local" or (room.host_seat is not None and viewer == room.host_seat)
         meta = {
             "mode": room.mode,
             "code": room.code if room.mode == "lan" else None,
@@ -613,8 +614,9 @@ class GameHub:
             "assets": self._assets(room),
             "night": room.night.public(room.seat_name),
             # -- undo policy (gap 3) -- the host's own seat at a LAN table, anyone at a hot-seat one (as the API decides)
-            **undo_rights.view_fields(room.session.state, room.session.history,
-                                      host=room.mode == "local" or (room.host_seat is not None and viewer == room.host_seat)),
+            **undo_rights.view_fields(room.session.state, room.session.history, host=host),
+            # -- quick undo request -- the request waiting for the table, and whether this viewer's undo would ask it
+            **undo_requests.view_fields(room.session, viewer, host=host, others=undo_voters(room, viewer)),
             "events": room.pulse.public(),
             **({"predictions": recap} if recap else {}),
         }
@@ -635,6 +637,15 @@ class GameHub:
                 self._autosave(room)
             except Exception:  # noqa: BLE001 - autosave failure must not break play; it is logged loudly
                 log.exception("Autosave failed for game %s", room.id)
+
+
+def undo_voters(room: Room, actor: str | None) -> list[str] | None:
+    """-- quick undo request -- who approves an undo request from ``actor``: every other seated player still in the game (a LAN
+    seat nobody has taken can't answer). None at a hot-seat table, where undo stays direct (app/game/undo_requests.py)."""
+    if room.mode == "local" or room.game is None or actor not in room.seats:
+        return None
+    return [pid for pid in undo_requests.still_in(room.game.state)
+            if pid != actor and pid in room.seats and room.seats[pid].token is not None]
 
 
 def valid_viewer(room: Room, viewer: str) -> bool:
