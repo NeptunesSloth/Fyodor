@@ -112,7 +112,13 @@ class Recorder:
     """The randomness source for one action: passes every call through, and remembers that the action used it."""
 
     def __init__(self, rng: Any = None) -> None:
-        self._rng = rng or secrets.SystemRandom()  # (stateless: the same source as resolve's own)
+        if rng is None:
+            # resolve's own source (a system source): the one object the table's randomness comes from, so a test that pins it
+            # (tests/wave47b_kit.py ``pin_random``) pins the rules engine's random picks too
+            from app.game import resolve
+
+            rng = resolve._rng
+        self._rng = rng
         self.used = False
 
     def __getattr__(self, name: str) -> Any:
