@@ -221,7 +221,10 @@ export function TurnDial() {
   const topName = top && "name" in top ? top.name : "the top of the stack";
   let status: string;
   const watching = !ctx.seated;
+  // out of the game (conceded or lost, 800.4a): they watch like everyone else; nothing here moves the game for them
+  const out = !watching && !!rules && (rules.conceded.includes(me) || me in rules.lost);
   if (watching) status = "Watching";
+  else if (out) status = "You're out — watching";
   else if (!auto) status = rules?.paused ? "Automation paused: move the steps yourself" : "Manual play: you move the steps";
   else if (rules!.controlled_by) status = `${playerName(view, rules!.controlled_by)} is making your choices`;
   else if (rules!.decision) {
@@ -235,17 +238,17 @@ export function TurnDial() {
   const blocked = deciding ? "Answer your decision first" : undefined;
   return (
     <div className="turn-dial-wrap plaque-wrap">
-      <section className={`turn-dial plaque ${mine ? "mine" : ""}`} data-testid={auto ? "priority-bar" : "turn-dial"} aria-label="Turn and priority">
+      <section className={`turn-dial plaque ${mine ? "mine" : ""}${out ? " out" : ""}`} data-testid={auto ? "priority-bar" : out ? "turn-dial-out" : "turn-dial"} aria-label="Turn and priority">
         <header className="td-head" data-testid="turn-tracker">
           <span className="td-seat" style={{ ["--player-color" as string]: active?.color }} aria-hidden>{active?.name.slice(0, 1).toUpperCase()}</span>
           <span className="td-turn">Turn {turn.number} · {active?.id === me ? "your turn" : active?.name}</span>
-          {!auto && !watching && (
+          {!auto && !watching && !out && (
             <span className="td-steps">
               <button className="tt-btn ghost td-step" title="Go back one step" onClick={() => void send({ type: "phase", to: "prev" })}>‹ Previous step</button>
             </span>
           )}
         </header>
-        <button className="td-phase" data-testid="current-phase" title="Jump to a step" disabled={auto || watching}
+        <button className="td-phase" data-testid="current-phase" title="Jump to a step" disabled={auto || watching || out}
           onClick={(e) => openMenu(e, PHASES.map((ph) => ({ label: `${ph === step ? "● " : ""}${PHASE_LABEL[ph]}`, onClick: () => void send({ type: "phase", to: ph }) })), "Step")}>
           {PHASE_LABEL[step] ?? turn.phase}
         </button>
@@ -278,7 +281,7 @@ export function TurnDial() {
             </div>
           </>
         )}
-        {!auto && !watching && (
+        {!auto && !watching && !out && (
           <>
             {stack ? (
               // something is on the stack: resolving it comes first, stepping on is secondary

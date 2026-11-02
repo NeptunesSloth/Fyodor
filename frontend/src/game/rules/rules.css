@@ -70,6 +70,8 @@
 .td-group { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .td-track li.here .td-group { color: var(--text); font-weight: 600; }
 .td-status { margin: 2px 0 0; font-size: 13px; color: var(--text-dim); }
+/* out of the game: the dial only tells the turn, quieter (nothing on it is theirs to press) */
+.turn-dial.out .td-phase { color: var(--text-dim); }
 .turn-dial.mine .td-status { color: var(--select); font-weight: 600; }
 .turn-dial.mine .td-status::before { content: "● "; }
 .td-pass {

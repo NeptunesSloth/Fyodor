@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.cards.repository import CardRepository, RulesCards
-from app.game import engine, undo_requests, undo_rights
+from app.game import engine, out_of_game, undo_requests, undo_rights
 from app.game.actions import INTENT_TYPES, Action, parse_action
 from app.game.control import is_controlled
 from app.game.errors import ActionError, AutomationError
@@ -60,6 +60,8 @@ class GameSession:
         action = parse_action(payload) if isinstance(payload, dict) else payload
         if not trusted and action.type not in CONTROLLED_MAY:
             self._check_not_controlled(actor)
+        if not trusted and (out := out_of_game.refusal(self.state, actor, action.type)) is not None:
+            raise ActionError(out)  # -- out of the game -- 800.4a: a player who left no longer takes part
         was, rng = undo_requests.before(self.state), undo_requests.Recorder()  # -- quick undo request --
         try:
             resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted, rng=rng)
