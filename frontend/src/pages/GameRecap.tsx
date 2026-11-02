@@ -9,7 +9,11 @@ export function EliminationOrder({ list }: { list: EliminationEntry[] | undefine
   if (!lines.length) return null;
   return (
     <ol className="elim-order" data-testid="elim-order" aria-label="Elimination order">
-      {lines.map((l) => <li key={l.place}>{l.text}</li>)}
+      {lines.map((l) => (
+        <li key={l.place}>
+          <span className="eo-head">{l.head}</span>{" "}<b className="eo-who">{l.who}</b><span className="eo-rest">{l.rest}</span>
+        </li>
+      ))}
     </ol>
   );
 }
@@ -21,13 +25,17 @@ function Seats({ board, eliminations }: { board: FinalBoardSeat[]; eliminations?
       {board.map((seat) => {
         const l = boardLines(seat);
         const place = out.get(seat.seat);
+        const [life, ...rest] = l.stats.split(" life");
         return (
-          <li key={seat.seat}>
+          <li key={seat.seat} className={place ? "out" : "standing"}>
             <div className="fb-head">
-              <b>{seat.name}</b>
-              {seat.commanders.length > 0 && <span className="fb-cmdr">{seat.commanders.join(" & ")}</span>}
-              <span className="fb-stats">{l.stats}{place ? ` · out ${ordinal(place)}` : ""}</span>
+              <b className="fb-name">{seat.name}</b>
+              <span className="fb-stats">
+                <span className="fb-life">{life}</span>{" life"}{rest.join(" life")}
+                {place ? <span className="fb-out">{` · out ${ordinal(place)}`}</span> : null}
+              </span>
             </div>
+            {seat.commanders.length > 0 && <p className="fb-cmdr">{seat.commanders.join(" & ")}</p>}
             {l.permanents && <p className="fb-perms">{l.permanents}</p>}
             {l.lands && <p className="fb-lands">{l.lands}</p>}
             <p className="fb-zones">{l.zones}</p>
