@@ -153,7 +153,7 @@ def test_kozileks_return_works_only_from_the_graveyard(cards, pay):
     mana(s, C=8)
     act(s, "p1", type="cast_spell", card_id=crusher.id)
     assert s.state.zones["stack"]  # (the trigger above the Crusher: it resolves first, the ruling)
-    answer(s, "Pay" if pay else "Decline", "Don't")
+    answer(s, "Exile" if pay else "Decline", "Don't")
     assert s.state.cards[crusher.id].zone == "p1:battlefield" and s.state.cards[crusher.id].damage == 0
     if pay:
         assert s.state.cards[ret.id].zone == "p1:exile" and s.state.cards[bears.id].zone == "p1:graveyard"

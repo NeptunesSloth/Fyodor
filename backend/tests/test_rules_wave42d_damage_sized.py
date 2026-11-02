@@ -145,7 +145,7 @@ def bolg(cards, victim="3/3", sacrificed="4/4", shield=False):
 def sacrifice_and_strike(s):
     """Bolg's enters trigger: pay (sacrifice Alice's Ogre), the reflexive trigger's target is Bob's Foe, everything resolves."""
     d = until_asked(s)
-    assert d.player == "p1" and [o.label for o in d.options] == ["Pay Sacrifice another creature", "Don't pay"]
+    assert d.player == "p1" and [o.label for o in d.options] == ["Sacrifice another creature", "Don't pay"]
     act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])
     d = until_asked(s)
     assert d.player == "p1" and "target" in d.prompt.lower() and [o.label for o in d.options] == ["Bob's Foe"]

@@ -145,7 +145,7 @@ def test_cumulative_upkeep_sacrifice_a_creature_once_for_each_age_counter_even_i
     s = build(cards, [SOULGORGER, "Grizzly Bears", "Llanowar Elves"])
     gorger, bears, elves = put(s, SOULGORGER), put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
     d = prompt(s, SOULGORGER)
-    assert age(s, SOULGORGER) == 1 and "Sacrifice a creature" in d.prompt
+    assert age(s, SOULGORGER) == 1 and ": sacrifice a creature?" in d.prompt
     answer(s, d, "pay")
     d = prompt(s, SOULGORGER)  # which creature to sacrifice: the payer chooses among their permanents
     assert {o.id for o in d.options} == {gorger.id, bears.id, elves.id}
@@ -153,7 +153,7 @@ def test_cumulative_upkeep_sacrifice_a_creature_once_for_each_age_counter_even_i
     drain(s)
     assert zone_of(s, "Llanowar Elves") == "p1:graveyard" and zone_of(s, SOULGORGER) == "p1:battlefield" and age(s, SOULGORGER) == 1
     d = prompt(s, SOULGORGER)
-    assert age(s, SOULGORGER) == 2 and "Sacrifice a creature, Sacrifice a creature" in d.prompt
+    assert age(s, SOULGORGER) == 2 and "sacrifice a creature, sacrifice a creature" in d.prompt
     answer(s, d, "pay")
     d = prompt(s, SOULGORGER)  # two different creatures: the Bears and the Soulgorger itself are the only two left
     assert {o.id for o in d.options} == {gorger.id, bears.id}
@@ -183,7 +183,7 @@ def test_cumulative_upkeep_discard_hidden_choice_and_the_sacrifice_trigger_reads
     drain(s)
     assert s.state.cards[first].zone == "p1:graveyard" and zone_of(s, SPHINX) == "p1:battlefield"
     d = prompt(s, SPHINX)  # the second age counter: two cards, one pick for each
-    assert age(s, SPHINX) == 2 and "Discard a card, Discard a card" in d.prompt
+    assert age(s, SPHINX) == 2 and "discard a card, discard a card" in d.prompt
     answer(s, d, "pay")
     for _ in range(2):
         d = prompt(s, SPHINX)
@@ -278,7 +278,7 @@ def test_cumulative_upkeep_put_a_counter_on_itself_as_a_cost(cards):
     answer(s, d, "pay")
     assert s.state.cards[card_named(s, ABOROTH).id].counters.get("-1/-1", 0) == 1
     d = prompt(s, ABOROTH)
-    assert age(s, ABOROTH) == 2 and "Put a -1/-1 counter on this creature, Put a -1/-1 counter on this creature" in d.prompt
+    assert age(s, ABOROTH) == 2 and "put a -1/-1 counter on this creature, put a -1/-1 counter on this creature" in d.prompt
     answer(s, d, "pay")
     assert s.state.cards[card_named(s, ABOROTH).id].counters.get("-1/-1", 0) == 3
     answer(s, prompt(s, ABOROTH), "decline")
@@ -432,7 +432,7 @@ def test_echo_discard_a_card_is_paid_once_or_it_is_sacrificed(cards):
     put(s, IMP)
     to_hand(s, "Lightning Bolt"), to_hand(s, "Opt")
     d = prompt(s, IMP)
-    assert {o.id for o in d.options} == {"pay", "decline"} and "Discard a card" in d.prompt
+    assert {o.id for o in d.options} == {"pay", "decline"} and ": discard a card?" in d.prompt
     answer(s, d, "pay")
     d = prompt(s, IMP)
     assert d.kind == "choose_cards" and {s.state.cards[o.id].name for o in d.options} >= {"Lightning Bolt", "Opt"}
@@ -469,7 +469,7 @@ def test_echo_sacrifice_two_lands_paid_and_not_offered_with_one_land(cards):
     put(s, SURGER)
     ids = lands(s, "Mountain", 2)
     d = prompt(s, SURGER)
-    assert "Sacrifice two lands" in d.prompt
+    assert ": sacrifice two lands?" in d.prompt
     answer(s, d, "pay")
     drain(s)
     assert zone_of(s, SURGER) == "p1:battlefield" and all(s.state.cards[c].zone == "p1:graveyard" for c in ids)
