@@ -318,7 +318,7 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     if replicated := {cid: labels for cid in out["castable"] if (labels := wave111r3_replicate.hint(state, viewer, state.cards[cid], info))}:
         out["replicate111r3"] = replicated
     # (wave 3C) cards a permission lets you cast without paying their mana costs
-    out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info)]
+    out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info, announce=True)]
     # -- cost changers (wave 4I) -- alternative costs written on cards (118.9): card id → [{"id", "label"}]
     alt = {cid: found for cid in candidates if (found := alt_castable(state, viewer, state.cards[cid], info))}
     if alt:
