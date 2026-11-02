@@ -8,6 +8,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from app.cards.repository import CardRepository, RulesCards
 from app.game import engine, undo_requests, undo_rights
 from app.game.actions import INTENT_TYPES, Action, parse_action
 from app.game.control import is_controlled
@@ -37,7 +38,8 @@ class GameSession:
     def __init__(self, state: GameState, *, cards: CardInfo | None = None, history: History | None = None,
                  history_limit: int = 500, rules: RulesRegistry | None = None) -> None:
         self.state = state
-        self.cards = cards
+        # the rules read card data through the repository's cache (no image checks): CardRepository.rules_card
+        self.cards = RulesCards(cards) if isinstance(cards, CardRepository) else cards
         self.rules = rules
         self.suggestions: list[Suggestion] = []
         self.history = history or History(state, limit=history_limit)

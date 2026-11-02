@@ -1,0 +1,89 @@
+// my exp bar is low (Archidekt 21787729): commander and main deck only
+Commander
+1x Atraxa, Praetors' Voice (2xm) 190
+Deck
+1x Blight Rot (ecl) 89
+1x Grind // Dust (plst) HOU-155
+1x Necropede (som) 185
+1x Torment of Venom (plst) HOU-79
+1x Spitting Dilophosaurus (rex) 29
+1x Stinging Shot (plst) AKH-189
+1x Tainted Observer (one) 217
+1x Radstorm (pip) 37
+1x Mana Drain (2x2) 57
+1x Bayou (vma) 293
+1x Tropical Island (vma) 321
+1x Savannah (vma) 311
+1x Underground Sea (vma) 323
+1x Tundra (vma) 322
+1x Scrubland (vma) 313
+1x Sandsteppe Citadel (ecc) 164
+1x Zagoth Triome (iko) 259
+1x Spara's Headquarters (snc) 257
+1x Indatha Triome (iko) 248
+1x Raffine's Tower (snc) 254
+1x Sol Ring (soc) 128
+1x Farseek (eoc) 50
+1x Thirsting Roots (one) 185
+1x Deepglow Skate (eoc) 70
+1x Dreamtide Whale (mh3) 59
+1x Undergrowth Stadium (tmc) 80
+1x Tezzeret's Gambit (eoc) 47
+1x Thrummingbird (eoc) 80
+1x Karn's Bastion (eoc) 163
+1x Inexorable Tide (fic) 265
+1x Astral Cornucopia (soc) 342
+1x Cultivate (soc) 265
+1x Contagion Engine (plst) SOM-145
+1x Doubling Season (fdn) 216
+1x Kodama's Reach (ecc) 113
+1x Ezuri, Stalker of Spheres (one) 201
+1x Terramorphic Expanse (sos) 265
+1x Swords to Plowshares (soc) 179
+1x Temple Garden (ecl) 268
+1x Tekuthal, Inquiry Dominus (eoc) 78
+1x Evolution Sage (ecc) 105
+1x Vorinclex, Monstrous Raider (khm) 199
+1x Breeding Pool (eoe) 251
+1x Flux Channeler (cmm) 847
+1x Sea of Clouds (clb) 360
+1x Cankerbloom (one) 161
+1x Unnatural Restoration (one) 191
+1x Bountiful Promenade (clb) 348
+1x Contentious Plan (war) 46
+1x Arcane Signet (soc) 127
+1x Farewell (fic) 242
+1x Heroic Intervention (pip) 202
+1x Canopy Vista (fic) 378
+1x Path to Exile (soc) 159
+1x Command Tower (soc) 129
+1x Exotic Orchard (soc) 369
+1x Ezuri, Claw of Progress (2x2) 211
+1x Metastatic Evangel (mh3) 35
+1x Rampant Growth (fic) 313
+1x Chromatic Lantern (tmc) 58
+1x Atomize (pip) 94
+5x Plains (sos) 272
+8x Island (sos) 274
+4x Forest (sos) 280
+1x Innkeeper's Talent (blb) 180
+1x Aang, Airbending Master (tle) 74
+1x Katara, Waterbending Master (tle) 93
+1x Replicating Ring (moc) 372
+1x Spark Double (rvr) 62
+1x Meren of Clan Nel Toth (tdc) 297
+1x Toph, Earthbending Master (tle) 145
+1x Daxos the Returned (plst) C15-43
+1x Minthara, Merciless Soul (clb) 286
+1x Out of Time (who) 209
+1x Strixhaven Stadium (stx) 259
+1x Crack in Time (who) 16
+1x Simic Ascendancy (blc) 260
+1x Darksteel Reactor (eoc) 134
+1x Cyclonic Rift (rvr) 40
+1x Azor's Elocutors (rtr) 210
+1x Parallax Wave (plst) NEM-17
+1x Rusting Golem (nem) 138
+1x Parallax Tide (nem) 37
+1x Agent's Toolkit (ncc) 66
+1x Faithbound Judge // Sinner's Judgment (vow) 12

@@ -3240,18 +3240,19 @@ def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None, a
     """Card ids (not players) matching the selector, in a deterministic order."""
     zones = sel.zones or ("graveyard", "hand", "exile")
     out = []
-    for key, ids in plan.state.zones.items():
-        zone = key.split(":")[-1]
-        if zone not in zones:
-            continue
-        if zone in ("hand", "library") and sel.zone_owner != "you":
-            continue  # hidden zones: only your own, and only when the sentence says so
-        for cid in ids:
-            card = plan.state.cards.get(cid)
-            if card is None or not plan.in_game(card):
-                continue  # 800.4a: what a player who left the game owned (or controlled) has left it too
-            if matches(plan, sel, card, plan.ch(card), you, source, attacker):
-                out.append(cid)
+    with plan.reading():  # (a read-only scan: the statics table is read once, not once per card; big boards)
+        for key, ids in plan.state.zones.items():
+            zone = key.split(":")[-1]
+            if zone not in zones:
+                continue
+            if zone in ("hand", "library") and sel.zone_owner != "you":
+                continue  # hidden zones: only your own, and only when the sentence says so
+            for cid in ids:
+                card = plan.state.cards.get(cid)
+                if card is None or not plan.in_game(card):
+                    continue  # 800.4a: what a player who left the game owned (or controlled) has left it too
+                if matches(plan, sel, card, plan.ch(card), you, source, attacker):
+                    out.append(cid)
     return out
 
 

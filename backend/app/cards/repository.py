@@ -42,6 +42,9 @@ class CardRepository:
         self._names_for: sqlite3.Connection | None = None
         self._word_names: frozenset[str] = frozenset()
         self._word_names_for: sqlite3.Connection | None = None
+        # the rules engine's reads (rules_card): one per printing per open database
+        self._rules: dict[str, dict[str, Any] | None] = {}
+        self._rules_for: sqlite3.Connection | None = None
 
     # -- connection management -------------------------------------------------------
     def _connection(self) -> sqlite3.Connection:
@@ -123,6 +126,20 @@ class CardRepository:
     def get(self, card_id: str) -> dict[str, Any] | None:
         rows = self._query(f"SELECT {SUMMARY_COLUMNS} FROM printings p WHERE p.id = ?", (card_id,))
         return self._to_card(rows[0], detail=True) if rows else None
+
+    def rules_card(self, card_id: str) -> dict[str, Any] | None:
+        """What the rules engine reads about a printing: ``get``'s fields without ``has_image``, read once per printing while
+        the same database is open. ``get`` checks the image files on every call, and the engine reads card data tens of
+        thousands of times in one action on a big board; the rules never look at images. A new database (``replace_with``,
+        or a swapped file that the next query reopens) empties the cache. Callers must not change the returned dict."""
+        with self._lock:
+            conn = self._conn if self._conn is not None and self._conn is self._rules_for else self._connection()
+            if conn is not self._rules_for:
+                self._rules, self._rules_for = {}, conn
+            if card_id not in self._rules:
+                rows = conn.execute(f"SELECT {SUMMARY_COLUMNS} FROM printings p WHERE p.id = ?", (card_id,)).fetchall()
+                self._rules[card_id] = self._to_card(rows[0], detail=True, images=False) if rows else None
+            return self._rules[card_id]
 
     def get_many(self, card_ids: list[str]) -> dict[str, dict[str, Any]]:
         out: dict[str, dict[str, Any]] = {}
@@ -323,7 +340,7 @@ class CardRepository:
         return card["related_tokens"]
 
     # -- row mapping -----------------------------------------------------------------
-    def _to_card(self, row: sqlite3.Row, *, detail: bool = False) -> dict[str, Any]:
+    def _to_card(self, row: sqlite3.Row, *, detail: bool = False, images: bool = True) -> dict[str, Any]:
         faces_raw: list[dict[str, Any]] = json.loads(row["card_faces"]) if row["card_faces"] else []
         is_token = bool(row["is_token"])
         layout = row["layout"]
@@ -370,8 +387,9 @@ class CardRepository:
             "faces": faces,
             "double_faced": layout in DOUBLE_FACED_LAYOUTS and len(image_faces) > 1,
             "image_faces": len(image_faces),
-            "has_image": self.images.has(row["id"], 0),
         }
+        if images:  # (a file check per call: rules_card leaves it out)
+            card["has_image"] = self.images.has(row["id"], 0)
         if detail:
             legal = json.loads(row["legalities"] or "{}")
             card.update(
@@ -412,3 +430,16 @@ class CardRepository:
             return bool(row["is_token"]), [json.loads(row["image_uris"])]
         faces = json.loads(row["card_faces"] or "[]")
         return bool(row["is_token"]), [f.get("image_uris") or {} for f in faces if f.get("image_uris")]
+
+
+class RulesCards:
+    """A game session's card source: ``get`` is the repository's cached ``rules_card``; every other method is the repository's."""
+
+    def __init__(self, repo: CardRepository) -> None:
+        self.repo = repo
+
+    def get(self, card_id: str) -> dict[str, Any] | None:
+        return self.repo.rules_card(card_id)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.repo, name)

@@ -1,0 +1,81 @@
+// grouphug (Archidekt 17150190): commander and main deck only
+Commander
+1x Zedruu the Greathearted (c16) 231
+Deck
+1x Mystic Monastery (eoc) 170
+1x Command Tower (eoc) 59
+1x Illusions of Grandeur (ice) 79
+1x Reliquary Tower (tdc) 386
+1x Exotic Orchard (eoc) 159
+1x Thought Vessel (fic) 368
+1x Talisman of Progress (fic) 367
+1x Arcane Signet (eoc) 53
+1x Temple of Enlightenment (eoc) 186
+1x Sol Ring (tle) 316
+1x Alexios, Deimos of Kosmos (acr) 33
+1x Prairie Stream (fic) 413
+1x Sea of Clouds (clb) 360
+1x Training Center (cmm) 434
+1x Aggressive Mining (m15) 127
+1x Rust Elemental (mrd) 234
+1x Moderation (mh2) 206
+1x Stiltzkin, Moogle Merchant (fin) 34
+1x Psychosis Crawler (blc) 282
+1x Decanter of Endless Water (clb) 309
+1x Grid Monitor (mrd) 183
+1x Wrong Turn (cmr) 107
+1x Dovin's Veto (war) 193
+1x An Offer You Can't Refuse (fic) 267
+1x Arcane Denial (drc) 70
+1x Harmless Offering (fdn) 625
+1x Counterspell (dsc) 114
+1x Khârn the Betrayer (40k) 79
+1x Statecraft (mmq) 106
+1x Swords to Plowshares (eoc) 45
+1x Shifting Grift (otj) 66
+1x Nine Lives (m21) 28
+1x Steel Golem (10e) 344
+1x Role Reversal (war) 214
+1x Path to Exile (fic) 248
+1x Ghostly Prison (tdc) 116
+1x Propaganda (fic) 268
+1x Raugrin Triome (iko) 251
+1x Akroan Horse (plst) C16-241
+1x Pramikon, Sky Rampart (c19) 47
+1x Goldnight Castigator (soi) 162
+1x Sudden Substitution (c19) 11
+1x Transcendence (tor) 20
+1x Cinder Giant (wth) 93
+1x Paradox Haze (plst) TSP-71
+1x Sphere of Safety (dsc) 104
+1x Solitary Confinement (mh2) 265
+1x Darksteel Mutation (cmm) 21
+1x Delusions of Mediocrity (7ed) 70
+1x Form of the Dragon (plst) 9ED-187
+1x Curse of Opulence (tdc) 209
+1x Spectator Seating (cmm) 427
+1x Zidane, Tantalus Thief (fin) 251
+1x Fractured Identity (who) 236
+1x Bucknard's Everfull Purse (afc) 57
+1x Laboratory Maniac (inr) 359
+1x Legerdemain (plst) TMP-72
+1x Thought Lash (all) 39
+7x Plains (tle) 304
+9x Island (tla) 283
+7x Mountain (tle) 295
+1x Marina Vendrell's Grimoire (dsk) 64
+1x Solemnity (hou) 22
+1x Enter the Infinite (rvr) 449
+1x Leveler (mrd) 195
+1x Shabraz, the Skyshark (c20) 14
+1x Austere Command (fic) 231
+1x Felidar Sovereign (j25) 198
+1x Silent Arbiter (cmm) 972
+1x Daring Thief (jou) 36
+1x Chromatic Lantern (ecc) 138
+1x Imprisoned in the Moon (inr) 69
+1x Pyromancer's Swath (mma) 125
+1x Political Trickery (mir) 81
+1x Shifting Borders (sok) 56
+1x Puca's Mischief (plst) SHM-47
+1x Vedalken Plotter (cmd) 66
