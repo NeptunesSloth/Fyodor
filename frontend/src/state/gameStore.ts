@@ -22,6 +22,7 @@ import { play, soundForLog } from "../game/sound";
 import { requestCards } from "./cardCache";
 import { undoActor, undoMode, undoRefusal, type UndoOp } from "../game/undoPolicy";
 import { finalBoardRefusal } from "../game/finalBoard";
+import { actionRefusal } from "../game/cardPermissions";
 import { undoRequest } from "../services/undoRequest";
 
 export interface PickMode {
@@ -227,7 +228,9 @@ export const useGame = create<GameStore>((set, get) => ({
     const { conn, view, actingAs } = get();
     if (!conn || !view) return false;
     const as = view.game.mode === "local" ? actingAs ?? undefined : undefined;
-    const closed = finalBoardRefusal(view, String((action as { type?: unknown }).type ?? ""));
+    // (-- table permissions -- another player's cards under the host's setting: the server would refuse it, just as it refuses
+    // a change to the final board. Rules intents, looking and life totals are never limited: game/cardPermissions.ts.)
+    const closed = finalBoardRefusal(view, String((action as { type?: unknown }).type ?? "")) ?? actionRefusal(view, action);
     if (closed) {
       // -- final board -- the server would refuse it: put any dragged card back and say why (not again while that shows)
       set({ pendingPositions: {} });

@@ -36,6 +36,7 @@ import { useGame } from "../state/gameStore";
 import { activeProfile } from "../state/prefs";
 import type { DeckSummary } from "../types/decks";
 import { SPECTATOR, type LobbySeat, type LobbySettings, type LobbyView } from "../types/game";
+import { TablePermissionsSetting } from "./TablePermissionsSetting";
 import { EliminationOrder, FinalBoard } from "./GameRecap";
 import { PersonalDeckImports } from "./PersonalDeckImports";
 import { TURN_ORDER_LABEL, TURN_ORDER_SHORT, canNudge, moveSeat, nudgeSeat, previewLine, rollsText, type TurnOrderMode } from "./seating";
@@ -717,6 +718,7 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
             <option value="off">Off</option>
           </select>
         </label>
+        <TablePermissionsSetting value={draft.card_permissions} onChange={(v) => set({ card_permissions: v })} />
       </div>
       {configurable && draft.mulligan_policy && (
         <>

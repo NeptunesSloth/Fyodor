@@ -24,6 +24,7 @@ PriorityHelper = Literal["off", "simple"]
 # winner goes last; "random" = a random first player, then around the table as seated; "seats" (-- seating --) = the seats as
 # the host arranged them, seat 1 first.
 TurnOrder = Literal["pod", "random", "seats"]
+CardPermissions = Literal["everyone", "owner"]  # -- table permissions -- (GameSettings.card_permissions)
 
 MAX_DECK_ENTRIES = 400
 MAX_DECK_CARDS = 600
@@ -44,6 +45,8 @@ class LobbySettings(BaseModel):
     # "pod": d20 for game 1 and after a draw, then the previous winner goes last (GAME_NIGHT_FLOW.md §2).
     # The app asks for it when it creates a lobby; the API default keeps seats in join order. "seats": seat 1 first.
     turn_order: TurnOrder = "random"
+    # -- table permissions -- "Who may change a player's cards" (app/game/table_rights.py); copied into the game's settings at the start
+    card_permissions: CardPermissions = "everyone"
 
     @field_validator("name")
     @classmethod

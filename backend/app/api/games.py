@@ -43,6 +43,7 @@ from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, undo_voters
 from app.multiplayer.lobby import (
+    CardPermissions,
     DeckTooLarge,
     LobbySeatInfo,
     LobbySettings,
@@ -186,6 +187,7 @@ class CreateGameIn(BaseModel):
     automation: AutomationLevel = "off"
     # Lobby turn order: "pod" = d20, then the previous winner goes last (GAME_NIGHT_FLOW.md §2); "seats" = seat 1 first.
     turn_order: TurnOrder = "random"
+    card_permissions: CardPermissions = "everyone"  # -- table permissions -- who may change a player's cards (LAN)
 
     @field_validator("name")
     @classmethod
@@ -261,7 +263,8 @@ def _create_lobby(services: Services, body: CreateGameIn) -> dict[str, Any]:
                              deck_privacy=body.deck_privacy,
                              mulligan_rule=body.mulligan_rule or "commander_london",
                              mulligan_policy=body.mulligan_policy, priority_helper=body.priority_helper,
-                             auto_untap=body.auto_untap, automation=body.automation, turn_order=body.turn_order)
+                             auto_untap=body.auto_untap, automation=body.automation, turn_order=body.turn_order,
+                             card_permissions=body.card_permissions)
     room = services.hub.create_lobby(settings, password=body.password)
     result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
     if body.host_seat:
@@ -324,7 +327,7 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
                             # one person runs a hot-seat table: nobody to ask; with rules, the engine asks
                             priority_helper=body.priority_helper if body.mode == "lan" and body.automation == "off" else "off",
                             allow_test_objects=body.mode == "local", automation=body.automation,
-                            automation_options=AUTOMATION_PRESETS[body.automation].model_copy())
+                            automation_options=AUTOMATION_PRESETS[body.automation].model_copy(), card_permissions=body.card_permissions)
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
     if body.automation != "off":
         start_rules(state)
@@ -375,7 +378,8 @@ async def post_action(
             return {**services.hub.view(room, viewer), "status": "ALREADY_APPLIED", "outcome": previous}
         _check_table_open(room, body.action.get("type"))
         try:
-            room.session.perform(actor, body.action)
+            # -- table permissions -- the host's own seat helps anyone; everyone at a hot-seat table sits at the host computer
+            room.session.perform(actor, body.action, host=room.mode == "local" or room.is_host(x_seat_token))
         except ValidationError as exc:
             if cid is not None:
                 services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")
@@ -675,6 +679,7 @@ class LobbySettingsIn(BaseModel):
     auto_untap: bool | None = None
     automation: AutomationLevel | None = None
     turn_order: TurnOrder | None = None
+    card_permissions: CardPermissions | None = None  # -- table permissions -- (no Ready reset: it's how the table plays, not the deck rules)
 
 
 class ArrangeIn(BaseModel):
@@ -1163,6 +1168,7 @@ async def start_game(
             mulligan=lobby.policy(),
             automation=lobby.automation,
             automation_options=AUTOMATION_PRESETS[lobby.automation].model_copy(),
+            card_permissions=lobby.card_permissions,  # -- table permissions --
         )
         state = new_game(
             setups,
@@ -1668,7 +1674,7 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
             return
         try:
             if isinstance(msg, WsAction):
-                room.session.perform(actor, msg.action)
+                room.session.perform(actor, msg.action, host=room.mode == "local" or conn.host)  # -- table permissions --
             elif msg.type == "undo":  # -- undo policy (gap 3) -- (-- quick undo request -- ``others``: see _history_op)
                 room.session.undo(actor, host=room.mode == "local" or conn.host, others=undo_voters(room, actor))
             else:

@@ -427,6 +427,9 @@ class GameSettings(BaseModel):
     auto_clear_combat: bool = False  # optional: leaving combat / next turn clears combat markers
     allow_test_objects: bool = False  # Spawn card (solo tables allow it; the host can enable it on LAN)
     undo_policy: Literal["everyone", "own", "host"] = "everyone"
+    # -- table permissions -- "Who may change a player's cards": everyone (tabletop freedom), or each player their own (and the
+    # host helps). Checked for manual table edits only, never rules actions; a hot-seat table ignores it (app/game/table_rights.py).
+    card_permissions: Literal["everyone", "owner"] = "everyone"
     # What opponents learn about a player's deck: nothing, the commander(s) and deck name, or the list.
     deck_privacy: Literal["private", "commander_only", "public"] = "commander_only"
     priority_helper: Literal["off", "simple"] = "off"

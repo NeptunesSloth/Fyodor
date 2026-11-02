@@ -11,6 +11,7 @@ import { addCounter, COMMON_COUNTERS, moveCards, send, tapCards, targetsFor } fr
 import { choicesMenu, damageMenu, effectsMenu, exileGroupMenu, stackMenu, startArrow, startCopyTarget } from "./marksMenu";
 import { rulesMenu } from "./rules/rulesMenu";
 import { stackSize, tokenStackItems } from "./tokenStacks";
+import { cardEditRefusal } from "./cardPermissions";
 
 function moveMenu(ids: string[], current: ZoneName, owner: string | null, me: string): MenuItem[] {
   const items: MenuItem[] = [];
@@ -46,6 +47,9 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
   const multi = ids.length > 1;
   const title = multi ? `${ids.length} cards` : visible ? card.name : "Hidden card";
   const items: MenuItem[] = multi ? [] : rulesMenu(card, view, me);
+  // -- table permissions -- another player's cards under the host's setting: their rules actions, copies and looking only
+  const kept = cardEditRefusal(view, ids);
+  if (kept) return { title, items: [...items, ...keptMenu(card, me, ids, kept)] };
   const opponents = view.seat_order.filter((p) => p !== me);
   const players = view.players;
 
@@ -157,28 +161,7 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
     else items.push({ label: "Turn face down", onClick: () => void send({ type: "face_down", card_ids: ids, face_down: true }) });
   }
   if ((zone === "battlefield" || zone === "stack") && visible && !multi) {
-    items.push({
-      label: "Create copy",
-      submenu: [
-        { label: "Copy", onClick: () => void send({ type: "copy_card", card_id: card.id, player: me }) },
-        // the scripted tables' exact copy (a plain copy starts without them, as the rules say)
-        { label: "Exact copy", hint: "keeps counters and markers", onClick: () => void send({ type: "copy_card", card_id: card.id, player: me, exact: true }) },
-        {
-          label: "Copy with changes…",
-          onClick: async () => {
-            const mods = await askText("Copy modifications (e.g. “not legendary”, “1/1”)", "");
-            if (mods !== null) void send({ type: "copy_card", card_id: card.id, player: me, modifications: mods });
-          },
-        },
-        {
-          label: "Several copies…",
-          onClick: async () => {
-            const n = await askNumber("How many copies?", 2, { min: 1, max: 50 });
-            if (n) void send({ type: "copy_card", card_id: card.id, player: me, count: n });
-          },
-        },
-      ],
-    });
+    items.push(copyMenu(card, me));
     items.push({ label: "Put ability on stack…", onClick: () => useGame.getState().openDialog("ability", card.id) });
   }
   if (zone === "battlefield" && visible) {
@@ -314,6 +297,46 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
     items.push({ label, danger: true, onClick: () => void send({ type: "delete_card", card_ids: ids }) });
   }
   return { title, items };
+}
+
+function copyMenu(card: GameCard, me: string): MenuItem {
+  return {
+    label: "Create copy",
+    submenu: [
+      { label: "Copy", onClick: () => void send({ type: "copy_card", card_id: card.id, player: me }) },
+      // the scripted tables' exact copy (a plain copy starts without them, as the rules say)
+      { label: "Exact copy", hint: "keeps counters and markers", onClick: () => void send({ type: "copy_card", card_id: card.id, player: me, exact: true }) },
+      {
+        label: "Copy with changes…",
+        onClick: async () => {
+          const mods = await askText("Copy modifications (e.g. “not legendary”, “1/1”)", "");
+          if (mods !== null) void send({ type: "copy_card", card_id: card.id, player: me, modifications: mods });
+        },
+      },
+      {
+        label: "Several copies…",
+        onClick: async () => {
+          const n = await askNumber("How many copies?", 2, { min: 1, max: 50 });
+          if (n) void send({ type: "copy_card", card_id: card.id, player: me, count: n });
+        },
+      },
+    ],
+  };
+}
+
+/** -- table permissions -- what another player's card offers when the host's setting keeps its edits theirs (and the host's):
+ * why, then what never changes their card (a copy of my own, an ability or arrow of my own, a closer look). */
+function keptMenu(card: GameCard, me: string, ids: string[], why: string): MenuItem[] {
+  const { zone } = splitZone(card.zone);
+  const one = ids.length === 1 && isVisible(card);
+  const out: MenuItem[] = [{ label: why, disabled: true }];
+  if (one && (zone === "battlefield" || zone === "stack")) {
+    out.push(copyMenu(card, me));
+    out.push({ label: "Put ability on stack…", onClick: () => useGame.getState().openDialog("ability", card.id) });
+    out.push({ label: "Target / point to…", hint: "arrow", onClick: () => startArrow(card.id) });
+  }
+  if (one) out.push({ label: "View card", hint: "hover", onClick: () => useGame.getState().setInspect(card.id) });
+  return out;
 }
 
 function attackableCards(view: GameView, me: string) {

@@ -457,6 +457,10 @@ undo the setting refuses can be requested ("Bob asks to undo: cast Sol Ring — 
 action that showed hidden information or a random outcome (a draw, a look, a reveal, a search, a shuffle, a roll)
 asks the table under every setting. Hot-seat tables undo directly.
 
+Table permissions: the host's "Who may change a player's cards" setting (everyone, or each player and the host) is
+enforced on the server for manual table edits only (`game/table_rights.py`); rules actions, looking, life totals and the
+table's procedures are never limited, and hot-seat tables ignore it.
+
 The public choice wheel: a radial picker for public, non-target choices (a color, a type, a player, a number, a coin),
 which the server marks; Settings can turn it off.
 
