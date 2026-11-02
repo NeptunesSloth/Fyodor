@@ -180,10 +180,16 @@ remain inside the engine for its own tests only; clients can't select them.
 
 **REPEAT LAST VALIDATED SEQUENCE:** after doing a sequence once this turn, repeat your last N
 intents N times or until a condition (mana, tokens, a player's life, a counter). Every
-iteration goes through the rules engine; the repeat stops as soon as an iteration is illegal,
-needs a choice or is random, and the table is left after the last complete iteration. The
+iteration goes through the rules engine and gets the answers the player gave the first time
+(the same question with that option still offered); it stops as soon as an iteration is illegal,
+asks something new or is random, and the table is left after the last complete iteration. The
 whole repeat is one undo entry and its log folds under "Alice repeated the sequence ×30".
 Fyodor never decides by itself that a board "is" an infinite loop.
+
+The turn dial's **Repeat…** button (`frontend/src/game/rules/RepeatPanel.tsx`) lists the player's
+own actions this turn in words (`rules.repeatable`, only theirs), lets them pick where the loop
+starts (it guesses a block done twice, else the newest action), and repeats ×1/5/10/100/500 or
+until a target.
 
 ## When automation goes wrong — built
 

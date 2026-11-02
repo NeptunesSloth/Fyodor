@@ -395,7 +395,8 @@ A player eliminated early gets a compact hub instead of only spectating:
 - Links to Pod stats and the Card browser.
 - A live-game pill with public notices ("X was eliminated", "Final two players remain") and Return to live game.
 
-Not built: dice/table toys, a Game Log link, and Deck Lab's compare view.
+Dice & toys (a local dice tray, a just-for-fun random player picker and a tally; nothing reaches the live game) are built.
+Not built: a Game Log link and Deck Lab's compare view.
 
 ### Spectator side activities — 1-5 built (`SPECTATOR_ACTIVITIES_MILESTONE.md`, 2026-11-02)
 
