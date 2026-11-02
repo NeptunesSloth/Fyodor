@@ -199,3 +199,28 @@ test("2D: a player who is out is no longer invited to draw, and their game-movin
     await expect(page.locator(".opponents.focused")).toHaveCount(0);
   }
 });
+
+test("3D: the seat buttons by the mat of a player who is out are gone", async ({ page }) => {
+  test.skip(!!ONLY && ONLY !== "out3d", "SHOT_ONLY");
+  test.setTimeout(300_000);
+  await prefs(page, "3d");
+  const decks = await saveDecks(page, [ALICE_DECK, BOB_DECK, BOB_DECK]);
+  const res = await page.request.post("/api/games", {
+    data: { name: "Out", mode: "local", automation: "full", shuffle: false, first_player: 0, mulligan_rule: "none", players: ["Alice", "Bob", "Cara"].map((name, i) => ({ name, deck_id: decks[i]!.id })) },
+  });
+  const gameId = ((await res.json()) as { game: { id: string } }).game.id;
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/#/game/${gameId}`);
+  await expect.poll(() => page.evaluate(() => !!window.__fyodor3d), { timeout: 90_000 }).toBe(true);
+  await pastIntro(page);
+  await expect.poll(() => page.evaluate(() => window.__fyodor3d!.buttonAt("draw")), { timeout: 30_000 }).not.toBeNull();
+  const r = await page.request.post(`/api/games/${gameId}/actions`, { data: { action: { type: "concede" }, as: "p1" } });
+  expect(r.ok(), await r.text()).toBeTruthy();
+  await expect(page.getByTestId("eliminated-scene").or(page.getByTestId("eliminated-hub"))).toBeVisible({ timeout: 20_000 });
+  if (await page.getByTestId("eliminated-scene").isVisible().catch(() => false)) await page.getByTestId("eliminated-scene").click();
+  await page.getByTestId("eliminated-hub").getByRole("button", { name: "Keep watching" }).click();
+  const gone = await page.evaluate(() => ["untap", "draw", "scry", "mill", "reveal", "mulligan"].map((id) => window.__fyodor3d!.buttonAt(id as never)));
+  console.log("3D seat buttons after conceding", JSON.stringify(gone));
+  await page.screenshot({ path: `${OUT}/${tag}-out-3d.png` });
+  if (!BEFORE) expect(gone.every((b) => b === null)).toBe(true);
+});
