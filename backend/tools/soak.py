@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import importlib
 import json
 import os
@@ -90,6 +91,7 @@ class Report:
     outcomes: Counter[str] = field(default_factory=Counter)
     moves: Counter[str] = field(default_factory=Counter)  # accepted moves by kind
     manual: Counter[str] = field(default_factory=Counter)  # "resolve it by hand" prompts (every card of both decks is FULL)
+    digests: list[str] = field(default_factory=list)  # --digest: one line per game (moves made, final table)
 
     def text(self) -> str:
         lines = [f"games {self.games}, turns {self.turns}, actions {self.actions}, {self.seconds:.0f}s",
@@ -388,6 +390,21 @@ class Bot:
 
 
 # ---------------------------------------------------------------------------------------------- checks
+CLOCK_KEYS = frozenset({"ts", "created_at", "updated_at", "at"})  # wall-clock times: not part of a game's outcome
+
+
+def table_digest(state: GameState) -> str:
+    """--digest: a short hash of the whole table (rules state, log and all) with the wall-clock times left out, to compare two runs of
+    the same seeds (e.g. before and after a speed-up)."""
+    def strip(v: Any) -> Any:
+        if isinstance(v, dict):
+            return {k: strip(x) for k, x in v.items() if k not in CLOCK_KEYS}
+        if isinstance(v, list):
+            return [strip(x) for x in v]
+        return v
+    return hashlib.sha256(json.dumps(strip(state.model_dump(mode="json")), sort_keys=True).encode()).hexdigest()[:16]
+
+
 def replay_and_reload(session: GameSession) -> GameSession:
     """The history replays to the table, and a save (state + history, as SaveRepository writes it) loads back to it."""
     now = session.state.model_dump(mode="json")
@@ -457,6 +474,7 @@ class Game:
         self.decks, self.players = decks, players
         self.actor, self.payload = "", dict[str, Any]()
         self.failed = False
+        self.trace = hashlib.sha256()  # --digest: every accepted move (and undo), in order
 
     def problem(self, kind: str, detail: str) -> None:
         self.failed = True
@@ -480,6 +498,8 @@ class Game:
         self.report.games += 1
         self.report.turns += min(self.session.state.turn.number, turns)
         self.report.outcomes[outcome] += 1
+        self.report.digests.append(f"seed {self.seed}: {outcome}, turn {self.session.state.turn.number}, seq {self.session.state.seq}, "
+                                   f"moves {self.trace.hexdigest()[:16]}, table {table_digest(self.session.state)}")
 
     def loop(self, turns: int) -> str:
         since_check, turn_actions, last_turn = 0, 0, 0
@@ -513,9 +533,11 @@ class Game:
                 return False
             try:
                 self.session.perform(self.actor, self.payload)
+                self.trace.update(json.dumps([self.actor, self.payload], sort_keys=True).encode())
                 self.report.moves[self.move_kind(how)] += 1
                 if self.rng.random() < UNDO_CHANCE:  # the table's Undo button: take the move back (and play on from there)
                     self.session.undo(self.actor)
+                    self.trace.update(b"undo")
                     self.report.moves["undo"] += 1
                 return True
             except AutomationError as exc:
@@ -593,11 +615,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--players", type=int, choices=(2, 4), default=2)
     ap.add_argument("--log", action="store_true", help="print each problem as it happens")
+    ap.add_argument("--digest", action="store_true", help="print a hash of each game's moves and final table (to compare two runs)")
     ap.add_argument("--decks", nargs="+", default=list(DECK_FILES), metavar="FILE",
                     help="deck files in tests/fixtures/soak_decks, seated in turn (default: the two original decks)")
     args = ap.parse_args(argv)
     report = run(args.db, games=args.games, turns=args.turns, seed=args.seed, players=args.players, log=args.log, deck_files=tuple(args.decks))
     print(report.text())
+    if args.digest:
+        print("\n".join(report.digests))
     return 1 if report.problems else 0
 
 
