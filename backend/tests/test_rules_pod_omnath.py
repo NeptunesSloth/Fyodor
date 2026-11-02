@@ -144,6 +144,31 @@ def test_an_animated_mutavault_taps_for_mana(cards):
     check(s)
 
 
+def test_a_mutavault_animated_the_turn_it_arrived_cant_pay_for_spells(cards):
+    """302.6: a creature's {T} abilities can't be activated unless it has been under its controller's control since their most recent turn
+    began. A Mutavault played this turn and animated is such a creature. The payment list read printed characteristics (a land), so the
+    table offered it and the automatic payment tapped it for Sol Ring (soak seed 5203; Mishra's Factory, Inkmoth Nexus alike)."""
+    from app.rules.casting import mana_sources
+
+    s = omnath(cards, "Mutavault", "Sol Ring", on_field=False)
+    vault = put(s, "Mutavault")  # (arrived this turn)
+    mana(s, C=1)
+    act(s, "p1", type="activate_ability", card_id=vault.id, ability=1)
+    settle(s)
+    assert "Creature" in ch(s, vault).types
+    assert vault.id not in [x.card_id for x in mana_sources(s.state, "p1", s.cards)]
+    sol = to_hand(s, "Sol Ring")
+    with pytest.raises(ActionError, match="Not enough mana"):
+        act(s, "p1", type="cast_spell", card_id=sol.id)
+    assert not s.state.cards[vault.id].tapped and s.state.cards[sol.id].zone == "p1:hand"
+    with pytest.raises(ActionError, match="summoning sickness"):
+        act(s, "p1", type="activate_ability", card_id=vault.id, ability=0)
+    until(s, "p2", "main1")
+    until(s, "p1", "main1")  # (Alice's next turn: it has been hers since the turn began; no longer a creature, a land again anyway)
+    assert vault.id in [x.card_id for x in mana_sources(s.state, "p1", s.cards)]
+    check(s)
+
+
 def life(s):
     return s.state.players["p1"].life, s.state.players["p2"].life
 

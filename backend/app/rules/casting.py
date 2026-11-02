@@ -608,7 +608,15 @@ def mana_sources(state: GameState, player: str, info: CardInfo, purpose: Purpose
             continue
         if not ch.is_land and lands_only(state, player):  # -- Word of Command (wave 110E) -- only lands' mana abilities
             continue
-        usable_tap = can_use_tap_abilities(state, card, ch, info)
+        # 302.6 reads the permanent as it is now: a land animated the turn it arrived (Mutavault, Mishra's Factory) is a summoning-sick
+        # creature, a creature given haste isn't. Derived only for a permanent that may be sick (the rest can't be: big boards stay cheap).
+        if card.tapped or not summoning_sick(state, card):
+            now = ch
+        else:
+            from app.rules.layers import derive
+
+            now = derive(state, card, ch, info)
+        usable_tap = can_use_tap_abilities(state, card, now, info)
         # (wave 3E) an ability paying energy is activated by hand only: several sources sharing one
         # energy total aren't something the solver can split (118.3: no partial payment)
         abilities = [(i, ab) for i, ab in mana_abilities(state, card, info)
@@ -3496,8 +3504,10 @@ def _optional_castable(state: GameState, player: str, card: CardInstance, info: 
     ch = text_global_word71.prospective(state, card, ch, info)
     if ch.is_land or cast_problem(state, player, card, ch, info=info) is not None:
         return out
-    if face is not None and announce_problem(state, player, card, ch, info) is not None:
-        return out  # -- hint/cast agreement (pod audit) -- 601.2c: this half can't be cast (Revival with no creature card to return)
+    if announce_problem(state, player, card, ch, info) is not None:
+        # -- hint/cast agreement (pod audit) -- 601.2c: this spell or half can't be cast (Revival with no creature card to return; soak seed
+        # 5201: Reprieve with Silverquill's casualty and an empty stack), as the plain cast hint (castable, announce=True)
+        return out
     grant = cast_grant(state, player, card, ch, info)
     for offer in cost_changes.optional_offers(state, player, card, ch, info):
         if state.players[player].life < offer.life or (offer.life and spendable_life(state, player, info) == 0):  # (wave 22B: 119.4)

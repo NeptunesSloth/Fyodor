@@ -15,7 +15,7 @@ from app.rules import coverage
 from app.rules.view import hints, rules_view
 from tests.fixtures.cards import card as fixture_card
 from tests.game_helpers import act
-from tests.pod_c_kit import card, field, mana, put, settle, table, to_hand
+from tests.pod_c_kit import card, field, hold, mana, put, settle, table, to_hand
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import check
 
@@ -272,4 +272,24 @@ def test_mondraks_sacrifice_two_tells_the_table_it_takes_both(cards):
     act(s, "p1", type="choose", decision_id=d.id, option_ids=soldiers[:2])
     settle(s, "{W}", "{W}")
     assert s.state.cards[mondrak.id].counters.get("indestructible") == 1 and field(s)["Soldier"] == 2
+    check(s)
+
+
+def test_casualty_is_offered_only_when_the_spell_has_a_target(cards):
+    """Soak (seed 5201): with an empty stack the table offered "Cast Reprieve and sacrifice …", and the server refused it (601.2c: a
+    required target can't be chosen, 601.5). The optional-cost hint makes the same target check as the plain cast."""
+    s = silverquill(cards, "Counterspell", "Raise the Alarm", "Grizzly Bears")
+    put(s, "Grizzly Bears")
+    counter = to_hand(s, "Counterspell")
+    hold(s)
+    mana(s, U=2)
+    offered = lambda: hints(s.state, "p1", s.cards).get("optional_costs", {})  # noqa: E731
+    assert counter.id not in hints(s.state, "p1", s.cards)["castable"]
+    assert counter.id not in offered()  # (nothing to counter)
+    act(s, "p1", type="clear_mana", player="p1")
+    mana(s, W=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Raise the Alarm").id)
+    mana(s, U=2)
+    assert s.state.rules.decision is None and [s.state.cards[i].name for i in s.state.zones["stack"]] == ["Raise the Alarm"]
+    assert counter.id in offered()  # (Raise the Alarm is on the stack)
     check(s)
