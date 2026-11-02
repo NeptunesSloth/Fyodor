@@ -293,3 +293,27 @@ def test_casualty_is_offered_only_when_the_spell_has_a_target(cards):
     assert s.state.rules.decision is None and [s.state.cards[i].name for i in s.state.zones["stack"]] == ["Raise the Alarm"]
     assert counter.id in offered()  # (Raise the Alarm is on the stack)
     check(s)
+
+
+def test_twinning_staff_asks_which_copy_goes_first_only_when_the_spell_has_targets(cards):
+    """Twinning Staff's additional copy differs from the others only in that its targets may be changed (614.1a, 707.10c). For Raise the Alarm
+    (no targets) the table asked "Put the next copy on the stack: original or additional copy?", a question with no meaning: it isn't asked.
+    For Swords to Plowshares it is, in words that say which copy is which."""
+    s = silverquill(cards, "Twinning Staff", "Raise the Alarm", "Swords to Plowshares", "Grizzly Bears", "Llanowar Elves",
+                    theirs=["Albino Troll", "Grizzly Bears"])
+    put(s, "Twinning Staff"), put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    mana(s, W=2)
+    casualty(s, "Raise the Alarm")
+    asked = settle(s, "Grizzly Bears")
+    assert not any("copy" in p.lower() for p in asked), asked
+    assert field(s)["Soldier"] == 2 * 3
+    troll, bears = put(s, "Albino Troll", "p2"), put(s, "Grizzly Bears", "p2")
+    mana(s, W=1)
+    casualty(s, "Swords to Plowshares", targets=[troll.id])
+    settle(s, "Llanowar Elves", stop_at="Swords to Plowshares: which copy")
+    d = s.state.rules.decision
+    assert d.prompt == "Swords to Plowshares: which copy goes on the stack next? (the last one there resolves first)"
+    assert [o.label for o in d.options] == ["A copy (may choose new targets)", "Twinning Staff's additional copy (may choose new targets)"]
+    settle(s, "Twinning Staff's additional copy", f"Keep {troll.name}", bears.name)
+    assert field(s, "p2") == {}
+    check(s)
