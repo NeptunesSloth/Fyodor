@@ -181,7 +181,7 @@ export function onTableEvents(listener: MotionListener): () => void {
 }
 
 export function publishTableEvents(prev: GameView, next: GameView, dragged: ReadonlySet<string>): void {
-  if (!listeners.size) return;
+  if (!listeners.size || prev.viewer !== next.viewer) return; // (a hot-seat table switching whose view it shows: nothing moved)
   const events = tableEvents(prev, next, dragged);
   if (!events.length) return;
   for (const listener of listeners) {

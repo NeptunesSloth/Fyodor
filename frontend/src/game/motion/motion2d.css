@@ -1,0 +1,24 @@
+/* TABLE MOTION on the 2D table (Motion2D.tsx): a layer over the table that never takes input. Transform and opacity only. */
+.m2d-layer { position: fixed; inset: 0; z-index: 90; pointer-events: none; overflow: hidden; contain: strict; }
+.m2d-ghost, .m2d-riffle, .m2d-roll { position: absolute; }
+.m2d-ghost { transform-origin: 50% 50%; perspective: 900px; will-change: transform, opacity; }
+.m2d-flip { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; }
+.m2d-face {
+  position: absolute; inset: 0; backface-visibility: hidden; border-radius: 4.75% / 3.5%;
+  /* lifted off the felt: the key light is top-left, so the shadow falls down and right */
+  box-shadow: 3px 9px 16px rgba(10, 6, 2, 0.42), 1px 2px 4px rgba(10, 6, 2, 0.3);
+}
+.m2d-face.m2d-back { transform: rotateY(180deg); }
+.m2d-face > .card-face, .m2d-face > .face-down-known, .m2d-face > .face-down-known > .card-face { width: 100%; height: 100%; }
+.m2d-riffle .m2d-face { box-shadow: 1px 3px 6px rgba(10, 6, 2, 0.4); }
+
+/* "−3" / "+5": the sign is in the text, the colour only repeats it (the plaque's pending-change chips) */
+.m2d-float {
+  position: absolute; transform: translate(-50%, -50%); white-space: nowrap;
+  font: 800 14px/1 Inter, "Helvetica Neue", Arial, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+  padding: 3px 6px; border-radius: 9px; box-shadow: 0 2px 6px rgba(10, 6, 2, 0.6);
+}
+.m2d-float.life { font-size: 16px; padding: 4px 7px; }
+.m2d-float.loss { background: #7a2a22; color: #ffe9e5; }
+.m2d-float.gain { background: #2e6b3e; color: #e8ffe9; }
+.m2d-roll { display: flex; align-items: center; justify-content: center; white-space: nowrap; }
