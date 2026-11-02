@@ -49,6 +49,7 @@ from app.game.session import GameSession
 from app.game.state import GameSettings, GameState
 from app.game.visibility import can_see
 from app.rules.casting import mana_abilities, pool_covers
+from app.rules.casting import mana_sources as casting_mana_sources
 from app.rules.mana import parse_cost
 from app.storage.saves import load_payload
 
@@ -374,9 +375,11 @@ class Bot:
         return amounts
 
     def mana_sources(self, who: str) -> list[str]:
+        """The permanents a player would click to tap for mana now: the engine's own list (not summoning sick, 302.6; not a filter
+        like Cabal Coffers, whose "{2}, {T}" needs mana in the pool first)."""
         state = self.session.state
-        return [cid for cid in state.zones.get(f"{who}:battlefield", []) if not state.cards[cid].tapped
-                and state.cards[cid].controller == who and mana_abilities(state, state.cards[cid], self.session.cards)]  # type: ignore[arg-type]
+        return list(dict.fromkeys(src.card_id for src in casting_mana_sources(state, who, self.session.cards)
+                                  if src.activation is None and state.cards[src.card_id].controller == who))
 
     def optional_cost(self, who: str, d: dict[str, Any], cost_text: str) -> dict[str, Any]:
         """"Pay {1}? (tap your mana first)": decide once; to pay, tap mana sources (any of yours, as the client lets you click
