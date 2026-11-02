@@ -474,11 +474,15 @@ def proctor_triggers(plan: Plan, pending: Any, cause: Any, only: list[Any] | Non
 
     if cause is None or cause.kind != "enter":
         return
-    for c in plan.state.cards.values():
-        if not c.zone.endswith(":battlefield") or not plan.in_game(c) or plan.manual(c) or c.face_down:
-            continue
-        if not any(d.get("static") == "proctor110c" for d in scripts.definitions(plan.ch(c)).values()):
-            continue
+    # -- big boards (perf) -- the Proctors are found in one read pass (Plan.reading): every permanent is derived once and the statics
+    # table read once, not once per permanent (this runs for every trigger an entering permanent causes: with 80 Scute Swarms, the cube
+    # of the board). The same Proctors, in the same order: finding them only reads the table, and what is added below (pending
+    # triggers, proctor links) is nothing a permanent's characteristics, its automation mode or its player's place in the game reads.
+    with plan.reading():
+        proctors = [c for c in plan.state.cards.values()
+                    if c.zone.endswith(":battlefield") and plan.in_game(c) and not plan.manual(c) and not c.face_down
+                    and any(d.get("static") == "proctor110c" for d in scripts.definitions(plan.ch(c)).values())]
+    for c in proctors:
         for p in only if only is not None else [pending, *trigger_multipliers._extras(plan).get(pending.id, ([], 0))[0]]:
             plan.rules.proctor_links110c.setdefault(p.id, "")
             plan.rules.pending_triggers.append(PendingTrigger(
