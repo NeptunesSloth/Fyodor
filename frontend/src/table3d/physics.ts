@@ -44,12 +44,14 @@ export interface SimOptions {
   obstacles?: Obstacle[];
   gravity?: number;
   maxSeconds?: number;
+  /** Half the steps (1/120 s): a big throw, where the cost of many dice knocking together adds up. */
+  coarse?: boolean;
 }
 
 export interface SimResult { tracks: Track[]; impacts: Impact[]; seconds: number }
 
-const STEP = 1 / 240;
-const RECORD_EVERY = 2; // 120 frames a second
+const FINE = 1 / 240;
+const FRAME = 1 / 120; // recorded 120 frames a second either way
 
 /** Deterministic random numbers from a string (game/seededRandom.ts). */
 export const seeded = seededRandom;
@@ -135,6 +137,8 @@ export function simulate(bodies: BodyInit[], opts: SimOptions): SimResult {
     return { body, index: i };
   });
   const indexOf = new Map(dice.map((d) => [d.body.id, d.index]));
+  const STEP = opts.coarse ? FRAME : FINE;
+  const RECORD_EVERY = Math.round(FRAME / STEP);
   const steps = Math.round((opts.maxSeconds ?? 4) / STEP);
   const tracks: Track[] = dice.map(() => ({ frames: new Float32Array(Math.ceil(steps / RECORD_EVERY + 2) * 7), count: 0, rest: 0, settled: false }));
   const record = () => dice.forEach(({ body: d }, i) => {
@@ -200,7 +204,7 @@ export function poseLerp(track: Track, f: number, pos: THREE.Vector3, quat: THRE
 }
 
 /** Seconds of recorded motion. */
-export const trackSeconds = (t: Track) => (t.count - 1) * STEP * RECORD_EVERY;
+export const trackSeconds = (t: Track) => (t.count - 1) * FRAME;
 /** Seconds until this body came to rest. */
-export const restSeconds = (t: Track) => Math.min(t.count - 1, t.rest) * STEP * RECORD_EVERY;
-export const FRAMES_PER_SECOND = 1 / (STEP * RECORD_EVERY);
+export const restSeconds = (t: Track) => Math.min(t.count - 1, t.rest) * FRAME;
+export const FRAMES_PER_SECOND = 1 / FRAME;

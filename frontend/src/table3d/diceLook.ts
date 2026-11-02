@@ -74,12 +74,12 @@ export function diceMaterial(spec: Spec): THREE.MeshPhysicalMaterial {
       Object.assign(m, { roughness: 0.3, metalness: 1, clearcoat: 0, envMapIntensity: 1.0 });
       break;
     case "gem":
-      // a deep cut stone: dark glassy body, a bright sheen and an oil-on-water play of colour at the facets. No
+      // a deep cut stone: a dark glassy body lit from within, bright facet reflections with a play of colour. No
       // refraction (transmission): the dice stay on the table all turn, and a refraction pass redraws the table
       Object.assign(m, {
-        roughness: 0.05, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, iridescence: 0.55, iridescenceIOR: 1.7,
-        sheen: 0.6, sheenColor: body.clone().lerp(IVORY, 0.4), sheenRoughness: 0.3, specularIntensity: 1, envMapIntensity: 1.3,
-        color: body.clone().multiplyScalar(0.7), emissive: body.clone().multiplyScalar(0.12),
+        roughness: 0.04, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, iridescence: 0.4, iridescenceIOR: 1.7,
+        specularIntensity: 1, specularColor: body.clone().lerp(IVORY, 0.5), envMapIntensity: 0.9,
+        color: body.clone().multiplyScalar(0.35), emissive: body.clone().multiplyScalar(0.22),
       });
       break;
   }

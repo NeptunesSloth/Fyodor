@@ -90,7 +90,8 @@ dice, on the 3D table, over the 2D table and in the elimination hub's toy tray:
 - **Rolling** (`game/DicePanel.tsx`): the tool tray's Dice button or Shift+R opens a compact panel: d4–d20, d100, a
   coin and a count, quick picks (1d20, 2d6, a coin), any XdY, and the table's last rolls with Again.
 - **Cost**: one draw call per die (plus its shadow and contact shadow), ~1–1.5k triangles each; geometry, atlases and
-  materials cached and freed with the last tray; a typical throw simulates in 5–20 ms, 12d20 in ~90 ms; reduced
+  materials cached and freed with the last tray (the d20, d6 and coin built ahead while idle); a typical throw
+  simulates in 5–20 ms, a dozen dice (stepped at 120 Hz) in ~50–100 ms; reduced
   motion shows the dice at rest, animation speed scales the throw. Tests and screenshots freeze a throw at a set time
   (`window.__fyodorDice.freeze`): headless software WebGL draws about a frame a second.
 

@@ -124,7 +124,9 @@ export function launch(specs: Spec[], env: ThrowEnv, key: string): BodyInit[] {
     land.minZ + (land.maxZ - land.minZ) * (0.25 + rnd() * 0.5),
   );
   const flight = 0.3 + rnd() * 0.06;
-  const carry = LAUNCH.carry * Math.min(...specs.map((s) => CARRY[s.kind]));
+  // a big handful is tossed more gently (they knock each other apart anyway)
+  const crowd = n > 4 ? 0.82 : 1;
+  const carry = LAUNCH.carry * crowd * Math.min(...specs.map((s) => CARRY[s.kind]));
   const base = new THREE.Vector3((aim.x - env.hand.x) * carry / flight, 0, (aim.z - env.hand.z) * carry / flight);
   const fwd = new THREE.Vector3(base.z, 0, -base.x).normalize();
   return specs.map((spec, i) => {
@@ -138,8 +140,8 @@ export function launch(specs: Spec[], env: ThrowEnv, key: string): BodyInit[] {
       env.hand.z - row * gap + (rnd() - 0.5) * 0.08,
     );
     const vel = base.clone();
-    vel.x += (rnd() - 0.5) * 1.6 + col * 0.35;
-    vel.z += (rnd() - 0.5) * 1.2;
+    vel.x += ((rnd() - 0.5) * 1.6 + col * 0.35) * crowd;
+    vel.z += (rnd() - 0.5) * 1.2 * crowd;
     vel.y = 1.0 + rnd() * 1.4;
     const coin = spec.kind === "coin";
     // dice spin about a random axis, mostly tumbling forward; a coin flips end over end
@@ -210,6 +212,8 @@ function settle(spec: Spec, track: Track, env: ThrowEnv): Track {
 }
 
 const ATTEMPTS = 6;
+/** More dice than this simulate at 120 steps a second instead of 240 (a dozen dice knocking together cost the most). */
+export const COARSE_FROM = 4;
 /** How much of the way to its spot a die flies before it lands and rolls (tuned with the physics). */
 export const LAUNCH = { carry: 1 };
 
@@ -219,11 +223,11 @@ export function throwRoll(show: Pick<DiceShow, "key" | "sides" | "results" | "co
   let best: { tracks: Track[]; impacts: Impact[]; checks: Check[]; seconds: number } | null = null;
   let attempts = 0;
   // a big throw is costly to simulate again: fewer tries, and a die that still ends cocked is eased flat
-  const tries = specs.length <= 3 ? ATTEMPTS : specs.length <= 6 ? 3 : 1;
+  const tries = specs.length <= 3 ? ATTEMPTS : specs.length <= 6 ? 3 : 2;
   for (let a = 0; a < tries; a++) {
     attempts++;
     const bodies = launch(specs, env, a ? `${show.key}#${a}` : show.key);
-    const sim = simulate(bodies, { bounds: env.bounds, obstacles: env.obstacles, maxSeconds: 3.6 });
+    const sim = simulate(bodies, { bounds: env.bounds, obstacles: env.obstacles, maxSeconds: 3.6, coarse: specs.length > COARSE_FROM });
     const checks = judge(specs, sim.tracks, env);
     const bad = checks.filter((c) => !c.ok).length;
     if (!best || bad < best.checks.filter((c) => !c.ok).length) best = { ...sim, checks };

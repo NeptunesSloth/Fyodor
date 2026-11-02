@@ -105,7 +105,9 @@ const tmpV = new THREE.Vector3();
  * doesn't pay for them.
  */
 export function prewarmDice(): () => void {
-  const idle = (globalThis as { requestIdleCallback?: (f: () => void) => number }).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 400));
+  const ric = (globalThis as { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+  // idle time, or within two seconds at the latest (a busy table may never be idle)
+  const idle = ric ? (f: () => void) => ric(f, { timeout: 2000 }) : (f: () => void) => setTimeout(f, 400);
   const cancel = (globalThis as { cancelIdleCallback?: (n: number) => void }).cancelIdleCallback ?? ((n: number) => clearTimeout(n));
   const jobs: (() => void)[] = [() => dieAtlas("d20"), () => dieAtlas("d6"), () => dieSolid("d20"), () => dieSolid("d6"), () => coinAtlas()];
   let handle = 0;
