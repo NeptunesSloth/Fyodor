@@ -611,6 +611,9 @@ def choose(plan: Plan, a: A.ActivateAbility | A.CastSpell | A.TurnFaceUp | A.Dec
                           + ("none to pay without" if comp.up_to else "none to cancel") + withheld(plan, comp, plan.actor, card),
                    options=[DecisionOption(id=c, label=plan.state.cards[c].name or "Card", card_id=c) for c in usable],
                    min_choices=0, max_choices=need,
+                   # -- pod audit -- none (cancel) or exactly ``need`` (601.2h: no partial payment): the client's Done waits for the whole count
+                   # (Mondrak, Glory Dominus: one of "two other artifacts and/or creatures" was offered, then refused "Choose 2")
+                   display=None if comp.up_to or need < 2 else {"exactly": need},
                    resume={"step": "ability_cost", "component": i, "amount": None if comp.up_to else need, "empty_ok": comp.up_to,
                            "intent": a.model_dump(mode="json", exclude={"r", "actor", "ts"}),
                            **(source_named_cost69.retain(plan, card, usable) if comp.source_with_choices else {})},

@@ -659,6 +659,8 @@ describe("decision answers", () => {
     expect(doneLabel(0, 0, 2)).toBe("Done (none)");
     expect(canSubmitChoice(0, 1, 1)).toBe(false);
     expect(canSubmitChoice(3, 0, 2)).toBe(false);
+    // a cost of exactly two objects ("Sacrifice two other artifacts and/or creatures", 601.2h): none (cancel) or both, never one
+    expect([0, 1, 2].map((n) => canSubmitChoice(n, 0, 2, 2))).toEqual([true, false, true]);
     expect(doneLabel(2, 0, 2)).toBe("Done (2)");
     void choose("d1", []);
     expect(sent).toEqual([{ type: "choose", decision_id: "d1", option_ids: [] }]);

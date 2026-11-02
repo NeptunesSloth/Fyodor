@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.errors import ActionError
 from app.rules import coverage
-from app.rules.view import hints
+from app.rules.view import hints, rules_view
 from tests.fixtures.cards import card as fixture_card
 from tests.game_helpers import act
 from tests.pod_c_kit import card, field, mana, put, settle, table, to_hand
@@ -54,6 +55,10 @@ EXTRA = [
     real('Crypt Ghast', '{3}{B}', 4, 'Creature — Spirit',
          'Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nWhenever '
          'you tap a Swamp for mana, add an additional {B}.', ('2', '2'), 'B'),
+    real('Mondrak, Glory Dominus', '{2}{W}{W}', 4, 'Legendary Creature — Phyrexian Horror',
+         'If one or more tokens would be created under your control, twice that many of those tokens are created instead.\n{1}{W/P}{W/P}, '
+         'Sacrifice two other artifacts and/or creatures: Put an indestructible counter on Mondrak. ({W/P} can be paid with either {W} or 2 '
+         'life.)', ('4', '4'), 'W'),
     fixture_card('Revival // Revenge', number="pod-revival", layout="split", mana_cost="{W/B}{W/B} // {4}{W}{B}", cmc=8.0,
                  type_line="Sorcery // Sorcery", colors=["B", "W"], color_identity=["B", "W"],
                  card_faces=[
@@ -241,4 +246,30 @@ def test_temporal_extortion_copy_takes_a_turn_and_the_order_prompt_says_which_tr
     asked = settle(s, "Don't pay", "Don't pay", "Don't pay")
     assert sum(p.startswith("Crypt Ghast") for p in asked) == 1 and sum(p.startswith("Temporal Extortion: pay half") for p in asked) == 2
     assert len(s.state.rules.extra_turns) == 2 and s.state.players["p2"].life == 40
+    check(s)
+
+
+def test_mondraks_sacrifice_two_tells_the_table_it_takes_both(cards):
+    """Soak seed 5102: "Sacrifice two other artifacts and/or creatures" is chosen as none (cancel) or exactly two (601.2h); the decision said
+    0 to 2, so the table let a player confirm one, and the server refused it ("Choose 2"). It now carries the exact count for the client.
+    Mondrak doubles the Soldier tokens."""
+    s = silverquill(cards, "Mondrak, Glory Dominus", "Raise the Alarm", "Grizzly Bears")
+    mondrak = put(s, "Mondrak, Glory Dominus")
+    put(s, "Grizzly Bears")
+    mana(s, W=2)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Raise the Alarm").id)
+    settle(s)
+    assert field(s)["Soldier"] == 4
+    mana(s, W=3)
+    act(s, "p1", type="activate_ability", card_id=mondrak.id, ability=1)
+    d = s.state.rules.decision
+    assert (d.min_choices, d.max_choices, d.display) == (0, 2, {"exactly": 2})
+    view = rules_view(s.state, "p1", s.cards)["decision"]
+    assert view["display"] == {"exactly": 2} and "display" not in (rules_view(s.state, "p2", s.cards)["decision"] or {})
+    soldiers = [o.id for o in d.options if o.label == "Soldier"]
+    with pytest.raises(ActionError, match="Choose 2"):
+        act(s, "p1", type="choose", decision_id=d.id, option_ids=soldiers[:1])
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=soldiers[:2])
+    settle(s, "{W}", "{W}")
+    assert s.state.cards[mondrak.id].counters.get("indestructible") == 1 and field(s)["Soldier"] == 2
     check(s)
