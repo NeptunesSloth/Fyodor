@@ -1,19 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ColorPips } from "../components/ColorPips";
 import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
 import type { DeckSummary } from "../types/decks";
 import { CommanderArt } from "./CommanderArt";
+import { deckSize, deckTitle } from "./playBits";
 
-/** A deck's playing cards: commander(s), companion and the library. */
-export function deckSize(d: DeckSummary): number {
-  return (d.counts.commander ?? 0) + (d.counts.companion ?? 0) + (d.counts.main ?? 0);
-}
-
-/** The words for a deck's commander(s), or its name when it has none. */
-export function deckTitle(d: DeckSummary): string {
-  return d.commanders.length ? d.commanders.join(" & ") : d.name;
-}
+export { deckSize, deckTitle };
 
 /**
  * Choose a seat's deck from the library by its commander: each deck shows its commander's art, the commander and the deck's
@@ -29,6 +22,14 @@ export function DeckPicker({ decks, value, seat, usedBy, onPick, onClose }: {
   onClose: () => void;
 }) {
   const [q, setQ] = useState("");
+  // focus moves into the picker (the search box, else this seat's deck or the first one) and back to the seat on close
+  const root = useRef<HTMLDivElement>(null);
+  const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null)); // before autofocus moves it
+  useEffect(() => {
+    const el = root.current;
+    if (el && !el.contains(document.activeElement)) el.querySelector<HTMLElement>(".dp-deck.on, .dp-deck")?.focus();
+    return () => opener?.focus();
+  }, [opener]);
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!needle) return decks;
@@ -37,7 +38,7 @@ export function DeckPicker({ decks, value, seat, usedBy, onPick, onClose }: {
   return (
     <Modal wide title={`Choose a deck for ${seat}`} onClose={onClose}
       footer={<><a className="dp-library" href="#/decks"><Icon name="cards" size={15} />Import or edit decks in the Deck library</a><span className="spacer" /><button className="tt-btn" onClick={onClose}>Cancel</button></>}>
-      <div className="deck-picker">
+      <div className="deck-picker" ref={root}>
         {decks.length > 5 && (
           <input type="search" className="dp-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a deck or a commander"
             aria-label="Find a deck or a commander" autoFocus />

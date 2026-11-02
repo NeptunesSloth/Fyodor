@@ -30,10 +30,11 @@ import {
 import type { DeckSummary } from "../types/decks";
 import type { GameSummary, SaveSummary } from "../types/game";
 import { CommanderArt } from "./CommanderArt";
-import { DeckPicker, deckTitle } from "./DeckPicker";
-import { SeatChip, TableMosaic, chipStyle, whenSaved } from "./tableBits";
+import { DeckPicker } from "./DeckPicker";
+import { deckTitle, shelfSaves } from "./playBits";
+import { SEAT_COLORS, SeatChip, TableMosaic, chipStyle, whenSaved } from "./tableBits";
 
-const COLORS = ["#d4a852", "#5fa8d3", "#c9677a", "#6fbf8f", "#a68bd6", "#d98c4a"];
+const COLORS = SEAT_COLORS;
 
 /** The automation levels by the names the table uses (the rules HUD, the lobby's house rules). */
 const AUTOMATION_NAME: Record<AutomationLevel, string> = { off: "Off", assisted: "Assisted", full: "Full" };
@@ -54,9 +55,7 @@ export function PlayPage({ route }: { route: Route }) {
     listSaves().then(
       (s) => {
         listDecks().then(setDecks, toastError); // the deck library lives on the host only
-        // Show manual saves plus only the newest autosave of each game.
-        const seen = new Set<string>();
-        setSaves(s.filter((x) => !x.autosave || (!seen.has(x.game_id) && seen.add(x.game_id))));
+        setSaves(shelfSaves(s));
         setHost(true);
       },
       (e) => {
@@ -142,8 +141,8 @@ export function PlayPage({ route }: { route: Route }) {
 type Mode = "local" | "lan";
 
 const MODES: { id: Mode; title: string; sub: string; icon: "swords" | "table" }[] = [
-  { id: "local", title: "Hot-seat", sub: "Everyone plays at this computer, passing the seat.", icon: "swords" },
-  { id: "lan", title: "Host a LAN night", sub: "Each player joins from their own computer with a room code.", icon: "table" },
+  { id: "local", title: "Hot-seat", sub: "Everyone plays here, passing the seat.", icon: "swords" },
+  { id: "lan", title: "Host a LAN night", sub: "The pod joins from their own computers.", icon: "table" },
 ];
 
 function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; preselect: string | null; lanParam: boolean }) {
@@ -258,7 +257,7 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
               </label>
               <label className="pg-pass">
                 <span>Password</span>
-                <input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="None" />
+                <input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="None" autoComplete="new-password" />
               </label>
             </div>
           )}
@@ -441,7 +440,7 @@ function JoinGame() {
       <form onSubmit={(e) => { e.preventDefault(); void join(false); }}>
         <label className="pg-code">
           <span>Room code</span>
-          <input data-testid="join-code" value={code} maxLength={12} onChange={(e) => setCode(e.target.value)} placeholder="ABC123" autoComplete="off" spellCheck={false} />
+          <input data-testid="join-code" value={code} maxLength={12} onChange={(e) => setCode(e.target.value)} placeholder="The code on the host's screen" autoComplete="off" spellCheck={false} />
         </label>
         <label className="pg-field pg-field-name">
           <span>Your name</span>
@@ -449,7 +448,7 @@ function JoinGame() {
         </label>
         <label className="pg-field pg-field-pass">
           <span>Password</span>
-          <input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="If the host set one" />
+          <input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="If the host set one" autoComplete="off" />
         </label>
         <div className="pg-door-acts">
           <button className="tt-btn brass" type="submit" disabled={!ready} data-testid="join-submit">Join</button>
@@ -479,7 +478,7 @@ function TableTile({ game: g, host, onClosed }: { game: GameSummary; host: boole
       </div>
       {host && (
         <div className="pg-tile-acts">
-          <button className="tt-btn brass" onClick={() => navigate(`/game/${g.id}`)}>Open</button>
+          <button className="tt-btn pg-go" onClick={() => navigate(`/game/${g.id}`)}>Open</button>
           <button className="tt-btn ghost" onClick={async () => {
             if (!window.confirm(`Close “${g.name}”? It is autosaved first and can be loaded later.`)) return;
             await closeGame(g.id).catch(toastError);
@@ -506,7 +505,7 @@ function SaveTile({ save: s, onDeleted }: { save: SaveSummary; onDeleted: () => 
         <p className="pg-who">{s.players.map((p) => `${p.name} ${p.life}`).join(", ")}</p>
       </div>
       <div className="pg-tile-acts">
-        <button className="tt-btn brass" onClick={async () => {
+        <button className="tt-btn pg-go" onClick={async () => {
           try {
             const res = await loadSave(s.id);
             open(res.game.id);
@@ -524,7 +523,7 @@ function SaveTile({ save: s, onDeleted }: { save: SaveSummary; onDeleted: () => 
             } catch (e) {
               toastError(e);
             }
-          }}>LAN</button>
+          }}>Load as LAN</button>
           <a className="tt-icon" href={packageUrl(s.id)} download title="Download a portable package (save + custom images + macros)" aria-label={`Download “${s.name}” as a package`}>
             <Icon name="download" size={16} />
           </a>

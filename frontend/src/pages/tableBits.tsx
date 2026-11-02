@@ -4,7 +4,10 @@
 import { contrast } from "../theme/planes";
 import type { CommanderRef } from "../types/game";
 import { CommanderArt } from "./CommanderArt";
+import { SEAT_COLORS, mosaicGrid } from "./playBits";
 import "./play.css";
+
+export { SEAT_COLORS, whenSaved } from "./playBits";
 
 const INK_DARK = "#15120e";
 const INK_LIGHT = "#f7f0e2";
@@ -42,21 +45,13 @@ export interface MosaicSeat {
   commanders?: CommanderRef[] | undefined;
 }
 
-/** Columns × rows for n seats; every cell stays landscape, so a commander's art window always fills it. */
-function grid(n: number): [number, number] {
-  if (n <= 1) return [1, 1];
-  if (n === 2) return [1, 2];
-  if (n <= 4) return [2, 2];
-  return [2, 3];
-}
-
 /**
  * A table at a glance: each seat's commander art in a small mosaic (the seat colour along its foot), or the seat's chip on
  * the felt when its commander isn't known (a lobby, an old save). Decorative: the tile lists the players in words.
  */
 export function TableMosaic({ seats, className }: { seats: MosaicSeat[]; className?: string }) {
   const shown = seats.slice(0, 6);
-  const [cols, rows] = grid(shown.length);
+  const [cols, rows] = mosaicGrid(shown.length);
   // the frame is 10:7; a cell's ratio follows from the grid (the art crop needs it)
   const ratio = (10 / 7) * (rows / cols);
   return (
@@ -65,7 +60,7 @@ export function TableMosaic({ seats, className }: { seats: MosaicSeat[]; classNa
         const cmdr = s.commanders?.[0];
         if (s.open) return <span key={i} className="mosaic-cell open" title={`${s.name}: open`} />;
         return (
-          <span key={i} className="mosaic-cell" style={{ ...chipStyle(s.color), ["--art-ratio" as string]: ratio }}
+          <span key={i} className="mosaic-cell" style={{ ...chipStyle(s.color || SEAT_COLORS[i % SEAT_COLORS.length]), ["--art-ratio" as string]: ratio }}
             title={cmdr ? `${s.name}: ${s.commanders!.map((c) => c.name).join(" & ")}` : s.name}>
             {cmdr?.card_id ? <CommanderArt id={cmdr.card_id} /> : <span className="pg-chip">{(s.name.trim()[0] ?? "?").toUpperCase()}</span>}
           </span>
@@ -74,17 +69,4 @@ export function TableMosaic({ seats, className }: { seats: MosaicSeat[]; classNa
       {shown.length === 3 && <span className="mosaic-cell empty" />}
     </span>
   );
-}
-
-/** "Today, 22:51" / "Yesterday, 21:10" / "Sat 31 Oct, 20:15" for a save's local timestamp (YYYY-MM-DDTHH:MM:SS). */
-export function whenSaved(stamp: string, now = new Date()): string {
-  const d = new Date(stamp);
-  if (Number.isNaN(d.getTime())) return stamp.replace("T", " ");
-  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const days = Math.round((day(now) - day(d)) / 86_400_000);
-  if (days === 0) return `Today, ${time}`;
-  if (days === 1) return `Yesterday, ${time}`;
-  const date = d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", ...(d.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }) });
-  return `${date}, ${time}`;
 }

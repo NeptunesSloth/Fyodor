@@ -18,7 +18,7 @@ import { resolveRenderer } from "../table3d/renderer";
 import type { DeckSummary } from "../types/decks";
 import type { GameSummary, SaveSummary } from "../types/game";
 import { CommanderArt } from "./CommanderArt";
-import { deckTitle } from "./DeckPicker";
+import { deckTitle, lastTable, type LastTable } from "./playBits";
 import { TableMosaic, whenSaved } from "./tableBits";
 import { Welcome, resetWelcome, welcomeDone } from "./Welcome";
 import "./home.css";
@@ -37,8 +37,6 @@ const MINOR: { href: string; label: string; icon: IconName; testid: string }[] =
   { href: "#/settings", label: "Settings", icon: "gear", testid: "menu-settings" },
 ];
 
-/** What "Continue" picks up: the table played most recently, else the newest save. */
-type Last = { kind: "table"; game: GameSummary } | { kind: "save"; save: SaveSummary };
 
 export function Home() {
   const [health, setHealth] = useState<Health | null>(null);
@@ -65,13 +63,8 @@ export function Home() {
   const three = resolveRenderer(renderer) === "3d";
   const host = saves !== null;
 
-  const last = useMemo<Last | null>(() => {
-    // a table this device can open: any on the host, a seat this browser holds elsewhere
-    const table = games.filter((g) => host || seatToken(g.id)).sort((a, b) => b.updated_at - a.updated_at)[0];
-    if (table) return { kind: "table", game: table };
-    const save = saves?.[0];
-    return save ? { kind: "save", save } : null;
-  }, [games, saves, host]);
+  // a table this device can open: any on the host, a seat this browser holds elsewhere
+  const last = useMemo(() => lastTable(games, saves, (g) => host || !!seatToken(g.id)), [games, saves, host]);
   const recent = useMemo(() => [...decks].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 4), [decks]);
   const savedCount = saves?.length ?? 0;
 
@@ -183,7 +176,7 @@ export function Home() {
 }
 
 /** One click back to the last table: open it if it's still running, or load the newest save. */
-function Continue({ last }: { last: Last }) {
+function Continue({ last }: { last: LastTable }) {
   const [busy, setBusy] = useState(false);
   const table = last.kind === "table" ? last.game : null;
   const save = last.kind === "save" ? last.save : null;
