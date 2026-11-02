@@ -108,7 +108,11 @@ def test_each_second_draw_exiles_and_alice_casts_bobs_card_with_any_mana(cards):
     assert zone_names(s, "p1", "exile") == ["Sol Ring"] and zone_names(s, "p2", "exile") == ["Giant Growth"]
     growth = card(s, "Giant Growth", "p2")
     mana(s, C=1)
-    assert growth.id in rules_view(s.state, "p1", s.cards)["hints"]["castable"]
+    hints = rules_view(s.state, "p1", s.cards)["hints"]
+    assert growth.id in hints["castable"]
+    # the exile marker: which card exiled it, by name only, for the cards Alice may cast (not her own Sol Ring)
+    assert hints["exiled_with"] == {growth.id: IAN}
+    assert "exiled_with" not in rules_view(s.state, "p2", s.cards)["hints"]  # (Bob may cast nothing of Alice's on her turn)
     with pytest.raises(ActionError):
         act(s, "p1", type="cast_spell", card_id=card(s, "Sol Ring").id)
     act(s, "p1", type="cast_spell", card_id=growth.id, targets=[card(s, IAN).id])

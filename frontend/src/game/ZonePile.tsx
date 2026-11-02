@@ -8,6 +8,8 @@ import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
 import { dropAsIntent, send as sendIntent, useXPrompt } from "./rules/intents";
 import { GameCardFace } from "./GameCardFace";
+import { castableIn } from "./exileCastables";
+import "./exile.css";
 import { commanderDealt, dealtText } from "./commanderDamage";
 
 const LABEL: Partial<Record<ZoneName, string>> = {
@@ -212,6 +214,7 @@ export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
   const top = useCardView(topId ?? "");
   const over = useDrag((s) => s.drag?.overZone === key);
   const label = LABEL[zone] ?? zone;
+  const castable = useGame((s) => (zone === "exile" ? castableIn(s.view, key) : 0));
   const open = () => useGame.getState().openBrowser({ zone: key, title: label });
   return (
     <div
@@ -233,6 +236,7 @@ export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
       <div className="pile-card">{top ? <GameCardFace card={top} /> : <div className="pile-empty" />}</div>
       <span className="pile-count">{ids.length}</span>
       <span className="pile-label">{label}</span>
+      {castable > 0 && <span className="pile-castable" data-testid="pile-castable" title="Cards here you may cast or play now">{castable} castable</span>}
     </div>
   );
 }

@@ -34,6 +34,7 @@ import { PingLayer } from "./Pings";
 import { DiceLayer } from "./DiceLayer";
 import { DigDialog } from "./DigDialog";
 import { TableImporter } from "./TableImporter";
+import { ExileCastables } from "./ExileCastables";
 import { useTurnAlert } from "./turnAlert";
 import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 
@@ -106,6 +107,7 @@ export function GameScreen() {
           </div>}
           {browserOpen && <ZoneBrowser me={me} />}
           {canSeeMyHand && <Hand player={me} me={me} />}
+          {canSeeMyHand && <ExileCastables me={me} />}
         </main>
       </div>
       {status !== "open" && (

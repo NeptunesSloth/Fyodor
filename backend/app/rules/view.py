@@ -306,6 +306,18 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
     out["playable_lands"] = playable
     out["activatable"] = activatable(state, viewer, info, announce=True)  # (soak: targets too)
     out["castable"] = [cid for cid in candidates if castable(state, viewer, state.cards[cid], info, announce=True)]  # (soak: modes and targets too)
+    # -- exile markers -- which card exiled each exiled card this viewer may cast or play now ("Exiled with Ian Malcolm", 607.2a): the
+    # source's name only, and only while the viewer can see the source (everyone saw it exile them); never its id
+    if r is not None and r.exiled_with:
+        source_of = {o: src for src, objs in r.exiled_with.items() for o in objs}
+        links: dict[str, str] = {}
+        for cid in dict.fromkeys([*out["castable"], *playable]):
+            src = source_of.get(r.object_id(cid)) if state.cards[cid].zone.endswith(":exile") else None
+            source = state.cards.get(src.rsplit(".", 1)[0]) if src else None
+            if source is not None and source.name and can_see(state, source, viewer):
+                links[cid] = source.name
+        if links:
+            out["exiled_with"] = links
     # (wave 24D) 107.3a: castable cards that ask for X when cast (the server validates the range; min 0)
     if x_cast := [cid for cid in out["castable"] if announces_x(state.cards[cid], info)]:
         out["x_cast"] = x_cast
