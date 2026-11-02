@@ -4,9 +4,12 @@ import { Modal } from "../components/Modal";
 import { toast, toastError } from "../components/Toasts";
 import { rememberMyDeck, rememberSeat } from "../services/games";
 import { deckLabCopy, openPractice, ownDeck, type OwnDeckCard } from "../services/night";
+import { getDeck } from "../services/decks";
 import { requestCards, useCardCache } from "../state/cardCache";
 import type { GameView } from "../types/game";
 import { commandersOf, openGameLog, rememberPractice } from "./eliminationHub";
+import { compareDecks, deckLines, type DeckComparison } from "./deckCompare";
+import { DeckChanges } from "./DeckChanges";
 import { playEndScene, type EndPlay } from "./motion/endScene";
 import { SideActivityDialog, type SideActivity } from "./SpectatorHub";
 import "./elimination.css";
@@ -139,7 +142,7 @@ export function Eliminated({ view, me, sceneOn }: { view: GameView; me: string; 
         </button>
       )}
       {activity === "hands" && <HandSimulator gameId={view.game.id} viewer={viewer} onClose={closeActivity} />}
-      {activity === "lab" && <DeckLab gameId={view.game.id} viewer={viewer} onClose={closeActivity} />}
+      {activity === "lab" && <DeckLab gameId={view.game.id} viewer={viewer} seat={me} night={view.game.night?.number ?? 1} onClose={closeActivity} />}
       {activity !== "hands" && activity !== "lab" && <SideActivityDialog activity={activity} view={view} viewer={viewer} onClose={closeActivity} />}
     </>
   );
@@ -212,27 +215,80 @@ function SimCard({ card }: { card: OwnDeckCard }) {
   );
 }
 
+type LabCopy = Awaited<ReturnType<typeof deckLabCopy>>;
+/** Deck Lab as this tab left it: the copy (its library deck on the host computer) and, elsewhere, the list being edited. */
+interface LabState { copy: LabCopy; name: string; text: string }
+const labKey = (gameId: string, night: number, seat: string) => `fyodor.decklab.${gameId}.${night}.${seat}`;
+
+function readLab(key: string): LabState | null {
+  try {
+    const raw = sessionStorage.getItem(key);
+    const lab = raw ? (JSON.parse(raw) as LabState) : null;
+    return lab && typeof lab.text === "string" && typeof lab.copy?.text === "string" ? lab : null;
+  } catch {
+    return null;
+  }
+}
+
+function keepLab(key: string, lab: LabState): void {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(lab));
+  } catch {
+    /* this tab only: fine without */
+  }
+}
+
 /**
  * DECK LAB: a copy of the deck you brought, for the next game. On the host computer the copy is a new deck in the
  * library, opened in the deck editor in a new tab (this table keeps your seat). On another computer it is the list,
  * to edit here and keep in this browser's My decks. The deck in this game is never changed; the lobby is where the
- * next deck is chosen.
+ * next deck is chosen. Compare shows what the next-game version brings in and takes out (deckCompare.ts). Reopened,
+ * Deck Lab comes back to the same copy (and list), so the library gets one copy per game.
  */
-function DeckLab({ gameId, viewer, onClose }: { gameId: string; viewer?: string; onClose: () => void }) {
-  const [copy, setCopy] = useState<Awaited<ReturnType<typeof deckLabCopy>> | null>(null);
+function DeckLab({ gameId, viewer, seat, night, onClose }: { gameId: string; viewer?: string; seat: string; night: number; onClose: () => void }) {
+  const key = labKey(gameId, night, seat);
+  const [copy, setCopy] = useState<LabCopy | null>(null);
   const [name, setName] = useState("");
   const [text, setText] = useState("");
   const [saved, setSaved] = useState(false);
+  const [comparing, setComparing] = useState(false);
+  const [library, setLibrary] = useState<DeckComparison | null>(null);
   useEffect(() => {
-    deckLabCopy(gameId, viewer).then((c) => {
-      setCopy(c);
-      setName(c.name);
-      setText(c.text);
+    let gone = false;
+    const open = async (): Promise<LabState> => {
+      const kept = readLab(key);
+      if (kept && !kept.copy.deck_id) return kept;
+      if (kept?.copy.deck_id) {
+        try {
+          await getDeck(kept.copy.deck_id);
+          return kept;
+        } catch {
+          /* deleted from the library: a new copy */
+        }
+      }
+      const c = await deckLabCopy(gameId, viewer);
+      return { copy: c, name: c.name, text: c.text };
+    };
+    open().then((lab) => {
+      if (gone) return;
+      keepLab(key, lab);
+      setCopy(lab.copy);
+      setName(lab.name);
+      setText(lab.text);
     }, (e) => {
       toastError(e);
       onClose();
     });
-  }, [gameId, viewer, onClose]);
+    return () => {
+      gone = true;
+    };
+  }, [gameId, viewer, key, onClose]);
+  const edit = (next: { name?: string; text?: string }) => {
+    if (next.name !== undefined) setName(next.name);
+    if (next.text !== undefined) setText(next.text);
+    setSaved(false);
+    if (copy) keepLab(key, { copy, name: next.name ?? name, text: next.text ?? text });
+  };
   const save = () => {
     try {
       const deckName = name.trim() || copy?.name || "Deck";
@@ -244,12 +300,34 @@ function DeckLab({ gameId, viewer, onClose }: { gameId: string; viewer?: string;
     }
   };
   const editor = copy?.deck_id ? `#/decks/${encodeURIComponent(copy.deck_id)}` : null;
+  // the list being edited here, or (host computer) the library copy as the deck editor last saved it, read again on each Compare
+  const listed = useMemo(() => (copy && !editor && comparing ? compareDecks(deckLines(copy.text), deckLines(text)) : null), [copy, editor, comparing, text]);
+  const compare = async () => {
+    if (comparing) {
+      setComparing(false);
+      return;
+    }
+    if (copy?.deck_id) {
+      try {
+        setLibrary(compareDecks(deckLines(copy.text), (await getDeck(copy.deck_id)).entries));
+      } catch (e) {
+        toastError(e);
+        return;
+      }
+    }
+    setComparing(true);
+  };
+  const cmp = editor ? library : listed;
   return (
     <Modal wide title="Deck Lab" onClose={onClose} footer={
       <>
         <span className="hint">The deck in this game never changes. Choose the next deck in the lobby.</span>
         <span className="spacer" />
         <button className="tt-btn" onClick={onClose}>Close</button>
+        <button className="tt-btn" disabled={!copy} aria-pressed={comparing} onClick={() => void compare()} data-testid="deck-lab-compare"
+          title="What your next-game version brings in and takes out, against the deck you brought">
+          {comparing ? (editor ? "Back" : "Back to the list") : "Compare"}
+        </button>
         {editor ? (
           <a className="tt-btn brass" href={editor} target="_blank" rel="noopener noreferrer" data-testid="deck-lab-editor">Open in the deck editor ↗</a>
         ) : (
@@ -261,15 +339,17 @@ function DeckLab({ gameId, viewer, onClose }: { gameId: string; viewer?: string;
     }>
       {!copy ? (
         <p className="hint">Copying your deck…</p>
+      ) : comparing && cmp ? (
+        <DeckChanges cmp={cmp} />
       ) : editor ? (
         <p>A copy of your deck is in the deck library as <b>{copy.name}</b>. Edit it in the deck editor (a new tab, so you
-          keep your seat here) and pick it in the lobby for the next game.</p>
+          keep your seat here) and pick it in the lobby for the next game. Compare shows what your edits change.</p>
       ) : (
         <>
           <p className="hint">A copy of the list you brought to this game. Edit it, then keep it in this browser's My decks.</p>
-          <label className="deck-lab-name">Name <input value={name} maxLength={120} onChange={(e) => { setName(e.target.value); setSaved(false); }} /></label>
+          <label className="deck-lab-name">Name <input value={name} maxLength={120} onChange={(e) => edit({ name: e.target.value })} /></label>
           <textarea className="deck-lab-text" aria-label="Deck list" spellCheck={false} value={text}
-            onChange={(e) => { setText(e.target.value); setSaved(false); }} />
+            onChange={(e) => edit({ text: e.target.value })} />
         </>
       )}
     </Modal>

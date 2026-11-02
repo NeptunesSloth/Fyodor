@@ -15,7 +15,7 @@ import { MOTION, motionMs, motionOn, motionPrefs } from "../game/motion/timing";
 import { zoneName, zoneOwner, type TableEvent } from "../game/motion/tableEvents";
 import { CARD_W, MAT_D, PILES, toWorld, type PileZone, type Seat } from "./layout";
 import {
-  arcHeight, arcLift, easeOut, flightMs, floaterAt, lungeAt, planMotion, riffleAt, standInOpacity, turnAt,
+  arcHeight, arcLift, easeOut, flightMs, floaterAt, lungeAt, otherHandSpot, planMotion, riffleAt, standInOpacity, turnAt,
   type FlightPlan, type FloaterPlan, type Look, type Place, type StrikePlan,
 } from "./flights3d";
 
@@ -271,10 +271,9 @@ export class TableMotion {
       lz = MAT_D / 2 + 1.5;
       y = 0.7;
     } else if (name === "hand") {
-      // another player's hand: the fan of backs past their mat's edge (TableScene.syncHandFan)
-      lz = MAT_D / 2 + 1.25;
-      y = 0.3;
-      out.rot = seat.rot + Math.PI;
+      // another player's hand: on their side of the table where every seat sees it, by their plaque (flights3d
+      // otherHandSpot), not their fan of backs past their far edge (TableScene.syncHandFan)
+      ({ lx, lz, y } = otherHandSpot(seat));
     }
     const [wx, wz] = toWorld(seat, lx, lz);
     out.pos.set(wx, y, wz);

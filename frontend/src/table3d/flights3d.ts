@@ -18,10 +18,11 @@ import type { GameCard, GameView } from "../types/game";
 import { isVisible } from "../types/game";
 import { MOTION } from "../game/motion/timing";
 import { zoneName, zoneOwner, type TableEvent } from "../game/motion/tableEvents";
+import { CARD_H, MAT_D, plaqueSpot, type Seat } from "./layout";
 
 /** Where a flight starts or ends. */
 export type Place =
-  /** A zone's spot: a pile's top, a hand (another player's fan; the viewer's own: the near edge of their mat), the stack, a mat. */
+  /** A zone's spot: a pile's top, a hand (another player's: their side of the table, otherHandSpot; the viewer's own: the near edge of their mat), the stack, a mat. */
   | { zone: string }
   /** A card on the table now, where it is. */
   | { card: string }
@@ -89,6 +90,17 @@ export interface SceneFacts {
 export function hiddenZone(zone: string, me: string): boolean {
   const name = zoneName(zone);
   return name === "library" || (name === "hand" && zoneOwner(zone) !== me);
+}
+
+/**
+ * Where a flight finds another player's hand, mat-local in their mat's frame, and how high: on their mat, low, in the half
+ * that faces the aisle, just past their plaque (which stands in the aisle by that edge, so the card clears it). A card they
+ * cast or play rises out of their side of the table there (as a card back: their hand is hidden), and a card they draw or
+ * that is bounced to them sinks into it there. Their fan of card backs lies past their other edge, at the top of the seat
+ * camera under the table's far rim (or, for a neighbour in my row, under my hand), where a flight from it was barely seen.
+ */
+export function otherHandSpot(seat: Seat): { lx: number; lz: number; y: number } {
+  return { lx: plaqueSpot(seat)[0], lz: -MAT_D / 2 + CARD_H * 1.6, y: 0.1 };
 }
 
 /** The minus sign, as typeset (not a hyphen). */

@@ -7,6 +7,24 @@
 .deck-lab-name { display: flex; gap: 8px; align-items: center; margin: 10px 0 8px; font-size: 13px; color: var(--text-dim); }
 .deck-lab-name input { flex: 1; }
 .deck-lab-text { width: 100%; min-height: min(52vh, 420px); }
+/* Compare: what the next-game version brings in and takes out (signs and headings carry it; the colour only echoes them) */
+.deck-compare { min-height: min(40vh, 320px); }
+.deck-compare > .hint { margin: 0 0 10px; }
+.deck-compare-same { margin: 18px 0; color: var(--text-dim); }
+.deck-compare-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.deck-compare-col h4 {
+  display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--line);
+  font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim);
+}
+.deck-compare-total { font-family: var(--font-ui); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0; text-transform: none; }
+.deck-compare-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 46vh; overflow: auto; }
+.deck-compare-col li { display: flex; align-items: baseline; gap: 8px; min-height: 24px; font-size: 13.5px; }
+.deck-compare-n { min-width: 3ch; text-align: right; font: 700 13px/1 var(--font-ui); font-variant-numeric: tabular-nums; }
+.deck-compare-col.in .deck-compare-n { color: var(--ok); }
+.deck-compare-col.out .deck-compare-n { color: var(--danger); }
+.deck-compare-col.out .deck-compare-name { color: var(--text-dim); }
+.deck-compare-sec { margin-left: auto; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); }
+@media (max-width: 640px) { .deck-compare-cols { grid-template-columns: 1fr; } }
 
 /* sits in the empty middle of the game's top bar: present, never over the table */
 .practice-pill {

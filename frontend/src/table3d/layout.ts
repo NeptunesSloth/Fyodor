@@ -90,6 +90,17 @@ export function tableSize(all: Seat[]): TableSize {
   return { w: w * 2, d: d * 2 };
 }
 
+/**
+ * The seat camera (the main view, before the player's zoom and turn): behind my seat, looking across the aisle, my mat
+ * large and the far row whole. It leans toward the table's middle when my seat is off-centre, as you would at a long
+ * table, and is framed from the far mats' back edge down to my seat's buttons, just past my mat's near edge and above my
+ * hand (solved for 16:9; a narrower screen pulls back to keep the far row whole).
+ */
+export function seatCamera(mine: Seat, size: TableSize, aspect: number): { pos: [number, number, number]; look: [number, number, number] } {
+  const reach = Math.max((size.w / aspect) * 1.1, size.d);
+  return { look: [mine.x * 0.25, 0, mine.z - 3.75], pos: [mine.x * 0.35, reach * 1.07, mine.z + MAT_D / 2 + reach * 0.48] };
+}
+
 /** Mat-local → world (x, z). */
 export function toWorld(seat: Seat, lx: number, lz: number): [number, number] {
   const c = Math.cos(seat.rot);
