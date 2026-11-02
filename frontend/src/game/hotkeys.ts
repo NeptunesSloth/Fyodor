@@ -29,7 +29,8 @@ export type HotkeyId =
   | "cam_reset"
   | "cam_names"
   | "ping"
-  | "hand_sort";
+  | "hand_sort"
+  | "dice";
 
 export interface Hotkey {
   id: HotkeyId;
@@ -63,6 +64,7 @@ export const HOTKEYS: Hotkey[] = [
   { id: "cam_names", keys: ["v"], label: "3D table: show / hide the names of all cards on the table" },
   { id: "ping", keys: ["g"], label: "Ping what the pointer is on, for everyone (or Alt+click)" },
   { id: "hand_sort", keys: ["s"], label: "Sort your hand: as drawn → mana value → colour → type → name" },
+  { id: "dice", keys: ["shift+r"], label: "Roll dice: open / close the roll panel (Enter rolls)" },
 ];
 
 export function comboOf(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">): string {
