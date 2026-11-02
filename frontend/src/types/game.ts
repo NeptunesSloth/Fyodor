@@ -553,7 +553,8 @@ export interface GameSummary {
   code: string | null;
   has_password: boolean;
   turn: number;
-  players: { id: string; name: string; claimed: boolean; connected: boolean }[];
+  /** `color` and `commanders` once the game has started (the tables list on the host, or an open LAN table). */
+  players: { id: string; name: string; claimed: boolean; connected: boolean; color?: string; commanders?: CommanderRef[] }[];
   spectators: number;
   updated_at: number;
 }
@@ -569,7 +570,14 @@ export interface SaveSummary {
   game_name: string;
   format: string;
   turn: number;
-  players: { name: string; life: number; deck: string | null }[];
+  /** `color` and `commanders` are missing from saves made before they were recorded. */
+  players: { name: string; life: number; deck: string | null; color?: string; commanders?: CommanderRef[] }[];
+}
+
+/** A player's commander as the tables and saves lists name it: public once the game has started. */
+export interface CommanderRef {
+  name: string;
+  card_id: string | null;
 }
 
 export type Action = { type: string } & Record<string, unknown>;
