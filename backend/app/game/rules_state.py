@@ -1997,7 +1997,27 @@ def _zone_name(key: str) -> str:
     return key.rsplit(":", 1)[-1]
 
 
-def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
+class _Around:
+    """-- big boards (perf) -- who blocks what and what is attached to what, read in one pass over the table for all the snapshots
+    ``Capture`` takes of it (each snapshot used to read every card in the game twice: the square of the table's size per step).
+    Exactly what ``snapshot`` reads without it: the lists keep the table's card order, and an id appears once per list however
+    many of the blocker's blocks name the same attacker (``CardInstance.blocks`` is a yes or no per attacker)."""
+
+    __slots__ = ("blockers", "attached")
+
+    def __init__(self, state: GameState) -> None:
+        self.blockers: dict[str, list[str]] = {}
+        self.attached: dict[str, list[str]] = {}
+        for o in state.cards.values():
+            for attacker in dict.fromkeys((o.blocking, *o.blocking_more)):
+                if attacker is not None and o.blocks(attacker):
+                    self.blockers.setdefault(attacker, []).append(o.id)
+            if o.attached_to is not None:
+                self.attached.setdefault(o.attached_to, []).append(o.id)
+
+
+def snapshot(state: GameState, card_id: str, around: _Around | None = None) -> ObjectSnapshot:
+    """``around``: the table's blockers and attachments, gathered once for many snapshots of one table (``Capture``)."""
     c = state.cards[card_id]
     rules = state.rules
     token = c.token
@@ -2020,10 +2040,12 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         blocking=c.is_blocking, blocking_ids=[x for x in (c.blocking, *c.blocking_more) if x], attached_to=c.attached_to,
         attached_object=rules.object_id(c.attached_to) if rules is not None and c.attached_to is not None and c.attached_to in state.cards else None,
         text=token.text if token else "",
-        blocked_by_ids=[o.id for o in state.cards.values() if o.id != card_id and o.blocks(card_id)],  # (wave 53C)
+        blocked_by_ids=[o.id for o in state.cards.values() if o.id != card_id and o.blocks(card_id)] if around is None
+        else [o for o in around.blockers.get(card_id, ()) if o != card_id],  # (wave 53C)
         banded_with_ids=[oid for band in rules.attacking_bands if rules.object_id(card_id) in band for oid in band
                          if oid != rules.object_id(card_id)] if rules and c.is_attacking else [],
-        attached_objects={a.id: rules.object_id(a.id) for a in state.cards.values() if a.attached_to == c.id} if rules else {},
+        attached_objects=({a.id: rules.object_id(a.id) for a in state.cards.values() if a.attached_to == c.id} if around is None
+                          else {a: rules.object_id(a) for a in around.attached.get(c.id, ())}) if rules else {},
         attached_objects_known=rules is not None,
         attached_player=c.attached_player,  # -- attached events (wave 4L) --
         merged=[p.model_dump() for p in c.merged], melded=c.melded,  # (wave 18D)
@@ -2067,8 +2089,9 @@ class Capture:
         # CR 603.10a: graveyard-leave events retain their public old object even
         # when a later library shuffle deliberately destroys its physical id.
         paid_exile = {oid for payment in state.rules.payments.values() for oid in payment.exiled_objects} if state.rules else set()
+        around = _Around(state)
         self.snaps = {
-            cid: snapshot(state, cid) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES or _zone_name(c.zone) == "graveyard"
+            cid: snapshot(state, cid, around) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES or _zone_name(c.zone) == "graveyard"
             or (_zone_name(c.zone) == "exile" and not c.face_down and state.rules is not None
                 and (state.rules.object_id(cid) in paid_exile or bool(c.counters) or cid in state.rules.suspended))
         }
