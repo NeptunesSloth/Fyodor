@@ -111,4 +111,6 @@ def snapshot(s) -> dict[str, Any]:
             (out[pid].get("hints") or {}).pop(later, None)
         if out[pid].get("decision"):
             out[pid]["decision"]["id"] = "<decision>"  # (random per decision)
+            for later in ("targets", "must_attack"):  # (the attack panel's per-creature targets and requirements came later: their own tests)
+                (out[pid]["decision"].get("display") or {}).pop(later, None)
     return out
