@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.game.views import build_view
 from app.rules import coverage
 from tests.game_helpers import act
 from tests.pod_c_kit import card, cast, ch, field, hold, mana, named, put, settle, table, to_hand, until
@@ -128,6 +129,12 @@ def test_spark_double_as_adrix_doubles_again(cards):
     double = card(s, "Spark Double")
     assert ch(s, double).name == "Adrix and Nev, Twincasters" and "Legendary" not in ch(s, double).supertypes
     assert s.state.cards[double.id].counters == {"+1/+1": 1}
+    # every player sees it as what it copied (the copiable values are public, 707.2): Adrix's face and name, marked a copy
+    adrix_card = card(s, "Adrix and Nev, Twincasters")
+    for viewer in ("p1", "p2"):
+        shown = build_view(s.state, viewer)["cards"][double.id]
+        assert shown["name"] == "Adrix and Nev, Twincasters" and shown["card_id"] == adrix_card.card_id
+        assert shown["copy_of"] == {"source_id": "", "source_name": "Adrix and Nev, Twincasters", "modifications": "not legendary"}
     mana(s, G=3)
     cast(s, "Awaken the Woods", x_value=1)
     assert field(s)["Forest Dryad"] == 4

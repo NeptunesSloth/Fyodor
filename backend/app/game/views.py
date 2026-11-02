@@ -56,6 +56,36 @@ def resolve_placeholder(state: GameState, value: str, viewer: str) -> str:
     return hidden[index] if index < len(hidden) else value
 
 
+def _copied(state: GameState, c: CardInstance, view: dict[str, Any]) -> None:
+    """-- copies (the pod's decks: Irma becoming Kiora, Spark Double, Sakashima) -- a permanent a rules copy effect applies to (613.2a,
+    layer 1) is shown as what it copied: that printing's face (or the copied token's values) and its name after the copy's exceptions,
+    with a COPY mark naming what it copies. Copiable values are public (707.2): the same for every viewer, and never the copied
+    object's id (it may since have gone somewhere hidden)."""
+    from app.game.rules_state import copy_recipe_of
+
+    assert state.rules is not None
+    recipe = copy_recipe_of(state.rules, state.rules.object_id(c.id))
+    if recipe is None or not (recipe.printing or recipe.token):
+        return
+    named = next((e.name for e in reversed(recipe.excepts) if e.name), None)
+    if recipe.printing:
+        view["card_id"], view["face"] = recipe.printing, recipe.face
+    else:
+        view["token"] = {**(view.get("token") or {}), **(recipe.token or {})}
+    view["name"] = named or recipe.source or c.name
+    changes = []
+    for e in recipe.excepts:
+        if e.name:
+            changes.append(f"named {e.name}")
+        if e.power is not None and e.toughness is not None:
+            changes.append(f"{e.power}/{e.toughness}")
+        if "Legendary" in e.remove_supertypes:
+            changes.append("not legendary")
+        changes += [f"is also {t}" for t in e.add_types + e.add_subtypes]
+        changes += [f"has “{t if len(t) <= 60 else t[:57].rstrip() + '…'}”" for t in e.add_text]
+    view["copy_of"] = {"source_id": "", "source_name": recipe.source or "a permanent", "modifications": "; ".join(dict.fromkeys(changes))[:300]}
+
+
 def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
     _, zone = split_zone(c.zone)
     if can_see(state, c, viewer):
@@ -78,6 +108,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
                 view["token"] = {**c.token.back.model_dump(), "front": c.token.model_dump(exclude={"back"})}
         if c.copy_of:
             view["copy_of"] = c.copy_of.model_dump()
+        elif state.rules is not None and zone in ("battlefield", "phased") and not c.face_down:
+            _copied(state, c, view)
         if c.ability:
             view["ability"] = c.ability.model_dump()
         if c.commander_key:

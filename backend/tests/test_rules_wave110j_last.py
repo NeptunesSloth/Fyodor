@@ -663,6 +663,12 @@ def test_clone_copies_a_face_down_creature_as_a_nameless_2_2(cards):
     _drive(s, lambda d: [dragon.id] if "choose a creature to copy" in d.prompt else None)
     ch = _plan(s).ch(s.state.cards[clone.id])
     assert not s.state.cards[clone.id].face_down and ch.name == "" and (ch.power, ch.toughness) == ("2", "2") and not ch.abilities and not ch.colors
+    # the table shows the Clone as a copy without naming or picturing the hidden card (no printing of it reaches any view)
+    from app.game.views import build_view
+
+    for viewer in ("p1", "p2"):
+        shown = build_view(s.state, viewer)["cards"][clone.id]
+        assert shown["card_id"] != dragon.card_id and "Shivan" not in str(shown) and shown["copy_of"]["source_name"] == "a permanent"
     check(s)
 
 
