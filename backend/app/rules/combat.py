@@ -273,14 +273,34 @@ def _defender_condition(state: GameState, info: CardInfo | None, fact: str, defe
     return False
 
 
+_IRREGULAR = {"Elf": "Elves", "Dwarf": "Dwarves", "Wolf": "Wolves", "Werewolf": "Werewolves", "Mouse": "Mice", "Fungus": "Fungi",
+              "Ox": "Oxen", "Sheep": "Sheep", "Fish": "Fish", "Thalakos": "Thalakos"}
+
+
+def _plural(word: str) -> str:
+    """A creature type in the plural for a message ("Octopuses", "Elves")."""
+    if word in _IRREGULAR:
+        return _IRREGULAR[word]
+    if word.endswith(("s", "x", "ch", "sh")):
+        return word + "es"
+    if word.endswith("y") and word[-2:-1] not in ("a", "e", "i", "o", "u"):
+        return word[:-1] + "ies"
+    return word + "s"
+
+
 def _phrase(arg: str) -> str:
     """A short reading of a rule's selectors for error messages ("creatures with power 2 or less")."""
     parts = []
     for sel in rule_selectors(arg):
-        words = [*(c.lower() for c in sel.colors), *(t.lower() for t in sel.types), *sel.subtypes] or ["creatures"]
-        text = " ".join(words)
-        if not text.endswith("s"):
-            text += "s"
+        subs = list(sel.subtypes)
+        if len(subs) > 1:  # any of these types: "Krakens, Leviathans, Octopuses or Serpents" (Serpent of Yawning Depths)
+            plural = [_plural(w) for w in sorted(subs)]  # (in the order cards print them)
+            text = " ".join([*(c.lower() for c in sel.colors), ", ".join(plural[:-1]) + " or " + plural[-1]])
+        else:
+            words = [*(c.lower() for c in sel.colors), *(t.lower() for t in sel.types), *subs] or ["creatures"]
+            text = " ".join(words)
+            if not text.endswith("s"):
+                text += "s"
         if sel.with_keywords:
             text += " with " + " and ".join(sel.with_keywords)
         for x in sel.extras:  # (wave 45D's either-keyword selector)

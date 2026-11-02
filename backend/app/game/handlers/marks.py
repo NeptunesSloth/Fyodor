@@ -26,7 +26,8 @@ def add_effect(state: GameState, a: A.AddEffect) -> None:
     _public(state, targets)
     for c, eid in zip(targets, a.r.ids, strict=False):
         c.effects.append(Effect(id=eid, name=a.name, value=a.value, text=a.text, color=a.color))
-    label = f"{a.name} {a.value}".strip() if a.value else a.name
+    # ("gave +2/+0 to …", not "gave +2/+0 +2/+0": the rules engine names a mark by its value)
+    label = f"{a.name} {a.value}".strip() if a.value and a.value != a.name else a.name
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" gave {label} to "), group(state, targets)], kind="minor")
 
 

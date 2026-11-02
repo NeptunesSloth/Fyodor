@@ -420,3 +420,14 @@ def test_exact_copy_keeps_counters_and_markers(s):
     assert exact.counters == {"+1/+1": 2}
     assert [e.name for e in exact.effects] == ["Flying"] and exact.effects[0].id != elves.effects[0].id
     assert "an exact copy" in "".join(p.t or "" for p in s.state.log[-1].parts)
+
+
+def test_a_marker_named_by_its_value_is_logged_once(s):
+    """The rules engine names a "+2/+0" or "Menace" marker by its value: the log says it once ("gave Menace to Grizzly Bears")."""
+    card = next(c for c in s.state.cards.values() if c.owner == "p1")
+    act(s, "p1", type="move", card_ids=[card.id], to={"player": "p1", "zone": "battlefield"})
+    act(s, "p1", type="add_effect", card_ids=[card.id], name="Menace", value="Menace")
+    act(s, "p1", type="add_effect", card_ids=[card.id], name="Shield", value="+1")
+    lines = ["".join(p.t or "" for p in e.parts) for e in s.state.log[-2:]]
+    assert " gave Menace to " in lines[0] and "Menace Menace" not in lines[0]
+    assert " gave Shield +1 to " in lines[1]

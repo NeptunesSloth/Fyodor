@@ -198,8 +198,9 @@ def test_spawning_kraken_doubled_and_serpent_of_yawning_depths_blocks(cards):
     attackers = [card(s, "Tidal Kraken"), card(s, "Serpent of Yawning Depths")]
     act(s, "p1", type="pass_priority")
     act(s, "p1", type="declare_attackers", attackers=[{"card_id": c.id, "target": "p2"} for c in attackers])
-    with pytest.raises(ActionError):
+    with pytest.raises(ActionError) as refused:
         act(s, "p2", type="declare_blockers", blocks=[{"blocker_id": bears.id, "attacker_id": attackers[1].id}])
+    assert "except by Krakens, Leviathans, Octopuses or Serpents" in str(refused.value)  # (said in words, not "Serpent Octopus Leviathan Krakens")
     act(s, "p2", type="declare_blockers", blocks=[])
     until(s, "p1", "main2")
     assert s.state.players["p2"].life == 28 and field(s)["Kraken"] == 4
