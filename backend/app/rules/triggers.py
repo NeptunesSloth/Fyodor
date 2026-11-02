@@ -2950,7 +2950,7 @@ def flush(plan: Plan) -> bool:
         if len(mine) > 1 and not all(t.ordered for t in mine) and not _identical(plan, player, mine):
             decide(plan, player=player, kind="order",
                    prompt="Order your triggered abilities (the first you pick goes on the stack first and resolves last)",
-                   options=[DecisionOption(id=t.id, label=t.name) for t in mine],
+                   options=[DecisionOption(id=t.id, label=label) for t, label in zip(mine, order_labels(mine), strict=True)],
                    min_choices=len(mine), max_choices=len(mine), resume={"step": "order_triggers"})
             return True
         for t in mine:
@@ -2964,6 +2964,25 @@ def flush(plan: Plan) -> bool:
     holder = plan.hold or r.priority
     r.priority = holder if holder in plan.live() else (plan.active if plan.active in plan.live() else plan.after(plan.active))
     return True
+
+
+def order_labels(mine: list[Any]) -> list[str]:
+    """The trigger order prompt's labels: the source's name, and when two triggers share it (a spell's cascade and demonstrate, two
+    abilities of one permanent), what each one does ("Craw Wurm: cascade", "Craw Wurm: copy it, and an opponent copies it too")."""
+    from collections import Counter
+
+    from app.rules import effects
+
+    names = Counter(t.name for t in mine)
+    out = []
+    for t in mine:
+        if names[t.name] < 2:
+            out.append(t.name)
+            continue
+        ability = t.ability or {}
+        what = ability.get("keyword") or (effects.describe(list(ability.get("effects") or [])) if ability.get("effects") else "")
+        out.append(f"{t.name}: {what[:80]}" if what and what != "Do it" else t.name)
+    return out
 
 
 def _identical(plan: Plan, player: str, mine: list[PendingTrigger]) -> bool:

@@ -116,6 +116,8 @@ def test_pay_then_the_effect_happens(cards):
     choose(s, ["pay"])
     assert len(hand(s)) == before + 1 and s.state.players["p1"].mana == {}
     assert decision(s) is None and s.state.rules.priority == "p1"
+    paid = [e for e in s.state.log if "".join(p.t or "" for p in e.parts).endswith(" paid {2} for Relic")]
+    assert len(paid) == 1  # (a cost of mana alone is logged once, as it is paid: the deck audit saw Mizzix's twice)
     replay_matches(s)
 
 

@@ -762,7 +762,9 @@ def _paid(plan: Plan, frame: OptionalPaymentFrame, payment: M.Payment | None) ->
         from app.rules import exiled_with
 
         exiled_with.record(plan, ctx, [c for c in paid if c != source.id])
-    plan.note(f"{plan.name(payer)} paid {opt.get('amount_label') or _label(cost)} for {label}", [c for c in paid if c in plan.state.cards])
+    if not (cost.mana and all(c.kind == C.MANA for c in cost.components) and not cost.life and not cost.remove_counters):
+        # (a cost of mana alone was logged as it was paid: "Alice paid {1}{U/R} for Mizzix, Replica Rider", once)
+        plan.note(f"{plan.name(payer)} paid {opt.get('amount_label') or _label(cost)} for {label}", [c for c in paid if c in plan.state.cards])
     context.bind_payment(ctx, name, True, refs, context.moved_objects(plan, refs))  # (moved: wave 8C)
 
     _payment_done(plan, ctx, frame.after)
