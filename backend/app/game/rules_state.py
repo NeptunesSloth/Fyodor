@@ -1861,6 +1861,7 @@ class RulesState(BaseModel):
     payments: dict[str, PaymentRecord] = Field(default_factory=dict)
     # Each player's intents this turn, for REPEAT LAST VALIDATED SEQUENCE (payloads, newest last).
     recent: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    recent_labels: dict[str, list[str]] = Field(default_factory=dict)  # the same intents in words, for its own player only ("Cast Sol Ring")
     recent_turn: int = 0
     # Cast / play permissions granted by effects, cost modifiers with a duration, and which top
     # library cards are revealed by permanents on the table (app/rules/permissions.py).

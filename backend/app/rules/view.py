@@ -68,6 +68,8 @@ def _rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]
         "card_modes": {cid: m for cid, m in r.card_modes.items()
                        if cid in state.cards and (viewer == OMNISCIENT or can_see(state, state.cards[cid], viewer))},
         "hints": {},
+        # REPEAT: your own actions this turn in words (newest last), nobody else's
+        "repeatable": list(r.recent_labels.get(viewer, [])) if r.recent_turn == state.turn.number and viewer in state.players else [],
         "stats": stats(state, viewer, info),
         # -- counters & designations (wave 3E): dungeons, venture markers and the Ring (public, 309.2b / 701.54) --
         "designations": designations_view(state),

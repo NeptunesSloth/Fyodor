@@ -500,6 +500,8 @@ export interface RulesView {
   reconcile: { id: string; card: string | null; player: string | null; question: string }[];
   card_modes: Record<string, "manual" | "assisted">;
   hints: RulesHints;
+  /** REPEAT: your own actions this turn in words, newest last ("Cast Sol Ring", "Choose: Pay {1}"); nobody else's. */
+  repeatable?: string[];
   /** Controlling another player (CR 723): the seat this viewer acts as right now (hints and priority are theirs), and who controls whom. */
   acting_as?: string | null;
   /** Set for the controlled player: who makes their choices now (they may only concede, 723.6). */

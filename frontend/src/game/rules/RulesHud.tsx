@@ -15,6 +15,7 @@ import { GameCardFace } from "../GameCardFace";
 import { ChainRow, chainEntries } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
 import { ChoiceWheel } from "./ChoiceWheel";
+import { RepeatButton } from "./RepeatPanel";
 import { wheelEligible } from "./wheel";
 import { usePrefs } from "../../state/prefs";
 
@@ -272,6 +273,7 @@ export function TurnDial() {
               {stack && <button className="tt-btn ghost" data-testid="resolve-one" disabled={deciding} title={blocked} onClick={() => void passPriority("stack_changes")}>Resolve one</button>}
               {stack && <button className="tt-btn ghost" data-testid="resolve-all" disabled={deciding} title={blocked} onClick={() => void passPriority("stack_empty")}>Resolve all</button>}
               {!stack && <button className="tt-btn ghost" data-testid="pass-turn" disabled={deciding} title={blocked} onClick={() => void passPriority("next_turn")}>End turn</button>}
+              <RepeatButton view={view} me={me} disabled={deciding} />
             </div>
           </>
         )}

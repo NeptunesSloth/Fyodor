@@ -170,6 +170,7 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
     if intent.type in ACTION_INTENTS:
         plan.rules.actions += 1  # for "pass until next action"
         plan.rules.last_actor = actor
+    said = intent_label(plan, intent)  # (before it happens: a choice's options are gone once it's answered)
     handler(plan, intent)
     if plan.rules.decision is not None and (plan.rules.decision.resume or {}).get('step') == 'restore_global_word71':
         # Another unknown layer-3 source is still awaiting manual restoration.
@@ -179,7 +180,7 @@ def compile_intent(state: GameState, intent: A.Action, *, actor: str, info: Card
         return plan.steps
     settle(plan)
     if intent.type != "repeat_sequence":
-        remember_intent(plan, intent)
+        remember_intent(plan, intent, said)
     from app.rules import linked_exile_look
 
     linked_exile_look.refresh(plan)
@@ -311,14 +312,43 @@ RECENT_LIMIT = 30
 RANDOM_STEPS = frozenset({"shuffle", "roll", "coin", "mulligan", "reset_deck"})
 
 
-def remember_intent(plan: Plan, intent: A.Action) -> None:
+def remember_intent(plan: Plan, intent: A.Action, label: str | None = None) -> None:
     r = plan.rules
     turn = plan.state.turn.number
     if r.recent_turn != turn:
-        r.recent, r.recent_turn = {}, turn
+        r.recent, r.recent_labels, r.recent_turn = {}, {}, turn
     mine = r.recent.setdefault(plan.actor, [])
     mine.append(intent.model_dump(mode="json", exclude={"r", "actor", "ts"}))
     del mine[:-RECENT_LIMIT]
+    said = r.recent_labels.setdefault(plan.actor, [])
+    said.append(label or intent.type.replace("_", " ").capitalize())
+    del said[:-RECENT_LIMIT]
+    if len(said) != len(mine):  # (an older save kept payloads without words)
+        r.recent_labels[plan.actor] = [p["type"].replace("_", " ").capitalize() for p in mine[:len(mine) - len(said)]] + said
+
+
+def intent_label(plan: Plan, intent: A.Action) -> str:
+    """An intent in words for its own player's Repeat panel: "Cast Dramatic Reversal", "Activate Isochron Scepter",
+    "Choose: Yes". Only ever shown to the player who did it (their own cards and their own choices)."""
+    def name(cid: str | None) -> str:
+        card = plan.state.cards.get(cid or "")
+        return card.name if card is not None and card.name else "a card"
+
+    kind = intent.type
+    if kind == "cast_spell":
+        return f"Cast {name(getattr(intent, 'card_id', None))}"
+    if kind == "play_land":
+        return f"Play {name(getattr(intent, 'card_id', None))}"
+    if kind == "activate_ability":
+        return f"Activate {name(getattr(intent, 'card_id', None))}"
+    if kind == "pass_priority":
+        return "Pass priority"
+    if kind == "choose":
+        d = plan.rules.decision
+        picked = set(getattr(intent, "option_ids", []) or [])
+        labels = [o.label for o in d.options if o.id in picked] if d is not None and d.id == getattr(intent, "decision_id", None) else []
+        return "Choose: " + (", ".join(labels)[:60] or "done")
+    return kind.replace("_", " ").capitalize()
 
 
 class _Stop(Exception):
@@ -358,8 +388,10 @@ def repeat_sequence(plan: Plan, a: A.RepeatSequence) -> None:
     seq = r.recent.get(plan.actor, [])[-a.count:] if r.recent_turn == plan.state.turn.number else []
     if len(seq) < a.count:
         raise ActionError("Do the whole sequence once first (this turn), then repeat it")
-    if any(p["type"] in ("choose", "concede", "repeat_sequence") or p["type"] in PREF_INTENTS for p in seq):
-        raise ActionError("That sequence involves choices, so it can't be repeated automatically")
+    if seq and seq[0]["type"] == "choose":
+        raise ActionError("Start the sequence with an action, not with a choice")
+    if any(p["type"] in ("concede", "repeat_sequence") or p["type"] in PREF_INTENTS for p in seq):
+        raise ActionError("That sequence can't be repeated automatically")
     plan.max_steps = MAX_REPEAT_STEPS
     log_start = len(plan.state.log)
     done, reason = 0, ""
@@ -369,11 +401,21 @@ def repeat_sequence(plan: Plan, a: A.RepeatSequence) -> None:
             break
         snapshot, mark = plan.state.model_copy(deep=True), len(plan.steps)
         try:
-            for payload in seq:
+            for i, payload in enumerate(seq):
+                if payload["type"] == "choose":  # the same answer to the same question, as the player gave it the first time
+                    d = plan.rules.decision
+                    if d is None:
+                        raise _Stop("a choice from the first time didn't come up")
+                    wanted = set(payload.get("option_ids") or [])
+                    if d.player != plan.actor or not wanted <= {o.id for o in d.options}:
+                        raise _Stop("it needed a different choice")
+                    payload = {**payload, "decision_id": d.id}
+                elif plan.rules.decision is not None:
+                    raise _Stop("it needed a choice")
                 intent = A.parse_action(payload)
                 INTENTS[intent.type](plan, intent)
                 settle(plan)
-                if plan.rules.decision is not None:
+                if plan.rules.decision is not None and (i + 1 == len(seq) or seq[i + 1]["type"] != "choose"):
                     raise _Stop("it needed a choice")
             if any(step["type"] in RANDOM_STEPS for step in plan.steps[mark:]):
                 raise _Stop("it isn't deterministic")
