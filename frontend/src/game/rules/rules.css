@@ -115,6 +115,7 @@
 .combat-row, .reconcile-q { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
 .combat-row > span:first-child, .reconcile-q > span:first-child { flex: 1 1 180px; }
 .combat-row .tt-btn, .reconcile-q .tt-btn { min-height: 26px; padding: 2px 10px; font-size: 12.5px; }
+.combat-row .combat-must { font-style: normal; font-size: 12px; color: var(--text-dim); } /* a requirement says it attacks (508.1d) */
 
 /* Mana payment */
 .decision-panel.payment { width: min(460px, calc(100vw - 32px)); top: 14%; }

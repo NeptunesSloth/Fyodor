@@ -17,6 +17,7 @@ import { ManaText } from "../../cards/ManaText";
 import { ChoiceWheel } from "./ChoiceWheel";
 import { RepeatButton } from "./RepeatPanel";
 import { wheelEligible } from "./wheel";
+import { attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
 import { usePrefs } from "../../state/prefs";
 
 function useRules() {
@@ -718,7 +719,7 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
   const opts = d.options ?? [];
   const attackers = opts.filter((o) => o.id.startsWith("a:"));
   const targets = opts.filter((o) => o.id.startsWith("t:"));
-  const [plan, setPlan] = useState<Record<string, string>>({});
+  const [plan, setPlan] = useState<Record<string, string>>(() => initialAttackPlan(d)); // (attackPlan.ts: what must attack, 508.1d)
   const [bandPlan, setBandPlan] = useState<Record<string, string>>({});
   const banding = new Set(Array.isArray(d.display?.banding) ? d.display.banding as string[] : []);
   const qualities = (Array.isArray(d.display?.band_qualities) ? d.display.band_qualities : []) as {
@@ -752,10 +753,11 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
     <div className="decision-combat">
       {attackers.map((a) => (
         <label key={a.id} className="combat-row">
-          <span>{a.label}</span>
-          <select data-testid={`attack-${a.id.slice(2)}`} value={plan[a.id] ?? ""} onChange={(e) => set(a.id, e.target.value)}>
+          <span>{a.label}{mustAttack(d, a.id) && <em className="combat-must"> (must attack)</em>}</span>
+          <select data-testid={`attack-${a.id.slice(2)}`} value={plan[a.id] ?? ""} onChange={(e) => set(a.id, e.target.value)}
+            disabled={!attackTargetsFor(d, a.id).length} title={attackTargetsFor(d, a.id).length ? undefined : "It can't attack anyone now"}>
             <option value="">Doesn't attack</option>
-            {targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            {attackTargetsFor(d, a.id).map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
           </select>
           {leaders.size > 0 && plan[a.id] && (
             <select aria-label={`Band for ${a.label}`} data-testid={`band-${a.id.slice(2)}`}
@@ -771,7 +773,8 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
         : "Each band needs banding, at most one creature without it, and the same defender."}</div>}
       <div className="decision-options">
         {targets.length === 1 && (
-          <button className="tt-btn ghost" onClick={() => setPlan(Object.fromEntries(attackers.map((a) => [a.id, targets[0]!.id])))}>All attack</button>
+          <button className="tt-btn ghost" onClick={() => setPlan(Object.fromEntries(attackers
+            .filter((a) => attackTargetsFor(d, a.id).some((t) => t.id === targets[0]!.id)).map((a) => [a.id, targets[0]!.id])))}>All attack</button>
         )}
         <button className="tt-btn brass" data-testid="declare-attackers" disabled={invalidBand} onClick={declare}>
           {Object.keys(plan).length ? `Attack with ${Object.keys(plan).length}` : "No attack"}
