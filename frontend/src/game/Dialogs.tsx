@@ -304,6 +304,7 @@ const HOW_TO: [string, string][] = [
   ["Play a land or cast a spell", "Drag it from your hand onto your side of the table (or double-click it). With automation on, the engine asks for mana and targets."],
   ["Attack", "In combat, the engine asks you to declare attackers; or right-click a creature → Attack."],
   ["Respond", "When you have priority, cast or activate something; the turn dial says when you have it."],
+  ["Choose a color, player or number", "A wheel opens at your pointer: click an option, or type its number and press Enter. Esc shows the list instead; Settings turns the wheel off."],
   ["Move on", "Press the big button on the turn dial (P): it says what passing will do."],
   ["Fix a mistake", "Undo (Ctrl+Z), or the Undo button on the message after a discard, exile or mill. The host can limit undo to each player's own actions, or to the host (Host tools)."],
 ];
