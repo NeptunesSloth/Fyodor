@@ -276,6 +276,8 @@ class Bot:
                    for cid, alts in h.get("alt_castable", {}).items() for alt in alts]
         spells += [{"type": "cast_spell", "card_id": cid, "optional_costs": [opt["id"]]}
                    for cid, opts in h.get("optional_costs", {}).items() for opt in opts]
+        spells += [{"type": "cast_spell", "card_id": cid, "free": True, "optional_costs": [opt["id"]], **({"face": opt["face"]} if "face" in opt else {})}
+                   for cid, opts in h.get("free_optional_costs", {}).items() for opt in opts]  # (pod audit: Deadly Rollick with casualty, 118.9d)
         abilities = [{"type": "activate_ability", "card_id": a["card_id"], "ability": a["ability"],
                       **({"x_value": rng.randint(0, 5)} if a.get("x") else {})} for a in h.get("activatable", [])]
         mine = self.session.state.turn.active_player == pid
@@ -314,8 +316,10 @@ class Bot:
             targets = [i[2:] for i in ids if i.startswith("t:")]
             attackers = [i[2:] for i in ids if i.startswith("a:")]
             go = rng.random() < 0.6
-            return {"type": "declare_attackers", "attackers": [
-                {"card_id": a, "target": rng.choice(targets)} for a in attackers if go and rng.random() < 0.6]}
+            chosen = [{"card_id": a, "target": rng.choice(targets)} for a in attackers if go and rng.random() < 0.6]
+            while chosen and not self.can_pay_attack(who, chosen):  # 508.1h: a player who can't pay the attack taxes attacks with fewer
+                chosen.pop()
+            return {"type": "declare_attackers", "attackers": chosen}
         if kind == "declare_blockers":
             blockers = [i[2:] for i in ids if i.startswith("b:")]
             attackers = [i[2:] for i in ids if i.startswith("a:")]
@@ -382,6 +386,28 @@ class Bot:
         state = self.session.state
         return list(dict.fromkeys(src.card_id for src in casting_mana_sources(state, who, self.session.cards)
                                   if src.activation is None and state.cards[src.card_id].controller == who))
+
+    def can_pay_attack(self, who: str, attackers: list[dict[str, Any]]) -> bool:
+        """508.1h: whether ``who`` can pay the total cost of this declaration (Ghostly Prison's {2} for each creature attacking its controller,
+        life costs), read with the engine's own attack cost and payment check, as combat.declare_attackers reads them: the creatures that
+        attack are tapped by it (508.1f), so they don't pay (an attacking Llanowar Elves)."""
+        from app.rules import combat_rules, life_lock, wave110m_cards
+        from app.rules.casting import can_pay
+        from app.rules.plan import Plan
+
+        state, info = self.session.state, self.session.cards
+        assert info is not None  # (the soak's sessions always have their card repository)
+        plan = Plan.view(state, who, info)
+        declared = [(a["card_id"], a["target"]) for a in attackers]
+        life = combat_rules.attack_life(plan, declared)
+        if life and (state.players[who].life < life or life_lock.pay_problem(state, info, who, life) is not None):
+            return False
+        tax = combat_rules.attack_cost(plan, declared)
+        if not tax:
+            return True
+        taps = not wave110m_cards.attack_taps_nothing(plan)
+        exclude = tuple(cid for cid, _ in declared if taps and "vigilance" not in plan.ch(state.cards[cid]).keywords)
+        return can_pay(state, who, parse_cost(tax), info, exclude=exclude)
 
     def optional_cost(self, who: str, d: dict[str, Any], cost_text: str) -> dict[str, Any]:
         """"Pay {1}? (tap your mana first)": decide once; to pay, tap mana sources (any of yours, as the client lets you click

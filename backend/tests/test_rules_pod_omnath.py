@@ -15,7 +15,7 @@ from app.game.errors import ActionError
 from app.rules import coverage
 from app.rules.view import hints
 from tests.game_helpers import act
-from tests.pod_c_kit import card, ch, field, mana, on_top, put, settle, table, to_hand, until
+from tests.pod_c_kit import card, ch, field, mana, named, on_top, put, settle, table, to_hand, until
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.wave9c_kit import check
 
@@ -56,6 +56,9 @@ EXTRA = [
     real('Risen Reef', '{1}{G}{U}', 3, 'Creature — Elemental',
          "Whenever this creature or another Elemental you control enters, look at the top card of your library. If it's a land card, you may "
          "put it onto the battlefield tapped. If you don't put the card onto the battlefield, put it into your hand.", ('1', '1'), 'GU'),
+    real('Springbloom Druid', '{2}{G}', 3, 'Creature — Elf Druid',
+         'When this creature enters, you may sacrifice a land. If you do, search your library for up to two basic land cards, put them onto the '
+         'battlefield tapped, then shuffle.', ('1', '1'), 'G'),
 ]
 NAMES = [c["name"] for c in EXTRA]
 
@@ -268,4 +271,20 @@ def test_omnath_locus_of_rage_and_risen_reef_chain(cards):
     act(s, "p1", type="cast_spell", card_id=to_hand(s, "Lightning Bolt").id, targets=[card(s, "Risen Reef").id])
     settle(s, "Bob")
     assert card(s, "Risen Reef").zone == "p1:graveyard" and s.state.players["p2"].life == 37
+    check(s)
+
+
+def test_springbloom_druid_asks_to_sacrifice_a_land_in_words(cards):
+    """Its "you may sacrifice a land" asked "Springbloom Druid: pay Sacrifice a land?" with a "Pay Sacrifice a land" button: a cost that is an
+    action reads as that action (118.12: "If you do" is whether it was done). Mana still reads "Pay {1}"."""
+    s = omnath(cards, "Springbloom Druid", on_field=False)
+    land(s)
+    mana(s, G=3)
+    act(s, "p1", type="cast_spell", card_id=to_hand(s, "Springbloom Druid").id)
+    asked = settle(s, stop_at="Springbloom Druid: sacrifice")
+    d = s.state.rules.decision
+    assert d is not None, asked
+    assert d.prompt == "Springbloom Druid: sacrifice a land?" and [o.label for o in d.options] == ["Sacrifice a land", "Don't pay"]
+    settle(s, "Sacrifice a land", "Forest", "Forest")
+    assert field(s)["Forest"] == 2 and all(c.tapped for c in named(s, "Forest"))
     check(s)

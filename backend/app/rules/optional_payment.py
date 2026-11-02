@@ -379,8 +379,7 @@ def optional_payment(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     if e.get("defer"):  # -- review (wave 6R) -- paid with the other players' choices (pay_deferred)
         opt["defer"] = True
     hint = " (activate your mana abilities first)" if manual_mana else " (tap your mana first)" if cost.mana and _self_pays(plan, payer) else ""
-    shown = re.sub(r"^pay ", "", _label(cost).replace("~", ctx.get("name") or "it"), flags=re.IGNORECASE)  # ("Have ~ deal 7 damage to you": the source by name; "Pay 3 life" once)
-    ask = shown if shown.startswith("Have ") else f"Pay {shown}"
+    ask = asked(cost, ctx.get("name") or "it")  # ("Have ~ deal 7 damage to you": the source by name; "Pay 3 life" once; "Sacrifice a land")
     hint += f" for {e['for110o']}" if e.get("for110o") else ""  # -- (wave 110O) -- Cleansing: which land the payment is for
     decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: {ask[0].lower()}{ask[1:]}?{hint}",
            options=[DecisionOption(id=PAY, label=ask), DecisionOption(id=str(e.get("decline_id") or DECLINE), label="Don't pay")],
@@ -407,25 +406,41 @@ def _offer_alternatives(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
     opt: dict[str, Any] = {"alts": list(e["alts"]), "bind": name, "payer": payer, "chosen": {}, "cost": payable[0][1]}
     if e.get("defer"):  # -- review (wave 6R) --
         opt["defer"] = True
-    decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: pay {' or '.join(e['alts'])}?",
-           options=[*(DecisionOption(id=f"{PAY}:{i}", label=f"Pay {_label(cost)}") for i, _, cost in payable),
+    name = ctx.get("name") or "it"
+    said = [asked(c, name) if (c := parse(text)) is not None else text for text in e["alts"]]  # (-- pod audit -- "sacrifice a creature or pay 3 life")
+    decide(plan, player=payer, kind="choose_one", prompt=f"{ctx.get('name') or 'It'}: {' or '.join(w[:1].lower() + w[1:] for w in said)}?",
+           options=[*(DecisionOption(id=f"{PAY}:{i}", label=asked(cost, name)) for i, _, cost in payable),
                     DecisionOption(id=DECLINE, label="Don't pay")],
            resume=_resume(ctx, opt, payable[0][2]), source=plan.state.cards.get(ctx.get("source_card") or ""))
     return False
 
 
 def _label(cost: AbilityCost) -> str:
+    return ", ".join(_texts(cost))
+
+
+def _texts(cost: AbilityCost) -> list[str]:
     # Repeated cumulative-upkeep costs need a bounded, readable label even
     # with many age counters. The payment itself retains every component.
     bending = [c.text for c in cost.components if c.kind == C.WATERBEND]
     if bending:
-        return ", ".join(bending)
+        return bending
     texts = [c.text for c in cost.components]
-    full = ", ".join(texts)
-    if len(full) <= 190:
-        return full
-    return ", ".join(f"{text} ({texts.count(text)} times)" if texts.count(text) > 1 else text
-                     for text in dict.fromkeys(texts))
+    if len(", ".join(texts)) <= 190:
+        return texts
+    return [f"{text} ({texts.count(text)} times)" if texts.count(text) > 1 else text for text in dict.fromkeys(texts)]
+
+
+def asked(cost: AbilityCost, name: str) -> str:
+    """-- pod audit (Springbloom Druid) -- the cost as its "you may" question words it (118.12: the action is the cost): an action reads as that
+    action ("Sacrifice a land"; it read "Pay Sacrifice a land"), mana is paid ("Pay {1}"), life as written ("Pay 3 life"); ~ is the source."""
+    return worded(_texts(cost)).replace("~", name)
+
+
+def worded(texts: list[str]) -> str:
+    """Cost parts as one instruction: "Pay {1}, sacrifice a land" (a mana part is paid; every other part is its own action)."""
+    said = ", ".join(f"pay {t}" if t.startswith("{") else t[:1].lower() + t[1:] for t in texts)
+    return said[:1].upper() + said[1:]
 
 
 def _self_pays(plan: Plan, payer: str) -> bool:

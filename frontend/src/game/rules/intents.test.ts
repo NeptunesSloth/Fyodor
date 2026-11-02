@@ -419,6 +419,25 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "cast_spell", card_id: "sp", face: 1 }, { type: "cast_spell", card_id: "sp", optional_costs: ["sp:casualty"], face: 1 }]);
   });
 
+  it("offers a free cast together with an optional cost when the server lists both (118.9d, pod audit: Deadly Rollick with casualty)", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true, castable: [], free_castable: ["dr"],
+      free_optional_costs: { dr: [{ id: "dr:casualty", label: "Casualty 1: sacrifice a creature with power 1 or greater" }] } } });
+    const v = { ...base, cards: { ...base.cards, dr: card("dr", "p1:hand", "rollick") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        rollick: { id: "rollick", name: "Deadly Rollick", type_line: "Instant",
+          oracle_text: "If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature." } as CardData,
+      },
+    });
+    const cast = rulesMenu(v.cards.dr!, v, "p1").filter((i): i is Exclude<MenuItem, "separator"> => i !== "separator" && i.label.startsWith("Cast"));
+    expect(cast.map((i) => i.label)).toEqual(["Cast", "Cast without paying its mana cost",
+      "Cast without paying its mana cost and sacrifice a creature with power 1 or greater (Casualty 1)"]);
+    expect(cast[0]!.disabled).toBe(true);
+    cast[2]!.onClick?.();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "dr", free: true, optional_costs: ["dr:casualty"] }]);
+  });
+
   it("offers the special action that ends a Licid's effect (116.2c) when the server lists its cost", () => {
     const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true }, stats: { lb: { end_cost: "{W}" } } });
     const v = { ...base, cards: { ...base.cards, lb: card("lb", "p1:battlefield", "licid"), lc: card("lc", "p1:battlefield", "licid") } } as unknown as GameView;

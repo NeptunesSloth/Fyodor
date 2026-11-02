@@ -302,8 +302,7 @@ def play_through(s, phase, pays=None, limit=60):
                 return
             act(s, s.state.rules.priority, type="pass_priority")
         elif d.kind == "choose_one" and d.prompt.endswith("?"):
-            want = "Pay" if pays.get(d.player) else "Don't"
-            choose(s, [next(o.id for o in d.options if o.label.startswith(want))])
+            choose(s, [next(o.id for o in d.options if o.label.startswith("Don't") != bool(pays.get(d.player)))])  # (pay: the cost's own words)
         elif d.kind == "declare_attackers":
             act(s, d.player, type="declare_attackers", attackers=[])
         else:
@@ -324,7 +323,7 @@ def test_clackbridge_troll_every_opponent_is_asked_and_what_follows_happens_once
         act(s, s.state.rules.priority, type="pass_priority")
     d = s.state.rules.decision
     assert d.player == "p2" and d.kind == "choose_one"  # the next player in turn order after Alice
-    assert d.prompt.endswith("?") and [o.label for o in d.options] == ["Pay Sacrifice a creature", "Don't pay"]
+    assert d.prompt.endswith("?") and [o.label for o in d.options] == ["Sacrifice a creature", "Don't pay"]
     for observer in ("p1", "p3"):
         sees_only_who(s, observer, "Bob")  # nobody sees whether, or what, Bob chooses to sacrifice (the answer is private until it is carried out)
     reload_mid_decision(s)
@@ -354,7 +353,7 @@ def test_brain_gorgers_cast_trigger_is_answered_in_turn_order_and_counters_the_s
             act(s, s.state.rules.priority, type="pass_priority")
         elif d.kind == "choose_one" and d.prompt.endswith("?"):
             asked.append(d.player)
-            choose(s, [next(o.id for o in d.options if o.label.startswith("Pay" if d.player == "p2" else "Don't"))])
+            choose(s, [next(o.id for o in d.options if o.label.startswith("Don't") != (d.player == "p2"))])
         else:
             choose(s, [o.id for o in d.options][: max(1, d.min_choices)])
     assert asked == ["p1", "p2", "p3"]  # APNAP: the active player first, then turn order (101.4)
@@ -448,7 +447,7 @@ def test_rakdos_patron_of_chaos_the_target_opponent_pays_with_two_permanents_or_
         elif d.kind == "choose_one" and d.prompt.endswith("?"):
             seen.append((d.player, [o.label for o in d.options]))
             sees_only_who(s, "p3" if d.player != "p3" else "p1", "Bob")
-            choose(s, [next(o.id for o in d.options if o.label.startswith("Pay" if pays else "Don't"))])
+            choose(s, [next(o.id for o in d.options if o.label.startswith("Don't") != bool(pays))])
         elif d.kind == "choose_one":  # the target: Bob
             choose(s, labels=["Bob"])
         elif d.kind == "declare_attackers":
@@ -693,7 +692,7 @@ def test_indulgent_tormentor_the_target_opponent_may_sacrifice_or_pay_or_alice_d
             choose(s, labels=["Bob"])
         elif d.kind == "choose_one" and d.prompt.endswith("?"):
             sees_only_who(s, "p3", "Bob")
-            want = {"sacrifice": "Pay Sacrifice", "pay": "Pay Pay", "neither": "Don't"}[answer]
+            want = {"sacrifice": "Sacrifice", "pay": "Pay", "neither": "Don't"}[answer]
             choose(s, [next(o.id for o in d.options if o.label.startswith(want))])
         elif d.kind == "declare_attackers":
             act(s, d.player, type="declare_attackers", attackers=[])

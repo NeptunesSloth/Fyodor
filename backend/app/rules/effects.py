@@ -4278,10 +4278,11 @@ def _pay_words(e: dict[str, Any]) -> str:
     if e.get("ask"):
         return str(e["ask"])
     cost = str(e.get("cost") or "")
+    if cost[:1] == "{" or cost[:1].isupper():  # -- pod audit -- each part as optional_payment asks it: "pay {1}, sacrifice a land"
+        said = optional_payment.worded(cost.split(", "))
+        return said[:1].lower() + said[1:]
     if cost.lower().startswith("pay "):
         cost = cost[4:]
-    elif cost[:1].isupper():
-        return cost[:1].lower() + cost[1:]
     return f"pay {cost}" if cost else "pay"
 
 

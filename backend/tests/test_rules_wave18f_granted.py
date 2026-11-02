@@ -291,7 +291,7 @@ def test_imprint_never_tells_the_hand(cards):
     for label, hand in (("with", ("Lightning Bolt",)), ("without", ())):
         s = _cast_scepter_with_hand(cards, hand)
         d = s.state.rules.decision
-        assert d.player == "p1" and [o.label for o in d.options] == ["Pay Exile an instant card with mana value 2 or less from your hand", "Don't pay"]
+        assert d.player == "p1" and [o.label for o in d.options] == ["Exile an instant card with mana value 2 or less from your hand", "Don't pay"]
         act(s, "p1", type="choose", decision_id=d.id, option_ids=[d.options[0].id])  # "pay": then which card
         d = s.state.rules.decision
         assert d is not None and d.kind == "choose_cards"  # (also when there is nothing, or one card, to exile)

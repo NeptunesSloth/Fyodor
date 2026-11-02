@@ -59,6 +59,8 @@ EXTRA = [
          'If one or more tokens would be created under your control, twice that many of those tokens are created instead.\n{1}{W/P}{W/P}, '
          'Sacrifice two other artifacts and/or creatures: Put an indestructible counter on Mondrak. ({W/P} can be paid with either {W} or 2 '
          'life.)', ('4', '4'), 'W'),
+    real('Deadly Rollick', '{3}{B}', 4, 'Instant',
+         'If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature.', None, 'B'),
     fixture_card('Revival // Revenge', number="pod-revival", layout="split", mana_cost="{W/B}{W/B} // {4}{W}{B}", cmc=8.0,
                  type_line="Sorcery // Sorcery", colors=["B", "W"], color_identity=["B", "W"],
                  card_faces=[
@@ -292,4 +294,47 @@ def test_casualty_is_offered_only_when_the_spell_has_a_target(cards):
     mana(s, U=2)
     assert s.state.rules.decision is None and [s.state.cards[i].name for i in s.state.zones["stack"]] == ["Raise the Alarm"]
     assert counter.id in offered()  # (Raise the Alarm is on the stack)
+    check(s)
+
+
+def test_twinning_staff_asks_which_copy_goes_first_only_when_the_spell_has_targets(cards):
+    """Twinning Staff's additional copy differs from the others only in that its targets may be changed (614.1a, 707.10c). For Raise the Alarm
+    (no targets) the table asked "Put the next copy on the stack: original or additional copy?", a question with no meaning: it isn't asked.
+    For Swords to Plowshares it is, in words that say which copy is which."""
+    s = silverquill(cards, "Twinning Staff", "Raise the Alarm", "Swords to Plowshares", "Grizzly Bears", "Llanowar Elves",
+                    theirs=["Albino Troll", "Grizzly Bears"])
+    put(s, "Twinning Staff"), put(s, "Grizzly Bears"), put(s, "Llanowar Elves")
+    mana(s, W=2)
+    casualty(s, "Raise the Alarm")
+    asked = settle(s, "Grizzly Bears")
+    assert not any("copy" in p.lower() for p in asked), asked
+    assert field(s)["Soldier"] == 2 * 3
+    troll, bears = put(s, "Albino Troll", "p2"), put(s, "Grizzly Bears", "p2")
+    mana(s, W=1)
+    casualty(s, "Swords to Plowshares", targets=[troll.id])
+    settle(s, "Llanowar Elves", stop_at="Swords to Plowshares: which copy")
+    d = s.state.rules.decision
+    assert d.prompt == "Swords to Plowshares: which copy goes on the stack next? (the last one there resolves first)"
+    assert [o.label for o in d.options] == ["A copy (may choose new targets)", "Twinning Staff's additional copy (may choose new targets)"]
+    settle(s, "Twinning Staff's additional copy", f"Keep {troll.name}", bears.name)
+    assert field(s, "p2") == {}
+    check(s)
+
+
+def test_deadly_rollick_is_offered_free_with_casualty(cards):
+    """Deadly Rollick cast without paying its mana cost (Silverquill is a commander Alice controls) may still have its casualty cost paid
+    (118.9d, 702.153a), and the server takes both together; the hints listed the free cast and the paid cast with casualty, never both, so the
+    table couldn't offer it. They now list "free_optional_costs" for a card in "free_castable": the copy exiles a second creature."""
+    s = silverquill(cards, "Deadly Rollick", "Swords to Plowshares", "Grizzly Bears", theirs=["Albino Troll", "Llanowar Elves"])
+    put(s, "Grizzly Bears")
+    troll, elves = put(s, "Albino Troll", "p2"), put(s, "Llanowar Elves", "p2")
+    rollick, swords = to_hand(s, "Deadly Rollick"), to_hand(s, "Swords to Plowshares")
+    offered = hints(s.state, "p1", s.cards)
+    assert rollick.id in offered["free_castable"] and rollick.id not in offered.get("optional_costs", {})  # (no mana: free only)
+    assert offered["free_optional_costs"] == {rollick.id: [  # (not Swords to Plowshares: nothing lets Alice cast it free)
+        {"id": f"{rollick.id}:casualty", "label": "Casualty 1: sacrifice a creature with power 1 or greater"}]}
+    assert swords.id not in offered["free_castable"]
+    act(s, "p1", type="cast_spell", card_id=rollick.id, free=True, optional_costs=[f"{rollick.id}:casualty"], targets=[troll.id])
+    settle(s, "Grizzly Bears", "Command zone", "Llanowar Elves")
+    assert field(s, "p2") == {} and s.state.cards[troll.id].zone == "p2:exile" and s.state.cards[elves.id].zone == "p2:exile"
     check(s)

@@ -282,7 +282,7 @@ def test_gitrog_sacrifices_the_saddler_draws_its_power_and_puts_up_to_that_many_
     bears = put(s, "Grizzly Bears")
     hand = forests_to_hand(s, 3)
     gitrog_hits(s)
-    assert decision(s).prompt.endswith("pay Sacrifice a creature that saddled it this turn?")
+    assert decision(s).prompt.endswith(": sacrifice a creature that saddled it this turn?")
     before = len(zone(s.state, "p1", "hand"))
     choose(s, ["pay"])
     assert s.state.cards[bears.id].zone == "p1:graveyard" and len(zone(s.state, "p1", "hand")) == before + 2  # (Bears had power 2: two cards drawn)
@@ -334,7 +334,7 @@ def test_akuta_returns_for_a_swamp_when_you_hold_more_cards_than_each_opponent(c
     forests_to_hand(s, 5)  # (Alice 12 cards, Bob 7 and one more drawn on his turn)
     swamp = akuta_upkeep(s)
     d = decision(s)
-    assert d.prompt.startswith("Akuta, Born of Ash: pay Sacrifice a Swamp")
+    assert d.prompt.startswith("Akuta, Born of Ash: sacrifice a Swamp")
     choose(s, ["pay"], resolve=True)
     assert s.state.cards[swamp.id].zone == "p1:graveyard" and zone_of(s, AKUTA) == "p1:battlefield"
     check(s)
@@ -352,7 +352,7 @@ def test_akuta_stays_down_when_the_sacrifice_is_declined(cards):
 def test_akuta_does_not_trigger_when_an_opponent_holds_as_many_cards(cards):
     s = build(cards, [AKUTA, "Swamp"], [])
     swamp = akuta_upkeep(s)  # (Alice holds 7 or fewer, Bob 8: not more than each opponent)
-    assert s.state.rules.decision is None or s.state.rules.decision.prompt != "Akuta, Born of Ash: pay Sacrifice a Swamp?"
+    assert s.state.rules.decision is None or s.state.rules.decision.prompt != "Akuta, Born of Ash: sacrifice a Swamp?"
     assert s.state.cards[swamp.id].zone == "p1:battlefield" and zone_of(s, AKUTA) == "p1:graveyard"
     check(s)
 

@@ -523,7 +523,8 @@ def run(plan: Plan, job: Job) -> bool:
         from app.rules import spell_copy_replacements
 
         spell_copy_replacements.prepare(plan, job, cur, ability=card.ability is not None)
-        copy_kind = spell_copy_replacements.next_kind(plan, job, cur)
+        copy_kind = spell_copy_replacements.next_kind(plan, job, cur, name=(entry.name if entry is not None and entry.name else card.name) or "the spell",
+                                                      targets=entry is not None and bool(positions(entry)))  # (-- pod audit -- no targets: no question)
         if copy_kind is None:
             return False
         choosing = (job["retarget"] or copy_kind == "additional") and entry is not None and bool(positions(entry))
