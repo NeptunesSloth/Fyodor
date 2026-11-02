@@ -32,6 +32,30 @@ from app.rules.engine import land_play_problem
 from app.rules.plan import live_players
 
 
+def cost_now(state: GameState, viewer: str, castable: list[str], with_x: set[str], info: CardInfo) -> dict[str, str]:
+    """-- current costs -- the castable cards (the viewer's own hints) whose total cost to cast right now differs from their mana cost
+    (601.2f: Grand Arbiter Augustin's "{1} less" and "{1} more", Thalia, Sphere of Resistance, commander tax): card id -> that cost.
+    Without targets or X (a spell with X is left out: its cost is its choice)."""
+    from app.rules import casting
+    from app.rules import mana as M
+
+    out: dict[str, str] = {}
+    for cid in castable:
+        card = state.cards[cid]
+        if cid in with_x:
+            continue
+        ch = chars.of(card, info)
+        if not ch.mana_cost:
+            continue
+        try:
+            now = casting.spell_cost(state, card, ch, info=info, player=viewer).text()
+        except Exception:  # noqa: BLE001 - a hint never breaks the view; the cast itself is checked when it's made
+            continue
+        if now != M.parse_cost(ch.mana_cost).text():
+            out[cid] = now
+    return out
+
+
 def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] | None:
     with read_pass.scope(state, info):  # (wave 29A) a view only reads the table: what every card shares is worked out once
         return _rules_view(state, viewer, info)
@@ -331,6 +355,8 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
 
     if replicated := {cid: labels for cid in out["castable"] if (labels := wave111r3_replicate.hint(state, viewer, state.cards[cid], info))}:
         out["replicate111r3"] = replicated
+    if costs := cost_now(state, viewer, out["castable"], set(out.get("x_cast") or ()), info):
+        out["cost_now"] = costs
     # (wave 3C) cards a permission lets you cast without paying their mana costs
     out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info, announce=True)]
     # -- cost changers (wave 4I) -- alternative costs written on cards (118.9): card id → [{"id", "label"}]

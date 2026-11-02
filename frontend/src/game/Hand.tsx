@@ -9,6 +9,7 @@ import { isVisible, splitZone, type GameCard } from "../types/game";
 import { moveCards, targetsFor } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
+import { ManaText } from "../cards/ManaText";
 import { GameCardFace } from "./GameCardFace";
 import { dropAsIntent } from "./rules/intents";
 import { legalClass } from "./rules/RulesHud";
@@ -67,6 +68,8 @@ const HandCard = memo(function HandCard({ id, index, fan, me, compact }: { id: s
   const card = useCardView(id);
   const selected = useGame((s) => s.selection.includes(id));
   const legal = useGame((s) => legalClass(s.view, id, me));
+  // what it costs to cast right now, when that isn't its mana cost (Grand Arbiter Augustin, Thalia, Sphere: the server's own reckoning)
+  const costNow = useGame((s) => (s.view?.rules && !s.view.rules.paused ? s.view.rules.hints.cost_now?.[id] : undefined));
   if (!card) return null;
   const onDrop = (ids: string[], target: DropResult | null) => {
     if (!target) return;
@@ -148,6 +151,11 @@ const HandCard = memo(function HandCard({ id, index, fan, me, compact }: { id: s
     >
       <GameCardFace card={card} />
       {!card.hidden && card.revealed && <span className="revealed-tag">revealed</span>}
+      {costNow && !card.hidden && (
+        <span className="cost-now" data-testid="cost-now" title={`Costs ${costNow} to cast now (cost reductions and taxes)`} aria-label={`Costs ${costNow} now`}>
+          <ManaText text={costNow} />
+        </span>
+      )}
     </div>
   );
 });

@@ -478,6 +478,7 @@ export interface RulesHints {
   x_kicker?: string[]; // castable cards of yours whose kicker cost has {X}: only a kicked cast asks for it (107.3a, wave 43D)
   activatable?: { card_id: string; ability: number; x?: boolean }[]; // x: the activation asks for X (107.3k)
   miracle?: string[]; // cards of yours you may reveal for miracle now (702.94a)
+  cost_now?: Record<string, string>; // castable card → what it costs to cast now, when that differs from its mana cost (601.2f)
   exiled_with?: Record<string, string>; // exile markers: castable/playable exiled card → the name of the card that exiled it (607.2a)
   channel?: string; // -- wave 110I -- Channel: the player-level mana ability's ActivateAbility.card_id ("player:channel110i"), while you have it (605.3a)
 }

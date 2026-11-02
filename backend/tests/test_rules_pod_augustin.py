@@ -270,3 +270,16 @@ def test_irma_copying_augustin_doubles_both_changes(cards):
     assert cost_of(s, "Wrath of God") == "{W}{W}"
     assert cost_of(s, "Sol Ring", "p2") == "{3}"
     check(s)
+
+
+def test_the_table_shows_what_a_spell_costs_now(cards):
+    """The castable cards in hand whose cost to cast differs from their mana cost carry that cost (hints.cost_now): Wrath of God is {1}{W}{W}
+    under Augustin; Counterspell ({U}{U}: no generic to take, 118.7a) and Sol Ring (colorless) are as printed and carry nothing."""
+    s = build(cards)
+    wrath, counterspell, ring = (to_hand(s, n) for n in ("Wrath of God", "Counterspell", "Sol Ring"))
+    mana(s, W=2, U=2, C=1)
+    view_hints = hints(s.state, "p1", s.cards)
+    assert {wrath.id, ring.id} <= set(view_hints["castable"])
+    assert view_hints["cost_now"] == {wrath.id: "{1}{W}{W}"}
+    assert counterspell.id not in view_hints["cost_now"] and ring.id not in view_hints["cost_now"]
+    check(s)
