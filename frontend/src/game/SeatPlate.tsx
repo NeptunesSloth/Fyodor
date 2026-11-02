@@ -75,6 +75,9 @@ function LifeHeart({ player, name, life, testId }: { player: string; name: strin
   );
 }
 
+/** Player counters shown on the plaque once a player has any (poison always is): [kind, glyph, title]. */
+const PLAQUE_RESOURCES: [string, string, string][] = [["experience", "★", "Experience counters"], ["energy", "⚡", "Energy counters ({E})"]];
+
 /** One small counter beside the heart (commander damage from one commander, or poison). */
 function Tracker({ value, lethal, label, title, color, glyph, onChange, testId }: {
   value: number; lethal: number; label: string; title: string; color?: string; glyph: string; onChange: (d: number) => void; testId: string;
@@ -84,7 +87,7 @@ function Tracker({ value, lethal, label, title, color, glyph, onChange, testId }
   return (
     <button className={`seat-track ${n >= lethal ? "lethal" : n ? "" : "zero"}`} data-testid={testId}
       style={color ? { ["--track" as string]: color } : undefined}
-      aria-label={`${label}: ${n} of ${lethal}. Click to add 1, right-click to remove 1`} title={`${title} — click +1, right-click −1`}
+      aria-label={`${label}: ${n}${Number.isFinite(lethal) ? ` of ${lethal}` : ""}. Click to add 1, right-click to remove 1`} title={`${title} — click +1, right-click −1`}
       {...counterHandlers(bump)}>
       <span className="seat-track-glyph" aria-hidden>{glyph}</span>
       <span className="seat-track-n">{n}</span>
@@ -136,6 +139,11 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
           ))}
           <Tracker value={poison} lethal={LETHAL_POISON} glyph="☠" label={`${p.name}'s poison counters`} title="Poison counters" testId={`poison-${player}`}
             onChange={(d) => void changeResource(player, "poison", d)} />
+          {/* experience and energy (Atraxa's experience deck): on the plaque while a player has any, so everyone sees them at a glance */}
+          {PLAQUE_RESOURCES.filter(([k]) => (p.resources[k] ?? 0) !== 0).map(([k, glyph, title]) => (
+            <Tracker key={k} value={p.resources[k] ?? 0} lethal={Infinity} glyph={glyph} label={`${p.name}'s ${k} counters`} title={title}
+              testId={`${k}-${player}`} onChange={(d) => void changeResource(player, k, d)} />
+          ))}
           <span className="seat-hand" title={`${p.hand_count} cards in hand`} aria-label={`${p.hand_count} cards in hand`}>
             <span aria-hidden>▯</span>{p.hand_count}
           </span>
