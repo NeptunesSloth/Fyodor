@@ -25,7 +25,10 @@
 .t3d-seat:has(.seat-who:focus-visible) { outline: 2px solid var(--select); outline-offset: 3px; border-radius: 6px; }
 
 /* portrait and name: the way into the full player panel */
-.seat-who { display: inline-flex; align-items: center; gap: 7px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; position: relative; }
+.seat-who {
+  display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0; line-height: 1.2;
+  padding: 0; border: 0; background: none; color: inherit; cursor: pointer; position: relative;
+}
 .seat-who .t3d-seat-name { max-width: 92px; }
 
 /* the life heart (the Oops tables' heart): the number is the control */
