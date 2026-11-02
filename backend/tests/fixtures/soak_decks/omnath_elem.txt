@@ -1,0 +1,77 @@
+// elem (Archidekt 19277372): commander and main deck only
+Commander
+1x Omnath, Locus of Creation (znr) 232
+Deck
+7x Plains (ecl) 269
+7x Forest (ecl) 273
+1x Farseek (eoc) 50
+1x Lotus Cobra (j25) 685
+1x Dryad of the Ilysian Grove (m3c) 225
+1x Scute Swarm (dsc) 197
+1x Kodama's Reach (ecc) 113
+1x Temple Garden (ecl) 268
+1x Rampant Growth (fic) 313
+1x Splendid Reclamation (eoc) 108
+1x Elesh Norn, Mother of Machines (one) 10
+1x Jungle Shrine (ecc) 154
+1x Sacred Foundry (eoe) 256
+1x Roiling Regrowth (eoc) 105
+1x Scapeshift (m19) 201
+1x Annie Joins Up (otj) 191
+1x Mossborn Hydra (fdn) 107
+1x Mina and Denn, Wildborn (plst) OGW-156
+1x Ancient Greenwarden (j25) 627
+1x Spelunking (lci) 213
+1x Awaken the Woods (bro) 170
+1x Springbloom Druid (eoc) 51
+1x Prairie Stream (fic) 413
+1x Nissa, Resurgent Animist (mat) 72
+1x Icetill Explorer (eoe) 192
+1x Path to Exile (ecc) 65
+1x Roil Elemental (zen) 62
+1x Cultivator Colossus (inr) 190
+1x Azusa, Lost but Seeking (cmm) 274
+1x Raugrin Triome (iko) 251
+1x Chromatic Lantern (ecc) 138
+1x Rejuvenating Springs (cmm) 424
+1x Conduit of Worlds (tdc) 251
+1x Tatyova, Benthic Druid (fdn) 247
+1x Stomping Ground (eoe) 258
+1x Aesi, Tyrant of Gyre Strait (dsc) 210
+1x Cultivate (ecc) 103
+1x Swords to Plowshares (eoc) 45
+1x Omnath, Locus of the Roil (ecc) 130
+7x Island (ecl) 270
+1x Omnath, Locus of Rage (ecc) 129
+1x Breeding Pool (eoe) 251
+1x Nature's Lore (eoc) 101
+1x Selesnya Sanctuary (clu) 246
+1x Risen Reef (ecc) 132
+1x Canopy Vista (fic) 378
+1x Zendikar's Roil (j22) 747
+1x Generous Gift (blc) 106
+1x Hallowed Fountain (ecl) 265
+1x Worldly Tutor (dmr) 185
+1x Perilous Forays (rvr) 457
+1x Kodama of the East Tree (cmr) 239
+1x Traveling Chocobo (fin) 210
+1x Concordant Crossroads (2x2) 141
+1x Reshape the Earth (cmr) 249
+1x Amulet of Vigor (plst) WWK-121
+1x Springheart Nantuko (mh3) 171
+7x Mountain (ecl) 272
+1x Horn of Greed (cn2) 211
+1x Blinkmoth Nexus (2xm) 311
+1x Abundance (10e) 249
+1x Farewell (fic) 242
+1x Ashaya, Soul of the Wild (dsc) 170
+1x Avenger of Zendikar (ecc) 98
+1x Boros Garrison (clu) 231
+1x Exploration (trc) 461
+1x Rhystic Study (j22) 114
+1x Mishra's Factory (dmr) 251
+1x Inkmoth Nexus (mbs) 145
+1x Meloku the Clouded Mirror (mma) 52
+1x Mutavault (clb) 903
+1x Sabotender (fin) 153
+1x Crop Rotation (dmr) 154

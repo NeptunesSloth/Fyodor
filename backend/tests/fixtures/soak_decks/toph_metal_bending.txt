@@ -1,0 +1,81 @@
+// Metal bending (Archidekt 19464567): commander and main deck only
+Commander
+1x Toph, the First Metalbender (tla) 247
+Deck
+21x Forest (ecl) 273
+1x Toph, Earthbending Master (tle) 145
+1x Toph, Greatest Earthbender (tle) 70
+2x Plains (ecl) 269
+2x Mountain (ecl) 272
+1x Sol Ring (ecc) 57
+1x Arcane Signet (ecc) 55
+1x Path to Exile (ecc) 65
+1x Command Tower (ecc) 59
+1x Swords to Plowshares (eoc) 45
+1x Jungle Shrine (ecc) 154
+1x Cinder Glade (ecc) 146
+1x Ba Sing Se (tla) 266
+1x Stomping Ground (eoe) 258
+1x Bumi, Unleashed (tla) 211
+1x Canopy Vista (fic) 378
+1x Earthbender Ascension (tla) 175
+1x Rampant Growth (fic) 313
+1x Chromatic Lantern (ecc) 138
+1x Beast Within (eoc) 93
+1x Badgermole Cub (tla) 167
+1x Great Divide Guide (tla) 181
+1x Ichor Wellspring (brc) 143
+1x Toph, the Blind Bandit (tla) 198
+1x Tireless Provisioner (j25) 728
+1x Avatar Kyoshi, Earthbender (tle) 130
+1x Terrasymbiosis (eoe) 210
+1x The Earth Crystal (fin) 184
+1x Badgermole (tla) 166
+1x Liquimetal Torque (brc) 145
+1x Terra Eternal (wwk) 22
+1x Hardened Scales (fic) 307
+1x Earthbending Student (tle) 249
+1x Cycle of Renewal (tla) 170
+1x Moraug, Fury of Akoum (eoc) 89
+1x Earth Rumble (tla) 174
+1x Annie Joins Up (otj) 191
+1x Bumi, Eclectic Earthbender (tle) 248
+1x Ashaya, Soul of the Wild (dsc) 170
+1x The Stasis Coffin (bro) 245
+1x Solemn Simulacrum (fic) 360
+1x Sacred Foundry (eoe) 256
+1x Earthshape (tle) 67
+1x Temple Garden (ecl) 268
+1x Scute Swarm (dsc) 197
+1x Felidar Retreat (fdn) 574
+1x Jetmir's Garden (snc) 250
+1x Heroic Intervention (pip) 202
+1x Bitter Work (tla) 210
+1x Hour of Revelation (znc) 17
+1x Brightglass Gearhulk (dft) 191
+1x Harrow (eoc) 98
+1x Rockalanche (tla) 192
+1x Earth Kingdom General (tla) 173
+1x Solid Ground (tle) 142
+1x Amulet of Vigor (plst) WWK-121
+1x Branching Evolution (mh3) 285
+1x Abandoned Air Temple (tla) 263
+1x Mindslaver (plst) MRD-206
+1x Ozolith, the Shattered Spire (mom) 198
+1x Exploration Broodship (eoc) 34
+1x Bristly Bill, Spine Sower (otj) 157
+1x Zuran Orb (mh2) 300
+1x Kutzil, Malamet Exemplar (lci) 304
+1x Lotus Field (m20) 249
+1x Evolution Sage (ecc) 105
+1x Strip Mine (4ed) 363
+1x Sylvan Safekeeper (mh3) 287
+1x Lightning Greaves (fic) 349
+1x Deflecting Swat (cmm) 214
+1x Bootleggers' Stash (drc) 110
+1x Strionic Resonator (moc) 384
+1x Toph, Hardheaded Teacher (tla) 246
+1x Dispatch (eoc) 64
+1x Unwinding Clock (plst) NPH-164
+1x Earthbending Lesson (tla) 176
+1x Secret Tunnel (tla) 278

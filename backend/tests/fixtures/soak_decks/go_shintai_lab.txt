@@ -1,0 +1,106 @@
+// lab (Archidekt 15309557): commander and main deck only
+Commander
+1x Go-Shintai of Life's Origin (sld) 1853
+Deck
+1x Sphere of Safety (dsc) 104
+1x Honden of Seeing Winds (plst) CHK-69
+1x Simic Guildgate (clu) 248
+1x Leyline of the Guildpact (mkm) 217
+1x Honden of Life's Web (ema) 172
+1x Deathcap Glade (inr) 275
+1x Sanctum of Stone Fangs (m21) 120
+1x Counterspell (dsc) 114
+1x Sanctum of Fruitful Harvest (m21) 203
+1x Kodama's Reach (tdc) 261
+1x Go-Shintai of Boundless Vigor (neo) 187
+1x Greenhouse // Rickety Gazebo (dsk) 181
+1x Honden of Cleansing Fire (ema) 13
+1x Rockfall Vale (tdc) 387
+1x Glacial Floodplain (khm) 257
+1x Sanctum of Shattered Heights (m21) 157
+1x Sythis, Harvest's Hand (cmm) 938
+1x Winds of Abandon (sld) 882
+1x Dimir Aqueduct (dsc) 270
+1x The World Tree (khm) 275
+1x Sanctum Weaver (woc) 131
+1x Sundown Pass (inr) 286
+1x Sanctum of Tranquil Light (m21) 33
+1x Chromatic Lantern (drc) 53
+1x Exotic Orchard (eoc) 159
+1x Ghostly Prison (tdc) 116
+1x Dryad of the Ilysian Grove (cmm) 891
+1x Conflux (a25) 202
+1x Sterling Grove (mh2) 293
+1x Athreos, Shroud-Veiled (dsc) 212
+1x Teferi's Protection (2x2) 32
+1x Selesnya Guildgate (clu) 245
+1x Thought Vessel (dsc) 256
+1x Nyxbloom Ancient (thb) 190
+1x Dreamroot Cascade (tdc) 358
+1x Walk-In Closet // Forgotten Cellar (dsk) 205
+1x Command Tower (sld) 697
+1x Swamp (spm) 191
+1x Shattered Sanctum (tdc) 391
+1x Starfield Mystic (j25) 260
+1x Go-Shintai of Hidden Cruelty (neo) 97
+1x Aura Shards (plst) CMD-182
+1x Hallowed Haunting (vow) 17
+1x Sol Ring (eoc) 57
+1x Blossoming Sands (tdm) 251
+1x Go-Shintai of Ancient Wars (neo) 144
+1x Sanctum of Calm Waters (m21) 68
+1x Mana Drain (2x2) 57
+1x Reliquary Tower (tdc) 386
+1x Honden of Infinite Rage (plst) EMA-134
+1x Mountain (spm) 192
+1x Creosote Heath (otj) 255
+1x Archon of Sun's Grace (j25) 167
+1x Sanctum of All (m21) 225
+1x Meat Locker // Drowned Diner (dsk) 65
+1x Setessan Champion (woc) 132
+1x Mirari's Wake (cmm) 928
+1x Path of Ancestry (tdc) 382
+1x Go-Shintai of Lost Wisdom (neo) 55
+1x Stormcarved Coast (inr) 285
+1x Orzhov Guildgate (clu) 242
+1x Paradox Haze (plst) TSP-71
+1x Arcane Signet (eoc) 53
+1x Zur the Enchanter (2x2) 297
+1x Fertile Ground (pip) 198
+1x Wild Growth (pip) 208
+1x Indatha Triome (iko) 248
+1x Ketria Triome (iko) 250
+1x Resurgent Belief (mh2) 26
+1x Forest (spm) 193
+1x Spelunking (lci) 213
+1x Propaganda (acr) 85
+1x Plains (tle) 300
+1x Plains (spm) 189
+1x Island (spm) 195
+1x Academy Rector (uds) 1
+1x Enduring Vitality (dsk) 176
+1x Herald of the Pantheon (cmm) 898
+1x Idyllic Tutor (thb) 24
+1x Yenna, Redtooth Regent (woe) 219
+1x Jukai Naturalist (woc) 140
+1x Estrid's Invocation (mh3) 269
+1x Enchantress's Presence (woc) 125
+1x Hall of Heliod's Generosity (dsc) 283
+1x Raugrin Triome (iko) 251
+1x Zagoth Triome (iko) 259
+1x Koskun Falls (hml) 55
+1x Overwhelming Splendor (hou) 19
+1x Starfield of Nyx (cmm) 840
+1x Kenrith's Transformation (woc) 128
+1x Weaver of Harmony (neo) 213
+1x Enlightened Tutor (dmr) 6
+1x Prismatic Omen (shm) 126
+1x Forest (spm) 198
+1x Path to Exile (blc) 147
+1x Spara's Headquarters (snc) 257
+1x Extinguish All Hope (cmm) 157
+1x Obliterate (inv) 156
+1x Karmic Justice (c15) 72
+1x Rule of Law (m20) 35
+1x Destiny Spinner (woc) 123
+1x Northern Air Temple (tla) 111
