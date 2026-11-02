@@ -51,7 +51,7 @@ import { onTableEvents } from "../game/motion/tableEvents";
 import { onMotionSkip } from "../game/motion/timing";
 import type { DiceShow } from "../game/dice";
 import {
-  AISLE, CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, MAT_W, PILES, plaqueSpot, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
+  AISLE, CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, MAT_W, PILES, plaqueSpot, localToVirtual, onBattlefield, pileAt, seatCamera, seats, tableSize, toLocal, toWorld,
   virtualToLocal, type PileZone, type Seat,
 } from "./layout";
 import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
@@ -1207,13 +1207,10 @@ export class TableScene {
       look = new THREE.Vector3(lx, 0, lz);
       pos = new THREE.Vector3(px, 8.5, pz);
     } else {
-      // behind my seat, looking across the aisle (the main view): my mat large, the far row whole. The
-      // camera leans toward the table's middle when my seat is off-centre, as you would at a long table.
-      // framed from the far mats' back edge down to my seat's buttons, just past my mat's near edge and above my
-      // hand (solved for 16:9; a narrower screen pulls back to keep the far row whole)
-      const reach = Math.max((size.w / aspect) * 1.1, size.d);
-      look = new THREE.Vector3(mine.x * 0.25, 0, mine.z - 3.75);
-      pos = new THREE.Vector3(mine.x * 0.35, reach * 1.07, mine.z + MAT_D / 2 + reach * 0.48);
+      // behind my seat, looking across the aisle (the main view: layout.ts seatCamera)
+      const cam = seatCamera(mine, size, aspect);
+      look = new THREE.Vector3(...cam.look);
+      pos = new THREE.Vector3(...cam.pos);
     }
     const off = pos.clone().sub(look).multiplyScalar(this.zoom);
     off.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw);
