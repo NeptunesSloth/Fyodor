@@ -21,6 +21,7 @@ import { ZoneBrowser } from "./ZoneBrowser";
 import { bookmarkSlot, matchHotkey } from "./hotkeys";
 import { recallBookmark, saveBookmark } from "./bookmarks";
 import { ResponseBar } from "./ResponseBar";
+import { UndoRequestBar } from "./UndoRequestBar";
 import { AutomationErrorPanel, AutomationHud, DecisionPanel, RulesStack, TurnDial, XPrompt } from "./rules/RulesHud";
 import { passPriority } from "./rules/intents";
 import "./rules/rules.css";
@@ -124,6 +125,7 @@ export function GameScreen() {
       <GameDialogs me={me} />
       <MulliganOverlay />
       <ResponseBar />
+      <UndoRequestBar />
       <AutomationHud />
       <RulesStack />
       <DecisionPanel />

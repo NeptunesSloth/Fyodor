@@ -119,7 +119,9 @@ function UndoSetting() {
   const current = UNDO_POLICIES.find((p) => p.id === policy) ?? UNDO_POLICIES[0]!;
   const extra = mode === "local"
     ? " Everyone at a hot-seat table sits at the host computer: Host only lets everyone undo, and Own actions only follows the player acting."
-    : policy !== "everyone" ? " To take back someone else's action anyway: Snapshots & history, Restore from here." : "";
+    : (policy !== "everyone" ? " Others can ask the table instead (Ask to undo: every other player still in the game approves). To take back someone else's action anyway: Snapshots & history, Restore from here." : "")
+      // -- quick undo request -- (app/game/undo_requests.py)
+      + " Taking back a draw, a look at a library, a reveal, a search or a random result always asks the table first.";
   return (
     <section>
       <h3>Undo</h3>

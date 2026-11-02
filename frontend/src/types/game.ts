@@ -251,6 +251,10 @@ export interface GameMeta {
   /** Under the "own" undo setting only: whose action the next undo / redo would touch (public, like the log). */
   undo_by?: string | null;
   redo_by?: string | null;
+  /** -- quick undo request -- why this viewer's undo would ask the table first (null: it undoes directly, or can't). */
+  undo_ask?: string | null;
+  /** The undo request waiting for the table, if any (public: who asks, what, and who still has to answer). */
+  undo_request?: UndoRequestInfo | null;
   mode: "local" | "lan";
   code: string | null;
   seats: Record<string, { claimed: boolean; connected: boolean; presence?: "open" | "connected" | "reconnecting" | "disconnected" }>;
@@ -268,6 +272,23 @@ export interface GameMeta {
   events?: MajorEvent[];
   /** Set only on a private practice table: the live game it belongs to (docs/ELIMINATION_HUB.md). */
   practice?: PracticeInfo;
+}
+
+/**
+ * "Bob asks to undo: cast Sol Ring" (server: app/game/undo_requests.py). Every other seated player still in the game approves
+ * (`voters`); one decline ends it. `shown`: the action showed hidden information or a random outcome (`why` says so); never a
+ * hidden card. Any change to the table cancels it.
+ */
+export interface UndoRequestInfo {
+  id: string;
+  by: string;
+  by_name: string;
+  label: string;
+  shown: "draw" | "search" | "look" | "reveal" | "library" | "random" | null;
+  why: string | null;
+  voters: string[];
+  approved: string[];
+  waiting: string[];
 }
 
 /** "Bob was eliminated.", "Final two players remain: …", "Alice wins." Built by the server from public facts only. */

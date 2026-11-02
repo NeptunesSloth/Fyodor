@@ -19,7 +19,8 @@ import {
 import { reconcile } from "./reconcile";
 import { play, soundForLog } from "../game/sound";
 import { requestCards } from "./cardCache";
-import { undoActor, undoRefusal, type UndoOp } from "../game/undoPolicy";
+import { undoActor, undoMode, undoRefusal, type UndoOp } from "../game/undoPolicy";
+import { undoRequest } from "../services/undoRequest";
 
 export interface PickMode {
   prompt: string;
@@ -220,7 +221,7 @@ export const useGame = create<GameStore>((set, get) => ({
       // -- undo policy (gap 3) -- offer Undo only when this player may take back the action they just sent (theirs)
       const after = get().view;
       const me = after ? undoActor(after, get().actingAs) : null;
-      if (done && after?.game.can_undo && !undoRefusal(after, me, "undo", me)) toast(done, "info", { label: "Undo", run: () => void get().undo() });
+      if (done && after?.game.can_undo && !undoRefusal(after, me, "undo", me) && !after.game.undo_ask) toast(done, "info", { label: "Undo", run: () => void get().undo() });
       return true;
     } catch (e) {
       set({ pendingPositions: {} });
@@ -273,6 +274,21 @@ export const useGame = create<GameStore>((set, get) => ({
 async function historyStep(get: () => GameStore, op: UndoOp): Promise<boolean> {
   const { conn, view, actingAs } = get();
   if (!conn || !view || !(op === "undo" ? view.game.can_undo : view.game.can_redo)) return false;
+  if (op === "undo") {
+    // -- quick undo request -- the server says when an undo must ask the table first: ask it (the bar shows the answer)
+    const mode = undoMode(view, undoActor(view, actingAs));
+    if (mode.kind === "waiting") {
+      toast(mode.why, "info");
+      return false;
+    }
+    if (mode.kind === "ask") {
+      await undoRequest(view.game.id, "request").then(
+        () => toast("Asked the table to undo it.", "info"),
+        (e: Error) => toast(e.message, "error"),
+      );
+      return false; // not undone yet: a multi-step undo stops here
+    }
+  }
   const why = undoRefusal(view, undoActor(view, actingAs), op);
   if (why) {
     toast(why, "error");

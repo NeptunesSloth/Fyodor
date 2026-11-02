@@ -32,6 +32,7 @@ from app.decks.models import DeckEntry, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
 from app.decks.repository import DeckNotFound
 from app.game import actions as A
+from app.game import undo_requests
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
 from app.game.mulligan import resolve_policy
@@ -40,7 +41,7 @@ from app.game.session import GameSession
 from app.game.state import CollectionCard, GameSettings, MulliganPolicy
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR
-from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room
+from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, undo_voters
 from app.multiplayer.lobby import DeckTooLarge, LobbySeatInfo, LobbySettings, SubmittedDeck, check_bounds
 from app.multiplayer.night import follow_rules
 from app.rules import commander as commander_rules
@@ -396,10 +397,43 @@ async def _history_op(services: Services, game_id: str, body: MetaIn, request: R
     async with room.lock:
         try:
             host = room.mode == "local" or room.is_host(token)  # -- undo policy (gap 3) -- everyone at a hot-seat table is at the host computer
-            room.session.undo(actor, host=host) if op == "undo" else room.session.redo(actor, host=host)
+            if op == "undo":  # (-- quick undo request -- an undo of something already seen asks the others first)
+                room.session.undo(actor, host=host, others=undo_voters(room, actor))
+            else:
+                room.session.redo(actor, host=host)
         except ActionError as exc:
             raise HTTPException(409, str(exc)) from exc
         services.hub.after_change(room)
+    await services.hub.broadcast(room)
+    return services.hub.view(room, viewer)
+
+
+class UndoAskIn(MetaIn):
+    op: Literal["request", "approve", "decline", "withdraw"]
+
+
+@router.post("/games/{game_id}/undo-request")
+async def undo_request(game_id: str, body: UndoAskIn, request: Request, services: ServicesDep,
+                       x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """-- quick undo request -- ask the table to undo the last action, or answer the request waiting for it (approve,
+    decline; the requester withdraws). The server undoes it once every other player still in the game approved
+    (app/game/undo_requests.py)."""
+    room = _room(services, game_id)
+    viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=body.viewer, as_player=body.as_player)
+    if actor is None:
+        raise HTTPException(403, "Spectators can't do that")
+    async with room.lock:
+        try:
+            if body.op == "request":
+                host = room.mode == "local" or room.is_host(x_seat_token)
+                undo_requests.request(room.session, actor, host=host, others=undo_voters(room, actor))
+                undone = None
+            else:
+                undone = undo_requests.answer(room.session, actor, body.op)
+        except ActionError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        if undone is not None:
+            services.hub.after_change(room)
     await services.hub.broadcast(room)
     return services.hub.view(room, viewer)
 
@@ -1569,8 +1603,8 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
         try:
             if isinstance(msg, WsAction):
                 room.session.perform(actor, msg.action)
-            elif msg.type == "undo":
-                room.session.undo(actor, host=room.mode == "local" or conn.host)  # -- undo policy (gap 3) --
+            elif msg.type == "undo":  # -- undo policy (gap 3) -- (-- quick undo request -- ``others``: see _history_op)
+                room.session.undo(actor, host=room.mode == "local" or conn.host, others=undo_voters(room, actor))
             else:
                 room.session.redo(actor, host=room.mode == "local" or conn.host)
         except ValidationError as exc:

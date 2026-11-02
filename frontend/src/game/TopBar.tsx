@@ -13,7 +13,7 @@ import { useGame } from "../state/gameStore";
 import { OMNISCIENT, SPECTATOR } from "../types/game";
 import { send } from "./actions";
 import { resolveRenderer } from "../table3d/renderer";
-import { UNDO_POLICIES, undoActor, undoRefusal } from "./undoPolicy";
+import { UNDO_POLICIES, undoActor, undoMode, undoRefusal } from "./undoPolicy";
 
 export function TopBar() {
   const view = useGame((s) => s.view);
@@ -26,7 +26,10 @@ export function TopBar() {
   const dayNight = view.table.day_night;
   // -- undo policy (gap 3) -- the host's undo setting: dim what this player may not take back, and say why
   const me = undoActor(view, actingAs);
-  const undoWhy = view.game.can_undo ? undoRefusal(view, me, "undo") : null;
+  // -- quick undo request -- an undo that must ask the table reads "Ask to undo" (the server says when, and why)
+  const mode = undoMode(view, me);
+  const asks = mode.kind === "ask" || mode.kind === "waiting";
+  const undoWhy = mode.kind === "refused" || mode.kind === "waiting" ? mode.why : null;
   const redoWhy = view.game.can_redo ? undoRefusal(view, me, "redo") : null;
   const policy = UNDO_POLICIES.find((p) => p.id === view.game.settings.undo_policy && p.id !== "everyone");
   const note = policy ? ` · undo: ${policy.label.toLowerCase()}` : "";
@@ -46,10 +49,12 @@ export function TopBar() {
         </button>
       )}
       <span className="tt-split" role="group" aria-label="Undo and redo">
-        <button className="tt-btn ghost" disabled={!view.game.can_undo} aria-disabled={undoWhy ? true : undefined}
-          onClick={() => void undo()} title={undoWhy ?? `Undo (Ctrl+Z)${note}`}>Undo</button>
-        <button className="tt-btn ghost undo-more" disabled={!view.game.can_undo || !!undoWhy} aria-label="Undo back to a recent action"
-          title={undoWhy ?? "Undo back to a recent action"} onClick={(e) => void recentMenu(e)}>▾</button>
+        <button className="tt-btn ghost" disabled={!view.game.can_undo} aria-disabled={undoWhy ? true : undefined} data-testid="undo"
+          onClick={() => void undo()} title={undoWhy ?? (mode.kind === "ask" ? `${mode.why} Ask the table (Ctrl+Z)` : `Undo (Ctrl+Z)${note}`)}>
+          {asks ? "Ask to undo" : "Undo"}
+        </button>
+        <button className="tt-btn ghost undo-more" disabled={!view.game.can_undo || !!undoWhy || asks} aria-label="Undo back to a recent action"
+          title={undoWhy ?? (asks ? "The last action needs the table's approval first" : "Undo back to a recent action")} onClick={(e) => void recentMenu(e)}>▾</button>
         <button className="tt-btn ghost" disabled={!view.game.can_redo} aria-disabled={redoWhy ? true : undefined}
           onClick={() => void redo()} title={redoWhy ?? `Redo (Ctrl+Shift+Z)${note}`}>Redo</button>
       </span>

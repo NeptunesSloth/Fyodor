@@ -68,9 +68,13 @@ def test_a_crash_loses_nothing_and_players_keep_their_seats(settings, card_db):
         # the room code and password still let a spectator in; play simply continues
         spec = second.post("/api/join", json={"code": code, "spectate": True, "password": "friday"})
         assert spec.status_code == 200, spec.text
-        assert act(second, gid, mike, {"type": "draw", "count": 1}).status_code == 200
-        # undo still reaches back past the crash
+        assert act(second, gid, mike, {"type": "life", "player": "p2", "delta": -1}).status_code == 200
+        # undo still reaches back past the crash (the life change, then the move from before it)
         assert second.post(f"/api/games/{gid}/undo", json={}, headers=h(mike)).status_code == 200
+        assert second.post(f"/api/games/{gid}/undo", json={}, headers=h(mike)).status_code == 200
+        # -- quick undo request -- and the journal kept what each action showed: Mike's draw asks the table first
+        res = second.post(f"/api/games/{gid}/undo", json={}, headers=h(mike))
+        assert res.status_code == 409 and "take back a draw" in res.json()["detail"]
 
 
 def test_closed_tables_are_not_brought_back(settings, card_db):

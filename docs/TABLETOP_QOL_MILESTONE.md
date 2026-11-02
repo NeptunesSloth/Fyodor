@@ -96,6 +96,14 @@ reveals, random outcomes players already saw, actions after substantial new publ
 anything the history system marks unsafe. **The server decides** whether an undo is legal; clients
 never rewrite authoritative history.
 
+*Built* (`backend/app/game/undo_requests.py`, `frontend/src/game/UndoRequestBar.tsx`): at a LAN table, an undo the host's
+undo setting refuses becomes **Ask to undo**, and so does, under every setting, an undo of an action that showed hidden
+information or a random outcome (a draw, a look, a reveal, a search, a shuffle, a roll, a flip, a random pick: recorded on
+the action as the server applies it, from what the table can see happened, never from which cards a private choice offers).
+Like an agreed ending, every other seated player still in the game approves and one decline ends it; the server then
+undoes it for the requester ("undid: … (with the table's approval)"). The requester can withdraw it; any change to the
+table cancels it. Hot-seat tables undo directly, as before.
+
 ### Attachment lines
 
 Subtle lines/arrows between an Aura / Equipment / Fortification and what it's attached to. Default:
