@@ -45,6 +45,15 @@ def pod_results(services: ServicesDep, limit: Annotated[int, Query(ge=1, le=1000
     return services.stats.history(limit=limit)
 
 
+@router.get("/pod/results/{result_id}")
+def pod_result(result_id: str, services: ServicesDep) -> dict[str, Any]:
+    """One recorded game (-- pod history -- the session recap opens its final board from here)."""
+    try:
+        return services.stats.get(result_id)
+    except ResultNotFound:
+        raise HTTPException(404, "No such result") from None
+
+
 @router.put("/pod/results/{result_id}")
 async def edit_result(result_id: str, body: ResultEdit, request: Request, services: ServicesDep) -> dict[str, Any]:
     require_local(request)

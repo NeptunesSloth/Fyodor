@@ -14,6 +14,32 @@ export interface ResultPlayer {
   outcome: Outcome;
 }
 
+/** -- pod history -- one player who went out of a game: players out in the same action share a place; turn null: not known. */
+export interface EliminationEntry {
+  seat: string;
+  name: string;
+  place: number;
+  turn: number | null;
+  /** life | poison | commander_damage | empty_library | effect | opponent_won | conceded | left | out */
+  how: string;
+  /** The rules engine's own words for it ("0 or less life"), "" when there are none. */
+  reason: string;
+}
+
+/** -- pod history -- one player's public table when the result was recorded (never a hand or a library). */
+export interface FinalBoardSeat {
+  seat: string;
+  name: string;
+  life: number;
+  poison: number;
+  commanders: string[];
+  /** Permanents by name (a face-down one: "face-down card"), at most a few dozen names; `more` counts the rest. */
+  permanents: { name: string; count: number; land?: boolean }[];
+  more: number;
+  graveyard: number;
+  exile: number;
+}
+
 export interface GameResult {
   id: string;
   number: number;
@@ -28,6 +54,9 @@ export interface GameResult {
   notes: string;
   players: ResultPlayer[];
   winners: string[];
+  /** -- pod history -- absent or empty for results recorded before they were kept. */
+  eliminations?: EliminationEntry[];
+  final_board?: FinalBoardSeat[];
 }
 
 export interface PodPlayer {
@@ -63,6 +92,7 @@ export const gameResult = (gameId: string) => api.get<GameResult | null>(`/games
 export const podPlayers = () => api.get<PodPlayer[]>("/pod/players");
 export const podPlayer = (id: string) => api.get<PodPlayerDetail>(`/pod/players/${encodeURIComponent(id)}`);
 export const podResults = (limit = 100) => api.get<GameResult[]>(`/pod/results?limit=${limit}`);
+export const podResult = (id: string) => api.get<GameResult>(`/pod/results/${encodeURIComponent(id)}`);
 export const editResult = (id: string, body: { result_type?: ResultType; winners?: string[]; notes?: string }) =>
   api.put<GameResult>(`/pod/results/${encodeURIComponent(id)}`, body);
 export const deleteResult = (id: string) => api.del<void>(`/pod/results/${encodeURIComponent(id)}`);

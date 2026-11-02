@@ -494,6 +494,17 @@ class CollectionCard(BaseModel):
     quantity: int = Field(ge=1)
 
 
+class Elimination(BaseModel):
+    """-- pod history -- a player who went out of the game (800.4a, 104.3a): public, kept in the order it happened
+    (``app.game.eliminations``)."""
+
+    player: str
+    turn: int | None = None  # None: already out when this table was first tracked (an older save)
+    how: str = "out"  # life | poison | commander_damage | empty_library | effect | opponent_won | conceded | left | out
+    reason: str = Field(default="", max_length=120)  # the engine's own public words ("0 or less life"), "" when none
+    seq: int = 0  # the action that put them out: players out in the same action went out together
+
+
 class GameState(BaseModel):
     format_version: int = 1
     id: str
@@ -522,6 +533,7 @@ class GameState(BaseModel):
     passed_at: int | None = None  # seq at which everyone last passed (no need to ask again)
     log: list[LogEntry] = Field(default_factory=list)
     rules: RulesState | None = None  # rules bookkeeping; kept (dormant) when automation is turned off
+    eliminations: list[Elimination] = Field(default_factory=list)  # -- pod history -- who went out, in order (public)
     # Where cards that ceased to exist during the step being applied were headed (a token "dies":
     # it goes to the graveyard, then ceases to exist). In memory only; read by rules tracking.
     _departed: dict[str, str] = PrivateAttr(default_factory=dict)

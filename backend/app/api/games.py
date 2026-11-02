@@ -54,6 +54,7 @@ from app.multiplayer.night import follow_rules
 from app.rules import commander as commander_rules
 from app.rules import coverage
 from app.services import Services
+from app.stats import recap
 from app.stats.repository import DuplicateResult, Participant, ResultError, deck_key_for
 from app.storage.save_format import SaveFormatError
 from app.storage.saves import SaveNotFound
@@ -1240,12 +1241,15 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
         notes = ("Agreed result: every remaining player agreed to end the game. " + notes).strip()
     elif rules:
         notes = (f"Rules result: {rules}. " + notes).strip()
+    # -- pod history -- the elimination order and a compact final board, public only (app.stats.recap)
+    named = {p.seat: p.name for p in participants}
+    eliminations = recap.elimination_order(state, named)
     try:
         result = services.stats.record(
             game_id=room.night.result_key(room.id), result_type=result_type,  # type: ignore[arg-type]
             participants=participants, winners=winners,
             table_name=state.name, format=state.format, started_at=state.created_at, turns=state.turn.number,
-            notes=notes)
+            notes=notes, eliminations=eliminations, final_board=recap.final_board(state, named, room.session.cards))
     except DuplicateResult as exc:
         raise HTTPException(409, str(exc)) from exc
     except ResultError as exc:
@@ -1266,7 +1270,9 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
                           "turns": state.turn.number, "minutes": max(0, round((time.time() - state.created_at) / 60)),
                           "commanders": {state.players[pid].name: sorted({c.name for c in state.cards.values()
                                                                            if c.commander_key and c.owner == pid})
-                                         for pid in state.seat_order}})
+                                         for pid in state.seat_order},
+                          # -- pod history -- who went out, in order; the final board stays in pod stats (``result_id``)
+                          "eliminations": recap.elimination_order(state, {}), "result_id": result["id"]})
     services.hub.persist(room)
     services.autobackups.soon("after a recorded game")
     what = {"single": f"{', '.join(result['winners'])} won", "multiple": f"{' and '.join(result['winners'])} won",

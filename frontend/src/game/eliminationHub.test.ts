@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GameView, MajorEvent } from "../types/game";
-import { EventTracker, MAX_BURST, commandersOf, liveHash, liveLine, liveOver, tableNotices } from "./eliminationHub";
+import { useGame } from "../state/gameStore";
+import { EventTracker, MAX_BURST, commandersOf, liveHash, liveLine, liveOver, openGameLog, tableNotices } from "./eliminationHub";
 
 const ev = (id: string, kind: MajorEvent["kind"] = "out", players: string[] = ["p3"]): MajorEvent =>
   ({ id, game: 1, kind, text: `event ${id}`, players });
@@ -67,5 +68,13 @@ describe("Deck Lab", () => {
     expect(commandersOf(text)).toEqual(["Lim-Dûl the Necromancer", "Tymna the Weaver"]);
     expect(commandersOf("Deck\n1 Forest\n")).toEqual([]);
     expect(commandersOf("Commander\nAtraxa, Praetors' Voice\nDeck\nSol Ring\n")).toEqual(["Atraxa, Praetors' Voice"]);
+  });
+});
+
+describe("openGameLog", () => {
+  it("opens the table's own log drawer (the hub's Game log link)", () => {
+    useGame.getState().setLayout({ logOpen: false });
+    openGameLog();
+    expect(useGame.getState().logOpen).toBe(true);
   });
 });

@@ -17,6 +17,7 @@ import {
   type PodPlayer,
   type PodPlayerDetail,
 } from "../services/pod";
+import { EliminationOrder, FinalBoard } from "./GameRecap";
 import "./podstats.css";
 
 const OUTCOME: Record<string, string> = { win: "WIN", loss: "LOSS", draw: "DRAW", none: "—" };
@@ -146,6 +147,8 @@ export function PodStatsPage() {
               {r.result_type === "single" || r.result_type === "multiple" ? <>Winner{r.winners.length > 1 ? "s" : ""}: <b>{r.winners.join(" + ")}</b></> : RESULT_LABEL[r.result_type]}
             </p>
             {r.notes && <p className="hint pod-note">“{r.notes}”</p>}
+            <EliminationOrder list={r.eliminations} />
+            {r.final_board && r.final_board.length > 0 && <FinalBoard board={r.final_board} eliminations={r.eliminations} />}
           </article>
         ))}
       </section>

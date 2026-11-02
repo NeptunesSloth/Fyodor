@@ -396,7 +396,7 @@ A player eliminated early gets a compact hub instead of only spectating:
 - A live-game pill with public notices ("X was eliminated", "Final two players remain") and Return to live game.
 
 Dice & toys (a local dice tray, a just-for-fun random player picker and a tally; nothing reaches the live game) are built.
-Not built: a Game Log link and Deck Lab's compare view.
+A Game log link opens the table's own log drawer. Not built: Deck Lab's compare view.
 
 ### Spectator side activities — 1-5 built (`SPECTATOR_ACTIVITIES_MILESTONE.md`, 2026-11-02)
 
@@ -435,8 +435,8 @@ Built:
 - The host arranges seats in the lobby (arrows or drag); the turn-order setting gains "seats" (seat 1 first), and
   under the pod rule the winner-goes-last order follows the host's seating.
 - The game history keeps each game's turn order, how it was set and its d20 rolls.
-
-Not built: the pod session's elimination order and a final-board snapshot in Pod stats.
+- Each game's elimination order (who went out, on which turn, and how) and a compact, public-only final-board snapshot, kept
+  with the result and shown in the session recap and Pod stats (`GAME_NIGHT_FLOW.md`, "Pod session and game are different objects").
 
 ### Tabletop quality-of-life — all 17 aids built (`TABLETOP_QOL_MILESTONE.md`)
 

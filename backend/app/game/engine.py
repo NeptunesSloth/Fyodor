@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from app.game import actions as A
+from app.game import eliminations
 from app.game.errors import ActionError
 from app.game.handlers import cards, marks, mulligan, objects, players, response, rules, solo, turn, zones
 from app.game.rules_state import capture, track, wither_put_by
@@ -150,6 +151,7 @@ def apply(state: GameState, action: A.Action) -> None:
         raise ActionError("Actions must be performed by a seated player")
     state.seq += 1
     log_start = len(state.log)
+    was_out = set(eliminations.out_now(state))  # -- pod history --
     # Rules intents (and reconciling settings changes) track each of their own steps.
     before = capture(state) if action.type not in A.INTENT_TYPES and action.type != "configure" else None
     try:
@@ -183,5 +185,6 @@ def apply(state: GameState, action: A.Action) -> None:
               non_discard=bool(getattr(action, "non_discard", False)))  # (actor: wave 5H)
         if isinstance(action, A.SplitStack | A.ExpandStack) and action.r is not None:
             token_stacks.adopt(state, action.card_id, action.r.ids)  # -- token stacks (gap 2) -- the tokens were already there
+    eliminations.note(state, was_out)  # -- pod history -- who went out with this action, in order
     state.departures().clear()
     state.renames().clear()

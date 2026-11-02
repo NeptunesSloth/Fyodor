@@ -6,7 +6,7 @@ sandbox, fake-point predictions) extend this hub later: `SPECTATOR_ACTIVITIES_MI
 ## What is built
 
 - **Hub** (`frontend/src/game/Eliminated.tsx`): after the ELIMINATED moment, Practice table, Opening hands,
-  Deck Lab, Keep watching, and links to Pod stats and the Card browser (new tabs, so the live seat stays put).
+  Deck Lab, Keep watching, the Game log, and links to Pod stats and the Card browser (new tabs, so the live seat stays put).
   The "You're out · Things to do" pill brings the hub back.
 - **Spectate:** the eliminated seat keeps its ordinary per-seat view, which shows other players exactly what a
   spectator sees (`tests/test_elimination_hub.py` checks REST and WebSocket payloads).
@@ -38,7 +38,10 @@ sandbox, fake-point predictions) extend this hub later: `SPECTATOR_ACTIVITIES_MI
   local: numbers from `crypto.getRandomValues`, nothing sent to the server, the live game's state, log, dice and sounds
   untouched (`toys.test.ts` spies on `fetch` and the game's WebSocket).
 
-Not built yet: a Game Log link, and Deck Lab's compare view; a guest's Deck Lab is a plain list
+- **Game log:** a link in the hub opens the table's own log drawer (the public log and chat everyone at the table reads; the
+  hub folds into its pill). Nothing new is sent: it is the same per-seat view.
+
+Not built yet: Deck Lab's compare view; a guest's Deck Lab is a plain list
 (the host computer's deck editor shows card types and the mana curve).
 
 **Goal:** a player knocked out early in a Commander game still has something fun or useful to do

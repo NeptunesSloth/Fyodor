@@ -1,5 +1,7 @@
 /** Types mirroring the server's per-viewer game view (backend/app/game/views.py). */
 
+import type { EliminationEntry } from "../services/pod";
+
 export const PHASES = [
   "untap",
   "upkeep",
@@ -346,6 +348,9 @@ export interface NightInfo {
     /** How the order was set and the d20 rounds that set it, by player name (games recorded before these were kept have neither). */
     order_source?: NightInfo["order_source"];
     rolls?: Record<string, number>[];
+    /** -- pod history -- who went out, in order, and the pod-stats record that keeps the final board (older games: neither). */
+    eliminations?: EliminationEntry[];
+    result_id?: string;
   }[];
   /** The host's table-wide switch for spectators' reactions (absent: on). */
   reactions?: boolean;
