@@ -11,7 +11,7 @@ const OUT = process.env.SHOT_DIR ?? "";
 const ONLY = process.env.SHOT_ONLY ?? "";
 test.skip(!OUT, "set SHOT_DIR to capture dice screenshots");
 
-async function table(page: Page, renderer: "3d" | "2d", players = ["Alice", "Bob"], extra: Record<string, unknown> = {}) {
+async function table(page: Page, renderer: "3d" | "2d", players = ["Alice", "Bob"], extra: Record<string, unknown> = {}, game: Record<string, unknown> = {}) {
   await page.addInitScript(([r, prefs]) => {
     localStorage.setItem("fyodor.renderer", r);
     localStorage.setItem("fyodor.welcomeDone", "1");
@@ -21,7 +21,7 @@ async function table(page: Page, renderer: "3d" | "2d", players = ["Alice", "Bob
   }, [renderer, extra] as const);
   const decks = await saveDecks(page);
   const res = await page.request.post("/api/games", {
-    data: { name: "Dice", mode: "local", shuffle: false, first_player: 0, mulligan_rule: "none", players: players.map((name, i) => ({ name, deck_id: decks[i % decks.length]!.id })) },
+    data: { name: "Dice", mode: "local", shuffle: false, first_player: 0, mulligan_rule: "none", players: players.map((name, i) => ({ name, deck_id: decks[i % decks.length]!.id })), ...game },
   });
   const gameId = ((await res.json()) as { game: { id: string } }).game.id;
   await page.setViewportSize({ width: 1600, height: 900 });
@@ -122,4 +122,21 @@ test("the roll panel", async ({ page }) => {
   await page.getByRole("button", { name: "One more" }).click();
   await page.getByTestId("dice-panel").screenshot({ path: `${OUT}/panel.png` });
   await page.screenshot({ path: `${OUT}/panel-table.png` });
+});
+
+test("the elimination hub's toy tray throws the same dice", async ({ page }) => {
+  test.skip(!!ONLY && ONLY !== "toys", "SHOT_ONLY");
+  test.setTimeout(300_000);
+  const { gameId } = await table(page, "3d", ["Alice", "Bob", "Cara"], {}, { automation: "full" });
+  const conceded = await page.request.post(`/api/games/${gameId}/actions`, { data: { action: { type: "concede" }, as: "p1" } });
+  expect(conceded.ok(), await conceded.text()).toBeTruthy();
+  await expect(page.getByTestId("eliminated-hub")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("eliminated-hub").getByTestId("open-toys").click();
+  for (const k of ["d6", "d6", "d20", "d8", "coin"]) await page.getByTestId(`toys-add-${k}`).click();
+  await page.evaluate(() => window.__fyodorDice!.freeze(5000));
+  await page.getByTestId("toys-roll").click();
+  await expect(page.getByTestId("toys-total")).toContainText(/\d/);
+  await page.waitForTimeout(4000);
+  await frames(page);
+  await page.getByTestId("toys").screenshot({ path: `${OUT}/toys.png` });
 });

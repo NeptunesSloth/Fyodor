@@ -13,7 +13,8 @@ import { usePrefs } from "../state/prefs";
 import { DiceTray } from "./dice";
 import { DiceHud } from "./diceHud";
 import type { DiceLook } from "./diceLook";
-import { tableEnv } from "./diceThrow";
+import { rollerEnv } from "./diceEnv";
+import { useGame } from "../state/gameStore";
 import { MAT_D, MAT_W } from "./layout";
 
 /** Where a roller's mat is on screen, and which edge they sit at. */
@@ -64,8 +65,8 @@ export class DiceOverlay {
     this.tray = new DiceTray({ look, envMap: this.env, shadows: true, transmission: quality === "high", envIntensity: 0.55 });
     this.hud = new DiceHud(document.body, (k) => this.dismiss(k), true);
     // the 3D table's light: a warm key from the top left and behind the viewer, a soft fill from the room
-    const hemi = new THREE.HemisphereLight(0xfff1dc, 0x2a1d14, 0.75);
-    this.key = new THREE.DirectionalLight(0xffe8c8, 2.1);
+    const hemi = new THREE.HemisphereLight(0xfff1dc, 0x2a1d14, 0.55);
+    this.key = new THREE.DirectionalLight(0xffe8c8, 1.5);
     this.key.castShadow = true;
     this.key.shadow.mapSize.set(2048, 2048);
     this.key.shadow.bias = -0.0005;
@@ -107,15 +108,16 @@ export class DiceOverlay {
 
   /** A mat's frame in the overlay: its centre, turned so its roller sits at their edge, scaled to its size. */
   private frame(spot: MatSpot) {
-    const ppu = Math.max(30, Math.min(spot.rect.width / MAT_W, spot.rect.height / MAT_D * 1.15));
-    return { x: spot.rect.left + spot.rect.width / 2, z: spot.rect.top + spot.rect.height / 2, rotY: spot.near ? 0 : Math.PI, scale: Math.min(ppu, 74) };
+    // the mat frame fits the mat on screen (the dice rest on the mat itself: diceThrow.ts tableEnv keep)
+    const ppu = Math.max(28, Math.min(74, spot.rect.width / MAT_W, spot.rect.height / (MAT_D + 0.2)));
+    return { x: spot.rect.left + spot.rect.width / 2, z: spot.rect.top + spot.rect.height / 2, rotY: spot.near ? 0 : Math.PI, scale: ppu };
   }
 
   throw(show: DiceShow, color: string, name: string, mat: () => MatSpot | null): void {
     const spot = mat();
     if (!spot) return;
     this.tray.clear(show.actor);
-    this.tray.throw(show, color, name, this.frame(spot), tableEnv(), performance.now());
+    this.tray.throw(show, color, name, this.frame(spot), rollerEnv(useGame.getState().view, show.actor), performance.now());
     this.live.push({ key: show.key, mat, last: "" });
     this.kick();
     // the page can move under the dice (a scroll, a focused seat): follow the mats while there are dice

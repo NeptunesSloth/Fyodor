@@ -34,7 +34,8 @@ export function tableEnv(piles: Obstacle[] = []): ThrowEnv {
     obstacles: piles,
     hand: new THREE.Vector3(0.9, 1.25, 3.7),
     land: { minX: -2.2, maxX: 2.6, minZ: -1.9, maxZ: 0.3 },
-    keep: { minX: -5.6, maxX: 5.6, minZ: -4.2, maxZ: 3.2 },
+    // on the roller's own mat: not in the aisle (the plaques, the stack) nor, on the 2D table, the next mat
+    keep: { minX: -4.8, maxX: 4.8, minZ: -2.8, maxZ: 2.9 },
   };
 }
 
@@ -166,7 +167,8 @@ export function judge(specs: Spec[], tracks: Track[], env: ThrowEnv): Check[] {
       flat = tilt(s, q) < 0.0015;
       height = s.inradius;
     }
-    const onTable = Math.abs(p.y - height) < 0.03;
+    // on the felt, or lying on a card (never on a deck, another die or tipped up against one)
+    const onTable = p.y - height > -0.02 && p.y - height < 0.12;
     const k = env.keep;
     const inside = p.x > k.minX && p.x < k.maxX && p.z > k.minZ && p.z < k.maxZ;
     return { ok: flat && onTable && inside && t.settled, flat, onTable, inside };

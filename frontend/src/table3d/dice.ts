@@ -168,14 +168,14 @@ export class DiceTray {
     const radius = solid ? solid.radius : COIN_RADIUS;
     const height = solid ? solid.inradius : COIN_THICK / 2;
     const blob = new THREE.Mesh(flat(), new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false, opacity: 0.8 }));
-    blob.renderOrder = -1;
+    blob.renderOrder = 1; // over the (transparent) mats
     let ring: THREE.Mesh | null = null;
     if (spec.crit) {
       ring = new THREE.Mesh(flat(), new THREE.MeshBasicMaterial({
         map: ringTexture(), transparent: true, depthWrite: false, opacity: 0, color: spec.crit === "high" ? "#f2c96c" : "#b8463d",
         blending: spec.crit === "high" ? THREE.AdditiveBlending : THREE.NormalBlending,
       }));
-      ring.renderOrder = -1;
+      ring.renderOrder = 2;
       root.add(ring);
     }
     root.add(blob, mesh);

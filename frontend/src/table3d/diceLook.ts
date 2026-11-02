@@ -65,13 +65,13 @@ export function diceMaterial(spec: Spec): THREE.MeshPhysicalMaterial {
   const m = new THREE.MeshPhysicalMaterial({ color: body, normalMap: spec.atlas, normalScale: new THREE.Vector2(1, 1), envMap: spec.envMap, envMapIntensity: 1 });
   switch (spec.look) {
     case "resin":
-      Object.assign(m, { roughness: 0.3, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.07, sheen: 0, specularIntensity: 0.7, envMapIntensity: 0.9 });
+      Object.assign(m, { roughness: 0.3, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.07, sheen: 0, specularIntensity: 0.7, envMapIntensity: 0.5 });
       break;
     case "marble":
-      Object.assign(m, { roughness: 0.34, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.9 });
+      Object.assign(m, { roughness: 0.34, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.5 });
       break;
     case "metal":
-      Object.assign(m, { roughness: 0.3, metalness: 1, clearcoat: 0, envMapIntensity: 1.25 });
+      Object.assign(m, { roughness: 0.3, metalness: 1, clearcoat: 0, envMapIntensity: 1.0 });
       break;
     case "gem":
       if (spec.transmission) {

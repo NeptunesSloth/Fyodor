@@ -40,7 +40,7 @@ import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
 import { DiceTray } from "./dice";
 import { DiceHud } from "./diceHud";
-import { tableEnv } from "./diceThrow";
+import { rollerEnv } from "./diceEnv";
 import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
 import { SeatProps } from "./seatProps";
 import { CARD_BACK_URL } from "../cards/cardBack";
@@ -386,14 +386,8 @@ export class TableScene {
     if (!seat) return;
     const player = this.view?.players.find((p) => p.id === seat.player);
     this.dice.clear(seat.player);
-    // the roller's piles are solid (mat frame, as every screen has them): a die that reaches a deck glances off it
-    const piles = (["library", "graveyard", "exile", "command"] as const).flatMap((zone) => {
-      const n = this.piles.get(`${seat.player}:${zone}`)?.count ?? 0;
-      if (n <= 0) return [];
-      const [x, z] = PILES[zone];
-      return [{ x, z, w: CARD_W, d: CARD_H, h: pileHeight(n) + THICK }];
-    });
-    this.dice.throw(show, player?.color ?? "#d7ae63", player?.name ?? "", { x: seat.x, z: seat.z, rotY: seat.rot }, tableEnv(piles), performance.now());
+    // the roller's piles and cards, from the public view as every screen has them (table3d/diceEnv.ts)
+    this.dice.throw(show, player?.color ?? "#d7ae63", player?.name ?? "", { x: seat.x, z: seat.z, rotY: seat.rot }, rollerEnv(this.view, seat.player), performance.now());
   }
 
   /** The thrown dice now on the table (tests and diagnostics). */

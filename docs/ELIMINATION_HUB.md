@@ -30,8 +30,9 @@ sandbox, fake-point predictions) extend this hub later: `SPECTATOR_ACTIVITIES_MI
   spectators' "Watching · Things to do" plaque (a `SideActivity`). A **dice tray**: d4, d6, d8, d10, d12, d20 and a coin,
   several at once (3d6 + d20, up to 12 dice), each die and the total shown, the last ten rolls kept in this browser with
   Clear and Reroll; Enter rolls, Esc closes. The dice are the table's own: with the 3D table available it is a small
-  three.js tray thrown with `table3d/dice.ts` and cannon-es (`table3d/toyTray.ts`, loaded only then, disposed on close,
-  drawing nothing once the dice rest); without WebGL, on low graphics or if that fails, it is the 2D table's throw.
+  three.js tray thrown with the live table's real dice (`table3d/dice.ts`, cannon-es: `table3d/toyTray.ts`, loaded only
+  then, disposed on close, drawing nothing once the dice rest, with their own clatter); without WebGL, on low graphics
+  or if that fails, it is the drawn dice (`game/DieGlyph.tsx`, as on the 2D table without WebGL).
   Reduced motion and the animation speed apply to both. Two toys: a **random player** over the seated players' public
   names (alphabetical, never seat order, labelled "just for fun": it never sets the turn order) and a **tally**. All
   local: numbers from `crypto.getRandomValues`, nothing sent to the server, the live game's state, log, dice and sounds

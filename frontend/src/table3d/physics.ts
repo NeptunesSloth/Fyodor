@@ -92,6 +92,7 @@ export const TUNING = {
 export function simulate(bodies: BodyInit[], opts: SimOptions): SimResult {
   const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -(opts.gravity ?? TUNING.gravity), 0), allowSleep: true });
   world.solver = Object.assign(new CANNON.GSSolver(), { iterations: 14 });
+  world.broadphase = new CANNON.SAPBroadphase(world); // many still cards and piles, a few moving dice
   const felt = new CANNON.Material("table");
   const rail = new CANNON.Material("rail");
   const resin = new CANNON.Material("die");

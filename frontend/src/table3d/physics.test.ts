@@ -25,10 +25,10 @@ describe("dice physics (cannon-es)", () => {
           const { pos, rot } = end(d.track);
           expect(tilt(s, rot), `d${sides} #${k} lies flat`).toBeLessThan(0.002);
           expect(pos.y, `d${sides} #${k} rests on the table, not in it`).toBeCloseTo(s.inradius, 2);
-          // on the roller's side of the table: their mat or the aisle in front of it
-          expect(Math.abs(pos.x)).toBeLessThan(5.6);
-          expect(pos.z).toBeGreaterThan(-4.2);
-          expect(pos.z).toBeLessThan(3.2);
+          // on the roller's own mat (10 × 6), not in the aisle or on the next mat
+          expect(Math.abs(pos.x)).toBeLessThan(4.85);
+          expect(pos.z).toBeGreaterThan(-2.85);
+          expect(pos.z).toBeLessThan(2.95);
           rests.push(d.rest);
         }
       }
