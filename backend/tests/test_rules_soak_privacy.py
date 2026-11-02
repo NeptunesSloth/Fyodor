@@ -72,3 +72,36 @@ def test_the_soak_privacy_check_lets_a_player_see_their_own_search(cards):
     check(s, "p1")  # (her own Sol Ring, in her own search)
     with pytest.raises(AssertionError, match="Sol Ring"):
         check(s, "p2", {**s.view("p2"), "leak": "Sol Ring"})
+
+
+def test_the_soak_privacy_check_lets_a_player_remember_their_own_scry(cards):
+    """tools/soak.py's privacy check, soak seed 5102: Seat 3's Temple of Enlightenment scried Seat 3's own Raugrin Triome to the bottom, and
+    its Repeat panel (the view's rules.repeatable: its own moves this turn, shown to it alone) says "Choose: Raugrin Triome" while Seat 4
+    has a Raugrin Triome in its library. The scrying player looked at that card (701.22a: "look at the top N cards of their library") and
+    the label names their own card: not a leak (a checker false positive). The same name in the other player's view still is."""
+    import pytest
+
+    from tests.wave9c_kit import build, card_named, check, mana, to_hand
+    from tools import soak
+
+    s = build(cards, mine=["Opt", "Sol Ring"], theirs=["Sol Ring"])
+    opt, mine, his = to_hand(s, "Opt"), card_named(s, "Sol Ring"), card_named(s, "Sol Ring", "p2")
+    act(s, "p1", type="move", card_ids=[mine.id], to={"zone": "library"}, position="top")
+    assert s.state.zones["p1:library"][0] == mine.id and his.zone == "p2:library"
+    mana(s, U=1)
+    act(s, "p1", type="cast_spell", card_id=opt.id)
+    for _ in range(4):
+        if s.state.rules.decision is not None:
+            break
+        act(s, s.state.rules.priority, type="pass_priority")
+    d = s.state.rules.decision
+    assert d is not None and d.kind == "choose_cards" and [o.card_id for o in d.options] == [mine.id]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[mine.id])  # to the bottom
+    assert s.state.rules.decision is None and s.state.zones["p1:library"][-1] == mine.id
+    assert "Choose: Sol Ring" in s.view("p1")["rules"]["repeatable"]
+    check(s)
+    privacy = soak.Privacy(soak.CachedCards(cards)).check
+    privacy(s, "p1")  # (her own Sol Ring, which she scried)
+    privacy(s, "p2")
+    with pytest.raises(AssertionError, match="Sol Ring"):
+        privacy(s, "p2", {**s.view("p2"), "leak": "Sol Ring"})
