@@ -12,6 +12,9 @@ import { proposalSeat, showEliminated } from "./nightEnding";
 import { boardBar } from "./finalBoard";
 import { PredictionsRecap } from "./Predictions";
 import { SpectatorHub } from "./SpectatorHub";
+import { EndScene2D } from "./motion/EndScene2D";
+import { endKindFor, playEndScene, resultWord, type EndPlay } from "./motion/endScene";
+import { resolveRenderer } from "../table3d/renderer";
 import "./night.css";
 
 /*
@@ -21,8 +24,9 @@ import "./night.css";
  * here comes from the server; the client only shows it. When the rules
  * engine ends the game the server opens the same proposal with the engine's result, so the spotlight and the vote follow
  * once the players confirm it.
- * Nothing blocks the game: the intro and the spotlight are skippable (click, Space, Esc) and scaled
- * by the player's animation speed; reduced motion keeps the fades and drops the movement.
+ * Nothing blocks the game: the intro and the spotlight are skippable (click, Space, Esc; the spotlight any key) and scaled
+ * by the player's animation speed; reduced motion keeps the fades and drops the movement. While the spotlight shows, the
+ * table itself reacts (motion/endScene.ts: the 3D table in its frame loop, the 2D table with EndScene2D).
  */
 
 const seenKey = (kind: string, view: GameView) => `fyodor.night.${kind}.${view.game.id}.${view.game.night?.number ?? 1}`;
@@ -84,9 +88,11 @@ function useSkipKeys(active: boolean, skip: () => void) {
 
 export function GameNight() {
   const view = useGame((s) => s.view);
+  const three = usePrefs((s) => resolveRenderer(s.renderer) === "3d");
   if (!view?.game.night) return null;
   return (
     <>
+      {!three && <EndScene2D />}
       {/* keyed per game of the night: a rematch replays the intro, a new result its spotlight */}
       <GameIntro key={`intro-${view.game.night.number}`} view={view} night={view.game.night} />
       <ProposalBar view={view} night={view.game.night} />
@@ -266,34 +272,34 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
   const key = seenKey("result", view);
   const [spot, setSpot] = useState(false);
   const [busy, setBusy] = useState(false);
-  const scale = useScale();
-  const end = useRef(() => {
-    markSeen(key);
-    setSpot(false);
-  });
+  const me = perspective(view, actingAs);
+  const seated = view.viewer !== SPECTATOR && view.seat_order.includes(me);
+  // what this seat's spotlight says, from the server's result (motion/endScene.ts)
+  const kind = result ? resultWord(result, me, seated) : "none";
+  // the table's reaction while the spotlight shows (motion/endScene.ts): it holds input back, any key or click ends it
+  const scene = useRef<EndPlay | null>(null);
+  const end = useRef(() => {});
   end.current = () => {
     markSeen(key);
     setSpot(false);
+    scene.current?.stop();
+    scene.current = null;
   };
   useEffect(() => {
     if (!result || seen(key) || !scenesOn()) return;
     setSpot(true);
     const winner = result.winners[0];
     if (winner) window.dispatchEvent(new CustomEvent("fyodor:camera", { detail: { id: "cam_focus_player", digit: 0, hover: null, player: winner } }));
-    const t = window.setTimeout(() => end.current(), scale(2600));
-    return () => window.clearTimeout(t);
-  }, [result, key, scale]);
-  useSkipKeys(spot, () => end.current());
+    const play = playEndScene(endKindFor(kind), () => end.current());
+    scene.current = play;
+    return () => play.stop();
+  }, [result, key]); // eslint-disable-line react-hooks/exhaustive-deps
   // -- final board -- the panel folds into a small bar so the finished table can be looked at; the vote stays on the server
   const boardKey = seenKey("board", view);
   const [board, setBoard] = useState(() => seen(boardKey));
   if (!result) return null;
 
-  const me = perspective(view, actingAs);
-  const seated = view.viewer !== SPECTATOR && view.seat_order.includes(me);
   const winners = result.winners;
-  const won = seated && winners.includes(me);
-  const kind = result.result_type === "draw" ? "draw" : result.result_type === "no_result" ? "none" : won ? "victory" : seated ? "defeat" : "winner";
   const word = { victory: "Victory", defeat: "Defeat", draw: "Draw", none: "No result", winner: `${result.winner_names.join(" & ")} ${winners.length > 1 ? "win" : "wins"}` }[kind];
   const winnerLine = result.winner_names.length ? `${result.winner_names.join(" & ")} ${winners.length > 1 ? "win" : "wins"}` : "";
   const commanderOf = (pid: string) => view.players.find((p) => p.id === pid)?.commanders.map((c) => c.name).join(" & ");

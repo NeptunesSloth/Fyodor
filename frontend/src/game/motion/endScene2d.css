@@ -1,0 +1,16 @@
+/* END-OF-GAME TABLE SCENE on the 2D table (EndScene2D.tsx): over the table, under the result's spotlight (.night-spot,
+   z-index 85), never taking input. Transform and opacity are the only animated properties. */
+.es2d-layer { position: fixed; z-index: 84; pointer-events: none; overflow: hidden; contain: strict; }
+/* the table's light drops toward the result's colour: a dark, tinted veil, deepest at the edges */
+.es2d-shade { position: absolute; inset: 0; opacity: 0; }
+/* one soft ring that spreads from the middle over the battlefields: light, or a passing shadow */
+.es2d-pulse {
+  position: absolute; left: 50%; top: 48%; border-radius: 50%; opacity: 0; will-change: transform, opacity;
+  background: radial-gradient(closest-side, transparent 45%, color-mix(in srgb, var(--es2d-color) 30%, transparent) 64%,
+    var(--es2d-color) 75%, color-mix(in srgb, var(--es2d-color) 28%, transparent) 85%, transparent 96%);
+}
+/* motes: soft specks (a gradient dot, not a glow), rising */
+.es2d-mote {
+  position: absolute; border-radius: 50%; will-change: transform, opacity;
+  background: radial-gradient(circle, var(--es2d-color) 0 35%, color-mix(in srgb, var(--es2d-color) 45%, transparent) 55%, transparent 72%);
+}
