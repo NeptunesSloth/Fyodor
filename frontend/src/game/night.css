@@ -266,6 +266,8 @@ body.reduced-motion .ping-ring.late { display: none; }
   88% { transform: translate(0, -5px) rotate(-4deg); }
   100% { opacity: 1; transform: none; }
 }
+/* a roll the rules ignored (706.6: Barbarian Class's "roll one more die and ignore the lowest"): still shown, struck through */
+.die2d-wrap.ignored .die2d { opacity: 0.4; filter: grayscale(0.7); text-decoration: line-through 2px; }
 @keyframes dice-away { to { opacity: 0; } }
 body.reduced-motion .die2d-wrap { animation-name: night-fade; }
 

@@ -216,7 +216,7 @@ export interface LogEntryView {
   kind: string;
   parts: LogPartView[];
   /** A public dice roll or coin flip's numbers (coin results: 1 heads, 0 tails). */
-  roll?: { sides: number; results: number[]; coin: boolean };
+  roll?: { sides: number; results: number[]; coin: boolean; ignored?: number[] }; // ignored: indexes the rules ignored (Barbarian Class)
   /** Cards turned over from the top of a library (reveal until, cascade): public, for their owner to place. */
   dig?: DigLog;
 }

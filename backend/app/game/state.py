@@ -456,6 +456,7 @@ class DiceRollLog(BaseModel):
     sides: int
     results: list[int]
     coin: bool = False  # results: 1 heads, 0 tails
+    ignored: list[int] = Field(default_factory=list)  # indexes into results of rolls the rules ignored (706.6: they never happened)
 
 
 class DigLog(BaseModel):

@@ -341,7 +341,7 @@ def test_dice_rolls_carry_their_numbers_to_every_table(s):
     assert roll is not None and roll.sides == 6 and roll.results == r.r.results and not roll.coin
     for viewer in ("p1", "p2"):
         entry = build_view(s.state, viewer)["log"][-1]
-        assert entry["roll"] == {"sides": 6, "results": r.r.results, "coin": False}
+        assert entry["roll"] == {"sides": 6, "results": r.r.results, "coin": False, "ignored": []}
     act(s, "p1", type="coin")
     assert s.state.log[-1].roll is not None and s.state.log[-1].roll.coin
     act(s, "p1", type="chat", text="gg")

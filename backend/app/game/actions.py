@@ -807,6 +807,10 @@ class Roll(Base):
     type: Literal["roll"] = "roll"
     sides: int = Field(default=20, ge=2, le=1000)
     count: int = Field(default=1, ge=1, le=100)
+    # the rules engine only (resolve drops them from a player's roll): 706.6, "roll that many dice plus one and ignore the lowest roll"
+    # (Barbarian Class, Pixie Guide): how many of the lowest rolls are ignored, and what made the extra dice
+    ignore_lowest: int = Field(default=0, ge=0, le=99)
+    because: str | None = Field(default=None, max_length=120)
     r: DiceData | None = None
 
 

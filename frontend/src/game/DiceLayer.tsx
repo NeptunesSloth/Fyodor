@@ -32,13 +32,13 @@ export function DiceLayer() {
         <div key={r.key} className="dice-throw" style={{ left: r.x, top: r.y, ["--seat" as string]: r.color }} data-testid="dice-throw">
           <div className="dice-row">
             {r.results.slice(0, DICE_SHOWN).map((v, i) => (
-              <span key={i} className="die2d-wrap" style={{ ["--i" as string]: i, ["--fx" as string]: `${r.fx}px`, ["--fy" as string]: `${r.fy}px` }}>
+              <span key={i} className={`die2d-wrap${r.ignored?.includes(i) ? " ignored" : ""}`} title={r.ignored?.includes(i) ? "Ignored (the rules ignore this roll)" : undefined} style={{ ["--i" as string]: i, ["--fx" as string]: `${r.fx}px`, ["--fy" as string]: `${r.fy}px` }}>
                 <span className={`die2d ${r.coin ? "coin" : SHAPE[r.sides] ?? "d20"}`}>{r.coin ? (v ? "H" : "T") : v}</span>
               </span>
             ))}
           </div>
           <span className="dice-total">
-            {r.name} · {r.coin ? (r.results.length > 1 ? `${r.results.length} coins` : "coin") : `${r.results.length > 1 ? r.results.length : ""}d${r.sides}`}: <b>{rollSummary(r)}</b>
+            {r.name} · {r.coin ? (r.results.length > 1 ? `${r.results.length} coins` : "coin") : `${r.results.length - (r.ignored?.length ?? 0) > 1 ? r.results.length - (r.ignored?.length ?? 0) : ""}d${r.sides}`}: <b>{rollSummary(r)}</b>
           </span>
         </div>
       ))}

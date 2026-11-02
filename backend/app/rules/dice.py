@@ -222,17 +222,23 @@ def roll_extras(plan: Plan, pid: str) -> int:
     """How many "roll that many dice plus one and ignore the lowest roll" effects of ``pid``'s permanents apply to their roll. Each one is
     applied to the roll as the one before it left it (616.1: they are all the same replacement; a Class level they haven't reached has
     no ability, 716.2a): with two, two more dice are rolled and the two lowest rolls ignored: as many dice are kept as were asked for."""
+    return len(roll_extra_sources(plan, pid))
+
+
+def roll_extra_sources(plan: Plan, pid: str) -> list[str]:
+    """The names of the permanents whose "… plus one and ignore the lowest roll" applies to ``pid``'s roll, once per such ability (the
+    roll's log line says what made the extra dice)."""
     from app.rules import scripts
     from app.rules.replace import conditional_lines
 
-    n = 0
+    out: list[str] = []
     for c in plan.state.cards.values():
         if c.controller != pid or not c.zone.endswith(":battlefield") or c.face_down or not plan.in_game(c) or plan.manual(c):
             continue
         ch = plan.ch(c)
         skip = conditional_lines(ch)
-        n += sum(1 for i, d in scripts.definitions(ch).items() if i not in skip and d.get("static") == "roll_extra")
-    return n
+        out += [ch.name or c.name] * sum(1 for i, d in scripts.definitions(ch).items() if i not in skip and d.get("static") == "roll_extra")
+    return out
 
 
 def roll(plan: Plan, ctx: Context, e: dict[str, Any]) -> bool:
@@ -282,7 +288,7 @@ def _roll_group(plan: Plan, ctx: Context, e: dict[str, Any], n: int, extra: int,
                 beeble_first: bool = False) -> bool:
 
     pid = ctx["controller"]
-    chunks = 0
+    chunks, noted = 0, False
     while len(results) < n + extra:  # (one roll step holds up to 100 dice)
         if chunks >= ROLL_CHUNKS:
             decide(plan, player=pid, kind="choose_one", prompt="Continue resolving the dice group (no priority or state-based actions).",
@@ -292,10 +298,14 @@ def _roll_group(plan: Plan, ctx: Context, e: dict[str, Any], n: int, extra: int,
             return False
         chunks += 1
         step = min(100, n + extra - len(results))
-        done = plan.do({"type": "roll", "sides": e["sides"], "count": step}, actor=pid)
+        # one roll action for the whole group says which rolls are ignored (the log line and the dice on the table: 706.6)
+        whole = extra > 0 and not results and step == n + extra and ignore_by is None
+        told = {"ignore_lowest": extra, "because": ", ".join(dict.fromkeys(roll_extra_sources(plan, pid)))[:120] or None} if whole else {}
+        done = plan.do({"type": "roll", "sides": e["sides"], "count": step, **told}, actor=pid)
         results += list(done.r.results)  # type: ignore[union-attr]
+        noted = whole
     if not (beeble_first and ignore_by is not None):
-        _ignore_lowest(plan, ctx, extra, results)
+        _ignore_lowest(plan, ctx, extra, results, noted=bool(extra) and noted)
     if ignore_by is not None and len(set(results)) > 1:  # (equal rolls are the same number: no choice to make)
         decide(plan, player=ignore_by, kind="choose_one", prompt=f"{ctx.get('name') or 'Roll'}: choose one roll to ignore",
                options=[DecisionOption(id=str(i), label=str(r)) for i, r in enumerate(results)],
@@ -308,10 +318,10 @@ def _roll_group(plan: Plan, ctx: Context, e: dict[str, Any], n: int, extra: int,
     return _roll_tail(plan, ctx, e, results)
 
 
-def _ignore_lowest(plan: Plan, ctx: Context, extra: int, results: list[int]) -> None:
+def _ignore_lowest(plan: Plan, ctx: Context, extra: int, results: list[int], *, noted: bool = False) -> None:
     for lowest in sorted(results)[:extra]:  # 706.6: an ignored roll never happened (tied lowest rolls are the same number: no choice to make)
         results.remove(lowest)
-    if extra:
+    if extra and not noted:  # (the roll's own log line already says which rolls were ignored)
         plan.note(f"{plan.name(ctx['controller'])} ignores the lowest {'roll' if extra == 1 else f'{extra} rolls'}")
 
 

@@ -160,6 +160,8 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         card = state.cards.get(a.card_id)
         a.r = A.NewIds(ids=[new_id() for _ in range(max(0, (card.quantity if card else 1) - 1))])
     elif isinstance(a, A.Roll):
+        if not trusted:  # (only the rules engine ignores rolls: a player's own table roll is shown as rolled)
+            a.ignore_lowest, a.because = 0, None
         a.r = A.DiceData(results=[_rng_int(rng, 1, a.sides) for _ in range(a.count)])
     elif isinstance(a, A.Coin):
         a.r = A.DiceData(results=[_rng_int(rng, 0, 1) for _ in range(a.count)])

@@ -234,6 +234,20 @@ def test_power_uses_kept_roll_and_ignores_the_lowest(cards, monkeypatch, extra_s
     assert s.state.zones['p2:library'][0] == bear.id
     events = [e for e in s.state.rules.events if e.kind == 'designation' and e.counter == 'roll_die']
     assert [e.amount for e in events] == [19]
+    # the roll's log line (and the dice on the table) say which roll was ignored and why, and count only the kept one (706.6)
+    entry = next(e for e in reversed(s.state.log) if e.roll is not None)
+    assert entry.roll.results == [2, 19] and entry.roll.ignored == [0]
+    assert "".join(p.t or "" for p in entry.parts).endswith(f"rolled a d20 and one extra die ({extra_source}): 19; ignored 2")
+    assert not any("ignores the lowest" in "".join(p.t or "" for p in e.parts) for e in s.state.log)  # (said once, on the roll)
+    roundtrip(s)
+
+
+def test_a_players_own_table_roll_ignores_nothing(cards):
+    """Only the rules engine ignores rolls: a roll a player makes at the table is shown as rolled (resolve drops the fields)."""
+    s = setup(cards)
+    act(s, 'p1', type='roll', sides=20, count=2, ignore_lowest=1, because='Barbarian Class')
+    entry = next(e for e in reversed(s.state.log) if e.roll is not None)
+    assert entry.roll.ignored == [] and "extra die" not in "".join(p.t or "" for p in entry.parts)
     roundtrip(s)
 
 

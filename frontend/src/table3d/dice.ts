@@ -6,7 +6,7 @@
  * floats above the die as well, readable from every seat, until the dice fade.
  */
 import * as THREE from "three";
-import { DICE_HOLD_MS, DICE_SHOWN, rollSummary, type DiceShow } from "../game/dice";
+import { DICE_HOLD_MS, DICE_SHOWN, keptRolls, rollSummary, type DiceShow } from "../game/dice";
 import { FRAMES_PER_SECOND, poseAt, seeded, simulate, trackSeconds, type BodyInit, type Obstacle, type Track } from "./physics";
 
 const SIZE = 0.56;
@@ -305,7 +305,7 @@ export class DiceTray {
       t.dice.push({ mesh, shadow, label, track, ends });
     });
     if (show.results.length > 1) {
-      const map = labelTexture(show.coin ? rollSummary(show) : `= ${show.results.reduce((a, b) => a + b, 0)}`, color, true);
+      const map = labelTexture(show.coin ? rollSummary(show) : `= ${keptRolls(show).reduce((a, b) => a + b, 0)}`, color, true);
       const mat = new THREE.SpriteMaterial({ map, transparent: true, depthTest: false, opacity: 0 });
       const total = new THREE.Sprite(mat);
       total.scale.set(1.25, 0.5, 1);
