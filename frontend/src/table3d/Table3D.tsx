@@ -36,6 +36,9 @@ declare global {
       heartAt: (player: string, side?: -1 | 0 | 1) => { x: number; y: number } | null;
       buttonAt: (id: SeatActionId) => { x: number; y: number } | null;
       taxAt: (commanderKey: string) => { x: number; y: number } | null;
+      /** Table motion (table3d/motion3d.ts): freeze every running motion at a time in ms (null: live), and what is running. */
+      motionFreeze?: (ms: number | null) => void;
+      motion?: () => { busy: boolean; flights: number; floaters: number; riffles: number; lunges: number };
     };
   }
 }
@@ -98,6 +101,8 @@ export function Table3D({ me }: { me: string }) {
       heartAt: (player, side) => scene.heartOnScreen(player, side ?? 0),
       buttonAt: (id) => scene.buttonOnScreen(id),
       taxAt: (key) => scene.taxOnScreen(key),
+      motionFreeze: (ms) => scene.motionFreeze(ms),
+      motion: () => scene.motionState(),
     };
     // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,
     // turn dial, stack panels) and the battlefield cards, and never past the screen edge

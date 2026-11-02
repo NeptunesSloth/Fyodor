@@ -44,6 +44,9 @@ import { rollerEnv } from "./diceEnv";
 import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
 import { SeatProps } from "./seatProps";
 import { CARD_BACK_URL } from "../cards/cardBack";
+import { TableMotion } from "./motion3d";
+import { onTableEvents } from "../game/motion/tableEvents";
+import { onMotionSkip } from "../game/motion/timing";
 import type { DiceShow } from "../game/dice";
 import {
   AISLE, CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, MAT_W, PILES, plaqueSpot, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
@@ -81,6 +84,10 @@ interface CardObj {
   /** Target size (stack cards stand larger); eased like position. */
   scale: number;
   seen: boolean;
+  /** Table motion (table3d/motion3d.ts): new to the table and not yet placed; a flight drives it; a strike lunge is on it. */
+  fresh?: boolean;
+  flying?: boolean;
+  struck?: boolean;
 }
 
 interface PileObj {
@@ -165,6 +172,8 @@ const shadowQ = new THREE.Quaternion();
 const shadowScale = new THREE.Vector3();
 const shadowM = new THREE.Matrix4();
 const shadowColor = new THREE.Color();
+/** A body drawn at no size (a fading stand-in card keeps only its shadow). */
+const NO_BODY = new THREE.Matrix4().makeScale(0, 0, 0);
 
 function angleLerp(a: number, b: number, t: number): number {
   let d = (b - a) % (Math.PI * 2);
@@ -262,6 +271,12 @@ export class TableScene {
   /** Soft studio reflections for metal, lacquer and card gloss (a prefiltered room, no download). */
   private envMap: THREE.Texture;
   private post: Post | null = null;
+  /** Card flights, stand-ins, riffles, strikes and numbers (table3d/motion3d.ts), stepped from this loop. */
+  private motion: TableMotion;
+  private bodyN = 0;
+  private pushStandIn = (obj: THREE.Object3D, opacity: number): void => {
+    this.bodyN = this.writeBody(obj, this.bodyN, opacity);
+  };
 
   constructor(container: HTMLElement, plane: PlaneTheme, quality: Quality) {
     this.plane = plane;
@@ -319,6 +334,22 @@ export class TableScene {
     this.world.add(this.bodies, this.shadows, this.arrows, this.dice.group, this.props.group);
     this.world.add(this.tethers);
     this.scene.add(this.world);
+    this.motion = new TableMotion({
+      world: this.world, faceGeo: this.cardFaceGeo, thick: THICK,
+      me: () => this.me, view: () => this.view, card: (id) => this.cards.get(id),
+      seat: (p) => this.seatList.find((s) => s.player === p),
+      pileY: (zone) => {
+        const p = this.piles.get(zone);
+        return p && p.count > 0 ? pileHeight(p.count) + THICK : 0;
+      },
+      back: (owner) => this.backMaterial(owner),
+      face: (id) => {
+        const card = this.view?.cards[id];
+        return card ? this.faceMaterial(card, this.faceKeyFor(card)) : this.backMaterial("");
+      },
+      heart: (p) => this.props.heartWorld(p),
+    });
+    this.unsubs.push(onTableEvents((events, next, prev) => this.motion.play(events, next, prev)), onMotionSkip(() => this.motion.finish()));
     this.applyFog();
     this.bindInput();
     this.loop();
@@ -415,6 +446,15 @@ export class TableScene {
   buttonOnScreen(id: SeatActionId): { x: number; y: number } | null {
     const p = this.props.buttonWorld(id);
     return p ? this.project(p) : null;
+  }
+
+  /** Table motion (tests and screenshots): freeze every running motion at a time in ms (null: live), and what is running. */
+  motionFreeze(ms: number | null): void {
+    this.motion.freeze(ms);
+  }
+
+  motionState(): ReturnType<TableMotion["state"]> {
+    return this.motion.state();
   }
 
   /** The dice on the table, in screen coordinates (tests and diagnostics). */
@@ -523,6 +563,7 @@ export class TableScene {
   dispose(): void {
     cancelAnimationFrame(this.raf);
     for (const u of this.unsubs) u();
+    this.motion.dispose();
     this.dice.dispose();
     this.diceHud.dispose();
     this.lifeBatch.dispose();
@@ -704,7 +745,7 @@ export class TableScene {
     glow.position.y = -0.001;
     group.add(glow, face);
     this.world.add(group);
-    const obj: CardObj = { id, group, face, glow, overlay: null, overlayKey: "", faceKey: "", target: new THREE.Vector3(), rot: 0, tilt: 0, scale: 1, seen: true };
+    const obj: CardObj = { id, group, face, glow, overlay: null, overlayKey: "", faceKey: "", target: new THREE.Vector3(), rot: 0, tilt: 0, scale: 1, seen: true, fresh: true };
     this.cards.set(id, obj);
     return obj;
   }
@@ -757,6 +798,7 @@ export class TableScene {
   private syncCards(): void {
     const view = this.view;
     if (!view) return;
+    this.motion.layout();
     for (const c of this.cards.values()) c.seen = false;
     const seatOf = new Map(this.seatList.map((s) => [s.player, s]));
     const store = useGame.getState();
@@ -881,6 +923,7 @@ export class TableScene {
 
     for (const [id, c] of this.cards) {
       if (!c.seen) {
+        this.motion.forget(c); // (where it was, for a flight to wherever it went)
         this.disposeCard(c);
         this.cards.delete(id);
       }
@@ -1521,6 +1564,25 @@ export class TableScene {
 
   // ------------------------------------------------------------------ frame loop
 
+  /** One card's body and contact shadow into the instanced draws (a fading stand-in keeps only its shadow). */
+  private writeBody(obj: THREE.Object3D, n: number, opacity = 1): number {
+    if (n >= 1024) return n;
+    obj.updateMatrix();
+    this.bodies.setMatrixAt(n, opacity >= 0.99 ? obj.matrix : NO_BODY);
+    // the shadow sits on the table, offset away from the key light and softer as the card rises
+    const lift = Math.max(0, obj.position.y);
+    const spread = (1 + Math.min(lift, 1.2) * 0.55) * obj.scale.x;
+    shadowPos.set(obj.position.x + 0.05 + lift * 0.2, 0.0025, obj.position.z + 0.08 + lift * 0.3);
+    shadowQ.setFromAxisAngle(UP, obj.rotation.y);
+    shadowScale.set(spread, 1, spread);
+    shadowM.compose(shadowPos, shadowQ, shadowScale);
+    this.shadows.setMatrixAt(n, shadowM);
+    const strength = opacity / (1 + lift * 2.5);
+    shadowColor.setRGB(strength, strength, strength);
+    this.shadows.setColorAt(n, shadowColor);
+    return n + 1;
+  }
+
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
     const started = performance.now();
@@ -1560,31 +1622,36 @@ export class TableScene {
       if (f >= sl.frames) this.sliding = null;
     }
     let n = 0;
+    // table motion (motion3d.ts): flights, riffles, numbers; nothing to do while idle
+    const moving = this.motion.active;
+    if (moving) this.motion.update(started, reduced);
     for (const c of this.cards.values()) {
-      // hovered and selected cards ride a little higher, and a tap lifts the card as it turns
-      const lift = liftFor({ hovered: c.id === this.hovered && !dragging, selected: this.selectedIds.has(c.id), turning: reduced ? 0 : angleDelta(c.group.rotation.y, c.rot) });
-      liftTarget.copy(c.target);
-      liftTarget.y += lift;
-      c.group.position.lerp(liftTarget, k);
-      c.group.rotation.y = angleLerp(c.group.rotation.y, c.rot, k);
-      c.group.rotation.x += (c.tilt - c.group.rotation.x) * k;
-      const sc = c.group.scale.x + (c.scale - c.group.scale.x) * k;
-      c.group.scale.setScalar(sc);
-      if (n < 1024) {
-        c.group.updateMatrix();
-        this.bodies.setMatrixAt(n, c.group.matrix);
-        // the shadow sits on the table, offset away from the key light and softer as the card rises
-        const lift = Math.max(0, c.group.position.y);
-        const spread = (1 + Math.min(lift, 1.2) * 0.55) * c.group.scale.x;
-        shadowPos.set(c.group.position.x + 0.05 + lift * 0.2, 0.0025, c.group.position.z + 0.08 + lift * 0.3);
-        shadowQ.setFromAxisAngle(UP, c.group.rotation.y);
-        shadowScale.set(spread, 1, spread);
-        shadowM.compose(shadowPos, shadowQ, shadowScale);
-        this.shadows.setMatrixAt(n, shadowM);
-        const strength = 1 / (1 + lift * 2.5);
-        shadowColor.setRGB(strength, strength, strength);
-        this.shadows.setColorAt(n++, shadowColor);
+      if (c.fresh) {
+        // new to the table with no flight to bring it: it is simply where it belongs (never glides in from the middle)
+        c.fresh = false;
+        c.group.position.copy(c.target);
+        c.group.rotation.set(c.tilt, c.rot, 0);
+        c.group.scale.setScalar(c.scale);
       }
+      if (!c.flying) {
+        if (c.struck) this.motion.unstrike(c);
+        // hovered and selected cards ride a little higher, and a tap lifts the card as it turns
+        const lift = liftFor({ hovered: c.id === this.hovered && !dragging, selected: this.selectedIds.has(c.id), turning: reduced ? 0 : angleDelta(c.group.rotation.y, c.rot) });
+        liftTarget.copy(c.target);
+        liftTarget.y += lift;
+        c.group.position.lerp(liftTarget, k);
+        c.group.rotation.y = angleLerp(c.group.rotation.y, c.rot, k);
+        c.group.rotation.x += (c.tilt - c.group.rotation.x) * k;
+        const sc = c.group.scale.x + (c.scale - c.group.scale.x) * k;
+        c.group.scale.setScalar(sc);
+        if (c.struck) this.motion.restrike(c, started);
+      }
+      n = this.writeBody(c.group, n);
+    }
+    if (moving) {
+      this.bodyN = n;
+      this.motion.standIns(this.pushStandIn);
+      n = this.bodyN;
     }
     this.bodies.count = n;
     this.bodies.instanceMatrix.needsUpdate = true;
