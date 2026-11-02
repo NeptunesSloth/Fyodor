@@ -92,7 +92,10 @@ from app.game.rules_state import (
 )
 from app.game.state import CardInstance, TokenDef
 from app.rules import characteristics as chars
-from app.rules import wave110g_spires  # -- wave 110G --
+from app.rules import (
+    read_pass,
+    wave110g_spires,  # -- wave 110G --
+)
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.oracle import parse_abilities, strip_reminders
 
@@ -338,11 +341,25 @@ def room_printing(r: RulesState, card: CardInstance, oid: str) -> str:
     return recipe.printing if recipe is not None and recipe.printing else card.card_id or ""
 
 
+def copy_recipe_of_effects(effects: Any) -> CopyRecipe | None:
+    """``copy_recipe_of`` over the effects already known to name the object (read_pass.effects_by_object), in the same order: the
+    latest copy effect by timestamp, the first of equal ones (613.7)."""
+    best: ContinuousEffect | None = None
+    for e in effects:
+        if e.layer == "1" and e.copy_recipe is not None and (best is None or e.timestamp > best.timestamp):
+            best = e
+    return best.copy_recipe if best is not None else None
+
+
 def _layer1(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> Characteristics:
     r = state.rules
     if r is None or not r.effects or info is None or card.face_down:
         return ch
-    recipe = copy_recipe_of(r, r.object_id(card.id))
+    oid = r.object_id(card.id)
+    if (index := read_pass.effects_by_object(state)) is not None:  # (big boards: copy_recipe_of over just the effects on this object)
+        recipe = copy_recipe_of_effects(index.get(oid, ()))
+    else:
+        recipe = copy_recipe_of(r, oid)
     if recipe is not None and card.is_token and recipe.printing and recipe.printing == card.card_id \
             and card.face != recipe.face and (info.get(card.card_id) or {}).get("layout") in TWO_FACED_TOKENS:
         recipe = recipe.model_copy(update={"face": card.face})  # (wave 3R3: 707.8a, the face that is up)

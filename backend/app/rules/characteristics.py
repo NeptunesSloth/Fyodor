@@ -9,7 +9,7 @@ system) arrive with milestone 16 and are applied on top of this in one place.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields, replace
 from typing import Any, Protocol
 
 from app.game.state import CardInstance
@@ -105,6 +105,26 @@ class Characteristics:
     @property
     def has_flash(self) -> bool:
         return "flash" in self.keywords
+
+
+# -- big boards (perf) -- ``evolve``: ``dataclasses.replace`` for Characteristics, ~10x cheaper. A derivation copies an object's
+# characteristics several times (provenance, the battlefield flags, layer 6, the definitions key), and on a board of 200 permanents
+# that was a fifth of a land drop's time. Exactly ``replace``: Characteristics is a plain frozen dataclass (no __post_init__, no
+# InitVar, no init=False field, no slots, no subclass, no attribute outside its fields), so ``replace`` builds an instance whose
+# fields are the old ones with ``changes`` written over them, which is what copying the field dict does. Anything else (another
+# class, an unknown field name) goes through ``replace`` itself, so it fails the way it always did.
+_CH_FIELDS = frozenset(f.name for f in fields(Characteristics))
+
+
+def evolve(ch: Characteristics, **changes: Any) -> Characteristics:
+    """``dataclasses.replace(ch, **changes)`` for a Characteristics, without re-running its __init__."""
+    if type(ch) is not Characteristics or not changes.keys() <= _CH_FIELDS:
+        return replace(ch, **changes)
+    new = object.__new__(Characteristics)
+    out = new.__dict__
+    out.update(ch.__dict__)
+    out.update(changes)
+    return new
 
 
 def parse_type_line(type_line: str) -> tuple[frozenset[str], frozenset[str], frozenset[str]]:
@@ -463,7 +483,7 @@ def as_cast(card: CardInstance, info: CardInfo, face: int | None, fused: bool = 
 def provenance(card: CardInstance, ch: Characteristics) -> Characteristics:
     """Public object identity is not a copiable characteristic (109.4, 702.16k)."""
     controlled = card.zone == 'stack' or card.zone.endswith(':battlefield')
-    return replace(ch, object_controller=card.controller if controlled else None, object_owner=card.owner)
+    return evolve(ch, object_controller=card.controller if controlled else None, object_owner=card.owner)
 
 
 def of(card: CardInstance, info: CardInfo) -> Characteristics:

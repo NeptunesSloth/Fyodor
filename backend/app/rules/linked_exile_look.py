@@ -25,6 +25,16 @@ def refresh(plan: Plan) -> None:
     """Live static authority grants enduring look rights, never enduring play rights."""
     from app.rules import exiled_with, scripts
 
+    def looks(source: Any) -> bool:
+        return any(d.get('static') == 'linked_look' or d.get('linked_look') for d in scripts.definitions(plan.ch(source)).values())
+
+    # -- big boards (perf) -- first, in one read pass (Plan.reading: each permanent derived once, the statics table read once), whether any
+    # permanent has such an ability at all. With none, the loop below would only derive every permanent (outside a pass: the square of
+    # the board, twice per action) and do nothing, so there is nothing to do.
+    with plan.reading():
+        if not any(looks(s) for s in plan.state.cards.values()
+                   if s.ability is None and s.zone.endswith(':battlefield') and not s.face_down):
+            return
     for source in list(plan.state.cards.values()):
         if source.ability is not None or not source.zone.endswith(':battlefield') or source.face_down:
             continue

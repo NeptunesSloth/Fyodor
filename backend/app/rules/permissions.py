@@ -2211,18 +2211,23 @@ def refresh_reveals(state: GameState, info: CardInfo) -> None:
     if r is None:
         return
     found = []
-    for card in state.cards.values():
-        if card.ability is not None:
-            continue
-        ch = chars.of(card, info)
-        if card.zone.endswith(":battlefield") and not card.face_down:
-            ch = derive(state, card, ch, info)
-        for d in scripts.definitions(ch).values():
-            if d.get("kind") == "static" and d.get("static") == "top_reveal":
-                found.append(TopReveal(source=card.id, player=card.controller, to=d["to"], face_down=bool(d.get("face_down")),
-                                       zone=d.get("zone", "library"), whose=d.get("whose", "you")))
-            elif d.get("kind") == "static" and d.get("static") == "permission" and d.get("look"):  # (wave 5I: Radha)
-                found.append(TopReveal(source=card.id, player=card.controller, to="owner"))
+    from app.rules import read_pass
+
+    # -- big boards (perf) -- the scan only reads the table: one read pass for it (read_pass.adopted), so the statics table is read once,
+    # not once per permanent (it ran twice per action, the square of the board each time)
+    with read_pass.adopted(state, info):
+        for card in state.cards.values():
+            if card.ability is not None:
+                continue
+            ch = chars.of(card, info)
+            if card.zone.endswith(":battlefield") and not card.face_down:
+                ch = derive(state, card, ch, info)
+            for d in scripts.definitions(ch).values():
+                if d.get("kind") == "static" and d.get("static") == "top_reveal":
+                    found.append(TopReveal(source=card.id, player=card.controller, to=d["to"], face_down=bool(d.get("face_down")),
+                                           zone=d.get("zone", "library"), whose=d.get("whose", "you")))
+                elif d.get("kind") == "static" and d.get("static") == "permission" and d.get("look"):  # (wave 5I: Radha)
+                    found.append(TopReveal(source=card.id, player=card.controller, to="owner"))
     if found != r.top_reveals:
         r.top_reveals = found
 

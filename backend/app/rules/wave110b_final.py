@@ -465,7 +465,16 @@ def stack_grants(state: Any, card: Any, ch: Any) -> Any:
 
     from app.rules.oracle import parse_abilities
 
-    if not ch.is_creature or not any(c.name == "Torrent of Lava" and c.ability is None and c.zone == "stack" for c in state.cards.values()):
+    if not ch.is_creature:
+        return ch
+    from app.rules import read_pass
+
+    def on_stack() -> bool:
+        return any(c.name == "Torrent of Lava" and c.ability is None and c.zone == "stack" for c in state.cards.values())
+
+    # (big boards: read once per read pass, not once per creature derived: read_pass.card_fact; the cards' own fields only)
+    found = read_pass.card_fact(state, "torrent110b", on_stack)
+    if not (on_stack() if found is None else found):
         return ch
     ab = parse_abilities(_TORRENT_GRANT)
     return _replace(ch, abilities=ch.abilities + (_replace(ab[0], index=190),)) if len(ab) == 1 else ch

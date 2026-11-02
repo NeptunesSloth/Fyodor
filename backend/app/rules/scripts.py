@@ -7003,7 +7003,7 @@ def definitions(ch: Characteristics) -> dict[int, Definition]:
 
     if cards.get(ch.oracle_id) is not None and cards.trusted(ch.oracle_id, ch.oracle_text) is None:
         return {}  # REVIEW: a reviewed script exists for other Oracle text; nothing is automated until re-checked
-    return _cached(replace(ch, pt=None, granted=frozenset(), lost=frozenset(), imposed=frozenset()))
+    return _cached(_chars.evolve(ch, pt=None, granted=frozenset(), lost=frozenset(), imposed=frozenset()))  # (evolve: replace, cheaper)
 
 
 # Combat restrictions and requirements printed on a permanent (CR 508.1c-d, 509.1b-c) that the

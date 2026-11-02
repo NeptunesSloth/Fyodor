@@ -167,10 +167,13 @@ class Solver:
             real = self.original.cards.get(incoming.id)
             if (real is None or not real.zone.endswith(':battlefield')) and not layers.spell_entry(self.original, incoming, info):
                 self.effects[incoming.id] = [e for e in self.effects[incoming.id] if e.id.startswith('entry:')]
+        # (big boards: which cards are attached to something, read once for the whole field, not once per permanent; deriving the base
+        # values changes no card)
+        hosts = frozenset(c.attached_to for c in state.cards.values() if c.attached_to is not None)
         self.base = {cid: layers.name_changes(layers.subtype_cdas(c, layers.prepared(self.original, c, chars.of(c, info), info)),
-                                            self.effects[cid], layers._attached45(state, c, info, self.raw), info, state, c)
+                                            self.effects[cid], layers._attached45(state, c, info, self.raw, hosts), info, state, c)
                      for cid, c in self.cards.items()}
-        self.base = {cid: replace(chars.provenance(self.cards[cid], ch), on_battlefield=True,
+        self.base = {cid: chars.evolve(chars.provenance(self.cards[cid], ch), on_battlefield=True,
                                   object_counters=frozenset(k for k, n in self.cards[cid].counters.items() if n > 0),
                                   object_ring_bearer=bool(state.rules and
                                       state.rules.ring_bearers.get(self.cards[cid].controller) == state.rules.object_id(cid)))

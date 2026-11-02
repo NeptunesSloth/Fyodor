@@ -44,7 +44,7 @@ from app.game.rules_state import ContinuousEffect
 from app.game.state import CardInstance, GameState
 from app.rules import chosen as _chosen  # -- chosen filters (wave 53B) --
 from app.rules import read_pass
-from app.rules.characteristics import AbilityText, CardInfo, Characteristics
+from app.rules.characteristics import AbilityText, CardInfo, Characteristics, evolve
 from app.rules.world_durations80 import native as world_native80
 
 if TYPE_CHECKING:
@@ -96,7 +96,8 @@ def affecting(state: GameState, card: CardInstance, info: CardInfo | None = None
     from app.rules import entry_characteristics, keyword_denials
 
     effects = entry_characteristics.effects(state, card)
-    for effect in r.effects:
+    index = read_pass.effects_by_object(state)  # (big boards: the effects naming this object, in order, read once per pass)
+    for effect in r.effects if index is None else index.get(oid, ()):
         if new_object:
             continue  # Native entry forms above apply; earlier incarnations do not.
         if effect.ability_zone is not None or effect.declaration_window is not None or oid not in effect.affected:
@@ -195,26 +196,38 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
     from app.rules.copying import copy_index
 
     copies = copy_index(r)
+    # -- big boards (perf) -- the parts of the key read from the cards, in one pass over them (a big table has hundreds of cards, and this
+    # key is read by every derivation outside a read pass): the same tuples as reading the cards once per part, in the same card order
+    # before each sort, so each part is exactly what it was (every call below only reads).
+    rows: list[tuple] = []
+    attached: list[tuple[str, str]] = []
+    emblem_rows: list[tuple[str, str, str]] = []
+    impending_ids: list[str] = []
+    entries110d: list[tuple[str, Any]] = []
+    for cid, c in state.cards.items():
+        if c.zone.endswith(":battlefield"):
+            oid = r.object_id(cid) if r else ""
+            rows.append((cid, c.controller, c.face_down, c.face, c.flipped, c.card_id or c.name, c.token.text if c.token else "",
+                         r.card_mode(cid) if r else "", timestamp(state, cid), tuple(sorted(c.choices.items())), tuple(p.model_dump_json() for p in c.stickers101),  # (wave 33B: linked words, 607.2f; wave 53B: and what else it chose as it entered, 614.12a: a type or a color written into its statics)
+                         copies.get(oid, (0, "")) if r else (0, "")))
+            if c.attached_to:  # -- review (Codex) -- what each permanent is attached to (a "loses all abilities" Aura's host, attached_types.wipes)
+                attached.append((cid, c.attached_to or ""))
+            if r is not None and (record := r.payments.get(oid)) is not None and record.alternative == "impending":
+                impending_ids.append(cid)
+        if c.token is not None and c.zone.endswith(":command") and c.token.type_line == "Emblem":  # -- emblems (wave 13A) -- 114: their text
+            emblem_rows.append((cid, c.owner, c.token.text))
+        if c.entry_characteristics is not None and c.entry_characteristics.add_abilities:  # (wave 110D)
+            entries110d.append((cid, c.entry_characteristics.timestamp))
     # (the face and flip state are part of the key: a transformed permanent has only its back
     # face's characteristics, 712.8e — its front face's statics are gone, 611.3a)
-    key = tuple(sorted((cid, c.controller, c.face_down, c.face, c.flipped, c.card_id or c.name, c.token.text if c.token else "",
-                        r.card_mode(cid) if r else "", timestamp(state, cid), tuple(sorted(c.choices.items())), tuple(p.model_dump_json() for p in c.stickers101),  # (wave 33B: linked words, 607.2f; wave 53B: and what else it chose as it entered, 614.12a: a type or a color written into its statics)
-                        copies.get(r.object_id(cid), (0, "")) if r else (0, ""))
-                       for cid, c in state.cards.items() if c.zone.endswith(":battlefield")))
+    key = tuple(sorted(rows))
     # -- conditional statics (wave 4B) -- statics that function from a graveyard (113.6b): which cards are there
     graveyards = tuple((p, tuple(state.zones.get(f"{p}:graveyard", ()))) for p in state.seat_order)
-    # -- review (Codex) -- also read below: graveyard cards' automation modes and what each permanent is attached to
-    # (a "loses all abilities" Aura's host, attached_types.wipes)
+    # -- review (Codex) -- also read below: graveyard cards' automation modes
     gy_modes = tuple(r.card_mode(cid) for _, ids in graveyards for cid in ids) if r else ()
-    hosts = tuple(sorted((cid, c.attached_to or "") for cid, c in state.cards.items()
-                         if c.zone.endswith(":battlefield") and c.attached_to))
-    # -- emblems (wave 13A) -- 114: the emblems in the command zones (their text is part of the key)
-    emblems = tuple(sorted((cid, c.owner, c.token.text) for cid, c in state.cards.items()
-                           if c.token is not None and c.zone.endswith(":command") and c.token.type_line == "Emblem"))
-    impending = tuple(sorted(cid for cid, c in state.cards.items()
-                             if r is not None and c.zone.endswith(":battlefield")
-                             and (record := r.payments.get(r.object_id(cid))) is not None
-                             and record.alternative == "impending"))
+    hosts = tuple(sorted(attached))
+    emblems = tuple(sorted(emblem_rows))
+    impending = tuple(sorted(impending_ids))
     text71 = tuple((e.id, tuple(e.affected), e.set_name, bool(e.text_box110a),
                     (e.text_change71.category, e.text_change71.old, e.text_change71.new) if e.text_change71 is not None else None)
                    for e in r.effects if e.layer == '3') if r else ()
@@ -224,7 +237,7 @@ def statics(state: GameState, info: CardInfo) -> list[Static]:
                       tuple(e.id for e in r.effects if e.remove_abilities or e.set_land_types is not None) if r else (),
                       # -- layers (wave 22A) -- the resolved effects the group layers (4-6) are solved against (613.6, 613.8)
                       tuple((e.id, tuple(e.affected)) for e in r.effects if e.layer in ("4", "5", "6")) if r else (),
-                      tuple(sorted((cid, c.entry_characteristics.timestamp) for cid, c in state.cards.items() if c.entry_characteristics is not None and c.entry_characteristics.add_abilities)),  # (wave 110D)
+                      tuple(sorted(entries110d)),  # (wave 110D)
                       tuple(sorted(r.levels.items())) if r else (),  # -- Class (wave 16A) -- 716.2a: the levels reached
                       tuple(sorted((o, tuple(d)) for o, d in r.unlocked.items())) if r else ())  # -- Rooms (wave 18G) -- the doors unlocked
     hit = _STATIC_CACHE.get(key_all)
@@ -706,7 +719,7 @@ def _layer6(ch: Characteristics, hits: list[Static], effects: list[ContinuousEff
     if "flanking" in deny:
         flanking_count = 0
     imposed = ch.imposed | frozenset(keyword_denials.PREFIX + keyword for keyword in prohibited)
-    return replace(ch, granted=frozenset(granted), lost=frozenset(lost), abilities=abilities, imposed=imposed, flanking_count=flanking_count)
+    return evolve(ch, granted=frozenset(granted), lost=frozenset(lost), abilities=abilities, imposed=imposed, flanking_count=flanking_count)
 
 
 # -- animation (agent A2): layer 4 type changes, layer 5 colors, layer 6 "loses all abilities" ----
@@ -1052,7 +1065,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         from app.rules import wave110f_cmd
 
         ch = wave110f_cmd.color(state, card, ch)
-    ch = replace(ch, on_battlefield=card.zone.endswith(":battlefield"),
+    ch = evolve(ch, on_battlefield=card.zone.endswith(":battlefield"),  # (evolve: replace, cheaper: characteristics.py)
                  object_counters=frozenset(k for k, n in card.counters.items() if n > 0),
                  object_ring_bearer=bool(state.rules and card.zone.endswith(":battlefield")
                                          and state.rules.ring_bearers.get(card.controller) == state.rules.object_id(card.id)),
@@ -1126,9 +1139,11 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
         _T.depth += 1
         try:
             # a static's subject is read from the object after layer 4 and the resolved layer-6 effects
-            hits, rules = _hits(view, table, card, _layer6(ch, [], effects, kwc), tkey)
+            unstatic = _layer6(ch, [], effects, kwc)
+            hits, rules = _hits(view, table, card, unstatic, tkey)
             imposed |= rules
-            ch = _layer6(ch, hits, effects, kwc)
+            # (big boards: with no static applying, layer 6 is exactly what was just worked out for the subjects; _layer6 only reads)
+            ch = _layer6(ch, hits, effects, kwc) if hits else unstatic
             if any(_keyword_subject(st.definition) for st in table):
                 # 613.8: "creatures with flying …" depends on layer-6 grants of flying: read again with
                 # layer 6 applied, until nothing changes (a dependency loop ends in timestamp order)
@@ -1224,10 +1239,10 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
                                      else f"yours:{owner.controller}" if keeps == "yours" and owner is not None else keeps))  # (wave 53B: "Auras and Equipment you control", the granting Aura's controller)
                 if _T.grant_capture45 is not None:
                     _T.grant_capture45.record(state, card, st, ordinal, expansion, text)
-        ch = replace(ch, abilities=ch.abilities + tuple(extra))
+        ch = evolve(ch, abilities=ch.abilities + tuple(extra))
     lent = tuple({ab.index: ab for seq, ab in borrowed if wipe is None or (seq, 0, 0) > wipe}.values())
     if lent:
-        ch = replace(ch, abilities=ch.abilities + lent)
+        ch = evolve(ch, abilities=ch.abilities + lent)
     ch = _granted_by_effects(ch, effects, wipe)
     if on_field and state.zones.get("stack"):  # -- (wave 110B) -- Torrent of Lava: the ability it gives every creature while it is on the stack
         from app.rules import wave110b_final
@@ -1264,7 +1279,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
             from app.rules import group_layers
 
             if group_layers.graveyard_wiped(state, card, ch, info):
-                ch = replace(ch, abilities=())
+                ch = evolve(ch, abilities=())
     if info is not None and _T.depth == 0 and state.rules is not None and card.zone == "stack" and card.ability is None:
         from app.rules import (
             kicked_spell_outcomes59,
@@ -1288,7 +1303,7 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     # Vehicle. Copiable printed values remain unchanged; a later derivation
     # after crew/animation restores them and reapplies saved 208.3a effects.
     if on_field and not ch.is_creature:
-        return _with_rules(state, card, replace(ch, power=None, toughness=None, pt=None, base_pt=None), info, imposed)
+        return _with_rules(state, card, evolve(ch, power=None, toughness=None, pt=None, base_pt=None), info, imposed)
     # layer 7
     setters: list[tuple[tuple[int, int, int], int | None, int | None]] = []
     setters += [((timestamp(state, card.id), 0, 0), d['base'][0], d['base'][1]) for d in outside_self]
@@ -1359,13 +1374,15 @@ def _derive(state: GameState, card: CardInstance, ch: Characteristics, info: Car
     for e in effects:
         if e.layer == "7d":
             p, t = t, p
-    return _with_rules(state, card, replace(ch, pt=(p, t), base_pt=base), info, imposed)
+    return _with_rules(state, card, evolve(ch, pt=(p, t), base_pt=base), info, imposed)
 
 
 def _hone(state: GameState, card: CardInstance, info: CardInfo) -> int:
     """-- counters (wave 24C) -- 122.1j: the hone counters on the Equipment attached to this creature (613.4c: counters, layer 7c)."""
     from app.rules import characteristics as chars
 
+    if (hosts := attached_hosts(state)) is not None and card.id not in hosts:
+        return 0  # (big boards: nothing is attached to it, so the sum below is of nothing)
     return sum(c.counters.get("hone", 0) for c in state.cards.values()
                if c.attached_to == card.id and c.counters.get("hone", 0) > 0 and c.zone.endswith(":battlefield")
                and "Equipment" in chars.of(c, info).subtypes)
@@ -1479,12 +1496,22 @@ def _grants(d: dict[str, Any]) -> bool:
                 or d.get("lose_keywords") or d.get("lose_all") or d.get("deny_keywords") or d.get("chosen_keywords") or d.get("snowblind110a"))  # -- attached events (wave 4L) -- (wave 49B: the chosen abilities)
 
 
+def attached_hosts(state: GameState) -> frozenset[str] | None:
+    """-- big boards (perf) -- the ids some card of the table is attached to, read once per read pass (read_pass.card_fact); None
+    outside one. ``card.id in hosts`` is exactly ``any(c.attached_to == card.id for c in state.cards.values())``: an id is never None."""
+    return read_pass.card_fact(state, "attached_hosts",
+                               lambda: frozenset(c.attached_to for c in state.cards.values() if c.attached_to is not None))
+
+
 def _attached45(state: GameState, card: CardInstance, info: CardInfo | None,
-                table: list[Static] | None = None) -> list[tuple[float, dict[str, Any]]]:
-    """-- attached events (wave 4L) -- the type/color statics of the Auras and Equipment attached to it."""
+                table: list[Static] | None = None, hosts: frozenset[str] | None = None) -> list[tuple[float, dict[str, Any]]]:
+    """-- attached events (wave 4L) -- the type/color statics of the Auras and Equipment attached to it. ``hosts``: ``attached_hosts``
+    of this table, read by the caller."""
     if info is None or state.rules is None or not card.zone.endswith(":battlefield"):
         return []
-    if not any(c.attached_to == card.id for c in state.cards.values()):
+    if hosts is None:
+        hosts = attached_hosts(state)
+    if (card.id not in hosts) if hosts is not None else not any(c.attached_to == card.id for c in state.cards.values()):
         return []
     from app.rules.attached_types import layer45
 

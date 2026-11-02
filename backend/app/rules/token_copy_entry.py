@@ -22,6 +22,14 @@ def probe(plan: Plan, player: str, spec: dict[str, Any]) -> Any:
     return replacements._token_probe(player, spec).model_copy(update={'embalmed': bool(spec.get('_embalmed'))})
 
 
+def prospect(plan: Plan, incoming: Any) -> Any:
+    """-- big boards (perf) -- the token as it would exist on the battlefield (``plan.ch`` of the probe: the whole field is worked out
+    with it on it, layer_dependency_graph.solve_field), in a read pass (Plan.reading: the statics table, each permanent's printed
+    values and the effects on each object are read once, not once per permanent). Only reads the table."""
+    with plan.reading():
+        return plan.ch(incoming)
+
+
 def effective(ev: dict[str, Any], row: dict[str, str]) -> dict[str, Any]:
     import json
 
@@ -39,9 +47,16 @@ def copy_choices(plan: Plan, evs: list[dict[str, Any]], answers: dict[str, str])
     n = 0
     for ev in evs:
         row: list[dict[str, str]] = []
+        d: dict[str, Any] | None = None
         for k in range(ev['count']):
+            if k and d is None:
+                # -- big boards (perf) -- every token of the event is the same prospective object (``effective(ev, {})``) and the token before
+                # it had no "enter as a copy" ability and changed nothing: this one has none either. (Each look derives the whole
+                # battlefield as it would be with the token on it: 614.12; Adrix and Nev's doubled tokens looked twice.)
+                row.append({})
+                continue
             incoming = probe(plan, ev['player'], effective(ev, {}))
-            d = next((d for d in scripts.definitions(plan.ch(incoming)).values()
+            d = next((d for d in scripts.definitions(prospect(plan, incoming)).values()
                       if d.get('replacement') == 'enter_as_copy'), None)
             got: dict[str, str] = {}
             if d is not None:
@@ -80,9 +95,14 @@ def hosts(plan: Plan, evs: list[dict[str, Any]], rows: list[list[dict[str, str]]
     for index, ev in enumerate(evs):
         while len(rows[index]) < ev['count']:
             rows[index].append({})
+        kind = None
         for k in range(ev['count']):
+            if k and kind not in ('aura', 'equipment', 'fortification') and rows[index][k].get(COPY) == rows[index][k - 1].get(COPY):
+                # -- big boards (perf) -- the same prospective object as the token before it (``effective`` reads only the copy recipe of
+                # the row), which attaches to nothing and changed nothing: neither does this one (below, ``continue``)
+                continue
             incoming = probe(plan, ev['player'], effective(ev, rows[index][k]))
-            kind = attachments.attach_kind(plan.ch(incoming))
+            kind = attachments.attach_kind(prospect(plan, incoming))
             fixed = ev.get('attachment_ref')
             if fixed is not None and kind in ('aura', 'equipment', 'fortification'):
                 ref = ObjectRef.model_validate(fixed)
