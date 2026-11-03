@@ -14,14 +14,25 @@ const data = (type_line: string): CardData => ({ type_line, faces: [] } as unkno
 
 describe("arranged board: rows", () => {
   it("puts creatures in front, other permanents behind them, lands at the back", () => {
-    const l = arrangeBoard([card("land", "land"), card("art", "other"), card("cre", "creature")], { width: 900, height: 420, mirrored: false });
+    const board = [
+      ...["c1", "c2", "c3", "c4"].map((id) => card(id, "creature")), ...["a1", "a2", "a3"].map((id) => card(id, "other")),
+      ...["l1", "l2", "l3", "l4", "l5"].map((id) => card(id, "land")),
+    ];
+    const l = arrangeBoard(board, { width: 900, height: 420, mirrored: false });
     const top = (id: string) => l.place.get(id)!.top;
-    expect(top("cre")).toBeLessThan(top("art")); // my mat: the front is the top, toward the middle of the table
-    expect(top("art")).toBeLessThan(top("land"));
-    const opp = arrangeBoard([card("land", "land"), card("art", "other"), card("cre", "creature")], { width: 900, height: 420, mirrored: true });
+    expect(top("c1")).toBeLessThan(top("a1")); // my mat: the front is the top, toward the middle of the table
+    expect(top("a1")).toBeLessThan(top("l1"));
+    const opp = arrangeBoard(board, { width: 900, height: 420, mirrored: true });
     const otop = (id: string) => opp.place.get(id)!.top;
-    expect(otop("cre")).toBeGreaterThan(otop("art")); // an opponent's front is the bottom of their mat
-    expect(otop("art")).toBeGreaterThan(otop("land"));
+    expect(otop("c1")).toBeGreaterThan(otop("a1")); // an opponent's front is the bottom of their mat
+    expect(otop("a1")).toBeGreaterThan(otop("l1"));
+  });
+
+  it("puts a few other permanents beside the lands when that makes every card bigger", () => {
+    const l = arrangeBoard([card("land", "land"), card("art", "other"), card("cre", "creature")], { width: 900, height: 420, mirrored: false });
+    expect(l.place.get("art")!.top).toBe(l.place.get("land")!.top);
+    expect(l.place.get("art")!.left).toBeGreaterThan(l.place.get("land")!.left); // to the right of the lands, as on Arena
+    expect(l.place.get("cre")!.top).toBeLessThan(l.place.get("land")!.top);
   });
 
   it("sorts cards into rows by what they are", () => {
@@ -36,18 +47,18 @@ describe("arranged board: rows", () => {
     expect(rowOf(vis("t", "Goblin", { card_id: null, is_token: true, token: { name: "Goblin", type_line: "Token Creature — Goblin" } as VisibleCard["token"] }), undefined)).toBe("creature");
   });
 
-  it("fills the mat: few cards are big, many cards shrink, then overlap", () => {
+  it("fills the mat: few cards are big; a long row wraps before its cards shrink, and a crowded one overlaps", () => {
     const few = arrangeBoard([card("a", "creature"), card("b", "land")], { width: 1200, height: 400, mirrored: false, maxW: 150 });
     expect(few.w).toBe(150);
-    const many = arrangeBoard(Array.from({ length: 14 }, (_, i) => card(`c${i}`, "creature")), { width: 1200, height: 400, mirrored: false });
-    expect(many.w).toBeLessThan(few.w);
-    expect(many.w).toBeGreaterThan(70);
-    const crowd = arrangeBoard(Array.from({ length: 40 }, (_, i) => card(`c${i}`, "creature")), { width: 1200, height: 400, mirrored: false, minW: 60 });
-    expect(crowd.w).toBe(60); // never below the readable width for room …
-    const lefts = Array.from({ length: 40 }, (_, i) => crowd.place.get(`c${i}`)!.left);
-    expect(lefts[39]! + crowd.w).toBeLessThanOrEqual(1200); // … they overlap instead, all on the mat
-    expect(lefts[1]! - lefts[0]!).toBeLessThan(crowd.w);
-    expect(crowd.place.get("c39")!.z).toBeGreaterThan(crowd.place.get("c0")!.z); // the later one on top
+    const long = arrangeBoard(Array.from({ length: 24 }, (_, i) => card(`c${i}`, "creature")), { width: 1200, height: 400, mirrored: false });
+    expect(new Set([...long.place.values()].map((p) => p.top)).size).toBeGreaterThan(1); // more lines …
+    expect(long.w).toBeGreaterThan(80); // … of readable cards
+    const crowd = arrangeBoard(Array.from({ length: 40 }, (_, i) => card(`c${i}`, "creature")), { width: 1200, height: 200, mirrored: false, minW: 60 });
+    expect(crowd.w).toBeGreaterThanOrEqual(60); // never below the readable width for room …
+    const places = Array.from({ length: 40 }, (_, i) => crowd.place.get(`c${i}`)!);
+    for (const p of places) expect(p.left + crowd.w).toBeLessThanOrEqual(1200); // … they overlap instead, all on the mat
+    expect(places[1]!.left - places[0]!.left).toBeLessThan(crowd.w);
+    expect(places[1]!.z).toBeGreaterThan(places[0]!.z); // the later one on top
   });
 
   it("keeps every card on the mat, clear of the hand's overlap at the back", () => {

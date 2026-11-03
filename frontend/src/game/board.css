@@ -1,0 +1,112 @@
+/* ================= the arranged 2D board (game/arrange.ts, game/BoardTile.tsx) =================
+   Each mat lays itself out like MTG Arena's battlefield: creatures toward the middle, other permanents behind them,
+   lands on a strip by the player's edge. Cards are art tiles: the art large, the name on a bar, P/T on a parchment
+   plate. Cards move by transform only; nothing here animates a filter or a shadow. */
+
+/* the land strip: printed on the felt like a playmat's zone (static, under the cards) */
+.battlefield.arranged .mat-band {
+  position: absolute; left: 10px; right: 10px; z-index: 0; pointer-events: none; border-radius: 10px;
+  background: rgba(0, 0, 0, 0.16);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.28), 0 1px 0 rgba(255, 236, 200, 0.035);
+}
+body.perf-low .battlefield.arranged .mat-band { box-shadow: none; }
+.battlefield.arranged .marquee { z-index: 39998; }
+
+/* ---------- the card on the board ---------- */
+.table-card[data-tile] {
+  container-type: inline-size; border-radius: 6% / 5.4%;
+  transition: transform calc(0.18s * var(--anim-scale, 1)) var(--ease-out, ease-out);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 3px 8px rgba(0, 0, 0, 0.5);
+}
+/* the card you point at comes to the top of a crowded row */
+.table-card[data-tile]:hover { z-index: 39999 !important; box-shadow: 0 0 0 2px rgba(255, 244, 222, 0.55), 0 6px 16px rgba(0, 0, 0, 0.6); }
+.table-card[data-tile].selected { box-shadow: 0 0 0 2px var(--accent-2), 0 0 12px rgba(240, 195, 109, 0.5); }
+.table-card[data-tile].attacking { box-shadow: 0 0 0 2px #e0645c, 0 0 14px rgba(224, 100, 92, 0.65); }
+.table-card[data-tile].blocking { box-shadow: 0 0 0 2px #6aa7e8, 0 0 12px rgba(106, 167, 232, 0.55); }
+
+.board-tile {
+  position: relative; width: 100%; aspect-ratio: 1 / 1.12; overflow: hidden; border-radius: inherit;
+  container-type: inline-size; background: #17130f; user-select: none;
+}
+/* the frame: a dark edge and the card's colour inked inside it (the proxy's frame colours), over the art */
+.board-tile::after {
+  content: ""; position: absolute; inset: 0; z-index: 3; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(8, 6, 4, 0.9), inset 0 0 0 max(2.5px, 3cqw) var(--tile-frame, #a29b91), inset 0 0 0 calc(max(2.5px, 3cqw) + 1px) rgba(8, 6, 4, 0.55);
+}
+/* the art: the card scan, cropped to its art window (modern frames: 5–55% of the card's height) */
+.tile-art { position: absolute; left: -29.4%; top: -9.9%; width: 158.8%; max-width: none; height: auto; display: block; pointer-events: none; }
+/* no cached art: the proxy's art window, its colours and its type's icon */
+.tile-field {
+  position: absolute; inset: 0;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 3px),
+    linear-gradient(118deg, var(--tc-field, #8d867c) 50%, var(--tc-field2, #8d867c) 50%);
+  box-shadow: inset 0 0 14cqw rgba(0, 0, 0, 0.35);
+}
+.tile-glyph { position: absolute; left: 0; right: 0; top: 14%; bottom: 0; margin: auto; height: 46%; width: auto; aspect-ratio: 1; fill: var(--tc-glyph); fill-rule: evenodd; overflow: visible; }
+.tile-glyph .tc-glyph-lit { fill: var(--tc-glyph-lit); }
+
+/* the name: one line across the top, on smoked glass (Inter: it stays legible at a tile's size) */
+.tile-name {
+  position: absolute; left: 0; right: 0; top: 0; z-index: 2; display: flex; align-items: center; gap: 2.5cqw;
+  height: max(15px, 19cqw); padding: 0 6cqw 0 6cqw;
+  font: 600 clamp(9.5px, 12.5cqw, 13px)/1 var(--font-ui); letter-spacing: 0; color: #f3ead6;
+  background: linear-gradient(180deg, rgba(16, 12, 8, 0.94), rgba(16, 12, 8, 0.8));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--tile-frame, #a29b91) 55%, #000);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8);
+}
+.tile-name span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tile-crown { flex: none; color: var(--accent-2); width: max(10px, 11cqw); height: max(10px, 11cqw); }
+/* a token: a hollow coin before its name, and the name in italics */
+.tile-token .tile-name span { font-style: italic; }
+.tile-token-mark {
+  flex: none; width: max(7px, 8cqw); height: max(7px, 8cqw); border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px #d9d0bd;
+}
+
+/* power and toughness: a parchment plate, as on the proxy card */
+.tile-pt {
+  position: absolute; right: 5cqw; bottom: 5cqw; z-index: 2; display: inline-flex; align-items: center; justify-content: center; gap: 2cqw;
+  min-width: 36cqw; height: max(15px, 21cqw); padding: 0 5cqw; border-radius: 2.5px;
+  font: 700 clamp(10px, 15cqw, 17px)/1 var(--font-display); font-variant-numeric: lining-nums tabular-nums; color: #1f1a15;
+  background: #ece2cb;
+  box-shadow: 0 0 0 1px #2a2219, inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 4px rgba(0, 0, 0, 0.55);
+}
+.tile-pt i { font-style: normal; font-size: 0.7em; }
+.tile-pt.up { color: #155228; box-shadow: 0 0 0 1px #2f8a52, inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 4px rgba(0, 0, 0, 0.55); }
+.tile-pt.down { color: #8c1f17; box-shadow: 0 0 0 1px #b33c32, inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 4px rgba(0, 0, 0, 0.55); }
+
+/* face down: the sleeve or the card back, edge to edge */
+.board-tile.tile-back { border: 0; box-shadow: none; }
+.board-tile.tile-back .peek-badge { top: 6%; left: 6%; }
+
+/* tapped: turned a quarter, and a shade darker so what's untapped stands out (an overlay: no filter) */
+.table-card[data-tile][data-tapped] .board-tile::before {
+  content: ""; position: absolute; inset: 0; z-index: 2; background: rgba(10, 8, 6, 0.22); pointer-events: none;
+}
+
+/* the card's markers, where a tile has room for them: under the name bar, counters along the bottom left */
+.table-card[data-tile] .card-marks { top: calc(max(15px, 19cqw) + 3px); right: 5cqw; z-index: 4; }
+.table-card[data-tile] .card-marks .mark.token, .table-card[data-tile] .card-marks .mark.cmdr { display: none; } /* on the name bar */
+.table-card[data-tile] .mark { font-size: clamp(8.5px, 10cqw, 10.5px); }
+.table-card[data-tile] .counters { left: 5cqw; right: 44cqw; bottom: 5cqw; z-index: 4; }
+.table-card[data-tile] .counter { font-size: clamp(9px, 12cqw, 12px); padding: 1px 4px; }
+.table-card[data-tile] .card-effects { left: 5cqw; right: auto; bottom: calc(max(15px, 21cqw) + 9cqw); z-index: 4; flex-direction: column; align-items: flex-start; }
+.table-card[data-tile] .card-effects .fx { font-size: clamp(8.5px, 10.5cqw, 11px); }
+.table-card[data-tile] .card-effects .fx.dmg::after { content: " dmg"; font-weight: 600; }
+/* ×N on the stack's top card, at its left where the stack's edges are (the part a crowded row never covers) */
+.table-card[data-tile] .pile-count-mark { top: calc(max(15px, 19cqw) + 3px); right: auto; left: -5px; z-index: 5; padding: 0 5px; line-height: 17px; }
+
+body.perf-low .table-card[data-tile] .tile-name { background: rgba(16, 12, 8, 0.92); }
+body.perf-low .table-card[data-tile] .tile-field { background: linear-gradient(118deg, var(--tc-field, #8d867c) 50%, var(--tc-field2, #8d867c) 50%); }
+
+/* ---------- my hand: below my mat, overlapping it a little, sunk at the screen's edge; a card lifts as you reach for it ---------- */
+.game-screen:has(main.table:not(.is-3d)) { --hand-h: 112px; }
+main.table:not(.is-3d) > .hand:not(.compact) {
+  height: 124px; padding: 0 12px; margin-top: -22px; z-index: 2;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.18) 70%, transparent);
+}
+main.table:not(.is-3d) > .hand:not(.compact) .hand-card { transform: translateY(30px); }
+main.table:not(.is-3d) > .hand:not(.compact) .hand-card:hover,
+main.table:not(.is-3d) > .hand:not(.compact) .hand-card:focus-visible { transform: translateY(-30px) scale(1.12); z-index: 50; }
+main.table:not(.is-3d) > .hand:not(.compact) .hand-empty { padding-top: 20px; }

@@ -73,7 +73,7 @@ const PAD = 8; // px around the mat's edge
 /** Front to back. */
 const ROW_ORDER: RowKind[] = ["creature", "other", "land"];
 
-interface Slot { ids: string[]; n: number; turned: boolean; forward: boolean; attach: string[] }
+interface Slot { ids: string[]; n: number; turned: boolean; forward: boolean; attach: string[]; merged?: boolean }
 
 /** Slot footprint in tile widths: [width, height]. */
 function slotSize(s: Slot): [number, number] {
@@ -111,6 +111,41 @@ export function boardSlots(cards: ArrangeCard[]): Record<RowKind, Slot[]> {
   return rows;
 }
 
+interface Line { kind: RowKind; slots: Slot[] }
+
+/** `list` in `n` lines of about the same length, front to back. */
+function wrap(kind: RowKind, list: Slot[], n: number): Line[] {
+  const per = Math.ceil(list.length / n);
+  const out: Line[] = [];
+  for (let i = 0; i < list.length; i += per) out.push({ kind, slots: list.slice(i, i + per) });
+  return out;
+}
+
+/**
+ * The ways this board could be laid out: each row in one line or wrapped in two or three, and the other permanents
+ * either in their own row or beside the lands (MTG Arena's back row) when that leaves room for bigger cards.
+ */
+function layouts(slots: Record<RowKind, Slot[]>): Line[][] {
+  const c = slots.creature;
+  const o = slots.other;
+  const l = slots.land;
+  const out: Line[][] = [];
+  const counts = (n: number, most: number) => [1, 2, 3].filter((k) => k <= most && (k === 1 || n >= k * 2));
+  for (const lc of counts(c.length, 3)) {
+    const front = c.length ? wrap("creature", c, lc) : [];
+    for (const lo of counts(o.length, 2)) {
+      for (const ll of counts(l.length, 2)) {
+        out.push([...front, ...(o.length ? wrap("other", o, lo) : []), ...(l.length ? wrap("land", l, ll) : [])]);
+      }
+    }
+    if (o.length && l.length) {
+      const beside = o.map((sl) => ({ ...sl, merged: true }));
+      for (const lb of counts(o.length + l.length, 2)) out.push([...front, ...wrap("land", [...l, ...beside], lb)]);
+    }
+  }
+  return out;
+}
+
 /** Lay out one battlefield. */
 export function arrangeBoard(cards: ArrangeCard[], opts: ArrangeOptions): BoardLayout {
   const { width: W, height: H, mirrored } = opts;
@@ -118,89 +153,100 @@ export function arrangeBoard(cards: ArrangeCard[], opts: ArrangeOptions): BoardL
   const maxW = opts.maxW ?? 150;
   const slots = boardSlots(cards);
   const place = new Map<string, Placement>();
-  const used = ROW_ORDER.filter((k) => slots[k].length);
-  if (!used.length || W <= 0 || H <= 0) return { w: 0, h: 0, place, rows: [] };
-
+  if (!ROW_ORDER.some((k) => slots[k].length) || W <= 0 || H <= 0) return { w: 0, h: 0, place, rows: [] };
   const innerW = Math.max(40, W - PAD * 2);
   const innerH = Math.max(30, H - PAD * 2 - back);
-  const rowUnits = used.map((k) => Math.max(...slots[k].map((s) => slotSize(s)[1])));
-  const widthUnits = used.map((k) => slots[k].reduce((sum, s) => sum + slotSize(s)[0], 0) + (slots[k].length - 1) * GAP);
-  const heightUnits = rowUnits.reduce((a, b) => a + b, 0) + (used.length - 1) * ROW_GAP;
-  const hFit = innerH / heightUnits;
-  const minW = Math.min(hFit, opts.minW ?? 58);
 
-  // rows' vertical bands for a tile width, front to back (front: the top of my mat, the bottom of an opponent's)
-  const bands = (w: number) => {
-    const total = rowUnits.reduce((a, b) => a + b * w, 0);
+  // the lines' vertical bands for a tile width, front to back (front: the top of my mat, the bottom of an opponent's)
+  const bands = (lines: Line[], units: number[], w: number) => {
+    const total = units.reduce((a, b) => a + b * w, 0);
     const spare = Math.max(0, innerH - total);
-    const gap = used.length > 1 ? Math.max(ROW_GAP * w, spare / (used.length - 1)) : 0;
-    let at = PAD;
-    const out = rowUnits.map((u, i) => {
-      // one row alone: lands at the back, creatures at the front, the rest in the middle
-      const lone = used.length === 1 ? (used[0] === "land" ? spare : used[0] === "other" ? spare / 2 : 0) : 0;
-      const top = at + lone;
-      at += u * w + gap;
-      return { top, height: u * w, i };
+    // the spare room goes between the rows (a wrapped row's lines stay together); one row alone sits where it belongs
+    const breaks = lines.reduce((n, ln, i) => n + (i > 0 && ln.kind !== lines[i - 1]!.kind ? 1 : 0), 0);
+    const kindGap = breaks ? Math.max(ROW_GAP * w, (spare - (lines.length - 1 - breaks) * ROW_GAP * w) / breaks) : ROW_GAP * w;
+    const lone = !breaks ? (lines[0]!.kind === "land" ? spare - (lines.length - 1) * ROW_GAP * w : lines[0]!.kind === "other" ? (spare - (lines.length - 1) * ROW_GAP * w) / 2 : 0) : 0;
+    let at = PAD + Math.max(0, lone);
+    const out = units.map((u, i) => {
+      if (i > 0) at += lines[i]!.kind !== lines[i - 1]!.kind ? kindGap : ROW_GAP * w;
+      const top = at;
+      at += u * w;
+      return { top, height: u * w };
     });
     // an opponent's front is the bottom of their mat (their back inset, if any, is at the top)
     return mirrored ? out.map((b) => ({ ...b, top: H - b.top - b.height })) : out;
   };
-
-  const rowWidth = (bandTop: number, bandH: number) => {
+  const lineWidth = (band: { top: number; height: number }) => {
     const k = opts.keepOut;
-    if (k && bandTop + bandH > k.top && k.left < W - PAD) return Math.max(40, k.left - PAD - 6);
+    if (k && band.top + band.height > k.top && k.left < W - PAD) return Math.max(40, k.left - PAD - 6);
     return innerW;
   };
-  const solve = (avail: number[]) => {
-    const fit = Math.min(...widthUnits.map((u, i) => avail[i]! / u));
-    return Math.max(4, Math.min(maxW, hFit, Math.max(fit, minW)));
+
+  /** A tile width for these lines, and how good it is (bigger is better; overlapping costs). */
+  const fit = (lines: Line[]) => {
+    const units = lines.map((ln) => Math.max(...ln.slots.map((s) => slotSize(s)[1])));
+    const across = lines.map((ln) => ln.slots.reduce((sum, s) => sum + slotSize(s)[0], 0) + (ln.slots.length - 1) * GAP);
+    const hFit = innerH / (units.reduce((a, b) => a + b, 0) + (lines.length - 1) * ROW_GAP);
+    const minW = Math.min(hFit, opts.minW ?? 58);
+    const solve = (avail: number[]) => {
+      const wFit = Math.min(...across.map((u, i) => avail[i]! / u));
+      // a line too crowded for readable cards overlaps them instead of shrinking them further
+      return { w: Math.max(4, Math.min(maxW, hFit, Math.max(wFit, minW))), wFit };
+    };
+    let r = solve(lines.map(() => innerW));
+    if (opts.keepOut) r = solve(bands(lines, units, r.w).map(lineWidth));
+    const score = Math.min(r.w, r.wFit); // overlapping cards count as only as big as what shows of them
+    return { ...r, units, score };
   };
-  let w = solve(used.map(() => innerW));
-  let rowsAt = bands(w);
-  if (opts.keepOut) {
-    const avail = rowsAt.map((b) => rowWidth(b.top, b.height));
-    w = solve(avail);
-    rowsAt = bands(w);
+  // each line, and putting the other permanents beside the lands, has to earn its place with clearly bigger cards
+  const cost = (option: Line[]) => 1.08 ** option.length * (option.some((ln) => ln.kind === "land" && ln.slots.some((sl) => sl.merged)) ? 1.15 : 1);
+  let lines: Line[] = [];
+  let best: (ReturnType<typeof fit> & { value: number }) | null = null;
+  for (const option of layouts(slots)) {
+    const f = fit(option);
+    const value = f.score / cost(option);
+    if (!best || value > best.value) {
+      best = { ...f, value };
+      lines = option;
+    }
   }
+  const w = best!.w;
   const h = w * TILE_RATIO;
+  const at = bands(lines, best!.units, w);
 
   const rows: BoardRow[] = [];
-  used.forEach((kind, r) => {
-    const band = rowsAt[r]!;
-    const list = slots[kind];
-    const sizes = list.map((s) => slotSize(s).map((u) => u * w) as [number, number]);
-    const avail = rowWidth(band.top, band.height);
-    const natural = sizes.reduce((a, s) => a + s[0], 0) + (list.length - 1) * GAP * w;
+  const frontDir = mirrored ? 1 : -1; // toward the middle of the table: up on my mat, down on an opponent's
+  lines.forEach((line, r) => {
+    const band = at[r]!;
+    const list = line.slots;
+    const sizes = list.map((s) => slotSize(s)[0] * w);
+    const avail = lineWidth(band);
+    const natural = sizes.reduce((a, b) => a + b, 0) + (list.length - 1) * GAP * w;
     // crowded: the slots overlap evenly, the last one whole
-    const last = sizes[sizes.length - 1]![0];
+    const last = sizes[sizes.length - 1]!;
     const squeeze = natural > avail && list.length > 1 ? Math.max(0, (avail - last) / (natural - last)) : 1;
     let x = PAD + Math.max(0, (avail - Math.min(natural, avail)) / 2);
     const rowLeft = x;
-    const frontDir = mirrored ? 1 : -1; // toward the middle of the table: up on my mat, down on an opponent's
     list.forEach((slot, si) => {
-      const [sw] = sizes[si]!;
       const footW = (slot.turned ? TILE_RATIO : 1) * w;
       const att = Math.min(slot.attach.length, ATT_SHOWN);
-      // the stack (card, its attachments peeking out, its forward step) is centred in the row's band
+      // the stack (card, its attachments peeking out, its forward step) is centred in the line's band
       const cy = band.top + band.height / 2 - frontDir * (att * ATT_DY * w) / 2 + (slot.forward ? frontDir * FORWARD * w / 2 : 0);
-      const z0 = (ROW_ORDER.length - r) * 10000 + si * 100;
+      const z0 = (lines.length - r) * 10000 + si * 100;
       // the card it stands on is at the slot's left; attachments peek out to the right and toward the middle
       slot.attach.forEach((aid, j) => {
         const k = Math.min(j + 1, ATT_SHOWN);
-        const acx = x + footW / 2 + k * ATT_DX * w;
-        const acy = cy + frontDir * k * ATT_DY * w;
-        place.set(aid, { left: acx - w / 2, top: acy - h / 2, z: z0 + ATT_SHOWN - Math.min(j, ATT_SHOWN - 1) });
+        place.set(aid, { left: x + footW / 2 + k * ATT_DX * w - w / 2, top: cy + frontDir * k * ATT_DY * w - h / 2, z: z0 + ATT_SHOWN - Math.min(j, ATT_SHOWN - 1) });
       });
       const shown = Math.min(slot.ids.length, PILE_SHOWN);
       slot.ids.forEach((id, m) => {
         const step = Math.max(0, shown - slot.ids.length + m); // the hidden ones sit under the first edge
         const cx = x + footW / 2 + step * PILE_STEP * w;
         const top = m === slot.ids.length - 1;
-        place.set(id, { left: cx - w / 2, top: cy - h / 2, z: z0 + ATT_SHOWN + 1 + m, ...(top && slot.n > 1 ? { pile: slot.n } : {}) });
+        place.set(id, { left: cx - w / 2, top: cy - h / 2, z: z0 + ATT_SHOWN + 1 + m, ...(top && slot.ids.length > 1 ? { pile: slot.n } : {}) });
       });
-      x += (sw + GAP * w) * squeeze;
+      x += (sizes[si]! + GAP * w) * squeeze;
     });
-    rows.push({ kind, top: band.top, height: band.height, left: rowLeft, right: Math.min(PAD + avail, rowLeft + natural), slots: list.map((s) => [...s.ids, ...s.attach]) });
+    rows.push({ kind: line.kind, top: band.top, height: band.height, left: rowLeft, right: Math.min(PAD + avail, rowLeft + natural), slots: list.map((s) => [...s.ids, ...s.attach]) });
   });
   return { w, h, place, rows };
 }
@@ -289,23 +335,26 @@ export function applyOrder(ids: string[], order: string[]): string[] {
 }
 
 /**
- * Dropping `moving` on its own board at x (px, the dragged card's left edge): the order with those cards moved to that
- * spot in their row, or null when they aren't in one row (nothing to reorder).
+ * Dropping `moving` on its own board with the dragged card's top-left at (x, y) px: the order with those cards moved to
+ * that spot in their row (the line of that row nearest the drop, when it wraps), or null when they aren't on the board.
  */
-export function reorderOnDrop(layout: BoardLayout, moving: string[], x: number): string[] | null {
-  const row = layout.rows.find((r) => r.slots.some((s) => s.some((id) => moving.includes(id))));
-  if (!row) return null;
-  const centre = x + layout.w / 2;
+export function reorderOnDrop(layout: BoardLayout, moving: string[], x: number, y?: number): string[] | null {
+  const from = layout.rows.find((r) => r.slots.some((s) => s.some((id) => moving.includes(id))));
+  if (!from) return null;
+  const cy = y == null ? null : y + layout.h / 2;
+  const row = cy == null ? from : layout.rows.filter((r) => r.kind === from.kind)
+    .reduce((a, b) => (Math.abs(b.top + b.height / 2 - cy) < Math.abs(a.top + a.height / 2 - cy) ? b : a), from);
+  const mine = layout.rows.flatMap((r) => r.slots.filter((s) => s.some((id) => moving.includes(id)) && r.kind === from.kind)).flat();
   const others = row.slots.filter((s) => !s.some((id) => moving.includes(id)));
-  const mine = row.slots.filter((s) => s.some((id) => moving.includes(id))).flat();
+  const centre = x + layout.w / 2;
   let at = others.length;
   for (let i = 0; i < others.length; i++) {
-    const p = layout.place.get(others[i]![others[i]!.length - 1]!) ?? layout.place.get(others[i]![0]!);
+    const p = layout.place.get(others[i]![0]!);
     if (p && centre < p.left + layout.w / 2) {
       at = i;
       break;
     }
   }
-  const newRow = [...others.slice(0, at), mine, ...others.slice(at)];
-  return layout.rows.flatMap((r) => (r === row ? newRow.flat() : r.slots.flat()));
+  const newRow = [...others.slice(0, at), mine, ...others.slice(at)].flat();
+  return layout.rows.flatMap((r) => (r === row ? newRow : r.slots.filter((s) => !(r.kind === from.kind && s.some((id) => moving.includes(id)))).flat()));
 }
