@@ -3,16 +3,22 @@
  * (seat plates with life totals, camera presets). Falls back to the 2D table when WebGL is
  * unavailable (see GameScreen).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { setDropResolver3D } from "../game/dnd";
-import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "../game/PlayerPanel";
+import { setPingLocator3D } from "../game/ping";
+import { placeAnchored, selectionAnchor } from "../game/anchors";
+import { SeatPlate } from "../game/SeatPlate";
+import { useDiceFeed, type DiceShow } from "../game/dice";
+import type { SeatActionId } from "../game/seatActions";
 import { plane } from "../theme/planes";
 import { isVisible, type GameView } from "../types/game";
 import { ERROR_MS, TableScene, type CameraPreset, type Quality } from "./TableScene";
 import { startAmbience } from "./ambience";
+import { autoCenterTarget, autoSnap, type AutoSnap } from "./autoCenter";
+import { cameraKey, combatCardIds } from "./focus";
 import "./table3d.css";
 
 declare global {
@@ -23,6 +29,18 @@ declare global {
       camera: (p: CameraPreset) => void;
       cardAt: (id: string) => { x: number; y: number } | null;
       battlefieldAt: (player: string, x: number, y: number) => { x: number; y: number } | null;
+      dice: () => { x: number; y: number }[];
+      diceState: () => ReturnType<TableScene["diceState"]>;
+      throwDice: (show: DiceShow) => void;
+      /** -- table toys -- the dice cannon: out on the table (rolling in, firing, rolling off) and where. */
+      cannon?: () => ReturnType<TableScene["cannonState"]>;
+      flick: (ids: string[], vx: number, vz: number) => boolean;
+      heartAt: (player: string, side?: -1 | 0 | 1) => { x: number; y: number } | null;
+      buttonAt: (id: SeatActionId) => { x: number; y: number } | null;
+      taxAt: (commanderKey: string) => { x: number; y: number } | null;
+      /** Table motion (table3d/motion3d.ts): freeze every running motion at a time in ms (null: live), and what is running. */
+      motionFreeze?: (ms: number | null) => void;
+      motion?: () => { busy: boolean; flights: number; floaters: number; riffles: number; lunges: number };
     };
   }
 }
@@ -30,6 +48,7 @@ declare global {
 export function Table3D({ me }: { me: string }) {
   const host = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<TableScene | null>(null);
+  const reserved = useRef(0);
   const planeId = usePrefs((s) => s.plane);
   const graphics = usePrefs((s) => s.graphics);
   const ambienceOn = usePrefs((s) => s.ambience && !s.sound.muted);
@@ -51,6 +70,7 @@ export function Table3D({ me }: { me: string }) {
     const quality: Quality = graphics === "low" ? "low" : graphics === "medium" ? "medium" : "high";
     const scene = new TableScene(el, plane(usePrefs.getState().plane), quality);
     sceneRef.current = scene;
+    scene.setTopReserve(reserved.current);
     const resize = () => scene.resize(el.clientWidth, el.clientHeight);
     const ro = new ResizeObserver(resize);
     ro.observe(el);
@@ -68,11 +88,26 @@ export function Table3D({ me }: { me: string }) {
       if (s.cards !== prev.cards) sync();
     });
     setDropResolver3D((x, y) => scene.resolveDrop(x, y));
+    setPingLocator3D({
+      targetAt: (x, y) => scene.pingTargetAt(x, y),
+      card: (id) => scene.screenOfCard(id),
+      spot: (player, x, y) => scene.screenOfBattlefield(player, x, y),
+    });
     window.__fyodor3d = {
       stats: () => scene.stats,
       camera: (p) => scene.setCamera(p),
       cardAt: (id) => scene.screenOfCard(id),
       battlefieldAt: (player, x, y) => scene.screenOfBattlefield(player, x, y),
+      dice: () => scene.diceOnScreen(),
+      diceState: () => scene.diceState(),
+      throwDice: (show) => scene.throwDice(show),
+      cannon: () => scene.cannonState(),
+      flick: (ids, vx, vz) => scene.flickCards(ids, vx, vz),
+      heartAt: (player, side) => scene.heartOnScreen(player, side ?? 0),
+      buttonAt: (id) => scene.buttonOnScreen(id),
+      taxAt: (key) => scene.taxOnScreen(key),
+      motionFreeze: (ms) => scene.motionFreeze(ms),
+      motion: () => scene.motionState(),
     };
     // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,
     // turn dial, stack panels) and the battlefield cards, and never past the screen edge
@@ -90,6 +125,9 @@ export function Table3D({ me }: { me: string }) {
           return { left: r.left - host.left, top: r.top - host.top, right: r.right - host.left, bottom: r.bottom - host.top };
         });
         cards = scene.battlefieldRects(w, h);
+        // -- arranged boards -- my rows stop short of the corner the turn dial covers
+        const dial = document.querySelector(".turn-dial-wrap")?.getBoundingClientRect();
+        scene.setDialBox(dial && dial.width ? { left: dial.left - host.left, top: dial.top - host.top, bottom: dial.bottom - host.top } : null);
       }
       for (const [pid, node] of Object.entries(plates.current)) {
         if (!node) continue;
@@ -133,10 +171,15 @@ export function Table3D({ me }: { me: string }) {
         node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
         node.style.visibility = pt.visible ? "visible" : "hidden";
       }
+      // the selection toolbar rides above the card it acts on (the camera can move every frame)
+      if (selectionAnchor.node && selectionAnchor.card) {
+        const r = scene.cardRect(selectionAnchor.card, w, h);
+        placeAnchored(selectionAnchor.node, r && { left: host.left + r.left, top: host.top + r.top, right: host.left + r.right, bottom: host.top + r.bottom });
+      }
       // name tags under the selected cards (the card faces are too small to read at seat distance)
       for (const [cid, node] of Object.entries(tags.current)) {
         if (!node) continue;
-        const r = scene.cardRect(cid, w, h);
+        const r = cid === selectionAnchor.card ? null : scene.cardRect(cid, w, h); // the toolbar names its own card
         if (!r) { node.style.visibility = "hidden"; continue; }
         node.style.transform = `translate(${Math.round((r.left + r.right) / 2)}px, ${Math.round(r.bottom + 4)}px) translateX(-50%)`;
         node.style.visibility = "visible";
@@ -148,6 +191,7 @@ export function Table3D({ me }: { me: string }) {
       unGame();
       unCards();
       setDropResolver3D(null);
+      setPingLocator3D(null);
       ro.disconnect();
       scene.dispose();
       sceneRef.current = null;
@@ -156,33 +200,33 @@ export function Table3D({ me }: { me: string }) {
   }, [me, graphics]);
 
   useEffect(() => sceneRef.current?.setPlane(plane(planeId)), [planeId]);
+  // a tip banner under the top bar: the camera keeps the table clear of it (the tip sits over the wood, never the cards)
+  const reserveTop = useCallback((el: HTMLElement | null) => {
+    reserved.current = el ? Math.ceil(el.getBoundingClientRect().bottom - (host.current?.getBoundingClientRect().top ?? 0)) + 6 : 0;
+    sceneRef.current?.setTopReserve(reserved.current);
+  }, []);
   useEffect(() => useGame.getState().setLayout({ stackOpen: false }), []); // the stack lies on the table itself
   useEffect(() => sceneRef.current?.setCamera(preset), [preset]);
-  // camera keys (game/hotkeys.ts): 1 seat, 2–6 other players, 0 whole table, C focus the hovered card, Home back
+  // camera keys (game/hotkeys.ts): 1 seat, 2–6 other players, 0 whole table, Home back; C the hovered card, K the
+  // stack, X the fight (the same key or Esc returns: table3d/focus.ts)
   const back = useRef<CameraPreset>("seat");
   useEffect(() => {
-    const onCam = (e: Event) => {
-      const { id, digit, hover, player } = (e as CustomEvent<{ id: string; digit: number; hover: string | null; player?: string }>).detail;
-      const others = players.filter((p) => p !== me);
-      if (id === "cam_names") return setAllNames((x) => !x);
-      setPreset((cur) => {
-        if (id === "cam_seat" || id === "cam_reset") return "seat";
-        if (id === "cam_table") return "overview";
-        // the winner spotlight turns the camera toward the winning seat (your own seat: your usual view)
-        if (id === "cam_focus_player") return player && player !== me && players.includes(player) ? { focus: player } : "seat";
-        if (id === "cam_player") return others[digit - 2] ? { focus: others[digit - 2]! } : cur;
-        if (id === "cam_focus") {
-          if (typeof cur === "object" && "card" in cur) return back.current;
-          if (hover && sceneRef.current?.screenOfCard(hover)) {
-            back.current = cur;
-            return { card: hover };
-          }
-        }
-        return cur;
+    const step = (id: string, detail: { digit?: number; hover?: string | null; player?: string } = {}) => setPreset((cur) => {
+      const v = useGame.getState().view;
+      const r = cameraKey(id, cur, back.current, {
+        me, players, hover: detail.hover ?? null, digit: detail.digit, player: detail.player,
+        onTable: (cid) => !!sceneRef.current?.screenOfCard(cid), stack: !!v?.stack.length, combat: !!v && combatCardIds(v).length > 0,
       });
+      back.current = r.back;
+      return r.preset;
+    });
+    const onCam = (e: Event) => {
+      const detail = (e as CustomEvent<{ id: string; digit: number; hover: string | null; player?: string }>).detail;
+      if (detail.id === "cam_names") return setAllNames((x) => !x);
+      step(detail.id, detail);
     };
     const onEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setPreset((cur) => (typeof cur === "object" && "card" in cur ? back.current : cur));
+      if (e.key === "Escape") step("escape");
     };
     window.addEventListener("fyodor:camera", onCam);
     window.addEventListener("keydown", onEsc);
@@ -191,7 +235,14 @@ export function Table3D({ me }: { me: string }) {
       window.removeEventListener("keydown", onEsc);
     };
   }, [players, me]);
+  // the stack resolved or the fight ended: its close-up goes back to the view you had
+  const stackEmpty = useGame((s) => !s.view?.stack.length);
+  const noCombat = useGame((s) => !s.view || combatCardIds(s.view).length === 0);
+  useEffect(() => {
+    setPreset((cur) => (typeof cur === "object" && (("stack" in cur && stackEmpty) || ("combat" in cur && noCombat)) ? back.current : cur));
+  }, [stackEmpty, noCombat]);
   useAutoCenter(me, setPreset);
+  useDiceFeed((roll) => sceneRef.current?.throwDice(roll));
   useEffect(() => {
     if (!ambienceOn || ambientVol <= 0) return;
     return startAmbience(plane(planeId).ambience, ambientVol);
@@ -214,8 +265,8 @@ export function Table3D({ me }: { me: string }) {
           <div key={cid} className="t3d-tag" role="listitem" ref={(n) => { tags.current[cid] = n; }}>{name}</div>
         ))}
       </div>
-      <CoachTips />
-      <MomentTips me={me} />
+      <CoachTips reserve={reserveTop} />
+      <MomentTips me={me} reserve={reserveTop} />
       <div className="t3d-cams frame" role="toolbar" aria-label="Camera">
         <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Look from your seat (1)">Seat <kbd className="cam-key">1</kbd></button>
         {others.map((pid, i) => (
@@ -259,7 +310,7 @@ const TIPS = [
 const COACH_KEY = "fyodor.coach3d";
 
 /** Three short tips on a player's first 3D game; dismissed for good on this device. */
-function CoachTips() {
+function CoachTips({ reserve }: { reserve: (el: HTMLElement | null) => void }) {
   const [step, setStep] = useState(() => {
     try { return localStorage.getItem(COACH_KEY) === "done" ? -1 : 0; } catch { return -1; }
   });
@@ -272,7 +323,7 @@ function CoachTips() {
   };
   const tip = TIPS[step]!;
   return (
-    <aside className="t3d-coach plaque-wrap" aria-label="Tip">
+    <aside className="t3d-coach plaque-wrap" aria-label="Tip" ref={reserve}>
       <div className="plaque t3d-coach-body">
         <p className="t3d-coach-title">{tip.title} <span className="t3d-coach-count">{step + 1} of {TIPS.length}</span></p>
         <p className="t3d-coach-text">{tip.text}</p>
@@ -294,7 +345,7 @@ type Moment = keyof typeof MOMENTS;
 const MOMENT_KEY = "fyodor.tips.seen";
 
 /** A short tip the first time each moment comes up (after the first-turn tips); each shows once on this device. */
-function MomentTips({ me }: { me: string }) {
+function MomentTips({ me, reserve }: { me: string; reserve: (el: HTMLElement | null) => void }) {
   const [seen, setSeen] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem(MOMENT_KEY) ?? "[]") as string[]; } catch { return Object.keys(MOMENTS); }
   });
@@ -317,7 +368,7 @@ function MomentTips({ me }: { me: string }) {
   if (!moment || coaching || seen.includes(moment) || seen.includes("off")) return null;
   const tip = MOMENTS[moment];
   return (
-    <aside className="t3d-coach plaque-wrap" aria-label="Tip" aria-live="polite">
+    <aside className="t3d-coach plaque-wrap" aria-label="Tip" aria-live="polite" ref={reserve}>
       <div className="plaque t3d-coach-body">
         <p className="t3d-coach-title">{tip.title}</p>
         <p className="t3d-coach-text">{tip.text}</p>
@@ -340,58 +391,15 @@ function PlayerChip({ player }: { player: string }) {
   );
 }
 
-/** Portrait, name and life on the table next to each seat; click for the full player panel. */
-function SeatPlate({ player, me, open, onToggle }: { player: string; me: string; open: boolean; onToggle: () => void }) {
-  const p = useGame((s) => s.view?.players.find((x) => x.id === player));
-  const active = useGame((s) => s.view?.turn.active_player === player);
-  const priority = useGame((s) => s.view?.rules?.priority === player);
-  const monarch = useGame((s) => s.view?.table.monarch === player);
-  if (!p) return null;
-  // the numbers that decide a Commander game, shown only when they matter
-  const cmd = Math.max(0, ...Object.values(p.commander_damage));
-  const poison = p.resources.poison ?? 0;
-  // the same three stats on every plaque; a zero is dimmed, not hidden
-  const stats = [
-    { key: "cmd", text: `Cmdr dmg ${cmd}/${LETHAL_COMMANDER}`, title: `Most damage taken from one commander: ${cmd} of ${LETHAL_COMMANDER}`, n: cmd, lethal: cmd >= LETHAL_COMMANDER },
-    { key: "poison", text: `Poison ${poison}/${LETHAL_POISON}`, title: `${poison} of ${LETHAL_POISON} poison counters`, n: poison, lethal: poison >= LETHAL_POISON },
-    { key: "hand", text: `Hand ${p.hand_count}`, title: `${p.hand_count} cards in hand`, n: p.hand_count, lethal: false },
-  ];
-  return (
-    <div className={`t3d-seat ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
-      {(active || priority) && (
-        <span className="t3d-seat-flags" aria-live="polite">
-          {active && <span className="t3d-flag turn">Turn</span>}
-          {priority && <span className="t3d-flag prio">Priority</span>}
-        </span>
-      )}
-      <button className="t3d-seat-main" onClick={onToggle} data-testid={`seat-${player}`} aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.life} life. Open player panel`} aria-expanded={open}>
-        <span className={`portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: "46px", borderColor: p.color }}>{p.name.slice(0, 1).toUpperCase()}</span>
-        <span className="t3d-seat-text">
-          <span className="t3d-seat-name">{p.name}{player === me ? " (you)" : ""}{monarch ? " ♚" : ""}</span>
-          <span className="t3d-seat-life" data-testid={`life3d-${player}`}>{p.life}</span>
-          <span className="t3d-seat-stats">
-            {stats.map((x) => <span key={x.key} className={`t3d-stat t3d-stat-${x.key} ${x.lethal ? "lethal" : x.n ? "" : "zero"}`} title={x.title}>{x.text}{x.lethal ? " · lethal" : ""}</span>)}
-          </span>
-        </span>
-      </button>
-      {open && (
-        <div className="t3d-seat-panel frame">
-          <PlayerPanel player={player} me={me} />
-        </div>
-      )}
-    </div>
-  );
-}
-
 /**
- * Auto-center (TABLETOP_QOL_MILESTONE #11), off unless the player turns it on: a commander cast or
- * an elimination turns the camera toward that seat for a moment, then back. Any input of the
+ * Auto-center (TABLETOP_QOL_MILESTONE #11), off unless the player turns it on: a major public event (which ones:
+ * table3d/autoCenter.ts, "Important" or "On") turns the camera toward it for a moment, then back. Any input of the
  * player's own cancels it at once; reduced motion disables it. Camera only, never game state.
  */
 function useAutoCenter(me: string, setPreset: React.Dispatch<React.SetStateAction<CameraPreset>>) {
   const mode = usePrefs((s) => s.autoCenter);
   const reduced = usePrefs((s) => s.reducedMotion);
-  const prev = useRef<{ stack: Set<string>; out: Set<string> } | null>(null);
+  const prev = useRef<AutoSnap | null>(null);
   useEffect(() => {
     if (mode === "off" || reduced) {
       prev.current = null;
@@ -404,25 +412,25 @@ function useAutoCenter(me: string, setPreset: React.Dispatch<React.SetStateActio
       if (restore) setPreset(restore);
       restore = null;
     };
-    const unsub = useGame.subscribe((s) => {
+    const unsub = useGame.subscribe((s, old) => {
       const v = s.view;
-      if (!v) return;
-      const stack = new Set(v.stack);
-      const out = new Set([...(v.rules?.conceded ?? []), ...Object.keys(v.rules?.lost ?? {})]);
+      if (!v || v === old.view) return;
       const before = prev.current;
-      prev.current = { stack, out };
+      prev.current = autoSnap(v);
       if (!before) return;
-      let focus: string | null = null;
-      for (const pid of out) if (!before.out.has(pid)) focus = pid;
-      for (const id of stack) {
-        const c = v.cards[id];
-        if (!before.stack.has(id) && c && "commander_key" in c && c.commander_key) focus = c.controller;
-      }
-      if (!focus || focus === me) return;
+      const look = autoCenterTarget(before, v, me, mode);
+      if (!look) return;
       window.clearTimeout(timer);
+      if (look === "seat") {
+        // your turn: the camera comes home to your seat and stays (coming back would pull it off your board as you play)
+        restore = null;
+        setPreset("seat");
+        return;
+      }
       setPreset((cur) => {
+        if (JSON.stringify(cur) === JSON.stringify(look)) return cur; // already looking there
         if (!restore) restore = cur;
-        return { focus: focus! };
+        return look;
       });
       timer = window.setTimeout(cancel, 2600 / (usePrefs.getState().animationSpeed || 1));
     });

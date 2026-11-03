@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Health } from "../services/api";
 import { lanInfo } from "../services/games";
 import { usePrefs } from "../state/prefs";
+import { CardUpdateProgress, useCardData } from "./CardDataPanel";
 
 const DONE_KEY = "fyodor.welcomeDone";
 
@@ -50,14 +51,7 @@ export function Welcome({ health, onClose }: { health: Health | null; onClose: (
           <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} data-testid="welcome-name" aria-label="Your name" />
           <span className="hint">Saved in this browser only — there are no accounts.</span>
         </li>
-        <li className={db?.available ? "done" : "todo"}>
-          <b>Card database</b>{" "}
-          {db?.available ? (
-            <span>{db.oracle_cards.toLocaleString()} cards ready — works offline.</span>
-          ) : (
-            <span>Not downloaded yet. Run <code>scripts/update-cards.sh</code> once while online; after that no Internet is needed.</span>
-          )}
-        </li>
+        <CardDatabaseStep available={!!db?.available} cards={db?.oracle_cards ?? 0} />
         <li>
           <b>Bring a deck</b> <a href="#/decks">Import a list or an Archidekt link</a>, or let each player bring their own in the LAN lobby.
         </li>
@@ -68,7 +62,7 @@ export function Welcome({ health, onClose }: { health: Health | null; onClose: (
           ) : lan?.reachable ? (
             <span>Others open {lan.addresses.map((a) => <code key={a}>http://{a}:{lan.port}</code>)} on the same network.</span>
           ) : (
-            <span>Only this computer can connect right now. Start with <code>scripts/start.sh --lan</code> so phones and laptops can join.</span>
+            <span>Only this computer can connect right now. Start Fyodor without <code>--local</code> so phones and laptops can join.</span>
           )}
         </li>
       </ol>
@@ -81,3 +75,28 @@ export function Welcome({ health, onClose }: { health: Health | null; onClose: (
 }
 
 export const resetWelcome = () => markDone(false);
+
+/** The card database step: on the host, a missing database downloads from here (no script to run). */
+function CardDatabaseStep({ available, cards }: { available: boolean; cards: number }) {
+  const { info, denied, job, running, start } = useCardData();
+  const ready = info?.current.available ?? available;
+  const count = info?.current.available ? info.current.oracle_cards : cards;
+  return (
+    <li className={ready ? "done" : "todo"}>
+      <b>Card database</b>{" "}
+      {ready ? (
+        <span>{count.toLocaleString()} cards ready — works offline.</span>
+      ) : running && job ? (
+        <CardUpdateProgress job={job} />
+      ) : denied || !info ? (
+        <span>Not downloaded yet. The host downloads it once while online; after that no Internet is needed.</span>
+      ) : (
+        <span>
+          Not downloaded yet: about 80 MB, once, while online. After that no Internet is needed.{" "}
+          <button className="btn small primary" disabled={!info.network} onClick={() => void start()} data-testid="welcome-card-download">Download now</button>
+          {job?.state === "failed" && <span className="warn"> {job.message}</span>}
+        </span>
+      )}
+    </li>
+  );
+}

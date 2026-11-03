@@ -15,6 +15,8 @@ from app.rules.plan import Plan, decide, live_players, reads
 POISON_LETHAL = 10
 COMMANDER_LETHAL = 21
 MAX_ROUNDS = 50
+# -- rules result -- 104.4a: "If all the players remaining in a game lose simultaneously, the game is a draw."
+DRAW_ALL_LOST = "Every player still in the game lost at the same time (104.4a)"
 
 
 def _num(value: str | None) -> int | None:
@@ -247,6 +249,11 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
 
         if offer_616(plan):
             return True
+    if r.attack_pending111r3:  # -- enters attacking (wave 111R3) -- 508.4: what a creature that entered attacking attacks, if not asked first
+        from app.rules import wave111r3_enter
+
+        if wave111r3_enter.offer(plan):
+            return True
     found = find(plan)
     from app.rules import regeneration_choices
 
@@ -381,6 +388,9 @@ def _round(plan: Plan, *, confirmed: bool = False) -> bool:
         if len(left) == 1 and r.winner is None:
             r.winner = left[0]
             plan.note(f"{state.players[left[0]].name} wins the game")
+        elif not left and r.winner is None and r.draw_reason is None:  # -- rules result -- 104.4a
+            r.draw_reason = DRAW_ALL_LOST
+            plan.note("Every player still in the game lost at the same time: the game is a draw")
     # -- counters & designations (wave 3E): 309.6 dungeons, 701.54a Ring-bearers --
     from app.rules import designations
 

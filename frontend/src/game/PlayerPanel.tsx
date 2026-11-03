@@ -5,12 +5,14 @@ import { useGame, usePlayer } from "../state/gameStore";
 import type { ManaUnit, PlayerView } from "../types/game";
 import { changeLife, changeResource, send } from "./actions";
 import { Icon } from "../components/Icon";
+import { LETHAL_COMMANDER } from "./commanderDamage";
+import { CommanderMatrixToggle } from "./CommanderDamageViews";
 
 const LIFE_STEPS = [-10, -5, -1, 1, 5, 10];
 /** Colorblind-safe seat markers: a distinct shape per seat alongside the color. */
 const SEAT_GLYPHS = ["●", "▲", "■", "◆", "★", "✚"];
 const RESOURCE_ICON: Record<string, string> = { poison: "☠", energy: "⚡", experience: "★", rad: "☢", ticket: "🎟" };
-export const LETHAL_COMMANDER = 21;
+export { LETHAL_COMMANDER };
 export const LETHAL_POISON = 10;
 
 export function PlayerPanel({ player, me, compact }: { player: string; me: string; compact?: boolean }) {
@@ -30,48 +32,55 @@ export function PlayerPanel({ player, me, compact }: { player: string; me: strin
   return (
     <div className={`player-panel ${active ? "active" : ""} ${danger ? "danger" : ""} ${compact ? "compact" : ""}`} style={{ ["--player-color" as string]: p.color }}
       data-player-id={player}>
-      <div className="pp-head">
-        <span className="pp-dot" />
-        <span className="seat-glyph" aria-hidden>{SEAT_GLYPHS[(Number(player.slice(1)) - 1) % SEAT_GLYPHS.length]}</span>
-        <span className="pp-name" title={p.deck_name ?? undefined}>{p.name}{player === me ? " (you)" : ""}</span>
-        {mode === "lan" && seat && (
-          <span className={`presence-label ${seat.presence ?? (seat.connected ? "connected" : "disconnected")}`} data-testid={`presence-${player}`}>
-            {{ connected: "Connected", reconnecting: "Reconnecting…", disconnected: "Disconnected", open: "Open seat" }[seat.presence ?? (seat.connected ? "connected" : "disconnected")]}
-          </span>
-        )}
-        {monarch && <span className="marker" title="The Monarch">♚</span>}
-        {initiative && <span className="marker" title="Has the initiative">⚑</span>}
-        {p.city_blessing && <span className="marker" title="City's blessing">✦</span>}
-        <button className="icon-btn small" onClick={(e) => openMenu(e, playerMenu(p), p.name)} aria-label="Player menu">⋯</button>
-      </div>
-      <div className="life-line">
-        <button className="life-step" aria-label="Lose 1 life" data-testid={`life-minus-${player}`} onClick={() => void changeLife(player, -1)}>−</button>
-        <button
-          className="life"
-          data-testid={`life-${player}`}
-          title="Click for quick adjust · right-click for history"
-          onClick={(e) =>
-            openMenu(e, [
-              ...LIFE_STEPS.map((d) => ({ label: d > 0 ? `+${d}` : `${d}`, onClick: () => void changeLife(player, d) })),
-              "separator" as const,
-              {
-                label: "Set life…",
-                onClick: async () => {
-                  const v = await askNumber(`Set ${p.name}'s life`, p.life);
-                  if (v !== null) void send({ type: "set_life", player, value: v });
-                },
-              },
-              { label: showHistory ? "Hide history" : "Life history", onClick: () => setShowHistory((x) => !x) },
-            ], `${p.name} · ${p.life} life`)
-          }
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setShowHistory((x) => !x);
-          }}
-        >
-          {p.life}
-        </button>
-        <button className="life-step" aria-label="Gain 1 life" data-testid={`life-plus-${player}`} onClick={() => void changeLife(player, 1)}>+</button>
+      {/* the seat plaque, as on the 3D table: a portrait in the seat colour, then name and life */}
+      <div className="pp-top">
+        <span className={`portrait pp-portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: compact ? "30px" : "36px", borderColor: p.color }} aria-hidden>
+          {p.name.slice(0, 1).toUpperCase()}
+        </span>
+        <div className="pp-who">
+          <div className="pp-head">
+            <span className="seat-glyph" aria-hidden>{SEAT_GLYPHS[(Number(player.slice(1)) - 1) % SEAT_GLYPHS.length]}</span>
+            <span className="pp-name" title={p.deck_name ?? undefined}>{p.name}{player === me ? " (you)" : ""}</span>
+            {mode === "lan" && seat && (
+              <span className={`presence-label ${seat.presence ?? (seat.connected ? "connected" : "disconnected")}`} data-testid={`presence-${player}`}>
+                {{ connected: "Connected", reconnecting: "Reconnecting…", disconnected: "Disconnected", open: "Open seat" }[seat.presence ?? (seat.connected ? "connected" : "disconnected")]}
+              </span>
+            )}
+            {monarch && <span className="marker" title="The Monarch">♚</span>}
+            {initiative && <span className="marker" title="Has the initiative">⚑</span>}
+            {p.city_blessing && <span className="marker" title="City's blessing">✦</span>}
+            <button className="icon-btn small" onClick={(e) => openMenu(e, playerMenu(p), p.name)} aria-label="Player menu">⋯</button>
+          </div>
+          <div className="life-line">
+            <button
+              className="life"
+              data-testid={`life-${player}`}
+              title="Click for quick adjust · right-click for history"
+              onClick={(e) =>
+                openMenu(e, [
+                  ...LIFE_STEPS.map((d) => ({ label: d > 0 ? `+${d}` : `${d}`, onClick: () => void changeLife(player, d) })),
+                  "separator" as const,
+                  {
+                    label: "Set life…",
+                    onClick: async () => {
+                      const v = await askNumber(`Set ${p.name}'s life`, p.life);
+                      if (v !== null) void send({ type: "set_life", player, value: v });
+                    },
+                  },
+                  { label: showHistory ? "Hide history" : "Life history", onClick: () => setShowHistory((x) => !x) },
+                ], `${p.name} · ${p.life} life`)
+              }
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setShowHistory((x) => !x);
+              }}
+            >
+              {p.life}
+            </button>
+            <button className="life-step" aria-label="Lose 1 life" data-testid={`life-minus-${player}`} onClick={() => void changeLife(player, -1)}>−</button>
+            <button className="life-step" aria-label="Gain 1 life" data-testid={`life-plus-${player}`} onClick={() => void changeLife(player, 1)}>+</button>
+          </div>
+        </div>
       </div>
       {showHistory && (
         <div className="life-history" onClick={() => setShowHistory(false)}>
@@ -153,8 +162,8 @@ function CommanderDamage({ p }: { p: PlayerView }) {
   const taken = sources.filter((c) => (p.commander_damage[c.key] ?? 0) > 0);
   return (
     <div className="cmd-damage">
-      <button className="cmd-toggle" onClick={() => setOpen((o) => !o)}>
-        Commander damage {taken.length ? taken.map((c) => p.commander_damage[c.key]).join(" · ") : "—"} {open ? "▴" : "▾"}
+      <button className="cmd-toggle" onClick={() => setOpen((o) => !o)} title="Commander damage taken" aria-expanded={open}>
+        <span>Cmdr damage {taken.length ? taken.map((c) => p.commander_damage[c.key]).join(" · ") : "—"}</span> {open ? "▴" : "▾"}
       </button>
       {open && (
         <div className="cmd-list">
@@ -182,6 +191,7 @@ function CommanderDamage({ p }: { p: PlayerView }) {
           <div className="hint">Commander damage also reduces life. 21+ from one commander is marked.</div>
         </div>
       )}
+      <CommanderMatrixToggle />
     </div>
   );
 }
@@ -229,7 +239,7 @@ function ManaPool({ player, mana, units }: { player: string; mana: Record<string
   const total = Object.values(mana).reduce((a, b) => a + b, 0) + units.length;
   const add = (color: string, delta: number) => void send({ type: "add_mana", player, mana: { [color]: delta } });
   if (!open && !total) {
-    return <button className="mana-toggle" data-testid={`mana-open-${player}`} onClick={() => setOpen(true)} title="Mana pool"><Icon name="gem" size={12} /> mana</button>;
+    return <button className="mana-toggle" data-testid={`mana-open-${player}`} onClick={() => setOpen(true)} title="Mana pool"><Icon name="gem" size={12} /> Mana pool</button>;
   }
   return (
     <div className="mana-pool" data-testid={`mana-${player}`}>

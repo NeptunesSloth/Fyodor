@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ALICE_DECK, BOB_DECK, bringDeck, hostLobby, joinLobby, keepAll, newPlayer, serverView } from "./helpers";
+import { ALICE_DECK, BOB_DECK, bringDeck, hostLobby, joinLobby, keepAll, newPlayer, serverView, saveDecks } from "./helpers";
 
 /**
  * Game night (docs/GAME_NIGHT_FLOW.md) on two devices: the pod-rule d20 intro, an agreed ending,
@@ -11,7 +11,7 @@ const shot = async (page: Page, name: string) => {
   if (OUT) await page.screenshot({ path: `${OUT}/night-${name}.png` });
 };
 
-type NightView = { viewer: string; game: { night: { number: number; order_source: string; previous_winner: string | null } } };
+type NightView = { viewer: string; game: { night: { number: number; order_source: string; previous_winner: string | null; rolls: Record<string, number>[] } } };
 
 async function seatPost(page: Page, gameId: string, path: string, data: Record<string, unknown>) {
   const token = await page.evaluate((id) => localStorage.getItem(`fyodor.seat.${id}`), gameId);
@@ -37,18 +37,23 @@ test("game night: d20 intro, agreed ending, spotlight, rematch and back to the l
   await host.page.getByTestId("start-game").click();
   const pages = [host.page, guest.page];
 
-  // Game 1: everyone sees the same server-rolled d20s and the resulting order.
-  for (const p of pages) await expect(p.getByTestId("game-intro")).toBeVisible();
-  await expect(host.page.getByTestId("game-intro")).toContainText("Game 1");
-  await expect(host.page.locator(".night-die").first()).toBeVisible();
-  await host.page.waitForTimeout(900);
-  await shot(host.page, "intro");
+  // Game 1: everyone sees the same server-rolled d20s and the resulting order. (The order shows for about 2.8 s, then a 3-2-1
+  // countdown: on a slow runner the check may land in the countdown, so the intro is checked by its label, the rolls on the server.)
+  for (const p of pages) {
+    await expect(p.getByTestId("game-intro")).toBeVisible();
+    await expect(p.getByTestId("game-intro")).toHaveAttribute("aria-label", "Game 1: turn order");
+  }
+  if (await host.page.locator(".night-order").isVisible()) {
+    await host.page.waitForTimeout(900);
+    await shot(host.page, "intro");
+  }
   for (const p of pages) {
     await p.keyboard.press("Escape");
     await expect(p.getByTestId("game-intro")).toHaveCount(0);
   }
   const first = (await serverView(host.page, gameId)) as unknown as NightView;
   expect(first.game.night.order_source).toBe("d20");
+  expect(first.game.night.rolls.length).toBeGreaterThanOrEqual(1); // everyone rolled (ties roll again)
   await keepAll(...pages);
 
   // Bob proposes that Alice wins; Alice agrees on her screen.
@@ -101,8 +106,7 @@ test("eliminated: a short scene, then opening-hand practice with your own deck",
     localStorage.setItem("fyodor.nightScenes", "1");
     localStorage.setItem("fyodor.welcomeDone", "1");
   });
-  for (const text of [ALICE_DECK, BOB_DECK]) await page.request.post("/api/decks", { data: { text } });
-  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string; name: string }[];
+  const decks = await saveDecks(page);
   const res = await page.request.post("/api/games", { data: { name: "Out", mode: "local", automation: "full", mulligan_rule: "none",
     players: ["Alice", "Bob", "Cara"].map((name, i) => ({ name, deck_id: decks[i % 2]!.id })) } });
   const gameId = ((await res.json()) as { game: { id: string } }).game.id;
@@ -118,13 +122,40 @@ test("eliminated: a short scene, then opening-hand practice with your own deck",
   await shot(page, "eliminated");
   await expect(page.getByTestId("eliminated-hub")).toBeVisible({ timeout: 10_000 });
   await shot(page, "eliminated-hub");
-  await page.getByRole("button", { name: "Practise opening hands" }).click();
+  const hub = page.getByTestId("eliminated-hub");
+  await expect(hub.getByTestId("open-practice")).toBeVisible();
+  await expect(hub.getByTestId("open-deck-lab")).toBeVisible();
+  await hub.getByRole("button", { name: "Opening hands" }).click();
   await expect(page.getByTestId("hand-sim").locator(".sim-card")).toHaveCount(7);
   await page.waitForTimeout(500);
   await shot(page, "hand-sim");
   // the live game didn't move: practice never touches it
-  const v = (await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { players: { id: string }[]; zones: Record<string, string[]> };
-  expect(v.zones["p1:hand"]).toHaveLength(0);
+  const live = async () => (await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { players: { id: string }[]; zones: Record<string, string[]> };
+  expect((await live()).zones["p1:hand"]).toHaveLength(0);
+
+  // dice & toys: rolled in this browser only; the live game doesn't move
+  const seq = async () => ((await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { seq: number }).seq;
+  const before = await seq();
+  await page.keyboard.press("Escape"); // close the opening-hands practice
+  await page.getByTestId("eliminated-pill").click();
+  await page.getByTestId("eliminated-hub").getByTestId("open-toys").click();
+  await page.getByTestId("toys-roll").click();
+  await expect(page.getByTestId("toys-total")).toContainText(/\d/);
+  await page.waitForTimeout(800);
+  await shot(page, "toys");
+  expect(await seq()).toBe(before);
+
+  // the practice table: a private table with Alice's own deck, then back to the live game
+  await page.keyboard.press("Escape"); // close the dice & toys
+  const pill = page.getByTestId("eliminated-pill");
+  if (await pill.isVisible()) await pill.click();
+  await page.getByTestId("eliminated-hub").getByTestId("open-practice").click();
+  await expect(page.getByTestId("practice-pill")).toBeVisible({ timeout: 15_000 });
+  await expect(page).not.toHaveURL(new RegExp(gameId));
+  await shot(page, "practice-table");
+  expect((await live()).zones["p1:hand"]).toHaveLength(0);
+  await page.getByTestId("return-live").click();
+  await expect(page).toHaveURL(new RegExp(gameId));
 });
 
 for (const renderer of ["2d", "3d"] as const) {
@@ -155,7 +186,7 @@ for (const renderer of ["2d", "3d"] as const) {
     for (const action of [{ type: "next_turn" }, { type: "phase", to: "next" }]) {
       const stepped = await page.request.post(`/api/games/${gameId}/actions`, { data: { action, as: "p1" } });
       expect(stepped.status()).toBe(409);
-      expect(await stepped.text()).toContain("left this game");
+      expect(await stepped.text()).toContain("out of this game");
     }
     expect(((await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { turn: unknown }).turn).toEqual(turn);
     // the open log drawer and the dial don't cover each other

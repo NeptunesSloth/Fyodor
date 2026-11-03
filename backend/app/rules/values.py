@@ -560,6 +560,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "entered", "sel": sel.key()} if sel is not None else None
     if re.fullmatch(r"(?:the )?(?:number of )?cards put into your graveyard from anywhere this turn", what):
         return {"turn_history": "graveyard_entries"}
+    if re.fullmatch(r"dilemmas? you(?:'ve| have) faced this turn", what):  # -- Star Trek mechanics (wave 112T) -- release notes (app/rules/dilemma.py)
+        return {"turn_history": "dilemmas112t"}
     if re.fullmatch(r"(?:the )?(?:number of )?times you descended this turn", what):  # -- commander sweep (wave 49B) -- 700.11: the permanent cards put into your graveyard from anywhere (The Mycotyrant)
         return {"turn_history": "descended"}
     m = _TURN_LIFE.match(what)
@@ -797,6 +799,9 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
     if "half" in v:
         n = evaluate(plan, ctx, v["half"])
         return (n + 1) // 2 if v.get("round") == "up" else n // 2
+    if "every111b" in v:  # -- if you do / instead (wave 111B) -- "for every five …": [5, value], the value divided, rounded down (107.1a; Sarek)
+        per, of = v["every111b"]
+        return evaluate(plan, ctx, of) // int(per)
     if "neg" in v:
         return 0  # a negative result of an effect is zero (107.1b); the sign is evaluate_signed's
     if "kicked" in v:
@@ -1159,6 +1164,11 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
                 from app.rules.stack_interaction import mana_value
 
                 return max(0, mana_value(obj, ch))
+            if stat == "station110e":  # -- Star Trek statics (wave 111C) -- Sulu: "stations Spacecraft … as though his power were tripled" (702.184c)
+                from app.rules import wave111c_statics
+
+                if (tripled := wave111c_statics.station_value(plan, ctx, ch)) is not None:
+                    return max(0, tripled)
             return max(0, _stat_of(ch, stat) or 0)
     if "relative" in v:  # -- token & pump wordings (wave 6C) -- statics._relative_count: about the object modified
         return _relative(plan, ctx, v)

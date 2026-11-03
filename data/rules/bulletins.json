@@ -10,5 +10,17 @@
     "kind": "release_notes",
     "title": "Reality Fracture Release Notes",
     "discovered": "2026-09-29"
+  },
+  {
+    "url": "https://magic.wizards.com/en/news/announcements/mystery-booster-commander-edition-update-bulletin",
+    "kind": "update_bulletin",
+    "title": "Mystery Booster Commander Edition Update Bulletin",
+    "discovered": "2026-11-03"
+  },
+  {
+    "url": "https://magic.wizards.com/en/news/feature/star-trek-release-notes",
+    "kind": "release_notes",
+    "title": "Star Trek Release Notes",
+    "discovered": "2026-11-03"
   }
 ]

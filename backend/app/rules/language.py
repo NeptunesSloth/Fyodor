@@ -874,6 +874,16 @@ def _search(text: str) -> tuple[Effects, str | None] | None:
                 or found[0][0].get("to") != "battlefield" or found[0][0].get("to2"):
             raise _Fail
         return [{**found[0][0], "counter": "+1/+1", "counter_n": 1}], found[1]
+    # -- charge counters (wave 111A) -- "Search your library for a Spacecraft card, put it onto the battlefield with seven charge counters on it, then
+    # shuffle." (Captain Jean-Luc Picard): the card enters with them (122.6; 122.6a: its controller puts them), so a station card's symbols (721.2a)
+    # apply as it enters. Only charge counters, a number word.
+    charged = re.search(r" onto the battlefield with (?P<n>a|one|two|three|four|five|six|seven|eight|nine|ten) charge counters? on it(?=,)", text)
+    if charged:
+        found = _search(text[:charged.start()] + " onto the battlefield" + text[charged.end():])
+        if found is None or len(found[0]) != 1 or found[0][0].get("do") != "search" or found[0][0].get("to") != "battlefield" \
+                or found[0][0].get("to2") or found[0][0].get("counter"):
+            raise _Fail
+        return [{**found[0][0], "counter": "charge", "counter_n": 1 if charged["n"] in ("a", "one") else values.NUMBERS[charged["n"]]}], found[1]
     if (tt := _SEARCH_TARGET.fullmatch(text)) is not None:  # (wave 42C)
         found = _search(f"each player {tt['rest']}")
         if found is None or found[0][0].get("who") != "each_player" or found[0][0].get("parts") or found[0][0].get("to2"):
@@ -1239,12 +1249,17 @@ _ALTS = re.compile(r"you may reveal (?P<list>(?:(?:an?|[a-z]+) )?[^.]+? or (?:an
                    r"and put (?:it|that card) into your hand")
 
 
+_ALT_MV = re.compile(r"an? (?P<a>[A-Z][a-z]+ card) or (?P<b>[a-z ]+? card with mana value \d+ or less)")  # (wave 112T)
+
+
 def _pick_alts(text: str) -> tuple[Effects, Any] | None:
     m = _ALTS.fullmatch(text)
     if m is None or selectors.parse(re.sub(r"^(?:an?) ", "", m["list"])) is not None:
         return None  # (not a list of alternatives, or one selector the plain pick reads)
     words = [re.sub(r"^(?:an?) ", "", w.strip()) for w in re.split(r",? or |, ", m["list"])]
-    if len(words) < 2 or any(re.search(r"\b(?:less|more|greater|that|who|which)\b|\d", w) for w in words):
+    if (mv := _ALT_MV.fullmatch(m["list"])) is not None:  # -- Star Trek mechanics (wave 112T) -- "a Plains card or nonland permanent card with mana value 3 or
+        words = [mv["a"], mv["b"]]  # less" (There's Coffee in that Nebula): the mana value is the last kind's own (its "or less" isn't a third kind)
+    elif len(words) < 2 or any(re.search(r"\b(?:less|more|greater|that|who|which)\b|\d", w) for w in words):
         return None
     sels = []
     for w in words:
@@ -1579,6 +1594,8 @@ def parse_sentence(text: str) -> tuple[Effects, Any] | None:
 
 def _one_recipient(e: dict[str, Any]) -> bool:
     who = str(e.get("who") or "you")
+    if e.get("do") == "add_counters" and who in ("self", "it"):  # -- counters for that player (wave 111D) -- "put a +1/+1 counter on it for each land that player controls" (Planet Killer): no player recipient
+        return True
     return who in ("you", "event_player", "that_player") or who == "target" or who.startswith("target:")  # (that_player: scripts.resolve_it binds it)
 
 
@@ -2963,6 +2980,7 @@ _PRONOUN_SACRIFICE = {"them": "them", "those tokens": "them", "those creatures":
                       "those permanents": "them", "that creature": "it", "that token": "it", "the token": "it",
                       "that permanent": "it", "that card": "it"}
 _PRONOUN_SACRIFICE.update({"the creature": "it", "that artifact": "it"})  # -- permanent effects (wave 6A) -- Sneak Attack, Arms Race
+_PRONOUN_SACRIFICE["those lands"] = "them"  # -- trigger other (wave 111G) -- "Sacrifice those lands at the beginning of your next end step." (Will Riker)
 _OWNER_RETURN = re.compile(r"^return (?P<o>.+?) to the battlefield(?P<t> tapped)?(?P<fd> face down)? under (?P<u>their owner's|its owner's|your) control"
                            r"(?: as (?P<spec>.+))?$")
 

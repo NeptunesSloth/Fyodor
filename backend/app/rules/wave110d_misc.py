@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
+from app.rules import token_copy_sources
+
 MONOLITH = ('{T}: Until end of turn, target creature gains "Whenever this creature is dealt damage, you draw that many cards and lose that much life." '
             "That creature's controller may have this artifact deal 1 damage to it. Activate only as a sorcery.")
 
@@ -240,14 +242,6 @@ def resume(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, d.resume["ctx"])
 
 
-def spell_permanents(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    from app.rules import context, token_copy_sources
-
-    refs = token_copy_sources.spell_targets(plan, ctx, e["selector"])
-    context.refs(ctx)[e["as"]] = {"kind": "objects", "objects": [r.model_dump(mode="json") for r in refs]}
-    return True
-
-
 def phase_hold(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     from app.game.rules_state import ObjectRef
     from app.rules import effects, phase_lifetimes43
@@ -437,7 +431,7 @@ def resume_guess(plan: Any, d: Any, chosen: list[str]) -> None:
     effects.continue_effects(plan, d.resume["ctx"])
 
 
-PRIMITIVES: dict[str, Any] = {"fumble_pre110d": fumble_pre, "fumble_attach110d": fumble_attach, "gollum110d": gollum, "predicaments110d": predicaments, "phase_hold110d": phase_hold, "may_hit110d": may_hit, "spell_permanents110d": spell_permanents}
+PRIMITIVES: dict[str, Any] = {"fumble_pre110d": fumble_pre, "fumble_attach110d": fumble_attach, "gollum110d": gollum, "predicaments110d": predicaments, "phase_hold110d": phase_hold, "may_hit110d": may_hit, "spell_permanents110d": token_copy_sources.bind_spell_targets}
 RESUME: dict[str, Any] = {"fumble110d": resume_fumble, "gollum110d": resume_gollum, "gollum110d_guess": resume_gollum_guess, "predicaments110d": resume_predicaments, "predicaments110d_guess": resume_guess, "may_hit110d": resume, GIFT_UP: resume_attach}
 
 

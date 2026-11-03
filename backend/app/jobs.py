@@ -13,7 +13,7 @@ import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ class Job:
     total: int = 0
     failed: int = 0
     message: str = ""
+    phase: str = ""  # what a multi-step job is doing now ("Downloading", "Importing" …)
     started_at: float = field(default_factory=time.time)
     finished_at: float | None = None
 
@@ -43,12 +44,14 @@ class Job:
             "total": self.total,
             "failed": self.failed,
             "message": self.message,
+            "phase": self.phase,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
         }
 
 
-ProgressFn = Callable[[int, int, int], None]  # done, total, failed
+class ProgressFn(Protocol):
+    def __call__(self, done: int, total: int, failed: int, phase: str | None = None) -> None: ...
 
 
 class JobManager:
@@ -66,8 +69,10 @@ class JobManager:
                     if old.state != "running":
                         del self._jobs[old.id]
 
-        def progress(done: int, total: int, failed: int) -> None:
+        def progress(done: int, total: int, failed: int, phase: str | None = None) -> None:
             job.done, job.total, job.failed = done, total, failed
+            if phase is not None:
+                job.phase = phase
 
         def run() -> None:
             try:
@@ -85,6 +90,12 @@ class JobManager:
 
     def get(self, job_id: str) -> Job | None:
         return self._jobs.get(job_id)
+
+    def latest(self, kind: str) -> Job | None:
+        """The newest job of a kind (running or finished), e.g. the card update a reloaded Settings page should show."""
+        with self._lock:
+            jobs = [j for j in self._jobs.values() if j.kind == kind]
+        return max(jobs, key=lambda j: j.started_at, default=None)
 
     def shutdown(self) -> None:
         self._pool.shutdown(wait=False, cancel_futures=True)

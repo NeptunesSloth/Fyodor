@@ -254,6 +254,8 @@ def note_cast(plan: Plan, card: Any) -> None:
     for name in card_names.names_of(ch):
         key = normalize_name(name)
         totals[key] = totals.get(key, 0) + 1
+    if plan.rules.casts_game111c is not None:  # -- Star Trek statics (wave 111C) -- every spell, a nameless face-down one too
+        plan.rules.casts_game111c[card.controller] = plan.rules.casts_game111c.get(card.controller, 0) + 1
     record = plan.rules.payments.get(plan.oid(card))
     log._cast_ids = None
     log.casts.append(CastNote(kicked77=("kicker" in record.additional and record.kicked > 0 and "anytimes" not in record.additional) if record is not None else None,
@@ -957,6 +959,10 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return max(log.gained.get(me, 0), log.lost.get(me, 0))
     if kind == "drew":
         return log.drew.get(me, 0)
+    if kind == "dilemmas112t":  # -- Star Trek mechanics (wave 112T) -- "for each dilemma you've faced this turn" (release notes)
+        from app.rules import dilemma
+
+        return dilemma.faced(plan, me)
     if kind == "visited100l":  # -- Attractions (wave 100L) -- each Attraction once (attractions100l.visited)
         from app.rules import attractions100l
 

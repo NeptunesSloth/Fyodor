@@ -107,7 +107,8 @@ PERMISSION = re.compile(
     r"(?: by (?P<by>.+?) in addition to (?:paying )?(?:its|their) other costs)?"
     # -- cast from graveyard (wave 19C) -- 614.1a: "If a spell cast this way would be put into your graveyard, exile it instead."
     r"(?:\. If (?:(?P<exile>a|an instant or sorcery) spell cast this way would be put into your graveyard, exile it instead"
-    r"|(?:you cast a spell this way|you do), (?:that [a-z]+ enters (?:(?P<tapped>tapped)|(?P<fin>with a finality counter on it))|it gains \"(?P<gain>[^\"]+)\"))"
+    r"|(?:you cast a spell this way|you do), (?:that [a-z]+(?: creature)? enters (?:(?P<tapped>tapped)|(?P<fin>with a finality counter on it))|it gains \"(?P<gain>[^\"]+)\"))"
+    # (-- if you do / instead (wave 111B) -- "that artifact creature enters with a finality counter on it": Overflow Submatrix)
     # -- most-played cards (wave 43B) -- "If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost." (Bolas's Citadel)
     r"|\. If you cast a spell this way, (?P<lmv>pay life equal to its mana value rather than pay its mana cost)"
     # -- if you do (wave 51D) -- 601.3b / 614.1c / 611.2a: the riders of a cast from the top of the library: "If you cast a creature spell this way, it gains haste until end of
@@ -674,6 +675,10 @@ def define_static(text: str, kind: str, lines: tuple[str, ...] = ()) -> Definiti
         from app.rules import wave110a_grants
 
         return wave110a_grants.grant_replicate(t)
+    if " spells you cast have replicate {" in t and kind == "static":  # -- granted replicate (wave 111R3) -- Hugh, First of Many
+        from app.rules import wave111r3_replicate
+
+        return wave111r3_replicate.definition(t)
     if " gain offspring " in t and kind == "static":  # -- grants (wave 110A) -- Zinnia, Valley's Voice
         from app.rules import wave110a_grants
 
@@ -2206,18 +2211,23 @@ def refresh_reveals(state: GameState, info: CardInfo) -> None:
     if r is None:
         return
     found = []
-    for card in state.cards.values():
-        if card.ability is not None:
-            continue
-        ch = chars.of(card, info)
-        if card.zone.endswith(":battlefield") and not card.face_down:
-            ch = derive(state, card, ch, info)
-        for d in scripts.definitions(ch).values():
-            if d.get("kind") == "static" and d.get("static") == "top_reveal":
-                found.append(TopReveal(source=card.id, player=card.controller, to=d["to"], face_down=bool(d.get("face_down")),
-                                       zone=d.get("zone", "library"), whose=d.get("whose", "you")))
-            elif d.get("kind") == "static" and d.get("static") == "permission" and d.get("look"):  # (wave 5I: Radha)
-                found.append(TopReveal(source=card.id, player=card.controller, to="owner"))
+    from app.rules import read_pass
+
+    # -- big boards (perf) -- the scan only reads the table: one read pass for it (read_pass.adopted), so the statics table is read once,
+    # not once per permanent (it ran twice per action, the square of the board each time)
+    with read_pass.adopted(state, info):
+        for card in state.cards.values():
+            if card.ability is not None:
+                continue
+            ch = chars.of(card, info)
+            if card.zone.endswith(":battlefield") and not card.face_down:
+                ch = derive(state, card, ch, info)
+            for d in scripts.definitions(ch).values():
+                if d.get("kind") == "static" and d.get("static") == "top_reveal":
+                    found.append(TopReveal(source=card.id, player=card.controller, to=d["to"], face_down=bool(d.get("face_down")),
+                                           zone=d.get("zone", "library"), whose=d.get("whose", "you")))
+                elif d.get("kind") == "static" and d.get("static") == "permission" and d.get("look"):  # (wave 5I: Radha)
+                    found.append(TopReveal(source=card.id, player=card.controller, to="owner"))
     if found != r.top_reveals:
         r.top_reveals = found
 
@@ -2251,6 +2261,10 @@ def free_cast(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             from app.rules import wave110e_word
 
             pid = wave110e_word.caster(ctx)
+        if e["caster"] == "target111b":  # -- if you do / instead (wave 111B) -- Cmdr. Troi: the targeted opponent casts from their own hand (608.2g)
+            from app.rules import wave111b_cards
+
+            pid = wave111b_cards.caster(plan, ctx)
     done = ctx.setdefault("free_cast_done", [])
     if not e.get("all") and sum(1 for c in done if c not in (ctx.get("free_cast_before") or [])) >= int(e.get("n", 1)):
         return _free_cast_over(ctx, e)
@@ -2459,6 +2473,10 @@ def _free_pool(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> list[str]:
     from app.rules import context
 
     pid = ctx["controller"]
+    if e.get("caster") == "target111b":  # -- if you do / instead (wave 111B) -- Cmdr. Troi: "from their hand", the caster's own
+        from app.rules import wave111b_cards
+
+        pid = wave111b_cards.caster(plan, ctx)
     zone = e["zone"]
     if zone == "selector" and e.get("pool_selector"):
         return selectors.candidates(plan, selectors.from_key(e["pool_selector"]), pid, ctx.get("source_card"))

@@ -1226,6 +1226,8 @@ def _rule(piece: str) -> list[str] | None:
     """One predicate piece that imposes a rule → the rule names, or None (not a rule)."""
     if piece == "can't be the target of abilities from artifact sources":
         return ["untargetable_artifact_abilities106"]
+    if piece == "can't be the target of abilities from artifact sources your opponents control":  # -- restrictions (wave 111F) -- 115.2 (Species 8472): targets.can_target
+        return ["untargetable_opp_artifact_abilities111f"]
     if piece == "can't be enchanted by other Auras":
         return ["only_aura106:@src"]
     plain = RULES.get(piece)

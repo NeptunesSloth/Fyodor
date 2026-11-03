@@ -189,6 +189,22 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "activate_ability", card_id: "m1", ability: 2 }]);
   });
 
+  it("offers beam me up from the graveyard as flashback is, with the server's cost (Star Trek, wave 112T)", () => {
+    const base = view({ ...RULES, hints: { alt_castable: { g1: [{ id: "g1:1", label: "Energize: beam me up {3}{U}" },
+      { id: "s1:0", label: "Scotty, Miracle Worker: beam me up {1}{U}" }] } } });
+    const g1 = { ...card("g1", "p1:graveyard", "energize"), name: "Energize" };
+    const v = { ...base, cards: { ...base.cards, g1 } } as unknown as GameView;
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards,
+      energize: { id: "energize", name: "Energize", type_line: "Sorcery", oracle_text: "Return target creature an opponent controls to its owner's hand.\nBeam me up {3}{U}" } as CardData } });
+    const items = rulesMenu(v.cards.g1!, v, "p1");
+    expect(labels(items).filter((l) => l.startsWith("Cast"))).toEqual(["Cast with beam me up {3}{U}", "Cast with beam me up {1}{U} (Scotty, Miracle Worker)"]);
+    sent.length = 0;
+    const first = items.find((i) => i !== "separator" && i.label === "Cast with beam me up {3}{U}");
+    if (!first || first === "separator") throw new Error("expected the beam me up item");
+    first.onClick?.();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "g1", alt_cost: "g1:1" }]);
+  });
+
   it.each([
     ["Street Wraith", "Creature — Wraith", "Swampwalk\nCycling—Pay 2 life. (Pay 2 life, Discard this card: Draw a card.)", "Cycling—Pay 2 life.", 1],
     ["Edge of Autumn", "Sorcery", "If you control four or fewer lands, search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\nCycling—Sacrifice a land. (Sacrifice a land, Discard this card: Draw a card.)", "Cycling—Sacrifice a land.", 1],
@@ -257,6 +273,55 @@ describe("rules card menu", () => {
     if (!cast || cast === "separator") throw new Error("expected Cast");
     cast.onClick?.();
     expect(sent).toEqual([{ type: "cast_spell", card_id: "x1" }]);
+  });
+
+  it("offers an ability that works in exile (Q, Stacking the Deck's grant), enabled only when the server lists it (113.6b)", () => {
+    const granted = { index: 2, kind: "activated",
+      text: "Exile a card from your hand: Create a copy of this card. You may cast the copy. Activate only during your turn and only if this card is exiled." };
+    const base = view({ ...RULES, hints: { activatable: [{ card_id: "x1", ability: 2 }] },
+      stats: { x1: { abilities: [granted] }, x2: { abilities: [granted] }, x3: { abilities: [{ index: 0, kind: "activated", text: "{T}: Draw a card." }] } } });
+    const v = { ...base, cards: { ...base.cards, x1: card("x1", "p1:exile", "bolt"), x2: card("x2", "p1:exile", "bolt"),
+      x3: card("x3", "p1:exile", "bolt"), x4: card("x4", "p2:exile", "bolt") } } as unknown as GameView;
+    const [now] = rulesMenu(v.cards.x1!, v, "p1").filter((i) => i !== "separator" && i.label.startsWith("Activate:"));
+    if (!now || now === "separator") throw new Error("expected Activate");
+    expect(now.disabled).toBe(false);
+    now.onClick?.();
+    expect(sent).toEqual([{ type: "activate_ability", card_id: "x1", ability: 2 }]);
+    // the same ability not usable right now (not your turn): shown, disabled
+    const later = rulesMenu(v.cards.x2!, v, "p1").find((i) => i !== "separator" && i.label.startsWith("Activate:"));
+    expect(later && later !== "separator" && later.disabled).toBe(true);
+    // an ordinary ability of an exiled card isn't offered, nor anything on another player's exiled card
+    expect(labels(rulesMenu(v.cards.x3!, v, "p1")).some((l) => l.startsWith("Activate:"))).toBe(false);
+    expect(labels(rulesMenu(v.cards.x4!, v, "p1")).some((l) => l.startsWith("Activate:"))).toBe(false);
+  });
+
+  it("offers no activation for a triggered ability an exiled card was given (Uvilda's refine counters)", () => {
+    const upkeep = { index: 10000, kind: "triggered", text: "At the beginning of your upkeep, if this card is exiled, remove a refine counter from it." };
+    const base = view({ ...RULES, stats: { x1: { abilities: [upkeep] } } });
+    const v = { ...base, cards: { ...base.cards, x1: card("x1", "p1:exile", "bolt") } } as unknown as GameView;
+    expect(labels(rulesMenu(v.cards.x1!, v, "p1")).some((l) => l.startsWith("Activate:"))).toBe(false);
+  });
+
+  it("offers each granted replicate (Hugh) as its own count, in the server's order (702.56b)", () => {
+    const base = view({ ...RULES, hints: { castable: ["c2"], replicate111r3: { c2: ["Replicate {2}{U} (Hugh, First of Many)", "Replicate {2}{U} (Hugh, First of Many)"] } } });
+    const v = base as unknown as GameView;
+    const casts = rulesMenu(v.cards.c2!, v, "p1").filter((i) => i !== "separator" && i.label.startsWith("Cast with Replicate"));
+    expect(casts).toHaveLength(2);
+    const second = casts[1];
+    if (!second || second === "separator" || !second.submenu) throw new Error("expected a submenu");
+    const twice = second.submenu.find((i) => i !== "separator" && i.label === "Replicate ×2");
+    if (!twice || twice === "separator") throw new Error("expected ×2");
+    twice.onClick?.();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "c2", replicate: [0, 2] }]);
+    // "Other count…" asks for a number and fills only that grant's count
+    const other = second.submenu.find((i) => i !== "separator" && i.label === "Other count…");
+    if (!other || other === "separator") throw new Error("expected Other count");
+    other.onClick?.();
+    expect(useXPrompt.getState().field).toBe("replicate");
+    expect(submitNumericPrompt("5")).toBe(true);
+    expect(sent[1]).toEqual({ type: "cast_spell", card_id: "c2", replicate: [0, 5] });
+    // a card the server doesn't list gets no replicate entry
+    expect(labels(rulesMenu(v.cards.c1!, v, "p1")).some((l) => l.startsWith("Cast with Replicate"))).toBe(false);
   });
 
   it("offers morph: cast face down from hand, turn face up on the battlefield", () => {
@@ -349,6 +414,44 @@ describe("rules card menu", () => {
     if (!door || door === "separator") throw new Error("expected Unlock");
     door.onClick?.();
     expect(sent).toEqual([{ type: "unlock_door", card_id: "rb", door: 2 }]);
+  });
+
+  it("offers each half of a split card to cast, and a half's optional cost with that half (709.3, pod audit)", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true, castable: ["sp"],
+      optional_costs: { sp: [{ id: "sp:casualty", label: "Casualty 1: sacrifice a creature with power 1 or greater", face: 1 }] } } });
+    const v = { ...base, cards: { ...base.cards, sp: card("sp", "p1:hand", "split") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        split: { id: "split", name: "Revival // Revenge", layout: "split", type_line: "Sorcery // Sorcery", oracle_text: "",
+          faces: [{ name: "Revival", mana_cost: "{W/B}{W/B}", type_line: "Sorcery" }, { name: "Revenge", mana_cost: "{4}{W}{B}", type_line: "Sorcery" }] } as unknown as CardData,
+      },
+    });
+    const cast = rulesMenu(v.cards.sp!, v, "p1").filter((i): i is Exclude<MenuItem, "separator"> => i !== "separator" && i.label.startsWith("Cast"));
+    expect(cast.map((i) => i.label)).toEqual(["Cast Revival {W/B}{W/B}", "Cast Revenge {4}{W}{B}",
+      "Cast Revenge and sacrifice a creature with power 1 or greater (Casualty 1)"]);
+    cast[1]!.onClick?.();
+    cast[2]!.onClick?.();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "sp", face: 1 }, { type: "cast_spell", card_id: "sp", optional_costs: ["sp:casualty"], face: 1 }]);
+  });
+
+  it("offers a free cast together with an optional cost when the server lists both (118.9d, pod audit: Deadly Rollick with casualty)", () => {
+    const base = view({ ...RULES, hints: { ...RULES.hints, has_priority: true, castable: [], free_castable: ["dr"],
+      free_optional_costs: { dr: [{ id: "dr:casualty", label: "Casualty 1: sacrifice a creature with power 1 or greater" }] } } });
+    const v = { ...base, cards: { ...base.cards, dr: card("dr", "p1:hand", "rollick") } } as unknown as GameView;
+    useCardCache.setState({
+      cards: {
+        ...useCardCache.getState().cards,
+        rollick: { id: "rollick", name: "Deadly Rollick", type_line: "Instant",
+          oracle_text: "If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature." } as CardData,
+      },
+    });
+    const cast = rulesMenu(v.cards.dr!, v, "p1").filter((i): i is Exclude<MenuItem, "separator"> => i !== "separator" && i.label.startsWith("Cast"));
+    expect(cast.map((i) => i.label)).toEqual(["Cast", "Cast without paying its mana cost",
+      "Cast without paying its mana cost and sacrifice a creature with power 1 or greater (Casualty 1)"]);
+    expect(cast[0]!.disabled).toBe(true);
+    cast[2]!.onClick?.();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "dr", free: true, optional_costs: ["dr:casualty"] }]);
   });
 
   it("offers the special action that ends a Licid's effect (116.2c) when the server lists its cost", () => {
@@ -591,6 +694,8 @@ describe("decision answers", () => {
     expect(doneLabel(0, 0, 2)).toBe("Done (none)");
     expect(canSubmitChoice(0, 1, 1)).toBe(false);
     expect(canSubmitChoice(3, 0, 2)).toBe(false);
+    // a cost of exactly two objects ("Sacrifice two other artifacts and/or creatures", 601.2h): none (cancel) or both, never one
+    expect([0, 1, 2].map((n) => canSubmitChoice(n, 0, 2, 2))).toEqual([true, false, true]);
     expect(doneLabel(2, 0, 2)).toBe("Done (2)");
     void choose("d1", []);
     expect(sent).toEqual([{ type: "choose", decision_id: "d1", option_ids: [] }]);

@@ -61,7 +61,12 @@ def put_face_down(plan: Plan, card_id: str, player: str, kind: str, *, actor: st
     entered = plan.state.cards.get(card_id)
     if entered is None or not entered.zone.endswith(":battlefield"):
         return False
-    replacements.after_entry(plan, card_id, player)  # (other permanents' "enters with" counters: 122.6, 614.1c)
+    from app.rules import (
+        wave111r3_enter,  # -- enters attacking (wave 111R3) -- nothing was asked before it entered: asked right after (508.4)
+    )
+
+    attack111r3 = {k: v for k, v in (ep.get("choices") or {}).items() if k == wave111r3_enter.WHAT} or None
+    replacements.after_entry(plan, card_id, player, choices=attack111r3)  # (other permanents' "enters with" counters: 122.6, 614.1c)
     return True
 
 

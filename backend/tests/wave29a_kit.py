@@ -106,6 +106,11 @@ def snapshot(s) -> dict[str, Any]:
     for pid in s.state.players:
         text = json.dumps(rules_view(s.state, pid, s.cards), sort_keys=True, ensure_ascii=False, default=str)
         out[pid] = json.loads(_ID.sub(lambda m: label.get(m.group(0), m.group(0)), text))
+        out[pid].pop("repeatable", None)  # (REPEAT's list of the player's own actions came later: neither a hint nor a stat)
+        for later in ("cost_now", "exiled_with"):  # (display hints added later, derived from the castable list the golden does compare)
+            (out[pid].get("hints") or {}).pop(later, None)
         if out[pid].get("decision"):
             out[pid]["decision"]["id"] = "<decision>"  # (random per decision)
+            for later in ("targets", "must_attack"):  # (the attack panel's per-creature targets and requirements came later: their own tests)
+                (out[pid]["decision"].get("display") or {}).pop(later, None)
     return out

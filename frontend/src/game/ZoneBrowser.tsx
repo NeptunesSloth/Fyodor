@@ -7,6 +7,8 @@ import { moveCards, send } from "./actions";
 import { cardMenu } from "./cardMenu";
 import { beginPointerDrag } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
+import { exileCastables, playFromExile } from "./exileCastables";
+import "./exile.css";
 
 /**
  * Docked browser for a zone (library search, look at top N, graveyard, exile, sideboard).
@@ -84,10 +86,14 @@ export function ZoneBrowser({ me }: { me: string }) {
 
 const BrowserCard = memo(function BrowserCard({ id, me, owner }: { id: string; me: string; owner: string }) {
   const card = useCardView(id);
+  // a card here you may cast or play now (Ian Malcolm's exile, impulse draw …): outlined, and double-click casts it
+  const view = useGame((s) => s.view);
+  const castable = useMemo(() => exileCastables(view).find((c) => c.id === id), [view, id]);
   if (!card) return null;
   return (
     <div
-      className="zb-card"
+      className={`zb-card${castable ? " rules-playable" : ""}`}
+      title={castable ? `${castable.play ? "Play" : "Cast"} it: double-click${castable.source ? ` · Exiled with ${castable.source}` : ""}` : undefined}
       data-card-id={id}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
@@ -101,7 +107,7 @@ const BrowserCard = memo(function BrowserCard({ id, me, owner }: { id: string; m
           },
         });
       }}
-      onDoubleClick={() => void moveCards([id], "hand", { player: owner })}
+      onDoubleClick={() => void (castable ? playFromExile(castable) : moveCards([id], "hand", { player: owner }))}
       onContextMenu={(e) => {
         e.preventDefault();
         const view = useGame.getState().view;
@@ -114,6 +120,7 @@ const BrowserCard = memo(function BrowserCard({ id, me, owner }: { id: string; m
       onPointerLeave={() => useGame.getState().setHover(null)}
     >
       <GameCardFace card={card} peek />
+      {castable && <span className="zb-exiled-with" data-testid="zb-castable">{castable.play ? "Play" : "Cast"}{castable.source ? ` · with ${castable.source.split(",")[0]}` : ""}</span>}
     </div>
   );
 });

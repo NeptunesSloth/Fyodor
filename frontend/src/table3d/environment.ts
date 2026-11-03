@@ -172,7 +172,9 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
   group.add(floor);
 
   // ---- props
-  const corners: [number, number][] = [[-halfW + 1.3, -halfD + 1.3], [halfW - 1.3, -halfD + 1.3], [-halfW + 1.3, halfD - 1.3], [halfW - 1.3, halfD - 1.3]];
+  // the props stand in the table's very corners, past the piles and the mats: nothing decorative in the play space
+  const inset = 0.6;
+  const corners: [number, number][] = [[-halfW + inset, -halfD + inset], [halfW - inset, -halfD + inset], [-halfW + inset, halfD - inset], [halfW - inset, halfD - inset]];
   const std = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) => track(new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...extra }));
   const addLight = (x: number, y: number, z: number, color: string, intensity: number, distance: number, flame?: THREE.Object3D) => {
     if (quality === "low" && flickers.length >= 2) return;
@@ -195,8 +197,8 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
         if (ci === 2 || ci === 3) return; // keep the near corners clear for the viewer's hand
         for (let i = 0; i < 3; i++) {
           const h = 0.6 + rand() * 0.9;
-          const x = cx + (rand() - 0.5) * 0.9;
-          const z = cz + (rand() - 0.5) * 0.9;
+          const x = cx + (rand() - 0.5) * 0.5;
+          const z = cz + (rand() - 0.5) * 0.5;
           const candle = new THREE.Mesh(track(new THREE.CylinderGeometry(0.13, 0.15, h, 12)), std("#efe3c8", { roughness: 0.9 }));
           candle.position.set(x, tableY + h / 2, z);
           candle.castShadow = quality === "high";
@@ -214,7 +216,7 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
       for (let i = 0; i < 3; i++) {
         const h = 0.22 + rand() * 0.12;
         const book = new THREE.Mesh(track(new THREE.BoxGeometry(1.3, h, 0.95)), std(["#5a1f1a", "#223a5a", "#3a4a22"][i]!, { roughness: 0.8 }));
-        book.position.set(cx - 0.9, y + h / 2, cz + 0.4);
+        book.position.set(cx - 0.2, y + h / 2, cz + 0.1);
         book.rotation.y = (rand() - 0.5) * 0.5;
         book.castShadow = quality === "high";
         group.add(book);
@@ -225,7 +227,7 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
       const [cx, cz] = corners[0]!;
       const cr = new THREE.Mesh(track(new THREE.OctahedronGeometry(0.4, 0)), std("#8fc6ff", { emissive: "#3a7ad0", emissiveIntensity: 1.2, roughness: 0.2, metalness: 0.1 }));
       cr.scale.set(1, 1.7, 1);
-      cr.position.set(cx + 1.2, tableY + 0.8, cz + 0.2);
+      cr.position.set(cx, tableY + 0.8, cz);
       group.add(cr);
       spinners.push({ obj: cr, speed: 0.4, bob: 0.08, phase: 0, y: cr.position.y });
       addLight(cr.position.x, cr.position.y + 0.4, cr.position.z, "#7fb6ff", 3, 8);

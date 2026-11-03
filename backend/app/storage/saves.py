@@ -13,6 +13,7 @@ from typing import Any
 from app.game.errors import ActionError
 from app.game.history import History
 from app.game.state import GameState
+from app.game.summary import player_commanders
 from app.storage.db import transaction
 from app.storage.save_format import SAVE_FORMAT, SAVE_VERSION, SaveFormatError, decode, encode
 
@@ -28,7 +29,8 @@ def _summary(state: GameState) -> dict[str, Any]:
         "game_name": state.name,
         "format": state.format,
         "turn": state.turn.number,
-        "players": [{"name": p.name, "life": p.life, "deck": p.deck_name} for p in (state.players[i] for i in state.seat_order)],
+        "players": [{"name": p.name, "life": p.life, "deck": p.deck_name, "color": p.color, "commanders": player_commanders(state, p.id)}
+                    for p in (state.players[i] for i in state.seat_order)],
     }
 
 
@@ -128,6 +130,9 @@ class SaveRepository:
 
 
 def load_payload(payload: dict[str, Any], *, history_limit: int = 500) -> tuple[GameState, History | None]:
+    fmt = payload["state"].get("format") if isinstance(payload.get("state"), dict) else None
+    if fmt not in (None, "commander"):
+        raise SaveFormatError(f"This is a {str(fmt).title()} game. Fyodor plays Commander only now, so it can't be loaded.")
     try:
         state = GameState.model_validate(payload["state"])
     except (KeyError, ValueError) as exc:

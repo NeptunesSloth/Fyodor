@@ -33,6 +33,10 @@ and has no accounts, cloud services or telemetry. These are the protections in p
 - Library instance ids are re-keyed on every shuffle, so a known card can't be tracked
   through one.
 - Log entries name a card only for viewers who could see it at that moment.
+- The all-hands ("open table") view exists only for hot-seat games on one computer. In a LAN
+  game the host computer, asking without a seat, gets the spectator view like anyone else.
+  The host still stores every game on its disk (saves, autosaves, backups, diagnostics with
+  private data), so the pod trusts whoever runs the host, as with any self-hosted table.
 - Randomness (shuffles, dice, coins, new ids) comes from `secrets.SystemRandom` on the
   host. Client-supplied resolution data is discarded.
 - `tests/test_views.py` and `tests/test_games_api.py` check every viewer's serialized

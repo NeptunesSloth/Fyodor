@@ -14,6 +14,17 @@ import { canConcede, choose, chooseName, concede, delveCard, divide, next, passP
 import { GameCardFace } from "../GameCardFace";
 import { ChainRow, chainEntries } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
+import { ChoiceWheel } from "./ChoiceWheel";
+import { RepeatButton } from "./RepeatPanel";
+import { wheelEligible } from "./wheel";
+import { isOut } from "../outOfGame";
+import { attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
+import { groupByController } from "./decisionGroups";
+import { usePrefs } from "../../state/prefs";
+import { useCardCache } from "../../state/cardCache";
+import { targetingOf } from "../targeting/targeting";
+import { TargetingBar } from "../targeting/TargetingBar";
+import { useTargeting } from "../targeting/store";
 
 function useRules() {
   const view = useGame((s) => s.view);
@@ -233,7 +244,10 @@ export function TurnDial() {
   const turn = view.turn;
   const active = view.players.find((p) => p.id === turn.active_player);
   const step = turn.phase as PhaseName;
-  const { auto, watching, mine, status } = dialState(view, me);
+  const { auto, watching: dialWatching, mine, status } = dialState(view, me);
+  const watching = dialWatching || !ctx.seated;
+  // out of the game (conceded or lost, 800.4a): they watch like everyone else; nothing here moves the game for them
+  const out = isOut(view, me);
   const prefs = rules?.prefs;
   const stack = view.stack.length > 0;
   const top = stack ? view.cards[view.stack[view.stack.length - 1]!] : undefined;
@@ -244,17 +258,17 @@ export function TurnDial() {
   const blocked = deciding ? "Answer your decision first" : undefined;
   return (
     <div className="turn-dial-wrap plaque-wrap">
-      <section className={`turn-dial plaque ${mine ? "mine" : ""}`} data-testid={auto ? "priority-bar" : "turn-dial"} aria-label="Turn and priority">
+      <section className={`turn-dial plaque ${mine ? "mine" : ""}${out ? " out" : ""}`} data-testid={auto ? "priority-bar" : out ? "turn-dial-out" : "turn-dial"} aria-label="Turn and priority">
         <header className="td-head" data-testid="turn-tracker">
           <span className="td-seat" style={{ ["--player-color" as string]: active?.color }} aria-hidden>{active?.name.slice(0, 1).toUpperCase()}</span>
           <span className="td-turn">Turn {turn.number} · {active?.id === me ? "your turn" : active?.name}</span>
-          {!auto && !watching && (
+          {!auto && !watching && !out && (
             <span className="td-steps">
               <button className="tt-btn ghost td-step" title="Go back one step" onClick={() => void send({ type: "phase", to: "prev" })}>‹ Previous step</button>
             </span>
           )}
         </header>
-        <button className="td-phase" data-testid="current-phase" title="Jump to a step" disabled={auto || watching}
+        <button className="td-phase" data-testid="current-phase" title="Jump to a step" disabled={auto || watching || out}
           onClick={(e) => openMenu(e, PHASES.map((ph) => ({ label: `${ph === step ? "● " : ""}${PHASE_LABEL[ph]}`, onClick: () => void send({ type: "phase", to: ph }) })), "Step")}>
           {PHASE_LABEL[step] ?? turn.phase}
         </button>
@@ -283,10 +297,11 @@ export function TurnDial() {
               {stack && <button className="tt-btn ghost" data-testid="resolve-one" disabled={deciding} title={blocked} onClick={() => void passPriority("stack_changes")}>Resolve one</button>}
               {stack && <button className="tt-btn ghost" data-testid="resolve-all" disabled={deciding} title={blocked} onClick={() => void passPriority("stack_empty")}>Resolve all</button>}
               {!stack && <button className="tt-btn ghost" data-testid="pass-turn" disabled={deciding} title={blocked} onClick={() => void passPriority("next_turn")}>End turn</button>}
+              <RepeatButton view={view} me={me} disabled={deciding} />
             </div>
           </>
         )}
-        {!auto && !watching && (
+        {!auto && !watching && !out && (
           <>
             {stack ? (
               // something is on the stack: resolving it comes first, stepping on is secondary
@@ -360,6 +375,10 @@ export function RulesStack() {
 /** The pending decision: the chooser answers here (or by clicking a highlighted card on the table). */
 export function DecisionPanel() {
   const ctx = useRules();
+  const wheelOn = usePrefs((s) => s.choiceWheel);
+  const selection = useGame((s) => s.selection); // (the card just cast, when the prompt names a card I hold twice)
+  useCardCache((s) => s.cards); // the targeting bar names what to choose from the candidates' type lines
+  const [listed, setListed] = useState<string | null>(null); // the decision whose wheel the player closed (Esc): it shows as the list
   if (!ctx || !ctx.rules?.decision) return null;
   const { view, me } = ctx;
   const d = ctx.rules.decision;
@@ -372,9 +391,15 @@ export function DecisionPanel() {
   }
   if (d.display?.kind === "payment") return <PaymentPanel key={d.id} d={d} view={view} />;
   if (d.display?.kind === "tap_mana") return <TapManaPanel key={d.id} d={d} view={view} />;
+  if (wheelOn && listed !== d.id && wheelEligible(d, view.players.map((p) => p.id))) { // a public choice: the quick wheel (wheel.ts)
+    return <ChoiceWheel key={d.id} d={d} view={view} onList={() => setListed(d.id)} />;
+  }
+  // cards and players to choose: the table is the picker, with a slim bar over the hand (game/targeting)
+  const board = !ctx.rules.paused && ctx.rules.options?.highlights !== "off" ? targetingOf(view, me, selection) : null;
+  if (board) return <TargetingBar key={d.id} t={board} view={view} me={me} />;
   const targeting = d.kind === "choose_one" && (d.options ?? []).some((o) => o.card_id) && (d.options ?? []).length > 1;
   return (
-    <div className={`decision-panel frame ${targeting ? "targeting" : ""}`} data-testid="decision-panel" data-kind={d.kind}>
+    <div className={`decision-panel frame ${targeting ? "targeting" : ""}`} data-testid="decision-panel" data-kind={d.kind} data-display={typeof d.display?.kind === "string" ? d.display.kind : undefined}>
       <div className="decision-prompt">{d.prompt}</div>
       {targeting && <div className="decision-hint">Click a highlighted card or player on the table, or choose below.</div>}
       <DecisionBody key={d.id} d={d} view={view} />
@@ -541,6 +566,7 @@ const PROMPT = {
   x_value: ["Choose a value for X", "Cast / activate with X"],
   kicker: ["Choose a multikicker count (0–1000)", "Cast with multikicker"],
   chorus: ["Chorus of the Conclave: pay how much extra mana? (0–1000)", "Cast with Chorus"],
+  replicate: ["Replicate: pay it how many times? (0–1000)", "Cast with replicate"],
 } as const;
 
 /** -- X announced (wave 24D) -- 107.3a: the number for X, asked before the cast / activation is sent (the server validates the range). */
@@ -549,7 +575,7 @@ export function XPrompt() {
   const field = useXPrompt((s) => s.field);
   const [x, setX] = useState("0");
   if (!action) return null;
-  const close = () => { useXPrompt.setState({ action: null, field: "x_value" }); setX("0"); };
+  const close = () => { useXPrompt.setState({ action: null, field: "x_value", slot: undefined }); setX("0"); };
   const ok = /^\d{1,4}$/.test(x) && Number(x) <= 1000;
   const go = () => { if (submitNumericPrompt(x)) setX("0"); };
   return (
@@ -593,6 +619,9 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   const done = (ids: string[]) => void choose(d.id, ids, remember || undefined);
   const min = d.min_choices ?? 1;
   const max = d.max_choices ?? 1;
+  const exactly = typeof d.display?.exactly === "number" ? d.display.exactly : undefined; // (pod audit: "Sacrifice two …": none or both)
+  // modes and other sentences (no card, a long label): one per line, read left to right (rules.css)
+  const sentences = options.length > 0 && options.every((o) => !o.card_id) && options.some((o) => o.label.length > 28) ? { "data-modes": "" } : {};
 
   if (d.kind === "declare_attackers") return <DeclareAttackers d={d} />;
   if (d.kind === "declare_blockers") return <DeclareBlockers d={d} />;
@@ -600,13 +629,19 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   if (d.kind === "choose_one" && options[0]?.id === NUMBER_OPTION) return <NumberChoice d={d} />;
   if (d.kind === "choose_one" || d.kind === "confirm" || d.kind === "manual_resolution") {
     return (
-      <div className="decision-options">
+      <div className="decision-options" {...sentences}>
         {options.some((o) => o.group === "seen") && ( /* the cards the chooser looked at (an opponent's hand) are shown, never answers */
           <div className="decision-seen" data-testid="card-name-seen">
             {options.filter((o) => o.group === "seen").map((o) => <span key={o.id} className="tt-chip">{optionLabel(o, view)}</span>)}
           </div>
         )}
-        {options.filter((o) => o.group !== "seen").map((o) => (
+        {options.some((o) => o.card_id) ? groupByController(options.filter((o) => o.group !== "seen"), view, d.player).map((g) => (
+          // a target list: each player's objects together, behind their seat colour and initial (decisionGroups.ts)
+          <div key={g.player ?? "-"} className="decision-group" style={g.player ? { ["--player-color" as string]: view.players.find((p) => p.id === g.player)?.color } : undefined}>
+            {g.player && <span className="decision-who" title={playerName(view, g.player)} aria-hidden>{playerName(view, g.player).slice(0, 1).toUpperCase()}</span>}
+            {g.options.map((o) => <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>)}
+          </div>
+        )) : options.filter((o) => o.group !== "seen").map((o) => (
           <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>
         ))}
         {d.rememberable && (
@@ -636,12 +671,12 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   if (d.kind === "divide") return <Divide d={d} view={view} />;
   // choose_cards
   return (
-    <div className="decision-options">
+    <div className="decision-options" {...sentences}>
       {options.map((o) => (
         <button key={o.id} className={`tt-btn ${picked.includes(o.id) ? "on" : "ghost"}`} data-testid={`option-${o.id}`}
           onClick={() => toggle(o.id)}>{optionLabel(o, view)}</button>
       ))}
-      <button className="tt-btn brass" data-testid="decision-done" disabled={!canSubmitChoice(picked.length, min, max)} onClick={() => done(picked)}>
+      <button className="tt-btn brass" data-testid="decision-done" disabled={!canSubmitChoice(picked.length, min, max, exactly)} onClick={() => done(picked)}>
         {doneLabel(picked.length, min, max)}
       </button>
       {d.cancelable && <button className="tt-btn ghost" data-testid="option-cancel" onClick={() => done(["cancel"])}>Cancel</button>}
@@ -650,9 +685,9 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
 }
 
 /** A choose_cards answer is legal with min..max picks; min 0 lets an EMPTY answer through (a cost
- * choice's "none to cancel", mana sources "pool only", "up to" choices). */
-export function canSubmitChoice(n: number, min: number, max: number): boolean {
-  return n >= min && n <= max;
+ * choice's "none to cancel", mana sources "pool only", "up to" choices). ``exactly`` (a cost of N objects, 601.2h): none or all N. */
+export function canSubmitChoice(n: number, min: number, max: number, exactly?: number): boolean {
+  return n >= min && n <= max && (exactly === undefined || n === 0 || n === exactly);
 }
 
 export function doneLabel(n: number, min: number, max: number): string {
@@ -720,7 +755,7 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
   const opts = d.options ?? [];
   const attackers = opts.filter((o) => o.id.startsWith("a:"));
   const targets = opts.filter((o) => o.id.startsWith("t:"));
-  const [plan, setPlan] = useState<Record<string, string>>({});
+  const [plan, setPlan] = useState<Record<string, string>>(() => initialAttackPlan(d)); // (attackPlan.ts: what must attack, 508.1d)
   const [bandPlan, setBandPlan] = useState<Record<string, string>>({});
   const banding = new Set(Array.isArray(d.display?.banding) ? d.display.banding as string[] : []);
   const qualities = (Array.isArray(d.display?.band_qualities) ? d.display.band_qualities : []) as {
@@ -754,10 +789,11 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
     <div className="decision-combat">
       {attackers.map((a) => (
         <label key={a.id} className="combat-row">
-          <span>{a.label}</span>
-          <select data-testid={`attack-${a.id.slice(2)}`} value={plan[a.id] ?? ""} onChange={(e) => set(a.id, e.target.value)}>
+          <span>{a.label}{mustAttack(d, a.id) && <em className="combat-must"> (must attack)</em>}</span>
+          <select data-testid={`attack-${a.id.slice(2)}`} value={plan[a.id] ?? ""} onChange={(e) => set(a.id, e.target.value)}
+            disabled={!attackTargetsFor(d, a.id).length} title={attackTargetsFor(d, a.id).length ? undefined : "It can't attack anyone now"}>
             <option value="">Doesn't attack</option>
-            {targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            {attackTargetsFor(d, a.id).map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
           </select>
           {leaders.size > 0 && plan[a.id] && (
             <select aria-label={`Band for ${a.label}`} data-testid={`band-${a.id.slice(2)}`}
@@ -773,7 +809,8 @@ function DeclareAttackers({ d }: { d: DecisionView }) {
         : "Each band needs banding, at most one creature without it, and the same defender."}</div>}
       <div className="decision-options">
         {targets.length === 1 && (
-          <button className="tt-btn ghost" onClick={() => setPlan(Object.fromEntries(attackers.map((a) => [a.id, targets[0]!.id])))}>All attack</button>
+          <button className="tt-btn ghost" onClick={() => setPlan(Object.fromEntries(attackers
+            .filter((a) => attackTargetsFor(d, a.id).some((t) => t.id === targets[0]!.id)).map((a) => [a.id, targets[0]!.id])))}>All attack</button>
         )}
         <button className="tt-btn brass" data-testid="declare-attackers" disabled={invalidBand} onClick={declare}>
           {Object.keys(plan).length ? `Attack with ${Object.keys(plan).length}` : "No attack"}
@@ -857,10 +894,20 @@ export function legalClass(view: GameView | null, cardId: string, me: string): s
   return "";
 }
 
-/** Clicking a card that the pending choose-one decision offers answers it (click-to-target). */
+/**
+ * Clicking a card or player that the pending decision offers answers it (click-to-target): a choose-one at once, a
+ * choose-cards on the targeting bar (chosen or un-chosen, then Done).
+ */
 export function answerByClick(view: GameView | null, cardOrPlayer: string, me: string): boolean {
   const d = view?.rules?.decision;
   if (d && d.player === me && d.display?.kind === "tap_mana") return tapForMana(cardOrPlayer, me);  // click a land to tap it
+  if (d && d.player === me && d.kind === "choose_cards") {
+    const t = targetingOf(view, me);
+    const c = t?.candidates.find((x) => x.ref === cardOrPlayer);
+    if (!t || !c) return false;
+    useTargeting.getState().toggle(d.id, { opt: c.option.id, ref: c.ref }, t.max);
+    return true;
+  }
   if (!d || d.player !== me || d.kind !== "choose_one" || !d.options) return false;
   const opt = d.options.find((o) => o.id === cardOrPlayer || o.card_id === cardOrPlayer);
   if (!opt) return false;

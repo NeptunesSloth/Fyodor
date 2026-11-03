@@ -216,9 +216,15 @@ def copy_card(state: GameState, a: A.CopyCard) -> None:
                              modifications=a.modifications),
             quantity=1,
         )
+        if a.exact and src is not None and snap is None:
+            c.counters = dict(src.counters)
+            c.effects = [e.model_copy(update={"id": f"{new_id}e{k}"}) for k, e in enumerate(src.effects)]
+            c.choices = dict(src.choices)
         state.cards[new_id] = c
         state.zone(key).append(new_id)
     n = f"{a.count} copies" if a.count != 1 else "a copy"
+    if a.exact:
+        n = f"{a.count} exact copies" if a.count != 1 else "an exact copy"
     if snap is not None:
         source_part = text(snap.name)
     else:

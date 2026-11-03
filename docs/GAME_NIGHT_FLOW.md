@@ -1,7 +1,7 @@
-# Milestone plan: game night / match flow (not started)
+# Milestone plan: game night / match flow (built)
 
 Requested 2026-10-03. **Build it after the core rules engine and the primary tabletop functionality
-are mature.** Nothing here is built yet.
+are mature.** Status (2026-11-02): built, including host seat arranging, the d20 rolls in the game history, View final board, and each game's elimination order and final-board snapshot in the session recap and Pod stats (see "Pod session and game are different objects").
 
 **Goal:** several Commander games with the same pod feel like one continuous game night. Build these
 systems together:
@@ -117,6 +117,13 @@ Pods often know a game is over before every mechanical action is done.
 - If anyone declines, the game continues normally.
 - If everyone agrees, the result is recorded as an **AGREED RESULT**, kept distinct in game history
   from a result the rules engine determined. The log must never pretend the engine produced it.
+- **When the rules engine ends the game** (a last player standing or a win effect, 104.2; a draw, 104.4,
+  including everyone still in losing at once, 104.4a) the server opens this same proposal pre-filled with
+  the engine's result and why ("Bob lost (0 or less life)"). The players who were in the game when it
+  ended each confirm it with one click (one click settles it at a hot-seat table); it is recorded as the
+  engine's result ("Rules result: …" in pod stats, `rules` in the night result), and the spotlight and
+  rematch vote follow. "Not yet" leaves it to the pod (undo, or End game by hand); undoing the deciding
+  action withdraws it. Built in `app/multiplayer/night.py` (`follow_rules`, run after every change).
 
 ## 5. Winner spotlight
 
@@ -195,6 +202,17 @@ One **pod session** links several **games** (Game 1, Game 2, Game 3 …). Each g
 - a final board snapshot, if supported.
 
 The pod session holds what persists (section 1). No match-local state carries into the next game.
+
+**Built (2026-11-02):** the server records who went out of each game, in order (`GameState.eliminations`, read after every
+applied action in `app/game/eliminations.py`, so a replay, an undo and a save/load agree): the turn and how (0 life, poison,
+commander damage, drew from an empty library, an effect, another player winning, a concession, removed from the table; "out"
+when the engine gives no known reason; no turn for a player already out in an older save). Players out in the same action share
+their place. When the result is recorded (`record_game_result`), `app/stats/recap.py` keeps the order and a compact, public-only
+final board with the pod-stats result (migration 9: `game_results.eliminations` / `final_board`): each player's life, poison,
+commanders, battlefield permanents by name and count (at most 30 names; a face-down permanent a spectator can't look at is a
+"face-down card"), and graveyard / exile counts; never a hand or library. The night's history keeps the order and the result id
+(the board stays in pod stats, `GET /api/pod/results/{id}`, so the views stay small). The lobby's session recap and Pod stats show
+"1st out: Bob (turn 7, commander damage)" and a closed **Final board** disclosure (`frontend/src/pages/GameRecap.tsx`).
 
 ## Tests
 

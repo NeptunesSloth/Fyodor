@@ -58,11 +58,11 @@ docs, and an updated status table.
 | 13 | P3: snapshots + history timeline, profiles/sound/keys/accessibility/perf presets, custom actions (declarative macros), solo tools, portable packages, diagnostics, launcher + first-run, lobby deck checks, full pod regression E2E | ✅ done |
 | 14 | **Rules boundary:** intent protocol, `rules/` package, `RulesState`, decisions, override logging, automation setting, coverage metadata (FULL / PARTIAL / MANUAL), pod card inventory from Archidekt/saved decks | ✅ done |
 | 15 | **Core rules primitives:** mana costs and payment, casting and the stack, activated abilities, state-based actions, combat, commander rules | ✅ done |
-| 16 | **Rules language:** events and event batches, object identity, LKI, costs, targeting, choices, triggers, continuous effects and layers, replacement/prevention, permissions/restrictions, copies, effect primitives, multiplayer leaving | in progress — foundations built (see M16) |
-| 17 | **Magic knowledge (Commander-only):** CR research/index/diff tooling, Oracle template library over the Commander-legal pool, mechanic registry, safe generated scripts, Commander + pod coverage | in progress |
-| 18 | **Digital card game UX:** AUTOMATION OFF/ASSISTED/FULL, RESPONSE OFF/AUTO/ON, MANA AUTO/ASK/MANUAL, stops, prompts, stack helper, highlights, auto-yields, reconciliation | engine side built; client next |
-| 19 | **Physical client:** three.js table, physical cards, camera, hands, playmats, dice/cannon/bags, 2D fallback | planned — see `3D_DIRECTION.md` |
-| 20 | **Game-night hardening:** crash recovery, durable autosave, idempotent actions, backups, DB recovery, offline test, long sessions, device soak | planned — see `GAME_NIGHT_RECOVERY.md` |
+| 16 | **Rules language:** events and event batches, object identity, LKI, costs, targeting, choices, triggers, continuous effects and layers, replacement/prevention, permissions/restrictions, copies, effect primitives, multiplayer leaving | ✅ built: every Commander-legal card is FULL (32,068 of 32,068; see M16) |
+| 17 | **Magic knowledge (Commander-only):** CR research/index/diff tooling, Oracle template library over the Commander-legal pool, mechanic registry, safe generated scripts, Commander + pod coverage | ✅ built: CR research tooling, the Oracle template library and pod coverage (see M17) |
+| 18 | **Digital card game UX:** AUTOMATION OFF/ASSISTED/FULL, RESPONSE OFF/AUTO/ON, MANA AUTO/ASK/MANUAL, stops, prompts, stack helper, highlights, auto-yields, reconciliation | ✅ built, engine and client (see M18, `AUTOMATION_UX.md`) |
+| 19 | **Physical client:** three.js table, physical cards, camera, hands, playmats, dice/cannon/bags, 2D fallback | ✅ table built (see M19, `3D_DIRECTION.md`), with the table toys: the dice cannon, the Bag of Extras and the hidden draw bag |
+| 20 | **Game-night hardening:** crash recovery, durable autosave, idempotent actions, backups, DB recovery, offline test, long sessions, device soak | ✅ built (see M20, `GAME_NIGHT_RECOVERY.md`); still to do: a multi-hour soak on real game-night hardware |
 
 The history model (M7) and hidden-information views (M8) shape the engine itself, so they
 were built into the engine from Milestone 4. The rules engine follows the same rule: it is
@@ -373,8 +373,9 @@ lobby seat cards with commander art and deck automation coverage, and the table 
 The three.js table renders the same per-viewer views and maps gestures to intents
 (`3D_DIRECTION.md` §0). Table themes are Magic planes (Dominaria default; Ravnica, Innistrad,
 Theros, Zendikar; then Kamigawa, Amonkhet, Ixalan, New Phyrexia, Lorwyn). The 2D table remains
-a first-class renderer; different players may use different renderers in one game. Next:
-dice tray, dice cannon, Bag of Extras and bags with server-decided outcomes, token piles.
+a first-class renderer; different players may use different renderers in one game. The table toys are
+built (`3D_DIRECTION.md` "Table toys"): the dice cannon (a volley, or "Who goes first" with ties re-fired), the
+Bag of Extras by each seat and the hidden draw bag, every outcome decided and logged on the server. Next: token piles.
 
 ### M20 — Game-night hardening — built (`GAME_NIGHT_RECOVERY.md`)
 
@@ -385,41 +386,92 @@ reconnect, connection states with pending actions, graceful shutdown, pre-migrat
 BACKUP FYODOR / restore, a DB recovery mode, an offline E2E and a long-session test. Still to
 do: a multi-hour device soak on real game-night hardware.
 
-### Later: elimination activity hub — planned (`ELIMINATION_HUB.md`)
+### Elimination activity hub — built (`ELIMINATION_HUB.md`, 2026-11-01)
 
-A player eliminated early gets a compact hub instead of only spectating: Spectate (public
-information only), a private Practice Table, an Opening Hand Simulator and a Deck Lab working on a
-copy of the deck, all isolated from the live game, with a small live-game indicator. Not started.
+A player eliminated early gets a compact hub instead of only spectating:
+- Spectate: the public view only, with a leak test.
+- A private Practice Table: a one-seat sandbox with their own deck that never touches the live game.
+- Opening hands.
+- Deck Lab: a copy of the deck. The host computer opens it in the deck editor; guests save a list in the browser.
+- Links to Pod stats and the Card browser.
+- A live-game pill with public notices ("X was eliminated", "Final two players remain") and Return to live game.
 
-### Later: spectator side activities — planned (`SPECTATOR_ACTIVITIES_MILESTONE.md`)
+Dice & toys (a local dice tray, a just-for-fun random player picker and a tally; nothing reaches the live game) are built.
+A Game log link opens the table's own log drawer, and Deck Lab compares your deck with the one at the table (`game/DeckChanges.tsx`).
 
-After the elimination hub, Practice Table, persistent pod lobby and game-night flow are stable: Watch +
-PiP Practice Table, a next-game deck queue, rate-limited reactions, a public-only damage sandbox and
-session-only fake-point predictions, all isolated from the live match. Not started.
+### Spectator side activities — 1-5 built (`SPECTATOR_ACTIVITIES_MILESTONE.md`, 2026-11-02)
 
-### Later: post-game flow — planned (`3D_DIRECTION.md` §7a)
+For eliminated players and spectators, all outside the live match (none creates a game action or reaches saves):
+- Watch + PiP: the practice table shows a compact live summary (life, poison, commander damage, turn, stack, log),
+  built from the spectator view.
+- A next-game deck queue, proposed (not readied) when the pod returns to the lobby; a spectator can take an open seat.
+- A public-only damage sandbox that works out a what-if combat with the engine's own damage step.
+- Session-only fake-point predictions, hidden until the game ends.
+- Rate-limited reactions, which each player can mute, and a host's table-wide switch.
 
-After a result: **Rematch — same decks** (a fresh game, same seats/decks/settings, new result record),
-**Return to lobby** (the whole pod stays connected; previous decks preselected; deck changes only
-there) or **View final board**. Not started.
+Not started: Spectator Points cosmetic progression (6).
 
-### Later: game night / match flow milestone — planned (`GAME_NIGHT_FLOW.md`)
+### Post-game flow — built (`3D_DIRECTION.md` §7a)
 
-After the rules engine and the tabletop are mature: a persistent pod lobby, the pod turn-order rule
-(d20 rolls for game 1, then the previous winner goes last), a 2–4 s pre-game commander intro, group concession with an agreed result,
-a winner spotlight, a rematch vote and spectator rejoin. Not started.
+After a result there is a winner spotlight, then a vote, which the host can force:
+- **Rematch — same decks**: a fresh game with the same seats, decks and settings, and a new result record.
+- **Return to lobby**: the pod stays connected, with the previous decks preselected.
 
-### Later: tabletop quality-of-life milestone — planned (`TABLETOP_QOL_MILESTONE.md`)
+When the rules engine ends a game, the result is offered for one-click confirmation. Undoing the deciding action withdraws it.
 
-After the rules engine and the 3D table are stable: 17 table aids built in order over shared primitives
-(private choice drawer, pending decision indicator, token piles, owner/controller colors, X/mode badges,
-commander damage hover, quick undo request, then readability and social features). Not started.
+**View final board:** after a recorded result the table is read-only (actions, undo, restores and deck loads are
+refused on the server); the result panel folds into a small bar that reopens the vote.
 
-### Later: full UI / 3D tabletop redesign — brief (`UI_REDESIGN_BRIEF.md`)
+### Game night / match flow — built (`GAME_NIGHT_FLOW.md`)
+
+Built:
+- A persistent pod lobby.
+- The pod turn-order rule: d20 rolls for game 1, then the previous winner goes last.
+- The pre-game commander intro, with Skip.
+- An agreed ending.
+- A winner spotlight, which also follows the rules engine's result.
+- A rematch vote.
+- Elimination notices.
+
+- The host arranges seats in the lobby (arrows or drag); the turn-order setting gains "seats" (seat 1 first), and
+  under the pod rule the winner-goes-last order follows the host's seating.
+- The game history keeps each game's turn order, how it was set and its d20 rolls.
+- Each game's elimination order (who went out, on which turn, and how) and a compact, public-only final-board snapshot, kept
+  with the result and shown in the session recap and Pod stats (`GAME_NIGHT_FLOW.md`, "Pod session and game are different objects").
+
+### Tabletop quality-of-life — all 17 aids built (`TABLETOP_QOL_MILESTONE.md`)
+
+Built:
+- The private choice drawer and the pending decision indicator.
+- Token stacks with a ×N count, split and stack by hand. With rules automation on, the engine works on separate tokens.
+- Owner/controller marking.
+- X/mode badges.
+- Commander damage at a glance: hover a commander, plus a whole-table matrix.
+- Attachment lines, shown on hover or selection.
+- The combat lane view.
+- Focus: C for a card, K for the stack, X for combat, in 3D and 2D.
+- Auto-centre: Off, Important or On.
+- Nudge, reactions, the countdown, card notes and the session recap.
+
+Undo: the host's undo setting (everyone, own actions only, or host only) is enforced on the server. At a LAN table an
+undo the setting refuses can be requested ("Bob asks to undo: cast Sol Ring — Approve / Decline"), and undoing an
+action that showed hidden information or a random outcome (a draw, a look, a reveal, a search, a shuffle, a roll)
+asks the table under every setting. Hot-seat tables undo directly.
+
+Table permissions: the host's "Who may change a player's cards" setting (everyone, or each player and the host) is
+enforced on the server for manual table edits only (`game/table_rights.py`); rules actions, looking, life totals and the
+table's procedures are never limited, and hot-seat tables ignore it.
+
+The public choice wheel: a radial picker for public, non-target choices (a color, a type, a player, a number, a coin),
+which the server marks; Settings can turn it off.
+
+### Full UI / 3D tabletop redesign — done in rounds (`UI_REDESIGN_BRIEF.md`, `UI_REFERENCE_STUDY.md` §20–31)
 
 The instruction set for the redesign: `frontend-design` drives creation, `impeccable` critiques each
 implemented pass, verified in the running app; phases A–E (design system and table shell, core
-tabletop, rules UX, 3D/camera, game flow). Not started.
+tabletop, rules UX, 3D/camera, game flow). Built in PR #35's rounds, each recorded in
+`UI_REFERENCE_STUDY.md` §20–31: the 2D rework, the Oops-style 3D table, the seat buttons, life hearts,
+importer and the game-night scenes.
 
 ## Deliberately out of scope
 

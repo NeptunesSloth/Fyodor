@@ -29,6 +29,8 @@ def wanted(cond: dict[str, Any] | None) -> bool:
     """A condition whose event pairs this object with a creature on the other side."""
     if not cond:
         return False
+    if cond.get("other") == "self":  # -- Star Trek statics (wave 111C) -- "Whenever a creature blocks this creature, that creature …": the other side
+        return False  # is the watcher itself; "that creature" is the event's own object, the blocker
     # (-- trigger other (wave 44B) -- "deals combat damage to a planeswalker, destroy that planeswalker": the planeswalker dealt damage, 120.1)
     return bool(cond.get("other") or cond.get("other_side110a")) or (cond.get("event") == "deal_damage" and cond.get("to") in ("creature", "planeswalker"))
 

@@ -24,8 +24,13 @@ export type HotkeyId =
   | "cam_player"
   | "cam_table"
   | "cam_focus"
+  | "cam_stack"
+  | "cam_combat"
   | "cam_reset"
-  | "cam_names";
+  | "cam_names"
+  | "ping"
+  | "hand_sort"
+  | "dice";
 
 export interface Hotkey {
   id: HotkeyId;
@@ -49,12 +54,17 @@ export const HOTKEYS: Hotkey[] = [
   { id: "pass", keys: ["p"], label: "Pass priority (manual play: the dial's main button)" },
   { id: "auto_pass", keys: ["shift+p"], label: "Auto-pass for the rest of this turn" },
   { id: "hud", keys: ["h"], label: "Hide / show player counters & tools" },
-  { id: "cam_seat", keys: ["1"], label: "3D table: look from your seat" },
-  { id: "cam_player", keys: ["2", "3", "4", "5", "6"], label: "3D table: look at the next players' sides, in seat order" },
-  { id: "cam_table", keys: ["0"], label: "3D table: look down on the whole table" },
-  { id: "cam_focus", keys: ["c"], label: "3D table: zoom to the hovered card (C or Esc to return)" },
+  { id: "cam_seat", keys: ["1"], label: "Look from your seat (2D: the whole table)" },
+  { id: "cam_player", keys: ["2", "3", "4", "5", "6"], label: "Look at the next players' boards, in seat order" },
+  { id: "cam_table", keys: ["0"], label: "Look over the whole table" },
+  { id: "cam_focus", keys: ["c"], label: "Focus the hovered card: 3D zooms to it, 2D looks at its board (C or Esc to return)" },
+  { id: "cam_stack", keys: ["k"], label: "Focus the stack (K or Esc to return)" },
+  { id: "cam_combat", keys: ["x"], label: "Focus the current combat (X or Esc to return)" },
   { id: "cam_reset", keys: ["home"], label: "3D table: back to your seat" },
   { id: "cam_names", keys: ["v"], label: "3D table: show / hide the names of all cards on the table" },
+  { id: "ping", keys: ["g"], label: "Ping what the pointer is on, for everyone (or Alt+click)" },
+  { id: "hand_sort", keys: ["s"], label: "Sort your hand: as drawn → mana value → colour → type → name" },
+  { id: "dice", keys: ["shift+r"], label: "Roll dice: open / close the roll panel (Enter rolls)" },
 ];
 
 export function comboOf(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey">): string {
@@ -78,7 +88,10 @@ export function matchHotkey(e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey"
   const key = JSON.stringify(keymap);
   if (key !== cacheKey) {
     cacheKey = key;
-    byCombo = new Map(effectiveHotkeys(keymap).flatMap((h) => h.keys.map((k) => [k, h.id] as [string, HotkeyId])));
+    // a key the player chose wins over a default that came later (a new shortcut never takes a remapped key away)
+    const list = effectiveHotkeys(keymap);
+    const mine = (h: Hotkey) => !!keymap[h.id]?.length;
+    byCombo = new Map([...list.filter((h) => !mine(h)), ...list.filter(mine)].flatMap((h) => h.keys.map((k) => [k, h.id] as [string, HotkeyId])));
   }
   return byCombo.get(comboOf(e)) ?? null;
 }
@@ -100,3 +113,20 @@ export function collisions(list: Hotkey[] = HOTKEYS): string[] {
   }
   return out;
 }
+
+/** How a shortcut reads on a button: "T", "Shift+N", "Space" (the first key, after remapping). */
+export function keyLabel(id: HotkeyId, keymap: Record<string, string[]> = {}): string | null {
+  const key = effectiveHotkeys(keymap).find((h) => h.id === id)?.keys[0];
+  if (!key) return null;
+  return key.split("+").map((p) => (p === " " ? "Space" : p === "ctrl" ? "Ctrl" : p === "shift" ? "Shift" : p.length === 1 ? p.toUpperCase() : p[0]!.toUpperCase() + p.slice(1))).join("+");
+}
+
+/**
+ * Key presets for muscle memory brought from elsewhere (docs/UI_REFERENCE_STUDY.md §22). "Arena": Space passes
+ * priority as in MTG Arena (and P still does); T alone taps. Tabletop Simulator's own keys mostly match already
+ * (F turns a card over); its Tab pointer stays G here, because Tab moves keyboard focus.
+ */
+export const KEY_PRESETS: { id: "fyodor" | "arena"; label: string; keymap: Record<string, string[]> }[] = [
+  { id: "fyodor", label: "Fyodor keys", keymap: {} },
+  { id: "arena", label: "Arena keys (Space passes)", keymap: { pass: [" ", "p"], tap: ["t"] } },
+];

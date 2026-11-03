@@ -19,7 +19,7 @@ from collections.abc import Callable
 _LEVEL_UP = re.compile(r"^Level up ((?:\{[^}]+\})+)$")
 _SYMBOL = re.compile(r"^LEVEL (\d+)(?:-(\d+)|(\+))$")
 _PT = re.compile(r"^\d+/\d+$")
-_STARTS_AS_ABILITY = re.compile(r"^(?:When|Whenever|At) |^[^\"]*: ")
+_STARTS_AS_ABILITY = re.compile(r"^(?:[A-Z][\w'’ -]* — )?(?:When|Whenever|At) |^[^\"]*: ")  # -- station (wave 111C) -- a flavor or ability word first (207.2c-d: "Picard Maneuver — Whenever …")
 
 
 def condition(lo: int, hi: int | None) -> str:
@@ -53,6 +53,12 @@ def rewrite(lines: list[str], is_keyword: Callable[[str], bool]) -> list[str]:
 
 def granted(when: str, text: str, is_keyword: Callable[[str], bool]) -> str:
     """One ability line of a section as "As long as [when], it has [it]." (711.2a, 721.2a): a keyword line, a quoted ability, or a static."""
+    from app.rules.oracle import word_prefix  # (oracle imports this module)
+
+    # -- station (wave 111F) -- 207.2c/207.2d: an ability or flavor word before a triggered or activated ability has no rules meaning
+    # ("8+ | Multivector Assault Mode — Whenever U.S.S. Prometheus deals combat damage to an opponent, …"): the ability it has is the rest
+    if (wp := word_prefix(text)) is not None and _STARTS_AS_ABILITY.search(wp[1]):
+        text = wp[1]
     line = text.rstrip(".")
     if is_keyword(line):
         words = [w.strip().lower() for w in line.split(", ")]
@@ -78,9 +84,23 @@ def station_creature(text: str) -> int | None:
     return int(m[1]) if m else None
 
 
+def station_box(text: str, pt: tuple[str | None, str | None]) -> int | None:
+    """The N of the station symbol whose striation holds the card's power/toughness box (721.2b), or None.
+    -- Station (wave 111C) -- a card whose "Station" has no reminder text (H.M.S. Bounty, S.S. Botany Bay, Candela) and that prints a
+    power/toughness box: with a single station symbol, the box is in that symbol's striation (721.2, 721.2b: a station card's boxes are
+    printed within station striations); with several symbols the box could be any one's (U.S.S. Prometheus: 4+ of 4+ and 8+), so none."""
+    at = station_creature(text)
+    if at is not None:
+        return at
+    marks = re.findall(r"^(\d+)\+ \| ", text, re.MULTILINE)
+    if re.search(r"^Station$", text, re.MULTILINE) and len(marks) == 1 and all((v or "").isdigit() for v in pt):
+        return int(marks[0])
+    return None
+
+
 def station(lines: list[str], text: str, pt: tuple[str | None, str | None], is_keyword: Callable[[str], bool]) -> list[str]:
     """The station card's lines with the station ability and the station symbols written out as CR 702.184a / 721.2 sentences."""
-    at, marks = station_creature(text), [m for line in lines if (m := _STATION_SYMBOL.match(line))]
+    at, marks = station_box(text, pt), [m for line in lines if (m := _STATION_SYMBOL.match(line))]  # (wave 111C: station_box)
     first = next((i for i, line in enumerate(lines) if _STATION_SYMBOL.match(line)), None)
     if lines.count("Station") != 1 or first is None or lines.index("Station") > first or (at is not None and (
             not any(int(m[1]) == at for m in marks) or not all((v or "").isdigit() for v in pt))):

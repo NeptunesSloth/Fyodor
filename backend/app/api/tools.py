@@ -64,7 +64,8 @@ def _count(services: Services, table: str) -> int:
 def diagnostics(services: ServicesDep, include_private: Annotated[bool, Query()] = False) -> JSONResponse:
     """A snapshot for troubleshooting. By default it contains no hands, libraries, decklists,
     card names in hidden zones or notes: only counts, versions, connection state and consistency
-    checks. ``include_private=true`` (an explicit opt-in) adds full table states."""
+    checks. ``include_private=true`` (an explicit opt-in) adds full table states, except for LAN games
+    still being played (other players' hands stay private until the result is recorded)."""
     with services.app_db_lock:
         schema = services.app_db.execute("SELECT version FROM schema_version").fetchone()["version"]
     rooms = []
@@ -85,7 +86,10 @@ def diagnostics(services: ServicesDep, include_private: Annotated[bool, Query()]
                     *(f"zone lists unknown card {cid}" for cid in set(placed) - set(st.cards)),
                 ][:50],
             })
-            if include_private:
+            if include_private and room.mode == "lan" and room.result_id is None:
+                # the host computer must not become a way to see other players' hands mid-game
+                item["state_withheld"] = "A LAN game still being played: hands and libraries stay private until its result is recorded."
+            elif include_private:
                 item["state"] = st.model_dump(mode="json")
         rooms.append(item)
     body = {

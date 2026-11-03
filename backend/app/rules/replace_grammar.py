@@ -125,6 +125,11 @@ _PUTTER = re.compile(r"^If (?P<who>you|an opponent) would put one or more counte
                      r"(?P<how>twice that many|half that many|that many plus one) of each of those kinds of counters on "
                      r"that permanent(?P<orp> or player)? instead(?P<down>, rounded down)?\.$")
 _PUTTER_OPS: dict[str, dict[str, Any]] = {"twice that many": {"do": "mul", "n": 2}, "that many plus one": {"do": "add", "n": 1}, "half that many": {"do": "half"}}
+# -- counter kinds (wave 111B) -- see _counters
+_PUT111B = re.compile(r"If you would put one or more (?P<k>charge )?counters on (?P<on>an? (?P<noun>artifact|creature) you control), put (?P<how>twice that many|that many plus one) "
+                      r"(?:(?P<k2>charge )counters|of each of those kinds of counters) on that (?P=noun) instead\.")
+_ON111B = re.compile(r"If one or more (?P<k>charge) counters would be put on (?P<on>an artifact you control), (?P<how>twice that many|that many plus one) (?P=k) counters "
+                     r"are put on it instead\.")
 
 
 def _putter(m: re.Match[str]) -> Definition | None:
@@ -161,6 +166,14 @@ def _counters(text: str) -> Definition | None:
     m = re.fullmatch(r"If a modular triggered ability would put one or more (?P<k>\+1/\+1) counters on (?P<on>a creature you control), that many plus one (?P=k) counters are put on it instead\.", text)
     if m and (on_obj := _object(m["on"])) is not None:  # -- (wave 110O) -- 702.43a: only the counters a modular triggered ability puts (replace.put_counters tags them); Zabaz
         return _static("counters", {"on": on_obj, "counter": m["k"], "modular110o": True}, {"do": "add", "n": 1})
+    # -- counter kinds (wave 111B) -- 122.6, 614.1a: "If you would put one or more counters on a creature you control, put twice that many of each of those
+    # kinds of counters on that creature instead." (Dr. Joseph M'Benga), "… charge counters on an artifact you control, put twice that many charge counters on
+    # that artifact instead." (Lt. Cmdr. Geordi La Forge): only the counters you put (122.6a, review 22C); "If one or more charge counters would be put on an
+    # artifact you control, that many plus one charge counters are put on it instead." (Optimization Annex): whoever puts them
+    if (m := _PUT111B.fullmatch(text)) is not None and m["k"] == m["k2"] and (on_obj := _object(m["on"])) is not None:
+        return _static("counters", {"on": on_obj, "putter": "you", **({"counter": m["k"].strip()} if m["k"] else {})}, _PUTTER_OPS[m["how"]])
+    if (m := _ON111B.fullmatch(text)) is not None and (on_obj := _object(m["on"])) is not None:
+        return _static("counters", {"on": on_obj, "counter": m["k"]}, _PUTTER_OPS[m["how"]])
     m = _DOUBLING_SEASON.match(text)
     if m:
         on = _object(m["on"])
@@ -793,7 +806,8 @@ def _enters_tapped(text: str) -> Definition | None:
 # permanents already there give it (a creature entering with Renata doesn't get one: ruling).
 _ENTER_EXTRA = re.compile(
     r"^(?:Each (?P<one>.+?) enters|(?P<many>[A-Z].+?) enter) with (?:(?P<n>an|one|two|three|four|five) additional "
-    r"(?P<k>\+1/\+1|loyalty|flying|deathtouch|haste|hexproof|indestructible|lifelink|menace|reach|shadow|trample|vigilance) counters?"  # (33C: Tayam's keyword counter, 122.1b)
+    r"(?P<k>\+1/\+1|loyalty|flying|deathtouch|haste|hexproof|indestructible|lifelink|menace|reach|shadow|trample|vigilance"  # (33C: Tayam's keyword counter, 122.1b)
+    r"|charge) counters?"  # -- enters with counters (wave 111D) -- "Spacecraft you control enter with two additional charge counters on them." (Zefram Cochrane)
     r"|a number of additional (?P<k2>\+1/\+1|loyalty) counters) on (?:it|them)"
     r"(?: for each (?P<each>.+?)| equal to (?P<eq>~'s|this creature's) (?P<stat>power|toughness))?\.$")
 
@@ -832,6 +846,9 @@ def _enter_extra(text: str) -> Definition | None:
         each = re.sub(r' spent to cast them$', ' spent to cast it', m['each'])
         already = re.fullmatch(r"(?P<w>.+) you already control", each)
         times = values.parse_count(f"{already['w']} you control" if already else each)
+        if already and isinstance(times, dict) and times.get("distinct") == "creature_types":  # -- enters with counters (wave 111D) -- Jean-Luc, Mon Capitaine:
+            op["times"] = {"already_distinct": times["among"]}  # "for each creature type among non-Borg creatures you already control" (614.12: not the ones entering now)
+            return _static("counters", {"on": {"sel": sel.key()}, "counter": m["k"] or m["k2"], "entering_only": True}, op)
         if not isinstance(times, dict) or (already and "count" not in times):
             return None
         op["times"] = {"already": times["count"]} if already else times

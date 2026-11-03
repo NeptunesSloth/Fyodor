@@ -8,9 +8,18 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+import httpx
+
 from app.assets.store import AssetNotFound, AssetStore
 from app.assistant import OllamaAssistant, RulesAssistant
-from app.cards.downloader import ImageReport, download_images, image_jobs_from_rows, make_client
+from app.cards.art_keeper import ArtKeeper
+from app.cards.downloader import (
+    ImageReport,
+    download_card_back,
+    download_images,
+    image_jobs_from_rows,
+    make_client,
+)
 from app.cards.images import ImageStore
 from app.cards.repository import CardRepository
 from app.config import Settings
@@ -19,15 +28,18 @@ from app.decks.repository import DeckRepository
 from app.game import engine
 from app.game.actions import ACTION_ADAPTER
 from app.game.session import GameSession
-from app.jobs import JobManager
+from app.jobs import JobManager, ProgressFn
+from app.multiplayer.handoff import Handoffs
 from app.multiplayer.hub import GameHub, Room
 from app.rules import RulesRegistry
 from app.stats.repository import PodStats
 from app.storage.app_db import MIGRATIONS as APP_MIGRATIONS
 from app.storage.app_db import open_app_db
+from app.storage.autobackup import AutoBackups
 from app.storage.backup import (
     RecoveryInfo,
     apply_pending_restore,
+    create_backup,
     list_backups,
     pre_migration_backup,
     quarantine_damaged,
@@ -80,13 +92,19 @@ class Services:
         self.journal = RoomJournal(self.app_db, self.app_db_lock)
         self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every, asset_info=self.asset_info,
                            journal=self.journal)
+        self.handoffs = Handoffs()  # decks a joining player brought from their own computer (memory only)
+        self.art_keeper = ArtKeeper(self)  # each saved deck's art, kept for offline play while online
         self.jobs = JobManager()
+        self.http_client: Callable[..., httpx.Client] = make_client  # online features use this (the tests swap it)
         self.source_cache: dict[str, tuple[float, Any]] = {}
         self.rules = RulesRegistry()  # no modules ship enabled; see app/rules/__init__.py
         self.assistant: RulesAssistant | None = (
             OllamaAssistant(settings.assistant_url, settings.assistant_model) if settings.assistant_url else None
         )
         self.recovered: list[dict[str, Any]] = self.recover_rooms()
+        self.autobackups = AutoBackups(
+            data_dir=settings.data_dir, interval_minutes=settings.auto_backup_minutes, copy_dir=settings.backup_copy_dir,
+            make=lambda reason: self.backup(reason=reason), changes=lambda: self.app_db.total_changes, has_data=self._has_data)
 
     def recover_rooms(self) -> list[dict[str, Any]]:
         """Bring back every table that was live when Fyodor stopped (crash or restart)."""
@@ -135,15 +153,27 @@ class Services:
                                          backups=[b["name"] for b in list_backups(self.settings.data_dir)])
             return open_app_db(path)
 
+    def backup(self, *, reason: str | None = None) -> dict[str, Any]:
+        """A backup now: by hand (``reason`` None) or automatic. Mirrored to FYODOR_BACKUP_COPY_DIR when set."""
+        return create_backup(self.settings.data_dir, self.app_db, self.app_db_lock, self.settings.assets_dir, reason=reason,
+                             copy_dir=self.settings.backup_copy_dir)
+
+    def _has_data(self) -> bool:
+        with self.app_db_lock:
+            return any(self.app_db.execute(f"SELECT 1 FROM {t} LIMIT 1").fetchone()  # noqa: S608 - fixed names
+                       for t in ("decks", "saves", "game_results"))
+
     def archidekt_fetch(self, deck_id: str) -> dict[str, Any]:
         """Fetch a public Archidekt deck (only called on explicit user action)."""
         return archidekt.fetch_deck(deck_id, user_agent=self.settings.user_agent)
 
-    def cache_artwork(self, printing_ids: list[str], progress: Callable[[int, int, int], None]) -> str:
-        """Download missing images for these printings and the tokens they create."""
+    def fetch_artwork(self, printing_ids: list[str], progress: ProgressFn, *, tokens: bool = True) -> ImageReport:
+        """Download missing images for these printings (and, with ``tokens``, the tokens they create)."""
         ids = list(dict.fromkeys(printing_ids))
-        cards = self.cards.get_many(ids)
-        token_ids = [t["id"] for c in cards.values() for t in c.get("related_tokens") or []]
+        token_ids: list[str] = []
+        if tokens:
+            cards = self.cards.get_many(ids)
+            token_ids = [t["id"] for c in cards.values() for t in c.get("related_tokens") or []]
         rows = self.cards.image_rows([*ids, *dict.fromkeys(token_ids)])
         jobs = image_jobs_from_rows(rows)
 
@@ -152,6 +182,12 @@ class Services:
 
         with make_client(self.settings.user_agent, timeout=30.0) as client:
             result = download_images(client, self.images, jobs, workers=6, progress=report)
+            download_card_back(client, self.images)  # the Magic card back, for library piles and hidden cards
+        return result
+
+    def cache_artwork(self, printing_ids: list[str], progress: ProgressFn) -> str:
+        """Download missing images for these printings and the tokens they create."""
+        result = self.fetch_artwork(printing_ids, progress)
         return (f"{result.downloaded} downloaded, {result.skipped} already cached, {result.failed} failed"
                 + (" — re-run to retry" if result.failed else ""))
 
@@ -182,8 +218,8 @@ class Services:
         return used
 
     def autosave(self, room: Room) -> None:
-        if not room.started:
-            return  # nothing to save before the host starts the game
+        if not room.started or room.practice is not None:
+            return  # nothing to save before the host starts the game; a practice table is never saved (ELIMINATION_HUB.md)
         state = room.session.state
         saved = self.saves.save(state, room.session.history, name=f"{state.name} (autosave)", autosave=True,
                                 extras={"table_snapshots": room.session.table_snapshots})
@@ -211,6 +247,8 @@ class Services:
                 self.autosave(room)
             except Exception:  # noqa: BLE001 - shutting down; log and continue closing
                 log.exception("Final autosave failed for %s", room.id)
+        self.autobackups.stop()
+        self.art_keeper.stop()
         self.jobs.shutdown()
         self.cards.close()
         self.app_db.close()

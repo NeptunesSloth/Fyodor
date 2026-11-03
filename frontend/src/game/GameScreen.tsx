@@ -8,26 +8,56 @@ import { useCardCache } from "../state/cardCache";
 import { isVisible, splitZone } from "../types/game";
 import { draw, moveCards, send, tapCards } from "./actions";
 import { GameDialogs } from "./Dialogs";
-import { CombatArrows, DragLayer, PickLayer } from "./Overlays";
+import { AttachLines, CombatArrows, DragLayer, PickLayer } from "./Overlays";
+import { FocusKeys2D } from "./focus2d";
 import { Hand } from "./Hand";
 import { MulliganOverlay } from "./MulliganOverlay";
 import { PlayerArea } from "./PlayerArea";
 import { TopBar } from "./TopBar";
 import { CardPreview, LogDrawer, SelectionBar, StackWidget, ToolTray, useHudClass } from "./Hud";
 import { usePrefs } from "../state/prefs";
+import { toast } from "../components/Toasts";
 import { ZoneBrowser } from "./ZoneBrowser";
 import { bookmarkSlot, matchHotkey } from "./hotkeys";
+import { outKeyBlocked } from "./outOfGame";
 import { recallBookmark, saveBookmark } from "./bookmarks";
 import { ResponseBar } from "./ResponseBar";
-import { AutomationErrorPanel, AutomationHud, DecisionPanel, dialState, RulesStack, TurnDial, XPrompt } from "./rules/RulesHud";
+import { UndoRequestBar } from "./UndoRequestBar";
+import { AutomationErrorPanel, DecisionPanel, dialState, RulesStack, TurnDial, XPrompt } from "./rules/RulesHud";
 import { passPriority } from "./rules/intents";
 import "./rules/rules.css";
 import { resolveRenderer } from "../table3d/renderer";
 import { CombatLanes, CombatStrip } from "./CombatLanes";
 import { GameNight } from "./GameNight";
+import { MajorNotices } from "./MajorNotices";
 import { SignalLayer } from "./Signals";
+import { PingLayer } from "./Pings";
+import { DiceLayer } from "./DiceLayer";
+import { DigDialog } from "./DigDialog";
+import { TableImporter } from "./TableImporter";
+import { ExileCastables } from "./ExileCastables";
+import { useTurnAlert } from "./turnAlert";
+import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
+import { Motion2D } from "./motion/Motion2D";
+import { BagDraws } from "./BagDraws";
 
 const Table3D = lazy(() => import("../table3d/Table3D").then((m) => ({ default: m.Table3D })));
+
+/** The 2D table's "camera": the 3D seat keys (2–6 look at an opponent, 1 or T back to the whole table) set the focus. */
+function FocusKeys({ others, me }: { others: string[]; me: string }) {
+  useEffect(() => {
+    const onCam = (e: Event) => {
+      const { id, digit, player } = (e as CustomEvent<{ id: string; digit: number; player?: string }>).detail;
+      const setFocus = (focus: string | null) => useGame.getState().setLayout({ focus });
+      if (id === "cam_seat" || id === "cam_reset" || id === "cam_table") setFocus(null);
+      else if (id === "cam_player" && others[digit - 2]) setFocus(others[digit - 2]!);
+      else if (id === "cam_focus_player") setFocus(player && player !== me && others.includes(player) ? player : null);
+    };
+    window.addEventListener("fyodor:camera", onCam);
+    return () => window.removeEventListener("fyodor:camera", onCam);
+  }, [others.join(), me]);
+  return null;
+}
 
 export function GameScreen() {
   const view = useGame((s) => s.view);
@@ -39,6 +69,7 @@ export function GameScreen() {
   const rendererPref = usePrefs((s) => s.renderer);
   const browserOpen = useGame((s) => !!s.browser || (!!s.view && !!s.view.searches[s.view.viewer]));
   useShortcuts();
+  useTurnAlert();
   useHudClass();
   usePreferredLook();
   useEffect(() => useMacros.getState().refresh(), []);
@@ -66,6 +97,8 @@ export function GameScreen() {
       <div className="game-body">
         <main className={`table ${three ? "is-3d" : ""}`}>
           {three ? <Suspense fallback={<div className="table3d-loading">Setting the table…</div>}><Table3D me={me} /></Suspense> : <TablePlaymat />}
+          {!three && <FocusKeys others={others} me={me} />}
+          {!three && <FocusKeys2D />}
           {!three && <div className={`opponents n${others.length} ${focus && focus !== me ? "focused" : ""} ${focus === me ? "shrunk" : ""}`}>
             {others.map((pid) => (
               <PlayerArea key={pid} player={pid} me={me} mine={false} compact={others.length > 1} focused={focus === pid} />
@@ -77,6 +110,7 @@ export function GameScreen() {
           </div>}
           {browserOpen && <ZoneBrowser me={me} />}
           {canSeeMyHand && <Hand player={me} me={me} />}
+          {canSeeMyHand && <ExileCastables me={me} />}
         </main>
       </div>
       {status !== "open" && (
@@ -85,6 +119,11 @@ export function GameScreen() {
           {outbox > 0 && <span className="conn-outbox"> · {outbox} action{outbox === 1 ? "" : "s"} will be sent when the table is back</span>}
         </div>
       )}
+      {!three && <DiceLayer />}
+      {!three && <Motion2D />}
+      <BagDraws />
+      <DigDialog me={me} />
+      <TableImporter />
       <StackWidget me={me} />
       <LogDrawer />
       <ToolTray />
@@ -93,17 +132,20 @@ export function GameScreen() {
       <GameDialogs me={me} />
       <MulliganOverlay />
       <ResponseBar />
-      <AutomationHud />
+      <UndoRequestBar />
       <RulesStack />
       <DecisionPanel />
       <XPrompt />
       <AutomationErrorPanel />
       <DragLayer />
       {!three && <CombatArrows />}
+      {!three && <AttachLines />}
       <PickLayer />
       {three && <CombatLanes />}
       <GameNight />
+      <MajorNotices />
       <SignalLayer />
+      <PingLayer />
     </div>
   );
 }
@@ -126,10 +168,11 @@ function useShortcuts() {
       }
       const id = matchHotkey(e, usePrefs.getState().keymap);
       if (!id) return;
+      if (outKeyBlocked(view, me, id)) return; // -- out of the game -- keys that would move it do nothing (the reason, once)
       const targets = s.selection.length ? s.selection : s.hover && view.cards[s.hover] ? [s.hover] : [];
       const w = view.response;
       if (id.startsWith("cam_")) {
-        // the 3D table owns its camera; the 2D table ignores these
+        // the 3D table moves its camera; the 2D table focuses a seat (FocusKeys)
         e.preventDefault();
         window.dispatchEvent(new CustomEvent("fyodor:camera", { detail: { id, digit: Number(e.key) || 0, hover: s.hover } }));
         return;
@@ -186,6 +229,16 @@ function useShortcuts() {
         case "help":
           s.openDialog("help");
           break;
+        case "ping":
+          window.dispatchEvent(new Event("fyodor:ping-here"));
+          break;
+        case "hand_sort": {
+          const prefs = usePrefs.getState();
+          const next = nextHandSort(prefs.handSort);
+          prefs.set({ handSort: next });
+          toast(`Hand: ${HAND_SORT_LABEL[next]}`);
+          break;
+        }
         case "pass":
           if (view.rules && !view.rules.controlled_by && (view.rules.priority === me || (!!view.rules.acting_as && view.rules.priority === view.rules.acting_as)) && !view.rules.decision) void passPriority();
           else if (w?.waiting.includes(me)) void send({ type: "response_pass" });
@@ -200,6 +253,10 @@ function useShortcuts() {
           prefs.set({ hud: prefs.hud === "full" ? "minimal" : "full" });
           break;
         }
+        case "dice":
+          e.preventDefault();
+          s.openDialog(s.dialog === "dice" ? null : "dice");
+          break;
         case "auto_pass":
           void send({ type: "response_auto", on: !view.auto_pass?.includes(me) });
           break;

@@ -1,20 +1,29 @@
 /* Automation UX (docs/AUTOMATION_UX.md), styled from the table theme's tokens. */
 
-.auto-hud {
-  position: fixed; z-index: 56; top: 52px; right: 14px;
-  display: flex; gap: 6px; align-items: flex-start; flex-wrap: wrap; justify-content: flex-end;
-}
+/* in the top bar (TopBar.tsx): what the engine does, how it stops for you, and Concede — quiet words, not buttons in a row */
+.auto-hud { position: relative; display: flex; gap: 2px; align-items: center; flex-wrap: nowrap; margin-right: 4px; }
 .auto-pill {
-  font: 600 12px/1 var(--font-ui); padding: 7px 10px; color: var(--text-dim); cursor: pointer;
-  background: var(--hud-surface); border: 1px solid var(--hud-edge); border-radius: 3px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px; white-space: nowrap; cursor: pointer;
+  font: 500 12.5px/1 var(--font-ui); color: var(--text-dim); background: transparent; border: 1px solid transparent; border-radius: 4px;
 }
-.auto-pill:hover { color: var(--text); border-color: var(--frame); }
-.auto-pill.on { color: var(--accent-2); border-color: var(--frame); }
-.auto-pill.winner { color: var(--accent-ink); background: var(--accent-grad); border-color: var(--frame-hi); cursor: default; }
+.auto-pill:hover { color: var(--text); background: rgba(255, 255, 255, 0.05); }
+/* the engine's state as a lamp: brass while it runs the rules, dark when it is off or paused (and the words say which) */
+.auto-pill[data-testid="auto-level"]::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--line-2); box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.6);
+}
+.auto-pill.on { color: var(--room-bone); }
+.auto-pill.on[data-testid="auto-level"]::before { background: var(--frame-hi); box-shadow: 0 0 0 2px color-mix(in srgb, var(--frame-hi) 22%, transparent); }
+.auto-pill[data-testid="concede"] { color: var(--text-faint); }
+.auto-pill[data-testid="concede"]:hover { color: #ffb4ad; }
+.auto-pill[data-testid="concede-confirm"] { cursor: default; gap: 4px; padding-right: 2px; color: #ffcfc9; border-color: #6b302c; background: rgba(58, 31, 29, 0.6); }
+.auto-pill[data-testid="concede-confirm"] .tt-btn { min-height: 24px; padding: 0 8px; font-size: 12px; }
+.auto-pill[data-testid="concede-yes"], .auto-pill [data-testid="concede-yes"] { color: #ffb4ad; }
+.auto-pill.winner { color: var(--accent-ink); background: var(--accent-grad); border-color: var(--frame-hi); cursor: default; font-weight: 650; }
+details.auto-pill { height: auto; min-height: 30px; }
 
 /* Automation settings panel (segmented controls, stops grid, switches) */
 .auto-settings {
-  position: absolute; top: 36px; right: 0; width: 380px; max-width: calc(100vw - 32px); padding: 14px 16px 16px;
+  position: absolute; top: calc(100% + 10px); right: 0; width: 380px; max-width: calc(100vw - 32px); padding: 14px 16px 16px;
   display: flex; flex-direction: column; gap: 10px; z-index: 5;
 }
 .auto-settings-head { display: flex; align-items: center; justify-content: space-between; }
@@ -67,6 +76,8 @@
 .td-group { font-size: 11px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .td-track li.here .td-group { color: var(--text); font-weight: 600; }
 .td-status { margin: 2px 0 0; font-size: 13px; color: var(--text-dim); }
+/* out of the game: the dial only tells the turn, quieter (nothing on it is theirs to press) */
+.turn-dial.out .td-phase { color: var(--text-dim); }
 .turn-dial.mine .td-status { color: var(--select); font-weight: 600; }
 .turn-dial.mine .td-status::before { content: "● "; }
 .td-pass {
@@ -81,45 +92,94 @@
 .td-hint { margin: 0; font-size: 11.5px; color: var(--text-dim); }
 .td-more { display: flex; gap: 4px; flex-wrap: wrap; }
 .td-more .tt-btn, .td-cancel { min-height: 26px; padding: 2px 10px; font-size: 12px; }
-.td-toggles { display: flex; gap: 10px; border-top: 1px solid rgba(255, 236, 200, 0.08); padding-top: 6px; }
-.td-toggle { all: unset; cursor: pointer; font-size: 12px; color: var(--text-dim); }
+.td-toggles { display: flex; flex-wrap: wrap; gap: 4px 14px; border-top: 1px solid rgba(255, 236, 200, 0.08); padding-top: 7px; }
+.td-toggle { all: unset; cursor: pointer; font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+.td-toggle:hover { color: var(--text); }
 .td-toggle::before { content: "○ "; }
 .td-toggle.on { color: var(--text); }
 .td-toggle.on::before { content: "● "; color: var(--frame-hi); }
 .td-toggle:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
 
 /* The stack as a chain (shared with the manual stack panel; styles in game.css) */
-.rules-stack-wrap { position: fixed; z-index: 54; right: 14px; top: 92px; width: 320px; }
-.rules-stack { --cut: 10px; max-height: 52vh; overflow: auto; padding: 12px 12px 10px; font-size: 12.5px; }
+/* top right, under the last seat's strip on the 2D table (its plaque and life stay in sight), clear of the turn dial below */
+.rules-stack-wrap { position: fixed; z-index: 54; right: 14px; top: 150px; width: 320px; }
+.rules-stack { --cut: 10px; max-height: min(40vh, calc(100vh - 150px - var(--hand-h, 150px) - 250px)); min-height: 0; overflow: auto; padding: 12px 12px 10px; font-size: 12.5px; }
+.game-screen:has(main.table.is-3d) .rules-stack-wrap { top: 58px; }
+.game-screen:has(main.table.is-3d) .rules-stack { max-height: 52vh; }
 
-/* Prompts */
+/* Prompts: one steel plaque docked above your hand, by the turn dial (where your eyes already are), as small as the
+   choice allows; the question first, then the answers. One answer is the main one when there is one (Yes, Pay), the
+   rest are quiet; a long list scrolls inside the plaque instead of covering the table. */
 .decision-panel {
-  position: fixed; z-index: 60; left: 50%; top: 16%; transform: translateX(-50%);
-  width: min(560px, calc(100vw - 32px)); max-height: 66vh; overflow: auto; padding: 16px 18px;
-  color: var(--text); border-color: var(--frame-hi);
+  --dw: min(620px, calc(100vw - 32px));
+  position: fixed; z-index: 60; left: 50%; bottom: calc(var(--hand-h, 150px) + 14px); transform: translateX(-50%);
+  width: var(--dw); max-height: min(46vh, 440px); overflow: auto; overscroll-behavior: contain;
+  padding: 14px 18px 14px; color: var(--text);
+}
+/* over your mat, between your rail (left) and the turn dial (right): centred there, never under the dial */
+@media (min-width: 721px) {
+  .decision-panel:not(.waiting):not(.payment) {
+    --dw: min(620px, calc(100vw - 354px));
+    left: clamp(calc(16px + var(--dw) / 2), calc(50vw - 56px), calc(100vw - 322px - var(--dw) / 2));
+  }
+}
+/* (.frame comes from theme.css, which loads after this file: the plaque's own look needs both classes) */
+.decision-panel.frame {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 46px), var(--hud-surface);
+  border: 1px solid var(--frame); border-top-color: var(--frame-hi); border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 0 0 2px var(--frame-inner), 0 18px 40px rgba(0, 0, 0, 0.6);
+  scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--frame) 55%, transparent) transparent;
 }
 .decision-panel.waiting {
-  top: auto; bottom: calc(var(--hand-h, 150px) + 64px); width: auto; max-width: calc(100vw - 32px);
+  top: auto; bottom: calc(var(--hand-h, 150px) + 14px); width: auto; max-width: calc(100vw - 32px);
   padding: 7px 14px; color: var(--text-dim); font-size: 12.5px;
-  background: var(--hud-surface); border: 1px solid var(--hud-edge); border-radius: 3px;
+  background: var(--hud-surface); border: 1px solid var(--hud-edge); border-radius: 3px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
 }
-.decision-panel.targeting {
-  top: auto; bottom: calc(var(--hand-h, 150px) + 70px); width: min(520px, calc(100vw - 32px)); text-align: center;
-  border-color: var(--select); box-shadow: 0 0 22px var(--select-glow), var(--shadow);
+/* choosing a target: the table is the answer, so the plaque is ice-edged like the highlighted targets */
+.decision-panel.frame.targeting { border-color: color-mix(in srgb, var(--select) 70%, var(--frame)); }
+.decision-prompt { font: 600 15px/1.4 var(--font-ui); color: var(--room-bone); margin: 0 0 10px; text-wrap: balance; }
+.decision-hint { font-size: 12px; color: var(--select); margin: -6px 0 10px; }
+.decision-options { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 2px; }
+.decision-options .tt-btn { min-height: 32px; padding: 3px 12px; }
+.decision-options .tt-btn.ghost { border-color: var(--line-2); background: rgba(0, 0, 0, 0.25); color: var(--room-bone-dim); }
+.decision-options .tt-btn.on { color: var(--accent-2); border-color: var(--frame-hi); background: color-mix(in srgb, var(--frame) 16%, var(--steel-lo)); }
+/* the answers that end the choice go last, at the right: Cancel quiet, Done (or Name it, Choose) in brass */
+.decision-options > [data-testid="option-cancel"] { order: 9; margin-left: auto; }
+.decision-options > .tt-btn.brass { order: 10; min-width: 96px; font-weight: 650; }
+.decision-options > [data-testid="option-cancel"] + .tt-btn.brass, .decision-options > .tt-btn.brass:only-of-type { margin-left: auto; }
+.decision-options > .tt-btn.ghost[data-testid="option-cancel"] { border-color: transparent; background: transparent; }
+/* a target list keeps Cancel in its top corner, so the list itself is all that grows */
+.decision-panel.targeting .decision-options > [data-testid="option-cancel"] { position: absolute; top: 9px; right: 10px; min-height: 28px; }
+.decision-panel.targeting .decision-prompt { padding-right: 70px; }
+.decision-options > .tt-btn.ghost[data-testid="option-cancel"]:hover { color: var(--room-bone); }
+/* a yes-or-no question, or a cost you may pay: the first answer (Yes, Pay) is the main one */
+.decision-panel:is([data-kind="confirm"], [data-display="optional_cost"]) .decision-options > .tt-btn:first-child {
+  min-width: 96px; color: var(--accent-ink); background: var(--accent-grad); border-color: var(--frame-hi); font-weight: 650;
 }
-.decision-panel.targeting .decision-options { justify-content: center; }
-.decision-prompt { font-size: 15px; font-weight: 600; margin-bottom: 10px; line-height: 1.4; }
-.decision-hint { font-size: 12px; color: var(--select); margin: -4px 0 10px; }
-.decision-options { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
-.decision-options .tt-btn { min-height: 32px; }
-.decision-remember { display: flex; gap: 6px; align-items: center; color: var(--text-dim); font-size: 12px; margin-top: 4px; }
+.decision-panel:is([data-kind="confirm"], [data-display="optional_cost"]) .decision-options > .tt-btn:first-child:hover { filter: brightness(1.07); }
+.decision-panel:is([data-kind="confirm"], [data-display="optional_cost"]) .decision-options > .tt-btn:not(:first-child) { background: transparent; border-color: var(--line-2); }
+/* a choice between modes (long sentences): one per line, read left to right */
+.decision-options[data-modes] > .tt-btn:not(.brass):not([data-testid="option-cancel"]) {
+  flex: 1 1 100%; justify-content: flex-start; text-align: left; white-space: normal; line-height: 1.35; padding: 7px 12px;
+}
+/* a target list: each player's objects in a row behind their seat chip */
+.decision-group { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; flex: 1 1 100%; padding: 4px 0; }
+.decision-group + .decision-group { border-top: 1px solid rgba(255, 236, 200, 0.06); }
+.decision-group .tt-btn { min-height: 28px; padding: 2px 10px; font-size: 12.5px; }
+.decision-who {
+  width: 22px; height: 22px; flex: none; margin-right: 4px; display: inline-grid; place-items: center; border-radius: 50%;
+  font: 700 11px/1 var(--font-display); color: var(--text); background: var(--steel-lo); border: 2px solid var(--player-color, var(--frame));
+}
+.decision-remember { display: flex; gap: 6px; align-items: center; color: var(--text-dim); font-size: 12px; margin-top: 0; order: 8; height: 30px; padding: 0 8px; }
 .decision-combat, .decision-reconcile { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
 .combat-row, .reconcile-q { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
 .combat-row > span:first-child, .reconcile-q > span:first-child { flex: 1 1 180px; }
 .combat-row .tt-btn, .reconcile-q .tt-btn { min-height: 26px; padding: 2px 10px; font-size: 12.5px; }
+.combat-row .combat-must { font-style: normal; font-size: 12px; color: var(--text-dim); } /* a requirement says it attacks (508.1d) */
+.decision-combat > .tt-btn.brass, .decision-reconcile > .tt-btn.brass { align-self: flex-end; min-width: 120px; min-height: 32px; font-weight: 650; }
 
 /* Mana payment */
-.decision-panel.payment { width: min(460px, calc(100vw - 32px)); top: 14%; }
+.decision-panel.payment { width: min(460px, calc(100vw - 32px)); top: 14%; bottom: auto; max-height: 72vh; }
 .pay-head { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .pay-title { font-family: var(--font-display); font-size: 22px; letter-spacing: 0.02em; color: var(--text); }
 .pay-cost { font-size: 22px; }
@@ -157,7 +217,7 @@
 .rules-mana-source { outline: 2px solid #5fbf7a; outline-offset: 2px; box-shadow: 0 0 14px rgba(95, 191, 122, 0.55); cursor: pointer; }
 .pay-actions.two { grid-template-columns: repeat(2, 1fr); }
 .tap-mana .pay-thumb { border: 0; padding: 0; background: none; cursor: pointer; }
-.rules-target { outline: 2px solid var(--select); outline-offset: 2px; box-shadow: 0 0 16px var(--select-glow); cursor: crosshair; }
+/* .rules-target (a legal choice on the table): game/targeting.css */
 
 /* short screens (laptops): a compact dial */
 @media (max-height: 820px) {
@@ -169,7 +229,6 @@
 
 @media (max-width: 720px) {
   .rules-stack-wrap { width: calc(100vw - 32px); right: 16px; }
-  .auto-hud { right: 16px; }
   .turn-dial-wrap, .game-screen:has(.log-drawer.open) .turn-dial-wrap { right: 16px; left: 16px; width: auto; }
   .log-drawer.open { z-index: 56; } /* no room beside the full-width dial: the open log goes over it */
 }

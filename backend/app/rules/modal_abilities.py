@@ -160,7 +160,7 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
     hrest = "" if xdef else m["rest"].strip() if m is not None else ""
     if xdef and not any(re.search(r"\bX\b", b.text) for b in _bullets(ch, ab.index)):
         return {}  # (an X that no mode uses: not read)
-    if m is None or (extra is None and not _header_ok(ab, m["prefix"], m["end"], hrest)):
+    if m is None or (extra is None and not _header_ok(ab, m["prefix"], m["end"], hrest, ch.name)):
         return {}
     if m["random"] and (ab.kind != "triggered" or m["count"] != "one" or m["memory"]):
         return {}
@@ -264,7 +264,7 @@ def definitions(ab: AbilityText, ch: Characteristics) -> dict[int, Definition]:
                 return {}  # (only modes that all target a player of the same kind)
             modal["different_players"] = True
         if "instead" in extra:
-            if (n != 2 and not extra["instead"].get("pick")) or m["count"] != "one" or ab.kind != "triggered":
+            if (n != 2 and not extra["instead"].get("pick") and not extra["instead"].get("more111b")) or m["count"] != "one" or ab.kind != "triggered":
                 return {}
             modal["instead"] = extra["instead"]
     out: dict[int, Definition] = {ab.index: {**shape, "effects": [], "target": None, "optional": False,
@@ -290,6 +290,7 @@ def _plain_groups(ab: AbilityText, groups: list[Definition]) -> bool:
 
 # -- refused modal/conditional (wave 3R1) --
 _BOTH_INSTEAD =re.compile(r"^If (?P<c>.+), (?P<may>you may )?choose both instead\.$")
+_MORE_INSTEAD111B = re.compile(r"^If (?P<c>.+), choose one or more instead\.$")  # (wave 111B)
 _CHOOSE_INSTEAD = re.compile(r"^If (?P<c>.+), you choose one instead\.$")  # -- random choices (wave 47B) -- "choose one at random. If …, you choose one instead." (Typhoid Mary)
 _KICKED_CONDITION = re.compile(r"^(?:it|this spell|~) was kicked$")
 
@@ -310,6 +311,11 @@ def _header_extra(ab: AbilityText, m: re.Match[str]) -> dict[str, Any] | None:
         cond = conditions.parse(chose["c"], objects=True)
         return {"instead": {"cond": cond, "min": 1, "max": 1, "pick": True}} if cond is not None and not set(conditions.objects_in(cond)) else None
     both = _BOTH_INSTEAD.match(rest)
+    if both is None and (more := _MORE_INSTEAD111B.match(rest)) is not None:
+        # -- if you do / instead (wave 111B) -- "Whenever Captain Kirk enters or attacks, choose one. If you have no cards in hand, choose one or more
+        # instead." (Captain James T. Kirk): checked as the ability is put on the stack, when its modes are announced (603.3c, 700.2a; as "both")
+        cond = conditions.parse(more["c"], objects=True)
+        return {"instead": {"cond": cond, "min": 1, "max": 99, "more111b": True}} if cond is not None and not set(conditions.objects_in(cond)) else None
     if both is None:
         return None
     cond = ({"object": "self", "cast": {"kicked": True}} if _KICKED_CONDITION.match(both["c"])
@@ -328,14 +334,15 @@ def _player_selector(what: str) -> bool:
 # -- end refused modal/conditional (wave 3R1) --
 
 
-def _header_ok(ab: AbilityText, prefix: str, end: str, rest: str) -> bool:
+def _header_ok(ab: AbilityText, prefix: str, end: str, rest: str, name: str = "") -> bool:
     """Is the line one header and nothing else: "<trigger condition>, choose one —", "<cost>: Choose
     one —" (an activated ability may add its "Activate only …" sentences after "Choose one.", a
     triggered ability its limit)."""
     if ab.kind == "triggered":
-        from app.rules import sagas
+        from app.rules import sagas, scripts
 
-        if not (prefix.endswith(", ") or sagas.chapters_of(f"{prefix}x")) or ". " in prefix:
+        # (-- wave 111F -- the card's own name read as ~ first: "When Dr. McCoy enters, choose one —" has no other sentence, 201.5c)
+        if not (prefix.endswith(", ") or sagas.chapters_of(f"{prefix}x")) or ". " in (scripts.self_text(prefix, name) if name else prefix):
             return False  # (a line with another sentence before it is a reflexive trigger, 603.12, or the like)
         return rest == "" if end == " —" else rest == "" or rest in restrictions.TRIGGER_LIMITS
     if ab.kind in ("activated", "loyalty") and ab.cost:
@@ -652,6 +659,11 @@ def _on_the_stack(plan: Plan, t: PendingTrigger, chosen: list[int], picked: list
                                      targets=flat, target_spec=None, event=t.event, modes=chosen, slots=slots,
                                      slot_specs=specs, x=cast_x(plan, t))  # (x: wave 4J, 107.3m)
     remember(r, t.source_object, d["modal"]["index"], d["modal"]["memory"], plan.state.turn.number, chosen, _face(plan, t))
+    from app.rules import (
+        dilemma,  # -- Star Trek mechanics (wave 112T) -- 603.3c: its modes were chosen as it was put on the stack (release notes)
+    )
+
+    dilemma.note(plan, t.controller, chosen)
     plan.do({"type": "set_stack_info", "card_id": ability_id, "modes": _public_texts(plan, t.source_card, d, chosen)},
             actor=t.controller)
     if flat:
@@ -751,5 +763,10 @@ def announced(plan: Plan, ability_id: str, card: CardInstance, found: Announced,
     """The ability is on the stack: the modes chosen are public (601.2b) and, for "hasn't been chosen",
     remembered for that ability of that object."""
     remember(plan.rules, oid, found.index, found.definition["modal"]["memory"], plan.state.turn.number, found.modes, card.face)
+    from app.rules import (
+        dilemma,  # -- Star Trek mechanics (wave 112T) -- 602.2b: its modes were chosen as it was activated (release notes)
+    )
+
+    dilemma.note(plan, plan.actor, found.modes)
     plan.do({"type": "set_stack_info", "card_id": ability_id,
              "modes": _public_texts(plan, card.id, found.definition, found.modes)}, actor=plan.actor)

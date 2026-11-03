@@ -19,11 +19,15 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from app.game import undo_requests, undo_rights
 from app.game.factory import PLAYER_COLORS
 from app.game.session import GameSession
+from app.game.summary import player_commanders
 from app.game.visibility import OMNISCIENT, SPECTATOR
+from app.multiplayer.elimination import PracticeLink, Pulse
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, deck_summary
-from app.multiplayer.night import Night
+from app.multiplayer.night import Night, follow_rules
+from app.multiplayer.spectate import Predictions
 from app.storage.journal import RoomJournal
 
 log = logging.getLogger(__name__)
@@ -101,6 +105,9 @@ class Room:
     # client_action_id -> outcome ("ACCEPTED" / "REJECTED: …"): a retried action applies once.
     client_actions: dict[str, str] = field(default_factory=dict)
     night: Night = field(default_factory=Night)  # game night: turn order, agreed endings, rematch vote
+    pulse: Pulse = field(default_factory=Pulse)  # major public events of the current game (elimination hub)
+    practice: PracticeLink | None = None  # a private practice table (elimination hub): whose it is
+    predictions: Predictions = field(default_factory=Predictions)  # spectators' fake-point predictions (memory only)
 
     @property
     def id(self) -> str:
@@ -151,7 +158,9 @@ class Room:
             or f"Seat {pid[1:]}"
         )
 
-    def summary(self) -> dict[str, Any]:
+    def summary(self, *, commanders: bool = False) -> dict[str, Any]:
+        """The table at a glance. ``commanders`` adds each player's commanders and seat colour once the game has started (public:
+        they began face up in the command zone), for the Play page's tiles."""
         common = {
             "id": self.game_id,
             "mode": self.mode,
@@ -190,6 +199,7 @@ class Room:
                     "name": st.players[pid].name,
                     "claimed": self.seats[pid].token is not None,
                     "connected": self.seats[pid].connections > 0,
+                    **({"color": st.players[pid].color, "commanders": player_commanders(st, pid)} if commanders else {}),
                 }
                 for pid in st.seat_order
             ],
@@ -197,6 +207,15 @@ class Room:
         }
 
     # -- lobby -----------------------------------------------------------------------
+    def claimed_seats(self) -> list[str]:
+        """The lobby seats someone has taken, in seating order (seat 1 first): the order the next game seats them in."""
+        return [pid for pid, seat in self.seats.items() if seat.token is not None]
+
+    def last_winner_seat(self) -> str | None:
+        """The lobby seat of the last game's single winner (who goes last under the pod rule), if they are still seated."""
+        key = self.night.last_winner_key
+        return next((pid for pid, seat in self.seats.items() if key and seat.token == key), None)
+
     def lobby_view(self, viewer: str, *, host: bool = False) -> dict[str, Any]:
         """The pregame lobby as one viewer may see it (deck lists follow the privacy setting)."""
         settings = self.lobby or LobbySettings()
@@ -214,6 +233,8 @@ class Room:
                     "ready": info.ready,
                     "host": pid == self.host_seat,
                     "deck": deck_summary(info.deck, privacy=settings.deck_privacy, own=pid == viewer, table_format=settings.format),
+                    # (spectator activities) the deck this player queued while out of the last game, still unchanged
+                    **({"queued": True} if pid == viewer and info.deck is not None and info.deck is info.queued else {}),
                 }
             )
         return {
@@ -236,6 +257,8 @@ class Room:
             "start_blockers": self.start_blockers(),
             # tonight's finished games (public: names, winners, turns), for the session recap
             "night": [dict(h) for h in self.night.history],
+            # -- seating -- the next game's order as far as it is known before the start (public)
+            "turn_preview": Night.preview(self.claimed_seats(), self.last_winner_seat(), settings.turn_order),
         }
 
     def start_blockers(self) -> list[str]:
@@ -287,6 +310,15 @@ class GameHub:
         log.info("Created lobby %s (%s)", room.id, settings.name)
         return room
 
+    def create_practice(self, session: GameSession, link: PracticeLink) -> Room:
+        """A private practice table (ELIMINATION_HUB.md): one seat, no host, never listed, joined by code, journaled or saved."""
+        room = self._new_room(session.state.id, "lan", None)
+        room.game, room.practice = session, link
+        room.seats = {pid: Seat(player_id=pid) for pid in session.state.seat_order}
+        self.rooms[room.id] = room
+        log.info("Created practice table %s for %s at %s", room.id, link.seat, link.live)
+        return room
+
     def _new_room(self, game_id: str, mode: Mode, password: str | None) -> Room:
         room = Room(mode=mode, code=self._new_code(), host_token=secrets.token_urlsafe(24), game_id=game_id)
         if password:
@@ -305,7 +337,7 @@ class GameHub:
 
     def by_code(self, code: str) -> Room | None:
         code = code.strip().upper()
-        return next((r for r in self.rooms.values() if r.mode == "lan" and hmac.compare_digest(r.code, code)), None)
+        return next((r for r in self.rooms.values() if r.mode == "lan" and r.practice is None and hmac.compare_digest(r.code, code)), None)
 
     def close(self, game_id: str) -> None:
         room = self.rooms.pop(game_id, None)
@@ -330,7 +362,7 @@ class GameHub:
 
     def persist(self, room: Room) -> None:
         """Store the room's seats and tokens (started tables only)."""
-        if self.journal is None or not room.started:
+        if self.journal is None or not room.started or room.practice is not None:
             return
         try:
             self.journal.save_meta(room.id, self.meta(room))
@@ -374,6 +406,7 @@ class GameHub:
             room.code = self._new_code()
         self.rooms[room.id] = room
         self.track(room)
+        follow_rules(room)  # -- rules result -- a table the rules had ended asks for its result again
         return room
 
     def remember_action(self, room: Room, client_action_id: str, outcome: str) -> None:
@@ -443,6 +476,27 @@ class GameHub:
             if conn.viewer == pid:
                 conn.viewer = conn.actor = target
 
+    def arrange_seats(self, room: Room, order: list[str]) -> None:
+        """-- seating -- the host arranges the lobby: ``order`` lists every seat, the one to sit at seat 1 first. Each player
+        keeps their token, name, deck, readiness and chosen colour (an unchosen one is the seat's, as when a player moves
+        seat themselves); their open connections follow them."""
+        if sorted(order) != sorted(room.seats):
+            raise LookupError("List every seat once")
+        mapping = {old: f"p{i + 1}" for i, old in enumerate(order)}
+        seats: dict[str, Seat] = {}
+        infos: dict[str, LobbySeatInfo] = {}
+        for old, new in mapping.items():
+            seat = room.seats[old]
+            seats[new] = Seat(player_id=new, token=seat.token, claimed_name=seat.claimed_name, connections=seat.connections,
+                              last_seen=seat.last_seen)
+            infos[new] = room.lobby_seats.get(old) or LobbySeatInfo()
+        for conn in room.connections.values():
+            if conn.viewer in mapping:
+                conn.viewer = mapping[conn.viewer]
+                conn.actor = conn.viewer if conn.actor is not None else None
+        room.seats, room.lobby_seats = seats, infos
+        room.host_seat = mapping.get(room.host_seat or "", room.host_seat)
+
     def start(self, room: Room, session: GameSession, order: list[str]) -> None:
         """Seat the players in ``order`` (lobby seat ids) as p1..pN of the new game."""
         mapping = {old: f"p{i + 1}" for i, old in enumerate(order)}
@@ -465,6 +519,7 @@ class GameHub:
         room.game = session
         room.phase = "playing"
         room.lobby_seats = {}
+        follow_rules(room)  # -- rules result -- a fresh game forgets the last one's ending
         self.track(room)
 
     # -- seats -----------------------------------------------------------------------
@@ -549,6 +604,10 @@ class GameHub:
         return self.asset_info(ids) if ids else {}
 
     def view(self, room: Room, viewer: str) -> dict[str, Any]:
+        room.pulse.observe(room.session.state, room.night.number, room.night.result, room.seat_name)
+        room.predictions.observe(room.pulse, room.night.result)  # (spectator activities) follows the same public facts
+        recap = room.predictions.recap(room.night.number, room.seat_name) if room.night.result is not None else None
+        host = room.mode == "local" or (room.host_seat is not None and viewer == room.host_seat)
         meta = {
             "mode": room.mode,
             "code": room.code if room.mode == "lan" else None,
@@ -558,10 +617,22 @@ class GameHub:
             "result_id": room.result_id,
             "assets": self._assets(room),
             "night": room.night.public(room.seat_name),
+            # -- undo policy (gap 3) -- the host's own seat at a LAN table, anyone at a hot-seat one (as the API decides)
+            **undo_rights.view_fields(room.session.state, room.session.history, host=host),
+            # -- quick undo request -- the request waiting for the table, and whether this viewer's undo would ask it
+            **undo_requests.view_fields(room.session, viewer, host=host, others=undo_voters(room, viewer)),
+            "events": room.pulse.public(),
+            **({"predictions": recap} if recap else {}),
         }
+        if room.night.final_board() is not None:  # -- final board -- nothing to undo or redo on a finished table
+            meta.update(can_undo=False, can_redo=False)
+        if room.practice is not None:  # a practice table has no code to share and no game night of its own
+            meta.update(code=None, practice=room.practice.public())
+            del meta["night"]
         return room.session.view(viewer, meta=meta)
 
     def after_change(self, room: Room) -> None:
+        follow_rules(room)  # -- rules result -- the engine ended the game (or an undo took that back)
         self.persist(room)
         room.actions_since_save += 1
         if self._autosave and room.actions_since_save >= self.autosave_every:
@@ -570,6 +641,15 @@ class GameHub:
                 self._autosave(room)
             except Exception:  # noqa: BLE001 - autosave failure must not break play; it is logged loudly
                 log.exception("Autosave failed for game %s", room.id)
+
+
+def undo_voters(room: Room, actor: str | None) -> list[str] | None:
+    """-- quick undo request -- who approves an undo request from ``actor``: every other seated player still in the game (a LAN
+    seat nobody has taken can't answer). None at a hot-seat table, where undo stays direct (app/game/undo_requests.py)."""
+    if room.mode == "local" or room.game is None or actor not in room.seats:
+        return None
+    return [pid for pid in undo_requests.still_in(room.game.state)
+            if pid != actor and pid in room.seats and room.seats[pid].token is not None]
 
 
 def valid_viewer(room: Room, viewer: str) -> bool:

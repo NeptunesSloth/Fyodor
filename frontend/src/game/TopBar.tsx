@@ -1,17 +1,20 @@
 import { viewsMenu } from "./bookmarks";
 import { usePrefs } from "../state/prefs";
-import { cleanupMenu, selectMenu } from "./selection";
+import { boardLayoutItem, cleanupMenu, selectMenu, tidyMyLands } from "./selection";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { toast } from "../components/Toasts";
 import { api } from "../services/api";
 import { seatToken } from "../services/games";
 import type { GameView } from "../types/game";
+import { openImporter } from "./TableImporter";
 import { useIsHost } from "./HostTools";
 import { fetchHistory, historyText } from "./HistoryDialog";
 import { useGame } from "../state/gameStore";
 import { OMNISCIENT, SPECTATOR } from "../types/game";
 import { send } from "./actions";
 import { resolveRenderer } from "../table3d/renderer";
+import { UNDO_POLICIES, undoActor, undoMode, undoRefusal } from "./undoPolicy";
+import { AutomationHud } from "./rules/RulesHud";
 
 export function TopBar() {
   const view = useGame((s) => s.view);
@@ -22,6 +25,15 @@ export function TopBar() {
   if (!view) return null;
   const local = view.game.mode === "local";
   const dayNight = view.table.day_night;
+  // -- undo policy (gap 3) -- the host's undo setting: dim what this player may not take back, and say why
+  const me = undoActor(view, actingAs);
+  // -- quick undo request -- an undo that must ask the table reads "Ask to undo" (the server says when, and why)
+  const mode = undoMode(view, me);
+  const asks = mode.kind === "ask" || mode.kind === "waiting";
+  const undoWhy = mode.kind === "refused" || mode.kind === "waiting" ? mode.why : null;
+  const redoWhy = view.game.can_redo ? undoRefusal(view, me, "redo") : null;
+  const policy = UNDO_POLICIES.find((p) => p.id === view.game.settings.undo_policy && p.id !== "everyone");
+  const note = policy ? ` · undo: ${policy.label.toLowerCase()}` : "";
   return (
     <header className="game-top">
       <a className="brand" href="#/play" title="Back to lobby">←</a>
@@ -31,6 +43,8 @@ export function TopBar() {
         {status !== "open" && <span className={`status ${status}`}>{status === "reconnecting" ? "Reconnecting…" : status}</span>}
       </div>
       <span className="spacer" />
+      {/* what the rules engine does, and Concede: in the bar, not over the last seat's plaque */}
+      <AutomationHud />
       {dayNight && (
         <button className={`tt-btn ghost daynight ${dayNight}`} title="Day / night (click to cycle)"
           onClick={() => void send({ type: "set_day_night", value: dayNight === "day" ? "night" : null })}>
@@ -38,9 +52,14 @@ export function TopBar() {
         </button>
       )}
       <span className="tt-split" role="group" aria-label="Undo and redo">
-        <button className="tt-btn ghost" disabled={!view.game.can_undo} onClick={() => void undo()} title="Undo (Ctrl+Z)">Undo</button>
-        <button className="tt-btn ghost undo-more" disabled={!view.game.can_undo} aria-label="Undo back to a recent action" title="Undo back to a recent action" onClick={(e) => void recentMenu(e)}>▾</button>
-        <button className="tt-btn ghost" disabled={!view.game.can_redo} onClick={() => void redo()} title="Redo (Ctrl+Shift+Z)">Redo</button>
+        <button className="tt-btn ghost" disabled={!view.game.can_undo} aria-disabled={undoWhy ? true : undefined} data-testid="undo"
+          onClick={() => void undo()} title={undoWhy ?? (mode.kind === "ask" ? `${mode.why} Ask the table (Ctrl+Z)` : `Undo (Ctrl+Z)${note}`)}>
+          {asks ? "Ask to undo" : "Undo"}
+        </button>
+        <button className="tt-btn ghost undo-more" disabled={!view.game.can_undo || !!undoWhy || asks} aria-label="Undo back to a recent action"
+          title={undoWhy ?? (asks ? "The last action needs the table's approval first" : "Undo back to a recent action")} onClick={(e) => void recentMenu(e)}>▾</button>
+        <button className="tt-btn ghost" disabled={!view.game.can_redo} aria-disabled={redoWhy ? true : undefined}
+          onClick={() => void redo()} title={redoWhy ?? `Redo (Ctrl+Shift+Z)${note}`}>Redo</button>
       </span>
       {local && (
         <label className="seat-switch" title="Hot-seat: whose view to show">
@@ -64,10 +83,13 @@ export function TopBar() {
           </select>
         </label>
       )}
+      {view.viewer !== "__spectator__" && (
+        <button className="tt-btn ghost" onClick={openImporter} data-testid="open-importer" title="Card importer: find a card, place a saved or pasted deck, reset or restart">Importer</button>
+      )}
       <button className="tt-btn ghost" onClick={() => openDialog("help")} title="How to play, controls and shortcuts (?)">Help</button>
       <button className="tt-btn ghost" data-testid="table-menu" aria-label="More" title="Save, load, tools and settings" onClick={(e) => openMenu(e, tableMenu(isHost), "Table")}>More</button>
       {/* kept apart from Undo: ending the game is not a slip of the hand */}
-      {(isHost || (view.game.mode === "lan" && view.viewer in view.game.seats)) && (
+      {(isHost || (view.game.mode === "lan" && view.viewer in view.game.seats)) && !view.game.practice && (
         <button className="tt-btn ghost" data-testid="end-game" onClick={() => openDialog("endgame")} title={isHost ? "Record who won" : "Propose ending the game"}>
           {view.game.result_id ? "Result ✓" : "End game"}
         </button>
@@ -86,7 +108,7 @@ async function recentMenu(e: React.MouseEvent) {
   openMenu(at, live.length ? live.map((it, i) => ({
     label: historyText(it),
     hint: i ? `Undo ${i + 1} actions` : "Undo this action",
-    onClick: async () => { for (let k = 0; k <= i; k++) await useGame.getState().undo(); },
+    onClick: async () => { for (let k = 0; k <= i; k++) if (!(await useGame.getState().undo())) break; }, // stops where the undo setting does
   })) : [{ label: "Nothing to undo", disabled: true }], "Undo back to…");
 }
 
@@ -113,6 +135,8 @@ function tableMenu(isHost: boolean): MenuItem[] {
     },
     soloMenu(isHost),
     viewsMenu(),
+    boardLayoutItem(),
+    { label: "Tidy my lands", hint: "pile identical lands by your edge", onClick: tidyMyLands },
     selectMenu(),
     cleanupMenu(),
     { label: prefs.showTokenSources ? "Hide token sources" : "Show token sources", onClick: () => prefs.set({ showTokenSources: !prefs.showTokenSources }) },

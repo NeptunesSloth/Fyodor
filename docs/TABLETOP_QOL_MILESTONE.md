@@ -1,7 +1,7 @@
-# Milestone plan: tabletop quality of life (not started)
+# Milestone plan: tabletop quality of life (built)
 
 Requested 2026-10-03. **Build it after the core rules engine and the primary 3D table are stable.**
-Nothing here is built yet. Don't redesign the app: the goal is to make a real Commander game faster,
+Status (2026-11-02): all 17 aids are built, the quick undo request (#7, approval) and the public choice wheel (#12) last. `IMPLEMENTATION_PLAN.md` lists each. Don't redesign the app: the goal is to make a real Commander game faster,
 clearer and less annoying to operate.
 
 **Preserve:** the authoritative server state, privacy, manual tabletop freedom, rules automation, the
@@ -95,6 +95,14 @@ Sol Ring [APPROVE] [DECLINE]", quick and non-intrusive. Never undo automatically
 reveals, random outcomes players already saw, actions after substantial new public information, or
 anything the history system marks unsafe. **The server decides** whether an undo is legal; clients
 never rewrite authoritative history.
+
+*Built* (`backend/app/game/undo_requests.py`, `frontend/src/game/UndoRequestBar.tsx`): at a LAN table, an undo the host's
+undo setting refuses becomes **Ask to undo**, and so does, under every setting, an undo of an action that showed hidden
+information or a random outcome (a draw, a look, a reveal, a search, a shuffle, a roll, a flip, a random pick: recorded on
+the action as the server applies it, from what the table can see happened, never from which cards a private choice offers).
+Like an agreed ending, every other seated player still in the game approves and one decline ends it; the server then
+undoes it for the requester ("undid: … (with the table's approval)"). The requester can withdraw it; any change to the
+table cancels it. Hot-seat tables undo directly, as before.
 
 ### Attachment lines
 

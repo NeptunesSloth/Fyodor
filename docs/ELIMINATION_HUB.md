@@ -1,8 +1,53 @@
-# Plan: the elimination activity hub (not started)
+# The elimination activity hub (core built)
 
-Requested 2026-10-03, for later. Nothing here is built yet. Spectator side activities (PiP Practice Table,
-next-game queue, reactions, damage sandbox, fake-point predictions) extend this hub later:
-`SPECTATOR_ACTIVITIES_MILESTONE.md`.
+Requested 2026-10-03. Spectator side activities (PiP Practice Table, next-game queue, reactions, damage
+sandbox, fake-point predictions) extend this hub later: `SPECTATOR_ACTIVITIES_MILESTONE.md`.
+
+## What is built
+
+- **Hub** (`frontend/src/game/Eliminated.tsx`): after the ELIMINATED moment, Practice table, Opening hands,
+  Deck Lab, Keep watching, the Game log, and links to Pod stats and the Card browser (new tabs, so the live seat stays put).
+  The "You're out · Things to do" pill brings the hub back.
+- **Spectate:** the eliminated seat keeps its ordinary per-seat view, which shows other players exactly what a
+  spectator sees (`tests/test_elimination_hub.py` checks REST and WebSocket payloads).
+- **Major public events** (`backend/app/multiplayer/elimination.py`, `Pulse`): "Bob was eliminated." / "conceded." /
+  "left the game.", "Final two players remain: …", "Alice wins." (from the recorded result only). Built from public
+  facts, each announced once per game, kept in memory (never saved), sent in every view as `game.events`. The live
+  table shows them as brief toasts (`MajorNotices.tsx`; the result is left to the result spotlight, your own
+  departure to your ELIMINATED moment); the practice pill shows them too.
+- **Practice Table** (`backend/app/api/practice.py`, `POST/DELETE /api/games/{id}/practice`): a separate one-seat
+  sandbox room built only from the player's own deck (guided opening hand, test cards allowed, rules off), with its
+  own seat token. Never listed, joinable by code, journaled, autosaved or recorded in pod stats; no host. Only for a
+  player who is out while the game goes on; resumed if they have one. `PracticeBar.tsx` keeps the live seat
+  connected, shows the live turn and events, has **Return to live game**, and brings the player back (putting the
+  practice table away) when the live game has a result or the pod moves on.
+- **Opening Hand Simulator:** Draw 7 / Mulligan / Draw a card / Reset, in the browser.
+- **Deck Lab** (`POST /api/games/{id}/deck-lab`): a copy of the deck brought to this game. On the host computer it is
+  a new library deck opened in the deck editor; on a guest's computer it is the list, edited in place and saved to that
+  browser's My decks. The match deck and its library original are never changed; the next deck is chosen in the lobby.
+  **Compare** lists what the next-game version brings in and takes out against the deck brought to the game (In / Out
+  with counts, cards matched by name within their section so a new printing is no change, and the deck's size before and
+  after): the list being edited on a guest's computer, the library copy as the deck editor last saved it on the host
+  computer (`game/deckCompare.ts`, `DeckChanges.tsx`). Reopened in the same tab, Deck Lab comes back to the same copy (and a
+  guest's list), so the library gets one copy per game.
+
+- **Dice & toys** (`frontend/src/game/TableToys.tsx`, logic in `toys.ts`): a link in the hub and an entry in the
+  spectators' "Watching · Things to do" plaque (a `SideActivity`). A **dice tray**: d4, d6, d8, d10, d12, d20 and a coin,
+  several at once (3d6 + d20, up to 12 dice), each die and the total shown, the last ten rolls kept in this browser with
+  Clear and Reroll; Enter rolls, Esc closes. The dice are the table's own: with the 3D table available it is a small
+  three.js tray thrown with the live table's real dice (`table3d/dice.ts`, cannon-es: `table3d/toyTray.ts`, loaded only
+  then, disposed on close, drawing nothing once the dice rest, with their own clatter); without WebGL, on low graphics
+  or if that fails, it is the drawn dice (`game/DieGlyph.tsx`, as on the 2D table without WebGL).
+  Reduced motion and the animation speed apply to both. Two toys: a **random player** over the seated players' public
+  names (alphabetical, never seat order, labelled "just for fun": it never sets the turn order) and a **tally**. All
+  local: numbers from `crypto.getRandomValues`, nothing sent to the server, the live game's state, log, dice and sounds
+  untouched (`toys.test.ts` spies on `fetch` and the game's WebSocket).
+
+- **Game log:** a link in the hub opens the table's own log drawer (the public log and chat everyone at the table reads; the
+  hub folds into its pill). Nothing new is sent: it is the same per-seat view.
+
+Not built yet: card types and the mana curve in a guest's Deck Lab, which is a plain list and its compare view (the host
+computer's deck editor shows them).
 
 **Goal:** a player knocked out early in a Commander game still has something fun or useful to do
 while their friends finish. Elimination must **not** mean "you lost, sit in spectator mode until

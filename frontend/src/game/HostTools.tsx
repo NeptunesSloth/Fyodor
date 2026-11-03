@@ -4,8 +4,11 @@ import { toast, toastError } from "../components/Toasts";
 import { api } from "../services/api";
 import { seatToken } from "../services/games";
 import { useGame } from "../state/gameStore";
-import { isVisible, splitZone } from "../types/game";
+import { isVisible, splitZone, type CardPermissions, type UndoPolicy } from "../types/game";
+import { setTableReactions } from "../services/spectate";
 import { send } from "./actions";
+import { UNDO_POLICIES } from "./undoPolicy";
+import { CARD_PERMISSIONS } from "./cardPermissions";
 
 const PRESENCE: Record<string, string> = {
   connected: "Connected",
@@ -105,7 +108,74 @@ export function HostToolsDialog({ onClose }: { onClose: () => void }) {
           </div>
           <p className="hint">Undo (Ctrl+Z) restores anything deleted by mistake. Dice objects arrive with the tabletop toys.</p>
         </section>
+        <UndoSetting />
+        {lan && <CardPermissionsSetting />}
+        {lan && <ReactionsSetting gameId={gameId} on={view.game.night?.reactions !== false} />}
       </div>
     </Modal>
+  );
+}
+
+/** -- table permissions -- who may change a player's cards at this LAN table (the server enforces it; saved with the game). */
+function CardPermissionsSetting() {
+  const policy = useGame((s) => s.view?.game.settings.card_permissions ?? "everyone");
+  const current = CARD_PERMISSIONS.find((p) => p.id === policy) ?? CARD_PERMISSIONS[0]!;
+  return (
+    <section>
+      <h3>Cards</h3>
+      <label className="field inline">Who may change a player's cards
+        <select value={policy} data-testid="card-permissions"
+          onChange={(e) => void send({ type: "configure", card_permissions: e.target.value as CardPermissions })}>
+          {CARD_PERMISSIONS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
+      </label>
+      <p className="hint">{current.hint}.</p>
+    </section>
+  );
+}
+
+/** (spectator activities) the table-wide switch for spectators' reactions; each player can still mute them in Settings. */
+function ReactionsSetting({ gameId, on }: { gameId: string; on: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const toggle = async (value: boolean) => {
+    setBusy(true);
+    try {
+      await setTableReactions(gameId, value);
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section>
+      <h3>Reactions</h3>
+      <label className="check"><input type="checkbox" checked={on} disabled={busy} data-testid="table-reactions"
+        onChange={(e) => void toggle(e.target.checked)} /> Spectators and players who are out can send reactions</label>
+      <p className="hint">For the whole table, for tonight. Each player can also hide reactions just for themselves in Settings.</p>
+    </section>
+  );
+}
+
+/** -- undo policy (gap 3) -- who may undo at this table (the server enforces it; saved with the game). */
+function UndoSetting() {
+  const mode = useGame((s) => s.view?.game.mode);
+  const policy = useGame((s) => s.view?.game.settings.undo_policy ?? "everyone");
+  const current = UNDO_POLICIES.find((p) => p.id === policy) ?? UNDO_POLICIES[0]!;
+  const extra = mode === "local"
+    ? " Everyone at a hot-seat table sits at the host computer: Host only lets everyone undo, and Own actions only follows the player acting."
+    : (policy !== "everyone" ? " Others can ask the table instead (Ask to undo: every other player still in the game approves). To take back someone else's action anyway: Snapshots & history, Restore from here." : "")
+      // -- quick undo request -- (app/game/undo_requests.py)
+      + " Taking back a draw, a look at a library, a reveal, a search or a random result always asks the table first.";
+  return (
+    <section>
+      <h3>Undo</h3>
+      <label className="field inline">Who can undo
+        <select value={policy} data-testid="undo-policy" onChange={(e) => void send({ type: "configure", undo_policy: e.target.value as UndoPolicy })}>
+          {UNDO_POLICIES.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
+      </label>
+      <p className="hint">{current.hint}.{extra}</p>
+    </section>
   );
 }

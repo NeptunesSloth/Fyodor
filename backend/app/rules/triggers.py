@@ -484,9 +484,14 @@ def _card_in(plan: Plan, card_id: str | None, zone: str | None) -> tuple[CardIns
     then = card if card.zone == zone else card.model_copy(update={"zone": zone, "counters": {}, "tapped": False})
     from app.rules import outside_battlefield_self
 
-    ch = (Characteristics(name='', face_down=True) if then.face_down and zone.endswith(':exile')
-          else outside_battlefield_self.apply(chars.of(then, plan.info)))
-    return then, ch
+    if then.face_down and zone.endswith(':exile'):
+        return then, Characteristics(name='', face_down=True)
+    if then is card and not zone.endswith(':battlefield'):
+        # -- pod decks (Disa) -- 603.10: the object as it is right after the event, with the continuous effects that exist then. Maskwood
+        # Nexus and Conspiracy make the creature cards you own that aren't on the battlefield every / the chosen creature type: Entomb's
+        # Ghalta is a Lhurgoyf as it is put into the graveyard (Disa the Restless). (derive also applies the card's own 113.6c self effects.)
+        return then, plan.ch(card)
+    return then, outside_battlefield_self.apply(chars.of(then, plan.info))
 
 
 def _live(plan: Plan, obj: CardInstance) -> bool:
@@ -1019,6 +1024,8 @@ def _other_ok(plan: Plan, cond: dict[str, Any], watcher: CardInstance, info: dic
     if not cond.get("other"):
         return True
     other = plan.state.cards.get(info.get("other") or "")
+    if cond["other"] == "self":  # -- Star Trek statics (wave 111C) -- "Whenever a creature blocks this creature" (509.3b): the attacker it blocks is the watcher
+        return other is not None and other.id == watcher.id and plan.oid(other) == info.get("other_oid")
     if other is not None and cond.get("other_cmp") and obj is not None:  # -- block events (wave 53C) -- "blocked by a creature with lesser power" (No Quarter): than the creature it is blocked by / blocks, 509.3f
         from app.rules.sba import power
 
@@ -2935,6 +2942,7 @@ def flush(plan: Plan) -> bool:
                options=[DecisionOption(id="yes", label="Put on the stack"), DecisionOption(id="no", label="By hand")],
                resume={"step": "trigger_confirm"})
         return True
+    headroom(plan, len(r.pending_triggers))  # (a big board's batch fits the step budget: 603.3b)
     for player in apnap(plan):
         mine = [t for t in r.pending_triggers if t.controller == player]
         if not mine:
@@ -2942,7 +2950,7 @@ def flush(plan: Plan) -> bool:
         if len(mine) > 1 and not all(t.ordered for t in mine) and not _identical(plan, player, mine):
             decide(plan, player=player, kind="order",
                    prompt="Order your triggered abilities (the first you pick goes on the stack first and resolves last)",
-                   options=[DecisionOption(id=t.id, label=t.name) for t in mine],
+                   options=[DecisionOption(id=t.id, label=label) for t, label in zip(mine, order_labels(mine), strict=True)],
                    min_choices=len(mine), max_choices=len(mine), resume={"step": "order_triggers"})
             return True
         for t in mine:
@@ -2956,6 +2964,25 @@ def flush(plan: Plan) -> bool:
     holder = plan.hold or r.priority
     r.priority = holder if holder in plan.live() else (plan.active if plan.active in plan.live() else plan.after(plan.active))
     return True
+
+
+def order_labels(mine: list[Any]) -> list[str]:
+    """The trigger order prompt's labels: the source's name, and when two triggers share it (a spell's cascade and demonstrate, two
+    abilities of one permanent), what each one does ("Craw Wurm: cascade", "Craw Wurm: copy it, and an opponent copies it too")."""
+    from collections import Counter
+
+    from app.rules import effects
+
+    names = Counter(t.name for t in mine)
+    out = []
+    for t in mine:
+        if names[t.name] < 2:
+            out.append(t.name)
+            continue
+        ability = t.ability or {}
+        what = ability.get("keyword") or (effects.describe(list(ability.get("effects") or [])) if ability.get("effects") else "")
+        out.append(f"{t.name}: {what[:80]}" if what and what != "Do it" else t.name)
+    return out
 
 
 def _identical(plan: Plan, player: str, mine: list[PendingTrigger]) -> bool:
@@ -3044,6 +3071,21 @@ def bind_event_stat(plan: Plan, t: PendingTrigger) -> None:
             raw = raw.replace(f'\\"{EVENT_STAT}{what}\\"', str(n))
     t.ability = json.loads(raw)
 # -- end damage wordings (wave 6B) --
+
+
+TRIGGER_STEPS = 4  # the table steps one trigger may take going on the stack, at most (headroom)
+
+
+def headroom(plan: Plan, waiting: int) -> None:
+    """603.3b: every waiting trigger goes on the stack before a player gets priority: a finite step, not a loop. When a big
+    board's batch (dozens of landfall or token triggers) doesn't fit in what is left of the action's step budget (Plan.max_steps,
+    the safety valve against runaway loops), the budget is raised to fit it, once per action; the loop pause (engine.loop_pause)
+    then gives the players priority, and the stack resolves one pass at a time. Raised once only, so a real loop stays bounded."""
+    if not plan.max_steps or plan.trigger_headroom or waiting <= 0:
+        return
+    need = len(plan.steps) + TRIGGER_STEPS * waiting + 64
+    if need > plan.max_steps:
+        plan.max_steps, plan.trigger_headroom = need, True
 
 
 def put(plan: Plan, t: PendingTrigger, target: str | None = None, picks: dict[str, Any] | None = None) -> bool:
@@ -3200,6 +3242,11 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
         r.proctor_links110c[t.id] = ability_id
     if t.ability.get("chosen_modes"):  # -- modal frames (wave 33B) -- 603.3c: the modes chosen are announced (a modal ability whose modes have target groups)
         plan.do({"type": "set_stack_info", "card_id": ability_id, "modes": t.ability["chosen_modes"]}, actor=t.controller)
+        from app.rules import (
+            dilemma,  # -- Star Trek mechanics (wave 112T) -- its controller chose them: a dilemma (release notes)
+        )
+
+        dilemma.note(plan, t.controller, t.ability["chosen_modes"])
     if t.ability.get('stack_tags'):
         plan.do({'type': 'set_stack_info', 'card_id': ability_id, 'tags': t.ability['stack_tags']}, actor=t.controller)
     if t.ability.get("link_player100a") and targets and t.source_object:  # -- trigger lines (wave 100A) -- the player a linked leaves ability means
@@ -3326,6 +3373,7 @@ def resume_order(plan: Plan, d: Any, chosen: list[str]) -> None:
         t.ordered = True
     rest = [t for t in r.pending_triggers if t.controller != d.player]
     r.pending_triggers = rest + ordered
+    headroom(plan, len(r.pending_triggers))
     for t in ordered:
         if not put(plan, t):
             return

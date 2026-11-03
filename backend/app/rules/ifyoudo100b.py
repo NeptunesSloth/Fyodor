@@ -31,6 +31,10 @@ _PUT_DISCARDED = re.compile(r"^(?P<a>.+?\bdiscard a card)\. If you (?:discard|di
 _HIT_DISCARD = re.compile(r"^(?P<a>(?:~|it) deals (?P<n>\d+) damage to any target(?: and you gain \d+ life)?)\. If a player is dealt damage this way, "
                           r"(?:they discard|that player discards) a card\.$")
 _DRAW_IF = re.compile(r"^draw a card if (?P<c>[^.,]+)\. If you don't draw a card this way, (?P<b>[^.]+)\.$")
+# -- if you do / instead (wave 111B) -- the same after a sentence that names "it": "Surveil 2, then you may reveal the top card of your library. Draw a card if
+# it's an artifact card. If you don't draw a card this way, put two +1/+1 counters on ~." (B'Elanna Torres, Scrapper: a card not revealed is no artifact
+# card revealed, so no draw; 608.2c)
+_DRAW_IF_AFTER111B = re.compile(r"^(?P<a>[^.]+\.) Draw a card if (?P<c>[^.,]+)\. If you don't draw a card this way, (?P<b>[^.]+)\.$")
 _TAP_IF_HURT = re.compile(r"^(?P<a>~ deals \d+ damage to you unless [^.]+)\. If (?:it|~) deals damage to you this way, tap it\.$")  # ("it": the source that dealt it)
 _DEALT_CANT_BLOCK = re.compile(r"^(?P<a>[^.]+? deals (?:\d+|X) damage to [^.]+)\. (?:A creature|Creatures) dealt damage this way can't block this turn\.$")
 _GIVE_SOURCE = re.compile(r"^you may exile (?P<t>target [^.]+)\. If you do, its controller gains control of ~\.$")
@@ -126,18 +130,25 @@ def _hit_discard(text: str, it: str | None, event_player: bool) -> Found | None:
 
 def _draw_if(text: str, it: str | None, event_player: bool) -> Found | None:
     m = _DRAW_IF.match(text)
+    lead = ""
+    if m is None and (m := _DRAW_IF_AFTER111B.match(text)) is not None:  # (wave 111B)
+        lead = m["a"] + " "
     if m is None:
         return None
-    first, rest = _effects(f"draw a card if {m['c']}.", it, event_player), _effects(f"{m['b'][0].upper()}{m['b'][1:]}.", it, event_player)
+    first, rest = _effects(f"{lead}{'Draw' if lead else 'draw'} a card if {m['c']}.", it, event_player), _effects(f"{m['b'][0].upper()}{m['b'][1:]}.", it, event_player)
     if first is None or rest is None or first[1] is not None or rest[1] is not None or first[2] or rest[2]:
         return None
-    if len(first[0]) != 2:
+    if len(first[0]) != 2 and not (lead and len(first[0]) > 2):
         return None
-    gate, draw = first[0]
+    *before, gate, draw = first[0]
     if gate.get("do") != "only_if" or gate.get("skip") != 1 or draw != {"do": "draw", "who": "you", "n": 1}:
         return None
-    name = "e1"
-    effects: list[dict[str, Any]] = [gate, {**draw, "as": name},
+    if any(e.get("do") in ("only_if", "draw") or "bind" in e for e in before):
+        return None  # (wave 111B: the lead sentence neither draws nor branches)
+    name = f"e{len(first[0])}" if lead else "e1"
+    if f'"{name}"' in json.dumps(before):
+        return None
+    effects: list[dict[str, Any]] = [*before, gate, {**draw, "as": name},
                {"do": "only_if", "cond": {"value": {"this_way": "drawn", "of": None, "players": "you", "ref_count": name}, "op": "==", "n": 0},
                 "skip": len(rest[0])}, *rest[0]]
     return effects, None, False

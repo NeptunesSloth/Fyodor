@@ -144,6 +144,16 @@ MIGRATIONS: list[str] = [
         PRIMARY KEY (game_id, client_action_id)
     );
     """,
+    # 8: Fyodor is Commander-only. Decks saved as Constructed or Sandbox become Commander decks (their cards are kept).
+    """
+    UPDATE decks SET format = 'commander' WHERE format <> 'commander';
+    """,
+    # 9: -- pod history -- each recorded game keeps its elimination order and a compact, public final board (JSON; older
+    # results have neither)
+    """
+    ALTER TABLE game_results ADD COLUMN eliminations TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE game_results ADD COLUMN final_board TEXT NOT NULL DEFAULT '[]';
+    """,
 ]
 
 

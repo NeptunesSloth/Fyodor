@@ -8,14 +8,25 @@ import { usePrefs } from "../state/prefs";
 import { SPECTATOR, type GameView, type NightInfo } from "../types/game";
 import { Eliminated } from "./Eliminated";
 import { useIsHost } from "./HostTools";
+import { proposalSeat, showEliminated } from "./nightEnding";
+import { boardBar } from "./finalBoard";
+import { PredictionsRecap } from "./Predictions";
+import { SpectatorHub } from "./SpectatorHub";
+import { EndScene2D } from "./motion/EndScene2D";
+import { endKindFor, playEndScene, resultWord, type EndPlay } from "./motion/endScene";
+import { resolveRenderer } from "../table3d/renderer";
 import "./night.css";
 
 /*
  * Game night moments (docs/GAME_NIGHT_FLOW.md): the short pre-game intro with the turn order and
  * its d20 rolls, a 3-2-1 countdown, the agree/decline bar for a proposed ending, and the result
- * spotlight with the rematch vote. Every number here comes from the server; the client only shows it.
- * Nothing blocks the game: the intro and the spotlight are skippable (click, Space, Esc) and scaled
- * by the player's animation speed; reduced motion keeps the fades and drops the movement.
+ * spotlight with the rematch vote (closed to a small bar to look at the final board, and opened again from it). Every number
+ * here comes from the server; the client only shows it. When the rules
+ * engine ends the game the server opens the same proposal with the engine's result, so the spotlight and the vote follow
+ * once the players confirm it.
+ * Nothing blocks the game: the intro and the spotlight are skippable (click, Space, Esc; the spotlight any key) and scaled
+ * by the player's animation speed; reduced motion keeps the fades and drops the movement. While the spotlight shows, the
+ * table itself reacts (motion/endScene.ts: the 3D table in its frame loop, the 2D table with EndScene2D).
  */
 
 const seenKey = (kind: string, view: GameView) => `fyodor.night.${kind}.${view.game.id}.${view.game.night?.number ?? 1}`;
@@ -31,6 +42,13 @@ function markSeen(key: string): void {
     sessionStorage.setItem(key, "1");
   } catch {
     /* private window: the moment may replay, which is harmless */
+  }
+}
+function unmark(key: string): void {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    /* private window: nothing was kept */
   }
 }
 
@@ -70,25 +88,26 @@ function useSkipKeys(active: boolean, skip: () => void) {
 
 export function GameNight() {
   const view = useGame((s) => s.view);
+  const three = usePrefs((s) => resolveRenderer(s.renderer) === "3d");
   if (!view?.game.night) return null;
   return (
     <>
+      {!three && <EndScene2D />}
       {/* keyed per game of the night: a rematch replays the intro, a new result its spotlight */}
       <GameIntro key={`intro-${view.game.night.number}`} view={view} night={view.game.night} />
       <ProposalBar view={view} night={view.game.night} />
       <ResultScene key={`result-${view.game.night.number}`} view={view} night={view.game.night} />
       <Out view={view} />
+      <SpectatorHub view={view} />
     </>
   );
 }
 
-/** The eliminated player's own moment (others never see it); gone once the game has a result. */
+/** The eliminated player's own moment (others never see it); gone once the game has a result or the rules ended it. */
 function Out({ view }: { view: GameView }) {
   const actingAs = useGame((s) => s.actingAs);
   const me = perspective(view, actingAs);
-  const r = view.rules;
-  const out = view.viewer !== SPECTATOR && !!r && (r.conceded.includes(me) || me in r.lost) && !view.game.night?.result;
-  if (!out) return null;
+  if (!showEliminated(view, me)) return null;
   return <Eliminated key={`${me}-${view.game.night?.number}`} view={view} me={me} sceneOn={scenesOn()} />;
 }
 
@@ -178,27 +197,18 @@ function CommanderArt({ view, pid }: { view: GameView; pid: string }) {
   );
 }
 
-// --------------------------------------------------------------------------- agreed ending
-
-function remaining(view: GameView): string[] {
-  const r = view.rules;
-  return view.seat_order.filter((pid) => !view.players.find((p) => p.id === pid)?.left && !(r && (r.conceded.includes(pid) || pid in r.lost)));
-}
+// --------------------------------------------------------------------------- agreed ending (and the rules result)
 
 function ProposalBar({ view, night }: { view: GameView; night: NightInfo }) {
   const actingAs = useGame((s) => s.actingAs);
   const [busy, setBusy] = useState(false);
   const p = night.proposal;
-  if (!p || night.result) return null;
   const me = perspective(view, actingAs);
+  const seat = proposalSeat(view, me);
+  if (!p || !seat) return null;
   const local = view.game.mode === "local";
-  const live = remaining(view);
-  const waiting = live.filter((pid) => !p.agreed.includes(pid));
+  const { what, waiting, mustAnswer } = seat;
   const nameOf = (pid: string) => view.players.find((x) => x.id === pid)?.name ?? pid;
-  const what = p.result_type === "single" || p.result_type === "multiple"
-    ? `${p.winner_names.join(" and ")} ${p.winner_names.length === 1 ? "wins" : "win"}`
-    : p.result_type === "draw" ? "a draw" : "no result";
-  const mustAnswer = live.includes(me) && !p.agreed.includes(me) && view.viewer !== SPECTATOR;
   const answer = async (agree: boolean) => {
     setBusy(true);
     try {
@@ -209,6 +219,28 @@ function ProposalBar({ view, night }: { view: GameView; night: NightInfo }) {
       setBusy(false);
     }
   };
+  if (seat.rules) {
+    return (
+      <div className="night-proposal plaque-wrap" role="alertdialog" aria-label="The rules ended the game" data-testid="night-rules-result">
+        <div className="plaque night-proposal-body">
+          <p>The rules ended the game: <b>{what}</b>.</p>
+          <p className="night-proposal-wait">{seat.rules}.</p>
+          <p className="night-proposal-wait">
+            {local ? "Confirm to record the result." : waiting.length ? `Waiting for ${waiting.map(nameOf).join(", ")} to confirm.` : "Everyone confirmed."}
+            {!local && " Everyone in the game when it ended confirms; undo takes it back."}
+          </p>
+          {mustAnswer && (
+            <div className="night-actions">
+              <button className="tt-btn" disabled={busy} data-testid="rules-result-later" onClick={() => void answer(false)}
+                title="Leave it to the table: undo the last action, or record the result by hand with End game">Not yet</button>
+              <button className="tt-btn brass" data-testid="rules-result-confirm" disabled={busy} onClick={() => void answer(true)}
+                title="Record this result; the result and the rematch vote follow">Confirm result</button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="night-proposal plaque-wrap" role="alertdialog" aria-label="Proposal to end the game" data-testid="night-proposal">
       <div className="plaque night-proposal-body">
@@ -222,7 +254,7 @@ function ProposalBar({ view, night }: { view: GameView; night: NightInfo }) {
               <button className="tt-btn" disabled={busy} onClick={() => void answer(false)}>{local ? `${nameOf(me)} declines` : "Decline"}</button>
               <button className="tt-btn brass" data-testid="proposal-agree" disabled={busy} onClick={() => void answer(true)}>{local ? `${nameOf(me)} agrees` : "Agree"}</button>
             </>
-          ) : p.by === me ? (
+          ) : seat.canWithdraw ? (
             <button className="tt-btn" disabled={busy} onClick={() => void answer(false)}>Withdraw</button>
           ) : null}
         </div>
@@ -240,31 +272,34 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
   const key = seenKey("result", view);
   const [spot, setSpot] = useState(false);
   const [busy, setBusy] = useState(false);
-  const scale = useScale();
-  const end = useRef(() => {
-    markSeen(key);
-    setSpot(false);
-  });
+  const me = perspective(view, actingAs);
+  const seated = view.viewer !== SPECTATOR && view.seat_order.includes(me);
+  // what this seat's spotlight says, from the server's result (motion/endScene.ts)
+  const kind = result ? resultWord(result, me, seated) : "none";
+  // the table's reaction while the spotlight shows (motion/endScene.ts): it holds input back, any key or click ends it
+  const scene = useRef<EndPlay | null>(null);
+  const end = useRef(() => {});
   end.current = () => {
     markSeen(key);
     setSpot(false);
+    scene.current?.stop();
+    scene.current = null;
   };
   useEffect(() => {
     if (!result || seen(key) || !scenesOn()) return;
     setSpot(true);
     const winner = result.winners[0];
     if (winner) window.dispatchEvent(new CustomEvent("fyodor:camera", { detail: { id: "cam_focus_player", digit: 0, hover: null, player: winner } }));
-    const t = window.setTimeout(() => end.current(), scale(2600));
-    return () => window.clearTimeout(t);
-  }, [result, key, scale]);
-  useSkipKeys(spot, () => end.current());
+    const play = playEndScene(endKindFor(kind), () => end.current());
+    scene.current = play;
+    return () => play.stop();
+  }, [result, key]); // eslint-disable-line react-hooks/exhaustive-deps
+  // -- final board -- the panel folds into a small bar so the finished table can be looked at; the vote stays on the server
+  const boardKey = seenKey("board", view);
+  const [board, setBoard] = useState(() => seen(boardKey));
   if (!result) return null;
 
-  const me = perspective(view, actingAs);
-  const seated = view.viewer !== SPECTATOR && view.seat_order.includes(me);
   const winners = result.winners;
-  const won = seated && winners.includes(me);
-  const kind = result.result_type === "draw" ? "draw" : result.result_type === "no_result" ? "none" : won ? "victory" : seated ? "defeat" : "winner";
   const word = { victory: "Victory", defeat: "Defeat", draw: "Draw", none: "No result", winner: `${result.winner_names.join(" & ")} ${winners.length > 1 ? "win" : "wins"}` }[kind];
   const winnerLine = result.winner_names.length ? `${result.winner_names.join(" & ")} ${winners.length > 1 ? "win" : "wins"}` : "";
   const commanderOf = (pid: string) => view.players.find((p) => p.id === pid)?.commanders.map((c) => c.name).join(" & ");
@@ -272,6 +307,15 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
   const voters = view.seat_order.filter((pid) => local || view.game.seats[pid]?.claimed);
   const myVote = night.votes[me];
   const nameOf = (pid: string) => view.players.find((x) => x.id === pid)?.name ?? pid;
+  const bar = boardBar(view, me);
+  const viewBoard = () => {
+    markSeen(boardKey);
+    setBoard(true);
+  };
+  const showChoices = () => {
+    unmark(boardKey);
+    setBoard(false);
+  };
   const vote = async (choice: "rematch" | "lobby", force = false) => {
     setBusy(true);
     try {
@@ -296,7 +340,23 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
           </div>
         </div>
       )}
-      {!spot && (
+      {!spot && board && bar && (
+        <div className="night-board-bar plaque-wrap" data-testid="final-board-bar" role="region" aria-label="Final board">
+          <div className="plaque night-board-body">
+            <span className="night-board-tag" title="The game is over: look around, nothing on the table can change">Final board</span>
+            <span className="night-board-line">{bar.line}</span>
+            {bar.votes && (
+              <span className="night-board-votes">
+                {bar.votes}{bar.mine ? ` · you: ${bar.mine === "rematch" ? "Rematch" : "Lobby"}` : ""}
+              </span>
+            )}
+            <button className="tt-btn" data-testid="final-board-choices" onClick={showChoices}>
+              {!seated ? "Result" : local ? "Rematch or leave…" : "Rematch or lobby…"}
+            </button>
+          </div>
+        </div>
+      )}
+      {!spot && !board && (
         <div className="night-result plaque-wrap" data-testid="night-result">
           <div className="plaque night-result-body">
             <div className="night-result-head">
@@ -305,18 +365,21 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
                 Game {night.number}{winnerLine ? ` · ${winnerLine}` : ""}{result.agreed ? " · agreed" : ""}
               </span>
             </div>
-            {seated && (
-              <div className="night-actions">
-                {local ? (
-                  <a className="tt-btn" href="#/play">Leave table</a>
-                ) : (
-                  <button className={`tt-btn ${myVote === "lobby" ? "on" : ""}`} disabled={busy} data-testid="vote-lobby" onClick={() => void vote("lobby")}>Return to lobby</button>
-                )}
+            <div className="night-actions">
+              <button className="tt-btn ghost night-board-open" data-testid="view-final-board" onClick={viewBoard}
+                title="Close this panel to look at the finished table (camera, cards, log). Nothing on it can change; your vote stays.">
+                View final board
+              </button>
+              {seated && local && <a className="tt-btn" href="#/play">Leave table</a>}
+              {seated && !local && (
+                <button className={`tt-btn ${myVote === "lobby" ? "on" : ""}`} disabled={busy} data-testid="vote-lobby" onClick={() => void vote("lobby")}>Return to lobby</button>
+              )}
+              {seated && (
                 <button className={`tt-btn brass ${myVote === "rematch" ? "on" : ""}`} disabled={busy || myVote === "rematch"} data-testid="vote-rematch" onClick={() => void vote("rematch")}>
                   {myVote === "rematch" ? "Rematch — waiting" : "Rematch — same decks"}
                 </button>
-              </div>
-            )}
+              )}
+            </div>
             {!local && (
               <ul className="night-votes" aria-label="Votes">
                 {voters.map((pid) => (
@@ -327,6 +390,7 @@ function ResultScene({ view, night }: { view: GameView; night: NightInfo }) {
                 ))}
               </ul>
             )}
+            {view.game.predictions && <PredictionsRecap recap={view.game.predictions} />}
             {!local && isHost && voters.some((pid) => !night.votes[pid]) && (
               <button className="tt-btn ghost night-force" disabled={busy} onClick={() => void vote("lobby", true)}>Everyone back to the lobby now</button>
             )}

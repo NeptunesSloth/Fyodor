@@ -290,7 +290,9 @@ class ManaUnit(BaseModel):
     id: int
     sym: str = Field(max_length=1)  # W U B R G C
     src: str = Field(default="", max_length=80)  # object id of the source (106.3: its permanent, spell or ability's source)
-    tags: list[str] = Field(default_factory=list, max_length=40)  # the source's types, subtypes and supertypes when it produced it
+    # the source's types, subtypes and supertypes when it produced it (pod audit: an animated Mutavault, a changeling or anything under Maskwood
+    # Nexus has every creature type, 205.3m, 702.73a: over 360 of them, so the bound covers every subtype there is)
+    tags: list[str] = Field(default_factory=list, max_length=1000)
     only: str | None = Field(default=None, max_length=2000)  # a spending restriction (casting.spend_allowed)
     note: str = Field(default="", max_length=300)  # the restriction as Oracle words, for the pool display
     riders: list[dict[str, Any]] = Field(default_factory=list, max_length=8)  # effects when it is spent (mana_units.RIDERS)
@@ -425,6 +427,9 @@ class GameSettings(BaseModel):
     auto_clear_combat: bool = False  # optional: leaving combat / next turn clears combat markers
     allow_test_objects: bool = False  # Spawn card (solo tables allow it; the host can enable it on LAN)
     undo_policy: Literal["everyone", "own", "host"] = "everyone"
+    # -- table permissions -- "Who may change a player's cards": everyone (tabletop freedom), or each player their own (and the
+    # host helps). Checked for manual table edits only, never rules actions; a hot-seat table ignores it (app/game/table_rights.py).
+    card_permissions: Literal["everyone", "owner"] = "everyone"
     # What opponents learn about a player's deck: nothing, the commander(s) and deck name, or the list.
     deck_privacy: Literal["private", "commander_only", "public"] = "commander_only"
     priority_helper: Literal["off", "simple"] = "off"
@@ -450,6 +455,61 @@ class LogPart(BaseModel):
     group: list[LogPart] | None = None  # rendered as "Sol Ring, Island and 2 cards"
 
 
+class CannonLog(BaseModel):
+    """-- table toys -- a dice cannon volley (app/game/handlers/toys.py): who each die was fired at and in which volley, so every
+    table lands each die in front of its player. "first": one d20 a player, ties re-fired for the tied players only."""
+
+    mode: Literal["volley", "first"] = "volley"
+    players: list[str] = Field(default_factory=list)  # per result: the player it lands in front of
+    rounds: list[int] = Field(default_factory=list)  # per result: 0 for the first volley, then 1, 2 … for each re-fire of a tie
+    winner: str | None = None  # "first": who goes first
+
+
+class DiceRollLog(BaseModel):
+    """The numbers of a public dice roll or coin flip, so every table can show the dice landing."""
+
+    sides: int
+    results: list[int]
+    coin: bool = False  # results: 1 heads, 0 tails
+    ignored: list[int] = Field(default_factory=list)  # indexes into results of rolls the rules ignored (706.6: they never happened)
+    cannon: CannonLog | None = None  # -- table toys -- fired from the dice cannon (older saves: none)
+
+
+class BagLog(BaseModel):
+    """-- table toys -- a chit drawn from the table's draw bag. The chit is rendered only for those who may see it (views.py):
+    everyone, or, for a hidden draw, the player who drew it."""
+
+    player: str
+    chit: str
+    hidden: bool = False
+    left: int = 0  # chits still in the bag
+
+
+class DrawnChit(BaseModel):
+    player: str
+    chit: str
+    shown: bool = True  # False: only its drawer knows it (until they show it)
+    seq: int = 0
+
+
+class DrawBag(BaseModel):
+    """-- table toys -- the table's draw bag (docs/3D_DIRECTION.md §7): chits the table put in, kept on the server only. No view
+    holds what is inside or its order (only how many); a draw picks one with the server's randomness (app/game/resolve.py)."""
+
+    chits: list[str] = Field(default_factory=list)
+    drawn: list[DrawnChit] = Field(default_factory=list)  # what came out, oldest first (a hidden one only to its drawer)
+
+
+class DigLog(BaseModel):
+    """Cards turned over from the top of a library (reveal until, cascade): public, so their owner's table can offer
+    where to put them."""
+
+    mode: Literal["reveal_until", "cascade"]
+    player: str
+    cards: list[str]
+    hit: str | None = None
+
+
 class LogEntry(BaseModel):
     seq: int
     ts: float
@@ -460,6 +520,9 @@ class LogEntry(BaseModel):
     kind: str = "action"
     manual: bool = False  # a sandbox action taken while rules automation was on
     folded: bool = False  # shown collapsed under the following summary line (a repeated sequence)
+    roll: DiceRollLog | None = None
+    dig: DigLog | None = None
+    bag: BagLog | None = None  # -- table toys --
 
 
 class CollectionCard(BaseModel):
@@ -471,11 +534,22 @@ class CollectionCard(BaseModel):
     quantity: int = Field(ge=1)
 
 
+class Elimination(BaseModel):
+    """-- pod history -- a player who went out of the game (800.4a, 104.3a): public, kept in the order it happened
+    (``app.game.eliminations``)."""
+
+    player: str
+    turn: int | None = None  # None: already out when this table was first tracked (an older save)
+    how: str = "out"  # life | poison | commander_damage | empty_library | effect | opponent_won | conceded | left | out
+    reason: str = Field(default="", max_length=120)  # the engine's own public words ("0 or less life"), "" when none
+    seq: int = 0  # the action that put them out: players out in the same action went out together
+
+
 class GameState(BaseModel):
     format_version: int = 1
     id: str
     name: str
-    format: Literal["commander", "constructed", "sandbox"] = "commander"
+    format: Literal["commander"] = "commander"  # Fyodor plays Commander only (Constructed and Sandbox were removed)
     created_at: float
     seq: int = 0  # number of actions applied (== history position)
     settings: GameSettings = Field(default_factory=GameSettings)
@@ -483,6 +557,9 @@ class GameState(BaseModel):
     seat_order: list[str]
     cards: dict[str, CardInstance] = Field(default_factory=dict)
     zones: dict[str, list[str]] = Field(default_factory=dict)
+    # -- table motion -- how many times each zone was shuffled (public: everyone at the table sees a library shuffled), so the tables can show
+    # it; a shuffle gives the cards new ids (rekey_zone), so nothing else tells a client it happened
+    shuffles: dict[str, int] = Field(default_factory=dict)
     collections: dict[str, list[CollectionCard]] = Field(default_factory=dict)
     turn: TurnState
     table: TableState = Field(default_factory=TableState)
@@ -496,6 +573,8 @@ class GameState(BaseModel):
     passed_at: int | None = None  # seq at which everyone last passed (no need to ask again)
     log: list[LogEntry] = Field(default_factory=list)
     rules: RulesState | None = None  # rules bookkeeping; kept (dormant) when automation is turned off
+    eliminations: list[Elimination] = Field(default_factory=list)  # -- pod history -- who went out, in order (public)
+    bag: DrawBag = Field(default_factory=DrawBag)  # -- table toys -- the hidden draw bag (never in a view: views.py bag_view)
     # Where cards that ceased to exist during the step being applied were headed (a token "dies":
     # it goes to the graveyard, then ceases to exist). In memory only; read by rules tracking.
     _departed: dict[str, str] = PrivateAttr(default_factory=dict)

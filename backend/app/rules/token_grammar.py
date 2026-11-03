@@ -101,6 +101,11 @@ _SENTENCE = re.compile(
 _ALL_BASIC_LAND_TOKEN = re.compile(rf"^create (?P<n>{_QTY}) (?P<tapped>tapped )?colorless land tokens? named (?P<name>{_NAME}) "
                                    r"that (?:is|are) every basic land type$")
 _CHOSEN_TOKEN = re.compile(rf"^create (?P<n>{_QTY}) (?P<pt>(?:\d+|X)/(?:\d+|X)) creature tokens? of the chosen color and type$")
+# -- land tokens (wave 111D) -- "create a tapped Planet land token named New Planet with "{T}: Add one mana of any color."" (Star Trek's anomalies): a
+# noncreature land token with a land type (205.3i lists Planet), its own name (111.4) and one quoted ability; no color is said, so it is colorless
+# (111.3: it has no characteristic the effect doesn't define; 105.2c)
+LAND_TYPES = LAND_TYPES | {"Planet"}
+_LAND_TOKEN = re.compile(rf"^create (?P<n>{_QTY}) (?P<tapped>tapped )?(?P<sub>{_CAPS}) land tokens? named (?P<name>{_NAME}) with \"(?P<q>[^\"]+)\"$")
 _EACH_FIRST = re.compile(r"^for each (?P<each>[^,\"]+), create (?P<rest>[^\"]+?(?:\"[^\"]+\")?)$")
 _RIDER = re.compile(r"^(?P<head>.+?)(?: for each (?P<each>[^\"]+)|, where [xX] is (?P<xdef>[^\"]+))$")
 
@@ -231,6 +236,16 @@ def parse(sentence: str) -> list[Effect] | None:
 
         return [{"do": "create_token", "who": "you", "n": _qty(land["n"]), "tapped": bool(land["tapped"]),
                  "token": {"name": land["name"], "colors": [], "type_line": "Token Land — " + " ".join(BASIC_LAND_MANA), "text": ""}}]
+    if (land := _LAND_TOKEN.fullmatch(text)) is not None:  # -- land tokens (wave 111D) --
+        subs = land["sub"].split(" ")
+        line = _quoted_text(land["q"].replace("this token", "this land"))
+        if each is not None or xdef is not None or half is not None or any(s not in LAND_TYPES for s in subs) or line is None or '"' in line:
+            return None
+        made: Effect = {"do": "create_token", "who": "you", "n": _qty(land["n"]),
+                        "token": {"name": land["name"], "power": None, "toughness": None, "colors": [], "type_line": "Token Land — " + " ".join(subs), "text": line}}
+        if land["tapped"]:
+            made["tapped"] = True
+        return [made]
     m = _SENTENCE.match(text)
     if not m:
         return None
@@ -461,7 +476,7 @@ def enter_attacking(plan: Plan, ctx: dict[str, Any], made: list[str], at: dict[s
     their controller is asked whom they attack. (wave 38B: ``pid``, their controller when it isn't the ability's.)"""
     pid = pid or ctx["controller"]
     new = [c for c in made if (card := plan.state.cards.get(c)) is not None and card.controller == pid and card.zone.endswith(":battlefield")
-           and plan.ch(card).is_creature]
+           and plan.ch(card).is_creature and not (at is None and card.is_attacking)]  # (-- wave 111R3 -- entered attacking already, its 508.4 choice made: Kira Nerys)
     if not new or plan.state.turn.phase not in _ATTACKING_PHASES or pid != plan.active:
         return True
     options = attack_options(plan, ctx, pid, at)
@@ -486,12 +501,14 @@ def _attack_with(plan: Plan, cards: list[str], target: str, actor: str) -> None:
     if kind == "player" and target not in plan.live():
         return  # 508.4a: that player left the game
     if cards:
+        fresh = [c for c in cards if not plan.state.cards[c].is_attacking]  # (-- wave 111R3 -- one that entered attacking already doesn't enter attacking again)
         plan.do({"type": "attack", "card_ids": cards, "target": {"kind": kind, "id": target}}, actor=actor)
         from app.rules import (
             triggers,  # -- enters attacking (wave 110C) -- 508.4: they never "attacked", but "enters attacking" triggers (Arni Metalbrow)
         )
 
-        triggers.generic_combat(plan, "enter_attacking", [plan.state.cards[c] for c in cards])
+        if fresh:
+            triggers.generic_combat(plan, "enter_attacking", [plan.state.cards[c] for c in fresh])
 
 
 def resume_token_attack(plan: Plan, d: Any, chosen: list[str]) -> None:

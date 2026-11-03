@@ -18,9 +18,10 @@ This file is the how-to. Cost is context size × turns: keep both small.
 
 ## Where wordings are read
 
-- Spell or effect bodies: `scripts.parse_effects` (scripts.py ~2662) tries the wave modules in turn (`multi100n.parse`, `zones100g`,
-  `otherchooser100p`, …), then `_parse_effects` and the grammar in `language.py`.
-- Whole abilities (triggers, statics, activated): `scripts.define` (~5887) tries `<module>.definition(ability, ch)` hooks (~5970).
+- Spell or effect bodies: `scripts.parse_effects` tries the wave modules in turn (`hooks.PARSE_EFFECTS` chains: `multi100n.parse`,
+  `zones100g.parse`, …), then `_parse_effects` and the grammar in `language.py`.
+- Whole abilities (triggers, statics, activated): `scripts.define` tries `<module>.definition(ability, ch)` (`hooks.DEFINE` chains).
+- `app/rules/hooks.py` lists every hooked module in the order each step tries it (`grep -n "<module>" app/rules/hooks.py`).
 - Conditions: `conditions.parse`. Amounts: `values.py`. Object sets: `selectors.py`. Events: `events.py`/`triggers.py`.
   Statics: `statics.py`/`layers.py`. Replacements: `replace.py`/`replacements.py`. Costs: `costs.py`/`cost_payment.py`/`alt_costs.py`.
 - Grep the wave modules before writing anything: `multi100n`, `this_way`, `unless_pays`, `instead100k`, `ifyoudo100b`,
@@ -30,10 +31,11 @@ This file is the how-to. Cost is context size × turns: keep both small.
 
 - Map the whole exact Oracle sentence to effects built from `scripts.parse_effects(<native wording>)` (deep-copied), or to
   `scripts.define(replace(ability, text=<native wording>), ch)` for a whole ability. Exact match only: never a loose regex.
-- Hook in your own module: one marked line block in `parse_effects` / `define`: `# -- <area> (wave NX) --`.
+- Hook in your own module: one line `"<module>.parse",  # -- <area> (wave NX) --` in the `hooks.py` chain of the step it extends
+  (`PARSE_EFFECTS`, `DEFINE`, `DEFINE_REPLACEMENT`, …), at the position it must be tried. Never a new inline block in `scripts.py`.
 - Need a new primitive? Write `def prim(plan, ctx, e) -> bool` in your module, export `PRIMITIVES = {"name_nx": prim}` (plus `RESUME`
-  for decisions), and register it at the **end** of `effects.py`: `from app.rules import mod as _mod  # noqa: E402` then
-  `PRIMITIVES.update(_mod.PRIMITIVES)`. Name keys with a wave suffix. A missing registration means a KeyError at resolution.
+  for decisions), and register it: add `"mod.PRIMITIVES",` (and `"mod.RESUME",`) to the last `hooks.RESOLUTION` run.
+  Name keys with a wave suffix. A missing registration means a KeyError at resolution.
 
 ## Test recipe (copy `tests/test_rules_wave100n_multi.py`)
 
@@ -55,7 +57,7 @@ Test the behavior on both sides of any condition (parametrize), plus the refusal
 ## Never
 
 - Widen a regex so that untested wordings start to parse. Edit `coverage.py` to pass a card. Hide text as reminder text.
-- Read whole big modules (scripts.py is 12k lines, effects.py 7k) or cat bucket, cov or docs/research files. Use grep -n plus a range.
+- Read whole big modules (scripts.py is 11k lines, effects.py 6k) or cat bucket, cov or docs/research files. Use grep -n plus a range.
 - Run the full suite in an agent (the lead does it). Use `pytest -q -x --tb=line -p no:cacheprovider <file> 2>&1 | tail -15`.
 - Re-research a refused card. Write one line in `docs/research/wave<N>-refused.md` and move on.
 

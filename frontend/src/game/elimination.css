@@ -1,0 +1,132 @@
+/* The elimination hub (docs/ELIMINATION_HUB.md): the hub's links, Deck Lab, and the practice table's live pill. */
+
+.elim-links { display: flex; gap: 14px; justify-content: flex-end; align-items: center; margin-top: 8px; font-size: 12.5px; flex-wrap: wrap; }
+.elim-links a { color: var(--text-dim); text-decoration: none; border-bottom: 1px solid transparent; }
+.elim-links a:hover, .elim-links a:focus-visible { color: var(--text); border-bottom-color: var(--line); }
+
+.deck-lab-name { display: flex; gap: 8px; align-items: center; margin: 10px 0 8px; font-size: 13px; color: var(--text-dim); }
+.deck-lab-name input { flex: 1; }
+.deck-lab-text { width: 100%; min-height: min(52vh, 420px); }
+/* Compare: what the next-game version brings in and takes out (signs and headings carry it; the colour only echoes them) */
+.deck-compare { min-height: min(40vh, 320px); }
+.deck-compare > .hint { margin: 0 0 10px; }
+.deck-compare-same { margin: 18px 0; color: var(--text-dim); }
+.deck-compare-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.deck-compare-col h4 {
+  display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px; padding-bottom: 4px; border-bottom: 1px solid var(--line);
+  font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim);
+}
+.deck-compare-total { font-family: var(--font-ui); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0; text-transform: none; }
+.deck-compare-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 46vh; overflow: auto; }
+.deck-compare-col li { display: flex; align-items: baseline; gap: 8px; min-height: 24px; font-size: 13.5px; }
+.deck-compare-n { min-width: 3ch; text-align: right; font: 700 13px/1 var(--font-ui); font-variant-numeric: tabular-nums; }
+.deck-compare-col.in .deck-compare-n { color: var(--ok); }
+.deck-compare-col.out .deck-compare-n { color: var(--danger); }
+.deck-compare-col.out .deck-compare-name { color: var(--text-dim); }
+.deck-compare-sec { margin-left: auto; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); }
+@media (max-width: 640px) { .deck-compare-cols { grid-template-columns: 1fr; } }
+
+/* sits in the empty middle of the game's top bar: present, never over the table */
+.practice-pill {
+  position: fixed; z-index: 30; top: 5px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 3px 0 4px; max-width: 620px;
+  background: var(--hud-surface); border: 1px solid var(--hud-edge, var(--line)); border-radius: 3px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); font-size: 12.5px;
+}
+.practice-tag {
+  padding: 2px 7px; border-radius: 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--room-brass-hi); box-shadow: inset 0 0 0 1px var(--room-brass);
+}
+.practice-live { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-dim); }
+.practice-live.news { color: var(--accent-2); font-weight: 600; animation: practice-news calc(320ms * var(--anim-scale, 1)) var(--ease-out) both; }
+.practice-pill .tt-btn { min-height: 26px; padding: 2px 10px; white-space: nowrap; }
+@keyframes practice-news { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+body.reduced-motion .practice-live.news { animation: none; }
+@media (prefers-reduced-motion: reduce) { .practice-live.news { animation: none; } }
+@media (max-width: 1360px) { .practice-pill { max-width: 420px; } }
+@media (max-width: 1120px) { .practice-pill { top: 48px; max-width: calc(100vw - 32px); } }
+
+/* -- spectator activities (docs/SPECTATOR_ACTIVITIES_MILESTONE.md) -------------------------------------------------- */
+
+/* the hub's quieter entries sit with its links */
+.elim-link { background: none; border: 0; padding: 0; font: inherit; color: var(--text-dim); cursor: pointer; border-bottom: 1px solid transparent; }
+.elim-link:hover, .elim-link:focus-visible { color: var(--text); border-bottom-color: var(--line); }
+
+/* WATCH + PRACTICE: the live game in the practice table's empty upper corner (a practice table has no opponents there) */
+.watch-pip {
+  position: fixed; z-index: 30; top: 46px; right: 12px; width: 268px;
+  background: var(--hud-surface); border: 1px solid var(--hud-edge, var(--line)); border-radius: 3px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45); font-size: 12.5px;
+}
+.watch-pip.mini { width: auto; max-width: 320px; display: flex; align-items: center; gap: 4px; padding: 2px 3px 2px 0; }
+.watch-chip { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 0 8px; color: var(--text-dim); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.watch-chip:hover, .watch-chip:focus-visible { color: var(--text); }
+.watch-head { display: flex; align-items: center; gap: 8px; padding: 5px 4px 5px 8px; border-bottom: 1px solid var(--line); }
+.watch-line { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-dim); }
+.watch-tag {
+  padding: 1px 6px; border-radius: 2px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--accent-2); box-shadow: inset 0 0 0 1px var(--room-brass);
+}
+.watch-body { display: block; padding: 6px 8px 8px; color: var(--text); text-decoration: none; cursor: pointer; }
+.watch-body:hover .watch-players, .watch-body:focus-visible .watch-players { filter: brightness(1.08); }
+.watch-body:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+.watch-players { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.watch-players li { display: flex; align-items: center; gap: 7px; min-height: 20px; }
+.watch-players li.out { color: var(--text-dim); }
+.watch-players li.active .watch-name { color: var(--accent-2); font-weight: 600; }
+.watch-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--seat); flex: none; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); }
+.watch-players li.out .watch-dot { opacity: 0.35; }
+.watch-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.watch-life { font: 700 14px/1 var(--font-display); font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
+.watch-out { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.watch-poison, .watch-cmd { font-size: 11.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.watch-cmd.warn { color: var(--warn); font-weight: 600; }
+.watch-stack { margin: 6px 0 0; color: var(--accent-2); font-size: 12px; }
+.watch-log { list-style: none; margin: 6px 0 0; padding: 5px 0 0; border-top: 1px solid var(--line); color: var(--text-dim); font-size: 11.5px; display: grid; gap: 2px; }
+.watch-log li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1120px) { .watch-pip { top: 88px; } }
+
+/* DAMAGE SANDBOX */
+.sandbox-label { font-size: 11.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--warn); }
+.sandbox .hint { margin: 0 0 8px; }
+.sandbox-players { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 8px; }
+.sandbox-player { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.sandbox-player input { width: 64px; }
+.sandbox-filter { margin: 2px 0 8px; font-size: 13px; }
+.sandbox-side h4 { margin: 10px 0 4px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+.sandbox-side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 34vh; overflow: auto; }
+.sandbox-creature { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 3px; }
+.sandbox-creature.attacking { border-color: var(--danger); }
+.sandbox-creature.blocking { border-color: var(--room-brass); }
+.sandbox-name { min-width: 150px; flex: 1; font-weight: 600; }
+input.sandbox-name { font-weight: 400; }
+.sandbox-tag { margin-left: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent-2); }
+.sandbox-pt { display: inline-flex; align-items: center; gap: 2px; }
+.sandbox-pt input { width: 52px; }
+.sandbox-keywords { display: flex; flex-wrap: wrap; gap: 3px; flex-basis: 100%; }
+.sandbox-kw { font-size: 11px; padding: 1px 6px; border-radius: 2px; border: 1px solid var(--line); background: none; color: var(--text-dim); cursor: pointer; }
+.sandbox-kw.on { color: var(--accent-2); border-color: var(--room-brass); background: rgba(212, 168, 82, 0.12); }
+.sandbox-result { margin-top: 12px; padding: 8px 10px; border-top: 1px solid var(--line); font-size: 13px; }
+.sandbox-result ul { margin: 2px 0 8px; padding-left: 18px; }
+.sandbox-lethal { margin: 0 0 6px; color: var(--danger); font-weight: 700; }
+
+/* PREDICTIONS */
+.predictions-balance { margin: 0 0 8px; }
+.predictions-name { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 13px; color: var(--text-dim); }
+.predictions-market { border: 1px solid var(--line); border-radius: 3px; margin: 0 0 10px; padding: 6px 10px 10px; }
+.predictions-market legend { padding: 0 4px; font-weight: 600; }
+.predictions-choices { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.predictions-stake { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.predictions-recap { font-weight: 600; color: var(--accent-2); }
+.predictions-reveal { margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
+.predictions-reveal .won, .night-predictions .won { color: var(--text); }
+.predictions-reveal .lost, .night-predictions .lost { color: var(--text-dim); }
+.night-predictions { margin-top: 8px; font-size: 12.5px; color: var(--text-dim); }
+.night-predictions summary { cursor: pointer; }
+.night-predictions ul { margin: 4px 0 0; padding-left: 18px; }
+
+/* NEXT GAME */
+.next-game section h4 { margin: 12px 0 6px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+.next-game-now { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--room-brass); border-radius: 3px; }
+.next-game-tag { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-2); }
+.next-game-text { min-height: 110px; margin-bottom: 6px; }

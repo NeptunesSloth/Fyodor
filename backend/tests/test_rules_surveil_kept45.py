@@ -18,7 +18,7 @@ def test_actual_curate_graveyard_shuffle_still_returns_remaining_card_to_top(car
     rng = random.Random(0)
 
     def resolve(*args, **kwargs):
-        return original(*args, **kwargs, rng=rng)
+        return original(*args, **{**kwargs, "rng": rng})  # (the session passes its own source too: this one replaces it)
 
     monkeypatch.setattr(sessions, "resolve", resolve)
     s = game(cards, ["Curate", "Progenitus"])

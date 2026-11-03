@@ -13,7 +13,6 @@ from app.storage.backup import (
     MAX_BACKUP_BYTES,
     BackupError,
     backup_path,
-    create_backup,
     list_backups,
     stage_restore,
 )
@@ -25,13 +24,14 @@ ServicesDep = Annotated[Services, Depends(get_services)]
 @router.get("/backups")
 def get_backups(request: Request, services: ServicesDep) -> dict[str, Any]:
     require_local(request)
-    return {"backups": list_backups(services.settings.data_dir), "recovery": services.health().get("recovery")}
+    return {"backups": list_backups(services.settings.data_dir), "recovery": services.health().get("recovery"),
+            "auto": services.autobackups.status()}
 
 
 @router.post("/backups", status_code=201)
 def make_backup(request: Request, services: ServicesDep) -> dict[str, Any]:
     require_local(request)
-    return create_backup(services.settings.data_dir, services.app_db, services.app_db_lock, services.settings.assets_dir)
+    return services.backup()
 
 
 @router.get("/backups/{name}")

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useCardView, useGame } from "../state/gameStore";
 import { useDrag } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
+import { attachmentLinks, tetherAnchor } from "./attachments";
 
 /** Card ghosts that follow the pointer while dragging. */
 export function DragLayer() {
@@ -97,6 +98,65 @@ export function CombatArrows() {
         <g key={l.key} className={`arrow ${l.kind}`}>
           <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} markerEnd={`url(#arrowhead-${l.kind})`} />
           {l.label && <text x={(l.x1 + l.x2) / 2} y={(l.y1 + l.y2) / 2 - 6}>{l.label}</text>}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/**
+ * 2D attachment lines (game/attachments.ts): while an Aura, Equipment or Fortification or what it's attached to is
+ * hovered or selected, a thin bone line joins them, with a dot on the attachment and a ring on the host (a shape,
+ * not only a colour, and no arrowhead: arrows mean targeting here). It starts on the part of a tucked attachment
+ * that peeks out from under its host.
+ */
+export function AttachLines() {
+  const cards = useGame((s) => s.view?.cards);
+  const hover = useGame((s) => s.hover);
+  const selection = useGame((s) => s.selection);
+  const focus = useGame((s) => s.focus);
+  const [lines, setLines] = useState<{ key: string; x1: number; y1: number; x2: number; y2: number }[]>([]);
+  useEffect(() => {
+    if (!cards) return;
+    const links = attachmentLinks({ cards }, [hover, ...selection]);
+    if (!links.length) {
+      setLines((old) => (old.length ? [] : old));
+      return;
+    }
+    const foot = (el: Element) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, hw: r.width / 2, hh: r.height / 2, rot: 0 };
+    };
+    const at = (id: string) => document.querySelector(`.battlefield [data-card-id="${CSS.escape(id)}"]`);
+    const compute = () => {
+      const out: { key: string; x1: number; y1: number; x2: number; y2: number }[] = [];
+      for (const l of links) {
+        const a = at(l.from);
+        const b = l.player ? document.querySelector(`[data-player-id="${CSS.escape(l.to)}"]`) : at(l.to);
+        if (!a || !b) continue;
+        const host = foot(b);
+        const from = l.player ? foot(a) : tetherAnchor(foot(a), host);
+        out.push({ key: `${l.from}>${l.to}`, x1: from.x, y1: from.y, x2: host.x, y2: host.y });
+      }
+      setLines(out);
+    };
+    const raf = requestAnimationFrame(compute);
+    const late = window.setTimeout(compute, 320); // again once a Look (focus) change has resized the boards
+    window.addEventListener("resize", compute);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(late);
+      window.removeEventListener("resize", compute);
+    };
+  }, [cards, hover, selection, focus]);
+  if (!lines.length) return null;
+  return (
+    <svg className="attach-lines" data-testid="attach-lines" aria-hidden>
+      {lines.map((l) => (
+        <g key={l.key}>
+          <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} />
+          <circle className="from" cx={l.x1} cy={l.y1} r={3} />
+          <circle className="to" cx={l.x2} cy={l.y2} r={6} />
         </g>
       ))}
     </svg>

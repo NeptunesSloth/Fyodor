@@ -1,10 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { localToVirtual, pileAt, PILES, seats, tableSize, toLocal, toWorld, virtualToLocal } from "./layout";
+import { heartSpot, localToVirtual, pileAt, PILES, seats, tableSize, toLocal, toWorld, virtualToLocal } from "./layout";
 
 describe("3D table layout", () => {
-  it("puts the viewer south and goes around the table", () => {
+  it("seats two facing rows, the viewer's row south, clockwise (along my row to my left, then back across)", () => {
     const s = seats(["p1", "p2", "p3", "p4"], "p3");
-    expect(s.map((x) => [x.player, x.side])).toEqual([["p3", "south"], ["p4", "west"], ["p1", "north"], ["p2", "east"]]);
+    expect(s.map((x) => [x.player, x.side])).toEqual([["p3", "south"], ["p4", "south"], ["p1", "north"], ["p2", "north"]]);
+    const [me, left, across, right] = s;
+    expect(left!.x).toBeLessThan(me!.x); // my left neighbour sits to my left in my row
+    expect(across!.x).toBeLessThan(right!.x); // then the far row, west to east
+    expect(right!.x).toBeCloseTo(me!.x); // the last player sits straight across from me
+  });
+
+  it("keeps every mat upright for its owner (no sideways seats)", () => {
+    for (const n of [1, 2, 3, 4, 5, 6]) {
+      const s = seats(Array.from({ length: n }, (_, i) => `p${i}`), "p0");
+      for (const seat of s) expect(["south", "north"]).toContain(seat.side);
+      expect(s[0]!.side).toBe("south");
+      // the viewer sits in the middle of their row
+      const row = s.filter((x) => x.side === "south").map((x) => x.x);
+      expect(Math.abs(s[0]!.x)).toBeLessThanOrEqual(Math.max(...row.map(Math.abs)));
+    }
+  });
+
+  it("floats every life heart toward the middle of the table, over the aisle", () => {
+    for (const n of [2, 4, 6]) {
+      for (const seat of seats(Array.from({ length: n }, (_, i) => `p${i}`), "p0")) {
+        const [hx, hz] = toWorld(seat, ...heartSpot(seat));
+        if (Math.abs(seat.x) > 0.01) expect(Math.abs(hx)).toBeLessThan(Math.abs(seat.x)); // nearer the middle than its mat
+        expect(Math.abs(hz)).toBeLessThan(Math.abs(seat.z)); // out over the aisle side
+      }
+    }
+  });
+
+  it("1v1: two mats face each other across a narrow aisle", () => {
+    const [a, b] = seats(["a", "b"], "a");
+    expect(a!.x).toBe(0);
+    expect(b!.x).toBe(0);
+    expect(a!.z - b!.z).toBeLessThan(10); // mat depth 6 plus a 3-unit aisle
   });
 
   it("round-trips mat-local and world coordinates for every side", () => {

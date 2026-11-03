@@ -4,7 +4,7 @@
  * goes through `send()`, and the UI re-renders from the view the server sends back.
  */
 import { create } from "zustand";
-import { toast } from "../components/Toasts";
+import { toast, useToasts } from "../components/Toasts";
 import { GameConnection, type ConnStatus } from "../services/gameSocket";
 import {
   OMNISCIENT,
@@ -17,8 +17,14 @@ import {
   type PlayerView,
 } from "../types/game";
 import { reconcile } from "./reconcile";
+import { publishTableEvents } from "../game/motion/tableEvents";
 import { play, soundForLog } from "../game/sound";
 import { requestCards } from "./cardCache";
+import { undoActor, undoMode, undoRefusal, type UndoOp } from "../game/undoPolicy";
+import { finalBoardRefusal } from "../game/finalBoard";
+import { actionRefusal } from "../game/cardPermissions";
+import { outRefusal } from "../game/outOfGame";
+import { undoRequest } from "../services/undoRequest";
 
 export interface PickMode {
   prompt: string;
@@ -57,7 +63,8 @@ interface GameStore {
   hover: string | null;
   inspect: string | null;
   browser: BrowserState | null;
-  dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host" | "endgame" | "appearance" | "history" | "settings" | "macro" | "spawn";
+  dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host" | "endgame" | "appearance" | "history" | "settings" | "macro" | "spawn"
+    | "drawbag" | "extras"; // -- table toys -- the draw bag (from the roll panel) and the Bag of Extras (by your seat)
   dialogArg: string | null;
   pendingPositions: Record<string, [number, number]>;
   /** Pick mode: the next clicks on cards / players choose targets (arrows, copy target…). */
@@ -67,6 +74,8 @@ interface GameStore {
   focus: string | null;
   stackOpen: boolean;
   logOpen: boolean;
+  /** The game the focus belongs to ("<table id>#<game of the night>"): a new game opens on the whole table. */
+  layoutGame: string | null;
   setLayout: (patch: Partial<Pick<GameStore, "focus" | "stackOpen" | "logOpen">>) => void;
 
   connect: (gameId: string, opts: { token?: string | null; viewer?: string | null }) => void;
@@ -75,8 +84,9 @@ interface GameStore {
   /** The last AUTOMATION ERROR (a rules-engine failure: nothing was applied). */
   automationError: string | null;
   setAutomationError: (message: string | null) => void;
-  undo: () => Promise<void>;
-  redo: () => Promise<void>;
+  /** True when the server took the step (false: nothing to do, the undo setting forbids it, or it failed; the reason is toasted). */
+  undo: () => Promise<boolean>;
+  redo: () => Promise<boolean>;
   setViewer: (viewer: string) => void;
   setActingAs: (player: string) => void;
   select: (ids: string[], mode?: "replace" | "toggle" | "add") => void;
@@ -156,6 +166,7 @@ export const useGame = create<GameStore>((set, get) => ({
   focus: null,
   stackOpen: true,
   logOpen: false,
+  layoutGame: null,
   setLayout: (patch) => set(patch),
 
   applyLobby: (lobby) =>
@@ -185,13 +196,20 @@ export const useGame = create<GameStore>((set, get) => ({
         }
         for (const p of view.players) for (const cmd of p.commanders) if (cmd.card_id) ids.push(cmd.card_id);
         requestCards(ids);
+        const dragged = new Set(Object.keys(get().pendingPositions)); // (cards the viewer just dragged: already where the hand put them)
+        const match = `${incoming.game.id}#${incoming.game.night?.number ?? 1}`;
         set((s) => ({
           view,
           lobby: null,
           pendingPositions: {},
           selection: s.selection.filter((id) => id in view.cards),
           actingAs: resolveActingAs(view, s.actingAs),
+          // a new game of the night (a rematch keeps the table id, as after the lobby): the last game's 2D focus (its end scene
+          // focused the winner's side) was that game's, so the table opens whole again; open panels stay (the player's choice)
+          ...(s.layoutGame !== match ? { layoutGame: match, focus: null } : {}),
         }));
+        // -- table motion -- what just happened, for the tables to show (display only; game/motion/tableEvents.ts)
+        if (prev && !replace && sameGame) publishTableEvents(prev, view, dragged);
       },
       onLobby: (lobby) => get().applyLobby(lobby),
       onStatus: (status, detail) => set({ status, statusDetail: detail ?? null }),
@@ -212,10 +230,24 @@ export const useGame = create<GameStore>((set, get) => ({
     const { conn, view, actingAs } = get();
     if (!conn || !view) return false;
     const as = view.game.mode === "local" ? actingAs ?? undefined : undefined;
+    // (-- table permissions -- another player's cards under the host's setting: the server would refuse it, just as it refuses
+    // a change to the final board. Rules intents, looking and life totals are never limited: game/cardPermissions.ts.)
+    // (-- out of the game -- a player who conceded or lost no longer moves the game: game/outOfGame.ts)
+    const type = String((action as { type?: unknown }).type ?? "");
+    const closed = finalBoardRefusal(view, type) ?? outRefusal(view, undoActor(view, actingAs), type) ?? actionRefusal(view, action);
+    if (closed) {
+      // -- final board -- the server would refuse it: put any dragged card back and say why (not again while that shows)
+      set({ pendingPositions: {} });
+      if (!useToasts.getState().toasts.some((t) => t.text === closed)) toast(closed, "info");
+      return false;
+    }
     try {
       await conn.requestAction({ type: "action", action, as });
       const done = undoableSummary(action as Record<string, unknown>);
-      if (done && get().view?.game.can_undo) toast(done, "info", { label: "Undo", run: () => void get().undo() });
+      // -- undo policy (gap 3) -- offer Undo only when this player may take back the action they just sent (theirs)
+      const after = get().view;
+      const me = after ? undoActor(after, get().actingAs) : null;
+      if (done && after?.game.can_undo && !undoRefusal(after, me, "undo", me) && !after.game.undo_ask) toast(done, "info", { label: "Undo", run: () => void get().undo() });
       return true;
     } catch (e) {
       set({ pendingPositions: {} });
@@ -235,17 +267,8 @@ export const useGame = create<GameStore>((set, get) => ({
   automationError: null,
   setAutomationError: (message) => set({ automationError: message }),
 
-  undo: async () => {
-    const { conn, view, actingAs } = get();
-    if (!conn || !view?.game.can_undo) return;
-    await conn.request({ type: "undo", as: view.game.mode === "local" ? actingAs : undefined }).catch((e: Error) => toast(e.message, "error"));
-  },
-
-  redo: async () => {
-    const { conn, view, actingAs } = get();
-    if (!conn || !view?.game.can_redo) return;
-    await conn.request({ type: "redo", as: view.game.mode === "local" ? actingAs : undefined }).catch((e: Error) => toast(e.message, "error"));
-  },
+  undo: () => historyStep(get, "undo"),
+  redo: () => historyStep(get, "redo"),
 
   setViewer: (viewer) => {
     get().conn?.setViewer(viewer);
@@ -272,6 +295,39 @@ export const useGame = create<GameStore>((set, get) => ({
   openDialog: (dialog, arg = null) => set({ dialog, dialogArg: arg }),
   setPending: (positions) => set((s) => ({ pendingPositions: { ...s.pendingPositions, ...positions } })),
 }));
+
+/** Undo or redo one step; the table's undo setting is explained here rather than sent to the server to refuse (gap 3). */
+async function historyStep(get: () => GameStore, op: UndoOp): Promise<boolean> {
+  const { conn, view, actingAs } = get();
+  if (!conn || !view || !(op === "undo" ? view.game.can_undo : view.game.can_redo)) return false;
+  if (op === "undo") {
+    // -- quick undo request -- the server says when an undo must ask the table first: ask it (the bar shows the answer)
+    const mode = undoMode(view, undoActor(view, actingAs));
+    if (mode.kind === "waiting") {
+      toast(mode.why, "info");
+      return false;
+    }
+    if (mode.kind === "ask") {
+      await undoRequest(view.game.id, "request").then(
+        () => toast("Asked the table to undo it.", "info"),
+        (e: Error) => toast(e.message, "error"),
+      );
+      return false; // not undone yet: a multi-step undo stops here
+    }
+  }
+  const why = undoRefusal(view, undoActor(view, actingAs), op);
+  if (why) {
+    toast(why, "error");
+    return false;
+  }
+  return conn.request({ type: op, as: view.game.mode === "local" ? actingAs : undefined }).then(
+    () => true,
+    (e: Error) => {
+      toast(e.message, "error");
+      return false;
+    },
+  );
+}
 
 function resolveActingAs(view: GameView, current: string | null): string {
   if (view.viewer in view.game.seats) return view.viewer;

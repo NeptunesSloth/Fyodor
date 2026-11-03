@@ -1,17 +1,19 @@
-# Fyodor — offline MTG tabletop
+# Fyodor — offline Commander tabletop
 
-A fast, offline-first digital tabletop for **Magic: The Gathering**, built for a Commander pod,
-60-card constructed and casual games. Once the card data is downloaded, nothing needs the
-Internet.
+A private, offline-first digital tabletop for one **Magic: The Gathering Commander** pod: each
+player on their own computer, joined over the LAN to one host. Once the card data is downloaded,
+nothing needs the Internet.
 
-- **Today** it is a complete sandbox table. You and your opponents decide what's legal, and
-  Fyodor provides the zones, cards, counters, life totals, stack, turn tracker, log, undo,
-  saves and LAN play.
-- **Where it's going:** Tabletop Simulator-style 3D interaction on top of an **MTG Arena-like
-  rules engine**. It will automate normal play for the cards our decks use, while keeping the
-  manual sandbox for anything unsupported. See
-  [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) and
-  [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+![The 3D table mid-game with real card art: four seats, tidied land piles with ×N counts, an attack, the turn dial at bottom right](docs/screenshots/table-3d.jpg)
+
+- **A physical table.** A three.js 3D table, or a lighter 2D table, where anything can be moved
+  by hand, as in Tabletop Simulator.
+- **A rules engine.** Deterministic automation researched from the Comprehensive Rules, set per
+  table: *Off* (sandbox), *Assisted* or *Full*. Supported cards play themselves. Everything else
+  falls back to the manual table, so nothing ever blocks the game. Coverage is reported per card
+  in [`docs/RULES_COVERAGE.md`](docs/RULES_COVERAGE.md).
+- **Clear priority.** A turn and priority dial, the stack as a chain on the table, and a
+  response helper that only stops you when you can act.
 
 - **Tabletop**: free card positioning, drag and drop between every zone, tap/untap, counters,
   tokens, copies, face-down cards, transform/MDFC/adventure/split faces, notes, reveal,
@@ -26,23 +28,30 @@ Internet.
 - **Decks**: paste lists from Moxfield, Archidekt, MTGGoldfish, Arena or plain text;
   deck library, editor, printing picker, advisory checks
 
+| | |
+|---|---|
+| ![Home screen with the table theme showcase](docs/screenshots/home.jpg) | ![LAN lobby with four seats and a room code](docs/screenshots/lobby.jpg) |
+| ![The 2D table with real card art: seat plaques, land piles with ×N counts, the combat strip](docs/screenshots/table-2d.jpg) | ![Opening hand with Commander London mulligans](docs/screenshots/mulligan.jpg) |
+
 See [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) and
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for design details.
 
 ## Download (no Python or Node needed)
 
-Grab the zip for your computer from the repository's **Releases** page (or the latest
-**Downloadable app** run in the Actions tab), unzip it and double-click **Fyodor**
-(`Fyodor.exe` on Windows). The first start downloads the card database once (~80 MB); after
-that it runs with no Internet. Cards and saves live in a `Fyodor` folder in your home folder,
-so a newer download keeps them.
+Grab `Fyodor-windows.zip` from the repository's **Releases** page (or the latest
+**Downloadable app** run in the Actions tab), unzip it and double-click **Fyodor.exe**. The
+workflow builds the Windows app by default; run it with *all* for macOS and Linux zips too, or
+build on that computer yourself (below). The first start downloads the card database once (~80 MB); after
+that it runs with no Internet. When new sets come out, the host opens **Settings → Card
+database → Check for new cards** while online. Cards and saves live in a `Fyodor` folder in
+your home folder, so a newer download keeps them.
 
 - **Windows** may show "Windows protected your PC": click *More info* → *Run anyway*, and allow
   it on private networks when the firewall asks (that's what lets the pod join).
 - **macOS**: the app isn't signed, so right-click **Fyodor** → *Open* the first time.
 
 To build it yourself: `scripts/build-app.sh` (on Windows, from Git Bash) → `dist/Fyodor/`.
-A new tag like `v0.2.0` builds all three and attaches them to a release.
+A new tag like `v0.2.0` builds the Windows app and attaches it to a release.
 
 ## Requirements (running from source)
 
@@ -138,7 +147,11 @@ the host computer itself.
   block, move to library position N, reveal, give control, notes…).
 - Click your **library** for draw N, shuffle, search, look at top N, reveal, mill, mulligan.
 - Keys: `D` draw · `T`/space tap · `F` turn over · `N` next step · `Shift+N` next turn ·
-  `U` untap all · `Delete` to graveyard · `Ctrl+Z` / `Ctrl+Shift+Z` undo/redo · `?` help.
+  `U` untap all · `Delete` to graveyard · `Ctrl+Z` / `Ctrl+Shift+Z` undo/redo · `G` ping ·
+  `S` sort your hand · `?` help.
+- **Ping** (`G`, or Alt+click) shows everyone a ring and your name on a card or spot, as in
+  Tabletop Simulator. When the table waits on you while the tab is in the background, the tab
+  title flashes and a chime plays (Settings can turn both off).
 - In hot-seat games use **View** in the top bar to switch seats, or *Open table* to see
   every hand (goldfishing).
 
@@ -153,6 +166,9 @@ Environment variables (or a `.env` file in `backend/`), see [`.env.example`](.en
 | `FYODOR_LOG_LEVEL` | `INFO` | |
 | `FYODOR_AUTOSAVE_EVERY` | `10` | autosave after this many actions |
 | `FYODOR_HISTORY_LIMIT` | `500` | undo steps kept per game |
+| `FYODOR_ALLOW_NETWORK` | `1` | `0` turns off Archidekt import, artwork caching and card updates |
+| `FYODOR_AUTO_BACKUP_MINUTES` | `30` | automatic backups while anything changes; `0` turns them off |
+| `FYODOR_BACKUP_COPY_DIR` | unset | also copy every backup here (a USB stick or synced folder) |
 | `FYODOR_CORS_ORIGINS` | dev server | comma-separated |
 | `FYODOR_ASSISTANT_URL` | unset | Ollama-compatible endpoint for the optional rules assistant |
 | `FYODOR_ASSISTANT_MODEL` | `llama3.1` | |
@@ -203,7 +219,7 @@ backend/
   app/game/         pure game engine: state, actions, resolve, engine, views, history
   app/multiplayer/  rooms, seats, connections
   app/storage/      SQLite helpers, migrations, versioned saves
-  app/rules/        extension point for future rules assistance (advisory only)
+  app/rules/        the rules engine: priority, the stack, combat, triggers and card automation
   app/assistant/    optional local AI rules assistant (disabled by default)
   tools/update_cards.py
   tests/
@@ -219,8 +235,11 @@ scripts/            start (launcher), setup, dev, serve, test, update-cards
 
 ## Privacy
 
-No telemetry, analytics or tracking. The only network access is the explicit card/image
-download in `update-cards` (and the optional assistant endpoint you configure yourself).
+No telemetry, analytics or tracking. Fyodor only goes online when you ask it to: the card and
+image download in `update-cards` or Settings → Card database, importing a deck from an
+Archidekt link, caching a deck's artwork, and the optional assistant endpoint you configure
+yourself. Set `FYODOR_ALLOW_NETWORK=0`
+to turn off Archidekt import, artwork caching and card updates.
 
 Card data and images are provided by [Scryfall](https://scryfall.com). Magic: The Gathering
 is © Wizards of the Coast. Fyodor is unofficial Fan Content and not affiliated with them.

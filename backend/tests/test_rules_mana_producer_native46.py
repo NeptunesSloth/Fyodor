@@ -17,6 +17,8 @@ from tests.test_rules_wave30m_durations import to_phase
 
 @pytest.fixture
 def cards():
+    if not (Path(__file__).resolve().parents[2] / "data/cards.sqlite").is_file():
+        pytest.skip("the real card database is needed (data/cards.sqlite)")
     repo = CardRepository(
         Path(__file__).resolve().parents[2] / "data/cards.sqlite",
         ImageStore(Path(__file__).resolve().parents[2] / "data/images"),

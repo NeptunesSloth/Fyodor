@@ -31,9 +31,22 @@ from app.rules import characteristics as chars
 from app.rules.characteristics import CardInfo, Characteristics
 
 READ_REUSE_FROM = 40  # objects in the game from which ``Plan.reading`` keeps its pass between checks
-MARK_IGNORES = {"priority", "passed", "auto_pass", "stack_seen110m"}  # rules fields no kept answer depends on (``Plan._mark``)
+MARK_IGNORES = {"priority", "passed", "auto_pass", "stack_seen110m",  # rules fields no kept answer depends on (``Plan._mark``)
+                # -- big boards (perf) -- and: the triggered abilities waiting to be put on the stack (read only by the trigger machinery,
+                # the SBA checks of a Siege's or a Saga's waiting ability, state triggers, dungeon completion and settle: answers worked
+                # out afresh in each check, never kept in a pass), and the two stamps ``_do`` writes on every step for ``emit`` (its only
+                # reader, inside a step). Each trigger of a big batch added one and every following scan derived the board again.
+                "pending_triggers", "cause110g", "craft110b"}
+# -- big boards (perf) -- table actions that don't count as a change of the table for a kept read pass (``Plan.writes``, ``_mark``): a
+# rules log line. Its handler (handlers/rules.rules_log) only appends to ``state.log`` and folds earlier log entries; no kept answer
+# reads the log (characteristics, the statics table, ``read_pass.once`` answers, ``read_pass.card_fact``: the log is read only by
+# coin_outcomes._seen and engine.settle, which are steps, not kept answers), the plan's steps don't change ``state.seq`` (only
+# engine.apply does), and whatever the step changes in the rules state or the players (``track`` and the rest of ``_do``) is still
+# compared by ``_mark``. A note between two scans of a big board made the second one derive every permanent again.
+UNREAD_STEPS = frozenset({"rules_log"})
 MAX_STEPS = 400  # a safety valve: no single intent may expand into more table actions
 ARROW_TARGETS = 20  # the most objects one arrow points at (A.CreateArrow.targets)
+LOG_CARDS, LOG_TEXT = 20, 500  # the most cards and characters one rules log line holds (A.RulesLog)
 ENGINE_ARROWS = 190  # the engine's target arrows stop here (the table takes 200: handlers/marks.py; the rest is the players')
 
 
@@ -68,6 +81,7 @@ class Plan:
     excluded: frozenset[str] = frozenset()
     # -- optional payments (wave 110C) -- the attacking creature of the trigger being resolved: a cost's "other than that creature" (selector not_event) excludes it
     cost_attacker: str | None = None
+    trigger_headroom: bool = False  # the step budget was raised once in this action for a big trigger batch (triggers.headroom)
     delegated110d: str | dict[int, str] | None = None  # the target an opponent picked for a spell (wave 110D, delegated_target_announcements)
 
     def __init__(self, state: GameState, actor: str, info: CardInfo, rng: Any) -> None:
@@ -127,6 +141,8 @@ class Plan:
 
     def do(self, payload: dict[str, Any], *, actor: str | None = None, departure_before: DepartureBefore | None = None) -> A.Action:
         """Resolve and apply one table action on the scratch copy, and record it."""
+        if payload.get("type") in UNREAD_STEPS:  # (big boards: a log line changes nothing a kept read pass read)
+            return self._do(payload, actor=actor, departure_before=departure_before)
         self.writes = getattr(self, "writes", 0) + 1  # (a kept read pass is for the table as it was: ``reading``)
         try:
             return self._do(payload, actor=actor, departure_before=departure_before)
@@ -197,7 +213,8 @@ class Plan:
 
         world_before80 = world_durations80.before(self) if resolved.type != 'rules_sync' else None
         HANDLERS[resolved.type](self.state, resolved)
-        self.writes += 1
+        if resolved.type not in UNREAD_STEPS:
+            self.writes += 1
         if before is not None and self.began is not None:
             for cid, zone in before.zones.items():
                 if (c := self.state.cards.get(cid)) is not None and zone_name(zone) != zone_name(c.zone):
@@ -331,7 +348,16 @@ class Plan:
     def note(self, message: str, card_ids: list[str] | tuple[str, ...] = (), *, actor: str | None = None) -> None:
         from app.game.ops import shown  # (review 18F: a granter is read as its name, never its object id)
 
-        self.do({"type": "rules_log", "text": shown(self.state, message), "card_ids": list(card_ids)}, actor=actor)
+        text, ids = shown(self.state, message), list(card_ids)
+        if len(ids) > LOG_CARDS or len(text) > LOG_TEXT:
+            # -- long log lines (soak gaps4) -- a log line names at most 20 cards in 500 characters (A.RulesLog): Brand taking back 25
+            # permanents named them all and failed the whole cast. The line keeps its first 20 cards and is cut short; its face-down names
+            # are masked first against every card it is about (708.5), as the full line would have been.
+            from app.game.visibility import mask_face_down
+
+            text, ids = mask_face_down(self.state, text, refs=ids), ids[:LOG_CARDS]
+            text = text if len(text) <= LOG_TEXT else text[: LOG_TEXT - 1] + "…"
+        self.do({"type": "rules_log", "text": text, "card_ids": ids}, actor=actor)
 
     def ch(self, card: CardInstance) -> Characteristics:
         """Current characteristics: printed, then continuous effects in layer order."""

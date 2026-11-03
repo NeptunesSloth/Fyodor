@@ -7,6 +7,7 @@
  * The stored data is versioned; `migrateProfiles` upgrades anything older.
  */
 import { DEFAULT_PLANE, type PlaneId } from "../theme/planes";
+import type { DiceLook } from "../game/dice";
 import { create } from "zustand";
 
 export const PROFILE_VERSION = 2;
@@ -21,6 +22,8 @@ export interface Bookmark {
   logOpen: boolean;
 }
 
+export type HandSort = "drawn" | "mana" | "color" | "type" | "name" | "custom";
+
 export interface Prefs {
   /** Table theme (a Magic plane): environment, surface, lighting, ambience and UI accents. */
   plane: PlaneId;
@@ -31,9 +34,23 @@ export interface Prefs {
   /** Receive nudges ("the table is waiting on you") and see spectators' reactions. */
   nudges: boolean;
   reactions: boolean;
-  /** 3D: gently turn the camera toward important public events. */
-  autoCenter: "off" | "important";
+  /** See other players' pings ("look here", G or Alt+click). */
+  pings: boolean;
+  /** When the table waits on me and this tab is in the background: flash the tab title and chime. */
+  turnAlert: boolean;
+  /** Answer a public choice (a color, a player, a number …) on a quick wheel at the pointer instead of the list (game/rules/ChoiceWheel.tsx). */
+  choiceWheel: boolean;
+  /** How my own hand is laid out (display only: the hand itself never changes order on the server). */
+  handSort: HandSort;
+  /** The 2D table's boards: arranged in rows like MTG Arena (this screen only), or free placement as the server keeps them. */
+  boardLayout: "arranged" | "free";
+  /** 3D: gently turn the camera toward major public events: the important ones, or all of them (table3d/autoCenter.ts). */
+  autoCenter: "off" | "important" | "on";
   showTokenSources: boolean;
+  /** 3D table: let go of your cards while moving them and they slide on, knocking others aside (a flick). */
+  cardPhysics: boolean;
+  /** What thrown dice are made of, on this screen (table3d/diceLook.ts); each player's dice keep their seat colour. */
+  diceLook: DiceLook;
   hud: "full" | "minimal";
   uiScale: number;
   inspectSize: "normal" | "large";
@@ -69,8 +86,15 @@ export const DEFAULT_PREFS: Prefs = {
   ambience: true,
   nudges: true,
   reactions: true,
+  pings: true,
+  turnAlert: true,
+  choiceWheel: true,
+  handSort: "drawn",
+  boardLayout: "arranged",
   autoCenter: "off",
   showTokenSources: false,
+  cardPhysics: true,
+  diceLook: "resin",
   hud: "full",
   uiScale: 1,
   inspectSize: "normal",

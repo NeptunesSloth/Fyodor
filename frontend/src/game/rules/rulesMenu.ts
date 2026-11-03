@@ -6,8 +6,14 @@ import { abilityLines, automationOn, isLand, send, setPrefs, useXPrompt } from "
 
 /** 702.33a / 702.33c: a "Kicker {cost}" or "Multikicker {cost}" keyword line (mana costs only, as the server pays them). */
 const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+(?: and\/or (?:\{[^}]+\})+)?$|^entwine—|^kicker—/i; // (702.42a entwine: kicker's count 1 is "choose all modes"; wave 43D: "Kicker—Sacrifice a land.", paid by the server)
+/** -- Star Trek beam me up (wave 112T) -- the server's label of a beam me up cost: "<source>: beam me up {cost}". */
+const BEAM = /^(.*): beam me up ((?:\{[^}]+\})+)$/;
 /** Multikicker quick choices; Other uses the same platform numeric range as X. */
 export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
+
+/** -- pod audit -- 709.3, 715.3: a split card (not a Room) or an adventure, cast from the hand as the half the player chooses. */
+const twoSpells = (data?: { layout: string; faces: { name: string; mana_cost?: string | null }[] }): data is { layout: string; faces: { name: string; mana_cost?: string | null }[] } =>
+  (data?.layout === "split" || data?.layout === "adventure") && data.faces.length === 2;
 
 /** -- Rooms (wave 18G) -- 709.5: a split card whose halves share one Room type line. */
 const isRoom = (data?: { layout: string; faces: { type_line?: string | null }[] }): data is { layout: string; faces: { name: string; mana_cost?: string | null; type_line?: string | null }[] } =>
@@ -37,6 +43,10 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     // 709.5: a Room is cast as one half (its door is unlocked as it enters)
     data.faces.forEach((f, i) => items.push({ label: `Cast ${f.name} ${f.mana_cost ?? ""}`.trim(),
       onClick: () => void send({ type: "cast_spell", card_id: card.id, face: i }) }));
+  } else if (mine && zone === "hand" && twoSpells(data)) {
+    // -- pod audit -- 709.3: which half is chosen before the spell is cast (Revival // Revenge, Bonecrusher Giant // Stomp); the hint counts either half
+    data.faces.forEach((f, i) => items.push({ label: `Cast ${f.name} ${f.mana_cost ?? ""}`.trim(), disabled: !hints.castable?.includes(card.id),
+      onClick: () => void send({ type: "cast_spell", card_id: card.id, face: i }) }));
   } else if (mine && (zone === "hand" || zone === "command")) {
     items.push({ label: "Cast", disabled: !hints.castable?.includes(card.id), onClick: () => void send({ type: "cast_spell", card_id: card.id }) });
   } else if (mine && elsewhere && hints.castable?.includes(card.id)) {
@@ -60,12 +70,23 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   if (mine && !isLand(card.id, view)) {
     for (const alt of hints.alt_castable?.[card.id] ?? []) {
       const what = alt.label.length > 60 ? alt.label.slice(0, 57) + "…" : alt.label;
-      items.push({ label: `Cast for alternative cost (${what})`, onClick: () => void send({ type: "cast_spell", card_id: card.id, alt_cost: alt.id }) });
+      // -- Star Trek beam me up (wave 112T) -- from the graveyard, offered as flashback is: "Cast with beam me up {2}{W}" (a granted one names its source: Scotty)
+      const beam = zone === "graveyard" ? BEAM.exec(alt.label) : null;
+      const label = beam ? `Cast with beam me up ${beam[2]}${beam[1] !== (data?.name ?? card.name) ? ` (${beam[1]})` : ""}` : `Cast for alternative cost (${what})`;
+      items.push({ label, onClick: () => void send({ type: "cast_spell", card_id: card.id, alt_cost: alt.id }) });
     }
     // Optional additional costs other permanents offer (Defiler of Vigor: "you may pay 2 life … cost {G} less").
     for (const opt of hints.optional_costs?.[card.id] ?? []) {
-      items.push({ label: `Cast and ${opt.label.replace(/^[^:]*: /, "")} (${opt.label.split(":")[0]})`,
-        onClick: () => void send({ type: "cast_spell", card_id: card.id, optional_costs: [opt.id] }) });
+      // (pod audit: a split card's or an adventure's optional cost is for one half, named, 709.3)
+      const half = opt.face !== undefined ? data?.faces?.[opt.face]?.name : undefined;
+      items.push({ label: `Cast ${half ? `${half} ` : ""}and ${opt.label.replace(/^[^:]*: /, "")} (${opt.label.split(":")[0]})`,
+        onClick: () => void send({ type: "cast_spell", card_id: card.id, optional_costs: [opt.id], ...(opt.face !== undefined ? { face: opt.face } : {}) }) });
+    }
+    // -- pod audit -- 118.9d: an optional additional cost with a cast without paying its mana cost (Deadly Rollick with Silverquill's casualty)
+    for (const opt of hints.free_optional_costs?.[card.id] ?? []) {
+      const half = opt.face !== undefined ? data?.faces?.[opt.face]?.name : undefined;
+      items.push({ label: `Cast ${half ? `${half} ` : ""}without paying its mana cost and ${opt.label.replace(/^[^:]*: /, "")} (${opt.label.split(":")[0]})`,
+        onClick: () => void send({ type: "cast_spell", card_id: card.id, free: true, optional_costs: [opt.id], ...(opt.face !== undefined ? { face: opt.face } : {}) }) });
     }
   }
   const morph = abilityLines(oracle).find((l) => /^(mega)?morph \{/i.test(l));
@@ -110,6 +131,18 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
     } else {
       items.push({ label: `Cast with ${kicker}`, disabled: !castable, onClick: cast(1) });
     }
+  }
+  // -- granted replicate (wave 111R3) -- 702.56b: each replicate a permanent gives this spell (Hugh, First of Many) is paid
+  // separately, in the order the server lists them (CastSpell.replicate); listed only for castable cards
+  const replicates = hints.replicate111r3?.[card.id];
+  if (mine && replicates?.length) {
+    replicates.forEach((label, slot) => {
+      const counts = (n: number) => replicates.map((_, i) => (i === slot ? n : 0));
+      const cast = (n: number) => () => void send({ type: "cast_spell", card_id: card.id, replicate: counts(n) });
+      items.push({ label: `Cast with ${label}`,
+        submenu: [...[1, 2, 3].map((n) => ({ label: `Replicate ×${n}`, onClick: cast(n) })),
+          { label: "Other count…", onClick: () => useXPrompt.setState({ action: { type: "cast_spell", card_id: card.id, replicate: counts(0) }, field: "replicate", slot }) }] });
+    });
   }
   // 702.160a / 718.3: a prototype card may be cast prototyped (its alternative mana cost, power and toughness).
   const prototype = abilityLines(oracle).find((l) => /^prototype \{/i.test(l));
@@ -171,6 +204,20 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
       items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !listed,
         onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: i }) });
     });
+  }
+  // -- abilities in exile (wave 111R1) -- 113.6b: an ability that works while its card is exiled ("… Activate only during your turn
+  // and only if this card is exiled.", which Q, Stacking the Deck grants to a card it exiles). Read from the server's list of the
+  // card's abilities (stable index, granted ones included) and enabled only when the server says it can be activated now.
+  if (mine && zone === "exile") {
+    const listed = (i: number) => hints.activatable?.find((a) => a.card_id === card.id && a.ability === i);
+    for (const ability of rules.stats?.[card.id]?.abilities ?? []) {
+      const now = listed(ability.index);
+      // (review 111R: only activated abilities — a triggered one given in exile, Uvilda's "if this card is exiled, remove a refine counter", isn't activated)
+      if (ability.kind !== "activated" || (!now && !/\bif this card is exiled\b/i.test(ability.text))) continue;
+      const line = ability.text.replace(/\s*\(.*$/, "");
+      items.push({ label: `Activate: ${line.length > 60 ? line.slice(0, 57) + "…" : line}`, disabled: !now,
+        onClick: () => void send({ type: "activate_ability", card_id: card.id, ability: ability.index }) });
+    }
   }
   if (mine && zone === "hand" && (morph || disguise)) {
     items.push({ label: `Cast face down (${morph ? "morph" : "disguise"}, {3})`, onClick: () => void send({ type: "cast_spell", card_id: card.id, face_down: true }) });

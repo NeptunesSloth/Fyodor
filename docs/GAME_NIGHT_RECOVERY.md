@@ -41,7 +41,20 @@ table (the last 512) and survive a restart.
 Settings → **Backup & restore** → *Back up Fyodor now* saves
 `data/backups/fyodor-backup-<date>-<time>.zip` and downloads it. A backup holds decks, saves,
 live tables, pod stats, macros, and custom sleeves/playmats. The card database is not included;
-it is rebuilt from card data (`scripts/update-cards.sh`). The last 12 backups are kept.
+it is rebuilt from card data (Settings → **Card database**). The last 12 backups made by hand are kept.
+
+**Automatic backups** work like a rotating autosave, so nobody has to remember. Fyodor writes
+`fyodor-autobackup-<date>-<time>.zip`:
+
+- at start-up, if there is something to keep and the newest backup is more than a day old;
+- every 30 minutes, if anything changed (`FYODOR_AUTO_BACKUP_MINUTES`; `0` turns them off);
+- right after each recorded game.
+
+It keeps the newest 8, plus the last one of each day for a week, separately from the ones made
+by hand. Settings shows them as *Auto* with the reason, when the last one was made, and any
+error. Set `FYODOR_BACKUP_COPY_DIR` to a USB stick or a synced folder and every backup is also
+copied there, following the same rotation. A missing folder never stops a backup; Settings
+reports it.
 
 **Restore:** pick a listed backup or upload a backup file, then restart Fyodor. The backup is
 checked first (only the expected files, a readable database, size limits); nothing in it is

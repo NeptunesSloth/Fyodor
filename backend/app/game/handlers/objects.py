@@ -202,6 +202,8 @@ def _token_signature(c: CardInstance) -> tuple[object, ...]:
 
 
 def merge_tokens(state: GameState, a: A.MergeTokens) -> None:
+    if state.rules is not None and state.settings.automation != "off":  # -- token stacks (gap 2) -- app/rules/token_stacks.py
+        raise ActionError("With rules automation on, each token stays its own object (the rules count, tap and sacrifice them one at a time)")
     targets = ops.cards(state, a.card_ids)
     if any(not c.is_token for c in targets):
         raise ActionError("Only tokens can be stacked — real cards never merge")
@@ -256,7 +258,7 @@ def empty_mana_pools(state: GameState) -> None:
 
 def configure(state: GameState, a: A.Configure) -> None:
     changed = []
-    for key in ("undo_policy", "clear_mana_on_step", "auto_untap", "auto_commander_tax", "auto_clear_combat",
+    for key in ("undo_policy", "card_permissions", "clear_mana_on_step", "auto_untap", "auto_commander_tax", "auto_clear_combat",
                 "allow_test_objects"):
         value = getattr(a, key)
         if value is not None:

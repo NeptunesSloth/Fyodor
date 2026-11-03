@@ -285,3 +285,19 @@ def test_actions_on_placeholders_map_to_real_cards(s):
     act(s, "p2", type="move", card_ids=[placeholder], to={"zone": "graveyard", "player": "p1"})
     assert len(zone(s.state, "p1", "hand")) == 2
     assert len(zone(s.state, "p1", "graveyard")) == 1
+
+
+def test_a_library_view_says_how_many_times_it_was_shuffled(cards):
+    """-- table motion -- a shuffle gives the library's cards new ids, so the count is the only thing that tells a table to show it. Public:
+    every seat sees it; a library never shuffled has no count (older views read the same)."""
+    from tests.game_helpers import act, make_session
+    from tests.test_rules_effects import replay_matches
+
+    s = make_session(cards)
+    assert "shuffles" not in s.view("p2")["zones"]["p1:library"]
+    act(s, "p1", type="shuffle")
+    act(s, "p1", type="shuffle")
+    for viewer in ("p1", "p2"):
+        assert s.view(viewer)["zones"]["p1:library"]["shuffles"] == 2
+    assert "shuffles" not in s.view("p1")["zones"]["p2:library"]
+    replay_matches(s)

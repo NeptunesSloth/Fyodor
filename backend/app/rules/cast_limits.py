@@ -738,7 +738,8 @@ _KINDS = ("cant_cycle", "hexproof_targeting", "cast_limit", "activate_as_haste",
           "life_lock",  # (wave 29D: app/rules/life_lock.py)
           "rad_gain", "venture_limit", "first_alt", "spell_replicate110a", "chorus110c", "counter_cap110j", "mana_life110j", "trigger_token_shield110a",
           "cant_phase_in110o",  # (wave 110O: Disciple of Caelus Nin)  # (wave 44C: app/rules/designations.py; 45B: Keen-Eared Sentry)
-          "power_lethal110a")  # -- wave 110A -- Zilortha (wave110a_zilortha)
+          "power_lethal110a",  # -- wave 110A -- Zilortha (wave110a_zilortha)
+          "enters_attacking111r3")  # -- enters attacking (wave 111R3) -- Kira Nerys, Firebrand (wave111r3_enter)
 
 
 def _scan(state: GameState, info: CardInfo) -> list[tuple[str, int, Definition]]:

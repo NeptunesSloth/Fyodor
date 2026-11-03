@@ -60,6 +60,8 @@ _NEXT_HAND = re.compile(r"^the next time you cast an instant or sorcery spell fr
 _NEXT_COST = re.compile(r"^the next (?:(?P<sel>[A-Za-z][A-Za-z' ,-]*?) )?spell you cast this turn costs \{(?P<n>\d+|X)\} less to cast(?:, where X is (?P<v>.+))?$", re.IGNORECASE)
 _NEXT_TWO = re.compile(r"^the next (?P<a>instant|sorcery|creature|noncreature) spell and the next (?P<b>instant|sorcery|creature|noncreature) spell "
                        r"you cast this turn each have (?P<kw>cascade|storm)$", re.IGNORECASE)
+# -- trigger other (wave 111G) -- Võx, Child of the Collective (its exact wording only)
+_NEXT_UNDAUNTED_111G = re.compile(r"^the next artifact creature spell and the next Spacecraft spell you cast this turn have undaunted$", re.IGNORECASE)
 
 
 def _filter(phrase: str | None) -> tuple[bool, str | None]:
@@ -147,6 +149,9 @@ def apply(state: GameState, card: CardInstance, ch: Characteristics, info: CardI
 def clause(text: str) -> tuple[list[dict[str, Any]], None] | None:
     """The instruction of "The next [noncreature] spell you cast this turn has convoke.", or None."""
     t = text.strip().rstrip(".")
+    if _NEXT_UNDAUNTED_111G.fullmatch(t):  # -- trigger other (wave 111G) -- Võx: two "next spell" grants of undaunted (702.125a), one per kind of spell
+        return [{"do": "next_spell_grant", "grants": [{"keyword": "undaunted", "what": "", "filter": _filter(x)[1]}
+                                                      for x in ("artifact creature", "Spacecraft")]}], None
     two = _NEXT_TWO.fullmatch(t)
     if two is not None:
         grants = [{"keyword": two["kw"].lower(), "what": "", "filter": _filter(two[x])[1]} for x in ("a", "b")]
@@ -215,7 +220,14 @@ def pending(state: GameState, player: str, card: CardInstance, spell: Characteri
 
 def cost_reduction(state: GameState, player: str, card: CardInstance, spell: Characteristics, info: CardInfo | None) -> int:
     """-- cant restrictions (wave 46A) -- the generic mana the "next spell" cost grants take off the spell ``player`` is casting now (601.2f)."""
-    return sum(g.amount for g in pending(state, player, card, spell, info, "cost"))
+    total = sum(g.amount for g in pending(state, player, card, spell, info, "cost"))
+    # -- trigger other (wave 111G) -- a granted undaunted: {1} less for each opponent (702.125a), only players still in the game (702.125b);
+    # each instance applies (702.125c), the spell's own printed one too (permissions.self_reduction)
+    if undaunted := len(pending(state, player, card, spell, info, "undaunted")):
+        from app.rules.plan import live_players
+
+        total += undaunted * sum(1 for p in live_players(state) if p != player)
+    return total
 
 
 def consume(plan: Plan, card: Any, ch: Characteristics) -> None:

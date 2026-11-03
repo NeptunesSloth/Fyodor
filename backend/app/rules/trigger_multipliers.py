@@ -88,6 +88,7 @@ _CAUSES = (
     (re.compile(r"^you casting or copying an? (?P<sel>instant or sorcery spell)$"), "cast"),
     (re.compile(r"^a player drawing a card$"), "draw"),
     (re.compile(r"^turning a face-down permanent face up$"), "face_up"),  # -- trigger multipliers (wave 110D) -- 701.40, 702.37e (Panoptic Projektor): the turned_face_up event
+    (re.compile(r"^you gaining life$"), "gain"),  # -- trigger multipliers (wave 111D) -- 119.9 (Dr. Beverly Crusher): an ability whose own event is that player gaining life
 )
 # Not multiplied: the ids of the abilities _add creates that aren't "triggered abilities the object has" (603.2d)
 DELAYED, REFLEXIVE, MADNESS = 7000, 7300, 8000
@@ -213,6 +214,12 @@ def _multipliers(plan: Plan, controller: str | None, batch: int | None,
                  look_back: bool, kind: str = STATIC) -> list[tuple[CardInstance, dict[str, Any]]]:
     """The multipliers ``controller`` (None: anyone) controlled when the event of ``batch`` happened (603.10): right after it, or
     right before it for an ability that looks back in time (603.10a). No batch: as they are now."""
+    with plan.reading():  # (a read-only scan of the battlefield: the statics table is read once; big boards)
+        return _multipliers_read(plan, controller, batch, look_back, kind)
+
+
+def _multipliers_read(plan: Plan, controller: str | None, batch: int | None,
+                      look_back: bool, kind: str) -> list[tuple[CardInstance, dict[str, Any]]]:
     from app.rules.triggers import _snapshot_card, _zone
 
     r = plan.rules
@@ -311,6 +318,8 @@ def _caused(plan: Plan, d: dict[str, Any], mult: CardInstance, event: TriggerEve
         return event.kind == "draw"
     if cause == "face_up":  # (wave 110D) Panoptic Projektor: a face-down permanent turned face up; "enters" abilities don't trigger then (702.37e), so only turned-face-up ones
         return event.kind == "turned_face_up"
+    if cause == "gain":  # -- trigger multipliers (wave 111D) -- the multiplier's controller gaining life (119.9), never what the life gain came from (lifelink damage: its own event)
+        return event.kind == "gain_life" and event.players == [mult.controller]
     return False
 
 
@@ -381,7 +390,11 @@ def count(plan: Plan, t: PendingTrigger, index: int, cause: TriggerEvent | None)
         return 0
     batch = cause.batch if cause is not None and cause.batch > 0 else None
     look_back = cause is not None and cause.kind in LOOK_BACK
-    return sum(_applies(plan, d, mult, t, source, cause, batch, look_back) for mult, d in _multipliers(plan, None, batch, look_back))
+    from app.rules import wave111c_statics  # -- Star Trek statics (wave 111C) --
+
+    # (Lwaxana Troi's effect on one creature: its rule on that object)
+    return sum(_applies(plan, d, mult, t, source, cause, batch, look_back) for mult, d in _multipliers(plan, None, batch, look_back)) \
+        + (wave111c_statics.again(source[1]) if source[2] == "permanent" else 0)
 
 
 def suppressed(plan: Plan, event: TriggerEvent | None, controller: str | None = None, permanent: bool = True) -> bool:

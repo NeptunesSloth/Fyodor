@@ -12,6 +12,9 @@ import { GameCardFace } from "./GameCardFace";
 import { moveCards } from "./actions";
 import { splitZone } from "../types/game";
 import { ChainRow, chainEntries } from "./StackChain";
+import { commanderKeyOf } from "./commanderDamage";
+import { DealtNote } from "./CommanderDamageViews";
+import { countMark } from "./piles";
 
 /** Large preview of whatever card is hovered (board, hand, log, browser). */
 export function Inspector() {
@@ -51,11 +54,13 @@ export function Inspector() {
         </div>
       )}
       {visibleCard?.copy_of && <div className="insp-note">Copy of {visibleCard.copy_of.source_name}{visibleCard.copy_of.modifications ? ` — ${visibleCard.copy_of.modifications}` : ""}</div>}
+      {(card?.quantity ?? 1) > 1 && <div className="insp-note" data-testid="insp-stack">{countMark(card)!.title}</div>}
       {visibleCard?.note && <div className="insp-note">✎ {visibleCard.note}</div>}
       {visibleCard?.face_down && <div className="insp-note">Face down — only you (and anyone who saw it) know this card.</div>}
       {card?.counters && Object.keys(card.counters).length > 0 && (
         <div className="insp-note">{Object.entries(card.counters).map(([k, v]) => `${k}: ${v}`).join(" · ")}</div>
       )}
+      {commanderKeyOf(card) && <DealtNote commander={commanderKeyOf(card)!} />}
     </div>
   );
 }
@@ -147,6 +152,8 @@ const LogLine = memo(function LogLine({ entry }: { entry: LogEntryView }) {
       {entry.parts.map((p, i) => (
         <Part key={i} part={p} />
       ))}
+      {/* -- table toys -- a hidden draw from the draw bag: the chit, in its drawer's own log only */}
+      {entry.bag?.hidden && entry.bag.chit && <span className="log-bag-mine">— you drew “{entry.bag.chit}”</span>}
     </div>
   );
 });

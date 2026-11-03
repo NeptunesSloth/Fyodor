@@ -1,0 +1,77 @@
+// UnderDaSea (Archidekt 14960378): commander and main deck only
+Commander
+1x Kiora, Sovereign of the Deep (mat) 135
+Deck
+1x Concordant Crossroads (2x2) 141
+18x Island (spm) 195
+1x Temple of the False God (dsc) 313
+1x Botanical Sanctum (otj) 267
+1x Woodland Stream (ltc) 347
+1x Hinterland Harbor (otc) 300
+1x Kiora, the Crashing Wave (ddo) 34
+1x The Watcher in the Water (ltr) 75
+1x Scourge of Fleets (cmr) 403
+1x Stormsurge Kraken (cmm) 122
+1x Brinelin, the Moon Kraken (cmm) 78
+1x Tromokratis (cmm) 129
+1x Shipbreaker Kraken (cmr) 404
+1x Deepchannel Mentor (plst) SHM-35
+1x Koma, World-Eater (fdn) 121
+1x Xolatoyac, the Smiling Flood (lcc) 8
+1x Summon: Leviathan (fin) 77
+1x Simic Sky Swallower (cmr) 452
+1x Imoti, Celebrant of Bounty (cmr) 280
+1x Reef Worm (mh3) 271
+1x Garruk's Uprising (blc) 219
+1x Crush of Tentacles (ogw) 53
+1x Entish Restoration (ltr) 163
+1x Plasm Capture (otc) 237
+1x Whelming Wave (cmr) 409
+1x Spawning Kraken (c21) 360
+1x Archetype of Imagination (dsc) 111
+1x Stormtide Leviathan (m15) 80
+1x Aesi, Tyrant of Gyre Strait (dsc) 210
+1x Command Tower (fic) 486
+1x Myriad Landscape (onc) 159
+1x Arixmethes, Slumbering Isle (c18) 38
+1x Nadir Kraken (ncc) 228
+1x Deep-Sea Kraken (tsp) 56
+1x Tidal Kraken (mmq) 110
+1x Slinn Voda, the Rising Deep (dom) 66
+1x Goreclaw, Terror of Qal Sisma (mul) 27
+1x Overwhelming Stampede (ltc) 254
+1x Harmonize (blc) 120
+1x Krosan Grip (cma) 123
+1x Sol Ring (dsc) 94
+1x Thran Dynamo (ima) 230
+1x Monstrous Vortex (mh3) 162
+1x Growth Spiral (dsc) 88
+1x Rampant Growth (fic) 313
+1x Exploration (dmr) 159
+1x Summer Bloom (2x2) 160
+1x Boundless Realms (plst) M13-162
+1x Burgeoning (plst) STH-102
+1x Koma, Cosmos Serpent (mkc) 213
+1x Cultivate (eoc) 95
+1x Kodama's Reach (tdc) 261
+1x Explore (tle) 259
+1x Leyline Immersion (mat) 21
+1x Azusa, Lost but Seeking (cmm) 274
+1x Journey of Discovery (mrd) 123
+1x Traverse the Outlands (clb) 258
+1x Hullbreaker Horror (inr) 357
+1x Kiora, Behemoth Beckoner (plst) WAR-232
+1x Breaching Leviathan (c14) 12
+1x Serpent of Yawning Depths (thb) 291
+1x Surrak and Goreclaw (mom) 337
+1x Last March of the Ents (ltr) 172
+1x Adrix and Nev, Twincasters (mkc) 198
+1x Glacier Godmaw (eoe) 188
+1x Irma, Part-Time Mutant (tmc) 12
+1x Runadi, Behemoth Caller (j22) 44
+1x Namor the Sub-Mariner (msh) 362
+1x Castle Garenbrig (plst) ELD-240
+8x Forest (spm) 198
+1x Selvala, Heart of the Wilds (ecc) 116
+1x Fanatic of Rhonas (mh3) 152
+1x The Great Henge (cmm) 294

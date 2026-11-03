@@ -148,7 +148,7 @@ def test_chain_of_vapor_asks_the_controller_not_the_owner(cards):
     cast(s, VAPOR, bears.id)
     assert zone_of(s, BEARS) == "p1:hand"  # (to its owner's hand: the permanent has left the battlefield)
     d = ask(s)
-    assert d.player == "p2" and "Sacrifice a land" in d.prompt  # the controller as it last existed (608.2h), not Alice, its owner
+    assert d.player == "p2" and ": sacrifice a land?" in d.prompt  # the controller as it last existed (608.2h), not Alice, its owner
     answer(s, "pay")
     assert zone_of(s, "Island", "p2") == "p2:graveyard"  # (its one land: nothing to choose)
     assert ask(s).prompt == "Chain of Vapor: copy this spell?"

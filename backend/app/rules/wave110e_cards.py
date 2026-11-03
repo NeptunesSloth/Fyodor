@@ -8,6 +8,8 @@ import re
 from dataclasses import replace
 from typing import Any
 
+from app.rules import token_copy_sources
+
 Def = dict[str, Any]
 
 # 701.29a: fateseal N = look at the top N cards of an opponent's library (chosen, not targeted), any number to the bottom, the rest back on top
@@ -149,15 +151,6 @@ _THUNDERCLAP = ("Target creature you control deals damage equal to its power to 
 _SURGE = "Voltage Surge deals 2 damage to target creature or planeswalker. If this spell's additional cost was paid, Voltage Surge deals 4 damage instead."
 
 
-def bind_targets(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
-    """601.2c/115.9b: the creatures the cast spell targets (still on the battlefield), as one named group for "those creatures"."""
-    from app.rules import context, token_copy_sources
-
-    refs = token_copy_sources.spell_targets(plan, ctx, e["selector"])
-    context.refs(ctx)[e["as"]] = {"kind": "objects", "objects": [r.model_dump(mode="json") for r in refs]}
-    return True
-
-
 def bind_modified(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """601.2i: the number of modified creatures (700.9) its controller had as the spell was cast, kept as a count for later amounts."""
     record = plan.rules.payments.get(ctx.get("source_object") or "")
@@ -263,7 +256,7 @@ def aura_swap_return(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     return True
 
 
-PRIMITIVES = {"aura_swap_gate110e": aura_swap_gate, "aura_swap_return110e": aura_swap_return, "mirror_match110e": mirror_match, "decoy110e": decoy, "head_games110e": head_games, "spell_targets110e": bind_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
+PRIMITIVES = {"aura_swap_gate110e": aura_swap_gate, "aura_swap_return110e": aura_swap_return, "mirror_match110e": mirror_match, "decoy110e": decoy, "head_games110e": head_games, "spell_targets110e": token_copy_sources.bind_spell_targets, "modified_cast110e": bind_modified, "enter_tapped110e": enter_tapped_turn}
 
 _FLYERS = "Creatures with flying can't attack you or block creatures you control."
 _BLAZE = ("Target creature defending player controls can block any number of creatures this turn. "

@@ -228,9 +228,8 @@ def test_deck_checks_are_advisory_and_private(lobby):
     for t in (alice, bob):
         assert client.post(f"/api/games/{gid}/lobby/ready", json={"ready": True}, headers=h(t)).status_code == 200
     assert lobby_of(client, gid, alice)["start_blockers"] == []
-    # the checks follow the table format the host picks
-    client.post(f"/api/games/{gid}/lobby/settings", json={"format": "sandbox"}, headers=h(alice))
-    assert seat(lobby_of(client, gid, bob), "p2")["deck"]["warnings"] == []
+    # Fyodor plays Commander only: the host can't switch the table to another format
+    assert client.post(f"/api/games/{gid}/lobby/settings", json={"format": "sandbox"}, headers=h(alice)).status_code == 422
     for t in (alice, bob):  # changing table settings asks everyone to confirm again
         client.post(f"/api/games/{gid}/lobby/ready", json={"ready": True}, headers=h(t))
     assert client.post(f"/api/games/{gid}/lobby/start", json={}, headers=h(alice)).status_code == 200

@@ -1,0 +1,85 @@
+// Group play (Archidekt 19468925): commander and main deck only
+Commander
+1x Ian Malcolm, Chaotician (rex) 13
+Deck
+1x Steam Vents (ecl) 267
+1x Shivan Reef (m3c) 375
+1x Temple of Epiphany (m3c) 387
+1x Reliquary Tower (m3c) 368
+1x Frostboil Snarl (m3c) 344
+1x Sulfur Falls (pip) 294
+1x Command Tower (fic) 484
+1x Training Center (cmm) 434
+1x Stormcarved Coast (inr) 285
+1x Exotic Orchard (fic) 390
+1x Riverglide Pathway // Lavaglide Pathway (znr) 264
+1x Mystic Sanctuary (eld) 247
+1x Talisman of Creativity (tdc) 330
+1x Thought Vessel (fic) 368
+1x Sol Ring (ecc) 58
+1x Fellwar Stone (ecc) 141
+1x Arcane Signet (ecc) 56
+1x Chaos Warp (eoc) 49
+1x An Offer You Can't Refuse (fic) 267
+1x Counterspell (dsc) 114
+1x Arcane Denial (drc) 70
+1x Dictate of Kruphix (fdn) 587
+1x Howling Mine (plst) M10-212
+1x Temple Bell (c16) 277
+1x Kami of the Crescent Moon (voc) 107
+1x Fevered Visions (soi) 244
+1x Vision Skeins (e01) 29
+1x Invert Polarity (mh3) 190
+1x Brainstorm (tle) 155
+1x Wild-Magic Sorcerer (clb) 816
+1x Mikokoro, Center of the Sea (dmc) 217
+1x Brand (plst) USG-176
+1x The Twelfth Doctor (who) 164
+1x Scrawling Crawler (fdn) 132
+1x Zurzoth, Chaos Rider (ncc) 278
+1x The Locust God (moc) 335
+1x Font of Mythos (plst) CON-136
+1x Flaming Tyrannosaurus (who) 85
+1x Mizzix, Replica Rider (j22) 35
+1x Pongify (tdc) 160
+1x Chaos Mutation (40k) 111
+1x Cyclonic Rift (rvr) 40
+1x Negate (fdn) 710
+1x Vandalblast (fic) 298
+1x Tibalt's Trickery (khm) 153
+1x Noggle Ransacker (pca) 102
+1x Share the Spoils (afc) 34
+1x Homunculus Horde (fdn) 41
+1x Hive Mind (m10) 54
+1x Passionate Archaeologist (clb) 656
+1x Lightning Greaves (fic) 349
+1x Zenith Chronicler (one) 246
+1x Party Thrasher (mh3) 129
+1x Chasm Skulker (fic) 262
+1x Rhystic Study (j22) 114
+1x Deflecting Swat (cmm) 214
+12x Island (ecl) 270
+8x Mountain (ecl) 272
+1x Mischievous Mystic (fdn) 47
+1x Mana Drain (2x2) 57
+1x Otherworld Atlas (avr) 219
+1x Rapid Hybridization (tdc) 162
+1x Jace Beleren (mb2) 29
+1x Wash Away (vow) 87
+1x Sage of the Beyond (otc) 111
+1x Fierce Guardianship (cmm) 94
+1x Decanter of Endless Water (clb) 444
+1x Lore Broker (rav) 57
+1x Forced Fruition (plst) LRW-66
+1x Minds Aglow (cmm) 105
+1x Laboratory Maniac (inr) 71
+1x Helm of Awakening (dmr) 379
+1x Long River's Pull (blb) 58
+1x Disrupt Decorum (mkc) 151
+1x Keeper of Secrets (40k) 78
+1x Faerie Mastermind (mom) 58
+1x Nalfeshnee (clb) 678
+1x Jace's Archivist (plst) M12-59
+1x Dakra Mystic (plst) JOU-35
+1x Words of Wisdom (ody) 114
+1x Goblin Electromancer (tdc) 99

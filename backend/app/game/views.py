@@ -56,6 +56,36 @@ def resolve_placeholder(state: GameState, value: str, viewer: str) -> str:
     return hidden[index] if index < len(hidden) else value
 
 
+def _copied(state: GameState, c: CardInstance, view: dict[str, Any]) -> None:
+    """-- copies (the pod's decks: Irma becoming Kiora, Spark Double, Sakashima) -- a permanent a rules copy effect applies to (613.2a,
+    layer 1) is shown as what it copied: that printing's face (or the copied token's values) and its name after the copy's exceptions,
+    with a COPY mark naming what it copies. Copiable values are public (707.2): the same for every viewer, and never the copied
+    object's id (it may since have gone somewhere hidden)."""
+    from app.game.rules_state import copy_recipe_of
+
+    assert state.rules is not None
+    recipe = copy_recipe_of(state.rules, state.rules.object_id(c.id))
+    if recipe is None or not (recipe.printing or recipe.token):
+        return
+    named = next((e.name for e in reversed(recipe.excepts) if e.name), None)
+    if recipe.printing:
+        view["card_id"], view["face"] = recipe.printing, recipe.face
+    else:
+        view["token"] = {**(view.get("token") or {}), **(recipe.token or {})}
+    view["name"] = named or recipe.source or c.name
+    changes = []
+    for e in recipe.excepts:
+        if e.name:
+            changes.append(f"named {e.name}")
+        if e.power is not None and e.toughness is not None:
+            changes.append(f"{e.power}/{e.toughness}")
+        if "Legendary" in e.remove_supertypes:
+            changes.append("not legendary")
+        changes += [f"is also {t}" for t in e.add_types + e.add_subtypes]
+        changes += [f"has “{t if len(t) <= 60 else t[:57].rstrip() + '…'}”" for t in e.add_text]
+    view["copy_of"] = {"source_id": "", "source_name": recipe.source or "a permanent", "modifications": "; ".join(dict.fromkeys(changes))[:300]}
+
+
 def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
     _, zone = split_zone(c.zone)
     if can_see(state, c, viewer):
@@ -78,6 +108,8 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
                 view["token"] = {**c.token.back.model_dump(), "front": c.token.model_dump(exclude={"back"})}
         if c.copy_of:
             view["copy_of"] = c.copy_of.model_dump()
+        elif state.rules is not None and zone in ("battlefield", "phased") and not c.face_down:
+            _copied(state, c, view)
         if c.ability:
             view["ability"] = c.ability.model_dump()
         if c.commander_key:
@@ -109,7 +141,13 @@ def card_view(state: GameState, c: CardInstance, viewer: str) -> dict[str, Any]:
     if c.stickers101 and c.zone.split(':')[-1] in ('battlefield', 'graveyard', 'exile', 'command', 'stack', 'phased'):
         view['stickers101'] = [s.model_dump() for s in c.stickers101]
     if c.token_source is not None and not view.get("hidden"):
-        view["token_source"] = c.token_source.model_dump()
+        # "Created by Mischievous Mystic" is public (everyone saw it happen), but which card made it is shown only while the viewer can
+        # see that card: once the source is back in its owner's hand or library, its id would pick it out among the hidden cards
+        source = state.cards.get(c.token_source.source_id or "")
+        if source is not None and can_see(state, source, viewer):
+            view["token_source"] = c.token_source.model_dump()
+        else:
+            view["token_source"] = {"source_id": None, "name": c.token_source.name, "object_id": None}
     if c.face_down and c.face_down_kind:
         view["face_down_kind"] = c.face_down_kind  # public: everyone saw how it got face down
         if c.face_down_as:
@@ -167,6 +205,21 @@ def _sees(part: LogPart, viewer: str) -> bool:
     return viewer == OMNISCIENT or ALL in part.visible_to or viewer in part.visible_to
 
 
+DRAWN_SHOWN = 20  # -- table toys -- the latest chits drawn from the draw bag a view lists
+
+
+def bag_view(state: GameState, viewer: str) -> dict[str, Any]:
+    """-- table toys -- what ``viewer`` sees of the draw bag (app/game/handlers/toys.py): how many chits are inside, never which
+    nor their order, and the latest drawn ones, a hidden one only to its drawer (and the hot-seat table's open view)."""
+    bag = state.bag
+    return {
+        "count": len(bag.chits),
+        "drawn": [{"player": d.player, "chit": d.chit if d.shown or viewer in (d.player, OMNISCIENT) else None, "shown": d.shown}
+                  for d in bag.drawn[-DRAWN_SHOWN:]],
+        "drawn_count": len(bag.drawn),
+    }
+
+
 def render_log(entries: list[LogEntry], viewer: str) -> list[dict[str, Any]]:
     return [
         {
@@ -179,6 +232,11 @@ def render_log(entries: list[LogEntry], viewer: str) -> list[dict[str, Any]]:
             "parts": [_render_part(p, viewer) for p in e.parts],
             **({"manual": True} if e.manual else {}),
             **({"folded": True} if e.folded else {}),
+            **({"roll": e.roll.model_dump(exclude={"cannon"} if e.roll.cannon is None else None)} if e.roll else {}),  # (a plain roll: as before)
+            **({"dig": e.dig.model_dump()} if e.dig else {}),
+            # -- table toys -- a draw from the draw bag: a hidden chit only for its drawer (and the hot-seat open view)
+            **({"bag": {"player": e.bag.player, "hidden": e.bag.hidden, "left": e.bag.left,
+                        "chit": e.bag.chit if not e.bag.hidden or viewer in (e.bag.player, OMNISCIENT) else None}} if e.bag else {}),
         }
         for e in entries
     ]
@@ -206,7 +264,7 @@ def build_view(
                 if can_see(state, c, viewer):
                     known.append([index, cid])
                     cards[cid] = card_view(state, c, viewer)
-            zones[key] = {"count": len(ids), "known": known}
+            zones[key] = {"count": len(ids), "known": known, **({"shuffles": state.shuffles[key]} if state.shuffles.get(key) else {})}
         elif zone in OWNER_VISIBLE_ZONES:
             # Hands etc.: visible cards keep their ids; every hidden card becomes an anonymous
             # placeholder in a keyed-hash order, so nothing links it to a card seen earlier.
@@ -232,7 +290,8 @@ def build_view(
                 {"key": c.commander_key, "name": c.name, "card_id": c.card_id, "instance_id": c.id if can_see(state, c, viewer) else None,
                  # -- review (sys 18A) -- 708.5: a face-down commander the viewer can't look at (manifested from a library, cast
                  # face down from a hand) isn't located for them: its zone would say which face-down permanent it is
-                 "zone": None if c.face_down and not can_see(state, c, viewer) else c.zone,
+                 # (soak: nor one in a hand or library they can't see: its zone would say when it is drawn, searched for or put back, 400.2)
+                 "zone": c.zone if can_see(state, c, viewer) else None,
                  "tax": state.players[c.owner].commander_tax.get(c.commander_key, 0),
                  "casts": state.players[c.owner].commander_casts.get(c.commander_key, 0)}
             )
@@ -294,4 +353,5 @@ def build_view(
         "zones": zones,
         "stack": list(state.zones.get(STACK, [])),
         "log": render_log(log[-log_limit:], viewer),
+        "bag": bag_view(state, viewer),  # -- table toys -- how many chits, and the drawn ones this viewer may see
     }

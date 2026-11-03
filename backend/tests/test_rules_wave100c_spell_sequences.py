@@ -78,7 +78,7 @@ def test_hypothesizzle_deals_four_only_when_a_nonland_card_was_discarded(cards, 
     bear, opt = put_on(s, "Grizzly Bears", "p2"), move(s, one(s, "Opt"), "hand")
     hand = len(s.state.zones["p1:hand"])
     start_cast(s, "Hypothesizzle", U=1, R=1, C=3)
-    resolve_with(s, {": pay ": ["pay"] if discard else ["decline"], "target": ["Grizzly Bears"]})
+    resolve_with(s, {": discard a nonland card?": ["pay"] if discard else ["decline"], "target": ["Grizzly Bears"]})
     if discard:
         assert zone(s, opt) == "p1:graveyard" and zone(s, bear) == "p2:graveyard"
         assert len(s.state.zones["p1:hand"]) == hand + 1  # (the spell left, two drawn, Opt discarded)
@@ -93,7 +93,7 @@ def test_lithobraking_may_sacrifice_its_own_lander_to_deal_two_to_each_creature(
     s = build(cards, ["Lithobraking", "Grizzly Bears"], ["Hulking Cyclops"])
     bear, cyclops = put_on(s, "Grizzly Bears"), put_on(s, "Hulking Cyclops", "p2")
     start_cast(s, "Lithobraking", R=1, C=2)
-    resolve_with(s, {": pay ": ["pay"]})
+    resolve_with(s, {": sacrifice an artifact?": ["pay"]})
     assert zone(s, bear) == "p1:graveyard" and zone(s, cyclops) == "p2:battlefield"
     assert not [c for c in s.state.cards.values() if c.name == "Lander" and c.zone.endswith(":battlefield")]
     check(s)

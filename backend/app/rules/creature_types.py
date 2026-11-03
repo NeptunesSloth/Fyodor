@@ -34,3 +34,19 @@ CREATURE_TYPES: frozenset[str] = frozenset({
     "Wolverine", "Wombat", "Worm", "Wraith", "Wurm", "Yeti", "Zombie", "Zubera",
     "Time Lord",
 })
+
+# -- Star Trek creature types (wave 111E) -- the creature subtypes printed on the type lines of the Star Trek sets (trk, trc;
+# Oracle text of 2026-10-30): 205.3a, a subtype on a creature card's type line is a creature type. CR 205.3m 2026-09-25
+# predates those sets; re-check against its update at release. Apostrophes curly, as the CR writes C’tan and Shi’ar.
+CREATURE_TYPES = CREATURE_TYPES | frozenset({
+    "Aenar", "Andorian", "Android", "Bajoran", "Betazoid", "Bolian", "Borg", "Brikar", "Caitian", "Cardassian", "Denobulan",
+    "Edosian", "El-Aurian", "Excalbian", "Ferengi", "Gorn", "Hirogen", "Illyrian", "Jem’Hadar", "Kelpien", "Klingon",
+    "Kwejian", "Lanthanite", "Medusan", "Melkotian", "Na’kuhl", "Ocampa", "Officer", "Orion", "Q", "Romulan", "Talaxian",
+    "Talosian", "Tamarian", "Tellarite", "Tholian", "Tosk", "Trill", "Tribble", "Vau-N’Akat", "Vorta", "Vulcan", "Xindi",
+})
+
+# -- straight apostrophes (wave 111, lead) -- card data (type lines and Oracle text) writes C'tan, Shi'ar, Jem'Hadar, Na'kuhl and
+# Vau-N'Akat with a straight apostrophe, where 205.3m prints ’. One spelling, the cards': a card's subtypes then meet this list
+# (layer 4 "loses all creature types", counting creature types, copies, history), and "all creature types" (702.73a, changeling)
+# holds each type once.
+CREATURE_TYPES = frozenset(t.replace("’", "'") for t in CREATURE_TYPES)

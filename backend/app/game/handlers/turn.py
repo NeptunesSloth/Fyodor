@@ -8,7 +8,7 @@ from app.game.errors import ActionError
 from app.game.handlers import objects, response
 from app.game.handlers.cards import untap_permanents
 from app.game.ops import log, pname, text
-from app.game.state import COMBAT_PHASES, PHASES, STACK, AbilityDef, CardInstance, GameState
+from app.game.state import COMBAT_PHASES, PHASES, STACK, AbilityDef, CardInstance, DiceRollLog, GameState
 
 PHASE_LABELS = {
     "untap": "Untap",
@@ -186,12 +186,26 @@ def resolve_top(state: GameState, a: A.ResolveTop) -> None:
 def roll(state: GameState, a: A.Roll) -> None:
     if a.r is None or len(a.r.results) != a.count:
         raise ActionError("unresolved roll")
-    dice = f"d{a.sides}" if a.count == 1 else f"{a.count}d{a.sides}"
-    if a.count == 1:
-        msg = f" rolled {a.r.results[0]} on a {dice}"
+    results = list(a.r.results)
+    ignored = ignored_lowest(results, a.ignore_lowest)
+    if ignored:  # 706.6 (Barbarian Class): "rolled a d20 and one extra die (Barbarian Class): 15 (6 ignored)"
+        kept = [r for i, r in enumerate(results) if i not in ignored]
+        asked = f"a d{a.sides}" if len(kept) == 1 else f"{len(kept)}d{a.sides}"
+        extra = "one extra die" if len(ignored) == 1 else f"{len(ignored)} extra dice"
+        shown = ", ".join(map(str, kept)) + (f" (total {sum(kept)})" if len(kept) > 1 else "")
+        msg = f" rolled {asked} and {extra}{f' ({a.because})' if a.because else ''}: {shown}; ignored {', '.join(str(results[i]) for i in ignored)}"
+    elif a.count == 1:
+        msg = f" rolled {results[0]} on a d{a.sides}"
     else:
-        msg = f" rolled {dice}: {', '.join(map(str, a.r.results))} (total {sum(a.r.results)})"
-    log(state, a.actor, a.ts, [pname(state, a.actor), text(msg)], kind="dice")
+        msg = f" rolled {a.count}d{a.sides}: {', '.join(map(str, results))} (total {sum(results)})"
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(msg)], kind="dice", roll=DiceRollLog(sides=a.sides, results=results, ignored=ignored))
+
+
+def ignored_lowest(results: list[int], n: int) -> list[int]:
+    """The indexes of the ``n`` lowest rolls (706.6; tied lowest rolls are the same number: the first of them is the one ignored)."""
+    if n <= 0:
+        return []
+    return sorted(sorted(range(len(results)), key=lambda i: (results[i], i))[:n])
 
 
 def coin(state: GameState, a: A.Coin) -> None:
@@ -201,7 +215,8 @@ def coin(state: GameState, a: A.Coin) -> None:
         state.rules.coin_flipped[a.actor] = state.turn.number
     faces = ["heads" if r else "tails" for r in a.r.results]
     msg = f" flipped a coin: {faces[0]}" if a.count == 1 else f" flipped {a.count} coins: {', '.join(faces)} ({sum(a.r.results)} heads)"
-    log(state, a.actor, a.ts, [pname(state, a.actor), text(msg)], kind="dice")
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(msg)], kind="dice",
+        roll=DiceRollLog(sides=2, results=[int(bool(r)) for r in a.r.results], coin=True))
 
 
 def chat(state: GameState, a: A.Chat) -> None:

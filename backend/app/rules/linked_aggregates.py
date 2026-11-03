@@ -55,6 +55,10 @@ def aggregate(plan: Plan, ctx: dict[str, Any], spec: dict[str, Any]) -> Any:
         return len({plan.ch(card).mana_value for card in cards})
     if projection == "card_types":
         return set().union(*(plan.ch(card).types for card in cards))
+    if projection == "share_type112t":  # -- Star Trek one-offs (wave 112T) -- All Good Things...: 1 if all the cards share a card type (205.2a); with
+        # one card or none, they do (the Star Trek release notes: "You'll gain 10 life if there's only one exiled card … If there are no exiled cards, you
+        # will also gain 10 life.")
+        return int(len(cards) < 2 or bool(set.intersection(*(set(plan.ch(card).types) for card in cards))))
     if projection == "power":
         latest = aggregate(plan, ctx, {"projection": "last_creature"})
         return latest["power"] if latest is not None else 0
@@ -116,6 +120,8 @@ def parse_condition(text: str) -> dict[str, Any] | None:
         value = parse_value((m["kind"] or "") + "cards exiled with ~")
         if n is not None and value is not None:
             return {"value": value, "op": ">=", "n": n}
+    if re.fullmatch(r"all cards exiled with (?:~|it) share a card type", t):  # -- Star Trek one-offs (wave 112T) -- (All Good Things...)
+        return {"value": {"linked_pool": {"projection": "share_type112t"}}, "op": ">=", "n": 1}
     m = re.fullmatch(
         r"(?:there are )?cards with (?P<n>\w+) or more different mana values (?:are )?exiled with ~", t
     )

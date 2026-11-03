@@ -1,0 +1,81 @@
+// Interesting (Archidekt 18951158): commander and main deck only
+Commander
+1x Grand Arbiter Augustin IV (2x2) 221
+Deck
+1x Commander's Sphere (ecc) 139
+1x Ornithopter of Paradise (drc) 133
+1x Ancient Tomb (plst) TMP-315
+1x Smothering Tithe (cmm) 57
+1x Bastion Protector (fic) 233
+1x Dovin's Veto (war) 193
+1x Hallowed Fountain (ecl) 265
+1x Rhystic Study (j22) 114
+1x Mana Drain (2x2) 57
+1x Azor's Elocutors (rtr) 210
+1x Command Beacon (tdc) 352
+1x Avacyn, Angel of Hope (inr) 477
+1x Sea of Clouds (clb) 360
+1x Thought Vessel (fic) 368
+1x Esper Sentinel (h2r) 2
+1x Adarkar Wastes (eoc) 147
+1x Generous Gift (blc) 106
+1x Deserted Beach (inr) 276
+1x Floodfarm Verge (dsk) 259
+1x Skycloud Expanse (eoc) 181
+1x Supreme Verdict (clu) 211
+1x Render Silent (dgm) 96
+1x Vexilus Praetor (40k) 19
+1x Fierce Guardianship (cmm) 94
+1x Glacial Fortress (eoc) 160
+1x Propaganda (fic) 268
+1x Negate (fdn) 710
+1x Grand Abolisher (big) 32
+1x Swiftfoot Boots (fic) 361
+1x Reliquary Tower (tdc) 386
+1x Teferi's Protection (2x2) 32
+1x Arcane Signet (ecc) 55
+1x Everybody Lives! (who) 18
+1x Lightning Greaves (fic) 349
+1x Command Tower (ecc) 59
+1x Sol Ring (ecc) 58
+1x Path to Exile (ecc) 65
+11x Plains (ecl) 269
+1x Prairie Stream (fic) 413
+1x Counterspell (dsc) 114
+1x Arcane Denial (drc) 70
+1x Permission Denied (rex) 17
+1x Stroke of Midnight (tdc) 132
+1x Hindering Light (ala) 173
+1x Pariah's Shield (rvr) 264
+1x Timely Ward (dsc) 107
+1x Promise of Loyalty (fic) 249
+1x Maze of Ith (dmr) 250
+1x Norn's Annex (cmm) 829
+1x Wrath of God (cmm) 70
+1x Pippin, Guard of the Citadel (ltr) 218
+1x Absorb (dmr) 186
+6x Island (ecl) 270
+1x Ancient Silver Dragon (clb) 382
+1x Anti-Venom, Horrifying Healer (spm) 1
+1x Aegis Angel (e01) 1
+1x Monologue Tax (dsc) 100
+1x Sphere of Resistance (exo) 139
+1x Ghostly Prison (soc) 146
+1x Aura of Silence (plst) C15-60
+1x Absolute Virtue (fin) 212
+1x Dovin, Hand of Control (war) 229
+1x God-Pharaoh's Statue (plst) WAR-238
+1x Spelltithe Enforcer (plst) GPT-18
+1x Mana Leak (2x2) 58
+1x Pearl Medallion (mh3) 294
+1x Strict Proctor (stx) 33
+1x Flusterstorm (plst) CMD-46
+1x Thalia, Guardian of Thraben (vow) 38
+1x Baird, Steward of Argive (blc) 135
+1x Gold-Forged Thopteryx (mat) 31
+1x Windborn Muse (mkc) 92
+1x Mystic Remora (dmr) 59
+1x Irma, Part-Time Mutant (tmc) 12
+1x Leonin Arbiter (2x2) 16
+1x Tax Collector (acr) 9
+1x Tithe Taker (woc) 80

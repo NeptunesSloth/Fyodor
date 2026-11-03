@@ -194,7 +194,7 @@ def answer_pick(s, option):
     settle(s)
 
 
-@pytest.mark.parametrize("kind", ["Time Lord", "C’tan", "Cyclops"])
+@pytest.mark.parametrize("kind", ["Time Lord", "C'tan", "Cyclops"])
 def test_oko_minus_six_emblem_names_any_creature_type(cards, kind):
     s = build(cards, [OKO])
     c = oko(s, face=1, loyalty=6)

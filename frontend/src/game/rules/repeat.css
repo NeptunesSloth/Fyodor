@@ -1,0 +1,18 @@
+/* REPEAT (RepeatPanel.tsx): the player's actions this turn, the loop marked from where it starts */
+.repeat-panel { display: grid; gap: 12px; min-width: min(460px, 86vw); }
+.repeat-steps { list-style: none; margin: 0; padding: 4px 0; max-height: 280px; overflow-y: auto; border-block: 1px solid var(--line, rgba(255, 255, 255, 0.08)); }
+.repeat-steps li button {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 4px 8px; border: 0; border-radius: 3px;
+  background: transparent; color: var(--text-dim, #a99e8b); font: inherit; font-size: 13px; cursor: pointer;
+}
+.repeat-steps li.in button { color: var(--text, #efe6d4); background: color-mix(in srgb, var(--brass, #c9a25c) 10%, transparent); }
+.repeat-steps li.first button { box-shadow: inset 2px 0 0 var(--brass, #c9a25c); }
+.repeat-steps li.choice button { padding-left: 26px; font-style: italic; cursor: default; }
+.repeat-steps li button:not(:disabled):hover { background: color-mix(in srgb, var(--brass, #c9a25c) 18%, transparent); }
+.repeat-steps li button:focus-visible { outline: 2px solid var(--brass, #c9a25c); outline-offset: -2px; }
+.repeat-mark { width: 12px; flex: none; color: var(--brass, #c9a25c); font-size: 11px; text-align: center; }
+.repeat-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.repeat-row .tt-btn { min-height: 28px; padding: 2px 10px; font-variant-numeric: tabular-nums; }
+.repeat-label { min-width: 64px; font: 600 13px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2, #f0c97d); }
+.repeat-row .tt-btn.on { color: var(--accent-ink); background: var(--accent-grad); border-color: var(--frame-hi); }
+.repeat-num { width: 72px; }

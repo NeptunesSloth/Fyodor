@@ -522,6 +522,13 @@ def _parse_mana_ability(text: str, identity: tuple[str, ...] = COLORS, *, card_n
         if count is None:
             return None
         options = tuple((col,) for col in COLORS)
+    elif chosen_color and first not in _CHOSEN_COLOR and (cc := re.fullmatch(r"Add an amount of mana of that color equal to the number of (?P<what>.+)", first)):
+        # -- mana amounts (wave 111D) -- "Choose a color. Add an amount of mana of that color equal to the number of opponents you attacked this turn." (The
+        # Beacon of Kahless), "… creature types among non-Borg creatures you control." (Starfleet Academy): counted as it's activated (605.3b; the color, 106.1a)
+        count = _mana_riders._value(cc["what"])
+        if count is None:
+            return None
+        options = tuple((col,) for col in COLORS)
     elif chosen_color:
         if first not in _CHOSEN_COLOR:
             return None
@@ -1023,6 +1030,11 @@ def spend_kind(s: str) -> str | None:
     for pattern, kind in _SPEND:
         if sm := pattern.fullmatch(s):
             return f"type:{sm.group('t')}" if kind == "type" else kind
+    # -- mana and sources (wave 111R2) -- "Spend this mana only to cast your commander" (106.6, 903.3d)
+    from app.rules import wave111r2_mana
+
+    if (kind111r2 := wave111r2_mana.spend_kind(s)) is not None:
+        return kind111r2
     return parse_spend(s)
 
 

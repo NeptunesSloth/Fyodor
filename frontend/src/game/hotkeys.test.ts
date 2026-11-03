@@ -12,6 +12,19 @@ describe("hotkeys", () => {
     expect(matchHotkey(ev("p"), { pass: ["x"] })).toBeNull();
     expect(collisions(effectiveHotkeys({ pass: ["t"] }))).toEqual(["t: tap / pass"]);
   });
+  it("a key the player remapped wins over a default added later (the K and X focus keys)", () => {
+    const ev = (key: string) => ({ key, ctrlKey: false, metaKey: false, shiftKey: false });
+    expect(matchHotkey(ev("k"), { draw: ["k"] })).toBe("draw");
+    expect(matchHotkey(ev("x"), { tap: ["x"] })).toBe("tap");
+    expect(matchHotkey(ev("x"))).toBe("cam_combat");
+  });
+  it("ships presets without collisions; Arena's Space passes", async () => {
+    const { KEY_PRESETS } = await import("./hotkeys");
+    for (const p of KEY_PRESETS) expect(collisions(effectiveHotkeys(p.keymap))).toEqual([]);
+    const arena = KEY_PRESETS.find((p) => p.id === "arena")!.keymap;
+    expect(matchHotkey({ key: " ", ctrlKey: false, metaKey: false, shiftKey: false }, arena)).toBe("pass");
+    expect(matchHotkey({ key: " ", ctrlKey: false, metaKey: false, shiftKey: false })).toBe("tap");
+  });
   it("finds bookmark slots by physical key", () => {
     expect(bookmarkSlot({ code: "Digit3", ctrlKey: true, metaKey: false, shiftKey: false })).toEqual({ slot: 3, save: false });
     expect(bookmarkSlot({ code: "Digit3", ctrlKey: true, metaKey: false, shiftKey: true })).toEqual({ slot: 3, save: true });

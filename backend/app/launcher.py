@@ -70,7 +70,7 @@ def preflight(settings: Settings) -> list[Check]:
         checks.append(Check(True, f"Card database: {stats['oracle_cards']:,} cards"))
     else:
         checks.append(Check(False, "Card database missing",
-                            "run scripts/update-cards.sh once while online (games can't resolve decks without it)"))
+                            "download it once while online: Settings → Card database (games can't resolve decks without it)"))
     checks.append(Check(settings.frontend_dist is not None, "Table interface built",
                         "run: (cd frontend && npm install && npm run build)"))
     checks.append(Check(port_free(settings.host, settings.port), f"Port {settings.port} is free",
@@ -89,6 +89,11 @@ def _open_when_ready(url: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Windows writes redirected output (`Fyodor.exe --check > out.txt`) in its ANSI code page, which has no ✓/✗/—:
+    # print a stand-in for what it can't encode rather than crash the checks
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(AttributeError, ValueError):
+            stream.reconfigure(errors="replace")  # type: ignore[union-attr]
     parser = argparse.ArgumentParser(prog="fyodor", description="Start the Fyodor table on this computer.")
     # game night is a pod on one network: other devices may join unless --local says otherwise
     parser.add_argument("--local", action="store_true", help="only this computer can connect")
@@ -132,10 +137,15 @@ def main(argv: list[str] | None = None) -> int:
         addrs = lan_addresses()
         if addrs:
             print("\n  Friends on your network open:  " + "  or  ".join(f"http://{a}:{settings.port}" for a in addrs))
-            print("  (or send them the invite link shown in the lobby once you open a LAN table)\n")
+            print("  (or send them the invite link shown in the lobby once you open a LAN table)")
+            if settings.discovery:  # app/multiplayer/discovery.py
+                print("  Friends running Fyodor on their own computer see your LAN tables under Play → Games on your network.")
+            print()
         else:
             print("No network address found — are you connected to Wi-Fi/Ethernet?")
-        print("(If they can't connect, allow Python through this computer's firewall for private networks.)")
+        app_name = "Fyodor" if FROZEN else "Python"  # the downloadable app runs as Fyodor(.exe)
+        ports = f"TCP {settings.port}" + (f" and UDP {settings.discovery_port}" if settings.discovery else "")
+        print(f"(If they can't connect, allow {app_name} through this computer's firewall for private networks: {ports}.)")
     else:
         print("Only this computer can connect (--local). Start without --local to let the rest of the pod join.")
     print("Press Ctrl+C to stop. Games are autosaved.\n")

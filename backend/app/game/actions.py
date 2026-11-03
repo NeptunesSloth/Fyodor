@@ -49,6 +49,9 @@ class Base(BaseModel):
     model_config = ConfigDict(extra="forbid")
     actor: str = ""  # set by the server
     ts: float = 0.0  # set by the server
+    # -- quick undo request -- set by the server as it records the action: hidden information or a random outcome it showed
+    # (a category, never a card), so taking it back asks the table first (app/game/undo_requests.py)
+    shown: Literal["draw", "search", "look", "reveal", "library", "random"] | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 # --- resolved payloads --------------------------------------------------------------
@@ -227,6 +230,57 @@ class RevealTop(Base):
     count: int = Field(default=1, ge=1, le=100)
 
 
+class DigData(BaseModel):
+    count: int  # cards turned over from the top
+    hit: bool  # the last of them is the one asked for (False: the library ran out first)
+    move: Move | None = None  # cascade: the exile move, resolved like any move
+
+
+class RevealUntil(Base):
+    """The scripted tables' "reveal until type": reveal cards from the top of a library until one of a card type
+    (or subtype) turns up. They stay on top, revealed to everyone, for their owner to place (game/DigDialog)."""
+
+    type: Literal["reveal_until"] = "reveal_until"
+    player: Id | None = None
+    card_type: Annotated[str, Field(min_length=1, max_length=40)]
+    r: DigData | None = None
+
+
+class Cascade(Base):
+    """Cascade by hand (702.85a): exile cards from the top until a nonland card with mana value less than ``below``.
+    They stay face up in exile, for their owner to cast the hit and put the rest on the bottom in a random order."""
+
+    type: Literal["cascade"] = "cascade"
+    player: Id | None = None
+    below: int = Field(ge=1, le=30)
+    r: DigData | None = None
+
+
+class FetchData(BaseModel):
+    move: Move
+    shuffle: ShuffleData
+
+
+class FetchCard(Base):
+    """The scripted tables' "get basic land": take a card by name from a library (a basic land, usually), put it into
+    the hand or onto the battlefield, then shuffle."""
+
+    type: Literal["fetch_card"] = "fetch_card"
+    player: Id | None = None
+    name: Annotated[str, Field(min_length=1, max_length=80)]
+    to: Literal["hand", "battlefield"] = "hand"
+    r: FetchData | None = None
+
+
+class DiscardRandom(Base):
+    """Discard at random (701.9b): the server picks the cards."""
+
+    type: Literal["discard_random"] = "discard_random"
+    player: Id | None = None
+    count: int = Field(default=1, ge=1, le=20)
+    r: Move | None = None
+
+
 class SearchStart(Base):
     type: Literal["search_start"] = "search_start"
     zone: ZoneRef
@@ -340,6 +394,9 @@ class CopyCard(Base):
     player: Id | None = None  # controller of the copy (default: actor)
     count: int = Field(default=1, ge=1, le=50)
     modifications: str = Field(default="", max_length=300)
+    # the scripted tables' "exact copy": the copy also takes the original's counters, effect markers and choices
+    # (a tabletop convenience; a rules copy, 707.2, copies none of them)
+    exact: bool = False
     # -- cast a copy (wave 13C) -- 707.12: the copy is made in the card's own zone (exile / graveyard); 722.3c: a prepared
     # permanent's copy is made in exile with the face of its prepare spell
     zone: Literal["exile", "graveyard", "hand"] | None = None  # (wave 110M: "hand" — a revealed card copied where it is, Kefnet; wave 110N: a copy of a revealed card made to be cast, 707.12)
@@ -571,6 +628,32 @@ class SpawnCard(Base):
     resolved_name: str | None = None  # filled by resolve from the card database
 
 
+class LoadDeckCard(BaseModel):
+    section: str = Field(max_length=20)
+    quantity: int = Field(ge=1, le=250)
+    name: str = Field(max_length=200)
+    printing_id: str | None = Field(default=None, max_length=64)
+
+
+class LoadDeckData(BaseModel):
+    ids: list[str]  # one per card, in the deck's order
+    perm: list[int]  # the library's shuffle
+
+
+class LoadDeck(Base):
+    """The scripted tables' deck importer, at the table: put a new deck in a seat without leaving the game (its owner's
+    old cards leave the table). Built by the server from a deck the player brought (POST /games/{id}/load-deck); a
+    client can't send one directly."""
+
+    type: Literal["load_deck"] = "load_deck"
+    player: Id
+    deck_name: str = Field(default="Deck", max_length=120)
+    deck_id: str | None = Field(default=None, max_length=64)
+    cards: list[LoadDeckCard] = Field(max_length=600)
+    draw: int = Field(default=7, ge=0, le=20)
+    r: LoadDeckData | None = None
+
+
 class ResetDeck(Base):
     """Gather a player's own cards back into their deck (library, command zone, sideboard …),
     remove their tokens, copies and test objects, shuffle, and optionally reset life and draw."""
@@ -724,6 +807,10 @@ class Roll(Base):
     type: Literal["roll"] = "roll"
     sides: int = Field(default=20, ge=2, le=1000)
     count: int = Field(default=1, ge=1, le=100)
+    # the rules engine only (resolve drops them from a player's roll): 706.6, "roll that many dice plus one and ignore the lowest roll"
+    # (Barbarian Class, Pixie Guide): how many of the lowest rolls are ignored, and what made the extra dice
+    ignore_lowest: int = Field(default=0, ge=0, le=99)
+    because: str | None = Field(default=None, max_length=120)
     r: DiceData | None = None
 
 
@@ -731,6 +818,71 @@ class Coin(Base):
     type: Literal["coin"] = "coin"
     count: int = Field(default=1, ge=1, le=100)
     r: DiceData | None = None
+
+
+# -- table toys (docs/3D_DIRECTION.md §7) -- the dice cannon and the draw bag: table toys like the dice (never the rules engine's),
+# every outcome decided here on the server (resolve.py) and recorded, the cannon's flight and the bag's pull cosmetic on each table.
+class CannonData(BaseModel):
+    results: list[int]
+    players: list[str]  # per die: the player it is fired at (lands in front of)
+    rounds: list[int]  # per die: 0 for the first volley, then each re-fire of a tie
+
+
+class Cannon(Base):
+    """The dice cannon: a volley of ``count`` d``sides`` at the firer's mat, or "first": one d20 at each player still in the game,
+    the tied highest re-fired among themselves until one is highest (that player goes first)."""
+
+    type: Literal["cannon"] = "cannon"
+    mode: Literal["volley", "first"] = "volley"
+    sides: int = Field(default=6, ge=2, le=1000)
+    count: int = Field(default=1, ge=1, le=12)  # (the tables show twelve dice a throw: game/dice.ts DICE_SHOWN)
+    r: CannonData | None = None
+
+
+class BagFill(Base):
+    """Put chits (numbers, names, words) in the table's draw bag; ``replace`` empties it first (drawn chits included)."""
+
+    type: Literal["bag_fill"] = "bag_fill"
+    chits: list[str] = Field(min_length=1, max_length=100)
+    replace: bool = False
+
+    @field_validator("chits")
+    @classmethod
+    def _clean(cls, v: list[str]) -> list[str]:
+        cleaned = [c for c in (clean_text(x, 40) for x in v) if c]
+        if not cleaned:
+            raise ValueError("a chit needs a name")
+        return cleaned
+
+
+class BagDrawData(BaseModel):
+    index: int = Field(ge=0)  # which chit in the bag (the server's random pick)
+
+
+class BagDraw(Base):
+    """Draw one chit at random from the draw bag; ``reveal`` False keeps it to the drawer (until they show it)."""
+
+    type: Literal["bag_draw"] = "bag_draw"
+    reveal: bool = True
+    r: BagDrawData | None = None
+
+
+class BagShow(Base):
+    """Show everyone the chits you drew hidden."""
+
+    type: Literal["bag_show"] = "bag_show"
+
+
+class BagReturn(Base):
+    """Put every drawn chit back in the bag."""
+
+    type: Literal["bag_return"] = "bag_return"
+
+
+class BagEmpty(Base):
+    """Empty the bag (its chits and the drawn ones)."""
+
+    type: Literal["bag_empty"] = "bag_empty"
 
 
 class Chat(Base):
@@ -930,6 +1082,7 @@ class Configure(Base):
 
     type: Literal["configure"] = "configure"
     undo_policy: Literal["everyone", "own", "host"] | None = None
+    card_permissions: Literal["everyone", "owner"] | None = None  # -- table permissions -- (app/game/table_rights.py)
     clear_mana_on_step: bool | None = None
     auto_untap: bool | None = None
     auto_commander_tax: bool | None = None
@@ -1038,6 +1191,10 @@ class CastSpell(_Intent):
     kicker: int = Field(default=0, ge=0, le=1000 * 1025)  # platform numeric range (0..1000), like x_value; not a rules maximum; two any-number costs pack first + 1024 * second (costs.PAIR_SHIFT)
     # -- Chorus of the Conclave (wave 110C) -- 601.2b: the {1} paid for its own additional cost (not a kicker: the spell isn't kicked); platform range
     chorus: int = Field(default=0, ge=0, le=1000)
+    # -- granted replicate (wave 111R3) -- 702.56b: how many times each instance of replicate the spell is given as it is cast (Hugh, First of Many) is
+    # paid, in the order the hints list them (``replicate111r3``: rules/wave111r3_replicate.py); each count in the platform range 0..1000
+    replicate: list[Annotated[int, Field(ge=0, le=1000)]] = Field(default_factory=list, max_length=10)
+    replicate_from: list[Id] = Field(default_factory=list, max_length=10)  # (set by the server as they are announced: each count's source; 601.2f)
     # (wave 3$) the objects chosen for the parts of an additional cost ("As an additional cost to cast this spell,
     # sacrifice a creature"); anything missing is asked for as a decision
     cost_choices: list[CostChoice] = Field(default_factory=list, max_length=10)
@@ -1399,7 +1556,7 @@ INTENT_TYPES = frozenset(
      "choose", "concede", "set_stops", "set_prefs", "set_card_automation", "repeat_sequence", "turn_face_up", "unlock_door",
      "miracle_reveal", "end_effect", "pay_deferred"}
 )
-SERVER_ONLY_TYPES = frozenset({"rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber", "rules_sticker101"})
+SERVER_ONLY_TYPES = frozenset({"load_deck", "rules_sync", "rules_log", "rules_mana", "rules_damage", "rules_life_changes", "renumber", "rules_sticker101"})
 
 
 Action = Annotated[
@@ -1418,6 +1575,10 @@ Action = Annotated[
     | MulliganFinish
     | Reveal
     | Hide
+    | RevealUntil
+    | Cascade
+    | FetchCard
+    | DiscardRandom
     | LookTop
     | RevealTop
     | SearchStart
@@ -1441,6 +1602,7 @@ Action = Annotated[
     | ReturnToOwner
     | RestoreState
     | SpawnCard
+    | LoadDeck
     | ResetDeck
     | RestartGame
     | RunMacro
@@ -1471,6 +1633,12 @@ Action = Annotated[
     | RenamePlayer
     | Roll
     | Coin
+    | Cannon
+    | BagFill
+    | BagDraw
+    | BagShow
+    | BagReturn
+    | BagEmpty
     | Chat
     | Phase
     | NextTurn

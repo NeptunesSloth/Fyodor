@@ -337,6 +337,11 @@ def run(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
             if mode == "bruntar"
             else selectors.Selector(zones=("library",), card=True, supertypes=("Legendary",)).key()
         )
+    # -- Star Trek (wave 111E) -- Exploratory Mission: "Then exile cards from the top of your library until you exile a nonland card. You may play
+    # that card this turn." (Bruntar's packet, 406.1; "play", 305.1 / 601.1: a land back face of a modal double-faced card too, 712.12)
+    if mode == "mission111e":
+        exile_packet(plan, ctx, e, owner, sel("nonland card"))
+        return insert(ctx, [grant(e, play=True)])
     if mode in ("storm", "loki", "bruntar", "bolas", "doctor"):
         found = exile_packet(plan, ctx, e, owner, key)
     else:

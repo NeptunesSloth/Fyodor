@@ -11,7 +11,7 @@ from typing import Any, cast
 
 from app.cards.names import normalize_name
 from app.cards.repository import CardRepository
-from app.decks import archidekt
+from app.decks import archidekt, sites
 from app.decks.models import (
     Deck,
     DeckCategory,
@@ -199,7 +199,8 @@ def import_any(req: DeckImportRequest, cards: CardRepository, *, fetch: Fetcher 
     if req.archidekt:
         deck_id = archidekt.extract_deck_id(req.archidekt)
         if deck_id is None:
-            raise archidekt.ArchidektError("That doesn't look like an Archidekt deck URL (https://archidekt.com/decks/12345/…).")
+            raise sites.DeckLinkRefused(sites.refusal(req.archidekt)
+                                        or "That doesn't look like an Archidekt deck URL (https://archidekt.com/decks/12345/…).")
         if fetch is None:
             raise archidekt.ArchidektError("Archidekt URL import is not available")
         data = fetch(deck_id)
@@ -217,6 +218,7 @@ def import_any(req: DeckImportRequest, cards: CardRepository, *, fetch: Fetcher 
         source = DeckSource(kind="archidekt", id=deck_id, url=archidekt.DECK_URL.format(id=deck_id) if deck_id else None,
                             name=parsed.name, updated_at=str(data.get("updatedAt") or "") or None, imported_at=now)
         return ImportResult(parsed, entries, report, source, archidekt.deck_format(data))
+    sites.refuse_link(raw)  # another site's deck link pasted as the list
     parsed = parse_deck_text(raw)
     entries, report = resolve_parsed(parsed, cards)
     return ImportResult(parsed, entries, report, None, None)
@@ -370,22 +372,8 @@ def validate(deck: DeckIn, cards: CardRepository, card_data: dict[str, dict[str,
     if sticker_sheets and (count['stickers'] < 10 or count['stickers'] != len({e.name for e in sticker_sheets})
                            or any(str((data.get(e.printing_id or '') or {}).get('type_line')) != 'Stickers' for e in sticker_sheets)):
         warnings.append(Warning(level='warning', message='Constructed sticker play needs at least ten distinct sticker sheets (123.2a).'))
-    if deck.format == "commander":
-        warnings += _commander_checks(deck, data, count, playing)
-        warnings += _companion_checks(deck, data)
-    elif deck.format == "constructed":
-        if count["main"] < 60:
-            warnings.append(Warning(level="warning", message=f"Main deck has {count['main']} cards (minimum 60)."))
-        if count["sideboard"] > 15:
-            warnings.append(Warning(level="warning", message=f"Sideboard has {count['sideboard']} cards (maximum 15)."))
-        per_name = Counter[str]()
-        for e in deck.entries:
-            if e.section in ("main", "sideboard"):
-                per_name[e.name] += e.quantity
-        for name, qty in per_name.items():
-            entry = next(x for x in deck.entries if x.name == name)
-            if over_limit(data.get(entry.printing_id or ""), qty, 4):
-                warnings.append(Warning(level="warning", message=f"{qty} copies of {name} (maximum 4).", card=name))
+    warnings += _commander_checks(deck, data, count, playing)
+    warnings += _companion_checks(deck, data)
     return warnings
 
 

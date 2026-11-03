@@ -10,7 +10,11 @@ import { cardMenu } from "./cardMenu";
 import { beginPointerDrag } from "./dnd";
 import { CounterBadges, GameCardFace } from "./GameCardFace";
 import { answerByClick, legalClass } from "./rules/RulesHud";
+import { TargetMark } from "./targeting/TargetMark";
 import { Icon } from "../components/Icon";
+import { countMark } from "./piles";
+import { BoardTile, packStats } from "./BoardTile";
+import { reorderArranged } from "./arrangeDrop";
 
 interface Props {
   id: string;
@@ -19,18 +23,28 @@ interface Props {
   width: number;
   me: string;
   z: number;
+  /** Arena-style: this card tops a pile of identical lands (game/piles.ts) or tokens (the arranged board). */
+  pile?: number;
+  /** On the arranged board: drawn as an art tile (game/BoardTile.tsx), dragged along its row to reorder. */
+  tile?: boolean;
 }
 
 /** A permanent on a battlefield: positioned, tappable, draggable, with counters and markers. */
-export const TableCard = memo(function TableCard({ id, left, top, width, me, z }: Props) {
+export const TableCard = memo(function TableCard({ id, left, top, width, me, z, pile, tile = false }: Props) {
   const card = useCardView(id);
   const selected = useGame((s) => s.selection.includes(id));
   const showSources = usePrefs((s) => s.showTokenSources);
   const legal = useGame((s) => legalClass(s.view, id, me));
   const stats = useGame((s) => s.view?.rules?.stats?.[id]);
+  // the encoder's owner gem: a card controlled by someone other than its owner says whose it is
+  const owner = useGame((s) => {
+    const c = s.view?.cards[id];
+    return c && c.owner !== c.controller ? s.view?.players.find((p) => p.id === c.owner) : undefined;
+  });
   if (!card) return null;
   const visible = isVisible(card);
   const rotation = (card.tapped ? 90 : 0) + (card.flipped ? 180 : 0) + (card.rotation ?? 0);
+  const count = countMark(card, pile); // ×N: the land pile it tops, or the token stack it is
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
@@ -43,7 +57,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
     }
     if (!store.selection.includes(id)) store.select([id]);
     const ids = targetsFor(id);
-    beginPointerDrag(e, { ids, from: card.zone, width, onDrop: (t) => dropCards(ids, id, t) });
+    beginPointerDrag(e, { ids, from: card.zone, width, onDrop: (t) => (tile && reorderArranged(ids, card.zone, t)) || dropCards(ids, id, t) });
   };
 
   return (
@@ -51,7 +65,11 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
       className={`table-card ${selected ? "selected" : ""} ${card.attacking || card.attacking_without_target ? "attacking" : ""} ${card.blocking || card.blocking_without_attacker ? "blocking" : ""} ${legal}`}
       data-card-id={id}
       data-tapped={card.tapped ? "" : undefined}
-      style={{ left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }}
+      data-tile={tile ? "" : undefined}
+      style={tile
+        // the arranged board positions its cards by transform: moving one is no layout for the rest of the board
+        ? { left: 0, top: 0, width, zIndex: z, transform: `translate(${left}px, ${top}px)${rotation ? ` rotate(${rotation}deg)` : ""}` }
+        : { left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }}
       onPointerDown={onPointerDown}
       onDoubleClick={(e) => {
         e.stopPropagation();
@@ -70,7 +88,9 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
       onPointerEnter={() => useGame.getState().setHover(id)}
       onPointerLeave={() => useGame.getState().hover === id && useGame.getState().setHover(null)}
     >
-      <GameCardFace card={card} />
+      {tile ? <BoardTile card={card} stats={visible ? packStats(stats) : ""} /> : <GameCardFace card={card} />}
+      {legal === "rules-target" && <TargetMark id={id} />}
+      {count && <span className="pile-count-mark" data-testid={count.testId} title={count.title}>×{count.n}</span>}
       <div className="card-marks">
         {visible && card.is_token && !card.copy_of && <span className="mark token">TOKEN</span>}
         {visible && card.test_object && <span className="mark test" title="Test object — not part of any deck">TEST</span>}
@@ -94,6 +114,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
           </span>
         )}
         {visible && card.token_source && showSources && <span className="mark src" title={`Created by ${card.token_source.name}`}>↳ {card.token_source.name}</span>}
+        {owner && <span className="mark owner" data-testid="owner-gem" style={{ ["--owner" as string]: owner.color }} title={`Owned by ${owner.name}`}>{owner.name.slice(0, 1).toUpperCase()}</span>}
       </div>
       {(card.effects?.length || card.damage) ? (
         <div className="card-effects">
@@ -106,8 +127,8 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z }
           {(card.effects?.length ?? 0) > 4 && <span className="fx more">+{card.effects!.length - 4}</span>}
         </div>
       ) : null}
-      <CounterBadges counters={card.counters} />
-      {visible && stats && <StatBadge stats={stats} />}
+      <CounterBadges counters={card.counters} cardId={id} />
+      {visible && stats && !tile && <StatBadge stats={stats} />}
     </div>
   );
 });

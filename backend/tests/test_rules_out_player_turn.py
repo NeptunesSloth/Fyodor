@@ -39,7 +39,7 @@ def test_a_player_who_is_out_cannot_change_the_turn_or_step(cards, how, payload)
     knock_out(s, how)
     turn = s.state.turn.model_dump(mode="json")
     seq = s.state.seq
-    with pytest.raises(ActionError, match="left this game"):
+    with pytest.raises(ActionError, match="out of this game"):
         act(s, "p2", **payload)
     assert s.state.turn.model_dump(mode="json") == turn and s.state.seq == seq
     replay_matches(s)
@@ -65,7 +65,7 @@ def test_the_active_player_concedes_the_engine_moves_the_turn_on_and_they_cannot
     assert "p1" in rules(s).conceded and s.state.turn.active_player != "p1"
     turn = s.state.turn.model_dump(mode="json")
     for payload in TURN_ACTIONS:
-        with pytest.raises(ActionError, match="left this game"):
+        with pytest.raises(ActionError, match="out of this game"):
             act(s, "p1", **payload)
     assert s.state.turn.model_dump(mode="json") == turn
     replay_matches(s)

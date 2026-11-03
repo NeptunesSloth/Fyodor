@@ -1,0 +1,89 @@
+// draf (Archidekt 21442172): commander and main deck only
+Commander
+1x Silverquill, the Disputant (sos) 226
+Deck
+1x Duty Beyond Death (tdm) 10
+1x Dark Ritual (40k) 196
+1x Will of the Mardu (tdc) 17
+1x Akroma's Will (m3c) 165
+1x Abstruse Appropriation (mh3) 177
+1x Revival // Revenge (rvr) 241
+1x Gruesome Fate (plst) RIX-75
+1x Requisition Raid (otj) 26
+1x Vexilus Praetor (40k) 19
+1x Black Market (pip) 183
+1x Anguished Unmaking (soc) 293
+1x Land Tax (soc) 153
+1x Séance Board (dsc) 40
+1x Deadly Rollick (cmm) 147
+1x Exsanguinate (fic) 276
+1x Sedgemoor Witch (stx) 86
+1x Erode (sos) 15
+1x Temporal Extortion (plc) 81
+1x Inkshield (soc) 316
+1x Corrupted Conviction (otj) 84
+1x Phyrexian Tower (mh3) 303
+1x Kambal, Profiteering Mayor (otj) 211
+1x Skullclamp (fic) 355
+1x Teferi's Protection (2x2) 32
+1x Call the Coppercoats (onc) 60
+1x Damn (drc) 89
+11x Plains (sos) 272
+1x Brightclimb Pathway // Grimclimb Pathway (znr) 259
+1x Shattered Sanctum (sos) 260
+1x Vault of Champions (cmm) 436
+1x Shineshadow Snarl (soc) 403
+1x Command Tower (soc) 129
+1x Isolated Chapel (soc) 382
+1x Marsh Flats (mh2) 437
+1x Urborg, Tomb of Yawgmoth (tsr) 287
+1x Concealed Courtyard (otj) 268
+1x Bleachbone Verge (dft) 250
+1x Cabal Coffers (mh2) 301
+1x Godless Shrine (eoe) 254
+1x Tainted Field (pip) 298
+1x Morbid Opportunist (soc) 219
+5x Swamp (sos) 276
+1x Debt to the Deathless (rvr) 176
+1x Bastion of Remembrance (tle) 160
+1x Twinning Staff (ncc) 383
+1x Lightning Greaves (soc) 350
+1x Blot Out the Sky (stx) 167
+1x Mirkwood Bats (ltr) 95
+1x Fracture (soc) 310
+1x Vindicate (fic) 330
+1x Moogles' Valor (fin) 27
+1x Mortify (fic) 327
+1x Enduring Innocence (dsk) 6
+1x Reanimate (fic) 282
+1x Bitterbloom Bearer (ecl) 88
+1x Pitiless Plunderer (fic) 281
+1x Talisman of Hierarchy (soc) 358
+1x Path to Exile (soc) 159
+1x Sol Ring (soc) 128
+1x Arcane Signet (soc) 127
+1x Bitterblossom (2x2) 69
+1x Finale of Glory (clu) 61
+1x Lingering Souls (fic) 245
+1x Generous Gift (blc) 106
+1x Adeline, Resplendent Cathar (tdc) 108
+1x Corpse Knight (drc) 50
+1x Anointed Procession (plst) AKH-2
+1x Thalisse, Reverent Medium (tdc) 306
+1x Reprieve (ltr) 26
+1x Turbulent Moor (soc) 104
+1x Stroke of Midnight (tdc) 132
+1x Raise the Alarm (j25) 101
+1x Exalted Sunborn (eoe) 15
+1x Grave Pact (cmm) 165
+1x Village Rites (inr) 137
+1x Mondrak, Glory Dominus (one) 23
+1x Eclipsed Steppe (soc) 101
+1x Cruel Entertainment (c16) 11
+1x Praetor's Grasp (nph) 71
+1x Sinkhole (ema) 106
+1x Sign in Blood (dsc) 156
+1x Crypt Ghast (rvr) 322
+1x Sudden Spoiling (tsr) 144
+1x Troubling Tribbles (trk) 408
+1x Swords to Plowshares (trc) 429

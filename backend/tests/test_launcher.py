@@ -12,7 +12,7 @@ def test_preflight_reports_what_is_missing(tmp_path, capsys):
     env = {"FYODOR_DATA_DIR": str(tmp_path / "data"), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist"), "FYODOR_PORT": "0"}
     checks = {c.label.split(":")[0].split(" ")[0]: c for c in launcher.preflight(load_settings(env))}
     assert checks["Data"].ok and checks["Python"].ok
-    assert not checks["Card"].ok and "update-cards" in checks["Card"].hint
+    assert not checks["Card"].ok and "Settings → Card database" in checks["Card"].hint
     assert not checks["Table"].ok and "npm run build" in checks["Table"].hint
 
 
@@ -51,3 +51,18 @@ def test_first_run_downloads_the_cards_and_lets_the_pod_join(tmp_path, monkeypat
     assert served["host"] == "0.0.0.0"  # LAN by default
     launcher.main(["--port", "0", "--no-browser", "--local"])
     assert served["host"] == "127.0.0.1"
+
+
+def test_check_output_survives_a_console_that_cannot_print_check_marks(tmp_path):
+    """Windows writes redirected output in its ANSI code page (cp1252): `Fyodor.exe --check > out.txt` must not crash on ✓/✗."""
+    import os
+    import subprocess
+    import sys
+
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    env = {**os.environ, "FYODOR_DATA_DIR": str(tmp_path / "d"), "FYODOR_FRONTEND_DIST": str(dist), "PYTHONIOENCODING": "cp1252"}
+    run = subprocess.run([sys.executable, "-m", "app.launcher", "--check", "--port", "0", "--no-browser"],
+                         capture_output=True, env=env, timeout=60)
+    assert run.returncode == 0, run.stderr.decode("cp1252", "replace")[-600:]
+    assert b"Card database missing" in run.stdout

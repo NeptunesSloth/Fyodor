@@ -56,6 +56,10 @@ def reconcile(plan: Plan, *, fresh: bool) -> None:
     r.events = []
     r.events_dropped = False
     r.unsynced = False
+    # -- token stacks (gap 2) -- a stack made while automation was off: one object per token
+    from app.rules import token_stacks
+
+    token_stacks.spread(plan)
     sync_step(plan)
     _derive(plan)
     questions = _questions(plan, unknown_history=unknown_history)

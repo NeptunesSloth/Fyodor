@@ -26,12 +26,13 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_valid
 from app.api.deps import _peer_is_loopback, get_services, is_local_request, require_local
 from app.assets.store import AssetNotFound
 from app.assistant import AssistantUnavailable, build_context
-from app.decks import archidekt
+from app.decks import archidekt, sites
 from app.decks import service as deck_service
 from app.decks.models import DeckEntry, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
 from app.decks.repository import DeckNotFound
 from app.game import actions as A
+from app.game import undo_requests
 from app.game.errors import ActionError
 from app.game.factory import DeckCard, PlayerSetup, new_game
 from app.game.mulligan import resolve_policy
@@ -40,11 +41,22 @@ from app.game.session import GameSession
 from app.game.state import CollectionCard, GameSettings, MulliganPolicy
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR
-from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room
-from app.multiplayer.lobby import DeckTooLarge, LobbySeatInfo, LobbySettings, SubmittedDeck, check_bounds
+from app.multiplayer import lan_art
+from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, undo_voters
+from app.multiplayer.lobby import (
+    CardPermissions,
+    DeckTooLarge,
+    LobbySeatInfo,
+    LobbySettings,
+    SubmittedDeck,
+    TurnOrder,
+    check_bounds,
+)
+from app.multiplayer.night import follow_rules
 from app.rules import commander as commander_rules
 from app.rules import coverage
 from app.services import Services
+from app.stats import recap
 from app.stats.repository import DuplicateResult, Participant, ResultError, deck_key_for
 from app.storage.save_format import SaveFormatError
 from app.storage.saves import SaveNotFound
@@ -76,7 +88,9 @@ def authorize(room: Room, *, local: bool, token: str | None, viewer: str | None,
     seat = room.seat_for_token(token)
     if seat is None:
         if local and room.is_host(token):
-            return OMNISCIENT if viewer == "all" else SPECTATOR, None
+            # The host computer watches its LAN table as a spectator would. Every hand stays hidden from it, as it would
+            # from a host who isn't playing (the all-hands view is for hot-seat games on one computer only).
+            return SPECTATOR, None
         raise HTTPException(403, "Join the game first (missing or invalid seat token)")
     return seat, (seat if seat != SPECTATOR else None)
 
@@ -120,6 +134,12 @@ async def _after_action(services: Services, room: Room, action: dict[str, Any]) 
             services.hub.persist(room)
 
 
+def _check_table_open(room: Room, action_type: str | None = None) -> None:
+    """-- final board -- after a recorded result the table can be looked at, not changed (``Night.final_board``)."""
+    if (why := room.night.final_board(action_type)) is not None:
+        raise HTTPException(409, why)
+
+
 def _room(services: Services, game_id: str) -> Room:
     room = services.hub.get(game_id)
     if room is None:
@@ -146,7 +166,7 @@ class PlayerIn(BaseModel):
 
 class CreateGameIn(BaseModel):
     name: str = Field(default="Game", max_length=80)
-    format: Literal["commander", "constructed", "sandbox"] = "commander"
+    format: Literal["commander"] = "commander"
     mode: Literal["local", "lan"] = "local"
     password: str | None = Field(default=None, max_length=100)
     players: list[PlayerIn] = Field(default_factory=list, max_length=6)
@@ -166,8 +186,9 @@ class CreateGameIn(BaseModel):
     priority_helper: Literal["off", "simple"] = "simple"
     # Rules automation (docs/AUTOMATION_UX.md): OFF is the sandbox (the safe default).
     automation: AutomationLevel = "off"
-    # Lobby turn order: "pod" = d20, then the previous winner goes last (GAME_NIGHT_FLOW.md §2).
-    turn_order: Literal["pod", "random"] = "random"
+    # Lobby turn order: "pod" = d20, then the previous winner goes last (GAME_NIGHT_FLOW.md §2); "seats" = seat 1 first.
+    turn_order: TurnOrder = "random"
+    card_permissions: CardPermissions = "everyone"  # -- table permissions -- who may change a player's cards (LAN)
 
     @field_validator("name")
     @classmethod
@@ -197,6 +218,7 @@ class JoinIn(BaseModel):
     password: str | None = Field(default=None, max_length=100)
     seat: str | None = Field(default=None, max_length=8)
     spectate: bool = False
+    handoff: str | None = Field(default=None, max_length=64)  # the deck library this player brought (app/multiplayer/handoff.py)
 
 
 class SaveIn(BaseModel):
@@ -241,9 +263,10 @@ def _create_lobby(services: Services, body: CreateGameIn) -> dict[str, Any]:
         raise HTTPException(422, "A lobby is for LAN games")
     settings = LobbySettings(name=body.name, format=body.format, seats=body.seats, starting_life=body.starting_life,
                              deck_privacy=body.deck_privacy,
-                             mulligan_rule=body.mulligan_rule or ("commander_london" if body.format == "commander" else "london"),
+                             mulligan_rule=body.mulligan_rule or "commander_london",
                              mulligan_policy=body.mulligan_policy, priority_helper=body.priority_helper,
-                             auto_untap=body.auto_untap, automation=body.automation, turn_order=body.turn_order)
+                             auto_untap=body.auto_untap, automation=body.automation, turn_order=body.turn_order,
+                             card_permissions=body.card_permissions)
     room = services.hub.create_lobby(settings, password=body.password)
     result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
     if body.host_seat:
@@ -259,6 +282,7 @@ def _create_room(services: Services, session: GameSession, mode: str, password: 
     room = services.hub.create_room(session, mode=mode, password=password)  # type: ignore[arg-type]
     recorded = services.stats.for_game(room.id)
     room.result_id = recorded["id"] if recorded else None
+    follow_rules(room)  # -- rules result -- a loaded game the rules already ended asks for its result
     result: dict[str, Any] = {"game": room.summary(), "host_token": room.host_token}
     if mode == "lan" and host_seat:
         viewer, token = services.hub.claim_seat(room, name=None, seat=host_seat if host_seat in room.seats else None)
@@ -275,7 +299,9 @@ def _create_room(services: Services, session: GameSession, mode: str, password: 
 async def list_games(request: Request, services: ServicesDep) -> list[dict[str, Any]]:
     # (-- sync endpoints (wave 30B) -- on the event loop, see game_summary)
     local = is_local_request(request)
-    return [r.summary() for r in services.hub.rooms.values() if local or r.mode == "lan"]
+    # a practice table (elimination hub) is its owner's alone: never listed. Commanders (for the Play page's tiles) show on the
+    # host's own screen only: another device sees no more than the players' names until it sits at the table.
+    return [r.summary(commanders=local) for r in services.hub.rooms.values() if (local or r.mode == "lan") and r.practice is None]
 
 
 @router.post("/games", status_code=201)
@@ -304,7 +330,7 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
                             # one person runs a hot-seat table: nobody to ask; with rules, the engine asks
                             priority_helper=body.priority_helper if body.mode == "lan" and body.automation == "off" else "off",
                             allow_test_objects=body.mode == "local", automation=body.automation,
-                            automation_options=AUTOMATION_PRESETS[body.automation].model_copy())
+                            automation_options=AUTOMATION_PRESETS[body.automation].model_copy(), card_permissions=body.card_permissions)
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
     if body.automation != "off":
         start_rules(state)
@@ -353,8 +379,10 @@ async def post_action(
         if cid is not None and cid in room.client_actions:
             previous = room.client_actions[cid]
             return {**services.hub.view(room, viewer), "status": "ALREADY_APPLIED", "outcome": previous}
+        _check_table_open(room, body.action.get("type"))
         try:
-            room.session.perform(actor, body.action)
+            # -- table permissions -- the host's own seat helps anyone; everyone at a hot-seat table sits at the host computer
+            room.session.perform(actor, body.action, host=room.mode == "local" or room.is_host(x_seat_token))
         except ValidationError as exc:
             if cid is not None:
                 services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")
@@ -389,11 +417,48 @@ async def _history_op(services: Services, game_id: str, body: MetaIn, request: R
     if actor is None:
         raise HTTPException(403, "Spectators cannot undo")
     async with room.lock:
+        _check_table_open(room)
         try:
-            room.session.undo(actor) if op == "undo" else room.session.redo(actor)
+            host = room.mode == "local" or room.is_host(token)  # -- undo policy (gap 3) -- everyone at a hot-seat table is at the host computer
+            if op == "undo":  # (-- quick undo request -- an undo of something already seen asks the others first)
+                room.session.undo(actor, host=host, others=undo_voters(room, actor))
+            else:
+                room.session.redo(actor, host=host)
         except ActionError as exc:
             raise HTTPException(409, str(exc)) from exc
         services.hub.after_change(room)
+    await services.hub.broadcast(room)
+    return services.hub.view(room, viewer)
+
+
+class UndoAskIn(MetaIn):
+    op: Literal["request", "approve", "decline", "withdraw"]
+
+
+@router.post("/games/{game_id}/undo-request")
+async def undo_request(game_id: str, body: UndoAskIn, request: Request, services: ServicesDep,
+                       x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """-- quick undo request -- ask the table to undo the last action, or answer the request waiting for it (approve,
+    decline; the requester withdraws). The server undoes it once every other player still in the game approved
+    (app/game/undo_requests.py)."""
+    room = _room(services, game_id)
+    viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=body.viewer, as_player=body.as_player)
+    if actor is None:
+        raise HTTPException(403, "Spectators can't do that")
+    async with room.lock:
+        if body.op in ("request", "approve"):
+            _check_table_open(room)  # -- final board -- a finished table takes no undo, asked for or approved
+        try:
+            if body.op == "request":
+                host = room.mode == "local" or room.is_host(x_seat_token)
+                undo_requests.request(room.session, actor, host=host, others=undo_voters(room, actor))
+                undone = None
+            else:
+                undone = undo_requests.answer(room.session, actor, body.op)
+        except ActionError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        if undone is not None:
+            services.hub.after_change(room)
     await services.hub.broadcast(room)
     return services.hub.view(room, viewer)
 
@@ -444,7 +509,8 @@ def _throttle_join(failures: dict[str, list[float]], ip: str) -> None:
 
 
 @router.post("/join")
-def join_game(body: JoinIn, request: Request, services: ServicesDep) -> dict[str, Any]:
+def join_game(body: JoinIn, request: Request, services: ServicesDep,
+              x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
     ip = client_ip(request)
     failures = services.hub.join_failures
     _throttle_join(failures, ip)
@@ -462,9 +528,22 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep) -> dict[str
     if name and viewer in room.seats and room.started:
         room.session.notice(f"{name} took the seat of {room.session.state.players[viewer].name}.")
         try:
-            room.session.perform(viewer, {"type": "rename_player", "name": name})
+            if room.night.final_board() is None:  # -- final board -- the finished table keeps the names it ended with
+                room.session.perform(viewer, {"type": "rename_player", "name": name})
         except (ActionError, ValidationError) as exc:
             log.info("Could not apply joining player's name: %s", exc)
+    # -- bring my decks -- the library sent ahead by the player's own Fyodor, for this seat alone (one use)
+    if body.handoff and viewer in room.seats and not room.started:
+        library = services.handoffs.take(body.handoff)
+        if library is not None:
+            services.handoffs.attach(room.id, token, library, services.cards)  # (adds the cards this database lacked)
+    # (spectator activities) a spectator of this table taking a lobby seat brings the deck they queued while watching
+    if x_seat_token and not room.started and viewer in room.lobby_seats and room.seat_for_token(x_seat_token) == SPECTATOR:
+        queued = room.night.queued.pop(x_seat_token, None)
+        if queued is not None:
+            info = room.lobby_seats[viewer]
+            queued.collection = list(info.collection)
+            info.deck = info.queued = queued
     return {"game_id": room.id, "viewer": viewer, "token": token, "game": room.summary()}
 
 
@@ -552,6 +631,9 @@ def lan_info(request: Request, services: ServicesDep) -> dict[str, Any]:
         "port": services.settings.port,
         "bound_host": services.settings.host,
         "reachable": services.settings.host not in ("127.0.0.1", "localhost", "::1"),
+        # finding tables on the network: searching from this Play page, and the UDP port this computer answers on (or null)
+        "discovery": services.settings.discovery,
+        "discovery_port": request.app.state.discovery.port,
     }
 
 
@@ -598,7 +680,7 @@ class ProfileIn(BaseModel):
 
 class LobbySettingsIn(BaseModel):
     name: str | None = Field(default=None, max_length=80)
-    format: Literal["commander", "constructed", "sandbox"] | None = None
+    format: Literal["commander"] | None = None
     seats: int | None = Field(default=None, ge=1, le=6)
     starting_life: int | None = Field(default=None, ge=1, le=10000)
     deck_privacy: Literal["private", "commander_only", "public"] | None = None
@@ -607,7 +689,14 @@ class LobbySettingsIn(BaseModel):
     priority_helper: Literal["off", "simple"] | None = None
     auto_untap: bool | None = None
     automation: AutomationLevel | None = None
-    turn_order: Literal["pod", "random"] | None = None
+    turn_order: TurnOrder | None = None
+    card_permissions: CardPermissions | None = None  # -- table permissions -- (no Ready reset: it's how the table plays, not the deck rules)
+
+
+class ArrangeIn(BaseModel):
+    """-- seating -- every lobby seat once, in the order the host wants them seated (seat 1 first)."""
+
+    order: list[Annotated[str, Field(pattern=r"^p[1-6]$")]] = Field(min_length=1, max_length=6)
 
 
 class StartIn(BaseModel):
@@ -674,13 +763,10 @@ def _submitted(
 ) -> SubmittedDeck:
     cards = _deck_cards(services, entries)
     check_bounds(cards)
-    # Advisory legality checks for every table format (the host may change it after you submit).
+    # Advisory Commander legality checks (never blocking: "play anyway").
     playable = [e for e in entries if e.section != "maybeboard"]
     card_data = services.cards.get_many([e.printing_id for e in playable if e.printing_id])
-    warnings = {
-        f: [w.model_dump() for w in deck_service.validate(DeckIn(name="deck", format=f, entries=playable), services.cards, card_data)][:40]
-        for f in ("commander", "constructed", "sandbox")
-    }
+    warnings = {"commander": [w.model_dump() for w in deck_service.validate(DeckIn(name="deck", entries=playable), services.cards, card_data)][:40]}
     commander_ids = [c.printing_id for c in cards if c.section == "commander" and c.printing_id]
     data = services.cards.get_many(commander_ids) if commander_ids else {}
     levels = {"FULL": 0, "PARTIAL": 0, "REVIEW": 0, "MANUAL": 0}
@@ -739,7 +825,7 @@ def _import_for_lobby(services: Services, body: LobbyDeckIn, local: bool) -> Sub
     except DeckTextTooLarge as exc:
         raise HTTPException(413, str(exc)) from exc
     except archidekt.ArchidektError as exc:
-        raise HTTPException(502 if body.archidekt else 422, str(exc)) from exc
+        raise HTTPException(502 if body.archidekt and not isinstance(exc, sites.DeckLinkRefused) else 422, str(exc)) from exc
     full = result.report.as_dict()
     report = {
         k: full[k] for k in ("cards_total", "exact_printings", "resolved", "commanders", "errors", "notes")
@@ -885,6 +971,9 @@ async def submit_deck(
         info.collection = list(deck.collection)
         info.ready = False
     await _lobby_changed(services, room)
+    # -- bring my decks -- the art this table lacks for the deck, from the player's own Fyodor over the LAN (in the background)
+    if x_seat_token and (library := services.handoffs.brought(room, x_seat_token)) is not None:
+        lan_art.bring_art(services, room, library.origin, [c.printing_id for c in deck.cards if c.printing_id])
     return _lobby_response(room, viewer, host)
 
 
@@ -931,6 +1020,26 @@ async def change_seat(
     return _lobby_response(room, body.seat, host)
 
 
+@router.post("/games/{game_id}/lobby/arrange")
+async def arrange_seats(
+    game_id: str, body: ArrangeIn, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
+) -> dict[str, Any]:
+    """-- seating -- the host arranges the seats (GAME_NIGHT_FLOW.md §2: "the others keep their relative order, unless the host
+    changes it"). The turn-order setting then decides who goes first: the pod rule, a random player, or seat 1."""
+    room = _lobby_room(services, game_id)
+    _require_host(room, x_seat_token)
+    async with room.lock:
+        if room.started:
+            raise HTTPException(409, "The game has already started")
+        try:
+            services.hub.arrange_seats(room, body.order)
+        except LookupError as exc:
+            raise HTTPException(422, str(exc)) from exc
+    viewer, host = _lobby_who(room, x_seat_token, seat_required=False)
+    await _lobby_changed(services, room)
+    return _lobby_response(room, viewer, host)
+
+
 @router.post("/games/{game_id}/lobby/profile")
 async def set_profile(
     game_id: str, body: ProfileIn, services: ServicesDep, x_seat_token: Annotated[str | None, Header()] = None
@@ -958,6 +1067,7 @@ async def leave_lobby(
     viewer, _ = _lobby_who(room, x_seat_token)
     if viewer == room.host_seat:
         raise HTTPException(409, "The host can't leave their own table (close the game instead)")
+    services.handoffs.drop_seat(room.id, x_seat_token)  # -- bring my decks --
     services.hub.release_seat(room, viewer)
     await _lobby_changed(services, room)
     return Response(status_code=204)
@@ -1010,6 +1120,7 @@ async def kick_player(
     await services.hub.send_to(room, body.seat, {"type": "kicked"})
     for conn in [c for c in room.connections.values() if c.viewer == body.seat]:
         conn.viewer, conn.actor = SPECTATOR, None
+    services.handoffs.drop_seat(room.id, room.seats[body.seat].token)  # -- bring my decks --
     services.hub.release_seat(room, body.seat)
     room.seats[body.seat].connections = 0
     await _lobby_changed(services, room)
@@ -1026,7 +1137,7 @@ async def start_game(
         if room.started:
             raise HTTPException(409, "The game has already started")
         blockers = room.start_blockers()
-        order = [pid for pid, seat in room.seats.items() if seat.token is not None]
+        order = room.claimed_seats()  # -- seating -- as the host arranged them
         if not order:
             raise HTTPException(409, "Nobody has taken a seat")
         if blockers and not body.force:
@@ -1035,7 +1146,7 @@ async def start_game(
         night = room.night
         pod_rule = lobby.turn_order == "pod" and body.first_player == "random"
         if pod_rule:
-            winner = next((pid for pid in order if night.last_winner_key and room.seats[pid].token == night.last_winner_key), None)
+            winner = room.last_winner_seat()
             order, night.order_source, night.rolls = night.plan(order, winner)
             night.previous_winner = winner
         else:
@@ -1057,9 +1168,9 @@ async def start_game(
         first: int | None = None
         if pod_rule:
             first = 0  # the seats are already in turn order
+        elif body.first_player == "random" and lobby.turn_order == "seats":
+            first = 0  # -- seating -- the seats as the host arranged them, seat 1 first
         elif body.first_player == "random":
-            import secrets
-
             first = secrets.randbelow(len(setups))
         elif isinstance(body.first_player, int):
             first = body.first_player if 0 <= body.first_player < len(setups) else 0
@@ -1073,6 +1184,7 @@ async def start_game(
             mulligan=lobby.policy(),
             automation=lobby.automation,
             automation_options=AUTOMATION_PRESETS[lobby.automation].model_copy(),
+            card_permissions=lobby.card_permissions,  # -- table permissions --
         )
         state = new_game(
             setups,
@@ -1096,6 +1208,7 @@ async def start_game(
         if blockers:
             session.notice("The host started without waiting for everyone.")
         services.hub.start(room, session, order)
+        services.handoffs.drop_room(room.id)  # -- bring my decks -- the chosen decks stay; the brought libraries go
         services.autosave(room)
     await services.hub.broadcast(room)
     return {"game": room.summary(), "seats": {pid: pid for pid in room.seats}}
@@ -1133,8 +1246,12 @@ async def record_result(game_id: str, body: ResultIn, request: Request, services
 
 
 def record_game_result(services: Services, room: Room, result_type: str, winners: list[str], *, notes: str = "",
-                       names: dict[str, str] | None = None, agreed: bool = False) -> dict[str, Any]:
-    """Record the current game's result in pod stats and open the post-game vote (GAME_NIGHT_FLOW.md §5-6)."""
+                       names: dict[str, str] | None = None, agreed: bool = False, rules: str | None = None) -> dict[str, Any]:
+    """Record the current game's result in pod stats and open the post-game vote (GAME_NIGHT_FLOW.md §5-6).
+
+    ``rules``: the rules engine decided it (why), and the players confirmed it (``app.multiplayer.night.follow_rules``)."""
+    if room.practice is not None:  # (elimination hub) a practice table is never a pod game
+        raise HTTPException(409, "A practice table has no result to record")
     state = room.session.state
     participants = []
     for pid in state.seat_order:
@@ -1145,12 +1262,17 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
                                         deck_name=p.deck_name, commanders=commanders))
     if agreed:
         notes = ("Agreed result: every remaining player agreed to end the game. " + notes).strip()
+    elif rules:
+        notes = (f"Rules result: {rules}. " + notes).strip()
+    # -- pod history -- the elimination order and a compact final board, public only (app.stats.recap)
+    named = {p.seat: p.name for p in participants}
+    eliminations = recap.elimination_order(state, named)
     try:
         result = services.stats.record(
             game_id=room.night.result_key(room.id), result_type=result_type,  # type: ignore[arg-type]
             participants=participants, winners=winners,
             table_name=state.name, format=state.format, started_at=state.created_at, turns=state.turn.number,
-            notes=notes)
+            notes=notes, eliminations=eliminations, final_board=recap.final_board(state, named, room.session.cards))
     except DuplicateResult as exc:
         raise HTTPException(409, str(exc)) from exc
     except ResultError as exc:
@@ -1159,21 +1281,29 @@ def record_game_result(services: Services, room: Room, result_type: str, winners
     night = room.night
     night.proposal = None
     night.result = {"result_type": result_type, "winners": list(winners), "winner_names": list(result["winners"]),
-                    "agreed": agreed}
+                    "agreed": agreed, "rules": rules is not None}
     night.votes = {}
     single = result_type == "single" and len(winners) == 1
     night.last_winner_key = (room.seats[winners[0]].token or winners[0]) if single and winners[0] in room.seats else None
     night.history.append({"number": night.number, "result_type": result_type, "winner_names": list(result["winners"]),
-                          "agreed": agreed, "order": [state.players[pid].name for pid in state.seat_order],
+                          "agreed": agreed, "rules": rules is not None, "order": [state.players[pid].name for pid in state.seat_order],
+                          # -- seating -- how the order was set, and the d20 rounds that set it (by name, like the order)
+                          "order_source": night.order_source,
+                          "rolls": [{state.players[pid].name: v for pid, v in r.items() if pid in state.players} for r in night.rolls],
                           "turns": state.turn.number, "minutes": max(0, round((time.time() - state.created_at) / 60)),
                           "commanders": {state.players[pid].name: sorted({c.name for c in state.cards.values()
                                                                            if c.commander_key and c.owner == pid})
-                                         for pid in state.seat_order}})
+                                         for pid in state.seat_order},
+                          # -- pod history -- who went out, in order; the final board stays in pod stats (``result_id``)
+                          "eliminations": recap.elimination_order(state, {}), "result_id": result["id"]})
     services.hub.persist(room)
+    services.autobackups.soon("after a recorded game")
     what = {"single": f"{', '.join(result['winners'])} won", "multiple": f"{' and '.join(result['winners'])} won",
             "draw": "a draw", "no_result": "no result (not counted)"}[result_type]
     if agreed:
         room.session.notice(f"Game over by agreement — {what}. This result was agreed by the players, not decided by the rules.")
+    elif rules is not None:
+        room.session.notice(f"Game over by the rules — {what}. The players confirmed it; result recorded.")
     else:
         room.session.notice(f"Game over — {what}. Result recorded.")
     return result
@@ -1234,6 +1364,46 @@ async def delete_snapshot(game_id: str, snapshot_id: str, request: Request, serv
     return Response(status_code=204)
 
 
+class LoadDeckIn(LobbyDeckIn):
+    """A deck to put in your seat mid-game (the table's importer): a pasted list, an Archidekt link, or (on the host
+    computer) a saved deck. ``seat``: whose seat, for the host computer at a local table (anyone else loads their own)."""
+
+    seat: str | None = Field(default=None, pattern=r"^p[1-6]$")
+    draw: int = Field(default=7, ge=0, le=20)
+
+
+@router.post("/games/{game_id}/load-deck")
+async def load_deck_at_table(game_id: str, body: LoadDeckIn, request: Request, services: ServicesDep,
+                             x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """Put a new deck in your seat without leaving the table (the scripted tables' importer). Your old cards leave."""
+    room = _room(services, game_id)
+    viewer, actor = _seated(room, request, x_seat_token)
+    local = is_local_request(request)
+    seat = body.seat if body.seat and room.mode != "lan" and local else actor
+    if seat is None or seat not in room.session.state.players:
+        raise HTTPException(403, "Spectators can't load a deck")
+    if room.mode == "lan" and seat != actor:
+        raise HTTPException(403, "You can only load a deck into your own seat")
+    try:
+        deck = await run_in_threadpool(_import_for_lobby, services, body, local)
+    except DeckTooLarge as exc:
+        raise HTTPException(413, str(exc)) from exc
+    # a pasted list with no name of its own is called after its commander(s), as the lobby shows it
+    name = deck.name if body.name or body.deck_id or deck.name not in ("Deck", "") else " & ".join(deck.commanders) or deck.name
+    action = A.LoadDeck(player=seat, deck_name=name[:120], deck_id=body.deck_id if body.deck_id and local else None, draw=body.draw,
+                        cards=[A.LoadDeckCard(section=c.section, quantity=c.quantity, name=c.name, printing_id=c.printing_id)
+                               for c in deck.cards if c.section in ("commander", "companion", "main", "sideboard", "attractions")])
+    async with room.lock:
+        _check_table_open(room)
+        try:
+            room.session.perform(seat, action, trusted=True)
+        except (ActionError, ValidationError) as exc:
+            raise HTTPException(409, str(exc)) from exc
+        services.hub.after_change(room)
+    await services.hub.broadcast(room)
+    return {"deck": deck.name, "cards": deck.card_count, "report": deck.report, "view": services.hub.view(room, viewer)}
+
+
 async def _restore(services: Services, room: Room, request: Request, token: str | None, state: dict[str, Any],
                    label: str) -> dict[str, Any]:
     viewer, actor = _seated(room, request, token)
@@ -1241,6 +1411,7 @@ async def _restore(services: Services, room: Room, request: Request, token: str 
         raise HTTPException(403, "Only the host can restore the table")
     actor = actor or room.session.state.seat_order[0]
     async with room.lock:
+        _check_table_open(room)
         try:
             room.session.perform(actor, A.RestoreState(label=label[:120], state=state), trusted=True)
         except (ActionError, ValidationError) as exc:
@@ -1515,13 +1686,16 @@ async def _handle_ws_message(services: Services, room: Room, conn: Connection, r
             else:
                 await send({"type": "ack", "id": msg.id, "status": "ALREADY_APPLIED"})
             return
+        if (closed := room.night.final_board(msg.action.get("type") if isinstance(msg, WsAction) else None)) is not None:
+            await send({"type": "error", "id": msg.id, "status": "REJECTED", "message": closed})
+            return
         try:
             if isinstance(msg, WsAction):
-                room.session.perform(actor, msg.action)
-            elif msg.type == "undo":
-                room.session.undo(actor)
+                room.session.perform(actor, msg.action, host=room.mode == "local" or conn.host)  # -- table permissions --
+            elif msg.type == "undo":  # -- undo policy (gap 3) -- (-- quick undo request -- ``others``: see _history_op)
+                room.session.undo(actor, host=room.mode == "local" or conn.host, others=undo_voters(room, actor))
             else:
-                room.session.redo(actor)
+                room.session.redo(actor, host=room.mode == "local" or conn.host)
         except ValidationError as exc:
             if cid is not None:
                 services.hub.remember_action(room, cid, f"REJECTED: {_validation_message(exc)}")

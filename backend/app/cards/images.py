@@ -15,6 +15,12 @@ DEFAULT_SIZE = "normal"
 MAX_FACES = 4
 
 
+# The standard Magic card back (Scryfall's ``card_back_id`` for every normal card). Fetched from Scryfall into the
+# local cache with the art, like card images; never shipped with Fyodor.
+CARD_BACK_ID = "0aeebaf5-8c7d-4636-9e82-8c27447861f7"
+CARD_BACK_URL = f"https://backs.scryfall.io/normal/{CARD_BACK_ID[0]}/{CARD_BACK_ID[1]}/{CARD_BACK_ID}.jpg"
+
+
 class InvalidImageRequest(ValueError):
     pass
 
@@ -42,6 +48,13 @@ class ImageStore:
                 if path.is_file():
                     return path
         return None
+
+    def card_back_path(self) -> Path:
+        return self.root / "backs" / f"{CARD_BACK_ID}-normal.jpg"
+
+    def card_back(self) -> Path | None:
+        path = self.card_back_path()
+        return path if path.is_file() else None
 
     def has(self, card_id: str, face: int = 0) -> bool:
         return self.find(card_id, face=face) is not None

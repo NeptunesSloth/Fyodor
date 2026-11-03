@@ -55,8 +55,82 @@ works offline, and every theme keeps cards, counters and prompts identical.
 The theme is a per-player preference (Settings → Table theme, or the arrows on the launcher);
 ambience volume is Settings → Sound → Ambient.
 
-Still to come: dice tray / cannon / Bag of Extras as physical objects, token piles as stacks,
-card flip and shuffle animations, hands in TABLETOP mode.
+### Dice
+
+Every public roll or coin flip (the server's `roll` / `coin` actions, rolled on the host and logged) is thrown as real
+dice, on the 3D table, over the 2D table and in the elimination hub's toy tray:
+
+- **The dice** (`table3d/diceGeometry.ts`): d4, d6 (pips), d8, d10 (0–9), d12, d20, a d100 as a tens die (00–90) plus
+  a d10, a d3, and a thick coin (struck relief, milled rim). Rounded edges (the solid shrunk by the bevel and grown
+  back by a sphere); standard numbering (opposite faces sum to n + 1, a d10's evens round one apex, a d4 numbered at
+  its points and read at the top); 6 and 9 underlined. Numbers and pips are engraved and inked: one normal-map + ink
+  atlas per kind, drawn once (`diceArt.ts`).
+- **The number is the server's**: the physics decides how a die tumbles and which face lands up; the die is drawn
+  turned by the rotation of its own symmetry group that carries the face showing the server's number onto that face
+  (`faceTurn`), so it tumbles exactly as simulated and lands right. Nothing is printed on whatever face comes up.
+- **The throw** (`diceThrow.ts`, cannon-es): from the roller's hand over the near edge of their mat, an arc and a
+  tumble onto its far half, knocking each other and glancing off the roller's piles; settles in about 1–2.5 s. A die
+  that ends cocked, sunk or off the mat is thrown again with the next seed, or eased flat. The simulation runs in the
+  roller's mat frame against an environment every screen builds alike, seeded by the log entry: every screen sees the
+  same throw, and the 2D table lands that throw on its own mat.
+- **Look** (`diceLook.ts`): the roller's seat colour, ivory or soot ink for contrast; Settings → Dice picks glossy
+  resin (default, clearcoat), marble swirl (solid noise in the die's space), enamelled metal or gemstone (a dark glossy
+  cut stone with an iridescent sheen; no refraction pass: dice stay out all turn, and refraction redraws the whole
+  table every frame). Real shadows from the table's key light plus a contact shadow.
+- **Readable**: at rest a chip over each die and a line by the roller ("Bob · 2d6: 3 + 6 = 9"), crisp DOM
+  (`diceHud.ts`); a d20's natural 20 (gold) or 1 (ash red) gets a ring and a tag; dice the rules ignored (706.6,
+  Barbarian Class) are greyed, their chips struck through, and left out of the total.
+- **They stay** until the roller rolls again, someone clicks them (or their line) away on their own screen, or the
+  turn ends: a roll usually decides something for the rest of the turn, and no longer, so dice don't pile up on cards.
+- **Sound** (`game/diceSound.ts`): each recorded impact plays a synthesised clack as the throw reaches it, by how hard
+  it hit (felt thud, resin knock, leather rail, deck, coin ring), on Settings → Sound → Dice; silent when muted.
+- **2D table** (`game/DiceLayer.tsx`): the same 3D dice in a transparent overlay (`table3d/diceOverlay.ts`, loaded
+  with the first roll, drawing only while dice move); without WebGL or on low graphics, drawn dice
+  (`game/DieGlyph.tsx`) tumble in and rest with their numbers up.
+- **Rolling** (`game/DicePanel.tsx`): the tool tray's Dice button or Shift+R opens a compact panel: d4–d20, d100, a
+  coin and a count, quick picks (1d20, 2d6, a coin), any XdY, and the table's last rolls with Again.
+- **Cost**: one draw call per die (plus its shadow and contact shadow), ~1–1.5k triangles each; geometry, atlases and
+  materials cached and freed with the last tray (the d20, d6 and coin built ahead while idle); a typical throw
+  simulates in 5–20 ms, a dozen dice (stepped at 120 Hz) in ~50–100 ms; reduced
+  motion shows the dice at rest, animation speed scales the throw. Tests and screenshots freeze a throw at a set time
+  (`window.__fyodorDice.freeze`): headless software WebGL draws about a frame a second.
+
+### Table toys: the dice cannon and the bags
+
+Built 2026-11-03 on both tables, after the TTS tables' Pirate's Cannon and infinite bags (`UI_REFERENCE_STUDY.md`, "Table
+of Doom"), keeping the reference study's rule: no novelty objects on the play space. The toys live off the mats and appear
+on demand; their outcomes are the server's (`app/game/handlers/toys.py`), recorded on the action, and the physics is cosmetic.
+
+- **The dice cannon** (roll panel → Dice cannon; server action `cannon`): "Who goes first" fires one d20 at each player
+  still in the game, each die in that player's seat colour landing in front of them; players tied for the highest are fired
+  at again, only them, until one is highest. The log says "Bob goes first (19) — Alice fired the dice cannon, a d20 at each
+  player: …" with every die; the winner's line on the table is tagged *Goes first*, a tied die *Tied: fired again*. "Fire
+  3d6" fires the dice picked in the panel (up to twelve) onto the firer's mat. The numbers and who each die is fired at are
+  in the log entry's roll (`cannon`); each screen plays it as volleys (`game/cannon.ts`): the same seeded physics in each
+  target's mat frame as the other dice (`diceThrow.ts` `cannonEnv` / `cannonLaunch`: the die comes over the aisle edge at the
+  top of its arc and drops onto the mat), with a flight from the muzzle put in front of it (`prefixTrack`; only this part
+  differs per screen). A re-fire lands beside the tied die, after it has landed. 3D: a small brass cannon on an oak
+  carriage (`table3d/cannon3d.ts`, lathe and boxes, ~2.2k triangles, five draw calls, built on first use) rolls in from the
+  table's edge to the end of the aisle, swings to aim, fires with a kick, a puff and a soft pop (Settings → Sound → Dice),
+  and rolls off again. 2D: a drawn cannon slides in at the table's right edge and puffs each volley while the overlay's dice
+  (or the drawn dice) land on each mat. Reduced motion: no cannon, no flight, the results at rest. Low graphics: no
+  cannon and no physics on the 3D table either (`placeRoll`: the dice lie flat with the server's numbers up).
+- **The Bag of Extras** (a seat button: a leather pouch past Mulligan on the 3D table, a pouch button in the 2D seat rail):
+  an infinite bag of your deck's tokens (its Tokens section, then the tokens its cards list), Treasure, Clue, Food, Blood,
+  1/1 Soldier, Spirit, Goblin, Saproling and Thopter (the server's own predefined token texts), counters for the selected
+  cards and for you (energy, experience) and dice. Pulling one sends the ordinary action (create a token, a counter, a
+  resource, a roll); nothing new reaches the rules engine, and a player who is out of the game has no bag.
+- **The draw bag** (roll panel → Draw bag; actions `bag_fill`, `bag_draw`, `bag_show`, `bag_return`, `bag_empty`): the table
+  fills it with chits (player names, numbers, two teams, or any words) and draws one at random, shown to all or kept by
+  the drawer (who can show it later). Like a library, no view holds its contents or their order, only how many
+  (`views.bag_view`); a hidden chit is in its drawer's view and log line only. A drawn chit pops up at the top of either
+  table. Saved with the game (`GameState.bag`, defaults for older saves).
+- Undoing a volley or a draw takes back a random outcome, so it asks the table (`undo_requests`: "random"; showing a hidden
+  chit counts as a reveal). A player who is out keeps the cannon and the draw bag (`out_of_game.OUT_MAY`), not the Bag of
+  Extras. No new keys: the roll panel (Shift+R) holds the cannon and the draw bag.
+
+Still to come: token piles as stacks, card flip and shuffle animations, hands in TABLETOP mode; the elimination hub's
+toy tray could fire its dice from the cannon too.
 
 ## 1. What exists (inspected 2026-09-28)
 
@@ -233,6 +307,7 @@ engine adds its own `GameState.rules` separately (see `ARCHITECTURE.md`).
 | `macro` action | Runs a validated list of primitive steps as **one** undoable history entry |
 | Macro library | Macros saved per card (by Oracle id, so every printing shares them) or in a personal library, in `app.sqlite` |
 | `GameSettings.undo_policy` | everyone / own actions / host only |
+| `GameSettings.card_permissions` | who may change a player's cards with the table tools: everyone / each player (and the host); `game/table_rights.py` |
 | `GameSettings.clear_mana_on_step` | Convenience, default off |
 
 View changes: views gain the new fields. Hidden cards still expose only public
@@ -270,13 +345,34 @@ so Undo takes back the whole play.
    picture-in-picture.
 6. When the 3D table covers every 2D feature, make it the default. The 2D view remains
    as a low-spec fallback.
-7. **Tabletop toys** (dice objects, tray, token bags, a hidden draw bag with the same
-   per-viewer privacy as libraries). Their results are resolved on the server and recorded,
-   and the visual physics is cosmetic.
+7. **Tabletop toys** ✅ (dice objects, the dice cannon, the Bag of Extras and a hidden draw bag with the same
+   per-viewer privacy as libraries: see "Dice" and "Table toys" above). Their results are resolved on the server and
+   recorded, and the visual physics is cosmetic.
 
 > The full redesign brief that pulls these plans together is `UI_REDESIGN_BRIEF.md`.
 
-## 7a. Planned: end-of-game scenes (late-stage, not started)
+## 7a. End-of-game scenes ✅ built
+
+**Status (2026-11-02): built on both tables.** The DOM spotlight (VICTORY / DEFEAT / DRAW, or "X wins" for a
+spectator), the eliminated player's own scene, the result panel with the rematch / lobby vote and View final board were
+already there (`game/GameNight.tsx`, `game/Eliminated.tsx`). Now the table itself reacts while the spotlight holds:
+
+- One cue for both tables, `game/motion/endScene.ts` (pure beats per kind, unit-tested): the result word comes from the
+  server's result (`resultWord`); the eliminated scene stays the eliminated player's own (`showEliminated`). It holds
+  1.6–2.6 s at 1× (never past 3 s at any speed), keys don't reach the table meanwhile, and any click or key ends it
+  (`onMotionSkip`); the table then settles back in 0.4–0.6 s (180 ms after a skip).
+- 3D (`table3d/endScene3d.ts`, stepped from `TableScene`'s frame loop, three draw calls at most, made once and pooled):
+  a full-screen multiply dims the room toward the kind's colour (deeper at the edges); one soft ring of light (gold,
+  silver) or shadow (dark red, near-black) spreads over the battlefields; a handful of motes rise (14 gold, 9 embers,
+  7 silver, none when eliminated); the camera eases along its line of sight (+3 % victory, −3 % defeat, −2 % eliminated,
+  ≈0 draw) over where the table's camera already is, so the camera goal and the player's control are never touched.
+- 2D (`game/motion/EndScene2D.tsx`): the same beats over the table with WAAPI (a tinted veil, the ring, the motes),
+  transform and opacity only, under the spotlight.
+- Sound: short synthesised stings (`victory`, `defeat`, `drawn`, `eliminated` in `game/sound.ts`, the UI channel) land
+  with the pulse; nothing depends on them.
+- Reduced motion (the setting, low graphics or the system's) keeps the dim and the text and drops the camera, the pulse
+  and the motes. Not built: a desaturating draw (the draw has a cool, silver cast instead) and the optional commander
+  emblem behind the word.
 
 Requested 2026-10-03 for the 3D redesign. It is late-stage presentation work, like the other polish
 items: build it after the rules work, as part of the 3D redesign. The feel to reference is Teamfight

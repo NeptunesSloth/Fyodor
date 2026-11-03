@@ -28,3 +28,24 @@ export const REACTIONS = ["👍", "😂", "😮", "🔥", "💀", "👏"] as con
 
 export const sendSignal = (gameId: string, kind: "nudge" | "react", emoji?: string, as?: string) =>
   api.post(`/games/${gameId}/night/signal`, { kind, emoji: emoji ?? null, as_player: as ?? null }, seat(gameId));
+
+export type PingTarget = { card: string } | { player: string; x: number; y: number };
+
+/** "Look here" for everyone at the table (a card everyone can see, or a spot on a battlefield). */
+export const sendPing = (gameId: string, target: PingTarget, as?: string) =>
+  api.post(`/games/${gameId}/night/signal`, { kind: "ping", ...target, as_player: as ?? null }, seat(gameId));
+
+// --------------------------------------------------------------------------- the elimination hub (docs/ELIMINATION_HUB.md)
+
+/** Your private practice table for this game (resumed if you have one). `viewer`: your seat at a hot-seat table. */
+export const openPractice = (gameId: string, opts: { viewer?: string; reset?: boolean } = {}) =>
+  api.post<{ game_id: string; token: string; resumed: boolean }>(`/games/${gameId}/practice`,
+    { viewer: opts.viewer ?? null, reset: !!opts.reset }, seat(gameId));
+
+export const closePractice = (gameId: string, viewer?: string) =>
+  api.del<void>(`/games/${gameId}/practice${viewer ? `?viewer=${encodeURIComponent(viewer)}` : ""}`, seat(gameId));
+
+/** A copy of the deck you brought: a new library deck on the host computer (`deck_id`), else the list for My decks. */
+export const deckLabCopy = (gameId: string, viewer?: string) =>
+  api.post<{ deck_id: string | null; name: string; text: string; commanders: string[] }>(`/games/${gameId}/deck-lab`,
+    { viewer: viewer ?? null }, seat(gameId));

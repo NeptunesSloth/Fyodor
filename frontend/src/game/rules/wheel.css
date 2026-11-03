@@ -1,0 +1,105 @@
+/* The public choice wheel (rules/ChoiceWheel.tsx): a small blackened-metal dial with brass-edged tokens, opened at the pointer.
+   Motion: one scale-and-fade in (popover duration, --ease-out, scaled by --anim-scale: none with reduced motion); the aimed token lifts. */
+
+.choice-wheel {
+  position: fixed; z-index: 60; width: 0; height: 0; color: var(--text); font-family: var(--font-ui);
+  animation: wheel-in var(--dur-popover, 180ms) var(--ease-out) both;
+}
+.choice-wheel:focus { outline: none; }
+@keyframes wheel-in { from { opacity: 0; transform: scale(0.94); } }
+
+/* The dial: the aiming area. A wedge of selection light shows the aimed direction; a brass hairline is the ring the tokens sit on. */
+.wheel-dial {
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); border-radius: 50%; cursor: pointer;
+  background: radial-gradient(circle at 50% 42%, rgba(26, 28, 30, 0.95), rgba(8, 9, 10, 0.97) 72%);
+  border: 1px solid var(--hud-edge);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 0 2px var(--frame-inner);
+}
+.wheel-dial::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; opacity: 0; transition: opacity var(--dur-hover, 140ms) var(--ease-out);
+  background: conic-gradient(from calc(var(--a, 0deg) - var(--seg, 30deg) / 2), rgba(127, 182, 255, 0.16) 0 var(--seg, 30deg), transparent 0);
+  mask-image: radial-gradient(circle, transparent 30%, #000 75%); /* a light from the aimed side, not a pie slice */
+}
+.wheel-dial.aimed::before { opacity: 1; }
+.wheel-dial::after {
+  content: ""; position: absolute; inset: var(--track, 34px); border-radius: 50%; pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--frame) 40%, transparent);
+}
+
+/* The hub: what is aimed at, in full (a long player name, the mana). Clicking it does nothing. */
+.wheel-hub {
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); border-radius: 50%; padding: 8px;
+  display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden;
+  background: radial-gradient(circle at 50% 35%, #1e2023, var(--steel-lo));
+  border: 1px solid var(--frame); box-shadow: inset 0 0 0 2px var(--frame-inner), 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+.wheel-hub-label { font: 600 12.5px/1.2 var(--font-ui); color: var(--text); overflow-wrap: anywhere; text-wrap: balance; }
+.wheel-hub-label .mana { font-size: 17px; }
+.wheel-hub-idle { font: 600 11px/1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+
+/* Tokens: pills with words (players, colors, options) and discs for numbers and mana. */
+.wheel-opt {
+  position: absolute; transform: translate(-50%, -50%); box-sizing: border-box;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 10px 0 12px;
+  border-radius: 999px; cursor: pointer; white-space: nowrap;
+  font: 600 13px/1 var(--font-ui); color: var(--text);
+  background: linear-gradient(180deg, #26231f, #131210); border: 1px solid var(--hud-edge);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 236, 200, 0.08);
+  transition: transform var(--dur-hover, 140ms) var(--ease-out), border-color var(--dur-hover, 140ms), box-shadow var(--dur-hover, 140ms);
+}
+.wheel-opt.disc { padding: 0; }
+.wheel-opt.player { border-color: color-mix(in srgb, var(--seat, var(--frame)) 55%, var(--hud-edge)); }
+.wheel-opt.on {
+  transform: translate(-50%, -50%) scale(1.07); border-color: var(--select);
+  box-shadow: 0 0 0 1px var(--select), 0 0 16px var(--select-glow), 0 6px 14px rgba(0, 0, 0, 0.6);
+}
+.wheel-opt.sent { color: var(--accent-ink); background: var(--accent-grad); border-color: var(--frame-hi); }
+.wheel-opt.sent kbd { color: var(--accent-ink); border-color: rgba(35, 22, 5, 0.4); background: transparent; }
+.wheel-opt:disabled { cursor: default; opacity: 0.5; }
+.wheel-opt[aria-disabled="true"] { cursor: default; }
+.wheel-opt:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+.wheel-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.wheel-opt kbd {
+  flex: none; min-width: 16px; padding: 2px 3px; box-sizing: border-box; text-align: center;
+  font: 600 10.5px/1 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-faint);
+  background: rgba(0, 0, 0, 0.4); border: 1px solid var(--line-2); border-radius: 3px;
+}
+.wheel-opt.disc kbd { position: absolute; top: -5px; right: -5px; background: var(--steel-lo); }
+.wheel-chip {
+  width: 22px; height: 22px; flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font: 700 11px/1 var(--font-display); font-style: normal; color: var(--text);
+  background: var(--steel-lo); border: 2px solid var(--seat, var(--frame));
+}
+.wheel-pip { display: inline-flex; font-size: 22px; line-height: 1; }
+.wheel-pip .mana { margin: 0; }
+.wheel-pips { display: inline-flex; font-size: 24px; line-height: 1; }
+.wheel-num { font: 700 21px/1 var(--font-display); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+
+/* The prompt plaque above the dial, with the way back to the list. */
+.wheel-caption {
+  position: absolute; left: 0; transform: translate(-50%, -100%); box-sizing: border-box;
+  display: flex; align-items: center; gap: 10px; width: max-content; max-width: 420px; padding: 6px 6px 6px 12px;
+  background: var(--hud-surface); border: 1px solid var(--hud-edge); border-radius: 3px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+.wheel-prompt {
+  min-width: 0; font-size: 13px; font-weight: 600; line-height: 1.3;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
+.wheel-list {
+  flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 4px 6px; cursor: pointer;
+  font: 600 11.5px/1 var(--font-ui); color: var(--text-dim); background: none; border: 0; border-radius: 3px;
+}
+.wheel-list:hover { color: var(--text); }
+.wheel-list:focus-visible { outline: 2px solid var(--select); outline-offset: 1px; }
+.wheel-list kbd {
+  font: 600 10px/1 var(--font-ui); padding: 2px 4px; color: var(--text-faint);
+  background: rgba(0, 0, 0, 0.4); border: 1px solid var(--line-2); border-radius: 3px;
+}
+
+body.reduced-motion .choice-wheel { animation: none; }
+body.reduced-motion .wheel-opt.on { transform: translate(-50%, -50%); }
+@media (prefers-reduced-motion: reduce) {
+  .choice-wheel { animation: none; }
+  .wheel-opt, .wheel-dial::before { transition: none; }
+  .wheel-opt.on { transform: translate(-50%, -50%); }
+}

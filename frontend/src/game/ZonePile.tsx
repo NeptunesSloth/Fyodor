@@ -1,6 +1,7 @@
+import { Icon } from "../components/Icon";
 import { sleeveStyle, useSleeve } from "./appearance";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
-import { askNumber } from "../components/Prompt";
+import { askNumber, askText } from "../components/Prompt";
 import { useCardView, useGame, useLibrary, useZoneIds } from "../state/gameStore";
 import { splitZone, type ZoneName } from "../types/game";
 import { draw, moveCards, send } from "./actions";
@@ -8,6 +9,10 @@ import { cardMenu } from "./cardMenu";
 import { beginPointerDrag, useDrag, type DropResult } from "./dnd";
 import { dropAsIntent, send as sendIntent, useXPrompt } from "./rules/intents";
 import { GameCardFace } from "./GameCardFace";
+import { castableIn } from "./exileCastables";
+import "./exile.css";
+import { commanderDealt, dealtText } from "./commanderDamage";
+import { isOut } from "./outOfGame";
 
 const LABEL: Partial<Record<ZoneName, string>> = {
   library: "Library",
@@ -55,6 +60,9 @@ export function libraryTopActions(player: string, me: string): MenuItem[] {
   return items.length ? [...items, "separator"] : [];
 }
 
+const REVEAL_TYPES = ["Creature", "Land", "Basic Land", "Artifact", "Enchantment", "Instant", "Sorcery", "Planeswalker"];
+const BASICS = ["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"];
+
 export function libraryMenu(player: string, me: string, name: string): MenuItem[] {
   const mine = player === me;
   const items: MenuItem[] = [];
@@ -80,6 +88,38 @@ export function libraryMenu(player: string, me: string, name: string): MenuItem[
     },
   });
   items.push({ label: "Reveal the top card", onClick: () => void send({ type: "reveal_top", player, count: 1 }) });
+  // the scripted tables' library chores (the server reads the card types; nobody sees the library)
+  const revealUntil = (card_type: string) => void send({ type: "reveal_until", player, card_type });
+  items.push({
+    label: "Reveal until…",
+    submenu: [
+      ...REVEAL_TYPES.map((t) => ({ label: `a ${t.toLowerCase()}`, onClick: () => revealUntil(t) })),
+      "separator" as const,
+      { label: "Another type…", onClick: async () => { const t = await askText("Reveal until a card of which type?", "Elf", { label: "Card type or subtype" }); if (t?.trim()) revealUntil(t.trim()); } },
+    ],
+  });
+  if (mine) {
+    items.push({
+      label: "Cascade…",
+      hint: "manual",
+      onClick: async () => {
+        const n = await askNumber("Cascade: exile until a nonland card with mana value less than…", 4, { min: 1, max: 30, label: "Mana value less than" });
+        if (n) void send({ type: "cascade", player, below: n });
+      },
+    });
+    const fetch = (name: string, to: "hand" | "battlefield") => void send({ type: "fetch_card", player, name, to });
+    const named = (to: "hand" | "battlefield") => async () => { const n = await askText("Which card? (by its exact name)", "", { label: "Card name" }); if (n?.trim()) fetch(n.trim(), to); };
+    items.push({
+      label: "Get a basic land",
+      submenu: [
+        ...BASICS.map((b) => ({ label: `${b} into your hand`, onClick: () => fetch(b, "hand") })),
+        "separator" as const,
+        ...BASICS.map((b) => ({ label: `${b} onto the battlefield`, onClick: () => fetch(b, "battlefield") })),
+        "separator" as const,
+        { label: "Another card by name…", onClick: named("hand") },
+      ],
+    });
+  }
   items.push({
     label: "Put the top card onto the battlefield face down",
     submenu: [
@@ -119,13 +159,14 @@ export function LibraryPile({ player, me, name }: { player: string; me: string; 
   const over = useDrag((s) => s.drag?.overZone === key);
   const searching = useGame((s) => s.view?.searches);
   const beingSearched = searching ? Object.entries(searching).filter(([, z]) => z === key).map(([p]) => p) : [];
+  const out = useGame((s) => isOut(s.view, me)); // -- out of the game -- no "double-click to draw" for a player who left
   const count = lib?.count ?? 0;
   return (
     <div
       className={`pile library ${over ? "drop-over" : ""}`}
       data-drop={key}
       data-library=""
-      title="Click for library actions · double-click to draw"
+      title={out ? `${player === me ? "Your" : `${name}'s`} library` : "Click for library actions · double-click to draw"}
       onClick={(e) => openMenu(e, libraryMenu(player, me, name), `${player === me ? "Your" : `${name}'s`} library (${count})`)}
       onDoubleClick={(e) => {
         e.stopPropagation();
@@ -176,11 +217,13 @@ export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
   const top = useCardView(topId ?? "");
   const over = useDrag((s) => s.drag?.overZone === key);
   const label = LABEL[zone] ?? zone;
+  const castable = useGame((s) => (zone === "exile" ? castableIn(s.view, key) : 0));
   const open = () => useGame.getState().openBrowser({ zone: key, title: label });
   return (
     <div
       className={`pile ${zone} ${over ? "drop-over" : ""}`}
       data-drop={key}
+      title={label}
       onClick={open}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -196,31 +239,65 @@ export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
       <div className="pile-card">{top ? <GameCardFace card={top} /> : <div className="pile-empty" />}</div>
       <span className="pile-count">{ids.length}</span>
       <span className="pile-label">{label}</span>
+      {castable > 0 && <span className="pile-castable" data-testid="pile-castable" title="Cards here you may cast or play now">{castable} castable</span>}
     </div>
   );
 }
 
-/** Command zone: commanders shown face up with their tax; draggable to the stack/battlefield. */
+/**
+ * Command zone: a slot for each commander (a partner or background gets its own, as on the Oops mat), the commander
+ * face up in it while it's here, and its tax counter under it (click +2, right-click −2). Anything else in the zone
+ * (emblems …) comes after the slots.
+ */
 export function CommandZone({ player, me }: { player: string; me: string }) {
   const key = `${player}:command`;
   const ids = useZoneIds(key) ?? [];
   const over = useDrag((s) => s.drag?.overZone === key);
+  const commanders = useGame((s) => s.view?.players.find((p) => p.id === player)?.commanders);
+  const players = useGame((s) => s.view?.players);
+  const list = commanders ?? [];
+  const others = ids.filter((id) => !list.some((c) => c.instance_id === id));
   return (
-    <div className={`command-zone ${over ? "drop-over" : ""}`} data-drop={key}>
-      {ids.length === 0 && <span className="pile-label">Command</span>}
-      {ids.map((id) => (
+    <div className={`command-zone ${over ? "drop-over" : ""} ${list.length > 1 ? "partners" : ""}`} data-drop={key}>
+      {ids.length === 0 && list.length === 0 && <span className="pile-label">Command</span>}
+      {list.map((c, i) => (
+        <div key={c.key} className="command-slot">
+          {c.instance_id && ids.includes(c.instance_id) ? <CommandCard id={c.instance_id} me={me} player={player} />
+            : <div className="command-empty" title={`${c.name} isn't in the command zone${dealtLine(players, c.key)}`}>
+              <Icon name="crown" size={15} /><span className="command-empty-label">{i === 0 ? "Commander" : "Partner"}</span>
+            </div>}
+          <TaxButton commander={c.key} name={c.name} tax={c.tax} />
+        </div>
+      ))}
+      {others.map((id) => (
         <CommandCard key={id} id={id} me={me} player={player} />
       ))}
     </div>
   );
 }
 
+/** The commander-damage line for an empty command slot's tooltip (hovering the card itself shows it in the inspector). */
+function dealtLine(players: Parameters<typeof commanderDealt>[0] | undefined, key: string): string {
+  const text = players ? dealtText(commanderDealt(players, key)) : "";
+  return text ? `\nCommander damage dealt: ${text}` : "";
+}
+
+/** A commander's tax, kept by hand: click +2 (one more cast), right-click −2. */
+function TaxButton({ commander, name, tax }: { commander: string; name: string; tax: number }) {
+  return (
+    <button className={`tax-btn ${tax ? "" : "zero"}`} data-testid={`tax-${commander}`}
+      title={`Commander tax for ${name}: ${tax} (click +2, right-click −2)`} aria-label={`Commander tax for ${name}: ${tax}. Click to add 2, right-click to remove 2`}
+      onClick={(e) => { e.stopPropagation(); void send({ type: "commander_tax", commander, delta: 2 }); }}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); void send({ type: "commander_tax", commander, delta: -2 }); }}
+      onPointerDown={(e) => e.stopPropagation()}>
+      <span className="tax-label">Tax</span> {tax}
+    </button>
+  );
+}
+
 function CommandCard({ id, me, player }: { id: string; me: string; player: string }) {
   const card = useCardView(id);
-  const tax = useGame((s) => {
-    const key = card && !card.hidden ? card.commander_key : undefined;
-    return key ? s.view?.players.find((p) => p.id === player)?.commander_tax[key] ?? 0 : 0;
-  });
+  void player;
   if (!card) return null;
   return (
     <div
@@ -243,7 +320,6 @@ function CommandCard({ id, me, player }: { id: string; me: string; player: strin
       title="Double-click to cast (adds commander tax)"
     >
       <GameCardFace card={card} />
-      {tax > 0 && <span className="tax-badge" title="Commander tax">+{tax}</span>}
     </div>
   );
 }

@@ -3,6 +3,9 @@
 * **Propose / answer:** any remaining player proposes ending the game with a result; it is recorded
   only when every remaining player agrees, and it is marked as an agreed result, never as one the
   rules engine decided. One decline and the game simply continues.
+* **Rules result:** when the rules engine ends the game (a winner, 104.2, or a draw, 104.4) the server opens the same
+  proposal with the engine's result (``app.multiplayer.night.follow_rules``); the players who were in the game when it ended
+  each confirm it with one click, and it is recorded as the engine's result. Undoing the deciding action withdraws it.
 * **Vote:** after a recorded result each seated player picks Rematch (same decks) or Lobby. Everyone
   rematch: a brand-new game at the same table. Anyone lobby: the pod goes back to the lobby with
   every deck still selected. The host can settle a vote that hangs (someone left or disconnected).
@@ -22,6 +25,7 @@ from app.game.factory import PlayerSetup, new_game
 from app.game.rules_state import start_rules
 from app.game.session import GameSession
 from app.game.state import GameState, PlayerState
+from app.game.visibility import publicly_visible
 from app.multiplayer.hub import Room
 from app.multiplayer.lobby import LobbySeatInfo, LobbySettings, SubmittedDeck
 from app.multiplayer.night import Night, Proposal
@@ -99,15 +103,23 @@ async def answer_proposal(game_id: str, body: AnswerIn, request: Request, servic
     async with room.lock:
         actor = _actor(room, request, x_seat_token, body.as_player)
         night = room.night
-        if night.proposal is None:
+        proposal = night.proposal
+        if proposal is None:
             raise HTTPException(409, "Nobody has proposed ending the game")
-        if actor not in remaining(room.session.state):
+        if proposal.rules is not None:  # -- rules result -- the players in the game when it ended confirm it
+            if room.mode != "local" and actor not in proposal.voters:
+                raise HTTPException(403, "Only the players still in the game when it ended confirm this")
+        elif actor not in remaining(room.session.state):
             raise HTTPException(403, "Only players still in the game answer this")
         if not body.agree:
             night.proposal = None
-            room.session.notice(f"{room.seat_name(actor)} declined. The game continues.")
+            if proposal.rules is not None:
+                room.session.notice(f"{room.seat_name(actor)} didn't confirm the rules result. Undo to take back the last action, "
+                                    "or record the result by hand with End game.")
+            else:
+                room.session.notice(f"{room.seat_name(actor)} declined. The game continues.")
         else:
-            night.proposal.agreed.add(actor)
+            proposal.agreed.add(actor)
             _settle_proposal(services, room)
     await services.hub.broadcast(room)
     return room.night.public(room.seat_name)
@@ -121,7 +133,15 @@ def _describe(room: Room, p: Proposal) -> str:
 
 def _settle_proposal(services: Services, room: Room) -> None:
     p = room.night.proposal
-    if p is not None and set(remaining(room.session.state)) <= p.agreed:
+    if p is not None and p.rules is not None:
+        # -- rules result -- recorded as the engine's result once every player in the game at the end confirmed it (a seat
+        # nobody has taken can't answer, so it isn't waited for); one person runs a hot-seat table: their click settles it
+        state = room.session.state
+        needed = {pid for pid in p.voters if pid in state.players and not state.players[pid].left
+                  and (room.mode == "local" or (pid in room.seats and room.seats[pid].token))}
+        if room.mode == "local" or needed <= p.agreed:
+            record_game_result(services, room, p.result_type, p.winners, rules=p.rules)
+    elif p is not None and set(remaining(room.session.state)) <= p.agreed:
         record_game_result(services, room, p.result_type, p.winners, agreed=True)
 
 
@@ -210,7 +230,9 @@ def to_lobby(services: Services, room: Room) -> None:
         infos[pid] = info
     if room.lobby is None:
         room.lobby = LobbySettings(name=old.name, format=old.format, seats=len(old.seat_order))
-    room.lobby = room.lobby.model_copy(update={"seats": max(room.lobby.seats, len(room.seats))})
+    # (-- table permissions -- the host's latest choice, made in the lobby or at the table, holds for the next game too)
+    room.lobby = room.lobby.model_copy(update={"seats": max(room.lobby.seats, len(room.seats)),
+                                               "card_permissions": old.settings.card_permissions})
     room.session.history.listener = None
     if services.hub.journal is not None:
         services.hub.journal.forget(room.id)
@@ -223,6 +245,13 @@ def to_lobby(services: Services, room: Room) -> None:
     night.proposal, night.result, night.votes = None, None, {}
     night.setups, night.infos = {}, {}
     room.result_id = None
+    # (spectator activities) a deck queued while out of that game becomes the proposed deck (not ready: they confirm or change it)
+    for pid, info in infos.items():
+        token = room.seats[pid].token if pid in room.seats else None
+        queued = night.queued.pop(token, None) if token else None
+        if queued is not None:
+            queued.collection = list(info.collection)
+            info.deck = info.queued = queued
 
 
 @router.get("/games/{game_id}/night/deck")
@@ -240,17 +269,23 @@ async def own_deck(game_id: str, request: Request, services: ServicesDep, viewer
         for c in setup.cards if c.section in ("main", "commander")]}
 
 
-# --------------------------------------------------------------------------- nudges and reactions
+# --------------------------------------------------------------------------- nudges, reactions and pings
 
 REACTIONS = ("👍", "😂", "😮", "🔥", "💀", "👏")
 NUDGE_COOLDOWN = 30.0  # seconds between nudges from one player, and to one player
 REACT_COOLDOWN = 3.0
+PING_COOLDOWN = 0.6  # a ping is a quick "this one!", not a stream
 
 
 class SignalIn(BaseModel):
-    kind: Literal["nudge", "react"]
+    kind: Literal["nudge", "react", "ping"]
     emoji: str | None = Field(default=None, max_length=8)
     as_player: str | None = Field(default=None, max_length=8)
+    # a ping points at a card everyone can see, or at a spot on someone's battlefield (virtual units, as card x/y)
+    card: str | None = Field(default=None, max_length=80)
+    player: str | None = Field(default=None, max_length=8)
+    x: float | None = Field(default=None, ge=-200, le=1200)
+    y: float | None = Field(default=None, ge=-200, le=800)
 
 
 def waiting_on(state: GameState) -> str:
@@ -266,8 +301,9 @@ def waiting_on(state: GameState) -> str:
 @router.post("/games/{game_id}/night/signal")
 async def signal(game_id: str, body: SignalIn, request: Request, services: ServicesDep,
                  x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
-    """A soft social signal (TABLETOP_QOL_MILESTONE #13-14). Nothing here touches the game: it is
-    never logged, saved or replayed, carries no game information and is rate limited."""
+    """A soft social signal (TABLETOP_QOL_MILESTONE #13-14): a nudge, a reaction, or a ping ("look here", as in Tabletop
+    Simulator). Nothing here touches the game: it is never logged, saved or replayed, carries no hidden information
+    and is rate limited."""
     room = _room(services, game_id)
     viewer, actor = authorize(room, local=is_local_request(request), token=x_seat_token, viewer=None, as_player=body.as_player)
     state = room.session.state
@@ -286,9 +322,30 @@ async def signal(game_id: str, body: SignalIn, request: Request, services: Servi
         await services.hub.send_to(room, target, {"type": "signal", "kind": "nudge", "from": actor,
                                                  "from_name": room.seat_name(actor), "to": target})
         return {"to": target}
+    if body.kind == "ping":
+        if actor is None:
+            raise HTTPException(403, "Spectators can't ping")
+        if now - last.get(f"ping:{actor}", -1e9) < PING_COOLDOWN:
+            raise HTTPException(429, "One ping at a time")
+        ping: dict[str, Any] = {"type": "signal", "kind": "ping", "from": actor, "from_name": room.seat_name(actor)}
+        if body.card is not None:
+            card = state.cards.get(body.card)
+            # only a card every seat and spectator can see: pointing at a hidden one would hand out its id
+            if card is None or not publicly_visible(state, card):
+                raise HTTPException(404, "Nothing everyone can see there")
+            ping["card"] = card.id
+        elif body.player in state.players and body.x is not None and body.y is not None:
+            ping.update(player=body.player, x=round(body.x, 1), y=round(body.y, 1))
+        else:
+            raise HTTPException(422, "Point at a card or at a spot on a battlefield")
+        last[f"ping:{actor}"] = now
+        await _to_everyone(services, room, ping)
+        return {"sent": True}
     # reactions: from spectators and players already out of the game
     if body.emoji not in REACTIONS:
         raise HTTPException(422, "Unknown reaction")
+    if not room.night.reactions:  # (spectator activities) the host's table-wide switch
+        raise HTTPException(409, "The host has turned reactions off at this table")
     if actor is not None and actor in remaining(state):
         raise HTTPException(403, "Reactions are for players who are out and spectators")
     if now - last.get(f"react:{who}", -1e9) < REACT_COOLDOWN:
@@ -296,9 +353,35 @@ async def signal(game_id: str, body: SignalIn, request: Request, services: Servi
     last[f"react:{who}"] = now
     message: dict[str, Any] = {"type": "signal", "kind": "react", "from": actor, "from_name": room.seat_name(actor) if actor else "A spectator",
                "emoji": body.emoji}
+    await _to_everyone(services, room, message)
+    return {"sent": True}
+
+
+class ReactionsIn(BaseModel):
+    on: bool
+
+
+@router.post("/games/{game_id}/night/reactions")
+async def set_reactions(game_id: str, body: ReactionsIn, request: Request, services: ServicesDep,
+                        x_seat_token: Annotated[str | None, Header()] = None) -> dict[str, Any]:
+    """(spectator activities) The host turns reactions on or off for the whole table (each player can still mute them for
+    themselves). A table setting for the session: it is not part of the game, its log or its history."""
+    room = _room(services, game_id)
+    if room.practice is not None:
+        raise HTTPException(409, "A practice table has no reactions")
+    if room.mode == "lan" and not room.is_host(x_seat_token):
+        raise HTTPException(403, "Only the host can change that")
+    if room.mode == "local" and not is_local_request(request):
+        raise HTTPException(403, "This is a hot-seat game on the host computer")
+    room.night.reactions = body.on
+    services.hub.persist(room)
+    await services.hub.broadcast(room)
+    return {"reactions": room.night.reactions}
+
+
+async def _to_everyone(services: Services, room: Room, message: dict[str, Any]) -> None:
     for conn in list(room.connections.values()):
         try:
             await conn.send(message)
         except Exception:  # noqa: BLE001 - best effort, like every push
             services.hub.disconnect(room, conn)
-    return {"sent": True}

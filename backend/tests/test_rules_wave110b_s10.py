@@ -83,7 +83,7 @@ def test_archfiend_of_spite_makes_the_source_controller_lose_life_or_sacrifice_t
     mana(s, "p2", R=1)
     s.state.rules.priority = "p2"
     act(s, "p2", type="cast_spell", card_id=to_hand(s, "Lightning Bolt", "p2").id, targets=[archfiend.id])
-    drive(s, lambda d: [next((o.id for o in d.options if o.label.startswith("Pay") == pays), d.options[0].id)])
+    drive(s, lambda d: [next((o.id for o in d.options if o.label.startswith("Don't") != pays), d.options[0].id)])
     assert s.state.players["p2"].life == (40 if pays else 37)
     assert [s.state.cards[c.id].zone for c in kept] == (["p2:graveyard"] * 3 if pays else ["p2:battlefield"] * 3)
     check(s)

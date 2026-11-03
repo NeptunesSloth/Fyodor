@@ -168,6 +168,7 @@ _DESIGNATION_EVENTS = [
     (re.compile(r"a spell (?P<p>you)'ve cast is countered"), "spell_countered110b"),  # -- spell countered (wave 110B) -- 701.6a (effects.counter_object)
     (re.compile(r"a spell or ability (?P<p>you) control counters a spell"), "counters_spell"),  # -- counter events (wave 19C) -- 701.6a
     (re.compile(r"(?P<p>you|an opponent|a player) commits? a crime"), "commit_crime"),  # -- crimes (wave 6D) -- 700.13
+    (re.compile(r"(?P<p>you|an opponent|a player) faces? a dilemma"), "face_dilemma"),  # -- Star Trek mechanics (wave 112T) -- release notes (app/rules/dilemma.py)
     (re.compile(r"(?P<p>a player) chooses? one or more targets"), "chose_targets110h"),  # -- targets chosen (wave 110H) -- 601.2c / 603.3d (triggers.targeted)
     (re.compile(r"day becomes night or night becomes day"), "day_night"),
     (re.compile(r"players finish voting"), "voted"),  # -- voting (wave 48D) -- 701.38 (triggers.voted)
@@ -369,6 +370,12 @@ def _parse(c: str) -> Condition | None:
             return None
         return {"event": "either", "subject": "player", "player": "you", "conds": [cast, {"event": "activate", "subject": "player", "player": "you", "nonmana": True,
                                                                                          "loyalty": False, "gy110d": True}]}
+    # -- mana and sources (wave 111R2) -- Kai Winn: "an opponent casts a spell with the chosen name or activates an ability of a source with the
+    # chosen name" (603.2c: each half its own event; 109.2c: a source in any zone; 605.1a: mana abilities included)
+    from app.rules import wave111r2_mana
+
+    if (either111r2 := wave111r2_mana.cast_or_activate(c, _parse)) is not None:
+        return either111r2
     # -- either with a batch half (wave 49D) -- "Whenever an opponent discards a card or mills one or more cards" (Lo and Li, Royal Advisors): one player's two
     # actions, each its own event (603.2c); the "one or more" half is once per batch of its own (triggers.py reads the half that matched)
     m = re.fullmatch(r"(?P<p>you|an opponent|a player) (?P<a>[a-z]+ an? [^,]+?) or (?P<b>[a-z]+ one or more [^,]+)", c)
@@ -1046,7 +1053,8 @@ def _combat(c: str) -> Condition | None:
     # "~ attacks while you control a creature with power 4 or greater" (read as it triggers)
     # (-- trigger other (wave 25B) -- also "while there are four or more card types among cards in your graveyard" (delirium),
     # "while you have no cards in hand"; and "Whenever you attack while you control …": the player's attack, 508.3c)
-    m = re.fullmatch(r"you attack while (?P<w>you control .+|there (?:is|are) .+|you have .+)", c)
+    # (-- trigger other (wave 111G) -- "while creatures you control have total power 8 or greater": every creature you control as you attack)
+    m = re.fullmatch(r"you attack while (?P<w>you control .+|there (?:is|are) .+|you have .+|creatures you control have total power \w+ or greater)", c)
     if m:
         from app.rules import conditions
 
@@ -1354,7 +1362,11 @@ def _activate(c: str) -> Condition | None:
     m = _ACTIVATE.fullmatch(c)
     if m is None:
         return None
-    sel = selectors.parse(re.sub(r"^an? ", "", m["o"])) if m["o"] else None
+    # -- mana and sources (wave 111R2) -- 109.2c: "an ability of a source with the chosen name", in any zone
+    from app.rules import wave111r2_mana
+
+    source111r2 = wave111r2_mana.source_selector(m["o"]) if m["o"] and not m["own"] else None
+    sel = source111r2 or (selectors.parse(re.sub(r"^an? ", "", m["o"])) if m["o"] else None)
     if m["o"] and (sel is None or sel.player is not None or sel.card or (m["own"] and (sel.controller or sel.owner))):
         raise _Refuse
     tg = _ability_targets(m["tg"]) if m["tg"] else None

@@ -776,6 +776,11 @@ def create_token_batch(plan: Plan, requests: list[tuple[str, dict[str, Any], int
                 ev['attachment_ref'] = attachment_refs[request_index]
             if creation_atoms is not None and request_index < len(creation_atoms):
                 ev["creation_atom"] = creation_atoms[request_index]
+            from app.rules import (
+                wave111r3_enter,  # -- enters attacking (wave 111R3) -- an instruction that makes the tokens attacking itself
+            )
+
+            wave111r3_enter.flag_tokens(plan, ev, ctx, receipt_bind)
             out: list[Event] = []
             if grouped_mode:
                 finals.append((ev, [ev]))
@@ -892,6 +897,11 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
         picks = [p for p in picks if not p.get(token_copy_entry.SKIP)]
         left = len(picks)
     individual = bool(aura_picks) or any(p.get(token_copy_entry.COPY) for p in picks)
+    from app.rules import (
+        wave111r3_enter,  # -- enters attacking (wave 111R3) -- tapped (614.1d), attacking as each enters (508.4)
+    )
+
+    attacking111r3: set[str] = set()
     made: list[str] = []
     receipts: dict[str, dict[str, Any]] = {}
     diverted_ids: set[str] = set()
@@ -906,7 +916,8 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
         incoming = token_copy_entry.probe(plan, pid, effective)
         prospective = incoming.token.model_dump(mode='json') if incoming.token is not None else effective
         explicit_tapped = bool(ev.get('effect_tapped', ev.get('tapped'))) or bool(json.loads(pick.get(token_copy_entry.ENTRY, '{}')).get('tapped'))
-        enters_tapped = (explicit_tapped or replacements.token_enters_tapped(plan, pid, prospective)) and not replacements.token_enters_untapped(plan, pid, prospective)
+        kira111r3 = wave111r3_enter.WHAT in pick or wave111r3_enter.token_applies(plan, pid, effective, ev)  # (judged before this batch enters)
+        enters_tapped = (explicit_tapped or kira111r3 or replacements.token_enters_tapped(plan, pid, prospective)) and not replacements.token_enters_untapped(plan, pid, prospective)
         created = plan.do({'type': 'create_token', 'player': pid, 'count': k, 'stacked': False, 'tapped': enters_tapped,
                            'source_id': ev.get('source') if ev.get('source') in plan.state.cards else None,
                            'source_object': (ev.get('source_object') or plan.oid(ev['source'])) if ev.get('source') in plan.state.cards else None,  # -- cards (wave 110H) -- 400.7
@@ -914,6 +925,8 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
         new_ids = getattr(created, 'r', None)
         ids = list(new_ids.ids) if new_ids is not None else []
         made += ids
+        if kira111r3:
+            attacking111r3.update(ids)
         for tid in ids:
             receipts[tid] = effective
             if diverted:
@@ -954,8 +967,10 @@ def _make_tokens(plan: Plan, ev: Event, picks: list[dict[str, str]]) -> list[str
                 continue
             value = 0 if counter['n'] == 'X' else int(counter['n'])
             extra[counter['counter']] = extra.get(counter['counter'], 0) + value
-        replacements.after_entry(plan, tid, pid, newcomers=made, choices=({key: value for key, value in picks[i].items() if key not in (token_copy_entry.COPY, token_copy_entry.ENTRY)} if i < len(picks) else None) or None,
-                                 extra_counters=extra or None)
+        entry_choices = ({key: value for key, value in picks[i].items() if key not in (token_copy_entry.COPY, token_copy_entry.ENTRY)} if i < len(picks) else None) or None
+        if tid in attacking111r3 and wave111r3_enter.WHAT not in (entry_choices or {}):  # (-- wave 111R3 -- a creation that couldn't ask first: asked right after)
+            entry_choices = {**(entry_choices or {}), wave111r3_enter.WHAT: wave111r3_enter.PENDING}
+        replacements.after_entry(plan, tid, pid, newcomers=made, choices=entry_choices, extra_counters=extra or None)
     from app.rules import wave110e_once  # -- one-shot entry counters (wave 110E) --
 
     wave110e_once.spend(plan, made)
@@ -1113,6 +1128,12 @@ def _entering_times(plan: Plan, c: Candidate, ev: Event) -> int:
         fresh = {ev["card"], *(ev.get("newcomers") or ())}
         return sum(1 for cid in selectors.candidates(plan, selectors.from_key(times["already"]), c.controller, c.source_card)
                    if cid not in fresh)
+    if "already_distinct" in times:  # -- enters with counters (wave 111D) -- the creature types (205.3m) among those already there, not the ones entering now (614.12)
+        from app.rules.creature_types import CREATURE_TYPES
+
+        fresh = {ev["card"], *(ev.get("newcomers") or ())}
+        return len({t for cid in selectors.candidates(plan, selectors.from_key(times["already_distinct"]), c.controller, c.source_card)
+                    if cid not in fresh for t in plan.ch(plan.state.cards[cid]).subtypes & CREATURE_TYPES})
     from app.rules import values
 
     return max(0, values.evaluate(plan, ctx, times))

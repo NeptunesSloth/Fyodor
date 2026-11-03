@@ -29,47 +29,51 @@ export interface Seat {
 
 export interface TableSize { w: number; d: number }
 
+/** Half the aisle between the two rows of mats: the stack, combat arrows and the life plaques live here. */
+export const AISLE = 1.9;
+/** Mat centre to mat centre along a row: the zone strips of neighbours don't touch. */
+export const SEAT_DX = 2 * STRIP_X + CARD_W + 0.8;
 /**
- * Seats for 1–6 players, starting with the viewer at the south edge and going clockwise
- * (to the viewer's left first, as turn order goes around a real table).
+ * Which way along its mat a seat's heart and plaque sit: toward the middle of the table (where the scripted tables
+ * keep the hearts, and where every seat can see them), or the owner's left for a seat in the middle of its row.
+ * +1 is the owner's right in the mat's own frame.
+ */
+export function towardMiddle(seat: Seat): 1 | -1 {
+  if (Math.abs(seat.x) < 0.01) return -1;
+  return -Math.sign(seat.x) * Math.sign(Math.cos(seat.rot)) > 0 ? 1 : -1;
+}
+
+/** Where a seat's life heart floats, mat-local: over the aisle by the mat's inner corner nearest the middle. */
+export function heartSpot(seat: Seat): [number, number] {
+  return [towardMiddle(seat) * (MAT_W / 2 - 0.6), -MAT_D / 2 - AISLE * 0.4];
+}
+
+/** Where a seat's plaque (portrait, name, trackers) sits, mat-local: beside its heart, a little further along. */
+export function plaqueSpot(seat: Seat): [number, number] {
+  return [towardMiddle(seat) * (MAT_W / 2 - 3.5), -MAT_D / 2 - AISLE / 2];
+}
+
+/**
+ * Seats for 1–6 players in two facing rows, as on the scripted Commander tables of Tabletop Simulator
+ * (Oops I Baked a Pie's four- and six-seat tables): the viewer's row at the south edge, the rest across
+ * the aisle, and every mat upright for its owner (nobody's cards read sideways). Turn order goes
+ * clockwise around the table: along the viewer's row to their left, then back along the far row.
  */
 export function seats(order: string[], me: string): Seat[] {
   const start = Math.max(0, order.indexOf(me));
   const players = [...order.slice(start), ...order.slice(0, start)];
   const n = players.length;
-  const south = MAT_D / 2 + 3.6; // distance of a south/north mat centre from the table centre
-  const side = MAT_W / 2 + 2.6 + MAT_D / 2 + 0.6; // east/west mats sit outside the south/north strips
-  const place = (i: number): Omit<Seat, "player"> => {
-    if (n <= 2) return i === 0 ? { x: 0, z: south, rot: 0, side: "south" } : { x: 0, z: -south, rot: Math.PI, side: "north" };
-    if (n === 3) {
-      return [
-        { x: 0, z: south, rot: 0, side: "south" as const },
-        { x: -side, z: -1.5, rot: -Math.PI / 2, side: "west" as const },
-        { x: side, z: -1.5, rot: Math.PI / 2, side: "east" as const },
-      ][i]!;
-    }
-    if (n === 4) {
-      return [
-        { x: 0, z: south, rot: 0, side: "south" as const },
-        { x: -side, z: 0, rot: -Math.PI / 2, side: "west" as const },
-        { x: 0, z: -south, rot: Math.PI, side: "north" as const },
-        { x: side, z: 0, rot: Math.PI / 2, side: "east" as const },
-      ][i]!;
-    }
-    // 5–6: two mats at the north edge, and one at each end for the 6th.
-    const half = MAT_W / 2 + 2.2;
-    const layout: Omit<Seat, "player">[] = [
-      { x: 0, z: south, rot: 0, side: "south" },
-      { x: -side, z: 0, rot: -Math.PI / 2, side: "west" },
-      { x: -half - 0.4, z: -south, rot: Math.PI, side: "north" },
-      { x: half + 0.4, z: -south, rot: Math.PI, side: "north" },
-      { x: side, z: 0, rot: Math.PI / 2, side: "east" },
-    ];
-    if (n === 6) layout.splice(1, 0, { x: -half - 0.4, z: south, rot: 0, side: "south" });
-    if (n === 6) layout[0] = { x: half + 0.4, z: south, rot: 0, side: "south" };
-    return layout[i]!;
-  };
-  return players.map((player, i) => ({ player, ...place(i) }));
+  const nSouth = Math.max(1, Math.floor(n / 2));
+  const nNorth = n - nSouth;
+  const rowX = (i: number, k: number) => (i - (k - 1) / 2) * SEAT_DX;
+  const rowZ = MAT_D / 2 + AISLE;
+  // clockwise seen from above: the south row east → west, then the north row west → east
+  const southRow = Array.from({ length: nSouth }, (_, i) => ({ x: rowX(nSouth - 1 - i, nSouth), z: rowZ, rot: 0, side: "south" as const }));
+  const northRow = Array.from({ length: nNorth }, (_, i) => ({ x: rowX(i, nNorth), z: -rowZ, rot: Math.PI, side: "north" as const }));
+  const ring: Omit<Seat, "player">[] = [...southRow, ...northRow];
+  // the viewer sits in the middle of their row (east of the middle when the row is even)
+  const mine = Math.floor((nSouth - 1) / 2);
+  return players.map((player, i) => ({ player, ...ring[(mine + i) % n]! }));
 }
 
 /** The table top that fits every mat with a margin. */
@@ -84,6 +88,18 @@ export function tableSize(all: Seat[]): TableSize {
     d = Math.max(d, Math.abs(s.z) + halfD + 1.4);
   }
   return { w: w * 2, d: d * 2 };
+}
+
+/**
+ * The old fixed seat camera, replaced by the fitted framing (table3d/framing.ts) and kept as the baseline its tests
+ * measure against. It sat behind my seat, looking across the aisle, my mat
+ * large and the far row whole. It leans toward the table's middle when my seat is off-centre, as you would at a long
+ * table, and is framed from the far mats' back edge down to my seat's buttons, just past my mat's near edge and above my
+ * hand (solved for 16:9; a narrower screen pulls back to keep the far row whole).
+ */
+export function seatCamera(mine: Seat, size: TableSize, aspect: number): { pos: [number, number, number]; look: [number, number, number] } {
+  const reach = Math.max((size.w / aspect) * 1.1, size.d);
+  return { look: [mine.x * 0.25, 0, mine.z - 3.75], pos: [mine.x * 0.35, reach * 1.07, mine.z + MAT_D / 2 + reach * 0.48] };
 }
 
 /** Mat-local → world (x, z). */
@@ -129,10 +145,25 @@ export const PILES: Record<PileZone, [number, number]> = {
   command: [-STRIP_X, MAT_D / 2 - CARD_H / 2],
 };
 
-/** Which pile (if any) a mat-local point is on. */
+/**
+ * The command zone's slots, one per commander, as on the Oops mat: the commander's by the owner's left hand, a
+ * partner's (or background's) above it, in line with the graveyard on the other side.
+ */
+export const COMMAND_SLOTS: [number, number][] = [PILES.command, [-STRIP_X, MAT_D / 2 - CARD_H * 1.65], [-STRIP_X, MAT_D / 2 - CARD_H * 2.8]];
+
+/** Where a commander's tax counter sits, mat-local: just outside its slot. */
+export function taxSpot(slot: number): [number, number] {
+  const [x, z] = COMMAND_SLOTS[Math.min(slot, COMMAND_SLOTS.length - 1)]!;
+  return [x - CARD_W / 2 - 0.36, z];
+}
+
+/** Which pile (if any) a mat-local point is on (a partner's slot is the command zone too). */
 export function pileAt(lx: number, lz: number): PileZone | null {
   for (const [zone, [px, pz]] of Object.entries(PILES) as [PileZone, [number, number]][]) {
     if (Math.abs(lx - px) <= CARD_W * 0.75 && Math.abs(lz - pz) <= CARD_H * 0.6) return zone;
+  }
+  for (const [px, pz] of COMMAND_SLOTS.slice(1, 2)) {
+    if (Math.abs(lx - px) <= CARD_W * 0.75 && Math.abs(lz - pz) <= CARD_H * 0.6) return "command";
   }
   return null;
 }

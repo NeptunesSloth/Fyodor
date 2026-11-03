@@ -1,5 +1,8 @@
 import { usePrefs } from "../state/prefs";
 import { AppearanceDialog } from "./AppearanceDialog";
+import { DicePanel } from "./DicePanel";
+import { DrawBagPanel } from "./DrawBagPanel";
+import { ExtrasBag } from "./ExtrasBag";
 import { EndGameDialog } from "./EndGameDialog";
 import { HistoryDialog } from "./HistoryDialog";
 import { MacroDialog } from "./MacroDialog";
@@ -30,7 +33,9 @@ export function GameDialogs({ me }: { me: string }) {
   return (
     <>
       {dialog === "tokens" && <TokenDialog me={me} sourceId={arg} onClose={close} />}
-      {dialog === "dice" && <DiceDialog onClose={close} />}
+      {dialog === "dice" && <DicePanel onClose={close} />}
+      {dialog === "drawbag" && <DrawBagPanel onClose={close} />}
+      {dialog === "extras" && <ExtrasBag me={me} anchor={arg} onClose={close} />}
       {dialog === "ability" && <AbilityDialog sourceId={arg} onClose={close} />}
       {dialog === "save" && <SaveDialog onClose={close} />}
       {dialog === "help" && <HelpDialog onClose={close} initial={arg ?? ""} />}
@@ -186,37 +191,6 @@ function TokenTile({ id, onPick }: { id: string; onPick: () => void }) {
   );
 }
 
-function DiceDialog({ onClose }: { onClose: () => void }) {
-  const [expr, setExpr] = useState("2d6");
-  const roll = (sides: number, count = 1) => void send({ type: "roll", sides, count });
-  const parse = () => {
-    const m = /^\s*(\d*)\s*d\s*(\d+)\s*$/i.exec(expr);
-    if (!m) return toast("Use the form XdY, e.g. 3d6", "warn");
-    roll(Number(m[2]), Number(m[1] || 1));
-  };
-  const last = useGame((s) => [...(s.view?.log ?? [])].reverse().find((e) => e.kind === "dice"));
-  return (
-    <Modal title="Dice & coins" onClose={onClose}>
-      <div className="dice-grid">
-        {[4, 6, 8, 10, 12, 20, 100].map((d) => (
-          <button key={d} className="btn die" onClick={() => roll(d)}>d{d}</button>
-        ))}
-        <button className="btn die" onClick={() => void send({ type: "coin" })}>Coin</button>
-      </div>
-      <form className="row" onSubmit={(e) => { e.preventDefault(); parse(); }} style={{ marginTop: 12 }}>
-        <label className="field grow">Roll XdY<input value={expr} onChange={(e) => setExpr(e.target.value)} /></label>
-        <button className="btn primary" type="submit">Roll</button>
-      </form>
-      {last && (
-        <p className="dice-result">
-          {last.parts.map((p) => ("t" in p ? p.t : "")).join("")}
-        </p>
-      )}
-      <p className="hint">Results are rolled on the host with a cryptographic RNG and written to the game log.</p>
-    </Modal>
-  );
-}
-
 function AbilityDialog({ sourceId, onClose }: { sourceId: string | null; onClose: () => void }) {
   const source = useGame((s) => (sourceId ? s.view?.cards[sourceId] : undefined));
   const data = useCard(source && isVisible(source) ? source.card_id : null);
@@ -304,8 +278,9 @@ const HOW_TO: [string, string][] = [
   ["Play a land or cast a spell", "Drag it from your hand onto your side of the table (or double-click it). With automation on, the engine asks for mana and targets."],
   ["Attack", "In combat, the engine asks you to declare attackers; or right-click a creature → Attack."],
   ["Respond", "When you have priority, cast or activate something; the turn dial says when you have it."],
+  ["Choose a color, player or number", "A wheel opens at your pointer: click an option, or type its number and press Enter. Esc shows the list instead; Settings turns the wheel off."],
   ["Move on", "Press the big button on the turn dial (P): it says what passing will do."],
-  ["Fix a mistake", "Undo (Ctrl+Z), or the Undo button on the message after a discard, exile or mill."],
+  ["Fix a mistake", "Undo (Ctrl+Z), or the Undo button on the message after a discard, exile or mill. The host can limit undo to each player's own actions, or to the host (Host tools)."],
 ];
 
 /** What the marks on the 3D table mean. */

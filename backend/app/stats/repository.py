@@ -2,7 +2,8 @@
 
 Recorded results are the only source of truth. Games / wins / losses / win % are always
 computed from them, so correcting or deleting a result can never leave the numbers wrong.
-No private card data is stored — only who played, which deck, which commanders, and who won.
+No private card data is stored — only who played, which deck, which commanders, and who won, plus (-- pod history --) the
+order players went out and a public-only final board (``app.stats.recap``).
 """
 
 from __future__ import annotations
@@ -103,7 +104,9 @@ class PodStats:
     # -- results ---------------------------------------------------------------------
     def record(self, *, game_id: str, result_type: ResultType, participants: list[Participant], winners: list[str],
                table_name: str = "", format: str = "", started_at: float | None = None, turns: int | None = None,
-               notes: str = "") -> dict[str, Any]:
+               notes: str = "", eliminations: list[dict[str, Any]] | None = None,
+               final_board: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+        """``eliminations`` / ``final_board``: -- pod history -- the game's public record (``app.stats.recap``), if it has one."""
         if len(participants) < 1:
             raise ResultError("A game needs players")
         seats = [p.seat for p in participants]
@@ -116,10 +119,10 @@ class PodStats:
                 raise DuplicateResult("This game's result is already recorded — correct it in Pod stats")
             self.conn.execute(
                 "INSERT INTO game_results (id, game_id, result_type, table_name, format, started_at, recorded_at,"
-                " duration_seconds, turns, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " duration_seconds, turns, notes, eliminations, final_board) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (rid, game_id, result_type, table_name, format, started.isoformat(timespec="seconds") if started else None,
                  now.isoformat(timespec="seconds"), int((now - started).total_seconds()) if started else None, turns,
-                 notes.strip()),
+                 notes.strip(), json.dumps(eliminations or []), json.dumps(final_board or [])),
             )
             for p in participants:
                 self.conn.execute(
@@ -180,6 +183,8 @@ class PodStats:
             "recorded_at": row["recorded_at"], "duration_seconds": row["duration_seconds"], "turns": row["turns"],
             "notes": row["notes"], "players": players,
             "winners": [p["name"] for p in players if p["outcome"] == "win"],
+            # -- pod history -- who went out in which order, and the public final board (empty for older results)
+            "eliminations": json.loads(row["eliminations"] or "[]"), "final_board": json.loads(row["final_board"] or "[]"),
         }
 
     @locked

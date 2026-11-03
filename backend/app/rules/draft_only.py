@@ -2,8 +2,11 @@
 (Cogwork Librarian), "During the draft, you may turn this card face down." (Whispergear Sneak).
 
 CR 905.2: "Some cards have abilities that function during the draft" (905.2b-c: revealing and drafting face up; the draft's passing and picking are 905.1). A game here is not
-preceded by a draft, so these lines are never part of it: they do nothing. Only the lines that are about the draft itself are read this way; a line that uses what a draft would
-have left ("the highest number you noted", "a color chosen as you drafted") is not, and keeps its card partial.
+preceded by a draft, so these lines are never part of it: they do nothing (``definition``). The same holds for two Planechase-only replacements (901.3).
+
+The cards that use what a draft would have left ("the highest number you noted", "a color chosen as you drafted") are read here too, as a draft that left
+nothing: the do-nothing sentences of ``parse`` (wave 110F) and Paliano, the High City's mana (``mana``, wave 110J). Two such lines are patches of a native
+wording and stay with their module's table: Custodi Peacekeeper (wave110j_cards, "0 or less") and Spire Phantasm (wave110o_cards, no guess was made).
 """
 
 from __future__ import annotations

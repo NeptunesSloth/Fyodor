@@ -64,6 +64,10 @@ def parse(text: str, *, objects: bool = False) -> Condition | None:
     refers to ("it's a land card", "~ is tapped") — only for wording inside an ability's effects or
     trigger, which has those objects (statics and restrictions don't)."""
     t = text.strip().rstrip(",").replace("’", "'")
+    from app.rules import wave111c_statics  # -- Star Trek statics (wave 111C) --
+
+    if (statics111c := wave111c_statics.condition(t, objects)) is not None:
+        return statics111c
     from app.rules import wave110c_history  # -- turn history (wave 110C) --
 
     if (hist110c := wave110c_history.condition(t)) is not None:
@@ -389,6 +393,8 @@ def _parse_one(t: str, objects: bool) -> Condition | None:
             return None
         return {"value": {"distinct": "powers", "among": key}, "op": ">=", "n": n}
     m = _DIFFERENT_NAMES.fullmatch(t)  # -- token & pump wordings (wave 6C) --
+    if m is None and (dn := re.fullmatch(r"you control (\w+) or more differently named lands", t)) is not None:  # -- differently named (wave 111D) -- Seven of Nine
+        m = _DIFFERENT_NAMES.fullmatch(f"you control {dn[1]} or more lands with different names")
     if m:  # how many different names among them (201.2; a face-down permanent has none, 708.2a)
         n = _num(m["n"])
         key = _count(m["what"], "you control")
@@ -1192,6 +1198,11 @@ def _crime(m: re.Match[str]) -> Condition:
     return {"history": "facts", "kind": "crime", "who": "you", "n": 1}  # 700.13
 
 
+@_history_pattern(r"you(?:'ve| have)? faced a dilemma this turn")
+def _dilemma(m: re.Match[str]) -> Condition:
+    return {"history": "facts", "kind": "dilemma", "who": "you", "n": 1}  # -- Star Trek mechanics (wave 112T) -- release notes (app/rules/dilemma.py)
+
+
 @_history_pattern(r"this is the (?P<nth>first|second|third|fourth|fifth) time this ability has resolved this turn")
 def _resolution(m: re.Match[str]) -> Condition:
     return {"history": "resolution", "n": ["first", "second", "third", "fourth", "fifth"].index(m["nth"]) + 1}
@@ -1634,6 +1645,10 @@ def holds(plan: Plan, ctx: dict[str, Any], cond: Condition) -> bool:
         return any((held110f := plan.state.cards[c]).controller in plan.live() and held110f.controller != plan.active
                    and selectors.matches(plan, sel, held110f, plan.ch(held110f), ctx["controller"], ctx.get("source_card"))
                    for c in selectors.candidates(plan, sel, ctx["controller"], ctx.get("source_card")))
+    if "w111c" in cond:  # -- Star Trek statics (wave 111C) --
+        from app.rules import wave111c_statics
+
+        return wave111c_statics.holds(plan, ctx, cond)
     if "w110e" in cond:  # -- wave 110E -- 508.1: another player's last completed turn (previous_own_turns); unknown history (old save) = no
         from app.rules import previous_own_turns
 

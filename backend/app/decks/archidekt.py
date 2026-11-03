@@ -27,7 +27,6 @@ _ID_PATTERNS = (
     re.compile(r"archidekt\.com/(?:api/)?decks/(\d{1,12})", re.IGNORECASE),
 )
 FINISHES = {"normal": "nonfoil", "foil": "foil", "etched": "etched"}
-FORMATS = {3: "commander"}  # Archidekt deckFormat codes; others map to constructed
 
 
 class ArchidektError(RuntimeError):
@@ -150,10 +149,8 @@ def parse_deck_json(data: dict[str, Any]) -> ParsedDeck:
 
 
 def deck_format(data: dict[str, Any]) -> str:
-    try:
-        return FORMATS.get(int(data.get("deckFormat") or 0), "constructed")
-    except (TypeError, ValueError):
-        return "constructed"
+    """Every deck is a Commander deck in Fyodor, whatever format Archidekt lists it under."""
+    return "commander"
 
 
 # ---------------------------------------------------------------------------- export

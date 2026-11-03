@@ -1,5 +1,7 @@
 /** Types mirroring the server's per-viewer game view (backend/app/game/views.py). */
 
+import type { EliminationEntry } from "../services/pod";
+
 export const PHASES = [
   "untap",
   "upkeep",
@@ -153,6 +155,8 @@ export type GameCard = HiddenCard | VisibleCard;
 export interface LibraryView {
   count: number;
   known: [number, string][];
+  /** How many times this library was shuffled (public; absent: never). The table shows a shuffle when it goes up (game/motion). */
+  shuffles?: number;
 }
 
 export interface CommanderInfo {
@@ -215,12 +219,30 @@ export interface LogEntryView {
   actor: string | null;
   kind: string;
   parts: LogPartView[];
+  /** A public dice roll or coin flip's numbers (coin results: 1 heads, 0 tails). */
+  roll?: { sides: number; results: number[]; coin: boolean; ignored?: number[]; cannon?: CannonLog | null }; // ignored: indexes the rules ignored (Barbarian Class)
+  /** Cards turned over from the top of a library (reveal until, cascade): public, for their owner to place. */
+  dig?: DigLog;
+  /** -- table toys -- a chit drawn from the draw bag: `chit` is null for a hidden draw unless this viewer drew it. */
+  bag?: BagLogView;
 }
+
+/** -- table toys -- a dice cannon volley: per result, the player it lands in front of and its volley (ties re-fire). */
+export interface CannonLog { mode: "volley" | "first"; players: string[]; rounds: number[]; winner: string | null }
+export interface BagLogView { player: string; hidden: boolean; left: number; chit: string | null }
+/** -- table toys -- the draw bag as this viewer sees it: how many chits inside (never which), the latest drawn ones. */
+export interface DrawBagView { count: number; drawn: { player: string; chit: string | null; shown: boolean }[]; drawn_count: number }
+
+export interface DigLog { mode: "reveal_until" | "cascade"; player: string; cards: string[]; hit: string | null }
+
+export type UndoPolicy = "everyone" | "own" | "host";
+/** -- table permissions -- who may change a player's cards with the table tools (server: app/game/table_rights.py). */
+export type CardPermissions = "everyone" | "owner";
 
 export interface GameMeta {
   id: string;
   name: string;
-  format: "commander" | "constructed" | "sandbox";
+  format: "commander";
   seq: number;
   settings: {
     starting_life: number;
@@ -232,9 +254,23 @@ export interface GameMeta {
     clear_mana_on_step?: boolean;
     auto_clear_combat?: boolean;
     allow_test_objects?: boolean;
+    /** Who may undo (the host's setting; the server enforces it, see game/undoPolicy.ts). */
+    undo_policy?: UndoPolicy;
+    /** Who may change a player's cards (the host's setting; the server enforces it, see game/cardPermissions.ts). */
+    card_permissions?: CardPermissions;
   };
+  /** The history has an action to undo / redo (whether this viewer may: game/undoPolicy.ts). */
   can_undo: boolean;
   can_redo: boolean;
+  /** This viewer counts as the host for the undo setting (the host's seat; anyone at a hot-seat table). */
+  undo_host?: boolean;
+  /** Under the "own" undo setting only: whose action the next undo / redo would touch (public, like the log). */
+  undo_by?: string | null;
+  redo_by?: string | null;
+  /** -- quick undo request -- why this viewer's undo would ask the table first (null: it undoes directly, or can't). */
+  undo_ask?: string | null;
+  /** The undo request waiting for the table, if any (public: who asks, what, and who still has to answer). */
+  undo_request?: UndoRequestInfo | null;
   mode: "local" | "lan";
   code: string | null;
   seats: Record<string, { claimed: boolean; connected: boolean; presence?: "open" | "connected" | "reconnecting" | "disconnected" }>;
@@ -248,9 +284,65 @@ export interface GameMeta {
   host_seat?: string | null;
   /** Game night: turn order and its d20 rolls, an agreed-ending proposal, the result and rematch vote. */
   night?: NightInfo;
+  /** Major public events of this game, newest last (docs/ELIMINATION_HUB.md); each id is announced once. */
+  events?: MajorEvent[];
+  /** Set only on a private practice table: the live game it belongs to (docs/ELIMINATION_HUB.md). */
+  practice?: PracticeInfo;
+  /** Spectators' fake-point predictions, revealed once the game has a result (docs/SPECTATOR_ACTIVITIES_MILESTONE.md). */
+  predictions?: import("../services/spectate").PredictionRecap;
+}
+
+/**
+ * "Bob asks to undo: cast Sol Ring" (server: app/game/undo_requests.py). Every other seated player still in the game approves
+ * (`voters`); one decline ends it. `shown`: the action showed hidden information or a random outcome (`why` says so); never a
+ * hidden card. Any change to the table cancels it.
+ */
+export interface UndoRequestInfo {
+  id: string;
+  by: string;
+  by_name: string;
+  label: string;
+  shown: "draw" | "search" | "look" | "reveal" | "library" | "random" | null;
+  why: string | null;
+  voters: string[];
+  approved: string[];
+  waiting: string[];
+}
+
+/** "Bob was eliminated.", "Final two players remain: …", "Alice wins." Built by the server from public facts only. */
+export interface MajorEvent {
+  id: string;
+  game: number | null;
+  kind: "out" | "final_two" | "result";
+  text: string;
+  players: string[];
+}
+
+/** Whose practice table this is: the live game, the seat there, and which game of the night it was opened in. */
+export interface PracticeInfo {
+  of: string;
+  seat: string;
+  game: number;
+  local: boolean;
 }
 
 export type NightResultType = "single" | "multiple" | "draw" | "no_result";
+
+/**
+ * A proposal to end the game. A player's own (`rules` null): every player still in the game agrees. The rules engine's result
+ * (`rules` says why, `by_name` is "The rules"): the server opens it when the engine ends the game, and each player in
+ * `voters` (the players in the game when it ended) confirms it; an undo of the deciding action withdraws it.
+ */
+export interface NightProposal {
+  by: string;
+  by_name: string;
+  result_type: NightResultType;
+  winners: string[];
+  winner_names: string[];
+  agreed: string[];
+  rules?: string | null;
+  voters?: string[];
+}
 
 /** Everything here is public (docs/GAME_NIGHT_FLOW.md). Seats are this game's player ids. */
 export interface NightInfo {
@@ -259,10 +351,21 @@ export interface NightInfo {
   /** d20 rounds: the first is everyone, later ones are tie-breaks among the tied players. */
   rolls: Record<string, number>[];
   previous_winner: string | null;
-  proposal: { by: string; by_name: string; result_type: NightResultType; winners: string[]; winner_names: string[]; agreed: string[] } | null;
-  result: { result_type: NightResultType; winners: string[]; winner_names: string[]; agreed: boolean } | null;
+  proposal: NightProposal | null;
+  /** `rules`: the rules engine decided it and the players confirmed it (never set with `agreed`). */
+  result: { result_type: NightResultType; winners: string[]; winner_names: string[]; agreed: boolean; rules?: boolean } | null;
   votes: Record<string, "rematch" | "lobby">;
-  history: { number: number; result_type: NightResultType; winner_names: string[]; agreed: boolean; order: string[]; turns: number }[];
+  history: {
+    number: number; result_type: NightResultType; winner_names: string[]; agreed: boolean; rules?: boolean; order: string[]; turns: number;
+    /** How the order was set and the d20 rounds that set it, by player name (games recorded before these were kept have neither). */
+    order_source?: NightInfo["order_source"];
+    rolls?: Record<string, number>[];
+    /** -- pod history -- who went out, in order, and the pod-stats record that keeps the final board (older games: neither). */
+    eliminations?: EliminationEntry[];
+    result_id?: string;
+  }[];
+  /** The host's table-wide switch for spectators' reactions (absent: on). */
+  reactions?: boolean;
 }
 
 /** How opening hands work at this table (see docs/MULLIGAN_RULES.md). */
@@ -321,6 +424,8 @@ export interface GameView {
   auto_pass?: string[];
   cards: Record<string, GameCard>;
   arrows?: TableArrow[];
+  /** -- table toys -- the table's draw bag (older servers: absent). */
+  bag?: DrawBagView;
   zones: Record<string, string[] | LibraryView>;
   stack: string[];
   log: LogEntryView[];
@@ -355,6 +460,8 @@ export interface DecisionView {
   cancelable?: boolean;
   /** Presentation hints for the chooser (e.g. a payment's suggested sources). */
   display?: { kind: string; [key: string]: unknown };
+  /** Chooser only: a single choice among public values (a color, a type, a number, a player …), which the quick wheel may offer (game/rules/wheel.ts). */
+  public_choice?: boolean;
   /** Other players' view of someone's decision: only who is choosing. */
   public?: { type: "PLAYER_MAKING_CHOICE"; chooser: string };
 }
@@ -385,12 +492,16 @@ export interface RulesHints {
   castable?: string[];
   free_castable?: string[]; // a permission lets you cast these without paying their mana costs
   alt_castable?: Record<string, { id: string; label: string; x?: boolean }[]>; // alternative costs (118.9): card id → costs it can be cast for now (x: the cost has {X}, 107.3a)
-  optional_costs?: Record<string, { id: string; label: string }[]>; // optional additional costs (Defiler of Vigor): card id → sources
+  optional_costs?: Record<string, { id: string; label: string; face?: number }[]>; // optional additional costs (Defiler of Vigor): card id → sources (face: the half of a split card or adventure)
+  free_optional_costs?: Record<string, { id: string; label: string; face?: number }[]>; // the same, with a cast without paying its mana cost (118.9d: Deadly Rollick with casualty): free + optional_costs
   x_cast?: string[]; // castable cards of yours that ask for X when cast (107.3a); the server validates the range (min 0)
   chorus?: string[]; // castable creature cards whose cast may set `chorus` (Chorus of the Conclave, 601.2b, wave 110C)
+  replicate111r3?: Record<string, string[]>; // castable card → one label per replicate a permanent gives it (Hugh), in CastSpell.replicate's order (702.56b, wave 111R3)
   x_kicker?: string[]; // castable cards of yours whose kicker cost has {X}: only a kicked cast asks for it (107.3a, wave 43D)
   activatable?: { card_id: string; ability: number; x?: boolean }[]; // x: the activation asks for X (107.3k)
   miracle?: string[]; // cards of yours you may reveal for miracle now (702.94a)
+  cost_now?: Record<string, string>; // castable card → what it costs to cast now, when that differs from its mana cost (601.2f)
+  exiled_with?: Record<string, string>; // exile markers: castable/playable exiled card → the name of the card that exiled it (607.2a)
   channel?: string; // -- wave 110I -- Channel: the player-level mana ability's ActivateAbility.card_id ("player:channel110i"), while you have it (605.3a)
 }
 
@@ -413,6 +524,8 @@ export interface RulesView {
   reconcile: { id: string; card: string | null; player: string | null; question: string }[];
   card_modes: Record<string, "manual" | "assisted">;
   hints: RulesHints;
+  /** REPEAT: your own actions this turn in words, newest last ("Cast Sol Ring", "Choose: Pay {1}"); nobody else's. */
+  repeatable?: string[];
   /** Controlling another player (CR 723): the seat this viewer acts as right now (hints and priority are theirs), and who controls whom. */
   acting_as?: string | null;
   /** Set for the controlled player: who makes their choices now (they may only concede, 723.6). */
@@ -450,7 +563,8 @@ export interface GameSummary {
   code: string | null;
   has_password: boolean;
   turn: number;
-  players: { id: string; name: string; claimed: boolean; connected: boolean }[];
+  /** `color` and `commanders` once the game has started, on the host's own screen only. */
+  players: { id: string; name: string; claimed: boolean; connected: boolean; color?: string; commanders?: CommanderRef[] }[];
   spectators: number;
   updated_at: number;
 }
@@ -466,7 +580,14 @@ export interface SaveSummary {
   game_name: string;
   format: string;
   turn: number;
-  players: { name: string; life: number; deck: string | null }[];
+  /** `color` and `commanders` are missing from saves made before they were recorded. */
+  players: { name: string; life: number; deck: string | null; color?: string; commanders?: CommanderRef[] }[];
+}
+
+/** A player's commander as the tables and saves lists name it: public once the game has started. */
+export interface CommanderRef {
+  name: string;
+  card_id: string | null;
 }
 
 export type Action = { type: string } & Record<string, unknown>;
@@ -485,7 +606,7 @@ export const isVisible = (c: GameCard | undefined): c is VisibleCard => !!c && !
 
 export interface LobbySettings {
   name: string;
-  format: "commander" | "constructed" | "sandbox";
+  format: "commander";
   seats: number;
   starting_life: number | null;
   deck_privacy: "private" | "commander_only" | "public";
@@ -494,8 +615,10 @@ export interface LobbySettings {
   priority_helper: "off" | "simple";
   auto_untap: boolean;
   automation: AutomationLevel;
-  /** "pod": d20 for game 1 and after a draw, then the previous winner goes last. */
-  turn_order?: "pod" | "random";
+  /** "pod": d20 for game 1 and after a draw, then the previous winner goes last; "seats": seat 1 first, as the host arranged them. */
+  turn_order?: "pod" | "random" | "seats";
+  /** -- table permissions -- who may change a player's cards (absent from an older server: everyone). */
+  card_permissions?: CardPermissions;
 }
 
 export interface LobbyDeckSummary {
@@ -529,6 +652,8 @@ export interface LobbySeat {
   ready: boolean;
   host: boolean;
   deck: LobbyDeckSummary | null;
+  /** Your own seat only: this deck is the one you queued while out of the last game (unchanged since). */
+  queued?: boolean;
 }
 
 export interface LobbyView {
@@ -546,6 +671,11 @@ export interface LobbyView {
   start_blockers: string[];
   /** Tonight's finished games, oldest first (the session recap). */
   night?: (NightInfo["history"][number] & { minutes?: number; commanders?: Record<string, string[]> })[];
+  /**
+   * -- seating -- the next game's order as far as the server knows it before the start: the claimed seats in turn order
+   * (under a d20 roll, just the seating), and the seat of last game's winner when they go last.
+   */
+  turn_preview?: { source: "d20" | "winner_last" | "random" | "seats"; order: string[]; previous_winner: string | null };
 }
 
 export interface CardStats {

@@ -45,6 +45,15 @@ def pod_results(services: ServicesDep, limit: Annotated[int, Query(ge=1, le=1000
     return services.stats.history(limit=limit)
 
 
+@router.get("/pod/results/{result_id}")
+def pod_result(result_id: str, services: ServicesDep) -> dict[str, Any]:
+    """One recorded game (-- pod history -- the session recap opens its final board from here)."""
+    try:
+        return services.stats.get(result_id)
+    except ResultNotFound:
+        raise HTTPException(404, "No such result") from None
+
+
 @router.put("/pod/results/{result_id}")
 async def edit_result(result_id: str, body: ResultEdit, request: Request, services: ServicesDep) -> dict[str, Any]:
     require_local(request)
@@ -65,9 +74,13 @@ async def delete_result(result_id: str, request: Request, services: ServicesDep)
         services.stats.delete(result_id)
     except ResultNotFound:
         raise HTTPException(404, "No such result") from None
-    room = services.hub.get(game_id)
-    if room is not None:
+    room = services.hub.get(game_id.split("#", 1)[0])  # later games of a night are "<table>#<n>"
+    if room is not None and room.night.result_key(room.id) == game_id:
         room.result_id = None  # the game can be recorded again
+        night = room.night
+        if night.result is not None:  # -- final board -- an erroneous result is taken back: the table opens again
+            night.history = [h for h in night.history if h.get("number") != night.number]
+            night.result, night.votes, night.last_winner_key = None, {}, None
         services.hub.persist(room)
         await services.hub.broadcast(room)
     return Response(status_code=204)

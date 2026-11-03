@@ -49,7 +49,7 @@ automation + a manual sandbox override + an Archidekt-first pod workflow**.
 
 ```
 GameState
-  id, name, format ("commander" | "constructed" | "sandbox"), created_at
+  id, name, format ("commander": Fyodor is Commander-only), created_at
   seq (actions applied == history position), settings: GameSettings
   players: {player_id: PlayerState}, seat_order: [player_id]
   cards: {instance_id: CardInstance}          # normalized — zones hold ids only
@@ -123,6 +123,9 @@ client intent ──► resolve(state, action, rng) ──► resolved action �
   resolved one after another on a scratch copy, and recorded as **one** history entry. The
   rules layer uses the same mechanism (below).
 - `undo_policy` (everyone / own / host) is checked server-side.
+- `card_permissions` (everyone / owner: "Who may change a player's cards") is checked server-side in
+  `GameSession.perform` on the resolved action (`game/table_rights.py`), never on replays or rules-engine steps. The REST
+  and WebSocket action paths pass `host` (the host's seat; every seat at a hot-seat table).
 
 ### Log
 
@@ -368,3 +371,4 @@ choosing a replacement effect) it stores a single pending `Decision` addressed t
 | Card scripts become an attack surface | Scripts are repository code only; user and downloaded content stays declarative data. |
 | Card database schema drift from Scryfall | The importer stores raw faces and parts JSON, and pulls fields defensively. |
 | Undo in multiplayer can be abused | Undo is logged publicly, and `undo_policy` supports own-actions or host-only. |
+| Players change each other's cards by mistake (or on purpose) | `card_permissions` = owner: each player edits only their own cards by hand, the host can always help, rules actions are never limited. |

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from app.api.deps import get_services
+from app.api.deps import get_services, require_local
+from app.cards import updater
+from app.cards.downloader import DownloadError
 from app.cards.images import IMAGE_SIZES, InvalidImageRequest
 from app.services import Services
 
@@ -62,6 +65,15 @@ def get_printings(card_id: str, services: ServicesDep) -> list[dict[str, Any]]:
     return services.cards.printings(card["oracle_id"])
 
 
+@router.get("/images/card-back", response_class=FileResponse)
+def get_card_back(services: ServicesDep) -> FileResponse:
+    """The Magic card back, once it's cached with the art (404 until then: tables draw their own back)."""
+    path = services.images.card_back()
+    if path is None:
+        raise HTTPException(404, "Card back not cached")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
+
+
 @router.get("/images/{card_id}", response_class=FileResponse)
 def get_image(
     card_id: str,
@@ -76,3 +88,49 @@ def get_image(
     if path is None:
         raise HTTPException(404, "Image not cached")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
+
+
+# ---------------------------------------------------------------------------- UPDATE CARD DATABASE (host only)
+
+
+def _needs_network(services: Services) -> None:
+    if not services.settings.allow_network:
+        raise HTTPException(409, "Network access is turned off on this computer (FYODOR_ALLOW_NETWORK=0)")
+
+
+@router.get("/card-data")
+def card_data(request: Request, services: ServicesDep) -> dict[str, Any]:
+    """The local card database and the latest update job, for Settings → Card database."""
+    require_local(request)
+    job = services.jobs.latest("card-update")
+    return {"current": services.cards.stats(), "job": job.as_dict() if job else None,
+            "network": services.settings.allow_network}
+
+
+@router.post("/card-data/check")
+def card_data_check(request: Request, services: ServicesDep) -> dict[str, Any]:
+    """Ask Scryfall whether newer card data exists (one small request)."""
+    require_local(request)
+    _needs_network(services)
+    try:
+        return updater.check(services.settings, services.cards, client_factory=services.http_client)
+    except (httpx.HTTPError, DownloadError) as exc:
+        raise HTTPException(502, f"Couldn't reach Scryfall: {exc}") from exc
+
+
+class CardUpdateIn(BaseModel):
+    force: bool = False
+
+
+@router.post("/card-data/update", status_code=202)
+def card_data_update(request: Request, services: ServicesDep, body: CardUpdateIn | None = None) -> dict[str, Any]:
+    """Download and switch to the newest card data in the background; poll GET /card-data for progress."""
+    require_local(request)
+    _needs_network(services)
+    running = services.jobs.latest("card-update")
+    if running is not None and running.state == "running":
+        return running.as_dict()
+    force = bool(body and body.force)
+    job = services.jobs.start("card-update", "Card database", lambda progress: updater.update(
+        services.settings, services.cards, progress, force=force, client_factory=services.http_client))
+    return job.as_dict()

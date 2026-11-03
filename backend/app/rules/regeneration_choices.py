@@ -59,6 +59,12 @@ def options(plan: Plan, cid: str, *, can_regenerate: bool, effect: bool) -> list
         out.append(Candidate('wipe', f'{card.name}: remove all damage marked on it instead'))
     if effect and card.counters.get('shield', 0) > 0:
         out.append(Candidate('counter', 'Remove a shield counter'))
+    from app.rules import (
+        wave111b_cards,  # -- if you do / instead (wave 111B) -- Dr. McCoy: not a regeneration (614.1a)
+    )
+
+    out.extend(Candidate(wave111b_cards.HEAL + plan.oid(doc), f"{doc.name}: remove its +1/+1 counters and heal it instead")
+               for doc in wave111b_cards.healers(plan, card))
     for aura in plan.state.cards.values():
         if aura.attached_to == cid and wave110a_grants.has_umbra(plan, aura, card):  # (wave 110A: Umbra Mystic grants it)
             out.append(Candidate(f'aura:{plan.oid(aura)}', f"{aura.name}: use umbra armor", aura.id, plan.oid(aura)))
@@ -103,7 +109,8 @@ def prepare(plan: Plan, cards: list[str], *, can_regenerate: bool, sba: bool = F
         every = {cid: options(plan, cid, can_regenerate=can_regenerate, effect=not sba) for cid in cards if cid in plan.state.cards}
         # (also a creature with two umbra armors and nothing else: its controller picks which applies, 616.1)
         auto = [cid for cid in every if automatic(plan, cid) or regeneration_riders.shields(plan, plan.oid(cid))
-                or plan.rules.wipe_shields110o.get(plan.oid(cid), 0) > 0 or len(every[cid]) > 1]  # (wave 110O: Pyramids' shield)
+                or plan.rules.wipe_shields110o.get(plan.oid(cid), 0) > 0 or len(every[cid]) > 1  # (wave 110O: Pyramids' shield)
+                or any(c.key.startswith('heal111b:') for c in every[cid])]  # (wave 111B: Dr. McCoy's, mandatory)
         if not auto:
             return True
         candidates = {cid: every[cid] for cid in auto}
@@ -154,6 +161,10 @@ def protect(plan: Plan, cards: list[str], actor: str | None) -> list[str]:
             wave110o_cards.use_wipe(plan, plan.state.cards[cid])
         elif key == 'counter':
             shield_counters.remove(plan, [cid], actor)
+        elif (key or '').startswith('heal111b:'):  # -- if you do / instead (wave 111B) -- (as it applied when the batch was prepared, 616.1)
+            from app.rules import wave111b_cards
+
+            wave111b_cards.heal(plan, plan.state.cards[cid], actor)
         elif candidate.aura:
             aura = plan.state.cards.get(candidate.aura)
             if aura is not None and plan.oid(aura) == candidate.aura_object and aura.zone.endswith(':battlefield'):

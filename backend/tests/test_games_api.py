@@ -44,6 +44,14 @@ def act(client, game_id, action, **kw):
     return client.post(f"/api/games/{game_id}/actions", json={"action": action, **kw}, headers=headers)
 
 
+def test_games_are_commander_only(client, decks):
+    """Constructed and Sandbox were removed: a new table is always Commander (40 life), and other formats are refused."""
+    assert create(client, decks)["game"]["format"] == "commander"
+    for fmt in ("constructed", "sandbox"):
+        body = {"name": "T", "format": fmt, "players": [{"name": "Alice", "deck_id": decks[0]}]}
+        assert client.post("/api/games", json=body).status_code == 422
+
+
 def test_local_game_flow(client, decks):
     game = create(client, decks)
     gid = game["game"]["id"]
@@ -135,6 +143,45 @@ def test_lan_join_and_private_views(client, decks):
     assert res.json()["viewer"] == "p2"
 
 
+def test_private_diagnostics_keep_a_lan_game_in_progress_out(client, decks):
+    """The host computer's diagnostics export can't show other players' hands mid-game; once the result is recorded it can."""
+    game = create(client, decks, mode="lan")
+    gid, code = game["game"]["id"], game["game"]["code"]
+    bob = client.post("/api/join", json={"code": code}, headers={"X-Forwarded-For": "192.168.1.50"}).json()["token"]
+    bob_hand = act(client, gid, {"type": "draw", "count": 7}, token=bob).json()["zones"]["p2:hand"]
+
+    room = next(r for r in client.get("/api/diagnostics?include_private=true").json()["rooms"] if r["id"] == gid)
+    assert "state" not in room and "still being played" in room["state_withheld"]
+    assert not any(c in client.get("/api/diagnostics?include_private=true").text for c in bob_hand)
+
+    client.app.state.services.hub.rooms[gid].result_id = "recorded"  # the game ended and its result was recorded
+    room = next(r for r in client.get("/api/diagnostics?include_private=true").json()["rooms"] if r["id"] == gid)
+    assert "state_withheld" not in room and set(bob_hand) <= set(room["state"]["zones"]["p2:hand"])
+
+
+def test_lan_host_computer_never_gets_the_all_hands_view(client, decks):
+    """The host's own computer sees a LAN table like a spectator: no hidden card reaches it (REST or WebSocket)."""
+    game = create(client, decks, mode="lan")
+    gid, code, host = game["game"]["id"], game["game"]["code"], game["host_token"]
+    remote = {"X-Forwarded-For": "192.168.1.50"}
+    bob = client.post("/api/join", json={"code": code}, headers=remote).json()["token"]
+    res = act(client, gid, {"type": "draw", "count": 7}, token=bob)
+    assert res.status_code == 200
+    bob_hand = res.json()["zones"]["p2:hand"]
+
+    view = client.get(f"/api/games/{gid}/view", params={"viewer": "all"}, headers={"X-Seat-Token": host}).json()
+    assert view["viewer"] == "__spectator__"
+    assert len(view["zones"]["p2:hand"]) == 7 and all(view["cards"][c].get("hidden") for c in view["zones"]["p2:hand"])
+    assert not set(bob_hand) & set(json.dumps(view).split('"'))  # not even the hidden cards' ids
+    with client.websocket_connect(f"/ws/games/{gid}?token={host}&viewer=all") as ws:
+        first = ws.receive_json()
+        assert first["type"] == "state" and first["view"]["viewer"] == "__spectator__"
+        assert all(first["view"]["cards"][c].get("hidden") for c in first["view"]["zones"]["p2:hand"])
+    # hot-seat tables on one computer keep the open-table view
+    local = create(client, decks)["game"]["id"]
+    assert client.get(f"/api/games/{local}/view", params={"viewer": "all"}).json()["viewer"] == OMNISCIENT
+
+
 def test_join_brute_force_throttled(client, decks):
     create(client, decks, mode="lan", password="pw")
     headers = {"X-Forwarded-For": "192.168.1.77"}
@@ -222,3 +269,64 @@ def test_corrupt_save_rejected(client, settings, decks):
     services.app_db.commit()
     res = client.post(f"/api/saves/{saved['id']}/load", json={})
     assert res.status_code == 422
+
+
+def test_load_a_new_deck_at_the_table_without_leaving(client, decks):
+    """The scripted tables' importer: paste a list (or pick a saved deck) and it replaces your deck mid-game."""
+    gid = create(client, decks)["game"]["id"]
+
+    def view(v="p1"):
+        return client.get(f"/api/games/{gid}/view", params={"viewer": v}).json()
+
+    client.post(f"/api/games/{gid}/actions", json={"action": {"type": "draw", "player": "p1", "count": 3}})
+    before = view()
+    old_ids = {cid for cid, c in before["cards"].items() if c.get("owner") == "p1"}
+    res = client.post(f"/api/games/{gid}/load-deck", json={"text": ATRAXA, "name": "Superfriends"})
+    assert res.status_code == 200, res.text
+    after = view()
+    me = next(p for p in after["players"] if p["id"] == "p1")
+    assert me["deck_name"] == "Superfriends" and me["life"] == 40 and me["hand_count"] == 7
+    assert [c["name"] for c in me["commanders"]] == ["Atraxa, Praetors' Voice"]
+    assert after["zones"]["p1:library"]["count"] == 22 - 7
+    assert not old_ids & set(after["cards"])  # the old deck's cards left the table
+    assert "placed a new deck" in json.dumps(after["log"][-1])
+    # Bob's seat is untouched; the host's saved decks work too, and a client can't send the action itself
+    assert next(p for p in after["players"] if p["id"] == "p2")["deck_name"] == before["players"][1]["deck_name"]
+    assert client.post(f"/api/games/{gid}/load-deck", json={"deck_id": decks[0], "draw": 0}).status_code == 200
+    assert next(p for p in view()["players"] if p["id"] == "p1")["hand_count"] == 0
+    forged = client.post(f"/api/games/{gid}/actions", json={"action": {"type": "load_deck", "player": "p1", "cards": [{"section": "main", "quantity": 1, "name": "Island"}]}})
+    assert forged.status_code in (400, 409, 422)
+    # it can be undone like any action
+    assert client.post(f"/api/games/{gid}/undo", json={}).status_code in (200, 204)
+    assert next(p for p in view()["players"] if p["id"] == "p1")["deck_name"] == "Superfriends"
+
+
+def test_play_page_tiles_name_each_players_commanders(client, decks):
+    """The Play page shows tables and saves with their commanders: public once the game starts (903.6), but listed on the
+    host's own screen only; another LAN device sees names until it sits at a table, and a lobby has none yet."""
+    gid = create(client, decks)["game"]["id"]
+    listed = next(g for g in client.get("/api/games").json() if g["id"] == gid)
+    assert [p["commanders"][0]["name"] for p in listed["players"]] == ["Krenko, Mob Boss", "Atraxa, Praetors' Voice"]
+    assert all(p["commanders"][0]["card_id"] for p in listed["players"]) and listed["players"][0]["color"]
+
+    remote = {"X-Forwarded-For": "192.168.1.50"}
+    locked = create(client, decks, mode="lan", password="hunter2")["game"]["id"]
+    open_ = create(client, decks, mode="lan")["game"]["id"]
+    seen = {g["id"]: g for g in client.get("/api/games", headers=remote).json()}
+    assert seen.keys() >= {locked, open_}
+    assert all("commanders" not in p and "color" not in p for g in seen.values() for p in g["players"])
+    assert "Atraxa" not in json.dumps(list(seen.values()))
+    assert next(g for g in client.get("/api/games").json() if g["id"] == open_)["players"][1]["commanders"]
+    lobby = client.post("/api/games", json={"name": "Night", "mode": "lan", "lobby": True, "players": [{"name": "Host"}]}).json()
+    assert all("commanders" not in p for p in seen.get(lobby["game"]["id"], lobby["game"])["players"])
+    assert client.get(f"/api/games/{gid}").json()["players"][0].keys() == {"id", "name", "claimed", "connected"}
+
+    saved = client.post(f"/api/games/{gid}/save", json={"name": "Tiles"}).json()
+    assert saved["players"][1]["commanders"][0]["name"] == "Atraxa, Praetors' Voice"
+    assert saved["players"][0]["color"] == listed["players"][0]["color"]
+    row = next(s for s in client.get("/api/saves").json() if s["id"] == saved["id"])
+    assert row["players"] == saved["players"]
+    # the save still loads, and the loaded table lists the same commanders
+    loaded = client.post(f"/api/saves/{saved['id']}/load", json={}).json()["game"]["id"]
+    again = next(g for g in client.get("/api/games").json() if g["id"] == loaded)
+    assert [p["commanders"] for p in again["players"]] == [p["commanders"] for p in listed["players"]]

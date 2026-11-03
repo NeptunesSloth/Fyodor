@@ -1,0 +1,32 @@
+/* CASTABLE FROM EXILE (ExileCastables.tsx): a small brass-edged row above the hand's left end; the pile badge and browser marks */
+.exile-castables {
+  /* fixed in the free corner above the Tokens / Dice / Hand buttons (.tool-tray), left of the hand, over both tables */
+  position: fixed; left: 12px; bottom: 54px; z-index: 34; pointer-events: auto; width: max-content; max-width: min(420px, 32vw);
+}
+.exile-castables-body { display: flex; align-items: center; gap: 10px; padding: 6px 10px; }
+.exile-castables-title {
+  writing-mode: vertical-rl; transform: rotate(180deg); font: 600 10px/1 var(--font-display); letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--brass, #c9a25c);
+}
+.exile-castables-cards { display: flex; gap: 8px; overflow-x: auto; min-width: 0; }
+.exile-castable {
+  display: grid; justify-items: center; gap: 4px; padding: 3px; border: 0; border-radius: 6px; background: transparent; color: var(--text, #efe6d4);
+  cursor: pointer; font: inherit;
+}
+.exile-castable:hover, .exile-castable:focus-visible { background: color-mix(in srgb, var(--brass, #c9a25c) 16%, transparent); outline: none; }
+.exile-castable-face { width: 64px; display: block; border-radius: 4px; box-shadow: 0 0 0 2px color-mix(in srgb, var(--brass, #c9a25c) 70%, transparent); }
+.exile-castable-line { display: grid; justify-items: center; font-size: 11px; line-height: 1.25; max-width: 92px; text-align: center; }
+.exile-castable-line b { color: var(--brass, #c9a25c); font-weight: 600; }
+.exile-castable-what { white-space: nowrap; }
+.exile-castable-source { font-style: normal; color: var(--text-dim, #a99e8b); }
+
+/* the 2D exile pile: how many of its cards you may cast or play now */
+.pile-castable {
+  position: absolute; top: -8px; right: -8px; z-index: 2; padding: 1px 6px; border-radius: 9px; font-size: 10px; font-weight: 600;
+  background: var(--brass, #c9a25c); color: #1c1610; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); pointer-events: none; white-space: nowrap;
+}
+/* inside an opened pile: the cards you may cast or play, and which card exiled them */
+.zb-card.rules-playable { box-shadow: 0 0 0 2px var(--brass, #c9a25c); border-radius: 6px; }
+.zb-exiled-with {
+  display: block; margin-top: 3px; font-size: 10px; text-align: center; color: var(--brass, #c9a25c);
+}

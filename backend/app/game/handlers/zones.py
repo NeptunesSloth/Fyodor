@@ -8,7 +8,7 @@ from app.game.errors import ActionError
 from app.game.handlers import objects, response
 from app.game.ops import group, log, pname, text, zone_label
 from app.game.rules_state import emit
-from app.game.state import ALL, STACK, CardInstance, GameState, ViewContext, split_zone, zone_key
+from app.game.state import ALL, STACK, CardInstance, DigLog, GameState, ViewContext, split_zone, zone_key
 from app.game.visibility import seers
 
 OWNER_DEFAULT_ZONES = {"library", "hand", "graveyard", "exile", "command", "sideboard", "companion", "foretell", "setaside"}
@@ -234,6 +234,7 @@ def rekey_zone(state: GameState, key: str, perm: list[int], new_ids: list[str], 
         if new_id in state.cards and new_id not in old:
             raise ActionError("id collision while shuffling")
         renamed[c.id] = new_id
+    state.shuffles[key] = state.shuffles.get(key, 0) + 1  # (table motion: the shuffle is public)
     for c in reordered:
         del state.cards[c.id]
     for c, new_id in zip(reordered, new_ids, strict=True):
@@ -384,6 +385,57 @@ def reveal_top(state: GameState, a: A.RevealTop) -> None:
     for c in top:
         c.revealed_to = [ALL]
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" revealed the top of {zone_label(state, key, a.actor)}: "), group(state, top)])
+
+
+def reveal_until(state: GameState, a: A.RevealUntil) -> None:
+    pid = ops.player(state, a.player, a.actor)
+    if a.r is None:
+        raise ActionError("unresolved reveal")
+    key = zone_key(pid, "library")
+    top = [state.cards[cid] for cid in state.zone(key)[: a.r.count]]
+    for c in top:
+        c.revealed_to = [ALL]
+    hit = top[-1] if a.r.hit and top else None
+    tail = [text(" (found "), ops.card_part(state, hit), text(")")] if hit else [text(f" (no {a.card_type} in it)")]
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" revealed from the top of {zone_label(state, key, a.actor)} until a {a.card_type}: "),
+                               group(state, top), *tail],
+        dig=DigLog(mode="reveal_until", player=pid, cards=[c.id for c in top], hit=hit.id if hit else None))
+
+
+def cascade(state: GameState, a: A.Cascade) -> None:
+    pid = ops.player(state, a.player, a.actor)
+    if a.r is None or a.r.move is None:
+        raise ActionError("unresolved cascade")
+    exile = zone_key(pid, "exile")
+    before = len(state.zone(exile))
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" cascades (mana value less than {a.below})")])
+    move(state, a.r.move)
+    landed = state.zone(exile)[before:]
+    hit = landed[-1] if a.r.hit and landed else None
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(" exiled "), group(state, [state.cards[c] for c in landed]),
+                               *([text(", hitting "), ops.card_part(state, state.cards[hit])] if hit else [text(" and missed")])],
+        dig=DigLog(mode="cascade", player=pid, cards=list(landed), hit=hit))
+
+
+def fetch_card(state: GameState, a: A.FetchCard) -> None:
+    pid = ops.player(state, a.player, a.actor)
+    if a.r is None:
+        raise ActionError("unresolved search")
+    move(state, a.r.move)
+    key = zone_key(pid, "library")
+    if len(a.r.shuffle.perm) != len(state.zone(key)):
+        raise ActionError("The library changed; try again")
+    rekey_zone(state, key, a.r.shuffle.perm, a.r.shuffle.new_ids)
+    emit(state, "library_shuffled", player=pid, actor=a.actor)
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" searched for a {a.name} and shuffled {zone_label(state, key, a.actor)}")])
+
+
+def discard_random(state: GameState, a: A.DiscardRandom) -> None:
+    if a.r is None:
+        raise ActionError("unresolved discard")
+    n = len(a.r.card_ids)
+    log(state, a.actor, a.ts, [pname(state, a.actor), text(f" discards {n} card{'s' if n != 1 else ''} at random")])
+    move(state, a.r)
 
 
 def search_start(state: GameState, a: A.SearchStart) -> None:

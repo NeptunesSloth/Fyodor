@@ -68,7 +68,7 @@ export function recordTraffic(page: Page): { text: () => string } {
  */
 export async function hostLobby(page: Page, opts: { name: string; privacy?: string; turnOrder?: "pod" | "random" }): Promise<{ gameId: string; code: string }> {
   await page.goto("/#/play");
-  await page.getByTestId("table-mode").selectOption("lan");
+  await page.getByTestId("table-mode-lan").check();
   await expect(page.getByTestId("use-lobby")).toBeChecked();
   await page.getByTestId("host-name").fill(opts.name);
   if (opts.privacy) await page.getByTestId("deck-privacy").selectOption(opts.privacy);
@@ -183,4 +183,18 @@ export function pngBuffer(width = 8, height = 8, rgb: [number, number, number] =
   ihdr.set([8, 2, 0, 0, 0], 8);
   const rows = Buffer.concat(Array.from({ length: height }, () => Buffer.concat([Buffer.from([0]), Buffer.from(Array(width).fill(rgb).flat())])));
   return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr), chunk("IDAT", zlib.deflateSync(rows)), chunk("IEND", Buffer.alloc(0))]);
+}
+
+/**
+ * Saves Alice's and Bob's decks and returns them in that order, by the ids the server gave them. (The deck list is newest first, to the
+ * second: when the two saves fall in different seconds Bob's deck comes first, and other tests on this server save decks too.)
+ */
+export async function saveDecks(page: Page, texts: string[] = [ALICE_DECK, BOB_DECK]): Promise<{ id: string; name: string }[]> {
+  const decks: { id: string; name: string }[] = [];
+  for (const text of texts) {
+    const made = await page.request.post("/api/decks", { data: { text } });
+    expect(made.ok(), await made.text()).toBeTruthy();
+    decks.push((await made.json()) as { id: string; name: string });
+  }
+  return decks;
 }

@@ -1,5 +1,6 @@
 import { ApiError, api } from "./api";
 import type { GameSummary, LobbySettings, LobbyView, SaveSummary } from "../types/game";
+import type { NearbyServer } from "../pages/lanBits";
 
 export interface CreatePlayer {
   name: string;
@@ -9,7 +10,7 @@ export interface CreatePlayer {
 
 export interface CreateGameBody {
   name: string;
-  format: "commander" | "constructed" | "sandbox";
+  format: "commander";
   mode: "local" | "lan";
   password?: string | null;
   players: CreatePlayer[];
@@ -20,7 +21,7 @@ export interface CreateGameBody {
   /** LAN lobby: players take seats and choose their own decks before the host starts. */
   lobby?: boolean;
   /** Lobby turn order: "pod" = d20 for the first game, then the winner goes last. */
-  turn_order?: "pod" | "random";
+  turn_order?: LobbySettings["turn_order"];
   seats?: number;
   deck_privacy?: LobbySettings["deck_privacy"];
   mulligan_rule?: string;
@@ -50,9 +51,18 @@ export async function importPackage(file: Blob): Promise<{ save: SaveSummary; as
   if (!res.ok) throw new ApiError(res.status, typeof body.detail === "string" ? body.detail : res.statusText, body);
   return body;
 }
-export const joinGame = (body: { code: string; name?: string; password?: string; seat?: string | null; spectate?: boolean }) =>
-  api.post<{ game_id: string; viewer: string; token: string; game: GameSummary }>("/join", body);
-export const lanInfo = () => api.get<{ addresses: string[]; port: number; bound_host: string; reachable: boolean }>("/lan-info");
+/** `token`: a spectator of that table taking a seat sends theirs, so a deck they queued while watching comes along. */
+/** `handoff`: the deck library the player's own Fyodor sent ahead (POST /lan/send-decks there), for this seat alone. */
+export const joinGame = (body: { code: string; name?: string; password?: string; seat?: string | null; spectate?: boolean; handoff?: string | null },
+  token?: string | null) =>
+  api.post<{ game_id: string; viewer: string; token: string; game: GameSummary }>("/join", body, token ? { "X-Seat-Token": token } : undefined);
+/** `discovery`: this computer searches the network and answers on `discovery_port` (null: not answering, e.g. --local). */
+export const lanInfo = () => api.get<{ addresses: string[]; port: number; bound_host: string; reachable: boolean; discovery?: boolean;
+  discovery_port?: number | null }>("/lan-info");
+/** Fyodor tables other computers on the network answered with (this computer only). */
+export const nearbyGames = () => api.get<NearbyServer[]>("/lan/nearby");
+/** Send this computer's deck library to the computer at `url` ahead of joining a table there: a one-time token, or null. */
+export const sendMyDecks = (url: string) => api.post<{ token: string | null; decks: number }>("/lan/send-decks", { url });
 
 const seatKey = (gameId: string) => `fyodor.seat.${gameId}`;
 
@@ -112,9 +122,20 @@ export const setLobbyReady = (gameId: string, ready: boolean) => api.post<LobbyV
 export const changeLobbySeat = (gameId: string, seat: string) => api.post<LobbyView>(lobbyPath(gameId, "/seat"), { seat }, seatHeaders(gameId));
 export const setLobbyProfile = (gameId: string, body: { name?: string; color?: string }) =>
   api.post<LobbyView>(lobbyPath(gameId, "/profile"), body, seatHeaders(gameId));
+/** The deck library this seat brought from its own computer (shown to this seat alone, until the game starts). */
+export interface BroughtLibrary {
+  from: string | null;
+  decks: { name: string; commanders: string[]; text: string; cover_id: string | null }[];
+  /** cards from that computer this table's card database couldn't take, and why */
+  unknown: { name: string; why: string }[];
+}
+export const broughtDecks = (gameId: string) => api.get<BroughtLibrary>(lobbyPath(gameId, "/brought"), seatHeaders(gameId));
 export const leaveLobby = (gameId: string) => api.post<void>(lobbyPath(gameId, "/leave"), {}, seatHeaders(gameId));
 export const updateLobbySettings = (gameId: string, body: Partial<LobbySettings>) =>
   api.post<LobbyView>(lobbyPath(gameId, "/settings"), body, seatHeaders(gameId));
+/** -- seating -- host: every seat id once, in the order they should sit (seat 1 first). */
+export const arrangeLobbySeats = (gameId: string, order: string[]) =>
+  api.post<LobbyView>(lobbyPath(gameId, "/arrange"), { order }, seatHeaders(gameId));
 export const kickFromLobby = (gameId: string, seat: string) => api.post<LobbyView>(lobbyPath(gameId, "/kick"), { seat }, seatHeaders(gameId));
 export const startLobbyGame = (gameId: string, body: { force?: boolean; first_player?: "random" | number }) =>
   api.post<{ game: GameSummary }>(lobbyPath(gameId, "/start"), body, seatHeaders(gameId));
@@ -188,3 +209,8 @@ export function forgetMyDeck(id: string): void {
     /* ignore */
   }
 }
+
+/** The table's importer: put a new deck in a seat without leaving the game (POST /games/{id}/load-deck). */
+export const loadDeckAtTable = (gameId: string, body: LobbyDeckBody & { seat?: string; draw?: number }) =>
+  api.post<{ deck: string; cards: number }>(`/games/${encodeURIComponent(gameId)}/load-deck`, body, seatHeaders(gameId));
+

@@ -10,7 +10,10 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   workers: 1,
-  timeout: 60_000,
+  // CI's hosted runners differ about 2x in speed from run to run (the same browser suite took 11 to 23 minutes, the
+  // same backend job 8 to 16): the multi-browser LAN tests get room for a slow runner there. Locally the budget stays
+  // tight, so a real slowdown still shows.
+  timeout: process.env.CI ? 120_000 : 60_000,
   expect: { timeout: 10_000 },
   retries: 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]] : "list",

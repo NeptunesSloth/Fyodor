@@ -333,6 +333,15 @@ def _you_put_counters_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, f"you_put_counters:{m['k']}"))
 
 
+# -- Star Trek (wave 111E) -- "For each permanent you control that you've put a counter on this turn" (La Forge, Thoughtful as Ever): a counter of
+# any kind put by you on that permanent (400.7: not a new object) this turn (122.6: also one it entered with), the same TurnFact as above
+@_suffix(r"that you've put a counter on this turn")
+def _you_put_a_counter_this_turn111e(s: Selector, m: re.Match[str]) -> Selector:
+    if re.search(r"\bpermanents?(?: you control)?$", m.string[: m.start()].rstrip()) is None:
+        raise ValueError("only \"permanents you control that you've put a counter on this turn\" (a group on the battlefield)")
+    return replace(s, extras=(*s.extras, "you_put_counters:any111e"))
+
+
 @_suffix(r"that didn't attack this turn")  # -- damage sized by a count (wave 34D) -- Kratos, Angel's Trumpet: not declared as an attacker this turn (508.1)
 def _didnt_attack_this_turn(s: Selector, m: re.Match[str]) -> Selector:
     if re.search(r"\bcreatures?(?: [a-z ]+? controls?)?$", m.string[: m.start()].rstrip()) is None:  # ("creatures that player controls that didn't …"; wave 41A: "each creature you control that didn't …")
@@ -392,6 +401,13 @@ def _with_color_symbols(s: Selector, m: re.Match[str]) -> Selector:
 @_suffix(r"with another (?P<kind>Aura|Equipment) attached to it")
 def _with_other_attachment(s: Selector, m: re.Match[str]) -> Selector:
     return replace(s, extras=(*s.extras, "other_attachment:" + m["kind"]))
+
+
+# -- attached (wave 111F) -- "another creature with a Communicator attached to it" (Combadge), "other creatures you control with a Communicator attached
+# to them" (Starfleet Communicator): a permanent with that artifact subtype (the Star Trek sets' Equipment) attached to it on the battlefield (301.5)
+@_suffix(r"with a (?P<kind>Communicator) attached to (?:it|them)")
+def _with_attached_kind(s: Selector, m: re.Match[str]) -> Selector:
+    return replace(s, extras=(*s.extras, "attached_kind111f:" + m["kind"]))
 
 
 @_suffix(r"with a legendary Equipment attached to it")  # -- trigger other (wave 44B) -- Kassandra, Eagle Bearer: 301.5, an Equipment attached to it that is legendary
@@ -1864,6 +1880,19 @@ def parse(phrase: str) -> Selector | None:
         if any(branch is None for branch in branches):
             return None
         return Selector(either=tuple(branch.key() for branch in branches if branch is not None), zones=("battlefield", "exile"))
+    # -- Star Trek statics (wave 111C) -- "Other Officers, Artificers, Doctors, Pilots, Scientists, and Spacecraft creatures you control" (Kirk, Man of
+    # Action): creature types, and last a noncreature subtype that names creatures only with "creatures" (205.3g: Spacecraft is an artifact type);
+    # an object of any of them (the creature-type list as "Officers, … or Scientists", and the "Spacecraft creatures"), the qualifiers on both
+    types_and_sub = re.fullmatch(r"(?P<pre>(?:other |another )?)(?P<list>[A-Z][A-Za-z'\-]+(?:, [A-Z][A-Za-z'\-]+)*),? and (?P<sub>[A-Z][A-Za-z'\-]+) creatures"
+                                 r"(?P<post> you control)?", phrase.strip())
+    if types_and_sub is not None and types_and_sub["sub"] in OTHER_SUBTYPES:
+        words = types_and_sub["list"].split(", ")
+        listed = f"{', '.join(words[:-1])} and {words[-1]}" if len(words) > 1 else words[0]
+        halves = [_parse(_type_and(f"{types_and_sub['pre']}{listed}{types_and_sub['post'] or ''}")),
+                  _parse(f"{types_and_sub['pre']}{types_and_sub['sub']} creatures{types_and_sub['post'] or ''}")]
+        if len(words) < 2 or any(h is None or h.either or h.player is not None for h in halves[1:]) or halves[0] is None or halves[0].player is not None:
+            return None
+        return Selector(either=tuple(h.key() for h in halves if h is not None))
     # A compound first branch keeps its intersection: (artifact AND creature)
     # OR Vehicle. Leading and trailing qualifiers apply to both branches.
     compound_union = re.fullmatch(
@@ -2816,6 +2845,9 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             return False
         if extra == "host_of_source" and ((src := plan.state.cards.get(source or "")) is None or src.attached_to != card.id):
             return False  # -- attached events (wave 40B) -- 303.4b, 301.5: the permanent the source (an Aura / Equipment) is attached to ("Tap enchanted creature")
+        if extra.startswith("attached_kind111f:") and not any(  # -- attached (wave 111F) -- a permanent of that subtype attached to it (301.5)
+                c.zone.endswith(":battlefield") and c.attached_to == card.id and extra.split(":", 1)[1] in plan.ch(c).subtypes for c in plan.state.cards.values()):
+            return False
         if extra.startswith("other_attachment:"):
             kind = extra.split(":", 1)[1]
             if not any(c.id != source and c.zone.endswith(":battlefield") and c.attached_to == card.id
@@ -2837,6 +2869,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
             from app.rules import static_spell100c
 
             if not static_spell100c.extra_ok(plan, extra, card, ch, you, source, attacker):
+                return False
+        if extra == "beamable112t":  # -- Star Trek mechanics (wave 112T) -- not a permanent that "can't be beamed up" (release notes)
+            from app.rules import beam_me_up
+
+            if not beam_me_up.beamable(plan, card):
                 return False
         if extra == "shares_color_source" and ((src := plan.state.cards.get(source or "")) is None or not plan.ch(src).colors & ch.colors):
             return False  # -- static_other sweep (wave 17C) -- conspire 702.78a: a creature that shares a color with the spell
@@ -3128,7 +3165,8 @@ def _you_put_counters_now(plan: Plan, card: CardInstance, you: str | None, kind:
     from app.rules.history import log_for
 
     oid = plan.oid(card)
-    return any(f.kind == "counters" and f.object_id == oid and f.actor == you and f.counter == kind and f.amount > 0 for f in log_for(plan, False).facts)
+    return any(f.kind == "counters" and f.object_id == oid and f.actor == you and (f.counter == kind or kind == "any111e")  # (wave 111E: any kind)
+               and f.amount > 0 for f in log_for(plan, False).facts)
 
 
 def _attacked_this_turn_now(plan: Plan, card: CardInstance) -> bool:
@@ -3207,18 +3245,19 @@ def candidates(plan: Plan, sel: Selector, you: str, source: str | None = None, a
     """Card ids (not players) matching the selector, in a deterministic order."""
     zones = sel.zones or ("graveyard", "hand", "exile")
     out = []
-    for key, ids in plan.state.zones.items():
-        zone = key.split(":")[-1]
-        if zone not in zones:
-            continue
-        if zone in ("hand", "library") and sel.zone_owner != "you":
-            continue  # hidden zones: only your own, and only when the sentence says so
-        for cid in ids:
-            card = plan.state.cards.get(cid)
-            if card is None or not plan.in_game(card):
-                continue  # 800.4a: what a player who left the game owned (or controlled) has left it too
-            if matches(plan, sel, card, plan.ch(card), you, source, attacker):
-                out.append(cid)
+    with plan.reading():  # (a read-only scan: the statics table is read once, not once per card; big boards)
+        for key, ids in plan.state.zones.items():
+            zone = key.split(":")[-1]
+            if zone not in zones:
+                continue
+            if zone in ("hand", "library") and sel.zone_owner != "you":
+                continue  # hidden zones: only your own, and only when the sentence says so
+            for cid in ids:
+                card = plan.state.cards.get(cid)
+                if card is None or not plan.in_game(card):
+                    continue  # 800.4a: what a player who left the game owned (or controlled) has left it too
+                if matches(plan, sel, card, plan.ch(card), you, source, attacker):
+                    out.append(cid)
     return out
 
 

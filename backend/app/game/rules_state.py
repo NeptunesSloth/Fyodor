@@ -1602,6 +1602,8 @@ class RulesState(BaseModel):
     # -- exiled with (wave 6D) -- source object -> the objects its abilities exiled (607.2a: "the exiled card",
     # "cards exiled with ~"; app/rules/exiled_with.py)
     exiled_with: dict[str, list[str]] = Field(default_factory=dict)
+    # -- Star Trek mechanics (wave 112T) -- source object -> the objects it assimilated ("the Borg assimilated with this Saga", 607.2a; app/rules/assimilate.py)
+    assimilated112t: dict[str, list[str]] = Field(default_factory=dict)
     linked_exile_turns71: dict[str, dict[str, int]] = Field(default_factory=dict)  # Native link scope -> exact exile OID -> actual exile turn.
 
     created_with: dict[str, list[str]] = Field(default_factory=dict)  # exact created-token incarnations per source/borrowed scope
@@ -1647,6 +1649,9 @@ class RulesState(BaseModel):
     turns_taken: dict[str, int] = Field(default_factory=dict)
     no_power_up_turns: list[int] = Field(default_factory=list)  # -- power-up (wave 50J) -- the turn numbers power-up abilities can't be activated in (Kang the Conqueror's extra turn)
     extra_turn: bool = False  # -- static_other (wave 42A) -- 500.7: the turn in progress is an extra turn ("can't attack during extra turns", Medomai; engine.start_next_turn)
+    # -- Star Trek statics (wave 111C) -- known only from a game's start (start_rules; None: automation began mid-game or an older save):
+    extra_turn_begun111c: list[str] | None = None  # 500.7: the players who have begun an extra turn this game (H.M.S. Bounty)
+    casts_game111c: dict[str, int] | None = None  # 601.2i: how many spells each player has cast this game (First Contact)
     # … and "can't gain life this turn / for the rest of the game" (614.17; app/rules/cant_gain.py):
     # {"id", "player", "controller", "turn" (None: the rest of the game), "label"}
     cant_gain: list[dict[str, Any]] = Field(default_factory=list)
@@ -1679,6 +1684,9 @@ class RulesState(BaseModel):
     # different results apply (Blightsteel's shuffle vs Rest in Peace) stays where it is until its controller (owner if
     # it has none) picks the one that applies: card id -> {"oid", "dest", "options": {outcome: source label}}
     pending_616: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    # -- enters attacking (wave 111R3) -- 508.4: creatures that entered attacking (Kira Nerys, Firebrand) through a path that couldn't ask first what
+    # they attack (a manifested card): {"card", "object", "player"}, asked before anyone gets priority (rules/wave111r3_enter.offer)
+    attack_pending111r3: list[dict[str, str]] = Field(default_factory=list)
     # -- graveyard order (wave 40C) -- 404.3: batches of two or more cards that were put into one graveyard together, whose owner is to
     # arrange them before anyone gets priority: {"owner", "cards" (bottom to top)} (app/rules/graveyard_order.py)
     pending_gy_order: list[dict[str, Any]] = Field(default_factory=list)
@@ -1855,6 +1863,7 @@ class RulesState(BaseModel):
     payments: dict[str, PaymentRecord] = Field(default_factory=dict)
     # Each player's intents this turn, for REPEAT LAST VALIDATED SEQUENCE (payloads, newest last).
     recent: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    recent_labels: dict[str, list[str]] = Field(default_factory=dict)  # the same intents in words, for its own player only ("Cast Sol Ring")
     recent_turn: int = 0
     # Cast / play permissions granted by effects, cost modifiers with a duration, and which top
     # library cards are revealed by permanents on the table (app/rules/permissions.py).
@@ -1962,6 +1971,8 @@ def start_rules(state: GameState) -> RulesState:
         crew_saddle_history_turn80=(state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None),
         first_event_history_turn78=(state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None),
         cast_history_complete=True if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
+        extra_turn_begun111c=[] if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,  # -- Star Trek statics (wave 111C) --
+        casts_game111c={} if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
         target_activation_history_turn=state.turn.number if state.rules is None and state.seq <= 1 and state.turn.number == 1 else None,
         coin_history_from_turn=state.turn.number if state.seq <= 1 else state.turn.number + 1,
         graveyard_history_from_turn=state.turn.number if state.seq <= 1 else state.turn.number + 1,
@@ -1989,7 +2000,27 @@ def _zone_name(key: str) -> str:
     return key.rsplit(":", 1)[-1]
 
 
-def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
+class _Around:
+    """-- big boards (perf) -- who blocks what and what is attached to what, read in one pass over the table for all the snapshots
+    ``Capture`` takes of it (each snapshot used to read every card in the game twice: the square of the table's size per step).
+    Exactly what ``snapshot`` reads without it: the lists keep the table's card order, and an id appears once per list however
+    many of the blocker's blocks name the same attacker (``CardInstance.blocks`` is a yes or no per attacker)."""
+
+    __slots__ = ("blockers", "attached")
+
+    def __init__(self, state: GameState) -> None:
+        self.blockers: dict[str, list[str]] = {}
+        self.attached: dict[str, list[str]] = {}
+        for o in state.cards.values():
+            for attacker in dict.fromkeys((o.blocking, *o.blocking_more)):
+                if attacker is not None and o.blocks(attacker):
+                    self.blockers.setdefault(attacker, []).append(o.id)
+            if o.attached_to is not None:
+                self.attached.setdefault(o.attached_to, []).append(o.id)
+
+
+def snapshot(state: GameState, card_id: str, around: _Around | None = None) -> ObjectSnapshot:
+    """``around``: the table's blockers and attachments, gathered once for many snapshots of one table (``Capture``)."""
     c = state.cards[card_id]
     rules = state.rules
     token = c.token
@@ -2012,10 +2043,12 @@ def snapshot(state: GameState, card_id: str) -> ObjectSnapshot:
         blocking=c.is_blocking, blocking_ids=[x for x in (c.blocking, *c.blocking_more) if x], attached_to=c.attached_to,
         attached_object=rules.object_id(c.attached_to) if rules is not None and c.attached_to is not None and c.attached_to in state.cards else None,
         text=token.text if token else "",
-        blocked_by_ids=[o.id for o in state.cards.values() if o.id != card_id and o.blocks(card_id)],  # (wave 53C)
+        blocked_by_ids=[o.id for o in state.cards.values() if o.id != card_id and o.blocks(card_id)] if around is None
+        else [o for o in around.blockers.get(card_id, ()) if o != card_id],  # (wave 53C)
         banded_with_ids=[oid for band in rules.attacking_bands if rules.object_id(card_id) in band for oid in band
                          if oid != rules.object_id(card_id)] if rules and c.is_attacking else [],
-        attached_objects={a.id: rules.object_id(a.id) for a in state.cards.values() if a.attached_to == c.id} if rules else {},
+        attached_objects=({a.id: rules.object_id(a.id) for a in state.cards.values() if a.attached_to == c.id} if around is None
+                          else {a: rules.object_id(a) for a in around.attached.get(c.id, ())}) if rules else {},
         attached_objects_known=rules is not None,
         attached_player=c.attached_player,  # -- attached events (wave 4L) --
         merged=[p.model_dump() for p in c.merged], melded=c.melded,  # (wave 18D)
@@ -2059,8 +2092,9 @@ class Capture:
         # CR 603.10a: graveyard-leave events retain their public old object even
         # when a later library shuffle deliberately destroys its physical id.
         paid_exile = {oid for payment in state.rules.payments.values() for oid in payment.exiled_objects} if state.rules else set()
+        around = _Around(state)
         self.snaps = {
-            cid: snapshot(state, cid) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES or _zone_name(c.zone) == "graveyard"
+            cid: snapshot(state, cid, around) for cid, c in state.cards.items() if _zone_name(c.zone) in TRACKED_ZONES or _zone_name(c.zone) == "graveyard"
             or (_zone_name(c.zone) == "exile" and not c.face_down and state.rules is not None
                 and (state.rules.object_id(cid) in paid_exile or bool(c.counters) or cid in state.rules.suspended))
         }

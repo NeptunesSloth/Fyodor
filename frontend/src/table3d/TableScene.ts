@@ -17,37 +17,71 @@ import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import { isVisible, type CardStats, type GameCard, type GameView, type LibraryView, type ZoneName } from "../types/game";
 import { counterShort, isKeyword } from "../game/counters";
-import { draw, tapCards, targetsFor } from "../game/actions";
+import { changeLife, draw, send, tapCards, targetsFor } from "../game/actions";
+import { Batcher, runSeatAction, SEAT_ACTIONS, TypedCount, type SeatActionId } from "../game/seatActions";
+import { isOut } from "../game/outOfGame";
 import { cardMenu } from "../game/cardMenu";
+import { tableMenu } from "../game/selection";
+import { countMark, zonePileTops } from "../game/piles";
 import type { DropResult } from "../game/dnd";
+import type { PingTarget } from "../services/night";
 import { dropCards } from "../game/drop";
 import { pickClick } from "../game/Overlays";
 import { answerByClick, legalClass } from "../game/rules/RulesHud";
+import { targetBeams } from "../game/targeting/beams";
+import { useTargeting } from "../game/targeting/store";
 import { libraryMenu, pileMenu, PILE_LABEL } from "../game/ZonePile";
 import type { PlaneTheme } from "../theme/planes";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { buildEnvironment, type Environment } from "./environment";
 import { arrowTime, makeArrow, type GroundBox } from "./arrows";
+import { makeTether } from "./tethers";
+import { combatCardIds, frameBox } from "./focus";
+import { attachmentLinks, tetherAnchor } from "../game/attachments";
+import { commanderDealt, dealtText } from "../game/commanderDamage";
 import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
+import { DiceTray, prewarmDice } from "./dice";
+import { DiceHud } from "./diceHud";
+import { CannonRig, fireCannon } from "./cannon3d";
+import { rollerEnv } from "./diceEnv";
+import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
+import { SeatProps } from "./seatProps";
+import { CARD_BACK_URL } from "../cards/cardBack";
+import { TableMotion } from "./motion3d";
+import { EndScene3D } from "./endScene3d";
+import { onEndScene } from "../game/motion/endScene";
+import { onTableEvents } from "../game/motion/tableEvents";
+import { onMotionSkip } from "../game/motion/timing";
+import type { DiceShow } from "../game/dice";
 import {
-  CARD_H, CARD_W, MAT_D, MAT_W, PILES, STRIP_X, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
+  AISLE, CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, MAT_W, PILES, plaqueSpot, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
   virtualToLocal, type PileZone, type Seat,
 } from "./layout";
-import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardCanvas } from "./textures";
+import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
+import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
+import { tileOverlayCanvas, tileTexture, TILE_PX } from "./tiles";
+import { fitCamera, FOCUS_ELEVATION, OVERVIEW_ELEVATION, seatElevation, seatPoints, tableRect, viewDir } from "./framing";
+import { boardOrder, saveBoardOrder } from "../game/arrange";
+import { useBoardOrderTick } from "../game/arrangeDrop";
 
 /** How long a refused action's card stays marked. */
 export const ERROR_MS = 1800;
 
 export type Quality = "low" | "medium" | "high";
-export type CameraPreset = "seat" | "overview" | { focus: string } | { card: string };
+export type CameraPreset = "seat" | "overview" | { focus: string } | { card: string } | { stack: true } | { combat: true };
 
 const THICK = 0.016;
 /** Cards drawn per pile at most (taller piles space them out). */
 const PILE_LAYERS = 48;
 const LIFT = 0.55;
+/** How fast (world units a second) a card must still be moving when you let go for it to slide on (a flick). */
+const FLICK_SPEED = 4.5;
 
 export interface ScreenRect { id: string; left: number; top: number; right: number; bottom: number }
+
+/** -- targeting -- the arrow's start when the source is the spell in my hand (on the screen, not the table). */
+const MY_HAND = "\u0000my-hand";
 
 interface CardObj {
   id: string;
@@ -64,6 +98,14 @@ interface CardObj {
   /** Target size (stack cards stand larger); eased like position. */
   scale: number;
   seen: boolean;
+  /** Table motion (table3d/motion3d.ts): new to the table and not yet placed; a flight drives it; a strike lunge is on it. */
+  fresh?: boolean;
+  flying?: boolean;
+  struck?: boolean;
+  /** -- arranged boards -- an art tile on an arranged mat (table3d/arrange3d.ts): the card squashed to `squash` of its depth (eased in `sq`). */
+  tile?: boolean;
+  squash?: number;
+  sq?: number;
 }
 
 interface PileObj {
@@ -116,7 +158,7 @@ function jitter(i: number, salt: number): number {
  * What a battlefield card's badges say. P/T shows only when it differs from the printed card or the
  * creature is damaged or carries badges, so an unmodified board costs no extra draw calls.
  */
-function overlayFor(card: GameCard, stats: CardStats | undefined): CardOverlay | null {
+function overlayFor(card: GameCard, stats: CardStats | undefined, tile = false): CardOverlay | null {
   const counters = Object.entries(card.counters ?? {}).filter(([, n]) => n > 0);
   const plus = card.counters?.["+1/+1"] ?? 0;
   const minus = card.counters?.["-1/-1"] ?? 0;
@@ -130,7 +172,9 @@ function overlayFor(card: GameCard, stats: CardStats | undefined): CardOverlay |
     const bt = Number(stats.base?.[1]);
     const d = Number.isFinite(bp) && Number.isFinite(bt) ? stats.pt[0] - bp + (stats.pt[1] - bt) : plus - minus;
     const dir = d > 0 ? 1 : d < 0 ? -1 : 0;
-    if (dir || damage || keywords.length || plus || minus) pt = { text: `${stats.pt[0]}/${stats.pt[1]}`, dir };
+    // a tile prints its P/T: the plate covers it only when the rules' differ (or it has none: an animated land)
+    const changed = tile && (!Number.isFinite(bp) || !Number.isFinite(bt) || stats.pt[0] !== bp || stats.pt[1] !== bt);
+    if (dir || damage || keywords.length || plus || minus || changed) pt = { text: `${stats.pt[0]}/${stats.pt[1]}`, dir };
   } else if (plus !== minus) {
     const net = plus - minus;
     pt = { text: net > 0 ? `+${net}/+${net}` : `${net}/${net}`, dir: net > 0 ? 1 : -1 };
@@ -148,6 +192,8 @@ const shadowQ = new THREE.Quaternion();
 const shadowScale = new THREE.Vector3();
 const shadowM = new THREE.Matrix4();
 const shadowColor = new THREE.Color();
+/** A body drawn at no size (a fading stand-in card keeps only its shadow). */
+const NO_BODY = new THREE.Matrix4().makeScale(0, 0, 0);
 
 function angleLerp(a: number, b: number, t: number): number {
   let d = (b - a) % (Math.PI * 2);
@@ -187,7 +233,9 @@ export class TableScene {
   private preset: CameraPreset = "seat";
   private zoom = 1;
   private yaw = 0;
-  private drag: { ids: string[]; anchor: string; start: [number, number]; grab: THREE.Vector3; offsets: Map<string, THREE.Vector3>; active: boolean } | null = null;
+  private drag: { ids: string[]; anchor: string; start: [number, number]; grab: THREE.Vector3; offsets: Map<string, THREE.Vector3>; active: boolean; trail: { t: number; x: number; z: number }[] } | null = null;
+  /** A flicked card sliding across its mat (and anything it knocked), played back from table3d/cardPhysics.ts. */
+  private sliding: { seat: Seat; start: number; frames: number; tracks: Map<string, Float32Array>; done?: () => void } | null = null;
   private orbit: { x: number; yaw: number } | null = null;
   /** Box selection: dragging on the bare table draws a rectangle (as on the 2D table). */
   private marquee: { x0: number; y0: number; add: boolean; el: HTMLDivElement } | null = null;
@@ -211,22 +259,61 @@ export class TableScene {
   private hitMat = new THREE.MeshBasicMaterial({ visible: false });
   private textures = new Map<string, THREE.Texture>();
   private materials = new Map<string, THREE.MeshStandardMaterial>();
+  /** -- targeting -- a face material darkened for a card that isn't a choice (sharing its texture). */
+  private dimMats = new Map<THREE.MeshStandardMaterial, THREE.MeshStandardMaterial>();
   private loader = new THREE.TextureLoader();
   private failed = new Set<string>();
   private unsubs: (() => void)[] = [];
   /** Every card's body (its thickness and shadow) in one draw call. */
   private bodies: THREE.InstancedMesh;
   private arrows = new THREE.Group();
+  /** Thrown dice (table3d/dice.ts) and their chips (diceHud.ts). */
+  private dice: DiceTray;
+  private diceHud: DiceHud;
+  private diceTurn = -1;
+  /** -- table toys -- the dice cannon (table3d/cannon3d.ts), built the first time it is fired. */
+  private cannon: CannonRig | null = null;
+  /** Life hearts over every seat and my seat's buttons (table3d/seatProps.ts). */
+  private props = new SeatProps();
+  private propsKey = "";
+  private hoveredButton: SeatActionId | null = null;
+  private lifeBatch = new Batcher((pid, d) => void changeLife(pid, d), (pid, pending) => {
+    const p = this.view?.players.find((x) => x.id === pid);
+    if (p) this.props.setLife(pid, p.life, pending);
+  });
+  private typed = new TypedCount((id, n) => this.props.setTyped(id, n), (id, n) => runSeatAction(id, n, this.me));
   /** A soft contact shadow under every card (one draw call), spreading as the card lifts. */
   private shadows: THREE.InstancedMesh;
   private shadowTex = contactShadowTexture();
   private arrowKey = "";
+  /** -- targeting -- the source, hovered and chosen candidates while I choose targets (game/targeting/beams.ts). */
+  private beams: ReturnType<typeof targetBeams> = null;
+  /** Attachment lines (game/attachments.ts): shown while either end is hovered or selected. */
+  private tethers = new THREE.Group();
+  private tetherKey = "";
   /** Where the stack's standing cards are (beams route around it), and each stack card's beam anchor. */
   private stackBox: GroundBox | null = null;
   private stackAnchors = new Map<string, { far: THREE.Vector3; near: THREE.Vector3 }>();
   /** Soft studio reflections for metal, lacquer and card gloss (a prefiltered room, no download). */
   private envMap: THREE.Texture;
   private post: Post | null = null;
+  /** Card flights, stand-ins, riffles, strikes and numbers (table3d/motion3d.ts), stepped from this loop. */
+  private motion: TableMotion;
+  /** The end-of-game table scene (table3d/endScene3d.ts): dim, camera ease, one pulse, a few motes; stepped from this loop. */
+  private end: EndScene3D;
+  /** -- arranged boards -- each mat in rows (table3d/arrange3d.ts), unless this device chose free placement; each battlefield card's spot. */
+  private boards = new ArrangedBoards();
+  private placed = new Map<string, Spot>();
+  private arranged = true;
+  /** -- framing -- the canvas size in CSS px (the camera fits the table to it). */
+  private viewW = 1;
+  private viewH = 1;
+  private fitCam = new THREE.PerspectiveCamera();
+  private fogBase: [number, number] = [30, 95];
+  private bodyN = 0;
+  private pushStandIn = (obj: THREE.Object3D, opacity: number): void => {
+    this.bodyN = this.writeBody(obj, this.bodyN, opacity);
+  };
 
   constructor(container: HTMLElement, plane: PlaneTheme, quality: Quality) {
     this.plane = plane;
@@ -252,6 +339,18 @@ export class TableScene {
     this.scene.environment = this.envMap;
     this.scene.environmentIntensity = 0.3;
     if (quality === "high") this.post = createPost(this.renderer, this.scene, this.camera);
+    this.dice = new DiceTray({ look: usePrefs.getState().diceLook, envMap: this.envMap, shadows: quality !== "low", segments: quality === "low" ? 3 : 4 });
+    this.diceHud = new DiceHud(container, (key) => this.dice.dismiss(key));
+    this.unsubs.push(usePrefs.subscribe((s) => this.dice.setLook(s.diceLook)), prewarmDice());
+    // -- arranged boards -- the board layout setting, and my order for a board (dragged along its row, here or on the 2D table)
+    this.arranged = usePrefs.getState().boardLayout !== "free";
+    this.unsubs.push(usePrefs.subscribe((s, prev) => {
+      if (s.boardLayout === prev.boardLayout) return;
+      this.arranged = s.boardLayout !== "free";
+      this.syncCards();
+      this.updateCameraGoal();
+    }), useBoardOrderTick.subscribe(() => this.syncCards()));
+    this.unsubs.push(useTargeting.subscribe(() => this.syncCards())); // a candidate hovered in the tray, or chosen
     // a card body with a hair of bevel so its edge catches the light
     const bevel = 0.004;
     const body = new THREE.ExtrudeGeometry(roundedRect(CARD_W - bevel * 2, CARD_H - bevel * 2, 0.045), {
@@ -278,8 +377,27 @@ export class TableScene {
     this.shadows.count = 0;
     this.shadows.frustumCulled = false;
     this.shadows.renderOrder = -1;
-    this.world.add(this.bodies, this.shadows, this.arrows);
+    this.world.add(this.bodies, this.shadows, this.arrows, this.dice.group, this.props.group);
+    this.world.add(this.tethers);
     this.scene.add(this.world);
+    this.motion = new TableMotion({
+      world: this.world, faceGeo: this.cardFaceGeo, thick: THICK,
+      me: () => this.me, view: () => this.view, card: (id) => this.cards.get(id),
+      seat: (p) => this.seatList.find((s) => s.player === p),
+      pileY: (zone) => {
+        const p = this.piles.get(zone);
+        return p && p.count > 0 ? pileHeight(p.count) + THICK : 0;
+      },
+      back: (owner) => this.backMaterial(owner),
+      face: (id) => {
+        const card = this.view?.cards[id];
+        return card ? this.faceMaterial(card, this.faceKeyFor(card)) : this.backMaterial("");
+      },
+      heart: (p) => this.props.heartWorld(p),
+    });
+    this.unsubs.push(onTableEvents((events, next, prev) => this.motion.play(events, next, prev)), onMotionSkip(() => this.motion.finish()));
+    this.end = new EndScene3D(this.scene, () => tableSize(this.seatList));
+    this.unsubs.push(onEndScene((cue) => this.end.play(cue)));
     this.applyFog();
     this.bindInput();
     this.loop();
@@ -302,6 +420,8 @@ export class TableScene {
   }
 
   resize(w: number, h: number): void {
+    this.viewW = w;
+    this.viewH = h;
     this.renderer.setSize(w, h, false);
     this.post?.setSize(w, h);
     this.camera.aspect = w / Math.max(1, h);
@@ -314,6 +434,9 @@ export class TableScene {
   }
 
   update(view: GameView, me: string): void {
+    // landed dice stay for the turn they were rolled in (game/dice.ts)
+    if (this.diceTurn >= 0 && view.turn.number !== this.diceTurn) this.dice.clear();
+    this.diceTurn = view.turn.number;
     this.view = view;
     this.me = me;
     const key = `${view.seat_order.join(",")}|${me}`;
@@ -323,14 +446,94 @@ export class TableScene {
       this.rebuildTable();
       this.updateCameraGoal();
     }
+    const out = isOut(view, me); // -- out of the game -- no seat buttons by the mat of a player who left (game/outOfGame.ts)
+    const propsKey = `${key}|${view.players.map((p) => p.color).join(",")}|${out}`;
+    if (propsKey !== this.propsKey) {
+      this.propsKey = propsKey;
+      this.props.rebuild(this.seatList, out ? "" : me, Object.fromEntries(view.players.map((p) => [p.id, p.color])));
+    }
+    for (const p of view.players) this.props.setLife(p.id, p.life, this.lifeBatch.pending(p.id));
+    this.props.setCommanders(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, p.commanders.map((c) => ({ key: c.key, tax: c.tax }))])),
+      Object.fromEntries(view.players.map((p) => [p.id, p.color])));
     this.syncCards();
+  }
+
+  /**
+   * A roll everyone sees (game/dice.ts): the dice leave the roller's hand over the near edge of their mat, tumble
+   * across it and come to rest on its far half (table3d/diceThrow.ts), glancing off the roller's piles. The throw
+   * runs in the roller's mat frame, so it is the same throw on every screen. Rolling again clears your last dice.
+   */
+  throwDice(show: DiceShow): void {
+    if (show.cannon) {
+      // -- table toys -- fired from the dice cannon: it rolls in only to fire (not on reduced motion or low graphics)
+      const rig = !document.body.classList.contains("reduced-motion") && this.quality !== "low";
+      if (rig && !this.cannon) {
+        this.cannon = new CannonRig(this.envMap, true);
+        this.world.add(this.cannon.group);
+      }
+      fireCannon({ show, tray: this.dice, rig: rig ? this.cannon : null, seats: this.seatList, view: this.view, tableWidth: tableSize(this.seatList).w, still: this.quality === "low", now: performance.now() });
+      return;
+    }
+    const seat = this.seatList.find((s) => s.player === show.actor) ?? this.seatList.find((s) => s.player === this.me);
+    if (!seat) return;
+    const player = this.view?.players.find((p) => p.id === seat.player);
+    this.dice.clear(seat.player);
+    // the roller's piles and cards, from the public view as every screen has them (table3d/diceEnv.ts)
+    this.dice.throw(show, player?.color ?? "#d7ae63", player?.name ?? "", { x: seat.x, z: seat.z, rotY: seat.rot }, rollerEnv(this.view, seat.player), performance.now());
+  }
+
+  /** The thrown dice now on the table (tests and diagnostics). */
+  diceState(): ReturnType<DiceTray["describe"]> {
+    return this.dice.describe();
+  }
+
+  /** -- table toys -- whether the dice cannon is out on the table, and where on screen (tests and diagnostics). */
+  cannonState(): { busy: boolean; at: { x: number; y: number } | null } {
+    const c = this.cannon;
+    return { busy: !!c?.busy, at: c?.busy ? this.project(c.group.children[0]!.getWorldPosition(new THREE.Vector3())) : null };
+  }
+
+  /** A seat's life heart (its ▼ or ▲ half, or the middle) and my seat's buttons, on screen (tests and diagnostics). */
+  heartOnScreen(player: string, side: -1 | 0 | 1 = 0): { x: number; y: number } | null {
+    const p = this.props.heartWorld(player);
+    if (!p) return null;
+    if (side) {
+      // the heart turns to face the camera: its halves lie across the view
+      const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0).setY(0).normalize();
+      p.addScaledVector(right, side * 0.42);
+    }
+    return this.project(p);
+  }
+
+  taxOnScreen(key: string): { x: number; y: number } | null {
+    const p = this.props.taxWorld(key);
+    return p ? this.project(p) : null;
+  }
+
+  buttonOnScreen(id: SeatActionId): { x: number; y: number } | null {
+    const p = this.props.buttonWorld(id);
+    return p ? this.project(p) : null;
+  }
+
+  /** Table motion (tests and screenshots): freeze every running motion at a time in ms (null: live), and what is running. */
+  motionFreeze(ms: number | null): void {
+    this.motion.freeze(ms);
+  }
+
+  motionState(): ReturnType<TableMotion["state"]> {
+    return this.motion.state();
+  }
+
+  /** The dice on the table, in screen coordinates (tests and diagnostics). */
+  diceOnScreen(): { x: number; y: number }[] {
+    return this.dice.positions().map((p) => this.project(p));
   }
 
   /** Where a seat's player plate should be drawn on screen (for the DOM overlay). */
   seatScreen(player: string, width: number, height: number): { x: number; y: number; visible: boolean } | null {
     const seat = this.seatList.find((s) => s.player === player);
     if (!seat) return null;
-    const [wx, wz] = toWorld(seat, -STRIP_X, this.plaqueZ(seat.player));
+    const [wx, wz] = toWorld(seat, ...plaqueSpot(seat));
     const v = new THREE.Vector3(wx, 0.3, wz).project(this.camera);
     return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height, visible: v.z < 1 }; // off to the side: the overlay clamps it to the screen edge
   }
@@ -374,14 +577,6 @@ export class TableScene {
   private tmpBox = new THREE.Box3();
   private tmpV = new THREE.Vector3();
 
-  /**
-   * Where along its mat a seat's plaque sits: yours on the inner side (the outer edge is under your
-   * hand), everyone else's on their outer edge, by them rather than out in the middle of the table.
-   */
-  private plaqueZ(player: string): number {
-    return player === this.me ? -0.6 : MAT_D / 2 - 0.4;
-  }
-
   /** Screen position (CSS px, relative to the canvas) of a card, or of a battlefield point of a seat. */
   screenOfCard(id: string): { x: number; y: number } | null {
     const c = this.cards.get(id);
@@ -402,12 +597,22 @@ export class TableScene {
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
   }
 
+  /** What a ping at this point points at: the card under the pointer, else the battlefield spot (game/ping.ts). */
+  pingTargetAt(clientX: number, clientY: number): PingTarget | null {
+    const hit = this.pick(clientX, clientY);
+    if (hit?.card) return { card: hit.card };
+    const drop = this.resolveDrop(clientX, clientY);
+    if (drop?.zone.endsWith(":battlefield") && drop.x !== undefined && drop.y !== undefined) {
+      return { player: drop.zone.split(":")[0]!, x: drop.x, y: drop.y };
+    }
+    return null;
+  }
+
   /** Drop resolution for DOM drags (from the hand) over the canvas. */
   resolveDrop(clientX: number, clientY: number, offset?: THREE.Vector3): DropResult | null {
     const p = this.tablePoint(clientX, clientY);
     if (!p || !this.view) return null;
     if (offset) p.sub(offset);
-    if (Math.hypot(p.x, p.z) < 1.8 && this.stackCenterFree()) return { zone: "stack" };
     for (const seat of this.seatList) {
       const [lx, lz] = toLocal(seat, p.x, p.z);
       if (onBattlefield(lx, lz)) {
@@ -417,17 +622,28 @@ export class TableScene {
       const pile = pileAt(lx, lz);
       if (pile) return { zone: `${seat.player}:${pile}`, position: "top" };
     }
+    // the stack: the middle of the aisle between the rows
+    if (Math.abs(p.z) < AISLE + 0.3 && Math.abs(p.x) < 2.2 && this.stackCenterFree()) return { zone: "stack" };
     return null;
   }
 
   dispose(): void {
     cancelAnimationFrame(this.raf);
     for (const u of this.unsubs) u();
+    this.motion.dispose();
+    this.end.dispose();
+    this.dice.dispose();
+    this.cannon?.dispose();
+    this.diceHud.dispose();
+    this.lifeBatch.dispose();
+    this.typed.dispose();
+    this.props.dispose();
     this.clearTable();
     for (const c of this.cards.values()) this.disposeCard(c);
     this.cards.clear();
     for (const t of this.textures.values()) t.dispose();
     for (const m of this.materials.values()) m.dispose();
+    for (const m of this.dimMats.values()) m.dispose();
     this.bodies.dispose();
     this.shadows.geometry.dispose();
     (this.shadows.material as THREE.Material).dispose();
@@ -449,7 +665,8 @@ export class TableScene {
     const e = this.plane.env;
     // the room falls away into near-darkness so the lit table reads first
     const fog = new THREE.Color(e.fog).multiplyScalar(0.3);
-    this.scene.fog = new THREE.Fog(fog, 30, 95 - e.fogDensity * 600);
+    this.fogBase = [30, 95 - e.fogDensity * 600];
+    this.scene.fog = new THREE.Fog(fog, this.fogBase[0], this.fogBase[1]);
     this.scene.background = new THREE.Color(e.skyBottom).multiplyScalar(0.35);
   }
 
@@ -537,7 +754,9 @@ export class TableScene {
     const key = `back:${owner}:${sleeve ?? ""}:${player?.color ?? ""}`;
     let m = this.materials.get(key);
     if (!m) {
-      const tex = sleeve ? this.loadTexture(sleeve, () => canvasTexture(backCanvas(player?.color ?? "#888"))) : canvasTexture(backCanvas(player?.color ?? "#888"));
+      // a sleeve, else the Magic card back the host cached with the art, else a back drawn here
+      const drawn = () => canvasTexture(backCanvas(player?.color ?? "#888"));
+      const tex = this.loadTexture(sleeve ?? CARD_BACK_URL, sleeve ? () => this.loadTexture(CARD_BACK_URL, drawn) : drawn);
       m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 });
       this.materials.set(key, m);
     }
@@ -563,16 +782,23 @@ export class TableScene {
   private faceKeyFor(card: GameCard): string {
     if (!isVisible(card) || card.face_down) return `back:${card.owner}`;
     const data = card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
-    return `front:${card.card_id ?? card.name}:${card.face}:${data ? (data.has_image ? "img" : "txt") : "pending"}`;
+    const look = data ? (data.has_image ? "img" : "txt") : "pending";
+    // -- arranged boards -- an art tile (table3d/tiles.ts): what it shows is its key; a tapped one is a shade darker
+    if (this.placed.has(card.id)) {
+      const t = card.card_id ? "" : JSON.stringify([card.token?.type_line, card.token?.power, card.token?.toughness, card.token?.colors]);
+      return `tile:${card.card_id ?? card.name}:${card.face}:${look}:${card.commander_key ? 1 : 0}:${card.is_token ? 1 : 0}:${t}${card.tapped ? "|tapped" : ""}`;
+    }
+    return `front:${card.card_id ?? card.name}:${card.face}:${look}`;
   }
 
   private faceMaterial(card: GameCard, key: string): THREE.MeshStandardMaterial {
     if (key.startsWith("back:")) return this.backMaterial(card.owner);
     let m = this.materials.get(key);
     if (m) return m;
+    if (key.startsWith("tile:")) return this.tileMaterial(card, key);
     const vis = card as Extract<GameCard, { hidden?: undefined }>;
     const data = vis.card_id ? useCardCache.getState().cards[vis.card_id] : undefined;
-    const text = () => canvasTexture(textCardCanvas(data, vis.face ?? 0, vis.name));
+    const text = () => textCardTexture(data, vis.face ?? 0, vis.name);
     let tex: THREE.Texture;
     if (data?.has_image) {
       const imgFace = data.double_faced ? Math.min(vis.face ?? 0, data.image_faces - 1) : 0;
@@ -583,6 +809,30 @@ export class TableScene {
     m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0, envMapIntensity: 0.12 });
     this.materials.set(key, m);
     return m;
+  }
+
+  /** -- arranged boards -- a tile's material: one texture per distinct tile, shared; tapped, the same texture a shade darker. */
+  private tileMaterial(card: GameCard, key: string): THREE.MeshStandardMaterial {
+    const base = key.replace(/\|tapped$/, "");
+    let m = this.materials.get(base);
+    if (!m) {
+      const vis = card as Extract<GameCard, { hidden?: undefined }>;
+      const data = vis.card_id ? useCardCache.getState().cards[vis.card_id] : undefined;
+      const imgFace = data?.double_faced ? Math.min(vis.face ?? 0, data.image_faces - 1) : 0;
+      const art = data?.has_image ? imageUrl(data.id, imgFace, "normal") : null;
+      const t = vis.token;
+      const custom = !vis.card_id && t ? { name: t.name, type_line: t.type_line, oracle_text: t.text, power: t.power, toughness: t.toughness, colors: t.colors } : undefined;
+      const tex = tileTexture({ data, face: vis.face ?? 0, name: vis.name, custom, art, token: !!vis.is_token, commander: !!vis.commander_key },
+        this.quality === "low" ? 224 : TILE_PX, this.renderer.capabilities.getMaxAnisotropy());
+      this.textures.set(base, tex);
+      m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0, envMapIntensity: 0.12 });
+      this.materials.set(base, m);
+    }
+    if (base === key) return m;
+    const dark = m.clone();
+    dark.color.setScalar(0.74);
+    this.materials.set(key, dark);
+    return dark;
   }
 
   // ------------------------------------------------------------------ cards
@@ -597,7 +847,7 @@ export class TableScene {
     glow.position.y = -0.001;
     group.add(glow, face);
     this.world.add(group);
-    const obj: CardObj = { id, group, face, glow, overlay: null, overlayKey: "", faceKey: "", target: new THREE.Vector3(), rot: 0, tilt: 0, scale: 1, seen: true };
+    const obj: CardObj = { id, group, face, glow, overlay: null, overlayKey: "", faceKey: "", target: new THREE.Vector3(), rot: 0, tilt: 0, scale: 1, seen: true, fresh: true };
     this.cards.set(id, obj);
     return obj;
   }
@@ -619,13 +869,14 @@ export class TableScene {
 
   /** Arena-style badges on the card face; rebuilt only when what they say changes. */
   private setOverlay(c: CardObj, o: CardOverlay | null): void {
-    const key = o ? JSON.stringify(o) : "";
+    const key = o ? `${c.tile ? "tile" : ""}${JSON.stringify(o)}` : "";
     if (c.overlayKey === key) return;
     c.overlayKey = key;
     this.clearOverlay(c);
     if (!o) return;
     const mat = new THREE.MeshBasicMaterial({
-      map: canvasTexture(cardOverlayCanvas(o)), transparent: true, depthWrite: false, toneMapped: false,
+      // -- arranged boards -- a tile's badges are laid out for its proportions (table3d/tiles.ts)
+      map: canvasTexture(c.tile ? tileOverlayCanvas(o) : cardOverlayCanvas(o)), transparent: true, depthWrite: false, toneMapped: false,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
     });
     const m = new THREE.Mesh(this.cardFaceGeo, mat);
@@ -637,24 +888,50 @@ export class TableScene {
 
   private place(c: CardObj, seat: Seat | undefined, lx: number, lz: number, y: number, extraRot = 0): void {
     c.scale = 1;
+    c.tile = false;
+    c.squash = 1;
+    // -- arranged boards -- a battlefield card goes to its tile's spot, turned to read from my seat; its height follows
+    // the tile's stacking (a stack's top card, a host over its Equipment) plus any lift the table gave it
+    const spot = seat && this.placed.get(c.id);
+    if (spot) {
+      c.tile = true;
+      c.squash = TILE_SQUASH;
+      c.scale = tileScale(spot.w);
+      c.target.set(spot.x, 0.004 + spot.rank * 0.0035 + Math.max(0, y - (0.004 + spot.index * 0.0035)), spot.z);
+      c.rot = spot.rot + extraRot;
+      return;
+    }
     if (seat) {
       const [wx, wz] = toWorld(seat, lx, lz);
       c.target.set(wx, y, wz);
-      c.rot = seat.rot + extraRot;
+      // arranged, every card on the table reads from my seat (the piles' tops and the command zone too)
+      c.rot = (this.arranged ? this.myRot() : seat.rot) + extraRot;
     } else {
       c.target.set(lx, y, lz);
       c.rot = extraRot;
     }
   }
 
+  private myRot(): number {
+    return this.seatList.find((s) => s.player === this.me)?.rot ?? 0;
+  }
+
   private syncCards(): void {
     const view = this.view;
     if (!view) return;
+    this.motion.layout();
+    // -- arranged boards -- every mat's rows, laid out again only where something changed (table3d/arrange3d.ts)
+    this.placed = this.arranged ? this.boards.layout(view, this.seatList, this.me, {
+      data: (cid) => useCardCache.getState().cards[cid],
+      version: useCardCache.getState().cards,
+      order: (zone) => boardOrder(view.game.id, zone),
+    }, this.keepOut) : new Map();
     for (const c of this.cards.values()) c.seen = false;
     const seatOf = new Map(this.seatList.map((s) => [s.player, s]));
     const store = useGame.getState();
     const selection = new Set(store.selection);
     this.selectedIds = selection;
+    this.beams = targetBeams(view, this.me);
     const pending = store.pendingPositions;
     const need: string[] = [];
     const show = (id: string): CardObj | null => {
@@ -675,6 +952,7 @@ export class TableScene {
       const pid = seat.player;
       // battlefield
       const bf = (view.zones[`${pid}:battlefield`] as string[] | undefined) ?? [];
+      const piles = this.arranged ? this.boards.piles(pid) : zonePileTops(view, `${pid}:battlefield`);
       bf.forEach((id, i) => {
         const card = view.cards[id];
         const c = show(id);
@@ -682,10 +960,20 @@ export class TableScene {
         const pos = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
         const [lx, lz] = virtualToLocal(pos[0], pos[1]);
         const tapped = (card.tapped ? -Math.PI / 2 : 0) + (card.flipped ? Math.PI : 0) - ((card.rotation ?? 0) * Math.PI) / 180;
-        this.place(c, seat, lx, lz, 0.004 + i * 0.0035, tapped);
+        // -- targeting -- the choices lift off the felt (the one pointed at or chosen more), the rest darkens
+        const tb = this.beams;
+        const lift = tb?.cands.has(id) ? (tb.targets.includes(id) ? 0.16 : 0.06) : 0;
+        this.place(c, seat, lx, lz, 0.004 + i * 0.0035 + lift, tapped);
+        const face = this.faceMaterial(card, c.faceKey);
+        const want = tb && !tb.cands.has(id) && id !== tb.source ? this.dimmed(face) : face;
+        if (c.face.material !== want) c.face.material = want;
         c.tilt = 0;
-        this.setOverlay(c, overlayFor(card, view.rules?.stats?.[id]));
-        this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55);
+        const overlay = overlayFor(card, view.rules?.stats?.[id], c.tile);
+        const pile = countMark(card, piles.get(id))?.n; // ×N: the land pile it tops, or the token stack it is
+        const ownerP = card.owner !== card.controller ? view.players.find((p) => p.id === card.owner) : undefined;
+        const owner = ownerP ? { initial: ownerP.name.slice(0, 1).toUpperCase(), color: ownerP.color } : undefined;
+        this.setOverlay(c, pile || owner ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}) } : overlay);
+        this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), selection.has(id) || tb?.cands.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
       });
       // piles
       for (const zone of ["library", "graveyard", "exile"] as const) {
@@ -708,15 +996,19 @@ export class TableScene {
           }
         }
       }
-      // command zone
+      // command zone: each commander in its own slot (a partner's above), anything else after them
       const cmd = (view.zones[`${pid}:command`] as string[] | undefined) ?? [];
-      cmd.forEach((id, i) => {
+      const keys = view.players.find((p) => p.id === pid)?.commanders.map((c) => c.instance_id) ?? [];
+      let extra = 0;
+      cmd.forEach((id) => {
         const c = show(id);
         if (!c) return;
-        const [lx, lz] = PILES.command;
-        this.place(c, seat, lx - i * (CARD_W + 0.12), lz, 0.004, 0);
+        const slot = keys.indexOf(id);
+        const at = slot >= 0 && slot < COMMAND_SLOTS.length ? COMMAND_SLOTS[slot]! : null;
+        const [lx, lz] = at ?? [PILES.command[0] - (++extra) * (CARD_W + 0.12), PILES.command[1]];
+        this.place(c, seat, lx, lz, 0.004, 0);
         this.setOverlay(c, null);
-        this.setGlow(c, selection.has(id) ? this.plane.ui.select : this.legalColor(view, id), 0.6);
+        this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), 0.6);
       });
       // other players' hands: a fan of backs at their edge (count only)
       if (pid !== this.me) this.syncHandFan(seat, ((view.zones[`${pid}:hand`] as string[] | undefined) ?? []).length);
@@ -765,6 +1057,7 @@ export class TableScene {
 
     for (const [id, c] of this.cards) {
       if (!c.seen) {
+        this.motion.forget(c); // (where it was, for a flight to wherever it went)
         this.disposeCard(c);
         this.cards.delete(id);
       }
@@ -777,6 +1070,41 @@ export class TableScene {
     if (errObj) this.setGlow(errObj, "#ff5a4a", 1);
     this.layoutCombat(view);
     this.syncArrows(view);
+    this.syncTethers();
+    // a stack or combat close-up follows the stack and the fight as they change
+    if (typeof this.preset === "object" && ("stack" in this.preset || "combat" in this.preset)) this.updateCameraGoal();
+  }
+
+  /** Attachment cords for whatever is hovered or selected (game/attachments.ts); rebuilt only when one changes. */
+  private syncTethers(): void {
+    const view = this.view;
+    if (!view) return;
+    const store = useGame.getState();
+    const links = attachmentLinks(view, [store.hover, ...store.selection]);
+    const ends: [THREE.Vector3, THREE.Vector3][] = [];
+    const foot = (c: CardObj) => ({ x: c.target.x, y: c.target.z, hw: (CARD_W / 2) * c.scale, hh: (CARD_H / 2) * c.scale, rot: -c.rot });
+    // just over the card's face, as high as the hover or selection lift carries it
+    const top = (c: CardObj) => c.target.y + liftFor({ hovered: c.id === this.hovered, selected: this.selectedIds.has(c.id), turning: 0 }) + THICK + 0.012;
+    for (const l of links) {
+      const a = this.cards.get(l.from);
+      const h = l.player ? undefined : this.cards.get(l.to);
+      // an Aura enchanting a player ends at their life heart
+      const seat = l.player ? this.seatList.find((s) => s.player === l.to) : undefined;
+      if (!a || (!h && !seat)) continue;
+      const [hx, hz] = seat ? toWorld(seat, ...heartSpot(seat)) : [0, 0];
+      const b = h ? h.target.clone().setY(top(h)) : new THREE.Vector3(hx, 0.05, hz);
+      // a tucked attachment's line starts on the part of it that peeks out from under the host
+      const p = h ? tetherAnchor(foot(a), foot(h)) : { x: a.target.x, y: a.target.z };
+      ends.push([new THREE.Vector3(p.x, top(a), p.y), b]);
+    }
+    const key = ends.map(([a, b]) => `${a.x.toFixed(2)},${a.z.toFixed(2)},${a.y.toFixed(2)}>${b.x.toFixed(2)},${b.z.toFixed(2)},${b.y.toFixed(2)}`).join("|");
+    if (key === this.tetherKey) return;
+    this.tetherKey = key;
+    for (const child of [...this.tethers.children]) {
+      this.tethers.remove(child);
+      (child.userData.dispose as () => void)();
+    }
+    for (const [a, b] of ends) this.tethers.add(makeTether(a, b));
   }
 
   /**
@@ -785,6 +1113,9 @@ export class TableScene {
    * and facing them; each blocker steps up directly in front of the attacker it blocks.
    */
   private layoutCombat(view: GameView): void {
+    // -- arranged boards -- attackers and blockers stay in their rows, stepping forward, as on Arena; arrows say whom
+    // they attack (syncArrows)
+    if (this.arranged) return;
     const seatOf = (pid: string | undefined) => this.seatList.find((s) => s.player === pid);
     const groups = new Map<string, { a: Seat; d: Seat; ids: string[] }>();
     for (const card of Object.values(view.cards)) {
@@ -831,12 +1162,19 @@ export class TableScene {
     const at = (id: string, from?: THREE.Vector3): THREE.Vector3 | null => {
       const c = this.cards.get(id);
       if (c) return c.target.clone().setY(c.target.y + 0.05);
+      if (id === MY_HAND) { // my hand's edge of the table (the hand itself is on the screen, not the table)
+        const mine = this.seatList.find((s) => s.player === this.me);
+        if (!mine) return null;
+        const [hx, hz] = toWorld(mine, 0, MAT_D / 2 + 0.5);
+        return new THREE.Vector3(hx, 0.35, hz);
+      }
       const seat = this.seatList.find((s) => s.player === id);
       if (!seat) return null;
       // a player: their plaque (as Arena lands on the avatar), spread a little so several
       // attackers' crystals sit side by side
       const spread = from ? Math.max(-0.7, Math.min(0.7, toLocal(seat, from.x, from.z)[0] * 0.12)) : 0;
-      const [wx, wz] = toWorld(seat, -STRIP_X + spread, this.plaqueZ(seat.player));
+      const [hx, hz] = heartSpot(seat);
+      const [wx, wz] = toWorld(seat, hx + spread, hz);
       const p = new THREE.Vector3(wx, 0.3, wz);
       // stop short of the plaque so the crystal stays clear of its Turn / Priority flags
       if (from) p.add(from.clone().setY(0.3).sub(p).setLength(Math.min(1.1, from.distanceTo(p) * 0.3)));
@@ -859,9 +1197,12 @@ export class TableScene {
       if (a.distanceTo(b) >= 0.3) wanted.push([a, b, low ? `${color}|low` : color]);
     };
     for (const c of Object.values(view.cards)) {
-      if (c.attacking && c.attacking.kind !== "player") add(c.id, c.attacking.id, ATTACK_RED, true);
+      if (c.attacking && (c.attacking.kind !== "player" || this.arranged)) add(c.id, c.attacking.id, ATTACK_RED, true);
       if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff", true);
     }
+    // -- targeting -- from the source (or my hand, where the spell is) to the hovered and the chosen candidates, in brass
+    const beams = this.beams;
+    if (beams) for (const t of beams.targets) add(beams.source && this.cards.has(beams.source) ? beams.source : MY_HAND, t, this.plane.ui.accent2);
     for (const ar of view.arrows ?? []) {
       const color = ar.kind === "attack" ? ATTACK_RED : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;
       for (const t of ar.targets) add(ar.source, t, color);
@@ -933,9 +1274,20 @@ export class TableScene {
     }
   }
 
+  private dimmed(m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
+    let d = this.dimMats.get(m);
+    if (!d) {
+      d = m.clone();
+      d.color.setScalar(0.26);
+      this.dimMats.set(m, d);
+    }
+    return d;
+  }
+
   private legalColor(view: GameView, id: string): string | null {
     const cls = legalClass(view, id, this.me);
-    if (cls === "rules-target") return this.plane.ui.select;
+    // a legal choice glows brass; the one pointed at and the chosen ones brighter
+    if (cls === "rules-target") return this.beams?.targets.includes(id) ? this.plane.ui.accent2 : this.plane.ui.frameHi;
     if (cls === "rules-playable" || cls === "rules-activatable") return this.plane.ui.accent;
     return null;
   }
@@ -955,41 +1307,146 @@ export class TableScene {
 
   // ------------------------------------------------------------------ camera
 
+  /** The area the stack (K) or combat (X) close-up frames, or null when there's nothing there. */
+  private closeUpBox(preset: CameraPreset): GroundBox | null {
+    if (typeof preset !== "object") return null;
+    if ("stack" in preset) return this.stackBox;
+    if (!("combat" in preset) || !this.view) return null;
+    let box: GroundBox | null = null;
+    const r = CARD_H / 2 + 0.2;
+    for (const id of combatCardIds(this.view)) {
+      const c = this.cards.get(id);
+      if (!c) continue;
+      const b: GroundBox = box ?? { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+      box = { minX: Math.min(b.minX, c.target.x - r), maxX: Math.max(b.maxX, c.target.x + r), minZ: Math.min(b.minZ, c.target.z - r), maxZ: Math.max(b.maxZ, c.target.z + r) };
+    }
+    return box;
+  }
+
   private updateCameraGoal(): void {
     const mine = this.seatList.find((s) => s.player === this.me) ?? this.seatList[0];
     if (!mine) return;
-    const size = tableSize(this.seatList);
-    const aspect = this.camera.aspect || 16 / 9;
-    const span = Math.max(size.w / Math.max(aspect, 1), size.d);
     const preset = this.preset;
+    const box = this.closeUpBox(preset); // K / X: nothing there any more (resolved, combat over): my seat
     let pos: THREE.Vector3;
     let look: THREE.Vector3;
-    if (preset === "overview") {
-      look = new THREE.Vector3(0, 0, 0.5);
-      pos = new THREE.Vector3(0, span * 1.45, span * 0.28);
+    const fitted = this.fitView(preset, mine);
+    if (fitted) {
+      // the seat view (behind my seat, looking across the aisle), the whole table, or Look at one player's board
+      ({ pos, look } = fitted);
+    } else if (box) {
+      // the stack's standing cards, or the fight (attackers out in the aisle with their blockers), seen from my side
+      const [dx, dz] = toWorld({ ...mine, x: 0, z: 0 }, 0, 1);
+      const f = frameBox(box, [dx, dz], typeof preset === "object" && "stack" in preset ? { y: 1, elevation: 0.8 } : {});
+      look = new THREE.Vector3(...f.look);
+      pos = new THREE.Vector3(...f.pos);
     } else if (typeof preset === "object" && "card" in preset) {
       // close up on one card, seen from my side of the table
       const c = this.cards.get(preset.card);
       look = c ? c.target.clone().setY(0) : new THREE.Vector3();
       const [dx, dz] = toWorld({ ...mine, x: 0, z: 0 }, 0, 1);
       pos = look.clone().add(new THREE.Vector3(dx * 2.6, 5.2, dz * 2.6));
-    } else if (typeof preset === "object") {
-      const seat = this.seatList.find((s) => s.player === preset.focus) ?? mine;
-      const [lx, lz] = toWorld(seat, 0, -0.3);
-      const [px, pz] = toWorld(seat, 0, MAT_D / 2 + 5.2);
-      look = new THREE.Vector3(lx, 0, lz);
-      pos = new THREE.Vector3(px, 8.5, pz);
     } else {
-      // behind my seat, looking across the table (the main view): my mat large, every opponent visible
-      const [lx, lz] = toWorld(mine, 0, -MAT_D / 2 - 2.8);
-      const [px, pz] = toWorld(mine, 0, MAT_D / 2 + span * 0.32);
-      look = new THREE.Vector3(lx, 0, lz);
-      pos = new THREE.Vector3(px, span * 0.74, pz);
+      // a close-up with nothing left to show: my seat
+      ({ pos, look } = this.fitView("seat", mine)!);
     }
     const off = pos.clone().sub(look).multiplyScalar(this.zoom);
     off.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw);
     this.camGoalPos.copy(look).add(off);
     this.camGoalLook.copy(look);
+    // -- framing -- the room's fog starts past the table, however far back the camera sits for this screen
+    if (this.scene.fog instanceof THREE.Fog) {
+      const near = Math.max(this.fogBase[0], off.length() * 1.3);
+      this.scene.fog.near = near;
+      this.scene.fog.far = this.fogBase[1] + (near - this.fogBase[0]);
+    }
+  }
+
+  /**
+   * -- framing -- the seat view, the whole table and Look (2–6) fit what they show to this screen, between the top bar
+   * and my hand (table3d/framing.ts); fitted again only when the screen, the seats or the view change. Null: a
+   * close-up (C, K, X), framed as before.
+   */
+  private fitView(preset: CameraPreset, mine: Seat): { pos: THREE.Vector3; look: THREE.Vector3 } | null {
+    if (typeof preset === "object" && !("focus" in preset)) return null;
+    const key = `${JSON.stringify(preset)}|${this.seatKey}|${this.viewW}x${this.viewH}|${this.arranged}|${this.reserveTop}`;
+    if (this.fitKey === key && this.fitted) return { pos: this.fitted.pos.clone(), look: this.fitted.look.clone() };
+    const cam = this.fitCam;
+    cam.copy(this.camera);
+    cam.updateProjectionMatrix();
+    let pts: THREE.Vector3[];
+    let dir: THREE.Vector3;
+    if (typeof preset === "object") {
+      // Look: that player's board, as large as it goes; arranged boards read from my seat, so it's seen from my side
+      const seat = this.seatList.find((s) => s.player === preset.focus) ?? mine;
+      pts = seatPoints(seat, { buttons: seat === mine });
+      dir = viewDir(this.arranged ? mine.rot : seat.rot, FOCUS_ELEVATION);
+    } else {
+      pts = this.seatList.flatMap((s) => seatPoints(s, { buttons: s === mine }));
+      dir = viewDir(mine.rot, preset === "overview" ? OVERVIEW_ELEVATION : seatElevation(this.seatList.length));
+    }
+    const f = fitCamera(cam, pts, dir, tableRect(this.viewW, this.viewH, this.reserveTop));
+    this.fitKey = key;
+    this.fitted = f;
+    return { pos: f.pos.clone(), look: f.look.clone() };
+  }
+  private fitKey = "";
+  private fitted: { pos: THREE.Vector3; look: THREE.Vector3 } | null = null;
+  private reserveTop = 0;
+  /** -- arranged boards -- the turn dial's box on the canvas, and the corner of my mat it covers from my seat. */
+  private dialKey = "";
+  private dialWhere = "";
+  private dial: { left: number; top: number; bottom: number } | null = null;
+  private keepOut: { top: number; left: number } | null = null;
+
+  /** -- arranged boards -- the turn dial's box (CSS px, relative to the canvas), so my rows stop short of the corner it covers. */
+  setDialBox(box: { left: number; top: number; bottom: number } | null): void {
+    // the tallest the dial has been on this screen, so my board doesn't reflow every step
+    const where = box ? `${Math.round(box.left / 8)},${this.viewW}x${this.viewH}` : "";
+    const top = box ? Math.min(box.top, where === this.dialWhere && this.dial ? this.dial.top : Infinity) : 0;
+    const key = `${where}|${Math.round(top / 8)}`;
+    this.dialWhere = where;
+    if (key === this.dialKey) return;
+    this.dialKey = key;
+    this.dial = box && { ...box, top };
+    const next = this.dialCorner();
+    if (next?.top === this.keepOut?.top && next?.left === this.keepOut?.left) return;
+    this.keepOut = next;
+    this.syncCards();
+  }
+
+  /** Where the dial's corner falls on my mat, seen from my seat's view (layout units; null: it misses my mat). */
+  private dialCorner(): { top: number; left: number } | null {
+    const box = this.dial;
+    const mine = this.seatList.find((s) => s.player === this.me);
+    if (!box || !mine) return null;
+    const f = this.fitView("seat", mine);
+    if (!f) return null;
+    const cam = this.fitCam;
+    cam.copy(this.camera);
+    cam.position.copy(f.pos);
+    cam.lookAt(f.look);
+    cam.updateMatrixWorld(true);
+    const hit = (sx: number, sy: number): [number, number] | null => {
+      this.ray.setFromCamera(new THREE.Vector2((sx / this.viewW) * 2 - 1, -(sy / this.viewH) * 2 + 1), cam);
+      const p = this.ray.ray.intersectPlane(this.tablePlane, new THREE.Vector3());
+      return p ? toLocal(mine, p.x, p.z) : null;
+    };
+    const a = hit(box.left, box.top);
+    const b = hit(box.left, Math.min(box.bottom, this.viewH - 1));
+    if (!a || !b) return null;
+    const lx = Math.min(a[0], b[0]) - 0.1;
+    const lz = a[1] - 0.1;
+    if (lx >= MAT_W / 2 || lz >= MAT_D / 2) return null;
+    const q = (v: number) => Math.round(Math.max(0, v) / 10) * 10;
+    return { top: q((lz + MAT_D / 2) * AU), left: q((lx + MAT_W / 2) * AU) };
+  }
+
+  /** -- framing -- keep a strip this tall (px) clear at the top of the table (a tip banner sits there); 0: none. */
+  setTopReserve(px: number): void {
+    if (px === this.reserveTop) return;
+    this.reserveTop = px;
+    this.updateCameraGoal();
   }
 
   // ------------------------------------------------------------------ input
@@ -1005,15 +1462,17 @@ export class TableScene {
     return this.ray.ray.intersectPlane(this.tablePlane, out);
   }
 
-  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string } | null {
+  private pick(clientX: number, clientY: number): { card?: string; pile?: PileZone; player?: string; heart?: string; side?: -1 | 1; seatButton?: SeatActionId; tax?: string } | null {
     this.ray.setFromCamera(this.pointer(clientX, clientY), this.camera);
-    const targets: THREE.Object3D[] = [];
+    const targets: THREE.Object3D[] = [...this.props.targets()];
     for (const c of this.cards.values()) if (!this.drag?.ids.includes(c.id)) targets.push(c.face);
     for (const p of this.piles.values()) targets.push(p.block, p.slot, ...(p.top?.visible ? [p.top] : []));
     const hits = this.ray.intersectObjects(targets, false);
     const hit = hits[0];
     if (!hit) return null;
-    const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string };
+    const d = hit.object.userData as { card?: string; pile?: PileZone; player?: string; heart?: string; seatButton?: SeatActionId; tax?: string };
+    // the Oops heart: its left half (▼) takes life away, its right half (▲) gives it
+    if (d.heart) return { ...d, side: (hit.uv?.x ?? 1) < 0.5 ? -1 : 1 };
     return d;
   }
 
@@ -1037,9 +1496,23 @@ export class TableScene {
     };
     window.addEventListener("keydown", onKey, true);
     this.unsubs.push(() => window.removeEventListener("keydown", onKey, true));
+    // hover a seat button and type a number: that many (digits go to the button, not the camera keys)
+    const onDigit = (e: KeyboardEvent) => {
+      if (this.typed.key(this.hoveredButton, e.key)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener("keydown", onDigit, true);
+    this.unsubs.push(() => window.removeEventListener("keydown", onDigit, true));
     on("contextmenu", (e) => this.onContext(e));
     on("wheel", (e) => {
       e.preventDefault();
+      const over = this.pick(e.clientX, e.clientY);
+      if (over?.heart) {
+        this.lifeBatch.bump(over.heart, e.deltaY < 0 ? 1 : -1);
+        return;
+      }
       this.zoom = Math.max(0.45, Math.min(1.8, this.zoom * (e.deltaY > 0 ? 1.08 : 1 / 1.08)));
       this.updateCameraGoal();
     }, { passive: false });
@@ -1051,6 +1524,8 @@ export class TableScene {
     const s = useGame.getState();
     if (id) s.setHover(id);
     else if (s.hover && this.cards.has(s.hover)) s.setHover(null);
+    this.syncTethers();
+    if (this.beams) this.syncCards(); // -- targeting -- the arrow follows the pointer from candidate to candidate
     this.canvas.style.cursor = id ? "pointer" : "";
   }
 
@@ -1062,8 +1537,30 @@ export class TableScene {
       return;
     }
     if (e.button !== 0) return;
+    // a click on landed dice clears them away (from this screen)
+    this.ray.setFromCamera(this.pointer(e.clientX, e.clientY), this.camera);
+    const die = this.dice.pick(this.ray);
+    if (die) {
+      this.dice.dismiss(die);
+      return;
+    }
     const hit = this.pick(e.clientX, e.clientY);
     const store = useGame.getState();
+    if (hit?.heart && answerByClick(store.view, hit.heart, this.me)) return; // -- targeting -- a targetable player's heart chooses them
+    if (hit?.heart) {
+      this.lifeBatch.bump(hit.heart, (hit.side ?? 1) * (e.shiftKey ? 5 : 1)); // ▼ −1, ▲ +1
+      return;
+    }
+    if (hit?.tax) {
+      void send({ type: "commander_tax", commander: hit.tax, delta: 2 }); // cast once more: +2
+      return;
+    }
+    if (hit?.seatButton) {
+      this.props.press(hit.seatButton);
+      runSeatAction(hit.seatButton, 1, this.me, { x: e.clientX, y: e.clientY });
+      return;
+    }
+
     if (!hit?.card) {
       if (!hit && !e.shiftKey) store.clearSelection();
       if (hit?.pile && hit.player) this.clickPile(hit.player, hit.pile, e);
@@ -1103,7 +1600,7 @@ export class TableScene {
       const c = this.cards.get(cid);
       if (c) offsets.set(cid, c.group.position.clone().setY(0).sub(grab));
     }
-    this.drag = { ids, anchor: id, start: [e.clientX, e.clientY], grab, offsets, active: false };
+    this.drag = { ids, anchor: id, start: [e.clientX, e.clientY], grab, offsets, active: false, trail: [] };
     this.canvas.setPointerCapture(e.pointerId);
   }
 
@@ -1130,6 +1627,9 @@ export class TableScene {
       document.body.classList.add("dragging");
       const p = this.tablePoint(e.clientX, e.clientY);
       if (!p) return;
+      // where the hand has been lately: how fast it was moving when it let go (a flick)
+      d.trail.push({ t: e.timeStamp, x: p.x, z: p.z }); // the event's own time: a busy frame doesn't skew the speed
+      if (d.trail.length > 8) d.trail.shift();
       for (const cid of d.ids) {
         const c = this.cards.get(cid);
         const off = d.offsets.get(cid);
@@ -1139,6 +1639,14 @@ export class TableScene {
     }
     const hit = this.pick(e.clientX, e.clientY);
     this.setHover(hit?.card ?? null);
+    this.hoveredButton = hit?.seatButton ?? null;
+    this.props.hover(this.hoveredButton);
+    const taxOf = hit?.tax ? this.view?.players.flatMap((p) => p.commanders).find((c) => c.key === hit.tax) : undefined;
+    const dealt = taxOf && this.view ? dealtText(commanderDealt(this.view.players, taxOf.key)) : "";
+    const tip = taxOf ? `Commander tax for ${taxOf.name}: ${taxOf.tax} (click +2, right-click −2)${dealt ? `\nCommander damage dealt: ${dealt}` : ""}` : hit?.seatButton ? SEAT_ACTIONS.find((a) => a.id === hit.seatButton)?.title
+      : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life: click ▼ −1 or ▲ +1, right-click for 5, or the wheel` : "";
+    if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
+    this.canvas.style.cursor = hit?.seatButton || hit?.heart || hit?.tax ? "pointer" : "";
   }
 
   private onUp(e: PointerEvent): void {
@@ -1165,9 +1673,155 @@ export class TableScene {
     if (!d.active) return;
     const anchorOff = d.offsets.get(d.anchor);
     const target = this.resolveDrop(e.clientX, e.clientY, anchorOff ? anchorOff.clone().negate() : undefined);
+    if (target && this.flick(d, e.timeStamp)) return;
+    if (target && this.arrangedDrop(d.ids, d.anchor, target.zone)) return;
     if (target) dropCards(d.ids, d.anchor, { ...target, manual: e.altKey });
     else toast("Dropped off the table: nothing changed", "info");
     this.syncCards(); // snap back (or to the pending position) until the server answers
+  }
+
+  /**
+   * Let go of your own cards while still moving them and they slide on, knocking your other cards aside (physics:
+   * table3d/cardPhysics.ts). Where everything stops is sent as one move. A slow release is a normal, exact drop.
+   */
+  private flick(d: NonNullable<TableScene["drag"]>, released: number): boolean {
+    if (usePrefs.getState().cardPhysics === false) return false;
+    const recent = d.trail.filter((p) => released - p.t < 90);
+    if (recent.length < 2) return false;
+    const a = recent[0]!, b = recent[recent.length - 1]!;
+    const dt = (b.t - a.t) / 1000;
+    if (dt <= 0) return false;
+    const vx = (b.x - a.x) / dt, vz = (b.z - a.z) / dt;
+    if (Math.hypot(vx, vz) < FLICK_SPEED) return false;
+    return this.flickCards(d.ids, vx, vz);
+  }
+
+  /** Slide these cards of mine from where they are now at (vx, vz) world units a second (tests use it directly). */
+  flickCards(ids: string[], vx: number, vz: number): boolean {
+    const view = this.view;
+    const seat = this.seatList.find((s) => s.player === this.me);
+    if (!view || !seat || !ids.length) return false;
+    if (this.arranged) return this.flickArranged(ids, vx, vz);
+    const now = performance.now();
+    const d = { ids };
+    const mat = `${this.me}:battlefield`;
+    if (!d.ids.every((id) => view.cards[id]?.zone === mat)) return false; // only rearranging your own battlefield
+    // the velocity on the mat's own axes
+    const [ox, oz] = toLocal(seat, 0, 0);
+    const [ux, uz] = toLocal(seat, vx, vz);
+    const lv = [ux - ox, uz - oz];
+    const pending = useGame.getState().pendingPositions;
+    const cards: SlideCard[] = [];
+    for (const id of (view.zones[mat] as string[] | undefined) ?? []) {
+      const card = view.cards[id];
+      if (!card || ("attached_to" in card && card.attached_to)) continue; // attachments ride on their host
+      const turned = !!card.tapped !== !!((card.rotation ?? 0) % 180);
+      const [w, dd] = turned ? [CARD_H, CARD_W] : [CARD_W, CARD_H];
+      if (d.ids.includes(id)) {
+        const c = this.cards.get(id);
+        if (!c) continue;
+        const [lx, lz] = toLocal(seat, c.target.x, c.target.z);
+        cards.push({ id, x: lx, z: lz, w, d: dd, vx: lv[0], vz: lv[1] });
+      } else {
+        const [vx0, vy0] = pending[id] ?? [card.x ?? 0, card.y ?? 0];
+        const [lx, lz] = virtualToLocal(vx0, vy0);
+        cards.push({ id, x: lx, z: lz, w, d: dd });
+      }
+    }
+    const result = slide(cards, MAT_W / 2 + 0.7, MAT_D / 2 + 1.0);
+    const final: Record<string, [number, number]> = {};
+    for (const c of cards) {
+      const at = result.rest.get(c.id) ?? (d.ids.includes(c.id) ? [c.x, c.z] as [number, number] : null);
+      if (at) final[c.id] = localToVirtual(at[0], at[1]);
+    }
+    const moves = Object.entries(final).slice(0, 250).map(([id, [x, y]]) => [id, Math.round(x), Math.round(y)]);
+    if (!moves.length) return false;
+    useGame.getState().setPending(final);
+    void send({ type: "set_position", moves });
+    this.sliding = { seat, start: now, frames: result.frames, tracks: result.tracks };
+    this.syncCards();
+    return true;
+  }
+
+  /**
+   * -- arranged boards -- cards let go on the arranged board they came from take that spot in their row: my order, on
+   * this screen only (game/arrange.ts), and nothing is sent. False: not that kind of drop (it moves as usual).
+   */
+  private arrangedDrop(ids: string[], anchor: string, zone: string): boolean {
+    const view = this.view;
+    const c = this.cards.get(anchor);
+    const mat = this.boards.mats.get(zone.split(":")[0]!);
+    if (!this.arranged || !view || !c || !mat || mat.zone !== zone || !ids.every((id) => view.cards[id]?.zone === zone)) return false;
+    const [lx, lz] = toLocal(mat.frame, c.target.x, c.target.z);
+    const order = reorderMat(mat, ids, lx, lz);
+    if (order) {
+      saveBoardOrder(view.game.id, zone, order);
+      useBoardOrderTick.getState().bump();
+    }
+    this.syncCards();
+    return true;
+  }
+
+  /**
+   * -- arranged boards -- a flick on my arranged mat: each slot (a card, a stack, a host with what's tucked under it)
+   * slides as one tile-sized body and knocks the others aside, then every row takes the order its cards came to rest
+   * in (my order, display only: nothing is sent).
+   */
+  private flickArranged(ids: string[], vx: number, vz: number): boolean {
+    const view = this.view;
+    const zone = `${this.me}:battlefield`;
+    const mat = this.boards.mats.get(this.me);
+    if (!view || !mat || !ids.every((id) => view.cards[id]?.zone === zone)) return false;
+    const L = mat.layout;
+    const [ox, oz] = toLocal(mat.frame, 0, 0);
+    const [ux, uz] = toLocal(mat.frame, vx, vz);
+    const tw = L.w / AU;
+    const th = L.h / AU;
+    const bodies: SlideCard[] = [];
+    const slots = L.rows.flatMap((r) => r.slots);
+    for (const slot of slots) {
+      const lead = this.placed.get(slot[0]!);
+      const card = view.cards[slot[0]!];
+      if (!lead || !card) continue;
+      const turned = !!card.tapped !== !!((card.rotation ?? 0) % 180);
+      const held = slot.find((id) => ids.includes(id));
+      // a flicked slot starts where it was let go (dragged), the rest where they lie
+      const from = held && this.cards.get(held) ? toLocal(mat.frame, this.cards.get(held)!.target.x, this.cards.get(held)!.target.z) : null;
+      const off = held ? [this.placed.get(held)!.lx - lead.lx, this.placed.get(held)!.lz - lead.lz] : [0, 0];
+      bodies.push({
+        id: slot[0]!, x: from ? from[0] - off[0]! : lead.lx, z: from ? from[1] - off[1]! : lead.lz, w: turned ? th : tw, d: turned ? tw : th,
+        ...(held ? { vx: ux - ox, vz: uz - oz } : {}),
+      });
+    }
+    const result = slide(bodies, MAT_W / 2, MAT_D / 2);
+    if (!result.rest.size) return false;
+    // every card of a slot rides with its body
+    const tracks = new Map<string, Float32Array>();
+    for (const slot of slots) {
+      const track = result.tracks.get(slot[0]!);
+      const lead = this.placed.get(slot[0]!);
+      if (!track || !lead) continue;
+      for (const id of slot) {
+        const s = this.placed.get(id);
+        if (!s) continue;
+        const dx = s.lx - lead.lx;
+        const dz = s.lz - lead.lz;
+        tracks.set(id, track.map((v, i) => v + (i % 2 ? dz : dx)));
+      }
+    }
+    const order = orderFromRest(L, (id) => {
+      const r = result.rest.get(id);
+      return r ? [(r[0] + MAT_W / 2) * AU, (r[1] + MAT_D / 2) * AU] : null;
+    });
+    const gameId = view.game.id;
+    this.sliding = {
+      seat: mat.frame, start: performance.now(), frames: result.frames, tracks,
+      done: () => {
+        saveBoardOrder(gameId, zone, order);
+        useBoardOrderTick.getState().bump();
+      },
+    };
+    return true;
   }
 
   private clickPile(player: string, pile: PileZone, e: PointerEvent): void {
@@ -1189,10 +1843,27 @@ export class TableScene {
   private onContext(e: MouseEvent): void {
     e.preventDefault();
     const hit = this.pick(e.clientX, e.clientY);
+    if (hit?.heart) {
+      this.lifeBatch.bump(hit.heart, (hit.side ?? 1) * 5); // right-click: 5 at a time
+      return;
+    }
+    if (hit?.tax) {
+      void send({ type: "commander_tax", commander: hit.tax, delta: -2 });
+      return;
+    }
+    if (hit?.seatButton) {
+      this.props.press(hit.seatButton);
+      runSeatAction(hit.seatButton, 3, this.me, { x: e.clientX, y: e.clientY }); // right-click: three
+      return;
+    }
     const store = useGame.getState();
     const view = store.view;
-    if (!hit || !view) return;
+    if (!view) return;
     const fake = { clientX: e.clientX, clientY: e.clientY, preventDefault() {}, stopPropagation() {} } as unknown as React.MouseEvent;
+    if (!hit) {
+      openMenu(fake, tableMenu(), "Table"); // the table's own actions, as in Tabletop Simulator
+      return;
+    }
     if (hit.card) {
       const card = view.cards[hit.card];
       if (!card) return;
@@ -1212,6 +1883,25 @@ export class TableScene {
   }
 
   // ------------------------------------------------------------------ frame loop
+
+  /** One card's body and contact shadow into the instanced draws (a fading stand-in keeps only its shadow). */
+  private writeBody(obj: THREE.Object3D, n: number, opacity = 1): number {
+    if (n >= 1024) return n;
+    obj.updateMatrix();
+    this.bodies.setMatrixAt(n, opacity >= 0.99 ? obj.matrix : NO_BODY);
+    // the shadow sits on the table, offset away from the key light and softer as the card rises
+    const lift = Math.max(0, obj.position.y);
+    const spread = (1 + Math.min(lift, 1.2) * 0.55) * obj.scale.x;
+    shadowPos.set(obj.position.x + 0.05 + lift * 0.2, 0.0025, obj.position.z + 0.08 + lift * 0.3);
+    shadowQ.setFromAxisAngle(UP, obj.rotation.y);
+    shadowScale.set(spread, 1, spread * (obj.scale.z / (obj.scale.x || 1)));
+    shadowM.compose(shadowPos, shadowQ, shadowScale);
+    this.shadows.setMatrixAt(n, shadowM);
+    const strength = opacity / (1 + lift * 2.5);
+    shadowColor.setRGB(strength, strength, strength);
+    this.shadows.setColorAt(n, shadowColor);
+    return n + 1;
+  }
 
   private loop = (): void => {
     this.raf = requestAnimationFrame(this.loop);
@@ -1236,42 +1926,76 @@ export class TableScene {
     const speed = usePrefs.getState().animationSpeed || 1;
     const k = ease(dt, 14 * speed, reduced);
     const dragging = !!this.drag?.active;
-    let n = 0;
-    for (const c of this.cards.values()) {
-      // hovered and selected cards ride a little higher, and a tap lifts the card as it turns
-      const lift = liftFor({ hovered: c.id === this.hovered && !dragging, selected: this.selectedIds.has(c.id), turning: reduced ? 0 : angleDelta(c.group.rotation.y, c.rot) });
-      liftTarget.copy(c.target);
-      liftTarget.y += lift;
-      c.group.position.lerp(liftTarget, k);
-      c.group.rotation.y = angleLerp(c.group.rotation.y, c.rot, k);
-      c.group.rotation.x += (c.tilt - c.group.rotation.x) * k;
-      const sc = c.group.scale.x + (c.scale - c.group.scale.x) * k;
-      c.group.scale.setScalar(sc);
-      if (n < 1024) {
-        c.group.updateMatrix();
-        this.bodies.setMatrixAt(n, c.group.matrix);
-        // the shadow sits on the table, offset away from the key light and softer as the card rises
-        const lift = Math.max(0, c.group.position.y);
-        const spread = (1 + Math.min(lift, 1.2) * 0.55) * c.group.scale.x;
-        shadowPos.set(c.group.position.x + 0.05 + lift * 0.2, 0.0025, c.group.position.z + 0.08 + lift * 0.3);
-        shadowQ.setFromAxisAngle(UP, c.group.rotation.y);
-        shadowScale.set(spread, 1, spread);
-        shadowM.compose(shadowPos, shadowQ, shadowScale);
-        this.shadows.setMatrixAt(n, shadowM);
-        const strength = 1 / (1 + lift * 2.5);
-        shadowColor.setRGB(strength, strength, strength);
-        this.shadows.setColorAt(n++, shadowColor);
+    this.tethers.visible = !dragging; // attachment lines catch up when the move lands
+    const sl = this.sliding;
+    if (sl) {
+      // a flick plays back at the table's animation speed; reduced motion jumps to where it stopped
+      const f = reduced ? sl.frames : Math.floor(((performance.now() - sl.start) / 1000) * SLIDE_FPS * speed);
+      for (const [id, track] of sl.tracks) {
+        const c = this.cards.get(id);
+        if (!c) continue;
+        const i = Math.min(f, track.length / 2 - 1) * 2;
+        const [wx, wz] = toWorld(sl.seat, track[i]!, track[i + 1]!);
+        c.target.x = wx;
+        c.target.z = wz;
       }
+      if (f >= sl.frames) {
+        this.sliding = null;
+        sl.done?.();
+      }
+    }
+    let n = 0;
+    // table motion (motion3d.ts): flights, riffles, numbers; nothing to do while idle
+    const moving = this.motion.active;
+    if (moving) this.motion.update(started, reduced);
+    for (const c of this.cards.values()) {
+      if (c.fresh) {
+        // new to the table with no flight to bring it: it is simply where it belongs (never glides in from the middle)
+        c.fresh = false;
+        c.group.position.copy(c.target);
+        c.group.rotation.set(c.tilt, c.rot, 0);
+        c.group.scale.setScalar(c.scale);
+        c.sq = c.squash ?? 1;
+      }
+      if (!c.flying) {
+        if (c.struck) this.motion.unstrike(c);
+        // hovered and selected cards ride a little higher, and a tap lifts the card as it turns
+        const lift = liftFor({ hovered: c.id === this.hovered && !dragging, selected: this.selectedIds.has(c.id), turning: reduced ? 0 : angleDelta(c.group.rotation.y, c.rot) });
+        liftTarget.copy(c.target);
+        liftTarget.y += lift;
+        c.group.position.lerp(liftTarget, k);
+        c.group.rotation.y = angleLerp(c.group.rotation.y, c.rot, k);
+        c.group.rotation.x += (c.tilt - c.group.rotation.x) * k;
+        // -- arranged boards -- the tile pointed at grows a little, as on Arena (its full card is in the preview)
+        const want = c.tile && c.id === this.hovered && !dragging ? c.scale * 1.12 : c.scale;
+        const sc = c.group.scale.x + (want - c.group.scale.x) * k;
+        c.group.scale.setScalar(sc);
+        if (c.struck) this.motion.restrike(c, started);
+      }
+      // -- arranged boards -- a tile is its card squashed to a tile's depth, eased with the rest of its move
+      const sq = c.squash ?? 1;
+      c.sq = c.sq === undefined || Math.abs(sq - c.sq) < 1e-3 ? sq : c.sq + (sq - c.sq) * k;
+      if (c.sq !== 1) c.group.scale.z = c.group.scale.x * c.sq;
+      n = this.writeBody(c.group, n);
+    }
+    if (moving) {
+      this.bodyN = n;
+      this.motion.standIns(this.pushStandIn);
+      n = this.bodyN;
     }
     this.bodies.count = n;
     this.bodies.instanceMatrix.needsUpdate = true;
     this.shadows.count = n;
     this.shadows.instanceMatrix.needsUpdate = true;
     if (this.shadows.instanceColor) this.shadows.instanceColor.needsUpdate = true;
+    this.dice.update(performance.now(), reduced, speed);
+    this.cannon?.update(performance.now(), speed);
+    this.props.tick(t, this.camera, reduced);
     const kc = ease(dt, 5 * speed, reduced);
     this.camPos.lerp(this.camGoalPos, kc);
     this.camLook.lerp(this.camGoalLook, kc);
     this.camera.position.copy(this.camPos);
+    if (this.end.active) this.end.update(started, reduced, this.camera.position, this.camLook, this.camGoalLook);
     this.camera.lookAt(this.camLook);
     if (!reduced) {
       // candle flicker, drifting dust and flowing beams only when motion is welcome
@@ -1281,6 +2005,15 @@ export class TableScene {
     this.renderer.info.reset();
     if (this.post) this.post.render();
     else this.renderer.render(this.scene, this.camera);
+    if (this.dice.count || this.diceHud.el.childElementCount) {
+      // the dice's chips and line, in the canvas's own pixels
+      const w = this.canvas.clientWidth;
+      const h = this.canvas.clientHeight;
+      this.diceHud.render(this.dice.hud((p) => {
+        const v = this.tmpV.copy(p).project(this.camera);
+        return { x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h, visible: v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1 };
+      }));
+    }
     this.onFrame?.();
     this.frameTime += performance.now() - started;
     this.frames++;

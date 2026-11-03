@@ -24,7 +24,8 @@ test("offline: the launcher, 3D table and a game load nothing from outside the h
   await page.goto("/#/play");
   await page.getByTestId("mulligan-rule").selectOption("none");
   await page.getByTestId("create-game").click();
-  await expect(page.getByTestId("table-3d")).toBeVisible();
+  // the 3D chunk and the WebGL scene: slower on a CI runner without a GPU (software rendering)
+  await expect(page.getByTestId("table-3d")).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(1500);
   expect(outside).toEqual([]);
 });

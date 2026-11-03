@@ -6,11 +6,13 @@ from collections.abc import Callable
 from typing import Any
 
 from app.game import actions as A
+from app.game import eliminations
 from app.game.errors import ActionError
 from app.game.handlers import cards, marks, mulligan, objects, players, response, rules, solo, turn, zones
+from app.game.handlers import toys as table_toys
 from app.game.rules_state import capture, track, wither_put_by
 from app.game.state import GameState
-from app.rules import stickers101
+from app.rules import stickers101, token_stacks
 
 Handler = Callable[[GameState, Any], None]
 
@@ -37,6 +39,10 @@ HANDLERS: dict[str, Handler] = {
     "hide": zones.hide,
     "look_top": zones.look_top,
     "reveal_top": zones.reveal_top,
+    "reveal_until": zones.reveal_until,
+    "cascade": zones.cascade,
+    "fetch_card": zones.fetch_card,
+    "discard_random": zones.discard_random,
     "search_start": zones.search_start,
     "search_end": zones.search_end,
     "end_view": zones.end_view,
@@ -72,6 +78,7 @@ HANDLERS: dict[str, Handler] = {
     "restore_state": players.restore_state,
     "run_macro": objects.run_macro,
     "spawn_card": solo.spawn_card,
+    "load_deck": solo.load_deck,
     "reset_deck": solo.reset_deck,
     "restart_game": solo.restart_game,
     "set_table_playmat": players.set_table_playmat,
@@ -88,6 +95,13 @@ HANDLERS: dict[str, Handler] = {
     "rename_player": players.rename_player,
     "roll": turn.roll,
     "coin": turn.coin,
+    # -- table toys -- the dice cannon and the draw bag (app/game/handlers/toys.py)
+    "cannon": table_toys.cannon,
+    "bag_fill": table_toys.bag_fill,
+    "bag_draw": table_toys.bag_draw,
+    "bag_show": table_toys.bag_show,
+    "bag_return": table_toys.bag_return,
+    "bag_empty": table_toys.bag_empty,
     "chat": turn.chat,
     "phase": turn.phase,
     "next_turn": turn.next_turn,
@@ -132,6 +146,7 @@ NOT_OVERRIDES = A.INTENT_TYPES | A.SERVER_ONLY_TYPES | frozenset({
     "add_effect", "remove_effect", "set_choice", "set_stack_info", "set_exile_group", "set_copy_source",
     "mulligan_take", "mulligan_keep", "mulligan_bottom", "mulligan_powder", "mulligan_finish", "response_open", "response_pass",
     "response_respond", "response_auto", "response_close", "restore_state", "end_view",
+    "cannon", "bag_fill", "bag_draw", "bag_show", "bag_return", "bag_empty",  # -- table toys -- like the dice
 })
 
 
@@ -145,6 +160,7 @@ def apply(state: GameState, action: A.Action) -> None:
         raise ActionError("Actions must be performed by a seated player")
     state.seq += 1
     log_start = len(state.log)
+    was_out = set(eliminations.out_now(state))  # -- pod history --
     # Rules intents (and reconciling settings changes) track each of their own steps.
     before = capture(state) if action.type not in A.INTENT_TYPES and action.type != "configure" else None
     try:
@@ -176,5 +192,8 @@ def apply(state: GameState, action: A.Action) -> None:
             rules.unsynced = True
         track(state, before, manual=manual, actor=action.actor, put_by=wither_put_by(action),
               non_discard=bool(getattr(action, "non_discard", False)))  # (actor: wave 5H)
+        if isinstance(action, A.SplitStack | A.ExpandStack) and action.r is not None:
+            token_stacks.adopt(state, action.card_id, action.r.ids)  # -- token stacks (gap 2) -- the tokens were already there
+    eliminations.note(state, was_out)  # -- pod history -- who went out with this action, in order
     state.departures().clear()
     state.renames().clear()

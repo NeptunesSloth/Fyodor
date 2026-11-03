@@ -10,12 +10,13 @@ from app.rules.plan import Plan, decide
 
 
 def parse(text: str) -> list[dict[str, Any]] | None:
-    if not re.fullmatch(r"choose land or nonland and reveal cards from the top of your library until you reveal a card of the chosen kind\. "
-                        r"Put that card into your hand and put all other cards revealed this way on the bottom of your library in any order\.", text, re.IGNORECASE):
+    m = re.fullmatch(r"choose land or nonland and reveal cards from the top of your library until you reveal a card of the chosen kind\. "
+                     r"Put that card into your hand and put all other cards revealed this way on the bottom of your library in (?P<order>any|a random) order\.", text, re.IGNORECASE)
+    if m is None:  # (-- if you do / instead (wave 111B) -- "in a random order": Pavel Chekov, First Posting, 401.4)
         return None
     return [{"do": "choose_land_nonland"}, {"do": "reveal_chosen_kind"},
             {"do": "pick_looked", "which": "that", "require_found": True, "to": "hand"},
-            {"do": "rest_looked", "to": "bottom_any"}]
+            {"do": "rest_looked", "to": "bottom_random" if m["order"].lower() == "a random" else "bottom_any"}]
 
 
 def choose(plan: Plan, ctx: dict[str, Any], e: dict[str, Any]) -> bool:

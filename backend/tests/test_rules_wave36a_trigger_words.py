@@ -563,7 +563,7 @@ def test_bebop_and_rocksteady_attacking_asks_to_discard_or_sacrifice(cards):
     s = bebop_table(cards)
     attack(s, card_named(s, "Bebop & Rocksteady"))
     d = s.state.rules.decision
-    assert [o.label for o in d.options] == ["Pay Discard a card", "Don't pay"]
+    assert [o.label for o in d.options] == ["Discard a card", "Don't pay"]
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["pay"])
     settle(s)
     assert zone(s, "Grizzly Bears") == "p1:graveyard" and zone(s, "Bebop & Rocksteady") == "p1:battlefield"
@@ -591,7 +591,7 @@ def test_bebop_and_rocksteady_blocking_asks_too(cards):
     attack_as(s, "p2", [card_named(s, "Grizzly Bears", "p2")], "p1")
     block(s, "p1", (card_named(s, "Bebop & Rocksteady"), card_named(s, "Grizzly Bears", "p2")))
     d = s.state.rules.decision
-    assert d is not None and [o.label for o in d.options] == ["Pay Discard a card", "Don't pay"]
+    assert d is not None and [o.label for o in d.options] == ["Discard a card", "Don't pay"]
     check(s)
 
 

@@ -1,3 +1,139 @@
+## GAME-NIGHT GAP BATCH, THE POD'S DECKS AUDITED, BIG BOARDS, REPEAT, DICE (2026-11-02)
+
+What the app still lacked for a real game night, built without taking anything away, then a deliberate audit of the pod's seven decks. Draft [PR #35](https://github.com/NeptunesSloth/Fyodor/pull/35), sections 19–29. Card coverage is unchanged: **32,068 FULL / 0 PARTIAL**.
+
+**A correction first.** The first report on the pod's six other decks said "no engine problems" after 12 bot games. That was wrong: those games stopped after about four turns a seat, and no deck reached its plan. Disa the Restless's core combo was broken the whole time. Since then:
+- every deck was audited deliberately: its plan and 10–15 key interactions were played on purpose against the real card data;
+- the bot's report says what each deck actually did (commander cast, lands, the spells and abilities it used), so a clean run can't hide a deck that never got going.
+
+**The pod's decks (`tests/fixtures/soak_decks/`, tests `tests/test_rules_pod_*.py`)**
+- **Disa the Restless (fixed):**
+  - Maskwood Nexus or Conspiracy (naming Lhurgoyf) makes every creature card you own a Lhurgoyf outside the battlefield. Disa's trigger read printed types, so Entomb, Buried Alive and Tortured Existence never put anything onto the battlefield.
+  - A card put into a graveyard, exile or a library is now checked as it is right after the event (603.10; `triggers._card_in`).
+- **Audit fixes:**
+  - Hierophant Bio-Titan's counter-paid cost was never offered.
+  - Solemnity with Thought Lash crashed (cumulative upkeep paid zero times, 702.24a).
+  - Fierce Guardianship was offered as a free cast with nothing to counter.
+  - Prompts read "Replace_vat_pool?", "Return_choice?", "Move_counters?" and "Remove_counters?".
+- **Checked and correct (about 150 interactions):**
+  - Atraxa's proliferate with Tekuthal and the counter doublers;
+  - Zedruu's gifts and their drawbacks; Augustin's stacked costs and taxes;
+  - Ian Malcolm's cross-player casting; Kiora's free spells;
+  - Adrix and Nev with the other doublers (616.1).
+- **Long bot run:** 7 two-player games, 195 turns, 3,668 actions, about 15 turns a seat. Every deck played its plan; for example, Disa used Mimic Vat 10× and Tortured Existence 8×, and Zedruu used its ability 8×. It found:
+  - **a privacy leak (fixed):** a token's "created by" link held its source's card id. After Mischievous Mystic went back to its owner's hand, the other players could pick it out. Now the id shows only while the source is visible.
+  - **bot-only limits:** the bot doesn't put mana in its pool before Selvala, and it attacks into taxes it can't pay. The server refused both correctly.
+- **Log and prompt fixes:**
+  - "gave Menace Menace";
+  - "except by Serpent Octopus Leviathan Krakens";
+  - two same-source triggers both labelled "Craw Wurm";
+  - Mizzix's payment logged twice.
+
+**New at the table**
+- **Repeat** (`RepeatPanel.tsx`; server `engine.repeat_sequence`):
+  - do a combo once, then Repeat… ×1–500 or until N mana or tokens, or a player is at N life;
+  - each repeat replays the answers you gave and stops, with a reason, at anything new, random or illegal;
+  - one undo; only you see your action list.
+- **Dice rebuild** (`table3d/dice*.ts`, `DicePanel.tsx`, `diceSound.ts`):
+  - the 3D table's dice weren't visible (a throw ran on wall time, it overshot onto the other mat, and the dice were small);
+  - now real rounded dice (d4–d20, d100, a coin) with standard numbering. The server's number lands on top by the die's own symmetry, and the throw is seeded so every screen sees the same one;
+  - synthesised clacks; result chips and summaries; a ring on a natural 20 or 1;
+  - a roll panel (Shift+R); the same dice over the 2D table; four looks in Settings;
+  - **Barbarian Class / Pixie Guide:** the ignored die is shown struck through and isn't counted. The log reads "rolled a d20 and one extra die (Barbarian Class): 15; ignored 6" (`DiceRollLog.ignored`).
+- **Dice & toys in the eliminated-player hub:** a local dice tray, a just-for-fun random player picker and a tally. Nothing reaches the live game.
+- Earlier in the batch:
+  - token stacks (×N, split and stack; the engine works on separate tokens);
+  - undo enforced and requested (**behaviour change:** at LAN tables, undoing a draw, look, reveal, search, shuffle or roll asks the table under every setting);
+  - engine results confirmed in one click (104.4a draws);
+  - View final board; host seating; spectator extras (live corner, damage sandbox, predictions, next-game deck, reactions switch);
+  - the public choice wheel; commander damage at a glance; attachment lines; focus keys; 2D panels in full view.
+
+**Big boards** (Adrix and Nev with Scute Swarms, one land drop, on a loaded 4-core machine, so ±20%):
+- **Round 1** (card data cache, trigger batches that never refuse, two read passes): 20 swarms went from 17 s to 8.7 s, and 400+ triggers no longer refuse the action.
+- **Round 2** (Strict Proctor check and the refreshes in read passes, kept passes across log lines, per-pass attachment and effect indexes):
+
+  | Swarms | Land drop | Resolve |
+  |---|---|---|
+  | 20 | 4.5 s → 2.5 s | — |
+  | 40 | 15 s → 8.5 s | — |
+  | 80 | 37 s → 14 s | 21 s → 10 s |
+
+- 13 seeded soak games give identical results before and after.
+- **Limit:** the rules state is serialised for comparison about 35 times per trigger, and each table action ends the read pass.
+
+**Internal**
+- Wave 110 fold-in (`app/rules/hooks.py`).
+- **CI:** quick per push, the full card suite by hand. **Downloadable app:** Windows by default.
+- Two flaky tests fixed:
+  - browser tests took "the first two decks" from a list ordered to the second;
+  - the undo-request recorder bypassed the server's random source, so pinned random picks didn't reach the engine.
+
+Tests on `5f19e8ea`:
+- **Backend: 39,921 collected; 39,916 passed, 0 failed, 4 skipped, 1 xfailed** (`pytest -n 4`, eight shards, full card database; the one failure on the way, a test whose resolve wrapper clashed with the undo request's recorder, was fixed and its file rerun). Ruff and `mypy app` clean.
+- **Frontend:** typecheck, 333 vitest tests. **Playwright:** 38 passed, 0 failed, 13 skipped (screenshot specs that need `SHOT_DIR`). CI (quick backend, frontend, Playwright) green on the PR head.
+
+Open items:
+- **Star Trek release (2026-11-13):** run `scripts/update-cards.sh` and `tools.rules_research.update`/`diff`, recheck the wave 111 cards, recount. 33 PARTIAL cards wait for the CR update or rulings.
+- **Ian Malcolm at the table:** cards he exiles sit in each owner's own exile pile with no castable marker. A badge, highlights and a "castable from exile" row were proposed, not built.
+- **Bigger boards:** cheaper state comparison, and a derivation cache that survives actions.
+- **Dice:** a 12-die throw has a one-time hitch (a Web Worker would remove it); d4 numbers are small at seat distance; plaques can cover dice near a mat edge.
+- **A real game night on hardware:** the bots aren't the network or the GPUs.
+- Not built: Spectator Points; the pod session's elimination order in Pod stats; a Game Log link and Deck Lab compare in the hub.
+
+## WAVES 111 AND 111R — STAR TREK CARDS (2026-11-01)
+
+**Star Trek (`trk`, `trc`, released 2026-11-13): 423 FULL / 33 PARTIAL of 456 new cards**, on Scryfall's pre-release Oracle text of 2026-10-30. They aren't Commander-legal yet, so they aren't in the main count. The main count, recounted on `539a03ef`, is unchanged: **32,068 FULL / 0 PARTIAL**, commanders 3,502 / 3,502, 0 unrecognized clauses. Draft [PR #35](https://github.com/NeptunesSloth/Fyodor/pull/35), section 17.
+
+- **Wave 111** (agents A–G, `app/rules/wave111{a..g}_*.py`, tests `tests/test_rules_wave111*`): 156 of the 162 cards that use existing rules, including the three Battlefront cards (an ability word, 207.2c).
+- **Wave 111R** promoted the 6 first-refused cards with engine features:
+  - Kira Nerys, Firebrand (`wave111r3_enter.py`): enters tapped and attacking.
+  - Nog, Ambitious Cadet and Q, Stacking the Deck (`wave111r1_grants.py`): granted static abilities and exile-activated abilities.
+  - Queen's Diamond and Kai Winn, Faithless Leader (`wave111r2_mana.py`): commander-only mana, and activations of a source in any zone.
+  - Hugh, First of Many (`wave111r3_replicate.py`): replicate that a permanent grants.
+- **New table menus** (`rulesMenu.ts`): activated abilities of a card in exile, and "Cast with replicate" for granted replicate (`hints.replicate111r3`).
+- **Shared changes:**
+  - `CREATURE_TYPES` uses straight apostrophes (C'tan, Jem'Hadar, …), as card type lines do. Changelings gain the new types.
+  - Short names and Planet tokens.
+- **Reviews:** two independent reviews fixed 5 bugs. No other existing card's parse changed.
+- **Spirit Guide fix** (`casting.activate_ability` and `_mana_while_paying`, tests `test_rules_spirit_guide_limits.py`):
+  - A Spirit Guide's mana ability, activated from the hand, now obeys Phyrexian Revoker while its owner is paying for a spell (602.5).
+  - With priority, Pithing Needle and split second no longer stop it (605.1a, 702.61b).
+
+Still PARTIAL (33):
+- 27 use mechanics CR 2026-09-25 doesn't define: beam me up (11), face a dilemma (9) and assimilate (7). They wait for the CR update.
+- 6 wait for a ruling (`docs/research/wave111{d,e,f}-refused.md`): All Good Things..., Chief Montgomery Scott, Commander Spock, The Guardian of Forever, The Holodeck, and Marooned (which needs beam up).
+
+**On release day:**
+1. Run `scripts/update-cards.sh` and `tools.rules_research.update`/`diff`.
+2. Recheck the wave 111 cards' Oracle text, creature types and short names against the released data.
+3. Recount.
+
+Tests on `539a03ef`:
+- **Backend: 39,610 collected; 39,605 passed, 0 failed, 4 skipped, 1 xfailed** (`pytest -n 4`, eight shards, full card database). Ruff and `mypy app` clean.
+- **Frontend:** typecheck, 154 vitest tests.
+- **Playwright:** 33 passed, 6 skipped.
+- The Spirit Guide fix came later, with its own tests and the related mana, activation-limit and split-second test files.
+
+## PR #35 FINISH — COMMANDER-ONLY, ALL CARDS FULL, FULL SUITES GREEN (2026-11-01)
+
+**32,068 FULL / 0 PARTIAL** of 32,068 Commander-legal cards; possible commanders **3,502 / 3,502**. Recounted with `python -m tools.commander_coverage` on `4c3a5ecd` (Scryfall `default_cards` 2026-10-30, CR 2026-09-25): 113,151 ability features, all automated, 0 unrecognized clauses. The 11 cards wave 110 left PARTIAL were finished by the wave 110J commits (each checked with `tools.card_check`). Draft [PR #35](https://github.com/NeptunesSloth/Fyodor/pull/35).
+
+Tests on `801c0fc6`, with the full card database at `data/cards.sqlite`:
+- **Backend: 39,056 collected; 39,051 passed, 0 failed, 4 skipped, 1 xfailed** (`pytest -n 4`, in eight file-ordered shards: one run here can't exceed two hours). Ruff and `mypy app` clean.
+- **Frontend:** typecheck, 151 vitest tests. **Playwright:** 33 passed, 6 skipped (screenshot specs that need `SHOT_DIR`), on `5f42554a`.
+- Fixed on the way: five mana test files (and `test_bloomsage_full`, which read an absolute path from one machine) needed `data/cards.sqlite` and failed without it; they now skip when it is missing, like `test_rules_review_core`.
+
+Decisions made in this PR (by the user):
+- **Commander only.** Constructed and Sandbox are gone from the New game form, lobby settings, deck importer and deck editor, and from the server (`GameState.format`, lobby and deck formats are `"commander"`). A saved Constructed or Sandbox game is refused with a clear reason; app DB migration 8 turns stored Constructed/Sandbox decks into Commander decks (cards kept), and decks sent with those formats open as Commander decks.
+- **Private diagnostics** leave out the state of a LAN game still being played (other players' hands), until its result is recorded.
+- **Moxfield links** are not fetched (no public API); the table importer says to paste Moxfield's text export instead. Archidekt links are fetched.
+
+Open items:
+- **Star Trek (`trk`, `trc`, released 2026-11-13):** 456 new cards, not yet legal so not in the count above. 267 are FULL already; 189 PARTIAL (83 of the 168 possible commanders). 160 of those use existing rules; 29 use mechanics the CR 2026-09-25 doesn't define yet (beam me up 11, face a dilemma 8, assimilate 7, Battlefront 3) and wait for the CR update. After release and a card DB update the recount will show these.
+- GitHub Actions jobs get no runner (they fail in about a second without running), so CI gives no signal. A repository or account setting.
+- Wave 110 fold-in pass: partly done (`exact_ability.build` shares the table tail; Clara Oswald's pregame color folded in). The wave-module registry and helper dedupe remain; internal only.
+- The wave 110 UI follow-ups (library-top actions, Channel, Chorus, Leonin Arbiter's label) are done (`23f14465`).
+
 ## WAVE 110 — CARD AUTOMATION NEAR-COMPLETE
 
 **32,057 FULL / 11 PARTIAL** of 32,068 Commander-legal cards (possible commanders: 3,497 / 3,502), from `tools.commander_coverage` on `aaf0cf99`. Draft [PR #25](https://github.com/NeptunesSloth/Fyodor/pull/25).

@@ -20,6 +20,11 @@ from app.textutil import clean_text
 
 DeckPrivacy = Literal["private", "commander_only", "public"]
 PriorityHelper = Literal["off", "simple"]
+# How the next game's order is decided (GAME_NIGHT_FLOW.md §2): "pod" = d20 for game 1 and after a draw, then the previous
+# winner goes last; "random" = a random first player, then around the table as seated; "seats" (-- seating --) = the seats as
+# the host arranged them, seat 1 first.
+TurnOrder = Literal["pod", "random", "seats"]
+CardPermissions = Literal["everyone", "owner"]  # -- table permissions -- (GameSettings.card_permissions)
 
 MAX_DECK_ENTRIES = 400
 MAX_DECK_CARDS = 600
@@ -28,7 +33,7 @@ MAX_COMMANDERS = 4
 
 class LobbySettings(BaseModel):
     name: str = Field(default="Game", max_length=80)
-    format: Literal["commander", "constructed", "sandbox"] = "commander"
+    format: Literal["commander"] = "commander"
     seats: int = Field(default=4, ge=1, le=6)
     starting_life: int | None = Field(default=None, ge=1, le=10000)
     deck_privacy: DeckPrivacy = "commander_only"
@@ -38,8 +43,10 @@ class LobbySettings(BaseModel):
     auto_untap: bool = True
     automation: AutomationLevel = "off"  # rules automation (docs/AUTOMATION_UX.md); OFF by default
     # "pod": d20 for game 1 and after a draw, then the previous winner goes last (GAME_NIGHT_FLOW.md §2).
-    # The app asks for it when it creates a lobby; the API default keeps seats in join order.
-    turn_order: Literal["pod", "random"] = "random"
+    # The app asks for it when it creates a lobby; the API default keeps seats in join order. "seats": seat 1 first.
+    turn_order: TurnOrder = "random"
+    # -- table permissions -- "Who may change a player's cards" (app/game/table_rights.py); copied into the game's settings at the start
+    card_permissions: CardPermissions = "everyone"
 
     @field_validator("name")
     @classmethod
@@ -107,6 +114,7 @@ class LobbySeatInfo:
     ready: bool = False
     collection: list[CollectionCard] = field(default_factory=list)
     last_fetch: float = -1e9  # monotonic time of the last Archidekt fetch (rate limit)
+    queued: SubmittedDeck | None = None  # (spectator activities) the deck queued while out of the last game, as put here
 
 
 def deck_summary(deck: SubmittedDeck | None, *, privacy: DeckPrivacy, own: bool, table_format: str = "commander") -> dict[str, Any] | None:

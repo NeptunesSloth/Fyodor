@@ -30,7 +30,7 @@ class ReadPass:
     """The answers one pass shares. ``derived`` / ``printed``: card object id → (the card object, what it was asked with, answer);
     only cards that are in the table itself are kept, and the entry holds the card so its id cannot be reused within the pass."""
 
-    __slots__ = ("state", "info", "table", "derived", "printed", "once")
+    __slots__ = ("state", "info", "table", "derived", "printed", "once", "facts", "effects")
 
     def __init__(self, state: GameState, info: CardInfo) -> None:
         self.state, self.info = state, info
@@ -38,6 +38,8 @@ class ReadPass:
         self.derived: dict[int, tuple[Any, Any, Any]] = {}  # layers.derive: (card, printed characteristics, derived)
         self.printed: dict[int, tuple[Any, Any]] = {}  # characteristics.of: (card, printed characteristics)
         self.once: dict[Any, Any] = {}  # ``once``: the other answers that depend on the table alone
+        self.facts: dict[str, tuple[int, Any]] = {}  # ``card_fact``: (the owning plan's writes then, answer)
+        self.effects: tuple[tuple[int, Any, int], dict[str, list[Any]]] | None = None  # ``effects_by_object``: (guard, index)
 
 
 T = TypeVar("T")
@@ -107,6 +109,66 @@ def once(state: GameState, info: CardInfo | None, key: Any, compute: Callable[[]
     if key not in sc.once:
         sc.once[key] = compute()
     return sc.once[key]
+
+
+def card_fact(state: GameState, key: str, compute: Callable[[], T]) -> T | None:
+    """-- big boards (perf) -- ``compute()``: an answer read from the fields of the table's cards alone (no characteristics, nothing
+    derived: e.g. which cards something is attached to), read once per pass and kept while the table is exactly as it was. None
+    when there is no such pass: the caller reads the cards itself. A derivation reads such a fact for every permanent it derives, and
+    reading it from every card in the game each time made a scan of the battlefield cost the square of the table.
+
+    Only for a pass over the scratch table of a Plan (``own``): that table's cards change only through ``Plan.do`` (the table actions,
+    which count themselves in ``Plan.writes``), so an answer kept with the count it was read at is the table's answer while the
+    count is the same, even if a block that only reads were to carry out an action part-way. Any other table: None."""
+    got = _owned(state)
+    if got is None:
+        return None
+    sc, plan = got
+    writes = getattr(plan, "writes", 0)
+    hit = sc.facts.get(key)
+    if hit is not None and hit[0] == writes:
+        return hit[1]
+    value = compute()
+    sc.facts[key] = (writes, value)
+    return value
+
+
+def _owned(state: GameState) -> tuple[ReadPass, Any] | None:
+    """The pass this thread is making over ``state``, the scratch table of a Plan (``own``), and that plan; else None."""
+    sc: ReadPass | None = getattr(_PASS, "cur", None)
+    if sc is None or sc.state is not state:
+        return None
+    owners = getattr(_OWNERS, "map", None)
+    plan = owners.get(id(state)) if owners is not None else None
+    return (sc, plan) if plan is not None and plan.state is state else None
+
+
+def effects_by_object(state: GameState) -> dict[str, list[Any]] | None:
+    """-- big boards (perf) -- rules object id → the continuous effects of ``state.rules.effects`` whose ``affected`` names it, in their
+    order (each effect once), read once per read pass over a Plan's scratch table (else None: the caller reads the effects itself). A
+    derivation looks for the effects on one object (layers.affecting, the copy effect of layer 1: copying._layer1) in every effect of the
+    game, so with a copy effect per token a scan of the battlefield cost the square of the board.
+
+    Kept in the pass like the statics table it keeps (built from the same effects), so it is good while the pass is (``Plan.reading``
+    compares the whole rules state before a kept pass is used again); and read again whenever the plan carried out a table action
+    (``Plan.writes``: a step's bookkeeping moves effects to an object's new id, ``track``) or the effects list itself was replaced or
+    grew (``layers.add_effect``) since it was read."""
+    got = _owned(state)
+    r = state.rules
+    if got is None or r is None:
+        return None
+    sc, plan = got
+    effects = r.effects
+    if sc.effects is not None:
+        (writes, seen, n), index = sc.effects
+        if writes == getattr(plan, "writes", 0) and seen is effects and n == len(effects):
+            return index
+    index = {}
+    for e in effects:
+        for oid in dict.fromkeys(e.affected):
+            index.setdefault(oid, []).append(e)
+    sc.effects = ((getattr(plan, "writes", 0), effects, len(effects)), index)
+    return index
 
 
 @contextmanager

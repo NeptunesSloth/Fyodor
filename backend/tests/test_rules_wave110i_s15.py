@@ -133,7 +133,10 @@ def test_bloomsage_full(cards):
 
     from tools.commander_coverage import rows
 
-    d = next(d for d in rows(Path("/home/user/Fyodor/data/cards.sqlite"))[0] if d["name"] == "Yavimaya Bloomsage // Channel")
+    real_db = Path(__file__).resolve().parents[2] / "data/cards.sqlite"  # the repository's data dir, wherever it is checked out
+    if not real_db.is_file():
+        pytest.skip("the real card database is needed (data/cards.sqlite)")
+    d = next(d for d in rows(real_db)[0] if d["name"] == "Yavimaya Bloomsage // Channel")
     assert _CHANNEL in d["oracle_text"] and coverage.of_card_data(d).level == "FULL"
 
 

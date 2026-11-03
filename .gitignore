@@ -36,3 +36,6 @@ frontend/test-results/
 frontend/playwright-report/
 /dist/
 /build/
+
+# downloadable app builds (scripts/build-app.sh, zipped for sharing)
+/Fyodor-*.zip

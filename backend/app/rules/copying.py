@@ -92,7 +92,10 @@ from app.game.rules_state import (
 )
 from app.game.state import CardInstance, TokenDef
 from app.rules import characteristics as chars
-from app.rules import wave110g_spires  # -- wave 110G --
+from app.rules import (
+    read_pass,
+    wave110g_spires,  # -- wave 110G --
+)
 from app.rules.characteristics import CardInfo, Characteristics
 from app.rules.oracle import parse_abilities, strip_reminders
 
@@ -338,11 +341,25 @@ def room_printing(r: RulesState, card: CardInstance, oid: str) -> str:
     return recipe.printing if recipe is not None and recipe.printing else card.card_id or ""
 
 
+def copy_recipe_of_effects(effects: Any) -> CopyRecipe | None:
+    """``copy_recipe_of`` over the effects already known to name the object (read_pass.effects_by_object), in the same order: the
+    latest copy effect by timestamp, the first of equal ones (613.7)."""
+    best: ContinuousEffect | None = None
+    for e in effects:
+        if e.layer == "1" and e.copy_recipe is not None and (best is None or e.timestamp > best.timestamp):
+            best = e
+    return best.copy_recipe if best is not None else None
+
+
 def _layer1(state: GameState, card: CardInstance, ch: Characteristics, info: CardInfo | None) -> Characteristics:
     r = state.rules
     if r is None or not r.effects or info is None or card.face_down:
         return ch
-    recipe = copy_recipe_of(r, r.object_id(card.id))
+    oid = r.object_id(card.id)
+    if (index := read_pass.effects_by_object(state)) is not None:  # (big boards: copy_recipe_of over just the effects on this object)
+        recipe = copy_recipe_of_effects(index.get(oid, ()))
+    else:
+        recipe = copy_recipe_of(r, oid)
     if recipe is not None and card.is_token and recipe.printing and recipe.printing == card.card_id \
             and card.face != recipe.face and (info.get(card.card_id) or {}).get("layout") in TWO_FACED_TOKENS:
         recipe = recipe.model_copy(update={"face": card.face})  # (wave 3R3: 707.8a, the face that is up)
@@ -506,7 +523,8 @@ def run(plan: Plan, job: Job) -> bool:
         from app.rules import spell_copy_replacements
 
         spell_copy_replacements.prepare(plan, job, cur, ability=card.ability is not None)
-        copy_kind = spell_copy_replacements.next_kind(plan, job, cur)
+        copy_kind = spell_copy_replacements.next_kind(plan, job, cur, name=(entry.name if entry is not None and entry.name else card.name) or "the spell",
+                                                      targets=entry is not None and bool(positions(entry)))  # (-- pod audit -- no targets: no question)
         if copy_kind is None:
             return False
         choosing = (job["retarget"] or copy_kind == "additional") and entry is not None and bool(positions(entry))
@@ -937,6 +955,10 @@ def _stack_objects(plan: Plan, ctx: Context, who: str) -> list[str]:
     if who == "this_spell":  # -- chain spells (wave 52C) -- "copy this spell": the spell that is resolving, still on the stack (608.2)
         src = ctx.get("source_card")
         return [src] if src in plan.state.cards and plan.state.cards[src].zone == "stack" and plan.oid(src) == ctx.get("source_object") else []
+
+    if who == "free_cast111b":  # -- if you do / instead (wave 111B) -- Cmdr. Troi: "that spell", the one cast during this resolution (608.2g), still on the stack
+        done = ctx.get("free_cast_done") or []
+        return [done[-1]] if done and done[-1] in plan.state.cards and plan.state.cards[done[-1]].zone == "stack" else []
 
     if who == "event_ability":  # -- copied abilities (wave 18F) -- the ability an activation trigger is about (603.2), while it's still on the stack
         src = (ctx.get("event") or {}).get("source") or {}
@@ -1659,6 +1681,15 @@ def entry_counters(plan: Plan, card: CardInstance, controller: str, ch: Characte
         other = plan.state.cards.get(((choices or {}).get(str(d["what"])) or "|").split("|")[-1])
         n = int(plan.ch(other).power or 0) if other is not None and (plan.ch(other).power or "").lstrip("-").isdigit() else 0
         return {"+1/+1": n} if n > 0 else {}
+    if d is not None and d.get("counters_of_copied111b") and entering_as_copy(plan, card):
+        # -- if you do / instead (wave 111B) -- Dominion Saboteur: "If you do, it enters with additional counters on it equal to the same number and kinds
+        # of counters the copied permanent has on it" — the copied permanent's counters as the copy enters (614.12a, 707.9e: an effect of the replacement)
+        applied = _entering_effect(plan, card)
+        ref = applied.copy_entry_source if applied is not None else None
+        copied = plan.state.cards.get(ref.card) if ref is not None else None
+        if copied is None or ref is None or plan.oid(copied) != ref.object_id or not copied.zone.endswith(":battlefield"):
+            return {}
+        return {k: n for k, n in sorted(copied.counters.items()) if n > 0}
     if d is None or not d.get("enter_counters") or not entering_as_copy(plan, card):
         return {}
     source = plan.state.cards.get((choices or {}).get(str(d["what"]), ""))
@@ -1831,6 +1862,13 @@ def _except_clause(clause: str, ex: CopyExcept) -> bool:
     m = re.fullmatch(_SUBJECT + r"(?:is|are) (?P<s>(?:legendary|snow)(?: and (?:legendary|snow))?) in addition to (?:its|their) other types", c)
     if m:  # (707.9b; wave 24A: "legendary and snow", Moritte of the Frost)
         ex.add_supertypes = sorted({*ex.add_supertypes, *(w.capitalize() for w in m["s"].split(" and "))})
+        return True
+    # -- Star Trek (wave 111E) -- "she's a legendary Trill in addition to her other types" (Ezri Dax, Newly Joined): 707.9b, the supertype and the
+    # creature types added to the copiable values, nothing else changed (no P/T, no color)
+    m = re.fullmatch(_SUBJECT + r"is a legendary (?P<subs>[A-Z][\w'’-]*(?: [A-Z][\w'’-]*)*) in addition to its other types", c)
+    if m and all(sub in CREATURE_TYPES for sub in m["subs"].split()):
+        ex.add_supertypes = sorted({*ex.add_supertypes, "Legendary"})
+        ex.add_subtypes = sorted({*ex.add_subtypes, *m["subs"].split()})
         return True
     m = re.fullmatch(_SUBJECT + r"enters? with (?P<n>an?|one|two|three|four|X|\d+) (?:additional )?(?P<k>\+1/\+1|loyalty|shield) counters? on (?:it|them)"
                                 r"(?: if (?:it is an? (?P<t>creature|planeswalker)|(?P<own>you control that (?:creature|permanent))))?", c)
@@ -2137,7 +2175,7 @@ def parse_token_copy(n: str, tapped: bool, src: str, exc: str | None) -> tuple[l
         return [{**effect, "who": _SOURCES[src]}], None
     # -- resolution memory (wave 22D) -- "create a token that's a copy of each of up to two target creatures you control" (Twinflame): one token
     # for each object chosen (115.1, 608.2b: each still the same object as it resolves)
-    each = re.fullmatch(r"each of ((?:up to \w+|any number of) target .+)", src)
+    each = re.fullmatch(r"each of ((?:up to \w+|any number of|X) target .+)", src)  # (-- token copies (wave 111F) -- "each of X target creatures your opponents control": exactly X, Dominion Infiltration)
     group = _target_group(each[1] if each else src)
     if group is None or (group["max"] != 1 and not each):
         return None

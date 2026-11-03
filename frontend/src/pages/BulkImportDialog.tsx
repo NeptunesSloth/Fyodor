@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Icon } from "../components/Icon";
 import { Modal } from "../components/Modal";
 import { importOptions, previewImport } from "../services/decks";
 import { saveDeckForOffline } from "../services/offlineDecks";
@@ -84,32 +85,47 @@ export function BulkImportDialog({ onClose, onSaved }: { onClose: () => void; on
     } finally { setBusy(false); }
   };
 
+  const ready = items.some(i => i.state === "ready");
+  const STATE: Record<Item["state"], string> = { ready: "Ready to import", saving: "Saving…", saved: "Saved to this host", failed: "Import failed" };
   return (
     <Modal title="Import multiple decks" onClose={close} wide footer={
       <>
         <span className="spacer" />
-        <button className="btn" disabled={busy} onClick={close}>{finished ? "Done" : "Cancel"}</button>
-        {!finished && <button className="btn" disabled={busy || (!files.length && !urls.trim())} onClick={() => void preview()}>Preview decks</button>}
-        {!finished && <button className="btn primary" disabled={busy || !items.some(i => i.state === "ready")} onClick={() => void save()}>Save decks</button>}
+        <button className="tt-btn ghost" disabled={busy} onClick={close}>{finished ? "Done" : "Cancel"}</button>
+        {!finished && <button className={`tt-btn ${ready ? "" : "brass"}`} disabled={busy || (!files.length && !urls.trim())} onClick={() => void preview()}>Preview decks</button>}
+        {!finished && <button className={`tt-btn ${ready ? "brass" : ""}`} disabled={busy || !ready} onClick={() => void save()}>Save decks</button>}
       </>
     }>
-      <p>Import your decks while connected to the internet. Deck lists are saved on this Fyodor host and stay available after restarting. Connect to this host to use them without internet.</p>
-      <p className="hint">Choose multiple exported files from Archidekt, Moxfield, MTGGoldfish, Arena, or plain text. Each file becomes a separate deck.</p>
-      {!finished && <>
-        <label>Deck export files<input type="file" multiple accept=".txt,.csv,.json,.dek" disabled={busy} onChange={e => { setFiles(Array.from(e.target.files ?? [])); invalidate(); }} /></label>
-        {online && <label>Archidekt deck URLs (one per line)<textarea value={urls} disabled={busy} rows={4} onChange={e => { setUrls(e.target.value); invalidate(); }} placeholder="https://archidekt.com/decks/…" /></label>}
-        {online && <label className="check"><input type="checkbox" checked={download} disabled={busy} onChange={e => setDownload(e.target.checked)} /> Download artwork for offline play</label>}
-      </>}
-      {error && <p role="alert" className="warn">{error}</p>}
-      {busy && <p role="status">{items.some(i => i.state === "saving") ? "Saving decks and downloading artwork… Keep this window open." : "Previewing decks…"}</p>}
-      {items.length > 0 && <ul>{items.map((item, i) => <li key={i} style={{ marginBottom: "1rem" }}>
-        <strong>{item.preview?.name || item.request.name || item.label}</strong>
-        <div>{item.state === "ready" ? "Ready to import" : item.state === "saving" ? "Saving…" : item.state === "saved" ? "Saved to this host" : "Import failed"}</div>
-        {item.preview && <div className="hint">{item.preview.report.cards_total} cards · {item.preview.report.unresolved.length} unresolved · {item.preview.report.fallbacks.length} printing substitutions</div>}
-        {item.artwork && <div>{item.artwork}</div>}
-        {item.error && <div className="warn">{item.error}</div>}
-        {item.deckId && <a href={`#/decks/${item.deckId}`} onClick={e => { if (busy) e.preventDefault(); else close(); }}>Review saved deck</a>}
-      </li>)}</ul>}
+      <div className="bulk">
+        <p className="bulk-lead">Import your decks while connected to the internet. Deck lists are saved on this Fyodor host and stay available after restarting. Connect to this host to use them without internet.</p>
+        {!finished && <div className={`bulk-inputs ${online ? "two" : ""}`}>
+          <label className={`bulk-drop ${files.length ? "has-files" : ""}`}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); if (busy) return; setFiles(Array.from(e.dataTransfer.files)); invalidate(); }}>
+            <input className="bulk-file" type="file" multiple accept=".txt,.csv,.json,.dek" disabled={busy} aria-label="Deck export files"
+              onChange={e => { setFiles(Array.from(e.target.files ?? [])); invalidate(); }} />
+            <Icon name="cards" size={26} />
+            <b>Deck export files</b>
+            <span>{files.length ? `${files.length} file${files.length > 1 ? "s" : ""}: ${files.map(f => f.name).join(", ")}` : "Choose files, or drop them here"}</span>
+            <span className="bulk-dim">Exports from Archidekt, Moxfield, MTGGoldfish, Arena, or plain text. Each file becomes a separate deck.</span>
+          </label>
+          {online && <label className="field bulk-urls">Archidekt deck URLs (one per line)<textarea value={urls} disabled={busy} rows={5} onChange={e => { setUrls(e.target.value); invalidate(); }} placeholder="https://archidekt.com/decks/…" /></label>}
+        </div>}
+        {!finished && online && <label className="check bulk-art"><input type="checkbox" checked={download} disabled={busy} onChange={e => setDownload(e.target.checked)} /> Download artwork for offline play</label>}
+        {error && <p role="alert" className="bulk-error">{error}</p>}
+        {busy && <p role="status" className="bulk-status">{items.some(i => i.state === "saving") ? "Saving decks and downloading artwork… Keep this window open." : "Previewing decks…"}</p>}
+        {items.length > 0 && <ul className="bulk-list">{items.map((item, i) => <li key={i} className={`bulk-item ${item.state}`}>
+          <span className="bulk-mark" aria-hidden>{item.state === "failed" ? "!" : item.state === "saved" ? <Icon name="check" size={14} /> : ""}</span>
+          <div className="bulk-body">
+            <strong>{item.preview?.name || item.request.name || item.label}</strong>
+            <div className="bulk-state">{STATE[item.state]}</div>
+            {item.preview && <div className="bulk-dim">{item.preview.report.cards_total} cards · {item.preview.report.unresolved.length} unresolved · {item.preview.report.fallbacks.length} printing substitutions</div>}
+            {item.artwork && <div className="bulk-dim">{item.artwork}</div>}
+            {item.error && <div className="bulk-warn">{item.error}</div>}
+          </div>
+          {item.deckId && <a className="tt-btn ghost bulk-review" href={`#/decks/${item.deckId}`} onClick={e => { if (busy) e.preventDefault(); else close(); }}>Review saved deck</a>}
+        </li>)}</ul>}
+      </div>
     </Modal>
   );
 }

@@ -32,6 +32,30 @@ from app.rules.engine import land_play_problem
 from app.rules.plan import live_players
 
 
+def cost_now(state: GameState, viewer: str, castable: list[str], with_x: set[str], info: CardInfo) -> dict[str, str]:
+    """-- current costs -- the castable cards (the viewer's own hints) whose total cost to cast right now differs from their mana cost
+    (601.2f: Grand Arbiter Augustin's "{1} less" and "{1} more", Thalia, Sphere of Resistance, commander tax): card id -> that cost.
+    Without targets or X (a spell with X is left out: its cost is its choice)."""
+    from app.rules import casting
+    from app.rules import mana as M
+
+    out: dict[str, str] = {}
+    for cid in castable:
+        card = state.cards[cid]
+        if cid in with_x:
+            continue
+        ch = chars.of(card, info)
+        if not ch.mana_cost:
+            continue
+        try:
+            now = casting.spell_cost(state, card, ch, info=info, player=viewer).text()
+        except Exception:  # noqa: BLE001 - a hint never breaks the view; the cast itself is checked when it's made
+            continue
+        if now != M.parse_cost(ch.mana_cost).text():
+            out[cid] = now
+    return out
+
+
 def rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any] | None:
     with read_pass.scope(state, info):  # (wave 29A) a view only reads the table: what every card shares is worked out once
         return _rules_view(state, viewer, info)
@@ -68,6 +92,8 @@ def _rules_view(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]
         "card_modes": {cid: m for cid, m in r.card_modes.items()
                        if cid in state.cards and (viewer == OMNISCIENT or can_see(state, state.cards[cid], viewer))},
         "hints": {},
+        # REPEAT: your own actions this turn in words (newest last), nobody else's
+        "repeatable": list(r.recent_labels.get(viewer, [])) if r.recent_turn == state.turn.number and viewer in state.players else [],
         "stats": stats(state, viewer, info),
         # -- counters & designations (wave 3E): dungeons, venture markers and the Ring (public, 309.2b / 701.54) --
         "designations": designations_view(state),
@@ -113,6 +139,30 @@ def designations_view(state: GameState) -> dict[str, Any]:
 # being declared). Every other decision is shown to other players only as "someone is choosing".
 _PUBLIC_KINDS = {"declare_attackers": "is declaring attackers", "declare_blockers": "is declaring blockers"}
 
+# -- public choice wheel (TABLETOP_QOL_MILESTONE.md) -- the rules steps whose single choice is among public values: a named color, creature or
+# card type, number, word or player ("choose_value", 105.1 / 205.3m / 607.2; "choose_each" asks each player in turn, 101.4), "an opponent" that
+# isn't a target (choose_opponent), a commander's color before the game (903.4b: revealed), which mana a mana ability or effect adds, a
+# protection / prevention color, a counter kind, fabricate / endure / tap-or-untap / friend-or-foe, a dungeon, a gift's or assist's player. Never
+# a target (chosen on the table), a cost, a secret choice (group_choice "gc_secret" / "gc_bid": revealed later) or anything about hidden cards.
+PUBLIC_CHOICE_STEPS = frozenset({
+    "choose_value", "choose_each", "choose_opponent", "cmd_color110f",
+    "add_mana", "mana_ability", "immediate_mana_production", "mana_composition", "mana_symbol_production",
+    "prevent_color", "protection_choice", "become_pick", "counter_kind_choice",
+    "fabricate", "endure", "tap_or_untap", "friend_foe", "venture", "gift", "assist",
+})
+
+
+def public_choice(d: Any) -> bool:
+    """May the chooser's client offer this decision on its quick wheel? One answer among the public options of a known public step (above), or
+    which of two public coin flips to keep (coin_group "ignore": heads or tails). Options naming a card (a target, a card looked at) or typed
+    (a card name, a secret number: ``group``) never are. Read from the server-only ``resume``; sent to the chooser alone, as a flag."""
+    if d.kind != "choose_one" or d.max_choices != 1 or d.display is not None:
+        return False
+    resume = d.resume or {}
+    step = resume.get("step")
+    known = step in PUBLIC_CHOICE_STEPS or (step == "coin_group" and resume.get("phase") == "ignore")
+    return known and all(o.card_id is None and o.group is None for o in d.options)
+
 
 def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
     """The pending decision as ``viewer`` may see it. The chooser (and the omniscient host view)
@@ -135,6 +185,8 @@ def decision_view(state: GameState, d: Any, viewer: str) -> dict[str, Any]:
                                 "cancelable": cancelable(d)}  # (wave 24D)
         if d.display is not None:
             full["display"] = d.display
+        if public_choice(d):
+            full["public_choice"] = True  # (public choice wheel) the chooser's client may answer it on its radial picker
         if decider != d.player:
             full["for_player"] = d.player  # the player this choice is made for
         return full
@@ -276,8 +328,20 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
         if land_play_problem(state, viewer, card, chars.of(card, info), info=info) is None:
             playable.append(cid)
     out["playable_lands"] = playable
-    out["activatable"] = activatable(state, viewer, info)
-    out["castable"] = [cid for cid in candidates if castable(state, viewer, state.cards[cid], info)]
+    out["activatable"] = activatable(state, viewer, info, announce=True)  # (soak: targets too)
+    out["castable"] = [cid for cid in candidates if castable(state, viewer, state.cards[cid], info, announce=True)]  # (soak: modes and targets too)
+    # -- exile markers -- which card exiled each exiled card this viewer may cast or play now ("Exiled with Ian Malcolm", 607.2a): the
+    # source's name only, and only while the viewer can see the source (everyone saw it exile them); never its id
+    if r is not None and r.exiled_with:
+        source_of = {o: src for src, objs in r.exiled_with.items() for o in objs}
+        links: dict[str, str] = {}
+        for cid in dict.fromkeys([*out["castable"], *playable]):
+            src = source_of.get(r.object_id(cid)) if state.cards[cid].zone.endswith(":exile") else None
+            source = state.cards.get(src.rsplit(".", 1)[0]) if src else None
+            if source is not None and source.name and can_see(state, source, viewer):
+                links[cid] = source.name
+        if links:
+            out["exiled_with"] = links
     # (wave 24D) 107.3a: castable cards that ask for X when cast (the server validates the range; min 0)
     if x_cast := [cid for cid in out["castable"] if announces_x(state.cards[cid], info)]:
         out["x_cast"] = x_cast
@@ -285,13 +349,25 @@ def _hints(state: GameState, viewer: str, info: CardInfo) -> dict[str, Any]:
         out["x_kicker"] = x_kicker
     if chorus := [cid for cid in out["castable"] if wave110c_chorus.offered(state, viewer, state.cards[cid], chars.of(state.cards[cid], info), info)]:
         out["chorus"] = chorus  # -- Chorus of the Conclave (wave 110C) -- castable cards whose cast may carry CastSpell.chorus (601.2b, 0-1000)
+    from app.rules import (
+        wave111r3_replicate,  # -- granted replicate (wave 111R3) -- card id → the labels of CastSpell.replicate's counts (702.56b)
+    )
+
+    if replicated := {cid: labels for cid in out["castable"] if (labels := wave111r3_replicate.hint(state, viewer, state.cards[cid], info))}:
+        out["replicate111r3"] = replicated
+    if costs := cost_now(state, viewer, out["castable"], set(out.get("x_cast") or ()), info):
+        out["cost_now"] = costs
     # (wave 3C) cards a permission lets you cast without paying their mana costs
-    out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info)]
+    out["free_castable"] = [cid for cid in candidates if free_castable(state, viewer, state.cards[cid], info, announce=True)]
     # -- cost changers (wave 4I) -- alternative costs written on cards (118.9): card id → [{"id", "label"}]
-    alt = {cid: found for cid in candidates if (found := alt_castable(state, viewer, state.cards[cid], info))}
+    alt = {cid: found for cid in candidates if (found := alt_castable(state, viewer, state.cards[cid], info, announce=True))}
     if alt:
         out["alt_castable"] = alt
     optional = {cid: found for cid in candidates if (found := optional_castable(state, viewer, state.cards[cid], info))}
     if optional:
         out["optional_costs"] = optional  # (Defiler of Vigor: card id → [{"id": source, "label"}])
+    # -- pod audit -- the same, with a cast without paying its mana cost (118.9d: Deadly Rollick with Silverquill's casualty): CastSpell.free
+    # with optional_costs, for the cards in free_castable
+    if free_optional := {cid: found for cid in out["free_castable"] if (found := optional_castable(state, viewer, state.cards[cid], info, free=True))}:
+        out["free_optional_costs"] = free_optional
     return out

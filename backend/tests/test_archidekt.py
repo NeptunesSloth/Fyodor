@@ -230,8 +230,11 @@ def test_url_import_preview_create_and_offline_use(client, remote):
 
     missing = client.post("/api/decks/preview", json={"archidekt": "https://archidekt.com/decks/1/x"})
     assert missing.status_code == 502 and "doesn't exist" in missing.json()["detail"]
-    bad = client.post("/api/decks/preview", json={"archidekt": "https://moxfield.com/decks/x"})
-    assert bad.status_code == 502 and "doesn't look like" in bad.json()["detail"]
+    # a link the host won't fetch is the client's mistake (422), with that site's steps (tests/test_deck_sites.py)
+    bad = client.post("/api/decks/preview", json={"archidekt": "https://example.com/decks/x"})
+    assert bad.status_code == 422 and "doesn't look like" in bad.json()["detail"]
+    moxfield = client.post("/api/decks/preview", json={"archidekt": "https://moxfield.com/decks/x"})
+    assert moxfield.status_code == 422 and "Copy Plain Text" in moxfield.json()["detail"]
 
 
 def test_source_check_apply_keeps_local_edits(client, remote):

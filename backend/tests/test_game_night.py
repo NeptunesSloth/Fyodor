@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import itertools
+import time
 
 import pytest
 
@@ -257,6 +258,35 @@ def test_reactions_are_for_spectators_and_players_who_are_out(table):
     assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "react", "emoji": "🔥"}, headers=h(spectator)).status_code == 200
     assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "react", "emoji": "🔥"}, headers=h(spectator)).status_code == 429
     assert client.post(f"/api/games/{gid}/night/signal", json={"kind": "react", "emoji": "<script>"}, headers=h(spectator)).status_code == 422
+
+
+def test_pings_point_at_public_cards_and_spots_never_at_hidden_ones(table):
+    client, gid, alice, bob = table
+    me, other = seat_of(client, gid, alice), seat_of(client, gid, bob)
+    mine = view(client, gid, alice)
+    commander = mine["zones"][f"{me}:command"][0]["id"] if isinstance(mine["zones"][f"{me}:command"][0], dict) else mine["zones"][f"{me}:command"][0]
+    hand = mine["zones"][f"{me}:hand"]
+    library_top = client.app.state.services.hub.get(gid).session.state.zones[f"{me}:library"][0]
+    signal = f"/api/games/{gid}/night/signal"
+    with client.websocket_connect(f"/ws/games/{gid}?token={bob}") as ws:
+        ws.receive_json()
+        # hidden cards (my hand, my library) can't be pointed at: their ids would leak
+        assert client.post(signal, json={"kind": "ping", "card": hand[0]}, headers=h(alice)).status_code == 404
+        assert client.post(signal, json={"kind": "ping", "card": library_top}, headers=h(alice)).status_code == 404
+        assert client.post(signal, json={"kind": "ping", "card": commander}, headers=h(alice)).status_code == 200
+        got = ws.receive_json()
+        while got["type"] != "signal":
+            got = ws.receive_json()
+        assert got == {"type": "signal", "kind": "ping", "from": me, "from_name": "Alice", "card": commander}
+        assert client.post(signal, json={"kind": "ping", "card": commander}, headers=h(alice)).status_code == 429
+    time.sleep(0.65)
+    spot = client.post(signal, json={"kind": "ping", "player": other, "x": 420.3333, "y": 210}, headers=h(alice))
+    assert spot.status_code == 200
+    assert client.post(signal, json={"kind": "ping"}, headers=h(bob)).status_code == 422
+    assert client.post(signal, json={"kind": "ping", "player": other, "x": 99999, "y": 0}, headers=h(bob)).status_code == 422
+    code = client.get(f"/api/games/{gid}").json()["code"]
+    spectator = client.post("/api/join", json={"code": code, "spectate": True}).json()["token"]
+    assert client.post(signal, json={"kind": "ping", "card": commander}, headers=h(spectator)).status_code == 403
 
 
 def test_the_lobby_recaps_tonights_games(table):

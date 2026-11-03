@@ -21,7 +21,7 @@ from app.game.state import (
 PLAYER_COLORS = ("#d4a852", "#5fa8d3", "#c9677a", "#6fbf8f", "#a68bd6", "#d98c4a")
 SECTION_ZONES = {"commander": "command", "companion": "companion", "main": "library", "sideboard": "sideboard",
                  "attractions": "attractions"}  # -- Attractions (wave 100L) -- 717.2: the supplementary Attraction deck
-STARTING_LIFE = {"commander": 40, "constructed": 20, "sandbox": 20}
+STARTING_LIFE = {"commander": 40}
 _rng = secrets.SystemRandom()
 
 

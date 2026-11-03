@@ -9,7 +9,8 @@ import { useIsHost } from "./HostTools";
 import "../pages/podstats.css";
 
 /**
- * END GAME: the players decide when it's over and who won — nothing is detected automatically.
+ * END GAME: the players decide when it's over and who won, by hand. (When the rules engine ends the game, its result
+ * comes to the table by itself as a proposal each player confirms: GameNight.tsx; this dialog works the same either way.)
  * Two steps (choose, then confirm) so statistics never change by accident. At a LAN table anyone
  * may propose the result to the table (every remaining player must agree); the host can also
  * record it directly.

@@ -101,7 +101,8 @@ def token_exiles(plan: Plan, controller: str, spec: dict[str, Any]) -> bool:
     probe = replacements._token_probe(controller, spec)
     from app.rules import entry_payment_diversion
 
-    definitions = list(replacements._definitions(plan, probe).values())
+    with plan.reading():  # (big boards: the probe's field is worked out in a read pass, token_copy_entry.prospect; this only reads)
+        definitions = list(replacements._definitions(plan, probe).values())
     return entry_payment_diversion.applies(plan, probe, definitions) or exiles(plan, probe, controller)
 
 

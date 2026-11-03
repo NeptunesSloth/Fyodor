@@ -1,0 +1,46 @@
+/*
+ * -- pod history -- a game's elimination order and its final board, shared by the lobby's score sheet and Pod stats.
+ * The order reads as one line of places; the final board opens into a small mat per player (life first, then the table).
+ */
+.elim-order {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 16px;
+  font-size: 13px; line-height: 1.4; color: var(--room-bone-dim);
+}
+.elim-order li { white-space: nowrap; }
+.eo-head { color: var(--room-brass); font-variant-numeric: tabular-nums; }
+.eo-who { color: var(--room-bone); font-weight: 600; white-space: normal; }
+.eo-rest { color: var(--text-dim, var(--room-bone-dim)); } /* (the faint grey measured 4.4:1 on the score sheets' steel) */
+
+.final-board { font-size: 13px; }
+.final-board > summary {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 26px; padding: 2px 10px 2px 8px; cursor: pointer; list-style: none; user-select: none;
+  color: var(--room-brass-hi); font-size: 12.5px; letter-spacing: 0.02em;
+  border: 1px solid color-mix(in srgb, var(--room-brass) 35%, transparent); border-radius: 3px; background: rgba(0, 0, 0, 0.22);
+}
+.final-board > summary::-webkit-details-marker { display: none; }
+.final-board > summary::before {
+  content: ""; width: 5px; height: 8px; background: currentColor; clip-path: polygon(0 0, 100% 50%, 0 100%);
+  transition: transform var(--dur-hover) var(--ease-out);
+}
+.final-board[open] > summary::before { transform: rotate(90deg); }
+.final-board > summary:hover { color: var(--room-bone); border-color: var(--room-brass); }
+.final-board > summary:focus-visible { outline: 2px solid var(--select, var(--room-brass-hi)); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .final-board > summary::before { transition: none; } }
+
+.fb-seats {
+  list-style: none; margin: 10px 0 4px; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 0;
+}
+.fb-seats li { min-width: 0; padding: 2px 14px 2px 12px; border-left: 1px solid rgba(215, 174, 99, 0.18); }
+.fb-head { display: flex; align-items: baseline; gap: 8px; }
+.fb-name { color: var(--room-bone); font-weight: 650; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-stats { margin-left: auto; color: var(--room-bone-dim); font-variant-numeric: tabular-nums; font-size: 12.5px; white-space: nowrap; }
+.fb-life { font: 600 18px/1 var(--font-display); color: var(--room-bone); }
+.fb-seats li.out .fb-life { color: var(--room-bone-dim); }
+.fb-out { color: #d9a08f; }
+.fb-cmdr { margin: 2px 0 6px; color: var(--accent-2, var(--room-brass-hi)); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-perms, .fb-lands, .fb-zones { margin: 2px 0 0; font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }
+.fb-perms { color: var(--room-bone); }
+.fb-lands, .fb-zones, .fb-note { color: var(--room-bone-dim); }
+.fb-zones { margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255, 255, 255, 0.06); font-variant-numeric: tabular-nums; }
+.fb-note { margin: 6px 0; font-size: 12.5px; }

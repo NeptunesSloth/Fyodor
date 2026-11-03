@@ -8,7 +8,8 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from app.game import engine
+from app.cards.repository import CardRepository, RulesCards
+from app.game import engine, out_of_game, table_rights, undo_requests, undo_rights
 from app.game.actions import INTENT_TYPES, Action, parse_action
 from app.game.control import is_controlled
 from app.game.errors import ActionError, AutomationError
@@ -37,7 +38,8 @@ class GameSession:
     def __init__(self, state: GameState, *, cards: CardInfo | None = None, history: History | None = None,
                  history_limit: int = 500, rules: RulesRegistry | None = None) -> None:
         self.state = state
-        self.cards = cards
+        # the rules read card data through the repository's cache (no image checks): CardRepository.rules_card
+        self.cards = RulesCards(cards) if isinstance(cards, CardRepository) else cards
         self.rules = rules
         self.suggestions: list[Suggestion] = []
         self.history = history or History(state, limit=history_limit)
@@ -46,19 +48,24 @@ class GameSession:
         # Named table snapshots ("Before board wipe"): kept beside the game, saved with it.
         self.table_snapshots: list[dict[str, Any]] = []
         self.rules_failure: dict[str, Any] | None = None  # the last unexpected rules-engine failure
+        self.undo_request: undo_requests.UndoRequest | None = None  # -- quick undo request -- waiting for the table (in memory)
 
     # -- actions ---------------------------------------------------------------------
-    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False) -> Action:
+    def perform(self, actor: str, payload: dict[str, Any] | Action, *, trusted: bool = False, host: bool = False) -> Action:
         """Validate, resolve, apply and record one action. Raises ActionError / ValidationError.
 
-        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot)."""
+        ``trusted`` is only for actions the server builds itself (e.g. restoring a snapshot). ``host``: the actor counts as the
+        host for the table's card permissions (the host's seat at a LAN table, every seat at a hot-seat one; app/game/table_rights.py)."""
         if actor not in self.state.players:
             raise ActionError("Only seated players can act")
         action = parse_action(payload) if isinstance(payload, dict) else payload
         if not trusted and action.type not in CONTROLLED_MAY:
             self._check_not_controlled(actor)
+        if not trusted and (out := out_of_game.refusal(self.state, actor, action.type)) is not None:
+            raise ActionError(out)  # -- out of the game -- 800.4a: a player who left no longer takes part
+        was, rng = undo_requests.before(self.state), undo_requests.Recorder()  # -- quick undo request --
         try:
-            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted)
+            resolved = resolve(self.state, action, actor=actor, cards=self.cards, trusted=trusted, rng=rng)
         except ActionError:
             raise
         except Exception as exc:
@@ -75,6 +82,8 @@ class GameSession:
                 f"{AutomationError.PREFIX}: Fyodor couldn't carry out {action.type.replace('_', ' ')}. Nothing changed. "
                 "Resolve it manually with the table tools, pause automation, or export a rules scenario."
             ) from exc
+        if not trusted:  # -- table permissions -- on the resolved action: placeholders are real ids, a macro's steps filled in
+            table_rights.check(self.state, resolved, actor, host=host)
         try:
             engine.apply(self.state, resolved)
         except ActionError:
@@ -84,28 +93,52 @@ class GameSession:
             log.exception("Unexpected error applying %s; restoring state", resolved.type)
             self.state = self.history.rebuild()
             raise
+        resolved.shown = undo_requests.classify(resolved, was, self.state, rng.used)  # -- quick undo request --
         self.history.record(resolved, self.state)
         self.suggestions = self.rules.after_action(self.state, resolved) if self.rules else []
         self.updated_at = time.time()
+        self._drop_stale_request()
         return resolved
 
     def _check_not_controlled(self, actor: str) -> None:
         if is_controlled(self.state, actor):
             raise ActionError("Another player is making your choices right now (you can still concede)")
 
-    def undo(self, actor: str) -> Action:
+    def undo(self, actor: str, *, host: bool = False, others: list[str] | None = None, approved: str | None = None) -> Action:
+        """``host``: the actor counts as the host for the table's undo setting (see app/game/undo_rights.py).
+        -- quick undo request -- ``others``: who would approve a request from ``actor`` (None at a hot-seat table): when there is
+        someone to ask, an undo of something already seen asks them first. ``approved``: the table approved this undo (its label)."""
         self._check_not_controlled(actor)
+        if approved is None:
+            if (out := out_of_game.history_refusal(self.state, actor, host=host)) is not None:
+                raise ActionError(out)  # -- out of the game (gaps5) -- a player who left doesn't take the game's actions back (the host may)
+            undo_rights.check(self.state, self.history, actor, host=host, op="undo")  # -- undo policy (gap 3) --
+            if others and (kind := undo_requests.shown(undo_rights.entry(self.history, "undo"))) is not None:
+                raise ActionError(f"{undo_requests.reason(kind)} Ask the table to undo it.")
         state, undone = self.history.undo()
         self.state = state
-        self._notice(actor, [pname(self.state, actor), text(f" undid: {describe(undone)}")])
+        said = f" undid: {describe(undone)}" if approved is None else f" undid: {approved} (with the table's approval)"
+        self._notice(actor, [pname(self.state, actor), text(said)])
+        self._drop_stale_request()
         return undone
 
-    def redo(self, actor: str) -> Action:
+    def redo(self, actor: str, *, host: bool = False) -> Action:
         self._check_not_controlled(actor)
+        if (out := out_of_game.history_refusal(self.state, actor, host=host)) is not None:
+            raise ActionError(out)  # -- out of the game (gaps5) --
+        undo_rights.check(self.state, self.history, actor, host=host, op="redo")  # -- undo policy (gap 3) --
         state, redone = self.history.redo(self.state)
         self.state = state
         self._notice(actor, [pname(self.state, actor), text(f" redid: {describe(redone)}")])
+        self._drop_stale_request()
         return redone
+
+    def _drop_stale_request(self) -> None:
+        """-- quick undo request -- any change to the table ends a request (it would no longer take back the last action)."""
+        req = self.undo_request
+        if req is not None and not req.current(self.history):
+            self.undo_request = None
+            self._notice(None, [pname(self.state, req.by), text(f"'s undo request ({req.label}) was cancelled: the table moved on.")])
 
     def notice(self, message: str, actor: str | None = None) -> None:
         self._notice(actor, [text(message)])
