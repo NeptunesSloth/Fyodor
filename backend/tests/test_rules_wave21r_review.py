@@ -104,7 +104,7 @@ def test_hikari_blinks_and_returns_at_the_next_end_step(cards):
     hikari = put(s, "Hikari, Twilight Guardian")
     from tests.test_rules_wave5j_token_copies import cast
     cast(s, "Probe Spirit", C=1)
-    drive(s, picker("pay"))
+    drive(s, picker("exile hikari"))  # ("Exile Hikari, Twilight Guardian" / "Don't pay")
     assert s.state.cards[hikari.id].zone == "p1:exile"
     until(s, lambda s: s.state.turn.number == 2)
     assert s.state.cards[hikari.id].zone == "p1:battlefield"  # (the card the payment exiled: a new object, 400.7)

@@ -546,7 +546,9 @@ def test_court_of_ambition_loses_more_life_when_you_are_the_monarch(cards, monar
         to_hand(s, n, "p2")
     to_phase(s, "upkeep", turn=3)
     d = until_asked(s)
-    assert d is not None and d.player == "p2" and cost in d.prompt
+    # (the cost reads as the action it is: "Court of Ambition: discard a card?", with a "Discard a card" button)
+    assert d is not None and d.player == "p2" and d.prompt == f"Court of Ambition: {cost[0].lower()}{cost[1:]}?"
+    assert [o.label for o in d.options][0] == cost
     held = len(s.state.zones["p2:hand"])
     pick(s, "decline")
     settle(s)
