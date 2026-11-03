@@ -40,6 +40,13 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
   content: ""; position: absolute; left: -6px; top: 7px; bottom: 7px; width: 1px; background: var(--line-2); pointer-events: none;
 }
 .game-top [data-testid="end-game"] { color: var(--accent-2); }
+/* narrower screens: the table's name gives way first; then the responses setting (it stays in the Automation panel) */
+.game-top > :not(.game-title):not(.spacer) { flex-shrink: 0; }
+.game-top .tt-btn, .game-top .auto-pill { white-space: nowrap; }
+@media (max-width: 1180px) {
+  .game-top .auto-pill[data-testid="resp-mode"] { display: none; }
+  .game-top .seat-switch { font-size: 0; gap: 0; } /* "View" still names the select for assistive tech */
+}
 .game-top .auto-hud .tt-btn[data-testid="concede-yes"] { color: #ffb4ad; }
 .daynight.day { color: #f5d77a; }
 .daynight.night { color: #9fb7ff; }
@@ -383,7 +390,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 4px 14px 28px rgba(0, 0, 0, 0.7);
   transform-origin: top left; animation: pop calc(90ms * var(--anim-scale, 1)) var(--ease-out);
 }
-.ctx-menu.ctx-sub { position: absolute; max-height: 70vh; overflow: auto; margin-top: -5px; scrollbar-width: thin; }
+.ctx-menu.ctx-sub { position: absolute; max-height: 70vh; overflow: auto; scrollbar-width: thin; animation: none; } /* a submenu is there at once, where it will stay */
 .ctx-title {
   padding: 6px 10px 7px; margin-bottom: 3px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font: 600 13px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2);

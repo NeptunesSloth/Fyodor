@@ -95,8 +95,8 @@ function SubMenu({ items, onDone }: { items: MenuItem[]; onDone: () => void }) {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const r = el.getBoundingClientRect();
-    setFlip({ x: r.right > window.innerWidth - 4, y: Math.min(0, window.innerHeight - r.bottom - 4) });
+    const r = el.getBoundingClientRect(); // (its top-left corner; the size from layout, in case anything is scaling it)
+    setFlip({ x: r.left + el.offsetWidth > window.innerWidth - 4, y: Math.min(0, window.innerHeight - (r.top + el.offsetHeight) - 4) });
   }, [items]);
   return (
     <div
