@@ -32,6 +32,8 @@ declare global {
       dice: () => { x: number; y: number }[];
       diceState: () => ReturnType<TableScene["diceState"]>;
       throwDice: (show: DiceShow) => void;
+      /** -- table toys -- the dice cannon: out on the table (rolling in, firing, rolling off) and where. */
+      cannon?: () => ReturnType<TableScene["cannonState"]>;
       flick: (ids: string[], vx: number, vz: number) => boolean;
       heartAt: (player: string, side?: -1 | 0 | 1) => { x: number; y: number } | null;
       buttonAt: (id: SeatActionId) => { x: number; y: number } | null;
@@ -97,6 +99,7 @@ export function Table3D({ me }: { me: string }) {
       dice: () => scene.diceOnScreen(),
       diceState: () => scene.diceState(),
       throwDice: (show) => scene.throwDice(show),
+      cannon: () => scene.cannonState(),
       flick: (ids, vx, vz) => scene.flickCards(ids, vx, vz),
       heartAt: (player, side) => scene.heartOnScreen(player, side ?? 0),
       buttonAt: (id) => scene.buttonOnScreen(id),

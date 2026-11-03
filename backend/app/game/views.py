@@ -232,7 +232,7 @@ def render_log(entries: list[LogEntry], viewer: str) -> list[dict[str, Any]]:
             "parts": [_render_part(p, viewer) for p in e.parts],
             **({"manual": True} if e.manual else {}),
             **({"folded": True} if e.folded else {}),
-            **({"roll": e.roll.model_dump()} if e.roll else {}),
+            **({"roll": e.roll.model_dump(exclude={"cannon"} if e.roll.cannon is None else None)} if e.roll else {}),  # (a plain roll: as before)
             **({"dig": e.dig.model_dump()} if e.dig else {}),
             # -- table toys -- a draw from the draw bag: a hidden chit only for its drawer (and the hot-seat open view)
             **({"bag": {"player": e.bag.player, "hidden": e.bag.hidden, "left": e.bag.left,

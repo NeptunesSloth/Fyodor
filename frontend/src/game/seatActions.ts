@@ -8,7 +8,7 @@ import { useGame } from "../state/gameStore";
 import { draw, send } from "./actions";
 import { isOut } from "./outOfGame";
 
-export type SeatActionId = "untap" | "draw" | "scry" | "mill" | "reveal" | "mulligan";
+export type SeatActionId = "untap" | "draw" | "scry" | "mill" | "reveal" | "mulligan" | "extras";
 
 /** In the Oops table's order, left to right along your mat's near edge; Mulligan sits apart, to the right. */
 export const SEAT_ACTIONS: { id: SeatActionId; label: string; title: string }[] = [
@@ -18,12 +18,15 @@ export const SEAT_ACTIONS: { id: SeatActionId; label: string; title: string }[] 
   { id: "mill", label: "Mill", title: "Mill: click 1, right-click 3, or hover and type a number" },
   { id: "reveal", label: "Reveal", title: "Reveal the top card(s): click 1, right-click 3, or hover and type a number" },
   { id: "mulligan", label: "Mulligan", title: "Mulligan: shuffle your hand into your library and draw 7 (Ctrl+Z undoes it)" },
+  // -- table toys -- off the mat, after Mulligan: opens the bag (game/ExtrasBag.tsx)
+  { id: "extras", label: "Bag of Extras", title: "Bag of Extras: your deck's tokens, Treasure, Clue, Food, 1/1s, counters and dice (it never runs out)" },
 ];
 
-/** Do a seat button's action, n times over (Untap and Mulligan happen once). */
-export function runSeatAction(id: SeatActionId, n: number, me: string): void {
+/** Do a seat button's action, n times over (Untap and Mulligan happen once; the Bag of Extras opens where it was clicked, `at`). */
+export function runSeatAction(id: SeatActionId, n: number, me: string, at?: { x: number; y: number }): void {
   if (n < 1 || isOut(useGame.getState().view, me)) return; // -- out of the game -- the buttons are gone for them (game/outOfGame.ts)
-  if (id === "untap") void send({ type: "untap_all", player: me });
+  if (id === "extras") useGame.getState().openDialog("extras", at ? `${Math.round(at.x)},${Math.round(at.y)}` : null);
+  else if (id === "untap") void send({ type: "untap_all", player: me });
   else if (id === "mulligan") void send({ type: "mulligan", player: me });
   else if (id === "draw") void draw(me, n);
   else if (id === "mill") void send({ type: "mill", player: me, count: n });
@@ -43,7 +46,7 @@ export class TypedCount {
 
   /** A key while `id` is hovered; true if it was a digit for the button. */
   key(id: SeatActionId | null, key: string): boolean {
-    if (!id || id === "untap" || id === "mulligan" || !/^[0-9]$/.test(key)) return false;
+    if (!id || id === "untap" || id === "mulligan" || id === "extras" || !/^[0-9]$/.test(key)) return false;
     this.digits = `${this.id === id ? this.digits : ""}${key}`.slice(0, 3);
     this.id = id;
     this.onShow(id, this.digits);

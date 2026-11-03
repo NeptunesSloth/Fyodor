@@ -1,0 +1,123 @@
+/* -- table toys -- the dice cannon on the 2D table, the draw bag panel, the Bag of Extras picker and a drawn chit
+   (game/cannon.ts, game/DrawBagPanel.tsx, game/ExtrasBag.tsx, game/BagDraws.tsx). Off the mats; on demand. */
+
+/* a cannon throw's line tag ("Goes first", "Tied: fired again") */
+.dice-line-tag.toy { background: rgba(215, 174, 99, 0.2); color: #f3d38d; }
+
+/* ---- the 2D table's dice cannon: in from the right edge, a kick and a puff a volley, away again ---------------------- */
+.cannon2d {
+  position: fixed; right: 0; z-index: 46; width: 120px; height: 70px; margin-top: -40px; pointer-events: none;
+  animation: cannon2d-in 320ms var(--ease-out) both;
+}
+.cannon2d.leaving { animation: cannon2d-out 380ms ease-in both; }
+@keyframes cannon2d-in { from { transform: translateX(110%); } to { transform: translateX(8px); } }
+@keyframes cannon2d-out { from { transform: translateX(8px); } to { transform: translateX(115%); opacity: 0.6; } }
+.cannon2d-body { width: 120px; height: 70px; display: block; filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.55)); }
+.cannon2d-body.kick { animation: cannon2d-kick 420ms var(--ease-out); }
+@keyframes cannon2d-kick { 0% { transform: translateX(0); } 12% { transform: translateX(10px); } 100% { transform: translateX(0); } }
+.cannon2d-puff {
+  position: absolute; left: -14px; top: 4px; width: 46px; height: 46px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(246, 242, 234, 0.9) 0%, rgba(226, 220, 210, 0.5) 45%, rgba(220, 214, 204, 0) 72%);
+  animation: cannon2d-puff 1000ms ease-out forwards;
+}
+.cannon2d-puff::after {
+  content: ""; position: absolute; inset: 10px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 190, 90, 0.95), rgba(255, 150, 60, 0) 70%);
+  animation: cannon2d-flash 160ms ease-out forwards;
+}
+@keyframes cannon2d-puff { from { transform: translate(0, 0) scale(0.35); opacity: 0.95; } to { transform: translate(-46px, -22px) scale(1.8); opacity: 0; } }
+@keyframes cannon2d-flash { to { opacity: 0; } }
+body.reduced-motion .cannon2d { display: none; }
+
+/* ---- the draw bag panel (opened from the roll panel) ---------------------------------------------------------------- */
+.bag-panel { width: 364px; }
+.bag-panel .bag-count { font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.bag-draw-row { display: flex; gap: 6px; }
+.bag-draw-row .tt-btn { flex: 1; justify-content: center; min-height: 34px; }
+.bag-mine {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 8px; border-radius: 4px;
+  background: rgba(215, 174, 99, 0.08); border: 1px dashed rgba(215, 174, 99, 0.35); font-size: 12.5px;
+}
+.bag-mine b { color: var(--accent-2); }
+.bag-mine > span:first-child { flex: 1; min-width: 0; }
+.bag-mine .tt-btn { white-space: nowrap; flex: none; }
+.bag-mine .spacer { flex: 1; }
+.bag-fill { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; display: grid; gap: 6px; }
+.bag-fill-head, .bag-recent-head { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); }
+.bag-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.bag-presets .tt-btn { min-height: 26px; padding: 2px 10px; font-size: 12.5px; }
+.bag-fill textarea {
+  width: 100%; min-height: 54px; resize: vertical; padding: 6px 8px; border-radius: 4px; border: 1px solid var(--line-2);
+  background: rgba(0, 0, 0, 0.25); color: var(--text); font: inherit; font-size: 13px;
+}
+.bag-fill-row { display: flex; align-items: center; gap: 6px; }
+.bag-fill-row .spacer { flex: 1; }
+.bag-fill-row .tt-btn { min-height: 28px; padding: 2px 10px; font-size: 12.5px; }
+.bag-recent { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.bag-recent ol { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; }
+.bag-recent li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-dim); min-height: 22px; }
+.bag-recent li .who { width: 8px; height: 8px; border-radius: 50%; background: var(--seat, var(--accent)); flex: none; }
+.bag-recent li .chit { color: var(--text); font-weight: 600; }
+.bag-recent li .hidden { font-style: italic; color: var(--text-faint); }
+.bag-tools { display: flex; gap: 6px; margin-top: 8px; }
+.bag-tools .tt-btn { min-height: 24px; padding: 0 8px; font-size: 12px; }
+
+/* the toys row of the roll panel */
+.dice-toys { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; display: grid; gap: 6px; }
+.dice-toys-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dice-toys-row .label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); min-width: 84px; }
+.dice-toys-row .tt-btn { min-height: 26px; padding: 2px 10px; font-size: 12.5px; }
+
+/* ---- the Bag of Extras picker (by your seat) ------------------------------------------------------------------------ */
+.extras-panel {
+  position: fixed; z-index: 60; width: 336px; max-height: min(70vh, 560px); overflow: auto; padding: 10px 12px 12px; border-radius: var(--radius);
+  background: linear-gradient(180deg, #1d1f21, #131517); border: 1px solid var(--hud-edge); box-shadow: var(--shadow); color: var(--text);
+  animation: dice-panel-in var(--dur-popover) var(--ease-out);
+}
+body.reduced-motion .extras-panel { animation: none; }
+.extras-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.extras-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.03em; color: var(--accent-2); white-space: nowrap; }
+.extras-head .seg { flex: none; }
+.extras-head .seg button { min-width: 0; padding: 2px 8px; font-size: 12px; }
+.extras-head .spacer { flex: 1; }
+.extras-head .hint { font-size: 11.5px; color: var(--text-faint); }
+.extras-group { margin-top: 8px; }
+.extras-group-head { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; }
+.extras-items { display: flex; flex-wrap: wrap; gap: 5px; }
+.extras-item {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 9px 2px 4px; border-radius: 14px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.035); border: 1px solid var(--line); color: var(--text); font: inherit; font-size: 12.5px;
+  transition: border-color var(--dur-hover) var(--ease-out), background var(--dur-hover) var(--ease-out);
+}
+.extras-item:hover { border-color: var(--frame-hi); background: var(--frame-inner); }
+.extras-item:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+.extras-item:disabled { opacity: 0.45; cursor: default; }
+.extras-item .chip {
+  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 10px; font-weight: 800;
+  background: radial-gradient(circle at 35% 30%, #4a4540, #191715); border: 1.5px solid var(--tint, #b39458); color: var(--tint, #e8d6ad);
+}
+.extras-item .pt { color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.extras-note { margin: 8px 0 0; font-size: 11.5px; color: var(--text-faint); }
+
+/* ---- a chit drawn from the bag: out of a little bag by the drawer's name, then gone ----------------------------------- */
+.bag-draws { position: fixed; left: 50%; top: 92px; z-index: 47; display: grid; gap: 6px; justify-items: center; transform: translateX(-50%); pointer-events: none; }
+.bag-chit {
+  display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 22px; pointer-events: auto; cursor: pointer;
+  background: rgba(16, 13, 10, 0.94); border: 1px solid rgba(215, 174, 99, 0.35); border-left: 3px solid var(--seat, var(--accent));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55); font-size: 13px; color: var(--text); animation: bag-chit-in 420ms var(--ease-out) both;
+}
+.bag-chit.out { animation: bag-chit-out 260ms ease-in both; }
+.bag-chit .token {
+  min-width: 34px; height: 34px; padding: 0 8px; border-radius: 17px; display: grid; place-items: center; font-weight: 800; font-size: 13px;
+  background: radial-gradient(circle at 35% 30%, #f3dfae, #b98a3e 60%, #6e4c1c); color: #1a1208; border: 1px solid #4a3210;
+  animation: bag-chit-pop 520ms var(--ease-out) both;
+}
+.bag-chit .token.hidden { background: radial-gradient(circle at 35% 30%, #5a534b, #24201c); color: #cfc6b8; }
+.bag-chit .who { color: var(--text-dim); }
+.bag-chit .what { font-weight: 700; }
+@keyframes bag-chit-in { from { opacity: 0; transform: translateY(-8px) scale(0.96); } }
+@keyframes bag-chit-out { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes bag-chit-pop { 0% { transform: translateY(10px) scale(0.6); opacity: 0; } 60% { transform: translateY(-3px) scale(1.06); opacity: 1; } 100% { transform: none; } }
+body.reduced-motion .bag-chit, body.reduced-motion .bag-chit .token { animation: none; }
+
+/* the hidden chit in its drawer's own log line */
+.log-bag-mine { margin-left: 4px; color: var(--accent-2); font-weight: 600; }

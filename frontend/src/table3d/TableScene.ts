@@ -41,6 +41,7 @@ import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
 import { DiceTray, prewarmDice } from "./dice";
 import { DiceHud } from "./diceHud";
+import { CannonRig, fireCannon } from "./cannon3d";
 import { rollerEnv } from "./diceEnv";
 import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
 import { SeatProps } from "./seatProps";
@@ -252,6 +253,8 @@ export class TableScene {
   private dice: DiceTray;
   private diceHud: DiceHud;
   private diceTurn = -1;
+  /** -- table toys -- the dice cannon (table3d/cannon3d.ts), built the first time it is fired. */
+  private cannon: CannonRig | null = null;
   /** Life hearts over every seat and my seat's buttons (table3d/seatProps.ts). */
   private props = new SeatProps();
   private propsKey = "";
@@ -421,6 +424,16 @@ export class TableScene {
    * runs in the roller's mat frame, so it is the same throw on every screen. Rolling again clears your last dice.
    */
   throwDice(show: DiceShow): void {
+    if (show.cannon) {
+      // -- table toys -- fired from the dice cannon: it rolls in only to fire (not on reduced motion or low graphics)
+      const rig = !document.body.classList.contains("reduced-motion") && this.quality !== "low";
+      if (rig && !this.cannon) {
+        this.cannon = new CannonRig(this.envMap, true);
+        this.world.add(this.cannon.group);
+      }
+      fireCannon({ show, tray: this.dice, rig: rig ? this.cannon : null, seats: this.seatList, view: this.view, tableWidth: tableSize(this.seatList).w, still: this.quality === "low", now: performance.now() });
+      return;
+    }
     const seat = this.seatList.find((s) => s.player === show.actor) ?? this.seatList.find((s) => s.player === this.me);
     if (!seat) return;
     const player = this.view?.players.find((p) => p.id === seat.player);
@@ -432,6 +445,12 @@ export class TableScene {
   /** The thrown dice now on the table (tests and diagnostics). */
   diceState(): ReturnType<DiceTray["describe"]> {
     return this.dice.describe();
+  }
+
+  /** -- table toys -- whether the dice cannon is out on the table, and where on screen (tests and diagnostics). */
+  cannonState(): { busy: boolean; at: { x: number; y: number } | null } {
+    const c = this.cannon;
+    return { busy: !!c?.busy, at: c?.busy ? this.project(c.group.children[0]!.getWorldPosition(new THREE.Vector3())) : null };
   }
 
   /** A seat's life heart (its ▼ or ▲ half, or the middle) and my seat's buttons, on screen (tests and diagnostics). */
@@ -574,6 +593,7 @@ export class TableScene {
     this.motion.dispose();
     this.end.dispose();
     this.dice.dispose();
+    this.cannon?.dispose();
     this.diceHud.dispose();
     this.lifeBatch.dispose();
     this.typed.dispose();
@@ -1326,7 +1346,7 @@ export class TableScene {
     }
     if (hit?.seatButton) {
       this.props.press(hit.seatButton);
-      runSeatAction(hit.seatButton, 1, this.me);
+      runSeatAction(hit.seatButton, 1, this.me, { x: e.clientX, y: e.clientY });
       return;
     }
 
@@ -1539,7 +1559,7 @@ export class TableScene {
     }
     if (hit?.seatButton) {
       this.props.press(hit.seatButton);
-      runSeatAction(hit.seatButton, 3, this.me); // right-click: three
+      runSeatAction(hit.seatButton, 3, this.me, { x: e.clientX, y: e.clientY }); // right-click: three
       return;
     }
     const store = useGame.getState();
@@ -1665,6 +1685,7 @@ export class TableScene {
     this.shadows.instanceMatrix.needsUpdate = true;
     if (this.shadows.instanceColor) this.shadows.instanceColor.needsUpdate = true;
     this.dice.update(performance.now(), reduced, speed);
+    this.cannon?.update(performance.now(), speed);
     this.props.tick(t, this.camera, reduced);
     const kc = ease(dt, 5 * speed, reduced);
     this.camPos.lerp(this.camGoalPos, kc);

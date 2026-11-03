@@ -152,6 +152,8 @@ const LogLine = memo(function LogLine({ entry }: { entry: LogEntryView }) {
       {entry.parts.map((p, i) => (
         <Part key={i} part={p} />
       ))}
+      {/* -- table toys -- a hidden draw from the draw bag: the chit, in its drawer's own log only */}
+      {entry.bag?.hidden && entry.bag.chit && <span className="log-bag-mine">— you drew “{entry.bag.chit}”</span>}
     </div>
   );
 });

@@ -109,3 +109,18 @@ export function diceClack(speed: number, hit: ImpactWith, size: number, coin = f
 export function diceSettle(coin: boolean): boolean {
   return diceClack(2.2, "table", 0.5, coin);
 }
+
+/**
+ * -- table toys -- the dice cannon going off (game/cannon.ts): a soft low pop and a puff of air, a toy's, not a gun's (quieter
+ * than the dice that follow it). On the Dice channel; silent when that is.
+ */
+export function cannonBoom(): boolean {
+  const ch = channelOut("dice");
+  if (!ch) return false;
+  const { ac, out } = ch;
+  const t = ac.currentTime + 0.005;
+  burst(ac, out, t, 0.32, "lowpass", 420, 0.7, 0.55);
+  ping(ac, out, t, 92, 0.22, 0.32, 0.55);
+  burst(ac, out, t + 0.01, 0.12, "bandpass", 1300, 0.8, 0.12);
+  return true;
+}

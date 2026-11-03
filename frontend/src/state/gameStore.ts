@@ -63,7 +63,8 @@ interface GameStore {
   hover: string | null;
   inspect: string | null;
   browser: BrowserState | null;
-  dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host" | "endgame" | "appearance" | "history" | "settings" | "macro" | "spawn";
+  dialog: null | "tokens" | "dice" | "save" | "help" | "counters" | "ability" | "host" | "endgame" | "appearance" | "history" | "settings" | "macro" | "spawn"
+    | "drawbag" | "extras"; // -- table toys -- the draw bag (from the roll panel) and the Bag of Extras (by your seat)
   dialogArg: string | null;
   pendingPositions: Record<string, [number, number]>;
   /** Pick mode: the next clicks on cards / players choose targets (arrows, copy target…). */

@@ -167,6 +167,7 @@ export class SeatProps {
     const mine = seats.find((s) => s.player === me);
     if (!mine) return;
     SEAT_ACTIONS.forEach((a, i) => {
+      if (a.id === "extras") return this.buildPouch(mine);
       const flat = a.id === "mulligan"; // a pile of cards printed on the table, not a disc
       const group = new THREE.Group();
       const canvas = document.createElement("canvas");
@@ -202,6 +203,40 @@ export class SeatProps {
   }
 
 
+
+  /**
+   * -- table toys -- the Bag of Extras (game/ExtrasBag.tsx): a small leather drawstring pouch past Mulligan, off the mat like
+   * the seat buttons, a gold coin in its mouth. A seat button like the others (click opens it); it lifts a little when hovered.
+   */
+  private buildPouch(mine: Seat): void {
+    const group = new THREE.Group();
+    const profile: [number, number][] = [[0, 0], [0.11, 0.008], [0.19, 0.045], [0.235, 0.11], [0.23, 0.19], [0.18, 0.26], [0.11, 0.3],
+      [0.085, 0.325], [0.1, 0.345], [0.15, 0.39], [0.16, 0.405], [0.13, 0.41], [0.08, 0.38], [0, 0.37]];
+    const leather = this.keep(new THREE.MeshStandardMaterial({ color: 0x6e4626, roughness: 0.82, metalness: 0, emissive: 0x2a1608, emissiveIntensity: 0 }));
+    const sack = new THREE.Mesh(this.keep(new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 20)), leather);
+    sack.scale.set(1, 1, 0.86); // a sack, not a vase
+    const cord = new THREE.Mesh(this.keep(new THREE.TorusGeometry(0.092, 0.016, 6, 20).rotateX(Math.PI / 2)),
+      this.keep(new THREE.MeshStandardMaterial({ color: 0xd9b267, roughness: 0.55, metalness: 0.2 })));
+    cord.position.y = 0.33;
+    const coin = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(0.075, 0.075, 0.02, 18)),
+      this.keep(new THREE.MeshStandardMaterial({ color: 0xe8c063, roughness: 0.3, metalness: 0.9 })));
+    coin.position.set(0.03, 0.41, -0.02);
+    coin.rotation.set(0.9, 0, 0.3);
+    const shadow = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(0.62, 0.62).rotateX(-Math.PI / 2)), this.keep(new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false })));
+    shadow.position.y = 0.004;
+    for (const m of [sack, cord, coin]) {
+      m.userData = { seatButton: "extras" };
+      m.castShadow = true;
+    }
+    group.add(shadow, sack, cord, coin);
+    const [wx, wz] = toWorld(mine, 3.6, MAT_D / 2 + 0.52);
+    group.position.set(wx, 0, wz);
+    group.rotation.y = mine.rot + 0.5;
+    this.group.add(group);
+    this.pouch = { group, leather, press: 0 };
+  }
+
+  private pouch: { group: THREE.Group; leather: THREE.MeshStandardMaterial; press: number } | null = null;
 
   /** A seat's life, with any clicks still on their way (shown under the number). */
   setLife(player: string, life: number, pending: number): void {
@@ -303,6 +338,7 @@ export class SeatProps {
   }
 
   press(id: SeatActionId): void {
+    if (id === "extras" && this.pouch) this.pouch.press = performance.now();
     const b = this.buttons.get(id);
     if (b) b.press = performance.now();
   }
@@ -326,6 +362,12 @@ export class SeatProps {
       const since = now - b.press;
       b.group.position.y = !b.flat && since < 160 ? -0.03 * Math.sin((since / 160) * Math.PI) : 0;
     }
+    if (this.pouch) { // the pouch: warmer when hovered, a little hop as it is opened
+      const hovered = this.hovered === "extras";
+      this.pouch.leather.emissiveIntensity = hovered ? 0.9 : 0;
+      const since = now - this.pouch.press;
+      this.pouch.group.position.y = since < 220 ? 0.06 * Math.sin((since / 220) * Math.PI) : 0;
+    }
   }
 
   /** What the pointer can hit. */
@@ -334,6 +376,7 @@ export class SeatProps {
     for (const h of this.hearts.values()) out.push(h.face);
     for (const t of this.taxes.values()) out.push(t.mesh);
     for (const b of this.buttons.values()) out.push(...b.group.children);
+    if (this.pouch) out.push(...this.pouch.group.children.filter((c) => c.userData.seatButton));
     return out;
   }
 
@@ -342,6 +385,7 @@ export class SeatProps {
   }
 
   buttonWorld(id: SeatActionId): THREE.Vector3 | null {
+    if (id === "extras") return this.pouch ? this.pouch.group.position.clone().setY(0.25) : null;
     const b = this.buttons.get(id);
     return b ? b.group.position.clone().setY(b.flat ? 0 : BUTTON_H) : null;
   }
@@ -358,6 +402,7 @@ export class SeatProps {
     this.slots = [];
     this.hearts.clear();
     this.buttons.clear();
+    this.pouch = null;
     for (const d of this.disposables) d.dispose();
     this.disposables = [];
   }

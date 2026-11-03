@@ -17,13 +17,28 @@ import { coinAtlas, coinGeometry, dieAtlas, disposeDiceArt } from "./diceArt";
 import { COIN_RADIUS, COIN_THICK, dieSolid, disposeSolids, type DieKind } from "./diceGeometry";
 import { coinMaterial, diceMaterial, type DiceLook } from "./diceLook";
 import type { HudThrow } from "./diceHud";
-import { throwRoll, type ThrowEnv, type ThrownDie } from "./diceThrow";
+import { placeRoll, prefixTrack, throwRoll, type Launcher, type ThrowEnv, type ThrownDie } from "./diceThrow";
 import { FRAMES_PER_SECOND, poseLerp } from "./physics";
+import { flightSeconds } from "../game/cannon";
 
 export type { ThrowEnv } from "./diceThrow";
 
 /** Where a throw's mat frame sits in the world: x to the roller's right, z toward them (see diceThrow.ts). */
 export interface ThrowFrame { x: number; z: number; rotY: number; scale?: number }
+
+/**
+ * -- table toys -- a throw that doesn't leave the roller's hand (game/cannon.ts): dice fired from the dice cannon fly from
+ * `from` (the muzzle, world coordinates) and drop in (`launcher`), fired `delay` ms after the throw is made; or, on low
+ * graphics, lie `still` with no physics. `line` and `tag` say what the throw was for ("Goes first").
+ */
+export interface ThrowOptions {
+  launcher?: Launcher;
+  from?: THREE.Vector3 | null;
+  delay?: number;
+  line?: string;
+  tag?: string | null;
+  still?: boolean;
+}
 
 export interface TrayOptions {
   look: DiceLook;
@@ -57,6 +72,10 @@ interface LiveThrow {
   age: number;
   /** How long the throw took to simulate and build (diagnostics). */
   ms: number;
+  /** -- table toys -- fired this long after it was made (ms of throw time), its own line and tag. */
+  delay: number;
+  line: string | null;
+  tag: string | null;
 }
 
 const CLEAR_MS = 260;
@@ -138,18 +157,39 @@ export class DiceTray {
    * Throw a roll in `frame` (the roller's mat). `env` is the throw's world in that frame (diceThrow.ts tableEnv
    * for the live table), `now` the clock the tray is updated with.
    */
-  throw(show: DiceShow, color: string, name: string, frame: ThrowFrame, env: ThrowEnv, now: number): void {
+  throw(show: DiceShow, color: string, name: string, frame: ThrowFrame, env: ThrowEnv, now: number, opts: ThrowOptions = {}): { settles: number } {
     const t0 = performance.now();
-    const thrown = throwRoll(show, env);
+    const thrown = opts.still ? placeRoll(show, env) : throwRoll(show, env, opts.launcher);
     const root = new THREE.Group();
     this.place(root, frame);
+    let impacts = thrown.impacts;
+    if (opts.from && !opts.still) {
+      // fired from the cannon: each die flies from the muzzle (in this throw's own frame) into the throw (diceThrow.ts)
+      const from = root.worldToLocal(opts.from.clone());
+      const p = new THREE.Vector3();
+      const q = new THREE.Quaternion();
+      // a volley's dice leave the muzzle together and reach the mat together, as the throw has them (the farthest sets the time)
+      const longest = Math.max(...thrown.dice.map((d) => {
+        poseLerp(d.track, 0, p, q);
+        return flightSeconds(from.distanceTo(p));
+      }));
+      for (const d of thrown.dice) {
+        d.track = prefixTrack(d.track, from, longest);
+        d.rest = Math.min(d.track.count - 1, d.track.rest) / FRAMES_PER_SECOND;
+      }
+      impacts = impacts.map((x) => ({ ...x, t: x.t + longest }));
+    }
+    root.visible = !(opts.delay && opts.delay > 0);
     const dice = thrown.dice.map((spec) => this.makeDie(spec, color, root));
     this.group.add(root);
+    const delay = Math.max(0, opts.delay ?? 0);
+    const settles = Math.max(...thrown.dice.map((d) => d.rest)) * 1000;
     this.throws.push({
-      key: show.key, actor: show.actor, color, name, show, root, dice, impacts: thrown.impacts, heard: 0, started: now,
-      settles: Math.max(...thrown.dice.map((d) => d.rest)) * 1000, cleared: null, age: -1, ms: performance.now() - t0,
+      key: show.key, actor: show.actor, color, name, show, root, dice, impacts, heard: 0, started: now,
+      settles, cleared: null, age: -1, ms: performance.now() - t0, delay, line: opts.line ?? null, tag: opts.tag ?? null,
     });
     this.changed = true;
+    return { settles: delay + settles };
   }
 
   private place(root: THREE.Group, f: ThrowFrame): void {
@@ -224,7 +264,19 @@ export class DiceTray {
     this.changed = false;
     const frozen = diceClock.frozen;
     for (const t of [...this.throws]) {
-      const age = frozen ?? (reduced ? t.settles + 1000 : (now - t.started) * rate);
+      // (a cannon's throw waits `delay` before it leaves the muzzle: hidden until then; reduced motion shows only the result)
+      const age = reduced && frozen === null ? t.settles + 1000 : (frozen ?? (now - t.started) * rate) - t.delay;
+      const waiting = age < 0;
+      if (t.root.visible === waiting) {
+        t.root.visible = !waiting;
+        moving = true;
+      }
+      if (waiting) {
+        if (t.cleared !== null) this.remove(t); // cleared before it was even fired (a new turn): it never shows
+        moving = true;
+        t.age = age;
+        continue;
+      }
       if (age !== t.age) {
         const frame = (age / 1000) * FRAMES_PER_SECOND;
         // at rest nothing moves: skip the poses once both this frame and the last are past the last landing
@@ -293,7 +345,7 @@ export class DiceTray {
       const crits = t.show.results.map((_, i) => natural(t.show, i));
       const crit = crits.includes("high") ? "high" : crits.includes("low") ? "low" : null;
       return {
-        key: t.key, color: t.color, name: t.name, line: rollLine(t.name, t.show), crit, chips, fade,
+        key: t.key, color: t.color, name: t.name, line: t.line ?? rollLine(t.name, t.show), crit, chips, fade, tag: t.tag,
         x: cx, y: cy, below: toward.y >= cy, visible: chips.some((ch) => ch.visible), shown: t.age >= t.settles + 150,
       };
     });

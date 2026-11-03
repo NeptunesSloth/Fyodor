@@ -61,7 +61,7 @@ docs, and an updated status table.
 | 16 | **Rules language:** events and event batches, object identity, LKI, costs, targeting, choices, triggers, continuous effects and layers, replacement/prevention, permissions/restrictions, copies, effect primitives, multiplayer leaving | ✅ built: every Commander-legal card is FULL (32,068 of 32,068; see M16) |
 | 17 | **Magic knowledge (Commander-only):** CR research/index/diff tooling, Oracle template library over the Commander-legal pool, mechanic registry, safe generated scripts, Commander + pod coverage | ✅ built: CR research tooling, the Oracle template library and pod coverage (see M17) |
 | 18 | **Digital card game UX:** AUTOMATION OFF/ASSISTED/FULL, RESPONSE OFF/AUTO/ON, MANA AUTO/ASK/MANUAL, stops, prompts, stack helper, highlights, auto-yields, reconciliation | ✅ built, engine and client (see M18, `AUTOMATION_UX.md`) |
-| 19 | **Physical client:** three.js table, physical cards, camera, hands, playmats, dice/cannon/bags, 2D fallback | ✅ table built (see M19, `3D_DIRECTION.md`); not built: a dice cannon and bags (Bag of Extras) |
+| 19 | **Physical client:** three.js table, physical cards, camera, hands, playmats, dice/cannon/bags, 2D fallback | ✅ table built (see M19, `3D_DIRECTION.md`), with the table toys: the dice cannon, the Bag of Extras and the hidden draw bag |
 | 20 | **Game-night hardening:** crash recovery, durable autosave, idempotent actions, backups, DB recovery, offline test, long sessions, device soak | ✅ built (see M20, `GAME_NIGHT_RECOVERY.md`); still to do: a multi-hour soak on real game-night hardware |
 
 The history model (M7) and hidden-information views (M8) shape the engine itself, so they
@@ -373,8 +373,9 @@ lobby seat cards with commander art and deck automation coverage, and the table 
 The three.js table renders the same per-viewer views and maps gestures to intents
 (`3D_DIRECTION.md` §0). Table themes are Magic planes (Dominaria default; Ravnica, Innistrad,
 Theros, Zendikar; then Kamigawa, Amonkhet, Ixalan, New Phyrexia, Lorwyn). The 2D table remains
-a first-class renderer; different players may use different renderers in one game. Next:
-dice tray, dice cannon, Bag of Extras and bags with server-decided outcomes, token piles.
+a first-class renderer; different players may use different renderers in one game. The table toys are
+built (`3D_DIRECTION.md` "Table toys"): the dice cannon (a volley, or "Who goes first" with ties re-fired), the
+Bag of Extras by each seat and the hidden draw bag, every outcome decided and logged on the server. Next: token piles.
 
 ### M20 — Game-night hardening — built (`GAME_NIGHT_RECOVERY.md`)
 
