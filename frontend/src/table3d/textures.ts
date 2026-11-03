@@ -206,8 +206,8 @@ function drawSurface(kind: Surface, base: string, grain: string, baseRoughness: 
 const matCache = new Map<string, HTMLCanvasElement>();
 
 /**
- * A seat's playmat: cloth with a lighter nap under the lamp, a bound edge stitched in the seat's
- * colour, and a faint compass worked into the weave. Opaque except the rounded corners.
+ * A seat's playmat: cloth with a lighter nap under the lamp and a bound edge stitched in the seat's
+ * colour; nothing else drawn in the play space. Opaque except the rounded corners.
  */
 export function matTexture(felt: string, nap: string, playerColor: string): THREE.CanvasTexture {
   const key = `${felt}|${nap}|${playerColor}`;
@@ -248,22 +248,6 @@ function drawMat(felt: string, nap: string, playerColor: string): HTMLCanvasElem
     }
   }
   g.putImageData(img, 0, 0);
-  // a faint compass worked into the cloth, centred where nothing important lies
-  g.strokeStyle = "rgba(255, 255, 255, 0.03)";
-  g.lineWidth = 3;
-  for (const rr of [150, 168]) {
-    g.beginPath();
-    g.arc(w / 2, h / 2, rr, 0, Math.PI * 2);
-    g.stroke();
-  }
-  g.beginPath();
-  for (let k = 0; k < 4; k++) {
-    const a = (k * Math.PI) / 2;
-    g.moveTo(w / 2 + Math.cos(a) * 196, h / 2 + Math.sin(a) * 196);
-    g.lineTo(w / 2 + Math.cos(a + Math.PI / 4) * 40, h / 2 + Math.sin(a + Math.PI / 4) * 40);
-    g.lineTo(w / 2 + Math.cos(a + Math.PI / 2) * 196, h / 2 + Math.sin(a + Math.PI / 2) * 196);
-  }
-  g.stroke();
   // the edge falls into shadow, then a bound hem
   g.lineWidth = 60;
   g.strokeStyle = "rgba(0, 0, 0, 0.18)";

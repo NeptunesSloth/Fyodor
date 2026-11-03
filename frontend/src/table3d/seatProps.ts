@@ -4,7 +4,7 @@
  *   on its right. It lies at the mat's inner corner by the middle of the table, a little above the felt, turned so
  *   you read every seat's number upright. Click its left half −1, its right half +1, right-click for 5, or the wheel
  *   (TableScene). Attack arrows aim at it.
- * - Your seat's buttons, where the Oops table has them: in a row just past your mat's near edge, glossy black
+ * - Your seat's buttons, as the Oops table has them: in a row just past your mat's near edge (from its left end), glossy black
  *   discs with the Oops symbols (game/seatIcons.ts), Untap, Draw, Scry, Mill and Reveal, and Mulligan apart to the
  *   right, and the Bag of Extras (a leather pouch) past it.
  */
@@ -189,8 +189,9 @@ export class SeatProps {
         side.userData = { seatButton: a.id };
         group.add(side);
       }
-      // a row just past my mat's near edge, a little left of centre, Mulligan apart on the right (as on the Oops mat)
-      const lx = flat ? 2.6 : -1.9 + i * 0.66;
+      // a row just past my mat's near edge, from its left end (the turn dial covers the screen's bottom right), Mulligan
+      // apart on the right (as on the Oops mat)
+      const lx = flat ? -0.7 : -4.3 + i * 0.66;
       const [wx, wz] = toWorld(mine, lx, MAT_D / 2 + 0.52);
       group.position.set(wx, 0, wz);
       group.rotation.y = mine.rot;
@@ -229,7 +230,7 @@ export class SeatProps {
       m.castShadow = true;
     }
     group.add(shadow, sack, cord, coin);
-    const [wx, wz] = toWorld(mine, 3.6, MAT_D / 2 + 0.52);
+    const [wx, wz] = toWorld(mine, 0.3, MAT_D / 2 + 0.52);
     group.position.set(wx, 0, wz);
     group.rotation.y = mine.rot + 0.5;
     this.group.add(group);

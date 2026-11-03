@@ -3,7 +3,7 @@
  * (seat plates with life totals, camera presets). Falls back to the 2D table when WebGL is
  * unavailable (see GameScreen).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
@@ -48,6 +48,7 @@ declare global {
 export function Table3D({ me }: { me: string }) {
   const host = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<TableScene | null>(null);
+  const reserved = useRef(0);
   const planeId = usePrefs((s) => s.plane);
   const graphics = usePrefs((s) => s.graphics);
   const ambienceOn = usePrefs((s) => s.ambience && !s.sound.muted);
@@ -69,6 +70,7 @@ export function Table3D({ me }: { me: string }) {
     const quality: Quality = graphics === "low" ? "low" : graphics === "medium" ? "medium" : "high";
     const scene = new TableScene(el, plane(usePrefs.getState().plane), quality);
     sceneRef.current = scene;
+    scene.setTopReserve(reserved.current);
     const resize = () => scene.resize(el.clientWidth, el.clientHeight);
     const ro = new ResizeObserver(resize);
     ro.observe(el);
@@ -123,6 +125,9 @@ export function Table3D({ me }: { me: string }) {
           return { left: r.left - host.left, top: r.top - host.top, right: r.right - host.left, bottom: r.bottom - host.top };
         });
         cards = scene.battlefieldRects(w, h);
+        // -- arranged boards -- my rows stop short of the corner the turn dial covers
+        const dial = document.querySelector(".turn-dial-wrap")?.getBoundingClientRect();
+        scene.setDialBox(dial && dial.width ? { left: dial.left - host.left, top: dial.top - host.top, bottom: dial.bottom - host.top } : null);
       }
       for (const [pid, node] of Object.entries(plates.current)) {
         if (!node) continue;
@@ -195,6 +200,11 @@ export function Table3D({ me }: { me: string }) {
   }, [me, graphics]);
 
   useEffect(() => sceneRef.current?.setPlane(plane(planeId)), [planeId]);
+  // a tip banner under the top bar: the camera keeps the table clear of it (the tip sits over the wood, never the cards)
+  const reserveTop = useCallback((el: HTMLElement | null) => {
+    reserved.current = el ? Math.ceil(el.getBoundingClientRect().bottom - (host.current?.getBoundingClientRect().top ?? 0)) + 6 : 0;
+    sceneRef.current?.setTopReserve(reserved.current);
+  }, []);
   useEffect(() => useGame.getState().setLayout({ stackOpen: false }), []); // the stack lies on the table itself
   useEffect(() => sceneRef.current?.setCamera(preset), [preset]);
   // camera keys (game/hotkeys.ts): 1 seat, 2–6 other players, 0 whole table, Home back; C the hovered card, K the
@@ -255,8 +265,8 @@ export function Table3D({ me }: { me: string }) {
           <div key={cid} className="t3d-tag" role="listitem" ref={(n) => { tags.current[cid] = n; }}>{name}</div>
         ))}
       </div>
-      <CoachTips />
-      <MomentTips me={me} />
+      <CoachTips reserve={reserveTop} />
+      <MomentTips me={me} reserve={reserveTop} />
       <div className="t3d-cams frame" role="toolbar" aria-label="Camera">
         <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Look from your seat (1)">Seat <kbd className="cam-key">1</kbd></button>
         {others.map((pid, i) => (
@@ -300,7 +310,7 @@ const TIPS = [
 const COACH_KEY = "fyodor.coach3d";
 
 /** Three short tips on a player's first 3D game; dismissed for good on this device. */
-function CoachTips() {
+function CoachTips({ reserve }: { reserve: (el: HTMLElement | null) => void }) {
   const [step, setStep] = useState(() => {
     try { return localStorage.getItem(COACH_KEY) === "done" ? -1 : 0; } catch { return -1; }
   });
@@ -313,7 +323,7 @@ function CoachTips() {
   };
   const tip = TIPS[step]!;
   return (
-    <aside className="t3d-coach plaque-wrap" aria-label="Tip">
+    <aside className="t3d-coach plaque-wrap" aria-label="Tip" ref={reserve}>
       <div className="plaque t3d-coach-body">
         <p className="t3d-coach-title">{tip.title} <span className="t3d-coach-count">{step + 1} of {TIPS.length}</span></p>
         <p className="t3d-coach-text">{tip.text}</p>
@@ -335,7 +345,7 @@ type Moment = keyof typeof MOMENTS;
 const MOMENT_KEY = "fyodor.tips.seen";
 
 /** A short tip the first time each moment comes up (after the first-turn tips); each shows once on this device. */
-function MomentTips({ me }: { me: string }) {
+function MomentTips({ me, reserve }: { me: string; reserve: (el: HTMLElement | null) => void }) {
   const [seen, setSeen] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem(MOMENT_KEY) ?? "[]") as string[]; } catch { return Object.keys(MOMENTS); }
   });
@@ -358,7 +368,7 @@ function MomentTips({ me }: { me: string }) {
   if (!moment || coaching || seen.includes(moment) || seen.includes("off")) return null;
   const tip = MOMENTS[moment];
   return (
-    <aside className="t3d-coach plaque-wrap" aria-label="Tip" aria-live="polite">
+    <aside className="t3d-coach plaque-wrap" aria-label="Tip" aria-live="polite" ref={reserve}>
       <div className="plaque t3d-coach-body">
         <p className="t3d-coach-title">{tip.title}</p>
         <p className="t3d-coach-text">{tip.text}</p>
