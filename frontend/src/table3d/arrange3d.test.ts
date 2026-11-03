@@ -64,7 +64,8 @@ describe("arranged 3D mats", () => {
 });
 
 describe("arranged 3D boards: every board reads upright from my seat", () => {
-  const src = { data, order: () => [] };
+  const none: string[] = []; // boardOrder keeps the same array until my order changes
+  const src = { data, order: () => none };
 
   it("lays out every seat, mats across the table facing me", () => {
     const b = new ArrangedBoards();
@@ -79,8 +80,21 @@ describe("arranged 3D boards: every board reads upright from my seat", () => {
     expect(lzOf("p1-bear", mine)).toBeLessThan(lzOf("p1-f1", mine));
     expect(lzOf(`${across.player}-bear`, across)).toBeGreaterThan(lzOf(`${across.player}-f1`, across));
     // the three Forests are one stack
-    const tops = b.piles(spots, "p1");
+    const tops = b.piles("p1");
     expect([...tops.values()]).toEqual([3]);
+  });
+
+  it("reuses a mat whose cards are the same objects (the view shares unchanged ones)", () => {
+    const b = new ArrangedBoards();
+    const s = seats(["p1", "p2", "p3", "p4"], "p1");
+    const v = view();
+    const first = b.layout(v, s, "p1", src);
+    const again = b.layout({ ...v }, s, "p1", src);
+    expect(again.get("p2-bear")).toBe(first.get("p2-bear"));
+    const tapped = { ...v, cards: { ...v.cards, "p2-bear": { ...v.cards["p2-bear"]!, tapped: true } as VisibleCard } };
+    const after = b.layout(tapped, s, "p1", src);
+    expect(after.get("p3-bear")).toBe(first.get("p3-bear")); // other mats untouched
+    expect(after.get("p2-bear")).not.toBe(first.get("p2-bear"));
   });
 
   it("lays a mat out again only when what it shows changes", () => {

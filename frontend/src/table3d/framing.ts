@@ -13,9 +13,17 @@ import { CARD_W, MAT_D, MAT_W, STRIP_X, toWorld, type Seat } from "./layout";
 export interface FrameRect { left: number; right: number; bottom: number; top: number }
 
 /** How steeply each view looks down (radians from the table top). */
-export const SEAT_ELEVATION = 1.08;
 export const FOCUS_ELEVATION = 1.0;
-export const OVERVIEW_ELEVATION = 1.36;
+export const OVERVIEW_ELEVATION = 1.4;
+
+/**
+ * The seat view's: steep enough that the far row is nearly as large as mine (and my mat as large as it gets: up to
+ * four seats, the table fills the width at about this angle); five or six seats make a wide table that can only fill
+ * the screen's width, so it looks down further to give every mat more height.
+ */
+export function seatElevation(seats: number): number {
+  return seats > 4 ? 1.4 : 1.2;
+}
 
 /**
  * A seat's play area on the felt: its mat and the piles on either side; with `buttons`, my seat's buttons row past my
@@ -101,8 +109,8 @@ export function tableRect(width: number, height: number, reserveTop = 0): FrameR
   const w = Math.max(1, width);
   const h = Math.max(1, height);
   const handW = Math.min(184, Math.max(112, w * 0.084));
-  const hand = handW * 0.72 + 12;
-  const side = 10;
-  const top = Math.max(8, reserveTop);
+  const hand = Math.min(h * 0.3, handW * 0.72 + 12);
+  const side = Math.min(10, w * 0.02);
+  const top = Math.min(h * 0.3, Math.max(8, reserveTop));
   return { left: -1 + (2 * side) / w, right: 1 - (2 * side) / w, top: 1 - (2 * top) / h, bottom: -1 + (2 * hand) / h };
 }

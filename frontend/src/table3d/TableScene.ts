@@ -61,7 +61,7 @@ import {
 import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
 import { tileOverlayCanvas, tileTexture, TILE_PX } from "./tiles";
-import { fitCamera, FOCUS_ELEVATION, OVERVIEW_ELEVATION, SEAT_ELEVATION, seatPoints, tableRect, viewDir } from "./framing";
+import { fitCamera, FOCUS_ELEVATION, OVERVIEW_ELEVATION, seatElevation, seatPoints, tableRect, viewDir } from "./framing";
 import { boardOrder, saveBoardOrder } from "../game/arrange";
 import { useBoardOrderTick } from "../game/arrangeDrop";
 
@@ -923,6 +923,7 @@ export class TableScene {
     // -- arranged boards -- every mat's rows, laid out again only where something changed (table3d/arrange3d.ts)
     this.placed = this.arranged ? this.boards.layout(view, this.seatList, this.me, {
       data: (cid) => useCardCache.getState().cards[cid],
+      version: useCardCache.getState().cards,
       order: (zone) => boardOrder(view.game.id, zone),
     }, this.keepOut) : new Map();
     for (const c of this.cards.values()) c.seen = false;
@@ -951,7 +952,7 @@ export class TableScene {
       const pid = seat.player;
       // battlefield
       const bf = (view.zones[`${pid}:battlefield`] as string[] | undefined) ?? [];
-      const piles = this.arranged ? this.boards.piles(this.placed, pid) : zonePileTops(view, `${pid}:battlefield`);
+      const piles = this.arranged ? this.boards.piles(pid) : zonePileTops(view, `${pid}:battlefield`);
       bf.forEach((id, i) => {
         const card = view.cards[id];
         const c = show(id);
@@ -1112,6 +1113,9 @@ export class TableScene {
    * and facing them; each blocker steps up directly in front of the attacker it blocks.
    */
   private layoutCombat(view: GameView): void {
+    // -- arranged boards -- attackers and blockers stay in their rows, stepping forward, as on Arena; arrows say whom
+    // they attack (syncArrows)
+    if (this.arranged) return;
     const seatOf = (pid: string | undefined) => this.seatList.find((s) => s.player === pid);
     const groups = new Map<string, { a: Seat; d: Seat; ids: string[] }>();
     for (const card of Object.values(view.cards)) {
@@ -1132,30 +1136,19 @@ export class TableScene {
       const [ux, uz] = [dx / len, dz / len];
       const [px, pz] = [-uz, ux];
       const out = MAT_D / 2 + 1.4; // just past the attacker's mat edge, into the open wood
-      // -- arranged boards -- the attackers line up along the aisle edge of their own mat, toward the defender (never over
-      // a neighbour's mat or their own rows), card-sized; their blockers step out to meet them, reading from my seat
-      const arr = this.arranged;
-      const step = CARD_H * 1.1;
-      const half = Math.max(0, MAT_W / 2 - CARD_H / 2 - ((ids.length - 1) * step) / 2);
-      const lane = Math.max(-half, Math.min(half, toLocal(a, d.x, d.z)[0] * 0.35));
       ids.forEach((id, i) => {
         const c = this.cards.get(id);
         if (!c) return;
         const off = (i - (ids.length - 1) / 2) * CARD_H * 1.15; // tapped attackers lie sideways
-        let x = a.x + ux * out + px * off;
-        let z = a.z + uz * out + pz * off;
-        if (arr) {
-          [x, z] = toWorld(a, lane + (i - (ids.length - 1) / 2) * step, -(MAT_D / 2 + 0.9));
-          c.scale = Math.min(c.scale, 1);
-        }
+        const x = a.x + ux * out + px * off;
+        const z = a.z + uz * out + pz * off;
         c.target.set(x, c.target.y + 0.04, z);
         blockers.filter((b) => b.blocking === id).forEach((b, j, all) => {
           const bc = this.cards.get(b.id);
           if (!bc) return;
           const side = (j - (all.length - 1) / 2) * CARD_W * 1.1;
           bc.target.set(x + ux * CARD_H * 1.3 + px * side, bc.target.y + 0.04, z + uz * CARD_H * 1.3 + pz * side);
-          bc.rot = (arr ? this.myRot() : d.rot) + (b.tapped ? -Math.PI / 2 : 0);
-          if (arr) bc.scale = Math.min(bc.scale, 1);
+          bc.rot = d.rot + (b.tapped ? -Math.PI / 2 : 0);
         });
       });
     }
@@ -1204,7 +1197,7 @@ export class TableScene {
       if (a.distanceTo(b) >= 0.3) wanted.push([a, b, low ? `${color}|low` : color]);
     };
     for (const c of Object.values(view.cards)) {
-      if (c.attacking && c.attacking.kind !== "player") add(c.id, c.attacking.id, ATTACK_RED, true);
+      if (c.attacking && (c.attacking.kind !== "player" || this.arranged)) add(c.id, c.attacking.id, ATTACK_RED, true);
       if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff", true);
     }
     // -- targeting -- from the source (or my hand, where the spell is) to the hovered and the chosen candidates, in brass
@@ -1390,7 +1383,7 @@ export class TableScene {
       dir = viewDir(this.arranged ? mine.rot : seat.rot, FOCUS_ELEVATION);
     } else {
       pts = this.seatList.flatMap((s) => seatPoints(s, { buttons: s === mine }));
-      dir = viewDir(mine.rot, preset === "overview" ? OVERVIEW_ELEVATION : SEAT_ELEVATION);
+      dir = viewDir(mine.rot, preset === "overview" ? OVERVIEW_ELEVATION : seatElevation(this.seatList.length));
     }
     const f = fitCamera(cam, pts, dir, tableRect(this.viewW, this.viewH, this.reserveTop));
     this.fitKey = key;
@@ -1973,7 +1966,9 @@ export class TableScene {
         c.group.position.lerp(liftTarget, k);
         c.group.rotation.y = angleLerp(c.group.rotation.y, c.rot, k);
         c.group.rotation.x += (c.tilt - c.group.rotation.x) * k;
-        const sc = c.group.scale.x + (c.scale - c.group.scale.x) * k;
+        // -- arranged boards -- the tile pointed at grows a little, as on Arena (its full card is in the preview)
+        const want = c.tile && c.id === this.hovered && !dragging ? c.scale * 1.12 : c.scale;
+        const sc = c.group.scale.x + (want - c.group.scale.x) * k;
         c.group.scale.setScalar(sc);
         if (c.struck) this.motion.restrike(c, started);
       }

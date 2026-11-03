@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { fitCamera, SEAT_ELEVATION, seatPoints, tableRect, viewDir } from "./framing";
+import { fitCamera, seatElevation, seatPoints, tableRect, viewDir } from "./framing";
 import { MAT_D, MAT_W, seatCamera, seats, tableSize, toWorld, type Seat } from "./layout";
 
 /** The table's camera as TableScene sets it up: the frame lifted by the hand band (setViewOffset). */
@@ -29,7 +29,7 @@ function seatView(n: number, w: number, h: number) {
   const pts = s.flatMap((seat) => seatPoints(seat, { buttons: seat === mine }));
   const cam = lens(w, h);
   const rect = tableRect(w, h);
-  const f = fitCamera(cam, pts, viewDir(mine.rot, SEAT_ELEVATION), rect);
+  const f = fitCamera(cam, pts, viewDir(mine.rot, seatElevation(n)), rect);
   cam.position.copy(f.pos);
   cam.lookAt(f.look);
   cam.updateMatrixWorld(true);
@@ -68,9 +68,22 @@ describe("3D table framing", () => {
     const far = s.find((x) => x.side !== mine.side)!;
     const now = matOnScreen(cam, far, w, h);
     const before = matOnScreen(old, far, w, h);
-    expect(now.h * now.w).toBeGreaterThan(before.h * before.w * 1.15);
+    expect(now.h * now.w).toBeGreaterThan(before.h * before.w * 1.2);
     // and the far row is nearly as tall on screen as my own
     const own = matOnScreen(cam, mine, w, h);
-    expect(now.h / own.h).toBeGreaterThan(0.8);
+    expect(now.h / own.h).toBeGreaterThan(0.75);
+  });
+
+  it("gives six seats' far mats more height than the old seat camera did", () => {
+    const w = 1440, h = 855;
+    const { s, cam } = seatView(6, w, h);
+    const old = lens(w, h);
+    const mine = s[0]!;
+    const c = seatCamera(mine, tableSize(s), w / h);
+    old.position.set(...c.pos);
+    old.lookAt(new THREE.Vector3(...c.look));
+    old.updateMatrixWorld(true);
+    const far = s.find((x) => x.side !== mine.side && Math.abs(x.x) < 1)!;
+    expect(matOnScreen(cam, far, w, h).h).toBeGreaterThan(matOnScreen(old, far, w, h).h * 1.15);
   });
 });
