@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { perspective, useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
-import { webglAvailable } from "../table3d/renderer";
+import { hasWebgl } from "../table3d/renderer";
 import type { DiceOverlay } from "../table3d/diceOverlay";
 import { DICE_SHOWN, natural, rollLine, useDiceFeed, type DiceShow } from "./dice";
 import { diceClack } from "./diceSound";
@@ -19,7 +19,7 @@ import "./dice.css";
 export function DiceLayer() {
   const graphics = usePrefs((s) => s.graphics);
   const look = usePrefs((s) => s.diceLook);
-  const [three] = useState(() => graphics !== "low" && webglAvailable());
+  const [three] = useState(() => graphics !== "low" && hasWebgl());
   const failed = useRef(false);
   const overlay = useRef<DiceOverlay | null>(null);
   const loading = useRef<Promise<DiceOverlay | null> | null>(null);
