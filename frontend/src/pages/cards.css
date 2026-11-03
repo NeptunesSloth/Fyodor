@@ -1,0 +1,79 @@
+/*
+ * Cards: the card database to look things up in. A wide search field like the Play page's room-code door, the search
+ * syntax as examples to click, then the cards themselves (their scans, or the proxy). Long result lists render as they
+ * scroll into view. (Page styles load before styles.css: scoped under .card-browser.)
+ */
+
+.page.card-browser { max-width: 1600px; padding: 22px clamp(16px, 2.4vw, 40px) 48px; color: var(--room-bone); }
+.card-browser :is(h1, p) { margin: 0; }
+.card-browser :is(button, a, input):focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+
+.cb-head { margin-bottom: 16px; }
+.cb-head h1 { font: 600 28px/1.15 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2); }
+.cb-head p { margin-top: 5px; font-size: 13.5px; color: var(--text-dim); }
+
+.card-browser .cb-bar { gap: 12px; margin-bottom: 10px; flex-wrap: nowrap; }
+.cb-search { position: relative; flex: 1; min-width: 0; }
+.cb-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.card-browser .cb-search .search {
+  width: 100%; height: 50px; padding: 0 16px 0 46px; border: 1px solid var(--line-2); border-radius: 5px;
+  font-size: 16px; color: var(--room-bone); box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.6);
+  background: #0a0b0c url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d7ae63' stroke-width='1.8' stroke-linecap='round'><circle cx='10.5' cy='10.5' r='6.5'/><path d='M15.5 15.5L20 20'/></svg>") 15px center / 19px no-repeat;
+}
+.card-browser .cb-search .search:hover { border-color: var(--frame); }
+/* (a text field shows its focus as a brass edge and the caret, not the ice ring the buttons use) */
+.card-browser .cb-search .search:focus, .card-browser .cb-search .search:focus-visible {
+  outline: none; border-color: var(--frame-hi); box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.6), 0 0 0 3px color-mix(in srgb, var(--frame-hi) 28%, transparent);
+}
+.card-browser .cb-search .search::placeholder { color: var(--text-faint); opacity: 1; }
+
+/* Cards | Tokens: the brass segmented switch the Settings keys use */
+.card-browser .cb-seg { flex: none; height: 50px; border-radius: 5px; border-color: var(--line-2); }
+.card-browser .cb-seg button { min-width: 82px; padding: 0 16px; background: rgba(0, 0, 0, 0.35); color: var(--text-dim); font-size: 14px; letter-spacing: 0.02em; }
+.card-browser .cb-seg button + button { border-left: 1px solid var(--line-2); }
+.card-browser .cb-seg button:hover { color: var(--room-bone); }
+.card-browser .cb-seg button.on { background: var(--accent-grad); color: var(--accent-ink); font-weight: 650; }
+
+.card-browser .cb-help { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 18px; font-size: 13px; color: var(--text-dim); }
+.cb-eg {
+  min-height: 28px; padding: 0 10px; border-radius: 3px; cursor: pointer;
+  font: 500 12.5px/1 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; color: var(--accent-2);
+  background: rgba(0, 0, 0, 0.35); border: 1px solid color-mix(in srgb, var(--frame) 30%, transparent);
+}
+.cb-eg:hover { border-color: var(--frame-hi); color: var(--room-bone); }
+.card-browser .cb-count { margin-bottom: 4px; font-size: 13px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+/* the results: each card stands on the table's dark, lifting a little under the pointer */
+.card-browser .card-grid { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 20px 16px; margin-top: 10px; }
+.card-browser .grid-card {
+  border-radius: 4.75% / 3.5%; content-visibility: auto; contain-intrinsic-size: auto 176px auto 246px;
+  transition: transform var(--dur-hover) var(--ease-out);
+}
+.card-browser .grid-card .card-face { box-shadow: 2px 6px 12px -2px rgba(0, 0, 0, 0.7); }
+.card-browser .grid-card:hover { transform: translateY(-4px); }
+.card-browser .grid-card:focus-visible { outline-offset: 3px; }
+body.perf-low .card-browser .grid-card .card-face { box-shadow: none; }
+.card-browser .cb-more { display: flex; min-height: 40px; margin: 26px auto 0; padding: 0 26px; font-size: 14px; }
+
+/* nothing found: an empty card slot and what to try */
+.cb-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: 620px; margin: 30px auto 0; padding: 30px 24px;
+  text-align: center; font-size: 13.5px; line-height: 1.55; color: var(--text-dim);
+}
+.cb-empty-card {
+  width: 74px; aspect-ratio: 63 / 88; margin-bottom: 6px; border-radius: 6px;
+  border: 1px dashed color-mix(in srgb, var(--frame) 60%, transparent); background: rgba(0, 0, 0, 0.18);
+  box-shadow: inset 1px 3px 10px rgba(0, 0, 0, 0.35);
+}
+.cb-empty-title { font: 600 18px/1.3 var(--font-display); letter-spacing: 0.03em; color: var(--room-bone); }
+.cb-empty code { color: var(--accent-2); }
+
+@media (prefers-reduced-motion: reduce) { .card-browser .grid-card { transition: none; } }
+@media (max-width: 600px) {
+  .card-browser .cb-bar { flex-wrap: wrap; }
+  .card-browser .cb-seg { width: 100%; height: 42px; }
+  .card-browser .cb-seg button { flex: 1; }
+  .card-browser .cb-search .search { height: 46px; }
+  .card-browser .card-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px 12px; }
+  .cb-help .cb-eg:nth-of-type(n + 4) { display: none; }
+}

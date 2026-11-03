@@ -6,8 +6,10 @@ import { useDebounced } from "../hooks/useDebounced";
 import { getCard, getPrintings, searchCards } from "../services/cards";
 import { useCardCache } from "../state/cardCache";
 import type { CardData } from "../types/cards";
+import "./cards.css";
 
-const HELP = "Try: sol ring · t:creature c:g mv<=2 · o:\"draw a card\" · is:commander id:rg · s:cmm";
+/** Searches to try, one click each (the search syntax by example). */
+const EXAMPLES = ["sol ring", "t:creature c:g mv<=2", 'o:"draw a card"', "is:commander id:rg", "s:cmm"];
 
 export function CardBrowser() {
   const [query, setQuery] = useState("");
@@ -15,6 +17,7 @@ export function CardBrowser() {
   const [results, setResults] = useState<CardData[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const debounced = useDebounced(query, 180);
 
@@ -27,6 +30,7 @@ export function CardBrowser() {
         setResults(res.results);
         setHasMore(res.has_more);
         setError(null);
+        setSearched(true);
       },
       (e: unknown) => !cancelled && setError(e instanceof Error ? e.message : String(e)),
     );
@@ -42,23 +46,46 @@ export function CardBrowser() {
       setHasMore(res.has_more);
     });
 
+  const what = tokens === "true" ? "token" : "card";
   return (
     <div className="page card-browser">
-      <div className="toolbar">
-        <input
-          className="search"
-          autoFocus
-          placeholder="Search cards…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <div className="seg">
-          <button className={tokens === "false" ? "on" : ""} onClick={() => setTokens("false")}>Cards</button>
-          <button className={tokens === "true" ? "on" : ""} onClick={() => setTokens("true")}>Tokens</button>
+      <header className="cb-head">
+        <h1>Cards</h1>
+        <p>Every card Fyodor knows, for looking things up. Choose one for its rules text, tokens and printings.</p>
+      </header>
+      <div className="toolbar cb-bar">
+        <label className="cb-search">
+          <span className="cb-sr">Search cards</span>
+          <input
+            className="search"
+            type="search"
+            autoFocus
+            placeholder="Search cards…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
+        <div className="seg cb-seg" role="group" aria-label="Show">
+          <button type="button" className={tokens === "false" ? "on" : ""} aria-pressed={tokens === "false"} onClick={() => setTokens("false")}>Cards</button>
+          <button type="button" className={tokens === "true" ? "on" : ""} aria-pressed={tokens === "true"} onClick={() => setTokens("true")}>Tokens</button>
         </div>
       </div>
-      <p className="hint">{HELP}</p>
-      {error && <p className="error">{error}</p>}
+      <p className="cb-help">
+        <span>Try</span>
+        {EXAMPLES.map((q) => (
+          <button key={q} type="button" className="cb-eg" onClick={() => setQuery(q)}>{q}</button>
+        ))}
+      </p>
+      {error && (
+        <div className="cb-empty" role="alert">
+          <span className="cb-empty-card" aria-hidden />
+          <p className="cb-empty-title">That search didn't work.</p>
+          <p className="error">{error}</p>
+        </div>
+      )}
+      {!error && searched && results.length > 0 && (
+        <p className="cb-count" aria-live="polite">{results.length}{hasMore ? "+" : ""} {what}{results.length === 1 && !hasMore ? "" : "s"}{query.trim() ? ` for “${query.trim()}”` : ""}</p>
+      )}
       <div className="card-grid">
         {results.map((c) => (
           <button key={c.id} className="grid-card" onClick={() => setSelected(c.id)} title={c.name}>
@@ -66,8 +93,14 @@ export function CardBrowser() {
           </button>
         ))}
       </div>
-      {hasMore && <button className="btn more" onClick={loadMore}>Load more</button>}
-      {!error && results.length === 0 && <p className="hint">No cards match.</p>}
+      {hasMore && <button className="tt-btn cb-more" onClick={loadMore}>Load more</button>}
+      {!error && searched && results.length === 0 && (
+        <div className="cb-empty">
+          <span className="cb-empty-card" aria-hidden />
+          <p className="cb-empty-title">No {what}s match{query.trim() ? ` “${query.trim()}”` : ""}.</p>
+          <p>Check the spelling, or search by part of a name. Filters: <code>t:</code> type, <code>c:</code> colour, <code>mv:</code> mana value, <code>o:</code> rules text, <code>id:</code> colour identity, <code>s:</code> set.</p>
+        </div>
+      )}
       {selected && <CardModal id={selected} onClose={() => setSelected(null)} onSelect={setSelected} />}
     </div>
   );
