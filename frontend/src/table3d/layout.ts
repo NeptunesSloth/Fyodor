@@ -91,7 +91,8 @@ export function tableSize(all: Seat[]): TableSize {
 }
 
 /**
- * The seat camera (the main view, before the player's zoom and turn): behind my seat, looking across the aisle, my mat
+ * The old fixed seat camera, replaced by the fitted framing (table3d/framing.ts) and kept as the baseline its tests
+ * measure against. It sat behind my seat, looking across the aisle, my mat
  * large and the far row whole. It leans toward the table's middle when my seat is off-centre, as you would at a long
  * table, and is framed from the far mats' back edge down to my seat's buttons, just past my mat's near edge and above my
  * hand (solved for 16:9; a narrower screen pulls back to keep the far row whole).
