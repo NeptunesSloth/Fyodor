@@ -2870,6 +2870,11 @@ def matches(plan: Plan, sel: Selector, card: CardInstance, ch: Characteristics, 
 
             if not static_spell100c.extra_ok(plan, extra, card, ch, you, source, attacker):
                 return False
+        if extra == "beamable112t":  # -- Star Trek mechanics (wave 112T) -- not a permanent that "can't be beamed up" (release notes)
+            from app.rules import beam_me_up
+
+            if not beam_me_up.beamable(plan, card):
+                return False
         if extra == "shares_color_source" and ((src := plan.state.cards.get(source or "")) is None or not plan.ch(src).colors & ch.colors):
             return False  # -- static_other sweep (wave 17C) -- conspire 702.78a: a creature that shares a color with the spell
         if extra == 'shares_color_legendary_creature_you_control' and not any(

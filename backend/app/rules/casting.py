@@ -4330,6 +4330,7 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     gift_to = data.gift_to
     grant = data.grant
     harmonized = data.harmonized
+    beamed = data.alt_offer is not None and data.alt_offer.tag == "beam_me_up"  # -- Star Trek mechanics (wave 112T) -- beam me up: exiled as it leaves the stack (release notes)
     jumped = data.jumped
     kicked = data.kicked
     mutating_cast = data.mutating_cast
@@ -4374,7 +4375,7 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
         plan.do({"type": "hide", "card_ids": list(a.splice)}, actor=plan.actor)  # (701.20a: shown, then hidden again in the hand: review 18E)
     record.alternative = "face_down" if a.face_down else "evoke" if a.evoke else "dash" if a.dash else "awaken" if a.awaken else \
         "harmonize" if harmonized else "flashback" if flashback else "free" if free \
-        else alt_offer.tag if escaping and alt_offer is not None and alt_offer.tag in ("disturb", "graveyard", "mayhem") else "escape" if escaping else \
+        else alt_offer.tag if escaping and alt_offer is not None and alt_offer.tag in ("disturb", "graveyard", "mayhem", "beam_me_up") else "escape" if escaping else \
         (alt_offer.tag or "alternative") if alt_offer is not None else None  # ("escape": 702.138b, wave 5I; blitz: 15E)
     if foretold:
         plan.rules.foretold.pop(card.id, None)
@@ -4400,7 +4401,7 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
     record_payment(plan, card.id, record)
     tags = ["Cast from the command zone"] if commander_cast else ["Harmonize"] if harmonized else ["Jump-start"] if jumped else \
         ["Aftermath" if "aftermath" in ch.keywords else "Flashback"] if flashback else ["Dashed"] if a.dash else \
-        ["Disturbed" if alt_offer is not None and alt_offer.tag == "disturb" else "Alternative cost" if alt_offer is not None and alt_offer.tag in ("graveyard", "mayhem") else "Escaped"] if escaping else ["Foretold"] if foretold else []  # (wave 5I; 18E)
+        ["Disturbed" if alt_offer is not None and alt_offer.tag == "disturb" else "Beamed up" if beamed else "Alternative cost" if alt_offer is not None and alt_offer.tag in ("graveyard", "mayhem") else "Escaped"] if escaping else ["Foretold"] if foretold else []  # (wave 5I; 18E; beamed: wave 112T)
     if grant is not None and grant.how == "permission":
         from app.rules import permission_spell_keywords
 
@@ -4437,8 +4438,8 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
         plan.rules.evoked.append(card.id)
     if "rebound" in ch.keywords and card_was_in_hand:
         plan.rules.rebound_cast.append(plan.oid(card))
-    if flashback or harmonized or jumped:
-        plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else (702.133a, 702.180a)
+    if flashback or harmonized or jumped or beamed:
+        plan.rules.flashback.append(plan.oid(card))  # 702.34a: exiled instead of going anywhere else (702.133a, 702.180a; beam me up: release notes)
     if alt_offer is not None and alt_offer.exile_gy:  # -- wave 110I -- Glimpse the Cosmos (614.1a)
         plan.rules.exile_if_graveyard.append(plan.oid(card))
     if grant is not None and grant.graveyard_destination == "library_bottom":
@@ -4505,8 +4506,12 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=effect_x,
                                       **picked_targets.entry(definition), kicked=kicked or int(a.awaken) or int(gift_to is not None or bargained), kicked_mask=record.kicked_mask)
-    from app.rules import wave110f_cards  # -- wave 110F --
+    from app.rules import (
+        dilemma,  # -- Star Trek mechanics (wave 112T) -- the player who chose its modes faced a dilemma (release notes; 700.2e: an opponent who chose them)
+        wave110f_cards,  # -- wave 110F --
+    )
 
+    dilemma.note(plan, getattr(a, "chooser110f", None) or plan.actor, picked)
     wave110f_cards.stack_chooser(plan, a, card)  # -- wave 110F -- 700.2e: the spell is a new object on the stack (400.7)
     r.aura_targets = {k: v for k, v in r.aura_targets.items() if k != card.id and plan.state.cards.get(k) is not None
                       and plan.state.cards[k].zone == STACK}  # (review (wave 18D): never a target this card had as an earlier spell)
@@ -5851,8 +5856,12 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=effect_x,
                                       **picked_targets.entry(definition), kicked=record.kicked, kicked_mask=record.kicked_mask)
-    from app.rules import wave110f_cards  # -- wave 110F --
+    from app.rules import (
+        dilemma,  # -- Star Trek mechanics (wave 112T) -- the player who chose its modes faced a dilemma (release notes; 700.2e: an opponent who chose them)
+        wave110f_cards,  # -- wave 110F --
+    )
 
+    dilemma.note(plan, getattr(a, "chooser110f", None) or plan.actor, picked)
     wave110f_cards.stack_chooser(plan, a, card)  # -- wave 110F -- 700.2e: the spell is a new object on the stack (400.7)
     r.aura_targets = {k: v for k, v in r.aura_targets.items() if k != card.id and plan.state.cards.get(k) is not None
                       and plan.state.cards[k].zone == STACK}  # (review (wave 18D): never a target this card had as an earlier spell)

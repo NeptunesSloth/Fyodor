@@ -1198,6 +1198,11 @@ def _crime(m: re.Match[str]) -> Condition:
     return {"history": "facts", "kind": "crime", "who": "you", "n": 1}  # 700.13
 
 
+@_history_pattern(r"you(?:'ve| have)? faced a dilemma this turn")
+def _dilemma(m: re.Match[str]) -> Condition:
+    return {"history": "facts", "kind": "dilemma", "who": "you", "n": 1}  # -- Star Trek mechanics (wave 112T) -- release notes (app/rules/dilemma.py)
+
+
 @_history_pattern(r"this is the (?P<nth>first|second|third|fourth|fifth) time this ability has resolved this turn")
 def _resolution(m: re.Match[str]) -> Condition:
     return {"history": "resolution", "n": ["first", "second", "third", "fourth", "fifth"].index(m["nth"]) + 1}

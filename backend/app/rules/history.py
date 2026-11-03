@@ -959,6 +959,10 @@ def amount(plan: Plan, ctx: dict[str, Any], v: dict[str, Any]) -> int:
         return max(log.gained.get(me, 0), log.lost.get(me, 0))
     if kind == "drew":
         return log.drew.get(me, 0)
+    if kind == "dilemmas112t":  # -- Star Trek mechanics (wave 112T) -- "for each dilemma you've faced this turn" (release notes)
+        from app.rules import dilemma
+
+        return dilemma.faced(plan, me)
     if kind == "visited100l":  # -- Attractions (wave 100L) -- each Attraction once (attractions100l.visited)
         from app.rules import attractions100l
 

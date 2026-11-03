@@ -189,6 +189,22 @@ describe("rules card menu", () => {
     expect(sent).toEqual([{ type: "activate_ability", card_id: "m1", ability: 2 }]);
   });
 
+  it("offers beam me up from the graveyard as flashback is, with the server's cost (Star Trek, wave 112T)", () => {
+    const base = view({ ...RULES, hints: { alt_castable: { g1: [{ id: "g1:1", label: "Energize: beam me up {3}{U}" },
+      { id: "s1:0", label: "Scotty, Miracle Worker: beam me up {1}{U}" }] } } });
+    const g1 = { ...card("g1", "p1:graveyard", "energize"), name: "Energize" };
+    const v = { ...base, cards: { ...base.cards, g1 } } as unknown as GameView;
+    useCardCache.setState({ cards: { ...useCardCache.getState().cards,
+      energize: { id: "energize", name: "Energize", type_line: "Sorcery", oracle_text: "Return target creature an opponent controls to its owner's hand.\nBeam me up {3}{U}" } as CardData } });
+    const items = rulesMenu(v.cards.g1!, v, "p1");
+    expect(labels(items).filter((l) => l.startsWith("Cast"))).toEqual(["Cast with beam me up {3}{U}", "Cast with beam me up {1}{U} (Scotty, Miracle Worker)"]);
+    sent.length = 0;
+    const first = items.find((i) => i !== "separator" && i.label === "Cast with beam me up {3}{U}");
+    if (!first || first === "separator") throw new Error("expected the beam me up item");
+    first.onClick?.();
+    expect(sent).toEqual([{ type: "cast_spell", card_id: "g1", alt_cost: "g1:1" }]);
+  });
+
   it.each([
     ["Street Wraith", "Creature — Wraith", "Swampwalk\nCycling—Pay 2 life. (Pay 2 life, Discard this card: Draw a card.)", "Cycling—Pay 2 life.", 1],
     ["Edge of Autumn", "Sorcery", "If you control four or fewer lands, search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\nCycling—Sacrifice a land. (Sacrifice a land, Discard this card: Draw a card.)", "Cycling—Sacrifice a land.", 1],

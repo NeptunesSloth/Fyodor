@@ -61,6 +61,8 @@ def register(entries: tuple[str, ...], primitives: dict[str, Any], resume: dict[
 # scripts.parse_effects(body): 10 chains, 107 modules
 PARSE_EFFECTS: tuple[Chain, ...] = (
     Chain(  # PARSE_EFFECTS[0]
+        "assimilate.parse",  # -- Star Trek mechanics (wave 112T) -- assimilate (release notes)
+        "trek112t.parse",  # -- Star Trek one-offs (wave 112T) -- All Good Things...
         "wave111r1_grants.parse",  # -- granted abilities (wave 111R1) -- a card in exile gains a quoted ability; "Create a copy of this card."
         "wave111e_trek.parse",  # -- Star Trek (wave 111E) -- exact wordings
         "wave110e_kaya.join",  # -- exact wordings (wave 110E) -- one instruction exiling two targets (wave 110E) --
@@ -312,6 +314,9 @@ PARSE_EFFECTS_PLAIN: tuple[Chain, ...] = (
 # scripts.define(ability, ch): 12 chains, 242 modules
 DEFINE: tuple[Chain, ...] = (
     Chain(  # DEFINE[0]
+        "beam_me_up.definition",  # -- Star Trek mechanics (wave 112T) -- Scotty's grant, "… and can't be beamed up"
+        "trek112t.definition",  # -- Star Trek one-offs (wave 112T) --
+        "assimilate.definition",  # -- Star Trek mechanics (wave 112T) -- Borg Cube's own accumulating link
         "wave111r1_grants.definition",  # -- granted abilities (wave 111R1) -- Q's granted ability, read without its holder's name
         "wave111r3_enter.definition",  # -- enters attacking (wave 111R3) -- Kira Nerys, Firebrand (614.1d, 508.4)
         "wave111e_trek.definition",  # -- Star Trek (wave 111E) -- exact wordings
@@ -1265,5 +1270,8 @@ RESOLUTION: tuple[tuple[str, ...], ...] = (
         "wave111f_lines.RESUME",  # -- Star Trek lines (wave 111F) --
         "wave111r1_grants.PRIMITIVES",  # -- granted abilities (wave 111R1) --
         "wave111r1_grants.RESUME",  # -- granted abilities (wave 111R1) --
+        "assimilate.PRIMITIVES",  # -- Star Trek mechanics (wave 112T) --
+        "assimilate.RESUME",  # -- Star Trek mechanics (wave 112T) --
+        "trek112t.PRIMITIVES",  # -- Star Trek one-offs (wave 112T) --
     ),
 )

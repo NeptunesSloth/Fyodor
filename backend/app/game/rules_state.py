@@ -1602,6 +1602,8 @@ class RulesState(BaseModel):
     # -- exiled with (wave 6D) -- source object -> the objects its abilities exiled (607.2a: "the exiled card",
     # "cards exiled with ~"; app/rules/exiled_with.py)
     exiled_with: dict[str, list[str]] = Field(default_factory=dict)
+    # -- Star Trek mechanics (wave 112T) -- source object -> the objects it assimilated ("the Borg assimilated with this Saga", 607.2a; app/rules/assimilate.py)
+    assimilated112t: dict[str, list[str]] = Field(default_factory=dict)
     linked_exile_turns71: dict[str, dict[str, int]] = Field(default_factory=dict)  # Native link scope -> exact exile OID -> actual exile turn.
 
     created_with: dict[str, list[str]] = Field(default_factory=dict)  # exact created-token incarnations per source/borrowed scope
