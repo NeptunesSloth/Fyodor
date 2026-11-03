@@ -72,6 +72,12 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         raise ActionError("Response checks are opened by the server")
     if a.type in A.SERVER_ONLY_TYPES and not trusted:
         raise ActionError("Only the rules engine can do that")
+    if a.type in ("phase", "next_turn") and not trusted and _out_of_the_game(state, actor):
+        # 104.3a / 104.5 / 800.4a: a player who conceded or lost has left the game; the players still in it
+        # move the turn on (their own intents are refused in compile_intent). Checked here, not in engine.apply,
+        # so recorded history from before this check still replays; the engine's own steps (trusted) still
+        # end the turn of an active player who just left.
+        raise ActionError("You have left this game: the players still in it move the turn and its steps")
     if a.type in A.INTENT_TYPES:
         from app.rules.engine import compile_intent  # rules → game; imported late to stay acyclic
 
@@ -205,6 +211,12 @@ def _opening_steps(state: GameState, a: A.MulliganKeep | A.MulliganBottom | A.Mu
     if sim.pregame is None or not sim.pregame.finished:
         return None
     return compile_opening(sim, a.actor, info, rng)
+
+
+def _out_of_the_game(state: GameState, actor: str) -> bool:
+    """With rules automation on, whether ``actor`` conceded or lost (a dormant rules state doesn't count)."""
+    r = state.rules
+    return state.settings.automation != "off" and r is not None and (actor in r.conceded or actor in r.lost)
 
 
 ID_FIELDS = ("card_id", "to", "attacker_id", "source_id")
