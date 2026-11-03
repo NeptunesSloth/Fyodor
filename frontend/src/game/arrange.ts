@@ -66,7 +66,7 @@ const ATT_DX = 0.12; // an attachment peeks out to the right …
 const ATT_DY = 0.17; // … and toward the middle of the table
 const ATT_SHOWN = 3;
 const FORWARD = 0.14; // attackers and blockers step forward (tile widths)
-const GAP = 0.08; // between slots (tile widths)
+const GAP = 0.03; // between slots (tile widths), besides the room each slot keeps for turning its card
 const ROW_GAP = 0.1; // between rows, at the least (tile widths)
 const PAD = 8; // px around the mat's edge
 
@@ -79,8 +79,9 @@ interface Slot { ids: string[]; n: number; turned: boolean; forward: boolean; at
 function slotSize(s: Slot): [number, number] {
   const shown = Math.min(s.ids.length, PILE_SHOWN);
   const att = Math.min(s.attach.length, ATT_SHOWN);
-  const w = (s.turned ? TILE_RATIO : 1) + (shown - 1) * PILE_STEP + att * ATT_DX;
-  const h = (s.turned ? 1 : TILE_RATIO) + att * ATT_DY + (s.forward ? FORWARD : 0);
+  // every slot has room for its card turned sideways: tapping or untapping never moves the rest of the row
+  const w = TILE_RATIO + (shown - 1) * PILE_STEP + att * ATT_DX;
+  const h = TILE_RATIO + att * ATT_DY + (s.forward ? FORWARD : 0); // (a turned card's line keeps its height too)
   return [w, h];
 }
 
@@ -228,7 +229,7 @@ export function arrangeBoard(cards: ArrangeCard[], opts: ArrangeOptions): BoardL
     let x = PAD + Math.max(0, (avail - Math.min(natural, avail)) / 2);
     const rowLeft = x;
     list.forEach((slot, si) => {
-      const footW = (slot.turned ? TILE_RATIO : 1) * w;
+      const footW = TILE_RATIO * w;
       const att = Math.min(slot.attach.length, ATT_SHOWN);
       // the stack (card, its attachments peeking out, its forward step) is centred in the line's band
       const cy = band.top + band.height / 2 - frontDir * (att * ATT_DY * w) / 2 + (slot.forward ? frontDir * FORWARD * w / 2 : 0);
@@ -309,9 +310,20 @@ export function arrangeCard(card: GameCard, data: CardData | undefined, stats?: 
 
 const ORDER_KEY = (gameId: string, zone: string) => `fyodor.boardOrder.${gameId}.${zone}`;
 
+const orders = new Map<string, string[]>(); // read from session storage once per board
+
 export function boardOrder(gameId: string, zone: string): string[] {
+  const key = ORDER_KEY(gameId, zone);
+  const known = orders.get(key);
+  if (known) return known;
+  const read = readOrder(key);
+  orders.set(key, read);
+  return read;
+}
+
+function readOrder(key: string): string[] {
   try {
-    const raw = sessionStorage.getItem(ORDER_KEY(gameId, zone));
+    const raw = sessionStorage.getItem(key);
     const ids: unknown = raw ? JSON.parse(raw) : [];
     return Array.isArray(ids) ? ids.filter((x): x is string => typeof x === "string") : [];
   } catch {
@@ -320,6 +332,7 @@ export function boardOrder(gameId: string, zone: string): string[] {
 }
 
 export function saveBoardOrder(gameId: string, zone: string, ids: string[]): void {
+  orders.set(ORDER_KEY(gameId, zone), ids.slice(0, 400));
   try {
     sessionStorage.setItem(ORDER_KEY(gameId, zone), JSON.stringify(ids.slice(0, 400)));
   } catch {

@@ -53,9 +53,9 @@ describe("arranged board: rows", () => {
     const long = arrangeBoard(Array.from({ length: 24 }, (_, i) => card(`c${i}`, "creature")), { width: 1200, height: 400, mirrored: false });
     expect(new Set([...long.place.values()].map((p) => p.top)).size).toBeGreaterThan(1); // more lines …
     expect(long.w).toBeGreaterThan(80); // … of readable cards
-    const crowd = arrangeBoard(Array.from({ length: 40 }, (_, i) => card(`c${i}`, "creature")), { width: 1200, height: 200, mirrored: false, minW: 60 });
-    expect(crowd.w).toBeGreaterThanOrEqual(60); // never below the readable width for room …
-    const places = Array.from({ length: 40 }, (_, i) => crowd.place.get(`c${i}`)!);
+    const crowd = arrangeBoard(Array.from({ length: 80 }, (_, i) => card(`c${i}`, "creature")), { width: 1200, height: 300, mirrored: false, minW: 60 });
+    expect(crowd.w).toBe(60); // never below the readable width for room …
+    const places = Array.from({ length: 80 }, (_, i) => crowd.place.get(`c${i}`)!);
     for (const p of places) expect(p.left + crowd.w).toBeLessThanOrEqual(1200); // … they overlap instead, all on the mat
     expect(places[1]!.left - places[0]!.left).toBeLessThan(crowd.w);
     expect(places[1]!.z).toBeGreaterThan(places[0]!.z); // the later one on top
@@ -81,6 +81,14 @@ describe("arranged board: rows", () => {
     const b = l.place.get("b")!;
     const aRight = a.left + l.w / 2 + l.h / 2; // turned: its footprint is as wide as the card is tall
     expect(b.left).toBeGreaterThanOrEqual(aRight);
+  });
+
+  it("never moves the rest of the board when a card taps or untaps", () => {
+    const board = (tapped: boolean) => arrangeBoard([card("a", "creature", { turned: tapped }), card("b", "creature"), card("c", "creature"), card("l", "land")],
+      { width: 1000, height: 400, mirrored: false });
+    const [up, down] = [board(false), board(true)];
+    for (const id of ["b", "c", "l"]) expect(down.place.get(id)).toEqual(up.place.get(id));
+    expect(down.w).toBe(up.w);
   });
 
   it("keeps the turn dial's corner clear", () => {

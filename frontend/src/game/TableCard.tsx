@@ -12,7 +12,7 @@ import { CounterBadges, GameCardFace } from "./GameCardFace";
 import { answerByClick, legalClass } from "./rules/RulesHud";
 import { Icon } from "../components/Icon";
 import { countMark } from "./piles";
-import { BoardTile } from "./BoardTile";
+import { BoardTile, packStats } from "./BoardTile";
 import { reorderArranged } from "./arrangeDrop";
 
 interface Props {
@@ -66,7 +66,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
       data-tapped={card.tapped ? "" : undefined}
       data-tile={tile ? "" : undefined}
       style={tile
-        // the arranged board moves its cards with transform only (no layout per frame when a row reflows)
+        // the arranged board positions its cards by transform: moving one is no layout for the rest of the board
         ? { left: 0, top: 0, width, zIndex: z, transform: `translate(${left}px, ${top}px)${rotation ? ` rotate(${rotation}deg)` : ""}` }
         : { left, top, width, zIndex: z, transform: rotation ? `rotate(${rotation}deg)` : undefined }}
       onPointerDown={onPointerDown}
@@ -87,7 +87,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
       onPointerEnter={() => useGame.getState().setHover(id)}
       onPointerLeave={() => useGame.getState().hover === id && useGame.getState().setHover(null)}
     >
-      {tile ? <BoardTile card={card} stats={visible ? stats : undefined} /> : <GameCardFace card={card} />}
+      {tile ? <BoardTile card={card} stats={visible ? packStats(stats) : ""} /> : <GameCardFace card={card} />}
       {count && <span className="pile-count-mark" data-testid={count.testId} title={count.title}>×{count.n}</span>}
       <div className="card-marks">
         {visible && card.is_token && !card.copy_of && <span className="mark token">TOKEN</span>}

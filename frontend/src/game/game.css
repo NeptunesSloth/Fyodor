@@ -64,7 +64,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 /* several opponents share the width, so they get more of the height: their cards stay readable */
 .opponents.n2, .opponents.n3, .opponents.n4, .opponents.n5 { flex-grow: 1.35; }
 /* the arranged boards wrap a crowded row instead of shrinking it, so my mat (the one I play on) gets a fairer share */
-main.table:not(.is-3d):has(.battlefield.arranged) :is(.opponents.n2, .opponents.n3, .opponents.n4, .opponents.n5):not(.focused):not(.shrunk) { flex-grow: 1.18; }
+body.board-arranged main.table:not(.is-3d) :is(.opponents.n2, .opponents.n3, .opponents.n4, .opponents.n5):not(.focused):not(.shrunk) { flex-grow: 1.18; }
 .opponents.n1 { flex-grow: 1.2; } /* one opponent: their strip's height back, so both mats match */
 .me > .player-area { flex: 1; }
 

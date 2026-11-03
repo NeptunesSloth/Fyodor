@@ -52,20 +52,26 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
   const typeData = useCardCache((s) => s.cards); // type lines arrive after the first render
   const view = useGame((s) => s.view);
   const arranged = usePrefs((s) => s.boardLayout) !== "free";
+  useBoardBodyClass(arranged);
   const mine = player === me;
   const keepOut = useTurnDialCorner(ref, arranged && mine);
   const orderTick = useBoardOrderTick((s) => s.n);
-  const layout = useMemo<BoardLayout | null>(() => {
+  const facts = useMemo(() => {
     if (!arranged || !view) return null;
     const stats = view.rules?.stats;
-    const facts = applyOrder(ids, boardOrder(view.game.id, key)).flatMap((id) => {
+    return applyOrder(ids, boardOrder(view.game.id, key)).flatMap((id) => {
       const c = view.cards[id];
       if (!c) return [];
       return [arrangeCard(c, isVisible(c) && c.card_id ? typeData[c.card_id] : undefined, stats?.[id])];
     });
-    return arrangeBoard(facts, { width: size.w, height: size.h, mirrored, backInset: mine ? HAND_OVERLAP : 0, keepOut, maxW: 150, minW: 60 });
     // orderTick: my order changed (it lives in session storage)
-  }, [arranged, view, ids, key, typeData, size.w, size.h, mirrored, mine, keepOut, orderTick]);
+  }, [arranged, view, ids, key, typeData, orderTick]);
+  // most updates change nothing on most boards: lay a board out again only when what it shows changed
+  const sig = facts ? facts.map((f) => `${f.id}|${f.row}|${f.key ?? ""}|${f.n}|${f.turned ? 1 : 0}|${f.forward ? 1 : 0}|${f.host ?? ""}`).join("\n") : "";
+  const layout = useMemo<BoardLayout | null>(
+    () => (facts ? arrangeBoard(facts, { width: size.w, height: size.h, mirrored, backInset: mine ? HAND_OVERLAP : 0, keepOut, maxW: 150, minW: 60 }) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `sig` stands for `facts`
+    [sig, size.w, size.h, mirrored, mine, keepOut]);
   useEffect(() => publishBoard(key, layout, size.w, size.h, mirrored), [key, layout, size.w, size.h, mirrored]);
   const piles = useMemo(() => (view && !arranged ? zonePileTops(view, key) : new Map<string, number>()), [view, key, typeData, arranged]);
   const cardW = layout ? layout.w : battlefieldCardWidth(size.w, size.h, true);
@@ -108,8 +114,9 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
   return (
     <div
       ref={ref}
-      className={`battlefield ${mirrored ? "mirrored" : ""} ${over ? "drop-over" : ""} ${layout ? "arranged" : ""}`}
-      style={{ ["--player-color" as string]: color }}
+      className={`battlefield ${mirrored ? "mirrored" : ""} ${over ? "drop-over" : ""} ${layout ? "arranged" : ""} ${layout && layout.w < 44 ? "tiny" : ""}`}
+      // --tw: the arranged board's tile width, which sizes the tiles' name bars, plates and chips (board.css)
+      style={{ ["--player-color" as string]: color, ...(layout ? { ["--tw" as string]: `${layout.w.toFixed(1)}px` } : {}) }}
       data-drop={key}
       data-battlefield=""
       data-cardh={cardH}
@@ -203,4 +210,20 @@ function useTurnDialCorner(ref: React.RefObject<HTMLDivElement | null>, on: bool
     return () => { cancelAnimationFrame(raf); ro.disconnect(); dialRo.disconnect(); mo.disconnect(); };
   }, [on, ref]);
   return corner;
+}
+
+/** body.board-2d while 2D boards are on screen (the hand's height for the HUD), body.board-arranged when they're arranged. */
+let boardsOnScreen = 0;
+function useBoardBodyClass(arranged: boolean): void {
+  useEffect(() => {
+    boardsOnScreen++;
+    document.body.classList.add("board-2d");
+    return () => {
+      if (--boardsOnScreen > 0) return;
+      document.body.classList.remove("board-2d", "board-arranged");
+    };
+  }, []);
+  useEffect(() => {
+    document.body.classList.toggle("board-arranged", arranged);
+  }, [arranged]);
 }
