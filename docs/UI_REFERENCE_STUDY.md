@@ -1345,7 +1345,13 @@ The user didn't like where the importer sat. Asked to choose, they picked **the 
 decks". It did both, but it opened on **Find a card**, and the link shared a box with pasted lists. Now:
 - It opens on **Place a deck**, the first tab, with **Find a card** second.
 - A **deck link** field sits at the top. The host fetches Archidekt links (or bare deck numbers) itself.
-- Moxfield, TappedOut, MTGGoldfish and Deckstats offer no public deck feed, so a link from one of those disables
-  **Place** and says how to bring the deck instead: export it as text on that site and paste the list below.
+- Moxfield, TappedOut, MTGGoldfish and Deckstats have no export the host may fetch (checked per site, see
+  `docs/DECK_FORMAT.md` "Deck links": Moxfield has no export link at all, MTGGoldfish's download is disallowed by its
+  robots.txt and behind a browser check, TappedOut and Deckstats put a browser check in front of every page). A link from
+  one of those disables **Place** and says why, with that site's steps: Moxfield More → Export → Copy Plain Text;
+  MTGGoldfish Download → Text File (Default); TappedOut `?fmt=txt` and Deckstats `?export_txt=1` added to the deck's
+  address in your own browser. Then paste the list below. The host gives the same answer (HTTP 422) to a link sent from
+  the lobby, the deck library or pasted alone in the list box.
 - `game/deckLinks.ts` decides which links can be fetched, with unit tests in `deckLinks.test.ts`.
-- `table-importer.spec.ts` checks that the panel opens on saved decks and that a Moxfield link shows its message.
+- `table-importer.spec.ts` checks that the panel opens on saved decks and that a Moxfield link shows its message and
+  steps; `backend/tests/test_deck_sites.py` covers the host's refusals.

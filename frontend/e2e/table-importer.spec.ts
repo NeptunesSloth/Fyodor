@@ -31,9 +31,11 @@ test("card importer at the table: find a card, place a deck, restart without lea
   await expect(panel).toBeVisible();
   await expect(page.getByTestId("ti-saved-decks")).toBeVisible();
 
-  // a link from a site the host can't fetch says how to bring the deck instead
+  // a link from a site the host can't fetch says why, and that site's steps to bring the deck instead
   await page.getByTestId("ti-deck-link").fill("https://moxfield.com/decks/AbC123");
-  await expect(panel.getByRole("status")).toContainText("Moxfield links can't be fetched");
+  await expect(panel.getByRole("status")).toContainText("Moxfield has no public export link");
+  await expect(panel.getByRole("status")).toContainText("More → Export → Copy Plain Text");
+  await expect(page.getByTestId("ti-place-link")).toBeDisabled();
   await page.getByTestId("ti-deck-link").fill("");
 
   // find a card: into my hand (the host allows it here if the table doesn't yet)

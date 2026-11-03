@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_valid
 from app.api.deps import _peer_is_loopback, get_services, is_local_request, require_local
 from app.assets.store import AssetNotFound
 from app.assistant import AssistantUnavailable, build_context
-from app.decks import archidekt
+from app.decks import archidekt, sites
 from app.decks import service as deck_service
 from app.decks.models import DeckEntry, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
@@ -815,7 +815,7 @@ def _import_for_lobby(services: Services, body: LobbyDeckIn, local: bool) -> Sub
     except DeckTextTooLarge as exc:
         raise HTTPException(413, str(exc)) from exc
     except archidekt.ArchidektError as exc:
-        raise HTTPException(502 if body.archidekt else 422, str(exc)) from exc
+        raise HTTPException(502 if body.archidekt and not isinstance(exc, sites.DeckLinkRefused) else 422, str(exc)) from exc
     full = result.report.as_dict()
     report = {
         k: full[k] for k in ("cards_total", "exact_printings", "resolved", "commanders", "errors", "notes")
