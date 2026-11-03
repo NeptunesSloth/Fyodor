@@ -186,7 +186,7 @@ for (const renderer of ["2d", "3d"] as const) {
     for (const action of [{ type: "next_turn" }, { type: "phase", to: "next" }]) {
       const stepped = await page.request.post(`/api/games/${gameId}/actions`, { data: { action, as: "p1" } });
       expect(stepped.status()).toBe(409);
-      expect(await stepped.text()).toContain("left this game");
+      expect(await stepped.text()).toContain("out of this game");
     }
     expect(((await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { turn: unknown }).turn).toEqual(turn);
     // the open log drawer and the dial don't cover each other
