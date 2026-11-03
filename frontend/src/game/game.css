@@ -867,3 +867,7 @@ body.reduced-motion .focus-flash { animation: none; }
 .ti-restart .btn { flex: 0 1 auto; min-height: 30px; padding: 0 12px; font-size: 12.5px; background: transparent; border-color: transparent; color: var(--text-dim); box-shadow: none; }
 .ti-restart .btn:hover:not(:disabled) { color: #ffb4ad; background: rgba(58, 31, 29, 0.5); border-color: #6b302c; filter: none; }
 .ti-restart .btn.danger { color: #ffd2cc; background: rgba(110, 29, 24, 0.55); border-color: #9b2f27; }
+
+/* out of the game: the hub's activities are equal and quiet; Keep watching is the one brass answer */
+[data-testid="eliminated-hub"] .night-actions .tt-btn:not(.brass) { background: transparent; border-color: var(--line-2); color: var(--room-bone-dim); box-shadow: none; }
+[data-testid="eliminated-hub"] .night-actions .tt-btn:not(.brass):hover:not(:disabled) { color: var(--room-bone); border-color: var(--frame); }

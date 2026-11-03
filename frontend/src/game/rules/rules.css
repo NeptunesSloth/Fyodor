@@ -155,7 +155,7 @@ details.auto-pill { height: auto; min-height: 30px; }
 .decision-panel:is([data-kind="confirm"], [data-display="optional_cost"]) .decision-options > .tt-btn:first-child:hover { filter: brightness(1.07); }
 .decision-panel:is([data-kind="confirm"], [data-display="optional_cost"]) .decision-options > .tt-btn:not(:first-child) { background: transparent; border-color: var(--line-2); }
 /* a choice between modes (long sentences): one per line, read left to right */
-.decision-panel[data-kind="choose_one"]:not(.targeting):not([data-display]) .decision-options:not(:has(.decision-group)) > .tt-btn:not([data-testid="option-cancel"]) {
+.decision-options[data-modes] > .tt-btn:not(.brass):not([data-testid="option-cancel"]) {
   flex: 1 1 100%; justify-content: flex-start; text-align: left; white-space: normal; line-height: 1.35; padding: 7px 12px;
 }
 /* a target list: each player's objects in a row behind their seat chip */

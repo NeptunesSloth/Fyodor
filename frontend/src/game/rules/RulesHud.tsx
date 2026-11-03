@@ -597,6 +597,8 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   const min = d.min_choices ?? 1;
   const max = d.max_choices ?? 1;
   const exactly = typeof d.display?.exactly === "number" ? d.display.exactly : undefined; // (pod audit: "Sacrifice two …": none or both)
+  // modes and other sentences (no card, a long label): one per line, read left to right (rules.css)
+  const sentences = options.length > 0 && options.every((o) => !o.card_id) && options.some((o) => o.label.length > 28) ? { "data-modes": "" } : {};
 
   if (d.kind === "declare_attackers") return <DeclareAttackers d={d} />;
   if (d.kind === "declare_blockers") return <DeclareBlockers d={d} />;
@@ -604,7 +606,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   if (d.kind === "choose_one" && options[0]?.id === NUMBER_OPTION) return <NumberChoice d={d} />;
   if (d.kind === "choose_one" || d.kind === "confirm" || d.kind === "manual_resolution") {
     return (
-      <div className="decision-options">
+      <div className="decision-options" {...sentences}>
         {options.some((o) => o.group === "seen") && ( /* the cards the chooser looked at (an opponent's hand) are shown, never answers */
           <div className="decision-seen" data-testid="card-name-seen">
             {options.filter((o) => o.group === "seen").map((o) => <span key={o.id} className="tt-chip">{optionLabel(o, view)}</span>)}
@@ -646,7 +648,7 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
   if (d.kind === "divide") return <Divide d={d} view={view} />;
   // choose_cards
   return (
-    <div className="decision-options">
+    <div className="decision-options" {...sentences}>
       {options.map((o) => (
         <button key={o.id} className={`tt-btn ${picked.includes(o.id) ? "on" : "ghost"}`} data-testid={`option-${o.id}`}
           onClick={() => toggle(o.id)}>{optionLabel(o, view)}</button>
