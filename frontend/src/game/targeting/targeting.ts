@@ -278,7 +278,7 @@ export function traySeats(t: Targeting, view: GameView, me: string): { seat: str
     .map(([seat, cs]) => {
       const runs = new Map<string, Candidate[]>();
       for (const c of [...cs.filter((c) => c.kind === "player"), ...cs.filter((c) => c.kind === "card")]) {
-        const key = c.kind === "card" && /^\d+$/.test(c.note) ? `${c.label}|${JSON.stringify(factsOf(c, view))}` : c.ref;
+        const key = c.kind === "card" && c.note ? `${c.label}|${JSON.stringify(factsOf(c, view))}` : c.ref;
         runs.set(key, [...(runs.get(key) ?? []), c]);
       }
       return { seat, runs: [...runs.values()] };
