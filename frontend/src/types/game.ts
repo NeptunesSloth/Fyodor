@@ -220,10 +220,18 @@ export interface LogEntryView {
   kind: string;
   parts: LogPartView[];
   /** A public dice roll or coin flip's numbers (coin results: 1 heads, 0 tails). */
-  roll?: { sides: number; results: number[]; coin: boolean; ignored?: number[] }; // ignored: indexes the rules ignored (Barbarian Class)
+  roll?: { sides: number; results: number[]; coin: boolean; ignored?: number[]; cannon?: CannonLog | null }; // ignored: indexes the rules ignored (Barbarian Class)
   /** Cards turned over from the top of a library (reveal until, cascade): public, for their owner to place. */
   dig?: DigLog;
+  /** -- table toys -- a chit drawn from the draw bag: `chit` is null for a hidden draw unless this viewer drew it. */
+  bag?: BagLogView;
 }
+
+/** -- table toys -- a dice cannon volley: per result, the player it lands in front of and its volley (ties re-fire). */
+export interface CannonLog { mode: "volley" | "first"; players: string[]; rounds: number[]; winner: string | null }
+export interface BagLogView { player: string; hidden: boolean; left: number; chit: string | null }
+/** -- table toys -- the draw bag as this viewer sees it: how many chits inside (never which), the latest drawn ones. */
+export interface DrawBagView { count: number; drawn: { player: string; chit: string | null; shown: boolean }[]; drawn_count: number }
 
 export interface DigLog { mode: "reveal_until" | "cascade"; player: string; cards: string[]; hit: string | null }
 
@@ -416,6 +424,8 @@ export interface GameView {
   auto_pass?: string[];
   cards: Record<string, GameCard>;
   arrows?: TableArrow[];
+  /** -- table toys -- the table's draw bag (older servers: absent). */
+  bag?: DrawBagView;
   zones: Record<string, string[] | LibraryView>;
   stack: string[];
   log: LogEntryView[];

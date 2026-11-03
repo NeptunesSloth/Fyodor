@@ -95,8 +95,42 @@ dice, on the 3D table, over the 2D table and in the elimination hub's toy tray:
   motion shows the dice at rest, animation speed scales the throw. Tests and screenshots freeze a throw at a set time
   (`window.__fyodorDice.freeze`): headless software WebGL draws about a frame a second.
 
-Still to come: cannon / Bag of Extras as physical objects, token piles as stacks,
-card flip and shuffle animations, hands in TABLETOP mode.
+### Table toys: the dice cannon and the bags
+
+Built 2026-11-03 on both tables, after the TTS tables' Pirate's Cannon and infinite bags (`UI_REFERENCE_STUDY.md`, "Table
+of Doom"), keeping the reference study's rule: no novelty objects on the play space. The toys live off the mats and appear
+on demand; their outcomes are the server's (`app/game/handlers/toys.py`), recorded on the action, and the physics is cosmetic.
+
+- **The dice cannon** (roll panel → Dice cannon; server action `cannon`): "Who goes first" fires one d20 at each player
+  still in the game, each die in that player's seat colour landing in front of them; players tied for the highest are fired
+  at again, only them, until one is highest. The log says "Bob goes first (19) — Alice fired the dice cannon, a d20 at each
+  player: …" with every die; the winner's line on the table is tagged *Goes first*, a tied die *Tied: fired again*. "Fire
+  3d6" fires the dice picked in the panel (up to twelve) onto the firer's mat. The numbers and who each die is fired at are
+  in the log entry's roll (`cannon`); each screen plays it as volleys (`game/cannon.ts`): the same seeded physics in each
+  target's mat frame as the other dice (`diceThrow.ts` `cannonEnv` / `cannonLaunch`: the die comes over the aisle edge at the
+  top of its arc and drops onto the mat), with a flight from the muzzle put in front of it (`prefixTrack`; only this part
+  differs per screen). A re-fire lands beside the tied die, after it has landed. 3D: a small brass cannon on an oak
+  carriage (`table3d/cannon3d.ts`, lathe and boxes, ~2.2k triangles, five draw calls, built on first use) rolls in from the
+  table's edge to the end of the aisle, swings to aim, fires with a kick, a puff and a soft pop (Settings → Sound → Dice),
+  and rolls off again. 2D: a drawn cannon slides in at the table's right edge and puffs each volley while the overlay's dice
+  (or the drawn dice) land on each mat. Reduced motion: no cannon, no flight, the results at rest. Low graphics: no
+  cannon and no physics on the 3D table either (`placeRoll`: the dice lie flat with the server's numbers up).
+- **The Bag of Extras** (a seat button: a leather pouch past Mulligan on the 3D table, a pouch button in the 2D seat rail):
+  an infinite bag of your deck's tokens (its Tokens section, then the tokens its cards list), Treasure, Clue, Food, Blood,
+  1/1 Soldier, Spirit, Goblin, Saproling and Thopter (the server's own predefined token texts), counters for the selected
+  cards and for you (energy, experience) and dice. Pulling one sends the ordinary action (create a token, a counter, a
+  resource, a roll); nothing new reaches the rules engine, and a player who is out of the game has no bag.
+- **The draw bag** (roll panel → Draw bag; actions `bag_fill`, `bag_draw`, `bag_show`, `bag_return`, `bag_empty`): the table
+  fills it with chits (player names, numbers, two teams, or any words) and draws one at random, shown to all or kept by
+  the drawer (who can show it later). Like a library, no view holds its contents or their order, only how many
+  (`views.bag_view`); a hidden chit is in its drawer's view and log line only. A drawn chit pops up at the top of either
+  table. Saved with the game (`GameState.bag`, defaults for older saves).
+- Undoing a volley or a draw takes back a random outcome, so it asks the table (`undo_requests`: "random"; showing a hidden
+  chit counts as a reveal). A player who is out keeps the cannon and the draw bag (`out_of_game.OUT_MAY`), not the Bag of
+  Extras. No new keys: the roll panel (Shift+R) holds the cannon and the draw bag.
+
+Still to come: token piles as stacks, card flip and shuffle animations, hands in TABLETOP mode; the elimination hub's
+toy tray could fire its dice from the cannon too.
 
 ## 1. What exists (inspected 2026-09-28)
 
@@ -311,9 +345,9 @@ so Undo takes back the whole play.
    picture-in-picture.
 6. When the 3D table covers every 2D feature, make it the default. The 2D view remains
    as a low-spec fallback.
-7. **Tabletop toys** (dice objects — done, see "Dice" above —, tray, token bags, a hidden draw bag with the same
-   per-viewer privacy as libraries). Their results are resolved on the server and recorded,
-   and the visual physics is cosmetic.
+7. **Tabletop toys** ✅ (dice objects, the dice cannon, the Bag of Extras and a hidden draw bag with the same
+   per-viewer privacy as libraries: see "Dice" and "Table toys" above). Their results are resolved on the server and
+   recorded, and the visual physics is cosmetic.
 
 > The full redesign brief that pulls these plans together is `UI_REDESIGN_BRIEF.md`.
 

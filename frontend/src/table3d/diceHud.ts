@@ -6,6 +6,7 @@
  * every frame by the renderer; elements are reused, so a resting roll costs a few style writes a frame.
  */
 import "../game/dice.css";
+import "../game/tabletoys.css";
 
 /** A die's chip: `x, y` where the chip's bottom sits (over the die), `cy, r` the die's centre and size on screen. */
 export interface HudChip { x: number; y: number; cy: number; r: number; visible: boolean; shown: boolean; label: string; ignored: boolean; crit: "high" | "low" | null }
@@ -23,6 +24,8 @@ export interface HudThrow {
   shown: boolean;
   /** 0…1 as the dice are cleared away. */
   fade: number;
+  /** -- table toys -- what the throw was for ("Goes first"), shown on the line instead of a natural-20 tag. */
+  tag?: string | null;
   chips: HudChip[];
 }
 
@@ -44,7 +47,7 @@ export class DiceHud {
     for (const t of throws) {
       live.add(t.key);
       let e = this.els.get(t.key);
-      const sig = `${t.line}|${t.chips.length}`;
+      const sig = `${t.line}|${t.chips.length}|${t.tag ?? ""}`;
       if (!e || e.sig !== sig) {
         e?.root.remove();
         e = this.build(t, sig);
@@ -97,10 +100,10 @@ export class DiceHud {
     text.className = "dice-line-text";
     text.textContent = t.line;
     line.append(text);
-    if (t.crit) {
+    if (t.tag || t.crit) {
       const tag = document.createElement("span");
-      tag.className = "dice-line-tag";
-      tag.textContent = t.crit === "high" ? "Natural 20" : "Natural 1";
+      tag.className = `dice-line-tag${t.tag ? " toy" : ""}`;
+      tag.textContent = t.tag ?? (t.crit === "high" ? "Natural 20" : "Natural 1");
       line.append(tag);
     }
     const x = document.createElement("span");

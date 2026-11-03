@@ -38,8 +38,8 @@ export function SeatButtons() {
         <button key={b.id} className={`seat-btn seat-${b.id}`} title={b.title} aria-label={b.title} data-testid={`seat-btn-${b.id}`}
           onPointerEnter={() => { hovered.current = b.id; }}
           onPointerLeave={() => { if (hovered.current === b.id) hovered.current = null; }}
-          onClick={() => runSeatAction(b.id, 1, me)}
-          onContextMenu={(e) => { e.preventDefault(); runSeatAction(b.id, 3, me); }}>
+          onClick={(e) => runSeatAction(b.id, 1, me, { x: e.clientX, y: e.clientY })}
+          onContextMenu={(e) => { e.preventDefault(); runSeatAction(b.id, 3, me, { x: e.clientX, y: e.clientY }); }}>
           <img src={seatIconUrl(b.id)} alt="" draggable={false} />
           {typed.id === b.id && <b className="seat-typed" aria-live="polite">{typed.n}</b>}
         </button>

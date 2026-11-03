@@ -6,7 +6,9 @@ import { send } from "./actions";
 import { rollLine, type DiceShow } from "./dice";
 import { DieGlyph, type GlyphKind } from "./DieGlyph";
 import { keyLabel } from "./hotkeys";
+import { inGame } from "./bags";
 import "./dice.css";
+import "./tabletoys.css";
 
 /**
  * The table's roll panel (the tool tray's Dice button, or Shift+R): pick a die and how many, then Roll; quick picks
@@ -58,6 +60,9 @@ export function DicePanel({ onClose }: { onClose: () => void }) {
   const keymap = usePrefs((s) => s.keymap);
   const mine = useGame((s) => (s.view ? s.view.players.find((p) => p.id === perspective(s.view!, s.actingAs))?.color : undefined));
   const recent = (log ?? []).filter((e) => e.roll).slice(-4).reverse();
+  // -- table toys -- the dice cannon and the draw bag (game/cannon.ts, game/bags.ts)
+  const contenders = useGame((s) => (s.view ? inGame(s.view).length : 0));
+  const inBag = useGame((s) => s.view?.bag?.count ?? 0);
   const kind = KINDS.find((k) => k.id === pick.kind)!;
   const coin = kind.id === "coin";
   const label = coin ? (pick.count === 1 ? "a coin" : `${pick.count} coins`) : `${pick.count > 1 ? pick.count : ""}d${kind.sides}`;
@@ -141,6 +146,20 @@ export function DicePanel({ onClose }: { onClose: () => void }) {
         <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="Other: 3d6, d100, 4d8…" aria-label="Other dice, as XdY" maxLength={12} />
         <button type="submit" className="tt-btn" disabled={!custom.trim()}>Roll</button>
       </form>
+      <section className="dice-toys" aria-label="Table toys">
+        <div className="dice-toys-row">
+          <span className="label">Dice cannon</span>
+          <button type="button" className="tt-btn" onClick={() => void send({ type: "cannon", mode: "first" })} disabled={contenders < 2}
+            title="Who goes first: the cannon fires a d20 at each player (the highest goes first; a tie is fired again)" data-testid="cannon-first">Who goes first</button>
+          <button type="button" className="tt-btn" onClick={() => { save(pick); void send({ type: "cannon", mode: "volley", sides: kind.sides, count: pick.count }); }} disabled={coin}
+            title={coin ? "The cannon fires dice, not coins" : `Fire ${label} from the cannon, across the table onto your mat`} data-testid="cannon-fire">Fire {label}</button>
+        </div>
+        <div className="dice-toys-row">
+          <span className="label">Draw bag</span>
+          <button type="button" className="tt-btn" onClick={() => useGame.getState().openDialog("drawbag")} data-testid="bag-open"
+            title="The table's hidden draw bag: fill it with chits, draw one at random">{inBag ? `${inBag === 1 ? "1 chit" : `${inBag} chits`} inside…` : "Fill the bag…"}</button>
+        </div>
+      </section>
       {recent.length > 0 && (
         <section className="dice-recent" aria-label="Recent rolls">
           <div className="dice-recent-head">Recent rolls</div>

@@ -6,7 +6,7 @@ engine already refuses their rules intents (``app.rules.engine.compile_intent``:
 tools around it would still let them pass the steps and turns, resolve the stack or move cards and life. Those are refused
 here, when the action is sent (``GameSession.perform``), never on replay, so a save or an older history still loads.
 
-What stays theirs is what anyone watching at the table does: chat and the table's dice, their own seat's name and look,
+What stays theirs is what anyone watching at the table does: chat and the table's dice (its dice cannon and draw bag too), their own seat's name and look,
 stepping aside from a response check (they are never waited on), their rules preferences (the engine decides each rules
 intent), and, for the host, the host's table tools (``api.games.HOST_ONLY_ACTIONS``: the API checks who the host is).
 """
@@ -19,6 +19,8 @@ from app.game.state import GameState
 OUT_MAY = INTENT_TYPES | frozenset({
     "chat", "roll", "coin", "rename_player", "set_appearance", "end_view", "response_pass", "response_auto",
     "configure", "remove_player", "set_table_playmat", "restart_game", "mulligan_finish",
+    # -- table toys -- the dice cannon and the draw bag, like the dice (the Bag of Extras makes objects: not theirs any more)
+    "cannon", "bag_fill", "bag_draw", "bag_show", "bag_return", "bag_empty",
 })
 
 

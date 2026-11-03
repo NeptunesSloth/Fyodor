@@ -74,6 +74,8 @@ STEP_KINDS: dict[str, Shown] = {
     "mill": "library", "put_top_face_down": "library",
     "shuffle": "random", "mulligan": "random", "roll": "random", "coin": "random", "discard_random": "random",
     "reset_deck": "random", "restart_game": "random", "load_deck": "random",
+    # -- table toys -- a dice cannon volley and a draw from the draw bag are random outcomes; showing a hidden chit is a reveal
+    "cannon": "random", "bag_draw": "random", "bag_show": "reveal",
 }
 # These shuffle only when they carry a shuffle (``r``): ending a search with "shuffle", a mulligan's final shuffle.
 SHUFFLE_IF_RESOLVED = frozenset({"search_end", "mulligan_keep", "mulligan_bottom"})
