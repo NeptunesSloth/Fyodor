@@ -21,6 +21,9 @@ import { isOut } from "../outOfGame";
 import { attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
 import { groupByController } from "./decisionGroups";
 import { usePrefs } from "../../state/prefs";
+import { targetingOf } from "../targeting/targeting";
+import { TargetingBar } from "../targeting/TargetingBar";
+import { useTargeting } from "../targeting/store";
 
 function useRules() {
   const view = useGame((s) => s.view);
@@ -358,6 +361,7 @@ export function RulesStack() {
 export function DecisionPanel() {
   const ctx = useRules();
   const wheelOn = usePrefs((s) => s.choiceWheel);
+  const selection = useGame((s) => s.selection); // (the card just cast, when the prompt names a card I hold twice)
   const [listed, setListed] = useState<string | null>(null); // the decision whose wheel the player closed (Esc): it shows as the list
   if (!ctx || !ctx.rules?.decision) return null;
   const { view, me } = ctx;
@@ -374,6 +378,9 @@ export function DecisionPanel() {
   if (wheelOn && listed !== d.id && wheelEligible(d, view.players.map((p) => p.id))) { // a public choice: the quick wheel (wheel.ts)
     return <ChoiceWheel key={d.id} d={d} view={view} onList={() => setListed(d.id)} />;
   }
+  // cards and players to choose: the table is the picker, with a slim bar over the hand (game/targeting)
+  const board = !ctx.rules.paused && ctx.rules.options?.highlights !== "off" ? targetingOf(view, me, selection) : null;
+  if (board) return <TargetingBar key={d.id} t={board} view={view} me={me} />;
   const targeting = d.kind === "choose_one" && (d.options ?? []).some((o) => o.card_id) && (d.options ?? []).length > 1;
   return (
     <div className={`decision-panel frame ${targeting ? "targeting" : ""}`} data-testid="decision-panel" data-kind={d.kind} data-display={typeof d.display?.kind === "string" ? d.display.kind : undefined}>
@@ -871,10 +878,20 @@ export function legalClass(view: GameView | null, cardId: string, me: string): s
   return "";
 }
 
-/** Clicking a card that the pending choose-one decision offers answers it (click-to-target). */
+/**
+ * Clicking a card or player that the pending decision offers answers it (click-to-target): a choose-one at once, a
+ * choose-cards on the targeting bar (chosen or un-chosen, then Done).
+ */
 export function answerByClick(view: GameView | null, cardOrPlayer: string, me: string): boolean {
   const d = view?.rules?.decision;
   if (d && d.player === me && d.display?.kind === "tap_mana") return tapForMana(cardOrPlayer, me);  // click a land to tap it
+  if (d && d.player === me && d.kind === "choose_cards") {
+    const t = targetingOf(view, me);
+    const c = t?.candidates.find((x) => x.ref === cardOrPlayer);
+    if (!t || !c) return false;
+    useTargeting.getState().toggle(d.id, { opt: c.option.id, ref: c.ref }, t.max);
+    return true;
+  }
   if (!d || d.player !== me || d.kind !== "choose_one" || !d.options) return false;
   const opt = d.options.find((o) => o.id === cardOrPlayer || o.card_id === cardOrPlayer);
   if (!opt) return false;
