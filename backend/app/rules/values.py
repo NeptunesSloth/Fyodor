@@ -560,6 +560,8 @@ def _turn_amount(what: str) -> Value | None:
         return {"turn_history": "entered", "sel": sel.key()} if sel is not None else None
     if re.fullmatch(r"(?:the )?(?:number of )?cards put into your graveyard from anywhere this turn", what):
         return {"turn_history": "graveyard_entries"}
+    if re.fullmatch(r"dilemmas? you(?:'ve| have) faced this turn", what):  # -- Star Trek mechanics (wave 112T) -- release notes (app/rules/dilemma.py)
+        return {"turn_history": "dilemmas112t"}
     if re.fullmatch(r"(?:the )?(?:number of )?times you descended this turn", what):  # -- commander sweep (wave 49B) -- 700.11: the permanent cards put into your graveyard from anywhere (The Mycotyrant)
         return {"turn_history": "descended"}
     m = _TURN_LIFE.match(what)

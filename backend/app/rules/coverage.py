@@ -549,6 +549,10 @@ def _keyword_supported(kw: str, line: str) -> bool:
         from app.rules import harmonize
 
         return harmonize.parse(line) is not None
+    if kw == "beam me up":  # -- Star Trek mechanics (wave 112T) -- app/rules/beam_me_up.py: a mana beam me up cost
+        from app.rules import beam_me_up
+
+        return beam_me_up.parse(line) is not None
     if kw == "mayhem":  # -- Marvel keywords (wave 25A) -- app/rules/mayhem.py: a mana mayhem cost without X, or none
         from app.rules import mayhem
 
