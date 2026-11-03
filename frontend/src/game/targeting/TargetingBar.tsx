@@ -7,6 +7,7 @@
  * source to it. Display only: answers go through the same `choose` intent as the panel's buttons did.
  */
 import { memo, useEffect, useId, useLayoutEffect, useRef } from "react";
+import { useCardCache } from "../../state/cardCache";
 import { useGame } from "../../state/gameStore";
 import { usePrefs } from "../../state/prefs";
 import { resolveRenderer } from "../../table3d/renderer";
@@ -143,6 +144,7 @@ const Thumb = memo(function Thumb({ decision, multi, max, opt, refId, kind, labe
   const noteId = useId();
   const card = useGame((g) => (kind === "card" ? g.view?.cards[refId] : undefined));
   const player = useGame((g) => (kind === "player" ? g.view?.players.find((p) => p.id === refId) : undefined));
+  useCardCache((c) => (card && isVisible(card) && card.card_id ? c.cards[card.card_id] : undefined)); // printed P/T arrives with the card's data
   const pt = useGame((g) => (kind === "card" && g.view ? ptOf(g.view, refId) : ""));
   const plus = card ? (card.counters?.["+1/+1"] ?? 0) - (card.counters?.["-1/-1"] ?? 0) : 0;
   const s = useTargeting.getState;
