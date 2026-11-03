@@ -49,7 +49,7 @@ export const BoardTile = memo(function BoardTile({ card, stats = "" }: { card: G
   const pt = stats ? unpackStats(stats) : p?.stat?.kind === "pt" ? { text: p.stat.text, trend: "" } : null;
 
   return (
-    <div className={`board-tile ${art ? "has-art" : "tile-proxy"} ${card.is_token ? "tile-token" : ""}`} style={style}>
+    <div className={`board-tile ${art ? "has-art" : "tile-proxy"} ${card.is_token ? "tile-token" : ""} ${card.commander_key ? "tile-commander" : ""}`} style={style}>
       {art ? (
         <img className="tile-art" src={art} alt={card.name} draggable={false} loading="lazy" onError={() => setFailed(art)} />
       ) : (
