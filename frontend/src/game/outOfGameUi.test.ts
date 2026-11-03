@@ -72,6 +72,8 @@ describe("the 2D table stops inviting a player who is out to act", () => {
 
   it("the plaques' life and counters read as values to a player who is out, not as controls", () => {
     table("p3");
+    const poisoned = () => { for (const p of (state.game.view as GameView).players) p.resources = { poison: 1 }; }; // (a zero isn't on the plaque)
+    poisoned();
     for (const player of ["p1", "p3"]) {
       const plate = html(SeatPlate, { player, me: "p3", open: false, onToggle: () => undefined, variant: "2d" });
       expect(plate).toMatch(new RegExp(`<button[^>]*data-testid="heart-${player}"[^>]*disabled`));
@@ -83,8 +85,12 @@ describe("the 2D table stops inviting a player who is out to act", () => {
       expect(plate).not.toMatch(new RegExp(`<button[^>]*data-testid="seat-${player}"[^>]*disabled`));
     }
     table("p1");
+    poisoned();
     const live = html(SeatPlate, { player: "p3", me: "p1", open: false, onToggle: () => undefined, variant: "2d" });
     expect(live).not.toMatch(/<button[^>]*disabled/);
     expect(live).toContain("Click to add 1");
+    expect(live).toContain('data-testid="seat-add-p3"'); // the + that adds a counter not on the plaque yet
+    table("p3");
+    expect(html(SeatPlate, { player: "p1", me: "p3", open: false, onToggle: () => undefined, variant: "2d" })).not.toContain("seat-add"); // not for a player who is out
   });
 });

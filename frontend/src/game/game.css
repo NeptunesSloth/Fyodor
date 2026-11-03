@@ -3,25 +3,51 @@ body.in-game { overflow: hidden; }
 body.dragging, body.dragging * { cursor: grabbing !important; user-select: none; }
 .game-screen { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); }
 
+/* the top bar: the table's front rail, blackened steel under a brass hairline (as the pages' top nav), the table's name
+   in Cinzel, and quiet controls grouped by what they touch: the rules · undo · this screen · ending the game */
 .game-top {
-  flex: none; height: 42px; display: flex; align-items: center; gap: 6px; padding: 0 10px;
-  background: var(--hud-surface); border-bottom: 1px solid var(--line); z-index: 20;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03), 0 4px 14px rgba(0, 0, 0, 0.45);
+  flex: none; height: 46px; display: flex; align-items: center; gap: 2px; padding: 0 12px 0 6px; z-index: 20; position: relative;
+  background: linear-gradient(180deg, #16140f, #0b0a08); border-bottom: 1px solid color-mix(in srgb, var(--frame) 80%, transparent);
+  box-shadow: 0 1px 0 var(--frame-inner), 0 6px 18px rgba(0, 0, 0, 0.5);
 }
-.game-top .brand { color: var(--text-dim); font-size: 18px; padding: 2px 8px; border-radius: 3px; }
-.game-top .brand:hover { background: var(--panel-2); color: var(--text); }
-.game-title { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; max-width: 200px; }
-.game-title b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-/* the room code under the table's name: a small brass-lettered plate (its own styles: the lobby's room code is a button) */
+.game-top .brand {
+  width: 34px; height: 34px; display: inline-grid; place-items: center; flex: none; margin-right: 4px;
+  color: var(--text-dim); font-size: 18px; border-radius: 50%;
+}
+.game-top .brand:hover { background: rgba(255, 255, 255, 0.06); color: var(--accent-2); }
+.game-title { display: flex; align-items: center; gap: 12px; line-height: 1.15; min-width: 0; max-width: 360px; }
+.game-title b {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font: 600 16px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+/* the room code beside the table's name: a small brass-lettered plate (its own styles: the lobby's room code is a button) */
 .game-top .room-code {
-  display: flex; flex-direction: column; align-items: center; padding: 6px 16px;
-  background: rgba(0, 0, 0, 0.45); border: 1px solid var(--frame); border-radius: var(--room-radius);
-  font-size: 11px; color: var(--room-brass-hi); letter-spacing: 0.02em; font-variant-numeric: tabular-nums;
+  flex: none; padding: 3px 10px; background: rgba(0, 0, 0, 0.45); border: 1px solid color-mix(in srgb, var(--frame) 70%, transparent); border-radius: 3px;
+  font-size: 11.5px; color: var(--room-brass-hi); letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
 }
 .status { font-size: 11.5px; color: var(--warn); }
-.seat-switch { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-dim); }
-.seat-switch select { padding: 3px 6px; font-size: 12.5px; }
-.game-top .tt-btn { min-height: 26px; padding: 2px 10px; font-size: 12.5px; }
+.seat-switch { display: inline-flex; align-items: center; gap: 6px; padding: 0 6px; font-size: 12.5px; color: var(--text-faint); }
+.seat-switch select { height: 28px; padding: 0 24px 0 8px; font-size: 12.5px; color: var(--room-bone); background-color: rgba(0, 0, 0, 0.4); }
+.game-top .tt-btn { min-height: 30px; padding: 0 11px; font-size: 13px; }
+.game-top .tt-btn.ghost { color: var(--room-bone-dim); }
+.game-top .tt-btn.ghost:hover:not(:disabled) { color: var(--room-bone); background: rgba(255, 255, 255, 0.05); border-color: transparent; }
+.game-top .tt-split { margin: 0 6px; border-color: var(--line); border-radius: 4px; }
+.game-top .tt-split > .tt-btn + .tt-btn { border-left-color: var(--line); }
+/* hairlines between the groups: what the rules do | undo | this screen | the game's end */
+.game-top :is(.tt-split, [data-testid="open-importer"], [data-testid="end-game"]) { position: relative; }
+.game-top :is([data-testid="open-importer"], [data-testid="end-game"]) { margin-left: 9px; }
+.game-top :is([data-testid="open-importer"], [data-testid="end-game"])::before {
+  content: ""; position: absolute; left: -6px; top: 7px; bottom: 7px; width: 1px; background: var(--line-2); pointer-events: none;
+}
+.game-top [data-testid="end-game"] { color: var(--accent-2); }
+/* narrower screens: the table's name gives way first; then the responses setting (it stays in the Automation panel) */
+.game-top > :not(.game-title):not(.spacer) { flex-shrink: 0; }
+.game-top .tt-btn, .game-top .auto-pill { white-space: nowrap; }
+@media (max-width: 1180px) {
+  .game-top .auto-pill[data-testid="resp-mode"] { display: none; }
+  .game-top .seat-switch { font-size: 0; gap: 0; } /* "View" still names the select for assistive tech */
+}
+.game-top .auto-hud .tt-btn[data-testid="concede-yes"] { color: #ffb4ad; }
 .daynight.day { color: #f5d77a; }
 .daynight.night { color: #9fb7ff; }
 
@@ -63,6 +89,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
   .seat-strip { gap: 6px; }
   .seat-strip .t3d-seat-name { max-width: 84px; }
   .seat-strip .seat-track.zero, .seat-strip .t3d-seat-name { display: none; } /* a zero says nothing a narrow seat can spare */
+  .seat-strip .seat-add { display: none; } /* a narrow seat adds counters from its player panel (click the portrait) */
 }
 /* the stack pill is pinned at the table's top-right: the last seat's strip leaves it room */
 .opponents > .player-area:last-child .seat-strip { padding-right: 84px; }
@@ -356,24 +383,32 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .conn-banner { position: fixed; top: 52px; left: 50%; transform: translateX(-50%); background: #5a3a12; color: #ffe0a6; padding: 6px 14px; border-radius: 8px; z-index: 1500; box-shadow: var(--shadow); }
 
 /* ---------- context menu ---------- */
+/* blackened steel with a brass edge (the decks page's menus), the card or seat it acts on named in Cinzel at the top */
 .ctx-menu {
-  position: fixed; z-index: 2500; min-width: 200px; max-width: 300px; background: var(--panel-2); border: 1px solid var(--line-2);
-  border-radius: 9px; padding: 4px; box-shadow: var(--shadow); animation: pop 0.08s ease-out;
+  position: fixed; z-index: 2500; width: max-content; min-width: 210px; max-width: min(360px, calc(100vw - 8px)); padding: 4px;
+  background: var(--hud-surface); border: 1px solid var(--hud-edge); border-radius: 5px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 4px 14px 28px rgba(0, 0, 0, 0.7);
+  transform-origin: top left; animation: pop calc(90ms * var(--anim-scale, 1)) var(--ease-out);
 }
-.ctx-menu.ctx-sub { position: absolute; max-height: 70vh; overflow: auto; }
-.ctx-title { font-size: 11.5px; color: var(--text-dim); padding: 4px 10px 6px; border-bottom: 1px solid var(--line); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ctx-menu.ctx-sub { position: absolute; max-height: 70vh; overflow: auto; scrollbar-width: thin; animation: none; } /* a submenu is there at once, where it will stay */
+.ctx-title {
+  padding: 6px 10px 7px; margin-bottom: 3px; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font: 600 13px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2);
+}
 .ctx-item-wrap { position: relative; }
-.ctx-item {
-  display: flex; width: 100%; align-items: center; gap: 10px; text-align: left; background: none; border: none; padding: 6px 10px;
-  border-radius: 5px; cursor: pointer; color: var(--text); font-size: 13px;
+.ctx-menu .ctx-item {
+  display: flex; flex-wrap: wrap; width: 100%; min-height: 28px; align-items: center; column-gap: 12px; text-align: left;
+  background: none; border: none; padding: 4px 10px; border-radius: 3px; cursor: pointer; color: var(--room-bone); font-size: 13px; line-height: 1.25;
 }
-.ctx-item:hover:not(:disabled) { background: var(--panel); }
+.ctx-item:hover:not(:disabled), .ctx-item:focus-visible { background: rgba(255, 255, 255, 0.07); }
+.ctx-item:focus-visible { outline-offset: -2px; }
+.ctx-item-wrap:has(> .ctx-sub) > .ctx-item { background: rgba(255, 255, 255, 0.07); } /* the row whose submenu is open */
 .ctx-item:disabled { opacity: 0.4; cursor: default; }
 .ctx-item.danger { color: #ffb4ad; }
-.ctx-item > span:first-child { flex: 1; }
-.ctx-hint { font-size: 11px; color: var(--text-faint); }
-.ctx-arrow { color: var(--text-faint); }
-.ctx-sep { height: 1px; background: var(--line); margin: 3px 4px; }
+.ctx-item > span:first-child { flex: 1 0 auto; white-space: nowrap; }
+.ctx-hint { margin-left: auto; font-size: 11px; color: var(--text-faint); text-align: right; }
+.ctx-arrow { color: color-mix(in srgb, var(--frame-hi) 70%, var(--text-faint)); }
+.ctx-sep { height: 1px; background: var(--line); margin: 4px 6px; }
 
 /* ---------- dialogs ---------- */
 .field.inline { flex-direction: row; align-items: center; gap: 6px; }
@@ -593,18 +628,28 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
 }
 .stack-widget.busy .stack-pill { border-style: solid; border-color: var(--room-brass); color: var(--room-brass-hi); }
 .stack-pill.drop-over, .stack-widget [data-drop="stack"].drop-over { border-color: var(--room-brass); color: var(--room-bone); }
+/* the log: a steel drawer at the bottom right; closed, one line of what just happened */
 .log-drawer { position: fixed; z-index: 34; right: 12px; bottom: 12px; }
 .log-drawer.open {
   width: 340px; height: 46vh; display: flex; flex-direction: column; background: var(--hud-surface);
-  border: 1px solid var(--hud-edge); border-radius: var(--room-radius); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--hud-edge); border-top-color: color-mix(in srgb, var(--frame-hi) 70%, var(--hud-edge)); border-radius: 5px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 14px 32px rgba(0, 0, 0, 0.6);
 }
 .log-drawer.open .log-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.log-close { position: absolute; top: 4px; right: 4px; z-index: 1; }
-.log-pill {
-  display: flex; gap: 8px; align-items: baseline; max-width: 340px; padding: 4px 10px; cursor: pointer; text-align: left;
-  background: var(--hud-surface); color: var(--room-bone-dim); border: 1px solid var(--hud-edge); border-radius: var(--room-radius);
+.log-drawer.open .panel-head { padding: 10px 40px 8px 12px; font: 600 14px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2); border-bottom: 1px solid var(--line); }
+.log-drawer.open .log-scroll { padding-top: 4px; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--frame) 55%, transparent) transparent; }
+.log-drawer.open .log-turn {
+  display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; font: 600 11.5px/1 var(--font-display); letter-spacing: 0.04em; color: var(--accent-2);
 }
-.log-pill-label { font-size: 12px; font-weight: 600; color: var(--room-brass-hi); }
+.log-drawer.open .log-turn::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, color-mix(in srgb, var(--frame) 60%, transparent), transparent); }
+.log-drawer.open .chat { padding: 8px; }
+.log-close { position: absolute; top: 7px; right: 7px; z-index: 1; width: 26px; height: 26px; }
+.log-pill {
+  display: flex; gap: 8px; align-items: baseline; max-width: 340px; height: 30px; padding: 0 12px; align-items: center; cursor: pointer; text-align: left;
+  background: var(--hud-surface); color: var(--room-bone-dim); border: 1px solid var(--hud-edge); border-radius: 4px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.log-pill:hover { color: var(--room-bone); border-color: var(--frame); }
+.log-pill-label { font: 600 12.5px/1 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2); }
 .log-pill-last { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tool-tray { position: fixed; z-index: 33; left: 12px; bottom: 12px; display: flex; gap: 4px; }
 /* your seat's buttons, in the rail by your mat as on the Oops tables: round, coloured, an icon each */
@@ -630,7 +675,10 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
   display: flex; align-items: center; gap: 4px; padding: 4px 6px 4px 12px; max-width: calc(100vw - 32px); flex-wrap: wrap;
   background: var(--hud-surface); border: 1px solid var(--hud-edge); border-radius: var(--room-radius); box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
 }
-.selection-bar .tt-btn { min-height: 26px; padding: 2px 10px; font-size: 12.5px; }
+.selection-bar.anchored, .selection-bar { border-radius: 5px; padding: 3px 4px 3px 12px; gap: 2px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 26px rgba(0, 0, 0, 0.55); }
+/* the toolbar's buttons are words on the steel, lit on hover (the card's name leads, in Cinzel, as in its menu) */
+.selection-bar .tt-btn { min-height: 28px; padding: 0 10px; font-size: 12.5px; background: transparent; border-color: transparent; box-shadow: none; }
+.selection-bar .tt-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); border-color: transparent; }
 /* the shortcut, printed where the action is (Arena-quiet: small, dim, never the loudest thing on the bar) */
 /* Arena-style ×N on the top card of a pile of identical lands (display only) */
 .pile-count-mark {
@@ -650,7 +698,10 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
 .selection-bar.anchored[data-side="above"]::after { bottom: -6px; border-top: 0; border-left: 0; }
 .selection-bar.anchored[data-side="below"]::after { top: -6px; border-bottom: 0; border-right: 0; }
 body.dragging .selection-bar.anchored { display: none; }
-.sel-count { font-size: 12.5px; color: var(--room-bone-dim); margin-right: 6px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sel-count {
+  margin-right: 6px; padding-right: 10px; border-right: 1px solid var(--line); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 600 13px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2);
+}
 
 /* minimal HUD: the plate shows name and life; everything else steps back */
 body.hud-minimal .pp-foot, body.hud-minimal .pp-cmds, body.hud-minimal .mana-toggle, body.hud-minimal .resources,
@@ -681,12 +732,15 @@ body.hud-minimal .player-panel { padding: 3px 8px; }
 .mana-field { display: flex; flex-direction: column; font-size: 11px; color: var(--room-bone-dim); }
 .mana-field input { width: 44px; }
 
-.stack-widget.below-hud { top: 92px; }
+.stack-widget.below-hud { top: 54px; }
 
 /* ================= the 2D table, in the 3D table's materials =================
    A walnut table under a warm lamp; each player's battlefield is a baize playmat stitched in their
    seat colour; panels are blackened steel; empty piles are slots pressed into the wood. */
-main.table:not(.is-3d) {
+/* the walnut and the lamp on their own layer: a card moving never repaints the whole table */
+main.table:not(.is-3d) { isolation: isolate; background: var(--wood-2); }
+main.table:not(.is-3d)::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; will-change: transform;
   background:
     radial-gradient(ellipse 65% 55% at 50% 48%, rgba(255, 196, 130, 0.10), transparent 70%),
     radial-gradient(ellipse 110% 95% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.6) 100%),
@@ -697,18 +751,27 @@ main.table:not(.is-3d) {
 main.table:not(.is-3d) .opponents { border-bottom: 0; }
 main.table:not(.is-3d) .opponents > .player-area + .player-area { border-left: 0; }
 main.table:not(.is-3d) .player-area { padding: 8px 10px; }
+/* a mat: baize under the lamp (on its own layer, so moving a card doesn't repaint the felt), bound at its edge in the
+   seat colour like a stitched playmat. Empty, it is just felt: no outline to fill in. */
 main.table:not(.is-3d) .battlefield {
-  border: 0; border-radius: 14px;
+  border: 0; border-radius: 14px; isolation: isolate; background: var(--felt);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 12px 26px rgba(0, 0, 0, 0.55);
+}
+main.table:not(.is-3d) .battlefield::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; will-change: transform;
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
     radial-gradient(ellipse 80% 75% at 50% 42%, var(--felt-2), var(--felt));
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 12px 26px rgba(0, 0, 0, 0.55), inset 0 0 0 9px rgba(0, 0, 0, 0.16), inset 0 0 70px rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.38), inset 0 2px 10px rgba(0, 0, 0, 0.45);
 }
-/* the hem, stitched in the seat colour */
+/* the binding: a woven edge in the seat colour, darkened so the cards stay the brightest thing on the mat */
 main.table:not(.is-3d) .battlefield::after {
-  content: ""; position: absolute; inset: 7px; border-radius: 9px; pointer-events: none; z-index: 0;
-  border: 2px dashed color-mix(in srgb, var(--player-color) 70%, transparent);
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0;
+  border: 3px solid color-mix(in srgb, var(--player-color) 46%, #120d09);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 0 4px rgba(255, 236, 200, 0.035);
 }
+body.perf-low main.table:not(.is-3d)::before { background: linear-gradient(180deg, var(--wood), var(--wood-2)); }
+body.perf-low main.table:not(.is-3d) .battlefield::before { background: var(--felt); box-shadow: none; }
 main.table:not(.is-3d) .player-panel {
   background: var(--hud-surface); border: 1px solid var(--line); border-radius: 6px;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -732,10 +795,15 @@ main.table:not(.is-3d) > .hand:not(.compact) { background: linear-gradient(to to
 .command-zone.partners { flex-direction: row; gap: 4px; }
 .command-slot { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; flex: 1; }
 .command-slot .command-card { width: 100%; }
+/* the commander is away: its slot pressed into the rail, a crown and a quiet name where it rests (no outline to fill in) */
 .command-empty {
-  width: 100%; aspect-ratio: 63 / 88; display: grid; place-items: center; font-size: 10px; color: var(--text-dim);
-  border: 1px dashed var(--line); border-radius: 4px; text-align: center;
+  width: 100%; aspect-ratio: 63 / 88; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border-radius: 5%; text-align: center; color: color-mix(in srgb, var(--frame-hi) 50%, transparent);
+  background: rgba(0, 0, 0, 0.28); box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 230, 200, 0.05);
 }
+.command-empty-label { font: 600 9px/1.1 var(--font-display); letter-spacing: 0.04em; color: var(--text-faint); }
+.seat-strip .command-empty { width: 34px; }
+.seat-strip .command-empty-label { display: none; }
 .tax-btn {
   display: inline-flex; align-items: baseline; gap: 3px; padding: 1px 7px; border-radius: 10px; cursor: pointer;
   font: 700 12px/1.4 Inter, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap;
@@ -758,3 +826,71 @@ main.table:not(.is-3d) > .hand:not(.compact) { background: linear-gradient(to to
 .focus-flash { outline: 2px solid var(--room-brass-hi); outline-offset: 3px; animation: focus-flash calc(1.4s * var(--anim-scale, 1)) var(--ease-out) forwards; }
 @keyframes focus-flash { 0%, 55% { outline-color: var(--room-brass-hi); } 100% { outline-color: transparent; } }
 body.reduced-motion .focus-flash { animation: none; }
+
+/* ================= in-game panels in the pages' language (round 6) =================
+   Dialogs over the table: blackened steel, a brass edge, the title in Cinzel; one brass action, the rest quiet; no blur
+   behind them (a full-screen backdrop-filter repaints the whole table on every update). */
+.game-screen .modal-backdrop { backdrop-filter: none; background: rgba(5, 6, 8, 0.6); }
+.game-screen .modal {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 60px), var(--hud-surface);
+  border-color: var(--frame); border-top-color: var(--frame-hi); border-radius: 6px;
+}
+.game-screen .modal-head { padding: 14px 18px 12px; }
+.game-screen .modal-title { font-size: 17px; letter-spacing: 0.03em; }
+.game-screen .modal-body { padding: 16px 18px; }
+.game-screen .modal-foot { padding: 12px 18px; background: rgba(0, 0, 0, 0.2); }
+.game-screen .modal-foot .tt-btn { min-height: 34px; padding: 0 16px; }
+.game-screen .modal-foot .tt-btn.brass { min-width: 132px; font: 600 14px/1 var(--font-display); letter-spacing: 0.03em; }
+.game-screen .modal-foot .tt-btn:not(.brass):not(.danger) { background: transparent; border-color: transparent; color: var(--room-bone-dim); box-shadow: none; }
+.game-screen .modal-foot .tt-btn:not(.brass):not(.danger):hover:not(:disabled) { color: var(--room-bone); background: rgba(255, 255, 255, 0.05); }
+/* the result: who won, as a row of seats to pick from */
+.result-types { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+.result-types .tt-tab { padding: 8px 12px 9px; font-size: 13.5px; }
+.winner-picks { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; }
+.winner-picks .tt-btn { min-height: 38px; min-width: 92px; padding: 0 16px; font: 600 15px/1 var(--font-display); letter-spacing: 0.03em; background: rgba(0, 0, 0, 0.3); }
+.winner-picks .tt-btn.on { color: var(--accent-ink); background: var(--accent-grad); border-color: var(--frame-hi); }
+/* host tools: the table's maintenance as a tidy grid of tools, the seats as rows */
+.host-tools h3 { font-size: 14px; color: var(--accent-2); letter-spacing: 0.03em; margin: 0 0 8px; }
+.host-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px; }
+.host-grid .tt-btn { justify-content: flex-start; min-height: 34px; padding: 0 12px; background: rgba(0, 0, 0, 0.25); }
+.host-grid .tt-btn:disabled { opacity: 0.45; }
+.host-tools .hint { margin: 8px 0 0; }
+.host-row .tt-btn.ghost.danger:hover:not(:disabled) { color: #ffd2cc; border-color: #6b302c; }
+
+/* the card importer drops down from the top bar (night.css lays it out): the title in Cinzel, the tabs as the pages' tabs,
+   each saved deck a row whose Place lights up as you reach it, and the destructive resets quiet at the foot */
+.table-importer { top: 52px; padding: 14px 16px; }
+.table-importer.frame { border-color: var(--frame); border-top-color: var(--frame-hi); background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 60px), var(--hud-surface); }
+.ti-head b { font: 600 16px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2); }
+.ti-tabs { gap: 0; border-bottom: 1px solid var(--line); }
+.ti-tabs button { padding: 5px 10px 6px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; font-size: 13px; }
+.ti-tabs button:hover { color: var(--room-bone); }
+.ti-tabs button.on { color: var(--room-bone); background: transparent; border-bottom-color: var(--frame-hi); }
+.ti-sub { margin: 6px 0 0; font: 600 13px/1.2 var(--font-display); letter-spacing: 0.03em; text-transform: none; color: var(--accent-2); }
+.ti-decks li { padding: 5px 6px 5px 5px; border-color: transparent; background: rgba(0, 0, 0, 0.22); }
+.ti-decks li:hover, .ti-decks li:focus-within { border-color: color-mix(in srgb, var(--frame) 70%, transparent); background: rgba(255, 255, 255, 0.04); }
+.ti-decks li .btn { min-height: 28px; padding: 0 12px; background: transparent; border-color: var(--line-2); color: var(--room-bone-dim); box-shadow: none; }
+.ti-decks li:hover .btn, .ti-decks li:focus-within .btn { color: var(--accent-2); border-color: var(--frame); }
+.ti-restart .btn { flex: 0 1 auto; min-height: 30px; padding: 0 12px; font-size: 12.5px; background: transparent; border-color: transparent; color: var(--text-dim); box-shadow: none; }
+.ti-restart .btn:hover:not(:disabled) { color: #ffb4ad; background: rgba(58, 31, 29, 0.5); border-color: #6b302c; filter: none; }
+.ti-restart .btn.danger { color: #ffd2cc; background: rgba(110, 29, 24, 0.55); border-color: #9b2f27; }
+
+/* out of the game: the hub's activities are equal and quiet; Keep watching is the one brass answer */
+[data-testid="eliminated-hub"] .night-actions .tt-btn:not(.brass) { background: transparent; border-color: var(--line-2); color: var(--room-bone-dim); box-shadow: none; }
+[data-testid="eliminated-hub"] .night-actions .tt-btn:not(.brass):hover:not(:disabled) { color: var(--room-bone); border-color: var(--frame); }
+
+/* -- table toys -- a drawn chit stacks by its drawer's plaque (BagDraws.tsx, bagAnchor.ts), clear of the dice lines on the
+   mats, as a small steel plate with the drawer's seat colour at its edge (the HUD's material, not a floating pill) */
+.bag-draws.by-plaque { transform: none; justify-items: start; }
+.bag-chit {
+  gap: 9px; padding: 5px 12px 5px 5px; border-radius: 5px; background: var(--hud-surface);
+  border: 1px solid var(--hud-edge); border-left: 3px solid var(--seat, var(--accent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 20px rgba(0, 0, 0, 0.55);
+}
+.bag-chit:hover { border-color: var(--frame); border-left-color: var(--seat, var(--accent)); }
+.bag-chit .token { min-width: 30px; height: 30px; border-radius: 15px; font-size: 12.5px; }
+.bag-chit .what { font-weight: 650; color: var(--room-bone); }
+/* the toys' panels (Bag of Extras, draw bag, roll panel): section heads in Cinzel like the importer's, not tracked capitals */
+:is(.bag-fill-head, .bag-recent-head, .extras-group-head, .dice-recent-head, .dice-toys-row .label) {
+  font: 600 12.5px/1.2 var(--font-display); letter-spacing: 0.03em; text-transform: none; color: color-mix(in srgb, var(--frame-hi) 70%, var(--text-dim));
+}

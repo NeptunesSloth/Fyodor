@@ -49,7 +49,8 @@ function MenuPanel({ x, y, items, title, onDone }: { x: number; y: number; items
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const r = el.getBoundingClientRect();
+    // its laid-out size (offset*, not the bounding box: the opening animation scales it down for a frame)
+    const r = { width: el.offsetWidth, height: el.offsetHeight };
     setPos({
       left: Math.max(4, Math.min(x, window.innerWidth - r.width - 4)),
       top: Math.max(4, Math.min(y, window.innerHeight - r.height - 4)),
@@ -94,8 +95,8 @@ function SubMenu({ items, onDone }: { items: MenuItem[]; onDone: () => void }) {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const r = el.getBoundingClientRect();
-    setFlip({ x: r.right > window.innerWidth - 4, y: Math.min(0, window.innerHeight - r.bottom - 4) });
+    const r = el.getBoundingClientRect(); // (its top-left corner; the size from layout, in case anything is scaling it)
+    setFlip({ x: r.left + el.offsetWidth > window.innerWidth - 4, y: Math.min(0, window.innerHeight - (r.top + el.offsetHeight) - 4) });
   }, [items]);
   return (
     <div

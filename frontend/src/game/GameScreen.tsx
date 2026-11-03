@@ -23,7 +23,7 @@ import { outKeyBlocked } from "./outOfGame";
 import { recallBookmark, saveBookmark } from "./bookmarks";
 import { ResponseBar } from "./ResponseBar";
 import { UndoRequestBar } from "./UndoRequestBar";
-import { AutomationErrorPanel, AutomationHud, DecisionPanel, RulesStack, TurnDial, XPrompt } from "./rules/RulesHud";
+import { AutomationErrorPanel, DecisionPanel, RulesStack, TurnDial, XPrompt } from "./rules/RulesHud";
 import { passPriority } from "./rules/intents";
 import "./rules/rules.css";
 import { resolveRenderer } from "../table3d/renderer";
@@ -133,7 +133,6 @@ export function GameScreen() {
       <MulliganOverlay />
       <ResponseBar />
       <UndoRequestBar />
-      <AutomationHud />
       <RulesStack />
       <DecisionPanel />
       <XPrompt />
