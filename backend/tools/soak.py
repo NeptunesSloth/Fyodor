@@ -218,7 +218,9 @@ class Bot:
         self.session, self.cards, self.rng = session, cards, rng
         self.names = sorted({c.name for c in session.state.cards.values() if c.name})
         self.oracle: dict[str, str] = {}
-        self.fewer_blocks = False  # the last block plan was refused: try a smaller one
+        # decision id -> block plans the table refused so far (509.1b, 509.1c): each try blocks less, the fourth with nothing (soak gaps4: six
+        # random plans against an evasive attacker and a big board were all refused, and the game stopped as "stuck")
+        self.refused_blocks: Counter[str] = Counter()
         self.fewer_picks = False  # the last multi-pick answer was refused: pick as few as allowed
         self.on_manual: Any = None
         self.last_decision: dict[str, Any] = {}
@@ -331,7 +333,8 @@ class Bot:
         if kind == "declare_blockers":
             blockers = [i[2:] for i in ids if i.startswith("b:")]
             attackers = [i[2:] for i in ids if i.startswith("a:")]
-            p, self.fewer_blocks = (0.15 if self.fewer_blocks else 0.4), False
+            tries = self.refused_blocks[d["id"]]
+            p = (0.4, 0.15, 0.05)[tries] if tries < 3 else 0.0
             return {"type": "declare_blockers", "blocks": [
                 {"blocker_id": b, "attacker_id": rng.choice(attackers)} for b in blockers if rng.random() < p]}
         if display.get("kind") == "tap_mana":
@@ -639,7 +642,7 @@ class Game:
                 if self.payload.get("type") == "declare_blockers" and self.payload.get("blocks"):
                     # the client lets a player put any blocker on any attacker; the server checks the plan (509.1b, 509.1c)
                     self.report.refused[f"declare_blockers: {str(exc)[:80]}"] += 1
-                    self.bot.fewer_blocks = True
+                    self.bot.refused_blocks[self.bot.last_decision.get("id", "")] += 1
                     continue
                 if how == "decision" and self.payload.get("type") == "choose" and len(self.payload.get("option_ids") or ()) > max(
                         1, self.bot.last_decision.get("min_choices", 1)):

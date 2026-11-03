@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { perspective, useGame } from "../state/gameStore";
 import { runSeatAction, SEAT_ACTIONS, TypedCount, type SeatActionId } from "./seatActions";
 import { seatIconUrl } from "./seatIcons";
+import { isOut } from "./outOfGame";
 
 /**
  * Your seat's buttons on the 2D table, by your mat as on the Oops tables: round Untap, Draw, Scry, Mill and Reveal
@@ -30,7 +31,7 @@ export function SeatButtons() {
     window.addEventListener("keydown", onKey, true);
     return () => { window.removeEventListener("keydown", onKey, true); c.dispose(); };
   }, []);
-  if (!me || view?.viewer === "__spectator__") return null;
+  if (!me || view?.viewer === "__spectator__" || isOut(view, me)) return null; // (-- out of the game -- they watch)
   return (
     <div className="seat-buttons" role="toolbar" aria-label="Your seat's buttons" data-testid="seat-buttons">
       {SEAT_ACTIONS.map((b) => (

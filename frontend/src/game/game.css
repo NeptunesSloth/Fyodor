@@ -12,7 +12,12 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 .game-top .brand:hover { background: var(--panel-2); color: var(--text); }
 .game-title { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; max-width: 200px; }
 .game-title b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-.room-code { font-size: 11px; color: var(--room-brass-hi); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+/* the room code under the table's name: a small brass-lettered plate (its own styles: the lobby's room code is a button) */
+.game-top .room-code {
+  display: flex; flex-direction: column; align-items: center; padding: 6px 16px;
+  background: rgba(0, 0, 0, 0.45); border: 1px solid var(--frame); border-radius: var(--room-radius);
+  font-size: 11px; color: var(--room-brass-hi); letter-spacing: 0.02em; font-variant-numeric: tabular-nums;
+}
 .status { font-size: 11.5px; color: var(--warn); }
 .seat-switch { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-dim); }
 .seat-switch select { padding: 3px 6px; font-size: 12.5px; }

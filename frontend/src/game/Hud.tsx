@@ -15,6 +15,7 @@ import { cardEditRefusal } from "./cardPermissions";
 import { damageMenu } from "./marksMenu";
 import { typeLine } from "./selection";
 import { keyLabel } from "./hotkeys";
+import { isOut } from "./outOfGame";
 import { HAND_SORTS, HAND_SORT_LABEL } from "./handSort";
 import { domBoxOf, placeAnchored, selectionAnchor } from "./anchors";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
@@ -54,6 +55,7 @@ export function StackWidget({ me }: { me: string }) {
   const open = useGame((s) => s.stackOpen);
   const setOpen = (v: boolean) => useGame.getState().setLayout({ stackOpen: v });
   const rulesOn = useGame((s) => !!s.view?.rules && !s.view.rules.paused);
+  const out = useGame((s) => isOut(s.view, me)); // -- out of the game -- nothing to cast: just the stack
   if (rulesOn && count > 0) return null; // the rules engine's STACK panel shows it
   return (
     <div className={`stack-widget below-hud ${count ? "busy" : "idle"} ${open && count ? "open" : ""}`} data-testid="stack-widget">
@@ -62,7 +64,7 @@ export function StackWidget({ me }: { me: string }) {
           <StackPanel me={me} onCollapse={() => setOpen(false)} />
         </>
       ) : (
-        <button className="stack-pill" data-drop="stack" onClick={() => setOpen(true)} title="Drag a spell here to cast it">
+        <button className="stack-pill" data-drop="stack" onClick={() => setOpen(true)} title={out ? "The stack" : "Drag a spell here to cast it"}>
           Stack{count ? ` · ${count}` : ""}
         </button>
       )}

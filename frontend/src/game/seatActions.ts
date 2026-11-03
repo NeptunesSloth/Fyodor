@@ -6,6 +6,7 @@
  */
 import { useGame } from "../state/gameStore";
 import { draw, send } from "./actions";
+import { isOut } from "./outOfGame";
 
 export type SeatActionId = "untap" | "draw" | "scry" | "mill" | "reveal" | "mulligan";
 
@@ -21,7 +22,7 @@ export const SEAT_ACTIONS: { id: SeatActionId; label: string; title: string }[] 
 
 /** Do a seat button's action, n times over (Untap and Mulligan happen once). */
 export function runSeatAction(id: SeatActionId, n: number, me: string): void {
-  if (n < 1) return;
+  if (n < 1 || isOut(useGame.getState().view, me)) return; // -- out of the game -- the buttons are gone for them (game/outOfGame.ts)
   if (id === "untap") void send({ type: "untap_all", player: me });
   else if (id === "mulligan") void send({ type: "mulligan", player: me });
   else if (id === "draw") void draw(me, n);

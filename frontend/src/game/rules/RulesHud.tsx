@@ -17,6 +17,7 @@ import { ManaText } from "../../cards/ManaText";
 import { ChoiceWheel } from "./ChoiceWheel";
 import { RepeatButton } from "./RepeatPanel";
 import { wheelEligible } from "./wheel";
+import { isOut } from "../outOfGame";
 import { attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
 import { usePrefs } from "../../state/prefs";
 
@@ -222,7 +223,7 @@ export function TurnDial() {
   let status: string;
   const watching = !ctx.seated;
   // out of the game (conceded or lost, 800.4a): they watch like everyone else; nothing here moves the game for them
-  const out = !watching && !!rules && (rules.conceded.includes(me) || me in rules.lost);
+  const out = isOut(view, me);
   if (watching) status = "Watching";
   else if (out) status = "You're out — watching";
   else if (!auto) status = rules?.paused ? "Automation paused: move the steps yourself" : "Manual play: you move the steps";

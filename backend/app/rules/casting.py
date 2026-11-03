@@ -3337,10 +3337,15 @@ def announce_problem(state: GameState, player: str, card: CardInstance, ch: Char
     """-- hint/cast agreement (soak) -- why the castability hint mustn't offer this spell: 601.2b / 700.2a no mode can be chosen, 601.2c a
     required target group can't get its legal targets ("Counter target spell." with an empty stack; "Destroy target creature." with no
     creature), so the cast is illegal (601.5) and cast_spell refuses it. The checks made before a free cast is offered (free_cast_problem,
-    X is 0); a spell whose targets depend on its kicker (702.33g, kicked_instead) is left to the cast, where kicking is announced."""
+    X is 0); a spell whose targets depend on its kicker (702.33g, kicked_instead) is offered while either cast, kicked or not, has them:
+    which one is announced as it is cast."""
+    view = permissions._view(state, player, info)
     if any("kicked" in g for g in scripts.target_groups(scripts.spell_definition(ch))):
-        return None
-    return free_cast_problem(permissions._view(state, player, info), player, card, ch)
+        # -- kicked targets (soak gaps4) -- Long River's Pull ("Counter target creature spell. If the gift was promised, instead counter
+        # target spell.", a gift read as a kicker) was offered with only an ability on the stack: neither cast has a target there
+        unkicked = free_cast_problem(view, player, card, ch)
+        return None if unkicked is None or free_cast_problem(view, player, card, ch, kicked=1) is None else unkicked
+    return free_cast_problem(view, player, card, ch)
 
 
 def ability_target_problem(state: GameState, player: str, card: CardInstance, ch: Characteristics, ab: AbilityText,
@@ -3626,7 +3631,7 @@ def free_castable(state: GameState, player: str, card: CardInstance, info: CardI
 
 
 def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Characteristics, *,
-                      paid: bool = False, x: int | None = None) -> str | None:
+                      paid: bool = False, x: int | None = None, kicked: int = 0) -> str | None:
     """-- review (wave 29B) -- why ``player`` can't cast this half / face (``ch``) of a card the engine lets them cast as an effect resolves
     (``cast_free``), checked before the choice is offered, so that no answer is a dead end: 205.4e (a legendary instant or sorcery), 700.2a (no
     mode can be chosen), 601.2c (a required target group can't get enough legal targets: the proposal is illegal, 601.5) and 601.2h / 118.9d (a
@@ -3645,7 +3650,7 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
 
         first_problem = None
         for value in source_qualities.candidate_x_values(plan, ch):
-            problem = free_cast_problem(plan, player, card, ch, paid=True, x=value)
+            problem = free_cast_problem(plan, player, card, ch, paid=True, x=value, kicked=kicked)
             if problem is None:
                 return None
             first_problem = first_problem or problem
@@ -3672,7 +3677,8 @@ def free_cast_problem(plan: Plan, player: str, card: CardInstance, ch: Character
             from app.rules import kicked_instead
             from app.rules.targets import group_limits
 
-            specs_all = kicked_instead.applicable(scripts.target_groups(definition if aura is None else {"target": {"what": aura}}), 0)
+            # (``kicked``: the target groups of a cast kicked that many times, 702.33g: the castability hint asks both ways)
+            specs_all = kicked_instead.applicable(scripts.target_groups(definition if aura is None else {"target": {"what": aura}}), kicked)
             for spec in specs_all:
                 lo, hi = (0, 0) if "x_value" in spec or (spec.get("divide") or {}).get("value") is not None \
                     else group_limits(spec, None)  # (X is 0: 107.3b; "up to X" may be none; wave 34D: nor a total counted as it's cast, that may be 0)

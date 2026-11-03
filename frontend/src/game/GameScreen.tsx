@@ -19,6 +19,7 @@ import { usePrefs } from "../state/prefs";
 import { toast } from "../components/Toasts";
 import { ZoneBrowser } from "./ZoneBrowser";
 import { bookmarkSlot, matchHotkey } from "./hotkeys";
+import { outKeyBlocked } from "./outOfGame";
 import { recallBookmark, saveBookmark } from "./bookmarks";
 import { ResponseBar } from "./ResponseBar";
 import { UndoRequestBar } from "./UndoRequestBar";
@@ -166,6 +167,7 @@ function useShortcuts() {
       }
       const id = matchHotkey(e, usePrefs.getState().keymap);
       if (!id) return;
+      if (outKeyBlocked(view, me, id)) return; // -- out of the game -- keys that would move it do nothing (the reason, once)
       const targets = s.selection.length ? s.selection : s.hover && view.cards[s.hover] ? [s.hover] : [];
       const w = view.response;
       if (id.startsWith("cam_")) {

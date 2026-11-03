@@ -46,6 +46,7 @@ MARK_IGNORES = {"priority", "passed", "auto_pass", "stack_seen110m",  # rules fi
 UNREAD_STEPS = frozenset({"rules_log"})
 MAX_STEPS = 400  # a safety valve: no single intent may expand into more table actions
 ARROW_TARGETS = 20  # the most objects one arrow points at (A.CreateArrow.targets)
+LOG_CARDS, LOG_TEXT = 20, 500  # the most cards and characters one rules log line holds (A.RulesLog)
 ENGINE_ARROWS = 190  # the engine's target arrows stop here (the table takes 200: handlers/marks.py; the rest is the players')
 
 
@@ -347,7 +348,16 @@ class Plan:
     def note(self, message: str, card_ids: list[str] | tuple[str, ...] = (), *, actor: str | None = None) -> None:
         from app.game.ops import shown  # (review 18F: a granter is read as its name, never its object id)
 
-        self.do({"type": "rules_log", "text": shown(self.state, message), "card_ids": list(card_ids)}, actor=actor)
+        text, ids = shown(self.state, message), list(card_ids)
+        if len(ids) > LOG_CARDS or len(text) > LOG_TEXT:
+            # -- long log lines (soak gaps4) -- a log line names at most 20 cards in 500 characters (A.RulesLog): Brand taking back 25
+            # permanents named them all and failed the whole cast. The line keeps its first 20 cards and is cut short; its face-down names
+            # are masked first against every card it is about (708.5), as the full line would have been.
+            from app.game.visibility import mask_face_down
+
+            text, ids = mask_face_down(self.state, text, refs=ids), ids[:LOG_CARDS]
+            text = text if len(text) <= LOG_TEXT else text[: LOG_TEXT - 1] + "…"
+        self.do({"type": "rules_log", "text": text, "card_ids": ids}, actor=actor)
 
     def ch(self, card: CardInstance) -> Characteristics:
         """Current characteristics: printed, then continuous effects in layer order."""
