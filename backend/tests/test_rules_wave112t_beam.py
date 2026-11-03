@@ -53,6 +53,7 @@ NAMES = [c["name"] for c in EXTRA]
 EXTRA += [
     real("Thalia, Guardian of Thraben", "{1}{W}", 2, "Legendary Creature — Human Soldier",
          "First strike\nNoncreature spells cost {1} more to cast.", ("2", "1"), "W"),
+    real("Plains", "", 0, "Basic Land — Plains", "({T}: Add {W}.)"),
 ]
 
 
@@ -260,4 +261,29 @@ def test_scotty_can_be_returned_for_a_cards_own_beam_me_up(cards):
         cost_choices=[{"component": 0, "cards": [scotty.id]}])
     answer(s)
     assert zone(s, scotty) == "p1:hand" and zone(s, theirs) == "p2:hand" and zone(s, energize) == "p1:exile"
+    check(s)
+
+
+# -- There's Coffee in that Nebula: "a Plains card or nonland permanent card with mana value 3 or less" -----------------------------
+def test_theres_coffee_in_that_nebula_offers_a_plains_or_a_small_nonland_permanent(cards):
+    s = build(cards, ["There's Coffee in that Nebula", "Plains", "Grizzly Bears", "Mulldrifter", "Lightning Bolt"])
+    top = ["Plains", "Grizzly Bears", "Mulldrifter", "Forest", "Lightning Bolt"]
+    ids = []
+    for name in top:
+        c = next(c for c in s.state.cards.values() if c.name == name and c.owner == "p1" and c.zone == "p1:library" and c.id not in ids)
+        ids.append(c.id)
+    for cid in reversed(ids):
+        act(s, "p1", type="move", card_ids=[cid], to={"player": "p1", "zone": "library"}, position="top")
+    coffee = card_named(s, "There's Coffee in that Nebula")
+    act(s, "p1", type="move", card_ids=[coffee.id], to={"zone": "hand"})
+    mana(s, W=1, C=1)
+    act(s, "p1", type="cast_spell", card_id=coffee.id)
+    d = s.state.rules.decision
+    while d is None:
+        act(s, s.state.rules.priority, type="pass_priority")
+        d = s.state.rules.decision
+    assert {o.id for o in d.options} == {ids[0], ids[1]}  # the Plains and the Bears; not Mulldrifter (5), the Forest or the instant
+    answer(s, ids[1])
+    assert zone(s, s.state.cards[ids[1]]) == "p1:hand"
+    assert set(s.state.zones["p1:library"][-4:]) == {ids[0], *ids[2:]}  # the rest on the bottom
     check(s)

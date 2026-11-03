@@ -62,6 +62,7 @@ def register(entries: tuple[str, ...], primitives: dict[str, Any], resume: dict[
 PARSE_EFFECTS: tuple[Chain, ...] = (
     Chain(  # PARSE_EFFECTS[0]
         "assimilate.parse",  # -- Star Trek mechanics (wave 112T) -- assimilate (release notes)
+        "trek112t.parse",  # -- Star Trek one-offs (wave 112T) -- All Good Things...
         "wave111r1_grants.parse",  # -- granted abilities (wave 111R1) -- a card in exile gains a quoted ability; "Create a copy of this card."
         "wave111e_trek.parse",  # -- Star Trek (wave 111E) -- exact wordings
         "wave110e_kaya.join",  # -- exact wordings (wave 110E) -- one instruction exiling two targets (wave 110E) --
@@ -1271,5 +1272,6 @@ RESOLUTION: tuple[tuple[str, ...], ...] = (
         "wave111r1_grants.RESUME",  # -- granted abilities (wave 111R1) --
         "assimilate.PRIMITIVES",  # -- Star Trek mechanics (wave 112T) --
         "assimilate.RESUME",  # -- Star Trek mechanics (wave 112T) --
+        "trek112t.PRIMITIVES",  # -- Star Trek one-offs (wave 112T) --
     ),
 )
