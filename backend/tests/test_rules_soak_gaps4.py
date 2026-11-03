@@ -71,3 +71,55 @@ def test_brand_takes_back_more_than_twenty_permanents(cards):  # noqa: F811
     line = next(e for e in reversed(s.state.log) if "gains control of" in (e.parts[0].t or ""))
     assert sum(1 for p in line.parts if p.t is None) == 20 and len(line.parts[0].t) <= 500
     check(s)
+
+
+# -- the soak bot's blocks (a bot-only limit, seed 6203) ------------------------------------------------------------------------------------
+def _bot_game(s, seed):
+    """The soak's own move loop (soak.Game.step) on this table, with this seat's bot."""
+    import hashlib
+    import random
+
+    from tools import soak
+
+    g = object.__new__(soak.Game)
+    g.session, g.seed, g.log, g.failed = s, seed, False, False
+    g.bot = soak.Bot(s, soak.CachedCards(s.cards), random.Random(seed))
+    g.report, g.rng, g.trace, g.actor, g.payload = soak.Report(), random.Random(f"undo:{seed}"), hashlib.sha256(), "", {}
+    return g
+
+
+def test_the_soak_bot_always_finds_a_block_plan_the_table_takes(cards):  # noqa: F811
+    """A Drake (flying) attacks Bob, who has 16 creatures without flying or reach: the client lets him put any blocker on it and the server
+    refuses each such plan (509.1b). The bot tried six random plans and, more often than not, gave up ("stuck", soak seed 6203: Faerie
+    Mastermind against Disa's board). Each refused plan is now smaller, and the fourth blocks with nothing."""
+    stuck = 0
+    for seed in range(12):
+        s = build(cards)
+        token(s, "p1", "Drake", "2/2", text="Flying")
+        for i in range(16):
+            token(s, "p2", f"Wall {i}", "0/3")
+        drake = next(c for c in s.state.cards.values() if c.name == "Drake")
+        for _ in range(60):  # on to Alice's next turn, where the Drake may attack
+            d = s.state.rules.decision
+            if d is not None and d.kind == "declare_attackers" and d.player == "p1" and s.state.turn.number > 1:
+                act(s, "p1", type="declare_attackers", attackers=[{"card_id": drake.id, "target": "p2"}])
+                break
+            if d is not None and d.kind == "declare_attackers":
+                act(s, d.player, type="declare_attackers", attackers=[])
+            elif d is not None and d.kind == "declare_blockers":
+                act(s, d.player, type="declare_blockers", blocks=[])
+            elif d is not None:
+                act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
+            else:
+                act(s, s.state.rules.priority, type="pass_priority")
+        for _ in range(10):  # to Bob's blockers
+            d = s.state.rules.decision
+            if d is not None and d.kind == "declare_blockers":
+                break
+            act(s, s.state.rules.priority, type="pass_priority")
+        assert s.state.rules.decision is not None and s.state.rules.decision.kind == "declare_blockers"
+        g = _bot_game(s, seed)
+        stuck += not g.step()
+        assert not g.report.problems
+    assert stuck == 0
+    check(s)
