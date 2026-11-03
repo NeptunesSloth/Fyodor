@@ -42,6 +42,8 @@ export interface Prefs {
   choiceWheel: boolean;
   /** How my own hand is laid out (display only: the hand itself never changes order on the server). */
   handSort: HandSort;
+  /** The 2D table's boards: arranged in rows like MTG Arena (this screen only), or free placement as the server keeps them. */
+  boardLayout: "arranged" | "free";
   /** 3D: gently turn the camera toward major public events: the important ones, or all of them (table3d/autoCenter.ts). */
   autoCenter: "off" | "important" | "on";
   showTokenSources: boolean;
@@ -88,6 +90,7 @@ export const DEFAULT_PREFS: Prefs = {
   turnAlert: true,
   choiceWheel: true,
   handSort: "drawn",
+  boardLayout: "arranged",
   autoCenter: "off",
   showTokenSources: false,
   cardPhysics: true,

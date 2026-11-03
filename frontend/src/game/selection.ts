@@ -6,6 +6,7 @@ import { isVisible, type GameCard } from "../types/game";
 import { send } from "./actions";
 import { toast } from "../components/Toasts";
 import { tidyLandMoves, type LandFacts } from "./tidy";
+import { usePrefs } from "../state/prefs";
 
 export function typeLine(c: GameCard): string {
   if (!isVisible(c)) return "";
@@ -104,9 +105,19 @@ export function tidyMyLands(): void {
   void send({ type: "set_position", moves });
 }
 
+/** The 2D boards' layout on this screen: arranged in rows (game/arrange.ts) or free placement, as the server keeps them. */
+export function boardLayoutItem(): MenuItem {
+  const prefs = usePrefs.getState();
+  const free = prefs.boardLayout === "free";
+  return free
+    ? { label: "Arrange the boards in rows", hint: "on this screen only", onClick: () => prefs.set({ boardLayout: "arranged" }) }
+    : { label: "Free placement", hint: "cards stay where they're put", onClick: () => prefs.set({ boardLayout: "free" }) };
+}
+
 /** Right-click on empty table: the table's own actions (Tabletop Simulator style). */
 export function tableMenu(): MenuItem[] {
   return [
+    boardLayoutItem(),
     { label: "Tidy my lands", hint: "pile identical lands by your edge · Undo puts them back", onClick: tidyMyLands },
     selectMenu(),
     cleanupMenu(),

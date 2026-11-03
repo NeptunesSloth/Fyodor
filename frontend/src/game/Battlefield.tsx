@@ -8,6 +8,11 @@ import { openMenu } from "../components/ContextMenu";
 import { tableMenu } from "./selection";
 import { zonePileTops } from "./piles";
 import { useCardCache } from "../state/cardCache";
+import { usePrefs } from "../state/prefs";
+import { isVisible } from "../types/game";
+import { applyOrder, arrangeBoard, arrangeCard, boardOrder, type BoardLayout } from "./arrange";
+import { publishBoard, useBoardOrderTick } from "./arrangeDrop";
+import "./board.css";
 
 interface Props {
   player: string;
@@ -16,7 +21,13 @@ interface Props {
   color: string;
 }
 
-/** A player's free-form battlefield. Positions are virtual units scaled to the element size. */
+/** The hand overlaps the bottom of my mat by this much (px): the arranged board keeps its back row clear of it. */
+export const HAND_OVERLAP = 22;
+
+/**
+ * A player's battlefield. Arranged (the default, this screen only): rows like MTG Arena's (game/arrange.ts). Free
+ * placement: positions are virtual units scaled to the element size, as the server keeps them.
+ */
 export function Battlefield({ player, me, mirrored, color }: Props) {
   const playmat = usePlaymat(player);
   const key = `${player}:battlefield`;
@@ -40,9 +51,31 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
 
   const typeData = useCardCache((s) => s.cards); // type lines arrive after the first render
   const view = useGame((s) => s.view);
-  const piles = useMemo(() => (view ? zonePileTops(view, key) : new Map<string, number>()), [view, key, typeData]);
-  const cardW = battlefieldCardWidth(size.w, size.h, true);
-  const cardH = cardW * CARD_RATIO;
+  const arranged = usePrefs((s) => s.boardLayout) !== "free";
+  useBoardBodyClass(arranged);
+  const mine = player === me;
+  const keepOut = useTurnDialCorner(ref, arranged && mine);
+  const orderTick = useBoardOrderTick((s) => s.n);
+  const facts = useMemo(() => {
+    if (!arranged || !view) return null;
+    const stats = view.rules?.stats;
+    return applyOrder(ids, boardOrder(view.game.id, key)).flatMap((id) => {
+      const c = view.cards[id];
+      if (!c) return [];
+      return [arrangeCard(c, isVisible(c) && c.card_id ? typeData[c.card_id] : undefined, stats?.[id])];
+    });
+    // orderTick: my order changed (it lives in session storage)
+  }, [arranged, view, ids, key, typeData, orderTick]);
+  // most updates change nothing on most boards: lay a board out again only when what it shows changed
+  const sig = facts ? facts.map((f) => `${f.id}|${f.row}|${f.key ?? ""}|${f.n}|${f.turned ? 1 : 0}|${f.forward ? 1 : 0}|${f.host ?? ""}`).join("\n") : "";
+  const layout = useMemo<BoardLayout | null>(
+    () => (facts ? arrangeBoard(facts, { width: size.w, height: size.h, mirrored, backInset: mine ? HAND_OVERLAP : 0, keepOut, maxW: 150, minW: 60 }) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `sig` stands for `facts`
+    [sig, size.w, size.h, mirrored, mine, keepOut]);
+  useEffect(() => publishBoard(key, layout, size.w, size.h, mirrored), [key, layout, size.w, size.h, mirrored]);
+  const piles = useMemo(() => (view && !arranged ? zonePileTops(view, key) : new Map<string, number>()), [view, key, typeData, arranged]);
+  const cardW = layout ? layout.w : battlefieldCardWidth(size.w, size.h, true);
+  const cardH = layout ? layout.h : cardW * CARD_RATIO;
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0 || e.target !== e.currentTarget) return;
@@ -65,8 +98,10 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
       const maxY = Math.max(current.y0, current.y1);
       if (maxX - minX < 4 && maxY - minY < 4) return;
       const hit = ids.filter((id) => {
+        const at = layout?.place.get(id);
+        if (at) return at.left < maxX && at.left + cardW > minX && at.top < maxY && at.top + cardH > minY;
         const c = cards?.[id];
-        if (!c || c.x == null || c.y == null) return false;
+        if (layout || !c || c.x == null || c.y == null) return false;
         const [px, py] = toPixels(c.x, c.y, size.w, size.h, cardH, mirrored);
         return px < maxX && px + cardW > minX && py < maxY && py + cardH > minY;
       });
@@ -79,8 +114,9 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
   return (
     <div
       ref={ref}
-      className={`battlefield ${mirrored ? "mirrored" : ""} ${over ? "drop-over" : ""}`}
-      style={{ ["--player-color" as string]: color }}
+      className={`battlefield ${mirrored ? "mirrored" : ""} ${over ? "drop-over" : ""} ${layout ? "arranged" : ""} ${layout && layout.w < 44 ? "tiny" : ""}`}
+      // --tw: the arranged board's tile width, which sizes the tiles' name bars, plates and chips (board.css)
+      style={{ ["--player-color" as string]: color, ...(layout ? { ["--tw" as string]: `${layout.w.toFixed(1)}px` } : {}) }}
       data-drop={key}
       data-battlefield=""
       data-cardh={cardH}
@@ -95,7 +131,13 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
       {playmat.url && (
         <div className={`playmat-layer ${playmat.mat?.show_zones ? "" : "bare"}`} style={playmatStyle(playmat.mat, playmat.url)} aria-hidden />
       )}
-      {ids.map((id, i) => {
+      {layout && <MatBands layout={layout} />}
+      {layout && ids.map((id) => {
+        const at = layout.place.get(id);
+        if (!at) return null;
+        return <TableCard key={id} id={id} left={Math.round(at.left)} top={Math.round(at.top)} width={layout.w} me={me} z={at.z} pile={at.pile} tile />;
+      })}
+      {!layout && ids.map((id, i) => {
         const c = cards?.[id];
         if (!c) return null;
         const [vx, vy] = pending[id] ?? [c.x ?? 0, c.y ?? 0];
@@ -119,4 +161,69 @@ export function Battlefield({ player, me, mirrored, color }: Props) {
       )}
     </div>
   );
+}
+
+/** The land strip at the mat's back edge, printed on the felt like a playmat's zone (only where there are lands). */
+function MatBands({ layout }: { layout: BoardLayout }) {
+  const lands = layout.rows.find((r) => r.kind === "land");
+  if (!lands) return null;
+  const pad = layout.w * 0.12;
+  return <div className="mat-band" aria-hidden style={{ top: lands.top - pad, height: lands.height + pad * 2 }} />;
+}
+
+/**
+ * The turn dial sits over the bottom right of my mat: the corner it covers (px, in the mat's own coordinates), so the
+ * arranged rows stop short of it. It keeps the tallest the dial has been, so the board doesn't reflow every step.
+ */
+function useTurnDialCorner(ref: React.RefObject<HTMLDivElement | null>, on: boolean): { top: number; left: number } | null {
+  const [corner, setCorner] = useState<{ top: number; left: number } | null>(null);
+  useEffect(() => {
+    if (!on) {
+      setCorner(null);
+      return;
+    }
+    let tallest = Infinity;
+    let raf = 0;
+    const measure = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const el = ref.current;
+        const dial = document.querySelector(".turn-dial-wrap");
+        if (!el || !dial) return setCorner(null);
+        const m = el.getBoundingClientRect();
+        const d = dial.getBoundingClientRect();
+        if (d.width === 0 || d.left >= m.right || d.top >= m.bottom || d.right <= m.left) return setCorner(null);
+        tallest = Math.min(tallest, Math.round(d.top - m.top));
+        const next = { top: Math.max(0, tallest), left: Math.round(d.left - m.left) };
+        setCorner((c) => (c && c.top === next.top && c.left === next.left ? c : next));
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(() => { tallest = Infinity; measure(); });
+    if (ref.current) ro.observe(ref.current);
+    const dialRo = new ResizeObserver(measure);
+    const watch = () => { const d = document.querySelector(".turn-dial-wrap"); if (d) dialRo.observe(d); };
+    watch();
+    const mo = new MutationObserver(() => { watch(); measure(); });
+    const screen = document.querySelector(".game-screen");
+    if (screen) mo.observe(screen, { childList: true });
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); dialRo.disconnect(); mo.disconnect(); };
+  }, [on, ref]);
+  return corner;
+}
+
+/** body.board-2d while 2D boards are on screen (the hand's height for the HUD), body.board-arranged when they're arranged. */
+let boardsOnScreen = 0;
+function useBoardBodyClass(arranged: boolean): void {
+  useEffect(() => {
+    boardsOnScreen++;
+    document.body.classList.add("board-2d");
+    return () => {
+      if (--boardsOnScreen > 0) return;
+      document.body.classList.remove("board-2d", "board-arranged");
+    };
+  }, []);
+  useEffect(() => {
+    document.body.classList.toggle("board-arranged", arranged);
+  }, [arranged]);
 }

@@ -54,7 +54,10 @@ export function zonePileTops(view: GameView, zone: string): Map<string, number> 
  * ("Goblin ×10": one card the server counts as `quantity` tokens, see game/tokenStacks.ts). Null: nothing to count.
  */
 export function countMark(card: GameCard | undefined, pile?: number): { n: number; title: string; testId: string } | null {
-  if (pile) return { n: pile, title: `${pile} identical lands in this pile`, testId: "pile-count" };
+  if (pile) {
+    const what = card && isVisible(card) && card.is_token ? `${card.name} tokens in this stack` : "identical lands in this pile";
+    return { n: pile, title: `${pile} ${what}`, testId: "pile-count" };
+  }
   const n = card?.quantity ?? 1;
   if (n <= 1) return null;
   const what = card && isVisible(card) ? `${card.name} tokens` : "tokens";
