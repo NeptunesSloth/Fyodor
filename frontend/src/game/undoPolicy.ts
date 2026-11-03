@@ -1,4 +1,5 @@
 import type { GameView, UndoPolicy } from "../types/game";
+import { outReason } from "./outOfGame";
 
 /**
  * The host's undo setting (server: app/game/undo_rights.py, which decides; this only dims the controls and explains).
@@ -28,6 +29,8 @@ export function undoActor(view: GameView, actingAs: string | null): string | nul
 export function undoRefusal(view: GameView, actor: string | null, op: UndoOp = "undo", by?: string | null): string | null {
   const g = view.game;
   if (!actor) return `Spectators can't ${op}.`;
+  const out = historyOut(view, actor);
+  if (out) return out;
   const policy = g.settings.undo_policy ?? "everyone";
   if (policy === "host" && !g.undo_host) return `Only the host may ${op} at this table (the host's undo setting).`;
   if (policy !== "own") return null;
@@ -36,6 +39,14 @@ export function undoRefusal(view: GameView, actor: string | null, op: UndoOp = "
   const name = view.players.find((p) => p.id === owner)?.name;
   const which = op === "undo" ? "the last action" : "the next action to redo";
   return `Players may only ${op} their own actions at this table: ${which} was ${name ? `${name}'s` : "another player's"}.`;
+}
+
+/**
+ * -- out of the game (gaps5) -- a player who conceded or lost doesn't take the live game's actions back (server:
+ * app/game/out_of_game.py history_refusal, in the same words); the host still does, so a mistaken concession can be taken back.
+ */
+function historyOut(view: GameView, actor: string | null): string | null {
+  return view.game.undo_host ? null : outReason(view, actor);
 }
 
 /**
@@ -57,6 +68,8 @@ export function undoMode(view: GameView, actor: string | null): UndoMode {
   if (pending) {
     return { kind: "waiting", why: pending.by === actor ? "Your undo request is waiting for the table." : `${pending.by_name}'s undo request is waiting for the table.` };
   }
+  const out = historyOut(view, actor);
+  if (out) return { kind: "refused", why: out }; // (not "ask": a player who is out can't ask the table either)
   if (g.undo_ask) return { kind: "ask", why: g.undo_ask };
   const refused = undoRefusal(view, actor, "undo");
   return refused ? { kind: "refused", why: refused } : { kind: "direct" };

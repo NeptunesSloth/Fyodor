@@ -37,6 +37,15 @@ describe("undoMode", () => {
     const own = { settings: { undo_policy: "own" }, undo_by: "p1" };
     expect(undoMode(view(own), "p2").kind).toBe("refused");
   });
+  it("a player who is out is refused, not asked to ask the table (the host still undoes)", () => {
+    const out = (game: Record<string, unknown>) => view(game, { rules: { conceded: ["p2"], lost: {} } });
+    const why = "You're out of this game (you conceded): you can watch and chat, but not move the game.";
+    expect(undoMode(out({ undo_ask: DRAW }), "p2")).toEqual({ kind: "refused", why });
+    expect(undoMode(out({}), "p2")).toEqual({ kind: "refused", why });
+    expect(undoMode(out({ undo_ask: DRAW, undo_host: true }), "p2")).toEqual({ kind: "ask", why: DRAW });
+    expect(undoMode(out({ undo_host: true }), "p2")).toEqual({ kind: "direct" });
+    expect(undoMode(out({ undo_request: request({ by: "p1", by_name: "Alice" }) }), "p2").kind).toBe("waiting"); // what the table waits for still shows
+  });
   it("waits while a request is on the table", () => {
     expect(undoMode(view({ undo_request: request() }), "p2")).toEqual({ kind: "waiting", why: "Your undo request is waiting for the table." });
     expect(undoMode(view({ undo_request: request(), undo_ask: DRAW }), "p1")).toEqual({ kind: "waiting", why: "Bob's undo request is waiting for the table." });

@@ -48,3 +48,21 @@ describe("undoRefusal", () => {
     expect(undoRefusal(view(), null)).toBe("Spectators can't undo.");
   });
 });
+
+describe("undoRefusal for a player who is out of the game (app/game/out_of_game.py history_refusal)", () => {
+  const OUT = "You're out of this game (you conceded): you can watch and chat, but not move the game.";
+  const out = (game: Record<string, unknown> = {}, viewer = "p2") =>
+    view(game, { viewer, rules: { conceded: ["p2"], lost: { p3: "0 or less life" } } });
+  it("refuses their undo and redo with the server's words, under every setting", () => {
+    expect(undoRefusal(out(), "p2")).toBe(OUT);
+    expect(undoRefusal(out(), "p2", "redo")).toBe(OUT);
+    expect(undoRefusal(out({ settings: { undo_policy: "own" }, undo_by: "p2" }), "p2", "undo", "p2")).toBe(OUT); // even their own action
+    expect(undoRefusal(out({}, "p3"), "p3")).toBe(OUT.replace("conceded", "lost"));
+  });
+  it("lets the host take a concession back, and the players still in undo as before", () => {
+    expect(undoRefusal(out({ undo_host: true }), "p2")).toBeNull();
+    expect(undoRefusal(out({ undo_host: true }), "p2", "redo")).toBeNull();
+    expect(undoRefusal(out({}, "p1"), "p1")).toBeNull();
+    expect(undoRefusal(out({ mode: "local", undo_host: true }, "__omniscient__"), "p2")).toBeNull(); // a hot-seat table: everyone is at the host computer
+  });
+});

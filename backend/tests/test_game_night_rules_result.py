@@ -117,7 +117,9 @@ def test_undoing_the_deciding_action_withdraws_the_proposal_and_redo_reopens_it(
     kill_bob(client, gid, alice, bob)
     assert view(client, gid, alice)["game"]["night"]["proposal"]["rules"]
     answer(client, gid, alice, True)  # a confirmation is forgotten with the proposal
-    assert client.post(f"/api/games/{gid}/undo", json={}, headers=h(bob)).status_code == 200
+    # (Bob is out of the game: his own undo is refused, the host's takes the loss back: tests/test_out_of_game_actions.py)
+    assert client.post(f"/api/games/{gid}/undo", json={}, headers=h(bob)).status_code == 409
+    assert client.post(f"/api/games/{gid}/undo", json={}, headers=h(alice)).status_code == 200
     v = view(client, gid, alice)
     assert v["rules"]["winner"] is None and v["game"]["night"]["proposal"] is None
     assert "the rules result is withdrawn" in str(v["log"])
@@ -125,7 +127,7 @@ def test_undoing_the_deciding_action_withdraws_the_proposal_and_redo_reopens_it(
     p = view(client, gid, alice)["game"]["night"]["proposal"]
     assert p["rules"] and p["voters"] == ["p1", "p2"] and p["agreed"] == []
     # a player's own proposal that a later undo touches stays: only the rules result is withdrawn
-    client.post(f"/api/games/{gid}/undo", json={}, headers=h(bob))
+    client.post(f"/api/games/{gid}/undo", json={}, headers=h(alice))
     client.post(f"/api/games/{gid}/night/propose", json={"result_type": "draw"}, headers=h(alice))
     action(client, gid, alice, {"type": "set_life", "player": "p1", "value": 39})
     assert view(client, gid, bob)["game"]["night"]["proposal"]["result_type"] == "draw"
@@ -158,8 +160,8 @@ def test_a_decline_leaves_it_to_the_pod_and_manual_end_game_still_works(lan):
     night = view(client, gid, alice)["game"]["night"]
     assert night["result"]["agreed"] is False and night["result"]["rules"] is False
     # undo after a recorded result changes nothing about it
-    client.post(f"/api/games/{gid}/undo", json={}, headers=h(bob))
-    client.post(f"/api/games/{gid}/undo", json={}, headers=h(bob))
+    client.post(f"/api/games/{gid}/undo", json={}, headers=h(alice))
+    client.post(f"/api/games/{gid}/undo", json={}, headers=h(alice))
     assert view(client, gid, alice)["game"]["night"]["result"]["winners"] == ["p1"]
 
 
