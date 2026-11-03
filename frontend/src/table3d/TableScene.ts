@@ -28,6 +28,8 @@ import type { PingTarget } from "../services/night";
 import { dropCards } from "../game/drop";
 import { pickClick } from "../game/Overlays";
 import { answerByClick, legalClass } from "../game/rules/RulesHud";
+import { targetBeams } from "../game/targeting/beams";
+import { useTargeting } from "../game/targeting/store";
 import { libraryMenu, pileMenu, PILE_LABEL } from "../game/ZonePile";
 import type { PlaneTheme } from "../theme/planes";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -72,6 +74,9 @@ const LIFT = 0.55;
 const FLICK_SPEED = 4.5;
 
 export interface ScreenRect { id: string; left: number; top: number; right: number; bottom: number }
+
+/** -- targeting -- the arrow's start when the source is the spell in my hand (on the screen, not the table). */
+const MY_HAND = "\u0000my-hand";
 
 interface CardObj {
   id: string;
@@ -243,6 +248,8 @@ export class TableScene {
   private hitMat = new THREE.MeshBasicMaterial({ visible: false });
   private textures = new Map<string, THREE.Texture>();
   private materials = new Map<string, THREE.MeshStandardMaterial>();
+  /** -- targeting -- a face material darkened for a card that isn't a choice (sharing its texture). */
+  private dimMats = new Map<THREE.MeshStandardMaterial, THREE.MeshStandardMaterial>();
   private loader = new THREE.TextureLoader();
   private failed = new Set<string>();
   private unsubs: (() => void)[] = [];
@@ -268,6 +275,8 @@ export class TableScene {
   private shadows: THREE.InstancedMesh;
   private shadowTex = contactShadowTexture();
   private arrowKey = "";
+  /** -- targeting -- the source, hovered and chosen candidates while I choose targets (game/targeting/beams.ts). */
+  private beams: ReturnType<typeof targetBeams> = null;
   /** Attachment lines (game/attachments.ts): shown while either end is hovered or selected. */
   private tethers = new THREE.Group();
   private tetherKey = "";
@@ -313,6 +322,7 @@ export class TableScene {
     this.dice = new DiceTray({ look: usePrefs.getState().diceLook, envMap: this.envMap, shadows: quality !== "low", segments: quality === "low" ? 3 : 4 });
     this.diceHud = new DiceHud(container, (key) => this.dice.dismiss(key));
     this.unsubs.push(usePrefs.subscribe((s) => this.dice.setLook(s.diceLook)), prewarmDice());
+    this.unsubs.push(useTargeting.subscribe(() => this.syncCards())); // a candidate hovered in the tray, or chosen
     // a card body with a hair of bevel so its edge catches the light
     const bevel = 0.004;
     const body = new THREE.ExtrudeGeometry(roundedRect(CARD_W - bevel * 2, CARD_H - bevel * 2, 0.045), {
@@ -603,6 +613,7 @@ export class TableScene {
     this.cards.clear();
     for (const t of this.textures.values()) t.dispose();
     for (const m of this.materials.values()) m.dispose();
+    for (const m of this.dimMats.values()) m.dispose();
     this.bodies.dispose();
     this.shadows.geometry.dispose();
     (this.shadows.material as THREE.Material).dispose();
@@ -833,6 +844,7 @@ export class TableScene {
     const store = useGame.getState();
     const selection = new Set(store.selection);
     this.selectedIds = selection;
+    this.beams = targetBeams(view, this.me);
     const pending = store.pendingPositions;
     const need: string[] = [];
     const show = (id: string): CardObj | null => {
@@ -861,14 +873,20 @@ export class TableScene {
         const pos = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
         const [lx, lz] = virtualToLocal(pos[0], pos[1]);
         const tapped = (card.tapped ? -Math.PI / 2 : 0) + (card.flipped ? Math.PI : 0) - ((card.rotation ?? 0) * Math.PI) / 180;
-        this.place(c, seat, lx, lz, 0.004 + i * 0.0035, tapped);
+        // -- targeting -- the choices lift off the felt (the one pointed at or chosen more), the rest darkens
+        const tb = this.beams;
+        const lift = tb?.cands.has(id) ? (tb.targets.includes(id) ? 0.16 : 0.06) : 0;
+        this.place(c, seat, lx, lz, 0.004 + i * 0.0035 + lift, tapped);
+        const face = this.faceMaterial(card, c.faceKey);
+        const want = tb && !tb.cands.has(id) && id !== tb.source ? this.dimmed(face) : face;
+        if (c.face.material !== want) c.face.material = want;
         c.tilt = 0;
         const overlay = overlayFor(card, view.rules?.stats?.[id]);
         const pile = countMark(card, piles.get(id))?.n; // ×N: the land pile it tops, or the token stack it is
         const ownerP = card.owner !== card.controller ? view.players.find((p) => p.id === card.owner) : undefined;
         const owner = ownerP ? { initial: ownerP.name.slice(0, 1).toUpperCase(), color: ownerP.color } : undefined;
         this.setOverlay(c, pile || owner ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}) } : overlay);
-        this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
+        this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), selection.has(id) || tb?.cands.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
       });
       // piles
       for (const zone of ["library", "graveyard", "exile"] as const) {
@@ -1054,6 +1072,12 @@ export class TableScene {
     const at = (id: string, from?: THREE.Vector3): THREE.Vector3 | null => {
       const c = this.cards.get(id);
       if (c) return c.target.clone().setY(c.target.y + 0.05);
+      if (id === MY_HAND) { // my hand's edge of the table (the hand itself is on the screen, not the table)
+        const mine = this.seatList.find((s) => s.player === this.me);
+        if (!mine) return null;
+        const [hx, hz] = toWorld(mine, 0, MAT_D / 2 + 0.5);
+        return new THREE.Vector3(hx, 0.35, hz);
+      }
       const seat = this.seatList.find((s) => s.player === id);
       if (!seat) return null;
       // a player: their plaque (as Arena lands on the avatar), spread a little so several
@@ -1086,6 +1110,9 @@ export class TableScene {
       if (c.attacking && c.attacking.kind !== "player") add(c.id, c.attacking.id, ATTACK_RED, true);
       if (c.blocking) for (const t of [c.blocking, ...(c.blocking_more ?? [])]) add(c.id, t, "#5fa8ff", true);
     }
+    // -- targeting -- from the source (or my hand, where the spell is) to the hovered and the chosen candidates, in brass
+    const beams = this.beams;
+    if (beams) for (const t of beams.targets) add(beams.source && this.cards.has(beams.source) ? beams.source : MY_HAND, t, this.plane.ui.accent2);
     for (const ar of view.arrows ?? []) {
       const color = ar.kind === "attack" ? ATTACK_RED : ar.kind === "block" ? "#5fa8ff" : ar.kind === "target" ? this.plane.ui.select : this.plane.ui.accent;
       for (const t of ar.targets) add(ar.source, t, color);
@@ -1157,9 +1184,20 @@ export class TableScene {
     }
   }
 
+  private dimmed(m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
+    let d = this.dimMats.get(m);
+    if (!d) {
+      d = m.clone();
+      d.color.setScalar(0.26);
+      this.dimMats.set(m, d);
+    }
+    return d;
+  }
+
   private legalColor(view: GameView, id: string): string | null {
     const cls = legalClass(view, id, this.me);
-    if (cls === "rules-target") return this.plane.ui.select;
+    // a legal choice glows brass; the one pointed at and the chosen ones brighter
+    if (cls === "rules-target") return this.beams?.targets.includes(id) ? this.plane.ui.accent2 : this.plane.ui.frameHi;
     if (cls === "rules-playable" || cls === "rules-activatable") return this.plane.ui.accent;
     return null;
   }
@@ -1316,6 +1354,7 @@ export class TableScene {
     if (id) s.setHover(id);
     else if (s.hover && this.cards.has(s.hover)) s.setHover(null);
     this.syncTethers();
+    if (this.beams) this.syncCards(); // -- targeting -- the arrow follows the pointer from candidate to candidate
     this.canvas.style.cursor = id ? "pointer" : "";
   }
 
@@ -1336,6 +1375,7 @@ export class TableScene {
     }
     const hit = this.pick(e.clientX, e.clientY);
     const store = useGame.getState();
+    if (hit?.heart && answerByClick(store.view, hit.heart, this.me)) return; // -- targeting -- a targetable player's heart chooses them
     if (hit?.heart) {
       this.lifeBatch.bump(hit.heart, (hit.side ?? 1) * (e.shiftKey ? 5 : 1)); // ▼ −1, ▲ +1
       return;

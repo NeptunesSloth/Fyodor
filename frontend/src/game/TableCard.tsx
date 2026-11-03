@@ -10,6 +10,7 @@ import { cardMenu } from "./cardMenu";
 import { beginPointerDrag } from "./dnd";
 import { CounterBadges, GameCardFace } from "./GameCardFace";
 import { answerByClick, legalClass } from "./rules/RulesHud";
+import { TargetMark } from "./targeting/TargetMark";
 import { Icon } from "../components/Icon";
 import { countMark } from "./piles";
 import { BoardTile, packStats } from "./BoardTile";
@@ -88,6 +89,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
       onPointerLeave={() => useGame.getState().hover === id && useGame.getState().setHover(null)}
     >
       {tile ? <BoardTile card={card} stats={visible ? packStats(stats) : ""} /> : <GameCardFace card={card} />}
+      {legal === "rules-target" && <TargetMark id={id} />}
       {count && <span className="pile-count-mark" data-testid={count.testId} title={count.title}>×{count.n}</span>}
       <div className="card-marks">
         {visible && card.is_token && !card.copy_of && <span className="mark token">TOKEN</span>}

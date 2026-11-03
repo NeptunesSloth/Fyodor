@@ -1,0 +1,207 @@
+/* Targeting (game/targeting/): the board is the picker. A slim brass-edged bar over the hand says what the choice is for and
+   what to choose, with a tray of the candidates; on the table the candidates lift in a brass ring and the rest dims.
+   Motion: only opacity and translate. The rings pulse a few times as the choice opens (to draw the eye), then glow
+   steadily: an always-on animation on every candidate cost each table update a frame on software renderers.
+   None under reduced motion or low graphics. */
+
+/* ---------- the bar ---------- */
+.tgt-bar {
+  position: fixed; z-index: 60; bottom: 10px; left: 50%; transform: translateX(-50%);
+  width: min(980px, calc(100vw - 32px));
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: start;
+  padding: 10px 12px 7px 12px; color: var(--text);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 40px), var(--hud-surface);
+  border: 1px solid var(--frame); border-top-color: var(--frame-hi); border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 0 0 2px var(--frame-inner), 0 14px 34px rgba(0, 0, 0, 0.62);
+}
+/* between my rail's buttons (bottom left) and the log (bottom right), centred in that span */
+@media (min-width: 1000px) {
+  .tgt-bar { left: 288px; right: 156px; width: auto; max-width: 1180px; margin: 0 auto; transform: none; }
+  /* the 3D table's turn dial sits low on the right: the bar stops short of it */
+  .game-screen:has(main.table.is-3d) .tgt-bar { right: 322px; }
+}
+/* cards in my hand are among the choices: the bar steps up so the hand stays in sight */
+.tgt-bar[data-dock="above-hand"] { bottom: calc(var(--hand-h, 158px) + 8px); }
+
+/* the spell or permanent the choice is for, held up like a card being played */
+.tgt-source {
+  width: 64px; margin: 2px 0 0 2px; rotate: -3deg; transform-origin: 50% 90%;
+  border-radius: 5%; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+.tgt-source-none {
+  display: grid; aspect-ratio: 63 / 88; border-radius: 5%;
+  border: 1px solid color-mix(in srgb, var(--frame) 60%, transparent); background: rgba(0, 0, 0, 0.3);
+}
+.tgt-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.tgt-head { display: flex; align-items: center; gap: 12px; min-height: 34px; }
+.tgt-words { margin: 0; display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; line-height: 1.2; }
+.tgt-name {
+  font: 600 12.5px/1.3 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tgt-what { font: 600 16px/1.3 var(--font-ui); color: var(--room-bone); text-wrap: balance; }
+.tgt-count {
+  flex: none; padding: 2px 9px; border-radius: 999px; font: 600 12px/1.5 var(--font-ui); font-variant-numeric: tabular-nums;
+  color: var(--accent-2); border: 1px solid color-mix(in srgb, var(--frame) 70%, transparent); background: rgba(0, 0, 0, 0.3);
+}
+.tgt-actions { flex: none; display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.tgt-actions .tt-btn { min-height: 30px; padding: 3px 12px; }
+.tgt-actions .tt-btn.ghost { border-color: transparent; background: transparent; color: var(--room-bone-dim, var(--text-dim)); }
+.tgt-actions .tt-btn.ghost:hover { color: var(--room-bone); border-color: var(--line-2); }
+.tgt-cancel kbd { margin-left: 4px; padding: 0 5px; font-size: 10.5px; line-height: 16px; color: var(--text-dim); background: rgba(0, 0, 0, 0.35); }
+.tgt-done { min-width: 96px; font-weight: 650; }
+
+/* ---------- the tray: every candidate by seat, art first ---------- */
+.tgt-tray {
+  display: flex; align-items: flex-start; gap: 12px; overflow-x: auto; overflow-y: hidden; overscroll-behavior: contain;
+  padding: 3px 2px 4px; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--frame) 55%, transparent) transparent;
+}
+/* a long tray: smaller thumbnails, and a fade at the edge it scrolls on past */
+.tgt-tray[data-dense] .tgt-thumb { width: 60px; }
+.tgt-tray[data-dense] .tgt-art { width: 60px; height: 43px; }
+.tgt-tray[data-dense] .tgt-fan > .tgt-thumb + .tgt-thumb { margin-left: -46px; }
+.tgt-tray[data-more="end"] { mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+.tgt-tray[data-more="start"] { mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
+.tgt-tray[data-more="both"] { mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
+.tgt-seat { flex: none; display: flex; align-items: flex-start; gap: 6px; padding-left: 8px; border-left: 2px solid var(--player-color, var(--line-2)); }
+.tgt-chip {
+  flex: none; width: 20px; height: 20px; margin-top: 13px; border-radius: 50%; display: grid; place-items: center;
+  font: 600 11px/1 var(--font-display); color: var(--room-bone);
+  background: color-mix(in srgb, var(--player-color, #777) 32%, #101113); box-shadow: 0 0 0 1.5px var(--player-color, #777);
+}
+.tgt-thumb {
+  flex: none; width: 70px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer;
+  display: flex; flex-direction: column; align-items: stretch; gap: 2px; text-align: left; font: inherit;
+  border-radius: 5px;
+}
+.tgt-art {
+  position: relative; display: block; width: 70px; height: 50px; overflow: hidden; border-radius: 4px;
+  background: radial-gradient(ellipse 80% 70% at 35% 25%, color-mix(in srgb, var(--felt-2, #24413a) 75%, black), #0d1110);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.7), 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+/* the card's art window fills the frame (as the lobby's commander art): about 9–91% across, 12–54.5% down the card */
+.tgt-art > .card-face, .tgt-art > .face-down-known {
+  position: absolute; left: -10.98%; width: 121.95%; border-radius: 0;
+  margin-top: calc(-20.4% - (72.22% - 100% / 1.4) / 2); /* (the art frames are 7:5) */
+}
+.tgt-thumb[data-tapped] .tgt-art::after { content: ""; position: absolute; inset: 0; background: rgba(8, 9, 10, 0.42); }
+.tgt-tapped {
+  position: absolute; z-index: 1; left: 3px; bottom: 2px; font: 700 13px/1 var(--font-ui); color: var(--room-bone);
+  text-shadow: 0 1px 2px #000;
+}
+.tgt-pt {
+  position: absolute; z-index: 1; right: 2px; bottom: 2px; padding: 0 4px; border-radius: 3px;
+  font: 700 11px/15px var(--font-ui); font-variant-numeric: tabular-nums; color: #1f1a15; background: #f3ecdc;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.65);
+}
+.tgt-pt.up { color: #1f5f2c; }
+.tgt-pt.down { color: #8b1f17; }
+.tgt-life::before { content: "♥ "; color: #9b2a22; }
+.tgt-player {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font: 600 22px/1 var(--font-display); color: var(--room-bone);
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--player-color, #777) 55%, #15171a), #0d0e10 75%);
+}
+.tgt-n, .tgt-mark-n {
+  position: absolute; z-index: 2; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  font: 700 11.5px/1 var(--font-ui); color: #1f1a15;
+  background: radial-gradient(circle at 35% 30%, var(--accent-2), var(--frame-hi) 55%, var(--frame));
+  box-shadow: 0 0 0 1.5px rgba(14, 10, 6, 0.9), 0 2px 5px rgba(0, 0, 0, 0.6);
+}
+.tgt-n { left: 3px; top: 3px; }
+.tgt-label {
+  padding: 0 1px; font: 500 11px/1.25 var(--font-ui); color: var(--room-bone);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tgt-note {
+  padding: 0 1px; margin-top: -2px; font: 500 10.5px/1.25 var(--font-ui); color: var(--accent-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* alike candidates: a fanned pile, a sliver of each and the top one whole (each sliver is still its own choice) */
+.tgt-fan { flex: none; display: flex; align-items: flex-start; }
+.tgt-fan > .tgt-thumb { position: relative; }
+.tgt-fan > .tgt-thumb + .tgt-thumb { margin-left: -52px; }
+.tgt-fan > .tgt-thumb + .tgt-thumb .tgt-art { box-shadow: -3px 0 5px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.7); }
+.tgt-fan > .tgt-thumb:not(:last-child) :is(.tgt-label, .tgt-note, .tgt-pt) { visibility: hidden; }
+.tgt-fan > .tgt-thumb:is(:hover, :focus-visible) { z-index: 2; }
+.tgt-fan > .tgt-thumb:is(:hover, :focus-visible) .tgt-pt { visibility: visible; }
+.tgt-twins {
+  position: absolute; z-index: 1; top: 2px; right: 2px; padding: 0 4px; border-radius: 3px;
+  font: 700 10.5px/14px var(--font-ui); color: var(--room-bone); background: rgba(10, 11, 13, 0.82);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--frame) 70%, transparent);
+}
+.tgt-thumb[data-live] .tgt-art, .tgt-thumb:hover .tgt-art, .tgt-thumb:focus-visible .tgt-art { box-shadow: 0 0 0 2px var(--accent-2), 0 3px 8px rgba(0, 0, 0, 0.6); }
+.tgt-thumb:hover, .tgt-thumb:focus-visible, .tgt-thumb[data-live] { translate: 0 -2px; }
+.tgt-thumb:focus-visible { outline: 2px solid var(--select); outline-offset: 3px; }
+.tgt-thumb[data-n] .tgt-art { box-shadow: 0 0 0 2px var(--frame-hi), 0 0 0 3px rgba(14, 10, 6, 0.9); }
+
+/* ---------- the table ---------- */
+/* a legal choice: lifted in a brass ring (TargetMark on the 2D table's cards; an outline elsewhere) */
+.rules-target { cursor: crosshair; }
+.hand-card.rules-target, .command-card.rules-target, .chain-row.rules-target { outline: 2px solid var(--frame-hi); outline-offset: 2px; }
+.table-card.rules-target { translate: 0 -3px; }
+.table-card.rules-target:hover { translate: 0 -6px; }
+.tgt-mark {
+  position: absolute; inset: -3px; border-radius: 7% / 5%; pointer-events: none; z-index: 3;
+  box-shadow: 0 0 0 2px var(--frame-hi), 0 0 0 3.5px rgba(14, 10, 6, 0.75);
+}
+/* the pulse: a halo's opacity only (composited), three breaths as the choice opens, then a steady glow */
+.tgt-mark::after {
+  content: ""; position: absolute; inset: -3px; border-radius: inherit;
+  box-shadow: 0 0 9px 3px rgba(240, 201, 125, 0.6); opacity: 0.6; will-change: opacity;
+  animation: tgt-pulse 1.2s ease-in-out 3;
+}
+@keyframes tgt-pulse { 50% { opacity: 0.12; } }
+.tgt-mark[data-hot], .table-card.rules-target:hover > .tgt-mark { box-shadow: 0 0 0 3px var(--accent-2), 0 0 0 4.5px rgba(14, 10, 6, 0.8); }
+.tgt-mark[data-focus] { outline: 2px solid var(--select); outline-offset: 4px; }
+.tgt-mark[data-n] { box-shadow: 0 0 0 3px var(--frame-hi), 0 0 0 4.5px rgba(14, 10, 6, 0.85); }
+.tgt-mark[data-n]::after { animation: none; opacity: 0.85; }
+.tgt-mark-n { left: -8px; top: -8px; width: 22px; height: 22px; font-size: 12.5px; }
+[data-tapped] > .tgt-mark > .tgt-mark-n { rotate: -90deg; }
+
+/* everything that isn't a choice steps back (opacity: no filter, no repaint of the felt) */
+body.targeting .battlefield .table-card:not(.rules-target):not([data-tgt-source]) { opacity: 0.36; }
+body:has(.tgt-bar[data-dock="above-hand"]) .hand .hand-card:not(.rules-target) { opacity: 0.5; }
+
+/* targetable players: their plaque rings and pulses like a card */
+body.targeting .t3d-seat[data-tgt] { cursor: crosshair; outline: 2px solid var(--frame-hi); outline-offset: 3px; border-radius: 6px; }
+body.targeting .t3d-seat[data-tgt] * { cursor: crosshair; }
+body.targeting .t3d-seat[data-tgt]::after {
+  content: ""; position: absolute; inset: -6px; border-radius: 9px; pointer-events: none;
+  box-shadow: 0 0 12px 3px rgba(240, 201, 125, 0.55); opacity: 0.6; will-change: opacity;
+  animation: tgt-pulse 1.2s ease-in-out 3;
+}
+body.targeting .t3d-seat[data-tgt]:hover { outline: 3px solid var(--accent-2); }
+body.targeting .t3d-seat[data-tgt="chosen"] { outline-width: 3px; }
+body.targeting .t3d-seat[data-tgt="chosen"]::after { animation: none; opacity: 0.85; }
+/* a pile that holds a choice (a graveyard): ringed; its cards are in the tray */
+body.targeting [data-drop][data-tgt] { outline: 2px solid var(--frame-hi); outline-offset: 2px; border-radius: 6px; }
+
+/* the large preview opens away from the candidate it shows (targeting/preview.ts): over the stack panel if need be */
+body.targeting .card-preview { z-index: 57; }
+
+/* ---------- the arrows (2D) ---------- */
+.tgt-arrows { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 58; overflow: visible; }
+.tgt-cord-under { fill: none; stroke: rgba(14, 10, 6, 0.8); stroke-width: 9; stroke-linecap: round; }
+.tgt-cord { fill: none; stroke: var(--frame-hi); stroke-width: 4.5; stroke-linecap: round; }
+.tgt-arrow.live .tgt-cord { stroke: var(--accent-2); }
+.tgt-head { fill: var(--accent-2); stroke: rgba(14, 10, 6, 0.9); stroke-width: 1.2; stroke-linejoin: round; }
+.tgt-from, .tgt-pin { fill: var(--frame-hi); stroke: rgba(14, 10, 6, 0.9); stroke-width: 2; }
+.tgt-badge circle { fill: var(--frame-hi); stroke: rgba(14, 10, 6, 0.9); stroke-width: 2; }
+.tgt-badge text { fill: #1f1a15; font: 700 12px var(--font-ui); text-anchor: middle; }
+
+/* ---------- reduced motion, low graphics ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .tgt-mark::after, body.targeting .t3d-seat[data-tgt]::after { animation: none; opacity: 0.7; }
+}
+body.reduced-motion .tgt-mark::after, body.reduced-motion.targeting .t3d-seat[data-tgt]::after { animation: none; opacity: 0.7; }
+body.perf-low .tgt-mark::after, body.perf-low.targeting .t3d-seat[data-tgt]::after { animation: none; opacity: 0; }
+body.perf-low .tgt-bar, body.perf-low .tgt-source { box-shadow: none; }
+
+/* ---------- phones ---------- */
+@media (max-width: 720px) {
+  .tgt-bar { bottom: 6px; gap: 10px; padding: 8px 8px 6px; }
+  .tgt-source { width: 46px; }
+  .tgt-what { font-size: 14.5px; }
+  .tgt-head { flex-wrap: wrap; gap: 6px 10px; }
+}
