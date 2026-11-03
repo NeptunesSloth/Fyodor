@@ -89,6 +89,11 @@ def _open_when_ready(url: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Windows writes redirected output (`Fyodor.exe --check > out.txt`) in its ANSI code page, which has no ✓/✗/—:
+    # print a stand-in for what it can't encode rather than crash the checks
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(AttributeError, ValueError):
+            stream.reconfigure(errors="replace")  # type: ignore[union-attr]
     parser = argparse.ArgumentParser(prog="fyodor", description="Start the Fyodor table on this computer.")
     # game night is a pod on one network: other devices may join unless --local says otherwise
     parser.add_argument("--local", action="store_true", help="only this computer can connect")
