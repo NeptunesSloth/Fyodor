@@ -165,6 +165,14 @@ def resolve(state: GameState, action: A.Action, *, actor: str, cards: CardInfo |
         a.r = A.DiceData(results=[_rng_int(rng, 1, a.sides) for _ in range(a.count)])
     elif isinstance(a, A.Coin):
         a.r = A.DiceData(results=[_rng_int(rng, 0, 1) for _ in range(a.count)])
+    elif isinstance(a, A.Cannon):  # -- table toys -- every die's number and who it is fired at (app/game/handlers/toys.py)
+        from app.game.handlers.toys import resolve_cannon
+
+        a.r = resolve_cannon(state, a, actor, lambda lo, hi: _rng_int(rng, lo, hi))
+    elif isinstance(a, A.BagDraw):  # -- table toys -- which chit, at random (the bag's contents never leave the server)
+        if not state.bag.chits:
+            raise ActionError("The draw bag is empty")
+        a.r = A.BagDrawData(index=_rng_int(rng, 0, len(state.bag.chits) - 1))
     elif isinstance(a, A.Merge | A.Meld):
         a.r = A.NewIds(ids=[new_id()])
     elif isinstance(a, A.SetFace):

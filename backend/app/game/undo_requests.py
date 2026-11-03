@@ -50,7 +50,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
-from app.game import undo_rights
+from app.game import out_of_game, undo_rights
 from app.game.actions import Action
 from app.game.control import is_controlled
 from app.game.errors import ActionError
@@ -74,6 +74,8 @@ STEP_KINDS: dict[str, Shown] = {
     "mill": "library", "put_top_face_down": "library",
     "shuffle": "random", "mulligan": "random", "roll": "random", "coin": "random", "discard_random": "random",
     "reset_deck": "random", "restart_game": "random", "load_deck": "random",
+    # -- table toys -- a dice cannon volley and a draw from the draw bag are random outcomes; showing a hidden chit is a reveal
+    "cannon": "random", "bag_draw": "random", "bag_show": "reveal",
 }
 # These shuffle only when they carry a shuffle (``r``): ending a search with "shuffle", a mulligan's final shuffle.
 SHUFFLE_IF_RESOLVED = frozenset({"search_end", "mulligan_keep", "mulligan_bottom"})
@@ -269,8 +271,8 @@ def ask(session: GameSession, actor: str | None, *, host: bool, others: list[str
     """Why an undo by ``actor`` would ask the table now (the undo setting's refusal, or what the action showed), or None: a
     direct undo, nothing to undo, or no one to ask (``others``: who would approve, None at a hot-seat table)."""
     target = undo_rights.entry(session.history, "undo")
-    if actor is None or not others or target is None:
-        return None
+    if actor is None or not others or target is None or out_of_game.history_refusal(session.state, actor, host=host) is not None:
+        return None  # (-- out of the game (gaps5) -- a player who is out can't ask either: their undo is refused outright)
     if (refused := undo_rights.refusal(session.state, session.history, actor, host=host, op="undo")) is not None:
         return refused
     kind = shown(target)
@@ -289,6 +291,8 @@ def request(session: GameSession, actor: str, *, host: bool, others: list[str] |
         raise ActionError("At a hot-seat table, undo directly: there is no one else to ask.")
     if is_controlled(state, actor):
         raise ActionError("Another player is making your choices right now (you can still concede)")
+    if (out := out_of_game.history_refusal(state, actor, host=host)) is not None:
+        raise ActionError(out)  # -- out of the game (gaps5) -- as their own undo (GameSession.undo)
     if (waiting := pending(session)) is not None:
         raise ActionError(f"{state.players[waiting.by].name}'s undo request is already waiting for the table.")
     target = undo_rights.entry(history, "undo")

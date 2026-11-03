@@ -3,11 +3,11 @@ import { useToasts } from "../components/Toasts";
 import { useGame } from "../state/gameStore";
 import { SPECTATOR, type GameView } from "../types/game";
 import { HOTKEYS, type HotkeyId } from "./hotkeys";
-import { MOVING_KEYS, isOut, outKeyBlocked, outReason, outRefusal } from "./outOfGame";
+import { HISTORY_KEYS, MOVING_KEYS, isOut, outKeyBlocked, outReason, outRefusal } from "./outOfGame";
 
 const OUT_WORDS = "You're out of this game (you conceded): you can watch and chat, but not move the game.";
 
-function view(over: { viewer?: string; mode?: "lan" | "local"; conceded?: string[]; lost?: Record<string, string>; rules?: boolean; id?: string } = {}): GameView {
+function view(over: { viewer?: string; mode?: "lan" | "local"; conceded?: string[]; lost?: Record<string, string>; rules?: boolean; id?: string; host?: boolean } = {}): GameView {
   return {
     viewer: over.viewer ?? "p3",
     seat_order: ["p1", "p2", "p3"],
@@ -16,7 +16,8 @@ function view(over: { viewer?: string; mode?: "lan" | "local"; conceded?: string
     cards: {},
     zones: {},
     stack: [],
-    game: { id: over.id ?? "g", mode: over.mode ?? "lan", seats: { p1: {}, p2: {}, p3: {} }, host_seat: "p1", night: { number: 1, result: null }, settings: {} },
+    game: { id: over.id ?? "g", mode: over.mode ?? "lan", seats: { p1: {}, p2: {}, p3: {} }, host_seat: "p1", night: { number: 1, result: null }, settings: {},
+      can_undo: true, can_redo: true, undo_host: over.host ?? false },
     rules: over.rules === false ? null : { conceded: over.conceded ?? [], lost: over.lost ?? {}, paused: false, priority: "p1", decision: null, hints: {} },
   } as unknown as GameView;
 }
@@ -66,14 +67,26 @@ describe("the shortcuts of a player who is out", () => {
     }
     expect(said).toEqual([OUT_WORDS]);
   });
-  it("looking around, the log, help, pings, dice, sorting, Escape, auto-pass and undo keep working", () => {
+  it("looking around, the log, help, pings, dice, sorting, Escape and auto-pass keep working", () => {
     const said: string[] = [];
     const out = view({ conceded: ["p3"], id: "look" });
-    const keep = HOTKEYS.map((h) => h.id).filter((id) => !MOVING_KEYS.has(id));
+    const keep = HOTKEYS.map((h) => h.id).filter((id) => !MOVING_KEYS.has(id) && !HISTORY_KEYS.has(id));
     expect(keep).toEqual(expect.arrayContaining(["cam_seat", "cam_player", "cam_table", "cam_focus", "cam_stack", "cam_combat", "cam_reset", "cam_names", "ping", "hud",
-      "help", "dice", "hand_sort", "cancel", "auto_pass", "pass", "undo", "redo"]));
+      "help", "dice", "hand_sort", "cancel", "auto_pass", "pass"]));
     for (const id of keep) expect(outKeyBlocked(out, "p3", id, (t) => said.push(t))).toBe(false);
     expect(said).toEqual([]);
+  });
+  it("undo and redo do nothing for a player who is out (the server refuses them), except the host's", () => {
+    const said: string[] = [];
+    expect([...HISTORY_KEYS].sort()).toEqual(["redo", "undo"]);
+    for (const id of ["undo", "redo", "undo"] as HotkeyId[]) expect(outKeyBlocked(view({ conceded: ["p3"], id: "history" }), "p3", id, (t) => said.push(t))).toBe(true);
+    expect(said).toEqual([OUT_WORDS]);
+    for (const id of HISTORY_KEYS) {
+      expect(outKeyBlocked(view({ conceded: ["p3"], id: "host", host: true }), "p3", id, (t) => said.push(t))).toBe(false); // the host takes a concession back
+      expect(outKeyBlocked(view({ conceded: ["p3"] }), "p1", id, (t) => said.push(t))).toBe(false);
+      expect(outKeyBlocked(view({ viewer: "local", mode: "local", conceded: ["p3"], host: true }), "p3", id, (t) => said.push(t))).toBe(false);
+    }
+    expect(said).toEqual([OUT_WORDS]);
   });
   it("every moving key is a real shortcut, and a player still in is never stopped", () => {
     const ids = new Set(HOTKEYS.map((h) => h.id));
@@ -106,6 +119,18 @@ describe("the store doesn't send what the server refuses from a player who is ou
     useGame.setState({ view: view({ viewer: "p1", conceded: ["p3"] }) });
     expect(await useGame.getState().send({ type: "draw", player: "p1", count: 1 } as never)).toBe(true);
     expect(requestAction).toHaveBeenCalledTimes(3);
+  });
+
+  it("undo and redo are not sent for a player who is out; the host's are", async () => {
+    const request = vi.fn(() => Promise.resolve());
+    useGame.setState({ conn: { requestAction, request } as never });
+    expect(await useGame.getState().undo()).toBe(false);
+    expect(await useGame.getState().redo()).toBe(false);
+    expect(request).not.toHaveBeenCalled();
+    expect(useToasts.getState().toasts.map((t) => t.text)).toContain(OUT_WORDS);
+    useGame.setState({ view: view({ conceded: ["p3"], host: true }) });
+    expect(await useGame.getState().undo()).toBe(true);
+    expect(request).toHaveBeenCalledWith({ type: "undo", as: undefined });
   });
 
   it("at a hot-seat table it is the seat the table acts as that counts", async () => {

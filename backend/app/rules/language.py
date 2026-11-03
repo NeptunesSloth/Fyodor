@@ -1249,12 +1249,17 @@ _ALTS = re.compile(r"you may reveal (?P<list>(?:(?:an?|[a-z]+) )?[^.]+? or (?:an
                    r"and put (?:it|that card) into your hand")
 
 
+_ALT_MV = re.compile(r"an? (?P<a>[A-Z][a-z]+ card) or (?P<b>[a-z ]+? card with mana value \d+ or less)")  # (wave 112T)
+
+
 def _pick_alts(text: str) -> tuple[Effects, Any] | None:
     m = _ALTS.fullmatch(text)
     if m is None or selectors.parse(re.sub(r"^(?:an?) ", "", m["list"])) is not None:
         return None  # (not a list of alternatives, or one selector the plain pick reads)
     words = [re.sub(r"^(?:an?) ", "", w.strip()) for w in re.split(r",? or |, ", m["list"])]
-    if len(words) < 2 or any(re.search(r"\b(?:less|more|greater|that|who|which)\b|\d", w) for w in words):
+    if (mv := _ALT_MV.fullmatch(m["list"])) is not None:  # -- Star Trek mechanics (wave 112T) -- "a Plains card or nonland permanent card with mana value 3 or
+        words = [mv["a"], mv["b"]]  # less" (There's Coffee in that Nebula): the mana value is the last kind's own (its "or less" isn't a third kind)
+    elif len(words) < 2 or any(re.search(r"\b(?:less|more|greater|that|who|which)\b|\d", w) for w in words):
         return None
     sels = []
     for w in words:

@@ -5,9 +5,10 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 
 from app.api.deps import get_services, require_local
-from app.decks import archidekt, service
+from app.decks import archidekt, service, sites
 from app.decks.models import Deck, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
 from app.decks.repository import DeckNotFound
@@ -44,7 +45,7 @@ def _import(services: Services, body: DeckImportRequest) -> service.ImportResult
     except DeckTextTooLarge as exc:
         raise HTTPException(413, str(exc)) from exc
     except archidekt.ArchidektError as exc:
-        raise HTTPException(502 if body.archidekt else 422, str(exc)) from exc
+        raise HTTPException(502 if body.archidekt and not isinstance(exc, sites.DeckLinkRefused) else 422, str(exc)) from exc
 
 
 def _preview(result: service.ImportResult) -> dict[str, Any]:
@@ -87,6 +88,25 @@ def import_options(services: ServicesDep) -> dict[str, Any]:
     }
 
 
+# -- keep deck art -- each saved deck's art is downloaded for offline play while online (app/cards/art_keeper.py)
+
+
+class ArtKeeperIn(BaseModel):
+    enabled: bool
+
+
+@router.get("/decks/art-keeper")
+def art_keeper_status(services: ServicesDep) -> dict[str, Any]:
+    """Keep deck art for offline play: on or off, how many decks wait for the network, what is downloading now."""
+    return {**services.art_keeper.status(), "network": services.settings.allow_network}
+
+
+@router.put("/decks/art-keeper")
+def set_art_keeper(body: ArtKeeperIn, services: ServicesDep) -> dict[str, Any]:
+    services.art_keeper.set_enabled(body.enabled)
+    return {**services.art_keeper.status(), "network": services.settings.allow_network}
+
+
 @router.post("/decks/preview")
 def preview_import(body: DeckImportRequest, services: ServicesDep) -> dict[str, Any]:
     """Parse and resolve an import (Archidekt URL/JSON or deck text) without saving."""
@@ -116,6 +136,7 @@ def create_deck(body: DeckImportRequest, services: ServicesDep) -> dict[str, Any
         snapshot=entries if result and result.source and result.source.kind == "archidekt" and result.source.id else None,
     )
     report = _preview(result)["report"] if result else service.ImportReport().as_dict()
+    services.art_keeper.want(deck.id)  # -- keep deck art --
     return {**_full(services, deck.id), "import_report": report}
 
 
@@ -131,6 +152,7 @@ def update_deck(deck_id: str, body: DeckIn, services: ServicesDep) -> dict[str, 
         services.decks.update(deck_id, body)
     except DeckNotFound:
         raise HTTPException(404, "Deck not found") from None
+    services.art_keeper.want(deck_id)  # -- keep deck art --
     return _full(services, deck_id)
 
 
@@ -147,6 +169,7 @@ def import_into_deck(deck_id: str, body: DeckImportRequest, services: ServicesDe
         DeckIn(name=body.name or deck.name, format=body.format or deck.format, notes=deck.notes,
                entries=new_entries[:1000], categories=categories[:100]),
     )
+    services.art_keeper.want(deck_id)  # -- keep deck art --
     return {**_full(services, deck_id), "import_report": result.report.as_dict()}
 
 

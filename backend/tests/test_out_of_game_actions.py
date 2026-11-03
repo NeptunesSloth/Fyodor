@@ -164,3 +164,89 @@ def test_over_the_api_a_conceded_seat_gets_a_clear_refusal_and_can_still_chat(cl
         while msg.get("type") not in ("error", "ack"):
             msg = ws.receive_json()
         assert msg["type"] == "error" and msg["message"].startswith("You're out of this game"), msg
+
+
+# -- out of the game (gaps5) -- undo, redo and the undo request take back the live game's actions: a player who is out may not, the host
+# still may (a mistaken concession is taken back by the host), the players still in are unaffected, and nothing new is stored
+OUT_WORDS = "You're out of this game (you conceded): you can watch and chat, but not move the game."
+
+
+def test_a_player_who_is_out_cannot_undo_redo_or_ask_the_table_to_undo(cards):
+    from app.game import undo_requests
+
+    s = three(cards)
+    act(s, "p1", type="set_life", player="p1", value=39)
+    act(s, "p3", type="concede")
+    cursor, seq = s.history.cursor, s.state.seq
+    with pytest.raises(ActionError) as exc:
+        s.undo("p3")
+    assert str(exc.value) == OUT_WORDS
+    with pytest.raises(ActionError, match="^You're out of this game"):
+        s.undo("p3", others=["p1", "p2"])  # (at a LAN table: asked before anything else)
+    act(s, "p1", type="draw", count=1)  # a draw: a direct undo would ask the table
+    assert undo_requests.ask(s, "p1", host=False, others=["p2"]) is not None
+    assert undo_requests.ask(s, "p3", host=False, others=["p1", "p2"]) is None  # (no "ask the table" for who can't ask at all)
+    with pytest.raises(ActionError, match="^You're out of this game"):
+        undo_requests.request(s, "p3", host=False, others=["p1", "p2"])
+    assert s.undo_request is None
+    s.undo("p1")  # the players still in undo and redo as before
+    with pytest.raises(ActionError, match="^You're out of this game"):
+        s.redo("p3")
+    s.redo("p1")
+    assert (s.history.cursor, s.state.seq) == (cursor + 1, seq + 1)
+    replay_matches(s)
+    again = loaded(s)
+    with pytest.raises(ActionError, match="^You're out of this game"):
+        again.undo("p3")
+
+
+def test_a_player_who_lost_is_refused_too(cards):
+    s = three(cards)
+    act(s, "p2", type="set_life", player="p2", value=0)
+    act(s, s.state.rules.priority, type="pass_priority")  # the state-based check: Ben loses (704.5a)
+    assert "p2" in s.state.rules.lost
+    with pytest.raises(ActionError) as exc:
+        s.undo("p2")
+    assert str(exc.value) == OUT_WORDS.replace("conceded", "lost")
+
+
+def test_the_host_still_takes_a_concession_back(cards):
+    s = three(cards)
+    act(s, "p3", type="concede")
+    s.undo("p3", host=True)  # the host's seat (or a hot-seat table, where everyone sits at the host computer)
+    assert s.state.rules.conceded == []
+    s.redo("p3")  # back in the game: their own redo is theirs again
+    assert s.state.rules.conceded == ["p3"]
+    s.undo("p1")  # a player still in may take it back too (the table's undo setting decides, as for any action)
+    assert s.state.rules.conceded == []
+    replay_matches(s)
+    replay_matches(loaded(s))
+
+
+def test_over_the_api_an_out_seat_cannot_undo_and_the_host_can(client):
+    from tests.test_elimination_hub import P1_DECK, P2_DECK, P3_DECK, h
+
+    decks = [client.post("/api/decks", json={"text": t}).json()["id"] for t in (P1_DECK, P2_DECK, P3_DECK)]
+    game = client.post("/api/games", json={
+        "mode": "lan", "automation": "full", "name": "Friday",
+        "players": [{"name": n, "deck_id": d} for n, d in zip(("Alice", "Bob", "Carol"), decks, strict=True)],
+    })
+    assert game.status_code == 201, game.text
+    gid, code, host = game.json()["game"]["id"], game.json()["game"]["code"], game.json()["seat"]["token"]
+    remote = {"X-Forwarded-For": "192.168.1.50"}
+    client.post("/api/join", json={"code": code}, headers=remote)
+    carol = client.post("/api/join", json={"code": code}, headers=remote).json()["token"]
+    post = lambda path, body, token: client.post(f"/api/games/{gid}/{path}", json=body, headers={**h(token), **remote})  # noqa: E731
+    assert post("actions", {"action": {"type": "concede"}}, carol).status_code == 200
+    for path, body in (("undo", {}), ("redo", {}), ("undo-request", {"op": "request"})):
+        res = post(path, body, carol)
+        assert res.status_code == 409 and res.json()["detail"] == "You're out of this game (you conceded): you can watch and chat, but not move the game.", (path, res.text)
+    with client.websocket_connect(f"/ws/games/{gid}?token={carol}", headers=remote) as ws:
+        assert ws.receive_json()["type"] == "state"
+        ws.send_json({"type": "undo", "id": 1})
+        while (msg := ws.receive_json())["type"] == "state":
+            pass
+        assert msg["type"] == "error" and msg["message"].startswith("You're out of this game"), msg
+    res = client.post(f"/api/games/{gid}/undo", json={}, headers=h(host))  # the host takes the concession back
+    assert res.status_code == 200, res.text
+    assert res.json()["rules"]["conceded"] == []

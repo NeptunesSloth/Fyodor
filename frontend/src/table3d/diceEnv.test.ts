@@ -25,6 +25,7 @@ describe("the world a roll is thrown into", () => {
     expect(rollerEnv(view(3), "p1")).toEqual(env);
   });
 
+  // A full, seeded physics run (about 2 s alone): its own time budget, so a loaded machine can't time it out at the 5 s default.
   it("lands dice flat on a crowded battlefield: on the felt or lying on a card", () => {
     const env = rollerEnv(view(27), "p1");
     for (const [sides, kind] of [[6, "d6"], [20, "d20"], [4, "d4"]] as const) {
@@ -40,5 +41,5 @@ describe("the world a roll is thrown into", () => {
         }
       }
     }
-  });
+  }, 30_000);
 });

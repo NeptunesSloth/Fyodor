@@ -261,6 +261,8 @@ def facts(plan: Plan, e: Event) -> list[Any]:
         return [("coin_flip", None, None, e.player, {"won": bool(e.amount), "actor": e.player})]
     if e.counter == "crime" and e.player:  # -- crimes (wave 6D) -- 700.13
         return [("commit_crime", None, None, e.player, {})]
+    if e.counter == "dilemma" and e.player:  # -- Star Trek mechanics (wave 112T) -- a player faced a dilemma (app/rules/dilemma.py, release notes)
+        return [("face_dilemma", None, None, e.player, {})]
     if e.counter in ("monstrous", "renowned") and e.card in plan.state.cards:  # -- becomes monstrous (wave 6D) --
         card = plan.state.cards[e.card]  # (701.37b / 702.112b: the permanent that became monstrous / renowned)
         if card.zone.endswith(":battlefield") and plan.oid(card) == e.object_id:

@@ -39,6 +39,7 @@ import { ExileCastables } from "./ExileCastables";
 import { useTurnAlert } from "./turnAlert";
 import { nextHandSort, HAND_SORT_LABEL } from "./handSort";
 import { Motion2D } from "./motion/Motion2D";
+import { BagDraws } from "./BagDraws";
 
 const Table3D = lazy(() => import("../table3d/Table3D").then((m) => ({ default: m.Table3D })));
 
@@ -120,6 +121,7 @@ export function GameScreen() {
       )}
       {!three && <DiceLayer />}
       {!three && <Motion2D />}
+      <BagDraws />
       <DigDialog me={me} />
       <TableImporter />
       <StackWidget me={me} />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { linkProblem } from "./deckLinks";
+import { OTHER_SITES, linkProblem } from "./deckLinks";
 
 describe("deck links at the table importer", () => {
   it("places Archidekt links, with or without the scheme, and bare deck numbers", () => {
@@ -8,9 +8,19 @@ describe("deck links at the table importer", () => {
     expect(linkProblem("  987654 ")).toBeNull();
   });
 
-  it("says how to bring a deck from a site it can't fetch", () => {
-    expect(linkProblem("https://moxfield.com/decks/AbC123")).toMatch(/^Moxfield links can't be fetched.*export it as text/);
-    expect(linkProblem("https://tappedout.net/mtg-decks/krenko/")).toMatch(/^TappedOut/);
+  it("says why each site's link can't be fetched and gives that site's steps", () => {
+    const cases: [string, RegExp][] = [
+      ["https://moxfield.com/decks/AbC123", /^Moxfield has no public export link .*API key.*More → Export → Copy Plain Text, then paste it in the box below\.$/],
+      ["moxfield.com/decks/AbC123", /^Moxfield has no public export link/],
+      ["https://www.mtggoldfish.com/deck/8022091#paper", /^MTGGoldfish .*robots\.txt.*Download → Text File \(Default\)/],
+      ["https://tappedout.net/mtg-decks/krenko/", /^TappedOut asks every visitor for a browser check.*\?fmt=txt/],
+      ["https://deckstats.net/decks/12345/678910-atraxa/en", /^Deckstats asks every visitor for a browser check.*\?export_txt=1/],
+    ];
+    for (const [link, message] of cases) {
+      expect(OTHER_SITES.test(link)).toBe(true); // Place stays disabled for these
+      expect(linkProblem(link)).toMatch(message);
+    }
+    expect(linkProblem("https://scryfall.com/@someone/decks/abc")).toMatch(/^Scryfall links can't be fetched/);
     expect(linkProblem("https://example.com/decks/1")).toMatch(/^That site/);
   });
 

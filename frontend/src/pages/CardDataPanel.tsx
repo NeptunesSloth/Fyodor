@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { KeepArtSetting } from "./ArtKeeper";
 import { toast, toastError } from "../components/Toasts";
 import { ApiError } from "../services/api";
 import {
@@ -114,7 +115,8 @@ export function CardDataSection() {
             </>
           )}
           {!info.network && <p className="hint">Network access is turned off on this computer (FYODOR_ALLOW_NETWORK=0).</p>}
-          <p className="hint">Tables keep playing while it updates. Artwork for new cards is fetched per deck, from the deck editor.</p>
+          <p className="hint">Tables keep playing while it updates.</p>
+          <KeepArtSetting />
         </div>
       ) : null}
     </SettingsSection>

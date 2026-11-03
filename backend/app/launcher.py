@@ -132,11 +132,15 @@ def main(argv: list[str] | None = None) -> int:
         addrs = lan_addresses()
         if addrs:
             print("\n  Friends on your network open:  " + "  or  ".join(f"http://{a}:{settings.port}" for a in addrs))
-            print("  (or send them the invite link shown in the lobby once you open a LAN table)\n")
+            print("  (or send them the invite link shown in the lobby once you open a LAN table)")
+            if settings.discovery:  # app/multiplayer/discovery.py
+                print("  Friends running Fyodor on their own computer see your LAN tables under Play → Games on your network.")
+            print()
         else:
             print("No network address found — are you connected to Wi-Fi/Ethernet?")
         app_name = "Fyodor" if FROZEN else "Python"  # the downloadable app runs as Fyodor(.exe)
-        print(f"(If they can't connect, allow {app_name} through this computer's firewall for private networks.)")
+        ports = f"TCP {settings.port}" + (f" and UDP {settings.discovery_port}" if settings.discovery else "")
+        print(f"(If they can't connect, allow {app_name} through this computer's firewall for private networks: {ports}.)")
     else:
         print("Only this computer can connect (--local). Start without --local to let the rest of the pod join.")
     print("Press Ctrl+C to stop. Games are autosaved.\n")

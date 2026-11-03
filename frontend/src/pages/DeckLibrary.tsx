@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArtKeeperLine } from "./ArtKeeper";
 import { CardFace } from "../cards/CardFace";
 import { ColorPips } from "../components/ColorPips";
 import { Icon } from "../components/Icon";
@@ -72,6 +73,7 @@ export function DeckLibrary() {
         </div>
       </header>
 
+      <ArtKeeperLine />
       {empty && <EmptyShelf onImport={() => setImporting(true)} />}
       {shown && shown.length > 0 && (
         <ul className="dk-grid">

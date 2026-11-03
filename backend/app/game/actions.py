@@ -820,6 +820,71 @@ class Coin(Base):
     r: DiceData | None = None
 
 
+# -- table toys (docs/3D_DIRECTION.md §7) -- the dice cannon and the draw bag: table toys like the dice (never the rules engine's),
+# every outcome decided here on the server (resolve.py) and recorded, the cannon's flight and the bag's pull cosmetic on each table.
+class CannonData(BaseModel):
+    results: list[int]
+    players: list[str]  # per die: the player it is fired at (lands in front of)
+    rounds: list[int]  # per die: 0 for the first volley, then each re-fire of a tie
+
+
+class Cannon(Base):
+    """The dice cannon: a volley of ``count`` d``sides`` at the firer's mat, or "first": one d20 at each player still in the game,
+    the tied highest re-fired among themselves until one is highest (that player goes first)."""
+
+    type: Literal["cannon"] = "cannon"
+    mode: Literal["volley", "first"] = "volley"
+    sides: int = Field(default=6, ge=2, le=1000)
+    count: int = Field(default=1, ge=1, le=12)  # (the tables show twelve dice a throw: game/dice.ts DICE_SHOWN)
+    r: CannonData | None = None
+
+
+class BagFill(Base):
+    """Put chits (numbers, names, words) in the table's draw bag; ``replace`` empties it first (drawn chits included)."""
+
+    type: Literal["bag_fill"] = "bag_fill"
+    chits: list[str] = Field(min_length=1, max_length=100)
+    replace: bool = False
+
+    @field_validator("chits")
+    @classmethod
+    def _clean(cls, v: list[str]) -> list[str]:
+        cleaned = [c for c in (clean_text(x, 40) for x in v) if c]
+        if not cleaned:
+            raise ValueError("a chit needs a name")
+        return cleaned
+
+
+class BagDrawData(BaseModel):
+    index: int = Field(ge=0)  # which chit in the bag (the server's random pick)
+
+
+class BagDraw(Base):
+    """Draw one chit at random from the draw bag; ``reveal`` False keeps it to the drawer (until they show it)."""
+
+    type: Literal["bag_draw"] = "bag_draw"
+    reveal: bool = True
+    r: BagDrawData | None = None
+
+
+class BagShow(Base):
+    """Show everyone the chits you drew hidden."""
+
+    type: Literal["bag_show"] = "bag_show"
+
+
+class BagReturn(Base):
+    """Put every drawn chit back in the bag."""
+
+    type: Literal["bag_return"] = "bag_return"
+
+
+class BagEmpty(Base):
+    """Empty the bag (its chits and the drawn ones)."""
+
+    type: Literal["bag_empty"] = "bag_empty"
+
+
 class Chat(Base):
     type: Literal["chat"] = "chat"
     text: str = Field(min_length=1, max_length=500)
@@ -1568,6 +1633,12 @@ Action = Annotated[
     | RenamePlayer
     | Roll
     | Coin
+    | Cannon
+    | BagFill
+    | BagDraw
+    | BagShow
+    | BagReturn
+    | BagEmpty
     | Chat
     | Phase
     | NextTurn

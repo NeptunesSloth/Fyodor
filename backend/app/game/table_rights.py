@@ -83,6 +83,8 @@ OPEN = frozenset({
     # looking, showing and pointing
     "look_top", "reveal_top", "reveal_until", "search_start", "search_end", "end_view", "reveal", "hide", "create_arrow",
     "remove_arrow", "chat", "roll", "coin",
+    # -- table toys -- the table's dice cannon and draw bag (app/game/handlers/toys.py): no player's cards
+    "cannon", "bag_fill", "bag_draw", "bag_show", "bag_return", "bag_empty",
     # player counters, not cards
     "life", "set_life", "resource", "set_resource", "commander_damage", "commander_tax", "set_monarch", "set_initiative",
     "city_blessing", "add_mana", "clear_mana",

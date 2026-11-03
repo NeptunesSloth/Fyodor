@@ -10,7 +10,8 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { DiceShow } from "../game/dice";
 import { usePrefs } from "../state/prefs";
-import { DiceTray } from "./dice";
+import { DiceTray, type ThrowOptions } from "./dice";
+import { cannonEnv, cannonLaunch } from "./diceThrow";
 import { DiceHud } from "./diceHud";
 import type { DiceLook } from "./diceLook";
 import { rollerEnv } from "./diceEnv";
@@ -113,15 +114,25 @@ export class DiceOverlay {
     return { x: spot.rect.left + spot.rect.width / 2, z: spot.rect.top + spot.rect.height / 2, rotY: spot.near ? 0 : Math.PI, scale: ppu };
   }
 
-  throw(show: DiceShow, color: string, name: string, mat: () => MatSpot | null): void {
+  /**
+   * -- table toys -- a dice cannon's volley (game/DiceLayer.tsx, `cannonRound`: which volley) drops in from `muzzle` (a point
+   * on the screen, CSS pixels, `height` above the table) and keeps the dice already there (`keep`: an earlier volley's).
+   */
+  throw(show: DiceShow, color: string, name: string, mat: () => MatSpot | null,
+    toy: ThrowOptions & { cannonRound?: number; muzzle?: { x: number; y: number; height: number } | null; keep?: boolean } = {}): { settles: number } {
     const spot = mat();
-    if (!spot) return;
-    this.tray.clear(show.actor);
-    this.tray.throw(show, color, name, this.frame(spot), rollerEnv(useGame.getState().view, show.actor), performance.now());
+    if (!spot) return { settles: 0 };
+    if (!toy.keep) this.tray.clear(show.actor);
+    const { cannonRound, muzzle, keep: _keep, ...opts } = toy;
+    if (muzzle) opts.from = new THREE.Vector3(muzzle.x, muzzle.height, muzzle.y);
+    const env = rollerEnv(useGame.getState().view, show.actor);
+    if (cannonRound !== undefined) opts.launcher = cannonLaunch;
+    const thrown = this.tray.throw(show, color, name, this.frame(spot), cannonRound === undefined ? env : cannonEnv(env.obstacles, cannonRound), performance.now(), opts);
     this.live.push({ key: show.key, mat, last: "" });
     this.kick();
     // the page can move under the dice (a scroll, a focused seat): follow the mats while there are dice
     if (!this.poll) this.poll = window.setInterval(() => this.follow(), 400);
+    return thrown;
   }
 
   private follow(): void {

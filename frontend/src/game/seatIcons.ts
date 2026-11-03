@@ -27,7 +27,7 @@ function disc(g: CanvasRenderingContext2D): void {
   g.stroke();
 }
 
-function outlined(g: CanvasRenderingContext2D, path: Path2D, fill: string, width = 3.2): void {
+function outlined(g: CanvasRenderingContext2D, path: Path2D, fill: string | CanvasGradient, width = 3.2): void {
   g.lineJoin = "round";
   g.lineCap = "round";
   g.lineWidth = width;
@@ -282,7 +282,61 @@ function importer(g: CanvasRenderingContext2D): void {
   g.fillText("IMPORT", 50, 83);
 }
 
-const GLYPH: Record<SeatIconId, (g: CanvasRenderingContext2D) => void> = { untap, draw: hand, scry: eye, mill: skull, reveal: glass, mulligan, importer };
+/** -- table toys -- the Bag of Extras: a leather drawstring pouch, a gold coin and a token chit peeking out of its mouth. */
+function pouch(g: CanvasRenderingContext2D): void {
+  // what's inside, behind the mouth
+  g.fillStyle = "#f2d27a";
+  g.strokeStyle = OUTLINE;
+  g.lineWidth = 2.4;
+  g.beginPath();
+  g.arc(40, 27, 10, 0, Math.PI * 2);
+  g.fill();
+  g.stroke();
+  g.fillStyle = "#e9e1cf";
+  g.beginPath();
+  g.roundRect(52, 15, 17, 23, 3);
+  g.fill();
+  g.stroke();
+  // the sack
+  const body = new Path2D();
+  body.moveTo(30, 40);
+  body.bezierCurveTo(10, 52, 10, 90, 50, 92);
+  body.bezierCurveTo(90, 90, 90, 52, 70, 40);
+  body.closePath();
+  const grad = g.createLinearGradient(20, 40, 80, 92);
+  grad.addColorStop(0, "#9a6a3c");
+  grad.addColorStop(0.55, "#6e4626");
+  grad.addColorStop(1, "#40260f");
+  outlined(g, body, grad, 3.2);
+  // the gathered neck and its cord
+  const neck = new Path2D();
+  neck.moveTo(26, 34);
+  neck.quadraticCurveTo(50, 46, 74, 34);
+  neck.lineTo(70, 44);
+  neck.quadraticCurveTo(50, 52, 30, 44);
+  neck.closePath();
+  outlined(g, neck, "#8a5c33", 2.6);
+  g.strokeStyle = "#e3c27d";
+  g.lineWidth = 3;
+  g.lineCap = "round";
+  g.beginPath();
+  g.moveTo(30, 45);
+  g.quadraticCurveTo(50, 53, 70, 45);
+  g.moveTo(62, 50);
+  g.quadraticCurveTo(70, 60, 64, 68);
+  g.stroke();
+  // a stitched seam
+  g.strokeStyle = "rgba(240, 214, 160, 0.45)";
+  g.lineWidth = 1.6;
+  g.setLineDash([3, 3]);
+  g.beginPath();
+  g.moveTo(26, 62);
+  g.quadraticCurveTo(50, 70, 74, 62);
+  g.stroke();
+  g.setLineDash([]);
+}
+
+const GLYPH: Record<SeatIconId, (g: CanvasRenderingContext2D) => void> = { untap, draw: hand, scry: eye, mill: skull, reveal: glass, mulligan, importer, extras: pouch };
 
 /** Draw a seat button's face into a square canvas (any size). `count` is a number being typed over it. */
 export function drawSeatIcon(canvas: HTMLCanvasElement, id: SeatIconId, count = ""): void {
@@ -290,7 +344,7 @@ export function drawSeatIcon(canvas: HTMLCanvasElement, id: SeatIconId, count = 
   g.save();
   g.clearRect(0, 0, canvas.width, canvas.height);
   g.scale(canvas.width / 100, canvas.height / 100);
-  if (id !== "mulligan" && id !== "importer") disc(g);
+  if (id !== "mulligan" && id !== "importer" && id !== "extras") disc(g);
   GLYPH[id](g);
   if (count) {
     g.fillStyle = "rgba(10, 8, 6, 0.86)";

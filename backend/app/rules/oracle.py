@@ -54,6 +54,7 @@ KEYWORDS = frozenset({
     "impending", "plot", "spree", "freerunning", "start your engines!", "station", "warp", "job select", "tiered",
     "firebending", "storied", "mobilize", "harmonize", "renew", "undaunted",
     "mayhem", "web-slinging",  # -- Marvel keywords (wave 25A) -- 702.187, 702.188
+    "beam me up",  # -- Star Trek mechanics (wave 112T) -- app/rules/beam_me_up.py; Star Trek release notes (2026-11): re-check against the CR when it defines beam me up
     "more than meets the eye", "living metal",  # -- commanders (wave 50C) -- 702.162, 702.161 (the Transformers)
     "tribute", "haunt", "paradigm",  # -- keywords (wave 50H) -- 702.104 (app/rules/tribute.py), 702.55 (app/rules/haunt.py), 702.192 (app/rules/paradigm.py)
     "recover", "amplify", "assist",  # -- casting extras (wave 18E) -- 702.59, 702.38, 702.132

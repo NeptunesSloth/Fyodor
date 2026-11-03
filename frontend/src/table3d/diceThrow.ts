@@ -151,6 +151,135 @@ export function launch(specs: Spec[], env: ThrowEnv, key: string): BodyInit[] {
   });
 }
 
+/** How a throw's dice leave: from the roller's hand (`launch`), or dropping in from the dice cannon (`cannonLaunch`). */
+export type Launcher = (specs: Spec[], env: ThrowEnv, key: string) => BodyInit[];
+
+// -- table toys: the dice cannon (game/cannon.ts) ---------------------------------------------------------------------
+
+/**
+ * A die fired from the dice cannon, in the mat frame of the player it lands in front of: it comes over the aisle edge of
+ * their mat at the top of its arc and drops onto the mat, rolling toward them. Each re-fire of a tie lands beside the one
+ * before it (`round`), so a tied die stays to be seen.
+ */
+export function cannonEnv(piles: Obstacle[] = [], round = 0): ThrowEnv {
+  const base = tableEnv(piles);
+  const cx = [-1.3, 1.6, 0.1, -2.6, 2.9][round % 5]!;
+  return {
+    ...base,
+    hand: new THREE.Vector3(cx, 2.2, -4.3),
+    land: { minX: cx - 1.1, maxX: cx + 1.1, minZ: -1.6, maxZ: 0.5 },
+  };
+}
+
+/** The flight's last moment before the physics take over: the top of its arc over the aisle, dropping onto the aim. */
+export const cannonLaunch: Launcher = (specs, env, key) => {
+  const rnd = seeded(key);
+  const r = Math.max(...specs.map((s) => radiusOf(s.kind)));
+  const gap = r * 2.1;
+  const land = env.land;
+  const aim = new THREE.Vector3(land.minX + (land.maxX - land.minX) * (0.3 + rnd() * 0.4), 0, land.minZ + (land.maxZ - land.minZ) * (0.3 + rnd() * 0.4));
+  const g = 60; // physics.ts TUNING.gravity
+  const across = Math.min(specs.length, specs.length > 6 ? 4 : 3);
+  const rows = Math.ceil(specs.length / across);
+  return specs.map((spec, i) => {
+    const row = Math.floor(i / across);
+    const col = (i % across) - (Math.min(across, specs.length - row * across) - 1) / 2;
+    const pos = new THREE.Vector3(env.hand.x + col * gap + (rnd() - 0.5) * 0.1, env.hand.y + (rnd() - 0.5) * 0.1, env.hand.z - row * gap + (rnd() - 0.5) * 0.1);
+    // each die to its own spot round the aim, touching down a little short of it and rolling on
+    const touch = aim.clone().add(new THREE.Vector3(col * gap * 1.05 + (rnd() - 0.5) * 0.3, 0, -(row - (rows - 1) / 2) * gap * 0.7 - 0.6 + (rnd() - 0.5) * 0.3));
+    const flight = 0.4 + rnd() * 0.05;
+    const vel = new THREE.Vector3((touch.x - pos.x) / flight, (radiusOf(spec.kind) - pos.y + 0.5 * g * flight * flight) / flight, (touch.z - pos.z) / flight);
+    const fwd = new THREE.Vector3(vel.z, 0, -vel.x).normalize();
+    const coin = spec.kind === "coin";
+    const axis = coin ? fwd.clone() : fwd.clone().multiplyScalar(0.7).add(randomAxis(rnd).multiplyScalar(0.6)).normalize();
+    return bodyOf(spec, pos, vel, axis.multiplyScalar(coin ? 18 : 11 + rnd() * 8), randomRotation(rnd));
+  });
+};
+
+/**
+ * The flight from the cannon's muzzle (`from`, in the throw's own frame) to where the throw's physics begin, put in front of
+ * each die's track: an arc leaving the muzzle and meeting the physics' first pose and speed, the die turning back from
+ * there at its spin. Every screen's physics are the same; only this flight differs (each screen has the cannon where its
+ * own table puts it). `seconds` long.
+ */
+export function prefixTrack(track: Track, from: THREE.Vector3, seconds: number): Track {
+  const fps = FRAMES_PER_SECOND;
+  const n = Math.max(1, Math.round(seconds * fps));
+  const p0 = new THREE.Vector3();
+  const q0 = new THREE.Quaternion();
+  const p1 = new THREE.Vector3();
+  const q1 = new THREE.Quaternion();
+  poseAt(track, 0, p0, q0);
+  poseAt(track, 1, p1, q1);
+  const v0 = p1.clone().sub(p0).multiplyScalar(fps);
+  // the spin over the first frame, as an axis and a rate (radians a second)
+  const dq = q1.clone().multiply(q0.clone().invert());
+  if (dq.w < 0) dq.set(-dq.x, -dq.y, -dq.z, -dq.w);
+  const angle = 2 * Math.acos(Math.min(1, dq.w));
+  const axis = angle > 1e-6 ? new THREE.Vector3(dq.x, dq.y, dq.z).normalize() : new THREE.Vector3(0, 1, 0);
+  const rate = angle * fps;
+  // leaving the muzzle: on the way to the arc's start, rising (twice the climb a second, as a ball thrown up to its top)
+  const vStart = new THREE.Vector3((p0.x - from.x) / seconds, (2 * (p0.y - from.y)) / seconds + 0.4, (p0.z - from.z) / seconds);
+  const frames = new Float32Array((n + track.count) * 7);
+  const p = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const turn = new THREE.Quaternion();
+  for (let i = 0; i < n; i++) {
+    const k = i / n;
+    const k2 = k * k;
+    const k3 = k2 * k;
+    // cubic Hermite: from the muzzle at vStart to the throw's first pose at its first speed
+    const h00 = 2 * k3 - 3 * k2 + 1, h10 = k3 - 2 * k2 + k, h01 = -2 * k3 + 3 * k2, h11 = k3 - k2;
+    p.set(
+      h00 * from.x + h10 * seconds * vStart.x + h01 * p0.x + h11 * seconds * v0.x,
+      h00 * from.y + h10 * seconds * vStart.y + h01 * p0.y + h11 * seconds * v0.y,
+      h00 * from.z + h10 * seconds * vStart.z + h01 * p0.z + h11 * seconds * v0.z,
+    );
+    turn.setFromAxisAngle(axis, -rate * (n - i) / fps);
+    q.copy(turn).multiply(q0);
+    frames.set([p.x, p.y, p.z, q.x, q.y, q.z, q.w], i * 7);
+  }
+  frames.set(track.frames.subarray(0, track.count * 7), n * 7);
+  return { frames, count: n + track.count, rest: track.rest + n, settled: track.settled };
+}
+
+/**
+ * Low graphics (body.perf-low): the dice without physics, lying in the landing area with the server's numbers on top, as the
+ * 2D table's drawn dice do. One still frame each, seeded by the roll (the same spots on every screen).
+ */
+export function placeRoll(show: Pick<DiceShow, "key" | "sides" | "results" | "coin" | "ignored">, env: ThrowEnv): Thrown {
+  const specs = diceOf(show);
+  const rnd = seeded(show.key);
+  const placed: THREE.Vector3[] = [];
+  const land = env.land;
+  const dice: ThrownDie[] = specs.map((spec) => {
+    const r = radiusOf(spec.kind);
+    let x = 0, z = 0;
+    for (let tries = 0; tries < 30; tries++) {
+      x = land.minX + rnd() * (land.maxX - land.minX);
+      z = land.minZ + rnd() * (land.maxZ - land.minZ);
+      if (placed.every((o) => Math.hypot(o.x - x, o.z - z) > r * 2.05)) break;
+    }
+    let body: THREE.Quaternion, turn: THREE.Quaternion, y: number;
+    const spinY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * Math.PI * 2);
+    if (spec.kind === "coin") {
+      body = spinY;
+      turn = coinTurn(body, !!spec.heads);
+      y = COIN_THICK / 2;
+    } else {
+      const s = dieSolid(spec.kind);
+      body = spinY.multiply(new THREE.Quaternion().setFromUnitVectors(s.faces[0]!.normal, new THREE.Vector3(0, -1, 0)));
+      turn = faceTurn(s, spec.kind === "d4" ? topPoint(s, body) : topFace(s, body), spec.face);
+      y = s.inradius;
+    }
+    placed.push(new THREE.Vector3(x, y, z));
+    const frames = new Float32Array([x, y, z, body.x, body.y, body.z, body.w]);
+    const { heads: _h, ...rest } = spec;
+    return { ...rest, track: { frames, count: 1, rest: 0, settled: true }, turn, rest: 0 };
+  });
+  return { dice, impacts: [], seconds: 0, attempts: 0, snapped: 0 };
+}
+
 export interface Check { ok: boolean; flat: boolean; onTable: boolean; inside: boolean }
 
 /** Did each die come to rest flat on the table, on the roller's side? */
@@ -218,7 +347,7 @@ export const COARSE_FROM = 4;
 export const LAUNCH = { carry: 1 };
 
 /** Throw a roll's dice in `env`: the same tracks for the same roll on every screen. */
-export function throwRoll(show: Pick<DiceShow, "key" | "sides" | "results" | "coin" | "ignored">, env: ThrowEnv): Thrown {
+export function throwRoll(show: Pick<DiceShow, "key" | "sides" | "results" | "coin" | "ignored">, env: ThrowEnv, from: Launcher = launch): Thrown {
   const specs = diceOf(show);
   let best: { tracks: Track[]; impacts: Impact[]; checks: Check[]; seconds: number } | null = null;
   let attempts = 0;
@@ -226,7 +355,7 @@ export function throwRoll(show: Pick<DiceShow, "key" | "sides" | "results" | "co
   const tries = specs.length <= 3 ? ATTEMPTS : specs.length <= 6 ? 3 : 2;
   for (let a = 0; a < tries; a++) {
     attempts++;
-    const bodies = launch(specs, env, a ? `${show.key}#${a}` : show.key);
+    const bodies = from(specs, env, a ? `${show.key}#${a}` : show.key);
     const sim = simulate(bodies, { bounds: env.bounds, obstacles: env.obstacles, maxSeconds: 3.6, coarse: specs.length > COARSE_FROM });
     const checks = judge(specs, sim.tracks, env);
     const bad = checks.filter((c) => !c.ok).length;

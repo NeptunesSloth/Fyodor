@@ -25,12 +25,15 @@ import {
   packageUrl,
   loadSave,
   rememberSeat,
+  seatToken,
   type CreatePlayer,
 } from "../services/games";
 import type { DeckSummary } from "../types/decks";
 import type { GameSummary, SaveSummary } from "../types/game";
 import { CommanderArt } from "./CommanderArt";
 import { DeckPicker } from "./DeckPicker";
+import { orderGames, ownName, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
+import { NearbyGames } from "./NearbyGames";
 import { deckTitle, shelfSaves } from "./playBits";
 import { SEAT_COLORS, SeatChip, TableMosaic, chipStyle, whenSaved } from "./tableBits";
 
@@ -44,14 +47,30 @@ const AUTOMATION_HINT: Record<AutomationLevel, string> = {
   full: "Supported rules happen by themselves; you're asked only when Magic needs a choice.",
 };
 
+/** Join links already acted on in this page's life (a re-render or React's double effect never joins twice). */
+const handledInvites = new Set<string>();
+
+/** Take a seat (or watch) with a room code: the profile's preferred seat when it's free, otherwise any, then go to the table. */
+async function joinTable(body: { code: string; name?: string; password?: string; spectate: boolean; handoff?: string | null }): Promise<void> {
+  const preferred = usePrefs.getState().preferredSeat;
+  const res = preferred && !body.spectate
+    ? await joinGame({ ...body, seat: preferred }).catch(() => joinGame(body))
+    : await joinGame(body);
+  rememberSeat(res.game_id, res.token);
+  navigate(`/game/${res.game_id}`);
+}
+
 export function PlayPage({ route }: { route: Route }) {
   const [host, setHost] = useState<boolean | null>(null);
-  const [games, setGames] = useState<GameSummary[]>([]);
+  const [games, setGames] = useState<GameSummary[] | null>(null);
   const [saves, setSaves] = useState<SaveSummary[]>([]);
   const [decks, setDecks] = useState<DeckSummary[]>([]);
 
   const refresh = useCallback(() => {
-    listGames().then(setGames, toastError);
+    listGames().then(setGames, (e) => {
+      setGames((g) => g ?? []);
+      toastError(e);
+    });
     listSaves().then(
       (s) => {
         listDecks().then(setDecks, toastError); // the deck library lives on the host only
@@ -67,6 +86,26 @@ export function PlayPage({ route }: { route: Route }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // A join link (#/play?code=…&name=…&join=1, or watch=1), e.g. from "Games on your network" on a player's own Fyodor: join
+  // at once when the table needs no password (or open the seat this browser already holds there); otherwise fill the code and
+  // the name in and ask for the password. The parameters come off the address either way.
+  const invite = useMemo(() => readInvite(route.query), [route.query]);
+  const [askPassword, setAskPassword] = useState(false);
+  useEffect(() => {
+    if (!invite || invite.action === "fill" || games === null) return;
+    const key = `${invite.code}|${invite.action}|${invite.name}|${invite.handoff ?? ""}`;
+    if (handledInvites.has(key)) return;
+    handledInvites.add(key);
+    window.history.replaceState(window.history.state, "", withoutInvite(window.location.hash));
+    const plan = planInvite(invite, games, (id) => !!seatToken(id));
+    if (plan.kind === "open") navigate(`/game/${plan.gameId}`);
+    else if (plan.kind === "password") setAskPassword(true);
+    else if (plan.kind === "join") {
+      void joinTable({ code: invite.code, name: invite.name || undefined, spectate: plan.spectate, handoff: plan.spectate ? null : invite.handoff })
+        .catch(toastError);
+    }
+  }, [invite, games]);
 
   // "Resume a game" on the launcher opens the shelf
   const shelf = useRef<HTMLElement>(null);
@@ -91,14 +130,15 @@ export function PlayPage({ route }: { route: Route }) {
           )}
         </div>
         <aside className="pg-side">
-          <JoinGame />
+          <JoinGame key={invite ? `${invite.code} ${invite.action}` : "door"} invite={invite} askPassword={askPassword} />
+          {host && <NearbyGames deckCount={decks.length} />}
           <section className="pg-shelf" ref={shelf} aria-labelledby="pg-shelf-title">
             <h2 id="pg-shelf-title" tabIndex={-1}>Tables in progress</h2>
-            {games.length === 0 ? (
+            {!games?.length ? (
               <p className="pg-empty">No tables are open. A game shows up here while it's being played.</p>
             ) : (
               <ul className="pg-tiles">
-                {games.map((g) => <TableTile key={g.id} game={g} host={!!host} onClosed={refresh} />)}
+                {orderGames(games).map((g) => <TableTile key={g.id} game={g} host={host} onClosed={refresh} />)}
               </ul>
             )}
             {host && (
@@ -414,21 +454,21 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
   );
 }
 
-function JoinGame() {
-  // an invite link (#/play?code=ABC123) fills the room code in
-  const [code, setCode] = useState(() => new URLSearchParams(window.location.hash.split("?")[1] ?? "").get("code") ?? "");
-  const [name, setName] = useState(() => activeProfile().name === "Player" ? "" : activeProfile().name);
+function JoinGame({ invite, askPassword }: { invite: Invite | null; askPassword: boolean }) {
+  // an invite link (#/play?code=ABC123) fills the room code in; a join link also the name (and asks for a password here)
+  const [code, setCode] = useState(() => invite?.code ?? "");
+  const [name, setName] = useState(() => invite?.name || ownName(activeProfile().name));
   const [password, setPassword] = useState("");
+  const passwordField = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (askPassword) passwordField.current?.focus();
+  }, [askPassword]);
   const join = async (spectate: boolean) => {
     try {
-      const body = { code: code.trim().toUpperCase(), name: name.trim() || undefined, password: password || undefined, spectate };
-      const preferred = usePrefs.getState().preferredSeat;
-      // sit in the profile's preferred seat when it's free, otherwise anywhere
-      const res = preferred && !spectate
-        ? await joinGame({ ...body, seat: preferred }).catch(() => joinGame(body))
-        : await joinGame(body);
-      rememberSeat(res.game_id, res.token);
-      navigate(`/game/${res.game_id}`);
+      const typed = code.trim().toUpperCase();
+      // the decks a join link brought come along when it's still that table's code
+      const handoff = !spectate && invite?.handoff && invite.code === typed ? invite.handoff : null;
+      await joinTable({ code: typed, name: name.trim() || undefined, password: password || undefined, spectate, handoff });
     } catch (e) {
       toastError(e);
     }
@@ -448,7 +488,8 @@ function JoinGame() {
         </label>
         <label className="pg-field pg-field-pass">
           <span>Password</span>
-          <input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="If the host set one" autoComplete="off" />
+          <input ref={passwordField} type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="If the host set one"
+            autoComplete="off" data-testid="join-password" />
         </label>
         <div className="pg-door-acts">
           <button className="tt-btn brass" type="submit" disabled={!ready} data-testid="join-submit">Join</button>
@@ -460,7 +501,7 @@ function JoinGame() {
 }
 
 /** A table being played right now: its commanders, how it's played, who's there. */
-function TableTile({ game: g, host, onClosed }: { game: GameSummary; host: boolean; onClosed: () => void }) {
+function TableTile({ game: g, host, onClosed }: { game: GameSummary; host: boolean | null; onClosed: () => void }) {
   const lan = g.mode === "lan";
   const lobby = g.phase === "lobby";
   const who = g.players.map((p) => `${p.name}${lan ? (p.connected ? "" : p.claimed ? " (away)" : " (open)") : ""}`);
@@ -468,7 +509,7 @@ function TableTile({ game: g, host, onClosed }: { game: GameSummary; host: boole
     <li className="pg-tile">
       <TableMosaic seats={g.players.map((p) => ({ ...p, open: lan && !p.claimed }))} />
       <div className="pg-tile-main">
-        <h3><span className="pg-tile-name">{g.name}</span></h3>
+        <h3><span className="pg-tile-name">{g.name}</span>{lan && g.has_password && <Icon name="lock" size={14} label="Password" className="pg-lock" />}</h3>
         <p className="pg-meta">
           <span>{lan ? "LAN" : "Hot-seat"}</span>
           {lan && g.code && <span>Room <b className="pg-room">{g.code}</b></span>}
@@ -486,7 +527,52 @@ function TableTile({ game: g, host, onClosed }: { game: GameSummary; host: boole
           }}>Close</button>
         </div>
       )}
+      {host === false && <TileJoin game={g} />}
     </li>
+  );
+}
+
+/**
+ * A device that isn't the host joins a table right from its tile (POST /api/join, as the code form does): Join while a seat
+ * is open, Watch any LAN table, or Open the seat this browser already holds. A table with a password asks for it here.
+ */
+function TileJoin({ game: g }: { game: GameSummary }) {
+  const acts = tileActions(g, !!seatToken(g.id));
+  const [asking, setAsking] = useState<"join" | "watch" | null>(null);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (!acts.open && !acts.join && !acts.watch) return null;
+  const go = async (spectate: boolean) => {
+    if (g.has_password && !asking) return setAsking(spectate ? "watch" : "join");
+    setBusy(true);
+    try {
+      await joinTable({ code: g.code!, name: ownName(activeProfile().name) || undefined, password: password || undefined, spectate });
+    } catch (e) {
+      toastError(e); // the server has the last word: a seat taken meanwhile, a wrong password
+      setBusy(false);
+    }
+  };
+  if (asking) {
+    return (
+      <form className="pg-tile-acts pg-tile-pass" onSubmit={(e) => { e.preventDefault(); void go(asking === "watch"); }}>
+        <label>
+          <span className="sr-only">Password for “{g.name}”</span>
+          <input type="password" autoFocus value={password} maxLength={100} placeholder="Password" autoComplete="off"
+            onChange={(e) => setPassword(e.target.value)} data-testid="tile-password" />
+        </label>
+        <button className="tt-btn pg-go" type="submit" disabled={busy || !password}>{asking === "watch" ? "Watch" : "Join"}</button>
+        <button className="tt-btn ghost" type="button" onClick={() => { setAsking(null); setPassword(""); }}>Cancel</button>
+      </form>
+    );
+  }
+  return (
+    <div className="pg-tile-acts">
+      {acts.open && <button className="tt-btn pg-go" onClick={() => navigate(`/game/${g.id}`)} aria-label={`Open “${g.name}”`}>Open</button>}
+      {acts.join && (
+        <button className="tt-btn pg-go" disabled={busy} onClick={() => void go(false)} aria-label={`Join “${g.name}”`} data-testid="tile-join">Join</button>
+      )}
+      {acts.watch && <button className="tt-btn" disabled={busy} onClick={() => void go(true)} aria-label={`Watch “${g.name}”`}>Watch</button>}
+    </div>
   );
 }
 

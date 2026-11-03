@@ -12,10 +12,14 @@
  */
 import { useEffect, useRef } from "react";
 import { useGame } from "../state/gameStore";
-import type { LogEntryView } from "../types/game";
+import type { CannonLog, LogEntryView } from "../types/game";
 
 /** ``ignored``: indexes into ``results`` of rolls the rules ignored (706.6: "roll one more die and ignore the lowest", Barbarian Class). */
-export interface DiceShow { key: string; actor: string | null; sides: number; results: number[]; coin: boolean; ignored?: number[] }
+export interface DiceShow {
+  key: string; actor: string | null; sides: number; results: number[]; coin: boolean; ignored?: number[];
+  /** -- table toys -- fired from the dice cannon (game/cannon.ts): who each die lands in front of, and in which volley. */
+  cannon?: CannonLog | null;
+}
 
 /** What thrown dice are made of (Settings → Dice, this screen only): table3d/diceLook.ts. */
 export type DiceLook = "resin" | "marble" | "metal" | "gem";
@@ -96,7 +100,7 @@ export function useDiceFeed(onRoll: (r: DiceShow) => void): void {
       for (const e of log) {
         if (!e.roll || seen.has(keyOf(e))) continue;
         seen.add(keyOf(e));
-        handler.current({ key: keyOf(e), actor: e.actor, sides: e.roll.sides, results: e.roll.results, coin: e.roll.coin, ignored: e.roll.ignored ?? [] });
+        handler.current({ key: keyOf(e), actor: e.actor, sides: e.roll.sides, results: e.roll.results, coin: e.roll.coin, ignored: e.roll.ignored ?? [], cannon: e.roll.cannon ?? null });
       }
     });
   }, []);

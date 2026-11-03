@@ -8,6 +8,7 @@ import { ApiError } from "../services/api";
 import { listDecks } from "../services/decks";
 import {
   arrangeLobbySeats,
+  broughtDecks,
   changeLobbySeat,
   clearLobbyDeck,
   forgetMyDeck,
@@ -26,6 +27,7 @@ import {
   startLobbyGame,
   submitLobbyDeck,
   updateLobbySettings,
+  type BroughtLibrary,
   type LobbyDeckBody,
   type MyDeck,
   lanInfo,
@@ -36,6 +38,7 @@ import { contrast } from "../theme/planes";
 import type { DeckSummary } from "../types/decks";
 import { SPECTATOR, type LobbySeat, type LobbySettings, type LobbyView } from "../types/game";
 import { TablePermissionsSetting } from "./TablePermissionsSetting";
+import { ownDecks, type OwnDeck, type OwnDecks } from "./lanBits";
 import { CommanderArt } from "./CommanderArt";
 import { PersonalDeckImports } from "./PersonalDeckImports";
 import { SessionRecap } from "./SessionRecap";
@@ -73,6 +76,15 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
   const [dragOver, setDragOver] = useState<string | null>(null);
   const invite = useInviteLink(lobby.is_host ? lobby.game.code : null);
   const setLobby = (l: LobbyView) => useGame.getState().applyLobby(l);
+  // -- bring my decks -- the decks this seat brought: from the player's own Fyodor (sent with the join), or this browser's My decks
+  const [brought, setBrought] = useState<BroughtLibrary | null>(null);
+  const [savedVersion, setSavedVersion] = useState(0);
+  const seated = !!me && me.id !== SPECTATOR;
+  useEffect(() => {
+    if (!seated) return;
+    broughtDecks(gameId).then(setBrought, () => setBrought(null));
+  }, [gameId, seated, me?.id]);
+  const own = useMemo(() => (seated ? ownDecks(brought, myDecks()) : null), [seated, brought, savedVersion]);
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -150,6 +162,8 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
               onChoose={() => setChoosing(true)}
               onRun={run}
               arranging={arrangingFor(seat)}
+              own={seat.id === lobby.viewer ? own : null}
+              onPick={(d) => void run(() => bringDeck(gameId, d.body, { remember: !own?.brought }).finally(() => setSavedVersion((v) => v + 1)))}
             />
           ))}
           {open.length > 0 && (
@@ -221,7 +235,11 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
         </div>
       </footer>
 
-      {choosing && me && <ChooseDeck gameId={gameId} onClose={() => setChoosing(false)} onDone={(l) => { setLobby(l); setChoosing(false); }} />}
+      {choosing && me && (
+        <ChooseDeck gameId={gameId} brought={brought?.decks.length ? brought : null}
+          onClose={() => { setChoosing(false); setSavedVersion((v) => v + 1); }}
+          onDone={(l) => { setLobby(l); setChoosing(false); setSavedVersion((v) => v + 1); }} />
+      )}
       {settingsOpen && <SettingsDialog lobby={lobby} onClose={() => setSettingsOpen(false)} onSaved={setLobby} />}
     </div>
   );
@@ -533,7 +551,7 @@ function dropProps(arranging: Arranging | null) {
 }
 
 /** A taken seat: the player's name plate, their commander on the felt (lit once they're ready) and their deck. */
-function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging }: {
+function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, onPick }: {
   seat: LobbySeat;
   mine: boolean;
   lobby: LobbyView;
@@ -541,6 +559,9 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging }: {
   onChoose: () => void;
   onRun: (fn: () => Promise<unknown>) => Promise<void>;
   arranging: Arranging | null;
+  /** the decks this player brought (their own seat only), one click each */
+  own: OwnDecks | null;
+  onPick: (deck: OwnDeck) => void;
 }) {
   const gameId = lobby.game.id;
   const [editing, setEditing] = useState(false);
@@ -656,7 +677,10 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging }: {
               </p>
             )}
             {mine && deck.report && deck.report.unresolved.length > 0 && (
-              <p className="pl-warn"><WarnGlyph />{deck.report.unresolved.length} line(s) not found: they'll be text proxies</p>
+              <p className="pl-warn" title={deck.report.unresolved.map((u) => u.name ?? u.line).join("\n")}>
+                <WarnGlyph />Not in this table's card database, so they play as text proxies:{" "}
+                {deck.report.unresolved.slice(0, 6).map((u) => u.name ?? u.line).join(", ")}{deck.report.unresolved.length > 6 ? ` and ${deck.report.unresolved.length - 6} more` : ""}
+              </p>
             )}
             {mine && deck.warnings && deck.warnings.length > 0 && (
               <details className="deck-checks" data-testid="deck-checks">
@@ -668,7 +692,9 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging }: {
             )}
           </>
         ) : (
-          <p className="pl-empty">{mine ? "Bring any Commander deck: pick one you saved, paste a list or import it." : `${seat.name} is choosing a deck.`}</p>
+          mine && own ? <OwnDeckPicks own={own} busy={busy} onPick={onPick} onMore={onChoose} /> : (
+            <p className="pl-empty">{mine ? "Bring any Commander deck: pick one you saved, paste a list or import it." : `${seat.name} is choosing a deck.`}</p>
+          )
         )}
       </div>
 
@@ -684,6 +710,31 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging }: {
         </div>
       ) : null}
     </section>
+  );
+}
+
+/** -- bring my decks -- the decks this player brought, right on their seat: commander art, one click to play one. */
+function OwnDeckPicks({ own, busy, onPick, onMore }: { own: OwnDecks; busy: boolean; onPick: (d: OwnDeck) => void; onMore: () => void }) {
+  const shown = own.decks.slice(0, 4);
+  return (
+    <div className="pl-own" data-testid="own-decks">
+      <p className="pl-own-head">{own.label}</p>
+      <ul className="pl-own-grid">
+        {shown.map((d) => (
+          <li key={d.key}>
+            <button className="pl-own-deck" disabled={busy} onClick={() => onPick(d)} aria-label={`Use “${d.name}”`}
+              title={d.commanders.length ? `${d.name}: ${d.commanders.join(" & ")}` : d.name}>
+              <span className="pl-own-art">{d.cover ? <CommanderArt id={d.cover} /> : <CommanderArt back />}</span>
+              <span className="pl-own-name">{d.commanders.length ? d.commanders.join(" & ") : d.name}</span>
+              {d.commanders.length > 0 && <span className="pl-own-sub">{d.name}</span>}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {own.decks.length > shown.length && (
+        <button className="tt-link pl-own-more" onClick={onMore}>All {own.decks.length} of your decks…</button>
+      )}
+    </div>
   );
 }
 
@@ -757,26 +808,44 @@ function DeckListPeek({ list }: { list: { section: string; quantity: number; nam
   );
 }
 
-type Source = "table" | "mine" | "archidekt" | "paste" | "file";
+type Source = "brought" | "table" | "mine" | "archidekt" | "paste" | "file";
 
-function ChooseDeck({ gameId, onClose, onDone }: { gameId: string; onClose: () => void; onDone: (l: LobbyView) => void }) {
+/** Put a deck in this seat: the lobby's personal import (deck checks, privacy), remembered in My decks when asked. */
+async function bringDeck(gameId: string, body: LobbyDeckBody, opts: { remember: boolean; companion?: string }): Promise<LobbyView> {
+  const imported = await importPersonalDeck(gameId, body);
+  if (opts.remember || body.deck_id) rememberMyDeck(imported.name, body, imported.commanders, imported);
+  const res = await submitLobbyDeck(gameId, { name: imported.name, text: imported.text,
+    collection: personalCollection(), ...(opts.companion ? { companion_id: opts.companion } : {}) });
+  const mine = res.seats.find((s) => s.id === res.viewer)?.deck;
+  toast(`Deck ready: ${mine?.name ?? "deck"} (${mine?.card_count ?? 0} cards)`);
+  return res;
+}
+
+function ChooseDeck({ gameId, brought, onClose, onDone }: {
+  gameId: string;
+  /** -- bring my decks -- the library this player's own Fyodor sent with their join: offered first */
+  brought: BroughtLibrary | null;
+  onClose: () => void;
+  onDone: (l: LobbyView) => void;
+}) {
   const [companion, setCompanion] = useState("");
   const [hostDecks, setHostDecks] = useState<DeckSummary[] | null>(null);
   const [saved, setSaved] = useState<MyDeck[]>(() => myDecks());
-  const [source, setSource] = useState<Source>(saved.length ? "mine" : "paste");
+  const [source, setSource] = useState<Source>(brought ? "brought" : saved.length ? "mine" : "paste");
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
   const [name, setName] = useState("");
   const [file, setFile] = useState<{ name: string; body: LobbyDeckBody } | null>(null);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [keepBrought, setKeepBrought] = useState(false);
 
   useEffect(() => {
     // The host's library is offered only on the host computer (the server enforces this too).
     listDecks().then(
       (d) => {
         setHostDecks(d);
-        if (!saved.length && d.length) setSource("table");
+        if (!saved.length && d.length) setSource((s) => (s === "brought" ? s : "table"));
       },
       (e) => {
         if (!(e instanceof ApiError && e.status === 403)) toastError(e);
@@ -794,14 +863,7 @@ function ChooseDeck({ gameId, onClose, onDone }: { gameId: string; onClose: () =
   const submit = async (body: LobbyDeckBody, remember: boolean) => {
     setBusy(true);
     try {
-      const imported = await importPersonalDeck(gameId, body);
-      if (remember || body.deck_id) rememberMyDeck(imported.name, body, imported.commanders, imported);
-      const res = await submitLobbyDeck(gameId, { name: imported.name, text: imported.text,
-        collection: personalCollection(), ...(companion ? { companion_id: companion } : {}) });
-      const mine = res.seats.find((s) => s.id === res.viewer)?.deck;
-
-      toast(`Deck ready: ${mine?.name ?? "deck"} (${mine?.card_count ?? 0} cards)`);
-      onDone(res);
+      onDone(await bringDeck(gameId, body, { remember, companion }));
     } catch (e) {
       toastError(e);
     } finally {
@@ -821,6 +883,7 @@ function ChooseDeck({ gameId, onClose, onDone }: { gameId: string; onClose: () =
   };
 
   const tabs: [Source, string][] = [
+    ...(brought ? ([["brought", `Your decks, from ${brought.from ?? "your computer"}`]] as [Source, string][]) : []),
     ...(hostDecks ? ([["table", "Table decks"]] as [Source, string][]) : []),
     ["mine", "My decks"],
     ["archidekt", "Archidekt"],
@@ -845,6 +908,28 @@ function ChooseDeck({ gameId, onClose, onDone }: { gameId: string; onClose: () =
         </select>
       </label>
       <div className="deck-src-body">
+        {source === "brought" && brought && (
+          <div className="deck-pick-list" data-testid="brought-decks">
+            <p className="hint">Your decks from {brought.from ?? "your computer"}. Only you see this list; the table sees the deck you choose as its deck privacy allows.</p>
+            {brought.unknown.length > 0 && (
+              <p className="pl-warn" data-testid="brought-unknown">
+                <WarnGlyph />This table's card database couldn't take {brought.unknown.length === 1 ? "a card" : `${brought.unknown.length} cards`} from {brought.from ?? "your computer"}:{" "}
+                {brought.unknown.slice(0, 8).map((u) => `${u.name} (${u.why})`).join("; ")}. They play as text proxies.
+              </p>
+            )}
+            {brought.decks.map((d, i) => (
+              <button key={i} className="deck-pick brought-pick" disabled={busy} onClick={() => void submit({ name: d.name, text: d.text }, keepBrought)}>
+                <span className="brought-art" aria-hidden>{d.cover_id ? <CommanderArt id={d.cover_id} /> : <CommanderArt back />}</span>
+                <b>{d.name}</b>
+                <span className="hint">{d.commanders.join(" & ") || "Deck list"}</span>
+              </button>
+            ))}
+            <label className="row-check brought-keep">
+              <input type="checkbox" checked={keepBrought} onChange={(e) => setKeepBrought(e.target.checked)} />
+              <span>Also keep the one I choose in My decks on this browser</span>
+            </label>
+          </div>
+        )}
         {source === "table" && hostDecks && (
           <div className="deck-pick-list">
             {hostDecks.length === 0 && <p className="hint">No decks in this computer's library.</p>}
@@ -859,6 +944,10 @@ function ChooseDeck({ gameId, onClose, onDone }: { gameId: string; onClose: () =
         )}
         {source === "mine" && (
           <div className="deck-pick-list">
+            <p className="hint" data-testid="my-decks-address">
+              My decks are kept in this browser for <b>{window.location.host}</b>: another address (another host, or this one after its
+              address changes) has its own list. Export My decks to carry them there, and import the file at the new address.
+            </p>
             <PersonalDeckImports gameId={gameId} onSaved={savedChanged} disabled={busy} onBusyChange={setBusy} />
             {saved.length === 0 && <p className="hint">No personal decks saved yet.</p>}
             {saved.map((d) => (

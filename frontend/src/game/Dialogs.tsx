@@ -1,6 +1,8 @@
 import { usePrefs } from "../state/prefs";
 import { AppearanceDialog } from "./AppearanceDialog";
 import { DicePanel } from "./DicePanel";
+import { DrawBagPanel } from "./DrawBagPanel";
+import { ExtrasBag } from "./ExtrasBag";
 import { EndGameDialog } from "./EndGameDialog";
 import { HistoryDialog } from "./HistoryDialog";
 import { MacroDialog } from "./MacroDialog";
@@ -32,6 +34,8 @@ export function GameDialogs({ me }: { me: string }) {
     <>
       {dialog === "tokens" && <TokenDialog me={me} sourceId={arg} onClose={close} />}
       {dialog === "dice" && <DicePanel onClose={close} />}
+      {dialog === "drawbag" && <DrawBagPanel onClose={close} />}
+      {dialog === "extras" && <ExtrasBag me={me} anchor={arg} onClose={close} />}
       {dialog === "ability" && <AbilityDialog sourceId={arg} onClose={close} />}
       {dialog === "save" && <SaveDialog onClose={close} />}
       {dialog === "help" && <HelpDialog onClose={close} initial={arg ?? ""} />}

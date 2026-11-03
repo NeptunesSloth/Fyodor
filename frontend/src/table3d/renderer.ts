@@ -11,9 +11,15 @@ export function webglAvailable(): boolean {
 
 let webgl: boolean | null = null;
 
-export function resolveRenderer(pref: "auto" | "3d" | "2d"): "3d" | "2d" {
+/** WebGL support, checked once per page: each check creates a throwaway context, which costs most of a second on a
+ *  software renderer (a laptop without a GPU driver, headless CI). */
+export function hasWebgl(): boolean {
   webgl ??= webglAvailable();
-  if (pref === "2d" || !webgl) return "2d";
+  return webgl;
+}
+
+export function resolveRenderer(pref: "auto" | "3d" | "2d"): "3d" | "2d" {
+  if (pref === "2d" || !hasWebgl()) return "2d";
   if (pref === "3d") return "3d";
   // AUTO: a per-device override (Settings on a slow laptop, or the 3D browser tests), else 3D.
   // Automated browsers (the 2D E2E suite) default to the 2D table unless they opt in.

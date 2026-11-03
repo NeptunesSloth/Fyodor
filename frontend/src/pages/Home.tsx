@@ -18,6 +18,7 @@ import { resolveRenderer } from "../table3d/renderer";
 import type { DeckSummary } from "../types/decks";
 import type { GameSummary, SaveSummary } from "../types/game";
 import { CommanderArt } from "./CommanderArt";
+import { NearbyLine } from "./NearbyGames";
 import { deckTitle, lastTable, type LastTable } from "./playBits";
 import { TableMosaic, whenSaved } from "./tableBits";
 import { Welcome, resetWelcome, welcomeDone } from "./Welcome";
@@ -98,6 +99,8 @@ export function Home() {
             ))}
           </div>
         </nav>
+        {/* a lobby with a free seat on another computer (the host computer asks the network; never another device) */}
+        <NearbyLine enabled={host} />
         {recent.length > 0 && (
           <section className="home-decks" aria-labelledby="home-decks-title">
             <h2 id="home-decks-title">Play a deck</h2>

@@ -31,6 +31,7 @@ const RULES_INTENTS = [
 const OUT_MAY = new Set([
   ...RULES_INTENTS, "chat", "roll", "coin", "rename_player", "set_appearance", "end_view", "response_pass", "response_auto", "configure",
   "remove_player", "set_table_playmat", "restart_game", "mulligan_finish",
+  "cannon", "bag_fill", "bag_draw", "bag_show", "bag_return", "bag_empty", // -- table toys -- like the dice (not the Bag of Extras)
 ]);
 
 /** Why the server would refuse this action from `actor` (the seat it is sent as), or null: it may be sent. */
@@ -40,12 +41,18 @@ export function outRefusal(view: GameView | null | undefined, actor: string | nu
 
 /**
  * The shortcuts that would move the game: they send what the server refuses from a player who is out. Looking around (the
- * camera and focus keys), the log, help, pings, dice, the hand's sort, closing a look, auto-pass and undo (the table's undo
- * setting decides that one) keep working.
+ * camera and focus keys), the log, help, pings, dice, the hand's sort, closing a look and auto-pass keep working.
  */
 export const MOVING_KEYS: ReadonlySet<HotkeyId> = new Set<HotkeyId>([
   "tap", "draw", "next_step", "next_turn", "untap_all", "turn_over", "to_graveyard", "respond",
 ]);
+
+/**
+ * -- out of the game (gaps5) -- Undo and redo take the live game's actions back: the server refuses them from a player who is out
+ * (app/game/out_of_game.py history_refusal), except from the host (`undo_host`: the host's seat, every seat at a hot-seat table),
+ * who can still take a mistaken concession back.
+ */
+export const HISTORY_KEYS: ReadonlySet<HotkeyId> = new Set<HotkeyId>(["undo", "redo"]);
 
 const told = new Set<string>();
 
@@ -54,7 +61,7 @@ const told = new Set<string>();
  * game says why (the server's reason); the ones after it stay quiet.
  */
 export function outKeyBlocked(view: GameView | null | undefined, me: string | null | undefined, id: HotkeyId, say: (text: string) => void = (t) => toast(t, "info")): boolean {
-  if (!MOVING_KEYS.has(id)) return false;
+  if (!MOVING_KEYS.has(id) && !(HISTORY_KEYS.has(id) && !view?.game.undo_host)) return false;
   const why = outReason(view, me);
   if (!why) return false;
   const key = `${view!.game.id}:${view!.game.night?.number ?? 0}:${me}`;

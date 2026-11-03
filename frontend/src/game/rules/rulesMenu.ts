@@ -6,6 +6,8 @@ import { abilityLines, automationOn, isLand, send, setPrefs, useXPrompt } from "
 
 /** 702.33a / 702.33c: a "Kicker {cost}" or "Multikicker {cost}" keyword line (mana costs only, as the server pays them). */
 const KICKER = /^(?:(?:multi)?kicker|entwine) (?:\{[^}]+\})+(?: and\/or (?:\{[^}]+\})+)?$|^entwine—|^kicker—/i; // (702.42a entwine: kicker's count 1 is "choose all modes"; wave 43D: "Kicker—Sacrifice a land.", paid by the server)
+/** -- Star Trek beam me up (wave 112T) -- the server's label of a beam me up cost: "<source>: beam me up {cost}". */
+const BEAM = /^(.*): beam me up ((?:\{[^}]+\})+)$/;
 /** Multikicker quick choices; Other uses the same platform numeric range as X. */
 export const MULTIKICKER_COUNTS = [1, 2, 3, 4, 5, 6];
 
@@ -68,7 +70,10 @@ export function rulesMenu(card: GameCard, view: GameView, me: string): MenuItem[
   if (mine && !isLand(card.id, view)) {
     for (const alt of hints.alt_castable?.[card.id] ?? []) {
       const what = alt.label.length > 60 ? alt.label.slice(0, 57) + "…" : alt.label;
-      items.push({ label: `Cast for alternative cost (${what})`, onClick: () => void send({ type: "cast_spell", card_id: card.id, alt_cost: alt.id }) });
+      // -- Star Trek beam me up (wave 112T) -- from the graveyard, offered as flashback is: "Cast with beam me up {2}{W}" (a granted one names its source: Scotty)
+      const beam = zone === "graveyard" ? BEAM.exec(alt.label) : null;
+      const label = beam ? `Cast with beam me up ${beam[2]}${beam[1] !== (data?.name ?? card.name) ? ` (${beam[1]})` : ""}` : `Cast for alternative cost (${what})`;
+      items.push({ label, onClick: () => void send({ type: "cast_spell", card_id: card.id, alt_cost: alt.id }) });
     }
     // Optional additional costs other permanents offer (Defiler of Vigor: "you may pay 2 life … cost {G} less").
     for (const opt of hints.optional_costs?.[card.id] ?? []) {
