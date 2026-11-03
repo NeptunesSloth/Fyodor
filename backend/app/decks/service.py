@@ -11,7 +11,7 @@ from typing import Any, cast
 
 from app.cards.names import normalize_name
 from app.cards.repository import CardRepository
-from app.decks import archidekt
+from app.decks import archidekt, sites
 from app.decks.models import (
     Deck,
     DeckCategory,
@@ -199,7 +199,8 @@ def import_any(req: DeckImportRequest, cards: CardRepository, *, fetch: Fetcher 
     if req.archidekt:
         deck_id = archidekt.extract_deck_id(req.archidekt)
         if deck_id is None:
-            raise archidekt.ArchidektError("That doesn't look like an Archidekt deck URL (https://archidekt.com/decks/12345/…).")
+            raise sites.DeckLinkRefused(sites.refusal(req.archidekt)
+                                        or "That doesn't look like an Archidekt deck URL (https://archidekt.com/decks/12345/…).")
         if fetch is None:
             raise archidekt.ArchidektError("Archidekt URL import is not available")
         data = fetch(deck_id)
@@ -217,6 +218,7 @@ def import_any(req: DeckImportRequest, cards: CardRepository, *, fetch: Fetcher 
         source = DeckSource(kind="archidekt", id=deck_id, url=archidekt.DECK_URL.format(id=deck_id) if deck_id else None,
                             name=parsed.name, updated_at=str(data.get("updatedAt") or "") or None, imported_at=now)
         return ImportResult(parsed, entries, report, source, archidekt.deck_format(data))
+    sites.refuse_link(raw)  # another site's deck link pasted as the list
     parsed = parse_deck_text(raw)
     entries, report = resolve_parsed(parsed, cards)
     return ImportResult(parsed, entries, report, None, None)

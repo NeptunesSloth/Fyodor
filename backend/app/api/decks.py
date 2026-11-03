@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import PlainTextResponse
 
 from app.api.deps import get_services, require_local
-from app.decks import archidekt, service
+from app.decks import archidekt, service, sites
 from app.decks.models import Deck, DeckImportRequest, DeckIn
 from app.decks.parser import DeckTextTooLarge, format_deck_text
 from app.decks.repository import DeckNotFound
@@ -44,7 +44,7 @@ def _import(services: Services, body: DeckImportRequest) -> service.ImportResult
     except DeckTextTooLarge as exc:
         raise HTTPException(413, str(exc)) from exc
     except archidekt.ArchidektError as exc:
-        raise HTTPException(502 if body.archidekt else 422, str(exc)) from exc
+        raise HTTPException(502 if body.archidekt and not isinstance(exc, sites.DeckLinkRefused) else 422, str(exc)) from exc
 
 
 def _preview(result: service.ImportResult) -> dict[str, Any]:
