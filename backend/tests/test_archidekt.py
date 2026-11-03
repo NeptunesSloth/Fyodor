@@ -133,6 +133,27 @@ def test_archidekt_json_uses_exact_scryfall_ids(cards):
     assert all(e.resolution == "exact" for e in entries if e.name not in ("Lightning Bolt", "Homebrew Dragon"))
 
 
+def test_only_the_primary_category_takes_a_card_out_of_the_deck(cards):
+    """Archidekt decides "in the deck" by a card's first (primary) category: a card filed under Creature that also
+    carries a Maybeboard or Sideboard category still counts. Shape from a real deck (archidekt.com/decks/21442172):
+    Stirring Hopesinger ['Creature', 'Maybeboard'] and Beacon of Immortality ['Maybeboard', 'Sideboard']; the site
+    shows "Deck size: 100" where the import counted 97."""
+    before = service.import_any(DeckImportRequest(json=json.dumps(DECK_JSON)), cards)
+    deck = copy.deepcopy(DECK_JSON)
+    recat = {"Sol Ring": ["Ramp", "Maybeboard"], "Swords to Plowshares": ["Removal", "Sideboard"], "Opt": ["Maybeboard", "Sideboard"]}
+    for item in deck["cards"]:
+        name = item["card"]["oracleCard"]["name"]
+        if name in recat:
+            item["categories"] = recat[name]
+    result = service.import_any(DeckImportRequest(json=json.dumps(deck)), cards)
+    entries = result.entries
+    assert by_name(entries, "Sol Ring")[0].section == "main"
+    assert by_name(entries, "Swords to Plowshares")[0].section == "main"
+    assert by_name(entries, "Opt")[0].section == "maybeboard"  # primary Maybeboard: out of the deck
+    assert by_name(entries, "Sol Ring")[0].categories == ["Ramp", "Maybeboard"]  # kept for export
+    assert result.report.cards_total == before.report.cards_total  # a second category moves nothing out
+
+
 def test_json_with_unexpected_shape_is_rejected_cleanly(cards):
     with pytest.raises(archidekt.ArchidektError):
         service.import_any(DeckImportRequest(json='{"hello": 1}'), cards)

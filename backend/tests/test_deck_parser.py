@@ -44,6 +44,11 @@ def test_parse_line_flags():
     assert parse_line("1 Krenko, Mob Boss # !Commander").section == "commander"
     assert parse_line("SB: 2 Pyroblast").section == "sideboard"
     assert parse_line("1x Opt [Maybeboard]").section == "maybeboard"
+    # only the primary (first) category takes a card out of the deck, as on Archidekt
+    assert parse_line("1x Opt [Cantrips,Maybeboard]").section == "main"
+    assert parse_line("1x Opt (eld) 59 [Cantrips,Maybeboard{noDeck}{noPrice}]").section == "main"
+    assert parse_line("1x Opt [Cantrips,Sideboard]").section == "main"
+    assert parse_line("1x Opt [Maybeboard,Sideboard]").section == "maybeboard"
     assert parse_line("") is None
     assert parse_line("12345") is None
 

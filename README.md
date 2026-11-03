@@ -51,7 +51,10 @@ your home folder, so a newer download keeps them.
 - **macOS**: the app isn't signed, so right-click **Fyodor** → *Open* the first time.
 
 To build it yourself: `scripts/build-app.sh` (on Windows, from Git Bash) → `dist/Fyodor/`.
-A new tag like `v0.2.0` builds the Windows app and attaches it to a release.
+A new tag like `v0.2.0` builds the Windows app and attaches it to a release (that needs GitHub Actions minutes).
+Without Actions, a Linux computer builds the Windows app under Wine: `scripts/build-windows-wine.sh` →
+`Fyodor-windows.zip` (it installs Wine and fetches the official Windows Python the first time; `SMOKE=1` also starts the
+built app under Wine and checks that it serves).
 
 ## Requirements (running from source)
 
@@ -187,7 +190,8 @@ data/
 ## Tests
 
 ```bash
-scripts/test.sh     # ruff + pytest (backend), tsc + vitest (frontend)
+scripts/test.sh          # what CI runs: ruff, mypy, the quick pytest sample (backend), tsc, vitest, build (frontend)
+FULL=1 scripts/test.sh   # the whole backend suite (40,000+ tests, hours; needs the full card database)
 ```
 
 The backend suite covers card import and search, deck parsing, every game action,
