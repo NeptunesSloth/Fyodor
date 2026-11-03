@@ -26,6 +26,13 @@ def _fresh_printed_cache() -> None:
     characteristics._fused_cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def _no_art_downloads(monkeypatch: pytest.MonkeyPatch) -> None:
+    # -- keep deck art -- saving a deck downloads its art while online (app/cards/art_keeper.py); never in the tests unless one
+    # turns it on for its own server (``services.art_keeper.downloads = True``)
+    monkeypatch.setattr("app.cards.art_keeper.DOWNLOADS", False)
+
+
 @pytest.fixture()
 def settings(tmp_path: Path) -> Settings:
     return load_settings({"FYODOR_DATA_DIR": str(tmp_path / "data"), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist")})

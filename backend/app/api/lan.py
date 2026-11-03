@@ -13,9 +13,21 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field, ValidationError
 
 from app.api.deps import get_services, require_local
+from app.cards import share
+from app.cards.images import UUID_RE
 from app.decks.parser import format_deck_text
+from app.multiplayer import lan_art
 from app.multiplayer.discovery import Discovery, computer_name, on_local_network
-from app.multiplayer.handoff import MAX_BYTES, MAX_DECKS, TTL, BroughtDeck, HandoffRefused, Library
+from app.multiplayer.handoff import (
+    MAX_BYTES,
+    MAX_CARDS,
+    MAX_DECKS,
+    MAX_LIST_BYTES,
+    TTL,
+    BroughtDeck,
+    HandoffRefused,
+    Library,
+)
 from app.services import Services
 from app.textutil import clean_text
 
@@ -43,11 +55,39 @@ class BroughtDeckIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     commanders: list[str] = Field(default_factory=list, max_length=4)
     text: str = Field(min_length=1, max_length=200_000)
+    cover: str | None = Field(default=None, max_length=64)
 
 
 class HandoffIn(BaseModel):
     source: str = Field(alias="from", min_length=1, max_length=64)
+    port: int | None = Field(default=None, ge=1, le=65535)  # the player's own Fyodor: the art this table lacks comes from it
     decks: list[BroughtDeckIn] = Field(max_length=MAX_DECKS)
+    cards: list[dict[str, Any]] = Field(default_factory=list, max_length=MAX_CARDS)  # Scryfall cards the host lacked (checked on use)
+
+
+class MissingIn(BaseModel):
+    ids: list[str] = Field(max_length=20_000)
+
+
+def _origin(sender: str, port: int | None) -> str | None:
+    if port is None:
+        return None
+    try:
+        ip = ipaddress.ip_address(sender)
+    except ValueError:
+        return None
+    return f"http://{f'[{ip}]' if ip.version == 6 else ip}:{port}"
+
+
+@router.post("/lan/handoff/missing")
+async def missing_cards(body: MissingIn, request: Request, services: ServicesDep) -> dict[str, Any]:
+    """Which of these printings this computer's card database lacks: a player's Fyodor sends just those along with its decks."""
+    sender = _sender(request)
+    if not on_local_network(sender):
+        raise HTTPException(403, "Only computers on this network can bring decks")
+    if not services.cards.available:
+        return {"missing": []}
+    return {"missing": await run_in_threadpool(share.unknown_ids, services.cards, body.ids)}
 
 
 def _sender(request: Request) -> str:
@@ -75,9 +115,11 @@ async def receive_handoff(request: Request, services: ServicesDep) -> dict[str, 
     except ValidationError:
         raise HTTPException(422, f"Not a deck library (at most {MAX_DECKS} decks)") from None
     decks = [BroughtDeck(name=clean_text(d.name, 120) or "Deck", commanders=[clean_text(c, 200) for c in d.commanders if c.strip()],
-                         text=d.text) for d in body.decks]
+                         text=d.text, cover=d.cover if d.cover and UUID_RE.match(d.cover) else None) for d in body.decks]
+    library = Library(source=clean_text(body.source, 40) or "another computer", decks=decks, origin=_origin(sender, body.port),
+                      cards=body.cards)
     try:
-        token = services.handoffs.offer(Library(source=clean_text(body.source, 40) or "another computer", decks=decks), sender)
+        token = services.handoffs.offer(library, sender)
     except HandoffRefused as exc:
         raise HTTPException(exc.status, str(exc)) from None
     return {"token": token, "expires_in": TTL}
@@ -93,12 +135,19 @@ async def brought_decks(game_id: str, services: ServicesDep, x_seat_token: Annot
         raise HTTPException(403, "Only a seated player sees the decks they brought")
     library = services.handoffs.brought(room, x_seat_token)
     if library is None:
-        return {"from": None, "decks": []}
+        return {"from": None, "decks": [], "unknown": []}
 
-    def covers() -> list[str | None]:  # the host has the card database: each deck's first commander, for its art
+    def covers() -> list[str | None]:
+        # each deck's commander, for its art: the printing the player has when this database knows it, else by name
         out: list[str | None] = []
+        if not services.cards.available:
+            return [None] * len(library.decks)
+        known = services.cards.get_many([d.cover for d in library.decks if d.cover])
         for d in library.decks:
-            card = services.cards.resolve(d.commanders[0]) if d.commanders and services.cards.available else None
+            if d.cover and d.cover in known:
+                out.append(d.cover)
+                continue
+            card = services.cards.resolve(d.commanders[0]) if d.commanders else None
             out.append(card["id"] if card else None)
         return out
 
@@ -106,7 +155,10 @@ async def brought_decks(game_id: str, services: ServicesDep, x_seat_token: Annot
         cover_ids = await run_in_threadpool(covers)
     except Exception:  # noqa: BLE001 - art is a nicety; the list still works without it
         cover_ids = [None] * len(library.decks)
-    return {"from": library.source, "decks": [
+    if not library.covers_fetched:  # the commanders' art this table lacks, from the player's own Fyodor
+        library.covers_fetched = True
+        lan_art.bring_art(services, room, library.origin, [c for c in cover_ids if c])
+    return {"from": library.source, "unknown": library.unknown, "decks": [
         {"name": d.name, "commanders": d.commanders, "text": d.text, "cover_id": cover}
         for d, cover in zip(library.decks, cover_ids, strict=True)
     ]}
@@ -137,34 +189,52 @@ def handoff_target(url: str) -> str | None:
     return f"http://{f'[{ip}]' if ip.version == 6 else ip}:{port}"
 
 
-def library_payload(services: Services) -> dict[str, Any]:
-    """This computer's deck library as the host's lobby reads a pasted list: newest first, within the size caps."""
+def library_payload(services: Services) -> tuple[dict[str, Any], list[str]]:
+    """This computer's deck library as the host's lobby reads a pasted list (newest first, within the size caps), and every
+    printing in it (the host says which it lacks)."""
     decks: list[dict[str, Any]] = []
+    printings: list[str] = []
     size = 200
     for deck in services.decks.list_all():
         if len(decks) >= MAX_DECKS:
             break
         if not deck.entries:
             continue
-        item = {"name": deck.name, "commanders": [e.name for e in deck.entries if e.section == "commander"][:4],
-                "text": format_deck_text([e.model_dump() for e in deck.entries])}
+        commanders = [e for e in deck.entries if e.section == "commander"]
+        item: dict[str, Any] = {"name": deck.name, "commanders": [e.name for e in commanders][:4],
+                                "text": format_deck_text([e.model_dump() for e in deck.entries])}
+        if commanders and commanders[0].printing_id:
+            item["cover"] = commanders[0].printing_id
         cost = len(json.dumps(item).encode()) + 2
-        if size + cost > MAX_BYTES or len(item["text"]) > 200_000:
+        if size + cost > MAX_LIST_BYTES or len(item["text"]) > 200_000:
             continue
         size += cost
         decks.append(item)
-    return {"from": computer_name(), "decks": decks}
+        printings += [e.printing_id for e in deck.entries if e.printing_id and e.section not in ("maybeboard", "tokens")]
+    return {"from": computer_name(), "port": services.settings.port, "decks": decks}, list(dict.fromkeys(printings))
 
 
-async def post_handoff(target: str, data: bytes) -> str:
-    """Send the library to the host's server; returns its one-time token. Straight to the LAN address: no system proxy."""
+def card_records(services: Services, missing: list[str], room: int) -> list[dict[str, Any]]:
+    """The card objects for the printings the host lacks, within ``room`` bytes and ``MAX_CARDS``."""
+    out: list[dict[str, Any]] = []
+    for record in share.records(services.cards, missing[:MAX_CARDS]):
+        cost = len(json.dumps(record).encode()) + 2
+        if cost > room:
+            break
+        room -= cost
+        out.append(record)
+    return out
+
+
+async def post_json(target: str, path: str, data: bytes) -> dict[str, Any]:
+    """POST to another Fyodor on the LAN. Straight to its address: no system proxy, no internet."""
     async with httpx.AsyncClient(trust_env=False, timeout=httpx.Timeout(5.0)) as client:
-        res = await client.post(f"{target}/api/lan/handoff", content=data, headers={"Content-Type": "application/json"})
+        res = await client.post(f"{target}{path}", content=data, headers={"Content-Type": "application/json"})
         res.raise_for_status()
-        token = res.json().get("token")
-    if not isinstance(token, str) or not 16 <= len(token) <= 64:
-        raise ValueError("no token in the reply")
-    return token
+        body = res.json()
+    if not isinstance(body, dict):
+        raise ValueError("not a Fyodor reply")
+    return body
 
 
 @router.post("/lan/send-decks")
@@ -175,12 +245,27 @@ async def send_decks(body: SendIn, request: Request, services: ServicesDep) -> d
     target = handoff_target(body.url)
     if target is None:
         raise HTTPException(422, "Decks only go to a Fyodor on this network (http://address:port)")
-    payload = await run_in_threadpool(library_payload, services)
+    payload, printings = await run_in_threadpool(library_payload, services)
     if not payload["decks"]:
-        return {"token": None, "decks": 0}
+        return {"token": None, "decks": 0, "cards": 0}
+    # the cards the host's card database lacks (a newer set) travel along, Scryfall-shaped
+    cards: list[dict[str, Any]] = []
+    if printings and services.cards.available:
+        try:
+            reply = await post_json(target, "/api/lan/handoff/missing", json.dumps({"ids": printings[:20_000]}).encode())
+            missing = [i for i in reply.get("missing", []) if isinstance(i, str)]
+        except (httpx.HTTPError, ValueError):
+            missing = []  # an older Fyodor without the lookup: the decks still go; the lobby there names what it lacks
+        if missing:
+            used = len(json.dumps(payload).encode())
+            cards = await run_in_threadpool(card_records, services, missing, MAX_BYTES - used - 1000)
+    payload["cards"] = cards
     data = json.dumps(payload, separators=(",", ":")).encode()
     try:
-        token = await post_handoff(target, data)
+        reply = await post_json(target, "/api/lan/handoff", data)
     except (httpx.HTTPError, ValueError):
         raise HTTPException(502, "Couldn't reach that table's computer to bring your decks") from None
-    return {"token": token, "decks": len(payload["decks"])}
+    token = reply.get("token")
+    if not isinstance(token, str) or not 16 <= len(token) <= 64:
+        raise HTTPException(502, "That table's computer didn't take your decks")
+    return {"token": token, "decks": len(payload["decks"]), "cards": len(cards)}

@@ -41,6 +41,7 @@ from app.game.session import GameSession
 from app.game.state import CollectionCard, GameSettings, MulliganPolicy
 from app.game.views import build_view
 from app.game.visibility import OMNISCIENT, SPECTATOR
+from app.multiplayer import lan_art
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, undo_voters
 from app.multiplayer.lobby import (
     CardPermissions,
@@ -535,7 +536,7 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep,
     if body.handoff and viewer in room.seats and not room.started:
         library = services.handoffs.take(body.handoff)
         if library is not None:
-            services.handoffs.attach(room.id, token, library)
+            services.handoffs.attach(room.id, token, library, services.cards)  # (adds the cards this database lacked)
     # (spectator activities) a spectator of this table taking a lobby seat brings the deck they queued while watching
     if x_seat_token and not room.started and viewer in room.lobby_seats and room.seat_for_token(x_seat_token) == SPECTATOR:
         queued = room.night.queued.pop(x_seat_token, None)
@@ -970,6 +971,9 @@ async def submit_deck(
         info.collection = list(deck.collection)
         info.ready = False
     await _lobby_changed(services, room)
+    # -- bring my decks -- the art this table lacks for the deck, from the player's own Fyodor over the LAN (in the background)
+    if x_seat_token and (library := services.handoffs.brought(room, x_seat_token)) is not None:
+        lan_art.bring_art(services, room, library.origin, [c.printing_id for c in deck.cards if c.printing_id])
     return _lobby_response(room, viewer, host)
 
 

@@ -93,7 +93,7 @@ def test_the_host_server_takes_a_library_from_a_device_on_the_network(client):
 
 def test_a_library_is_size_capped(client):
     assert offer(client, library(H.MAX_DECKS + 1)).status_code == 422
-    big = library(1, text="1 Mountain\n" * 120_000)  # well over 1 MB
+    big = library(H.MAX_DECKS, text="1 Mountain\n" * 4_000)  # 60 lists of 44 KB: over the 2 MB a library may take
     assert offer(client, big).status_code == 413
     assert offer(client, b"{not json").status_code == 422
 
@@ -118,11 +118,11 @@ def test_only_the_player_s_own_computer_sends_its_library(my_library):
 def test_the_library_only_goes_to_a_fyodor_on_the_local_network(my_library, url, monkeypatch):
     sent: list[str] = []
 
-    async def fake_post(target: str, data: bytes) -> str:
+    async def fake_post(target: str, path: str, data: bytes) -> dict:
         sent.append(target)
-        return "t" * 24
+        return {"token": "t" * 24, "missing": []}
 
-    monkeypatch.setattr(lan_api, "post_handoff", fake_post)
+    monkeypatch.setattr(lan_api, "post_json", fake_post)
     assert my_library.post("/api/lan/send-decks", json={"url": url}).status_code == 422
     assert sent == []
 
@@ -133,14 +133,16 @@ def test_join_with_my_decks_end_to_end(tmp_path, my_library, monkeypatch, lobby)
     gid, code, alice = lobby
     posted: list[dict] = []
 
-    async def to_host(target: str, data: bytes) -> str:
+    async def to_host(target: str, path: str, data: bytes) -> dict:
         assert target == "http://192.168.1.7:8000"
+        if path.endswith("/missing"):
+            return lan(host).post(path, content=data, headers={"content-type": "application/json"}).json()
         posted.append(json.loads(data))
         res = offer(host, data)
         assert res.status_code == 200, res.text
-        return res.json()["token"]
+        return res.json()
 
-    monkeypatch.setattr(lan_api, "post_handoff", to_host)
+    monkeypatch.setattr(lan_api, "post_json", to_host)
     sent = host.post("/api/lan/send-decks", json={"url": "http://192.168.1.7:8000"})
     assert sent.status_code == 200, sent.text
     token = sent.json()["token"]
@@ -214,21 +216,21 @@ def test_nothing_is_saved_or_logged(my_library, lobby, caplog, tmp_path):
 def test_a_library_from_an_empty_computer_sends_nothing(tmp_path, monkeypatch):
     settings = load_settings({"FYODOR_DATA_DIR": str(tmp_path / "empty"), "FYODOR_FRONTEND_DIST": str(tmp_path / "nodist")})
 
-    async def boom(target: str, data: bytes) -> str:
+    async def boom(target: str, path: str, data: bytes) -> dict:
         raise AssertionError("nothing to send")
 
-    monkeypatch.setattr(lan_api, "post_handoff", boom)
+    monkeypatch.setattr(lan_api, "post_json", boom)
     with TestClient(create_app(settings)) as c:
         res = c.post("/api/lan/send-decks", json={"url": "http://192.168.1.7:8000"})
-        assert res.status_code == 200 and res.json() == {"token": None, "decks": 0}
+        assert res.status_code == 200 and res.json() == {"token": None, "decks": 0, "cards": 0}
 
 
 def test_an_unreachable_host_is_a_clear_error(my_library, monkeypatch):
     import httpx
 
-    async def down(target: str, data: bytes) -> str:
+    async def down(target: str, path: str, data: bytes) -> dict:
         raise httpx.ConnectError("refused")
 
-    monkeypatch.setattr(lan_api, "post_handoff", down)
+    monkeypatch.setattr(lan_api, "post_json", down)
     res = my_library.post("/api/lan/send-decks", json={"url": "http://192.168.1.7:8000"})
     assert res.status_code == 502 and "reach" in res.json()["detail"]

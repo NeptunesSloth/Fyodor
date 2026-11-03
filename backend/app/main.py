@@ -43,6 +43,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         log.info("Fyodor %s starting; data dir %s", __version__, settings.data_dir)
         app.state.services.autobackups.start()
+        app.state.services.art_keeper.start()  # decks saved while offline get their art once this computer is online
         await app.state.discovery.start()  # LAN mode only; never stops the server
         yield
         app.state.discovery.stop()

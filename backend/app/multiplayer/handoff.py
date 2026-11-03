@@ -13,14 +13,17 @@ import secrets
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from app.cards.repository import CardRepository
     from app.multiplayer.hub import Room
 
 TTL = 600  # seconds a handoff waits for its join
 MAX_DECKS = 60
-MAX_BYTES = 1_000_000  # one library, as sent
+MAX_BYTES = 2_000_000  # one library as sent: the decks (about 1 MB at most) and the card data the host lacks
+MAX_LIST_BYTES = 1_000_000  # the decks themselves
+MAX_CARDS = 500  # card records the host lacks (a set or two newer than its card database)
 MAX_PENDING = 16  # libraries waiting for their join (the oldest go first)
 MAX_ATTACHED = 64  # libraries held for seats
 OFFERS_PER_MINUTE = 10  # per sending address
@@ -37,6 +40,7 @@ class BroughtDeck:
     name: str
     commanders: list[str]
     text: str  # the list in the form the lobby's paste and import accept
+    cover: str | None = None  # the commander's printing on the player's computer (its art)
 
 
 @dataclass
@@ -44,6 +48,10 @@ class Library:
     source: str  # the sending computer's name ("From DANA-PC")
     decks: list[BroughtDeck]
     created: float = 0.0
+    origin: str | None = None  # the player's own Fyodor (http://ip:port): where this table fetches the art it lacks
+    cards: list[dict[str, Any]] = field(default_factory=list)  # Scryfall card objects the host's database lacked (until the join)
+    unknown: list[dict[str, str]] = field(default_factory=list)  # {name, why}: cards that couldn't be added
+    covers_fetched: bool = False
 
 
 @dataclass
@@ -81,7 +89,18 @@ class Handoffs:
         self._expire(self.clock())
         return self.pending.pop(token, None) if token else None
 
-    def attach(self, room_id: str, seat_token: str, library: Library) -> None:
+    def attach(self, room_id: str, seat_token: str, library: Library, repo: CardRepository | None = None) -> None:
+        """The library goes with this seat. The cards the host's database lacked are added to it now (add-only, checked)."""
+        if library.cards and repo is not None:
+            from app.cards.share import add_cards
+
+            try:
+                result = add_cards(repo, library.cards, source=library.source)
+                library.unknown = result.rejected
+            except Exception:  # noqa: BLE001 - the decks still come; the lobby names what it couldn't resolve
+                library.unknown = [{"name": str(c.get("name") or "a card")[:200], "why": "this computer's card database couldn't take it"}
+                                   for c in library.cards if isinstance(c, dict)]
+        library.cards = []
         while len(self.attached) >= MAX_ATTACHED:
             self.attached.pop(next(iter(self.attached)))
         self.attached[(room_id, seat_token)] = library
