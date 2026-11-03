@@ -153,13 +153,16 @@ def section_for_categories(
         return "commander"
     if any(c in COMMANDER_NAMES for c in lowered):
         return "commander"
-    if any(c in SIDEBOARD_NAMES for c in lowered):
+    # Archidekt files a card by its primary (first) category: "Creature, Maybeboard" is a creature in the deck, and only
+    # a primary Maybeboard/Sideboard (or a primary category set not to count in the deck) takes the card out of it.
+    primary = lowered[0] if lowered else ""
+    if primary in SIDEBOARD_NAMES:
         return "sideboard"
     if any(_HEADER_ALIASES.get(c) == "stickers" for c in lowered):
         return "stickers"
     if any(_HEADER_ALIASES.get(c) == "attractions" for c in lowered):  # -- Attractions (wave 100L) -- an "Attractions" category
         return "attractions"
-    if any(c in MAYBE_NAMES for c in lowered) or (lowered and lowered[0] in excluded):
+    if primary in MAYBE_NAMES or primary in excluded:
         return "maybeboard"
     return "main"
 

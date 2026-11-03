@@ -41,9 +41,9 @@ Relevant fields:
 | JSON | Meaning | Fyodor |
 |---|---|---|
 | `name`, `id`, `updatedAt`, `deckFormat` (3 = Commander) | deck metadata | deck name, source link, format |
-| `categories[]` `{name, isPremier, includedInDeck}` | deck categories | category list. Premier → commander. `includedInDeck=false` → maybeboard. |
+| `categories[]` `{name, isPremier, includedInDeck}` | deck categories | category list. Premier → commander. A card whose **primary** category has `includedInDeck=false` → maybeboard. |
 | `cards[].quantity` | copies | quantity |
-| `cards[].categories[]` | the card's categories (first one is primary) | stored as `categories` metadata |
+| `cards[].categories[]` | the card's categories (first one is primary) | stored as `categories` metadata. Only the primary category decides whether the card is in the deck, as on Archidekt: `[Creature, Maybeboard]` is a creature in the deck, `[Maybeboard, Sideboard]` is out of it. |
 | `cards[].modifier` | `Normal` / `Foil` / `Etched` | `finish` |
 | `cards[].companion` | companion flag | companion section |
 | `cards[].deletedAt` | soft-deleted card | skipped |
@@ -73,7 +73,7 @@ Parsing rules:
 - `[A,B]` lists categories. The first category is the primary one. `{flags}` after a
   category are Archidekt category settings:
   - `{top}` marks the commander (premier) category;
-  - `{noDeck}` means not in the deck (maybeboard);
+  - `{noDeck}` means not in the deck (maybeboard) when it is on the primary category;
   - `{noPrice}` is ignored.
 - `^Tag,#color^` is an Archidekt label. It's kept as a tag.
 - Plain section headers (`Commander`, `Mainboard`, `Sideboard`, `Maybeboard`) are also
