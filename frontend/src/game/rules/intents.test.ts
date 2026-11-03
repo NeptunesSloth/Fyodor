@@ -4,7 +4,7 @@ import { useGame } from "../../state/gameStore";
 import type { CardData } from "../../types/cards";
 import type { GameView } from "../../types/game";
 import { abilityLines, automationOn, canConcede, choose, concede, divide, dropAsIntent, isLand, manaAbilityIndex, next, RESPONSE_CYCLE, send, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
-import { canSubmitChoice, doneLabel, legalClass, paidSymbol } from "./RulesHud";
+import { canSubmitChoice, dialState, doneLabel, legalClass, paidSymbol } from "./RulesHud";
 import { rulesMenu } from "./rulesMenu";
 import { libraryTopActions } from "../ZonePile";
 import type { MenuItem } from "../../components/ContextMenu";
@@ -697,5 +697,32 @@ describe("wave 110 follow-ups: library top, Chorus, Leonin Arbiter", () => {
     const base = view({ ...RULES, hints: { has_priority: true }, stats: { la: { end_cost: "{2}", end_label: "Ignore Leonin Arbiter until end of turn" } } });
     const v = { ...base, cards: { ...base.cards, la: { ...card("la", "p2:battlefield", "looter"), owner: "p2", controller: "p2" } } } as unknown as GameView;
     expect(labels(rulesMenu(v.cards.la!, v, "p1"))).toContain("Ignore Leonin Arbiter until end of turn ({2}, special action)");
+  });
+});
+
+describe("turn dial state", () => {
+  const OUT = { ...RULES, conceded: [], lost: {}, priority: "p2", decision: null, controlled_by: null };
+
+  it("shows the priority holder while automation runs", () => {
+    expect(dialState(view({ ...OUT, priority: "p1" }), "p1")).toEqual({ auto: true, watching: false, mine: true, status: "Your priority" });
+    expect(dialState(view(OUT), "p1")).toMatchObject({ auto: true, watching: false, mine: false, status: "Waiting for Bob" });
+  });
+
+  it("offers the manual step controls with automation off or paused", () => {
+    expect(dialState(view(undefined), "p1")).toMatchObject({ auto: false, watching: false, status: "Manual play: you move the steps" });
+    expect(dialState(view({ ...OUT, paused: true }), "p1")).toMatchObject({ auto: false, watching: false, status: "Automation paused: move the steps yourself" });
+  });
+
+  it("treats a seated player who conceded or lost as a watcher (800.4a), even while automation is paused", () => {
+    const out = { auto: false, watching: true, mine: false, status: "You're out: watching" };
+    expect(dialState(view({ ...OUT, conceded: ["p1"] }), "p1")).toEqual(out);
+    expect(dialState(view({ ...OUT, lost: { p1: "0 life" } }), "p1")).toEqual(out);
+    expect(dialState(view({ ...OUT, conceded: ["p1"], paused: true }), "p1")).toEqual(out);
+    expect(dialState(view({ ...OUT, conceded: ["p1"], priority: "p1" }), "p1")).toEqual(out); // never offered PASS
+    expect(dialState(view({ ...OUT, conceded: ["p2"] }), "p1")).toMatchObject({ auto: true, watching: false }); // someone else is out
+  });
+
+  it("shows spectators the turn without controls", () => {
+    expect(dialState({ ...view(OUT), viewer: "__spectator__" } as GameView, "p1")).toEqual({ auto: false, watching: true, mine: false, status: "Watching" });
   });
 });

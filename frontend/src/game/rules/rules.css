@@ -42,6 +42,8 @@
 /* The turn & priority dial: a brass-edged plaque, bottom right (Arena / Moxgate). */
 .turn-dial-wrap { position: fixed; z-index: 55; right: 16px; bottom: calc(var(--hand-h, 150px) + 16px); width: 290px; }
 .game-screen:has(main.table.is-3d) .turn-dial-wrap { bottom: 58px; }
+/* the open log drawer (bottom right, 340px wide: game.css) stays readable: the dial moves to its left, both tables */
+.game-screen:has(.log-drawer.open) .turn-dial-wrap { right: calc(12px + 340px + 12px); }
 .turn-dial { --cut: 10px; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px 12px; }
 .td-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); }
 .td-seat {
@@ -168,5 +170,6 @@
 @media (max-width: 720px) {
   .rules-stack-wrap { width: calc(100vw - 32px); right: 16px; }
   .auto-hud { right: 16px; }
-  .turn-dial-wrap { right: 16px; left: 16px; width: auto; }
+  .turn-dial-wrap, .game-screen:has(.log-drawer.open) .turn-dial-wrap { right: 16px; left: 16px; width: auto; }
+  .log-drawer.open { z-index: 56; } /* no room beside the full-width dial: the open log goes over it */
 }

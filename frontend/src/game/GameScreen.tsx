@@ -19,7 +19,7 @@ import { ZoneBrowser } from "./ZoneBrowser";
 import { bookmarkSlot, matchHotkey } from "./hotkeys";
 import { recallBookmark, saveBookmark } from "./bookmarks";
 import { ResponseBar } from "./ResponseBar";
-import { AutomationErrorPanel, AutomationHud, DecisionPanel, RulesStack, TurnDial, XPrompt } from "./rules/RulesHud";
+import { AutomationErrorPanel, AutomationHud, DecisionPanel, dialState, RulesStack, TurnDial, XPrompt } from "./rules/RulesHud";
 import { passPriority } from "./rules/intents";
 import "./rules/rules.css";
 import { resolveRenderer } from "../table3d/renderer";
@@ -153,10 +153,10 @@ function useShortcuts() {
           void draw(me, 1);
           break;
         case "next_step":
-          void send({ type: "phase", to: "next" });
+          if (!dialState(view, me).watching) void send({ type: "phase", to: "next" }); // out of the game: no step controls
           break;
         case "next_turn":
-          void send({ type: "next_turn" });
+          if (!dialState(view, me).watching) void send({ type: "next_turn" });
           break;
         case "untap_all":
           void send({ type: "untap_all", player: me });

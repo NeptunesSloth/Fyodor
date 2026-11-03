@@ -127,6 +127,48 @@ test("eliminated: a short scene, then opening-hand practice with your own deck",
   expect(v.zones["p1:hand"]).toHaveLength(0);
 });
 
+for (const renderer of ["2d", "3d"] as const) {
+  test(`out of the game (${renderer}): the dial only watches, the server refuses step changes, the open log sits beside the dial`, async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.addInitScript((r) => {
+      localStorage.setItem("fyodor.welcomeDone", "1");
+      localStorage.setItem("fyodor.renderer", r);
+    }, renderer);
+    for (const text of [ALICE_DECK, BOB_DECK]) await page.request.post("/api/decks", { data: { text } });
+    const decks = (await (await page.request.get("/api/decks")).json()) as { id: string; name: string }[];
+    const res = await page.request.post("/api/games", { data: { name: "Out", mode: "local", automation: "full", mulligan_rule: "none",
+      players: ["Alice", "Bob", "Cara"].map((name, i) => ({ name, deck_id: decks[i % 2]!.id })) } });
+    const gameId = ((await res.json()) as { game: { id: string } }).game.id;
+    await page.goto(`/#/game/${gameId}`);
+    await expect(page.getByTestId("turn-dial").or(page.getByTestId("priority-bar"))).toBeVisible(); // (no night scenes: no intro)
+    const conceded = await page.request.post(`/api/games/${gameId}/actions`, { data: { action: { type: "concede" }, as: "p1" } });
+    expect(conceded.ok(), await conceded.text()).toBeTruthy();
+    await page.getByRole("button", { name: "Keep watching" }).click({ timeout: 15_000 }); // the hub folds to its pill
+    // 800.4a: Alice left the game; the dial keeps the turn and step but offers no step controls
+    const dial = page.getByTestId("turn-dial");
+    await expect(page.getByTestId("priority-holder")).toHaveText("You're out: watching");
+    await expect(dial.getByRole("button", { name: /Next turn|Previous step|To combat|Next step/ })).toHaveCount(0);
+    await expect(page.getByTestId("current-phase")).toBeDisabled();
+    const turn = ((await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { turn: unknown }).turn;
+    await page.keyboard.press("Shift+N"); // the hotkey sends nothing either
+    for (const action of [{ type: "next_turn" }, { type: "phase", to: "next" }]) {
+      const stepped = await page.request.post(`/api/games/${gameId}/actions`, { data: { action, as: "p1" } });
+      expect(stepped.status()).toBe(409);
+      expect(await stepped.text()).toContain("left this game");
+    }
+    expect(((await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { turn: unknown }).turn).toEqual(turn);
+    // the open log drawer and the dial don't cover each other
+    await page.getByTestId("log-drawer").getByRole("button").click();
+    await expect(page.locator(".log-drawer.open")).toBeVisible();
+    const a = (await page.locator(".log-drawer.open").boundingBox())!;
+    const b = (await page.locator(".turn-dial-wrap").boundingBox())!;
+    expect(a.x >= b.x + b.width || b.x >= a.x + a.width || a.y >= b.y + b.height || b.y >= a.y + a.height).toBeTruthy();
+    await page.waitForTimeout(300);
+    await shot(page, `out-dial-${renderer}`);
+  });
+}
+
 test("nudge: the waiting player gets one quiet reminder", async ({ browser }) => {
   test.setTimeout(120_000);
   const { startLanGame } = await import("./helpers");

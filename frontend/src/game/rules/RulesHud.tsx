@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { openMenu } from "../../components/ContextMenu";
 import { NudgeButton } from "../Signals";
 import { perspective, playerName, useGame } from "../../state/gameStore";
-import { PHASE_LABEL, PHASES, type PhaseName, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
+import { PHASE_LABEL, PHASES, SPECTATOR, type PhaseName, type DecisionOptionView, type DecisionView, type GameView } from "../../types/game";
 import { autocomplete } from "../../services/cards";
 import { canConcede, choose, chooseName, concede, delveCard, divide, next, passPriority, payWith, RESPONSE_CYCLE, send, setPrefs, tapForMana, useXPrompt, submitNumericPrompt } from "./intents";
 import { GameCardFace } from "../GameCardFace";
@@ -197,6 +197,31 @@ const DECIDING: Partial<Record<string, string>> = {
 };
 
 /**
+ * What the dial shows for `me`: the line under the steps, and which controls it offers.
+ * - `auto`: the rules engine moves the turn on; `mine` is my priority (PASS and friends).
+ * - `watching`: no step controls at all: a spectator, or a seated player who is out of the game
+ *   (conceded or lost: 104.3a, 104.5, 800.4a; the server refuses their turn and step changes too).
+ * - neither: manual play (automation off or paused): the steps by hand.
+ */
+export function dialState(view: GameView, me: string): { auto: boolean; watching: boolean; mine: boolean; status: string } {
+  const rules = view.rules ?? null;
+  if (view.viewer === SPECTATOR) return { auto: false, watching: true, mine: false, status: "Watching" };
+  if (rules && (rules.conceded.includes(me) || me in (rules.lost ?? {}))) return { auto: false, watching: true, mine: false, status: "You're out: watching" };
+  if (!rules || rules.paused) {
+    return { auto: false, watching: false, mine: false, status: rules?.paused ? "Automation paused: move the steps yourself" : "Manual play: you move the steps" };
+  }
+  const mine = !rules.controlled_by && (rules.priority === me || (!!rules.acting_as && rules.priority === rules.acting_as)) && !rules.decision;
+  let status: string;
+  if (rules.controlled_by) status = `${playerName(view, rules.controlled_by)} is making your choices`;
+  else if (rules.decision) {
+    const d = rules.decision;
+    status = d.player === me ? "Your decision" : `Waiting for ${playerName(view, d.player)}: ${DECIDING[d.kind] ?? "deciding"}`;
+  } else if (mine) status = rules.acting_as ? `Your priority (controlling ${playerName(view, rules.acting_as)})` : "Your priority";
+  else status = rules.priority ? `Waiting for ${playerName(view, rules.priority)}` : "Waiting";
+  return { auto: true, watching: false, mine, status };
+}
+
+/**
  * The turn & priority dial, bottom right (Arena / Moxgate): whose turn and which step, who the game
  * is waiting for, and one big button that says what passing will do. With the rules engine off it
  * drives the steps by hand. The server decides; the dial only shows and asks.
@@ -208,22 +233,11 @@ export function TurnDial() {
   const turn = view.turn;
   const active = view.players.find((p) => p.id === turn.active_player);
   const step = turn.phase as PhaseName;
-  const auto = !!rules && !rules.paused && ctx.seated && !rules.conceded.includes(me) && !(me in rules.lost);
-  const mine = auto && !rules!.controlled_by && (rules!.priority === me || (!!rules!.acting_as && rules!.priority === rules!.acting_as)) && !rules!.decision;
+  const { auto, watching, mine, status } = dialState(view, me);
   const prefs = rules?.prefs;
   const stack = view.stack.length > 0;
   const top = stack ? view.cards[view.stack[view.stack.length - 1]!] : undefined;
   const topName = top && "name" in top ? top.name : "the top of the stack";
-  let status: string;
-  const watching = !ctx.seated;
-  if (watching) status = "Watching";
-  else if (!auto) status = rules?.paused ? "Automation paused: move the steps yourself" : "Manual play: you move the steps";
-  else if (rules!.controlled_by) status = `${playerName(view, rules!.controlled_by)} is making your choices`;
-  else if (rules!.decision) {
-    const d = rules!.decision;
-    status = d.player === me ? "Your decision" : `Waiting for ${playerName(view, d.player)}: ${DECIDING[d.kind] ?? "deciding"}`;
-  } else if (mine) status = rules!.acting_as ? `Your priority (controlling ${playerName(view, rules!.acting_as)})` : "Your priority";
-  else status = rules!.priority ? `Waiting for ${playerName(view, rules!.priority)}` : "Waiting";
   const verb = stack ? "Resolve" : NEXT_VERB[step] ?? "Next";
   // passing is refused while my own decision is open: grey the buttons out instead of erroring
   const deciding = auto && rules!.decision?.player === me;
