@@ -1521,6 +1521,49 @@ def _attached45(state: GameState, card: CardInstance, info: CardInfo | None,
 # -- dynamic values (agent F): "for each …" modifications (7c) and characteristic-defining P/T (7a) --
 _EACH_CACHE: dict[tuple, int] = {}
 _CDA_CACHE: dict[tuple, tuple[int | None, int | None]] = {}
+# -- big boards (gaps5) -- which characteristic-defining amounts read the same for every object with them (``_shared_cda``), by wording
+_SHARED_CDA: dict[str, bool] = {}
+_SHARED_SEL = frozenset({"card", "zones", "zone_owner", "owner", "controller", "types", "not_types", "subtypes", "not_subtypes",
+                         "supertypes", "not_supertypes", "colors", "not_colors", "colorless", "multicolored", "token", "union"})
+
+
+def _shared_cda(p_key: str, t_key: str, d: dict[str, Any]) -> bool:
+    """-- big boards (gaps5) -- Is this CDA's amount the same for every object that has it, given its "you" (the Lhurgoyfs: "the number of
+    card types among cards in all graveyards", "creature cards in your graveyard", "cards you own in exile")? Numbers, sums, and counts
+    (or the different card types / colors / … among them) of cards outside the battlefield and the stack, read by what they are and
+    whose they are, never by the object counting: no "other", no chosen or defending player, no comparison, no power (a count that
+    led back to a Lhurgoyf's own power reads it as unknown, ``_T.cda``: that answer is the counting object's own). Every Lhurgoyf on a
+    big board counted the same graveyards again, twice (power, then toughness)."""
+    key = p_key + "|" + t_key
+    hit = _SHARED_CDA.get(key)
+    if hit is None:
+        hit = _SHARED_CDA[key] = all(_shared_amount(v) for v in (d["p"], d["t"]))
+    return hit
+
+
+def _shared_amount(v: Any) -> bool:
+    import json
+
+    from app.rules import selectors
+
+    if v is None or isinstance(v, int):
+        return True
+    if not isinstance(v, dict):
+        return False
+    if set(v) == {"plus"}:
+        return isinstance(v["plus"], list) and all(_shared_amount(x) for x in v["plus"])
+    if set(v) == {"count"}:
+        sel = v["count"]
+    elif set(v) == {"distinct", "among"} and v["distinct"] != "powers":
+        sel = v["among"]
+    else:
+        return False
+    if not isinstance(sel, str) or not sel.startswith(selectors.PREFIX):
+        return False
+    data = json.loads(sel[len(selectors.PREFIX):])
+    zones = data.get("zones")
+    return (set(data) <= _SHARED_SEL and bool(zones) and not {"battlefield", "stack"} & set(zones)
+            and all(data.get(k) in (None, "you", "opponent") for k in ("controller", "owner", "zone_owner")))
 
 
 def _static_ctx(view: Plan, source: str, controller: str) -> dict[str, Any]:
@@ -1589,7 +1632,10 @@ def _cda(state: GameState, card: CardInstance, ch: Characteristics, info: CardIn
     on_stack_or_field = card.zone == "stack" or card.zone.endswith(":battlefield")
     controller = card.controller if on_stack_or_field else card.owner
     tkey = _table_key(state)
-    key = (tkey, card.id, card.zone, controller, repr(d["p"]), repr(d["t"]))
+    shared = _shared_cda(repr(d["p"]), repr(d["t"]), d)
+    # -- big boards (gaps5) -- a count that is the same for every object with it (``_shared_cda``) is read once per table state for all
+    # of them, not once per Lhurgoyf: the key is what the count reads (the table's contents, "you", the wording), not the object
+    key = (tkey, None if shared else card.id, None if shared else card.zone, controller, repr(d["p"]), repr(d["t"]))
     hit = _CDA_CACHE.get(key)
     if hit is not None:
         return hit
@@ -1598,7 +1644,12 @@ def _cda(state: GameState, card: CardInstance, ch: Characteristics, info: CardIn
     _T.cda.add(card.id)
     try:
         p = values.evaluate(view, ctx, d["p"]) if d["p"] is not None else None
-        t = values.evaluate(view, ctx, d["t"]) if d["t"] is not None else None
+        plus = d["t"].get("plus") if shared and isinstance(d["t"], dict) else None
+        t: int | None
+        if p is not None and plus is not None and len(plus) == 2 and plus[0] == d["p"] and isinstance(plus[1], int):
+            t = p + max(0, plus[1])  # (gaps5) "… and its toughness is equal to that number plus 1": that count, not counted again
+        else:
+            t = values.evaluate(view, ctx, d["t"]) if d["t"] is not None else None
     except values.NoChosenPlayer:  # -- chosen type (wave 16F) -- before "As ~ enters, choose …" is answered: not known yet (not 0)
         return None, None
     finally:
