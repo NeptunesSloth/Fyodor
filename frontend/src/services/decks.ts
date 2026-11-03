@@ -28,6 +28,18 @@ export const unlinkSource = (id: string) => api.del<void>(`/decks/${id}/source`)
 export const artStatus = (id: string) => api.get<{ printings: number; missing: number }>(`/decks/${id}/art-status`);
 export const cacheArt = (id: string) => api.post<Job>(`/decks/${id}/cache-art`);
 export const getJob = (id: string) => api.get<Job>(`/jobs/${id}`);
+/** Keep deck art for offline play: whether it's on, how many decks wait for the network, what is downloading now. */
+export interface ArtKeeperStatus {
+  enabled: boolean;
+  pending: number;
+  running: boolean;
+  network: boolean;
+  deck?: string;
+  done?: number;
+  total?: number;
+}
+export const artKeeper = () => api.get<ArtKeeperStatus>("/decks/art-keeper");
+export const setArtKeeper = (enabled: boolean) => api.put<ArtKeeperStatus>("/decks/art-keeper", { enabled });
 
 /** Poll a background job until it finishes. */
 export async function waitForJob(id: string, onProgress: (job: Job) => void): Promise<Job> {

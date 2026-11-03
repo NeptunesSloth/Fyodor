@@ -24,12 +24,10 @@ from app.cards.importer import build_database
 from app.config import load_settings
 from app.main import create_app
 from app.multiplayer import lan_art
-from tests.fixtures.cards import card, fixture_cards
+from tests.fixtures.cards import fixture_cards, newer_set_card
 
 JPEG = b"\xff\xd8\xff\xe0" + b"\x00" * 64 + b"\xff\xd9"
-NEW = card("Zephyr of the New Set", set_code="nws", number="7", mana_cost="{1}{R}", cmc=2.0, type_line="Legendary Creature — Elemental",
-           oracle_text="Haste", power="2", toughness="2", colors=["R"], color_identity=["R"],
-           image_uris={"normal": "https://cards.scryfall.io/normal/front/z/z.jpg"})
+NEW = newer_set_card()
 
 
 def h(token: str) -> dict[str, str]:

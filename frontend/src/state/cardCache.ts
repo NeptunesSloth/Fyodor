@@ -83,3 +83,9 @@ export function refreshCards(ids: string[]): void {
   });
   requestCards(ids);
 }
+
+/** -- bring my decks -- the table just received art (from a player's own Fyodor): look again at the cards drawn as proxies. */
+export function refreshImageless(): void {
+  const ids = Object.values(useCardCache.getState().cards).filter((c) => !c.has_image).map((c) => c.id);
+  if (ids.length) refreshCards(ids);
+}

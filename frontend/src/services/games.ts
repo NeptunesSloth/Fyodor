@@ -1,5 +1,6 @@
 import { ApiError, api } from "./api";
 import type { GameSummary, LobbySettings, LobbyView, SaveSummary } from "../types/game";
+import type { NearbyServer } from "../pages/lanBits";
 
 export interface CreatePlayer {
   name: string;
@@ -51,9 +52,17 @@ export async function importPackage(file: Blob): Promise<{ save: SaveSummary; as
   return body;
 }
 /** `token`: a spectator of that table taking a seat sends theirs, so a deck they queued while watching comes along. */
-export const joinGame = (body: { code: string; name?: string; password?: string; seat?: string | null; spectate?: boolean }, token?: string | null) =>
+/** `handoff`: the deck library the player's own Fyodor sent ahead (POST /lan/send-decks there), for this seat alone. */
+export const joinGame = (body: { code: string; name?: string; password?: string; seat?: string | null; spectate?: boolean; handoff?: string | null },
+  token?: string | null) =>
   api.post<{ game_id: string; viewer: string; token: string; game: GameSummary }>("/join", body, token ? { "X-Seat-Token": token } : undefined);
-export const lanInfo = () => api.get<{ addresses: string[]; port: number; bound_host: string; reachable: boolean }>("/lan-info");
+/** `discovery`: this computer searches the network and answers on `discovery_port` (null: not answering, e.g. --local). */
+export const lanInfo = () => api.get<{ addresses: string[]; port: number; bound_host: string; reachable: boolean; discovery?: boolean;
+  discovery_port?: number | null }>("/lan-info");
+/** Fyodor tables other computers on the network answered with (this computer only). */
+export const nearbyGames = () => api.get<NearbyServer[]>("/lan/nearby");
+/** Send this computer's deck library to the computer at `url` ahead of joining a table there: a one-time token, or null. */
+export const sendMyDecks = (url: string) => api.post<{ token: string | null; decks: number }>("/lan/send-decks", { url });
 
 const seatKey = (gameId: string) => `fyodor.seat.${gameId}`;
 
@@ -113,6 +122,14 @@ export const setLobbyReady = (gameId: string, ready: boolean) => api.post<LobbyV
 export const changeLobbySeat = (gameId: string, seat: string) => api.post<LobbyView>(lobbyPath(gameId, "/seat"), { seat }, seatHeaders(gameId));
 export const setLobbyProfile = (gameId: string, body: { name?: string; color?: string }) =>
   api.post<LobbyView>(lobbyPath(gameId, "/profile"), body, seatHeaders(gameId));
+/** The deck library this seat brought from its own computer (shown to this seat alone, until the game starts). */
+export interface BroughtLibrary {
+  from: string | null;
+  decks: { name: string; commanders: string[]; text: string; cover_id: string | null }[];
+  /** cards from that computer this table's card database couldn't take, and why */
+  unknown: { name: string; why: string }[];
+}
+export const broughtDecks = (gameId: string) => api.get<BroughtLibrary>(lobbyPath(gameId, "/brought"), seatHeaders(gameId));
 export const leaveLobby = (gameId: string) => api.post<void>(lobbyPath(gameId, "/leave"), {}, seatHeaders(gameId));
 export const updateLobbySettings = (gameId: string, body: Partial<LobbySettings>) =>
   api.post<LobbyView>(lobbyPath(gameId, "/settings"), body, seatHeaders(gameId));

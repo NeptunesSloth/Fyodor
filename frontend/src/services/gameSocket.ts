@@ -1,5 +1,6 @@
 /** Live connection to a game room with automatic reconnection. */
 import type { GameView, LobbyView } from "../types/game";
+import { refreshImageless } from "../state/cardCache";
 
 export type ConnStatus = "connecting" | "open" | "reconnecting" | "closed";
 
@@ -32,6 +33,7 @@ type ServerMessage =
   | { type: "state"; view: GameView; revision?: number; resync?: boolean }
   | { type: "lobby"; lobby: LobbyView }
   | { type: "kicked" }
+  | { type: "art" }
   | { type: "ack"; id: number | null; status?: "ACCEPTED" | "ALREADY_APPLIED" }
   | { type: "error"; id?: number | null; message: string; status?: "REJECTED" }
   | { type: "pong"; id: number | null }
@@ -219,6 +221,9 @@ export class GameConnection {
       }
       case "lobby":
         this.handlers.onLobby(msg.lobby);
+        break;
+      case "art": // new card images reached the host (a player's own Fyodor sent them): proxies may now have art
+        refreshImageless();
         break;
       case "kicked":
         this.stopped = true;
