@@ -490,3 +490,10 @@ def fixture_cards() -> list[dict[str, Any]]:
         card("Test Persist Golem", set_code="tst", number="Q15", mana_cost="{2}", cmc=2.0, type_line="Artifact Creature — Golem",
              oracle_text="This creature enters tapped.\nPersist", power="2", toughness="2"),
     ]
+
+
+def newer_set_card() -> dict[str, Any]:
+    """A card from a set newer than the fixture database: a friend's Fyodor has it, the host's doesn't (docs/LAN_PLAY.md)."""
+    return card("Zephyr of the New Set", set_code="nws", number="7", mana_cost="{1}{R}", cmc=2.0, type_line="Legendary Creature — Elemental",
+                oracle_text="Haste", power="2", toughness="2", colors=["R"], color_identity=["R"], released_at="2026-10-30",
+                image_uris={"normal": "https://cards.scryfall.io/normal/front/z/z.jpg"})

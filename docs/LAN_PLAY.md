@@ -7,7 +7,8 @@ The host computer runs the server; everyone else opens `http://HOST-IP:PORT` in 
 
 1. **Host:** *Play → New game → Table: LAN* (with *Players choose their own decks* on). Pick
    format, seats, deck privacy, mulligan rule and the Response helper, then **Open the table**.
-2. **Players:** *Play → Join a LAN game*, enter the room code (and password, if any) and a name.
+2. **Players:** press **Join** on the table under *Play* (see [Finding a game](#finding-a-game)), or enter the room
+   code (and password, if any) and a name under *Join with a code*.
 3. In the lobby, everyone takes a seat, **Choose deck** (the host's library on the host computer
    only; *My decks* remembered in this browser; an Archidekt URL fetched once by the host; a
    pasted list; or a file read in the browser), and presses **Ready**.
@@ -46,6 +47,72 @@ them at this table." The host can always help, to fix a mistake.
   player, they or the host make them. The same goes for drawing, milling or shuffling another player's library.
 - The table offers another player's cards only what the setting allows (their card menu says why), and a drag of one
   snaps back with the reason.
+
+## Finding a game
+
+Nobody has to type an address or a code when everyone is on the same network, and players bring their own decks.
+
+- **Browsing the host's address** (`http://HOST-IP:PORT`): *Play → Tables in progress* lists the host's LAN tables, open
+  lobbies first. Each has **Join** (while a seat is open; your profile's name and preferred seat are used) and **Watch**. A
+  table with a password (the padlock) asks for it right on its tile. *Join with a code* still works for invite links and codes.
+- **Running Fyodor on your own computer** (the downloadable app, or `python -m app.launcher`, in LAN or `--local` mode):
+  *Play → Games on your network* lists the LAN tables other computers running Fyodor answer with: the host computer's name,
+  the table, "In the lobby · 2 of 4 seats taken" or "Turn 6", and a padlock when it has a password. **Join** opens the host's
+  Play page in this tab and seats you at once (or asks for the password); **Watch** does the same as a spectator. The
+  launcher shows one line when a lobby has a free seat ("Thursday Commander is open on DESKTOP-42 — Join"). The list
+  refreshes every few seconds while the page is open.
+
+### Your decks come with you
+
+The norm at game night: you saved your decks on your own Fyodor at home, online; at the table there may be no internet,
+only the LAN. You press **Join** and play your deck, nothing else to do.
+
+1. **Saving a deck keeps it playable offline.** Creating, importing or saving a deck while your computer is online downloads
+   the art of that deck's own printings in the background (the Decks page shows one quiet line while it runs). Offline, the
+   deck waits and is tried again when Fyodor starts and every 15 minutes. *Settings → Card database → Keep deck art for
+   offline play* turns it off for small disks (art already cached stays).
+2. **Join brings your decks** (never Watch): your Fyodor sends your deck library (up to 60 decks, as plain lists) straight to
+   the host's Fyodor over the LAN. The host keeps it in memory only, for your seat only: your seat shows your decks under
+   their commanders' art (*Your decks, from YOUR-COMPUTER*), one click to play one, and **Choose deck** opens on them, with
+   the host's library and the other sources after them. Choosing one goes through the lobby's usual import (deck checks and
+   deck privacy unchanged: the others see your chosen deck only as the privacy setting allows, never your library). Tick
+   *Also keep the one I choose in My decks* to remember it in that browser. The library is dropped when you leave the seat or
+   the game starts (an unused one after ten minutes); it is never saved or logged.
+3. **Cards the host doesn't know.** If your card database is newer than the host's (a new set), your Fyodor asks the host
+   which of your decks' printings it lacks and sends just those cards along (Scryfall card data, never database rows, at most
+   500). The host checks each one and only adds: it never changes a card it has, and a new printing of a card it knows must
+   carry that card's name. The next card-database update replaces them anyway. A card it can't take is named in your
+   *Your decks* tab with the reason, and plays as a text proxy.
+4. **Art the host doesn't have.** Once you pick a deck (and for the commanders in your list), the host fetches the images it
+   lacks for that deck from your Fyodor over the LAN, in the background: real JPEGs only, 3 MB each, 400 per deck. Cards show
+   as proxies until then; every screen at the table then looks again (without being told which cards: that would reveal your
+   deck). For this your Fyodor must be reachable on the LAN (the default; with `--local` the art stays at home).
+
+**A player with only a browser** (no Fyodor of their own): their *My decks* in that browser are their decks: their seat shows
+them first in the same way. **My decks are kept per host address**: they live in the browser's storage for the address you
+opened (`http://192.168.1.7:8000` is a different place from `http://192.168.1.9:8000`), so if the host's address changes,
+the list looks empty there. *Choose deck → My decks* says so, and **Export My decks** / *Import multiple deck files* (the
+export file) carry them to the new address.
+
+### How finding works
+
+A server on the LAN (the default; never with `--local`) answers a small UDP query on port **47474**
+(`FYODOR_DISCOVERY_PORT`); asking works whatever address your own server listens on. `FYODOR_DISCOVERY=0` turns finding off
+both ways: the computer neither answers nor searches. If the port is taken or there is no network, the server logs it once
+and carries on; friends then use the address. Several Fyodor servers on one Linux or macOS computer share the port; on
+Windows only the first one answers.
+
+**Firewall:** allow Fyodor (or Python) for *private* networks on the host: TCP on the game port (8000) for playing, UDP 47474
+for being found. On a player's computer, the game port lets the host fetch the art of their deck. If a table doesn't show
+up, the host's firewall is the usual reason; its address still works.
+
+**Privacy:** an answer contains exactly what any device on the network already sees on the host's Play page: the computer's
+name, its game port and Fyodor version, and for each LAN table its name, format, room code, whether it has a password, the
+seat counts, the seated players' names and the turn. Never a hot-seat or practice table, a deck, a hand, a token or a password.
+The server answers only devices on the local network (private, link-local or this computer), at most five times a second each,
+and ignores anything malformed, oversized or of another version. Only the computer running Fyodor can make it search
+(another device can't make it broadcast) or send its deck library, and only to an address on the local network. A host takes
+deck libraries, card lookups and card data only from devices on the local network, rate-limited and size-capped (2 MB).
 
 ## Surviving home-network trouble
 

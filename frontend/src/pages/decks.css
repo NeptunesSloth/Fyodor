@@ -490,3 +490,6 @@ body.perf-low .dk-empty::before { display: none; }
   .modal-foot .imp-cache { flex: 1 1 100%; }
   .imp-deck { grid-template-columns: 96px minmax(0, 1fr); }
 }
+
+/* keep deck art for offline play: one quiet line while art downloads (ArtKeeper.tsx) */
+.dk-art-line { margin: -6px 0 14px; font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }

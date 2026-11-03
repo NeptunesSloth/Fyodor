@@ -186,3 +186,13 @@ body.perf-low .hs-card .card-face, body.perf-low .hs-back .card-face { box-shado
   .home-decks ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hs-table { left: 0; right: -40%; top: 40%; }
 }
+
+/* a lobby with a free seat on another computer (Games on your network), one line under the menu */
+.home-nearby {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px 9px; margin: 14px 0 0 4px; max-width: 420px;
+  font-size: 14px; line-height: 1.4; color: var(--text-dim);
+}
+.home-nearby .icon { flex: none; color: color-mix(in srgb, var(--frame-hi) 75%, var(--text-dim)); }
+.home-nearby b { color: var(--room-bone); font-weight: 600; }
+.home-nearby-text { min-width: 0; }
+.home-nearby .home-nearby-join { min-height: 32px; font-size: 14px; font-weight: 600; color: var(--accent-2); }

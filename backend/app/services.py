@@ -12,6 +12,7 @@ import httpx
 
 from app.assets.store import AssetNotFound, AssetStore
 from app.assistant import OllamaAssistant, RulesAssistant
+from app.cards.art_keeper import ArtKeeper
 from app.cards.downloader import (
     ImageReport,
     download_card_back,
@@ -28,6 +29,7 @@ from app.game import engine
 from app.game.actions import ACTION_ADAPTER
 from app.game.session import GameSession
 from app.jobs import JobManager, ProgressFn
+from app.multiplayer.handoff import Handoffs
 from app.multiplayer.hub import GameHub, Room
 from app.rules import RulesRegistry
 from app.stats.repository import PodStats
@@ -90,6 +92,8 @@ class Services:
         self.journal = RoomJournal(self.app_db, self.app_db_lock)
         self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every, asset_info=self.asset_info,
                            journal=self.journal)
+        self.handoffs = Handoffs()  # decks a joining player brought from their own computer (memory only)
+        self.art_keeper = ArtKeeper(self)  # each saved deck's art, kept for offline play while online
         self.jobs = JobManager()
         self.http_client: Callable[..., httpx.Client] = make_client  # online features use this (the tests swap it)
         self.source_cache: dict[str, tuple[float, Any]] = {}
@@ -163,11 +167,13 @@ class Services:
         """Fetch a public Archidekt deck (only called on explicit user action)."""
         return archidekt.fetch_deck(deck_id, user_agent=self.settings.user_agent)
 
-    def cache_artwork(self, printing_ids: list[str], progress: ProgressFn) -> str:
-        """Download missing images for these printings and the tokens they create."""
+    def fetch_artwork(self, printing_ids: list[str], progress: ProgressFn, *, tokens: bool = True) -> ImageReport:
+        """Download missing images for these printings (and, with ``tokens``, the tokens they create)."""
         ids = list(dict.fromkeys(printing_ids))
-        cards = self.cards.get_many(ids)
-        token_ids = [t["id"] for c in cards.values() for t in c.get("related_tokens") or []]
+        token_ids: list[str] = []
+        if tokens:
+            cards = self.cards.get_many(ids)
+            token_ids = [t["id"] for c in cards.values() for t in c.get("related_tokens") or []]
         rows = self.cards.image_rows([*ids, *dict.fromkeys(token_ids)])
         jobs = image_jobs_from_rows(rows)
 
@@ -177,6 +183,11 @@ class Services:
         with make_client(self.settings.user_agent, timeout=30.0) as client:
             result = download_images(client, self.images, jobs, workers=6, progress=report)
             download_card_back(client, self.images)  # the Magic card back, for library piles and hidden cards
+        return result
+
+    def cache_artwork(self, printing_ids: list[str], progress: ProgressFn) -> str:
+        """Download missing images for these printings and the tokens they create."""
+        result = self.fetch_artwork(printing_ids, progress)
         return (f"{result.downloaded} downloaded, {result.skipped} already cached, {result.failed} failed"
                 + (" — re-run to retry" if result.failed else ""))
 
@@ -237,6 +248,7 @@ class Services:
             except Exception:  # noqa: BLE001 - shutting down; log and continue closing
                 log.exception("Final autosave failed for %s", room.id)
         self.autobackups.stop()
+        self.art_keeper.stop()
         self.jobs.shutdown()
         self.cards.close()
         self.app_db.close()
