@@ -3242,6 +3242,9 @@ def _put_trigger(plan: Plan, t: PendingTrigger, target: str | None = None, picks
         r.proctor_links110c[t.id] = ability_id
     if t.ability.get("chosen_modes"):  # -- modal frames (wave 33B) -- 603.3c: the modes chosen are announced (a modal ability whose modes have target groups)
         plan.do({"type": "set_stack_info", "card_id": ability_id, "modes": t.ability["chosen_modes"]}, actor=t.controller)
+        from app.rules import dilemma  # -- Star Trek mechanics (wave 112T) -- its controller chose them: a dilemma (release notes)
+
+        dilemma.note(plan, t.controller, t.ability["chosen_modes"])
     if t.ability.get('stack_tags'):
         plan.do({'type': 'set_stack_info', 'card_id': ability_id, 'tags': t.ability['stack_tags']}, actor=t.controller)
     if t.ability.get("link_player100a") and targets and t.source_object:  # -- trigger lines (wave 100A) -- the player a linked leaves ability means

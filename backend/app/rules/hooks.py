@@ -313,6 +313,7 @@ PARSE_EFFECTS_PLAIN: tuple[Chain, ...] = (
 DEFINE: tuple[Chain, ...] = (
     Chain(  # DEFINE[0]
         "beam_me_up.definition",  # -- Star Trek mechanics (wave 112T) -- Scotty's grant, "… and can't be beamed up"
+        "trek112t.definition",  # -- Star Trek one-offs (wave 112T) --
         "wave111r1_grants.definition",  # -- granted abilities (wave 111R1) -- Q's granted ability, read without its holder's name
         "wave111r3_enter.definition",  # -- enters attacking (wave 111R3) -- Kira Nerys, Firebrand (614.1d, 508.4)
         "wave111e_trek.definition",  # -- Star Trek (wave 111E) -- exact wordings
