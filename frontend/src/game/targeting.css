@@ -1,6 +1,8 @@
 /* Targeting (game/targeting/): the board is the picker. A slim brass-edged bar over the hand says what the choice is for and
    what to choose, with a tray of the candidates; on the table the candidates lift in a brass ring and the rest dims.
-   Motion: only opacity (the ring's slow pulse) and translate; none under reduced motion or low graphics. */
+   Motion: only opacity and translate. The rings pulse a few times as the choice opens (to draw the eye), then glow
+   steadily: an always-on animation on every candidate cost each table update a frame on software renderers.
+   None under reduced motion or low graphics. */
 
 /* ---------- the bar ---------- */
 .tgt-bar {
@@ -15,6 +17,8 @@
 /* between my rail's buttons (bottom left) and the log (bottom right), centred in that span */
 @media (min-width: 1000px) {
   .tgt-bar { left: 288px; right: 156px; width: auto; max-width: 1180px; margin: 0 auto; transform: none; }
+  /* the 3D table's turn dial sits low on the right: the bar stops short of it */
+  .game-screen:has(main.table.is-3d) .tgt-bar { right: 322px; }
 }
 /* cards in my hand are among the choices: the bar steps up so the hand stays in sight */
 .tgt-bar[data-dock="above-hand"] { bottom: calc(var(--hand-h, 158px) + 8px); }
@@ -141,13 +145,13 @@
   position: absolute; inset: -3px; border-radius: 7% / 5%; pointer-events: none; z-index: 3;
   box-shadow: 0 0 0 2px var(--frame-hi), 0 0 0 3.5px rgba(14, 10, 6, 0.75);
 }
-/* the slow pulse: a halo's opacity only (composited), on the candidates alone */
+/* the pulse: a halo's opacity only (composited), three breaths as the choice opens, then a steady glow */
 .tgt-mark::after {
   content: ""; position: absolute; inset: -3px; border-radius: inherit;
-  box-shadow: 0 0 9px 3px rgba(240, 201, 125, 0.6); opacity: 0.25; will-change: opacity;
-  animation: tgt-pulse 1.5s ease-in-out infinite alternate;
+  box-shadow: 0 0 9px 3px rgba(240, 201, 125, 0.6); opacity: 0.6; will-change: opacity;
+  animation: tgt-pulse 1.2s ease-in-out 3;
 }
-@keyframes tgt-pulse { to { opacity: 0.95; } }
+@keyframes tgt-pulse { 50% { opacity: 0.12; } }
 .tgt-mark[data-hot], .table-card.rules-target:hover > .tgt-mark { box-shadow: 0 0 0 3px var(--accent-2), 0 0 0 4.5px rgba(14, 10, 6, 0.8); }
 .tgt-mark[data-focus] { outline: 2px solid var(--select); outline-offset: 4px; }
 .tgt-mark[data-n] { box-shadow: 0 0 0 3px var(--frame-hi), 0 0 0 4.5px rgba(14, 10, 6, 0.85); }
@@ -164,8 +168,8 @@ body.targeting .t3d-seat[data-tgt] { cursor: crosshair; outline: 2px solid var(-
 body.targeting .t3d-seat[data-tgt] * { cursor: crosshair; }
 body.targeting .t3d-seat[data-tgt]::after {
   content: ""; position: absolute; inset: -6px; border-radius: 9px; pointer-events: none;
-  box-shadow: 0 0 12px 3px rgba(240, 201, 125, 0.55); opacity: 0.25; will-change: opacity;
-  animation: tgt-pulse 1.5s ease-in-out infinite alternate;
+  box-shadow: 0 0 12px 3px rgba(240, 201, 125, 0.55); opacity: 0.6; will-change: opacity;
+  animation: tgt-pulse 1.2s ease-in-out 3;
 }
 body.targeting .t3d-seat[data-tgt]:hover { outline: 3px solid var(--accent-2); }
 body.targeting .t3d-seat[data-tgt="chosen"] { outline-width: 3px; }

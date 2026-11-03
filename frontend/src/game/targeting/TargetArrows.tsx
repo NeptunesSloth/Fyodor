@@ -4,7 +4,7 @@
  * the DOM ([data-card-id] and the plaques' [data-player-id] boxes), so they follow any board layout; they are measured
  * again when the board changes, the window resizes or a Look moves the boards, never every frame.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useGame } from "../../state/gameStore";
 import type { GameView } from "../../types/game";
 import { bow, edgePoint, type Pt } from "./arrowPath";
@@ -49,8 +49,13 @@ export function TargetArrows({ t, origin: art, picked }: { t: Targeting; origin:
   const view = useGame((s) => s.view);
   const live = pointed ?? (boardHover && t.candidates.some((c) => c.ref === boardHover) ? boardHover : null);
   const [arrows, setArrows] = useState<{ from: Pt | null; list: Arrow[] }>({ from: null, list: [] });
+  const tLatest = useRef(t);
+  tLatest.current = t;
+  const idle = !live && !picked.length;
   useEffect(() => {
+    if (idle) return setArrows((a) => (a.list.length ? { from: null, list: [] } : a)); // nothing to point at: no measuring
     const compute = () => {
+      const t = tLatest.current;
       const src = origin(t, art.current);
       if (!src) return setArrows({ from: null, list: [] });
       const sb = src.getBoundingClientRect();
@@ -77,7 +82,7 @@ export function TargetArrows({ t, origin: art, picked }: { t: Targeting; origin:
       window.clearTimeout(late);
       window.removeEventListener("resize", compute);
     };
-  }, [t, art, picked, live, view, look]);
+  }, [idle, art, picked, live, view, look]);
   if (!arrows.list.length || !arrows.from) return null;
   return (
     <svg className="tgt-arrows" data-testid="targeting-arrows" aria-hidden>

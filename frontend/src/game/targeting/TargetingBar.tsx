@@ -6,7 +6,7 @@
  * dims, targetable players light up on their plaque, and hovering (or Tab-ing to) a candidate draws the arrow from the
  * source to it. Display only: answers go through the same `choose` intent as the panel's buttons did.
  */
-import { useEffect, useId, useLayoutEffect, useRef } from "react";
+import { memo, useEffect, useId, useLayoutEffect, useRef } from "react";
 import { useGame } from "../../state/gameStore";
 import { usePrefs } from "../../state/prefs";
 import { resolveRenderer } from "../../table3d/renderer";
@@ -110,10 +110,10 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
                   {p && !(g.runs.length === 1 && g.runs[0]![0]!.kind === "player") && ( /* (a player alone is their own chip) */
                     <span className="tgt-chip" title={p.name} aria-hidden>{p.name.slice(0, 1).toUpperCase()}</span>
                   )}
-                  {g.runs.map((run) => run.length === 1 ? <Thumb key={run[0]!.ref} t={t} c={run[0]!} view={view} n={pickNumber(picked, run[0]!.ref)} /> : (
+                  {g.runs.map((run) => run.length === 1 ? <Thumb key={run[0]!.ref} {...thumbOf(t, run[0]!, pickNumber(picked, run[0]!.ref), 0, me)} /> : (
                     // alike candidates fan out like a pile: each is its own button (and its own card on the table)
                     <span key={run[0]!.ref} className="tgt-fan" style={{ ["--n" as string]: run.length }}>
-                      {run.map((c, i) => <Thumb key={c.ref} t={t} c={c} view={view} n={pickNumber(picked, c.ref)} twins={i === run.length - 1 ? run.length : 0} />)}
+                      {run.map((c, i) => <Thumb key={c.ref} {...thumbOf(t, c, pickNumber(picked, c.ref), i === run.length - 1 ? run.length : 0, me)} />)}
                     </span>
                   ))}
                 </div>
@@ -127,51 +127,65 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
   );
 }
 
+/** What a tray thumbnail needs, all plain values, so a table update that doesn't touch it doesn't redraw it. */
+interface ThumbProps {
+  decision: string; multi: boolean; max: number; opt: string; refId: string; kind: "card" | "player";
+  label: string; note: string; where: string | null; n: number; twins: number; mine: boolean;
+}
+
+const thumbOf = (t: Targeting, c: Candidate, n: number, twins: number, me: string): ThumbProps => ({
+  decision: t.decision.id, multi: t.multi, max: t.max, opt: c.option.id, refId: c.ref, kind: c.kind,
+  label: c.label, note: c.note, where: c.where, n, twins, mine: c.kind === "player" && c.ref === me,
+});
+
 /** One candidate in the tray: its art, P/T, counters and tapped state, its name and what tells it apart. */
-function Thumb({ t, c, view, n, twins = 0 }: { t: Targeting; c: Candidate; view: GameView; n: number; twins?: number }) {
+const Thumb = memo(function Thumb({ decision, multi, max, opt, refId, kind, label, note, where, n, twins, mine }: ThumbProps) {
   const noteId = useId();
-  const card = c.kind === "card" ? view.cards[c.ref] : undefined;
-  const player = c.kind === "player" ? view.players.find((p) => p.id === c.ref) : undefined;
-  const pt = card ? ptOf(view, c.ref) : "";
+  const card = useGame((g) => (kind === "card" ? g.view?.cards[refId] : undefined));
+  const player = useGame((g) => (kind === "player" ? g.view?.players.find((p) => p.id === refId) : undefined));
+  const pt = useGame((g) => (kind === "card" && g.view ? ptOf(g.view, refId) : ""));
   const plus = card ? (card.counters?.["+1/+1"] ?? 0) - (card.counters?.["-1/-1"] ?? 0) : 0;
   const s = useTargeting.getState;
   // pointed at on the table: lit here too, and brought into view in a long tray
-  const live = useGame((g) => g.hover === c.ref);
+  const live = useGame((g) => g.hover === refId);
   const self = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (live && !self.current?.matches(":hover")) self.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [live]);
   const hover = (on: boolean) => {
-    s().setHot(on ? c.ref : null);
-    if (c.kind !== "card") return;
-    if (on) useGame.getState().setHover(c.ref);
-    else if (useGame.getState().hover === c.ref) useGame.getState().setHover(null);
+    s().setHot(on ? refId : null);
+    if (kind !== "card") return;
+    if (on) useGame.getState().setHover(refId);
+    else if (useGame.getState().hover === refId) useGame.getState().setHover(null);
   };
+  const choose1 = () => {
+    if (multi) s().toggle(decision, { opt, ref: refId }, max);
+    else void choose(decision, [opt]);
+  };
+  const shownNote = twins > 1 ? `${twins} alike` : note || (where && where !== "battlefield" ? (where === "stack" ? "on the stack" : `in ${where}`) : "");
   return (
-    <button ref={self} className="tgt-thumb" data-kind={c.kind} data-testid={`option-${c.option.id}`} data-ref={c.ref}
+    <button ref={self} className="tgt-thumb" data-kind={kind} data-testid={`option-${opt}`} data-ref={refId}
       data-tapped={card?.tapped ? "" : undefined} data-n={n || undefined} data-live={live ? "" : undefined}
-      aria-label={c.label} aria-describedby={c.note || c.where !== "battlefield" ? noteId : undefined} aria-pressed={t.multi ? n > 0 : undefined}
-      title={c.note ? `${c.label} · ${c.note}` : c.label}
-      onClick={() => answer(t, c)}
+      aria-label={label} aria-describedby={shownNote ? noteId : undefined} aria-pressed={multi ? n > 0 : undefined}
+      title={note ? `${label} · ${note}` : label}
+      onClick={choose1}
       onPointerEnter={() => hover(true)} onPointerLeave={() => hover(false)}
-      onFocus={() => { s().setFocus(c.ref); if (card) useGame.getState().setHover(c.ref); }}
-      onBlur={() => { s().setFocus(null); if (useGame.getState().hover === c.ref) useGame.getState().setHover(null); }}>
+      onFocus={() => { s().setFocus(refId); if (kind === "card") useGame.getState().setHover(refId); }}
+      onBlur={() => { s().setFocus(null); if (useGame.getState().hover === refId) useGame.getState().setHover(null); }}>
       <span className="tgt-art" aria-hidden>
         {card ? <GameCardFace card={card} size="small" />
-          : <span className="tgt-player" style={{ ["--player-color" as string]: player?.color }}>{(player?.name ?? c.label).slice(0, 1).toUpperCase()}</span>}
+          : <span className="tgt-player" style={{ ["--player-color" as string]: player?.color }}>{(player?.name ?? label).slice(0, 1).toUpperCase()}</span>}
         {pt && <span className={`tgt-pt ${plus > 0 ? "up" : plus < 0 ? "down" : ""}`}>{pt}</span>}
         {player && <span className="tgt-pt tgt-life" title="Life">{player.life}</span>}
         {card?.tapped && <span className="tgt-tapped" title="Tapped">↷</span>}
         {n > 0 && <b className="tgt-n">{n}</b>}
         {twins > 1 && <span className="tgt-twins">×{twins}</span>}
       </span>
-      <span className="tgt-label" aria-hidden>{c.kind === "player" && c.ref === view.viewer ? `${c.label} (you)` : c.label}</span>
-      {(c.note || (c.where && c.where !== "battlefield")) && (
-        <span className="tgt-note" id={noteId}>{twins > 1 ? `${twins} alike` : c.note || (c.where === "stack" ? "on the stack" : `in ${c.where}`)}</span>
-      )}
+      <span className="tgt-label" aria-hidden>{mine ? `${label} (you)` : label}</span>
+      {shownNote && <span className="tgt-note" id={noteId}>{shownNote}</span>}
     </button>
   );
-}
+});
 
 /**
  * The table while choosing: the rest dims (body.targeting), targetable players' plaques and the piles that hold a
@@ -183,42 +197,51 @@ function useBoardMarks(t: Targeting, view: GameView, picked: Pick[]): void {
     document.body.classList.add("targeting");
     return () => document.body.classList.remove("targeting");
   }, []);
+  // what to mark, as text: a table update that changes none of it touches no element
+  const marks: string[] = [];
+  for (const c of t.candidates) {
+    const chosen = pickNumber(picked, c.ref) > 0 ? "chosen" : "cand";
+    if (c.kind === "player") marks.push(`seat|${c.ref}|${chosen}`);
+    else if (c.where && c.where !== "battlefield" && c.where !== "hand" && view.cards[c.ref]) marks.push(`pile|${view.cards[c.ref]!.zone}|${chosen}`);
+  }
+  if (t.source) marks.push(`source|${t.source}|`);
+  const key = [...new Set(marks)].join("\n");
   useEffect(() => {
     const marked: [Element, string][] = [];
-    const mark = (sel: string, attr: string, value: string) => document.querySelectorAll(sel).forEach((el) => {
-      el.setAttribute(attr, value);
-      marked.push([el, attr]);
-    });
-    for (const c of t.candidates) {
-      const chosen = pickNumber(picked, c.ref) > 0 ? "chosen" : "cand";
-      if (c.kind === "player") mark(`.t3d-seat[data-player-id="${CSS.escape(c.ref)}"]`, "data-tgt", chosen);
-      else if (c.where && c.where !== "battlefield" && c.where !== "hand") {
-        const zone = view.cards[c.ref]?.zone;
-        if (zone) mark(`[data-drop="${CSS.escape(zone)}"]`, "data-tgt", chosen);
-      }
+    for (const line of key ? key.split("\n") : []) {
+      const [what, id, value] = line.split("|") as [string, string, string];
+      const e = CSS.escape(id);
+      const sel = what === "seat" ? `.t3d-seat[data-player-id="${e}"]` : what === "pile" ? `[data-drop="${e}"]`
+        : `.battlefield [data-card-id="${e}"], .command-zone [data-card-id="${e}"]`;
+      const attr = what === "source" ? "data-tgt-source" : "data-tgt";
+      document.querySelectorAll(sel).forEach((el) => {
+        el.setAttribute(attr, value);
+        marked.push([el, attr]);
+      });
     }
-    if (t.source) mark(`.battlefield [data-card-id="${CSS.escape(t.source)}"], .command-zone [data-card-id="${CSS.escape(t.source)}"]`, "data-tgt-source", "");
     return () => marked.forEach(([el, attr]) => el.removeAttribute(attr));
-  }, [t, view, picked]);
+  }, [key]);
   // a click on a targetable player's plaque chooses them (before the plaque's own life and panel buttons see it)
+  const latest = useRef(t);
+  latest.current = t;
   useEffect(() => {
     const seatOf = (e: Event) => {
       const el = (e.target as Element | null)?.closest?.(".t3d-seat[data-player-id]");
       const pid = el?.getAttribute("data-player-id");
-      return pid ? t.candidates.find((c) => c.kind === "player" && c.ref === pid) : undefined;
+      return pid ? latest.current.candidates.find((c) => c.kind === "player" && c.ref === pid) : undefined;
     };
     const onClick = (e: MouseEvent) => {
       const c = seatOf(e);
       if (!c || e.button !== 0) return;
       e.preventDefault();
       e.stopPropagation();
-      answer(t, c);
+      answer(latest.current, c);
     };
     const onOver = (e: PointerEvent) => {
       const c = seatOf(e);
       const s = useTargeting.getState();
       if (c) s.setHot(c.ref);
-      else if (s.hot && t.candidates.some((x) => x.kind === "player" && x.ref === s.hot) && !(e.target as Element | null)?.closest?.(".tgt-bar")) s.setHot(null);
+      else if (s.hot && latest.current.candidates.some((x) => x.kind === "player" && x.ref === s.hot) && !(e.target as Element | null)?.closest?.(".tgt-bar")) s.setHot(null);
     };
     window.addEventListener("click", onClick, true);
     window.addEventListener("pointerover", onOver, true);
@@ -226,7 +249,7 @@ function useBoardMarks(t: Targeting, view: GameView, picked: Pick[]): void {
       window.removeEventListener("click", onClick, true);
       window.removeEventListener("pointerover", onOver, true);
     };
-  }, [t]);
+  }, []);
 }
 
 /**
@@ -288,9 +311,11 @@ function useKeys(t: Targeting, bar: React.RefObject<HTMLElement | null>, picked:
 function useLookAtHot(t: Targeting, me: string, three: boolean): void {
   const hot = useTargeting((s) => s.hot ?? s.focus);
   const back = useRef<{ prev: string | null; set: string } | null>(null);
+  const latest = useRef(t);
+  latest.current = t;
   useEffect(() => {
     if (three || !hot) return;
-    const c = t.candidates.find((x) => x.ref === hot);
+    const c = latest.current.candidates.find((x) => x.ref === hot);
     if (!c || c.kind !== "card" || c.where !== "battlefield" || !c.seat || c.seat === me) return;
     const seat = c.seat;
     const timer = window.setTimeout(() => {
@@ -302,7 +327,7 @@ function useLookAtHot(t: Targeting, me: string, three: boolean): void {
       s.setLayout({ focus: seat });
     }, 600);
     return () => window.clearTimeout(timer);
-  }, [hot, t, me, three]);
+  }, [hot, me, three]);
   useEffect(() => () => {
     const b = back.current;
     if (b && useGame.getState().focus === b.set) useGame.getState().setLayout({ focus: b.prev });

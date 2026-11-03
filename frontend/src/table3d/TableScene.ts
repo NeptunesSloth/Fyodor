@@ -248,6 +248,8 @@ export class TableScene {
   private hitMat = new THREE.MeshBasicMaterial({ visible: false });
   private textures = new Map<string, THREE.Texture>();
   private materials = new Map<string, THREE.MeshStandardMaterial>();
+  /** -- targeting -- a face material darkened for a card that isn't a choice (sharing its texture). */
+  private dimMats = new Map<THREE.MeshStandardMaterial, THREE.MeshStandardMaterial>();
   private loader = new THREE.TextureLoader();
   private failed = new Set<string>();
   private unsubs: (() => void)[] = [];
@@ -611,6 +613,7 @@ export class TableScene {
     this.cards.clear();
     for (const t of this.textures.values()) t.dispose();
     for (const m of this.materials.values()) m.dispose();
+    for (const m of this.dimMats.values()) m.dispose();
     this.bodies.dispose();
     this.shadows.geometry.dispose();
     (this.shadows.material as THREE.Material).dispose();
@@ -870,7 +873,13 @@ export class TableScene {
         const pos = pending[id] ?? [card.x ?? 20 + (i % 10) * 90, card.y ?? 20 + Math.floor(i / 10) * 130];
         const [lx, lz] = virtualToLocal(pos[0], pos[1]);
         const tapped = (card.tapped ? -Math.PI / 2 : 0) + (card.flipped ? Math.PI : 0) - ((card.rotation ?? 0) * Math.PI) / 180;
-        this.place(c, seat, lx, lz, 0.004 + i * 0.0035, tapped);
+        // -- targeting -- the choices lift off the felt (the one pointed at or chosen more), the rest darkens
+        const tb = this.beams;
+        const lift = tb?.cands.has(id) ? (tb.targets.includes(id) ? 0.16 : 0.06) : 0;
+        this.place(c, seat, lx, lz, 0.004 + i * 0.0035 + lift, tapped);
+        const face = this.faceMaterial(card, c.faceKey);
+        const want = tb && !tb.cands.has(id) && id !== tb.source ? this.dimmed(face) : face;
+        if (c.face.material !== want) c.face.material = want;
         c.tilt = 0;
         const overlay = overlayFor(card, view.rules?.stats?.[id]);
         const pile = countMark(card, piles.get(id))?.n; // ×N: the land pile it tops, or the token stack it is
@@ -1173,6 +1182,16 @@ export class TableScene {
       pile.top.position.set(wx, (shown <= 1 ? 0 : ((shown - 1) / shown) * h) + THICK + 0.0008, wz);
       pile.top.rotation.y = seat.rot;
     }
+  }
+
+  private dimmed(m: THREE.MeshStandardMaterial): THREE.MeshStandardMaterial {
+    let d = this.dimMats.get(m);
+    if (!d) {
+      d = m.clone();
+      d.color.setScalar(0.36);
+      this.dimMats.set(m, d);
+    }
+    return d;
   }
 
   private legalColor(view: GameView, id: string): string | null {
