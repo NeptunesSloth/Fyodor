@@ -886,7 +886,7 @@ export class TableScene {
         const ownerP = card.owner !== card.controller ? view.players.find((p) => p.id === card.owner) : undefined;
         const owner = ownerP ? { initial: ownerP.name.slice(0, 1).toUpperCase(), color: ownerP.color } : undefined;
         this.setOverlay(c, pile || owner ? { ...(overlay ?? { keywords: [], counters: [] }), ...(pile ? { pile } : {}), ...(owner ? { owner } : {}) } : overlay);
-        this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), selection.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
+        this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), selection.has(id) || tb?.cands.has(id) ? 0.9 : 0.55); // brass: the selected card's edge (DESIGN.md); ice means priority
       });
       // piles
       for (const zone of ["library", "graveyard", "exile"] as const) {
@@ -1188,7 +1188,7 @@ export class TableScene {
     let d = this.dimMats.get(m);
     if (!d) {
       d = m.clone();
-      d.color.setScalar(0.36);
+      d.color.setScalar(0.26);
       this.dimMats.set(m, d);
     }
     return d;

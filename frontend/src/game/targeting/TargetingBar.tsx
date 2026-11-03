@@ -207,19 +207,31 @@ function useBoardMarks(t: Targeting, view: GameView, picked: Pick[]): void {
   if (t.source) marks.push(`source|${t.source}|`);
   const key = [...new Set(marks)].join("\n");
   useEffect(() => {
-    const marked: [Element, string][] = [];
-    for (const line of key ? key.split("\n") : []) {
+    const wanted = (key ? key.split("\n") : []).map((line) => {
       const [what, id, value] = line.split("|") as [string, string, string];
       const e = CSS.escape(id);
       const sel = what === "seat" ? `.t3d-seat[data-player-id="${e}"]` : what === "pile" ? `[data-drop="${e}"]`
         : `.battlefield [data-card-id="${e}"], .command-zone [data-card-id="${e}"]`;
-      const attr = what === "source" ? "data-tgt-source" : "data-tgt";
-      document.querySelectorAll(sel).forEach((el) => {
-        el.setAttribute(attr, value);
-        marked.push([el, attr]);
+      return { sel, attr: what === "source" ? "data-tgt-source" : "data-tgt", value };
+    });
+    const marked = new Set<[Element, string]>();
+    const apply = () => {
+      for (const w of wanted) document.querySelectorAll(w.sel).forEach((el) => {
+        if (el.getAttribute(w.attr) === w.value) return;
+        el.setAttribute(w.attr, w.value);
+        marked.add([el, w.attr]);
       });
-    }
-    return () => marked.forEach(([el, attr]) => el.removeAttribute(attr));
+    };
+    apply();
+    // plaques and piles that mount later (the 3D table's plaques arrive with it) are marked as they appear
+    let raf = 0;
+    const watch = new MutationObserver(() => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; apply(); }); });
+    watch.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      watch.disconnect();
+      cancelAnimationFrame(raf);
+      marked.forEach(([el, attr]) => el.removeAttribute(attr));
+    };
   }, [key]);
   // a click on a targetable player's plaque chooses them (before the plaque's own life and panel buttons see it)
   const latest = useRef(t);
