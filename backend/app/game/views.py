@@ -205,6 +205,21 @@ def _sees(part: LogPart, viewer: str) -> bool:
     return viewer == OMNISCIENT or ALL in part.visible_to or viewer in part.visible_to
 
 
+DRAWN_SHOWN = 20  # -- table toys -- the latest chits drawn from the draw bag a view lists
+
+
+def bag_view(state: GameState, viewer: str) -> dict[str, Any]:
+    """-- table toys -- what ``viewer`` sees of the draw bag (app/game/handlers/toys.py): how many chits are inside, never which
+    nor their order, and the latest drawn ones, a hidden one only to its drawer (and the hot-seat table's open view)."""
+    bag = state.bag
+    return {
+        "count": len(bag.chits),
+        "drawn": [{"player": d.player, "chit": d.chit if d.shown or viewer in (d.player, OMNISCIENT) else None, "shown": d.shown}
+                  for d in bag.drawn[-DRAWN_SHOWN:]],
+        "drawn_count": len(bag.drawn),
+    }
+
+
 def render_log(entries: list[LogEntry], viewer: str) -> list[dict[str, Any]]:
     return [
         {
@@ -219,6 +234,9 @@ def render_log(entries: list[LogEntry], viewer: str) -> list[dict[str, Any]]:
             **({"folded": True} if e.folded else {}),
             **({"roll": e.roll.model_dump()} if e.roll else {}),
             **({"dig": e.dig.model_dump()} if e.dig else {}),
+            # -- table toys -- a draw from the draw bag: a hidden chit only for its drawer (and the hot-seat open view)
+            **({"bag": {"player": e.bag.player, "hidden": e.bag.hidden, "left": e.bag.left,
+                        "chit": e.bag.chit if not e.bag.hidden or viewer in (e.bag.player, OMNISCIENT) else None}} if e.bag else {}),
         }
         for e in entries
     ]
@@ -335,4 +353,5 @@ def build_view(
         "zones": zones,
         "stack": list(state.zones.get(STACK, [])),
         "log": render_log(log[-log_limit:], viewer),
+        "bag": bag_view(state, viewer),  # -- table toys -- how many chits, and the drawn ones this viewer may see
     }

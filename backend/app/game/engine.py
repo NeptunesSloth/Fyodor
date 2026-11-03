@@ -9,6 +9,7 @@ from app.game import actions as A
 from app.game import eliminations
 from app.game.errors import ActionError
 from app.game.handlers import cards, marks, mulligan, objects, players, response, rules, solo, turn, zones
+from app.game.handlers import toys as table_toys
 from app.game.rules_state import capture, track, wither_put_by
 from app.game.state import GameState
 from app.rules import stickers101, token_stacks
@@ -94,6 +95,13 @@ HANDLERS: dict[str, Handler] = {
     "rename_player": players.rename_player,
     "roll": turn.roll,
     "coin": turn.coin,
+    # -- table toys -- the dice cannon and the draw bag (app/game/handlers/toys.py)
+    "cannon": table_toys.cannon,
+    "bag_fill": table_toys.bag_fill,
+    "bag_draw": table_toys.bag_draw,
+    "bag_show": table_toys.bag_show,
+    "bag_return": table_toys.bag_return,
+    "bag_empty": table_toys.bag_empty,
     "chat": turn.chat,
     "phase": turn.phase,
     "next_turn": turn.next_turn,
@@ -138,6 +146,7 @@ NOT_OVERRIDES = A.INTENT_TYPES | A.SERVER_ONLY_TYPES | frozenset({
     "add_effect", "remove_effect", "set_choice", "set_stack_info", "set_exile_group", "set_copy_source",
     "mulligan_take", "mulligan_keep", "mulligan_bottom", "mulligan_powder", "mulligan_finish", "response_open", "response_pass",
     "response_respond", "response_auto", "response_close", "restore_state", "end_view",
+    "cannon", "bag_fill", "bag_draw", "bag_show", "bag_return", "bag_empty",  # -- table toys -- like the dice
 })
 
 
