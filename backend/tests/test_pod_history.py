@@ -124,7 +124,7 @@ def test_an_undo_takes_an_elimination_back_and_a_redo_brings_it_back(cards):
     s = four(cards)
     act(s, "p2", type="concede")
     assert [e.player for e in s.state.eliminations] == ["p2"]
-    s.undo("p2")
+    s.undo("p1")  # (a player still in, or the host: Ben is out, his own undo is refused, tests/test_out_of_game_actions.py)
     assert s.state.eliminations == []
     s.redo("p2")
     assert order(s) == [("p2", 1, "conceded", s.state.seq)]

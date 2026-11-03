@@ -28,6 +28,12 @@ def apply(state: Any, card: Any, ch: Any, info: Any) -> Any:
 
     if "Land" in ch.types or any("foretell" in ability.keywords for ability in ch.abilities):
         return ch
+    # -- big boards (gaps5) -- only a card in its owner's hand gets foretell here (the loop below skips every other card), so a card in a
+    # graveyard never reads the table's statics. Derived inside a characteristic-defining count ("card types among cards in all
+    # graveyards": layers._cda), where nothing is kept, each graveyard card derived the whole battlefield again, every Lhurgoyf's count
+    # among it.
+    if card.zone != f"{card.owner}:hand":
+        return ch
     for source, _, definition in permissions._table_statics(state, info, {"dynamic_zone_keyword56"}):
         if card.owner != source.controller or card.zone != source.controller + ":hand":
             continue

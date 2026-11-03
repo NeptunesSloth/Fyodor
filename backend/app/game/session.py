@@ -110,6 +110,8 @@ class GameSession:
         someone to ask, an undo of something already seen asks them first. ``approved``: the table approved this undo (its label)."""
         self._check_not_controlled(actor)
         if approved is None:
+            if (out := out_of_game.history_refusal(self.state, actor, host=host)) is not None:
+                raise ActionError(out)  # -- out of the game (gaps5) -- a player who left doesn't take the game's actions back (the host may)
             undo_rights.check(self.state, self.history, actor, host=host, op="undo")  # -- undo policy (gap 3) --
             if others and (kind := undo_requests.shown(undo_rights.entry(self.history, "undo"))) is not None:
                 raise ActionError(f"{undo_requests.reason(kind)} Ask the table to undo it.")
@@ -122,6 +124,8 @@ class GameSession:
 
     def redo(self, actor: str, *, host: bool = False) -> Action:
         self._check_not_controlled(actor)
+        if (out := out_of_game.history_refusal(self.state, actor, host=host)) is not None:
+            raise ActionError(out)  # -- out of the game (gaps5) --
         undo_rights.check(self.state, self.history, actor, host=host, op="redo")  # -- undo policy (gap 3) --
         state, redone = self.history.redo(self.state)
         self.state = state

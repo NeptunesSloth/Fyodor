@@ -9,6 +9,9 @@ here, when the action is sent (``GameSession.perform``), never on replay, so a s
 What stays theirs is what anyone watching at the table does: chat and the table's dice (its dice cannon and draw bag too), their own seat's name and look,
 stepping aside from a response check (they are never waited on), their rules preferences (the engine decides each rules
 intent), and, for the host, the host's table tools (``api.games.HOST_ONLY_ACTIONS``: the API checks who the host is).
+
+Undo, redo and asking the table to undo take back the live game's actions, so they move the game too (``history_refusal``):
+refused for a player who is out, except the host, who can still take back a mistaken concession or loss.
 """
 
 from __future__ import annotations
@@ -26,8 +29,19 @@ OUT_MAY = INTENT_TYPES | frozenset({
 
 def refusal(state: GameState, actor: str, action_type: str) -> str | None:
     """Why ``actor`` may not send ``action_type`` now (they conceded or lost), or None."""
+    return None if action_type in OUT_MAY else reason(state, actor)
+
+
+def history_refusal(state: GameState, actor: str, *, host: bool) -> str | None:
+    """-- out of the game (gaps5) -- Why ``actor`` may not undo, redo or ask the table to undo the live game now (they are out of it), or
+    None. ``host``: the host's seat at a LAN table, every seat at a hot-seat one (``GameSession.undo``): the host still may."""
+    return None if host else reason(state, actor)
+
+
+def reason(state: GameState, actor: str) -> str | None:
+    """The reason a player who is out is refused (they conceded or lost), or None while they are in the game."""
     r = state.rules
-    if r is None or action_type in OUT_MAY:
+    if r is None:
         return None
     if actor in r.conceded:
         how = "conceded"
