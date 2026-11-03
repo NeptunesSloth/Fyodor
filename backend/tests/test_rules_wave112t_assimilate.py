@@ -19,7 +19,7 @@ from tests.game_helpers import act
 from tests.test_rules_conditionals import until
 from tests.test_rules_wave12a_counters_keywords import real
 from tests.test_rules_wave111e_trek import build3
-from tests.wave9c_kit import build, card_named, check, life, mana, put
+from tests.wave9c_kit import build, card_named, check, mana, put
 
 EXTRA = [
     real('Assimilate the Wounded', '{2}{B}', 3, 'Instant',

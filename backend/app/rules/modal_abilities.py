@@ -659,7 +659,9 @@ def _on_the_stack(plan: Plan, t: PendingTrigger, chosen: list[int], picked: list
                                      targets=flat, target_spec=None, event=t.event, modes=chosen, slots=slots,
                                      slot_specs=specs, x=cast_x(plan, t))  # (x: wave 4J, 107.3m)
     remember(r, t.source_object, d["modal"]["index"], d["modal"]["memory"], plan.state.turn.number, chosen, _face(plan, t))
-    from app.rules import dilemma  # -- Star Trek mechanics (wave 112T) -- 603.3c: its modes were chosen as it was put on the stack (release notes)
+    from app.rules import (
+        dilemma,  # -- Star Trek mechanics (wave 112T) -- 603.3c: its modes were chosen as it was put on the stack (release notes)
+    )
 
     dilemma.note(plan, t.controller, chosen)
     plan.do({"type": "set_stack_info", "card_id": ability_id, "modes": _public_texts(plan, t.source_card, d, chosen)},
@@ -761,7 +763,9 @@ def announced(plan: Plan, ability_id: str, card: CardInstance, found: Announced,
     """The ability is on the stack: the modes chosen are public (601.2b) and, for "hasn't been chosen",
     remembered for that ability of that object."""
     remember(plan.rules, oid, found.index, found.definition["modal"]["memory"], plan.state.turn.number, found.modes, card.face)
-    from app.rules import dilemma  # -- Star Trek mechanics (wave 112T) -- 602.2b: its modes were chosen as it was activated (release notes)
+    from app.rules import (
+        dilemma,  # -- Star Trek mechanics (wave 112T) -- 602.2b: its modes were chosen as it was activated (release notes)
+    )
 
     dilemma.note(plan, plan.actor, found.modes)
     plan.do({"type": "set_stack_info", "card_id": ability_id,

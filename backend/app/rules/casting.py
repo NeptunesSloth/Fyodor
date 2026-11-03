@@ -4506,9 +4506,10 @@ def _post_cast(plan: Plan, data: _PostCast, payment: M.Payment | None) -> None:
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=effect_x,
                                       **picked_targets.entry(definition), kicked=kicked or int(a.awaken) or int(gift_to is not None or bargained), kicked_mask=record.kicked_mask)
-    from app.rules import wave110f_cards  # -- wave 110F --
-
-    from app.rules import dilemma  # -- Star Trek mechanics (wave 112T) -- the player who chose its modes faced a dilemma (release notes; 700.2e: an opponent who chose them)
+    from app.rules import (
+        dilemma,  # -- Star Trek mechanics (wave 112T) -- the player who chose its modes faced a dilemma (release notes; 700.2e: an opponent who chose them)
+        wave110f_cards,  # -- wave 110F --
+    )
 
     dilemma.note(plan, getattr(a, "chooser110f", None) or plan.actor, picked)
     wave110f_cards.stack_chooser(plan, a, card)  # -- wave 110F -- 700.2e: the spell is a new object on the stack (400.7)
@@ -5855,9 +5856,10 @@ def _post_free_cast(plan: Plan, data: _PostFreeCast, payment: M.Payment | None) 
         r.stack[card.id] = StackEntry(kind="spell", controller=plan.actor, source_card=card.id, source_object=plan.oid(card),
                                       name=ch.name, effects=list(definition["effects"]), x=effect_x,
                                       **picked_targets.entry(definition), kicked=record.kicked, kicked_mask=record.kicked_mask)
-    from app.rules import wave110f_cards  # -- wave 110F --
-
-    from app.rules import dilemma  # -- Star Trek mechanics (wave 112T) -- the player who chose its modes faced a dilemma (release notes; 700.2e: an opponent who chose them)
+    from app.rules import (
+        dilemma,  # -- Star Trek mechanics (wave 112T) -- the player who chose its modes faced a dilemma (release notes; 700.2e: an opponent who chose them)
+        wave110f_cards,  # -- wave 110F --
+    )
 
     dilemma.note(plan, getattr(a, "chooser110f", None) or plan.actor, picked)
     wave110f_cards.stack_chooser(plan, a, card)  # -- wave 110F -- 700.2e: the spell is a new object on the stack (400.7)

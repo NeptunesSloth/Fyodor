@@ -132,7 +132,7 @@ def found(plan: Any, ctx: dict[str, Any], e: dict[str, Any]) -> bool:
     """Bind the card an "until they exile a … card" instruction stopped at, while it is still in exile (400.7)."""
     cid = ctx.get("found")
     card = plan.state.cards.get(cid or "")
-    context.bind_objects(plan, ctx, e["as"], [cid] if card is not None and card.zone.endswith(":exile") else [])
+    context.bind_objects(plan, ctx, e["as"], [card.id] if card is not None and card.zone.endswith(":exile") else [])
     return True
 
 
