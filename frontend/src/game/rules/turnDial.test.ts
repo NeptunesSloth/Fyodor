@@ -30,7 +30,7 @@ describe("the turn dial for a player who is out of the game", () => {
 
   it("a player who conceded watches: no steps, no turn, no stack controls", () => {
     const html = dial("p3", { conceded: ["p3"] });
-    expect(html).toContain("You&#x27;re out — watching");
+    expect(html).toContain("You&#x27;re out: watching");
     expect(html).toContain('data-testid="turn-dial-out"');
     expect(html).not.toContain("Manual play");
     for (const control of ["Next turn", "To combat", "Previous step", "Resolve top", 'data-testid="pass-priority"', "Hold priority"]) expect(html).not.toContain(control);
@@ -41,7 +41,7 @@ describe("the turn dial for a player who is out of the game", () => {
   it("a player who lost watches the same way, with the rules paused or not", () => {
     for (const paused of [false, true]) {
       const html = dial("p2", { lost: { p2: "0 or less life" }, paused });
-      expect(html).toContain("You&#x27;re out — watching");
+      expect(html).toContain("You&#x27;re out: watching");
       expect(html).not.toContain("Next turn");
     }
   });

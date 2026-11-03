@@ -91,7 +91,7 @@ test("2D: the turn dial of a player who conceded", async ({ page }) => {
   await expect(page.getByTestId("eliminated-scene").or(page.getByTestId("eliminated-hub"))).toBeVisible({ timeout: 10_000 });
   if (await page.getByTestId("eliminated-scene").isVisible().catch(() => false)) await page.getByTestId("eliminated-scene").click();
   await page.getByTestId("eliminated-hub").getByRole("button", { name: "Keep watching" }).click();
-  await expect(page.getByTestId("priority-holder")).toHaveText(BEFORE ? /.+/ : "You're out — watching");
+  await expect(page.getByTestId("priority-holder")).toHaveText(BEFORE ? /.+/ : "You're out: watching");
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/${BEFORE ? "before-" : ""}out-dial.png` });
   if (!BEFORE) {

@@ -9,7 +9,7 @@ import type { HotkeyId } from "./hotkeys";
  * an action sent anyway is not sent (the reason instead of an error).
  */
 
-/** Out of the game: the turn dial's own test ("You're out — watching"). A spectator is just watching. */
+/** Out of the game: the turn dial's own test ("You're out: watching"). A spectator is just watching. */
 export function isOut(view: GameView | null | undefined, me: string | null | undefined): boolean {
   const r = view?.rules;
   return !!view && !!me && view.viewer !== SPECTATOR && !!r && (r.conceded.includes(me) || me in r.lost);
