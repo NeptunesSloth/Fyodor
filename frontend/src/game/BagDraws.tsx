@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { bagAnchor, CHIT_H, CHIT_W, clearOf, type Box, type Rect } from "./bagAnchor";
 import { useGame } from "../state/gameStore";
 import type { LogEntryView } from "../types/game";
 import "./tabletoys.css";
@@ -43,10 +44,43 @@ export function BagDraws() {
     setChits((all) => all.map((c) => (c.key === key ? { ...c, out: true } : c)));
     timers.current.push(window.setTimeout(() => setChits((all) => all.filter((c) => c.key !== key)), 280));
   };
+  // each drawer's chits stack by their own plaque (the dice lines keep the mats' edges; nothing shares the top centre)
+  const drawers = [...new Set(chits.map((c) => c.player))];
+  const [places, setPlaces] = useState<Record<string, Box | null>>({});
+  const counts = drawers.map((pid) => chits.filter((c) => c.player === pid).length).join();
+  useLayoutEffect(() => {
+    if (!drawers.length) return;
+    const place = () => {
+      // under (or beside) the drawer's plaque, then down past any dice result line or other drawer's chits in the way
+      // (a line shows once its dice are at rest, and stays put; each die's number chip sits just over the die itself)
+      const taken: Rect[] = [...document.querySelectorAll(".dice-line.on")].map((e) => e.getBoundingClientRect());
+      for (const e of document.querySelectorAll(".dice-chip.on")) {
+        const r = e.getBoundingClientRect();
+        taken.push({ left: r.left - 24, right: r.right + 24, top: r.top, bottom: r.bottom + 56 });
+      }
+      const next: Record<string, Box | null> = {};
+      for (const pid of drawers) {
+        const plate = document.querySelector(`.t3d-seat[data-player-id="${CSS.escape(pid)}"]`);
+        if (!plate) { next[pid] = null; continue; }
+        const height = chits.filter((c) => c.player === pid).length * CHIT_H;
+        const at = clearOf(bagAnchor(plate.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight }), CHIT_W, height, taken);
+        next[pid] = at;
+        taken.push({ left: at.left, top: at.top, right: at.left + CHIT_W, bottom: at.top + height });
+      }
+      setPlaces((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next));
+    };
+    place();
+    const tick = window.setInterval(place, 400); // a dice line that comes to rest after the chit appeared moves it aside (chits last 5 s)
+    window.addEventListener("resize", place);
+    return () => { window.clearInterval(tick); window.removeEventListener("resize", place); };
+  }, [drawers.join(), counts]);
   if (!chits.length) return null;
-  return (
-    <div className="bag-draws" aria-live="polite" data-testid="bag-draws">
-      {chits.map((c) => {
+  return <>{drawers.map((pid) => {
+    const at = places[pid];
+    return (
+    <div key={pid} className={`bag-draws${at ? " by-plaque" : ""}`} aria-live="polite" data-testid="bag-draws" data-player={pid}
+      style={at ? { left: at.left, top: at.top } : undefined}>
+      {chits.filter((c) => c.player === pid).map((c) => {
         const who = players?.find((p) => p.id === c.player);
         const mine = c.player === viewer;
         const label = c.chit ? `${mine ? "You" : who?.name ?? ""} drew “${c.chit}”${c.hidden ? " (only you see it)" : ""}` : `${who?.name ?? ""} drew a hidden chit`;
@@ -61,5 +95,6 @@ export function BagDraws() {
         );
       })}
     </div>
-  );
+    );
+  })}</>;
 }

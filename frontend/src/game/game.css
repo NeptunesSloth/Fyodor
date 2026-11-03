@@ -878,3 +878,15 @@ body.reduced-motion .focus-flash { animation: none; }
 /* out of the game: the hub's activities are equal and quiet; Keep watching is the one brass answer */
 [data-testid="eliminated-hub"] .night-actions .tt-btn:not(.brass) { background: transparent; border-color: var(--line-2); color: var(--room-bone-dim); box-shadow: none; }
 [data-testid="eliminated-hub"] .night-actions .tt-btn:not(.brass):hover:not(:disabled) { color: var(--room-bone); border-color: var(--frame); }
+
+/* -- table toys -- a drawn chit stacks by its drawer's plaque (BagDraws.tsx, bagAnchor.ts), clear of the dice lines on the
+   mats, as a small steel plate with the drawer's seat colour at its edge (the HUD's material, not a floating pill) */
+.bag-draws.by-plaque { transform: none; justify-items: start; }
+.bag-chit {
+  gap: 9px; padding: 5px 12px 5px 5px; border-radius: 5px; background: var(--hud-surface);
+  border: 1px solid var(--hud-edge); border-left: 3px solid var(--seat, var(--accent));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 20px rgba(0, 0, 0, 0.55);
+}
+.bag-chit:hover { border-color: var(--frame); border-left-color: var(--seat, var(--accent)); }
+.bag-chit .token { min-width: 30px; height: 30px; border-radius: 15px; font-size: 12.5px; }
+.bag-chit .what { font-weight: 650; color: var(--room-bone); }
