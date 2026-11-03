@@ -396,7 +396,7 @@ A player eliminated early gets a compact hub instead of only spectating:
 - A live-game pill with public notices ("X was eliminated", "Final two players remain") and Return to live game.
 
 Dice & toys (a local dice tray, a just-for-fun random player picker and a tally; nothing reaches the live game) are built.
-A Game log link opens the table's own log drawer. Not built: Deck Lab's compare view.
+A Game log link opens the table's own log drawer, and Deck Lab compares your deck with the one at the table (`game/DeckChanges.tsx`).
 
 ### Spectator side activities — 1-5 built (`SPECTATOR_ACTIVITIES_MILESTONE.md`, 2026-11-02)
 
