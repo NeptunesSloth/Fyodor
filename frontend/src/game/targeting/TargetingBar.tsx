@@ -6,11 +6,11 @@
  * dims, targetable players light up on their plaque, and hovering (or Tab-ing to) a candidate draws the arrow from the
  * source to it. Display only: answers go through the same `choose` intent as the panel's buttons did.
  */
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useLayoutEffect, useRef } from "react";
 import { useGame } from "../../state/gameStore";
 import { usePrefs } from "../../state/prefs";
 import { resolveRenderer } from "../../table3d/renderer";
-import type { GameView } from "../../types/game";
+import { isVisible, type GameView } from "../../types/game";
 import { GameCardFace } from "../GameCardFace";
 import { choose } from "../rules/intents";
 import { canSubmitChoice, doneLabel } from "../rules/RulesHud";
@@ -33,6 +33,24 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
   const three = resolveRenderer(usePrefs((s) => s.renderer)) === "3d";
   const bar = useRef<HTMLElement>(null);
   const art = useRef<HTMLDivElement>(null);
+  const tray = useRef<HTMLDivElement>(null);
+  // a tray longer than the bar fades out at the edge it continues past
+  useLayoutEffect(() => {
+    const el = tray.current;
+    if (!el) return;
+    const mark = () => {
+      const more = el.scrollWidth - el.clientWidth - el.scrollLeft > 4;
+      const before = el.scrollLeft > 4;
+      el.dataset.more = more && before ? "both" : more ? "end" : before ? "start" : "";
+    };
+    mark();
+    el.addEventListener("scroll", mark, { passive: true });
+    window.addEventListener("resize", mark);
+    return () => {
+      el.removeEventListener("scroll", mark);
+      window.removeEventListener("resize", mark);
+    };
+  }, [d.id, t.candidates.length]);
   const canDone = canSubmitChoice(picked.length, t.min, t.max, t.exactly);
   const done = () => void choose(d.id, picked.map((p) => p.opt));
   const cancel = () => void choose(d.id, ["cancel"]);
@@ -45,7 +63,9 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
   useKeys(t, bar, picked, canDone, done, cancel);
   useLookAtHot(t, me, three);
 
-  const src = t.source ? view.cards[t.source] : undefined;
+  const srcObj = t.source ? view.cards[t.source] : undefined;
+  const from = srcObj && isVisible(srcObj) ? srcObj.ability?.source_id : null; // an ability on the stack: its card
+  const src = (from && view.cards[from]) || srcObj;
   const dock = t.candidates.some((c) => c.where === "hand") ? "above-hand" : "hand";
   const groups = traySeats(t, view, me);
   return (
@@ -81,15 +101,20 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
               )}
             </span>
           </div>
-          <div className="tgt-tray" role="group" aria-label="Choices: Tab or the arrow keys step through them, Enter chooses"
+          <div ref={tray} className="tgt-tray" role="group" data-dense={t.candidates.length > 12 ? "" : undefined} aria-label="Choices: Tab or the arrow keys step through them, Enter chooses"
             onWheel={(e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY; }}>
             {groups.map((g) => {
               const p = view.players.find((x) => x.id === g.seat);
               return (
                 <div key={g.seat ?? "-"} className="tgt-seat" style={p ? { ["--player-color" as string]: p.color } : undefined}>
-                  {p && <span className="tgt-chip" title={p.name} aria-hidden>{p.name.slice(0, 1).toUpperCase()}</span>}
-                  {g.candidates.map((c) => (
-                    <Thumb key={c.ref} t={t} c={c} view={view} n={pickNumber(picked, c.ref)} />
+                  {p && !(g.runs.length === 1 && g.runs[0]![0]!.kind === "player") && ( /* (a player alone is their own chip) */
+                    <span className="tgt-chip" title={p.name} aria-hidden>{p.name.slice(0, 1).toUpperCase()}</span>
+                  )}
+                  {g.runs.map((run) => run.length === 1 ? <Thumb key={run[0]!.ref} t={t} c={run[0]!} view={view} n={pickNumber(picked, run[0]!.ref)} /> : (
+                    // alike candidates fan out like a pile: each is its own button (and its own card on the table)
+                    <span key={run[0]!.ref} className="tgt-fan" style={{ ["--n" as string]: run.length }}>
+                      {run.map((c, i) => <Thumb key={c.ref} t={t} c={c} view={view} n={pickNumber(picked, c.ref)} twins={i === run.length - 1 ? run.length : 0} />)}
+                    </span>
                   ))}
                 </div>
               );
@@ -103,13 +128,19 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
 }
 
 /** One candidate in the tray: its art, P/T, counters and tapped state, its name and what tells it apart. */
-function Thumb({ t, c, view, n }: { t: Targeting; c: Candidate; view: GameView; n: number }) {
+function Thumb({ t, c, view, n, twins = 0 }: { t: Targeting; c: Candidate; view: GameView; n: number; twins?: number }) {
   const noteId = useId();
   const card = c.kind === "card" ? view.cards[c.ref] : undefined;
   const player = c.kind === "player" ? view.players.find((p) => p.id === c.ref) : undefined;
   const pt = card ? ptOf(view, c.ref) : "";
   const plus = card ? (card.counters?.["+1/+1"] ?? 0) - (card.counters?.["-1/-1"] ?? 0) : 0;
   const s = useTargeting.getState;
+  // pointed at on the table: lit here too, and brought into view in a long tray
+  const live = useGame((g) => g.hover === c.ref);
+  const self = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (live && !self.current?.matches(":hover")) self.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [live]);
   const hover = (on: boolean) => {
     s().setHot(on ? c.ref : null);
     if (c.kind !== "card") return;
@@ -117,8 +148,8 @@ function Thumb({ t, c, view, n }: { t: Targeting; c: Candidate; view: GameView; 
     else if (useGame.getState().hover === c.ref) useGame.getState().setHover(null);
   };
   return (
-    <button className={`tgt-thumb ${c.kind}`} data-testid={`option-${c.option.id}`} data-ref={c.ref}
-      data-tapped={card?.tapped ? "" : undefined} data-n={n || undefined}
+    <button ref={self} className="tgt-thumb" data-kind={c.kind} data-testid={`option-${c.option.id}`} data-ref={c.ref}
+      data-tapped={card?.tapped ? "" : undefined} data-n={n || undefined} data-live={live ? "" : undefined}
       aria-label={c.label} aria-describedby={c.note || c.where !== "battlefield" ? noteId : undefined} aria-pressed={t.multi ? n > 0 : undefined}
       title={c.note ? `${c.label} · ${c.note}` : c.label}
       onClick={() => answer(t, c)}
@@ -129,13 +160,14 @@ function Thumb({ t, c, view, n }: { t: Targeting; c: Candidate; view: GameView; 
         {card ? <GameCardFace card={card} size="small" />
           : <span className="tgt-player" style={{ ["--player-color" as string]: player?.color }}>{(player?.name ?? c.label).slice(0, 1).toUpperCase()}</span>}
         {pt && <span className={`tgt-pt ${plus > 0 ? "up" : plus < 0 ? "down" : ""}`}>{pt}</span>}
-        {player && <span className="tgt-pt life">{player.life}</span>}
+        {player && <span className="tgt-pt tgt-life" title="Life">{player.life}</span>}
         {card?.tapped && <span className="tgt-tapped" title="Tapped">↷</span>}
         {n > 0 && <b className="tgt-n">{n}</b>}
+        {twins > 1 && <span className="tgt-twins">×{twins}</span>}
       </span>
       <span className="tgt-label" aria-hidden>{c.kind === "player" && c.ref === view.viewer ? `${c.label} (you)` : c.label}</span>
       {(c.note || (c.where && c.where !== "battlefield")) && (
-        <span className="tgt-note" id={noteId}>{c.note || (c.where === "stack" ? "on the stack" : `in ${c.where}`)}</span>
+        <span className="tgt-note" id={noteId}>{twins > 1 ? `${twins} alike` : c.note || (c.where === "stack" ? "on the stack" : `in ${c.where}`)}</span>
       )}
     </button>
   );
@@ -263,12 +295,12 @@ function useLookAtHot(t: Targeting, me: string, three: boolean): void {
     const seat = c.seat;
     const timer = window.setTimeout(() => {
       const r = document.querySelector(`.battlefield [data-card-id="${CSS.escape(c.ref)}"]`)?.getBoundingClientRect();
-      const tooSmall = !r || r.width < 64 || r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth;
+      const tooSmall = !r || r.width < 44 || r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth;
       const s = useGame.getState();
       if (!tooSmall || s.focus === seat) return;
       back.current = { prev: back.current?.prev ?? s.focus, set: seat };
       s.setLayout({ focus: seat });
-    }, 380);
+    }, 600);
     return () => window.clearTimeout(timer);
   }, [hot, t, me, three]);
   useEffect(() => () => {

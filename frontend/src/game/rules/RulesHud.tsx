@@ -21,6 +21,7 @@ import { isOut } from "../outOfGame";
 import { attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
 import { groupByController } from "./decisionGroups";
 import { usePrefs } from "../../state/prefs";
+import { useCardCache } from "../../state/cardCache";
 import { targetingOf } from "../targeting/targeting";
 import { TargetingBar } from "../targeting/TargetingBar";
 import { useTargeting } from "../targeting/store";
@@ -362,6 +363,7 @@ export function DecisionPanel() {
   const ctx = useRules();
   const wheelOn = usePrefs((s) => s.choiceWheel);
   const selection = useGame((s) => s.selection); // (the card just cast, when the prompt names a card I hold twice)
+  useCardCache((s) => s.cards); // the targeting bar names what to choose from the candidates' type lines
   const [listed, setListed] = useState<string | null>(null); // the decision whose wheel the player closed (Esc): it shows as the list
   if (!ctx || !ctx.rules?.decision) return null;
   const { view, me } = ctx;

@@ -3,6 +3,7 @@
  * interface; these only appear when they have something to say.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { previewSide } from "./targeting/preview";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { askNumber } from "../components/Prompt";
 import { useCardCache } from "../state/cardCache";
@@ -40,8 +41,8 @@ export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   }, []);
   const stackBusy = useGame((s) => (s.view?.stack.length ?? 0) > 0);
   if (!hover || (skipHand && inHand)) return null;
-  // keep clear of the stack widget (top-right) while something is on the stack
-  const place = stackBusy ? "left" : pos;
+  // keep clear of the stack widget (top-right) while something is on the stack; while targeting, clear of the card itself
+  const place = previewSide(hover) ?? (stackBusy ? "left" : pos);
   return (
     <div className={`card-preview ${place}`} data-testid="card-preview">
       <Inspector />

@@ -82,8 +82,8 @@ export function TargetArrows({ t, origin: art, picked }: { t: Targeting; origin:
   return (
     <svg className="tgt-arrows" data-testid="targeting-arrows" aria-hidden>
       <defs>
-        <marker id="tgt-head" viewBox="0 0 12 12" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto" markerUnits="userSpaceOnUse">
-          <path d="M1,1.5 L11,6 L1,10.5 L3.4,6 z" className="tgt-head" />
+        <marker id="tgt-head" viewBox="0 0 12 12" markerWidth="20" markerHeight="20" refX="8.5" refY="6" orient="auto" markerUnits="userSpaceOnUse">
+          <path d="M1,1.2 L11,6 L1,10.8 L3.6,6 z" className="tgt-head" />
         </marker>
       </defs>
       <circle className="tgt-from" cx={arrows.from.x} cy={arrows.from.y} r={5} />

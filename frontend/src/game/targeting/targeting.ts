@@ -264,13 +264,23 @@ export function step<T>(list: readonly T[], current: T | null, dir: 1 | -1): T |
   return list[(i + dir + list.length) % list.length]!;
 }
 
-/** The candidates in tray order: each seat's together (the chooser's first, then around the table), cards before players. */
-export function traySeats(t: Targeting, view: GameView, me: string): { seat: string | null; candidates: Candidate[] }[] {
+/**
+ * The candidates in tray order: each seat's together (the chooser's first, then around the table), players before cards.
+ * Candidates nothing tells apart (six untapped 1/1 Goblin tokens) share a run, drawn as one fanned pile.
+ */
+export function traySeats(t: Targeting, view: GameView, me: string): { seat: string | null; runs: Candidate[][] }[] {
   const order = [me, ...view.seat_order.filter((p) => p !== me)];
   const groups = new Map<string | null, Candidate[]>();
   for (const c of t.candidates) groups.set(c.seat, [...(groups.get(c.seat) ?? []), c]);
   const rank = (p: string | null) => (p === null ? order.length : order.indexOf(p) < 0 ? order.length - 0.5 : order.indexOf(p));
   return [...groups.entries()]
     .sort(([a], [b]) => rank(a) - rank(b))
-    .map(([seat, cs]) => ({ seat, candidates: [...cs.filter((c) => c.kind === "player"), ...cs.filter((c) => c.kind === "card")] }));
+    .map(([seat, cs]) => {
+      const runs = new Map<string, Candidate[]>();
+      for (const c of [...cs.filter((c) => c.kind === "player"), ...cs.filter((c) => c.kind === "card")]) {
+        const key = c.kind === "card" && /^\d+$/.test(c.note) ? `${c.label}|${JSON.stringify(factsOf(c, view))}` : c.ref;
+        runs.set(key, [...(runs.get(key) ?? []), c]);
+      }
+      return { seat, runs: [...runs.values()] };
+    });
 }
