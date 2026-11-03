@@ -1,16 +1,86 @@
-.asset-manager { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; color: var(--room-bone); }
-.am-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-.am-head h1 { margin: 0; font-size: 24px; font-weight: 600; }
-.am-kinds { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--room-edge); }
-.am-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
-.am-item {
-  display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--room-edge); border-radius: var(--room-radius);
-  background: linear-gradient(#1c1e22, #17181b);
+/*
+ * Assets: a shelf of the pod's own images. Each image stands framed on a strip of felt (a playmat fills it, a sleeve stands
+ * in it as a card, anything else sits inside it), with its name, size and where it is used; the last slot on the shelf is
+ * the empty one that adds more (click, or drop images on it). Same steel, felt and brass as the Play page.
+ */
+
+.page.asset-manager { max-width: 1440px; padding: 22px clamp(16px, 2.4vw, 40px) 48px; color: var(--room-bone); }
+.asset-manager :is(h1, p) { margin: 0; }
+.asset-manager :is(button, a):focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+
+.am-head { margin-bottom: 20px; }
+.am-head h1 { font: 600 28px/1.15 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2); }
+.am-head p { margin-top: 5px; font-size: 13.5px; color: var(--text-dim); }
+
+/* the kinds, as tabs along the shelf's edge */
+.am-kinds { display: flex; flex-wrap: wrap; gap: 2px 4px; border-bottom: 1px solid color-mix(in srgb, var(--frame) 40%, transparent); }
+.am-kind {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 40px; margin-bottom: -1px; padding: 0 12px; cursor: pointer;
+  background: none; border: 0; border-bottom: 2px solid transparent; color: var(--text-dim); font-size: 14px; letter-spacing: 0.01em;
+  transition: color var(--dur-hover) var(--ease-out), border-color var(--dur-hover) var(--ease-out);
 }
-.am-preview { height: 130px; background-size: contain; background-repeat: no-repeat; background-position: center; background-color: #101113; border-radius: 2px; }
-.am-preview.tall { height: 170px; }
-.am-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.am-meta b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.am-meta .used { color: var(--room-brass-hi); }
-.am-buttons { display: flex; flex-wrap: wrap; gap: 2px; }
-.am-buttons .tt-btn { min-height: 24px; padding: 2px 8px; font-size: 12px; }
+.am-kind:hover { color: var(--room-bone); }
+.am-kind.on { color: var(--accent-2); border-bottom-color: var(--frame-hi); }
+.am-count {
+  min-width: 20px; padding: 1px 6px; border-radius: 999px; text-align: center; font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--text-dim); background: rgba(0, 0, 0, 0.45); border: 1px solid var(--line-2);
+}
+.am-kind.on .am-count { color: var(--accent-ink); background: var(--accent); border-color: var(--frame-hi); }
+.asset-manager .am-note { margin: 14px 0 18px; max-width: 90ch; font-size: 13.5px; line-height: 1.5; color: var(--room-bone); }
+.am-note span { color: var(--text-dim); }
+
+/* the shelf */
+.am-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 268px), 1fr)); gap: 16px; }
+.am-item {
+  display: flex; flex-direction: column; min-width: 0; border-radius: 6px; overflow: hidden;
+  background: linear-gradient(180deg, #1b1c1e 0%, #111214 60%, #0c0d0f 100%); border: 1px solid #2d2b27;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 3px 10px 18px -8px rgba(0, 0, 0, 0.8);
+}
+.am-preview {
+  position: relative; aspect-ratio: 16 / 10; overflow: hidden;
+  background: radial-gradient(ellipse 80% 70% at 35% 25%, color-mix(in srgb, var(--felt-2) 70%, black), color-mix(in srgb, var(--felt) 50%, black));
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.7);
+}
+.am-img { position: absolute; inset: 12px; background: center / contain no-repeat; }
+.am-grid.playmat .am-img { inset: 0; background-size: cover; }
+/* a sleeve stands in the frame as a card */
+.am-grid.card_back .am-img {
+  inset: 8% auto auto 50%; height: 84%; aspect-ratio: 63 / 88; transform: translateX(-50%);
+  background-size: cover; border-radius: 4.75% / 3.5%; box-shadow: 3px 6px 12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.am-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 11px 14px 4px; }
+.am-meta b { font: 600 15px/1.3 var(--font-display); letter-spacing: 0.02em; color: var(--room-bone); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.am-facts { display: flex; flex-wrap: wrap; font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.am-facts > span + span { padding-left: 9px; margin-left: 9px; border-left: 1px solid var(--line-2); }
+.am-use { font-size: 12.5px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.am-use.used { display: inline-flex; align-items: center; gap: 6px; color: var(--room-brass-hi); }
+.am-use.used::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--room-brass-hi); }
+.am-buttons { display: flex; flex-wrap: wrap; gap: 2px; margin-top: auto; padding: 6px 8px 10px; }
+.am-buttons .tt-btn { min-height: 28px; padding: 2px 8px; font-size: 12.5px; }
+.am-buttons .am-delete { margin-left: auto; }
+.asset-manager .am-delete:hover:not(:disabled) { color: var(--danger); }
+
+/* the empty slot that adds images: a dashed chair, as on the Play page */
+.am-add {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 220px; padding: 18px; text-align: center;
+  border: 1px dashed color-mix(in srgb, var(--frame) 50%, transparent); border-radius: 6px; cursor: pointer; color: inherit;
+  background: rgba(0, 0, 0, 0.14); box-shadow: inset 1px 3px 12px rgba(0, 0, 0, 0.35);
+  transition: border-color var(--dur-hover) var(--ease-out), background-color var(--dur-hover) var(--ease-out);
+}
+.am-add:hover, .am-add.dropping { border-color: var(--frame-hi); background: rgba(215, 174, 99, 0.06); }
+.am-add-plus {
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font: 400 26px/1 var(--font-ui);
+  color: var(--frame-hi); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--frame) 55%, transparent);
+}
+.am-add-name { font: 600 16px/1.2 var(--font-display); letter-spacing: 0.03em; color: color-mix(in srgb, var(--frame-hi) 85%, var(--room-bone)); }
+.am-add-hint { max-width: 34ch; font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
+.am-add:hover .am-add-name, .am-add.dropping .am-add-name { color: var(--accent-2); }
+/* nothing of this kind yet: the slot is the whole shelf */
+.am-add.alone { grid-column: 1 / -1; width: min(100%, 620px); min-height: 240px; }
+.am-add.alone .am-add-name { font-size: 19px; }
+
+@media (prefers-reduced-motion: reduce) { .am-kind, .am-add { transition: none; } }
+@media (max-width: 600px) {
+  .am-kind { padding: 0 9px; font-size: 13px; min-height: 36px; }
+  .am-add.alone { min-height: 200px; }
+}
