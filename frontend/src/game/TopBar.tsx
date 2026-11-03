@@ -14,6 +14,7 @@ import { OMNISCIENT, SPECTATOR } from "../types/game";
 import { send } from "./actions";
 import { resolveRenderer } from "../table3d/renderer";
 import { UNDO_POLICIES, undoActor, undoMode, undoRefusal } from "./undoPolicy";
+import { AutomationHud } from "./rules/RulesHud";
 
 export function TopBar() {
   const view = useGame((s) => s.view);
@@ -42,6 +43,8 @@ export function TopBar() {
         {status !== "open" && <span className={`status ${status}`}>{status === "reconnecting" ? "Reconnecting…" : status}</span>}
       </div>
       <span className="spacer" />
+      {/* what the rules engine does, and Concede: in the bar, not over the last seat's plaque */}
+      <AutomationHud />
       {dayNight && (
         <button className={`tt-btn ghost daynight ${dayNight}`} title="Day / night (click to cycle)"
           onClick={() => void send({ type: "set_day_night", value: dayNight === "day" ? "night" : null })}>

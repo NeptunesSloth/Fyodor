@@ -686,7 +686,10 @@ body.hud-minimal .player-panel { padding: 3px 8px; }
 /* ================= the 2D table, in the 3D table's materials =================
    A walnut table under a warm lamp; each player's battlefield is a baize playmat stitched in their
    seat colour; panels are blackened steel; empty piles are slots pressed into the wood. */
-main.table:not(.is-3d) {
+/* the walnut and the lamp on their own layer: a card moving never repaints the whole table */
+main.table:not(.is-3d) { isolation: isolate; background: var(--wood-2); }
+main.table:not(.is-3d)::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; will-change: transform;
   background:
     radial-gradient(ellipse 65% 55% at 50% 48%, rgba(255, 196, 130, 0.10), transparent 70%),
     radial-gradient(ellipse 110% 95% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.6) 100%),
@@ -697,18 +700,27 @@ main.table:not(.is-3d) {
 main.table:not(.is-3d) .opponents { border-bottom: 0; }
 main.table:not(.is-3d) .opponents > .player-area + .player-area { border-left: 0; }
 main.table:not(.is-3d) .player-area { padding: 8px 10px; }
+/* a mat: baize under the lamp (on its own layer, so moving a card doesn't repaint the felt), bound at its edge in the
+   seat colour like a stitched playmat. Empty, it is just felt: no outline to fill in. */
 main.table:not(.is-3d) .battlefield {
-  border: 0; border-radius: 14px;
+  border: 0; border-radius: 14px; isolation: isolate; background: var(--felt);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 12px 26px rgba(0, 0, 0, 0.55);
+}
+main.table:not(.is-3d) .battlefield::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; will-change: transform;
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
     radial-gradient(ellipse 80% 75% at 50% 42%, var(--felt-2), var(--felt));
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 12px 26px rgba(0, 0, 0, 0.55), inset 0 0 0 9px rgba(0, 0, 0, 0.16), inset 0 0 70px rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.38), inset 0 2px 10px rgba(0, 0, 0, 0.45);
 }
-/* the hem, stitched in the seat colour */
+/* the binding: a woven edge in the seat colour, darkened so the cards stay the brightest thing on the mat */
 main.table:not(.is-3d) .battlefield::after {
-  content: ""; position: absolute; inset: 7px; border-radius: 9px; pointer-events: none; z-index: 0;
-  border: 2px dashed color-mix(in srgb, var(--player-color) 70%, transparent);
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0;
+  border: 3px solid color-mix(in srgb, var(--player-color) 46%, #120d09);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 0 4px rgba(255, 236, 200, 0.035);
 }
+body.perf-low main.table:not(.is-3d)::before { background: linear-gradient(180deg, var(--wood), var(--wood-2)); }
+body.perf-low main.table:not(.is-3d) .battlefield::before { background: var(--felt); box-shadow: none; }
 main.table:not(.is-3d) .player-panel {
   background: var(--hud-surface); border: 1px solid var(--line); border-radius: 6px;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -732,10 +744,15 @@ main.table:not(.is-3d) > .hand:not(.compact) { background: linear-gradient(to to
 .command-zone.partners { flex-direction: row; gap: 4px; }
 .command-slot { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; flex: 1; }
 .command-slot .command-card { width: 100%; }
+/* the commander is away: its slot pressed into the rail, a crown and a quiet name where it rests (no outline to fill in) */
 .command-empty {
-  width: 100%; aspect-ratio: 63 / 88; display: grid; place-items: center; font-size: 10px; color: var(--text-dim);
-  border: 1px dashed var(--line); border-radius: 4px; text-align: center;
+  width: 100%; aspect-ratio: 63 / 88; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border-radius: 5%; text-align: center; color: color-mix(in srgb, var(--frame-hi) 50%, transparent);
+  background: rgba(0, 0, 0, 0.28); box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 230, 200, 0.05);
 }
+.command-empty-label { font: 600 9px/1.1 var(--font-display); letter-spacing: 0.04em; color: var(--text-faint); }
+.seat-strip .command-empty { width: 34px; }
+.seat-strip .command-empty-label { display: none; }
 .tax-btn {
   display: inline-flex; align-items: baseline; gap: 3px; padding: 1px 7px; border-radius: 10px; cursor: pointer;
   font: 700 12px/1.4 Inter, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap;

@@ -1,3 +1,4 @@
+import { Icon } from "../components/Icon";
 import { sleeveStyle, useSleeve } from "./appearance";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { askNumber, askText } from "../components/Prompt";
@@ -262,7 +263,9 @@ export function CommandZone({ player, me }: { player: string; me: string }) {
       {list.map((c, i) => (
         <div key={c.key} className="command-slot">
           {c.instance_id && ids.includes(c.instance_id) ? <CommandCard id={c.instance_id} me={me} player={player} />
-            : <div className="command-empty" title={`${c.name} isn't in the command zone${dealtLine(players, c.key)}`}>{i === 0 ? "Commander" : "Partner"}</div>}
+            : <div className="command-empty" title={`${c.name} isn't in the command zone${dealtLine(players, c.key)}`}>
+              <Icon name="crown" size={15} /><span className="command-empty-label">{i === 0 ? "Commander" : "Partner"}</span>
+            </div>}
           <TaxButton commander={c.key} name={c.name} tax={c.tax} />
         </div>
       ))}

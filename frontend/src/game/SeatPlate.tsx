@@ -4,6 +4,9 @@ import { useGame } from "../state/gameStore";
 import { changeLife, changeResource, send } from "./actions";
 import { LETHAL_COMMANDER, LETHAL_POISON, PlayerPanel } from "./PlayerPanel";
 import { isOut } from "./outOfGame";
+import { openMenu, type MenuItem } from "../components/ContextMenu";
+import { Icon } from "../components/Icon";
+import type { PlayerView } from "../types/game";
 import "./seat.css";
 
 /**
@@ -102,6 +105,22 @@ function Tracker({ value, lethal, label, title, color, glyph, onChange, testId, 
   );
 }
 
+/** The plaque's + menu: the counters that aren't on it yet (each starts at 1), and the full player panel for the rest. */
+function addCounterItems(p: PlayerView, sources: { key: string; name: string; owner: { name: string } }[], openPanel: () => void): MenuItem[] {
+  const items: MenuItem[] = [];
+  if (!(p.resources.poison ?? 0)) items.push({ label: "Poison", hint: "☠", onClick: () => void changeResource(p.id, "poison", 1) });
+  for (const c of sources) {
+    if (p.commander_damage[c.key] ?? 0) continue;
+    items.push({ label: `Commander damage from ${c.name}`, hint: c.owner.name, onClick: () => void send({ type: "commander_damage", player: p.id, commander: c.key, delta: 1 }) });
+  }
+  for (const [k, glyph, title] of PLAQUE_RESOURCES) {
+    if (!(p.resources[k] ?? 0)) items.push({ label: title.replace(/ \(.*\)$/, ""), hint: glyph, onClick: () => void changeResource(p.id, k, 1) });
+  }
+  if (items.length) items.push("separator");
+  items.push({ label: "Other counters…", hint: "player panel", onClick: openPanel });
+  return items;
+}
+
 /**
  * A seat's plaque, after the scripted Tabletop Simulator tables: the portrait and name (click for the full player
  * panel), then the life heart and the trackers you click directly, as on the Oops table: commander damage from
@@ -140,13 +159,14 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
         {/* on the 3D table the life heart floats over the seat itself (table3d/seatProps.ts) */}
         {flat && <LifeHeart player={player} name={p.name} life={p.life} testId={`life-${player}`} readOnly={out} />}
         <span className="seat-trackers">
-          {sources.map((c) => (
+          {/* a counter shows once it is something (a zero says nothing); the + below adds one */}
+          {sources.filter((c) => (p.commander_damage[c.key] ?? 0) !== 0).map((c) => (
             <Tracker key={c.key} value={p.commander_damage[c.key] ?? 0} lethal={LETHAL_COMMANDER} color={c.owner.color} glyph={c.owner.name.slice(0, 1).toUpperCase()}
               label={`Commander damage to ${p.name} from ${c.name}`} title={`Commander damage from ${c.name} (${c.owner.name}); it also changes life`}
               testId={`cmdr-${player}-${c.key}`} onChange={(d) => void send({ type: "commander_damage", player, commander: c.key, delta: d })} readOnly={out} />
           ))}
-          <Tracker value={poison} lethal={LETHAL_POISON} glyph="☠" label={`${p.name}'s poison counters`} title="Poison counters" testId={`poison-${player}`}
-            onChange={(d) => void changeResource(player, "poison", d)} readOnly={out} />
+          {poison !== 0 && <Tracker value={poison} lethal={LETHAL_POISON} glyph="☠" label={`${p.name}'s poison counters`} title="Poison counters" testId={`poison-${player}`}
+            onChange={(d) => void changeResource(player, "poison", d)} readOnly={out} />}
           {/* experience and energy (Atraxa's experience deck): on the plaque while a player has any, so everyone sees them at a glance */}
           {PLAQUE_RESOURCES.filter(([k]) => (p.resources[k] ?? 0) !== 0).map(([k, glyph, title]) => (
             <Tracker key={k} value={p.resources[k] ?? 0} lethal={Infinity} glyph={glyph} label={`${p.name}'s ${k} counters`} title={title}
@@ -155,6 +175,13 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
           <span className="seat-hand" title={`${p.hand_count} cards in hand`} aria-label={`${p.hand_count} cards in hand`}>
             <span aria-hidden>▯</span>{p.hand_count}
           </span>
+          {!out && (
+            <button className="seat-add" data-testid={`seat-add-${player}`} aria-label={`Add a counter to ${p.name}`} title="Add a counter: poison, commander damage, energy…"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); openMenu(e, addCounterItems(p, sources, onToggle), `${p.name}: add a counter`); }}>
+              <Icon name="plus" size={13} />
+            </button>
+          )}
           {flat && presence && presence !== "connected" && <span className={`seat-presence ${presence}`} data-testid={`presence-${player}`}>{{ reconnecting: "Reconnecting…", disconnected: "Disconnected", open: "Open seat" }[presence] ?? presence}</span>}
           {flat && presence === "connected" && <span className="seat-presence connected" data-testid={`presence-${player}`}>Connected</span>}
         </span>
