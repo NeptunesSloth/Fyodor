@@ -42,5 +42,5 @@ test("four-player game: end game, record the winner, pod stats, correct the winn
   // Player history
   await row("Alex").click();
   await expect(page.getByTestId("pod-player")).toContainText("Games played: 1");
-  await expect(page.getByTestId("pod-player")).toContainText("WIN");
+  await expect(page.getByTestId("pod-player")).toContainText("Won");
 });

@@ -9,7 +9,7 @@
 .elim-order li { white-space: nowrap; }
 .eo-head { color: var(--room-brass); font-variant-numeric: tabular-nums; }
 .eo-who { color: var(--room-bone); font-weight: 600; white-space: normal; }
-.eo-rest { color: var(--text-faint, var(--room-bone-dim)); }
+.eo-rest { color: var(--text-dim, var(--room-bone-dim)); } /* (the faint grey measured 4.4:1 on the score sheets' steel) */
 
 .final-board { font-size: 13px; }
 .final-board > summary {
