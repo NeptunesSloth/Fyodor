@@ -277,7 +277,8 @@ function useKeys(t: Targeting, bar: React.RefObject<HTMLElement | null>, picked:
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target?.closest?.("input, textarea, select, [contenteditable]") || document.querySelector(".modal-backdrop")) return;
+      // typing, a dialog or an open menu keeps its own keys (Esc closes the menu, not the choice)
+      if (target?.closest?.("input, textarea, select, [contenteditable]") || document.querySelector(".modal-backdrop, .ctx-menu")) return;
       const root = bar.current;
       if (!root) return;
       const { t, picked, canDone, done, cancel } = latest.current;
