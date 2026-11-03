@@ -28,6 +28,9 @@ if [ -z "$WINE" ]; then
   WINE="$(command -v wine64 || command -v wine || echo /usr/lib/wine/wine64)"
 fi
 "$WINE" --version
+# wineserver is a Linux program next to the loader (under Wine, "wine64 wineserver" looks for a Windows program)
+WINESERVER="$(command -v wineserver || true)"
+[ -n "$WINESERVER" ] || WINESERVER="$(dirname "$WINE")/wineserver"
 winpath() { "$WINE" winepath -w "$1" 2>/dev/null | tr -d '\r'; }
 # Windows programs under Wine fail to start ("can't initialize sys standard streams") when their output goes straight
 # to a file (a build log): every Wine run writes through a pipe instead.
@@ -93,7 +96,7 @@ if [ "${SMOKE:-0}" = "1" ]; then
     sleep 2
   done
   page="$(curl -fsS --noproxy '*' -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/" 2>/dev/null || true)"
-  "$WINE" wineserver -k 2>/dev/null || true
+  "$WINESERVER" -k 2>/dev/null || true
   [ "$ok" = 1 ] && [ "$page" = 200 ] || { echo "the app did not serve (see build/smoke.log)" >&2; exit 1; }
   echo "Smoke test passed: $(cat "$ROOT/build/smoke-health.json")"
 fi
