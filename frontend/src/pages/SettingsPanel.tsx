@@ -178,6 +178,13 @@ export function SettingsPanel() {
                     <option value="2d">2D table (lighter, for slow devices)</option>
                   </select>
                 )} />
+              <Row title="Board layout (2D table)" hint="Arranged: each board sorts itself into rows on your screen, creatures in front, lands at the back, identical cards stacked. Free placement: cards stay where they were put, as on the 3D table."
+                control={(id, hintId) => (
+                  <select id={id} aria-describedby={hintId} value={p.boardLayout} data-testid="board-layout" onChange={(e) => set({ boardLayout: e.target.value as Prefs["boardLayout"] })}>
+                    <option value="arranged">Arranged</option>
+                    <option value="free">Free placement</option>
+                  </select>
+                )} />
               <Row title="Graphics" hint={GRAPHICS_NOTES[p.graphics]} control={(id, hintId) => (
                 <select id={id} aria-describedby={hintId} value={p.graphics} data-testid="graphics" onChange={(e) => {
                   const g = e.target.value as Prefs["graphics"];

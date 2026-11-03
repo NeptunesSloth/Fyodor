@@ -1,6 +1,6 @@
 import { viewsMenu } from "./bookmarks";
 import { usePrefs } from "../state/prefs";
-import { cleanupMenu, selectMenu, tidyMyLands } from "./selection";
+import { boardLayoutItem, cleanupMenu, selectMenu, tidyMyLands } from "./selection";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { toast } from "../components/Toasts";
 import { api } from "../services/api";
@@ -135,6 +135,7 @@ function tableMenu(isHost: boolean): MenuItem[] {
     },
     soloMenu(isHost),
     viewsMenu(),
+    ...(is3d ? [] : [boardLayoutItem()]),
     { label: "Tidy my lands", hint: "pile identical lands by your edge", onClick: tidyMyLands },
     selectMenu(),
     cleanupMenu(),

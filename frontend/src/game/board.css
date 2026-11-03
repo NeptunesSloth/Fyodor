@@ -110,3 +110,9 @@ main.table:not(.is-3d) > .hand:not(.compact) .hand-card { transform: translateY(
 main.table:not(.is-3d) > .hand:not(.compact) .hand-card:hover,
 main.table:not(.is-3d) > .hand:not(.compact) .hand-card:focus-visible { transform: translateY(-30px) scale(1.12); z-index: 50; }
 main.table:not(.is-3d) > .hand:not(.compact) .hand-empty { padding-top: 20px; }
+
+/* a mat too small to read (my own while I look at someone else's board): just the cards, no plates or chips */
+@container (max-width: 44px) {
+  .board-tile .tile-name, .board-tile .tile-pt { display: none; }
+  .table-card[data-tile] :is(.card-marks, .counters, .card-effects, .pile-count-mark) { display: none; }
+}

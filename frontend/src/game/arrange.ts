@@ -194,7 +194,8 @@ export function arrangeBoard(cards: ArrangeCard[], opts: ArrangeOptions): BoardL
     };
     let r = solve(lines.map(() => innerW));
     if (opts.keepOut) r = solve(bands(lines, units, r.w).map(lineWidth));
-    const score = Math.min(r.w, r.wFit); // overlapping cards count as only as big as what shows of them
+    // overlapping cards count as smaller than what shows of them: a line more is usually easier to read
+    const score = r.wFit >= r.w ? r.w : r.wFit * (r.wFit / r.w);
     return { ...r, units, score };
   };
   // each line, and putting the other permanents beside the lands, has to earn its place with clearly bigger cards
