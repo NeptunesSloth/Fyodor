@@ -105,8 +105,13 @@ describe("arranged 3D boards: every board reads upright from my seat", () => {
     const before = b.mats.get("p2")!.layout;
     b.layout({ ...v, cards: { ...v.cards } }, s, "p1", src);
     expect(b.mats.get("p2")!.layout).toBe(before);
-    const moved = { ...v, cards: { ...v.cards, "p2-bear": { ...v.cards["p2-bear"]!, tapped: true } as VisibleCard } };
-    b.layout(moved, s, "p1", src);
+    // tapping a creature turns it in its slot: the rows stay as they were
+    const tapped = { ...v, cards: { ...v.cards, "p2-bear": { ...v.cards["p2-bear"]!, tapped: true } as VisibleCard } };
+    b.layout(tapped, s, "p1", src);
+    expect(b.mats.get("p2")!.layout).toBe(before);
+    // tapping a Forest takes it out of the untapped Forests' stack: laid out again
+    const land = { ...tapped, cards: { ...tapped.cards, "p2-f1": { ...v.cards["p2-f1"]!, tapped: true } as VisibleCard } };
+    b.layout(land, s, "p1", src);
     expect(b.mats.get("p2")!.layout).not.toBe(before);
   });
 

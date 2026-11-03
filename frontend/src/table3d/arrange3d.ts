@@ -168,7 +168,8 @@ export class ArrangedBoards {
           if (!c) return [];
           return [arrangeCard(c, isVisible(c) && c.card_id ? src.data(c.card_id) : undefined, stats?.[id])];
         });
-        const sig = `${keep}#` + facts.map((f) => `${f.id}|${f.row}|${f.key ?? ""}|${f.n}|${f.turned ? 1 : 0}|${f.forward ? 1 : 0}|${f.host ?? ""}`).join("\n");
+        // (tapping a card never moves its row: every slot keeps room for its card turned, game/arrange.ts)
+        const sig = `${keep}#` + facts.map((f) => `${f.id}|${f.row}|${f.key ?? ""}|${f.n}|${f.forward ? 1 : 0}|${f.host ?? ""}`).join("\n");
         const index = new Map(ids.map((id, i) => [id, i]));
         let layout: BoardLayout;
         let local: ReturnType<typeof arrangeMat>["spots"];
