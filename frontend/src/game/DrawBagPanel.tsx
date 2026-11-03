@@ -65,7 +65,6 @@ export function DrawBagPanel({ onClose }: { onClose: () => void }) {
       {mine.length > 0 && (
         <div className="bag-mine" data-testid="bag-mine">
           <span>You drew <b>{mine.map((d) => `“${d.chit}”`).join(", ")}</b> (only you see it)</span>
-          <span className="spacer" />
           <button type="button" className="tt-btn ghost" onClick={() => void send({ type: "bag_show" })}>Show everyone</button>
         </div>
       )}

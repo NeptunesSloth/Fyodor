@@ -6,7 +6,7 @@
  *   (TableScene). Attack arrows aim at it.
  * - Your seat's buttons, where the Oops table has them: in a row just past your mat's near edge, glossy black
  *   discs with the Oops symbols (game/seatIcons.ts), Untap, Draw, Scry, Mill and Reveal, and Mulligan apart to the
- *   right.
+ *   right, and the Bag of Extras (a leather pouch) past it.
  */
 import * as THREE from "three";
 import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";

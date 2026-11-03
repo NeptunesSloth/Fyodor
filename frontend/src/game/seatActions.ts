@@ -1,5 +1,5 @@
 /**
- * The scripted tables' seat buttons (Oops I Baked a Pie): Untap, Draw, Scry, Mill, Reveal and Mulligan, by your mat. One
+ * The scripted tables' seat buttons (Oops I Baked a Pie): Untap, Draw, Scry, Mill, Reveal and Mulligan, by your mat (and the Bag of Extras). One
  * definition for both tables: the 2D table's round buttons beside your mat (game/SeatButtons.tsx) and the 3D
  * table's physical buttons on the table (table3d/seatProps.ts). Click does one, right-click three, or hover a
  * button and type a number.

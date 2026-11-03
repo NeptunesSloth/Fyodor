@@ -40,7 +40,6 @@ body.reduced-motion .cannon2d { display: none; }
 .bag-mine b { color: var(--accent-2); }
 .bag-mine > span:first-child { flex: 1; min-width: 0; }
 .bag-mine .tt-btn { white-space: nowrap; flex: none; }
-.bag-mine .spacer { flex: 1; }
 .bag-fill { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; display: grid; gap: 6px; }
 .bag-fill-head, .bag-recent-head { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); }
 .bag-presets { display: flex; flex-wrap: wrap; gap: 6px; }
