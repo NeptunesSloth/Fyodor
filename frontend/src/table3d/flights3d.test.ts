@@ -7,7 +7,8 @@ import {
   arcLift, combatStrikes, cubicBezier, easeOut, flightMs, floaterAt, hiddenZone, lungeAt, MINUS, otherHandSpot, planMotion, riffleAt,
   standInOpacity, turnAt, type SceneFacts,
 } from "./flights3d";
-import { CARD_H, MAT_D, onBattlefield, plaqueSpot, seatCamera, seats, tableSize, toWorld, type Seat } from "./layout";
+import { CARD_H, MAT_D, onBattlefield, plaqueSpot, seats, toWorld, type Seat } from "./layout";
+import { fitCamera, seatElevation, seatPoints, tableRect, viewDir } from "./framing";
 
 type Card = Record<string, unknown> & { id: string; zone: string; owner: string };
 /** A table as p1 is sent it (as in tableEvents.test.ts): ``zones`` lists ids, a library its size. */
@@ -240,10 +241,16 @@ describe("3D table motion: curves", () => {
 
 /** Where a table point lands in the seat camera's frame (normalized: -1..1 across, -1 bottom .. 1 top), as TableScene frames it. */
 function onScreen(all: Seat[], aspect: number, x: number, y: number, z: number): { x: number; y: number } {
-  const cam = seatCamera(all[0]!, tableSize(all), aspect);
+  const h = 900;
+  const w = h * aspect;
   const camera = new THREE.PerspectiveCamera(42, aspect, 0.1, 400);
-  camera.position.set(...cam.pos);
-  camera.lookAt(...cam.look);
+  const band = Math.round(h * 0.16);
+  camera.setViewOffset(w, h + band, 0, band, w, h);
+  camera.updateProjectionMatrix();
+  const mine = all[0]!;
+  const cam = fitCamera(camera, all.flatMap((s) => seatPoints(s, { buttons: s === mine })), viewDir(mine.rot, seatElevation(all.length)), tableRect(w, h));
+  camera.position.copy(cam.pos);
+  camera.lookAt(cam.look);
   camera.updateMatrixWorld();
   const v = new THREE.Vector3(x, y, z).project(camera);
   return { x: v.x, y: v.y };
@@ -266,9 +273,10 @@ describe("3D table motion: where another player's hand is", () => {
     for (const aspect of [16 / 9, 1440 / 900, 4 / 3]) for (const all of tables) for (const seat of all.slice(1)) {
       const spot = otherHandSpot(seat);
       const at = onScreen(all, aspect, ...((([x, z]) => [x, spot.y, z])(toWorld(seat, spot.lx, spot.lz)) as [number, number, number]));
-      expect(Math.abs(at.x)).toBeLessThan(0.8);
-      expect(at.y).toBeGreaterThan(-0.45);
-      expect(at.y).toBeLessThan(0.45);
+      // (the seat view fills the screen with the table: table3d/framing.ts)
+      expect(Math.abs(at.x)).toBeLessThan(0.85);
+      expect(at.y).toBeGreaterThan(-0.6);
+      expect(at.y).toBeLessThan(0.85);
     }
     // the fan of backs, for comparison: past the owner's edge of their mat, at the far rim of the table (two players)
     const [me, bob] = tables[0]!;

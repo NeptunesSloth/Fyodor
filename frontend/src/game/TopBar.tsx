@@ -135,7 +135,7 @@ function tableMenu(isHost: boolean): MenuItem[] {
     },
     soloMenu(isHost),
     viewsMenu(),
-    ...(is3d ? [] : [boardLayoutItem()]),
+    boardLayoutItem(),
     { label: "Tidy my lands", hint: "pile identical lands by your edge", onClick: tidyMyLands },
     selectMenu(),
     cleanupMenu(),

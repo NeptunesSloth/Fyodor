@@ -2,12 +2,12 @@ import { expect, test, type Page } from "@playwright/test";
 import { ALICE_DECK, BOB_DECK, menuPath } from "./helpers";
 
 /** The 3D table (M19): opt in on this device, then play a few moves with the mouse. */
-async function fourPlayerTable(page: Page, perSeatOnBattlefield: number, plane = "dominaria") {
-  await page.addInitScript((pl) => {
+async function fourPlayerTable(page: Page, perSeatOnBattlefield: number, plane = "dominaria", boardLayout: "arranged" | "free" = "arranged") {
+  await page.addInitScript(([pl, layout]) => {
     localStorage.setItem("fyodor.renderer", "3d");
     localStorage.setItem("fyodor.welcomeDone", "1");
-    localStorage.setItem("fyodor.profiles", JSON.stringify({ version: 2, active: "t", profiles: [{ id: "t", name: "Alice", avatar: "A", prefs: { plane: pl, ambience: false } }] }));
-  }, plane);
+    localStorage.setItem("fyodor.profiles", JSON.stringify({ version: 2, active: "t", profiles: [{ id: "t", name: "Alice", avatar: "A", prefs: { plane: pl, ambience: false, boardLayout: layout } }] }));
+  }, [plane, boardLayout] as const);
   for (const text of [ALICE_DECK, BOB_DECK]) expect((await page.request.post("/api/decks", { data: { text } })).ok()).toBeTruthy();
   const decks = (await (await page.request.get("/api/decks")).json()) as { id: string }[];
   const res = await page.request.post("/api/games", {
@@ -22,7 +22,7 @@ async function fourPlayerTable(page: Page, perSeatOnBattlefield: number, plane =
     const r = await page.request.post(`/api/games/${gameId}/actions`, { data: { action } });
     expect(r.ok(), await r.text()).toBeTruthy();
   };
-  const view = async (viewer = "p1") => (await (await page.request.get(`/api/games/${gameId}/view?viewer=${viewer}`)).json()) as { seat_order: string[]; zones: Record<string, string[]>; cards: Record<string, { name: string; tapped?: boolean; zone: string; x?: number }> };
+  const view = async (viewer = "p1") => (await (await page.request.get(`/api/games/${gameId}/view?viewer=${viewer}`)).json()) as { seat_order: string[]; zones: Record<string, string[]>; cards: Record<string, { name: string; tapped?: boolean; zone: string; x?: number; y?: number }> };
   let v = await view();
   for (const pid of v.seat_order) await act({ type: "draw", player: pid, count: Math.min(12, perSeatOnBattlefield + 3) });
   for (const pid of v.seat_order) {
@@ -38,7 +38,8 @@ async function fourPlayerTable(page: Page, perSeatOnBattlefield: number, plane =
 
 test("3D table: seats, drag from hand onto the table, right-click menu, tap", async ({ page }) => {
   test.slow(); // many mouse steps, each waiting on rendered frames: software WebGL (CI, no GPU) needs more than the default minute
-  const { view } = await fourPlayerTable(page, 2);
+  // free placement: cards lie where the server keeps them, and a flick moves them there (the arranged boards: below)
+  const { view } = await fourPlayerTable(page, 2, "dominaria", "free");
   // every player has a seat plate, and a life heart floating over their seat
   for (const pid of ["p1", "p2", "p3", "p4"]) {
     await expect(page.getByTestId(`seat-${pid}`)).toBeVisible();
@@ -113,6 +114,69 @@ test("3D table: seats, drag from hand onto the table, right-click menu, tap", as
   await page.getByRole("toolbar", { name: "Camera" }).getByRole("button", { name: "Table" }).click();
   await page.getByRole("toolbar", { name: "Camera" }).hover(); // the strip shows only the current view until hovered
   await page.getByRole("toolbar", { name: "Camera" }).getByRole("button", { name: "Seat" }).click();
+});
+
+test("3D table, arranged boards: every board in rows from my seat; dragging along my row or a flick reorders it on this screen only", async ({ page }) => {
+  test.slow();
+  const { act, view } = await fourPlayerTable(page, 0);
+  await act({ type: "draw", player: "p1", count: 9 });
+  await act({ type: "draw", player: "p4", count: 6 });
+  const v0 = await view();
+  const named = (pid: string, zone: string, name: string) => v0.zones[`${pid}:${zone}`]!.filter((id) => v0.cards[id]?.name === name);
+  // my commander (a creature), two mana rocks and an Island; across the table (p4, Bob's deck) Krenko and a Mountain
+  const atraxa = named("p1", "command", "Atraxa, Praetors' Voice")[0]!;
+  const [ring, signet, island] = [named("p1", "hand", "Sol Ring")[0]!, named("p1", "hand", "Arcane Signet")[0]!, named("p1", "hand", "Island")[0]!];
+  for (const cid of [atraxa, ring, signet, island]) await act({ type: "move", card_ids: [cid], to: { zone: "battlefield", player: "p1" } });
+  const v4 = await view("p4");
+  const krenko = v4.zones["p4:command"]![0]!;
+  const mountain = v4.zones["p4:hand"]!.find((id) => v4.cards[id]?.name === "Mountain")!;
+  for (const cid of [krenko, mountain]) await act({ type: "move", card_ids: [cid], to: { zone: "battlefield", player: "p4" } });
+  const at = (cid: string) => page.evaluate((c) => window.__fyodor3d!.cardAt(c), cid);
+  // settled in their rows (software WebGL draws a frame or two a second: wait out the cards' flights and glides)
+  const settled = async () => {
+    await expect.poll(async () => {
+      if ((await page.evaluate(() => window.__fyodor3d!.motion?.().busy)) !== false) return false;
+      const a = await Promise.all([atraxa, ring, signet, island, krenko, mountain].map(at));
+      await page.waitForTimeout(500);
+      const b = await Promise.all([atraxa, ring, signet, island, krenko, mountain].map(at));
+      return a.every((p, i) => p && b[i] && Math.hypot(p.x - b[i]!.x, p.y - b[i]!.y) < 1);
+    }, { timeout: 30_000 }).toBe(true);
+  };
+  await settled();
+  // my creatures in front (toward the middle of the table: up the screen), my lands at my edge
+  expect((await at(atraxa))!.y).toBeLessThan((await at(ring))!.y);
+  expect((await at(ring))!.y).toBeLessThanOrEqual((await at(island))!.y + 1); // (a few rocks may share the land row, as on Arena)
+  // a board across the table faces me: its creatures toward me (down the screen), its lands at the far edge
+  expect((await at(krenko))!.y).toBeGreaterThan((await at(mountain))!.y);
+
+  // drag Sol Ring past Arcane Signet along their row: my order changes, nothing is sent
+  const order = async () => ((await at(ring))!.x < (await at(signet))!.x ? "ring-first" : "signet-first");
+  const first = await order();
+  const [a, b] = first === "ring-first" ? [ring, signet] : [signet, ring];
+  const from = (await at(a))!;
+  const past = (await at(b))!;
+  const server = (await view()).cards[a]!;
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(past.x + 60, past.y, { steps: 10 });
+  await page.waitForTimeout(400); // a slow, exact drop (no flick)
+  await page.mouse.up();
+  await expect.poll(order, { timeout: 15_000 }).not.toBe(first);
+  await settled();
+  const after = (await view()).cards[a]!;
+  expect([after.x, after.y, after.zone]).toEqual([server.x, server.y, server.zone]);
+
+  // a flick slides the card on across my mat (knocking the other aside), then both settle back into the row in the
+  // order they came to rest in: still nothing sent
+  const lead = (await order()) === "ring-first" ? ring : signet;
+  const rowY = (await at(lead))!.y;
+  const before = (await view()).cards[lead]!;
+  expect(await page.evaluate((c) => window.__fyodor3d!.flick([c], 12, 0), lead)).toBe(true);
+  await page.waitForTimeout(3000);
+  await settled();
+  expect(Math.abs((await at(lead))!.y - rowY)).toBeLessThan(6);
+  const rest = (await view()).cards[lead]!;
+  expect([rest.x, rest.y]).toEqual([before.x, before.y]);
 });
 
 test("3D table performance: a large Commander board stays within its draw-call budget", async ({ page }) => {

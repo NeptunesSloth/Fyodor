@@ -105,7 +105,7 @@ export function tidyMyLands(): void {
   void send({ type: "set_position", moves });
 }
 
-/** The 2D boards' layout on this screen: arranged in rows (game/arrange.ts) or free placement, as the server keeps them. */
+/** The boards' layout on this screen (both tables): arranged in rows (game/arrange.ts) or free placement, as the server keeps them. */
 export function boardLayoutItem(): MenuItem {
   const prefs = usePrefs.getState();
   const free = prefs.boardLayout === "free";
