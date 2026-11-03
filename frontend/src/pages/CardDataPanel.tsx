@@ -5,6 +5,7 @@ import {
   bulkName, cardData, checkCardData, progressFraction, progressText, scryfallDay, startCardUpdate,
   type CardCheck, type CardDataInfo, type CardJob,
 } from "../services/cardData";
+import { SettingsSection } from "./SettingsSection";
 
 /** The host's card database and its update job, polled while the update runs. */
 export function useCardData() {
@@ -70,17 +71,19 @@ export function CardDataSection() {
   const { info, denied, check, checking, job, running, start, lookForNew } = useCardData();
   const db = info?.current;
   return (
-    <section id="card-data" data-testid="card-data">
-      <h2>Card database</h2>
+    <SettingsSection id="card-data" testId="card-data">
       {denied ? (
-        <p className="hint">Card data is downloaded and updated on the host computer (the one running Fyodor).</p>
+        <p className="st-note st-away">Card data is downloaded and updated on the host computer (the one running Fyodor).</p>
       ) : db && info ? (
-        <div className="carddata">
+        <div className="carddata st-plate">
           {db.available ? (
             <>
-              <p className="carddata-count"><span className="numeral">{db.oracle_cards.toLocaleString()}</span> cards
-                <span className="hint"> · {db.printings.toLocaleString()} printings · {db.images.toLocaleString()} images cached</span></p>
-              <p className="hint">Scryfall data from {scryfallDay(db.bulk_updated_at)}{db.bulk_type ? ` (${bulkName(db.bulk_type)})` : ""}.</p>
+              <p className="carddata-count"><span className="numeral">{db.oracle_cards.toLocaleString()}</span> cards</p>
+              <p className="carddata-facts">
+                <span>{db.printings.toLocaleString()} printings</span>
+                <span>{db.images.toLocaleString()} images cached</span>
+                <span>Scryfall data from {scryfallDay(db.bulk_updated_at)}{db.bulk_type ? ` (${bulkName(db.bulk_type)})` : ""}</span>
+              </p>
             </>
           ) : (
             <p><b>No card database yet.</b> Download it once while online (about 80 MB); after that Fyodor works without the Internet.</p>
@@ -89,21 +92,21 @@ export function CardDataSection() {
             <>
               {job && job.state === "failed" && <p className="warn">The last update failed: {job.message}</p>}
               {job && job.state === "done" && <p className="hint">{job.message}</p>}
-              <div className="row carddata-actions">
+              <div className="carddata-actions">
                 {!db.available ? (
-                  <button className="btn primary" disabled={!info.network} onClick={() => void start()} data-testid="card-download">Download card database</button>
+                  <button className="tt-btn brass" disabled={!info.network} onClick={() => void start()} data-testid="card-download">Download card database</button>
                 ) : check?.available ? (
                   <>
                     <span className="carddata-new" data-testid="card-update-available">
                       New card data from {scryfallDay(check.remote_updated_at)}{check.size ? ` · about ${Math.round(check.size / 1e6)} MB` : ""}
                     </span>
-                    <button className="btn primary" onClick={() => void start()} data-testid="card-update">Update now</button>
+                    <button className="tt-btn brass" onClick={() => void start()} data-testid="card-update">Update now</button>
                   </>
                 ) : check ? (
                   <span className="carddata-current" data-testid="card-up-to-date">Up to date with Scryfall.</span>
                 ) : null}
                 {db.available && (
-                  <button className="btn" disabled={checking || !info.network} onClick={() => void lookForNew()} data-testid="card-check">
+                  <button className="tt-btn" disabled={checking || !info.network} onClick={() => void lookForNew()} data-testid="card-check">
                     {checking ? "Checking…" : "Check for new cards"}
                   </button>
                 )}
@@ -114,6 +117,6 @@ export function CardDataSection() {
           <p className="hint">Tables keep playing while it updates. Artwork for new cards is fetched per deck, from the deck editor.</p>
         </div>
       ) : null}
-    </section>
+    </SettingsSection>
   );
 }
