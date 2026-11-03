@@ -16,13 +16,10 @@ body.perf-low .battlefield.arranged .mat-band { box-shadow: none; }
 .table-card[data-tile] {
   border-radius: 6% / 5.4%;
   transition: transform calc(0.18s * var(--anim-scale, 1)) var(--ease-out, ease-out);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 3px 8px rgba(0, 0, 0, 0.5);
 }
-/* the card you point at comes to the top of a crowded row */
-.table-card[data-tile]:hover { z-index: 39999 !important; box-shadow: 0 0 0 2px rgba(255, 244, 222, 0.55), 0 6px 16px rgba(0, 0, 0, 0.6); }
-.table-card[data-tile].selected { box-shadow: 0 0 0 2px var(--accent-2), 0 0 12px rgba(240, 195, 109, 0.5); }
-.table-card[data-tile].attacking { box-shadow: 0 0 0 2px #e0645c, 0 0 14px rgba(224, 100, 92, 0.65); }
-.table-card[data-tile].blocking { box-shadow: 0 0 0 2px #6aa7e8, 0 0 12px rgba(106, 167, 232, 0.55); }
+/* the card you point at comes to the top of a crowded row (its ring and the selected / attacking / blocking / target
+   rings are the table's own, game.css and rules.css) */
+.table-card[data-tile]:hover { z-index: 39999 !important; }
 
 .board-tile {
   position: relative; width: 100%; aspect-ratio: 1 / 1.12; overflow: hidden; border-radius: inherit;
