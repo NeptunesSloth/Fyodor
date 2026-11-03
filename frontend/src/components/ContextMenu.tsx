@@ -49,7 +49,8 @@ function MenuPanel({ x, y, items, title, onDone }: { x: number; y: number; items
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const r = el.getBoundingClientRect();
+    // its laid-out size (offset*, not the bounding box: the opening animation scales it down for a frame)
+    const r = { width: el.offsetWidth, height: el.offsetHeight };
     setPos({
       left: Math.max(4, Math.min(x, window.innerWidth - r.width - 4)),
       top: Math.max(4, Math.min(y, window.innerHeight - r.height - 4)),

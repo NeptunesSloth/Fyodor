@@ -19,6 +19,7 @@ import { RepeatButton } from "./RepeatPanel";
 import { wheelEligible } from "./wheel";
 import { isOut } from "../outOfGame";
 import { attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
+import { groupByController } from "./decisionGroups";
 import { usePrefs } from "../../state/prefs";
 
 function useRules() {
@@ -375,7 +376,7 @@ export function DecisionPanel() {
   }
   const targeting = d.kind === "choose_one" && (d.options ?? []).some((o) => o.card_id) && (d.options ?? []).length > 1;
   return (
-    <div className={`decision-panel frame ${targeting ? "targeting" : ""}`} data-testid="decision-panel" data-kind={d.kind}>
+    <div className={`decision-panel frame ${targeting ? "targeting" : ""}`} data-testid="decision-panel" data-kind={d.kind} data-display={typeof d.display?.kind === "string" ? d.display.kind : undefined}>
       <div className="decision-prompt">{d.prompt}</div>
       {targeting && <div className="decision-hint">Click a highlighted card or player on the table, or choose below.</div>}
       <DecisionBody key={d.id} d={d} view={view} />
@@ -609,7 +610,13 @@ function DecisionBody({ d, view }: { d: DecisionView; view: GameView }) {
             {options.filter((o) => o.group === "seen").map((o) => <span key={o.id} className="tt-chip">{optionLabel(o, view)}</span>)}
           </div>
         )}
-        {options.filter((o) => o.group !== "seen").map((o) => (
+        {options.some((o) => o.card_id) ? groupByController(options.filter((o) => o.group !== "seen"), view, d.player).map((g) => (
+          // a target list: each player's objects together, behind their seat colour and initial (decisionGroups.ts)
+          <div key={g.player ?? "-"} className="decision-group" style={g.player ? { ["--player-color" as string]: view.players.find((p) => p.id === g.player)?.color } : undefined}>
+            {g.player && <span className="decision-who" title={playerName(view, g.player)} aria-hidden>{playerName(view, g.player).slice(0, 1).toUpperCase()}</span>}
+            {g.options.map((o) => <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>)}
+          </div>
+        )) : options.filter((o) => o.group !== "seen").map((o) => (
           <button key={o.id} className="tt-btn" data-testid={`option-${o.id}`} onClick={() => done([o.id])}>{o.label}</button>
         ))}
         {d.rememberable && (
