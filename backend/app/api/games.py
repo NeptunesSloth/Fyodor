@@ -217,6 +217,7 @@ class JoinIn(BaseModel):
     password: str | None = Field(default=None, max_length=100)
     seat: str | None = Field(default=None, max_length=8)
     spectate: bool = False
+    handoff: str | None = Field(default=None, max_length=64)  # the deck library this player brought (app/multiplayer/handoff.py)
 
 
 class SaveIn(BaseModel):
@@ -530,6 +531,11 @@ def join_game(body: JoinIn, request: Request, services: ServicesDep,
                 room.session.perform(viewer, {"type": "rename_player", "name": name})
         except (ActionError, ValidationError) as exc:
             log.info("Could not apply joining player's name: %s", exc)
+    # -- bring my decks -- the library sent ahead by the player's own Fyodor, for this seat alone (one use)
+    if body.handoff and viewer in room.seats and not room.started:
+        library = services.handoffs.take(body.handoff)
+        if library is not None:
+            services.handoffs.attach(room.id, token, library)
     # (spectator activities) a spectator of this table taking a lobby seat brings the deck they queued while watching
     if x_seat_token and not room.started and viewer in room.lobby_seats and room.seat_for_token(x_seat_token) == SPECTATOR:
         queued = room.night.queued.pop(x_seat_token, None)
@@ -624,6 +630,9 @@ def lan_info(request: Request, services: ServicesDep) -> dict[str, Any]:
         "port": services.settings.port,
         "bound_host": services.settings.host,
         "reachable": services.settings.host not in ("127.0.0.1", "localhost", "::1"),
+        # finding tables on the network: searching from this Play page, and the UDP port this computer answers on (or null)
+        "discovery": services.settings.discovery,
+        "discovery_port": request.app.state.discovery.port,
     }
 
 
@@ -1054,6 +1063,7 @@ async def leave_lobby(
     viewer, _ = _lobby_who(room, x_seat_token)
     if viewer == room.host_seat:
         raise HTTPException(409, "The host can't leave their own table (close the game instead)")
+    services.handoffs.drop_seat(room.id, x_seat_token)  # -- bring my decks --
     services.hub.release_seat(room, viewer)
     await _lobby_changed(services, room)
     return Response(status_code=204)
@@ -1106,6 +1116,7 @@ async def kick_player(
     await services.hub.send_to(room, body.seat, {"type": "kicked"})
     for conn in [c for c in room.connections.values() if c.viewer == body.seat]:
         conn.viewer, conn.actor = SPECTATOR, None
+    services.handoffs.drop_seat(room.id, room.seats[body.seat].token)  # -- bring my decks --
     services.hub.release_seat(room, body.seat)
     room.seats[body.seat].connections = 0
     await _lobby_changed(services, room)
@@ -1193,6 +1204,7 @@ async def start_game(
         if blockers:
             session.notice("The host started without waiting for everyone.")
         services.hub.start(room, session, order)
+        services.handoffs.drop_room(room.id)  # -- bring my decks -- the chosen decks stay; the brought libraries go
         services.autosave(room)
     await services.hub.broadcast(room)
     return {"game": room.summary(), "seats": {pid: pid for pid in room.seats}}

@@ -28,6 +28,7 @@ from app.game import engine
 from app.game.actions import ACTION_ADAPTER
 from app.game.session import GameSession
 from app.jobs import JobManager, ProgressFn
+from app.multiplayer.handoff import Handoffs
 from app.multiplayer.hub import GameHub, Room
 from app.rules import RulesRegistry
 from app.stats.repository import PodStats
@@ -90,6 +91,7 @@ class Services:
         self.journal = RoomJournal(self.app_db, self.app_db_lock)
         self.hub = GameHub(autosave=self.autosave, autosave_every=settings.autosave_every, asset_info=self.asset_info,
                            journal=self.journal)
+        self.handoffs = Handoffs()  # decks a joining player brought from their own computer (memory only)
         self.jobs = JobManager()
         self.http_client: Callable[..., httpx.Client] = make_client  # online features use this (the tests swap it)
         self.source_cache: dict[str, tuple[float, Any]] = {}

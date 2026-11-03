@@ -17,10 +17,12 @@ from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.api import assets, backups, cards, decks, games, health, macros, night, pod, practice, rules, tools
+from app.api.lan import router as lan_router
 from app.api.spectate import router as spectate_router
 from app.cards.repository import CardDatabaseUnavailable
 from app.config import Settings, get_settings
 from app.logging_setup import configure_logging
+from app.multiplayer.discovery import Discovery
 from app.multiplayer.hub import GameNotStarted
 from app.services import Services
 
@@ -41,11 +43,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         log.info("Fyodor %s starting; data dir %s", __version__, settings.data_dir)
         app.state.services.autobackups.start()
+        await app.state.discovery.start()  # LAN mode only; never stops the server
         yield
+        app.state.discovery.stop()
         app.state.services.close()
 
     app = FastAPI(title="Fyodor MTG Tabletop", version=__version__, lifespan=lifespan)
     app.state.services = Services(settings)
+    app.state.discovery = Discovery(settings, lambda: app.state.services.hub.rooms.values())
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next: Any) -> Response:
@@ -75,6 +80,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(tools.router, prefix="/api")
     app.include_router(backups.router, prefix="/api")
     app.include_router(rules.router, prefix="/api")
+    app.include_router(lan_router, prefix="/api")  # finding tables on the network
     app.add_api_websocket_route("/ws/games/{game_id}", games.game_socket)
 
     @app.exception_handler(GameNotStarted)
