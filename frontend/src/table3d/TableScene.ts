@@ -61,7 +61,7 @@ import {
 } from "./layout";
 import { handFan, showsFan } from "./handFan";
 import { whenProxyFontsReady } from "../cards/proxyMeasure";
-import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
+import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotStretch, slotTexture, textCardTexture } from "./textures";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
 import { FLAT_LOOK, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
 import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
@@ -825,7 +825,7 @@ export class TableScene {
         const [lx, lz] = pileSpot(seat, zone);
         const [wx, wz] = toWorld(seat, lx, lz);
         const slot = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W * 1.05, CARD_H * 1.05), new THREE.MeshBasicMaterial({
-          map: slotTexture(PILE_LABEL[zone as ZoneName] ?? zone, this.plane.ui.accent), transparent: true, depthWrite: false,
+          map: slotTexture(PILE_LABEL[zone as ZoneName] ?? zone, this.plane.ui.accent, slotStretch(this.seatList.length)), transparent: true, depthWrite: false,
         }));
         slot.rotation.x = -Math.PI / 2;
         slot.rotation.z = this.myRot(); // its label reads upright from my seat, whoever's pile it is

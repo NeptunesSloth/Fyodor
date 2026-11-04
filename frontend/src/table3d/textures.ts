@@ -274,12 +274,18 @@ function drawMat(felt: string, nap: string, playerColor: string): HTMLCanvasElem
 const SLOT_LABELS = ["Library", "Graveyard", "Exile", "Command", "Partner"];
 /** How much taller than wide the label's letters are drawn: the table is seen at a slant, so they read upright (as road markings are). */
 export const SLOT_STRETCH = 1.45;
+/** The label's letters, condensed: larger capitals fit across the slot. */
+const SLOT_CONDENSE = 0.86;
+/** The stretch for a table of this many seats: the duel's is seen at a low slant, the others' from nearly above. */
+export function slotStretch(seats: number): number {
+  return seats === 2 ? 1.9 : SLOT_STRETCH;
+}
 
 /**
  * Outline slot for a zone pile, drawn at twice its size so it stays crisp: a card-shaped well with a thin card-outline
  * frame in `color`, and its name in large Cinzel capitals, parchment with a dark outline, upright for whoever reads it.
  */
-export function slotTexture(label: string, color: string): THREE.CanvasTexture {
+export function slotTexture(label: string, color: string, stretch = SLOT_STRETCH): THREE.CanvasTexture {
   const W = 336;
   const H = 468;
   const [c, g] = canvas(W, H);
@@ -300,14 +306,14 @@ export function slotTexture(label: string, color: string): THREE.CanvasTexture {
   const font = (px: number) => `700 ${px}px Cinzel, "Trajan Pro", Georgia, serif`;
   let px = 64;
   g.font = font(px);
-  const widest = Math.max(...SLOT_LABELS.map((l) => g.measureText(l.toUpperCase()).width));
-  px = Math.floor(Math.min(64, (px * (W - 56)) / Math.max(1, widest)));
+  const widest = Math.max(...SLOT_LABELS.map((l) => g.measureText(l.toUpperCase()).width)) * SLOT_CONDENSE;
+  px = Math.floor(Math.min(84, (px * (W - 44)) / Math.max(1, widest)));
   g.font = font(px);
   g.textAlign = "center";
   g.textBaseline = "middle";
   g.save();
   g.translate(W / 2, H / 2);
-  g.scale(1, SLOT_STRETCH);
+  g.scale(SLOT_CONDENSE, stretch);
   const text = label.toUpperCase();
   g.lineJoin = "round";
   g.lineWidth = Math.max(6, px * 0.2);

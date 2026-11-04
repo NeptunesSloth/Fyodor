@@ -13,7 +13,7 @@ import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
 import { drawSeatIcon } from "../game/seatIcons";
 import { motionMs, onMotionSkip } from "../game/motion/timing";
 import { CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, heartTilt, MAT_D, taxSpot, toWorld, type Seat } from "./layout";
-import { slotTexture } from "./textures";
+import { slotStretch, slotTexture } from "./textures";
 
 const HEART_W = HEART.w;
 /** 1v1: Mulligan's spot along my near edge, right of my heart and plate (the bag just past it). */
@@ -370,7 +370,7 @@ export class SeatProps {
           if (i > 0) {
             // the partner's slot, outlined on the felt like the others
             const slot = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(CARD_W * 1.05, CARD_H * 1.05)),
-              this.keep(new THREE.MeshBasicMaterial({ map: this.keep(slotTexture(i === 1 ? "Partner" : "Command", "#b39458")), transparent: true, depthWrite: false })));
+              this.keep(new THREE.MeshBasicMaterial({ map: this.keep(slotTexture(i === 1 ? "Partner" : "Command", "#b39458", slotStretch(seats.length))), transparent: true, depthWrite: false })));
             slot.rotation.x = -Math.PI / 2;
             slot.rotation.z = viewRot; // its label upright from my seat
             const [sx, sz] = toWorld(seat, ...commandSlot(seat, i));
