@@ -512,13 +512,19 @@ function drawCentre(kind: CentreKind, accent: string, seed: number): { color: HT
       }
       g.restore();
       // the runner
-      const rx = cx - 210, rw = 420;
-      g.fillStyle = "#4a1418";
+      const rx = cx - 160, rw = 320;
+      g.fillStyle = "#2e0c10";
       g.fillRect(rx, 0, rw, CH);
-      g.fillStyle = "#6a1e22";
+      g.fillStyle = "#43141a";
       g.fillRect(rx + 14, 0, rw - 28, CH);
-      g.fillStyle = "rgba(200,170,110,0.5)";
-      g.fillRect(rx + 22, 0, 4, CH); g.fillRect(rx + rw - 26, 0, 4, CH);
+      g.fillStyle = "rgba(150,120,80,0.45)";
+      g.fillRect(rx + 22, 0, 3, CH); g.fillRect(rx + rw - 25, 0, 3, CH);
+      // a faded lozenge pattern down its length
+      for (let y = 20; y < CH; y += 64) {
+        g.strokeStyle = "rgba(150,110,70,0.25)";
+        g.lineWidth = 3;
+        g.beginPath(); g.moveTo(cx, y); g.lineTo(cx + 60, y + 32); g.lineTo(cx, y + 64); g.lineTo(cx - 60, y + 32); g.closePath(); g.stroke();
+      }
       blotches(g, rand, CW, CH, 40, "rgba(0,0,0,ALPHA)", 30, 140, 0.3);
       speckle(g, rand, CW, CH, 40000, "rgba(0,0,0,ALPHA)", 0.2, 1.5);
       speckle(h, rand, CW, CH, 50000, "rgba(255,255,255,ALPHA)", 0.5, 1.5);
@@ -561,7 +567,7 @@ function drawCentre(kind: CentreKind, accent: string, seed: number): { color: HT
       g.clearRect(0, 0, CW, CH);
       g.fillStyle = "#1c1416";
       g.fillRect(20, 20, CW - 40, CH - 40);
-      g.fillStyle = "#c9b98a";
+      g.fillStyle = "#857552";
       g.fillRect(54, 54, CW - 108, CH - 108);
       for (let y = 54; y < CH - 54; y += 3) {
         g.fillStyle = `rgba(120,100,60,${0.15 + rand() * 0.15})`;
@@ -570,8 +576,8 @@ function drawCentre(kind: CentreKind, accent: string, seed: number): { color: HT
         h.fillRect(54, y, CW - 108, 1.5);
       }
       motifBorder(37, 37, CW - 74, CH - 74, 34, (x, y) => {
-        g.fillStyle = "#a8322a"; g.beginPath(); g.arc(x, y, 6, 0, Math.PI * 2); g.fill();
-        g.fillStyle = "#e8c36a"; g.beginPath(); g.arc(x, y, 2.5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#6a2420"; g.beginPath(); g.arc(x, y, 4.5, 0, Math.PI * 2); g.fill();
+        g.fillStyle = "#9a7a3a"; g.beginPath(); g.arc(x, y, 1.8, 0, Math.PI * 2); g.fill();
       });
       g.save(); g.translate(cx, cy); g.scale(1.33, 1);
       ring(g, 0, 0, 150, 12, "rgba(168,50,42,0.55)");
@@ -582,7 +588,7 @@ function drawCentre(kind: CentreKind, accent: string, seed: number): { color: HT
     case "dais": {
       // a sandstone dais inlaid with lapis bands and gold
       g.clearRect(0, 0, CW, CH);
-      g.fillStyle = "#b8925c";
+      g.fillStyle = "#86683e";
       g.fillRect(16, 16, CW - 32, CH - 32);
       for (let y = 16; y < CH - 16; y += 96) for (let x = 16 + ((y / 96) % 2) * 64; x < CW - 16; x += 128) {
         g.strokeStyle = "rgba(80,55,30,0.5)"; g.lineWidth = 2; g.strokeRect(x, y, 128, 96);
@@ -622,18 +628,18 @@ function drawCentre(kind: CentreKind, accent: string, seed: number): { color: HT
       g.save(); g.translate(cx, cy); g.scale(1.33, 1);
       const R = CH * 0.46;
       const grd = g.createRadialGradient(0, 0, 0, 0, 0, R);
-      grd.addColorStop(0, "rgba(120,255,110,0.65)");
-      grd.addColorStop(0.7, "rgba(30,90,30,0.6)");
+      grd.addColorStop(0, "rgba(90,200,80,0.55)");
+      grd.addColorStop(0.7, "rgba(20,60,22,0.6)");
       grd.addColorStop(1, "rgba(0,0,0,0)");
       g.fillStyle = grd; g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = "#d8dcd0"; g.lineWidth = 12;
+      g.strokeStyle = "#5e625a"; g.lineWidth = 12;
       for (let k = 0; k < 14; k++) {
         const t = (k / 14) * Math.PI * 2;
         g.beginPath(); g.moveTo(Math.cos(t) * R * 0.15, Math.sin(t) * R * 0.15);
         g.quadraticCurveTo(Math.cos(t + 0.3) * R * 0.6, Math.sin(t + 0.3) * R * 0.6, Math.cos(t + 0.15) * R, Math.sin(t + 0.15) * R);
         g.stroke();
       }
-      ring(g, 0, 0, R, 16, "#c8ccc0");
+      ring(g, 0, 0, R, 16, "#6a6e64");
       g.restore();
       break;
     }

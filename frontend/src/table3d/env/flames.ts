@@ -11,6 +11,7 @@ const VERT = /* glsl */ `
 attribute vec2 aFlame; // phase, height (as a share of the halo's radius)
 attribute vec4 aSway; // rides a swinging lantern (roomShader.ts SWAY_GLSL)
 uniform float uTime;
+uniform vec3 uCut;
 ${SWAY_GLSL}
 varying vec2 vUv;
 varying vec3 vTint;
@@ -21,6 +22,10 @@ void main() {
   vec3 base = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   vec3 swayN = vec3(0.0, 1.0, 0.0);
   base = swayPos(base, aSway, swayN, uTime);
+  // the room's cutaway (roomShader.ts): a flame on a piece taken away on the camera's side goes with it
+  vec2 cxz = cameraPosition.xz;
+  float cl = length(cxz);
+  if (cl > 1.0 && dot(base.xz, cxz / cl) > uCut.x + uCut.y) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   float size = length((modelMatrix * instanceMatrix * vec4(1.0, 0.0, 0.0, 0.0)).xyz);
   vec3 toCam = normalize(cameraPosition - base);
   vec3 up = vec3(0.0, 1.0, 0.0);
@@ -89,7 +94,7 @@ export class Flames {
   private n = 0;
   private readonly cap: number;
 
-  constructor(cap: number, time: { value: number }) {
+  constructor(cap: number, time: { value: number }, cut: { value: THREE.Vector3 } = { value: new THREE.Vector3(1e6, 0, 0) }) {
     this.cap = cap;
     const geo = new THREE.PlaneGeometry(2, 2);
     this.phases = new Float32Array(cap * 2);
@@ -99,7 +104,7 @@ export class Flames {
     geo.setAttribute("aSway", new THREE.InstancedBufferAttribute(this.sways, 4));
     const mat = new THREE.ShaderMaterial({
       vertexShader: VERT, fragmentShader: FRAG,
-      uniforms: { uTime: time, uMotion: { value: 1 } },
+      uniforms: { uTime: time, uMotion: { value: 1 }, uCut: cut },
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
     });
     this.mesh = new THREE.InstancedMesh(geo, mat, cap);

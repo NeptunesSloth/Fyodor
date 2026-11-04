@@ -222,7 +222,8 @@ export function buildTableProp(ctx: SetCtx, at: Put, kind: TableProp, glow: stri
       const s = 0.42;
       for (const [cx, cz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) at.box(0.05, 1.12, 0.05, cx * s, 0, cz * s, "#2a1a12", WOOD);
       for (const y of [0.08, 1.06]) for (const [ax, az, ry] of [[0, 1, 0], [0, -1, 0], [1, 0, Math.PI / 2], [-1, 0, Math.PI / 2]] as const) at.box(s * 2 + 0.05, 0.05, 0.05, ax * s, y, az * s, "#2a1a12", WOOD, ry);
-      at.glowing().box(s * 1.92, 0.94, s * 1.92, 0, 0.12, 0, "#ffd8a8", { glow: 1.1, pulse: PULSE.lantern, uv: ATLAS.parchment, rough: 0.9 });
+      at.glowing().box(s * 1.92, 0.94, s * 1.92, 0, 0.12, 0, "#d8a46a", { glow: 0.7, pulse: PULSE.lantern, uv: ATLAS.parchment, rough: 0.9 });
+      for (const y of [0.42, 0.74]) for (const [ax, az, ry] of [[0, 1, 0], [0, -1, 0], [1, 0, Math.PI / 2], [-1, 0, Math.PI / 2]] as const) at.box(s * 2 + 0.02, 0.03, 0.03, ax * (s + 0.005), y, az * (s + 0.005), "#2a1a12", WOOD, ry);
       const f = at.world(0, 0.4, 0);
       flame(f, 0.22, "#ffb060");
       lights.push({ pos: f.clone().setY(f.y + 0.3), color: glow, intensity: 6, distance: 15 });

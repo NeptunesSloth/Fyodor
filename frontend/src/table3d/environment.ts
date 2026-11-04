@@ -175,8 +175,9 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
 
   // ---- the room's light, the table's props, the set
   const room = new RoomLight(new THREE.Color(e.fog).multiplyScalar(0.22), e.flicker);
+  room.cut.value.set(Math.max(halfW, halfD) + 0.5, 3, 1.5);
   const spec = SETS[p.id] ?? SETS.dominaria;
-  const flames = new Flames(quality === "low" ? 16 : 96, room.uniforms.uTime);
+  const flames = new Flames(quality === "low" ? 16 : 96, room.uniforms.uTime, room.cut);
   group.add(flames.mesh);
   const propBatch = new Batch();
   const ctxProps: SetCtx = { set: propBatch, glow: propBatch, flames, room, rand, floorY: tableY, rich: quality === "high" };
@@ -228,7 +229,6 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
   } else {
     // ---- the set: walls, furniture, fire, windows (one mesh), the floor and the piece under the table
     const r = roomFor(size, floorY);
-    room.cut.value.set(Math.max(halfW, halfD) + 0.5, 0, 1.5);
     room.setFade(Math.max(halfW, halfD) + spec.fade[0], Math.max(halfW, halfD) + spec.fade[1], spec.fade[2]);
     const setBatch = new Batch();
     const ctx: SetCtx = { set: setBatch, glow: setBatch, flames, room, rand, floorY, rich: quality === "high" };
@@ -263,7 +263,7 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
       centre.position.y = floorY + 0.03;
       group.add(centre);
     }
-    const beams = buildBeams(room, floorY, quality === "high" ? 0.05 : 0.04, [halfW + 1, halfD + 1]);
+    const beams = buildBeams(room, floorY, quality === "high" ? 0.04 : 0.032, [halfW + 1, halfD + 1]);
     if (beams) group.add(beams);
     // ---- particles, on by default
     for (const ps of spec.particles) {
@@ -271,7 +271,7 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
       const box = ps.where === "room" ? { min: [r.left + 1, floorY, r.back + 1], max: [r.right - 1, floorY + 24, r.front - 1] }
         : ps.where === "air" ? { min: [r.left + 1, floorY + 4, r.back + 1], max: [r.right - 1, 22, r.front - 1] }
         : ps.where(r);
-      const pts = buildParticles(room, { kind: ps.kind, color: ps.color, count: n, min: new THREE.Vector3(...box.min), max: new THREE.Vector3(...box.max), size: ps.size, opacity: ps.opacity, base: ps.base, beam: ps.beam, additive: ps.additive, seed: rand, keepOut: [halfW + 1.5, halfD + 1.5, 7] });
+      const pts = buildParticles(room, { kind: ps.kind, color: ps.color, count: n, min: new THREE.Vector3(...box.min), max: new THREE.Vector3(...box.max), size: ps.size, opacity: ps.opacity, base: ps.base, beam: ps.beam, additive: ps.additive, seed: rand, keepOut: [halfW + 1.5, halfD + 1.5, 60] });
       if (pts) group.add(pts);
     }
   }

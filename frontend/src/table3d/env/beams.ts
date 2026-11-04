@@ -39,9 +39,14 @@ void main() {
       vec3 N = normalize(cross(uWinU[k].xyz, uWinV[k].xyz));
       float back = abs(dot(p - uWinO[k].xyz, N) / dot(uWinL[k].xyz, N));
       float dens = exp(-back / 26.0) * smoothstep(uFloor, uFloor + 3.0, p.y);
-      // no haze over the table
+      // no haze over the table, nor between it and the camera
       vec2 ko = abs(p.xz) - uKeepOut.xy;
       dens *= smoothstep(-0.5, 2.5, max(ko.x, ko.y));
+      if (p.y > -0.5 && cameraPosition.y > p.y + 0.1) {
+        vec3 hit = cameraPosition + (p - cameraPosition) * (cameraPosition.y / (cameraPosition.y - p.y));
+        vec2 kh = abs(hit.xz) - uKeepOut.xy;
+        dens *= smoothstep(-0.5, 2.5, max(kh.x, kh.y));
+      }
       dens *= 0.65 + 0.7 * vnoise(p * 0.45 + vec3(0.0, uTime * 0.05 * uMotion, uTime * 0.03 * uMotion));
       acc += uWinC[k] * uWinL[k].w * m * dens;
     }

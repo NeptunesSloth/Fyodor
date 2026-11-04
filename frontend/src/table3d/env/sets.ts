@@ -9,7 +9,7 @@ import type { PlaneId, Particles } from "../../theme/planes";
 import type { TableSize } from "../layout";
 import { SWAY, xf } from "./batch";
 import type { CentreKind, FloorKind } from "./floors";
-import { arch, armchair, bookcase, bookPile, boulder, candleBody, chest, column, globe, gravestone, hearth, lantern, LEATHERS, leadedWindow, panelledWall, trunk } from "./furniture";
+import { arch, bookcase, bookPile, boulder, candleBody, chest, column, globe, gravestone, hearth, lantern, LEATHERS, leadedWindow, panelledWall, trunk } from "./furniture";
 import { baked, BRASS, CLOTH, IRON, Put, STONE, vary, WOOD, type SetCtx } from "./kit";
 import { PULSE, WINDOW } from "./roomShader";
 import type { TableProp } from "./props";
@@ -119,7 +119,14 @@ const study: SetSpec = {
     ctx.flames.add(desk.world(3, 8.75, 1.1), 0.55, ctx.rand() * 10);
     ctx.room.add(desk.world(3, 9.5, 1.1), "#ffae58", 1.0, 14, "candle", 2.2);
     // by the fire: a reading chair and a little table with a candle; a globe in the far corner; books on the floor
-    armchair(ctx, new Put(ctx).at(hx + 4.5, r.floor, r.back + 8.5, -0.85), "#3e1a12", "#2a1810");
+    // (nothing tall in front of the fire: a low footstool with a book left on it, a basket of logs)
+    const stool = new Put(ctx).at(hx + 1.5, r.floor, r.back + 8.2, 0.3);
+    stool.box(4.2, 2.2, 2.8, 0, 0.7, 0, baked("#3e1a12", r.floor, { ao: 0.4 }), { rough: 0.55 });
+    for (const [lx, lz] of [[-1.8, -1.1], [1.8, -1.1], [-1.8, 1.1], [1.8, 1.1]] as const) stool.lathe([[0, 0], [0.2, 0], [0.28, 0.3], [0.22, 0.7], [0, 0.7]], lx, 0, lz, "#2a1810", WOOD, 8);
+    bookPile(ctx, stool.at(0.3, 2.9, 0, 0.5), 1);
+    const basket = new Put(ctx).at(hx + 7.5, r.floor, r.back + 3.5);
+    basket.lathe([[0, 0], [1.6, 0], [1.9, 1.8], [1.95, 2.0], [0, 2.0]], 0, 0, 0, baked("#5a4024", r.floor), { rough: 0.95 }, 14);
+    for (let k = 0; k < 5; k++) basket.geo(new THREE.CylinderGeometry(0.4, 0.42, 3.4, 8), xf((k - 2) * 0.7, 2.2 + (k % 2) * 0.5, (ctx.rand() - 0.5) * 0.6, 0.15, 0, Math.PI / 2 + (ctx.rand() - 0.5) * 0.2), vary(ctx, "#4a3220", 0.15), { rough: 1 });
     const side = new Put(ctx).at(hx - 1, r.floor, r.back + 10);
     side.lathe([[0, 0], [1.2, 0], [0.3, 0.4], [0.25, 5.4], [1.6, 5.6], [1.6, 5.9], [0, 5.9]], 0, 0, 0, baked("#3a2214", r.floor), WOOD, 12);
     candleBody(side, 0.3, 5.9, 0.2, 0.18, 1.0, ctx.rand);
@@ -143,8 +150,8 @@ const guildhall: SetSpec = {
   props: ["ledger", "lantern"],
   fade: [3, 24, 0.82],
   particles: [
-    { kind: "motes", color: "#cbd7ff", count: 160, size: 0.12, opacity: 0.8, base: 0.25, beam: 1.5, where: "room" },
-    { kind: "dust", color: "#d8e0ff", count: 300, size: 0.09, opacity: 0.8, base: 0.05, beam: 3, where: "room" },
+    { kind: "motes", color: "#ffd9a0", count: 70, size: 0.12, opacity: 0.7, base: 0.2, beam: 1.2, where: "room" },
+    { kind: "dust", color: "#d8e0ff", count: 260, size: 0.09, opacity: 0.8, base: 0.02, beam: 3, where: "room" },
   ],
   build(ctx, r) {
     const w = walls(ctx, r);
@@ -162,8 +169,9 @@ const guildhall: SetSpec = {
       panelledWall(ctx, place((r.back + r.front) / 2), D + 2, 40, "#232838", "#262c3c", 4);
     }
     // scroll racks and clerks' lecterns along the back
-    for (const x of [-13, 13]) {
-      const rack = w.back(x).at(0, 0, 3.4);
+    // (on the side walls toward the back: out of the seat view's margins)
+    for (const rack0 of [w.left(r.back + 4.8), w.right(r.back + 4.8)]) {
+      const rack = rack0.at(0, 0, 1.8);
       rack.box(8.6, 11, 3.2, 0, 0, 0, baked("#241c22", r.floor), WOOD);
       rack.box(9.0, 0.5, 3.5, 0, 11, 0.1, "#2c2228", WOOD);
       for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
@@ -172,11 +180,38 @@ const guildhall: SetSpec = {
         const n = 1 + Math.floor(ctx.rand() * 3);
         for (let k = 0; k < n; k++) {
           const sx = cx - 0.45 + k * 0.45, sy = cy + 0.28 + (k % 2) * 0.32;
-          rack.geo(new THREE.CylinderGeometry(0.2, 0.2, 1.4, 10), xf(sx, sy, 1.4, Math.PI / 2, 0, 0), vary(ctx, "#8a7c62", 0.12), CLOTH);
+          rack.geo(new THREE.CylinderGeometry(0.2, 0.2, 1.4, 10), xf(sx, sy, 1.4, Math.PI / 2, 0, 0), vary(ctx, "#6a604c", 0.12), CLOTH);
           if (ctx.rand() < 0.35) rack.cyl(0.09, 0.09, 0.04, sx, sy - 0.02, 2.11, "#7a1a1e", { rough: 0.4 }, 8, Math.PI / 2);
         }
       }
     }
+    // a clerks' long desk on the left: ledgers open, an inkpot, a candle burning low
+    const desk = w.left(r.back + 12).at(0, 0, 3.2);
+    desk.box(14, 0.5, 4, 0, 6.4, 0, baked("#2a2230", r.floor), WOOD);
+    desk.box(13.4, 6.4, 0.3, 0, 0, -1.7, baked("#221c28", r.floor), WOOD);
+    for (const lx of [-6.6, 6.6]) desk.box(0.5, 6.4, 3.6, lx, 0, 0, baked("#221c28", r.floor), WOOD);
+    for (const [lx, lz, a] of [[-4, 0.2, 0.2], [0.5, -0.3, -0.15], [4.2, 0.4, 0.3]] as const) {
+      bookPile(ctx, desk.at(lx, 6.9, lz - 0.6, a), 2);
+      desk.box(2.6, 0.06, 1.8, lx + 0.2, 6.92, lz + 0.8, "#8a7c62", CLOTH, a);
+    }
+    desk.lathe([[0, 0], [0.4, 0], [0.45, 0.4], [0.2, 0.55], [0, 0.55]], -1.8, 6.9, 1.2, "#14141c", { rough: 0.2 }, 10);
+    desk.lathe([[0, 0], [0.5, 0], [0.55, 0.1], [0.2, 0.2], [0, 0.2]], 2.4, 6.9, 1.3, "#9aa6c2", { rough: 0.3, metal: 1 }, 12);
+    candleBody(desk, 2.4, 7.1, 1.3, 0.2, 0.9, ctx.rand);
+    ctx.flames.add(desk.world(2.4, 8.05, 1.3), 0.5, ctx.rand() * 10);
+    ctx.room.add(desk.world(2.4, 9, 1.3), "#ffcf86", 0.8, 12, "candle", 0.4);
+    // a surveyor's model of the city on a round table: a crowd of slate towers and spires, a few windows lit
+    const model = new Put(ctx).at(r.right - 8, r.floor, r.back + 9);
+    model.lathe([[0, 0], [1.4, 0], [0.5, 0.5], [0.4, 6], [3.6, 6.2], [3.6, 6.6], [0, 6.6]], 0, 0, 0, baked("#262030", r.floor), WOOD, 18);
+    for (let k = 0; k < 26; k++) {
+      const a = ctx.rand() * Math.PI * 2, rr = Math.sqrt(ctx.rand()) * 2.9;
+      const tx = Math.cos(a) * rr, tz = Math.sin(a) * rr;
+      const tw = 0.3 + ctx.rand() * 0.35, th = 0.6 + ctx.rand() * (2.6 - rr * 0.5);
+      const tone = vary(ctx, "#4a5268", 0.15);
+      model.box(tw, th, tw, tx, 6.6, tz, tone, STONE, ctx.rand() * 1.5);
+      model.geo(new THREE.ConeGeometry(tw * 0.75, th * 0.6 + 0.4, 4), xf(tx, 6.6 + th + (th * 0.6 + 0.4) / 2, tz, 0, Math.PI / 4), "#9aa6c2", { rough: 0.35, metal: 0.8 });
+      if (ctx.rand() < 0.5) model.glowing().box(0.08, 0.1, 0.02, tx, 6.6 + th * 0.6, tz + tw / 2 + 0.01, "#ffcf7a", { glow: 2 });
+    }
+    ctx.room.add(model.world(0, 11, 0), "#ffcf86", 0.5, 8, "candle", 1.3);
     // a banner of the hall's own (no guild's mark): deep blue cloth with a silver ring, hanging above the back arches
     const banner = w.back(0).at(0, 0, 1.0);
     banner.box(6, 22, 0.15, 0, 10, 0, baked("#1c2a5a", r.floor, { ao: 0.2 }), CLOTH);
@@ -188,8 +223,8 @@ const guildhall: SetSpec = {
     for (const z of [r.back + D * 0.3, r.back + D * 0.62]) { spots.push([r.left + 5, z]); spots.push([r.right - 5, z]); }
     for (const [x, z] of spots) hangingLantern(ctx, new THREE.Vector3(x, r.floor + 15, z), "#c8803a");
     ctx.room.addWindow({
-      centre: new THREE.Vector3(r.left + 0.2, r.floor + 22, -1), u: new THREE.Vector3(0, 0, 1), v: new THREE.Vector3(0, 1, 0),
-      halfU: 4, halfV: 9, dir: new THREE.Vector3(1, -0.85, -0.15), color: "#9fb2ff", intensity: 0.55, pattern: WINDOW.arch,
+      centre: new THREE.Vector3(r.left + 0.2, r.floor + 16, -1), u: new THREE.Vector3(0, 0, 1), v: new THREE.Vector3(0, 1, 0),
+      halfU: 4, halfV: 8, dir: new THREE.Vector3(0.45, -1, -0.1), color: "#9fb2ff", intensity: 0.6, pattern: WINDOW.arch,
     });
   },
 };
@@ -289,7 +324,7 @@ const chapel: SetSpec = {
     // the moon through the tracery, falling across the floor on the left of the table
     ctx.room.addWindow({
       centre: new THREE.Vector3(r.left + 0.2, r.floor + 20, -2), u: new THREE.Vector3(0, 0, 1), v: new THREE.Vector3(0, 1, 0),
-      halfU: 4.5, halfV: 10, dir: new THREE.Vector3(0.45, -1, 0.12), color: "#b0c4ff", intensity: 0.75, pattern: WINDOW.tracery,
+      halfU: 4.5, halfV: 10, dir: new THREE.Vector3(0.45, -1, 0.12), color: "#b0c4ff", intensity: 0.55, pattern: WINDOW.tracery,
     });
     const win = w.left(-2).at(0, 0, 0.6);
     win.glowing().box(9, 20, 0.05, 0, 10, -0.3, "#9fb4e0", { glow: 0.6 });
@@ -456,6 +491,34 @@ const shrine: SetSpec = {
     toko.lathe([[0, 0], [0.8, 0], [1.1, 1.2], [0.6, 2.4], [0.7, 2.8], [0, 2.8]], 3.6, 1.2, 1.6, "#2a3a4a", { rough: 0.2 }, 14);
     for (let k = 0; k < 5; k++) toko.geo(new THREE.CylinderGeometry(0.05, 0.1, 6, 5), xf(3.6 + (ctx.rand() - 0.5) * 2, 6 + ctx.rand() * 2, 1.6, 0, 0, (ctx.rand() - 0.5) * 1.2), "#3a2a1a", WOOD);
     for (let k = 0; k < 12; k++) toko.sphere(0.35, 3.6 + (ctx.rand() - 0.5) * 4, 7 + ctx.rand() * 3, 1.6, "#f0b0c8", { glow: 0.15, rough: 0.8 });
+    // a six-panel folding screen behind the far seat: gold leaf, a pine bough brushed across it
+    const byobu = w.back(0).at(0, 0, 4.5);
+    const panelsN = 6, pwid = 2.7;
+    for (let k = 0; k < panelsN; k++) {
+      const ang = k % 2 ? 0.38 : -0.38;
+      const px = (k - (panelsN - 1) / 2) * pwid * Math.cos(0.38);
+      const panel = byobu.at(px, 0, k % 2 ? 0.5 : 0, ang);
+      panel.box(pwid, 11, 0.18, 0, 0.3, 0, "#1a0c0a", { rough: 0.3 });
+      panel.box(pwid - 0.3, 10.4, 0.04, 0, 0.6, 0.1, "#a8823a", { rough: 0.35, metal: 0.7 });
+      // the bough: a dark branch and clusters of needles, crossing the panels at a slant
+      const by = 6.5 + Math.sin(k * 0.9) * 1.6;
+      panel.box(pwid - 0.2, 0.22, 0.03, 0, by, 0.13, "#3a2414", { rough: 0.8 }, 0, 0, (k % 2 ? 1 : -1) * 0.12);
+      for (let n = 0; n < 4; n++) panel.sphere(0.5 + ctx.rand() * 0.3, -1 + n * 0.7, by + 0.4 + (ctx.rand() - 0.5) * 0.8, 0.14, "#24402a", { rough: 0.8 }, 1.4, 0.7, 0.1, 8);
+    }
+    // a lacquered tansu chest against each side wall, cushions by the table
+    for (const t0 of [w.left(r.back + 9), w.right(r.back + 9)]) {
+      const t = t0.at(0, 0, 1.8);
+      t.box(7, 4.5, 3.2, 0, 0, 0, baked("#2a120c", r.floor), { rough: 0.3 });
+      t.box(4.5, 3.5, 3.2, -1.25, 4.5, 0, baked("#2a120c", r.floor), { rough: 0.3 });
+      for (const [dx, dy] of [[-2, 1.2], [1.8, 1.2], [-2, 3.2], [1.8, 3.2], [-1.3, 6]] as const) {
+        t.box(2.6, 0.05, 0.05, dx, dy, 1.62, "#3a2a1c", WOOD);
+        t.geo(new THREE.TorusGeometry(0.3, 0.05, 5, 10, Math.PI), xf(dx, dy - 0.2, 1.68, 0, 0, Math.PI), "#1a1a1a", IRON);
+      }
+    }
+    for (const [x, z] of [[-r.hw - 3, -3], [-r.hw - 3, 3], [r.hw + 3, -3], [r.hw + 3, 3]] as const) {
+      const c = new Put(ctx).at(x, r.floor, z, (ctx.rand() - 0.5) * 0.3);
+      c.geo(new THREE.SphereGeometry(1, 12, 6), xf(0, 0.35, 0, 0, 0, 0, 2.1, 0.4, 2.1), baked("#1e2440", r.floor, { ao: 0.3, reach: 1 }), CLOTH);
+    }
     // andon floor lanterns, glowing paper
     for (const [x, z] of [[-r.hw - 5, -r.hd - 5], [r.hw + 5, -r.hd - 5], [-r.hw - 5, r.hd + 5], [r.hw + 5, r.hd + 5], [r.left + 4, 0], [r.right - 4, 0]] as const) {
       const a = new Put(ctx).at(x, r.floor, z, Math.PI / 4);
@@ -475,7 +538,7 @@ const shrine: SetSpec = {
     }
     ctx.room.addWindow({
       centre: new THREE.Vector3(r.left + 0.3, r.floor + 14, -2), u: new THREE.Vector3(0, 0, 1), v: new THREE.Vector3(0, 1, 0),
-      halfU: 8, halfV: 9, dir: new THREE.Vector3(1, -0.7, 0.1), color: "#d8c8ff", intensity: 0.35, pattern: WINDOW.shoji,
+      halfU: 8, halfV: 9, dir: new THREE.Vector3(0.5, -1, 0.05), color: "#d8c8ff", intensity: 0.35, pattern: WINDOW.shoji,
     });
   },
 };
@@ -509,7 +572,7 @@ function paperLantern(ctx: SetCtx, at: THREE.Vector3): void {
 // ------------------------------------------------------------------ Amonkhet: the trial grounds
 
 const trials: SetSpec = {
-  floor: "sand", floorColors: ["#c8a46a", "#8a6a3e"], floorTile: 24,
+  floor: "sand", floorColors: ["#8a6a42", "#4e3a22"], floorTile: 24,
   centre: "dais", centreMargin: [5, 5],
   props: ["oillamp", "scarab"],
   fade: [4, 30, 0.72],
@@ -588,12 +651,12 @@ const jungle: SetSpec = {
       ctx.room.add(t.world(0, 12, 0), "#ffa850", 1.1, 16, "hearth", ctx.rand() * 10);
     }
     // gold: spilled coins and an idol on a plinth
-    const idol = w.back(0).at(0, 0, 5);
+    const idol = w.back(-r.hw - 8).at(0, 0, 5);
     idol.box(5, 4, 5, 0, 0, 0, baked("#5e604a", r.floor), STONE);
     idol.lathe([[0, 0], [1.8, 0], [1.6, 2], [2.0, 3.4], [1.2, 5], [1.5, 6], [0, 6.5]], 0, 4, 0, "#e8b53a", { rough: 0.25, metal: 1 }, 8);
     for (let k = 0; k < 120; k++) {
       const a = ctx.rand() * Math.PI * 2, rr = 2 + ctx.rand() * 6;
-      new Put(ctx).geo(new THREE.CylinderGeometry(0.25, 0.25, 0.06, 10), xf(Math.cos(a) * rr, r.floor + 0.05 + ctx.rand() * 0.1, r.back + 9 + Math.sin(a) * rr * 0.6, (ctx.rand() - 0.5) * 0.8, 0, (ctx.rand() - 0.5) * 0.8), vary(ctx, "#e8b53a", 0.1), { rough: 0.3, metal: 1 });
+      new Put(ctx).geo(new THREE.CylinderGeometry(0.25, 0.25, 0.06, 10), xf(-r.hw - 8 + Math.cos(a) * rr, r.floor + 0.05 + ctx.rand() * 0.1, r.back + 9 + Math.sin(a) * rr * 0.6, (ctx.rand() - 0.5) * 0.8, 0, (ctx.rand() - 0.5) * 0.8), vary(ctx, "#e8b53a", 0.1), { rough: 0.3, metal: 1 });
     }
   },
 };
@@ -641,8 +704,9 @@ const machine: SetSpec = {
     // vats of oil with a sickly glow, spikes, cables
     for (const [x, z] of [[-r.hw - 6, -r.hd - 3], [r.hw + 6, -r.hd - 3], [-r.hw - 7, r.hd + 6], [r.hw + 7, r.hd + 6]] as const) {
       const v = new Put(ctx).at(x, r.floor, z);
-      v.lathe([[0, 0], [2.4, 0], [2.6, 0.5], [2.6, 4.5], [2.8, 4.8], [2.5, 5], [0, 5]], 0, 0, 0, baked("#1c201e", r.floor), { rough: 0.4, metal: 0.85 }, 18);
-      v.glowing().cyl(2.4, 2.4, 0.1, 0, 4.85, 0, "#4aff5a", { glow: 1.0, pulse: PULSE.lantern }, 18);
+      v.lathe([[0, 0], [2.4, 0], [2.6, 0.5], [2.6, 4.5], [2.8, 4.8], [2.5, 5], [2.3, 4.6]], 0, 0, 0, baked("#1c201e", r.floor), { rough: 0.4, metal: 0.85 }, 18);
+      v.glowing().cyl(2.35, 2.35, 0.1, 0, 4.4, 0, "#3ac84a", { glow: 0.9, pulse: PULSE.lantern }, 18);
+      for (let k = 0; k < 4; k++) v.box(0.3, 5.2, 0.3, Math.cos(k * 1.57 + 0.4) * 2.65, 0, Math.sin(k * 1.57 + 0.4) * 2.65, "#d8dcd0", { rough: 0.35 });
       ctx.room.add(v.world(0, 7, 0), "#7aff6a", 1.0, 14, "candle", ctx.rand() * 10);
     }
     for (let k = 0; k < 20; k++) {
@@ -668,10 +732,11 @@ const meadow: SetSpec = {
       const x = Math.cos(a) * (r.hw + 14), z = Math.sin(a) * (r.hd + 13);
       const t = new Put(ctx).at(x, r.floor, z, ctx.rand() * 6);
       trunk(ctx, t, 16, 1.3, "#4a3c2a");
-      for (let s = 0; s < 26; s++) {
-        const b = (s / 26) * Math.PI * 2, rr = 3 + ctx.rand() * 4;
-        const len = 8 + ctx.rand() * 7;
-        t.box(0.5, len, 0.15, Math.cos(b) * rr, 16 + ctx.rand() * 3 - len, Math.sin(b) * rr, vary(ctx, "#5a7a34", 0.2), CLOTH, -b);
+      // its hanging curtain of leafy strands, thinning to their tips
+      for (let s = 0; s < 40; s++) {
+        const b = (s / 40) * Math.PI * 2 + ctx.rand() * 0.1, rr = 3.5 + ctx.rand() * 3.5;
+        const len = 7 + ctx.rand() * 8;
+        t.geo(new THREE.CylinderGeometry(0.16, 0.04, len, 4), xf(Math.cos(b) * rr, 17 + ctx.rand() * 2 - len / 2, Math.sin(b) * rr, (ctx.rand() - 0.5) * 0.1, 0, (ctx.rand() - 0.5) * 0.1), vary(ctx, "#36502a", 0.2), CLOTH);
       }
     }
     // mossy stones, a ring of glowing mushrooms, flowers in the grass
@@ -683,9 +748,9 @@ const meadow: SetSpec = {
     for (let k = 0; k < ring; k++) {
       const a = (k / ring) * Math.PI * 2;
       const p = new Put(ctx).at(Math.cos(a) * (r.hw + 4), r.floor, Math.sin(a) * (r.hd + 4));
-      const h = 0.8 + ctx.rand() * 1.4, cap = 0.5 + ctx.rand() * 0.5;
-      p.cyl(0.15, 0.22, h, 0, 0, 0, "#e8e0c8", { rough: 0.8 }, 6);
-      p.glowing().geo(new THREE.SphereGeometry(cap, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), xf(0, h, 0, 0, 0, 0, 1, 0.7, 1), vary(ctx, "#b84a7a", 0.2), { glow: 0.7, pulse: PULSE.lantern });
+      const h = 0.4 + ctx.rand() * 0.7, cap = 0.25 + ctx.rand() * 0.3;
+      p.cyl(0.07, 0.11, h, 0, 0, 0, "#b8b098", { rough: 0.8 }, 6);
+      p.glowing().geo(new THREE.SphereGeometry(cap, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), xf(0, h, 0, 0, 0, 0, 1, 0.7, 1), vary(ctx, "#7a3a62", 0.2), { glow: 0.45, pulse: PULSE.lantern });
     }
     for (let k = 0; k < 160; k++) {
       const a = ctx.rand() * Math.PI * 2, rr = Math.max(r.hw, r.hd) + 2 + ctx.rand() * 18;

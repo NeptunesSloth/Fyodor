@@ -76,10 +76,13 @@ void main() {
   // fade near the box's edges, so the wrap never pops
   vec3 e = min(p - uBoxMin, uBoxMin + uBoxSize - p) / (uBoxSize * 0.12);
   alpha *= clamp(min(min(e.x, e.y), e.z), 0.0, 1.0);
-  // and never over the table itself (the cards stay clear)
-  vec2 ko = abs(p.xz) - uKeepOut.xy;
-  float outside = max(ko.x, ko.y);
-  alpha *= max(smoothstep(-0.5, 1.5, outside), smoothstep(uKeepOut.z - 2.0, uKeepOut.z, p.y));
+  // and never in front of the table as the camera sees it (the cards stay clear): a particle above the table top
+  // whose line of sight lands on the table is hidden
+  if (p.y > -0.5 && cameraPosition.y > p.y + 0.1) {
+    vec3 hit = cameraPosition + (p - cameraPosition) * (cameraPosition.y / (cameraPosition.y - p.y));
+    vec2 ko = abs(hit.xz) - uKeepOut.xy;
+    alpha *= smoothstep(-0.5, 1.5, max(ko.x, ko.y));
+  }
   vAlpha = alpha;
   vSpin = s.w * 6.28 + t * (0.6 + s.x);
   vec4 mv = viewMatrix * vec4(p, 1.0);

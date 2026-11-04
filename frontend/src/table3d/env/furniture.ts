@@ -340,9 +340,13 @@ export function gravestone(ctx: SetCtx, at: Put, h: number, color: string, kind:
 export function boulder(ctx: SetCtx, at: Put, r: number, color: string, moss?: string): void {
   const g = new THREE.IcosahedronGeometry(r, 1);
   const p = g.getAttribute("position");
+  // (the same jitter for every copy of a corner, so the faces stay joined: a lump, not shards)
+  const seed = ctx.rand() * 100;
   for (let i = 0; i < p.count; i++) {
-    const k = 0.78 + ctx.rand() * 0.4;
-    p.setXYZ(i, p.getX(i) * k, Math.max(-r * 0.2, p.getY(i) * k * 0.7), p.getZ(i) * k);
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const h = Math.sin(x * 12.9898 / r + y * 78.233 / r + z * 37.719 / r + seed) * 43758.5453;
+    const k = 0.8 + (h - Math.floor(h)) * 0.35;
+    p.setXYZ(i, x * k, Math.max(-r * 0.2, y * k * 0.7), z * k);
   }
   g.computeVertexNormals();
   const base = new THREE.Color(color), m = moss ? new THREE.Color(moss) : null;

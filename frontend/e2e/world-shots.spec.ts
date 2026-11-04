@@ -221,5 +221,6 @@ for (const q of ["low", "medium", "high"]) {
     await open(page, gameId, 40);
     await stats(page, `perf 4p ${planeId} ${q}`);
     await stats(page, `perf 4p ${planeId} ${q} (again)`);
+    await page.screenshot({ path: `${OUT}/${PREFIX}-${planeId}-4p-${q}.png` });
   });
 }
