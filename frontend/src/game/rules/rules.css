@@ -20,8 +20,18 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 .auto-pill.format-pill .icon { color: var(--frame-hi); }
+/* Cinzel's capitals sit high in the line box: a nudge puts the word on the bar's baseline (Undo, Importer) */
+.auto-pill.format-pill .format-pill-word { position: relative; top: 1.5px; }
+.auto-pill.format-pill .format-pill-chev { margin-left: -1px; opacity: 0.85; transition: transform var(--dur-hover) var(--ease-out); }
+.auto-pill.format-pill[aria-expanded="true"] .format-pill-chev { transform: rotate(180deg); }
 .auto-pill.format-pill:hover { border-color: var(--frame-hi); }
+.auto-pill.format-pill:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .auto-pill.format-pill[aria-expanded="true"] { border-color: var(--frame-hi); color: var(--accent-2); }
+@media (prefers-reduced-motion: reduce) { .auto-pill.format-pill .format-pill-chev { transition: none; } }
+/* the settings panel hangs from the tag that opened it: at a Sandbox table it opens rightwards, clear of the seat plate
+   at the top middle of the table */
+.auto-settings-anchor { display: contents; }
+.auto-settings-anchor.from-left > .auto-settings { left: 0; right: auto; }
 .auto-pill.on[data-testid="auto-level"]::before { background: var(--frame-hi); box-shadow: 0 0 0 2px color-mix(in srgb, var(--frame-hi) 22%, transparent); }
 .auto-pill[data-testid="concede"] { color: var(--text-faint); }
 .auto-pill[data-testid="concede"]:hover { color: #ffb4ad; }

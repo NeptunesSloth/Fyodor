@@ -114,6 +114,7 @@ test("offline game night: Join from my own Fyodor, my deck waits on my seat, a n
   // game night: Alice opens a LAN table
   await host.page.goto("/#/play");
   await host.page.getByLabel("Table name").fill("Offline night");
+  await host.page.getByTestId("automation-level").selectOption("off"); // (the page's default is Full; this table plays by hand)
   await host.page.getByTestId("host-name").fill("Alice");
   await host.page.getByTestId("create-game").click();
   await expect(host.page.getByTestId("lobby")).toBeVisible();

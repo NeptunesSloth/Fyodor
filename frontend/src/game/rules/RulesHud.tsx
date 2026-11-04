@@ -58,9 +58,9 @@ export function AutomationHud() {
   return (
     <div className="auto-hud" data-testid="automation-hud">
       {sandbox && (
-        <button className="auto-pill format-pill" data-testid="table-format" aria-expanded={open}
+        <button className="auto-pill format-pill" data-testid="table-format" aria-expanded={open} aria-haspopup="dialog"
           title={`${SANDBOX_HINT} Click for the rules automation settings.`} onClick={() => setOpen(!open)}>
-          <Icon name="hand" size={15} />Sandbox
+          <Icon name="hand" size={15} /><span className="format-pill-word">Sandbox</span><Icon name="down" size={12} className="format-pill-chev" />
         </button>
       )}
       {(!sandbox || rules) && (
@@ -101,7 +101,7 @@ export function AutomationHud() {
           Concede
         </button>
       ))}
-      {open && <AutomationSettings onClose={() => setOpen(false)} />}
+      {open && <div className={sandbox ? "auto-settings-anchor from-left" : "auto-settings-anchor"}><AutomationSettings onClose={() => setOpen(false)} /></div>}
       {!!rules?.attacking_bands?.length && (
         <details className="auto-pill" data-testid="attacking-bands">
           <summary>{rules.attacking_bands.length} attacking {rules.attacking_bands.length === 1 ? "band" : "bands"}</summary>
@@ -185,7 +185,7 @@ export function AutomationSettings({ onClose }: { onClose: () => void }) {
       )}
       {!rules && (
         <p className="hint">
-          {isSandbox(ctx.view.game.format) ? "A Sandbox table: free play, and automation starts off." : "Automation is off: nothing is enforced."}{" "}
+          {isSandbox(ctx.view.game.format) ? "A Sandbox table: free play, any deck. Rules automation is off until the host turns it on." : "Automation is off: nothing is enforced."}{" "}
           {isHost ? "Choose Assisted or Full to let Fyodor enforce the rules." : "The host can turn it on."}
         </p>
       )}

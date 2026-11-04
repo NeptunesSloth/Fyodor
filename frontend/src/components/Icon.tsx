@@ -25,6 +25,7 @@ const PATHS = {
   // chevrons and a grip: arranging seats in the lobby
   left: "M14.5 5.5L8 12l6.5 6.5",
   right: "M9.5 5.5L16 12l-6.5 6.5",
+  down: "M5.5 9.5L12 16l6.5-6.5", // a menu that opens below (the table's Sandbox tag)
   grip: "M9 6.5h.01M15 6.5h.01M9 12h.01M15 12h.01M9 17.5h.01M15 17.5h.01",
   // a quill nib: rename; a tray with an arrow: download; a bin: delete (the Play page's saves)
   pen: "M4.5 19.5l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3l-10 10zM13.5 7l3 3",

@@ -13,6 +13,7 @@ async function profileName(page: Page, name: string): Promise<void> {
 async function openLobby(page: Page, opts: { table: string; name: string; password?: string }): Promise<{ gameId: string; code: string }> {
   await page.goto("/#/play");
   await page.getByLabel("Table name").fill(opts.table);
+  await page.getByTestId("automation-level").selectOption("off"); // (the page's default is Full; these tables play by hand)
   await page.getByTestId("host-name").fill(opts.name);
   if (opts.password) await page.locator(".pg-pass input").fill(opts.password);
   await page.getByTestId("create-game").click();

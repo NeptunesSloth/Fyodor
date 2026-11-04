@@ -8,6 +8,8 @@ import { ALICE_DECK, bringDeck, serverView } from "./helpers";
  */
 test("a solo Sandbox LAN night: no deck checks, automation off, a land played by hand", async ({ page }) => {
   await page.goto("/#/play");
+  await expect(page.getByRole("heading", { name: "Host a LAN night" })).toBeVisible(); // every new game is a LAN night
+  await expect(page.getByTestId("automation-level")).toHaveValue("full"); // Commander plays at Full
   await page.getByTestId("format-sandbox").check();
   await expect(page.getByTestId("format-sandbox")).toBeChecked();
   await expect(page.getByTestId("automation-level")).toHaveCount(0); // a Sandbox table starts with automation off
@@ -20,7 +22,7 @@ test("a solo Sandbox LAN night: no deck checks, automation off, a land played by
 
   const lobby = page.getByTestId("lobby");
   await expect(lobby).toBeVisible();
-  await expect(page.getByTestId("lobby-format")).toHaveText("Sandbox table: free play");
+  await expect(page.getByTestId("lobby-format")).toHaveText("Sandbox LAN night: free play");
   await expect(page.locator(".house-rules div", { hasText: "Automation" })).toContainText("Off"); // the house rules
   // the host can change the format in Table settings: Commander turns the automation choice back on, Sandbox turns it off
   const settings = async () => {
@@ -29,18 +31,20 @@ test("a solo Sandbox LAN night: no deck checks, automation off, a land played by
   };
   await settings();
   await expect(page.getByTestId("lobby-format-sandbox")).toBeChecked();
-  await expect(page.getByTestId("lobby-automation")).toBeDisabled();
+  await expect(page.getByTestId("lobby-automation")).toHaveCount(0); // locked at setup, and the hint says why
+  await expect(page.getByTestId("lobby-automation-locked")).toHaveText("Off");
   await page.getByTestId("lobby-format-commander").check();
-  await expect(page.getByTestId("lobby-automation")).toBeEnabled();
+  await expect(page.getByTestId("lobby-automation")).toHaveValue("full"); // back to Commander: Full, as the pod plays
   await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
-  await expect(page.getByTestId("lobby-format")).toHaveText("Commander table");
+  await expect(page.getByTestId("lobby-format")).toHaveText("Commander LAN night");
   await settings();
   await page.getByTestId("lobby-format-sandbox").check();
   await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
-  await expect(page.getByTestId("lobby-format")).toHaveText("Sandbox table: free play");
+  await expect(page.getByTestId("lobby-format")).toHaveText("Sandbox LAN night: free play");
   // 18 cards and four colours under a four-colour commander: Commander's checks would flag it; a Sandbox table checks nothing
   await bringDeck(page, ALICE_DECK, "Superfriends");
   await expect(lobby).not.toContainText("deck check");
+  await expect(page.locator("[data-testid^='coverage-']")).toHaveCount(0); // a Sandbox table starts manual: no "% automated"
   await expect(page.getByTestId("ready")).toHaveText("Ready");
   await page.getByTestId("ready").click();
   await expect(page.getByTestId("start-game")).toBeEnabled();

@@ -38,7 +38,7 @@ import { contrast } from "../theme/planes";
 import type { DeckSummary } from "../types/decks";
 import { SPECTATOR, type LobbySeat, type LobbySettings, type LobbyView } from "../types/game";
 import { TablePermissionsSetting } from "./TablePermissionsSetting";
-import { SANDBOX_HINT, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
+import { SANDBOX_HINT, SANDBOX_LOCK, TABLE_FORMATS, isSandbox, nightName } from "../game/tableFormat";
 import { ownDecks, type OwnDeck, type OwnDecks } from "./lanBits";
 import { CommanderArt } from "./CommanderArt";
 import { PersonalDeckImports } from "./PersonalDeckImports";
@@ -62,6 +62,11 @@ const MAX_FILE = 2 * 1024 * 1024;
 /** The host's choice of first player, in a word or two (the full rule is the button's tooltip). */
 const MODE_NAME: Record<TurnOrderMode, string> = { pod: "Pod rule", random: "Random", seats: "Seat order" };
 const AUTOMATION_NAME = { off: "Off", assisted: "Assisted", full: "Full" } as const;
+const TURN_ORDER_HINT: Record<TurnOrderMode, string> = {
+  pod: "Everyone rolls a d20 for the first game; then the winner goes last.",
+  random: "A random first player, then around the table.",
+  seats: "Seat 1 goes first, then around the table.",
+};
 const AUTOMATION_HINT = {
   off: "The manual table: nothing is enforced.",
   assisted: "Validates and asks before important steps.",
@@ -139,7 +144,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
         <div className="lobby-title">
           <h1 title={s.name}>{s.name}</h1>
           <p className="lobby-sub">
-            <span data-testid="lobby-format" title={isSandbox(s.format) ? SANDBOX_HINT : undefined}>{isSandbox(s.format) ? "Sandbox table: free play" : "Commander table"}</span>
+            <span data-testid="lobby-format" title={isSandbox(s.format) ? SANDBOX_HINT : undefined}>{nightName(s.format)}</span>
             <span>{claimed.length} of {lobby.seats.length} seats taken</span>
             {lobby.spectators > 0 && <span>{lobby.spectators} watching</span>}
           </p>
@@ -155,7 +160,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
       <main className="lobby-table">
         <div className={`seat-row ${claimed.length ? "" : "all-open"}`} style={{
           ["--cols" as string]: claimed.length
-            ? `repeat(${claimed.length}, minmax(0, var(--plinth-w)))${open.length ? " minmax(216px, 272px)" : ""}`
+            ? `repeat(${claimed.length}, minmax(0, var(--plinth-w)))${open.length ? " minmax(216px, var(--chairs-w, 272px))" : ""}`
             : "minmax(0, 1fr)",
         }}>
           {claimed.map((seat) => (
@@ -471,7 +476,7 @@ function NextGame({ lobby, busy, onRun, onSettings }: {
           <dt>Mulligan</dt>
           <dd>{lobby.mulligan?.display_name ?? MULLIGAN_LABEL[s.mulligan_rule] ?? s.mulligan_rule}{lobby.mulligan?.needs_definition ? " (not defined yet)" : ""}</dd>
         </div>
-        <div title={DECK_PRIVACY_HINT[s.deck_privacy]}><dt>Decks</dt><dd>{DECK_PRIVACY_LABEL[s.deck_privacy]}</dd></div>
+        <div title={DECK_PRIVACY_HINT[s.deck_privacy]}><dt>Deck privacy</dt><dd>{DECK_PRIVACY_LABEL[s.deck_privacy]}</dd></div>
         <div><dt>Automation</dt><dd>{AUTOMATION_NAME[level]}</dd></div>
         {level === "off" && <div><dt>Response helper</dt><dd>{s.priority_helper === "simple" ? "On" : "Off"}</dd></div>}
       </dl>
@@ -660,13 +665,14 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
             <p className="pl-cmdr" title={title ?? undefined}>{title}</p>
             {(deck.commanders?.length || deck.color_identity) && (
               <p className="pl-sub">
-                {deck.commanders?.length && deck.name ? <span className="pl-deckname">{deck.name}</span> : null}
+                {deck.commanders?.length && deck.name && deck.name.trim().toLowerCase() !== (title ?? "").trim().toLowerCase()
+                  ? <span className="pl-deckname">{deck.name}</span> : null}
                 {deck.color_identity && <ColorPips colors={deck.color_identity} />}
               </p>
             )}
             <p className="pl-facts">
               <span><b>{deck.card_count}</b> cards</span>
-              {cov && covTotal > 0 && (
+              {cov && covTotal > 0 && !isSandbox(lobby.settings.format) && ( // (a Sandbox table starts manual: no automation to promise)
                 <span title={`FULL ${cov.FULL} · PARTIAL ${cov.PARTIAL} · REVIEW ${cov.REVIEW} · MANUAL ${cov.MANUAL}`} data-testid={`coverage-${seat.id}`}>
                   <b>{Math.round((cov.FULL / covTotal) * 100)}%</b> automated
                 </span>
@@ -1041,9 +1047,10 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
             {TABLE_FORMATS.map((f) => (
               <label key={f.id} className={`fmt-opt ${draft.format === f.id ? "on" : ""}`}>
                 <input type="radio" name="lobby-format" value={f.id} checked={draft.format === f.id} data-testid={`lobby-format-${f.id}`}
-                  onChange={() => set(f.id === "sandbox" ? { format: f.id, automation: "off" } : { format: f.id })} />
+                  onChange={() => set(f.id === "sandbox" ? { format: f.id, automation: "off" }
+                    : { format: f.id, automation: isSandbox(draft.format) ? "full" : draft.automation })} />
                 <span className="fmt-icon"><Icon name={f.icon} size={20} /></span>
-                <span className="fmt-text"><b>{f.name}</b><span>{f.line}</span></span>
+                <span className="fmt-text"><b>{f.name}</b><span>{f.lines.map((l) => <span key={l} className="fmt-line">{l}</span>)}</span></span>
               </label>
             ))}
           </div>
@@ -1069,18 +1076,27 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
             {MULLIGAN_RULES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </label>
-        <label className="field">Automation
-          <select data-testid="lobby-automation" value={isSandbox(draft.format) ? "off" : draft.automation ?? "off"} disabled={isSandbox(draft.format)}
-            onChange={(e) => set({ automation: e.target.value as LobbySettings["automation"] })}>
-            {(["off", "assisted", "full"] as const).map((lv) => <option key={lv} value={lv}>{AUTOMATION_NAME[lv]}</option>)}
-          </select>
-          <span className="hint">{isSandbox(draft.format) ? "A Sandbox table starts with automation off. The host can turn it on at the table." : AUTOMATION_HINT[draft.automation ?? "off"]}</span>
-        </label>
+        {isSandbox(draft.format) ? (
+          <div className="field locked-field">
+            <span id="lobby-auto-label">Automation</span>
+            <span className="locked-value" data-testid="lobby-automation-locked" aria-labelledby="lobby-auto-label" aria-describedby="lobby-auto-why">
+              <Icon name="lock" size={14} label="Locked" />Off
+            </span>
+            <span className="hint" id="lobby-auto-why">{SANDBOX_LOCK}</span>
+          </div>
+        ) : (
+          <label className="field">Automation
+            <select data-testid="lobby-automation" value={draft.automation ?? "off"} onChange={(e) => set({ automation: e.target.value as LobbySettings["automation"] })}>
+              {(["off", "assisted", "full"] as const).map((lv) => <option key={lv} value={lv}>{AUTOMATION_NAME[lv]}</option>)}
+            </select>
+            <span className="hint">{AUTOMATION_HINT[draft.automation ?? "off"]}</span>
+          </label>
+        )}
         <label className="field">Turn order
           <select data-testid="lobby-turn-order" value={draft.turn_order ?? "pod"} onChange={(e) => set({ turn_order: e.target.value as LobbySettings["turn_order"] })}>
             {(["pod", "random", "seats"] as const).map((m) => <option key={m} value={m}>{MODE_NAME[m]}</option>)}
           </select>
-          <span className="hint">{TURN_ORDER_LABEL[draft.turn_order ?? "pod"].replace(/^[^—]*— /, "").replace(/^./, (c) => c.toUpperCase())}.</span>
+          <span className="hint">{TURN_ORDER_HINT[draft.turn_order ?? "pod"]}</span>
         </label>
         <label className="field">Response helper
           <select value={draft.priority_helper} onChange={(e) => set({ priority_helper: e.target.value as LobbySettings["priority_helper"] })}>

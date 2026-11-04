@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { ALICE_DECK, BOB_DECK, saveDecks } from "./helpers";
+import { ALICE_DECK, BOB_DECK } from "./helpers";
 
 /**
  * Frames for review of the front door: the launcher, the Play page's New game form, and the LAN lobby with its Table
@@ -72,7 +72,7 @@ for (const [w, h] of SIZES) {
       await sandbox.check();
       await settled(page, 300);
       await shot(page, "play-sandbox", w, h);
-      await page.locator(".pg-toggle").click(); // the host's own decks to the seats: no lobby
+      await page.getByTestId("decks-dealt").check(); // the host deals decks to the seats: no lobby
       await settled(page, 600);
       await shot(page, "play-nolobby", w, h);
     }
@@ -95,7 +95,7 @@ for (const [w, h] of SIZES) {
     test.setTimeout(240_000); // the 3D table on a software renderer
     await prefs(page, "3d");
     await page.setViewportSize({ width: w, height: h });
-    const decks = await saveDecks(page, [ALICE_DECK]);
+    const decks = (await (await page.request.get("/api/decks")).json()) as { id: string }[];
     const gameId = await hostLobby(page, "sandbox");
     await page.request.post(`/api/games/${gameId}/lobby/deck`, {
       data: { deck_id: decks[0]!.id },
@@ -162,3 +162,38 @@ test("2x crops: the format placards, the lobby's Format choice, the table's Sand
   await page.getByTestId("table-format").screenshot({ path: `${OUT}/${PREFIX}-crop2x-sandbox-tag-hover.png` });
   await context.close();
 });
+
+for (const [w, h] of SIZES) {
+  test(`hover and focus states ${w}x${h}`, async ({ page }) => {
+    test.skip(PREFIX === "before", "states of the new front door");
+    test.setTimeout(120_000);
+    await prefs(page, "3d");
+    await page.setViewportSize({ width: w, height: h });
+    await page.goto("/#/");
+    await page.locator(".home-art .card-face > img").first().waitFor({ timeout: 15_000 }).catch(() => undefined);
+    await settled(page, 2000);
+    await page.getByTestId("menu-resume").hover(); // a secondary item lit by the pointer
+    await settled(page, 300);
+    await shot(page, "home-hover", w, h);
+    await page.mouse.move(w - 5, h / 2);
+    await page.keyboard.press("Shift"); // keyboard modality, so focus shows its ring
+    await page.getByTestId("menu-lan").focus();
+    await settled(page, 300);
+    await shot(page, "home-focus", w, h);
+
+    await page.goto("/#/play");
+    await expect(page.getByTestId("create-game")).toBeVisible();
+    await settled(page, 800);
+    await page.locator(".pg-format", { hasText: "Sandbox" }).hover();
+    await settled(page, 300);
+    await shot(page, "play-hover", w, h);
+    await page.mouse.move(w - 5, h - 5);
+    await page.keyboard.press("Shift");
+    await page.getByTestId("decks-dealt").focus();
+    await settled(page, 300);
+    await shot(page, "play-focus", w, h);
+    await page.getByTestId("create-game").focus();
+    await settled(page, 200);
+    await page.locator(".pg-rail").screenshot({ path: `${OUT}/${PREFIX}-play-focus-start-${w}x${h}.png` });
+  });
+}

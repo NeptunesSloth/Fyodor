@@ -89,7 +89,7 @@ export function NearbyGames({ deckCount }: { deckCount: number }) {
     <section className="pg-near" aria-labelledby="pg-near-title" data-testid="nearby-games">
       <h2 id="pg-near-title"><Icon name="table" size={18} />Games on your network</h2>
       {off ? (
-        <p className="pg-empty">Searching the network is turned off on this computer (FYODOR_DISCOVERY=0).</p>
+        <p className="pg-empty" title="Set by FYODOR_DISCOVERY=0 when Fyodor was started">Searching the network is turned off on this computer.</p>
       ) : servers === null ? (
         <p className="pg-empty" role="status">Looking for games on your network…</p>
       ) : rows.length === 0 ? (
