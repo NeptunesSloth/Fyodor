@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { writeFileSync } from "node:fs";
 import { ALICE_DECK, BOB_DECK } from "./helpers";
 
 /**
@@ -60,7 +61,7 @@ Deck
 
 type View = { seat_order: string[]; zones: Record<string, string[]>; cards: Record<string, { zone: string; name?: string }> };
 
-async function setup(page: Page, players: string[], perSeat: number) {
+async function setup(page: Page, players: string[], perSeat: number, piles = true) {
   await page.addInitScript(() => {
     if (!localStorage.getItem("fyodor.renderer")) localStorage.setItem("fyodor.renderer", "3d");
     localStorage.setItem("fyodor.welcomeDone", "1");
@@ -94,6 +95,7 @@ async function setup(page: Page, players: string[], perSeat: number) {
   for (const pid of seats) {
     const hand = (await view(pid)).zones[`${pid}:hand`]!;
     for (const [i, cid] of hand.slice(0, perSeat).entries()) await act({ type: "move", card_ids: [cid], to: { zone: "battlefield", player: pid }, ...at(i) });
+    if (!piles) continue;
     await act({ type: "move", card_ids: [hand[perSeat]], to: { zone: "graveyard", player: pid } });
     await act({ type: "move", card_ids: [hand[perSeat + 1]], to: { zone: "exile", player: pid } });
   }
@@ -173,28 +175,67 @@ test("1v1 camera: a low orbit and the farthest zoom, 1920x1080", async ({ page }
   await shoot(page, "1v1-low-orbit");
 });
 
-test("hearts and zone labels up close, 2x (3D: the − half hovered; 2D: the + half hovered)", async ({ browser }) => {
+test("hearts (each half hovered) and empty zones up close, 2x", async ({ browser }) => {
   test.skip(!!ONLY && ONLY !== "hearts", "SHOT_ONLY");
-  test.setTimeout(300_000);
+  test.setTimeout(400_000);
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 });
   const page = await context.newPage();
-  const { gameId } = await setup(page, ["Alice", "Bob"], 4);
+  const { gameId } = await setup(page, ["Alice", "Bob"], 4, false); // no graveyards or exile yet: their slots' labels show
   await open(page, gameId, 8);
-  const heart = (await page.evaluate(() => window.__fyodor3d!.heartAt("p1", -1)))!;
-  await page.mouse.move(heart.x, heart.y);
-  await page.waitForTimeout(2500);
   const mine = (await page.evaluate(() => window.__fyodor3d!.heartAt("p1")))!;
-  await page.screenshot({ path: `${OUT}/${PREFIX}-heart-3d-2x.png`, clip: { x: mine.x - 150, y: mine.y - 80, width: 320, height: 110 } });
-  // the far row's piles: labels upright for me, mirrored to my right
+  for (const [side, tag] of [[-1, "minus"], [1, "plus"]] as const) {
+    const half = (await page.evaluate((s) => window.__fyodor3d!.heartAt("p1", s), side))!;
+    await page.mouse.move(half.x, half.y - 6);
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: `${OUT}/${PREFIX}-heart-3d-${tag}-2x.png`, clip: { x: mine.x - 230, y: mine.y - 90, width: 360, height: 120 } });
+  }
+  await page.mouse.move(2, 400);
+  await page.waitForTimeout(1500);
+  // the far row (labels upright for me, piles mirrored to my right) and my own empty zones
   const far = (await page.evaluate(() => window.__fyodor3d!.heartAt("p2")))!;
-  await page.screenshot({ path: `${OUT}/${PREFIX}-far-row-2x.png`, clip: { x: Math.max(0, far.x - 520), y: 46, width: 1040, height: 260 } });
-  // the 2D table's heart
+  await page.screenshot({ path: `${OUT}/${PREFIX}-far-row-2x.png`, clip: { x: Math.max(0, far.x - 560), y: 46, width: 1100, height: 280 } });
+  const vp = page.viewportSize()!;
+  await page.screenshot({ path: `${OUT}/${PREFIX}-empty-zones-2x.png`, clip: { x: vp.width * 0.55, y: 46, width: vp.width * 0.45 - 4, height: vp.height * 0.62 } });
+  // the 2D table's heart, each half hovered
   await page.evaluate(() => localStorage.setItem("fyodor.renderer", "2d"));
   await page.reload();
   await expect(page.getByTestId("heart-p1")).toBeVisible({ timeout: 60_000 });
   const box = (await page.getByTestId("heart-p1").boundingBox())!;
-  await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.4);
-  await page.waitForTimeout(600);
-  await page.screenshot({ path: `${OUT}/${PREFIX}-heart-2d-2x.png`, clip: { x: box.x - 20, y: box.y - 14, width: box.width + 180, height: box.height + 28 } });
+  for (const [fx, tag] of [[0.25, "minus"], [0.75, "plus"]] as const) {
+    await page.mouse.move(box.x + box.width * fx, box.y + box.height * 0.4);
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `${OUT}/${PREFIX}-heart-2d-${tag}-2x.png`, clip: { x: box.x - 20, y: box.y - 14, width: box.width + 180, height: box.height + 28 } });
+  }
   await context.close();
+});
+
+test("camera evidence, 1920x1080: a pan (middle-drag and arrows), and the farthest zoom with its frame-to-frame difference", async ({ page }) => {
+  test.skip(!!ONLY && ONLY !== "evidence", "SHOT_ONLY");
+  test.setTimeout(480_000);
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const { gameId } = await setup(page, ["Alice", "Bob"], 6);
+  await open(page, gameId, 12);
+  const box = (await page.getByTestId("table-3d").boundingBox())!;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height * 0.45;
+  // middle-drag: grab the table and slide it right and down, then two arrow steps left
+  await page.mouse.move(cx, cy);
+  await page.mouse.down({ button: "middle" });
+  for (let i = 1; i <= 8; i++) await page.mouse.move(cx + i * 30, cy + i * 12);
+  await page.mouse.up({ button: "middle" });
+  await page.keyboard.press("ArrowUp");
+  await page.waitForTimeout(3000);
+  await shoot(page, "1v1-panned");
+  // the farthest zoom, the room held still: frames 200 ms apart, compared pixel for pixel
+  await page.keyboard.press("Home");
+  await page.mouse.move(cx, box.y + 20);
+  for (let i = 0; i < 6; i++) await page.mouse.wheel(0, 600);
+  await page.evaluate(() => window.__fyodor3d!.still!(true));
+  await expect.poll(async () => (await page.evaluate(() => window.__fyodor3d!.frameDiff!(100))).changed, { timeout: 120_000, intervals: [300] }).toBe(0);
+  const diffs: { changed: number; total: number }[] = [];
+  for (let i = 0; i < 5; i++) diffs.push(await page.evaluate(() => window.__fyodor3d!.frameDiff!(200)));
+  const zoom = (await page.evaluate(() => window.__fyodor3d!.framing!())).adjust.zoom;
+  writeFileSync(`${OUT}/${PREFIX}-flicker.json`, JSON.stringify({ zoom, frames200msApart: diffs }, null, 1));
+  console.log("FLICKER", JSON.stringify({ zoom, diffs }));
+  await shoot(page, "1v1-zoomed-out-still");
 });

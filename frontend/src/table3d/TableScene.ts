@@ -56,15 +56,15 @@ import { onTableEvents } from "../game/motion/tableEvents";
 import { onMotionSkip } from "../game/motion/timing";
 import type { DiceShow } from "../game/dice";
 import {
-  aisleOf, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, heartSpot, MAT_D, MAT_W, mirrored, PILES, pileSpot, plaqueSpot, localToVirtual, onBattlefield, pileAt, seats,
+  aisleOf, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, heartSpot, MAT_D, MAT_W, mirrored, PILES, pileSpot, localToVirtual, onBattlefield, pileAt, seats,
   tableSize, toLocal, toWorld, virtualToLocal, type PileZone, type Seat,
 } from "./layout";
-import { handFan } from "./handFan";
+import { handFan, showsFan } from "./handFan";
 import { whenProxyFontsReady } from "../cards/proxyMeasure";
 import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
 import { tileOverlayCanvas, tileTexture, TILE_PX } from "./tiles";
-import { fitCamera, type FitPoint, FOCUS_ELEVATION, ndcBox, nearFarFor, OVERVIEW_ELEVATION, platePoints, plateSide, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
+import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
 import { boardOrder, saveBoardOrder } from "../game/arrange";
 import { useBoardOrderTick } from "../game/arrangeDrop";
 
@@ -498,7 +498,6 @@ export class TableScene {
     // half the hand band (picking and projection use the same matrices); the aspect is that whole frame's
     tableLens(w, h, this.camera);
     this.updateCameraGoal();
-    if (this.view) this.update(this.view, this.me); // (a narrow screen moves my plate and buttons: table3d/framing.ts plateSide)
   }
 
   update(view: GameView, me: string): void {
@@ -515,11 +514,10 @@ export class TableScene {
       this.updateCameraGoal();
     }
     const out = isOut(view, me); // -- out of the game -- no seat buttons by the mat of a player who left (game/outOfGame.ts)
-    const plateLeft = plateSide(this.viewW / Math.max(1, this.viewH)) < 0; // (my buttons go where my plate isn't)
-    const propsKey = `${key}|${view.players.map((p) => p.color).join(",")}|${out}|${plateLeft}`;
+    const propsKey = `${key}|${view.players.map((p) => p.color).join(",")}|${out}`;
     if (propsKey !== this.propsKey) {
       this.propsKey = propsKey;
-      this.props.rebuild(this.seatList, out ? "" : me, Object.fromEntries(view.players.map((p) => [p.id, p.color])), plateLeft);
+      this.props.rebuild(this.seatList, out ? "" : me, Object.fromEntries(view.players.map((p) => [p.id, p.color])));
     }
     for (const p of view.players) this.props.setLife(p.id, p.life, this.lifeBatch.pending(p.id));
     this.props.setCommanders(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, p.commanders.map((c) => ({ key: c.key, tax: c.tax }))])),
@@ -627,21 +625,20 @@ export class TableScene {
   }
 
   /**
-   * Where a seat's player plate should be drawn on screen (for the DOM overlay): its centre, or in 1v1 (`left`) the
-   * middle of its left edge, against its heart's right edge, so the heart and plate read as one piece.
+   * Where a seat's player plate should be drawn on screen (for the DOM overlay): the middle of its right edge, against
+   * its heart's left edge (the heart and plate read as one piece), and how many px one world unit spans there, so the
+   * plate is drawn at its size on the table (layout.ts PLATE) and grows and shrinks with the zoom like the heart.
    */
-  seatScreen(player: string, width: number, height: number): { x: number; y: number; visible: boolean; edge?: 1 | -1 } | null {
+  seatScreen(player: string, width: number, height: number): { x: number; y: number; visible: boolean; edge: -1; pxPerUnit: number } | null {
     const seat = this.seatList.find((s) => s.player === player);
     if (!seat) return null;
-    const side = plateSide(width / Math.max(1, height)); // (left of the heart on a narrow screen, clear of the turn dial)
-    const edge = seat.duel ? this.props.heartEdge(player, this.camera, side) : null;
-    if (edge) {
-      const v = edge.project(this.camera);
-      return { x: ((v.x + 1) / 2) * width + side * 4, y: ((1 - v.y) / 2) * height, visible: v.z < 1, edge: side };
-    }
-    const [wx, wz] = toWorld(seat, ...plaqueSpot(seat));
-    const v = new THREE.Vector3(wx, 0.3, wz).project(this.camera);
-    return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height, visible: v.z < 1 }; // off to the side: the overlay clamps it to the screen edge
+    const edge = this.props.heartEdge(player, this.camera, -1);
+    if (!edge) return null;
+    const v = edge.clone().project(this.camera);
+    const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0).setY(0).normalize();
+    const u = edge.add(right).project(this.camera);
+    const pxPerUnit = Math.hypot(((u.x - v.x) / 2) * width, ((u.y - v.y) / 2) * height);
+    return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height, visible: v.z < 1, edge: -1, pxPerUnit };
   }
 
   /**
@@ -1127,7 +1124,8 @@ export class TableScene {
         this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), 0.6);
       });
       // other players' hands: a fan of backs at their edge (count only)
-      if (pid !== this.me) this.syncHandFan(seat, ((view.zones[`${pid}:hand`] as string[] | undefined) ?? []).length);
+      // (only the far row's: a seat in my row holds its cards facing away from me; its count is on its plate)
+      if (pid !== this.me && showsFan(seat)) this.syncHandFan(seat, ((view.zones[`${pid}:hand`] as string[] | undefined) ?? []).length);
     }
 
     // the stack: cards hover above the centre of the table, most recent on top
@@ -1453,13 +1451,13 @@ export class TableScene {
       const [dx, dz] = toWorld({ ...mine, x: 0, z: 0 }, 0, 1);
       const f = frameBox(box, [dx, dz], typeof preset === "object" && "stack" in preset ? { y: 1, elevation: 0.8 } : {});
       look = new THREE.Vector3(...f.look);
-      pos = new THREE.Vector3(...f.pos);
+      pos = new THREE.Vector3(...f.pos).sub(look).multiplyScalar(LENS_REACH).add(look); // (framed for a 42° lens)
     } else if (typeof preset === "object" && "card" in preset) {
       // close up on one card, seen from my side of the table
       const c = this.cards.get(preset.card);
       look = c ? c.target.clone().setY(0) : new THREE.Vector3();
       const [dx, dz] = toWorld({ ...mine, x: 0, z: 0 }, 0, 1);
-      pos = look.clone().add(new THREE.Vector3(dx * 2.6, 5.2, dz * 2.6));
+      pos = look.clone().add(new THREE.Vector3(dx * 2.6, 5.2, dz * 2.6).multiplyScalar(LENS_REACH)); // (framed for a 42° lens)
     } else {
       // a close-up with nothing left to show: my seat
       ({ pos, look } = this.fitView("seat", mine)!);
@@ -1498,9 +1496,9 @@ export class TableScene {
       pts = seatPoints(seat, { buttons: seat === mine });
       dir = viewDir(this.arranged ? mine.rot : seat.rot, FOCUS_ELEVATION);
     } else {
-      // 1v1: the plates (DOM boxes beside the hearts) are framed too
-      pts = [...tablePoints(this.seatList, mine, tableSize(this.seatList)), ...platePoints(this.seatList, this.viewW, this.viewH)];
-      dir = viewDir(mine.rot, preset === "overview" ? OVERVIEW_ELEVATION : seatElevation(this.seatList.length, this.viewW / Math.max(1, this.viewH)));
+      const elevation = preset === "overview" ? OVERVIEW_ELEVATION : seatElevation(this.seatList.length, this.viewW / Math.max(1, this.viewH));
+      pts = tablePoints(this.seatList, mine, tableSize(this.seatList), elevation);
+      dir = viewDir(mine.rot, elevation);
     }
     // clear of the fixed chrome: the camera strip, the stack pill and the turn dial
     const keep = this.keepOut3d.map((b) => ndcBox(b, this.viewW, this.viewH));

@@ -8,14 +8,19 @@
  * Camera only (never game state). three.js math only, no WebGL, so it is unit-tested.
  */
 import * as THREE from "three";
-import { fanCorners, handFan } from "./handFan";
-import { CARD_W, DUEL_VIEW, HEART, heartSpot, heartTilt, MAT_D, MAT_W, STRIP_X, taxSpot, toWorld, type Seat, type TableSize } from "./layout";
+import { fanCorners, handFan, showsFan } from "./handFan";
+import { CARD_W, DUEL_VIEW, HEART, heartSpot, heartTilt, MAT_D, MAT_W, PLATE, plaqueSpot, screenX, STRIP_X, taxSpot, toWorld, type Seat, type TableSize } from "./layout";
 
 /** The part of the canvas (normalized device coordinates, −1..1) the framed area must fit in. */
 export interface FrameRect { left: number; right: number; bottom: number; top: number }
 
-/** The table's lens (vertical field of view, degrees): long, so the far row is foreshortened little. */
-export const TABLE_FOV = 18;
+/**
+ * The table's lens (vertical field of view, degrees): very long, so the far row is foreshortened little (in 1v1 the far
+ * mat is about 0.9 as wide and as tall as mine) even though the table is seen low.
+ */
+export const TABLE_FOV = 8;
+/** How much further back a view framed for the old 42° lens must stand to frame the same (the close-ups C, K, X). */
+export const LENS_REACH = Math.tan(THREE.MathUtils.degToRad(21)) / Math.tan(THREE.MathUtils.degToRad(TABLE_FOV / 2));
 /** The share of the canvas height the frame is lifted by (the hand's band): the picture is the lower part of a taller frame. */
 export const HAND_BAND = 0.16;
 
@@ -40,9 +45,12 @@ export function tableLens(w: number, h: number, cam = new THREE.PerspectiveCamer
  * the pile slots and the card faces, a hair apart, fought and flickered), the far one takes in the whole room.
  */
 export function nearFarFor(dist: number, reach: number): { near: number; far: number } {
-  const near = Math.min(8, Math.max(0.1, dist * 0.06));
-  return { near, far: Math.max(near * 20, reach + 170) };
+  const near = Math.min(40, Math.max(0.1, dist * 0.12));
+  return { near, far: Math.max(near * 20, reach + ROOM_REACH) };
 }
+
+/** How far the room reaches from the table's middle (its sky dome's radius, environment.ts), for the far plane. */
+export const ROOM_REACH = 950;
 
 /** The smallest depth step a 24-bit depth buffer tells apart at distance z (perspective, for these near and far planes). */
 export function depthStep(z: number, near: number, far: number): number {
@@ -68,17 +76,20 @@ export function seatElevation(seats: number, aspect = 16 / 9): number {
 }
 
 /** How tall a table prop may stand (world units): its top is framed with the table. */
-export const PROP_TOP = 1.7;
+export const PROP_TOP = 1.4;
 
 /**
- * Where the table's props stand: at the two ends of the aisle, in line with the outermost piles (beyond every mat,
- * clear of the piles above and below), where the seat view sees them whole. Never in a corner past the far row, where
- * they used to poke into the top of the frame.
+ * Where the table's props stand (left, then right as I see them), where the seat view sees them whole, a safe way in
+ * from the frame's edges and clear of every pile, mat, heart and plate. 1v1: the far corners of the far seat's own
+ * edge, beyond its command zone and its library, either side of its heart, plate and fan. More seats: along the aisle's
+ * middle line, well inside the outermost piles (the hearts and plates sit by their own mats).
  */
 export function propSpots(all: Seat[], size: TableSize): [number, number][] {
+  const far = all.find((s) => s.duel && s.side === "north");
+  if (far) return [-1, 1].map((sx) => toWorld(far, screenX(far, sx * STRIP_X), MAT_D / 2 + 0.95));
   let reach = 0;
   for (const s of all) reach = Math.max(reach, Math.abs(s.x) + STRIP_X);
-  const x = Math.min(reach, size.w / 2 - 0.9);
+  const x = Math.min(reach - 1.4, size.w / 2 - 2);
   return [[-x, 0], [x, 0]];
 }
 
@@ -86,7 +97,7 @@ export function propSpots(all: Seat[], size: TableSize): [number, number][] {
  * A seat's play area on the felt: its mat and the piles on either side; with `buttons`, my seat's buttons row past my
  * mat's near edge too. In 1v1 also its heart and plate past its own edge and, across the table, its fan of backs.
  */
-export function seatPoints(seat: Seat, opts: { buttons?: boolean; piles?: boolean } = {}): THREE.Vector3[] {
+export function seatPoints(seat: Seat, opts: { buttons?: boolean; piles?: boolean; elevation?: number } = {}): THREE.Vector3[] {
   const hx = opts.piles === false ? MAT_W / 2 + 0.2 : STRIP_X + CARD_W / 2 + 0.1;
   const hz = MAT_D / 2 + 0.2;
   const local: [number, number, number][] = [[-hx, 0, -hz], [hx, 0, -hz], [hx, 0, hz], [-hx, 0, hz]];
@@ -96,28 +107,42 @@ export function seatPoints(seat: Seat, opts: { buttons?: boolean; piles?: boolea
     const [, tz2] = taxSpot(1, seat);
     local.push([tx + Math.sign(tx) * 0.32, 0, tz], [tx + Math.sign(tx) * 0.32, 0, tz2]);
   }
-  if (seat.duel) {
-    // the heart and plate row past the mat's own edge: the heart stands tipped up toward the camera (my side of the
-    // table), its edge nearest me resting over the felt and its far edge raised
+  if (opts.piles !== false) {
+    // the heart, tipped up toward the camera (my side of the table): its edge nearest me resting over the felt, its far
+    // edge raised; and the plate on its left (as I see it), a box standing as tall as the heart
     const [lx, lz] = heartSpot(seat);
     const t = heartTilt(seat);
     const half = (HEART.h / 2) * Math.cos(t);
     const toMe = Math.cos(seat.rot) >= 0 ? 1 : -1; // mat-local +z is toward me for my row
     for (const dx of [-HEART.w / 2, HEART.w / 2]) local.push([lx + dx, HEART.y, lz + toMe * half], [lx + dx, HEART.y + HEART.h * Math.sin(t), lz - toMe * half]);
-    if (opts.buttons) local.push([-hx, 0, MAT_D / 2 + 1.0], [hx, 0, MAT_D / 2 + 1.0]);
-  } else if (opts.buttons) local.push([-4.7, 0, MAT_D / 2 + 0.85], [0.7, 0, MAT_D / 2 + 0.85]);
+  }
+  if (seat.duel && opts.buttons) local.push([-hx, 0, MAT_D / 2 + 1.0], [hx, 0, MAT_D / 2 + 1.0]);
+  else if (opts.buttons) local.push([-4.7, 0, MAT_D / 2 + 0.85], [0.7, 0, MAT_D / 2 + 0.85]);
   const out = local.map(([lx, y, lz]) => {
     const [x, z] = toWorld(seat, lx, lz);
     return new THREE.Vector3(x, y, z);
   });
-  // another seat: its fan of backs standing past its own edge (as large as the fan gets)
-  if (!opts.buttons && opts.piles !== false) for (const c of handFan(seat, 12)) out.push(...fanCorners(c));
+  if (opts.piles !== false) out.push(...plateCorners(seat, opts.elevation ?? (seat.duel ? DUEL_VIEW : 1.2)));
+  // a seat across the table: its fan of backs standing past its own edge (as large as the fan gets)
+  if (!opts.buttons && opts.piles !== false && showsFan(seat)) for (const c of handFan(seat, 12)) out.push(...fanCorners(c));
   return out;
 }
 
+/**
+ * A seat's plate as the camera sees it: a box facing the camera (the DOM plate, drawn at its size on the table:
+ * layout.ts PLATE), its middle level with its heart's, just left of it. `elevation`: the camera's, from my side.
+ */
+export function plateCorners(seat: Seat, elevation: number): THREE.Vector3[] {
+  const [px, pz] = plaqueSpot(seat);
+  const [x, z] = toWorld(seat, px, pz);
+  const mid = new THREE.Vector3(x, HEART.y + Math.sin(heartTilt(seat)) * HEART.h * 0.5, z);
+  const up = new THREE.Vector3(0, Math.cos(elevation), -Math.sin(elevation)).multiplyScalar(PLATE.h / 2);
+  return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => mid.clone().add(new THREE.Vector3((sx! * PLATE.w) / 2, 0, 0)).addScaledVector(up, sy!));
+}
+
 /** Everything the seat view and the whole-table view must show: every seat's area, and the props' tops. */
-export function tablePoints(all: Seat[], mine: Seat, size: TableSize): THREE.Vector3[] {
-  const pts = all.flatMap((s) => seatPoints(s, { buttons: s === mine }));
+export function tablePoints(all: Seat[], mine: Seat, size: TableSize, elevation?: number): THREE.Vector3[] {
+  const pts = all.flatMap((s) => seatPoints(s, { buttons: s === mine, elevation }));
   for (const [x, z] of propSpots(all, size)) pts.push(new THREE.Vector3(x, PROP_TOP, z), new THREE.Vector3(x, 0, z));
   return pts;
 }
@@ -325,39 +350,6 @@ function fitFree(cam: THREE.PerspectiveCamera, all: FitPoint[], dir: THREE.Vecto
   }
   place();
   return { pos: cam.position.clone(), look };
-}
-
-/** A seat plate's box on screen (CSS px), its "Turn" flag included: 1v1 plates are framed with the table. */
-export const PLATE_PX = { w: 132, h: 66, flag: 18 };
-
-/**
- * 1v1: which side of its heart a plate sits on. Right, as a rule; on a narrow screen, left, so my heart and plate
- * keep clear of the turn dial in the bottom right corner. `aspect`: the canvas's width over its height.
- */
-export function plateSide(aspect: number): 1 | -1 {
-  return aspect < 1.25 ? -1 : 1;
-}
-
-/**
- * 1v1: each plate as screen-offset points, for the fit: the plate starts at its heart's edge (Table3D places it there)
- * and is PLATE_PX in size, wherever the camera is. `w`, `h`: the canvas size.
- */
-export function platePoints(all: Seat[], w: number, h: number): FitPoint[] {
-  const out: FitPoint[] = [];
-  const nx = (v: number) => (2 * v) / Math.max(1, w);
-  const ny = (v: number) => (2 * v) / Math.max(1, h);
-  const side = plateSide(w / Math.max(1, h));
-  for (const seat of all) {
-    if (!seat.duel) continue;
-    const [lx, lz] = heartSpot(seat);
-    const [x, z] = toWorld(seat, lx, lz);
-    // the heart faces the camera (from my side of the table): its right edge is to my right
-    const at = new THREE.Vector3(x + side * HEART.w * 0.47, HEART.y + Math.sin(heartTilt(seat)) * HEART.h * 0.5, z);
-    for (const [dx, dy] of [[4, -PLATE_PX.h / 2], [4 + PLATE_PX.w, -PLATE_PX.h / 2], [4, PLATE_PX.h / 2 + PLATE_PX.flag], [4 + PLATE_PX.w, PLATE_PX.h / 2 + PLATE_PX.flag]]) {
-      out.push({ at, ox: nx(side * dx!), oy: ny(dy!) });
-    }
-  }
-  return out;
 }
 
 /**

@@ -19,6 +19,7 @@ import { ERROR_MS, TableScene, type CameraPreset, type Quality } from "./TableSc
 import { startAmbience } from "./ambience";
 import { autoCenterTarget, autoSnap, type AutoSnap } from "./autoCenter";
 import { cameraKey, combatCardIds } from "./focus";
+import { PLATE } from "./layout";
 import "./table3d.css";
 
 declare global {
@@ -133,7 +134,6 @@ export function Table3D({ me }: { me: string }) {
     // turn dial, stack panels) and the battlefield cards, and never past the screen edge
     let measured = -Infinity;
     type Box = { left: number; top: number; right: number; bottom: number };
-    let cards: Box[] = [];
     let chrome: Box[] = [];
     const follow = () => {
       const host = el.getBoundingClientRect();
@@ -149,7 +149,7 @@ export function Table3D({ me }: { me: string }) {
           const r = n.getBoundingClientRect();
           return { left: r.left - host.left, top: r.top - host.top, right: r.right - host.left, bottom: r.bottom - host.top };
         });
-        cards = scene.battlefieldRects(w, h);
+
         // -- arranged boards -- my rows stop short of the corner the turn dial covers
         const dial = document.querySelector(".turn-dial-wrap")?.getBoundingClientRect();
         scene.setDialBox(dial && dial.width ? { left: dial.left - host.left, top: dial.top - host.top, bottom: dial.bottom - host.top } : null);
@@ -168,43 +168,38 @@ export function Table3D({ me }: { me: string }) {
         if (!node) continue;
         const pt = scene.seatScreen(pid, w, h);
         if (!pt) continue;
-        // sizes are measured in each form, so the compact switch doesn't flicker
+        // the plate is drawn at its size on the table (layout.ts PLATE), against its heart's left edge, so it grows and
+        // shrinks with the zoom like the heart (within limits: very far out it shows the portrait alone); sizes are
+        // measured in each form, so the compact switch doesn't flicker
         const form = node.classList.contains("compact") ? "small" : "full";
         if (node.offsetWidth) node.dataset[form] = `${node.offsetWidth},${node.offsetHeight}`;
-        const size = (f: string) => (node.dataset[f] ?? "160,56").split(",").map(Number) as [number, number];
-        const place = ([pw, ph]: [number, number]) => {
-          let { x, y } = pt;
-          if (pt.edge) x += (pt.edge * pw) / 2; // 1v1: the plate starts at its heart's edge (its right, or its left on a narrow screen)
-          const hits = (r: Box) => !(x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom);
-          const fits = (v: number) => v >= ph / 2 + 8 && v <= h - ph / 2 - 8;
-          const stepOff = (boxes: Box[]) => {
-            let moved = false;
-            for (const r of boxes) {
-              if (!hits(r)) continue;
-              // to whichever edge of the obstacle is nearer, unless that leaves the screen
-              const up = r.top - ph / 2 - 6;
-              const down = r.bottom + ph / 2 + 6;
-              y = (y - r.top < r.bottom - y && fits(up)) || !fits(down) ? up : down;
-              moved = true;
-            }
-            return moved;
-          };
-          // cards first (a few passes: stepping off one card can land on its neighbour); a plaque
-          // that would have to wander from its seat stays put instead; the fixed panels go last, so
-          // a plaque is never hidden under one
-          for (let pass = 0; pass < 4 && stepOff(cards); pass++);
-          const far = Math.abs(y - pt.y) > MAX_DRIFT;
-          if (far) y = pt.y;
-          x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
-          y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
-          for (let pass = 0; pass < 3 && stepOff(chrome); pass++);
-          return { x, y, covers: far || cards.some(hits) };
-        };
-        // no free spot near the seat (a crowded table): the compact form, which keeps life and any
-        // commander damage or poison, and shows the rest on hover or focus
-        if (measure) node.classList.toggle("compact", place(size("full")).covers);
-        const { x, y } = place(size(node.classList.contains("compact") ? "small" : "full"));
-        node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+        const size = (f: string) => (node.dataset[f] ?? "150,60").split(",").map(Number) as [number, number];
+        const [fullW] = size("full");
+        const want = (PLATE.w * pt.pxPerUnit) / Math.max(1, fullW);
+        const k = Math.max(PLATE_MIN, Math.min(PLATE_MAX, want));
+        if (measure) node.classList.toggle("compact", want < PLATE_COMPACT);
+        const [w0, h0] = size(node.classList.contains("compact") ? "small" : "full");
+        const pw = w0 * k;
+        const ph = h0 * k;
+        let x = pt.x - 4 * k - pw / 2;
+        let y = pt.y;
+        const hits = (r: Box) => !(x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom);
+        const fits = (v: number) => v >= ph / 2 + 8 && v <= h - ph / 2 - 8;
+        x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
+        y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
+        // the fixed panels (camera strip, dial, stack panels): a plate is never hidden under one
+        for (let pass = 0; pass < 3; pass++) {
+          let moved = false;
+          for (const r of chrome) {
+            if (!hits(r)) continue;
+            const up = r.top - ph / 2 - 6;
+            const down = r.bottom + ph / 2 + 6;
+            y = (y - r.top < r.bottom - y && fits(up)) || !fits(down) ? up : down;
+            moved = true;
+          }
+          if (!moved) break;
+        }
+        node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) scale(${k.toFixed(3)})`;
         node.style.visibility = pt.visible ? "visible" : "hidden";
       }
       // the selection toolbar rides above the card it acts on (the camera can move every frame)
@@ -347,8 +342,10 @@ const EMPTY_TAGS: [string, string][] = [];
 /** The arrow keys' directions for panning the view. */
 const PAN_KEYS: Record<string, "left" | "right" | "up" | "down"> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" };
 
-/** How far (px) a seat plaque may move off its seat to clear cards before it goes compact instead. */
-const MAX_DRIFT = 110;
+/** A plate's scale limits (its size follows the zoom, layout.ts PLATE), and below which it shows the portrait alone. */
+const PLATE_MIN = 0.5;
+const PLATE_MAX = 1.3;
+const PLATE_COMPACT = 0.62;
 
 const TIPS = [
   { title: "Players", text: "Click a player's plaque to see their counters, commander damage and actions." },

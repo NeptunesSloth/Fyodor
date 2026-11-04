@@ -260,8 +260,8 @@ describe("3D table motion: where another player's hand is", () => {
       const spot = otherHandSpot(seat);
       if (seat.duel) {
         // 1v1: their fan of backs stands in sight past their own edge, behind their heart and plate: the card comes from it
-        expect(spot.lz).toBeGreaterThan(MAT_D / 2 + 1);
-        expect(spot.lx).toBe(0);
+        expect(spot.lz).toBeGreaterThan(MAT_D / 2);
+        expect(Math.abs(spot.lx)).toBeGreaterThan(2); // beside their heart and plate, not behind them
         continue;
       }
       expect(onBattlefield(spot.lx, spot.lz)).toBe(true);

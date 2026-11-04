@@ -19,7 +19,7 @@ export interface Environment {
 const TABLE_THICK = 0.7;
 
 function skyDome(top: string, bottom: string): THREE.Mesh {
-  const geo = new THREE.SphereGeometry(140, 32, 16);
+  const geo = new THREE.SphereGeometry(900, 32, 16); // (the table's long lens zooms out far: the room must reach past it)
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
@@ -149,8 +149,6 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
   const slab = new THREE.Mesh(track(roundedSlab(size.w, size.d, 1.6, TABLE_THICK)), [topMat, railMat]);
   slab.position.y = tableY - TABLE_THICK - 0.12;
   slab.receiveShadow = true;
-  // the table shades the floor under it (the cards' shadows used to fall through it onto the floor as dark squares)
-  slab.castShadow = quality !== "low";
   group.add(slab);
   // a padded leather rail around the edge, like a card-room table, outside every zone
   const leather = track(new THREE.MeshStandardMaterial({ color: new THREE.Color(e.rail).lerp(new THREE.Color("#3b2416"), 0.35), roughness: 0.48, metalness: 0, envMapIntensity: 0.9 }));
@@ -171,11 +169,27 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     leg.position.set(sx * (halfW - 2.5), (floorY + tableY - 1) / 2, sz * (halfD - 2.5));
     group.add(leg);
   }
-  const floor = new THREE.Mesh(track(new THREE.CircleGeometry(120, 48)), track(new THREE.MeshStandardMaterial({ color: new THREE.Color(e.surfaceGrain).multiplyScalar(0.35), roughness: 1 })));
+  const floor = new THREE.Mesh(track(new THREE.CircleGeometry(600, 48)), track(new THREE.MeshStandardMaterial({ color: new THREE.Color(e.surfaceGrain).multiplyScalar(0.35), roughness: 1 })));
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = floorY;
-  floor.receiveShadow = quality === "high";
+  // the floor takes no shadow map (the cards' shadows fell through the table onto it as dark squares, the table's own as
+  // a hard-edged block): the table stands on a soft shadow of its own instead, a little away from the key light
+  floor.receiveShadow = false;
   group.add(floor);
+  const soft = document.createElement("canvas");
+  soft.width = soft.height = 128;
+  const pg = soft.getContext("2d")!;
+  const grad = pg.createRadialGradient(64, 64, 8, 64, 64, 64);
+  grad.addColorStop(0, "rgba(0,0,0,0.85)");
+  grad.addColorStop(0.55, "rgba(0,0,0,0.55)");
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  pg.fillStyle = grad;
+  pg.fillRect(0, 0, 128, 128);
+  const under = new THREE.Mesh(track(new THREE.PlaneGeometry(size.w * 1.35 + 4, size.d * 1.35 + 4)),
+    track(new THREE.MeshBasicMaterial({ map: track(new THREE.CanvasTexture(soft)), transparent: true, depthWrite: false, color: "#000" })));
+  under.rotation.x = -Math.PI / 2;
+  under.position.set(1.2, floorY + 0.02, -1.6);
+  group.add(under);
 
   // ---- props
   // the props stand in the table's very corners, past the piles and the mats: nothing decorative in the play space
@@ -205,8 +219,9 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     candles: () => {
       corners.forEach(([cx, cz], ci) => {
         if (ci === 2 || ci === 3) return; // keep the near corners clear for the viewer's hand
+        if (short && ci === 0 && e.props.includes("books")) return; // (framed spots: the candles on one, the books on the other)
         for (let i = 0; i < 3; i++) {
-          const h = short ? 0.45 + rand() * 0.75 : 0.6 + rand() * 0.9;
+          const h = short ? 0.4 + rand() * 0.5 : 0.6 + rand() * 0.9;
           const x = cx + (rand() - 0.5) * 0.5;
           const z = cz + (rand() - 0.5) * 0.5;
           const candle = new THREE.Mesh(track(new THREE.CylinderGeometry(0.13, 0.15, h, 12)), std("#efe3c8", { roughness: 0.9 }));
@@ -221,14 +236,14 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
       });
     },
     books: () => {
-      const [cx, cz] = corners[1]!;
+      const [cx, cz] = corners[short ? 0 : 1]!;
       let y = tableY;
       for (let i = 0; i < 3; i++) {
         const h = (0.22 + rand() * 0.12) * (short ? 0.75 : 1);
         // (at an aisle end, in sight the whole game: smaller and darker, so they don't pull the eye from the cards)
         const book = new THREE.Mesh(track(short ? new THREE.BoxGeometry(0.95, h, 0.7) : new THREE.BoxGeometry(1.3, h, 0.95)),
           std((short ? ["#3a1512", "#172438", "#262f17"] : ["#5a1f1a", "#223a5a", "#3a4a22"])[i]!, { roughness: 0.8 }));
-        book.position.set(short ? cx + Math.sign(cx) * 0.1 : cx - 0.2, y + h / 2, short ? cz + 0.85 : cz + 0.1); // (at an aisle end: in front of the candles, not under them)
+        book.position.set(short ? cx : cx - 0.2, y + h / 2, short ? cz : cz + 0.1);
         book.rotation.y = (rand() - 0.5) * 0.5;
         book.castShadow = quality === "high";
         group.add(book);
@@ -247,7 +262,7 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     lanterns: () => {
       corners.forEach(([cx, cz], ci) => {
         if (ci >= 2) return;
-        const tall = short ? 1.0 : 2.2;
+        const tall = short ? 0.8 : 2.2;
         const post = new THREE.Mesh(track(new THREE.CylinderGeometry(0.06, 0.08, tall, 8)), std("#1a1a1a", { metalness: 0.6 }));
         post.position.set(cx, tableY + tall / 2, cz);
         group.add(post);

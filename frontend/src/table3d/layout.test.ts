@@ -28,12 +28,16 @@ describe("3D table layout", () => {
     }
   });
 
-  it("floats every life heart toward the middle of the table, over the aisle (three or more seats)", () => {
-    for (const n of [3, 4, 6]) {
+  it("three or more seats: each heart and plate in the aisle by its own mat, centred on it, the plate on the heart's left", () => {
+    for (const n of [3, 4, 5, 6]) {
       for (const seat of seats(Array.from({ length: n }, (_, i) => `p${i}`), "p0")) {
         const [hx, hz] = toWorld(seat, ...heartSpot(seat));
-        if (Math.abs(seat.x) > 0.01) expect(Math.abs(hx)).toBeLessThan(Math.abs(seat.x)); // nearer the middle than its mat
-        expect(Math.abs(hz)).toBeLessThan(Math.abs(seat.z)); // out over the aisle side
+        const [px, pz] = toWorld(seat, ...plaqueSpot(seat));
+        expect(Math.abs(hz)).toBeLessThan(Math.abs(seat.z) - MAT_D / 2); // over the aisle side of its mat
+        expect(Math.sign(hz)).toBe(Math.sign(seat.z)); // in its own half of the aisle
+        expect(pz).toBeCloseTo(hz);
+        expect(px).toBeLessThan(hx); // the plate left of the heart, as I see it
+        expect(Math.abs((hx + px) / 2 - seat.x)).toBeLessThan(1); // the pair centred on its own mat
       }
     }
   });
@@ -119,8 +123,8 @@ describe("3D table layout", () => {
         for (const mat of s) expect(onMat(mat, x, z)).toBe(false);
         expect(z * z).toBeLessThan((tableSize(s).d / 2) ** 2);
       }
-      // the pair is centred on the mat (the heart left of the plate, as I see it), both seats the same way round
-      expect(heart[0]).toBeLessThan(plate[0]);
+      // the pair is centred on the mat (the plate left of the heart, as I see it), both seats the same way round
+      expect(plate[0]).toBeLessThan(heart[0]);
       expect(Math.abs((heart[0] + plate[0]) / 2 - seat.x)).toBeLessThan(1.2);
     }
   });

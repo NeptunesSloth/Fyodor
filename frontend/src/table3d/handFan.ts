@@ -7,7 +7,7 @@
  * Pure three.js math (no WebGL), so it is unit-tested.
  */
 import * as THREE from "three";
-import { CARD_H, CARD_W, DUEL_EDGE, MAT_D, RAIL, toWorld, type Seat, type TableSize } from "./layout";
+import { CARD_H, CARD_W, DUEL_FAN_X, MAT_D, RAIL, screenX, toWorld, type Seat, type TableSize } from "./layout";
 
 /** One card of the fan: where it is, how it's turned, and its size (world units). */
 export interface FanCard {
@@ -21,12 +21,23 @@ export const FAN_MAX = 12;
 /** The fan's layers: each card a hair in front of the one before (clear of z-fighting from far away). */
 export const FAN_LAYER = 0.012;
 
-/** How the fan stands for a seat: where its foot is past the mat's own edge, how far it leans back and its card size. */
-export function fanStance(seat: Seat): { foot: number; lean: number; scale: number } {
-  // 1v1: behind the heart and plate row, peeking over it (as the opponent's hand does on Arena)
-  if (seat.duel) return { foot: DUEL_EDGE - 1.3, lean: 0.95, scale: 0.86 };
+/**
+ * How the fan stands for a seat: where its foot is past the mat's own edge and how far along (mat-local x), how far it
+ * leans back and its card size.
+ */
+export function fanStance(seat: Seat): { foot: number; along: number; lean: number; scale: number } {
+  // 1v1: beside the heart and plate, right of them (as I see it), in the same row past the mat's far edge
+  if (seat.duel) return { foot: 0.3, along: screenX(seat, DUEL_FAN_X), lean: 0.95, scale: 0.86 };
   // more seats: just past the mat's edge, in the band of wood before the rail, standing a little more upright
-  return { foot: 0.16, lean: 1.12, scale: 0.72 };
+  return { foot: 0.16, along: 0, lean: 1.12, scale: 0.72 };
+}
+
+/**
+ * Whether this screen shows a seat's fan: only for the far row, whose backs face me. A seat in my own row holds its
+ * cards facing away from me, so I'd see the fan from behind, flattened against its edge: its count is on its plate.
+ */
+export function showsFan(seat: Pick<Seat, "side">): boolean {
+  return seat.side === "north";
 }
 
 /**
@@ -35,11 +46,11 @@ export function fanStance(seat: Seat): { foot: number; lean: number; scale: numb
  */
 export function handFan(seat: Seat, count: number): FanCard[] {
   const shown = Math.min(Math.max(0, count), FAN_MAX);
-  const { foot, lean, scale } = fanStance(seat);
+  const { foot, along, lean, scale } = fanStance(seat);
   const h = CARD_H * scale;
   const out: FanCard[] = [];
   // the fan's frame: origin on the felt at the foot's middle, +z toward the table's middle (the backs face it), y up
-  const [fx, fz] = toWorld(seat, 0, MAT_D / 2 + foot);
+  const [fx, fz] = toWorld(seat, along, MAT_D / 2 + foot);
   const frame = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), seat.rot + Math.PI);
   const tilt = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), lean);
   const width = Math.min(3.0, 0.42 + shown * 0.3) * scale;

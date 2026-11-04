@@ -47,16 +47,6 @@ export const RAIL = 0.72;
 /** Mat centre to mat centre along a row: the zone strips of neighbours don't touch. */
 export const SEAT_DX = 2 * STRIP_X + CARD_W + 0.8;
 /**
- * Which way along its mat a seat's heart and plaque sit: toward the middle of the table (where the scripted tables
- * keep the hearts, and where every seat can see them), or the owner's left for a seat in the middle of its row.
- * +1 is the owner's right in the mat's own frame.
- */
-export function towardMiddle(seat: Seat): 1 | -1 {
-  if (Math.abs(seat.x) < 0.01) return -1;
-  return -Math.sign(seat.x) * Math.sign(Math.cos(seat.rot)) > 0 ? 1 : -1;
-}
-
-/**
  * In facing rows the far row's piles are mirrored: every library, graveyard and exile is on the same side of my screen
  * (my right), and every command zone on the other. Display only (piles are zones, not positions).
  */
@@ -65,7 +55,7 @@ export function mirrored(seat: Pick<Seat, "side">): boolean {
 }
 
 /** Mat-local x that lands `sx` to the right of the mat's centre on my screen (rows face me or away from me). */
-function screenX(seat: Pick<Seat, "rot">, sx: number): number {
+export function screenX(seat: Pick<Seat, "rot">, sx: number): number {
   return Math.cos(seat.rot) >= 0 ? sx : -sx;
 }
 
@@ -76,8 +66,16 @@ export function heartTilt(seat: Pick<Seat, "duel">): number {
   return seat.duel ? 0.45 : 0.7;
 }
 
-/** 1v1: how far left of the mat's middle (as I see it) the heart sits; the plate starts at its right edge. */
-export const DUEL_HEART_LEFT = 1.15;
+/**
+ * Every seat's heart and plate are one piece, in the same order at every table and screen size: the plate on the
+ * left, the heart on the right, the pair centred on the seat's own mat (as I see it). HEART_X: the heart's centre
+ * right of the mat's middle. PLATE: the plate's size on the table (world units; Table3D scales the DOM plate to it,
+ * within limits) and the gap between it and the heart.
+ */
+export const HEART_X = 1.0;
+export const PLATE = { w: 2.0, h: 1.05, gap: 0.08 };
+/** 1v1: the other seat's fan of backs, right of its heart and plate (as I see it), its middle this far from the mat's. */
+export const DUEL_FAN_X = 3.65;
 
 /**
  * 1v1: how far past its own edge a seat's heart stands (its centre). It turns to face the camera, tipped up from its
@@ -93,21 +91,21 @@ export function duelOut(seat: Pick<Seat, "duel" | "side">): number {
 }
 
 /**
- * Where a seat's life heart floats, mat-local: over the aisle by the mat's inner corner nearest the middle; in 1v1,
- * centred past the mat's own edge (with the plate on its right, as I see it).
+ * Where a seat's life heart floats, mat-local, its plate on its left (see HEART_X). In 1v1, past the mat's own edge
+ * (theirs beyond their far edge, mine below my mat, above my hand). With more seats, in the aisle beside the seat's own
+ * mat, centred on it: the far row's nearer the middle line (its heart's raised top leans back toward its mat), mine
+ * nearer my row; each clear of every mat and pile.
  */
 export function heartSpot(seat: Seat): [number, number] {
-  if (seat.duel) return [screenX(seat, -DUEL_HEART_LEFT), MAT_D / 2 + duelOut(seat)];
-  return [towardMiddle(seat) * (MAT_W / 2 - 0.6), -MAT_D / 2 - AISLE * 0.4];
+  const x = screenX(seat, HEART_X);
+  if (seat.duel) return [x, MAT_D / 2 + duelOut(seat)];
+  return [x, -MAT_D / 2 - (seat.side === "south" ? AISLE - 1.15 : AISLE - 0.75)];
 }
 
-/**
- * Where a seat's plaque (portrait, name, trackers) sits, mat-local: beside its heart, a little further along; in 1v1,
- * just right of its heart past the mat's own edge (the DOM plate's left edge is placed against the heart on screen).
- */
+/** Where a seat's plate (portrait, name, trackers) sits, mat-local: its middle, just left of its heart (as I see it). */
 export function plaqueSpot(seat: Seat): [number, number] {
-  if (seat.duel) return [screenX(seat, -DUEL_HEART_LEFT + 0.85), MAT_D / 2 + duelOut(seat)];
-  return [towardMiddle(seat) * (MAT_W / 2 - 3.5), -MAT_D / 2 - AISLE / 2];
+  const [hx, hz] = heartSpot(seat);
+  return [hx - screenX(seat, HEART.w / 2 + PLATE.gap + PLATE.w / 2), hz];
 }
 
 /**

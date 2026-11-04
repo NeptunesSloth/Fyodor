@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { depthStep, fitCamera, ndcBox, nearFarFor, PLATE_PX, platePoints, plateSide, propSpots, PROP_TOP, seatElevation, tableLens, tablePoints, tableRect, viewDir, type FrameRect } from "./framing";
+import { depthStep, fitCamera, ndcBox, nearFarFor, plateCorners, propSpots, PROP_TOP, seatElevation, tableLens, tablePoints, tableRect, viewDir, type FrameRect } from "./framing";
 import { CARD_W, HEART, heartSpot, heartTilt, MAT_D, MAT_W, seatCamera, seats, STRIP_X, tableSize, toWorld, type Seat } from "./layout";
 
 /** The old lens, before the aspect fix and the long lens: the baseline the old seat camera is measured with. */
@@ -34,11 +34,11 @@ function matOnScreen(cam: THREE.PerspectiveCamera, seat: Seat, w: number, h: num
 function seatView(n: number, w: number, h: number, chrome: Box[] = []) {
   const s = seats(Array.from({ length: n }, (_, i) => `p${i + 1}`), "p1");
   const mine = s[0]!;
-  const pts = tablePoints(s, mine, tableSize(s));
+  const pts = tablePoints(s, mine, tableSize(s), seatElevation(n, w / h));
   const cam = tableLens(w, h);
   const rect = tableRect(w, h);
   const keep = chrome.map((b) => ndcBox(b, w, h));
-  const f = fitCamera(cam, [...pts, ...platePoints(s, w, h)], viewDir(mine.rot, seatElevation(n, w / h)), rect, keep);
+  const f = fitCamera(cam, pts, viewDir(mine.rot, seatElevation(n, w / h)), rect, keep);
   cam.position.copy(f.pos);
   cam.lookAt(f.look);
   cam.updateMatrixWorld(true);
@@ -146,21 +146,6 @@ describe("3D table framing", () => {
       }
       // the props stand where the frame holds them whole
       for (const [x, z] of propSpots(s, tableSize(s))) expect(inside(new THREE.Vector3(x, PROP_TOP, z).project(cam), rect)).toBe(true);
-      // each plate (a DOM box beside its heart, on the side plateSide says) is on the canvas and off the dial
-      const side = plateSide(screen.w / screen.h);
-      for (const seat of s) {
-        const [hx, hz] = toWorld(seat, ...heartSpot(seat));
-        const toCam = cam.position.clone().sub(new THREE.Vector3(hx, 0, hz)).setY(0).normalize();
-        const edge = new THREE.Vector3(hx, HEART.y + Math.sin(heartTilt(seat)) * HEART.h * 0.5, hz).addScaledVector(new THREE.Vector3(toCam.z, 0, -toCam.x), side * HEART.w * 0.47);
-        const [ex, ey] = px(cam, edge, screen.w, screen.h);
-        const far = ex + side * (4 + PLATE_PX.w);
-        const plate = { left: Math.min(ex, far), right: Math.max(ex, far), top: ey - PLATE_PX.h / 2 - PLATE_PX.flag, bottom: ey + PLATE_PX.h / 2 };
-        expect(plate.left).toBeGreaterThan(4);
-        expect(plate.right).toBeLessThan(screen.w - 4);
-        expect(plate.top).toBeGreaterThan(0);
-        const dial = screen.chrome[2]!;
-        expect(plate.right < dial.left || plate.bottom < dial.top).toBe(true);
-      }
       // my heart stands below my mat on screen (its raised far edge never covers the felt)
       const [lx, lz] = heartSpot(mine);
       const t = heartTilt(mine);
@@ -180,11 +165,46 @@ describe("3D table framing", () => {
     }
   });
 
-  it("1v1: the far mat is nearly as large on screen as mine (a long lens)", () => {
+  it("1v1: the far mat is nearly as large on screen as mine, as wide and as tall (a long lens, seen not too low)", () => {
     for (const screen of SCREENS) {
       const { s, mine, cam } = seatView(2, screen.w, screen.h, screen.chrome);
-      const far = s.find((x) => x !== mine)!;
-      expect(matOnScreen(cam, far, screen.w, screen.h).w / matOnScreen(cam, mine, screen.w, screen.h).w, screen.name).toBeGreaterThanOrEqual(0.85);
+      const far = matOnScreen(cam, s.find((x) => x !== mine)!, screen.w, screen.h);
+      const near = matOnScreen(cam, mine, screen.w, screen.h);
+      expect(far.w / near.w, screen.name).toBeGreaterThanOrEqual(0.85);
+      expect(far.h / near.h, screen.name).toBeGreaterThanOrEqual(0.85);
+    }
+  });
+
+  it("every seat count: each heart and plate is framed whole, off every mat on screen", () => {
+    for (const [n, w, h] of [[2, 1280, 594], [3, 1280, 675], [4, 1920, 1034], [5, 1920, 1034], [6, 1920, 1034]] as const) {
+      const { s, cam } = seatView(n, w, h, n === 2 ? SCREENS[0]!.chrome : []);
+      const screenBox = (pts: THREE.Vector3[]) => {
+        const p = pts.map((v) => px(cam, v, w, h));
+        return { l: Math.min(...p.map((q) => q[0])), r: Math.max(...p.map((q) => q[0])), t: Math.min(...p.map((q) => q[1])), b: Math.max(...p.map((q) => q[1])) };
+      };
+      const mats = s.map((seat) => screenBox([[-MAT_W / 2, -MAT_D / 2], [MAT_W / 2, -MAT_D / 2], [MAT_W / 2, MAT_D / 2], [-MAT_W / 2, MAT_D / 2]].map(([lx, lz]) => {
+        const [x, z] = toWorld(seat, lx!, lz!);
+        return new THREE.Vector3(x, 0, z);
+      })));
+      for (const seat of s) {
+        const [hx, hz] = heartSpot(seat);
+        const t = heartTilt(seat);
+        const half = (HEART.h / 2) * Math.cos(t);
+        const box = screenBox([
+          ...[[hx - HEART.w / 2, HEART.y, hz - half], [hx + HEART.w / 2, HEART.y + HEART.h * Math.sin(t), hz + half], [hx - HEART.w / 2, HEART.y + HEART.h * Math.sin(t), hz - half], [hx + HEART.w / 2, HEART.y, hz + half]].map(([lx, y, lz]) => {
+            const [x, z] = toWorld(seat, lx!, lz!);
+            return new THREE.Vector3(x, y!, z);
+          }),
+          ...plateCorners(seat, seatElevation(n, w / h)),
+        ]);
+        expect(box.l, `${n} seats`).toBeGreaterThan(0);
+        expect(box.r, `${n} seats`).toBeLessThan(w);
+        expect(box.t, `${n} seats`).toBeGreaterThan(0);
+        for (const m of mats) {
+          const overlap = Math.min(box.r, m.r) - Math.max(box.l, m.l) > 0 && Math.min(box.b, m.b) - Math.max(box.t, m.t) > 2;
+          expect(overlap, `${n} seats: ${seat.player}'s heart and plate over a mat`).toBe(false);
+        }
+      }
     }
   });
 
@@ -198,7 +218,7 @@ describe("3D table framing", () => {
       const dist = seat * zoom;
       const { near, far } = nearFarFor(dist, dist + 10);
       expect(depthStep(dist * 1.3, near, far), `zoom ${zoom}`).toBeLessThan(gap / 3);
-      expect(far).toBeGreaterThan(dist + 10 + 140); // the room's sky dome (radius 140) stays inside the far plane
+      expect(far).toBeGreaterThan(dist + 10 + 900); // the room's sky dome (radius 900) stays inside the far plane
     }
     // the cause: a fixed near plane of 0.1 at the farthest zoom left steps coarser than the gaps
     expect(depthStep(seat * 2.5, 0.1, 400)).toBeGreaterThan(gap);
