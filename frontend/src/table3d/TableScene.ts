@@ -63,7 +63,7 @@ import { handFan, showsFan } from "./handFan";
 import { whenProxyFontsReady } from "../cards/proxyMeasure";
 import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
-import { tileOverlayCanvas, tileTexture, TILE_PX } from "./tiles";
+import { FLAT_LOOK, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
 import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
 import { boardOrder, saveBoardOrder } from "../game/arrange";
 import { useBoardOrderTick } from "../game/arrangeDrop";
@@ -888,6 +888,66 @@ export class TableScene {
     return tex;
   }
 
+  /**
+   * -- arranged boards -- how a tile's name is drawn (table3d/tiles.ts): tall enough to read upright at the seat view's
+   * slant, and never smaller on screen than a set minimum, for that tile's size in the seat view (measured once per
+   * screen and seating, not as the player moves the camera).
+   */
+  private tileLookFor(id: string): TileLook {
+    const spot = this.placed.get(id);
+    const tv = this.tileView();
+    return spot && tv ? tileLook(spot.w * tv.ppu, tv.squash) : FLAT_LOOK;
+  }
+  private tileViewKey = "";
+  private tileViewVal: { ppu: number; squash: number } | null = null;
+  /** The seat view's scale at the middle of the table: CSS px per world unit across, and how foreshortened its depth is. */
+  private tileView(): { ppu: number; squash: number } | null {
+    const mine = this.seatList.find((s) => s.player === this.me);
+    if (!mine || this.viewW < 2 || this.viewH < 2) return null;
+    const key = `${this.seatKey}|${this.viewW}x${this.viewH}|${this.reserveTop}|${this.keepKey}`;
+    if (key === this.tileViewKey) return this.tileViewVal;
+    const f = this.fitView("seat", mine);
+    if (!f) return null;
+    const cam = this.fitCam;
+    cam.copy(this.camera);
+    tableLens(this.viewW, this.viewH, cam);
+    cam.position.copy(f.pos);
+    cam.lookAt(f.look);
+    cam.updateMatrixWorld(true);
+    const at = (lx: number, lz: number): THREE.Vector2 => {
+      const [dx, dz] = toWorld({ ...mine, x: 0, z: 0 }, lx, lz);
+      const p = new THREE.Vector3(f.look.x + dx, 0, f.look.z + dz).project(cam);
+      return new THREE.Vector2((p.x * this.viewW) / 2, (p.y * this.viewH) / 2);
+    };
+    const across = at(-0.5, 0).distanceTo(at(0.5, 0));
+    const deep = at(0, -0.5).distanceTo(at(0, 0.5));
+    this.tileViewKey = key;
+    this.tileViewVal = { ppu: across, squash: deep / Math.max(1e-6, across) };
+    return this.tileViewVal;
+  }
+
+  /** -- arranged boards -- tile textures no card shows any more (a look for another screen, a card gone): freed. */
+  private dropUnusedTiles(): void {
+    const used = new Set<string>();
+    for (const c of this.cards.values()) if (c.faceKey.startsWith("tile:")) used.add(c.faceKey.replace(/\|tapped$/, ""));
+    let n = 0;
+    for (const k of this.textures.keys()) if (k.startsWith("tile:")) n++;
+    if (n <= used.size + 24) return;
+    for (const [k, t] of [...this.textures]) {
+      if (!k.startsWith("tile:") || used.has(k)) continue;
+      t.dispose();
+      this.textures.delete(k);
+      for (const mk of [k, `${k}|tapped`]) {
+        const m = this.materials.get(mk);
+        if (!m) continue;
+        this.dimMats.get(m)?.dispose();
+        this.dimMats.delete(m);
+        m.dispose();
+        this.materials.delete(mk);
+      }
+    }
+  }
+
   private faceKeyFor(card: GameCard): string {
     if (!isVisible(card) || card.face_down) return `back:${card.owner}`;
     const data = card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
@@ -895,7 +955,8 @@ export class TableScene {
     // -- arranged boards -- an art tile (table3d/tiles.ts): what it shows is its key; a tapped one is a shade darker
     if (this.placed.has(card.id)) {
       const t = card.card_id ? "" : JSON.stringify([card.token?.type_line, card.token?.power, card.token?.toughness, card.token?.colors]);
-      return `tile:${card.card_id ?? card.name}:${card.face}:${look}:${card.commander_key ? 1 : 0}:${card.is_token ? 1 : 0}:${t}${card.tapped ? "|tapped" : ""}`;
+      const l = this.tileLookFor(card.id);
+      return `tile:${card.card_id ?? card.name}:${card.face}:${look}:${card.commander_key ? 1 : 0}:${card.is_token ? 1 : 0}:${l.stretch}:${l.min}:${t}${card.tapped ? "|tapped" : ""}`;
     }
     return `front:${card.card_id ?? card.name}:${card.face}:${look}`;
   }
@@ -931,7 +992,7 @@ export class TableScene {
       const art = data?.has_image ? imageUrl(data.id, imgFace, "normal") : null;
       const t = vis.token;
       const custom = !vis.card_id && t ? { name: t.name, type_line: t.type_line, oracle_text: t.text, power: t.power, toughness: t.toughness, colors: t.colors } : undefined;
-      const tex = tileTexture({ data, face: vis.face ?? 0, name: vis.name, custom, art, token: !!vis.is_token, commander: !!vis.commander_key },
+      const tex = tileTexture({ data, face: vis.face ?? 0, name: vis.name, custom, art, token: !!vis.is_token, commander: !!vis.commander_key, look: this.tileLookFor(card.id) },
         this.quality === "low" ? 224 : TILE_PX, this.renderer.capabilities.getMaxAnisotropy());
       this.textures.set(base, tex);
       m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0, envMapIntensity: 0.12 });
@@ -978,14 +1039,15 @@ export class TableScene {
 
   /** Arena-style badges on the card face; rebuilt only when what they say changes. */
   private setOverlay(c: CardObj, o: CardOverlay | null): void {
-    const key = o ? `${c.tile ? "tile" : ""}${JSON.stringify(o)}` : "";
+    const look = c.tile ? this.tileLookFor(c.id) : FLAT_LOOK;
+    const key = o ? `${c.tile ? `tile${look.stretch}` : ""}${JSON.stringify(o)}` : "";
     if (c.overlayKey === key) return;
     c.overlayKey = key;
     this.clearOverlay(c);
     if (!o) return;
     const mat = new THREE.MeshBasicMaterial({
       // -- arranged boards -- a tile's badges are laid out for its proportions (table3d/tiles.ts)
-      map: canvasTexture(c.tile ? tileOverlayCanvas(o) : cardOverlayCanvas(o)), transparent: true, depthWrite: false, toneMapped: false,
+      map: canvasTexture(c.tile ? tileOverlayCanvas(o, 256, look) : cardOverlayCanvas(o)), transparent: true, depthWrite: false, toneMapped: false,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
     });
     const m = new THREE.Mesh(this.cardFaceGeo, mat);
@@ -1176,6 +1238,7 @@ export class TableScene {
         this.cards.delete(id);
       }
     }
+    this.dropUnusedTiles();
     if (need.length) requestCards(need);
     this.stats.cards = this.cards.size;
     // a refused action's card glows red for a moment (static: no motion to reduce)
@@ -1474,6 +1537,9 @@ export class TableScene {
       this.scene.fog.near = near;
       this.scene.fog.far = this.fogBase[1] + (near - this.fogBase[0]);
     }
+    // -- arranged boards -- the tiles' names are drawn for this screen's seat view: drawn again when it changed
+    const tv = this.tileViewVal;
+    if (this.view && this.tileView() !== tv) this.syncCards();
   }
 
   /**

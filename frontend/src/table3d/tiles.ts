@@ -1,6 +1,6 @@
 /**
  * The arranged 3D boards' cards (table3d/arrange3d.ts): art tiles, as MTG Arena and the 2D board (game/BoardTile.tsx,
- * game/board.css) draw a permanent. The art crop large, the name on a smoked bar across the top, the printed P/T on a
+ * game/board.css) draw a permanent. The art crop large, the name on a dark bar across the top, the printed P/T on a
  * parchment plate, the frame's colour inked round the edge; a token's name in italics after a hollow coin, a
  * commander's crown and brass rim. A card without cached art shows the proxy's art window (its colours and its type's
  * icon), so the two read as the same card. The full card is a hover away (the card preview).
@@ -37,6 +37,8 @@ export interface TileSpec {
   art: string | null;
   token: boolean;
   commander: boolean;
+  /** How its name is drawn for the view it's seen in (FLAT_LOOK when left out). */
+  look?: TileLook;
 }
 
 function canvas(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
@@ -64,30 +66,98 @@ function clip(g: CanvasRenderingContext2D, text: string, maxW: number): string {
 }
 
 /**
- * A tile's name, fitted to the bar: one line, shrunk as far as `min` of its full size; else two lines at a smaller size,
- * broken where the lines come out most even; only a name too long even then is cut short (on its second line).
+ * How a tile's name is drawn for the view it's seen in (part of its texture's key): `stretch`, drawn that much taller
+ * than wide, since the table is seen at a slant and the name should read upright; `min`, the smallest it may be drawn
+ * (a fraction of the tile's width), so it is never tiny on screen. A smaller tile gets one shorter line, cut short with
+ * an ellipsis, rather than tiny text (the full name is a hover away).
  */
-export function fitName(g: CanvasRenderingContext2D, text: string, maxW: number, W: number, font: (px: number) => string): { lines: string[]; px: number } {
-  const full = Math.round(W * 0.145);
-  for (let px = full; px >= Math.round(W * 0.1); px--) {
+export interface TileLook {
+  stretch: number;
+  min: number;
+}
+/** Seen from above, on a tile about 200 px wide (the default). */
+export const FLAT_LOOK: TileLook = { stretch: 1, min: 0.05 };
+/** The name's largest size, and the smallest one line shrinks to before it splits in two (fractions of the width). */
+const NAME_FULL = 0.115;
+const NAME_ONE = 0.09;
+/** The name's letters are drawn this narrow (a condensed face, as Arena's): more of a long name fits. */
+export const NAME_CONDENSE = 0.9;
+/** A line's glyphs, above its baseline (capitals, accents) and below it (descenders), in ems. */
+export const NAME_ASC = 0.78;
+export const NAME_DESC = 0.24;
+/** The smallest a name's em may be on screen (CSS px, its height as seen): a capital stays about 7.5 px tall. */
+export const NAME_MIN_SCREEN = 10;
+
+/**
+ * The look for a tile `screenW` CSS px wide in the seat view, on a table whose depth is seen foreshortened to `squash`
+ * of its width there. Rounded to a few steps, so the textures don't change with every pixel of a window's resize.
+ */
+export function tileLook(screenW: number, squash: number): TileLook {
+  const stretch = Math.min(2.2, Math.max(1, Math.round((1 / Math.max(0.3, squash)) * 5) / 5));
+  // (1% steps; at 5% or less a tile is large enough for anything, two lines included)
+  const min = Math.min(NAME_FULL, Math.max(0.05, Math.ceil((NAME_MIN_SCREEN / Math.max(1, screenW)) * 100) / 100));
+  return { stretch, min };
+}
+
+/** The name bar's height on a tile W px wide, and the band inside it the name's lines are drawn in. */
+function nameBand(W: number, look: TileLook): { bar: number; top: number; inner: number } {
+  const top = Math.max(3, W * 0.03) + W * 0.015; // under the frame's ring
+  const inner = W * NAME_FULL * look.stretch * (NAME_ASC + NAME_DESC);
+  return { bar: top + inner + W * 0.025, top, inner };
+}
+
+/** A tile's name fitted to its bar: the lines, their size (canvas px) and each line's baseline (canvas px). */
+export interface NameFit {
+  lines: string[];
+  px: number;
+  base: number[];
+}
+
+/**
+ * A tile's name, fitted to the bar: one line, shrunk as far as NAME_ONE of the width; else, when two lines would still
+ * be at least `look.min`, two lines broken where they come out most even; else one line shrunk to `look.min` and then
+ * cut short. Every line's glyphs lie inside the bar's band (under the frame's ring, above the bar's foot).
+ */
+export function fitName(g: CanvasRenderingContext2D, text: string, maxW: number, W: number, font: (px: number) => string, look: TileLook = FLAT_LOOK): NameFit {
+  const { top, inner } = nameBand(W, look);
+  const s = look.stretch;
+  const min = Math.min(Math.round(W * NAME_FULL), Math.ceil(look.min * W));
+  const fits = (t: string) => g.measureText(t).width * NAME_CONDENSE <= maxW;
+  // a glyph box centred at y has its baseline this far below y
+  const baseAt = (y: number, px: number) => y + ((NAME_ASC - NAME_DESC) / 2) * px * s;
+  const one = (line: string, px: number): NameFit => ({ lines: [line], px, base: [baseAt(top + inner / 2, px)] });
+  const full = Math.round(W * NAME_FULL);
+  const floor = Math.max(min, Math.round(W * NAME_ONE));
+  for (let px = full; px >= floor; px--) {
     g.font = font(px);
-    if (g.measureText(text).width <= maxW) return { lines: [text], px };
+    if (fits(text)) return one(text, px);
   }
-  const px = Math.round(W * 0.09);
-  g.font = font(px);
+  // two lines, each a little under half the band, with a hairline between them
+  const gap = 0.06;
+  const px2 = Math.floor(inner / (s * (2 * (NAME_ASC + NAME_DESC) + gap)));
   const words = text.split(" ");
-  let best: [string, string, number] | null = null;
-  for (let i = 1; i < words.length; i++) {
-    const a = words.slice(0, i).join(" ");
-    const b = words.slice(i).join(" ");
-    const w = Math.max(g.measureText(a).width, g.measureText(b).width);
-    if (!best || w < best[2]) best = [a, b, w];
+  if (words.length > 1 && px2 >= min) {
+    g.font = font(px2);
+    let best: [string, string, number] | null = null;
+    for (let i = 1; i < words.length; i++) {
+      const a = words.slice(0, i).join(" ");
+      const b = words.slice(i).join(" ");
+      const w = Math.max(g.measureText(a).width, g.measureText(b).width);
+      if (!best || w < best[2]) best = [a, b, w];
+    }
+    const [a, b] = best!;
+    const step = px2 * s * (NAME_ASC + NAME_DESC + gap);
+    const mid = top + inner / 2;
+    return { lines: [clip(g, a, maxW / NAME_CONDENSE), clip(g, b, maxW / NAME_CONDENSE)], px: px2, base: [baseAt(mid - step / 2, px2), baseAt(mid + step / 2, px2)] };
   }
-  if (!best) {
-    g.font = font(Math.round(W * 0.112));
-    return { lines: [clip(g, text, maxW)], px: Math.round(W * 0.112) };
+  // one shorter line: shrunk as far as it may be, then cut short
+  for (let px = floor - 1; px >= min; px--) {
+    g.font = font(px);
+    if (fits(text)) return one(text, px);
   }
-  return { lines: [clip(g, best[0], maxW), clip(g, best[1], maxW)], px };
+  const px = Math.min(floor, Math.max(min, 1));
+  g.font = font(px);
+  return one(clip(g, text, maxW / NAME_CONDENSE), px);
 }
 
 const paths = new Map<string, Path2D>();
@@ -99,11 +169,11 @@ function path(d: string): Path2D {
 const CROWN = "M3.5 8l4 4 4.5-6.5 4.5 6.5 4-4-1.5 10h-14z";
 
 /** The name bar's height and the P/T plate's box on a tile W px wide (the overlay draws a changed P/T over it). */
-export function tileMetrics(W: number): { bar: number; pt: { x: number; y: number; w: number; h: number } } {
+export function tileMetrics(W: number, look: TileLook = FLAT_LOOK): { bar: number; top: number; inner: number; pt: { x: number; y: number; w: number; h: number } } {
   const H = Math.round(W * RATIO);
   const w = W * 0.44;
   const h = W * 0.25;
-  return { bar: W * 0.22, pt: { x: W - w - W * 0.045, y: H - h - W * 0.045, w, h } };
+  return { ...nameBand(W, look), pt: { x: W - w - W * 0.045, y: H - h - W * 0.045, w, h } };
 }
 
 function ptPlate(g: CanvasRenderingContext2D, W: number, text: string, ink: string, edge: string, arrow = ""): void {
@@ -176,50 +246,53 @@ function drawTile(c: HTMLCanvasElement, spec: TileSpec, img: HTMLImageElement | 
     g.fill(path(GLYPHS[p.kind]), "evenodd");
     g.restore();
   }
-  // the name: one line across the top, on smoked glass
-  const { bar } = tileMetrics(W);
+  // the name, across the top on an opaque bar (the scan's own printed name, at the top of its art crop, never shows
+  // through), in the frame's colour's dark ink
+  const look = spec.look ?? FLAT_LOOK;
+  const { bar, top, inner } = tileMetrics(W, look);
+  const s = look.stretch;
   const shade = g.createLinearGradient(0, 0, 0, bar);
-  shade.addColorStop(0, "rgba(16, 12, 8, 0.94)");
-  shade.addColorStop(1, "rgba(16, 12, 8, 0.8)");
+  shade.addColorStop(0, "#1b140e");
+  shade.addColorStop(1, "#110d09");
   g.fillStyle = shade;
   g.fillRect(0, 0, W, bar);
   g.fillStyle = spec.commander ? BRASS : frame;
   g.globalAlpha = spec.commander ? 1 : 0.6;
   g.fillRect(0, bar, W, Math.max(2, W * 0.008));
   g.globalAlpha = 1;
-  let x = W * 0.07;
-  const cy = bar / 2;
+  let x = W * 0.055;
+  const cy = top + inner / 2;
   if (spec.commander) {
-    const s = (bar * 0.62) / 24;
+    // the crown, as tall as a capital (drawn tall with the name)
+    const k = (W * NAME_FULL * 0.95) / 24;
     g.save();
-    g.translate(x - 2 * s, cy - 13 * s);
-    g.scale(s, s);
+    g.translate(x - 2 * k, cy - 13 * k * s);
+    g.scale(k, k * s);
     g.fillStyle = BRASS;
     g.fill(path(CROWN));
     g.restore();
-    x += bar * 0.62;
+    x += W * NAME_FULL * 0.95;
   } else if (spec.token) {
-    const rr = bar * 0.2;
+    const rr = W * NAME_FULL * 0.36;
     g.beginPath();
-    g.arc(x + rr, cy, rr, 0, Math.PI * 2);
+    g.ellipse(x + rr, cy, rr, rr * s, 0, 0, Math.PI * 2);
     g.lineWidth = Math.max(2, W * 0.012);
     g.strokeStyle = "#d9d0bd";
     g.stroke();
     x += rr * 2 + W * 0.03;
   }
-  const name = fitName(g, p.name || spec.name, W - x - W * 0.05, W, (px) => `${spec.token ? "italic " : ""}650 ${px}px ${UI}`);
+  const name = fitName(g, p.name || spec.name, W - x - W * 0.045, W, (px) => `${spec.token ? "italic " : ""}650 ${px}px ${UI}`, look);
   g.fillStyle = NAME_INK;
   g.textAlign = "left";
-  g.textBaseline = "middle";
+  g.textBaseline = "alphabetic";
   g.shadowColor = "rgba(0, 0, 0, 0.8)";
   g.shadowOffsetY = 1;
-  // the whole name, on one line or two (cut short only when it can't fit even then), drawn a little tall: the table is
-  // seen at a slant, so it reads upright (as the pile labels are)
-  const tall = name.lines.length > 1 ? 1.12 : 1.22;
+  // the whole name when it fits (else one line cut short), condensed and drawn tall: the table is seen at a slant, so
+  // it reads upright (as the pile labels do)
   name.lines.forEach((line, i) => {
     g.save();
-    g.translate(x, cy + W * 0.006 + (name.lines.length > 1 ? (i - 0.5) * name.px * 1.12 : 0));
-    g.scale(1, tall);
+    g.translate(x, name.base[i]!);
+    g.scale(NAME_CONDENSE, s);
     g.fillText(line, 0, 0);
     g.restore();
   });
@@ -291,11 +364,11 @@ export function tileTexture(spec: TileSpec, px: number, anisotropy: number): THR
 }
 
 /** A tile's badges: a changed P/T over the printed one, damage, keywords, counters, ×N and the owner's gem. */
-export function tileOverlayCanvas(o: CardOverlay, px = 256): HTMLCanvasElement {
+export function tileOverlayCanvas(o: CardOverlay, px = 256, look: TileLook = FLAT_LOOK): HTMLCanvasElement {
   const W = px;
   const H = Math.round(W * RATIO);
   const [c, g] = canvas(W, H);
-  const { bar, pt } = tileMetrics(W);
+  const { bar, pt } = tileMetrics(W, look);
   const chip = (x: number, y: number, w: number, h: number, edge: string) => {
     g.fillStyle = PLATE;
     rounded(g, x, y, w, h, h * 0.3);
@@ -331,8 +404,9 @@ export function tileOverlayCanvas(o: CardOverlay, px = 256): HTMLCanvasElement {
     g.font = `800 ${Math.round(W * 0.09)}px ${UI}`;
     g.fillText(o.owner.initial, W * 0.04 + rr, left + rr + 1);
   }
-  // other counters, top right under the name bar
-  o.counters.slice(0, 3).forEach(({ label, n }, i) => {
+  // other counters, top right under the name bar (as many as fit above the P/T plate)
+  const room = Math.max(1, Math.floor((pt.y - bar - W * 0.04) / (W * 0.185)));
+  o.counters.slice(0, Math.min(3, room)).forEach(({ label, n }, i) => {
     g.font = `800 ${Math.round(W * 0.11)}px ${UI}`;
     const text = `${label} ${n}`;
     const w = Math.min(W * 0.6, g.measureText(text).width + W * 0.08);
