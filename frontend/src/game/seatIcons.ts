@@ -6,10 +6,11 @@
  * - one light, from the top left: a lit upper edge and a soft shadow cast to the lower right;
  * - one brass, on a blackened-steel field inside a bevelled brass rim.
  * The seat buttons (Untap, Draw, Scry, Mill, Reveal, Mulligan, the Bag of Extras, the importer), the Bag of Extras'
- * counters, dice, close button and token emblem cards, and the commander-tax medallion all come from these parts.
+ * counters, dice, close button and token emblem cards, and the commander-tax coin all come from these parts.
  */
 import type { SeatActionId } from "./seatActions";
 import { GLYPH_BOX, SEAT_GLYPH_PATHS } from "./seatGlyphs";
+import { ZONE_GLYPH_PATHS } from "./zoneGlyphs";
 
 export type SeatIconId = SeatActionId | "mulligan" | "importer";
 /** The Bag of Extras' counters (game/bags.ts CARD_COUNTERS, PLAYER_COUNTERS), its token search (the book) and the close button. */
@@ -327,62 +328,208 @@ export function drawDieIcon(canvas: HTMLCanvasElement, sides: DieIconId): void {
   g.setTransform(1, 0, 0, 1, 0, 0);
 }
 
+/** How many times a commander has been cast from the command zone, for a tax of `tax` ({2} a cast). */
+export function taxCasts(tax: number): number {
+  return Math.ceil(Math.max(0, tax) / 2);
+}
+
+/** The commander-tax tooltip's first line: "Commander tax: +4 (cast 2 times from the command zone)". */
+export function taxSentence(tax: number): string {
+  const n = taxCasts(tax);
+  if (!n) return "Commander tax: none yet (not cast from the command zone)";
+  return `Commander tax: +${tax} (cast ${n === 1 ? "once" : `${n} times`} from the command zone)`;
+}
+
+/** The crown (game-icons.net, lorc/crown: zoneGlyphs.ts), fitted to a box `w` wide centred on (cx, cy). */
+function crownPath(g: CanvasRenderingContext2D, cx: number, cy: number, w: number): Path2D {
+  const k = w / 480;
+  const p = new Path2D();
+  p.addPath(new Path2D(ZONE_GLYPH_PATHS.command.d), new DOMMatrix([k, 0, 0, k, cx - 256 * k, cy - 255 * k]));
+  void g;
+  return p;
+}
+
+/** A brass coin's face seen from above, centred on (cx, cy): a dark edge, a reeded rim lit from the top left, a struck field. */
+function coinFace(g: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
+  const disc = (rad: number, style: string | CanvasGradient) => {
+    g.fillStyle = style;
+    g.beginPath();
+    g.arc(cx, cy, rad, 0, Math.PI * 2);
+    g.fill();
+  };
+  const lin = (a: string, b: string, c: string) => {
+    const gr = g.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+    gr.addColorStop(0, a);
+    gr.addColorStop(0.5, b);
+    gr.addColorStop(1, c);
+    return gr;
+  };
+  disc(r + 1.4, "#1c1206");
+  disc(r, lin(BRASS.hi, BRASS.mid, BRASS.dark)); // the rim
+  // the reeding: fine ticks round the rim
+  g.save();
+  g.strokeStyle = "rgba(60, 38, 12, 0.55)";
+  g.lineWidth = r / 40;
+  for (let i = 0; i < 60; i++) {
+    const a = (i / 60) * Math.PI * 2;
+    g.beginPath();
+    g.moveTo(cx + Math.cos(a) * r * 0.86, cy + Math.sin(a) * r * 0.86);
+    g.lineTo(cx + Math.cos(a) * r * 0.97, cy + Math.sin(a) * r * 0.97);
+    g.stroke();
+  }
+  g.restore();
+  disc(r * 0.84, lin(BRASS.dark, BRASS.mid, BRASS.light)); // the rim's inner slope, shaded at the top left
+  const field = g.createRadialGradient(cx - r * 0.3, cy - r * 0.35, r * 0.05, cx, cy, r * 0.8);
+  field.addColorStop(0, "#e9c985");
+  field.addColorStop(0.6, "#c39552");
+  field.addColorStop(1, "#9a6d34");
+  disc(r * 0.79, field);
+}
+
+/** An empty coin socket, sunk into the wood: a dark round hollow with a fine brass ring, the crown pressed faintly in. */
+function coinSocket(g: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
+  const hollow = g.createRadialGradient(cx + r * 0.2, cy + r * 0.25, r * 0.1, cx, cy, r);
+  hollow.addColorStop(0, "#2a2018");
+  hollow.addColorStop(1, "#0c0806");
+  g.fillStyle = hollow;
+  g.beginPath();
+  g.arc(cx, cy, r, 0, Math.PI * 2);
+  g.fill();
+  // the lip's shadow inside its upper-left edge, and light caught on its lower-right one
+  g.lineWidth = r * 0.1;
+  g.strokeStyle = "rgba(0, 0, 0, 0.7)";
+  g.beginPath();
+  g.arc(cx, cy, r * 0.93, Math.PI * 0.9, Math.PI * 1.85);
+  g.stroke();
+  g.lineWidth = r * 0.05;
+  g.strokeStyle = "rgba(201, 160, 90, 0.75)";
+  g.beginPath();
+  g.arc(cx, cy, r, 0, Math.PI * 2);
+  g.stroke();
+  g.fillStyle = "rgba(255, 226, 170, 0.13)";
+  g.fill(crownPath(g, cx, cy + r * 0.04, r * 1.05));
+}
+
 /**
- * A commander's tax: a brass medallion whose face is a pale generic-mana pip carrying the tax, as {2} reads on a card,
- * a crown (the commander) stamped above it. At 0 it waits, dim, the 0 still readable on a dark pip; once the commander
- * has been cast it is lit, the number dark on ivory.
+ * A commander's tax, for the 2D table (and the same language as the 3D table's coin column): a brass coin with the
+ * tax to pay struck on it ("+4"), with a coin edge peeking from under it for each earlier cast (two at most). At 0 an
+ * empty coin socket, quiet.
  */
 export function drawTaxMedallion(canvas: HTMLCanvasElement, tax: number): void {
   const { g, s } = begin(canvas);
-  const lit = tax > 0;
-  medallion(g);
-  // the crown, stamped in brass between the rim and the pip
-  const crown = P("M33.5 22 L36 9.5 L43 16.5 L50 7.5 L57 16.5 L64 9.5 L66.5 22 Z");
-  g.save();
-  g.shadowColor = "rgba(0, 0, 0, 0.85)";
-  g.shadowBlur = 1.6 * s;
-  g.shadowOffsetX = 0.8 * s;
-  g.shadowOffsetY = 1.2 * s;
-  g.fillStyle = brass(g, 33, 7, 67, 22);
-  g.fill(crown);
-  g.restore();
-  g.strokeStyle = "rgba(30, 18, 6, 0.9)";
-  g.lineWidth = 1.4;
-  g.lineJoin = "round";
-  g.stroke(crown);
-  if (!lit) {
-    // waiting: rim and crown a step darker than a lit one (the pip and its 0 are drawn after, at full contrast)
-    g.globalCompositeOperation = "source-atop";
-    g.fillStyle = "rgba(6, 5, 4, 0.45)";
-    g.fillRect(0, 0, 100, 100);
-    g.globalCompositeOperation = "source-over";
+  const casts = taxCasts(tax);
+  if (!casts) {
+    coinSocket(g, 50, 50, 44);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    return;
   }
-  const [px, py, pr] = [50, 58.5, 35];
+  const under = Math.min(2, casts - 1);
+  const r = 40;
+  const cy = 46 - under * 2.5;
+  // the coins under it: their edges, a sliver each, lower down
+  for (let i = under; i >= 1; i--) {
+    const y = cy + i * 5;
+    g.fillStyle = "#1c1206";
+    g.beginPath();
+    g.arc(50, y, r + 1.4, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = i === 1 ? BRASS.dark : "#6e4c22";
+    g.beginPath();
+    g.arc(50, y, r, 0, Math.PI * 2);
+    g.fill();
+  }
   g.save();
-  g.shadowColor = "rgba(0, 0, 0, 0.8)";
-  g.shadowBlur = 2.2 * s;
-  g.shadowOffsetX = 0.9 * s;
-  g.shadowOffsetY = 1.5 * s;
-  const pip = g.createRadialGradient(px - 9, py - 11, 2, px, py, pr + 2);
-  pip.addColorStop(0, lit ? "#f7f2e9" : "#332d27");
-  pip.addColorStop(1, lit ? "#c4baab" : "#24201b");
-  g.fillStyle = pip;
+  g.shadowColor = "rgba(0, 0, 0, 0.6)";
+  g.shadowBlur = 2 * s;
+  g.shadowOffsetY = 1.2 * s;
+  g.fillStyle = "#1c1206";
   g.beginPath();
-  g.arc(px, py, pr, 0, Math.PI * 2);
+  g.arc(50, cy, r + 1.4, 0, Math.PI * 2);
   g.fill();
   g.restore();
-  g.strokeStyle = lit ? "rgba(60, 45, 25, 0.9)" : "rgba(0, 0, 0, 0.8)";
-  g.lineWidth = 1.6;
-  g.beginPath();
-  g.arc(px, py, pr, 0, Math.PI * 2);
-  g.stroke();
-  const n = String(Math.max(0, Math.min(99, tax)));
+  coinFace(g, 50, cy, r);
+  // the tax, struck into the field: dark, with a lit edge under it
+  const n = `+${Math.min(99, Math.max(0, tax))}`;
   g.textAlign = "center";
   g.textBaseline = "middle";
-  g.font = `800 ${n.length > 1 ? 46 : 60}px ${FONT}, sans-serif`;
-  g.fillStyle = lit ? INK : "#b8ad98"; // (≥4.5:1 on the dark pip)
-  g.fillText(n, px, py + 3);
+  g.font = `800 ${n.length > 2 ? 34 : 42}px ${FONT}, sans-serif`;
+  g.fillStyle = "rgba(255, 240, 200, 0.6)";
+  g.fillText(n, 50.6, cy + 3.4);
+  g.fillStyle = "#2a1906";
+  g.fillText(n, 50, cy + 2.4);
   g.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/** The 3D table's tax coin, its top face (a square canvas): the coin with the crown struck in its field. */
+export function drawTaxCoinFace(canvas: HTMLCanvasElement): void {
+  const { g } = begin(canvas);
+  coinFace(g, 50, 50, 48.5);
+  const crown = crownPath(g, 50, 51, 58);
+  g.fillStyle = "rgba(255, 244, 214, 0.55)";
+  g.save();
+  g.translate(-0.6, -0.8);
+  g.fill(crown);
+  g.restore();
+  g.fillStyle = "#6a4518";
+  g.fill(crown);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/** The 3D table's empty tax socket (a square canvas). */
+export function drawTaxSocket(canvas: HTMLCanvasElement): void {
+  const { g } = begin(canvas);
+  coinSocket(g, 50, 50, 46);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/**
+ * The 3D table's tax tag (a canvas 5:3): a small engraved brass tag with the tax to pay ("+4"), its corners clipped, a
+ * fine engraved line inside its edge. `stretch`: how much taller than wide its numerals are drawn (a tag seen at a
+ * slant reads upright).
+ */
+export function drawTaxTag(canvas: HTMLCanvasElement, tax: number, stretch = 1): void {
+  const g = canvas.getContext("2d")!;
+  const W = canvas.width;
+  const H = canvas.height;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, W, H);
+  const c = H * 0.2;
+  const tag = new Path2D(`M${c} 3 H${W - c} L${W - 3} ${c} V${H - c} L${W - c} ${H - 3} H${c} L3 ${H - c} V${c} Z`);
+  const face = g.createLinearGradient(0, 0, W * 0.6, H * 1.4);
+  face.addColorStop(0, BRASS.hi);
+  face.addColorStop(0.3, BRASS.light);
+  face.addColorStop(0.75, BRASS.mid);
+  face.addColorStop(1, BRASS.dark);
+  g.fillStyle = "#1c1206";
+  g.fill(tag);
+  g.save();
+  g.translate(W / 2, H / 2);
+  g.scale(1 - 6 / W, 1 - 6 / H);
+  g.translate(-W / 2, -H / 2);
+  g.fillStyle = face;
+  g.fill(tag);
+  g.restore();
+  g.save();
+  g.translate(W / 2, H / 2);
+  g.scale(0.86, 0.78);
+  g.translate(-W / 2, -H / 2);
+  g.strokeStyle = "rgba(70, 44, 14, 0.7)";
+  g.lineWidth = 2.5;
+  g.stroke(tag);
+  g.restore();
+  const n = `+${Math.min(99, Math.max(0, tax))}`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  const px = Math.min(H * 0.62 / stretch, (W * 0.62) / (n.length * 0.62));
+  g.font = `800 ${px}px ${FONT}, sans-serif`;
+  g.save();
+  g.translate(W / 2, H / 2 + H * 0.03);
+  g.scale(1, stretch);
+  g.fillStyle = "rgba(255, 244, 214, 0.7)";
+  g.fillText(n, 1, 1.5);
+  g.fillStyle = "#24160a";
+  g.fillText(n, 0, 0);
+  g.restore();
 }
 
 /** A token's colour as the tint of its emblem card's name band. */

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { depthStep, fitCamera, ndcBox, nearFarFor, offMat, plateCorners, propSpots, PROP_TOP, seatElevation, tableLens, tablePoints, tableRect, viewDir, type FrameRect } from "./framing";
-import { BUTTON_R, buttonRowZ, CARD_H, CARD_W, commandSlot, HEART, heartSpot, heartTilt, MAT_D, MAT_W, seatCamera, seats, STRIP_X, tableSize, TAX_R, taxSpot, toWorld, type Seat } from "./layout";
+import { BUTTON_R, buttonRowZ, CARD_H, CARD_W, commandSlot, HEART, heartSpot, heartTilt, MAT_D, MAT_W, seatCamera, seats, STRIP_X, tableSize, COIN, nameplateSpot, plateDepth, taxSpot, toWorld, type Seat } from "./layout";
 
 /** The old lens, before the aspect fix and the long lens: the baseline the old seat camera is measured with. */
 function oldLens(w: number, h: number): THREE.PerspectiveCamera {
@@ -245,7 +245,7 @@ describe("the seat view's corner by my command zone is not crowded", () => {
   // on screen (px): the command slot's card, my seat buttons' row under it, and the tax medallion beside it
   for (const { name, w, h, chrome } of SCREENS) {
     for (const n of [2, 4]) {
-      it(`${n === 2 ? "1v1" : "4 players"} at ${name}: at least 8 px between the command card and the buttons, and the tax medallion`, () => {
+      it(`${n === 2 ? "1v1" : "4 players"} at ${name}: at least 8 px between the command card and the buttons; the tax column clear of the card`, () => {
         const { cam, mine } = seatView(n, w, h, chrome);
         const [sx, sz] = commandSlot(mine, 0);
         const at = (lx: number, y: number, lz: number) => {
@@ -256,10 +256,22 @@ describe("the seat view's corner by my command zone is not crowded", () => {
         const cardFar = at(sx, 0.02, sz - CARD_H / 2);
         // the buttons' row: its far edge, as if a medallion lay right under the card
         if (n === 2) expect(at(sx, 0.08, buttonRowZ(true) - BUTTON_R) - cardNear).toBeGreaterThanOrEqual(8);
-        // the tax medallion: under the card (4 players) or on its table side (1v1)
-        const [tx, tz] = taxSpot(0, mine, true, 1);
-        if (tz > sz) expect(at(tx, 0.05, tz - TAX_R) - cardNear).toBeGreaterThanOrEqual(0);
-        else expect(cardFar - at(tx, 0.05, tz + TAX_R)).toBeGreaterThanOrEqual(8);
+        void cardFar;
+        // the tax column beside it: its coins (a full stack) and its tag clear of the command card's edge on screen, and
+        // of the buttons' row
+        const [tx, tz] = taxSpot(mine, 0);
+        const xAt = (lx: number, y: number, lz: number) => {
+          const [x, z] = toWorld(mine, lx, lz);
+          return px(cam, new THREE.Vector3(x, y, z), w, h)[0];
+        };
+        const cardInner = xAt(sx + CARD_W / 2, 0.02, sz + CARD_H / 2);
+        expect(xAt(tx - COIN.r, 0, tz + COIN.r) - cardInner).toBeGreaterThanOrEqual(2); // (its well's gold edge between them)
+        // (1v1: the command well's plate, under the coins too, clear of the buttons' row below it on screen; at four
+        // players the row is far off to the right)
+        if (n === 2) {
+          const [gx, gz] = nameplateSpot(mine, commandSlot(mine, 0), "command");
+          expect(at(sx, 0.08, buttonRowZ(true) - BUTTON_R) - at(gx, 0, gz + plateDepth(mine) / 2)).toBeGreaterThanOrEqual(4); // (the row starts well right of it)
+        }
       });
     }
   }
@@ -272,6 +284,7 @@ describe("my seat's medallions lie on the wood, never in the rail", () => {
     const railAt = MAT_D / 2 + 1.4 + 0.05 - 0.62;
     expect(buttonRowZ(false) + BUTTON_R).toBeLessThanOrEqual(railAt);
     const [, mine] = [0, seats(["a", "b", "c", "d"], "a").find((s) => s.player === "a")!];
-    expect(taxSpot(0, mine, true, 1)[1] + TAX_R).toBeLessThanOrEqual(railAt);
+    expect(nameplateSpot(mine, commandSlot(mine, 0), "command")[1] + plateDepth(mine) / 2).toBeLessThanOrEqual(railAt);
+    expect(taxSpot(mine, 0)[1] + COIN.r).toBeLessThanOrEqual(railAt);
   });
 });

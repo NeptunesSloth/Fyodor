@@ -7,16 +7,18 @@
  * - Your seat's buttons, as the Oops table has them: in a row just past your mat's near edge (from its left end), bevelled
  *   brass medallions with stamped symbols (game/seatIcons.ts), Untap, Draw, Scry, Mill and Reveal, then Mulligan apart to
  *   the right and the Bag of Extras past it.
- * - Each commander's tax: a small brass medallion by its command-zone slot, dim at 0 and lit once there is tax to pay.
+ * - Each commander's tax: a short column of brass coins beside its command well, one per cast from the command zone,
+ *   the tax to pay ("+4") on the well's brass nameplate under them; at 0 an empty socket. A new coin drops onto the stack.
+ * - A partner's (or background's) well in the command zone, as the commander's (table3d/zoneWells.ts).
  */
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
 import { useGame } from "../state/gameStore";
-import { drawSeatIcon, drawTaxMedallion, whenIconFontReady } from "../game/seatIcons";
+import { drawSeatIcon, drawTaxCoinFace, drawTaxSocket, taxCasts } from "../game/seatIcons";
 import { motionMs, onMotionSkip } from "../game/motion/timing";
-import { BUTTON_R, buttonRowZ, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, heartTilt, TAX_R, taxSpot, toWorld, type Seat } from "./layout";
-import { slotTexture } from "./textures";
+import { BUTTON_R, buttonRowZ, COIN, plateDepth, commandSlot, COMMAND_SLOTS, COMMAND_WELL, HEART, heartSpot, heartTilt, plateOffset, plateWidth, TAX_READOUT, TAX_STACK, taxReadoutSpot, taxSpot, toWorld, wellPiece, type Seat } from "./layout";
+import { drawWell, WELL_PX, wellCanvasSize, wellStretch, whenWellFontsReady, type WellArt } from "./zoneWells";
 
 const HEART_W = HEART.w;
 const HEART_Y = HEART.y;
@@ -64,7 +66,6 @@ function drawLabel(canvas: HTMLCanvasElement, text: string): number {
   g.fillText(text, W / 2, H / 2 + 2);
   return W / H;
 }
-const TAX_H = 0.05;
 
 /** The Oops heart, in a 256×232 box. */
 function heartPath(): Path2D {
@@ -168,7 +169,21 @@ const blobTexture = () => {
 };
 
 /** A commander's tax medallion: the face (`mesh`, turned to the viewer), its brass edge, and when its number last changed. */
-interface Tax { mesh: THREE.Mesh; edge: THREE.Mesh; edgeMat: THREE.MeshStandardMaterial; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; shown: number; changed: number }
+/**
+ * A commander's tax: its socket and the column's base (world), the hit cylinder over its coins and the hit box over its
+ * number on the well's plate, the tax shown and its coins, and the top coin's fall (when it started, and whether it is
+ * still falling).
+ */
+interface Tax {
+  key: string; base: THREE.Vector3; salt: number; first: number;
+  socket: THREE.Mesh; hit: THREE.Mesh; readout: THREE.Mesh;
+  shown: number; coins: number; dropAt: number; dropping: boolean;
+  /** A partner's (or background's) well, whose plate carries its tax at three or more seats. */
+  well?: { art: WellArt; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture };
+}
+/** How far a new tax coin falls onto its stack, and for how long (at the table's animation speed). */
+const COIN_DROP_H = 0.42;
+const COIN_DROP_MS = 260;
 
 interface Heart {
   group: THREE.Group; face: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; color: string; shown: string;
@@ -208,7 +223,6 @@ export class SeatProps {
   private hovered: SeatActionId | null = null;
   private disposables: { dispose(): void }[] = [];
   private tmp = new THREE.Vector3();
-  private look = new THREE.Vector3();
   /** Any click or key lands every rolling life total at once (game/motion/timing.ts). */
   private unskip = onMotionSkip(() => {
     for (const h of this.hearts.values()) {
@@ -217,6 +231,8 @@ export class SeatProps {
         this.drawLife(h, h.roll.at);
       }
     }
+    // and every falling tax coin onto its stack
+    for (const t of this.taxes.values()) if (t.dropping) { t.dropping = false; this.coinsDirty = true; }
   });
 
   /** Hearts for every seat; buttons for mine (seat colours from the view). */
@@ -247,7 +263,6 @@ export class SeatProps {
       this.group.add(group);
       this.hearts.set(seat.player, { group, face, canvas, tex, color, shown: "", hot: 0, pressed: 0, pressAt: 0, fit: 1, fitTo: 1, roll: { from: 0, to: 0, start: 0, dur: 0, at: null, pending: 0 } });
     }
-    this.me = me;
     const mine = seats.find((s) => s.player === me);
     if (!mine) return;
     // the medallions: a face drawn lit from the top left (the same picture as the 2D table's buttons, unlit, its rim's
@@ -393,78 +408,211 @@ export class SeatProps {
   }
 
   /**
-   * Each commander's tax counter beside its slot in the command zone (and a slot for a partner when there is one).
-   * `commanders`: per seat, its commanders' keys in slot order, with their tax.
+   * Each commander's tax beside its well in the command zone (and a well for a partner when there is one): a column of
+   * brass coins in a socket, one per cast from the command zone (the tax to pay is on the well's plate). `commanders`: per seat,
+   * its commanders' keys in slot order, with their tax.
    */
-  setCommanders(seats: Seat[], commanders: Record<string, { key: string; tax: number }[]>, _colors: Record<string, string>, viewRot = 0): void {
-    const key = JSON.stringify(seats.map((s) => [s.player, (commanders[s.player] ?? []).map((c) => c.key)]));
+  setCommanders(seats: Seat[], commanders: Record<string, { key: string; tax: number }[]>, colors: Record<string, string>, viewRot = 0): void {
+    const key = JSON.stringify([seats.map((s) => [s.player, (commanders[s.player] ?? []).map((c) => c.key)]), colors]);
     if (key !== this.taxKey) {
       this.taxKey = key;
-      for (const t of this.taxes.values()) this.group.remove(t.mesh, t.edge);
-      this.taxes.clear();
       for (const extra of this.slots) this.group.remove(extra);
       this.slots = [];
+      this.taxes.clear();
+      const duel = seats.length === 2;
+      const shared = this.taxShared();
+      let total = 0;
       for (const seat of seats) {
         const list = commanders[seat.player] ?? [];
         list.slice(0, COMMAND_SLOTS.length).forEach((c, i) => {
+          let partnerWell: Tax["well"];
           if (i > 0) {
-            // the partner's slot, outlined on the felt like the others
-            const slot = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(CARD_W * 1.05, CARD_H * 1.05)),
-              this.keep(new THREE.MeshBasicMaterial({ map: this.keep(slotTexture(i === 1 ? "Partner" : "Command", "#b39458", seats.length)), transparent: true, depthWrite: false })));
-            slot.rotation.x = -Math.PI / 2;
-            slot.rotation.z = viewRot; // its label upright from my seat
-            const [sx, sz] = toWorld(seat, ...commandSlot(seat, i));
-            slot.position.set(sx, 0.0034, sz); // as the other pile slots (TableScene SLOT_Y)
-            slot.renderOrder = -1;
-            this.group.add(slot);
-            this.slots.push(slot);
+            // the partner's (or background's) well, as the commander's (TableScene draws that one with the piles)
+            const at = commandSlot(seat, i);
+            const art: WellArt = { zone: "command", label: i === 1 ? "Partner" : "Command", count: null, duel, color: colors[seat.player] ?? "#888", well: COMMAND_WELL, plateW: plateWidth("command", duel), plateH: plateDepth(seat), plateDx: plateOffset("command"), stretch: wellStretch(duel, seat.side === "north") };
+            const canvas = document.createElement("canvas");
+            drawWell(canvas, art);
+            const tex = this.keep(new THREE.CanvasTexture(canvas));
+            tex.colorSpace = THREE.SRGBColorSpace;
+            tex.anisotropy = 8;
+            const [W, H] = wellCanvasSize(art);
+            const well = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(W / WELL_PX, H / WELL_PX)),
+              this.keep(new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 0.72, metalness: 0, envMapIntensity: 0.25 })));
+            well.rotation.x = -Math.PI / 2;
+            well.rotation.z = viewRot; // its plate upright from my seat
+            const [sx, sz] = toWorld(seat, ...wellPiece(seat, at, "command").at);
+            well.position.set(sx, 0.0034, sz); // as the other wells (TableScene SLOT_Y)
+            well.renderOrder = -1;
+            well.receiveShadow = true;
+            this.group.add(well);
+            this.slots.push(well);
+            partnerWell = { art, canvas, tex };
           }
-          const canvas = document.createElement("canvas");
-          canvas.width = canvas.height = 256;
-          const tex = this.keep(new THREE.CanvasTexture(canvas));
-          tex.colorSpace = THREE.SRGBColorSpace;
-          tex.anisotropy = 8;
-          // a low brass puck under the command zone, its face (unlit, drawn lit, its edge soft in the texture's alpha) turned
-          // to whoever looks (tick); a partner's beside it, toward the mat
-          const mesh = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(TAX_R * 2, TAX_R * 2).rotateX(-Math.PI / 2)),
-            this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })));
-          const edgeMat = this.keep(new THREE.MeshStandardMaterial({ color: 0x8a6432, roughness: 0.42, metalness: 0.75, emissive: 0xffc870, emissiveIntensity: 0 }));
-          const edge = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(TAX_R * 0.96, TAX_R * 1.02, TAX_H, 64)), edgeMat);
-          // mine under my command zone, by my hand (in 1v1, where my buttons' row is, as the others'); any other seat's on
-          // the table side of its command slots, toward the middle of the table, one under another (layout.ts taxSpot)
-          const [wx, wz] = toWorld(seat, ...taxSpot(i, seat, seat.player === this.me, list.length));
-          mesh.position.set(wx, TAX_H + 0.002, wz);
-          edge.position.set(wx, TAX_H / 2, wz);
-          mesh.userData = { tax: c.key };
-          edge.userData = { tax: c.key };
-          const under = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(TAX_R * 2.7, TAX_R * 2.7).rotateX(-Math.PI / 2)), this.shadowMat());
-          under.position.set(wx + 0.03, 0.004, wz + 0.04);
-          this.group.add(under, edge, mesh);
-          this.slots.push(under); // (removed with the slots when the commanders change)
-          this.taxes.set(c.key, { mesh, edge, edgeMat, canvas, tex, shown: -1, changed: 0 });
+          // the socket, sunk in the wood beside the well; the coins stand in it
+          const [bx, bz] = toWorld(seat, ...taxSpot(seat, i));
+          const socket = new THREE.Mesh(shared.socketGeo, shared.socketMat);
+          socket.position.set(bx, 0.0036, bz);
+          socket.renderOrder = -1;
+          socket.userData = { tax: c.key };
+          // what the pointer finds: the column, as tall as its coins (scaled with them)
+          const hit = new THREE.Mesh(shared.hitGeo, shared.hitMat);
+          hit.position.set(bx, 0, bz);
+          hit.visible = false;
+          hit.userData = { tax: c.key };
+          // the tax's number on the well's plate clicks like the coins (an invisible box over it, nearer the eye than the plate)
+          const readout = new THREE.Mesh(shared.readoutGeo, shared.hitMat);
+          const [rx, rz] = toWorld(seat, ...taxReadoutSpot(seat, i));
+          readout.position.set(rx, 0.03, rz);
+          readout.visible = false;
+          readout.userData = { tax: c.key };
+          this.group.add(socket, hit, readout);
+          this.slots.push(socket, hit, readout);
+          this.taxes.set(c.key, { key: c.key, base: new THREE.Vector3(bx, 0, bz), salt: total * 7 + i, first: total, socket, hit, readout, shown: -1, coins: 0, dropAt: 0, dropping: false, well: partnerWell });
+          total += TAX_STACK;
         });
       }
+      // every seat's coins: one instanced column of cylinders (one draw call per face kind)
+      if (this.coins) this.group.remove(this.coins);
+      this.coins = new THREE.InstancedMesh(shared.coinGeo, shared.coinMats, Math.max(1, total));
+      this.coins.count = 0;
+      this.coins.castShadow = true;
+      this.coins.frustumCulled = false;
+      this.group.add(this.coins);
+      this.coinsDirty = true;
     }
+    const now = performance.now();
     for (const list of Object.values(commanders)) {
       for (const c of list) {
         const t = this.taxes.get(c.key);
         if (!t || t.shown === c.tax) continue;
-        if (t.shown >= 0) t.changed = performance.now(); // (a change, not the first drawing: it hops)
+        const coins = Math.min(TAX_STACK, taxCasts(c.tax));
+        // one more coin: it drops onto the stack (a short fall; reduced motion and a first sight place it)
+        t.dropping = t.shown >= 0 && coins > t.coins;
+        t.dropAt = now;
         t.shown = c.tax;
-        drawTaxMedallion(t.canvas, c.tax);
-        t.tex.needsUpdate = true;
+        t.coins = coins;
+        // the tax to pay on its well's plate (TableScene draws the commander's well; a partner's is here)
+        if (t.well) {
+          t.well.art.tax = c.tax;
+          drawWell(t.well.canvas, t.well.art);
+          t.well.tex.needsUpdate = true;
+        }
+        t.hit.scale.set(1, Math.max(1, coins), 1);
+        this.coinsDirty = true;
       }
     }
-    if (!this.fontAsked) { // drawn again once the number font is in (it normally is by now)
+    if (!this.fontAsked) { // a partner's plate drawn again once its fonts are in (they normally are by now)
       this.fontAsked = true;
-      void whenIconFontReady().then(() => {
+      void whenWellFontsReady().then(() => {
         for (const t of this.taxes.values()) {
-          if (t.shown < 0) continue;
-          drawTaxMedallion(t.canvas, t.shown);
-          t.tex.needsUpdate = true;
+          if (!t.well) continue;
+          drawWell(t.well.canvas, t.well.art);
+          t.well.tex.needsUpdate = true;
         }
       });
     }
+  }
+
+  /** The tax pieces' shared geometry and materials (made once, disposed with the props). */
+  private taxShared() {
+    if (this.shared) return this.shared;
+    const face = document.createElement("canvas");
+    face.width = face.height = 256;
+    drawTaxCoinFace(face);
+    const faceTex = this.keep(new THREE.CanvasTexture(face));
+    faceTex.colorSpace = THREE.SRGBColorSpace;
+    faceTex.anisotropy = 8;
+    // the reeded edge: fine vertical grooves
+    const reed = document.createElement("canvas");
+    reed.width = 256;
+    reed.height = 8;
+    const rg = reed.getContext("2d")!;
+    for (let x = 0; x < 256; x += 4) {
+      rg.fillStyle = "#f0d49a";
+      rg.fillRect(x, 0, 2, 8);
+      rg.fillStyle = "#8a6430";
+      rg.fillRect(x + 2, 0, 2, 8);
+    }
+    const reedTex = this.keep(new THREE.CanvasTexture(reed));
+    reedTex.colorSpace = THREE.SRGBColorSpace;
+    const sock = document.createElement("canvas");
+    sock.width = sock.height = 128;
+    drawTaxSocket(sock);
+    const sockTex = this.keep(new THREE.CanvasTexture(sock));
+    sockTex.colorSpace = THREE.SRGBColorSpace;
+    const brass = { metalness: 0.85, roughness: 0.38, envMapIntensity: 1.1 };
+    const coinGeo = this.keep(new THREE.CylinderGeometry(COIN.r, COIN.r, COIN.h, 40));
+    const hitGeo = this.keep(new THREE.CylinderGeometry(COIN.r * 1.25, COIN.r * 1.25, COIN.h * 1.4, 12).translate(0, (COIN.h * 1.4) / 2, 0));
+    this.shared = {
+      coinGeo,
+      // a cylinder's groups: its side, its top, its bottom
+      coinMats: [
+        this.keep(new THREE.MeshStandardMaterial({ color: 0xffffff, map: reedTex, ...brass })),
+        this.keep(new THREE.MeshStandardMaterial({ color: 0xffffff, map: faceTex, ...brass, roughness: 0.42 })),
+        this.keep(new THREE.MeshStandardMaterial({ color: 0x8a6430, ...brass })),
+      ],
+      socketGeo: this.keep(new THREE.PlaneGeometry(COIN.r * 2.5, COIN.r * 2.5).rotateX(-Math.PI / 2)),
+      socketMat: this.keep(new THREE.MeshStandardMaterial({ map: sockTex, transparent: true, depthWrite: false, roughness: 0.8, metalness: 0, emissive: 0xffc870, emissiveIntensity: 0 })),
+      hitGeo,
+      hitMat: this.keep(new THREE.MeshBasicMaterial({ visible: false })),
+      readoutGeo: this.keep(new THREE.BoxGeometry(TAX_READOUT.w, 0.06, TAX_READOUT.h)),
+    };
+    return this.shared;
+  }
+
+  private shared: {
+    coinGeo: THREE.BufferGeometry; coinMats: THREE.Material[]; socketGeo: THREE.BufferGeometry; socketMat: THREE.MeshStandardMaterial;
+    hitGeo: THREE.BufferGeometry; hitMat: THREE.Material; readoutGeo: THREE.BufferGeometry;
+  } | null = null;
+  private coins: THREE.InstancedMesh | null = null;
+  private coinsDirty = false;
+  private coinM = new THREE.Matrix4();
+  private coinQ = new THREE.Quaternion();
+  private coinP = new THREE.Vector3();
+  private coinS = new THREE.Vector3(1, 1, 1);
+  private coinUp = new THREE.Vector3(0, 1, 0);
+
+  /** Lay the coins out (only while one falls, or after a change). */
+  private layCoins(now: number, reduced: boolean): void {
+    const coins = this.coins;
+    if (!coins || !this.coinsDirty) return;
+    let n = 0;
+    let falling = false;
+    for (const t of this.taxes.values()) {
+      for (let i = 0; i < t.coins; i++) {
+        // hand-stacked: each a little off true, turned a little
+        const j = (k: number) => Math.sin((t.salt + 1) * 12.9898 + i * 78.233 + k * 37.719) * 0.5;
+        let y = COIN.h * (i + 0.5) + 0.002;
+        if (i === t.coins - 1 && t.dropping && !reduced) {
+          const dur = motionMs(COIN_DROP_MS, false);
+          const k = dur > 0 ? Math.min(1, (now - t.dropAt) / dur) : 1;
+          if (k < 1) {
+            y += COIN_DROP_H * (1 - k * k); // falling (gravity's ease-in)
+            falling = true;
+          } else t.dropping = false;
+        }
+        // (each a little toward the viewer's lower right of the one under it: seen from above, a stack shows every coin's rim)
+        this.coinP.set(t.base.x + j(1) * 0.02 + i * 0.012, y, t.base.z + j(2) * 0.02 + i * 0.022 - (t.coins - 1) * 0.011);
+        this.coinQ.setFromAxisAngle(this.coinUp, j(3) * 1.2);
+        this.coinM.compose(this.coinP, this.coinQ, this.coinS);
+        coins.setMatrixAt(n++, this.coinM);
+      }
+      if (reduced) t.dropping = false;
+    }
+    coins.count = n;
+    coins.instanceMatrix.needsUpdate = true;
+    this.coinsDirty = falling;
+  }
+
+  /** Where a commander's tax column stands (its middle; on the socket when there are no coins). */
+  taxWorld(key: string): THREE.Vector3 | null {
+    const t = this.taxes.get(key);
+    return t ? t.base.clone().setY((Math.max(1, t.coins) * COIN.h) / 2) : null;
+  }
+
+  /** The commander-tax key the pointer is over, if any (TableScene's tooltip). */
+  taxUnder(): string | null {
+    return this.taxHover?.key ?? null;
   }
 
   private fontAsked = false;
@@ -474,10 +622,6 @@ export class SeatProps {
   }
 
   private slots: THREE.Mesh[] = [];
-
-  taxWorld(key: string): THREE.Vector3 | null {
-    return this.taxes.get(key)?.mesh.position.clone() ?? null;
-  }
 
   hover(id: SeatActionId | null): void {
     if (id === this.hovered) return;
@@ -512,7 +656,6 @@ export class SeatProps {
   }
 
   private held: SeatActionId | null = null;
-  private me = "";
 
   /** Hearts turn to the viewer (upright for everyone); buttons light when hovered and dip when pressed. */
   tick(_t: number, camera: THREE.Camera, reduced: boolean): void {
@@ -557,19 +700,10 @@ export class SeatProps {
     }
     // the name plate hides while a panel (the Bag of Extras it opened, a dialog) is up
     if (this.label) this.label.sprite.visible = !!this.hovered && !useGame.getState().dialog;
-    camera.getWorldDirection(this.look);
-    const facing = Math.atan2(-this.look.x, -this.look.z); // the table's "up the screen", for things lying flat on it
-    for (const t of this.taxes.values()) {
-      // the tax medallion's face turns upright for the viewer (it is round: only its number turns), and hops when it changes
-      t.mesh.rotation.y = facing;
-      const since = now - t.changed;
-      const hop = !reduced && since < 240 ? 1 + 0.14 * Math.sin((since / 240) * Math.PI) : 1;
-      t.mesh.scale.setScalar(hop);
-      // hovered (click +2, right-click −2): its brass catches the light
-      const on = this.taxHover === t;
-      (t.mesh.material as THREE.MeshBasicMaterial).color.setScalar(on ? 1.18 : 1);
-      t.edgeMat.emissiveIntensity = on ? 0.4 : 0;
-    }
+    if (this.shared) this.shared.socketMat.emissiveIntensity = 0;
+    if (this.taxHover && this.shared) this.shared.socketMat.emissiveIntensity = 0.12; // (one socket material: a faint warmth on all, only while one is hovered)
+    // a new coin falling onto its stack (game state never waits for it: the plate already says the new tax)
+    this.layCoins(now, reduced);
     this.cam = camera;
   }
 
@@ -586,7 +720,7 @@ export class SeatProps {
     if (!this.cam || !this.taxes.size || !(canvas instanceof HTMLCanvasElement) || !canvas.classList.contains("table3d-canvas")) return;
     const r = canvas.getBoundingClientRect();
     this.ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.cam);
-    const hit = this.ray.intersectObjects([...this.taxes.values()].flatMap((t) => [t.mesh, t.edge]), false)[0];
+    const hit = this.ray.intersectObjects([...this.taxes.values()].flatMap((t) => [t.hit, t.socket, t.readout]), false)[0];
     const key = hit?.object.userData.tax as string | undefined;
     this.taxHover = key ? this.taxes.get(key) ?? null : null;
   };
@@ -596,7 +730,7 @@ export class SeatProps {
   targets(): THREE.Object3D[] {
     const out: THREE.Object3D[] = [];
     for (const h of this.hearts.values()) out.push(h.face);
-    for (const t of this.taxes.values()) out.push(t.mesh, t.edge);
+    for (const t of this.taxes.values()) out.push(t.hit, t.socket, t.readout);
     for (const b of this.buttons.values()) out.push(b.top, b.side);
     return out;
   }
@@ -659,6 +793,8 @@ export class SeatProps {
     this.taxes.clear();
     this.taxKey = "";
     this.slots = [];
+    this.shared = null;
+    this.coins = null;
     this.hearts.clear();
     this.buttons.clear();
     this.blobMat = null;

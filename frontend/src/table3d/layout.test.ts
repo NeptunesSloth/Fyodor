@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CARD_H, commandSlot, heartSpot, localToVirtual, MAT_D, MAT_W, pileAt, PILES, pileSpot, plaqueSpot, seats, tableSize, TAX_R, taxSpot, toLocal, toWorld, virtualToLocal, type Seat } from "./layout";
+import { CARD_H, CARD_W, COIN, commandSlot, COMMAND_WELL, FELT_HEM, heartSpot, localToVirtual, MAT_D, MAT_W, nameplateSpot, plateDepth, pileAt, PILES, pileSpot, plateWidth, plaqueSpot, RAIL, seats, tableSize, TAX_READOUT, taxReadoutSpot, taxSpot, toLocal, toWorld, virtualToLocal, wellPiece, wellSize, WELL, type PileZone, type Seat } from "./layout";
 
 /** Is a world point on a seat's mat (with its edge)? */
 const onMat = (seat: Seat, x: number, z: number) => {
@@ -101,12 +101,14 @@ describe("3D table layout", () => {
         expect([side("library"), side("graveyard"), side("exile")]).toEqual([1, 1, 1]);
         expect(side("command")).toBe(-1);
         expect(Math.sign(toWorld(seat, ...commandSlot(seat, 1))[0] - seat.x)).toBe(-1); // a partner's slot too
-        // the tax medallion sits in its command zone's column, clear of the slots (on the table side of them)
-        for (const count of [1, 2]) {
-          const [tx, tz] = taxSpot(count - 1, seat, false, count);
-          expect(tx).toBe(commandSlot(seat, 0)[0]);
-          for (let i = 0; i < count; i++) expect(Math.abs(tz - commandSlot(seat, i)[1])).toBeGreaterThanOrEqual(CARD_H / 2 + TAX_R);
-          expect(tz).toBeGreaterThan(-MAT_D / 2);
+        // each commander's tax column stands beside its own well, on the mat's side, clear of the well and of the felt
+        for (const slot of [0, 1]) {
+          const [cx, cz] = commandSlot(seat, slot);
+          const [tx, tz] = taxSpot(seat, slot);
+          expect(Math.sign(tx - cx)).toBe(-Math.sign(cx)); // toward the mat
+          expect(Math.abs(tx - cx) - COIN.r).toBeGreaterThanOrEqual(COMMAND_WELL.w / 2 + 0.05);
+          expect(Math.abs(tx) - COIN.r).toBeGreaterThanOrEqual(MAT_W / 2 + FELT_HEM); // off the felt
+          expect(Math.abs(tz - cz)).toBeLessThan(COMMAND_WELL.h / 2); // level with its well
         }
         // and dropping on the drawn pile finds it
         expect(pileAt(...pileSpot(seat, "graveyard"), seat)).toBe("graveyard");
@@ -148,6 +150,104 @@ describe("3D table layout", () => {
       const [, pz] = toWorld(seat, ...plaqueSpot(seat));
       expect(Math.abs(hz)).toBeLessThan(Math.abs(seat.z) - MAT_D / 2);
       expect(Math.abs(pz)).toBeLessThan(Math.abs(seat.z) - MAT_D / 2);
+    }
+  });
+});
+
+/** Axis-aligned world boxes (the table's seats face along z, so every piece here is axis-aligned in the world). */
+type Box = { x0: number; x1: number; z0: number; z1: number; what: string };
+const boxOf = (seat: Seat, [lx, lz]: [number, number], w: number, h: number, what: string): Box => {
+  const [x, z] = toWorld(seat, lx, lz);
+  return { x0: x - w / 2, x1: x + w / 2, z0: z - h / 2, z1: z + h / 2, what };
+};
+const overlap = (a: Box, b: Box, gap = 0) => a.x0 < b.x1 + gap && b.x0 < a.x1 + gap && a.z0 < b.z1 + gap && b.z0 < a.z1 + gap;
+
+describe("zone wells, nameplates and the commander tax", () => {
+  const ZONES: PileZone[] = ["library", "graveyard", "exile", "command"];
+  /** Every piece by a seat: its wells and their plates (a partner's well and the third slot too), its tax columns and tags. */
+  const pieces = (seat: Seat, duel: boolean): Box[] => {
+    const out: Box[] = [];
+    const spots: [PileZone, [number, number], string][] = [
+      ...ZONES.map((z) => [z, pileSpot(seat, z), z] as [PileZone, [number, number], string]),
+      ["command", commandSlot(seat, 1), "partner"], ["command", commandSlot(seat, 2), "third"],
+    ];
+    for (const [zone, at, name] of spots) {
+      const { w, h } = wellSize(zone);
+      out.push(boxOf(seat, at, w, h, `${name} well`));
+      out.push(boxOf(seat, nameplateSpot(seat, at, zone), plateWidth(zone, duel), plateDepth(seat), `${name} plate`));
+    }
+    for (const slot of [0, 1]) out.push(boxOf(seat, taxSpot(seat, slot), COIN.r * 2, COIN.r * 2, `tax ${slot}`));
+    return out;
+  };
+
+  it("a well is a little larger than a card (the command zone's larger still), and its plate is its caption, nearest me", () => {
+    expect(WELL.w).toBeGreaterThan(CARD_W);
+    expect(WELL.h).toBeGreaterThan(CARD_H);
+    expect(COMMAND_WELL.w).toBeGreaterThanOrEqual(WELL.w);
+    expect(COMMAND_WELL.h).toBeGreaterThan(WELL.h);
+    for (const seat of seats(["a", "b", "c", "d"], "a")) {
+      const lib = pileSpot(seat, "library");
+      const [, pz] = toWorld(seat, ...nameplateSpot(seat, lib, "library"));
+      const [, wz] = toWorld(seat, ...lib);
+      expect(pz).toBeGreaterThan(wz); // world +z is toward me: under the well on my screen, whatever the seat
+      // one plane covers the well and its plate
+      const piece = wellPiece(seat, lib, "library");
+      const [, cz] = toWorld(seat, ...piece.at);
+      expect(Math.abs(cz - (wz - WELL.h / 2 + piece.h / 2))).toBeLessThan(1e-9);
+    }
+  });
+
+  for (const n of [2, 3, 4, 5, 6]) {
+    it(`${n} seats: every well, plate, tax column and tag lies on the table's wood, off every mat, and none overlaps another`, () => {
+      const all = seats(Array.from({ length: n }, (_, i) => `p${i}`), "p0");
+      const size = tableSize(all);
+      const boxes = all.flatMap((s) => pieces(s, n === 2));
+      for (const b of boxes) {
+        // inside the rail
+        expect(Math.max(Math.abs(b.x0), Math.abs(b.x1)), b.what).toBeLessThanOrEqual(size.w / 2 - RAIL);
+        expect(Math.max(Math.abs(b.z0), Math.abs(b.z1)), b.what).toBeLessThanOrEqual(size.d / 2 - RAIL);
+        // off every mat's felt
+        for (const s of all) {
+          const felt = boxOf(s, [0, 0], MAT_W + 2 * FELT_HEM, MAT_D + 2 * FELT_HEM, "felt");
+          expect(overlap(b, { ...felt, x0: felt.x0 + 1e-6, x1: felt.x1 - 1e-6, z0: felt.z0 + 1e-6, z1: felt.z1 - 1e-6 }), `${b.what} on ${s.player}'s mat`).toBe(false);
+        }
+      }
+      for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+        expect(overlap(boxes[i]!, boxes[j]!), `${boxes[i]!.what} / ${boxes[j]!.what}`).toBe(false);
+      }
+    });
+  }
+
+  it("the tax's number lies on its command well's plate, at its end toward the mat", () => {
+    for (const n of [2, 4]) {
+      for (const seat of seats(Array.from({ length: n }, (_, i) => `p${i}`), "p0")) {
+        for (const slot of [0, 1]) {
+          const at = commandSlot(seat, slot);
+          const plate = boxOf(seat, nameplateSpot(seat, at, "command"), plateWidth("command", n === 2), plateDepth(seat), "plate");
+          const num = boxOf(seat, taxReadoutSpot(seat, slot), TAX_READOUT.w, TAX_READOUT.h, "number");
+          expect(num.x0).toBeGreaterThanOrEqual(plate.x0 - 1e-9);
+          expect(num.x1).toBeLessThanOrEqual(plate.x1 + 1e-9);
+          expect(num.z0).toBeGreaterThanOrEqual(plate.z0 - 1e-9);
+          expect(num.z1).toBeLessThanOrEqual(plate.z1 + 1e-9);
+          // toward the mat: nearer the mat's middle than the plate's middle is
+          const [wx] = toWorld(seat, ...taxReadoutSpot(seat, slot));
+          expect(Math.abs(wx - seat.x)).toBeLessThan(Math.abs((plate.x0 + plate.x1) / 2 - seat.x));
+        }
+      }
+    }
+  });
+
+  it("the tax column never overlaps the command card, and my tax pieces stay clear of my seat buttons' row", () => {
+    for (const n of [2, 4]) {
+      const all = seats(Array.from({ length: n }, (_, i) => `p${i}`), "p0");
+      const mine = all[0]!;
+      const card = boxOf(mine, commandSlot(mine, 0), CARD_W, CARD_H, "card");
+      expect(overlap(boxOf(mine, taxSpot(mine, 0), COIN.r * 2, COIN.r * 2, "coins"), card, 0.05)).toBe(false);
+      // the buttons' row (seatProps: from DUEL_ROW_X in 1v1, from x0 = 0.7 − span at more seats; both right of the command column)
+      const rowZ = n === 2 ? MAT_D / 2 + 1.05 : MAT_D / 2 + 0.44;
+      const [x0, x1] = n === 2 ? [-6.45 - 0.26, 3.45 + 0.64 + 0.26] : [0.7 - 4.2 - 0.26, 0.7 + 0.26];
+      const row = boxOf(mine, [(x0 + x1) / 2, rowZ], x1 - x0, 0.52, "buttons");
+      for (const b of pieces(mine, n === 2)) expect(overlap(b, row, 0.1), b.what).toBe(false);
     }
   });
 });

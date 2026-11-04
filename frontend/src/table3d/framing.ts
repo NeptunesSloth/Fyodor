@@ -9,7 +9,7 @@
  */
 import * as THREE from "three";
 import { fanCorners, handFan, showsFan } from "./handFan";
-import { BUTTON_R, buttonRowZ, CARD_W, DUEL_VIEW, HEART, heartSpot, heartTilt, MAT_D, MAT_W, PLATE, plaqueSpot, screenX, STRIP_X, TAX_R, taxSpot, toWorld, type Seat, type TableSize } from "./layout";
+import { BUTTON_R, buttonRowZ, DUEL_VIEW, HEART, heartSpot, heartTilt, MAT_D, MAT_W, PLATE, plaqueSpot, screenX, STRIP_X, COIN, COMMAND_WELL, COMMAND_X, TAX_STACK, taxSpot, toWorld, type Seat, type TableSize } from "./layout";
 
 /** The part of the canvas (normalized device coordinates, −1..1) the framed area must fit in. */
 export interface FrameRect { left: number; right: number; bottom: number; top: number }
@@ -98,12 +98,15 @@ export function propSpots(all: Seat[], size: TableSize): [number, number][] {
  * mat's near edge too. In 1v1 also its heart and plate past its own edge and, across the table, its fan of backs.
  */
 export function seatPoints(seat: Seat, opts: { buttons?: boolean; piles?: boolean; elevation?: number } = {}): THREE.Vector3[] {
-  const hx = opts.piles === false ? MAT_W / 2 + 0.2 : STRIP_X + CARD_W / 2 + 0.1;
+  const hx = opts.piles === false ? MAT_W / 2 + 0.2 : COMMAND_X + COMMAND_WELL.w / 2 + 0.05;
   const hz = MAT_D / 2 + 0.2;
   const local: [number, number, number][] = [[-hx, 0, -hz], [hx, 0, -hz], [hx, 0, hz], [-hx, 0, hz]];
   if (opts.piles !== false) {
-    // the commander tax medallions (layout.ts taxSpot): a partner's too
-    for (const [tx, tz] of [taxSpot(0, seat, !!opts.buttons, 2), taxSpot(1, seat, !!opts.buttons, 2)]) local.push([tx - TAX_R, 0, tz - TAX_R], [tx + TAX_R, 0, tz + TAX_R]);
+    // the commander tax columns (layout.ts taxSpot), standing as tall as a full stack: a partner's too
+    for (const slot of [0, 1]) {
+      const [tx, tz] = taxSpot(seat, slot);
+      local.push([tx - COIN.r, 0, tz - COIN.r], [tx + COIN.r, COIN.h * TAX_STACK, tz + COIN.r]);
+    }
   }
   if (opts.piles !== false) {
     // the heart, tipped up toward the camera (my side of the table): its edge nearest me resting over the felt, its far

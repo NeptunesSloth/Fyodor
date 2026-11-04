@@ -57,11 +57,13 @@ import { onMotionSkip } from "../game/motion/timing";
 import type { DiceShow } from "../game/dice";
 import {
   aisleOf, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, MAT_D, MAT_W, mirrored, PILES, PLATE, pileSpot, localToVirtual, onBattlefield, pileAt, seats,
-  tableSize, toLocal, toWorld, virtualToLocal, type PileZone, type Seat,
+  tableSize, toLocal, toWorld, virtualToLocal, plateDepth, plateOffset, plateWidth, wellPiece, wellSize, type PileZone, type Seat,
 } from "./layout";
 import { handFan, showsFan } from "./handFan";
 import { whenProxyFontsReady } from "../cards/proxyMeasure";
-import { backCanvas, canvasTexture, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
+import { backCanvas, canvasTexture, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, textCardTexture } from "./textures";
+import { drawWell, WELL_PX, wellCanvasSize, wellStretch, whenWellFontsReady, type WellArt } from "./zoneWells";
+import { taxSentence } from "../game/seatIcons";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
 import { FLAT_LOOK, nameScreenEm, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
 import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, offMat, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
@@ -129,6 +131,10 @@ interface PileObj {
   /** The library's top card back. */
   top: THREE.Mesh | null;
   count: number;
+  /** The well's picture (table3d/zoneWells.ts): redrawn when its count changes. */
+  art: WellArt;
+  canvas: HTMLCanvasElement;
+  tex: THREE.CanvasTexture;
 }
 
 function roundedRect(w: number, h: number, r: number): THREE.Shape {
@@ -936,7 +942,7 @@ export class TableScene {
       p.layers.dispose();
       p.block.geometry.dispose();
       p.slot.geometry.dispose();
-      (p.slot.material as THREE.MeshBasicMaterial).map?.dispose();
+      p.tex.dispose();
       (p.slot.material as THREE.Material).dispose();
     }
     this.piles.clear();
@@ -967,13 +973,28 @@ export class TableScene {
         // in facing rows the far row's piles are mirrored: every library on my right, every command zone on my left
         const [lx, lz] = pileSpot(seat, zone);
         const [wx, wz] = toWorld(seat, lx, lz);
-        const slot = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W * 1.05, CARD_H * 1.05), new THREE.MeshBasicMaterial({
-          map: slotTexture(PILE_LABEL[zone as ZoneName] ?? zone, this.plane.ui.accent, this.seatList.length), transparent: true, depthWrite: false,
+        // its well, sunk into the wood, and its nameplate under it as I see it (table3d/zoneWells.ts): one plane, upright
+        // for me whoever's pile it is
+        const duel = this.seatList.length === 2;
+        const well = wellSize(zone);
+        const art: WellArt = {
+          zone, label: PILE_LABEL[zone as ZoneName] ?? zone, count: zone === "command" ? null : 0, duel, color, well,
+          plateW: plateWidth(zone, duel), plateH: plateDepth(seat), plateDx: plateOffset(zone), stretch: wellStretch(duel, seat.side === "north"),
+        };
+        const piece = wellPiece(seat, [lx, lz], zone);
+        const canvas = document.createElement("canvas");
+        drawWell(canvas, art);
+        const tex = canvasTexture(canvas);
+        const [W, H] = wellCanvasSize(art);
+        const slot = new THREE.Mesh(new THREE.PlaneGeometry(W / WELL_PX, H / WELL_PX), new THREE.MeshStandardMaterial({
+          map: tex, transparent: true, depthWrite: false, roughness: 0.72, metalness: 0, envMapIntensity: 0.25, emissive: this.plane.ui.accent, emissiveIntensity: 0,
         }));
         slot.rotation.x = -Math.PI / 2;
-        slot.rotation.z = this.myRot(); // its label reads upright from my seat, whoever's pile it is
-        slot.position.set(wx, SLOT_Y, wz);
+        slot.rotation.z = this.myRot(); // its plate reads upright from my seat, whoever's pile it is
+        const [px, pz] = toWorld(seat, ...piece.at);
+        slot.position.set(px, SLOT_Y, pz);
         slot.renderOrder = -1;
+        slot.receiveShadow = this.quality !== "low";
         slot.userData = { pile: zone, player: seat.player };
         const block = new THREE.Mesh(new THREE.BoxGeometry(CARD_W, 1, CARD_H), this.hitMat);
         block.rotation.y = seat.rot;
@@ -993,9 +1014,16 @@ export class TableScene {
           this.world.add(top);
         }
         this.world.add(slot, block, layers);
-        this.piles.set(`${seat.player}:${zone}`, { block, slot, layers, top, count: -1 });
+        this.piles.set(`${seat.player}:${zone}`, { block, slot, layers, top, count: -1, art, canvas, tex });
       }
     }
+    // drawn again once the wells' fonts are in (they normally are by now)
+    void whenWellFontsReady().then(() => {
+      for (const p of this.piles.values()) {
+        drawWell(p.canvas, p.art);
+        p.tex.needsUpdate = true;
+      }
+    });
   }
 
   // ------------------------------------------------------------------ textures & materials
@@ -1319,6 +1347,10 @@ export class TableScene {
         const pile = this.piles.get(`${pid}:${zone}`);
         if (pile && pile.count !== count) {
           pile.count = count;
+          // its nameplate's count (public: everyone sees how many cards each library, graveyard and exile holds)
+          pile.art.count = count;
+          drawWell(pile.canvas, pile.art);
+          pile.tex.needsUpdate = true;
           // graveyard and exile draw their top card for real, so the stack below has one fewer
           this.stackPile(seat, zone, pile, zone === "library" ? count : Math.max(0, count - 1));
         }
@@ -1338,7 +1370,16 @@ export class TableScene {
       const keys = view.players.find((p) => p.id === pid)?.commanders.map((c) => c.instance_id) ?? [];
       // the command slot fades and lights like the other piles (its count is what's in the zone)
       const cmdPile = this.piles.get(`${pid}:command`);
-      if (cmdPile) cmdPile.count = cmd.length;
+      if (cmdPile) {
+        cmdPile.count = cmd.length;
+        // the commander's tax to pay on its well's plate (zoneWells.ts WellArt.tax; its coins stand beside: seatProps.ts)
+        const tax = view.players.find((p) => p.id === pid)?.commanders[0]?.tax ?? 0;
+        if ((cmdPile.art.tax ?? 0) !== tax) {
+          cmdPile.art.tax = tax;
+          drawWell(cmdPile.canvas, cmdPile.art);
+          cmdPile.tex.needsUpdate = true;
+        }
+      }
       let extra = 0;
       const [cx, cz] = commandSlot(seat, 0);
       cmd.forEach((id) => {
@@ -2070,7 +2111,7 @@ export class TableScene {
     const taxOf = hit?.tax ? this.view?.players.flatMap((p) => p.commanders).find((c) => c.key === hit.tax) : undefined;
     const dealt = taxOf && this.view ? dealtText(commanderDealt(this.view.players, taxOf.key)) : "";
     // (a seat button names itself on the table, on its own plate: no browser tooltip over it)
-    const tip = taxOf ? `Commander tax for ${taxOf.name}: ${taxOf.tax} (click +2, right-click −2)${dealt ? `\nCommander damage dealt: ${dealt}` : ""}`
+    const tip = taxOf ? `${taxSentence(taxOf.tax)}\n${taxOf.name}: click +2, right-click −2${dealt ? `\nCommander damage dealt: ${dealt}` : ""}`
       : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life${this.lifeLocked() ? "" : ": click − to lose 1 or + to gain 1, right-click for 5, or the wheel"}` : "";
     if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
     this.canvas.style.cursor = hit?.seatButton || (hit?.heart && !this.lifeLocked()) || hit?.tax ? "pointer" : "";
@@ -2353,8 +2394,9 @@ export class TableScene {
     // empty pile outlines stay faint until a drag needs them as drop targets
     const anyDrag = document.body.classList.contains("dragging");
     for (const p of this.piles.values()) {
-      const m = p.slot.material as THREE.MeshBasicMaterial;
-      m.opacity = p.count > 0 || anyDrag ? 1 : 0.6;
+      // (a well is always there; while a card is dragged, its gold catches the light as a drop target)
+      const m = p.slot.material as THREE.MeshStandardMaterial;
+      m.emissiveIntensity = anyDrag ? 0.14 : 0;
     }
     // while a card is dragged, the battlefields (where it can land) light up
     // (with the rules engine on, only your own: the engine refuses the others)

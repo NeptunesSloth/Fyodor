@@ -14,7 +14,7 @@ import { castableIn } from "./exileCastables";
 import "./exile.css";
 import { commanderDealt, dealtText } from "./commanderDamage";
 import { isOut } from "./outOfGame";
-import { taxMedallionUrl, whenIconFontReady } from "./seatIcons";
+import { taxMedallionUrl, taxSentence, whenIconFontReady } from "./seatIcons";
 import { useHoverCard } from "./hoverCard";
 
 const LABEL: Partial<Record<ZoneName, string>> = {
@@ -286,15 +286,15 @@ function dealtLine(players: Parameters<typeof commanderDealt>[0] | undefined, ke
 }
 
 /**
- * A commander's tax, kept by hand: click +2 (one more cast), right-click −2. The brass medallion of the 3D table
- * (game/seatIcons.ts): a crown over the tax as a generic-mana number, dim at 0 and lit once there is tax to pay.
+ * A commander's tax, kept by hand: click +2 (one more cast), right-click −2. A brass tax coin with the tax to pay
+ * struck on it ("+4"), as the 3D table's coin column (game/seatIcons.ts); at 0 an empty coin socket.
  */
 function TaxButton({ commander, name, tax }: { commander: string; name: string; tax: number }) {
   const [, redraw] = useState(0);
   useEffect(() => { void whenIconFontReady().then(() => redraw(1)); }, []);
   return (
     <button className={`tax-btn ${tax ? "" : "zero"}`} data-testid={`tax-${commander}`}
-      title={`Commander tax for ${name}: ${tax} (click +2, right-click −2)`} aria-label={`Commander tax for ${name}: ${tax}. Click to add 2, right-click to remove 2`}
+      title={`${taxSentence(tax)}\n${name}: click +2, right-click −2`} aria-label={`Commander tax for ${name}: ${tax}. Click to add 2, right-click to remove 2`}
       onClick={(e) => { e.stopPropagation(); void send({ type: "commander_tax", commander, delta: 2 }); }}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); void send({ type: "commander_tax", commander, delta: -2 }); }}
       onPointerDown={(e) => e.stopPropagation()}>
