@@ -88,7 +88,7 @@ body.perf-low .battlefield.arranged .mat-band { box-shadow: none; }
 .table-card[data-tile]:has(.tile-back):not(:hover, .selected, .attacking, .blocking) { box-shadow: none; }
 .board-tile.tile-back .peek-badge { top: 4%; left: 13%; }
 /* its marks (MORPH, MANIFEST…) sit over the back's bottom frame at the left, clear of the oval and the corner studs */
-.table-card[data-tile]:has(.tile-back) .card-marks { top: auto; right: auto; left: 15%; bottom: 3.5%; align-items: flex-start; }
+.table-card[data-tile]:has(.tile-back) .card-marks { top: auto; right: auto; left: 23%; bottom: 2.5%; align-items: flex-start; } /* (right of the corner stud) */
 
 /* tapped: turned a quarter, and a shade darker so what's untapped stands out (an overlay: no filter) */
 .table-card[data-tile][data-tapped] .board-tile::before {

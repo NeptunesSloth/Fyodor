@@ -124,6 +124,62 @@ test("deck editor: the preview's card back and the costs", async ({ page }) => {
   console.log("cost column ends (commander row first):", ends.join(" "));
 });
 
+test("states: the symbols' tooltip, a deck tile's hover and keyboard focus, a deck tile while its art loads", async ({ browser }) => {
+  only("states");
+  test.setTimeout(180_000);
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 });
+  const page = await ctx.newPage();
+  await prefs(page, "2d");
+  await decks(page);
+  const around = async (name: string, box: { x: number; y: number; width: number; height: number } | null, pad = 40) => {
+    if (!box) throw new Error(`nothing to shoot for ${name}`);
+    await page.screenshot({ path: `${OUT}/${PREFIX}-state-${name}.png`, clip: { x: Math.max(0, box.x - pad), y: Math.max(0, box.y - pad), width: box.width + pad * 2, height: box.height + pad * 2 } });
+  };
+  const union = async (a: string, b: string) => {
+    const [r1, r2] = [await page.locator(a).first().boundingBox(), await page.locator(b).first().boundingBox()];
+    if (!r1 || !r2) return null;
+    const x = Math.min(r1.x, r2.x), y = Math.min(r1.y, r2.y);
+    return { x, y, width: Math.max(r1.x + r1.width, r2.x + r2.width) - x, height: Math.max(r1.y + r1.height, r2.y + r2.height) - y };
+  };
+  // an identity pip's tooltip, then a deck tile pointed at, then reached from the keyboard
+  await page.goto("/#/decks");
+  await expect(page.locator(".pips").first()).toBeVisible();
+  await settle(page);
+  await page.locator(".dk-facts .pips > .mana").first().hover();
+  await expect(page.locator(".sym-tip.on")).toBeVisible();
+  await page.waitForTimeout(250);
+  await around("tip-identity", await union(".dk-facts .pips", ".sym-tip"));
+  const tile = page.locator(".dk-deck").nth(1);
+  await tile.locator(".dk-art").hover();
+  await page.waitForTimeout(350);
+  await around("tile-hover", await tile.boundingBox(), 16);
+  await page.mouse.move(5, 700);
+  await tile.locator(".dk-name a").focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab"); // (focus from the keyboard: :focus-visible)
+  await page.waitForTimeout(350);
+  await around("tile-focus", await tile.boundingBox(), 16);
+  // a hybrid's tooltip in a card's cost
+  await page.goto("/#/cards");
+  await page.locator("input.search").fill("Kitchen Finks");
+  await page.waitForTimeout(700);
+  await page.locator(".grid-card").first().click();
+  await expect(page.locator(".card-details")).toBeVisible();
+  await settle(page);
+  await page.locator(".details-text .cost .mana").nth(1).hover();
+  await expect(page.locator(".sym-tip.on")).toBeVisible();
+  await page.waitForTimeout(250);
+  await around("tip-hybrid", await union(".details-text .cost", ".sym-tip"));
+  // the decks while their art is still on its way (the pictures held back)
+  await page.keyboard.press("Escape");
+  await page.route("**/api/images/**", () => undefined); // never answered
+  await page.goto("/#/decks");
+  await expect(page.locator(".dk-art-wait").first()).toBeVisible();
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: `${OUT}/${PREFIX}-state-art-loading.png` });
+  await ctx.close();
+});
+
 test("a card's text: rules text and a cost with symbols", async ({ browser }) => {
   only("text");
   test.setTimeout(180_000);

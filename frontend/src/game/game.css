@@ -529,7 +529,7 @@ kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4
 .tt-btn.danger { color: #ffb4ad; }
 .card-marks .mark.fd { background: rgba(20, 20, 24, 0.85); color: var(--room-bone); letter-spacing: 0.02em; }
 /* a face-down card's marks sit over its back's bottom frame at the left, clear of the oval (board tiles: board.css) */
-.table-card:not([data-tile]):has(> .card-back, > .face-down-known) .card-marks { top: auto; right: auto; left: 7%; bottom: 3%; align-items: flex-start; }
+.table-card:not([data-tile]):has(> .card-back, > .face-down-known) .card-marks { top: auto; right: auto; left: 17%; bottom: 2.5%; align-items: flex-start; }
 .pp-cmds { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11.5px; color: var(--room-bone-dim); }
 .pp-cmd b { color: var(--room-brass-hi); font-weight: 600; }
 .pp-cmd:not(.home) { opacity: 0.75; }
