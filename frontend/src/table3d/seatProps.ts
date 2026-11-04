@@ -55,33 +55,60 @@ function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pendi
   const heart = heartPath();
   g.fillStyle = "#050505";
   g.fill(heart);
-  // the halves: − loses life (left), + gains it (right); the one under the pointer lights up
+  // the halves: − loses life (left, red), + gains it (right, green), lit a little from above; the one under the
+  // pointer brighter
   g.save();
   g.clip(heart);
-  g.fillStyle = hot === -1 ? "rgba(178, 52, 40, 0.62)" : "rgba(120, 30, 24, 0.34)";
-  g.fillRect(0, 0, 128, 232);
-  g.fillStyle = hot === 1 ? "rgba(52, 150, 78, 0.6)" : "rgba(26, 96, 48, 0.34)";
-  g.fillRect(128, 0, 128, 232);
-  g.fillStyle = "rgba(0, 0, 0, 0.55)";
+  const half = (x: number, top: string, bottom: string) => {
+    const grad = g.createLinearGradient(0, 10, 0, 224);
+    grad.addColorStop(0, top);
+    grad.addColorStop(1, bottom);
+    g.fillStyle = grad;
+    g.fillRect(x, 0, 128, 232);
+  };
+  if (hot === -1) half(0, "#b5422f", "#6e2219");
+  else half(0, "#86301f", "#4a1812");
+  if (hot === 1) half(128, "#3d9a57", "#1f5a31");
+  else half(128, "#2c7342", "#173f24");
+  g.fillStyle = "rgba(0, 0, 0, 0.5)";
   g.fillRect(126.5, 0, 3, 232);
   g.restore();
   g.lineJoin = "round";
   g.lineWidth = 15;
   g.strokeStyle = color;
   g.stroke(heart);
-  // − and +: white bars with a dark outline, in the lobes above the number
-  const glyphs = (w: number, h: number) => {
-    bar(g, 64, 64, w, h);
-    g.fill();
-    bar(g, 192, 64, w, h);
-    g.fill();
-    bar(g, 192, 64, h, w);
-    g.fill();
+  // − and +: engraved brass, lit from the top left, in the lobes above the number
+  const signs = (dx: number, dy: number, w: number, h: number) => {
+    const at: [number, number, number, number][] = [[64, 64, w, h], [192, 64, w, h], [192, 64, h, w]];
+    for (const [x, y, bw, bh] of at) {
+      bar(g, x + dx, y + dy, bw, bh);
+      g.fill();
+    }
   };
-  g.fillStyle = "rgba(0, 0, 0, 0.9)";
-  glyphs(56, 20);
-  g.fillStyle = "#f6f1e6";
-  glyphs(46, 11);
+  g.fillStyle = "rgba(0, 0, 0, 0.75)"; // the cut's shadow, down and right
+  signs(3, 3, 50, 15);
+  const brass = g.createLinearGradient(40, 40, 216, 88);
+  brass.addColorStop(0, "#fbe9b0");
+  brass.addColorStop(0.45, "#d8ad55");
+  brass.addColorStop(1, "#8f6526");
+  g.fillStyle = "rgba(40, 24, 6, 0.95)"; // its dark edge
+  signs(0, 0, 52, 17);
+  g.fillStyle = brass;
+  signs(0, 0, 46, 11);
+  // the light catching each bar's top and left edges (inside the bar), the shade its bottom and right
+  for (const [x, y, bw, bh] of [[64, 64, 46, 11], [192, 64, 46, 11], [192, 64, 11, 46]] as const) {
+    g.save();
+    bar(g, x, y, bw, bh);
+    g.clip();
+    g.lineWidth = 3;
+    g.strokeStyle = "rgba(255, 249, 226, 0.9)";
+    bar(g, x + 2, y + 2, bw, bh);
+    g.stroke();
+    g.strokeStyle = "rgba(70, 42, 10, 0.75)";
+    bar(g, x - 2, y - 2, bw, bh);
+    g.stroke();
+    g.restore();
+  }
   g.textAlign = "center";
   g.textBaseline = "middle";
   const n = String(life + pending);
@@ -176,8 +203,7 @@ export class SeatProps {
   });
 
   /** Hearts for every seat; buttons for mine (seat colours from the view). */
-  /** `plateLeft`: 1v1 on a narrow screen, my plate sits left of my heart (framing.ts plateSide), so my buttons go right of it. */
-  rebuild(seats: Seat[], me: string, colors: Record<string, string>, plateLeft = false): void {
+  rebuild(seats: Seat[], me: string, colors: Record<string, string>): void {
     this.clear();
     for (const seat of seats) {
       const color = colors[seat.player] ?? "#c9a35a";
@@ -231,7 +257,7 @@ export class SeatProps {
       // a row just past my mat's near edge, from its left end (the turn dial covers the screen's bottom right), Mulligan
       // apart on the right (as on the Oops mat); 1v1: my heart and plate take the middle, so the row starts under my
       // command zone and Mulligan and the bag go right of my plate
-      const lx = mine.duel ? (flat ? DUEL_MULLIGAN_X : plateLeft ? 0.1 + i * 0.6 : -5.95 + i * 0.66) : flat ? -0.7 : -4.3 + i * 0.66;
+      const lx = mine.duel ? (flat ? DUEL_MULLIGAN_X : -5.95 + i * 0.66) : flat ? -0.7 : -4.3 + i * 0.66;
       const [wx, wz] = toWorld(mine, lx, MAT_D / 2 + (mine.duel ? 0.62 : 0.52));
       group.position.set(wx, 0, wz);
       group.rotation.y = mine.rot;

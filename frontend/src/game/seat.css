@@ -1,25 +1,36 @@
 /* Seat plaques, shared by the 3D table (placed by its frame loop) and the 2D table (in each seat strip). */
-/* seat plaques: blackened metal with a chamfered brass edge, life engraved in Cinzel */
-.t3d-seat { position: relative; transform: translate(-50%, -50%); pointer-events: auto; filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.6)); }
+/* seat plaques: a walnut plaque in a chamfered brass rim (lit from the top left), the name engraved in Cinzel, the
+   numbers in Inter; the seat's turn and priority hang off its top edge as brass and enamel tabs */
+.t3d-seat { position: relative; transform: translate(-50%, -50%); pointer-events: auto; filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.65)); }
 .t3d-seat-main {
   --cut: 9px;
-  display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 6px; color: var(--text);
+  display: flex; align-items: center; gap: 8px; padding: 6px 13px 6px 7px; color: #efe2c2;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0) 45%),
-    var(--hud-surface);
+    linear-gradient(160deg, rgba(255, 228, 176, 0.16), rgba(255, 228, 176, 0) 38%, rgba(0, 0, 0, 0) 62%, rgba(0, 0, 0, 0.32)),
+    repeating-linear-gradient(176deg, rgba(0, 0, 0, 0.13) 0 1px, rgba(0, 0, 0, 0) 1px 4px, rgba(255, 214, 160, 0.05) 4px 5px, rgba(0, 0, 0, 0) 5px 9px),
+    linear-gradient(90deg, #3a2314, #4a2e1b 30%, #43291a 70%, #362013);
   border: 0; position: relative;
   clip-path: polygon(var(--cut) 0, calc(100% - var(--cut)) 0, 100% var(--cut), 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, var(--cut) 100%, 0 calc(100% - var(--cut)), 0 var(--cut));
 }
-/* the brass edge follows the chamfer (an inset copy of the same polygon) */
+/* the brass rim follows the chamfer (an inset copy of the same polygon), bright where the light falls, dark below */
 .t3d-seat-main::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(180deg, var(--frame-hi), var(--frame) 40%, color-mix(in srgb, var(--frame) 55%, black));
+  background: linear-gradient(160deg, #f8e2a2, #d7ae63 30%, #a07a3c 62%, #5e4119);
   clip-path: inherit;
   -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-  padding: 1px; opacity: 0.55;
+  padding: 2px;
 }
-.t3d-seat.active .t3d-seat-main::before { opacity: 1; }
+/* a dark cut just inside the rim, so the brass stands proud of the wood */
+.t3d-seat-main::after {
+  content: ""; position: absolute; inset: 2px; pointer-events: none;
+  background: rgba(20, 11, 4, 0.85);
+  clip-path: polygon(calc(var(--cut) - 2px) 0, calc(100% - var(--cut) + 2px) 0, 100% calc(var(--cut) - 2px), 100% calc(100% - var(--cut) + 2px), calc(100% - var(--cut) + 2px) 100%, calc(var(--cut) - 2px) 100%, 0 calc(100% - var(--cut) + 2px), 0 calc(var(--cut) - 2px));
+  -webkit-mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  padding: 1px;
+}
+.t3d-seat.active .t3d-seat-main::before { background: linear-gradient(160deg, #fff0c0, #efc77c 30%, #b88a42 62%, #6e4c1c); }
 .t3d-seat-main:focus-visible { outline: none; }
 /* the chamfer clips an outline on the button itself, so the ring goes on the plaque around it */
 .t3d-seat:has(.seat-who:focus-visible) { outline: 2px solid var(--select); outline-offset: 3px; border-radius: 6px; }
@@ -43,23 +54,24 @@
 .seat-heart-shape .seat-heart-fill { fill: #050505; stroke: none; }
 .seat-heart-shape .seat-heart-edge { fill: none; stroke: var(--player-color); stroke-width: 4.5; }
 .seat-heart-shape .seat-heart-half { stroke: none; transition: fill var(--dur-hover, 120ms) ease-out; }
-.seat-heart-shape .seat-heart-half.minus { fill: rgba(120, 30, 24, 0.4); }
-.seat-heart-shape .seat-heart-half.plus { fill: rgba(26, 96, 48, 0.4); }
-.seat-heart.hot-minus .seat-heart-half.minus { fill: rgba(178, 52, 40, 0.75); }
-.seat-heart.hot-plus .seat-heart-half.plus { fill: rgba(52, 150, 78, 0.72); }
-.seat-heart-shape .seat-heart-sign-under { fill: none; stroke: rgba(0, 0, 0, 0.9); stroke-width: 6; }
-.seat-heart-shape .seat-heart-sign { fill: none; stroke: #f6f1e6; stroke-width: 3; }
+.seat-heart-shape .seat-heart-half.minus { fill: #6b2619; }
+.seat-heart-shape .seat-heart-half.plus { fill: #22603a; }
+.seat-heart.hot-minus .seat-heart-half.minus { fill: #a8402d; }
+.seat-heart.hot-plus .seat-heart-half.plus { fill: #3a8f52; }
+.seat-heart-shape .seat-heart-sign-under { fill: none; stroke: rgba(30, 18, 4, 0.92); stroke-width: 5.2; }
+.seat-heart-shape .seat-heart-sign { fill: none; stroke-width: 3.2; }
+.seat-heart-shape .seat-heart-sign-light { fill: none; stroke: rgba(255, 249, 226, 0.75); stroke-width: 1; }
 body.reduced-motion .seat-heart-shape .seat-heart-half { transition: none; }
 .seat-heart:hover .seat-heart-shape .seat-heart-edge, .seat-heart:focus-visible .seat-heart-shape .seat-heart-edge { stroke-width: 5.5; }
 .seat-heart:focus-visible { outline: none; }
 .seat-heart:focus-visible .seat-heart-shape { filter: drop-shadow(0 0 3px var(--select)); }
 .seat-heart-n {
-  position: relative; margin-top: 15px; font: 700 17px/1 var(--font-ui); color: #f1ece2; font-variant-numeric: tabular-nums;
+  position: relative; margin-top: 5px; font: 700 16px/1 var(--font-ui); color: #f4efe6; font-variant-numeric: tabular-nums;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9);
 }
 .seat-heart.dead .seat-heart-n { color: #ffb3a8; }
 .seat-pending {
-  position: absolute; right: -10px; top: -8px; font: 800 12px/1 Inter, sans-serif; padding: 3px 5px; border-radius: 9px;
+  position: absolute; right: -10px; top: -8px; font: 800 12px/1 var(--font-ui); padding: 3px 5px; border-radius: 9px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); pointer-events: none;
 }
 .seat-pending.up { background: #2e6b3e; color: #e8ffe9; }
@@ -69,7 +81,7 @@ body.reduced-motion .seat-heart-shape .seat-heart-half { transition: none; }
 .seat-trackers { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; max-width: 150px; }
 .seat-track {
   display: inline-flex; align-items: center; gap: 3px; height: 22px; padding: 0 6px 0 3px; cursor: pointer;
-  font: 600 12px/1 Inter, sans-serif; font-variant-numeric: tabular-nums; color: var(--text);
+  font: 600 12px/1 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text);
   background: rgba(0, 0, 0, 0.35); border: 1px solid color-mix(in srgb, var(--track, var(--line)) 70%, transparent); border-radius: 11px;
 }
 .seat-track-glyph {
@@ -79,7 +91,11 @@ body.reduced-motion .seat-heart-shape .seat-heart-half { transition: none; }
 .seat-track.zero { opacity: 0.55; }
 .seat-track:hover, .seat-track:focus-visible { opacity: 1; border-color: var(--frame-hi); outline: none; }
 .seat-track.lethal { border-color: #ff8a7a; color: #ffb3a8; opacity: 1; }
-.seat-hand { display: inline-flex; align-items: center; gap: 2px; font: 600 12px/1 Inter, sans-serif; color: var(--text-dim); padding: 0 4px; }
+.seat-hand {
+  display: inline-flex; align-items: center; gap: 3px; font: 650 13px/1 var(--font-ui); font-variant-numeric: tabular-nums; color: #efe2c2;
+  padding: 0 4px; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+}
+.seat-hand > :first-child { color: #d7ae63; }
 /* + : add a counter that isn't on the plaque yet (zeros stay off it). A brass-ringed stud; it waits, like the steppers,
    until you reach for the plaque (the space stays, so nothing jumps) */
 .seat-add {
@@ -92,7 +108,10 @@ body.reduced-motion .seat-heart-shape .seat-heart-half { transition: none; }
 @media (hover: hover) and (pointer: fine) { .t3d-seat:not(:hover):not(:focus-within) .seat-add { opacity: 0; } }
 body.hud-minimal .seat-add { display: none; }
 .t3d-seat-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
-.t3d-seat-name { font-size: 12px; color: var(--text-dim); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t3d-seat-name {
+  font: 600 12.5px/1.15 var(--font-display); letter-spacing: 0.02em; color: #efe2c2; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+}
 .t3d-seat-life {
   font-family: var(--font-display); font-size: 28px; font-weight: 700; color: var(--text); font-variant-numeric: lining-nums;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9), 0 -1px 0 rgba(255, 230, 180, 0.12);
@@ -100,10 +119,16 @@ body.hud-minimal .seat-add { display: none; }
 /* turn and priority are said in words, never by colour alone */
 .t3d-seat-flags { position: absolute; left: 50%; bottom: calc(100% - 2px); transform: translateX(-50%); display: flex; gap: 4px; white-space: nowrap; }
 .t3d-flag {
-  font-size: 11px; font-weight: 600; line-height: 1; padding: 3px 8px 4px; border-radius: 3px 3px 0 0;
-  color: var(--accent-ink); background: var(--accent);
+  font: 700 10.5px/1 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 9px 4px; border-radius: 3px 3px 0 0;
+  color: #2a1a08; background: linear-gradient(180deg, #f8e2a2, #d7ae63 55%, #a8803f);
+  box-shadow: inset 0 1px 0 rgba(255, 250, 230, 0.75), inset 0 -1px 0 rgba(60, 38, 12, 0.6), 0 -1px 3px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 0 rgba(255, 240, 200, 0.45);
 }
-.t3d-flag.prio { color: #0b1a2b; background: var(--select); }
+.t3d-flag.prio {
+  color: #08182a; background: linear-gradient(180deg, #d9efff, #8cc6f2 55%, #5a95c8);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), inset 0 -1px 0 rgba(10, 40, 70, 0.6), 0 -1px 3px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
 /* narrower screens: compact plaques cover fewer cards (name moves to the tooltip-sized line) */
 @media (max-width: 1500px) {
   .t3d-seat-main { gap: 7px; padding: 3px 10px 3px 4px; }
@@ -119,7 +144,7 @@ body.hud-minimal .seat-add { display: none; }
 .t3d-seat.seat-2d { transform: none; display: inline-flex; align-items: center; gap: 2px; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55)); flex: none; }
 .seat-2d .t3d-seat-main { padding: 3px 10px 3px 4px; gap: 6px; }
 .seat-2d .seat-heart { width: 52px; height: 46px; }
-.seat-2d .seat-heart-n { font-size: 17px; }
+.seat-2d .seat-heart-n { font-size: 15px; }
 .seat-2d .t3d-seat-main .portrait { --size: 34px !important; }
 .seat-2d .t3d-seat-flags { left: 18px; transform: none; }
 /* life steppers wait until you reach for the plaque (the space stays, so nothing jumps) */
@@ -154,7 +179,7 @@ body.hud-minimal .seat-add { display: none; }
 .area-side .seat-who .t3d-seat-name { max-width: 130px; }
 .area-side .seat-trackers { max-width: 92px; }
 .area-side .seat-heart { width: 46px; height: 42px; }
-.area-side .seat-heart-n { font-size: 15px; }
+.area-side .seat-heart-n { font-size: 13px; }
 .area-side .seat-track { padding-right: 4px; }
 .area-side .t3d-seat.seat-2d { max-width: 100%; }
 

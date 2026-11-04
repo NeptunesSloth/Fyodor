@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useGame } from "../state/gameStore";
 import { changeLife, changeResource, send } from "./actions";
@@ -53,6 +53,9 @@ function counterHandlers(bump: (d: number) => void) {
 
 const sign = (n: number) => (n > 0 ? `+${n}` : `${n}`);
 
+/** The heart's − and + (in its lobes, above the number). */
+const SIGNS_D = "M12 14h9 M43 14h9 M47.5 9.5v9";
+
 /** The heart's outline (a 64 × 58 box). */
 const HEART_D = "M32 55 C14 42 3 31 3 18 C3 9 10 3 18 3 C24 3 29 6 32 11 C35 6 40 3 46 3 C54 3 61 9 61 18 C61 31 50 42 32 55 Z";
 
@@ -67,6 +70,7 @@ function LifeHeart({ player, name, life, testId, readOnly }: { player: string; n
   const keys = counterHandlers(bump);
   // the half under the pointer lights up, so you see which way a click goes
   const [hot, setHot] = useState<-1 | 0 | 1>(0);
+  const brassId = `brass-${useId().replace(/:/g, "")}`;
   const control = readOnly
     ? { disabled: true, "aria-label": `${name}: ${life} life`, title: "Life" } // -- out of the game -- the total, not a control
     : {
@@ -88,8 +92,15 @@ function LifeHeart({ player, name, life, testId, readOnly }: { player: string; n
         </>}
         <path className="seat-heart-edge" d={HEART_D} />
         {!readOnly && <>
-          <path className="seat-heart-sign-under" d="M11 15.5h10 M43 15.5h10 M48 10.5v10" />
-          <path className="seat-heart-sign" d="M11 15.5h10 M43 15.5h10 M48 10.5v10" />
+          {/* − and +: engraved brass, lit from the top left */}
+          <defs>
+            <linearGradient id={brassId} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#fbe9b0" /><stop offset="0.45" stopColor="#d8ad55" /><stop offset="1" stopColor="#8f6526" />
+            </linearGradient>
+          </defs>
+          <path className="seat-heart-sign-under" d={SIGNS_D} transform="translate(0.7 0.7)" />
+          <path className="seat-heart-sign" d={SIGNS_D} stroke={`url(#${brassId})`} />
+          <path className="seat-heart-sign-light" d={SIGNS_D} transform="translate(-0.55 -0.55)" />
         </>}
       </svg>
       <span className="seat-heart-n" data-testid={testId}>{life + pending}</span>
