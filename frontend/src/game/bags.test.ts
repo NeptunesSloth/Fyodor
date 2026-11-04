@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GameView } from "../types/game";
 import type { CardData } from "../types/cards";
-import { COMMON_TOKENS, deckTokenIds, inGame, matchesToken, numberChits, parseChits, playerChits, teamChits, tokenKey, uniqueTokens } from "./bags";
+import { commonBesidesDeck, COMMON_TOKENS, deckTokenIds, inGame, matchesToken, numberChits, parseChits, playerChits, teamChits, tokenKey, uniqueTokens } from "./bags";
 import { outRefusal } from "./outOfGame";
 
 const view = (over: Partial<GameView> = {}) => ({
@@ -115,6 +115,20 @@ describe("the common tokens find their printing in the card database (matchesTok
     expect(matchesToken(printed, treasure)).toBe(true);
     // reminder text in parentheses doesn't count
     expect(matchesToken({ ...printed, oracle_text: "{T}, Sacrifice this token: Add one mana of any color. (It's an artifact.)" }, treasure)).toBe(true);
+  });
+});
+
+describe("the bag's common tokens leave out what my deck's list already shows (commonBesidesDeck)", () => {
+  it("drops the Goblin my deck makes (the same token by oracle id, or by name, P/T, types and colours when not found yet)", () => {
+    const goblin = tok("g1", { oracle_id: "goblin" });
+    const found = { goblin: tok("g9", { oracle_id: "goblin" }) };
+    expect(commonBesidesDeck(COMMON_TOKENS, found, [goblin]).map((t) => t.id)).not.toContain("goblin");
+    // not found in the database: the predefined token is compared by what it is
+    expect(commonBesidesDeck(COMMON_TOKENS, {}, [goblin]).map((t) => t.id)).not.toContain("goblin");
+    // a 2/2 black Goblin in the deck is another token: the common 1/1 red one stays
+    const other = tok("g2", { oracle_id: "goblin22", power: "2", toughness: "2", colors: ["B"] });
+    expect(commonBesidesDeck(COMMON_TOKENS, {}, [other]).map((t) => t.id)).toContain("goblin");
+    expect(commonBesidesDeck(COMMON_TOKENS, {}, [])).toHaveLength(COMMON_TOKENS.length);
   });
 });
 

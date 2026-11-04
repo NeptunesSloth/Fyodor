@@ -77,6 +77,21 @@ export function deckTokenIds(view: Pick<GameView, "players" | "cards">, me: stri
   return uniqueTokens([...ids], info).slice(0, DECK_TOKENS_MAX);
 }
 
+/**
+ * The common tokens the bag shows besides my deck's own: one my deck's list already has (`deck`, its printings) is left
+ * out. A common token found in the database (`found`) compares by its printing; one not found yet by what it is.
+ */
+export function commonBesidesDeck(common: ExtraToken[], found: Record<string, CardData>, deck: CardData[]): ExtraToken[] {
+  const oracles = new Set(deck.map((c) => c.oracle_id).filter(Boolean));
+  const named = new Set(deck.map((c) => tokenKey({ ...c, oracle_id: "" })));
+  return common.filter((t) => {
+    const printing = found[t.id];
+    if (printing?.oracle_id && oracles.has(printing.oracle_id)) return false;
+    const spec = t.token as { name: string; type_line: string; power?: string; toughness?: string; colors?: string[] };
+    return !named.has(tokenKey({ oracle_id: "", name: spec.name, type_line: spec.type_line, power: spec.power ?? null, toughness: spec.toughness ?? null, colors: spec.colors ?? [] }));
+  });
+}
+
 /** Rules text without reminder text, spaces evened out. */
 const rulesText = (t: string | null | undefined) => (t ?? "").replace(/\([^()]*\)/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 

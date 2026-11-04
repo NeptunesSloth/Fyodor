@@ -1,20 +1,23 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { CardFace, type CustomFace } from "../cards/CardFace";
-import { Icon } from "../components/Icon";
+import { createPortal } from "react-dom";
+import { CardFace } from "../cards/CardFace";
+import { api } from "../services/api";
 import { getPrintings, searchCards } from "../services/cards";
 import { requestCards, useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import type { CardData } from "../types/cards";
 import { addCounter, changeResource, send } from "./actions";
-import { BAG_DICE, CARD_COUNTERS, COMMON_TOKENS, deckTokenIds, matchesToken, PLAYER_COUNTERS, type ExtraToken } from "./bags";
+import { BAG_DICE, CARD_COUNTERS, COMMON_TOKENS, commonBesidesDeck, deckTokenIds, matchesToken, PLAYER_COUNTERS, type ExtraToken } from "./bags";
 import { keyLabel } from "./hotkeys";
 import { isOut } from "./outOfGame";
-import { dieIconUrl, seatIconUrl, toyIconUrl, whenIconFontReady, type ToyIconId } from "./seatIcons";
+import { dieIconUrl, seatIconUrl, tokenCardUrl, toyIconUrl, whenIconFontReady, type TokenEmblemId, type ToyIconId } from "./seatIcons";
 import "./dice.css";
 import "./tabletoys.css";
 
 const COUNTS = [1, 2, 3, 5] as const;
+/** From the click (a seat button's middle) to the panel's bottom: half the largest button and 8 px more. */
+const BUTTON_CLEAR = 30;
 
 /** The counters' names as the bag shows them. */
 const COUNTER_LABEL: Record<string, string> = {
@@ -26,6 +29,8 @@ const COUNTER_LABEL: Record<string, string> = {
 /** Found once a session: each common token's printing in the local card database, one with art when any printing has it. */
 let found: Record<string, CardData> = {};
 let finding: Promise<Record<string, CardData>> | null = null;
+let askedForArt = false;
+const listeners = new Set<(cards: Record<string, CardData>) => void>();
 
 function commonTokenPrintings(): Promise<Record<string, CardData>> {
   finding ??= (async () => {
@@ -42,32 +47,61 @@ function commonTokenPrintings(): Promise<Record<string, CardData>> {
     useCardCache.getState().put(Object.values(out));
     found = out;
     if (!Object.keys(out).length) finding = null; // (no card database yet: ask again next time)
+    else void askForArt(out);
     return out;
   })();
   return finding;
+}
+
+/**
+ * Art for the common tokens that have none cached, fetched by the host the way it fetches a deck's (linked from Scryfall,
+ * cached, never shipped), once a session. Only the host may, and only while online: anywhere else the request is
+ * refused and the tokens keep their emblem cards. When it is done, the printings are looked up again.
+ */
+async function askForArt(cards: Record<string, CardData>): Promise<void> {
+  const ids = Object.values(cards).filter((c) => !c.has_image).map((c) => c.id);
+  if (askedForArt || !ids.length) return;
+  askedForArt = true;
+  const job = await api.post<{ id: string; state: string }>("/cards/cache-art", { ids }).catch(() => null);
+  if (!job) return;
+  for (let i = 0; i < 90; i++) {
+    await new Promise((r) => window.setTimeout(r, 2000));
+    const state = await api.get<{ state: string }>(`/jobs/${job.id}`).catch(() => null);
+    if (!state || state.state !== "running") break;
+  }
+  finding = null;
+  const again = await commonTokenPrintings();
+  for (const l of listeners) l(again);
 }
 
 function useCommonTokenPrintings(): Record<string, CardData> {
   const [cards, setCards] = useState(found);
   useEffect(() => {
     let live = true;
-    void commonTokenPrintings().then((r) => live && setCards(r));
-    return () => { live = false; };
+    const hear = (r: Record<string, CardData>) => live && setCards(r);
+    listeners.add(hear);
+    void commonTokenPrintings().then(hear);
+    return () => { live = false; listeners.delete(hear); };
   }, []);
   return cards;
 }
 
 // -- tiles ------------------------------------------------------------------------------------------------------------
 
-/** A token in the bag: its card (art, or the designed proxy), its name and P/T; a click pulls `count` of it onto the table. */
-function TokenTile({ card, custom, name, pt, count, title, testId, onPull }: {
-  card?: CardData | undefined; custom?: CustomFace; name: string; pt?: string | null | undefined; count: number; title: string; testId?: string; onPull: () => void;
+/**
+ * A token in the bag: its card (the printing's art; a common token without art cached shows its emblem card instead), its
+ * name and P/T; a click pulls `count` of it onto the table.
+ */
+function TokenTile({ card, emblem, name, pt, count, title, testId, onPull }: {
+  card?: CardData | undefined; emblem?: string | undefined; name: string; pt?: string | null | undefined; count: number; title: string; testId?: string; onPull: () => void;
 }) {
   const [pulls, setPulls] = useState(0);
   return (
     <button type="button" className="bag-tile" title={title} data-testid={testId} aria-label={`Create ${count} ${name}${pt ? ` ${pt}` : ""}`}
       onClick={() => { setPulls((n) => n + 1); onPull(); }}>
-      <span className="bag-tile-card"><CardFace card={card} custom={card ? undefined : custom} size="small" /></span>
+      <span className="bag-tile-card">
+        {emblem && !card?.has_image ? <span className="card-face"><img src={emblem} alt={name} draggable={false} /></span> : <CardFace card={card} size="small" />}
+      </span>
       <span className="bag-tile-cap">
         <span className="bag-tile-name">{name}</span>
         {pt && <span className="bag-tile-pt">{pt}</span>}
@@ -77,7 +111,7 @@ function TokenTile({ card, custom, name, pt, count, title, testId, onPull }: {
   );
 }
 
-/** A counter (or one of yours): its medallion and name. */
+/** A counter (or one of yours): a brass medallion with its name under it, like the dice. */
 function CounterChip({ kind, label, disabled, title, onPull }: { kind: ToyIconId; label: string; disabled?: boolean; title: string; onPull: () => void }) {
   return (
     <button type="button" className="bag-chip" disabled={disabled} title={title} onClick={onPull} data-testid={`extras-counter-${kind}`}>
@@ -127,28 +161,41 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
       window.removeEventListener("pointerdown", onDown, true);
     };
   }, [onClose]);
-  // opened where it was clicked, just above the point (or by the seat buttons' corner), always whole on screen
+  // opened where it was clicked, its bottom clear of the button's top (the click is the button's middle), always whole on
+  // screen, below the top bar and (on the 2D table) the opponents' strips, and beside my rail rather than over my plate
   useLayoutEffect(() => {
     const node = panel.current;
     if (!node) return;
+    node.style.maxHeight = "";
     const [w, h] = [node.offsetWidth, node.offsetHeight];
     const at = anchor?.split(",").map(Number);
     const ok = !!at && at.length === 2 && at.every(Number.isFinite);
-    const x = ok ? at[0]! - w / 2 : window.innerWidth - w - 16;
-    const y = ok ? at[1]! - h - 14 : window.innerHeight - h - 72;
-    setPlace({ left: Math.max(8, Math.min(window.innerWidth - w - 8, x)), top: Math.max(54, Math.min(window.innerHeight - h - 8, y)) });
+    const boxes = (sel: string) => [...document.querySelectorAll(sel)].map((n) => n.getBoundingClientRect()).filter((r) => r.width > 0);
+    let x = ok ? at[0]! - w / 2 : window.innerWidth - w - 16;
+    x = Math.max(8, Math.min(window.innerWidth - w - 8, x));
+    for (const r of boxes(".player-area.mine .area-side")) if (x < r.right && x + w > r.left && r.right + 8 + w <= window.innerWidth - 8) x = r.right + 8;
+    for (const r of boxes(".turn-dial-wrap")) if (x + w > r.left - 8 && x < r.right && r.left - 8 - w >= 8) x = r.left - 8 - w; // (and clear of the turn panel)
+    // above the button when over it; moved aside (beside my rail), it may come down to the screen's foot
+    const overButton = ok && at[0]! > x - 8 && at[0]! < x + w + 8;
+    const bottom = overButton ? at[1]! - BUTTON_CLEAR : window.innerHeight - 8;
+    const ceiling = Math.max(54, ...boxes(".game-top, .opponents .seat-strip, .t3d-cams").filter((r) => r.left < x + w && r.right > x && r.bottom < bottom).map((r) => r.bottom + 8));
+    const room = Math.max(320, bottom - ceiling);
+    const top = overButton ? Math.max(ceiling, Math.min(window.innerHeight - Math.min(h, room) - 8, bottom - h)) : ceiling;
+    setPlace({ left: x, top, maxHeight: room });
   }, [anchor, deck.length]);
   if (!view || isOut(view, me)) return null;
   const onTable = selection.filter((id) => view.cards[id]?.zone.endsWith(":battlefield"));
   const make = (token: Record<string, unknown>) => void send({ type: "create_token", player: me, token, count });
-  const commonFace = (t: ExtraToken): CustomFace => ({
-    name: t.label, type_line: t.token.type_line as string, oracle_text: (t.token.text as string | undefined) ?? "",
-    power: (t.token.power as string | undefined) ?? null, toughness: (t.token.toughness as string | undefined) ?? null, colors: (t.token.colors as string[] | undefined) ?? [],
+  const emblemOf = (t: ExtraToken) => tokenCardUrl(t.id as TokenEmblemId, {
+    name: t.label, type: t.token.type_line as string, pt: t.pt, colors: (t.token.colors as string[] | undefined) ?? [],
   });
+  const commons = commonBesidesDeck(COMMON_TOKENS, common, deck.map((id) => cache[id]).filter((c): c is CardData => !!c));
   const target = onTable.length === 1 ? "the selected card" : `${onTable.length} selected cards`;
   const diceKey = keyLabel("dice", keymap);
-  return (
+  // (on the page itself, so it stands over the table's floating layers, such as the dice results on the 2D table)
+  return createPortal(
     <div className="extras-panel" ref={panel} role="dialog" aria-label="Bag of Extras" style={place} data-testid="extras-panel">
+      <div className="extras-inner">
       <header className="extras-head">
         <img className="extras-mark" src={seatIconUrl("extras")} alt="" draggable={false} />
         <h2 className="extras-title">Bag of Extras</h2>
@@ -157,7 +204,9 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
             <button key={n} type="button" className={count === n ? "on" : ""} aria-pressed={count === n} onClick={() => setCount(n)}>×{n}</button>
           ))}
         </div>
-        <button type="button" className="extras-close" onClick={onClose} aria-label="Close the Bag of Extras (Esc)" title="Close (Esc)"><Icon name="close" size={12} /></button>
+        <button type="button" className="extras-close" onClick={onClose} aria-label="Close the Bag of Extras (Esc)" title="Close (Esc)">
+          <img src={toyIconUrl("close")} alt="" draggable={false} />
+        </button>
       </header>
       <div className="extras-body">
         <div className="extras-tokens">
@@ -177,9 +226,9 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
           <section className="extras-group" aria-label="Common tokens">
             <h3 className="extras-group-head">Tokens</h3>
             <div className="bag-tiles">
-              {COMMON_TOKENS.map((t) => {
+              {commons.map((t) => {
                 const card = common[t.id];
-                return <TokenTile key={t.id} card={card} custom={commonFace(t)} name={t.label} pt={t.pt} count={count} testId={`extras-${t.id}`}
+                return <TokenTile key={t.id} card={card} emblem={emblemOf(t)} name={t.label} pt={t.pt} count={count} testId={`extras-${t.id}`}
                   title={`${t.token.type_line as string}${t.token.text ? `: ${t.token.text as string}` : ""}`}
                   onPull={() => make(card ? { card_id: card.id } : t.token)} />;
               })}
@@ -229,6 +278,8 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
         </div>
       </div>
       <p className="extras-note">The bag never runs out. Each pull is the table's own action; Ctrl+Z takes it back.</p>
-    </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
