@@ -1,9 +1,10 @@
 /**
  * The 3D table's camera, moved as in Tabletop Simulator: right-drag orbits (around the point the view looks at, its
- * pitch kept between 25° and 85° above the felt), middle-drag pans across the table, the wheel zooms toward the point
+ * pitch kept between 14° and 85° above the felt), middle-drag pans across the table, the wheel zooms toward the point
  * under the pointer, the arrow keys pan (Shift: faster). The player's moves are an adjustment on top of the current
  * view (the seat, the whole table, a player's board): it stays until Home or 1 (or 0 for the whole table) puts the
- * view back.
+ * view back. Orbiting lower than the view's own pitch widens the lens (and brings the camera in to match), so leaning
+ * in to the table gains perspective instead of looking flat.
  *
  * Camera only (never game state). three.js math only, no WebGL, so it is unit-tested; TableScene feeds it the pointer
  * and keys and eases the camera to what it returns.
@@ -26,7 +27,7 @@ export interface CamAdjust {
 export const NO_ADJUST: CamAdjust = { yaw: 0, pitch: 0, zoom: 1, panX: 0, panZ: 0 };
 
 /** How low and how high the camera may orbit (elevation above the felt), and how near and far it may zoom. */
-export const PITCH_MIN = THREE.MathUtils.degToRad(25);
+export const PITCH_MIN = THREE.MathUtils.degToRad(14);
 export const PITCH_MAX = THREE.MathUtils.degToRad(85);
 export const ZOOM_MIN = 0.3;
 export const ZOOM_MAX = 2.5;
@@ -34,6 +35,26 @@ export const ZOOM_MAX = 2.5;
 export const ORBIT_SPEED = 0.006;
 
 export interface CamPose { pos: THREE.Vector3; look: THREE.Vector3 }
+
+/** The lens (vertical field of view, degrees) at the lowest orbit. */
+export const LOW_FOV = 18;
+
+/**
+ * The lens for a camera at elevation `elev` (radians), on a view framed at `baseElev` with a `baseFov` lens: that lens
+ * at the view's own pitch and above it; below it, widening smoothly to LOW_FOV at the lowest orbit (a long lens seen
+ * low reads as flat as a map).
+ */
+export function fovAt(elev: number, baseElev: number, baseFov: number): number {
+  if (elev >= baseElev || baseFov >= LOW_FOV || baseElev <= PITCH_MIN) return baseFov;
+  const t = THREE.MathUtils.clamp((baseElev - elev) / (baseElev - PITCH_MIN), 0, 1);
+  return baseFov + (LOW_FOV - baseFov) * t * t * (3 - 2 * t);
+}
+
+/** How far a camera with lens `fov` stands, as a share of one with `baseFov`, for what it looks at to be the same size. */
+export function reachFor(fov: number, baseFov: number): number {
+  const half = (deg: number) => Math.tan(THREE.MathUtils.degToRad(deg) / 2);
+  return half(baseFov) / half(fov);
+}
 
 /** How far the look point may wander: the table top's half extents (it never leaves the table). */
 export interface PanBounds { hx: number; hz: number }
@@ -57,16 +78,20 @@ export function clampAdjust(a: CamAdjust, base: CamPose, bounds?: PanBounds): Ca
   return { yaw: a.yaw, pitch, zoom, panX, panZ };
 }
 
-/** Where the camera is for a view (`base`) and the player's adjustment. */
-export function adjustCamera(base: CamPose, a: CamAdjust): CamPose {
+/**
+ * Where the camera is for a view (`base`) and the player's adjustment. With `baseFov` (the view's lens), an orbit below
+ * the view's pitch widens the lens (fovAt) and the camera comes in to match (reachFor); `fov` is the lens to use.
+ */
+export function adjustCamera(base: CamPose, a: CamAdjust, baseFov?: number): CamPose & { fov?: number } {
   const { r, elev, az } = elevationOf(base);
   const e = THREE.MathUtils.clamp(elev + a.pitch, Math.min(elev, PITCH_MIN), Math.max(elev, PITCH_MAX));
   const yaw = az + a.yaw;
-  const dist = r * a.zoom;
+  const fov = baseFov === undefined ? undefined : fovAt(e, elev, baseFov);
+  const dist = r * a.zoom * (fov === undefined ? 1 : reachFor(fov, baseFov!));
   const look = base.look.clone().add(new THREE.Vector3(a.panX, 0, a.panZ));
   const flat = Math.cos(e) * dist;
   const pos = look.clone().add(new THREE.Vector3(Math.sin(yaw) * flat, Math.sin(e) * dist, Math.cos(yaw) * flat));
-  return { pos, look };
+  return fov === undefined ? { pos, look } : { pos, look, fov };
 }
 
 /** Right-drag: turn around the look point (dragging sideways) and tilt (dragging down raises the camera). */

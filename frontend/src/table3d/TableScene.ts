@@ -241,6 +241,8 @@ export class TableScene {
   private camPos = new THREE.Vector3(0, 30, 30);
   private camLook = new THREE.Vector3();
   private camGoalPos = new THREE.Vector3(0, 30, 30);
+  /** -- camera -- the lens the camera is going to (wider when orbited below the view's pitch). */
+  private camGoalFov = TABLE_FOV;
   private camGoalLook = new THREE.Vector3();
   private preset: CameraPreset = "seat";
   /** -- camera -- the player's move of the view (table3d/cameraControls.ts), and the one kept for each view left behind. */
@@ -482,6 +484,8 @@ export class TableScene {
   private groundAt(clientX: number, clientY: number): THREE.Vector3 | null {
     const cam = this.goalCam;
     cam.copy(this.camera);
+    cam.fov = this.camGoalFov;
+    cam.updateProjectionMatrix();
     cam.position.copy(this.camGoalPos);
     cam.lookAt(this.camGoalLook);
     cam.updateMatrixWorld(true);
@@ -496,7 +500,10 @@ export class TableScene {
     this.post?.setSize(w, h);
     // frame the table above the hand: render the lower part of a taller frame, which lifts what the camera looks at by
     // half the hand band (picking and projection use the same matrices); the aspect is that whole frame's
+    const fov = this.camGoalFov === TABLE_FOV ? TABLE_FOV : this.camera.fov; // (the lens of an orbit below the view's pitch, kept)
     tableLens(w, h, this.camera);
+    this.camera.fov = fov;
+    this.camera.updateProjectionMatrix();
     this.updateCameraGoal();
   }
 
@@ -580,6 +587,18 @@ export class TableScene {
   buttonOnScreen(id: SeatActionId): { x: number; y: number } | null {
     const p = this.props.buttonWorld(id);
     return p ? this.project(p) : null;
+  }
+
+  /**
+   * -- camera -- the lens eases to the goal's with the camera (wider when orbited below the view's pitch,
+   * cameraControls.ts fovAt; the goal's distance was brought in to match, so the framing holds on the way).
+   */
+  private fitLens(k: number): void {
+    const cam = this.camera;
+    const fov = Math.abs(cam.fov - this.camGoalFov) < 1e-3 ? this.camGoalFov : cam.fov + (this.camGoalFov - cam.fov) * k;
+    if (fov === cam.fov) return;
+    cam.fov = fov;
+    cam.updateProjectionMatrix();
   }
 
   /** -- flicker -- the near and far planes follow the camera's distance (framing.ts nearFarFor), so depth stays fine. */
@@ -1527,7 +1546,8 @@ export class TableScene {
     }
     // -- camera -- the player's move of this view, on top of how the view frames it
     this.camBase = { pos: pos.clone(), look: look.clone() };
-    const moved = adjustCamera(this.camBase, this.adj);
+    const moved = adjustCamera(this.camBase, this.adj, TABLE_FOV);
+    this.camGoalFov = moved.fov ?? TABLE_FOV;
     const off = moved.pos.clone().sub(moved.look);
     this.camGoalPos.copy(moved.pos);
     this.camGoalLook.copy(moved.look);
@@ -1649,10 +1669,10 @@ export class TableScene {
   }
 
   /** -- framing -- what the table is framed in and around (tests and diagnostics). */
-  framingState(): { view: [number, number]; keepOut: { left: number; top: number; right: number; bottom: number }[]; reserveTop: number; elevation: number; adjust: CamAdjust; dragging: string } {
+  framingState(): { view: [number, number]; keepOut: { left: number; top: number; right: number; bottom: number }[]; reserveTop: number; elevation: number; adjust: CamAdjust; dragging: string; fov: number } {
     return {
       view: [this.viewW, this.viewH], keepOut: this.keepOut3d.map((b) => ({ ...b })), reserveTop: this.reserveTop, elevation: seatElevation(this.seatList.length, this.viewW / Math.max(1, this.viewH)),
-      adjust: { ...this.adj }, dragging: this.rightPress ? "right" : this.panGrab ? "middle" : "",
+      adjust: { ...this.adj }, dragging: this.rightPress ? "right" : this.panGrab ? "middle" : "", fov: this.camera.fov,
     };
   }
 
@@ -2255,6 +2275,7 @@ export class TableScene {
     this.camera.position.copy(this.camPos);
     if (this.end.active) this.end.update(started, reduced, this.camera.position, this.camLook, this.camGoalLook);
     this.camera.lookAt(this.camLook);
+    this.fitLens(kc);
     this.fitDepth();
     if (!reduced && !this.still) {
       // candle flicker, drifting dust and flowing beams only when motion is welcome

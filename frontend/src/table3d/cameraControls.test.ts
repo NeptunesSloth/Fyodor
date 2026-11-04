@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { adjustCamera, clampAdjust, isUnmoved, NO_ADJUST, orbitBy, panBy, panKey, PITCH_MAX, PITCH_MIN, ZOOM_MAX, ZOOM_MIN, zoomAt, type CamPose } from "./cameraControls";
-import { tableLens } from "./framing";
+import { adjustCamera, clampAdjust, fovAt, isUnmoved, LOW_FOV, NO_ADJUST, orbitBy, panBy, panKey, PITCH_MAX, PITCH_MIN, ZOOM_MAX, ZOOM_MIN, zoomAt, type CamPose } from "./cameraControls";
+import { TABLE_FOV, tableLens, viewDir } from "./framing";
+import { DUEL_VIEW } from "./layout";
 
 const base: CamPose = { look: new THREE.Vector3(0, 0, 1), pos: new THREE.Vector3(0, 20, 36) };
 const bounds = { hx: 8, hz: 10 };
@@ -25,7 +26,7 @@ describe("3D table camera, Tabletop Simulator style", () => {
     expect(isUnmoved(orbitBy(NO_ADJUST, 30, 0, base, bounds))).toBe(false);
   });
 
-  it("right-drag orbits: sideways turns around the look point, down raises the camera, up lowers it, between 25° and 85°", () => {
+  it("right-drag orbits: sideways turns around the look point, down raises the camera, up lowers it, between 14° and 85°", () => {
     const turned = adjustCamera(base, orbitBy(NO_ADJUST, 120, 0, base, bounds));
     expect(turned.look.distanceTo(base.look)).toBeLessThan(1e-9); // around the same point
     expect(turned.pos.distanceTo(turned.look)).toBeCloseTo(base.pos.distanceTo(base.look), 6);
@@ -85,5 +86,42 @@ describe("3D table camera, Tabletop Simulator style", () => {
     const moved = after.look.clone().sub(before.look);
     const fwd = before.look.clone().sub(before.pos).setY(0).normalize();
     expect(moved.normalize().dot(fwd)).toBeGreaterThan(0.99);
+  });
+
+  it("orbiting below the seat's pitch widens the lens toward 18° and brings the camera in, so the framing holds", () => {
+    // the 1v1 seat view: a long lens, far back
+    const seat: CamPose = { look: new THREE.Vector3(0, 0, 2), pos: new THREE.Vector3(0, 0, 2).addScaledVector(viewDir(0, DUEL_VIEW), 120) };
+    const width = (p: CamPose & { fov?: number }) => {
+      const cam = tableLens(1280, 594);
+      cam.fov = p.fov ?? TABLE_FOV;
+      cam.updateProjectionMatrix();
+      cam.position.copy(p.pos);
+      cam.lookAt(p.look);
+      cam.updateMatrixWorld(true);
+      const a = p.look.clone().add(new THREE.Vector3(-1, 0, 0)).project(cam);
+      const b = p.look.clone().add(new THREE.Vector3(1, 0, 0)).project(cam);
+      return (b.x - a.x) * 640;
+    };
+    const home = adjustCamera(seat, NO_ADJUST, TABLE_FOV);
+    expect(home.fov).toBe(TABLE_FOV);
+    expect(home.pos.distanceTo(seat.pos)).toBeLessThan(1e-9);
+    // raised above the seat's pitch: the same lens
+    expect(adjustCamera(seat, orbitBy(NO_ADJUST, 0, 60, seat), TABLE_FOV).fov).toBe(TABLE_FOV);
+    // lowered: the lens widens step by step, to LOW_FOV at the lowest orbit; the look point stays as large on screen
+    let last = TABLE_FOV;
+    let lastDist = Infinity;
+    for (const dy of [-5, -15, -25, -35, -5000]) {
+      const p = adjustCamera(seat, orbitBy(NO_ADJUST, 0, dy, seat), TABLE_FOV);
+      expect(p.fov!).toBeGreaterThan(last);
+      expect(p.pos.distanceTo(p.look)).toBeLessThan(lastDist);
+      expect(width(p) / width(home)).toBeCloseTo(1, 2);
+      last = p.fov!;
+      lastDist = p.pos.distanceTo(p.look);
+    }
+    expect(last).toBeCloseTo(LOW_FOV, 6);
+    expect(fovAt(PITCH_MIN, DUEL_VIEW, TABLE_FOV)).toBeCloseTo(LOW_FOV, 6);
+    expect(fovAt(DUEL_VIEW, DUEL_VIEW, TABLE_FOV)).toBe(TABLE_FOV);
+    // no lens given (pans, zoom steps): the distance as before
+    expect(adjustCamera(seat, orbitBy(NO_ADJUST, 0, -100, seat)).pos.distanceTo(seat.look)).toBeCloseTo(120, 6);
   });
 });
