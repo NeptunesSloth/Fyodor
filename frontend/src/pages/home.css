@@ -51,15 +51,23 @@
 .home-continue-go { display: inline-flex; align-items: center; gap: 4px; font: 600 15px/1 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2); }
 
 .home-menu { display: flex; flex-direction: column; gap: 8px; }
+/* the secondary items are walnut plaques with a brass hairline (the primary one is brass); hover warms the wood and lights
+   the edge in place: no movement, nothing for the column's scroll box to clip */
 .home-item {
   display: flex; align-items: center; gap: 14px; height: 50px; padding: 0 18px; border-radius: 5px; text-decoration: none;
   color: var(--room-bone); font: 600 17px/1 var(--font-display); letter-spacing: 0.03em;
-  background: linear-gradient(90deg, rgba(24, 26, 28, 0.94), rgba(12, 13, 15, 0.8));
-  border: 1px solid var(--line-2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 3px 8px 16px -8px rgba(0, 0, 0, 0.8);
-  transition: border-color var(--dur-hover) var(--ease-out), transform var(--dur-hover) var(--ease-out);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wood) 80%, #2a1a10), var(--wood-2));
+  border: 1px solid color-mix(in srgb, var(--frame) 60%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 226, 180, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 3px 8px 16px -8px rgba(0, 0, 0, 0.8);
+  transition: border-color var(--dur-hover) var(--ease-out), background-color var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out);
 }
-.home-item:hover, .home-item:focus-visible { border-color: var(--frame-hi); transform: translateX(3px); }
+.home-item:not(.primary):hover, .home-item:not(.primary):focus-visible {
+  border-color: var(--frame-hi); color: var(--accent-2);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wood) 66%, #5a3a1c), var(--wood-2));
+  box-shadow: inset 0 1px 0 rgba(255, 226, 180, 0.2), inset 0 0 0 1px rgba(215, 174, 99, 0.18), 3px 8px 16px -8px rgba(0, 0, 0, 0.8);
+}
+.home-item.primary:hover, .home-item.primary:focus-visible { filter: brightness(1.07); }
+.home-item:active { box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5); }
 .home-icon { width: 22px; display: inline-flex; justify-content: center; color: var(--frame-hi); }
 .home-item.primary {
   height: 60px; font-size: 21px; color: var(--accent-ink); background: var(--accent-grad); border-color: var(--frame-hi);
@@ -68,13 +76,21 @@
 .home-item.primary .home-icon { color: var(--accent-ink); }
 .home-count {
   margin-left: auto; min-width: 26px; padding: 3px 8px; border-radius: 999px; text-align: center;
-  font: 600 12px/1.2 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-dim);
-  background: rgba(0, 0, 0, 0.45); border: 1px solid var(--line-2);
+  font: 600 12px/1.2 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--room-bone);
+  background: rgba(0, 0, 0, 0.45); border: 1px solid color-mix(in srgb, var(--frame) 55%, transparent);
 }
-.home-minor { display: flex; flex-wrap: wrap; gap: 4px 22px; margin: 6px 0 0 4px; }
-.home-minor a { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; font-size: 14px; color: var(--text-dim); text-decoration: none; }
-.home-minor a .icon { color: color-mix(in srgb, var(--frame-hi) 75%, var(--text-dim)); }
-.home-minor a:hover { color: var(--accent-2); }
+/* the rest of the house: three small walnut plaques in a row */
+.home-minor { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 2px; }
+.home-minor a {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 36px; padding: 0 10px; border-radius: 4px;
+  font-size: 13.5px; font-weight: 600; color: var(--room-bone); text-decoration: none; white-space: nowrap;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wood) 70%, #20140c), var(--wood-2));
+  border: 1px solid color-mix(in srgb, var(--frame) 45%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 226, 180, 0.1), 2px 5px 10px -6px rgba(0, 0, 0, 0.8);
+  transition: border-color var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out);
+}
+.home-minor a .icon { color: var(--frame-hi); }
+.home-minor a:hover { border-color: var(--frame-hi); color: var(--accent-2); }
 
 /* the pod's decks, a click from a new game */
 .home-decks h2 { margin: 0 0 9px 2px; font: 600 15px/1.2 var(--font-display); letter-spacing: 0.04em; color: var(--text-dim); }
@@ -161,8 +177,7 @@ body.perf-low .hs-mat { background: linear-gradient(180deg, var(--felt-2), var(-
 body.perf-low .hs-card .card-face, body.perf-low .hs-back .card-face { box-shadow: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-item:hover, .home-item:focus-visible { transform: none; }
-  .home-item, .home-continue, .home-art { transition: none; }
+  .home-item, .home-continue, .home-art, .home-minor a { transition: none; }
 }
 
 /* ---------------------------------------------------------------- shorter and narrower screens */

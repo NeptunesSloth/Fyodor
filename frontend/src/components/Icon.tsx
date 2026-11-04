@@ -7,8 +7,8 @@ const PATHS = {
   swords: "M5 3l9.5 9.5M3 5l2-2M13 14l2 2-2 2-2-2M19 3l-9.5 9.5M21 5l-2-2M11 14l-2 2 2 2 2-2M7 18l-3 3M17 18l3 3",
   // a card turning back: resume
   resume: "M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5M12 8v4l3 2",
-  // a round table with four seats: the LAN lobby
-  table: "M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zM12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5",
+  // a card table seen from above, a chair at each side: the LAN night, its seats
+  table: "M7.5 8h9a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 14.5v-5A1.5 1.5 0 0 1 7.5 8zM9.5 5.5a2.5 2.5 0 0 1 5 0M9.5 18.5a2.5 2.5 0 0 0 5 0M3.5 9.5a2.5 2.5 0 0 0 0 5M20.5 9.5a2.5 2.5 0 0 1 0 5",
   // a fanned pair of cards: decks
   cards: "M8.5 3.5h9a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1zM5.5 6.5v13a1 1 0 0 0 1 1h9",
   // a crown: commanders, pod stats

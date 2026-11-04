@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CardFace } from "../cards/CardFace";
 import { ColorPips } from "../components/ColorPips";
 import { Modal } from "../components/Modal";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
@@ -646,11 +647,15 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
 
       <div className={`pl-art ${deck ? "" : "empty"}`}>
         {cmdId ? <CommanderArt id={cmdId} /> : deck ? <CommanderArt back /> : (
-          <span className="pl-slot">
+          <span className={`pl-slot ${mine ? "pl-slot-mine" : ""}`}>
             {mine ? (
-              <button className="tt-btn brass pl-choose" disabled={busy} onClick={onChoose} data-testid="choose-deck">
-                <Icon name="cards" size={16} />Choose deck
-              </button>
+              <>
+                {/* the deck this seat is waiting for: a face-down card on the felt, under the button that brings it */}
+                <span className="pl-waiting" aria-hidden><CardFace faceDown /><CardFace faceDown /></span>
+                <button className="tt-btn brass pl-choose" disabled={busy} onClick={onChoose} data-testid="choose-deck">
+                  <Icon name="cards" size={16} />Choose deck
+                </button>
+              </>
             ) : <Icon name="cards" size={28} />}
           </span>
         )}
@@ -705,7 +710,7 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
           </>
         ) : (
           mine && own ? <OwnDeckPicks own={own} busy={busy} onPick={onPick} onMore={onChoose} /> : (
-            <p className="pl-empty">{mine ? "Bring any Commander deck: pick one you saved, paste a list or import it." : `${seat.name} is choosing a deck.`}</p>
+            <p className="pl-empty">{mine ? `Bring any ${isSandbox(lobby.settings.format) ? "" : "Commander "}deck: pick one you saved, paste a list or import it.` : `${seat.name} is choosing a deck.`}</p>
           )
         )}
       </div>
@@ -775,7 +780,7 @@ function OpenSeat({ seat, lobby, busy, onRun, invite, arranging }: {
         <span className="os-actions">
           {lobby.is_host && invite && <CopyButton text={invite} label={<><LinkGlyph />Invite</>} done="Link copied" className="os-invite" />}
           {iAmSeated && (
-            <button className="tt-btn ghost" disabled={busy} onClick={() => void onRun(() => changeLobbySeat(gameId, seat.id))}>Sit here</button>
+            <button className="tt-btn" disabled={busy} onClick={() => void onRun(() => changeLobbySeat(gameId, seat.id))}>Sit here</button>
           )}
           {watcher && (
             <button className="tt-btn brass" disabled={busy} data-testid={`take-seat-${seat.id}`}

@@ -130,9 +130,14 @@ test("2x crops: the format placards, the lobby's Format choice, the table's Sand
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 });
   const page = await context.newPage();
   await prefs(page, "2d"); // (the top bar is the same over either table; the 2D one is light at 2x)
+  await page.goto("/#/");
+  await expect(page.getByTestId("menu-lan")).toBeVisible();
+  await settled(page, 600);
+  await page.locator(".home-menu").screenshot({ path: `${OUT}/${PREFIX}-crop2x-home-menu.png` }); // the LAN glyph, the plaques
   await page.goto("/#/play");
   await settled(page, 600);
   await page.locator(".pg-formats").screenshot({ path: `${OUT}/${PREFIX}-crop2x-formats.png` });
+  await page.locator(".pg-chairs").screenshot({ path: `${OUT}/${PREFIX}-crop2x-chairs.png` }); // the table glyph by each open seat
   await page.getByTestId("format-sandbox").focus(); // the keyboard focus ring on a placard
   await page.keyboard.press("ArrowLeft");
   await settled(page, 200);

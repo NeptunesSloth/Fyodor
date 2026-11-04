@@ -340,7 +340,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                 {Array.from({ length: seats - 1 }, (_, k) => (
                   <li key={k} className="pg-chair">
                     <span className="pg-chair-seat"><Icon name="table" size={22} /><b>{k + 2}</b></span>
-                    <span className="pg-chair-text"><b>Open seat</b><span>A player joins with the room code and brings a deck.</span></span>
+                    <span className="pg-chair-text"><b>Open seat</b><span>Joins with the room code</span></span>
                     {seats > 1 && (
                       <button className="tt-icon pg-remove" onClick={() => setSeats((n) => n - 1)} aria-label="Remove a seat" title="Remove a seat"><Icon name="close" size={14} /></button>
                     )}
@@ -558,9 +558,10 @@ function JoinGame({ invite, askPassword }: { invite: Invite | null; askPassword:
             autoComplete="off" data-testid="join-password" />
         </label>
         <div className="pg-door-acts">
-          <button className="tt-btn brass" type="submit" disabled={!ready} data-testid="join-submit">Join</button>
-          <button className="tt-btn" type="button" disabled={!ready} onClick={() => void join(true)}>Spectate</button>
+          <button className="tt-btn brass" type="submit" disabled={!ready} data-testid="join-submit" aria-describedby={ready ? undefined : "pg-door-why"}>Join</button>
+          <button className="tt-btn" type="button" disabled={!ready} onClick={() => void join(true)} data-testid="join-spectate" aria-describedby={ready ? undefined : "pg-door-why"}>Watch</button>
         </div>
+        {!ready && <p className="pg-door-why" id="pg-door-why">Type the room code to join a seat or watch.</p>}
       </form>
     </section>
   );
