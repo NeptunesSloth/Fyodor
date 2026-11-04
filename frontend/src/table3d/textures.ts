@@ -276,10 +276,10 @@ const SLOT_LABELS = ["Library", "Graveyard", "Exile", "Command", "Partner"];
 /** How much taller than wide the label's letters are drawn: the table is seen at a slant, so they read upright (as road markings are). */
 export const SLOT_STRETCH = 1.45;
 /** The label's letters, condensed: larger capitals fit across the slot. */
-const SLOT_CONDENSE = 0.86;
+const SLOT_CONDENSE = 0.82;
 /** The stretch for a table of this many seats: the duel's is seen at a low slant, the others' from nearly above. */
 export function slotStretch(seats: number): number {
-  return seats === 2 ? 2.3 : SLOT_STRETCH;
+  return seats === 2 ? 2.5 : SLOT_STRETCH;
 }
 
 /**
@@ -302,7 +302,7 @@ export function slotTexture(label: string, color: string, stretch = SLOT_STRETCH
   let px = 64;
   g.font = font(px);
   const widest = Math.max(...SLOT_LABELS.map((l) => g.measureText(l.toUpperCase()).width)) * SLOT_CONDENSE;
-  px = Math.floor(Math.min(84, (px * (W - 30)) / Math.max(1, widest)));
+  px = Math.floor(Math.min(84, (px * (W - 28)) / Math.max(1, widest)));
   // the inner hairline, broken where the label crosses it (the label runs nearly the slot's width)
   const band = px * 0.9 * stretch;
   g.save();
