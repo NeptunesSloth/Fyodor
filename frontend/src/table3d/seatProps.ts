@@ -85,12 +85,32 @@ function bar(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: nu
   g.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
 }
 
+/** The life total (and the clicks still on their way under it), centred at (128, y) in the heart's box. */
+function lifeNumber(g: CanvasRenderingContext2D, life: number, pending: number, y: number): void {
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  const n = String(life + pending);
+  g.fillStyle = life + pending <= 0 ? "#ff8a7a" : "#f1ece2";
+  g.font = `700 ${n.length > 2 ? 54 : 68}px "Inter Variable", Inter, Arial, sans-serif`;
+  g.lineJoin = "round";
+  g.lineWidth = 8;
+  g.strokeStyle = "rgba(0, 0, 0, 0.85)";
+  g.strokeText(n, 128, y);
+  g.fillText(n, 128, y);
+  if (pending) {
+    g.font = '800 30px "Inter Variable", Inter, Arial, sans-serif';
+    g.fillStyle = pending > 0 ? "#9ee68a" : "#ff9a8a";
+    g.strokeText(pending > 0 ? `+${pending}` : `${pending}`, 128, y + 48);
+    g.fillText(pending > 0 ? `+${pending}` : `${pending}`, 128, y + 48);
+  }
+}
+
 /**
  * The Oops heart, drawn for the table: black, edged thick in the seat's colour, the life total big in its lower
  * middle, and its two halves the controls: a large white − on the left lobe over a dark red half, a large white + on
  * the right over a dark green one, each outlined dark so it reads on any table. `hot`: the half under the pointer, lit.
  */
-function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pending: number, hot: -1 | 0 | 1 = 0): void {
+function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pending: number, hot: -1 | 0 | 1 = 0, pressed: -1 | 0 | 1 = 0, readOnly = false): void {
   const g = canvas.getContext("2d")!;
   g.clearRect(0, 0, canvas.width, canvas.height);
   g.save();
@@ -98,8 +118,18 @@ function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pendi
   const heart = heartPath();
   g.fillStyle = "#050505";
   g.fill(heart);
+  // read-only (out of the game: the total, not a control): the black heart and its number, as the 2D table's
+  if (readOnly) {
+    g.lineJoin = "round";
+    g.lineWidth = 15;
+    g.strokeStyle = color;
+    g.stroke(heart);
+    lifeNumber(g, life, pending, 118);
+    g.restore();
+    return;
+  }
   // the halves: − loses life (left, red), + gains it (right, green), lit a little from above; the one under the
-  // pointer brighter
+  // pointer brighter, the one pressed darker and sunk (a shade along its top)
   g.save();
   g.clip(heart);
   const half = (x: number, top: string, bottom: string) => {
@@ -109,10 +139,19 @@ function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pendi
     g.fillStyle = grad;
     g.fillRect(x, 0, 128, 232);
   };
-  if (hot === -1) half(0, "#b5422f", "#6e2219");
+  if (pressed === -1) half(0, "#5e1f15", "#36110b");
+  else if (hot === -1) half(0, "#b5422f", "#6e2219");
   else half(0, "#86301f", "#4a1812");
-  if (hot === 1) half(128, "#3d9a57", "#1f5a31");
+  if (pressed === 1) half(128, "#1c4e2d", "#0e2a17");
+  else if (hot === 1) half(128, "#3d9a57", "#1f5a31");
   else half(128, "#2c7342", "#173f24");
+  if (pressed) {
+    const sunk = g.createLinearGradient(0, 0, 0, 70);
+    sunk.addColorStop(0, "rgba(0, 0, 0, 0.6)");
+    sunk.addColorStop(1, "rgba(0, 0, 0, 0)");
+    g.fillStyle = sunk;
+    g.fillRect(pressed < 0 ? 0 : 128, 0, 128, 70);
+  }
   g.fillStyle = "rgba(0, 0, 0, 0.5)";
   g.fillRect(126.5, 0, 3, 232);
   g.restore();
@@ -121,10 +160,12 @@ function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pendi
   g.strokeStyle = color;
   g.stroke(heart);
   // − and +: engraved brass, lit from the top left, in the lobes above the number
+  // (the pressed half's sign sinks with it: down and right a little, without its lit edge)
+  const sink = (x: number) => (pressed && (x < 128) === (pressed < 0) ? 2.5 : 0);
   const signs = (dx: number, dy: number, w: number, h: number) => {
     const at: [number, number, number, number][] = [[64, 64, w, h], [192, 64, w, h], [192, 64, h, w]];
     for (const [x, y, bw, bh] of at) {
-      bar(g, x + dx, y + dy, bw, bh);
+      bar(g, x + dx + sink(x), y + dy + sink(x), bw, bh);
       g.fill();
     }
   };
@@ -140,6 +181,7 @@ function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pendi
   signs(0, 0, 46, 11);
   // the light catching each bar's top and left edges (inside the bar), the shade its bottom and right
   for (const [x, y, bw, bh] of [[64, 64, 46, 11], [192, 64, 46, 11], [192, 64, 11, 46]] as const) {
+    if (sink(x)) continue;
     g.save();
     bar(g, x, y, bw, bh);
     g.clip();
@@ -152,22 +194,7 @@ function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pendi
     g.stroke();
     g.restore();
   }
-  g.textAlign = "center";
-  g.textBaseline = "middle";
-  const n = String(life + pending);
-  g.fillStyle = life + pending <= 0 ? "#ff8a7a" : "#f1ece2";
-  g.font = `700 ${n.length > 2 ? 54 : 68}px "Inter Variable", Inter, Arial, sans-serif`;
-  g.lineJoin = "round";
-  g.lineWidth = 8;
-  g.strokeStyle = "rgba(0, 0, 0, 0.85)";
-  g.strokeText(n, 128, 140);
-  g.fillText(n, 128, 140);
-  if (pending) {
-    g.font = '800 30px "Inter Variable", Inter, Arial, sans-serif';
-    g.fillStyle = pending > 0 ? "#9ee68a" : "#ff9a8a";
-    g.strokeText(pending > 0 ? `+${pending}` : `${pending}`, 128, 188);
-    g.fillText(pending > 0 ? `+${pending}` : `${pending}`, 128, 188);
-  }
+  lifeNumber(g, life, pending, 140);
   g.restore();
 }
 
@@ -190,8 +217,10 @@ interface Tax { mesh: THREE.Mesh; edge: THREE.Mesh; edgeMat: THREE.MeshStandardM
 
 interface Heart {
   group: THREE.Group; face: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; color: string; shown: string;
-  /** The half under the pointer (−1 the − half, 1 the + half), lit. */
+  /** The half under the pointer (−1 the − half, 1 the + half), lit; the half pressed (held down, or for a moment). */
   hot: -1 | 0 | 1;
+  pressed: -1 | 0 | 1;
+  pressAt: number;
   /** -- table motion -- the life total on the heart rolls to a new value (docs/GAME_UI_MOTION_RESEARCH.md §4: 300–600 ms scaled to the
    * change): what it shows now, where it's going, and the clicks still on their way. */
   roll: { from: number; to: number; start: number; dur: number; at: number | null; pending: number };
@@ -233,8 +262,9 @@ export class SeatProps {
   });
 
   /** Hearts for every seat; buttons for mine (seat colours from the view). */
-  rebuild(seats: Seat[], me: string, colors: Record<string, string>): void {
+  rebuild(seats: Seat[], me: string, colors: Record<string, string>, readOnly = false): void {
     this.clear();
+    this.readOnly = readOnly;
     for (const seat of seats) {
       const color = colors[seat.player] ?? "#c9a35a";
       const canvas = document.createElement("canvas");
@@ -257,7 +287,7 @@ export class SeatProps {
       const [wx, wz] = toWorld(seat, ...heartSpot(seat));
       group.position.set(wx, HEART_Y, wz);
       this.group.add(group);
-      this.hearts.set(seat.player, { group, face, canvas, tex, color, shown: "", hot: 0, roll: { from: 0, to: 0, start: 0, dur: 0, at: null, pending: 0 } });
+      this.hearts.set(seat.player, { group, face, canvas, tex, color, shown: "", hot: 0, pressed: 0, pressAt: 0, roll: { from: 0, to: 0, start: 0, dur: 0, at: null, pending: 0 } });
     }
     this.me = me;
     const mine = seats.find((s) => s.player === me);
@@ -350,15 +380,34 @@ export class SeatProps {
   }
 
   private drawLife(h: Heart, shown: number): void {
-    const key = `${shown}|${h.roll.pending}|${h.hot}`;
+    const key = `${shown}|${h.roll.pending}|${h.hot}|${h.pressed}|${this.readOnly}`;
     if (h.shown === key) return;
     h.shown = key;
-    drawHeart(h.canvas, h.color, shown, h.roll.pending, h.hot);
+    drawHeart(h.canvas, h.color, shown, h.roll.pending, h.hot, h.pressed, this.readOnly);
     h.tex.needsUpdate = true;
   }
 
+  /** Out of the game: the hearts are totals, not controls (no halves to click). */
+  private readOnly = false;
+
+  /** A heart half pressed: darker and sunk while the pointer is held down on it (at least a moment), then back. */
+  pressHeart(player: string, side: -1 | 1): void {
+    const h = this.hearts.get(player);
+    if (!h || this.readOnly) return;
+    h.pressed = side;
+    h.pressAt = performance.now();
+    this.heartHeld = player;
+    this.drawLife(h, h.roll.at ?? 0);
+    const release = () => { if (this.heartHeld === player) this.heartHeld = null; };
+    window.addEventListener("pointerup", release, { once: true });
+    window.addEventListener("pointercancel", release, { once: true });
+  }
+
+  private heartHeld: string | null = null;
+
   /** The heart half under the pointer (null: none), lit so you see which way a click goes. */
   hoverHeart(player: string | null, side: -1 | 1 | undefined): void {
+    if (this.readOnly) player = null;
     for (const [pid, h] of this.hearts) {
       const hot = pid === player ? side ?? 0 : 0;
       if (h.hot === hot) continue;
@@ -507,6 +556,11 @@ export class SeatProps {
       h.group.rotation.y = Math.atan2(this.tmp.x - p.x, this.tmp.z - p.z);
     }
     const now = performance.now();
+    for (const [pid, h] of this.hearts) { // a pressed half comes back up once let go (after a moment)
+      if (!h.pressed || pid === this.heartHeld || now - h.pressAt < 160) continue;
+      h.pressed = 0;
+      this.drawLife(h, h.roll.at ?? 0);
+    }
     for (const h of this.hearts.values()) { // a life total rolling to its new value (only while one changes)
       const r = h.roll;
       if (r.at === null || r.at === r.to) continue;

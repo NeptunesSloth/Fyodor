@@ -169,14 +169,45 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
   const poison = p.resources.poison ?? 0;
   const sources = (players ?? []).filter((o) => o.id !== player).flatMap((o) => o.commanders.map((c) => ({ ...c, owner: o })));
   const presence = seat ? seat.presence ?? (seat.connected ? "connected" : "disconnected") : null;
+  // the turn and priority, said in words (never by colour alone)
+  const flags = (active || priority) && (
+    <span className="t3d-seat-flags" aria-live="polite">
+      {active && <span className="t3d-flag turn">Turn</span>}
+      {priority && <span className="t3d-flag prio">Priority</span>}
+    </span>
+  );
+  const trackers = (
+    <span className="seat-trackers">
+      {/* a counter shows once it is something (a zero says nothing); the + below adds one */}
+      {sources.filter((c) => (p.commander_damage[c.key] ?? 0) !== 0).map((c) => (
+        <Tracker key={c.key} value={p.commander_damage[c.key] ?? 0} lethal={LETHAL_COMMANDER} color={c.owner.color} glyph={c.owner.name.slice(0, 1).toUpperCase()}
+          label={`Commander damage to ${p.name} from ${c.name}`} title={`Commander damage from ${c.name} (${c.owner.name}); it also changes life`}
+          testId={`cmdr-${player}-${c.key}`} onChange={(d) => void send({ type: "commander_damage", player, commander: c.key, delta: d })} readOnly={out} />
+      ))}
+      {poison !== 0 && <Tracker value={poison} lethal={LETHAL_POISON} glyph="☠" label={`${p.name}'s poison counters`} title="Poison counters" testId={`poison-${player}`}
+        onChange={(d) => void changeResource(player, "poison", d)} readOnly={out} />}
+      {/* experience and energy (Atraxa's experience deck): on the plaque while a player has any, so everyone sees them at a glance */}
+      {PLAQUE_RESOURCES.filter(([k]) => (p.resources[k] ?? 0) !== 0).map(([k, glyph, title]) => (
+        <Tracker key={k} value={p.resources[k] ?? 0} lethal={Infinity} glyph={glyph} label={`${p.name}'s ${k} counters`} title={title}
+          testId={`${k}-${player}`} onChange={(d) => void changeResource(player, k, d)} readOnly={out} />
+      ))}
+      <span className="seat-hand" title={`${p.hand_count} cards in hand`} aria-label={`${p.hand_count} cards in hand`}>
+        <Icon name="cards" size={14} />{p.hand_count}
+      </span>
+      {!out && (
+        <button className="seat-add" data-testid={`seat-add-${player}`} aria-label={`Add a counter to ${p.name}`} title="Add a counter: poison, commander damage, energy…"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); openMenu(e, addCounterItems(p, sources, onToggle), `${p.name}: add a counter`); }}>
+          <Icon name="plus" size={13} />
+        </button>
+      )}
+      {flat && presence && presence !== "connected" && <span className={`seat-presence ${presence}`} data-testid={`presence-${player}`}>{{ reconnecting: "Reconnecting…", disconnected: "Disconnected", open: "Open seat" }[presence] ?? presence}</span>}
+      {flat && presence === "connected" && <span className="seat-presence connected" data-testid={`presence-${player}`}>Connected</span>}
+    </span>
+  );
   return (
     <div ref={plate} className={`t3d-seat ${flat ? "seat-2d" : ""} ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
-      {(active || priority) && (
-        <span className="t3d-seat-flags" aria-live="polite">
-          {active && <span className="t3d-flag turn">Turn</span>}
-          {priority && <span className="t3d-flag prio">Priority</span>}
-        </span>
-      )}
+      {flat && flags}
       <div className="t3d-seat-main">
         <button className="seat-who" onClick={onToggle} data-testid={`seat-${player}`} aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.life} life. Open player panel`} aria-expanded={open}>
           <span className={`portrait ${active ? "active" : ""}`} style={{ ["--size" as string]: "34px", borderColor: p.color }}>{p.name.slice(0, 1).toUpperCase()}</span>
@@ -184,33 +215,9 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
         </button>
         {/* on the 3D table the life heart floats over the seat itself (table3d/seatProps.ts) */}
         {flat && <LifeHeart player={player} name={p.name} life={p.life} testId={`life-${player}`} readOnly={out} />}
-        <span className="seat-trackers">
-          {/* a counter shows once it is something (a zero says nothing); the + below adds one */}
-          {sources.filter((c) => (p.commander_damage[c.key] ?? 0) !== 0).map((c) => (
-            <Tracker key={c.key} value={p.commander_damage[c.key] ?? 0} lethal={LETHAL_COMMANDER} color={c.owner.color} glyph={c.owner.name.slice(0, 1).toUpperCase()}
-              label={`Commander damage to ${p.name} from ${c.name}`} title={`Commander damage from ${c.name} (${c.owner.name}); it also changes life`}
-              testId={`cmdr-${player}-${c.key}`} onChange={(d) => void send({ type: "commander_damage", player, commander: c.key, delta: d })} readOnly={out} />
-          ))}
-          {poison !== 0 && <Tracker value={poison} lethal={LETHAL_POISON} glyph="☠" label={`${p.name}'s poison counters`} title="Poison counters" testId={`poison-${player}`}
-            onChange={(d) => void changeResource(player, "poison", d)} readOnly={out} />}
-          {/* experience and energy (Atraxa's experience deck): on the plaque while a player has any, so everyone sees them at a glance */}
-          {PLAQUE_RESOURCES.filter(([k]) => (p.resources[k] ?? 0) !== 0).map(([k, glyph, title]) => (
-            <Tracker key={k} value={p.resources[k] ?? 0} lethal={Infinity} glyph={glyph} label={`${p.name}'s ${k} counters`} title={title}
-              testId={`${k}-${player}`} onChange={(d) => void changeResource(player, k, d)} readOnly={out} />
-          ))}
-          <span className="seat-hand" title={`${p.hand_count} cards in hand`} aria-label={`${p.hand_count} cards in hand`}>
-            <Icon name="cards" size={14} />{p.hand_count}
-          </span>
-          {!out && (
-            <button className="seat-add" data-testid={`seat-add-${player}`} aria-label={`Add a counter to ${p.name}`} title="Add a counter: poison, commander damage, energy…"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); openMenu(e, addCounterItems(p, sources, onToggle), `${p.name}: add a counter`); }}>
-              <Icon name="plus" size={13} />
-            </button>
-          )}
-          {flat && presence && presence !== "connected" && <span className={`seat-presence ${presence}`} data-testid={`presence-${player}`}>{{ reconnecting: "Reconnecting…", disconnected: "Disconnected", open: "Open seat" }[presence] ?? presence}</span>}
-          {flat && presence === "connected" && <span className="seat-presence connected" data-testid={`presence-${player}`}>Connected</span>}
-        </span>
+        {/* the 3D table's plaque: the turn and priority tabs at its top right, the counters under them (the plaque grows
+            to hold both tabs, so they never cover the portrait) */}
+        {!flat ? <span className="seat-side">{flags}{trackers}</span> : trackers}
       </div>
       {flat && <span className="seat-steps">
         {/* (out of the game: kept in place, hidden, so the plaque doesn't change size) */}

@@ -375,3 +375,17 @@ export function ndcBox(box: { left: number; top: number; right: number; bottom: 
     top: 1 - ((box.top - pad) / h) * 2, bottom: 1 - ((box.bottom + pad) / h) * 2,
   };
 }
+
+/**
+ * A DOM plate's middle height (screen px) so that it stays off its mat: `edge`, the mat's edge on the plate's side as
+ * two screen points; `matAbove`, the mat lies above it on screen. The plate moves away from the mat, past the edge
+ * where it spans it, with a small gap; elsewhere it stays where it is.
+ */
+export function offMat(plate: { x: number; y: number; w: number; h: number }, edge: [[number, number], [number, number]], matAbove: boolean, gap = 3): number {
+  const [[x1, y1], [x2, y2]] = edge;
+  const lo = Math.max(plate.x - plate.w / 2, Math.min(x1, x2));
+  const hi = Math.min(plate.x + plate.w / 2, Math.max(x1, x2));
+  if (lo >= hi) return plate.y;
+  const at = (px: number) => (Math.abs(x2 - x1) < 1e-6 ? (matAbove ? Math.max(y1, y2) : Math.min(y1, y2)) : y1 + ((y2 - y1) * (px - x1)) / (x2 - x1));
+  return matAbove ? Math.max(plate.y, Math.max(at(lo), at(hi)) + plate.h / 2 + gap) : Math.min(plate.y, Math.min(at(lo), at(hi)) - plate.h / 2 - gap);
+}

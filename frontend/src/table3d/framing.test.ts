@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { depthStep, fitCamera, ndcBox, nearFarFor, plateCorners, propSpots, PROP_TOP, seatElevation, tableLens, tablePoints, tableRect, viewDir, type FrameRect } from "./framing";
+import { depthStep, fitCamera, ndcBox, nearFarFor, offMat, plateCorners, propSpots, PROP_TOP, seatElevation, tableLens, tablePoints, tableRect, viewDir, type FrameRect } from "./framing";
 import { CARD_W, HEART, heartSpot, heartTilt, MAT_D, MAT_W, seatCamera, seats, STRIP_X, tableSize, toWorld, type Seat } from "./layout";
 
 /** The old lens, before the aspect fix and the long lens: the baseline the old seat camera is measured with. */
@@ -222,5 +222,21 @@ describe("3D table framing", () => {
     }
     // the cause: a fixed near plane of 0.1 at the farthest zoom left steps coarser than the gaps
     expect(depthStep(seat * 2.5, 0.1, 400)).toBeGreaterThan(gap);
+  });
+});
+
+describe("a plate stays off its own mat", () => {
+  // the mat's edge on screen: level from x 100 to 500 at y 300 (the mat above it), or slanting (seen turned)
+  it("moves a plate that would reach over the mat's edge away from the mat, and leaves one clear of it", () => {
+    const level: [[number, number], [number, number]] = [[100, 300], [500, 300]];
+    expect(offMat({ x: 300, y: 310, w: 140, h: 60 }, level, true)).toBe(300 + 30 + 3);
+    expect(offMat({ x: 300, y: 360, w: 140, h: 60 }, level, true)).toBe(360);
+    // the mat below the plate (a far seat): moved up
+    expect(offMat({ x: 300, y: 290, w: 140, h: 60 }, level, false)).toBe(300 - 30 - 3);
+    // beside the mat, not over it: left alone
+    expect(offMat({ x: 700, y: 300, w: 140, h: 60 }, level, true)).toBe(300);
+    // a slanting edge: clear of its lowest point under the plate
+    const slant: [[number, number], [number, number]] = [[100, 280], [500, 320]];
+    expect(offMat({ x: 300, y: 300, w: 200, h: 40 }, slant, true)).toBeCloseTo(310 + 20 + 3, 6);
   });
 });

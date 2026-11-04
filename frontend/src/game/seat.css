@@ -63,8 +63,15 @@
 .seat-heart-shape .seat-heart-sign-light { fill: none; stroke: rgba(255, 249, 226, 0.75); stroke-width: 1; }
 body.reduced-motion .seat-heart-shape .seat-heart-half { transition: none; }
 .seat-heart:hover .seat-heart-shape .seat-heart-edge, .seat-heart:focus-visible .seat-heart-shape .seat-heart-edge { stroke-width: 5.5; }
-.seat-heart:focus-visible { outline: none; }
-.seat-heart:focus-visible .seat-heart-shape { filter: drop-shadow(0 0 3px var(--select)); }
+/* focus: one ring, in the heart's own shape (the page's square ring would double it); a plaque's ring goes round the plaque */
+.game-screen .seat-heart:focus-visible, .game-screen .seat-who:focus-visible { outline: none; }
+/* pressed: the heart dips and the half held down darkens (the plaque's portrait presses in likewise) */
+.seat-heart:not(:disabled):active .seat-heart-shape { transform: translateY(1px) scale(0.97); }
+.seat-heart.hot-minus:not(:disabled):active .seat-heart-half.minus { fill: #4f1810; }
+.seat-heart.hot-plus:not(:disabled):active .seat-heart-half.plus { fill: #164427; }
+.seat-who:active .portrait { transform: translateY(1px); filter: brightness(0.85); }
+.t3d-seat:has(.seat-who:active) .t3d-seat-main { filter: brightness(0.9); }
+.seat-heart:focus-visible .seat-heart-shape { filter: drop-shadow(0 0 1.5px var(--select)) drop-shadow(0 0 3px var(--select)); }
 .seat-heart-n {
   position: relative; margin-top: 5px; font: 700 16px/1 var(--font-ui); color: #f4efe6; font-variant-numeric: tabular-nums;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9);
@@ -125,24 +132,24 @@ body.hud-minimal .seat-add { display: none; }
   box-shadow: inset 0 1px 0 rgba(255, 250, 230, 0.75), inset 0 -1px 0 rgba(60, 38, 12, 0.6), 0 -1px 3px rgba(0, 0, 0, 0.45);
   text-shadow: 0 1px 0 rgba(255, 240, 200, 0.45);
 }
+/* priority: deep blue enamel set in a brass rim, the turn tab's family (blue still says "priority", as everywhere) */
 .t3d-flag.prio {
-  color: #08182a; background: linear-gradient(180deg, #d9efff, #8cc6f2 55%, #5a95c8);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), inset 0 -1px 0 rgba(10, 40, 70, 0.6), 0 -1px 3px rgba(0, 0, 0, 0.45);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+  color: #eef6fb; background: linear-gradient(180deg, #3b7aa3, #23557a 55%, #173e5c);
+  box-shadow: inset 0 0 0 1px #d7ae63, inset 0 2px 0 rgba(255, 255, 255, 0.22), inset 0 -1px 0 rgba(4, 18, 32, 0.6), 0 -1px 3px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
 }
 /* the 3D table's plaques: every one the same size whatever the name (Table3D scales them all alike to the table, and
-   --plate-k is that scale, so the smallest text stays readable on screen); the turn and priority tabs are inset at
-   the plaque's top right (a tab above it would lie over the mat's edge), the hand count and counters below them */
-.t3d-seat:not(.seat-2d) .t3d-seat-main { min-width: 168px; align-items: stretch; gap: 8px; padding: 7px 11px 7px 12px; }
+   --plate-k is that scale, so the smallest text stays readable on screen); the turn and priority tabs at the plaque's
+   top right (a tab above it would lie over the mat's edge), the hand count and counters under them, the plaque as wide
+   as it takes to hold both tabs beside the portrait */
+.t3d-seat:not(.seat-2d) .t3d-seat-main { min-width: 168px; align-items: stretch; gap: 10px; padding: 7px 11px 7px 12px; }
 .t3d-seat:not(.seat-2d) .seat-who { justify-content: flex-start; align-items: flex-start; }
 .t3d-seat:not(.seat-2d) .t3d-seat-name { font-size: max(12.5px, calc(10.5px / var(--plate-k, 1))); max-width: 120px; }
-.t3d-seat:not(.seat-2d) .seat-trackers { margin-left: auto; align-self: flex-end; justify-content: flex-end; }
+.t3d-seat:not(.seat-2d) .seat-side { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 3px; }
+.t3d-seat:not(.seat-2d) .seat-trackers { justify-content: flex-end; }
 .t3d-seat:not(.seat-2d) .seat-hand { font-size: max(13px, calc(11px / var(--plate-k, 1))); }
-.t3d-seat:not(.seat-2d) .t3d-seat-flags {
-  left: auto; right: 11px; top: 7px; bottom: auto; transform: none; z-index: 1; pointer-events: none;
-  flex-direction: column; align-items: flex-end; gap: 3px;
-}
-.t3d-seat:not(.seat-2d) .t3d-flag { border-radius: 3px; padding: 3px 6px 2px; letter-spacing: 0.06em; font-size: max(10px, calc(9.5px / var(--plate-k, 1))); }
+.t3d-seat:not(.seat-2d) .t3d-seat-flags { position: static; transform: none; flex-direction: column; align-items: flex-end; gap: 2px; pointer-events: none; }
+.t3d-seat:not(.seat-2d) .t3d-flag { border-radius: 3px; padding: 2px 6px 1px; letter-spacing: 0.06em; font-size: max(10px, calc(9px / var(--plate-k, 1))); }
 /* narrower screens: compact plaques cover fewer cards (name moves to the tooltip-sized line) */
 @media (max-width: 1500px) {
   .t3d-seat-main { gap: 7px; padding: 3px 10px 3px 4px; }

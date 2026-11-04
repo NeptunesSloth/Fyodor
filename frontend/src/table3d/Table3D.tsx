@@ -19,6 +19,7 @@ import { ERROR_MS, TableScene, type CameraPreset, type Quality } from "./TableSc
 import { startAmbience } from "./ambience";
 import { autoCenterTarget, autoSnap, type AutoSnap } from "./autoCenter";
 import { cameraKey, combatCardIds } from "./focus";
+import { offMat } from "./framing";
 import { PLATE } from "./layout";
 import "./table3d.css";
 
@@ -171,17 +172,20 @@ export function Table3D({ me }: { me: string }) {
       const seatPts = Object.entries(plates.current).map(([pid, node]) => [node, node && scene.seatScreen(pid, w, h)] as const);
       const ppus = seatPts.flatMap(([, pt]) => (pt?.visible ? [pt.pxPerUnit] : []));
       const ppu = ppus.length ? ppus.reduce((a, b) => a + b, 0) / ppus.length : 0;
-      const spread = ppus.length ? 1 - Math.min(...ppus) / Math.max(...ppus) : 0;
-      const own = Math.max(0, Math.min(1, (spread - 0.2) / 0.25)); // 0: one scale (the seat view's ~0.15 spread) … 1: each its own
+      const most = ppus.length ? Math.max(...ppus) : 0;
+      const spread = ppus.length ? 1 - Math.min(...ppus) / most : 0;
+      const own = Math.max(0, Math.min(1, (spread - 0.16) / 0.1)); // 0: one scale (the seat view's ~0.14 spread) … 1: each its own
       for (const [node, pt] of seatPts) {
         if (!node || !pt) continue;
         // (sizes are measured in each form, so the compact switch doesn't flicker)
         const form = node.classList.contains("compact") ? "small" : "full";
         if (node.offsetWidth) node.dataset[form] = `${node.offsetWidth},${node.offsetHeight}`;
         const size = (f: string) => (node.dataset[f] ?? "150,60").split(",").map(Number) as [number, number];
-        const want = (PLATE.w * (ppu ? ppu * (pt.pxPerUnit / ppu) ** own : pt.pxPerUnit)) / PLATE_REF;
-        const k = Math.max(PLATE_MIN, Math.min(PLATE_MAX, want));
-        if (measure) node.classList.toggle("compact", want < PLATE_COMPACT);
+        const want = (PLATE.w * (ppu || pt.pxPerUnit)) / PLATE_REF;
+        // (in orbit, the nearest plate keeps the shared scale and the others shrink with their distance, after the limits)
+        const k = Math.max(PLATE_MIN, Math.min(PLATE_MAX, want)) * (most ? (pt.pxPerUnit / most) ** own : 1);
+        // (only once zoomed out: at a view's own framing a plate always shows its name and counts)
+        if (measure) node.classList.toggle("compact", want < PLATE_COMPACT && scene.cameraZoom() > 1.15);
         const kk = k.toFixed(2);
         if (node.dataset.k !== kk) {
           node.dataset.k = kk;
@@ -194,6 +198,8 @@ export function Table3D({ me }: { me: string }) {
         let y = pt.y;
         const hits = (r: Box) => !(x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom);
         const fits = (v: number) => v >= ph / 2 + 8 && v <= h - ph / 2 - 8;
+        // never over its own mat (seen low, a plate standing past the mat's edge would cover the nearest tiles)
+        y = offMat({ x, y, w: pw, h: ph }, pt.matEdge, pt.matAbove);
         x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
         y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
         // the fixed panels (camera strip, dial, stack panels): a plate is never hidden under one

@@ -524,7 +524,7 @@ export class TableScene {
     const propsKey = `${key}|${view.players.map((p) => p.color).join(",")}|${out}`;
     if (propsKey !== this.propsKey) {
       this.propsKey = propsKey;
-      this.props.rebuild(this.seatList, out ? "" : me, Object.fromEntries(view.players.map((p) => [p.id, p.color])));
+      this.props.rebuild(this.seatList, out ? "" : me, Object.fromEntries(view.players.map((p) => [p.id, p.color])), out);
     }
     for (const p of view.players) this.props.setLife(p.id, p.life, this.lifeBatch.pending(p.id));
     this.props.setCommanders(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, p.commanders.map((c) => ({ key: c.key, tax: c.tax }))])),
@@ -648,7 +648,11 @@ export class TableScene {
    * its heart's left edge (the heart and plate read as one piece), and how many px one world unit spans there, so the
    * plate is drawn at its size on the table (layout.ts PLATE) and grows and shrinks with the zoom like the heart.
    */
-  seatScreen(player: string, width: number, height: number): { x: number; y: number; visible: boolean; edge: -1; pxPerUnit: number } | null {
+  seatScreen(player: string, width: number, height: number): {
+    x: number; y: number; visible: boolean; edge: -1; pxPerUnit: number;
+    /** The seat's mat's edge on the plate's side (its two ends), and whether the mat lies above it on screen. */
+    matEdge: [[number, number], [number, number]]; matAbove: boolean;
+  } | null {
     const seat = this.seatList.find((s) => s.player === player);
     if (!seat) return null;
     const edge = this.props.heartEdge(player, this.camera, -1);
@@ -657,7 +661,17 @@ export class TableScene {
     const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0).setY(0).normalize();
     const u = edge.add(right).project(this.camera);
     const pxPerUnit = Math.hypot(((u.x - v.x) / 2) * width, ((u.y - v.y) / 2) * height);
-    return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height, visible: v.z < 1, edge: -1, pxPerUnit };
+    const screen = (lx: number, lz: number): [number, number] => {
+      const [wx, wz] = toWorld(seat, lx, lz);
+      const p = new THREE.Vector3(wx, 0, wz).project(this.camera);
+      return [((p.x + 1) / 2) * width, ((1 - p.y) / 2) * height];
+    };
+    const ez = heartSpot(seat)[1] > 0 ? MAT_D / 2 : -MAT_D / 2;
+    const y = ((1 - v.y) / 2) * height;
+    return {
+      x: ((v.x + 1) / 2) * width, y, visible: v.z < 1, edge: -1, pxPerUnit,
+      matEdge: [screen(-MAT_W / 2, ez), screen(MAT_W / 2, ez)], matAbove: screen(0, 0)[1] < y,
+    };
   }
 
   /**
@@ -1699,6 +1713,11 @@ export class TableScene {
     };
   }
 
+  /** -- camera -- how far the player has zoomed the view out (1: as the view frames it; above 1: farther). */
+  cameraZoom(): number {
+    return this.adj.zoom;
+  }
+
   /** -- framing -- keep a strip this tall (px) clear at the top of the table (a tip banner sits there); 0: none. */
   setTopReserve(px: number): void {
     if (px === this.reserveTop) return;
@@ -1775,7 +1794,7 @@ export class TableScene {
       e.preventDefault();
       const over = this.pick(e.clientX, e.clientY);
       if (over?.heart) {
-        this.lifeBatch.bump(over.heart, e.deltaY < 0 ? 1 : -1);
+        if (!this.lifeLocked()) this.lifeBatch.bump(over.heart, e.deltaY < 0 ? 1 : -1);
         return;
       }
       // zoom toward the point under the pointer (a notch: about 12%; a trackpad's small steps, a little at a time)
@@ -1831,6 +1850,8 @@ export class TableScene {
     const store = useGame.getState();
     if (hit?.heart && answerByClick(store.view, hit.heart, this.me)) return; // -- targeting -- a targetable player's heart chooses them
     if (hit?.heart) {
+      if (this.lifeLocked()) return;
+      this.props.pressHeart(hit.heart, hit.side ?? 1);
       this.lifeBatch.bump(hit.heart, (hit.side ?? 1) * (e.shiftKey ? 5 : 1)); // ▼ −1, ▲ +1
       return;
     }
@@ -1939,9 +1960,9 @@ export class TableScene {
     const dealt = taxOf && this.view ? dealtText(commanderDealt(this.view.players, taxOf.key)) : "";
     // (a seat button names itself on the table, on its own plate: no browser tooltip over it)
     const tip = taxOf ? `Commander tax for ${taxOf.name}: ${taxOf.tax} (click +2, right-click −2)${dealt ? `\nCommander damage dealt: ${dealt}` : ""}`
-      : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life: click − to lose 1 or + to gain 1, right-click for 5, or the wheel` : "";
+      : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life${this.lifeLocked() ? "" : ": click − to lose 1 or + to gain 1, right-click for 5, or the wheel"}` : "";
     if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
-    this.canvas.style.cursor = hit?.seatButton || hit?.heart || hit?.tax ? "pointer" : "";
+    this.canvas.style.cursor = hit?.seatButton || (hit?.heart && !this.lifeLocked()) || hit?.tax ? "pointer" : "";
   }
 
   private onUp(e: PointerEvent): void {
@@ -2142,10 +2163,17 @@ export class TableScene {
     store.openBrowser({ zone: `${player}:${pile}`, title: PILE_LABEL[pile as ZoneName] ?? pile });
   }
 
+  /** -- out of the game -- the hearts are totals, not controls (as on the 2D table). */
+  private lifeLocked(): boolean {
+    return isOut(this.view, this.me);
+  }
+
   private onContext(e: MouseEvent): void {
     e.preventDefault();
     const hit = this.pick(e.clientX, e.clientY);
     if (hit?.heart) {
+      if (this.lifeLocked()) return;
+      this.props.pressHeart(hit.heart, hit.side ?? 1);
       this.lifeBatch.bump(hit.heart, (hit.side ?? 1) * 5); // right-click: 5 at a time
       return;
     }
