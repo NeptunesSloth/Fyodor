@@ -6,7 +6,7 @@
 import * as THREE from "three";
 import type { Surface } from "../theme/planes";
 import { BORDER, CARD_H, CANVAS_TIER, GLYPHS as TYPE_GLYPHS, INK, layoutProxy, proxyColours, proxyFace, SYM_EM } from "../cards/proxy";
-import { drawBack } from "../cards/drawnBack";
+import { drawnBackCanvas } from "../cards/drawnBack";
 import { proxyFontsReady, textMeasure, whenProxyFontsReady } from "../cards/proxyMeasure";
 import type { CardData } from "../types/cards";
 
@@ -600,9 +600,54 @@ export function textCardTexture(card: CardData | undefined, face: number, fallba
 
 /** The card back drawn here while the host hasn't the Magic card back yet (cards/drawnBack.ts, as the 2D table's). */
 export function backCanvas(): HTMLCanvasElement {
-  const [c, g] = canvas(366, 512);
-  drawBack(g, 366, 512);
-  return c;
+  return drawnBackCanvas();
+}
+
+/**
+ * A Scryfall card picture (the card back, a card's scan) as a texture, with its square white corners painted in the
+ * border's black: trimmed corners alone still let the white bleed into the edge from a distance, through the mipmaps.
+ * Returned at once and filled in when the picture has loaded (as three's TextureLoader does); `onError` if it can't be.
+ */
+export function cardImageTexture(url: string, onError?: () => void, onLoad?: (t: THREE.Texture) => void): THREE.Texture {
+  const t = new THREE.Texture();
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = maxAnisotropy;
+  const img = new Image();
+  img.decoding = "async";
+  img.onload = () => {
+    const [c, g] = canvas(img.naturalWidth, img.naturalHeight);
+    g.fillStyle = "#0b0a09";
+    g.fillRect(0, 0, c.width, c.height);
+    roundRect(g, 0, 0, c.width, c.height, c.width * 0.05);
+    g.clip();
+    g.drawImage(img, 0, 0);
+    t.image = c;
+    t.needsUpdate = true;
+    onLoad?.(t);
+  };
+  img.onerror = () => onError?.();
+  img.src = url;
+  return t;
+}
+
+let cornerMask: THREE.CanvasTexture | null = null;
+
+/**
+ * An alpha map that trims a card picture to a card's rounded corners (with `alphaTest`): Scryfall's images, the card back
+ * among them, have square white corners outside their black border. Shared by every card-shaped material; never disposed.
+ */
+export function cardCornerMask(): THREE.Texture {
+  if (cornerMask) return cornerMask;
+  const W = 252;
+  const H = 352; // 63:88
+  const [c, g] = canvas(W, H);
+  g.fillStyle = "#000";
+  g.fillRect(0, 0, W, H);
+  g.fillStyle = "#fff";
+  roundRect(g, 0, 0, W, H, W * 0.062);
+  g.fill();
+  cornerMask = new THREE.CanvasTexture(c); // a mask, not a colour: stays linear
+  return cornerMask;
 }
 
 /** A soft blurred rounded-rect shadow for under a card: an alpha map (three reads its green channel). */

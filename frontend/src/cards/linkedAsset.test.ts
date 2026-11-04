@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { drawnBackSvg, drawnBackUrl } from "./drawnBack";
+import { grainAt, PIP_COLOURS } from "./drawnBack";
 import { linkedCheck } from "./linkedAsset";
 
 beforeEach(() => vi.useFakeTimers());
@@ -39,12 +39,9 @@ describe("linkedCheck: something the host fetches from Scryfall and serves", () 
 });
 
 describe("the drawn card back", () => {
-  it("is one SVG with the frame, the oval and the five colours, usable as a CSS background", () => {
-    const svg = drawnBackSvg();
-    expect(svg).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 630 880"/);
-    expect(svg).not.toContain("<text"); // no wordmark: our own drawing
-    for (const pip of ["#efe2a2", "#3fa3b5", "#4e4540", "#c74a2c", "#7da834"]) expect(svg).toContain(pip);
-    expect(drawnBackUrl()).toMatch(/^data:image\/svg\+xml,%3Csvg/);
-    expect(drawnBackUrl()).not.toMatch(/["#]/);
+  it("is our own drawing: the five colours in the printed order, a grain strongest on the frame", () => {
+    expect(PIP_COLOURS).toEqual(["#efe2a2", "#3fa3b5", "#4e4540", "#c74a2c", "#7da834"]);
+    expect(grainAt(30, 440)).toBeGreaterThan(grainAt(315, 440)); // the frame's grain is coarser than the oval's
+    expect(grainAt(315, 440)).toBeGreaterThan(grainAt(5, 5)); // and the black border has almost none
   });
 });

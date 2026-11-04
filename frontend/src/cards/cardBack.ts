@@ -15,5 +15,14 @@ export const checkCardBack = linkedCheck("has-card-back", () => fetch(CARD_BACK_
 /** Called when the host's card back becomes available (or goes). Returns the unsubscribe. */
 export const onCardBack = checkCardBack.subscribe;
 
-// the drawn back, for the 2D styles (`.card-back` paints `--card-back-drawn` until the real one is there)
-if (typeof document !== "undefined") document.documentElement.style.setProperty("--card-back-drawn", `url("${drawnBackUrl()}")`);
+// the drawn back, for the 2D styles (`.card-back` paints `--card-back-drawn`): drawn only when the host hasn't the real one
+let drawn = false;
+if (typeof document !== "undefined") {
+  void checkCardBack().then((ok) => {
+    if (ok || drawn) return;
+    drawn = true;
+    const style = document.createElement("style");
+    style.textContent = `:root { --card-back-drawn: url("${drawnBackUrl()}"); }`;
+    document.head.appendChild(style);
+  });
+}

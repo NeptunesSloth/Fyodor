@@ -7,6 +7,7 @@
   --mana-r: #f2a07e;
   --mana-g: #9ad3a6;
   --mana-c: #ccc6c0;
+  --card-back-drawn: none; /* the drawn back's image, set once it's needed (cards/cardBack.ts) */
   font-size: 14px;
 }
 
@@ -135,11 +136,13 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 .card-face img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
 .card-loading { background: linear-gradient(110deg, #1b1f26 30%, #262c36 50%, #1b1f26 70%); background-size: 200% 100%; animation: shimmer 1.2s infinite linear; }
 @keyframes shimmer { to { background-position: -200% 0; } }
-/* a card back: the one Fyodor draws (cards/drawnBack.ts) until the host has the Magic card back cached */
-.card-back { background: var(--card-back-drawn) center / cover no-repeat, #1b130c; }
-/* the Magic card back, once the host has it cached (cards/cardBack.ts); a sleeve still wins */
+/* a card back: the one Fyodor draws (cards/drawnBack.ts) until the host has the Magic card back cached. Rounded like a
+   card and clipped to it: Scryfall's image has square white corners outside its black border */
+.card-back { background: var(--card-back-drawn) center / cover no-repeat, #1b130c; border-radius: 5.4% / 3.9%; overflow: hidden; }
+/* the Magic card back, once the host has it cached (cards/cardBack.ts); a sleeve still wins. The image sits a hair
+   larger than the card, so its white corners fall outside the rounded clip */
 .has-card-back .card-back:not(.sleeved) {
-  background: url("/api/images/card-back") center / cover no-repeat, #1b130c;
+  background: url("/api/images/card-back") center / 103% auto no-repeat, #0d0b09;
 }
 /* The printed proxy for a card without cached art (cards/proxy.ts holds the geometry and colours; sizes
    arrive as unitless --tc-* card units, 1 unit = 1cqw). Three levels of detail by the card's width:

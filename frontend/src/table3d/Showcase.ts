@@ -1,10 +1,35 @@
-/** The launcher's backdrop: the selected plane's table, slowly circled by the camera. */
+/**
+ * The launcher's backdrop: the selected plane's table, slowly circled by the camera, mid-game. The pod's latest
+ * commanders lie on the near mat in their real art from the host's cache (a text card if one's art isn't cached),
+ * beside a library; across the table a fanned hand. Every back is the host's Magic card back (the drawn one until
+ * it has it), and every card is trimmed to a card's rounded corners.
+ */
 import * as THREE from "three";
 import { CARD_BACK_URL, checkCardBack, onCardBack } from "../cards/cardBack";
+import { imageUrl } from "../services/cards";
 import type { PlaneTheme } from "../theme/planes";
 import { buildEnvironment, type Environment } from "./environment";
 import { CARD_H, CARD_W } from "./layout";
-import { backCanvas, canvasTexture, matTexture, textCardTexture } from "./textures";
+import { backCanvas, canvasTexture, cardCornerMask, cardImageTexture, matTexture, textCardTexture } from "./textures";
+
+/** A card to lay on the showcase's mat: a printing (its art from the host's cache) and its name (the text card's). */
+export interface ShowcaseCard { id: string; name: string }
+
+const PILE_H = 0.42;
+
+function roundedCard(w: number, h: number, r: number): THREE.Shape {
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2 + r, -h / 2);
+  s.lineTo(w / 2 - r, -h / 2);
+  s.quadraticCurveTo(w / 2, -h / 2, w / 2, -h / 2 + r);
+  s.lineTo(w / 2, h / 2 - r);
+  s.quadraticCurveTo(w / 2, h / 2, w / 2 - r, h / 2);
+  s.lineTo(-w / 2 + r, h / 2);
+  s.quadraticCurveTo(-w / 2, h / 2, -w / 2, h / 2 - r);
+  s.lineTo(-w / 2, -h / 2 + r);
+  s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
+  return s;
+}
 
 export class Showcase {
   private renderer: THREE.WebGLRenderer;
@@ -18,6 +43,10 @@ export class Showcase {
   /** Bumped by every plane change and by dispose: a card back that arrives for an older scene is dropped. */
   private generation = 0;
   private unwatch: (() => void) | null = null;
+  private cards: ShowcaseCard[] = [];
+  private battlefield = new THREE.Group();
+  private battlefieldTrash: { dispose(): void }[] = [];
+  private cardGeo: THREE.PlaneGeometry | null = null;
 
   constructor(private host: HTMLElement, plane: PlaneTheme) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "low-power" });
@@ -57,36 +86,69 @@ export class Showcase {
       m.receiveShadow = true;
       this.props.add(m);
     }
-    // a few cards mid-game: a small battlefield, a library and a fanned hand
+    // a few cards mid-game: the pod's commanders on the near mat, a library beside them, a fanned hand across the table
     const geo = new THREE.PlaneGeometry(CARD_W, CARD_H);
     geo.rotateX(-Math.PI / 2);
+    this.cardGeo = geo;
     this.disposables.push(geo);
-    const back = new THREE.MeshStandardMaterial({ map: canvasTexture(backCanvas()), roughness: 0.6 });
+    const back = new THREE.MeshStandardMaterial({ map: canvasTexture(backCanvas()), roughness: 0.6, alphaMap: cardCornerMask(), alphaTest: 0.5 });
     this.disposables.push(back, back.map!);
     this.useRealBack(back);
-    const names = ["Sol Ring", "Command Tower", "Arcane Signet", "Swords to Plowshares", "Counterspell", "Lightning Bolt"];
-    const colors = [[], [], [], ["W"], ["U"], ["R"]];
-    names.forEach((name, i) => {
-      const card = { name, type_line: i < 3 ? "Artifact" : "Instant", colors: colors[i], mana_cost: "", oracle_text: "" };
-      const mat = new THREE.MeshStandardMaterial({ map: textCardTexture(card as never, 0, name), roughness: 0.5 });
-      this.disposables.push(mat);
-      const m = new THREE.Mesh(geo, mat);
-      m.position.set(-3.2 + i * 1.25, 0.01, 4 + (i % 2) * 0.2);
-      m.rotation.y = i === 1 ? -Math.PI / 2 : (i - 2.5) * 0.02;
-      this.props.add(m);
-    });
-    for (let i = 0; i < 40; i++) {
-      const m = new THREE.Mesh(geo, back);
-      m.position.set(5.6, 0.01 + i * 0.012, 4.2);
-      this.props.add(m);
-    }
+    this.props.add(this.battlefield);
+    this.layCards();
+    // the library: a block of card stock with the back on top
+    const body = new THREE.ExtrudeGeometry(roundedCard(CARD_W, CARD_H, 0.045), { depth: PILE_H, bevelEnabled: false, curveSegments: 6 });
+    body.rotateX(-Math.PI / 2);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: "#4b4741", roughness: 0.85 }); // a deck's edge: dark card stock
+    this.disposables.push(body, bodyMat);
+    const pile = new THREE.Mesh(body, bodyMat);
+    pile.position.set(5.6, 0.004, 4.2);
+    pile.castShadow = pile.receiveShadow = true;
+    const top = new THREE.Mesh(geo, back);
+    top.position.set(5.6, PILE_H + 0.006, 4.2);
+    this.props.add(pile, top);
     for (let i = 0; i < 7; i++) {
       const m = new THREE.Mesh(geo, back);
       const t = i / 6 - 0.5;
-      m.position.set(t * 2.6, 0.02 + i * 0.004, -6 + Math.abs(t) * 0.3);
+      m.position.set(t * 2.6, 0.02 + i * 0.006, -6 + Math.abs(t) * 0.3);
       m.rotation.y = Math.PI - t * 0.5;
       this.props.add(m);
     }
+  }
+
+  /** The cards to lay on the near mat (the pod's latest commanders): up to five, in their art when the host has it. */
+  setCards(cards: ShowcaseCard[]): void {
+    this.cards = cards.slice(0, 5);
+    this.layCards();
+  }
+
+  private layCards(): void {
+    for (const d of this.battlefieldTrash) d.dispose();
+    this.battlefieldTrash = [];
+    this.battlefield.clear();
+    const geo = this.cardGeo;
+    if (!geo) return;
+    const gen = this.generation;
+    const n = this.cards.length;
+    this.cards.forEach((card, i) => {
+      // a text card until (or unless) its art comes from the host's cache
+      const mat = new THREE.MeshStandardMaterial({ map: textCardTexture(undefined, 0, card.name), roughness: 0.5, alphaMap: cardCornerMask(), alphaTest: 0.5 });
+      this.battlefieldTrash.push(mat, mat.map!);
+      cardImageTexture(imageUrl(card.id), undefined, (tex) => {
+        if (gen !== this.generation || !this.battlefield.children.some((c) => (c as THREE.Mesh).material === mat)) return void tex.dispose();
+        tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+        mat.map = tex;
+        mat.needsUpdate = true;
+        this.battlefieldTrash.push(tex);
+      });
+      const m = new THREE.Mesh(geo, mat);
+      const x = (i - (n - 1) / 2) * 1.32 - 0.6;
+      m.position.set(x, 0.01, 4 + (i % 2) * 0.18);
+      // the second one tapped, the others squared by hand
+      m.rotation.y = n > 2 && i === 1 ? -Math.PI / 2 : (i - (n - 1) / 2) * 0.025;
+      m.castShadow = true;
+      this.battlefield.add(m);
+    });
   }
 
   /** The Magic card back once the host has it (cards/cardBack.ts), as on the game table; the drawn one until then. */
@@ -94,9 +156,8 @@ export class Showcase {
     const gen = ++this.generation;
     const load = () => {
       if (gen !== this.generation || !checkCardBack.ready()) return;
-      new THREE.TextureLoader().load(CARD_BACK_URL, (tex) => {
+      cardImageTexture(CARD_BACK_URL, undefined, (tex) => {
         if (gen !== this.generation) return void tex.dispose();
-        tex.colorSpace = THREE.SRGBColorSpace;
         tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
         back.map = tex;
         back.needsUpdate = true;
@@ -119,7 +180,7 @@ export class Showcase {
     this.generation++;
     this.unwatch?.();
     this.env?.dispose();
-    for (const d of this.disposables) d.dispose();
+    for (const d of [...this.disposables, ...this.battlefieldTrash]) d.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
     void this.host;

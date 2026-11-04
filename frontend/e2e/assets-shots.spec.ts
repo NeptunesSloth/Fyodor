@@ -40,7 +40,7 @@ async function decks(page: Page): Promise<string[]> {
 async function game(page: Page) {
   const [a, b] = await decks(page);
   const res = await page.request.post("/api/games", {
-    data: { name: "Backs", format: "commander", mode: "local", shuffle: false, first_player: 0, mulligan_rule: "none",
+    data: { name: "Friday Night", format: "commander", mode: "local", shuffle: false, first_player: 0, mulligan_rule: "none",
       players: [{ name: "Alice", deck_id: a }, { name: "Bob", deck_id: b }] },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
@@ -67,6 +67,14 @@ async function pastIntro(page: Page) {
   await expect(intro).toHaveCount(0);
 }
 
+/** Until the art has loaded and nothing is still moving (the arranged boards glide cards into place). */
+async function settle(page: Page) {
+  await page.waitForFunction(() => [...document.images].every((i) => i.complete)
+    && document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getTiming().iterations === Infinity), null, { timeout: 15_000 })
+    .catch(() => undefined);
+  await page.waitForTimeout(300);
+}
+
 const shot = (page: Page, name: string) => page.screenshot({ path: `${OUT}/${PREFIX}-${name}.png` });
 
 for (const [w, h] of [[1280, 720], [1920, 1080]] as const) {
@@ -77,7 +85,7 @@ for (const [w, h] of [[1280, 720], [1920, 1080]] as const) {
     await page.setViewportSize({ width: w, height: h });
     await page.goto("/#/decks");
     await expect(page.locator(".pips").first()).toBeVisible();
-    await page.waitForTimeout(1200);
+    await settle(page);
     await shot(page, `decks-${w}`);
   });
 }
@@ -103,15 +111,22 @@ test("deck editor: the preview's card back and the costs", async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto(`/#/decks/${a}`);
   await expect(page.locator(".de-preview")).toBeVisible();
-  await page.waitForTimeout(1500);
+  await settle(page);
   await shot(page, "editor-1920");
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.waitForTimeout(600);
+  await settle(page);
   await shot(page, "editor-1280");
+  // every row's cost ends on the same column, the commander's included
+  const ends = await page.evaluate(() => [...document.querySelectorAll(".de-row")].slice(0, 6).map((r) => {
+    const c = r.querySelector(".de-cost")!.getBoundingClientRect();
+    return Math.round(c.right - r.getBoundingClientRect().left);
+  }));
+  console.log("cost column ends (commander row first):", ends.join(" "));
 });
 
 test("a card's text: rules text and a cost with symbols", async ({ browser }) => {
   only("text");
+  test.setTimeout(180_000);
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
   await prefs(page, "2d");
@@ -131,18 +146,20 @@ test("a card's text: rules text and a cost with symbols", async ({ browser }) =>
 
 test("launcher: the 3D showcase and the 2D scene", async ({ page }) => {
   only("home");
+  test.setTimeout(120_000);
   await prefs(page, "3d");
-  await decks(page);
+  await game(page); // the table the launcher offers to continue
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto("/#/");
   await expect(page.locator(".showcase-canvas")).toBeVisible({ timeout: 20_000 });
-  await page.waitForTimeout(3500);
+  await page.waitForTimeout(4000);
+  await settle(page);
   await shot(page, "home-3d");
   await page.evaluate(() => localStorage.setItem("fyodor.renderer", "2d"));
   await page.addInitScript(() => localStorage.setItem("fyodor.renderer", "2d"));
   await page.reload();
   await expect(page.locator(".home-scene")).toBeVisible();
-  await page.waitForTimeout(1200);
+  await settle(page);
   await shot(page, "home-2d");
 });
 
@@ -156,7 +173,8 @@ for (const [w, h] of [[1280, 720], [1920, 1080]] as const) {
     await page.goto(`/#/game/${gameId}`);
     await expect(page.getByTestId("seat-p2")).toBeVisible();
     await pastIntro(page);
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1000);
+    await settle(page);
     await shot(page, `table2d-${w}`);
   });
 
