@@ -176,7 +176,8 @@ export class SeatProps {
   });
 
   /** Hearts for every seat; buttons for mine (seat colours from the view). */
-  rebuild(seats: Seat[], me: string, colors: Record<string, string>): void {
+  /** `plateLeft`: 1v1 on a narrow screen, my plate sits left of my heart (framing.ts plateSide), so my buttons go right of it. */
+  rebuild(seats: Seat[], me: string, colors: Record<string, string>, plateLeft = false): void {
     this.clear();
     for (const seat of seats) {
       const color = colors[seat.player] ?? "#c9a35a";
@@ -230,7 +231,7 @@ export class SeatProps {
       // a row just past my mat's near edge, from its left end (the turn dial covers the screen's bottom right), Mulligan
       // apart on the right (as on the Oops mat); 1v1: my heart and plate take the middle, so the row starts under my
       // command zone and Mulligan and the bag go right of my plate
-      const lx = mine.duel ? (flat ? DUEL_MULLIGAN_X : -5.95 + i * 0.66) : flat ? -0.7 : -4.3 + i * 0.66;
+      const lx = mine.duel ? (flat ? DUEL_MULLIGAN_X : plateLeft ? 0.1 + i * 0.6 : -5.95 + i * 0.66) : flat ? -0.7 : -4.3 + i * 0.66;
       const [wx, wz] = toWorld(mine, lx, MAT_D / 2 + (mine.duel ? 0.62 : 0.52));
       group.position.set(wx, 0, wz);
       group.rotation.y = mine.rot;

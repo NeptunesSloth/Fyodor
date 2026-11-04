@@ -149,7 +149,7 @@ test("4 players at 1920x1080", async ({ page }) => {
 
 test("1v1 camera: a low orbit and the farthest zoom, 1920x1080", async ({ page }) => {
   test.skip(!!ONLY && ONLY !== "camera", "SHOT_ONLY");
-  test.setTimeout(240_000);
+  test.setTimeout(480_000);
   await page.setViewportSize({ width: 1920, height: 1080 });
   const { gameId } = await setup(page, ["Alice", "Bob"], 6);
   await open(page, gameId, 12);
@@ -158,7 +158,7 @@ test("1v1 camera: a low orbit and the farthest zoom, 1920x1080", async ({ page }
   const cy = box.y + box.height * 0.45;
   // the farthest zoom: wheel out over empty wood until it stops
   await page.mouse.move(cx, box.y + 20);
-  for (let i = 0; i < 40; i++) await page.mouse.wheel(0, 400);
+  for (let i = 0; i < 6; i++) await page.mouse.wheel(0, 600);
   await page.waitForTimeout(2500);
   await shoot(page, "1v1-zoomed-out");
   // back to the seat, then orbit low: right-drag up (pitch down toward the felt) and a little around
@@ -166,7 +166,7 @@ test("1v1 camera: a low orbit and the farthest zoom, 1920x1080", async ({ page }
   await page.waitForTimeout(2000);
   await page.mouse.move(cx, cy);
   await page.mouse.down({ button: "right" });
-  for (let i = 1; i <= 20; i++) await page.mouse.move(cx + i * 6, cy - i * 14);
+  for (let i = 1; i <= 10; i++) await page.mouse.move(cx + i * 12, cy - i * 6);
   await page.mouse.up({ button: "right" });
   await page.keyboard.press("Escape"); // a menu, if right-drag isn't an orbit here
   await page.waitForTimeout(2500);

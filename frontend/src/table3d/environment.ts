@@ -222,8 +222,10 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
       const [cx, cz] = corners[1]!;
       let y = tableY;
       for (let i = 0; i < 3; i++) {
-        const h = 0.22 + rand() * 0.12;
-        const book = new THREE.Mesh(track(new THREE.BoxGeometry(1.3, h, 0.95)), std(["#5a1f1a", "#223a5a", "#3a4a22"][i]!, { roughness: 0.8 }));
+        const h = (0.22 + rand() * 0.12) * (short ? 0.75 : 1);
+        // (at an aisle end, in sight the whole game: smaller and darker, so they don't pull the eye from the cards)
+        const book = new THREE.Mesh(track(short ? new THREE.BoxGeometry(0.95, h, 0.7) : new THREE.BoxGeometry(1.3, h, 0.95)),
+          std((short ? ["#3a1512", "#172438", "#262f17"] : ["#5a1f1a", "#223a5a", "#3a4a22"])[i]!, { roughness: 0.8 }));
         book.position.set(short ? cx + Math.sign(cx) * 0.1 : cx - 0.2, y + h / 2, short ? cz + 0.85 : cz + 0.1); // (at an aisle end: in front of the candles, not under them)
         book.rotation.y = (rand() - 0.5) * 0.5;
         book.castShadow = quality === "high";

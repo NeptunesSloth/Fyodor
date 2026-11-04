@@ -498,6 +498,7 @@ export class TableScene {
     // half the hand band (picking and projection use the same matrices); the aspect is that whole frame's
     tableLens(w, h, this.camera);
     this.updateCameraGoal();
+    if (this.view) this.update(this.view, this.me); // (a narrow screen moves my plate and buttons: table3d/framing.ts plateSide)
   }
 
   update(view: GameView, me: string): void {
@@ -514,10 +515,11 @@ export class TableScene {
       this.updateCameraGoal();
     }
     const out = isOut(view, me); // -- out of the game -- no seat buttons by the mat of a player who left (game/outOfGame.ts)
-    const propsKey = `${key}|${view.players.map((p) => p.color).join(",")}|${out}`;
+    const plateLeft = plateSide(this.viewW / Math.max(1, this.viewH)) < 0; // (my buttons go where my plate isn't)
+    const propsKey = `${key}|${view.players.map((p) => p.color).join(",")}|${out}|${plateLeft}`;
     if (propsKey !== this.propsKey) {
       this.propsKey = propsKey;
-      this.props.rebuild(this.seatList, out ? "" : me, Object.fromEntries(view.players.map((p) => [p.id, p.color])));
+      this.props.rebuild(this.seatList, out ? "" : me, Object.fromEntries(view.players.map((p) => [p.id, p.color])), plateLeft);
     }
     for (const p of view.players) this.props.setLife(p.id, p.life, this.lifeBatch.pending(p.id));
     this.props.setCommanders(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, p.commanders.map((c) => ({ key: c.key, tax: c.tax }))])),
