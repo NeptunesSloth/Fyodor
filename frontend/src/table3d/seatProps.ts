@@ -21,7 +21,7 @@ const HEART_Y = 0.16;
 const BUTTON_R = 0.26;
 const BUTTON_H = 0.08;
 const TAX_R = 0.26;
-const LABEL_H = 0.3;
+const LABEL_H = 0.5;
 
 /**
  * A seat button's name as it shows over the button while hovered: Cinzel on a small blackened plate with a brass edge
@@ -29,7 +29,7 @@ const LABEL_H = 0.3;
  */
 function drawLabel(canvas: HTMLCanvasElement, text: string): number {
   const H = 64;
-  const font = '600 30px Cinzel, Georgia, serif';
+  const font = '600 34px Cinzel, Georgia, serif';
   const probe = canvas.getContext("2d")!;
   probe.font = font;
   const W = Math.ceil(probe.measureText(text).width) + 44;
@@ -127,7 +127,8 @@ interface Heart {
    * change): what it shows now, where it's going, and the clicks still on their way. */
   roll: { from: number; to: number; start: number; dur: number; at: number | null; pending: number };
 }
-interface Button { group: THREE.Group; top: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; typed: string; press: number }
+/** A seat button; `tip`: where its name shows while hovered (just over the mat's edge above it, as seen from the seat). */
+interface Button { group: THREE.Group; top: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; typed: string; press: number; tip: THREE.Vector3 }
 
 /** The whole number a rolling life total shows at ``now`` (ease-out; it lands exactly on ``to``). */
 export function lifeRollAt(r: { from: number; to: number; start: number; dur: number }, now: number): number {
@@ -217,7 +218,8 @@ export class SeatProps {
       group.position.set(wx, 0, wz);
       group.rotation.y = mine.rot;
       this.group.add(group);
-      const b: Button = { group, top, canvas, tex, typed: "", press: 0 };
+      const [tx, tz] = toWorld(mine, lx, MAT_D / 2 + 0.52 - 0.6);
+      const b: Button = { group, top, canvas, tex, typed: "", press: 0, tip: new THREE.Vector3(tx, 0.2, tz) };
       drawSeatIcon(canvas, a.id);
       tex.needsUpdate = true;
       this.buttons.set(a.id, b);
@@ -372,7 +374,7 @@ export class SeatProps {
     (label.sprite.material as THREE.SpriteMaterial).map = label.tex;
     (label.sprite.material as THREE.SpriteMaterial).needsUpdate = true;
     label.sprite.scale.set(LABEL_H * aspect, LABEL_H, 1);
-    label.sprite.position.copy(b.group.position).setY(BUTTON_H + 0.55);
+    label.sprite.position.copy(b.tip);
   }
 
   /** The hovered button's name, over it (one plate, redrawn for each button). */

@@ -617,8 +617,11 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
 .card-preview {
   --preview-top: 96px;
   position: fixed; z-index: 40; top: var(--preview-top); width: 262px; pointer-events: none;
-  background: var(--hud-surface); border: 1px solid var(--hud-edge); border-radius: var(--room-radius);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  background:
+    radial-gradient(ellipse 90% 40% at 30% 0%, rgba(255, 214, 150, 0.05), transparent 70%),
+    var(--hud-surface);
+  border: 1px solid color-mix(in srgb, var(--frame) 80%, black); border-radius: var(--room-radius);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 228, 186, 0.1);
   animation: preview-in calc(120ms * var(--anim-scale, 1)) var(--ease-out);
 }
 @keyframes preview-in { from { opacity: 0; transform: translateY(-4px); } }
