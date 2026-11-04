@@ -60,10 +60,29 @@ def test_a_cursor_reaches_the_others_but_not_the_sender(table):
         assert cursors(drain(b)) == [{"type": "cursor", "from": "p1", "gone": True}]
         # nonsense is dropped quietly: an unknown seat, missing coordinates, extra fields
         for bad in ({"type": "cursor", "player": "p9", "x": 1, "y": 1}, {"type": "cursor", "player": "p1"},
-                    {"type": "cursor", "player": "p1", "x": 1, "y": 1, "card": "secret"}):
+                    {"type": "cursor", "player": "p1", "x": 1, "y": 1, "hand": "secret"}):
             a.send_json(bad)
         assert cursors(drain(a)) == []
         assert cursors(drain(b)) == []
+
+
+def test_a_cursor_names_only_a_card_everyone_can_see(table):
+    client, gid, _code, host, mike = table
+    client.post(f"/api/games/{gid}/actions", json={"action": {"type": "draw", "count": 3}}, headers={"X-Seat-Token": host})
+    state = client.app.state.services.hub.get(gid).session.state
+    hand = state.zones["p1:hand"][0]
+    library = state.zones["p1:library"][0]
+    commander = state.zones["p1:command"][0]
+    with client.websocket_connect(f"/ws/games/{gid}?token={host}") as a, client.websocket_connect(f"/ws/games/{gid}?token={mike}") as b:
+        drain(a)
+        drain(b)
+        a.send_json({"type": "cursor", "player": "p1", "x": 10, "y": 20, "card": commander, "cx": 0.25, "cy": -3})
+        for hidden in (hand, library):  # my hand and my library: the spot goes, the id never does
+            a.send_json({"type": "cursor", "player": "p1", "x": 11, "y": 20, "card": hidden, "cx": 0.1, "cy": 0.1})
+        drain(a)
+        got = cursors(drain(b))
+        assert got[0] == {"type": "cursor", "from": "p1", "player": "p1", "x": 10.0, "y": 20.0, "card": commander, "cx": 0.25, "cy": -1.0}
+        assert got[1:] == [{"type": "cursor", "from": "p1", "player": "p1", "x": 11.0, "y": 20.0}] * 2
 
 
 def test_cursors_are_never_stored_or_logged(table):

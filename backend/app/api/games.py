@@ -48,7 +48,7 @@ from app.game.rules_state import AUTOMATION_PRESETS, AutomationLevel, start_rule
 from app.game.session import GameSession
 from app.game.state import CollectionCard, GameSettings, MulliganPolicy
 from app.game.views import build_view
-from app.game.visibility import OMNISCIENT, SPECTATOR
+from app.game.visibility import OMNISCIENT, SPECTATOR, publicly_visible
 from app.multiplayer import lan_art
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, undo_voters
 from app.multiplayer.lobby import (
@@ -1576,7 +1576,9 @@ WS_MESSAGE: TypeAdapter[WsAction | WsSimple] = TypeAdapter(WsAction | WsSimple)
 # room. Pure presentation: never logged, saved or replayed, and it never touches the game. A position is viewer-independent:
 # the nearest seat plus virtual x/y on that seat's battlefield (1000 x 600, the frame of card positions; the wood and the
 # rail lie outside it). The client sends only while its pointer is over the 3D table top, never from the hand or the
-# panels, so a cursor carries no hidden information.
+# panels, so a cursor carries no hidden information. Over a card it also names the card and the point on it (cx/cy, its
+# half-widths, -1..1): each screen may lay a board out its own way (the arranged rows), so "over that card" is what
+# should match. Only a card everyone can see is named, as for a ping: a hidden card's id would leak.
 CURSOR_X = (-400.0, 1400.0)
 CURSOR_Y = (-400.0, 1000.0)
 MAX_CURSOR_MESSAGE = 256
@@ -1588,6 +1590,9 @@ class WsCursor(BaseModel):
     player: str | None = Field(default=None, max_length=16)
     x: float | None = Field(default=None, allow_inf_nan=False)
     y: float | None = Field(default=None, allow_inf_nan=False)
+    card: str | None = Field(default=None, max_length=80)
+    cx: float | None = Field(default=None, allow_inf_nan=False)
+    cy: float | None = Field(default=None, allow_inf_nan=False)
     gone: bool = False
 
 
@@ -1614,7 +1619,12 @@ def _cursor_relay(room: Room, conn: Connection, msg: WsCursor) -> dict[str, Any]
         return None
     x = round(min(CURSOR_X[1], max(CURSOR_X[0], msg.x)), 1)
     y = round(min(CURSOR_Y[1], max(CURSOR_Y[0], msg.y)), 1)
-    return {"type": "cursor", "from": conn.actor, "player": msg.player, "x": x, "y": y}
+    out: dict[str, Any] = {"type": "cursor", "from": conn.actor, "player": msg.player, "x": x, "y": y}
+    state = room.session.state
+    card = state.cards.get(msg.card) if msg.card is not None else None
+    if card is not None and msg.cx is not None and msg.cy is not None and publicly_visible(state, card):
+        out.update(card=card.id, cx=round(min(1.0, max(-1.0, msg.cx)), 3), cy=round(min(1.0, max(-1.0, msg.cy)), 3))
+    return out
 
 
 async def _to_others(room: Room, conn: Connection, message: dict[str, Any]) -> None:
