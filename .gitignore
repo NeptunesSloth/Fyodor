@@ -39,3 +39,4 @@ frontend/playwright-report/
 
 # downloadable app builds (scripts/build-app.sh, zipped for sharing)
 /Fyodor-*.zip
+/Fyodor-Setup-*.exe
