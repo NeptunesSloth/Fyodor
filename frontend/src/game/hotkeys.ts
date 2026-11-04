@@ -28,6 +28,7 @@ export type HotkeyId =
   | "cam_combat"
   | "cam_reset"
   | "cam_names"
+  | "cam_pan"
   | "ping"
   | "hand_sort"
   | "dice";
@@ -62,6 +63,10 @@ export const HOTKEYS: Hotkey[] = [
   { id: "cam_combat", keys: ["x"], label: "Focus the current combat (X or Esc to return)" },
   { id: "cam_reset", keys: ["home"], label: "3D table: back to your seat" },
   { id: "cam_names", keys: ["v"], label: "3D table: show / hide the names of all cards on the table" },
+  {
+    id: "cam_pan", keys: ["arrowleft", "arrowright", "arrowup", "arrowdown", "shift+arrowleft", "shift+arrowright", "shift+arrowup", "shift+arrowdown"],
+    label: "3D table: move the view across the table (Shift: faster; while choosing targets the arrows pick them)",
+  },
   { id: "ping", keys: ["g"], label: "Ping what the pointer is on, for everyone (or Alt+click)" },
   { id: "hand_sort", keys: ["s"], label: "Sort your hand: as drawn → mana value → colour → type → name" },
   { id: "dice", keys: ["shift+r"], label: "Roll dice: open / close the roll panel (Enter rolls)" },
@@ -118,7 +123,15 @@ export function collisions(list: Hotkey[] = HOTKEYS): string[] {
 export function keyLabel(id: HotkeyId, keymap: Record<string, string[]> = {}): string | null {
   const key = effectiveHotkeys(keymap).find((h) => h.id === id)?.keys[0];
   if (!key) return null;
-  return key.split("+").map((p) => (p === " " ? "Space" : p === "ctrl" ? "Ctrl" : p === "shift" ? "Shift" : p.length === 1 ? p.toUpperCase() : p[0]!.toUpperCase() + p.slice(1))).join("+");
+  return key.split("+").map((p) => (p === " " ? "Space" : p === "ctrl" ? "Ctrl" : p === "shift" ? "Shift" : ARROWS[p] ?? (p.length === 1 ? p.toUpperCase() : p[0]!.toUpperCase() + p.slice(1)))).join("+");
+}
+
+/** The arrow keys, as they read on a key cap. */
+export const ARROWS: Record<string, string> = { arrowleft: "←", arrowright: "→", arrowup: "↑", arrowdown: "↓" };
+
+/** A key string as the help reads it: "Ctrl+Z", "Space", "←". */
+export function keyCap(k: string): string {
+  return k.split("+").map((p) => (p === "ctrl" ? "Ctrl" : p === "shift" ? "Shift" : p === " " ? "Space" : ARROWS[p] ?? (p.length === 1 ? p.toUpperCase() : p[0]!.toUpperCase() + p.slice(1)))).join("+");
 }
 
 /**

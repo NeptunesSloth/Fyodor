@@ -36,11 +36,12 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { buildEnvironment, type Environment } from "./environment";
 import { arrowTime, makeArrow, type GroundBox } from "./arrows";
 import { makeTether } from "./tethers";
-import { combatCardIds, frameBox } from "./focus";
+import { combatCardIds, frameBox, isCloseUp } from "./focus";
 import { attachmentLinks, tetherAnchor } from "../game/attachments";
 import { commanderDealt, dealtText } from "../game/commanderDamage";
 import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
+import { adjustCamera, NO_ADJUST, orbitBy, panBy, panKey, zoomAt, type CamAdjust, type CamPose, type PanBounds } from "./cameraControls";
 import { DiceTray, prewarmDice } from "./dice";
 import { DiceHud } from "./diceHud";
 import { CannonRig, fireCannon } from "./cannon3d";
@@ -242,12 +243,19 @@ export class TableScene {
   private camGoalPos = new THREE.Vector3(0, 30, 30);
   private camGoalLook = new THREE.Vector3();
   private preset: CameraPreset = "seat";
-  private zoom = 1;
-  private yaw = 0;
+  /** -- camera -- the player's move of the view (table3d/cameraControls.ts), and the one kept for each view left behind. */
+  private adj: CamAdjust = NO_ADJUST;
+  private adjFor = new Map<string, CamAdjust>();
+  /** The view's own camera, before the player's move (what the wheel, drags and keys adjust). */
+  private camBase: CamPose | null = null;
+  private goalCam = new THREE.PerspectiveCamera();
   private drag: { ids: string[]; anchor: string; start: [number, number]; grab: THREE.Vector3; offsets: Map<string, THREE.Vector3>; active: boolean; trail: { t: number; x: number; z: number }[] } | null = null;
   /** A flicked card sliding across its mat (and anything it knocked), played back from table3d/cardPhysics.ts. */
   private sliding: { seat: Seat; start: number; frames: number; tracks: Map<string, Float32Array>; done?: () => void } | null = null;
-  private orbit: { x: number; yaw: number } | null = null;
+  /** -- camera -- a right press (an orbit once it moves; a menu if it never does) and a middle-drag pan. */
+  private rightPress: { id: number; x: number; y: number; adj: CamAdjust; moved: boolean } | null = null;
+  private lastRightUp = 0;
+  private panGrab: { id: number; ground: THREE.Vector3 } | null = null;
   /** Box selection: dragging on the bare table draws a rectangle (as on the 2D table). */
   private marquee: { x0: number; y0: number; add: boolean; el: HTMLDivElement } | null = null;
   private hovered: string | null = null;
@@ -431,11 +439,54 @@ export class TableScene {
     this.rebuildTable();
   }
 
+  /**
+   * Show a view. The camera keeps the place the player moved it to in each view (seat, whole table, a player's board)
+   * until that view is reset (Home, 1, 0: resetView); a close-up (C, K, X) always opens as framed.
+   */
   setCamera(preset: CameraPreset): void {
+    if (!isCloseUp(this.preset)) this.adjFor.set(JSON.stringify(this.preset), this.adj);
     this.preset = preset;
-    this.yaw = 0;
-    this.zoom = 1;
+    this.adj = isCloseUp(preset) ? NO_ADJUST : this.adjFor.get(JSON.stringify(preset)) ?? NO_ADJUST;
     this.updateCameraGoal();
+  }
+
+  /** Home, 1 and 0: forget the player's move of that view (and if it's the one showing, put the camera back now). */
+  resetView(preset: CameraPreset): void {
+    const key = JSON.stringify(preset);
+    this.adjFor.delete(key);
+    if (JSON.stringify(this.preset) === key) {
+      this.adj = NO_ADJUST;
+      this.updateCameraGoal();
+    }
+  }
+
+  /** The arrow keys: pan the view a step (Shift: three steps). */
+  panView(dir: "left" | "right" | "up" | "down", fast: boolean): void {
+    if (!this.camBase) return;
+    this.moveView(panKey(this.adj, this.camBase, dir, fast, this.panBounds()));
+  }
+
+  /** -- camera -- the player moved the view. */
+  private moveView(next: CamAdjust): void {
+    this.adj = next;
+    this.updateCameraGoal();
+  }
+
+  /** How far the view's look point may wander: over the table top. */
+  private panBounds(): PanBounds {
+    const size = tableSize(this.seatList);
+    return { hx: size.w / 2, hz: size.d / 2 };
+  }
+
+  /** The point on the table under a pointer, as the camera will see it once it arrives (so drags don't chase the easing). */
+  private groundAt(clientX: number, clientY: number): THREE.Vector3 | null {
+    const cam = this.goalCam;
+    cam.copy(this.camera);
+    cam.position.copy(this.camGoalPos);
+    cam.lookAt(this.camGoalLook);
+    cam.updateMatrixWorld(true);
+    this.ray.setFromCamera(this.pointer(clientX, clientY), cam);
+    return this.ray.ray.intersectPlane(this.tablePlane, new THREE.Vector3());
   }
 
   resize(w: number, h: number): void {
@@ -546,6 +597,12 @@ export class TableScene {
     this.still = on;
   }
   private still = false;
+
+  /** Tests and diagnostics: resolves once the next frame has been drawn. */
+  nextFrame(): Promise<void> {
+    return new Promise((resolve) => this.afterFrame.push(resolve));
+  }
+  private afterFrame: (() => void)[] = [];
 
   /** Tests and diagnostics: the next frame's pixels, read as soon as it is drawn. */
   grabFrame(): Promise<Uint8Array> {
@@ -1405,10 +1462,12 @@ export class TableScene {
       // a close-up with nothing left to show: my seat
       ({ pos, look } = this.fitView("seat", mine)!);
     }
-    const off = pos.clone().sub(look).multiplyScalar(this.zoom);
-    off.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw);
-    this.camGoalPos.copy(look).add(off);
-    this.camGoalLook.copy(look);
+    // -- camera -- the player's move of this view, on top of how the view frames it
+    this.camBase = { pos: pos.clone(), look: look.clone() };
+    const moved = adjustCamera(this.camBase, this.adj);
+    const off = moved.pos.clone().sub(moved.look);
+    this.camGoalPos.copy(moved.pos);
+    this.camGoalLook.copy(moved.look);
     // -- framing -- the room's fog starts past the table, however far back the camera sits for this screen
     if (this.scene.fog instanceof THREE.Fog) {
       const near = Math.max(this.fogBase[0], off.length() * 1.3);
@@ -1524,8 +1583,11 @@ export class TableScene {
   }
 
   /** -- framing -- what the table is framed in and around (tests and diagnostics). */
-  framingState(): { view: [number, number]; keepOut: { left: number; top: number; right: number; bottom: number }[]; reserveTop: number; elevation: number } {
-    return { view: [this.viewW, this.viewH], keepOut: this.keepOut3d.map((b) => ({ ...b })), reserveTop: this.reserveTop, elevation: seatElevation(this.seatList.length, this.viewW / Math.max(1, this.viewH)) };
+  framingState(): { view: [number, number]; keepOut: { left: number; top: number; right: number; bottom: number }[]; reserveTop: number; elevation: number; adjust: CamAdjust; dragging: string } {
+    return {
+      view: [this.viewW, this.viewH], keepOut: this.keepOut3d.map((b) => ({ ...b })), reserveTop: this.reserveTop, elevation: seatElevation(this.seatList.length, this.viewW / Math.max(1, this.viewH)),
+      adjust: { ...this.adj }, dragging: this.rightPress ? "right" : this.panGrab ? "middle" : "",
+    };
   }
 
   /** -- framing -- keep a strip this tall (px) clear at the top of the table (a tip banner sits there); 0: none. */
@@ -1569,6 +1631,7 @@ export class TableScene {
       this.unsubs.push(() => cv.removeEventListener(type, fn as EventListener));
     };
     on("pointerdown", (e) => this.onDown(e));
+    on("mousedown", (e) => { if (e.button === 1) e.preventDefault(); }); // a middle-drag pans: no browser autoscroll
     on("pointermove", (e) => this.onMove(e));
     on("pointerup", (e) => this.onUp(e));
     on("pointerleave", () => this.setHover(null));
@@ -1591,7 +1654,13 @@ export class TableScene {
     };
     window.addEventListener("keydown", onDigit, true);
     this.unsubs.push(() => window.removeEventListener("keydown", onDigit, true));
-    on("contextmenu", (e) => this.onContext(e));
+    on("contextmenu", (e) => {
+      // a right press opens its menu when it is let go without moving (a right-drag orbits instead), as in Tabletop
+      // Simulator; a menu asked for otherwise (the keyboard's menu key, a long touch) opens at once
+      e.preventDefault();
+      if (this.rightPress || performance.now() - this.lastRightUp < 400) return;
+      this.onContext(e);
+    });
     on("wheel", (e) => {
       e.preventDefault();
       const over = this.pick(e.clientX, e.clientY);
@@ -1599,8 +1668,11 @@ export class TableScene {
         this.lifeBatch.bump(over.heart, e.deltaY < 0 ? 1 : -1);
         return;
       }
-      this.zoom = Math.max(0.45, Math.min(1.8, this.zoom * (e.deltaY > 0 ? 1.08 : 1 / 1.08)));
-      this.updateCameraGoal();
+      // zoom toward the point under the pointer (a notch: about 12%; a trackpad's small steps, a little at a time)
+      const ground = this.groundAt(e.clientX, e.clientY);
+      if (!ground || !this.camBase) return;
+      const lines = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+      this.moveView(zoomAt(this.adj, this.camBase, ground, Math.exp(THREE.MathUtils.clamp(lines, -300, 300) * 0.0012), this.panBounds()));
     }, { passive: false });
   }
 
@@ -1617,8 +1689,18 @@ export class TableScene {
 
   private onDown(e: PointerEvent): void {
     if (e.button === 1) {
+      // middle-drag pans: the point grabbed stays under the pointer
       e.preventDefault();
-      this.orbit = { x: e.clientX, yaw: this.yaw };
+      const ground = this.groundAt(e.clientX, e.clientY);
+      if (ground) {
+        this.panGrab = { id: e.pointerId, ground };
+        this.canvas.setPointerCapture(e.pointerId);
+      }
+      return;
+    }
+    if (e.button === 2) {
+      // right-drag orbits (decided once it moves); let go without moving and it's the menu (contextmenu)
+      this.rightPress = { id: e.pointerId, x: e.clientX, y: e.clientY, adj: this.adj, moved: false };
       this.canvas.setPointerCapture(e.pointerId);
       return;
     }
@@ -1691,9 +1773,19 @@ export class TableScene {
   }
 
   private onMove(e: PointerEvent): void {
-    if (this.orbit) {
-      this.yaw = this.orbit.yaw - (e.clientX - this.orbit.x) * 0.006;
-      this.updateCameraGoal();
+    const rp = this.rightPress;
+    if (rp && rp.id === e.pointerId) {
+      const dx = e.clientX - rp.x;
+      const dy = e.clientY - rp.y;
+      if (!rp.moved && Math.hypot(dx, dy) < 5) return;
+      rp.moved = true;
+      if (this.camBase) this.moveView(orbitBy(rp.adj, dx, dy, this.camBase, this.panBounds()));
+      return;
+    }
+    const pg = this.panGrab;
+    if (pg && pg.id === e.pointerId) {
+      const now = this.groundAt(e.clientX, e.clientY);
+      if (now && this.camBase) this.moveView(panBy(this.adj, pg.ground.x - now.x, pg.ground.z - now.z, this.camBase, this.panBounds()));
       return;
     }
     const m = this.marquee;
@@ -1736,8 +1828,15 @@ export class TableScene {
   }
 
   private onUp(e: PointerEvent): void {
-    if (this.orbit) {
-      this.orbit = null;
+    const rp = this.rightPress;
+    if (rp && rp.id === e.pointerId && e.button === 2) {
+      this.rightPress = null;
+      this.lastRightUp = performance.now();
+      if (!rp.moved) this.onContext(e); // a right-click: the card's, pile's or table's menu
+      return;
+    }
+    if (this.panGrab && this.panGrab.id === e.pointerId && e.button === 1) {
+      this.panGrab = null;
       return;
     }
     const m = this.marquee;
@@ -2105,6 +2204,7 @@ export class TableScene {
       gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
       for (const g of this.grabs.splice(0)) g(px);
     }
+    if (this.afterFrame.length) for (const f of this.afterFrame.splice(0)) f();
     if (this.dice.count || this.diceHud.el.childElementCount) {
       // the dice's chips and line, in the canvas's own pixels
       const w = this.canvas.clientWidth;

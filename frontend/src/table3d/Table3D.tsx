@@ -45,6 +45,8 @@ declare global {
       framing?: () => ReturnType<TableScene["framingState"]>;
       /** Hold the room's own motion (candles, dust, beams' flow), to compare frames. */
       still?: (on: boolean) => void;
+      /** Resolves once the next frame has been drawn. */
+      nextFrame?: () => Promise<void>;
       /** How many pixels differ between two frames `ms` apart. */
       frameDiff?: (ms: number) => Promise<{ changed: number; total: number }>;
     };
@@ -115,6 +117,7 @@ export function Table3D({ me }: { me: string }) {
       motionFreeze: (ms) => scene.motionFreeze(ms),
       framing: () => scene.framingState(),
       still: (on) => scene.setStill(on),
+      nextFrame: () => scene.nextFrame(),
       frameDiff: async (ms) => {
         // pixels that differ between two frames `ms` apart (with nothing moving, nothing should)
         const a = await scene.grabFrame();
@@ -128,7 +131,7 @@ export function Table3D({ me }: { me: string }) {
     };
     // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,
     // turn dial, stack panels) and the battlefield cards, and never past the screen edge
-    let frame = 0;
+    let measured = -Infinity;
     type Box = { left: number; top: number; right: number; bottom: number };
     let cards: Box[] = [];
     let chrome: Box[] = [];
@@ -136,7 +139,12 @@ export function Table3D({ me }: { me: string }) {
       const host = el.getBoundingClientRect();
       const w = el.clientWidth;
       const h = el.clientHeight;
-      if (frame++ % 20 === 0) {
+      // the chrome and the cards' boxes, measured a few times a second (by the clock, not the frame count: a slow
+      // software renderer draws a frame or two a second, and the table is framed clear of the chrome as soon as it shows)
+      const now = performance.now();
+      const measure = now - measured > 250;
+      if (measure) measured = now;
+      if (measure) {
         chrome = [...document.querySelectorAll(".t3d-cams, .turn-dial-wrap, .stack-widget.open, .rules-stack-wrap, .t3d-coach")].map((n) => {
           const r = n.getBoundingClientRect();
           return { left: r.left - host.left, top: r.top - host.top, right: r.right - host.left, bottom: r.bottom - host.top };
@@ -194,7 +202,7 @@ export function Table3D({ me }: { me: string }) {
         };
         // no free spot near the seat (a crowded table): the compact form, which keeps life and any
         // commander damage or poison, and shows the rest on hover or focus
-        if (frame % 20 === 1) node.classList.toggle("compact", place(size("full")).covers);
+        if (measure) node.classList.toggle("compact", place(size("full")).covers);
         const { x, y } = place(size(node.classList.contains("compact") ? "small" : "full"));
         node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
         node.style.visibility = pt.visible ? "visible" : "hidden";
@@ -249,8 +257,17 @@ export function Table3D({ me }: { me: string }) {
       return r.preset;
     });
     const onCam = (e: Event) => {
-      const detail = (e as CustomEvent<{ id: string; digit: number; hover: string | null; player?: string }>).detail;
+      const detail = (e as CustomEvent<{ id: string; digit: number; hover: string | null; player?: string; key?: string; shift?: boolean }>).detail;
       if (detail.id === "cam_names") return setAllNames((x) => !x);
+      if (detail.id === "cam_pan") {
+        // the arrow keys pan the view (Shift: faster), except while choosing targets: then they pick them
+        const dir = PAN_KEYS[detail.key ?? ""];
+        if (dir && !document.querySelector(".tgt-bar")) sceneRef.current?.panView(dir, !!detail.shift);
+        return;
+      }
+      // Home and 1 put the seat view back where it was framed, 0 the whole table's
+      if (detail.id === "cam_seat" || detail.id === "cam_reset") sceneRef.current?.resetView("seat");
+      if (detail.id === "cam_table") sceneRef.current?.resetView("overview");
       step(detail.id, detail);
     };
     const onEsc = (e: KeyboardEvent) => {
@@ -296,14 +313,14 @@ export function Table3D({ me }: { me: string }) {
       <CoachTips reserve={reserveTop} />
       <MomentTips me={me} reserve={reserveTop} />
       <div className="t3d-cams frame" role="toolbar" aria-label="Camera">
-        <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Look from your seat (1)">Seat <kbd className="cam-key">1</kbd></button>
+        <button className={preset === "seat" ? "on" : ""} onClick={() => { sceneRef.current?.resetView("seat"); setPreset("seat"); }} title="Look from your seat (1 or Home)">Seat <kbd className="cam-key">1</kbd></button>
         {others.map((pid, i) => (
           <button key={pid} className={typeof preset === "object" && "focus" in preset && preset.focus === pid ? "on" : ""} onClick={() => setPreset({ focus: pid })}
             aria-label={`Look at ${nameOf(pid)}'s side`} title={`Look at ${nameOf(pid)}'s side (${i + 2})`}>
             <PlayerChip player={pid} /> <kbd className="cam-key">{i + 2}</kbd>
           </button>
         ))}
-        <button className={preset === "overview" ? "on" : ""} onClick={() => setPreset("overview")} title="Look down on the whole table (0)">Table <kbd className="cam-key">0</kbd></button>
+        <button className={preset === "overview" ? "on" : ""} onClick={() => { sceneRef.current?.resetView("overview"); setPreset("overview"); }} title="Look down on the whole table (0)">Table <kbd className="cam-key">0</kbd></button>
         <button className={allNames ? "on" : ""} aria-pressed={allNames} onClick={() => setAllNames(!allNames)} title="Show the names of all cards on the table (V)">Names <kbd className="cam-key">V</kbd></button>
       </div>
     </div>
@@ -327,6 +344,9 @@ function nameTags(view: GameView | null, selection: string[], all: boolean): [st
   return out.length ? out : EMPTY_TAGS;
 }
 const EMPTY_TAGS: [string, string][] = [];
+/** The arrow keys' directions for panning the view. */
+const PAN_KEYS: Record<string, "left" | "right" | "up" | "down"> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" };
+
 /** How far (px) a seat plaque may move off its seat to clear cards before it goes compact instead. */
 const MAX_DRIFT = 110;
 
