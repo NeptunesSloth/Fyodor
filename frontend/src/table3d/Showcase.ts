@@ -15,7 +15,17 @@ import { backCanvas, canvasTexture, cardCornerMask, cardImageTexture, matTexture
 /** A card to lay on the showcase's mat: a printing (its art from the host's cache) and its name (the text card's). */
 export interface ShowcaseCard { id: string; name: string }
 
-const PILE_H = 0.42;
+// the library, built as the game table's piles are (TableScene): stacked card bodies with a hair of bevel, cream card stock,
+// each squared by hand a little differently, so its side reads as layered cards catching the light
+const THICK = 0.016;
+const PILE_LAYERS = 40;
+const PILE_H = PILE_LAYERS * THICK * 0.9;
+
+/** Deterministic per-layer jitter (as the table's piles). */
+function jitter(i: number, salt: number): number {
+  const x = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
+  return x - Math.floor(x) - 0.5;
+}
 
 function roundedCard(w: number, h: number, r: number): THREE.Shape {
   const s = new THREE.Shape();
@@ -96,16 +106,32 @@ export class Showcase {
     this.useRealBack(back);
     this.props.add(this.battlefield);
     this.layCards();
-    // the library: a block of card stock with the back on top
-    const body = new THREE.ExtrudeGeometry(roundedCard(CARD_W, CARD_H, 0.045), { depth: PILE_H, bevelEnabled: false, curveSegments: 6 });
+    // the library: layered card bodies (as the table's piles) with the back on top
+    const bevel = 0.004;
+    const body = new THREE.ExtrudeGeometry(roundedCard(CARD_W - bevel * 2, CARD_H - bevel * 2, 0.045), {
+      depth: THICK - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 2, curveSegments: 6,
+    });
     body.rotateX(-Math.PI / 2);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: "#4b4741", roughness: 0.85 }); // a deck's edge: dark card stock
+    body.translate(0, bevel, 0);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: "#cdc6b8", roughness: 0.78 }); // the table's card stock
     this.disposables.push(body, bodyMat);
-    const pile = new THREE.Mesh(body, bodyMat);
-    pile.position.set(5.6, 0.004, 4.2);
+    const pile = new THREE.InstancedMesh(body, bodyMat, PILE_LAYERS);
+    const m4 = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const up = new THREE.Vector3(0, 1, 0);
+    const one = new THREE.Vector3(1, 1, 1);
+    for (let i = 0; i < PILE_LAYERS; i++) {
+      q.setFromAxisAngle(up, jitter(i, 5) * 0.035);
+      m4.compose(new THREE.Vector3(5.6 + jitter(i, 6) * 0.02, 0.004 + (i / PILE_LAYERS) * PILE_H, 4.2 + jitter(i, 7) * 0.02), q, one);
+      pile.setMatrixAt(i, m4);
+    }
     pile.castShadow = pile.receiveShadow = true;
     const top = new THREE.Mesh(geo, back);
-    top.position.set(5.6, PILE_H + 0.006, 4.2);
+    // on the topmost card, squared as it is
+    const last = PILE_LAYERS - 1;
+    top.position.set(5.6 + jitter(last, 6) * 0.02, 0.004 + (last / PILE_LAYERS) * PILE_H + THICK + 0.001, 4.2 + jitter(last, 7) * 0.02);
+    top.rotation.y = jitter(last, 5) * 0.035;
+    top.receiveShadow = true;
     this.props.add(pile, top);
     for (let i = 0; i < 7; i++) {
       const m = new THREE.Mesh(geo, back);

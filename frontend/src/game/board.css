@@ -78,9 +78,17 @@ body.perf-low .battlefield.arranged .mat-band { box-shadow: none; }
 .tile-pt.up { color: #155228; box-shadow: 0 0 0 1px #2f8a52, inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 4px rgba(0, 0, 0, 0.55); }
 .tile-pt.down { color: #8c1f17; box-shadow: 0 0 0 1px #b33c32, inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 4px rgba(0, 0, 0, 0.55); }
 
-/* face down: the sleeve or the card back, edge to edge */
-.board-tile.tile-back { border: 0; box-shadow: none; }
-.board-tile.tile-back .peek-badge { top: 6%; left: 6%; }
+/* face down: the sleeve or the card back as a whole card (63:88), centred in the tile, the felt showing either side; the
+   card casts the tile's shadow, and a tapped one darkens only itself */
+.board-tile.tile-back { display: flex; justify-content: center; background: none; border: 0; box-shadow: none; overflow: visible; }
+.board-tile.tile-back::after, .table-card[data-tile][data-tapped] .board-tile.tile-back::before { display: none; }
+.tile-back-card { position: relative; flex: none; height: 100%; aspect-ratio: 63 / 88; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
+.table-card[data-tile][data-tapped] .tile-back-card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: rgba(10, 8, 6, 0.22); }
+/* (at rest the tile itself casts no shadow: its card does; the hover, selection and combat rings still show) */
+.table-card[data-tile]:has(.tile-back):not(:hover, .selected, .attacking, .blocking) { box-shadow: none; }
+.board-tile.tile-back .peek-badge { top: 4%; left: 13%; }
+/* its marks (MORPH, MANIFEST…) sit over the back's bottom frame at the left, clear of the oval and the corner studs */
+.table-card[data-tile]:has(.tile-back) .card-marks { top: auto; right: auto; left: 15%; bottom: 3.5%; align-items: flex-start; }
 
 /* tapped: turned a quarter, and a shade darker so what's untapped stands out (an overlay: no filter) */
 .table-card[data-tile][data-tapped] .board-tile::before {
