@@ -6,6 +6,7 @@
  */
 import { activeProfile, usePrefs } from "../state/prefs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CardFace } from "../cards/CardFace";
 import { ColorPips } from "../components/ColorPips";
 import { Icon } from "../components/Icon";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
@@ -339,7 +340,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
               <ul aria-label="Open seats" data-count={seats}>
                 {Array.from({ length: seats - 1 }, (_, k) => (
                   <li key={k} className="pg-chair">
-                    <span className="pg-chair-seat"><Icon name="table" size={22} /><b>{k + 2}</b></span>
+                    <span className="pg-chair-seat"><Icon name="chair" size={22} /><b>{k + 2}</b></span>
                     <span className="pg-chair-text"><b>Open seat</b><span>Joins with the room code</span></span>
                     {seats > 1 && (
                       <button className="tt-icon pg-remove" onClick={() => setSeats((n) => n - 1)} aria-label="Remove a seat" title="Remove a seat"><Icon name="close" size={14} /></button>
@@ -495,7 +496,11 @@ function HostDeck({ deck, canPick, onPick, onClear }: { deck: DeckSummary | unde
       <button className={`pg-art ${deck ? "" : "no-deck"}`} onClick={onPick} disabled={!canPick} data-testid="host-deck"
         aria-label={`Your deck: ${deck ? `${deck.name}${deck.commanders.length ? `, ${deck.commanders.join(" & ")}` : ""}` : "none yet"}. Choose a deck`}>
         {deck ? (deck.commanders.length && deck.cover_id ? <CommanderArt id={deck.cover_id} /> : <CommanderArt back />) : (
-          <span className="pg-slot"><Icon name="cards" size={26} />{canPick && <span>Choose a deck</span>}</span>
+          // the deck this seat is waiting for, face down on the felt (the real back, as in the lobby)
+          <span className="pg-slot pg-slot-waiting">
+            <span className="pg-waiting" aria-hidden><CardFace faceDown /><CardFace faceDown /></span>
+            {canPick && <span className="pg-slot-word"><Icon name="cards" size={16} />Choose a deck</span>}
+          </span>
         )}
       </button>
       <div className="pg-deck">

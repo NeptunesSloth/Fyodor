@@ -283,11 +283,14 @@ button.pl-name:hover { color: var(--accent-2); }
 /* open seats: empty chairs, stacked at the end of the row */
 .open-seats { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 .seat-row.all-open .open-seats { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+/* an open seat is a plinth waiting for its player: the taken plinths' steel, lit top edge and contact shadow, a shade darker */
 .open-seat {
   display: grid; grid-template-columns: 46px minmax(0, 1fr); align-items: center; gap: 8px 12px;
-  padding: 12px 14px; border-radius: 6px;
-  background: rgba(0, 0, 0, 0.14); border: 1px dashed color-mix(in srgb, var(--frame) 42%, transparent);
-  box-shadow: inset 1px 3px 12px rgba(0, 0, 0, 0.35);
+  padding: 12px 14px; border-radius: 5px; border: 1px solid #2a2824; border-top-color: #433e35;
+  background: linear-gradient(180deg, rgba(255, 236, 205, 0.035), transparent 26%), linear-gradient(180deg, #161719, #0c0d0f);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 205, 0.11), inset 1px 0 0 rgba(255, 236, 205, 0.03),
+    0 1px 1px rgba(0, 0, 0, 0.8), 1px 3px 4px rgba(0, 0, 0, 0.55), 5px 14px 22px -8px rgba(0, 0, 0, 0.8);
 }
 .os-chair {
   grid-row: span 2; position: relative; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
@@ -477,15 +480,21 @@ button.pl-name:hover { color: var(--accent-2); }
   .pl-art.empty .pl-slot:has(.pl-choose) { padding: 10px 12px; }
 }
 /* a big screen: the table's objects grow with it instead of huddling in the middle of the felt */
+/* a big screen: the seats rise to fill the far side of the table (the open chairs share the plinths' height), the house
+   rules lie along the near edge, and the felt between them is the table's own, not a margin round a small island */
 @media (min-width: 1680px) and (min-height: 1000px) {
-  .lobby { --plinth-w: clamp(396px, 25vw, 500px); --chairs-w: 360px; }
-  .seat-row { gap: 24px; }
-  .open-seat { padding: 16px 18px; }
-  .os-text b { font-size: 17px; }
-  .table-front:not(:has(.ledger)) { grid-template-columns: minmax(0, 1000px); }
-  .next-game { padding: 18px 22px 16px; }
-  .next-game h2 { font-size: 19px; }
-  .lobby-table { gap: 28px; }
+  .lobby { --plinth-w: clamp(396px, 26vw, 520px); --chairs-w: 380px; }
+  .lobby-table { gap: 30px; justify-content: space-evenly; padding-block: 34px; }
+  .seat-row { gap: 26px; min-height: min(50vh, 540px); } /* about a plinth with its commander's art: no gap under a chosen deck */
+  .open-seats { gap: 14px; }
+  .open-seat { flex: 1 1 0; align-content: center; padding: 18px 20px; }
+  .open-seat { grid-template-columns: 54px minmax(0, 1fr); }
+  .os-chair { width: 54px; height: 54px; }
+  .os-text b { font-size: 18px; }
+  .os-text span { font-size: 13.5px; }
+  .table-front:not(:has(.ledger)) { grid-template-columns: minmax(0, 1060px); }
+  .next-game { padding: 20px 24px 18px; }
+  .next-game h2 { font-size: 20px; }
 }
 @media (max-width: 1180px) {
   .table-front, .table-front:not(:has(.ledger)) { grid-template-columns: minmax(0, 1fr); }

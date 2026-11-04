@@ -1,5 +1,5 @@
 /**
- * Fyodor's icon set: one drawn family (24px grid, 1.6 stroke, round joins, currentColor), so menus
+ * Fyodor's icon set: one drawn family (24px grid, a 1.9 stroke: about 8% of the icon, round joins, currentColor), so menus
  * and table markers never fall back to Unicode glyphs. Purely decorative unless given a `label`.
  */
 const PATHS = {
@@ -7,8 +7,10 @@ const PATHS = {
   swords: "M5 3l9.5 9.5M3 5l2-2M13 14l2 2-2 2-2-2M19 3l-9.5 9.5M21 5l-2-2M11 14l-2 2 2 2 2-2M7 18l-3 3M17 18l3 3",
   // a card turning back: resume
   resume: "M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5M12 8v4l3 2",
-  // a card table seen from above, a chair at each side: the LAN night, its seats
-  table: "M7.5 8h9a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 14.5v-5A1.5 1.5 0 0 1 7.5 8zM9.5 5.5a2.5 2.5 0 0 1 5 0M9.5 18.5a2.5 2.5 0 0 0 5 0M3.5 9.5a2.5 2.5 0 0 0 0 5M20.5 9.5a2.5 2.5 0 0 1 0 5",
+  // a table seen from above with two chairs along each long side: a LAN night, the network's tables (bold, so it reads at 16 px)
+  table: "M5.5 8.5h13a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 14v-4a1.5 1.5 0 0 1 1.5-1.5zM7.5 4.5h3M13.5 4.5h3M7.5 19.5h3M13.5 19.5h3",
+  // a chair seen from the side: an open seat
+  chair: "M7.5 13V5.5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2V13M6 13h12v2.5H6zM7.5 15.5V21M16.5 15.5V21M7.5 18.5h9",
   // a fanned pair of cards: decks
   cards: "M8.5 3.5h9a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1zM5.5 6.5v13a1 1 0 0 0 1 1h9",
   // a crown: commanders, pod stats
@@ -40,7 +42,7 @@ export type IconName = keyof typeof PATHS;
 export function Icon({ name, size = 18, label, className }: { name: IconName; size?: number; label?: string; className?: string }) {
   return (
     <svg className={`icon ${className ?? ""}`} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+      strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
       <path d={PATHS[name]} />
     </svg>
   );

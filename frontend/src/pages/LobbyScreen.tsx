@@ -400,12 +400,9 @@ function LinkGlyph() {
 }
 
 /** An empty chair: a high-backed seat drawn on the icon grid. */
+/** An open seat's chair (the icon family's own, as on the Play page). */
 function ChairGlyph() {
-  return (
-    <svg className="icon" width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M7.5 13V5.5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2V13M6 13h12v2.5H6zM7.5 15.5V21M16.5 15.5V21M7.5 18.5h9" />
-    </svg>
-  );
+  return <Icon name="chair" size={28} />;
 }
 
 function WarnGlyph() {
@@ -659,9 +656,11 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
             ) : <Icon name="cards" size={28} />}
           </span>
         )}
-        <span className={`pl-status ${state}`} data-testid={`seat-status-${seat.id}`}>
-          {state === "ready" ? <><Icon name="check" size={14} />Ready</> : state === "deck" ? "Not ready" : mine ? "No deck yet" : "Choosing a deck…"}
-        </span>
+        {!(mine && !deck) && ( // (my own empty seat: Choose deck and the footer already say there's no deck)
+          <span className={`pl-status ${state}`} data-testid={`seat-status-${seat.id}`}>
+            {state === "ready" ? <><Icon name="check" size={14} />Ready</> : state === "deck" ? "Not ready" : mine ? "No deck yet" : "Choosing a deck…"}
+          </span>
+        )}
       </div>
 
       <div className="pl-deck">
