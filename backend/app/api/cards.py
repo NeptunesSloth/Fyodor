@@ -126,6 +126,20 @@ def _needs_network(services: Services) -> None:
         raise HTTPException(409, "Network access is turned off on this computer (FYODOR_ALLOW_NETWORK=0)")
 
 
+class ArtRequest(BaseModel):
+    ids: list[str] = Field(min_length=1, max_length=50)
+
+
+@router.post("/cards/cache-art", status_code=202)
+def cache_card_art(body: ArtRequest, request: Request, services: ServicesDep) -> dict[str, Any]:
+    """Download the missing art for these printings, as for a deck's (the Bag of Extras' common tokens): host only, online."""
+    require_local(request)
+    _needs_network(services)
+    ids = list(dict.fromkeys(body.ids))
+    job = services.jobs.start("cache-art", "Artwork for the Bag of Extras", lambda progress: services.cache_artwork(ids, progress))
+    return job.as_dict()
+
+
 @router.get("/card-data")
 def card_data(request: Request, services: ServicesDep) -> dict[str, Any]:
     """The local card database and the latest update job, for Settings → Card database."""

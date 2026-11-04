@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
 import { sleeveStyle, useSleeve } from "./appearance";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
@@ -13,6 +14,8 @@ import { castableIn } from "./exileCastables";
 import "./exile.css";
 import { commanderDealt, dealtText } from "./commanderDamage";
 import { isOut } from "./outOfGame";
+import { taxMedallionUrl, whenIconFontReady } from "./seatIcons";
+import { useHoverCard } from "./hoverCard";
 
 const LABEL: Partial<Record<ZoneName, string>> = {
   library: "Library",
@@ -211,6 +214,7 @@ export const PILE_LABEL = LABEL;
 
 /** Graveyard / exile / other face-up piles: shows the top card; click opens the zone browser. */
 export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
+  const hover = useHoverCard();
   const key = `${player}:${zone}`;
   const ids = useZoneIds(key) ?? [];
   const topId = ids[ids.length - 1];
@@ -233,8 +237,7 @@ export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
         if (e.button !== 0 || !topId) return;
         beginPointerDrag(e, { ids: [topId], from: key, onDrop: (t) => dropInto([topId], t) });
       }}
-      onPointerEnter={() => topId && useGame.getState().setHover(topId)}
-      onPointerLeave={() => useGame.getState().setHover(null)}
+      {...(topId ? hover(topId) : {})}
     >
       <div className="pile-card">{top ? <GameCardFace card={top} /> : <div className="pile-empty" />}</div>
       <span className="pile-count">{ids.length}</span>
@@ -282,21 +285,27 @@ function dealtLine(players: Parameters<typeof commanderDealt>[0] | undefined, ke
   return text ? `\nCommander damage dealt: ${text}` : "";
 }
 
-/** A commander's tax, kept by hand: click +2 (one more cast), right-click −2. */
+/**
+ * A commander's tax, kept by hand: click +2 (one more cast), right-click −2. The brass medallion of the 3D table
+ * (game/seatIcons.ts): a crown over the tax as a generic-mana number, dim at 0 and lit once there is tax to pay.
+ */
 function TaxButton({ commander, name, tax }: { commander: string; name: string; tax: number }) {
+  const [, redraw] = useState(0);
+  useEffect(() => { void whenIconFontReady().then(() => redraw(1)); }, []);
   return (
     <button className={`tax-btn ${tax ? "" : "zero"}`} data-testid={`tax-${commander}`}
       title={`Commander tax for ${name}: ${tax} (click +2, right-click −2)`} aria-label={`Commander tax for ${name}: ${tax}. Click to add 2, right-click to remove 2`}
       onClick={(e) => { e.stopPropagation(); void send({ type: "commander_tax", commander, delta: 2 }); }}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); void send({ type: "commander_tax", commander, delta: -2 }); }}
       onPointerDown={(e) => e.stopPropagation()}>
-      <span className="tax-label">Tax</span> {tax}
+      <img src={taxMedallionUrl(tax)} alt="" draggable={false} />
     </button>
   );
 }
 
 function CommandCard({ id, me, player }: { id: string; me: string; player: string }) {
   const card = useCardView(id);
+  const hover = useHoverCard();
   void player;
   if (!card) return null;
   return (
@@ -315,8 +324,7 @@ function CommandCard({ id, me, player }: { id: string; me: string; player: strin
         const { title, items } = cardMenu(card, view, me);
         openMenu(e, items, title);
       }}
-      onPointerEnter={() => useGame.getState().setHover(id)}
-      onPointerLeave={() => useGame.getState().setHover(null)}
+      {...hover(id)}
       title="Double-click to cast (adds commander tax)"
     >
       <GameCardFace card={card} />

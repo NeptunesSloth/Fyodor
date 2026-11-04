@@ -15,6 +15,7 @@ import { Icon } from "../components/Icon";
 import { countMark } from "./piles";
 import { BoardTile, packStats } from "./BoardTile";
 import { reorderArranged } from "./arrangeDrop";
+import { useHoverCard } from "./hoverCard";
 
 interface Props {
   id: string;
@@ -32,6 +33,7 @@ interface Props {
 /** A permanent on a battlefield: positioned, tappable, draggable, with counters and markers. */
 export const TableCard = memo(function TableCard({ id, left, top, width, me, z, pile, tile = false }: Props) {
   const card = useCardView(id);
+  const hover = useHoverCard();
   const selected = useGame((s) => s.selection.includes(id));
   const showSources = usePrefs((s) => s.showTokenSources);
   const legal = useGame((s) => legalClass(s.view, id, me));
@@ -85,8 +87,7 @@ export const TableCard = memo(function TableCard({ id, left, top, width, me, z, 
         const { title, items } = cardMenu(card, view, me);
         openMenu(e, items, title);
       }}
-      onPointerEnter={() => useGame.getState().setHover(id)}
-      onPointerLeave={() => useGame.getState().hover === id && useGame.getState().setHover(null)}
+      {...hover(id)}
     >
       {tile ? <BoardTile card={card} stats={visible ? packStats(stats) : ""} /> : <GameCardFace card={card} />}
       {legal === "rules-target" && <TargetMark id={id} />}

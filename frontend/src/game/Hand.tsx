@@ -16,6 +16,7 @@ import { legalClass } from "./rules/RulesHud";
 import { customOrder, moveInOrder, saveCustomOrder, sortHand, type HandFacts } from "./handSort";
 import { isOut } from "./outOfGame";
 import type { CardData } from "../types/cards";
+import { useHoverCard } from "./hoverCard";
 
 /** What sorting needs to know about a card in my hand (null while its card data hasn't loaded). */
 function factsOf(card: GameCard | undefined, cache: Record<string, CardData>): HandFacts | null {
@@ -68,6 +69,7 @@ export function Hand({ player, me, compact = false }: { player: string; me: stri
 /** fan: the card's offset from the middle of the hand (the 3D table lays the hand out as an arc). */
 const HandCard = memo(function HandCard({ id, index, fan, me, compact }: { id: string; index: number; fan: number; me: string; compact: boolean }) {
   const card = useCardView(id);
+  const hover = useHoverCard();
   const selected = useGame((s) => s.selection.includes(id));
   const legal = useGame((s) => legalClass(s.view, id, me));
   // what it costs to cast right now, when that isn't its mana cost (Grand Arbiter Augustin, Thalia, Sphere: the server's own reckoning)
@@ -148,8 +150,7 @@ const HandCard = memo(function HandCard({ id, index, fan, me, compact }: { id: s
         const { title, items } = cardMenu(card, store.view, me);
         openMenu(e, items, title);
       }}
-      onPointerEnter={() => useGame.getState().setHover(id)}
-      onPointerLeave={() => useGame.getState().hover === id && useGame.getState().setHover(null)}
+      {...hover(id)}
     >
       <GameCardFace card={card} />
       {!card.hidden && card.revealed && <span className="revealed-tag">revealed</span>}

@@ -3,6 +3,7 @@ import { perspective, playerName, useGame } from "../state/gameStore";
 import type { GameView, MulliganPolicy, PregameSeat } from "../types/game";
 import { send } from "./actions";
 import { GameCardFace } from "./GameCardFace";
+import { useHoverCard } from "./hoverCard";
 
 const toBottom = (policy: MulliganPolicy, mulligans: number) => Math.max(0, mulligans - policy.free_mulligans) * policy.cards_to_bottom;
 
@@ -75,6 +76,7 @@ export function MulliganOverlay() {
 }
 
 function MyDecision({ view, me, seat, policy }: { view: GameView; me: string; seat: PregameSeat; policy: MulliganPolicy }) {
+  const hover = useHoverCard();
   const handKey = `${me}:hand`;
   const zone = view.zones[handKey];
   const hand = useMemo(() => (Array.isArray(zone) ? zone : []), [zone]);
@@ -127,8 +129,7 @@ function MyDecision({ view, me, seat, policy }: { view: GameView; me: string; se
               className={`mull-card ${order >= 0 ? "picked" : ""}`}
               disabled={!selectable || busy}
               onClick={() => toggle(id)}
-              onPointerEnter={() => useGame.getState().setHover(id)}
-              onPointerLeave={() => useGame.getState().setHover(null)}
+              {...hover(id)}
               data-testid="mull-card"
             >
               <GameCardFace card={card} />
