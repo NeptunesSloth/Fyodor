@@ -139,6 +139,18 @@ function addCounterItems(p: PlayerView, sources: { key: string; name: string; ow
   return items;
 }
 
+/** A hand holding a fan of cards (the Oops table's hand marker), in the seat's colour (currentColor). */
+function HandGlyph() {
+  return (
+    <svg className="seat-hand-glyph" viewBox="0 0 32 32" aria-hidden>
+      <path d="M9.5 5.5h8a1.5 1.5 0 0 1 1.5 1.5v10H8V7a1.5 1.5 0 0 1 1.5-1.5z" transform="rotate(-16 13 17)" fill="currentColor" opacity="0.55" />
+      <path d="M13.5 4h8A1.5 1.5 0 0 1 23 5.5v11H12v-11A1.5 1.5 0 0 1 13.5 4z" fill="currentColor" opacity="0.8" />
+      <path d="M17.5 5.5h7A1.5 1.5 0 0 1 26 7v10.5H16V7a1.5 1.5 0 0 1 1.5-1.5z" transform="rotate(14 21 17)" fill="currentColor" />
+      <path d="M6 18.5c2.2-1.6 4.6-1.4 6.6.2l3.4 2.6h5.6a1.9 1.9 0 0 1 0 3.8H15.8l5.8.1 4.9-3.3a2 2 0 0 1 2.4 3.2l-6.2 4.7a3 3 0 0 1-1.8.6H9.5L6 28z" fill="currentColor" />
+    </svg>
+  );
+}
+
 /**
  * A seat's plaque, after the scripted Tabletop Simulator tables: the portrait and name (click for the full player
  * panel), then the life heart and the trackers you click directly, as on the Oops table: commander damage from
@@ -197,6 +209,30 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
       {flat && presence === "connected" && <span className="seat-presence connected" data-testid={`presence-${player}`}>Connected</span>}
     </span>
   );
+  if (!flat) {
+    // -- the 3D table -- no name box (the user's call): beside the heart, a hand of cards in the seat's colour with the
+    // hand count, as on the Oops table; clicking it opens the player's panel (commander damage, poison, counters). Only
+    // the counters that are something show beside it.
+    const counters = sources.some((c) => (p.commander_damage[c.key] ?? 0) !== 0) || poison !== 0 || PLAQUE_RESOURCES.some(([k]) => (p.resources[k] ?? 0) !== 0);
+    return (
+      <div ref={plate} className={`t3d-seat t3d-chip ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
+        <div className="t3d-seat-main">
+          <button className="seat-who seat-hand-chip" onClick={onToggle} data-testid={`seat-${player}`} aria-expanded={open}
+            aria-label={`${p.name}${player === me ? " (you)" : ""}: ${p.hand_count} cards in hand, ${p.life} life${active ? ", their turn" : ""}. Open player panel`}
+            title={`${p.name}${player === me ? " (you)" : ""}${monarch ? " ♚ (the monarch)" : ""}: ${p.hand_count} cards in hand. Click for commander damage and counters`}>
+            <HandGlyph />
+            <span className="seat-hand-n">{p.hand_count}</span>
+          </button>
+          {counters && <span className="seat-side">{trackers}</span>}
+        </div>
+        {open && (
+          <div className={`t3d-seat-panel frame ${drop === "down" ? "down" : ""}`}>
+            <PlayerPanel player={player} me={me} />
+          </div>
+        )}
+      </div>
+    );
+  }
   return (
     <div ref={plate} className={`t3d-seat ${flat ? "seat-2d" : ""} ${active ? "active" : ""} ${priority ? "priority" : ""}`} style={{ ["--player-color" as string]: p.color }} data-player-id={player}>
       {flat && flags}

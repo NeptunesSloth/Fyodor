@@ -141,7 +141,7 @@ for (const [w, h] of [[1280, 640], [1920, 1080], [748, 851]] as const) {
   });
 }
 
-test("plaques with both tabs (a rules game: the turn and priority), 1280x640 and 748x851, 2x", async ({ browser }) => {
+test("seat chips (a rules game), 1280x640 and 748x851, 2x", async ({ browser }) => {
   test.skip(!!ONLY && ONLY !== "tabs", "SHOT_ONLY");
   test.setTimeout(300_000);
   for (const [w, h] of [[1280, 640], [748, 851]] as const) {
@@ -149,9 +149,11 @@ test("plaques with both tabs (a rules game: the turn and priority), 1280x640 and
     const page = await context.newPage();
     const { gameId } = await setup(page, ["Alice", "Bob"], 0, false, "assisted");
     await open(page, gameId, 0);
-    await expect(page.locator(".t3d-flag.prio")).toHaveCount(1, { timeout: 20_000 });
-    const r = (await page.locator(".t3d-plate-anchor:has(.t3d-flag.prio) .t3d-seat").boundingBox())!;
-    await page.screenshot({ path: `${OUT}/${PREFIX}-plate-tabs-${w}x${h}-2x.png`, clip: { x: r.x - 30, y: r.y - 30, width: r.width + 150, height: r.height + 50 } });
+    // no name box (the user's call): a hand of cards in the seat's colour with the hand count, by each heart
+    await expect(page.locator(".seat-hand-chip")).toHaveCount(2, { timeout: 20_000 });
+    await expect(page.locator(".t3d-seat-name")).toHaveCount(0);
+    const r = (await page.locator(".t3d-plate-anchor .t3d-seat").first().boundingBox())!;
+    await page.screenshot({ path: `${OUT}/${PREFIX}-seat-chip-${w}x${h}-2x.png`, clip: { x: Math.max(0, r.x - 30), y: Math.max(0, r.y - 30), width: r.width + 150, height: r.height + 60 } });
     await platesInPlace(page);
     await context.close();
   }
