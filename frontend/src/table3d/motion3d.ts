@@ -13,7 +13,7 @@ import type { GameView } from "../types/game";
 import { isVisible } from "../types/game";
 import { MOTION, motionMs, motionOn, motionPrefs } from "../game/motion/timing";
 import { zoneName, zoneOwner, type TableEvent } from "../game/motion/tableEvents";
-import { CARD_W, MAT_D, PILES, toWorld, type PileZone, type Seat } from "./layout";
+import { CARD_W, MAT_D, pileSpot, toWorld, type PileZone, type Seat } from "./layout";
 import {
   arcHeight, arcLift, easeOut, flightMs, floaterAt, lungeAt, otherHandSpot, planMotion, riffleAt, standInOpacity, turnAt,
   type FlightPlan, type FloaterPlan, type Look, type Place, type StrikePlan,
@@ -264,7 +264,7 @@ export class TableMotion {
     let lx = 0, lz = 0, y = 0.08;
     out.rot = seat.rot;
     if (name === "library" || name === "graveyard" || name === "exile" || name === "command") {
-      [lx, lz] = PILES[name as PileZone];
+      [lx, lz] = pileSpot(seat, name as PileZone);
       y = this.host.pileY(zone) + 0.02;
     } else if (name === "hand" && owner === me) {
       // my hand: the near edge of my mat, held a little up (the hand itself is drawn over the table's foot)
@@ -394,7 +394,7 @@ export class TableMotion {
       this.made++;
       const mat = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0, envMapIntensity: 0.12, transparent: true });
       const mesh = new THREE.Mesh(this.host.faceGeo, mat);
-      mesh.position.y = this.host.thick + 0.0008;
+      mesh.position.y = this.host.thick + 0.0012; // (TableScene FACE_LIFT)
       const group = new THREE.Group();
       group.add(mesh);
       s = { group, mesh, mat, opacity: 1 };

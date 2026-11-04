@@ -19,6 +19,8 @@ import { ERROR_MS, TableScene, type CameraPreset, type Quality } from "./TableSc
 import { startAmbience } from "./ambience";
 import { autoCenterTarget, autoSnap, type AutoSnap } from "./autoCenter";
 import { cameraKey, combatCardIds } from "./focus";
+import { offMat } from "./framing";
+import { PLATE } from "./layout";
 import "./table3d.css";
 
 declare global {
@@ -36,11 +38,20 @@ declare global {
       cannon?: () => ReturnType<TableScene["cannonState"]>;
       flick: (ids: string[], vx: number, vz: number) => boolean;
       heartAt: (player: string, side?: -1 | 0 | 1) => { x: number; y: number } | null;
+      pairs?: () => { player: string; fit: number; overMat: boolean; overButton: boolean }[];
       buttonAt: (id: SeatActionId) => { x: number; y: number } | null;
       taxAt: (commanderKey: string) => { x: number; y: number } | null;
       /** Table motion (table3d/motion3d.ts): freeze every running motion at a time in ms (null: live), and what is running. */
       motionFreeze?: (ms: number | null) => void;
       motion?: () => { busy: boolean; flights: number; floaters: number; riffles: number; lunges: number };
+      /** -- framing -- the canvas size, the chrome the table is framed clear of, and the seat view's elevation. */
+      framing?: () => ReturnType<TableScene["framingState"]>;
+      /** Hold the room's own motion (candles, dust, beams' flow), to compare frames. */
+      still?: (on: boolean) => void;
+      /** Resolves once the next frame has been drawn. */
+      nextFrame?: () => Promise<void>;
+      /** How many pixels differ between two frames `ms` apart. */
+      frameDiff?: (ms: number) => Promise<{ changed: number; total: number }>;
     };
   }
 }
@@ -104,73 +115,114 @@ export function Table3D({ me }: { me: string }) {
       cannon: () => scene.cannonState(),
       flick: (ids, vx, vz) => scene.flickCards(ids, vx, vz),
       heartAt: (player, side) => scene.heartOnScreen(player, side ?? 0),
+      pairs: () => scene.pairState(),
       buttonAt: (id) => scene.buttonOnScreen(id),
       taxAt: (key) => scene.taxOnScreen(key),
       motionFreeze: (ms) => scene.motionFreeze(ms),
+      framing: () => scene.framingState(),
+      still: (on) => scene.setStill(on),
+      nextFrame: () => scene.nextFrame(),
+      frameDiff: async (ms) => {
+        // pixels that differ between two frames `ms` apart (with nothing moving, nothing should)
+        const a = await scene.grabFrame();
+        await new Promise((r) => setTimeout(r, ms));
+        const b = await scene.grabFrame();
+        let n = 0;
+        for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++;
+        return { changed: n, total: a.length / 4 };
+      },
       motion: () => scene.motionState(),
     };
     // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,
     // turn dial, stack panels) and the battlefield cards, and never past the screen edge
-    let frame = 0;
+    let measured = -Infinity;
     type Box = { left: number; top: number; right: number; bottom: number };
-    let cards: Box[] = [];
     let chrome: Box[] = [];
     const follow = () => {
       const host = el.getBoundingClientRect();
       const w = el.clientWidth;
       const h = el.clientHeight;
-      if (frame++ % 20 === 0) {
+      // the chrome and the cards' boxes, measured a few times a second (by the clock, not the frame count: a slow
+      // software renderer draws a frame or two a second, and the table is framed clear of the chrome as soon as it shows)
+      const now = performance.now();
+      const measure = now - measured > 250;
+      if (measure) measured = now;
+      if (measure) {
         chrome = [...document.querySelectorAll(".t3d-cams, .turn-dial-wrap, .stack-widget.open, .rules-stack-wrap, .t3d-coach")].map((n) => {
           const r = n.getBoundingClientRect();
           return { left: r.left - host.left, top: r.top - host.top, right: r.right - host.left, bottom: r.bottom - host.top };
         });
-        cards = scene.battlefieldRects(w, h);
+
         // -- arranged boards -- my rows stop short of the corner the turn dial covers
         const dial = document.querySelector(".turn-dial-wrap")?.getBoundingClientRect();
         scene.setDialBox(dial && dial.width ? { left: dial.left - host.left, top: dial.top - host.top, bottom: dial.bottom - host.top } : null);
+        // -- framing -- the table is framed clear of the fixed chrome: the camera strip (as it rests, showing only the
+        // current view), the stack pill and the turn dial
+        const rel = (r: DOMRect | undefined) => (r && r.width ? { left: r.left - host.left, top: r.top - host.top, right: r.right - host.left, bottom: r.bottom - host.top } : null);
+        const strip = rel(document.querySelector(".t3d-cams")?.getBoundingClientRect());
+        const on = rel(document.querySelector(".t3d-cams button.on")?.getBoundingClientRect());
+        scene.setKeepOuts([
+          strip && on ? { ...strip, right: on.right + 4 } : strip,
+          rel(document.querySelector(".stack-pill")?.getBoundingClientRect()),
+          rel(dial),
+        ].filter((b): b is NonNullable<typeof b> => !!b));
       }
-      for (const [pid, node] of Object.entries(plates.current)) {
-        if (!node) continue;
-        const pt = scene.seatScreen(pid, w, h);
-        if (!pt) continue;
-        // sizes are measured in each form, so the compact switch doesn't flicker
+      // the plates are drawn at their size on the table (layout.ts PLATE), all at one scale: the table's middle distance
+      // (not each fitted to its own width, where a long name made its plate smaller), so they grow and shrink with the
+      // zoom like the hearts (within limits: very far out, the portrait alone). Seen low across the table, where the far
+      // side is much smaller than the near one, each follows its own distance instead, as its heart does.
+      const seatPts = Object.entries(plates.current).map(([pid, node]) => [node, node && scene.seatScreen(pid, w, h), pid] as const);
+      const ppus = seatPts.flatMap(([, pt]) => (pt?.visible ? [pt.pxPerUnit] : []));
+      const boxes: Record<string, { w: number; h: number }> = {};
+      const ppu = ppus.length ? ppus.reduce((a, b) => a + b, 0) / ppus.length : 0;
+      const most = ppus.length ? Math.max(...ppus) : 0;
+      const spread = ppus.length ? 1 - Math.min(...ppus) / most : 0;
+      const own = Math.max(0, Math.min(1, (spread - 0.16) / 0.1)); // 0: one scale (the seat view's ~0.14 spread) … 1: each its own
+      for (const [node, pt, pid] of seatPts) {
+        if (!node || !pt) continue;
+        // (sizes are measured in each form, so the compact switch doesn't flicker)
         const form = node.classList.contains("compact") ? "small" : "full";
         if (node.offsetWidth) node.dataset[form] = `${node.offsetWidth},${node.offsetHeight}`;
-        const size = (f: string) => (node.dataset[f] ?? "160,56").split(",").map(Number) as [number, number];
-        const place = ([pw, ph]: [number, number]) => {
-          let { x, y } = pt;
-          const hits = (r: Box) => !(x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom);
-          const fits = (v: number) => v >= ph / 2 + 8 && v <= h - ph / 2 - 8;
-          const stepOff = (boxes: Box[]) => {
-            let moved = false;
-            for (const r of boxes) {
-              if (!hits(r)) continue;
-              // to whichever edge of the obstacle is nearer, unless that leaves the screen
-              const up = r.top - ph / 2 - 6;
-              const down = r.bottom + ph / 2 + 6;
-              y = (y - r.top < r.bottom - y && fits(up)) || !fits(down) ? up : down;
-              moved = true;
-            }
-            return moved;
-          };
-          // cards first (a few passes: stepping off one card can land on its neighbour); a plaque
-          // that would have to wander from its seat stays put instead; the fixed panels go last, so
-          // a plaque is never hidden under one
-          for (let pass = 0; pass < 4 && stepOff(cards); pass++);
-          const far = Math.abs(y - pt.y) > MAX_DRIFT;
-          if (far) y = pt.y;
-          x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
-          y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
-          for (let pass = 0; pass < 3 && stepOff(chrome); pass++);
-          return { x, y, covers: far || cards.some(hits) };
-        };
-        // no free spot near the seat (a crowded table): the compact form, which keeps life and any
-        // commander damage or poison, and shows the rest on hover or focus
-        if (frame % 20 === 1) node.classList.toggle("compact", place(size("full")).covers);
-        const { x, y } = place(size(node.classList.contains("compact") ? "small" : "full"));
-        node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+        const size = (f: string) => (node.dataset[f] ?? "150,60").split(",").map(Number) as [number, number];
+        const want = (PLATE.w * (ppu || pt.pxPerUnit)) / PLATE_REF;
+        // (in orbit, the nearest plate keeps the shared scale and the others shrink with their distance, after the limits)
+        const kBase = Math.max(PLATE_MIN, Math.min(PLATE_MAX, want)) * (most ? (pt.pxPerUnit / most) ** own : 1);
+        const k = kBase * pt.fit; // (a heart made smaller, seen low, takes its plate with it)
+        // (only once zoomed out: at a view's own framing a plate always shows its name and counts)
+        if (measure) node.classList.toggle("compact", want < PLATE_COMPACT && scene.cameraZoom() > 1.15);
+        const kk = k.toFixed(2);
+        if (node.dataset.k !== kk) {
+          node.dataset.k = kk;
+          node.style.setProperty("--plate-k", kk); // (seat.css: the smallest text grows as the plate shrinks)
+        }
+        const [w0, h0] = size(node.classList.contains("compact") ? "small" : "full");
+        const pw = w0 * k;
+        const ph = h0 * k;
+        boxes[pid] = { w: w0 * kBase, h: h0 * kBase };
+        let x = pt.x - 4 * k - pw / 2;
+        let y = pt.y;
+        const hits = (r: Box) => !(x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom);
+        const fits = (v: number) => v >= ph / 2 + 8 && v <= h - ph / 2 - 8;
+        // never over its own mat (seen low, a plate standing past the mat's edge would cover the nearest tiles)
+        y = offMat({ x, y, w: pw, h: ph }, pt.matEdge, pt.matAbove);
+        x = Math.max(pw / 2 + 8, Math.min(w - pw / 2 - 8, x));
+        y = Math.max(ph / 2 + 8, Math.min(h - ph / 2 - 8, y));
+        // the fixed panels (camera strip, dial, stack panels): a plate is never hidden under one
+        for (let pass = 0; pass < 3; pass++) {
+          let moved = false;
+          for (const r of chrome) {
+            if (!hits(r)) continue;
+            const up = r.top - ph / 2 - 6;
+            const down = r.bottom + ph / 2 + 6;
+            y = (y - r.top < r.bottom - y && fits(up)) || !fits(down) ? up : down;
+            moved = true;
+          }
+          if (!moved) break;
+        }
+        node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) scale(${k.toFixed(3)})`;
         node.style.visibility = pt.visible ? "visible" : "hidden";
       }
+      if (measure) scene.setPlateBoxes(boxes); // (its heart is fitted to it: TableScene fitHearts)
       // the selection toolbar rides above the card it acts on (the camera can move every frame)
       if (selectionAnchor.node && selectionAnchor.card) {
         const r = scene.cardRect(selectionAnchor.card, w, h);
@@ -221,8 +273,17 @@ export function Table3D({ me }: { me: string }) {
       return r.preset;
     });
     const onCam = (e: Event) => {
-      const detail = (e as CustomEvent<{ id: string; digit: number; hover: string | null; player?: string }>).detail;
+      const detail = (e as CustomEvent<{ id: string; digit: number; hover: string | null; player?: string; key?: string; shift?: boolean }>).detail;
       if (detail.id === "cam_names") return setAllNames((x) => !x);
+      if (detail.id === "cam_pan") {
+        // the arrow keys pan the view (Shift: faster), except while choosing targets: then they pick them
+        const dir = PAN_KEYS[detail.key ?? ""];
+        if (dir && !document.querySelector(".tgt-bar")) sceneRef.current?.panView(dir, !!detail.shift);
+        return;
+      }
+      // Home and 1 put the seat view back where it was framed, 0 the whole table's
+      if (detail.id === "cam_seat" || detail.id === "cam_reset") sceneRef.current?.resetView("seat");
+      if (detail.id === "cam_table") sceneRef.current?.resetView("overview");
       step(detail.id, detail);
     };
     const onEsc = (e: KeyboardEvent) => {
@@ -268,14 +329,14 @@ export function Table3D({ me }: { me: string }) {
       <CoachTips reserve={reserveTop} />
       <MomentTips me={me} reserve={reserveTop} />
       <div className="t3d-cams frame" role="toolbar" aria-label="Camera">
-        <button className={preset === "seat" ? "on" : ""} onClick={() => setPreset("seat")} title="Look from your seat (1)">Seat <kbd className="cam-key">1</kbd></button>
+        <button className={preset === "seat" ? "on" : ""} onClick={() => { sceneRef.current?.resetView("seat"); setPreset("seat"); }} title="Look from your seat (1 or Home)">Seat <kbd className="cam-key">1</kbd></button>
         {others.map((pid, i) => (
           <button key={pid} className={typeof preset === "object" && "focus" in preset && preset.focus === pid ? "on" : ""} onClick={() => setPreset({ focus: pid })}
             aria-label={`Look at ${nameOf(pid)}'s side`} title={`Look at ${nameOf(pid)}'s side (${i + 2})`}>
             <PlayerChip player={pid} /> <kbd className="cam-key">{i + 2}</kbd>
           </button>
         ))}
-        <button className={preset === "overview" ? "on" : ""} onClick={() => setPreset("overview")} title="Look down on the whole table (0)">Table <kbd className="cam-key">0</kbd></button>
+        <button className={preset === "overview" ? "on" : ""} onClick={() => { sceneRef.current?.resetView("overview"); setPreset("overview"); }} title="Look down on the whole table (0)">Table <kbd className="cam-key">0</kbd></button>
         <button className={allNames ? "on" : ""} aria-pressed={allNames} onClick={() => setAllNames(!allNames)} title="Show the names of all cards on the table (V)">Names <kbd className="cam-key">V</kbd></button>
       </div>
     </div>
@@ -299,8 +360,17 @@ function nameTags(view: GameView | null, selection: string[], all: boolean): [st
   return out.length ? out : EMPTY_TAGS;
 }
 const EMPTY_TAGS: [string, string][] = [];
-/** How far (px) a seat plaque may move off its seat to clear cards before it goes compact instead. */
-const MAX_DRIFT = 110;
+/** The arrow keys' directions for panning the view. */
+const PAN_KEYS: Record<string, "left" | "right" | "up" | "down"> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" };
+
+/**
+ * A plate's width (CSS px) at its size on the table (layout.ts PLATE.w), its scale limits (its size follows the zoom),
+ * and the scale below which it shows the portrait alone (at the farthest zoom on every screen).
+ */
+const PLATE_REF = 168;
+const PLATE_MIN = 0.62;
+const PLATE_MAX = 1.3;
+const PLATE_COMPACT = 0.62;
 
 const TIPS = [
   { title: "Players", text: "Click a player's plaque to see their counters, commander damage and actions." },

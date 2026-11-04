@@ -19,7 +19,7 @@ export interface Environment {
 const TABLE_THICK = 0.7;
 
 function skyDome(top: string, bottom: string): THREE.Mesh {
-  const geo = new THREE.SphereGeometry(140, 32, 16);
+  const geo = new THREE.SphereGeometry(900, 32, 16); // (the table's long lens zooms out far: the room must reach past it)
   const mat = new THREE.ShaderMaterial({
     side: THREE.BackSide,
     depthWrite: false,
@@ -83,7 +83,11 @@ function glowSprite(color: string, size: number, opacity = 0.9): THREE.Sprite {
 interface Flicker { light: THREE.PointLight; base: number; phase: number; amount: number; flame?: THREE.Object3D }
 interface Spinner { obj: THREE.Object3D; speed: number; bob: number; phase: number; y: number }
 
-export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" | "medium" | "high"): Environment {
+/**
+ * `spots`: where the table's props may stand (table3d/framing.ts propSpots: the two ends of the aisle, which the seat
+ * view frames whole, props and all), left then right; without them, the table's far corners.
+ */
+export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" | "medium" | "high", spots?: [number, number][]): Environment {
   const e = p.env;
   const group = new THREE.Group();
   const disposables: { dispose(): void }[] = [];
@@ -165,16 +169,36 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     leg.position.set(sx * (halfW - 2.5), (floorY + tableY - 1) / 2, sz * (halfD - 2.5));
     group.add(leg);
   }
-  const floor = new THREE.Mesh(track(new THREE.CircleGeometry(120, 48)), track(new THREE.MeshStandardMaterial({ color: new THREE.Color(e.surfaceGrain).multiplyScalar(0.35), roughness: 1 })));
+  const floor = new THREE.Mesh(track(new THREE.CircleGeometry(600, 48)), track(new THREE.MeshStandardMaterial({ color: new THREE.Color(e.surfaceGrain).multiplyScalar(0.35), roughness: 1 })));
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = floorY;
-  floor.receiveShadow = quality === "high";
+  // the floor takes no shadow map (the cards' shadows fell through the table onto it as dark squares, the table's own as
+  // a hard-edged block): the table stands on a soft shadow of its own instead, a little away from the key light
+  floor.receiveShadow = false;
   group.add(floor);
+  const soft = document.createElement("canvas");
+  soft.width = soft.height = 128;
+  const pg = soft.getContext("2d")!;
+  const grad = pg.createRadialGradient(64, 64, 8, 64, 64, 64);
+  grad.addColorStop(0, "rgba(0,0,0,0.85)");
+  grad.addColorStop(0.55, "rgba(0,0,0,0.55)");
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  pg.fillStyle = grad;
+  pg.fillRect(0, 0, 128, 128);
+  const under = new THREE.Mesh(track(new THREE.PlaneGeometry(size.w * 1.35 + 4, size.d * 1.35 + 4)),
+    track(new THREE.MeshBasicMaterial({ map: track(new THREE.CanvasTexture(soft)), transparent: true, depthWrite: false, color: "#000" })));
+  under.rotation.x = -Math.PI / 2;
+  under.position.set(1.2, floorY + 0.02, -1.6);
+  group.add(under);
 
   // ---- props
   // the props stand in the table's very corners, past the piles and the mats: nothing decorative in the play space
   const inset = 0.6;
-  const corners: [number, number][] = [[-halfW + inset, -halfD + inset], [halfW - inset, -halfD + inset], [-halfW + inset, halfD - inset], [halfW - inset, halfD - inset]];
+  const far: [number, number][] = [[-halfW + inset, -halfD + inset], [halfW - inset, -halfD + inset]];
+  // (corners 0 and 1 hold the props; 2 and 3, by the viewer's hand, stay clear)
+  const corners: [number, number][] = [...(spots && spots.length >= 2 ? spots.slice(0, 2) : far), [-halfW + inset, halfD - inset], [halfW - inset, halfD - inset]];
+  // framed whole with the table, a prop stands no taller than framing's PROP_TOP
+  const short = !!spots;
   const std = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) => track(new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...extra }));
   const addLight = (x: number, y: number, z: number, color: string, intensity: number, distance: number, flame?: THREE.Object3D) => {
     if (quality === "low" && flickers.length >= 2) return;
@@ -195,8 +219,9 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     candles: () => {
       corners.forEach(([cx, cz], ci) => {
         if (ci === 2 || ci === 3) return; // keep the near corners clear for the viewer's hand
+        if (short && ci === 0 && e.props.includes("books")) return; // (framed spots: the candles on one, the books on the other)
         for (let i = 0; i < 3; i++) {
-          const h = 0.6 + rand() * 0.9;
+          const h = short ? 0.4 + rand() * 0.5 : 0.6 + rand() * 0.9;
           const x = cx + (rand() - 0.5) * 0.5;
           const z = cz + (rand() - 0.5) * 0.5;
           const candle = new THREE.Mesh(track(new THREE.CylinderGeometry(0.13, 0.15, h, 12)), std("#efe3c8", { roughness: 0.9 }));
@@ -211,12 +236,14 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
       });
     },
     books: () => {
-      const [cx, cz] = corners[1]!;
+      const [cx, cz] = corners[short ? 0 : 1]!;
       let y = tableY;
       for (let i = 0; i < 3; i++) {
-        const h = 0.22 + rand() * 0.12;
-        const book = new THREE.Mesh(track(new THREE.BoxGeometry(1.3, h, 0.95)), std(["#5a1f1a", "#223a5a", "#3a4a22"][i]!, { roughness: 0.8 }));
-        book.position.set(cx - 0.2, y + h / 2, cz + 0.1);
+        const h = (0.22 + rand() * 0.12) * (short ? 0.75 : 1);
+        // (at an aisle end, in sight the whole game: smaller and darker, so they don't pull the eye from the cards)
+        const book = new THREE.Mesh(track(short ? new THREE.BoxGeometry(0.95, h, 0.7) : new THREE.BoxGeometry(1.3, h, 0.95)),
+          std((short ? ["#3a1512", "#172438", "#262f17"] : ["#5a1f1a", "#223a5a", "#3a4a22"])[i]!, { roughness: 0.8 }));
+        book.position.set(short ? cx : cx - 0.2, y + h / 2, short ? cz : cz + 0.1);
         book.rotation.y = (rand() - 0.5) * 0.5;
         book.castShadow = quality === "high";
         group.add(book);
@@ -235,16 +262,17 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     lanterns: () => {
       corners.forEach(([cx, cz], ci) => {
         if (ci >= 2) return;
-        const post = new THREE.Mesh(track(new THREE.CylinderGeometry(0.06, 0.08, 2.2, 8)), std("#1a1a1a", { metalness: 0.6 }));
-        post.position.set(cx, tableY + 1.1, cz);
+        const tall = short ? 0.8 : 2.2;
+        const post = new THREE.Mesh(track(new THREE.CylinderGeometry(0.06, 0.08, tall, 8)), std("#1a1a1a", { metalness: 0.6 }));
+        post.position.set(cx, tableY + tall / 2, cz);
         group.add(post);
         const cage = new THREE.Mesh(track(new THREE.BoxGeometry(0.5, 0.65, 0.5)), std("#222", { metalness: 0.7, roughness: 0.4, transparent: true, opacity: 0.55 }));
-        cage.position.set(cx, tableY + 2.45, cz);
+        cage.position.set(cx, tableY + tall + 0.25, cz);
         group.add(cage);
         const core = glowSprite(e.glow, 1.1);
         core.position.copy(cage.position);
         group.add(core);
-        addLight(cx, tableY + 2.4, cz, e.glow, e.glowIntensity * 5, 18, core);
+        addLight(cx, tableY + tall + 0.2, cz, e.glow, e.glowIntensity * 5, 18, core);
       });
     },
     spires: () => {

@@ -64,7 +64,7 @@ async function board(page: Page, perSeat: number, extras: boolean) {
     await act({ type: "create_arrow", source: hand[1], targets: [a[4]], kind: "target" });
   }
   await page.goto(`/#/game/${gameId}`);
-  await expect(page.getByTestId("table-3d")).toBeVisible();
+  await expect(page.getByTestId("table-3d")).toBeVisible({ timeout: 60_000 }); // (software WebGL on a busy runner is slow to start)
   await expect.poll(() => page.evaluate(() => window.__fyodor3d?.stats().cards ?? 0), { timeout: 30_000 }).toBeGreaterThanOrEqual(perSeat * 4);
   await page.waitForTimeout(2500);
   return { gameId, act, view };
@@ -143,7 +143,7 @@ test("3D shots: rules engine on, the turn dial with my priority", async ({ page 
   });
   const gameId = ((await res.json()) as { game: { id: string } }).game.id;
   await page.goto(`/#/game/${gameId}`);
-  await expect(page.getByTestId("table-3d")).toBeVisible();
+  await expect(page.getByTestId("table-3d")).toBeVisible({ timeout: 60_000 }); // (software WebGL on a busy runner is slow to start)
   const phase = async () => ((await (await page.request.get(`/api/games/${gameId}/view`)).json()) as { turn: { phase: string } }).turn.phase;
   for (let i = 0; i < 6 && (await phase()) !== "main1"; i++) {
     await page.getByTestId("priority-bar").getByRole("button", { name: /^(Pass|Next)/ }).first().click();

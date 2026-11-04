@@ -1,10 +1,10 @@
 main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overflow: hidden; background: var(--bg); }
 .table3d-canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; display: block; touch-action: none; }
 .t3d-plates { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
-.t3d-plate-anchor { position: absolute; left: 0; top: 0; will-change: transform; }
+.t3d-plate-anchor { position: absolute; left: 0; top: 0; will-change: transform; transform-origin: 0 0; /* (the plate is centred on this corner: it scales about its own middle) */ }
 /* camera presets: a quiet strip, sentence case */
 .t3d-cams.frame {
-  position: absolute; left: 14px; top: 58px; display: flex; gap: 2px; padding: 3px; z-index: 4;
+  position: absolute; left: 14px; top: 10px; display: flex; gap: 2px; padding: 3px; z-index: 6; /* over a first-game tip when it opens */
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 .t3d-cams button {
@@ -27,7 +27,7 @@ main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overfl
 
 /* first-game tips, bottom left above the tool tray */
 /* tips: a slim banner under the top bar, above the far edge of the table where no cards lie */
-.t3d-coach { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 5; width: min(720px, calc(100% - 32px)); }
+.t3d-coach { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 5; width: min(720px, calc(100% - 220px)); }
 /* the combat panel opens in the same top-centre spot; the tip steps aside until it closes */
 body:has(.combat-lanes) .t3d-coach { display: none; }
 .t3d-coach .t3d-coach-body { flex-direction: row; align-items: center; gap: 12px; padding: 7px 10px 7px 14px; }
@@ -35,7 +35,10 @@ body:has(.combat-lanes) .t3d-coach { display: none; }
 .t3d-coach .t3d-coach-text { flex: 1; font-size: 12.5px; line-height: 1.35; }
 .t3d-coach .t3d-coach-actions { margin: 0; flex: none; }
 /* a plaque with no free spot on a crowded table: name and life only, stats on hover or focus */
-.t3d-plate-anchor.compact .t3d-seat:not(:hover):not(:focus-within) :is(.seat-track.zero, .seat-hand, .t3d-seat-name) { display: none; }
+/* very far out: the portrait alone (and its tabs beside it), the rest on hover or focus */
+.t3d-plate-anchor.compact .t3d-seat:not(:hover):not(:focus-within) :is(.seat-track.zero, .seat-hand, .t3d-seat-name, .seat-add) { display: none; }
+.t3d-plate-anchor.compact .t3d-seat:not(:hover):not(:focus-within) .t3d-seat-main { min-width: 0; }
+
 .t3d-coach-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
 .t3d-coach-title { margin: 0; font: 700 14px/1.2 var(--font-display); color: var(--text); }
 .t3d-coach-count { font: 500 11.5px var(--font-ui); color: var(--text-dim); margin-left: 6px; }

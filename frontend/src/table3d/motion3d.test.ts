@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import type { GameView } from "../types/game";
 import { tableEvents } from "../game/motion/tableEvents";
-import { onBattlefield, seats, toLocal } from "./layout";
+import { MAT_D, onBattlefield, seats, toLocal } from "./layout";
 import { TableMotion, type MotionCard, type MotionHost } from "./motion3d";
 
 type Card = Record<string, unknown> & { id: string; zone: string; owner: string };
@@ -84,13 +84,12 @@ describe("3D table motion, played", () => {
     expect(ring.flying).toBe(true);
     expect(ring.fresh).toBe(false);
     expect(t.mapName(ring.face.material)).toBe("back:p2"); // a back while it's in the air from the hidden hand
-    // it rises out of Bob's side of the table: low on his mat, by its aisle edge and his plaque (flights3d otherHandSpot),
-    // not past his far edge at the top of the frame where his fan of backs is
+    // 1v1: it rises out of Bob's fan of backs, which stands in sight past his own edge behind his heart and plate
+    // (flights3d otherHandSpot), not out of his mat
     const bob = t.host.seat("p2")!;
     const [lx, lz] = toLocal(bob, ring.group.position.x, ring.group.position.z);
-    expect(onBattlefield(lx, lz)).toBe(true);
-    expect(lz).toBeLessThan(0);
-    expect(ring.group.position.y).toBeLessThan(0.2);
+    expect(onBattlefield(lx, lz)).toBe(false);
+    expect(lz).toBeGreaterThan(MAT_D / 2);
     expect(ring.group.position.z).toBeLessThan(-1.5); // Bob's side of the table, not the middle
     const t0 = performance.now();
     motion.update(t0 + 40, false);

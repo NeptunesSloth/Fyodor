@@ -14,18 +14,19 @@ import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
 import { useGame } from "../state/gameStore";
 import { drawSeatIcon, drawTaxMedallion, whenIconFontReady } from "../game/seatIcons";
 import { motionMs, onMotionSkip } from "../game/motion/timing";
-import { CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, toWorld, type Seat } from "./layout";
+import { BUTTON_R, BUTTON_ROW_Z, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, heartTilt, TAX_R, taxSpot, toWorld, type Seat } from "./layout";
 import { slotTexture } from "./textures";
 
-const HEART_W = 1.45;
-const HEART_Y = 0.16;
-const BUTTON_R = 0.33;
+const HEART_W = HEART.w;
+const HEART_Y = HEART.y;
 const BUTTON_H = 0.08;
 /** The buttons' row: just past my mat's near edge, one medallion every PITCH, the two groups apart by DIVIDE. */
-const ROW_Z = MAT_D / 2 + 0.44;
+const ROW_Z = BUTTON_ROW_Z;
 const PITCH = 0.8;
 const DIVIDE = 0.45;
-const TAX_R = 0.38;
+/** 1v1: the first group's first medallion (under my command zone), and Mulligan's (right of my heart, the Bag past it). */
+const DUEL_ROW_X = -6.45;
+const DUEL_MULLIGAN_X = 3.45;
 const LABEL_H = 0.5;
 
 /**
@@ -77,7 +78,38 @@ function heartPath(): Path2D {
   return p;
 }
 
-function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pending: number): void {
+/** A bar of the −/+ glyphs: a rounded rectangle centred on (x, y). */
+function bar(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+  g.beginPath();
+  g.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
+}
+
+/** The life total (and the clicks still on their way under it), centred at (128, y) in the heart's box. */
+function lifeNumber(g: CanvasRenderingContext2D, life: number, pending: number, y: number): void {
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  const n = String(life + pending);
+  g.fillStyle = life + pending <= 0 ? "#ff8a7a" : "#f1ece2";
+  g.font = `700 ${n.length > 2 ? 54 : 68}px "Inter Variable", Inter, Arial, sans-serif`;
+  g.lineJoin = "round";
+  g.lineWidth = 8;
+  g.strokeStyle = "rgba(0, 0, 0, 0.85)";
+  g.strokeText(n, 128, y);
+  g.fillText(n, 128, y);
+  if (pending) {
+    g.font = '800 30px "Inter Variable", Inter, Arial, sans-serif';
+    g.fillStyle = pending > 0 ? "#9ee68a" : "#ff9a8a";
+    g.strokeText(pending > 0 ? `+${pending}` : `${pending}`, 128, y + 48);
+    g.fillText(pending > 0 ? `+${pending}` : `${pending}`, 128, y + 48);
+  }
+}
+
+/**
+ * The Oops heart, drawn for the table: black, edged thick in the seat's colour, the life total big in its lower
+ * middle, and its two halves the controls: a large white − on the left lobe over a dark red half, a large white + on
+ * the right over a dark green one, each outlined dark so it reads on any table. `hot`: the half under the pointer, lit.
+ */
+function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pending: number, hot: -1 | 0 | 1 = 0, pressed: -1 | 0 | 1 = 0, readOnly = false): void {
   const g = canvas.getContext("2d")!;
   g.clearRect(0, 0, canvas.width, canvas.height);
   g.save();
@@ -85,27 +117,83 @@ function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pendi
   const heart = heartPath();
   g.fillStyle = "#050505";
   g.fill(heart);
+  // read-only (out of the game: the total, not a control): the black heart and its number, as the 2D table's
+  if (readOnly) {
+    g.lineJoin = "round";
+    g.lineWidth = 15;
+    g.strokeStyle = color;
+    g.stroke(heart);
+    lifeNumber(g, life, pending, 118);
+    g.restore();
+    return;
+  }
+  // the halves: − loses life (left, red), + gains it (right, green), lit a little from above; the one under the
+  // pointer brighter, the one pressed darker and sunk (a shade along its top)
+  g.save();
+  g.clip(heart);
+  const half = (x: number, top: string, bottom: string) => {
+    const grad = g.createLinearGradient(0, 10, 0, 224);
+    grad.addColorStop(0, top);
+    grad.addColorStop(1, bottom);
+    g.fillStyle = grad;
+    g.fillRect(x, 0, 128, 232);
+  };
+  if (pressed === -1) half(0, "#5e1f15", "#36110b");
+  else if (hot === -1) half(0, "#b5422f", "#6e2219");
+  else half(0, "#86301f", "#4a1812");
+  if (pressed === 1) half(128, "#1c4e2d", "#0e2a17");
+  else if (hot === 1) half(128, "#3d9a57", "#1f5a31");
+  else half(128, "#2c7342", "#173f24");
+  if (pressed) {
+    const sunk = g.createLinearGradient(0, 0, 0, 70);
+    sunk.addColorStop(0, "rgba(0, 0, 0, 0.6)");
+    sunk.addColorStop(1, "rgba(0, 0, 0, 0)");
+    g.fillStyle = sunk;
+    g.fillRect(pressed < 0 ? 0 : 128, 0, 128, 70);
+  }
+  g.fillStyle = "rgba(0, 0, 0, 0.5)";
+  g.fillRect(126.5, 0, 3, 232);
+  g.restore();
   g.lineJoin = "round";
   g.lineWidth = 15;
   g.strokeStyle = color;
   g.stroke(heart);
-  g.textAlign = "center";
-  g.textBaseline = "middle";
-  const n = String(life + pending);
-  g.fillStyle = life + pending <= 0 ? "#ff8a7a" : "#e6e2da";
-  g.font = `700 ${n.length > 2 ? 64 : 84}px Inter, "Helvetica Neue", Arial, sans-serif`;
-  g.fillText(n, 128, 104);
-  // ▼ and ▲: the halves you click
-  g.fillStyle = "#8e8a84";
-  g.beginPath();
-  g.moveTo(40, 98); g.lineTo(60, 98); g.lineTo(50, 112); g.closePath();
-  g.moveTo(196, 112); g.lineTo(216, 112); g.lineTo(206, 98); g.closePath();
-  g.fill();
-  if (pending) {
-    g.font = "800 34px Inter, Arial, sans-serif";
-    g.fillStyle = pending > 0 ? "#9ee68a" : "#ff9a8a";
-    g.fillText(pending > 0 ? `+${pending}` : `${pending}`, 128, 160);
+  // − and +: engraved brass, lit from the top left, in the lobes above the number
+  // (the pressed half's sign sinks with it: down and right a little, without its lit edge)
+  const sink = (x: number) => (pressed && (x < 128) === (pressed < 0) ? 2.5 : 0);
+  const signs = (dx: number, dy: number, w: number, h: number) => {
+    const at: [number, number, number, number][] = [[64, 64, w, h], [192, 64, w, h], [192, 64, h, w]];
+    for (const [x, y, bw, bh] of at) {
+      bar(g, x + dx + sink(x), y + dy + sink(x), bw, bh);
+      g.fill();
+    }
+  };
+  g.fillStyle = "rgba(0, 0, 0, 0.75)"; // the cut's shadow, down and right
+  signs(3, 3, 50, 15);
+  const brass = g.createLinearGradient(40, 40, 216, 88);
+  brass.addColorStop(0, "#fbe9b0");
+  brass.addColorStop(0.45, "#d8ad55");
+  brass.addColorStop(1, "#8f6526");
+  g.fillStyle = "rgba(40, 24, 6, 0.95)"; // its dark edge
+  signs(0, 0, 52, 17);
+  g.fillStyle = brass;
+  signs(0, 0, 46, 11);
+  // the light catching each bar's top and left edges (inside the bar), the shade its bottom and right
+  for (const [x, y, bw, bh] of [[64, 64, 46, 11], [192, 64, 46, 11], [192, 64, 11, 46]] as const) {
+    if (sink(x)) continue;
+    g.save();
+    bar(g, x, y, bw, bh);
+    g.clip();
+    g.lineWidth = 3;
+    g.strokeStyle = "rgba(255, 249, 226, 0.9)";
+    bar(g, x + 2, y + 2, bw, bh);
+    g.stroke();
+    g.strokeStyle = "rgba(70, 42, 10, 0.75)";
+    bar(g, x - 2, y - 2, bw, bh);
+    g.stroke();
+    g.restore();
   }
+  lifeNumber(g, life, pending, 140);
   g.restore();
 }
 
@@ -128,6 +216,13 @@ interface Tax { mesh: THREE.Mesh; edge: THREE.Mesh; edgeMat: THREE.MeshStandardM
 
 interface Heart {
   group: THREE.Group; face: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; color: string; shown: string;
+  /** The half under the pointer (−1 the − half, 1 the + half), lit; the half pressed (held down, or for a moment). */
+  hot: -1 | 0 | 1;
+  pressed: -1 | 0 | 1;
+  pressAt: number;
+  /** Its scale (eased toward `fitTo`): 1, its size on the table; smaller seen low, so it and its plate keep off the mat. */
+  fit: number;
+  fitTo: number;
   /** -- table motion -- the life total on the heart rolls to a new value (docs/GAME_UI_MOTION_RESEARCH.md §4: 300–600 ms scaled to the
    * change): what it shows now, where it's going, and the clicks still on their way. */
   roll: { from: number; to: number; start: number; dur: number; at: number | null; pending: number };
@@ -169,8 +264,9 @@ export class SeatProps {
   });
 
   /** Hearts for every seat; buttons for mine (seat colours from the view). */
-  rebuild(seats: Seat[], me: string, colors: Record<string, string>): void {
+  rebuild(seats: Seat[], me: string, colors: Record<string, string>, readOnly = false): void {
     this.clear();
+    this.readOnly = readOnly;
     for (const seat of seats) {
       const color = colors[seat.player] ?? "#c9a35a";
       const canvas = document.createElement("canvas");
@@ -181,10 +277,11 @@ export class SeatProps {
       tex.anisotropy = 4;
       // the heart lies on the table, its top edge tipped a little up toward whoever is looking
       // printed like the Oops heart: unlit, so the black stays black under the table's warm light
-      const face = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(HEART_W, HEART_W * (232 / 256))), this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false })));
-      face.rotation.x = -Math.PI / 2 + 0.7;
+      const face = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(HEART_W, HEART.h)), this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false })));
+      const tilt = heartTilt(seat);
+      face.rotation.x = -Math.PI / 2 + tilt;
       face.userData = { heart: seat.player };
-      face.position.y = Math.sin(0.7) * HEART_W * 0.45; // tipped up from its bottom edge, which rests over the felt
+      face.position.y = Math.sin(tilt) * HEART.h * 0.5; // tipped up from its bottom edge, which rests over the felt
       const shadow = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(HEART_W * 1.05, HEART_W).rotateX(-Math.PI / 2)), this.keep(new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false })));
       shadow.position.y = -HEART_Y + 0.006;
       const group = new THREE.Group();
@@ -192,7 +289,7 @@ export class SeatProps {
       const [wx, wz] = toWorld(seat, ...heartSpot(seat));
       group.position.set(wx, HEART_Y, wz);
       this.group.add(group);
-      this.hearts.set(seat.player, { group, face, canvas, tex, color, shown: "", roll: { from: 0, to: 0, start: 0, dur: 0, at: null, pending: 0 } });
+      this.hearts.set(seat.player, { group, face, canvas, tex, color, shown: "", hot: 0, pressed: 0, pressAt: 0, fit: 1, fitTo: 1, roll: { from: 0, to: 0, start: 0, dur: 0, at: null, pending: 0 } });
     }
     this.me = me;
     const mine = seats.find((s) => s.player === me);
@@ -206,9 +303,13 @@ export class SeatProps {
     const groups = [SEAT_ACTIONS.filter((a) => a.id !== "mulligan" && a.id !== "extras"), SEAT_ACTIONS.filter((a) => a.id === "mulligan" || a.id === "extras")];
     const span = (groups[0]!.length + groups[1]!.length - 1) * PITCH + DIVIDE;
     const x0 = 0.7 - span; // (ends a little right of the mat's middle: the turn dial covers the screen's bottom right)
+    // 1v1: my heart and plate take the middle of my near edge, so the first group starts under my command zone and
+    // Mulligan and the Bag go right of my heart (the heart and plate between them divide the groups)
     const lxOf = (id: SeatActionId) => {
       const k = groups[0]!.findIndex((a) => a.id === id);
-      return k >= 0 ? x0 + k * PITCH : x0 + (groups[0]!.length - 1) * PITCH + DIVIDE + (groups[1]!.findIndex((a) => a.id === id) + 1) * PITCH;
+      const j = groups[1]!.findIndex((a) => a.id === id);
+      if (mine.duel) return k >= 0 ? DUEL_ROW_X + k * PITCH : DUEL_MULLIGAN_X + j * PITCH;
+      return k >= 0 ? x0 + k * PITCH : x0 + (groups[0]!.length - 1) * PITCH + DIVIDE + (j + 1) * PITCH;
     };
     SEAT_ACTIONS.forEach((a) => {
       const group = new THREE.Group();
@@ -246,11 +347,13 @@ export class SeatProps {
       this.buttons.set(a.id, b);
     });
     // one deliberate divider between the two groups: a short brass inlay in the table
-    const divider = new THREE.Mesh(this.keep(new THREE.BoxGeometry(0.045, 0.012, BUTTON_R * 1.5)), this.keep(new THREE.MeshStandardMaterial({ color: 0xb48a4a, roughness: 0.4, metalness: 0.8 })));
-    const [dx, dz] = toWorld(mine, x0 + (groups[0]!.length - 1) * PITCH + (DIVIDE + PITCH) / 2, ROW_Z);
-    divider.position.set(dx, 0.006, dz);
-    divider.rotation.y = mine.rot;
-    this.group.add(divider);
+    if (!mine.duel) {
+      const divider = new THREE.Mesh(this.keep(new THREE.BoxGeometry(0.045, 0.012, BUTTON_R * 1.5)), this.keep(new THREE.MeshStandardMaterial({ color: 0xb48a4a, roughness: 0.4, metalness: 0.8 })));
+      const [dx, dz] = toWorld(mine, x0 + (groups[0]!.length - 1) * PITCH + (DIVIDE + PITCH) / 2, ROW_Z);
+      divider.position.set(dx, 0.006, dz);
+      divider.rotation.y = mine.rot;
+      this.group.add(divider);
+    }
     const canvas = document.createElement("canvas");
     const tex = new THREE.CanvasTexture(canvas);
     const sprite = new THREE.Sprite(this.keep(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, toneMapped: false })));
@@ -279,11 +382,40 @@ export class SeatProps {
   }
 
   private drawLife(h: Heart, shown: number): void {
-    const key = `${shown}|${h.roll.pending}`;
+    const key = `${shown}|${h.roll.pending}|${h.hot}|${h.pressed}|${this.readOnly}`;
     if (h.shown === key) return;
     h.shown = key;
-    drawHeart(h.canvas, h.color, shown, h.roll.pending);
+    drawHeart(h.canvas, h.color, shown, h.roll.pending, h.hot, h.pressed, this.readOnly);
     h.tex.needsUpdate = true;
+  }
+
+  /** Out of the game: the hearts are totals, not controls (no halves to click). */
+  private readOnly = false;
+
+  /** A heart half pressed: darker and sunk while the pointer is held down on it (at least a moment), then back. */
+  pressHeart(player: string, side: -1 | 1): void {
+    const h = this.hearts.get(player);
+    if (!h || this.readOnly) return;
+    h.pressed = side;
+    h.pressAt = performance.now();
+    this.heartHeld = player;
+    this.drawLife(h, h.roll.at ?? 0);
+    const release = () => { if (this.heartHeld === player) this.heartHeld = null; };
+    window.addEventListener("pointerup", release, { once: true });
+    window.addEventListener("pointercancel", release, { once: true });
+  }
+
+  private heartHeld: string | null = null;
+
+  /** The heart half under the pointer (null: none), lit so you see which way a click goes. */
+  hoverHeart(player: string | null, side: -1 | 1 | undefined): void {
+    if (this.readOnly) player = null;
+    for (const [pid, h] of this.hearts) {
+      const hot = pid === player ? side ?? 0 : 0;
+      if (h.hot === hot) continue;
+      h.hot = hot;
+      this.drawLife(h, h.roll.at ?? 0);
+    }
   }
 
   setTyped(id: SeatActionId | null, n: string): void {
@@ -300,7 +432,7 @@ export class SeatProps {
    * Each commander's tax counter beside its slot in the command zone (and a slot for a partner when there is one).
    * `commanders`: per seat, its commanders' keys in slot order, with their tax.
    */
-  setCommanders(seats: Seat[], commanders: Record<string, { key: string; tax: number }[]>, _colors: Record<string, string>): void {
+  setCommanders(seats: Seat[], commanders: Record<string, { key: string; tax: number }[]>, _colors: Record<string, string>, viewRot = 0): void {
     const key = JSON.stringify(seats.map((s) => [s.player, (commanders[s.player] ?? []).map((c) => c.key)]));
     if (key !== this.taxKey) {
       this.taxKey = key;
@@ -314,11 +446,12 @@ export class SeatProps {
           if (i > 0) {
             // the partner's slot, outlined on the felt like the others
             const slot = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(CARD_W * 1.05, CARD_H * 1.05)),
-              this.keep(new THREE.MeshBasicMaterial({ map: this.keep(slotTexture(i === 1 ? "Partner" : "Command", "#b39458")), transparent: true, depthWrite: false })));
+              this.keep(new THREE.MeshBasicMaterial({ map: this.keep(slotTexture(i === 1 ? "Partner" : "Command", "#b39458", seats.length)), transparent: true, depthWrite: false })));
             slot.rotation.x = -Math.PI / 2;
-            slot.rotation.z = seat.rot;
-            const [sx, sz] = toWorld(seat, ...COMMAND_SLOTS[i]!);
-            slot.position.set(sx, 0.003, sz);
+            slot.rotation.z = viewRot; // its label upright from my seat
+            const [sx, sz] = toWorld(seat, ...commandSlot(seat, i));
+            slot.position.set(sx, 0.0034, sz); // as the other pile slots (TableScene SLOT_Y)
+            slot.renderOrder = -1;
             this.group.add(slot);
             this.slots.push(slot);
           }
@@ -333,14 +466,9 @@ export class SeatProps {
             this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })));
           const edgeMat = this.keep(new THREE.MeshStandardMaterial({ color: 0x8a6432, roughness: 0.42, metalness: 0.75, emissive: 0xffc870, emissiveIntensity: 0 }));
           const edge = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(TAX_R * 0.96, TAX_R * 1.02, TAX_H, 64)), edgeMat);
-          const [sx0, sz0] = COMMAND_SLOTS[0]!;
-          const inward = sx0 < 0 ? 1 : -1;
-          // mine: under my command zone, by my hand; any other seat's: on the table side of its command slots (toward the
-          // middle of the table, so it is in view and never under the header), one under another
-          const [lx, lz] = seat.player === this.me
-            ? [sx0 + inward * (0.14 + i * (TAX_R * 2 + 0.14)), sz0 + CARD_H / 2 + 0.03 + TAX_R]
-            : [sx0, COMMAND_SLOTS[Math.min(list.length, COMMAND_SLOTS.length) - 1]![1] - CARD_H / 2 - 0.05 - TAX_R - i * (TAX_R * 2 + 0.12)];
-          const [wx, wz] = toWorld(seat, lx, lz);
+          // mine under my command zone, by my hand (in 1v1, where my buttons' row is, as the others'); any other seat's on
+          // the table side of its command slots, toward the middle of the table, one under another (layout.ts taxSpot)
+          const [wx, wz] = toWorld(seat, ...taxSpot(i, seat, seat.player === this.me, list.length));
           mesh.position.set(wx, TAX_H + 0.002, wz);
           edge.position.set(wx, TAX_H / 2, wz);
           mesh.userData = { tax: c.key };
@@ -428,8 +556,18 @@ export class SeatProps {
     for (const h of this.hearts.values()) {
       const p = h.group.position;
       h.group.rotation.y = Math.atan2(this.tmp.x - p.x, this.tmp.z - p.z);
+      // its scale eases with the camera (a low orbit makes it smaller: TableScene fitHearts)
+      if (h.fit !== h.fitTo) {
+        h.fit = reduced || Math.abs(h.fitTo - h.fit) < 0.002 ? h.fitTo : h.fit + (h.fitTo - h.fit) * 0.2;
+        h.group.scale.setScalar(h.fit);
+      }
     }
     const now = performance.now();
+    for (const [pid, h] of this.hearts) { // a pressed half comes back up once let go (after a moment)
+      if (!h.pressed || pid === this.heartHeld || now - h.pressAt < 160) continue;
+      h.pressed = 0;
+      this.drawLife(h, h.roll.at ?? 0);
+    }
     for (const h of this.hearts.values()) { // a life total rolling to its new value (only while one changes)
       const r = h.roll;
       if (r.at === null || r.at === r.to) continue;
@@ -501,6 +639,45 @@ export class SeatProps {
 
   heartWorld(player: string): THREE.Vector3 | null {
     return this.hearts.get(player)?.group.position.clone() ?? null;
+  }
+
+  /** The middle of a heart's right-hand (side −1: left-hand) edge as `camera` sees it (the heart turns to face it): a 1v1 plate starts there. */
+  heartEdge(player: string, camera: THREE.Camera, side: 1 | -1 = 1): THREE.Vector3 | null {
+    const h = this.hearts.get(player);
+    if (!h) return null;
+    camera.getWorldPosition(this.tmp);
+    const p = h.group.position;
+    const toCam = this.tmp.sub(p).setY(0);
+    if (toCam.lengthSq() < 1e-6) toCam.set(0, 0, 1);
+    toCam.normalize();
+    // the face's right, seen from the camera: up × toward-camera
+    const right = new THREE.Vector3(toCam.z, 0, -toCam.x);
+    return p.clone().addScaledVector(right, side * HEART_W * 0.47 * h.fit).setY(HEART_Y + h.face.position.y * h.fit);
+  }
+
+  /** The scale a heart is to settle at (1: its size on the table), and the scale it shows now (its plate follows it). */
+  fitHeart(player: string, f: number): void {
+    const h = this.hearts.get(player);
+    if (h) h.fitTo = f;
+  }
+  heartFit(player: string): number {
+    return this.hearts.get(player)?.fit ?? 1;
+  }
+
+  /** A heart's face's corners (world) at scale `f`, turned to face an eye at `eye` (as tick turns it). */
+  heartCorners(player: string, eye: THREE.Vector3, f: number): THREE.Vector3[] | null {
+    const h = this.hearts.get(player);
+    if (!h) return null;
+    const p = h.group.position;
+    const turn = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.atan2(eye.x - p.x, eye.z - p.z), 0));
+    h.face.updateMatrix();
+    const m = new THREE.Matrix4().compose(p, turn, new THREE.Vector3(f, f, f)).multiply(h.face.matrix);
+    return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => new THREE.Vector3((sx! * HEART_W) / 2, (sy! * HEART.h) / 2, 0).applyMatrix4(m));
+  }
+
+  /** My seat buttons' medallions (world centres and radius), which a heart must never cover. */
+  buttonDiscs(): { at: THREE.Vector3; r: number }[] {
+    return [...this.buttons.values()].map((b) => ({ at: b.group.position.clone(), r: BUTTON_R }));
   }
 
   buttonWorld(id: SeatActionId): THREE.Vector3 | null {
