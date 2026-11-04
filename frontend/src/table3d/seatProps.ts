@@ -10,6 +10,7 @@
  * - Each commander's tax: a small brass medallion by its command-zone slot, dim at 0 and lit once there is tax to pay.
  */
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
 import { useGame } from "../state/gameStore";
 import { drawSeatIcon, drawTaxMedallion, whenIconFontReady } from "../game/seatIcons";
@@ -20,6 +21,8 @@ import { slotTexture } from "./textures";
 const HEART_W = HEART.w;
 const HEART_Y = HEART.y;
 const BUTTON_H = 0.08;
+/** How far a seat button's chit is tipped up toward its owner (radians). */
+const CHIT_TILT = 0.5;
 /** The buttons' row (layout.ts buttonRowZ): one medallion every PITCH, the two groups apart by DIVIDE. */
 const PITCH = 0.8;
 const DIVIDE = 0.45;
@@ -251,7 +254,8 @@ export class SeatProps {
     // edge soft in the texture's alpha), a brass edge lit by the table's light, a contact shadow, and a glow ring for hover
     const contact = this.keep(new THREE.PlaneGeometry(BUTTON_R * 2.7, BUTTON_R * 2.7).rotateX(-Math.PI / 2));
     const faceGeo = this.keep(new THREE.PlaneGeometry(BUTTON_R * 2, BUTTON_R * 2).rotateX(-Math.PI / 2));
-    const sideGeo = this.keep(new THREE.CylinderGeometry(BUTTON_R * 0.96, BUTTON_R * 1.02, BUTTON_H, 64));
+    // an ivory chit: a low rounded tile, its inked face printed on top
+    const sideGeo = this.keep(new RoundedBoxGeometry(BUTTON_R * 2, BUTTON_H, BUTTON_R * 2, 3, BUTTON_R * 0.36));
     const ringGeo = this.keep(new THREE.RingGeometry(BUTTON_R * 1.04, BUTTON_R * 1.32, 64).rotateX(-Math.PI / 2));
     const ROW_Z = buttonRowZ(mine.duel);
     const groups = [SEAT_ACTIONS.filter((a) => a.id !== "mulligan" && a.id !== "extras"), SEAT_ACTIONS.filter((a) => a.id === "mulligan" || a.id === "extras")];
@@ -275,7 +279,7 @@ export class SeatProps {
       const top = new THREE.Mesh(faceGeo, this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })));
       top.position.y = BUTTON_H + 0.002;
       top.userData = { seatButton: a.id };
-      const edge = this.keep(new THREE.MeshStandardMaterial({ color: 0x8a6432, roughness: 0.42, metalness: 0.75, emissive: 0xffc870, emissiveIntensity: 0 }));
+      const edge = this.keep(new THREE.MeshStandardMaterial({ color: 0xcdb98e, roughness: 0.55, metalness: 0, emissive: 0xffc870, emissiveIntensity: 0 }));
       const side = new THREE.Mesh(sideGeo, edge);
       side.position.y = BUTTON_H / 2;
       side.userData = { seatButton: a.id };
@@ -288,7 +292,13 @@ export class SeatProps {
       const sink = new THREE.Mesh(ringGeo, this.keep(new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false })));
       sink.position.y = 0.007;
       glow.visible = sink.visible = false;
-      group.add(under, glow, sink, side, top);
+      // the chit tipped up toward me like a lectern (seen at the table's low angle, a flat one's face is squashed); its
+      // contact shadow stays flat on the table
+      const chitG = new THREE.Group();
+      chitG.add(glow, sink, side, top);
+      chitG.rotation.x = CHIT_TILT;
+      chitG.position.y = Math.sin(CHIT_TILT) * BUTTON_R;
+      group.add(under, chitG);
       const lx = lxOf(a.id);
       const [wx, wz] = toWorld(mine, lx, ROW_Z);
       group.position.set(wx, 0, wz);

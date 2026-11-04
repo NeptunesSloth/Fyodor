@@ -9,6 +9,7 @@
  * counters, dice, close button and token emblem cards, and the commander-tax medallion all come from these parts.
  */
 import type { SeatActionId } from "./seatActions";
+import { GLYPH_BOX, SEAT_GLYPH_PATHS } from "./seatGlyphs";
 
 export type SeatIconId = SeatActionId | "mulligan" | "importer";
 /** The Bag of Extras' counters (game/bags.ts CARD_COUNTERS, PLAYER_COUNTERS), its token search (the book) and the close button. */
@@ -22,6 +23,8 @@ export const STROKE = 8;
 
 const BRASS = { hi: "#fff0c4", light: "#e8c57c", mid: "#c49553", dark: "#8c632f", deep: "#3e2a12" };
 const INK = "#140f0a";
+/** The seat chits' printing ink: a warm near-black. */
+const INK_PRINT = "#1e140b";
 const FONT = '"Inter Variable", Inter';
 const DISPLAY = "Cinzel, Georgia, serif";
 
@@ -129,90 +132,10 @@ function medallion(g: CanvasRenderingContext2D): void {
 
 // -- the glyphs (centred on 50,50, inside a circle of radius ~29) -------------------------------------------------------
 
-const deg = (d: number) => (d * Math.PI) / 180;
 const rect = (x: number, y: number, w: number, h: number, r: number) => {
   const p = new Path2D();
   p.roundRect(x, y, w, h, r);
   return p;
-};
-
-/** An open arrowhead: two strokes meeting at (x, y), the arrow pointing along `angle`. */
-function chevron(x: number, y: number, angle: number, len = 11, spread = 42): Path2D {
-  const a = (k: number) => {
-    const th = angle + Math.PI + k * deg(spread);
-    return `${(x + Math.cos(th) * len).toFixed(2)} ${(y + Math.sin(th) * len).toFixed(2)}`;
-  };
-  return P(`M${a(1)} L${x.toFixed(2)} ${y.toFixed(2)} L${a(-1)}`);
-}
-
-/** An arc with an open arrowhead at its end, travelling counterclockwise (`ccw`) or clockwise. */
-function arcArrow(cx: number, cy: number, r: number, from: number, to: number, ccw: boolean): Part[] {
-  const arc = new Path2D();
-  arc.arc(cx, cy, r, from, to, ccw);
-  const [ex, ey] = [cx + r * Math.cos(to), cy + r * Math.sin(to)];
-  const t = to + (ccw ? -Math.PI / 2 : Math.PI / 2); // the direction of travel at the end
-  return [{ stroke: arc }, { stroke: chevron(ex + Math.cos(t) * 2, ey + Math.sin(t) * 2, t, 12, 45) }];
-}
-
-/** Untap: a ring turning back (counterclockwise), open at the top where its head points the way it turns. */
-const untapGlyph = (): Part[] => [{ stroke: P("M69 46 A20 20 0 1 1 50 31") }, { stroke: P("M58 22 L48 31 L58 40") }];
-
-/** Draw: a card, and one more. */
-function drawGlyph(): Part[] {
-  const plus = P("M66 23 V47 M54 35 H78");
-  return [{ stroke: rect(27, 38, 27, 37, 4.5) }, { knock: plus, w: STROKE + 7 }, { stroke: plus }];
-}
-
-/** Scry: an open eye. */
-const scryGlyph = (): Part[] => [
-  { stroke: P("M20 51 Q50 17 80 51 Q50 85 20 51 Z") },
-  { stroke: P("M50 42 a9 9 0 1 1 -0.01 0 Z") },
-];
-
-/** Mill: a gravestone with a cross cut in it, on the ground. */
-const millGlyph = (): Part[] => [
-  { stroke: P("M31 76 V47 a19 19 0 0 1 38 0 V76") },
-  { stroke: P("M50 41 V63 M42 49 H58") },
-  { stroke: P("M22 76 H78") },
-];
-
-/** Reveal: a card being turned face up, half over, the turn drawn round it. */
-function revealGlyph(): Part[] {
-  // the card mid-turn: its near edge full height, its far edge foreshortened
-  const card = P("M44 30 L66 25 Q69 24.4 69 27.5 V72.5 Q69 75.6 66 75 L44 70 Q41 69.4 41 66.4 V33.6 Q41 30.6 44 30 Z");
-  const turn = arcArrow(44, 50, 23, deg(122), deg(232), false);
-  return [{ stroke: card }, { knock: (turn[0] as { stroke: Path2D }).stroke, w: STROKE + 6 }, ...turn];
-}
-
-/** Mulligan: the shuffle, two paths crossing. */
-function mulliganGlyph(): Part[] {
-  const a = P("M22 35 H31 C45 35 49 65 63 65 H76");
-  const b = P("M22 65 H31 C45 65 49 35 63 35 H76");
-  return [
-    { stroke: b },
-    { stroke: chevron(77, 35, 0) },
-    { knock: a, w: STROKE + 6 },
-    { stroke: a },
-    { stroke: chevron(77, 65, 0) },
-  ];
-}
-
-/** The Bag of Extras: a drawstring pouch, its neck tied with a cord and its mouth gathered in a tuft above it. */
-const pouchGlyph = (): Part[] => [
-  { stroke: P("M42 48 C25 54 23 80 50 80 C77 80 75 54 58 48") },
-  { stroke: P("M37 45 H63") },
-  { stroke: P("M45 42 L41 33 M55 42 L59 33 M50 41 V32") },
-];
-
-/** The importer: an arrow down into a tray. */
-const importerGlyph = (): Part[] => [
-  { stroke: P("M27 58 V72 H73 V58") },
-  { stroke: P("M50 23 V58") },
-  { stroke: chevron(50, 59, Math.PI / 2) },
-];
-
-const SEAT_GLYPHS: Record<SeatIconId, () => Part[]> = {
-  untap: untapGlyph, draw: drawGlyph, scry: scryGlyph, mill: millGlyph, reveal: revealGlyph, mulligan: mulliganGlyph, extras: pouchGlyph, importer: importerGlyph,
 };
 
 /** A star of `n` points, as an outline. */
@@ -282,24 +205,67 @@ function begin(canvas: HTMLCanvasElement): { g: CanvasRenderingContext2D; s: num
   return { g, s };
 }
 
+/**
+ * An ivory gaming chit (the bone counters of an old card room): a rounded square of warm ivory, lit from the top left,
+ * a fine engraved line inside its edge, and its glyph printed in ink (seatGlyphs.ts: game-icons.net, CC BY 3.0).
+ */
+function chit(g: CanvasRenderingContext2D): void {
+  const face = new Path2D();
+  face.roundRect(3, 3, 94, 94, 20);
+  g.fillStyle = "#2a1c10"; // its dark edge, so it reads on any table
+  g.fill(face);
+  const body = new Path2D();
+  body.roundRect(5, 5, 90, 90, 18);
+  const ivory = g.createLinearGradient(10, 8, 90, 92);
+  ivory.addColorStop(0, "#fbf4e2");
+  ivory.addColorStop(0.55, "#eadcbc");
+  ivory.addColorStop(1, "#c9b48a");
+  g.fillStyle = ivory;
+  g.fill(body);
+  // the light catching its top-left edge, the shade along its lower right
+  g.save();
+  g.clip(body);
+  g.lineWidth = 3;
+  g.strokeStyle = "rgba(255, 253, 244, 0.85)";
+  const lit = new Path2D();
+  lit.roundRect(6.5, 6.5, 90, 90, 18);
+  g.stroke(lit);
+  g.strokeStyle = "rgba(92, 64, 30, 0.45)";
+  const shade = new Path2D();
+  shade.roundRect(3.5, 3.5, 90, 90, 18);
+  g.stroke(shade);
+  g.restore();
+  // the engraved line inside the edge
+  g.strokeStyle = "rgba(90, 62, 30, 0.55)";
+  g.lineWidth = 1.2;
+  const line = new Path2D();
+  line.roundRect(12, 12, 76, 76, 12);
+  g.stroke(line);
+}
+
+/** A seat glyph in ink, centred in the chit (`size`: its width in icon units). */
+function inkGlyph(g: CanvasRenderingContext2D, id: SeatIconId, size = 68): void {
+  const k = size / GLYPH_BOX;
+  g.save();
+  g.translate(50 - size / 2, 50 - size / 2);
+  g.scale(k, k);
+  g.fillStyle = INK_PRINT;
+  g.fill(new Path2D(SEAT_GLYPH_PATHS[id].d));
+  g.restore();
+}
+
 /** Draw a seat button's face into a square canvas (any size). `count`: a number being typed over it, which replaces the glyph. */
 export function drawSeatIcon(canvas: HTMLCanvasElement, id: SeatIconId, count = ""): void {
-  const { g, s } = begin(canvas);
-  medallion(g);
+  const { g } = begin(canvas);
+  chit(g);
   if (count) {
-    g.fillStyle = BRASS.light;
+    g.fillStyle = INK_PRINT;
     g.textAlign = "center";
     g.textBaseline = "middle";
-    g.font = `800 ${count.length > 2 ? 30 : 40}px ${FONT}, sans-serif`;
-    g.save();
-    g.shadowColor = "rgba(0, 0, 0, 0.85)";
-    g.shadowBlur = 2 * s;
-    g.shadowOffsetX = 1.2 * s;
-    g.shadowOffsetY = 1.8 * s;
-    g.fillText(count, 50, 52);
-    g.restore();
+    g.font = `800 ${count.length > 2 ? 34 : 46}px ${FONT}, sans-serif`;
+    g.fillText(count, 50, 53);
   } else {
-    stamp(g, SEAT_GLYPHS[id](), s, field(g));
+    inkGlyph(g, id);
   }
   g.setTransform(1, 0, 0, 1, 0, 0);
 }
