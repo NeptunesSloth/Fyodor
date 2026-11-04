@@ -31,6 +31,9 @@ def _no_art_downloads(monkeypatch: pytest.MonkeyPatch) -> None:
     # -- keep deck art -- saving a deck downloads its art while online (app/cards/art_keeper.py); never in the tests unless one
     # turns it on for its own server (``services.art_keeper.downloads = True``)
     monkeypatch.setattr("app.cards.art_keeper.DOWNLOADS", False)
+    # -- the card back and mana symbols -- fetched at start-up and on demand while online (app/cards/linked.py); likewise
+    # never in the tests unless one turns it on (``app.cards.linked.DOWNLOADS``) with a mocked Scryfall
+    monkeypatch.setattr("app.cards.linked.DOWNLOADS", False)
 
 
 @pytest.fixture()
