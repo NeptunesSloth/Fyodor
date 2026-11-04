@@ -16,6 +16,7 @@ import { ChainRow, chainEntries } from "../StackChain";
 import { ManaText } from "../../cards/ManaText";
 import { ChoiceWheel } from "./ChoiceWheel";
 import { RepeatButton } from "./RepeatPanel";
+import { PhaseDial } from "./PhaseDial";
 import { wheelEligible } from "./wheel";
 import { isOut } from "../outOfGame";
 import { attackTargetsFor, initialAttackPlan, mustAttack } from "./attackPlan";
@@ -277,33 +278,33 @@ export function TurnDial() {
   return (
     <div className="turn-dial-wrap plaque-wrap">
       <section className={`turn-dial plaque ${mine ? "mine" : ""}${out ? " out" : ""}`} data-testid={auto ? "priority-bar" : out ? "turn-dial-out" : "turn-dial"} aria-label="Turn and priority">
-        <header className="td-head" data-testid="turn-tracker">
-          <span className="td-seat" style={{ ["--player-color" as string]: active?.color }} aria-hidden>{active?.name.slice(0, 1).toUpperCase()}</span>
-          <span className="td-turn">Turn {turn.number} · {active?.id === me ? "your turn" : active?.name}</span>
-          {!auto && !watching && !out && (
-            <span className="td-steps">
-              <button className="tt-btn ghost td-step" title="Go back one step" onClick={() => void send({ type: "phase", to: "prev" })}>‹ Previous step</button>
-            </span>
-          )}
-        </header>
-        <button className="td-phase" data-testid="current-phase" title="Jump to a step" disabled={auto || watching || out}
-          onClick={(e) => openMenu(e, PHASES.map((ph) => ({ label: `${ph === step ? "● " : ""}${PHASE_LABEL[ph]}`, onClick: () => void send({ type: "phase", to: ph }) })), "Step")}>
-          {PHASE_LABEL[step] ?? turn.phase}
-        </button>
-        <ol className="td-track" aria-label="Steps of the turn">
-          {STEP_GROUPS.map((g) => {
-            const here = g.steps.includes(step);
-            return (
-              <li key={g.label} className={here ? "here" : ""} aria-current={here ? "step" : undefined}>
-                <span className="td-ticks">{g.steps.map((ph) => <i key={ph} className={ph === step ? "on" : PHASES.indexOf(ph) < PHASES.indexOf(step) ? "done" : ""} />)}</span>
-                <span className="td-group">{g.label}</span>
-              </li>
-            );
-          })}
-        </ol>
-        <div className="td-status-row">
-          <p className="td-status" data-testid="priority-holder" aria-live="polite">{status}</p>
-          {!watching && <NudgeButton view={view} me={me} />}
+        <div className="td-top">
+          <PhaseDial step={step} turn={turn.number} color={active?.color} />
+          <div className="td-read">
+            <header className="td-head" data-testid="turn-tracker">
+              <span className="td-seat" style={{ ["--player-color" as string]: active?.color }} aria-hidden>{active?.name.slice(0, 1).toUpperCase()}</span>
+              <span className="td-turn">Turn {turn.number} · {active?.id === me ? "your turn" : active?.name}</span>
+            </header>
+            <button className="td-phase" data-testid="current-phase" title="Jump to a step" disabled={auto || watching || out}
+              onClick={(e) => openMenu(e, PHASES.map((ph) => ({ label: `${ph === step ? "● " : ""}${PHASE_LABEL[ph]}`, onClick: () => void send({ type: "phase", to: ph }) })), "Step")}>
+              {PHASE_LABEL[step] ?? turn.phase}
+            </button>
+            <div className="td-status-row">
+              <p className="td-status" data-testid="priority-holder" aria-live="polite">{status}</p>
+              {!watching && <NudgeButton view={view} me={me} />}
+            </div>
+            <ol className="td-track sr-only" aria-label="Steps of the turn">
+              {STEP_GROUPS.map((g) => {
+                const here = g.steps.includes(step);
+                return (
+                  <li key={g.label} className={here ? "here" : ""} aria-current={here ? "step" : undefined}>
+                    <span className="td-ticks">{g.steps.map((ph) => <i key={ph} className={ph === step ? "on" : PHASES.indexOf(ph) < PHASES.indexOf(step) ? "done" : ""} />)}</span>
+                    <span className="td-group">{g.label}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
         </div>
         {auto && mine && (
           <>
@@ -332,6 +333,7 @@ export function TurnDial() {
             )}
             <div className="td-more">
               {stack && <button className="tt-btn ghost" title="Next step (N)" onClick={() => void send({ type: "phase", to: "next" })}>{NEXT_VERB[step] ?? "Next step"}</button>}
+              <button className="tt-btn ghost td-step" title="Go back one step" onClick={() => void send({ type: "phase", to: "prev" })}>‹ Previous step</button>
               <button className="tt-btn ghost next-turn" title="Next turn (Shift+N)" onClick={() => void send({ type: "next_turn" })}>Next turn</button>
             </div>
           </>

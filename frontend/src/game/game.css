@@ -719,12 +719,12 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
    (game/seatIcons.ts, the same pictures as the 3D table's buttons) */
 .seat-buttons { display: flex; justify-content: space-between; gap: 2px; padding: 2px 0 0; }
 .seat-btn {
-  position: relative; width: 25px; height: 25px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; flex: none; background: none;
+  position: relative; width: 25px; height: 25px; padding: 0; border: 0; border-radius: 22%; cursor: pointer; flex: none; background: none;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
   transition: transform calc(90ms * var(--anim-scale, 1)) var(--ease-out), box-shadow var(--dur-hover) var(--ease-out), filter var(--dur-hover) var(--ease-out);
 }
 .seat-btn img { width: 100%; height: 100%; display: block; pointer-events: none; }
-/* hovered: the brass catches the candlelight; pressed: pushed into the rail */
+/* hovered: the ivory catches the candlelight; pressed: pushed into the rail */
 .seat-btn:hover { filter: brightness(1.16); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7), 0 0 9px 1px var(--accent-glow); }
 .seat-btn:active { transform: translateY(1px) scale(0.9); filter: brightness(0.78) saturate(0.85); box-shadow: 0 0 1px rgba(0, 0, 0, 0.9); }
 /* brass, the room's metal (over the table's blue ring for buttons, theme.css) */

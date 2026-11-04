@@ -14,7 +14,12 @@ interface Handlers {
   onOutbox?: (count: number) => void;
   /** A transient social signal (a nudge to you, a spectator's reaction); never game state. */
   onSignal?: (signal: Signal) => void;
+  /** -- live cursors -- another seated player's pointer over the 3D table (table3d/cursors.ts); never game state. */
+  onCursor?: (cursor: CursorWire) => void;
 }
+
+/** -- live cursors -- as the server relays it: the sender's seat, and a point on a seat's battlefield (virtual units). */
+export type CursorWire = { from: string; gone: true } | { from: string; gone?: false; player: string; x: number; y: number; card?: string; cx?: number; cy?: number };
 
 export interface Signal {
   kind: "nudge" | "react" | "ping";
@@ -38,7 +43,8 @@ type ServerMessage =
   | { type: "error"; id?: number | null; message: string; status?: "REJECTED" }
   | { type: "pong"; id: number | null }
   | { type: "closed" }
-  | ({ type: "signal" } & Signal);
+  | ({ type: "signal" } & Signal)
+  | ({ type: "cursor" } & CursorWire);
 
 const FATAL_CODES = new Set([4403, 4404]);
 const OUTBOX_TTL = 45000; // an action waits this long for the table to come back
@@ -192,6 +198,11 @@ export class GameConnection {
     return false;
   }
 
+  /** -- live cursors -- my pointer over the 3D table, or that it left (fire and forget: never queued, never retried). */
+  sendCursor(spot: { player: string; x: number; y: number; card?: string; cx?: number; cy?: number } | { gone: true }): void {
+    this.raw({ type: "cursor", ...spot });
+  }
+
   private raw(message: Record<string, unknown>): void {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(message));
   }
@@ -246,6 +257,9 @@ export class GameConnection {
         break;
       case "signal":
         this.handlers.onSignal?.(msg);
+        break;
+      case "cursor":
+        this.handlers.onCursor?.(msg);
         break;
     }
   }

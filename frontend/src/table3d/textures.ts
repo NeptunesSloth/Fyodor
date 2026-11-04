@@ -259,35 +259,12 @@ function drawMat(felt: string, nap: string, playerColor: string): HTMLCanvasElem
   roundRect(g, 0, 0, w, h, r);
   g.stroke();
   g.restore();
-  // the stitching, in the seat's colour
+  // its border, solid in the seat's colour (as on the Oops I Baked a Pie table: every seat's things in its colour)
   g.strokeStyle = playerColor;
-  g.globalAlpha = 0.75;
-  g.lineWidth = 3;
-  g.setLineDash([13, 9]);
-  roundRect(g, 17, 17, w - 34, h - 34, r - 12);
+  g.lineWidth = 7;
+  roundRect(g, 12, 12, w - 24, h - 24, r - 8);
   g.stroke();
-  g.setLineDash([]);
-  g.globalAlpha = 1;
   return c;
-}
-
-/** Outline slot for a zone pile. */
-export function slotTexture(label: string, color: string): THREE.CanvasTexture {
-  const [c, g] = canvas(168, 234);
-  g.fillStyle = "rgba(0, 0, 0, 0.28)";
-  roundRect(g, 6, 6, 156, 222, 12);
-  g.fill();
-  g.strokeStyle = color;
-  g.globalAlpha = 0.4;
-  g.lineWidth = 2;
-  roundRect(g, 6, 6, 156, 222, 12);
-  g.stroke();
-  g.globalAlpha = 0.7;
-  g.fillStyle = color;
-  g.font = "600 20px Cinzel, Georgia, serif";
-  g.textAlign = "center";
-  g.fillText(label.toUpperCase(), 84, 124);
-  return texture(c);
 }
 
 function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -670,6 +647,30 @@ export function contactShadowTexture(): THREE.CanvasTexture {
 }
 
 export { texture as canvasTexture };
+
+/**
+ * The count tag over another player's fan of backs when their hand is bigger than the fan draws (table3d/handFan.ts):
+ * the hand's size in Cinzel on a walnut chip with a brass edge. A count only (public), never anything about the cards.
+ */
+export function handCountCanvas(n: number): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = 160;
+  c.height = 96;
+  const g = c.getContext("2d");
+  if (!g) return c;
+  roundRect(g, 6, 6, c.width - 12, c.height - 12, 30);
+  g.fillStyle = "#2a1a10";
+  g.fill();
+  g.lineWidth = 5;
+  g.strokeStyle = "#b8914f";
+  g.stroke();
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.font = "700 50px Cinzel, Georgia, serif";
+  g.fillStyle = "#efe3c6";
+  g.fillText(String(n), c.width / 2, c.height / 2 + 3);
+  return c;
+}
 
 // ------------------------------------------------------------------ card badges (Arena-style)
 

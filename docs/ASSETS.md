@@ -46,3 +46,25 @@ Counter art, Utility objects, Reference cards, Dice skins, Table presets — wit
 name, type, size, dimensions and **Used by** (live tables). **Rename**, **Replace** (tables
 using it update immediately), **Duplicate**, **Delete** (warns and lists where it's used; those
 tables fall back to the default look).
+
+## Icon credits
+
+The seat buttons' glyphs (`frontend/src/game/seatGlyphs.ts`) are from [game-icons.net](https://game-icons.net), under
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/):
+
+- anticlockwise-rotation, card-exchange, save-arrow by Delapouite
+- crystal-ball, tombstone, semi-closed-eye, swap-bag by Lorc
+- card-draw by Faithtoken
+
+They're printed in ink on the table's ivory chits. The paths are unchanged, apart from leaving out each icon's
+background square.
+
+The zone wells' glyphs (`frontend/src/game/zoneGlyphs.ts`) are from [game-icons.net](https://game-icons.net) too,
+under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/):
+
+- open-book (the library), tombstone (the graveyard), portal (exile), crown (the command zone and the commander-tax
+  coins) by Lorc
+
+They're tooled faintly into an empty well's leather on the 3D table, engraved on the wells' brass nameplates at three
+or more seats, and struck on the commander-tax coins. The paths are unchanged, apart from leaving out each icon's
+background square.

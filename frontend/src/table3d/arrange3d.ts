@@ -15,10 +15,10 @@ import { CARD_H, CARD_W, MAT_D, MAT_W, toWorld, type Seat } from "./layout";
 
 /** Arrange units (the 2D layout's px) per world unit. */
 export const AU = 100;
-/** The largest tile (world units): about twice a card, so a mat with a few permanents isn't bare felt. */
-export const TILE_MAX = 1.9;
+/** The largest tile (world units): a normal, readable card on the big table (a card is 0.84 at its own size). */
+export const TILE_MAX = 1.4;
 /** Rows don't shrink their tiles below this (they overlap instead), so a crowded board still reads. */
-export const TILE_MIN = 0.8;
+export const TILE_MIN = 0.85;
 /** A tile's depth over a card's, at the same width (the group's z scale). */
 export const TILE_SQUASH = (TILE_RATIO * CARD_W) / CARD_H;
 

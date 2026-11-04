@@ -216,6 +216,7 @@ export const useGame = create<GameStore>((set, get) => ({
       onClosedByServer: (reason) => set({ status: "closed", statusDetail: reason }),
       onOutbox: (count) => set({ outbox: count }),
       onSignal: (signal) => window.dispatchEvent(new CustomEvent("fyodor:signal", { detail: signal })),
+      onCursor: (cursor) => window.dispatchEvent(new CustomEvent("fyodor:cursor", { detail: cursor })),
     });
     set({ gameId, conn, view: null, lobby: null, selection: [], browser: null, dialog: null, actingAs: null });
     conn.connect();

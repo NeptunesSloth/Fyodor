@@ -69,11 +69,27 @@ details.auto-pill { height: auto; min-height: 30px; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--text); cursor: pointer; }
 
 /* The turn & priority dial: a brass-edged plaque, bottom right (Arena / Moxgate). */
-.turn-dial-wrap { position: fixed; z-index: 55; right: 16px; bottom: calc(var(--hand-h, 150px) + 16px); width: 290px; }
+.turn-dial-wrap { position: fixed; z-index: 55; right: 16px; bottom: calc(var(--hand-h, 150px) + 16px); width: 316px; }
 .game-screen:has(main.table.is-3d) .turn-dial-wrap { bottom: 58px; }
 /* the open log drawer (bottom right, 340px wide: game.css) stays readable: the dial moves to its left, both tables */
 .game-screen:has(.log-drawer.open) .turn-dial-wrap { right: calc(12px + 340px + 12px); }
-.turn-dial { --cut: 10px; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px 12px; }
+.turn-dial { --cut: 10px; display: flex; flex-direction: column; gap: 7px; padding: 10px 14px 12px 10px; }
+/* the brass phase dial (PhaseDial.tsx) beside what it says: whose turn, the step, who the game waits for */
+.td-top { display: flex; align-items: center; gap: 10px; }
+.td-read { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.phase-dial { width: 128px; height: 128px; flex: none; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.6)); }
+.phase-dial .pd-arc { fill: none; stroke: rgba(201, 154, 74, 0.32); stroke-width: 4; stroke-linecap: round; }
+.phase-dial .pd-arc.done { stroke: rgba(201, 154, 74, 0.62); }
+.phase-dial .pd-arc.here { stroke: #e9c27a; stroke-width: 5; }
+.phase-dial .pd-pip { fill: #4a3720; stroke: #120c07; stroke-width: 0.8; }
+.phase-dial .pd-pip.done { fill: #b88a42; }
+.phase-dial .pd-pip.on { fill: #ffe7b0; stroke: #7a4a12; stroke-width: 1; }
+.phase-dial .pd-glow { mix-blend-mode: screen; opacity: 0.9; }
+.phase-dial .pd-label { font: 700 10px/1 var(--font-display); letter-spacing: 0.06em; fill: #b39466; }
+.phase-dial .pd-label.here { fill: #fbe6b4; }
+.phase-dial .pd-turn { font-family: var(--font-display); font-weight: 700; fill: #e8cf98; letter-spacing: 0.04em; }
+.phase-dial .pd-needle { transform-origin: 70px 70px; transition: transform 420ms cubic-bezier(0.34, 1.4, 0.5, 1); }
+body.reduced-motion .phase-dial .pd-needle { transition: none; }
 .td-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); }
 .td-seat {
   width: 20px; height: 20px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center;
@@ -83,7 +99,8 @@ details.auto-pill { height: auto; min-height: 30px; }
 .td-steps { display: flex; gap: 2px; }
 .td-step { min-height: 22px; padding: 1px 8px; font-size: 11.5px; }
 .td-phase {
-  all: unset; cursor: pointer; font: 700 22px/1.05 var(--font-display); color: var(--text); letter-spacing: 0.02em;
+  all: unset; cursor: pointer; font: 700 23px/1.05 var(--font-display); color: #f6e7c4; letter-spacing: 0.03em;
+  text-shadow: 0 1px 0 #000, 0 0 14px rgba(255, 190, 90, 0.25);
 }
 .td-phase:disabled { cursor: default; }
 .td-phase:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
@@ -101,13 +118,22 @@ details.auto-pill { height: auto; min-height: 30px; }
 .turn-dial.mine .td-status { color: var(--select); font-weight: 600; }
 .turn-dial.mine .td-status::before { content: "● "; }
 .td-pass {
-  min-height: 44px; margin-top: 2px; padding: 6px 18px; cursor: pointer; border-radius: 3px;
-  font: 650 16px/1 var(--font-ui); letter-spacing: 0.01em;
-  color: var(--accent-ink); background: var(--accent-grad); border: 1px solid var(--frame-hi);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  /* a struck brass bell plate: engraved capitals, a rivet each end, sinking when pressed (Inscryption's bell) */
+  position: relative; min-height: 46px; margin-top: 2px; padding: 6px 34px; cursor: pointer; border-radius: 23px;
+  font: 700 15px/1 var(--font-display); letter-spacing: 0.1em; text-transform: uppercase;
+  color: #3a250c; text-shadow: 0 1px 0 rgba(255, 244, 214, 0.55);
+  background:
+    radial-gradient(circle at 17px 50%, #fff2c8 0 2px, #6e4c1c 2.6px 3.4px, transparent 3.6px),
+    radial-gradient(circle at calc(100% - 17px) 50%, #fff2c8 0 2px, #6e4c1c 2.6px 3.4px, transparent 3.6px),
+    linear-gradient(180deg, #f9e3a6 0%, #d9ab58 46%, #b7863d 54%, #8a6127 100%);
+  border: 1px solid #5a3c14;
+  box-shadow: 0 4px 0 #4a3010, 0 7px 14px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 252, 235, 0.8), inset 0 -2px 3px rgba(80, 50, 10, 0.5);
+  transition: transform 90ms ease-out, box-shadow 90ms ease-out, filter 120ms ease-out;
 }
-.td-pass:hover { filter: brightness(1.07); }
-.td-pass:active { transform: translateY(1px); }
+.td-pass::after { content: "P"; position: absolute; right: 30px; top: 50%; translate: 0 -50%; font: 600 10px/1 var(--font-ui); letter-spacing: 0; opacity: 0.55; }
+.td-pass:hover { filter: brightness(1.08); }
+.td-pass:active { transform: translateY(3px); box-shadow: 0 1px 0 #4a3010, 0 3px 8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 252, 235, 0.6), inset 0 -1px 2px rgba(80, 50, 10, 0.5); }
+.td-pass:disabled { filter: grayscale(0.7) brightness(0.7); cursor: default; }
 .td-pass:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
 .td-hint { margin: 0; font-size: 11.5px; color: var(--text-dim); }
 .td-more { display: flex; gap: 4px; flex-wrap: wrap; }

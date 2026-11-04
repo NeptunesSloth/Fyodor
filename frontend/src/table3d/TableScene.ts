@@ -9,6 +9,7 @@ import { tapGesture } from "../game/rules/intents";
  * backs; the scene never has anything more to hide.
  */
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { openMenu } from "../components/ContextMenu";
 import { toast } from "../components/Toasts";
 import { imageUrl } from "../services/cards";
@@ -18,7 +19,7 @@ import { usePrefs } from "../state/prefs";
 import { isVisible, type CardStats, type GameCard, type GameView, type LibraryView, type ZoneName } from "../types/game";
 import { counterShort, isKeyword } from "../game/counters";
 import { changeLife, draw, send, tapCards, targetsFor } from "../game/actions";
-import { Batcher, runSeatAction, SEAT_ACTIONS, TypedCount, type SeatActionId } from "../game/seatActions";
+import { Batcher, runSeatAction, TypedCount, type SeatActionId } from "../game/seatActions";
 import { isOut } from "../game/outOfGame";
 import { cardMenu } from "../game/cardMenu";
 import { tableMenu } from "../game/selection";
@@ -36,11 +37,12 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { buildEnvironment, type Environment } from "./environment";
 import { arrowTime, makeArrow, type GroundBox } from "./arrows";
 import { makeTether } from "./tethers";
-import { combatCardIds, frameBox } from "./focus";
+import { combatCardIds, frameBox, isCloseUp } from "./focus";
 import { attachmentLinks, tetherAnchor } from "../game/attachments";
 import { commanderDealt, dealtText } from "../game/commanderDamage";
 import { angleDelta, ease, liftFor } from "./motion";
 import { createPost, type Post } from "./post";
+import { adjustCamera, NO_ADJUST, orbitBy, panBy, panKey, zoomAt, type CamAdjust, type CamPose, type PanBounds } from "./cameraControls";
 import { DiceTray, prewarmDice } from "./dice";
 import { DiceHud } from "./diceHud";
 import { CannonRig, fireCannon } from "./cannon3d";
@@ -55,15 +57,21 @@ import { onTableEvents } from "../game/motion/tableEvents";
 import { onMotionSkip } from "../game/motion/timing";
 import type { DiceShow } from "../game/dice";
 import {
-  AISLE, CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, MAT_W, PILES, plaqueSpot, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
-  virtualToLocal, type PileZone, type Seat,
+  aisleOf, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, MAT_D, MAT_W, mirrored, PILES, PLATE, pileSpot, localToVirtual, onBattlefield, pileAt, seats,
+  tableSize, toLocal, toWorld, virtualToLocal, plateDepth, plateOffset, plateWidth, wellPiece, wellSize, type PileZone, type Seat,
 } from "./layout";
-import { backCanvas, canvasTexture, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
+import { easeFan, FAN_MAX, type FanCard, fanCorners, fanTag, handFan, refanFrom, showsFan } from "./handFan";
+import { whenProxyFontsReady } from "../cards/proxyMeasure";
+import { backCanvas, canvasTexture, handCountCanvas, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, textCardTexture } from "./textures";
+import { drawWell, WELL_PX, wellCanvasSize, wellStretch, whenWellFontsReady, type WellArt } from "./zoneWells";
+import { taxSentence } from "../game/seatIcons";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
-import { tileOverlayCanvas, tileTexture, TILE_PX } from "./tiles";
-import { fitCamera, FOCUS_ELEVATION, OVERVIEW_ELEVATION, seatElevation, seatPoints, tableRect, viewDir } from "./framing";
+import { FLAT_LOOK, nameScreenEm, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
+import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, offMat, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
 import { boardOrder, saveBoardOrder } from "../game/arrange";
 import { useBoardOrderTick } from "../game/arrangeDrop";
+import { Cursors3D, type CursorMessage } from "./cursors3d";
+import { CursorOutbox, overTable, worldToCursor } from "./cursors";
 
 /** How long a refused action's card stays marked. */
 export const ERROR_MS = 1800;
@@ -72,6 +80,39 @@ export type Quality = "low" | "medium" | "high";
 export type CameraPreset = "seat" | "overview" | { focus: string } | { card: string } | { stack: true } | { combat: true };
 
 const THICK = 0.016;
+/**
+ * The flat layers on the felt, each at its own height so none fights another for depth at any zoom (with the camera's
+ * near plane following its distance: nearFarFor): the mats, the cards' contact shadows, the pile slots, then the cards.
+ */
+const MAT_Y = 0.002;
+const SHADOW_Y = 0.0026;
+const SLOT_Y = 0.0034;
+/** A zone panel's material: the mat's dark surface, a rounded border in the seat's colour (drawn at the panel's own
+ * proportions, so its border is as even as the mat's). */
+function zonePanelMaterial(color: string, w: number, h: number): THREE.MeshStandardMaterial {
+  const k = 150;
+  const c = document.createElement("canvas");
+  c.width = Math.max(8, Math.round(w * k));
+  c.height = Math.max(8, Math.round(h * k));
+  const g = c.getContext("2d")!;
+  const r = 26;
+  g.beginPath();
+  g.roundRect(0, 0, c.width, c.height, r);
+  g.fillStyle = "#302a24";
+  g.fill();
+  g.lineWidth = 6;
+  g.strokeStyle = color;
+  g.beginPath();
+  g.roundRect(6, 6, c.width - 12, c.height - 12, r - 6);
+  g.stroke();
+  const tex = canvasTexture(c);
+  return new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 1, metalness: 0, envMapIntensity: 0.15 });
+}
+/** Every mat's surface, dark warm grey (the Oops I Baked a Pie table's), so each seat's colour carries its things. */
+const MAT_FELT = "#36302a";
+const MAT_NAP = "#40392f";
+/** A card's face over its body's top, and its badges over the face. */
+export const FACE_LIFT = 0.0012;
 /** Cards drawn per pile at most (taller piles space them out). */
 const PILE_LAYERS = 48;
 const LIFT = 0.55;
@@ -117,6 +158,10 @@ interface PileObj {
   /** The library's top card back. */
   top: THREE.Mesh | null;
   count: number;
+  /** The well's picture (table3d/zoneWells.ts): redrawn when its count changes. */
+  art: WellArt;
+  canvas: HTMLCanvasElement;
+  tex: THREE.CanvasTexture;
 }
 
 function roundedRect(w: number, h: number, r: number): THREE.Shape {
@@ -131,6 +176,31 @@ function roundedRect(w: number, h: number, r: number): THREE.Shape {
   s.lineTo(-w / 2, -h / 2 + r);
   s.quadraticCurveTo(-w / 2, -h / 2, -w / 2 + r, -h / 2);
   return s;
+}
+
+/**
+ * Another player's hand held up at their edge (table3d/handFan.ts): one instanced mesh of backs per seat (one draw call),
+ * eased from where its cards were to where the fan puts them when the count changes; a count tag over it past FAN_MAX.
+ */
+interface HeldFan {
+  mesh: THREE.InstancedMesh;
+  count: number;
+  cur: FanCard[];
+  goal: FanCard[];
+  moving: boolean;
+  tag: THREE.Sprite | null;
+  tagCount: number;
+}
+
+/** A card that is a back on both sides (another player's held hand: its faces are never drawn), UVs as flatCardGeometry. */
+function twoBackGeometry(w: number, h: number, r: number): THREE.BufferGeometry {
+  const front = flatCardGeometry(w, h, r);
+  // turned over about its own long axis: the other side reads the right way round (not mirrored), top still at −z
+  const back = front.clone().rotateZ(Math.PI);
+  const geo = mergeGeometries([front, back])!;
+  front.dispose();
+  back.dispose();
+  return geo;
 }
 
 /** A flat rounded rectangle lying on the table, UVs 0..1, top edge toward local −z. */
@@ -187,6 +257,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 /** One red for every attack beam (DESIGN.md: attack-beam). */
 const ATTACK_RED = "#ff5a2a";
 const liftTarget = new THREE.Vector3();
+const fanM = new THREE.Matrix4();
+const ONE = new THREE.Vector3(1, 1, 1);
 const shadowPos = new THREE.Vector3();
 const shadowQ = new THREE.Quaternion();
 const shadowScale = new THREE.Vector3();
@@ -209,13 +281,16 @@ export class TableScene {
   readonly canvas: HTMLCanvasElement;
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
-  private camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
+  private camera = new THREE.PerspectiveCamera(TABLE_FOV, 1, 0.1, 400);
   private env: Environment | null = null;
   private world = new THREE.Group();
   private cards = new Map<string, CardObj>();
   private piles = new Map<string, PileObj>();
   private mats = new Map<string, THREE.Mesh>();
-  private handFans = new Map<string, THREE.Group>();
+  private handFans = new Map<string, HeldFan>();
+  /** -- live cursors -- the other players' pointers, and mine on its way to them (table3d/cursors3d.ts) */
+  private cursors = new Cursors3D((id, cx, cy) => this.onCardWorld(id, cx, cy));
+  private cursorOut = new CursorOutbox();
   private seatList: Seat[] = [];
   private seatKey = "";
   private plane: PlaneTheme;
@@ -229,14 +304,23 @@ export class TableScene {
   private camPos = new THREE.Vector3(0, 30, 30);
   private camLook = new THREE.Vector3();
   private camGoalPos = new THREE.Vector3(0, 30, 30);
+  /** -- camera -- the lens the camera is going to (wider when orbited below the view's pitch). */
+  private camGoalFov = TABLE_FOV;
   private camGoalLook = new THREE.Vector3();
   private preset: CameraPreset = "seat";
-  private zoom = 1;
-  private yaw = 0;
+  /** -- camera -- the player's move of the view (table3d/cameraControls.ts), and the one kept for each view left behind. */
+  private adj: CamAdjust = NO_ADJUST;
+  private adjFor = new Map<string, CamAdjust>();
+  /** The view's own camera, before the player's move (what the wheel, drags and keys adjust). */
+  private camBase: CamPose | null = null;
+  private goalCam = new THREE.PerspectiveCamera();
   private drag: { ids: string[]; anchor: string; start: [number, number]; grab: THREE.Vector3; offsets: Map<string, THREE.Vector3>; active: boolean; trail: { t: number; x: number; z: number }[] } | null = null;
   /** A flicked card sliding across its mat (and anything it knocked), played back from table3d/cardPhysics.ts. */
   private sliding: { seat: Seat; start: number; frames: number; tracks: Map<string, Float32Array>; done?: () => void } | null = null;
-  private orbit: { x: number; yaw: number } | null = null;
+  /** -- camera -- a right press (an orbit once it moves; a menu if it never does) and a middle-drag pan. */
+  private rightPress: { id: number; x: number; y: number; adj: CamAdjust; moved: boolean } | null = null;
+  private lastRightUp = 0;
+  private panGrab: { id: number; ground: THREE.Vector3 } | null = null;
   /** Box selection: dragging on the bare table draws a rectangle (as on the 2D table). */
   private marquee: { x0: number; y0: number; add: boolean; el: HTMLDivElement } | null = null;
   private hovered: string | null = null;
@@ -252,6 +336,7 @@ export class TableScene {
   onFrame: (() => void) | null = null;
 
   private cardFaceGeo = flatCardGeometry(CARD_W, CARD_H, 0.05);
+  private fanGeo = twoBackGeometry(CARD_W, CARD_H, 0.05);
   private cardBodyGeo: THREE.ExtrudeGeometry;
   private glowGeo = flatCardGeometry(CARD_W + 0.12, CARD_H + 0.12, 0.09);
   /** Card stock: the pale core you see on a card's edge. */
@@ -367,7 +452,7 @@ export class TableScene {
     const shadowGeo = new THREE.PlaneGeometry(CARD_W * 1.55, CARD_H * 1.45);
     shadowGeo.rotateX(-Math.PI / 2);
     // per-instance strength rides in instanceColor.r (the shadow itself is always black)
-    const shadowMat = new THREE.MeshBasicMaterial({ color: "#fff", alphaMap: this.shadowTex, transparent: true, opacity: 0.9, depthWrite: false });
+    const shadowMat = new THREE.MeshBasicMaterial({ color: "#fff", alphaMap: this.shadowTex, transparent: true, opacity: 0.62, depthWrite: false });
     shadowMat.onBeforeCompile = (sh) => {
       sh.fragmentShader = sh.fragmentShader.replace("#include <alphamap_fragment>", "#include <alphamap_fragment>\n diffuseColor.a *= diffuseColor.r;\n diffuseColor.rgb = vec3(0.0);");
     };
@@ -376,9 +461,17 @@ export class TableScene {
     this.shadows.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(1024 * 3).fill(1), 3);
     this.shadows.count = 0;
     this.shadows.frustumCulled = false;
-    this.shadows.renderOrder = -1;
+    this.shadows.renderOrder = -2;
     this.world.add(this.bodies, this.shadows, this.arrows, this.dice.group, this.props.group);
     this.world.add(this.tethers);
+    // -- live cursors -- the others' pointers, as the server relays them (never mine: another tab of my seat sends them too)
+    this.world.add(this.cursors.group);
+    const onCursor = (e: Event) => {
+      const msg = (e as CustomEvent<CursorMessage>).detail;
+      if (this.view && msg.from !== this.view.viewer) this.cursors.receive(msg, performance.now());
+    };
+    window.addEventListener("fyodor:cursor", onCursor);
+    this.unsubs.push(() => window.removeEventListener("fyodor:cursor", onCursor));
     this.scene.add(this.world);
     this.motion = new TableMotion({
       world: this.world, faceGeo: this.cardFaceGeo, thick: THICK,
@@ -401,7 +494,15 @@ export class TableScene {
     this.applyFog();
     this.bindInput();
     this.loop();
+    // the zone labels and life totals are drawn in the game's fonts: drawn again once those have loaded
+    void whenProxyFontsReady().then(() => {
+      if (this.disposed) return;
+      this.rebuildTable();
+      this.propsKey = "";
+      if (this.view) this.update(this.view, this.me);
+    });
   }
+  private disposed = false;
 
   // ------------------------------------------------------------------ public API
 
@@ -412,11 +513,56 @@ export class TableScene {
     this.rebuildTable();
   }
 
+  /**
+   * Show a view. The camera keeps the place the player moved it to in each view (seat, whole table, a player's board)
+   * until that view is reset (Home, 1, 0: resetView); a close-up (C, K, X) always opens as framed.
+   */
   setCamera(preset: CameraPreset): void {
+    if (!isCloseUp(this.preset)) this.adjFor.set(JSON.stringify(this.preset), this.adj);
     this.preset = preset;
-    this.yaw = 0;
-    this.zoom = 1;
+    this.adj = isCloseUp(preset) ? NO_ADJUST : this.adjFor.get(JSON.stringify(preset)) ?? NO_ADJUST;
     this.updateCameraGoal();
+  }
+
+  /** Home, 1 and 0: forget the player's move of that view (and if it's the one showing, put the camera back now). */
+  resetView(preset: CameraPreset): void {
+    const key = JSON.stringify(preset);
+    this.adjFor.delete(key);
+    if (JSON.stringify(this.preset) === key) {
+      this.adj = NO_ADJUST;
+      this.updateCameraGoal();
+    }
+  }
+
+  /** The arrow keys: pan the view a step (Shift: three steps). */
+  panView(dir: "left" | "right" | "up" | "down", fast: boolean): void {
+    if (!this.camBase) return;
+    this.moveView(panKey(this.adj, this.camBase, dir, fast, this.panBounds(), 1 / LENS_REACH));
+  }
+
+  /** -- camera -- the player moved the view. */
+  private moveView(next: CamAdjust): void {
+    this.adj = next;
+    this.updateCameraGoal();
+  }
+
+  /** How far the view's look point may wander: over the table top. */
+  private panBounds(): PanBounds {
+    const size = tableSize(this.seatList);
+    return { hx: size.w / 2, hz: size.d / 2 };
+  }
+
+  /** The point on the table under a pointer, as the camera will see it once it arrives (so drags don't chase the easing). */
+  private groundAt(clientX: number, clientY: number): THREE.Vector3 | null {
+    const cam = this.goalCam;
+    cam.copy(this.camera);
+    cam.fov = this.camGoalFov;
+    cam.updateProjectionMatrix();
+    cam.position.copy(this.camGoalPos);
+    cam.lookAt(this.camGoalLook);
+    cam.updateMatrixWorld(true);
+    this.ray.setFromCamera(this.pointer(clientX, clientY), cam);
+    return this.ray.ray.intersectPlane(this.tablePlane, new THREE.Vector3());
   }
 
   resize(w: number, h: number): void {
@@ -424,11 +570,11 @@ export class TableScene {
     this.viewH = h;
     this.renderer.setSize(w, h, false);
     this.post?.setSize(w, h);
-    this.camera.aspect = w / Math.max(1, h);
-    // frame the table above the hand: render the lower part of a taller frame, which lifts what the
-    // camera looks at by half the hand band (picking and projection use the same matrices)
-    const band = Math.round(h * 0.16);
-    this.camera.setViewOffset(w, h + band, 0, band, w, h);
+    // frame the table above the hand: render the lower part of a taller frame, which lifts what the camera looks at by
+    // half the hand band (picking and projection use the same matrices); the aspect is that whole frame's
+    const fov = this.camGoalFov === TABLE_FOV ? TABLE_FOV : this.camera.fov; // (the lens of an orbit below the view's pitch, kept)
+    tableLens(w, h, this.camera);
+    this.camera.fov = fov;
     this.camera.updateProjectionMatrix();
     this.updateCameraGoal();
   }
@@ -450,12 +596,53 @@ export class TableScene {
     const propsKey = `${key}|${view.players.map((p) => p.color).join(",")}|${out}`;
     if (propsKey !== this.propsKey) {
       this.propsKey = propsKey;
-      this.props.rebuild(this.seatList, out ? "" : me, Object.fromEntries(view.players.map((p) => [p.id, p.color])));
+      this.props.rebuild(this.seatList, out ? "" : me, Object.fromEntries(view.players.map((p) => [p.id, p.color])), out);
+      this.fitHearts();
     }
     for (const p of view.players) this.props.setLife(p.id, p.life, this.lifeBatch.pending(p.id));
     this.props.setCommanders(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, p.commanders.map((c) => ({ key: c.key, tax: c.tax }))])),
-      Object.fromEntries(view.players.map((p) => [p.id, p.color])));
+      Object.fromEntries(view.players.map((p) => [p.id, p.color])), this.myRot());
+    this.cursors.setTable(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, { color: p.color, name: p.name }])), performance.now());
     this.syncCards();
+  }
+
+  /** -- live cursors -- does my pointer go to the others? Only a seated player's, and not at a hot-seat table (one screen). */
+  private sendsCursor(): boolean {
+    const v = this.view;
+    return !!v && v.game.mode !== "local" && v.players.some((p) => p.id === v.viewer);
+  }
+
+  /** -- live cursors -- my pointer moved over the canvas: over the table top it goes out (at most ~15 a second). */
+  private trackPointer(clientX: number, clientY: number): void {
+    if (!this.sendsCursor()) return;
+    const p = this.tablePoint(clientX, clientY);
+    const spot = p && overTable(tableSize(this.seatList), p.x, p.z) ? worldToCursor(this.seatList, p.x, p.z) : null;
+    // over a card (not while carrying one): the point on it, in its own frame, so it lands on that card on every screen
+    const c = spot && !this.drag?.active && this.hovered ? this.cards.get(this.hovered) : undefined;
+    if (spot && c) {
+      this.ray.setFromCamera(this.pointer(clientX, clientY), this.camera);
+      const hit = this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -c.group.position.y), new THREE.Vector3());
+      if (hit) {
+        const l = c.group.worldToLocal(hit);
+        const r = (v: number) => Math.round(Math.max(-1, Math.min(1, v)) * 1000) / 1000;
+        Object.assign(spot, { card: c.id, cx: r(l.x / (CARD_W / 2)), cy: r(l.z / (CARD_H / 2)) });
+      }
+    }
+    this.cursorOut.move(spot);
+  }
+
+  /** -- live cursors -- a point on a card (its half-widths) on this screen, while the card is on this table. */
+  private onCardWorld(id: string, cx: number, cy: number): [number, number] | null {
+    const c = this.cards.get(id);
+    if (!c) return null;
+    const w = c.group.localToWorld(new THREE.Vector3(cx * CARD_W / 2, 0, cy * CARD_H / 2));
+    return [w.x, w.z];
+  }
+
+  /** -- live cursors -- where a player's cursor shows on this screen (CSS px in the page), while it does. */
+  cursorOnScreen(pid: string): { x: number; y: number } | null {
+    const at = this.cursors.worldOf(pid);
+    return at && this.cursors.group.visible ? this.project(at) : null;
   }
 
   /**
@@ -479,7 +666,7 @@ export class TableScene {
     const player = this.view?.players.find((p) => p.id === seat.player);
     this.dice.clear(seat.player);
     // the roller's piles and cards, from the public view as every screen has them (table3d/diceEnv.ts)
-    this.dice.throw(show, player?.color ?? "#d7ae63", player?.name ?? "", { x: seat.x, z: seat.z, rotY: seat.rot }, rollerEnv(this.view, seat.player), performance.now());
+    this.dice.throw(show, player?.color ?? "#d7ae63", player?.name ?? "", { x: seat.x, z: seat.z, rotY: seat.rot }, rollerEnv(this.view, seat.player, mirrored(seat)), performance.now());
   }
 
   /** The thrown dice now on the table (tests and diagnostics). */
@@ -515,6 +702,46 @@ export class TableScene {
     return p ? this.project(p) : null;
   }
 
+  /**
+   * -- camera -- the lens eases to the goal's with the camera (wider when orbited below the view's pitch,
+   * cameraControls.ts fovAt; the goal's distance was brought in to match, so the framing holds on the way).
+   */
+  private fitLens(k: number): void {
+    const cam = this.camera;
+    const fov = Math.abs(cam.fov - this.camGoalFov) < 1e-3 ? this.camGoalFov : cam.fov + (this.camGoalFov - cam.fov) * k;
+    if (fov === cam.fov) return;
+    cam.fov = fov;
+    cam.updateProjectionMatrix();
+  }
+
+  /** -- flicker -- the near and far planes follow the camera's distance (framing.ts nearFarFor), so depth stays fine. */
+  private fitDepth(): void {
+    const { near, far } = nearFarFor(this.camera.position.distanceTo(this.camLook), this.camera.position.length());
+    const cam = this.camera;
+    if (Math.abs(cam.near - near) / near < 0.02 && Math.abs(cam.far - far) / far < 0.02) return;
+    cam.near = near;
+    cam.far = far;
+    cam.updateProjectionMatrix();
+  }
+
+  /** Tests and diagnostics: hold the room's own motion (candle flicker, dust, beams' flow) so frames can be compared. */
+  setStill(on: boolean): void {
+    this.still = on;
+  }
+  private still = false;
+
+  /** Tests and diagnostics: resolves once the next frame has been drawn. */
+  nextFrame(): Promise<void> {
+    return new Promise((resolve) => this.afterFrame.push(resolve));
+  }
+  private afterFrame: (() => void)[] = [];
+
+  /** Tests and diagnostics: the next frame's pixels, read as soon as it is drawn. */
+  grabFrame(): Promise<Uint8Array> {
+    return new Promise((resolve) => this.grabs.push(resolve));
+  }
+  private grabs: ((px: Uint8Array) => void)[] = [];
+
   /** Table motion (tests and screenshots): freeze every running motion at a time in ms (null: live), and what is running. */
   motionFreeze(ms: number | null): void {
     this.motion.freeze(ms);
@@ -529,13 +756,144 @@ export class TableScene {
     return this.dice.positions().map((p) => this.project(p));
   }
 
-  /** Where a seat's player plate should be drawn on screen (for the DOM overlay). */
-  seatScreen(player: string, width: number, height: number): { x: number; y: number; visible: boolean } | null {
+  /**
+   * Where a seat's player plate should be drawn on screen (for the DOM overlay): the middle of its right edge, against
+   * its heart's left edge (the heart and plate read as one piece), and how many px one world unit spans there, so the
+   * plate is drawn at its size on the table (layout.ts PLATE) and grows and shrinks with the zoom like the heart.
+   */
+  /**
+   * -- seats -- how a seat's heart and its plate (pinned to the heart's left edge, as Table3D draws it) lie on screen for
+   * camera `cam` with the heart at scale `f`: whether either reaches over the seat's own mat (past the mat's edge on
+   * their side) or covers one of my seat buttons.
+   */
+  private pairOnScreen(cam: THREE.PerspectiveCamera, seat: Seat, f: number): { overMat: boolean; overButton: boolean } | null {
+    const W = this.viewW;
+    const H = this.viewH;
+    const scr = (v: THREE.Vector3): [number, number] => {
+      const p = v.clone().project(cam);
+      return [((p.x + 1) / 2) * W, ((1 - p.y) / 2) * H];
+    };
+    type Rect = { left: number; right: number; top: number; bottom: number };
+    const rectOf = (pts: [number, number][]): Rect => ({
+      left: Math.min(...pts.map((p) => p[0])), right: Math.max(...pts.map((p) => p[0])),
+      top: Math.min(...pts.map((p) => p[1])), bottom: Math.max(...pts.map((p) => p[1])),
+    });
+    const corners = this.props.heartCorners(seat.player, cam.position, f);
+    if (!corners) return null;
+    const heart = rectOf(corners.map(scr));
+    // the plate: its size on the table, at the heart's scale, its right edge at the heart's left edge, centred on its middle
+    const mid = corners.reduce((a, c) => a.add(c), new THREE.Vector3()).multiplyScalar(0.25);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion).setY(0).normalize();
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+    const edge = mid.clone().addScaledVector(right, -HEART.w * 0.47 * f);
+    // (its size as Table3D last drew it, at the heart's full size; else its size on the table)
+    const box = this.plateBoxes.get(seat.player);
+    let plate: Rect;
+    if (box) {
+      const [ex, ey] = scr(edge);
+      plate = { left: ex - (box.w + 4) * f, right: ex - 4 * f, top: ey - (box.h * f) / 2, bottom: ey + (box.h * f) / 2 };
+    } else {
+      const plateH = PLATE.h * 0.94 * f;
+      plate = rectOf([0, 1].flatMap((sx) => [-1, 1].map((sy) => scr(edge.clone().addScaledVector(right, -sx * PLATE.w * f).addScaledVector(up, (sy * plateH) / 2)))));
+    }
+    // the mat's edge on their side
+    const ez = heartSpot(seat)[1] > 0 ? MAT_D / 2 : -MAT_D / 2;
+    const at = (lx: number, lz: number) => {
+      const [x, z] = toWorld(seat, lx, lz);
+      return scr(new THREE.Vector3(x, 0, z));
+    };
+    const matEdge: [[number, number], [number, number]] = [at(-MAT_W / 2, ez), at(MAT_W / 2, ez)];
+    const matAbove = at(0, 0)[1] < scr(mid)[1];
+    const clear = (r: Rect, gap: number) => {
+      const y = (r.top + r.bottom) / 2;
+      return offMat({ x: (r.left + r.right) / 2, y, w: r.right - r.left, h: r.bottom - r.top }, matEdge, matAbove, gap) === y;
+    };
+    const hits = (a: Rect, b: Rect) => !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+    const buttons = this.props.buttonDiscs().map(({ at: c, r }) => rectOf([-1, 1].flatMap((sx) => [-1, 1].map((sz) => scr(c.clone().add(new THREE.Vector3(sx * r, 0.08, sz * r)))))));
+    return {
+      overMat: !clear(heart, 2) || !clear(plate, 1),
+      overButton: buttons.some((b) => hits(b, heart) || hits(b, plate)),
+    };
+  }
+
+  /**
+   * -- seats -- each heart's scale for where the camera is going: its size on the table, unless seen so low that it or
+   * its plate would reach over its mat or cover a seat button; then as much smaller as that takes (down to half).
+   */
+  private fitHearts(): void {
+    if (this.viewW < 2 || this.viewH < 2 || !this.seatList.length) return;
+    const cam = this.goalCam;
+    cam.copy(this.camera);
+    tableLens(this.viewW, this.viewH, cam);
+    cam.fov = this.camGoalFov;
+    cam.updateProjectionMatrix();
+    cam.position.copy(this.camGoalPos);
+    cam.lookAt(this.camGoalLook);
+    cam.updateMatrixWorld(true);
+    for (const seat of this.seatList) {
+      let fit = 0.5;
+      for (let f = 1; f > 0.5; f -= 0.05) {
+        const s = this.pairOnScreen(cam, seat, f);
+        if (s && !s.overMat && !s.overButton) {
+          fit = f;
+          break;
+        }
+      }
+      this.props.fitHeart(seat.player, fit);
+    }
+  }
+
+  /**
+   * -- seats -- each plate's size on screen (CSS px) as Table3D draws it with its heart at full size: the hearts are fitted
+   * again when one changes (the plates follow the camera's distance, a moment behind it).
+   */
+  setPlateBoxes(boxes: Record<string, { w: number; h: number }>): void {
+    let changed = false;
+    for (const [pid, b] of Object.entries(boxes)) {
+      const was = this.plateBoxes.get(pid);
+      if (was && Math.abs(was.w - b.w) < 3 && Math.abs(was.h - b.h) < 3) continue;
+      this.plateBoxes.set(pid, b);
+      changed = true;
+    }
+    if (changed) this.fitHearts();
+  }
+  private plateBoxes = new Map<string, { w: number; h: number }>();
+
+  /** Tests and diagnostics: each heart's scale now, and whether it or its plate reaches over its mat or a seat button. */
+  pairState(): { player: string; fit: number; overMat: boolean; overButton: boolean }[] {
+    return this.seatList.map((seat) => {
+      const fit = this.props.heartFit(seat.player);
+      const s = this.pairOnScreen(this.camera, seat, fit);
+      return { player: seat.player, fit, overMat: s?.overMat ?? false, overButton: s?.overButton ?? false };
+    });
+  }
+
+  seatScreen(player: string, width: number, height: number): {
+    x: number; y: number; visible: boolean; edge: -1; pxPerUnit: number;
+    /** The heart's scale now (its plate takes the same). */
+    fit: number;
+    /** The seat's mat's edge on the plate's side (its two ends), and whether the mat lies above it on screen. */
+    matEdge: [[number, number], [number, number]]; matAbove: boolean;
+  } | null {
     const seat = this.seatList.find((s) => s.player === player);
     if (!seat) return null;
-    const [wx, wz] = toWorld(seat, ...plaqueSpot(seat));
-    const v = new THREE.Vector3(wx, 0.3, wz).project(this.camera);
-    return { x: ((v.x + 1) / 2) * width, y: ((1 - v.y) / 2) * height, visible: v.z < 1 }; // off to the side: the overlay clamps it to the screen edge
+    const edge = this.props.heartEdge(player, this.camera, -1);
+    if (!edge) return null;
+    const v = edge.clone().project(this.camera);
+    const right = new THREE.Vector3().setFromMatrixColumn(this.camera.matrixWorld, 0).setY(0).normalize();
+    const u = edge.add(right).project(this.camera);
+    const pxPerUnit = Math.hypot(((u.x - v.x) / 2) * width, ((u.y - v.y) / 2) * height);
+    const screen = (lx: number, lz: number): [number, number] => {
+      const [wx, wz] = toWorld(seat, lx, lz);
+      const p = new THREE.Vector3(wx, 0, wz).project(this.camera);
+      return [((p.x + 1) / 2) * width, ((1 - p.y) / 2) * height];
+    };
+    const ez = heartSpot(seat)[1] > 0 ? MAT_D / 2 : -MAT_D / 2;
+    const y = ((1 - v.y) / 2) * height;
+    return {
+      x: ((v.x + 1) / 2) * width, y, visible: v.z < 1, edge: -1, pxPerUnit, fit: this.props.heartFit(player),
+      matEdge: [screen(-MAT_W / 2, ez), screen(MAT_W / 2, ez)], matAbove: screen(0, 0)[1] < y,
+    };
   }
 
   /**
@@ -583,6 +941,21 @@ export class TableScene {
     return c ? this.project(c.group.position) : null;
   }
 
+  /**
+   * (tests) Other players' held fans: how many backs each draws, its count tag (0: none), whether it is still re-fanning,
+   * and the box (page px) its cards will fill.
+   */
+  fanState(): { player: string; shown: number; tag: number; moving: boolean; box: { left: number; top: number; right: number; bottom: number } }[] {
+    return [...this.handFans].map(([player, f]) => {
+      const box = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+      for (const p of f.goal.flatMap(fanCorners)) {
+        const { x, y } = this.project(p);
+        box.left = Math.min(box.left, x); box.right = Math.max(box.right, x); box.top = Math.min(box.top, y); box.bottom = Math.max(box.bottom, y);
+      }
+      return { player, shown: f.mesh.count, tag: f.tagCount, moving: f.moving, box };
+    });
+  }
+
   screenOfBattlefield(player: string, vx: number, vy: number): { x: number; y: number } | null {
     const seat = this.seatList.find((s) => s.player === player);
     if (!seat) return null;
@@ -619,15 +992,16 @@ export class TableScene {
         const [x, y] = localToVirtual(lx, lz);
         return { zone: `${seat.player}:battlefield`, x, y };
       }
-      const pile = pileAt(lx, lz);
+      const pile = pileAt(lx, lz, seat);
       if (pile) return { zone: `${seat.player}:${pile}`, position: "top" };
     }
     // the stack: the middle of the aisle between the rows
-    if (Math.abs(p.z) < AISLE + 0.3 && Math.abs(p.x) < 2.2 && this.stackCenterFree()) return { zone: "stack" };
+    if (Math.abs(p.z) < aisleOf(this.seatList) + 0.3 && Math.abs(p.x) < 2.2 && this.stackCenterFree()) return { zone: "stack" };
     return null;
   }
 
   dispose(): void {
+    this.disposed = true;
     cancelAnimationFrame(this.raf);
     for (const u of this.unsubs) u();
     this.motion.dispose();
@@ -638,6 +1012,10 @@ export class TableScene {
     this.lifeBatch.dispose();
     this.typed.dispose();
     this.props.dispose();
+    this.cursors.dispose();
+    this.cursorOut.leave(); // (to the 2D table, say: my pointer leaves the 3D one)
+    const gone = this.cursorOut.poll(performance.now());
+    if (gone && this.sendsCursor()) useGame.getState().conn?.sendCursor(gone);
     this.clearTable();
     for (const c of this.cards.values()) this.disposeCard(c);
     this.cards.clear();
@@ -650,6 +1028,7 @@ export class TableScene {
     this.shadows.dispose();
     this.shadowTex.dispose();
     this.cardFaceGeo.dispose();
+    this.fanGeo.dispose();
     this.cardBodyGeo.dispose();
     this.glowGeo.dispose();
     this.bodyMat.dispose();
@@ -689,11 +1068,11 @@ export class TableScene {
       p.layers.dispose();
       p.block.geometry.dispose();
       p.slot.geometry.dispose();
-      (p.slot.material as THREE.MeshBasicMaterial).map?.dispose();
+      p.tex.dispose();
       (p.slot.material as THREE.Material).dispose();
     }
     this.piles.clear();
-    for (const f of this.handFans.values()) this.world.remove(f);
+    for (const f of this.handFans.values()) this.dropFan(f);
     this.handFans.clear();
   }
 
@@ -701,27 +1080,46 @@ export class TableScene {
     if (!this.seatList.length) return;
     this.clearTable();
     const size = tableSize(this.seatList);
-    this.env = buildEnvironment(this.plane, size, this.quality);
+    this.env = buildEnvironment(this.plane, size, this.quality, propSpots(this.seatList, size));
     this.world.add(this.env.group);
-    const e = this.plane.env;
     for (const seat of this.seatList) {
       const color = this.view?.players.find((p) => p.id === seat.player)?.color ?? "#888";
-      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(e.felt, e.feltNap, color), transparent: true, depthWrite: false, roughness: 1, envMapIntensity: 0.15, emissive: this.plane.ui.accent, emissiveIntensity: 0 }));
+      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(MAT_FELT, MAT_NAP, color), transparent: true, depthWrite: false, roughness: 1, envMapIntensity: 0.15, emissive: this.plane.ui.accent, emissiveIntensity: 0 }));
       mat.rotation.x = -Math.PI / 2;
       mat.rotation.z = seat.rot;
       const [mx, mz] = toWorld(seat, 0, 0);
-      mat.position.set(mx, 0.002, mz);
+      mat.position.set(mx, MAT_Y, mz);
       mat.receiveShadow = true;
+      mat.renderOrder = -3; // the flat layers draw in a fixed order: mats, then contact shadows, then pile slots
       mat.userData = { mat: seat.player };
       this.world.add(mat);
       this.mats.set(seat.player, mat);
       for (const zone of Object.keys(PILES) as PileZone[]) {
-        const [lx, lz] = PILES[zone];
+        // in facing rows the far row's piles are mirrored: every library on my right, every command zone on my left
+        const [lx, lz] = pileSpot(seat, zone);
         const [wx, wz] = toWorld(seat, lx, lz);
-        const slot = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W * 1.05, CARD_H * 1.05), new THREE.MeshBasicMaterial({ map: slotTexture(PILE_LABEL[zone as ZoneName] ?? zone, this.plane.ui.accent), transparent: true, depthWrite: false }));
+        // its well, sunk into the wood, and its nameplate under it as I see it (table3d/zoneWells.ts): one plane, upright
+        // for me whoever's pile it is
+        const duel = this.seatList.length === 2;
+        const well = wellSize(zone);
+        const art: WellArt = {
+          zone, label: PILE_LABEL[zone as ZoneName] ?? zone, count: zone === "command" ? null : 0, duel, color, well,
+          plateW: plateWidth(zone, duel), plateH: plateDepth(seat), plateDx: plateOffset(zone), stretch: wellStretch(duel, seat.side === "north"),
+        };
+        const piece = wellPiece(seat, [lx, lz], zone);
+        const canvas = document.createElement("canvas");
+        drawWell(canvas, art);
+        const tex = canvasTexture(canvas);
+        const [W, H] = wellCanvasSize(art);
+        const slot = new THREE.Mesh(new THREE.PlaneGeometry(W / WELL_PX, H / WELL_PX), new THREE.MeshStandardMaterial({
+          map: tex, transparent: true, depthWrite: false, roughness: 0.72, metalness: 0, envMapIntensity: 0.25, emissive: this.plane.ui.accent, emissiveIntensity: 0,
+        }));
         slot.rotation.x = -Math.PI / 2;
-        slot.rotation.z = seat.rot;
-        slot.position.set(wx, 0.003, wz);
+        slot.rotation.z = this.myRot(); // its plate reads upright from my seat, whoever's pile it is
+        const [px, pz] = toWorld(seat, ...piece.at);
+        slot.position.set(px, SLOT_Y, pz);
+        slot.renderOrder = -1;
+        slot.receiveShadow = this.quality !== "low";
         slot.userData = { pile: zone, player: seat.player };
         const block = new THREE.Mesh(new THREE.BoxGeometry(CARD_W, 1, CARD_H), this.hitMat);
         block.rotation.y = seat.rot;
@@ -741,12 +1139,46 @@ export class TableScene {
           this.world.add(top);
         }
         this.world.add(slot, block, layers);
-        this.piles.set(`${seat.player}:${zone}`, { block, slot, layers, top, count: -1 });
+        this.piles.set(`${seat.player}:${zone}`, { block, slot, layers, top, count: -1, art, canvas, tex });
+      }
+      // the zone panels, as on the Oops I Baked a Pie table: beside each side of the mat, its surface, outlined in the
+      // seat's colour, the zones in it outlined and marked in that colour too (zoneWells.ts)
+      const columns: [PileZone, [number, number]][][] = [
+        (["library", "graveyard", "exile"] as PileZone[]).map((z) => [z, pileSpot(seat, z)]),
+        // (the command column as long as its commanders need: a partner's or background's well under the commander's)
+        COMMAND_SLOTS.slice(0, Math.max(1, Math.min(COMMAND_SLOTS.length, this.view?.players.find((p) => p.id === seat.player)?.commanders.length ?? 1)))
+          .map((_, i) => ["command", commandSlot(seat, i)]),
+      ];
+      for (const column of columns) {
+        let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+        for (const [zone, at] of column) {
+          const piece = wellPiece(seat, at, zone);
+          const [cx, cz] = toWorld(seat, ...piece.at);
+          x0 = Math.min(x0, cx - piece.w / 2); x1 = Math.max(x1, cx + piece.w / 2);
+          z0 = Math.min(z0, cz - piece.h / 2); z1 = Math.max(z1, cz + piece.h / 2);
+        }
+        const pad = 0.14;
+        const pw = x1 - x0 + 2 * pad;
+        const ph = z1 - z0 + 2 * pad;
+        const strip = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), zonePanelMaterial(color, pw, ph));
+        strip.rotation.x = -Math.PI / 2;
+        strip.position.set((x0 + x1) / 2, SLOT_Y - 0.0006, (z0 + z1) / 2);
+        strip.renderOrder = -2;
+        strip.receiveShadow = this.quality !== "low";
+        this.world.add(strip);
       }
     }
+    // drawn again once the wells' fonts are in (they normally are by now)
+    void whenWellFontsReady().then(() => {
+      for (const p of this.piles.values()) {
+        drawWell(p.canvas, p.art);
+        p.tex.needsUpdate = true;
+      }
+    });
   }
 
   // ------------------------------------------------------------------ textures & materials
+
 
   private backMaterial(owner: string): THREE.MeshStandardMaterial {
     const player = this.view?.players.find((p) => p.id === owner);
@@ -802,6 +1234,66 @@ export class TableScene {
     return tex;
   }
 
+  /**
+   * -- arranged boards -- how a tile's name is drawn (table3d/tiles.ts): tall enough to read upright at the seat view's
+   * slant, and the same size on screen on every tile in the seat view (measured once per screen and seating, not as
+   * the player moves the camera).
+   */
+  private tileLookFor(id: string): TileLook {
+    const spot = this.placed.get(id);
+    const tv = this.tileView();
+    return spot && tv ? tileLook(spot.w * tv.ppu, tv.squash, nameScreenEm(tv.ppu)) : FLAT_LOOK;
+  }
+  private tileViewKey = "";
+  private tileViewVal: { ppu: number; squash: number } | null = null;
+  /** The seat view's scale at the middle of the table: CSS px per world unit across, and how foreshortened its depth is. */
+  private tileView(): { ppu: number; squash: number } | null {
+    const mine = this.seatList.find((s) => s.player === this.me);
+    if (!mine || this.viewW < 2 || this.viewH < 2) return null;
+    const key = `${this.seatKey}|${this.viewW}x${this.viewH}|${this.reserveTop}|${this.keepKey}`;
+    if (key === this.tileViewKey) return this.tileViewVal;
+    const f = this.fitView("seat", mine);
+    if (!f) return null;
+    const cam = this.fitCam;
+    cam.copy(this.camera);
+    tableLens(this.viewW, this.viewH, cam);
+    cam.position.copy(f.pos);
+    cam.lookAt(f.look);
+    cam.updateMatrixWorld(true);
+    const at = (lx: number, lz: number): THREE.Vector2 => {
+      const [dx, dz] = toWorld({ ...mine, x: 0, z: 0 }, lx, lz);
+      const p = new THREE.Vector3(f.look.x + dx, 0, f.look.z + dz).project(cam);
+      return new THREE.Vector2((p.x * this.viewW) / 2, (p.y * this.viewH) / 2);
+    };
+    const across = at(-0.5, 0).distanceTo(at(0.5, 0));
+    const deep = at(0, -0.5).distanceTo(at(0, 0.5));
+    this.tileViewKey = key;
+    this.tileViewVal = { ppu: across, squash: deep / Math.max(1e-6, across) };
+    return this.tileViewVal;
+  }
+
+  /** -- arranged boards -- tile textures no card shows any more (a look for another screen, a card gone): freed. */
+  private dropUnusedTiles(): void {
+    const used = new Set<string>();
+    for (const c of this.cards.values()) if (c.faceKey.startsWith("tile:")) used.add(c.faceKey.replace(/\|tapped$/, ""));
+    let n = 0;
+    for (const k of this.textures.keys()) if (k.startsWith("tile:")) n++;
+    if (n <= used.size + 24) return;
+    for (const [k, t] of [...this.textures]) {
+      if (!k.startsWith("tile:") || used.has(k)) continue;
+      t.dispose();
+      this.textures.delete(k);
+      for (const mk of [k, `${k}|tapped`]) {
+        const m = this.materials.get(mk);
+        if (!m) continue;
+        this.dimMats.get(m)?.dispose();
+        this.dimMats.delete(m);
+        m.dispose();
+        this.materials.delete(mk);
+      }
+    }
+  }
+
   private faceKeyFor(card: GameCard): string {
     if (!isVisible(card) || card.face_down) return `back:${card.owner}`;
     const data = card.card_id ? useCardCache.getState().cards[card.card_id] : undefined;
@@ -809,7 +1301,8 @@ export class TableScene {
     // -- arranged boards -- an art tile (table3d/tiles.ts): what it shows is its key; a tapped one is a shade darker
     if (this.placed.has(card.id)) {
       const t = card.card_id ? "" : JSON.stringify([card.token?.type_line, card.token?.power, card.token?.toughness, card.token?.colors]);
-      return `tile:${card.card_id ?? card.name}:${card.face}:${look}:${card.commander_key ? 1 : 0}:${card.is_token ? 1 : 0}:${t}${card.tapped ? "|tapped" : ""}`;
+      const l = this.tileLookFor(card.id);
+      return `tile:${card.card_id ?? card.name}:${card.face}:${look}:${card.commander_key ? 1 : 0}:${card.is_token ? 1 : 0}:${l.stretch}:${l.em}:${t}${card.tapped ? "|tapped" : ""}`;
     }
     return `front:${card.card_id ?? card.name}:${card.face}:${look}`;
   }
@@ -845,7 +1338,7 @@ export class TableScene {
       const art = data?.has_image ? imageUrl(data.id, imgFace, "normal") : null;
       const t = vis.token;
       const custom = !vis.card_id && t ? { name: t.name, type_line: t.type_line, oracle_text: t.text, power: t.power, toughness: t.toughness, colors: t.colors } : undefined;
-      const tex = tileTexture({ data, face: vis.face ?? 0, name: vis.name, custom, art, token: !!vis.is_token, commander: !!vis.commander_key },
+      const tex = tileTexture({ data, face: vis.face ?? 0, name: vis.name, custom, art, token: !!vis.is_token, commander: !!vis.commander_key, look: this.tileLookFor(card.id) },
         this.quality === "low" ? 224 : TILE_PX, this.renderer.capabilities.getMaxAnisotropy());
       this.textures.set(base, tex);
       m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0, envMapIntensity: 0.12 });
@@ -863,7 +1356,7 @@ export class TableScene {
   private makeCard(id: string): CardObj {
     const group = new THREE.Group();
     const face = new THREE.Mesh(this.cardFaceGeo, this.bodyMat);
-    face.position.y = THICK + 0.0008;
+    face.position.y = THICK + FACE_LIFT;
     face.userData = { card: id };
     face.receiveShadow = this.quality !== "low";
     const glow = new THREE.Mesh(this.glowGeo, new THREE.MeshBasicMaterial({ color: "#fff", transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -892,18 +1385,19 @@ export class TableScene {
 
   /** Arena-style badges on the card face; rebuilt only when what they say changes. */
   private setOverlay(c: CardObj, o: CardOverlay | null): void {
-    const key = o ? `${c.tile ? "tile" : ""}${JSON.stringify(o)}` : "";
+    const look = c.tile ? this.tileLookFor(c.id) : FLAT_LOOK;
+    const key = o ? `${c.tile ? `tile${look.stretch}` : ""}${JSON.stringify(o)}` : "";
     if (c.overlayKey === key) return;
     c.overlayKey = key;
     this.clearOverlay(c);
     if (!o) return;
     const mat = new THREE.MeshBasicMaterial({
       // -- arranged boards -- a tile's badges are laid out for its proportions (table3d/tiles.ts)
-      map: canvasTexture(c.tile ? tileOverlayCanvas(o) : cardOverlayCanvas(o)), transparent: true, depthWrite: false, toneMapped: false,
+      map: canvasTexture(c.tile ? tileOverlayCanvas(o, 256, look) : cardOverlayCanvas(o)), transparent: true, depthWrite: false, toneMapped: false,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
     });
     const m = new THREE.Mesh(this.cardFaceGeo, mat);
-    m.position.y = THICK + 0.0014;
+    m.position.y = THICK + FACE_LIFT * 2;
     m.renderOrder = 2;
     c.group.add(m);
     c.overlay = m;
@@ -1005,6 +1499,10 @@ export class TableScene {
         const pile = this.piles.get(`${pid}:${zone}`);
         if (pile && pile.count !== count) {
           pile.count = count;
+          // its nameplate's count (public: everyone sees how many cards each library, graveyard and exile holds)
+          pile.art.count = count;
+          drawWell(pile.canvas, pile.art);
+          pile.tex.needsUpdate = true;
           // graveyard and exile draw their top card for real, so the stack below has one fewer
           this.stackPile(seat, zone, pile, zone === "library" ? count : Math.max(0, count - 1));
         }
@@ -1012,7 +1510,7 @@ export class TableScene {
           const top = z[z.length - 1]!;
           const c = show(top);
           if (c && seat) {
-            const [lx, lz] = PILES[zone];
+            const [lx, lz] = pileSpot(seat, zone);
             this.place(c, seat, lx, lz, pileHeight(z.length - 1) + 0.002, 0);
             this.setOverlay(c, null);
             this.setGlow(c, selection.has(top) ? this.plane.ui.select : null, 0.9);
@@ -1022,19 +1520,32 @@ export class TableScene {
       // command zone: each commander in its own slot (a partner's above), anything else after them
       const cmd = (view.zones[`${pid}:command`] as string[] | undefined) ?? [];
       const keys = view.players.find((p) => p.id === pid)?.commanders.map((c) => c.instance_id) ?? [];
+      // the command slot fades and lights like the other piles (its count is what's in the zone)
+      const cmdPile = this.piles.get(`${pid}:command`);
+      if (cmdPile) {
+        cmdPile.count = cmd.length;
+        // the commander's tax to pay on its well's plate (zoneWells.ts WellArt.tax; its coins stand beside: seatProps.ts)
+        const tax = view.players.find((p) => p.id === pid)?.commanders[0]?.tax ?? 0;
+        if ((cmdPile.art.tax ?? 0) !== tax) {
+          cmdPile.art.tax = tax;
+          drawWell(cmdPile.canvas, cmdPile.art);
+          cmdPile.tex.needsUpdate = true;
+        }
+      }
       let extra = 0;
+      const [cx, cz] = commandSlot(seat, 0);
       cmd.forEach((id) => {
         const c = show(id);
         if (!c) return;
         const slot = keys.indexOf(id);
-        const at = slot >= 0 && slot < COMMAND_SLOTS.length ? COMMAND_SLOTS[slot]! : null;
-        const [lx, lz] = at ?? [PILES.command[0] - (++extra) * (CARD_W + 0.12), PILES.command[1]];
+        const at = slot >= 0 && slot < COMMAND_SLOTS.length ? commandSlot(seat, slot) : null;
+        const [lx, lz] = at ?? [cx + Math.sign(cx) * (++extra) * (CARD_W + 0.12), cz];
         this.place(c, seat, lx, lz, 0.004, 0);
         this.setOverlay(c, null);
         this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), 0.6);
       });
-      // other players' hands: a fan of backs at their edge (count only)
-      if (pid !== this.me) this.syncHandFan(seat, ((view.zones[`${pid}:hand`] as string[] | undefined) ?? []).length);
+      // other players' hands: a fan of backs held up at their edge (count only)
+      if (showsFan(seat, this.me)) this.syncHandFan(seat, ((view.zones[`${pid}:hand`] as string[] | undefined) ?? []).length);
     }
 
     // the stack: cards hover above the centre of the table, most recent on top
@@ -1085,6 +1596,7 @@ export class TableScene {
         this.cards.delete(id);
       }
     }
+    this.dropUnusedTiles();
     if (need.length) requestCards(need);
     this.stats.cards = this.cards.size;
     // a refused action's card glows red for a moment (static: no motion to reduce)
@@ -1246,31 +1758,88 @@ export class TableScene {
     }
   }
 
+  /**
+   * Another player's hand: a fan of backs held up at their own edge of the table (table3d/handFan.ts), count only. A
+   * new count re-fans it: the cards it keeps ease to their new places, a drawn card slides out from behind the last
+   * one, a card that left is gone at once (its flight, if any, is the table motion's). Snaps under reduced motion.
+   */
   private syncHandFan(seat: Seat, count: number): void {
     let fan = this.handFans.get(seat.player);
-    if (fan && fan.userData.count === count) return;
-    if (fan) this.world.remove(fan);
-    fan = new THREE.Group();
-    fan.userData.count = count;
-    const shown = Math.min(count, 12);
     const mat = this.backMaterial(seat.player);
-    for (let i = 0; i < shown; i++) {
-      const m = new THREE.Mesh(this.cardFaceGeo, mat);
-      const t = shown === 1 ? 0 : i / (shown - 1) - 0.5;
-      m.position.set(t * Math.min(3.2, shown * 0.35), 0.02 + i * 0.004, Math.abs(t) * 0.3);
-      m.rotation.y = -t * 0.5;
-      fan.add(m);
+    if (fan) {
+      fan.mesh.material = mat; // (a sleeve may have changed)
+      if (fan.count === count) return;
     }
-    const [wx, wz] = toWorld(seat, 0, MAT_D / 2 + 1.25);
-    fan.position.set(wx, 0, wz);
-    fan.rotation.y = seat.rot + Math.PI;
-    this.world.add(fan);
-    this.handFans.set(seat.player, fan);
+    const goal = handFan(seat, count);
+    if (!fan) {
+      const mesh = new THREE.InstancedMesh(this.fanGeo, mat, FAN_MAX);
+      mesh.castShadow = this.quality !== "low";
+      mesh.frustumCulled = false; // (its bounds are its instances', which move)
+      mesh.userData.fan = seat.player;
+      this.world.add(mesh);
+      // a table that opens with cards in hand shows them held, not dealt
+      fan = { mesh, count, cur: refanFrom(goal, goal), goal, moving: true, tag: null, tagCount: -1 };
+      this.handFans.set(seat.player, fan);
+    } else {
+      fan.cur = refanFrom(fan.cur, goal);
+      fan.goal = goal;
+      fan.count = count;
+      fan.moving = true;
+    }
+    fan.mesh.count = goal.length;
+    this.syncFanTag(fan, count);
   }
+
+  /** The count tag over a fan whose hand is bigger than FAN_MAX (a sprite: it faces whoever looks). */
+  private syncFanTag(fan: HeldFan, count: number): void {
+    const want = count > FAN_MAX ? count : 0;
+    if (want === fan.tagCount) return;
+    fan.tagCount = want;
+    this.dropFanTag(fan);
+    const at = fanTag(fan.goal);
+    if (!want || !at) return;
+    const tex = canvasTexture(handCountCanvas(want));
+    const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false }));
+    tag.scale.set(0.62, 0.372, 1);
+    tag.position.copy(at);
+    tag.renderOrder = 5;
+    this.world.add(tag);
+    fan.tag = tag;
+  }
+
+  private dropFanTag(fan: HeldFan): void {
+    if (!fan.tag) return;
+    this.world.remove(fan.tag);
+    const m = fan.tag.material as THREE.SpriteMaterial;
+    m.map?.dispose();
+    m.dispose();
+    fan.tag = null;
+  }
+
+  /** Each frame: the fans still moving ease toward their goals (k: this frame's share of the way; 1 under reduced motion). */
+  private tickFans(k: number): void {
+    for (const fan of this.handFans.values()) {
+      if (!fan.moving) continue;
+      fan.moving = !easeFan(fan.cur, fan.goal, k);
+      for (let i = 0; i < fan.cur.length; i++) {
+        const c = fan.cur[i]!;
+        fanM.compose(c.pos, c.quat, ONE);
+        fan.mesh.setMatrixAt(i, fanM);
+      }
+      fan.mesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  private dropFan(fan: HeldFan): void {
+    this.world.remove(fan.mesh);
+    fan.mesh.dispose();
+    this.dropFanTag(fan);
+  }
+
 
   /** Lay out a pile's card bodies (and the library's top back) for n cards. */
   private stackPile(seat: Seat, zone: PileZone, pile: PileObj, n: number): void {
-    const [lx, lz] = PILES[zone];
+    const [lx, lz] = pileSpot(seat, zone);
     const [wx, wz] = toWorld(seat, lx, lz);
     const h = pileHeight(n);
     const shown = Math.min(n, PILE_LAYERS);
@@ -1292,7 +1861,7 @@ export class TableScene {
     pile.block.position.y = pile.block.scale.y / 2;
     if (pile.top) {
       pile.top.visible = n > 0;
-      pile.top.position.set(wx, (shown <= 1 ? 0 : ((shown - 1) / shown) * h) + THICK + 0.0008, wz);
+      pile.top.position.set(wx, (shown <= 1 ? 0 : ((shown - 1) / shown) * h) + THICK + FACE_LIFT, wz);
       pile.top.rotation.y = seat.rot;
     }
   }
@@ -1362,27 +1931,34 @@ export class TableScene {
       const [dx, dz] = toWorld({ ...mine, x: 0, z: 0 }, 0, 1);
       const f = frameBox(box, [dx, dz], typeof preset === "object" && "stack" in preset ? { y: 1, elevation: 0.8 } : {});
       look = new THREE.Vector3(...f.look);
-      pos = new THREE.Vector3(...f.pos);
+      pos = new THREE.Vector3(...f.pos).sub(look).multiplyScalar(LENS_REACH).add(look); // (framed for a 42° lens)
     } else if (typeof preset === "object" && "card" in preset) {
       // close up on one card, seen from my side of the table
       const c = this.cards.get(preset.card);
       look = c ? c.target.clone().setY(0) : new THREE.Vector3();
       const [dx, dz] = toWorld({ ...mine, x: 0, z: 0 }, 0, 1);
-      pos = look.clone().add(new THREE.Vector3(dx * 2.6, 5.2, dz * 2.6));
+      pos = look.clone().add(new THREE.Vector3(dx * 2.6, 5.2, dz * 2.6).multiplyScalar(LENS_REACH)); // (framed for a 42° lens)
     } else {
       // a close-up with nothing left to show: my seat
       ({ pos, look } = this.fitView("seat", mine)!);
     }
-    const off = pos.clone().sub(look).multiplyScalar(this.zoom);
-    off.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw);
-    this.camGoalPos.copy(look).add(off);
-    this.camGoalLook.copy(look);
+    // -- camera -- the player's move of this view, on top of how the view frames it
+    this.camBase = { pos: pos.clone(), look: look.clone() };
+    const moved = adjustCamera(this.camBase, this.adj, TABLE_FOV);
+    this.camGoalFov = moved.fov ?? TABLE_FOV;
+    const off = moved.pos.clone().sub(moved.look);
+    this.camGoalPos.copy(moved.pos);
+    this.camGoalLook.copy(moved.look);
     // -- framing -- the room's fog starts past the table, however far back the camera sits for this screen
     if (this.scene.fog instanceof THREE.Fog) {
       const near = Math.max(this.fogBase[0], off.length() * 1.3);
       this.scene.fog.near = near;
       this.scene.fog.far = this.fogBase[1] + (near - this.fogBase[0]);
     }
+    this.fitHearts();
+    // -- arranged boards -- the tiles' names are drawn for this screen's seat view: drawn again when it changed
+    const tv = this.tileViewVal;
+    if (this.view && this.tileView() !== tv) this.syncCards();
   }
 
   /**
@@ -1392,12 +1968,12 @@ export class TableScene {
    */
   private fitView(preset: CameraPreset, mine: Seat): { pos: THREE.Vector3; look: THREE.Vector3 } | null {
     if (typeof preset === "object" && !("focus" in preset)) return null;
-    const key = `${JSON.stringify(preset)}|${this.seatKey}|${this.viewW}x${this.viewH}|${this.arranged}|${this.reserveTop}`;
+    const key = `${JSON.stringify(preset)}|${this.seatKey}|${this.viewW}x${this.viewH}|${this.arranged}|${this.reserveTop}|${this.keepKey}`;
     if (this.fitKey === key && this.fitted) return { pos: this.fitted.pos.clone(), look: this.fitted.look.clone() };
     const cam = this.fitCam;
     cam.copy(this.camera);
-    cam.updateProjectionMatrix();
-    let pts: THREE.Vector3[];
+    tableLens(this.viewW, this.viewH, cam);
+    let pts: FitPoint[];
     let dir: THREE.Vector3;
     if (typeof preset === "object") {
       // Look: that player's board, as large as it goes; arranged boards read from my seat, so it's seen from my side
@@ -1405,15 +1981,21 @@ export class TableScene {
       pts = seatPoints(seat, { buttons: seat === mine });
       dir = viewDir(this.arranged ? mine.rot : seat.rot, FOCUS_ELEVATION);
     } else {
-      pts = this.seatList.flatMap((s) => seatPoints(s, { buttons: s === mine }));
-      dir = viewDir(mine.rot, preset === "overview" ? OVERVIEW_ELEVATION : seatElevation(this.seatList.length));
+      const elevation = preset === "overview" ? OVERVIEW_ELEVATION : seatElevation(this.seatList.length, this.viewW / Math.max(1, this.viewH));
+      pts = tablePoints(this.seatList, mine, tableSize(this.seatList), elevation);
+      dir = viewDir(mine.rot, elevation);
     }
-    const f = fitCamera(cam, pts, dir, tableRect(this.viewW, this.viewH, this.reserveTop));
+    // clear of the fixed chrome: the camera strip, the stack pill and the turn dial
+    const keep = this.keepOut3d.map((b) => ndcBox(b, this.viewW, this.viewH));
+    const f = fitCamera(cam, pts, dir, tableRect(this.viewW, this.viewH, this.reserveTop), keep);
     this.fitKey = key;
     this.fitted = f;
     return { pos: f.pos.clone(), look: f.look.clone() };
   }
   private fitKey = "";
+  /** -- framing -- the fixed chrome over the canvas (CSS px boxes): the table is framed clear of it. */
+  private keepOut3d: { left: number; top: number; right: number; bottom: number }[] = [];
+  private keepKey = "";
   private fitted: { pos: THREE.Vector3; look: THREE.Vector3 } | null = null;
   private reserveTop = 0;
   /** -- arranged boards -- the turn dial's box on the canvas, and the corner of my mat it covers from my seat. */
@@ -1447,6 +2029,7 @@ export class TableScene {
     if (!f) return null;
     const cam = this.fitCam;
     cam.copy(this.camera);
+    tableLens(this.viewW, this.viewH, cam);
     cam.position.copy(f.pos);
     cam.lookAt(f.look);
     cam.updateMatrixWorld(true);
@@ -1463,6 +2046,38 @@ export class TableScene {
     if (lx >= MAT_W / 2 || lz >= MAT_D / 2) return null;
     const q = (v: number) => Math.round(Math.max(0, v) / 10) * 10;
     return { top: q((lz + MAT_D / 2) * AU), left: q((lx + MAT_W / 2) * AU) };
+  }
+
+  /**
+   * -- framing -- the fixed chrome over the canvas the table is framed clear of (CSS px boxes, relative to the canvas):
+   * the camera strip, the stack pill, the turn dial. Boxes are rounded to 8 px and a box only grows where it was
+   * (the dial's tallest form on this screen), so the camera doesn't move as they change.
+   */
+  setKeepOuts(boxes: { left: number; top: number; right: number; bottom: number }[]): void {
+    const q = (v: number) => Math.round(v / 8) * 8;
+    const next = boxes.filter((b) => b.right > b.left && b.bottom > b.top).map((b) => ({ left: q(b.left), top: q(b.top), right: q(b.right), bottom: q(b.bottom) }));
+    for (const b of next) {
+      const was = this.keepOut3d.find((o) => o.left === b.left && o.right === b.right && o.bottom === b.bottom);
+      if (was) b.top = Math.min(b.top, was.top);
+    }
+    const key = `${this.viewW}x${this.viewH}|${next.map((b) => `${b.left},${b.top},${b.right},${b.bottom}`).join(";")}`;
+    if (key === this.keepKey) return;
+    this.keepKey = key;
+    this.keepOut3d = next;
+    this.updateCameraGoal();
+  }
+
+  /** -- framing -- what the table is framed in and around (tests and diagnostics). */
+  framingState(): { view: [number, number]; keepOut: { left: number; top: number; right: number; bottom: number }[]; reserveTop: number; elevation: number; adjust: CamAdjust; dragging: string; fov: number } {
+    return {
+      view: [this.viewW, this.viewH], keepOut: this.keepOut3d.map((b) => ({ ...b })), reserveTop: this.reserveTop, elevation: seatElevation(this.seatList.length, this.viewW / Math.max(1, this.viewH)),
+      adjust: { ...this.adj }, dragging: this.rightPress ? "right" : this.panGrab ? "middle" : "", fov: this.camera.fov,
+    };
+  }
+
+  /** -- camera -- how far the player has zoomed the view out (1: as the view frames it; above 1: farther). */
+  cameraZoom(): number {
+    return this.adj.zoom;
   }
 
   /** -- framing -- keep a strip this tall (px) clear at the top of the table (a tip banner sits there); 0: none. */
@@ -1506,9 +2121,17 @@ export class TableScene {
       this.unsubs.push(() => cv.removeEventListener(type, fn as EventListener));
     };
     on("pointerdown", (e) => this.onDown(e));
-    on("pointermove", (e) => this.onMove(e));
+    on("mousedown", (e) => { if (e.button === 1) e.preventDefault(); }); // a middle-drag pans: no browser autoscroll
+    on("pointermove", (e) => {
+      this.onMove(e);
+      this.trackPointer(e.clientX, e.clientY); // (after the move: it knows which card is under the pointer)
+    });
     on("pointerup", (e) => this.onUp(e));
-    on("pointerleave", () => this.setHover(null));
+    on("pointerleave", () => {
+      this.cursorOut.leave(); // onto the hand or a panel: nothing of what I hover there goes out
+      this.setHover(null);
+    });
+    on("pointerleave", () => this.props.hoverHeart(null, undefined));
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || !this.drag?.active) return;
       // Esc puts dragged cards back where they were; nothing is sent
@@ -1528,16 +2151,25 @@ export class TableScene {
     };
     window.addEventListener("keydown", onDigit, true);
     this.unsubs.push(() => window.removeEventListener("keydown", onDigit, true));
-    on("contextmenu", (e) => this.onContext(e));
+    on("contextmenu", (e) => {
+      // a right press opens its menu when it is let go without moving (a right-drag orbits instead), as in Tabletop
+      // Simulator; a menu asked for otherwise (the keyboard's menu key, a long touch) opens at once
+      e.preventDefault();
+      if (this.rightPress || performance.now() - this.lastRightUp < 400) return;
+      this.onContext(e);
+    });
     on("wheel", (e) => {
       e.preventDefault();
       const over = this.pick(e.clientX, e.clientY);
       if (over?.heart) {
-        this.lifeBatch.bump(over.heart, e.deltaY < 0 ? 1 : -1);
+        if (!this.lifeLocked()) this.lifeBatch.bump(over.heart, e.deltaY < 0 ? 1 : -1);
         return;
       }
-      this.zoom = Math.max(0.45, Math.min(1.8, this.zoom * (e.deltaY > 0 ? 1.08 : 1 / 1.08)));
-      this.updateCameraGoal();
+      // zoom toward the point under the pointer (a notch: about 12%; a trackpad's small steps, a little at a time)
+      const ground = this.groundAt(e.clientX, e.clientY);
+      if (!ground || !this.camBase) return;
+      const lines = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+      this.moveView(zoomAt(this.adj, this.camBase, ground, Math.exp(THREE.MathUtils.clamp(lines, -300, 300) * 0.0012), this.panBounds()));
     }, { passive: false });
   }
 
@@ -1559,8 +2191,18 @@ export class TableScene {
 
   private onDown(e: PointerEvent): void {
     if (e.button === 1) {
+      // middle-drag pans: the point grabbed stays under the pointer
       e.preventDefault();
-      this.orbit = { x: e.clientX, yaw: this.yaw };
+      const ground = this.groundAt(e.clientX, e.clientY);
+      if (ground) {
+        this.panGrab = { id: e.pointerId, ground };
+        this.canvas.setPointerCapture(e.pointerId);
+      }
+      return;
+    }
+    if (e.button === 2) {
+      // right-drag orbits (decided once it moves); let go without moving and it's the menu (contextmenu)
+      this.rightPress = { id: e.pointerId, x: e.clientX, y: e.clientY, adj: this.adj, moved: false };
       this.canvas.setPointerCapture(e.pointerId);
       return;
     }
@@ -1576,6 +2218,8 @@ export class TableScene {
     const store = useGame.getState();
     if (hit?.heart && answerByClick(store.view, hit.heart, this.me)) return; // -- targeting -- a targetable player's heart chooses them
     if (hit?.heart) {
+      if (this.lifeLocked()) return;
+      this.props.pressHeart(hit.heart, hit.side ?? 1);
       this.lifeBatch.bump(hit.heart, (hit.side ?? 1) * (e.shiftKey ? 5 : 1)); // ▼ −1, ▲ +1
       return;
     }
@@ -1633,9 +2277,19 @@ export class TableScene {
   }
 
   private onMove(e: PointerEvent): void {
-    if (this.orbit) {
-      this.yaw = this.orbit.yaw - (e.clientX - this.orbit.x) * 0.006;
-      this.updateCameraGoal();
+    const rp = this.rightPress;
+    if (rp && rp.id === e.pointerId) {
+      const dx = e.clientX - rp.x;
+      const dy = e.clientY - rp.y;
+      if (!rp.moved && Math.hypot(dx, dy) < 5) return;
+      rp.moved = true;
+      if (this.camBase) this.moveView(orbitBy(rp.adj, dx, dy, this.camBase, this.panBounds()));
+      return;
+    }
+    const pg = this.panGrab;
+    if (pg && pg.id === e.pointerId) {
+      const now = this.groundAt(e.clientX, e.clientY);
+      if (now && this.camBase) this.moveView(panBy(this.adj, pg.ground.x - now.x, pg.ground.z - now.z, this.camBase, this.panBounds()));
       return;
     }
     const m = this.marquee;
@@ -1669,17 +2323,26 @@ export class TableScene {
     this.setHover(hit?.card ?? null);
     this.hoveredButton = hit?.seatButton ?? null;
     this.props.hover(this.hoveredButton);
+    this.props.hoverHeart(hit?.heart ?? null, hit?.side); // the heart's − or + half under the pointer lights up
     const taxOf = hit?.tax ? this.view?.players.flatMap((p) => p.commanders).find((c) => c.key === hit.tax) : undefined;
     const dealt = taxOf && this.view ? dealtText(commanderDealt(this.view.players, taxOf.key)) : "";
-    const tip = taxOf ? `Commander tax for ${taxOf.name}: ${taxOf.tax} (click +2, right-click −2)${dealt ? `\nCommander damage dealt: ${dealt}` : ""}` : hit?.seatButton ? SEAT_ACTIONS.find((a) => a.id === hit.seatButton)?.title
-      : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life: click ▼ −1 or ▲ +1, right-click for 5, or the wheel` : "";
+    // (a seat button names itself on the table, on its own plate: no browser tooltip over it)
+    const tip = taxOf ? `${taxSentence(taxOf.tax)}\n${taxOf.name}: click +2, right-click −2${dealt ? `\nCommander damage dealt: ${dealt}` : ""}`
+      : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life${this.lifeLocked() ? "" : ": click − to lose 1 or + to gain 1, right-click for 5, or the wheel"}` : "";
     if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
-    this.canvas.style.cursor = hit?.seatButton || hit?.heart || hit?.tax ? "pointer" : "";
+    this.canvas.style.cursor = hit?.seatButton || (hit?.heart && !this.lifeLocked()) || hit?.tax ? "pointer" : "";
   }
 
   private onUp(e: PointerEvent): void {
-    if (this.orbit) {
-      this.orbit = null;
+    const rp = this.rightPress;
+    if (rp && rp.id === e.pointerId && e.button === 2) {
+      this.rightPress = null;
+      this.lastRightUp = performance.now();
+      if (!rp.moved) this.onContext(e); // a right-click: the card's, pile's or table's menu
+      return;
+    }
+    if (this.panGrab && this.panGrab.id === e.pointerId && e.button === 1) {
+      this.panGrab = null;
       return;
     }
     const m = this.marquee;
@@ -1868,10 +2531,17 @@ export class TableScene {
     store.openBrowser({ zone: `${player}:${pile}`, title: PILE_LABEL[pile as ZoneName] ?? pile });
   }
 
+  /** -- out of the game -- the hearts are totals, not controls (as on the 2D table). */
+  private lifeLocked(): boolean {
+    return isOut(this.view, this.me);
+  }
+
   private onContext(e: MouseEvent): void {
     e.preventDefault();
     const hit = this.pick(e.clientX, e.clientY);
     if (hit?.heart) {
+      if (this.lifeLocked()) return;
+      this.props.pressHeart(hit.heart, hit.side ?? 1);
       this.lifeBatch.bump(hit.heart, (hit.side ?? 1) * 5); // right-click: 5 at a time
       return;
     }
@@ -1920,7 +2590,7 @@ export class TableScene {
     // the shadow sits on the table, offset away from the key light and softer as the card rises
     const lift = Math.max(0, obj.position.y);
     const spread = (1 + Math.min(lift, 1.2) * 0.55) * obj.scale.x;
-    shadowPos.set(obj.position.x + 0.05 + lift * 0.2, 0.0025, obj.position.z + 0.08 + lift * 0.3);
+    shadowPos.set(obj.position.x + 0.05 + lift * 0.2, SHADOW_Y, obj.position.z + 0.08 + lift * 0.3);
     shadowQ.setFromAxisAngle(UP, obj.rotation.y);
     shadowScale.set(spread, 1, spread * (obj.scale.z / (obj.scale.x || 1)));
     shadowM.compose(shadowPos, shadowQ, shadowScale);
@@ -1940,8 +2610,9 @@ export class TableScene {
     // empty pile outlines stay faint until a drag needs them as drop targets
     const anyDrag = document.body.classList.contains("dragging");
     for (const p of this.piles.values()) {
-      const m = p.slot.material as THREE.MeshBasicMaterial;
-      m.opacity = p.count > 0 || anyDrag ? 1 : 0.35;
+      // (a well is always there; while a card is dragged, its gold catches the light as a drop target)
+      const m = p.slot.material as THREE.MeshStandardMaterial;
+      m.emissiveIntensity = anyDrag ? 0.14 : 0;
     }
     // while a card is dragged, the battlefields (where it can land) light up
     // (with the rules engine on, only your own: the engine refuses the others)
@@ -2019,13 +2690,29 @@ export class TableScene {
     this.dice.update(performance.now(), reduced, speed);
     this.cannon?.update(performance.now(), speed);
     this.props.tick(t, this.camera, reduced);
+    this.tickFans(ease(dt, 9 * speed, reduced));
     const kc = ease(dt, 5 * speed, reduced);
     this.camPos.lerp(this.camGoalPos, kc);
     this.camLook.lerp(this.camGoalLook, kc);
+    // -- flicker -- a camera that has arrived stops exactly, not creeping by fractions of a pixel forever
+    if (this.camPos.distanceToSquared(this.camGoalPos) < 1e-8 && this.camLook.distanceToSquared(this.camGoalLook) < 1e-8) {
+      this.camPos.copy(this.camGoalPos);
+      this.camLook.copy(this.camGoalLook);
+    }
     this.camera.position.copy(this.camPos);
     if (this.end.active) this.end.update(started, reduced, this.camera.position, this.camLook, this.camGoalLook);
     this.camera.lookAt(this.camLook);
-    if (!reduced) {
+    this.fitLens(kc);
+    this.fitDepth();
+    // -- live cursors -- mine out (throttled, a trailing send, one "gone"), the others' eased and faded
+    const out = this.cursorOut.poll(started);
+    if (out && this.sendsCursor()) useGame.getState().conn?.sendCursor(out);
+    this.cursors.group.visible = usePrefs.getState().cursors;
+    if (this.cursors.group.visible) {
+      this.camera.updateMatrixWorld();
+      this.cursors.update(dt, started, reduced, this.camera, this.camera.view?.fullHeight ?? this.canvas.clientHeight);
+    }
+    if (!reduced && !this.still) {
       // candle flicker, drifting dust and flowing beams only when motion is welcome
       this.env?.update(t);
       arrowTime.value = t;
@@ -2033,6 +2720,15 @@ export class TableScene {
     this.renderer.info.reset();
     if (this.post) this.post.render();
     else this.renderer.render(this.scene, this.camera);
+    if (this.grabs.length) {
+      // (tests: the frame just drawn, read before the browser shows it)
+      const gl = this.renderer.getContext();
+      const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+      const px = new Uint8Array(w * h * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      for (const g of this.grabs.splice(0)) g(px);
+    }
+    if (this.afterFrame.length) for (const f of this.afterFrame.splice(0)) f();
     if (this.dice.count || this.diceHud.el.childElementCount) {
       // the dice's chips and line, in the canvas's own pixels
       const w = this.canvas.clientWidth;

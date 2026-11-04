@@ -21,7 +21,15 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from app.api.deps import _peer_is_loopback, get_services, is_local_request, require_local
 from app.assets.store import AssetNotFound
@@ -40,7 +48,7 @@ from app.game.rules_state import AUTOMATION_PRESETS, AutomationLevel, start_rule
 from app.game.session import GameSession
 from app.game.state import CollectionCard, GameSettings, MulliganPolicy
 from app.game.views import build_view
-from app.game.visibility import OMNISCIENT, SPECTATOR
+from app.game.visibility import OMNISCIENT, SPECTATOR, publicly_visible
 from app.multiplayer import lan_art
 from app.multiplayer.hub import RECONNECT_GRACE, Connection, Room, undo_voters
 from app.multiplayer.lobby import (
@@ -339,7 +347,8 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
                             # test objects: a hot-seat table (one person testing) and a Sandbox table (free play)
                             allow_test_objects=body.mode == "local" or body.format == "sandbox", automation=body.automation,
                             automation_options=AUTOMATION_PRESETS[body.automation].model_copy(), card_permissions=body.card_permissions)
-    state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
+    state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first,
+                     related_tokens=services.related_tokens)
     if body.automation != "off":
         start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
@@ -1202,6 +1211,7 @@ async def start_game(
             settings=settings,
             shuffle=body.shuffle,
             first_player=first,
+            related_tokens=services.related_tokens,
         )
         state.id = room.game_id  # same URL before and after the start
         if lobby.automation != "off":
@@ -1564,6 +1574,71 @@ class WsSimple(BaseModel):
 WS_MESSAGE: TypeAdapter[WsAction | WsSimple] = TypeAdapter(WsAction | WsSimple)
 
 
+# -- live cursors -- (as in Tabletop Simulator) every seated player's pointer over the 3D table, relayed to the rest of the
+# room. Pure presentation: never logged, saved or replayed, and it never touches the game. A position is viewer-independent:
+# the nearest seat plus virtual x/y on that seat's battlefield (1000 x 600, the frame of card positions; the wood and the
+# rail lie outside it). The client sends only while its pointer is over the 3D table top, never from the hand or the
+# panels, so a cursor carries no hidden information. Over a card it also names the card and the point on it (cx/cy, its
+# half-widths, -1..1): each screen may lay a board out its own way (the arranged rows), so "over that card" is what
+# should match. Only a card everyone can see is named, as for a ping: a hidden card's id would leak.
+CURSOR_X = (-400.0, 1400.0)
+CURSOR_Y = (-400.0, 1000.0)
+MAX_CURSOR_MESSAGE = 256
+
+
+class WsCursor(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    type: Literal["cursor"]
+    player: str | None = Field(default=None, max_length=16)
+    x: float | None = Field(default=None, allow_inf_nan=False)
+    y: float | None = Field(default=None, allow_inf_nan=False)
+    card: str | None = Field(default=None, max_length=80)
+    cx: float | None = Field(default=None, allow_inf_nan=False)
+    cy: float | None = Field(default=None, allow_inf_nan=False)
+    gone: bool = False
+
+
+CURSOR_MESSAGE: TypeAdapter[WsCursor] = TypeAdapter(WsCursor)
+
+
+def _cursor_message(raw: str) -> WsCursor | None:
+    """A cursor message (always small, so it is told apart before the action limiter), else None."""
+    if len(raw) > MAX_CURSOR_MESSAGE or '"cursor"' not in raw:
+        return None
+    try:
+        return CURSOR_MESSAGE.validate_json(raw)
+    except ValidationError:
+        return None
+
+
+def _cursor_relay(room: Room, conn: Connection, msg: WsCursor) -> dict[str, Any] | None:
+    """What the rest of the room sees of a cursor message, or None to drop it (spectators, hot-seat tables, nonsense)."""
+    if conn.actor is None or room.mode == "local" or not room.started:
+        return None
+    if msg.gone:
+        return {"type": "cursor", "from": conn.actor, "gone": True}
+    if msg.player not in room.session.state.players or msg.x is None or msg.y is None:
+        return None
+    x = round(min(CURSOR_X[1], max(CURSOR_X[0], msg.x)), 1)
+    y = round(min(CURSOR_Y[1], max(CURSOR_Y[0], msg.y)), 1)
+    out: dict[str, Any] = {"type": "cursor", "from": conn.actor, "player": msg.player, "x": x, "y": y}
+    state = room.session.state
+    card = state.cards.get(msg.card) if msg.card is not None else None
+    if card is not None and msg.cx is not None and msg.cy is not None and publicly_visible(state, card):
+        out.update(card=card.id, cx=round(min(1.0, max(-1.0, msg.cx)), 3), cy=round(min(1.0, max(-1.0, msg.cy)), 3))
+    return out
+
+
+async def _to_others(room: Room, conn: Connection, message: dict[str, Any]) -> None:
+    for other in list(room.connections.values()):
+        if other.id == conn.id:
+            continue
+        try:
+            await other.send(message)
+        except Exception:  # noqa: BLE001,S112 - best effort: that socket's own loop notices it closed
+            continue
+
+
 class _RateLimiter:
     def __init__(self, rate: float = 25.0, burst: float = 60.0) -> None:
         self.rate, self.burst, self.tokens, self.last = rate, burst, burst, time.monotonic()
@@ -1602,6 +1677,8 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
     conn = Connection(viewer=viewer, send=send, actor=actor, host=room.is_host(params.get("token")), close=close)
     services.hub.connect(room, conn)
     limiter = _RateLimiter()
+    cursor_limiter = _RateLimiter(rate=20.0, burst=20.0)  # -- live cursors -- the client sends at most ~15 a second
+    cursor_shown = False
     try:
         await send(services.hub.message(room, viewer, host=conn.host))
         await services.hub.broadcast(room)  # others see the connection indicator
@@ -1609,6 +1686,13 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
             raw = await websocket.receive_text()
             if len(raw) > MAX_WS_MESSAGE:
                 await send({"type": "error", "message": "Message too large"})
+                continue
+            if (cursor := _cursor_message(raw)) is not None:
+                # -- live cursors -- their own budget, so moving the mouse never slows actions down; excess is dropped quietly
+                relay = _cursor_relay(room, conn, cursor) if cursor_limiter.allow() else None
+                if relay is not None:
+                    cursor_shown = not cursor.gone
+                    await _to_others(room, conn, relay)
                 continue
             if not limiter.allow():
                 await send({"type": "error", "message": "Slow down"})
@@ -1619,6 +1703,8 @@ async def game_socket(websocket: WebSocket, game_id: str) -> None:
     finally:
         services.hub.disconnect(room, conn)
         if services.hub.get(game_id) is room:
+            if cursor_shown and conn.actor is not None:  # -- live cursors -- they left the table: their pointer goes too
+                await _to_others(room, conn, {"type": "cursor", "from": conn.actor, "gone": True})
             await services.hub.broadcast(room)  # "Reconnecting…"
             seat = room.seats.get(conn.viewer)
             if seat is not None and seat.connections == 0:

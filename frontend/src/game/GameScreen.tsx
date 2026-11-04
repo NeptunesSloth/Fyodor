@@ -172,9 +172,11 @@ function useShortcuts() {
       const targets = s.selection.length ? s.selection : s.hover && view.cards[s.hover] ? [s.hover] : [];
       const w = view.response;
       if (id.startsWith("cam_")) {
-        // the 3D table moves its camera; the 2D table focuses a seat (FocusKeys)
+        // the 3D table moves its camera; the 2D table focuses a seat (FocusKeys); the arrows pan the 3D view only
+        // (elsewhere they keep scrolling what they scroll)
+        if (id === "cam_pan" && !document.querySelector("[data-testid='table-3d']")) return;
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent("fyodor:camera", { detail: { id, digit: Number(e.key) || 0, hover: s.hover } }));
+        window.dispatchEvent(new CustomEvent("fyodor:camera", { detail: { id, digit: Number(e.key) || 0, hover: s.hover, key: e.key, shift: e.shiftKey } }));
         return;
       }
       switch (id) {

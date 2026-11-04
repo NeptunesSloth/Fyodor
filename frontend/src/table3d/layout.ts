@@ -8,10 +8,15 @@
  */
 import { BF_H, BF_W, CARD_RATIO, CARD_VW } from "../game/geometry";
 
-export const UNIT = 100; // virtual units per world unit
-export const MAT_W = BF_W / UNIT; // 10
-export const MAT_D = BF_H / UNIT; // 6
-export const CARD_W = CARD_VW / UNIT; // 0.84
+/**
+ * Virtual units per world unit. The battlefield is spread wider than the cards' own scale (a card is 84 virtual
+ * units but 0.84 world wide), so each mat is a roomy stretch of felt with space around the cards, as at a real or a
+ * Tabletop Simulator table, rather than cards packed edge to edge.
+ */
+export const UNIT = 55;
+export const MAT_W = BF_W / UNIT; // ≈18.2
+export const MAT_D = BF_H / UNIT; // ≈10.9
+export const CARD_W = CARD_VW / 100; // 0.84
 export const CARD_H = CARD_W * CARD_RATIO; // ≈1.17
 /** Zone strip offset from the mat centre (library/graveyard/exile right, command zone left). */
 export const STRIP_X = MAT_W / 2 + 1.1;
@@ -25,32 +30,92 @@ export interface Seat {
   rot: number;
   /** Where the camera sits to look at this seat's mat from the owner's side. */
   side: "south" | "north" | "west" | "east";
+  /**
+   * 1v1 (two facing seats), as on MTG Arena: the seat's plate and heart sit centred just past its own edge (mine below
+   * my mat, above my hand; theirs beyond their far edge), not in the aisle.
+   */
+  duel?: boolean;
 }
 
 export interface TableSize { w: number; d: number }
 
 /** Half the aisle between the two rows of mats: the stack, combat arrows and the life plaques live here. */
 export const AISLE = 1.9;
-/** Mat centre to mat centre along a row: the zone strips of neighbours don't touch. */
-export const SEAT_DX = 2 * STRIP_X + CARD_W + 0.8;
+/** 1v1's half aisle: only the stack and the combat arrows cross it (the plates and hearts sit by each player's own edge). */
+export const DUEL_AISLE = 0.6;
+/** How far a 1v1 seat's own edge zone reaches past its mat: the heart and plate row, and (across the table) the fan of backs. */
+export const DUEL_EDGE = 3.4;
+/** The 1v1 seat view's elevation (radians up from the felt; table3d/framing.ts): low, so the facing mats fill a wide screen. */
+export const DUEL_VIEW = 0.5;
 /**
- * Which way along its mat a seat's heart and plaque sit: toward the middle of the table (where the scripted tables
- * keep the hearts, and where every seat can see them), or the owner's left for a seat in the middle of its row.
- * +1 is the owner's right in the mat's own frame.
+ * More seats: how much table lies past a mat's own edge (where its owner sits) before the table's edge: room for the
+ * owner's held fan of backs (table3d/handFan.ts) between the mat and the rail, and for my buttons' row.
  */
-export function towardMiddle(seat: Seat): 1 | -1 {
-  if (Math.abs(seat.x) < 0.01) return -1;
-  return -Math.sign(seat.x) * Math.sign(Math.cos(seat.rot)) > 0 ? 1 : -1;
+export const OWN_EDGE = 1.7;
+/** The rail's width inside the table top's edge (environment.ts: the leather rail and the brass inlay inside it). */
+export const RAIL = 0.72;
+/** Mat centre to mat centre along a row: the zone strips of neighbours don't touch. */
+export const seatDx = (): number => STRIP_X + CARD_W / 2 + COMMAND_X + COMMAND_WELL.w / 2 + 0.8; // (one seat's piles to the next one's command column)
+/**
+ * In facing rows the far row's piles are mirrored: every library, graveyard and exile is on the same side of my screen
+ * (my right), and every command zone on the other. Display only (piles are zones, not positions).
+ */
+export function mirrored(seat: Pick<Seat, "side">): boolean {
+  return seat.side === "north";
 }
 
-/** Where a seat's life heart floats, mat-local: over the aisle by the mat's inner corner nearest the middle. */
+/** Mat-local x that lands `sx` to the right of the mat's centre on my screen (rows face me or away from me). */
+export function screenX(seat: Pick<Seat, "rot">, sx: number): number {
+  return Math.cos(seat.rot) >= 0 ? sx : -sx;
+}
+
+/** The life heart (table3d/seatProps.ts): its size, how high its bottom edge floats over the felt, and how far it is tipped up from flat. */
+export const HEART = { w: 1.1, h: 1.1 * (232 / 256), y: 0.13 };
+export function heartTilt(seat: Pick<Seat, "duel">): number {
+  // 1v1, seen low: tipped up less, so it stands shorter between my mat and my hand
+  return seat.duel ? 0.45 : 0.7;
+}
+
+/**
+ * Every seat's heart and plate are one piece, in the same order at every table and screen size: the plate on the
+ * left, the heart on the right, the pair centred on the seat's own mat (as I see it). HEART_X: the heart's centre
+ * right of the mat's middle. PLATE: the plate's size on the table (world units; Table3D scales the DOM plate to it,
+ * within limits) and the gap between it and the heart.
+ */
+export const HEART_X = 1.0;
+export const PLATE = { w: 2.1, h: 0.95, gap: 0.06 };
+/** 1v1: the other seat's fan of backs, right of its heart and plate (as I see it), its middle this far from the mat's. */
+export const DUEL_FAN_X = 3.95;
+
+/**
+ * 1v1: how far past its own edge a seat's heart stands (its centre). It turns to face the camera, tipped up from its
+ * edge nearest me. Theirs stands just past their far edge; mine further out, so that from my seat its top edge stays
+ * below my mat's near edge (it never covers my mat).
+ */
+export function duelOut(seat: Pick<Seat, "duel" | "side">): number {
+  const t = heartTilt(seat);
+  const half = (HEART.h / 2) * Math.cos(t);
+  if (seat.side !== "south") return 0.65 + half; // (its plate, at its smallest on screen, is taller than the heart: it keeps off the mat)
+  const top = HEART.y + HEART.h * Math.sin(t);
+  return top / Math.tan(DUEL_VIEW) + 0.45 + half; // (and its plate, taller on screen than the heart, keeps off my mat)
+}
+
+/**
+ * Where a seat's life heart floats, mat-local, its plate on its left (see HEART_X). In 1v1, past the mat's own edge
+ * (theirs beyond their far edge, mine below my mat, above my hand). With more seats, in the aisle beside the seat's own
+ * mat, centred on it: the far row's nearer the middle line (its heart's raised top leans back toward its mat), mine
+ * nearer my row; each clear of every mat and pile.
+ */
 export function heartSpot(seat: Seat): [number, number] {
-  return [towardMiddle(seat) * (MAT_W / 2 - 0.6), -MAT_D / 2 - AISLE * 0.4];
+  const x = screenX(seat, HEART_X);
+  if (seat.duel) return [x, MAT_D / 2 + duelOut(seat)];
+  return [x, -MAT_D / 2 - (seat.side === "south" ? AISLE - 1.15 : AISLE - 0.75)];
 }
 
-/** Where a seat's plaque (portrait, name, trackers) sits, mat-local: beside its heart, a little further along. */
+/** Where a seat's plate (portrait, name, trackers) sits, mat-local: its middle, just left of its heart (as I see it). */
 export function plaqueSpot(seat: Seat): [number, number] {
-  return [towardMiddle(seat) * (MAT_W / 2 - 3.5), -MAT_D / 2 - AISLE / 2];
+  const [hx, hz] = heartSpot(seat);
+  return [hx - screenX(seat, HEART.w / 2 + PLATE.gap + PLATE.w / 2), hz];
 }
 
 /**
@@ -65,15 +130,21 @@ export function seats(order: string[], me: string): Seat[] {
   const n = players.length;
   const nSouth = Math.max(1, Math.floor(n / 2));
   const nNorth = n - nSouth;
-  const rowX = (i: number, k: number) => (i - (k - 1) / 2) * SEAT_DX;
-  const rowZ = MAT_D / 2 + AISLE;
+  const rowX = (i: number, k: number) => (i - (k - 1) / 2) * seatDx();
+  const duel = n === 2;
+  const rowZ = MAT_D / 2 + (duel ? DUEL_AISLE : AISLE);
   // clockwise seen from above: the south row east → west, then the north row west → east
   const southRow = Array.from({ length: nSouth }, (_, i) => ({ x: rowX(nSouth - 1 - i, nSouth), z: rowZ, rot: 0, side: "south" as const }));
   const northRow = Array.from({ length: nNorth }, (_, i) => ({ x: rowX(i, nNorth), z: -rowZ, rot: Math.PI, side: "north" as const }));
   const ring: Omit<Seat, "player">[] = [...southRow, ...northRow];
   // the viewer sits in the middle of their row (east of the middle when the row is even)
   const mine = Math.floor((nSouth - 1) / 2);
-  return players.map((player, i) => ({ player, ...ring[(mine + i) % n]! }));
+  return players.map((player, i) => ({ player, ...ring[(mine + i) % n]!, ...(duel ? { duel: true } : {}) }));
+}
+
+/** Half the aisle between the rows (the stack's drop area is its middle). */
+export function aisleOf(all: Seat[]): number {
+  return all.some((s) => s.duel) ? DUEL_AISLE : AISLE;
 }
 
 /** The table top that fits every mat with a margin. */
@@ -82,10 +153,15 @@ export function tableSize(all: Seat[]): TableSize {
   let d = 0;
   for (const s of all) {
     const sideways = s.side === "west" || s.side === "east";
-    const halfW = (sideways ? MAT_D : MAT_W + 2 * (STRIP_X - MAT_W / 2) + CARD_W) / 2;
-    const halfD = (sideways ? MAT_W + 2 * (STRIP_X - MAT_W / 2) + CARD_W : MAT_D) / 2;
-    w = Math.max(w, Math.abs(s.x) + halfW + 1.2);
-    d = Math.max(d, Math.abs(s.z) + halfD + 1.4);
+    // (along the row: to the command column's outer edge, the furthest-out zone: COMMAND_X)
+    const strip = Math.max(STRIP_X + CARD_W / 2, COMMAND_X + COMMAND_WELL.w / 2);
+    const halfW = sideways ? MAT_D / 2 : strip;
+    const halfD = sideways ? strip : MAT_D / 2;
+    // past the mat's own edge (where its owner sits): room for their hand's fan before the rail, and in 1v1 for their
+    // heart and plate too; along the row, room for the zone strips
+    const own = s.duel ? DUEL_EDGE + RAIL : OWN_EDGE;
+    w = Math.max(w, Math.abs(s.x) + halfW + (sideways ? own : 1.2));
+    d = Math.max(d, Math.abs(s.z) + halfD + (sideways ? 1.2 : own));
   }
   return { w: w * 2, d: d * 2 };
 }
@@ -137,33 +213,152 @@ export function onBattlefield(lx: number, lz: number): boolean {
 
 export type PileZone = "library" | "graveyard" | "exile" | "command";
 
+/**
+ * The zone wells (table3d/zoneWells.ts): each pile lies in a shallow leather-lined well set into the wood, a little
+ * larger than a card; the command zone's is deeper. Under each well (as I see it) its brass nameplate, which carries
+ * the zone's name and a number: for the library, graveyard and exile how many cards are in it, for the command zone
+ * its commander's tax to pay ("+4").
+ */
+export const WELL = { w: CARD_W + 0.28, h: CARD_H + 0.28 };
+export const COMMAND_WELL = { w: CARD_W + 0.28, h: CARD_H + 0.36 };
+/** A nameplate's gap from its well, and its depth at a table of three or more seats (seen from well above). */
+export const NAMEPLATE = { h: 0.5, gap: 0.05 };
+/** A duel is seen low: my row's plates are deeper, and the far row's, seen lowest of all, deeper still. */
+export const NEAR_PLATE_H = 0.6;
+export const FAR_PLATE_H = 0.8;
+/** A seat's nameplates' depth (world units): deep enough that their names and numbers read upright from my seat. */
+export function plateDepth(seat: Pick<Seat, "duel" | "side">): number {
+  if (!seat.duel) return NAMEPLATE.h;
+  return seat.side === "north" ? FAR_PLATE_H : NEAR_PLATE_H;
+}
+/** The mat's felt reaches this far past the battlefield (TableScene: the mat plane is 0.5 larger than the battlefield). */
+export const FELT_HEM = 0.25;
+/**
+ * A commander's tax (table3d/seatProps.ts): a column of brass coins, one per cast from the command zone (each worth
+ * {2}), standing in a socket beside its command well on the mat's side, the tax to pay struck on the top coin and on the
+ * well's plate. COIN: a coin's radius and thickness (about a card wide, so it reads from the seat view); TAX_STACK: the
+ * most coins stacked (more casts: the top coin and the plate still say the whole tax).
+ */
+export const COIN = { r: 0.36, h: 0.09 };
+export const TAX_STACK = 8;
+/** The command zone's column: further out than the piles', far enough that its tax coins stand between it and the felt. */
+export const COMMAND_X = MAT_W / 2 + FELT_HEM + 0.12 + 2 * COIN.r + 0.07 + COMMAND_WELL.w / 2;
+/**
+ * A duel's nameplates for the library, graveyard and exile carry the zone's name and count, so they are wider than
+ * their well (there is wood to spare between the mat and the rail at two seats); at more seats they are their well's
+ * width. A command well's plate runs from the well's outer edge to just off the felt, under its tax coins too.
+ */
+export const WIDE_PLATE = 1.6;
+const COMMAND_PLATE = { from: -COMMAND_WELL.w / 2, to: COMMAND_X - (MAT_W / 2 + FELT_HEM) - 0.04 };
+export function plateWidth(zone: PileZone, duel: boolean): number {
+  if (zone === "command") return COMMAND_PLATE.to - COMMAND_PLATE.from;
+  return duel ? WIDE_PLATE : wellSize(zone).w;
+}
+/** How far a well's plate's middle is from the well's, toward the mat (the command zone's: under its tax coins too). */
+export function plateOffset(zone: PileZone): number {
+  return zone === "command" ? (COMMAND_PLATE.from + COMMAND_PLATE.to) / 2 : 0;
+}
+/** One well to the next along a strip: room for a nameplate between them, whichever side of its well it is on. */
+const WELL_PITCH = COMMAND_WELL.h + NAMEPLATE.gap + FAR_PLATE_H + 0.17;
+/** The first well's middle, so my row's nameplate ends level with the felt's near edge (on the wood beside the mat's corner). */
+const firstWell = (h: number) => MAT_D / 2 + FELT_HEM - NEAR_PLATE_H - NAMEPLATE.gap - h / 2;
+
 /** Zone piles in mat-local coordinates: library nearest the owner's right hand. */
 export const PILES: Record<PileZone, [number, number]> = {
-  library: [STRIP_X, MAT_D / 2 - CARD_H / 2],
-  graveyard: [STRIP_X, MAT_D / 2 - CARD_H * 1.65],
-  exile: [STRIP_X, MAT_D / 2 - CARD_H * 2.8],
-  command: [-STRIP_X, MAT_D / 2 - CARD_H / 2],
+  library: [STRIP_X, firstWell(WELL.h)],
+  graveyard: [STRIP_X, firstWell(WELL.h) - WELL_PITCH],
+  exile: [STRIP_X, firstWell(WELL.h) - 2 * WELL_PITCH],
+  command: [-COMMAND_X, firstWell(COMMAND_WELL.h)],
 };
 
 /**
  * The command zone's slots, one per commander, as on the Oops mat: the commander's by the owner's left hand, a
  * partner's (or background's) above it, in line with the graveyard on the other side.
  */
-export const COMMAND_SLOTS: [number, number][] = [PILES.command, [-STRIP_X, MAT_D / 2 - CARD_H * 1.65], [-STRIP_X, MAT_D / 2 - CARD_H * 2.8]];
+export const COMMAND_SLOTS: [number, number][] = [0, 1, 2].map((i) => [-COMMAND_X, firstWell(COMMAND_WELL.h) - i * WELL_PITCH]);
 
-/** Where a commander's tax counter sits, mat-local: just outside its slot. */
-export function taxSpot(slot: number): [number, number] {
-  const [x, z] = COMMAND_SLOTS[Math.min(slot, COMMAND_SLOTS.length - 1)]!;
-  return [x - CARD_W / 2 - 0.36, z];
+/** A pile's spot on this seat's mat, mat-local (mirrored for the far row: see `mirrored`). */
+export function pileSpot(seat: Pick<Seat, "side"> | undefined, zone: PileZone): [number, number] {
+  const [x, z] = PILES[zone];
+  return seat && mirrored(seat) ? [-x, z] : [x, z];
 }
 
-/** Which pile (if any) a mat-local point is on (a partner's slot is the command zone too). */
-export function pileAt(lx: number, lz: number): PileZone | null {
-  for (const [zone, [px, pz]] of Object.entries(PILES) as [PileZone, [number, number]][]) {
+/** A command zone slot (0: the commander's, 1: a partner's or background's) on this seat's mat, mat-local. */
+export function commandSlot(seat: Pick<Seat, "side"> | undefined, slot: number): [number, number] {
+  const [x, z] = COMMAND_SLOTS[Math.min(slot, COMMAND_SLOTS.length - 1)]!;
+  return seat && mirrored(seat) ? [-x, z] : [x, z];
+}
+
+/** Mat-local z's sign toward me (my row's owners face me; the far row's face away). */
+export function towardMe(seat: Pick<Seat, "rot">): 1 | -1 {
+  return Math.cos(seat.rot) >= 0 ? 1 : -1;
+}
+
+/** Mat-local x's sign toward a well's own mat (a pile at mat-local x > 0 has its mat on its −x side). */
+const inwardOf = (x: number): 1 | -1 => (x < 0 ? 1 : -1);
+
+/** A well's size: the command zone's (its slots) is deeper. */
+export function wellSize(zone: PileZone): { w: number; h: number } {
+  return zone === "command" ? COMMAND_WELL : WELL;
+}
+
+/** The middle of a well's nameplate, mat-local: just past the well's edge nearest me, so it reads as its caption. */
+export function nameplateSpot(seat: Pick<Seat, "rot" | "duel" | "side">, at: [number, number], zone: PileZone): [number, number] {
+  return [at[0] + inwardOf(at[0]) * plateOffset(zone), at[1] + towardMe(seat) * (wellSize(zone).h / 2 + NAMEPLATE.gap + plateDepth(seat) / 2)];
+}
+
+/**
+ * The well and its nameplate as one piece (TableScene draws them on one plane): its middle, mat-local, its size, and
+ * the well's middle and the plate's from the piece's, along the strip toward the mat (`wellIn`, `plateIn`).
+ */
+export function wellPiece(seat: Pick<Seat, "rot" | "duel" | "side">, at: [number, number], zone: PileZone, duel = !!seat.duel): {
+  at: [number, number]; w: number; h: number; wellIn: number; plateIn: number;
+} {
+  const { w, h } = wellSize(zone);
+  const pw = plateWidth(zone, duel);
+  const off = plateOffset(zone);
+  const lo = Math.min(-w / 2, off - pw / 2);
+  const hi = Math.max(w / 2, off + pw / 2);
+  const mid = (lo + hi) / 2;
+  const total = h + NAMEPLATE.gap + plateDepth(seat);
+  return { at: [at[0] + inwardOf(at[0]) * mid, at[1] + towardMe(seat) * (total - h) / 2], w: hi - lo, h: total, wellIn: -mid, plateIn: off - mid };
+}
+
+
+/** Where a commander's coin column stands, mat-local (`slot`: 0 the commander's, 1 a partner's): beside its well, on the mat's side, low (toward me). */
+export function taxSpot(seat: Pick<Seat, "side" | "rot">, slot = 0): [number, number] {
+  const [x, z] = commandSlot(seat, slot);
+  return [x + inwardOf(x) * (COMMAND_WELL.w / 2 + 0.07 + COIN.r), z + towardMe(seat) * (COMMAND_WELL.h / 2 - COIN.r - 0.05)];
+}
+
+/**
+ * The tax's number on the command well's plate (its right end as I see it, toward the mat: zoneWells.ts draws it
+ * there): its middle, mat-local, and a box around it (TAX_READOUT), which clicks and hovers like the coins.
+ */
+export const TAX_READOUT = { w: 0.42, h: 0.4 };
+export function taxReadoutSpot(seat: Pick<Seat, "side" | "rot" | "duel">, slot = 0): [number, number] {
+  const at = commandSlot(seat, slot);
+  const [px, pz] = nameplateSpot(seat, at, "command");
+  return [px + inwardOf(at[0]) * (plateWidth("command", !!seat.duel) / 2 - 0.03 - TAX_READOUT.w / 2), pz];
+}
+
+/**
+ * My seat's buttons (table3d/seatProps.ts): the row's middle past my mat's near edge (on the wood before the rail, clear
+ * of the command slot's card above it on screen by at least 8 px at any screen size), and a medallion's radius.
+ */
+export function buttonRowZ(duel: boolean | undefined): number {
+  // (1v1's own edge has room to spare; at three or more seats the wood before the rail is only 0.68 deep)
+  return MAT_D / 2 + (duel ? 1.05 : 0.44);
+}
+export const BUTTON_R = 0.26;
+
+/** Which pile (if any) a mat-local point is on (a partner's slot is the command zone too), on this seat's mat when given. */
+export function pileAt(lx: number, lz: number, seat?: Pick<Seat, "side">): PileZone | null {
+  for (const zone of Object.keys(PILES) as PileZone[]) {
+    const [px, pz] = pileSpot(seat, zone);
     if (Math.abs(lx - px) <= CARD_W * 0.75 && Math.abs(lz - pz) <= CARD_H * 0.6) return zone;
   }
-  for (const [px, pz] of COMMAND_SLOTS.slice(1, 2)) {
-    if (Math.abs(lx - px) <= CARD_W * 0.75 && Math.abs(lz - pz) <= CARD_H * 0.6) return "command";
-  }
+  const [px, pz] = commandSlot(seat, 1);
+  if (Math.abs(lx - px) <= CARD_W * 0.75 && Math.abs(lz - pz) <= CARD_H * 0.6) return "command";
   return null;
 }

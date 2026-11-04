@@ -113,6 +113,8 @@ def get_image(
         path = services.images.find(card_id, face=face, size=size)
     except InvalidImageRequest as exc:
         raise HTTPException(400, str(exc)) from exc
+    if path is None and size != "art_crop":
+        path = services.token_art.fetch(card_id, face)  # a token nobody has shown yet: linked from Scryfall now, cached
     if path is None:
         raise HTTPException(404, "Image not cached")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import * as fs from "node:fs";
-import { saveDecks } from "./helpers";
+import { ALICE_DECK, saveDecks } from "./helpers";
 
 /**
  * Table toys (docs/3D_DIRECTION.md §7): the dice cannon, the hidden draw bag and the Bag of Extras, on the 2D table and the
@@ -8,6 +8,15 @@ import { saveDecks } from "./helpers";
  * the bag's chits never reach a view; the Bag of Extras makes objects with the table's own actions. Throws are frozen
  * (window.__fyodorDice.freeze) so the checks and screenshots don't depend on software WebGL's frame rate.
  */
+/** Alice's deck makes tokens for her Bag of Extras: Krenko's Goblins and a Treasure from its Tokens section. */
+const TOKEN_DECK = `Commander
+1x Krenko, Mob Boss (ddn) 13
+Deck
+1x Lightning Bolt (clb) 187
+14x Mountain (cmm) 1003
+Tokens
+1x Treasure (ttst) T1
+`;
 const SHOTS = process.env.TOYS_SHOTS ?? "/tmp/gx/toys6-shots";
 
 interface Roll { sides: number; results: number[]; coin: boolean; cannon?: { mode: "first" | "volley"; players: string[]; rounds: number[]; winner: string | null } | null }
@@ -19,7 +28,7 @@ async function newGame(page: Page, renderer: "3d" | null) {
     localStorage.setItem("fyodor.coach3d", "done");
     localStorage.setItem("fyodor.tips.seen", JSON.stringify(["off"]));
   }, renderer);
-  const decks = await saveDecks(page);
+  const decks = await saveDecks(page, [TOKEN_DECK, ALICE_DECK]);
   const res = await page.request.post("/api/games", {
     data: {
       name: "Toys", mode: "local", shuffle: false, first_player: 0, mulligan_rule: "none",
@@ -223,6 +232,6 @@ test("3D table: the draw bag draws, and the Bag of Extras is the brass button by
   await expect(extras).toBeVisible();
   await frames(page);
   await shot(page, "3d-extras");
-  await extras.getByTestId("extras-clue").click();
-  await expect.poll(async () => Object.values((await view()).cards).filter((c) => c.name === "Clue" && c.zone === "p1:battlefield").length).toBe(1);
+  await extras.getByTestId("extras-goblin").click();
+  await expect.poll(async () => Object.values((await view()).cards).filter((c) => c.name === "Goblin" && c.zone === "p1:battlefield").length).toBe(1);
 });

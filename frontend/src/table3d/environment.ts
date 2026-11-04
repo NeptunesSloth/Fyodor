@@ -1,12 +1,26 @@
 /**
- * The world around the table for a plane: sky, fog, lighting, the table itself, props at the
- * table's corners and in the distance, and a few drifting particles. The play area stays clear;
- * props sit outside the mats and the background is dim and fogged so cards read first.
+ * The world around the table for a plane: its lighting, the table itself, the props standing on it, and (graphics
+ * medium and high) a lived-in set around it: the plane's room or ground (env/sets.ts), its floor and the piece under
+ * the table, fire and candle flames, window light falling in shafts, and drifting particles. The play area stays clear;
+ * props sit at the table's prop spots, and the room is dimmer and quieter than the lit table so the cards read first.
+ * Low graphics keep the minimal room (the table and its props over a dark floor).
  */
 import * as THREE from "three";
-import type { PlaneTheme, Prop, Particles } from "../theme/planes";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import type { PlaneTheme } from "../theme/planes";
 import { rng, surfaceMaps } from "./textures";
 import type { TableSize } from "./layout";
+import { atlasMaps } from "./env/atlas";
+import { Batch } from "./env/batch";
+import { buildBeams } from "./env/beams";
+import { Flames } from "./env/flames";
+import { flicker } from "./env/flicker";
+import { centreMaps, floorMaps } from "./env/floors";
+import { Put, type SetCtx } from "./env/kit";
+import { buildParticles } from "./env/particles";
+import { buildTableProp } from "./env/props";
+import { decorate, RoomLight } from "./env/roomShader";
+import { roomFor, SETS } from "./env/sets";
 
 export interface Environment {
   group: THREE.Group;
@@ -17,19 +31,6 @@ export interface Environment {
 }
 
 const TABLE_THICK = 0.7;
-
-function skyDome(top: string, bottom: string): THREE.Mesh {
-  const geo = new THREE.SphereGeometry(140, 32, 16);
-  const mat = new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    depthWrite: false,
-    fog: false,
-    uniforms: { top: { value: new THREE.Color(top) }, bottom: { value: new THREE.Color(bottom) } },
-    vertexShader: "varying vec3 vPos; void main(){ vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-    fragmentShader: "uniform vec3 top; uniform vec3 bottom; varying vec3 vPos; void main(){ float h = clamp(normalize(vPos).y * 1.4 + 0.35, 0.0, 1.0); gl_FragColor = vec4(mix(bottom, top, h) * 0.35, 1.0);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}",
-  });
-  return new THREE.Mesh(geo, mat);
-}
 
 function roundedShape(w: number, d: number, r: number): THREE.Shape {
   const s = new THREE.Shape();
@@ -63,40 +64,48 @@ function roundedSlab(w: number, d: number, r: number, depth: number): THREE.Extr
   return geo;
 }
 
-function glowSprite(color: string, size: number, opacity = 0.9): THREE.Sprite {
-  const c = document.createElement("canvas");
-  c.width = c.height = 64;
-  const g = c.getContext("2d")!;
-  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grad.addColorStop(0, "rgba(255,255,255,1)");
-  grad.addColorStop(0.25, "rgba(255,255,255,0.55)");
-  grad.addColorStop(1, "rgba(255,255,255,0)");
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 64, 64);
-  const tex = new THREE.CanvasTexture(c);
-  const mat = new THREE.SpriteMaterial({ map: tex, color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending });
-  const s = new THREE.Sprite(mat);
-  s.scale.setScalar(size);
-  return s;
+interface Flicker { light: THREE.PointLight; base: number; phase: number; amount: number }
+
+/** The table's base: four turned legs, each with a square block under the apron, and the apron boards between them. */
+function tableBase(size: TableSize, top: number, floorY: number): THREE.BufferGeometry {
+  const hw = size.w / 2, hd = size.d / 2;
+  const parts: THREE.BufferGeometry[] = [];
+  const h = top - floorY;
+  const lx = hw - 2.5, lz = hd - 2.5;
+  const profile: [number, number][] = [[0, 0], [0.75, 0], [0.8, 0.25], [0.62, 0.55], [0.5, 0.9], [0.62, 1.4], [0.42, 2.1], [0.36, h * 0.45], [0.5, h * 0.55], [0.38, h * 0.62], [0.44, h - 2.35], [0.56, h - 2.2], [0.56, h - 2.05], [0, h - 2.05]];
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+    const leg = new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 14);
+    leg.translate(sx * lx, floorY, sz * lz);
+    parts.push(leg.toNonIndexed());
+    const block = new THREE.BoxGeometry(1.2, 2.1, 1.2).toNonIndexed();
+    block.translate(sx * lx, top - 1.05, sz * lz);
+    parts.push(block);
+  }
+  for (const [w, d, x, z] of [[lx * 2, 0.3, 0, -lz], [lx * 2, 0.3, 0, lz], [0.3, lz * 2, -lx, 0], [0.3, lz * 2, lx, 0]] as const) {
+    const apron = new THREE.BoxGeometry(w, 1.6, d).toNonIndexed();
+    apron.translate(x, top - 0.8, z);
+    parts.push(apron);
+  }
+  for (const g of parts) for (const name of Object.keys(g.attributes)) if (name !== "position" && name !== "normal") g.deleteAttribute(name);
+  const merged = mergeGeometries(parts, false)!;
+  for (const g of parts) g.dispose();
+  return merged;
 }
 
-interface Flicker { light: THREE.PointLight; base: number; phase: number; amount: number; flame?: THREE.Object3D }
-interface Spinner { obj: THREE.Object3D; speed: number; bob: number; phase: number; y: number }
-
-export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" | "medium" | "high"): Environment {
+/**
+ * `spots`: where the table's props may stand (table3d/framing.ts propSpots: the two ends of the aisle, which the seat
+ * view frames whole, props and all), left then right; without them, the table's far corners.
+ */
+export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" | "medium" | "high", spots?: [number, number][]): Environment {
   const e = p.env;
   const group = new THREE.Group();
   const disposables: { dispose(): void }[] = [];
   const track = <T extends { dispose(): void }>(x: T): T => (disposables.push(x), x);
   const rand = rng(p.id.length * 7919);
-  const flickers: Flicker[] = [];
-  const spinners: Spinner[] = [];
   const tableY = 0;
   const floorY = -9;
   const halfW = size.w / 2;
   const halfD = size.d / 2;
-
-  group.add(skyDome(e.skyTop, e.skyBottom));
 
   // ---- lights
   // fill stays low: the key light, the pool and the environment reflections give the shape
@@ -158,307 +167,158 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
   inlay.position.y = tableY + 0.001;
   inlay.receiveShadow = quality !== "low";
   group.add(inlay);
-  // legs and floor
-  const legMat = railMat;
-  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
-    const leg = new THREE.Mesh(track(new THREE.BoxGeometry(1.2, -floorY - 1, 1.2)), legMat);
-    leg.position.set(sx * (halfW - 2.5), (floorY + tableY - 1) / 2, sz * (halfD - 2.5));
-    group.add(leg);
-  }
-  const floor = new THREE.Mesh(track(new THREE.CircleGeometry(120, 48)), track(new THREE.MeshStandardMaterial({ color: new THREE.Color(e.surfaceGrain).multiplyScalar(0.35), roughness: 1 })));
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = floorY;
-  floor.receiveShadow = quality === "high";
-  group.add(floor);
+  // ---- the table's base: turned legs and an apron under the slab's edge (one mesh)
+  const base = tableBase(size, tableY - TABLE_THICK - 0.24, floorY);
+  const legs = new THREE.Mesh(base, railMat);
+  legs.renderOrder = 1;
+  legs.castShadow = quality === "high";
+  group.add(legs);
 
-  // ---- props
-  // the props stand in the table's very corners, past the piles and the mats: nothing decorative in the play space
-  const inset = 0.6;
-  const corners: [number, number][] = [[-halfW + inset, -halfD + inset], [halfW - inset, -halfD + inset], [-halfW + inset, halfD - inset], [halfW - inset, halfD - inset]];
-  const std = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) => track(new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...extra }));
-  const addLight = (x: number, y: number, z: number, color: string, intensity: number, distance: number, flame?: THREE.Object3D) => {
-    if (quality === "low" && flickers.length >= 2) return;
-    const l = new THREE.PointLight(color, intensity, distance, 2);
-    l.position.set(x, y, z);
-    group.add(l);
-    flickers.push({ light: l, base: intensity, phase: rand() * 10, amount: e.flicker, flame });
-  };
-  const ring = (count: number, r0: number, r1: number, fn: (x: number, z: number, i: number) => void) => {
-    for (let i = 0; i < count; i++) {
-      const a = (i / count) * Math.PI * 2 + rand() * 0.3;
-      const r = r0 + rand() * (r1 - r0);
-      fn(Math.cos(a) * r, Math.sin(a) * r, i);
+  // ---- the room's light, the table's props, the set
+  const room = new RoomLight(new THREE.Color(e.fog).multiplyScalar(0.22), e.flicker);
+  room.cut.value.set(Math.max(halfW, halfD) + 0.5, 3, 1.5);
+  const spec = SETS[p.id] ?? SETS.dominaria;
+  const flames = new Flames(quality === "low" ? 16 : 96, room.uniforms.uTime, room.cut);
+  group.add(flames.mesh);
+  const propBatch = new Batch();
+  const ctxProps: SetCtx = { set: propBatch, glow: propBatch, flames, room, rand, floorY: tableY, rich: quality === "high" };
+  const flickers: Flicker[] = [];
+  const corners: [number, number][] = spots && spots.length >= 2 ? spots.slice(0, 2) : [[-halfW + 0.9, -halfD + 0.9], [halfW - 0.9, -halfD + 0.9]];
+  spec.props.forEach((kind, i) => {
+    const [cx, cz] = corners[i]!;
+    for (const l of buildTableProp(ctxProps, new Put(ctxProps).at(cx, tableY, cz), kind, e.glow)) {
+      if (quality === "low" && flickers.length >= 2) continue;
+      const light = new THREE.PointLight(l.color, l.intensity * e.glowIntensity, l.distance, 2);
+      light.position.copy(l.pos);
+      group.add(light);
+      flickers.push({ light, base: light.intensity, phase: rand() * 10, amount: e.flicker });
+      room.add(l.pos, l.color, 0.5 * e.glowIntensity, 9, "candle", rand() * 10);
     }
-  };
-
-  const build: Record<Prop, () => void> = {
-    candles: () => {
-      corners.forEach(([cx, cz], ci) => {
-        if (ci === 2 || ci === 3) return; // keep the near corners clear for the viewer's hand
-        for (let i = 0; i < 3; i++) {
-          const h = 0.6 + rand() * 0.9;
-          const x = cx + (rand() - 0.5) * 0.5;
-          const z = cz + (rand() - 0.5) * 0.5;
-          const candle = new THREE.Mesh(track(new THREE.CylinderGeometry(0.13, 0.15, h, 12)), std("#efe3c8", { roughness: 0.9 }));
-          candle.position.set(x, tableY + h / 2, z);
-          candle.castShadow = quality === "high";
-          group.add(candle);
-          const flame = glowSprite(e.glow, 0.5);
-          flame.position.set(x, tableY + h + 0.12, z);
-          group.add(flame);
-          if (i === 0) addLight(x, tableY + h + 0.4, z, e.glow, e.glowIntensity * 6, 16, flame);
-        }
-      });
-    },
-    books: () => {
-      const [cx, cz] = corners[1]!;
-      let y = tableY;
-      for (let i = 0; i < 3; i++) {
-        const h = 0.22 + rand() * 0.12;
-        const book = new THREE.Mesh(track(new THREE.BoxGeometry(1.3, h, 0.95)), std(["#5a1f1a", "#223a5a", "#3a4a22"][i]!, { roughness: 0.8 }));
-        book.position.set(cx - 0.2, y + h / 2, cz + 0.1);
-        book.rotation.y = (rand() - 0.5) * 0.5;
-        book.castShadow = quality === "high";
-        group.add(book);
-        y += h;
-      }
-    },
-    crystal: () => {
-      const [cx, cz] = corners[0]!;
-      const cr = new THREE.Mesh(track(new THREE.OctahedronGeometry(0.4, 0)), std("#8fc6ff", { emissive: "#3a7ad0", emissiveIntensity: 1.2, roughness: 0.2, metalness: 0.1 }));
-      cr.scale.set(1, 1.7, 1);
-      cr.position.set(cx, tableY + 0.8, cz);
-      group.add(cr);
-      spinners.push({ obj: cr, speed: 0.4, bob: 0.08, phase: 0, y: cr.position.y });
-      addLight(cr.position.x, cr.position.y + 0.4, cr.position.z, "#7fb6ff", 3, 8);
-    },
-    lanterns: () => {
-      corners.forEach(([cx, cz], ci) => {
-        if (ci >= 2) return;
-        const post = new THREE.Mesh(track(new THREE.CylinderGeometry(0.06, 0.08, 2.2, 8)), std("#1a1a1a", { metalness: 0.6 }));
-        post.position.set(cx, tableY + 1.1, cz);
-        group.add(post);
-        const cage = new THREE.Mesh(track(new THREE.BoxGeometry(0.5, 0.65, 0.5)), std("#222", { metalness: 0.7, roughness: 0.4, transparent: true, opacity: 0.55 }));
-        cage.position.set(cx, tableY + 2.45, cz);
-        group.add(cage);
-        const core = glowSprite(e.glow, 1.1);
-        core.position.copy(cage.position);
-        group.add(core);
-        addLight(cx, tableY + 2.4, cz, e.glow, e.glowIntensity * 5, 18, core);
-      });
-    },
-    spires: () => {
-      ring(22, 55, 80, (x, z) => {
-        const h = 18 + rand() * 30;
-        const w = 2 + rand() * 4;
-        const tower = new THREE.Mesh(track(new THREE.BoxGeometry(w, h, w)), std("#10131c", { roughness: 1 }));
-        tower.position.set(x, floorY + h / 2, z);
-        group.add(tower);
-        const spire = new THREE.Mesh(track(new THREE.ConeGeometry(w * 0.7, h * 0.35, 4)), std("#0c0f16"));
-        spire.position.set(x, floorY + h + h * 0.17, z);
-        group.add(spire);
-        for (let k = 0; k < 4; k++) {
-          const win = glowSprite(rand() > 0.5 ? e.glow : e.rim, 1.4, 0.7);
-          win.position.set(x + (rand() - 0.5) * w, floorY + rand() * h, z + (rand() - 0.5) * w);
-          group.add(win);
-        }
-      });
-    },
-    gravestones: () => {
-      ring(26, 26, 45, (x, z) => {
-        const h = 1.4 + rand() * 1.6;
-        const stone = new THREE.Mesh(track(new THREE.BoxGeometry(1.2, h, 0.3)), std("#3a3f47", { roughness: 1 }));
-        stone.position.set(x, floorY + h / 2, z);
-        stone.rotation.set((rand() - 0.5) * 0.2, Math.atan2(x, z), (rand() - 0.5) * 0.25);
-        group.add(stone);
-      });
-      ring(10, 40, 60, (x, z) => {
-        const trunk = new THREE.Mesh(track(new THREE.CylinderGeometry(0.2, 0.5, 14, 6)), std("#15171b"));
-        trunk.position.set(x, floorY + 7, z);
-        trunk.rotation.z = (rand() - 0.5) * 0.3;
-        group.add(trunk);
-      });
-    },
-    moon: () => {
-      const moon = new THREE.Mesh(track(new THREE.SphereGeometry(7, 32, 16)), track(new THREE.MeshBasicMaterial({ color: "#e8eef8", fog: false })));
-      moon.position.set(-40, 48, -95);
-      group.add(moon);
-      const halo = glowSprite("#b8c8ff", 48, 0.35);
-      (halo.material as THREE.SpriteMaterial).fog = false;
-      halo.position.copy(moon.position);
-      group.add(halo);
-    },
-    columns: () => {
-      ring(14, 30, 34, (x, z) => {
-        const col = new THREE.Mesh(track(new THREE.CylinderGeometry(0.9, 1.0, 22, 16)), std("#d9d3c6", { roughness: 0.45 }));
-        col.position.set(x, floorY + 11, z);
-        col.castShadow = false;
-        group.add(col);
-        const cap = new THREE.Mesh(track(new THREE.BoxGeometry(2.4, 0.6, 2.4)), std("#cfc6b3"));
-        cap.position.set(x, floorY + 22.3, z);
-        group.add(cap);
-      });
-    },
-    stars: () => {
-      const n = quality === "low" ? 400 : 1400;
-      const pos = new Float32Array(n * 3);
-      for (let i = 0; i < n; i++) {
-        const v = new THREE.Vector3(rand() - 0.5, rand() * 0.9 + 0.1, rand() - 0.5).normalize().multiplyScalar(130);
-        pos.set([v.x, v.y, v.z], i * 3);
-      }
-      const geo = track(new THREE.BufferGeometry());
-      geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-      const pts = new THREE.Points(geo, track(new THREE.PointsMaterial({ color: "#f0e8ff", size: 0.6, sizeAttenuation: true, fog: false, transparent: true, opacity: 0.85 })));
-      group.add(pts);
-    },
-    hedrons: () => {
-      const mat = std("#6a6456", { roughness: 0.8, emissive: "#1d5a3e", emissiveIntensity: 0.35 });
-      ring(16, 22, 46, (x, z) => {
-        const h = new THREE.Mesh(track(new THREE.OctahedronGeometry(1, 0)), mat);
-        const s = 1 + rand() * 2.5;
-        h.scale.set(s * 0.6, s * 2.2, s * 0.6);
-        h.position.set(x, 1 + rand() * 7, z);
-        h.rotation.set(rand(), rand(), rand() * 0.5);
-        group.add(h);
-        const edges = new THREE.LineSegments(track(new THREE.EdgesGeometry(h.geometry)), track(new THREE.LineBasicMaterial({ color: e.inlay, transparent: true, opacity: 0.6 })));
-        h.add(edges);
-        spinners.push({ obj: h, speed: 0.05 + rand() * 0.08, bob: 0.4, phase: rand() * 6, y: h.position.y });
-      });
-    },
-    torii: () => {
-      const red = std("#a3261c", { roughness: 0.6 });
-      ring(5, 38, 48, (x, z) => {
-        const g2 = new THREE.Group();
-        for (const sx of [-3, 3]) {
-          const post = new THREE.Mesh(track(new THREE.CylinderGeometry(0.35, 0.4, 12, 10)), red);
-          post.position.set(sx, 6, 0);
-          g2.add(post);
-        }
-        const beam = new THREE.Mesh(track(new THREE.BoxGeometry(9, 0.7, 0.7)), red);
-        beam.position.y = 12.2;
-        g2.add(beam);
-        const beam2 = new THREE.Mesh(track(new THREE.BoxGeometry(7.4, 0.45, 0.45)), red);
-        beam2.position.y = 10.4;
-        g2.add(beam2);
-        g2.position.set(x, floorY, z);
-        g2.lookAt(0, floorY, 0);
-        group.add(g2);
-      });
-    },
-    neon: () => {
-      ring(16, 50, 70, (x, z) => {
-        const color = rand() > 0.5 ? "#ff5fc8" : "#5fe8ff";
-        const sign = new THREE.Mesh(track(new THREE.BoxGeometry(0.4, 3 + rand() * 6, 0.4)), track(new THREE.MeshBasicMaterial({ color })));
-        sign.position.set(x, floorY + 6 + rand() * 14, z);
-        group.add(sign);
-      });
-    },
-    obelisks: () => {
-      ring(8, 30, 42, (x, z) => {
-        const h = 14 + rand() * 8;
-        const ob = new THREE.Mesh(track(new THREE.CylinderGeometry(0.6, 1.3, h, 4)), std("#b08a55", { roughness: 0.9 }));
-        ob.position.set(x, floorY + h / 2, z);
-        group.add(ob);
-        const tip = new THREE.Mesh(track(new THREE.ConeGeometry(0.85, 1.6, 4)), std("#e3b04b", { metalness: 0.8, roughness: 0.3 }));
-        tip.position.set(x, floorY + h + 0.8, z);
-        group.add(tip);
-      });
-    },
-    pyramids: () => {
-      ring(4, 80, 95, (x, z) => {
-        const s = 25 + rand() * 20;
-        const py = new THREE.Mesh(track(new THREE.ConeGeometry(s, s * 0.9, 4)), std("#9a7648", { roughness: 1 }));
-        py.position.set(x, floorY + s * 0.45, z);
-        group.add(py);
-      });
-    },
-    vines: () => {
-      ring(12, 38, 55, (x, z) => {
-        const pts: THREE.Vector3[] = [];
-        for (let k = 0; k < 6; k++) pts.push(new THREE.Vector3(x + Math.sin(k) * 1.5, floorY + k * 4, z + Math.cos(k * 1.3)));
-        const tube = new THREE.Mesh(track(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.35, 6)), std("#2c4a24", { roughness: 1 }));
-        group.add(tube);
-      });
-    },
-    gold: () => {
-      const gold = std("#e8b53a", { metalness: 0.9, roughness: 0.25 });
-      corners.forEach(([cx, cz], ci) => {
-        if (ci >= 2) return;
-        for (let i = 0; i < 9; i++) {
-          const coin = new THREE.Mesh(track(new THREE.CylinderGeometry(0.16, 0.16, 0.04, 16)), gold);
-          coin.position.set(cx + (rand() - 0.5) * 0.9, tableY + 0.02 + i * 0.012, cz + (rand() - 0.5) * 0.9);
-          coin.rotation.set((rand() - 0.5) * 0.4, 0, (rand() - 0.5) * 0.4);
-          group.add(coin);
-        }
-      });
-    },
-    pipes: () => {
-      ring(10, 30, 50, (x, z) => {
-        const pts = [new THREE.Vector3(x, floorY, z), new THREE.Vector3(x * 0.9, floorY + 10, z * 0.9), new THREE.Vector3(x * 0.8, floorY + 26, z * 1.1)];
-        group.add(new THREE.Mesh(track(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.8, 8)), std("#2a2e2a", { metalness: 0.8, roughness: 0.35 })));
-      });
-    },
-    spikes: () => {
-      ring(24, 28, 50, (x, z) => {
-        const h = 6 + rand() * 14;
-        const sp = new THREE.Mesh(track(new THREE.ConeGeometry(0.6 + rand(), h, 6)), std("#d8dcd0", { roughness: 0.5 }));
-        sp.position.set(x, floorY + h / 2, z);
-        sp.rotation.z = (rand() - 0.5) * 0.4;
-        group.add(sp);
-      });
-    },
-    mushrooms: () => {
-      corners.forEach(([cx, cz], ci) => {
-        if (ci >= 2) return;
-        for (let i = 0; i < 3; i++) {
-          const h = 0.35 + rand() * 0.4;
-          const x = cx + (rand() - 0.5);
-          const z = cz + (rand() - 0.5);
-          const stem = new THREE.Mesh(track(new THREE.CylinderGeometry(0.06, 0.08, h, 8)), std("#e8e0c8"));
-          stem.position.set(x, tableY + h / 2, z);
-          group.add(stem);
-          const cap = new THREE.Mesh(track(new THREE.SphereGeometry(0.22, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)), std("#b34a6a", { emissive: "#6a2a8a", emissiveIntensity: 0.6 }));
-          cap.position.set(x, tableY + h, z);
-          group.add(cap);
-        }
-        addLight(cx, tableY + 1, cz, "#c8a0ff", 2.2, 8);
-      });
-    },
-    willows: () => {
-      ring(9, 34, 55, (x, z) => {
-        const trunk = new THREE.Mesh(track(new THREE.CylinderGeometry(0.6, 1.1, 12, 8)), std("#3a3024"));
-        trunk.position.set(x, floorY + 6, z);
-        group.add(trunk);
-        for (let k = 0; k < 5; k++) {
-          const leaf = new THREE.Mesh(track(new THREE.SphereGeometry(3 + rand() * 2, 10, 8)), std("#4a6a34", { roughness: 1 }));
-          leaf.position.set(x + (rand() - 0.5) * 5, floorY + 12 + rand() * 3, z + (rand() - 0.5) * 5);
-          leaf.scale.y = 1.4;
-          group.add(leaf);
-        }
-      });
-    },
-  };
-  for (const prop of e.props) build[prop]();
-
-  // ---- particles
-  const particles = buildParticles(e.particles, e.particleColor, quality === "low" ? Math.round(e.particleCount / 3) : quality === "medium" ? Math.round(e.particleCount * 0.6) : e.particleCount, size, rand);
-  if (particles) {
-    group.add(particles.points);
-    disposables.push(particles.points.geometry, particles.points.material as THREE.Material);
+  });
+  // soft contact shadows under the props (one mesh): each sits on the table, not over it
+  {
+    const soft = document.createElement("canvas");
+    soft.width = soft.height = 64;
+    const sg = soft.getContext("2d")!;
+    const grad = sg.createRadialGradient(32, 32, 2, 32, 32, 32);
+    grad.addColorStop(0, "rgba(255,255,255,0.9)");
+    grad.addColorStop(0.5, "rgba(255,255,255,0.45)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    sg.fillStyle = grad;
+    sg.fillRect(0, 0, 64, 64);
+    const quads = corners.slice(0, spec.props.length).map(([cx, cz]) => {
+      const q = new THREE.PlaneGeometry(1.5, 1.9);
+      q.rotateX(-Math.PI / 2);
+      q.translate(cx + 0.08, tableY + 0.004, cz - 0.06);
+      return q;
+    });
+    const geo = mergeGeometries(quads, false)!;
+    for (const q of quads) q.dispose();
+    const mat = new THREE.MeshBasicMaterial({ color: "#000", map: track(new THREE.CanvasTexture(soft)), transparent: true, opacity: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+    const contact = new THREE.Mesh(geo, mat);
+    contact.renderOrder = -1;
+    group.add(contact);
   }
+  const atlas = atlasMaps();
+  track(atlas.map);
+  track(atlas.normalMap);
+  const propGeo = propBatch.build();
+  if (propGeo) {
+    const propMat = track(decorate(new THREE.MeshStandardMaterial({ map: atlas.map, normalMap: atlas.normalMap, normalScale: new THREE.Vector2(0.6, 0.6), vertexColors: true, roughness: 1, metalness: 1, envMapIntensity: 0.8 }), room, { key: "props", surf: true, practical: 0.6, fade: false }));
+    const props = new THREE.Mesh(propGeo, propMat);
+    props.castShadow = quality !== "low";
+    props.receiveShadow = quality !== "low";
+    group.add(props);
+  }
+
+  if (quality === "low") {
+    // today's minimal room: a plain floor in the dark, the table on a soft shadow of its own
+    const floor = new THREE.Mesh(track(new THREE.CircleGeometry(600, 48)), track(new THREE.MeshStandardMaterial({ color: new THREE.Color(e.surfaceGrain).multiplyScalar(0.35), roughness: 1 })));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = floorY;
+    group.add(floor);
+    const soft = document.createElement("canvas");
+    soft.width = soft.height = 128;
+    const pg = soft.getContext("2d")!;
+    const grad = pg.createRadialGradient(64, 64, 8, 64, 64, 64);
+    grad.addColorStop(0, "rgba(0,0,0,0.85)");
+    grad.addColorStop(0.55, "rgba(0,0,0,0.55)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    pg.fillStyle = grad;
+    pg.fillRect(0, 0, 128, 128);
+    const under = new THREE.Mesh(track(new THREE.PlaneGeometry(size.w * 1.35 + 4, size.d * 1.35 + 4)),
+      track(new THREE.MeshBasicMaterial({ map: track(new THREE.CanvasTexture(soft)), transparent: true, depthWrite: false, color: "#000" })));
+    under.rotation.x = -Math.PI / 2;
+    under.position.set(1.2, floorY + 0.02, -1.6);
+    group.add(under);
+  } else {
+    // ---- the set: walls, furniture, fire, windows (one mesh), the floor and the piece under the table
+    const r = roomFor(size, floorY);
+    room.setFade(Math.max(halfW, halfD) + spec.fade[0], Math.max(halfW, halfD) + spec.fade[1], spec.fade[2]);
+    const setBatch = new Batch();
+    const ctx: SetCtx = { set: setBatch, glow: setBatch, flames, room, rand, floorY, rich: quality === "high" };
+    spec.build(ctx, r);
+    const setGeo = setBatch.build();
+    if (setGeo) {
+      const setMat = track(decorate(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 1, envMapIntensity: 0.5 }), room, { key: `set-${p.id}`, surf: true, macro: 0.1, macroScale: 3, practical: 1, direct: 0.3, indirect: 0.55, cutaway: true, ibl: false }));
+      const setMesh = new THREE.Mesh(setGeo, setMat);
+      // (the room draws after the table and its cards, so whatever they hide is never shaded)
+      setMesh.renderOrder = 1;
+      group.add(setMesh);
+    }
+    const shadow = { x: 1.0, z: -1.2, hw: halfW + 0.2, hd: halfD + 0.2, soft: 3.2, dark: 0.8 };
+    const fm = floorMaps(spec.floor, spec.floorColors[0], spec.floorColors[1]);
+    track(fm.map);
+    track(fm.normalMap);
+    for (const t of [fm.map, fm.normalMap]) {
+      t.repeat.set(240 / spec.floorTile, 240 / spec.floorTile);
+      t.anisotropy = 4; // (seen low across the room; more taps cost the software renderer dearly)
+    }
+    const floorMat = track(decorate(new THREE.MeshStandardMaterial({ map: fm.map, normalMap: quality === "high" ? fm.normalMap : null, normalScale: new THREE.Vector2(0.8, 0.8), roughness: e.surface === "marble" || e.surface === "oilmetal" ? 0.42 : 0.88, envMapIntensity: 0.3 }), room, { key: `floor-${p.id}`, macro: 0.16, macroScale: 7, practical: 0.9, direct: 0.32, indirect: 0.45, under: shadow, ibl: false }));
+    const floor = new THREE.Mesh(track(new THREE.PlaneGeometry(240, 240)), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = floorY;
+    floor.renderOrder = 2; // (after the set too: what the furniture hides of it is never shaded)
+    group.add(floor);
+    if (spec.centre !== "none" && spec.centre !== "stones") {
+      const cm = centreMaps(spec.centre, p.ui.accent);
+      track(cm.map);
+      track(cm.normalMap);
+      const cw = size.w + spec.centreMargin[0] * 2, cd = size.d + spec.centreMargin[1] * 2;
+      for (const t of [cm.map, cm.normalMap]) t.anisotropy = 4;
+      // (blended, not alpha-tested: the part under the table is then never shaded)
+      const centreMat = track(decorate(new THREE.MeshStandardMaterial({ map: cm.map, normalMap: quality === "high" ? cm.normalMap : null, transparent: true, depthWrite: false, roughness: 0.95, envMapIntensity: 0.2 }), room, { key: `centre-${p.id}`, practical: 0.85, direct: 0.3, indirect: 0.5, under: shadow, ibl: false }));
+      const centre = new THREE.Mesh(track(new THREE.PlaneGeometry(1, 1)), centreMat);
+      centre.rotation.x = -Math.PI / 2;
+      // the rug lies lengthwise along the table's long side
+      const long = cw >= cd;
+      centre.rotation.z = long ? 0 : Math.PI / 2;
+      centre.scale.set(long ? cw : cd, long ? cd : cw, 1);
+      centre.position.y = floorY + 0.03;
+      centre.renderOrder = 2;
+      group.add(centre);
+    }
+    // shafts of window light (high: their ray-marched haze is the costliest thing in the room)
+    const beams = quality === "high" ? buildBeams(room, floorY, 0.04, [halfW + 1, halfD + 1], 14) : null;
+    if (beams) group.add(beams);
+    // ---- particles, on by default
+    for (const ps of spec.particles) {
+      const n = Math.round(ps.count * (quality === "high" ? 1 : 0.6));
+      const box = ps.where === "room" ? { min: [r.left + 1, floorY, r.back + 1], max: [r.right - 1, floorY + 24, r.front - 1] }
+        : ps.where === "air" ? { min: [r.left + 1, floorY + 4, r.back + 1], max: [r.right - 1, 22, r.front - 1] }
+        : ps.where(r);
+      const pts = buildParticles(room, { kind: ps.kind, color: ps.color, count: n, min: new THREE.Vector3(...box.min), max: new THREE.Vector3(...box.max), size: ps.size, opacity: ps.opacity, base: ps.base, beam: ps.beam, additive: ps.additive, seed: rand, keepOut: [halfW + 1.5, halfD + 1.5, 60] });
+      if (pts) group.add(pts);
+    }
+  }
+  room.update(0);
 
   group.traverse((o) => {
     const m = o as THREE.Mesh;
-    if (m.isMesh) {
+    if (m.isMesh || (o as THREE.Points).isPoints) {
       if (m.geometry) disposables.push(m.geometry);
       const mats = Array.isArray(m.material) ? m.material : [m.material];
       for (const mm of mats) if (mm) disposables.push(mm);
-    }
-    const s = o as THREE.Sprite;
-    if (s.isSprite) {
-      const mat = s.material as THREE.SpriteMaterial;
-      disposables.push(mat);
-      if (mat.map) disposables.push(mat.map);
     }
   });
 
@@ -466,16 +326,10 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     group,
     tableY,
     update(time: number) {
-      for (const f of flickers) {
-        const n = Math.sin(time * 7.3 + f.phase) * 0.5 + Math.sin(time * 13.1 + f.phase * 2) * 0.3 + Math.sin(time * 2.1 + f.phase) * 0.2;
-        f.light.intensity = f.base * (1 + n * f.amount);
-        if (f.flame) f.flame.scale.setScalar(0.5 * (1 + n * f.amount * 0.6));
-      }
-      for (const s of spinners) {
-        s.obj.rotation.y += s.speed * 0.016;
-        s.obj.position.y = s.y + Math.sin(time * 0.6 + s.phase) * s.bob;
-      }
-      particles?.update(time);
+      // the candles' lights on the table flutter with their flames; the room's practicals, flames, beams and
+      // particles follow the room's clock (on the GPU)
+      for (const f of flickers) f.light.intensity = f.base * flicker(time, f.phase, f.amount);
+      room.update(time);
     },
     dispose() {
       const seen = new Set<unknown>();
@@ -484,62 +338,6 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
         seen.add(d);
         d.dispose();
       }
-    },
-  };
-}
-
-function buildParticles(kind: Particles, color: string, count: number, size: TableSize, rand: () => number) {
-  if (count <= 0) return null;
-  const pos = new Float32Array(count * 3);
-  const seed = new Float32Array(count);
-  const spanX = size.w * 0.75 + 20;
-  const spanZ = size.d * 0.75 + 20;
-  for (let i = 0; i < count; i++) {
-    pos[i * 3] = (rand() - 0.5) * spanX;
-    pos[i * 3 + 1] = rand() * 12;
-    pos[i * 3 + 2] = (rand() - 0.5) * spanZ;
-    seed[i] = rand() * 100;
-  }
-  const base = pos.slice();
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-  const c = document.createElement("canvas");
-  c.width = c.height = 32;
-  const g = c.getContext("2d")!;
-  const grad = g.createRadialGradient(16, 16, 0, 16, 16, 16);
-  grad.addColorStop(0, "rgba(255,255,255,1)");
-  grad.addColorStop(1, "rgba(255,255,255,0)");
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 32, 32);
-  const tex = new THREE.CanvasTexture(c);
-  const big = kind === "fog";
-  const mat = new THREE.PointsMaterial({
-    color, map: tex, size: big ? 9 : kind === "petals" ? 0.22 : kind === "stars" ? 0.12 : 0.1,
-    transparent: true, opacity: big ? 0.07 : kind === "fireflies" ? 0.9 : 0.55,
-    depthWrite: false, blending: big ? THREE.NormalBlending : THREE.AdditiveBlending, sizeAttenuation: true,
-  });
-  const points = new THREE.Points(geo, mat);
-  const attr = geo.getAttribute("position") as THREE.BufferAttribute;
-  return {
-    points,
-    update(time: number) {
-      for (let i = 0; i < count; i++) {
-        const s = seed[i]!;
-        let x = base[i * 3]!;
-        let y = base[i * 3 + 1]!;
-        let z = base[i * 3 + 2]!;
-        switch (kind) {
-          case "embers": y = ((y + time * (0.4 + (s % 1))) % 12); x += Math.sin(time + s) * 0.3; break;
-          case "petals": case "oil": y = 12 - ((12 - y + time * 0.35 * (0.5 + (s % 1))) % 12); x += Math.sin(time * 0.7 + s) * 1.2; z += Math.cos(time * 0.5 + s) * 0.8; break;
-          case "sand": x = ((x + time * 2.5 + spanX / 2) % spanX) - spanX / 2; y = y * 0.4 + Math.sin(time + s) * 0.2; break;
-          case "fog": y = -2 + (y % 3); x += Math.sin(time * 0.05 + s) * 3; break;
-          case "fireflies": x += Math.sin(time * 0.4 + s) * 1.5; y += Math.sin(time * 0.9 + s * 2) * 0.6; z += Math.cos(time * 0.3 + s) * 1.5; break;
-          default: x += Math.sin(time * 0.15 + s) * 0.8; y += Math.sin(time * 0.25 + s * 1.7) * 0.5; z += Math.cos(time * 0.12 + s) * 0.8;
-        }
-        attr.setXYZ(i, x, y, z);
-      }
-      attr.needsUpdate = true;
-      if (kind === "fireflies" || kind === "stars") mat.opacity = 0.6 + Math.sin(time * 2) * 0.25;
     },
   };
 }

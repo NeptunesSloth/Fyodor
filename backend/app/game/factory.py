@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import secrets
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -44,6 +45,17 @@ class PlayerSetup:
     collection: list[CollectionCard] = field(default_factory=list)
 
 
+def deck_tokens(cards: list[DeckCard], related_tokens: Callable[[str], list[str]] | None = None) -> list[str]:
+    """The tokens a deck makes (the Bag of Extras' tokens, private to its owner): its Tokens section, then the tokens its
+    cards list (Scryfall's related tokens, ``related_tokens``), each printing once, at most 30."""
+    ids = [c.printing_id for c in cards if c.section == "tokens" and c.printing_id]
+    if related_tokens is not None:
+        for c in cards:
+            if c.printing_id and c.section in ("commander", "companion", "main"):
+                ids += related_tokens(c.printing_id)
+    return list(dict.fromkeys(ids))[:30]
+
+
 def new_game(
     players: list[PlayerSetup],
     *,
@@ -53,6 +65,7 @@ def new_game(
     shuffle: bool = True,
     first_player: int | None = None,
     rng: Any = _rng,
+    related_tokens: Callable[[str], list[str]] | None = None,
 ) -> GameState:
     if not 1 <= len(players) <= 6:
         raise ValueError("A game needs 1–6 players")
@@ -74,7 +87,7 @@ def new_game(
             life=settings.starting_life,
             deck_id=setup.deck_id,
             deck_name=setup.deck_name,
-            token_shortcuts=[c.printing_id for c in setup.cards if c.section == "tokens" and c.printing_id][:30],
+            token_shortcuts=deck_tokens(setup.cards, related_tokens),
         )
         from app.game.state import StickerSheet101
         from app.rules import sticker_sheets101

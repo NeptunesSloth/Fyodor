@@ -9,7 +9,7 @@ import { MacroDialog } from "./MacroDialog";
 import { SpawnDialog } from "./SpawnDialog";
 import { SettingsPanel } from "../pages/SettingsPanel";
 import { HostToolsDialog } from "./HostTools";
-import { HOTKEYS } from "./hotkeys";
+import { HOTKEYS, keyCap } from "./hotkeys";
 import { useEffect, useMemo, useState } from "react";
 import { CardDetails } from "../cards/CardDetails";
 import { CardFace } from "../cards/CardFace";
@@ -260,8 +260,7 @@ function SaveDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-const keyLabel = (k: string) =>
-  k.split("+").map((p) => (p === "ctrl" ? "Ctrl" : p === "shift" ? "Shift" : p === " " ? "Space" : p.length === 1 ? p.toUpperCase() : p[0]!.toUpperCase() + p.slice(1))).join("+");
+const keyLabel = keyCap;
 
 const SHORTCUTS: [string, string][] = [
   ["Double-click (battlefield)", "Tap / untap"],
@@ -271,7 +270,9 @@ const SHORTCUTS: [string, string][] = [
   ["Drag", "Move cards between zones; drag empty table to box-select"],
   ["Shift / Ctrl + click", "Add to selection"],
   ["Alt + drop", "Place by hand, without the rules engine"],
-  ["Middle-drag / wheel", "3D table: turn the view / zoom"],
+  ["Right-drag", "3D table: turn the view around the table, and tilt it (a right-click that doesn't move still opens the menu)"],
+  ["Middle-drag", "3D table: move the view across the table"],
+  ["Wheel", "3D table: zoom toward the pointer (over a life heart: change life)"],
 ];
 
 /** The common moves, in plain steps. */

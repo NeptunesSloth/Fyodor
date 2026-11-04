@@ -36,6 +36,8 @@ export interface Prefs {
   reactions: boolean;
   /** See other players' pings ("look here", G or Alt+click). */
   pings: boolean;
+  /** -- live cursors -- see the other players' pointers moving over the 3D table (yours still shows to them). */
+  cursors: boolean;
   /** When the table waits on me and this tab is in the background: flash the tab title and chime. */
   turnAlert: boolean;
   /** Answer a public choice (a color, a player, a number …) on a quick wheel at the pointer instead of the list (game/rules/ChoiceWheel.tsx). */
@@ -87,6 +89,7 @@ export const DEFAULT_PREFS: Prefs = {
   nudges: true,
   reactions: true,
   pings: true,
+  cursors: true,
   turnAlert: true,
   choiceWheel: true,
   handSort: "drawn",
