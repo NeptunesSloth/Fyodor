@@ -246,6 +246,112 @@ test("hearts (each half hovered) and empty zones up close, 2x", async ({ browser
   await context.close();
 });
 
+test("states, 2x: the hearts' and plates' pressed and focused, out of the game (read-only), and reduced motion", async ({ browser }) => {
+  test.skip(!!ONLY && ONLY !== "states", "SHOT_ONLY");
+  test.setTimeout(600_000);
+  const shot = async (page: Page, name: string, r: { x: number; y: number; width: number; height: number }) =>
+    page.screenshot({ path: `${OUT}/${PREFIX}-state-${name}-2x.png`, clip: { x: Math.max(0, r.x), y: Math.max(0, r.y), width: r.width, height: r.height } });
+  // -- the 3D table, in play: a heart half pressed (held down), a plate pressed, a plate focused from the keyboard
+  {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 });
+    const page = await context.newPage();
+    const { gameId } = await setup(page, ["Alice", "Bob"], 4);
+    await open(page, gameId, 8);
+    const mine = (await page.evaluate(() => window.__fyodor3d!.heartAt("p1")))!;
+    const around = { x: mine.x - 230, y: mine.y - 90, width: 360, height: 120 };
+    for (const [side, tag] of [[-1, "minus"], [1, "plus"]] as const) {
+      const half = (await page.evaluate((s) => window.__fyodor3d!.heartAt("p1", s), side))!;
+      await page.mouse.move(half.x, half.y - 6);
+      await page.mouse.down();
+      await page.waitForTimeout(400);
+      await shot(page, `heart-3d-${tag}-pressed`, around);
+      await page.mouse.up();
+      await page.waitForTimeout(400);
+    }
+    await page.mouse.move(2, 400);
+    const who = page.getByTestId("seat-p1");
+    const plate = (await page.locator(".t3d-plate-anchor:has([data-testid=seat-p1]) .t3d-seat-main").boundingBox())!;
+    const plateBox = { x: plate.x - 20, y: plate.y - 20, width: plate.width + 140, height: plate.height + 40 };
+    const w = (await who.boundingBox())!;
+    await page.mouse.move(w.x + w.width / 2, w.y + w.height / 3);
+    await page.mouse.down();
+    await page.waitForTimeout(300);
+    await shot(page, "plate-3d-pressed", plateBox);
+    await page.mouse.move(2, 400); // (let go off it: no panel)
+    await page.mouse.up();
+    await who.focus();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Shift+Tab");
+    await expect(who).toBeFocused();
+    await page.waitForTimeout(300);
+    await shot(page, "plate-3d-focus", plateBox);
+    await context.close();
+  }
+  // -- the 2D table: the heart pressed and focused
+  {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 });
+    const page = await context.newPage();
+    await page.addInitScript(() => localStorage.setItem("fyodor.renderer", "2d"));
+    const { gameId } = await setup(page, ["Alice", "Bob"], 4);
+    await page.goto(`/#/game/${gameId}`);
+    await expect(page.getByTestId("heart-p1")).toBeVisible({ timeout: 60_000 });
+    const intro = page.getByTestId("game-intro");
+    if (await intro.isVisible().catch(() => false)) await page.keyboard.press("Escape");
+    const box = (await page.getByTestId("heart-p1").boundingBox())!;
+    const around = { x: box.x - 20, y: box.y - 14, width: box.width + 180, height: box.height + 28 };
+    await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.4);
+    await page.mouse.down();
+    await page.waitForTimeout(300);
+    await shot(page, "heart-2d-minus-pressed", around);
+    await page.mouse.move(2, 600);
+    await page.mouse.up();
+    const heart = page.getByTestId("heart-p1");
+    await heart.focus();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Shift+Tab");
+    await expect(heart).toBeFocused();
+    await page.waitForTimeout(300);
+    await shot(page, "heart-2d-focus", around);
+    await context.close();
+  }
+  // -- out of the game (a rules game of three: Alice conceded): every heart a total, not a control; no + on the plates
+  for (const renderer of ["3d", "2d"] as const) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 });
+    const page = await context.newPage();
+    await page.addInitScript((r) => localStorage.setItem("fyodor.renderer", r), renderer);
+    const { gameId } = await setup(page, ["Alice", "Bob", "Casey"], 0, false, "assisted");
+    const r = await page.request.post(`/api/games/${gameId}/actions`, { data: { action: { type: "concede" }, as: "p1" } });
+    expect(r.ok(), await r.text()).toBeTruthy();
+    await page.goto(`/#/game/${gameId}`);
+    const intro = page.getByTestId("game-intro");
+    if (renderer === "3d") {
+      await expect(page.getByTestId("table-3d")).toBeVisible({ timeout: 90_000 });
+      if (await intro.isVisible().catch(() => false)) await page.keyboard.press("Escape");
+      await page.mouse.move(2, 400);
+      await page.waitForTimeout(3500);
+      const mine = (await page.evaluate(() => window.__fyodor3d!.heartAt("p1")))!;
+      await shot(page, "out-3d", { x: mine.x - 260, y: mine.y - 110, width: 420, height: 160 });
+      await page.screenshot({ path: `${OUT}/${PREFIX}-state-out-3d-table-1280x720.png`, scale: "css" });
+    } else {
+      await expect(page.getByTestId("heart-p1")).toBeVisible({ timeout: 60_000 });
+      if (await intro.isVisible().catch(() => false)) await page.keyboard.press("Escape");
+      await expect(page.getByTestId("heart-p1")).toBeDisabled();
+      const box = (await page.getByTestId("heart-p1").boundingBox())!;
+      await shot(page, "out-2d", { x: box.x - 20, y: box.y - 14, width: box.width + 180, height: box.height + 28 });
+    }
+    await context.close();
+  }
+  // -- reduced motion: one frame of the seat view
+  {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, reducedMotion: "reduce" });
+    const page = await context.newPage();
+    const { gameId } = await setup(page, ["Alice", "Bob"], 6);
+    await open(page, gameId, 12);
+    await page.screenshot({ path: `${OUT}/${PREFIX}-reduced-motion-1280x720.png` });
+    await context.close();
+  }
+});
+
 test("camera evidence, 1920x1080: a pan (middle-drag and arrows), and the farthest zoom with its frame-to-frame difference", async ({ page }) => {
   test.skip(!!ONLY && ONLY !== "evidence", "SHOT_ONLY");
   test.setTimeout(480_000);
