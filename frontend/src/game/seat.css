@@ -129,6 +129,19 @@ body.hud-minimal .seat-add { display: none; }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), inset 0 -1px 0 rgba(10, 40, 70, 0.6), 0 -1px 3px rgba(0, 0, 0, 0.45);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
 }
+/* the 3D table's plaques: every one the same size whatever the name (Table3D scales them all alike to the table, and
+   --plate-k is that scale, so the smallest text stays readable on screen); the turn and priority tabs are inset at
+   the plaque's top right (a tab above it would lie over the mat's edge), the hand count and counters below them */
+.t3d-seat:not(.seat-2d) .t3d-seat-main { min-width: 168px; align-items: stretch; gap: 8px; padding: 7px 11px 7px 12px; }
+.t3d-seat:not(.seat-2d) .seat-who { justify-content: flex-start; align-items: flex-start; }
+.t3d-seat:not(.seat-2d) .t3d-seat-name { font-size: max(12.5px, calc(10.5px / var(--plate-k, 1))); max-width: 120px; }
+.t3d-seat:not(.seat-2d) .seat-trackers { margin-left: auto; align-self: flex-end; justify-content: flex-end; }
+.t3d-seat:not(.seat-2d) .seat-hand { font-size: max(13px, calc(11px / var(--plate-k, 1))); }
+.t3d-seat:not(.seat-2d) .t3d-seat-flags {
+  left: auto; right: 11px; top: 7px; bottom: auto; transform: none; z-index: 1; pointer-events: none;
+  flex-direction: column; align-items: flex-end; gap: 3px;
+}
+.t3d-seat:not(.seat-2d) .t3d-flag { border-radius: 3px; padding: 3px 6px 2px; letter-spacing: 0.06em; font-size: max(10px, calc(9.5px / var(--plate-k, 1))); }
 /* narrower screens: compact plaques cover fewer cards (name moves to the tooltip-sized line) */
 @media (max-width: 1500px) {
   .t3d-seat-main { gap: 7px; padding: 3px 10px 3px 4px; }

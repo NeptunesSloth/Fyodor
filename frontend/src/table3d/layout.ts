@@ -73,7 +73,7 @@ export function heartTilt(seat: Pick<Seat, "duel">): number {
  * within limits) and the gap between it and the heart.
  */
 export const HEART_X = 1.3;
-export const PLATE = { w: 2.5, h: 1.25, gap: 0.08 };
+export const PLATE = { w: 2.8, h: 1.25, gap: 0.08 };
 /** 1v1: the other seat's fan of backs, right of its heart and plate (as I see it), its middle this far from the mat's. */
 export const DUEL_FAN_X = 3.95;
 

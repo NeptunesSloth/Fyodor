@@ -164,20 +164,29 @@ export function Table3D({ me }: { me: string }) {
           rel(dial),
         ].filter((b): b is NonNullable<typeof b> => !!b));
       }
-      for (const [pid, node] of Object.entries(plates.current)) {
-        if (!node) continue;
-        const pt = scene.seatScreen(pid, w, h);
-        if (!pt) continue;
-        // the plate is drawn at its size on the table (layout.ts PLATE), against its heart's left edge, so it grows and
-        // shrinks with the zoom like the heart (within limits: very far out it shows the portrait alone); sizes are
-        // measured in each form, so the compact switch doesn't flicker
+      // the plates are drawn at their size on the table (layout.ts PLATE), all at one scale: the table's middle distance
+      // (not each fitted to its own width, where a long name made its plate smaller), so they grow and shrink with the
+      // zoom like the hearts (within limits: very far out, the portrait alone). Seen low across the table, where the far
+      // side is much smaller than the near one, each follows its own distance instead, as its heart does.
+      const seatPts = Object.entries(plates.current).map(([pid, node]) => [node, node && scene.seatScreen(pid, w, h)] as const);
+      const ppus = seatPts.flatMap(([, pt]) => (pt?.visible ? [pt.pxPerUnit] : []));
+      const ppu = ppus.length ? ppus.reduce((a, b) => a + b, 0) / ppus.length : 0;
+      const spread = ppus.length ? 1 - Math.min(...ppus) / Math.max(...ppus) : 0;
+      const own = Math.max(0, Math.min(1, (spread - 0.2) / 0.25)); // 0: one scale (the seat view's ~0.15 spread) … 1: each its own
+      for (const [node, pt] of seatPts) {
+        if (!node || !pt) continue;
+        // (sizes are measured in each form, so the compact switch doesn't flicker)
         const form = node.classList.contains("compact") ? "small" : "full";
         if (node.offsetWidth) node.dataset[form] = `${node.offsetWidth},${node.offsetHeight}`;
         const size = (f: string) => (node.dataset[f] ?? "150,60").split(",").map(Number) as [number, number];
-        const [fullW] = size("full");
-        const want = (PLATE.w * pt.pxPerUnit) / Math.max(1, fullW);
+        const want = (PLATE.w * (ppu ? ppu * (pt.pxPerUnit / ppu) ** own : pt.pxPerUnit)) / PLATE_REF;
         const k = Math.max(PLATE_MIN, Math.min(PLATE_MAX, want));
         if (measure) node.classList.toggle("compact", want < PLATE_COMPACT);
+        const kk = k.toFixed(2);
+        if (node.dataset.k !== kk) {
+          node.dataset.k = kk;
+          node.style.setProperty("--plate-k", kk); // (seat.css: the smallest text grows as the plate shrinks)
+        }
         const [w0, h0] = size(node.classList.contains("compact") ? "small" : "full");
         const pw = w0 * k;
         const ph = h0 * k;
@@ -342,10 +351,14 @@ const EMPTY_TAGS: [string, string][] = [];
 /** The arrow keys' directions for panning the view. */
 const PAN_KEYS: Record<string, "left" | "right" | "up" | "down"> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" };
 
-/** A plate's scale limits (its size follows the zoom, layout.ts PLATE), and below which it shows the portrait alone. */
+/**
+ * A plate's width (CSS px) at its size on the table (layout.ts PLATE.w), its scale limits (its size follows the zoom),
+ * and the scale below which it shows the portrait alone (at the farthest zoom on every screen).
+ */
+const PLATE_REF = 168;
 const PLATE_MIN = 0.62;
 const PLATE_MAX = 1.3;
-const PLATE_COMPACT = 0.55;
+const PLATE_COMPACT = 0.62;
 
 const TIPS = [
   { title: "Players", text: "Click a player's plaque to see their counters, commander damage and actions." },
