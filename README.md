@@ -56,6 +56,18 @@ Without Actions, a Linux computer builds the Windows app under Wine: `scripts/bu
 `Fyodor-windows.zip` (it installs Wine and fetches the official Windows Python the first time; `SMOKE=1` also starts the
 built app under Wine and checks that it serves).
 
+**Windows installer:** `scripts/build-windows-installer.sh` → `Fyodor-Setup-<version>.exe`. This is an NSIS installer
+(`packaging/windows/fyodor.nsi`), built on Linux with `makensis`, which the script installs if it's missing.
+- **What it does:**
+  - installs into *Program Files* for everyone, with a Start-menu shortcut and an optional desktop shortcut;
+  - can add a firewall rule so the pod can join, on private networks only;
+  - registers an uninstaller in *Apps & features*.
+- **On uninstall:** decks, saves and the card database stay in the `Fyodor` folder in your home folder.
+- **Build options:** the script builds `dist/Fyodor` under Wine first when it's missing. `SMOKE=1` installs the result
+  silently into a fresh Wine prefix, starts it, checks that it serves, and uninstalls it.
+- **Icon:** `packaging/windows/make-icon.sh` remakes the app icon (`fyodor.ico`) from its SVGs.
+- **Signing:** the installer isn't signed, so Windows SmartScreen shows "Windows protected your PC" the first time.
+
 ## Requirements (running from source)
 
 - Python 3.11+

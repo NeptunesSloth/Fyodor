@@ -18,7 +18,7 @@ import { usePrefs } from "../state/prefs";
 import { isVisible, type CardStats, type GameCard, type GameView, type LibraryView, type ZoneName } from "../types/game";
 import { counterShort, isKeyword } from "../game/counters";
 import { changeLife, draw, send, tapCards, targetsFor } from "../game/actions";
-import { Batcher, runSeatAction, SEAT_ACTIONS, TypedCount, type SeatActionId } from "../game/seatActions";
+import { Batcher, runSeatAction, TypedCount, type SeatActionId } from "../game/seatActions";
 import { isOut } from "../game/outOfGame";
 import { cardMenu } from "../game/cardMenu";
 import { tableMenu } from "../game/selection";
@@ -48,7 +48,7 @@ import { CannonRig, fireCannon } from "./cannon3d";
 import { rollerEnv } from "./diceEnv";
 import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
 import { SeatProps } from "./seatProps";
-import { CARD_BACK_URL } from "../cards/cardBack";
+import { CARD_BACK_URL, checkCardBack, onCardBack } from "../cards/cardBack";
 import { TableMotion } from "./motion3d";
 import { EndScene3D } from "./endScene3d";
 import { onEndScene } from "../game/motion/endScene";
@@ -61,7 +61,7 @@ import {
 } from "./layout";
 import { handFan, showsFan } from "./handFan";
 import { whenProxyFontsReady } from "../cards/proxyMeasure";
-import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotStretch, slotTexture, textCardTexture } from "./textures";
+import { backCanvas, canvasTexture, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotStretch, slotTexture, textCardTexture } from "./textures";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
 import { FLAT_LOOK, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
 import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
@@ -882,25 +882,48 @@ export class TableScene {
     const key = `back:${owner}:${sleeve ?? ""}:${player?.color ?? ""}`;
     let m = this.materials.get(key);
     if (!m) {
-      // a sleeve, else the Magic card back the host cached with the art, else a back drawn here
-      const drawn = () => canvasTexture(backCanvas(player?.color ?? "#888"));
-      const tex = this.loadTexture(sleeve ?? CARD_BACK_URL, sleeve ? () => this.loadTexture(CARD_BACK_URL, drawn) : drawn);
-      m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 });
+      // a sleeve, else the Magic card back the host caches (cards/cardBack.ts), else the back drawn here meanwhile
+      const tex = this.loadTexture(sleeve ?? CARD_BACK_URL, sleeve ? () => this.loadTexture(CARD_BACK_URL, this.drawnBack) : this.drawnBack);
+      // trimmed to the card's rounded corners: the real back's image has square white ones (as a sleeve photo may)
+      m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, alphaMap: cardCornerMask(), alphaTest: 0.5 });
       this.materials.set(key, m);
+    }
+    if (!this.backWatch) {
+      // the host may fetch the real back after the table opened (it was offline then): every drawn back turns into it
+      this.backWatch = onCardBack(() => {
+        if (!checkCardBack.ready()) return;
+        this.failed.delete(CARD_BACK_URL);
+        for (const mat of this.materials.values()) {
+          if (!this.drawnBackTex || mat.map !== this.drawnBackTex) continue;
+          mat.map = this.loadTexture(CARD_BACK_URL, this.drawnBack);
+          mat.needsUpdate = true;
+        }
+      });
+      this.unsubs.push(this.backWatch);
     }
     return m;
   }
+
+  /** The drawn back (cards/drawnBack.ts), one texture for every seat (kept with the textures, so disposed with them). */
+  private drawnBack = (): THREE.Texture => {
+    if (!this.drawnBackTex) this.textures.set("drawn:card-back", (this.drawnBackTex = canvasTexture(backCanvas())));
+    return this.drawnBackTex;
+  };
+  private drawnBackTex: THREE.Texture | null = null;
+  private backWatch: (() => void) | null = null;
 
   private loadTexture(url: string, fallback: () => THREE.Texture): THREE.Texture {
     const cached = this.textures.get(url);
     if (cached) return cached;
     if (this.failed.has(url)) return fallback();
-    const tex = this.loader.load(url, undefined, undefined, () => {
+    const failed = () => {
       this.failed.add(url);
       this.textures.delete(url);
       // swap every material using it for the fallback
       for (const [k, m] of this.materials) if (m.map === tex) { m.map = fallback(); m.needsUpdate = true; void k; }
-    });
+    };
+    // (the Magic card back with its square white corners painted black, so none shows at the card's rounded corners)
+    const tex = url === CARD_BACK_URL ? cardImageTexture(url, failed) : this.loader.load(url, undefined, undefined, failed);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     this.textures.set(url, tex);
@@ -1764,11 +1787,16 @@ export class TableScene {
   }
 
   private setHover(id: string | null): void {
-    if (this.hovered === id) return;
-    this.hovered = id;
     const s = useGame.getState();
+    if (this.hovered === id) {
+      // -- card preview -- over empty table, any hover still showing goes: one a page element left behind (a hand card
+      // played, a stack entry resolved) as well as this table's own
+      if (!id && s.hover) s.setHover(null);
+      return;
+    }
+    this.hovered = id;
     if (id) s.setHover(id);
-    else if (s.hover && this.cards.has(s.hover)) s.setHover(null);
+    else if (s.hover) s.setHover(null);
     this.syncTethers();
     if (this.beams) this.syncCards(); // -- targeting -- the arrow follows the pointer from candidate to candidate
     this.canvas.style.cursor = id ? "pointer" : "";
@@ -1909,7 +1937,8 @@ export class TableScene {
     this.props.hoverHeart(hit?.heart ?? null, hit?.side); // the heart's − or + half under the pointer lights up
     const taxOf = hit?.tax ? this.view?.players.flatMap((p) => p.commanders).find((c) => c.key === hit.tax) : undefined;
     const dealt = taxOf && this.view ? dealtText(commanderDealt(this.view.players, taxOf.key)) : "";
-    const tip = taxOf ? `Commander tax for ${taxOf.name}: ${taxOf.tax} (click +2, right-click −2)${dealt ? `\nCommander damage dealt: ${dealt}` : ""}` : hit?.seatButton ? SEAT_ACTIONS.find((a) => a.id === hit.seatButton)?.title
+    // (a seat button names itself on the table, on its own plate: no browser tooltip over it)
+    const tip = taxOf ? `Commander tax for ${taxOf.name}: ${taxOf.tax} (click +2, right-click −2)${dealt ? `\nCommander damage dealt: ${dealt}` : ""}`
       : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life: click − to lose 1 or + to gain 1, right-click for 5, or the wheel` : "";
     if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
     this.canvas.style.cursor = hit?.seatButton || hit?.heart || hit?.tax ? "pointer" : "";

@@ -108,7 +108,7 @@ function DeckTile({ deck, record, onDelete, onDuplicate }: { deck: DeckSummary; 
   return (
     <li className={`dk-deck ${menu ? "menu-open" : ""}`}>
       <a className="dk-art-link" href={href} tabIndex={-1} aria-hidden>
-        <DeckArt ids={deck.commanders.length > 1 ? [deck.cover_id, partner] : [deck.cover_id]} />
+        <DeckArt ids={deck.commanders.length > 1 ? [deck.cover_id, partner] : [deck.cover_id]} wash={deck.color_identity} label={cmdrs || deck.name} />
       </a>
       <div className="dk-text">
         <h2 className="dk-name"><a href={href}>{deck.name}</a></h2>

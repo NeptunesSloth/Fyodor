@@ -9,7 +9,7 @@
  */
 import * as THREE from "three";
 import { fanCorners, handFan, showsFan } from "./handFan";
-import { CARD_W, DUEL_VIEW, HEART, heartSpot, heartTilt, MAT_D, MAT_W, PLATE, plaqueSpot, screenX, STRIP_X, taxSpot, toWorld, type Seat, type TableSize } from "./layout";
+import { CARD_W, DUEL_VIEW, HEART, heartSpot, heartTilt, MAT_D, MAT_W, PLATE, plaqueSpot, screenX, STRIP_X, TAX_R, taxSpot, toWorld, type Seat, type TableSize } from "./layout";
 
 /** The part of the canvas (normalized device coordinates, −1..1) the framed area must fit in. */
 export interface FrameRect { left: number; right: number; bottom: number; top: number }
@@ -102,10 +102,8 @@ export function seatPoints(seat: Seat, opts: { buttons?: boolean; piles?: boolea
   const hz = MAT_D / 2 + 0.2;
   const local: [number, number, number][] = [[-hx, 0, -hz], [hx, 0, -hz], [hx, 0, hz], [-hx, 0, hz]];
   if (opts.piles !== false) {
-    // the commander tax counters, just outside the command zone's slots
-    const [tx, tz] = taxSpot(0, seat);
-    const [, tz2] = taxSpot(1, seat);
-    local.push([tx + Math.sign(tx) * 0.32, 0, tz], [tx + Math.sign(tx) * 0.32, 0, tz2]);
+    // the commander tax medallions (layout.ts taxSpot): a partner's too
+    for (const [tx, tz] of [taxSpot(0, seat, !!opts.buttons, 2), taxSpot(1, seat, !!opts.buttons, 2)]) local.push([tx - TAX_R, 0, tz - TAX_R], [tx + TAX_R, 0, tz + TAX_R]);
   }
   if (opts.piles !== false) {
     // the heart, tipped up toward the camera (my side of the table): its edge nearest me resting over the felt, its far
@@ -116,8 +114,9 @@ export function seatPoints(seat: Seat, opts: { buttons?: boolean; piles?: boolea
     const toMe = Math.cos(seat.rot) >= 0 ? 1 : -1; // mat-local +z is toward me for my row
     for (const dx of [-HEART.w / 2, HEART.w / 2]) local.push([lx + dx, HEART.y, lz + toMe * half], [lx + dx, HEART.y + HEART.h * Math.sin(t), lz - toMe * half]);
   }
-  if (seat.duel && opts.buttons) local.push([-hx, 0, MAT_D / 2 + 1.0], [hx, 0, MAT_D / 2 + 1.0]);
-  else if (opts.buttons) local.push([-4.7, 0, MAT_D / 2 + 0.85], [0.7, 0, MAT_D / 2 + 0.85]);
+  // my buttons' row (table3d/seatProps.ts): in 1v1 from under my command zone to past my heart
+  if (seat.duel && opts.buttons) local.push([-(STRIP_X + 0.7), 0, MAT_D / 2 + 1.0], [hx, 0, MAT_D / 2 + 1.0]);
+  else if (opts.buttons) local.push([-4.9, 0, MAT_D / 2 + 0.85], [1.05, 0, MAT_D / 2 + 0.85]);
   const out = local.map(([lx, y, lz]) => {
     const [x, z] = toWorld(seat, lx, lz);
     return new THREE.Vector3(x, y, z);

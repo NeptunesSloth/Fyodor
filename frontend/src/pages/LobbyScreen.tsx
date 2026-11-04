@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CardFace } from "../cards/CardFace";
 import { ColorPips } from "../components/ColorPips";
 import { Modal } from "../components/Modal";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
@@ -38,6 +39,7 @@ import { contrast } from "../theme/planes";
 import type { DeckSummary } from "../types/decks";
 import { SPECTATOR, type LobbySeat, type LobbySettings, type LobbyView } from "../types/game";
 import { TablePermissionsSetting } from "./TablePermissionsSetting";
+import { SANDBOX_HINT, SANDBOX_LOCK, TABLE_FORMATS, isSandbox, nightName } from "../game/tableFormat";
 import { ownDecks, type OwnDeck, type OwnDecks } from "./lanBits";
 import { CommanderArt } from "./CommanderArt";
 import { PersonalDeckImports } from "./PersonalDeckImports";
@@ -61,6 +63,16 @@ const MAX_FILE = 2 * 1024 * 1024;
 /** The host's choice of first player, in a word or two (the full rule is the button's tooltip). */
 const MODE_NAME: Record<TurnOrderMode, string> = { pod: "Pod rule", random: "Random", seats: "Seat order" };
 const AUTOMATION_NAME = { off: "Off", assisted: "Assisted", full: "Full" } as const;
+const TURN_ORDER_HINT: Record<TurnOrderMode, string> = {
+  pod: "Everyone rolls a d20 for the first game; then the winner goes last.",
+  random: "A random first player, then around the table.",
+  seats: "Seat 1 goes first, then around the table.",
+};
+const AUTOMATION_HINT = {
+  off: "The manual table: nothing is enforced.",
+  assisted: "Validates and asks before important steps.",
+  full: "Supported rules happen by themselves.",
+} as const;
 
 /**
  * Pregame table: take a seat, bring your own deck, get ready; the host starts the game. The room is drawn as the table it
@@ -133,7 +145,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
         <div className="lobby-title">
           <h1 title={s.name}>{s.name}</h1>
           <p className="lobby-sub">
-            <span>Commander table</span>
+            <span data-testid="lobby-format" title={isSandbox(s.format) ? SANDBOX_HINT : undefined}>{nightName(s.format)}</span>
             <span>{claimed.length} of {lobby.seats.length} seats taken</span>
             {lobby.spectators > 0 && <span>{lobby.spectators} watching</span>}
           </p>
@@ -149,7 +161,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
       <main className="lobby-table">
         <div className={`seat-row ${claimed.length ? "" : "all-open"}`} style={{
           ["--cols" as string]: claimed.length
-            ? `repeat(${claimed.length}, minmax(0, var(--plinth-w)))${open.length ? " minmax(216px, 272px)" : ""}`
+            ? `repeat(${claimed.length}, minmax(0, var(--plinth-w)))${open.length ? " minmax(216px, var(--chairs-w, 272px))" : ""}`
             : "minmax(0, 1fr)",
         }}>
           {claimed.map((seat) => (
@@ -388,12 +400,9 @@ function LinkGlyph() {
 }
 
 /** An empty chair: a high-backed seat drawn on the icon grid. */
+/** An open seat's chair (the icon family's own, as on the Play page). */
 function ChairGlyph() {
-  return (
-    <svg className="icon" width={30} height={30} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M7.5 13V5.5a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2V13M6 13h12v2.5H6zM7.5 15.5V21M16.5 15.5V21M7.5 18.5h9" />
-    </svg>
-  );
+  return <Icon name="chair" size={28} />;
 }
 
 function WarnGlyph() {
@@ -465,7 +474,7 @@ function NextGame({ lobby, busy, onRun, onSettings }: {
           <dt>Mulligan</dt>
           <dd>{lobby.mulligan?.display_name ?? MULLIGAN_LABEL[s.mulligan_rule] ?? s.mulligan_rule}{lobby.mulligan?.needs_definition ? " (not defined yet)" : ""}</dd>
         </div>
-        <div title={DECK_PRIVACY_HINT[s.deck_privacy]}><dt>Decks</dt><dd>{DECK_PRIVACY_LABEL[s.deck_privacy]}</dd></div>
+        <div title={DECK_PRIVACY_HINT[s.deck_privacy]}><dt>Deck privacy</dt><dd>{DECK_PRIVACY_LABEL[s.deck_privacy]}</dd></div>
         <div><dt>Automation</dt><dd>{AUTOMATION_NAME[level]}</dd></div>
         {level === "off" && <div><dt>Response helper</dt><dd>{s.priority_helper === "simple" ? "On" : "Off"}</dd></div>}
       </dl>
@@ -635,17 +644,23 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
 
       <div className={`pl-art ${deck ? "" : "empty"}`}>
         {cmdId ? <CommanderArt id={cmdId} /> : deck ? <CommanderArt back /> : (
-          <span className="pl-slot">
+          <span className={`pl-slot ${mine ? "pl-slot-mine" : ""}`}>
             {mine ? (
-              <button className="tt-btn brass pl-choose" disabled={busy} onClick={onChoose} data-testid="choose-deck">
-                <Icon name="cards" size={16} />Choose deck
-              </button>
+              <>
+                {/* the deck this seat is waiting for: a face-down card on the felt, under the button that brings it */}
+                <span className="pl-waiting" aria-hidden><CardFace faceDown /><CardFace faceDown /></span>
+                <button className="tt-btn brass pl-choose" disabled={busy} onClick={onChoose} data-testid="choose-deck">
+                  <Icon name="cards" size={16} />Choose deck
+                </button>
+              </>
             ) : <Icon name="cards" size={28} />}
           </span>
         )}
-        <span className={`pl-status ${state}`} data-testid={`seat-status-${seat.id}`}>
-          {state === "ready" ? <><Icon name="check" size={14} />Ready</> : state === "deck" ? "Not ready" : mine ? "No deck yet" : "Choosing a deck…"}
-        </span>
+        {!(mine && !deck) && ( // (my own empty seat: Choose deck and the footer already say there's no deck)
+          <span className={`pl-status ${state}`} data-testid={`seat-status-${seat.id}`}>
+            {state === "ready" ? <><Icon name="check" size={14} />Ready</> : state === "deck" ? "Not ready" : mine ? "No deck yet" : "Choosing a deck…"}
+          </span>
+        )}
       </div>
 
       <div className="pl-deck">
@@ -654,13 +669,14 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
             <p className="pl-cmdr" title={title ?? undefined}>{title}</p>
             {(deck.commanders?.length || deck.color_identity) && (
               <p className="pl-sub">
-                {deck.commanders?.length && deck.name ? <span className="pl-deckname">{deck.name}</span> : null}
+                {deck.commanders?.length && deck.name && deck.name.trim().toLowerCase() !== (title ?? "").trim().toLowerCase()
+                  ? <span className="pl-deckname">{deck.name}</span> : null}
                 {deck.color_identity && <ColorPips colors={deck.color_identity} />}
               </p>
             )}
             <p className="pl-facts">
               <span><b>{deck.card_count}</b> cards</span>
-              {cov && covTotal > 0 && (
+              {cov && covTotal > 0 && !isSandbox(lobby.settings.format) && ( // (a Sandbox table starts manual: no automation to promise)
                 <span title={`FULL ${cov.FULL} · PARTIAL ${cov.PARTIAL} · REVIEW ${cov.REVIEW} · MANUAL ${cov.MANUAL}`} data-testid={`coverage-${seat.id}`}>
                   <b>{Math.round((cov.FULL / covTotal) * 100)}%</b> automated
                 </span>
@@ -693,7 +709,7 @@ function SeatPlinth({ seat, mine, lobby, busy, onChoose, onRun, arranging, own, 
           </>
         ) : (
           mine && own ? <OwnDeckPicks own={own} busy={busy} onPick={onPick} onMore={onChoose} /> : (
-            <p className="pl-empty">{mine ? "Bring any Commander deck: pick one you saved, paste a list or import it." : `${seat.name} is choosing a deck.`}</p>
+            <p className="pl-empty">{mine ? `Bring any ${isSandbox(lobby.settings.format) ? "" : "Commander "}deck: pick one you saved, paste a list or import it.` : `${seat.name} is choosing a deck.`}</p>
           )
         )}
       </div>
@@ -763,7 +779,7 @@ function OpenSeat({ seat, lobby, busy, onRun, invite, arranging }: {
         <span className="os-actions">
           {lobby.is_host && invite && <CopyButton text={invite} label={<><LinkGlyph />Invite</>} done="Link copied" className="os-invite" />}
           {iAmSeated && (
-            <button className="tt-btn ghost" disabled={busy} onClick={() => void onRun(() => changeLobbySeat(gameId, seat.id))}>Sit here</button>
+            <button className="tt-btn" disabled={busy} onClick={() => void onRun(() => changeLobbySeat(gameId, seat.id))}>Sit here</button>
           )}
           {watcher && (
             <button className="tt-btn brass" disabled={busy} data-testid={`take-seat-${seat.id}`}
@@ -1028,7 +1044,21 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
         <button className="tt-btn brass" disabled={busy} onClick={() => void save()}>Save</button>
       </>
     }>
-      <div className="settings-grid">
+      <div className="settings-grid lobby-settings">
+        <fieldset className="field fmt-field">
+          <legend>Format</legend>
+          <div className="fmt-choice" role="radiogroup" aria-label="Format" data-testid="lobby-format-choice">
+            {TABLE_FORMATS.map((f) => (
+              <label key={f.id} className={`fmt-opt ${draft.format === f.id ? "on" : ""}`}>
+                <input type="radio" name="lobby-format" value={f.id} checked={draft.format === f.id} data-testid={`lobby-format-${f.id}`}
+                  onChange={() => set(f.id === "sandbox" ? { format: f.id, automation: "off" }
+                    : { format: f.id, automation: isSandbox(draft.format) ? "full" : draft.automation })} />
+                <span className="fmt-icon"><Icon name={f.icon} size={20} /></span>
+                <span className="fmt-text"><b>{f.name}</b><span>{f.lines.map((l) => <span key={l} className="fmt-line">{l}</span>)}</span></span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <label className="field">Table name<input value={draft.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} /></label>
         <label className="field">Seats
           <select value={draft.seats} onChange={(e) => set({ seats: Number(e.target.value) })}>
@@ -1036,7 +1066,7 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
           </select>
         </label>
         <label className="field">Starting life
-          <input type="number" min={1} value={draft.starting_life ?? ""} placeholder={draft.format === "commander" ? "40" : "20"}
+          <input type="number" min={1} value={draft.starting_life ?? ""} placeholder="40"
             onChange={(e) => set({ starting_life: e.target.value ? Number(e.target.value) : null })} />
         </label>
         <label className="field">Deck privacy
@@ -1050,23 +1080,34 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
             {MULLIGAN_RULES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </label>
-        <label className="field">Automation
-          <select data-testid="lobby-automation" value={draft.automation ?? "off"} onChange={(e) => set({ automation: e.target.value as LobbySettings["automation"] })}>
-            <option value="off">Off — sandbox, nothing enforced</option>
-            <option value="assisted">Assisted — validates and asks before important steps</option>
-            <option value="full">Full — supported rules happen by themselves</option>
-          </select>
-        </label>
+        {isSandbox(draft.format) ? (
+          <div className="field locked-field">
+            <span id="lobby-auto-label">Automation</span>
+            <span className="locked-value" data-testid="lobby-automation-locked" aria-labelledby="lobby-auto-label" aria-describedby="lobby-auto-why">
+              <Icon name="lock" size={14} label="Locked" />Off
+            </span>
+            <span className="hint" id="lobby-auto-why">{SANDBOX_LOCK}</span>
+          </div>
+        ) : (
+          <label className="field">Automation
+            <select data-testid="lobby-automation" value={draft.automation ?? "off"} onChange={(e) => set({ automation: e.target.value as LobbySettings["automation"] })}>
+              {(["off", "assisted", "full"] as const).map((lv) => <option key={lv} value={lv}>{AUTOMATION_NAME[lv]}</option>)}
+            </select>
+            <span className="hint">{AUTOMATION_HINT[draft.automation ?? "off"]}</span>
+          </label>
+        )}
         <label className="field">Turn order
           <select data-testid="lobby-turn-order" value={draft.turn_order ?? "pod"} onChange={(e) => set({ turn_order: e.target.value as LobbySettings["turn_order"] })}>
-            {(["pod", "random", "seats"] as const).map((m) => <option key={m} value={m}>{TURN_ORDER_LABEL[m]}</option>)}
+            {(["pod", "random", "seats"] as const).map((m) => <option key={m} value={m}>{MODE_NAME[m]}</option>)}
           </select>
+          <span className="hint">{TURN_ORDER_HINT[draft.turn_order ?? "pod"]}</span>
         </label>
         <label className="field">Response helper
           <select value={draft.priority_helper} onChange={(e) => set({ priority_helper: e.target.value as LobbySettings["priority_helper"] })}>
-            <option value="simple">On — ask the table before resolving / moving on</option>
+            <option value="simple">On</option>
             <option value="off">Off</option>
           </select>
+          <span className="hint">{draft.priority_helper === "simple" ? "Asks the table before resolving or moving on (with automation off)." : "Nobody is asked: play moves on."}</span>
         </label>
         <TablePermissionsSetting value={draft.card_permissions} onChange={(v) => set({ card_permissions: v })} />
       </div>

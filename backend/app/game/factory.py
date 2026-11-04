@@ -21,7 +21,7 @@ from app.game.state import (
 PLAYER_COLORS = ("#d4a852", "#5fa8d3", "#c9677a", "#6fbf8f", "#a68bd6", "#d98c4a")
 SECTION_ZONES = {"commander": "command", "companion": "companion", "main": "library", "sideboard": "sideboard",
                  "attractions": "attractions"}  # -- Attractions (wave 100L) -- 717.2: the supplementary Attraction deck
-STARTING_LIFE = {"commander": 40}
+STARTING_LIFE = {"commander": 40, "sandbox": 40}  # Sandbox plays Commander decks, so Commander's life (editable)
 _rng = secrets.SystemRandom()
 
 
@@ -56,7 +56,7 @@ def new_game(
 ) -> GameState:
     if not 1 <= len(players) <= 6:
         raise ValueError("A game needs 1–6 players")
-    settings = settings or GameSettings(starting_life=STARTING_LIFE.get(format, 20))
+    settings = settings or GameSettings(starting_life=STARTING_LIFE.get(format, 40))
     state_players: dict[str, PlayerState] = {}
     seat_order: list[str] = []
     cards: dict[str, CardInstance] = {}

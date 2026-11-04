@@ -23,6 +23,7 @@ import { useGame } from "../state/gameStore";
 import type { CardData } from "../types/cards";
 import { isVisible } from "../types/game";
 import { send } from "./actions";
+import { uniqueTokens } from "./bags";
 import { GameCardFace } from "./GameCardFace";
 
 export function GameDialogs({ me }: { me: string }) {
@@ -71,7 +72,7 @@ function TokenDialog({ me, sourceId, onClose }: { me: string; sourceId: string |
       if (!isVisible(c) || c.owner !== me || !c.card_id) continue;
       for (const t of cache[c.card_id]?.related_tokens ?? []) ids.add(t.id);
     }
-    return [...ids];
+    return uniqueTokens([...ids], (id) => cache[id]); // each token once, whichever printings the cards list
   }, [view, cache, me]);
 
   useEffect(() => requestCards(suggested), [suggested]);

@@ -55,6 +55,15 @@ const shot = async (page: Page, name: string) => {
   await page.evaluate(() => document.getAnimations().forEach((a) => { if (a.playState === "running") a.finish(); }));
   await page.screenshot({ path: `${SHOTS}/${name}.png` });
 };
+/** The roll panel, from the Bag of Extras by my seat (its dice): the 2D button, or the 3D table's medallion. */
+async function openRollPanel(page: Page) {
+  const button = await page.evaluate(() => window.__fyodor3d?.buttonAt("extras" as never) ?? null);
+  if (button) await page.mouse.click(button.x, button.y);
+  else await page.getByTestId("seat-btn-extras").click();
+  await page.getByTestId("extras-panel").getByTestId("dice-button").click();
+  await expect(page.getByTestId("dice-panel")).toBeVisible();
+}
+
 const frames = (page: Page) => page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => done())))));
 
 test.beforeAll(() => fs.mkdirSync(SHOTS, { recursive: true }));
@@ -65,7 +74,7 @@ test("2D table: the dice cannon, the draw bag and the Bag of Extras", async ({ p
   await expect(page.getByTestId("seat-p2")).toBeVisible();
   // -- the dice cannon: who goes first. Caught in flight, then at rest.
   await page.evaluate(() => window.__fyodorDice!.freeze(1250));
-  await page.getByTestId("dice-button").click();
+  await openRollPanel(page);
   await expect(page.getByTestId("dice-panel")).toBeVisible();
   await shot(page, "2d-roll-panel-toys");
   await page.getByTestId("cannon-first").click();
@@ -95,7 +104,7 @@ test("2D table: the dice cannon, the draw bag and the Bag of Extras", async ({ p
   await frames(page);
   await shot(page, "2d-cannon-first");
   // a volley of the dice picked in the roll panel, onto the firer's mat
-  await page.getByTestId("dice-button").click();
+  await openRollPanel(page);
   await page.getByTestId("dice-kind-d6").click();
   await page.getByRole("button", { name: "One more" }).click();
   await page.getByRole("button", { name: "One more" }).click();
@@ -108,7 +117,7 @@ test("2D table: the dice cannon, the draw bag and the Bag of Extras", async ({ p
   await expect.poll(() => page.evaluate(() => window.__fyodorDice2d!.state().map((t) => t.dice.map((d) => d.label).join(",")))).toContain(volley.results.join(","));
 
   // -- the draw bag: filled from the roll panel, its chits never in any view
-  await page.getByTestId("dice-button").click();
+  await openRollPanel(page);
   await page.getByTestId("bag-open").click();
   const panel = page.getByTestId("bag-panel");
   await expect(panel).toBeVisible();
@@ -150,7 +159,7 @@ test("3D table: the dice cannon rolls in, fires who goes first and a volley, and
   const { lastRoll } = await newGame(page, "3d");
   await expect.poll(() => page.evaluate(() => !!window.__fyodor3d), { timeout: 60_000 }).toBe(true);
   await page.evaluate(() => window.__fyodorDice!.freeze(1250));
-  await page.getByTestId("dice-button").click();
+  await openRollPanel(page);
   await page.getByTestId("cannon-first").click();
   await page.keyboard.press("Escape");
   await expect.poll(async () => (await lastRoll()).cannon?.mode).toBe("first");
@@ -171,7 +180,7 @@ test("3D table: the dice cannon rolls in, fires who goes first and a volley, and
   await shot(page, "3d-cannon-first");
   // a volley: 4d8 across the table onto my mat
   await page.evaluate(() => window.__fyodorDice!.freeze(1350));
-  await page.getByTestId("dice-button").click();
+  await openRollPanel(page);
   await page.getByTestId("dice-kind-d8").click();
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "One more" }).click();
   await page.getByTestId("cannon-fire").click();
@@ -187,12 +196,12 @@ test("3D table: the dice cannon rolls in, fires who goes first and a volley, and
   await shot(page, "3d-cannon-volley");
 });
 
-test("3D table: the draw bag draws, and the Bag of Extras is the pouch by the seat", async ({ page }) => {
+test("3D table: the draw bag draws, and the Bag of Extras is the brass button by the seat", async ({ page }) => {
   test.setTimeout(480_000);
   const { view } = await newGame(page, "3d");
   await expect.poll(() => page.evaluate(() => !!window.__fyodor3d), { timeout: 60_000 }).toBe(true);
   // the draw bag
-  await page.getByTestId("dice-button").click();
+  await openRollPanel(page);
   await page.getByTestId("bag-open").click();
   const panel = page.getByTestId("bag-panel");
   await panel.getByRole("button", { name: "Player names" }).click();
@@ -206,7 +215,7 @@ test("3D table: the draw bag draws, and the Bag of Extras is the pouch by the se
   await shot(page, "3d-bag-draw"); // (the chit goes after a few seconds: a frame of software WebGL can take that long)
   await page.keyboard.press("Escape");
 
-  // the Bag of Extras: the pouch past my seat's buttons
+  // the Bag of Extras: the medallion past my seat's buttons
   const pouch = (await page.evaluate(() => window.__fyodor3d!.buttonAt("extras" as never)))!;
   expect(pouch).not.toBeNull();
   await page.mouse.click(pouch.x, pouch.y);

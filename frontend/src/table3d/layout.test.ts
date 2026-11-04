@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commandSlot, heartSpot, localToVirtual, MAT_D, MAT_W, pileAt, PILES, pileSpot, plaqueSpot, seats, tableSize, taxSpot, toLocal, toWorld, virtualToLocal, type Seat } from "./layout";
+import { CARD_H, commandSlot, heartSpot, localToVirtual, MAT_D, MAT_W, pileAt, PILES, pileSpot, plaqueSpot, seats, tableSize, TAX_R, taxSpot, toLocal, toWorld, virtualToLocal, type Seat } from "./layout";
 
 /** Is a world point on a seat's mat (with its edge)? */
 const onMat = (seat: Seat, x: number, z: number) => {
@@ -101,8 +101,13 @@ describe("3D table layout", () => {
         expect([side("library"), side("graveyard"), side("exile")]).toEqual([1, 1, 1]);
         expect(side("command")).toBe(-1);
         expect(Math.sign(toWorld(seat, ...commandSlot(seat, 1))[0] - seat.x)).toBe(-1); // a partner's slot too
-        // the tax counter sits outside its slot, away from the mat
-        expect(Math.abs(taxSpot(0, seat)[0])).toBeGreaterThan(Math.abs(commandSlot(seat, 0)[0]));
+        // the tax medallion sits in its command zone's column, clear of the slots (on the table side of them)
+        for (const count of [1, 2]) {
+          const [tx, tz] = taxSpot(count - 1, seat, false, count);
+          expect(tx).toBe(commandSlot(seat, 0)[0]);
+          for (let i = 0; i < count; i++) expect(Math.abs(tz - commandSlot(seat, i)[1])).toBeGreaterThanOrEqual(CARD_H / 2 + TAX_R);
+          expect(tz).toBeGreaterThan(-MAT_D / 2);
+        }
         // and dropping on the drawn pile finds it
         expect(pileAt(...pileSpot(seat, "graveyard"), seat)).toBe("graveyard");
         expect(pileAt(...commandSlot(seat, 1), seat)).toBe("command");

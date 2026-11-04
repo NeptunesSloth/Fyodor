@@ -3,7 +3,6 @@
  * interface; these only appear when they have something to say.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { previewSide } from "./targeting/preview";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { askNumber } from "../components/Prompt";
 import { useCardCache } from "../state/cardCache";
@@ -20,32 +19,133 @@ import { isOut } from "./outOfGame";
 import { HAND_SORTS, HAND_SORT_LABEL } from "./handSort";
 import { domBoxOf, placeAnchored, selectionAnchor } from "./anchors";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
+import { clearHover, hoverElement, placePreview, previewKey, type Box } from "./hoverCard";
+import { toyIconUrl } from "./seatIcons";
 
-/** Large card preview that floats at the edge of the table while you hover a card. */
-/** skipHand: on the 3D table a hovered hand card already lifts out of the fan at full size. */
+/** The hovered card's rectangle on screen: its picture on the page, or where the 3D table draws it. */
+function cardBox(id: string): Box | null {
+  const el = hoverElement(id) ?? document.querySelector(`[data-card-id="${CSS.escape(id)}"]`);
+  const r = el?.getBoundingClientRect();
+  if (r && r.width) return r;
+  const p = window.__fyodor3d?.cardAt(id);
+  return p ? { left: p.x - 40, right: p.x + 40, top: p.y - 56, bottom: p.y + 56 } : null;
+}
+
+/** What the preview keeps clear of: the plates and strips, the rail by my mat, the turn panel, the stack, my hand, panels. */
+const PREVIEW_CLEAR = ".t3d-seat, .seat-strip, .area-side, .turn-dial-wrap, .rules-stack-wrap, .stack-widget, .resp-bar, .t3d-cams, .log-drawer, .tool-tray, .hand-cards, .selection-bar, .decision-panel";
+/** The least the preview's card picture shrinks to, wide, before its rules text scrolls instead. */
+const PREVIEW_ART_MIN = 120;
+/** How long a preview whose rules text scrolls stays after the pointer leaves its card: time to reach the panel. */
+const PREVIEW_LINGER = 450;
+
+/**
+ * Where the preview stands, for which card (and whether its words had arrived): `art`, its picture's width when it
+ * shrinks to fit; `scroll`, the height its rules text scrolls in when even a small picture leaves too little room.
+ */
+type PreviewPlace = { key: string; side: "left" | "right"; left: number; top: number; maxH: number; art: number | null; scroll: number | null };
+
+/**
+ * The large card preview, docked at the right edge under the top bar while you hover a card. It never follows the
+ * pointer: it moves to the left only while the hovered card itself lies under it, and then into the battlefield's gutter,
+ * clear of the plates. Narrow, its picture over its words and only as tall as they are; it never covers the turn panel
+ * or other chrome: in a short space its picture shrinks, and only past that does its rules text scroll (the panel then
+ * stays a moment after the pointer leaves the card and holds while the pointer is on it, so the text can be read).
+ * It goes when the hover ends (the pointer leaves the card, or the card goes away), on Esc, or with its close button,
+ * until the next hover. skipHand: on the 3D table a hovered hand card already lifts out of the fan at full size.
+ */
 export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   const hover = useGame((s) => s.hover);
-  const inHand = useGame((s) => !!s.hover && !!s.view?.cards[s.hover]?.zone.endsWith(":hand"));
-  const side = useRef<"left" | "right">("right");
-  const [pos, setPos] = useState<"left" | "right">("right");
+  const panel = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<PreviewPlace | null>(null);
+  const [held, setHeld] = useState<string | null>(null); // a scrolling preview the pointer is on
+  const [linger, setLinger] = useState<string | null>(null); // a scrolling preview just left by the pointer
+  const lastScroll = useRef<{ id: string; scroll: boolean } | null>(null);
+  const shown = hover ?? held ?? linger;
+  const inHand = useGame((s) => !!shown && !!s.view?.cards[shown]?.zone.endsWith(":hand"));
+  const printId = useGame((s) => {
+    if (!shown) return null;
+    if (shown.startsWith("print:")) return shown.slice(6);
+    return (s.view?.cards[shown] as { card_id?: string } | undefined)?.card_id ?? null;
+  });
+  const ready = useCardCache((c) => !!printId && !!c.cards[printId]); // (its text arrives with the card's data: measured again)
   useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      const next = e.clientX > window.innerWidth * 0.62 ? "left" : "right";
-      if (next !== side.current) {
-        side.current = next;
-        setPos(next);
-      }
+    const close = () => { setHeld(null); setLinger(null); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+      void previewKey(e);
     };
-    window.addEventListener("pointermove", onMove);
-    return () => window.removeEventListener("pointermove", onMove);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("fyodor:preview-close", close);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("fyodor:preview-close", close); };
   }, []);
-  const stackBusy = useGame((s) => (s.view?.stack.length ?? 0) > 0);
-  if (!hover || (skipHand && inHand)) return null;
-  // keep clear of the stack widget (top-right) while something is on the stack; while targeting, clear of the card itself
-  const place = previewSide(hover) ?? (stackBusy ? "left" : pos);
+  // the hover ended on a preview whose text scrolls: it stays a moment, for the pointer to reach it
+  useEffect(() => {
+    if (hover) { setLinger(null); return; }
+    const last = lastScroll.current;
+    if (!last?.scroll || held) return;
+    setLinger(last.id);
+    const t = window.setTimeout(() => setLinger(null), PREVIEW_LINGER);
+    return () => window.clearTimeout(t);
+  }, [hover]); // eslint-disable-line react-hooks/exhaustive-deps
+  // placed once per card (and again when its words arrive), before it shows: a hidden render at full size is measured,
+  // then the panel goes where it is clear, its picture as large as the room lets it be
+  const key = `${shown}|${ready}`;
+  const measuring = !place || place.key !== key;
+  useLayoutEffect(() => {
+    const node = panel.current;
+    if (!shown || !node || !measuring) return;
+    const w = node.offsetWidth;
+    const naturalH = node.offsetHeight;
+    const art = node.querySelector(".insp-image") as HTMLElement | null;
+    const artW = art?.offsetWidth || 230;
+    const artH = art?.offsetHeight || (artW * 88) / 63;
+    const oracle = node.querySelector(".insp-oracle") as HTMLElement | null;
+    const oracleH = oracle?.offsetHeight ?? 0;
+    const obstacles = [...document.querySelectorAll(PREVIEW_CLEAR)].map((n) => n.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+    const top = Math.max(96, ...[...document.querySelectorAll(".game-top, .t3d-cams")].map((n) => n.getBoundingClientRect().bottom + 8));
+    const minArtH = (PREVIEW_ART_MIN * 88) / 63;
+    const shortest = naturalH - artH + minArtH; // with the smallest picture
+    const p = placePreview({ vw: window.innerWidth, vh: window.innerHeight, w, minH: Math.min(shortest, 300), top, naturalH: Math.min(naturalH, shortest), card: cardBox(shown), obstacles });
+    let fitArt: number | null = null;
+    let scroll: number | null = null;
+    const slack = 6; // (rounding, and the bezel's outset)
+    if (naturalH + slack > p.maxH) {
+      const room = p.maxH - slack - (naturalH - artH); // what is left for the picture
+      if (room >= minArtH) fitArt = Math.floor((room * 63) / 88);
+      else {
+        fitArt = PREVIEW_ART_MIN;
+        scroll = Math.max(60, Math.floor(oracleH - (shortest + slack - p.maxH)));
+      }
+    }
+    lastScroll.current = { id: shown, scroll: scroll !== null };
+    setPlace({ key, ...p, art: fitArt, scroll });
+  });
+  if (!shown || (skipHand && inHand)) return null;
+  const style: React.CSSProperties = measuring || !place
+    ? { left: 0, top: 0, visibility: "hidden" }
+    : {
+      left: place.left, top: place.top, maxHeight: place.maxH,
+      ...(place.art ? { ["--insp-w" as string]: `${place.art}px` } : {}),
+      ...(place.scroll ? { ["--insp-scroll" as string]: `${place.scroll}px` } : {}),
+    };
+  const side = !measuring && place ? place.side : "right";
+  const scrolls = !measuring && !!place?.scroll;
   return (
-    <div className={`card-preview ${place}`} data-testid="card-preview">
-      <Inspector />
+    <div ref={panel} className={`card-preview ${side}${scrolls ? " scrolls" : ""}`} data-testid="card-preview" data-dock={side} style={style}
+      onPointerEnter={() => scrolls && setHeld(shown)} onPointerLeave={() => setHeld(null)}
+      onScrollCapture={(e) => {
+        const t = e.target as HTMLElement;
+        panel.current?.toggleAttribute("data-at-end", t.scrollTop + t.clientHeight >= t.scrollHeight - 2);
+      }}>
+      <button type="button" className="card-preview-close" onClick={() => { setHeld(null); setLinger(null); clearHover(); }} aria-label="Close the card preview (Esc)" title="Close (Esc)"
+        data-testid="card-preview-close">
+        <img src={toyIconUrl("close")} alt="" draggable={false} />
+      </button>
+      <Inspector id={shown} />
+      <span className="card-preview-more" aria-hidden>
+        More
+        <svg viewBox="0 0 10 10"><path d="M2 3.5 L5 6.5 L8 3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </span>
     </div>
   );
 }
@@ -99,11 +199,11 @@ export function LogDrawer() {
   );
 }
 
-/** A few physical tools within reach, bottom-left. */
+/**
+ * Bottom left: how your hand is sorted. (Tokens and dice live in the Bag of Extras by your seat, game/ExtrasBag.tsx;
+ * Shift+R still opens the roll panel.)
+ */
 export function ToolTray() {
-  const openDialog = useGame((s) => s.openDialog);
-  const diceOpen = useGame((s) => s.dialog === "dice");
-  const keymap = usePrefs((s) => s.keymap);
   const sort = usePrefs((s) => s.handSort);
   const sortMenu = (e: React.MouseEvent) => openMenu(e, [
     ...HAND_SORTS.map((m) => ({
@@ -117,9 +217,6 @@ export function ToolTray() {
   ], "Your hand (S sorts)");
   return (
     <div className="tool-tray" data-testid="tool-tray">
-      <button className="tt-btn" onClick={() => openDialog("tokens")} title="Create tokens">Tokens</button>
-      <button className={`tt-btn${diceOpen ? " on" : ""}`} onClick={() => openDialog(diceOpen ? null : "dice")} title={`Roll dice or flip a coin (${keyLabel("dice", keymap) ?? "Shift+R"})`}
-        aria-expanded={diceOpen} data-dice-toggle data-testid="dice-button">Dice</button>
       <button className="tt-btn" onClick={sortMenu} title="Sort your hand: as drawn, mana value, colour, type or name (S)" data-testid="hand-sort">
         Hand: {sort === "drawn" ? "as drawn" : HAND_SORT_LABEL[sort].replace("by ", "")}
       </button>

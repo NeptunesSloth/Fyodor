@@ -92,10 +92,11 @@ body.reduced-motion .seat-heart-shape .seat-heart-half { transition: none; }
 .seat-track:hover, .seat-track:focus-visible { opacity: 1; border-color: var(--frame-hi); outline: none; }
 .seat-track.lethal { border-color: #ff8a7a; color: #ffb3a8; opacity: 1; }
 .seat-hand {
-  display: inline-flex; align-items: center; gap: 3px; font: 650 13px/1 var(--font-ui); font-variant-numeric: tabular-nums; color: #efe2c2;
-  padding: 0 4px; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
+  display: inline-flex; align-items: center; gap: 3px; padding: 0 4px; color: #efe2c2;
+  font: 600 13px/1 var(--font-ui); font-variant-numeric: tabular-nums; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85);
 }
-.seat-hand > :first-child { color: #d7ae63; }
+/* the hand count's cards: the icon set's fanned pair, in the plaque's brass */
+.seat-hand .icon { color: #d7ae63; flex: none; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.85)); }
 /* + : add a counter that isn't on the plaque yet (zeros stay off it). A brass-ringed stud; it waits, like the steppers,
    until you reach for the plaque (the space stays, so nothing jumps) */
 .seat-add {

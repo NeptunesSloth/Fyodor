@@ -5,6 +5,7 @@ import type { GameView } from "../types/game";
 import { GameCardFace } from "./GameCardFace";
 import { exileCastables, playFromExile, type ExileCastable } from "./exileCastables";
 import "./exile.css";
+import { useHoverCard } from "./hoverCard";
 
 /**
  * CASTABLE FROM EXILE: a small row by your hand (both tables) with every exiled card you may cast or play right now, each saying
@@ -33,6 +34,7 @@ export function ExileCastablesRow({ view, me }: { view: GameView; me: string }) 
 }
 
 const Castable = memo(function Castable({ c, card, owner }: { c: ExileCastable; card: GameView["cards"][string] | undefined; owner: string }) {
+  const hover = useHoverCard();
   if (!card) return null;
   const name = "name" in card ? card.name : "card";
   const what = c.source ? `Exiled with ${c.source}` : "In exile";
@@ -40,8 +42,7 @@ const Castable = memo(function Castable({ c, card, owner }: { c: ExileCastable; 
     <button type="button" className="exile-castable rules-playable" data-testid="exile-castable" data-card-id={c.id}
       title={`${c.play ? "Play" : "Cast"} ${name} (${owner}'s) · ${what}`}
       onClick={() => void playFromExile(c)}
-      onPointerEnter={() => useGame.getState().setHover(c.id)}
-      onPointerLeave={() => useGame.getState().hover === c.id && useGame.getState().setHover(null)}>
+      {...hover(c.id)}>
       <span className="exile-castable-face"><GameCardFace card={card} /></span>
       <span className="exile-castable-line">
         <span className="exile-castable-what"><b>{c.play ? "Play" : "Cast"}</b> · {owner}</span>
