@@ -77,19 +77,13 @@ function heartPath(): Path2D {
   return p;
 }
 
-/** A bar of the −/+ glyphs: a rounded rectangle centred on (x, y). */
-function bar(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
-  g.beginPath();
-  g.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
-}
-
 /** The life total (and the clicks still on their way under it), centred at (128, y) in the heart's box. */
 function lifeNumber(g: CanvasRenderingContext2D, life: number, pending: number, y: number): void {
   g.textAlign = "center";
   g.textBaseline = "middle";
   const n = String(life + pending);
   g.fillStyle = life + pending <= 0 ? "#ff8a7a" : "#f1ece2";
-  g.font = `700 ${n.length > 2 ? 54 : 68}px "Inter Variable", Inter, Arial, sans-serif`;
+  g.font = `700 ${n.length > 2 ? 64 : 84}px "Inter Variable", Inter, Arial, sans-serif`;
   g.lineJoin = "round";
   g.lineWidth = 8;
   g.strokeStyle = "rgba(0, 0, 0, 0.85)";
@@ -104,9 +98,8 @@ function lifeNumber(g: CanvasRenderingContext2D, life: number, pending: number, 
 }
 
 /**
- * The Oops heart, drawn for the table: black, edged thick in the seat's colour, the life total big in its lower
- * middle, and its two halves the controls: a large white − on the left lobe over a dark red half, a large white + on
- * the right over a dark green one, each outlined dark so it reads on any table. `hot`: the half under the pointer, lit.
+ * The Oops heart, drawn for the table: black, edged thick in the seat's colour, the life total big in its middle, and
+ * its two halves the controls, marked ▼ and ▲ in its lobes. `hot`: the half under the pointer, lit faintly.
  */
 function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pending: number, hot: -1 | 0 | 1 = 0, pressed: -1 | 0 | 1 = 0, readOnly = false): void {
   const g = canvas.getContext("2d")!;
@@ -126,73 +119,34 @@ function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pendi
     g.restore();
     return;
   }
-  // the halves: − loses life (left, red), + gains it (right, green), lit a little from above; the one under the
-  // pointer brighter, the one pressed darker and sunk (a shade along its top)
-  g.save();
-  g.clip(heart);
-  const half = (x: number, top: string, bottom: string) => {
-    const grad = g.createLinearGradient(0, 10, 0, 224);
-    grad.addColorStop(0, top);
-    grad.addColorStop(1, bottom);
-    g.fillStyle = grad;
-    g.fillRect(x, 0, 128, 232);
-  };
-  if (pressed === -1) half(0, "#5e1f15", "#36110b");
-  else if (hot === -1) half(0, "#b5422f", "#6e2219");
-  else half(0, "#86301f", "#4a1812");
-  if (pressed === 1) half(128, "#1c4e2d", "#0e2a17");
-  else if (hot === 1) half(128, "#3d9a57", "#1f5a31");
-  else half(128, "#2c7342", "#173f24");
-  if (pressed) {
-    const sunk = g.createLinearGradient(0, 0, 0, 70);
-    sunk.addColorStop(0, "rgba(0, 0, 0, 0.6)");
-    sunk.addColorStop(1, "rgba(0, 0, 0, 0)");
-    g.fillStyle = sunk;
-    g.fillRect(pressed < 0 ? 0 : 128, 0, 128, 70);
+  // the halves are the controls (− left, + right): the black heart as before, the half under the pointer lit
+  // faintly, the one pressed a shade darker
+  if (hot || pressed) {
+    g.save();
+    g.clip(heart);
+    g.fillStyle = pressed ? "rgba(0, 0, 0, 0.35)" : "rgba(255, 240, 210, 0.09)";
+    g.fillRect((pressed || hot) < 0 ? 0 : 128, 0, 128, 232);
+    g.restore();
   }
-  g.fillStyle = "rgba(0, 0, 0, 0.5)";
-  g.fillRect(126.5, 0, 3, 232);
-  g.restore();
   g.lineJoin = "round";
   g.lineWidth = 15;
   g.strokeStyle = color;
   g.stroke(heart);
-  // − and +: engraved brass, lit from the top left, in the lobes above the number
-  // (the pressed half's sign sinks with it: down and right a little, without its lit edge)
-  const sink = (x: number) => (pressed && (x < 128) === (pressed < 0) ? 2.5 : 0);
-  const signs = (dx: number, dy: number, w: number, h: number) => {
-    const at: [number, number, number, number][] = [[64, 64, w, h], [192, 64, w, h], [192, 64, h, w]];
-    for (const [x, y, bw, bh] of at) {
-      bar(g, x + dx + sink(x), y + dy + sink(x), bw, bh);
-      g.fill();
-    }
+  // ▼ and ▲ in the lobes: parchment, large enough to read across the table (brighter on the lit half)
+  const tri = (x: number, down: boolean, lit: boolean) => {
+    const w = 34;
+    const h = 22;
+    const y = 92;
+    g.beginPath();
+    if (down) { g.moveTo(x - w / 2, y - h / 2); g.lineTo(x + w / 2, y - h / 2); g.lineTo(x, y + h / 2); }
+    else { g.moveTo(x - w / 2, y + h / 2); g.lineTo(x + w / 2, y + h / 2); g.lineTo(x, y - h / 2); }
+    g.closePath();
+    g.fillStyle = lit ? "#fff4dc" : "#cbbf9f";
+    g.fill();
   };
-  g.fillStyle = "rgba(0, 0, 0, 0.75)"; // the cut's shadow, down and right
-  signs(3, 3, 50, 15);
-  const brass = g.createLinearGradient(40, 40, 216, 88);
-  brass.addColorStop(0, "#fbe9b0");
-  brass.addColorStop(0.45, "#d8ad55");
-  brass.addColorStop(1, "#8f6526");
-  g.fillStyle = "rgba(40, 24, 6, 0.95)"; // its dark edge
-  signs(0, 0, 52, 17);
-  g.fillStyle = brass;
-  signs(0, 0, 46, 11);
-  // the light catching each bar's top and left edges (inside the bar), the shade its bottom and right
-  for (const [x, y, bw, bh] of [[64, 64, 46, 11], [192, 64, 46, 11], [192, 64, 11, 46]] as const) {
-    if (sink(x)) continue;
-    g.save();
-    bar(g, x, y, bw, bh);
-    g.clip();
-    g.lineWidth = 3;
-    g.strokeStyle = "rgba(255, 249, 226, 0.9)";
-    bar(g, x + 2, y + 2, bw, bh);
-    g.stroke();
-    g.strokeStyle = "rgba(70, 42, 10, 0.75)";
-    bar(g, x - 2, y - 2, bw, bh);
-    g.stroke();
-    g.restore();
-  }
-  lifeNumber(g, life, pending, 140);
+  tri(56, true, hot === -1);
+  tri(200, false, hot === 1);
+  lifeNumber(g, life, pending, 128);
   g.restore();
 }
 

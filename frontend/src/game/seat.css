@@ -54,21 +54,18 @@
 .seat-heart-shape .seat-heart-fill { fill: #050505; stroke: none; }
 .seat-heart-shape .seat-heart-edge { fill: none; stroke: var(--player-color); stroke-width: 4.5; }
 .seat-heart-shape .seat-heart-half { stroke: none; transition: fill var(--dur-hover, 120ms) ease-out; }
-.seat-heart-shape .seat-heart-half.minus { fill: #6b2619; }
-.seat-heart-shape .seat-heart-half.plus { fill: #22603a; }
-.seat-heart.hot-minus .seat-heart-half.minus { fill: #a8402d; }
-.seat-heart.hot-plus .seat-heart-half.plus { fill: #3a8f52; }
-.seat-heart-shape .seat-heart-sign-under { fill: none; stroke: rgba(30, 18, 4, 0.92); stroke-width: 5.2; }
-.seat-heart-shape .seat-heart-sign { fill: none; stroke-width: 3.2; }
-.seat-heart-shape .seat-heart-sign-light { fill: none; stroke: rgba(255, 249, 226, 0.75); stroke-width: 1; }
+/* the black heart as before; the half under the pointer lit faintly, its arrow brighter */
+.seat-heart-shape .seat-heart-half { fill: transparent; }
+.seat-heart.hot-minus .seat-heart-half.minus, .seat-heart.hot-plus .seat-heart-half.plus { fill: rgba(255, 240, 210, 0.09); }
+.seat-heart-shape .seat-heart-tri { fill: #cbbf9f; stroke: none; transition: fill var(--dur-hover, 120ms) ease-out; }
+.seat-heart.hot-minus .seat-heart-tri.minus, .seat-heart.hot-plus .seat-heart-tri.plus { fill: #fff4dc; }
 body.reduced-motion .seat-heart-shape .seat-heart-half { transition: none; }
 .seat-heart:hover .seat-heart-shape .seat-heart-edge, .seat-heart:focus-visible .seat-heart-shape .seat-heart-edge { stroke-width: 5.5; }
 /* focus: one ring, in the heart's own shape (the page's square ring would double it); a plaque's ring goes round the plaque */
 .game-screen .t3d-seat :is(.seat-heart, .seat-who):focus-visible { outline: none; } /* (outranks theme.css's ring) */
 /* pressed: the heart dips and the half held down darkens (the plaque's portrait presses in likewise) */
 .seat-heart:not(:disabled):active .seat-heart-shape { transform: translateY(1px) scale(0.97); }
-.seat-heart.hot-minus:not(:disabled):active .seat-heart-half.minus { fill: #4f1810; }
-.seat-heart.hot-plus:not(:disabled):active .seat-heart-half.plus { fill: #164427; }
+.seat-heart.hot-minus:not(:disabled):active .seat-heart-half.minus, .seat-heart.hot-plus:not(:disabled):active .seat-heart-half.plus { fill: rgba(0, 0, 0, 0.35); }
 .seat-who:active .portrait { transform: translateY(1px); filter: brightness(0.85); }
 .t3d-seat:has(.seat-who:active) .t3d-seat-main { filter: brightness(0.9); }
 .seat-heart:focus-visible .seat-heart-shape { filter: drop-shadow(0 0 1.5px var(--room-brass-hi, #f0d08a)) drop-shadow(0 0 3px var(--room-brass-hi, #f0d08a)); }
