@@ -63,6 +63,33 @@ function clip(g: CanvasRenderingContext2D, text: string, maxW: number): string {
   return `${t.trimEnd()}…`;
 }
 
+/**
+ * A tile's name, fitted to the bar: one line, shrunk as far as `min` of its full size; else two lines at a smaller size,
+ * broken where the lines come out most even; only a name too long even then is cut short (on its second line).
+ */
+export function fitName(g: CanvasRenderingContext2D, text: string, maxW: number, W: number, font: (px: number) => string): { lines: string[]; px: number } {
+  const full = Math.round(W * 0.145);
+  for (let px = full; px >= Math.round(W * 0.1); px--) {
+    g.font = font(px);
+    if (g.measureText(text).width <= maxW) return { lines: [text], px };
+  }
+  const px = Math.round(W * 0.09);
+  g.font = font(px);
+  const words = text.split(" ");
+  let best: [string, string, number] | null = null;
+  for (let i = 1; i < words.length; i++) {
+    const a = words.slice(0, i).join(" ");
+    const b = words.slice(i).join(" ");
+    const w = Math.max(g.measureText(a).width, g.measureText(b).width);
+    if (!best || w < best[2]) best = [a, b, w];
+  }
+  if (!best) {
+    g.font = font(Math.round(W * 0.112));
+    return { lines: [clip(g, text, maxW)], px: Math.round(W * 0.112) };
+  }
+  return { lines: [clip(g, best[0], maxW), clip(g, best[1], maxW)], px };
+}
+
 const paths = new Map<string, Path2D>();
 function path(d: string): Path2D {
   let p = paths.get(d);
@@ -180,13 +207,22 @@ function drawTile(c: HTMLCanvasElement, spec: TileSpec, img: HTMLImageElement | 
     g.stroke();
     x += rr * 2 + W * 0.03;
   }
-  g.font = `${spec.token ? "italic " : ""}650 ${Math.round(W * 0.145)}px ${UI}`;
+  const name = fitName(g, p.name || spec.name, W - x - W * 0.05, W, (px) => `${spec.token ? "italic " : ""}650 ${px}px ${UI}`);
   g.fillStyle = NAME_INK;
   g.textAlign = "left";
   g.textBaseline = "middle";
   g.shadowColor = "rgba(0, 0, 0, 0.8)";
   g.shadowOffsetY = 1;
-  g.fillText(clip(g, p.name || spec.name, W - x - W * 0.05), x, cy + W * 0.006);
+  // the whole name, on one line or two (cut short only when it can't fit even then), drawn a little tall: the table is
+  // seen at a slant, so it reads upright (as the pile labels are)
+  const tall = name.lines.length > 1 ? 1.12 : 1.22;
+  name.lines.forEach((line, i) => {
+    g.save();
+    g.translate(x, cy + W * 0.006 + (name.lines.length > 1 ? (i - 0.5) * name.px * 1.12 : 0));
+    g.scale(1, tall);
+    g.fillText(line, 0, 0);
+    g.restore();
+  });
   g.shadowColor = "transparent";
   g.shadowOffsetY = 0;
   // power and toughness on a parchment plate, as on the proxy card
