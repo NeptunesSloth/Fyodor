@@ -64,7 +64,7 @@
 body.reduced-motion .seat-heart-shape .seat-heart-half { transition: none; }
 .seat-heart:hover .seat-heart-shape .seat-heart-edge, .seat-heart:focus-visible .seat-heart-shape .seat-heart-edge { stroke-width: 5.5; }
 /* focus: one ring, in the heart's own shape (the page's square ring would double it); a plaque's ring goes round the plaque */
-.game-screen .seat-heart:focus-visible, .game-screen .seat-who:focus-visible { outline: none; }
+.game-screen .t3d-seat :is(.seat-heart, .seat-who):focus-visible { outline: none; } /* (outranks theme.css's ring) */
 /* pressed: the heart dips and the half held down darkens (the plaque's portrait presses in likewise) */
 .seat-heart:not(:disabled):active .seat-heart-shape { transform: translateY(1px) scale(0.97); }
 .seat-heart.hot-minus:not(:disabled):active .seat-heart-half.minus { fill: #4f1810; }
