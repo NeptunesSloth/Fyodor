@@ -106,7 +106,7 @@ export function drawWell(canvas: HTMLCanvasElement, a: WellArt): void {
   const command = a.zone === "command";
   const r = 18;
   // as on the Oops I Baked a Pie table: the zone a rounded frame in the seat's colour on the panel's dark surface, its
-  // glyph in that colour (seen when it's empty), its count under it in that colour
+  // glyph in that colour (seen when it's empty); no count (the user's call)
   roundRect(g, wx + 4, 4, ww - 8, wh - 8, r);
   g.fillStyle = "rgba(0, 0, 0, 0.22)";
   g.fill();
@@ -117,29 +117,6 @@ export function drawWell(canvas: HTMLCanvasElement, a: WellArt): void {
   const glyph = glyphPath(a.zone, wx + ww / 2, wh / 2, gw, Math.min(stretch, (wh * 0.6) / gw));
   g.fillStyle = a.color;
   g.fill(glyph);
-  drawPlate(g, a, (a.plateDx - a.plateW / 2 - lo) * WELL_PX, wh + NAMEPLATE.gap * WELL_PX, a.plateW * WELL_PX, a.plateH * WELL_PX, stretch);
 }
 
 
-/**
- * Under the frame (x, y, w × h canvas px): the zone's card count in the seat's colour, as the Oops table shows it (the
- * command zone: nothing; its tax is struck on its top coin).
- */
-function drawPlate(g: CanvasRenderingContext2D, a: WellArt, x: number, y: number, w: number, h: number, stretch: number): void {
-  if (a.count === null) return;
-  const n = String(a.count);
-  const px = Math.min((h * 0.86) / (stretch * 0.74), 220);
-  g.font = `800 ${px}px "Inter Variable", Inter, Arial, sans-serif`;
-  g.textAlign = "center";
-  g.textBaseline = "middle";
-  g.save();
-  g.translate(x + w / 2, y + h / 2 + 2);
-  g.scale(1, stretch);
-  g.lineJoin = "round";
-  g.lineWidth = Math.max(4, px * 0.14);
-  g.strokeStyle = "rgba(0, 0, 0, 0.8)";
-  g.strokeText(n, 0, 0);
-  g.fillStyle = a.count === 0 ? "rgba(235, 228, 214, 0.55)" : a.color;
-  g.fillText(n, 0, 0);
-  g.restore();
-}
