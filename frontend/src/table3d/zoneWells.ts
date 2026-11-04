@@ -165,10 +165,10 @@ export function drawWell(canvas: HTMLCanvasElement, a: WellArt): void {
   const glyph = glyphPath(a.zone, wx + ww / 2, wh / 2, gw, Math.min(stretch, (wh * 0.62) / gw));
   g.save();
   g.translate(1.5, 2);
-  g.fillStyle = command ? "rgba(255, 230, 170, 0.1)" : "rgba(255, 220, 160, 0.075)";
+  g.fillStyle = command ? "rgba(255, 230, 170, 0.13)" : "rgba(255, 220, 160, 0.12)";
   g.fill(glyph);
   g.restore();
-  g.fillStyle = command ? "rgba(0, 0, 0, 0.34)" : "rgba(0, 0, 0, 0.42)";
+  g.fillStyle = command ? "rgba(0, 0, 0, 0.38)" : "rgba(0, 0, 0, 0.5)";
   g.fill(glyph);
   if (command) {
     // the crown's outline in gold leaf, faint
