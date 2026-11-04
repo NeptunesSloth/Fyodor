@@ -1118,6 +1118,30 @@ export class TableScene {
         this.world.add(slot, block, layers);
         this.piles.set(`${seat.player}:${zone}`, { block, slot, layers, top, count: -1, art, canvas, tex });
       }
+      // the zone strips, as on Tabletop Simulator's Commander tables: a light limed-oak board inlaid in the table along
+      // each side of the mat, the zones printed on it (zoneWells.ts) dark on light, so they read from across the table
+      const columns: [PileZone, [number, number]][][] = [
+        (["library", "graveyard", "exile"] as PileZone[]).map((z) => [z, pileSpot(seat, z)]),
+        // (the command column as long as its commanders need: a partner's or background's well under the commander's)
+        COMMAND_SLOTS.slice(0, Math.max(1, Math.min(COMMAND_SLOTS.length, this.view?.players.find((p) => p.id === seat.player)?.commanders.length ?? 1)))
+          .map((_, i) => ["command", commandSlot(seat, i)]),
+      ];
+      for (const column of columns) {
+        let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+        for (const [zone, at] of column) {
+          const piece = wellPiece(seat, at, zone);
+          const [cx, cz] = toWorld(seat, ...piece.at);
+          x0 = Math.min(x0, cx - piece.w / 2); x1 = Math.max(x1, cx + piece.w / 2);
+          z0 = Math.min(z0, cz - piece.h / 2); z1 = Math.max(z1, cz + piece.h / 2);
+        }
+        const pad = 0.14;
+        const strip = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 + 2 * pad, z1 - z0 + 2 * pad), this.stripMaterial());
+        strip.rotation.x = -Math.PI / 2;
+        strip.position.set((x0 + x1) / 2, SLOT_Y - 0.0006, (z0 + z1) / 2);
+        strip.renderOrder = -2;
+        strip.receiveShadow = this.quality !== "low";
+        this.world.add(strip);
+      }
     }
     // drawn again once the wells' fonts are in (they normally are by now)
     void whenWellFontsReady().then(() => {
@@ -1129,6 +1153,40 @@ export class TableScene {
   }
 
   // ------------------------------------------------------------------ textures & materials
+
+  /** The zone strips' limed oak (one material for every strip; the table's own wood is darker, so the strip reads). */
+  private stripMaterial(): THREE.MeshStandardMaterial {
+    if (this.stripMat) return this.stripMat;
+    const c = document.createElement("canvas");
+    c.width = 512;
+    c.height = 512;
+    const g = c.getContext("2d")!;
+    const base = g.createLinearGradient(0, 0, 512, 512);
+    base.addColorStop(0, "#d3c4a1");
+    base.addColorStop(1, "#bfae88");
+    g.fillStyle = base;
+    g.fillRect(0, 0, 512, 512);
+    // the grain: long soft streaks, and the lime caught in the open pores
+    let seed = 7;
+    const rand = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
+    for (let i = 0; i < 90; i++) {
+      const y = rand() * 512;
+      g.strokeStyle = rand() > 0.5 ? `rgba(120, 96, 60, ${0.06 + rand() * 0.08})` : `rgba(250, 244, 228, ${0.08 + rand() * 0.1})`;
+      g.lineWidth = 1 + rand() * 3;
+      g.beginPath();
+      g.moveTo(0, y);
+      g.bezierCurveTo(170, y + (rand() - 0.5) * 18, 340, y + (rand() - 0.5) * 18, 512, y + (rand() - 0.5) * 10);
+      g.stroke();
+    }
+    // its edge: a dark inlay line where it meets the table
+    g.strokeStyle = "rgba(48, 32, 18, 0.85)";
+    g.lineWidth = 6;
+    g.strokeRect(3, 3, 506, 506);
+    const tex = canvasTexture(c);
+    this.stripMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.78, metalness: 0, envMapIntensity: 0.2, transparent: false });
+    return this.stripMat;
+  }
+  private stripMat: THREE.MeshStandardMaterial | null = null;
 
   private backMaterial(owner: string): THREE.MeshStandardMaterial {
     const player = this.view?.players.find((p) => p.id === owner);

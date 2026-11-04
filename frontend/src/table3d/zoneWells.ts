@@ -13,7 +13,6 @@
 import type { PileZone } from "./layout";
 import { NAMEPLATE } from "./layout";
 import { ZONE_GLYPH_PATHS } from "../game/zoneGlyphs";
-import { rng } from "./textures";
 
 /** The wells' fonts (Cinzel for the names, Inter for the numbers), once loaded: a well drawn before is drawn again. */
 export function whenWellFontsReady(): Promise<void> {
@@ -33,8 +32,6 @@ export function wellStretch(duel: boolean, far = false): number {
   return duel ? (far ? 2.2 : 1.7) : 1.1;
 }
 
-const GOLD = { hi: "#f6dc9a", mid: "#c9a056", low: "#8a6a30" };
-const BRASS = { hi: "#ead197", light: "#cba664", mid: "#a47c40", dark: "#6c4c22" };
 
 export interface WellArt {
   zone: PileZone;
@@ -77,39 +74,7 @@ function span(a: Pick<WellArt, "well" | "plateW" | "plateDx">): [number, number]
   return [Math.min(-a.well.w / 2, a.plateDx - a.plateW / 2), Math.max(a.well.w / 2, a.plateDx + a.plateW / 2)];
 }
 
-/** A colour, darkened toward black by `k` (0..1). */
-function shade(hex: string, k: number): string {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
-  const n = m ? parseInt(m[1]!, 16) : 0x888888;
-  const ch = (s: number) => Math.round(((n >> s) & 255) * (1 - k));
-  return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
-}
 
-/** Leather (or velvet) grain: fine speckle and a few creases, deterministic. */
-function grain(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, seed: number, velvet: boolean): void {
-  const rand = rng(seed);
-  g.save();
-  for (let i = 0; i < (w * h) / 22; i++) {
-    const px = x + rand() * w;
-    const py = y + rand() * h;
-    const light = rand() > 0.5;
-    g.fillStyle = light ? `rgba(255, 225, 180, ${velvet ? 0.035 : 0.05})` : "rgba(0, 0, 0, 0.18)";
-    g.fillRect(px, py, velvet ? 1 : 1.6, velvet ? 2.2 : 1.6);
-  }
-  if (!velvet) {
-    g.strokeStyle = "rgba(0, 0, 0, 0.16)";
-    g.lineWidth = 1;
-    for (let i = 0; i < 14; i++) {
-      const px = x + rand() * w;
-      const py = y + rand() * h;
-      g.beginPath();
-      g.moveTo(px, py);
-      g.quadraticCurveTo(px + (rand() - 0.5) * 30, py + (rand() - 0.5) * 30, px + (rand() - 0.5) * 50, py + (rand() - 0.5) * 50);
-      g.stroke();
-    }
-  }
-  g.restore();
-}
 
 /** The zone's glyph (512-unit path) fitted into a box w wide, centred on (cx, cy), drawn `stretch` times taller than wide. */
 function glyphPath(zone: PileZone, cx: number, cy: number, w: number, stretch: number): Path2D {
@@ -139,203 +104,86 @@ export function drawWell(canvas: HTMLCanvasElement, a: WellArt): void {
   const [lo] = span(a);
   const wx = (-a.well.w / 2 - lo) * WELL_PX;
   const command = a.zone === "command";
-  const r = 16;
-  // -- the cut in the wood: a dark edge, light caught on the lip's far (lower-right) wall
-  roundRect(g, wx, 0, ww, wh, r);
-  g.fillStyle = "#0b0705";
+  const r = 14;
+  // printed on the zone strip's limed oak (TableScene stripMaterial), as on Tabletop Simulator's Commander tables: a
+  // frame in dark ink, the zone's glyph large inside it, its name printed under the glyph; light on the felt side
+  roundRect(g, wx + 3, 3, ww - 6, wh - 6, r);
+  g.fillStyle = command ? hexA(a.color, 0.16) : "rgba(70, 48, 24, 0.08)";
   g.fill();
-  // -- the lining: tooled leather, or velvet in the seat's colour for the command zone
-  const inset = 5;
-  g.save();
-  roundRect(g, wx + inset, inset, ww - inset * 2, wh - inset * 2, r - 4);
-  g.clip();
-  const lining = g.createRadialGradient(wx + ww * 0.45, wh * 0.42, 4, wx + ww / 2, wh / 2, Math.max(ww, wh) * 0.7);
-  if (command) {
-    lining.addColorStop(0, shade(a.color, 0.62));
-    lining.addColorStop(1, shade(a.color, 0.86));
-  } else {
-    lining.addColorStop(0, "#3a2a1e");
-    lining.addColorStop(1, "#1a110b");
-  }
-  g.fillStyle = lining;
-  g.fillRect(wx, 0, ww, wh);
-  grain(g, wx, 0, ww, wh, a.zone.length * 97 + (command ? 11 : 3), command);
-  // the glyph, pressed in (blind tooling): darker than the leather, with light caught on its lower edges
-  const gw = ww * (command ? 0.62 : 0.56);
-  const glyph = glyphPath(a.zone, wx + ww / 2, wh / 2, gw, Math.min(stretch, (wh * 0.62) / gw));
-  g.save();
-  g.translate(1.5, 2);
-  g.fillStyle = command ? "rgba(255, 230, 170, 0.13)" : "rgba(255, 220, 160, 0.12)";
+  g.strokeStyle = INK;
+  g.lineWidth = 5;
+  g.stroke();
+  roundRect(g, wx + 13, 13, ww - 26, wh - 26, r - 6);
+  g.strokeStyle = "rgba(43, 29, 16, 0.55)";
+  g.lineWidth = 1.6;
+  g.stroke();
+  // the glyph, large in the frame (the name is printed under the frame, where the pile's cards never cover it)
+  const gw = ww * (command ? 0.56 : 0.52);
+  const glyph = glyphPath(a.zone, wx + ww / 2, wh / 2, gw, Math.min(stretch, (wh * 0.66) / gw));
+  g.fillStyle = "rgba(43, 29, 16, 0.72)";
   g.fill(glyph);
-  g.restore();
-  g.fillStyle = command ? "rgba(0, 0, 0, 0.38)" : "rgba(0, 0, 0, 0.5)";
-  g.fill(glyph);
-  if (command) {
-    // the crown's outline in gold leaf, faint
-    g.strokeStyle = "rgba(214, 176, 100, 0.35)";
-    g.lineWidth = 1.4;
-    g.stroke(glyph);
-  }
-  // the gold tooling: a fillet inside the edge and a roll of dots inside that
-  const t = 14;
-  roundRect(g, wx + t, t, ww - t * 2, wh - t * 2, r - 8);
-  g.strokeStyle = "rgba(0, 0, 0, 0.55)";
-  g.lineWidth = 3.2;
-  g.stroke();
-  const fillet = g.createLinearGradient(wx, 0, wx + ww, wh);
-  fillet.addColorStop(0, GOLD.hi);
-  fillet.addColorStop(0.5, GOLD.mid);
-  fillet.addColorStop(1, GOLD.low);
-  g.strokeStyle = fillet;
-  g.lineWidth = 3.4;
-  g.stroke();
-  const d = t + 11;
-  roundRect(g, wx + d, d, ww - d * 2, wh - d * 2, r - 12);
-  g.setLineDash([0.1, 10]);
-  g.lineCap = "round";
-  g.lineWidth = 4.4;
-  g.strokeStyle = command ? "rgba(214, 176, 100, 0.55)" : "rgba(214, 176, 100, 0.7)";
-  g.stroke();
-  g.setLineDash([]);
-  // the sink: the lip's shadow falls in from the top and left, soft, and the far walls catch a little light
-  g.save();
-  g.shadowColor = "rgba(0, 0, 0, 0.85)";
-  g.shadowBlur = 22;
-  g.shadowOffsetX = 7;
-  g.shadowOffsetY = 9;
-  g.beginPath();
-  g.rect(wx - 200, -200, ww + 400, wh + 400);
-  g.roundRect(wx + inset, inset, ww - inset * 2, wh - inset * 2, r - 4);
-  g.fillStyle = "#000";
-  g.fill("evenodd");
-  g.restore();
-  g.restore();
-  g.strokeStyle = "rgba(255, 214, 150, 0.16)";
-  g.lineWidth = 2;
-  g.beginPath();
-  g.moveTo(wx + ww - r + 2, wh - 3);
-  g.lineTo(wx + r, wh - 3);
-  g.moveTo(wx + ww - 3, r);
-  g.lineTo(wx + ww - 3, wh - r);
-  g.stroke();
   drawPlate(g, a, (a.plateDx - a.plateW / 2 - lo) * WELL_PX, wh + NAMEPLATE.gap * WELL_PX, a.plateW * WELL_PX, a.plateH * WELL_PX, stretch);
 }
 
-/** The brass nameplate at (x, y), w × h canvas px: the name engraved (or the glyph), and the count on a blackened inset. */
+/** The strip's printing ink: a warm near-black brown. */
+const INK = "#2b1d10";
+
+/** A #rrggbb colour at alpha `k`. */
+function hexA(hex: string, k: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  const n = m ? parseInt(m[1]!, 16) : 0x888888;
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${k})`;
+}
+
+/**
+ * Under the frame (x, y, w × h canvas px), printed on the oak: the zone's name in Cinzel capitals, and its card count in
+ * an ink badge beside it (the command zone: its name alone; its tax is struck on its top coin). At three or more seats,
+ * where the strip is narrow, the badge alone, centred.
+ */
 function drawPlate(g: CanvasRenderingContext2D, a: WellArt, x: number, y: number, w: number, h: number, stretch: number): void {
-  // its shadow on the wood, then the plate: bevelled, brushed, two small pins
-  g.save();
-  g.shadowColor = "rgba(0, 0, 0, 0.7)";
-  g.shadowBlur = 6;
-  g.shadowOffsetX = 2;
-  g.shadowOffsetY = 3;
-  roundRect(g, x + 2, y + 2, w - 4, h - 4, 7);
-  g.fillStyle = "#24170a";
-  g.fill();
-  g.restore();
-  const face = g.createLinearGradient(x, y, x + w * 0.35, y + h * 1.6);
-  face.addColorStop(0, BRASS.hi);
-  face.addColorStop(0.35, BRASS.light);
-  face.addColorStop(0.8, BRASS.mid);
-  face.addColorStop(1, BRASS.dark);
-  roundRect(g, x + 4, y + 4, w - 8, h - 8, 5);
-  g.fillStyle = face;
-  g.fill();
-  g.save();
-  g.clip();
-  const rand = rng(Math.round(w + h));
-  for (let i = 0; i < 40; i++) {
-    g.fillStyle = rand() > 0.5 ? "rgba(255, 248, 225, 0.08)" : "rgba(70, 45, 15, 0.08)";
-    g.fillRect(x, y + rand() * h, w, 1);
+  const n = a.count !== null ? String(a.count) : null;
+  const bh = h - 10;
+  let badgeW = 0;
+  if (n !== null) {
+    const px = Math.min(bh / (stretch * 0.8), 200);
+    g.font = `800 ${px}px "Inter Variable", Inter, Arial, sans-serif`;
+    badgeW = Math.max(bh * 1.1 / Math.max(1, stretch * 0.6), g.measureText(n).width + 34);
   }
-  g.restore();
-  // the bevel: a lit top edge, a shaded bottom one
-  g.strokeStyle = "rgba(255, 246, 215, 0.55)";
-  g.lineWidth = 1.5;
-  g.beginPath();
-  g.moveTo(x + 9, y + 5);
-  g.lineTo(x + w - 9, y + 5);
-  g.stroke();
-  g.strokeStyle = "rgba(60, 38, 12, 0.6)";
-  g.beginPath();
-  g.moveTo(x + 9, y + h - 5);
-  g.lineTo(x + w - 9, y + h - 5);
-  g.stroke();
-  const pin = (px: number) => {
-    const py = y + h / 2;
-    g.fillStyle = "rgba(50, 32, 10, 0.75)";
-    g.beginPath();
-    g.ellipse(px + 0.6, py + 1, 3.6, 3.6 * Math.min(1.6, stretch * 0.8), 0, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = BRASS.hi;
-    g.beginPath();
-    g.ellipse(px, py, 2.6, 2.6 * Math.min(1.6, stretch * 0.8), 0, 0, Math.PI * 2);
-    g.fill();
-  };
-  const number = a.count !== null ? String(a.count) : a.tax ? `+${a.tax}` : null;
-  const counted = number !== null;
-  // the count: Inter numerals, warm ivory on a blackened inset at the plate's right end
-  let right = x + w - 26;
-  if (counted) {
-    const n = number!;
-    const cw = Math.max(92, 34 + n.length * 28);
-    const cx = x + w - 8 - cw;
-    roundRect(g, cx, y + 8, cw, h - 16, 4);
-    const inset = g.createLinearGradient(0, y + 8, 0, y + h - 8);
-    inset.addColorStop(0, "#0c0907");
-    inset.addColorStop(1, "#231a12");
-    g.fillStyle = inset;
-    g.fill();
-    g.strokeStyle = "rgba(255, 240, 200, 0.35)";
-    g.lineWidth = 1;
-    g.stroke();
-    const px = Math.min((h - 22) / stretch, (cw - 10) / (n.length * 0.62));
-    g.font = `700 ${px}px "Inter Variable", Inter, Arial, sans-serif`;
-    g.textAlign = "center";
-    g.textBaseline = "middle";
+  const showName = a.duel || n === null;
+  const name = a.label.toUpperCase();
+  const font = (px: number) => `700 ${px}px Cinzel, "Trajan Pro", Georgia, serif`;
+  g.font = font(100);
+  const per100 = Math.max(1, g.measureText(name).width);
+  const gap = n !== null && showName ? 14 : 0;
+  const nameRoom = showName ? w - 12 - badgeW - gap : 0;
+  // every name at one height (its capitals about 0.6 of the plate), a long one narrowed to fit rather than made smaller
+  const npx = showName ? Math.min((h * 0.62) / (stretch * 0.7), (nameRoom * 100) / (per100 * 0.62)) : 0;
+  g.font = font(npx);
+  const cond = showName ? Math.min(1, nameRoom / Math.max(1, g.measureText(name).width)) : 1;
+  const nameW = showName ? g.measureText(name).width * cond : 0;
+  const total = nameW + gap + badgeW;
+  let left = x + (w - total) / 2;
+  g.textBaseline = "middle";
+  if (showName) {
+    g.textAlign = "left";
     g.save();
-    g.translate(cx + cw / 2, y + h / 2 + 1);
-    g.scale(1, stretch);
-    g.fillStyle = a.count === null ? "#ecc67c" : a.count === 0 ? "#a89a80" : "#f4e6c4"; // (the tax in brass)
-    g.fillText(n, 0, 0);
+    g.translate(left, y + h / 2 + 2);
+    g.scale(cond, stretch);
+    g.fillStyle = INK;
+    g.fillText(name, 0, 0);
     g.restore();
-    right = cx - 10;
-  } else pin(x + w - 14);
-  const left = x + (counted ? 22 : 26);
-  if (!counted) pin(x + 14);
-  const engrave = (draw: (dx: number, dy: number, style: string) => void) => {
-    draw(0.8, 1.4, "rgba(255, 244, 214, 0.55)"); // the lit lower edge of the cut
-    draw(0, 0, "#2a1a08");
-  };
-  if (a.duel) {
-    // the name, engraved in Cinzel capitals, condensed a little to fit
-    const text = a.label.toUpperCase();
-    const span = right - left - (counted ? 8 : 0);
-    // as tall as the plate allows (its capitals about 0.6 of it), narrowed to at most 0.8 of their width, else smaller
-    const font = (px: number) => `700 ${px}px Cinzel, "Trajan Pro", Georgia, serif`;
-    g.font = font(100);
-    const per100 = Math.max(1, g.measureText(text).width);
-    const px = Math.min((h * 0.6) / (stretch * 0.7), (span * 100) / (per100 * 0.8));
-    g.font = font(px);
-    const cond = Math.min(1, span / Math.max(1, g.measureText(text).width));
-    g.textAlign = "center";
-    g.textBaseline = "middle";
-    const cx = counted ? (left + right) / 2 : x + w / 2;
-    engrave((dx, dy, style) => {
-      g.save();
-      g.translate(cx + dx, y + h / 2 + 2 + dy);
-      g.scale(cond, stretch);
-      g.fillStyle = style;
-      g.fillText(text, 0, 0);
-      g.restore();
-    });
-  } else {
-    // the glyph, engraved, in the plate's free span
-    const gh = (h - 20) / stretch;
-    const cx = counted ? (left + right) / 2 : x + w / 2;
-    engrave((dx, dy, style) => {
-      g.fillStyle = style;
-      g.fill(glyphPath(a.zone, cx + dx, y + h / 2 + dy, gh * 1.15, stretch));
-    });
+    left += nameW + gap;
   }
+  if (n === null) return;
+  roundRect(g, left, y + 5, badgeW, bh, Math.min(bh / 2, 20));
+  g.fillStyle = a.count === 0 ? "rgba(43, 29, 16, 0.45)" : INK;
+  g.fill();
+  g.font = `800 ${Math.min(bh / (stretch * 0.8), 200)}px "Inter Variable", Inter, Arial, sans-serif`;
+  g.textAlign = "center";
+  g.save();
+  g.translate(left + badgeW / 2, y + 5 + bh / 2 + 1);
+  g.scale(1, stretch);
+  g.fillStyle = "#f4ead2";
+  g.fillText(n, 0, 0);
+  g.restore();
 }
