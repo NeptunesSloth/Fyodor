@@ -282,33 +282,3 @@ test("frame time, before and after, interleaved", async ({ browser }) => {
     }
   }
 });
-
-test("TEMP frame cost by part, interleaved", async ({ page }) => {
-  test.skip(ONLY !== "parts", "SHOT_ONLY");
-  test.setTimeout(1_800_000);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  const gameId = await setup(page, PLANES[0]!, QUALITY, ["Alice", "Bob", "Casey", "Jordan"], 10);
-  await open(page, gameId, 40);
-  const time = () => page.evaluate(async () => {
-    const f = window.__fyodor3d!;
-    await f.nextFrame!();
-    const t0 = performance.now();
-    for (let i = 0; i < 5; i++) await f.nextFrame!();
-    return Math.round((performance.now() - t0) / 5);
-  });
-  const set = (k: string, v: boolean) => page.evaluate(([kk, vv]) => { (window as unknown as { __envParts: Record<string, { visible: boolean }> }).__envParts[kk as string]!.visible = vv as boolean; }, [k, v] as const);
-  const names = await page.evaluate(() => Object.keys((window as unknown as { __envParts: Record<string, unknown> }).__envParts));
-  for (const n of names) {
-    const r: number[] = [];
-    for (let k = 0; k < 2; k++) {
-      const a = await time();
-      await set(n, false);
-      const b = await time();
-      await set(n, true);
-      r.push(a - b);
-    }
-    console.log(`PART ${n} saves ${JSON.stringify(r)}`);
-  }
-  for (const n of names) await set(n, false);
-  console.log(`PART none ${await time()} ${await time()}`);
-});

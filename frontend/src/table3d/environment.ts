@@ -312,7 +312,6 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     }
   }
   room.update(0);
-  (window as unknown as { __envParts?: Record<string, THREE.Object3D> }).__envParts = Object.fromEntries(group.children.filter((c) => !(c as THREE.Light).isLight).map((c, i) => [`${i}:${(c as THREE.Mesh).geometry?.getAttribute?.("position")?.count ?? 0}:${(c as THREE.Mesh).renderOrder}`, c])); // TEMP
 
   group.traverse((o) => {
     const m = o as THREE.Mesh;
