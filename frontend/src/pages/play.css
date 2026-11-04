@@ -17,7 +17,7 @@
 .play ::selection { background: color-mix(in srgb, var(--frame-hi) 40%, transparent); color: var(--room-bone); }
 .play :is(button, a, select, input, summary):focus-visible,
 .play :is(.pg-format, .pg-chip-edit):has(input:focus-visible) { outline: 2px solid var(--select); outline-offset: 2px; }
-.play ::placeholder { color: var(--text-faint); opacity: 1; }
+.play ::placeholder { color: color-mix(in srgb, var(--text-faint) 55%, var(--text-dim)); opacity: 1; } /* ≥ 4.5:1 on the felt's inputs */
 .play .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .play :is(h1, h2, h3) { margin: 0; }
 

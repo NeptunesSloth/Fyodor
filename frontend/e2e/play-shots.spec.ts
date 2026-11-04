@@ -123,3 +123,42 @@ for (const [w, h] of SIZES) {
     await shot(page, "table-sandbox-automation", w, h);
   });
 }
+
+test("2x crops: the format placards, the lobby's Format choice, the table's Sandbox tag", async ({ browser }) => {
+  test.skip(PREFIX === "before", "no Sandbox before");
+  test.setTimeout(240_000);
+  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 });
+  const page = await context.newPage();
+  await prefs(page, "2d"); // (the top bar is the same over either table; the 2D one is light at 2x)
+  await page.goto("/#/play");
+  await settled(page, 600);
+  await page.locator(".pg-formats").screenshot({ path: `${OUT}/${PREFIX}-crop2x-formats.png` });
+  await page.getByTestId("format-sandbox").focus(); // the keyboard focus ring on a placard
+  await page.keyboard.press("ArrowLeft");
+  await settled(page, 200);
+  await page.locator(".pg-formats").screenshot({ path: `${OUT}/${PREFIX}-crop2x-formats-focus.png` });
+  await page.locator(".pg-rail").screenshot({ path: `${OUT}/${PREFIX}-crop2x-rail.png` });
+  const gameId = await hostLobby(page, "sandbox");
+  await page.getByRole("button", { name: "Table settings" }).click();
+  await settled(page, 400);
+  await page.getByTestId("lobby-format-choice").screenshot({ path: `${OUT}/${PREFIX}-crop2x-lobby-format.png` });
+  await page.keyboard.press("Escape");
+  const token = await page.evaluate((id) => localStorage.getItem(`fyodor.seat.${id}`), gameId);
+  const decks = (await (await page.request.get("/api/decks")).json()) as { id: string }[];
+  await page.request.post(`/api/games/${gameId}/lobby/deck`, { data: { deck_id: decks[0]!.id }, headers: { "X-Seat-Token": token! } });
+  await page.request.post(`/api/games/${gameId}/lobby/ready`, { data: { ready: true }, headers: { "X-Seat-Token": token! } });
+  await page.request.post(`/api/games/${gameId}/lobby/start`, { data: {}, headers: { "X-Seat-Token": token! } });
+  await page.reload();
+  await expect(page.getByTestId("table-format")).toBeVisible({ timeout: 30_000 });
+  const intro = page.getByTestId("game-intro");
+  if (await intro.isVisible().catch(() => false)) await page.keyboard.press("Escape");
+  const keep = page.getByTestId("mull-keep");
+  if (await keep.isVisible({ timeout: 5000 }).catch(() => false)) await keep.click();
+  await expect(page.getByTestId("mulligan")).toHaveCount(0);
+  await settled(page, 1500);
+  await page.locator(".game-top").screenshot({ path: `${OUT}/${PREFIX}-crop2x-topbar.png` });
+  await page.getByTestId("table-format").hover();
+  await settled(page, 300);
+  await page.getByTestId("table-format").screenshot({ path: `${OUT}/${PREFIX}-crop2x-sandbox-tag-hover.png` });
+  await context.close();
+});

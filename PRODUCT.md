@@ -32,7 +32,8 @@ a public platform.
 ## Operating Context
 
 - Game night at one location: a host computer runs the server; each player joins from their own
-  computer over the LAN with a room code. Hot-seat on one computer is also supported.
+  computer over the LAN with a room code. Every new game is a LAN night (a host alone at the table is solo
+  testing); hot-seat tables from older saves still load and play.
 - Decks come from Moxfield, Archidekt (first-class), MTGGoldfish, Arena or plain text; the pod keeps a
   deck library on the host.
 - Card data and images come from Scryfall and are cached locally; cards without cached art render as
