@@ -102,12 +102,12 @@ test("3D table: seats, drag from hand onto the table, right-click menu, tap", as
   const [left, right] = before.zones["p1:battlefield"]!.filter((cid) => cid !== id).sort((a, b) => (before.cards[a]!.x ?? 0) - (before.cards[b]!.x ?? 0));
   const rightX = before.cards[right!]!.x ?? 0;
   expect(await page.evaluate((cid) => window.__fyodor3d!.flick([cid], 9, 0), right!)).toBe(true);
-  await expect.poll(async () => (await view()).cards[right!]!.x ?? 0).toBeGreaterThan(rightX + 200); // open felt: it slides a long way
+  await expect.poll(async () => (await view()).cards[right!]!.x ?? 0).toBeGreaterThan(rightX + 2 * 55); // open felt: it slides a long way (over 2 world units; 55 virtual each, layout.ts UNIT)
   // and the left one, flicked harder across the felt, comes to rest well along too
   const leftX = before.cards[left!]!.x ?? 0;
   await page.waitForTimeout(500);
   expect(await page.evaluate((cid) => window.__fyodor3d!.flick([cid], 14, 0), left!)).toBe(true);
-  await expect.poll(async () => (await view()).cards[left!]!.x ?? 0).toBeGreaterThan(leftX + 100);
+  await expect.poll(async () => (await view()).cards[left!]!.x ?? 0).toBeGreaterThan(leftX + 55); // (over a world unit)
 
   // camera presets
   await page.getByRole("toolbar", { name: "Camera" }).hover(); // the strip shows only the current view until hovered
