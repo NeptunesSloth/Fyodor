@@ -181,15 +181,24 @@ export function candelabrum(ctx: SetCtx, at: Put, height: number, arms: number, 
 }
 
 /** A candle's wax with a melted rim and a few drips, its wick, standing at (x, y, z). */
-export function candleBody(at: Put, x: number, y: number, z: number, r: number, h: number, rand: () => number, wax = "#efe2c4"): void {
+export function candleBody(at: Put, x: number, y: number, z: number, r: number, h: number, rand: () => number, wax = "#ead9b8"): void {
   const top = at.world(x, y + h, z).y;
-  at.lathe([[0, 0], [r * 1.02, 0], [r, h * 0.6], [r * 0.98, h - 0.06], [r * 0.9, h], [r * 0.55, h - 0.05], [0.0, h - 0.07]], x, y, z, wax, { rough: 0.55, glowAt: (p) => Math.max(0, 1 - (top - p.y) / (h * 0.5)) * 0.35, pulse: PULSE.candle }, 14);
+  const foot = top - h;
+  const W = new THREE.Color(wax);
+  // wax: a little uneven, its melted rim, shaded toward the foot and lit from within near the flame
+  const shade = (p: THREE.Vector3, _n: THREE.Vector3, out: THREE.Color) => out.copy(W).multiplyScalar(0.72 + 0.28 * THREE.MathUtils.smoothstep(p.y, foot, foot + h * 0.7));
+  at.lathe([[0, 0], [r * 1.03, 0], [r * 0.99, h * 0.35], [r * 1.01, h * 0.7], [r * 0.98, h - 0.06], [r * 0.92, h - 0.005], [r * 0.6, h - 0.045], [0.0, h - 0.065]], x, y, z, shade, { rough: 0.5, glowAt: (p) => Math.max(0, 1 - (top - p.y) / (h * 0.45)) * 0.4, pulse: PULSE.candle }, 16);
   const drips = 2 + Math.floor(rand() * 3);
   for (let k = 0; k < drips; k++) {
-    const a = rand() * Math.PI * 2, len = h * (0.2 + rand() * 0.45);
-    at.geo(new THREE.CapsuleGeometry(r * 0.16, len, 3, 6), xf(x + Math.cos(a) * r * 0.98, y + h - len / 2 - r * 0.1, z + Math.sin(a) * r * 0.98, 0, -a, 0, 1, 1, 0.6), wax, { rough: 0.5 });
+    const a = rand() * Math.PI * 2, len = h * (0.25 + rand() * 0.45);
+    const dr = r * (0.16 + rand() * 0.1);
+    at.geo(new THREE.CapsuleGeometry(dr, len, 3, 6), xf(x + Math.cos(a) * r * 0.97, y + h - len / 2 - dr - 0.01, z + Math.sin(a) * r * 0.97, 0, -a, 0, 1, 1, 0.55), shade, { rough: 0.45, glowAt: (p) => Math.max(0, 1 - (top - p.y) / (h * 0.45)) * 0.3, pulse: PULSE.candle });
+    // the bead it ends in
+    at.sphere(dr * 1.25, x + Math.cos(a) * r * 0.99, y + h - len - dr * 1.2, z + Math.sin(a) * r * 0.99, shade, { rough: 0.45 }, 1, 1.2, 1, 6);
   }
-  at.cyl(0.018, 0.022, 0.16, x, y + h - 0.07, z, "#1a1410", { rough: 0.9 }, 5, 0, 0, 0.12);
+  // the wick, bent and charred, its tip a glowing coal
+  at.cyl(0.016, 0.02, 0.15, x, y + h - 0.07, z, "#1a1410", { rough: 0.9 }, 5, 0, 0, 0.14);
+  at.sphere(0.018, x + 0.012, y + h + 0.075, z, "#ff7a2a", { glow: 2.5, pulse: PULSE.candle }, 1, 1, 1, 5);
 }
 
 /** A wingback reading chair, a little turned. */

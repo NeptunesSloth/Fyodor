@@ -52,14 +52,16 @@ function openBook(at: Put, w: number, d: number, leather: THREE.ColorRepresentat
     const uv = g.getAttribute("uv");
     for (let i = 0; i < p.count; i++) {
       const u = (p.getX(i) + half / 2) / half; // 0 at the gutter, 1 at the outer edge
-      const y = 0.11 * Math.sin(Math.min(1, u * 1.6) * Math.PI * 0.5) * (1 - u * 0.55) + 0.02 * u;
+      const y = 0.16 * Math.sin(Math.min(1, u * 1.5) * Math.PI * 0.5) * (1 - u * 0.6) + 0.025 * u;
       p.setXYZ(i, s * (u * half), p.getY(i), y);
       if (s < 0) uv.setX(i, 1 - uv.getX(i));
     }
     // (the plane's +z face turns up; the left page is mirrored in x, which turns it face down: flip its winding)
     if (s < 0 && g.index) g.setIndex(Array.from(g.index.array).reverse());
     g.computeVertexNormals();
-    at.geo(g, xf(0, 0.1, 0, -Math.PI / 2, 0, 0), "#d8ccb4", { uv: ATLAS.parchment, rough: 0.85 });
+    // shaded into the gutter, where the page curls away from the light
+    const paper = new THREE.Color("#cdbf9f");
+    at.geo(g, xf(0, 0.1, 0, -Math.PI / 2, 0, 0), (_p, n, out) => out.copy(paper).multiplyScalar(0.45 + 0.55 * Math.pow(Math.max(0, n.y), 6)), { uv: ATLAS.parchment, rough: 0.85 });
   }
   // a ribbon marker trailing over the tail
   at.box(0.04, 0.006, d * 0.45, half * 0.15, 0.115, d * 0.42, "#7a1a1a", { rough: 0.5 }, 0.1);
@@ -131,7 +133,7 @@ export function buildTableProp(ctx: SetCtx, at: Put, kind: TableProp, glow: stri
     case "candles":
     case "tallow": {
       const tallow = kind === "tallow";
-      const tops = candles(ctx, at.at(0, 0, 0, (r() - 0.5) * 0.4), tallow ? "#e8dcbc" : "#f0e4c8", tallow ? "#5a5e66" : "#a8823a", tallow ? IRON : BRASS, tallow);
+      const tops = candles(ctx, at.at(0, 0, 0, (r() - 0.5) * 0.4), tallow ? "#d8c8a0" : "#e8d6b2", tallow ? "#5a5e66" : "#a8823a", tallow ? IRON : BRASS, tallow);
       for (const t of tops) flame(t, 0.44);
       const c = tops[0]!;
       lights.push({ pos: new THREE.Vector3(c.x, c.y + 0.35, c.z), color: glow, intensity: 6, distance: 16 });
@@ -154,7 +156,8 @@ export function buildTableProp(ctx: SetCtx, at: Put, kind: TableProp, glow: stri
         base.box(0.05, 0.05, 0.42, -0.2, 0.4, -0.1, "#8a1a22", { rough: 0.4 }, 0.5);
       } else {
         // the top book lies open; a ribbon over its tail
-        openBook(base.at(0.0, 0.29, 0.02, Math.PI / 2 + 0.12 + (kind === "tome" ? -0.08 : 0)), 1.02, 0.7, pal[2] ?? pal[0]!, r);
+        // (its spine toward me: the pages open left and right as I would read them)
+        openBook(base.at(0.0, 0.29, 0.02, 0.08 + (kind === "tome" ? -0.06 : 0)), 0.96, 0.72, pal[2] ?? pal[0]!, r);
         if (kind === "tome") {
           // a silver clasp and a pewter holy symbol beside
           base.box(0.08, 0.05, 0.14, w / 2 + 0.02, 0.06, 0.0, "#c3ccd8", { rough: 0.25, metal: 1 });

@@ -121,9 +121,11 @@ const study: SetSpec = {
     // by the fire: a reading chair and a little table with a candle; a globe in the far corner; books on the floor
     // (nothing tall in front of the fire: a low footstool with a book left on it, a basket of logs)
     const stool = new Put(ctx).at(hx + 1.5, r.floor, r.back + 8.2, 0.3);
-    stool.box(4.2, 2.2, 2.8, 0, 0.7, 0, baked("#3e1a12", r.floor, { ao: 0.4 }), { rough: 0.55 });
+    stool.box(4.0, 1.6, 2.6, 0, 0.7, 0, baked("#2e140e", r.floor, { ao: 0.4 }), { rough: 0.55 });
+    stool.geo(new THREE.SphereGeometry(1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), xf(0, 2.3, 0, 0, 0, 0, 2.05, 0.5, 1.35), baked("#3a1810", r.floor), { rough: 0.5 });
+    for (let k = 0; k < 6; k++) stool.sphere(0.09, -1.2 + (k % 3) * 1.2, 2.72, k < 3 ? -0.45 : 0.45, "#1a0806", { rough: 0.4 }, 1, 1, 1, 5);
     for (const [lx, lz] of [[-1.8, -1.1], [1.8, -1.1], [-1.8, 1.1], [1.8, 1.1]] as const) stool.lathe([[0, 0], [0.2, 0], [0.28, 0.3], [0.22, 0.7], [0, 0.7]], lx, 0, lz, "#2a1810", WOOD, 8);
-    bookPile(ctx, stool.at(0.3, 2.9, 0, 0.5), 1);
+    bookPile(ctx, stool.at(0.6, 2.75, 0.1, 0.5), 1);
     const basket = new Put(ctx).at(hx + 7.5, r.floor, r.back + 3.5);
     basket.lathe([[0, 0], [1.6, 0], [1.9, 1.8], [1.95, 2.0], [0, 2.0]], 0, 0, 0, baked("#5a4024", r.floor), { rough: 0.95 }, 14);
     for (let k = 0; k < 5; k++) basket.geo(new THREE.CylinderGeometry(0.4, 0.42, 3.4, 8), xf((k - 2) * 0.7, 2.2 + (k % 2) * 0.5, (ctx.rand() - 0.5) * 0.6, 0.15, 0, Math.PI / 2 + (ctx.rand() - 0.5) * 0.2), vary(ctx, "#4a3220", 0.15), { rough: 1 });
@@ -247,7 +249,7 @@ const chapel: SetSpec = {
   props: ["tome", "tallow"],
   fade: [3, 22, 0.84],
   particles: [
-    { kind: "fog", color: "#9fb0cc", count: 70, size: 9, opacity: 0.09, base: 1, beam: 0.6, additive: false, where: (r) => ({ min: [r.left, r.floor, r.back], max: [r.right, r.floor + 2.5, r.front] }) },
+    { kind: "fog", color: "#7a889e", count: 60, size: 9, opacity: 0.07, base: 1, beam: 0.15, additive: false, where: (r) => ({ min: [r.left, r.floor, r.back], max: [r.right, r.floor + 2.5, r.front] }) },
     { kind: "dust", color: "#d8e4ff", count: 380, size: 0.1, opacity: 0.9, base: 0.06, beam: 3.4, where: "room" },
   ],
   build(ctx, r) {
@@ -324,7 +326,7 @@ const chapel: SetSpec = {
     // the moon through the tracery, falling across the floor on the left of the table
     ctx.room.addWindow({
       centre: new THREE.Vector3(r.left + 0.2, r.floor + 20, -2), u: new THREE.Vector3(0, 0, 1), v: new THREE.Vector3(0, 1, 0),
-      halfU: 4.5, halfV: 10, dir: new THREE.Vector3(0.45, -1, 0.12), color: "#b0c4ff", intensity: 0.55, pattern: WINDOW.tracery,
+      halfU: 3.6, halfV: 9, dir: new THREE.Vector3(0.45, -1, 0.12), color: "#b0c4ff", intensity: 0.5, pattern: WINDOW.tracery,
     });
     const win = w.left(-2).at(0, 0, 0.6);
     win.glowing().box(9, 20, 0.05, 0, 10, -0.3, "#9fb4e0", { glow: 0.6 });
@@ -517,7 +519,10 @@ const shrine: SetSpec = {
     }
     for (const [x, z] of [[-r.hw - 3, -3], [-r.hw - 3, 3], [r.hw + 3, -3], [r.hw + 3, 3]] as const) {
       const c = new Put(ctx).at(x, r.floor, z, (ctx.rand() - 0.5) * 0.3);
-      c.geo(new THREE.SphereGeometry(1, 12, 6), xf(0, 0.35, 0, 0, 0, 0, 2.1, 0.4, 2.1), baked("#1e2440", r.floor, { ao: 0.3, reach: 1 }), CLOTH);
+      // a zabuton: a square cushion, plump in the middle, piped at its edge
+      c.box(3.6, 0.35, 3.6, 0, 0, 0, "#141a30", CLOTH);
+      c.geo(new THREE.SphereGeometry(1, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2), xf(0, 0.3, 0, 0, Math.PI / 4, 0, 2.45, 0.35, 2.45), baked("#232c4e", r.floor, { ao: 0.2, reach: 1 }), CLOTH);
+      for (const [ex, ez, ry] of [[0, 1.8, 0], [0, -1.8, 0], [1.8, 0, Math.PI / 2], [-1.8, 0, Math.PI / 2]] as const) c.box(3.6, 0.1, 0.1, ex, 0.3, ez, "#8a6a3a", CLOTH, ry);
     }
     // andon floor lanterns, glowing paper
     for (const [x, z] of [[-r.hw - 5, -r.hd - 5], [r.hw + 5, -r.hd - 5], [-r.hw - 5, r.hd + 5], [r.hw + 5, r.hd + 5], [r.left + 4, 0], [r.right - 4, 0]] as const) {

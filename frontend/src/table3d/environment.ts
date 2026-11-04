@@ -194,6 +194,30 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
       room.add(l.pos, l.color, 0.5 * e.glowIntensity, 9, "candle", rand() * 10);
     }
   });
+  // soft contact shadows under the props (one mesh): each sits on the table, not over it
+  {
+    const soft = document.createElement("canvas");
+    soft.width = soft.height = 64;
+    const sg = soft.getContext("2d")!;
+    const grad = sg.createRadialGradient(32, 32, 2, 32, 32, 32);
+    grad.addColorStop(0, "rgba(255,255,255,0.9)");
+    grad.addColorStop(0.5, "rgba(255,255,255,0.45)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+    sg.fillStyle = grad;
+    sg.fillRect(0, 0, 64, 64);
+    const quads = corners.slice(0, spec.props.length).map(([cx, cz]) => {
+      const q = new THREE.PlaneGeometry(1.5, 1.9);
+      q.rotateX(-Math.PI / 2);
+      q.translate(cx + 0.08, tableY + 0.004, cz - 0.06);
+      return q;
+    });
+    const geo = mergeGeometries(quads, false)!;
+    for (const q of quads) q.dispose();
+    const mat = new THREE.MeshBasicMaterial({ color: "#000", map: track(new THREE.CanvasTexture(soft)), transparent: true, opacity: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+    const contact = new THREE.Mesh(geo, mat);
+    contact.renderOrder = -1;
+    group.add(contact);
+  }
   const atlas = atlasMaps();
   track(atlas.map);
   track(atlas.normalMap);
