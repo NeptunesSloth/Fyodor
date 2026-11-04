@@ -4,7 +4,7 @@ main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overfl
 .t3d-plate-anchor { position: absolute; left: 0; top: 0; will-change: transform; }
 /* camera presets: a quiet strip, sentence case */
 .t3d-cams.frame {
-  position: absolute; left: 14px; top: 58px; display: flex; gap: 2px; padding: 3px; z-index: 4;
+  position: absolute; left: 14px; top: 10px; display: flex; gap: 2px; padding: 3px; z-index: 4;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.45);
 }
 .t3d-cams button {
@@ -27,7 +27,7 @@ main.table > .table3d.table3d { position: absolute; z-index: 0; inset: 0; overfl
 
 /* first-game tips, bottom left above the tool tray */
 /* tips: a slim banner under the top bar, above the far edge of the table where no cards lie */
-.t3d-coach { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 5; width: min(720px, calc(100% - 32px)); }
+.t3d-coach { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 5; width: min(720px, calc(100% - 220px)); }
 /* the combat panel opens in the same top-centre spot; the tip steps aside until it closes */
 body:has(.combat-lanes) .t3d-coach { display: none; }
 .t3d-coach .t3d-coach-body { flex-direction: row; align-items: center; gap: 12px; padding: 7px 10px 7px 14px; }

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { heartSpot, localToVirtual, pileAt, PILES, seats, tableSize, toLocal, toWorld, virtualToLocal } from "./layout";
+import { commandSlot, heartSpot, localToVirtual, MAT_D, MAT_W, pileAt, PILES, pileSpot, plaqueSpot, seats, tableSize, taxSpot, toLocal, toWorld, virtualToLocal, type Seat } from "./layout";
+
+/** Is a world point on a seat's mat (with its edge)? */
+const onMat = (seat: Seat, x: number, z: number) => {
+  const [lx, lz] = toLocal(seat, x, z);
+  return Math.abs(lx) <= MAT_W / 2 + 0.25 && Math.abs(lz) <= MAT_D / 2 + 0.25;
+};
 
 describe("3D table layout", () => {
   it("seats two facing rows, the viewer's row south, clockwise (along my row to my left, then back across)", () => {
@@ -22,8 +28,8 @@ describe("3D table layout", () => {
     }
   });
 
-  it("floats every life heart toward the middle of the table, over the aisle", () => {
-    for (const n of [2, 4, 6]) {
+  it("floats every life heart toward the middle of the table, over the aisle (three or more seats)", () => {
+    for (const n of [3, 4, 6]) {
       for (const seat of seats(Array.from({ length: n }, (_, i) => `p${i}`), "p0")) {
         const [hx, hz] = toWorld(seat, ...heartSpot(seat));
         if (Math.abs(seat.x) > 0.01) expect(Math.abs(hx)).toBeLessThan(Math.abs(seat.x)); // nearer the middle than its mat
@@ -82,5 +88,57 @@ describe("3D table layout", () => {
     expect(pileAt(...PILES.library)).toBe("library");
     expect(pileAt(...PILES.command)).toBe("command");
     expect(pileAt(0, 0)).toBeNull();
+  });
+
+  it("mirrors the far row's piles: every library, graveyard and exile on my right, every command zone on my left", () => {
+    for (const n of [2, 3, 4, 5, 6]) {
+      for (const seat of seats(Array.from({ length: n }, (_, i) => `p${i}`), "p0")) {
+        const side = (zone: "library" | "graveyard" | "exile" | "command") => Math.sign(toWorld(seat, ...pileSpot(seat, zone))[0] - seat.x);
+        expect([side("library"), side("graveyard"), side("exile")]).toEqual([1, 1, 1]);
+        expect(side("command")).toBe(-1);
+        expect(Math.sign(toWorld(seat, ...commandSlot(seat, 1))[0] - seat.x)).toBe(-1); // a partner's slot too
+        // the tax counter sits outside its slot, away from the mat
+        expect(Math.abs(taxSpot(0, seat)[0])).toBeGreaterThan(Math.abs(commandSlot(seat, 0)[0]));
+        // and dropping on the drawn pile finds it
+        expect(pileAt(...pileSpot(seat, "graveyard"), seat)).toBe("graveyard");
+        expect(pileAt(...commandSlot(seat, 1), seat)).toBe("command");
+      }
+    }
+  });
+
+  it("1v1: each plate and heart sits centred past its owner's own edge, off both mats and out of the aisle", () => {
+    const s = seats(["a", "b"], "a");
+    expect(s.every((x) => x.duel)).toBe(true);
+    for (const seat of s) {
+      const heart = toWorld(seat, ...heartSpot(seat));
+      const plate = toWorld(seat, ...plaqueSpot(seat));
+      for (const [x, z] of [heart, plate]) {
+        // on the owner's side of the table, past the owner's own edge (mine below my mat, theirs beyond their far edge)
+        expect(Math.sign(z)).toBe(Math.sign(seat.z));
+        expect(Math.abs(z)).toBeGreaterThan(Math.abs(seat.z) + MAT_D / 2);
+        for (const mat of s) expect(onMat(mat, x, z)).toBe(false);
+        expect(z * z).toBeLessThan((tableSize(s).d / 2) ** 2);
+      }
+      // the pair is centred on the mat (the heart left of the plate, as I see it), both seats the same way round
+      expect(heart[0]).toBeLessThan(plate[0]);
+      expect(Math.abs((heart[0] + plate[0]) / 2 - seat.x)).toBeLessThan(1.2);
+    }
+  });
+
+  it("1v1: a narrower aisle (nothing lives in it but the stack and the arrows)", () => {
+    const [a, b] = seats(["a", "b"], "a");
+    const four = seats(["a", "b", "c", "d"], "a");
+    expect(a!.z - b!.z).toBeLessThan(four[0]!.z - four[2]!.z);
+    expect(a!.z - b!.z - MAT_D).toBeGreaterThan(1); // a clear gap between the two mats
+  });
+
+  it("4 players: plates and hearts stay over the aisle (unchanged)", () => {
+    for (const seat of seats(["a", "b", "c", "d"], "a")) {
+      expect(seat.duel).toBeUndefined();
+      const [, hz] = toWorld(seat, ...heartSpot(seat));
+      const [, pz] = toWorld(seat, ...plaqueSpot(seat));
+      expect(Math.abs(hz)).toBeLessThan(Math.abs(seat.z) - MAT_D / 2);
+      expect(Math.abs(pz)).toBeLessThan(Math.abs(seat.z) - MAT_D / 2);
+    }
   });
 });

@@ -12,11 +12,13 @@ import * as THREE from "three";
 import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
 import { drawSeatIcon } from "../game/seatIcons";
 import { motionMs, onMotionSkip } from "../game/motion/timing";
-import { CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, taxSpot, toWorld, type Seat } from "./layout";
+import { CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, heartTilt, MAT_D, taxSpot, toWorld, type Seat } from "./layout";
 import { slotTexture } from "./textures";
 
-const HEART_W = 1.45;
-const HEART_Y = 0.16;
+const HEART_W = HEART.w;
+/** 1v1: Mulligan's spot along my near edge, right of my heart and plate (the bag just past it). */
+const DUEL_MULLIGAN_X = 3.35;
+const HEART_Y = HEART.y;
 const BUTTON_R = 0.26;
 const BUTTON_H = 0.08;
 
@@ -151,10 +153,11 @@ export class SeatProps {
       tex.anisotropy = 4;
       // the heart lies on the table, its top edge tipped a little up toward whoever is looking
       // printed like the Oops heart: unlit, so the black stays black under the table's warm light
-      const face = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(HEART_W, HEART_W * (232 / 256))), this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false })));
-      face.rotation.x = -Math.PI / 2 + 0.7;
+      const face = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(HEART_W, HEART.h)), this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false })));
+      const tilt = heartTilt(seat);
+      face.rotation.x = -Math.PI / 2 + tilt;
       face.userData = { heart: seat.player };
-      face.position.y = Math.sin(0.7) * HEART_W * 0.45; // tipped up from its bottom edge, which rests over the felt
+      face.position.y = Math.sin(tilt) * HEART.h * 0.5; // tipped up from its bottom edge, which rests over the felt
       const shadow = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(HEART_W * 1.05, HEART_W).rotateX(-Math.PI / 2)), this.keep(new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false })));
       shadow.position.y = -HEART_Y + 0.006;
       const group = new THREE.Group();
@@ -190,9 +193,10 @@ export class SeatProps {
         group.add(side);
       }
       // a row just past my mat's near edge, from its left end (the turn dial covers the screen's bottom right), Mulligan
-      // apart on the right (as on the Oops mat)
-      const lx = flat ? -0.7 : -4.3 + i * 0.66;
-      const [wx, wz] = toWorld(mine, lx, MAT_D / 2 + 0.52);
+      // apart on the right (as on the Oops mat); 1v1: my heart and plate take the middle, so the row starts under my
+      // command zone and Mulligan and the bag go right of my plate
+      const lx = mine.duel ? (flat ? DUEL_MULLIGAN_X : -5.95 + i * 0.66) : flat ? -0.7 : -4.3 + i * 0.66;
+      const [wx, wz] = toWorld(mine, lx, MAT_D / 2 + (mine.duel ? 0.62 : 0.52));
       group.position.set(wx, 0, wz);
       group.rotation.y = mine.rot;
       this.group.add(group);
@@ -230,7 +234,7 @@ export class SeatProps {
       m.castShadow = true;
     }
     group.add(shadow, sack, cord, coin);
-    const [wx, wz] = toWorld(mine, 0.3, MAT_D / 2 + 0.52);
+    const [wx, wz] = mine.duel ? toWorld(mine, DUEL_MULLIGAN_X + 1.0, MAT_D / 2 + 0.62) : toWorld(mine, 0.3, MAT_D / 2 + 0.52);
     group.position.set(wx, 0, wz);
     group.rotation.y = mine.rot + 0.5;
     this.group.add(group);
@@ -279,7 +283,7 @@ export class SeatProps {
    * Each commander's tax counter beside its slot in the command zone (and a slot for a partner when there is one).
    * `commanders`: per seat, its commanders' keys in slot order, with their tax.
    */
-  setCommanders(seats: Seat[], commanders: Record<string, { key: string; tax: number }[]>, colors: Record<string, string>): void {
+  setCommanders(seats: Seat[], commanders: Record<string, { key: string; tax: number }[]>, colors: Record<string, string>, viewRot = 0): void {
     const key = JSON.stringify(seats.map((s) => [s.player, (commanders[s.player] ?? []).map((c) => c.key)]));
     if (key !== this.taxKey) {
       this.taxKey = key;
@@ -296,9 +300,10 @@ export class SeatProps {
             const slot = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(CARD_W * 1.05, CARD_H * 1.05)),
               this.keep(new THREE.MeshBasicMaterial({ map: this.keep(slotTexture(i === 1 ? "Partner" : "Command", "#b39458")), transparent: true, depthWrite: false })));
             slot.rotation.x = -Math.PI / 2;
-            slot.rotation.z = seat.rot;
-            const [sx, sz] = toWorld(seat, ...COMMAND_SLOTS[i]!);
-            slot.position.set(sx, 0.003, sz);
+            slot.rotation.z = viewRot; // its label upright from my seat
+            const [sx, sz] = toWorld(seat, ...commandSlot(seat, i));
+            slot.position.set(sx, 0.0034, sz); // as the other pile slots (TableScene SLOT_Y)
+            slot.renderOrder = -1;
             this.group.add(slot);
             this.slots.push(slot);
           }
@@ -308,7 +313,7 @@ export class SeatProps {
           tex.colorSpace = THREE.SRGBColorSpace;
           const mesh = new THREE.Mesh(this.keep(new THREE.CircleGeometry(0.27, 32).rotateX(-Math.PI / 2)),
             this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })));
-          const [wx, wz] = toWorld(seat, ...taxSpot(i));
+          const [wx, wz] = toWorld(seat, ...taxSpot(i, seat));
           mesh.position.set(wx, 0.01, wz);
           mesh.rotation.y = seat.rot;
           mesh.userData = { tax: c.key };
@@ -383,6 +388,20 @@ export class SeatProps {
 
   heartWorld(player: string): THREE.Vector3 | null {
     return this.hearts.get(player)?.group.position.clone() ?? null;
+  }
+
+  /** The middle of a heart's right-hand (side −1: left-hand) edge as `camera` sees it (the heart turns to face it): a 1v1 plate starts there. */
+  heartEdge(player: string, camera: THREE.Camera, side: 1 | -1 = 1): THREE.Vector3 | null {
+    const h = this.hearts.get(player);
+    if (!h) return null;
+    camera.getWorldPosition(this.tmp);
+    const p = h.group.position;
+    const toCam = this.tmp.sub(p).setY(0);
+    if (toCam.lengthSq() < 1e-6) toCam.set(0, 0, 1);
+    toCam.normalize();
+    // the face's right, seen from the camera: up × toward-camera
+    const right = new THREE.Vector3(toCam.z, 0, -toCam.x);
+    return p.clone().addScaledVector(right, side * HEART_W * 0.47).setY(HEART_Y + h.face.position.y);
   }
 
   buttonWorld(id: SeatActionId): THREE.Vector3 | null {

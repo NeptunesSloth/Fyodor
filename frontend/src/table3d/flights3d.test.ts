@@ -7,8 +7,8 @@ import {
   arcLift, combatStrikes, cubicBezier, easeOut, flightMs, floaterAt, hiddenZone, lungeAt, MINUS, otherHandSpot, planMotion, riffleAt,
   standInOpacity, turnAt, type SceneFacts,
 } from "./flights3d";
-import { CARD_H, MAT_D, onBattlefield, plaqueSpot, seats, toWorld, type Seat } from "./layout";
-import { fitCamera, seatElevation, seatPoints, tableRect, viewDir } from "./framing";
+import { CARD_H, MAT_D, onBattlefield, plaqueSpot, seats, tableSize, toWorld, type Seat } from "./layout";
+import { fitCamera, seatElevation, tableLens, tablePoints, tableRect, viewDir } from "./framing";
 
 type Card = Record<string, unknown> & { id: string; zone: string; owner: string };
 /** A table as p1 is sent it (as in tableEvents.test.ts): ``zones`` lists ids, a library its size. */
@@ -243,12 +243,9 @@ describe("3D table motion: curves", () => {
 function onScreen(all: Seat[], aspect: number, x: number, y: number, z: number): { x: number; y: number } {
   const h = 900;
   const w = h * aspect;
-  const camera = new THREE.PerspectiveCamera(42, aspect, 0.1, 400);
-  const band = Math.round(h * 0.16);
-  camera.setViewOffset(w, h + band, 0, band, w, h);
-  camera.updateProjectionMatrix();
+  const camera = tableLens(w, h);
   const mine = all[0]!;
-  const cam = fitCamera(camera, all.flatMap((s) => seatPoints(s, { buttons: s === mine })), viewDir(mine.rot, seatElevation(all.length)), tableRect(w, h));
+  const cam = fitCamera(camera, tablePoints(all, mine, tableSize(all)), viewDir(mine.rot, seatElevation(all.length)), tableRect(w, h));
   camera.position.copy(cam.pos);
   camera.lookAt(cam.look);
   camera.updateMatrixWorld();
@@ -261,6 +258,12 @@ describe("3D table motion: where another player's hand is", () => {
   it("on their side of the table: on their mat, in the half that faces the aisle, past their plaque, low on the mat", () => {
     for (const all of tables) for (const seat of all.slice(1)) {
       const spot = otherHandSpot(seat);
+      if (seat.duel) {
+        // 1v1: their fan of backs stands in sight past their own edge, behind their heart and plate: the card comes from it
+        expect(spot.lz).toBeGreaterThan(MAT_D / 2 + 1);
+        expect(spot.lx).toBe(0);
+        continue;
+      }
       expect(onBattlefield(spot.lx, spot.lz)).toBe(true);
       expect(spot.lz).toBeLessThan(0); // the aisle half (their own edge, past which their fan lies, is +MAT_D / 2)
       expect(spot.lz - CARD_H / 2).toBeGreaterThan(-MAT_D / 2 + 0.5); // the whole card clears the plaque by the aisle edge
@@ -273,14 +276,10 @@ describe("3D table motion: where another player's hand is", () => {
     for (const aspect of [16 / 9, 1440 / 900, 4 / 3]) for (const all of tables) for (const seat of all.slice(1)) {
       const spot = otherHandSpot(seat);
       const at = onScreen(all, aspect, ...((([x, z]) => [x, spot.y, z])(toWorld(seat, spot.lx, spot.lz)) as [number, number, number]));
-      // (the seat view fills the screen with the table: table3d/framing.ts)
+      // (the seat view fills the screen with the table: table3d/framing.ts); 1v1, their fan is framed at its top
       expect(Math.abs(at.x)).toBeLessThan(0.85);
       expect(at.y).toBeGreaterThan(-0.6);
-      expect(at.y).toBeLessThan(0.85);
+      expect(at.y).toBeLessThan(seat.duel ? 1 : 0.85);
     }
-    // the fan of backs, for comparison: past the owner's edge of their mat, at the far rim of the table (two players)
-    const [me, bob] = tables[0]!;
-    const fan = onScreen([me!, bob!], 16 / 9, ...((([x, z]) => [x, 0.3, z])(toWorld(bob!, 0, MAT_D / 2 + 1.25)) as [number, number, number]));
-    expect(fan.y).toBeGreaterThan(0.6);
   });
 });

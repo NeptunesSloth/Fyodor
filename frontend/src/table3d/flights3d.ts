@@ -18,7 +18,7 @@ import type { GameCard, GameView } from "../types/game";
 import { isVisible } from "../types/game";
 import { MOTION } from "../game/motion/timing";
 import { zoneName, zoneOwner, type TableEvent } from "../game/motion/tableEvents";
-import { CARD_H, MAT_D, plaqueSpot, type Seat } from "./layout";
+import { CARD_H, DUEL_EDGE, MAT_D, plaqueSpot, type Seat } from "./layout";
 
 /** Where a flight starts or ends. */
 export type Place =
@@ -100,6 +100,8 @@ export function hiddenZone(zone: string, me: string): boolean {
  * camera under the table's far rim (or, for a neighbour in my row, under my hand), where a flight from it was barely seen.
  */
 export function otherHandSpot(seat: Seat): { lx: number; lz: number; y: number } {
+  // 1v1: their fan stands in sight past their own edge, behind their heart and plate (table3d/handFan.ts): the card comes from it
+  if (seat.duel) return { lx: 0, lz: MAT_D / 2 + DUEL_EDGE - 1.05, y: 0.45 };
   return { lx: plaqueSpot(seat)[0], lz: -MAT_D / 2 + CARD_H * 1.6, y: 0.1 };
 }
 

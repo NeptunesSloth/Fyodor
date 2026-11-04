@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { fitCamera, seatElevation, seatPoints, tableRect, viewDir } from "./framing";
-import { MAT_D, MAT_W, seatCamera, seats, tableSize, toWorld, type Seat } from "./layout";
+import { depthStep, fitCamera, ndcBox, nearFarFor, PLATE_PX, platePoints, plateSide, propSpots, PROP_TOP, seatElevation, tableLens, tablePoints, tableRect, viewDir, type FrameRect } from "./framing";
+import { CARD_W, HEART, heartSpot, heartTilt, MAT_D, MAT_W, seatCamera, seats, STRIP_X, tableSize, toWorld, type Seat } from "./layout";
 
-/** The table's camera as TableScene sets it up: the frame lifted by the hand band (setViewOffset). */
-function lens(w: number, h: number): THREE.PerspectiveCamera {
+/** The old lens, before the aspect fix and the long lens: the baseline the old seat camera is measured with. */
+function oldLens(w: number, h: number): THREE.PerspectiveCamera {
   const cam = new THREE.PerspectiveCamera(42, w / h, 0.1, 400);
   const band = Math.round(h * 0.16);
   cam.setViewOffset(w, h + band, 0, band, w, h);
@@ -12,29 +12,51 @@ function lens(w: number, h: number): THREE.PerspectiveCamera {
   return cam;
 }
 
-/** A mat's height and width on screen (px), measured across its middle. */
-function matOnScreen(cam: THREE.PerspectiveCamera, seat: Seat, w: number, h: number): { w: number; h: number } {
+type Box = { left: number; top: number; right: number; bottom: number };
+
+/** px on the canvas of a world point. */
+function px(cam: THREE.PerspectiveCamera, p: THREE.Vector3, w: number, h: number): [number, number] {
+  const v = p.clone().project(cam);
+  return [((v.x + 1) / 2) * w, ((1 - v.y) / 2) * h];
+}
+
+/** A mat's height and width on screen (px), measured across its middle; with `piles`, the width of its whole strip. */
+function matOnScreen(cam: THREE.PerspectiveCamera, seat: Seat, w: number, h: number, piles = false): { w: number; h: number } {
   const at = (lx: number, lz: number) => {
     const [x, z] = toWorld(seat, lx, lz);
-    const v = new THREE.Vector3(x, 0, z).project(cam);
-    return [((v.x + 1) / 2) * w, ((1 - v.y) / 2) * h] as const;
+    return px(cam, new THREE.Vector3(x, 0, z), w, h);
   };
-  const near = at(0, MAT_D / 2), far = at(0, -MAT_D / 2), l = at(-MAT_W / 2, 0), r = at(MAT_W / 2, 0);
+  const half = piles ? STRIP_X + CARD_W / 2 : MAT_W / 2;
+  const near = at(0, MAT_D / 2), far = at(0, -MAT_D / 2), l = at(-half, 0), r = at(half, 0);
   return { w: Math.hypot(r[0] - l[0], r[1] - l[1]), h: Math.hypot(near[0] - far[0], near[1] - far[1]) };
 }
 
-function seatView(n: number, w: number, h: number) {
+function seatView(n: number, w: number, h: number, chrome: Box[] = []) {
   const s = seats(Array.from({ length: n }, (_, i) => `p${i + 1}`), "p1");
   const mine = s[0]!;
-  const pts = s.flatMap((seat) => seatPoints(seat, { buttons: seat === mine }));
-  const cam = lens(w, h);
+  const pts = tablePoints(s, mine, tableSize(s));
+  const cam = tableLens(w, h);
   const rect = tableRect(w, h);
-  const f = fitCamera(cam, pts, viewDir(mine.rot, seatElevation(n)), rect);
+  const keep = chrome.map((b) => ndcBox(b, w, h));
+  const f = fitCamera(cam, [...pts, ...platePoints(s, w, h)], viewDir(mine.rot, seatElevation(n, w / h)), rect, keep);
   cam.position.copy(f.pos);
   cam.lookAt(f.look);
   cam.updateMatrixWorld(true);
-  return { s, mine, pts, cam, rect };
+  return { s, mine, pts, cam, rect, keep };
 }
+
+/**
+ * The canvas (the window less the 46 px top bar) and the fixed chrome over it as the app lays it out (measured in the
+ * real app): the camera strip top left, the stack pill top right, the turn dial bottom right.
+ */
+const SCREENS: { name: string; w: number; h: number; chrome: Box[] }[] = [
+  { name: "1280×640", w: 1280, h: 594, chrome: [{ left: 14, top: 10, right: 75, bottom: 45 }, { left: 1208, top: 8, right: 1268, bottom: 35 }, { left: 974, top: 343, right: 1264, bottom: 536 }] },
+  { name: "1920×1080", w: 1920, h: 1034, chrome: [{ left: 14, top: 10, right: 75, bottom: 45 }, { left: 1848, top: 8, right: 1908, bottom: 35 }, { left: 1614, top: 755, right: 1904, bottom: 976 }] },
+  { name: "748×851", w: 748, h: 805, chrome: [{ left: 14, top: 10, right: 75, bottom: 45 }, { left: 676, top: 8, right: 736, bottom: 35 }, { left: 442, top: 526, right: 732, bottom: 747 }] },
+];
+
+const inside = (v: THREE.Vector3, r: FrameRect, eps = 0.01) => v.x >= r.left - eps && v.x <= r.right + eps && v.y >= r.bottom - eps && v.y <= r.top + eps;
+const over = (v: THREE.Vector3, r: FrameRect) => v.x > r.left + 0.005 && v.x < r.right - 0.005 && v.y > r.bottom + 0.005 && v.y < r.top - 0.005;
 
 describe("3D table framing", () => {
   for (const [n, w, h] of [[4, 1440, 855], [4, 1920, 1035], [2, 1440, 855], [6, 1440, 855], [3, 1280, 675]] as const) {
@@ -56,10 +78,21 @@ describe("3D table framing", () => {
     });
   }
 
+  it("draws the picture unsqueezed: a square on the felt under the camera is as wide as it is deep, seen from above", () => {
+    const cam = tableLens(1280, 594);
+    cam.position.set(0, 40, 0);
+    cam.up.set(0, 0, -1);
+    cam.lookAt(0, 0, 0);
+    cam.updateMatrixWorld(true);
+    const [ax, ay] = px(cam, new THREE.Vector3(-1, 0, -1), 1280, 594);
+    const [bx, by] = px(cam, new THREE.Vector3(1, 0, 1), 1280, 594);
+    expect(Math.abs(bx - ax) / Math.abs(by - ay)).toBeCloseTo(1, 2);
+  });
+
   it("gives a 4-player table's far mats more of the screen than the old seat camera did", () => {
     const w = 1440, h = 855;
     const { s, cam } = seatView(4, w, h);
-    const old = lens(w, h);
+    const old = oldLens(w, h);
     const mine = s[0]!;
     const c = seatCamera(mine, tableSize(s), w / h);
     old.position.set(...c.pos);
@@ -77,7 +110,7 @@ describe("3D table framing", () => {
   it("gives six seats' far mats more height than the old seat camera did", () => {
     const w = 1440, h = 855;
     const { s, cam } = seatView(6, w, h);
-    const old = lens(w, h);
+    const old = oldLens(w, h);
     const mine = s[0]!;
     const c = seatCamera(mine, tableSize(s), w / h);
     old.position.set(...c.pos);
@@ -85,5 +118,89 @@ describe("3D table framing", () => {
     old.updateMatrixWorld(true);
     const far = s.find((x) => x.side !== mine.side && Math.abs(x.x) < 1)!;
     expect(matOnScreen(cam, far, w, h).h).toBeGreaterThan(matOnScreen(old, far, w, h).h * 1.15);
+  });
+
+  it("keeps points level with a box in a corner on its open side", () => {
+    const pts = [new THREE.Vector3(-5, 0, -3), new THREE.Vector3(5, 0, -3), new THREE.Vector3(5, 0, 3), new THREE.Vector3(-5, 0, 3)];
+    const cam = tableLens(1000, 600);
+    const rect = tableRect(1000, 600);
+    const dial = ndcBox({ left: 700, top: 380, right: 990, bottom: 590 }, 1000, 600);
+    const f = fitCamera(cam, pts, viewDir(0, 0.9), rect, [dial]);
+    cam.position.copy(f.pos);
+    cam.lookAt(f.look);
+    cam.updateMatrixWorld(true);
+    for (const p of pts) expect(over(p.clone().project(cam), dial)).toBe(false);
+    // and it still fills the screen as far as the box allows (it moves aside rather than shrinking to nothing)
+    const [l] = px(cam, pts[3]!, 1000, 600);
+    const [r] = px(cam, pts[2]!, 1000, 600);
+    expect(r - l).toBeGreaterThan(560);
+  });
+
+  for (const screen of SCREENS) {
+    it(`1v1 at ${screen.name}: mats, piles, hearts, plates, the fan and the props' tops all framed, clear of the chrome`, () => {
+      const { s, mine, pts, cam, rect, keep } = seatView(2, screen.w, screen.h, screen.chrome);
+      for (const p of pts) {
+        const v = p.clone().project(cam);
+        expect(inside(v, rect), `${p.toArray().map((x) => x.toFixed(2))}`).toBe(true);
+        for (const k of keep) expect(over(v, k)).toBe(false);
+      }
+      // the props stand where the frame holds them whole
+      for (const [x, z] of propSpots(s, tableSize(s))) expect(inside(new THREE.Vector3(x, PROP_TOP, z).project(cam), rect)).toBe(true);
+      // each plate (a DOM box beside its heart, on the side plateSide says) is on the canvas and off the dial
+      const side = plateSide(screen.w / screen.h);
+      for (const seat of s) {
+        const [hx, hz] = toWorld(seat, ...heartSpot(seat));
+        const toCam = cam.position.clone().sub(new THREE.Vector3(hx, 0, hz)).setY(0).normalize();
+        const edge = new THREE.Vector3(hx, HEART.y + Math.sin(heartTilt(seat)) * HEART.h * 0.5, hz).addScaledVector(new THREE.Vector3(toCam.z, 0, -toCam.x), side * HEART.w * 0.47);
+        const [ex, ey] = px(cam, edge, screen.w, screen.h);
+        const far = ex + side * (4 + PLATE_PX.w);
+        const plate = { left: Math.min(ex, far), right: Math.max(ex, far), top: ey - PLATE_PX.h / 2 - PLATE_PX.flag, bottom: ey + PLATE_PX.h / 2 };
+        expect(plate.left).toBeGreaterThan(4);
+        expect(plate.right).toBeLessThan(screen.w - 4);
+        expect(plate.top).toBeGreaterThan(0);
+        const dial = screen.chrome[2]!;
+        expect(plate.right < dial.left || plate.bottom < dial.top).toBe(true);
+      }
+      // my heart stands below my mat on screen (its raised far edge never covers the felt)
+      const [lx, lz] = heartSpot(mine);
+      const t = heartTilt(mine);
+      const [tx, tz] = toWorld(mine, lx, lz - (HEART.h / 2) * Math.cos(t));
+      const [, topY] = px(cam, new THREE.Vector3(tx, HEART.y + HEART.h * Math.sin(t), tz), screen.w, screen.h);
+      const [ex, ez] = toWorld(mine, lx, MAT_D / 2);
+      const [, edgeY] = px(cam, new THREE.Vector3(ex, 0, ez), screen.w, screen.h);
+      expect(topY).toBeGreaterThan(edgeY);
+    });
+  }
+
+  it("1v1 fills a wide screen: each player's mats and zone strips span at least 55% of a 1280×640 window and 65% of a 16:9 one", () => {
+    for (const [screen, play, felt] of [[SCREENS[0]!, 0.55, 0.42], [SCREENS[1]!, 0.65, 0.5]] as const) {
+      const { mine, cam } = seatView(2, screen.w, screen.h, screen.chrome);
+      expect(matOnScreen(cam, mine, screen.w, screen.h, true).w / screen.w, screen.name).toBeGreaterThanOrEqual(play);
+      expect(matOnScreen(cam, mine, screen.w, screen.h).w / screen.w, screen.name).toBeGreaterThanOrEqual(felt);
+    }
+  });
+
+  it("1v1: the far mat is nearly as large on screen as mine (a long lens)", () => {
+    for (const screen of SCREENS) {
+      const { s, mine, cam } = seatView(2, screen.w, screen.h, screen.chrome);
+      const far = s.find((x) => x !== mine)!;
+      expect(matOnScreen(cam, far, screen.w, screen.h).w / matOnScreen(cam, mine, screen.w, screen.h).w, screen.name).toBeGreaterThanOrEqual(0.85);
+    }
+  });
+
+  it("keeps depth fine enough at every zoom that the flat layers a hair apart never fight (the far-zoom flicker)", () => {
+    // the smallest gap between flat layers on the felt: the mats (0.002), the contact shadows (0.0026), the pile slots
+    // (0.0034), a card's face over its body (0.0012)
+    const gap = 0.0006;
+    const { cam } = seatView(2, 1920, 1034, SCREENS[1]!.chrome);
+    const seat = cam.position.length();
+    for (const zoom of [0.3, 0.6, 1, 1.5, 2, 2.5]) {
+      const dist = seat * zoom;
+      const { near, far } = nearFarFor(dist, dist + 10);
+      expect(depthStep(dist * 1.3, near, far), `zoom ${zoom}`).toBeLessThan(gap / 3);
+      expect(far).toBeGreaterThan(dist + 10 + 140); // the room's sky dome (radius 140) stays inside the far plane
+    }
+    // the cause: a fixed near plane of 0.1 at the farthest zoom left steps coarser than the gaps
+    expect(depthStep(seat * 2.5, 0.1, 400)).toBeGreaterThan(gap);
   });
 });

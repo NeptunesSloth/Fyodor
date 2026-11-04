@@ -270,22 +270,52 @@ function drawMat(felt: string, nap: string, playerColor: string): HTMLCanvasElem
   return c;
 }
 
-/** Outline slot for a zone pile. */
+/** The labels a pile slot can carry: every slot's label is set at the size the longest one fits. */
+const SLOT_LABELS = ["Library", "Graveyard", "Exile", "Command", "Partner"];
+/** How much taller than wide the label's letters are drawn: the table is seen at a slant, so they read upright (as road markings are). */
+export const SLOT_STRETCH = 1.45;
+
+/**
+ * Outline slot for a zone pile, drawn at twice its size so it stays crisp: a card-shaped well with a thin card-outline
+ * frame in `color`, and its name in large Cinzel capitals, parchment with a dark outline, upright for whoever reads it.
+ */
 export function slotTexture(label: string, color: string): THREE.CanvasTexture {
-  const [c, g] = canvas(168, 234);
-  g.fillStyle = "rgba(0, 0, 0, 0.28)";
-  roundRect(g, 6, 6, 156, 222, 12);
+  const W = 336;
+  const H = 468;
+  const [c, g] = canvas(W, H);
+  g.fillStyle = "rgba(0, 0, 0, 0.34)";
+  roundRect(g, 10, 10, W - 20, H - 20, 24);
   g.fill();
   g.strokeStyle = color;
-  g.globalAlpha = 0.4;
-  g.lineWidth = 2;
-  roundRect(g, 6, 6, 156, 222, 12);
+  g.globalAlpha = 0.85;
+  g.lineWidth = 4;
+  roundRect(g, 10, 10, W - 20, H - 20, 24);
   g.stroke();
-  g.globalAlpha = 0.7;
-  g.fillStyle = color;
-  g.font = "600 20px Cinzel, Georgia, serif";
+  g.globalAlpha = 0.35;
+  g.strokeStyle = "#efe2c2";
+  g.lineWidth = 2;
+  roundRect(g, 26, 26, W - 52, H - 52, 14);
+  g.stroke();
+  g.globalAlpha = 1;
+  const font = (px: number) => `700 ${px}px Cinzel, "Trajan Pro", Georgia, serif`;
+  let px = 64;
+  g.font = font(px);
+  const widest = Math.max(...SLOT_LABELS.map((l) => g.measureText(l.toUpperCase()).width));
+  px = Math.floor(Math.min(64, (px * (W - 56)) / Math.max(1, widest)));
+  g.font = font(px);
   g.textAlign = "center";
-  g.fillText(label.toUpperCase(), 84, 124);
+  g.textBaseline = "middle";
+  g.save();
+  g.translate(W / 2, H / 2);
+  g.scale(1, SLOT_STRETCH);
+  const text = label.toUpperCase();
+  g.lineJoin = "round";
+  g.lineWidth = Math.max(6, px * 0.2);
+  g.strokeStyle = "rgba(14, 9, 5, 0.92)";
+  g.strokeText(text, 0, 0);
+  g.fillStyle = "#f1e6c8";
+  g.fillText(text, 0, 0);
+  g.restore();
   return texture(c);
 }
 

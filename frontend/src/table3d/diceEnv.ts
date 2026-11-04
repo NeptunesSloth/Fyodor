@@ -15,7 +15,8 @@ export const pileHeight = (n: number) => (n <= 0 ? 0 : Math.min(n, 40) * THICK *
 /** Cards a throw takes into account at most (the oldest first: lands and such, under everything else). */
 const MAX_CARDS = 40;
 
-export function rollerEnv(view: GameView | null | undefined, player: string | null): ThrowEnv {
+/** `mirror`: the roller's piles stand on the other side of their mat on this screen (the far row's: table3d/layout.ts mirrored). */
+export function rollerEnv(view: GameView | null | undefined, player: string | null, mirror = false): ThrowEnv {
   if (!view || !player) return tableEnv();
   const obstacles: Obstacle[] = [];
   for (const zone of ["library", "graveyard", "exile", "command"] as const) {
@@ -23,7 +24,7 @@ export function rollerEnv(view: GameView | null | undefined, player: string | nu
     const n = Array.isArray(z) ? z.length : (z as LibraryView | undefined)?.count ?? 0;
     if (n <= 0) continue;
     const [x, z2] = PILES[zone];
-    obstacles.push({ x, z: z2, w: CARD_W, d: CARD_H, h: pileHeight(n) + THICK });
+    obstacles.push({ x: mirror ? -x : x, z: z2, w: CARD_W, d: CARD_H, h: pileHeight(n) + THICK });
   }
   const bf = (view.zones[`${player}:battlefield`] as string[] | undefined) ?? [];
   bf.slice(0, MAX_CARDS).forEach((id, i) => {

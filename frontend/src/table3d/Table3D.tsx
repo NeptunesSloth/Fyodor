@@ -41,6 +41,12 @@ declare global {
       /** Table motion (table3d/motion3d.ts): freeze every running motion at a time in ms (null: live), and what is running. */
       motionFreeze?: (ms: number | null) => void;
       motion?: () => { busy: boolean; flights: number; floaters: number; riffles: number; lunges: number };
+      /** -- framing -- the canvas size, the chrome the table is framed clear of, and the seat view's elevation. */
+      framing?: () => ReturnType<TableScene["framingState"]>;
+      /** Hold the room's own motion (candles, dust, beams' flow), to compare frames. */
+      still?: (on: boolean) => void;
+      /** How many pixels differ between two frames `ms` apart. */
+      frameDiff?: (ms: number) => Promise<{ changed: number; total: number }>;
     };
   }
 }
@@ -107,6 +113,17 @@ export function Table3D({ me }: { me: string }) {
       buttonAt: (id) => scene.buttonOnScreen(id),
       taxAt: (key) => scene.taxOnScreen(key),
       motionFreeze: (ms) => scene.motionFreeze(ms),
+      framing: () => scene.framingState(),
+      still: (on) => scene.setStill(on),
+      frameDiff: async (ms) => {
+        // pixels that differ between two frames `ms` apart (with nothing moving, nothing should)
+        const a = await scene.grabFrame();
+        await new Promise((r) => setTimeout(r, ms));
+        const b = await scene.grabFrame();
+        let n = 0;
+        for (let i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++;
+        return { changed: n, total: a.length / 4 };
+      },
       motion: () => scene.motionState(),
     };
     // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,
@@ -128,6 +145,16 @@ export function Table3D({ me }: { me: string }) {
         // -- arranged boards -- my rows stop short of the corner the turn dial covers
         const dial = document.querySelector(".turn-dial-wrap")?.getBoundingClientRect();
         scene.setDialBox(dial && dial.width ? { left: dial.left - host.left, top: dial.top - host.top, bottom: dial.bottom - host.top } : null);
+        // -- framing -- the table is framed clear of the fixed chrome: the camera strip (as it rests, showing only the
+        // current view), the stack pill and the turn dial
+        const rel = (r: DOMRect | undefined) => (r && r.width ? { left: r.left - host.left, top: r.top - host.top, right: r.right - host.left, bottom: r.bottom - host.top } : null);
+        const strip = rel(document.querySelector(".t3d-cams")?.getBoundingClientRect());
+        const on = rel(document.querySelector(".t3d-cams button.on")?.getBoundingClientRect());
+        scene.setKeepOuts([
+          strip && on ? { ...strip, right: on.right + 4 } : strip,
+          rel(document.querySelector(".stack-pill")?.getBoundingClientRect()),
+          rel(dial),
+        ].filter((b): b is NonNullable<typeof b> => !!b));
       }
       for (const [pid, node] of Object.entries(plates.current)) {
         if (!node) continue;
@@ -139,6 +166,7 @@ export function Table3D({ me }: { me: string }) {
         const size = (f: string) => (node.dataset[f] ?? "160,56").split(",").map(Number) as [number, number];
         const place = ([pw, ph]: [number, number]) => {
           let { x, y } = pt;
+          if (pt.edge) x += (pt.edge * pw) / 2; // 1v1: the plate starts at its heart's edge (its right, or its left on a narrow screen)
           const hits = (r: Box) => !(x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom);
           const fits = (v: number) => v >= ph / 2 + 8 && v <= h - ph / 2 - 8;
           const stepOff = (boxes: Box[]) => {
