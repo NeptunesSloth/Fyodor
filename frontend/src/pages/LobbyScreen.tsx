@@ -38,6 +38,7 @@ import { contrast } from "../theme/planes";
 import type { DeckSummary } from "../types/decks";
 import { SPECTATOR, type LobbySeat, type LobbySettings, type LobbyView } from "../types/game";
 import { TablePermissionsSetting } from "./TablePermissionsSetting";
+import { FORMAT_NAME, SANDBOX_HINT, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
 import { ownDecks, type OwnDeck, type OwnDecks } from "./lanBits";
 import { CommanderArt } from "./CommanderArt";
 import { PersonalDeckImports } from "./PersonalDeckImports";
@@ -61,6 +62,11 @@ const MAX_FILE = 2 * 1024 * 1024;
 /** The host's choice of first player, in a word or two (the full rule is the button's tooltip). */
 const MODE_NAME: Record<TurnOrderMode, string> = { pod: "Pod rule", random: "Random", seats: "Seat order" };
 const AUTOMATION_NAME = { off: "Off", assisted: "Assisted", full: "Full" } as const;
+const AUTOMATION_HINT = {
+  off: "The manual table: nothing is enforced.",
+  assisted: "Validates and asks before important steps.",
+  full: "Supported rules happen by themselves.",
+} as const;
 
 /**
  * Pregame table: take a seat, bring your own deck, get ready; the host starts the game. The room is drawn as the table it
@@ -133,7 +139,7 @@ export function LobbyScreen({ lobby }: { lobby: LobbyView }) {
         <div className="lobby-title">
           <h1 title={s.name}>{s.name}</h1>
           <p className="lobby-sub">
-            <span>Commander table</span>
+            <span data-testid="lobby-format" title={isSandbox(s.format) ? SANDBOX_HINT : undefined}>{isSandbox(s.format) ? "Sandbox table: free play" : "Commander table"}</span>
             <span>{claimed.length} of {lobby.seats.length} seats taken</span>
             {lobby.spectators > 0 && <span>{lobby.spectators} watching</span>}
           </p>
@@ -460,6 +466,7 @@ function NextGame({ lobby, busy, onRun, onSettings }: {
       </div>
       <div className="nx-foot">
       <dl className="house-rules">
+        <div title={isSandbox(s.format) ? SANDBOX_HINT : "Deck checks follow Commander's rules"}><dt>Format</dt><dd>{FORMAT_NAME[s.format] ?? s.format}</dd></div>
         <div><dt>Life</dt><dd>{s.starting_life ?? 40}</dd></div>
         <div className={lobby.mulligan?.needs_definition ? "warn" : undefined}>
           <dt>Mulligan</dt>
@@ -1028,7 +1035,20 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
         <button className="tt-btn brass" disabled={busy} onClick={() => void save()}>Save</button>
       </>
     }>
-      <div className="settings-grid">
+      <div className="settings-grid lobby-settings">
+        <fieldset className="field fmt-field">
+          <legend>Format</legend>
+          <div className="fmt-choice" role="radiogroup" aria-label="Format" data-testid="lobby-format-choice">
+            {TABLE_FORMATS.map((f) => (
+              <label key={f.id} className={`fmt-opt ${draft.format === f.id ? "on" : ""}`}>
+                <input type="radio" name="lobby-format" value={f.id} checked={draft.format === f.id} data-testid={`lobby-format-${f.id}`}
+                  onChange={() => set(f.id === "sandbox" ? { format: f.id, automation: "off" } : { format: f.id })} />
+                <span className="fmt-icon"><Icon name={f.icon} size={20} /></span>
+                <span className="fmt-text"><b>{f.name}</b><span>{f.line}</span></span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <label className="field">Table name<input value={draft.name} maxLength={80} onChange={(e) => set({ name: e.target.value })} /></label>
         <label className="field">Seats
           <select value={draft.seats} onChange={(e) => set({ seats: Number(e.target.value) })}>
@@ -1036,7 +1056,7 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
           </select>
         </label>
         <label className="field">Starting life
-          <input type="number" min={1} value={draft.starting_life ?? ""} placeholder={draft.format === "commander" ? "40" : "20"}
+          <input type="number" min={1} value={draft.starting_life ?? ""} placeholder="40"
             onChange={(e) => set({ starting_life: e.target.value ? Number(e.target.value) : null })} />
         </label>
         <label className="field">Deck privacy
@@ -1051,22 +1071,24 @@ function SettingsDialog({ lobby, onClose, onSaved }: { lobby: LobbyView; onClose
           </select>
         </label>
         <label className="field">Automation
-          <select data-testid="lobby-automation" value={draft.automation ?? "off"} onChange={(e) => set({ automation: e.target.value as LobbySettings["automation"] })}>
-            <option value="off">Off — sandbox, nothing enforced</option>
-            <option value="assisted">Assisted — validates and asks before important steps</option>
-            <option value="full">Full — supported rules happen by themselves</option>
+          <select data-testid="lobby-automation" value={isSandbox(draft.format) ? "off" : draft.automation ?? "off"} disabled={isSandbox(draft.format)}
+            onChange={(e) => set({ automation: e.target.value as LobbySettings["automation"] })}>
+            {(["off", "assisted", "full"] as const).map((lv) => <option key={lv} value={lv}>{AUTOMATION_NAME[lv]}</option>)}
           </select>
+          <span className="hint">{isSandbox(draft.format) ? "A Sandbox table starts with automation off. The host can turn it on at the table." : AUTOMATION_HINT[draft.automation ?? "off"]}</span>
         </label>
         <label className="field">Turn order
           <select data-testid="lobby-turn-order" value={draft.turn_order ?? "pod"} onChange={(e) => set({ turn_order: e.target.value as LobbySettings["turn_order"] })}>
-            {(["pod", "random", "seats"] as const).map((m) => <option key={m} value={m}>{TURN_ORDER_LABEL[m]}</option>)}
+            {(["pod", "random", "seats"] as const).map((m) => <option key={m} value={m}>{MODE_NAME[m]}</option>)}
           </select>
+          <span className="hint">{TURN_ORDER_LABEL[draft.turn_order ?? "pod"].replace(/^[^—]*— /, "").replace(/^./, (c) => c.toUpperCase())}.</span>
         </label>
         <label className="field">Response helper
           <select value={draft.priority_helper} onChange={(e) => set({ priority_helper: e.target.value as LobbySettings["priority_helper"] })}>
-            <option value="simple">On — ask the table before resolving / moving on</option>
+            <option value="simple">On</option>
             <option value="off">Off</option>
           </select>
+          <span className="hint">{draft.priority_helper === "simple" ? "Asks the table before resolving or moving on (with automation off)." : "Nobody is asked: play moves on."}</span>
         </label>
         <TablePermissionsSetting value={draft.card_permissions} onChange={(v) => set({ card_permissions: v })} />
       </div>
