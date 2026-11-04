@@ -87,7 +87,7 @@
 .dk-cmdr.none { color: var(--text-dim); }
 .dk-facts, .dk-record { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 0; margin: 2px 0 0; font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .dk-facts > * + * { padding-left: 9px; margin-left: 9px; border-left: 1px solid var(--line-2); }
-.dk-facts .pips { font-size: 18px; }
+.dk-facts .pips { --pip: 18px; }
 /* the record and when it last played: apart on one line, or one under the other (no stray rule when they wrap) */
 .dk-record { margin-top: 0; justify-content: space-between; column-gap: 12px; }
 .dk-warn { color: var(--warn); }
@@ -180,7 +180,7 @@ body.perf-low .dk-empty::before { display: none; }
 .de-cmdr.none { color: var(--text-dim); font-size: 13.5px; }
 .de-facts { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 0; margin: 2px 0 0; font-size: 13.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .de-facts > * + * { padding-left: 12px; margin-left: 12px; border-left: 1px solid var(--line-2); }
-.de-facts .pips { font-size: 20px; }
+.de-facts .pips { --pip: 20px; }
 .de-total { color: var(--room-bone); }
 .de-check {
   display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 4px 0 12px; border: 0; border-left: 1px solid var(--line-2);
@@ -261,14 +261,15 @@ body.perf-low .dk-empty::before { display: none; }
   width: 16px; height: 16px; flex: none; display: grid; place-items: center; border-radius: 50%; cursor: help;
   font: 800 10.5px/1 var(--font-ui); color: #1a1208; background: var(--warn);
 }
-.de-cost { flex: none; display: inline-flex; align-items: center; font-size: 15.5px; }
+.de-cost { --pip: 18px; flex: none; gap: 2px; font-size: 14px; }
 .de-set {
   flex: none; min-width: 42px; height: 22px; padding: 0 5px; border: 1px solid transparent; border-radius: 3px; background: none;
   color: var(--text-faint); font: 500 11px/1 var(--font-ui); letter-spacing: 0.05em; cursor: pointer;
 }
 .de-row:hover .de-set { border-color: var(--line); }
 .de-set:hover { color: var(--room-bone); border-color: var(--line-2); }
-.de-crown, .de-crown-gap { width: 26px; height: 26px; flex: none; }
+/* (scoped to the row: the icon button's own 24 px would otherwise win, and the commander's row would end 2 px further in) */
+.de-row .de-crown, .de-row .de-crown-gap { width: 26px; height: 26px; flex: none; }
 .de-crown { color: var(--room-bone-dim); }
 .de-more .dmenu-btn { width: 26px; height: 26px; color: var(--room-bone-dim); }
 /* the row's tools wait until the row is hovered or focused (or always, on touch) */

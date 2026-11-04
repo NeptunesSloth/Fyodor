@@ -239,14 +239,21 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 .mana.g { background: var(--mana-g); }
 .mana.tap { background: #d5d0c8; }
 .mana.hybrid { background: linear-gradient(135deg, var(--mana-w), var(--mana-g)); }
-/* the real symbol (cards/symbols.ts): the letter circle's box, on the same baseline; wide ones ({100}) keep their shape */
-img.mana-sym {
+/* the real symbol (cards/symbols.ts): the letter circle's box, on the same baseline; wide ones ({100}) keep their shape.
+   (img.mana.mana-sym outranks the letter circle's contextual rules, so none of their boxes or shadows reach the image) */
+img.mana.mana-sym {
   display: inline-block; width: auto; min-width: 0; height: 1.15em; padding: 0; border-radius: 0;
   background: none; box-shadow: none; vertical-align: -0.17em; user-select: none; -webkit-user-drag: none;
 }
-/* in a cost or a colour identity, as printed: each symbol casts a small hard shadow down and to the left */
-.pips img.mana-sym, .cost img.mana-sym, .tc-cost img.mana-sym, .de-cost img.mana-sym, .pay-cost img.mana-sym, .cost-now img.mana-sym {
-  filter: drop-shadow(-0.05em 0.07em 0 rgba(0, 0, 0, 0.85));
+/* in a cost, as printed: each symbol casts a small hard shadow down and to the left, following its own shape */
+:is(.cost, .tc-cost, .pay-cost, .cost-now) img.mana.mana-sym { filter: drop-shadow(-0.05em 0.07em 0 rgba(0, 0, 0, 0.85)); }
+/* lists of symbols at a fixed size (a colour identity, the deck editor's costs): whole pixels so they stay crisp at 1x,
+   whole-pixel gaps, a fine dark ring and the printed shadow, drawn as round box shadows (every mana symbol is round) */
+.pips, .de-cost { --pip: 16px; display: inline-flex; align-items: center; gap: 3px; }
+.pips > .mana, .de-cost > .mana { flex: none; width: var(--pip); height: var(--pip); min-width: 0; margin: 0; font-size: calc(var(--pip) * 0.62); }
+.pips > img.mana.mana-sym, .de-cost > img.mana.mana-sym {
+  width: var(--pip); height: var(--pip); vertical-align: middle; border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), -1px 1px 0 1px rgba(0, 0, 0, 0.6);
 }
 
 /* card browser */
@@ -276,8 +283,7 @@ img.mana-sym {
 
 /* ---------- decks ---------- */
 .empty { text-align: center; padding: 60px 0; color: var(--text-dim); }
-.pips { display: inline-flex; align-items: center; gap: 0.16em; }
-.pips .mana { margin: 0; }
+
 .small { font-size: 12.5px; }
 .row { display: flex; gap: 10px; align-items: flex-end; }
 .grow { flex: 1; }
