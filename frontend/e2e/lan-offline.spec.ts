@@ -113,7 +113,6 @@ test("offline game night: Join from my own Fyodor, my deck waits on my seat, a n
 
   // game night: Alice opens a LAN table
   await host.page.goto("/#/play");
-  await host.page.getByTestId("table-mode-lan").check();
   await host.page.getByLabel("Table name").fill("Offline night");
   await host.page.getByTestId("host-name").fill("Alice");
   await host.page.getByTestId("create-game").click();

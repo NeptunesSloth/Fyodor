@@ -1,14 +1,16 @@
 /**
- * Play: the card room's front door. On the left the table you're setting up (hot-seat at this computer, or a LAN night the
- * pod joins from their own computers), its seats showing each commander; on the right the door (join with a room code) and
- * the shelf of tables in progress and saved games, each shown with its commanders.
+ * Play: the card room's front door. On the left the LAN night you're setting up (the pod joins from their own computers; a
+ * host alone at the table is solo testing), Commander or Sandbox, its seats showing each commander; on the right the door
+ * (join with a room code) and the shelf of tables in progress and saved games, each shown with its commanders. Hot-seat tables
+ * from before (everyone at this computer) still open and load from the shelf; new ones aren't offered.
  */
 import { activeProfile, usePrefs } from "../state/prefs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ColorPips } from "../components/ColorPips";
 import { Icon } from "../components/Icon";
 import { CONFIGURABLE_RULES, MULLIGAN_RULES, MulliganEditor, draftPolicy, rememberPolicy } from "../components/MulliganEditor";
-import type { AutomationLevel, MulliganPolicy } from "../types/game";
+import type { AutomationLevel, MulliganPolicy, TableFormat } from "../types/game";
+import { FORMAT_NAME, SANDBOX_HINT, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
 import { toast, toastError } from "../components/Toasts";
 import { navigate, type Route } from "../hooks/useHashRoute";
 import { ApiError } from "../services/api";
@@ -26,6 +28,7 @@ import {
   loadSave,
   rememberSeat,
   seatToken,
+  submitLobbyDeck,
   type CreatePlayer,
 } from "../services/games";
 import type { DeckSummary } from "../types/decks";
@@ -42,7 +45,7 @@ const COLORS = SEAT_COLORS;
 /** The automation levels by the names the table uses (the rules HUD, the lobby's house rules). */
 const AUTOMATION_NAME: Record<AutomationLevel, string> = { off: "Off", assisted: "Assisted", full: "Full" };
 const AUTOMATION_HINT: Record<AutomationLevel, string> = {
-  off: "Pure sandbox: nothing is enforced; you move everything by hand.",
+  off: "The manual table: nothing is enforced; you move everything by hand.",
   assisted: "The rules engine validates and prepares, and asks before important steps.",
   full: "Supported rules happen by themselves; you're asked only when Magic needs a choice.",
 };
@@ -120,7 +123,7 @@ export function PlayPage({ route }: { route: Route }) {
     <div className="page play">
       <div className="pg-grid">
         <div className="pg-main">
-          {host !== false && <NewGame decks={decks} preselect={route.query.get("deck")} lanParam={route.query.get("mode") === "lan"} />}
+          {host !== false && <NewGame decks={decks} preselect={route.query.get("deck")} />}
           {host === false && (
             <section className="pg-remote" aria-labelledby="pg-remote-title">
               <Icon name="table" size={30} />
@@ -178,19 +181,14 @@ export function PlayPage({ route }: { route: Route }) {
   );
 }
 
-type Mode = "local" | "lan";
-
-const MODES: { id: Mode; title: string; sub: string; icon: "swords" | "table" }[] = [
-  { id: "local", title: "Hot-seat", sub: "Everyone plays here, passing the seat.", icon: "swords" },
-  { id: "lan", title: "Host a LAN night", sub: "The pod joins from their own computers.", icon: "table" },
-];
-
-function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; preselect: string | null; lanParam: boolean }) {
+/**
+ * A new game is a LAN night: the pod joins from their own computers with the room code (the host alone at the table is solo
+ * testing). Its format is Commander, or Sandbox: free play with the same Commander decks.
+ */
+function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string | null }) {
   const [name, setName] = useState("Commander night");
-  const [mode, setMode] = useState<Mode>(() => (window.location.hash.includes("mode=lan") ? "lan" : "local"));
-  useEffect(() => {
-    if (lanParam) setMode("lan");
-  }, [lanParam]);
+  const [format, setFormat] = useState<TableFormat>("commander");
+  const sandbox = isSandbox(format);
   const [password, setPassword] = useState("");
   const [first, setFirst] = useState<string>("random");
   const [life, setLife] = useState<string>("40");
@@ -206,16 +204,22 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
   };
   const [helper, setHelper] = useState<"off" | "simple">("simple");
   const [automation, setAutomation] = useState<AutomationLevel>("off");
-  const useLobby = mode === "lan" && lobby;
+  const useLobby = lobby;
+  const level: AutomationLevel = sandbox ? "off" : automation; // a Sandbox table starts as the manual table
   const [players, setPlayers] = useState<CreatePlayer[]>([
-    { name: "Player 1", deck_id: preselect, color: COLORS[0] },
+    { name: ownName(activeProfile().name) || "Player 1", deck_id: preselect, color: COLORS[0] }, // the host's seat: their profile's name
     { name: "Player 2", deck_id: null, color: COLORS[1] },
   ]);
   const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState<number | null>(null);
+  // the deck the host brings to their own lobby seat: one chosen here ("Play a deck" on the launcher, or this seat's picker),
+  // never a default; everyone else, and a host who chose none, brings a deck in the lobby
+  const [hostDeck, setHostDeck] = useState<string | null>(preselect);
+  const [pickingHost, setPickingHost] = useState(false);
 
   useEffect(() => {
     if (preselect) setPlayers((ps) => ps.map((p, i) => (i === 0 ? { ...p, deck_id: preselect } : p)));
+    if (preselect) setHostDeck(preselect);
   }, [preselect]);
   useEffect(() => {
     // default the second player to another deck when decks load
@@ -237,9 +241,9 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
     try {
       const res = await createGame({
         name: name.trim() || "Game",
-        format: "commander",
-        mode,
-        password: mode === "lan" ? password || null : null,
+        format,
+        mode: "lan",
+        password: password || null,
         players: useLobby ? [{ name: players[0]?.name.trim() || "Host", deck_id: null }] : players.map((p) => ({ ...p, name: p.name.trim() || "Player" })),
         shuffle: true,
         lobby: useLobby,
@@ -249,13 +253,14 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
         mulligan_rule: mulligan,
         mulligan_policy: configurable ? policy : null,
         priority_helper: helper,
-        automation,
+        automation: level,
         first_player: first === "random" ? "random" : Number(first),
         starting_life: life ? Number(life) : null,
         auto_untap: true,
       });
       if (configurable && policy) rememberPolicy(mulligan, policy);
       if (res.seat) rememberSeat(res.game.id, res.seat.token);
+      if (useLobby && hostDeck && res.seat) await submitLobbyDeck(res.game.id, { deck_id: hostDeck }).catch(toastError);
       navigate(`/game/${res.game.id}`);
     } catch (e) {
       toastError(e);
@@ -268,39 +273,41 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
 
   return (
     <section className="pg-new" aria-labelledby="pg-new-title">
-      <h1 id="pg-new-title" className="sr-only">New game</h1>
-      <div className="pg-modes" role="radiogroup" aria-label="How the pod plays" data-testid="table-mode">
-        {MODES.map((m) => (
-          <label key={m.id} className={`pg-mode ${mode === m.id ? "on" : ""}`}>
-            <input type="radio" name="table-mode" value={m.id} checked={mode === m.id} onChange={() => setMode(m.id)} data-testid={`table-mode-${m.id}`} />
-            <span className="pg-mode-icon"><Icon name={m.icon} size={26} /></span>
-            <span className="pg-mode-text">
-              <b>{m.title}</b>
-              <span>{m.sub}</span>
+      <h1 id="pg-new-title" className="sr-only">Host a LAN night</h1>
+      <div className="pg-formats" role="radiogroup" aria-label="Format" data-testid="table-format">
+        {TABLE_FORMATS.map((f) => (
+          <label key={f.id} className={`pg-format ${format === f.id ? "on" : ""}`}>
+            <input type="radio" name="table-format" value={f.id} checked={format === f.id} data-testid={`format-${f.id}`} onChange={() => {
+              // the default table name follows the format until the host names the table
+              if (name === `${FORMAT_NAME[format]} night`) setName(`${FORMAT_NAME[f.id]} night`);
+              setFormat(f.id);
+            }} />
+            <span className="pg-format-icon"><Icon name={f.icon} size={26} /></span>
+            <span className="pg-format-text">
+              <b>{f.name}</b>
+              <span>{f.line}</span>
             </span>
           </label>
         ))}
       </div>
 
-      <div className="pg-table" data-mode={mode}>
+      <div className="pg-table" data-format={format}>
         <header className="pg-head">
           <label className="pg-title" title="Rename this table">
             <span className="sr-only">Table name</span>
             <input value={name} maxLength={80} onChange={(e) => setName(e.target.value)} spellCheck={false} />
             <Icon name="pen" size={15} className="pg-title-pen" />
           </label>
-          {mode === "lan" && (
-            <div className="pg-lan-opts">
-              <label className="pg-toggle">
-                <span className="switch"><input type="checkbox" checked={lobby} onChange={(e) => setLobby(e.target.checked)} data-testid="use-lobby" /><span /></span>
-                Players bring their own decks
-              </label>
-              <label className="pg-pass">
-                <span>Password</span>
-                <input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="None" autoComplete="new-password" />
-              </label>
-            </div>
-          )}
+          <div className="pg-lan-opts">
+            <label className="pg-toggle">
+              <span className="switch"><input type="checkbox" checked={lobby} onChange={(e) => setLobby(e.target.checked)} data-testid="use-lobby" /><span /></span>
+              Players bring their own decks
+            </label>
+            <label className="pg-pass">
+              <span>Password</span>
+              <input type="password" value={password} maxLength={100} onChange={(e) => setPassword(e.target.value)} placeholder="None" autoComplete="new-password" />
+            </label>
+          </div>
         </header>
 
         {useLobby ? (
@@ -313,16 +320,15 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
                   <input className="pg-name" data-testid="host-name" value={players[0]?.name ?? ""} maxLength={40} onChange={(e) => update(0, { name: e.target.value })} />
                 </label>
               </div>
-              <div className="pg-art no-deck"><span className="pg-slot"><Icon name="cards" size={26} /></span></div>
-              <div className="pg-deck"><p className="pg-note">You host. You bring your deck in the lobby, like everyone else.</p></div>
+              <HostDeck deck={decks.find((d) => d.id === hostDeck)} canPick={decks.length > 0} onPick={() => setPickingHost(true)} onClear={() => setHostDeck(null)} />
             </li>
             <li className="pg-chairs">
               <ul aria-label="Open seats">
                 {Array.from({ length: seats - 1 }, (_, k) => (
                   <li key={k} className="pg-chair">
                     <span className="pg-chair-seat"><Icon name="table" size={22} /><b>{k + 2}</b></span>
-                    <span className="pg-chair-text"><b>Open seat</b><span>A player joins with the room code and brings a deck.</span></span>
-                    {seats > 2 && (
+                    <span className="pg-chair-text"><b>Open seat</b><span>A player joins with the room code.</span></span>
+                    {seats > 1 && (
                       <button className="tt-icon pg-remove" onClick={() => setSeats((n) => n - 1)} aria-label="Remove a seat" title="Remove a seat"><Icon name="close" size={14} /></button>
                     )}
                   </li>
@@ -399,12 +405,19 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
                 {MULLIGAN_RULES.map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </label>
-            <label className="pg-rule">
-              <span>Automation</span>
-              <select data-testid="automation-level" value={automation} onChange={(e) => setAutomation(e.target.value as AutomationLevel)} aria-describedby="pg-auto-hint">
-                {(["off", "assisted", "full"] as const).map((lv) => <option key={lv} value={lv}>{AUTOMATION_NAME[lv]}</option>)}
-              </select>
-            </label>
+            {sandbox ? (
+              <div className="pg-rule pg-rule-fixed" title="A Sandbox table starts with rules automation off; the host can turn it on at the table">
+                <span>Automation</span>
+                <b data-testid="automation-level-fixed">Off</b>
+              </div>
+            ) : (
+              <label className="pg-rule">
+                <span>Automation</span>
+                <select data-testid="automation-level" value={automation} onChange={(e) => setAutomation(e.target.value as AutomationLevel)} aria-describedby="pg-auto-hint">
+                  {(["off", "assisted", "full"] as const).map((lv) => <option key={lv} value={lv}>{AUTOMATION_NAME[lv]}</option>)}
+                </select>
+              </label>
+            )}
             {!useLobby && (
               <label className="pg-rule">
                 <span>Who starts</span>
@@ -424,7 +437,7 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
                 </select>
               </label>
             )}
-            {mode === "lan" && automation === "off" && (
+            {level === "off" && (
               <label className="pg-rule">
                 <span>Response helper</span>
                 <select value={helper} onChange={(e) => setHelper(e.target.value as typeof helper)}>
@@ -435,7 +448,7 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
             )}
           </div>
           <p className="pg-rail-note">
-            <span id="pg-auto-hint"><b>Automation {AUTOMATION_NAME[automation]}.</b> {AUTOMATION_HINT[automation]}</span>{" "}
+            <span id="pg-auto-hint">{sandbox ? <><b>Sandbox.</b> {SANDBOX_HINT}</> : <><b>Automation {AUTOMATION_NAME[level]}.</b> {AUTOMATION_HINT[level]}</>}</span>{" "}
             {useLobby ? "The pod takes seats and brings decks in the lobby; you start the game from there."
               : mulligan === "none" ? "Libraries are shuffled; with “None” everyone draws by hand (D or double-click your library)."
               : "Libraries are shuffled and opening hands dealt automatically."}
@@ -446,11 +459,47 @@ function NewGame({ decks, preselect, lanParam }: { decks: DeckSummary[]; presele
         </footer>
       </div>
 
+      {pickingHost && (
+        <DeckPicker decks={decks} value={hostDeck} seat={players[0]?.name.trim() || "You"} usedBy={new Map()}
+          onClose={() => setPickingHost(false)} onPick={(id) => { setHostDeck(id); setPickingHost(false); }} />
+      )}
       {picked && picking !== null && (
         <DeckPicker decks={decks} value={picked.deck_id ?? null} seat={picked.name.trim() || `Player ${picking + 1}`} usedBy={usedBy}
           onClose={() => setPicking(null)} onPick={(id) => { update(picking, { deck_id: id }); setPicking(null); }} />
       )}
     </section>
+  );
+}
+
+/** The host's own lobby seat: the deck they bring (chosen here, or later in the lobby like everyone else). */
+function HostDeck({ deck, canPick, onPick, onClear }: { deck: DeckSummary | undefined; canPick: boolean; onPick: () => void; onClear: () => void }) {
+  return (
+    <>
+      <button className={`pg-art ${deck ? "" : "no-deck"}`} onClick={onPick} disabled={!canPick} data-testid="host-deck"
+        aria-label={`Your deck: ${deck ? `${deck.name}${deck.commanders.length ? `, ${deck.commanders.join(" & ")}` : ""}` : "none yet"}. Choose a deck`}>
+        {deck ? (deck.commanders.length && deck.cover_id ? <CommanderArt id={deck.cover_id} /> : <CommanderArt back />) : (
+          <span className="pg-slot"><Icon name="cards" size={26} />{canPick && <span>Choose a deck</span>}</span>
+        )}
+      </button>
+      <div className="pg-deck">
+        {deck ? (
+          <>
+            <p className="pg-cmdr" title={deckTitle(deck)}>{deckTitle(deck)}</p>
+            <p className="pg-sub">{deck.commanders.length > 0 && <span className="pg-deckname">{deck.name}</span>}<ColorPips colors={deck.color_identity} /></p>
+          </>
+        ) : (
+          <p className="pg-note">You host. Choose your deck here or in the lobby.</p>
+        )}
+      </div>
+      {canPick && deck && (
+        <div className="pg-seat-foot">
+          <button className="tt-btn" onClick={onPick}>Change deck</button>
+          <button className="tt-icon pg-remove" onClick={onClear} aria-label="Bring a deck in the lobby instead" title="Bring a deck in the lobby instead">
+            <Icon name="close" size={14} />
+          </button>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -512,6 +561,7 @@ function TableTile({ game: g, host, onClosed }: { game: GameSummary; host: boole
         <h3><span className="pg-tile-name">{g.name}</span>{lan && g.has_password && <Icon name="lock" size={14} label="Password" className="pg-lock" />}</h3>
         <p className="pg-meta">
           <span>{lan ? "LAN" : "Hot-seat"}</span>
+          {isSandbox(g.format) && <span>Sandbox</span>}
           {lan && g.code && <span>Room <b className="pg-room">{g.code}</b></span>}
           <span>{lobby ? "In the lobby" : `Turn ${g.turn}`}</span>
         </p>

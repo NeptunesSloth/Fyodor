@@ -68,8 +68,7 @@ export function recordTraffic(page: Page): { text: () => string } {
  */
 export async function hostLobby(page: Page, opts: { name: string; privacy?: string; turnOrder?: "pod" | "random" }): Promise<{ gameId: string; code: string }> {
   await page.goto("/#/play");
-  await page.getByTestId("table-mode-lan").check();
-  await expect(page.getByTestId("use-lobby")).toBeChecked();
+  await expect(page.getByTestId("use-lobby")).toBeChecked(); // every new game is a LAN night, and the pod brings decks by default
   await page.getByTestId("host-name").fill(opts.name);
   if (opts.privacy) await page.getByTestId("deck-privacy").selectOption(opts.privacy);
   await page.getByTestId("create-game").click();
@@ -82,6 +81,27 @@ export async function hostLobby(page: Page, opts: { name: string; privacy?: stri
     expect(res.ok(), await res.text()).toBeTruthy();
   }
   return { gameId, code };
+}
+
+/**
+ * A LAN night set up on the Play page without a lobby: the host's own decks go to the seats (the first player is the host's
+ * seat; the others stay open for the pod). `players: 1` is solo testing: the host alone at the table.
+ */
+export async function hostTable(page: Page, opts: { players?: number; deck?: string; mulligan?: string; automation?: string; format?: "commander" | "sandbox"; first?: string } = {}): Promise<string> {
+  await page.goto(opts.deck ? `/#/play?deck=${opts.deck}` : "/#/play"); // `deck`: the first seat's (the host's) deck
+  await expect(page.getByTestId("create-game")).toBeVisible();
+  if (opts.format) await page.getByTestId(`format-${opts.format}`).check();
+  await page.locator(".pg-toggle").click(); // "Players bring their own decks": off
+  await expect(page.getByTestId("use-lobby")).not.toBeChecked();
+  const want = opts.players ?? 2;
+  for (let n = await page.locator(".pg-seat").count(); n > want; n--) await page.getByRole("button", { name: "Remove player" }).last().click();
+  await expect(page.locator(".pg-seat")).toHaveCount(want);
+  if (opts.mulligan) await page.getByTestId("mulligan-rule").selectOption(opts.mulligan);
+  if (opts.automation) await page.getByTestId("automation-level").selectOption(opts.automation);
+  if (opts.first) await page.getByTestId("first-player").selectOption(opts.first);
+  await page.getByTestId("create-game").click();
+  await expect(page.locator(".game-screen")).toBeVisible();
+  return page.url().split("/game/")[1]!.split(/[?#]/)[0]!;
 }
 
 export async function joinLobby(page: Page, code: string, name: string): Promise<void> {

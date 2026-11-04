@@ -1,8 +1,8 @@
 /**
  * The launcher: a title screen. The selected plane's table fills the screen (the live 3D table, or a drawn table where 3D
  * is off or unavailable, with the pod's own commanders lying on it); the menu stands on the left: continue the last table,
- * start a game, resume, host a LAN night, and the pod's decks a click from a new game. First-run setup opens on top until
- * it is done.
+ * host a LAN night (the main action: every new game is one, solo testing included), resume, and the pod's decks a click from
+ * a new game. First-run setup opens on top until it is done.
  */
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { CardFace } from "../cards/CardFace";
@@ -24,13 +24,13 @@ import { TableMosaic, whenSaved } from "./tableBits";
 import { Welcome, resetWelcome, welcomeDone } from "./Welcome";
 import "./home.css";
 import { Icon, type IconName } from "../components/Icon";
+import { isSandbox } from "../game/tableFormat";
 
 const ShowcaseView = lazy(() => import("./ShowcaseView"));
 
-const MENU: { href: string; label: string; icon: IconName; testid: string; resume?: boolean }[] = [
-  { href: "#/play", label: "Start a game", icon: "swords", testid: "menu-new" },
+const MENU: { href: string; label: string; icon: IconName; testid: string; resume?: boolean; primary?: boolean }[] = [
+  { href: "#/play", label: "Host a LAN night", icon: "table", testid: "menu-lan", primary: true },
   { href: "#/play", label: "Resume a game", icon: "resume", testid: "menu-resume", resume: true },
-  { href: "#/play?mode=lan", label: "Host a LAN night", icon: "table", testid: "menu-lan" },
 ];
 const MINOR: { href: string; label: string; icon: IconName; testid: string }[] = [
   { href: "#/decks", label: "Deck library", icon: "cards", testid: "menu-decks" },
@@ -87,7 +87,7 @@ export function Home() {
         {last && <Continue last={last} />}
         <nav className="home-menu" aria-label="Main menu">
           {MENU.map((m) => (
-            <a key={m.testid} href={m.resume && savedCount ? "#/play?tab=saves" : m.href} className={`home-item ${m.testid === "menu-new" ? "primary" : ""}`} data-testid={m.testid}>
+            <a key={m.testid} href={m.resume && savedCount ? "#/play?tab=saves" : m.href} className={`home-item ${m.primary ? "primary" : ""}`} data-testid={m.testid}>
               <span className="home-icon"><Icon name={m.icon} size={20} /></span>
               <span className="home-label">{m.label}</span>
               {m.resume && savedCount > 0 && <span className="home-count" aria-label={`${savedCount} saved`}>{savedCount}</span>}
@@ -206,6 +206,7 @@ function Continue({ last }: { last: LastTable }) {
           {table ? (
             <>
               <span>{table.mode === "lan" ? "LAN" : "Hot-seat"}</span>
+              {isSandbox(table.format) && <span>Sandbox</span>}
               <span>{table.phase === "lobby" ? "In the lobby" : `Turn ${table.turn}`}</span>
             </>
           ) : (

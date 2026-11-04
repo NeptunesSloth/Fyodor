@@ -16,7 +16,7 @@
 }
 .play ::selection { background: color-mix(in srgb, var(--frame-hi) 40%, transparent); color: var(--room-bone); }
 .play :is(button, a, select, input, summary):focus-visible,
-.play :is(.pg-mode, .pg-chip-edit):has(input:focus-visible) { outline: 2px solid var(--select); outline-offset: 2px; }
+.play :is(.pg-format, .pg-chip-edit):has(input:focus-visible) { outline: 2px solid var(--select); outline-offset: 2px; }
 .play ::placeholder { color: var(--text-faint); opacity: 1; }
 .play .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .play :is(h1, h2, h3) { margin: 0; }
@@ -27,34 +27,34 @@
 
 .app-main:has(> .play) { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--frame) 55%, transparent) transparent; }
 
-/* ---------------------------------------------------------------- how the pod plays: hot-seat or a LAN night */
-.pg-modes { display: flex; gap: 14px; margin: 0 13px 26px; }
-.pg-mode {
+/* ---------------------------------------------------------------- the night's format: Commander, or Sandbox (free play) */
+.pg-formats { display: flex; gap: 14px; margin: 0 13px 22px; }
+.pg-format {
   position: relative; flex: 1 1 0; max-width: 440px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center;
-  padding: 13px 18px 13px 14px; border-radius: 6px; cursor: pointer; color: var(--text-dim);
+  padding: 11px 18px 11px 12px; border-radius: 6px; cursor: pointer; color: var(--text-dim);
   background: var(--hud-surface); border: 1px solid var(--line-2);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 3px 8px 16px -6px rgba(0, 0, 0, 0.7);
   transition: border-color var(--dur-hover) var(--ease-out), background-color var(--dur-hover) var(--ease-out);
 }
-.pg-mode input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-.pg-mode:hover { border-color: var(--frame); }
-.pg-mode-icon {
-  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: color-mix(in srgb, var(--frame-hi) 75%, var(--text-dim));
+.pg-format input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.pg-format:hover { border-color: var(--frame); }
+.pg-format-icon {
+  width: 44px; height: 44px; flex: none; border-radius: 50%; display: grid; place-items: center; color: color-mix(in srgb, var(--frame-hi) 75%, var(--text-dim));
   background: rgba(0, 0, 0, 0.35); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--frame) 45%, transparent);
 }
-.pg-mode-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.pg-mode-text b { font: 600 19px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--room-bone); }
-.pg-mode-text span { font-size: 13px; line-height: 1.4; }
-/* the chosen way: a brass disc and edge, and a tab that points down onto the table */
-.pg-mode.on {
+.pg-format-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pg-format-text b { font: 600 19px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--room-bone); }
+.pg-format-text span { font-size: 13px; line-height: 1.4; text-wrap: balance; }
+/* the chosen format: a brass disc and edge, and a tab that points down onto the table */
+.pg-format.on {
   border-color: var(--frame-hi); color: var(--room-bone);
   background: linear-gradient(180deg, color-mix(in srgb, var(--frame) 14%, var(--steel-hi)), var(--steel-lo));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(215, 174, 99, 0.14), 3px 8px 16px -6px rgba(0, 0, 0, 0.7);
 }
-.pg-mode.on .pg-mode-icon { color: var(--accent-ink); background: var(--accent-grad); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 1px 2px 4px rgba(0, 0, 0, 0.5); }
-.pg-mode.on .pg-mode-text b { color: var(--accent-2); }
-.pg-mode.on::after {
-  content: ""; position: absolute; left: 37px; bottom: -9px; width: 14px; height: 14px; transform: rotate(45deg);
+.pg-format.on .pg-format-icon { color: var(--accent-ink); background: var(--accent-grad); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 1px 2px 4px rgba(0, 0, 0, 0.5); }
+.pg-format.on .pg-format-text b { color: var(--accent-2); }
+.pg-format.on::after {
+  content: ""; position: absolute; left: 28px; bottom: -9px; width: 14px; height: 14px; transform: rotate(45deg); /* under the disc */
   background: var(--steel-lo); border: solid var(--frame-hi); border-width: 0 1px 1px 0;
 }
 
@@ -78,7 +78,7 @@
 }
 body.perf-low .pg-table::before { display: none; }
 
-.pg-head { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 28px; margin-bottom: 18px; }
+.pg-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 28px; margin-bottom: 16px; }
 .pg-title { display: inline-flex; align-items: center; gap: 10px; flex: 0 1 auto; min-width: 0; max-width: 100%; cursor: text; }
 .play .pg-title input {
   flex: 0 1 auto; min-width: 6ch; max-width: 100%; field-sizing: content; padding: 2px 0 3px; border: 0; border-bottom: 1px dashed transparent; border-radius: 0; background: none; box-shadow: none;
@@ -89,6 +89,11 @@ body.perf-low .pg-table::before { display: none; }
 .pg-title-pen { flex: none; color: color-mix(in srgb, var(--frame-hi) 70%, transparent); }
 .pg-lan-opts { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 24px; }
 .pg-toggle { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: var(--room-bone); cursor: pointer; }
+/* the room's brass for a switch that is on (the shared switch is blue, for the table's own tools) */
+.play .switch input:checked + span { background: var(--accent-grad); border-color: var(--frame-hi); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+.play .switch input:checked + span::after { background: var(--accent-ink); }
+.play .switch span { box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6); }
+.play .pg-toggle:hover .switch span { border-color: var(--frame); }
 .pg-pass { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-dim); }
 .play .pg-pass input { width: 150px; height: 32px; padding: 0 10px; background: rgba(0, 0, 0, 0.4); }
 
@@ -211,7 +216,7 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 }
 .pg-chair-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pg-chair-text b { font: 600 15px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--room-bone); }
-.pg-chair-text span { font-size: 12.5px; line-height: 1.4; color: var(--text-dim); }
+.pg-chair-text span { font-size: 12.5px; line-height: 1.4; color: var(--text-dim); text-wrap: balance; }
 
 .pg-mull { margin-top: 18px; }
 
@@ -222,6 +227,8 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
   background: linear-gradient(180deg, rgba(255, 226, 180, 0.06), transparent 30%), linear-gradient(180deg, var(--wood), var(--wood-2));
   border-top: 1px solid color-mix(in srgb, var(--frame) 50%, transparent);
   box-shadow: 0 -10px 22px rgba(0, 0, 0, 0.35);
+  /* the table's front rail stays in reach on a short screen: it rides the bottom of the window while the seats scroll */
+  position: sticky; bottom: 0; z-index: 2;
 }
 .pg-rules { grid-area: rules; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 30px; }
 .pg-rule { display: flex; flex-direction: column; gap: 3px; }
@@ -235,6 +242,10 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 .play .pg-rule :is(select, input):hover { border-bottom-color: var(--frame-hi); }
 .play .pg-rule :is(select, input):focus { border-bottom-color: var(--frame-hi); box-shadow: none; }
 .play .pg-rule select option { background: var(--bg-2); color: var(--text); font-weight: 400; }
+.pg-rule-fixed b {
+  display: flex; align-items: center; height: 30px; font: 600 15px/1 var(--font-ui); color: var(--room-bone);
+  border-bottom: 1px solid transparent; cursor: default;
+}
 .pg-rail-note { grid-area: note; max-width: 86ch; margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
 .pg-rail-note b { color: var(--room-bone); font-weight: 600; }
 .pg-start {
@@ -398,7 +409,7 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pg-mode, .pg-add, .pg-start, .dp-deck, :is(.pg-art, .mosaic-cell, .dp-art, .home-art) .cmdr-art > .card-face { transition: none; }
+  .pg-format, .pg-add, .pg-start, .dp-deck, :is(.pg-art, .mosaic-cell, .dp-art, .home-art) .cmdr-art > .card-face { transition: none; }
 }
 
 /* ---------------------------------------------------------------- narrower screens */
@@ -407,7 +418,13 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 }
 @media (max-width: 1380px) {
   .pg-grid { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); gap: 24px; }
-  .pg-seats.pg-lobby { grid-template-columns: minmax(0, 1fr); }
+  /* a laptop: the host's plinth stays a plinth beside the chairs (full width, its empty art window filled the screen) */
+  .pg-seats.pg-lobby { grid-template-columns: minmax(196px, 232px) minmax(0, 1fr); gap: 14px; }
+  .pg-chairs > ul { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+  .pg-chair { min-height: 64px; padding-block: 9px; }
+  /* the house rules get the rail's whole width; the note and Start share the row below */
+  .pg-rail { grid-template-areas: "rules rules" "note start"; padding-block: 12px 14px; }
+  .pg-rules { gap: 8px 22px; }
 }
 @media (max-width: 1100px) {
   .pg-grid { grid-template-columns: minmax(0, 1fr); }
@@ -416,9 +433,9 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 }
 @media (max-width: 700px) {
   .play .pg-title input { font-size: 22px; }
-  .pg-modes { flex-direction: column; margin-inline: 0; }
-  .pg-mode { max-width: none; }
-  .pg-mode.on::after { display: none; }
+  .pg-formats { flex-direction: column; margin-inline: 0; }
+  .pg-format { max-width: none; }
+  .pg-format.on::after { display: none; }
   .pg-table { margin-inline: 8px; }
   .pg-seats > .pg-seat { flex-basis: 100%; max-width: none; }
   .pg-seats > .pg-add-wrap { flex-basis: 100%; min-height: 64px; }

@@ -12,7 +12,6 @@ async function profileName(page: Page, name: string): Promise<void> {
 /** Open a LAN lobby with its own table name (tables of earlier tests stay open on the shared server). */
 async function openLobby(page: Page, opts: { table: string; name: string; password?: string }): Promise<{ gameId: string; code: string }> {
   await page.goto("/#/play");
-  await page.getByTestId("table-mode-lan").check();
   await page.getByLabel("Table name").fill(opts.table);
   await page.getByTestId("host-name").fill(opts.name);
   if (opts.password) await page.locator(".pg-pass input").fill(opts.password);
