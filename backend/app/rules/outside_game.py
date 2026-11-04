@@ -2,7 +2,7 @@
 
 These permissions cannot bring traditional cards into Commander. This is a format rule,
 not an assertion that a player's collection is empty. Explicit exceptions such as companion
-use their own rules. (Fyodor plays Commander only, so every table follows this rule.)
+use their own rules. (Every table plays Commander decks, a Sandbox table included, so every table follows this rule.)
 """
 from __future__ import annotations
 

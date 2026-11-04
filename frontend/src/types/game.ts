@@ -239,10 +239,16 @@ export type UndoPolicy = "everyone" | "own" | "host";
 /** -- table permissions -- who may change a player's cards with the table tools (server: app/game/table_rights.py). */
 export type CardPermissions = "everyone" | "owner";
 
+/**
+ * The table's format. Every deck is a Commander deck; "sandbox" is free play with them, as in Tabletop Simulator: no deck checks,
+ * rules automation starts off (the host turns it on at the table) and test objects are allowed.
+ */
+export type TableFormat = "commander" | "sandbox";
+
 export interface GameMeta {
   id: string;
   name: string;
-  format: "commander";
+  format: TableFormat;
   seq: number;
   settings: {
     starting_life: number;
@@ -606,7 +612,7 @@ export const isVisible = (c: GameCard | undefined): c is VisibleCard => !!c && !
 
 export interface LobbySettings {
   name: string;
-  format: "commander";
+  format: TableFormat;
   seats: number;
   starting_life: number | null;
   deck_privacy: "private" | "commander_only" | "public";

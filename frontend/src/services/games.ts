@@ -1,5 +1,5 @@
 import { ApiError, api } from "./api";
-import type { GameSummary, LobbySettings, LobbyView, SaveSummary } from "../types/game";
+import type { GameSummary, LobbySettings, LobbyView, SaveSummary, TableFormat } from "../types/game";
 import type { NearbyServer } from "../pages/lanBits";
 
 export interface CreatePlayer {
@@ -10,7 +10,7 @@ export interface CreatePlayer {
 
 export interface CreateGameBody {
   name: string;
-  format: "commander";
+  format: TableFormat;
   mode: "local" | "lan";
   password?: string | null;
   players: CreatePlayer[];

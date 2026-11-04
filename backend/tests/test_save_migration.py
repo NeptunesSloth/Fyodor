@@ -175,15 +175,38 @@ def test_v5_sandbox_game_stays_off(cards):
     assert loaded.settings.automation == "off" and loaded.rules is None and restored is not None
 
 
-def test_a_constructed_or_sandbox_game_is_refused_with_a_clear_reason(cards):
-    """Fyodor plays Commander only: a save from a removed format says why it won't load, instead of a validation dump."""
+def test_a_constructed_game_is_refused_with_a_clear_reason(cards):
+    """Constructed was removed: its save says why it won't load, instead of a validation dump."""
     import pytest
 
     from app.storage.save_format import SaveFormatError
 
     s = make_session(cards)
-    for fmt in ("constructed", "sandbox"):
-        payload = {"state": {**s.state.model_dump(mode="json"), "format": fmt}, "history": s.history.to_dict()}
-        with pytest.raises(SaveFormatError, match=f"This is a {fmt.title()} game. Fyodor plays Commander only"):
-            load_payload(payload)
+    payload = {"state": {**s.state.model_dump(mode="json"), "format": "constructed"}, "history": s.history.to_dict()}
+    with pytest.raises(SaveFormatError, match="This is a Constructed game. Fyodor plays Commander only"):
+        load_payload(payload)
     load_payload({"state": s.state.model_dump(mode="json"), "history": s.history.to_dict()})  # Commander games still load
+
+
+def test_a_sandbox_game_round_trips_and_replays(cards):
+    """Sandbox (free play with Commander decks) is a game format again: its save loads with its undo history."""
+    from app.game.factory import PlayerSetup, new_game
+    from app.game.session import GameSession
+    from app.game.state import GameSettings
+    from tests.game_helpers import deck
+
+    alice = deck(cards, "Krenko, Mob Boss", [(1, "Sol Ring"), (10, "Mountain")])
+    state = new_game([PlayerSetup("Alice", cards=alice)], name="Free play", format="sandbox",
+                     settings=GameSettings(allow_test_objects=True), shuffle=False)
+    assert state.format == "sandbox" and state.players["p1"].life == 40 and state.settings.automation == "off"
+    s = GameSession(state, cards=cards)
+    act(s, "p1", type="draw", count=3)
+    act(s, "p1", type="spawn_card", card_id=cards.resolve("Counterspell")["id"])
+    act(s, "p1", type="life", delta=-5)
+    assert s.history.rebuild().model_dump(mode="json") == s.state.model_dump(mode="json")  # replay matches
+    payload = {"format": "fyodor-save", "version": SAVE_VERSION, "saved_at": 0,
+               "state": s.state.model_dump(mode="json"), "history": s.history.to_dict()}
+    loaded, restored = load_payload(decode(encode(payload)))
+    assert loaded.format == "sandbox" and loaded.players["p1"].life == 35
+    assert loaded.model_dump(mode="json") == s.state.model_dump(mode="json")
+    assert restored is not None and restored.rebuild().model_dump(mode="json") == loaded.model_dump(mode="json")
