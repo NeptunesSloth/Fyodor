@@ -8,10 +8,15 @@
  */
 import { BF_H, BF_W, CARD_RATIO, CARD_VW } from "../game/geometry";
 
-export const UNIT = 100; // virtual units per world unit
-export const MAT_W = BF_W / UNIT; // 10
-export const MAT_D = BF_H / UNIT; // 6
-export const CARD_W = CARD_VW / UNIT; // 0.84
+/**
+ * Virtual units per world unit. The battlefield is spread wider than the cards' own scale (a card is 84 virtual
+ * units but 0.84 world wide), so each mat is a roomy stretch of felt with space around the cards, as at a real or a
+ * Tabletop Simulator table, rather than cards packed edge to edge.
+ */
+export const UNIT = 55;
+export const MAT_W = BF_W / UNIT; // ≈18.2
+export const MAT_D = BF_H / UNIT; // ≈10.9
+export const CARD_W = CARD_VW / 100; // 0.84
 export const CARD_H = CARD_W * CARD_RATIO; // ≈1.17
 /** Zone strip offset from the mat centre (library/graveyard/exile right, command zone left). */
 export const STRIP_X = MAT_W / 2 + 1.1;
@@ -229,13 +234,16 @@ export function commandSlot(seat: Pick<Seat, "side"> | undefined, slot: number):
 
 /** A commander's tax medallion's radius (table3d/seatProps.ts), and the gap between it and its command slot. */
 export const TAX_R = 0.38;
-const TAX_GAP = 0.36;
+const TAX_GAP = 0.44;
 
 /**
  * My seat's buttons (table3d/seatProps.ts): the row's middle past my mat's near edge (on the wood before the rail, clear
  * of the command slot's card above it on screen by at least 8 px at any screen size), and a medallion's radius.
  */
-export const BUTTON_ROW_Z = MAT_D / 2 + 0.8;
+export function buttonRowZ(duel: boolean | undefined): number {
+  // (1v1's own edge has room to spare; at three or more seats the wood before the rail is only 0.68 deep)
+  return MAT_D / 2 + (duel ? 1.05 : 0.44);
+}
 export const BUTTON_R = 0.33;
 
 /**
@@ -248,7 +256,7 @@ export function taxSpot(slot: number, seat?: Pick<Seat, "side" | "duel">, mine =
   const [x, z] = commandSlot(seat, 0);
   if (mine && !seat?.duel) {
     const inward = x < 0 ? 1 : -1;
-    return [x + inward * (0.14 + slot * (TAX_R * 2 + 0.14)), z + CARD_H / 2 + TAX_GAP + TAX_R];
+    return [x + inward * (0.14 + slot * (TAX_R * 2 + 0.14)), z + CARD_H / 2 + 0.03 + TAX_R]; // (on the wood before the rail)
   }
   const last = commandSlot(seat, Math.max(1, Math.min(count, COMMAND_SLOTS.length)) - 1)[1];
   return [x, last - CARD_H / 2 - TAX_GAP - TAX_R - slot * (TAX_R * 2 + 0.12)];

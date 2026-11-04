@@ -14,14 +14,13 @@ import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
 import { useGame } from "../state/gameStore";
 import { drawSeatIcon, drawTaxMedallion, whenIconFontReady } from "../game/seatIcons";
 import { motionMs, onMotionSkip } from "../game/motion/timing";
-import { BUTTON_R, BUTTON_ROW_Z, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, heartTilt, TAX_R, taxSpot, toWorld, type Seat } from "./layout";
+import { BUTTON_R, buttonRowZ, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, heartTilt, TAX_R, taxSpot, toWorld, type Seat } from "./layout";
 import { slotTexture } from "./textures";
 
 const HEART_W = HEART.w;
 const HEART_Y = HEART.y;
 const BUTTON_H = 0.08;
-/** The buttons' row: just past my mat's near edge, one medallion every PITCH, the two groups apart by DIVIDE. */
-const ROW_Z = BUTTON_ROW_Z;
+/** The buttons' row (layout.ts buttonRowZ): one medallion every PITCH, the two groups apart by DIVIDE. */
 const PITCH = 0.8;
 const DIVIDE = 0.45;
 /** 1v1: the first group's first medallion (under my command zone), and Mulligan's (right of my heart, the Bag past it). */
@@ -300,6 +299,7 @@ export class SeatProps {
     const faceGeo = this.keep(new THREE.PlaneGeometry(BUTTON_R * 2, BUTTON_R * 2).rotateX(-Math.PI / 2));
     const sideGeo = this.keep(new THREE.CylinderGeometry(BUTTON_R * 0.96, BUTTON_R * 1.02, BUTTON_H, 64));
     const ringGeo = this.keep(new THREE.RingGeometry(BUTTON_R * 1.04, BUTTON_R * 1.32, 64).rotateX(-Math.PI / 2));
+    const ROW_Z = buttonRowZ(mine.duel);
     const groups = [SEAT_ACTIONS.filter((a) => a.id !== "mulligan" && a.id !== "extras"), SEAT_ACTIONS.filter((a) => a.id === "mulligan" || a.id === "extras")];
     const span = (groups[0]!.length + groups[1]!.length - 1) * PITCH + DIVIDE;
     const x0 = 0.7 - span; // (ends a little right of the mat's middle: the turn dial covers the screen's bottom right)

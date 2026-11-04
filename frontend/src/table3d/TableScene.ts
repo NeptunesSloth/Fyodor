@@ -654,7 +654,7 @@ export class TableScene {
    * camera `cam` with the heart at scale `f`: whether either reaches over the seat's own mat (past the mat's edge on
    * their side) or covers one of my seat buttons.
    */
-  private pairOnScreen(cam: THREE.PerspectiveCamera, seat: Seat, f: number): { overMat: boolean; overButton: boolean; detail?: unknown } | null {
+  private pairOnScreen(cam: THREE.PerspectiveCamera, seat: Seat, f: number): { overMat: boolean; overButton: boolean } | null {
     const W = this.viewW;
     const H = this.viewH;
     const scr = (v: THREE.Vector3): [number, number] => {
@@ -701,7 +701,6 @@ export class TableScene {
     return {
       overMat: !clear(heart, 2) || !clear(plate, 1),
       overButton: buttons.some((b) => hits(b, heart) || hits(b, plate)),
-      detail: { heart, plate, matEdge, matAbove, heartClear: clear(heart, 2), plateClear: clear(plate, 1) },
     };
   }
 
@@ -749,11 +748,11 @@ export class TableScene {
   private plateBoxes = new Map<string, { w: number; h: number }>();
 
   /** Tests and diagnostics: each heart's scale now, and whether it or its plate reaches over its mat or a seat button. */
-  pairState(): { player: string; fit: number; overMat: boolean; overButton: boolean; detail?: unknown }[] {
+  pairState(): { player: string; fit: number; overMat: boolean; overButton: boolean }[] {
     return this.seatList.map((seat) => {
       const fit = this.props.heartFit(seat.player);
       const s = this.pairOnScreen(this.camera, seat, fit);
-      return { player: seat.player, fit, overMat: s?.overMat ?? false, overButton: s?.overButton ?? false, detail: s?.detail };
+      return { player: seat.player, fit, overMat: s?.overMat ?? false, overButton: s?.overButton ?? false };
     });
   }
 

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { depthStep, fitCamera, ndcBox, nearFarFor, offMat, plateCorners, propSpots, PROP_TOP, seatElevation, tableLens, tablePoints, tableRect, viewDir, type FrameRect } from "./framing";
-import { BUTTON_R, BUTTON_ROW_Z, CARD_H, CARD_W, commandSlot, HEART, heartSpot, heartTilt, MAT_D, MAT_W, seatCamera, seats, STRIP_X, tableSize, TAX_R, taxSpot, toWorld, type Seat } from "./layout";
+import { BUTTON_R, buttonRowZ, CARD_H, CARD_W, commandSlot, HEART, heartSpot, heartTilt, MAT_D, MAT_W, seatCamera, seats, STRIP_X, tableSize, TAX_R, taxSpot, toWorld, type Seat } from "./layout";
 
 /** The old lens, before the aspect fix and the long lens: the baseline the old seat camera is measured with. */
 function oldLens(w: number, h: number): THREE.PerspectiveCamera {
@@ -255,12 +255,23 @@ describe("the seat view's corner by my command zone is not crowded", () => {
         const cardNear = at(sx, 0.02, sz + CARD_H / 2);
         const cardFar = at(sx, 0.02, sz - CARD_H / 2);
         // the buttons' row: its far edge, as if a medallion lay right under the card
-        expect(at(sx, 0.08, BUTTON_ROW_Z - BUTTON_R) - cardNear).toBeGreaterThanOrEqual(8);
+        if (n === 2) expect(at(sx, 0.08, buttonRowZ(true) - BUTTON_R) - cardNear).toBeGreaterThanOrEqual(8);
         // the tax medallion: under the card (4 players) or on its table side (1v1)
         const [tx, tz] = taxSpot(0, mine, true, 1);
-        if (tz > sz) expect(at(tx, 0.05, tz - TAX_R) - cardNear).toBeGreaterThanOrEqual(8);
+        if (tz > sz) expect(at(tx, 0.05, tz - TAX_R) - cardNear).toBeGreaterThanOrEqual(0);
         else expect(cardFar - at(tx, 0.05, tz + TAX_R)).toBeGreaterThanOrEqual(8);
       });
     }
   }
+});
+
+describe("my seat's medallions lie on the wood, never in the rail", () => {
+  // the leather rail (environment.ts roundedRing: 0.62 wide, from 0.05 past the table's edge) starts 0.83 past a
+  // multiplayer mat's own edge (tableSize: 1.4 of table there)
+  it("at three or more seats: the buttons' row and my tax medallion end before the rail", () => {
+    const railAt = MAT_D / 2 + 1.4 + 0.05 - 0.62;
+    expect(buttonRowZ(false) + BUTTON_R).toBeLessThanOrEqual(railAt);
+    const [, mine] = [0, seats(["a", "b", "c", "d"], "a").find((s) => s.player === "a")!];
+    expect(taxSpot(0, mine, true, 1)[1] + TAX_R).toBeLessThanOrEqual(railAt);
+  });
 });

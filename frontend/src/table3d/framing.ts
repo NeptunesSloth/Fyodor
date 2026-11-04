@@ -9,7 +9,7 @@
  */
 import * as THREE from "three";
 import { fanCorners, handFan, showsFan } from "./handFan";
-import { BUTTON_R, BUTTON_ROW_Z, CARD_W, DUEL_VIEW, HEART, heartSpot, heartTilt, MAT_D, MAT_W, PLATE, plaqueSpot, screenX, STRIP_X, TAX_R, taxSpot, toWorld, type Seat, type TableSize } from "./layout";
+import { BUTTON_R, buttonRowZ, CARD_W, DUEL_VIEW, HEART, heartSpot, heartTilt, MAT_D, MAT_W, PLATE, plaqueSpot, screenX, STRIP_X, TAX_R, taxSpot, toWorld, type Seat, type TableSize } from "./layout";
 
 /** The part of the canvas (normalized device coordinates, −1..1) the framed area must fit in. */
 export interface FrameRect { left: number; right: number; bottom: number; top: number }
@@ -45,7 +45,7 @@ export function tableLens(w: number, h: number, cam = new THREE.PerspectiveCamer
  * the pile slots and the card faces, a hair apart, fought and flickered), the far one takes in the whole room.
  */
 export function nearFarFor(dist: number, reach: number): { near: number; far: number } {
-  const near = Math.min(40, Math.max(0.1, dist * 0.12));
+  const near = Math.min(80, Math.max(0.1, dist * 0.2));
   return { near, far: Math.max(near * 20, reach + ROOM_REACH) };
 }
 
@@ -115,7 +115,7 @@ export function seatPoints(seat: Seat, opts: { buttons?: boolean; piles?: boolea
     for (const dx of [-HEART.w / 2, HEART.w / 2]) local.push([lx + dx, HEART.y, lz + toMe * half], [lx + dx, HEART.y + HEART.h * Math.sin(t), lz - toMe * half]);
   }
   // my buttons' row (table3d/seatProps.ts): in 1v1 from under my command zone to past my heart
-  const row = BUTTON_ROW_Z + BUTTON_R + 0.1;
+  const row = buttonRowZ(seat.duel) + BUTTON_R + 0.1;
   if (seat.duel && opts.buttons) local.push([-(STRIP_X + 0.7), 0, row], [hx, 0, row]);
   else if (opts.buttons) local.push([-4.9, 0, row], [1.05, 0, row]);
   const out = local.map(([lx, y, lz]) => {

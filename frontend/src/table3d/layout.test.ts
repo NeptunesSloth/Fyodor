@@ -46,7 +46,7 @@ describe("3D table layout", () => {
     const [a, b] = seats(["a", "b"], "a");
     expect(a!.x).toBe(0);
     expect(b!.x).toBe(0);
-    expect(a!.z - b!.z).toBeLessThan(10); // mat depth 6 plus a 3-unit aisle
+    expect(a!.z - b!.z).toBeLessThan(MAT_D + 4); // a mat's depth plus at most a 4-unit aisle
   });
 
   it("round-trips mat-local and world coordinates for every side", () => {

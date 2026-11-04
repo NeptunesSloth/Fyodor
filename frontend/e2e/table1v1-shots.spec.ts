@@ -162,8 +162,7 @@ test("plaques with both tabs (a rules game: the turn and priority), 1280x640 and
  * plate clear of its mat and of my seat buttons (`seatView`: at the view's own framing, every heart at its full size).
  */
 async function platesInPlace(page: Page, seatView = true) {
-  console.log("PAIRS", JSON.stringify(await page.evaluate(() => window.__fyodor3d!.pairs!())));
-  await expect.poll(async () => JSON.stringify((await page.evaluate(() => window.__fyodor3d!.pairs!())).map(({ detail: _d, ...p }) => p).filter((p) => p.overMat || p.overButton || (seatView && p.fit !== 1))), { timeout: 15_000 }).toBe("[]");
+  await expect.poll(async () => JSON.stringify((await page.evaluate(() => window.__fyodor3d!.pairs!())).filter((p) => p.overMat || p.overButton || (seatView && p.fit !== 1))), { timeout: 15_000 }).toBe("[]");
   if (!seatView) return;
   const plates = await page.evaluate(() => [...document.querySelectorAll(".t3d-plate-anchor:not(.compact) .t3d-seat")].map((n) => {
     const main = n.querySelector(".t3d-seat-main")!.getBoundingClientRect();
