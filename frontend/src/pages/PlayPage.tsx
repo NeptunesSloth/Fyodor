@@ -37,7 +37,7 @@ import { CommanderArt } from "./CommanderArt";
 import { DeckPicker } from "./DeckPicker";
 import { orderGames, ownName, planInvite, readInvite, tileActions, withoutInvite, type Invite } from "./lanBits";
 import { NearbyGames } from "./NearbyGames";
-import { deckTitle, shelfSaves } from "./playBits";
+import { deckSubtitle, deckTitle, shelfSaves } from "./playBits";
 import { SEAT_COLORS, SeatChip, TableMosaic, chipStyle, whenSaved } from "./tableBits";
 
 const COLORS = SEAT_COLORS;
@@ -364,7 +364,7 @@ function NewGame({ decks, preselect }: { decks: DeckSummary[]; preselect: string
                     {deck ? (
                       <>
                         <p className="pg-cmdr" title={deckTitle(deck)}>{deckTitle(deck)}</p>
-                        <p className="pg-sub">{deck.commanders.length > 0 && <span className="pg-deckname">{deck.name}</span>}<ColorPips colors={deck.color_identity} /></p>
+                        <p className="pg-sub">{deckSubtitle(deck) && <span className="pg-deckname">{deckSubtitle(deck)}</span>}<ColorPips colors={deck.color_identity} /></p>
                       </>
                     ) : (
                       <p className="pg-note">{decks.length ? "No deck: an empty library." : <>No decks yet. <a href="#/decks">Import some decks</a>, or play with empty libraries.</>}</p>
@@ -485,7 +485,7 @@ function HostDeck({ deck, canPick, onPick, onClear }: { deck: DeckSummary | unde
         {deck ? (
           <>
             <p className="pg-cmdr" title={deckTitle(deck)}>{deckTitle(deck)}</p>
-            <p className="pg-sub">{deck.commanders.length > 0 && <span className="pg-deckname">{deck.name}</span>}<ColorPips colors={deck.color_identity} /></p>
+            <p className="pg-sub">{deckSubtitle(deck) && <span className="pg-deckname">{deckSubtitle(deck)}</span>}<ColorPips colors={deck.color_identity} /></p>
           </>
         ) : (
           <p className="pg-note">You host. Choose your deck here or in the lobby.</p>
@@ -641,25 +641,18 @@ function SaveTile({ save: s, onDeleted }: { save: SaveSummary; onDeleted: () => 
         <p className="pg-who">{s.players.map((p) => `${p.name} ${p.life}`).join(", ")}</p>
       </div>
       <div className="pg-tile-acts">
-        <button className="tt-btn pg-go" onClick={async () => {
+        {/* a saved game comes back as a LAN night, like every new one: the host takes their seat, the pod rejoins with the code */}
+        <button className="tt-btn pg-go" title="Load as a LAN night: you take your seat, the pod joins with the room code" onClick={async () => {
           try {
             const res = await loadSave(s.id);
+            if (res.seat) rememberSeat(res.game.id, res.seat.token);
+            toast(`LAN room ${res.game.code} ready`);
             open(res.game.id);
           } catch (e) {
             toastError(e);
           }
         }}>Load</button>
         <span className="pg-tile-more">
-          <button className="tt-btn" title="Load as a LAN game: the pod joins with a room code" aria-label={`Load “${s.name}” as a LAN game`} onClick={async () => {
-            try {
-              const res = await loadSave(s.id, "lan");
-              if (res.seat) rememberSeat(res.game.id, res.seat.token);
-              toast(`LAN room ${res.game.code} ready`);
-              open(res.game.id);
-            } catch (e) {
-              toastError(e);
-            }
-          }}>Load as LAN</button>
           <a className="tt-icon" href={packageUrl(s.id)} download title="Download a portable package (save + custom images + macros)" aria-label={`Download “${s.name}” as a package`}>
             <Icon name="download" size={16} />
           </a>

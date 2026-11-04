@@ -21,7 +21,7 @@ test("a solo Sandbox LAN night: no deck checks, automation off, a land played by
   const lobby = page.getByTestId("lobby");
   await expect(lobby).toBeVisible();
   await expect(page.getByTestId("lobby-format")).toHaveText("Sandbox table: free play");
-  await expect(page.getByTestId("seating-bar")).toContainText("Sandbox");
+  await expect(page.locator(".house-rules div", { hasText: "Automation" })).toContainText("Off"); // the house rules
   // the host can change the format in Table settings: Commander turns the automation choice back on, Sandbox turns it off
   const settings = async () => {
     await page.getByRole("button", { name: "Table settings" }).click();

@@ -38,7 +38,7 @@ import { contrast } from "../theme/planes";
 import type { DeckSummary } from "../types/decks";
 import { SPECTATOR, type LobbySeat, type LobbySettings, type LobbyView } from "../types/game";
 import { TablePermissionsSetting } from "./TablePermissionsSetting";
-import { FORMAT_NAME, SANDBOX_HINT, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
+import { SANDBOX_HINT, TABLE_FORMATS, isSandbox } from "../game/tableFormat";
 import { ownDecks, type OwnDeck, type OwnDecks } from "./lanBits";
 import { CommanderArt } from "./CommanderArt";
 import { PersonalDeckImports } from "./PersonalDeckImports";
@@ -466,7 +466,6 @@ function NextGame({ lobby, busy, onRun, onSettings }: {
       </div>
       <div className="nx-foot">
       <dl className="house-rules">
-        <div title={isSandbox(s.format) ? SANDBOX_HINT : "Deck checks follow Commander's rules"}><dt>Format</dt><dd>{FORMAT_NAME[s.format] ?? s.format}</dd></div>
         <div><dt>Life</dt><dd>{s.starting_life ?? 40}</dd></div>
         <div className={lobby.mulligan?.needs_definition ? "warn" : undefined}>
           <dt>Mulligan</dt>

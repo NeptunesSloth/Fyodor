@@ -10,7 +10,7 @@ import { toastError } from "../components/Toasts";
 import { navigate } from "../hooks/useHashRoute";
 import { getHealth, type Health } from "../services/api";
 import { listDecks } from "../services/decks";
-import { listGames, listSaves, loadSave, seatToken } from "../services/games";
+import { listGames, listSaves, loadSave, rememberSeat, seatToken } from "../services/games";
 import { useCard } from "../state/cardCache";
 import { usePrefs } from "../state/prefs";
 import { plane, PLANES } from "../theme/planes";
@@ -19,7 +19,7 @@ import type { DeckSummary } from "../types/decks";
 import type { GameSummary, SaveSummary } from "../types/game";
 import { CommanderArt } from "./CommanderArt";
 import { NearbyLine } from "./NearbyGames";
-import { deckTitle, lastTable, type LastTable } from "./playBits";
+import { deckSubtitle, deckTitle, lastTable, type LastTable } from "./playBits";
 import { TableMosaic, whenSaved } from "./tableBits";
 import { Welcome, resetWelcome, welcomeDone } from "./Welcome";
 import "./home.css";
@@ -110,7 +110,7 @@ export function Home() {
                   <a href={`#/play?deck=${d.id}`} title={`New game with ${d.name}`}>
                     <span className="home-art">{d.commanders.length && d.cover_id ? <CommanderArt id={d.cover_id} /> : <CommanderArt back />}</span>
                     <span className="home-deck-cmdr">{deckTitle(d)}</span>
-                    {d.commanders.length > 0 && <span className="home-deck-name">{d.name}</span>}
+                    {deckSubtitle(d) && <span className="home-deck-name">{deckSubtitle(d)}</span>}
                   </a>
                 </li>
               ))}
@@ -189,7 +189,8 @@ function Continue({ last }: { last: LastTable }) {
     if (table) return navigate(`/game/${table.id}`);
     setBusy(true);
     try {
-      const res = await loadSave(save!.id);
+      const res = await loadSave(save!.id); // as a LAN night: the host takes their seat
+      if (res.seat) rememberSeat(res.game.id, res.seat.token);
       navigate(`/game/${res.game.id}`);
     } catch (e) {
       toastError(e);
