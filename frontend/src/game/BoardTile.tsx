@@ -29,8 +29,10 @@ export const BoardTile = memo(function BoardTile({ card, stats = "" }: { card: G
   const colours = useMemo(() => (p ? proxyColours(p) : null), [p]);
 
   if (!visible || card.face_down) {
+    // the back as a whole card (63:88) standing in the tile, not cropped to the tile's art window
     return (
-      <div className="board-tile tile-back card-back" style={sleeve} aria-label="Face-down card">
+      <div className="board-tile tile-back" aria-label="Face-down card">
+        <div className={`tile-back-card card-back ${sleeve ? "sleeved" : ""}`} style={sleeve} />
         {visible && <span className="peek-badge" title="Face down — you know what it is">👁</span>}
       </div>
     );

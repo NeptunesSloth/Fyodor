@@ -6,8 +6,12 @@ safe to compute and cannot be influenced by user input beyond a validated UUID.
 
 from __future__ import annotations
 
+import json
+import os
 import re
+import threading
 from pathlib import Path
+from typing import Any
 
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 IMAGE_SIZES = ("small", "normal", "large", "art_crop")
@@ -21,6 +25,13 @@ CARD_BACK_ID = "0aeebaf5-8c7d-4636-9e82-8c27447861f7"
 CARD_BACK_URL = f"https://backs.scryfall.io/normal/{CARD_BACK_ID[0]}/{CARD_BACK_ID[1]}/{CARD_BACK_ID}.jpg"
 
 
+# The mana and card symbols ({W}, {2/U}, {T} …), one SVG each, named as Scryfall names them (``WU.svg`` for {W/U}). Fetched
+# from Scryfall into the cache with the card data (app/cards/linked.py), never shipped. Only names from the cached list are
+# ever served, and every name is plain capitals and digits.
+SYMBOL_CODE_RE = re.compile(r"^[A-Z0-9]{1,16}$")
+SYMBOL_INDEX = "symbology.json"
+
+
 class InvalidImageRequest(ValueError):
     pass
 
@@ -28,6 +39,7 @@ class InvalidImageRequest(ValueError):
 class ImageStore:
     def __init__(self, root: Path) -> None:
         self.root = root
+        self._symbols: tuple[int, dict[str, dict[str, str]]] | None = None  # the symbol list, by its file's mtime
 
     def path_for(self, card_id: str, *, face: int = 0, size: str = DEFAULT_SIZE, is_token: bool = False) -> Path:
         if not UUID_RE.match(card_id):
@@ -54,6 +66,51 @@ class ImageStore:
 
     def card_back(self) -> Path | None:
         path = self.card_back_path()
+        return path if path.is_file() else None
+
+    # -- mana symbols --------------------------------------------------------------------
+    def symbols_dir(self) -> Path:
+        return self.root / "symbols"
+
+    def symbol_path(self, code: str) -> Path:
+        if not SYMBOL_CODE_RE.match(code):
+            raise InvalidImageRequest("symbol codes are capitals and digits")
+        return self.symbols_dir() / f"{code}.svg"
+
+    def symbol_index(self) -> dict[str, dict[str, str]]:
+        """The cached symbols: their text without braces ("W/U") -> ``{"svg": "WU", "english": …}``. Empty until fetched."""
+        path = self.symbols_dir() / SYMBOL_INDEX
+        try:
+            stamp = path.stat().st_mtime_ns
+        except OSError:
+            return {}
+        if self._symbols and self._symbols[0] == stamp:
+            return dict(self._symbols[1])
+        try:
+            raw: Any = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        index: dict[str, dict[str, str]] = {}
+        for text, entry in (raw.items() if isinstance(raw, dict) else ()):
+            code = entry.get("svg") if isinstance(entry, dict) else None
+            if isinstance(code, str) and SYMBOL_CODE_RE.match(code):
+                index[str(text)] = {"svg": code, "english": str(entry.get("english", ""))}
+        self._symbols = (stamp, index)
+        return dict(index)
+
+    def write_symbol_index(self, index: dict[str, dict[str, str]]) -> None:
+        path = self.symbols_dir() / SYMBOL_INDEX
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(f"{path.name}.{threading.get_ident()}.part")  # (an update and a start-up fetch may overlap)
+        tmp.write_text(json.dumps(index, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+        os.replace(tmp, path)
+
+    def symbol(self, code: str) -> Path | None:
+        """The cached SVG for a code from the cached list; None for anything else (never a path from the request)."""
+        known = {entry["svg"] for entry in self.symbol_index().values()}
+        if code not in known or not SYMBOL_CODE_RE.match(code):
+            return None
+        path = self.symbol_path(code)
         return path if path.is_file() else None
 
     def has(self, card_id: str, face: int = 0) -> bool:

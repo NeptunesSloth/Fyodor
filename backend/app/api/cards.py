@@ -11,6 +11,7 @@ from app.api.deps import get_services, require_local
 from app.cards import updater
 from app.cards.downloader import DownloadError
 from app.cards.images import IMAGE_SIZES, InvalidImageRequest
+from app.jobs import ProgressFn
 from app.services import Services
 
 router = APIRouter(tags=["cards"])
@@ -67,11 +68,38 @@ def get_printings(card_id: str, services: ServicesDep) -> list[dict[str, Any]]:
 
 @router.get("/images/card-back", response_class=FileResponse)
 def get_card_back(services: ServicesDep) -> FileResponse:
-    """The Magic card back, once it's cached with the art (404 until then: tables draw their own back)."""
+    """The Magic card back, once it's cached (404 until then: tables draw their own back). See app/cards/linked.py."""
     path = services.images.card_back()
+    if path is None:
+        services.linked.kick()  # missing: fetched in the background when this computer may go online
+        path = services.images.card_back()
     if path is None:
         raise HTTPException(404, "Card back not cached")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
+
+
+@router.get("/symbols")
+def list_symbols(services: ServicesDep) -> dict[str, Any]:
+    """The mana and card symbols the host has cached, by their text ("W/U" for {W/U}), each with its SVG's name and its
+    meaning in words. Empty until they're fetched: clients draw their own symbols meanwhile."""
+    index = services.images.symbol_index()
+    if not index:
+        services.linked.kick()
+        index = services.images.symbol_index()
+    return {"symbols": index}
+
+
+# opened on its own (not as an <img>), a symbol may draw itself and nothing else
+SVG_HEADERS = {"Cache-Control": "public, max-age=604800", "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'"}
+
+
+@router.get("/symbols/{code}.svg", response_class=FileResponse)
+def get_symbol(code: str, services: ServicesDep) -> FileResponse:
+    """One cached symbol's SVG. Only names from the cached list are served; anything else is not found."""
+    path = services.images.symbol(code)
+    if path is None:
+        raise HTTPException(404, "Unknown symbol")
+    return FileResponse(path, media_type="image/svg+xml", headers=SVG_HEADERS)
 
 
 @router.get("/images/{card_id}", response_class=FileResponse)
@@ -131,6 +159,11 @@ def card_data_update(request: Request, services: ServicesDep, body: CardUpdateIn
     if running is not None and running.state == "running":
         return running.as_dict()
     force = bool(body and body.force)
-    job = services.jobs.start("card-update", "Card database", lambda progress: updater.update(
-        services.settings, services.cards, progress, force=force, client_factory=services.http_client))
+
+    def run(progress: ProgressFn) -> str:
+        message = updater.update(services.settings, services.cards, progress, force=force, client_factory=services.http_client)
+        services.linked.fetch()  # the card back and the mana symbols come with the card data (only what isn't cached)
+        return message
+
+    job = services.jobs.start("card-update", "Card database", run)
     return job.as_dict()
