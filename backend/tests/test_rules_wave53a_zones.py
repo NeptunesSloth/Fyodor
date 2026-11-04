@@ -191,10 +191,10 @@ def test_portent_shuffled(cards):
             act(s, d.player, type="choose", decision_id=d.id, option_ids=[o.id for o in d.options][: max(1, d.min_choices)])
         else:
             act(s, s.state.rules.priority, type="pass_priority")
-    arranged = names(s, "p2")
+    arranged, arranged_ids = names(s, "p2"), list(s.state.zones["p2:library"])
     act(s, "p1", type="choose", decision_id=d.id, option_ids=["yes"])
     settle(s)
-    assert sorted(names(s, "p2")) == sorted(arranged) and names(s, "p2") != arranged  # the same cards, in another order (the library is re-keyed by a shuffle)
+    assert sorted(names(s, "p2")) == sorted(arranged) and list(s.state.zones["p2:library"]) != arranged_ids  # the same cards, in another order (the library is re-keyed by a shuffle)
     check(s)
 
 
@@ -203,10 +203,10 @@ def test_prophecy_reveals_the_top_card_gains_for_a_land_and_shuffles_their_libra
     # Bob's top card is the Giant: not a land, no life; then Bob's library is shuffled
     to_hand(s, "Prophecy")
     mana(s, "p1", W=1)
-    before = names(s, "p2")
+    before, ids_before = names(s, "p2"), list(s.state.zones["p2:library"])
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Prophecy").id, targets=["p2"])
     settle(s)
-    assert life(s, "p1") == 40 and sorted(names(s, "p2")) == sorted(before) and names(s, "p2") != before
+    assert life(s, "p1") == 40 and sorted(names(s, "p2")) == sorted(before) and list(s.state.zones["p2:library"]) != ids_before  # ids: names can stay in order
     check(s)
 
 

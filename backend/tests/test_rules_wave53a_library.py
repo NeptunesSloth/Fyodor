@@ -72,13 +72,17 @@ def test_praetors_grasp_the_library_is_shuffled(cards):
     s = table(cards, ["Praetor's Grasp"], [BEARS, GIANT], [])
     to_hand(s, "Praetor's Grasp")
     mana(s, "p1", B=2, C=1)
-    before = [s.state.cards[c].name for c in s.state.zones["p2:library"]]
+    ids_before = list(s.state.zones["p2:library"])
+    before = [s.state.cards[c].name for c in ids_before]
     act(s, "p1", type="cast_spell", card_id=card_named(s, "Praetor's Grasp").id, targets=["p2"])
     d = until_asked(s)
-    act(s, "p1", type="choose", decision_id=d.id, option_ids=pick(s, d, GIANT))
+    giant_id = pick(s, d, GIANT)[0]
+    act(s, "p1", type="choose", decision_id=d.id, option_ids=[giant_id])
     settle(s)
-    after = [s.state.cards[c].name for c in s.state.zones["p2:library"]]
-    assert sorted(after) == sorted(before[:1] + before[2:]) and after != before[:1] + before[2:]  # one Giant fewer, the rest shuffled
+    ids_after = list(s.state.zones["p2:library"])
+    after = [s.state.cards[c].name for c in ids_after]
+    assert sorted(after) == sorted(before[:1] + before[2:])  # one Giant fewer, the rest the same cards
+    assert ids_after != [i for i in ids_before if i != giant_id]  # shuffled (compare ids: a shuffle can leave the names in order)
     check(s)
 
 
