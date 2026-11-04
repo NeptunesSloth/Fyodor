@@ -277,16 +277,29 @@ const SLOT_LABELS = ["Library", "Graveyard", "Exile", "Command", "Partner"];
 export const SLOT_STRETCH = 1.45;
 /** The label's letters, condensed: larger capitals fit across the slot. */
 const SLOT_CONDENSE = 0.82;
-/** The stretch for a table of this many seats: the duel's is seen at a low slant, the others' from nearly above. */
-export function slotStretch(seats: number): number {
-  return seats === 2 ? 2.5 : SLOT_STRETCH;
-}
+/**
+ * The zones' icons (the icon set's family: a 24 px grid, a round 1.9 stroke): a table of three or more seats is seen
+ * from farther off, where a slot is too small for its name to read, so it carries its zone's icon instead.
+ */
+const SLOT_ICONS: Record<string, string> = {
+  // a deck: a card with another behind it
+  Library: "M8.5 3.5h9a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1zM5.5 6.5v13a1 1 0 0 0 1 1h9",
+  // a headstone with a cross
+  Graveyard: "M7 20.5V10a5 5 0 0 1 10 0v10.5M4.5 20.5h15M12 8.5v7M9.5 11h5",
+  // a ring with an arrow leaving it: gone from the game
+  Exile: "M10.5 5.2A7 7 0 1 0 18.8 13.5M13.5 4.5h6v6M19.5 4.5l-7.5 7.5",
+  // a crown: the commander (and a partner's or background's slot)
+  Command: "M3.5 8l4 4 4.5-6.5 4.5 6.5 4-4-1.5 10h-14zM5.5 20.5h13",
+  Partner: "M3.5 8l4 4 4.5-6.5 4.5 6.5 4-4-1.5 10h-14zM5.5 20.5h13",
+};
 
 /**
  * Outline slot for a zone pile, drawn at twice its size so it stays crisp: a card-shaped well with a thin card-outline
- * frame in `color`, and its name in large Cinzel capitals, parchment with a dark outline, upright for whoever reads it.
+ * frame in `color`, upright for whoever reads it. On a duel's table (`seats` 2) it says its name in large Cinzel
+ * capitals, parchment with a dark outline, drawn tall (the table is seen at a low slant, so they read upright, as road
+ * markings do); with more seats, its zone's icon in the same parchment.
  */
-export function slotTexture(label: string, color: string, stretch = SLOT_STRETCH): THREE.CanvasTexture {
+export function slotTexture(label: string, color: string, seats = 2): THREE.CanvasTexture {
   const W = 336;
   const H = 468;
   const [c, g] = canvas(W, H);
@@ -298,13 +311,15 @@ export function slotTexture(label: string, color: string, stretch = SLOT_STRETCH
   g.lineWidth = 4;
   roundRect(g, 10, 10, W - 20, H - 20, 24);
   g.stroke();
+  const icon = seats > 2 ? SLOT_ICONS[label] : undefined;
+  const stretch = seats === 2 ? 2.5 : SLOT_STRETCH;
   const font = (px: number) => `700 ${px}px Cinzel, "Trajan Pro", Georgia, serif`;
   let px = 64;
   g.font = font(px);
   const widest = Math.max(...SLOT_LABELS.map((l) => g.measureText(l.toUpperCase()).width)) * SLOT_CONDENSE;
   px = Math.floor(Math.min(84, (px * (W - 28)) / Math.max(1, widest)));
   // the inner hairline, broken where the label crosses it (the label runs nearly the slot's width)
-  const band = px * 0.9 * stretch;
+  const band = icon ? 0 : px * 0.9 * stretch;
   g.save();
   g.beginPath();
   g.rect(0, 0, W, H);
@@ -316,6 +331,24 @@ export function slotTexture(label: string, color: string, stretch = SLOT_STRETCH
   roundRect(g, 26, 26, W - 52, H - 52, 14);
   g.stroke();
   g.restore();
+  g.lineJoin = "round";
+  g.lineCap = "round";
+  if (icon) {
+    // the icon, large in the well: a dark outline under a parchment stroke
+    const k = (W * 0.62) / 24;
+    g.save();
+    g.translate(W / 2 - 12 * k, H / 2 - 12 * k * 1.1);
+    g.scale(k, k * 1.1);
+    const p = new Path2D(icon);
+    g.lineWidth = 3.4;
+    g.strokeStyle = "rgba(14, 9, 5, 0.92)";
+    g.stroke(p);
+    g.lineWidth = 1.9;
+    g.strokeStyle = "#f1e6c8";
+    g.stroke(p);
+    g.restore();
+    return texture(c);
+  }
   g.font = font(px);
   g.textAlign = "center";
   g.textBaseline = "middle";
@@ -323,7 +356,6 @@ export function slotTexture(label: string, color: string, stretch = SLOT_STRETCH
   g.translate(W / 2, H / 2);
   g.scale(SLOT_CONDENSE, stretch);
   const text = label.toUpperCase();
-  g.lineJoin = "round";
   g.lineWidth = Math.max(6, px * 0.2);
   g.strokeStyle = "rgba(14, 9, 5, 0.92)";
   g.strokeText(text, 0, 0);

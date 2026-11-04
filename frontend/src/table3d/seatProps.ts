@@ -14,15 +14,14 @@ import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
 import { useGame } from "../state/gameStore";
 import { drawSeatIcon, drawTaxMedallion, whenIconFontReady } from "../game/seatIcons";
 import { motionMs, onMotionSkip } from "../game/motion/timing";
-import { CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, heartTilt, MAT_D, TAX_R, taxSpot, toWorld, type Seat } from "./layout";
-import { slotStretch, slotTexture } from "./textures";
+import { BUTTON_R, BUTTON_ROW_Z, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, heartTilt, TAX_R, taxSpot, toWorld, type Seat } from "./layout";
+import { slotTexture } from "./textures";
 
 const HEART_W = HEART.w;
 const HEART_Y = HEART.y;
-const BUTTON_R = 0.33;
 const BUTTON_H = 0.08;
 /** The buttons' row: just past my mat's near edge, one medallion every PITCH, the two groups apart by DIVIDE. */
-const ROW_Z = MAT_D / 2 + 0.44;
+const ROW_Z = BUTTON_ROW_Z;
 const PITCH = 0.8;
 const DIVIDE = 0.45;
 /** 1v1: the first group's first medallion (under my command zone), and Mulligan's (right of my heart, the Bag past it). */
@@ -221,6 +220,9 @@ interface Heart {
   hot: -1 | 0 | 1;
   pressed: -1 | 0 | 1;
   pressAt: number;
+  /** Its scale (eased toward `fitTo`): 1, its size on the table; smaller seen low, so it and its plate keep off the mat. */
+  fit: number;
+  fitTo: number;
   /** -- table motion -- the life total on the heart rolls to a new value (docs/GAME_UI_MOTION_RESEARCH.md §4: 300–600 ms scaled to the
    * change): what it shows now, where it's going, and the clicks still on their way. */
   roll: { from: number; to: number; start: number; dur: number; at: number | null; pending: number };
@@ -287,7 +289,7 @@ export class SeatProps {
       const [wx, wz] = toWorld(seat, ...heartSpot(seat));
       group.position.set(wx, HEART_Y, wz);
       this.group.add(group);
-      this.hearts.set(seat.player, { group, face, canvas, tex, color, shown: "", hot: 0, pressed: 0, pressAt: 0, roll: { from: 0, to: 0, start: 0, dur: 0, at: null, pending: 0 } });
+      this.hearts.set(seat.player, { group, face, canvas, tex, color, shown: "", hot: 0, pressed: 0, pressAt: 0, fit: 1, fitTo: 1, roll: { from: 0, to: 0, start: 0, dur: 0, at: null, pending: 0 } });
     }
     this.me = me;
     const mine = seats.find((s) => s.player === me);
@@ -444,7 +446,7 @@ export class SeatProps {
           if (i > 0) {
             // the partner's slot, outlined on the felt like the others
             const slot = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(CARD_W * 1.05, CARD_H * 1.05)),
-              this.keep(new THREE.MeshBasicMaterial({ map: this.keep(slotTexture(i === 1 ? "Partner" : "Command", "#b39458", slotStretch(seats.length))), transparent: true, depthWrite: false })));
+              this.keep(new THREE.MeshBasicMaterial({ map: this.keep(slotTexture(i === 1 ? "Partner" : "Command", "#b39458", seats.length)), transparent: true, depthWrite: false })));
             slot.rotation.x = -Math.PI / 2;
             slot.rotation.z = viewRot; // its label upright from my seat
             const [sx, sz] = toWorld(seat, ...commandSlot(seat, i));
@@ -554,6 +556,11 @@ export class SeatProps {
     for (const h of this.hearts.values()) {
       const p = h.group.position;
       h.group.rotation.y = Math.atan2(this.tmp.x - p.x, this.tmp.z - p.z);
+      // its scale eases with the camera (a low orbit makes it smaller: TableScene fitHearts)
+      if (h.fit !== h.fitTo) {
+        h.fit = reduced || Math.abs(h.fitTo - h.fit) < 0.002 ? h.fitTo : h.fit + (h.fitTo - h.fit) * 0.2;
+        h.group.scale.setScalar(h.fit);
+      }
     }
     const now = performance.now();
     for (const [pid, h] of this.hearts) { // a pressed half comes back up once let go (after a moment)
@@ -645,7 +652,32 @@ export class SeatProps {
     toCam.normalize();
     // the face's right, seen from the camera: up × toward-camera
     const right = new THREE.Vector3(toCam.z, 0, -toCam.x);
-    return p.clone().addScaledVector(right, side * HEART_W * 0.47).setY(HEART_Y + h.face.position.y);
+    return p.clone().addScaledVector(right, side * HEART_W * 0.47 * h.fit).setY(HEART_Y + h.face.position.y * h.fit);
+  }
+
+  /** The scale a heart is to settle at (1: its size on the table), and the scale it shows now (its plate follows it). */
+  fitHeart(player: string, f: number): void {
+    const h = this.hearts.get(player);
+    if (h) h.fitTo = f;
+  }
+  heartFit(player: string): number {
+    return this.hearts.get(player)?.fit ?? 1;
+  }
+
+  /** A heart's face's corners (world) at scale `f`, turned to face an eye at `eye` (as tick turns it). */
+  heartCorners(player: string, eye: THREE.Vector3, f: number): THREE.Vector3[] | null {
+    const h = this.hearts.get(player);
+    if (!h) return null;
+    const p = h.group.position;
+    const turn = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.atan2(eye.x - p.x, eye.z - p.z), 0));
+    h.face.updateMatrix();
+    const m = new THREE.Matrix4().compose(p, turn, new THREE.Vector3(f, f, f)).multiply(h.face.matrix);
+    return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([sx, sy]) => new THREE.Vector3((sx! * HEART_W) / 2, (sy! * HEART.h) / 2, 0).applyMatrix4(m));
+  }
+
+  /** My seat buttons' medallions (world centres and radius), which a heart must never cover. */
+  buttonDiscs(): { at: THREE.Vector3; r: number }[] {
+    return [...this.buttons.values()].map((b) => ({ at: b.group.position.clone(), r: BUTTON_R }));
   }
 
   buttonWorld(id: SeatActionId): THREE.Vector3 | null {

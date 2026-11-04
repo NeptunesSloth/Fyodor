@@ -227,8 +227,16 @@ export function commandSlot(seat: Pick<Seat, "side"> | undefined, slot: number):
   return seat && mirrored(seat) ? [-x, z] : [x, z];
 }
 
-/** A commander's tax medallion's radius (table3d/seatProps.ts). */
+/** A commander's tax medallion's radius (table3d/seatProps.ts), and the gap between it and its command slot. */
 export const TAX_R = 0.38;
+const TAX_GAP = 0.36;
+
+/**
+ * My seat's buttons (table3d/seatProps.ts): the row's middle past my mat's near edge (on the wood before the rail, clear
+ * of the command slot's card above it on screen by at least 8 px at any screen size), and a medallion's radius.
+ */
+export const BUTTON_ROW_Z = MAT_D / 2 + 0.8;
+export const BUTTON_R = 0.33;
 
 /**
  * Where a commander's tax medallion sits, mat-local (`slot`: 0 the commander's, 1 a partner's; `count`: how many
@@ -240,10 +248,10 @@ export function taxSpot(slot: number, seat?: Pick<Seat, "side" | "duel">, mine =
   const [x, z] = commandSlot(seat, 0);
   if (mine && !seat?.duel) {
     const inward = x < 0 ? 1 : -1;
-    return [x + inward * (0.14 + slot * (TAX_R * 2 + 0.14)), z + CARD_H / 2 + 0.03 + TAX_R];
+    return [x + inward * (0.14 + slot * (TAX_R * 2 + 0.14)), z + CARD_H / 2 + TAX_GAP + TAX_R];
   }
   const last = commandSlot(seat, Math.max(1, Math.min(count, COMMAND_SLOTS.length)) - 1)[1];
-  return [x, last - CARD_H / 2 - 0.05 - TAX_R - slot * (TAX_R * 2 + 0.12)];
+  return [x, last - CARD_H / 2 - TAX_GAP - TAX_R - slot * (TAX_R * 2 + 0.12)];
 }
 
 /** Which pile (if any) a mat-local point is on (a partner's slot is the command zone too), on this seat's mat when given. */

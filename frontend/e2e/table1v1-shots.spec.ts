@@ -157,8 +157,14 @@ test("plaques with both tabs (a rules game: the turn and priority), 1280x640 and
   }
 });
 
-/** Every plaque at one size, and its tabs inside it (so none reaches past its top edge onto a mat). */
-async function platesInPlace(page: Page) {
+/**
+ * Every plaque at one size, and its tabs inside it (so none reaches past its top edge onto a mat); every heart and its
+ * plate clear of its mat and of my seat buttons (`seatView`: at the view's own framing, every heart at its full size).
+ */
+async function platesInPlace(page: Page, seatView = true) {
+  console.log("PAIRS", JSON.stringify(await page.evaluate(() => window.__fyodor3d!.pairs!())));
+  await expect.poll(async () => JSON.stringify((await page.evaluate(() => window.__fyodor3d!.pairs!())).map(({ detail: _d, ...p }) => p).filter((p) => p.overMat || p.overButton || (seatView && p.fit !== 1))), { timeout: 15_000 }).toBe("[]");
+  if (!seatView) return;
   const plates = await page.evaluate(() => [...document.querySelectorAll(".t3d-plate-anchor:not(.compact) .t3d-seat")].map((n) => {
     const main = n.querySelector(".t3d-seat-main")!.getBoundingClientRect();
     const flags = n.querySelector(".t3d-seat-flags")?.getBoundingClientRect();
@@ -209,6 +215,8 @@ test("1v1 camera: a low orbit and the farthest zoom, 1920x1080", async ({ page }
   await page.waitForTimeout(2500);
   // seen low, the lens has widened (the table regains its perspective)
   expect((await page.evaluate(() => window.__fyodor3d!.framing!()))!.fov).toBeGreaterThan(14);
+  // and every heart, with its plate pinned to it, is clear of its mat and of my seat buttons
+  await platesInPlace(page, false);
   await shoot(page, "1v1-low-orbit");
 });
 

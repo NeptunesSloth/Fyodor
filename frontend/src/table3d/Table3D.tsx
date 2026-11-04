@@ -38,6 +38,7 @@ declare global {
       cannon?: () => ReturnType<TableScene["cannonState"]>;
       flick: (ids: string[], vx: number, vz: number) => boolean;
       heartAt: (player: string, side?: -1 | 0 | 1) => { x: number; y: number } | null;
+      pairs?: () => { player: string; fit: number; overMat: boolean; overButton: boolean }[];
       buttonAt: (id: SeatActionId) => { x: number; y: number } | null;
       taxAt: (commanderKey: string) => { x: number; y: number } | null;
       /** Table motion (table3d/motion3d.ts): freeze every running motion at a time in ms (null: live), and what is running. */
@@ -114,6 +115,7 @@ export function Table3D({ me }: { me: string }) {
       cannon: () => scene.cannonState(),
       flick: (ids, vx, vz) => scene.flickCards(ids, vx, vz),
       heartAt: (player, side) => scene.heartOnScreen(player, side ?? 0),
+      pairs: () => scene.pairState(),
       buttonAt: (id) => scene.buttonOnScreen(id),
       taxAt: (key) => scene.taxOnScreen(key),
       motionFreeze: (ms) => scene.motionFreeze(ms),
@@ -169,13 +171,14 @@ export function Table3D({ me }: { me: string }) {
       // (not each fitted to its own width, where a long name made its plate smaller), so they grow and shrink with the
       // zoom like the hearts (within limits: very far out, the portrait alone). Seen low across the table, where the far
       // side is much smaller than the near one, each follows its own distance instead, as its heart does.
-      const seatPts = Object.entries(plates.current).map(([pid, node]) => [node, node && scene.seatScreen(pid, w, h)] as const);
+      const seatPts = Object.entries(plates.current).map(([pid, node]) => [node, node && scene.seatScreen(pid, w, h), pid] as const);
       const ppus = seatPts.flatMap(([, pt]) => (pt?.visible ? [pt.pxPerUnit] : []));
+      const boxes: Record<string, { w: number; h: number }> = {};
       const ppu = ppus.length ? ppus.reduce((a, b) => a + b, 0) / ppus.length : 0;
       const most = ppus.length ? Math.max(...ppus) : 0;
       const spread = ppus.length ? 1 - Math.min(...ppus) / most : 0;
       const own = Math.max(0, Math.min(1, (spread - 0.16) / 0.1)); // 0: one scale (the seat view's ~0.14 spread) … 1: each its own
-      for (const [node, pt] of seatPts) {
+      for (const [node, pt, pid] of seatPts) {
         if (!node || !pt) continue;
         // (sizes are measured in each form, so the compact switch doesn't flicker)
         const form = node.classList.contains("compact") ? "small" : "full";
@@ -183,7 +186,8 @@ export function Table3D({ me }: { me: string }) {
         const size = (f: string) => (node.dataset[f] ?? "150,60").split(",").map(Number) as [number, number];
         const want = (PLATE.w * (ppu || pt.pxPerUnit)) / PLATE_REF;
         // (in orbit, the nearest plate keeps the shared scale and the others shrink with their distance, after the limits)
-        const k = Math.max(PLATE_MIN, Math.min(PLATE_MAX, want)) * (most ? (pt.pxPerUnit / most) ** own : 1);
+        const kBase = Math.max(PLATE_MIN, Math.min(PLATE_MAX, want)) * (most ? (pt.pxPerUnit / most) ** own : 1);
+        const k = kBase * pt.fit; // (a heart made smaller, seen low, takes its plate with it)
         // (only once zoomed out: at a view's own framing a plate always shows its name and counts)
         if (measure) node.classList.toggle("compact", want < PLATE_COMPACT && scene.cameraZoom() > 1.15);
         const kk = k.toFixed(2);
@@ -194,6 +198,7 @@ export function Table3D({ me }: { me: string }) {
         const [w0, h0] = size(node.classList.contains("compact") ? "small" : "full");
         const pw = w0 * k;
         const ph = h0 * k;
+        boxes[pid] = { w: w0 * kBase, h: h0 * kBase };
         let x = pt.x - 4 * k - pw / 2;
         let y = pt.y;
         const hits = (r: Box) => !(x + pw / 2 < r.left || x - pw / 2 > r.right || y + ph / 2 < r.top || y - ph / 2 > r.bottom);
@@ -217,6 +222,7 @@ export function Table3D({ me }: { me: string }) {
         node.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) scale(${k.toFixed(3)})`;
         node.style.visibility = pt.visible ? "visible" : "hidden";
       }
+      if (measure) scene.setPlateBoxes(boxes); // (its heart is fitted to it: TableScene fitHearts)
       // the selection toolbar rides above the card it acts on (the camera can move every frame)
       if (selectionAnchor.node && selectionAnchor.card) {
         const r = scene.cardRect(selectionAnchor.card, w, h);

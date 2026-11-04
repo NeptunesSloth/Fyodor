@@ -56,15 +56,15 @@ import { onTableEvents } from "../game/motion/tableEvents";
 import { onMotionSkip } from "../game/motion/timing";
 import type { DiceShow } from "../game/dice";
 import {
-  aisleOf, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, heartSpot, MAT_D, MAT_W, mirrored, PILES, pileSpot, localToVirtual, onBattlefield, pileAt, seats,
+  aisleOf, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, MAT_D, MAT_W, mirrored, PILES, PLATE, pileSpot, localToVirtual, onBattlefield, pileAt, seats,
   tableSize, toLocal, toWorld, virtualToLocal, type PileZone, type Seat,
 } from "./layout";
 import { handFan, showsFan } from "./handFan";
 import { whenProxyFontsReady } from "../cards/proxyMeasure";
-import { backCanvas, canvasTexture, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotStretch, slotTexture, textCardTexture } from "./textures";
+import { backCanvas, canvasTexture, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
 import { FLAT_LOOK, nameScreenEm, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
-import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
+import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, offMat, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
 import { boardOrder, saveBoardOrder } from "../game/arrange";
 import { useBoardOrderTick } from "../game/arrangeDrop";
 
@@ -525,6 +525,7 @@ export class TableScene {
     if (propsKey !== this.propsKey) {
       this.propsKey = propsKey;
       this.props.rebuild(this.seatList, out ? "" : me, Object.fromEntries(view.players.map((p) => [p.id, p.color])), out);
+      this.fitHearts();
     }
     for (const p of view.players) this.props.setLife(p.id, p.life, this.lifeBatch.pending(p.id));
     this.props.setCommanders(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, p.commanders.map((c) => ({ key: c.key, tax: c.tax }))])),
@@ -648,8 +649,118 @@ export class TableScene {
    * its heart's left edge (the heart and plate read as one piece), and how many px one world unit spans there, so the
    * plate is drawn at its size on the table (layout.ts PLATE) and grows and shrinks with the zoom like the heart.
    */
+  /**
+   * -- seats -- how a seat's heart and its plate (pinned to the heart's left edge, as Table3D draws it) lie on screen for
+   * camera `cam` with the heart at scale `f`: whether either reaches over the seat's own mat (past the mat's edge on
+   * their side) or covers one of my seat buttons.
+   */
+  private pairOnScreen(cam: THREE.PerspectiveCamera, seat: Seat, f: number): { overMat: boolean; overButton: boolean; detail?: unknown } | null {
+    const W = this.viewW;
+    const H = this.viewH;
+    const scr = (v: THREE.Vector3): [number, number] => {
+      const p = v.clone().project(cam);
+      return [((p.x + 1) / 2) * W, ((1 - p.y) / 2) * H];
+    };
+    type Rect = { left: number; right: number; top: number; bottom: number };
+    const rectOf = (pts: [number, number][]): Rect => ({
+      left: Math.min(...pts.map((p) => p[0])), right: Math.max(...pts.map((p) => p[0])),
+      top: Math.min(...pts.map((p) => p[1])), bottom: Math.max(...pts.map((p) => p[1])),
+    });
+    const corners = this.props.heartCorners(seat.player, cam.position, f);
+    if (!corners) return null;
+    const heart = rectOf(corners.map(scr));
+    // the plate: its size on the table, at the heart's scale, its right edge at the heart's left edge, centred on its middle
+    const mid = corners.reduce((a, c) => a.add(c), new THREE.Vector3()).multiplyScalar(0.25);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion).setY(0).normalize();
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(cam.quaternion);
+    const edge = mid.clone().addScaledVector(right, -HEART.w * 0.47 * f);
+    // (its size as Table3D last drew it, at the heart's full size; else its size on the table)
+    const box = this.plateBoxes.get(seat.player);
+    let plate: Rect;
+    if (box) {
+      const [ex, ey] = scr(edge);
+      plate = { left: ex - (box.w + 4) * f, right: ex - 4 * f, top: ey - (box.h * f) / 2, bottom: ey + (box.h * f) / 2 };
+    } else {
+      const plateH = PLATE.h * 0.94 * f;
+      plate = rectOf([0, 1].flatMap((sx) => [-1, 1].map((sy) => scr(edge.clone().addScaledVector(right, -sx * PLATE.w * f).addScaledVector(up, (sy * plateH) / 2)))));
+    }
+    // the mat's edge on their side
+    const ez = heartSpot(seat)[1] > 0 ? MAT_D / 2 : -MAT_D / 2;
+    const at = (lx: number, lz: number) => {
+      const [x, z] = toWorld(seat, lx, lz);
+      return scr(new THREE.Vector3(x, 0, z));
+    };
+    const matEdge: [[number, number], [number, number]] = [at(-MAT_W / 2, ez), at(MAT_W / 2, ez)];
+    const matAbove = at(0, 0)[1] < scr(mid)[1];
+    const clear = (r: Rect, gap: number) => {
+      const y = (r.top + r.bottom) / 2;
+      return offMat({ x: (r.left + r.right) / 2, y, w: r.right - r.left, h: r.bottom - r.top }, matEdge, matAbove, gap) === y;
+    };
+    const hits = (a: Rect, b: Rect) => !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+    const buttons = this.props.buttonDiscs().map(({ at: c, r }) => rectOf([-1, 1].flatMap((sx) => [-1, 1].map((sz) => scr(c.clone().add(new THREE.Vector3(sx * r, 0.08, sz * r)))))));
+    return {
+      overMat: !clear(heart, 2) || !clear(plate, 1),
+      overButton: buttons.some((b) => hits(b, heart) || hits(b, plate)),
+      detail: { heart, plate, matEdge, matAbove, heartClear: clear(heart, 2), plateClear: clear(plate, 1) },
+    };
+  }
+
+  /**
+   * -- seats -- each heart's scale for where the camera is going: its size on the table, unless seen so low that it or
+   * its plate would reach over its mat or cover a seat button; then as much smaller as that takes (down to half).
+   */
+  private fitHearts(): void {
+    if (this.viewW < 2 || this.viewH < 2 || !this.seatList.length) return;
+    const cam = this.goalCam;
+    cam.copy(this.camera);
+    tableLens(this.viewW, this.viewH, cam);
+    cam.fov = this.camGoalFov;
+    cam.updateProjectionMatrix();
+    cam.position.copy(this.camGoalPos);
+    cam.lookAt(this.camGoalLook);
+    cam.updateMatrixWorld(true);
+    for (const seat of this.seatList) {
+      let fit = 0.5;
+      for (let f = 1; f > 0.5; f -= 0.05) {
+        const s = this.pairOnScreen(cam, seat, f);
+        if (s && !s.overMat && !s.overButton) {
+          fit = f;
+          break;
+        }
+      }
+      this.props.fitHeart(seat.player, fit);
+    }
+  }
+
+  /**
+   * -- seats -- each plate's size on screen (CSS px) as Table3D draws it with its heart at full size: the hearts are fitted
+   * again when one changes (the plates follow the camera's distance, a moment behind it).
+   */
+  setPlateBoxes(boxes: Record<string, { w: number; h: number }>): void {
+    let changed = false;
+    for (const [pid, b] of Object.entries(boxes)) {
+      const was = this.plateBoxes.get(pid);
+      if (was && Math.abs(was.w - b.w) < 3 && Math.abs(was.h - b.h) < 3) continue;
+      this.plateBoxes.set(pid, b);
+      changed = true;
+    }
+    if (changed) this.fitHearts();
+  }
+  private plateBoxes = new Map<string, { w: number; h: number }>();
+
+  /** Tests and diagnostics: each heart's scale now, and whether it or its plate reaches over its mat or a seat button. */
+  pairState(): { player: string; fit: number; overMat: boolean; overButton: boolean; detail?: unknown }[] {
+    return this.seatList.map((seat) => {
+      const fit = this.props.heartFit(seat.player);
+      const s = this.pairOnScreen(this.camera, seat, fit);
+      return { player: seat.player, fit, overMat: s?.overMat ?? false, overButton: s?.overButton ?? false, detail: s?.detail };
+    });
+  }
+
   seatScreen(player: string, width: number, height: number): {
     x: number; y: number; visible: boolean; edge: -1; pxPerUnit: number;
+    /** The heart's scale now (its plate takes the same). */
+    fit: number;
     /** The seat's mat's edge on the plate's side (its two ends), and whether the mat lies above it on screen. */
     matEdge: [[number, number], [number, number]]; matAbove: boolean;
   } | null {
@@ -669,7 +780,7 @@ export class TableScene {
     const ez = heartSpot(seat)[1] > 0 ? MAT_D / 2 : -MAT_D / 2;
     const y = ((1 - v.y) / 2) * height;
     return {
-      x: ((v.x + 1) / 2) * width, y, visible: v.z < 1, edge: -1, pxPerUnit,
+      x: ((v.x + 1) / 2) * width, y, visible: v.z < 1, edge: -1, pxPerUnit, fit: this.props.heartFit(player),
       matEdge: [screen(-MAT_W / 2, ez), screen(MAT_W / 2, ez)], matAbove: screen(0, 0)[1] < y,
     };
   }
@@ -858,7 +969,7 @@ export class TableScene {
         const [lx, lz] = pileSpot(seat, zone);
         const [wx, wz] = toWorld(seat, lx, lz);
         const slot = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W * 1.05, CARD_H * 1.05), new THREE.MeshBasicMaterial({
-          map: slotTexture(PILE_LABEL[zone as ZoneName] ?? zone, this.plane.ui.accent, slotStretch(this.seatList.length)), transparent: true, depthWrite: false,
+          map: slotTexture(PILE_LABEL[zone as ZoneName] ?? zone, this.plane.ui.accent, this.seatList.length), transparent: true, depthWrite: false,
         }));
         slot.rotation.x = -Math.PI / 2;
         slot.rotation.z = this.myRot(); // its label reads upright from my seat, whoever's pile it is
@@ -1594,6 +1705,7 @@ export class TableScene {
       this.scene.fog.near = near;
       this.scene.fog.far = this.fogBase[1] + (near - this.fogBase[0]);
     }
+    this.fitHearts();
     // -- arranged boards -- the tiles' names are drawn for this screen's seat view: drawn again when it changed
     const tv = this.tileViewVal;
     if (this.view && this.tileView() !== tv) this.syncCards();

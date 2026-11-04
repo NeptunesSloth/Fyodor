@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { depthStep, fitCamera, ndcBox, nearFarFor, offMat, plateCorners, propSpots, PROP_TOP, seatElevation, tableLens, tablePoints, tableRect, viewDir, type FrameRect } from "./framing";
-import { CARD_W, HEART, heartSpot, heartTilt, MAT_D, MAT_W, seatCamera, seats, STRIP_X, tableSize, toWorld, type Seat } from "./layout";
+import { BUTTON_R, BUTTON_ROW_Z, CARD_H, CARD_W, commandSlot, HEART, heartSpot, heartTilt, MAT_D, MAT_W, seatCamera, seats, STRIP_X, tableSize, TAX_R, taxSpot, toWorld, type Seat } from "./layout";
 
 /** The old lens, before the aspect fix and the long lens: the baseline the old seat camera is measured with. */
 function oldLens(w: number, h: number): THREE.PerspectiveCamera {
@@ -239,4 +239,28 @@ describe("a plate stays off its own mat", () => {
     const slant: [[number, number], [number, number]] = [[100, 280], [500, 320]];
     expect(offMat({ x: 300, y: 300, w: 200, h: 40 }, slant, true)).toBeCloseTo(310 + 20 + 3, 6);
   });
+});
+
+describe("the seat view's corner by my command zone is not crowded", () => {
+  // on screen (px): the command slot's card, my seat buttons' row under it, and the tax medallion beside it
+  for (const { name, w, h, chrome } of SCREENS) {
+    for (const n of [2, 4]) {
+      it(`${n === 2 ? "1v1" : "4 players"} at ${name}: at least 8 px between the command card and the buttons, and the tax medallion`, () => {
+        const { cam, mine } = seatView(n, w, h, chrome);
+        const [sx, sz] = commandSlot(mine, 0);
+        const at = (lx: number, y: number, lz: number) => {
+          const [x, z] = toWorld(mine, lx, lz);
+          return px(cam, new THREE.Vector3(x, y, z), w, h)[1];
+        };
+        const cardNear = at(sx, 0.02, sz + CARD_H / 2);
+        const cardFar = at(sx, 0.02, sz - CARD_H / 2);
+        // the buttons' row: its far edge, as if a medallion lay right under the card
+        expect(at(sx, 0.08, BUTTON_ROW_Z - BUTTON_R) - cardNear).toBeGreaterThanOrEqual(8);
+        // the tax medallion: under the card (4 players) or on its table side (1v1)
+        const [tx, tz] = taxSpot(0, mine, true, 1);
+        if (tz > sz) expect(at(tx, 0.05, tz - TAX_R) - cardNear).toBeGreaterThanOrEqual(8);
+        else expect(cardFar - at(tx, 0.05, tz + TAX_R)).toBeGreaterThanOrEqual(8);
+      });
+    }
+  }
 });

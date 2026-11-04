@@ -33,7 +33,7 @@
 .t3d-seat.active .t3d-seat-main::before { background: linear-gradient(160deg, #fff0c0, #efc77c 30%, #b88a42 62%, #6e4c1c); }
 .t3d-seat-main:focus-visible { outline: none; }
 /* the chamfer clips an outline on the button itself, so the ring goes on the plaque around it */
-.t3d-seat:has(.seat-who:focus-visible) { outline: 2px solid var(--select); outline-offset: 3px; border-radius: 6px; }
+.t3d-seat:has(.seat-who:focus-visible) { outline: 2px solid var(--room-brass-hi, #f0d08a); outline-offset: 3px; border-radius: 6px; } /* brass, as the HUD's */
 
 /* portrait and name: the way into the full player panel */
 .seat-who {
@@ -71,7 +71,7 @@ body.reduced-motion .seat-heart-shape .seat-heart-half { transition: none; }
 .seat-heart.hot-plus:not(:disabled):active .seat-heart-half.plus { fill: #164427; }
 .seat-who:active .portrait { transform: translateY(1px); filter: brightness(0.85); }
 .t3d-seat:has(.seat-who:active) .t3d-seat-main { filter: brightness(0.9); }
-.seat-heart:focus-visible .seat-heart-shape { filter: drop-shadow(0 0 1.5px var(--select)) drop-shadow(0 0 3px var(--select)); }
+.seat-heart:focus-visible .seat-heart-shape { filter: drop-shadow(0 0 1.5px var(--room-brass-hi, #f0d08a)) drop-shadow(0 0 3px var(--room-brass-hi, #f0d08a)); }
 .seat-heart-n {
   position: relative; margin-top: 5px; font: 700 16px/1 var(--font-ui); color: #f4efe6; font-variant-numeric: tabular-nums;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9);
