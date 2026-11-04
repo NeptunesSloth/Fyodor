@@ -18,12 +18,22 @@ const pips = (colors: string[]) => renderToStaticMarkup(createElement(ColorPips,
 afterEach(() => setSymbols({}));
 
 describe("ManaText: mana symbols in a card's text and costs", () => {
-  it("draws letter circles while the host has no symbols (offline before the first download)", () => {
+  it("draws its own symbols while the host has none (offline before the first download): discs in the official fills", () => {
     const html = text("{T}: Add {C}{C}.");
     expect(html).not.toContain("<img");
-    expect(html).toContain('class="mana tap"');
+    expect(html).toMatch(/class="mana c drawn-tap"[^>]*aria-label="\{T\}"[^>]*><svg/); // a drawn arrow, named
     expect(html.match(/class="mana c"/g)).toHaveLength(2);
     expect(html).toContain(": Add ");
+    // a hybrid splits on the diagonal with a letter in each half; Phyrexian mana is its colour with the Φ mark
+    const finks = text("{1}{G/W}{G/W}");
+    expect(finks).toContain('class="mana c" role="img" aria-label="{1}" title="{1}">1</span>');
+    expect(finks.match(/class="mana split" style="--c1:var\(--sym-g\);--c2:var\(--sym-w\)"/g)).toHaveLength(2);
+    expect(finks).toContain("<i>G</i><i>W</i>");
+    expect(text("{2/U}")).toContain('style="--c1:var(--sym-c);--c2:var(--sym-u)"');
+    expect(text("{B/P}")).toContain('class="mana b" role="img" aria-label="{B/P}" title="{B/P}">Φ</span>');
+    expect(text("{G/U/P}")).toContain('<i class="mid">Φ</i>');
+    expect(text("{10}")).toContain('<i class="sm">10</i>');
+    expect(text("{Q}")).toContain('class="untap"');
   });
 
   it("shows the host's real symbols, named for screen readers, in the text's flow", () => {
@@ -36,7 +46,7 @@ describe("ManaText: mana symbols in a card's text and costs", () => {
     // a hybrid by its text, and one the host doesn't list keeps its letter circle
     const cost = text("{2/W}{G/U}{W}");
     expect(cost).toContain('src="/api/symbols/2W.svg"');
-    expect(cost).toContain('class="mana hybrid g-u"');
+    expect(cost).toContain('class="mana split" style="--c1:var(--sym-g);--c2:var(--sym-u)"');
     expect(cost).toContain('src="/api/symbols/W.svg"');
   });
 

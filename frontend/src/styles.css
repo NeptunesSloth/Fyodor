@@ -7,6 +7,8 @@
   --mana-r: #f2a07e;
   --mana-g: #9ad3a6;
   --mana-c: #ccc6c0;
+  /* the mana symbols' official fills (as Scryfall's own symbols), for the symbols drawn while the host hasn't them */
+  --sym-w: #f8f6d8; --sym-u: #c1d7e9; --sym-b: #bab1ab; --sym-r: #e49977; --sym-g: #a3c095; --sym-c: #cac5c0;
   --card-back-drawn: none; /* the drawn back's image, set once it's needed (cards/cardBack.ts) */
   font-size: 14px;
 }
@@ -171,7 +173,7 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 }
 /* the cost floats right of the first line, so a long name wraps underneath it */
 .tc-cost { float: right; display: flex; align-items: center; height: 1lh; margin-left: 0.8cqw; white-space: nowrap; }
-.tc-cost .mana { box-shadow: 0 0.05em 0 rgba(0, 0, 0, 0.55); font-family: var(--font-ui); }
+.tc-cost .mana { font-family: var(--font-ui); }
 .tc-name { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .tc-name2 .tc-name { display: inline; white-space: normal; }
 .tc-name2 .tc-head { max-height: calc(var(--tc-ns) * 2.24 * var(--tc-u) + 4cqw); overflow: hidden; }
@@ -227,32 +229,45 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
   .text-card .tc-pt { right: 2.4cqw; bottom: 2.4cqw; min-width: 38cqw; height: 18cqw; padding: 0 2.8cqw; font-size: 14.5cqw; border-radius: 2cqw; }
 }
 
+/* A mana or card symbol. The real one is the host's Scryfall SVG (img.mana-sym, below). Until the host has it, the drawn one
+   (cards/ManaText.tsx DrawnSymbol): a disc in the symbol's official fill, its letter or number centred in the UI font, in
+   the same box, on the same baseline, with the same ring and shadow as the real one where they have them: one family. */
 .mana {
-  display: inline-flex; align-items: center; justify-content: center; min-width: 1.15em; height: 1.15em; border-radius: 50%;
-  font-size: 0.82em; font-weight: 700; margin: 0 0.06em; vertical-align: -0.12em; color: #111; line-height: 1;
-  background: var(--mana-c); box-shadow: 0 0.06em 0 rgba(0,0,0,0.5);
+  position: relative; display: inline-block; overflow: hidden; box-sizing: border-box;
+  width: 1.15em; height: 1.15em; padding: 0; margin: 0 0.06em; border: 0; border-radius: 50%; vertical-align: -0.17em;
+  font: 700 0.82em/1.15 var(--font-ui); font-variant-numeric: lining-nums; letter-spacing: 0; text-align: center;
+  color: #0d0f0f; background: var(--sym-c); user-select: none;
 }
-.mana.w { background: var(--mana-w); }
-.mana.u { background: var(--mana-u); }
-.mana.b { background: var(--mana-b); }
-.mana.r { background: var(--mana-r); }
-.mana.g { background: var(--mana-g); }
-.mana.tap { background: #d5d0c8; }
-.mana.hybrid { background: linear-gradient(135deg, var(--mana-w), var(--mana-g)); }
-/* the real symbol (cards/symbols.ts): the letter circle's box, on the same baseline; wide ones ({100}) keep their shape.
-   (img.mana.mana-sym outranks the letter circle's contextual rules, so none of their boxes or shadows reach the image) */
+.mana.w { background: var(--sym-w); }
+.mana.u { background: var(--sym-u); }
+.mana.b { background: var(--sym-b); }
+.mana.r { background: var(--sym-r); }
+.mana.g { background: var(--sym-g); }
+.mana i { font-style: normal; }
+.mana .sm { font-size: 0.74em; letter-spacing: -0.04em; } /* two figures: {10}, {20} */
+/* a hybrid: split on the diagonal, a letter in each half (Phyrexian: the Φ across both) */
+.mana.split { background: linear-gradient(135deg, var(--c1) 50%, var(--c2) 50%); }
+.mana.split > i { position: absolute; font-size: 0.5em; line-height: 1; }
+.mana.split > i:first-child { left: 18%; top: 10%; }
+.mana.split > i:last-child { right: 18%; bottom: 8%; }
+.mana.split > i.mid { position: static; font-size: 1em; line-height: inherit; }
+.mana.drawn-tap svg { display: block; width: 72%; height: 72%; margin: 14% auto 0; }
+.mana.drawn-tap svg.untap { transform: scaleX(-1); }
+/* the real symbol (cards/symbols.ts): the drawn one's box, on the same baseline; wide ones ({100}) keep their shape.
+   (img.mana.mana-sym outranks the drawn disc's contextual rules, so none of their boxes reach the image) */
 img.mana.mana-sym {
-  display: inline-block; width: auto; min-width: 0; height: 1.15em; padding: 0; border-radius: 0;
+  display: inline-block; width: auto; min-width: 0; height: 1.15em; padding: 0; border-radius: 0; overflow: visible;
   background: none; box-shadow: none; vertical-align: -0.17em; user-select: none; -webkit-user-drag: none;
 }
 /* in a cost, as printed: each symbol casts a small hard shadow down and to the left, following its own shape */
 :is(.cost, .tc-cost, .pay-cost, .cost-now) img.mana.mana-sym { filter: drop-shadow(-0.05em 0.07em 0 rgba(0, 0, 0, 0.85)); }
+:is(.cost, .tc-cost, .pay-cost, .cost-now) .mana:not(.mana-sym) { box-shadow: -0.05em 0.07em 0 rgba(0, 0, 0, 0.85); }
 /* lists of symbols at a fixed size (a colour identity, the deck editor's costs): whole pixels so they stay crisp at 1x,
-   whole-pixel gaps, a fine dark ring and the printed shadow, drawn as round box shadows (every mana symbol is round) */
+   whole-pixel gaps, a fine dark ring and the printed shadow (every mana symbol is round), drawn or real alike */
 .pips, .de-cost { --pip: 16px; display: inline-flex; align-items: center; gap: 3px; }
-.pips > .mana, .de-cost > .mana { flex: none; width: var(--pip); height: var(--pip); min-width: 0; margin: 0; font-size: calc(var(--pip) * 0.62); }
-.pips > img.mana.mana-sym, .de-cost > img.mana.mana-sym {
-  width: var(--pip); height: var(--pip); vertical-align: middle; border-radius: 50%;
+.pips > .mana, .de-cost > .mana, .pips > img.mana.mana-sym, .de-cost > img.mana.mana-sym {
+  flex: none; width: var(--pip); height: var(--pip); min-width: 0; margin: 0; vertical-align: middle; border-radius: 50%;
+  font-size: calc(var(--pip) * 0.6); line-height: var(--pip);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), -1px 1px 0 1px rgba(0, 0, 0, 0.6);
 }
 

@@ -417,7 +417,7 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .field.inline { flex-direction: row; align-items: center; gap: 6px; }
 .field.inline input { width: 70px; }
 .color-pick { display: flex; gap: 6px; margin-top: 4px; }
-.color-pick .mana { width: 26px; height: 26px; font-size: 13px; cursor: pointer; border: none; }
+.color-pick .mana { width: 26px; height: 26px; font-size: 13px; line-height: 26px; cursor: pointer; border: none; }
 .color-pick .mana.off { opacity: 0.3; }
 .custom-token { display: flex; flex-direction: column; gap: 10px; }
 .ability-lines { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }

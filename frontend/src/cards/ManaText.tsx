@@ -2,28 +2,52 @@ import { Fragment, memo } from "react";
 import { symbolInfo, symbolUrl, useSymbols } from "./symbols";
 
 const SYMBOL = /\{([^}]+)\}/g;
-const COLOR_CLASS: Record<string, string> = { W: "w", U: "u", B: "b", R: "r", G: "g", C: "c", S: "c" };
+const FILL: Record<string, string> = { W: "w", U: "u", B: "b", R: "r", G: "g" };
+/** A part's disc: its colour's official fill, else the colourless grey (generic, X, colourless, snow…). */
+const fillOf = (part: string) => FILL[part] ?? "c";
 
-function symbolClass(sym: string): string {
-  const upper = sym.toUpperCase();
-  if (upper === "T" || upper === "Q") return "tap";
-  const parts = upper.split("/");
-  const colors = parts.map((p) => COLOR_CLASS[p]).filter(Boolean);
-  if (colors.length === 1) return colors[0]!;
-  if (colors.length > 1) return `hybrid ${colors.join("-")}`;
-  return "generic";
+/** The tap and untap arrows, drawn (no font has them reliably): a curved arrow, turned for untap. */
+function TapArrow({ untap }: { untap: boolean }) {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden className={untap ? "untap" : undefined}>
+      <path d="M15 11a5 5 0 1 1-5-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M8.6 2.2 13 6l-4.4 3.8z" fill="currentColor" />
+    </svg>
+  );
 }
 
-function symbolLabel(sym: string): string {
+/**
+ * A symbol the host hasn't (offline before the first download, a brand-new one), drawn as one family with the real ones:
+ * a disc in the symbol's official fill with its letter or number centred in the UI font; a hybrid split on the diagonal
+ * with a letter in each half; Phyrexian mana as its colour with the Φ mark; tap and untap as a drawn arrow.
+ */
+function DrawnSymbol({ sym, label }: { sym: string; label?: string }) {
   const upper = sym.toUpperCase();
-  if (upper === "T") return "⟳";
-  if (upper === "Q") return "⟲";
-  return upper.replace("/P", "ᵖ").replace("/", "");
+  const words = label ?? `{${sym}}`;
+  const a11y = { role: "img", "aria-label": words, title: words };
+  if (upper === "T" || upper === "Q") {
+    return <span className="mana c drawn-tap" {...a11y}><TapArrow untap={upper === "Q"} /></span>;
+  }
+  const parts = upper.split("/");
+  const phyrexian = parts.length > 1 && parts[parts.length - 1] === "P";
+  const body = phyrexian ? parts.slice(0, -1) : parts;
+  if (body.length === 2) {
+    const [a, b] = body as [string, string];
+    const style = { "--c1": `var(--sym-${fillOf(a)})`, "--c2": `var(--sym-${fillOf(b)})` } as React.CSSProperties;
+    return (
+      <span className="mana split" style={style} {...a11y}>
+        {phyrexian ? <i className="mid">Φ</i> : <><i>{a}</i><i>{b}</i></>}
+      </span>
+    );
+  }
+  const one = body[0] ?? "";
+  const text = phyrexian ? "Φ" : one;
+  return <span className={`mana ${fillOf(one)}`} {...a11y}>{text.length > 1 ? <i className="sm">{text}</i> : text}</span>;
 }
 
 /**
  * One mana or card symbol, by its text without braces ("W", "2/U", "T"): the real symbol when the host has it
- * (cards/symbols.ts), else a letter circle in its colour. `label` names it for screen readers instead of its meaning.
+ * (cards/symbols.ts), else the drawn one. `label` names it for screen readers instead of its meaning.
  */
 export function ManaSymbol({ sym, label }: { sym: string; label?: string }) {
   const info = symbolInfo(useSymbols(), sym);
@@ -31,11 +55,7 @@ export function ManaSymbol({ sym, label }: { sym: string; label?: string }) {
     const words = label ?? (info.english || `{${sym}}`);
     return <img className="mana mana-sym" src={symbolUrl(info)} alt={words} title={words} draggable={false} decoding="async" />;
   }
-  return (
-    <span className={`mana ${symbolClass(sym)}`} title={label ?? `{${sym}}`} {...(label ? { role: "img", "aria-label": label } : {})}>
-      {symbolLabel(sym)}
-    </span>
-  );
+  return <DrawnSymbol sym={sym} label={label} />;
 }
 
 /** Renders `{2}{U}{U}` and oracle text with inline mana symbols. */
