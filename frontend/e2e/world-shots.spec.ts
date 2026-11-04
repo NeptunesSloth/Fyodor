@@ -153,12 +153,12 @@ for (const planeId of PLANES) {
 /** Quick look while building: one game, each plane in turn (SHOT_VIEWS: seat, out, orbit). */
 test("iterate", async ({ page }) => {
   test.skip(ONLY !== "iterate", "SHOT_ONLY");
-  test.setTimeout(900_000);
+  test.setTimeout(4_000_000);
   const views = (process.env.SHOT_VIEWS ?? "seat,out").split(",");
   await page.setViewportSize({ width: 1920, height: 1080 });
   const gameId = await setup(page, PLANES[0]!, QUALITY, ["Alice", "Bob"], 6);
   for (const planeId of PLANES) {
-    await page.evaluate(([pl, gx]) => localStorage.setItem("fyodor.profiles", JSON.stringify({ version: 2, active: "t", profiles: [{ id: "t", name: "Alice", avatar: "A", prefs: { ambience: false, plane: pl, graphics: gx } }] })), [planeId, QUALITY] as const).catch(() => undefined);
+    await page.goto("about:blank"); // (a new page load: the same game's URL alone only changes the hash)
     await page.addInitScript(([pl, gx]) => localStorage.setItem("fyodor.profiles", JSON.stringify({ version: 2, active: "t", profiles: [{ id: "t", name: "Alice", avatar: "A", prefs: { ambience: false, plane: pl, graphics: gx } }] })), [planeId, QUALITY] as const);
     await open(page, gameId, 12);
     const errors: string[] = [];
@@ -206,7 +206,7 @@ test("props up close, 2x", async ({ browser }) => {
     // battlefield points of the far seat (virtual units, off its mat)
     for (const [vx, tag] of [[1098, "left"], [-182, "right"]] as const) {
       const p = (await page.evaluate((x) => window.__fyodor3d!.battlefieldAt("p2", x, 636), vx))!;
-      await page.screenshot({ path: `${OUT}/${PREFIX}-${planeId}-prop-${tag}-2x.png`, clip: { x: Math.max(0, p.x - 130), y: Math.max(0, p.y - 150), width: 260, height: 200 } });
+      await page.screenshot({ path: `${OUT}/${PREFIX}-${planeId}-prop-${tag}-2x.png`, clip: { x: Math.max(0, p.x - 130), y: Math.max(46, p.y - 165), width: 260, height: 200 } });
     }
     await context.close();
   }

@@ -165,7 +165,7 @@ function drawFloor(kind: FloorKind, a: string, b: string, seed: number): { color
       blotches(g, rand, W, W, 24, "rgba(180,190,220,ALPHA)", 40, 140, 0.07);
       break;
     case "flagstone":
-      flags(g, h, rand, W, 5, lerp(A, B, 0.2), B.clone().multiplyScalar(0.35), 0.45, 6);
+      flags(g, h, rand, W, 7, lerp(A, B, 0.25), B.clone().multiplyScalar(0.3), 0.6, 5);
       blotches(g, rand, W, W, 50, "rgba(0,0,0,ALPHA)", 10, 70, 0.22);
       // moss in some joints, cracks
       speckle(g, rand, W, W, 1600, "rgba(70,90,50,ALPHA)", 0.3, 3);
@@ -528,12 +528,12 @@ function drawCentre(kind: CentreKind, accent: string, seed: number): { color: HT
       // a temple's inlay: a gold Greek-key band round a field of dark Nyx-blue marble flecked with stars
       g.clearRect(0, 0, CW, CH);
       const m = 30;
-      g.fillStyle = "#c9a24a";
+      g.fillStyle = "#7a6230";
       g.fillRect(m, m, CW - m * 2, CH - m * 2);
-      g.fillStyle = "#e9e1cf";
+      g.fillStyle = "#8c8678";
       g.fillRect(m + 8, m + 8, CW - m * 2 - 16, CH - m * 2 - 16);
       // the key pattern
-      g.strokeStyle = "#a8802c";
+      g.strokeStyle = "#6a5222";
       g.lineWidth = 6;
       const key = (x: number, y: number, ang: number) => {
         g.save(); g.translate(x, y); g.rotate(ang);
@@ -542,7 +542,7 @@ function drawCentre(kind: CentreKind, accent: string, seed: number): { color: HT
         g.stroke(); g.restore();
       };
       motifBorder(m + 30, m + 30, CW - m * 2 - 60, CH - m * 2 - 60, 44, key);
-      g.fillStyle = "#c9a24a";
+      g.fillStyle = "#7a6230";
       g.fillRect(m + 56, m + 56, CW - m * 2 - 112, CH - m * 2 - 112);
       g.fillStyle = "#18183a";
       g.fillRect(m + 62, m + 62, CW - m * 2 - 124, CH - m * 2 - 124);

@@ -243,7 +243,7 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     track(fm.map);
     track(fm.normalMap);
     for (const t of [fm.map, fm.normalMap]) t.repeat.set(240 / spec.floorTile, 240 / spec.floorTile);
-    const floorMat = track(decorate(new THREE.MeshStandardMaterial({ map: fm.map, normalMap: fm.normalMap, normalScale: new THREE.Vector2(0.8, 0.8), roughness: e.surface === "marble" || e.surface === "oilmetal" ? 0.42 : 0.88, envMapIntensity: 0.3 }), room, { key: `floor-${p.id}`, macro: 0.16, macroScale: 7, practical: 1, direct: 0.4, indirect: 0.6, under: shadow }));
+    const floorMat = track(decorate(new THREE.MeshStandardMaterial({ map: fm.map, normalMap: fm.normalMap, normalScale: new THREE.Vector2(0.8, 0.8), roughness: e.surface === "marble" || e.surface === "oilmetal" ? 0.42 : 0.88, envMapIntensity: 0.3 }), room, { key: `floor-${p.id}`, macro: 0.16, macroScale: 7, practical: 0.9, direct: 0.32, indirect: 0.45, under: shadow }));
     const floor = new THREE.Mesh(track(new THREE.PlaneGeometry(240, 240)), floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = floorY;

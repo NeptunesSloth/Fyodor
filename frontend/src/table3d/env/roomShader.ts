@@ -319,13 +319,21 @@ export function decorate<M extends THREE.MeshStandardMaterial>(mat: M, room: Roo
       .replace("#include <lights_fragment_end>", `#include <lights_fragment_end>
         ${direct !== 1 ? `reflectedLight.directDiffuse *= ${direct.toFixed(3)}; reflectedLight.directSpecular *= ${direct.toFixed(3)};` : ""}
         ${(o.indirect ?? 1) !== 1 ? `reflectedLight.indirectDiffuse *= ${(o.indirect ?? 1).toFixed(3)}; reflectedLight.indirectSpecular *= ${(o.indirect ?? 1).toFixed(3)};` : ""}
-        reflectedLight.indirectDiffuse += material.diffuseColor * (practicalLight(vRoomPos, normalize(vRoomNormal)) + windowLight(vRoomPos, normalize(vRoomNormal))) * ${prac.toFixed(3)};`)
+        vec3 roomPrac = (practicalLight(vRoomPos, normalize(vRoomNormal)) + windowLight(vRoomPos, normalize(vRoomNormal))) * ${prac.toFixed(3)};
+        reflectedLight.indirectDiffuse += material.diffuseColor * roomPrac;`)
       .replace("#include <opaque_fragment>", `${o.under ? `{
           vec2 q = abs(vRoomPos.xz - vec2(${o.under.x.toFixed(3)}, ${o.under.z.toFixed(3)})) - vec2(${o.under.hw.toFixed(3)}, ${o.under.hd.toFixed(3)});
           float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
           outgoingLight *= 1.0 - ${o.under.dark.toFixed(3)} * (1.0 - smoothstep(-${o.under.soft.toFixed(3)}, ${o.under.soft.toFixed(3)}, sd));
         }` : ""}
-        ${fade ? "outgoingLight = mix(outgoingLight, uFadeCol, roomFade(vRoomPos));" : ""}\n#include <opaque_fragment>`);
+        ${fade ? `{
+          // the room falls away into the dark, except where its own lights (and the moon) fall, and its embers and
+          // lamps keep most of their glow: points of light in a dim room
+          float lit = smoothstep(0.0, 0.45, dot(roomPrac, vec3(0.3, 0.5, 0.2)));
+          float f = roomFade(vRoomPos) * (1.0 - lit * 0.8);
+          vec3 selfLit = min(totalEmissiveRadiance, outgoingLight);
+          outgoingLight = mix(outgoingLight - selfLit, uFadeCol, f) + selfLit * (1.0 - f * 0.4);
+        }` : ""}\n#include <opaque_fragment>`);
   };
   mat.customProgramCacheKey = () => `room:${o.key}:${o.surf ? 1 : 0}:${macro}:${o.macroScale ?? 3}:${prac}:${direct}:${fade ? 1 : 0}:${o.cutaway ? 1 : 0}:${o.indirect ?? 1}:${o.under ? JSON.stringify(o.under) : ""}`;
   return mat;

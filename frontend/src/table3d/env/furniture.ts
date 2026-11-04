@@ -314,7 +314,7 @@ export function lantern(_ctx: SetCtx, at: Put, size: number, glass: string, iron
   at.geo(new THREE.ConeGeometry(s * 0.75, s * 0.55, 4), xf(0, s * 1.47 + s * 0.27, 0, 0, Math.PI / 4), iron, IRON);
   at.geo(new THREE.TorusGeometry(s * 0.18, s * 0.04, 5, 10), xf(0, s * 2.1, 0), iron, IRON);
   for (const [cx, cz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) at.box(s * 0.08, s * 1.25, s * 0.08, cx * s * 0.5, s * 0.12, cz * s * 0.5, iron, IRON);
-  at.glowing().box(s * 0.95, s * 1.2, s * 0.95, 0, s * 0.14, 0, glass, { glow: 1.4, pulse: PULSE.lantern, rough: 0.2 });
+  at.glowing().box(s * 0.95, s * 1.2, s * 0.95, 0, s * 0.14, 0, glass, { glow: 0.85, pulse: PULSE.lantern, rough: 0.2 });
   return new THREE.Vector3(0, s * 0.35, 0);
 }
 

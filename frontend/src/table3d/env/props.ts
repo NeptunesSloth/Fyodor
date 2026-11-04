@@ -59,7 +59,7 @@ function openBook(at: Put, w: number, d: number, leather: THREE.ColorRepresentat
     // (the plane's +z face turns up; the left page is mirrored in x, which turns it face down: flip its winding)
     if (s < 0 && g.index) g.setIndex(Array.from(g.index.array).reverse());
     g.computeVertexNormals();
-    at.geo(g, xf(0, 0.1, 0, -Math.PI / 2, 0, 0), "#ffffff", { uv: ATLAS.parchment, rough: 0.85 });
+    at.geo(g, xf(0, 0.1, 0, -Math.PI / 2, 0, 0), "#d8ccb4", { uv: ATLAS.parchment, rough: 0.85 });
   }
   // a ribbon marker trailing over the tail
   at.box(0.04, 0.006, d * 0.45, half * 0.15, 0.115, d * 0.42, "#7a1a1a", { rough: 0.5 }, 0.1);
