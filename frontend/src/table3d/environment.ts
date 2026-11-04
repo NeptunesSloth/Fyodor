@@ -149,6 +149,8 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
   const slab = new THREE.Mesh(track(roundedSlab(size.w, size.d, 1.6, TABLE_THICK)), [topMat, railMat]);
   slab.position.y = tableY - TABLE_THICK - 0.12;
   slab.receiveShadow = true;
+  // the table shades the floor under it (the cards' shadows used to fall through it onto the floor as dark squares)
+  slab.castShadow = quality !== "low";
   group.add(slab);
   // a padded leather rail around the edge, like a card-room table, outside every zone
   const leather = track(new THREE.MeshStandardMaterial({ color: new THREE.Color(e.rail).lerp(new THREE.Color("#3b2416"), 0.35), roughness: 0.48, metalness: 0, envMapIntensity: 0.9 }));
