@@ -142,6 +142,10 @@ export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
         <img src={toyIconUrl("close")} alt="" draggable={false} />
       </button>
       <Inspector id={shown} />
+      <span className="card-preview-more" aria-hidden>
+        More
+        <svg viewBox="0 0 10 10"><path d="M2 3.5 L5 6.5 L8 3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </span>
     </div>
   );
 }

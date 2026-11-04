@@ -648,9 +648,23 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
 /* a long text in a short space: only the rules text scrolls (the panel then takes the pointer, held open while it's on it) */
 .card-preview.scrolls { pointer-events: auto; }
 .card-preview.scrolls .insp-oracle {
-  max-height: var(--insp-scroll); overflow-y: scroll; overscroll-behavior: contain; padding-right: 6px;
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent);
+  max-height: var(--insp-scroll); overflow-y: scroll; overscroll-behavior: contain; padding: 0 8px 18px 0;
+  /* the last visible line fades out entirely into the leather, and a brass track runs down the words' right side */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 46px), transparent calc(100% - 12px));
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 46px), transparent calc(100% - 12px));
+  border-right: 2px solid color-mix(in srgb, var(--frame) 70%, transparent);
 }
+/* "more": a small brass tab on the panel's foot while there is more to read (gone at the end) */
+.card-preview-more {
+  position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); display: none; align-items: center; gap: 4px; padding: 2px 9px 3px;
+  font: 600 10.5px/1 var(--font-display); letter-spacing: 0.06em; color: var(--accent-ink); background: var(--accent-grad);
+  border: 1px solid #6e4c1c; border-radius: 9px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6); pointer-events: none; white-space: nowrap;
+}
+.card-preview-more svg { width: 9px; height: 9px; }
+.card-preview.scrolls .card-preview-more { display: inline-flex; }
+.card-preview.scrolls[data-at-end] .card-preview-more { display: none; }
+/* the type line and notes read on the leather (AA) */
+.card-preview .hint { color: var(--text-dim); }
 .card-preview.scrolls[data-at-end] .insp-oracle { -webkit-mask-image: none; mask-image: none; }
 /* its scrollbar shows (a brass thumb in a dark groove): the words go on */
 .card-preview.scrolls .insp-oracle::-webkit-scrollbar { width: 6px; }
