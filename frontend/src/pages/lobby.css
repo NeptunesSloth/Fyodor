@@ -435,6 +435,11 @@ button.pl-name:hover { color: var(--accent-2); }
   .pl-deck { padding-top: 7px; }
   .next-game { padding-block: 10px 9px; gap: 8px 18px; }
   .next-game .mini-table { height: 84px; }
+  /* an empty seat keeps room for Choose deck and its badge side by side (the band of art is for a chosen commander) */
+  .pl-art.empty { aspect-ratio: auto; min-height: 96px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; padding: 12px 10px; }
+  .pl-art.empty .pl-slot { margin-top: 0; }
+  .pl-art.empty .pl-slot:has(.pl-choose) { padding: 10px 12px; }
+  .pl-art.empty .pl-status { position: static; }
 }
 /* a big screen: the table's objects grow with it instead of huddling in the middle of the felt */
 @media (min-width: 1680px) and (min-height: 1000px) {
