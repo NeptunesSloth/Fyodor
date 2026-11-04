@@ -44,7 +44,7 @@ export const AISLE = 1.9;
 /** 1v1's half aisle: only the stack and the combat arrows cross it (the plates and hearts sit by each player's own edge). */
 export const DUEL_AISLE = 0.6;
 /** How far a 1v1 seat's own edge zone reaches past its mat: the heart and plate row, and (across the table) the fan of backs. */
-export const DUEL_EDGE = 2.75;
+export const DUEL_EDGE = 3.4;
 /** The 1v1 seat view's elevation (radians up from the felt; table3d/framing.ts): low, so the facing mats fill a wide screen. */
 export const DUEL_VIEW = 0.5;
 /**
@@ -95,9 +95,9 @@ export const DUEL_FAN_X = 3.95;
 export function duelOut(seat: Pick<Seat, "duel" | "side">): number {
   const t = heartTilt(seat);
   const half = (HEART.h / 2) * Math.cos(t);
-  if (seat.side !== "south") return 0.15 + half;
+  if (seat.side !== "south") return 0.65 + half; // (its plate, at its smallest on screen, is taller than the heart: it keeps off the mat)
   const top = HEART.y + HEART.h * Math.sin(t);
-  return top / Math.tan(DUEL_VIEW) + 0.1 + half;
+  return top / Math.tan(DUEL_VIEW) + 0.45 + half; // (and its plate, taller on screen than the heart, keeps off my mat)
 }
 
 /**

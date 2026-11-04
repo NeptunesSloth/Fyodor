@@ -29,7 +29,7 @@ const CHIT_TILT = 0.5;
 const PITCH = 0.64;
 const DIVIDE = 0.36;
 /** 1v1: the first group's first medallion (under my command zone), and Mulligan's (right of my heart, the Bag past it). */
-const DUEL_ROW_X = -6.45;
+const DUEL_ROW_X = -7.8;
 const DUEL_MULLIGAN_X = 3.45;
 const LABEL_H = 0.5;
 

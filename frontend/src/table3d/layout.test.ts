@@ -245,7 +245,7 @@ describe("zone wells, nameplates and the commander tax", () => {
       expect(overlap(boxOf(mine, taxSpot(mine, 0), COIN.r * 2, COIN.r * 2, "coins"), card, 0.05)).toBe(false);
       // the buttons' row (seatProps: from DUEL_ROW_X in 1v1, from x0 = 0.7 − span at more seats; both right of the command column)
       const rowZ = n === 2 ? MAT_D / 2 + 1.05 : MAT_D / 2 + 0.44;
-      const [x0, x1] = n === 2 ? [-6.45 - 0.26, 3.45 + 0.64 + 0.26] : [0.7 - 4.2 - 0.26, 0.7 + 0.26];
+      const [x0, x1] = n === 2 ? [-7.8 - 0.26, 3.45 + 0.64 + 0.26] : [0.7 - 4.2 - 0.26, 0.7 + 0.26];
       const row = boxOf(mine, [(x0 + x1) / 2, rowZ], x1 - x0, 0.52, "buttons");
       for (const b of pieces(mine, n === 2)) expect(overlap(b, row, 0.1), b.what).toBe(false);
     }
