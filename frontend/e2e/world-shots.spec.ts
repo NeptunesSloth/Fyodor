@@ -62,7 +62,7 @@ Deck
 
 type View = { seat_order: string[]; zones: Record<string, string[]> };
 
-async function setup(page: Page, planeId: string, graphics: string, players: string[], perSeat: number) {
+async function setup(page: Page, planeId: string, graphics: string, players: string[], perSeat: number, origin = "") {
   await page.addInitScript(([pl, gx]) => {
     localStorage.setItem("fyodor.renderer", "3d");
     localStorage.setItem("fyodor.welcomeDone", "1");
@@ -73,11 +73,11 @@ async function setup(page: Page, planeId: string, graphics: string, players: str
   const texts = REAL ? [GOBLINS, COUNTERS] : [ALICE_DECK, BOB_DECK];
   const ids: string[] = [];
   for (const text of texts) {
-    const r = await page.request.post("/api/decks", { data: { text, name: text.split("\n")[1]!.replace(/^1x /, "").replace(/ \(.*/, "") } });
+    const r = await page.request.post(`${origin}/api/decks`, { data: { text, name: text.split("\n")[1]!.replace(/^1x /, "").replace(/ \(.*/, "") } });
     expect(r.ok(), await r.text()).toBeTruthy();
     ids.push(((await r.json()) as { id: string }).id);
   }
-  const res = await page.request.post("/api/games", {
+  const res = await page.request.post(`${origin}/api/games`, {
     data: {
       name: "World", format: "commander", mode: "local", shuffle: false, first_player: 0, auto_untap: true, mulligan_rule: "none",
       players: players.map((name, i) => ({ name, deck_id: ids[i % ids.length]! })),
@@ -86,9 +86,9 @@ async function setup(page: Page, planeId: string, graphics: string, players: str
   expect(res.ok(), await res.text()).toBeTruthy();
   const gameId = ((await res.json()) as { game: { id: string } }).game.id;
   const act = async (action: Record<string, unknown>) => {
-    await page.request.post(`/api/games/${gameId}/actions`, { data: { action } });
+    await page.request.post(`${origin}/api/games/${gameId}/actions`, { data: { action } });
   };
-  const view = async (v = "p1") => (await (await page.request.get(`/api/games/${gameId}/view?viewer=${v}`)).json()) as View;
+  const view = async (v = "p1") => (await (await page.request.get(`${origin}/api/games/${gameId}/view?viewer=${v}`)).json()) as View;
   const seats = (await view()).seat_order;
   for (const pid of seats) await act({ type: "draw", player: pid, count: perSeat + 9 });
   const at = (i: number) => ({ x: 30 + (i % 9) * 105, y: 40 + Math.floor(i / 9) * 150 });
@@ -101,8 +101,8 @@ async function setup(page: Page, planeId: string, graphics: string, players: str
   return gameId;
 }
 
-async function open(page: Page, gameId: string, minCards: number) {
-  await page.goto(`/#/game/${gameId}`);
+async function open(page: Page, gameId: string, minCards: number, origin = "") {
+  await page.goto(`${origin}/#/game/${gameId}`);
   await expect(page.getByTestId("table-3d")).toBeVisible({ timeout: 90_000 });
   const intro = page.getByTestId("game-intro");
   if (await intro.isVisible().catch(() => false)) await page.keyboard.press("Escape");
@@ -246,3 +246,69 @@ for (const q of ["low", "medium", "high"]) {
     console.log(`FRAMES ${q} ${JSON.stringify({ msPerFrame: samples.map((v) => Math.round(v)), calls: s.calls, triangles: s.triangles, cards: s.cards })}`);
   });
 }
+
+
+/**
+ * Frame time against the build before the rooms, interleaved (load on a shared machine drifts): SHOT_BASE is that
+ * build's server. Each measurement is a fresh page on the perf check's board.
+ */
+test("frame time, before and after, interleaved", async ({ browser }) => {
+  test.skip(ONLY !== "ab", "SHOT_ONLY");
+  test.setTimeout(3_000_000);
+  const base = process.env.SHOT_BASE ?? "http://127.0.0.1:8815";
+  const measure = async (origin: string, q: string) => {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    const gameId = await setup(page, PLANES[0]!, q, ["Alice", "Bob", "Casey", "Jordan"], 10, origin);
+    await open(page, gameId, 40, origin);
+    const ms: number[] = [];
+    for (let k = 0; k < 3; k++) {
+      ms.push(await page.evaluate(async () => {
+        const f = window.__fyodor3d!;
+        await f.nextFrame!();
+        const t0 = performance.now();
+        for (let i = 0; i < 6; i++) await f.nextFrame!();
+        return Math.round((performance.now() - t0) / 6);
+      }));
+    }
+    const s = await page.evaluate(() => window.__fyodor3d!.stats());
+    await context.close();
+    return { ms, calls: s.calls };
+  };
+  for (const q of (process.env.SHOT_QS ?? "medium,high,low").split(",")) {
+    for (let round = 0; round < 2; round++) {
+      const order = round % 2 ? [["after", ""], ["before", base]] : [["before", base], ["after", ""]];
+      for (const [tag, origin] of order) console.log(`AB ${q} ${tag} ${JSON.stringify(await measure(origin!, q))}`);
+    }
+  }
+});
+
+test("TEMP frame cost by part, interleaved", async ({ page }) => {
+  test.skip(ONLY !== "parts", "SHOT_ONLY");
+  test.setTimeout(1_800_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const gameId = await setup(page, PLANES[0]!, QUALITY, ["Alice", "Bob", "Casey", "Jordan"], 10);
+  await open(page, gameId, 40);
+  const time = () => page.evaluate(async () => {
+    const f = window.__fyodor3d!;
+    await f.nextFrame!();
+    const t0 = performance.now();
+    for (let i = 0; i < 5; i++) await f.nextFrame!();
+    return Math.round((performance.now() - t0) / 5);
+  });
+  const set = (k: string, v: boolean) => page.evaluate(([kk, vv]) => { (window as unknown as { __envParts: Record<string, { visible: boolean }> }).__envParts[kk as string]!.visible = vv as boolean; }, [k, v] as const);
+  const names = await page.evaluate(() => Object.keys((window as unknown as { __envParts: Record<string, unknown> }).__envParts));
+  for (const n of names) {
+    const r: number[] = [];
+    for (let k = 0; k < 2; k++) {
+      const a = await time();
+      await set(n, false);
+      const b = await time();
+      await set(n, true);
+      r.push(a - b);
+    }
+    console.log(`PART ${n} saves ${JSON.stringify(r)}`);
+  }
+  for (const n of names) await set(n, false);
+  console.log(`PART none ${await time()} ${await time()}`);
+});

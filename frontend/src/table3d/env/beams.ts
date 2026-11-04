@@ -4,7 +4,7 @@
  * show as darker bars in the haze and dust drifts through it. Additive and faint; one draw call for every window.
  */
 import * as THREE from "three";
-import { PRACTICAL_GLSL, type RoomLight } from "./roomShader";
+import { practicalGlsl, type RoomLight } from "./roomShader";
 
 const VERT = /* glsl */ `
 varying vec3 vWorld;
@@ -15,7 +15,7 @@ void main() {
 }`;
 
 const FRAG = /* glsl */ `
-${PRACTICAL_GLSL}
+#include <room_practical>
 uniform float uFloor;
 uniform float uStrength;
 uniform float uMotion;
@@ -25,7 +25,7 @@ void main() {
   vec3 rd = normalize(vWorld - cameraPosition);
   float jitter = hash13(vec3(gl_FragCoord.xy, 1.0));
   vec3 acc = vec3(0.0);
-  const int STEPS = 24;
+  const int STEPS = BEAM_STEPS;
   float len = 30.0;
   for (int i = 0; i < STEPS; i++) {
     float s = (float(i) + jitter) / float(STEPS) * len;
@@ -58,7 +58,7 @@ void main() {
 }`;
 
 /** The beams for a room's windows (null when it has none). */
-export function buildBeams(room: RoomLight, floorY: number, strength: number, keepOut: [number, number]): THREE.Mesh | null {
+export function buildBeams(room: RoomLight, floorY: number, strength: number, keepOut: [number, number], steps = 16): THREE.Mesh | null {
   if (!room.windows.length) return null;
   const pos: number[] = [];
   const idx: number[] = [];
@@ -90,8 +90,9 @@ export function buildBeams(room: RoomLight, floorY: number, strength: number, ke
   geo.setIndex(idx);
   geo.computeBoundingSphere();
   const mat = new THREE.ShaderMaterial({
-    vertexShader: VERT,
-    fragmentShader: FRAG,
+    vertexShader: VERT.replace("#include <room_practical>", practicalGlsl(room)),
+    fragmentShader: FRAG.replace("#include <room_practical>", practicalGlsl(room)),
+    defines: { BEAM_STEPS: steps },
     uniforms: { ...room.uniforms, uFloor: { value: floorY }, uStrength: { value: strength }, uMotion: { value: 1 }, uKeepOut: { value: new THREE.Vector3(keepOut[0], keepOut[1], 0) } },
     transparent: true,
     depthWrite: false,

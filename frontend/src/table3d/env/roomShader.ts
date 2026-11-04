@@ -94,6 +94,11 @@ export class RoomLight {
     u.uWinC.value[i]!.set(c.r, c.g, c.b);
   }
 
+  /** How many practicals the room has (the shaders loop over these only). */
+  get count(): number {
+    return this.list.length;
+  }
+
   setFade(near: number, far: number, max = 0.85): void {
     this.uniforms.uFade.value.set(near, far, max);
   }
@@ -146,6 +151,11 @@ vec3 swayPos(vec3 p, vec4 s, inout vec3 n, float t) {
 `;
 
 /** GLSL: the practicals' light at a world point with a world normal (soft wrap, smooth falloff to its reach). */
+/** PRACTICAL_GLSL for a room, its loops bounded by the practicals and windows it really has (fewer per pixel). */
+export function practicalGlsl(room: RoomLight): string {
+  return PRACTICAL_GLSL.replace("PRAC_COUNT", String(Math.max(1, room.count))).replace("WIN_COUNT", String(room.windows.length));
+}
+
 export const PRACTICAL_GLSL = /* glsl */ `
 uniform vec4 uPracPos[${MAX_PRACTICALS}];
 uniform vec3 uPracCol[${MAX_PRACTICALS}];
@@ -206,7 +216,7 @@ float windowAt(int i, vec3 p) {
 }
 vec3 windowLight(vec3 p, vec3 n) {
   vec3 acc = vec3(0.0);
-  for (int i = 0; i < ${MAX_WINDOWS}; i++) {
+  for (int i = 0; i < WIN_COUNT; i++) {
     float m = windowAt(i, p);
     acc += uWinC[i] * uWinL[i].w * m * max(dot(n, -uWinL[i].xyz), 0.0);
   }
@@ -214,7 +224,7 @@ vec3 windowLight(vec3 p, vec3 n) {
 }
 vec3 practicalLight(vec3 p, vec3 n) {
   vec3 acc = vec3(0.0);
-  for (int i = 0; i < ${MAX_PRACTICALS}; i++) {
+  for (int i = 0; i < PRAC_COUNT; i++) {
     vec3 d = uPracPos[i].xyz - p;
     float dist = length(d);
     float k = clamp(1.0 - dist / uPracPos[i].w, 0.0, 1.0);
@@ -262,6 +272,11 @@ export interface DecorateOptions {
    * is cut down to below the line of sight to the table's near edge, wherever the camera is orbited to.
    */
   cutaway?: boolean;
+  /**
+   * Image-based light from the scene's environment map (default on). The room's own surfaces go without: they are lit
+   * by the room's practicals and the fill light, and sampling the environment was the costliest part of their shading.
+   */
+  ibl?: boolean;
   /** A soft shadow cast on this surface by the table (centre x, z; half width, half depth; softness; darkness). */
   under?: { x: number; z: number; hw: number; hd: number; soft: number; dark: number };
 }
@@ -277,7 +292,7 @@ export function decorate<M extends THREE.MeshStandardMaterial>(mat: M, room: Roo
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, room.uniforms, { uCut: room.cut });
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>", `#include <common>\nvarying vec3 vRoomPos;\nvarying vec3 vRoomNormal;\n${o.surf ? `attribute vec4 aSurf;\nattribute vec4 aSway;\nvarying vec4 vSurf;\nuniform float uTime;\n${SWAY_GLSL}` : ""}${o.cutaway ? "\nattribute vec2 aAnchor;\nvarying vec2 vAnchor;" : ""}`)
+      .replace("#include <common>", `#include <common>\nvarying vec3 vRoomPos;\nvarying vec3 vRoomNormal;\n${o.surf ? `attribute vec4 aSurf;\nattribute vec4 aSway;\nvarying vec4 vSurf;\nuniform float uTime;\n${SWAY_GLSL}` : ""}${o.cutaway ? "\nattribute vec2 aAnchor;\nuniform vec3 uCut;" : ""}`)
       .replace("#include <beginnormal_vertex>", `#include <beginnormal_vertex>\n${o.surf ? "vec3 swayN = objectNormal; vec3 swayP = swayPos(position, aSway, swayN, uTime); objectNormal = swayN;" : ""}`)
       .replace("#include <begin_vertex>", `#include <begin_vertex>\n${o.surf ? "transformed = swayP;" : ""}`)
       .replace("#include <fog_vertex>", `#include <fog_vertex>
@@ -292,24 +307,18 @@ export function decorate<M extends THREE.MeshStandardMaterial>(mat: M, room: Roo
           vRoomPos = rp.xyz;
           vRoomNormal = normalize(mat3(modelMatrix) * rn);
           ${o.surf ? "vSurf = aSurf;" : ""}
-          ${o.cutaway ? "vAnchor = aAnchor;" : ""}
-        }`);
-    sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", `#include <common>\nvarying vec3 vRoomPos;\nvarying vec3 vRoomNormal;\n${o.surf ? "varying vec4 vSurf;" : ""}${o.cutaway ? "\nvarying vec2 vAnchor;" : ""}\n${PRACTICAL_GLSL}`)
-      .replace("#include <clipping_planes_fragment>", `#include <clipping_planes_fragment>
+        }
         ${o.cutaway ? `{
+          // the dollhouse cutaway: a piece standing between the camera and the table goes whole (its triangles
+          // collapse to nothing, so no fragment is shaded or thrown away)
           vec2 cxz = cameraPosition.xz;
           float cl = length(cxz);
-          if (cl > 1.0) {
-            vec2 dir = cxz / cl;
-            // a piece standing on the camera's side of the table goes whole; anything else is cut below the sightline
-            if (dot(vAnchor, dir) > uCut.x + uCut.y) discard;
-            float s = dot(vRoomPos.xz, dir);
-            if (s > uCut.x && vRoomPos.y > cameraPosition.y * (s - uCut.x) / max(cl - uCut.x, 1.0) - uCut.z) discard;
-          }
-        }` : ""}`)
+          if (cl > 1.0 && dot(aAnchor, cxz / cl) > uCut.x + uCut.y) gl_Position = vec4(0.0, 0.0, -2.0, 1.0);
+        }` : ""}`);
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", `#include <common>\nvarying vec3 vRoomPos;\nvarying vec3 vRoomNormal;\n${o.surf ? "varying vec4 vSurf;" : ""}\n${o.ibl === false ? "#undef USE_ENVMAP\n" : ""}${practicalGlsl(room)}`)
       .replace("#include <color_fragment>", `#include <color_fragment>
-        ${macro > 0 ? `diffuseColor.rgb *= 1.0 + (vnoise(vRoomPos / ${(o.macroScale ?? 3).toFixed(2)}) * 0.7 + vnoise(vRoomPos / ${((o.macroScale ?? 3) * 0.23).toFixed(2)}) * 0.3 - 0.5) * ${(macro * 2).toFixed(3)};` : ""}`)
+        ${macro > 0 ? `diffuseColor.rgb *= 1.0 + (vnoise(vRoomPos / ${(o.macroScale ?? 3).toFixed(2)}) - 0.5) * ${(macro * 2).toFixed(3)};` : ""}`)
       .replace("#include <roughnessmap_fragment>", `#include <roughnessmap_fragment>
         ${o.surf ? "roughnessFactor *= vSurf.x;" : ""}`)
       .replace("#include <metalnessmap_fragment>", `#include <metalnessmap_fragment>
@@ -335,6 +344,6 @@ export function decorate<M extends THREE.MeshStandardMaterial>(mat: M, room: Roo
           outgoingLight = mix(outgoingLight - selfLit, uFadeCol, f) + selfLit * (1.0 - f * 0.4);
         }` : ""}\n#include <opaque_fragment>`);
   };
-  mat.customProgramCacheKey = () => `room:${o.key}:${o.surf ? 1 : 0}:${macro}:${o.macroScale ?? 3}:${prac}:${direct}:${fade ? 1 : 0}:${o.cutaway ? 1 : 0}:${o.indirect ?? 1}:${o.under ? JSON.stringify(o.under) : ""}`;
+  mat.customProgramCacheKey = () => `room:${o.key}:${o.surf ? 1 : 0}:${macro}:${o.macroScale ?? 3}:${prac}:${direct}:${fade ? 1 : 0}:${o.cutaway ? 1 : 0}:${o.indirect ?? 1}:${o.under ? JSON.stringify(o.under) : ""}:${room.count}:${room.windows.length}:${o.ibl === false ? 0 : 1}`;
   return mat;
 }

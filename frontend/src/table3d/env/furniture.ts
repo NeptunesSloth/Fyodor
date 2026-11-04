@@ -74,7 +74,8 @@ export function bookcase(ctx: SetCtx, at: Put, w: number, h: number, d: number, 
         // raised bands and gilt rules across the spine, a title label on some
         const style = r();
         const gilt = new THREE.Color("#a8823a").multiplyScalar(0.6 + r() * 0.3);
-        if (style < 0.55) for (const by of [0.18, bh * 0.36, bh * 0.58, bh - 0.3]) at.box(bw + 0.03, 0.07, 0.05, x + bw / 2, y0 + by, front + 0.01, by < 0.2 || by > bh - 0.35 ? gilt : new THREE.Color(col).multiplyScalar(0.8), by < 0.2 || by > bh - 0.35 ? BRASS : CLOTH);
+        // (the raised bands only at high detail: across a room of books they were most of its corners)
+        if (style < 0.55 && ctx.rich) for (const by of [0.18, bh * 0.36, bh * 0.58, bh - 0.3]) at.box(bw + 0.03, 0.07, 0.05, x + bw / 2, y0 + by, front + 0.01, by < 0.2 || by > bh - 0.35 ? gilt : new THREE.Color(col).multiplyScalar(0.8), by < 0.2 || by > bh - 0.35 ? BRASS : CLOTH);
         if (style < 0.8) at.box(bw * 0.72, bh * 0.14, 0.04, x + bw / 2, y0 + bh * 0.66, front + 0.012, style < 0.4 ? new THREE.Color(col).multiplyScalar(0.4) : new THREE.Color("#8a7a5a"), CLOTH);
       }
       x += bw + 0.02 + (lean ? 0.3 : 0);
@@ -265,21 +266,29 @@ export function bookPile(ctx: SetCtx, at: Put, n: number): void {
   }
 }
 
+/** Runs `fn` for each stretch (about `seg` long) of a wall `w` long, each its own piece for the cutaway. */
+export function segments(at: Put, w: number, seg: number, fn: (part: Put, len: number, x0: number) => void): void {
+  const n = Math.max(1, Math.round(w / seg));
+  const len = w / n;
+  for (let k = 0; k < n; k++) fn(at.at(-w / 2 + (k + 0.5) * len, 0, 0).piece(), len, -w / 2 + k * len);
+}
+
 /** A wall: `w` wide, `h` tall, its inner face toward +z; panelled wainscot below, plaster above, a skirting board. */
 export function panelledWall(ctx: SetCtx, at: Put, w: number, h: number, wood: string, plaster: string, wainscot = 7): void {
-  at.box(w, h, 0.6, 0, 0, -0.3, baked(plaster, ctx.floorY, { ao: 0.5, reach: 10 }), { rough: 0.95 });
   const W = baked(wood, ctx.floorY, { ao: 0.3 });
-  at.box(w, 0.9, 0.5, 0, 0, 0.1, new THREE.Color(wood).multiplyScalar(0.7), WOOD); // skirting
-  at.box(w, wainscot, 0.25, 0, 0, -0.05, new THREE.Color(wood).multiplyScalar(0.75), WOOD);
-  at.box(w, 0.45, 0.55, 0, wainscot, 0.05, W, WOOD); // dado rail
-  const panels = Math.max(1, Math.round(w / 4));
-  const pw = w / panels;
-  for (let k = 0; k < panels; k++) {
-    const px = -w / 2 + (k + 0.5) * pw;
-    at.box(pw - 1.0, wainscot - 2.4, 0.2, px, 1.4, 0.12, vary(ctx, wood, 0.06), WOOD);
-    at.box(0.3, wainscot - 1, 0.32, -w / 2 + k * pw, 0.9, 0.08, W, WOOD);
-  }
-  at.box(w, 0.7, 0.6, 0, h - 0.7, 0.05, W, WOOD); // cornice
+  segments(at, w, 8, (s, len) => {
+    s.box(len, h, 0.6, 0, 0, -0.3, baked(plaster, ctx.floorY, { ao: 0.5, reach: 10 }), { rough: 0.95 });
+    s.box(len, 0.9, 0.5, 0, 0, 0.1, new THREE.Color(wood).multiplyScalar(0.7), WOOD); // skirting
+    s.box(len, wainscot, 0.25, 0, 0, -0.05, new THREE.Color(wood).multiplyScalar(0.75), WOOD);
+    s.box(len, 0.45, 0.55, 0, wainscot, 0.05, W, WOOD); // dado rail
+    const panels = Math.max(1, Math.round(len / 4));
+    const pw = len / panels;
+    for (let k = 0; k < panels; k++) {
+      s.box(pw - 1.0, wainscot - 2.4, 0.2, -len / 2 + (k + 0.5) * pw, 1.4, 0.12, vary(ctx, wood, 0.06), WOOD);
+      s.box(0.3, wainscot - 1, 0.32, -len / 2 + k * pw, 0.9, 0.08, W, WOOD);
+    }
+    s.box(len, 0.7, 0.6, 0, h - 0.7, 0.05, W, WOOD); // cornice
+  });
 }
 
 /** A plain stone or plaster column with a base and capital (fluted: Theros). */

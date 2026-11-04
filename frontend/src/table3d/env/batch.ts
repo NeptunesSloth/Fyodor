@@ -40,8 +40,9 @@ export class Batch {
    * world position and normal (baked shading: soot, wear, dust on the top faces).
    */
   add(geo: THREE.BufferGeometry, m: THREE.Matrix4 | null, color: THREE.ColorRepresentation | ((p: THREE.Vector3, n: THREE.Vector3, out: THREE.Color) => void), s: Surface = {}): this {
-    const g = geo.index ? geo.toNonIndexed() : geo;
-    if (g !== geo) geo.dispose();
+    // (kept indexed, so a merged set shades each shared corner once: the software renderer felt every copy)
+    const g = geo;
+    if (!g.index) g.setIndex(Array.from({ length: g.getAttribute("position").count }, (_, i) => i));
     if (m) g.applyMatrix4(m);
     if (!g.getAttribute("normal")) g.computeVertexNormals();
     for (const name of Object.keys(g.attributes)) if (name !== "position" && name !== "normal" && name !== "uv") g.deleteAttribute(name);
@@ -57,6 +58,13 @@ export class Batch {
     const sway = new Float32Array(n * 4);
     const anchor = new Float32Array(n * 2);
     const sw = s.sway ?? [0, 0, 0, -1];
+    // a part placed without a piece of its own stands where its middle is (the cutaway takes it whole)
+    let own = s.anchor;
+    if (!own) {
+      g.computeBoundingBox();
+      const c = g.boundingBox!.getCenter(new THREE.Vector3());
+      own = [c.x, c.z];
+    }
     const p = new THREE.Vector3();
     const q = new THREE.Vector3();
     const fixed = typeof color === "function" ? null : tmpColor.set(color).clone();
@@ -71,15 +79,14 @@ export class Batch {
       if (s.glowAt) p.fromBufferAttribute(pos, i);
       surf.set([s.rough ?? 0.85, s.metal ?? 0, s.glowAt ? s.glowAt(p) : s.glow ?? 0, s.pulse ?? 0], i * 4);
       sway.set(sw, i * 4);
-      if (s.anchor) anchor.set(s.anchor, i * 2);
-      else anchor.set([pos.getX(i), pos.getZ(i)], i * 2);
+      anchor.set(own, i * 2);
     }
     g.setAttribute("color", new THREE.BufferAttribute(col, 3));
     g.setAttribute("aSurf", new THREE.BufferAttribute(surf, 4));
     g.setAttribute("aSway", new THREE.BufferAttribute(sway, 4));
     g.setAttribute("aAnchor", new THREE.BufferAttribute(anchor, 2));
     this.parts.push(g);
-    this.tris += n / 3;
+    this.tris += g.index!.count / 3;
     return this;
   }
 
@@ -90,7 +97,9 @@ export class Batch {
   /** The merged geometry (null when nothing was added). The parts are released. */
   build(): THREE.BufferGeometry | null {
     if (!this.parts.length) return null;
-    const merged = mergeGeometries(this.parts, false);
+    // (last added first: furniture is added after the walls it stands against, so drawn first it hides them from
+    // the depth test instead of being shaded over them)
+    const merged = mergeGeometries(this.parts.slice().reverse(), false);
     for (const p of this.parts) p.dispose();
     this.parts = [];
     merged?.computeBoundingSphere();

@@ -9,7 +9,7 @@ import type { PlaneId, Particles } from "../../theme/planes";
 import type { TableSize } from "../layout";
 import { SWAY, xf } from "./batch";
 import type { CentreKind, FloorKind } from "./floors";
-import { arch, bookcase, bookPile, boulder, candleBody, chest, column, globe, gravestone, hearth, lantern, LEATHERS, leadedWindow, panelledWall, trunk } from "./furniture";
+import { arch, bookcase, bookPile, boulder, candleBody, segments, chest, column, globe, gravestone, hearth, lantern, LEATHERS, leadedWindow, panelledWall, trunk } from "./furniture";
 import { baked, BRASS, CLOTH, IRON, Put, STONE, vary, WOOD, type SetCtx } from "./kit";
 import { PULSE, WINDOW } from "./roomShader";
 import type { TableProp } from "./props";
@@ -337,20 +337,23 @@ const chapel: SetSpec = {
 
 /** A wall of coursed stone blocks (only the courses low down, where the camera sees them, are cut). */
 function stoneWall(ctx: SetCtx, at: Put, w: number, h: number, stone: string): void {
-  at.box(w, h, 0.8, 0, 0, -0.4, baked(stone, ctx.floorY, { ao: 0.4, reach: 8 }), STONE);
-  let y = 0;
-  let row = 0;
-  while (y < 14) {
-    const bh = 1.4 + ctx.rand() * 0.5;
-    let x = -w / 2 - (row % 2) * 1.2;
-    while (x < w / 2) {
-      const bw = Math.min(w / 2 - x, 2.4 + ctx.rand() * 1.8);
-      if (bw > 0.4) at.box(bw - 0.12, bh - 0.12, 0.25, x + bw / 2, y, 0.05, vary(ctx, stone, 0.14), STONE);
-      x += bw;
+  segments(at, w, 8, (seg, len) => {
+    seg.box(len, h, 0.8, 0, 0, -0.4, baked(stone, ctx.floorY, { ao: 0.4, reach: 8 }), STONE);
+    let y = 0;
+    let row = 0;
+    while (y < 14) {
+      const bh = 1.4 + ctx.rand() * 0.5;
+      let x = -len / 2 - (row % 2) * 1.2;
+      while (x < len / 2) {
+        const bw = Math.min(len / 2 - x, 2.4 + ctx.rand() * 1.8);
+        const x0 = Math.max(x, -len / 2);
+        if (x + bw - x0 > 0.4) seg.box(x + bw - x0 - 0.12, bh - 0.12, 0.25, (x0 + x + bw) / 2, y, 0.05, vary(ctx, stone, 0.14), STONE);
+        x += bw;
+      }
+      y += bh;
+      row++;
     }
-    y += bh;
-    row++;
-  }
+  });
 }
 
 // ------------------------------------------------------------------ Theros: a temple under Nyx
@@ -550,19 +553,16 @@ const shrine: SetSpec = {
 
 function shoji(ctx: SetCtx, at: Put, w: number, h: number): void {
   const frame = "#2a1a12";
-  at.box(w, 1, 0.6, 0, 0, 0, baked(frame, ctx.floorY), WOOD); // sill
-  at.box(w, 0.8, 0.6, 0, h, 0, frame, WOOD); // lintel
-  const panels = Math.max(2, Math.round(w / 6));
-  const pw = w / panels;
-  for (let k = 0; k < panels; k++) {
-    const px = -w / 2 + (k + 0.5) * pw;
-    at.box(0.5, h, 0.7, -w / 2 + k * pw, 0, 0, frame, WOOD);
+  segments(at, w, 6, (p, pw) => {
+    p.box(pw, 1, 0.6, 0, 0, 0, baked(frame, ctx.floorY), WOOD); // sill
+    p.box(pw, 0.8, 0.6, 0, h, 0, frame, WOOD); // lintel
+    p.box(0.5, h, 0.7, -pw / 2, 0, 0, frame, WOOD);
     // paper, lit from beyond, and its lattice
-    at.glowing().box(pw - 0.5, h - 1, 0.08, px, 1, -0.2, "#8a7c62", { glow: 0.35, pulse: PULSE.steady, rough: 0.9 });
-    for (let i = 1; i < 3; i++) at.box(0.14, h - 1, 0.2, px - pw / 2 + (i * pw) / 3, 1, 0, frame, WOOD);
-    for (let j = 1; j < 7; j++) at.box(pw - 0.5, 0.14, 0.2, px, 1 + (j * (h - 1)) / 7, 0, frame, WOOD);
-    at.box(pw - 0.5, 3.4, 0.22, px, 1, 0.05, "#3a2418", WOOD); // the solid kick panel
-  }
+    p.glowing().box(pw - 0.5, h - 1, 0.08, 0, 1, -0.2, "#8a7c62", { glow: 0.35, pulse: PULSE.steady, rough: 0.9 });
+    for (let i = 1; i < 3; i++) p.box(0.14, h - 1, 0.2, -pw / 2 + (i * pw) / 3, 1, 0, frame, WOOD);
+    for (let j = 1; j < 7; j++) p.box(pw - 0.5, 0.14, 0.2, 0, 1 + (j * (h - 1)) / 7, 0, frame, WOOD);
+    p.box(pw - 0.5, 3.4, 0.22, 0, 1, 0.05, "#3a2418", WOOD); // the solid kick panel
+  });
 }
 
 function paperLantern(ctx: SetCtx, at: THREE.Vector3): void {
@@ -591,17 +591,18 @@ const trials: SetSpec = {
       o.geo(new THREE.ConeGeometry(1.05, 2, 4), xf(0, 24.5, 0, 0, Math.PI / 4), "#e3b04b", BRASS);
       for (let k = 0; k < 6; k++) o.box(0.9, 0.25, 0.08, 0, 4 + k * 2.6, 1.15 - k * 0.025, "#24479a", { rough: 0.3 });
     }
-    const wallP = new Put(ctx).at(0, r.floor, r.back);
     const W = r.right - r.left;
-    wallP.box(W, 9, 2.4, 0, 0, 0, baked("#a8844e", r.floor, { ao: 0.3, reach: 4 }), STONE);
-    for (let k = 0; k < Math.floor(W / 3); k++) {
-      const x = -W / 2 + 1.5 + k * 3;
-      // carved figures: original glyph panels, raised
-      wallP.box(2.2, 5.5, 0.2, x, 1.6, 1.25, "#b8925c", STONE);
-      wallP.box(0.8, 0.8, 0.15, x, 5.2 + (k % 3) * 0.3, 1.4, "#24479a", { rough: 0.3 });
-      wallP.box(1.4, 0.2, 0.15, x, 3 + (k % 2) * 0.9, 1.4, "#8a6a3e", STONE);
-    }
-    wallP.box(W, 0.6, 2.8, 0, 9, 0, "#c9a26a", STONE);
+    segments(new Put(ctx).at(0, r.floor, r.back), W, 9, (wallP, seg) => {
+      wallP.box(seg, 9, 2.4, 0, 0, 0, baked("#a8844e", r.floor, { ao: 0.3, reach: 4 }), STONE);
+      for (let k = 0; k < Math.floor(seg / 3); k++) {
+        const x = -seg / 2 + 1.5 + k * 3;
+        // carved figures: original glyph panels, raised
+        wallP.box(2.2, 5.5, 0.2, x, 1.6, 1.25, "#b8925c", STONE);
+        wallP.box(0.8, 0.8, 0.15, x, 5.2 + (k % 3) * 0.3, 1.4, "#24479a", { rough: 0.3 });
+        wallP.box(1.4, 0.2, 0.15, x, 3 + (k % 2) * 0.9, 1.4, "#8a6a3e", STONE);
+      }
+      wallP.box(seg, 0.6, 2.8, 0, 9, 0, "#c9a26a", STONE);
+    });
     for (const [x, z] of [[-r.hw - 4, r.hd + 2], [r.hw + 4, r.hd + 2], [r.left + 8, r.back + 5], [r.right - 8, r.back + 5]] as const) {
       const b = new Put(ctx).at(x, r.floor, z);
       b.lathe([[0, 0], [1.4, 0], [0.6, 0.8], [0.5, 6], [1.8, 7], [2, 7.6], [0, 7.6]], 0, 0, 0, baked("#8a6a2e", r.floor), BRASS, 12);
@@ -630,9 +631,10 @@ const jungle: SetSpec = {
     const w = walls(ctx, r);
     // stepped stone walls at the back and sides, carved, overgrown
     for (const [place, len, mid] of [[w.back, r.right - r.left, 0], [w.left, r.front - r.back, (r.back + r.front) / 2], [w.right, r.front - r.back, (r.back + r.front) / 2]] as const) {
-      const p = place(mid);
-      for (let s = 0; s < 4; s++) p.box(len + 2 - s * 2, 4, 3, 0, s * 4, -s * 2.5, baked("#5e604a", r.floor, { ao: 0.3, reach: 6 }), STONE);
-      for (let k = 0; k < Math.floor(len / 4); k++) p.box(2.6, 2.6, 0.3, -len / 2 + 2 + k * 4, 0.7, 1.55, vary(ctx, "#6a6c54", 0.1), STONE);
+      segments(place(mid), len + 2, 8, (p, seg) => {
+        for (let s = 0; s < 4; s++) p.box(seg, 4, 3, 0, s * 4, -s * 2.5, baked("#5e604a", r.floor, { ao: 0.3, reach: 6 }), STONE);
+        for (let k = 0; k < Math.floor(seg / 4); k++) p.box(2.6, 2.6, 0.3, -seg / 2 + 2 + k * 4, 0.7, 1.55, vary(ctx, "#6a6c54", 0.1), STONE);
+      });
     }
     // vines down the walls, ferns and big leaves at their feet, trees
     for (let k = 0; k < 16; k++) {

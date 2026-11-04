@@ -170,6 +170,7 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
   // ---- the table's base: turned legs and an apron under the slab's edge (one mesh)
   const base = tableBase(size, tableY - TABLE_THICK - 0.24, floorY);
   const legs = new THREE.Mesh(base, railMat);
+  legs.renderOrder = 1;
   legs.castShadow = quality === "high";
   group.add(legs);
 
@@ -259,25 +260,34 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     spec.build(ctx, r);
     const setGeo = setBatch.build();
     if (setGeo) {
-      const setMat = track(decorate(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 1, envMapIntensity: 0.5 }), room, { key: `set-${p.id}`, surf: true, macro: 0.1, macroScale: 3, practical: 1, direct: 0.3, indirect: 0.55, cutaway: true }));
-      group.add(new THREE.Mesh(setGeo, setMat));
+      const setMat = track(decorate(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 1, envMapIntensity: 0.5 }), room, { key: `set-${p.id}`, surf: true, macro: 0.1, macroScale: 3, practical: 1, direct: 0.3, indirect: 0.55, cutaway: true, ibl: false }));
+      const setMesh = new THREE.Mesh(setGeo, setMat);
+      // (the room draws after the table and its cards, so whatever they hide is never shaded)
+      setMesh.renderOrder = 1;
+      group.add(setMesh);
     }
     const shadow = { x: 1.0, z: -1.2, hw: halfW + 0.2, hd: halfD + 0.2, soft: 3.2, dark: 0.8 };
     const fm = floorMaps(spec.floor, spec.floorColors[0], spec.floorColors[1]);
     track(fm.map);
     track(fm.normalMap);
-    for (const t of [fm.map, fm.normalMap]) t.repeat.set(240 / spec.floorTile, 240 / spec.floorTile);
-    const floorMat = track(decorate(new THREE.MeshStandardMaterial({ map: fm.map, normalMap: fm.normalMap, normalScale: new THREE.Vector2(0.8, 0.8), roughness: e.surface === "marble" || e.surface === "oilmetal" ? 0.42 : 0.88, envMapIntensity: 0.3 }), room, { key: `floor-${p.id}`, macro: 0.16, macroScale: 7, practical: 0.9, direct: 0.32, indirect: 0.45, under: shadow }));
+    for (const t of [fm.map, fm.normalMap]) {
+      t.repeat.set(240 / spec.floorTile, 240 / spec.floorTile);
+      t.anisotropy = 4; // (seen low across the room; more taps cost the software renderer dearly)
+    }
+    const floorMat = track(decorate(new THREE.MeshStandardMaterial({ map: fm.map, normalMap: quality === "high" ? fm.normalMap : null, normalScale: new THREE.Vector2(0.8, 0.8), roughness: e.surface === "marble" || e.surface === "oilmetal" ? 0.42 : 0.88, envMapIntensity: 0.3 }), room, { key: `floor-${p.id}`, macro: 0.16, macroScale: 7, practical: 0.9, direct: 0.32, indirect: 0.45, under: shadow, ibl: false }));
     const floor = new THREE.Mesh(track(new THREE.PlaneGeometry(240, 240)), floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = floorY;
+    floor.renderOrder = 2; // (after the set too: what the furniture hides of it is never shaded)
     group.add(floor);
     if (spec.centre !== "none" && spec.centre !== "stones") {
       const cm = centreMaps(spec.centre, p.ui.accent);
       track(cm.map);
       track(cm.normalMap);
       const cw = size.w + spec.centreMargin[0] * 2, cd = size.d + spec.centreMargin[1] * 2;
-      const centreMat = track(decorate(new THREE.MeshStandardMaterial({ map: cm.map, normalMap: cm.normalMap, alphaTest: 0.4, roughness: 0.95, envMapIntensity: 0.2 }), room, { key: `centre-${p.id}`, practical: 0.85, direct: 0.3, indirect: 0.5, under: shadow }));
+      for (const t of [cm.map, cm.normalMap]) t.anisotropy = 4;
+      // (blended, not alpha-tested: the part under the table is then never shaded)
+      const centreMat = track(decorate(new THREE.MeshStandardMaterial({ map: cm.map, normalMap: quality === "high" ? cm.normalMap : null, transparent: true, depthWrite: false, roughness: 0.95, envMapIntensity: 0.2 }), room, { key: `centre-${p.id}`, practical: 0.85, direct: 0.3, indirect: 0.5, under: shadow, ibl: false }));
       const centre = new THREE.Mesh(track(new THREE.PlaneGeometry(1, 1)), centreMat);
       centre.rotation.x = -Math.PI / 2;
       // the rug lies lengthwise along the table's long side
@@ -285,9 +295,11 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
       centre.rotation.z = long ? 0 : Math.PI / 2;
       centre.scale.set(long ? cw : cd, long ? cd : cw, 1);
       centre.position.y = floorY + 0.03;
+      centre.renderOrder = 2;
       group.add(centre);
     }
-    const beams = buildBeams(room, floorY, quality === "high" ? 0.04 : 0.032, [halfW + 1, halfD + 1]);
+    // shafts of window light (high: their ray-marched haze is the costliest thing in the room)
+    const beams = quality === "high" ? buildBeams(room, floorY, 0.04, [halfW + 1, halfD + 1], 14) : null;
     if (beams) group.add(beams);
     // ---- particles, on by default
     for (const ps of spec.particles) {
@@ -300,6 +312,7 @@ export function buildEnvironment(p: PlaneTheme, size: TableSize, quality: "low" 
     }
   }
   room.update(0);
+  (window as unknown as { __envParts?: Record<string, THREE.Object3D> }).__envParts = Object.fromEntries(group.children.filter((c) => !(c as THREE.Light).isLight).map((c, i) => [`${i}:${(c as THREE.Mesh).geometry?.getAttribute?.("position")?.count ?? 0}:${(c as THREE.Mesh).renderOrder}`, c])); // TEMP
 
   group.traverse((o) => {
     const m = o as THREE.Mesh;

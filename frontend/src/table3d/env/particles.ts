@@ -6,12 +6,12 @@
  */
 import * as THREE from "three";
 import type { Particles } from "../../theme/planes";
-import { PRACTICAL_GLSL, type RoomLight } from "./roomShader";
+import { practicalGlsl, type RoomLight } from "./roomShader";
 
 const KIND: Record<Particles, number> = { dust: 0, embers: 1, fog: 2, motes: 3, stars: 4, fireflies: 5, petals: 6, sand: 7, spores: 8, oil: 9, pollen: 10 };
 
 const VERT = /* glsl */ `
-${PRACTICAL_GLSL}
+#include <room_practical>
 attribute vec4 aSeed;
 uniform float uKind;
 uniform vec3 uBoxMin;
@@ -154,8 +154,8 @@ export function buildParticles(room: RoomLight, o: ParticleOptions): THREE.Point
   const kind = KIND[o.kind];
   const pxScale = { value: 500 };
   const mat = new THREE.ShaderMaterial({
-    vertexShader: VERT,
-    fragmentShader: FRAG,
+    vertexShader: VERT.replace("#include <room_practical>", practicalGlsl(room)),
+    fragmentShader: FRAG.replace("#include <room_practical>", practicalGlsl(room)),
     uniforms: {
       ...room.uniforms,
       uKind: { value: kind },
