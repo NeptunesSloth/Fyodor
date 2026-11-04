@@ -173,7 +173,7 @@ export function SeatPlate({ player, me, open, onToggle, variant = "3d", drop = "
               testId={`${k}-${player}`} onChange={(d) => void changeResource(player, k, d)} readOnly={out} />
           ))}
           <span className="seat-hand" title={`${p.hand_count} cards in hand`} aria-label={`${p.hand_count} cards in hand`}>
-            <span aria-hidden>▯</span>{p.hand_count}
+            <Icon name="cards" size={14} />{p.hand_count}
           </span>
           {!out && (
             <button className="seat-add" data-testid={`seat-add-${player}`} aria-label={`Add a counter to ${p.name}`} title="Add a counter: poison, commander damage, energy…"

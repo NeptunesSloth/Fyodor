@@ -14,7 +14,7 @@
 }
 :is(.dk-page, .de-page) :is(button, a, select, input, textarea, [tabindex]):focus-visible,
 .dmenu-list button:focus-visible, :is(.imp, .bulk, .pdi) :is(button, a, input, textarea, [tabindex]):focus-visible,
-.bulk-drop:has(.bulk-file:focus-visible) { outline: 2px solid var(--select); outline-offset: 2px; }
+.bulk-drop:has(.bulk-file:focus-visible) { outline: 2px solid var(--room-brass-hi, #e2c27a); outline-offset: 2px; } /* brass, the room's metal */
 :is(.dk-page, .de-page, .imp, .bulk) ::placeholder { color: var(--text-faint); opacity: 1; }
 :is(.dk-page, .de-page) ::selection { background: color-mix(in srgb, var(--frame-hi) 40%, transparent); color: var(--room-bone); }
 .app-main:has(> :is(.dk-page, .de-page)) { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--frame) 55%, transparent) transparent; }
@@ -45,6 +45,21 @@
 .dk-art.two .cmdr-art.dk-half + .cmdr-art.dk-half { left: auto; right: 0; }
 .dk-art.two .cmdr-art:has(> .card-face > img) > .card-face { left: 50%; top: -28.24cqh; width: 168.45cqh; margin: 0; transform: translateX(-50%); }
 .dk-art.two .cmdr-art:not(:has(> .card-face > img)) > .card-face { top: 8cqh; height: 84cqh; width: calc(84cqh * 63 / 88); }
+
+/* while the art loads (the host has it, the picture is on its way): the deck's colours as a dark wash with its commanders'
+   names engraved on it, under the art layers, which let it show through until their picture paints */
+.dk-art-wait {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 12%;
+  background: radial-gradient(ellipse 90% 85% at 40% 35%, transparent 35%, rgba(5, 5, 6, 0.62)), var(--wash, #141210);
+}
+.dk-art-wait > span {
+  font: 600 15px/1.35 var(--font-display); letter-spacing: 0.06em; text-align: center;
+  color: color-mix(in srgb, var(--room-bone) 80%, transparent); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.85), 0 0 14px rgba(0, 0, 0, 0.55);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.dk-art:has(> .dk-art-wait) .cmdr-art:has(> .card-face > img), .dk-art:has(> .dk-art-wait) .cmdr-art:has(> .card-loading) { background: none; }
+.dk-art:has(> .dk-art-wait) .cmdr-art > .card-face:has(> img) { background: transparent; }
+.dk-art:has(> .dk-art-wait) .cmdr-art > .card-loading { visibility: hidden; }
 
 /* ---------------------------------------------------------------- the library's head */
 .dk-head { display: flex; align-items: center; flex-wrap: wrap; gap: 14px 22px; margin: 0 0 24px; }
@@ -87,7 +102,7 @@
 .dk-cmdr.none { color: var(--text-dim); }
 .dk-facts, .dk-record { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 0; margin: 2px 0 0; font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .dk-facts > * + * { padding-left: 9px; margin-left: 9px; border-left: 1px solid var(--line-2); }
-.dk-facts .pips { font-size: 14px; }
+.dk-facts .pips { --pip: 18px; }
 /* the record and when it last played: apart on one line, or one under the other (no stray rule when they wrap) */
 .dk-record { margin-top: 0; justify-content: space-between; column-gap: 12px; }
 .dk-warn { color: var(--warn); }
@@ -180,7 +195,7 @@ body.perf-low .dk-empty::before { display: none; }
 .de-cmdr.none { color: var(--text-dim); font-size: 13.5px; }
 .de-facts { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 0; margin: 2px 0 0; font-size: 13.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .de-facts > * + * { padding-left: 12px; margin-left: 12px; border-left: 1px solid var(--line-2); }
-.de-facts .pips { font-size: 15px; }
+.de-facts .pips { --pip: 20px; }
 .de-total { color: var(--room-bone); }
 .de-check {
   display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 4px 0 12px; border: 0; border-left: 1px solid var(--line-2);
@@ -261,14 +276,15 @@ body.perf-low .dk-empty::before { display: none; }
   width: 16px; height: 16px; flex: none; display: grid; place-items: center; border-radius: 50%; cursor: help;
   font: 800 10.5px/1 var(--font-ui); color: #1a1208; background: var(--warn);
 }
-.de-cost { flex: none; display: inline-flex; align-items: center; font-size: 14px; }
+.de-cost { --pip: 18px; flex: none; gap: 2px; font-size: 14px; }
 .de-set {
   flex: none; min-width: 42px; height: 22px; padding: 0 5px; border: 1px solid transparent; border-radius: 3px; background: none;
   color: var(--text-faint); font: 500 11px/1 var(--font-ui); letter-spacing: 0.05em; cursor: pointer;
 }
 .de-row:hover .de-set { border-color: var(--line); }
 .de-set:hover { color: var(--room-bone); border-color: var(--line-2); }
-.de-crown, .de-crown-gap { width: 26px; height: 26px; flex: none; }
+/* (scoped to the row: the icon button's own 24 px would otherwise win, and the commander's row would end 2 px further in) */
+.de-row .de-crown, .de-row .de-crown-gap { width: 26px; height: 26px; flex: none; }
 .de-crown { color: var(--room-bone-dim); }
 .de-more .dmenu-btn { width: 26px; height: 26px; color: var(--room-bone-dim); }
 /* the row's tools wait until the row is hovered or focused (or always, on touch) */
@@ -306,7 +322,7 @@ body.perf-low .dk-empty::before { display: none; }
 .de-ok { display: inline-flex; align-items: center; gap: 7px; margin: 0 0 8px; color: var(--ok); font-size: 13.5px; }
 .de-panel .tt-btn .icon { color: var(--frame-hi); }
 .de-checks:focus { outline: none; }
-.de-checks:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+.de-checks:focus-visible { outline: 2px solid var(--room-brass-hi, #e2c27a); outline-offset: 2px; }
 
 /* the mana curve: one brass series, counts on the bars, a baseline under all eight */
 .de-bars { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; height: 124px; }

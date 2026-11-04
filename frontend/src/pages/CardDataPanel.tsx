@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KeepArtSetting } from "./ArtKeeper";
+import { checkCardBack } from "../cards/cardBack";
+import { checkSymbols } from "../cards/symbols";
 import { toast, toastError } from "../components/Toasts";
 import { ApiError } from "../services/api";
 import {
@@ -30,6 +32,9 @@ export function useCardData() {
     if (wasRunning.current && job && job.state !== "running") {
       if (job.state === "done") toast(job.message);
       else toastError(new Error(`Card update failed: ${job.message}`));
+      // the card back and the mana symbols come with the card data (backend/app/cards/linked.py)
+      void checkCardBack(true);
+      void checkSymbols(true);
     }
     wasRunning.current = running;
   }, [job, running]);

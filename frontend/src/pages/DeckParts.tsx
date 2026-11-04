@@ -4,11 +4,24 @@ import { CommanderArt } from "./CommanderArt";
 
 /** Pieces shared by the Decks page, the deck editor and the import dialog. */
 
-/** A commander's art window: one commander fills it, partners share it side by side (decks.css crops the scans). */
-export function DeckArt({ ids, className }: { ids: (string | null | undefined)[]; className?: string }) {
+/** The deck's colours as a dark wash (the mana symbols' fills, deepened), for its art window while the art loads. */
+function washOf(colors: string[]): string {
+  const fills = (colors.length ? colors : ["C"]).map((c) => `color-mix(in srgb, var(--sym-${c.toLowerCase()}) ${colors.length ? 38 : 22}%, #0b0a09)`);
+  const stops = fills.length > 1 ? fills.map((f, i) => `${f} ${Math.round((i / (fills.length - 1)) * 100)}%`) : [fills[0]!, "#0b0a09 120%"];
+  return `linear-gradient(115deg, ${stops.join(", ")})`;
+}
+
+/**
+ * A commander's art window: one commander fills it, partners share it side by side (decks.css crops the scans). With
+ * `wash` (the deck's colour identity) and `label` (its commanders), the window shows the deck's colours with the name
+ * engraved on them while the art loads, instead of a black box.
+ */
+export function DeckArt({ ids, className, wash, label }: { ids: (string | null | undefined)[]; className?: string; wash?: string[]; label?: string }) {
   const shown = ids.filter((x): x is string => !!x).slice(0, 2);
   return (
-    <span className={`dk-art ${shown.length > 1 ? "two" : ""} ${className ?? ""}`} aria-hidden>
+    <span className={`dk-art ${shown.length > 1 ? "two" : ""} ${className ?? ""}`} aria-hidden
+      style={wash ? ({ "--wash": washOf(wash) } as React.CSSProperties) : undefined}>
+      {wash && shown.length > 0 && <span className="dk-art-wait"><span>{label}</span></span>}
       {shown.length === 0 ? <CommanderArt back /> : shown.map((id) => <CommanderArt key={id} id={id} className={shown.length > 1 ? "dk-half" : ""} />)}
     </span>
   );

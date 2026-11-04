@@ -49,7 +49,7 @@ automation + a manual sandbox override + an Archidekt-first pod workflow**.
 
 ```
 GameState
-  id, name, format ("commander": Fyodor is Commander-only), created_at
+  id, name, format ("commander" | "sandbox": every deck is a Commander deck), created_at
   seq (actions applied == history position), settings: GameSettings
   players: {player_id: PlayerState}, seat_order: [player_id]
   cards: {instance_id: CardInstance}          # normalized — zones hold ids only
@@ -117,6 +117,15 @@ client intent ──► resolve(state, action, rng) ──► resolved action �
     replaying up to the cursor.
   - **Redo** moves the cursor forward and applies the next action.
   - A new action after an undo discards the redo tail.
+- **Table format.** `GameState.format` is `"commander"` or `"sandbox"`; both play Commander decks (40 life, the command
+  zone, commander damage and tax, Commander-only card coverage). A **Sandbox** table is free play, as in Tabletop Simulator:
+  the lobby keeps no deck checks for it (`lobby.deck_summary` reads the table format's warnings, and only Commander's are
+  computed), rules automation starts `off` whatever level was asked for (`CreateGameIn` / `LobbySettings` validators; the
+  host can still turn it on at the table with `configure`), and `allow_test_objects` is on. Constructed was removed:
+  `storage/saves.load_payload` refuses its saves with a clear reason. New games are LAN tables (`mode: "lan"`); a hot-seat
+  table (`mode: "local"`) from an older save still loads and plays, but the app no longer offers one. A table seated for
+  one player is solo testing: with the rules on, its turns go on (`rules/engine.advance` ends the game only when one player
+  is left of several, or none).
 - Randomness lives only in `resolve`. Undoing a shuffle restores the previous library order
   exactly, and redoing it gives the same new order.
 - **Compound actions.** A macro (`run_macro`) is expanded in `resolve` into ordinary actions,

@@ -22,6 +22,13 @@ in `data/app.sqlite`). Everything works offline.
 sleeves. The sleeve is only a picture: which card is which stays on the host, and hidden cards
 are still sent as anonymous placeholders.
 
+**Default** is the Magic card back. Like the card art it is linked from Scryfall, never shipped: the
+host fetches it, with Scryfall's mana symbols, whenever it may go online (`FYODOR_ALLOW_NETWORK`) —
+with each card database download or update, at start-up when either is missing, and when a table
+asks for a missing one (`backend/app/cards/linked.py`). It serves them to every device at the table
+(`/api/images/card-back`, `/api/symbols`). Until then the tables draw their own brown back and
+letter circles, and switch to the real ones as soon as the host has them, without a reload.
+
 ## Playmats
 
 *⋯ → Appearance… → Your playmat*: pick or upload an image, then adjust it non-destructively

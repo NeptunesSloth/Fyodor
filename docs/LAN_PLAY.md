@@ -5,8 +5,12 @@ The host computer runs the server; everyone else opens `http://HOST-IP:PORT` in 
 
 ## Setting up a table
 
-1. **Host:** *Play → New game → Table: LAN* (with *Players choose their own decks* on). Pick
-   format, seats, deck privacy, mulligan rule and the Response helper, then **Open the table**.
+1. **Host:** *Host a LAN night* on the launcher (or *Play*): every new game is a LAN night (hot-seat tables are no longer
+   offered; a saved game loads as a LAN night too). With *Decks: Players bring their own*, pick the format (below), seats,
+   deck privacy, mulligan rule and automation (Commander starts at Full), then **Open the table**. With *You deal them*,
+   give each seat a deck from your library and **Deal and start**: the pod joins with the room code and takes the open
+   seats. For solo testing, remove the other seats
+   (or just start alone: open seats never hold up the start).
 2. **Players:** press **Join** on the table under *Play* (see [Finding a game](#finding-a-game)), or enter the room
    code (and password, if any) and a name under *Join with a code*.
 3. In the lobby, everyone takes a seat, **Choose deck** (the host's library on the host computer
@@ -19,8 +23,17 @@ The host computer runs the server; everyone else opens `http://HOST-IP:PORT` in 
 colors and deck name), *Public* (full lists). In game, opponents never see a player's deck id,
 and with *Private* not even the deck name.
 
-**Deck checks (advisory):** after you choose a deck, the host checks it against Commander's rules:
-100 cards, singleton, color identity, commander count and the banned list.
+**Format:** *Commander* (default) or *Sandbox*. Both play Commander decks at 40 life (editable), with the command zone,
+commander damage and tax.
+
+- **Sandbox** is free play, as in Tabletop Simulator: no deck checks, rules automation starts **off** (the manual table:
+  everything moved by hand), and test objects are allowed (*More → Solo tools → Spawn a card*). The host can turn the rules
+  on at the table: the **Sandbox** tag in the top bar (where the automation level shows) opens the automation settings.
+- The host picks it on the Play page or in the lobby's **Table settings**; the lobby says *Sandbox LAN night: free play*, and
+  the Play page's table tiles show *Sandbox*. Changing it asks everyone to confirm Ready again.
+
+**Deck checks (advisory, Commander tables):** after you choose a deck, the host checks it against Commander's rules:
+100 cards, singleton, color identity, commander count and the banned list. A Sandbox table checks nothing.
 
 - **Who sees what:** you see the list of findings, and the Ready button becomes **Play anyway**.
   With *Commander only* privacy the other players see only *how many* checks your deck has.

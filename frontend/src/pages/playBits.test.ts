@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DeckSummary } from "../types/decks";
 import type { GameSummary, SaveSummary } from "../types/game";
-import { deckSize, deckTitle, lastTable, mosaicGrid, shelfSaves, whenSaved } from "./playBits";
+import { deckSize, deckSubtitle, deckTitle, lastTable, mosaicGrid, shelfSaves, whenSaved } from "./playBits";
 
 const deck = (over: Partial<DeckSummary> = {}): DeckSummary => ({
   id: "d1", name: "Superfriends", format: "commander", updated_at: "2026-11-01T10:00:00", counts: { commander: 1, main: 99, sideboard: 5 },
@@ -42,6 +42,13 @@ describe("decks by their commanders", () => {
     expect(deckSize(deck())).toBe(100); // the sideboard isn't played
     expect(deckTitle(deck({ commanders: ["Kraum, Ludevic's Opus", "Tymna the Weaver"] }))).toBe("Kraum, Ludevic's Opus & Tymna the Weaver");
     expect(deckTitle(deck({ commanders: [] }))).toBe("Superfriends");
+  });
+
+  it("shows a deck's own name under its commander only when it says something new", () => {
+    expect(deckSubtitle(deck({ name: "Superfriends", commanders: ["Atraxa, Praetors' Voice"] }))).toBe("Superfriends");
+    expect(deckSubtitle(deck({ name: "Atraxa, Praetors' Voice", commanders: ["Atraxa, Praetors' Voice"] }))).toBeNull();
+    expect(deckSubtitle(deck({ name: "atraxa, praetors' voice ", commanders: ["Atraxa, Praetors' Voice"] }))).toBeNull();
+    expect(deckSubtitle(deck({ name: "Superfriends", commanders: [] }))).toBeNull(); // the name is already the title
   });
 });
 

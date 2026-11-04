@@ -15,9 +15,34 @@
   color: var(--room-bone);
 }
 .play ::selection { background: color-mix(in srgb, var(--frame-hi) 40%, transparent); color: var(--room-bone); }
-.play :is(button, a, select, input, summary):focus-visible,
-.play :is(.pg-mode, .pg-chip-edit):has(input:focus-visible) { outline: 2px solid var(--select); outline-offset: 2px; }
-.play ::placeholder { color: var(--text-faint); opacity: 1; }
+/* focus is a brass ring (ice blue means "you may act now" at the table) */
+.play :is(button, a, select, input, summary, [tabindex]):focus-visible,
+.play :is(.pg-format, .pg-chip-edit, .pg-segs label):has(input:focus-visible) { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+/* fields are wells cut into the walnut: dark, inset, with a brass hairline that warms on hover and focus */
+.play :is(input[type="text"], input[type="password"], input:not([type])):not(.pg-name):not(.pg-title-field input) {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.62), color-mix(in srgb, var(--wood-2) 55%, black));
+  border: 1px solid color-mix(in srgb, var(--frame) 42%, var(--line-2)); border-radius: 3px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 226, 180, 0.05); color: var(--room-bone);
+}
+.play :is(input[type="text"], input[type="password"], input:not([type])):not(.pg-name):not(.pg-title-field input):hover { border-color: color-mix(in srgb, var(--frame) 75%, var(--line-2)); }
+.play :is(input[type="text"], input[type="password"], input:not([type])):not(.pg-name):not(.pg-title-field input):focus {
+  border-color: var(--frame-hi); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), 0 0 0 2px color-mix(in srgb, var(--frame-hi) 28%, transparent);
+}
+/* buttons: walnut plaques with a brass hairline (brass ones stay brass); a disabled one keeps readable words */
+.play .tt-btn:not(.brass):not(.ghost) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wood) 78%, #2a1a10), var(--wood-2));
+  border-color: color-mix(in srgb, var(--frame) 60%, transparent); color: var(--room-bone); font-weight: 600;
+  box-shadow: inset 0 1px 0 rgba(255, 226, 180, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.35), 1px 2px 4px rgba(0, 0, 0, 0.45);
+}
+.play .tt-btn:not(.brass):not(.ghost):hover:not(:disabled) {
+  border-color: var(--frame-hi); color: var(--accent-2);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wood) 70%, #4a3018), var(--wood-2));
+}
+.play .tt-btn:not(.ghost):active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5); }
+.play .tt-btn:not(.ghost):disabled, .play .tt-btn:not(.brass):not(.ghost):disabled {
+  opacity: 1; cursor: default; color: var(--room-bone-dim); background: rgba(0, 0, 0, 0.28); border: 1px dashed var(--line-2); box-shadow: none; filter: none;
+}
+.play ::placeholder { color: color-mix(in srgb, var(--text-faint) 55%, var(--text-dim)); opacity: 1; } /* ≥ 4.5:1 on the felt's inputs */
 .play .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .play :is(h1, h2, h3) { margin: 0; }
 
@@ -27,36 +52,35 @@
 
 .app-main:has(> .play) { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--frame) 55%, transparent) transparent; }
 
-/* ---------------------------------------------------------------- how the pod plays: hot-seat or a LAN night */
-.pg-modes { display: flex; gap: 14px; margin: 0 13px 26px; }
-.pg-mode {
-  position: relative; flex: 1 1 0; max-width: 440px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center;
-  padding: 13px 18px 13px 14px; border-radius: 6px; cursor: pointer; color: var(--text-dim);
+/* ---------------------------------------------------------------- the night's format: Commander, or Sandbox (free play) */
+.pg-formats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.pg-format {
+  position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start;
+  padding: 11px 16px 12px 11px; border-radius: 6px; cursor: pointer; color: var(--room-bone-dim);
   background: var(--hud-surface); border: 1px solid var(--line-2);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 3px 8px 16px -6px rgba(0, 0, 0, 0.7);
   transition: border-color var(--dur-hover) var(--ease-out), background-color var(--dur-hover) var(--ease-out);
 }
-.pg-mode input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-.pg-mode:hover { border-color: var(--frame); }
-.pg-mode-icon {
-  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: color-mix(in srgb, var(--frame-hi) 75%, var(--text-dim));
+.pg-format input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.pg-format:hover:not(.on) { border-color: color-mix(in srgb, var(--frame-hi) 70%, var(--frame)); color: var(--room-bone);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--frame) 9%, var(--steel-hi)), var(--steel-lo)); }
+.pg-format:hover:not(.on) .pg-format-icon { color: var(--accent-2); box-shadow: inset 0 0 0 1px var(--frame-hi); }
+.pg-format-line { display: block; } /* one sentence a line, at every width */
+.pg-format-icon {
+  width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; color: color-mix(in srgb, var(--frame-hi) 75%, var(--text-dim));
   background: rgba(0, 0, 0, 0.35); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--frame) 45%, transparent);
 }
-.pg-mode-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.pg-mode-text b { font: 600 19px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--room-bone); }
-.pg-mode-text span { font-size: 13px; line-height: 1.4; }
-/* the chosen way: a brass disc and edge, and a tab that points down onto the table */
-.pg-mode.on {
+.pg-format-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: 1px; }
+.pg-format-text b { font: 600 18px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--room-bone); }
+.pg-format-text span { font-size: 12.5px; line-height: 1.4; text-wrap: pretty; }
+/* the chosen format: a brass disc and edge */
+.pg-format.on {
   border-color: var(--frame-hi); color: var(--room-bone);
   background: linear-gradient(180deg, color-mix(in srgb, var(--frame) 14%, var(--steel-hi)), var(--steel-lo));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(215, 174, 99, 0.14), 3px 8px 16px -6px rgba(0, 0, 0, 0.7);
 }
-.pg-mode.on .pg-mode-icon { color: var(--accent-ink); background: var(--accent-grad); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 1px 2px 4px rgba(0, 0, 0, 0.5); }
-.pg-mode.on .pg-mode-text b { color: var(--accent-2); }
-.pg-mode.on::after {
-  content: ""; position: absolute; left: 37px; bottom: -9px; width: 14px; height: 14px; transform: rotate(45deg);
-  background: var(--steel-lo); border: solid var(--frame-hi); border-width: 0 1px 1px 0;
-}
+.pg-format.on .pg-format-icon { color: var(--accent-ink); background: var(--accent-grad); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 1px 2px 4px rgba(0, 0, 0, 0.5); }
+.pg-format.on .pg-format-text b { color: var(--accent-2); }
 
 /* ---------------------------------------------------------------- the table being set up */
 .pg-table {
@@ -78,19 +102,40 @@
 }
 body.perf-low .pg-table::before { display: none; }
 
-.pg-head { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 28px; margin-bottom: 18px; }
-.pg-title { display: inline-flex; align-items: center; gap: 10px; flex: 0 1 auto; min-width: 0; max-width: 100%; cursor: text; }
+.pg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px 24px; margin-bottom: 12px; }
+.pg-head-title { flex: 1 1 auto; min-width: 0; }
+.pg-head-title h1 { font: 600 27px/1.15 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6); }
+.pg-head-title p { margin: 4px 0 0; max-width: 62ch; font-size: 13px; line-height: 1.4; color: var(--room-bone-dim); }
+.pg-pass { display: inline-flex; align-items: center; gap: 10px; padding-top: 3px; font-size: 13px; color: var(--room-bone-dim); }
+.play .pg-pass input { width: 160px; height: 34px; padding: 0 11px; }
+
+/* the table's name and who brings the decks, on one line under the format */
+.pg-setup { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px 30px; margin: 12px 0 12px; }
+.pg-setup-label { display: block; margin-bottom: 4px; font-size: 12px; color: var(--room-bone-dim); }
+.pg-title { display: flex; flex-direction: column; min-width: 0; max-width: 100%; cursor: text; }
+.pg-title-field { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .play .pg-title input {
-  flex: 0 1 auto; min-width: 6ch; max-width: 100%; field-sizing: content; padding: 2px 0 3px; border: 0; border-bottom: 1px dashed transparent; border-radius: 0; background: none; box-shadow: none;
-  font: 600 28px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--accent-2); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+  flex: 0 1 auto; min-width: 8ch; max-width: 100%; field-sizing: content; height: 34px; padding: 0 2px; border: 0; border-bottom: 1px dashed color-mix(in srgb, var(--frame) 45%, transparent);
+  border-radius: 0; background: none; box-shadow: none; font: 600 20px/1 var(--font-display); letter-spacing: 0.03em; color: var(--room-bone);
 }
-.play .pg-title input:hover { border-bottom-color: color-mix(in srgb, var(--frame) 70%, transparent); }
+.play .pg-title input:hover { border-bottom-color: var(--frame); }
 .play .pg-title input:focus { border-bottom: 1px solid var(--frame-hi); box-shadow: none; }
 .pg-title-pen { flex: none; color: color-mix(in srgb, var(--frame-hi) 70%, transparent); }
-.pg-lan-opts { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 24px; }
-.pg-toggle { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: var(--room-bone); cursor: pointer; }
-.pg-pass { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-dim); }
-.play .pg-pass input { width: 150px; height: 32px; padding: 0 10px; background: rgba(0, 0, 0, 0.4); }
+/* a two-way choice as engraved segments (as the lobby's First player): brass for the one in force */
+.pg-segs { display: inline-flex; border: 1px solid color-mix(in srgb, var(--frame) 55%, transparent); border-radius: 4px; overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 226, 180, 0.05); }
+.pg-segs label {
+  position: relative; display: inline-flex; align-items: center; height: 34px; padding: 0 14px; cursor: pointer;
+  font-size: 13.5px; font-weight: 600; color: var(--room-bone); background: rgba(0, 0, 0, 0.32);
+  transition: background-color var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out);
+}
+.pg-segs label + label { border-left: 1px solid color-mix(in srgb, var(--frame) 40%, transparent); }
+.pg-segs label:hover:not(.on) { background: color-mix(in srgb, var(--wood) 60%, black); color: var(--accent-2); }
+.pg-segs label.on { color: var(--accent-ink); background: var(--accent-grad); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3); cursor: default; }
+.pg-segs input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: inherit; }
+/* (the segments clip at the control's rounded edge: their focus ring sits just inside, dark ink on the brass one) */
+.play .pg-segs label:has(input:focus-visible) { outline-offset: -4px; }
+.play .pg-segs label.on:has(input:focus-visible) { outline-color: var(--accent-ink); }
 
 /* the seats: a steel plinth per player with their commander, an empty chair to add one */
 .pg-seats {
@@ -99,12 +144,18 @@ body.perf-low .pg-table::before { display: none; }
   --art-ratio: 1.385;
 }
 .pg-seats > .pg-seat { flex: 1 1 160px; max-width: 268px; }
-.pg-seats.pg-lobby { display: grid; grid-template-columns: minmax(200px, 268px) minmax(0, 1fr); align-items: start; }
+.pg-seats.pg-dealt { justify-content: flex-start; } /* on the form's grid, from its left edge */
+.pg-seats.pg-lobby { display: grid; grid-template-columns: minmax(200px, 268px) minmax(0, 1fr); align-items: stretch; }
 .pg-seats.pg-lobby > .pg-seat { max-width: none; }
+/* a seat is a steel plinth standing on the felt: lit along its top edge by the key light (top left), a tight contact
+   shadow where it meets the cloth, and a soft cast shadow down and to the right */
 .pg-seat {
   position: relative; min-width: 0; display: flex; flex-direction: column; container-type: inline-size;
-  background: var(--pg-plinth); border: 1px solid #2d2b27; border-radius: 5px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 1px 0 rgba(0, 0, 0, 0.7), 5px 16px 24px -8px rgba(0, 0, 0, 0.8);
+  background: linear-gradient(180deg, rgba(255, 236, 205, 0.045), transparent 22%), var(--pg-plinth);
+  border: 1px solid #2d2b27; border-top-color: #4a443a; border-radius: 5px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 205, 0.14), inset 1px 0 0 rgba(255, 236, 205, 0.04),
+    0 1px 1px rgba(0, 0, 0, 0.8), 1px 3px 4px rgba(0, 0, 0, 0.55), 6px 18px 28px -8px rgba(0, 0, 0, 0.85);
 }
 .pg-plate { display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 10px 8px 10px 11px; }
 .play .pg-name {
@@ -156,6 +207,14 @@ button.pg-art:hover { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.85), 0 0 0 1px
   color: color-mix(in srgb, var(--frame-hi) 75%, var(--room-bone)); font-size: 13.5px;
 }
 button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accent-2); }
+.pg-art.no-deck { container-type: size; }
+.pg-slot.pg-slot-waiting { gap: 10px; padding: 12px 18px; border-style: dashed; }
+.pg-waiting { position: relative; display: block; height: min(46cqh, 150px); aspect-ratio: 63 / 88; }
+.pg-waiting .card-face { position: absolute; inset: 0; width: 100%; height: 100%; filter: brightness(0.82);
+  box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.6), 3px 8px 14px rgba(0, 0, 0, 0.55); }
+.pg-waiting .card-face + .card-face { transform: translate(-3px, -3px) rotate(-3deg); }
+.pg-slot-word { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+@container (max-height: 60px) { .pg-waiting { display: none; } }
 .pg-deck { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 11px 13px 4px; }
 .pg-cmdr {
   margin: 0; font: 600 16px/1.3 var(--font-display); letter-spacing: 0.02em; color: var(--room-bone);
@@ -191,14 +250,24 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 .pg-add:hover { border-color: var(--frame-hi); background: rgba(0, 0, 0, 0.22); color: var(--accent-2); }
 
 /* a LAN night: the host's plinth, then the open chairs the pod will fill */
-.pg-chairs { min-width: 0; }
-.pg-chairs > ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-.pg-chairs .pg-add-wrap { min-height: 76px; flex: none; }
+/* the chairs fill the space beside the host's plinth: two columns whose rows share its height (no empty corner) */
+.pg-chairs { min-width: 0; display: flex; }
+.pg-chairs > ul {
+  flex: 1; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(64px, 1fr);
+  gap: 12px;
+}
+.pg-chairs > ul > li:last-child:nth-child(odd) { grid-column: 1 / -1; } /* an odd one out (Add a seat) spans the row */
+.pg-chairs .pg-add-wrap { min-height: 64px; flex: none; }
 .pg-chairs .pg-add { flex-direction: row; font-size: 14px; }
+/* an open seat is a plinth too, waiting for its player: the same steel, lit top edge and contact shadow as a taken one,
+   a shade darker (nobody sits there yet) */
 .pg-chair {
   display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 76px; padding: 12px 10px 12px 14px;
-  border-radius: 6px; background: rgba(0, 0, 0, 0.14); border: 1px dashed color-mix(in srgb, var(--frame) 42%, transparent);
-  box-shadow: inset 1px 3px 12px rgba(0, 0, 0, 0.35);
+  border-radius: 5px; border: 1px solid #2a2824; border-top-color: #433e35;
+  background: linear-gradient(180deg, rgba(255, 236, 205, 0.035), transparent 26%), linear-gradient(180deg, #161719, #0c0d0f);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 205, 0.11), inset 1px 0 0 rgba(255, 236, 205, 0.03),
+    0 1px 1px rgba(0, 0, 0, 0.8), 1px 3px 4px rgba(0, 0, 0, 0.55), 5px 14px 22px -8px rgba(0, 0, 0, 0.8);
 }
 .pg-chair-seat {
   position: relative; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
@@ -211,7 +280,7 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 }
 .pg-chair-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pg-chair-text b { font: 600 15px/1.2 var(--font-display); letter-spacing: 0.03em; color: var(--room-bone); }
-.pg-chair-text span { font-size: 12.5px; line-height: 1.4; color: var(--text-dim); }
+.pg-chair-text span { font-size: 12.5px; line-height: 1.4; color: var(--text-dim); text-wrap: balance; }
 
 .pg-mull { margin-top: 18px; }
 
@@ -222,6 +291,8 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
   background: linear-gradient(180deg, rgba(255, 226, 180, 0.06), transparent 30%), linear-gradient(180deg, var(--wood), var(--wood-2));
   border-top: 1px solid color-mix(in srgb, var(--frame) 50%, transparent);
   box-shadow: 0 -10px 22px rgba(0, 0, 0, 0.35);
+  /* the table's front rail stays in reach on a short screen: it rides the bottom of the window while the seats scroll */
+  position: sticky; bottom: 0; z-index: 2;
 }
 .pg-rules { grid-area: rules; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 30px; }
 .pg-rule { display: flex; flex-direction: column; gap: 3px; }
@@ -235,6 +306,12 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 .play .pg-rule :is(select, input):hover { border-bottom-color: var(--frame-hi); }
 .play .pg-rule :is(select, input):focus { border-bottom-color: var(--frame-hi); box-shadow: none; }
 .play .pg-rule select option { background: var(--bg-2); color: var(--text); font-weight: 400; }
+/* a locked choice (Sandbox: automation starts off): the value, a brass padlock, no chevron */
+.pg-rule-fixed b {
+  display: flex; align-items: center; gap: 6px; height: 30px; font: 600 15px/1 var(--font-ui); color: var(--room-bone);
+  border-bottom: 1px dashed color-mix(in srgb, var(--frame) 45%, transparent); cursor: help;
+}
+.pg-rule-fixed .icon { color: var(--frame-hi); }
 .pg-rail-note { grid-area: note; max-width: 86ch; margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
 .pg-rail-note b { color: var(--room-bone); font-weight: 600; }
 .pg-start {
@@ -278,8 +355,10 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 .play .pg-code input::placeholder { color: var(--text-faint); font: 400 14px/1 var(--font-ui); letter-spacing: 0; text-transform: none; }
 .play .pg-field input { height: 36px; }
 .pg-door-acts { grid-column: 1 / -1; display: flex; gap: 10px; }
-.pg-door-acts .tt-btn { height: 40px; padding: 0 18px; font-size: 14px; }
-.pg-door-acts .brass { flex: 1; font-family: var(--font-display); font-size: 15px; letter-spacing: 0.03em; }
+.pg-door-acts .tt-btn { height: 40px; padding: 0 18px; font: 600 15px/1 var(--font-display); letter-spacing: 0.03em; } /* Join and Watch: one face */
+.pg-door-acts .brass { flex: 1; }
+.pg-door-acts .tt-btn:disabled { cursor: not-allowed; background: transparent; }
+.pg-door-why { grid-column: 1 / -1; margin: -4px 0 0; font-size: 12.5px; color: var(--room-bone-dim); }
 
 /* ---------------------------------------------------------------- the shelf: tables in progress, saved games */
 .pg-shelf { display: flex; flex-direction: column; gap: 12px; scroll-margin-top: 16px; }
@@ -398,7 +477,21 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pg-mode, .pg-add, .pg-start, .dp-deck, :is(.pg-art, .mosaic-cell, .dp-art, .home-art) .cmdr-art > .card-face { transition: none; }
+  .pg-format, .pg-add, .pg-start, .dp-deck, :is(.pg-art, .mosaic-cell, .dp-art, .home-art) .cmdr-art > .card-face { transition: none; }
+}
+
+/* ---------------------------------------------------------------- shorter screens */
+/* a wider crop of each commander's art keeps the seats clear of the front rail (as the lobby does) */
+@media (max-height: 860px) and (min-width: 701px) {
+  .pg-seats { --art-ratio: 2.55; }
+  .pg-setup { margin-block: 9px 10px; }
+  .pg-head { margin-bottom: 9px; }
+  .pg-rail { margin-top: 30px; } /* the seats' cast shadow clears the rail */
+  .pg-plate { min-height: 50px; padding-block: 7px; }
+  .pg-deck { padding-top: 8px; gap: 3px; }
+  .pg-seat-foot { padding-block: 6px 9px; min-height: 0; }
+  .pg-slot { flex-direction: row; padding: 9px 14px; }
+  .pg-waiting { height: 64cqh; } /* (beside the words: the deck it waits for, still on the felt) */
 }
 
 /* ---------------------------------------------------------------- narrower screens */
@@ -407,7 +500,13 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 }
 @media (max-width: 1380px) {
   .pg-grid { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); gap: 24px; }
-  .pg-seats.pg-lobby { grid-template-columns: minmax(0, 1fr); }
+  /* a laptop: the host's plinth stays a plinth beside the chairs (full width, its empty art window filled the screen) */
+  .pg-seats.pg-lobby { grid-template-columns: minmax(196px, 232px) minmax(0, 1fr); gap: 14px; }
+  .pg-chairs > ul { gap: 10px; }
+  .pg-chair { min-height: 64px; padding-block: 9px; }
+  /* the house rules get the rail's whole width; the note and Start share the row below */
+  .pg-rail { grid-template-areas: "rules rules" "note start"; padding-block: 12px 14px; }
+  .pg-rules { gap: 8px 22px; }
 }
 @media (max-width: 1100px) {
   .pg-grid { grid-template-columns: minmax(0, 1fr); }
@@ -416,9 +515,9 @@ button.pg-art:hover .pg-slot { border-color: var(--frame-hi); color: var(--accen
 }
 @media (max-width: 700px) {
   .play .pg-title input { font-size: 22px; }
-  .pg-modes { flex-direction: column; margin-inline: 0; }
-  .pg-mode { max-width: none; }
-  .pg-mode.on::after { display: none; }
+  .pg-formats { flex-direction: column; margin-inline: 0; }
+  .pg-format { max-width: none; }
+  .pg-format.on::after { display: none; }
   .pg-table { margin-inline: 8px; }
   .pg-seats > .pg-seat { flex-basis: 100%; max-width: none; }
   .pg-seats > .pg-add-wrap { flex-basis: 100%; min-height: 64px; }

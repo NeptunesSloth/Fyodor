@@ -66,36 +66,161 @@ body.reduced-motion .cannon2d { display: none; }
 .dice-toys-row .label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); min-width: 84px; }
 .dice-toys-row .tt-btn { min-height: 26px; padding: 2px 10px; font-size: 12.5px; }
 
-/* ---- the Bag of Extras picker (by your seat) ------------------------------------------------------------------------ */
+/* ---- the Bag of Extras (by your seat, game/ExtrasBag.tsx): a toy chest of the table's extras ---------------------------
+   a walnut box with brass rivets, a brass bezel round a leather lining; the tokens as their cards (or their emblem cards),
+   counters and dice as the table's own brass medallions (game/seatIcons.ts) */
 .extras-panel {
-  position: fixed; z-index: 60; width: 336px; max-height: min(70vh, 560px); overflow: auto; padding: 10px 12px 12px; border-radius: var(--radius);
-  background: linear-gradient(180deg, #1d1f21, #131517); border: 1px solid var(--hud-edge); box-shadow: var(--shadow); color: var(--text);
+  --rivet: radial-gradient(circle, #f6dda4 0 1.6px, #a9793c 2.2px 3px, rgba(0, 0, 0, 0.5) 3.4px, transparent 4.2px);
+  position: fixed; z-index: 60; width: min(776px, calc(100vw - 16px)); display: flex; flex-direction: column;
+  max-height: calc(100vh - 62px); padding: 8px; border-radius: 9px; color: var(--text);
+  background:
+    var(--rivet) 0 0 / 18px 18px no-repeat, var(--rivet) 100% 0 / 18px 18px no-repeat,
+    var(--rivet) 0 100% / 18px 18px no-repeat, var(--rivet) 100% 100% / 18px 18px no-repeat,
+    repeating-linear-gradient(91deg, rgba(255, 222, 176, 0.035) 0 1px, transparent 1px 5px, rgba(0, 0, 0, 0.07) 5px 6px, transparent 6px 13px),
+    linear-gradient(180deg, #4b311e 0%, #2e1c10 55%, #21140b 100%);
+  border: 1px solid #0b0705;
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 222, 176, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.6);
   animation: dice-panel-in var(--dur-popover) var(--ease-out);
 }
 body.reduced-motion .extras-panel { animation: none; }
-.extras-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.extras-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.03em; color: var(--accent-2); white-space: nowrap; }
-.extras-head .seg { flex: none; }
-.extras-head .seg button { min-width: 0; padding: 2px 8px; font-size: 12px; }
-.extras-head .spacer { flex: 1; }
-.extras-head .hint { font-size: 11.5px; color: var(--text-faint); }
-.extras-group { margin-top: 8px; }
-.extras-group-head { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; }
-.extras-items { display: flex; flex-wrap: wrap; gap: 5px; }
-.extras-item {
-  display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 9px 2px 4px; border-radius: 14px; cursor: pointer;
-  background: rgba(255, 255, 255, 0.035); border: 1px solid var(--line); color: var(--text); font: inherit; font-size: 12.5px;
-  transition: border-color var(--dur-hover) var(--ease-out), background var(--dur-hover) var(--ease-out);
+.extras-inner {
+  display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; border-radius: 4px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.1 0 0 0 0 0.05 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 80% 55% at 28% 0%, rgba(255, 214, 150, 0.08), transparent 70%),
+    linear-gradient(180deg, #261a11, #150e09);
+  box-shadow: 0 0 0 1px #3a2610, 0 0 0 2.5px #b4884a, 0 0 0 3.5px #2a1a0b, inset 0 0 0 1px rgba(255, 230, 186, 0.12), inset 0 3px 10px rgba(0, 0, 0, 0.55);
+  margin: 3px;
 }
-.extras-item:hover { border-color: var(--frame-hi); background: var(--frame-inner); }
-.extras-item:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
-.extras-item:disabled { opacity: 0.45; cursor: default; }
-.extras-item .chip {
-  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 10px; font-weight: 800;
-  background: radial-gradient(circle at 35% 30%, #4a4540, #191715); border: 1.5px solid var(--tint, #b39458); color: var(--tint, #e8d6ad);
+.extras-head {
+  display: flex; align-items: center; gap: 12px; padding: 9px 10px 9px 12px; position: relative;
 }
-.extras-item .pt { color: var(--text-faint); font-variant-numeric: tabular-nums; }
-.extras-note { margin: 8px 0 0; font-size: 11.5px; color: var(--text-faint); }
+.extras-head::after {
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--frame) 85%, transparent) 20%, color-mix(in srgb, var(--frame) 85%, transparent) 80%, transparent);
+}
+.extras-mark { width: 30px; height: 30px; flex: none; margin-right: -2px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7)); }
+.extras-title { margin: 0; flex: 1; font: 600 17px/1.2 var(--font-display); letter-spacing: 0.04em; color: var(--accent-2); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8); white-space: nowrap; }
+/* how many each pull makes: a brass-bound selector */
+.extras-count { display: inline-flex; border: 1px solid color-mix(in srgb, var(--frame) 75%, black); border-radius: 4px; overflow: hidden; background: rgba(0, 0, 0, 0.35); }
+.extras-count button {
+  min-width: 38px; height: 28px; padding: 0 8px; border: 0; cursor: pointer; background: none; color: var(--text-dim);
+  font: 600 12.5px/1 var(--font-ui); font-variant-numeric: tabular-nums;
+  transition: color var(--dur-hover) var(--ease-out), background var(--dur-hover) var(--ease-out);
+}
+.extras-count button + button { border-left: 1px solid rgba(0, 0, 0, 0.5); }
+.extras-count button:hover { color: var(--text); background: rgba(255, 236, 200, 0.06); }
+.extras-count button.on { color: var(--accent-ink); background: var(--accent-grad); box-shadow: inset 0 1px 0 rgba(255, 245, 220, 0.5); }
+.extras-count button:focus-visible { outline: 2px solid var(--room-brass-hi); outline-offset: -2px; }
+/* close: the icon family's brass medallion */
+.extras-close {
+  width: 28px; height: 28px; padding: 0; flex: none; cursor: pointer; border: 0; border-radius: 50%; background: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+  transition: filter var(--dur-hover) var(--ease-out), transform calc(90ms * var(--anim-scale, 1)) var(--ease-out);
+}
+.extras-close img { width: 100%; height: 100%; display: block; pointer-events: none; }
+.extras-close:hover { filter: brightness(1.18); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7), 0 0 9px 1px var(--accent-glow); }
+.extras-close:active { transform: translateY(1px) scale(0.93); }
+.extras-close:focus-visible { outline: 2px solid var(--room-brass-hi); outline-offset: 2px; }
+
+.extras-body { display: grid; grid-template-columns: minmax(0, 1fr) 256px; grid-template-rows: minmax(0, 1fr); gap: 18px; padding: 12px 14px 12px 16px; min-height: 0; flex: 1 1 auto; }
+.extras-tokens { min-height: 0; max-height: min(58vh, 480px); overflow: auto; overscroll-behavior: contain; margin-right: -6px; padding: 2px 6px 4px 2px; scrollbar-width: thin; scrollbar-color: var(--frame) transparent; }
+.extras-side { display: flex; flex-direction: column; gap: 12px; padding-left: 16px; border-left: 1px solid rgba(180, 136, 74, 0.25); min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--frame) transparent; }
+.extras-group + .extras-group { margin-top: 12px; }
+.extras-side .extras-group + .extras-group { margin-top: 0; }
+.extras-group-head {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font: 600 12px/1.2 var(--font-display); letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--frame-hi) 80%, var(--text-dim));
+}
+.extras-group-head::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-2), transparent); }
+.extras-for { margin: -2px 0 6px; font-size: 12px; color: var(--text-dim); }
+.bag-chips + .extras-for { margin-top: 10px; }
+
+/* a token: its card, lifted when you reach for it; its name and P/T under it */
+.bag-tiles { display: grid; grid-template-columns: repeat(auto-fill, 80px); gap: 12px 9px; }
+.bag-tile {
+  position: relative; width: 80px; padding: 0; border: 0; background: none; color: var(--text); cursor: pointer; text-align: left;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.bag-tile-card {
+  display: block; width: 80px; border-radius: 4px; box-shadow: 0 3px 7px rgba(0, 0, 0, 0.6);
+  transition: transform calc(140ms * var(--anim-scale, 1)) var(--ease-out), box-shadow calc(140ms * var(--anim-scale, 1)) var(--ease-out);
+}
+.bag-tile-card .card-face { width: 100%; }
+.bag-tile:hover .bag-tile-card { transform: translateY(-3px); box-shadow: 0 9px 16px rgba(0, 0, 0, 0.65), 0 0 0 1.5px var(--frame-hi); }
+.bag-tile:active .bag-tile-card { transform: translateY(-1px) scale(0.97); box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6), 0 0 0 1.5px var(--frame-hi); }
+.bag-tile:focus-visible { outline: none; }
+.bag-tile:focus-visible .bag-tile-card { box-shadow: 0 0 0 2px var(--room-brass-hi), 0 6px 12px rgba(0, 0, 0, 0.6); }
+.bag-tile-cap { display: flex; align-items: baseline; gap: 4px; min-width: 0; font: 500 11.5px/1.25 var(--font-ui); }
+.bag-tile-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.bag-tile-pt { flex: none; font-weight: 650; color: var(--accent-2); font-variant-numeric: tabular-nums; }
+/* a pull: its count rises off the card */
+.bag-tile-pulled {
+  position: absolute; left: 50%; top: 34%; transform: translateX(-50%); pointer-events: none;
+  font: 800 20px/1 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--accent-2);
+  text-shadow: 0 1px 0 #000, 0 0 8px rgba(0, 0, 0, 0.9); animation: bag-pull calc(700ms * var(--anim-scale, 1)) var(--ease-out) forwards;
+}
+@keyframes bag-pull { 0% { opacity: 0; transform: translate(-50%, 8px) scale(0.8); } 25% { opacity: 1; transform: translate(-50%, 0) scale(1.08); } 100% { opacity: 0; transform: translate(-50%, -30px); } }
+body.reduced-motion .bag-tile-pulled { display: none; }
+/* find any token: an empty card slot with the lens */
+.bag-find-slot {
+  aspect-ratio: 63 / 88; display: grid; place-items: center; border: 1.5px dashed color-mix(in srgb, var(--frame) 85%, transparent);
+  background: radial-gradient(ellipse at 50% 40%, rgba(255, 220, 160, 0.06), rgba(0, 0, 0, 0.3)); box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.bag-find-slot img { width: 40px; height: 40px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7)); }
+.bag-find .bag-tile-name { color: var(--text-dim); white-space: normal; }
+.bag-find:hover .bag-tile-name { color: var(--text); }
+
+/* counters: brass medallions with their names, like the dice */
+.bag-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 4px; }
+.bag-chip {
+  display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; padding: 4px 0 3px; cursor: pointer; border-radius: 4px;
+  background: none; border: 1px solid transparent; color: var(--text-dim); font: 600 11.5px/1.1 var(--font-ui);
+  transition: color var(--dur-hover) var(--ease-out), background var(--dur-hover) var(--ease-out), border-color var(--dur-hover) var(--ease-out);
+}
+.bag-chip img {
+  width: 38px; height: 38px; flex: none; border-radius: 50%; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.65);
+  transition: transform calc(140ms * var(--anim-scale, 1)) var(--ease-out), box-shadow calc(140ms * var(--anim-scale, 1)) var(--ease-out), filter var(--dur-hover) var(--ease-out);
+}
+.bag-chip span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bag-chip:hover:not(:disabled) { color: var(--text); background: var(--frame-inner); border-color: rgba(180, 136, 74, 0.35); }
+.bag-chip:hover:not(:disabled) img { transform: translateY(-2px); box-shadow: 0 5px 9px rgba(0, 0, 0, 0.6), 0 0 9px 1px var(--accent-glow); filter: brightness(1.12); }
+.bag-chip:active:not(:disabled) img { transform: translateY(0) scale(0.9); filter: brightness(0.8); }
+.bag-chip:focus-visible { outline: 2px solid var(--room-brass-hi); outline-offset: 1px; }
+.bag-chip:disabled { cursor: default; color: var(--text-faint); }
+.bag-chip:disabled img { filter: grayscale(0.55) brightness(0.62); box-shadow: none; }
+
+/* dice: brass dice, a tumble when you reach for one */
+.bag-dice { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.bag-die {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 0 4px; cursor: pointer; border-radius: 4px;
+  background: none; border: 1px solid transparent; color: var(--text-dim); font: 600 12px/1 var(--font-ui); font-variant-numeric: tabular-nums;
+  transition: border-color var(--dur-hover) var(--ease-out), background var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out);
+}
+.bag-die img { width: 42px; height: 42px; transition: transform calc(160ms * var(--anim-scale, 1)) var(--ease-out); }
+.bag-die:hover { color: var(--text); background: var(--frame-inner); border-color: var(--line-2); }
+.bag-die:hover img { transform: translateY(-2px) rotate(-8deg); }
+.bag-die:active img { transform: scale(0.92) rotate(10deg); }
+.bag-die:focus-visible { outline: 2px solid var(--room-brass-hi); outline-offset: 1px; }
+.bag-more {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; height: 34px; margin-top: 8px; padding: 0 8px 0 12px;
+  cursor: pointer; border-radius: 4px; color: var(--text); font: 600 12.5px/1 var(--font-ui); white-space: nowrap; text-align: left;
+  background: linear-gradient(180deg, #3b2716, #22160c); border: 1px solid #9a7238;
+  box-shadow: inset 0 1px 0 rgba(255, 226, 180, 0.22), 0 2px 5px rgba(0, 0, 0, 0.55);
+  transition: border-color var(--dur-hover) var(--ease-out), filter var(--dur-hover) var(--ease-out);
+}
+.bag-more:hover { border-color: var(--frame-hi); filter: brightness(1.1); }
+.bag-more:active { transform: translateY(1px); }
+.bag-more:focus-visible { outline: 2px solid var(--room-brass-hi); outline-offset: 1px; }
+.bag-more kbd { font: 600 11px/1.5 var(--font-ui); padding: 0 5px; color: var(--text-dim); background: rgba(0, 0, 0, 0.4); border: 1px solid var(--line-2); border-radius: 3px; }
+.extras-note { margin: 0; padding: 8px 16px 10px; border-top: 1px solid rgba(180, 136, 74, 0.22); font-size: 11.5px; color: var(--text-dim); }
+
+/* a narrow window: the counters and dice under the tokens */
+@media (max-width: 760px) {
+  .extras-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; overflow: auto; }
+  .extras-side { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); padding-top: 10px; }
+  .extras-tokens { max-height: 38vh; }
+}
 
 /* ---- a chit drawn from the bag: out of a little bag by the drawer's name, then gone ----------------------------------- */
 .bag-draws { position: fixed; left: 50%; top: 92px; z-index: 47; display: grid; gap: 6px; justify-items: center; transform: translateX(-50%); pointer-events: none; }

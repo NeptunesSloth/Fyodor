@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useGame } from "../state/gameStore";
 import { isVisible, type GameCard, type GameView } from "../types/game";
 import { GameCardFace } from "./GameCardFace";
+import { useHoverCard } from "./hoverCard";
 
 /*
  * Combat lane view (TABLETOP_QOL_MILESTONE.md #9): an optional, temporary presentation of combat.
@@ -38,7 +39,7 @@ export function CombatLanes() {
     if (!attackers) setOpen(false);
   }, [attackers]);
   if (!view || !attackers) return null;
-  const { setHover, select } = useGame.getState();
+  const { select } = useGame.getState();
   const blocked = fronts.reduce((n, f) => n + f.lanes.filter((l) => l.blockers.length).length, 0);
   return (
     <>
@@ -59,10 +60,10 @@ export function CombatLanes() {
                 <div className="combat-row">
                   {f.lanes.map(({ attacker, blockers }) => (
                     <div key={attacker.id} className="combat-lane">
-                      <LaneCard card={attacker} onHover={setHover} onPick={(id) => select([id])} />
+                      <LaneCard card={attacker} onPick={(id) => select([id])} />
                       <span className={`combat-vs ${blockers.length ? "" : "open"}`}>{blockers.length ? `Blocked by ${blockers.length}` : "Unblocked"}</span>
                       <div className="combat-blockers">
-                        {blockers.map((b) => <LaneCard key={b.id} card={b} small onHover={setHover} onPick={(id) => select([id])} />)}
+                        {blockers.map((b) => <LaneCard key={b.id} card={b} small onPick={(id) => select([id])} />)}
                       </div>
                     </div>
                   ))}
@@ -76,9 +77,10 @@ export function CombatLanes() {
   );
 }
 
-function LaneCard({ card, small, onHover, onPick }: { card: GameCard; small?: boolean; onHover: (id: string | null) => void; onPick: (id: string) => void }) {
+function LaneCard({ card, small, onPick }: { card: GameCard; small?: boolean; onPick: (id: string) => void }) {
+  const hover = useHoverCard();
   return (
-    <button className={`combat-card ${small ? "small" : ""}`} onPointerEnter={() => onHover(card.id)} onPointerLeave={() => onHover(null)} onClick={() => onPick(card.id)}
+    <button className={`combat-card ${small ? "small" : ""}`} {...hover(card.id)} onClick={() => onPick(card.id)}
       aria-label={isVisible(card) ? card.name : "Face-down card"}>
       <GameCardFace card={card} size="small" />
     </button>
@@ -90,7 +92,7 @@ export function CombatStrip() {
   const view = useGame((s) => s.view);
   const fronts = view ? combatFronts(view) : [];
   if (!view || !fronts.length) return null;
-  const { setHover, select } = useGame.getState();
+  const { select } = useGame.getState();
   return (
     <section className="combat-strip" data-testid="combat-strip" aria-label="Combat">
       <b className="combat-strip-title">Combat</b>
@@ -100,11 +102,11 @@ export function CombatStrip() {
           <div className="combat-strip-row">
             {f.lanes.map(({ attacker, blockers }) => (
               <div key={attacker.id} className="combat-strip-lane">
-                <LaneCard card={attacker} onHover={setHover} onPick={(id) => select([id])} />
+                <LaneCard card={attacker} onPick={(id) => select([id])} />
                 {blockers.length ? (
                   <>
                     <span className="combat-strip-vs" aria-label="blocked by">vs</span>
-                    {blockers.map((b) => <LaneCard key={b.id} card={b} small onHover={setHover} onPick={(id) => select([id])} />)}
+                    {blockers.map((b) => <LaneCard key={b.id} card={b} small onPick={(id) => select([id])} />)}
                   </>
                 ) : <span className="combat-vs open">Unblocked</span>}
               </div>

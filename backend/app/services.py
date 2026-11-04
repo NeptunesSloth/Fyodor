@@ -21,6 +21,7 @@ from app.cards.downloader import (
     make_client,
 )
 from app.cards.images import ImageStore
+from app.cards.linked import LinkedAssets
 from app.cards.repository import CardRepository
 from app.config import Settings
 from app.decks import archidekt
@@ -96,6 +97,7 @@ class Services:
         self.art_keeper = ArtKeeper(self)  # each saved deck's art, kept for offline play while online
         self.jobs = JobManager()
         self.http_client: Callable[..., httpx.Client] = make_client  # online features use this (the tests swap it)
+        self.linked = LinkedAssets(settings, self.images, lambda: self.http_client)  # the card back and the mana symbols
         self.source_cache: dict[str, tuple[float, Any]] = {}
         self.rules = RulesRegistry()  # no modules ship enabled; see app/rules/__init__.py
         self.assistant: RulesAssistant | None = (

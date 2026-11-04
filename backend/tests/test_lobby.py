@@ -228,11 +228,56 @@ def test_deck_checks_are_advisory_and_private(lobby):
     for t in (alice, bob):
         assert client.post(f"/api/games/{gid}/lobby/ready", json={"ready": True}, headers=h(t)).status_code == 200
     assert lobby_of(client, gid, alice)["start_blockers"] == []
-    # Fyodor plays Commander only: the host can't switch the table to another format
-    assert client.post(f"/api/games/{gid}/lobby/settings", json={"format": "sandbox"}, headers=h(alice)).status_code == 422
+    # the checks follow the table format the host picks: a Sandbox table (free play) checks no deck
+    res = client.post(f"/api/games/{gid}/lobby/settings", json={"format": "sandbox"}, headers=h(alice))
+    assert res.status_code == 200, res.text
+    mine = seat(lobby_of(client, gid, bob), "p2")["deck"]
+    assert mine["warnings"] == [] and mine["warning_count"] == 0
+    assert seat(lobby_of(client, gid, alice), "p2")["deck"]["warning_count"] == 0
+    assert seat(lobby_of(client, gid, bob), "p2")["ready"] is False  # changing the format asks everyone to confirm again
+    client.post(f"/api/games/{gid}/lobby/settings", json={"format": "commander"}, headers=h(alice))
+    assert seat(lobby_of(client, gid, bob), "p2")["deck"]["warning_count"] > 0  # back to Commander, back come the checks
+    # Constructed was removed: the host can't pick it
+    assert client.post(f"/api/games/{gid}/lobby/settings", json={"format": "constructed"}, headers=h(alice)).status_code == 422
     for t in (alice, bob):  # changing table settings asks everyone to confirm again
         client.post(f"/api/games/{gid}/lobby/ready", json={"ready": True}, headers=h(t))
     assert client.post(f"/api/games/{gid}/lobby/start", json={}, headers=h(alice)).status_code == 200
+
+
+def test_a_sandbox_lobby_starts_a_free_play_table(client):
+    """Sandbox: Commander decks at 40 life, no deck checks, rules automation off (even if the host had picked a level), test
+    objects allowed. The settings say so in the lobby before the start."""
+    gid, code, alice = create_lobby(client, format="sandbox", automation="full")
+    bob = client.post("/api/join", json={"code": code, "name": "Bob"}).json()["token"]
+    view = lobby_of(client, gid, alice)
+    assert view["settings"]["format"] == "sandbox" and view["settings"]["automation"] == "off"
+    assert client.get(f"/api/games/{gid}").json()["format"] == "sandbox"  # the table tiles say so
+    # the host can't turn automation on in a Sandbox lobby: it starts off, and is turned on at the table
+    client.post(f"/api/games/{gid}/lobby/settings", json={"automation": "full"}, headers=h(alice))
+    assert lobby_of(client, gid, alice)["settings"]["automation"] == "off"
+    client.post(f"/api/games/{gid}/lobby/deck", json={"text": BOB_DECK + "3x Lightning Bolt (clb) 187\n"}, headers=h(bob))
+    assert seat(lobby_of(client, gid, bob), "p2")["deck"]["warnings"] == []
+    client.post(f"/api/games/{gid}/lobby/deck", json={"text": ALICE_DECK}, headers=h(alice))
+    for t in (alice, bob):
+        client.post(f"/api/games/{gid}/lobby/ready", json={"ready": True}, headers=h(t))
+    assert client.post(f"/api/games/{gid}/lobby/start", json={}, headers=h(alice)).status_code == 200
+    game = client.get(f"/api/games/{gid}/view", headers=h(alice)).json()
+    assert game["game"]["format"] == "sandbox" and [p["life"] for p in game["players"]] == [40, 40]
+    assert game["game"]["settings"]["automation"] == "off" and game["game"]["settings"]["allow_test_objects"]
+    assert game.get("rules") is None
+    state = client.app.state.services.hub.get(gid).session.state
+    assert sum(1 for c in state.cards.values() if c.commander_key) == 2  # Commander decks: each commander in its command zone
+
+
+def test_a_solo_lan_night_starts_with_only_the_host(client):
+    """Solo testing: the host opens a one-seat LAN night, brings a deck and starts alone."""
+    gid, _code, alice = create_lobby(client, seats=1, format="sandbox")
+    client.post(f"/api/games/{gid}/lobby/deck", json={"text": ALICE_DECK}, headers=h(alice))
+    client.post(f"/api/games/{gid}/lobby/ready", json={"ready": True}, headers=h(alice))
+    assert lobby_of(client, gid, alice)["start_blockers"] == []
+    assert client.post(f"/api/games/{gid}/lobby/start", json={}, headers=h(alice)).status_code == 200
+    game = client.get(f"/api/games/{gid}/view", headers=h(alice)).json()
+    assert game["viewer"] == "p1" and game["seat_order"] == ["p1"]
 
 
 def test_lobby_views_carry_an_increasing_revision(lobby):

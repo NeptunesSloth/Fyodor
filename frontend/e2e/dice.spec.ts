@@ -204,9 +204,13 @@ test("the roll panel: Shift+R opens it, it rolls what you pick, quick picks and 
   await expect.poll(async () => rolled(await lastRoll())).toBe("4d10");
   await page.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
-  // the tool tray's Dice button toggles it too
-  await page.getByTestId("dice-button").click();
+  // the Bag of Extras by my seat opens it too (its dice), and Shift+R toggles it
+  await page.getByTestId("seat-btn-extras").click();
+  await page.getByTestId("extras-panel").getByTestId("dice-button").click();
   await expect(panel).toBeVisible();
-  await page.getByTestId("dice-button").click();
+  await expect(page.getByTestId("extras-panel")).toHaveCount(0);
+  await page.keyboard.press("Shift+R");
   await expect(panel).toHaveCount(0);
+  await page.keyboard.press("Shift+R");
+  await expect(panel).toBeVisible();
 });

@@ -552,8 +552,10 @@ def advance(plan: Plan, *, checked: bool = False) -> None:
                 return
             continue
         players = plan.live()
-        if len(players) <= 1:
-            r.priority = players[0] if players else None  # game over: the table stays a sandbox
+        # game over (one player left of several, or nobody): the table stays a sandbox. A table seated for one from the start is
+        # solo testing (goldfishing a deck), not a won game: its turns go on.
+        if not players or (len(players) == 1 and len(plan.state.seat_order) > 1):
+            r.priority = players[0] if players else None
             return
         if all(p in r.passed for p in players):
             if plan.state.zones.get(STACK) and loop_pause(plan, players):

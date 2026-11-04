@@ -5,9 +5,9 @@ import { seatIconUrl } from "./seatIcons";
 import { isOut } from "./outOfGame";
 
 /**
- * Your seat's buttons on the 2D table, by your mat as on the Oops tables: round Untap, Draw, Scry, Mill and Reveal
- * buttons. Click does one, right-click three, or hover one and type a number. (The 3D table has them as physical
- * buttons on the table: table3d/seatProps.ts.)
+ * Your seat's buttons on the 2D table, by your mat as on the Oops tables: Untap, Draw, Scry, Mill, Reveal, Mulligan and
+ * the Bag of Extras, as brass medallions (game/seatIcons.ts). Click does one, right-click three, or hover one and type a
+ * number. (The 3D table has the same medallions as physical buttons on the table: table3d/seatProps.ts.)
  */
 export function SeatButtons() {
   const view = useGame((s) => s.view);

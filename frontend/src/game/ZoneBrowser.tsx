@@ -9,6 +9,7 @@ import { beginPointerDrag } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
 import { exileCastables, playFromExile } from "./exileCastables";
 import "./exile.css";
+import { useHoverCard } from "./hoverCard";
 
 /**
  * Docked browser for a zone (library search, look at top N, graveyard, exile, sideboard).
@@ -86,6 +87,7 @@ export function ZoneBrowser({ me }: { me: string }) {
 
 const BrowserCard = memo(function BrowserCard({ id, me, owner }: { id: string; me: string; owner: string }) {
   const card = useCardView(id);
+  const hover = useHoverCard();
   // a card here you may cast or play now (Ian Malcolm's exile, impulse draw …): outlined, and double-click casts it
   const view = useGame((s) => s.view);
   const castable = useMemo(() => exileCastables(view).find((c) => c.id === id), [view, id]);
@@ -116,8 +118,7 @@ const BrowserCard = memo(function BrowserCard({ id, me, owner }: { id: string; m
         const { title, items } = cardMenu(card as GameCard, view, me);
         openMenu(e, items, title);
       }}
-      onPointerEnter={() => useGame.getState().setHover(id)}
-      onPointerLeave={() => useGame.getState().setHover(null)}
+      {...hover(id)}
     >
       <GameCardFace card={card} peek />
       {castable && <span className="zb-exiled-with" data-testid="zb-castable">{castable.play ? "Play" : "Cast"}{castable.source ? ` · with ${castable.source.split(",")[0]}` : ""}</span>}
