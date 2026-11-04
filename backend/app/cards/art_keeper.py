@@ -2,13 +2,14 @@
 
 The norm at game night: a friend saved their decks on their own Fyodor at home, online; at the table there is only the LAN.
 So whenever a deck is created, imported or saved while this computer may go online (``FYODOR_ALLOW_NETWORK``), the art for the
-deck's own printings is downloaded in the background, quietly (the Decks page shows a line while it runs). Offline, the deck
-waits in a small list kept in the data folder (``art-keeper.json``) and is tried again when Fyodor starts and every
-``RETRY_MINUTES`` while it runs. Turning it off (small disks) stops new downloads; art already cached stays.
+deck's own printings and the tokens they make is downloaded in the background, quietly (the Decks page shows a line while
+it runs). Offline, the deck waits in a small list kept in the data folder (``art-keeper.json``) and is tried again when
+Fyodor starts and every ``RETRY_MINUTES`` while it runs. Turning it off (small disks) stops new downloads; art already cached stays.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -116,6 +117,7 @@ class ArtKeeper:
 
     def _keep(self, deck_id: str) -> bool:
         """Download the deck's missing art. False when the network isn't there (try again later)."""
+        from app.cards.repository import CardDatabaseUnavailable
         from app.decks.repository import DeckNotFound
 
         services = self.services
@@ -124,6 +126,10 @@ class ArtKeeper:
         except DeckNotFound:
             return True  # deleted meanwhile: nothing to keep
         ids = list(dict.fromkeys(e.printing_id for e in deck.entries if e.printing_id))
+        # and the tokens its cards make, so the Bag of Extras and the table show them as printed offline too
+        with contextlib.suppress(CardDatabaseUnavailable):
+            ids += [t["id"] for c in services.cards.get_many(ids).values() for t in c.get("related_tokens") or []]
+        ids = list(dict.fromkeys(ids))
         missing = [pid for pid in ids if not services.images.has(pid)]
         with self._lock:
             self.progress = {"deck": deck.name, "done": 0, "total": len(missing)}

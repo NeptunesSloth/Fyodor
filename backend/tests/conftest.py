@@ -34,6 +34,8 @@ def _no_art_downloads(monkeypatch: pytest.MonkeyPatch) -> None:
     # -- the card back and mana symbols -- fetched at start-up and on demand while online (app/cards/linked.py); likewise
     # never in the tests unless one turns it on (``app.cards.linked.DOWNLOADS``) with a mocked Scryfall
     monkeypatch.setattr("app.cards.linked.DOWNLOADS", False)
+    # -- token pictures -- fetched when a client first asks for one (app/cards/token_art.py): likewise
+    monkeypatch.setattr("app.cards.token_art.DOWNLOADS", False)
 
 
 @pytest.fixture()

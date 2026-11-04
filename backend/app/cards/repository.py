@@ -6,6 +6,7 @@ import difflib
 import json
 import logging
 import os
+import re
 import sqlite3
 import threading
 from pathlib import Path
@@ -25,6 +26,11 @@ SUMMARY_COLUMNS = (
 )
 # Layouts whose faces each have their own image and which can be turned over.
 DOUBLE_FACED_LAYOUTS = {"transform", "modal_dfc", "double_faced_token", "reversible_card", "meld", "battle"}
+
+
+def _rules_text(text: object) -> str:
+    """Rules text without reminder text, spaces evened out, lower case (as the Bag of Extras compares tokens)."""
+    return re.sub(r"\s+", " ", re.sub(r"\([^()]*\)", "", str(text or ""))).strip().lower()
 
 
 class CardDatabaseUnavailable(RuntimeError):
@@ -332,6 +338,30 @@ class CardRepository:
                 self._names = {normalize_name(r["name"]): r["name"] for r in rows}
                 self._names_for = conn
             return self._names
+
+    def find_token(self, spec: dict[str, Any]) -> dict[str, Any] | None:
+        """The printing to show for a token described by what it is (the Bag of Extras' common tokens: ``name``, ``type_line``,
+        ``power``, ``toughness``, ``colors``, ``text``): one whose name, types, P/T, colours and rules text (reminder text aside)
+        are the same. Of those, one whose picture is cached already, else the token's default printing (the importer's choice:
+        paper, English, in-universe, regular frame, newest), else the newest paper English printing with a picture."""
+        name, type_line = str(spec.get("name") or ""), str(spec.get("type_line") or "")
+        if not name or not type_line:
+            return None
+        rows = self._query(
+            f"SELECT {SUMMARY_COLUMNS} FROM printings p LEFT JOIN oracle_defaults d ON d.printing_id = p.id "
+            "WHERE p.is_token = 1 AND p.name = ? COLLATE NOCASE AND p.type_line = ? AND p.power IS ? AND p.toughness IS ? "
+            "ORDER BY p.digital, (p.image_uris IS NULL AND p.card_faces IS NULL), d.printing_id IS NULL, p.lang != 'en', p.promo, "
+            "p.released_at DESC, "
+            "p.set_code, p.collector_number",
+            (name, type_line, spec.get("power"), spec.get("toughness")),
+        )
+        colors = sorted(spec.get("colors") or [])
+        text = _rules_text(spec.get("text"))
+        same = [r for r in rows if sorted(json.loads(r["colors"])) == colors and _rules_text(r["oracle_text"]) == text]
+        if not same:
+            return None
+        best = next((r for r in same if self.images.has(r["id"])), same[0])
+        return self._to_card(best)
 
     def related_tokens(self, card_id: str) -> list[dict[str, Any]]:
         card = self.get(card_id)
