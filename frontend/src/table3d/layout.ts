@@ -72,10 +72,10 @@ export function heartTilt(seat: Pick<Seat, "duel">): number {
  * right of the mat's middle. PLATE: the plate's size on the table (world units; Table3D scales the DOM plate to it,
  * within limits) and the gap between it and the heart.
  */
-export const HEART_X = 1.0;
-export const PLATE = { w: 2.0, h: 1.05, gap: 0.08 };
+export const HEART_X = 1.3;
+export const PLATE = { w: 2.5, h: 1.25, gap: 0.08 };
 /** 1v1: the other seat's fan of backs, right of its heart and plate (as I see it), its middle this far from the mat's. */
-export const DUEL_FAN_X = 3.65;
+export const DUEL_FAN_X = 3.95;
 
 /**
  * 1v1: how far past its own edge a seat's heart stands (its centre). It turns to face the camera, tipped up from its

@@ -86,7 +86,7 @@ export const PROP_TOP = 1.4;
  */
 export function propSpots(all: Seat[], size: TableSize): [number, number][] {
   const far = all.find((s) => s.duel && s.side === "north");
-  if (far) return [-1, 1].map((sx) => toWorld(far, screenX(far, sx * STRIP_X), MAT_D / 2 + 0.95));
+  if (far) return [-1, 1].map((sx) => toWorld(far, screenX(far, sx * (STRIP_X + 0.3)), MAT_D / 2 + 0.95));
   let reach = 0;
   for (const s of all) reach = Math.max(reach, Math.abs(s.x) + STRIP_X);
   const x = Math.min(reach - 1.4, size.w / 2 - 2);

@@ -343,9 +343,9 @@ const EMPTY_TAGS: [string, string][] = [];
 const PAN_KEYS: Record<string, "left" | "right" | "up" | "down"> = { ArrowLeft: "left", ArrowRight: "right", ArrowUp: "up", ArrowDown: "down" };
 
 /** A plate's scale limits (its size follows the zoom, layout.ts PLATE), and below which it shows the portrait alone. */
-const PLATE_MIN = 0.5;
+const PLATE_MIN = 0.62;
 const PLATE_MAX = 1.3;
-const PLATE_COMPACT = 0.62;
+const PLATE_COMPACT = 0.55;
 
 const TIPS = [
   { title: "Players", text: "Click a player's plaque to see their counters, commander damage and actions." },

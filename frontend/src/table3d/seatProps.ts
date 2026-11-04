@@ -17,7 +17,7 @@ import { slotTexture } from "./textures";
 
 const HEART_W = HEART.w;
 /** 1v1: Mulligan's spot along my near edge, right of my heart and plate (the bag just past it). */
-const DUEL_MULLIGAN_X = 3.35;
+const DUEL_MULLIGAN_X = 3.45;
 const HEART_Y = HEART.y;
 const BUTTON_R = 0.26;
 const BUTTON_H = 0.08;
