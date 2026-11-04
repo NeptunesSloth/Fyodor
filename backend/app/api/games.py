@@ -21,7 +21,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_validator
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError, field_validator, model_validator
 
 from app.api.deps import _peer_is_loopback, get_services, is_local_request, require_local
 from app.assets.store import AssetNotFound
@@ -34,7 +34,7 @@ from app.decks.repository import DeckNotFound
 from app.game import actions as A
 from app.game import undo_requests
 from app.game.errors import ActionError
-from app.game.factory import DeckCard, PlayerSetup, new_game
+from app.game.factory import STARTING_LIFE, DeckCard, PlayerSetup, new_game
 from app.game.mulligan import resolve_policy
 from app.game.rules_state import AUTOMATION_PRESETS, AutomationLevel, start_rules
 from app.game.session import GameSession
@@ -49,6 +49,7 @@ from app.multiplayer.lobby import (
     LobbySeatInfo,
     LobbySettings,
     SubmittedDeck,
+    TableFormat,
     TurnOrder,
     check_bounds,
 )
@@ -166,7 +167,7 @@ class PlayerIn(BaseModel):
 
 class CreateGameIn(BaseModel):
     name: str = Field(default="Game", max_length=80)
-    format: Literal["commander"] = "commander"
+    format: TableFormat = "commander"  # "sandbox": free play with Commander decks (app/multiplayer/lobby.py TableFormat)
     mode: Literal["local", "lan"] = "local"
     password: str | None = Field(default=None, max_length=100)
     players: list[PlayerIn] = Field(default_factory=list, max_length=6)
@@ -194,6 +195,12 @@ class CreateGameIn(BaseModel):
     @classmethod
     def _clean(cls, v: str) -> str:
         return clean_text(v, 80) or "Game"
+
+    @model_validator(mode="after")
+    def _sandbox_starts_manual(self) -> CreateGameIn:
+        if self.format == "sandbox":
+            self.automation = "off"  # a Sandbox table starts as the manual table; the host turns automation on at the table
+        return self
 
 
 ClientActionId = Annotated[str, Field(min_length=8, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")]
@@ -325,11 +332,12 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
         raise HTTPException(422, str(exc)) from exc
     if policy is not None and policy.needs_definition:
         raise HTTPException(422, f"Define the {policy.display_name} mulligan first (or pick another rule)")
-    settings = GameSettings(starting_life=body.starting_life or {"commander": 40}.get(body.format, 20), auto_untap=body.auto_untap,
+    settings = GameSettings(starting_life=body.starting_life or STARTING_LIFE.get(body.format, 40), auto_untap=body.auto_untap,
                             deck_privacy=body.deck_privacy, mulligan=policy,
                             # one person runs a hot-seat table: nobody to ask; with rules, the engine asks
                             priority_helper=body.priority_helper if body.mode == "lan" and body.automation == "off" else "off",
-                            allow_test_objects=body.mode == "local", automation=body.automation,
+                            # test objects: a hot-seat table (one person testing) and a Sandbox table (free play)
+                            allow_test_objects=body.mode == "local" or body.format == "sandbox", automation=body.automation,
                             automation_options=AUTOMATION_PRESETS[body.automation].model_copy(), card_permissions=body.card_permissions)
     state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
     if body.automation != "off":
@@ -680,7 +688,7 @@ class ProfileIn(BaseModel):
 
 class LobbySettingsIn(BaseModel):
     name: str | None = Field(default=None, max_length=80)
-    format: Literal["commander"] | None = None
+    format: TableFormat | None = None
     seats: int | None = Field(default=None, ge=1, le=6)
     starting_life: int | None = Field(default=None, ge=1, le=10000)
     deck_privacy: Literal["private", "commander_only", "public"] | None = None
@@ -1177,7 +1185,7 @@ async def start_game(
         night.setups = dict(zip(order, setups, strict=True))
         night.infos = {pid: room.lobby_seats.get(pid) or LobbySeatInfo() for pid in order}
         settings = GameSettings(
-            starting_life=lobby.starting_life or {"commander": 40}.get(lobby.format, 20),
+            starting_life=lobby.starting_life or STARTING_LIFE.get(lobby.format, 40),
             auto_untap=lobby.auto_untap,
             deck_privacy=lobby.deck_privacy,
             priority_helper=lobby.priority_helper if lobby.automation == "off" else "off",
@@ -1185,6 +1193,7 @@ async def start_game(
             automation=lobby.automation,
             automation_options=AUTOMATION_PRESETS[lobby.automation].model_copy(),
             card_permissions=lobby.card_permissions,  # -- table permissions --
+            allow_test_objects=lobby.format == "sandbox",  # free play: Spawn a card is on
         )
         state = new_game(
             setups,

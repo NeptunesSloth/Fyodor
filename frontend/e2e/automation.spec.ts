@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ALICE_DECK, BOB_DECK, menuPath } from "./helpers";
+import { ALICE_DECK, BOB_DECK, hostTable, menuPath, serverView } from "./helpers";
 
 test("Automation FULL: HUD, RESPONSE toggle, play a land through the rules, pass priority", async ({ page }) => {
   const ids: string[] = [];
@@ -8,15 +8,9 @@ test("Automation FULL: HUD, RESPONSE toggle, play a land through the rules, pass
     expect(res.ok()).toBeTruthy();
     ids.push((await res.json()).id as string);
   }
-  // Player 1 plays Alice's Islands deck: preselect it (the library lists the newest deck first, so the
+  // The host plays Alice's Islands deck at a solo LAN night: preselect it (the library lists the newest deck first, so the
   // default would depend on whether the two imports landed in the same second).
-  await page.goto(`/#/play?deck=${ids[0]}`);
-  await page.getByTestId("mulligan-rule").selectOption("none");
-  await page.getByTestId("automation-level").selectOption("full");
-  await page.getByTestId("first-player").selectOption("0");
-  await page.getByTestId("create-game").click();
-  await expect(page.locator(".game-screen")).toBeVisible();
-  const gameId = page.url().split("/game/")[1]!;
+  const gameId = await hostTable(page, { players: 1, deck: ids[0], mulligan: "none", automation: "full", first: "0" });
 
   // The HUD tells the table what the engine does; RESPONSE cycles OFF → AUTO → ON.
   await expect(page.getByTestId("auto-level")).toHaveText("Automation: Full");
@@ -30,7 +24,7 @@ test("Automation FULL: HUD, RESPONSE toggle, play a land through the rules, pass
   await expect(page.getByTestId("mana-mode")).toHaveCount(0); // players always tap their own mana
 
   // Pass to the first main phase with the priority bar.
-  const view = async () => (await (await page.request.get(`/api/games/${gameId}/view`)).json()) as Record<string, any>;
+  const view = async () => (await serverView(page, gameId)) as Record<string, any>; // as the host's seat
   for (let i = 0; i < 6 && (await view()).turn.phase !== "main1"; i++) {
     await page.getByTestId("priority-bar").getByRole("button", { name: /^(Pass|Next)/ }).first().click();
   }
@@ -38,12 +32,15 @@ test("Automation FULL: HUD, RESPONSE toggle, play a land through the rules, pass
   await expect(page.getByTestId("priority-bar")).toContainText("Your priority");
 
   // A land in hand: right-click → Play land goes through the rules engine (one land per turn).
+  // (a table for one draws on its first turn: only a two-player game skips that draw, 103.8a)
   let island: string | undefined;
-  for (let i = 0; i < 8 && !island; i++) {
-    await page.keyboard.press("d"); // drawing by hand stays a sandbox action
-    await expect.poll(async () => ((await view()).zones["p1:hand"] as string[]).length).toBe(i + 1);
+  for (let i = 0; i < 9 && !island; i++) {
     const v = await view();
     island = (v.zones["p1:hand"] as string[]).find((id) => v.cards[id]?.name === "Island");
+    if (island) break;
+    const held = (v.zones["p1:hand"] as string[]).length;
+    await page.keyboard.press("d"); // drawing by hand stays a sandbox action
+    await expect.poll(async () => ((await view()).zones["p1:hand"] as string[]).length).toBe(held + 1);
   }
   expect(island).toBeTruthy();
   const card = page.locator(`main.table > .hand .hand-card[data-card-id="${island}"]`);

@@ -1,5 +1,5 @@
 import { ApiError, api } from "./api";
-import type { GameSummary, LobbySettings, LobbyView, SaveSummary } from "../types/game";
+import type { GameSummary, LobbySettings, LobbyView, SaveSummary, TableFormat } from "../types/game";
 import type { NearbyServer } from "../pages/lanBits";
 
 export interface CreatePlayer {
@@ -10,7 +10,7 @@ export interface CreatePlayer {
 
 export interface CreateGameBody {
   name: string;
-  format: "commander";
+  format: TableFormat;
   mode: "local" | "lan";
   password?: string | null;
   players: CreatePlayer[];
@@ -40,7 +40,8 @@ export const listGames = () => api.get<GameSummary[]>("/games");
 export const createGame = (body: CreateGameBody) => api.post<CreatedGame>("/games", body);
 export const closeGame = (id: string) => api.del<void>(`/games/${id}`);
 export const listSaves = () => api.get<SaveSummary[]>("/saves");
-export const loadSave = (id: string, mode: "local" | "lan" = "local", password?: string) =>
+/** A save comes back as a LAN night (hot-seat tables are no longer offered; the API still loads one when asked). */
+export const loadSave = (id: string, mode: "local" | "lan" = "lan", password?: string) =>
   api.post<CreatedGame>(`/saves/${id}/load`, { mode, password: password || null });
 export const deleteSave = (id: string) => api.del<void>(`/saves/${id}`);
 /** Portable package: the save plus its custom images and macros, as one zip (host only). */

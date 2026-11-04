@@ -44,12 +44,54 @@ def act(client, game_id, action, **kw):
     return client.post(f"/api/games/{game_id}/actions", json={"action": action, **kw}, headers=headers)
 
 
-def test_games_are_commander_only(client, decks):
-    """Constructed and Sandbox were removed: a new table is always Commander (40 life), and other formats are refused."""
-    assert create(client, decks)["game"]["format"] == "commander"
-    for fmt in ("constructed", "sandbox"):
-        body = {"name": "T", "format": fmt, "players": [{"name": "Alice", "deck_id": decks[0]}]}
-        assert client.post("/api/games", json=body).status_code == 422
+def test_commander_is_the_default_and_constructed_is_refused(client, decks):
+    """A new table is Commander (40 life) unless the host picks Sandbox; Constructed was removed and stays refused."""
+    game = create(client, decks, mode="lan", automation="full")
+    gid = game["game"]["id"]
+    assert game["game"]["format"] == "commander"
+    view = client.get(f"/api/games/{gid}/view", headers={"X-Seat-Token": game["seat"]["token"]}).json()
+    assert view["game"]["format"] == "commander" and view["players"][0]["life"] == 40
+    assert view["game"]["settings"]["automation"] == "full" and not view["game"]["settings"]["allow_test_objects"]
+    body = {"name": "T", "format": "constructed", "players": [{"name": "Alice", "deck_id": decks[0]}]}
+    assert client.post("/api/games", json=body).status_code == 422
+
+
+def test_a_sandbox_table_is_free_play(client, decks):
+    """Sandbox (free play, as in Tabletop Simulator): Commander decks at 40 life, rules automation off whatever was asked for,
+    and test objects allowed. The host can still turn automation on at the table, and the starting life stays editable."""
+    game = create(client, decks, mode="lan", format="sandbox", automation="full", players=[{"name": "Alice", "deck_id": decks[0]}])
+    gid, token = game["game"]["id"], game["seat"]["token"]
+    assert game["game"]["format"] == "sandbox"
+    view = client.get(f"/api/games/{gid}/view", headers={"X-Seat-Token": token}).json()
+    assert view["game"]["format"] == "sandbox" and view["players"][0]["life"] == 40
+    settings = view["game"]["settings"]
+    assert settings["automation"] == "off" and settings["allow_test_objects"] and view.get("rules") is None
+    assert len(view["zones"]["p1:command"]) == 1  # still a Commander deck: the commander waits in the command zone
+    bears = client.app.state.services.cards.resolve("Sol Ring")["id"]
+    spawned = act(client, gid, {"type": "spawn_card", "card_id": bears}, token=token)
+    assert spawned.status_code == 200, spawned.text
+    on = act(client, gid, {"type": "configure", "automation": "full"}, token=token)  # the host turns the rules on at the table
+    assert on.status_code == 200, on.text
+    assert on.json()["game"]["settings"]["automation"] == "full"
+
+    other = create(client, decks, mode="lan", format="sandbox", starting_life=25)
+    view = client.get(f"/api/games/{other['game']['id']}/view", headers={"X-Seat-Token": other["seat"]["token"]}).json()
+    assert view["players"][0]["life"] == 25
+
+
+def test_a_sandbox_game_saves_and_loads(client, decks):
+    game = create(client, decks, mode="lan", format="sandbox")
+    gid, token = game["game"]["id"], game["seat"]["token"]
+    act(client, gid, {"type": "draw", "count": 3}, token=token)
+    saved = client.post(f"/api/games/{gid}/save", json={"name": "Free play"}, headers={"X-Seat-Token": token})
+    assert saved.status_code == 201, saved.text
+    saved = saved.json()
+    loaded = client.post(f"/api/saves/{saved['id']}/load", json={"mode": "lan"})
+    assert loaded.status_code == 201, loaded.text
+    body = loaded.json()
+    assert body["game"]["format"] == "sandbox"
+    view = client.get(f"/api/games/{body['game']['id']}/view", headers={"X-Seat-Token": body["seat"]["token"]}).json()
+    assert view["game"]["format"] == "sandbox" and len(view["zones"]["p1:hand"]) == 3 and view["game"]["can_undo"]
 
 
 def test_local_game_flow(client, decks):

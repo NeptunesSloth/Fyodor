@@ -131,7 +131,7 @@ class SaveRepository:
 
 def load_payload(payload: dict[str, Any], *, history_limit: int = 500) -> tuple[GameState, History | None]:
     fmt = payload["state"].get("format") if isinstance(payload.get("state"), dict) else None
-    if fmt not in (None, "commander"):
+    if fmt not in (None, "commander", "sandbox"):  # Constructed was removed (Sandbox came back as free play with Commander decks)
         raise SaveFormatError(f"This is a {str(fmt).title()} game. Fyodor plays Commander only now, so it can't be loaded.")
     try:
         state = GameState.model_validate(payload["state"])

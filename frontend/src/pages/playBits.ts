@@ -36,6 +36,11 @@ export function deckTitle(d: DeckSummary): string {
   return d.commanders.length ? d.commanders.join(" & ") : d.name;
 }
 
+/** The deck's own name under its commander, or null when it only repeats the title (a deck named after its commander). */
+export function deckSubtitle(d: DeckSummary): string | null {
+  return d.commanders.length && d.name.trim().toLowerCase() !== deckTitle(d).trim().toLowerCase() ? d.name : null;
+}
+
 /** What the launcher's "Continue" picks up. */
 export type LastTable = { kind: "table"; game: GameSummary } | { kind: "save"; save: SaveSummary };
 

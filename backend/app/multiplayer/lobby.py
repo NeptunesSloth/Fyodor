@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.game.factory import DeckCard
 from app.game.mulligan import PRESETS, resolve_policy
@@ -31,9 +31,14 @@ MAX_DECK_CARDS = 600
 MAX_COMMANDERS = 4
 
 
+# The table's format. Every deck is a Commander deck; "sandbox" is free play with them, as in Tabletop Simulator: no deck checks,
+# rules automation starts off (the host turns it on at the table if wanted) and test objects are allowed.
+TableFormat = Literal["commander", "sandbox"]
+
+
 class LobbySettings(BaseModel):
     name: str = Field(default="Game", max_length=80)
-    format: Literal["commander"] = "commander"
+    format: TableFormat = "commander"
     seats: int = Field(default=4, ge=1, le=6)
     starting_life: int | None = Field(default=None, ge=1, le=10000)
     deck_privacy: DeckPrivacy = "commander_only"
@@ -59,6 +64,12 @@ class LobbySettings(BaseModel):
         if v != "none" and v not in PRESETS:
             raise ValueError(f"unknown mulligan rule {v!r}")
         return v
+
+    @model_validator(mode="after")
+    def _sandbox_starts_manual(self) -> LobbySettings:
+        if self.format == "sandbox":
+            self.automation = "off"  # a Sandbox table starts as the manual table; automation is turned on at the table
+        return self
 
     def policy(self) -> MulliganPolicy | None:
         return resolve_policy(self.mulligan_rule, self.mulligan_policy)
@@ -136,7 +147,7 @@ def deck_summary(deck: SubmittedDeck | None, *, privacy: DeckPrivacy, own: bool,
     # Deck checks are advisory ("Play anyway"). Their text names cards, so only the owner (or
     # everyone, with a public list) reads it; with commander-only privacy the others just see how
     # many there are, and with a private deck nothing at all.
-    warnings = deck.warnings.get(table_format, [])
+    warnings = deck.warnings.get(table_format, [])  # (a Sandbox table checks no deck: none are kept for it)
     if own or privacy != "private":
         summary["warning_count"] = sum(1 for w in warnings if w["level"] != "info")
     if own or privacy == "public":

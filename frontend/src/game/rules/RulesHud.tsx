@@ -25,6 +25,8 @@ import { useCardCache } from "../../state/cardCache";
 import { targetingOf } from "../targeting/targeting";
 import { TargetingBar } from "../targeting/TargetingBar";
 import { useTargeting } from "../targeting/store";
+import { Icon } from "../../components/Icon";
+import { SANDBOX_HINT, isSandbox } from "../tableFormat";
 
 function useRules() {
   const view = useGame((s) => s.view);
@@ -45,7 +47,9 @@ export function AutomationHud() {
     window.addEventListener("fyodor:automation", on);
     return () => window.removeEventListener("fyodor:automation", on);
   }, []);
-  if (!ctx || (!ctx.rules && !open)) return null; // automation off: nothing on screen (More → Rules automation…)
+  // automation off: nothing on screen (More → Rules automation…), except at a Sandbox table, which says what it is
+  const sandbox = !!ctx && isSandbox(ctx.view.game.format);
+  if (!ctx || (!ctx.rules && !open && !sandbox)) return null;
   const { view, rules, seated, me } = ctx;
   const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
   const level = rules ? (rules.paused ? "Paused" : cap(rules.automation)) : "Off";
@@ -53,9 +57,17 @@ export function AutomationHud() {
   const prefs = rules?.prefs;
   return (
     <div className="auto-hud" data-testid="automation-hud">
-      <button className={`auto-pill ${rules && !rules.paused ? "on" : ""}`} data-testid="auto-level" title="Automation settings" onClick={() => setOpen(!open)}>
-        Automation: {level}{custom}
-      </button>
+      {sandbox && (
+        <button className="auto-pill format-pill" data-testid="table-format" aria-expanded={open} aria-haspopup="dialog"
+          title={`${SANDBOX_HINT} Click for the rules automation settings.`} onClick={() => setOpen(!open)}>
+          <Icon name="hand" size={15} /><span className="format-pill-word">Sandbox</span><Icon name="down" size={12} className="format-pill-chev" />
+        </button>
+      )}
+      {(!sandbox || rules) && (
+        <button className={`auto-pill ${rules && !rules.paused ? "on" : ""}`} data-testid="auto-level" title="Automation settings" onClick={() => setOpen(!open)}>
+          Automation: {level}{custom}
+        </button>
+      )}
       {rules && prefs && seated && (
         <>
           <button className="auto-pill" data-testid="resp-mode" title="When the engine stops to let you respond (click to change)"
@@ -89,7 +101,7 @@ export function AutomationHud() {
           Concede
         </button>
       ))}
-      {open && <AutomationSettings onClose={() => setOpen(false)} />}
+      {open && <div className={sandbox ? "auto-settings-anchor from-left" : "auto-settings-anchor"}><AutomationSettings onClose={() => setOpen(false)} /></div>}
       {!!rules?.attacking_bands?.length && (
         <details className="auto-pill" data-testid="attacking-bands">
           <summary>{rules.attacking_bands.length} attacking {rules.attacking_bands.length === 1 ? "band" : "bands"}</summary>
@@ -171,7 +183,12 @@ export function AutomationSettings({ onClose }: { onClose: () => void }) {
           </div>
         </>
       )}
-      {!rules && <p className="hint">Automation is off: the table is a sandbox. {isHost ? "Choose Assisted or Full to let Fyodor enforce the rules." : "The host can turn it on."}</p>}
+      {!rules && (
+        <p className="hint">
+          {isSandbox(ctx.view.game.format) ? "A Sandbox table: free play, any deck. Rules automation is off until the host turns it on." : "Automation is off: nothing is enforced."}{" "}
+          {isHost ? "Choose Assisted or Full to let Fyodor enforce the rules." : "The host can turn it on."}
+        </p>
+      )}
     </div>
   );
 }
