@@ -261,7 +261,7 @@ def test_saving_a_deck_keeps_its_art_for_offline_play(keeper_client):
     client, keeper, calls, _ = keeper_client
     res = client.post("/api/decks", json={"name": "Goblins", "text": "Commander\n1 Krenko, Mob Boss\nDeck\n1 Sol Ring\n"})
     assert res.status_code == 201
-    assert len(calls) == 1 and len(calls[0]) == 2  # the deck's own printings, quietly
+    assert len(calls) == 1 and len(calls[0]) == 3  # the deck's own printings and Krenko's Goblin token, quietly
     status = client.get("/api/decks/art-keeper").json()
     assert status["enabled"] is True and status["pending"] == 0
 
