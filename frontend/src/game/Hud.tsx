@@ -3,7 +3,6 @@
  * interface; these only appear when they have something to say.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { previewSide } from "./targeting/preview";
 import { openMenu, type MenuItem } from "../components/ContextMenu";
 import { askNumber } from "../components/Prompt";
 import { useCardCache } from "../state/cardCache";
@@ -20,31 +19,49 @@ import { isOut } from "./outOfGame";
 import { HAND_SORTS, HAND_SORT_LABEL } from "./handSort";
 import { domBoxOf, placeAnchored, selectionAnchor } from "./anchors";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
+import { clearHover, hoverElement, previewDock, previewKey, PREVIEW_RIGHT_GAP, type Box } from "./hoverCard";
+import { Icon } from "../components/Icon";
 
-/** Large card preview that floats at the edge of the table while you hover a card. */
-/** skipHand: on the 3D table a hovered hand card already lifts out of the fan at full size. */
+/** The hovered card's rectangle on screen: its picture on the page, or where the 3D table draws it. */
+function cardBox(id: string): Box | null {
+  const el = hoverElement(id) ?? document.querySelector(`[data-card-id="${CSS.escape(id)}"]`);
+  const r = el?.getBoundingClientRect();
+  if (r && r.width) return r;
+  const p = window.__fyodor3d?.cardAt(id);
+  return p ? { left: p.x - 40, right: p.x + 40, top: p.y - 56, bottom: p.y + 56 } : null;
+}
+
+/**
+ * The large card preview, docked at the right edge under the top bar while you hover a card. It never follows the
+ * pointer: it moves to the left only while the hovered card itself lies under it. It goes when the hover ends (the
+ * pointer leaves the card, or the card goes away), on Esc, or with its ×, until the next hover.
+ * skipHand: on the 3D table a hovered hand card already lifts out of the fan at full size.
+ */
 export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   const hover = useGame((s) => s.hover);
   const inHand = useGame((s) => !!s.hover && !!s.view?.cards[s.hover]?.zone.endsWith(":hand"));
-  const side = useRef<"left" | "right">("right");
-  const [pos, setPos] = useState<"left" | "right">("right");
+  const panel = useRef<HTMLDivElement>(null);
+  const [dock, setDock] = useState<"left" | "right">("right");
   useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      const next = e.clientX > window.innerWidth * 0.62 ? "left" : "right";
-      if (next !== side.current) {
-        side.current = next;
-        setPos(next);
-      }
-    };
-    window.addEventListener("pointermove", onMove);
-    return () => window.removeEventListener("pointermove", onMove);
+    const onKey = (e: KeyboardEvent) => void previewKey(e);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
-  const stackBusy = useGame((s) => (s.view?.stack.length ?? 0) > 0);
+  // decided once per hovered card, before it shows: where the panel would sit on the right, and whether the card is under it
+  useLayoutEffect(() => {
+    const node = panel.current;
+    if (!hover || !node) return;
+    const r = node.getBoundingClientRect();
+    const right = { left: window.innerWidth - PREVIEW_RIGHT_GAP - r.width, right: window.innerWidth - PREVIEW_RIGHT_GAP, top: r.top, bottom: r.bottom };
+    setDock(previewDock(cardBox(hover), right));
+  }, [hover]);
   if (!hover || (skipHand && inHand)) return null;
-  // keep clear of the stack widget (top-right) while something is on the stack; while targeting, clear of the card itself
-  const place = previewSide(hover) ?? (stackBusy ? "left" : pos);
   return (
-    <div className={`card-preview ${place}`} data-testid="card-preview">
+    <div ref={panel} className={`card-preview ${dock}`} data-testid="card-preview" data-dock={dock}>
+      <button type="button" className="card-preview-close" onClick={clearHover} aria-label="Close the card preview (Esc)" title="Close (Esc)"
+        data-testid="card-preview-close">
+        <Icon name="close" size={12} />
+      </button>
       <Inspector />
     </div>
   );

@@ -15,6 +15,7 @@ import "./exile.css";
 import { commanderDealt, dealtText } from "./commanderDamage";
 import { isOut } from "./outOfGame";
 import { taxMedallionUrl, whenIconFontReady } from "./seatIcons";
+import { useHoverCard } from "./hoverCard";
 
 const LABEL: Partial<Record<ZoneName, string>> = {
   library: "Library",
@@ -213,6 +214,7 @@ export const PILE_LABEL = LABEL;
 
 /** Graveyard / exile / other face-up piles: shows the top card; click opens the zone browser. */
 export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
+  const hover = useHoverCard();
   const key = `${player}:${zone}`;
   const ids = useZoneIds(key) ?? [];
   const topId = ids[ids.length - 1];
@@ -235,8 +237,7 @@ export function Pile({ player, zone }: { player: string; zone: ZoneName }) {
         if (e.button !== 0 || !topId) return;
         beginPointerDrag(e, { ids: [topId], from: key, onDrop: (t) => dropInto([topId], t) });
       }}
-      onPointerEnter={() => topId && useGame.getState().setHover(topId)}
-      onPointerLeave={() => useGame.getState().setHover(null)}
+      {...(topId ? hover(topId) : {})}
     >
       <div className="pile-card">{top ? <GameCardFace card={top} /> : <div className="pile-empty" />}</div>
       <span className="pile-count">{ids.length}</span>
@@ -304,6 +305,7 @@ function TaxButton({ commander, name, tax }: { commander: string; name: string; 
 
 function CommandCard({ id, me, player }: { id: string; me: string; player: string }) {
   const card = useCardView(id);
+  const hover = useHoverCard();
   void player;
   if (!card) return null;
   return (
@@ -322,8 +324,7 @@ function CommandCard({ id, me, player }: { id: string; me: string; player: strin
         const { title, items } = cardMenu(card, view, me);
         openMenu(e, items, title);
       }}
-      onPointerEnter={() => useGame.getState().setHover(id)}
-      onPointerLeave={() => useGame.getState().setHover(null)}
+      {...hover(id)}
       title="Double-click to cast (adds commander tax)"
     >
       <GameCardFace card={card} />

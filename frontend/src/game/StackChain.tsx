@@ -5,10 +5,11 @@
  * rules engine's stack, so both read the same way.
  */
 import type { ReactNode } from "react";
-import { playerName, useGame } from "../state/gameStore";
+import { playerName } from "../state/gameStore";
 import { useCardCache } from "../state/cardCache";
 import { isVisible, type GameCard, type GameView } from "../types/game";
 import { GameCardFace } from "./GameCardFace";
+import { useHoverCard } from "./hoverCard";
 
 export function stackTypeLine(cardId: string | null | undefined): string {
   const data = cardId ? useCardCache.getState().cards[cardId] : undefined;
@@ -68,13 +69,13 @@ export function ChainRow({ entry, top, view, children, ...rest }: {
   const targets = (view.arrows ?? []).filter((a) => a.source === entry.id).flatMap((a) => a.targets);
   const info = visible ? c.stack_info : undefined;
   const count = entry.ids.length;
+  const hover = useHoverCard();
   return (
     <li
       className={`chain-row ${top ? "top" : ""}`}
       data-testid="stack-entry"
       data-card-id={entry.id}
-      onPointerEnter={() => useGame.getState().setHover(entry.id)}
-      onPointerLeave={() => useGame.getState().setHover(null)}
+      {...hover(entry.id)}
       {...rest}
     >
       <span className="chain-no" aria-label={count > 1 ? `Chain ${entry.no - count + 1} to ${entry.no}` : `Chain ${entry.no}`}>{entry.no}</span>

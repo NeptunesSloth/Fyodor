@@ -6,7 +6,7 @@
  * dims, targetable players light up on their plaque, and hovering (or Tab-ing to) a candidate draws the arrow from the
  * source to it. Display only: answers go through the same `choose` intent as the panel's buttons did.
  */
-import { memo, useEffect, useId, useLayoutEffect, useRef } from "react";
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useRef } from "react";
 import { useCardCache } from "../../state/cardCache";
 import { useGame } from "../../state/gameStore";
 import { usePrefs } from "../../state/prefs";
@@ -18,6 +18,7 @@ import { canSubmitChoice, doneLabel } from "../rules/RulesHud";
 import { pickNumber, useTargeting, type Pick } from "./store";
 import { progress, ptOf, step, traySeats, type Candidate, type Targeting } from "./targeting";
 import { TargetArrows } from "./TargetArrows";
+import { useHoverCard } from "../hoverCard";
 import "../targeting.css";
 
 const NONE: Pick[] = [];
@@ -35,6 +36,12 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
   const bar = useRef<HTMLElement>(null);
   const art = useRef<HTMLDivElement>(null);
   const tray = useRef<HTMLDivElement>(null);
+  // the source's art shows the card preview while hovered (and lets it go if the bar closes under the pointer)
+  const srcHover = useHoverCard()(t.source ?? "");
+  const artRef = useCallback((el: HTMLDivElement | null) => {
+    art.current = el;
+    return t.source ? srcHover.ref(el) : undefined;
+  }, [srcHover, t.source]);
   // a tray longer than the bar fades out at the edge it continues past
   useLayoutEffect(() => {
     const el = tray.current;
@@ -74,9 +81,8 @@ export function TargetingBar({ t, view, me }: { t: Targeting; view: GameView; me
       <section ref={bar} className="tgt-bar" data-testid="decision-panel" data-kind={d.kind} data-targeting="" data-dock={dock}
         aria-label={`${t.sourceName ? `${t.sourceName}: ` : ""}${t.instruction}`}
         onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") e.stopPropagation(); /* not the table's T/Space keys */ }}>
-        <div ref={art} className="tgt-source" data-tgt-origin="" aria-hidden
-          onPointerEnter={() => t.source && useGame.getState().setHover(t.source)}
-          onPointerLeave={() => t.source && useGame.getState().hover === t.source && useGame.getState().setHover(null)}>
+        <div ref={artRef} className="tgt-source" data-tgt-origin="" aria-hidden
+          {...(t.source ? { onPointerEnter: srcHover.onPointerEnter, onPointerLeave: srcHover.onPointerLeave } : {})}>
           {src ? <GameCardFace card={src} size="small" /> : <span className="tgt-source-none" />}
         </div>
         <div className="tgt-main">
@@ -154,11 +160,19 @@ const Thumb = memo(function Thumb({ decision, multi, max, opt, refId, kind, labe
   useEffect(() => {
     if (live && !self.current?.matches(":hover")) self.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [live]);
-  const hover = (on: boolean) => {
-    s().setHot(on ? refId : null);
-    if (kind !== "card") return;
-    if (on) useGame.getState().setHover(refId);
-    else if (useGame.getState().hover === refId) useGame.getState().setHover(null);
+  // a card candidate shows the card preview while hovered (and lets it go if the tray closes under the pointer)
+  const cardHover = useHoverCard()(refId);
+  const selfRef = useCallback((el: HTMLButtonElement | null) => {
+    self.current = el;
+    return kind === "card" ? cardHover.ref(el) : undefined;
+  }, [cardHover, kind]);
+  const enter = (e: React.PointerEvent<HTMLButtonElement>) => {
+    s().setHot(refId);
+    if (kind === "card") cardHover.onPointerEnter(e);
+  };
+  const leave = (e: React.PointerEvent<HTMLButtonElement>) => {
+    s().setHot(null);
+    if (kind === "card") cardHover.onPointerLeave(e);
   };
   const choose1 = () => {
     if (multi) s().toggle(decision, { opt, ref: refId }, max);
@@ -166,12 +180,12 @@ const Thumb = memo(function Thumb({ decision, multi, max, opt, refId, kind, labe
   };
   const shownNote = twins > 1 ? `${twins} alike` : note || (where && where !== "battlefield" ? (where === "stack" ? "on the stack" : `in ${where}`) : "");
   return (
-    <button ref={self} className="tgt-thumb" data-kind={kind} data-testid={`option-${opt}`} data-ref={refId}
+    <button ref={selfRef} className="tgt-thumb" data-kind={kind} data-testid={`option-${opt}`} data-ref={refId}
       data-tapped={card?.tapped ? "" : undefined} data-n={n || undefined} data-live={live ? "" : undefined}
       aria-label={label} aria-describedby={shownNote ? noteId : undefined} aria-pressed={multi ? n > 0 : undefined}
       title={note ? `${label} · ${note}` : label}
       onClick={choose1}
-      onPointerEnter={() => hover(true)} onPointerLeave={() => hover(false)}
+      onPointerEnter={enter} onPointerLeave={leave}
       onFocus={() => { s().setFocus(refId); if (kind === "card") useGame.getState().setHover(refId); }}
       onBlur={() => { s().setFocus(null); if (useGame.getState().hover === refId) useGame.getState().setHover(null); }}>
       <span className="tgt-art" aria-hidden>

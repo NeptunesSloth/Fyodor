@@ -177,7 +177,7 @@ body.targeting .t3d-seat[data-tgt="chosen"]::after { animation: none; opacity: 0
 /* a pile that holds a choice (a graveyard): ringed; its cards are in the tray */
 body.targeting [data-drop][data-tgt] { outline: 2px solid var(--frame-hi); outline-offset: 2px; border-radius: 6px; }
 
-/* the large preview opens away from the candidate it shows (targeting/preview.ts): over the stack panel if need be */
+/* the large preview (game/Hud.tsx, docked right; left while its card is under it): over the stack panel if need be */
 body.targeting .card-preview { z-index: 57; }
 
 /* ---------- the arrows (2D) ---------- */

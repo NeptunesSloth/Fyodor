@@ -612,14 +612,29 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
 
 
 /* ---------------------------------------------------------------- floating HUD */
+/* the large card preview (Hud.tsx CardPreview): docked right under the top bar, the stack pill and the camera strip; only
+   its close button takes the pointer, so the table under it still answers */
 .card-preview {
-  position: fixed; z-index: 40; top: 54px; width: 262px; pointer-events: none;
+  --preview-top: 96px;
+  position: fixed; z-index: 40; top: var(--preview-top); width: 262px; pointer-events: none;
   background: var(--hud-surface); border: 1px solid var(--hud-edge); border-radius: var(--room-radius);
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  animation: preview-in calc(120ms * var(--anim-scale, 1)) var(--ease-out);
 }
+@keyframes preview-in { from { opacity: 0; transform: translateY(-4px); } }
 .card-preview.right { right: 12px; }
 .card-preview.left { left: 12px; }
-.card-preview .inspector { border: 0; max-height: calc(100vh - 80px); }
+.card-preview .inspector { border: 0; max-height: calc(100vh - var(--preview-top) - 12px); }
+.card-preview-close {
+  position: absolute; top: -9px; right: -9px; z-index: 1; width: 24px; height: 24px; padding: 0; display: grid; place-items: center;
+  pointer-events: auto; cursor: pointer; border-radius: 50%; color: var(--room-bone-dim);
+  background: radial-gradient(circle at 35% 30%, #2d2822, #0d0b09 70%); border: 1px solid var(--frame);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 236, 200, 0.12);
+  transition: color var(--dur-hover) var(--ease-out), border-color var(--dur-hover) var(--ease-out);
+}
+.card-preview-close:hover { color: var(--accent-2); border-color: var(--frame-hi); }
+.card-preview-close:active { transform: translateY(1px); }
+.card-preview-close:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
 .card-preview .insp-image { width: 230px; }
 .stack-widget { position: fixed; z-index: 35; top: 52px; right: 12px; }
 .stack-widget.open { width: 300px; max-height: 50vh; display: flex; flex-direction: column; filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6)); }

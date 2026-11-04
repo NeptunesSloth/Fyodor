@@ -15,6 +15,7 @@ import { ChainRow, chainEntries } from "./StackChain";
 import { commanderKeyOf } from "./commanderDamage";
 import { DealtNote } from "./CommanderDamageViews";
 import { countMark } from "./piles";
+import { useHoverCard } from "./hoverCard";
 
 /** Large preview of whatever card is hovered (board, hand, log, browser). */
 export function Inspector() {
@@ -116,11 +117,12 @@ export function StackPanel({ me, onCollapse }: { me: string; onCollapse?: () => 
 }
 
 function Part({ part }: { part: LogPartView }) {
-  const setHover = useGame((s) => s.setHover);
+  const hoverCard = useHoverCard();
+  const hover = (printId: string | null | undefined) => (printId ? hoverCard(`print:${printId}`) : {});
   if ("t" in part) return <>{part.t}</>;
   if ("card" in part) {
     return (
-      <span className="log-card" onPointerEnter={() => part.card.card_id && setHover(`print:${part.card.card_id}`)} onPointerLeave={() => setHover(null)}>
+      <span className="log-card" {...hover(part.card.card_id)}>
         {part.card.name}
       </span>
     );
@@ -128,7 +130,7 @@ function Part({ part }: { part: LogPartView }) {
   const names = part.group;
   const hidden = part.hidden;
   const pieces: React.ReactNode[] = names.map((n, i) => (
-    <span key={i} className="log-card" onPointerEnter={() => n.card.card_id && setHover(`print:${n.card.card_id}`)} onPointerLeave={() => setHover(null)}>
+    <span key={i} className="log-card" {...hover(n.card.card_id)}>
       {n.card.name}
     </span>
   ));

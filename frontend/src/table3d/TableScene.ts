@@ -1519,11 +1519,16 @@ export class TableScene {
   }
 
   private setHover(id: string | null): void {
-    if (this.hovered === id) return;
-    this.hovered = id;
     const s = useGame.getState();
+    if (this.hovered === id) {
+      // -- card preview -- over empty table, any hover still showing goes: one a page element left behind (a hand card
+      // played, a stack entry resolved) as well as this table's own
+      if (!id && s.hover) s.setHover(null);
+      return;
+    }
+    this.hovered = id;
     if (id) s.setHover(id);
-    else if (s.hover && this.cards.has(s.hover)) s.setHover(null);
+    else if (s.hover) s.setHover(null);
     this.syncTethers();
     if (this.beams) this.syncCards(); // -- targeting -- the arrow follows the pointer from candidate to candidate
     this.canvas.style.cursor = id ? "pointer" : "";

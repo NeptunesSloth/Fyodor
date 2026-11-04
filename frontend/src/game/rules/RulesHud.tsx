@@ -25,6 +25,7 @@ import { useCardCache } from "../../state/cardCache";
 import { targetingOf } from "../targeting/targeting";
 import { TargetingBar } from "../targeting/TargetingBar";
 import { useTargeting } from "../targeting/store";
+import { useHoverCard } from "../hoverCard";
 
 function useRules() {
   const view = useGame((s) => s.view);
@@ -415,11 +416,12 @@ function PaymentPanel({ d, view }: { d: DecisionView; view: GameView }) {
     if (always) void setPrefs({ payment: "auto" });
     void choose(d.id, ["pay"]);
   };
+  const hover = useHoverCard();
   const thumbs = (ids: string[], picked: boolean) => ids.map((id) => {
     const c = view.cards[id];
     return c ? (
       <span key={id} className={`pay-thumb ${picked ? "picked" : ""}`} title={c.hidden ? "" : c.name}
-        onPointerEnter={() => useGame.getState().setHover(id)} onPointerLeave={() => useGame.getState().setHover(null)}>
+        {...hover(id)}>
         <GameCardFace card={c} size="small" />
       </span>
     ) : null;
@@ -470,7 +472,7 @@ function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
   const sources = info.sources.filter((id) => view.cards[id] && !view.cards[id]!.tapped);
   const helpers = (kind: "convoke" | "improvise" | "delve") => (info[kind] ?? []).filter((id) => view.cards[id]);
   const pool = Object.entries(info.pool ?? {}).filter(([, n]) => n > 0).map(([m, n]) => `{${m}}`.repeat(n)).join("");
-  const hover = (id: string | null) => useGame.getState().setHover(id);
+  const hover = useHoverCard();
   const helperRow = (kind: "convoke" | "improvise" | "delve", title: string) => {
     const ids = helpers(kind);
     if (!ids.length) return null;
@@ -482,7 +484,7 @@ function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
             <button key={id} className={`pay-thumb${committed.has(id) ? " picked" : ""}`} data-testid={`${kind}-${id}`}
               title={committed.has(id) ? "Paying part of the cost — click to take it back" : `Use for ${kind}`}
               onClick={() => (kind === "delve" ? delveCard(id) : payWith(id, kind))}
-              onPointerEnter={() => hover(id)} onPointerLeave={() => hover(null)}>
+              {...hover(id)}>
               <GameCardFace card={view.cards[id]!} size="small" />
             </button>
           ))}
@@ -517,7 +519,7 @@ function TapManaPanel({ d, view }: { d: DecisionView; view: GameView }) {
         <div className="pay-row alt">
           {sources.map((id) => (
             <button key={id} className="pay-thumb" title="Tap for mana" data-testid={`tap-source-${id}`}
-              onClick={() => tapForMana(id)} onPointerEnter={() => hover(id)} onPointerLeave={() => hover(null)}>
+              onClick={() => tapForMana(id)} {...hover(id)}>
               <GameCardFace card={view.cards[id]!} size="small" />
             </button>
           ))}
