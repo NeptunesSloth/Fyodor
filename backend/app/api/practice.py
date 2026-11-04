@@ -99,7 +99,8 @@ async def open_practice(game_id: str, body: PracticeIn, request: Request, servic
         settings = GameSettings(starting_life=state.settings.starting_life, deck_privacy="private", allow_test_objects=True,
                                 mulligan=resolve_policy("commander_london"))
         table = new_game([PlayerSetup(name=player.name, deck_name=setup.deck_name, cards=list(setup.cards), color=player.color)],
-                         name=f"Practice — {player.name}", format=state.format, settings=settings, shuffle=True)
+                         name=f"Practice — {player.name}", format=state.format, settings=settings, shuffle=True,
+                         related_tokens=services.related_tokens)
         session = GameSession(table, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
         session.notice("Practice table: only you see it. Nothing here reaches the live game.")
         practice = hub.create_practice(session, PracticeLink(live=live.id, seat=seat, game=live.night.number,

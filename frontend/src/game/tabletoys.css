@@ -130,6 +130,7 @@ body.reduced-motion .extras-panel { animation: none; }
 .extras-for { margin: -4px 0 10px; font-size: 12px; line-height: 1.3; color: var(--x-dim); }
 .extras-for.idle { color: var(--x-faint); }
 .bag-chips + .extras-for { margin-top: 12px; }
+.extras-empty { margin: -2px 0 12px; font-size: 13px; color: var(--x-dim); }
 
 /* a token: its printed card, lifted when you reach for it, the pull's count on its corner; name and P/T under it */
 .bag-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px 12px; }
@@ -160,7 +161,7 @@ body.reduced-motion .extras-panel { animation: none; }
 }
 .bag-tile:hover .bag-tile-count, .bag-tile:focus-visible .bag-tile-count { opacity: 1; transform: translateY(-4px); }
 .bag-tile-cap { display: flex; align-items: baseline; gap: 6px; min-width: 0; padding: 0 1px; font: 550 12.5px/1.25 var(--font-ui); }
-.bag-tile-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--x-text); }
+.bag-tile-name { flex: 1; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; color: var(--x-text); }
 .bag-tile-pt { flex: none; font-weight: 700; color: var(--x-dim); font-variant-numeric: tabular-nums; }
 /* a pull: its count rises off the card */
 .bag-tile-pulled {

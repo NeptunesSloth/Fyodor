@@ -191,7 +191,7 @@ def rematch(services: Services, room: Room) -> None:
     order, source, rolls = Night.plan(seats, winner)
     settings = old.settings.model_copy(deep=True)
     state = new_game([night.setups[pid] for pid in order], name=old.name, format=old.format, settings=settings,
-                     shuffle=True, first_player=0)
+                     shuffle=True, first_player=0, related_tokens=services.related_tokens)
     state.id = room.game_id  # the table keeps its address for the whole night
     if settings.automation != "off":
         start_rules(state)

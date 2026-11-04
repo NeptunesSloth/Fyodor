@@ -1,13 +1,13 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { findTokens, imageUrl, type TokenSpec } from "../services/cards";
+import { imageUrl } from "../services/cards";
 import { requestCards, useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import type { CardData } from "../types/cards";
 import { addCounter, changeResource, send } from "./actions";
 import { BagGlyph, CloseGlyph, CounterChipIcon, DieIcon, SearchGlyph, type CounterKind } from "./bagIcons";
-import { BAG_DICE, CARD_COUNTERS, COMMON_TOKENS, commonBesidesDeck, deckTokenIds, matchesToken, PLAYER_COUNTERS } from "./bags";
+import { BAG_DICE, CARD_COUNTERS, deckTokenIds, PLAYER_COUNTERS } from "./bags";
 import { keyLabel } from "./hotkeys";
 import { isOut } from "./outOfGame";
 import "./dice.css";
@@ -21,44 +21,6 @@ const BUTTON_CLEAR = 30;
 const COUNTER_LABEL: Record<string, string> = {
   "+1/+1": "+1/+1", "-1/-1": "−1/−1", loyalty: "Loyalty", charge: "Charge", shield: "Shield", stun: "Stun", energy: "Energy", experience: "Experience",
 };
-
-// -- the common tokens' printings ----------------------------------------------------------------------------------------
-
-/**
- * Found once a session: each common token's printing in the card database (POST /cards/tokens/find: the server picks one
- * whose picture is cached, else the newest paper printing; the picture is linked from Scryfall and cached the first time a
- * table shows it, app/cards/token_art.py).
- */
-let found: Record<string, CardData> = {};
-let finding: Promise<Record<string, CardData>> | null = null;
-
-function commonTokenPrintings(): Promise<Record<string, CardData>> {
-  finding ??= findTokens(COMMON_TOKENS.map((t) => t.token as unknown as TokenSpec)).then((cards) => {
-    const out: Record<string, CardData> = {};
-    COMMON_TOKENS.forEach((t, i) => {
-      const card = cards[i];
-      if (card && matchesToken(card, t)) out[t.id] = card;
-    });
-    useCardCache.getState().put(Object.values(out));
-    found = out;
-    if (!Object.keys(out).length) finding = null; // (no card database yet: ask again next time)
-    return out;
-  }, () => {
-    finding = null;
-    return found;
-  });
-  return finding;
-}
-
-function useCommonTokenPrintings(): Record<string, CardData> {
-  const [cards, setCards] = useState(found);
-  useEffect(() => {
-    let live = true;
-    void commonTokenPrintings().then((r) => live && setCards(r));
-    return () => { live = false; };
-  }, []);
-  return cards;
-}
 
 // -- tiles ------------------------------------------------------------------------------------------------------------
 
@@ -120,6 +82,17 @@ function TokenTile({ card, name, type, colors, pt, count, title, testId, onPull 
   );
 }
 
+/** Each deck token's test id: `extras-` and its name ("extras-treasure"), numbered from the second of a name on. */
+function tokenTestIds(names: string[]): string[] {
+  const seen = new Map<string, number>();
+  return names.map((n) => {
+    const slug = n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "token";
+    const k = (seen.get(slug) ?? 0) + 1;
+    seen.set(slug, k);
+    return k === 1 ? `extras-${slug}` : `extras-${slug}-${k}`;
+  });
+}
+
 /** A counter (or one of yours): its coloured chip with its name under it. */
 function CounterChip({ kind, label, disabled, title, onPull }: { kind: CounterKind; label: string; disabled?: boolean; title: string; onPull: () => void }) {
   return (
@@ -132,8 +105,8 @@ function CounterChip({ kind, label, disabled, title, onPull }: { kind: CounterKi
 
 /**
  * -- table toys -- the Bag of Extras, by your seat (a seat button on both tables, game/seatActions.ts): an infinite bag of
- * the common extras, opened where you clicked it. Your deck's tokens and the common ones (Treasure, Clue, Food, Blood,
- * 1/1s) as their printed cards, the search for any other token, counters for the selected cards and for you, and dice
+ * the extras, opened where you clicked it. Only the tokens your deck makes (game/bags.ts deckTokenIds), as their printed
+ * cards, and the search for any other token, counters for the selected cards and for you, and dice
  * (and the roll panel, for a coin, the dice cannon and any other dice). Pulling one out sends the table's ordinary action
  * (create a token, a counter, a resource, a roll): nothing new for the rules engine, and a player who is out of the game
  * has no bag (the server refuses their objects). It stays open to pull several; Esc, its close button or a click
@@ -147,7 +120,6 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
   const panel = useRef<HTMLDivElement>(null);
   const [count, setCount] = useState<number>(1);
   const [place, setPlace] = useState<CSSProperties>({ visibility: "hidden" });
-  const common = useCommonTokenPrintings();
   const related = (id: string) => cache[id]?.related_tokens?.map((t) => t.id);
   const deck = useMemo(() => (view ? deckTokenIds(view, me, related, (id) => cache[id]) : []), [view, me, cache]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => requestCards(deck), [deck]);
@@ -194,7 +166,7 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
   const seat = view.players.find((p) => p.id === me)?.color;
   const onTable = selection.filter((id) => view.cards[id]?.zone.endsWith(":battlefield"));
   const make = (token: Record<string, unknown>) => void send({ type: "create_token", player: me, token, count });
-  const commons = commonBesidesDeck(COMMON_TOKENS, common, deck.map((id) => cache[id]).filter((c): c is CardData => !!c));
+  const testIds = tokenTestIds(deck.map((id) => cache[id]?.name ?? id));
   const target = onTable.length === 1 ? "the selected card" : `${onTable.length} selected cards`;
   const diceKey = keyLabel("dice", keymap);
   // (on the page itself, so it stands over the table's floating layers, such as the dice results on the 2D table)
@@ -216,28 +188,16 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
       </header>
       <div className="extras-body">
         <div className="extras-tokens">
-          {deck.length > 0 && (
-            <section className="extras-group" aria-label="Your deck's tokens">
-              <h3 className="extras-group-head">Your deck's tokens</h3>
-              <div className="bag-tiles">
-                {deck.map((id) => {
-                  const card = cache[id];
-                  const pt = card?.power != null ? `${card.power}/${card.toughness}` : null;
-                  return <TokenTile key={id} card={card} name={card?.name ?? "…"} type={card?.type_line ?? "Token"} colors={card?.colors ?? []} pt={pt}
-                    count={count} title={card ? `${card.name} — ${card.type_line ?? ""}` : "Token"} onPull={() => make({ card_id: id })} />;
-                })}
-              </div>
-            </section>
-          )}
-          <section className="extras-group" aria-label="Common tokens">
-            <h3 className="extras-group-head">{deck.length ? "Common tokens" : "Tokens"}</h3>
+          <section className="extras-group" aria-label="Your deck's tokens">
+            <h3 className="extras-group-head">Your deck's tokens</h3>
+            {deck.length === 0 && <p className="extras-empty" data-testid="extras-no-tokens">Your deck makes no tokens.</p>}
             <div className="bag-tiles">
-              {commons.map((t) => {
-                const card = common[t.id];
-                return <TokenTile key={t.id} card={card} name={t.label} type={t.token.type_line as string} colors={(t.token.colors as string[] | undefined) ?? []}
-                  pt={t.pt} count={count} testId={`extras-${t.id}`}
-                  title={`${t.token.type_line as string}${t.token.text ? `: ${t.token.text as string}` : ""}`}
-                  onPull={() => make(card ? { card_id: card.id } : t.token)} />;
+              {deck.map((id, i) => {
+                const card = cache[id];
+                const pt = card?.power != null ? `${card.power}/${card.toughness}` : null;
+                return <TokenTile key={id} card={card} name={card?.name ?? "…"} type={card?.type_line ?? "Token"} colors={card?.colors ?? []} pt={pt}
+                  count={count} testId={testIds[i]} title={card ? `${card.name} — ${card.type_line ?? ""}${card.oracle_text ? `: ${card.oracle_text}` : ""}` : "Token"}
+                  onPull={() => make({ card_id: id })} />;
               })}
               <button type="button" className="bag-tile bag-find" onClick={() => useGame.getState().openDialog("tokens")} data-testid="extras-find-token"
                 title="Search every token in the card database, or make a custom one">

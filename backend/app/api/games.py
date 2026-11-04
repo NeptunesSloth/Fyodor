@@ -347,7 +347,8 @@ def create_game(body: CreateGameIn, request: Request, services: ServicesDep) -> 
                             # test objects: a hot-seat table (one person testing) and a Sandbox table (free play)
                             allow_test_objects=body.mode == "local" or body.format == "sandbox", automation=body.automation,
                             automation_options=AUTOMATION_PRESETS[body.automation].model_copy(), card_permissions=body.card_permissions)
-    state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first)
+    state = new_game(setups, name=body.name, format=body.format, settings=settings, shuffle=body.shuffle, first_player=first,
+                     related_tokens=services.related_tokens)
     if body.automation != "off":
         start_rules(state)
     session = GameSession(state, cards=services.cards, history_limit=services.settings.history_limit, rules=services.rules)
@@ -1210,6 +1211,7 @@ async def start_game(
             settings=settings,
             shuffle=body.shuffle,
             first_player=first,
+            related_tokens=services.related_tokens,
         )
         state.id = room.game_id  # same URL before and after the start
         if lobby.automation != "off":

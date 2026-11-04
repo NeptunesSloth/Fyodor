@@ -50,25 +50,6 @@ def cards_batch(body: BatchRequest, services: ServicesDep) -> dict[str, Any]:
     return services.cards.get_many(body.ids)
 
 
-class TokenSpec(BaseModel):
-    name: str = Field(min_length=1, max_length=80)
-    type_line: str = Field(min_length=1, max_length=120)
-    text: str | None = Field(default=None, max_length=600)
-    power: str | None = Field(default=None, max_length=8)
-    toughness: str | None = Field(default=None, max_length=8)
-    colors: list[str] = Field(default_factory=list, max_length=5)
-
-
-class TokenFindRequest(BaseModel):
-    tokens: list[TokenSpec] = Field(min_length=1, max_length=24)
-
-
-@router.post("/cards/tokens/find")
-def find_tokens(body: TokenFindRequest, services: ServicesDep) -> list[dict[str, Any] | None]:
-    """The printing to show for each token described (the Bag of Extras' common tokens), or null where the database has none."""
-    return [services.cards.find_token(t.model_dump()) for t in body.tokens]
-
-
 @router.get("/cards/{card_id}")
 def get_card(card_id: str, services: ServicesDep) -> dict[str, Any]:
     card = services.cards.get(card_id)

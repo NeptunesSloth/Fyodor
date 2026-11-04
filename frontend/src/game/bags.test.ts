@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { GameView } from "../types/game";
 import type { CardData } from "../types/cards";
-import { commonBesidesDeck, COMMON_TOKENS, deckTokenIds, inGame, matchesToken, numberChits, parseChits, playerChits, teamChits, tokenKey, uniqueTokens } from "./bags";
+import { deckTokenIds, inGame, numberChits, parseChits, playerChits, teamChits, tokenKey, uniqueTokens } from "./bags";
 import { outRefusal } from "./outOfGame";
 
 const view = (over: Partial<GameView> = {}) => ({
@@ -43,12 +43,6 @@ describe("the Bag of Extras (game/bags.ts)", () => {
     const related = (id: string) => ({ krenko: ["goblin-tok"], other: ["their-tok"] } as Record<string, string[]>)[id];
     expect(deckTokenIds(view(), "p1", related)).toEqual(["tok-a", "goblin-tok"]);
     expect(deckTokenIds(view(), "p2", related)).toEqual(["their-tok"]);
-  });
-
-  it("makes the predefined tokens with the rules text the server's rules use", () => {
-    const treasure = COMMON_TOKENS.find((t) => t.id === "treasure")!.token;
-    expect(treasure).toEqual({ name: "Treasure", type_line: "Token Artifact — Treasure", text: "{T}, Sacrifice this token: Add one mana of any color." });
-    expect(COMMON_TOKENS.filter((t) => t.pt === "1/1").every((t) => t.token.power === "1" && t.token.toughness === "1")).toBe(true);
   });
 
   it("is not for a player who is out (it makes objects), while the cannon and the draw bag stay theirs", () => {
@@ -101,34 +95,3 @@ describe("the Bag of Extras shows each token once (game/bags.ts uniqueTokens)", 
     expect(deckTokenIds(v, "p1", related, (id) => info[id])).toEqual(["c1", "b1"]);
   });
 });
-
-describe("the common tokens find their printing in the card database (matchesToken)", () => {
-  it("takes a printing with the same name, types, P/T, colours and rules text, and refuses a namesake that differs", () => {
-    const spirit = COMMON_TOKENS.find((t) => t.id === "spirit")!;
-    expect(matchesToken(tok("s", { name: "Spirit", type_line: "Token Creature — Spirit", colors: ["W"], oracle_text: "Flying", keywords: ["Flying"] }), spirit)).toBe(true);
-    expect(matchesToken(tok("s", { name: "Spirit", type_line: "Token Creature — Spirit", colors: ["W", "B"], oracle_text: "Flying" }), spirit)).toBe(false);
-    expect(matchesToken(tok("s", { name: "Spirit", type_line: "Token Creature — Spirit", colors: ["W"], oracle_text: "Flying", power: "2", toughness: "2" }), spirit)).toBe(false);
-    expect(matchesToken(tok("s", { name: "Spirit", type_line: "Token Creature — Spirit", colors: ["W"], oracle_text: "" }), spirit)).toBe(false);
-    const treasure = COMMON_TOKENS.find((t) => t.id === "treasure")!;
-    const printed = tok("t", { name: "Treasure", type_line: "Token Artifact — Treasure", power: null, toughness: null, colors: [],
-      oracle_text: "{T}, Sacrifice this token: Add one mana of any color." });
-    expect(matchesToken(printed, treasure)).toBe(true);
-    // reminder text in parentheses doesn't count
-    expect(matchesToken({ ...printed, oracle_text: "{T}, Sacrifice this token: Add one mana of any color. (It's an artifact.)" }, treasure)).toBe(true);
-  });
-});
-
-describe("the bag's common tokens leave out what my deck's list already shows (commonBesidesDeck)", () => {
-  it("drops the Goblin my deck makes (the same token by oracle id, or by name, P/T, types and colours when not found yet)", () => {
-    const goblin = tok("g1", { oracle_id: "goblin" });
-    const found = { goblin: tok("g9", { oracle_id: "goblin" }) };
-    expect(commonBesidesDeck(COMMON_TOKENS, found, [goblin]).map((t) => t.id)).not.toContain("goblin");
-    // not found in the database: the predefined token is compared by what it is
-    expect(commonBesidesDeck(COMMON_TOKENS, {}, [goblin]).map((t) => t.id)).not.toContain("goblin");
-    // a 2/2 black Goblin in the deck is another token: the common 1/1 red one stays
-    const other = tok("g2", { oracle_id: "goblin22", power: "2", toughness: "2", colors: ["B"] });
-    expect(commonBesidesDeck(COMMON_TOKENS, {}, [other]).map((t) => t.id)).toContain("goblin");
-    expect(commonBesidesDeck(COMMON_TOKENS, {}, [])).toHaveLength(COMMON_TOKENS.length);
-  });
-});
-

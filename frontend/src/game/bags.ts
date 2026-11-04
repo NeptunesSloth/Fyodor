@@ -2,9 +2,9 @@
  * -- table toys -- the bags (pure: unit-tested). Two kinds, as on Tabletop Simulator's tables (the reference study's "Table
  * of Doom" infinite bags), off the mats and opened on demand:
  *
- * - **The Bag of Extras** by your seat (a seat button, game/seatActions.ts): the tokens your deck makes (its Tokens section
- *   and the tokens its cards list), the common extras (Treasure, Clue, Food, Blood, 1/1s) as their printed cards, counters and dice. It is
- *   infinite: pulling one out sends the table's ordinary action (create a token, add a counter or a resource, roll), so
+ * - **The Bag of Extras** by your seat (a seat button, game/seatActions.ts): only the tokens your deck makes (its Tokens
+ *   section and the tokens its cards list, as the server found them when the game started), as their printed cards, the
+ *   search for any other token, counters and dice. It is infinite: pulling one out sends the table's ordinary action (create a token, add a counter or a resource, roll), so
  *   nothing new reaches the rules engine. A player who is out of the game makes no objects (game/outOfGame.ts).
  * - **The draw bag** (game/DrawBagPanel.tsx): the table fills it with chits (numbers, player names, teams, any words) and
  *   draws from it at random. Its contents live on the server only (app/game/handlers/toys.py); a view says how many.
@@ -12,35 +12,13 @@
 import type { CardData } from "../types/cards";
 import { isVisible, type GameView } from "../types/game";
 
-/** A token the Bag of Extras makes: a card from the database (`card_id`), or one defined here. */
-export interface ExtraToken {
-  id: string;
-  label: string;
-  /** P/T shown on the chip ("1/1"). */
-  pt?: string;
-  token: Record<string, unknown>;
-}
-
-/** The predefined tokens with their full rules text, as the server's rules create them (app/rules/scripts.py PREDEFINED_TOKENS). */
-export const COMMON_TOKENS: ExtraToken[] = [
-  { id: "treasure", label: "Treasure", token: { name: "Treasure", type_line: "Token Artifact — Treasure", text: "{T}, Sacrifice this token: Add one mana of any color." } },
-  { id: "clue", label: "Clue", token: { name: "Clue", type_line: "Token Artifact — Clue", text: "{2}, Sacrifice this token: Draw a card." } },
-  { id: "food", label: "Food", token: { name: "Food", type_line: "Token Artifact — Food", text: "{2}, {T}, Sacrifice this token: You gain 3 life." } },
-  { id: "blood", label: "Blood", token: { name: "Blood", type_line: "Token Artifact — Blood", text: "{1}, {T}, Discard a card, Sacrifice this token: Draw a card." } },
-  { id: "soldier", label: "Soldier", pt: "1/1", token: { name: "Soldier", power: "1", toughness: "1", colors: ["W"], type_line: "Token Creature — Soldier" } },
-  { id: "spirit", label: "Spirit", pt: "1/1", token: { name: "Spirit", power: "1", toughness: "1", colors: ["W"], type_line: "Token Creature — Spirit", text: "Flying" } },
-  { id: "goblin", label: "Goblin", pt: "1/1", token: { name: "Goblin", power: "1", toughness: "1", colors: ["R"], type_line: "Token Creature — Goblin" } },
-  { id: "saproling", label: "Saproling", pt: "1/1", token: { name: "Saproling", power: "1", toughness: "1", colors: ["G"], type_line: "Token Creature — Saproling" } },
-  { id: "thopter", label: "Thopter", pt: "1/1", token: { name: "Thopter", power: "1", toughness: "1", colors: [], type_line: "Token Artifact Creature — Thopter", text: "Flying" } },
-];
-
 /** Counters the bag hands out onto the selected cards, and your own player counters. */
 export const CARD_COUNTERS = ["+1/+1", "-1/-1", "loyalty", "charge", "shield", "stun"] as const;
 export const PLAYER_COUNTERS = ["energy", "experience"] as const;
 /** The dice in the bag (rolled with the table's own roll). */
 export const BAG_DICE = [4, 6, 8, 10, 12, 20] as const;
 /** Deck tokens shown at most. */
-export const DECK_TOKENS_MAX = 12;
+export const DECK_TOKENS_MAX = 30;
 
 /** What makes two token printings the same token: its oracle id, or (without one) its name, P/T, types and colours. */
 export function tokenKey(card: Pick<CardData, "oracle_id" | "name" | "power" | "toughness" | "type_line" | "colors">): string {
@@ -64,7 +42,8 @@ export function uniqueTokens(ids: string[], info: (id: string) => CardData | und
   return [...kept.values()];
 }
 
-/** The tokens `me`'s deck makes: its Tokens section, then those its visible cards list (as the Create tokens dialog suggests), each once. */
+/** The tokens `me`'s deck makes: its own list (its Tokens section and the tokens its cards make, found by the server at the start),
+ * then any more its visible cards list (a card taken from elsewhere), each token once. */
 export function deckTokenIds(view: Pick<GameView, "players" | "cards">, me: string, related: (cardId: string) => string[] | undefined,
   info: (id: string) => CardData | undefined = () => undefined): string[] {
   const ids = new Set<string>();
@@ -74,36 +53,6 @@ export function deckTokenIds(view: Pick<GameView, "players" | "cards">, me: stri
     for (const t of related(c.card_id) ?? []) ids.add(t);
   }
   return uniqueTokens([...ids], info).slice(0, DECK_TOKENS_MAX);
-}
-
-/**
- * The common tokens the bag shows besides my deck's own: one my deck's list already has (`deck`, its printings) is left
- * out. A common token found in the database (`found`) compares by its printing; one not found yet by what it is.
- */
-export function commonBesidesDeck(common: ExtraToken[], found: Record<string, CardData>, deck: CardData[]): ExtraToken[] {
-  const oracles = new Set(deck.map((c) => c.oracle_id).filter(Boolean));
-  const named = new Set(deck.map((c) => tokenKey({ ...c, oracle_id: "" })));
-  return common.filter((t) => {
-    const printing = found[t.id];
-    if (printing?.oracle_id && oracles.has(printing.oracle_id)) return false;
-    const spec = t.token as { name: string; type_line: string; power?: string; toughness?: string; colors?: string[] };
-    return !named.has(tokenKey({ oracle_id: "", name: spec.name, type_line: spec.type_line, power: spec.power ?? null, toughness: spec.toughness ?? null, colors: spec.colors ?? [] }));
-  });
-}
-
-/** Rules text without reminder text, spaces evened out. */
-const rulesText = (t: string | null | undefined) => (t ?? "").replace(/\([^()]*\)/g, "").replace(/\s+/g, " ").trim().toLowerCase();
-
-/**
- * Whether a printing from the card database is one of the bag's common tokens: the same name, types, P/T, colours and
- * rules text (reminder text aside). The bag shows its art and makes the token from it.
- */
-export function matchesToken(card: CardData, t: ExtraToken): boolean {
-  const want = t.token as { name: string; type_line: string; text?: string; power?: string; toughness?: string; colors?: string[] };
-  const same = (a: string[] | undefined, b: string[] | undefined) => [...(a ?? [])].sort().join("") === [...(b ?? [])].sort().join("");
-  return card.is_token && card.name.toLowerCase() === want.name.toLowerCase() && card.type_line === want.type_line
-    && (card.power ?? null) === (want.power ?? null) && (card.toughness ?? null) === (want.toughness ?? null)
-    && same(card.colors, want.colors) && rulesText(card.oracle_text) === rulesText(want.text);
 }
 
 // -- the draw bag -------------------------------------------------------------------------------------------------------
