@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fitName, NAME_ASC, NAME_CONDENSE, NAME_DESC, NAME_MIN_SCREEN, tileLook, tileMetrics, type TileLook } from "./tiles";
+import { fitName, NAME_ASC, NAME_DESC, NAME_MIN_SCREEN, nameScreenEm, tileLook, tileMetrics, type TileLook } from "./tiles";
 
 /** A canvas context's text measuring, roughly: each character 0.55 of the font size. */
 function fakeContext(): CanvasRenderingContext2D {
@@ -13,88 +13,58 @@ function fakeContext(): CanvasRenderingContext2D {
   return g as unknown as CanvasRenderingContext2D;
 }
 const font = (px: number) => `650 ${px}px Inter`;
-const width = (t: string, px: number) => t.length * px * 0.55 * NAME_CONDENSE;
+const width = (t: string, px: number) => t.length * px * 0.55;
+const NAMES = ["Sol Ring", "Goblin Chieftain", "Doubling Season", "Siege-Gang Commander", "Elesh Norn, Grand Cenobite"];
 
 describe("a tile's name", () => {
-  it("stays on one line at full size when it fits", () => {
-    const f = fitName(fakeContext(), "Sol Ring", 170, 200, font);
-    expect(f.lines).toEqual(["Sol Ring"]);
-    expect(f.px).toBe(23);
-  });
-
-  it("shrinks a little before it breaks", () => {
-    const f = fitName(fakeContext(), "Doubling Season", 170, 200, font);
-    expect(f.lines).toEqual(["Doubling Season"]);
-    expect(f.px).toBeLessThan(23);
-    expect(f.px).toBeGreaterThanOrEqual(18);
-  });
-
-  it("goes onto two lines, whole, rather than being cut short", () => {
-    for (const name of ["Siege-Gang Commander", "Atraxa, Praetors' Voice", "Elesh Norn, Grand Cenobite"]) {
-      const f = fitName(fakeContext(), name, 170, 200, font);
-      expect(f.lines.join(" "), name).toBe(name);
-      expect(f.lines, name).toHaveLength(2);
-    }
-  });
-
-  it("draws two lines inside the bar: the band holds both, nothing past its edges or the frame's ring", () => {
+  it("is one line at the look's size, whatever its length: a long one is cut short, never shrunk", () => {
     const W = 320;
-    const maxW = W * 0.9;
-    for (const look of [{ stretch: 1, min: 0.05 }, { stretch: 2.2, min: 0.05 }, { stretch: 1.6, min: 0.045 }] as TileLook[]) {
-      const f = fitName(fakeContext(), "Elesh Norn, Grand Cenobite", maxW, W, font, look);
-      const { bar } = tileMetrics(W, look);
-      const ring = Math.max(3, W * 0.03);
-      const em = f.px * look.stretch;
-      expect(f.lines).toHaveLength(2);
-      expect(bar - ring).toBeGreaterThanOrEqual(2 * (NAME_ASC + NAME_DESC) * em);
-      f.lines.forEach((line, i) => {
-        expect(f.base[i]! - NAME_ASC * em, `line ${i} top`).toBeGreaterThanOrEqual(ring);
-        expect(f.base[i]! + NAME_DESC * em, `line ${i} foot`).toBeLessThanOrEqual(bar);
-        expect(width(line, f.px)).toBeLessThanOrEqual(maxW);
-      });
-      // the second line starts below the first one's descenders
-      expect(f.base[1]! - NAME_ASC * em).toBeGreaterThanOrEqual(f.base[0]! + NAME_DESC * em);
-    }
-  });
-
-  it("keeps a one-line name inside the bar too", () => {
-    const W = 320;
-    for (const look of [{ stretch: 1, min: 0.05 }, { stretch: 2.2, min: 0.1 }] as TileLook[]) {
-      const f = fitName(fakeContext(), "Forest", W * 0.9, W, font, look);
-      const em = f.px * look.stretch;
-      expect(f.base[0]! - NAME_ASC * em).toBeGreaterThanOrEqual(Math.max(3, W * 0.03));
-      expect(f.base[0]! + NAME_DESC * em).toBeLessThanOrEqual(tileMetrics(W, look).bar);
-    }
-  });
-
-  it("on a small tile, one shorter line at a readable size rather than tiny text", () => {
-    const W = 320;
-    const screenW = 93; // a tile at 1280 × 640
-    const look = tileLook(screenW, 0.46);
-    for (const name of ["Doubling Season", "Siege-Gang Commander", "Elesh Norn, Grand Cenobite"]) {
+    const look: TileLook = { stretch: 2.2, em: 0.11 };
+    for (const name of NAMES) {
       const f = fitName(fakeContext(), name, W * 0.9, W, font, look);
-      expect(f.lines, name).toHaveLength(1);
-      // as seen: the em is at least the minimum
-      expect((f.px / W) * screenW, name).toBeGreaterThanOrEqual(NAME_MIN_SCREEN);
-      expect(width(f.lines[0]!, f.px), name).toBeLessThanOrEqual(W * 0.9);
+      expect(f.px, name).toBe(Math.round(0.11 * W));
+      expect(width(f.line, f.px), name).toBeLessThanOrEqual(W * 0.9);
+      if (width(name, f.px) <= W * 0.9) expect(f.line).toBe(name);
+      else expect(f.line.endsWith("…"), name).toBe(true);
     }
-    expect(fitName(fakeContext(), "Elesh Norn, Grand Cenobite", W * 0.9, W, font, look).lines[0]!.endsWith("…")).toBe(true);
   });
 
-  it("cuts short only a name that can't fit even on two lines", () => {
-    const f = fitName(fakeContext(), "Supercalifragilisticexpialidociousnesses", 170, 200, font);
-    expect(f.lines).toHaveLength(1);
-    expect(f.lines[0]!.endsWith("…")).toBe(true);
+  it("lies inside the bar: under the frame's ring, above the bar's foot", () => {
+    const W = 320;
+    for (const look of [{ stretch: 1, em: 0.1 }, { stretch: 2.2, em: 0.11 }, { stretch: 1.6, em: 0.08 }] as TileLook[]) {
+      const f = fitName(fakeContext(), "Kalonian Hydra", W * 0.9, W, font, look);
+      const em = f.px * look.stretch;
+      expect(f.base - NAME_ASC * em).toBeGreaterThanOrEqual(Math.max(3, W * 0.03));
+      expect(f.base + NAME_DESC * em).toBeLessThanOrEqual(tileMetrics(W, look).bar);
+    }
   });
 
-  it("is drawn tall for a table seen at a slant, and never smaller than the minimum on screen", () => {
+  it("is the same size on screen on every tile of a seat view, large tiles and small", () => {
+    const squash = 0.46; // the duel's seat view
+    for (const ppu of [45, 60, 100]) {
+      const screenEm = nameScreenEm(ppu);
+      for (const tileW of [0.9, 1.2, 1.55, 1.9]) {
+        const screenW = tileW * ppu;
+        const look = tileLook(screenW, squash, screenEm);
+        const f = fitName(fakeContext(), "Goblin King", 288, 320, font, look);
+        // as seen: within a pixel of the view's size (rounded to steps), unless the tile is too small for its band
+        if (look.em * screenW >= screenEm - 1) expect(Math.abs((f.px / 320) * screenW - screenEm)).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it("never smaller than the minimum on screen, larger on a larger screen", () => {
+    expect(nameScreenEm(40)).toBe(NAME_MIN_SCREEN);
+    expect(nameScreenEm(100)).toBeGreaterThan(NAME_MIN_SCREEN);
+    expect(nameScreenEm(1000)).toBeLessThanOrEqual(14);
+  });
+
+  it("is drawn tall for a table seen at a slant; the band stays a modest share of the tile", () => {
     expect(tileLook(140, 0.46).stretch).toBe(2.2); // the duel's seat view
     expect(tileLook(140, 0.58).stretch).toBe(1.8); // a portrait screen's (steeper)
     expect(tileLook(140, 0.93).stretch).toBe(1); // four players' (nearly from above)
-    expect(tileLook(93, 0.46).min).toBeGreaterThan(tileLook(140, 0.46).min);
-    expect(tileLook(10, 0.46).min).toBeLessThanOrEqual(0.115); // capped at the full size
-    // a large tile (zoomed in, few cards): two whole lines rather than one cut short
-    const big = fitName(fakeContext(), "Elesh Norn, Grand Cenobite", 288, 320, font, tileLook(260, 0.46));
-    expect(big.lines.join(" ")).toBe("Elesh Norn, Grand Cenobite");
+    // a tiny tile: its band capped (its name smaller than the others')
+    const tiny = tileLook(40, 0.46, 10);
+    expect(tileMetrics(320, tiny).bar).toBeLessThanOrEqual(320 * 0.34);
   });
 });

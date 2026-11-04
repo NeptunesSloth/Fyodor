@@ -67,97 +67,70 @@ function clip(g: CanvasRenderingContext2D, text: string, maxW: number): string {
 
 /**
  * How a tile's name is drawn for the view it's seen in (part of its texture's key): `stretch`, drawn that much taller
- * than wide, since the table is seen at a slant and the name should read upright; `min`, the smallest it may be drawn
- * (a fraction of the tile's width), so it is never tiny on screen. A smaller tile gets one shorter line, cut short with
- * an ellipsis, rather than tiny text (the full name is a hover away).
+ * than wide, since the table is seen at a slant and the name should read upright; `em`, its size as a fraction of the
+ * tile's width, chosen so every tile's name is the same size on screen in that view (a name too long for its tile is
+ * cut short with an ellipsis, never shrunk: the full name is a hover away).
  */
 export interface TileLook {
   stretch: number;
-  min: number;
+  em: number;
 }
-/** Seen from above, on a tile about 200 px wide (the default). */
-export const FLAT_LOOK: TileLook = { stretch: 1, min: 0.05 };
-/** The name's largest size, and the smallest one line shrinks to before it splits in two (fractions of the width). */
-const NAME_FULL = 0.115;
-const NAME_ONE = 0.09;
-/** The name's letters are drawn this narrow (a condensed face, as Arena's): more of a long name fits. */
-export const NAME_CONDENSE = 0.9;
+/** Seen from above, on a tile about 120 px wide (the default). */
+export const FLAT_LOOK: TileLook = { stretch: 1, em: 0.1 };
 /** A line's glyphs, above its baseline (capitals, accents) and below it (descenders), in ems. */
 export const NAME_ASC = 0.78;
 export const NAME_DESC = 0.24;
-/** The smallest a name's em may be on screen (CSS px, its height as seen): a capital stays about 7.5 px tall. */
+/** The name bar's text band, as drawn, at most this share of the tile's width (a tiny tile's name is smaller). */
+const BAND_MAX = 0.26;
+/** The smallest the names' em is on screen in a seat view (CSS px): a capital about 7.5 px tall. */
 export const NAME_MIN_SCREEN = 10;
+const NAME_MAX_SCREEN = 14;
 
 /**
- * The look for a tile `screenW` CSS px wide in the seat view, on a table whose depth is seen foreshortened to `squash`
- * of its width there. Rounded to a few steps, so the textures don't change with every pixel of a window's resize.
+ * The names' size on screen (CSS px per em) for a seat view whose table is `ppu` CSS px per world unit across: one size
+ * for every tile, larger on a larger screen.
  */
-export function tileLook(screenW: number, squash: number): TileLook {
-  const stretch = Math.min(2.2, Math.max(1, Math.round((1 / Math.max(0.3, squash)) * 5) / 5));
-  // (1% steps; at 5% or less a tile is large enough for anything, two lines included)
-  const min = Math.min(NAME_FULL, Math.max(0.05, Math.ceil((NAME_MIN_SCREEN / Math.max(1, screenW)) * 100) / 100));
-  return { stretch, min };
+export function nameScreenEm(ppu: number): number {
+  return Math.min(NAME_MAX_SCREEN, Math.max(NAME_MIN_SCREEN, Math.round(ppu * 0.13)));
 }
 
-/** The name bar's height on a tile W px wide, and the band inside it the name's lines are drawn in. */
+/**
+ * The look for a tile `screenW` CSS px wide in the seat view, its name `screenEm` CSS px per em there, on a table whose
+ * depth is seen foreshortened to `squash` of its width. Rounded to a few steps, so the textures don't change with every
+ * pixel of a window's resize.
+ */
+export function tileLook(screenW: number, squash: number, screenEm = NAME_MIN_SCREEN): TileLook {
+  const stretch = Math.min(2.2, Math.max(1, Math.round((1 / Math.max(0.3, squash)) * 5) / 5));
+  const most = BAND_MAX / (stretch * (NAME_ASC + NAME_DESC));
+  const em = Math.min(most, Math.max(0.05, Math.round((screenEm / Math.max(1, screenW)) * 200) / 200));
+  return { stretch, em };
+}
+
+/** The name bar's height on a tile W px wide, and the band inside it the name is drawn in. */
 function nameBand(W: number, look: TileLook): { bar: number; top: number; inner: number } {
   const top = Math.max(3, W * 0.03) + W * 0.015; // under the frame's ring
-  const inner = W * NAME_FULL * look.stretch * (NAME_ASC + NAME_DESC);
+  const inner = W * look.em * look.stretch * (NAME_ASC + NAME_DESC);
   return { bar: top + inner + W * 0.025, top, inner };
 }
 
-/** A tile's name fitted to its bar: the lines, their size (canvas px) and each line's baseline (canvas px). */
+/** A tile's name fitted to its bar: the line, its size (canvas px) and its baseline (canvas px). */
 export interface NameFit {
-  lines: string[];
+  line: string;
   px: number;
-  base: number[];
+  base: number;
 }
 
 /**
- * A tile's name, fitted to the bar: one line, shrunk as far as NAME_ONE of the width; else, when two lines would still
- * be at least `look.min`, two lines broken where they come out most even; else one line shrunk to `look.min` and then
- * cut short. Every line's glyphs lie inside the bar's band (under the frame's ring, above the bar's foot).
+ * A tile's name on its bar: one line at the look's size, cut short with an ellipsis when it is wider than `maxW`. Its
+ * glyphs lie inside the bar's band (under the frame's ring, above the bar's foot).
  */
 export function fitName(g: CanvasRenderingContext2D, text: string, maxW: number, W: number, font: (px: number) => string, look: TileLook = FLAT_LOOK): NameFit {
   const { top, inner } = nameBand(W, look);
-  const s = look.stretch;
-  const min = Math.min(Math.round(W * NAME_FULL), Math.ceil(look.min * W));
-  const fits = (t: string) => g.measureText(t).width * NAME_CONDENSE <= maxW;
-  // a glyph box centred at y has its baseline this far below y
-  const baseAt = (y: number, px: number) => y + ((NAME_ASC - NAME_DESC) / 2) * px * s;
-  const one = (line: string, px: number): NameFit => ({ lines: [line], px, base: [baseAt(top + inner / 2, px)] });
-  const full = Math.round(W * NAME_FULL);
-  const floor = Math.max(min, Math.round(W * NAME_ONE));
-  for (let px = full; px >= floor; px--) {
-    g.font = font(px);
-    if (fits(text)) return one(text, px);
-  }
-  // two lines, each a little under half the band, with a hairline between them
-  const gap = 0.06;
-  const px2 = Math.floor(inner / (s * (2 * (NAME_ASC + NAME_DESC) + gap)));
-  const words = text.split(" ");
-  if (words.length > 1 && px2 >= min) {
-    g.font = font(px2);
-    let best: [string, string, number] | null = null;
-    for (let i = 1; i < words.length; i++) {
-      const a = words.slice(0, i).join(" ");
-      const b = words.slice(i).join(" ");
-      const w = Math.max(g.measureText(a).width, g.measureText(b).width);
-      if (!best || w < best[2]) best = [a, b, w];
-    }
-    const [a, b] = best!;
-    const step = px2 * s * (NAME_ASC + NAME_DESC + gap);
-    const mid = top + inner / 2;
-    return { lines: [clip(g, a, maxW / NAME_CONDENSE), clip(g, b, maxW / NAME_CONDENSE)], px: px2, base: [baseAt(mid - step / 2, px2), baseAt(mid + step / 2, px2)] };
-  }
-  // one shorter line: shrunk as far as it may be, then cut short
-  for (let px = floor - 1; px >= min; px--) {
-    g.font = font(px);
-    if (fits(text)) return one(text, px);
-  }
-  const px = Math.min(floor, Math.max(min, 1));
+  const px = Math.max(1, Math.round(look.em * W));
   g.font = font(px);
-  return one(clip(g, text, maxW / NAME_CONDENSE), px);
+  // the glyph box centred in the band: its baseline this far below the middle
+  const base = top + inner / 2 + ((NAME_ASC - NAME_DESC) / 2) * px * look.stretch;
+  return { line: clip(g, text, maxW), px, base };
 }
 
 const paths = new Map<string, Path2D>();
@@ -264,16 +237,16 @@ function drawTile(c: HTMLCanvasElement, spec: TileSpec, img: HTMLImageElement | 
   const cy = top + inner / 2;
   if (spec.commander) {
     // the crown, as tall as a capital (drawn tall with the name)
-    const k = (W * NAME_FULL * 0.95) / 24;
+    const k = (W * look.em * 0.95) / 24;
     g.save();
     g.translate(x - 2 * k, cy - 13 * k * s);
     g.scale(k, k * s);
     g.fillStyle = BRASS;
     g.fill(path(CROWN));
     g.restore();
-    x += W * NAME_FULL * 0.95;
+    x += W * look.em * 0.95;
   } else if (spec.token) {
-    const rr = W * NAME_FULL * 0.36;
+    const rr = W * look.em * 0.36;
     g.beginPath();
     g.ellipse(x + rr, cy, rr, rr * s, 0, 0, Math.PI * 2);
     g.lineWidth = Math.max(2, W * 0.012);
@@ -287,15 +260,12 @@ function drawTile(c: HTMLCanvasElement, spec: TileSpec, img: HTMLImageElement | 
   g.textBaseline = "alphabetic";
   g.shadowColor = "rgba(0, 0, 0, 0.8)";
   g.shadowOffsetY = 1;
-  // the whole name when it fits (else one line cut short), condensed and drawn tall: the table is seen at a slant, so
-  // it reads upright (as the pile labels do)
-  name.lines.forEach((line, i) => {
-    g.save();
-    g.translate(x, name.base[i]!);
-    g.scale(NAME_CONDENSE, s);
-    g.fillText(line, 0, 0);
-    g.restore();
-  });
+  // drawn tall: the table is seen at a slant, so it reads upright (as the pile labels do)
+  g.save();
+  g.translate(x, name.base);
+  g.scale(1, s);
+  g.fillText(name.line, 0, 0);
+  g.restore();
   g.shadowColor = "transparent";
   g.shadowOffsetY = 0;
   // power and toughness on a parchment plate, as on the proxy card

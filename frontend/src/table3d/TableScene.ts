@@ -63,7 +63,7 @@ import { handFan, showsFan } from "./handFan";
 import { whenProxyFontsReady } from "../cards/proxyMeasure";
 import { backCanvas, canvasTexture, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotStretch, slotTexture, textCardTexture } from "./textures";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
-import { FLAT_LOOK, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
+import { FLAT_LOOK, nameScreenEm, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
 import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
 import { boardOrder, saveBoardOrder } from "../game/arrange";
 import { useBoardOrderTick } from "../game/arrangeDrop";
@@ -932,13 +932,13 @@ export class TableScene {
 
   /**
    * -- arranged boards -- how a tile's name is drawn (table3d/tiles.ts): tall enough to read upright at the seat view's
-   * slant, and never smaller on screen than a set minimum, for that tile's size in the seat view (measured once per
-   * screen and seating, not as the player moves the camera).
+   * slant, and the same size on screen on every tile in the seat view (measured once per screen and seating, not as
+   * the player moves the camera).
    */
   private tileLookFor(id: string): TileLook {
     const spot = this.placed.get(id);
     const tv = this.tileView();
-    return spot && tv ? tileLook(spot.w * tv.ppu, tv.squash) : FLAT_LOOK;
+    return spot && tv ? tileLook(spot.w * tv.ppu, tv.squash, nameScreenEm(tv.ppu)) : FLAT_LOOK;
   }
   private tileViewKey = "";
   private tileViewVal: { ppu: number; squash: number } | null = null;
@@ -998,7 +998,7 @@ export class TableScene {
     if (this.placed.has(card.id)) {
       const t = card.card_id ? "" : JSON.stringify([card.token?.type_line, card.token?.power, card.token?.toughness, card.token?.colors]);
       const l = this.tileLookFor(card.id);
-      return `tile:${card.card_id ?? card.name}:${card.face}:${look}:${card.commander_key ? 1 : 0}:${card.is_token ? 1 : 0}:${l.stretch}:${l.min}:${t}${card.tapped ? "|tapped" : ""}`;
+      return `tile:${card.card_id ?? card.name}:${card.face}:${look}:${card.commander_key ? 1 : 0}:${card.is_token ? 1 : 0}:${l.stretch}:${l.em}:${t}${card.tapped ? "|tapped" : ""}`;
     }
     return `front:${card.card_id ?? card.name}:${card.face}:${look}`;
   }
