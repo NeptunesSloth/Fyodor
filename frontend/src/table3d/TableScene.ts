@@ -1635,6 +1635,7 @@ export class TableScene {
     on("pointermove", (e) => this.onMove(e));
     on("pointerup", (e) => this.onUp(e));
     on("pointerleave", () => this.setHover(null));
+    on("pointerleave", () => this.props.hoverHeart(null, undefined));
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || !this.drag?.active) return;
       // Esc puts dragged cards back where they were; nothing is sent
@@ -1819,10 +1820,11 @@ export class TableScene {
     this.setHover(hit?.card ?? null);
     this.hoveredButton = hit?.seatButton ?? null;
     this.props.hover(this.hoveredButton);
+    this.props.hoverHeart(hit?.heart ?? null, hit?.side); // the heart's − or + half under the pointer lights up
     const taxOf = hit?.tax ? this.view?.players.flatMap((p) => p.commanders).find((c) => c.key === hit.tax) : undefined;
     const dealt = taxOf && this.view ? dealtText(commanderDealt(this.view.players, taxOf.key)) : "";
     const tip = taxOf ? `Commander tax for ${taxOf.name}: ${taxOf.tax} (click +2, right-click −2)${dealt ? `\nCommander damage dealt: ${dealt}` : ""}` : hit?.seatButton ? SEAT_ACTIONS.find((a) => a.id === hit.seatButton)?.title
-      : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life: click ▼ −1 or ▲ +1, right-click for 5, or the wheel` : "";
+      : hit?.heart ? `${this.view?.players.find((p) => p.id === hit.heart)?.name ?? ""}'s life: click − to lose 1 or + to gain 1, right-click for 5, or the wheel` : "";
     if (this.canvas.title !== (tip ?? "")) this.canvas.title = tip ?? "";
     this.canvas.style.cursor = hit?.seatButton || hit?.heart || hit?.tax ? "pointer" : "";
   }

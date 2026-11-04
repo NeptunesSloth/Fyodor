@@ -53,29 +53,44 @@ function counterHandlers(bump: (d: number) => void) {
 
 const sign = (n: number) => (n > 0 ? `+${n}` : `${n}`);
 
+/** The heart's outline (a 64 × 58 box). */
+const HEART_D = "M32 55 C14 42 3 31 3 18 C3 9 10 3 18 3 C24 3 29 6 32 11 C35 6 40 3 46 3 C54 3 61 9 61 18 C61 31 50 42 32 55 Z";
+
 /** The scripted tables' heart: the life total itself is the control. */
 function LifeHeart({ player, name, life, testId, readOnly }: { player: string; name: string; life: number; testId: string; readOnly: boolean }) {
   const [pending, bump] = useBatched((d) => void changeLife(player, d));
-  // the Oops heart: its left half (▼) takes life away, its right half (▲) gives it; right-click for 5
+  // the Oops heart: its left half (−) takes life away, its right half (+) gives it; right-click for 5
   const half = (e: React.MouseEvent) => {
     const r = e.currentTarget.getBoundingClientRect();
     return e.clientX < r.left + r.width / 2 ? -1 : 1;
   };
   const keys = counterHandlers(bump);
+  // the half under the pointer lights up, so you see which way a click goes
+  const [hot, setHot] = useState<-1 | 0 | 1>(0);
   const control = readOnly
     ? { disabled: true, "aria-label": `${name}: ${life} life`, title: "Life" } // -- out of the game -- the total, not a control
     : {
       "aria-label": `${name}: ${life + pending} life. Click the left half to lose 1 or the right half to gain 1 (right-click: 5)`,
-      title: "Life: click ▼ −1 or ▲ +1, right-click for 5, the wheel, or ↑/↓",
+      title: "Life: click − to lose 1 or + to gain 1, right-click for 5, the wheel, or ↑/↓",
+      onPointerMove: (e: React.PointerEvent) => setHot(half(e)),
+      onPointerLeave: () => setHot(0),
       onClick: (e: React.MouseEvent) => { e.stopPropagation(); bump(half(e) * (e.shiftKey ? 5 : 1)); },
       onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); bump(half(e) * 5); },
       onWheel: keys.onWheel, onKeyDown: keys.onKeyDown, onPointerDown: keys.onPointerDown,
     };
   return (
-    <button className={`seat-heart ${life + pending <= 0 ? "dead" : ""}`} data-testid={`heart-${player}`} {...control}>
+    <button className={`seat-heart ${life + pending <= 0 ? "dead" : ""} ${readOnly ? "" : hot === -1 ? "hot-minus" : hot === 1 ? "hot-plus" : ""}`} data-testid={`heart-${player}`} {...control}>
       <svg viewBox="0 0 64 58" aria-hidden className="seat-heart-shape">
-        <path d="M32 55 C14 42 3 31 3 18 C3 9 10 3 18 3 C24 3 29 6 32 11 C35 6 40 3 46 3 C54 3 61 9 61 18 C61 31 50 42 32 55 Z" />
-        <path className="seat-heart-tri" d="M9 22h6l-3 4z M49 26h6l-3-4z" />
+        <path className="seat-heart-fill" d={HEART_D} />
+        {!readOnly && <>
+          <path className="seat-heart-half minus" d="M32 11 C29 6 24 3 18 3 C10 3 3 9 3 18 C3 31 14 42 32 55 Z" />
+          <path className="seat-heart-half plus" d="M32 11 C35 6 40 3 46 3 C54 3 61 9 61 18 C61 31 50 42 32 55 Z" />
+        </>}
+        <path className="seat-heart-edge" d={HEART_D} />
+        {!readOnly && <>
+          <path className="seat-heart-sign-under" d="M11 15.5h10 M43 15.5h10 M48 10.5v10" />
+          <path className="seat-heart-sign" d="M11 15.5h10 M43 15.5h10 M48 10.5v10" />
+        </>}
       </svg>
       <span className="seat-heart-n" data-testid={testId}>{life + pending}</span>
       {pending !== 0 && <span className={`seat-pending ${pending > 0 ? "up" : "down"}`} aria-hidden>{sign(pending)}</span>}

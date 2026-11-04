@@ -36,7 +36,18 @@ function heartPath(): Path2D {
   return p;
 }
 
-function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pending: number): void {
+/** A bar of the −/+ glyphs: a rounded rectangle centred on (x, y). */
+function bar(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+  g.beginPath();
+  g.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
+}
+
+/**
+ * The Oops heart, drawn for the table: black, edged thick in the seat's colour, the life total big in its lower
+ * middle, and its two halves the controls: a large white − on the left lobe over a dark red half, a large white + on
+ * the right over a dark green one, each outlined dark so it reads on any table. `hot`: the half under the pointer, lit.
+ */
+function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pending: number, hot: -1 | 0 | 1 = 0): void {
   const g = canvas.getContext("2d")!;
   g.clearRect(0, 0, canvas.width, canvas.height);
   g.save();
@@ -44,26 +55,48 @@ function drawHeart(canvas: HTMLCanvasElement, color: string, life: number, pendi
   const heart = heartPath();
   g.fillStyle = "#050505";
   g.fill(heart);
+  // the halves: − loses life (left), + gains it (right); the one under the pointer lights up
+  g.save();
+  g.clip(heart);
+  g.fillStyle = hot === -1 ? "rgba(178, 52, 40, 0.62)" : "rgba(120, 30, 24, 0.34)";
+  g.fillRect(0, 0, 128, 232);
+  g.fillStyle = hot === 1 ? "rgba(52, 150, 78, 0.6)" : "rgba(26, 96, 48, 0.34)";
+  g.fillRect(128, 0, 128, 232);
+  g.fillStyle = "rgba(0, 0, 0, 0.55)";
+  g.fillRect(126.5, 0, 3, 232);
+  g.restore();
   g.lineJoin = "round";
   g.lineWidth = 15;
   g.strokeStyle = color;
   g.stroke(heart);
+  // − and +: white bars with a dark outline, in the lobes above the number
+  const glyphs = (w: number, h: number) => {
+    bar(g, 64, 64, w, h);
+    g.fill();
+    bar(g, 192, 64, w, h);
+    g.fill();
+    bar(g, 192, 64, h, w);
+    g.fill();
+  };
+  g.fillStyle = "rgba(0, 0, 0, 0.9)";
+  glyphs(56, 20);
+  g.fillStyle = "#f6f1e6";
+  glyphs(46, 11);
   g.textAlign = "center";
   g.textBaseline = "middle";
   const n = String(life + pending);
-  g.fillStyle = life + pending <= 0 ? "#ff8a7a" : "#e6e2da";
-  g.font = `700 ${n.length > 2 ? 64 : 84}px Inter, "Helvetica Neue", Arial, sans-serif`;
-  g.fillText(n, 128, 104);
-  // ▼ and ▲: the halves you click
-  g.fillStyle = "#8e8a84";
-  g.beginPath();
-  g.moveTo(40, 98); g.lineTo(60, 98); g.lineTo(50, 112); g.closePath();
-  g.moveTo(196, 112); g.lineTo(216, 112); g.lineTo(206, 98); g.closePath();
-  g.fill();
+  g.fillStyle = life + pending <= 0 ? "#ff8a7a" : "#f1ece2";
+  g.font = `700 ${n.length > 2 ? 54 : 68}px "Inter Variable", Inter, Arial, sans-serif`;
+  g.lineJoin = "round";
+  g.lineWidth = 8;
+  g.strokeStyle = "rgba(0, 0, 0, 0.85)";
+  g.strokeText(n, 128, 140);
+  g.fillText(n, 128, 140);
   if (pending) {
-    g.font = "800 34px Inter, Arial, sans-serif";
+    g.font = '800 30px "Inter Variable", Inter, Arial, sans-serif';
     g.fillStyle = pending > 0 ? "#9ee68a" : "#ff9a8a";
-    g.fillText(pending > 0 ? `+${pending}` : `${pending}`, 128, 160);
+    g.strokeText(pending > 0 ? `+${pending}` : `${pending}`, 128, 188);
+    g.fillText(pending > 0 ? `+${pending}` : `${pending}`, 128, 188);
   }
   g.restore();
 }
@@ -108,6 +141,8 @@ interface Tax { mesh: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTe
 
 interface Heart {
   group: THREE.Group; face: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; color: string; shown: string;
+  /** The half under the pointer (−1 the − half, 1 the + half), lit. */
+  hot: -1 | 0 | 1;
   /** -- table motion -- the life total on the heart rolls to a new value (docs/GAME_UI_MOTION_RESEARCH.md §4: 300–600 ms scaled to the
    * change): what it shows now, where it's going, and the clicks still on their way. */
   roll: { from: number; to: number; start: number; dur: number; at: number | null; pending: number };
@@ -165,7 +200,7 @@ export class SeatProps {
       const [wx, wz] = toWorld(seat, ...heartSpot(seat));
       group.position.set(wx, HEART_Y, wz);
       this.group.add(group);
-      this.hearts.set(seat.player, { group, face, canvas, tex, color, shown: "", roll: { from: 0, to: 0, start: 0, dur: 0, at: null, pending: 0 } });
+      this.hearts.set(seat.player, { group, face, canvas, tex, color, shown: "", hot: 0, roll: { from: 0, to: 0, start: 0, dur: 0, at: null, pending: 0 } });
     }
     const mine = seats.find((s) => s.player === me);
     if (!mine) return;
@@ -262,11 +297,21 @@ export class SeatProps {
   }
 
   private drawLife(h: Heart, shown: number): void {
-    const key = `${shown}|${h.roll.pending}`;
+    const key = `${shown}|${h.roll.pending}|${h.hot}`;
     if (h.shown === key) return;
     h.shown = key;
-    drawHeart(h.canvas, h.color, shown, h.roll.pending);
+    drawHeart(h.canvas, h.color, shown, h.roll.pending, h.hot);
     h.tex.needsUpdate = true;
+  }
+
+  /** The heart half under the pointer (null: none), lit so you see which way a click goes. */
+  hoverHeart(player: string | null, side: -1 | 1 | undefined): void {
+    for (const [pid, h] of this.hearts) {
+      const hot = pid === player ? side ?? 0 : 0;
+      if (h.hot === hot) continue;
+      h.hot = hot;
+      this.drawLife(h, h.roll.at ?? 0);
+    }
   }
 
   setTyped(id: SeatActionId | null, n: string): void {

@@ -37,14 +37,24 @@
   display: grid; place-items: center; color: var(--text); touch-action: manipulation;
 }
 .seat-heart-shape { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-/* the Oops heart: black, edged thick in the seat colour, ▼ and ▲ at its sides */
-.seat-heart-shape path { fill: #050505; stroke: var(--player-color); stroke-width: 4.5; stroke-linejoin: round; }
-.seat-heart-shape path.seat-heart-tri { fill: #8e8a84; stroke: none; }
-.seat-heart:hover .seat-heart-shape path:not(.seat-heart-tri), .seat-heart:focus-visible .seat-heart-shape path:not(.seat-heart-tri) { stroke-width: 5.5; }
+/* the Oops heart: black, edged thick in the seat colour; its halves the controls, a white − on a dark red left half and
+   a white + on a dark green right half (the one under the pointer lit), the life total below them */
+.seat-heart-shape path { stroke-linejoin: round; stroke-linecap: round; }
+.seat-heart-shape .seat-heart-fill { fill: #050505; stroke: none; }
+.seat-heart-shape .seat-heart-edge { fill: none; stroke: var(--player-color); stroke-width: 4.5; }
+.seat-heart-shape .seat-heart-half { stroke: none; transition: fill var(--dur-hover, 120ms) ease-out; }
+.seat-heart-shape .seat-heart-half.minus { fill: rgba(120, 30, 24, 0.4); }
+.seat-heart-shape .seat-heart-half.plus { fill: rgba(26, 96, 48, 0.4); }
+.seat-heart.hot-minus .seat-heart-half.minus { fill: rgba(178, 52, 40, 0.75); }
+.seat-heart.hot-plus .seat-heart-half.plus { fill: rgba(52, 150, 78, 0.72); }
+.seat-heart-shape .seat-heart-sign-under { fill: none; stroke: rgba(0, 0, 0, 0.9); stroke-width: 6; }
+.seat-heart-shape .seat-heart-sign { fill: none; stroke: #f6f1e6; stroke-width: 3; }
+body.reduced-motion .seat-heart-shape .seat-heart-half { transition: none; }
+.seat-heart:hover .seat-heart-shape .seat-heart-edge, .seat-heart:focus-visible .seat-heart-shape .seat-heart-edge { stroke-width: 5.5; }
 .seat-heart:focus-visible { outline: none; }
 .seat-heart:focus-visible .seat-heart-shape { filter: drop-shadow(0 0 3px var(--select)); }
 .seat-heart-n {
-  position: relative; margin-top: -6px; font: 700 21px/1 Inter, "Helvetica Neue", Arial, sans-serif; color: #e6e2da; font-variant-numeric: tabular-nums;
+  position: relative; margin-top: 15px; font: 700 17px/1 var(--font-ui); color: #f1ece2; font-variant-numeric: tabular-nums;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.9);
 }
 .seat-heart.dead .seat-heart-n { color: #ffb3a8; }
@@ -109,7 +119,7 @@ body.hud-minimal .seat-add { display: none; }
 .t3d-seat.seat-2d { transform: none; display: inline-flex; align-items: center; gap: 2px; filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55)); flex: none; }
 .seat-2d .t3d-seat-main { padding: 3px 10px 3px 4px; gap: 6px; }
 .seat-2d .seat-heart { width: 52px; height: 46px; }
-.seat-2d .seat-heart-n { font-size: 20px; }
+.seat-2d .seat-heart-n { font-size: 17px; }
 .seat-2d .t3d-seat-main .portrait { --size: 34px !important; }
 .seat-2d .t3d-seat-flags { left: 18px; transform: none; }
 /* life steppers wait until you reach for the plaque (the space stays, so nothing jumps) */
@@ -122,7 +132,7 @@ body.hud-minimal .seat-add { display: none; }
 /* -- out of the game -- a player who left reads every counter but no longer changes them (game/outOfGame.ts) */
 .seat-steps button:disabled { visibility: hidden; }
 .seat-heart:disabled, .seat-track:disabled { cursor: default; }
-.seat-heart:disabled .seat-heart-shape path:not(.seat-heart-tri) { stroke-width: 4.5; }
+.seat-heart:disabled .seat-heart-shape .seat-heart-edge { stroke-width: 4.5; }
 .seat-track:disabled:hover { border-color: color-mix(in srgb, var(--track, var(--line)) 70%, transparent); }
 .seat-track.zero:disabled { opacity: 0.55; }
 .seat-track.lethal:disabled { border-color: #ff8a7a; }
@@ -144,7 +154,7 @@ body.hud-minimal .seat-add { display: none; }
 .area-side .seat-who .t3d-seat-name { max-width: 130px; }
 .area-side .seat-trackers { max-width: 92px; }
 .area-side .seat-heart { width: 46px; height: 42px; }
-.area-side .seat-heart-n { font-size: 18px; }
+.area-side .seat-heart-n { font-size: 15px; }
 .area-side .seat-track { padding-right: 4px; }
 .area-side .t3d-seat.seat-2d { max-width: 100%; }
 

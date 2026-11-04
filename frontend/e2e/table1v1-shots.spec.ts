@@ -62,7 +62,7 @@ type View = { seat_order: string[]; zones: Record<string, string[]>; cards: Reco
 
 async function setup(page: Page, players: string[], perSeat: number) {
   await page.addInitScript(() => {
-    localStorage.setItem("fyodor.renderer", "3d");
+    if (!localStorage.getItem("fyodor.renderer")) localStorage.setItem("fyodor.renderer", "3d");
     localStorage.setItem("fyodor.welcomeDone", "1");
     localStorage.setItem("fyodor.coach3d", "done");
     localStorage.setItem("fyodor.tips.seen", JSON.stringify(["off"]));
@@ -171,4 +171,30 @@ test("1v1 camera: a low orbit and the farthest zoom, 1920x1080", async ({ page }
   await page.keyboard.press("Escape"); // a menu, if right-drag isn't an orbit here
   await page.waitForTimeout(2500);
   await shoot(page, "1v1-low-orbit");
+});
+
+test("hearts and zone labels up close, 2x (3D: the − half hovered; 2D: the + half hovered)", async ({ browser }) => {
+  test.skip(!!ONLY && ONLY !== "hearts", "SHOT_ONLY");
+  test.setTimeout(300_000);
+  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 });
+  const page = await context.newPage();
+  const { gameId } = await setup(page, ["Alice", "Bob"], 4);
+  await open(page, gameId, 8);
+  const heart = (await page.evaluate(() => window.__fyodor3d!.heartAt("p1", -1)))!;
+  await page.mouse.move(heart.x, heart.y);
+  await page.waitForTimeout(2500);
+  const mine = (await page.evaluate(() => window.__fyodor3d!.heartAt("p1")))!;
+  await page.screenshot({ path: `${OUT}/${PREFIX}-heart-3d-2x.png`, clip: { x: mine.x - 150, y: mine.y - 80, width: 320, height: 110 } });
+  // the far row's piles: labels upright for me, mirrored to my right
+  const far = (await page.evaluate(() => window.__fyodor3d!.heartAt("p2")))!;
+  await page.screenshot({ path: `${OUT}/${PREFIX}-far-row-2x.png`, clip: { x: Math.max(0, far.x - 520), y: 46, width: 1040, height: 260 } });
+  // the 2D table's heart
+  await page.evaluate(() => localStorage.setItem("fyodor.renderer", "2d"));
+  await page.reload();
+  await expect(page.getByTestId("heart-p1")).toBeVisible({ timeout: 60_000 });
+  const box = (await page.getByTestId("heart-p1").boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.4);
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/${PREFIX}-heart-2d-2x.png`, clip: { x: box.x - 20, y: box.y - 14, width: box.width + 180, height: box.height + 28 } });
+  await context.close();
 });
