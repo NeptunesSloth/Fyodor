@@ -21,6 +21,41 @@ const HEART_Y = 0.16;
 const BUTTON_R = 0.26;
 const BUTTON_H = 0.08;
 const TAX_R = 0.26;
+const LABEL_H = 0.3;
+
+/**
+ * A seat button's name as it shows over the button while hovered: Cinzel on a small blackened plate with a brass edge
+ * (the game's own tooltip; the table is a canvas). Returns the plate's width over its height.
+ */
+function drawLabel(canvas: HTMLCanvasElement, text: string): number {
+  const H = 64;
+  const font = '600 30px Cinzel, Georgia, serif';
+  const probe = canvas.getContext("2d")!;
+  probe.font = font;
+  const W = Math.ceil(probe.measureText(text).width) + 44;
+  canvas.width = W;
+  canvas.height = H;
+  const g = canvas.getContext("2d")!;
+  const plate = new Path2D();
+  plate.roundRect(3, 3, W - 6, H - 6, 8);
+  const fill = g.createLinearGradient(0, 0, 0, H);
+  fill.addColorStop(0, "#1f1a16");
+  fill.addColorStop(1, "#0a0807");
+  g.fillStyle = fill;
+  g.fill(plate);
+  const edge = g.createLinearGradient(0, 0, W, H);
+  edge.addColorStop(0, "#f0d08a");
+  edge.addColorStop(1, "#7a5528");
+  g.strokeStyle = edge;
+  g.lineWidth = 2.5;
+  g.stroke(plate);
+  g.font = font;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillStyle = "#f2dca6";
+  g.fillText(text, W / 2, H / 2 + 2);
+  return W / H;
+}
 const TAX_H = 0.05;
 
 /** The Oops heart, in a 256×232 box. */
@@ -151,6 +186,7 @@ export class SeatProps {
     if (!mine) return;
     // the medallions' brass edge, lit by the table's light (their faces carry their own, game/seatIcons.ts)
     const edge = this.keep(new THREE.MeshStandardMaterial({ color: 0x8a6432, roughness: 0.42, metalness: 0.75 }));
+    const contact = this.keep(new THREE.PlaneGeometry(BUTTON_R * 2.7, BUTTON_R * 2.7).rotateX(-Math.PI / 2));
     SEAT_ACTIONS.forEach((a, i) => {
       const group = new THREE.Group();
       const canvas = document.createElement("canvas");
@@ -170,7 +206,10 @@ export class SeatProps {
       side.position.y = BUTTON_H / 2;
       side.userData = { seatButton: a.id };
       side.castShadow = true;
-      group.add(top, side);
+      // a soft contact shadow: the medallion sits on the table
+      const under = new THREE.Mesh(contact, this.shadowMat());
+      under.position.set(0.03, 0.004, 0.04);
+      group.add(under, top, side);
       // a row just past my mat's near edge, from its left end (the turn dial covers the screen's bottom right); Mulligan
       // apart on the right (as on the Oops mat), the Bag of Extras past it
       const lx = a.id === "mulligan" ? -0.7 : a.id === "extras" ? 0.3 : -4.3 + i * 0.66;
@@ -183,6 +222,13 @@ export class SeatProps {
       tex.needsUpdate = true;
       this.buttons.set(a.id, b);
     });
+    const canvas = document.createElement("canvas");
+    const tex = new THREE.CanvasTexture(canvas);
+    const sprite = new THREE.Sprite(this.keep(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, toneMapped: false })));
+    sprite.renderOrder = 20;
+    sprite.visible = false;
+    this.group.add(sprite);
+    this.label = { sprite, canvas, tex };
   }
 
   /** A seat's life, with any clicks still on their way (shown under the number). */
@@ -265,7 +311,10 @@ export class SeatProps {
           edge.position.set(wx, TAX_H / 2, wz);
           mesh.userData = { tax: c.key };
           edge.userData = { tax: c.key };
-          this.group.add(edge, mesh);
+          const under = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(TAX_R * 2.7, TAX_R * 2.7).rotateX(-Math.PI / 2)), this.shadowMat());
+          under.position.set(wx + 0.03, 0.004, wz + 0.04);
+          this.group.add(under, edge, mesh);
+          this.slots.push(under); // (removed with the slots when the commanders change)
           this.taxes.set(c.key, { mesh, edge, canvas, tex, shown: -1, changed: 0 });
         });
       }
@@ -293,6 +342,10 @@ export class SeatProps {
   }
 
   private fontAsked = false;
+  private blobMat: THREE.MeshBasicMaterial | null = null;
+  private shadowMat(): THREE.MeshBasicMaterial {
+    return (this.blobMat ??= this.keep(new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false })));
+  }
   private edgeMat: THREE.MeshStandardMaterial | null = null;
   private taxEdge(): THREE.MeshStandardMaterial {
     return (this.edgeMat ??= this.keep(new THREE.MeshStandardMaterial({ color: 0x8a6432, roughness: 0.42, metalness: 0.75 })));
@@ -305,8 +358,25 @@ export class SeatProps {
   }
 
   hover(id: SeatActionId | null): void {
+    if (id === this.hovered) return;
     this.hovered = id;
+    const label = this.label;
+    const b = id ? this.buttons.get(id) : undefined;
+    if (!label) return;
+    label.sprite.visible = !!b;
+    if (!b || !id) return;
+    const aspect = drawLabel(label.canvas, SEAT_ACTIONS.find((a) => a.id === id)?.label ?? "");
+    label.tex.dispose(); // (the canvas changed size: a new texture)
+    label.tex = new THREE.CanvasTexture(label.canvas);
+    label.tex.colorSpace = THREE.SRGBColorSpace;
+    (label.sprite.material as THREE.SpriteMaterial).map = label.tex;
+    (label.sprite.material as THREE.SpriteMaterial).needsUpdate = true;
+    label.sprite.scale.set(LABEL_H * aspect, LABEL_H, 1);
+    label.sprite.position.copy(b.group.position).setY(BUTTON_H + 0.55);
   }
+
+  /** The hovered button's name, over it (one plate, redrawn for each button). */
+  private label: { sprite: THREE.Sprite; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture } | null = null;
 
   press(id: SeatActionId): void {
     const b = this.buttons.get(id);
@@ -375,6 +445,10 @@ export class SeatProps {
     this.hearts.clear();
     this.buttons.clear();
     this.edgeMat = null;
+    this.blobMat = null;
+    this.label?.tex.dispose();
+    this.label = null;
+    this.hovered = null;
     for (const d of this.disposables) d.dispose();
     this.disposables = [];
   }
