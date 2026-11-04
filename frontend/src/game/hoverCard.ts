@@ -102,3 +102,47 @@ export function previewDock(card: Box | null, panel: Box): "left" | "right" {
   const overlaps = card.left < panel.right && card.right > panel.left && card.top < panel.bottom && card.bottom > panel.top;
   return overlaps ? "left" : "right";
 }
+
+/** Space kept between the preview and the chrome around it. */
+const GAP = 8;
+
+/**
+ * The first free stretch of the column x..x+w from `top` down to `bottom`, at least `minH` tall: past every obstacle
+ * met in the column before that much room, and stopping above the next one (null: none).
+ */
+export function freeSlot(x: number, w: number, top: number, bottom: number, minH: number, obstacles: Box[]): { top: number; height: number } | null {
+  const col = obstacles.filter((o) => o.left < x + w && o.right > x && o.bottom > top).sort((a, b) => a.top - b.top);
+  let y = top;
+  for (const o of col) {
+    if (o.bottom <= y) continue;
+    if (o.top - GAP - y >= minH) return { top: y, height: o.top - GAP - y };
+    y = Math.max(y, o.bottom + GAP);
+  }
+  return bottom - y >= minH ? { top: y, height: bottom - y } : null;
+}
+
+/**
+ * Where the preview goes: docked right under the top bar, as tall as the room before the next thing in that column (the
+ * turn panel); on the left only while the hovered card itself lies under it, and then in the first column from the left
+ * edge that is clear of the plates, strips and rails standing there (the battlefield gutter). `naturalH` is its height
+ * at full size, for the hovered card's overlap; `maxH` the room it has (it shrinks its picture to fit).
+ */
+export function placePreview(o: { vw: number; vh: number; w: number; minH: number; top: number; naturalH: number; card: Box | null; obstacles: Box[] }):
+  { side: "left" | "right"; left: number; top: number; maxH: number } {
+  const bottom = o.vh - 12;
+  const covers = (x: number, slot: { top: number; height: number }) => {
+    const r = { left: x, right: x + o.w, top: slot.top, bottom: slot.top + Math.min(slot.height, o.naturalH) };
+    return previewDock(o.card, r) === "left";
+  };
+  const rightX = o.vw - PREVIEW_RIGHT_GAP - o.w;
+  const right = freeSlot(rightX, o.w, o.top, bottom, o.minH, o.obstacles);
+  if (right && !covers(rightX, right)) return { side: "right", left: rightX, top: right.top, maxH: right.height };
+  const xs = [PREVIEW_RIGHT_GAP, ...o.obstacles.filter((b) => b.left < o.vw / 2).map((b) => b.right + 10)]
+    .filter((x) => x + o.w <= o.vw / 2 + o.w / 2).sort((a, b) => a - b);
+  for (const x of xs) {
+    const slot = freeSlot(x, o.w, o.top, bottom, o.minH, o.obstacles);
+    if (slot && !covers(x, slot)) return { side: "left", left: x, top: slot.top, maxH: slot.height };
+  }
+  // nowhere clear (a crowded small window): the right dock, as tall as the window allows
+  return right ? { side: "right", left: rightX, top: right.top, maxH: right.height } : { side: "right", left: rightX, top: o.top, maxH: bottom - o.top };
+}

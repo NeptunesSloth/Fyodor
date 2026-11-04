@@ -19,8 +19,8 @@ import { isOut } from "./outOfGame";
 import { HAND_SORTS, HAND_SORT_LABEL } from "./handSort";
 import { domBoxOf, placeAnchored, selectionAnchor } from "./anchors";
 import { Inspector, LogPanel, StackPanel } from "./SidePanels";
-import { clearHover, hoverElement, previewDock, previewKey, PREVIEW_RIGHT_GAP, type Box } from "./hoverCard";
-import { Icon } from "../components/Icon";
+import { clearHover, hoverElement, placePreview, previewKey, type Box } from "./hoverCard";
+import { toyIconUrl } from "./seatIcons";
 
 /** The hovered card's rectangle on screen: its picture on the page, or where the 3D table draws it. */
 function cardBox(id: string): Box | null {
@@ -31,36 +31,61 @@ function cardBox(id: string): Box | null {
   return p ? { left: p.x - 40, right: p.x + 40, top: p.y - 56, bottom: p.y + 56 } : null;
 }
 
+/** What the preview keeps clear of: the plates and strips, the rail by my mat, the turn panel, the stack, my hand, panels. */
+const PREVIEW_CLEAR = ".t3d-seat, .seat-strip, .area-side, .turn-dial-wrap, .rules-stack-wrap, .stack-widget, .resp-bar, .t3d-cams, .log-drawer, .tool-tray, .hand-cards, .selection-bar, .decision-panel";
+/** The least the preview's card picture shrinks to (from its full 230 px, or 330 with the large inspector) to fit. */
+const PREVIEW_IMG_MIN = 130;
+
 /**
  * The large card preview, docked at the right edge under the top bar while you hover a card. It never follows the
- * pointer: it moves to the left only while the hovered card itself lies under it. It goes when the hover ends (the
- * pointer leaves the card, or the card goes away), on Esc, or with its ×, until the next hover.
- * skipHand: on the 3D table a hovered hand card already lifts out of the fan at full size.
+ * pointer: it moves to the left only while the hovered card itself lies under it, and then into the battlefield's gutter,
+ * clear of the plates. It never covers the turn panel or other chrome: in a short space its picture shrinks to fit. It
+ * goes when the hover ends (the pointer leaves the card, or the card goes away), on Esc, or with its close button, until
+ * the next hover. skipHand: on the 3D table a hovered hand card already lifts out of the fan at full size.
  */
 export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   const hover = useGame((s) => s.hover);
   const inHand = useGame((s) => !!s.hover && !!s.view?.cards[s.hover]?.zone.endsWith(":hand"));
+  const printId = useGame((s) => {
+    if (!s.hover) return null;
+    if (s.hover.startsWith("print:")) return s.hover.slice(6);
+    return (s.view?.cards[s.hover] as { card_id?: string } | undefined)?.card_id ?? null;
+  });
+  const ready = useCardCache((c) => !!printId && !!c.cards[printId]); // (its text arrives with the card's data: measured again)
   const panel = useRef<HTMLDivElement>(null);
-  const [dock, setDock] = useState<"left" | "right">("right");
+  const [place, setPlace] = useState<{ side: "left" | "right"; left: number; top: number; maxH: number; img: number } | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => void previewKey(e);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  // decided once per hovered card, before it shows: where the panel would sit on the right, and whether the card is under it
+  // placed once per hovered card, before it shows: measured at full size, then put where it is clear and fitted
   useLayoutEffect(() => {
     const node = panel.current;
     if (!hover || !node) return;
-    const r = node.getBoundingClientRect();
-    const right = { left: window.innerWidth - PREVIEW_RIGHT_GAP - r.width, right: window.innerWidth - PREVIEW_RIGHT_GAP, top: r.top, bottom: r.bottom };
-    setDock(previewDock(cardBox(hover), right));
-  }, [hover]);
+    node.style.removeProperty("--insp-w");
+    node.style.maxHeight = "none";
+    const w = node.offsetWidth;
+    const naturalH = node.offsetHeight;
+    const base = (node.querySelector(".insp-image") as HTMLElement | null)?.offsetWidth || 230;
+    const obstacles = [...document.querySelectorAll(PREVIEW_CLEAR)].map((n) => n.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
+    const top = Math.max(96, ...[...document.querySelectorAll(".game-top, .t3d-cams")].map((n) => n.getBoundingClientRect().bottom + 8));
+    const p = placePreview({ vw: window.innerWidth, vh: window.innerHeight, w, minH: 300, top, naturalH, card: cardBox(hover), obstacles });
+    // too tall for its room: the picture gives way first (the words never do)
+    const imgH = base * 88 / 63;
+    const img = naturalH <= p.maxH ? 0 : Math.max(PREVIEW_IMG_MIN, Math.floor((p.maxH - (naturalH - imgH)) * 63 / 88));
+    node.style.removeProperty("max-height");
+    setPlace({ ...p, img });
+  }, [hover, ready]);
   if (!hover || (skipHand && inHand)) return null;
+  const style = place
+    ? { left: place.left, top: place.top, maxHeight: place.maxH, ...(place.img ? { ["--insp-w" as string]: `${place.img}px` } : {}) }
+    : { visibility: "hidden" as const };
   return (
-    <div ref={panel} className={`card-preview ${dock}`} data-testid="card-preview" data-dock={dock}>
+    <div ref={panel} className={`card-preview ${place?.side ?? "right"}`} data-testid="card-preview" data-dock={place?.side ?? "right"} style={style}>
       <button type="button" className="card-preview-close" onClick={clearHover} aria-label="Close the card preview (Esc)" title="Close (Esc)"
         data-testid="card-preview-close">
-        <Icon name="close" size={12} />
+        <img src={toyIconUrl("close")} alt="" draggable={false} />
       </button>
       <Inspector />
     </div>

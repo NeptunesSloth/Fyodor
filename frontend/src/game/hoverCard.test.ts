@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useGame } from "../state/gameStore";
-import { hoverProps, previewDock, previewKey, PREVIEW_RIGHT_GAP, PREVIEW_W } from "./hoverCard";
+import { freeSlot, hoverProps, placePreview, previewDock, previewKey, PREVIEW_RIGHT_GAP, PREVIEW_W } from "./hoverCard";
 
 const el = () => ({ isConnected: true }) as unknown as HTMLElement;
 const enter = (props: ReturnType<typeof hoverProps>, target: HTMLElement) =>
@@ -21,6 +21,37 @@ describe("the card preview's dock (game/hoverCard.ts)", () => {
     expect(previewDock({ left: 1200, right: 1290, top: 300, bottom: 410 }, panel)).toBe("left");
     // beside it in x but below it: right
     expect(previewDock({ left: 1200, right: 1290, top: 720, bottom: 800 }, panel)).toBe("right");
+  });
+});
+
+describe("where the preview goes among the table's chrome (placePreview)", () => {
+  const box = (left: number, top: number, right: number, bottom: number) => ({ left, top, right, bottom });
+  const base = { vw: 1440, vh: 900, w: 262, minH: 300, top: 96, naturalH: 480 };
+
+  it("finds the stretch of a column between the things in it", () => {
+    expect(freeSlot(1166, 262, 96, 888, 300, [])).toEqual({ top: 96, height: 792 });
+    // the turn panel below: the slot stops above it
+    expect(freeSlot(1166, 262, 96, 888, 300, [box(1134, 620, 1424, 840)])).toEqual({ top: 96, height: 516 });
+    // a strip at the top: the slot starts under it
+    expect(freeSlot(0, 262, 96, 888, 300, [box(10, 70, 470, 155)])).toEqual({ top: 163, height: 725 });
+    // too little room between two things: past the second one
+    expect(freeSlot(0, 262, 96, 888, 300, [box(10, 70, 470, 155), box(10, 440, 205, 790)])).toEqual(null);
+  });
+
+  it("docks right under the stack pill, stopping above the turn panel (2D: the rules text was cut off by it)", () => {
+    const dial = box(1134, 550, 1424, 770);
+    const p = placePreview({ ...base, card: box(300, 250, 450, 410), obstacles: [dial, box(1368, 52, 1428, 80)] });
+    expect(p).toEqual({ side: "right", left: 1440 - PREVIEW_RIGHT_GAP - 262, top: 96, maxH: 550 - 8 - 96 });
+  });
+
+  it("goes left only for a card under it, and then clear of both players' plates (2D: it covered them)", () => {
+    const bobStrip = box(10, 70, 470, 155);
+    const myRail = box(10, 435, 205, 790);
+    const card = box(1080, 245, 1225, 410); // under the right dock
+    const p = placePreview({ ...base, card, obstacles: [bobStrip, myRail] });
+    expect(p.side).toBe("left");
+    expect(p.top).toBeGreaterThanOrEqual(155); // under the opponent strip
+    expect(p.left).toBeGreaterThanOrEqual(205); // beside my rail, not over my plate
   });
 });
 

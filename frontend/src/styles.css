@@ -343,7 +343,7 @@ body.high-contrast {
 body.high-contrast .table-card { outline: 1px solid rgba(255, 255, 255, 0.6); }
 body.high-contrast .life { color: #fff; text-shadow: 0 0 2px #000; }
 body.inspect-large .card-preview { width: 360px; }
-body.inspect-large .card-preview .insp-image { width: 330px; }
+body.inspect-large .card-preview .insp-image { width: var(--insp-w, 330px); }
 .seat-glyph { display: none; font-size: 11px; color: var(--player-color); }
 body.cb-markers .seat-glyph { display: inline; }
 
