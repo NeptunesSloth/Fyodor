@@ -1,18 +1,21 @@
 /**
  * The table's icon family: stamped brass glyphs on bevelled medallions (the candlelit card room). Drawn here with canvas
- * paths, so a 3D button's texture and the 2D table's image are the same picture:
- * - one light, from the top left: a lit upper edge and a cast shadow to the lower right on every raised part;
- * - one stroke weight (STROKE, 8 units of the 100-unit icon) with round caps and joins;
+ * paths, so a 3D button's texture and the 2D table's image are the same picture. One construction for every glyph:
+ * - brass lines of one weight (STROKE, 8 units of the 100-unit icon), round caps and joins, open chevron arrowheads;
+ *   no filled shapes, so no glyph reads heavier than another;
+ * - one light, from the top left: a lit upper edge and a soft shadow cast to the lower right;
  * - one brass, on a blackened-steel field inside a bevelled brass rim.
  * The seat buttons (Untap, Draw, Scry, Mill, Reveal, Mulligan, the Bag of Extras, the importer), the Bag of Extras'
- * counters and dice, and the commander-tax medallion all come from these parts.
+ * counters, dice, close button and token emblem cards, and the commander-tax medallion all come from these parts.
  */
 import type { SeatActionId } from "./seatActions";
 
 export type SeatIconId = SeatActionId | "mulligan" | "importer";
-/** The Bag of Extras' counters (game/bags.ts CARD_COUNTERS, PLAYER_COUNTERS) and its token search. */
-export type ToyIconId = "+1/+1" | "-1/-1" | "loyalty" | "charge" | "shield" | "stun" | "energy" | "experience" | "search";
+/** The Bag of Extras' counters (game/bags.ts CARD_COUNTERS, PLAYER_COUNTERS), its token search and the close button. */
+export type ToyIconId = "+1/+1" | "-1/-1" | "loyalty" | "charge" | "shield" | "stun" | "energy" | "experience" | "search" | "close";
 export type DieIconId = 4 | 6 | 8 | 10 | 12 | 20;
+/** The common tokens' emblems (game/bags.ts COMMON_TOKENS), for a token whose art isn't cached. */
+export type TokenEmblemId = "treasure" | "clue" | "food" | "blood" | "soldier" | "spirit" | "goblin" | "saproling" | "thopter";
 
 /** The glyph's stroke, in units of the 100-unit icon (8%). */
 export const STROKE = 8;
@@ -20,14 +23,12 @@ export const STROKE = 8;
 const BRASS = { hi: "#fff0c4", light: "#e8c57c", mid: "#c49553", dark: "#8c632f", deep: "#3e2a12" };
 const INK = "#140f0a";
 const FONT = '"Inter Variable", Inter';
+const DISPLAY = "Cinzel, Georgia, serif";
 
 // -- the parts ------------------------------------------------------------------------------------------------------
 
-/**
- * One part of a glyph, painted in order: a stroked line, a filled shape, or a cut back to the field (`knock`, a wide
- * stroke, or the whole shape with `solid`), so a later line passes over an earlier one.
- */
-type Part = { stroke: Path2D; w?: number } | { fill: Path2D } | { knock: Path2D; w?: number; solid?: boolean };
+/** One part of a glyph, painted in order: a brass line, or a cut back to the surface under it (so a later line passes over). */
+type Part = { stroke: Path2D } | { knock: Path2D; w?: number; solid?: boolean };
 
 const P = (d: string) => new Path2D(d);
 
@@ -50,25 +51,17 @@ function field(g: CanvasRenderingContext2D): CanvasGradient {
   return gr;
 }
 
-function paint(g: CanvasRenderingContext2D, part: Exclude<Part, { knock: Path2D }>, style: string | CanvasGradient): void {
+const line = (g: CanvasRenderingContext2D, path: Path2D, style: string | CanvasGradient) => {
   g.lineCap = "round";
   g.lineJoin = "round";
-  if ("stroke" in part) {
-    g.strokeStyle = style;
-    g.lineWidth = part.w ?? STROKE;
-    g.stroke(part.stroke);
-  } else {
-    g.fillStyle = style;
-    g.fill(part.fill);
-    g.strokeStyle = style; // the same round corners as a stroke's
-    g.lineWidth = 2.4;
-    g.stroke(part.fill);
-  }
-}
+  g.lineWidth = STROKE;
+  g.strokeStyle = style;
+  g.stroke(path);
+};
 
 /**
- * Stamp a glyph in brass, raised from the surface under it: for each part a soft shadow cast to the lower right, a
- * lit edge to the upper left, then the brass face.
+ * Stamp a glyph in brass, raised from the surface under it: for each line a soft shadow cast to the lower right, a lit
+ * edge to the upper left, then the brass face.
  */
 function stamp(g: CanvasRenderingContext2D, parts: Part[], scale: number, under: string | CanvasGradient): void {
   const metal = brass(g);
@@ -78,7 +71,7 @@ function stamp(g: CanvasRenderingContext2D, parts: Part[], scale: number, under:
       g.lineJoin = "round";
       g.strokeStyle = g.fillStyle = under;
       if (part.solid) g.fill(part.knock);
-      g.lineWidth = part.w ?? STROKE + 5;
+      g.lineWidth = part.w ?? STROKE + 6;
       g.stroke(part.knock);
       continue;
     }
@@ -87,20 +80,17 @@ function stamp(g: CanvasRenderingContext2D, parts: Part[], scale: number, under:
     g.shadowBlur = 2.2 * scale;
     g.shadowOffsetX = 1.3 * scale;
     g.shadowOffsetY = 1.9 * scale;
-    paint(g, part, "rgba(0, 0, 0, 0.9)");
+    line(g, part.stroke, "rgba(0, 0, 0, 0.9)");
     g.restore();
     g.save();
     g.translate(-0.7, -0.9);
-    paint(g, part, "rgba(255, 244, 214, 0.7)");
+    line(g, part.stroke, "rgba(255, 244, 214, 0.72)");
     g.restore();
-    paint(g, part, metal);
+    line(g, part.stroke, metal);
   }
 }
 
-/**
- * The medallion: a bevelled brass rim (its outer slope lit at the top left, its inner slope shaded there) around a
- * sunken field.
- */
+/** The medallion: a bevelled brass rim (its outer slope lit at the top left, its inner slope shaded there) around a sunken field. */
 function medallion(g: CanvasRenderingContext2D): void {
   const ring = (rad: number, style: string | CanvasGradient) => {
     g.fillStyle = style;
@@ -137,29 +127,7 @@ function medallion(g: CanvasRenderingContext2D): void {
   g.stroke();
 }
 
-// -- the glyphs (centred on 50,50, inside a circle of radius ~28) -------------------------------------------------------
-
-/** An arrowhead: a filled, round-cornered triangle with its tip at (x, y), pointing along `angle`. */
-function head(x: number, y: number, angle: number, len = 13, half = 9): Path2D {
-  const [c, s] = [Math.cos(angle), Math.sin(angle)];
-  const bx = x - c * len, by = y - s * len;
-  return P(`M${x} ${y} L${bx - s * half} ${by + c * half} L${bx + s * half} ${by - c * half} Z`);
-}
-
-/**
- * An arc with an arrowhead at its end, travelling counterclockwise (`ccw`) or clockwise: the head's tip lies on the circle
- * a head's length further round, so it follows the curve.
- */
-function arcArrow(cx: number, cy: number, r: number, from: number, to: number, ccw: boolean, len = 17, half = 9): Part[] {
-  const arc = new Path2D();
-  arc.arc(cx, cy, r, from, to, ccw);
-  const sweep = (len / r) * (ccw ? -1 : 1);
-  const [bx, by] = [cx + r * Math.cos(to), cy + r * Math.sin(to)];
-  const [tx, ty] = [cx + r * Math.cos(to + sweep), cy + r * Math.sin(to + sweep)];
-  const dir = Math.atan2(ty - by, tx - bx);
-  const back = 2; // the head's base just behind the line's end, so they join
-  return [{ stroke: arc }, { fill: head(tx, ty, dir, Math.hypot(tx - bx, ty - by) + back, half) }];
-}
+// -- the glyphs (centred on 50,50, inside a circle of radius ~29) -------------------------------------------------------
 
 const deg = (d: number) => (d * Math.PI) / 180;
 const rect = (x: number, y: number, w: number, h: number, r: number) => {
@@ -168,66 +136,85 @@ const rect = (x: number, y: number, w: number, h: number, r: number) => {
   return p;
 };
 
-/** Untap: an open ring turning back (counterclockwise), its head at the top right. */
-const untapGlyph = (): Part[] => arcArrow(50, 52, 20, deg(236), deg(-30), true);
+/** An open arrowhead: two strokes meeting at (x, y), the arrow pointing along `angle`. */
+function chevron(x: number, y: number, angle: number, len = 11, spread = 42): Path2D {
+  const a = (k: number) => {
+    const th = angle + Math.PI + k * deg(spread);
+    return `${(x + Math.cos(th) * len).toFixed(2)} ${(y + Math.sin(th) * len).toFixed(2)}`;
+  };
+  return P(`M${a(1)} L${x.toFixed(2)} ${y.toFixed(2)} L${a(-1)}`);
+}
+
+/** An arc with an open arrowhead at its end, travelling counterclockwise (`ccw`) or clockwise. */
+function arcArrow(cx: number, cy: number, r: number, from: number, to: number, ccw: boolean): Part[] {
+  const arc = new Path2D();
+  arc.arc(cx, cy, r, from, to, ccw);
+  const [ex, ey] = [cx + r * Math.cos(to), cy + r * Math.sin(to)];
+  const t = to + (ccw ? -Math.PI / 2 : Math.PI / 2); // the direction of travel at the end
+  return [{ stroke: arc }, { stroke: chevron(ex + Math.cos(t) * 2, ey + Math.sin(t) * 2, t, 12, 45) }];
+}
+
+/** Untap: an open ring turning back (counterclockwise). */
+const untapGlyph = (): Part[] => arcArrow(50, 52, 20, deg(238), deg(-36), true);
 
 /** Draw: a card, and one more. */
 function drawGlyph(): Part[] {
-  const plus = P("M65 24 V48 M53 36 H77");
-  return [{ stroke: rect(28, 38, 27, 37, 4.5) }, { knock: plus, w: STROKE + 7 }, { stroke: plus }];
+  const plus = P("M66 23 V47 M54 35 H78");
+  return [{ stroke: rect(27, 38, 27, 37, 4.5) }, { knock: plus, w: STROKE + 7 }, { stroke: plus }];
 }
 
 /** Scry: an open eye. */
 const scryGlyph = (): Part[] => [
-  { stroke: P("M21 51 Q50 19 79 51 Q50 83 21 51 Z") },
-  { fill: P("M50 41.5 a9.5 9.5 0 1 1 -0.01 0 Z") },
+  { stroke: P("M20 51 Q50 17 80 51 Q50 85 20 51 Z") },
+  { stroke: P("M50 42 a9 9 0 1 1 -0.01 0 Z") },
 ];
 
-/** Mill: a gravestone with a cross cut in it, standing on the ground. */
+/** Mill: a gravestone with a cross cut in it, on the ground. */
 const millGlyph = (): Part[] => [
-  { fill: P("M34 71 V44 a16 16 0 0 1 32 0 V71 Z") },
-  { knock: P("M50 39 V61 M42.5 47.5 H57.5"), w: 5.5 },
-  { stroke: P("M23 74 H77") },
+  { stroke: P("M31 76 V47 a19 19 0 0 1 38 0 V76") },
+  { stroke: P("M50 41 V63 M42 49 H58") },
+  { stroke: P("M22 76 H78") },
 ];
 
-/** Reveal: a card held up for the table to see, light all round it. */
-const revealGlyph = (): Part[] => [
-  { stroke: rect(37, 39, 26, 36, 4.5) },
-  { stroke: P("M50 18 V25 M28.5 27.5 L33.5 32.5 M71.5 27.5 L66.5 32.5 M21.5 49 H27.5 M78.5 49 H72.5"), w: 6.5 },
-];
+/** Reveal: a card being turned face up, half over, the turn drawn round it. */
+function revealGlyph(): Part[] {
+  // the card mid-turn: its near edge full height, its far edge foreshortened
+  const card = P("M44 30 L66 25 Q69 24.4 69 27.5 V72.5 Q69 75.6 66 75 L44 70 Q41 69.4 41 66.4 V33.6 Q41 30.6 44 30 Z");
+  const turn = arcArrow(44, 50, 23, deg(122), deg(232), false);
+  return [{ stroke: card }, { knock: (turn[0] as { stroke: Path2D }).stroke, w: STROKE + 6 }, ...turn];
+}
 
 /** Mulligan: the shuffle, two paths crossing. */
 function mulliganGlyph(): Part[] {
-  const a = P("M24 35 H33 C46 35 50 65 63 65 H66");
-  const b = P("M24 65 H33 C46 65 50 35 63 35 H66");
+  const a = P("M22 35 H31 C45 35 49 65 63 65 H76");
+  const b = P("M22 65 H31 C45 65 49 35 63 35 H76");
   return [
     { stroke: b },
-    { fill: head(78, 35, 0, 13, 9) },
+    { stroke: chevron(77, 35, 0) },
     { knock: a, w: STROKE + 6 },
     { stroke: a },
-    { fill: head(78, 65, 0, 13, 9) },
+    { stroke: chevron(77, 65, 0) },
   ];
 }
 
-/** The Bag of Extras: a drawstring pouch, its mouth gathered and tied. */
+/** The Bag of Extras: a drawstring pouch, its neck tied and its mouth flared. */
 const pouchGlyph = (): Part[] => [
-  { fill: P("M41 45 C24 51 22 78 50 78 C78 78 76 51 59 45 Z") },
-  { knock: P("M38 43.5 Q50 48 62 43.5"), w: 4 },
-  { fill: P("M35 27 Q50 35 65 27 Q63.5 34 59 40.5 Q50 43.5 41 40.5 Q36.5 34 35 27 Z") },
+  { stroke: P("M41 44 C24 50 22 79 50 79 C78 79 76 50 59 44 Z") },
+  { stroke: P("M41 44 L35 29 Q50 35 65 29 L59 44") },
 ];
 
 /** The importer: an arrow down into a tray. */
 const importerGlyph = (): Part[] => [
   { stroke: P("M27 58 V72 H73 V58") },
-  { stroke: P("M50 24 V50") },
-  { fill: head(50, 63, Math.PI / 2, 14, 10) },
+  { stroke: P("M50 23 V58") },
+  { stroke: chevron(50, 59, Math.PI / 2) },
 ];
 
 const SEAT_GLYPHS: Record<SeatIconId, () => Part[]> = {
   untap: untapGlyph, draw: drawGlyph, scry: scryGlyph, mill: millGlyph, reveal: revealGlyph, mulligan: mulliganGlyph, extras: pouchGlyph, importer: importerGlyph,
 };
 
-/** A star of `n` points. */
+/** A star of `n` points, as an outline. */
 function star(cx: number, cy: number, r: number, inner: number, n = 5): Path2D {
   let d = "";
   for (let i = 0; i < n * 2; i++) {
@@ -242,25 +229,42 @@ function star(cx: number, cy: number, r: number, inner: number, n = 5): Path2D {
 function spiral(): Path2D {
   let d = "";
   for (let i = 0; i <= 72; i++) {
-    const a = (i / 72) * Math.PI * 3.3 + Math.PI;
-    const r = 3.5 + (i / 72) * 20;
+    const a = (i / 72) * Math.PI * 3.1 + Math.PI;
+    const r = 4 + (i / 72) * 20;
     d += `${i ? "L" : "M"}${(50 + r * Math.cos(a)).toFixed(2)} ${(50 + r * Math.sin(a)).toFixed(2)} `;
   }
   return P(d);
 }
 
+const lens = (): Part[] => [{ stroke: P("M44 45 m-15 0 a15 15 0 1 0 30 0 a15 15 0 1 0 -30 0") }, { stroke: P("M55.5 56.5 L71 72") }];
+
 const TOY_GLYPHS: Record<ToyIconId, () => Part[]> = {
-  "+1/+1": () => [{ stroke: P("M50 30 V70 M30 50 H70") }],
-  "-1/-1": () => [{ stroke: P("M30 50 H70") }],
-  // a planeswalker's loyalty: the badge, an arrow up through it
-  loyalty: () => [{ fill: P("M30 28 H70 V50 C70 63 61 71 50 77 C39 71 30 63 30 50 Z") }, { knock: P("M50 66 V41 M42 48.5 L50 40.5 L58 48.5"), w: 5.5 }],
-  charge: () => [{ fill: star(50, 50, 27, 8, 4) }],
-  shield: () => [{ stroke: P("M31 30 Q50 23 69 30 V50 C69 62 61 70 50 76 C39 70 31 62 31 50 Z") }, { fill: P("M50 44 a6 6 0 1 1 -0.01 0 Z") }],
-  stun: () => [{ stroke: spiral(), w: 6.5 }],
-  energy: () => [{ fill: P("M56 21 L33 54 H48 L43 79 L67 45 H52 Z") }],
-  experience: () => [{ fill: star(50, 53, 26, 11) }],
-  // find any token: a lens
-  search: () => [{ stroke: P("M44 45 m-15 0 a15 15 0 1 0 30 0 a15 15 0 1 0 -30 0") }, { stroke: P("M55.5 56.5 L71 72") }],
+  "+1/+1": () => [{ stroke: P("M50 29 V71 M29 50 H71") }],
+  "-1/-1": () => [{ stroke: P("M29 50 H71") }],
+  // a planeswalker's loyalty going up: two chevrons
+  loyalty: () => [{ stroke: P("M32 52 L50 34 L68 52") }, { stroke: P("M32 70 L50 52 L68 70") }],
+  // charge: a spark
+  charge: () => [{ stroke: P("M50 25 V75 M25 50 H75") }, { stroke: P("M39 39 L61 61 M61 39 L39 61") }],
+  shield: () => [{ stroke: P("M31 31 Q50 23 69 31 V50 C69 62 61 70 50 76 C39 70 31 62 31 50 Z") }, { stroke: P("M50 36 V64") }],
+  stun: () => [{ stroke: spiral() }],
+  // energy: the bolt
+  energy: () => [{ stroke: P("M58 22 L38 52 L62 49 L42 79") }],
+  experience: () => [{ stroke: star(50, 53, 25, 12) }],
+  search: lens,
+  close: () => [{ stroke: P("M35 35 L65 65 M65 35 L35 65") }],
+};
+
+/** The common tokens' emblems, in the same lines. */
+const EMBLEMS: Record<TokenEmblemId, () => Part[]> = {
+  treasure: () => [{ stroke: P("M27 49 H73 V73 H27 Z") }, { stroke: P("M27 49 V44 Q27 31 50 31 Q73 31 73 44 V49") }, { stroke: P("M50 45 V57") }],
+  clue: lens,
+  food: () => [{ stroke: P("M22 68 C22 38 78 38 78 68 Z") }, { stroke: P("M38 49 L43 57 M52 46 L57 54 M64 51 L67 57") }],
+  blood: () => [{ stroke: P("M42 25 V64 a8 8 0 0 0 16 0 V25") }, { stroke: P("M37 25 H63") }, { stroke: P("M42 50 H58") }],
+  soldier: () => [{ stroke: P("M50 22 V64") }, { stroke: P("M37 56 H63") }, { stroke: P("M50 64 V77") }],
+  spirit: () => [{ stroke: P("M50 78 C35 73 31 58 40 48 C46 41 44 33 50 22 C61 34 68 45 64 59 C61 70 56 75 50 78 Z") }, { stroke: P("M50 66 C45 62 46 55 50 50") }],
+  goblin: () => [{ stroke: P("M50 57 m-15 0 a15 15 0 1 0 30 0 a15 15 0 1 0 -30 0") }, { stroke: P("M36 53 L17 45 L37 63 M64 53 L83 45 L63 63") }, { stroke: P("M44 55 h0.01 M56 55 h0.01") }],
+  saproling: () => [{ stroke: P("M50 78 V48") }, { stroke: P("M50 55 C38 55 29 47 29 36 C40 36 50 43 50 55") }, { stroke: P("M50 49 C50 37 58 28 71 28 C71 40 62 49 50 49") }],
+  thopter: () => [{ stroke: P("M50 40 C56 46 56 66 50 74 C44 66 44 46 50 40 Z") }, { stroke: P("M45 50 C35 36 21 34 16 42 C24 50 35 54 45 56 M55 50 C65 36 79 34 84 42 C76 50 65 54 55 56") }],
 };
 
 // -- drawing --------------------------------------------------------------------------------------------------------
@@ -275,29 +279,29 @@ function begin(canvas: HTMLCanvasElement): { g: CanvasRenderingContext2D; s: num
   return { g, s };
 }
 
-/** A number typed over a button, pressed into a dark well. */
-function typedOver(g: CanvasRenderingContext2D, text: string): void {
-  g.fillStyle = "rgba(8, 6, 4, 0.92)";
-  g.beginPath();
-  g.arc(50, 50, 33, 0, Math.PI * 2);
-  g.fill();
-  g.fillStyle = BRASS.light;
-  g.textAlign = "center";
-  g.textBaseline = "middle";
-  g.font = `800 ${text.length > 2 ? 28 : 36}px ${FONT}, sans-serif`;
-  g.fillText(text, 50, 52);
-}
-
-/** Draw a seat button's face into a square canvas (any size). `count` is a number being typed over it. */
+/** Draw a seat button's face into a square canvas (any size). `count`: a number being typed over it, which replaces the glyph. */
 export function drawSeatIcon(canvas: HTMLCanvasElement, id: SeatIconId, count = ""): void {
   const { g, s } = begin(canvas);
   medallion(g);
-  stamp(g, SEAT_GLYPHS[id](), s, field(g));
-  if (count) typedOver(g, count);
+  if (count) {
+    g.fillStyle = BRASS.light;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.font = `800 ${count.length > 2 ? 30 : 40}px ${FONT}, sans-serif`;
+    g.save();
+    g.shadowColor = "rgba(0, 0, 0, 0.85)";
+    g.shadowBlur = 2 * s;
+    g.shadowOffsetX = 1.2 * s;
+    g.shadowOffsetY = 1.8 * s;
+    g.fillText(count, 50, 52);
+    g.restore();
+  } else {
+    stamp(g, SEAT_GLYPHS[id](), s, field(g));
+  }
   g.setTransform(1, 0, 0, 1, 0, 0);
 }
 
-/** Draw one of the Bag of Extras' counters (or its token search): the same medallion, its own glyph. */
+/** Draw one of the Bag of Extras' counters (or its search, or a close button): the same medallion, its own glyph. */
 export function drawToyIcon(canvas: HTMLCanvasElement, id: ToyIconId): void {
   const { g, s } = begin(canvas);
   medallion(g);
@@ -355,29 +359,50 @@ export function drawDieIcon(canvas: HTMLCanvasElement, sides: DieIconId): void {
 }
 
 /**
- * A commander's tax: a small medallion with a crown (the commander) over a generic-mana pip carrying the tax, as {2}
- * reads on a card. At 0 it waits, dim; once the commander has been cast it is lit, the number dark on a pale pip.
+ * A commander's tax: a brass medallion whose face is a pale generic-mana pip carrying the tax, as {2} reads on a card,
+ * a crown (the commander) stamped above it. At 0 it waits, dim, the 0 still readable on a dark pip; once the commander
+ * has been cast it is lit, the number dark on ivory.
  */
 export function drawTaxMedallion(canvas: HTMLCanvasElement, tax: number): void {
   const { g, s } = begin(canvas);
   const lit = tax > 0;
   medallion(g);
-  stamp(g, [{ fill: P("M40.5 25 L42 15.5 L46.3 20.5 L50 13.5 L53.7 20.5 L58 15.5 L59.5 25 Z") }], s, field(g));
-  const [px, py, pr] = [50, 56, 26.5];
+  // the crown, stamped in brass between the rim and the pip
+  const crown = P("M33.5 22 L36 9.5 L43 16.5 L50 7.5 L57 16.5 L64 9.5 L66.5 22 Z");
+  g.save();
+  g.shadowColor = "rgba(0, 0, 0, 0.85)";
+  g.shadowBlur = 1.6 * s;
+  g.shadowOffsetX = 0.8 * s;
+  g.shadowOffsetY = 1.2 * s;
+  g.fillStyle = brass(g, 33, 7, 67, 22);
+  g.fill(crown);
+  g.restore();
+  g.strokeStyle = "rgba(30, 18, 6, 0.9)";
+  g.lineWidth = 1.4;
+  g.lineJoin = "round";
+  g.stroke(crown);
+  if (!lit) {
+    // waiting: rim and crown a step darker than a lit one (the pip and its 0 are drawn after, at full contrast)
+    g.globalCompositeOperation = "source-atop";
+    g.fillStyle = "rgba(6, 5, 4, 0.45)";
+    g.fillRect(0, 0, 100, 100);
+    g.globalCompositeOperation = "source-over";
+  }
+  const [px, py, pr] = [50, 58.5, 35];
   g.save();
   g.shadowColor = "rgba(0, 0, 0, 0.8)";
   g.shadowBlur = 2.2 * s;
   g.shadowOffsetX = 0.9 * s;
   g.shadowOffsetY = 1.5 * s;
-  const pip = g.createRadialGradient(px - 7, py - 8, 2, px, py, pr + 2);
-  pip.addColorStop(0, lit ? "#f6f1e8" : "#4d463e");
-  pip.addColorStop(1, lit ? "#b8ae9f" : "#27231e");
+  const pip = g.createRadialGradient(px - 9, py - 11, 2, px, py, pr + 2);
+  pip.addColorStop(0, lit ? "#f7f2e9" : "#332d27");
+  pip.addColorStop(1, lit ? "#c4baab" : "#24201b");
   g.fillStyle = pip;
   g.beginPath();
   g.arc(px, py, pr, 0, Math.PI * 2);
   g.fill();
   g.restore();
-  g.strokeStyle = lit ? "rgba(60, 45, 25, 0.9)" : "rgba(0, 0, 0, 0.7)";
+  g.strokeStyle = lit ? "rgba(60, 45, 25, 0.9)" : "rgba(0, 0, 0, 0.8)";
   g.lineWidth = 1.6;
   g.beginPath();
   g.arc(px, py, pr, 0, Math.PI * 2);
@@ -385,15 +410,89 @@ export function drawTaxMedallion(canvas: HTMLCanvasElement, tax: number): void {
   const n = String(Math.max(0, Math.min(99, tax)));
   g.textAlign = "center";
   g.textBaseline = "middle";
-  g.font = `800 ${n.length > 1 ? 32 : 42}px ${FONT}, sans-serif`;
-  g.fillStyle = lit ? INK : "#a39a8d";
-  g.fillText(n, px, py + 2.5);
-  if (!lit) {
-    // waiting: the whole medallion a step darker than a lit one
-    g.globalCompositeOperation = "source-atop";
-    g.fillStyle = "rgba(6, 5, 4, 0.34)";
-    g.fillRect(0, 0, 100, 100);
-    g.globalCompositeOperation = "source-over";
+  g.font = `800 ${n.length > 1 ? 46 : 60}px ${FONT}, sans-serif`;
+  g.fillStyle = lit ? INK : "#b8ad98"; // (≥4.5:1 on the dark pip)
+  g.fillText(n, px, py + 3);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/** A token's colour as the tint of its emblem card's name band. */
+const BAND: Record<string, string> = { W: "#5b5341", U: "#2c4a63", B: "#2e2730", R: "#6a2c22", G: "#2f4d2a", C: "#45403a" };
+
+/**
+ * A common token whose art isn't cached, as a card of the room: a walnut card in a brass frame, its name on a band in
+ * the token's colour, its emblem in brass lines, its type, and its power and toughness in a brass box.
+ * The canvas is card-shaped (63:88).
+ */
+export function drawTokenCard(canvas: HTMLCanvasElement, emblem: TokenEmblemId, face: { name: string; type: string; pt?: string; colors?: string[] }): void {
+  const g = canvas.getContext("2d")!;
+  const s = canvas.width / 160;
+  g.setTransform(s, 0, 0, s, 0, 0);
+  g.clearRect(0, 0, 160, 224);
+  const wood = g.createLinearGradient(0, 0, 0, 224);
+  wood.addColorStop(0, "#3a2617");
+  wood.addColorStop(1, "#1b110a");
+  g.fillStyle = wood;
+  g.fill(rect(0, 0, 160, 223.5, 8));
+  // the grain: a few faint lines across the wood
+  g.strokeStyle = "rgba(255, 214, 160, 0.05)";
+  g.lineWidth = 1;
+  for (let y = 9; y < 224; y += 7.5) {
+    g.beginPath();
+    g.moveTo(0, y);
+    g.bezierCurveTo(50, y + 2.5, 110, y - 2.5, 160, y + 1);
+    g.stroke();
+  }
+  const frame = g.createLinearGradient(0, 0, 160, 224);
+  frame.addColorStop(0, BRASS.hi);
+  frame.addColorStop(0.5, BRASS.mid);
+  frame.addColorStop(1, BRASS.dark);
+  g.strokeStyle = frame;
+  g.lineWidth = 2.5;
+  g.stroke(rect(5, 5, 150, 213.5, 6));
+  // the name band
+  const tint = BAND[(face.colors?.length ?? 0) > 1 ? "C" : face.colors?.[0] ?? "C"] ?? BAND.C!;
+  g.fillStyle = tint;
+  g.fill(rect(11, 11, 138, 24, 3));
+  g.strokeStyle = "rgba(255, 230, 180, 0.35)";
+  g.lineWidth = 1;
+  g.stroke(rect(11, 11, 138, 24, 3));
+  g.fillStyle = "#f2dca6";
+  g.font = `600 15px ${DISPLAY}`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(face.name, 80, 24);
+  // the emblem's field
+  const f = g.createRadialGradient(70, 80, 6, 80, 95, 70);
+  f.addColorStop(0, "#2f281f");
+  f.addColorStop(1, "#0e0b08");
+  g.fillStyle = f;
+  g.fill(rect(11, 40, 138, 112, 3));
+  g.save();
+  g.translate(80 - 55, 96 - 55);
+  g.scale(1.1, 1.1);
+  stamp(g, EMBLEMS[emblem](), s * 1.1, f);
+  g.restore();
+  // the type line and the P/T box
+  g.fillStyle = "rgba(242, 220, 166, 0.75)";
+  g.font = `600 10.5px ${FONT}, sans-serif`;
+  g.textAlign = "left";
+  g.fillText(face.type.replace(/^Token /, ""), 14, 166);
+  g.strokeStyle = "rgba(196, 149, 83, 0.6)";
+  g.beginPath();
+  g.moveTo(14, 176);
+  g.lineTo(146, 176);
+  g.stroke();
+  if (face.pt) {
+    g.fillStyle = "#120c08";
+    g.fill(rect(104, 188, 44, 26, 4));
+    g.strokeStyle = frame;
+    g.lineWidth = 2;
+    g.stroke(rect(104, 188, 44, 26, 4));
+    g.fillStyle = "#f2dca6";
+    g.font = `800 16px ${FONT}, sans-serif`;
+    g.textAlign = "center";
+    g.fillText(face.pt, 126, 202);
   }
   g.setTransform(1, 0, 0, 1, 0, 0);
 }
@@ -401,11 +500,12 @@ export function drawTaxMedallion(canvas: HTMLCanvasElement, tax: number): void {
 // -- as images (the 2D table and the panels) ---------------------------------------------------------------------------
 
 const urls = new Map<string, string>();
-function cachedUrl(key: string, draw: (c: HTMLCanvasElement) => void): string {
+function cachedUrl(key: string, draw: (c: HTMLCanvasElement) => void, w = 128, h = w): string {
   const known = urls.get(key);
   if (known) return known;
   const c = document.createElement("canvas");
-  c.width = c.height = 128; // sharp at twice the size it is shown
+  c.width = w; // sharp at twice the size it is shown
+  c.height = h;
   draw(c);
   const url = c.toDataURL("image/png");
   urls.set(key, url);
@@ -417,11 +517,13 @@ export const seatIconUrl = (id: SeatIconId): string => cachedUrl(`seat:${id}`, (
 export const toyIconUrl = (id: ToyIconId): string => cachedUrl(`toy:${id}`, (c) => drawToyIcon(c, id));
 export const dieIconUrl = (sides: DieIconId): string => cachedUrl(`die:${sides}`, (c) => drawDieIcon(c, sides));
 export const taxMedallionUrl = (tax: number): string => cachedUrl(`tax:${tax}`, (c) => drawTaxMedallion(c, tax));
+export const tokenCardUrl = (emblem: TokenEmblemId, face: { name: string; type: string; pt?: string; colors?: string[] }): string =>
+  cachedUrl(`token:${emblem}:${face.name}`, (c) => drawTokenCard(c, emblem, face), 160, 224);
 
-/** The number font, once loaded: images with numbers drawn before it (tax, dice) are drawn again by whoever asks. */
+/** The fonts, once loaded: images with text drawn before them (tax, dice, token cards) are drawn again by whoever asks. */
 export function whenIconFontReady(): Promise<void> {
   if (typeof document === "undefined" || !document.fonts?.load) return Promise.resolve();
-  return document.fonts.load(`800 20px ${FONT}`).then(() => {
-    for (const k of [...urls.keys()]) if (k.startsWith("tax:") || k.startsWith("die:")) urls.delete(k);
+  return Promise.all([document.fonts.load(`800 20px ${FONT}`), document.fonts.load(`600 15px Cinzel`)]).then(() => {
+    for (const k of [...urls.keys()]) if (k.startsWith("tax:") || k.startsWith("die:") || k.startsWith("token:")) urls.delete(k);
   }, () => undefined);
 }

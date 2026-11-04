@@ -11,16 +11,21 @@
  */
 import * as THREE from "three";
 import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
+import { useGame } from "../state/gameStore";
 import { drawSeatIcon, drawTaxMedallion, whenIconFontReady } from "../game/seatIcons";
 import { motionMs, onMotionSkip } from "../game/motion/timing";
-import { CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, taxSpot, toWorld, type Seat } from "./layout";
+import { CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, toWorld, type Seat } from "./layout";
 import { slotTexture } from "./textures";
 
 const HEART_W = 1.45;
 const HEART_Y = 0.16;
-const BUTTON_R = 0.26;
+const BUTTON_R = 0.33;
 const BUTTON_H = 0.08;
-const TAX_R = 0.26;
+/** The buttons' row: just past my mat's near edge, one medallion every PITCH, the two groups apart by DIVIDE. */
+const ROW_Z = MAT_D / 2 + 0.44;
+const PITCH = 0.8;
+const DIVIDE = 0.45;
+const TAX_R = 0.38;
 const LABEL_H = 0.5;
 
 /**
@@ -127,8 +132,14 @@ interface Heart {
    * change): what it shows now, where it's going, and the clicks still on their way. */
   roll: { from: number; to: number; start: number; dur: number; at: number | null; pending: number };
 }
-/** A seat button; `tip`: where its name shows while hovered (just over the mat's edge above it, as seen from the seat). */
-interface Button { group: THREE.Group; top: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; typed: string; press: number; tip: THREE.Vector3 }
+/**
+ * A seat button: its face, brass edge and glow ring; `lift`, how far it rises while hovered (eased); `tip`, where its name
+ * shows while hovered (just over the mat's edge above it, as seen from the seat).
+ */
+interface Button {
+  group: THREE.Group; top: THREE.Mesh; side: THREE.Mesh; edge: THREE.MeshStandardMaterial; glow: THREE.Mesh;
+  canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; typed: string; press: number; lift: number; tip: THREE.Vector3;
+}
 
 /** The whole number a rolling life total shows at ``now`` (ease-out; it lands exactly on ``to``). */
 export function lifeRollAt(r: { from: number; to: number; start: number; dur: number }, now: number): number {
@@ -185,45 +196,56 @@ export class SeatProps {
     }
     const mine = seats.find((s) => s.player === me);
     if (!mine) return;
-    // the medallions' brass edge, lit by the table's light (their faces carry their own, game/seatIcons.ts)
-    const edge = this.keep(new THREE.MeshStandardMaterial({ color: 0x8a6432, roughness: 0.42, metalness: 0.75 }));
+    // the medallions: a face drawn lit from the top left (the same picture as the 2D table's buttons, unlit, its rim's
+    // edge soft in the texture's alpha), a brass edge lit by the table's light, a contact shadow, and a glow ring for hover
     const contact = this.keep(new THREE.PlaneGeometry(BUTTON_R * 2.7, BUTTON_R * 2.7).rotateX(-Math.PI / 2));
-    SEAT_ACTIONS.forEach((a, i) => {
+    const faceGeo = this.keep(new THREE.PlaneGeometry(BUTTON_R * 2, BUTTON_R * 2).rotateX(-Math.PI / 2));
+    const sideGeo = this.keep(new THREE.CylinderGeometry(BUTTON_R * 0.96, BUTTON_R * 1.02, BUTTON_H, 64));
+    const ringGeo = this.keep(new THREE.RingGeometry(BUTTON_R * 1.04, BUTTON_R * 1.32, 64).rotateX(-Math.PI / 2));
+    const groups = [SEAT_ACTIONS.filter((a) => a.id !== "mulligan" && a.id !== "extras"), SEAT_ACTIONS.filter((a) => a.id === "mulligan" || a.id === "extras")];
+    const span = (groups[0]!.length + groups[1]!.length - 1) * PITCH + DIVIDE;
+    const x0 = 0.7 - span; // (ends a little right of the mat's middle: the turn dial covers the screen's bottom right)
+    const lxOf = (id: SeatActionId) => {
+      const k = groups[0]!.findIndex((a) => a.id === id);
+      return k >= 0 ? x0 + k * PITCH : x0 + (groups[0]!.length - 1) * PITCH + DIVIDE + (groups[1]!.findIndex((a) => a.id === id) + 1) * PITCH;
+    };
+    SEAT_ACTIONS.forEach((a) => {
       const group = new THREE.Group();
       const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = 128;
+      canvas.width = canvas.height = 256;
       const tex = this.keep(new THREE.CanvasTexture(canvas));
       tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = 4;
-      const r = BUTTON_R;
-      const top = new THREE.Mesh(
-        this.keep(new THREE.CircleGeometry(r * 0.985, 48).rotateX(-Math.PI / 2)),
-        // unlit: the face is drawn lit from the top left, the same picture as the 2D table's buttons
-        this.keep(new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })),
-      );
+      tex.anisotropy = 8;
+      const top = new THREE.Mesh(faceGeo, this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })));
       top.position.y = BUTTON_H + 0.002;
       top.userData = { seatButton: a.id };
-      const side = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(r, r * 1.06, BUTTON_H, 48)), edge);
+      const edge = this.keep(new THREE.MeshStandardMaterial({ color: 0x8a6432, roughness: 0.42, metalness: 0.75, emissive: 0xffc870, emissiveIntensity: 0 }));
+      const side = new THREE.Mesh(sideGeo, edge);
       side.position.y = BUTTON_H / 2;
       side.userData = { seatButton: a.id };
       side.castShadow = true;
-      // a soft contact shadow: the medallion sits on the table
       const under = new THREE.Mesh(contact, this.shadowMat());
       under.position.set(0.03, 0.004, 0.04);
-      group.add(under, top, side);
-      // a row just past my mat's near edge, from its left end (the turn dial covers the screen's bottom right); Mulligan
-      // apart on the right (as on the Oops mat), the Bag of Extras past it
-      const lx = a.id === "mulligan" ? -0.7 : a.id === "extras" ? 0.3 : -4.3 + i * 0.66;
-      const [wx, wz] = toWorld(mine, lx, MAT_D / 2 + 0.52);
+      const glow = new THREE.Mesh(ringGeo, this.keep(new THREE.MeshBasicMaterial({ color: 0xffd58a, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })));
+      glow.position.y = 0.006;
+      group.add(under, glow, side, top);
+      const lx = lxOf(a.id);
+      const [wx, wz] = toWorld(mine, lx, ROW_Z);
       group.position.set(wx, 0, wz);
       group.rotation.y = mine.rot;
       this.group.add(group);
-      const [tx, tz] = toWorld(mine, lx, MAT_D / 2 + 0.52 - 0.6);
-      const b: Button = { group, top, canvas, tex, typed: "", press: 0, tip: new THREE.Vector3(tx, 0.2, tz) };
+      const [tx, tz] = toWorld(mine, lx, ROW_Z - 0.68);
+      const b: Button = { group, top, side, edge, glow, canvas, tex, typed: "", press: 0, lift: 0, tip: new THREE.Vector3(tx, 0.2, tz) };
       drawSeatIcon(canvas, a.id);
       tex.needsUpdate = true;
       this.buttons.set(a.id, b);
     });
+    // one deliberate divider between the two groups: a short brass inlay in the table
+    const divider = new THREE.Mesh(this.keep(new THREE.BoxGeometry(0.045, 0.012, BUTTON_R * 1.5)), this.keep(new THREE.MeshStandardMaterial({ color: 0xb48a4a, roughness: 0.4, metalness: 0.8 })));
+    const [dx, dz] = toWorld(mine, x0 + (groups[0]!.length - 1) * PITCH + (DIVIDE + PITCH) / 2, ROW_Z);
+    divider.position.set(dx, 0.006, dz);
+    divider.rotation.y = mine.rot;
+    this.group.add(divider);
     const canvas = document.createElement("canvas");
     const tex = new THREE.CanvasTexture(canvas);
     const sprite = new THREE.Sprite(this.keep(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, toneMapped: false })));
@@ -296,19 +318,18 @@ export class SeatProps {
             this.slots.push(slot);
           }
           const canvas = document.createElement("canvas");
-          canvas.width = canvas.height = 128;
+          canvas.width = canvas.height = 256;
           const tex = this.keep(new THREE.CanvasTexture(canvas));
           tex.colorSpace = THREE.SRGBColorSpace;
-          tex.anisotropy = 4;
-          // a low brass puck lying by the slot, its face (unlit, drawn lit) turned to whoever looks (tick)
-          const mesh = new THREE.Mesh(this.keep(new THREE.CircleGeometry(TAX_R * 0.985, 40).rotateX(-Math.PI / 2)),
+          tex.anisotropy = 8;
+          // a low brass puck under the command zone, its face (unlit, drawn lit, its edge soft in the texture's alpha) turned
+          // to whoever looks (tick); a partner's beside it, toward the mat
+          const mesh = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(TAX_R * 2, TAX_R * 2).rotateX(-Math.PI / 2)),
             this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })));
-          const edge = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(TAX_R, TAX_R * 1.06, TAX_H, 40)), this.taxEdge());
-          // against its slot's edge, on the side layout.ts gives it
-          const [sx0, sz0] = COMMAND_SLOTS[i]!;
-          const [tx0, tz0] = taxSpot(i);
-          const k = (CARD_W / 2 + TAX_R + 0.05) / (Math.hypot(tx0 - sx0, tz0 - sz0) || 1);
-          const [wx, wz] = toWorld(seat, sx0 + (tx0 - sx0) * k, sz0 + (tz0 - sz0) * k);
+          const edge = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(TAX_R * 0.96, TAX_R * 1.02, TAX_H, 64)), this.taxEdge());
+          const [sx0, sz0] = COMMAND_SLOTS[0]!;
+          const inward = sx0 < 0 ? 1 : -1;
+          const [wx, wz] = toWorld(seat, sx0 + inward * (0.14 + i * (TAX_R * 2 + 0.14)), sz0 + CARD_H / 2 + 0.03 + TAX_R);
           mesh.position.set(wx, TAX_H + 0.002, wz);
           edge.position.set(wx, TAX_H / 2, wz);
           mesh.userData = { tax: c.key };
@@ -400,11 +421,20 @@ export class SeatProps {
       this.drawLife(h, r.at);
     }
     for (const [id, b] of this.buttons) {
-      // hovered: the brass catches more light; pressed: the medallion dips into the table and comes back
-      (b.top.material as THREE.MeshBasicMaterial).color.setScalar(id === this.hovered ? 1.3 : 1);
+      // hovered: the medallion rises a little, its face and edge catch more light and a warm ring glows on the table
+      // under it; pressed: it dips into the table and comes back
+      const on = id === this.hovered;
+      b.lift += ((on ? 1 : 0) - b.lift) * (reduced ? 1 : 0.3);
+      (b.top.material as THREE.MeshBasicMaterial).color.setScalar(1 + 0.28 * b.lift);
+      b.edge.emissiveIntensity = 0.35 * b.lift;
+      (b.glow.material as THREE.MeshBasicMaterial).opacity = 0.42 * b.lift;
       const since = now - b.press;
-      b.group.position.y = since < 160 ? -0.035 * Math.sin((since / 160) * Math.PI) : 0;
+      const dip = since < 160 ? -0.035 * Math.sin((since / 160) * Math.PI) : 0;
+      b.top.position.y = BUTTON_H + 0.002 + 0.045 * b.lift + dip;
+      b.side.position.y = BUTTON_H / 2 + 0.045 * b.lift + dip;
     }
+    // the name plate hides while a panel (the Bag of Extras it opened, a dialog) is up
+    if (this.label) this.label.sprite.visible = !!this.hovered && !useGame.getState().dialog;
     camera.getWorldDirection(this.look);
     const facing = Math.atan2(-this.look.x, -this.look.z); // the table's "up the screen", for things lying flat on it
     for (const t of this.taxes.values()) {
@@ -421,7 +451,7 @@ export class SeatProps {
     const out: THREE.Object3D[] = [];
     for (const h of this.hearts.values()) out.push(h.face);
     for (const t of this.taxes.values()) out.push(t.mesh, t.edge);
-    for (const b of this.buttons.values()) out.push(...b.group.children);
+    for (const b of this.buttons.values()) out.push(b.top, b.side);
     return out;
   }
 
