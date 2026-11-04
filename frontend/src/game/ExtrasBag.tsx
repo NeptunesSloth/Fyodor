@@ -1,17 +1,15 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { CardFace } from "../cards/CardFace";
-import { api } from "../services/api";
-import { getPrintings, imageUrl, searchCards } from "../services/cards";
+import { findTokens, imageUrl, type TokenSpec } from "../services/cards";
 import { requestCards, useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
 import type { CardData } from "../types/cards";
 import { addCounter, changeResource, send } from "./actions";
-import { BAG_DICE, CARD_COUNTERS, COMMON_TOKENS, commonBesidesDeck, deckTokenIds, matchesToken, PLAYER_COUNTERS, type ExtraToken } from "./bags";
+import { BagGlyph, CloseGlyph, CounterChipIcon, DieIcon, SearchGlyph, type CounterKind } from "./bagIcons";
+import { BAG_DICE, CARD_COUNTERS, COMMON_TOKENS, commonBesidesDeck, deckTokenIds, matchesToken, PLAYER_COUNTERS } from "./bags";
 import { keyLabel } from "./hotkeys";
 import { isOut } from "./outOfGame";
-import { dieIconUrl, seatIconUrl, tokenCardUrl, toyIconUrl, whenIconFontReady, type TokenEmblemId, type ToyIconId } from "./seatIcons";
 import "./dice.css";
 import "./tabletoys.css";
 
@@ -26,88 +24,93 @@ const COUNTER_LABEL: Record<string, string> = {
 
 // -- the common tokens' printings ----------------------------------------------------------------------------------------
 
-/** Found once a session: each common token's printing in the local card database, one with art when any printing has it. */
+/**
+ * Found once a session: each common token's printing in the card database (POST /cards/tokens/find: the server picks one
+ * whose picture is cached, else the newest paper printing; the picture is linked from Scryfall and cached the first time a
+ * table shows it, app/cards/token_art.py).
+ */
 let found: Record<string, CardData> = {};
 let finding: Promise<Record<string, CardData>> | null = null;
-let askedForArt = false;
-const listeners = new Set<(cards: Record<string, CardData>) => void>();
 
 function commonTokenPrintings(): Promise<Record<string, CardData>> {
-  finding ??= (async () => {
+  finding ??= findTokens(COMMON_TOKENS.map((t) => t.token as unknown as TokenSpec)).then((cards) => {
     const out: Record<string, CardData> = {};
-    await Promise.all(COMMON_TOKENS.map(async (t) => {
-      const name = t.token.name as string;
-      const hits = await searchCards(`!${name}`, { tokens: "true", limit: 60 }).then((r) => r.results, () => [] as CardData[]);
-      const match = hits.find((c) => matchesToken(c, t));
-      if (!match) return;
-      // the usual printing may have no art cached: another printing of the same token may
-      const art = match.has_image ? match : (await getPrintings(match.id).catch(() => [] as CardData[])).find((c) => c.has_image && matchesToken(c, t));
-      out[t.id] = art ?? match;
-    }));
+    COMMON_TOKENS.forEach((t, i) => {
+      const card = cards[i];
+      if (card && matchesToken(card, t)) out[t.id] = card;
+    });
     useCardCache.getState().put(Object.values(out));
     found = out;
     if (!Object.keys(out).length) finding = null; // (no card database yet: ask again next time)
-    else void askForArt(out);
     return out;
-  })();
+  }, () => {
+    finding = null;
+    return found;
+  });
   return finding;
-}
-
-/**
- * Art for the common tokens that have none cached, fetched by the host the way it fetches a deck's (linked from Scryfall,
- * cached, never shipped), once a session. Only the host may, and only while online: anywhere else the request is
- * refused and the tokens keep their emblem cards. When it is done, the printings are looked up again.
- */
-async function askForArt(cards: Record<string, CardData>): Promise<void> {
-  const ids = Object.values(cards).filter((c) => !c.has_image).map((c) => c.id);
-  if (askedForArt || !ids.length) return;
-  askedForArt = true;
-  const job = await api.post<{ id: string; state: string }>("/cards/cache-art", { ids }).catch(() => null);
-  if (!job) return;
-  for (let i = 0; i < 90; i++) {
-    await new Promise((r) => window.setTimeout(r, 2000));
-    const state = await api.get<{ state: string }>(`/jobs/${job.id}`).catch(() => null);
-    if (!state || state.state !== "running") break;
-  }
-  finding = null;
-  const again = await commonTokenPrintings();
-  for (const l of listeners) l(again);
 }
 
 function useCommonTokenPrintings(): Record<string, CardData> {
   const [cards, setCards] = useState(found);
   useEffect(() => {
     let live = true;
-    const hear = (r: Record<string, CardData>) => live && setCards(r);
-    listeners.add(hear);
-    void commonTokenPrintings().then(hear);
-    return () => { live = false; listeners.delete(hear); };
+    void commonTokenPrintings().then((r) => live && setCards(r));
+    return () => { live = false; };
   }, []);
   return cards;
 }
 
-/** The common tokens' printings to show as art (every one has art cached), or null (their emblem cards, all of them). */
-function artIdsOf(common: Record<string, CardData>, deck: string[], cache: Record<string, CardData>): string[] | null {
-  const commons = commonBesidesDeck(COMMON_TOKENS, common, deck.map((id) => cache[id]).filter((c): c is CardData => !!c));
-  return commons.length && commons.every((t) => common[t.id]?.has_image) ? commons.map((t) => common[t.id]!.id) : null;
-}
-
 // -- tiles ------------------------------------------------------------------------------------------------------------
 
+/** A token's colour, as the plain card's edge (several: gold; none: grey). */
+const COLOR_HUE: Record<string, string> = { W: "#e6dfc6", U: "#4a8ad6", B: "#8a7f8e", R: "#d9583f", G: "#46a35d" };
+const hueOf = (colors: string[]) => (colors.length === 1 ? COLOR_HUE[colors[0]!] ?? "#8d9096" : colors.length > 1 ? "#cfa94a" : "#8d9096");
+
+/** A token without a picture (offline, nothing cached): a plain card with its name, type and P/T, in clean type. */
+function PlainToken({ name, type, pt, colors }: { name: string; type: string; pt?: string | null | undefined; colors: string[] }) {
+  return (
+    <span className="bag-plain" style={{ "--tok": hueOf(colors) } as CSSProperties} aria-hidden>
+      <span className="bag-plain-name">{name}</span>
+      <span className="bag-plain-type">{type.replace(/^Token /, "")}</span>
+      {pt && <span className="bag-plain-pt">{pt}</span>}
+    </span>
+  );
+}
+
 /**
- * A token in the bag: its card (the printing's art; a common token without art cached shows its emblem card instead), its
- * name and P/T; a click pulls `count` of it onto the table.
+ * A token's printed card: its picture from the host (cached, or linked from Scryfall the first time it's shown), faded in
+ * over the plain card once it has loaded; the plain card stays when there is none.
  */
-function TokenTile({ card, emblem, name, pt, count, title, testId, onPull }: {
-  card?: CardData | undefined; emblem?: string | undefined; name: string; pt?: string | null | undefined; count: number; title: string; testId?: string; onPull: () => void;
+function TokenPicture({ card, name, type, pt, colors }: { card?: CardData | undefined; name: string; type: string; pt?: string | null | undefined; colors: string[] }) {
+  const src = card ? imageUrl(card.id, 0, "normal") : null;
+  const [shown, setShown] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  return (
+    <span className={`bag-tile-card${src && shown === src ? " has-art" : ""}`} data-art={src && shown === src ? "real" : "plain"}>
+      <PlainToken name={name} type={type} pt={pt} colors={colors} />
+      {src && failed !== src && (
+        <img className="bag-art" src={src} alt="" draggable={false} decoding="async"
+          onLoad={() => {
+            setShown(src);
+            if (card && !card.has_image) useCardCache.getState().put([{ ...card, has_image: true }]); // (now cached: the table shows it too)
+          }}
+          onError={() => setFailed(src)} />
+      )}
+    </span>
+  );
+}
+
+/** A token in the bag: its printed card, its name and P/T; a click pulls `count` of it onto the table. */
+function TokenTile({ card, name, type, colors, pt, count, title, testId, onPull }: {
+  card?: CardData | undefined; name: string; type: string; colors: string[]; pt?: string | null | undefined; count: number; title: string;
+  testId?: string; onPull: () => void;
 }) {
   const [pulls, setPulls] = useState(0);
   return (
     <button type="button" className="bag-tile" title={title} data-testid={testId} aria-label={`Create ${count} ${name}${pt ? ` ${pt}` : ""}`}
       onClick={() => { setPulls((n) => n + 1); onPull(); }}>
-      <span className="bag-tile-card">
-        {emblem && !card?.has_image ? <span className="card-face"><img src={emblem} alt={name} draggable={false} /></span> : <CardFace card={card} size="small" />}
-      </span>
+      <TokenPicture card={card} name={name} type={type} pt={pt} colors={colors} />
+      <span className="bag-tile-count" aria-hidden>+{count}</span>
       <span className="bag-tile-cap">
         <span className="bag-tile-name">{name}</span>
         {pt && <span className="bag-tile-pt">{pt}</span>}
@@ -117,11 +120,11 @@ function TokenTile({ card, emblem, name, pt, count, title, testId, onPull }: {
   );
 }
 
-/** A counter (or one of yours): a brass medallion with its name under it, like the dice. */
-function CounterChip({ kind, label, disabled, title, onPull }: { kind: ToyIconId; label: string; disabled?: boolean; title: string; onPull: () => void }) {
+/** A counter (or one of yours): its coloured chip with its name under it. */
+function CounterChip({ kind, label, disabled, title, onPull }: { kind: CounterKind; label: string; disabled?: boolean; title: string; onPull: () => void }) {
   return (
     <button type="button" className="bag-chip" disabled={disabled} title={title} onClick={onPull} data-testid={`extras-counter-${kind}`}>
-      <img src={toyIconUrl(kind)} alt="" draggable={false} />
+      <CounterChipIcon kind={kind} />
       <span>{label}</span>
     </button>
   );
@@ -130,11 +133,11 @@ function CounterChip({ kind, label, disabled, title, onPull }: { kind: ToyIconId
 /**
  * -- table toys -- the Bag of Extras, by your seat (a seat button on both tables, game/seatActions.ts): an infinite bag of
  * the common extras, opened where you clicked it. Your deck's tokens and the common ones (Treasure, Clue, Food, Blood,
- * 1/1s) as cards with their art, the search for any other token, counters for the selected cards and for you, and dice
+ * 1/1s) as their printed cards, the search for any other token, counters for the selected cards and for you, and dice
  * (and the roll panel, for a coin, the dice cannon and any other dice). Pulling one out sends the table's ordinary action
  * (create a token, a counter, a resource, a roll): nothing new for the rules engine, and a player who is out of the game
  * has no bag (the server refuses their objects). It stays open to pull several; Esc, its close button or a click
- * elsewhere closes it.
+ * elsewhere closes it. Dark and neutral, with the player's seat colour as its one accent.
  */
 export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string | null; onClose: () => void }) {
   const view = useGame((s) => s.view);
@@ -144,24 +147,10 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
   const panel = useRef<HTMLDivElement>(null);
   const [count, setCount] = useState<number>(1);
   const [place, setPlace] = useState<CSSProperties>({ visibility: "hidden" });
-  const [, iconsReady] = useState(0);
-  const [artLoaded, setArtLoaded] = useState<string>("");
   const common = useCommonTokenPrintings();
   const related = (id: string) => cache[id]?.related_tokens?.map((t) => t.id);
   const deck = useMemo(() => (view ? deckTokenIds(view, me, related, (id) => cache[id]) : []), [view, me, cache]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => requestCards(deck), [deck]);
-  useEffect(() => { void whenIconFontReady().then(() => iconsReady(1)); }, []);
-  const artKey = artIdsOf(common, deck, cache)?.join(",") ?? "";
-  useEffect(() => {
-    if (!artKey) return;
-    let live = true;
-    void Promise.all(artKey.split(",").map((id) => new Promise<void>((done) => {
-      const img = new Image();
-      img.onload = img.onerror = () => done();
-      img.src = imageUrl(id, 0, "small");
-    }))).then(() => live && setArtLoaded(artKey));
-    return () => { live = false; };
-  }, [artKey]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -202,30 +191,27 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
     setPlace({ left: x, top, maxHeight: room });
   }, [anchor, deck.length]);
   if (!view || isOut(view, me)) return null;
+  const seat = view.players.find((p) => p.id === me)?.color;
   const onTable = selection.filter((id) => view.cards[id]?.zone.endsWith(":battlefield"));
   const make = (token: Record<string, unknown>) => void send({ type: "create_token", player: me, token, count });
-  const emblemOf = (t: ExtraToken) => tokenCardUrl(t.id as TokenEmblemId, {
-    name: t.label, type: t.token.type_line as string, pt: t.pt, colors: (t.token.colors as string[] | undefined) ?? [],
-  });
   const commons = commonBesidesDeck(COMMON_TOKENS, common, deck.map((id) => cache[id]).filter((c): c is CardData => !!c));
-  // one look for the grid: every common token's art once all of it is cached and loaded, its emblem card until then
-  const artIds = artIdsOf(common, deck, cache);
   const target = onTable.length === 1 ? "the selected card" : `${onTable.length} selected cards`;
   const diceKey = keyLabel("dice", keymap);
   // (on the page itself, so it stands over the table's floating layers, such as the dice results on the 2D table)
   return createPortal(
-    <div className="extras-panel" ref={panel} role="dialog" aria-label="Bag of Extras" style={place} data-testid="extras-panel">
-      <div className="extras-inner">
+    <div className="extras-panel" ref={panel} role="dialog" aria-label="Bag of Extras" data-testid="extras-panel"
+      style={{ ...place, ...(seat ? { "--seat": seat } : {}) } as CSSProperties}>
       <header className="extras-head">
-        <img className="extras-mark" src={seatIconUrl("extras")} alt="" draggable={false} />
+        <BagGlyph />
         <h2 className="extras-title">Bag of Extras</h2>
         <div className="extras-count" role="group" aria-label="How many each pull makes">
           {COUNTS.map((n) => (
-            <button key={n} type="button" className={count === n ? "on" : ""} aria-pressed={count === n} onClick={() => setCount(n)}>×{n}</button>
+            <button key={n} type="button" className={count === n ? "on" : ""} aria-pressed={count === n} onClick={() => setCount(n)}
+              title={`Each pull makes ${n}`}>×{n}</button>
           ))}
         </div>
         <button type="button" className="extras-close" onClick={onClose} aria-label="Close the Bag of Extras (Esc)" title="Close (Esc)">
-          <img src={toyIconUrl("close")} alt="" draggable={false} />
+          <CloseGlyph />
         </button>
       </header>
       <div className="extras-body">
@@ -237,26 +223,25 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
                 {deck.map((id) => {
                   const card = cache[id];
                   const pt = card?.power != null ? `${card.power}/${card.toughness}` : null;
-                  return <TokenTile key={id} card={card} name={card?.name ?? "…"} pt={pt} count={count} title={card ? `${card.name} — ${card.type_line ?? ""}` : "Token"}
-                    onPull={() => make({ card_id: id })} />;
+                  return <TokenTile key={id} card={card} name={card?.name ?? "…"} type={card?.type_line ?? "Token"} colors={card?.colors ?? []} pt={pt}
+                    count={count} title={card ? `${card.name} — ${card.type_line ?? ""}` : "Token"} onPull={() => make({ card_id: id })} />;
                 })}
               </div>
             </section>
           )}
           <section className="extras-group" aria-label="Common tokens">
-            <h3 className="extras-group-head">Tokens</h3>
+            <h3 className="extras-group-head">{deck.length ? "Common tokens" : "Tokens"}</h3>
             <div className="bag-tiles">
               {commons.map((t) => {
                 const card = common[t.id];
-                const showArt = !!artIds && artLoaded === artIds.join(",");
-                return <TokenTile key={t.id} card={showArt ? card : undefined} emblem={emblemOf(t)} name={t.label} pt={t.pt} count={count} testId={`extras-${t.id}`}
+                return <TokenTile key={t.id} card={card} name={t.label} type={t.token.type_line as string} colors={(t.token.colors as string[] | undefined) ?? []}
+                  pt={t.pt} count={count} testId={`extras-${t.id}`}
                   title={`${t.token.type_line as string}${t.token.text ? `: ${t.token.text as string}` : ""}`}
                   onPull={() => make(card ? { card_id: card.id } : t.token)} />;
               })}
               <button type="button" className="bag-tile bag-find" onClick={() => useGame.getState().openDialog("tokens")} data-testid="extras-find-token"
                 title="Search every token in the card database, or make a custom one">
-                <span className="bag-tile-card bag-find-slot"><img src={toyIconUrl("book")} alt="" draggable={false} /></span>
-                <span className="bag-tile-cap"><span className="bag-tile-name">Find any token…</span></span>
+                <span className="bag-tile-card bag-find-slot"><SearchGlyph /><span>Find any token</span></span>
               </button>
             </div>
           </section>
@@ -285,7 +270,7 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
               {BAG_DICE.map((sides) => (
                 <button key={sides} type="button" className="bag-die" onClick={() => void send({ type: "roll", sides, count })}
                   title={`Roll ${count > 1 ? count : ""}d${sides}`} aria-label={`Roll ${count > 1 ? count : "a"} d${sides}`} data-testid={`extras-d${sides}`}>
-                  <img src={dieIconUrl(sides)} alt="" draggable={false} />
+                  <DieIcon sides={sides} />
                   <span>d{sides}</span>
                 </button>
               ))}
@@ -298,8 +283,7 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
           </section>
         </div>
       </div>
-      <p className="extras-note">The bag never runs out. Each pull is the table's own action; Ctrl+Z takes it back.</p>
-      </div>
+      <p className="extras-note">The bag never runs out. Each pull is a normal table action, so Ctrl+Z takes it back.</p>
     </div>,
     document.body,
   );

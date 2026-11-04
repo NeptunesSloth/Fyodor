@@ -3,7 +3,7 @@
  * of Doom" infinite bags), off the mats and opened on demand:
  *
  * - **The Bag of Extras** by your seat (a seat button, game/seatActions.ts): the tokens your deck makes (its Tokens section
- *   and the tokens its cards list), the common extras (Treasure, Clue, Food, Blood, 1/1s), counters and dice. It is
+ *   and the tokens its cards list), the common extras (Treasure, Clue, Food, Blood, 1/1s) as their printed cards, counters and dice. It is
  *   infinite: pulling one out sends the table's ordinary action (create a token, add a counter or a resource, roll), so
  *   nothing new reaches the rules engine. A player who is out of the game makes no objects (game/outOfGame.ts).
  * - **The draw bag** (game/DrawBagPanel.tsx): the table fills it with chits (numbers, player names, teams, any words) and
@@ -18,21 +18,20 @@ export interface ExtraToken {
   label: string;
   /** P/T shown on the chip ("1/1"). */
   pt?: string;
-  tint: string;
   token: Record<string, unknown>;
 }
 
 /** The predefined tokens with their full rules text, as the server's rules create them (app/rules/scripts.py PREDEFINED_TOKENS). */
 export const COMMON_TOKENS: ExtraToken[] = [
-  { id: "treasure", label: "Treasure", tint: "#d9b267", token: { name: "Treasure", type_line: "Token Artifact — Treasure", text: "{T}, Sacrifice this token: Add one mana of any color." } },
-  { id: "clue", label: "Clue", tint: "#9fb3c8", token: { name: "Clue", type_line: "Token Artifact — Clue", text: "{2}, Sacrifice this token: Draw a card." } },
-  { id: "food", label: "Food", tint: "#c9a57a", token: { name: "Food", type_line: "Token Artifact — Food", text: "{2}, {T}, Sacrifice this token: You gain 3 life." } },
-  { id: "blood", label: "Blood", tint: "#c0544a", token: { name: "Blood", type_line: "Token Artifact — Blood", text: "{1}, {T}, Discard a card, Sacrifice this token: Draw a card." } },
-  { id: "soldier", label: "Soldier", pt: "1/1", tint: "#efe6cf", token: { name: "Soldier", power: "1", toughness: "1", colors: ["W"], type_line: "Token Creature — Soldier" } },
-  { id: "spirit", label: "Spirit", pt: "1/1", tint: "#efe6cf", token: { name: "Spirit", power: "1", toughness: "1", colors: ["W"], type_line: "Token Creature — Spirit", text: "Flying" } },
-  { id: "goblin", label: "Goblin", pt: "1/1", tint: "#d8735a", token: { name: "Goblin", power: "1", toughness: "1", colors: ["R"], type_line: "Token Creature — Goblin" } },
-  { id: "saproling", label: "Saproling", pt: "1/1", tint: "#7fae6a", token: { name: "Saproling", power: "1", toughness: "1", colors: ["G"], type_line: "Token Creature — Saproling" } },
-  { id: "thopter", label: "Thopter", pt: "1/1", tint: "#b7b2a8", token: { name: "Thopter", power: "1", toughness: "1", colors: [], type_line: "Token Artifact Creature — Thopter", text: "Flying" } },
+  { id: "treasure", label: "Treasure", token: { name: "Treasure", type_line: "Token Artifact — Treasure", text: "{T}, Sacrifice this token: Add one mana of any color." } },
+  { id: "clue", label: "Clue", token: { name: "Clue", type_line: "Token Artifact — Clue", text: "{2}, Sacrifice this token: Draw a card." } },
+  { id: "food", label: "Food", token: { name: "Food", type_line: "Token Artifact — Food", text: "{2}, {T}, Sacrifice this token: You gain 3 life." } },
+  { id: "blood", label: "Blood", token: { name: "Blood", type_line: "Token Artifact — Blood", text: "{1}, {T}, Discard a card, Sacrifice this token: Draw a card." } },
+  { id: "soldier", label: "Soldier", pt: "1/1", token: { name: "Soldier", power: "1", toughness: "1", colors: ["W"], type_line: "Token Creature — Soldier" } },
+  { id: "spirit", label: "Spirit", pt: "1/1", token: { name: "Spirit", power: "1", toughness: "1", colors: ["W"], type_line: "Token Creature — Spirit", text: "Flying" } },
+  { id: "goblin", label: "Goblin", pt: "1/1", token: { name: "Goblin", power: "1", toughness: "1", colors: ["R"], type_line: "Token Creature — Goblin" } },
+  { id: "saproling", label: "Saproling", pt: "1/1", token: { name: "Saproling", power: "1", toughness: "1", colors: ["G"], type_line: "Token Creature — Saproling" } },
+  { id: "thopter", label: "Thopter", pt: "1/1", token: { name: "Thopter", power: "1", toughness: "1", colors: [], type_line: "Token Artifact Creature — Thopter", text: "Flying" } },
 ];
 
 /** Counters the bag hands out onto the selected cards, and your own player counters. */

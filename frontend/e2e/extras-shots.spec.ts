@@ -46,7 +46,7 @@ test("the Bag of Extras, 3D table, 1920x1080", async ({ page }) => {
   await expect(page.getByTestId("extras-panel")).toBeVisible();
   await page.mouse.move(2, 400);
   await page.waitForTimeout(1500); // token art and the panel's entrance settle
-  await page.screenshot({ path: `${OUT}/${PREFIX}-3d-1920x1080.png` });
+  await page.screenshot({ path: `${OUT}/${PREFIX}-3d-1920x1080.png`, animations: "disabled" }); // (a slow software-WebGL frame can hold the entrance mid-fade)
   await page.getByTestId("extras-panel").screenshot({ path: `${OUT}/${PREFIX}-3d-panel.png` });
 });
 
@@ -61,4 +61,10 @@ test("the Bag of Extras, 2D table, 1440x900", async ({ page }) => {
   await expect(page.getByTestId("extras-panel")).toBeVisible();
   await page.waitForTimeout(1200);
   await page.screenshot({ path: `${OUT}/${PREFIX}-2d-1440x900.png` });
+  // reaching in: ×3 chosen, a token under the pointer
+  const panel = page.getByTestId("extras-panel");
+  await panel.getByRole("button", { name: "×3" }).click();
+  await panel.getByTestId("extras-treasure").hover();
+  await page.waitForTimeout(400);
+  await panel.screenshot({ path: `${OUT}/${PREFIX}-2d-panel-hover.png` });
 });
