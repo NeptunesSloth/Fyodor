@@ -146,7 +146,7 @@ body.hud-minimal .seat-add { display: none; }
 .t3d-seat:not(.seat-2d) .seat-who { justify-content: flex-start; align-items: flex-start; }
 .t3d-seat:not(.seat-2d) .t3d-seat-name { font-size: max(12.5px, calc(10.5px / var(--plate-k, 1))); max-width: 120px; }
 .t3d-seat:not(.seat-2d) .seat-side { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 3px; }
-.t3d-seat:not(.seat-2d) .seat-trackers { justify-content: flex-end; }
+.t3d-seat:not(.seat-2d) .seat-trackers { justify-content: flex-end; margin-top: auto; } /* (at the bottom, with or without tabs above) */
 .t3d-seat:not(.seat-2d) .seat-hand { font-size: max(13px, calc(11px / var(--plate-k, 1))); }
 .t3d-seat:not(.seat-2d) .t3d-seat-flags { position: static; transform: none; flex-direction: column; align-items: flex-end; gap: 2px; pointer-events: none; }
 .t3d-seat:not(.seat-2d) .t3d-flag { border-radius: 3px; padding: 2px 6px 1px; letter-spacing: 0.06em; font-size: max(10px, calc(9px / var(--plate-k, 1))); }
