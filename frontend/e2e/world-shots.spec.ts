@@ -224,3 +224,25 @@ for (const q of ["low", "medium", "high"]) {
     await page.screenshot({ path: `${OUT}/${PREFIX}-${planeId}-4p-${q}.png` });
   });
 }
+
+/** Wall-clock time per frame (the software renderer's whole frame, not just the script's part), the perf check's board. */
+for (const q of ["low", "medium", "high"]) {
+  test(`frame time at ${q}: the 4-player board of the perf check`, async ({ page }) => {
+    test.skip(!!ONLY && ONLY !== "frames", "SHOT_ONLY");
+    test.setTimeout(600_000);
+    const gameId = await setup(page, PLANES[0]!, q, ["Alice", "Bob", "Casey", "Jordan"], 10);
+    await open(page, gameId, 40);
+    const samples: number[] = [];
+    for (let k = 0; k < 3; k++) {
+      samples.push(await page.evaluate(async () => {
+        const f = window.__fyodor3d!;
+        await f.nextFrame!();
+        const t0 = performance.now();
+        for (let i = 0; i < 8; i++) await f.nextFrame!();
+        return (performance.now() - t0) / 8;
+      }));
+    }
+    const s = await page.evaluate(() => window.__fyodor3d!.stats());
+    console.log(`FRAMES ${q} ${JSON.stringify({ msPerFrame: samples.map((v) => Math.round(v)), calls: s.calls, triangles: s.triangles, cards: s.cards })}`);
+  });
+}

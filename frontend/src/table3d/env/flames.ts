@@ -80,7 +80,8 @@ void main() {
   float a = body * (0.78 + core * 0.22);
   // the halo: a soft warm glow round the flame
   float r = length(vec2(vUv.x, (vUv.y - 0.1) * 0.85));
-  float halo = exp(-r * r * 9.0) * 0.32 + exp(-r * r * 42.0) * 0.28;
+  // (seen from above a flame shows less of itself: its glare shrinks with it)
+  float halo = (exp(-r * r * 9.0) * 0.32 + exp(-r * r * 42.0) * 0.28) * (0.4 + 0.6 * vFore);
   vec3 outc = col * a * 1.6 + vTint * vec3(1.0, 0.62, 0.3) * halo * f;
   gl_FragColor = vec4(outc, 1.0);
   #include <tonemapping_fragment>

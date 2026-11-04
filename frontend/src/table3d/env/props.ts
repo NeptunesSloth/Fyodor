@@ -136,7 +136,8 @@ export function buildTableProp(ctx: SetCtx, at: Put, kind: TableProp, glow: stri
       const tops = candles(ctx, at.at(0, 0, 0, (r() - 0.5) * 0.4), tallow ? "#d8c8a0" : "#e8d6b2", tallow ? "#5a5e66" : "#a8823a", tallow ? IRON : BRASS, tallow);
       for (const t of tops) flame(t, 0.44);
       const c = tops[0]!;
-      lights.push({ pos: new THREE.Vector3(c.x, c.y + 0.35, c.z), color: glow, intensity: 6, distance: 16 });
+      // (from a little above the flames: the wax right under it would burn white)
+      lights.push({ pos: new THREE.Vector3(c.x, c.y + 1.0, c.z), color: glow, intensity: 6.5, distance: 16 });
       break;
     }
     case "books":
