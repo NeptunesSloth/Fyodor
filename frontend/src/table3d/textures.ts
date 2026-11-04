@@ -279,7 +279,7 @@ export const SLOT_STRETCH = 1.45;
 const SLOT_CONDENSE = 0.86;
 /** The stretch for a table of this many seats: the duel's is seen at a low slant, the others' from nearly above. */
 export function slotStretch(seats: number): number {
-  return seats === 2 ? 1.9 : SLOT_STRETCH;
+  return seats === 2 ? 2.3 : SLOT_STRETCH;
 }
 
 /**
@@ -298,17 +298,24 @@ export function slotTexture(label: string, color: string, stretch = SLOT_STRETCH
   g.lineWidth = 4;
   roundRect(g, 10, 10, W - 20, H - 20, 24);
   g.stroke();
+  const font = (px: number) => `700 ${px}px Cinzel, "Trajan Pro", Georgia, serif`;
+  let px = 64;
+  g.font = font(px);
+  const widest = Math.max(...SLOT_LABELS.map((l) => g.measureText(l.toUpperCase()).width)) * SLOT_CONDENSE;
+  px = Math.floor(Math.min(84, (px * (W - 30)) / Math.max(1, widest)));
+  // the inner hairline, broken where the label crosses it (the label runs nearly the slot's width)
+  const band = px * 0.9 * stretch;
+  g.save();
+  g.beginPath();
+  g.rect(0, 0, W, H);
+  g.rect(0, H / 2 - band / 2, W, band);
+  g.clip("evenodd");
   g.globalAlpha = 0.35;
   g.strokeStyle = "#efe2c2";
   g.lineWidth = 2;
   roundRect(g, 26, 26, W - 52, H - 52, 14);
   g.stroke();
-  g.globalAlpha = 1;
-  const font = (px: number) => `700 ${px}px Cinzel, "Trajan Pro", Georgia, serif`;
-  let px = 64;
-  g.font = font(px);
-  const widest = Math.max(...SLOT_LABELS.map((l) => g.measureText(l.toUpperCase()).width)) * SLOT_CONDENSE;
-  px = Math.floor(Math.min(84, (px * (W - 44)) / Math.max(1, widest)));
+  g.restore();
   g.font = font(px);
   g.textAlign = "center";
   g.textBaseline = "middle";
