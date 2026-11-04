@@ -95,15 +95,16 @@ export function zoomAt(a: CamAdjust, base: CamPose, ground: THREE.Vector3, facto
 
 /**
  * An arrow key: pan a step across the table as the screen shows it (left/right along the screen's horizontal, up/down
- * away from or toward me), a step growing with the distance; Shift goes three times as far.
+ * away from or toward me), a step growing with the distance; Shift goes three times as far. `lens`: how much of the
+ * view a unit of distance spans, against a 42° lens (a longer lens sees less, so it steps less).
  */
-export function panKey(a: CamAdjust, base: CamPose, dir: "left" | "right" | "up" | "down", fast: boolean, bounds?: PanBounds): CamAdjust {
+export function panKey(a: CamAdjust, base: CamPose, dir: "left" | "right" | "up" | "down", fast: boolean, bounds?: PanBounds, lens = 1): CamAdjust {
   const now = adjustCamera(base, a);
   const fwd = now.look.clone().sub(now.pos).setY(0);
   if (fwd.lengthSq() < 1e-9) fwd.set(0, 0, -1);
   fwd.normalize();
   const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
-  const step = now.pos.distanceTo(now.look) * 0.045 * (fast ? 3 : 1);
+  const step = now.pos.distanceTo(now.look) * 0.045 * lens * (fast ? 3 : 1);
   const v = dir === "left" ? right.multiplyScalar(-step) : dir === "right" ? right.multiplyScalar(step) : dir === "up" ? fwd.multiplyScalar(step) : fwd.multiplyScalar(-step);
   return panBy(a, v.x, v.z, base, bounds);
 }

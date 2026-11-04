@@ -463,7 +463,7 @@ export class TableScene {
   /** The arrow keys: pan the view a step (Shift: three steps). */
   panView(dir: "left" | "right" | "up" | "down", fast: boolean): void {
     if (!this.camBase) return;
-    this.moveView(panKey(this.adj, this.camBase, dir, fast, this.panBounds()));
+    this.moveView(panKey(this.adj, this.camBase, dir, fast, this.panBounds(), 1 / LENS_REACH));
   }
 
   /** -- camera -- the player moved the view. */
