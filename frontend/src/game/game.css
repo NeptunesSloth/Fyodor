@@ -629,6 +629,11 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
 @keyframes preview-in { from { opacity: 0; transform: translateY(-4px); } }
 .card-preview .inspector { border: 0; max-height: none; overflow: hidden; min-height: 0; }
 .card-preview .insp-image { width: var(--insp-w, 230px); }
+.card-preview .insp-name { padding-right: 12px; } /* (clear of the close medallion on the corner) */
+/* short of room: the picture beside the words (the panel as wide as both), the words never cut */
+.card-preview.beside .inspector { display: flow-root; }
+.card-preview.beside .insp-image { float: left; margin: 0; }
+.card-preview.beside .inspector > :not(.insp-image) { margin-left: calc(var(--insp-w) + 12px); }
 /* close: the icon family's brass medallion, on the panel's corner */
 .card-preview-close {
   position: absolute; top: -11px; right: -11px; z-index: 1; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%;
@@ -638,7 +643,8 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
 .card-preview-close img { width: 100%; height: 100%; display: block; pointer-events: none; }
 .card-preview-close:hover { filter: brightness(1.18); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7), 0 0 9px 1px var(--accent-glow); }
 .card-preview-close:active { transform: translateY(1px) scale(0.93); }
-.card-preview-close:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+/* brass, the room's metal (over the table's blue ring for buttons, theme.css) */
+.game-screen .card-preview-close.card-preview-close:focus-visible, .card-preview-close:focus-visible { outline: 2px solid var(--room-brass-hi); outline-offset: 2px; }
 .stack-widget { position: fixed; z-index: 35; top: 52px; right: 12px; }
 .stack-widget.open { width: 300px; max-height: 50vh; display: flex; flex-direction: column; filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.6)); }
 .stack-widget.open .stack-panel { overflow: auto; }
@@ -685,7 +691,8 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
 /* hovered: the brass catches the candlelight; pressed: pushed into the rail */
 .seat-btn:hover { filter: brightness(1.16); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7), 0 0 9px 1px var(--accent-glow); }
 .seat-btn:active { transform: translateY(1px) scale(0.9); filter: brightness(0.78) saturate(0.85); box-shadow: 0 0 1px rgba(0, 0, 0, 0.9); }
-.seat-btn:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+/* brass, the room's metal (over the table's blue ring for buttons, theme.css) */
+.game-screen .seat-btn.seat-btn:focus-visible, .seat-btn:focus-visible { outline: 2px solid var(--room-brass-hi); outline-offset: 2px; }
 .seat-typed {
   position: absolute; top: -9px; right: -7px; min-width: 18px; padding: 1px 4px; border-radius: 9px; font: 800 11px/1.3 var(--font-ui); font-variant-numeric: tabular-nums;
   background: var(--room-brass-hi); color: #1a1208; pointer-events: none;
@@ -834,7 +841,8 @@ main.table:not(.is-3d) > .hand:not(.compact) { background: linear-gradient(to to
 .tax-btn img { width: 100%; height: 100%; display: block; pointer-events: none; }
 .tax-btn:hover { filter: brightness(1.16); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7), 0 0 9px 1px var(--accent-glow); }
 .tax-btn:active { transform: translateY(1px) scale(0.93); }
-.tax-btn:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+/* brass, the room's metal (over the table's blue ring for buttons, theme.css) */
+.game-screen .tax-btn.tax-btn:focus-visible, .tax-btn:focus-visible { outline: 2px solid var(--room-brass-hi); outline-offset: 2px; }
 .seat-strip .tax-btn { width: 24px; height: 24px; }
 /* my rail: a partner pair gets twice a pile's width, and the counters stay readable */
 .player-area.mine .zone-rail:has(.command-zone.partners) { grid-template-columns: 1fr 1fr 1fr 2.1fr; }

@@ -33,8 +33,11 @@ function cardBox(id: string): Box | null {
 
 /** What the preview keeps clear of: the plates and strips, the rail by my mat, the turn panel, the stack, my hand, panels. */
 const PREVIEW_CLEAR = ".t3d-seat, .seat-strip, .area-side, .turn-dial-wrap, .rules-stack-wrap, .stack-widget, .resp-bar, .t3d-cams, .log-drawer, .tool-tray, .hand-cards, .selection-bar, .decision-panel";
-/** The least the preview's card picture shrinks to (from its full 230 px, or 330 with the large inspector) to fit. */
-const PREVIEW_IMG_MIN = 130;
+/** The least height the preview's card picture shrinks to when it goes beside the words (from its full 321 px). */
+const PREVIEW_ART_MIN_H = 200;
+
+/** Where the preview stands, for which hover (and whether its words had arrived); `beside`: the picture's width beside the words. */
+type PreviewPlace = { key: string; side: "left" | "right"; left: number; top: number; maxH: number; beside: { art: number; width: number } | null };
 
 /**
  * The large card preview, docked at the right edge under the top bar while you hover a card. It never follows the
@@ -53,36 +56,46 @@ export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   });
   const ready = useCardCache((c) => !!printId && !!c.cards[printId]); // (its text arrives with the card's data: measured again)
   const panel = useRef<HTMLDivElement>(null);
-  const [place, setPlace] = useState<{ side: "left" | "right"; left: number; top: number; maxH: number; img: number } | null>(null);
+  const [place, setPlace] = useState<PreviewPlace | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => void previewKey(e);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  // placed once per hovered card, before it shows: measured at full size, then put where it is clear and fitted
+  // placed once per hovered card (and again when its words arrive), before it shows: a hidden render at full size is
+  // measured, then the panel goes where it is clear; short of room, its picture goes beside the words, as tall as fits
+  const key = `${hover}|${ready}`;
+  const measuring = !place || place.key !== key;
   useLayoutEffect(() => {
     const node = panel.current;
-    if (!hover || !node) return;
-    node.style.removeProperty("--insp-w");
-    node.style.maxHeight = "none";
+    if (!hover || !node || !measuring) return;
     const w = node.offsetWidth;
     const naturalH = node.offsetHeight;
-    const base = (node.querySelector(".insp-image") as HTMLElement | null)?.offsetWidth || 230;
+    const art = node.querySelector(".insp-image") as HTMLElement | null;
+    const artW = art?.offsetWidth || 230;
+    const artH = art?.offsetHeight || (artW * 88) / 63;
+    const words = naturalH - artH - 8; // the name, rules text, notes and the panel's padding
     const obstacles = [...document.querySelectorAll(PREVIEW_CLEAR)].map((n) => n.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
     const top = Math.max(96, ...[...document.querySelectorAll(".game-top, .t3d-cams")].map((n) => n.getBoundingClientRect().bottom + 8));
-    const p = placePreview({ vw: window.innerWidth, vh: window.innerHeight, w, minH: 300, top, naturalH, card: cardBox(hover), obstacles });
-    // too tall for its room: the picture gives way first (the words never do)
-    const imgH = base * 88 / 63;
-    const img = naturalH <= p.maxH ? 0 : Math.max(PREVIEW_IMG_MIN, Math.floor((p.maxH - (naturalH - imgH)) * 63 / 88));
-    node.style.removeProperty("max-height");
-    setPlace({ ...p, img });
-  }, [hover, ready]);
+    const base = { vw: window.innerWidth, vh: window.innerHeight, minH: 260, top, card: cardBox(hover), obstacles };
+    const p = placePreview({ ...base, w, naturalH });
+    if (naturalH <= p.maxH) {
+      setPlace({ key, ...p, beside: null });
+      return;
+    }
+    const h = Math.max(PREVIEW_ART_MIN_H, Math.min(artH, p.maxH - 22));
+    const bw = Math.round((h * 63) / 88);
+    const width = bw + 12 + (w - 22) + 22;
+    const besideH = Math.max(h, words) + 22;
+    setPlace({ key, ...placePreview({ ...base, w: width, naturalH: besideH }), beside: { art: bw, width } });
+  });
   if (!hover || (skipHand && inHand)) return null;
-  const style = place
-    ? { left: place.left, top: place.top, maxHeight: place.maxH, ...(place.img ? { ["--insp-w" as string]: `${place.img}px` } : {}) }
-    : { visibility: "hidden" as const };
+  const style: React.CSSProperties = measuring || !place
+    ? { left: 0, top: 0, visibility: "hidden" }
+    : { left: place.left, top: place.top, maxHeight: place.maxH, ...(place.beside ? { width: place.beside.width, ["--insp-w" as string]: `${place.beside.art}px` } : {}) };
+  const side = !measuring && place ? place.side : "right";
   return (
-    <div ref={panel} className={`card-preview ${place?.side ?? "right"}`} data-testid="card-preview" data-dock={place?.side ?? "right"} style={style}>
+    <div ref={panel} className={`card-preview ${side}${!measuring && place?.beside ? " beside" : ""}`} data-testid="card-preview" data-dock={side} style={style}>
       <button type="button" className="card-preview-close" onClick={clearHover} aria-label="Close the card preview (Esc)" title="Close (Esc)"
         data-testid="card-preview-close">
         <img src={toyIconUrl("close")} alt="" draggable={false} />
