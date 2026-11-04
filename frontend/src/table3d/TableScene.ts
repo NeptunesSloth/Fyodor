@@ -68,6 +68,8 @@ import { FLAT_LOOK, nameScreenEm, tileLook, tileOverlayCanvas, tileTexture, TILE
 import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, offMat, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
 import { boardOrder, saveBoardOrder } from "../game/arrange";
 import { useBoardOrderTick } from "../game/arrangeDrop";
+import { Cursors3D, type CursorMessage } from "./cursors3d";
+import { CursorOutbox, overTable, worldToCursor } from "./cursors";
 
 /** How long a refused action's card stays marked. */
 export const ERROR_MS = 1800;
@@ -256,6 +258,9 @@ export class TableScene {
   private piles = new Map<string, PileObj>();
   private mats = new Map<string, THREE.Mesh>();
   private handFans = new Map<string, HeldFan>();
+  /** -- live cursors -- the other players' pointers, and mine on its way to them (table3d/cursors3d.ts) */
+  private cursors = new Cursors3D((id, cx, cy) => this.onCardWorld(id, cx, cy));
+  private cursorOut = new CursorOutbox();
   private seatList: Seat[] = [];
   private seatKey = "";
   private plane: PlaneTheme;
@@ -429,6 +434,14 @@ export class TableScene {
     this.shadows.renderOrder = -2;
     this.world.add(this.bodies, this.shadows, this.arrows, this.dice.group, this.props.group);
     this.world.add(this.tethers);
+    // -- live cursors -- the others' pointers, as the server relays them (never mine: another tab of my seat sends them too)
+    this.world.add(this.cursors.group);
+    const onCursor = (e: Event) => {
+      const msg = (e as CustomEvent<CursorMessage>).detail;
+      if (this.view && msg.from !== this.view.viewer) this.cursors.receive(msg, performance.now());
+    };
+    window.addEventListener("fyodor:cursor", onCursor);
+    this.unsubs.push(() => window.removeEventListener("fyodor:cursor", onCursor));
     this.scene.add(this.world);
     this.motion = new TableMotion({
       world: this.world, faceGeo: this.cardFaceGeo, thick: THICK,
@@ -559,7 +572,47 @@ export class TableScene {
     for (const p of view.players) this.props.setLife(p.id, p.life, this.lifeBatch.pending(p.id));
     this.props.setCommanders(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, p.commanders.map((c) => ({ key: c.key, tax: c.tax }))])),
       Object.fromEntries(view.players.map((p) => [p.id, p.color])), this.myRot());
+    this.cursors.setTable(this.seatList, Object.fromEntries(view.players.map((p) => [p.id, { color: p.color, name: p.name }])), performance.now());
     this.syncCards();
+  }
+
+  /** -- live cursors -- does my pointer go to the others? Only a seated player's, and not at a hot-seat table (one screen). */
+  private sendsCursor(): boolean {
+    const v = this.view;
+    return !!v && v.game.mode !== "local" && v.players.some((p) => p.id === v.viewer);
+  }
+
+  /** -- live cursors -- my pointer moved over the canvas: over the table top it goes out (at most ~15 a second). */
+  private trackPointer(clientX: number, clientY: number): void {
+    if (!this.sendsCursor()) return;
+    const p = this.tablePoint(clientX, clientY);
+    const spot = p && overTable(tableSize(this.seatList), p.x, p.z) ? worldToCursor(this.seatList, p.x, p.z) : null;
+    // over a card (not while carrying one): the point on it, in its own frame, so it lands on that card on every screen
+    const c = spot && !this.drag?.active && this.hovered ? this.cards.get(this.hovered) : undefined;
+    if (spot && c) {
+      this.ray.setFromCamera(this.pointer(clientX, clientY), this.camera);
+      const hit = this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -c.group.position.y), new THREE.Vector3());
+      if (hit) {
+        const l = c.group.worldToLocal(hit);
+        const r = (v: number) => Math.round(Math.max(-1, Math.min(1, v)) * 1000) / 1000;
+        Object.assign(spot, { card: c.id, cx: r(l.x / (CARD_W / 2)), cy: r(l.z / (CARD_H / 2)) });
+      }
+    }
+    this.cursorOut.move(spot);
+  }
+
+  /** -- live cursors -- a point on a card (its half-widths) on this screen, while the card is on this table. */
+  private onCardWorld(id: string, cx: number, cy: number): [number, number] | null {
+    const c = this.cards.get(id);
+    if (!c) return null;
+    const w = c.group.localToWorld(new THREE.Vector3(cx * CARD_W / 2, 0, cy * CARD_H / 2));
+    return [w.x, w.z];
+  }
+
+  /** -- live cursors -- where a player's cursor shows on this screen (CSS px in the page), while it does. */
+  cursorOnScreen(pid: string): { x: number; y: number } | null {
+    const at = this.cursors.worldOf(pid);
+    return at && this.cursors.group.visible ? this.project(at) : null;
   }
 
   /**
@@ -929,6 +982,10 @@ export class TableScene {
     this.lifeBatch.dispose();
     this.typed.dispose();
     this.props.dispose();
+    this.cursors.dispose();
+    this.cursorOut.leave(); // (to the 2D table, say: my pointer leaves the 3D one)
+    const gone = this.cursorOut.poll(performance.now());
+    if (gone && this.sendsCursor()) useGame.getState().conn?.sendCursor(gone);
     this.clearTable();
     for (const c of this.cards.values()) this.disposeCard(c);
     this.cards.clear();
@@ -1974,9 +2031,15 @@ export class TableScene {
     };
     on("pointerdown", (e) => this.onDown(e));
     on("mousedown", (e) => { if (e.button === 1) e.preventDefault(); }); // a middle-drag pans: no browser autoscroll
-    on("pointermove", (e) => this.onMove(e));
+    on("pointermove", (e) => {
+      this.onMove(e);
+      this.trackPointer(e.clientX, e.clientY); // (after the move: it knows which card is under the pointer)
+    });
     on("pointerup", (e) => this.onUp(e));
-    on("pointerleave", () => this.setHover(null));
+    on("pointerleave", () => {
+      this.cursorOut.leave(); // onto the hand or a panel: nothing of what I hover there goes out
+      this.setHover(null);
+    });
     on("pointerleave", () => this.props.hoverHeart(null, undefined));
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || !this.drag?.active) return;
@@ -2549,6 +2612,14 @@ export class TableScene {
     this.camera.lookAt(this.camLook);
     this.fitLens(kc);
     this.fitDepth();
+    // -- live cursors -- mine out (throttled, a trailing send, one "gone"), the others' eased and faded
+    const out = this.cursorOut.poll(started);
+    if (out && this.sendsCursor()) useGame.getState().conn?.sendCursor(out);
+    this.cursors.group.visible = usePrefs.getState().cursors;
+    if (this.cursors.group.visible) {
+      this.camera.updateMatrixWorld();
+      this.cursors.update(dt, started, reduced, this.camera, this.camera.view?.fullHeight ?? this.canvas.clientHeight);
+    }
     if (!reduced && !this.still) {
       // candle flicker, drifting dust and flowing beams only when motion is welcome
       this.env?.update(t);

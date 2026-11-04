@@ -254,6 +254,7 @@ export function SettingsPanel() {
             <div className="st-plate">
               <ToggleRow title="Let other players nudge me" hint="When the table waits on you, the others can give you a nudge." checked={p.nudges} onChange={(v) => set({ nudges: v })} />
               <ToggleRow title="Show pings from other players" hint="A ping points at something for everyone: G, or Alt+click." checked={p.pings} onChange={(v) => set({ pings: v })} testId="pref-pings" />
+              <ToggleRow title="Show other players' cursors" hint="Their pointers over the 3D table, in their seat colour, with their name." checked={p.cursors} onChange={(v) => set({ cursors: v })} testId="pref-cursors" />
               <ToggleRow title="Flash this tab and chime" hint="When the table waits on you while Fyodor is in a background tab." checked={p.turnAlert} onChange={(v) => set({ turnAlert: v })} testId="pref-turn-alert" />
               <ToggleRow title="Show spectators' reactions" hint="Reactions from people watching the table and players who are out." checked={p.reactions} onChange={(v) => set({ reactions: v })} />
             </div>
