@@ -87,6 +87,30 @@ const THICK = 0.016;
 const MAT_Y = 0.002;
 const SHADOW_Y = 0.0026;
 const SLOT_Y = 0.0034;
+/** A zone panel's material: the mat's dark surface, a rounded border in the seat's colour (drawn at the panel's own
+ * proportions, so its border is as even as the mat's). */
+function zonePanelMaterial(color: string, w: number, h: number): THREE.MeshStandardMaterial {
+  const k = 150;
+  const c = document.createElement("canvas");
+  c.width = Math.max(8, Math.round(w * k));
+  c.height = Math.max(8, Math.round(h * k));
+  const g = c.getContext("2d")!;
+  const r = 26;
+  g.beginPath();
+  g.roundRect(0, 0, c.width, c.height, r);
+  g.fillStyle = "#302a24";
+  g.fill();
+  g.lineWidth = 6;
+  g.strokeStyle = color;
+  g.beginPath();
+  g.roundRect(6, 6, c.width - 12, c.height - 12, r - 6);
+  g.stroke();
+  const tex = canvasTexture(c);
+  return new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 1, metalness: 0, envMapIntensity: 0.15 });
+}
+/** Every mat's surface, dark warm grey (the Oops I Baked a Pie table's), so each seat's colour carries its things. */
+const MAT_FELT = "#36302a";
+const MAT_NAP = "#40392f";
 /** A card's face over its body's top, and its badges over the face. */
 export const FACE_LIFT = 0.0012;
 /** Cards drawn per pile at most (taller piles space them out). */
@@ -1058,10 +1082,9 @@ export class TableScene {
     const size = tableSize(this.seatList);
     this.env = buildEnvironment(this.plane, size, this.quality, propSpots(this.seatList, size));
     this.world.add(this.env.group);
-    const e = this.plane.env;
     for (const seat of this.seatList) {
       const color = this.view?.players.find((p) => p.id === seat.player)?.color ?? "#888";
-      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(e.felt, e.feltNap, color), transparent: true, depthWrite: false, roughness: 1, envMapIntensity: 0.15, emissive: this.plane.ui.accent, emissiveIntensity: 0 }));
+      const mat = new THREE.Mesh(new THREE.PlaneGeometry(MAT_W + 0.5, MAT_D + 0.5), new THREE.MeshStandardMaterial({ map: matTexture(MAT_FELT, MAT_NAP, color), transparent: true, depthWrite: false, roughness: 1, envMapIntensity: 0.15, emissive: this.plane.ui.accent, emissiveIntensity: 0 }));
       mat.rotation.x = -Math.PI / 2;
       mat.rotation.z = seat.rot;
       const [mx, mz] = toWorld(seat, 0, 0);
@@ -1118,8 +1141,8 @@ export class TableScene {
         this.world.add(slot, block, layers);
         this.piles.set(`${seat.player}:${zone}`, { block, slot, layers, top, count: -1, art, canvas, tex });
       }
-      // the zone strips, as on Tabletop Simulator's Commander tables: a light limed-oak board inlaid in the table along
-      // each side of the mat, the zones printed on it (zoneWells.ts) dark on light, so they read from across the table
+      // the zone panels, as on the Oops I Baked a Pie table: beside each side of the mat, its surface, outlined in the
+      // seat's colour, the zones in it outlined and marked in that colour too (zoneWells.ts)
       const columns: [PileZone, [number, number]][][] = [
         (["library", "graveyard", "exile"] as PileZone[]).map((z) => [z, pileSpot(seat, z)]),
         // (the command column as long as its commanders need: a partner's or background's well under the commander's)
@@ -1135,7 +1158,9 @@ export class TableScene {
           z0 = Math.min(z0, cz - piece.h / 2); z1 = Math.max(z1, cz + piece.h / 2);
         }
         const pad = 0.14;
-        const strip = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 + 2 * pad, z1 - z0 + 2 * pad), this.stripMaterial());
+        const pw = x1 - x0 + 2 * pad;
+        const ph = z1 - z0 + 2 * pad;
+        const strip = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), zonePanelMaterial(color, pw, ph));
         strip.rotation.x = -Math.PI / 2;
         strip.position.set((x0 + x1) / 2, SLOT_Y - 0.0006, (z0 + z1) / 2);
         strip.renderOrder = -2;
@@ -1154,39 +1179,6 @@ export class TableScene {
 
   // ------------------------------------------------------------------ textures & materials
 
-  /** The zone strips' limed oak (one material for every strip; the table's own wood is darker, so the strip reads). */
-  private stripMaterial(): THREE.MeshStandardMaterial {
-    if (this.stripMat) return this.stripMat;
-    const c = document.createElement("canvas");
-    c.width = 512;
-    c.height = 512;
-    const g = c.getContext("2d")!;
-    const base = g.createLinearGradient(0, 0, 512, 512);
-    base.addColorStop(0, "#d3c4a1");
-    base.addColorStop(1, "#bfae88");
-    g.fillStyle = base;
-    g.fillRect(0, 0, 512, 512);
-    // the grain: long soft streaks, and the lime caught in the open pores
-    let seed = 7;
-    const rand = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
-    for (let i = 0; i < 90; i++) {
-      const y = rand() * 512;
-      g.strokeStyle = rand() > 0.5 ? `rgba(120, 96, 60, ${0.06 + rand() * 0.08})` : `rgba(250, 244, 228, ${0.08 + rand() * 0.1})`;
-      g.lineWidth = 1 + rand() * 3;
-      g.beginPath();
-      g.moveTo(0, y);
-      g.bezierCurveTo(170, y + (rand() - 0.5) * 18, 340, y + (rand() - 0.5) * 18, 512, y + (rand() - 0.5) * 10);
-      g.stroke();
-    }
-    // its edge: a dark inlay line where it meets the table
-    g.strokeStyle = "rgba(48, 32, 18, 0.85)";
-    g.lineWidth = 6;
-    g.strokeRect(3, 3, 506, 506);
-    const tex = canvasTexture(c);
-    this.stripMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.78, metalness: 0, envMapIntensity: 0.2, transparent: false });
-    return this.stripMat;
-  }
-  private stripMat: THREE.MeshStandardMaterial | null = null;
 
   private backMaterial(owner: string): THREE.MeshStandardMaterial {
     const player = this.view?.players.find((p) => p.id === owner);

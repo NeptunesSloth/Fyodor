@@ -259,15 +259,11 @@ function drawMat(felt: string, nap: string, playerColor: string): HTMLCanvasElem
   roundRect(g, 0, 0, w, h, r);
   g.stroke();
   g.restore();
-  // the stitching, in the seat's colour
+  // its border, solid in the seat's colour (as on the Oops I Baked a Pie table: every seat's things in its colour)
   g.strokeStyle = playerColor;
-  g.globalAlpha = 0.75;
-  g.lineWidth = 3;
-  g.setLineDash([13, 9]);
-  roundRect(g, 17, 17, w - 34, h - 34, r - 12);
+  g.lineWidth = 7;
+  roundRect(g, 12, 12, w - 24, h - 24, r - 8);
   g.stroke();
-  g.setLineDash([]);
-  g.globalAlpha = 1;
   return c;
 }
 
