@@ -494,6 +494,14 @@ button.pl-name:hover { color: var(--accent-2); }
    selects get the room's brass chevron instead of the platform's arrow */
 .lobby-settings { gap: 14px 16px; }
 .modal:has(.lobby-settings) { width: min(780px, 94vw); } /* three columns: every setting and its hint in view, nothing cut */
+/* the dialog is a board laid over the table: the table's walnut rim around it, the room's key light from the top left */
+.modal:has(.lobby-settings) {
+  background: radial-gradient(ellipse 70% 45% at 18% 0%, rgba(255, 216, 160, 0.07), transparent 70%), var(--panel-grad);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 0 0 2px var(--frame-inner),
+    0 0 0 6px var(--wood), 0 0 0 7px color-mix(in srgb, var(--frame) 40%, transparent), 0 0 0 8px var(--wood-2),
+    10px 30px 60px rgba(0, 0, 0, 0.72);
+}
 .modal:has(.lobby-settings) .modal-foot .tt-btn:not(.brass) {
   background: linear-gradient(180deg, color-mix(in srgb, var(--wood) 78%, #2a1a10), var(--wood-2)); font-weight: 600;
   border-color: color-mix(in srgb, var(--frame) 60%, transparent); color: var(--room-bone);
