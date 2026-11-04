@@ -47,7 +47,7 @@ import { CannonRig, fireCannon } from "./cannon3d";
 import { rollerEnv } from "./diceEnv";
 import { slide, SLIDE_FPS, type SlideCard } from "./cardPhysics";
 import { SeatProps } from "./seatProps";
-import { CARD_BACK_URL } from "../cards/cardBack";
+import { CARD_BACK_URL, checkCardBack, onCardBack } from "../cards/cardBack";
 import { TableMotion } from "./motion3d";
 import { EndScene3D } from "./endScene3d";
 import { onEndScene } from "../game/motion/endScene";
@@ -58,7 +58,7 @@ import {
   AISLE, CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, MAT_W, PILES, plaqueSpot, localToVirtual, onBattlefield, pileAt, seats, tableSize, toLocal, toWorld,
   virtualToLocal, type PileZone, type Seat,
 } from "./layout";
-import { backCanvas, canvasTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
+import { backCanvas, canvasTexture, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
 import { tileOverlayCanvas, tileTexture, TILE_PX } from "./tiles";
 import { fitCamera, FOCUS_ELEVATION, OVERVIEW_ELEVATION, seatElevation, seatPoints, tableRect, viewDir } from "./framing";
@@ -754,25 +754,48 @@ export class TableScene {
     const key = `back:${owner}:${sleeve ?? ""}:${player?.color ?? ""}`;
     let m = this.materials.get(key);
     if (!m) {
-      // a sleeve, else the Magic card back the host cached with the art, else a back drawn here
-      const drawn = () => canvasTexture(backCanvas(player?.color ?? "#888"));
-      const tex = this.loadTexture(sleeve ?? CARD_BACK_URL, sleeve ? () => this.loadTexture(CARD_BACK_URL, drawn) : drawn);
-      m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 });
+      // a sleeve, else the Magic card back the host caches (cards/cardBack.ts), else the back drawn here meanwhile
+      const tex = this.loadTexture(sleeve ?? CARD_BACK_URL, sleeve ? () => this.loadTexture(CARD_BACK_URL, this.drawnBack) : this.drawnBack);
+      // trimmed to the card's rounded corners: the real back's image has square white ones (as a sleeve photo may)
+      m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, alphaMap: cardCornerMask(), alphaTest: 0.5 });
       this.materials.set(key, m);
+    }
+    if (!this.backWatch) {
+      // the host may fetch the real back after the table opened (it was offline then): every drawn back turns into it
+      this.backWatch = onCardBack(() => {
+        if (!checkCardBack.ready()) return;
+        this.failed.delete(CARD_BACK_URL);
+        for (const mat of this.materials.values()) {
+          if (!this.drawnBackTex || mat.map !== this.drawnBackTex) continue;
+          mat.map = this.loadTexture(CARD_BACK_URL, this.drawnBack);
+          mat.needsUpdate = true;
+        }
+      });
+      this.unsubs.push(this.backWatch);
     }
     return m;
   }
+
+  /** The drawn back (cards/drawnBack.ts), one texture for every seat (kept with the textures, so disposed with them). */
+  private drawnBack = (): THREE.Texture => {
+    if (!this.drawnBackTex) this.textures.set("drawn:card-back", (this.drawnBackTex = canvasTexture(backCanvas())));
+    return this.drawnBackTex;
+  };
+  private drawnBackTex: THREE.Texture | null = null;
+  private backWatch: (() => void) | null = null;
 
   private loadTexture(url: string, fallback: () => THREE.Texture): THREE.Texture {
     const cached = this.textures.get(url);
     if (cached) return cached;
     if (this.failed.has(url)) return fallback();
-    const tex = this.loader.load(url, undefined, undefined, () => {
+    const failed = () => {
       this.failed.add(url);
       this.textures.delete(url);
       // swap every material using it for the fallback
       for (const [k, m] of this.materials) if (m.map === tex) { m.map = fallback(); m.needsUpdate = true; void k; }
-    });
+    };
+    // (the Magic card back with its square white corners painted black, so none shows at the card's rounded corners)
+    const tex = url === CARD_BACK_URL ? cardImageTexture(url, failed) : this.loader.load(url, undefined, undefined, failed);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     this.textures.set(url, tex);

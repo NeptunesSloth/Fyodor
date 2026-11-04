@@ -2,6 +2,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { checkCardBack } from "./cards/cardBack";
+import { checkSymbols } from "./cards/symbols";
+import { installSymbolTips } from "./cards/symbolTip";
 import "./styles.css";
 import "./game/game.css";
 import "./theme/theme.css";
@@ -15,3 +17,5 @@ createRoot(root).render(
 );
 
 void checkCardBack();
+void checkSymbols();
+installSymbolTips();

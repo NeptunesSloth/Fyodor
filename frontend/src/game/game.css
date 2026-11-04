@@ -417,7 +417,7 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .field.inline { flex-direction: row; align-items: center; gap: 6px; }
 .field.inline input { width: 70px; }
 .color-pick { display: flex; gap: 6px; margin-top: 4px; }
-.color-pick .mana { width: 26px; height: 26px; font-size: 13px; cursor: pointer; border: none; }
+.color-pick .mana { width: 26px; height: 26px; font-size: 13px; line-height: 26px; cursor: pointer; border: none; }
 .color-pick .mana.off { opacity: 0.3; }
 .custom-token { display: flex; flex-direction: column; gap: 10px; }
 .ability-lines { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
@@ -528,6 +528,8 @@ kbd { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4
 .host-link code { word-break: break-all; user-select: all; }
 .tt-btn.danger { color: #ffb4ad; }
 .card-marks .mark.fd { background: rgba(20, 20, 24, 0.85); color: var(--room-bone); letter-spacing: 0.02em; }
+/* a face-down card's marks sit over its back's bottom frame at the left, clear of the oval (board tiles: board.css) */
+.table-card:not([data-tile]):has(> .card-back, > .face-down-known) .card-marks { top: auto; right: auto; left: 17%; bottom: 2.5%; align-items: flex-start; }
 .pp-cmds { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11.5px; color: var(--room-bone-dim); }
 .pp-cmd b { color: var(--room-brass-hi); font-weight: 600; }
 .pp-cmd:not(.home) { opacity: 0.75; }

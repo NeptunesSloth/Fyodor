@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Fyodor's icon at 16–32 px: one brass card, a bold F; drawn on the pixel grid so it stays crisp. Original artwork. -->
+  <rect x="0" y="0" width="32" height="32" rx="7" fill="#24180e"/>
+  <rect x="6" y="2" width="20" height="28" rx="3" fill="#d4ae62"/>
+  <rect x="8" y="4" width="16" height="24" rx="1.5" fill="#1d3836"/>
+  <path d="M11 8 h11 v4 h-7 v3 h5 v4 h-5 v5 h-4 z" fill="#f6dfa0"/>
+</svg>

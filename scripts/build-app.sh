@@ -11,13 +11,13 @@ PY="$ROOT/backend/.venv/bin/python"; [ -x "$PY" ] || PY="$ROOT/backend/.venv/Scr
 "$PY" -m pip install -q -e "$ROOT/backend" "pyinstaller>=6"
 # PyInstaller is a native program: on Windows (Git Bash) give it a Windows path and Windows's ";" between the two halves of
 # --add-data. A POSIX path like /d/a/... with ":" gets mangled by Git Bash's path conversion (seen in CI: \d\a\...\frontend\dist).
-DATA_ROOT="$ROOT"; DATA_SEP=":"
-case "$(uname -s)" in MINGW* | MSYS* | CYGWIN*) DATA_ROOT="$(cygpath -m "$ROOT")"; DATA_SEP=";" ;; esac
+DATA_ROOT="$ROOT"; DATA_SEP=":"; ICON=()
+case "$(uname -s)" in MINGW* | MSYS* | CYGWIN*) DATA_ROOT="$(cygpath -m "$ROOT")"; DATA_SEP=";"; ICON=(--icon "$DATA_ROOT/packaging/windows/fyodor.ico") ;; esac
 cd "$ROOT/backend"
 # app.rules loads some card modules by name, so every module is collected explicitly
 "$PY" -m PyInstaller --noconfirm --clean --name Fyodor --console \
   --distpath "$ROOT/dist" --workpath "$ROOT/build/pyinstaller" --specpath "$ROOT/build" \
   --collect-submodules app --collect-submodules tools --collect-submodules uvicorn \
-  --add-data "$DATA_ROOT/frontend/dist${DATA_SEP}frontend/dist" \
+  --add-data "$DATA_ROOT/frontend/dist${DATA_SEP}frontend/dist" ${ICON[@]+"${ICON[@]}"} \
   app/launcher.py
 echo "Built $ROOT/dist/Fyodor — double-click Fyodor (Fyodor.exe on Windows) inside it."
