@@ -4,13 +4,14 @@
  *   on its right. It lies at the mat's inner corner by the middle of the table, a little above the felt, turned so
  *   you read every seat's number upright. Click its left half −1, its right half +1, right-click for 5, or the wheel
  *   (TableScene). Attack arrows aim at it.
- * - Your seat's buttons, as the Oops table has them: in a row just past your mat's near edge (from its left end), glossy black
- *   discs with the Oops symbols (game/seatIcons.ts), Untap, Draw, Scry, Mill and Reveal, and Mulligan apart to the
- *   right, and the Bag of Extras (a leather pouch) past it.
+ * - Your seat's buttons, as the Oops table has them: in a row just past your mat's near edge (from its left end), bevelled
+ *   brass medallions with stamped symbols (game/seatIcons.ts), Untap, Draw, Scry, Mill and Reveal, then Mulligan apart to
+ *   the right and the Bag of Extras past it.
+ * - Each commander's tax: a small brass medallion by its command-zone slot, dim at 0 and lit once there is tax to pay.
  */
 import * as THREE from "three";
 import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
-import { drawSeatIcon } from "../game/seatIcons";
+import { drawSeatIcon, drawTaxMedallion, whenIconFontReady } from "../game/seatIcons";
 import { motionMs, onMotionSkip } from "../game/motion/timing";
 import { CARD_H, CARD_W, COMMAND_SLOTS, heartSpot, MAT_D, taxSpot, toWorld, type Seat } from "./layout";
 import { slotTexture } from "./textures";
@@ -19,6 +20,8 @@ const HEART_W = 1.45;
 const HEART_Y = 0.16;
 const BUTTON_R = 0.26;
 const BUTTON_H = 0.08;
+const TAX_R = 0.26;
+const TAX_H = 0.05;
 
 /** The Oops heart, in a 256×232 box. */
 function heartPath(): Path2D {
@@ -80,29 +83,8 @@ const blobTexture = () => {
   return (blob = new THREE.CanvasTexture(c));
 };
 
-/** A commander's tax counter: a dark chip with a brass rim, the tax big, TAX small, the commander's name on hover. */
-function drawTax(canvas: HTMLCanvasElement, tax: number, color: string): void {
-  const g = canvas.getContext("2d")!;
-  const W = canvas.width;
-  g.clearRect(0, 0, W, W);
-  g.fillStyle = "#0d0b09";
-  g.beginPath();
-  g.arc(W / 2, W / 2, W / 2 - 3, 0, Math.PI * 2);
-  g.fill();
-  g.lineWidth = 7;
-  g.strokeStyle = color;
-  g.stroke();
-  g.textAlign = "center";
-  g.textBaseline = "middle";
-  g.fillStyle = tax ? "#f1d58e" : "#bdb7ad";
-  g.font = `800 ${tax >= 10 ? 46 : 56}px Inter, Arial, sans-serif`;
-  g.fillText(String(tax), W / 2, W / 2 - 6);
-  g.fillStyle = "#8e8a84";
-  g.font = "700 20px Inter, Arial, sans-serif";
-  g.fillText("TAX", W / 2, W / 2 + 32);
-}
-
-interface Tax { mesh: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; color: string; shown: number }
+/** A commander's tax medallion: the face (`mesh`, turned to the viewer), its brass edge, and when its number last changed. */
+interface Tax { mesh: THREE.Mesh; edge: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; shown: number; changed: number }
 
 interface Heart {
   group: THREE.Group; face: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; color: string; shown: string;
@@ -110,7 +92,7 @@ interface Heart {
    * change): what it shows now, where it's going, and the clicks still on their way. */
   roll: { from: number; to: number; start: number; dur: number; at: number | null; pending: number };
 }
-interface Button { group: THREE.Group; top: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; typed: string; press: number; flat: boolean }
+interface Button { group: THREE.Group; top: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; typed: string; press: number }
 
 /** The whole number a rolling life total shows at ``now`` (ease-out; it lands exactly on ``to``). */
 export function lifeRollAt(r: { from: number; to: number; start: number; dur: number }, now: number): number {
@@ -128,6 +110,7 @@ export class SeatProps {
   private hovered: SeatActionId | null = null;
   private disposables: { dispose(): void }[] = [];
   private tmp = new THREE.Vector3();
+  private look = new THREE.Vector3();
   /** Any click or key lands every rolling life total at once (game/motion/timing.ts). */
   private unskip = onMotionSkip(() => {
     for (const h of this.hearts.values()) {
@@ -166,78 +149,41 @@ export class SeatProps {
     }
     const mine = seats.find((s) => s.player === me);
     if (!mine) return;
+    // the medallions' brass edge, lit by the table's light (their faces carry their own, game/seatIcons.ts)
+    const edge = this.keep(new THREE.MeshStandardMaterial({ color: 0x8a6432, roughness: 0.42, metalness: 0.75 }));
     SEAT_ACTIONS.forEach((a, i) => {
-      if (a.id === "extras") return this.buildPouch(mine);
-      const flat = a.id === "mulligan"; // a pile of cards printed on the table, not a disc
       const group = new THREE.Group();
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 128;
       const tex = this.keep(new THREE.CanvasTexture(canvas));
       tex.colorSpace = THREE.SRGBColorSpace;
-      const r = flat ? BUTTON_R * 1.5 : BUTTON_R;
+      tex.anisotropy = 4;
+      const r = BUTTON_R;
       const top = new THREE.Mesh(
-        this.keep(flat ? new THREE.PlaneGeometry(r * 2, r * 2).rotateX(-Math.PI / 2) : new THREE.CircleGeometry(r * 0.97, 40).rotateX(-Math.PI / 2)),
-        // unlit, so the disc is black and its symbol its own colour under the table's warm light (as on the Oops table)
-        this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: flat, toneMapped: false })),
+        this.keep(new THREE.CircleGeometry(r * 0.985, 48).rotateX(-Math.PI / 2)),
+        // unlit: the face is drawn lit from the top left, the same picture as the 2D table's buttons
+        this.keep(new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })),
       );
-      top.position.y = flat ? 0.004 : BUTTON_H + 0.002;
+      top.position.y = BUTTON_H + 0.002;
       top.userData = { seatButton: a.id };
-      group.add(top);
-      if (!flat) {
-        const side = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(r, r * 1.05, BUTTON_H, 40)), this.keep(new THREE.MeshStandardMaterial({ color: 0x0c0b0a, roughness: 0.35, metalness: 0.3 })));
-        side.position.y = BUTTON_H / 2;
-        side.userData = { seatButton: a.id };
-        group.add(side);
-      }
-      // a row just past my mat's near edge, from its left end (the turn dial covers the screen's bottom right), Mulligan
-      // apart on the right (as on the Oops mat)
-      const lx = flat ? -0.7 : -4.3 + i * 0.66;
+      const side = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(r, r * 1.06, BUTTON_H, 48)), edge);
+      side.position.y = BUTTON_H / 2;
+      side.userData = { seatButton: a.id };
+      side.castShadow = true;
+      group.add(top, side);
+      // a row just past my mat's near edge, from its left end (the turn dial covers the screen's bottom right); Mulligan
+      // apart on the right (as on the Oops mat), the Bag of Extras past it
+      const lx = a.id === "mulligan" ? -0.7 : a.id === "extras" ? 0.3 : -4.3 + i * 0.66;
       const [wx, wz] = toWorld(mine, lx, MAT_D / 2 + 0.52);
       group.position.set(wx, 0, wz);
       group.rotation.y = mine.rot;
       this.group.add(group);
-      const b: Button = { group, top, canvas, tex, typed: "", press: 0, flat };
+      const b: Button = { group, top, canvas, tex, typed: "", press: 0 };
       drawSeatIcon(canvas, a.id);
       tex.needsUpdate = true;
       this.buttons.set(a.id, b);
     });
   }
-
-
-
-  /**
-   * -- table toys -- the Bag of Extras (game/ExtrasBag.tsx): a small leather drawstring pouch past Mulligan, off the mat like
-   * the seat buttons, a gold coin in its mouth. A seat button like the others (click opens it); it lifts a little when hovered.
-   */
-  private buildPouch(mine: Seat): void {
-    const group = new THREE.Group();
-    const profile: [number, number][] = [[0, 0], [0.11, 0.008], [0.19, 0.045], [0.235, 0.11], [0.23, 0.19], [0.18, 0.26], [0.11, 0.3],
-      [0.085, 0.325], [0.1, 0.345], [0.15, 0.39], [0.16, 0.405], [0.13, 0.41], [0.08, 0.38], [0, 0.37]];
-    const leather = this.keep(new THREE.MeshStandardMaterial({ color: 0x6e4626, roughness: 0.82, metalness: 0, emissive: 0x2a1608, emissiveIntensity: 0 }));
-    const sack = new THREE.Mesh(this.keep(new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 20)), leather);
-    sack.scale.set(1, 1, 0.86); // a sack, not a vase
-    const cord = new THREE.Mesh(this.keep(new THREE.TorusGeometry(0.092, 0.016, 6, 20).rotateX(Math.PI / 2)),
-      this.keep(new THREE.MeshStandardMaterial({ color: 0xd9b267, roughness: 0.55, metalness: 0.2 })));
-    cord.position.y = 0.33;
-    const coin = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(0.075, 0.075, 0.02, 18)),
-      this.keep(new THREE.MeshStandardMaterial({ color: 0xe8c063, roughness: 0.3, metalness: 0.9 })));
-    coin.position.set(0.03, 0.41, -0.02);
-    coin.rotation.set(0.9, 0, 0.3);
-    const shadow = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(0.62, 0.62).rotateX(-Math.PI / 2)), this.keep(new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false })));
-    shadow.position.y = 0.004;
-    for (const m of [sack, cord, coin]) {
-      m.userData = { seatButton: "extras" };
-      m.castShadow = true;
-    }
-    group.add(shadow, sack, cord, coin);
-    const [wx, wz] = toWorld(mine, 0.3, MAT_D / 2 + 0.52);
-    group.position.set(wx, 0, wz);
-    group.rotation.y = mine.rot + 0.5;
-    this.group.add(group);
-    this.pouch = { group, leather, press: 0 };
-  }
-
-  private pouch: { group: THREE.Group; leather: THREE.MeshStandardMaterial; press: number } | null = null;
 
   /** A seat's life, with any clicks still on their way (shown under the number). */
   setLife(player: string, life: number, pending: number): void {
@@ -279,17 +225,16 @@ export class SeatProps {
    * Each commander's tax counter beside its slot in the command zone (and a slot for a partner when there is one).
    * `commanders`: per seat, its commanders' keys in slot order, with their tax.
    */
-  setCommanders(seats: Seat[], commanders: Record<string, { key: string; tax: number }[]>, colors: Record<string, string>): void {
+  setCommanders(seats: Seat[], commanders: Record<string, { key: string; tax: number }[]>, _colors: Record<string, string>): void {
     const key = JSON.stringify(seats.map((s) => [s.player, (commanders[s.player] ?? []).map((c) => c.key)]));
     if (key !== this.taxKey) {
       this.taxKey = key;
-      for (const t of this.taxes.values()) this.group.remove(t.mesh);
+      for (const t of this.taxes.values()) this.group.remove(t.mesh, t.edge);
       this.taxes.clear();
       for (const extra of this.slots) this.group.remove(extra);
       this.slots = [];
       for (const seat of seats) {
         const list = commanders[seat.player] ?? [];
-        const color = colors[seat.player] ?? "#c9a35a";
         list.slice(0, COMMAND_SLOTS.length).forEach((c, i) => {
           if (i > 0) {
             // the partner's slot, outlined on the felt like the others
@@ -306,14 +251,22 @@ export class SeatProps {
           canvas.width = canvas.height = 128;
           const tex = this.keep(new THREE.CanvasTexture(canvas));
           tex.colorSpace = THREE.SRGBColorSpace;
-          const mesh = new THREE.Mesh(this.keep(new THREE.CircleGeometry(0.27, 32).rotateX(-Math.PI / 2)),
+          tex.anisotropy = 4;
+          // a low brass puck lying by the slot, its face (unlit, drawn lit) turned to whoever looks (tick)
+          const mesh = new THREE.Mesh(this.keep(new THREE.CircleGeometry(TAX_R * 0.985, 40).rotateX(-Math.PI / 2)),
             this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })));
-          const [wx, wz] = toWorld(seat, ...taxSpot(i));
-          mesh.position.set(wx, 0.01, wz);
-          mesh.rotation.y = seat.rot;
+          const edge = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(TAX_R, TAX_R * 1.06, TAX_H, 40)), this.taxEdge());
+          // against its slot's edge, on the side layout.ts gives it
+          const [sx0, sz0] = COMMAND_SLOTS[i]!;
+          const [tx0, tz0] = taxSpot(i);
+          const k = (CARD_W / 2 + TAX_R + 0.05) / (Math.hypot(tx0 - sx0, tz0 - sz0) || 1);
+          const [wx, wz] = toWorld(seat, sx0 + (tx0 - sx0) * k, sz0 + (tz0 - sz0) * k);
+          mesh.position.set(wx, TAX_H + 0.002, wz);
+          edge.position.set(wx, TAX_H / 2, wz);
           mesh.userData = { tax: c.key };
-          this.group.add(mesh);
-          this.taxes.set(c.key, { mesh, canvas, tex, color, shown: -1 });
+          edge.userData = { tax: c.key };
+          this.group.add(edge, mesh);
+          this.taxes.set(c.key, { mesh, edge, canvas, tex, shown: -1, changed: 0 });
         });
       }
     }
@@ -321,11 +274,28 @@ export class SeatProps {
       for (const c of list) {
         const t = this.taxes.get(c.key);
         if (!t || t.shown === c.tax) continue;
+        if (t.shown >= 0) t.changed = performance.now(); // (a change, not the first drawing: it hops)
         t.shown = c.tax;
-        drawTax(t.canvas, c.tax, t.color);
+        drawTaxMedallion(t.canvas, c.tax);
         t.tex.needsUpdate = true;
       }
     }
+    if (!this.fontAsked) { // drawn again once the number font is in (it normally is by now)
+      this.fontAsked = true;
+      void whenIconFontReady().then(() => {
+        for (const t of this.taxes.values()) {
+          if (t.shown < 0) continue;
+          drawTaxMedallion(t.canvas, t.shown);
+          t.tex.needsUpdate = true;
+        }
+      });
+    }
+  }
+
+  private fontAsked = false;
+  private edgeMat: THREE.MeshStandardMaterial | null = null;
+  private taxEdge(): THREE.MeshStandardMaterial {
+    return (this.edgeMat ??= this.keep(new THREE.MeshStandardMaterial({ color: 0x8a6432, roughness: 0.42, metalness: 0.75 })));
   }
 
   private slots: THREE.Mesh[] = [];
@@ -339,13 +309,12 @@ export class SeatProps {
   }
 
   press(id: SeatActionId): void {
-    if (id === "extras" && this.pouch) this.pouch.press = performance.now();
     const b = this.buttons.get(id);
     if (b) b.press = performance.now();
   }
 
   /** Hearts turn to the viewer (upright for everyone); buttons light when hovered and dip when pressed. */
-  tick(_t: number, camera: THREE.Camera, _reduced: boolean): void {
+  tick(_t: number, camera: THREE.Camera, reduced: boolean): void {
     camera.getWorldPosition(this.tmp);
     for (const h of this.hearts.values()) {
       const p = h.group.position;
@@ -359,15 +328,19 @@ export class SeatProps {
       this.drawLife(h, r.at);
     }
     for (const [id, b] of this.buttons) {
-      (b.top.material as THREE.MeshBasicMaterial).color.setScalar(id === this.hovered ? 1.35 : 1);
+      // hovered: the brass catches more light; pressed: the medallion dips into the table and comes back
+      (b.top.material as THREE.MeshBasicMaterial).color.setScalar(id === this.hovered ? 1.3 : 1);
       const since = now - b.press;
-      b.group.position.y = !b.flat && since < 160 ? -0.03 * Math.sin((since / 160) * Math.PI) : 0;
+      b.group.position.y = since < 160 ? -0.035 * Math.sin((since / 160) * Math.PI) : 0;
     }
-    if (this.pouch) { // the pouch: warmer when hovered, a little hop as it is opened
-      const hovered = this.hovered === "extras";
-      this.pouch.leather.emissiveIntensity = hovered ? 0.9 : 0;
-      const since = now - this.pouch.press;
-      this.pouch.group.position.y = since < 220 ? 0.06 * Math.sin((since / 220) * Math.PI) : 0;
+    camera.getWorldDirection(this.look);
+    const facing = Math.atan2(-this.look.x, -this.look.z); // the table's "up the screen", for things lying flat on it
+    for (const t of this.taxes.values()) {
+      // the tax medallion's face turns upright for the viewer (it is round: only its number turns), and hops when it changes
+      t.mesh.rotation.y = facing;
+      const since = now - t.changed;
+      const hop = !reduced && since < 240 ? 1 + 0.14 * Math.sin((since / 240) * Math.PI) : 1;
+      t.mesh.scale.setScalar(hop);
     }
   }
 
@@ -375,9 +348,8 @@ export class SeatProps {
   targets(): THREE.Object3D[] {
     const out: THREE.Object3D[] = [];
     for (const h of this.hearts.values()) out.push(h.face);
-    for (const t of this.taxes.values()) out.push(t.mesh);
+    for (const t of this.taxes.values()) out.push(t.mesh, t.edge);
     for (const b of this.buttons.values()) out.push(...b.group.children);
-    if (this.pouch) out.push(...this.pouch.group.children.filter((c) => c.userData.seatButton));
     return out;
   }
 
@@ -386,9 +358,8 @@ export class SeatProps {
   }
 
   buttonWorld(id: SeatActionId): THREE.Vector3 | null {
-    if (id === "extras") return this.pouch ? this.pouch.group.position.clone().setY(0.25) : null;
     const b = this.buttons.get(id);
-    return b ? b.group.position.clone().setY(b.flat ? 0 : BUTTON_H) : null;
+    return b ? b.group.position.clone().setY(BUTTON_H) : null;
   }
 
   private keep<T extends { dispose(): void }>(x: T): T {
@@ -403,7 +374,7 @@ export class SeatProps {
     this.slots = [];
     this.hearts.clear();
     this.buttons.clear();
-    this.pouch = null;
+    this.edgeMat = null;
     for (const d of this.disposables) d.dispose();
     this.disposables = [];
   }

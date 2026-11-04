@@ -16,16 +16,16 @@ test("commander tax buttons, and a partner gets its own slot and counter", async
   const alice = async () => (await view()).players.find((p) => p.id === "p1")!;
   await page.goto(`/#/game/${gameId}`);
 
-  // Alice's commander has a tax counter under it: click +2, right-click −2
+  // Alice's commander has a tax medallion under it: click +2, right-click −2 (the number is drawn on it, and named)
   const key = (await alice()).commanders[0]!.key;
   const tax = page.locator(".player-area.mine").getByTestId(`tax-${key}`);
-  await expect(tax).toContainText("0");
+  await expect(tax).toHaveAccessibleName(/: 0\. Click to add 2/);
   await tax.click();
   await tax.click();
   await expect.poll(async () => (await alice()).commanders[0]!.tax).toBe(4);
   await tax.click({ button: "right" });
   await expect.poll(async () => (await alice()).commanders[0]!.tax).toBe(2);
-  await expect(tax).toContainText("2");
+  await expect(tax).toHaveAccessibleName(/: 2\. Click to add 2/);
 
   // a partner: a second commander gets its own slot and its own counter
   await page.request.post(`/api/games/${gameId}/actions`, { data: { action: { type: "draw", player: "p1", count: 1 } } });
