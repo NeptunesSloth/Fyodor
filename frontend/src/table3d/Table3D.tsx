@@ -379,7 +379,7 @@ const PLATE_MAX = 1.3;
 const PLATE_COMPACT = 0.62;
 
 const TIPS = [
-  { title: "Players", text: "Click a player's plaque to see their counters, commander damage and actions." },
+  { title: "Players", text: "Click the hand by a player's heart to see their counters and commander damage." },
   { title: "Your turn", text: "The panel at the bottom right says whose turn it is, and its big button says what pressing it will do." },
   { title: "Playing cards", text: "Drag a card from your hand onto the table, or focus it and press Enter. Hold Alt as you drop to place it by hand." },
 ];
