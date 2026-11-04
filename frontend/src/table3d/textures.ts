@@ -6,6 +6,7 @@
 import * as THREE from "three";
 import type { Surface } from "../theme/planes";
 import { BORDER, CARD_H, CANVAS_TIER, GLYPHS as TYPE_GLYPHS, INK, layoutProxy, proxyColours, proxyFace, SYM_EM } from "../cards/proxy";
+import { drawBack } from "../cards/drawnBack";
 import { proxyFontsReady, textMeasure, whenProxyFontsReady } from "../cards/proxyMeasure";
 import type { CardData } from "../types/cards";
 
@@ -597,38 +598,10 @@ export function textCardTexture(card: CardData | undefined, face: number, fallba
   return t;
 }
 
-/** The default card back: a dark sleeve with a subtle gold emblem in the player's colour. */
-export function backCanvas(color: string): HTMLCanvasElement {
-  const W = 244;
-  const H = 340;
-  const [c, g] = canvas(W, H);
-  g.fillStyle = "#0b0b0b";
-  roundRect(g, 0, 0, W, H, 14);
-  g.fill();
-  const grad = g.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, "#22304a");
-  grad.addColorStop(1, "#111827");
-  g.fillStyle = grad;
-  roundRect(g, 8, 8, W - 16, H - 16, 10);
-  g.fill();
-  g.strokeStyle = "#c79a4a";
-  g.globalAlpha = 0.7;
-  g.lineWidth = 3;
-  roundRect(g, 18, 18, W - 36, H - 36, 8);
-  g.stroke();
-  g.globalAlpha = 1;
-  const rg = g.createRadialGradient(W / 2, H / 2, 4, W / 2, H / 2, 70);
-  rg.addColorStop(0, "#e9c77a");
-  rg.addColorStop(0.5, "#b8883e");
-  rg.addColorStop(1, "rgba(0,0,0,0)");
-  g.fillStyle = rg;
-  g.beginPath();
-  g.ellipse(W / 2, H / 2, 58, 80, 0, 0, Math.PI * 2);
-  g.fill();
-  g.fillStyle = color;
-  g.globalAlpha = 0.9;
-  g.fillRect(W / 2 - 40, H - 34, 80, 5);
-  g.globalAlpha = 1;
+/** The card back drawn here while the host hasn't the Magic card back yet (cards/drawnBack.ts, as the 2D table's). */
+export function backCanvas(): HTMLCanvasElement {
+  const [c, g] = canvas(366, 512);
+  drawBack(g, 366, 512);
   return c;
 }
 

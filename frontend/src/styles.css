@@ -135,17 +135,11 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 .card-face img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
 .card-loading { background: linear-gradient(110deg, #1b1f26 30%, #262c36 50%, #1b1f26 70%); background-size: 200% 100%; animation: shimmer 1.2s infinite linear; }
 @keyframes shimmer { to { background-position: -200% 0; } }
-.card-back {
-  background:
-    radial-gradient(ellipse at 50% 45%, #c79a4a 0 18%, transparent 19%),
-    radial-gradient(ellipse at 50% 45%, #111827 0 30%, transparent 31%),
-    linear-gradient(135deg, #22304a, #111827);
-  border: 3px solid #0b0e15; box-shadow: inset 0 0 0 4px rgba(199, 154, 74, 0.45);
-}
+/* a card back: the one Fyodor draws (cards/drawnBack.ts) until the host has the Magic card back cached */
+.card-back { background: var(--card-back-drawn) center / cover no-repeat, #1b130c; }
 /* the Magic card back, once the host has it cached (cards/cardBack.ts); a sleeve still wins */
 .has-card-back .card-back:not(.sleeved) {
   background: url("/api/images/card-back") center / cover no-repeat, #1b130c;
-  border: 0; box-shadow: none;
 }
 /* The printed proxy for a card without cached art (cards/proxy.ts holds the geometry and colours; sizes
    arrive as unitless --tc-* card units, 1 unit = 1cqw). Three levels of detail by the card's width:

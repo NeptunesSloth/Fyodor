@@ -1,5 +1,6 @@
 /** The launcher's backdrop: the selected plane's table, slowly circled by the camera. */
 import * as THREE from "three";
+import { CARD_BACK_URL, checkCardBack, onCardBack } from "../cards/cardBack";
 import type { PlaneTheme } from "../theme/planes";
 import { buildEnvironment, type Environment } from "./environment";
 import { CARD_H, CARD_W } from "./layout";
@@ -14,6 +15,9 @@ export class Showcase {
   private raf = 0;
   private clock = new THREE.Clock();
   private disposables: { dispose(): void }[] = [];
+  /** Bumped by every plane change and by dispose: a card back that arrives for an older scene is dropped. */
+  private generation = 0;
+  private unwatch: (() => void) | null = null;
 
   constructor(private host: HTMLElement, plane: PlaneTheme) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "low-power" });
@@ -57,8 +61,9 @@ export class Showcase {
     const geo = new THREE.PlaneGeometry(CARD_W, CARD_H);
     geo.rotateX(-Math.PI / 2);
     this.disposables.push(geo);
-    const back = new THREE.MeshStandardMaterial({ map: canvasTexture(backCanvas(plane.ui.accent)), roughness: 0.6 });
-    this.disposables.push(back);
+    const back = new THREE.MeshStandardMaterial({ map: canvasTexture(backCanvas()), roughness: 0.6 });
+    this.disposables.push(back, back.map!);
+    this.useRealBack(back);
     const names = ["Sol Ring", "Command Tower", "Arcane Signet", "Swords to Plowshares", "Counterspell", "Lightning Bolt"];
     const colors = [[], [], [], ["W"], ["U"], ["R"]];
     names.forEach((name, i) => {
@@ -84,6 +89,25 @@ export class Showcase {
     }
   }
 
+  /** The Magic card back once the host has it (cards/cardBack.ts), as on the game table; the drawn one until then. */
+  private useRealBack(back: THREE.MeshStandardMaterial): void {
+    const gen = ++this.generation;
+    const load = () => {
+      if (gen !== this.generation || !checkCardBack.ready()) return;
+      new THREE.TextureLoader().load(CARD_BACK_URL, (tex) => {
+        if (gen !== this.generation) return void tex.dispose();
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+        back.map = tex;
+        back.needsUpdate = true;
+        this.disposables.push(tex);
+      });
+    };
+    this.unwatch?.();
+    this.unwatch = onCardBack(load);
+    void checkCardBack().then(load);
+  }
+
   resize(w: number, h: number): void {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / Math.max(1, h);
@@ -92,6 +116,8 @@ export class Showcase {
 
   dispose(): void {
     cancelAnimationFrame(this.raf);
+    this.generation++;
+    this.unwatch?.();
     this.env?.dispose();
     for (const d of this.disposables) d.dispose();
     this.renderer.dispose();
