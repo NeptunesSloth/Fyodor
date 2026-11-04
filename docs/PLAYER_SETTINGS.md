@@ -16,6 +16,14 @@ record (matched by name) from Pod stats, which the host keeps.
 Stored data is versioned (`fyodor.profiles`, version 2); older data (the single
 `fyodor.prefs` object) is migrated automatically. Unit tests cover the migration.
 
+## Live cursors
+
+At a LAN table, every seated player's pointer over the 3D table shows on the others' screens, as in Tabletop
+Simulator: a small arrow in their seat colour with their name, fading after about 3 s without a move. Only a point
+on the table travels (the nearest seat and a spot on its battlefield); nothing is sent from the hand or the panels,
+spectators see cursors but send none, and nothing is logged or saved. *Settings → Alerts & pings → Show other players'
+cursors* hides them on this screen (`table3d/cursors.ts`, `table3d/cursors3d.ts`).
+
 ## Views (the 2D table's camera bookmarks)
 
 *⋯ → Views*: whole table, one player's board (enlarged), stack open/closed. **Ctrl+Shift+1…9**

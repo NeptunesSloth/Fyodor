@@ -41,6 +41,8 @@ declare global {
       /** Table motion (table3d/motion3d.ts): freeze every running motion at a time in ms (null: live), and what is running. */
       motionFreeze?: (ms: number | null) => void;
       motion?: () => { busy: boolean; flights: number; floaters: number; riffles: number; lunges: number };
+      /** -- live cursors -- where another player's cursor shows (page px), while it does. */
+      cursorAt?: (player: string) => { x: number; y: number } | null;
     };
   }
 }
@@ -108,6 +110,7 @@ export function Table3D({ me }: { me: string }) {
       taxAt: (key) => scene.taxOnScreen(key),
       motionFreeze: (ms) => scene.motionFreeze(ms),
       motion: () => scene.motionState(),
+      cursorAt: (player) => scene.cursorOnScreen(player),
     };
     // keep the seat plates glued to the table, stepping out from over fixed chrome (camera strip,
     // turn dial, stack panels) and the battlefield cards, and never past the screen edge
