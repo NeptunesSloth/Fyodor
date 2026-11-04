@@ -55,7 +55,7 @@ export const OWN_EDGE = 1.7;
 /** The rail's width inside the table top's edge (environment.ts: the leather rail and the brass inlay inside it). */
 export const RAIL = 0.72;
 /** Mat centre to mat centre along a row: the zone strips of neighbours don't touch. */
-export const SEAT_DX = 2 * STRIP_X + CARD_W + 0.8;
+export const seatDx = (): number => STRIP_X + CARD_W / 2 + COMMAND_X + COMMAND_WELL.w / 2 + 0.8; // (one seat's piles to the next one's command column)
 /**
  * In facing rows the far row's piles are mirrored: every library, graveyard and exile is on the same side of my screen
  * (my right), and every command zone on the other. Display only (piles are zones, not positions).
@@ -130,7 +130,7 @@ export function seats(order: string[], me: string): Seat[] {
   const n = players.length;
   const nSouth = Math.max(1, Math.floor(n / 2));
   const nNorth = n - nSouth;
-  const rowX = (i: number, k: number) => (i - (k - 1) / 2) * SEAT_DX;
+  const rowX = (i: number, k: number) => (i - (k - 1) / 2) * seatDx();
   const duel = n === 2;
   const rowZ = MAT_D / 2 + (duel ? DUEL_AISLE : AISLE);
   // clockwise seen from above: the south row east → west, then the north row west → east
@@ -153,8 +153,10 @@ export function tableSize(all: Seat[]): TableSize {
   let d = 0;
   for (const s of all) {
     const sideways = s.side === "west" || s.side === "east";
-    const halfW = (sideways ? MAT_D : MAT_W + 2 * (STRIP_X - MAT_W / 2) + CARD_W) / 2;
-    const halfD = (sideways ? MAT_W + 2 * (STRIP_X - MAT_W / 2) + CARD_W : MAT_D) / 2;
+    // (along the row: to the command column's outer edge, the furthest-out zone: COMMAND_X)
+    const strip = Math.max(STRIP_X + CARD_W / 2, COMMAND_X + COMMAND_WELL.w / 2);
+    const halfW = sideways ? MAT_D / 2 : strip;
+    const halfD = sideways ? strip : MAT_D / 2;
     // past the mat's own edge (where its owner sits): room for their hand's fan before the rail, and in 1v1 for their
     // heart and plate too; along the row, room for the zone strips
     const own = s.duel ? DUEL_EDGE + RAIL : OWN_EDGE;
@@ -229,10 +231,18 @@ export function plateDepth(seat: Pick<Seat, "duel" | "side">): number {
   if (!seat.duel) return NAMEPLATE.h;
   return seat.side === "north" ? FAR_PLATE_H : NEAR_PLATE_H;
 }
-/** The command zone's column: further out than the piles', so its tax coins stand between it and the mat. */
-export const COMMAND_X = STRIP_X + 0.3;
 /** The mat's felt reaches this far past the battlefield (TableScene: the mat plane is 0.5 larger than the battlefield). */
 export const FELT_HEM = 0.25;
+/**
+ * A commander's tax (table3d/seatProps.ts): a column of brass coins, one per cast from the command zone (each worth
+ * {2}), standing in a socket beside its command well on the mat's side, the tax to pay struck on the top coin and on the
+ * well's plate. COIN: a coin's radius and thickness (about a card wide, so it reads from the seat view); TAX_STACK: the
+ * most coins stacked (more casts: the top coin and the plate still say the whole tax).
+ */
+export const COIN = { r: 0.36, h: 0.09 };
+export const TAX_STACK = 8;
+/** The command zone's column: further out than the piles', far enough that its tax coins stand between it and the felt. */
+export const COMMAND_X = MAT_W / 2 + FELT_HEM + 0.12 + 2 * COIN.r + 0.07 + COMMAND_WELL.w / 2;
 /**
  * A duel's nameplates for the library, graveyard and exile carry the zone's name and count, so they are wider than
  * their well (there is wood to spare between the mat and the rail at two seats); at more seats they are their well's
@@ -314,14 +324,6 @@ export function wellPiece(seat: Pick<Seat, "rot" | "duel" | "side">, at: [number
   return { at: [at[0] + inwardOf(at[0]) * mid, at[1] + towardMe(seat) * (total - h) / 2], w: hi - lo, h: total, wellIn: -mid, plateIn: off - mid };
 }
 
-/**
- * A commander's tax (table3d/seatProps.ts): a short column of brass coins, one per cast from the command zone (each
- * worth {2}), standing in a socket beside its command well on the mat's side; the tax to pay ("+4") is on the well's
- * plate under it. COIN: a coin's radius and thickness; TAX_STACK: the most coins stacked (more casts: the plate still
- * says the whole tax).
- */
-export const COIN = { r: 0.23, h: 0.06 };
-export const TAX_STACK = 8;
 
 /** Where a commander's coin column stands, mat-local (`slot`: 0 the commander's, 1 a partner's): beside its well, on the mat's side, low (toward me). */
 export function taxSpot(seat: Pick<Seat, "side" | "rot">, slot = 0): [number, number] {

@@ -475,6 +475,31 @@ export function drawTaxCoinFace(canvas: HTMLCanvasElement): void {
   g.setTransform(1, 0, 0, 1, 0, 0);
 }
 
+/**
+ * The top coin of a commander's tax stack (a square canvas): the struck coin with the tax to pay ("+4") struck large in
+ * its field, dark and deep-cut so it reads from across the table. `stretch`: how much taller than wide the numerals are
+ * drawn (the coin lies flat and is seen at a slant, so they read upright).
+ */
+export function drawTaxCoinTop(canvas: HTMLCanvasElement, tax: number, stretch = 1): void {
+  const { g } = begin(canvas);
+  coinFace(g, 50, 50, 48.5);
+  const text = `+${tax}`;
+  g.save();
+  g.translate(50, 52);
+  g.scale(1, stretch);
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  const size = text.length > 2 ? 40 : 52;
+  g.font = `900 ${size / Math.max(1, stretch * 0.75)}px ${FONT}, sans-serif`;
+  // the cut: a highlight below and right of it, the numerals dark in the brass
+  g.fillStyle = "rgba(255, 244, 214, 0.6)";
+  g.fillText(text, 1.1, 1.3);
+  g.fillStyle = "#3b2208";
+  g.fillText(text, 0, 0);
+  g.restore();
+  g.setTransform(1, 0, 0, 1, 0, 0);
+}
+
 /** The 3D table's empty tax socket (a square canvas). */
 export function drawTaxSocket(canvas: HTMLCanvasElement): void {
   const { g } = begin(canvas);

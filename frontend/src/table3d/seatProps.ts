@@ -15,7 +15,7 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { SEAT_ACTIONS, type SeatActionId } from "../game/seatActions";
 import { useGame } from "../state/gameStore";
-import { drawSeatIcon, drawTaxCoinFace, drawTaxSocket, taxCasts } from "../game/seatIcons";
+import { drawSeatIcon, drawTaxCoinFace, drawTaxCoinTop, drawTaxSocket, taxCasts } from "../game/seatIcons";
 import { motionMs, onMotionSkip } from "../game/motion/timing";
 import { BUTTON_R, buttonRowZ, COIN, plateDepth, commandSlot, COMMAND_SLOTS, COMMAND_WELL, HEART, heartSpot, heartTilt, plateOffset, plateWidth, TAX_READOUT, TAX_STACK, taxReadoutSpot, taxSpot, toWorld, wellPiece, type Seat } from "./layout";
 import { drawWell, WELL_PX, wellCanvasSize, wellStretch, whenWellFontsReady, type WellArt } from "./zoneWells";
@@ -178,11 +178,15 @@ interface Tax {
   key: string; base: THREE.Vector3; salt: number; first: number;
   socket: THREE.Mesh; hit: THREE.Mesh; readout: THREE.Mesh;
   shown: number; coins: number; dropAt: number; dropping: boolean;
+  /** The top coin's face: the tax to pay struck on it, upright for me (drawn on its own canvas). */
+  top: { mesh: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; stretch: number };
   /** A partner's (or background's) well, whose plate carries its tax at three or more seats. */
   well?: { art: WellArt; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture };
 }
 /** How far a new tax coin falls onto its stack, and for how long (at the table's animation speed). */
 const COIN_DROP_H = 0.42;
+/** The coins' brass: bright and only half metal, so it glows warm under the candles without a reflection to catch. */
+const COIN_BRASS = { metalness: 0.45, roughness: 0.34, envMapIntensity: 1.0, emissive: 0x3a2408, emissiveIntensity: 0.55 };
 const COIN_DROP_MS = 260;
 
 interface Heart {
@@ -465,9 +469,20 @@ export class SeatProps {
           readout.position.set(rx, 0.03, rz);
           readout.visible = false;
           readout.userData = { tax: c.key };
-          this.group.add(socket, hit, readout);
-          this.slots.push(socket, hit, readout);
-          this.taxes.set(c.key, { key: c.key, base: new THREE.Vector3(bx, 0, bz), salt: total * 7 + i, first: total, socket, hit, readout, shown: -1, coins: 0, dropAt: 0, dropping: false, well: partnerWell });
+          // the top coin's face: the tax struck on it, turned upright for me
+          const topCanvas = document.createElement("canvas");
+          topCanvas.width = topCanvas.height = 256;
+          const topTex = this.keep(new THREE.CanvasTexture(topCanvas));
+          topTex.colorSpace = THREE.SRGBColorSpace;
+          topTex.anisotropy = 8;
+          const top = new THREE.Mesh(shared.topGeo, this.keep(new THREE.MeshStandardMaterial({ map: topTex, ...COIN_BRASS, roughness: 0.4 })));
+          top.rotation.set(-Math.PI / 2, 0, viewRot);
+          top.visible = false;
+          top.userData = { tax: c.key };
+          this.group.add(socket, hit, readout, top);
+          this.slots.push(socket, hit, readout, top);
+          this.taxes.set(c.key, { key: c.key, base: new THREE.Vector3(bx, 0, bz), salt: total * 7 + i, first: total, socket, hit, readout, shown: -1, coins: 0, dropAt: 0, dropping: false, well: partnerWell,
+            top: { mesh: top, canvas: topCanvas, tex: topTex, stretch: wellStretch(duel, seat.side === "north") } });
           total += TAX_STACK;
         });
       }
@@ -497,6 +512,10 @@ export class SeatProps {
           drawWell(t.well.canvas, t.well.art);
           t.well.tex.needsUpdate = true;
         }
+        if (coins) {
+          drawTaxCoinTop(t.top.canvas, c.tax, t.top.stretch);
+          t.top.tex.needsUpdate = true;
+        }
         t.hit.scale.set(1, Math.max(1, coins), 1);
         this.coinsDirty = true;
       }
@@ -525,14 +544,19 @@ export class SeatProps {
     // the reeded edge: fine vertical grooves
     const reed = document.createElement("canvas");
     reed.width = 256;
-    reed.height = 8;
+    reed.height = 32;
     const rg = reed.getContext("2d")!;
     for (let x = 0; x < 256; x += 4) {
       rg.fillStyle = "#f0d49a";
-      rg.fillRect(x, 0, 2, 8);
+      rg.fillRect(x, 0, 2, 32);
       rg.fillStyle = "#8a6430";
-      rg.fillRect(x + 2, 0, 2, 8);
+      rg.fillRect(x + 2, 0, 2, 32);
     }
+    // each coin's own rim: a bright bevel along its top edge and a dark seam at its foot, so a stack counts coin by coin
+    rg.fillStyle = "#fff1c8";
+    rg.fillRect(0, 0, 256, 4);
+    rg.fillStyle = "#1a0f04";
+    rg.fillRect(0, 26, 256, 6);
     const reedTex = this.keep(new THREE.CanvasTexture(reed));
     reedTex.colorSpace = THREE.SRGBColorSpace;
     const sock = document.createElement("canvas");
@@ -540,7 +564,7 @@ export class SeatProps {
     drawTaxSocket(sock);
     const sockTex = this.keep(new THREE.CanvasTexture(sock));
     sockTex.colorSpace = THREE.SRGBColorSpace;
-    const brass = { metalness: 0.85, roughness: 0.38, envMapIntensity: 1.1 };
+    const brass = COIN_BRASS;
     const coinGeo = this.keep(new THREE.CylinderGeometry(COIN.r, COIN.r, COIN.h, 40));
     const hitGeo = this.keep(new THREE.CylinderGeometry(COIN.r * 1.25, COIN.r * 1.25, COIN.h * 1.4, 12).translate(0, (COIN.h * 1.4) / 2, 0));
     this.shared = {
@@ -556,13 +580,14 @@ export class SeatProps {
       hitGeo,
       hitMat: this.keep(new THREE.MeshBasicMaterial({ visible: false })),
       readoutGeo: this.keep(new THREE.BoxGeometry(TAX_READOUT.w, 0.06, TAX_READOUT.h)),
+      topGeo: this.keep(new THREE.CircleGeometry(COIN.r * 0.995, 48)),
     };
     return this.shared;
   }
 
   private shared: {
     coinGeo: THREE.BufferGeometry; coinMats: THREE.Material[]; socketGeo: THREE.BufferGeometry; socketMat: THREE.MeshStandardMaterial;
-    hitGeo: THREE.BufferGeometry; hitMat: THREE.Material; readoutGeo: THREE.BufferGeometry;
+    hitGeo: THREE.BufferGeometry; hitMat: THREE.Material; readoutGeo: THREE.BufferGeometry; topGeo: THREE.BufferGeometry;
   } | null = null;
   private coins: THREE.InstancedMesh | null = null;
   private coinsDirty = false;
@@ -592,11 +617,13 @@ export class SeatProps {
           } else t.dropping = false;
         }
         // (each a little toward the viewer's lower right of the one under it: seen from above, a stack shows every coin's rim)
-        this.coinP.set(t.base.x + j(1) * 0.02 + i * 0.012, y, t.base.z + j(2) * 0.02 + i * 0.022 - (t.coins - 1) * 0.011);
+        this.coinP.set(t.base.x + j(1) * 0.035 + i * 0.016, y, t.base.z + j(2) * 0.035 + i * 0.03 - (t.coins - 1) * 0.015);
         this.coinQ.setFromAxisAngle(this.coinUp, j(3) * 1.2);
         this.coinM.compose(this.coinP, this.coinQ, this.coinS);
         coins.setMatrixAt(n++, this.coinM);
+        if (i === t.coins - 1) t.top.mesh.position.set(this.coinP.x, y + COIN.h / 2 + 0.003, this.coinP.z);
       }
+      t.top.mesh.visible = t.coins > 0;
       if (reduced) t.dropping = false;
     }
     coins.count = n;
