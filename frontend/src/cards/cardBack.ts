@@ -1,22 +1,28 @@
+import { drawnBackUrl } from "./drawnBack";
+import { linkedCheck } from "./linkedAsset";
+
 /**
- * The Magic card back, for library piles and hidden cards. The host fetches it from Scryfall with the card art
- * (it's never shipped with Fyodor) and serves it at /api/images/card-back; until it has it, tables draw their own
- * back. 2D backs switch on the class this sets; the 3D table loads the same URL with its own fallback.
+ * The Magic card back, for library piles and hidden cards. The host fetches it from Scryfall with the card database
+ * (it's never shipped with Fyodor; backend/app/cards/linked.py) and serves it at /api/images/card-back; until it has
+ * it, tables draw their own back (cards/drawnBack.ts). Every 2D back is a `.card-back`, which switches to the real one
+ * on the `has-card-back` class this sets; the 3D table and the launcher load the same URL and listen for it arriving.
  */
 export const CARD_BACK_URL = "/api/images/card-back";
 
-let checked: Promise<boolean> | null = null;
+/** Is the card back cached on the host? Sets `has-card-back` on the page when it is; asks again later while it isn't. */
+export const checkCardBack = linkedCheck("has-card-back", () => fetch(CARD_BACK_URL).then((r) => r.ok));
 
-/** Is the card back cached on the host? Sets `has-card-back` on the page when it is. */
-export function checkCardBack(force = false): Promise<boolean> {
-  if (!checked || force) {
-    checked = fetch(CARD_BACK_URL, { cache: "force-cache" })
-      .then((r) => r.ok)
-      .catch(() => false)
-      .then((ok) => {
-        document.documentElement.classList.toggle("has-card-back", ok);
-        return ok;
-      });
-  }
-  return checked;
+/** Called when the host's card back becomes available (or goes). Returns the unsubscribe. */
+export const onCardBack = checkCardBack.subscribe;
+
+// the drawn back, for the 2D styles (`.card-back` paints `--card-back-drawn`): drawn only when the host hasn't the real one
+let drawn = false;
+if (typeof document !== "undefined") {
+  void checkCardBack().then((ok) => {
+    if (ok || drawn) return;
+    drawn = true;
+    const style = document.createElement("style");
+    style.textContent = `:root { --card-back-drawn: url("${drawnBackUrl()}"); }`;
+    document.head.appendChild(style);
+  });
 }

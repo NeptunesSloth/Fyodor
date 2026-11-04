@@ -32,6 +32,7 @@ from app.cards.downloader import (
 )
 from app.cards.images import IMAGE_SIZES, ImageStore
 from app.cards.importer import ImportFormatError, import_file
+from app.cards.linked import LinkedAssets
 from app.config import Settings, load_settings
 from app.logging_setup import configure_logging
 
@@ -110,6 +111,12 @@ def update_data(settings: Settings, args: argparse.Namespace) -> None:
         f"Imported {result.printings:,} printings / {result.oracle_cards:,} cards "
         f"({result.tokens:,} tokens) in {time.monotonic() - started:.0f}s -> {dest}"
     )
+
+
+def update_linked(settings: Settings) -> None:
+    """The Magic card back and the mana symbols come with the card data (only what isn't cached; app/cards/linked.py)."""
+    got = LinkedAssets(settings, ImageStore(settings.images_dir), lambda: make_client).fetch()
+    _say(f"Card back {'cached' if got['card_back'] else 'not available'}; {got['symbols']} mana symbols cached.")
 
 
 def _image_rows(settings: Settings, scope: str) -> list[sqlite3.Row]:
@@ -215,6 +222,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if not args.skip_data:
             update_data(settings, args)
+            if not args.file:
+                update_linked(settings)
         if args.images != "none":
             update_images(settings, args)
         elif not args.skip_data:

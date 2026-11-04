@@ -6,6 +6,7 @@
 import * as THREE from "three";
 import type { Surface } from "../theme/planes";
 import { BORDER, CARD_H, CANVAS_TIER, GLYPHS as TYPE_GLYPHS, INK, layoutProxy, proxyColours, proxyFace, SYM_EM } from "../cards/proxy";
+import { drawnBackCanvas } from "../cards/drawnBack";
 import { proxyFontsReady, textMeasure, whenProxyFontsReady } from "../cards/proxyMeasure";
 import type { CardData } from "../types/cards";
 
@@ -597,39 +598,56 @@ export function textCardTexture(card: CardData | undefined, face: number, fallba
   return t;
 }
 
-/** The default card back: a dark sleeve with a subtle gold emblem in the player's colour. */
-export function backCanvas(color: string): HTMLCanvasElement {
-  const W = 244;
-  const H = 340;
+/** The card back drawn here while the host hasn't the Magic card back yet (cards/drawnBack.ts, as the 2D table's). */
+export function backCanvas(): HTMLCanvasElement {
+  return drawnBackCanvas();
+}
+
+/**
+ * A Scryfall card picture (the card back, a card's scan) as a texture, with its square white corners painted in the
+ * border's black: trimmed corners alone still let the white bleed into the edge from a distance, through the mipmaps.
+ * Returned at once and filled in when the picture has loaded (as three's TextureLoader does); `onError` if it can't be.
+ */
+export function cardImageTexture(url: string, onError?: () => void, onLoad?: (t: THREE.Texture) => void): THREE.Texture {
+  const t = new THREE.Texture();
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = maxAnisotropy;
+  const img = new Image();
+  img.decoding = "async";
+  img.onload = () => {
+    const [c, g] = canvas(img.naturalWidth, img.naturalHeight);
+    g.fillStyle = "#0b0a09";
+    g.fillRect(0, 0, c.width, c.height);
+    roundRect(g, 0, 0, c.width, c.height, c.width * 0.05);
+    g.clip();
+    g.drawImage(img, 0, 0);
+    t.image = c;
+    t.needsUpdate = true;
+    onLoad?.(t);
+  };
+  img.onerror = () => onError?.();
+  img.src = url;
+  return t;
+}
+
+let cornerMask: THREE.CanvasTexture | null = null;
+
+/**
+ * An alpha map that trims a card picture to a card's rounded corners (with `alphaTest`): Scryfall's images, the card back
+ * among them, have square white corners outside their black border. Shared by every card-shaped material; never disposed.
+ */
+export function cardCornerMask(): THREE.Texture {
+  if (cornerMask) return cornerMask;
+  const W = 252;
+  const H = 352; // 63:88
   const [c, g] = canvas(W, H);
-  g.fillStyle = "#0b0b0b";
-  roundRect(g, 0, 0, W, H, 14);
+  g.fillStyle = "#000";
+  g.fillRect(0, 0, W, H);
+  g.fillStyle = "#fff";
+  roundRect(g, 0, 0, W, H, W * 0.062);
   g.fill();
-  const grad = g.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, "#22304a");
-  grad.addColorStop(1, "#111827");
-  g.fillStyle = grad;
-  roundRect(g, 8, 8, W - 16, H - 16, 10);
-  g.fill();
-  g.strokeStyle = "#c79a4a";
-  g.globalAlpha = 0.7;
-  g.lineWidth = 3;
-  roundRect(g, 18, 18, W - 36, H - 36, 8);
-  g.stroke();
-  g.globalAlpha = 1;
-  const rg = g.createRadialGradient(W / 2, H / 2, 4, W / 2, H / 2, 70);
-  rg.addColorStop(0, "#e9c77a");
-  rg.addColorStop(0.5, "#b8883e");
-  rg.addColorStop(1, "rgba(0,0,0,0)");
-  g.fillStyle = rg;
-  g.beginPath();
-  g.ellipse(W / 2, H / 2, 58, 80, 0, 0, Math.PI * 2);
-  g.fill();
-  g.fillStyle = color;
-  g.globalAlpha = 0.9;
-  g.fillRect(W / 2 - 40, H - 34, 80, 5);
-  g.globalAlpha = 1;
-  return c;
+  cornerMask = new THREE.CanvasTexture(c); // a mask, not a colour: stays linear
+  return cornerMask;
 }
 
 /** A soft blurred rounded-rect shadow for under a card: an alpha map (three reads its green channel). */

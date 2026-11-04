@@ -162,26 +162,30 @@ def download_images(
     return report
 
 
-def download_card_back(client: httpx.Client, store: ImageStore) -> bool:
-    """Fetch the standard Magic card back into the cache, once. True if it's there afterwards."""
-    from app.cards.images import CARD_BACK_URL
-
-    path = store.card_back_path()
+def fetch_into(client: httpx.Client, url: str, path: Path, valid: Callable[[bytes], bool], what: str) -> bool:
+    """Download one small file into the cache, unless it's there already: whole or not at all. True if it's there afterwards."""
     if path.is_file():
         return True
     try:
-        res = client.get(CARD_BACK_URL)
-        if res.status_code != 200 or not res.content.startswith(b"\xff\xd8"):
-            log.warning("Card back download failed: HTTP %s", res.status_code)
+        res = client.get(url)
+        if res.status_code != 200 or not valid(res.content):
+            log.warning("%s download failed: %s", what, f"HTTP {res.status_code}" if res.status_code != 200 else "not the expected file")
             return False
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_name(path.name + ".part")
+        tmp = path.with_name(f"{path.name}.{threading.get_ident()}.part")  # two downloads of one file never share a part file
         tmp.write_bytes(res.content)
         tmp.replace(path)
         return True
     except (httpx.HTTPError, OSError) as exc:
-        log.warning("Card back download failed: %s", exc)
+        log.warning("%s download failed: %s", what, exc)
         return False
+
+
+def download_card_back(client: httpx.Client, store: ImageStore) -> bool:
+    """Fetch the standard Magic card back into the cache, once. True if it's there afterwards."""
+    from app.cards.images import CARD_BACK_URL
+
+    return fetch_into(client, CARD_BACK_URL, store.card_back_path(), lambda body: body.startswith(b"\xff\xd8"), "Card back")
 
 
 def image_jobs_from_rows(rows: Iterable[Any]) -> list[ImageJob]:
