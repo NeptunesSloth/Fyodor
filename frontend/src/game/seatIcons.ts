@@ -11,8 +11,8 @@
 import type { SeatActionId } from "./seatActions";
 
 export type SeatIconId = SeatActionId | "mulligan" | "importer";
-/** The Bag of Extras' counters (game/bags.ts CARD_COUNTERS, PLAYER_COUNTERS), its token search and the close button. */
-export type ToyIconId = "+1/+1" | "-1/-1" | "loyalty" | "charge" | "shield" | "stun" | "energy" | "experience" | "search" | "close";
+/** The Bag of Extras' counters (game/bags.ts CARD_COUNTERS, PLAYER_COUNTERS), its token search (the book) and the close button. */
+export type ToyIconId = "+1/+1" | "-1/-1" | "loyalty" | "charge" | "shield" | "stun" | "energy" | "experience" | "search" | "book" | "close";
 export type DieIconId = 4 | 6 | 8 | 10 | 12 | 20;
 /** The common tokens' emblems (game/bags.ts COMMON_TOKENS), for a token whose art isn't cached. */
 export type TokenEmblemId = "treasure" | "clue" | "food" | "blood" | "soldier" | "spirit" | "goblin" | "saproling" | "thopter";
@@ -154,8 +154,8 @@ function arcArrow(cx: number, cy: number, r: number, from: number, to: number, c
   return [{ stroke: arc }, { stroke: chevron(ex + Math.cos(t) * 2, ey + Math.sin(t) * 2, t, 12, 45) }];
 }
 
-/** Untap: an open ring turning back (counterclockwise). */
-const untapGlyph = (): Part[] => arcArrow(50, 52, 20, deg(238), deg(-36), true);
+/** Untap: a ring turning back (counterclockwise), open at the top where its head points the way it turns. */
+const untapGlyph = (): Part[] => [{ stroke: P("M69 46 A20 20 0 1 1 50 31") }, { stroke: P("M58 22 L48 31 L58 40") }];
 
 /** Draw: a card, and one more. */
 function drawGlyph(): Part[] {
@@ -197,10 +197,11 @@ function mulliganGlyph(): Part[] {
   ];
 }
 
-/** The Bag of Extras: a drawstring pouch, its neck tied and its mouth flared. */
+/** The Bag of Extras: a drawstring pouch, its neck tied with a cord and its mouth flared above it. */
 const pouchGlyph = (): Part[] => [
-  { stroke: P("M41 44 C24 50 22 79 50 79 C78 79 76 50 59 44 Z") },
-  { stroke: P("M41 44 L35 29 Q50 35 65 29 L59 44") },
+  { stroke: P("M42 48 C25 54 23 80 50 80 C77 80 75 54 58 48") },
+  { stroke: P("M37 45 H63") },
+  { stroke: P("M44 43 C40 36 35 32 32 28 M56 43 C60 36 65 32 68 28 M50 42 V30") },
 ];
 
 /** The importer: an arrow down into a tray. */
@@ -251,6 +252,8 @@ const TOY_GLYPHS: Record<ToyIconId, () => Part[]> = {
   energy: () => [{ stroke: P("M58 22 L38 52 L62 49 L42 79") }],
   experience: () => [{ stroke: star(50, 53, 25, 12) }],
   search: lens,
+  // find any token: the catalogue, an open book (the lens is Clue's)
+  book: () => [{ stroke: P("M50 33 C42 27 31 27 23 31 V70 C31 66 42 66 50 72 C58 66 69 66 77 70 V31 C69 27 58 27 50 33 Z") }, { stroke: P("M50 33 V72") }],
   close: () => [{ stroke: P("M35 35 L65 65 M65 35 L35 65") }],
 };
 

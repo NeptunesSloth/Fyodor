@@ -234,7 +234,7 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
               })}
               <button type="button" className="bag-tile bag-find" onClick={() => useGame.getState().openDialog("tokens")} data-testid="extras-find-token"
                 title="Search every token in the card database, or make a custom one">
-                <span className="bag-tile-card bag-find-slot"><img src={toyIconUrl("search")} alt="" draggable={false} /></span>
+                <span className="bag-tile-card bag-find-slot"><img src={toyIconUrl("book")} alt="" draggable={false} /></span>
                 <span className="bag-tile-cap"><span className="bag-tile-name">Find any token…</span></span>
               </button>
             </div>

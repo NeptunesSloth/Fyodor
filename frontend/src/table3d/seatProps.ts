@@ -137,7 +137,7 @@ interface Heart {
  * shows while hovered (just over the mat's edge above it, as seen from the seat).
  */
 interface Button {
-  group: THREE.Group; top: THREE.Mesh; side: THREE.Mesh; edge: THREE.MeshStandardMaterial; glow: THREE.Mesh;
+  group: THREE.Group; top: THREE.Mesh; side: THREE.Mesh; edge: THREE.MeshStandardMaterial; glow: THREE.Mesh; sink: THREE.Mesh;
   canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; typed: string; press: number; lift: number; tip: THREE.Vector3;
 }
 
@@ -194,6 +194,7 @@ export class SeatProps {
       this.group.add(group);
       this.hearts.set(seat.player, { group, face, canvas, tex, color, shown: "", roll: { from: 0, to: 0, start: 0, dur: 0, at: null, pending: 0 } });
     }
+    this.me = me;
     const mine = seats.find((s) => s.player === me);
     if (!mine) return;
     // the medallions: a face drawn lit from the top left (the same picture as the 2D table's buttons, unlit, its rim's
@@ -228,14 +229,18 @@ export class SeatProps {
       under.position.set(0.03, 0.004, 0.04);
       const glow = new THREE.Mesh(ringGeo, this.keep(new THREE.MeshBasicMaterial({ color: 0xffd58a, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false })));
       glow.position.y = 0.006;
-      group.add(under, glow, side, top);
+      // pressed: a dark ring where the medallion sinks into the table
+      const sink = new THREE.Mesh(ringGeo, this.keep(new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false })));
+      sink.position.y = 0.007;
+      glow.visible = sink.visible = false;
+      group.add(under, glow, sink, side, top);
       const lx = lxOf(a.id);
       const [wx, wz] = toWorld(mine, lx, ROW_Z);
       group.position.set(wx, 0, wz);
       group.rotation.y = mine.rot;
       this.group.add(group);
       const [tx, tz] = toWorld(mine, lx, ROW_Z - 0.68);
-      const b: Button = { group, top, side, edge, glow, canvas, tex, typed: "", press: 0, lift: 0, tip: new THREE.Vector3(tx, 0.2, tz) };
+      const b: Button = { group, top, side, edge, glow, sink, canvas, tex, typed: "", press: 0, lift: 0, tip: new THREE.Vector3(tx, 0.2, tz) };
       drawSeatIcon(canvas, a.id);
       tex.needsUpdate = true;
       this.buttons.set(a.id, b);
@@ -329,7 +334,12 @@ export class SeatProps {
           const edge = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(TAX_R * 0.96, TAX_R * 1.02, TAX_H, 64)), this.taxEdge());
           const [sx0, sz0] = COMMAND_SLOTS[0]!;
           const inward = sx0 < 0 ? 1 : -1;
-          const [wx, wz] = toWorld(seat, sx0 + inward * (0.14 + i * (TAX_R * 2 + 0.14)), sz0 + CARD_H / 2 + 0.03 + TAX_R);
+          // mine: under my command zone, by my hand; any other seat's: on the table side of its command slots (toward the
+          // middle of the table, so it is in view and never under the header), one under another
+          const [lx, lz] = seat.player === this.me
+            ? [sx0 + inward * (0.14 + i * (TAX_R * 2 + 0.14)), sz0 + CARD_H / 2 + 0.03 + TAX_R]
+            : [sx0, COMMAND_SLOTS[Math.min(list.length, COMMAND_SLOTS.length) - 1]![1] - CARD_H / 2 - 0.05 - TAX_R - i * (TAX_R * 2 + 0.12)];
+          const [wx, wz] = toWorld(seat, lx, lz);
           mesh.position.set(wx, TAX_H + 0.002, wz);
           edge.position.set(wx, TAX_H / 2, wz);
           mesh.userData = { tax: c.key };
@@ -401,10 +411,19 @@ export class SeatProps {
   /** The hovered button's name, over it (one plate, redrawn for each button). */
   private label: { sprite: THREE.Sprite; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture } | null = null;
 
+  /** A button pressed: sunk while the pointer is held down on it (at least a moment), then back up. */
   press(id: SeatActionId): void {
     const b = this.buttons.get(id);
-    if (b) b.press = performance.now();
+    if (!b) return;
+    b.press = performance.now();
+    this.held = id;
+    const release = () => { if (this.held === id) this.held = null; };
+    window.addEventListener("pointerup", release, { once: true });
+    window.addEventListener("pointercancel", release, { once: true });
   }
+
+  private held: SeatActionId | null = null;
+  private me = "";
 
   /** Hearts turn to the viewer (upright for everyone); buttons light when hovered and dip when pressed. */
   tick(_t: number, camera: THREE.Camera, reduced: boolean): void {
@@ -423,13 +442,17 @@ export class SeatProps {
     for (const [id, b] of this.buttons) {
       // hovered: the medallion rises a little, its face and edge catch more light and a warm ring glows on the table
       // under it; pressed: it dips into the table and comes back
-      const on = id === this.hovered;
-      b.lift += ((on ? 1 : 0) - b.lift) * (reduced ? 1 : 0.3);
-      (b.top.material as THREE.MeshBasicMaterial).color.setScalar(1 + 0.28 * b.lift);
+      // pressed (held down, or for a moment after a click): sunk into the table, darker, a dark ring round it, no glow
+      const pressed = id === this.held || now - b.press < 180;
+      const on = id === this.hovered && !pressed;
+      b.lift = on ? b.lift + (1 - b.lift) * (reduced ? 1 : 0.3) : 0; // (the glow goes as soon as the pointer leaves)
+      (b.top.material as THREE.MeshBasicMaterial).color.setScalar(pressed ? 0.74 : 1 + 0.28 * b.lift);
       b.edge.emissiveIntensity = 0.35 * b.lift;
       (b.glow.material as THREE.MeshBasicMaterial).opacity = 0.42 * b.lift;
-      const since = now - b.press;
-      const dip = since < 160 ? -0.035 * Math.sin((since / 160) * Math.PI) : 0;
+      (b.sink.material as THREE.MeshBasicMaterial).opacity = pressed ? 0.6 : 0;
+      b.glow.visible = b.lift > 0.01; // (drawn only while showing: no draw calls for empty rings)
+      b.sink.visible = pressed;
+      const dip = pressed ? -0.05 : 0;
       b.top.position.y = BUTTON_H + 0.002 + 0.045 * b.lift + dip;
       b.side.position.y = BUTTON_H / 2 + 0.045 * b.lift + dip;
     }
