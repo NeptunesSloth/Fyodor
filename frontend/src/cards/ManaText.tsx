@@ -1,4 +1,5 @@
 import { Fragment, memo } from "react";
+import { symbolInfo, symbolUrl, useSymbols } from "./symbols";
 
 const SYMBOL = /\{([^}]+)\}/g;
 const COLOR_CLASS: Record<string, string> = { W: "w", U: "u", B: "b", R: "r", G: "g", C: "c", S: "c" };
@@ -20,6 +21,23 @@ function symbolLabel(sym: string): string {
   return upper.replace("/P", "ᵖ").replace("/", "");
 }
 
+/**
+ * One mana or card symbol, by its text without braces ("W", "2/U", "T"): the real symbol when the host has it
+ * (cards/symbols.ts), else a letter circle in its colour. `label` names it for screen readers instead of its meaning.
+ */
+export function ManaSymbol({ sym, label }: { sym: string; label?: string }) {
+  const info = symbolInfo(useSymbols(), sym);
+  if (info) {
+    const words = label ?? (info.english || `{${sym}}`);
+    return <img className="mana mana-sym" src={symbolUrl(info)} alt={words} title={words} draggable={false} decoding="async" />;
+  }
+  return (
+    <span className={`mana ${symbolClass(sym)}`} title={label ?? `{${sym}}`} {...(label ? { role: "img", "aria-label": label } : {})}>
+      {symbolLabel(sym)}
+    </span>
+  );
+}
+
 /** Renders `{2}{U}{U}` and oracle text with inline mana symbols. */
 export const ManaText = memo(function ManaText({ text }: { text: string | null | undefined }) {
   if (!text) return null;
@@ -28,12 +46,7 @@ export const ManaText = memo(function ManaText({ text }: { text: string | null |
   for (const match of text.matchAll(SYMBOL)) {
     const index = match.index ?? 0;
     if (index > last) nodes.push(text.slice(last, index));
-    const sym = match[1] ?? "";
-    nodes.push(
-      <span key={index} className={`mana ${symbolClass(sym)}`} title={`{${sym}}`}>
-        {symbolLabel(sym)}
-      </span>,
-    );
+    nodes.push(<ManaSymbol key={index} sym={match[1] ?? ""} />);
     last = index + match[0].length;
   }
   if (last < text.length) nodes.push(text.slice(last));

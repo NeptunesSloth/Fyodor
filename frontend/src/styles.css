@@ -236,6 +236,15 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 .mana.g { background: var(--mana-g); }
 .mana.tap { background: #d5d0c8; }
 .mana.hybrid { background: linear-gradient(135deg, var(--mana-w), var(--mana-g)); }
+/* the real symbol (cards/symbols.ts): the letter circle's box, on the same baseline; wide ones ({100}) keep their shape */
+img.mana-sym {
+  display: inline-block; width: auto; min-width: 0; height: 1.15em; padding: 0; border-radius: 0;
+  background: none; box-shadow: none; vertical-align: -0.17em; user-select: none; -webkit-user-drag: none;
+}
+/* in a cost or a colour identity, as printed: each symbol casts a small hard shadow down and to the left */
+.pips img.mana-sym, .cost img.mana-sym, .tc-cost img.mana-sym, .de-cost img.mana-sym, .pay-cost img.mana-sym, .cost-now img.mana-sym {
+  filter: drop-shadow(-0.05em 0.07em 0 rgba(0, 0, 0, 0.85));
+}
 
 /* card browser */
 .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; margin-top: 10px; }
@@ -264,7 +273,8 @@ label.check { display: inline-flex; gap: 6px; align-items: center; cursor: point
 
 /* ---------- decks ---------- */
 .empty { text-align: center; padding: 60px 0; color: var(--text-dim); }
-.pips { display: inline-flex; gap: 1px; }
+.pips { display: inline-flex; align-items: center; gap: 0.16em; }
+.pips .mana { margin: 0; }
 .small { font-size: 12.5px; }
 .row { display: flex; gap: 10px; align-items: flex-end; }
 .grow { flex: 1; }
