@@ -116,11 +116,11 @@ export function LogDrawer() {
   );
 }
 
-/** A few physical tools within reach, bottom-left. */
+/**
+ * Bottom left: how your hand is sorted. (Tokens and dice live in the Bag of Extras by your seat, game/ExtrasBag.tsx;
+ * Shift+R still opens the roll panel.)
+ */
 export function ToolTray() {
-  const openDialog = useGame((s) => s.openDialog);
-  const diceOpen = useGame((s) => s.dialog === "dice");
-  const keymap = usePrefs((s) => s.keymap);
   const sort = usePrefs((s) => s.handSort);
   const sortMenu = (e: React.MouseEvent) => openMenu(e, [
     ...HAND_SORTS.map((m) => ({
@@ -134,9 +134,6 @@ export function ToolTray() {
   ], "Your hand (S sorts)");
   return (
     <div className="tool-tray" data-testid="tool-tray">
-      <button className="tt-btn" onClick={() => openDialog("tokens")} title="Create tokens">Tokens</button>
-      <button className={`tt-btn${diceOpen ? " on" : ""}`} onClick={() => openDialog(diceOpen ? null : "dice")} title={`Roll dice or flip a coin (${keyLabel("dice", keymap) ?? "Shift+R"})`}
-        aria-expanded={diceOpen} data-dice-toggle data-testid="dice-button">Dice</button>
       <button className="tt-btn" onClick={sortMenu} title="Sort your hand: as drawn, mana value, colour, type or name (S)" data-testid="hand-sort">
         Hand: {sort === "drawn" ? "as drawn" : HAND_SORT_LABEL[sort].replace("by ", "")}
       </button>

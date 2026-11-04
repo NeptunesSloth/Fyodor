@@ -66,36 +66,138 @@ body.reduced-motion .cannon2d { display: none; }
 .dice-toys-row .label { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); min-width: 84px; }
 .dice-toys-row .tt-btn { min-height: 26px; padding: 2px 10px; font-size: 12.5px; }
 
-/* ---- the Bag of Extras picker (by your seat) ------------------------------------------------------------------------ */
+/* ---- the Bag of Extras (by your seat, game/ExtrasBag.tsx): a toy chest of the table's extras ---------------------------
+   walnut and brass, the tokens as their cards, counters and dice as the table's own brass medallions (game/seatIcons.ts) */
 .extras-panel {
-  position: fixed; z-index: 60; width: 336px; max-height: min(70vh, 560px); overflow: auto; padding: 10px 12px 12px; border-radius: var(--radius);
-  background: linear-gradient(180deg, #1d1f21, #131517); border: 1px solid var(--hud-edge); box-shadow: var(--shadow); color: var(--text);
+  position: fixed; z-index: 60; width: min(776px, calc(100vw - 16px)); display: flex; flex-direction: column;
+  max-height: calc(100vh - 62px); border-radius: var(--radius); color: var(--text);
+  background:
+    radial-gradient(ellipse 80% 60% at 30% 0%, rgba(255, 214, 150, 0.06), transparent 70%),
+    linear-gradient(180deg, #211913, #120e0b);
+  border: 1px solid var(--frame);
+  box-shadow: var(--shadow), inset 0 0 0 1px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 228, 186, 0.1);
   animation: dice-panel-in var(--dur-popover) var(--ease-out);
 }
 body.reduced-motion .extras-panel { animation: none; }
-.extras-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.extras-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 0.03em; color: var(--accent-2); white-space: nowrap; }
-.extras-head .seg { flex: none; }
-.extras-head .seg button { min-width: 0; padding: 2px 8px; font-size: 12px; }
-.extras-head .spacer { flex: 1; }
-.extras-head .hint { font-size: 11.5px; color: var(--text-faint); }
-.extras-group { margin-top: 8px; }
-.extras-group-head { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 4px; }
-.extras-items { display: flex; flex-wrap: wrap; gap: 5px; }
-.extras-item {
-  display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 9px 2px 4px; border-radius: 14px; cursor: pointer;
-  background: rgba(255, 255, 255, 0.035); border: 1px solid var(--line); color: var(--text); font: inherit; font-size: 12.5px;
+.extras-head {
+  display: flex; align-items: center; gap: 12px; padding: 9px 10px 9px 12px; position: relative;
+}
+.extras-head::after {
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--frame) 80%, transparent) 20%, color-mix(in srgb, var(--frame) 80%, transparent) 80%, transparent);
+}
+.extras-mark { width: 30px; height: 30px; flex: none; margin-right: -2px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7)); }
+.extras-title { margin: 0; flex: 1; font: 600 17px/1.2 var(--font-display); letter-spacing: 0.04em; color: var(--accent-2); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.8); white-space: nowrap; }
+/* how many each pull makes: a brass-bound selector */
+.extras-count { display: inline-flex; border: 1px solid color-mix(in srgb, var(--frame) 75%, black); border-radius: 4px; overflow: hidden; background: rgba(0, 0, 0, 0.35); }
+.extras-count button {
+  min-width: 38px; height: 28px; padding: 0 8px; border: 0; cursor: pointer; background: none; color: var(--text-dim);
+  font: 600 12.5px/1 var(--font-ui); font-variant-numeric: tabular-nums;
+  transition: color var(--dur-hover) var(--ease-out), background var(--dur-hover) var(--ease-out);
+}
+.extras-count button + button { border-left: 1px solid rgba(0, 0, 0, 0.5); }
+.extras-count button:hover { color: var(--text); background: rgba(255, 236, 200, 0.06); }
+.extras-count button.on { color: var(--accent-ink); background: var(--accent-grad); box-shadow: inset 0 1px 0 rgba(255, 245, 220, 0.5); }
+.extras-count button:focus-visible { outline: 2px solid var(--select); outline-offset: -2px; }
+.extras-close {
+  width: 26px; height: 26px; padding: 0; display: grid; place-items: center; flex: none; cursor: pointer; border-radius: 50%;
+  color: var(--room-bone-dim); background: radial-gradient(circle at 35% 30%, #2d2822, #0d0b09 70%); border: 1px solid color-mix(in srgb, var(--frame) 80%, black);
+  transition: color var(--dur-hover) var(--ease-out), border-color var(--dur-hover) var(--ease-out);
+}
+.extras-close:hover { color: var(--accent-2); border-color: var(--frame-hi); }
+.extras-close:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
+
+.extras-body { display: grid; grid-template-columns: minmax(0, 1fr) 256px; gap: 18px; padding: 12px 14px 12px 16px; min-height: 0; }
+.extras-tokens { min-height: 0; max-height: min(58vh, 480px); overflow: auto; margin-right: -6px; padding: 2px 6px 4px 2px; scrollbar-width: thin; scrollbar-color: var(--frame) transparent; }
+.extras-side { display: flex; flex-direction: column; gap: 12px; padding-left: 16px; border-left: 1px solid var(--line); }
+.extras-group + .extras-group { margin-top: 12px; }
+.extras-side .extras-group + .extras-group { margin-top: 0; }
+.extras-group-head {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font: 600 12px/1.2 var(--font-display); letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--frame-hi) 80%, var(--text-dim));
+}
+.extras-group-head::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-2), transparent); }
+.extras-for { margin: -2px 0 6px; font-size: 12px; color: var(--text-dim); }
+.extras-for.idle { color: var(--text-faint); }
+.bag-chips + .extras-for { margin-top: 10px; }
+
+/* a token: its card, lifted when you reach for it; its name and P/T under it */
+.bag-tiles { display: grid; grid-template-columns: repeat(auto-fill, 80px); gap: 12px 9px; }
+.bag-tile {
+  position: relative; width: 80px; padding: 0; border: 0; background: none; color: var(--text); cursor: pointer; text-align: left;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.bag-tile-card {
+  display: block; width: 80px; border-radius: 4px; box-shadow: 0 3px 7px rgba(0, 0, 0, 0.6);
+  transition: transform calc(140ms * var(--anim-scale, 1)) var(--ease-out), box-shadow calc(140ms * var(--anim-scale, 1)) var(--ease-out);
+}
+.bag-tile-card .card-face { width: 100%; }
+.bag-tile:hover .bag-tile-card { transform: translateY(-3px); box-shadow: 0 9px 16px rgba(0, 0, 0, 0.65), 0 0 0 1.5px var(--frame-hi); }
+.bag-tile:active .bag-tile-card { transform: translateY(-1px) scale(0.97); box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6), 0 0 0 1.5px var(--frame-hi); }
+.bag-tile:focus-visible { outline: none; }
+.bag-tile:focus-visible .bag-tile-card { box-shadow: 0 0 0 2px var(--select), 0 6px 12px rgba(0, 0, 0, 0.6); }
+.bag-tile-cap { display: flex; align-items: baseline; gap: 4px; min-width: 0; font: 500 11.5px/1.25 var(--font-ui); }
+.bag-tile-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.bag-tile-pt { flex: none; font-weight: 650; color: var(--accent-2); font-variant-numeric: tabular-nums; }
+/* a pull: its count rises off the card */
+.bag-tile-pulled {
+  position: absolute; left: 50%; top: 34%; transform: translateX(-50%); pointer-events: none;
+  font: 800 20px/1 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--accent-2);
+  text-shadow: 0 1px 0 #000, 0 0 8px rgba(0, 0, 0, 0.9); animation: bag-pull calc(700ms * var(--anim-scale, 1)) var(--ease-out) forwards;
+}
+@keyframes bag-pull { 0% { opacity: 0; transform: translate(-50%, 8px) scale(0.8); } 25% { opacity: 1; transform: translate(-50%, 0) scale(1.08); } 100% { opacity: 0; transform: translate(-50%, -30px); } }
+body.reduced-motion .bag-tile-pulled { display: none; }
+/* find any token: an empty card slot with the lens */
+.bag-find-slot {
+  aspect-ratio: 63 / 88; display: grid; place-items: center; border: 1.5px dashed color-mix(in srgb, var(--frame) 85%, transparent);
+  background: radial-gradient(ellipse at 50% 40%, rgba(255, 220, 160, 0.06), rgba(0, 0, 0, 0.3)); box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.bag-find-slot img { width: 40px; height: 40px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7)); }
+.bag-find .bag-tile-name { color: var(--text-dim); white-space: normal; }
+.bag-find:hover .bag-tile-name { color: var(--text); }
+
+/* counters: a medallion and a name */
+.bag-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.bag-chip {
+  display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 6px 0 3px; min-width: 0; cursor: pointer; border-radius: 4px;
+  background: rgba(255, 240, 210, 0.025); border: 1px solid var(--line); color: var(--text); font: 500 12.5px/1 var(--font-ui);
   transition: border-color var(--dur-hover) var(--ease-out), background var(--dur-hover) var(--ease-out);
 }
-.extras-item:hover { border-color: var(--frame-hi); background: var(--frame-inner); }
-.extras-item:focus-visible { outline: 2px solid var(--select); outline-offset: 2px; }
-.extras-item:disabled { opacity: 0.45; cursor: default; }
-.extras-item .chip {
-  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 10px; font-weight: 800;
-  background: radial-gradient(circle at 35% 30%, #4a4540, #191715); border: 1.5px solid var(--tint, #b39458); color: var(--tint, #e8d6ad);
+.bag-chip img { width: 28px; height: 28px; flex: none; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+.bag-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bag-chip:hover:not(:disabled) { border-color: var(--frame-hi); background: var(--frame-inner); }
+.bag-chip:active:not(:disabled) { transform: translateY(1px); }
+.bag-chip:focus-visible { outline: 2px solid var(--select); outline-offset: 1px; }
+.bag-chip:disabled { cursor: default; opacity: 0.5; }
+
+/* dice: brass dice, a tumble when you reach for one */
+.bag-dice { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.bag-die {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 0 4px; cursor: pointer; border-radius: 4px;
+  background: none; border: 1px solid transparent; color: var(--text-dim); font: 600 12px/1 var(--font-ui); font-variant-numeric: tabular-nums;
+  transition: border-color var(--dur-hover) var(--ease-out), background var(--dur-hover) var(--ease-out), color var(--dur-hover) var(--ease-out);
 }
-.extras-item .pt { color: var(--text-faint); font-variant-numeric: tabular-nums; }
-.extras-note { margin: 8px 0 0; font-size: 11.5px; color: var(--text-faint); }
+.bag-die img { width: 42px; height: 42px; transition: transform calc(160ms * var(--anim-scale, 1)) var(--ease-out); }
+.bag-die:hover { color: var(--text); background: var(--frame-inner); border-color: var(--line-2); }
+.bag-die:hover img { transform: translateY(-2px) rotate(-8deg); }
+.bag-die:active img { transform: scale(0.92) rotate(10deg); }
+.bag-die:focus-visible { outline: 2px solid var(--select); outline-offset: 1px; }
+.bag-more {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; height: 32px; margin-top: 6px; padding: 0 8px 0 10px;
+  cursor: pointer; border-radius: 4px; color: var(--text); font: 500 12.5px/1 var(--font-ui); white-space: nowrap; text-align: left;
+  background: var(--hud-surface); border: 1px solid var(--hud-edge); transition: border-color var(--dur-hover) var(--ease-out);
+}
+.bag-more:hover { border-color: var(--frame-hi); }
+.bag-more:focus-visible { outline: 2px solid var(--select); outline-offset: 1px; }
+.bag-more kbd { font: 600 11px/1.5 var(--font-ui); padding: 0 5px; color: var(--text-dim); background: rgba(0, 0, 0, 0.4); border: 1px solid var(--line-2); border-radius: 3px; }
+.extras-note { margin: 0; padding: 8px 16px 10px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--text-faint); }
+
+/* a narrow window: the counters and dice under the tokens */
+@media (max-width: 760px) {
+  .extras-body { grid-template-columns: minmax(0, 1fr); }
+  .extras-side { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); padding-top: 10px; }
+  .extras-tokens { max-height: 38vh; }
+}
 
 /* ---- a chit drawn from the bag: out of a little bag by the drawer's name, then gone ----------------------------------- */
 .bag-draws { position: fixed; left: 50%; top: 92px; z-index: 47; display: grid; gap: 6px; justify-items: center; transform: translateX(-50%); pointer-events: none; }

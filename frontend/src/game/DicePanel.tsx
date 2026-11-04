@@ -11,7 +11,7 @@ import "./dice.css";
 import "./tabletoys.css";
 
 /**
- * The table's roll panel (the tool tray's Dice button, or Shift+R): pick a die and how many, then Roll; quick picks
+ * The table's roll panel (from the Bag of Extras' dice, or Shift+R): pick a die and how many, then Roll; quick picks
  * for the usual rolls; the table's last few rolls, each one click from rolling the same again. It sends the server's
  * own `roll` (or `coin`) action: the host rolls, the log records it, and every table throws the dice it rolled.
  * Enter rolls, Esc closes. The last pick is remembered on this device.

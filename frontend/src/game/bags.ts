@@ -9,6 +9,7 @@
  * - **The draw bag** (game/DrawBagPanel.tsx): the table fills it with chits (numbers, player names, teams, any words) and
  *   draws from it at random. Its contents live on the server only (app/game/handlers/toys.py); a view says how many.
  */
+import type { CardData } from "../types/cards";
 import { isVisible, type GameView } from "../types/game";
 
 /** A token the Bag of Extras makes: a card from the database (`card_id`), or one defined here. */
@@ -38,19 +39,57 @@ export const COMMON_TOKENS: ExtraToken[] = [
 export const CARD_COUNTERS = ["+1/+1", "-1/-1", "loyalty", "charge", "shield", "stun"] as const;
 export const PLAYER_COUNTERS = ["energy", "experience"] as const;
 /** The dice in the bag (rolled with the table's own roll). */
-export const BAG_DICE = [6, 20] as const;
+export const BAG_DICE = [4, 6, 8, 10, 12, 20] as const;
 /** Deck tokens shown at most. */
 export const DECK_TOKENS_MAX = 12;
 
-/** The tokens `me`'s deck makes: its Tokens section, then those its visible cards list (as the Create tokens dialog suggests). */
-export function deckTokenIds(view: Pick<GameView, "players" | "cards">, me: string, related: (cardId: string) => string[] | undefined): string[] {
+/** What makes two token printings the same token: its oracle id, or (without one) its name, P/T, types and colours. */
+export function tokenKey(card: Pick<CardData, "oracle_id" | "name" | "power" | "toughness" | "type_line" | "colors">): string {
+  if (card.oracle_id) return `o:${card.oracle_id}`;
+  return `n:${card.name}|${card.power ?? ""}/${card.toughness ?? ""}|${card.type_line ?? ""}|${[...(card.colors ?? [])].sort().join("")}`;
+}
+
+/**
+ * Each token once: other printings of the same token (tokenKey) are dropped, the first one's place kept, and the
+ * printing with art preferred. A printing whose data hasn't loaded yet stands for itself until it has.
+ */
+export function uniqueTokens(ids: string[], info: (id: string) => CardData | undefined): string[] {
+  const kept = new Map<string, string>(); // key → the printing shown
+  for (const id of ids) {
+    const card = info(id);
+    const key = card ? tokenKey(card) : `id:${id}`;
+    const had = kept.get(key);
+    if (had === undefined) kept.set(key, id);
+    else if (card?.has_image && !info(had)?.has_image) kept.set(key, id);
+  }
+  return [...kept.values()];
+}
+
+/** The tokens `me`'s deck makes: its Tokens section, then those its visible cards list (as the Create tokens dialog suggests), each once. */
+export function deckTokenIds(view: Pick<GameView, "players" | "cards">, me: string, related: (cardId: string) => string[] | undefined,
+  info: (id: string) => CardData | undefined = () => undefined): string[] {
   const ids = new Set<string>();
   for (const id of view.players.find((p) => p.id === me)?.token_shortcuts ?? []) ids.add(id);
   for (const c of Object.values(view.cards)) {
     if (!isVisible(c) || c.owner !== me || !c.card_id) continue;
     for (const t of related(c.card_id) ?? []) ids.add(t);
   }
-  return [...ids].slice(0, DECK_TOKENS_MAX);
+  return uniqueTokens([...ids], info).slice(0, DECK_TOKENS_MAX);
+}
+
+/** Rules text without reminder text, spaces evened out. */
+const rulesText = (t: string | null | undefined) => (t ?? "").replace(/\([^()]*\)/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+
+/**
+ * Whether a printing from the card database is one of the bag's common tokens: the same name, types, P/T, colours and
+ * rules text (reminder text aside). The bag shows its art and makes the token from it.
+ */
+export function matchesToken(card: CardData, t: ExtraToken): boolean {
+  const want = t.token as { name: string; type_line: string; text?: string; power?: string; toughness?: string; colors?: string[] };
+  const same = (a: string[] | undefined, b: string[] | undefined) => [...(a ?? [])].sort().join("") === [...(b ?? [])].sort().join("");
+  return card.is_token && card.name.toLowerCase() === want.name.toLowerCase() && card.type_line === want.type_line
+    && (card.power ?? null) === (want.power ?? null) && (card.toughness ?? null) === (want.toughness ?? null)
+    && same(card.colors, want.colors) && rulesText(card.oracle_text) === rulesText(want.text);
 }
 
 // -- the draw bag -------------------------------------------------------------------------------------------------------
