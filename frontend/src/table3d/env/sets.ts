@@ -540,10 +540,8 @@ const shrine: SetSpec = {
     for (const x of [-W / 3, 0, W / 3]) paperLantern(ctx, new THREE.Vector3(x, r.floor + 18, r.back + 3));
     for (const z of [r.back + D * 0.35, r.back + D * 0.7]) { paperLantern(ctx, new THREE.Vector3(r.left + 3, r.floor + 18, z)); paperLantern(ctx, new THREE.Vector3(r.right - 3, r.floor + 18, z)); }
     // a thread of neon along the foot of the far screens: the city's glow coming in under them
-    for (const [x0, z0, x1, z1, c] of [[r.left + 1, r.back + 0.7, r.right - 1, r.back + 0.7, "#ff5fc8"], [r.left + 0.7, r.back + 1, r.left + 0.7, r.front - 1, "#5fe8ff"], [r.right - 0.7, r.back + 1, r.right - 0.7, r.front - 1, "#5fe8ff"]] as const) {
-      const len = Math.hypot(x1 - x0, z1 - z0);
-      new Put(ctx).at((x0 + x1) / 2, r.floor, (z0 + z1) / 2).glowing().geo(new THREE.BoxGeometry(len, 0.12, 0.12), xf(0, 1.15, 0, 0, -Math.atan2(z1 - z0, x1 - x0)), c, { glow: 2.4 });
-    }
+    // (only behind the table: along the side walls, seen in perspective, a thread read as a stray line across the view)
+    new Put(ctx).at(0, r.floor, r.back + 0.7).glowing().geo(new THREE.BoxGeometry(r.right - r.left - 2, 0.12, 0.12), xf(0, 1.15, 0), "#ff5fc8", { glow: 1.3 });
     ctx.room.addWindow({
       centre: new THREE.Vector3(r.left + 0.3, r.floor + 14, -2), u: new THREE.Vector3(0, 0, 1), v: new THREE.Vector3(0, 1, 0),
       halfU: 8, halfV: 9, dir: new THREE.Vector3(0.5, -1, 0.05), color: "#d8c8ff", intensity: 0.35, pattern: WINDOW.shoji,
