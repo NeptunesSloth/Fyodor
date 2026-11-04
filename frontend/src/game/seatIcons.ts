@@ -197,11 +197,11 @@ function mulliganGlyph(): Part[] {
   ];
 }
 
-/** The Bag of Extras: a drawstring pouch, its neck tied with a cord and its mouth flared above it. */
+/** The Bag of Extras: a drawstring pouch, its neck tied with a cord and its mouth gathered in a tuft above it. */
 const pouchGlyph = (): Part[] => [
   { stroke: P("M42 48 C25 54 23 80 50 80 C77 80 75 54 58 48") },
   { stroke: P("M37 45 H63") },
-  { stroke: P("M44 43 C40 36 35 32 32 28 M56 43 C60 36 65 32 68 28 M50 42 V30") },
+  { stroke: P("M45 42 L41 33 M55 42 L59 33 M50 41 V32") },
 ];
 
 /** The importer: an arrow down into a tray. */

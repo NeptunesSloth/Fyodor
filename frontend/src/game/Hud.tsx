@@ -33,74 +33,115 @@ function cardBox(id: string): Box | null {
 
 /** What the preview keeps clear of: the plates and strips, the rail by my mat, the turn panel, the stack, my hand, panels. */
 const PREVIEW_CLEAR = ".t3d-seat, .seat-strip, .area-side, .turn-dial-wrap, .rules-stack-wrap, .stack-widget, .resp-bar, .t3d-cams, .log-drawer, .tool-tray, .hand-cards, .selection-bar, .decision-panel";
-/** The least height the preview's card picture shrinks to when it goes beside the words (from its full 321 px). */
-const PREVIEW_ART_MIN_H = 200;
+/** The least the preview's card picture shrinks to, wide, before its rules text scrolls instead. */
+const PREVIEW_ART_MIN = 120;
+/** How long a preview whose rules text scrolls stays after the pointer leaves its card: time to reach the panel. */
+const PREVIEW_LINGER = 450;
 
-/** Where the preview stands, for which hover (and whether its words had arrived); `beside`: the picture's width beside the words. */
-type PreviewPlace = { key: string; side: "left" | "right"; left: number; top: number; maxH: number; beside: { art: number; width: number } | null };
+/**
+ * Where the preview stands, for which card (and whether its words had arrived): `art`, its picture's width when it
+ * shrinks to fit; `scroll`, the height its rules text scrolls in when even a small picture leaves too little room.
+ */
+type PreviewPlace = { key: string; side: "left" | "right"; left: number; top: number; maxH: number; art: number | null; scroll: number | null };
 
 /**
  * The large card preview, docked at the right edge under the top bar while you hover a card. It never follows the
  * pointer: it moves to the left only while the hovered card itself lies under it, and then into the battlefield's gutter,
- * clear of the plates. It never covers the turn panel or other chrome: in a short space its picture shrinks to fit. It
- * goes when the hover ends (the pointer leaves the card, or the card goes away), on Esc, or with its close button, until
- * the next hover. skipHand: on the 3D table a hovered hand card already lifts out of the fan at full size.
+ * clear of the plates. Narrow, its picture over its words and only as tall as they are; it never covers the turn panel
+ * or other chrome: in a short space its picture shrinks, and only past that does its rules text scroll (the panel then
+ * stays a moment after the pointer leaves the card and holds while the pointer is on it, so the text can be read).
+ * It goes when the hover ends (the pointer leaves the card, or the card goes away), on Esc, or with its close button,
+ * until the next hover. skipHand: on the 3D table a hovered hand card already lifts out of the fan at full size.
  */
 export function CardPreview({ skipHand = false }: { skipHand?: boolean }) {
   const hover = useGame((s) => s.hover);
-  const inHand = useGame((s) => !!s.hover && !!s.view?.cards[s.hover]?.zone.endsWith(":hand"));
-  const printId = useGame((s) => {
-    if (!s.hover) return null;
-    if (s.hover.startsWith("print:")) return s.hover.slice(6);
-    return (s.view?.cards[s.hover] as { card_id?: string } | undefined)?.card_id ?? null;
-  });
-  const ready = useCardCache((c) => !!printId && !!c.cards[printId]); // (its text arrives with the card's data: measured again)
   const panel = useRef<HTMLDivElement>(null);
   const [place, setPlace] = useState<PreviewPlace | null>(null);
+  const [held, setHeld] = useState<string | null>(null); // a scrolling preview the pointer is on
+  const [linger, setLinger] = useState<string | null>(null); // a scrolling preview just left by the pointer
+  const lastScroll = useRef<{ id: string; scroll: boolean } | null>(null);
+  const shown = hover ?? held ?? linger;
+  const inHand = useGame((s) => !!shown && !!s.view?.cards[shown]?.zone.endsWith(":hand"));
+  const printId = useGame((s) => {
+    if (!shown) return null;
+    if (shown.startsWith("print:")) return shown.slice(6);
+    return (s.view?.cards[shown] as { card_id?: string } | undefined)?.card_id ?? null;
+  });
+  const ready = useCardCache((c) => !!printId && !!c.cards[printId]); // (its text arrives with the card's data: measured again)
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => void previewKey(e);
+    const close = () => { setHeld(null); setLinger(null); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+      void previewKey(e);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("fyodor:preview-close", close);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("fyodor:preview-close", close); };
   }, []);
-  // placed once per hovered card (and again when its words arrive), before it shows: a hidden render at full size is
-  // measured, then the panel goes where it is clear; short of room, its picture goes beside the words, as tall as fits
-  const key = `${hover}|${ready}`;
+  // the hover ended on a preview whose text scrolls: it stays a moment, for the pointer to reach it
+  useEffect(() => {
+    if (hover) { setLinger(null); return; }
+    const last = lastScroll.current;
+    if (!last?.scroll || held) return;
+    setLinger(last.id);
+    const t = window.setTimeout(() => setLinger(null), PREVIEW_LINGER);
+    return () => window.clearTimeout(t);
+  }, [hover]); // eslint-disable-line react-hooks/exhaustive-deps
+  // placed once per card (and again when its words arrive), before it shows: a hidden render at full size is measured,
+  // then the panel goes where it is clear, its picture as large as the room lets it be
+  const key = `${shown}|${ready}`;
   const measuring = !place || place.key !== key;
   useLayoutEffect(() => {
     const node = panel.current;
-    if (!hover || !node || !measuring) return;
+    if (!shown || !node || !measuring) return;
     const w = node.offsetWidth;
     const naturalH = node.offsetHeight;
     const art = node.querySelector(".insp-image") as HTMLElement | null;
     const artW = art?.offsetWidth || 230;
     const artH = art?.offsetHeight || (artW * 88) / 63;
-    const words = naturalH - artH - 8; // the name, rules text, notes and the panel's padding
+    const oracle = node.querySelector(".insp-oracle") as HTMLElement | null;
+    const oracleH = oracle?.offsetHeight ?? 0;
     const obstacles = [...document.querySelectorAll(PREVIEW_CLEAR)].map((n) => n.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0);
     const top = Math.max(96, ...[...document.querySelectorAll(".game-top, .t3d-cams")].map((n) => n.getBoundingClientRect().bottom + 8));
-    const base = { vw: window.innerWidth, vh: window.innerHeight, minH: 260, top, card: cardBox(hover), obstacles };
-    const p = placePreview({ ...base, w, naturalH });
-    if (naturalH <= p.maxH) {
-      setPlace({ key, ...p, beside: null });
-      return;
+    const minArtH = (PREVIEW_ART_MIN * 88) / 63;
+    const shortest = naturalH - artH + minArtH; // with the smallest picture
+    const p = placePreview({ vw: window.innerWidth, vh: window.innerHeight, w, minH: Math.min(shortest, 300), top, naturalH: Math.min(naturalH, shortest), card: cardBox(shown), obstacles });
+    let fitArt: number | null = null;
+    let scroll: number | null = null;
+    const slack = 6; // (rounding, and the bezel's outset)
+    if (naturalH + slack > p.maxH) {
+      const room = p.maxH - slack - (naturalH - artH); // what is left for the picture
+      if (room >= minArtH) fitArt = Math.floor((room * 63) / 88);
+      else {
+        fitArt = PREVIEW_ART_MIN;
+        scroll = Math.max(60, Math.floor(oracleH - (shortest + slack - p.maxH)));
+      }
     }
-    const h = Math.max(PREVIEW_ART_MIN_H, Math.min(artH, p.maxH - 22));
-    const bw = Math.round((h * 63) / 88);
-    const width = bw + 12 + (w - 22) + 22;
-    const besideH = Math.max(h, words) + 22;
-    setPlace({ key, ...placePreview({ ...base, w: width, naturalH: besideH }), beside: { art: bw, width } });
+    lastScroll.current = { id: shown, scroll: scroll !== null };
+    setPlace({ key, ...p, art: fitArt, scroll });
   });
-  if (!hover || (skipHand && inHand)) return null;
+  if (!shown || (skipHand && inHand)) return null;
   const style: React.CSSProperties = measuring || !place
     ? { left: 0, top: 0, visibility: "hidden" }
-    : { left: place.left, top: place.top, maxHeight: place.maxH, ...(place.beside ? { width: place.beside.width, ["--insp-w" as string]: `${place.beside.art}px` } : {}) };
+    : {
+      left: place.left, top: place.top, maxHeight: place.maxH,
+      ...(place.art ? { ["--insp-w" as string]: `${place.art}px` } : {}),
+      ...(place.scroll ? { ["--insp-scroll" as string]: `${place.scroll}px` } : {}),
+    };
   const side = !measuring && place ? place.side : "right";
+  const scrolls = !measuring && !!place?.scroll;
   return (
-    <div ref={panel} className={`card-preview ${side}${!measuring && place?.beside ? " beside" : ""}`} data-testid="card-preview" data-dock={side} style={style}>
-      <button type="button" className="card-preview-close" onClick={clearHover} aria-label="Close the card preview (Esc)" title="Close (Esc)"
+    <div ref={panel} className={`card-preview ${side}${scrolls ? " scrolls" : ""}`} data-testid="card-preview" data-dock={side} style={style}
+      onPointerEnter={() => scrolls && setHeld(shown)} onPointerLeave={() => setHeld(null)}
+      onScrollCapture={(e) => {
+        const t = e.target as HTMLElement;
+        panel.current?.toggleAttribute("data-at-end", t.scrollTop + t.clientHeight >= t.scrollHeight - 2);
+      }}>
+      <button type="button" className="card-preview-close" onClick={() => { setHeld(null); setLinger(null); clearHover(); }} aria-label="Close the card preview (Esc)" title="Close (Esc)"
         data-testid="card-preview-close">
         <img src={toyIconUrl("close")} alt="" draggable={false} />
       </button>
-      <Inspector />
+      <Inspector id={shown} />
     </div>
   );
 }

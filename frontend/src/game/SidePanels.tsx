@@ -17,9 +17,10 @@ import { DealtNote } from "./CommanderDamageViews";
 import { countMark } from "./piles";
 import { useHoverCard } from "./hoverCard";
 
-/** Large preview of whatever card is hovered (board, hand, log, browser). */
-export function Inspector() {
-  const hover = useGame((s) => s.hover);
+/** Large preview of whatever card is hovered (board, hand, log, browser), or of card `id` (the card preview held open). */
+export function Inspector({ id }: { id?: string | null } = {}) {
+  const storeHover = useGame((s) => s.hover);
+  const hover = id !== undefined ? id : storeHover;
   const isPrint = hover?.startsWith("print:");
   const card = useCardView(!isPrint && hover ? hover : "");
   const printId = isPrint ? hover!.slice(6) : card && isVisible(card) ? card.card_id : null;
@@ -48,7 +49,8 @@ export function Inspector() {
       {data && (
         <div className="insp-text">
           <div className="insp-name">
-            {faceData?.name ?? data.name} <ManaText text={faceData?.mana_cost ?? data.mana_cost} />
+            <span className="insp-title">{faceData?.name ?? data.name}</span>
+            <span className="insp-cost"><ManaText text={faceData?.mana_cost ?? data.mana_cost} /></span>
           </div>
           <div className="hint">{faceData?.type_line ?? data.type_line}</div>
           <div className="insp-oracle"><OracleText text={faceData?.oracle_text ?? data.oracle_text} /></div>

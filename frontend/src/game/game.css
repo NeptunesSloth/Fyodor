@@ -308,7 +308,10 @@ body.board-arranged main.table:not(.is-3d) .opponents.n1:not(.focused):not(.shru
 .inspector.empty { height: 120px; display: flex; align-items: center; justify-content: center; }
 .insp-image { width: 200px; margin: 0 auto 8px; }
 .insp-text { font-size: 12.5px; line-height: 1.45; }
-.insp-name { font-weight: 700; display: flex; justify-content: space-between; gap: 6px; }
+.insp-name { font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+/* the mana cost: its symbols together at the right, a hair apart */
+.insp-cost { display: inline-flex; align-items: center; gap: 2px; flex: none; }
+.insp-cost > * { margin: 0 !important; }
 .insp-oracle p { margin: 4px 0; }
 .insp-note { font-size: 12px; margin-top: 6px; padding: 4px 8px; background: var(--panel); border-radius: 6px; color: #f2e6b3; }
 .panel-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px; font-weight: 650; font-size: 12.5px; color: var(--text-dim); letter-spacing: 0.01em; }
@@ -615,25 +618,44 @@ main.table > :not(.playmat-layer) { position: relative; z-index: 1; }
 
 /* ---------------------------------------------------------------- floating HUD */
 /* the large card preview (Hud.tsx CardPreview): placed by its frame (docked right under the top bar, the stack pill and the
-   camera strip; never over the turn panel, the plates or other chrome), its picture shrinking to fit a short space; only
-   its close button takes the pointer, so the table under it still answers */
+   camera strip; never over the turn panel, the plates or other chrome); narrow, its picture over its words, as tall as
+   they are, the picture shrinking to fit a short space. The Bag of Extras' materials: a walnut frame with brass rivets,
+   a brass bezel round a leather lining. Only its close button takes the pointer (and the whole panel, while its rules
+   text scrolls), so the table under it still answers */
 .card-preview {
-  position: fixed; z-index: 40; width: 262px; pointer-events: none; display: flex; flex-direction: column;
+  --rivet: radial-gradient(circle, #f6dda4 0 1.4px, #a9793c 1.9px 2.6px, rgba(0, 0, 0, 0.5) 3px, transparent 3.8px);
+  position: fixed; z-index: 40; width: 272px; pointer-events: none; display: flex; flex-direction: column; padding: 6px; border-radius: 8px;
   background:
-    radial-gradient(ellipse 90% 40% at 30% 0%, rgba(255, 214, 150, 0.05), transparent 70%),
-    var(--hud-surface);
-  border: 1px solid color-mix(in srgb, var(--frame) 80%, black); border-radius: var(--room-radius);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 228, 186, 0.1);
+    var(--rivet) 0 0 / 15px 15px no-repeat, var(--rivet) 100% 0 / 15px 15px no-repeat,
+    var(--rivet) 0 100% / 15px 15px no-repeat, var(--rivet) 100% 100% / 15px 15px no-repeat,
+    repeating-linear-gradient(91deg, rgba(255, 222, 176, 0.035) 0 1px, transparent 1px 5px, rgba(0, 0, 0, 0.07) 5px 6px, transparent 6px 13px),
+    linear-gradient(180deg, #4b311e 0%, #2e1c10 55%, #21140b 100%);
+  border: 1px solid #0b0705;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55), 0 4px 10px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 222, 176, 0.2);
   animation: preview-in calc(120ms * var(--anim-scale, 1)) var(--ease-out);
 }
 @keyframes preview-in { from { opacity: 0; transform: translateY(-4px); } }
-.card-preview .inspector { border: 0; max-height: none; overflow: hidden; min-height: 0; }
-.card-preview .insp-image { width: var(--insp-w, 230px); }
+.card-preview .inspector {
+  border: 0; max-height: none; min-height: 0; overflow: hidden; margin: 2px; border-radius: 4px; padding: 8px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.1 0 0 0 0 0.05 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 80% 55% at 28% 0%, rgba(255, 214, 150, 0.08), transparent 70%),
+    linear-gradient(180deg, #261a11, #150e09);
+  box-shadow: 0 0 0 1px #3a2610, 0 0 0 2.5px #b4884a, 0 0 0 3.5px #2a1a0b, inset 0 0 0 1px rgba(255, 230, 186, 0.12), inset 0 3px 10px rgba(0, 0, 0, 0.55);
+}
+.card-preview .insp-image { width: var(--insp-w, 230px); margin: 0 auto 8px; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6)); }
 .card-preview .insp-name { padding-right: 12px; } /* (clear of the close medallion on the corner) */
-/* short of room: the picture beside the words (the panel as wide as both), the words never cut */
-.card-preview.beside .inspector { display: flow-root; }
-.card-preview.beside .insp-image { float: left; margin: 0; }
-.card-preview.beside .inspector > :not(.insp-image) { margin-left: calc(var(--insp-w) + 12px); }
+/* a long text in a short space: only the rules text scrolls (the panel then takes the pointer, held open while it's on it) */
+.card-preview.scrolls { pointer-events: auto; }
+.card-preview.scrolls .insp-oracle {
+  max-height: var(--insp-scroll); overflow-y: scroll; overscroll-behavior: contain; padding-right: 6px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent);
+}
+.card-preview.scrolls[data-at-end] .insp-oracle { -webkit-mask-image: none; mask-image: none; }
+/* its scrollbar shows (a brass thumb in a dark groove): the words go on */
+.card-preview.scrolls .insp-oracle::-webkit-scrollbar { width: 6px; }
+.card-preview.scrolls .insp-oracle::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.35); border-radius: 3px; }
+.card-preview.scrolls .insp-oracle::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #e2c27a, #9a7238); border-radius: 3px; }
 /* close: the icon family's brass medallion, on the panel's corner */
 .card-preview-close {
   position: absolute; top: -11px; right: -11px; z-index: 1; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%;

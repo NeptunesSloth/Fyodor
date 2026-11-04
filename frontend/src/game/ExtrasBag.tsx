@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { createPortal } from "react-dom";
 import { CardFace } from "../cards/CardFace";
 import { api } from "../services/api";
-import { getPrintings, searchCards } from "../services/cards";
+import { getPrintings, imageUrl, searchCards } from "../services/cards";
 import { requestCards, useCardCache } from "../state/cardCache";
 import { useGame } from "../state/gameStore";
 import { usePrefs } from "../state/prefs";
@@ -86,6 +86,12 @@ function useCommonTokenPrintings(): Record<string, CardData> {
   return cards;
 }
 
+/** The common tokens' printings to show as art (every one has art cached), or null (their emblem cards, all of them). */
+function artIdsOf(common: Record<string, CardData>, deck: string[], cache: Record<string, CardData>): string[] | null {
+  const commons = commonBesidesDeck(COMMON_TOKENS, common, deck.map((id) => cache[id]).filter((c): c is CardData => !!c));
+  return commons.length && commons.every((t) => common[t.id]?.has_image) ? commons.map((t) => common[t.id]!.id) : null;
+}
+
 // -- tiles ------------------------------------------------------------------------------------------------------------
 
 /**
@@ -139,11 +145,23 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
   const [count, setCount] = useState<number>(1);
   const [place, setPlace] = useState<CSSProperties>({ visibility: "hidden" });
   const [, iconsReady] = useState(0);
+  const [artLoaded, setArtLoaded] = useState<string>("");
   const common = useCommonTokenPrintings();
   const related = (id: string) => cache[id]?.related_tokens?.map((t) => t.id);
   const deck = useMemo(() => (view ? deckTokenIds(view, me, related, (id) => cache[id]) : []), [view, me, cache]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => requestCards(deck), [deck]);
   useEffect(() => { void whenIconFontReady().then(() => iconsReady(1)); }, []);
+  const artKey = artIdsOf(common, deck, cache)?.join(",") ?? "";
+  useEffect(() => {
+    if (!artKey) return;
+    let live = true;
+    void Promise.all(artKey.split(",").map((id) => new Promise<void>((done) => {
+      const img = new Image();
+      img.onload = img.onerror = () => done();
+      img.src = imageUrl(id, 0, "small");
+    }))).then(() => live && setArtLoaded(artKey));
+    return () => { live = false; };
+  }, [artKey]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -190,6 +208,8 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
     name: t.label, type: t.token.type_line as string, pt: t.pt, colors: (t.token.colors as string[] | undefined) ?? [],
   });
   const commons = commonBesidesDeck(COMMON_TOKENS, common, deck.map((id) => cache[id]).filter((c): c is CardData => !!c));
+  // one look for the grid: every common token's art once all of it is cached and loaded, its emblem card until then
+  const artIds = artIdsOf(common, deck, cache);
   const target = onTable.length === 1 ? "the selected card" : `${onTable.length} selected cards`;
   const diceKey = keyLabel("dice", keymap);
   // (on the page itself, so it stands over the table's floating layers, such as the dice results on the 2D table)
@@ -228,7 +248,8 @@ export function ExtrasBag({ me, anchor, onClose }: { me: string; anchor: string 
             <div className="bag-tiles">
               {commons.map((t) => {
                 const card = common[t.id];
-                return <TokenTile key={t.id} card={card} emblem={emblemOf(t)} name={t.label} pt={t.pt} count={count} testId={`extras-${t.id}`}
+                const showArt = !!artIds && artLoaded === artIds.join(",");
+                return <TokenTile key={t.id} card={showArt ? card : undefined} emblem={emblemOf(t)} name={t.label} pt={t.pt} count={count} testId={`extras-${t.id}`}
                   title={`${t.token.type_line as string}${t.token.text ? `: ${t.token.text as string}` : ""}`}
                   onPull={() => make(card ? { card_id: card.id } : t.token)} />;
               })}

@@ -74,10 +74,11 @@ export function hoverElement(id: string): HTMLElement | null {
   return owner?.id === id && owner.el.isConnected ? owner.el : null;
 }
 
-/** Hide the preview until the next hover (its × and Esc). */
+/** Hide the preview until the next hover (its × and Esc), and let go of one held open (Hud.tsx CardPreview). */
 export function clearHover(): void {
   owner = null;
   if (useGame.getState().hover) useGame.getState().setHover(null);
+  if (typeof window !== "undefined" && typeof Event !== "undefined") window.dispatchEvent(new Event("fyodor:preview-close"));
 }
 
 /** Esc: closes the preview if one is showing (true: the key was used). */

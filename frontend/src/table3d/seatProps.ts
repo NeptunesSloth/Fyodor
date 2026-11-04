@@ -124,7 +124,7 @@ const blobTexture = () => {
 };
 
 /** A commander's tax medallion: the face (`mesh`, turned to the viewer), its brass edge, and when its number last changed. */
-interface Tax { mesh: THREE.Mesh; edge: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; shown: number; changed: number }
+interface Tax { mesh: THREE.Mesh; edge: THREE.Mesh; edgeMat: THREE.MeshStandardMaterial; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; shown: number; changed: number }
 
 interface Heart {
   group: THREE.Group; face: THREE.Mesh; canvas: HTMLCanvasElement; tex: THREE.CanvasTexture; color: string; shown: string;
@@ -331,7 +331,8 @@ export class SeatProps {
           // to whoever looks (tick); a partner's beside it, toward the mat
           const mesh = new THREE.Mesh(this.keep(new THREE.PlaneGeometry(TAX_R * 2, TAX_R * 2).rotateX(-Math.PI / 2)),
             this.keep(new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })));
-          const edge = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(TAX_R * 0.96, TAX_R * 1.02, TAX_H, 64)), this.taxEdge());
+          const edgeMat = this.keep(new THREE.MeshStandardMaterial({ color: 0x8a6432, roughness: 0.42, metalness: 0.75, emissive: 0xffc870, emissiveIntensity: 0 }));
+          const edge = new THREE.Mesh(this.keep(new THREE.CylinderGeometry(TAX_R * 0.96, TAX_R * 1.02, TAX_H, 64)), edgeMat);
           const [sx0, sz0] = COMMAND_SLOTS[0]!;
           const inward = sx0 < 0 ? 1 : -1;
           // mine: under my command zone, by my hand; any other seat's: on the table side of its command slots (toward the
@@ -348,7 +349,7 @@ export class SeatProps {
           under.position.set(wx + 0.03, 0.004, wz + 0.04);
           this.group.add(under, edge, mesh);
           this.slots.push(under); // (removed with the slots when the commanders change)
-          this.taxes.set(c.key, { mesh, edge, canvas, tex, shown: -1, changed: 0 });
+          this.taxes.set(c.key, { mesh, edge, edgeMat, canvas, tex, shown: -1, changed: 0 });
         });
       }
     }
@@ -378,10 +379,6 @@ export class SeatProps {
   private blobMat: THREE.MeshBasicMaterial | null = null;
   private shadowMat(): THREE.MeshBasicMaterial {
     return (this.blobMat ??= this.keep(new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false })));
-  }
-  private edgeMat: THREE.MeshStandardMaterial | null = null;
-  private taxEdge(): THREE.MeshStandardMaterial {
-    return (this.edgeMat ??= this.keep(new THREE.MeshStandardMaterial({ color: 0x8a6432, roughness: 0.42, metalness: 0.75 })));
   }
 
   private slots: THREE.Mesh[] = [];
@@ -466,8 +463,32 @@ export class SeatProps {
       const since = now - t.changed;
       const hop = !reduced && since < 240 ? 1 + 0.14 * Math.sin((since / 240) * Math.PI) : 1;
       t.mesh.scale.setScalar(hop);
+      // hovered (click +2, right-click −2): its brass catches the light
+      const on = this.taxHover === t;
+      (t.mesh.material as THREE.MeshBasicMaterial).color.setScalar(on ? 1.18 : 1);
+      t.edgeMat.emissiveIntensity = on ? 0.4 : 0;
     }
+    this.cam = camera;
   }
+
+  /**
+   * Which tax medallion the pointer is over (the table's own picking reports only cards, hearts and buttons to these
+   * props): a small raycast against the pucks alone, on the pointer's moves over the table's canvas.
+   */
+  private taxHover: Tax | null = null;
+  private cam: THREE.Camera | null = null;
+  private ray = new THREE.Raycaster();
+  private onPointer = (e: PointerEvent) => {
+    const canvas = e.target as HTMLElement | null;
+    this.taxHover = null;
+    if (!this.cam || !this.taxes.size || !(canvas instanceof HTMLCanvasElement) || !canvas.classList.contains("table3d-canvas")) return;
+    const r = canvas.getBoundingClientRect();
+    this.ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), this.cam);
+    const hit = this.ray.intersectObjects([...this.taxes.values()].flatMap((t) => [t.mesh, t.edge]), false)[0];
+    const key = hit?.object.userData.tax as string | undefined;
+    this.taxHover = key ? this.taxes.get(key) ?? null : null;
+  };
+  private listening = typeof window !== "undefined" && (window.addEventListener("pointermove", this.onPointer, { passive: true }), true);
 
   /** What the pointer can hit. */
   targets(): THREE.Object3D[] {
@@ -499,17 +520,18 @@ export class SeatProps {
     this.slots = [];
     this.hearts.clear();
     this.buttons.clear();
-    this.edgeMat = null;
     this.blobMat = null;
     this.label?.tex.dispose();
     this.label = null;
     this.hovered = null;
+    this.taxHover = null;
     for (const d of this.disposables) d.dispose();
     this.disposables = [];
   }
 
   dispose(): void {
     this.unskip();
+    if (this.listening) window.removeEventListener("pointermove", this.onPointer);
     this.clear();
   }
 }
