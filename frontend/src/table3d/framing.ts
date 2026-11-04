@@ -8,7 +8,7 @@
  * Camera only (never game state). three.js math only, no WebGL, so it is unit-tested.
  */
 import * as THREE from "three";
-import { fanCorners, handFan, showsFan } from "./handFan";
+import { FAN_MAX, fanCorners, handFan } from "./handFan";
 import { BUTTON_R, buttonRowZ, CARD_W, DUEL_VIEW, HEART, heartSpot, heartTilt, MAT_D, MAT_W, PLATE, plaqueSpot, screenX, STRIP_X, TAX_R, taxSpot, toWorld, type Seat, type TableSize } from "./layout";
 
 /** The part of the canvas (normalized device coordinates, −1..1) the framed area must fit in. */
@@ -95,9 +95,10 @@ export function propSpots(all: Seat[], size: TableSize): [number, number][] {
 
 /**
  * A seat's play area on the felt: its mat and the piles on either side; with `buttons`, my seat's buttons row past my
- * mat's near edge too. In 1v1 also its heart and plate past its own edge and, across the table, its fan of backs.
+ * mat's near edge too. Its heart and plate, and (another player's) the fan of backs held up at its own edge (unless
+ * `fan` is false: the tests' baseline).
  */
-export function seatPoints(seat: Seat, opts: { buttons?: boolean; piles?: boolean; elevation?: number } = {}): THREE.Vector3[] {
+export function seatPoints(seat: Seat, opts: { buttons?: boolean; piles?: boolean; elevation?: number; fan?: boolean } = {}): THREE.Vector3[] {
   const hx = opts.piles === false ? MAT_W / 2 + 0.2 : STRIP_X + CARD_W / 2 + 0.1;
   const hz = MAT_D / 2 + 0.2;
   const local: [number, number, number][] = [[-hx, 0, -hz], [hx, 0, -hz], [hx, 0, hz], [-hx, 0, hz]];
@@ -123,8 +124,9 @@ export function seatPoints(seat: Seat, opts: { buttons?: boolean; piles?: boolea
     return new THREE.Vector3(x, y, z);
   });
   if (opts.piles !== false) out.push(...plateCorners(seat, opts.elevation ?? (seat.duel ? DUEL_VIEW : 1.2)));
-  // a seat across the table: its fan of backs standing past its own edge (as large as the fan gets)
-  if (!opts.buttons && opts.piles !== false && showsFan(seat)) for (const c of handFan(seat, 12)) out.push(...fanCorners(c));
+  // another seat (not mine: my hand is the overlay on the screen): its fan of backs held up at its own edge, as large
+  // as the fan gets
+  if (!opts.buttons && opts.piles !== false && opts.fan !== false) for (const c of handFan(seat, FAN_MAX)) out.push(...fanCorners(c));
   return out;
 }
 

@@ -47,6 +47,11 @@ export const DUEL_AISLE = 0.6;
 export const DUEL_EDGE = 2.75;
 /** The 1v1 seat view's elevation (radians up from the felt; table3d/framing.ts): low, so the facing mats fill a wide screen. */
 export const DUEL_VIEW = 0.5;
+/**
+ * More seats: how much table lies past a mat's own edge (where its owner sits) before the table's edge: room for the
+ * owner's held fan of backs (table3d/handFan.ts) between the mat and the rail, and for my buttons' row.
+ */
+export const OWN_EDGE = 1.7;
 /** The rail's width inside the table top's edge (environment.ts: the leather rail and the brass inlay inside it). */
 export const RAIL = 0.72;
 /** Mat centre to mat centre along a row: the zone strips of neighbours don't touch. */
@@ -152,7 +157,7 @@ export function tableSize(all: Seat[]): TableSize {
     const halfD = (sideways ? MAT_W + 2 * (STRIP_X - MAT_W / 2) + CARD_W : MAT_D) / 2;
     // past the mat's own edge (where its owner sits): room for their hand's fan before the rail, and in 1v1 for their
     // heart and plate too; along the row, room for the zone strips
-    const own = s.duel ? DUEL_EDGE + RAIL : 1.4;
+    const own = s.duel ? DUEL_EDGE + RAIL : OWN_EDGE;
     w = Math.max(w, Math.abs(s.x) + halfW + (sideways ? own : 1.2));
     d = Math.max(d, Math.abs(s.z) + halfD + (sideways ? 1.2 : own));
   }

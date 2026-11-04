@@ -39,6 +39,8 @@ declare global {
       flick: (ids: string[], vx: number, vz: number) => boolean;
       heartAt: (player: string, side?: -1 | 0 | 1) => { x: number; y: number } | null;
       pairs?: () => { player: string; fit: number; overMat: boolean; overButton: boolean }[];
+      /** Other players' held fans of backs: how many drawn, the count tag, still moving, and their box on the page. */
+      fans?: () => ReturnType<TableScene["fanState"]>;
       buttonAt: (id: SeatActionId) => { x: number; y: number } | null;
       taxAt: (commanderKey: string) => { x: number; y: number } | null;
       /** Table motion (table3d/motion3d.ts): freeze every running motion at a time in ms (null: live), and what is running. */
@@ -116,6 +118,7 @@ export function Table3D({ me }: { me: string }) {
       flick: (ids, vx, vz) => scene.flickCards(ids, vx, vz),
       heartAt: (player, side) => scene.heartOnScreen(player, side ?? 0),
       pairs: () => scene.pairState(),
+      fans: () => scene.fanState(),
       buttonAt: (id) => scene.buttonOnScreen(id),
       taxAt: (key) => scene.taxOnScreen(key),
       motionFreeze: (ms) => scene.motionFreeze(ms),

@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { depthStep, fitCamera, ndcBox, nearFarFor, offMat, plateCorners, propSpots, PROP_TOP, seatElevation, tableLens, tablePoints, tableRect, viewDir, type FrameRect } from "./framing";
-import { BUTTON_R, buttonRowZ, CARD_H, CARD_W, commandSlot, HEART, heartSpot, heartTilt, MAT_D, MAT_W, seatCamera, seats, STRIP_X, tableSize, TAX_R, taxSpot, toWorld, type Seat } from "./layout";
+import { depthStep, fitCamera, ndcBox, nearFarFor, offMat, plateCorners, propSpots, PROP_TOP, seatElevation, seatPoints, tableLens, tablePoints, tableRect, viewDir, type FrameRect } from "./framing";
+import { FAN_MAX, fanCorners, handFan } from "./handFan";
+import { BUTTON_R, buttonRowZ, CARD_H, CARD_W, commandSlot, HEART, heartSpot, heartTilt, MAT_D, MAT_W, OWN_EDGE, seatCamera, seats, STRIP_X, tableSize, TAX_R, taxSpot, toWorld, type Seat } from "./layout";
 
 /** The old lens, before the aspect fix and the long lens: the baseline the old seat camera is measured with. */
 function oldLens(w: number, h: number): THREE.PerspectiveCamera {
@@ -267,11 +268,101 @@ describe("the seat view's corner by my command zone is not crowded", () => {
 
 describe("my seat's medallions lie on the wood, never in the rail", () => {
   // the leather rail (environment.ts roundedRing: 0.62 wide, from 0.05 past the table's edge) starts 0.83 past a
-  // multiplayer mat's own edge (tableSize: 1.4 of table there)
+  // multiplayer mat's own edge (tableSize: OWN_EDGE of table there)
   it("at three or more seats: the buttons' row and my tax medallion end before the rail", () => {
-    const railAt = MAT_D / 2 + 1.4 + 0.05 - 0.62;
+    const railAt = MAT_D / 2 + OWN_EDGE + 0.05 - 0.62;
     expect(buttonRowZ(false) + BUTTON_R).toBeLessThanOrEqual(railAt);
     const [, mine] = [0, seats(["a", "b", "c", "d"], "a").find((s) => s.player === "a")!];
     expect(taxSpot(0, mine, true, 1)[1] + TAX_R).toBeLessThanOrEqual(railAt);
+  });
+});
+
+/** A box on the canvas (px) around some world points. */
+function screenBox(cam: THREE.PerspectiveCamera, pts: THREE.Vector3[], w: number, h: number): Box {
+  const b = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+  for (const p of pts) {
+    const [x, y] = px(cam, p, w, h);
+    b.left = Math.min(b.left, x); b.right = Math.max(b.right, x); b.top = Math.min(b.top, y); b.bottom = Math.max(b.bottom, y);
+  }
+  return b;
+}
+const overlaps = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+
+/** A seat's heart as framing.ts frames it: its four corners, tipped up toward my side. */
+function heartPoints(seat: Seat): THREE.Vector3[] {
+  const [lx, lz] = heartSpot(seat);
+  const t = heartTilt(seat);
+  const half = (HEART.h / 2) * Math.cos(t);
+  const toMe = Math.cos(seat.rot) >= 0 ? 1 : -1;
+  return [-HEART.w / 2, HEART.w / 2].flatMap((dx) => [
+    [lx + dx, HEART.y, lz + toMe * half] as const,
+    [lx + dx, HEART.y + HEART.h * Math.sin(t), lz - toMe * half] as const,
+  ]).map(([x, y, z]) => {
+    const [wx, wz] = toWorld(seat, x, z);
+    return new THREE.Vector3(wx, y, wz);
+  });
+}
+
+describe("other players' hands, held up as fans of backs, in the seat view", () => {
+  const VIEWS = [[2, 1920, 1034], [2, 1280, 674], [3, 1920, 1034], [4, 1920, 1034], [4, 1280, 674], [5, 1920, 1034], [6, 1920, 1034]] as const;
+  for (const [n, w, h] of VIEWS) {
+    it(`${n} seats at ${w}×${h}: every other seat's whole fan is framed and reads, clear of every plate and heart`, () => {
+      const { s, mine, cam, rect } = seatView(n, w, h);
+      for (const seat of s.filter((x) => x !== mine)) {
+        const fan = handFan(seat, FAN_MAX).flatMap(fanCorners);
+        for (const p of fan) expect(inside(p.clone().project(cam), rect)).toBe(true);
+        const box = screenBox(cam, fan, w, h);
+        // a held hand reads as cards: one card of it is nearly as tall on screen as a card lying on that seat's mat
+        // (more, at 1v1's low view), and never a speck
+        const one = screenBox(cam, fanCorners(handFan(seat, 1)[0]!), w, h);
+        const flat = screenBox(cam, [-CARD_H / 2, CARD_H / 2].map((dz) => {
+          const [x, z] = toWorld(seat, 0, dz);
+          return new THREE.Vector3(x, 0, z);
+        }), w, h);
+        expect((one.bottom - one.top) / (flat.bottom - flat.top)).toBeGreaterThan(n === 2 ? 1.2 : n <= 4 ? 0.6 : 0.42); // (five or six seats are seen nearly from above)
+        expect(one.bottom - one.top).toBeGreaterThan(n === 2 ? 30 : 12);
+        for (const other of s) {
+          expect(overlaps(box, screenBox(cam, plateCorners(other, seatElevation(n, w / h)), w, h)), `${seat.player}'s fan over ${other.player}'s plate`).toBe(false);
+          expect(overlaps(box, screenBox(cam, heartPoints(other), w, h)), `${seat.player}'s fan over ${other.player}'s heart`).toBe(false);
+        }
+      }
+    });
+  }
+
+  for (const [n, w, h] of VIEWS) {
+    it(`${n} seats at ${w}×${h}: a far fan stays off its mat on screen; a neighbour's covers only a sliver of its near edge`, () => {
+      const { s, mine, cam } = seatView(n, w, h);
+      for (const seat of s.filter((x) => x !== mine)) {
+        const box = screenBox(cam, handFan(seat, FAN_MAX).flatMap(fanCorners), w, h);
+        const edge = (lz: number) => {
+          const [x, z] = toWorld(seat, 0, lz);
+          return px(cam, new THREE.Vector3(x, 0, z), w, h)[1];
+        };
+        if (seat.side === "north") {
+          expect(box.bottom).toBeLessThanOrEqual(edge(MAT_D / 2) + 1); // above the far edge of their mat
+        } else {
+          // in my row: at most a third of a card's height of the mat's near edge is behind it
+          const cardH = Math.abs(edge(MAT_D / 2 - CARD_H) - edge(MAT_D / 2));
+          expect(edge(MAT_D / 2) - box.top).toBeLessThan(cardH / 3);
+        }
+      }
+    });
+  }
+
+  it("barely changes the board's size on screen (the fans fit in the frame the table already had)", () => {
+    for (const [n, w, h] of VIEWS) {
+      const { s, mine, cam } = seatView(n, w, h);
+      const elevation = seatElevation(n, w / h);
+      const pts = s.flatMap((x) => seatPoints(x, { buttons: x === mine, elevation, fan: false }));
+      for (const [x, z] of propSpots(s, tableSize(s))) pts.push(new THREE.Vector3(x, PROP_TOP, z), new THREE.Vector3(x, 0, z));
+      const bare = tableLens(w, h);
+      const f = fitCamera(bare, pts, viewDir(mine.rot, elevation), tableRect(w, h));
+      bare.position.copy(f.pos);
+      bare.lookAt(f.look);
+      bare.updateMatrixWorld(true);
+      const now = matOnScreen(cam, mine, w, h);
+      const without = matOnScreen(bare, mine, w, h);
+      expect(now.w / without.w, `${n} seats at ${w}×${h}`).toBeGreaterThan(0.95);
+    }
   });
 });

@@ -9,6 +9,7 @@ import { tapGesture } from "../game/rules/intents";
  * backs; the scene never has anything more to hide.
  */
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { openMenu } from "../components/ContextMenu";
 import { toast } from "../components/Toasts";
 import { imageUrl } from "../services/cards";
@@ -59,9 +60,9 @@ import {
   aisleOf, CARD_H, CARD_W, commandSlot, COMMAND_SLOTS, HEART, heartSpot, MAT_D, MAT_W, mirrored, PILES, PLATE, pileSpot, localToVirtual, onBattlefield, pileAt, seats,
   tableSize, toLocal, toWorld, virtualToLocal, type PileZone, type Seat,
 } from "./layout";
-import { handFan, showsFan } from "./handFan";
+import { easeFan, FAN_MAX, type FanCard, fanCorners, fanTag, handFan, refanFrom, showsFan } from "./handFan";
 import { whenProxyFontsReady } from "../cards/proxyMeasure";
-import { backCanvas, canvasTexture, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
+import { backCanvas, canvasTexture, handCountCanvas, cardCornerMask, cardImageTexture, cardOverlayCanvas, contactShadowTexture, type CardOverlay, matTexture, setMaxAnisotropy, slotTexture, textCardTexture } from "./textures";
 import { ArrangedBoards, AU, orderFromRest, reorderMat, TILE_SQUASH, tileScale, type Spot } from "./arrange3d";
 import { FLAT_LOOK, nameScreenEm, tileLook, tileOverlayCanvas, tileTexture, TILE_PX, type TileLook } from "./tiles";
 import { fitCamera, type FitPoint, FOCUS_ELEVATION, LENS_REACH, ndcBox, nearFarFor, offMat, OVERVIEW_ELEVATION, propSpots, seatElevation, seatPoints, TABLE_FOV, tableLens, tablePoints, tableRect, viewDir } from "./framing";
@@ -145,6 +146,31 @@ function roundedRect(w: number, h: number, r: number): THREE.Shape {
   return s;
 }
 
+/**
+ * Another player's hand held up at their edge (table3d/handFan.ts): one instanced mesh of backs per seat (one draw call),
+ * eased from where its cards were to where the fan puts them when the count changes; a count tag over it past FAN_MAX.
+ */
+interface HeldFan {
+  mesh: THREE.InstancedMesh;
+  count: number;
+  cur: FanCard[];
+  goal: FanCard[];
+  moving: boolean;
+  tag: THREE.Sprite | null;
+  tagCount: number;
+}
+
+/** A card that is a back on both sides (another player's held hand: its faces are never drawn), UVs as flatCardGeometry. */
+function twoBackGeometry(w: number, h: number, r: number): THREE.BufferGeometry {
+  const front = flatCardGeometry(w, h, r);
+  // turned over about its own long axis: the other side reads the right way round (not mirrored), top still at −z
+  const back = front.clone().rotateZ(Math.PI);
+  const geo = mergeGeometries([front, back])!;
+  front.dispose();
+  back.dispose();
+  return geo;
+}
+
 /** A flat rounded rectangle lying on the table, UVs 0..1, top edge toward local −z. */
 function flatCardGeometry(w: number, h: number, r: number): THREE.ShapeGeometry {
   const geo = new THREE.ShapeGeometry(roundedRect(w, h, r), 6);
@@ -199,6 +225,8 @@ const UP = new THREE.Vector3(0, 1, 0);
 /** One red for every attack beam (DESIGN.md: attack-beam). */
 const ATTACK_RED = "#ff5a2a";
 const liftTarget = new THREE.Vector3();
+const fanM = new THREE.Matrix4();
+const ONE = new THREE.Vector3(1, 1, 1);
 const shadowPos = new THREE.Vector3();
 const shadowQ = new THREE.Quaternion();
 const shadowScale = new THREE.Vector3();
@@ -227,7 +255,7 @@ export class TableScene {
   private cards = new Map<string, CardObj>();
   private piles = new Map<string, PileObj>();
   private mats = new Map<string, THREE.Mesh>();
-  private handFans = new Map<string, THREE.Group>();
+  private handFans = new Map<string, HeldFan>();
   private seatList: Seat[] = [];
   private seatKey = "";
   private plane: PlaneTheme;
@@ -273,6 +301,7 @@ export class TableScene {
   onFrame: (() => void) | null = null;
 
   private cardFaceGeo = flatCardGeometry(CARD_W, CARD_H, 0.05);
+  private fanGeo = twoBackGeometry(CARD_W, CARD_H, 0.05);
   private cardBodyGeo: THREE.ExtrudeGeometry;
   private glowGeo = flatCardGeometry(CARD_W + 0.12, CARD_H + 0.12, 0.09);
   /** Card stock: the pale core you see on a card's edge. */
@@ -829,6 +858,21 @@ export class TableScene {
     return c ? this.project(c.group.position) : null;
   }
 
+  /**
+   * (tests) Other players' held fans: how many backs each draws, its count tag (0: none), whether it is still re-fanning,
+   * and the box (page px) its cards will fill.
+   */
+  fanState(): { player: string; shown: number; tag: number; moving: boolean; box: { left: number; top: number; right: number; bottom: number } }[] {
+    return [...this.handFans].map(([player, f]) => {
+      const box = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+      for (const p of f.goal.flatMap(fanCorners)) {
+        const { x, y } = this.project(p);
+        box.left = Math.min(box.left, x); box.right = Math.max(box.right, x); box.top = Math.min(box.top, y); box.bottom = Math.max(box.bottom, y);
+      }
+      return { player, shown: f.mesh.count, tag: f.tagCount, moving: f.moving, box };
+    });
+  }
+
   screenOfBattlefield(player: string, vx: number, vy: number): { x: number; y: number } | null {
     const seat = this.seatList.find((s) => s.player === player);
     if (!seat) return null;
@@ -897,6 +941,7 @@ export class TableScene {
     this.shadows.dispose();
     this.shadowTex.dispose();
     this.cardFaceGeo.dispose();
+    this.fanGeo.dispose();
     this.cardBodyGeo.dispose();
     this.glowGeo.dispose();
     this.bodyMat.dispose();
@@ -940,7 +985,7 @@ export class TableScene {
       (p.slot.material as THREE.Material).dispose();
     }
     this.piles.clear();
-    for (const f of this.handFans.values()) this.world.remove(f);
+    for (const f of this.handFans.values()) this.dropFan(f);
     this.handFans.clear();
   }
 
@@ -1351,9 +1396,8 @@ export class TableScene {
         this.setOverlay(c, null);
         this.setGlow(c, selection.has(id) ? this.plane.ui.frameHi : this.legalColor(view, id), 0.6);
       });
-      // other players' hands: a fan of backs at their edge (count only)
-      // (only the far row's: a seat in my row holds its cards facing away from me; its count is on its plate)
-      if (pid !== this.me && showsFan(seat)) this.syncHandFan(seat, ((view.zones[`${pid}:hand`] as string[] | undefined) ?? []).length);
+      // other players' hands: a fan of backs held up at their edge (count only)
+      if (showsFan(seat, this.me)) this.syncHandFan(seat, ((view.zones[`${pid}:hand`] as string[] | undefined) ?? []).length);
     }
 
     // the stack: cards hover above the centre of the table, most recent on top
@@ -1566,25 +1610,84 @@ export class TableScene {
     }
   }
 
-  /** Another player's hand: a fan of backs held up at their own edge of the table (table3d/handFan.ts), count only. */
+  /**
+   * Another player's hand: a fan of backs held up at their own edge of the table (table3d/handFan.ts), count only. A
+   * new count re-fans it: the cards it keeps ease to their new places, a drawn card slides out from behind the last
+   * one, a card that left is gone at once (its flight, if any, is the table motion's). Snaps under reduced motion.
+   */
   private syncHandFan(seat: Seat, count: number): void {
     let fan = this.handFans.get(seat.player);
-    if (fan && fan.userData.count === count) return;
-    if (fan) this.world.remove(fan);
-    fan = new THREE.Group();
-    fan.userData.count = count;
     const mat = this.backMaterial(seat.player);
-    for (const card of handFan(seat, count)) {
-      const m = new THREE.Mesh(this.cardFaceGeo, mat);
-      m.position.copy(card.pos);
-      m.quaternion.copy(card.quat);
-      m.scale.setScalar(card.scale);
-      m.castShadow = this.quality !== "low";
-      fan.add(m);
+    if (fan) {
+      fan.mesh.material = mat; // (a sleeve may have changed)
+      if (fan.count === count) return;
     }
-    this.world.add(fan);
-    this.handFans.set(seat.player, fan);
+    const goal = handFan(seat, count);
+    if (!fan) {
+      const mesh = new THREE.InstancedMesh(this.fanGeo, mat, FAN_MAX);
+      mesh.castShadow = this.quality !== "low";
+      mesh.frustumCulled = false; // (its bounds are its instances', which move)
+      mesh.userData.fan = seat.player;
+      this.world.add(mesh);
+      // a table that opens with cards in hand shows them held, not dealt
+      fan = { mesh, count, cur: refanFrom(goal, goal), goal, moving: true, tag: null, tagCount: -1 };
+      this.handFans.set(seat.player, fan);
+    } else {
+      fan.cur = refanFrom(fan.cur, goal);
+      fan.goal = goal;
+      fan.count = count;
+      fan.moving = true;
+    }
+    fan.mesh.count = goal.length;
+    this.syncFanTag(fan, count);
   }
+
+  /** The count tag over a fan whose hand is bigger than FAN_MAX (a sprite: it faces whoever looks). */
+  private syncFanTag(fan: HeldFan, count: number): void {
+    const want = count > FAN_MAX ? count : 0;
+    if (want === fan.tagCount) return;
+    fan.tagCount = want;
+    this.dropFanTag(fan);
+    const at = fanTag(fan.goal);
+    if (!want || !at) return;
+    const tex = canvasTexture(handCountCanvas(want));
+    const tag = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false }));
+    tag.scale.set(0.62, 0.372, 1);
+    tag.position.copy(at);
+    tag.renderOrder = 5;
+    this.world.add(tag);
+    fan.tag = tag;
+  }
+
+  private dropFanTag(fan: HeldFan): void {
+    if (!fan.tag) return;
+    this.world.remove(fan.tag);
+    const m = fan.tag.material as THREE.SpriteMaterial;
+    m.map?.dispose();
+    m.dispose();
+    fan.tag = null;
+  }
+
+  /** Each frame: the fans still moving ease toward their goals (k: this frame's share of the way; 1 under reduced motion). */
+  private tickFans(k: number): void {
+    for (const fan of this.handFans.values()) {
+      if (!fan.moving) continue;
+      fan.moving = !easeFan(fan.cur, fan.goal, k);
+      for (let i = 0; i < fan.cur.length; i++) {
+        const c = fan.cur[i]!;
+        fanM.compose(c.pos, c.quat, ONE);
+        fan.mesh.setMatrixAt(i, fanM);
+      }
+      fan.mesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  private dropFan(fan: HeldFan): void {
+    this.world.remove(fan.mesh);
+    fan.mesh.dispose();
+    this.dropFanTag(fan);
+  }
+
 
   /** Lay out a pile's card bodies (and the library's top back) for n cards. */
   private stackPile(seat: Seat, zone: PileZone, pile: PileObj, n: number): void {
@@ -2432,6 +2535,7 @@ export class TableScene {
     this.dice.update(performance.now(), reduced, speed);
     this.cannon?.update(performance.now(), speed);
     this.props.tick(t, this.camera, reduced);
+    this.tickFans(ease(dt, 9 * speed, reduced));
     const kc = ease(dt, 5 * speed, reduced);
     this.camPos.lerp(this.camGoalPos, kc);
     this.camLook.lerp(this.camGoalLook, kc);

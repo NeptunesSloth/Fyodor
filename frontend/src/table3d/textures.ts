@@ -746,6 +746,30 @@ export function contactShadowTexture(): THREE.CanvasTexture {
 
 export { texture as canvasTexture };
 
+/**
+ * The count tag over another player's fan of backs when their hand is bigger than the fan draws (table3d/handFan.ts):
+ * the hand's size in Cinzel on a walnut chip with a brass edge. A count only (public), never anything about the cards.
+ */
+export function handCountCanvas(n: number): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = 160;
+  c.height = 96;
+  const g = c.getContext("2d");
+  if (!g) return c;
+  roundRect(g, 6, 6, c.width - 12, c.height - 12, 30);
+  g.fillStyle = "#2a1a10";
+  g.fill();
+  g.lineWidth = 5;
+  g.strokeStyle = "#b8914f";
+  g.stroke();
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.font = "700 50px Cinzel, Georgia, serif";
+  g.fillStyle = "#efe3c6";
+  g.fillText(String(n), c.width / 2, c.height / 2 + 3);
+  return c;
+}
+
 // ------------------------------------------------------------------ card badges (Arena-style)
 
 export interface CardOverlay {
