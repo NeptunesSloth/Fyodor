@@ -61,7 +61,7 @@ Deck
 
 type View = { seat_order: string[]; zones: Record<string, string[]>; cards: Record<string, { zone: string; name?: string }> };
 
-async function setup(page: Page, players: string[], perSeat: number, piles = true) {
+async function setup(page: Page, players: string[], perSeat: number, piles = true, automation = "off") {
   await page.addInitScript(() => {
     if (!localStorage.getItem("fyodor.renderer")) localStorage.setItem("fyodor.renderer", "3d");
     localStorage.setItem("fyodor.welcomeDone", "1");
@@ -78,7 +78,7 @@ async function setup(page: Page, players: string[], perSeat: number, piles = tru
   }
   const res = await page.request.post("/api/games", {
     data: {
-      name: "Shots", format: "commander", mode: "local", shuffle: false, first_player: 0, auto_untap: true, mulligan_rule: "none",
+      name: "Shots", format: "commander", mode: "local", shuffle: false, first_player: 0, auto_untap: true, mulligan_rule: "none", automation,
       players: players.map((name, i) => ({ name, deck_id: ids[i % ids.length]! })),
     },
   });
@@ -137,7 +137,39 @@ for (const [w, h] of [[1280, 640], [1920, 1080], [748, 851]] as const) {
     const { gameId } = await setup(page, ["Alice", "Bob"], 6);
     await open(page, gameId, 12);
     await shoot(page, `1v1-${w}x${h}`);
+    await platesInPlace(page);
   });
+}
+
+test("plaques with both tabs (a rules game: the turn and priority), 1280x640 and 748x851, 2x", async ({ browser }) => {
+  test.skip(!!ONLY && ONLY !== "tabs", "SHOT_ONLY");
+  test.setTimeout(300_000);
+  for (const [w, h] of [[1280, 640], [748, 851]] as const) {
+    const context = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2 });
+    const page = await context.newPage();
+    const { gameId } = await setup(page, ["Alice", "Bob"], 0, false, "assisted");
+    await open(page, gameId, 0);
+    await expect(page.locator(".t3d-flag.prio")).toHaveCount(1, { timeout: 20_000 });
+    const r = (await page.locator(".t3d-plate-anchor:has(.t3d-flag.prio) .t3d-seat").boundingBox())!;
+    await page.screenshot({ path: `${OUT}/${PREFIX}-plate-tabs-${w}x${h}-2x.png`, clip: { x: r.x - 30, y: r.y - 30, width: r.width + 150, height: r.height + 50 } });
+    await platesInPlace(page);
+    await context.close();
+  }
+});
+
+/** Every plaque at one size, and its tabs inside it (so none reaches past its top edge onto a mat). */
+async function platesInPlace(page: Page) {
+  const plates = await page.evaluate(() => [...document.querySelectorAll(".t3d-plate-anchor:not(.compact) .t3d-seat")].map((n) => {
+    const main = n.querySelector(".t3d-seat-main")!.getBoundingClientRect();
+    const flags = n.querySelector(".t3d-seat-flags")?.getBoundingClientRect();
+    return { h: main.height, top: main.top, flagsTop: flags ? flags.top : main.top, flagsRight: flags ? flags.right : main.right, right: main.right };
+  }));
+  const hs = plates.map((p) => p.h);
+  expect(Math.max(...hs) - Math.min(...hs), `plate heights ${hs.join(", ")}`).toBeLessThanOrEqual(1.5);
+  for (const p of plates) {
+    expect(p.flagsTop).toBeGreaterThanOrEqual(p.top - 0.5);
+    expect(p.flagsRight).toBeLessThanOrEqual(p.right + 0.5);
+  }
 }
 
 test("4 players at 1920x1080", async ({ page }) => {
@@ -147,6 +179,7 @@ test("4 players at 1920x1080", async ({ page }) => {
   const { gameId } = await setup(page, ["Alice", "Bob", "Casey", "Jordan"], 5);
   await open(page, gameId, 20);
   await shoot(page, "4p-1920x1080");
+  await platesInPlace(page);
 });
 
 test("1v1 camera: a low orbit and the farthest zoom, 1920x1080", async ({ page }) => {
@@ -162,6 +195,8 @@ test("1v1 camera: a low orbit and the farthest zoom, 1920x1080", async ({ page }
   await page.mouse.move(cx, box.y + 20);
   for (let i = 0; i < 6; i++) await page.mouse.wheel(0, 600);
   await page.waitForTimeout(2500);
+  // this far out, every plate shows its portrait alone
+  await expect(page.locator(".t3d-plate-anchor.compact")).toHaveCount(2, { timeout: 10_000 });
   await shoot(page, "1v1-zoomed-out");
   // back to the seat, then orbit low: right-drag up (pitch down toward the felt) and a little around
   await page.keyboard.press("Home");
@@ -172,6 +207,8 @@ test("1v1 camera: a low orbit and the farthest zoom, 1920x1080", async ({ page }
   await page.mouse.up({ button: "right" });
   await page.keyboard.press("Escape"); // a menu, if right-drag isn't an orbit here
   await page.waitForTimeout(2500);
+  // seen low, the lens has widened (the table regains its perspective)
+  expect((await page.evaluate(() => window.__fyodor3d!.framing!()))!.fov).toBeGreaterThan(14);
   await shoot(page, "1v1-low-orbit");
 });
 
