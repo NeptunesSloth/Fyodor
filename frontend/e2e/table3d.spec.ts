@@ -116,6 +116,40 @@ test("3D table: seats, drag from hand onto the table, right-click menu, tap", as
   await page.getByRole("toolbar", { name: "Camera" }).getByRole("button", { name: "Seat" }).click();
 });
 
+test("3D table: every other player's hand is held up at their seat as a fan of backs, one per card, a tag past twelve", async ({ page }) => {
+  test.slow();
+  const { act, view } = await fourPlayerTable(page, 1);
+  const fans = () => page.evaluate(() => window.__fyodor3d!.fans!());
+  const counts = async () => {
+    const v = await view();
+    return ["p2", "p3", "p4"].map((p) => `${p}:${Math.min(12, v.zones[`${p}:hand`]!.length)}`).join(" ");
+  };
+  const shown = async () => (await fans()).map((f) => `${f.player}:${f.shown}`).sort().join(" ");
+  // every seat but mine (my hand is the overlay at the bottom of the screen)
+  await expect.poll(shown).toBe(await counts());
+  expect((await fans()).some((f) => f.player === "p1")).toBe(false);
+
+  // a bigger hand: twelve backs and a tag with the count; a card drawn re-fans the hand
+  await act({ type: "draw", player: "p2", count: 12 });
+  await act({ type: "draw", player: "p3", count: 1 });
+  await expect.poll(shown).toBe(await counts());
+  await expect.poll(async () => (await fans()).find((f) => f.player === "p2")!.tag).toBe((await view()).zones["p2:hand"]!.length);
+  expect((await fans()).find((f) => f.player === "p3")!.tag).toBe(0);
+  await expect.poll(async () => (await fans()).every((f) => !f.moving), { timeout: 60_000 }).toBe(true); // (a few frames: software WebGL is slow)
+
+  // each fan is on the canvas, clear of every seat's plate
+  const canvas = (await page.getByTestId("table-3d").locator("canvas").first().boundingBox())!;
+  const plates = await page.evaluate(() => [...document.querySelectorAll(".t3d-plate-anchor .t3d-seat")].map((n) => n.getBoundingClientRect().toJSON() as { left: number; top: number; right: number; bottom: number }));
+  expect(plates.length).toBe(4);
+  for (const f of await fans()) {
+    expect(f.box.left).toBeGreaterThanOrEqual(canvas.x);
+    expect(f.box.right).toBeLessThanOrEqual(canvas.x + canvas.width);
+    expect(f.box.top).toBeGreaterThanOrEqual(canvas.y);
+    expect(f.box.bottom).toBeLessThanOrEqual(canvas.y + canvas.height);
+    for (const p of plates) expect(f.box.left < p.right && p.left < f.box.right && f.box.top < p.bottom && p.top < f.box.bottom, `${f.player}'s fan over a plate`).toBe(false);
+  }
+});
+
 test("3D table, arranged boards: every board in rows from my seat; dragging along my row or a flick reorders it on this screen only", async ({ page }) => {
   test.slow();
   const { act, view } = await fourPlayerTable(page, 0);
