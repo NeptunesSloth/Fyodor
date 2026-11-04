@@ -24,8 +24,8 @@ const BUTTON_H = 0.08;
 /** How far a seat button's chit is tipped up toward its owner (radians). */
 const CHIT_TILT = 0.5;
 /** The buttons' row (layout.ts buttonRowZ): one medallion every PITCH, the two groups apart by DIVIDE. */
-const PITCH = 0.8;
-const DIVIDE = 0.45;
+const PITCH = 0.64;
+const DIVIDE = 0.36;
 /** 1v1: the first group's first medallion (under my command zone), and Mulligan's (right of my heart, the Bag past it). */
 const DUEL_ROW_X = -6.45;
 const DUEL_MULLIGAN_X = 3.45;

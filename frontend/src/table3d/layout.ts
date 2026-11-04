@@ -65,7 +65,7 @@ export function screenX(seat: Pick<Seat, "rot">, sx: number): number {
 }
 
 /** The life heart (table3d/seatProps.ts): its size, how high its bottom edge floats over the felt, and how far it is tipped up from flat. */
-export const HEART = { w: 1.45, h: 1.45 * (232 / 256), y: 0.16 };
+export const HEART = { w: 1.1, h: 1.1 * (232 / 256), y: 0.13 };
 export function heartTilt(seat: Pick<Seat, "duel">): number {
   // 1v1, seen low: tipped up less, so it stands shorter between my mat and my hand
   return seat.duel ? 0.45 : 0.7;
@@ -77,8 +77,8 @@ export function heartTilt(seat: Pick<Seat, "duel">): number {
  * right of the mat's middle. PLATE: the plate's size on the table (world units; Table3D scales the DOM plate to it,
  * within limits) and the gap between it and the heart.
  */
-export const HEART_X = 1.3;
-export const PLATE = { w: 2.8, h: 1.25, gap: 0.08 };
+export const HEART_X = 1.0;
+export const PLATE = { w: 2.1, h: 0.95, gap: 0.06 };
 /** 1v1: the other seat's fan of backs, right of its heart and plate (as I see it), its middle this far from the mat's. */
 export const DUEL_FAN_X = 3.95;
 
@@ -244,7 +244,7 @@ export function buttonRowZ(duel: boolean | undefined): number {
   // (1v1's own edge has room to spare; at three or more seats the wood before the rail is only 0.68 deep)
   return MAT_D / 2 + (duel ? 1.05 : 0.44);
 }
-export const BUTTON_R = 0.33;
+export const BUTTON_R = 0.26;
 
 /**
  * Where a commander's tax medallion sits, mat-local (`slot`: 0 the commander's, 1 a partner's; `count`: how many
