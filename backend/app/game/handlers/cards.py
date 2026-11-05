@@ -128,7 +128,8 @@ def set_counter(state: GameState, a: A.SetCounter) -> None:
 
 def create_token(state: GameState, a: A.CreateToken) -> None:
     pid = ops.player(state, a.player, a.actor)
-    stacked = bool(a.stacked)
+    stacked = bool(a.stacked) or a.quantity is not None  # (-- engine token stacks -- ``quantity``: the engine's one stack)
+    total = a.quantity if a.quantity is not None else a.count
     if a.r is None or len(a.r.ids) != (1 if stacked else a.count):
         raise ActionError("unresolved token creation")
     spec = a.resolved_token or TokenDef(
@@ -165,17 +166,17 @@ def create_token(state: GameState, a: A.CreateToken) -> None:
             tapped=a.tapped,
             is_token=not emblem,
             token=spec.model_copy(),
-            quantity=a.count if stacked else 1,
+            quantity=total if stacked else 1,
             token_source=source,
             embalmed=a.embalmed,
         )
         state.cards[new_id] = c
         state.zone(key).append(new_id)
-    what = f"{a.count} {spec.name} token{'s' if a.count != 1 else ''}" if a.count != 1 else f"a {spec.name} token"
+    what = f"{total:,} {spec.name} token{'s' if total != 1 else ''}" if total != 1 else f"a {spec.name} token"
     if emblem:
         what = f"the {spec.name}"
-    if stacked and a.count > 1:
-        what += f" (stack ×{a.count})"
+    if stacked and total > 1:
+        what += f" (stack ×{total:,})"
     log(state, a.actor, a.ts, [pname(state, a.actor), text(f" created {what}" + (f" (from {source.name})" if source else ""))])
 
 

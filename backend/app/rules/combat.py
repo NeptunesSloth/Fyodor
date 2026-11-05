@@ -16,7 +16,16 @@ from app.game import actions as A
 from app.game.errors import ActionError
 from app.game.rules_state import DecisionOption, note_block
 from app.game.state import CardInstance, GameState, zone_key
-from app.rules import banding, protection, replace, scripts, selectors, wave110a_choosers, wave110f_cards
+from app.rules import (
+    banding,
+    protection,
+    replace,
+    scripts,
+    selectors,
+    token_stacks,
+    wave110a_choosers,
+    wave110f_cards,
+)
 from app.rules import characteristics as chars
 from app.rules import mana as M
 from app.rules.casting import summoning_sick
@@ -621,20 +630,22 @@ def _finish_attackers(plan: Plan, payload: PaidAttackers, payment: M.Payment | N
     else:
         to_tap = [x.card_id for x in a.attackers if x.card_id in payload.tap] if payload.tap is not None else [
             x.card_id for x in a.attackers if 'vigilance' not in plan.ch(plan.state.cards[x.card_id]).keywords]
-        if to_tap:
-            plan.do({"type": "tap", "card_ids": to_tap, "tapped": True, "declared": True})
-        by_target: dict[str, list[str]] = {}
-        for decl in a.attackers:
-            by_target.setdefault(decl.target, []).append(decl.card_id)
-        for target, ids in by_target.items():
-            kind = "player" if target in plan.state.players else "card"
-            plan.do({"type": "attack", "card_ids": ids, "target": {"kind": kind, "id": target}})
+        with token_stacks.whole(plan):  # -- engine token stacks -- a declared stack attacks with every member (docs/TOKEN_STACKS.md)
+            if to_tap:
+                plan.do({"type": "tap", "card_ids": to_tap, "tapped": True, "declared": True})
+            by_target: dict[str, list[str]] = {}
+            for decl in a.attackers:
+                by_target.setdefault(decl.target, []).append(decl.card_id)
+            for target, ids in by_target.items():
+                kind = "player" if target in plan.state.players else "card"
+                plan.do({"type": "attack", "card_ids": ids, "target": {"kind": kind, "id": target}})
         banding.remember(plan, a.bands)
         from app.game.rules_state import note_attack
         from app.rules import triggers  # triggers → plan; imported late
 
         plan.rules.attacked_players[plan.actor] = sorted({x.target for x in a.attackers if x.target in plan.state.players})  # (melee: 18E)
         plan.rules.attack_power[plan.actor] = sum((plan.ch(plan.state.cards[x.card_id]).pt or (0, 0))[0]  # (wave 25B: 508.1)
+                                                  * token_stacks.weight(plan.state, x.card_id)  # (engine token stacks: each member)
                                                   for x in a.attackers)
 
         note_attack(plan.state, plan.actor,  # (wave 4D: the attacking objects)
@@ -854,6 +865,7 @@ def attackers_on(state: GameState) -> list[CardInstance]:
     return [c for c in state.cards.values() if c.is_attacking and c.zone.endswith(":battlefield")]
 
 
+@token_stacks.whole_call  # -- engine token stacks -- every member leaves combat alike (506.4)
 def sync_attacking(plan: Plan) -> None:
     """506.4/506.4c: derived type changes remove a participant or its attack target."""
     for card in list(plan.state.cards.values()):
@@ -1371,8 +1383,8 @@ def compute_combat_damage(plan: Plan, rnd: Round, pending: list[tuple[CardInstan
                         remaining -= amount
                 if remaining > 0 and trample:
                     dealt += hit_target(att, ach, remaining)
-        else:
-            dealt = hit_target(att, ach, p)
+        else:  # (-- engine token stacks -- an unblocked stack: each member deals its damage, all at once, 510.1a / 510.2)
+            dealt = hit_target(att, ach, p * token_stacks.weight(state, att.id))
         gain(att, ach, dealt)
     for b in blockers_all:
         bch = plan.ch(b)

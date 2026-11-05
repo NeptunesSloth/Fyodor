@@ -2172,8 +2172,13 @@ def _other_enters(plan: Plan, entered: CardInstance, ech: Characteristics, oid: 
             continue
         if "nontoken" in f and entered.is_token:
             continue
-        _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher), name=ch.name,
-             index=i, definition=d, event=_entered(plan, entered, oid, batch))
+        from app.rules import token_stacks
+
+        # -- engine token stacks -- 603.2c: each member of a stack entered: one trigger each, or one folded trigger (docs/TOKEN_STACKS.md)
+        times, definition, name = token_stacks.member_triggers(plan, watcher, d, entered, ch.name or "")
+        for _ in range(times):
+            _add(plan, controller=watcher.controller, source_card=watcher.id, source_object=plan.oid(watcher), name=name,
+                 index=i, definition=definition, event=_entered(plan, entered, oid, batch))
 
 
 CAST_FILTERS = {

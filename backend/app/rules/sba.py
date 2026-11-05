@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from app.game.rules_state import Decision, DecisionOption, ObjectSnapshot, copy_recipe_of, snapshot
 from app.game.state import CardInstance
-from app.rules import attachments, battles
+from app.rules import attachments, battles, token_stacks
 from app.rules.characteristics import Characteristics
 from app.rules.plan import Plan, decide, live_players, reads
 
@@ -240,6 +240,7 @@ def _annihilation_departures(plan: Plan, found: Found) -> tuple[dict[str, Object
     return frozen, types
 
 
+@token_stacks.whole_call  # -- engine token stacks -- 704.3: each member of a stack has the same result (docs/TOKEN_STACKS.md)
 def _round(plan: Plan, *, confirmed: bool = False) -> bool:
     """One simultaneous check. Returns True if anything happened."""
     state = plan.state

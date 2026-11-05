@@ -43,6 +43,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from app.rules import selectors
+from app.rules import token_stacks as _stacks  # -- engine token stacks -- a stack counts as its members
 from app.rules.characteristics import PERMANENT_TYPES
 
 if TYPE_CHECKING:
@@ -889,25 +890,25 @@ def evaluate(plan: Plan, ctx: dict[str, Any], v: Value) -> int:
 
             event_creatures = context.objects(plan, ctx, context.EVENT)
             sel = selectors.replace(sel, extras=tuple("blocking_source" if x == "blocking_event" else x for x in sel.extras))
-            return sum(1 for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away)
+            return _stacks.count(plan.state, (c for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away))
         if "other_event" in sel.extras:  # -- trigger other (wave 52B) -- "five other Mountains" of "Whenever a Mountain you control enters, if …" (Valakut): other than the object that entered
             from app.rules import context
 
             event_objects = context._object_refs(ctx, context.EVENT)
             sel = selectors.replace(sel, other=True, extras=tuple(x for x in sel.extras if x != "other_event"))
-            return sum(1 for c in selectors.candidates(plan, sel, you, event_objects[0].card if event_objects else None) if c not in away)
+            return _stacks.count(plan.state, (c for c in selectors.candidates(plan, sel, you, event_objects[0].card if event_objects else None) if c not in away))
         if "shares_type_event" in sel.extras:  # -- most-played cards (wave 43B) -- "for each other attacking creature that shares a creature type with it" (Shared Animosity): "it"
             from app.rules import (
                 context,  # is the creature the trigger is about, as this resolves; the others than IT are counted
             )
 
             event_creatures = context.objects(plan, ctx, context.EVENT)
-            return sum(1 for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away)
+            return _stacks.count(plan.state, (c for c in selectors.candidates(plan, sel, you, event_creatures[0] if event_creatures else "") if c not in away))
         # (wave 32A: "for each land with the same name as the exiled card" (Strata Scythe) compares with the ability's own source, not with the
         # object a static's "other" is about — the equipped creature)
         where = ctx.get("source_card") if not sel.other and any(x.startswith(("samename_src", "nosamename_src", "samename_exiled_with")) for x in sel.extras) \
             else _other_than(ctx)
-        return sum(1 for c in selectors.candidates(plan, sel, you, where) if c not in away)
+        return _stacks.count(plan.state, (c for c in selectors.candidates(plan, sel, you, where) if c not in away))  # (-- engine token stacks -- a stack counts as its members)
     if "cast_symbols" in v:  # -- trigger other (wave 44B) -- the spell the trigger is about, on the stack (a cast trigger resolves with it still there or as it was)
         from app.rules import context
 

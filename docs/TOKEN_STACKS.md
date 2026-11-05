@@ -56,6 +56,8 @@ triggers, replacement/prevention/regeneration shields, pending triggers, …). A
   subtypes, name and colors, …), and its keywords are in a short safe list (exalted, annihilator, myriad, convoke … are not); or
 * it matches a **whitelisted shape** whose stack handling is implemented and tested (section 5).
 
+An ability already on the stack is read from its rules entry (what it will do), not from its source's text.
+
 Hidden cards (hands, libraries, face-down exile) are never read by the audit: a refusal that depended on them would leak them. See
 section 8.
 
@@ -66,10 +68,15 @@ after the members it affects were split off. Any other code touching a stack is 
 and the whole action is refused (or, for a small stack, retried with the stack spread out, below). Unknown code paths fail loudly instead
 of being silently wrong.
 
-**When the gate fails** (at the start of an action, for a new object that appears during one, or by the touch guard):
+**c. Targets at resolution** (`token_stacks.check_targets`): a spell or ability whose target is still a whole stack when it resolves was
+targeted past the splitting points (an engine-made pick): it stops like the touch guard.
+
+**When the gate fails** (at the start of an action, for a new object that appears during one, or by the touch guard; `compile_intent`
+retries the action once with every stack spread, or refuses it):
 
 * a stack of at most `INDIVIDUAL_LIMIT` is **spread** into individual tokens (the existing `expand_stack` + `adopt`: no event, the tokens
   were already there) and the action runs on individual tokens, exactly as before stacks existed;
+* a stack of at most `STACK_FROM` (a part split off, a sandbox stack) is always spread before an action, as before this change;
 * a bigger stack can't be spread without freezing the server, so the action is **refused**: "Goblin ×65,536 is a token stack the rules
   engine can't handle with <card> on the battlefield. Pause automation to do this by hand." The sandbox (automation paused) still works
   on the stack: split off N, add/remove, move.
@@ -86,10 +93,10 @@ of being silently wrong.
 | Legend rule (704.5j) | Legendary tokens never stack. |
 | Singling out members (a target, a sacrifice, a choice, one blocker, one blocked attacker, a mana source) | **Split first**: the chosen card id keeps exactly one member and the rest move to a new object (new id and rules object id) that copies every rules record of the stack (`adopt`: control timestamp, entry this turn, card mode, continuous effects that affected it). Then the action runs normally on a single token. Splitting happens at the boundary where the choice enters the engine: intent card ids (targets, attackers' blocks, mana sources, crew, cost choices) and decision answers. An engine-made choice that bypasses those boundaries hits the touch guard instead. |
 | Combat: attacking | Declaring a stack as an attacker attacks with all its members, at the same target. To attack with part, split off N first (the table's "Split off…"). An unblocked stack deals `quantity` × its damage (510.1a for each member, all dealt simultaneously, 510.2). The attack's total power record counts every member. |
-| Combat: blocks | A blocker blocks one attacker: naming a stack as an attacker that is blocked splits one member off, which is the blocked one; naming a stack as a blocker splits one member off, which blocks. |
+| Combat: blocks | A blocker blocks one attacker: naming a stack as an attacker that is blocked splits one member off, which is the blocked one (all block lines naming that stack block that one member; to block several members, split them first); naming a stack as a blocker splits one member off, which blocks. |
 | Combat: lifelink, toxic, "whenever a creature deals combat damage" | Not exact for a stack (separate life gain events per member, 119.9/120.3f): lifelink and toxic tokens never stack; the observers are refused by the audit. |
 | Per-member triggers ("whenever a creature enters / dies / attacks") | 603.2c: N events trigger N times. Refused by the audit (the stack is spread when small, the action refused when big), except the whitelisted *enters* shape below. |
-| "Whenever another creature enters, you gain 1 life" style (no target, no choice, fixed gain/loss of life, draw) | **Folded**: the stack's entry puts one trigger per member on the stack (603.2c), represented as one pending trigger with a count. Resolution of each member is exact: the members resolve one at a time, and while nobody holds priority and a member's resolution changes nothing but the expected life total, the remaining identical members are resolved in one step. Anything else (a new trigger, a decision, a replacement that changed the amount) stops the batch and the rest resolve one at a time. |
+| "Whenever another creature enters, you gain 1 life" (`enters_other`, no target, not optional, only fixed life gain/loss or draw) | 603.2c: N members entering trigger it N times (`triggers._other_enters` asks `token_stacks.member_triggers`). A fixed life gain/loss is **folded** into one trigger "Soul Warden (×1,024)" gaining N times as much, but only while no public ability mentions life (no "whenever you gain life", no "if you would gain life", no "can't gain life" record): N separate life changes and one change of N times as much then end the same. The players don't get priority between the N identical triggers: that is the 732.2a shortcut of letting identical triggers resolve, taken without asking. Otherwise (a life reader, a draw) the N triggers are separate, up to `INDIVIDUAL_LIMIT`; beyond that the action is refused. Measured: 1,024 separate triggers took 431 s in the test kit; folded, under a second. |
 | Untap step, cleanup, phasing | Turn-based actions on every permanent: the stack untaps / loses its damage as one. Inside `whole()`. |
 | Token ceases to exist (111.7, 111.8) | Unchanged: the stack object leaves and ceases to exist as one. |
 | Copying one member | A copy reads copiable values, identical for each member: allowed. |
@@ -102,23 +109,32 @@ Exactly these parsed shapes may refer to a stack (everything else that refers to
 
 * static `grant` to a selector: integer or count power/toughness, safe keywords, no conditions;
 * spell/ability effects: `destroy_all`, `no_regen`, `damage` to `each_creature` (integer), `pump`/`grant` of a selector (integer or count
-  values, safe keywords), `tap`/`untap` of a selector, `gain_life`/`lose_life`/`draw`/`create_token` with integer or count amounts;
-* token creation replacement effects (Adrix and Nev, Primal Vigor, Parallel Lives…): they act on creation, before a stack exists;
-* the folded *enters* trigger of section 4.
+  values, safe keywords), `gain_life`/`lose_life`/`draw`/`create_token` for players with integer or count amounts;
+* one-target effects (`damage`, `destroy`, `exile`, `bounce`, `pump`, `grant`, `tap`, `untap` of "target …"): the target is split off;
+* activation costs of mana, `{T}` and "Sacrifice a/an/another …" (the sacrificed member is split off);
+* token creation replacement effects with a multiplier (Adrix and Nev, Primal Vigor, Parallel Lives) and +1/+1 counter replacements
+  (`counters` multiply/add: each member's event is replaced alike);
+* "As this enters, … as a copy" (Spark Double): it only applies to its own entry;
+* the `enters_other` trigger of section 4.
 
 ## 6. Limits
 
-`STACK_FROM` = 100, `INDIVIDUAL_LIMIT` = 250 (measured: individual tokens cost the engine about 25 ms each per action on a small board).
+`STACK_FROM` = 100, `INDIVIDUAL_LIMIT` = 256 (2^8; the pod's eight-doubler test makes 256 separate Dryads). Measured on the test kit:
+128 Forest Dryads made one object each took 3.3 s, so a few hundred objects is the most the engine can make or spread without the table
+noticing. A stack of 131,072 is made in well under a second (the test asserts < 2 s for the whole Dragon Fodder cast).
 
 ## 7. Client
 
 The 2D and 3D tables already show `quantity` as a ×N badge (`piles.countMark`); it now reads "×65,536". With automation on the token-stack
-menu offers "Split one off" and "Split off…" (engine-exact splits) and "Split into N tokens" only up to `INDIVIDUAL_LIMIT`.
+menu offers "Split one off" and "Split off…" (engine-exact splits; a part of at most 100 becomes separate tokens at the next action) and
+"Split into N tokens" only up to `INDIVIDUAL_LIMIT` (`tokenStacks.ENGINE_SPREAD_MAX`); the server refuses a bigger `expand_stack`.
 
 ## 8. Not exact, so refused (and what remains)
 
-* Per-member triggers other than the folded enters shape (dies, attacks, leaves, taps, becomes the target…), and folding when the
-  trigger has a target or a choice.
+* Per-member triggers other than the `enters_other` shape (dies, attacks, leaves, taps, becomes the target, "one or more" batch
+  triggers, landfall…), and folding anything but a fixed life gain/loss.
+* Choosing several members in one choice (a decision or intent naming a stack once picks one member: split more off first).
+* `tap`/`untap` of a group and other mass effects not listed in section 5 (counters on each creature, gain control of all, …).
 * Any count outside `values` (conditions such as "if you control seven or more creatures", party, coven, power totals of a group).
 * Combat with lifelink/toxic stacks, stacks as blockers of several attackers, banding.
 * Delayed triggers that act on a stack ("sacrifice them at the beginning of the next end step").
