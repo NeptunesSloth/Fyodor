@@ -10,7 +10,7 @@ import { FACE_DOWN_LABEL, isVisible, splitZone, type FaceDownKind, type GameCard
 import { addCounter, COMMON_COUNTERS, moveCards, send, tapCards, targetsFor } from "./actions";
 import { choicesMenu, damageMenu, effectsMenu, exileGroupMenu, stackMenu, startArrow, startCopyTarget } from "./marksMenu";
 import { rulesMenu } from "./rules/rulesMenu";
-import { stackSize, tokenStackItems } from "./tokenStacks";
+import { attackSomeItem, stackSize, tokenStackItems } from "./tokenStacks";
 import { cardEditRefusal } from "./cardPermissions";
 
 function moveMenu(ids: string[], current: ZoneName, owner: string | null, me: string): MenuItem[] {
@@ -101,11 +101,16 @@ export function cardMenu(card: GameCard, view: GameView, me: string): { title: s
     items.push(effectsMenu(ids, card));
     items.push(damageMenu(ids, card));
     items.push("separator");
+    const attackTargets = [
+      ...opponents.map((p) => ({ label: players.find((x) => x.id === p)?.name ?? p, target: { kind: "player" as const, id: p } })),
+      ...attackableCards(view, me).map((c) => ({ label: c.name, target: { kind: "card" as const, id: c.id } })),
+    ];
+    const some = multi ? null : attackSomeItem(card, me, attackTargets); // a "Goblin ×40" stack: attack with part of it
     items.push({
       label: "Attack",
       submenu: [
-        ...opponents.map((p) => ({ label: players.find((x) => x.id === p)?.name ?? p, onClick: () => void send({ type: "attack", card_ids: ids, target: { kind: "player", id: p } }) })),
-        ...attackableCards(view, me).map((c) => ({ label: `${c.name}`, onClick: () => void send({ type: "attack", card_ids: ids, target: { kind: "card", id: c.id } }) })),
+        ...attackTargets.map((t) => ({ label: t.label, onClick: () => void send({ type: "attack", card_ids: ids, target: t.target }) })),
+        ...(some ? ["separator" as const, some] : []),
         ...(card.attacking || card.attacking_without_target ? ["separator" as const, { label: "Stop attacking", onClick: () => void send({ type: "attack", card_ids: ids, target: null }) }] : []),
       ],
     });

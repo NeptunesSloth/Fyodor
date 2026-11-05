@@ -11,7 +11,7 @@ import { beginPointerDrag } from "./dnd";
 import { GameCardFace } from "./GameCardFace";
 import { moveCards } from "./actions";
 import { splitZone } from "../types/game";
-import { ChainRow, chainEntries } from "./StackChain";
+import { ChainRow, chainEntries, useChainRows } from "./StackChain";
 import { commanderKeyOf } from "./commanderDamage";
 import { DealtNote } from "./CommanderDamageViews";
 import { countMark } from "./piles";
@@ -71,8 +71,9 @@ export function Inspector({ id }: { id?: string | null } = {}) {
 export function StackPanel({ me, onCollapse }: { me: string; onCollapse?: () => void }) {
   const view = useGame((s) => s.view);
   const openDialog = useGame((s) => s.openDialog);
+  const entries = view ? chainEntries(view) : [];
+  const { rows, more } = useChainRows(entries);
   if (!view) return null;
-  const entries = chainEntries(view);
   return (
     <div className="stack-panel chain plaque" data-drop="stack">
       <div className="chain-head">
@@ -83,7 +84,7 @@ export function StackPanel({ me, onCollapse }: { me: string; onCollapse?: () => 
       </div>
       {entries.length === 0 && <div className="stack-empty hint">Drag a spell here to cast it</div>}
       <ol className="chain-list">
-        {entries.map((entry, i) => (
+        {rows.map((entry, i) => (
           <ChainRow
             key={entry.id}
             entry={entry}
@@ -113,6 +114,7 @@ export function StackPanel({ me, onCollapse }: { me: string; onCollapse?: () => 
             }}
           />
         ))}
+        {more}
       </ol>
     </div>
   );
