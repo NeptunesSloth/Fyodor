@@ -86,11 +86,20 @@ def _install_dir() -> Path:
     return Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parents[2] / "dist" / "Fyodor"
 
 
+def _windows_major() -> int:
+    """10 for Windows 10 and 11, 6 for 8.1 (and 7, 8); 0 off Windows."""
+    get = getattr(sys, "getwindowsversion", None)
+    return int(get().major) if get else 0
+
+
 def bundled_browser() -> Path | None:
     """Fyodor's own window: the Chromium the Windows installer ships, so an old, un-updatable system browser
-    (an offline computer's Edge) is never in the way. None when there isn't one (a source checkout)."""
-    exe = _install_dir() / "browser" / "chrome.exe"
-    return exe if exe.is_file() else None
+    (an offline computer's Edge) is never in the way. Current Chromium needs Windows 10; on 8.1 the installer's
+    Chromium 109 (the last for 8.1) is used instead. None when there isn't one (a source checkout)."""
+    root = _install_dir()
+    current, legacy = root / "browser" / "chrome.exe", root / "browser-legacy" / "chrome.exe"
+    order = [legacy, current] if 0 < _windows_major() < 10 else [current, legacy]
+    return next((exe for exe in order if exe.is_file()), None)
 
 
 def seed_card_database(settings: Settings) -> bool:

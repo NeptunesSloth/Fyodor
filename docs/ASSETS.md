@@ -71,7 +71,7 @@ background square.
 
 ## Shipped in the Windows installer (docs/OFFLINE.md)
 
-- **Chromium** (Fyodor's own window, `browser\`): an unmodified Chromium snapshot build for Windows, open source under
+- **Chromium** (Fyodor's own window, `browser\`, and Chromium 109 in `browser-legacy\` for Windows 8.1): unmodified Chromium snapshot builds for Windows, open source under
   the BSD licence and the licences of its components (listed in the window at `chrome://credits`).
 - **The card database** (`seed\cards.sqlite`): built from Scryfall's bulk card data, as the Settings download is; card
   pictures are not included.

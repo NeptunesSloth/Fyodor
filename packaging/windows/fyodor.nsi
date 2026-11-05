@@ -27,6 +27,7 @@ SetCompressor /SOLID lzma
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
 !include "x64.nsh"
+!include "WinVer.nsh"
 
 Name "${APP}"
 OutFile "${OUT}"
@@ -66,6 +67,10 @@ Function .onInit
     MessageBox MB_ICONSTOP "Fyodor needs 64-bit Windows."
     Abort
   ${EndIf}
+  ${IfNot} ${AtLeastWin8.1}
+    MessageBox MB_ICONSTOP "Fyodor needs Windows 8.1, 10 or 11 (64-bit). This computer has an older Windows, which Fyodor can't run on."
+    Abort
+  ${EndIf}
   SetRegView 64
   SetShellVarContext all ; installed for everyone: the shortcuts go in the shared Start menu and desktop
 FunctionEnd
@@ -84,6 +89,7 @@ Section "Fyodor (required)" SecApp
   ; replace an older install's program files (never the user's data, which isn't here)
   RMDir /r "$INSTDIR\_internal"
   RMDir /r "$INSTDIR\browser"
+  RMDir /r "$INSTDIR\browser-legacy"
   RMDir /r "$INSTDIR\seed"
   File /r "${SRC}\*"
   File "/oname=$INSTDIR\fyodor.ico" "fyodor.ico"
@@ -134,6 +140,7 @@ Section "Uninstall"
   ; only what the installer put here: never a recursive delete of the install folder itself
   RMDir /r "$INSTDIR\_internal"
   RMDir /r "$INSTDIR\browser" ; Fyodor's own window (Chromium)
+  RMDir /r "$INSTDIR\browser-legacy" ; the same for Windows 8.1 (Chromium 109)
   RMDir /r "$INSTDIR\seed" ; the card database it starts with
   Delete "$INSTDIR\${EXE}"
   Delete "$INSTDIR\fyodor.ico"

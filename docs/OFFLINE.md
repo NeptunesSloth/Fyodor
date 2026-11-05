@@ -25,11 +25,12 @@ Opening Fyodor again while it's running just brings the table back up.
 If something still goes wrong while drawing, the page shows what broke and in which browser (with **Copy details**)
 instead of a black screen.
 
-Needs Windows 10 or 11 (64-bit).
+Needs Windows 8.1, 10 or 11 (64-bit). On Windows 8.1 the window is Chromium 109, the last Chromium made for it;
+on 10 and 11 it is a current Chromium. On anything older the installer says so and stops.
 
 ## Building it
 
-`BROWSER_DIR=<unpacked Chromium for Windows> CARDS_DB=<cards.sqlite> REBUILD=1 SMOKE=1 bash scripts/build-windows-installer.sh`.
+`BROWSER_DIR=<unpacked Chromium for Windows> LEGACY_BROWSER_DIR=<unpacked Chromium 109> CARDS_DB=<cards.sqlite> REBUILD=1 SMOKE=1 bash scripts/build-windows-installer.sh`.
 Chromium for Windows: a build from the Chromium snapshots
 (`commondatastorage.googleapis.com/chromium-browser-snapshots/Win_x64/<revision>/chrome-win.zip`), with the test and
 installer programs and the non-English locales removed. Chromium is open source (BSD licence, see its `LICENSE` notices);

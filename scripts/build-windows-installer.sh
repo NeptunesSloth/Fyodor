@@ -5,6 +5,8 @@
 #   Windows (Git Bash): build dist/Fyodor with scripts/build-app.sh first, and have NSIS 3 (makensis) on PATH.
 #   BROWSER_DIR=<unpacked Chromium for Windows (chrome-win)>  ships it as Fyodor's own window (dist/Fyodor/browser), so the
 #            table never depends on the computer's own browser (an offline computer's Edge can't be updated)
+#   LEGACY_BROWSER_DIR=<unpacked Chromium 109 for Windows>  the window on Windows 8.1, where current Chromium won't run
+#            (dist/Fyodor/browser-legacy; 109 was the last Chromium for Windows 7 and 8)
 #   CARDS_DB=<a cards.sqlite>  ships it as the card database Fyodor starts with (dist/Fyodor/seed), so not even the first
 #            start needs the Internet. With both, the one installer file is everything an offline computer needs.
 #   SMOKE=1  (Linux) installs the result silently into a fresh Wine prefix, starts the installed app, checks that it serves,
@@ -33,10 +35,14 @@ if ! command -v makensis >/dev/null; then
 fi
 
 SRC="$ROOT/dist/Fyodor"
-rm -rf "$SRC/browser" "$SRC/seed"
+rm -rf "$SRC/browser" "$SRC/browser-legacy" "$SRC/seed"
 if [ -n "${BROWSER_DIR:-}" ]; then
   [ -f "$BROWSER_DIR/chrome.exe" ] || { echo "BROWSER_DIR has no chrome.exe: $BROWSER_DIR" >&2; exit 1; }
   cp -r "$BROWSER_DIR" "$SRC/browser"
+fi
+if [ -n "${LEGACY_BROWSER_DIR:-}" ]; then
+  [ -f "$LEGACY_BROWSER_DIR/chrome.exe" ] || { echo "LEGACY_BROWSER_DIR has no chrome.exe: $LEGACY_BROWSER_DIR" >&2; exit 1; }
+  cp -r "$LEGACY_BROWSER_DIR" "$SRC/browser-legacy"
 fi
 if [ -n "${CARDS_DB:-}" ]; then
   [ -f "$CARDS_DB" ] || { echo "no card database at $CARDS_DB" >&2; exit 1; }
@@ -66,6 +72,7 @@ if [ "${SMOKE:-0}" = "1" ] && [ "$WINDOWS" = 0 ]; then
   [ -f "$WINEPREFIX/drive_c/ProgramData/Microsoft/Windows/Start Menu/Programs/Fyodor.lnk" ] \
     || { echo "no Start-menu shortcut for all users" >&2; exit 1; }
   if [ -n "${BROWSER_DIR:-}" ]; then [ -f "$APP/browser/chrome.exe" ] || { echo "the installer did not put Fyodor's window in" >&2; exit 1; }; fi
+  if [ -n "${LEGACY_BROWSER_DIR:-}" ]; then [ -f "$APP/browser-legacy/chrome.exe" ] || { echo "the installer did not put the Windows 8.1 window in" >&2; exit 1; }; fi
   if [ -n "${CARDS_DB:-}" ]; then [ -f "$APP/seed/cards.sqlite" ] || { echo "the installer did not put the card database in" >&2; exit 1; }; fi
   wn 'C:\Fyodor\Fyodor.exe' --check || { echo "the installed app's checks failed" >&2; exit 1; }
   port="${SMOKE_PORT:-18766}"
@@ -85,7 +92,7 @@ if [ "${SMOKE:-0}" = "1" ] && [ "$WINDOWS" = 0 ]; then
   # _?= runs the uninstaller in place and waits for it (it can't delete itself then, so that one file stays)
   wn 'C:\Fyodor\Uninstall Fyodor.exe' /S '_?=C:\Fyodor' || true
   "$WINESERVER" -w 2>/dev/null || true
-  for f in Fyodor.exe fyodor.ico _internal browser seed; do
+  for f in Fyodor.exe fyodor.ico _internal browser browser-legacy seed; do
     [ ! -e "$APP/$f" ] || { echo "the uninstaller left $f behind" >&2; exit 1; }
   done
   [ ! -e "$WINEPREFIX/drive_c/ProgramData/Microsoft/Windows/Start Menu/Programs/Fyodor.lnk" ] \

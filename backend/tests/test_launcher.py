@@ -119,3 +119,13 @@ def test_starting_fyodor_again_opens_the_table_instead_of_failing_on_the_port(tm
     monkeypatch.setattr(launcher, "open_table", lambda url, settings: opened.append(url))
     assert launcher.main(["--local"]) == 0
     assert opened == ["http://127.0.0.1:8000"] and "already running" in capsys.readouterr().out
+
+
+def test_windows_8_1_gets_the_chromium_that_still_runs_there(install_dir, monkeypatch):
+    for d in ("browser", "browser-legacy"):
+        (install_dir / d).mkdir()
+        (install_dir / d / "chrome.exe").write_bytes(b"")
+    monkeypatch.setattr(launcher, "_windows_major", lambda: 10)  # Windows 10 and 11
+    assert launcher.bundled_browser() == install_dir / "browser" / "chrome.exe"
+    monkeypatch.setattr(launcher, "_windows_major", lambda: 6)  # Windows 8.1
+    assert launcher.bundled_browser() == install_dir / "browser-legacy" / "chrome.exe"
